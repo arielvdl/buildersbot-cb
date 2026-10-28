@@ -36,7 +36,7 @@ const writeAppearancePreference = Effect.fn("AppearancePreference.write")(functi
 });
 
 /**
- * The light, dark or system appearance of OpenBot's own windows. Main holds it so every window
+ * The light, dark or system appearance of Builders Bot's own windows. Main holds it so every window
  * reads one choice, and it tells each window about a change through `subscribe`.
  */
 export class AppearanceService {

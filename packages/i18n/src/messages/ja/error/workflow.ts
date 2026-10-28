@@ -10,12 +10,12 @@ export const messages = {
   "error.workflow.conditionBranch": "条件からの接続は、それぞれ「はい」か「いいえ」である必要があります。",
   "error.workflow.duplicateEdge": "この 2 つのステップにはすでにこの接続があります。",
   "error.workflow.serverTooOld":
-    "このサーバーはワークフローに対応していません。サーバーを実行しているコンピューターの OpenBot を更新してください。",
+    "このサーバーはワークフローに対応していません。サーバーを実行しているコンピューターの Builders Bot を更新してください。",
   "error.workflow.nodeUnsupported":
-    "このバージョンの OpenBot では、画像、ファイル、メッセージのステップはまだ実行できません。",
-  "error.workflow.interrupted": "このステップの実行中に OpenBot が停止しました。もう一度実行してください。",
+    "このバージョンの Builders Bot では、画像、ファイル、メッセージのステップはまだ実行できません。",
+  "error.workflow.interrupted": "このステップの実行中に Builders Bot が停止しました。もう一度実行してください。",
   "error.workflow.agentMissing": "このステップのエージェントを選択してください。",
-  "error.workflow.handoffFailed": "OpenBot はこのステップをエージェントに送信できませんでした。",
+  "error.workflow.handoffFailed": "Builders Bot はこのステップをエージェントに送信できませんでした。",
   "error.workflow.agentStepEnded": "エージェントが回答する前に、このステップのメッセージが削除されました。",
   "error.workflow.conditionUnclear": "モデルが「はい」か「いいえ」で回答しませんでした。",
   "error.workflow.modelFailed": "モデルが回答できませんでした。ステップをもう一度実行してください。",
@@ -30,7 +30,7 @@ export const messages = {
     "この出力のメッセージング接続はオフか、削除されています。投稿先をもう一度選んでください。",
   "error.workflow.outputNotRunning":
     "メッセージング接続は現在動作していません。動作しているときにもう一度試してください。",
-  "error.workflow.outputRefused": "投稿先が投稿を拒否しました。OpenBot がそこに投稿できることを確認してください。",
+  "error.workflow.outputRefused": "投稿先が投稿を拒否しました。Builders Bot がそこに投稿できることを確認してください。",
   "error.workflow.outputUncertain":
     "投稿が途中で止まりました。一部がすでに投稿先にある可能性があります。もう一度試す前に確認してください。",
   "error.workflow.tooLarge":

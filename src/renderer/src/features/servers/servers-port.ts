@@ -1,4 +1,4 @@
-import type { OpenBotDesktopApi, ServerSummary } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, ServerSummary } from "@openbot/contracts/ipc";
 
 /**
  * What the servers domain reaches in main: the server list and selection, the account changes, the local host, the
@@ -7,7 +7,7 @@ import type { OpenBotDesktopApi, ServerSummary } from "@openbot/contracts/ipc";
  */
 export interface ServersPort {
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     | "getStatus"
     | "listAgents"
     | "listConversationReads"
@@ -30,16 +30,16 @@ export interface ServersPort {
     | "saveMcpSignInApp"
     | "removeMcpSignInApp"
   >;
-  events: OpenBotDesktopApi["events"];
-  auth: Pick<OpenBotDesktopApi["auth"], "onEvent">;
-  browser: Pick<OpenBotDesktopApi["browser"], "setVisible">;
+  events: BuildersBotDesktopApi["events"];
+  auth: Pick<BuildersBotDesktopApi["auth"], "onEvent">;
+  browser: Pick<BuildersBotDesktopApi["browser"], "setVisible">;
   hostAdmin: Pick<
-    OpenBotDesktopApi["hostAdmin"],
+    BuildersBotDesktopApi["hostAdmin"],
     "cancelUpdate" | "getUpdateStatus" | "startUpdate" | "updateIdentity"
   >;
-  hostedServers: Pick<OpenBotDesktopApi["hostedServers"], "list" | "restart" | "wake">;
+  hostedServers: Pick<BuildersBotDesktopApi["hostedServers"], "list" | "restart" | "wake">;
   host: Pick<
-    OpenBotDesktopApi["host"],
+    BuildersBotDesktopApi["host"],
     | "configure"
     | "getStatus"
     | "onEvent"
@@ -49,13 +49,13 @@ export interface ServersPort {
     | "stop"
     | "updateIdentity"
   >;
-  notifications: Pick<OpenBotDesktopApi["notifications"], "onOpened">;
+  notifications: Pick<BuildersBotDesktopApi["notifications"], "onOpened">;
   remoteDesktop: Pick<
-    OpenBotDesktopApi["remoteDesktop"],
+    BuildersBotDesktopApi["remoteDesktop"],
     "checkSetup" | "connect" | "disconnect" | "list" | "openSetup" | "test"
   >;
   servers: Pick<
-    OpenBotDesktopApi["servers"],
+    BuildersBotDesktopApi["servers"],
     | "getPresenceFor"
     | "join"
     | "list"
@@ -81,7 +81,7 @@ export function serversPort(): ServersPort {
  * through `host`; a remote server answers them through `servers`, addressed by its id.
  */
 export type ServerAdminPort = Pick<
-  OpenBotDesktopApi["host"],
+  BuildersBotDesktopApi["host"],
   "getPresence" | "listMembers" | "listInvites" | "createInvite" | "updateMember" | "removeMember" | "revokeInvite"
 >;
 

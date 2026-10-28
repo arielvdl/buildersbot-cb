@@ -32,7 +32,7 @@ export const messages = defineMessages("memory", {
   "memory.clearAll": "Clear all memories",
   "memory.clearTitle": "Clear all memories?",
   "memory.clearDescription":
-    "OpenBot will permanently remove all {total} saved memories for {name}. Original messages will stay in the conversation history.",
+    "Builders Bot will permanently remove all {total} saved memories for {name}. Original messages will stay in the conversation history.",
 
   "memory.loadFailed": "Could not load memories.",
   "memory.saveFailed": "Could not save the memory.",

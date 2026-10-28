@@ -139,7 +139,7 @@ function parseCpuTime(text: string): number | null {
   return dayCount * 86_400 + seconds;
 }
 
-/** Executables whose PID OpenBot does not see, such as the Claude Code CLI that the Agent SDK starts. */
+/** Executables whose PID Builders Bot does not see, such as the Claude Code CLI that the Agent SDK starts. */
 const PROVIDER_EXECUTABLES = new Map<string, AgentProviderId>([
   ["claude", "claude"],
   ["codex", "codex"],

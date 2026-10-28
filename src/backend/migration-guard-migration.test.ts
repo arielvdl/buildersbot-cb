@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: a migration commits a database with a broken foreign key; a failed migration leaves foreign-key
 // enforcement off; a history with a gap at any version runs the migrations after the gap.
@@ -16,7 +16,7 @@ function databaseAt(version: number): DatabaseSync {
   db.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
   return db;
 }
@@ -24,7 +24,7 @@ function databaseAt(version: number): DatabaseSync {
 function latestDatabase(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   databases.push(db);
-  migrateOpenBotDatabase(db);
+  migrateBuildersBotDatabase(db);
   return db;
 }
 
@@ -72,10 +72,10 @@ describe("migration guards", () => {
     const before = contents(db);
     const schemaBefore = db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all();
 
-    expect(() => migrateOpenBotDatabase(db)).toThrow(
+    expect(() => migrateBuildersBotDatabase(db)).toThrow(
       expect.objectContaining({
-        message: `OpenBot database migration to version ${version} failed.`,
-        cause: expect.objectContaining({ message: "OpenBot database migration produced 2 foreign-key violation(s)." }),
+        message: `Builders Bot database migration to version ${version} failed.`,
+        cause: expect.objectContaining({ message: "Builders Bot database migration produced 2 foreign-key violation(s)." }),
       }),
     );
     expect(versions(db)).toEqual(range(8, version - 1));
@@ -84,11 +84,11 @@ describe("migration guards", () => {
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
 
     // The next start meets the same rows and stops again. It deletes nothing to get past them.
-    expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version} failed`);
+    expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version} failed`);
     expect(contents(db)).toEqual(before);
 
     db.exec("DELETE FROM projection_thread_messages; DELETE FROM projection_turns");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(versions(db)).toEqual(range(8, 47));
     expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -99,8 +99,8 @@ describe("migration guards", () => {
     db.prepare("DELETE FROM schema_migrations WHERE version = ?").run(missing);
     const schemaBefore = db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all();
 
-    expect(() => migrateOpenBotDatabase(db)).toThrow(
-      `OpenBot database migration history is missing version ${missing}.`,
+    expect(() => migrateBuildersBotDatabase(db)).toThrow(
+      `Builders Bot database migration history is missing version ${missing}.`,
     );
     expect(versions(db)).toEqual(range(8, 47).filter((version) => version !== missing));
     expect(db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all()).toEqual(schemaBefore);

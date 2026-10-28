@@ -58,7 +58,7 @@ import { messages as workflow } from "./workflow";
  * copy. A key that is missing here renders its English source.
  *
  * Notes for a reviewer. The interface uses 你 and plain verbs for actions, as docs/i18n.md says.
- * Product names stay in Latin script: OpenBot is the application name, and ZIP and JSON are the
+ * Product names stay in Latin script: Builders Bot is the application name, and ZIP and JSON are the
  * file formats a picker shows.
  *
  * This is the desktop catalog: shared keys, source text, and every desktop area.

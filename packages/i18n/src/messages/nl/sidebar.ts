@@ -107,7 +107,7 @@ export const messages = {
   "sidebar.delete.pending": "Verwijderen…",
   "sidebar.delete.title": "{name} verwijderen?",
   "sidebar.delete.agentDescription":
-    "Hiermee verwijder je de agent en zijn OpenBot-gesprek uit de app. De wachtrij, herinneringen, routines en werkruimte worden verwijderd. Geschiedenis die de verbonden CLI-aanbieder apart bewaart, wordt niet verwijderd.",
+    "Hiermee verwijder je de agent en zijn Builders Bot-gesprek uit de app. De wachtrij, herinneringen, routines en werkruimte worden verwijderd. Geschiedenis die de verbonden CLI-aanbieder apart bewaart, wordt niet verwijderd.",
   "sidebar.delete.channelDescription":
     "Hiermee stop je het kanaal. De geschiedenis blijft alleen ter inzage in Verwijderde kanalen. Je kunt het daar herstellen. Agents die lid zijn blijven bestaan.",
   "sidebar.delete.sectionDescription":
@@ -121,7 +121,7 @@ export const messages = {
   "sidebar.announce.movedPinned": "Vastgezette chat verplaatst naar positie {position} van {total}.",
   "sidebar.announce.personFallback": "persoon",
   "sidebar.announce.chatFallback": "chat",
-  "sidebar.mobileApp.title": "OpenBot voor mobiel",
+  "sidebar.mobileApp.title": "Builders Bot voor mobiel",
   "sidebar.mobileApp.body": "De app is nu beschikbaar voor iPhone en Android.",
   "sidebar.mobileApp.howToInstall": "Zo installeer je hem",
   "sidebar.mobileApp.dismiss": "Aankondiging van mobiele app sluiten",
@@ -136,6 +136,6 @@ export const messages = {
   "sidebar.community.title": "Schuif aan.",
   "sidebar.community.body": "Er is een plek voor jou in de toekomst van AI. Word lid van de community op Discord en X.",
   "sidebar.community.joinDiscord": "Word lid van de Discord",
-  "sidebar.community.followX": "Volg OpenBot op X",
+  "sidebar.community.followX": "Volg Builders Bot op X",
   "sidebar.community.dismiss": "Community-uitnodiging sluiten",
 } as const satisfies PartialTranslation<typeof source>;

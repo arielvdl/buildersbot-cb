@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../message";
 import type { messages as source } from "../en/webClient";
 
 export const messages = {
-  "webClient.loading": "Caricamento di OpenBot…",
+  "webClient.loading": "Caricamento di Builders Bot…",
   "webClient.loadingLine.wake": "Sveglio gli agenti…",
   "webClient.loadingLine.coffee": "Preparo il caffè agli agenti…",
   "webClient.loadingLine.tokens": "Conto i token sulle dita…",
@@ -24,13 +24,13 @@ export const messages = {
   "webClient.notice.hostsFailed": "Impossibile caricare i tuoi server",
   "webClient.notice.connectComputer": "Connetti un server",
   "webClient.connect.description":
-    "Esegui OpenBot sul tuo computer per chattare con i tuoi agenti da questo browser. Puoi anche unirti a un server con un invito.",
+    "Esegui Builders Bot sul tuo computer per chattare con i tuoi agenti da questo browser. Puoi anche unirti a un server con un invito.",
   "webClient.connect.descriptionHosted":
-    "Crea un server ospitato per chattare con i tuoi agenti da questo browser. Puoi anche eseguire OpenBot sul tuo computer o unirti a un server con un invito.",
-  "webClient.connect.stepInstall": "Installa e apri OpenBot sul tuo computer.",
+    "Crea un server ospitato per chattare con i tuoi agenti da questo browser. Puoi anche eseguire Builders Bot sul tuo computer o unirti a un server con un invito.",
+  "webClient.connect.stepInstall": "Installa e apri Builders Bot sul tuo computer.",
   "webClient.connect.stepSignIn": "Accedi con la tua email.",
   "webClient.connect.stepRemote": "Attiva l'accesso remoto.",
-  "webClient.notice.download": "Scarica OpenBot",
+  "webClient.notice.download": "Scarica Builders Bot",
   "webClient.notice.createServer": "Crea un server ospitato",
   "webClient.notice.join": "Unisciti con un invito",
   "webClient.notice.refreshHosts": "Aggiorna i server",
@@ -42,7 +42,7 @@ export const messages = {
   "webClient.error.usageOffline": "Connettiti al tuo server per vedere l'utilizzo.",
   "webClient.error.desktopOnly": "Questa azione è disponibile nell'app desktop.",
   "webClient.settings.preferences.title": "Preferenze",
-  "webClient.settings.preferences.description": "Scegli la lingua e i suoni di OpenBot in questo browser.",
+  "webClient.settings.preferences.description": "Scegli la lingua e i suoni di Builders Bot in questo browser.",
   "webClient.error.checkConversation": "Controlla la conversazione prima di inviare di nuovo.",
   "webClient.error.hostReported": "Il server ha segnalato un errore. Controlla la conversazione e lo stato del server.",
   "webClient.error.requestFailed": "La richiesta non è riuscita.",
@@ -73,14 +73,14 @@ export const messages = {
   "webClient.error.identityChanged": "L'identità del server è cambiata. Connessione rifiutata.",
   "webClient.error.connectionUnavailable": "La connessione al server non è disponibile.",
   "webClient.error.incompatible":
-    "Questo server non è compatibile con OpenBot web. Aggiorna il server e ricarica questa pagina.",
+    "Questo server non è compatibile con Builders Bot web. Aggiorna il server e ricarica questa pagina.",
   "webClient.error.sendUnconfirmed": "L'invio del messaggio non è confermato. Aggiorna prima di inviarlo di nuovo.",
   "webClient.error.fileType": "Aggiorna il server per allegare questo tipo di file.",
   "webClient.error.uploadCancelled": "Il caricamento dell'allegato è stato annullato.",
   "webClient.error.duplication": "Questo server non supporta la duplicazione degli agenti.",
   "webClient.error.connectServerFirst": "Connettiti prima a questo server.",
   "webClient.error.agentInstallNotAllowed":
-    "Solo un proprietario o un amministratore può aggiungere un agente qui, e il server deve usare una versione aggiornata di OpenBot.",
+    "Solo un proprietario o un amministratore può aggiungere un agente qui, e il server deve usare una versione aggiornata di Builders Bot.",
   "webClient.error.linkDesktopOnly": "Questo link si apre solo nell'app desktop.",
   "webClient.error.saveEndpointOffline": "Connettiti al tuo server per salvare un endpoint.",
   "webClient.error.removeEndpointOffline": "Connettiti al tuo server per rimuovere un endpoint.",

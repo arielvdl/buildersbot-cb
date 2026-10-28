@@ -25,12 +25,12 @@ import {
   ORDER_KEY_DESC,
   ORDERED_THREAD_MESSAGES,
 } from "./database/conversation-queries";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 
 export type { ConversationMarkerExclusions } from "./database/conversation-queries";
 
 export class ConversationReadStore {
-  constructor(readonly database: OpenBotDatabase) {}
+  constructor(readonly database: BuildersBotDatabase) {}
 
   listStates(
     memberId: string,

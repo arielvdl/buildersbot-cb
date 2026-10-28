@@ -171,7 +171,7 @@ export function channelRoutineTool(
     const parsed = routineToolSchedule(input);
     if (remotePerson && !isReleasedRoutineSchedule(parsed))
       throw new RoutineInputError(
-        "The person who asked uses OpenBot on another computer, which cannot show a one-time channel routine. Use a repeating schedule.",
+        "The person who asked uses Builders Bot on another computer, which cannot show a one-time channel routine. Use a repeating schedule.",
       );
     return parsed;
   };

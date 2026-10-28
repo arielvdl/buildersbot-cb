@@ -9,7 +9,7 @@ export const messages = {
   "menu.zoomIn": "확대",
   "menu.zoomOut": "축소",
   "menu.copyLink": "링크 복사",
-  "menu.trayOpen": "OpenBot 열기",
-  "menu.trayQuit": "OpenBot 종료",
-  "menu.trayTooltip": "OpenBot",
+  "menu.trayOpen": "Builders Bot 열기",
+  "menu.trayQuit": "Builders Bot 종료",
+  "menu.trayTooltip": "Builders Bot",
 } as const satisfies PartialTranslation<typeof source>;

@@ -140,6 +140,7 @@ const Settings = createSimpleContext({
     let agentDefaultsChanged = false;
     let agentMemoryLimitChanged = false;
     let keepRemoteSessionsChanged = false;
+    let promptInjectionGuardChanged = false;
     let externalLinkTargetChanged = false;
     let launchAtLoginChanged = false;
     let keepRunningInBackgroundChanged = false;
@@ -268,6 +269,16 @@ const Settings = createSimpleContext({
           persistField("desktopNotifications", saved, (preference) => preference.desktopNotifications);
         if (previous.notificationPreview !== value.notificationPreview)
           persistField("notificationPreview", saved, (preference) => preference.messagePreview);
+      }
+      if (previous.promptInjectionGuard !== value.promptInjectionGuard) {
+        promptInjectionGuardChanged = true;
+        persistField(
+          "promptInjectionGuard",
+          settingsPort()
+            .setGuardPreference({ enabled: value.promptInjectionGuard })
+            .then((preference) => ({ enabled: preference.enabled })),
+          (preference) => preference.enabled,
+        );
       }
       if (previous.busyMessageMode !== value.busyMessageMode) {
         busyMessageModeChanged = true;
@@ -491,6 +502,12 @@ const Settings = createSimpleContext({
                 : preference.allowRemoteUpdates,
               autoInstallUpdates: autoInstallUpdatesChanged ? current.autoInstallUpdates : preference.autoInstall,
             }));
+          }),
+        settingsPort()
+          .getGuardPreference()
+          .then((preference) => {
+            if (promptInjectionGuardChanged) return;
+            setGeneralSettings((current) => ({ ...current, promptInjectionGuard: preference.enabled }));
           }),
         settingsPort()
           .getBusyMessageModePreference()

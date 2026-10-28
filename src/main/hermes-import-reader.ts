@@ -34,12 +34,12 @@ const UNSAFE_FILE_PREFIX = sourceText("error.skill.unsafeFile", { name: "" });
 const MAX_TEXT_BYTES = 256 * 1024;
 const MAX_SKILLS = 200;
 const MAX_JOBS = 200;
-/** OpenBot's own export skill, which a user adds to Hermes. It is never imported back. */
+/** Builders Bot's own export skill, which a user adds to Hermes. It is never imported back. */
 const EXPORT_SKILL_NAME = "openbot-export";
 /** Files a skill can run: anything in `scripts/` or `bin/`, and source files anywhere in the skill. */
 const SKILL_CODE =
   /^(?:scripts|bin)\/|\.(?:sh|bash|zsh|fish|py|js|mjs|cjs|ts|rb|pl|php|ps1|bat|cmd|exe|go|rs|lua|jar)$/iu;
-/** Where the routine runs: platforms Hermes delivers to that OpenBot cannot reach on its own. */
+/** Where the routine runs: platforms Hermes delivers to that Builders Bot cannot reach on its own. */
 const LOCAL_DELIVERY = new Set(["", "local", "origin"]);
 
 interface HermesSkill {
@@ -55,7 +55,7 @@ interface HermesRoutine {
   name: string;
   instruction: string;
   active: boolean;
-  /** The Hermes `schedule`. It becomes an OpenBot schedule when the import runs, so a time is never stale. */
+  /** The Hermes `schedule`. It becomes an Builders Bot schedule when the import runs, so a time is never stale. */
   source: unknown;
 }
 
@@ -219,7 +219,7 @@ function terminalBackend(value: unknown): string | null {
   return backend && backend !== "local" ? backend.slice(0, HERMES_IMPORT_LIMITS.name) : null;
 }
 
-/** Each server as OpenBot stores it: turned off, with every value that can hold a secret removed. */
+/** Each server as Builders Bot stores it: turned off, with every value that can hold a secret removed. */
 function mcpServers(value: unknown): McpServerConfig[] {
   if (!isDynamicRecord(value)) return [];
   const redact = createRedaction();
@@ -307,7 +307,7 @@ export function hasSkillCode(paths: readonly string[]): boolean {
   return paths.some((path) => SKILL_CODE.test(path));
 }
 
-/** A skill folder as OpenBot checks a skill package. Unsafe files and an invalid SKILL.md fail it. */
+/** A skill folder as Builders Bot checks a skill package. Unsafe files and an invalid SKILL.md fail it. */
 function readSkillPackage(directory: string) {
   return archiveDirectory(directory).pipe(
     Effect.mapError((failure): unknown => failure.cause),

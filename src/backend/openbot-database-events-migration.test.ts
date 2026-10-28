@@ -10,7 +10,7 @@ import { AgentRoutineStore } from "./agent-routine-store";
 import { ChannelRoutineStore } from "./channel-routine-store";
 import { ChannelStore } from "./channel-store";
 import { runCauseEffect } from "./effect-boundary";
-import { OpenBotDatabase } from "./openbot-database";
+import { BuildersBotDatabase } from "./openbot-database";
 
 const roots: string[] = [];
 
@@ -18,7 +18,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-describe("OpenBot webhook routine migration", () => {
+describe("Builders Bot webhook routine migration", () => {
   it("preserves scheduled routines and runs while upgrading a version 29 database", async () => {
     const { database, routineStore } = await createDatabase();
     const agent = testAgent();
@@ -70,7 +70,7 @@ describe("OpenBot webhook routine migration", () => {
     removeWebhookSchema(legacy);
     legacy.close();
 
-    const migrated = new OpenBotDatabase(root);
+    const migrated = new BuildersBotDatabase(root);
     await runCauseEffect(migrated.initialize());
     const migratedRoutines = new AgentRoutineStore(migrated);
     expect(migratedRoutines.get("chief", routine.id)).toMatchObject({
@@ -143,7 +143,7 @@ describe("OpenBot webhook routine migration", () => {
     legacy.exec("CREATE TABLE webhook_receipts_recent (conflict TEXT)");
     legacy.close();
 
-    const failed = new OpenBotDatabase(root);
+    const failed = new BuildersBotDatabase(root);
     await expect(runCauseEffect(failed.initialize())).rejects.toThrow("migration to version 30 failed");
     failed.close();
 
@@ -157,7 +157,7 @@ describe("OpenBot webhook routine migration", () => {
     rolledBack.exec("DROP TABLE webhook_receipts_recent");
     rolledBack.close();
 
-    const retried = new OpenBotDatabase(root);
+    const retried = new BuildersBotDatabase(root);
     await runCauseEffect(retried.initialize());
     expect(new AgentRoutineStore(retried).get("chief", routine.id)).toMatchObject({
       name: routine.name,
@@ -173,10 +173,10 @@ describe("OpenBot webhook routine migration", () => {
   });
 });
 
-async function createDatabase(): Promise<{ database: OpenBotDatabase; routineStore: AgentRoutineStore }> {
+async function createDatabase(): Promise<{ database: BuildersBotDatabase; routineStore: AgentRoutineStore }> {
   const root = await mkdtemp(join(tmpdir(), "openbot-db-events-migration-"));
   roots.push(root);
-  const database = new OpenBotDatabase(root);
+  const database = new BuildersBotDatabase(root);
   await runCauseEffect(database.initialize());
   return { database, routineStore: new AgentRoutineStore(database) };
 }

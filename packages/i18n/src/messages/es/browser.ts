@@ -56,8 +56,8 @@ export const messages = {
   "browser.pip.reattach": "Volver a acoplar el navegador a la barra lateral derecha",
   "browser.pip.reattachTitle": "Volver a acoplar navegador",
   "browser.pip.close": "Cerrar ventana emergente del navegador",
-  "browser.pip.reattachFailed": "OpenBot no pudo volver a acoplar el navegador.",
-  "browser.pip.closeFailed": "OpenBot no pudo cerrar la ventana emergente del navegador.",
+  "browser.pip.reattachFailed": "Builders Bot no pudo volver a acoplar el navegador.",
+  "browser.pip.closeFailed": "Builders Bot no pudo cerrar la ventana emergente del navegador.",
   "browser.popupBlocked.title": "Ventana emergente bloqueada",
   "browser.popupBlocked.dismiss": "Descartar mensaje de ventana emergente",
   "browser.liveView.label": "Vista en directo de la página en el servidor",
@@ -131,22 +131,22 @@ export const messages = {
   "browser.signIn.local": "Iniciar sesión en este ordenador",
   "browser.signIn.title": "Iniciar sesión en {site}",
   "browser.signIn.description":
-    "Algunos sitios rechazan un inicio de sesión desde un servidor. Inicia sesión en este ordenador y OpenBot enviará el inicio de sesión de {site} a {server}. Todos los agentes y miembros de {server} podrán usarlo en el navegador.",
+    "Algunos sitios rechazan un inicio de sesión desde un servidor. Inicia sesión en este ordenador y Builders Bot enviará el inicio de sesión de {site} a {server}. Todos los agentes y miembros de {server} podrán usarlo en el navegador.",
   "browser.signIn.windowOpen":
-    "Inicia sesión en la ventana que se abrió. OpenBot envía el inicio de sesión cuando está completo. Si la ventana sigue abierta, selecciona Listo.",
+    "Inicia sesión en la ventana que se abrió. Builders Bot envía el inicio de sesión cuando está completo. Si la ventana sigue abierta, selecciona Listo.",
   "browser.signIn.windowClosed":
     "La ventana de inicio de sesión está cerrada. Selecciona Listo para enviar el inicio de sesión o abre la ventana de nuevo.",
   "browser.signIn.reopen": "Abrir la ventana de inicio de sesión",
   "browser.signIn.sending": "Enviando a {server}…",
   "browser.signIn.sent": "Sesión iniciada en {site} en {server}",
   "browser.signIn.notFound":
-    "OpenBot no encontró un inicio de sesión para {site}. Inicia sesión en la ventana y selecciona Listo.",
+    "Builders Bot no encontró un inicio de sesión para {site}. Inicia sesión en la ventana y selecciona Listo.",
   "browser.signIn.stillSignedOut":
     "{server} todavía muestra una página de inicio de sesión de {site}. Termina el inicio de sesión en la ventana.",
-  "browser.signIn.failed": "OpenBot no pudo enviar el inicio de sesión.",
+  "browser.signIn.failed": "Builders Bot no pudo enviar el inicio de sesión.",
   "browser.profiles.title": "Perfiles del navegador",
   "browser.profiles.subtitle":
-    "Cada perfil guarda sus propios inicios de sesión, cookies y datos de sitios en el equipo que ejecuta OpenBot.",
+    "Cada perfil guarda sus propios inicios de sesión, cookies y datos de sitios en el equipo que ejecuta Builders Bot.",
   "browser.profiles.label": "Perfiles del navegador",
   "browser.profiles.newName": "Nombre del perfil",
   "browser.profiles.create": "Añadir",
@@ -165,8 +165,8 @@ export const messages = {
   "browser.profiles.deleteDescription":
     "Esto elimina los inicios de sesión, las cookies y los datos de sitios del perfil. Sus pestañas abiertas se cierran.",
   "browser.profiles.deleteAgents": "Estos agentes pasan al perfil compartido: {agents}.",
-  "browser.profiles.failed": "OpenBot no pudo cambiar los perfiles del navegador.",
-  "browser.profiles.loadFailed": "OpenBot no pudo cargar los perfiles del navegador.",
+  "browser.profiles.failed": "Builders Bot no pudo cambiar los perfiles del navegador.",
+  "browser.profiles.loadFailed": "Builders Bot no pudo cargar los perfiles del navegador.",
   "browser.profiles.tabLabel": "Perfil: {name}",
   "browser.profiles.agentTabLabel": "Perfil propio del agente",
 } as const satisfies PartialTranslation<typeof source>;

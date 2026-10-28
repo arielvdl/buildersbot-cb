@@ -307,9 +307,9 @@ export const messages = {
   "workflow.canvas.version.run": "Voor een run",
   "workflow.canvas.deleteUndo.title": "{name} verwijderd",
   "workflow.canvas.deleteUndo.action": "Ongedaan maken",
-  "workflow.page.failed": "OpenBot kan dit niet doen. Probeer het opnieuw.",
+  "workflow.page.failed": "Builders Bot kan dit niet doen. Probeer het opnieuw.",
   "workflow.page.conflict": "Gewijzigd op een ander apparaat. Maak ongedaan om je bewerkingen terug te krijgen.",
   "workflow.page.needsNewerApp":
-    "Deze workflow heeft stappen uit een nieuwere OpenBot. Werk OpenBot bij om hem te wijzigen.",
+    "Deze workflow heeft stappen uit een nieuwere Builders Bot. Werk Builders Bot bij om hem te wijzigen.",
   "workflow.page.manageOnly": "Om deze workflow te wijzigen, heb je “Kan beheren” nodig voor elk van de agents ervan.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -60,7 +60,7 @@
   margin-top: var(--openbot-space-6);
 }
 
-/* The two waits, which look the same because they are the same to the user: OpenBot is busy and
+/* The two waits, which look the same because they are the same to the user: Builders Bot is busy and
    there is nothing to do. */
 .provider-code-login-pending {
   display: flex;

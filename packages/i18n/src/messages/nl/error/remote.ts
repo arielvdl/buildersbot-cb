@@ -16,10 +16,10 @@ export const messages = {
   "error.remote.linuxNeedsX11":
     "Extern bureaublad op Linux heeft een X11-sessie nodig. Wayland wordt niet ondersteund.",
   "error.remote.runtimeMissing":
-    "De runtime van Sunshine en Moonlight Web ontbreekt of wordt niet ondersteund op deze host. Installeer de volledige release van OpenBot op een Mac, een Windows x64-host of een Linux x64-host en start OpenBot opnieuw.",
+    "De runtime van Sunshine en Moonlight Web ontbreekt of wordt niet ondersteund op deze host. Installeer de volledige release van Builders Bot op een Mac, een Windows x64-host of een Linux x64-host en start Builders Bot opnieuw.",
   "error.remote.testActive": "Er loopt een test van extern bureaublad. Probeer het opnieuw als die klaar is.",
   "error.remote.screenRecordingDenied":
-    "De host heeft OpenBot niet toegestaan het scherm op te nemen. Geef toestemming voor schermopname op de host en probeer het opnieuw.",
+    "De host heeft Builders Bot niet toegestaan het scherm op te nemen. Geef toestemming voor schermopname op de host en probeer het opnieuw.",
   "error.remote.teamSessionExpired": "De teamsessie is verlopen.",
   "error.remote.finishTestBeforeSwitch": "Rond de test van extern bureaublad af voordat je van beeldscherm wisselt.",
   "error.remote.displayNotFound": "Extern beeldscherm niet gevonden.",
@@ -32,7 +32,7 @@ export const messages = {
   "error.remote.moonlightStartFailed":
     "Moonlight Web is niet gestart op de host. Controleer de logs van extern bureaublad op de host en probeer het opnieuw.",
   "error.remote.pairingFailed":
-    "Moonlight kon niet koppelen met Sunshine op de host. Probeer het opnieuw. Blijft het probleem, start OpenBot dan opnieuw op de host.",
+    "Moonlight kon niet koppelen met Sunshine op de host. Probeer het opnieuw. Blijft het probleem, start Builders Bot dan opnieuw op de host.",
   "error.remote.runtimeStartFailed":
     "De runtime voor extern bureaublad is niet gestart op de host. Controleer de logs van extern bureaublad op de host en probeer het opnieuw.",
   "error.remote.hostUnreachable": "De host is niet bereikbaar.",
@@ -40,7 +40,7 @@ export const messages = {
   "error.remote.invalidData": "De host gaf ongeldige gegevens terug.",
   "error.remote.unsafeData": "De host gaf gegevens terug die deze app niet veilig kon gebruiken.",
   "error.remote.requestFailedStatus": "Verzoek aan de externe server mislukt ({status}).",
-  "error.remote.appUpdateRequired": "Werk deze OpenBot-app bij voordat je verbinding maakt met de host.",
+  "error.remote.appUpdateRequired": "Werk deze Builders Bot-app bij voordat je verbinding maakt met de host.",
   "error.remote.identityNotVerified": "De identiteit van de server kon niet worden geverifieerd.",
   "error.remote.webRtcUnavailable": "Het WebRTC-transport is niet beschikbaar.",
   "error.remote.invalidCompatibility": "De host gaf ongeldige compatibiliteitsgegevens terug.",
@@ -62,8 +62,8 @@ export const messages = {
     "De identiteit van de host van de uitnodiging is gewijzigd tijdens het accepteren.",
   "error.remote.localServerRemove": "De lokale server kan niet worden verwijderd.",
   "error.remote.desktopSetupHostUpdate":
-    "Werk OpenBot bij op de host om de instelling van extern bureaublad te controleren.",
-  "error.remote.desktopTestHostUpdate": "Werk OpenBot bij op de host om de instelling van extern bureaublad te testen.",
+    "Werk Builders Bot bij op de host om de instelling van extern bureaublad te controleren.",
+  "error.remote.desktopTestHostUpdate": "Werk Builders Bot bij op de host om de instelling van extern bureaublad te testen.",
   "error.remote.viewerProxyUnavailable": "De lokale proxy voor de externe viewer is niet beschikbaar.",
   "error.remote.viewerTransportInvalid": "Het transport van de externe viewer is ongeldig.",
   "error.remote.viewerProxyNoPort": "De lokale proxy voor de externe viewer heeft geen poort gekregen.",
@@ -133,12 +133,12 @@ export const messages = {
   "error.remote.permanentInviteNoEmail": "Permanente uitnodigingen kunnen niet per e-mail worden verstuurd.",
   "error.remote.selfHostedInviteNoEmail":
     "Een uitnodiging van een zelf gehoste accountservice kan niet per e-mail worden verstuurd. Kopieer de link.",
-  "error.remote.inviteOtherService": "Deze uitnodiging hoort bij een andere OpenBot-service.",
+  "error.remote.inviteOtherService": "Deze uitnodiging hoort bij een andere Builders Bot-service.",
   "error.remote.inviteFingerprintMismatch":
     "De identiteit van de host van de uitnodiging komt niet overeen met de vingerafdruk.",
   "error.remote.inviteHostKeyMissing": "De hostsleutel van de uitnodiging ontbreekt.",
   "error.remote.inviteKeyConflict": "De uitnodiging conflicteert met de vertrouwde hostsleutel.",
-  "error.remote.serviceRequestFailed": "Het verzoek aan de OpenBot-service is mislukt.",
+  "error.remote.serviceRequestFailed": "Het verzoek aan de Builders Bot-service is mislukt.",
   "error.remote.downloadTimeout": "Het downloaden van de bijlage duurde te lang. Probeer het opnieuw.",
   "error.remote.attachmentConnectionClosed": "De verbinding voor bijlagen is gesloten.",
   "error.remote.tooManyDownloads": "Te veel downloads van bijlagen.",
@@ -163,7 +163,7 @@ export const messages = {
   "error.remote.signalInvalidMessage": "Signal gaf een ongeldig bericht terug.",
   "error.remote.sessionInvalid": "De externe sessie is ongeldig.",
   "error.remote.ticketInvalid": "Het verbindingsticket is ongeldig.",
-  "error.remote.mobileUpdateRequired": "Werk OpenBot Mobile of de desktop-app bij voordat je verbinding maakt.",
+  "error.remote.mobileUpdateRequired": "Werk Builders Bot Mobile of de desktop-app bij voordat je verbinding maakt.",
   "error.remote.connectionStepFailed": "Kan deze verbindingsstap niet voltooien.",
   "error.remote.signalNotConnected": "Signal is niet verbonden.",
   "error.remote.signalFrameUnreadable": "Signal stuurde een frame dat deze peer niet kan lezen.",
@@ -172,28 +172,28 @@ export const messages = {
   "error.remote.hostBusy": "De host is bezig met een andere verbinding. Probeer het zo opnieuw.",
   "error.remote.signalPermissionDenied": "Je account heeft geen toegang tot deze host. Vraag de eigenaar om toegang.",
   "error.remote.signalRateLimited":
-    "Te veel verbindingspogingen. OpenBot probeert het over {seconds} seconden opnieuw.",
+    "Te veel verbindingspogingen. Builders Bot probeert het over {seconds} seconden opnieuw.",
   "error.remote.signalProtocolError":
-    "Signal en deze app zijn het niet eens over het verbindingsprotocol. Werk OpenBot bij en probeer het opnieuw.",
+    "Signal en deze app zijn het niet eens over het verbindingsprotocol. Werk Builders Bot bij en probeer het opnieuw.",
   "error.remote.signalRefused": "Signal heeft de verbinding geweigerd.",
   "error.remote.signalClosed": "De verbinding met Signal is gesloten voordat de host antwoordde.",
   "error.remote.relayUnavailable": "Signal stuurde geen relayservers voor deze verbinding. Probeer het later opnieuw.",
   "error.remote.iceFailed":
     "Er kon geen directe verbinding met de host worden gemaakt. Een firewall, VPN of proxy kan deze blokkeren.",
   "error.remote.iceDisconnected": "De directe verbinding met de host is verbroken.",
-  "error.remote.directoryUnreachable": "OpenBot kan de OpenBot-service niet bereiken. Controleer je verbinding.",
-  "error.remote.directoryTimeout": "De OpenBot-service reageerde niet op tijd. Probeer het opnieuw.",
+  "error.remote.directoryUnreachable": "Builders Bot kan de Builders Bot-service niet bereiken. Controleer je verbinding.",
+  "error.remote.directoryTimeout": "De Builders Bot-service reageerde niet op tijd. Probeer het opnieuw.",
   "error.remote.inviteAlreadyUsed": "Deze uitnodiging is al gebruikt. Vraag om een nieuwe uitnodiging.",
   "error.remote.inviteNotFound": "Deze uitnodiging bestaat niet of is verlopen. Vraag om een nieuwe uitnodiging.",
   "error.remote.licenseUsersFull":
     "De licentie van de eigenaar van de server heeft geen vrije gebruiker. Vraag de eigenaar om een gebruiker aan de licentie toe te voegen.",
   "error.remote.memberLimitReached":
     "Deze host heeft het maximumaantal leden bereikt. Vraag de eigenaar om ruimte te maken.",
-  "error.remote.hostNotRegistered": "Deze host is niet meer geregistreerd bij de OpenBot-service.",
+  "error.remote.hostNotRegistered": "Deze host is niet meer geregistreerd bij de Builders Bot-service.",
   "error.remote.membershipEnded": "Je bent geen lid meer van deze host. Vraag de eigenaar om een nieuwe uitnodiging.",
   "error.remote.accountSessionInactive": "Je inlog is niet meer actief. Log opnieuw in.",
   "error.remote.hostOtherAccount": "Deze host hoort bij een ander account.",
-  "error.remote.remoteNotConfigured": "Externe verbindingen zijn niet ingesteld op deze OpenBot-service.",
+  "error.remote.remoteNotConfigured": "Externe verbindingen zijn niet ingesteld op deze Builders Bot-service.",
   "error.remote.hostRefused": "De host heeft het verzoek geweigerd ({status}).",
   "error.remote.formUnavailable": "Dit formulier is niet meer beschikbaar.",
   "error.remote.hostedServerRemoval": "Gebruik Facturering om een gehoste server te verwijderen.",

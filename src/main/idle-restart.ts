@@ -1,4 +1,4 @@
-// A restart that the user of this computer asks for: OpenBot starts again, or installs the downloaded
+// A restart that the user of this computer asks for: Builders Bot starts again, or installs the downloaded
 // update, when no work runs. With many agents and routines there is seldom such a moment, so new
 // routine runs wait while the restart waits. An overdue routine runs once after the restart, or after
 // a cancel.
@@ -29,7 +29,7 @@ export interface IdleRestartOptions {
    * came due while they were held. `null` removes it.
    */
   recordHold: (window: RoutineHoldWindow | null) => void;
-  /** Starts OpenBot again through the normal shutdown. */
+  /** Starts Builders Bot again through the normal shutdown. */
   relaunch: () => void;
   log: (message: string) => void;
   /** How long the restart waits between two readiness checks. */
@@ -127,7 +127,7 @@ export class IdleRestart {
     this.#publish({ ...status, waitingFor: [] });
     this.#keepHold();
     if (status.target === "relaunch") {
-      this.#log("Restarting OpenBot: no work runs.");
+      this.#log("Restarting Builders Bot: no work runs.");
       this.#relaunch();
       return;
     }
@@ -141,7 +141,7 @@ export class IdleRestart {
       this.#publish(null);
     } else {
       const error = installed.failure.cause;
-      // A refusal before teardown (another macOS session runs OpenBot) leaves the update ready, and
+      // A refusal before teardown (another macOS session runs Builders Bot) leaves the update ready, and
       // the routines run again. A failure after teardown stopped the services: only a relaunch runs
       // the held routines, so the saved window stays.
       const message = error instanceof Error ? error.message : String(error);

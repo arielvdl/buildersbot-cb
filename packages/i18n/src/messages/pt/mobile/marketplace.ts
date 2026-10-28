@@ -55,10 +55,10 @@ export const messages = {
   "mobile.marketplace.facts.accessNone": "Sem login",
   "mobile.marketplace.permission.admin": "Só proprietários e administradores podem instalar da loja.",
   "mobile.marketplace.permission.unavailable":
-    "Este servidor está offline, ou o OpenBot dele é antigo demais para isso. Atualize o OpenBot no computador que o executa.",
-  "mobile.marketplace.error.agentUnsupported": "Atualize o OpenBot no servidor para adicionar agentes da loja.",
-  "mobile.marketplace.error.agentUpdateUnsupported": "Atualize o OpenBot no servidor para atualizar agentes da loja.",
-  "mobile.marketplace.error.signInUnsupported": "Atualize o OpenBot no servidor para entrar em apps pelo celular.",
+    "Este servidor está offline, ou o Builders Bot dele é antigo demais para isso. Atualize o Builders Bot no computador que o executa.",
+  "mobile.marketplace.error.agentUnsupported": "Atualize o Builders Bot no servidor para adicionar agentes da loja.",
+  "mobile.marketplace.error.agentUpdateUnsupported": "Atualize o Builders Bot no servidor para atualizar agentes da loja.",
+  "mobile.marketplace.error.signInUnsupported": "Atualize o Builders Bot no servidor para entrar em apps pelo celular.",
   "mobile.marketplace.agent.add": "Adicionar agente",
   "mobile.marketplace.agent.adding": "Adicionando agente",
   "mobile.marketplace.agent.update": "Atualizar agente",
@@ -99,9 +99,9 @@ export const messages = {
   "mobile.marketplace.app.connectFailed": "Não foi possível conectar o app.",
   "mobile.marketplace.app.linkInvalid": "Use um link https em {hostname}.",
   "mobile.marketplace.app.docs": "Obter chave",
-  "mobile.marketplace.app.local": "Este app roda no computador com o OpenBot. Configure-o nesse computador.",
+  "mobile.marketplace.app.local": "Este app roda no computador com o Builders Bot. Configure-o nesse computador.",
   "mobile.marketplace.app.relayUnsupported":
-    "Este app precisa de login no navegador. Atualize o OpenBot no servidor ou conecte o app no computador.",
+    "Este app precisa de login no navegador. Atualize o Builders Bot no servidor ou conecte o app no computador.",
   "mobile.marketplace.app.waiting": "Aguardando a página de login…",
   "mobile.marketplace.app.openAgain": "Abrir a página de login de novo",
   "mobile.marketplace.app.pasteHint":

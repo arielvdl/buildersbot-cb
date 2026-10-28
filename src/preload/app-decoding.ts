@@ -81,6 +81,7 @@ import {
   isRemoteDesktopSetupStatus,
   isRemoteDesktopTestStatus,
   isRemoteNetworkRoute,
+  isSecurityGuardPreference,
   isSpeechVoice,
   isVoiceLanguage,
   isVoiceModelId,
@@ -98,6 +99,7 @@ import {
   type RemoteDesktopTestStatus,
   type RemoteNetworkRouteState,
   type RemoteSessionReusePreference,
+  type SecurityGuardPreference,
   SPEECH_MODEL_ID,
   type SpeechAudio,
   type SpeechModelStatus,
@@ -355,6 +357,11 @@ export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreferen
     keepAwake: nullableBoolean(preference, "keepAwake"),
     keepAwakeOnBattery: nullableBoolean(preference, "keepAwakeOnBattery"),
   };
+}
+
+export function decodeSecurityGuardPreference(value: unknown): SecurityGuardPreference {
+  if (!isSecurityGuardPreference(value)) throw new Error("Invalid security guard preference.");
+  return value;
 }
 
 export function decodeExternalLinkPreference(value: unknown): ExternalLinkPreference {

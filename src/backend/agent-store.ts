@@ -65,13 +65,13 @@ import {
 import { type DynamicRecord, isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { isGeneratedAgentId, isUuidV4, legacyAgentId } from "@openbot/contracts/validation";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Result, Semaphore, Stream } from "effect";
 import { ProfileCreationRecovery } from "./agent/profile-creation-recovery";
 import { isEmptyStoredFile, parseStoredJson, writeFileAtomically } from "./atomic-json-file";
 import { automationRoot } from "./automation-command";
 import type { AgentModelChange } from "./database/agent-roster";
-import { OpenBotDatabase, type ProviderSession, stableThreadId } from "./openbot-database";
+import { BuildersBotDatabase, type ProviderSession, stableThreadId } from "./openbot-database";
 import { isPathInside } from "./path-containment";
 import { isRecord } from "./protocol";
 import { StoredStateFailure, storedIO, storedSync } from "./stored-state-effects";
@@ -90,10 +90,12 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   allowNewChat?: boolean;
   // Absent means the account default, which is off until the user changes it in Settings › Agents.
   quickAcknowledgement?: boolean;
+  // Absent means the account default, which is on until the user turns the guard off in Settings › Agents.
+  securityGuard?: boolean;
   // Absent on every agent stored before the setting existed, which keeps its tabs in the shared browser session.
   ownBrowserSession?: boolean;
   // Absent on every agent stored before named browser profiles existed. Stored with
-  // `ownBrowserSession: true`, so an older OpenBot opens the agent's own session instead.
+  // `ownBrowserSession: true`, so an older Builders Bot opens the agent's own session instead.
   browserProfileId?: string;
   // Absent on every agent stored before the setting existed, which leaves the service tier to Codex.
   fastMode?: boolean;
@@ -166,7 +168,7 @@ const LEGACY_AGENTS_STATE_FILE = "bots.json";
 const LEGACY_AGENTS_STATE_KEY = "bots";
 const LEGACY_AGENTS_IMPORT_COMMAND_ID = "legacy-import:bots:v1";
 
-const logger = createOpenBotLogger("agent-store");
+const logger = createBuildersBotLogger("agent-store");
 
 // Windows answers `EBUSY` or `EPERM` while a file in the tree is still open: a provider process that
 // is exiting after its session closed, an antivirus scan or the search indexer. Node retries these
@@ -185,7 +187,7 @@ export class AgentStore {
   readonly #duplicationsRoot: string;
   readonly #automationRoot: string;
   readonly #profileCreationRecovery: ProfileCreationRecovery;
-  readonly #database: OpenBotDatabase;
+  readonly #database: BuildersBotDatabase;
   #state: StoredState = { version: 2, examplesInitialized: false, agents: [] };
   readonly #avatarUpdateQueue = Semaphore.makeUnsafe(1);
   readonly #creationQueue = Semaphore.makeUnsafe(1);
@@ -195,10 +197,10 @@ export class AgentStore {
   constructor(
     userDataPath: string,
     homePath: string,
-    database = new OpenBotDatabase(userDataPath),
+    database = new BuildersBotDatabase(userDataPath),
     agentDefaults: () => AgentDefaults = () => DEFAULT_AGENT_DEFAULTS,
   ) {
-    const openbotRoot = join(homePath, "OpenBot");
+    const openbotRoot = join(homePath, "Builders Bot");
     this.#statePath = join(userDataPath, LEGACY_AGENTS_STATE_FILE);
     this.#agentsRoot = join(openbotRoot, "Agents");
     this.#legacyAgentsRoot = join(openbotRoot, "Bots");
@@ -220,7 +222,7 @@ export class AgentStore {
     return this.#agentDefaults();
   }
 
-  get database(): OpenBotDatabase {
+  get database(): BuildersBotDatabase {
     return this.#database;
   }
 
@@ -728,6 +730,11 @@ export class AgentStore {
         if (!isBoolean(input.quickAcknowledgement)) throw new Error("Invalid quick acknowledgement value.");
         next.quickAcknowledgement = input.quickAcknowledgement;
       }
+      if (input.securityGuard === null) delete next.securityGuard;
+      else if (input.securityGuard !== undefined) {
+        if (!isBoolean(input.securityGuard)) throw new Error("Invalid security guard value.");
+        next.securityGuard = input.securityGuard;
+      }
       if (input.ownBrowserSession !== undefined) {
         if (!isBoolean(input.ownBrowserSession)) throw new Error("Invalid browser session value.");
         next.ownBrowserSession = input.ownBrowserSession;
@@ -827,6 +834,7 @@ export class AgentStore {
       if (next.allowAutomation === undefined) delete agent.allowAutomation;
       if (next.allowNewChat === undefined) delete agent.allowNewChat;
       if (next.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
+      if (next.securityGuard === undefined) delete agent.securityGuard;
       try {
         this.#persist(modelChange ? "agent.model-changed" : "agent.updated", modelChange);
       } catch (error) {
@@ -841,6 +849,7 @@ export class AgentStore {
         if (previous.allowAutomation === undefined) delete agent.allowAutomation;
         if (previous.allowNewChat === undefined) delete agent.allowNewChat;
         if (previous.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
+        if (previous.securityGuard === undefined) delete agent.securityGuard;
         throw error;
       }
       return { ...agent };
@@ -975,7 +984,7 @@ export class AgentStore {
       //
       // The agent's own id is always safe to clear under the old root: nobody else can be stored under it.
       // Migration v13 leaves a `bot-` id alone unless the application minted it, and a legacy `bots.json`
-      // import runs afterwards and keeps both the id and the `~/OpenBot/Bots/<id>` workspace it read, so an
+      // import runs afterwards and keeps both the id and the `~/Builders Bot/Bots/<id>` workspace it read, so an
       // agent whose workspace is only ever there is a state the user can reach.
       const legacyPaths = [join(this.#legacyAgentsRoot, id)];
       const legacyId = this.#unclaimedLegacyId(id);
@@ -1051,7 +1060,7 @@ export class AgentStore {
   }, Effect.uninterruptible);
 
   /**
-   * The file half of migration v13: `~/OpenBot/Bots/bot-<uuid>` becomes `~/OpenBot/Agents/agent-<uuid>`,
+   * The file half of migration v13: `~/Builders Bot/Bots/bot-<uuid>` becomes `~/Builders Bot/Agents/agent-<uuid>`,
    * and the uploaded avatar directory follows the id the same way. It cannot run inside that migration,
    * because `runMigration` rolls its transaction back on a throw and a directory that has already moved
    * cannot be rolled back.
@@ -1089,7 +1098,7 @@ export class AgentStore {
    *
    * An id the application never minted -- `chief`, or one the user chose -- keeps its spelling, and that is
    * not the same as having nothing to do: the *root* moved as well, so its workspace is still sitting in
-   * `OpenBot/Bots` under exactly this name. Nobody else can hold it, because ids are unique.
+   * `Builders Bot/Bots` under exactly this name. Nobody else can hold it, because ids are unique.
    */
   #unclaimedLegacyId(id: string): string | null {
     const legacyId = legacyAgentId(id);
@@ -1101,7 +1110,7 @@ export class AgentStore {
    * Answers whether the agent's stored workspace path had to change, which is what has to be persisted.
    *
    * The destination is derived from the root and the id, never read from the stored path. An agent the
-   * user named themselves came out of the upgrade still recorded under `OpenBot/Bots/<id>`, because
+   * user named themselves came out of the upgrade still recorded under `Builders Bot/Bots/<id>`, because
    * migration v13 rewrites id values and that id did not change -- so trusting the stored path would find
    * the workspace already "at" its destination and leave it in the old root forever.
    */
@@ -1149,7 +1158,7 @@ export class AgentStore {
         if (Result.isFailure(attempt2)) {
           const error = attempt2.failure.cause;
           // Only the move failed; the workspace itself is still there and still readable. `EXDEV` means
-          // `~/OpenBot/Bots` is a link onto another volume, so the move would be a copy, and a copy of a
+          // `~/Builders Bot/Bots` is a link onto another volume, so the move would be a copy, and a copy of a
           // workspace interrupted halfway is lost data. A permission error, a Windows lock or an open handle
           // leave exactly the same situation, so they get the same answer: the files stay where they are and
           // the stored path is pointed back at them. An out-of-date directory name is cosmetic.
@@ -1484,7 +1493,7 @@ export class AgentStore {
 
   bindProviderSession(id: string, provider: AgentProviderId, externalSessionId: string): ProviderSession {
     const agent = this.#requireAgent(id);
-    if (!agent.threadId) throw new Error(`Agent ${id} does not have an OpenBot thread.`);
+    if (!agent.threadId) throw new Error(`Agent ${id} does not have an Builders Bot thread.`);
     return this.#database.bindProviderSession({
       threadId: agent.threadId,
       provider,
@@ -1846,6 +1855,7 @@ function isStoredAgent(value: unknown): value is PersistedStoredAgent {
     (record.allowAutomation === undefined || isBoolean(record.allowAutomation)) &&
     (record.allowNewChat === undefined || isBoolean(record.allowNewChat)) &&
     (record.quickAcknowledgement === undefined || isBoolean(record.quickAcknowledgement)) &&
+    (record.securityGuard === undefined || isBoolean(record.securityGuard)) &&
     (record.ownBrowserSession === undefined || isBoolean(record.ownBrowserSession)) &&
     (record.browserProfileId === undefined || isBrowserProfileId(record.browserProfileId)) &&
     (record.fastMode === undefined || isBoolean(record.fastMode)) &&
@@ -1877,7 +1887,7 @@ interface UnreadableStoredAgent {
  * A stored profile, with every field this build cannot read put back to a value it can.
  *
  * The three fields it refuses on instead are the ones no default can stand in for. `id` names the
- * avatar directory, the workspace under `~/OpenBot/Agents` and the agent every thread and receipt
+ * avatar directory, the workspace under `~/Builders Bot/Agents` and the agent every thread and receipt
  * points at; `workspacePath` is the directory the agent reads and writes, and a guessed one is either
  * another agent's files or an empty new directory beside the real one; `threadId` is the whole
  * conversation, and reading a broken one as `null` reports an empty history and mints a second thread
@@ -1922,6 +1932,10 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     value.quickAcknowledgement === undefined || isBoolean(value.quickAcknowledgement)
       ? value.quickAcknowledgement
       : reset("quickAcknowledgement", undefined);
+  const securityGuard =
+    value.securityGuard === undefined || isBoolean(value.securityGuard)
+      ? value.securityGuard
+      : reset("securityGuard", undefined);
   const ownBrowserSession =
     value.ownBrowserSession === undefined || isBoolean(value.ownBrowserSession)
       ? value.ownBrowserSession
@@ -2006,6 +2020,7 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     ...(allowAutomation === undefined ? {} : { allowAutomation }),
     ...(allowNewChat === undefined ? {} : { allowNewChat }),
     ...(quickAcknowledgement === undefined ? {} : { quickAcknowledgement }),
+    ...(securityGuard === undefined ? {} : { securityGuard }),
     ...(ownBrowserSession === undefined ? {} : { ownBrowserSession }),
     ...(browserProfileId === undefined ? {} : { browserProfileId }),
     ...(fastMode === undefined ? {} : { fastMode }),

@@ -9,7 +9,7 @@ export const messages = {
   "remoteDesktop.workspaceLabel": "Contrôle à distance",
   "remoteDesktop.displayLabel": "Écran distant",
   "remoteDesktop.selectDisplay": "Choisir l’écran",
-  "remoteDesktop.backToOpenBot": "Retour à OpenBot",
+  "remoteDesktop.backToBuildersBot": "Retour à Builders Bot",
   "remoteDesktop.disconnect": "Déconnecter",
   "remoteDesktop.viewerTitle": "Bureau à distance Sunshine",
   "remoteDesktop.viewerLoadFailed": "Impossible de charger la visionneuse Moonlight.",
@@ -20,7 +20,7 @@ export const messages = {
   "remoteDesktop.openFailed": "Impossible d’ouvrir le bureau",
   "remoteDesktop.notSharingTitle": "{name} ne partage pas son écran",
   "remoteDesktop.notSharingDescription":
-    "Le serveur empêche OpenBot d’enregistrer son écran. Sur ce serveur, ouvrez Réglages Système → Confidentialité et sécurité → Enregistrement de l’écran, activez OpenBot, puis réessayez ici.",
+    "Le serveur empêche Builders Bot d’enregistrer son écran. Sur ce serveur, ouvrez Réglages Système → Confidentialité et sécurité → Enregistrement de l’écran, activez Builders Bot, puis réessayez ici.",
   "remoteDesktop.setup.check.screenRecording": "Enregistrement de l’écran",
   "remoteDesktop.setup.check.accessibility": "Accessibilité",
   "remoteDesktop.setup.check.service": "Service Sunshine",
@@ -41,7 +41,7 @@ export const messages = {
   "remoteDesktop.setup.startFailed": "Impossible de lancer le test du bureau à distance.",
   "remoteDesktop.setup.connectionLost": "La connexion de test a été perdue.",
   "remoteDesktop.setup.hostUpdateRequired":
-    "Mettez à jour OpenBot sur le serveur pour vérifier les autorisations et tester le bureau à distance.",
+    "Mettez à jour Builders Bot sur le serveur pour vérifier les autorisations et tester le bureau à distance.",
   "remoteDesktop.setup.permissions": "Autorisations",
   "remoteDesktop.setup.checked": "Vérifié à",
   "remoteDesktop.setup.checkAgain": "Revérifier",

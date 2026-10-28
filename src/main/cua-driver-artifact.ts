@@ -60,20 +60,20 @@ export const resolveCuaDriver = Effect.fn("CuaDriver.resolve")(function* (input:
 });
 
 /**
- * The two calls the driver makes to its own vendor, off for every copy OpenBot starts.
+ * The two calls the driver makes to its own vendor, off for every copy Builders Bot starts.
  *
  * `CUA_DRIVER_RS_TELEMETRY_ENABLED` stops the product analytics. The driver ships with them on, and
- * OpenBot now ships the driver, so a user who never chose the driver would otherwise send a vendor
- * that is not OpenBot a record of each tool call.
+ * Builders Bot now ships the driver, so a user who never chose the driver would otherwise send a vendor
+ * that is not Builders Bot a record of each tool call.
  *
- * `CUA_DRIVER_RS_UPDATE_CHECK` stops the release check `serve` makes at startup. OpenBot pins the
+ * `CUA_DRIVER_RS_UPDATE_CHECK` stops the release check `serve` makes at startup. Builders Bot pins the
  * driver in `native-runtime.lock.json` and packages that exact build, so the answer could only offer
- * the user an update OpenBot would refuse: on macOS the binary sits inside a signed application
+ * the user an update Builders Bot would refuse: on macOS the binary sits inside a signed application
  * bundle, and replacing it would break the signature. Off, the daemon also writes no
  * `~/.cua-driver/version_check.json`.
  *
  * The driver reads the environment before its own configuration, so these decide the question:
- * nothing a process inherits can turn them back on, and OpenBot writes no file, so a driver the user
+ * nothing a process inherits can turn them back on, and Builders Bot writes no file, so a driver the user
  * runs themselves keeps the settings they gave it. This is why both are spread last, after any
  * inherited environment, at every place that runs the binary: the daemon, the MCP proxy each
  * provider spawns, the permission probe, and the doctor script.
@@ -93,7 +93,7 @@ function* candidatePaths(input: CuaDriverArtifactInput): Generator<string> {
 
   // A release carries the driver it was pinned, built and signed against, and that one only. An
   // environment variable or an install the user already had would otherwise decide which program
-  // drives their desktop, and OpenBot would have no way to say which build it spawned. A release
+  // drives their desktop, and Builders Bot would have no way to say which build it spawned. A release
   // that shipped without the binary is a broken build, and reporting no driver says so.
   if (input.isPackaged) {
     yield join(input.resourcesPath, "cua-driver", input.platform, input.architecture, name);

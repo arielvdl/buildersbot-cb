@@ -10,13 +10,13 @@ import {
   type SpeechSettings,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import type { SpeechPreferenceStore } from "./speech-preference-store";
 import { VOICE_RUNTIME_ADDON, VoiceModelService, VoiceOperationError } from "./voice-model-service";
 import type { VoiceSpeechFailure, VoiceSpeechHostProcess, VoiceSpeechResponse } from "./voice-speech-protocol";
 
-const logger = createOpenBotLogger("voice-speech-service");
+const logger = createBuildersBotLogger("voice-speech-service");
 
 /** One request is at most `SPEECH_LIMITS.maximumTextLength` characters: about a minute of speech. */
 const SPEECH_TIMEOUT_MS = 120_000;

@@ -1,11 +1,11 @@
 import {
   type BitwardenConnectorStatus,
   DISCONNECTED_BITWARDEN_CONNECTOR,
-  type OpenBotDesktopApi,
+  type BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 
 /** This computer's connection and one joined server's, which connects at once with any input. */
-export function createMockBitwardenConnector(): OpenBotDesktopApi["bitwardenConnector"] {
+export function createMockBitwardenConnector(): BuildersBotDesktopApi["bitwardenConnector"] {
   let status: BitwardenConnectorStatus = DISCONNECTED_BITWARDEN_CONNECTOR;
   let host: BitwardenConnectorStatus = DISCONNECTED_BITWARDEN_CONNECTOR;
   const listeners = new Set<(status: BitwardenConnectorStatus) => void>();

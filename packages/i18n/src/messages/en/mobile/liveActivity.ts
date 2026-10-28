@@ -1,7 +1,7 @@
 import { defineMessages } from "../../../message";
 
 export const messages = defineMessages("mobile.liveActivity", {
-  "mobile.liveActivity.appName": "OpenBot",
+  "mobile.liveActivity.appName": "Builders Bot",
   "mobile.liveActivity.badge.working": "Working",
   "mobile.liveActivity.badge.message": "Message",
   "mobile.liveActivity.badge.question": "Questions",
@@ -20,7 +20,7 @@ export const messages = defineMessages("mobile.liveActivity", {
   "mobile.liveActivity.button.approve": "Approve",
   "mobile.liveActivity.button.openDetails": "Open details",
   "mobile.liveActivity.stale.label": "Not current",
-  "mobile.liveActivity.stale.detail": "Open OpenBot to see the current state.",
+  "mobile.liveActivity.stale.detail": "Open Builders Bot to see the current state.",
   "mobile.liveActivity.confirm.title": "Approve this command?",
   "mobile.liveActivity.confirm.cancel": "Cancel",
   "mobile.liveActivity.confirm.approve": "Approve",
@@ -35,7 +35,7 @@ export const messages = defineMessages("mobile.liveActivity", {
   "mobile.liveActivity.error.decisionFallback": "Open the request on the desktop.",
   "mobile.liveActivity.island.taskWorking": "Working on your request",
   "mobile.liveActivity.island.questionHeader": "Question from your agent",
-  "mobile.liveActivity.island.questionText": "Open OpenBot to answer this question.",
+  "mobile.liveActivity.island.questionText": "Open Builders Bot to answer this question.",
   "mobile.liveActivity.island.optionFallback": "Option {number}",
   "mobile.liveActivity.island.takeoverTitle": "Browser step needs you",
   "mobile.liveActivity.island.takeoverDetail": "Complete the sign-in, verification, or consent in the browser.",

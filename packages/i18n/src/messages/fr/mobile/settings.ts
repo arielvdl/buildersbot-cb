@@ -16,7 +16,7 @@ export const messages = {
   "mobile.settings.about.privacy": "Politique de confidentialité",
   "mobile.settings.home.profile": "Profil",
   "mobile.settings.home.preferences": "Préférences",
-  "mobile.settings.home.about": "À propos d’OpenBot",
+  "mobile.settings.home.about": "À propos d’Builders Bot",
   "mobile.settings.home.support": "Assistance",
   "mobile.settings.home.supportHint": "Obtenir de l’aide et enregistrer un journal d’assistance",
   "mobile.settings.support.help": "Obtenir de l’aide",
@@ -31,7 +31,7 @@ export const messages = {
   "mobile.settings.support.clearTitle": "Effacer le journal d’assistance ?",
   "mobile.settings.support.clearBody": "Tous les événements du journal seront supprimés de ce téléphone.",
   "mobile.settings.support.logFooter":
-    "Le journal reste sur ce téléphone et OpenBot ne l’envoie pas. Il enregistre les étapes de connexion, les requêtes et les erreurs. Il n’enregistre ni les messages ni les fichiers, et il masque les mots de passe et les jetons. Lisez le fichier avant de le partager.",
+    "Le journal reste sur ce téléphone et Builders Bot ne l’envoie pas. Il enregistre les étapes de connexion, les requêtes et les erreurs. Il n’enregistre ni les messages ni les fichiers, et il masque les mots de passe et les jetons. Lisez le fichier avant de le partager.",
   "mobile.settings.support.saveFailed": "Impossible d’enregistrer le fichier du journal. Réessayez.",
   "mobile.settings.support.sharingUnavailable": "Le partage n’est pas disponible sur ce téléphone.",
   "mobile.settings.support.recent": "Événements récents",
@@ -92,28 +92,28 @@ export const messages = {
   "mobile.settings.feedback.retry": "Réessayer d’enregistrer le réglage haptique",
   "mobile.settings.liveActivities.title": "Activités en direct",
   "mobile.settings.liveActivities.footer":
-    "Affiche le travail, les messages, les questions et les approbations des agents sur l’écran verrouillé et dans la Dynamic Island pendant qu’OpenBot est ouvert.",
+    "Affiche le travail, les messages, les questions et les approbations des agents sur l’écran verrouillé et dans la Dynamic Island pendant qu’Builders Bot est ouvert.",
   "mobile.settings.liveActivities.toggle": "Afficher l’activité des agents",
   "mobile.settings.liveActivities.retry": "Réessayer d’enregistrer le réglage des activités en direct",
   "mobile.settings.notifications.title": "Notifications",
   "mobile.settings.notifications.toggle": "Autoriser les notifications",
   "mobile.settings.notifications.footer":
-    "Les agents vous préviennent quand ils terminent, s’arrêtent sur une erreur ou attendent votre réponse, une approbation ou une étape dans le navigateur. Rien n’arrive pendant que vous utilisez OpenBot ici ou dans l’app de bureau. Tant que l’activité en direct s’affiche, elle montre l’événement à la place.",
+    "Les agents vous préviennent quand ils terminent, s’arrêtent sur une erreur ou attendent votre réponse, une approbation ou une étape dans le navigateur. Rien n’arrive pendant que vous utilisez Builders Bot ici ou dans l’app de bureau. Tant que l’activité en direct s’affiche, elle montre l’événement à la place.",
   "mobile.settings.notifications.footerAndroid":
-    "Les agents vous préviennent quand ils terminent, s’arrêtent sur une erreur ou attendent votre réponse, une approbation ou une étape dans le navigateur. Rien n’arrive pendant que vous utilisez OpenBot ici ou dans l’app de bureau.",
-  "mobile.settings.notifications.denied": "Les notifications d’OpenBot sont désactivées dans les Réglages d’iOS.",
+    "Les agents vous préviennent quand ils terminent, s’arrêtent sur une erreur ou attendent votre réponse, une approbation ou une étape dans le navigateur. Rien n’arrive pendant que vous utilisez Builders Bot ici ou dans l’app de bureau.",
+  "mobile.settings.notifications.denied": "Les notifications d’Builders Bot sont désactivées dans les Réglages d’iOS.",
   "mobile.settings.notifications.deniedAndroid":
-    "Les notifications d’OpenBot sont désactivées dans les paramètres d’Android.",
+    "Les notifications d’Builders Bot sont désactivées dans les paramètres d’Android.",
   "mobile.settings.notifications.openSettings": "Ouvrir les Réglages d’iOS",
   "mobile.settings.notifications.openSettingsAndroid": "Ouvrir les paramètres d’Android",
   "mobile.settings.notifications.preview": "Afficher l’aperçu de la réponse",
   "mobile.settings.notifications.previewFooter":
-    "Affiche le début d’une réponse, une question ou l’action à approuver. Apple et le service de compte OpenBot ne peuvent pas le lire.",
+    "Affiche le début d’une réponse, une question ou l’action à approuver. Apple et le service de compte Builders Bot ne peuvent pas le lire.",
   "mobile.settings.notifications.previewFooterAndroid":
-    "Affiche le début d’une réponse, une question ou l’action à approuver. Google et le service de compte OpenBot ne peuvent pas le lire.",
+    "Affiche le début d’une réponse, une question ou l’action à approuver. Google et le service de compte Builders Bot ne peuvent pas le lire.",
   "mobile.settings.notifications.sound": "Son",
   "mobile.settings.notifications.playSound": "Jouer un son",
-  "mobile.settings.notifications.sound.openbot": "OpenBot",
+  "mobile.settings.notifications.sound.openbot": "Builders Bot",
   "mobile.settings.notifications.sound.warm": "Chaleureux",
   "mobile.settings.notifications.sound.mech": "Mécanique",
   "mobile.settings.notifications.sound.bubble": "Pétillant",
@@ -121,9 +121,9 @@ export const messages = {
   "mobile.settings.notifications.sound.default": "Son par défaut d’iOS",
   "mobile.settings.notifications.sound.defaultAndroid": "Son par défaut d’Android",
   "mobile.settings.notifications.soundFooter":
-    "Les notifications et l’activité en direct jouent ce son. L’activité en direct allume aussi l’écran. Le son OpenBot est celui que l’app de bureau joue quand une tâche se termine. Les quatre sons suivants sont ceux des thèmes sonores de l’app de bureau.",
+    "Les notifications et l’activité en direct jouent ce son. L’activité en direct allume aussi l’écran. Le son Builders Bot est celui que l’app de bureau joue quand une tâche se termine. Les quatre sons suivants sont ceux des thèmes sonores de l’app de bureau.",
   "mobile.settings.notifications.soundFooterAndroid":
-    "Les notifications jouent ce son. Le son OpenBot est celui que l’app de bureau joue quand une tâche se termine. Les quatre sons suivants sont ceux des thèmes sonores de l’app de bureau.",
+    "Les notifications jouent ce son. Le son Builders Bot est celui que l’app de bureau joue quand une tâche se termine. Les quatre sons suivants sont ceux des thèmes sonores de l’app de bureau.",
   "mobile.settings.notifications.notifyAbout": "Me notifier pour",
   "mobile.settings.notifications.level.all": "Toute l’activité",
   "mobile.settings.notifications.level.needsMe": "Seulement quand on a besoin de moi",
@@ -140,7 +140,7 @@ export const messages = {
   "mobile.settings.notifications.serverFooter":
     "Les événements de ce serveur qui notifient ce téléphone. L’app de bureau a ses propres réglages.",
   "mobile.settings.notifications.serverUnsupported":
-    "Ce serveur ne peut pas envoyer de notifications. Mettez à jour OpenBot sur l’ordinateur qui l’exécute.",
+    "Ce serveur ne peut pas envoyer de notifications. Mettez à jour Builders Bot sur l’ordinateur qui l’exécute.",
   "mobile.settings.notifications.channel": "Notifications des agents ({sound})",
   "mobile.settings.notifications.channelSilent": "Notifications des agents (sans son)",
   "mobile.settings.privacy.title": "Confidentialité",
@@ -166,6 +166,6 @@ export const messages = {
   "mobile.settings.profile.accountSessions": "Sessions du compte",
   "mobile.settings.profile.signOutTitle": "Se déconnecter ?",
   "mobile.settings.profile.signOutBody":
-    "Reconnectez-vous en scannant un nouveau code depuis OpenBot sur votre ordinateur.",
+    "Reconnectez-vous en scannant un nouveau code depuis Builders Bot sur votre ordinateur.",
   "mobile.settings.profile.signOut": "Se déconnecter",
 } as const satisfies PartialTranslation<typeof source>;

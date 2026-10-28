@@ -9,7 +9,7 @@ export const messages = {
   "sharedTable.empty": "还没有数据表。当任务需要跨轮次保留记录时，助手会自己创建一张，之后所有助手都可以使用。",
   "sharedTable.loadFailed": "无法加载数据表。",
   "sharedTable.deleteFailed": "无法删除该项。",
-  "sharedTable.madeOutside": "在 OpenBot 之外创建 · 任何助手都可以删除",
+  "sharedTable.madeOutside": "在 Builders Bot 之外创建 · 任何助手都可以删除",
   "sharedTable.keptBy": "由 {name} 维护",
   "sharedTable.keptByDeleted": "由已不存在的助手维护",
   "sharedTable.deleteName": "删除 {name}",

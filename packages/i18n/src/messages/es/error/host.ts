@@ -11,14 +11,14 @@ export const messages = {
   "error.host.setupUnavailable": "La configuración de permisos no está disponible.",
   "error.host.accountChangedDuringUpdate":
     "La cuenta con sesión iniciada cambió mientras se actualizaba este servidor.",
-  "error.host.nameBeforePublish": "Pon un nombre a este OpenBot antes de publicarlo.",
+  "error.host.nameBeforePublish": "Pon un nombre a este Builders Bot antes de publicarlo.",
   "error.host.memberNotFound": "El miembro remoto no existe.",
-  "error.host.publishBeforeInvite": "Haz público este OpenBot antes de crear una invitación.",
+  "error.host.publishBeforeInvite": "Haz público este Builders Bot antes de crear una invitación.",
   "error.host.teamAccessUnavailable": "Tu acceso al equipo no está disponible.",
   "error.host.ownerIdentityUnavailable": "La identidad del propietario del host no está disponible.",
   "error.host.reserveAddressFailed": "No se pudo reservar la dirección pública.",
-  "error.host.publishFailed": "No se pudo publicar este OpenBot.",
-  "error.host.mobileConnectPublishFailed": "No se pudo publicar este OpenBot para la conexión móvil.",
+  "error.host.publishFailed": "No se pudo publicar este Builders Bot.",
+  "error.host.mobileConnectPublishFailed": "No se pudo publicar este Builders Bot para la conexión móvil.",
   "error.host.mobileConnectHostChanged": "El host de la conexión móvil cambió. Inténtalo de nuevo.",
   "error.host.noServer": "Este equipo no tiene ningún servidor que se pueda cambiar.",
   "error.host.identityLocalOnly":

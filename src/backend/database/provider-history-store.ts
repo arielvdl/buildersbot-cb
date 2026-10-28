@@ -71,7 +71,7 @@ export interface ProviderHistoryStoreOptions {
  *
  * A provider page is written as item rows and a cursor update in one transaction. The staging
  * rows are additive: a partial page never replaces or deletes an older conversation row. The
- * class owns only provider replay state and never imports the OpenBot facade.
+ * class owns only provider replay state and never imports the Builders Bot facade.
  */
 export class ProviderHistoryStore {
   readonly #core: DatabaseCore;

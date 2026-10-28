@@ -13,7 +13,7 @@ import { Schema } from "effect";
 import { initializeAgentMemorySelection } from "./agent-memory-selection";
 import { databaseRows, requiredNumberColumn, requiredStringColumn } from "./database/database-rows";
 import { MemoryStore, type MemoryTables, type SaveMemoryInput } from "./memory-store";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 
 export class AgentMemorySelectionError extends Schema.TaggedError<AgentMemorySelectionError>()(
   "AgentMemorySelectionError",
@@ -60,7 +60,7 @@ function agentMemoryTables(limit: () => number): MemoryTables {
 
 /** Owns saved agent memories, their selection, and local recall. Channel memories remain separate. */
 export class AgentMemoryStore extends MemoryStore {
-  constructor(database: OpenBotDatabase, limit: () => number = () => INPUT_LIMITS.agentMemories) {
+  constructor(database: BuildersBotDatabase, limit: () => number = () => INPUT_LIMITS.agentMemories) {
     super(database, agentMemoryTables(limit));
   }
 

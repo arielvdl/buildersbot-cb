@@ -9,10 +9,10 @@ export const messages = {
   "mobile.server.drawer.editOrder": "Sırayı düzenle",
   "mobile.server.drawer.leaveFailed": "{name} sunucusundan ayrılınamadı",
   "mobile.server.drawer.removeFailed": "{name} kaldırılamadı",
-  "mobile.server.drawer.actionFailed": "OpenBot bu işlemi tamamlayamadı. Tekrar deneyin.",
+  "mobile.server.drawer.actionFailed": "Builders Bot bu işlemi tamamlayamadı. Tekrar deneyin.",
   "mobile.server.drawer.moveUp": "Yukarı taşı",
   "mobile.server.drawer.moveDown": "Aşağı taşı",
-  "mobile.server.drawer.orderHint": "OpenBot ilk sunucuda açılır. Sıra bu cihazda kaydedilir.",
+  "mobile.server.drawer.orderHint": "Builders Bot ilk sunucuda açılır. Sıra bu cihazda kaydedilir.",
   "mobile.server.drawer.title": "Sunucular",
   "mobile.server.drawer.serverSettings": "Sunucu ayarları",
   "mobile.server.drawer.serverListHint": "Sunucuları gösterir veya gizler",
@@ -25,8 +25,8 @@ export const messages = {
   "mobile.server.drawer.close": "Sunucu çekmecesini kapat",
   "mobile.server.invite.noExpiry": "{role} · Süre sınırı yok",
   "mobile.server.invite.expires": "{role} · Bitiş {date}",
-  "mobile.server.invite.loadFailed": "OpenBot bu daveti yükleyemedi.",
-  "mobile.server.invite.joinFailed": "OpenBot bu sunucuya katılamadı.",
+  "mobile.server.invite.loadFailed": "Builders Bot bu daveti yükleyemedi.",
+  "mobile.server.invite.joinFailed": "Builders Bot bu sunucuya katılamadı.",
   "mobile.server.invite.checking": "Davet kontrol ediliyor…",
   "mobile.server.invite.unavailable": "Davet kullanılamıyor",
   "mobile.server.invite.verifying": "Sunucu kimliği doğrulanıyor.",
@@ -66,14 +66,14 @@ export const messages = {
   "mobile.server.hosted.join": "Bir sunucuya katıl",
   "mobile.server.hosted.intro.title": "Ajanlarınız her zaman açık",
   "mobile.server.hosted.intro.description":
-    "Bulut sunucusu, bilgisayarınız kapalıyken ajanlarınızı ve rutinlerinizi çalıştırır. OpenBot onu kurar ve çalışır durumda tutar.",
+    "Bulut sunucusu, bilgisayarınız kapalıyken ajanlarınızı ve rutinlerinizi çalıştırır. Builders Bot onu kurar ve çalışır durumda tutar.",
   "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
   "mobile.server.hosted.computer.title": "Bilgisayarınızda",
   "mobile.server.hosted.computer.add": "Bulut sunucusu ekleyin",
   "mobile.server.hosted.computer.addHint":
-    "OpenBot'ta Ayarlar → Barındırılan sunucular bölümünü açın ve “Sunucu ekle” seçeneğini seçin.",
+    "Builders Bot'ta Ayarlar → Barındırılan sunucular bölümünü açın ve “Sunucu ekle” seçeneğini seçin.",
   "mobile.server.hosted.computer.change": "Planı değiştirin",
-  "mobile.server.hosted.computer.changeHint": "OpenBot'ta Ayarlar → Faturalandırma bölümünü açın.",
+  "mobile.server.hosted.computer.changeHint": "Builders Bot'ta Ayarlar → Faturalandırma bölümünü açın.",
   "mobile.server.hosted.yourServers": "Sunucularınız",
   "mobile.server.hosted.plans": "Planlar",
   "mobile.server.hosted.currentPlan": "Planınız",
@@ -90,7 +90,7 @@ export const messages = {
   "mobile.server.hosted.paymentTitle": "Ödeme bekleniyor",
   "mobile.server.hosted.paymentDescription": "Kurulum, ödeme onaylandığında başlar.",
   "mobile.server.hosted.progressTitle": "{name} kuruluyor",
-  "mobile.server.hosted.progressDescription": "OpenBot sizin için özel bir makine hazırlıyor.",
+  "mobile.server.hosted.progressDescription": "Builders Bot sizin için özel bir makine hazırlıyor.",
   "mobile.server.hosted.closeHint":
     "Bu sayfayı kapatabilirsiniz. Kurulum devam eder ve sunucu hazır olduğunda listenizde görünür.",
   "mobile.server.hosted.readyTitle": "{name} hazır",
@@ -98,21 +98,21 @@ export const messages = {
   "mobile.server.hosted.open": "Sunucuyu aç",
   "mobile.server.hosted.failedTitle": "Sunucu başlatılamadı",
   "mobile.server.hosted.failedDescription":
-    "Tekrar deneyin. Yeniden başarısız olursa sunucuyu bilgisayarınızdaki OpenBot'ta Ayarlar'dan silin.",
+    "Tekrar deneyin. Yeniden başarısız olursa sunucuyu bilgisayarınızdaki Builders Bot'ta Ayarlar'dan silin.",
   "mobile.server.hosted.retrying": "Başlatılıyor…",
   "mobile.server.hosted.expiredTitle": "Ödeme sayfasının süresi doldu",
   "mobile.server.hosted.expiredDescription": "Sunucu için ödeme yapılmadığından sunucu kaldırıldı.",
   "mobile.server.hosted.step.payment": "Ödemeyi onayla",
   "mobile.server.hosted.step.create": "Makineyi oluştur",
-  "mobile.server.hosted.step.start": "OpenBot'u başlat",
+  "mobile.server.hosted.step.start": "Builders Bot'u başlat",
   "mobile.server.hosted.step.connect": "Hesabınıza bağlan",
   "mobile.server.hosted.detail.payment": "Stripe bekleniyor",
   "mobile.server.hosted.detail.reserve": "Özel bir makine ayrılıyor",
-  "mobile.server.hosted.detail.copy": "OpenBot makineye kopyalanıyor",
+  "mobile.server.hosted.detail.copy": "Builders Bot makineye kopyalanıyor",
   "mobile.server.hosted.detail.key": "Tek seferlik giriş anahtarı ekleniyor",
   "mobile.server.hosted.detail.boot": "Makine açılıyor",
-  "mobile.server.hosted.detail.app": "OpenBot başlatılıyor",
-  "mobile.server.hosted.detail.wait": "OpenBot'un yanıt vermesi bekleniyor",
+  "mobile.server.hosted.detail.app": "Builders Bot başlatılıyor",
+  "mobile.server.hosted.detail.wait": "Builders Bot'un yanıt vermesi bekleniyor",
   "mobile.server.hosted.detail.signIn": "Sizin adınıza oturum açılıyor",
   "mobile.server.hosted.detail.publish": "Sunucu hesabınıza ekleniyor",
   "mobile.server.hosted.detail.check": "Bağlantı kontrol ediliyor",
@@ -120,7 +120,7 @@ export const messages = {
   "mobile.server.hosted.stepActive": "devam ediyor",
   "mobile.server.hosted.stepPending": "başlamadı",
   "mobile.server.hosted.stepFailed": "başarısız",
-  "mobile.server.scan.notInvitation": "Bu QR kodu bir OpenBot daveti değil.",
+  "mobile.server.scan.notInvitation": "Bu QR kodu bir Builders Bot daveti değil.",
   "mobile.server.scan.title": "Daveti tara",
   "mobile.server.role.owner": "sahip",
   "mobile.server.role.admin": "yönetici",
@@ -160,7 +160,7 @@ export const messages = {
   "mobile.server.routines.status.paused": "Duraklatıldı",
   "mobile.server.routines.status.failed": "Başarısız",
   "mobile.server.routines.status.completed": "Tamamlandı",
-  "mobile.server.tasks.unsupported": "Bu ana makine görevleri desteklemiyor. Ana makinedeki OpenBot'u güncelleyin.",
+  "mobile.server.tasks.unsupported": "Bu ana makine görevleri desteklemiyor. Ana makinedeki Builders Bot'u güncelleyin.",
   "mobile.server.tasks.ask": "Ne yapılsın?",
   "mobile.server.tasks.chooseAgent": "Görevi ver",
   "mobile.server.tasks.agentLabel": "Görevi {name} adlı ajana ver",
@@ -242,7 +242,7 @@ export const messages = {
   "mobile.server.settings.identityNotAllowed":
     "Yalnızca bir sahip veya yönetici sunucu adını ve logosunu değiştirebilir.",
   "mobile.server.settings.identityUnsupported":
-    "Adını ve logosunu buradan değiştirmek için bu sunucudaki OpenBot'u güncelleyin.",
+    "Adını ve logosunu buradan değiştirmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.settings.identityOffline": "Adını ve logosunu değiştirmek için bu sunucuya bağlanın.",
   "mobile.server.route.cropLogo": "Logoyu kırp",
   "mobile.server.members.remove": "Üyeyi kaldır",
@@ -299,7 +299,7 @@ export const messages = {
   "mobile.server.storage.category.caches": "Önbelleğe alınan sunucu dosyaları",
   "mobile.server.storage.category.runtimes": "Sağlayıcı çalışma zamanları",
   "mobile.server.storage.category.logs": "Günlükler",
-  "mobile.server.storage.total": "{name} üzerinde OpenBot",
+  "mobile.server.storage.total": "{name} üzerinde Builders Bot",
   "mobile.server.storage.used": "Kullanılan",
   "mobile.server.storage.byType": "Türe göre depolama",
   "mobile.server.storage.free": "Bu diskte {size} boş alan",
@@ -321,10 +321,10 @@ export const messages = {
   "mobile.server.storage.clearTitle.caches": "Önbelleğe alınan sunucu dosyaları temizlensin mi?",
   "mobile.server.storage.clearTitle.logs": "Günlükler temizlensin mi?",
   "mobile.server.storage.clearBody.caches":
-    "Sunucu dosyalarının kopyaları. OpenBot açtığınızda bunları tekrar indirir.",
+    "Sunucu dosyalarının kopyaları. Builders Bot açtığınızda bunları tekrar indirir.",
   "mobile.server.storage.clearBody.logs": "Tanılama günlükleri. Yeni günlükler hemen başlar.",
   "mobile.server.storage.clearFailed": "Veriler temizlenemedi",
-  "mobile.server.storage.clearFailedBody": "OpenBot sunucudaki bu verileri temizleyemedi.",
+  "mobile.server.storage.clearFailedBody": "Builders Bot sunucudaki bu verileri temizleyemedi.",
   "mobile.server.storage.noFiles": "Bu sunucuda depolanan dosya yok.",
   "mobile.server.route.providers": "Sağlayıcılar",
   "mobile.server.route.provider": "Sağlayıcı",
@@ -371,18 +371,18 @@ export const messages = {
   "mobile.server.settings.timezoneUnavailable":
     "Saat dilimini değiştirmek için bu sunucuya sahip veya yönetici olarak bağlanın.",
   "mobile.server.settings.timezoneUnsupported":
-    "Saat dilimini burada değiştirmek için bu sunucudaki OpenBot'u güncelleyin.",
+    "Saat dilimini burada değiştirmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.settings.memoryLimit": "Ajan başına bellek",
   "mobile.server.settings.memoryLimitDescription": "Bu sunucudaki her ajanın tutabileceği bellek sayısı.",
   "mobile.server.settings.memoryLimitLoadFailed": "Bu sunucunun bellek sınırı yüklenemedi.",
   "mobile.server.settings.memoryLimitSaveFailed": "Anı sınırı kaydedilemedi. Tekrar deneyin.",
   "mobile.server.settings.memoryLimitUnsupported":
-    "Anı sınırını burada değiştirmek için bu sunucudaki OpenBot'u güncelleyin.",
+    "Anı sınırını burada değiştirmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.route.connectors": "Bağlayıcılar",
   "mobile.server.settings.connectors": "Bağlayıcılar",
   "mobile.server.connectors.unavailable":
     "Bağlayıcılarını yönetmek için bu sunucuya sahip veya yönetici olarak bağlanın.",
-  "mobile.server.connectors.unsupported": "Bağlayıcılarını burada yönetmek için bu sunucudaki OpenBot'u güncelleyin.",
+  "mobile.server.connectors.unsupported": "Bağlayıcılarını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.connectors.loading": "Bağlayıcılar yükleniyor…",
   "mobile.server.connectors.onServer": "{name} üzerinde",
   "mobile.server.connectors.notSetUp": "Ayarlanmadı",
@@ -412,7 +412,7 @@ export const messages = {
   "mobile.server.connectors.bitwarden.description":
     "{host} üzerindeki tarayıcı girişlerini Bitwarden veya Vaultwarden'dan doldurun.",
   "mobile.server.connectors.bitwarden.howItWorks":
-    "{host} kendi Bitwarden CLI'si ile oturum açar. Kasanızda Shared with OpenBot adlı bir klasör oluşturun ve içine yalnızca ajanların kullanabileceği girişleri koyun. Web kasasında Ayarlar › Güvenlik › Anahtarlar'ı açın ve API anahtarınızı görüntüleyin.",
+    "{host} kendi Bitwarden CLI'si ile oturum açar. Kasanızda Shared with Builders Bot adlı bir klasör oluşturun ve içine yalnızca ajanların kullanabileceği girişleri koyun. Web kasasında Ayarlar › Güvenlik › Anahtarlar'ı açın ve API anahtarınızı görüntüleyin.",
   "mobile.server.connectors.bitwarden.serverUrl": "Sunucu adresi",
   "mobile.server.connectors.bitwarden.serverUrlHint":
     "Bitwarden veya Vaultwarden sunucunuzun adresi. {host} bu adrese HTTPS ile ulaşabilmelidir.",
@@ -426,7 +426,7 @@ export const messages = {
   "mobile.server.connectors.bitwarden.connectingBody":
     "{host} Bitwarden'da oturum açıyor. İlk oturum açma birkaç dakika sürebilir.",
   "mobile.server.connectors.bitwarden.folderTitle": "Paylaşılan klasör",
-  "mobile.server.connectors.bitwarden.folderName": "Shared with OpenBot",
+  "mobile.server.connectors.bitwarden.folderName": "Shared with Builders Bot",
   "mobile.server.connectors.bitwarden.folderKind": "Bitwarden'daki klasör",
   "mobile.server.connectors.bitwarden.folderFooter":
     "Ajanların bir girişle oturum açmasına izin vermek için girişi Bitwarden'da bu klasöre taşıyın. Durdurmak için kaldırın.",
@@ -438,7 +438,7 @@ export const messages = {
   "mobile.server.connectors.github.summary": "Her ajan için depolar, sorunlar ve çekme istekleri",
   "mobile.server.connectors.github.description":
     "{host} sunucusundaki her ajan GitHub depolarınızı, sorunlarınızı (issues), çekme isteklerinizi (pull requests), gh ve git araçlarını kullanabilir.",
-  "mobile.server.connectors.github.unavailable": "Bu sunucudaki OpenBot GitHub'ı bağlayamıyor.",
+  "mobile.server.connectors.github.unavailable": "Bu sunucudaki Builders Bot GitHub'ı bağlayamıyor.",
   "mobile.server.connectors.github.connect": "GitHub'a bağlan",
   "mobile.server.connectors.github.codeTitle": "Bu kodu GitHub'a yazın",
   "mobile.server.connectors.github.codeFooter":
@@ -448,11 +448,11 @@ export const messages = {
   "mobile.server.connectors.github.connectedAs": "@{login} olarak bağlandı",
   "mobile.server.connectors.github.chooseRepositories": "Depoları seç",
   "mobile.server.connectors.github.repositoriesFooter":
-    "Ajanlar yalnızca OpenBot GitHub Uygulamasının yüklü olduğu depoları kullanabilir.",
+    "Ajanlar yalnızca Builders Bot GitHub Uygulamasının yüklü olduğu depoları kullanabilir.",
   "mobile.server.connectors.github.repositoriesTitle": "Depolar",
   "mobile.server.connectors.github.repositoriesLoading": "Depolar GitHub'dan okunuyor",
-  "mobile.server.connectors.github.repositoriesFailed": "OpenBot depoları GitHub'dan okuyamadı.",
-  "mobile.server.connectors.github.noRepositories": "OpenBot GitHub Uygulaması henüz bir depoya yüklenmedi.",
+  "mobile.server.connectors.github.repositoriesFailed": "Builders Bot depoları GitHub'dan okuyamadı.",
+  "mobile.server.connectors.github.noRepositories": "Builders Bot GitHub Uygulaması henüz bir depoya yüklenmedi.",
   "mobile.server.connectors.github.moreRepositories": {
     one: "Ve {count} depo daha",
     other: "Ve {count} depo daha",
@@ -466,13 +466,13 @@ export const messages = {
   "mobile.server.connectors.github.disconnect": "GitHub bağlantısını kes",
   "mobile.server.connectors.github.disconnectTitle": "GitHub bağlantısı kesilsin mi?",
   "mobile.server.connectors.github.disconnectBody":
-    "Bu işlem @{login} oturumunu {host} üzerinden kaldırır ve tüm ajanlar GitHub araçlarını, gh ve git erişimini kaybeder. Ardından OpenBot yetkisini kaldırabileceğiniz GitHub açılır.",
+    "Bu işlem @{login} oturumunu {host} üzerinden kaldırır ve tüm ajanlar GitHub araçlarını, gh ve git erişimini kaybeder. Ardından Builders Bot yetkisini kaldırabileceğiniz GitHub açılır.",
   "mobile.server.connectors.onePassword.title": "1Password",
-  "mobile.server.connectors.onePassword.summary": "OpenBot tarayıcısındaki girişler için paylaşılan bir kasa",
+  "mobile.server.connectors.onePassword.summary": "Builders Bot tarayıcısındaki girişler için paylaşılan bir kasa",
   "mobile.server.connectors.onePassword.description":
-    "Ayrı bir 1Password kasasını bir hizmet hesabıyla {host} üzerindeki OpenBot ile paylaşın; böylece {host} üzerindeki ajanlar onun tarayıcısında sitelere oturum açabilir.",
+    "Ayrı bir 1Password kasasını bir hizmet hesabıyla {host} üzerindeki Builders Bot ile paylaşın; böylece {host} üzerindeki ajanlar onun tarayıcısında sitelere oturum açabilir.",
   "mobile.server.connectors.onePassword.howItWorks":
-    "1Password.com'da yalnızca OpenBot ile paylaştığınız kasayı okuyabilen bir hizmet hesabı oluşturun ve belirtecini buraya yapıştırın. {host} belirteci denetler ve saklar; bu telefon saklamaz. Ajanlar hiçbir zaman parola görmez.",
+    "1Password.com'da yalnızca Builders Bot ile paylaştığınız kasayı okuyabilen bir hizmet hesabı oluşturun ve belirtecini buraya yapıştırın. {host} belirteci denetler ve saklar; bu telefon saklamaz. Ajanlar hiçbir zaman parola görmez.",
   "mobile.server.connectors.onePassword.token": "Hizmet hesabı belirteci",
   "mobile.server.connectors.onePassword.tokenPlaceholder": "ops_…",
   "mobile.server.connectors.onePassword.connect": "1Password'e bağlan",
@@ -488,9 +488,9 @@ export const messages = {
   "mobile.server.connectors.onePassword.disconnectBody":
     "{host} belirteci unutur. Kasa ve hizmet hesabı 1Password'de kalır; artık gerekmiyorsa onları orada kaldırın.",
   "mobile.server.connectors.slack.title": "Slack",
-  "mobile.server.connectors.slack.summary": "Kullanıcılar Slack'te @OpenBot'tan bahseder",
+  "mobile.server.connectors.slack.summary": "Kullanıcılar Slack'te @Builders Bot'tan bahseder",
   "mobile.server.connectors.slack.description":
-    "Kullanıcılar Slack'te @OpenBot'tan bahseder veya doğrudan mesaj gönderir. Slack Düzenleyicisi doğru ajana sorar ve yanıtlar.",
+    "Kullanıcılar Slack'te @Builders Bot'tan bahseder veya doğrudan mesaj gönderir. Slack Düzenleyicisi doğru ajana sorar ve yanıtlar.",
   "mobile.server.connectors.slack.connected": "{workspace} · Slack Düzenleyicisi yanıtlıyor",
   "mobile.server.connectors.slack.noAgent": "{workspace} · Henüz yanıt veren bir ajan yok",
   "mobile.server.connectors.slack.many": {
@@ -503,7 +503,7 @@ export const messages = {
   },
   "mobile.server.connectors.slack.connect": "Slack'e bağlan",
   "mobile.server.connectors.slack.connectFooter":
-    "Slack bir tarayıcıda açılır. Sağ üst köşeden çalışma alanını seçin, ardından İzin Ver'e dokunun. OpenBot, OpenBot adında bir uygulama yükler ve bu uygulama her genel kanala katılır.",
+    "Slack bir tarayıcıda açılır. Sağ üst köşeden çalışma alanını seçin, ardından İzin Ver'e dokunun. Builders Bot, Builders Bot adında bir uygulama yükler ve bu uygulama her genel kanala katılır.",
   "mobile.server.connectors.slack.add": "Çalışma alanı ekle",
   "mobile.server.connectors.slack.limit": {
     one: "En fazla {count} çalışma alanı bağlayabilirsiniz.",
@@ -511,36 +511,36 @@ export const messages = {
   },
   "mobile.server.connectors.slack.workspaceTitle": "Çalışma alanı",
   "mobile.server.connectors.slack.workspaceDescription":
-    "Kullanıcılar @OpenBot'tan bahseder veya doğrudan mesaj gönderir.",
+    "Kullanıcılar @Builders Bot'tan bahseder veya doğrudan mesaj gönderir.",
   "mobile.server.connectors.slack.missingScopes":
-    "OpenBot Slack'te şu izinlere sahip değil: {scopes}. Çalışma alanı bağlantısını kesin, ardından tekrar bağlayın.",
-  "mobile.server.connectors.slack.retryAt": "Slack OpenBot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
+    "Builders Bot Slack'te şu izinlere sahip değil: {scopes}. Çalışma alanı bağlantısını kesin, ardından tekrar bağlayın.",
+  "mobile.server.connectors.slack.retryAt": "Slack Builders Bot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
   "mobile.server.connectors.slack.helpInvalidToken":
-    "Slack artık bu çalışma alanında OpenBot'u kabul etmiyor. Kaldırılmış olabilir. Çalışma alanını tekrar bağlayın.",
+    "Slack artık bu çalışma alanında Builders Bot'u kabul etmiyor. Kaldırılmış olabilir. Çalışma alanını tekrar bağlayın.",
   "mobile.server.connectors.slack.helpSecretStorage":
-    "OpenBot {host} üzerindeki kayıtlı belirteçleri okuyamıyor. Çalışma alanı bağlantısını kesin, ardından tekrar bağlayın.",
+    "Builders Bot {host} üzerindeki kayıtlı belirteçleri okuyamıyor. Çalışma alanı bağlantısını kesin, ardından tekrar bağlayın.",
   "mobile.server.connectors.slack.helpRelay":
-    "{host} üzerindeki OpenBot Slack etkinliklerini alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve OpenBot'u açık tutun.",
+    "{host} üzerindeki Builders Bot Slack etkinliklerini alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve Builders Bot'u açık tutun.",
   "mobile.server.connectors.slack.orchestratorTitle": "Slack Düzenleyicisi",
   "mobile.server.connectors.slack.orchestratorDescription":
     "Bu ajan Slack'ten gelen her isteği alır. Kısa olanları kendisi yanıtlar, diğer işleri doğru ajana iletir ve yanıtı ileti dizisinde paylaşır.",
   "mobile.server.connectors.slack.orchestratorNone": "Slack Düzenleyicisini ekleyin, aksi takdirde Slack yanıt alamaz.",
   "mobile.server.connectors.slack.addAgent": "Slack Düzenleyicisini ekle",
   "mobile.server.connectors.slack.note":
-    "OpenBot her genel kanala ve her yeni kanala kendiliğinden katılır. Özel bir kanal için onu davet edin: /invite @OpenBot.",
+    "Builders Bot her genel kanala ve her yeni kanala kendiliğinden katılır. Özel bir kanal için onu davet edin: /invite @Builders Bot.",
   "mobile.server.connectors.slack.disconnectTitle": "{workspace} bağlantısı kesilsin mi?",
   "mobile.server.connectors.slack.disconnectBody":
-    "OpenBot {workspace} içinde yanıt vermeyi durdurur ve Slack belirtecini {host} sunucusundan kaldırır.",
-  "mobile.server.connectors.slack.disconnectKept": "Konuşmalar ve Slack Düzenleyicisi OpenBot'ta kalır.",
-  "mobile.server.connectors.slack.disconnectDeleted": "Slack Düzenleyicisi ve konuşmaları OpenBot'tan silinir.",
+    "Builders Bot {workspace} içinde yanıt vermeyi durdurur ve Slack belirtecini {host} sunucusundan kaldırır.",
+  "mobile.server.connectors.slack.disconnectKept": "Konuşmalar ve Slack Düzenleyicisi Builders Bot'ta kalır.",
+  "mobile.server.connectors.slack.disconnectDeleted": "Slack Düzenleyicisi ve konuşmaları Builders Bot'tan silinir.",
   "mobile.server.connectors.slack.agentPromptTitle": "Slack Düzenleyicisi eklensin mi?",
   "mobile.server.connectors.slack.agentPromptBody":
-    "Bu yeni ajan, {workspace} içinde @OpenBot'a gönderilen her şeyi yanıtlar.",
+    "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
   "mobile.server.connectors.slack.installFailed": "Slack yüklemeyi tamamlamadı. Tekrar deneyin.",
   "mobile.server.connectors.discord.title": "Discord",
-  "mobile.server.connectors.discord.summary": "Kullanıcılar bir Discord sunucusunda @OpenBot'tan bahseder",
+  "mobile.server.connectors.discord.summary": "Kullanıcılar bir Discord sunucusunda @Builders Bot'tan bahseder",
   "mobile.server.connectors.discord.description":
-    "Kullanıcılar bir Discord sunucusunun kanalında @OpenBot'tan bahseder. Discord Düzenleyicisi doğru ajana sorar ve yanıtlar.",
+    "Kullanıcılar bir Discord sunucusunun kanalında @Builders Bot'tan bahseder. Discord Düzenleyicisi doğru ajana sorar ve yanıtlar.",
   "mobile.server.connectors.discord.connected": "{workspace} · Discord Düzenleyicisi yanıtlıyor",
   "mobile.server.connectors.discord.noAgent": "{workspace} · Henüz yanıt veren bir ajan yok",
   "mobile.server.connectors.discord.many": {
@@ -553,7 +553,7 @@ export const messages = {
   },
   "mobile.server.connectors.discord.connect": "Discord'a bağlan",
   "mobile.server.connectors.discord.connectFooter":
-    "Discord bir tarayıcıda açılır. Discord sunucusunu seçin, ardından Yetkilendir'e dokunun. OpenBot, OpenBot adında bir bot ekler.",
+    "Discord bir tarayıcıda açılır. Discord sunucusunu seçin, ardından Yetkilendir'e dokunun. Builders Bot, Builders Bot adında bir bot ekler.",
   "mobile.server.connectors.discord.add": "Discord sunucusu ekle",
   "mobile.server.connectors.discord.limit": {
     one: "En fazla {count} Discord sunucusu bağlayabilirsiniz.",
@@ -561,37 +561,37 @@ export const messages = {
   },
   "mobile.server.connectors.discord.workspaceTitle": "Discord sunucusu",
   "mobile.server.connectors.discord.workspaceDescription":
-    "Bir kanalda @OpenBot'tan bahsedin. Devam etmek için OpenBot'a yanıt verin.",
+    "Bir kanalda @Builders Bot'tan bahsedin. Devam etmek için Builders Bot'a yanıt verin.",
   "mobile.server.connectors.discord.missingScopes":
-    "OpenBot Discord'da şu izinlere sahip değil: {scopes}. Discord sunucusu bağlantısını kesin, ardından tekrar bağlayın.",
+    "Builders Bot Discord'da şu izinlere sahip değil: {scopes}. Discord sunucusu bağlantısını kesin, ardından tekrar bağlayın.",
   "mobile.server.connectors.discord.retryAt":
-    "Discord OpenBot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
+    "Discord Builders Bot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
   "mobile.server.connectors.discord.helpInvalidToken":
-    "Discord artık bu Discord sunucusunda OpenBot'u kabul etmiyor. Kaldırılmış olabilir. Discord sunucusunu tekrar bağlayın.",
+    "Discord artık bu Discord sunucusunda Builders Bot'u kabul etmiyor. Kaldırılmış olabilir. Discord sunucusunu tekrar bağlayın.",
   "mobile.server.connectors.discord.helpSecretStorage":
-    "OpenBot {host} üzerindeki kayıtlı belirteçleri okuyamıyor. Discord sunucusu bağlantısını kesin, ardından tekrar bağlayın.",
+    "Builders Bot {host} üzerindeki kayıtlı belirteçleri okuyamıyor. Discord sunucusu bağlantısını kesin, ardından tekrar bağlayın.",
   "mobile.server.connectors.discord.helpRelay":
-    "{host} üzerindeki OpenBot Discord etkinliklerini alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve OpenBot'u açık tutun.",
+    "{host} üzerindeki Builders Bot Discord etkinliklerini alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve Builders Bot'u açık tutun.",
   "mobile.server.connectors.discord.orchestratorTitle": "Discord Düzenleyicisi",
   "mobile.server.connectors.discord.orchestratorDescription":
     "Bu ajan Discord'dan gelen her isteği alır. Kısa olanları kendisi yanıtlar, diğer işleri doğru ajana iletir ve yanıtı kanalda verir.",
   "mobile.server.connectors.discord.orchestratorNone":
     "Discord Düzenleyicisini ekleyin, aksi takdirde Discord yanıt alamaz.",
   "mobile.server.connectors.discord.addAgent": "Discord Düzenleyicisini ekle",
-  "mobile.server.connectors.discord.note": "OpenBot, rolünün görebildiği kanalları görür.",
+  "mobile.server.connectors.discord.note": "Builders Bot, rolünün görebildiği kanalları görür.",
   "mobile.server.connectors.discord.disconnectTitle": "{workspace} bağlantısı kesilsin mi?",
   "mobile.server.connectors.discord.disconnectBody":
-    "OpenBot {workspace} içinde yanıt vermeyi bırakır ve Discord bağlantısını {host} sunucusundan kaldırır.",
-  "mobile.server.connectors.discord.disconnectKept": "Konuşmalar ve Discord Düzenleyicisi OpenBot'ta kalır.",
-  "mobile.server.connectors.discord.disconnectDeleted": "Discord Düzenleyicisi ve konuşmaları OpenBot'tan silinir.",
+    "Builders Bot {workspace} içinde yanıt vermeyi bırakır ve Discord bağlantısını {host} sunucusundan kaldırır.",
+  "mobile.server.connectors.discord.disconnectKept": "Konuşmalar ve Discord Düzenleyicisi Builders Bot'ta kalır.",
+  "mobile.server.connectors.discord.disconnectDeleted": "Discord Düzenleyicisi ve konuşmaları Builders Bot'tan silinir.",
   "mobile.server.connectors.discord.agentPromptTitle": "Discord Düzenleyicisi eklensin mi?",
   "mobile.server.connectors.discord.agentPromptBody":
-    "Bu yeni ajan, {workspace} içinde @OpenBot'a gönderilen her şeyi yanıtlar.",
+    "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
   "mobile.server.connectors.discord.installFailed": "Discord yetkilendirmeyi tamamlamadı. Tekrar deneyin.",
   "mobile.server.connectors.telegram.title": "Telegram",
-  "mobile.server.connectors.telegram.summary": "OpenBot botunu bir Telegram sohbetine ekleyin",
+  "mobile.server.connectors.telegram.summary": "Builders Bot botunu bir Telegram sohbetine ekleyin",
   "mobile.server.connectors.telegram.description":
-    "OpenBot botunu bir Telegram grubuna ekleyin veya botla doğrudan bir sohbet açın. Telegram Düzenleyicisi doğru ajana sorar ve yanıtlar.",
+    "Builders Bot botunu bir Telegram grubuna ekleyin veya botla doğrudan bir sohbet açın. Telegram Düzenleyicisi doğru ajana sorar ve yanıtlar.",
   "mobile.server.connectors.telegram.connected": {
     one: "{count} sohbet · Telegram Düzenleyicisi yanıtlıyor",
     other: "{count} sohbet · Telegram Düzenleyicisi yanıtlıyor",
@@ -609,13 +609,13 @@ export const messages = {
   "mobile.server.connectors.telegram.groupDescription": "Kullanıcılar bottan bahseder veya mesajlarını yanıtlar.",
   "mobile.server.connectors.telegram.directDescription": "Bu sohbetteki her mesaj Telegram Düzenleyicisine gider.",
   "mobile.server.connectors.telegram.helpRemoved":
-    "OpenBot botu artık bu sohbette değil. Sohbetin bağlantısını kesin, sonra botu yeniden ekleyin.",
+    "Builders Bot botu artık bu sohbette değil. Sohbetin bağlantısını kesin, sonra botu yeniden ekleyin.",
   "mobile.server.connectors.telegram.helpRelay":
-    "{host} üzerindeki OpenBot Telegram mesajlarını alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve OpenBot'u açık tutun.",
+    "{host} üzerindeki Builders Bot Telegram mesajlarını alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve Builders Bot'u açık tutun.",
   "mobile.server.connectors.telegram.helpError":
-    "OpenBot bu sohbete ulaşamıyor. Yeniden bağlanın veya sohbetin bağlantısını kesin.",
+    "Builders Bot bu sohbete ulaşamıyor. Yeniden bağlanın veya sohbetin bağlantısını kesin.",
   "mobile.server.connectors.telegram.retryAt":
-    "Telegram OpenBot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
+    "Telegram Builders Bot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
   "mobile.server.connectors.telegram.linkTitle": "Bir sohbet bağla",
   "mobile.server.connectors.telegram.linkAnother": "Başka bir sohbet bağlayın",
   "mobile.server.connectors.telegram.linkFooter":
@@ -628,16 +628,16 @@ export const messages = {
   "mobile.server.connectors.telegram.openDirectChat": "Doğrudan sohbet aç",
   "mobile.server.connectors.telegram.orchestratorTitle": "Telegram Düzenleyicisi",
   "mobile.server.connectors.telegram.orchestratorDescription":
-    "Bu ajan tüm Telegram sohbetlerinizden OpenBot'a gelen mesajları alır. Kısa olanları kendisi yanıtlar, diğer işleri doğru ajana iletir ve yanıtı sohbette paylaşır.",
+    "Bu ajan tüm Telegram sohbetlerinizden Builders Bot'a gelen mesajları alır. Kısa olanları kendisi yanıtlar, diğer işleri doğru ajana iletir ve yanıtı sohbette paylaşır.",
   "mobile.server.connectors.telegram.orchestratorNone":
     "Telegram Düzenleyicisini ekleyin, aksi takdirde Telegram yanıt alamaz.",
   "mobile.server.connectors.telegram.addAgent": "Telegram Düzenleyicisini ekle",
   "mobile.server.connectors.telegram.disconnectTitle": "{chat} bağlantısı kesilsin mi?",
   "mobile.server.connectors.telegram.disconnectBody":
-    "OpenBot botu {chat} sohbetinden ayrılır ve OpenBot orada yanıt vermeyi bırakır.",
-  "mobile.server.connectors.telegram.disconnectKept": "Konuşmalar ve Telegram Düzenleyicisi OpenBot'ta kalır.",
+    "Builders Bot botu {chat} sohbetinden ayrılır ve Builders Bot orada yanıt vermeyi bırakır.",
+  "mobile.server.connectors.telegram.disconnectKept": "Konuşmalar ve Telegram Düzenleyicisi Builders Bot'ta kalır.",
   "mobile.server.connectors.telegram.disconnectDeleted":
-    "Bu son sohbet olduğundan Telegram Düzenleyicisi ve konuşmaları OpenBot'tan silinir.",
+    "Bu son sohbet olduğundan Telegram Düzenleyicisi ve konuşmaları Builders Bot'tan silinir.",
   "mobile.server.settings.providers": "Sağlayıcılar",
   "mobile.server.settings.providersConnected": { one: "{count} bağlı", other: "{count} bağlı" },
   "mobile.server.providers.description": "Bu sunucuyu çalıştıran bilgisayarın yapay zekâ sağlayıcıları.",
@@ -651,9 +651,9 @@ export const messages = {
   "mobile.server.providers.runtimesFailed": "Bu sunucunun indirmeleri yüklenemedi.",
   "mobile.server.providers.unavailable":
     "Sağlayıcılarını yönetmek için bu sunucuya sahip veya yönetici olarak bağlanın.",
-  "mobile.server.providers.unsupported": "Sağlayıcılarını burada yönetmek için bu sunucudaki OpenBot'u güncelleyin.",
+  "mobile.server.providers.unsupported": "Sağlayıcılarını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.providers.signInUnsupported": "Bu sunucu, bu sağlayıcıda telefondan oturum açamaz.",
-  "mobile.server.providers.actionFailed": "OpenBot bu işlemi tamamlayamadı. Tekrar deneyin.",
+  "mobile.server.providers.actionFailed": "Builders Bot bu işlemi tamamlayamadı. Tekrar deneyin.",
   "mobile.server.providers.openFailed": "Oturum açma sayfası açılamadı.",
   "mobile.server.providers.copyFailed": "Kod kopyalanamadı.",
   "mobile.server.providers.onHost": "Bu sağlayıcı, bu sunucunun bilgisayarında çalışır.",
@@ -664,15 +664,15 @@ export const messages = {
   "mobile.server.providers.reconnect": "Yeniden bağlan",
   "mobile.server.providers.connectHint": "Sunucu, sağlayıcıdan bir oturum alır. Siz bunu bu telefonda tamamlarsınız.",
   "mobile.server.providers.relayHint": "Bu telefonda sağlayıcının sayfasında oturum açarsınız. Sunucu oturumu alır.",
-  "mobile.server.providers.connectOnComputer": "Bu sağlayıcıyı bir bilgisayardaki OpenBot'ta bağlayın.",
+  "mobile.server.providers.connectOnComputer": "Bu sağlayıcıyı bir bilgisayardaki Builders Bot'ta bağlayın.",
   "mobile.server.providers.signIn": "Oturum aç",
   "mobile.server.providers.starting": "Sunucuda oturum açma başlatılıyor…",
   "mobile.server.providers.openPage": "Oturum açma sayfasını aç",
   "mobile.server.providers.copy": "Kopyala",
   "mobile.server.providers.copyCode": "Kodu kopyala",
-  "mobile.server.providers.codeHint": "Kodu kopyalayın, sayfayı açın ve kodu girin. OpenBot kendiliğinden devam eder.",
+  "mobile.server.providers.codeHint": "Kodu kopyalayın, sayfayı açın ve kodu girin. Builders Bot kendiliğinden devam eder.",
   "mobile.server.providers.pasteHint": "Sayfada oturum açın, ardından sayfanın gösterdiği kodu yapıştırın.",
-  "mobile.server.providers.linkHint": "Sayfada oturum açın. OpenBot kendiliğinden devam eder.",
+  "mobile.server.providers.linkHint": "Sayfada oturum açın. Builders Bot kendiliğinden devam eder.",
   "mobile.server.providers.relayWaiting": "Sunucudan oturum açma sayfası bekleniyor…",
   "mobile.server.providers.relayPasteHint":
     "Sayfada oturum açın. Sayfa sonra yüklenmez. Adres çubuğuna dokunun, adresi kopyalayıp buraya yapıştırın.",
@@ -724,7 +724,7 @@ export const messages = {
   "mobile.server.providers.status.checking": "Denetleniyor",
   "mobile.server.settings.mcp": "MCP sunucuları",
   "mobile.server.settings.mcpCount": { one: "{count} sunucu", other: "{count} sunucu" },
-  "mobile.server.mcp.unsupported": "MCP sunucularını burada yönetmek için bu sunucudaki OpenBot'u güncelleyin.",
+  "mobile.server.mcp.unsupported": "MCP sunucularını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.mcp.unavailable": "MCP sunucularını yönetmek için bu sunucuya sahip veya yönetici olarak bağlanın.",
   "mobile.server.mcp.description":
     "MCP sunucuları bu sunucunun ajanlarına daha fazla araç verir. Claude ve Codex ajanları yalnızca bu listedeki sunucuları alır.",
@@ -742,7 +742,7 @@ export const messages = {
   "mobile.server.mcp.addConfirm": "Ekle",
   "mobile.server.mcp.name": "Ad",
   "mobile.server.mcp.namePlaceholder": "MCP sunucusu adı",
-  "mobile.server.mcp.nameReserved": "OpenBot {name} adını zaten kullanıyor.",
+  "mobile.server.mcp.nameReserved": "Builders Bot {name} adını zaten kullanıyor.",
   "mobile.server.mcp.transport": "Aktarım",
   "mobile.server.mcp.stdio": "Komut (STDIO)",
   "mobile.server.mcp.http": "URL (HTTP)",
@@ -752,12 +752,12 @@ export const messages = {
   "mobile.server.mcp.command": "Komut",
   "mobile.server.mcp.commandHint": "Yalnızca program. Sonraki her kelimeyi Argümanlar alanına yazın.",
   "mobile.server.mcp.arguments": "Argümanlar",
-  "mobile.server.mcp.argumentsHint": "OpenBot her argümanı programa tek bir kelime olarak verir.",
+  "mobile.server.mcp.argumentsHint": "Builders Bot her argümanı programa tek bir kelime olarak verir.",
   "mobile.server.mcp.addArgument": "Argüman ekle",
   "mobile.server.mcp.argument": "Argüman {position}",
   "mobile.server.mcp.removeArgument": "Argüman {position} kaldır",
   "mobile.server.mcp.environment": "Ortam değişkenleri",
-  "mobile.server.mcp.environmentHint": "OpenBot bu değişkenleri MCP sunucusu başladığında verir.",
+  "mobile.server.mcp.environmentHint": "Builders Bot bu değişkenleri MCP sunucusu başladığında verir.",
   "mobile.server.mcp.addVariable": "Değişken ekle",
   "mobile.server.mcp.variableKey": "Değişken {position} adı",
   "mobile.server.mcp.variableValue": "Değişken {position} değeri",
@@ -772,7 +772,7 @@ export const messages = {
   "mobile.server.mcp.url": "Sunucu URL'si",
   "mobile.server.mcp.urlInvalid": "Bir http veya https adresi girin.",
   "mobile.server.mcp.headers": "Başlıklar",
-  "mobile.server.mcp.headersHint": "OpenBot bu başlıkları her istekle gönderir.",
+  "mobile.server.mcp.headersHint": "Builders Bot bu başlıkları her istekle gönderir.",
   "mobile.server.mcp.addHeader": "Başlık ekle",
   "mobile.server.mcp.headerName": "Başlık {position} adı",
   "mobile.server.mcp.headerValue": "Başlık {position} değeri",
@@ -788,7 +788,7 @@ export const messages = {
   "mobile.server.mcp.testFailed": "MCP sunucusu yanıt vermedi.",
   "mobile.server.mcp.connected": { one: "Bağlandı · {count} araç", other: "Bağlandı · {count} araç" },
   "mobile.server.mcp.signInOnComputer":
-    "Bu MCP sunucusu oturum açmanızı istiyor. Bir bilgisayardaki OpenBot'tan oturum açın, sonra yeniden test edin.",
+    "Bu MCP sunucusu oturum açmanızı istiyor. Bir bilgisayardaki Builders Bot'tan oturum açın, sonra yeniden test edin.",
   "mobile.server.mcp.signedInDescription": "{server} bu MCP sunucusunda oturum açtı.",
   "mobile.server.mcp.signOut": "Oturumu kapat",
   "mobile.server.mcp.saveFailed": "Değişiklik kaydedilemedi. Tekrar deneyin.",
@@ -819,8 +819,8 @@ export const messages = {
   "mobile.server.settings.updates": "Güncellemeler",
   "mobile.server.settings.updateAvailable": "Güncelleme var",
   "mobile.server.route.updates": "Güncellemeler",
-  "mobile.server.update.hostTitle": "{name} üzerinde OpenBot",
-  "mobile.server.update.version": "OpenBot {version}",
+  "mobile.server.update.hostTitle": "{name} üzerinde Builders Bot",
+  "mobile.server.update.version": "Builders Bot {version}",
   "mobile.server.update.status.idle": "En son sürümü bulmak için güncellemeleri denetleyin.",
   "mobile.server.update.status.checking": "Güncellemeler denetleniyor…",
   "mobile.server.update.status.available": "{version} sürümü mevcut.",
@@ -828,28 +828,28 @@ export const messages = {
   "mobile.server.update.status.downloadingUnknown": "{version} indiriliyor…",
   "mobile.server.update.status.ready": "{version} indirildi.",
   "mobile.server.update.status.installing": "{name}, güncellemeyi yüklemek için yeniden başlatılıyor.",
-  "mobile.server.update.status.upToDate": "{name} üzerinde OpenBot güncel.",
+  "mobile.server.update.status.upToDate": "{name} üzerinde Builders Bot güncel.",
   "mobile.server.update.status.checkFailed": "{name} güncellemeleri denetleyemedi. Tekrar deneyin.",
   "mobile.server.update.status.downloadFailed": "{name} güncellemeyi indiremedi. Tekrar deneyin.",
   "mobile.server.update.status.installFailed":
-    "{name} güncellemeyi yükleyemedi. O bilgisayarın başka hiçbir kullanıcısının OpenBot çalıştırmadığından emin olun, ardından tekrar deneyin.",
+    "{name} güncellemeyi yükleyemedi. O bilgisayarın başka hiçbir kullanıcısının Builders Bot çalıştırmadığından emin olun, ardından tekrar deneyin.",
   "mobile.server.update.releaseCheckFailed":
     "{name} sürüm akışını okuyamadı. Ana makinenin ağ bağlantısını kontrol edin, ardından tekrar deneyin.",
   "mobile.server.update.releaseUnavailable":
     "Bu derleme için sürüm denetimleri kullanılamıyor. Ana makine yöneticisinden uyumlu bir sürümü kontrol etmesini isteyin.",
   "mobile.server.update.externalTitle": "Kurulumu ana makine yönetir",
   "mobile.server.update.path.hostManager":
-    "OpenBot Host Manager, tüm kullanıcılar boştayken güncellemeleri yükler. Bir güncelleme başlamazsa ana makine yöneticisinden Host Manager durumunu kontrol etmesini isteyin.",
+    "Builders Bot Host Manager, tüm kullanıcılar boştayken güncellemeleri yükler. Bir güncelleme başlamazsa ana makine yöneticisinden Host Manager durumunu kontrol etmesini isteyin.",
   "mobile.server.update.path.hosted":
     "Barındırılan hizmet güncellemeleri arka planda indirir. İndirilen bir güncelleme, sunucu bir sonraki başlatılışında başlar. Sunucuyu durdurup sürdürmeden önce etkin çalışmanın bitmesini bekleyin. Sunucu eski bir sürümde kalırsa ana makine yöneticisiyle iletişime geçin.",
   "mobile.server.update.path.system":
-    "En son sürümü yüklemek için ana makinede sudo openbot update komutunu çalıştırın. Bu komut OpenBot'u durdurur. Önce etkin çalışmanın bitmesini bekleyin. Otomatik indirmeler bir sonraki önyüklemede yüklenir.",
+    "En son sürümü yüklemek için ana makinede sudo openbot update komutunu çalıştırın. Bu komut Builders Bot'u durdurur. Önce etkin çalışmanın bitmesini bekleyin. Otomatik indirmeler bir sonraki önyüklemede yüklenir.",
   "mobile.server.update.path.container":
-    "Docker ana makinesinde yeni OpenBot görüntüsünü çekin ve kapsayıcıyı aynı veri birimleriyle yeniden oluşturun. Önce etkin çalışmanın bitmesini bekleyin. Verilerinizi korumak için mevcut birimleri saklayın.",
+    "Docker ana makinesinde yeni Builders Bot görüntüsünü çekin ve kapsayıcıyı aynı veri birimleriyle yeniden oluşturun. Önce etkin çalışmanın bitmesini bekleyin. Verilerinizi korumak için mevcut birimleri saklayın.",
   "mobile.server.update.path.manual":
-    "Bu kurulum kendini değiştiremez. Ana makine yöneticisinden uyumlu sürümü github.com/nightly-labs/openbot/releases adresinden yüklemesini isteyin. Mevcut OpenBot verilerini saklayın.",
+    "Bu kurulum kendini değiştiremez. Ana makine yöneticisinden uyumlu sürümü github.com/nightly-labs/openbot/releases adresinden yüklemesini isteyin. Mevcut Builders Bot verilerini saklayın.",
   "mobile.server.update.path.unavailable":
-    "Bu bir geliştirme derlemesidir. Güncellemeleri denetlemek için yüklü bir OpenBot sürümü kullanın.",
+    "Bu bir geliştirme derlemesidir. Güncellemeleri denetlemek için yüklü bir Builders Bot sürümü kullanın.",
   "mobile.server.update.check": "Güncellemeleri denetle",
   "mobile.server.update.start": "Boşta olduğunda güncelle",
   "mobile.server.update.restartNow": "Şimdi yeniden başlat",
@@ -859,27 +859,27 @@ export const messages = {
   "mobile.server.update.requestedBy": "{member} bu güncellemeyi istedi.",
   "mobile.server.update.automatic": "{name} güncellemeleri otomatik olarak yükler.",
   "mobile.server.update.autoDownloadTitle": "Güncellemeleri otomatik olarak indir",
-  "mobile.server.update.autoDownloadDescription": "{name}, OpenBot'un her yeni sürümü çıktığında indirir.",
+  "mobile.server.update.autoDownloadDescription": "{name}, Builders Bot'un her yeni sürümü çıktığında indirir.",
   "mobile.server.update.autoInstallTitle": "Güncellemeleri otomatik olarak yükle",
   "mobile.server.update.autoInstallDescription":
     "{name}, ajanları boşta olduğunda indirilen güncellemeyle yeniden başlar. Üyelerin bağlantısı kısa bir süre için kesilir ve otomatik olarak tekrar bağlanır.",
   "mobile.server.update.waitingFor": "{reasons} bekleniyor.",
   "mobile.server.update.disabledTitle": "Uzaktan güncellemeler kapalı",
   "mobile.server.update.disabledDescription":
-    "{name} kullanıcısı sunucu üyelerinin güncelleme yapmasını kapattı. OpenBot uygulamasını güncellemesini veya ayarı açmasını isteyin.",
-  "mobile.server.update.managedTitle": "Güncellemeleri OpenBot Host Manager yönetiyor",
+    "{name} kullanıcısı sunucu üyelerinin güncelleme yapmasını kapattı. Builders Bot uygulamasını güncellemesini veya ayarı açmasını isteyin.",
+  "mobile.server.update.managedTitle": "Güncellemeleri Builders Bot Host Manager yönetiyor",
   "mobile.server.update.managedDescription":
-    "OpenBot Host Manager, {name} sunucusunu günceller. Ana makine yöneticisiyle iletişime geçin.",
+    "Builders Bot Host Manager, {name} sunucusunu günceller. Ana makine yöneticisiyle iletişime geçin.",
   "mobile.server.update.unsupportedTitle": "{name} kendini güncelleyemiyor",
   "mobile.server.update.unsupportedDescription":
-    "Bu OpenBot derlemesinde güncelleyici yok. {name} üzerine yeni bir sürüm yükleyin.",
+    "Bu Builders Bot derlemesinde güncelleyici yok. {name} üzerine yeni bir sürüm yükleyin.",
   "mobile.server.update.restarting": "Yeniden başlatılıyor…",
   "mobile.server.update.loadFailed": "{name} güncelleme durumu yüklenemedi.",
-  "mobile.server.update.dialog.offerTitle": "{name} sunucusunu OpenBot {version} sürümüne güncelle",
+  "mobile.server.update.dialog.offerTitle": "{name} sunucusunu Builders Bot {version} sürümüne güncelle",
   "mobile.server.update.dialog.offerDescription":
-    "{name}, OpenBot {current} kullanıyor. Önce güncellemeyi indirir, ardından yeniden başlar.",
+    "{name}, Builders Bot {current} kullanıyor. Önce güncellemeyi indirir, ardından yeniden başlar.",
   "mobile.server.update.dialog.offerReadyDescription":
-    "{name}, OpenBot {current} kullanıyor. Güncelleme indirildi. {name}, güncellemeyi yüklemek için yeniden başlar.",
+    "{name}, Builders Bot {current} kullanıyor. Güncelleme indirildi. {name}, güncellemeyi yüklemek için yeniden başlar.",
   "mobile.server.update.dialog.waitIdleDescription":
     "Yeniden başlatma, ajan turlarının ve rutin çalıştırmalarının bitmesini bekler.",
   "mobile.server.update.dialog.updateNow": "Şimdi güncelle",
@@ -895,10 +895,10 @@ export const messages = {
   "mobile.server.update.reason.fileTransfer": "bir dosya aktarımı",
   "mobile.server.update.reason.browserControl": "bir ajan tarafından tarayıcı kontrolü",
   "mobile.server.update.reason.updateOperation": "başka bir güncelleme adımı",
-  "mobile.server.update.reason.initialization": "OpenBot'un başlatılması",
+  "mobile.server.update.reason.initialization": "Builders Bot'un başlatılması",
   "mobile.server.update.reason.other": "diğer çalışmalar",
   "mobile.server.update.actionFailed": "Sunucu eylemi başarısız oldu.",
-  "mobile.server.update.unavailable": "OpenBot güncellemelerini görmek için bu sunucuya bağlanın.",
+  "mobile.server.update.unavailable": "Builders Bot güncellemelerini görmek için bu sunucuya bağlanın.",
   "mobile.server.update.loading": "Güncellemeler yükleniyor…",
   "mobile.server.route.sites": "Siteler",
   "mobile.server.settings.sites": "Siteler",
@@ -917,13 +917,13 @@ export const messages = {
   "mobile.server.sites.deleteDescription": "Bu adres hemen 410 Gone döndürecektir.",
   "mobile.server.sites.deleteFailed": "Site silinemedi.",
   "mobile.server.sites.openFailed": "Site açılamadı.",
-  "mobile.server.sites.unsupported": "Sitelerini burada görmek için bu sunucudaki OpenBot'u güncelleyin.",
+  "mobile.server.sites.unsupported": "Sitelerini burada görmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.sites.offline": "Sitelerini görmek için bu sunucuya bağlanın.",
   "mobile.server.route.roles": "Roller",
   "mobile.server.route.role": "Rol",
   "mobile.server.roles.description":
     "Üyelerin kullanabileceği ajanları seçin. Sahipler ve yöneticiler tüm ajanları kullanabilir.",
-  "mobile.server.roles.unsupported": "Rolleri yönetmek için bu sunucudaki OpenBot'u güncelleyin.",
+  "mobile.server.roles.unsupported": "Rolleri yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.roles.unavailable": "Rolleri yalnızca çevrimiçi bir sunucunun sahibi veya yöneticisi yönetebilir.",
   "mobile.server.roles.loading": "Roller yükleniyor…",
   "mobile.server.roles.loadFailed": "Bu sunucunun rolleri yüklenemedi.",

@@ -80,7 +80,7 @@ export interface LiveSession {
 /**
  * The lease of an agent that holds the desktop now, or `null` when no agent does.
  *
- * OpenBot's own read is in the same list: its connection takes a lease of its own. Counting it
+ * Builders Bot's own read is in the same list: its connection takes a lease of its own. Counting it
  * would make the question answer itself - the rim would be up for as long as the daemon runs - so
  * that lease is left out by its name and by the kind a command line reports. The busiest of the
  * rest wins, because the rim follows the agent that acts, not the one that stopped a moment ago.
@@ -106,11 +106,11 @@ export interface TargetChoice {
   session: LiveSession | null;
   /** What the agent last asked the daemon to do, from the tap, or `null` when it asked nothing. */
   action: ObservedAction | null;
-  /** OpenBot's own process, whose windows are never the target. */
+  /** Builders Bot's own process, whose windows are never the target. */
   ownPid: number;
   /**
-   * The driver ids of OpenBot's own windows that the user reads, such as the conversation. They are
-   * never the target, but they cover it as any other window does. OpenBot's other windows - the
+   * The driver ids of Builders Bot's own windows that the user reads, such as the conversation. They are
+   * never the target, but they cover it as any other window does. Builders Bot's other windows - the
    * rim's overlays and the dynamic island - cannot take focus and are left out, because the rim
    * overlays cover the whole display and would hide all of the rim.
    */
@@ -182,7 +182,7 @@ function asTarget(window: DriverWindow, visible: readonly DriverWindow[]): Compu
  * The parts of one window that the windows in front of it cover.
  *
  * Every window counts, not only those an agent could work in: a palette, a sheet or a notification
- * hides the window under it just as well, and so does OpenBot's own conversation. OpenBot's overlays
+ * hides the window under it just as well, and so does Builders Bot's own conversation. Builders Bot's overlays
  * and the driver's cursor overlay are already out of the list this reads, so the rim is never cut by
  * the surface that draws it.
  *
@@ -252,10 +252,10 @@ function frontWindow(candidates: readonly DriverWindow[]): DriverWindow | null {
 }
 
 /**
- * Every window on screen, less OpenBot's overlays and the driver's full-screen cursor overlay.
+ * Every window on screen, less Builders Bot's overlays and the driver's full-screen cursor overlay.
  *
  * Those are drawn over the desktop and let every click through, so each one would otherwise cover
- * the whole rim or be taken for the window an agent works in. OpenBot's windows that the user reads
+ * the whole rim or be taken for the window an agent works in. Builders Bot's windows that the user reads
  * stay, because the rim must give way where they cover the target.
  */
 function visibleWindows(
@@ -273,7 +273,7 @@ function visibleWindows(
   return toDesktop ? visible.map((window) => ({ ...window, bounds: toDesktop(window.bounds) })) : visible;
 }
 
-/** Of those, the windows an agent could work in: not OpenBot's, on this Space and big enough to hold work. */
+/** Of those, the windows an agent could work in: not Builders Bot's, on this Space and big enough to hold work. */
 function workableWindows(visible: readonly DriverWindow[], ownPid: number): DriverWindow[] {
   return visible.filter(
     (window) =>

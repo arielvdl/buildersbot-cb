@@ -17,7 +17,7 @@
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
 
 /** The first line of the copy, which also marks a result that already holds one. */
-const STRUCTURED_TEXT_LABEL = "structuredContent as JSON, copied by OpenBot for clients that show only text:";
+const STRUCTURED_TEXT_LABEL = "structuredContent as JSON, copied by Builders Bot for clients that show only text:";
 
 /**
  * The most characters of JSON the copy holds.
@@ -142,5 +142,5 @@ function structuredText(copy: DynamicRecord): string {
   // parser refuses, and the whole call then fails.
   const lastKept = json.charCodeAt(MAX_STRUCTURED_TEXT_CHARS - 1);
   const end = lastKept >= 0xd800 && lastKept <= 0xdbff ? MAX_STRUCTURED_TEXT_CHARS - 1 : MAX_STRUCTURED_TEXT_CHARS;
-  return `${STRUCTURED_TEXT_LABEL}\n${json.slice(0, end)}\n[OpenBot cut this copy at ${MAX_STRUCTURED_TEXT_CHARS} of ${json.length} characters. Ask the tool for less: get_window_state takes query and max_elements.]`;
+  return `${STRUCTURED_TEXT_LABEL}\n${json.slice(0, end)}\n[Builders Bot cut this copy at ${MAX_STRUCTURED_TEXT_CHARS} of ${json.length} characters. Ask the tool for less: get_window_state takes query and max_elements.]`;
 }

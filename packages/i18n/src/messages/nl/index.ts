@@ -60,7 +60,7 @@ import { messages as workflow } from "./workflow";
  * Notes for a reviewer. Sentences use the informal je and the imperative for actions, as
  * docs/i18n.md says. Text is in sentence case, compounds are one word or take a hyphen after an
  * abbreviation or a brand (MCP-server), and the apostrophe is the typographic ’ (foto’s). Product
- * names stay as they are: OpenBot is the application name, and ZIP and JSON are the file formats a
+ * names stay as they are: Builders Bot is the application name, and ZIP and JSON are the file formats a
  * picker shows.
  *
  * This is the desktop catalog: shared keys, source text, and every desktop area.

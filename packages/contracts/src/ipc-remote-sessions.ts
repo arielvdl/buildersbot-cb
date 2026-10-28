@@ -13,8 +13,8 @@ export const DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE: RemoteSessionReusePreferen
 
 /**
  * How devices that connect to this computer send chats and files. `openbot` uses a direct path when
- * one works and the OpenBot relay when it does not. `private` uses only a local network or a
- * Tailscale tailnet: sign-in and connection setup still go through OpenBot, but chats and files do not.
+ * one works and the Builders Bot relay when it does not. `private` uses only a local network or a
+ * Tailscale tailnet: sign-in and connection setup still go through Builders Bot, but chats and files do not.
  */
 export const REMOTE_NETWORK_ROUTES = ["openbot", "private"] as const;
 export type RemoteNetworkRoute = (typeof REMOTE_NETWORK_ROUTES)[number];

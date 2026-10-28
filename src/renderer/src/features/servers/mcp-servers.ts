@@ -82,7 +82,7 @@ export function isMcpSignInCancelled(sourceText: string): boolean {
 /**
  * What the panel knows about one server's test, for as long as the panel is open.
  *
- * A test is a question the user asked once, not a state the app keeps: OpenBot connects only when
+ * A test is a question the user asked once, not a state the app keeps: Builders Bot connects only when
  * asked, and an answer from a minute ago is not a claim about now. Leaving the panel drops these.
  */
 export type McpTestState =
@@ -171,7 +171,7 @@ export function isMcpHttpAddress(value: string): boolean {
 }
 
 /**
- * The badge on a row. Without a test it says only what the user set, because that is all OpenBot
+ * The badge on a row. Without a test it says only what the user set, because that is all Builders Bot
  * knows: a server is offered to this server's agents, or it is not. A test answers for itself, and
  * that answer is shown even on a server that is turned off, because the user asked for it.
  */

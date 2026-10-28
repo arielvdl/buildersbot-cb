@@ -3,9 +3,9 @@ import type { messages as source } from "../../en/error/import";
 
 export const messages = {
   "error.import.manifestNotJson": "{manifest} — некорректный JSON.",
-  "error.import.notAgentExport": "{manifest} — не экспорт агента OpenBot.",
+  "error.import.notAgentExport": "{manifest} — не экспорт агента Builders Bot.",
   "error.import.newerExportSkill":
-    "Этот экспорт создан более новым навыком экспорта. Обновите OpenBot и повторите попытку.",
+    "Этот экспорт создан более новым навыком экспорта. Обновите Builders Bot и повторите попытку.",
   "error.import.noAgents": "В экспорте нет агентов.",
   "error.import.tooManyAgents": "В экспорте больше {limit} агентов.",
   "error.import.tooManyChannels": "В экспорте больше {limit} каналов.",
@@ -46,8 +46,8 @@ export const messages = {
     "{name}: на сервере уже есть навык «{skill}», поэтому агент использует его. Попросите администратора обновить его.",
   "error.import.transferRemoteTooLarge":
     "Файл переноса для присоединённого сервера должен быть меньше 100 МБ. Выключите файлы рабочих пространств или экспортируйте меньше агентов.",
-  "error.import.transferNotFile": "Это не файл переноса OpenBot.",
-  "error.import.transferNewer": "Этот файл создан более новой версией OpenBot. Обновите OpenBot и повторите попытку.",
+  "error.import.transferNotFile": "Это не файл переноса Builders Bot.",
+  "error.import.transferNewer": "Этот файл создан более новой версией Builders Bot. Обновите Builders Bot и повторите попытку.",
   "error.import.transferEmpty": "В файле нет ни агентов, ни настроек.",
   "error.import.transferTooLarge":
     "Файл переноса должен быть меньше 2 ГБ и содержать меньше 50 000 файлов. Выключите файлы рабочих пространств или экспортируйте меньше агентов.",

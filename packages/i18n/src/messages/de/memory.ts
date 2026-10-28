@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Alle Erinnerungen löschen",
   "memory.clearTitle": "Alle Erinnerungen löschen?",
   "memory.clearDescription":
-    "OpenBot entfernt dauerhaft alle {total} gespeicherten Erinnerungen für {name}. Die ursprünglichen Nachrichten bleiben im Unterhaltungsverlauf erhalten.",
+    "Builders Bot entfernt dauerhaft alle {total} gespeicherten Erinnerungen für {name}. Die ursprünglichen Nachrichten bleiben im Unterhaltungsverlauf erhalten.",
   "memory.loadFailed": "Die Erinnerungen konnten nicht geladen werden.",
   "memory.saveFailed": "Die Erinnerung konnte nicht gespeichert werden.",
   "memory.updateFailed": "Die Erinnerung konnte nicht aktualisiert werden.",

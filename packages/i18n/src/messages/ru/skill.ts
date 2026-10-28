@@ -13,7 +13,7 @@ export const messages = {
   "skill.loadingDetails": "Загрузка сведений…",
   "skill.emptyEnabled": "У этого агента нет включённых навыков.",
   "skill.emptyAssigned": "У этого агента пока нет назначенных навыков.",
-  "skill.folderSkill": "OpenBot не устанавливал этот навык. Измените или удалите его здесь: {location}.",
+  "skill.folderSkill": "Builders Bot не устанавливал этот навык. Измените или удалите его здесь: {location}.",
   "skill.moreFor": "Ещё для {name}",
   "skill.update": "Обновить",
   "skill.updateName": "Обновить {name}",
@@ -36,7 +36,7 @@ export const messages = {
     "При обновлении навыка локальные файлы заменяются последним пакетом навыка. Ваши правки в папке этого навыка будут потеряны.",
   "skill.confirm.removeModifiedBody":
     "В этом навыке есть локальные изменения в рабочем пространстве агента. Удаление сотрёт эти файлы. Исходные сообщения чата останутся.",
-  "skill.confirm.removeBody": "OpenBot удалит этот навык у агента. История чата сохранится.",
+  "skill.confirm.removeBody": "Builders Bot удалит этот навык у агента. История чата сохранится.",
   "skill.confirm.replace": "Заменить навык",
   "skill.confirm.remove": "Удалить навык",
 

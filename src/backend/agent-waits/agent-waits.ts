@@ -2,7 +2,7 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AgentEvent, AgentWait, AgentWaitsSnapshot } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { z } from "zod";
-import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from "../agent/routine-tools";
+import { type BuildersBotToolResponse, openBotToolFailure, openBotToolResult } from "../agent/routine-tools";
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import { AgentWaitError, AgentWaitLimitError, type AgentWaitStore } from "./agent-wait-store";
@@ -112,7 +112,7 @@ export class AgentWaits {
   }
 
   /** Answers `await_event`, `close_wait` and `list_waits`; null for every other tool. */
-  handleTool(params: DynamicToolCallParams, caller: AgentWaitCaller): OpenBotToolResponse | null {
+  handleTool(params: DynamicToolCallParams, caller: AgentWaitCaller): BuildersBotToolResponse | null {
     try {
       if (params.tool === AWAIT_EVENT_TOOL) return this.#awaitEvent(params, caller);
       if (params.tool === CLOSE_WAIT_TOOL) return this.#closeWait(params, caller);
@@ -124,7 +124,7 @@ export class AgentWaits {
     }
   }
 
-  #awaitEvent(params: DynamicToolCallParams, caller: AgentWaitCaller): OpenBotToolResponse {
+  #awaitEvent(params: DynamicToolCallParams, caller: AgentWaitCaller): BuildersBotToolResponse {
     const parsed = awaitEventToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.agentWaitNoteRequired"));
     const { note, routineId } = parsed.data;
@@ -189,7 +189,7 @@ export class AgentWaits {
     });
   }
 
-  #closeWait(params: DynamicToolCallParams, caller: AgentWaitCaller): OpenBotToolResponse {
+  #closeWait(params: DynamicToolCallParams, caller: AgentWaitCaller): BuildersBotToolResponse {
     const parsed = closeWaitToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(z.prettifyError(parsed.error));
     const agentId = this.#waitOwner(parsed.data.agentId, caller);
@@ -199,7 +199,7 @@ export class AgentWaits {
     return openBotToolResult({ closed: parsed.data.waitId });
   }
 
-  #listWaits(params: DynamicToolCallParams, caller: AgentWaitCaller): OpenBotToolResponse {
+  #listWaits(params: DynamicToolCallParams, caller: AgentWaitCaller): BuildersBotToolResponse {
     const parsed = listWaitsToolSchema.safeParse(params.arguments ?? {});
     if (!parsed.success) return openBotToolFailure(z.prettifyError(parsed.error));
     const agentId = this.#waitOwner(parsed.data.agentId, caller);

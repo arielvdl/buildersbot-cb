@@ -3,7 +3,7 @@ import type { messages as source } from "../../en/error/backend";
 
 export const messages = {
   "error.backend.eventsUnavailable": "Los eventos no están disponibles en este host.",
-  "error.backend.databaseIntegrity": "La base de datos de OpenBot no superó la comprobación de integridad.",
+  "error.backend.databaseIntegrity": "La base de datos de Builders Bot no superó la comprobación de integridad.",
   "error.backend.webhookRouteLimit": "Un host puede tener un máximo de {limit} rutinas de webhook.",
   "error.backend.webhookSettingsInvalid": "Comprueba los ajustes del webhook e inténtalo de nuevo.",
   "error.backend.webhookRouteUnavailable":
@@ -13,8 +13,8 @@ export const messages = {
   "error.backend.browserViewLimit": "Hay demasiadas vistas del navegador abiertas en este host.",
   "error.backend.browserViewEnded": "La vista en directo de esta página terminó.",
   "error.backend.browserViewFailed": "La vista en directo de esta página falló.",
-  "error.backend.windowTemporarilyUnavailable": "La ventana de OpenBot no está disponible temporalmente.",
-  "error.backend.windowUnavailable": "La ventana de OpenBot no está disponible.",
+  "error.backend.windowTemporarilyUnavailable": "La ventana de Builders Bot no está disponible temporalmente.",
+  "error.backend.windowUnavailable": "La ventana de Builders Bot no está disponible.",
   "error.backend.sunshineApiHttp": "La API de Sunshine falló con HTTP {status}.",
   "error.backend.sunshinePortsUnavailable":
     "No se pudo reservar una familia de puertos libre de Sunshine para el escritorio remoto.",
@@ -32,7 +32,7 @@ export const messages = {
   "error.backend.moonlightRejectedPairing": "Moonlight rechazó la vinculación con Sunshine.",
   "error.backend.moonlightNoPin": "Moonlight no devolvió un PIN de vinculación.",
   "error.backend.moonlightPairingIncomplete": "La vinculación de Moonlight no se completó.",
-  "error.backend.moonlightWebNotEmbedded": "Moonlight Web no es una compilación integrada de OpenBot.",
+  "error.backend.moonlightWebNotEmbedded": "Moonlight Web no es una compilación integrada de Builders Bot.",
   "error.backend.moonlightEmptyResponse": "Moonlight devolvió una respuesta vacía.",
   "error.backend.remoteDesktopTimeout": "Se agotó el tiempo de la solicitud de escritorio remoto.",
   "error.backend.moonlightApiHttp": "La API de Moonlight falló con HTTP {status}.",
@@ -49,8 +49,8 @@ export const messages = {
   "error.backend.browserUserControlUnsupported":
     "Este host remoto no admite tomar el control de una pestaña del navegador.",
   "error.backend.browserSignInUnsupported": "Este host remoto no puede recibir un inicio de sesión de este equipo.",
-  "error.backend.browserSignInOpenFailed": "OpenBot no pudo abrir la ventana de inicio de sesión.",
-  "error.backend.browserSignInReadFailed": "OpenBot no pudo leer el inicio de sesión de la ventana.",
+  "error.backend.browserSignInOpenFailed": "Builders Bot no pudo abrir la ventana de inicio de sesión.",
+  "error.backend.browserSignInReadFailed": "Builders Bot no pudo leer el inicio de sesión de la ventana.",
   "error.backend.browserStopUnsupported": "Este host remoto no puede detener la carga de una página.",
   "error.backend.sharedDataLocalOnly": "Los datos compartidos se gestionan en el equipo que ejecuta estos agentes.",
   "error.backend.browserUrlProtocol": "Solo se permiten URL HTTP(S) en el navegador.",
@@ -58,7 +58,7 @@ export const messages = {
   "error.backend.sunshineNotReadyReason": "Sunshine no llegó a estar listo. {reason}",
   "error.backend.channelLeadModelUnavailable": "El modelo del coordinador del canal no está disponible.",
   "error.backend.sharedDataUnavailable": "Los datos compartidos no están disponibles.",
-  "error.backend.shuttingDown": "OpenBot se está cerrando.",
+  "error.backend.shuttingDown": "Builders Bot se está cerrando.",
   "error.backend.channelUnconfirmedStart":
     "El canal tiene un inicio de tarea sin confirmar. Comprueba el resultado antes de eliminarlo.",
   "error.backend.channelNotFound": "No se encontró el canal.",
@@ -130,7 +130,7 @@ export const messages = {
   "error.backend.fileGone": "El archivo no existe o ya se ha eliminado.",
   "error.backend.managedAttachmentChanged": "El archivo adjunto gestionado falta o ha cambiado: {name}",
   "error.backend.mailboxStateCorrupt":
-    "El estado del buzón está dañado o pertenece a una versión más reciente de OpenBot; no se sobrescribirá.",
+    "El estado del buzón está dañado o pertenece a una versión más reciente de Builders Bot; no se sobrescribirá.",
   "error.backend.recipientDeleting":
     "El destinatario se está eliminando. Inténtalo de nuevo cuando termine la eliminación.",
   "error.backend.recipientHidden": "Este agente está oculto. Restáuralo para enviarle mensajes.",
@@ -138,7 +138,7 @@ export const messages = {
   "error.backend.attachmentNotFile": "El adjunto no es un archivo: {path}",
   "error.backend.generatedImageTooLarge": "La imagen generada supera el límite de 100 MB.",
   "error.backend.attachmentNotRegularFile": "Solo se pueden adjuntar archivos normales: {name}",
-  "error.backend.attachmentCopyFailed": "OpenBot no pudo copiar {name}.",
+  "error.backend.attachmentCopyFailed": "Builders Bot no pudo copiar {name}.",
   "error.backend.routineNameRequired": "Se requiere un nombre para la rutina.",
   "error.backend.routineNameTooLong": "El nombre de la rutina es demasiado largo.",
   "error.backend.routineInstructionRequired": "Se requiere una instrucción para la rutina.",
@@ -162,14 +162,14 @@ export const messages = {
   "error.backend.routineRunStarting":
     "Esta ejecución de la rutina aún se está iniciando. Inténtalo de nuevo cuando empiece su turno.",
   "error.backend.routineRunNoSession":
-    "OpenBot no puede interrumpir la ejecución activa de la rutina porque su sesión del proveedor no está disponible.",
+    "Builders Bot no puede interrumpir la ejecución activa de la rutina porque su sesión del proveedor no está disponible.",
   "error.backend.interruptSelf": "Un agente no puede interrumpirse a sí mismo.",
   "error.backend.interruptOtherWork":
     "Este agente trabaja en una tarea que no inició tu mensaje. Solo el usuario o quien envió esa tarea puede detenerlo.",
   "error.backend.interruptStarting":
     "Este agente aún está iniciando un turno. Inténtalo de nuevo cuando empiece el turno.",
   "error.backend.interruptNoSession":
-    "OpenBot no puede interrumpir este agente porque su sesión del proveedor no está disponible.",
+    "Builders Bot no puede interrumpir este agente porque su sesión del proveedor no está disponible.",
   "error.backend.memoryTextRequired": "Se requiere el texto del recuerdo.",
   "error.backend.memoryTextTooLong": "El texto del recuerdo es demasiado largo.",
   "error.backend.mcpServerGone": "Este servidor MCP ya no existe.",
@@ -195,15 +195,15 @@ export const messages = {
   "error.backend.agentWaitRemoteUnsupported":
     "Las esperas abiertas solo están disponibles para agentes en este equipo.",
   "error.backend.routineFlowHandoffFailed": "La rutina no pudo pasar el trabajo a este agente.",
-  "error.backend.mcpServerLimit": "OpenBot mantiene hasta {limit} servidores MCP.",
+  "error.backend.mcpServerLimit": "Builders Bot mantiene hasta {limit} servidores MCP.",
   "error.backend.mcpServerNameTaken": "Ya existe un servidor MCP llamado {name}.",
   "error.backend.mcpServerNoAnswer": "El servidor no respondió en {seconds} segundos.",
   "error.backend.mcpSignInNotAccepted": "El servidor no aceptó ese inicio de sesión.",
   "error.backend.mcpSignInClientRefused":
-    "El servidor de inicio de sesión no aceptó a OpenBot al completar el inicio de sesión. Inicia sesión de nuevo: OpenBot se registra otra vez en el servidor.",
+    "El servidor de inicio de sesión no aceptó a Builders Bot al completar el inicio de sesión. Inicia sesión de nuevo: Builders Bot se registra otra vez en el servidor.",
   "error.backend.mcpCommandNotFound": "No se encontró el comando: {command}",
   "error.backend.mcpRegistrationRefused":
-    "El servidor de inicio de sesión aún no acepta OpenBot como aplicación. Tu cuenta no es la causa. Usa otra forma de conexión, como un servidor MCP local.",
+    "El servidor de inicio de sesión aún no acepta Builders Bot como aplicación. Tu cuenta no es la causa. Usa otra forma de conexión, como un servidor MCP local.",
   "error.backend.mcpSignInAbandonedGeneric": "Se abandonó el inicio de sesión.",
   "error.backend.mcpSignInForgotten": "Se olvidó el inicio de sesión de MCP mientras estaba en curso.",
   "error.backend.mcpSignInAbandoned": "Se abandonó el inicio de sesión de MCP.",
@@ -212,21 +212,21 @@ export const messages = {
   "error.backend.mcpSignInRequired":
     "Este servidor pide que inicies sesión. Elige Iniciar sesión para continuar en tu navegador.",
   "error.backend.mcpSignInOnHost":
-    "Este servidor pide un inicio de sesión. Inicia sesión en él desde OpenBot en el equipo host.",
+    "Este servidor pide un inicio de sesión. Inicia sesión en él desde Builders Bot en el equipo host.",
   "error.backend.mcpSignInNeedsHttps":
-    "Este servidor pide un inicio de sesión, y OpenBot solo inicia sesión por https. Cambia la URL a {url}.",
+    "Este servidor pide un inicio de sesión, y Builders Bot solo inicia sesión por https. Cambia la URL a {url}.",
   "error.backend.mcpSignInCancelled": "Se canceló el inicio de sesión.",
   "error.backend.mcpSignInTimedOut": "El inicio de sesión no se completó en el navegador.",
   "error.backend.mcpSignInResponseTimedOut": "La respuesta del inicio de sesión no llegó a tiempo.",
   "error.backend.mcpSignInMetadataUnreadable":
-    "OpenBot no pudo leer la información de inicio de sesión de este servidor. Revisa la dirección del servidor y vuelve a intentarlo.",
+    "Builders Bot no pudo leer la información de inicio de sesión de este servidor. Revisa la dirección del servidor y vuelve a intentarlo.",
   "error.backend.mcpServerExited":
     "El servidor se detuvo antes de responder. Ejecuta el comando en una terminal para ver su error.",
   "error.backend.mcpOAuthProxyUnavailable":
-    "OpenBot no pudo iniciar su conexión local de inicio de sesión para este servidor. Reinicia OpenBot y vuelve a intentarlo.",
+    "Builders Bot no pudo iniciar su conexión local de inicio de sesión para este servidor. Reinicia Builders Bot y vuelve a intentarlo.",
   "error.backend.mcpOAuthSignInNeeded":
-    "El inicio de sesión en este servidor MCP ha terminado. El usuario debe volver a iniciar sesión en OpenBot.",
-  "error.backend.mcpServerUnreachable": "OpenBot no pudo conectar con el servidor. Revisa la URL y tu red.",
+    "El inicio de sesión en este servidor MCP ha terminado. El usuario debe volver a iniciar sesión en Builders Bot.",
+  "error.backend.mcpServerUnreachable": "Builders Bot no pudo conectar con el servidor. Revisa la URL y tu red.",
   "error.backend.mcpLocalServerOff":
     "Ningún servidor responde en {address} en este equipo. Inicia el servidor o actívalo en la app que lo ejecuta y vuelve a intentarlo.",
   "error.backend.mcpServerBlocked":
@@ -234,7 +234,7 @@ export const messages = {
   "error.backend.mcpServerIncompatible":
     "Algo respondió en esta dirección, pero no como un servidor MCP por Streamable HTTP. Revisa la URL y actualiza la app que ejecuta el servidor.",
   "error.backend.mcpRemoteBridge":
-    "{reason} Este comando ejecuta el puente mcp-remote. Elige Streamable HTTP con la URL {url} y OpenBot iniciará tu sesión.",
+    "{reason} Este comando ejecuta el puente mcp-remote. Elige Streamable HTTP con la URL {url} y Builders Bot iniciará tu sesión.",
   "error.backend.oauthNotHttps": "El endpoint OAuth {origin} no usa https, por lo que no se enviaron las credenciales.",
   "error.backend.oauthTooManyRedirects": "El endpoint OAuth redirigió demasiadas veces.",
   "error.backend.oauthRedirectOrigin":
@@ -277,7 +277,7 @@ export const messages = {
   "error.backend.approvalInactive": "Esta aprobación ya no está activa.",
   "error.backend.takeoverInactive": "Esta toma de control del navegador ya no está activa.",
   "error.backend.authSubmitting": "Ya se están enviando los datos de autenticación.",
-  "error.backend.apiKeySaveFailed": "OpenBot no pudo guardar la clave de API. Inténtalo de nuevo.",
+  "error.backend.apiKeySaveFailed": "Builders Bot no pudo guardar la clave de API. Inténtalo de nuevo.",
   "error.backend.apiKeyNotAllowed":
     "Solo el propietario del servidor o un administrador puede introducir una clave de API.",
   "error.backend.apiKeySaving": "La clave de API ya se está guardando.",
@@ -322,7 +322,7 @@ export const messages = {
   "error.backend.mcpSignInAppUrl": "La app de inicio de sesión necesita una URL de servidor válida.",
   "error.backend.mcpSignInAppClientId": "Introduce el ID de cliente de la app de inicio de sesión.",
   "error.backend.mcpSignInAppIssuerChanged":
-    "El servidor de inicio de sesión de este servidor MCP cambió, así que OpenBot no le envió la app de inicio de sesión. Si el cambio es correcto, quita la app de inicio de sesión y añádela de nuevo.",
+    "El servidor de inicio de sesión de este servidor MCP cambió, así que Builders Bot no le envió la app de inicio de sesión. Si el cambio es correcto, quita la app de inicio de sesión y añádela de nuevo.",
   "error.backend.mcpSignInAppNoServer":
     "Guarda este servidor MCP como servidor de URL antes de añadir una app de inicio de sesión.",
   "error.backend.mcpSignInAppUnavailable": "Este equipo no puede guardar una app de inicio de sesión.",
@@ -349,5 +349,5 @@ export const messages = {
   "error.backend.taskOpenLimitReached":
     "Este agente tiene {count} tareas abiertas. Cierra una tarea y después inicia o abre otra.",
   "error.backend.taskRemoteUnsupported": "Las tareas solo están disponibles para los agentes de este equipo.",
-  "error.backend.taskStartFailed": "OpenBot no pudo iniciar la tarea. Haz el trabajo en este turno.",
+  "error.backend.taskStartFailed": "Builders Bot no pudo iniciar la tarea. Haz el trabajo en este turno.",
 } as const satisfies PartialTranslation<typeof source>;

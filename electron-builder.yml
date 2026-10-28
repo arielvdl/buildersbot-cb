@@ -1,8 +1,8 @@
-appId: app.openbot.desktop
-productName: OpenBot
+appId: app.buildersbot.desktop
+productName: Builders Bot
 copyright: Copyright © 2026 Synthetify Labs spółka z ograniczoną odpowiedzialnością
 protocols:
-  - name: OpenBot invitations
+  - name: Builders Bot invitations
     schemes:
       - openbot
 asar: true
@@ -51,7 +51,7 @@ extraResources:
   # `cpu-limit.cjs` makes os.cpus() follow the CPU limit for the Node programs of agents on a server.
   - from: resources/agent-runtime
     to: agent-runtime
-  - from: build/icon-production.png
+  - from: build/buildersbot.png
     to: icons/icon-production.png
   - from: build/icon-dev.png
     to: icons/icon-dev.png
@@ -97,11 +97,11 @@ mac:
   # macOS 26 makes the dark icon a black tile with black eyes. The catalog also has flat images, and
   # `icon.icns` stays for macOS versions that read only `CFBundleIconFile`. Make the catalog again
   # with `bun scripts/compile-macos-icon.ts` after a change to the `.icon` file.
-  icon: build/icon-production.icns
+  icon: build/buildersbot.icns
   extraResources:
     - from: build/macos/Assets.car
       to: Assets.car
-    - from: build/icon-production-macos-safe-area.png
+    - from: build/buildersbot-macos-safe-area.png
       to: icons/icon-production-macos-safe-area.png
     - from: build/icon-dev-macos-safe-area.png
       to: icons/icon-dev-macos-safe-area.png
@@ -126,11 +126,11 @@ mac:
   extendInfo:
     CFBundleIconName: Icon
     ElectronTeamID: ZTRDTUL87R
-    NSMicrophoneUsageDescription: OpenBot uses the microphone to transcribe voice prompts locally on this Mac.
+    NSMicrophoneUsageDescription: Builders Bot uses the microphone to transcribe voice prompts locally on this Mac.
     # Computer Use runs the driver as a child process, so macOS asks for both grants in OpenBot's
     # name and shows these sentences.
-    NSScreenCaptureUsageDescription: OpenBot captures the screen so an agent can see the app windows you ask it to control.
-    NSAppleEventsUsageDescription: OpenBot sends Automation events so an agent can control the apps you ask it to control.
+    NSScreenCaptureUsageDescription: Builders Bot captures the screen so an agent can see the app windows you ask it to control.
+    NSAppleEventsUsageDescription: Builders Bot sends Automation events so an agent can control the apps you ask it to control.
     NSUserActivityTypes:
       - NSUserActivityTypeBrowsingWeb
   # No `arch` here: a target's own `arch` list replaces the one given on the command line, so
@@ -141,7 +141,7 @@ mac:
     - dmg
     - zip
 win:
-  icon: build/icon-production.ico
+  icon: build/buildersbot.ico
   extraResources:
     - from: .openbot-build/voice/runtime
       to: voice/runtime
@@ -163,7 +163,7 @@ nsis:
   allowToChangeInstallationDirectory: true
 linux:
   category: Development
-  icon: build/icon-production.png
+  icon: build/buildersbot.png
   synopsis: A local-first multi-agent desktop workspace.
   extraResources:
     - from: build/linux/openbot.apparmor

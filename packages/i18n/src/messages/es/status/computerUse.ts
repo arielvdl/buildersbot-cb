@@ -8,7 +8,7 @@ export const messages = {
   "status.computerUse.driverNoAnswer": "El controlador de uso del equipo no respondió. {reason}",
   "status.computerUse.driverStopped": "El controlador de uso del equipo se detuvo.",
   "status.computerUse.unsupported": "El uso del equipo está disponible en macOS, Windows y Linux.",
-  "status.computerUse.driverMissing": "Esta versión de OpenBot no incluye un controlador de uso del equipo.",
+  "status.computerUse.driverMissing": "Esta versión de Builders Bot no incluye un controlador de uso del equipo.",
   "status.computerUse.progressActing": "Usando una aplicación de este equipo…",
   "status.computerUse.progressDeciding": "Decidiendo el siguiente paso en la aplicación…",
 } as const satisfies PartialTranslation<typeof source>;

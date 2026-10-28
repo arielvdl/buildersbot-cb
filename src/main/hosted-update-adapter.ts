@@ -28,11 +28,11 @@ export interface HostedUpdatePaths {
 const HOSTED_UPDATE_PATHS: HostedUpdatePaths = {
   requests: "/run/openbot",
   state: "/run/openbot-update.state",
-  stagedReady: "/opt/OpenBot/staged.ready",
+  stagedReady: "/opt/Builders Bot/staged.ready",
 };
 
 /**
- * The folders that docker/instances/compose.yaml mounts in a container. OpenBot writes requests, and
+ * The folders that docker/instances/compose.yaml mounts in a container. Builders Bot writes requests, and
  * `openbot-instance update-request` on the host pulls the image and makes the container again.
  */
 export const CONTAINER_UPDATE_PATHS: HostedUpdatePaths = {
@@ -68,15 +68,15 @@ class RequestCancellation implements UpdateCancellationToken {
 }
 
 /**
- * The updater of a hosted or self-installed Linux server. OpenBot runs as the service user from a
+ * The updater of a hosted or self-installed Linux server. Builders Bot runs as the service user from a
  * release that root owns, so it cannot replace itself. It asks root instead: an empty file in its
  * runtime directory starts `openbot-hosted-update request` through a path unit. That stages the
- * newest release, or stops OpenBot, moves the staged release into place and starts OpenBot again.
+ * newest release, or stops Builders Bot, moves the staged release into place and starts Builders Bot again.
  *
  * UpdateService drives this as it drives electron-updater, so its deadlines apply. While root works,
  * the time of the state file changes, and each change is a progress event. When root stops without
  * a staged release, or never takes the request, the download fails. An install request has no
- * answer: shutdown preparation exits OpenBot after its deadline, and when root did not take the
+ * answer: shutdown preparation exits Builders Bot after its deadline, and when root did not take the
  * request, systemd starts the same release again. Each start of openbot.service starts the path
  * unit, so this happens only when an administrator stopped it.
  */
@@ -112,7 +112,7 @@ export class HostedUpdateAdapter implements UpdateAdapter {
   /**
    * Root answers also when the timer staged the release already: it answers after boat restored the
    * disk, which can take minutes after a wake. An install during the restore would wait for it with
-   * OpenBot stopped.
+   * Builders Bot stopped.
    */
   async downloadUpdate(cancellationToken?: UpdateCancellationToken): Promise<void> {
     const request = join(this.#paths.requests, "update-stage");

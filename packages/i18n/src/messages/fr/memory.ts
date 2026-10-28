@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Effacer tous les souvenirs",
   "memory.clearTitle": "Effacer tous les souvenirs ?",
   "memory.clearDescription":
-    "OpenBot va supprimer définitivement les {total} souvenirs enregistrés pour {name}. Les messages d’origine resteront dans l’historique de la conversation.",
+    "Builders Bot va supprimer définitivement les {total} souvenirs enregistrés pour {name}. Les messages d’origine resteront dans l’historique de la conversation.",
 
   "memory.loadFailed": "Impossible de charger les souvenirs.",
   "memory.saveFailed": "Impossible d’enregistrer le souvenir.",

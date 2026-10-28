@@ -2,20 +2,20 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/link";
 
 export const messages = {
-  "mobile.link.connectFailed": "OpenBot non è riuscito a connettersi. Riprova.",
+  "mobile.link.connectFailed": "Builders Bot non è riuscito a connettersi. Riprova.",
   "mobile.link.invite.signInTitle": "Accedi per unirti a questo server",
   "mobile.link.invite.signInDescription":
-    "Scansiona il codice QR in OpenBot sul computer. Poi potrai controllare l'invito.",
+    "Scansiona il codice QR in Builders Bot sul computer. Poi potrai controllare l'invito.",
   "mobile.link.invite.cancel": "Annulla invito",
   "mobile.link.pairing.title": "Collega questo telefono",
   "mobile.link.pairing.alreadySignedIn":
     "Hai già effettuato l'accesso. Esci dall'account nelle Impostazioni prima di collegare un altro account.",
   "mobile.link.pairing.description": "Continua solo se hai richiesto tu questo link Mobile Connect dal computer.",
   "mobile.link.pairing.accountService":
-    "Questo link si collega al servizio account su {origin}, non al servizio account di OpenBot.",
+    "Questo link si collega al servizio account su {origin}, non al servizio account di Builders Bot.",
   "mobile.link.pairing.connect": "Connetti",
   "mobile.link.plugin.title": "Apri la pagina del plugin",
-  "mobile.link.plugin.description": "Guarda questo plugin sul sito di OpenBot.",
+  "mobile.link.plugin.description": "Guarda questo plugin sul sito di Builders Bot.",
   "mobile.link.plugin.openFailed": "Impossibile aprire la pagina del plugin.",
   "mobile.link.plugin.view": "Vedi plugin",
   "mobile.link.unavailable.title": "Link non disponibile",
@@ -23,7 +23,7 @@ export const messages = {
     "Questo link non è valido, non è più disponibile o non è supportato sul telefono.",
   "mobile.link.template.signInTitle": "Accedi per aggiungere questo agente",
   "mobile.link.template.signInDescription":
-    "Scansiona il codice QR in OpenBot sul computer. Poi potrai controllare l'agente prima di aggiungerlo.",
+    "Scansiona il codice QR in Builders Bot sul computer. Poi potrai controllare l'agente prima di aggiungerlo.",
   "mobile.link.template.loading": "Caricamento dell'agente…",
   "mobile.link.template.creator": "Di {name}",
   "mobile.link.template.section.instructions": "Istruzioni",
@@ -35,7 +35,7 @@ export const messages = {
   "mobile.link.template.skill.marketplace": "Skill del Marketplace, versione {version}",
   "mobile.link.template.server.title": "Aggiungi al server",
   "mobile.link.template.server.footer": "Sono elencati solo i server di cui sei proprietario o amministratore.",
-  "mobile.link.template.server.updateRequired": "Aggiorna OpenBot su questo server per aggiungere agenti condivisi.",
+  "mobile.link.template.server.updateRequired": "Aggiorna Builders Bot su questo server per aggiungere agenti condivisi.",
   "mobile.link.template.server.none":
     "Per aggiungere un agente condiviso devi essere proprietario o amministratore di un server.",
   "mobile.link.template.install.action": "Aggiungi agente",
@@ -47,5 +47,5 @@ export const messages = {
   "mobile.link.template.error.title": "Impossibile caricare l'agente",
   "mobile.link.template.error.loadFailed": "Impossibile leggere l'agente condiviso. Riprova.",
   "mobile.link.template.error.unsupported":
-    "Questo server non può aggiungere agenti condivisi. Aggiorna OpenBot sul computer su cui gira il server.",
+    "Questo server non può aggiungere agenti condivisi. Aggiorna Builders Bot sul computer su cui gira il server.",
 } as const satisfies PartialTranslation<typeof source>;

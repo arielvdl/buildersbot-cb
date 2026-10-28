@@ -78,7 +78,7 @@ import {
 import type { AccountReadResult, ModelListResponse } from "./protocol";
 import { type ProviderClientOperationError, providerCall, providerFailure } from "./provider-client-effects";
 
-/** One command OpenBot runs against a provider's own CLI, waiting for the process to exit. */
+/** One command Builders Bot runs against a provider's own CLI, waiting for the process to exit. */
 interface ProviderCliCommand {
   readonly argv: readonly string[];
   readonly env: (cli: AgentCliInfo) => Record<string, string>;
@@ -117,7 +117,7 @@ const CLAUDE_COMMAND_ENV = (cli: AgentCliInfo): Record<string, string> =>
  * `OPENCODE_API_KEY` is the whole of the optional account: with it the CLI lists the paid Go
  * catalog, without it the free one. `OPENCODE_DISABLE_AUTOUPDATE` is not optional on a managed
  * install -- a CLI that updates itself past the pin fails the exact-version compare in
- * `verifyInstalledRuntime`, and OpenBot would then keep re-downloading a runtime it already has.
+ * `verifyInstalledRuntime`, and Builders Bot would then keep re-downloading a runtime it already has.
  */
 function opencodeEnv(cli: AgentCliInfo, credentials: ProviderClientContext): Record<string, string> {
   const key = credentials.apiKey("opencode");
@@ -134,23 +134,23 @@ function opencodeEnv(cli: AgentCliInfo, credentials: ProviderClientContext): Rec
  * answer say what it is, and a new arm is a compile error at both sites rather than a wrong login.
  */
 type ProviderSignIn =
-  /** The provider's own protocol hands back a URL for OpenBot to open. */
+  /** The provider's own protocol hands back a URL for Builders Bot to open. */
   | { kind: "browser" }
-  /** OpenBot spawns the provider's CLI and waits for the process to exit. */
+  /** Builders Bot spawns the provider's CLI and waits for the process to exit. */
   | { kind: "cli-command"; command: ProviderCliCommand }
-  /** The user signs in with the CLI themselves; OpenBot only re-probes the provider afterwards. */
+  /** The user signs in with the CLI themselves; Builders Bot only re-probes the provider afterwards. */
   | { kind: "external" }
   /** The host opens an interactive terminal and refreshes the account when it closes. */
   | { kind: "terminal"; timeoutMs: number }
   /**
-   * OpenBot starts the `muse serve` device sign-in and opens its page, which holds the code.
+   * Builders Bot starts the `muse serve` device sign-in and opens its page, which holds the code.
    * `muse login` with no terminal only prints that page and never opens it.
    */
   | { kind: "muse-device"; timeoutMs: number }
   | AcpAuthenticateSignIn;
 
 /**
- * OpenBot starts the ACP server and calls `authenticate` with this method, which opens a browser
+ * Builders Bot starts the ACP server and calls `authenticate` with this method, which opens a browser
  * from the server. Only the sign-in process calls it: in a status probe it would open a browser.
  */
 interface AcpAuthenticateSignIn {
@@ -216,7 +216,7 @@ const ANTIGRAVITY_ENV = { AGY_ACP_FORCE_FILE_STORAGE: "1" };
 
 /**
  * The sandbox paths of a Gemini process: in the account's `GEMINI_HOME` when it has one. The
- * sandbox cannot create the folders in a new account's home, so OpenBot makes them.
+ * sandbox cannot create the folders in a new account's home, so Builders Bot makes them.
  */
 function antigravityAccountStatePaths(context: ProviderClientContext) {
   const state = antigravityStatePaths({ ...process.env, ...context.accountEnvironment });
@@ -240,7 +240,7 @@ const GEMINI_API_KEY_METHOD = "gemini-api-key";
 /**
  * The Windows Antigravity server unpacks about 310 MB into the temporary folder at each start, and a
  * process that is stopped or times out leaves that copy behind. Each process gets a folder that
- * OpenBot removes (`provider-temp.ts`).
+ * Builders Bot removes (`provider-temp.ts`).
  */
 export function antigravityTemp(context: Pick<ProviderClientContext, "providerTempDirectory" | "availableDiskBytes">) {
   return context.providerTempDirectory
@@ -253,7 +253,7 @@ export function antigravityTemp(context: Pick<ProviderClientContext, "providerTe
 
 /**
  * Google's registry starts the Linux build with an empty `--uid=`, and the other builds with no
- * argument. OpenBot starts it the same way.
+ * argument. Builders Bot starts it the same way.
  */
 const ANTIGRAVITY_ARGV: readonly string[] = process.platform === "linux" ? ["--uid="] : [];
 
@@ -270,7 +270,7 @@ const CLINE_ARGV: readonly string[] = ["--acp"];
 
 /**
  * By default, the Cline CLI runs its sessions in a hub process that it detaches and that other Cline
- * processes share. That process would outlive OpenBot and would escape a Workspace only sandbox, so
+ * processes share. That process would outlive Builders Bot and would escape a Workspace only sandbox, so
  * every Cline process runs its sessions in itself. The managed CLI must not replace itself.
  */
 const CLINE_ENV: Readonly<Record<string, string>> = {
@@ -280,7 +280,7 @@ const CLINE_ENV: Readonly<Record<string, string>> = {
 
 /**
  * The sandbox lets a Cline process write in its data folder, not create `~/.cline` itself. A CLI
- * that only `CLINE_API_KEY` signs in has not made that folder yet, so OpenBot makes it.
+ * that only `CLINE_API_KEY` signs in has not made that folder yet, so Builders Bot makes it.
  */
 function confineClineTarget(target: SpawnTarget, confinement: ProcessConfinement): SpawnTarget {
   const state = clineStatePaths();
@@ -314,7 +314,7 @@ export interface ProviderClientContext {
    */
   readonly reportMcpDrops?: McpDropReporter;
   /**
-   * What OpenBot downloaded for the MCP servers, read at spawn like everything else here. Optional
+   * What Builders Bot downloaded for the MCP servers, read at spawn like everything else here. Optional
    * for the same reason as `reportMcpDrops`: a driver without one sees the machine as it is.
    */
   readonly mcpToolRuntimes?: McpToolRuntimeSource;
@@ -342,12 +342,12 @@ export interface ProviderClientContext {
    */
   servesModel?(modelId: string): boolean;
   /**
-   * A folder OpenBot owns for files it gives a provider process, outside every root an agent can
+   * A folder Builders Bot owns for files it gives a provider process, outside every root an agent can
    * write. Optional for the same reason as `reportMcpDrops`.
    */
   readonly providerStateDirectory?: string;
   /**
-   * A folder OpenBot owns for the temporary files of provider processes, emptied at each launch.
+   * A folder Builders Bot owns for the temporary files of provider processes, emptied at each launch.
    * Optional for the same reason as `reportMcpDrops`: without it a process uses the system folder.
    * The app gives it on Windows only.
    */
@@ -462,8 +462,8 @@ export interface BuiltInProviderDriver {
   signIn: ProviderSignIn;
   /**
    * The file the provider's CLI writes when the user signs in with it. The host checks the account
-   * again when this file changes, so a sign-in done outside OpenBot, such as over SSH, needs no
-   * restart. Absent for a provider that OpenBot always signs in itself.
+   * again when this file changes, so a sign-in done outside Builders Bot, such as over SSH, needs no
+   * restart. Absent for a provider that Builders Bot always signs in itself.
    */
   signInFile?(): string;
   /** Absent for a provider that has no sign-in on another device. */
@@ -561,7 +561,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
   },
   {
     id: "inception",
-    // The key is pasted into OpenBot. Pi's own sign-in stays on the Pi row.
+    // The key is pasted into Builders Bot. Pi's own sign-in stays on the Pi row.
     signIn: { kind: "external" },
     cliProvider: "pi",
     resolveCli: resolvePiCli,
@@ -572,7 +572,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
   },
   {
     id: "deepseek",
-    // The key is pasted into OpenBot. Pi's own sign-in stays on the Pi row.
+    // The key is pasted into Builders Bot. Pi's own sign-in stays on the Pi row.
     signIn: { kind: "external" },
     cliProvider: "pi",
     resolveCli: resolvePiCli,
@@ -583,7 +583,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
   },
   {
     id: "openrouter",
-    // The key is pasted into OpenBot. Pi's own sign-in stays on the Pi row.
+    // The key is pasted into Builders Bot. Pi's own sign-in stays on the Pi row.
     signIn: { kind: "external" },
     cliProvider: "pi",
     resolveCli: resolvePiCli,
@@ -670,7 +670,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
       command: { argv: ["auth", "login", "--claudeai"], env: CLAUDE_COMMAND_ENV, timeoutMs: CLI_LOGIN_TIMEOUT_MS },
     },
     // On macOS the CLI keeps the credential in a keychain item named after the folder, so the
-    // sign-out removes that item before OpenBot removes the folder.
+    // sign-out removes that item before Builders Bot removes the folder.
     accounts: {
       homeVariable: "CLAUDE_CONFIG_DIR",
       signIn: { argv: ["auth", "login", "--claudeai"], env: CLAUDE_COMMAND_ENV, timeoutMs: CLI_LOGIN_TIMEOUT_MS },
@@ -745,7 +745,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
   {
     id: "opencode",
     // `opencode auth login` is an interactive terminal UI and cannot be spawned headless, so the
-    // optional OpenCode Go key is pasted into OpenBot instead. Nothing is required to sign in:
+    // optional OpenCode Go key is pasted into Builders Bot instead. Nothing is required to sign in:
     // with no credential at all the CLI still lists the free models and answers a turn.
     signIn: { kind: "external" },
     // A stored key is an OpenCode Go key, and `isOpencodeModelUnusableWithStoredKey` says why that
@@ -953,7 +953,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
   },
   {
     id: "acp",
-    // Each custom agent signs in its own way, in its own CLI. OpenBot only checks it again.
+    // Each custom agent signs in its own way, in its own CLI. Builders Bot only checks it again.
     signIn: { kind: "external" },
     // A custom agent can need more than 5 s to start and open a probe session in `initialize` and
     // again in `model/list`: Claude Agent ACP with a few plugins and MCP servers does.

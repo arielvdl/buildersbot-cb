@@ -5,7 +5,7 @@ import type {
   CreateChannelRoutineInput,
   UpdateChannelRoutineInput,
 } from "@openbot/contracts/ipc";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 import {
   type DueRoutine,
   type OwnedRoutine,
@@ -30,7 +30,7 @@ export interface DueChannelRoutine {
  * joins a run to the tasks it produced.
  */
 export class ChannelRoutineStore extends RoutineStore {
-  constructor(database: OpenBotDatabase) {
+  constructor(database: BuildersBotDatabase) {
     super(database, ROUTINE_TABLES.channel);
   }
 

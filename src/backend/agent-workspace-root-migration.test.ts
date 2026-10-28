@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
-// Failure modes: migration 13 leaves a workspace root at `OpenBot/Bots` while it renames the leaf, misses the
+// Failure modes: migration 13 leaves a workspace root at `Builders Bot/Bots` while it renames the leaf, misses the
 // Windows or the JSON-escaped form of a path, changes a path that only looks like the root (`Botsy`, a user's own
-// `Projects/OpenBot/Bots`), or keeps a partial rewrite after a failure.
+// `Projects/Builders Bot/Bots`), or keeps a partial rewrite after a failure.
 const databases: DatabaseSync[] = [];
 afterEach(() => {
   for (const db of databases.splice(0)) db.close();
@@ -17,22 +17,22 @@ function databaseAt(version: number): DatabaseSync {
   db.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
   return db;
 }
 
 const posixUuid = "1b4e28ba-2fa1-41d2-883f-0016d3cca427";
 const windowsUuid = "6fa459ea-ee8a-4ca4-894e-db77e160355e";
-const posixWorkspace = `/Users/user/OpenBot/Bots/bot-${posixUuid}`;
-const windowsWorkspace = `C:\\Users\\user\\OpenBot\\Bots\\bot-${windowsUuid}`;
+const posixWorkspace = `/Users/user/Builders Bot/Bots/bot-${posixUuid}`;
+const windowsWorkspace = `C:\\Users\\user\\Builders Bot\\Bots\\bot-${windowsUuid}`;
 
 // A message that quotes each kind of path. Only the first two are under a root that this database stored.
 const quotedPaths = [
   `${posixWorkspace}/notes.md`,
   `${windowsWorkspace}\\plan.md`,
-  "/Users/user/OpenBot/Botsy/keep.md",
-  "/Users/user/Projects/OpenBot/Bots/repo/README.md",
+  "/Users/user/Builders Bot/Botsy/keep.md",
+  "/Users/user/Projects/Builders Bot/Bots/repo/README.md",
 ];
 
 function seed(db: DatabaseSync): void {
@@ -52,7 +52,7 @@ function seed(db: DatabaseSync): void {
     "chief",
     "openbot-thread-chief",
     2,
-    JSON.stringify({ id: "chief", workspacePath: "/Users/user/OpenBot/Bots/chief" }),
+    JSON.stringify({ id: "chief", workspacePath: "/Users/user/Builders Bot/Bots/chief" }),
   );
   db.exec(`INSERT INTO projection_threads
       (thread_id, agent_id, title, active_turn_id, created_at, updated_at, last_event_sequence)
@@ -92,33 +92,33 @@ function workspacePaths(db: DatabaseSync) {
 }
 
 describe("agent workspace root migration", () => {
-  it("moves each stored root from OpenBot/Bots to OpenBot/Agents once, in every form", () => {
+  it("moves each stored root from Builders Bot/Bots to Builders Bot/Agents once, in every form", () => {
     const db = databaseAt(12);
     seed(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
 
     const posixAgent = `agent-${posixUuid}`;
     const windowsAgent = `agent-${windowsUuid}`;
     expect(workspacePaths(db)).toEqual([
-      { agent_id: posixAgent, path: `/Users/user/OpenBot/Agents/${posixAgent}` },
-      { agent_id: windowsAgent, path: `C:\\Users\\user\\OpenBot\\Agents\\${windowsAgent}` },
+      { agent_id: posixAgent, path: `/Users/user/Builders Bot/Agents/${posixAgent}` },
+      { agent_id: windowsAgent, path: `C:\\Users\\user\\Builders Bot\\Agents\\${windowsAgent}` },
       // The root is a text substitution over the whole database, so it also moves an agent that keeps its id.
       // `AgentStore` then moves that directory at start-up.
-      { agent_id: "chief", path: "/Users/user/OpenBot/Agents/chief" },
+      { agent_id: "chief", path: "/Users/user/Builders Bot/Agents/chief" },
     ]);
     const message = db
       .prepare("SELECT json_extract(message_json, '$.text') AS text FROM projection_thread_messages")
       .get();
     expect(String(message?.text).split("\n")).toEqual([
-      `/Users/user/OpenBot/Agents/${posixAgent}/notes.md`,
-      `C:\\Users\\user\\OpenBot\\Agents\\${windowsAgent}\\plan.md`,
-      "/Users/user/OpenBot/Botsy/keep.md",
-      "/Users/user/Projects/OpenBot/Bots/repo/README.md",
+      `/Users/user/Builders Bot/Agents/${posixAgent}/notes.md`,
+      `C:\\Users\\user\\Builders Bot\\Agents\\${windowsAgent}\\plan.md`,
+      "/Users/user/Builders Bot/Botsy/keep.md",
+      "/Users/user/Projects/Builders Bot/Bots/repo/README.md",
     ]);
     expect(contents(db).attachments).toEqual([
-      { owner_id: windowsAgent, path: `C:\\Users\\user\\OpenBot\\Agents\\${windowsAgent}\\plan.md` },
+      { owner_id: windowsAgent, path: `C:\\Users\\user\\Builders Bot\\Agents\\${windowsAgent}\\plan.md` },
     ]);
-    expect(contents(db).outbox).toEqual([{ path: `/Users/user/OpenBot/Agents/${posixAgent}/old.md` }]);
+    expect(contents(db).outbox).toEqual([{ path: `/Users/user/Builders Bot/Agents/${posixAgent}/old.md` }]);
     expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 47 });
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -131,17 +131,17 @@ describe("agent workspace root migration", () => {
     const before = contents(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version = 13
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 13 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 13 failed");
     expect(contents(db)).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 13").all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
 
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(workspacePaths(db)).toEqual([
-      { agent_id: `agent-${posixUuid}`, path: `/Users/user/OpenBot/Agents/agent-${posixUuid}` },
-      { agent_id: `agent-${windowsUuid}`, path: `C:\\Users\\user\\OpenBot\\Agents\\agent-${windowsUuid}` },
-      { agent_id: "chief", path: "/Users/user/OpenBot/Agents/chief" },
+      { agent_id: `agent-${posixUuid}`, path: `/Users/user/Builders Bot/Agents/agent-${posixUuid}` },
+      { agent_id: `agent-${windowsUuid}`, path: `C:\\Users\\user\\Builders Bot\\Agents\\agent-${windowsUuid}` },
+      { agent_id: "chief", path: "/Users/user/Builders Bot/Agents/chief" },
     ]);
   });
 });

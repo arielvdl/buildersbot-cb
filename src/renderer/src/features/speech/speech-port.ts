@@ -1,4 +1,4 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What spoken replies reach in main: the speech model and settings, the synthesis, the finished
@@ -6,7 +6,7 @@ import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
  */
 export interface SpeechPort {
   voice: Pick<
-    OpenBotDesktopApi["voice"],
+    BuildersBotDesktopApi["voice"],
     | "getSpeechSettings"
     | "getSpeechModelStatus"
     | "downloadSpeechModel"
@@ -15,7 +15,7 @@ export interface SpeechPort {
     | "warmSpeech"
     | "keepRecording"
   >;
-  agent: Pick<OpenBotDesktopApi["agent"], "readConversationPage" | "discardDraftAttachment">;
+  agent: Pick<BuildersBotDesktopApi["agent"], "readConversationPage" | "discardDraftAttachment">;
 }
 
 /** Read on each call: tests and stories replace `window.openbot` per case. */

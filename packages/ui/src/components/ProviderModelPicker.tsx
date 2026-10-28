@@ -99,7 +99,7 @@ interface ProviderModelPickerProps {
   providerAccountId?: string | null | undefined;
   /**
    * The agent's provider when this build does not know it. The host still runs the agent, so the
-   * picker shows its model, and it cannot open until OpenBot is updated.
+   * picker shows its model, and it cannot open until Builders Bot is updated.
    */
   foreignProvider?: ForeignProviderId | undefined;
   /** `accountId` is passed only with `accountChoice`, for a provider with more than one account: null for its own sign-in. */
@@ -704,7 +704,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
                     if (effort) props.onReasoningEffortChange?.(effort);
                   }
                 }
-                // The provider the tab's status is for: a custom agent has no runtime OpenBot downloads.
+                // The provider the tab's status is for: a custom agent has no runtime Builders Bot downloads.
                 const runtime = () => {
                   const value = props.runtimeStatuses?.[status().id];
                   if (

@@ -1,6 +1,6 @@
 /**
- * Variables that a Claude Code session sets for the commands it runs. When an agent starts OpenBot
- * with `open -a OpenBot` from such a command, the app gets them, and every agent and tool inherits
+ * Variables that a Claude Code session sets for the commands it runs. When an agent starts Builders Bot
+ * with `open -a Builders Bot` from such a command, the app gets them, and every agent and tool inherits
  * them from this process. A Claude agent then runs as a child of that other session: the SDK keeps
  * an inherited `CLAUDE_CODE_ENTRYPOINT`, so each new session writes its prompt cache again (#3415).
  * User settings such as `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CONFIG_DIR` or

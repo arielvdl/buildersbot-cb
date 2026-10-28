@@ -104,7 +104,7 @@ export const messages = {
   "sidebar.delete.pending": "삭제 중…",
   "sidebar.delete.title": "{name}을(를) 삭제할까요?",
   "sidebar.delete.agentDescription":
-    "앱에서 에이전트와 OpenBot 대화가 삭제돼요. 에이전트의 대기열, 메모리, 루틴, 워크스페이스도 삭제돼요. 연결된 CLI 제공자가 따로 저장한 기록은 삭제되지 않아요.",
+    "앱에서 에이전트와 Builders Bot 대화가 삭제돼요. 에이전트의 대기열, 메모리, 루틴, 워크스페이스도 삭제돼요. 연결된 CLI 제공자가 따로 저장한 기록은 삭제되지 않아요.",
   "sidebar.delete.channelDescription":
     "채널이 중지돼요. 채널 기록은 삭제된 채널에 남아 미리보기만 할 수 있어요. 거기서 복원할 수 있어요. 멤버 에이전트는 유지돼요.",
   "sidebar.delete.sectionDescription": "이 섹션의 에이전트는 미지정으로 이동해요. 에이전트는 삭제되지 않아요.",
@@ -117,7 +117,7 @@ export const messages = {
   "sidebar.announce.movedPinned": "고정된 채팅을 {total}개 중 {position}번째로 이동했어요.",
   "sidebar.announce.personFallback": "사람",
   "sidebar.announce.chatFallback": "채팅",
-  "sidebar.mobileApp.title": "모바일용 OpenBot",
+  "sidebar.mobileApp.title": "모바일용 Builders Bot",
   "sidebar.mobileApp.body": "이제 iPhone과 Android에서 앱을 사용할 수 있어요.",
   "sidebar.mobileApp.howToInstall": "설치 방법",
   "sidebar.mobileApp.dismiss": "모바일 앱 공지 닫기",
@@ -133,6 +133,6 @@ export const messages = {
   "sidebar.community.title": "의자를 하나 끌어당겨 앉으세요.",
   "sidebar.community.body": "AI의 미래에 여러분의 자리가 있어요. Discord와 X에서 커뮤니티에 참여해 보세요.",
   "sidebar.community.joinDiscord": "Discord 참여",
-  "sidebar.community.followX": "X에서 OpenBot 팔로우",
+  "sidebar.community.followX": "X에서 Builders Bot 팔로우",
   "sidebar.community.dismiss": "커뮤니티 초대 닫기",
 } as const satisfies PartialTranslation<typeof source>;

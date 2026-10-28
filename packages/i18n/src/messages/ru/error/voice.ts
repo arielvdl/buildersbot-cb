@@ -11,8 +11,8 @@ export const messages = {
   "error.voice.modelUnavailable": "Голосовая модель недоступна.",
   "error.voice.transcriptionTimedOut": "Время расшифровки голоса истекло.",
   "error.voice.prepareRequired":
-    "Локальная расшифровка голоса недоступна. Выполните `bun run voice:prepare` и перезапустите OpenBot.",
-  "error.voice.transcriptionFailed": "OpenBot не смог расшифровать эту запись.",
+    "Локальная расшифровка голоса недоступна. Выполните `bun run voice:prepare` и перезапустите Builders Bot.",
+  "error.voice.transcriptionFailed": "Builders Bot не смог расшифровать эту запись.",
   "error.voice.cloud.keyRequired": "Добавьте API-ключ ElevenLabs в разделе «Настройки» → «Голос».",
   "error.voice.cloud.keyRejected": "ElevenLabs не принял API-ключ. Проверьте ключ в разделе «Настройки» → «Голос».",
   "error.voice.cloud.quotaExceeded": "Квота ElevenLabs исчерпана.",
@@ -24,6 +24,6 @@ export const messages = {
   "error.voice.speech.runtimeUnavailable": "Локальный синтез речи недоступен на этой платформе.",
   "error.voice.speech.modelRequired": "Скачайте модель синтеза речи в разделе «Настройки» → «Голос».",
   "error.voice.speech.timedOut": "Время чтения ответа вслух истекло.",
-  "error.voice.speech.failed": "OpenBot не смог прочитать ответ вслух.",
-  "error.voice.recordingNotKept": "OpenBot не смог сохранить голосовую запись.",
+  "error.voice.speech.failed": "Builders Bot не смог прочитать ответ вслух.",
+  "error.voice.recordingNotKept": "Builders Bot не смог сохранить голосовую запись.",
 } as const satisfies PartialTranslation<typeof source>;

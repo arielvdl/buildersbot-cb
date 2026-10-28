@@ -1,7 +1,7 @@
 // The user's own ACP agents: what is on disk, and every write that changes it.
 //
 // An agent carries environment values, often an API key, so this file is the only place they exist
-// outside the agent process OpenBot starts. The renderer is given `list()`, which has the variable
+// outside the agent process Builders Bot starts. The renderer is given `list()`, which has the variable
 // names only; the backend is given `configs()`, which is what a spawn needs. Nothing else reads the
 // file.
 //

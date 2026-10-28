@@ -6,7 +6,7 @@ export const messages = {
   "error.app.externalLinkProtocol": "Seuls les liens HTTP(S) peuvent s’ouvrir dans le navigateur externe.",
   "error.app.notificationsUnsupported": "Ce système ne prend pas en charge les notifications de bureau.",
   "error.app.notificationSettingsMissing": "Ce système n’a pas de page de réglages des notifications.",
-  "error.app.notReady": "OpenBot n’est pas prêt.",
+  "error.app.notReady": "Builders Bot n’est pas prêt.",
   "error.app.macSecureStorageUnavailable": "Le stockage sécurisé de macOS n’est pas disponible.",
   "error.app.secretStorageUnavailable": "Le stockage des secrets du système n’est pas disponible.",
   "error.app.remoteIdentityUnavailable": "L’identité de l’hôte distant n’est pas disponible.",

@@ -122,7 +122,7 @@
 }
 
 .whats-new-group[data-type="added"] {
-  --whats-new-tone: var(--openbot-logo-production);
+  --whats-new-tone: var(--openbot-logo-signal);
 }
 
 .whats-new-group[data-type="changed"] {

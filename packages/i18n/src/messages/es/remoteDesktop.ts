@@ -9,7 +9,7 @@ export const messages = {
   "remoteDesktop.workspaceLabel": "Control remoto",
   "remoteDesktop.displayLabel": "Pantalla remota",
   "remoteDesktop.selectDisplay": "Seleccionar pantalla",
-  "remoteDesktop.backToOpenBot": "Volver a OpenBot",
+  "remoteDesktop.backToBuildersBot": "Volver a Builders Bot",
   "remoteDesktop.disconnect": "Desconectar",
   "remoteDesktop.viewerTitle": "Escritorio remoto de Sunshine",
   "remoteDesktop.viewerLoadFailed": "No se pudo cargar el visor de Moonlight.",
@@ -20,7 +20,7 @@ export const messages = {
   "remoteDesktop.openFailed": "No se pudo abrir el escritorio",
   "remoteDesktop.notSharingTitle": "{name} no comparte su pantalla",
   "remoteDesktop.notSharingDescription":
-    "El servidor impide que OpenBot grabe su pantalla. En ese servidor, abre Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla, activa OpenBot y vuelve a intentarlo aquí.",
+    "El servidor impide que Builders Bot grabe su pantalla. En ese servidor, abre Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla, activa Builders Bot y vuelve a intentarlo aquí.",
   "remoteDesktop.setup.check.screenRecording": "Grabación de pantalla",
   "remoteDesktop.setup.check.accessibility": "Accesibilidad",
   "remoteDesktop.setup.check.service": "Servicio de Sunshine",
@@ -41,7 +41,7 @@ export const messages = {
   "remoteDesktop.setup.startFailed": "No se pudo iniciar la prueba del escritorio remoto.",
   "remoteDesktop.setup.connectionLost": "Se perdió la conexión de prueba.",
   "remoteDesktop.setup.hostUpdateRequired":
-    "Actualiza OpenBot en el servidor para comprobar los permisos y probar el escritorio remoto.",
+    "Actualiza Builders Bot en el servidor para comprobar los permisos y probar el escritorio remoto.",
   "remoteDesktop.setup.permissions": "Permisos",
   "remoteDesktop.setup.checked": "Comprobado",
   "remoteDesktop.setup.checkAgain": "Comprobar",

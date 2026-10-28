@@ -1,5 +1,4 @@
-import { BloubBot } from "@norbert_bodziony/bloub";
-import { bloubAvatarProfile } from "@openbot/brand/bloub-avatar";
+import { AgentMark, avatarMarkAccent, avatarMarkExpression } from "@openbot/brand/agent-mark";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { render } from "@solidjs/web";
 import { flush } from "solid-js";
@@ -13,6 +12,9 @@ export type AvatarMotion = "hover" | "always" | "idle";
 export {
   AVATAR_HUE_CHOICES,
   AVATAR_HUE_OPTIONS,
+  AVATAR_MARK_COLOR,
+  AVATAR_MARK_EYE,
+  AVATAR_MARK_SHAPE,
   avatarCandidateSeeds,
   avatarHeadColor,
   avatarHueSwatch,
@@ -34,41 +36,30 @@ export function createStaticAvatarSvg(seed: string, hue: AvatarHue | null): SVGS
   const svg = host.querySelector("svg");
   if (!svg) {
     dispose();
-    throw new Error("Bloub did not render an SVG avatar.");
+    throw new Error("The mark did not render an SVG avatar.");
   }
   const result = svg.cloneNode(true);
   if (!(result instanceof SVGSVGElement)) {
     dispose();
-    throw new Error("Bloub did not clone an SVG avatar.");
+    throw new Error("The mark did not clone an SVG avatar.");
   }
   dispose();
   return result;
 }
 
 function mountStaticAvatar(host: HTMLElement, seed: string, hue: AvatarHue | null): () => void {
-  const profile = bloubAvatarProfile(seed, hue);
   const dispose = render(
-    () => (
-      <BloubBot
-        size={100}
-        shape={profile.shape}
-        color={profile.color}
-        expression={profile.expression}
-        frozenAt={0}
-        ariaLabel=""
-      />
-    ),
+    () => <AgentMark expression={avatarMarkExpression(seed)} accent={avatarMarkAccent(hue)} animated={false} />,
     host,
   );
   flush();
   const svg = host.querySelector("svg");
   if (!svg) {
     dispose();
-    throw new Error("Bloub did not render an SVG avatar.");
+    throw new Error("The mark did not render an SVG avatar.");
   }
-  svg.removeAttribute("role");
-  svg.removeAttribute("aria-label");
-  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("width", "100");
+  svg.setAttribute("height", "100");
   svg.setAttribute("focusable", "false");
   return dispose;
 }

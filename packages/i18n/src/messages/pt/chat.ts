@@ -391,7 +391,7 @@ export const messages = {
   "chat.suggestion.dismissNamed": "Dispensar {name}",
   "chat.suggestion.dismissed": "Sugestão de {name} dispensada.",
   "chat.suggestion.undo": "Desfazer",
-  "chat.suggestion.localOnly": "Conecte {name} no OpenBot do seu próprio computador.",
+  "chat.suggestion.localOnly": "Conecte {name} no Builders Bot do seu próprio computador.",
   "chat.suggestion.unavailable": "Este servidor não pode conectar {name}.",
   "chat.compaction.running": "Compactando o contexto",
   "chat.compaction.completed": "Contexto compactado",

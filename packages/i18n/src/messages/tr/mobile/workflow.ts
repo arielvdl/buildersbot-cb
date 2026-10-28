@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "İş akışlarını telefonunuzda kullanmak için bu sunucudaki OpenBot'u güncelleyin.",
+  "mobile.workflow.unsupported": "İş akışlarını telefonunuzda kullanmak için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.workflow.offline": "Sunucu çevrimdışı. İş akışları bağlandığında görünür.",
   "mobile.workflow.list.loading": "Yükleniyor…",
   "mobile.workflow.list.loadFailed": "İş akışları yüklenemedi.",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.workflow.action.edit": "Düzenle",
   "mobile.workflow.alert.runFailedTitle": "İş akışı başlatılamadı",
   "mobile.workflow.alert.runFailedBody": "Sunucu çalıştırmayı başlatmadı. Tekrar deneyin.",
-  "mobile.workflow.alert.tryAgain": "OpenBot bunu yapamadı. Tekrar deneyin.",
+  "mobile.workflow.alert.tryAgain": "Builders Bot bunu yapamadı. Tekrar deneyin.",
   "mobile.workflow.drawer.needYou": { one: "{count} sizi bekliyor", other: "{count} sizi bekliyor" },
   "mobile.workflow.drawer.running": { one: "{count} çalışıyor", other: "{count} çalışıyor" },
   "mobile.workflow.drawer.review": "Sizi bekliyor · incelemek için dokunun",
@@ -33,7 +33,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "İş akışı yüklenemedi.",
   "mobile.workflow.detail.starting": "Başlatılıyor…",
   "mobile.workflow.detail.newerApp":
-    "Bu iş akışında daha yeni bir OpenBot sürümünden adımlar var. Değiştirmek için telefonunuzdaki OpenBot'u güncelleyin.",
+    "Bu iş akışında daha yeni bir Builders Bot sürümünden adımlar var. Değiştirmek için telefonunuzdaki Builders Bot'u güncelleyin.",
   "mobile.workflow.detail.waits": "{number}. çalıştırma sizi bekliyor. İncele",
   "mobile.workflow.detail.canvasOrder": "Adımlar, tuvaldeki gibi soldan sağa gösterilir.",
   "mobile.workflow.detail.trigger": "Tetikleyici",
@@ -68,7 +68,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "Adresine bir istek geldiğinde çalışır.",
   "mobile.workflow.trigger.message": "Mesaj",
-  "mobile.workflow.trigger.messageHint": "Bu tetikleyiciyi bilgisayarınızdaki OpenBot'ta değiştirin.",
+  "mobile.workflow.trigger.messageHint": "Bu tetikleyiciyi bilgisayarınızdaki Builders Bot'ta değiştirin.",
   "mobile.workflow.trigger.startsWhen": "Başlangıç",
   "mobile.workflow.trigger.timezone": "Saat dilimi: {zone}",
   "mobile.workflow.trigger.serverZone": "Zamanlama sunucunun saat dilimini kullanır.",
@@ -103,7 +103,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "Devam etmek için onaylayın.",
   "mobile.workflow.step.textEmpty": "Metin yok",
   "mobile.workflow.step.textPlaceholder": "Sonraki adım için metin",
-  "mobile.workflow.step.computerOnly": "Bu adımı bilgisayarınızdaki OpenBot'ta değiştirin.",
+  "mobile.workflow.step.computerOnly": "Bu adımı bilgisayarınızdaki Builders Bot'ta değiştirin.",
   "mobile.workflow.step.gone": "Bu adım artık iş akışında yok.",
   "mobile.workflow.step.agent": "Ajan",
   "mobile.workflow.step.agentHint": "Ajan, görevi önceki adımın çıktısıyla yapar.",
@@ -121,7 +121,7 @@ export const messages = {
   "mobile.workflow.step.questionHint": "Çalıştırma, siz onaylayana veya reddedene kadar bekler. Bildirim alırsınız.",
   "mobile.workflow.step.text": "Metin",
   "mobile.workflow.step.sendTo": "Gönderilecek yer",
-  "mobile.workflow.step.channelHint": "Mesajlaşma yerini bilgisayardaki OpenBot'ta bir sahip veya yönetici seçer.",
+  "mobile.workflow.step.channelHint": "Mesajlaşma yerini bilgisayardaki Builders Bot'ta bir sahip veya yönetici seçer.",
   "mobile.workflow.problem.noTitle": "Bir ad yazın.",
   "mobile.workflow.problem.noAgent": "Ajan seç",
   "mobile.workflow.problem.agentGone": "Ajan kullanılamıyor. Ajan seç",
@@ -142,7 +142,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "Sonraki adım için sabit metin.",
   "mobile.workflow.add.output": "Sonucu size gönderir.",
   "mobile.workflow.add.oneCondition":
-    "Telefonda bir iş akışında tek bir koşul olur. Daha fazla yol için bilgisayarınızdaki OpenBot'u kullanın.",
+    "Telefonda bir iş akışında tek bir koşul olur. Daha fazla yol için bilgisayarınızdaki Builders Bot'u kullanın.",
   "mobile.workflow.editor.title": "İş akışını düzenle",
   "mobile.workflow.editor.newTitle": "Yeni iş akışı",
   "mobile.workflow.editor.step": "Adım",
@@ -151,7 +151,7 @@ export const messages = {
   "mobile.workflow.editor.create": "Oluştur",
   "mobile.workflow.editor.saveFailed": "İş akışı kaydedilemedi.",
   "mobile.workflow.editor.fieldsOnly":
-    "Bu iş akışının şekli telefonda liste olarak gösterilemiyor. Her adımı burada değiştirebilirsiniz. Adım eklemek, taşımak veya silmek için bilgisayarınızdaki OpenBot'u kullanın.",
+    "Bu iş akışının şekli telefonda liste olarak gösterilemiyor. Her adımı burada değiştirebilirsiniz. Adım eklemek, taşımak veya silmek için bilgisayarınızdaki Builders Bot'u kullanın.",
   "mobile.workflow.editor.annotationsKept": "Tuvaldeki notlar ve çizimler olduğu gibi kalır.",
   "mobile.workflow.editor.addStep": "Adım ekle",
   "mobile.workflow.editor.addAfter": "Sonrasına adım ekle",

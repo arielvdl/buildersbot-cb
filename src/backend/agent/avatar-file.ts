@@ -28,7 +28,7 @@ const readSource = Effect.fn("AvatarFile.readSource")((path: string) =>
       Effect.mapError(
         () =>
           new AvatarFileFailed({
-            cause: new Error("OpenBot could not open the avatar file. Use an existing local image path."),
+            cause: new Error("Builders Bot could not open the avatar file. Use an existing local image path."),
           }),
       ),
     ),

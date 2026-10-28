@@ -1,5 +1,5 @@
 /**
- * Instance transfer: move the agents and app settings of this computer to another OpenBot computer
+ * Instance transfer: move the agents and app settings of this computer to another Builders Bot computer
  * with one `.zip` file. It is a different format from the Grok Bot agent import.
  *
  * Main writes and reads the file. The renderer never receives a path or the file's bytes: it names
@@ -65,7 +65,7 @@ export interface InstanceExportResult {
 
 export interface InstanceTransferPreview {
   token: string;
-  /** The OpenBot version that made the file. */
+  /** The Builders Bot version that made the file. */
   appVersion: string;
   exportedAt: string | null;
   agents: AgentImportPreviewAgent[];
@@ -245,7 +245,7 @@ export function decodeRemoteInstanceTransferResult(value: unknown): RemoteInstan
       invalid("transferred agent");
     return { agentId: entry.agentId, name: entry.name };
   });
-  // A newer host can name a provider that this OpenBot does not know. Its sign-in cannot start here.
+  // A newer host can name a provider that this Builders Bot does not know. Its sign-in cannot start here.
   if (!isUniqueList(result.signIn, 32, isAgentProviderRef)) invalid("transfer result");
   const signIn = result.signIn.filter(isAgentProvider);
   return { ...decodeInstanceTransferResult({ ...result, agents: [], signIn }), agents };

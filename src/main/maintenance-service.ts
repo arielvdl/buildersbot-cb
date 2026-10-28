@@ -28,12 +28,12 @@ interface MaintenanceContext {
   parentWindow: BrowserWindow | null;
   translate: AppTranslate;
 }
-export const exportOpenBotData = Effect.fn("Archive.exportOpenBotData")(function* (
+export const exportBuildersBotData = Effect.fn("Archive.exportBuildersBotData")(function* (
   context: Pick<MaintenanceContext, "service" | "mailbox" | "parentWindow" | "translate">,
 ): Effect.fn.Return<ExportResult, ArchiveOperationError> {
   const destination = yield* chooseExportDestinationEffect(
     context.parentWindow,
-    `OpenBot-backup-${new Date().toISOString().slice(0, 10)}.zip`,
+    `Builders Bot-backup-${new Date().toISOString().slice(0, 10)}.zip`,
     [{ name: context.translate("dialog.filter.zipArchive"), extensions: ["zip"] }],
   );
   if (!destination) return { saved: false };
@@ -43,7 +43,7 @@ export const exportOpenBotData = Effect.fn("Archive.exportOpenBotData")(function
     archiveCall(() => mkdtemp(join(tmpdir(), "openbot-export-"))),
     (temporaryRoot) =>
       Effect.gen(function* () {
-        const exportRoot = join(temporaryRoot, "OpenBot Backup");
+        const exportRoot = join(temporaryRoot, "Builders Bot Backup");
         yield* archiveCall(() => mkdir(exportRoot, { recursive: true, mode: 0o700 })).pipe(Effect.uninterruptible);
         const agents = context.service.listAgents();
         const [conversations, queues, attachments] = yield* Effect.all(
@@ -69,7 +69,7 @@ export const exportOpenBotData = Effect.fn("Archive.exportOpenBotData")(function
           // hands a reader the wrong shape under a version that promised the old one.
           schemaVersion: 4,
           exportedAt: new Date().toISOString(),
-          application: { name: "OpenBot", version: app.getVersion() },
+          application: { name: "Builders Bot", version: app.getVersion() },
           scope: {
             includes: ["agent profiles", "agent memories", "conversation snapshots", "queues", "attachments"],
             excludes: [
@@ -136,7 +136,7 @@ export const exportDiagnostics = Effect.fn("Archive.exportDiagnostics")(function
 ): Effect.fn.Return<ExportResult, ArchiveOperationError> {
   const destination = yield* chooseExportDestinationEffect(
     context.parentWindow,
-    `OpenBot-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
+    `Builders Bot-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
     [{ name: context.translate("dialog.filter.jsonDocument"), extensions: ["json"] }],
   );
   if (!destination) return { saved: false };

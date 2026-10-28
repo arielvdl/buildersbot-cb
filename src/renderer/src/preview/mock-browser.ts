@@ -6,7 +6,7 @@ import type {
   BrowserPictureInPictureEvent,
   BrowserPreview,
   BrowserTab,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import browserTakeoverPreviewUrl from "../../stories/assets/browser-takeover-preview.svg";
 import { STORY_BROWSER_CONTROL, STORY_BROWSER_TABS } from "./fixtures";
@@ -47,7 +47,7 @@ export function createMockBrowser(
     emitAgentEvent({ type: "browser-changed", tabs: browserTabs, activeTabId: activeBrowserTabId });
   };
 
-  const browser: OpenBotDesktopApi["browser"] = {
+  const browser: BuildersBotDesktopApi["browser"] = {
     open: async (input: BrowserOpenInput) => {
       const tab: BrowserTab = {
         id: `browser-tab-${browserTabs.length + 1}`,

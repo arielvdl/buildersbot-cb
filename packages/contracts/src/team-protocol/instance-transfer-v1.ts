@@ -1,7 +1,7 @@
 // Frozen optional instance-transfer-v1 wire contract.
 //
 // What it grants, recorded here because freezing it makes it permanent: an owner or admin of a
-// server, never a member, can move the server's agents and server settings to or from an OpenBot
+// server, never a member, can move the server's agents and server settings to or from an Builders Bot
 // transfer file. `summary` lists the host's agents with their counts. `export` answers the transfer
 // file as an attachment, at most 100 MB, with no secret in it. `stage` takes such a file, at most
 // 100 MB, as the raw body, keeps it under a token that only the caller can apply or discard, and

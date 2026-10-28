@@ -1,15 +1,15 @@
 import type { AppBehaviorPreference, AppBehaviorPreferenceChange } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Result, Semaphore } from "effect";
 import { isMissingFileError } from "../backend/file-errors";
 import type { LoginItem, LoginItemFailure } from "./login-item";
 import { type PreferenceFileFailure, readPreferenceFile, writePreferenceFile } from "./preference-file";
 
-const logger = createOpenBotLogger("app-behavior");
+const logger = createBuildersBotLogger("app-behavior");
 
 /**
- * How OpenBot starts and stops on this computer, and if it keeps the computer awake.
+ * How Builders Bot starts and stops on this computer, and if it keeps the computer awake.
  *
  * The keep-running choice is stored here, because main reads it each time the main window closes.
  * The keep-awake choices are stored in the same file, and each write keeps all of them. The launch-at-login

@@ -3,7 +3,7 @@
 // What it grants, recorded here because freezing it makes it permanent: a signed-in member's iPhone
 // gives the host the push token of its Live Activity and a secret that only the phone and the host
 // know. While the phone says it is away, the host sends the island state of this member to that
-// token through the OpenBot relay and Apple, sealed with keys made from the secret, so the relay and
+// token through the Builders Bot relay and Apple, sealed with keys made from the secret, so the relay and
 // Apple cannot read it. The host keeps a registration in memory only, for the session that sent
 // it, and forgets it when the session ends, when the phone removes it, or when Apple refuses the
 // token. Widening any of it needs a second capability string.

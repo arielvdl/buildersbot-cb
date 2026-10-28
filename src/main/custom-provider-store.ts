@@ -1,7 +1,7 @@
 // The user's own model endpoints: what is on disk, and every write that changes it.
 //
 // An endpoint carries an API key, and often a header that is a credential as well, so this file is
-// the only place either exists outside the OpenCode process OpenBot spawns. The renderer is given
+// the only place either exists outside the OpenCode process Builders Bot spawns. The renderer is given
 // `list()`, which cannot carry a secret; the backend is given `configs()`, which is what a spawn
 // needs. Nothing else reads the file.
 //

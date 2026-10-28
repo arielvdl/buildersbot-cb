@@ -33,7 +33,7 @@ export const messages = {
   "provider.status.checking": "確認中",
   "provider.status.off": "オフ",
   "provider.gemini.hostSignIn":
-    "Gemini を接続するには、ホストで OpenBot を開き、「設定」>「プロバイダー」で「接続」を選択してください。Google へのサインインには、そのホストのブラウザーが必要です。リモートでのサインインには対応していません。",
+    "Gemini を接続するには、ホストで Builders Bot を開き、「設定」>「プロバイダー」で「接続」を選択してください。Google へのサインインには、そのホストのブラウザーが必要です。リモートでのサインインには対応していません。",
 
   "provider.key.free": "無料",
 
@@ -61,12 +61,12 @@ export const messages = {
   "provider.aria.apiKey": "{name} の API キー",
   "provider.connecting.browserHint": "ブラウザーのページが開いたら、サインインを完了してください。",
   "provider.connecting.cancelFailed":
-    "OpenBot は {name} のサインインをキャンセルできませんでした。もう一度お試しください。",
+    "Builders Bot は {name} のサインインをキャンセルできませんでした。もう一度お試しください。",
   "provider.aria.install": "{name} をインストール",
   "provider.aria.signIn": "{name} にサインイン",
   "provider.aria.codeFallback": "コードで {name} にログイン",
   "provider.aria.moreActions": "{name} のその他の操作",
-  "provider.aria.use": "OpenBot で {name} を使用",
+  "provider.aria.use": "Builders Bot で {name} を使用",
   "provider.use.inUseOne":
     "{agent} が {name} を使用しています。このエージェントのモデルを変更してから、{name} をオフにしてください。",
   "provider.use.inUse": {
@@ -75,7 +75,7 @@ export const messages = {
   },
 
   "provider.codeLogin.title": "コードで {name} にログイン",
-  "provider.codeLogin.description": "スマートフォンか別のブラウザーで完了してください。OpenBot はここで待機します。",
+  "provider.codeLogin.description": "スマートフォンか別のブラウザーで完了してください。Builders Bot はここで待機します。",
   "provider.codeLogin.starting": "{name} からコードを取得しています…",
   "provider.codeLogin.qrLabel": "{name} のログインページの QR コード",
   "provider.codeLogin.open": "開く",
@@ -97,10 +97,10 @@ export const messages = {
     "このページは {host} のブラウザーで開いています。ここでサインインしてください。",
   "provider.codeLogin.relayStarting": "{host} で {name} のサインインを開始しています…",
   "provider.codeLogin.pageOpening": "{host} で {name} のサインインページを開いています…",
-  "provider.codeLogin.linkStep": "{name} にログインします。OpenBot は自動で続行します。",
-  "provider.useApp.title": "OpenBot アプリで {name} に接続",
+  "provider.codeLogin.linkStep": "{name} にログインします。Builders Bot は自動で続行します。",
+  "provider.useApp.title": "Builders Bot アプリで {name} に接続",
   "provider.useApp.description":
-    "{name} のサインインは開始したコンピューターに戻るため、ブラウザーのタブでは受け取れません。OpenBot アプリで {name} に接続してください。アプリがサインインを自動で完了します。",
+    "{name} のサインインは開始したコンピューターに戻るため、ブラウザーのタブでは受け取れません。Builders Bot アプリで {name} に接続してください。アプリがサインインを自動で完了します。",
   "provider.useApp.download": "アプリを入手",
 
   "provider.picker.noEndpoints": "エンドポイントはまだありません",
@@ -111,7 +111,7 @@ export const messages = {
   "provider.picker.providers": "モデルプロバイダー",
   "provider.picker.downloading": "ダウンロード中 {percent}",
   "provider.picker.unavailable": "{name} は利用できません。",
-  "provider.picker.updateToUse": "{name} を使うには OpenBot を更新してください",
+  "provider.picker.updateToUse": "{name} を使うには Builders Bot を更新してください",
   "provider.picker.models": "{name} のモデル",
   "provider.picker.addProvider": "プロバイダーを追加",
   "provider.picker.download": "{name} のダウンロード",
@@ -149,22 +149,22 @@ export const messages = {
   "provider.claudeKey.label": "Anthropic API キー",
   "provider.inceptionKey.title": "Inception API キー",
   "provider.inceptionKey.description":
-    "Mercury モデルを使うには、このコンピューターに Inception API キーを保存します。OpenBot はダウンロードした Pi CLI でモデルを実行します。",
+    "Mercury モデルを使うには、このコンピューターに Inception API キーを保存します。Builders Bot はダウンロードした Pi CLI でモデルを実行します。",
   "provider.inceptionKey.label": "Inception API キー",
   "provider.deepseekKey.title": "DeepSeek API キー",
   "provider.deepseekKey.description":
-    "DeepSeek モデルを使うには、このコンピューターに DeepSeek API キーを保存します。OpenBot はダウンロードした Pi CLI でモデルを実行します。",
+    "DeepSeek モデルを使うには、このコンピューターに DeepSeek API キーを保存します。Builders Bot はダウンロードした Pi CLI でモデルを実行します。",
   "provider.deepseekKey.label": "DeepSeek API キー",
   "provider.openrouterKey.title": "OpenRouter API キー",
   "provider.openrouterKey.description":
-    "OpenRouter のモデルを使うには、このコンピューターに OpenRouter API キーを保存します。OpenBot はダウンロードした Pi CLI でモデルを実行します。",
+    "OpenRouter のモデルを使うには、このコンピューターに OpenRouter API キーを保存します。Builders Bot はダウンロードした Pi CLI でモデルを実行します。",
   "provider.openrouterKey.label": "OpenRouter API キー",
 
-  "provider.openCodeKey.title": "OpenCode Go にサインイン",
+  "provider.openCodeKey.title": "Builders Go にサインイン",
   "provider.openCodeKey.description": "無料モデルにアカウントは不要です。キーがあると有料の Go モデルを使えます。",
   "provider.openCodeKey.unreadable": "保存したキーを読み取れません。もう一度貼り付けるか、削除してください。",
   "provider.openCodeKey.saved": "キーを保存済みです。置き換えるには新しいキーを貼り付けてください。",
-  "provider.openCodeKey.label": "OpenCode Go キー",
+  "provider.openCodeKey.label": "Builders Go キー",
   "provider.openCodeKey.placeholder": "キーを貼り付け",
   "provider.openCodeKey.remove": "キーを削除",
   "provider.openCodeKey.save": "キーを保存",
@@ -210,7 +210,7 @@ export const messages = {
   "provider.settings.downloadedCli": "{name} CLI",
   "provider.settings.downloadDetail": { other: "{version} · {count} バージョン · {size}" },
   "provider.settings.downloadVersions": { other: "{count} バージョン · {size}" },
-  "provider.settings.downloadAgain": "{name} をオンにすると、OpenBot が CLI を再度ダウンロードします。",
+  "provider.settings.downloadAgain": "{name} をオンにすると、Builders Bot が CLI を再度ダウンロードします。",
   "provider.settings.removeDownloadConfirm": "{size} を削除しますか？",
   "provider.settings.removeDownloadKeeps": "アカウント、サインイン、エージェントは残ります。",
   "provider.settings.removeDownload": "ダウンロードを削除",

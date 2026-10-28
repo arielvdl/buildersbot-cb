@@ -14,7 +14,7 @@ import type { VoiceSpeechFailure, VoiceSpeechRequest, VoiceSpeechResponse } from
 /** More denoising steps sound cleaner and take longer; 8 still reads about five times real time. */
 const DENOISING_STEPS = 8;
 
-/** The part of the sherpa-onnx offline TTS configuration that OpenBot sets. */
+/** The part of the sherpa-onnx offline TTS configuration that Builders Bot sets. */
 interface TtsConfig {
   model: {
     supertonic: {

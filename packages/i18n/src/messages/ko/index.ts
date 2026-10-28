@@ -58,7 +58,7 @@ import { messages as workflow } from "./workflow";
  * is missing here renders its English source.
  *
  * Notes for a reviewer. Sentences use 해요체 and buttons, tabs and labels use short plain nouns, as
- * docs/i18n.md says. Product names stay in Latin script: OpenBot is
+ * docs/i18n.md says. Product names stay in Latin script: Builders Bot is
  * the application name, and ZIP and JSON are the file formats a picker shows.
  *
  * This is the desktop catalog: shared keys, source text, and every desktop area.

@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/auth";
 
 export const messages = {
-  "mobile.auth.logo.animate": "Animuj logo OpenBot",
+  "mobile.auth.logo.animate": "Animuj logo Builders Bot",
   "mobile.auth.logo.animateHint": "Logo puszcza oko",
   "mobile.auth.scanQrCode": "Zeskanuj kod QR",
   "mobile.auth.closeScanner": "Zamknij skaner",
@@ -20,16 +20,16 @@ export const messages = {
   "mobile.auth.scanner.cameraFailed": "Nie udało się uruchomić aparatu. Spróbuj ponownie.",
   "mobile.auth.camera.title": "Wymagany dostęp do aparatu",
   "mobile.auth.camera.pairingReason":
-    "OpenBot używa aparatu tylko do zeskanowania jednorazowego kodu QR z aplikacji na komputer.",
-  "mobile.auth.camera.invitationReason": "OpenBot używa aparatu tylko do zeskanowania kodu QR zaproszenia.",
+    "Builders Bot używa aparatu tylko do zeskanowania jednorazowego kodu QR z aplikacji na komputer.",
+  "mobile.auth.camera.invitationReason": "Builders Bot używa aparatu tylko do zeskanowania kodu QR zaproszenia.",
   "mobile.auth.camera.blocked":
-    "Dostęp do aparatu jest zablokowany. Włącz go dla OpenBot w ustawieniach urządzenia, a potem wróć tutaj, aby zeskanować kod.",
+    "Dostęp do aparatu jest zablokowany. Włącz go dla Builders Bot w ustawieniach urządzenia, a potem wróć tutaj, aby zeskanować kod.",
   "mobile.auth.camera.allow": "Zezwól na dostęp do aparatu",
   "mobile.auth.camera.openSettings": "Otwórz ustawienia",
   "mobile.auth.signIn.title": "Twoi agenci, wszędzie.",
-  "mobile.auth.signIn.subtitle": "Połącz się z OpenBot na swoim komputerze.",
+  "mobile.auth.signIn.subtitle": "Połącz się z Builders Bot na swoim komputerze.",
   "mobile.auth.signIn.helpTitle": "Gdzie jest kod QR?",
-  "mobile.auth.signIn.helpStep1": "1. Otwórz OpenBot na komputerze.",
+  "mobile.auth.signIn.helpStep1": "1. Otwórz Builders Bot na komputerze.",
   "mobile.auth.signIn.helpStep2": "2. Otwórz Ustawienia → Mobile Connect.",
   "mobile.auth.signIn.helpStep3": "3. Wybierz „Wygeneruj kod QR”, a potem zeskanuj go tutaj.",
   "mobile.auth.signIn.emailButton": "Kontynuuj przez e-mail",
@@ -60,15 +60,15 @@ export const messages = {
   "mobile.auth.email.error.invalidEmail": "Wpisz prawidłowy adres e-mail.",
   "mobile.auth.email.error.wait": "Poczekaj, zanim poprosisz o kolejny kod.",
   "mobile.auth.email.error.deliveryUnconfirmed":
-    "OpenBot nie mógł potwierdzić wysłania kodu. Sprawdź dostarczenie, zanim wyślesz kolejny kod.",
-  "mobile.auth.email.error.sendFailed": "OpenBot nie mógł wysłać kodu. Spróbuj ponownie.",
+    "Builders Bot nie mógł potwierdzić wysłania kodu. Sprawdź dostarczenie, zanim wyślesz kolejny kod.",
+  "mobile.auth.email.error.sendFailed": "Builders Bot nie mógł wysłać kodu. Spróbuj ponownie.",
   "mobile.auth.email.error.codeIncorrect": "Ten kod jest nieprawidłowy. Spróbuj ponownie.",
   "mobile.auth.email.error.codeExpired": "Ten kod wygasł. Wyślij nowy kod.",
   "mobile.auth.email.error.tooManyAttempts": "Zbyt wiele nieprawidłowych kodów. Wyślij nowy kod.",
-  "mobile.auth.email.error.verifyFailed": "OpenBot nie mógł zweryfikować kodu. Spróbuj ponownie.",
+  "mobile.auth.email.error.verifyFailed": "Builders Bot nie mógł zweryfikować kodu. Spróbuj ponownie.",
   "mobile.auth.error.sessionEnded": "Sesja się zakończyła. Zaloguj się ponownie.",
   "mobile.auth.error.connectionInProgress": "Trwa inne połączenie. Poczekaj, aż się zakończy.",
-  "mobile.auth.error.invalidCode": "To nie jest prawidłowy kod OpenBot Mobile Connect.",
+  "mobile.auth.error.invalidCode": "To nie jest prawidłowy kod Builders Bot Mobile Connect.",
   "mobile.auth.error.codeOutdated": "Wygeneruj nowy kod Mobile Connect w zaktualizowanej aplikacji na komputer.",
   "mobile.auth.error.alreadySignedIn": "To urządzenie jest już zalogowane. Wyloguj się, zanim połączysz inne konto.",
   "mobile.auth.error.desktopUnreachable":

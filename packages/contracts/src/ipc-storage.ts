@@ -142,12 +142,12 @@ export interface OpenStoredFileInput {
   action: "open" | "reveal" | "download";
 }
 
-/** The provider CLI versions on this computer that no OpenBot app uses any more. */
+/** The provider CLI versions on this computer that no Builders Bot app uses any more. */
 export interface OldRuntimeVersions {
   bytes: number;
 }
 
-/** The downloaded versions of one provider CLI that OpenBot can remove now. */
+/** The downloaded versions of one provider CLI that Builders Bot can remove now. */
 export interface ProviderRuntimeDownload {
   bytes: number;
   /** How many versions of the CLI those bytes hold. */

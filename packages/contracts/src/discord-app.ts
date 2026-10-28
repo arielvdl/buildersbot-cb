@@ -1,8 +1,8 @@
-// The OpenBot Discord app: one bot for every guild. `apps/discord-app/README.md` lists the same
+// The Builders Bot Discord app: one bot for every guild. `apps/discord-app/README.md` lists the same
 // permissions and intents for the Developer Portal.
 
 /**
- * The permissions OpenBot asks for in a guild, as Discord's bit field: view channels, send messages,
+ * The permissions Builders Bot asks for in a guild, as Discord's bit field: view channels, send messages,
  * send messages in threads, embed links, attach files, read message history and add reactions.
  */
 export const DISCORD_BOT_PERMISSIONS = (
@@ -28,5 +28,5 @@ export const DISCORD_GATEWAY_INTENTS = (1 << 0) | (1 << 9) | (1 << 12);
  */
 export const DISCORD_MESSAGE_CONTENT_INTENT = 1 << 15;
 
-/** The avatar of the Discord Orchestrator agent that OpenBot adds. */
+/** The avatar of the Discord Orchestrator agent that Builders Bot adds. */
 export const DISCORD_ORCHESTRATOR_AVATAR = { avatarSeed: "discord-orchestrator", avatarHue: 245 } as const;

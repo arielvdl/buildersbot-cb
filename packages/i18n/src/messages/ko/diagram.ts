@@ -122,7 +122,7 @@ export const messages = {
   "diagram.routine.runLabel": "{status}, {time}",
   "diagram.routine.manual": "직접 실행",
   "diagram.flows.unsupported":
-    "이 서버는 루틴 플로우를 지원하지 않아요. 서버를 실행하는 컴퓨터에서 OpenBot을 업데이트해 주세요.",
+    "이 서버는 루틴 플로우를 지원하지 않아요. 서버를 실행하는 컴퓨터에서 Builders Bot을 업데이트해 주세요.",
   "diagram.flows.webhookAdminOnly": "이 서버의 소유자 또는 관리자만 웹훅 루틴을 변경하거나 실행할 수 있어요.",
   "diagram.flows.loadFailed": "이 에이전트의 루틴을 불러올 수 없어요.",
   "diagram.flows.saveFailed": "루틴 변경 사항을 저장할 수 없어요.",

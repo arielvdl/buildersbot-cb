@@ -280,7 +280,7 @@ class SlackAdapter implements MessagingAdapter {
   /**
    * A thread from its start. Slack gives replies oldest first, so the newest ones are on the last
    * page; a longer thread keeps the pages it read. Only a failed first page fails the read: until the
-   * Slack Marketplace approves OpenBot, Slack allows one thread read a minute, so a second page is
+   * Slack Marketplace approves Builders Bot, Slack allows one thread read a minute, so a second page is
    * often refused.
    */
   readonly #threadReplies = Effect.fnUntraced(function* (
@@ -333,7 +333,7 @@ class SlackAdapter implements MessagingAdapter {
   });
 
   readonly #author = Effect.fnUntraced(function* (this: SlackAdapter, message: DynamicRecord) {
-    if (message.user === this.#botUserId) return "OpenBot";
+    if (message.user === this.#botUserId) return "Builders Bot";
     if (message.bot_id !== undefined || !isString(message.user)) {
       const profile = isDynamicRecord(message.bot_profile) ? message.bot_profile.name : undefined;
       const name = isString(message.username) ? message.username : isString(profile) ? profile : "a bot";
@@ -401,7 +401,7 @@ class SlackAdapter implements MessagingAdapter {
     return yield* Deferred.await(name);
   });
 
-  /** The public and private channels that OpenBot is a member of: `chat:write` posts only there. */
+  /** The public and private channels that Builders Bot is a member of: `chat:write` posts only there. */
   readonly places = Effect.fnUntraced(function* (
     this: SlackAdapter,
   ): Effect.fn.Return<MessagingPlace[], MessagingAdapterError> {
@@ -511,7 +511,7 @@ function responseMessages(response: DynamicRecord): DynamicRecord[] {
   return Array.isArray(response.messages) ? response.messages.filter(isDynamicRecord) : [];
 }
 
-/** Each workspace installed the OpenBot app, and its events come through the ingress relay. */
+/** Each workspace installed the Builders Bot app, and its events come through the ingress relay. */
 export function slackDriver(options: SlackDriverOptions = {}): MessagingDriver {
   return {
     platform: "slack",

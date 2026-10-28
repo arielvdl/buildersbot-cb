@@ -11,14 +11,14 @@ export interface ComputerUseAgentCursorProps {
 const translate = (point: CursorPoint) => `${point.x}px ${point.y}px`;
 
 /**
- * The agent cursor OpenBot draws itself.
+ * The agent cursor Builders Bot draws itself.
  *
  * The driver draws one of its own, over the main screen and at the desktop's coordinates inside it,
  * so on a desktop of more than one display it lands as far from the work as that screen's origin is
- * from the desktop's. OpenBot then asks the driver for no cursor and draws this one instead, in the
+ * from the desktop's. Builders Bot then asks the driver for no cursor and draws this one instead, in the
  * overlay that already covers every display, where one set of coordinates holds everywhere.
  *
- * It is the same dart the OpenBot driver theme draws: a shape no desktop pointer has, because the
+ * It is the same dart the Builders Bot driver theme draws: a shape no desktop pointer has, because the
  * one thing it has to say is that something other than the user is driving this computer.
  *
  * It travels to each new point with the driver's `adaptive` motion (`agent-cursor-motion.ts`). The

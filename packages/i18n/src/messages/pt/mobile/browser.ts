@@ -41,7 +41,7 @@ export const messages = {
   "mobile.browser.status.offline": "O servidor não está conectado.",
   "mobile.browser.status.noTab": "{name} não tem nenhuma aba do navegador aberta.",
   "mobile.browser.status.unsupported":
-    "Este servidor não pode mostrar o navegador no celular. Atualize o OpenBot neste servidor.",
+    "Este servidor não pode mostrar o navegador no celular. Atualize o Builders Bot neste servidor.",
   "mobile.browser.status.off": "O navegador não está disponível nesta versão do app.",
   "mobile.browser.notice.copied": "Copiado para o seu celular.",
   "mobile.browser.notice.nothingSelected": "Nada está selecionado na página.",

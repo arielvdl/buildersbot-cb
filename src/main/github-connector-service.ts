@@ -15,7 +15,7 @@ import {
   type McpServerConfig,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, redactText, registerSecretValue, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, redactText, registerSecretValue, toLogValue } from "@openbot/logging";
 import { Deferred, Effect, Exit, type Layer, Result, Scope, Semaphore } from "effect";
 import { z } from "zod";
 import { writeFileAtomically } from "../backend/atomic-json-file";
@@ -35,7 +35,7 @@ import {
 import { GitHubOperationError, GitHubPlatform, githubCall, toGitHubOperationError } from "./github-effects";
 import { GitHubMcpProxy } from "./github-mcp-proxy";
 
-const logger = createOpenBotLogger("github-connector");
+const logger = createBuildersBotLogger("github-connector");
 
 /** A token with less time left than this is refreshed before it is handed out. */
 const REFRESH_MARGIN_MS = 10 * 60_000;
@@ -71,11 +71,11 @@ export interface GitHubConnectorServiceOptions {
   app: GitHubAppConfig | null;
   store: GitHubConnectorStore;
   /**
-   * A folder that OpenBot owns, outside every root an agent can write. It holds the `gh` hosts file
+   * A folder that Builders Bot owns, outside every root an agent can write. It holds the `gh` hosts file
    * and the token file that the git credential helper reads, while the connection is active.
    */
   toolDirectory: string;
-  /** The OpenBot API, which gives the installation tokens that make GitHub show the app as the author. */
+  /** The Builders Bot API, which gives the installation tokens that make GitHub show the app as the author. */
   apiUrl: string;
   openExternal: (url: string) => Promise<void>;
   fetch?: GitHubFetch;
@@ -94,13 +94,13 @@ interface PendingSignIn {
  * `mcpServer`, `accessToken` and `agentEnvironment`, and `onAgentAccessChanged` tells it when that
  * answer changes.
  *
- * The user token never leaves the main process except to GitHub, to the OpenBot API as the proof
+ * The user token never leaves the main process except to GitHub, to the Builders Bot API as the proof
  * for the installation tokens, and into the files below for `gh` and `git`. Agents reach GitHub's
  * MCP server through `GitHubMcpProxy`, which adds the token for each call. Each token is registered
  * for redaction before it is used.
  *
  * `gh` has one token for each host, so it keeps the user token: GitHub shows its work as "user with
- * OpenBotGit". `git` and the MCP tools use the bot token of each repository where the user can push.
+ * BuildersBotGit". `git` and the MCP tools use the bot token of each repository where the user can push.
  */
 export class GitHubConnectorService {
   readonly #app: GitHubAppConfig | null;
@@ -288,7 +288,7 @@ export class GitHubConnectorService {
   }
 
   /**
-   * Forgets the sign-in. GitHub revokes a token only with the client secret, which OpenBot does not
+   * Forgets the sign-in. GitHub revokes a token only with the client secret, which Builders Bot does not
    * hold, so the GitHub page where the user can revoke it opens as well, unless `opensPage` is false.
    */
 
@@ -627,7 +627,7 @@ export class GitHubConnectorService {
           headers: {
             Accept: "application/vnd.github+json",
             Authorization: `Bearer ${accessToken}`,
-            "User-Agent": "OpenBot",
+            "User-Agent": "Builders Bot",
             "X-GitHub-Api-Version": "2022-11-28",
           },
         }),
@@ -812,7 +812,7 @@ export class GitHubConnectorService {
         Effect.sync(() => {
           this.#refreshFailures += 1;
           if (this.#refreshFailures === 1) {
-            logger.warn("The GitHub token could not be refreshed. OpenBot tries again each minute.", {
+            logger.warn("The GitHub token could not be refreshed. Builders Bot tries again each minute.", {
               cause: toLogValue(error),
             });
           }

@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "Werk OpenBot bij op deze server om workflows op je telefoon te gebruiken.",
+  "mobile.workflow.unsupported": "Werk Builders Bot bij op deze server om workflows op je telefoon te gebruiken.",
   "mobile.workflow.offline": "De server is offline. Workflows verschijnen als hij verbinding maakt.",
   "mobile.workflow.list.loading": "Laden…",
   "mobile.workflow.list.loadFailed": "Kan de workflows niet laden.",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.workflow.action.edit": "Wijzigen",
   "mobile.workflow.alert.runFailedTitle": "Kan de workflow niet starten",
   "mobile.workflow.alert.runFailedBody": "De server heeft de run niet gestart. Probeer het opnieuw.",
-  "mobile.workflow.alert.tryAgain": "OpenBot kan dit niet doen. Probeer het opnieuw.",
+  "mobile.workflow.alert.tryAgain": "Builders Bot kan dit niet doen. Probeer het opnieuw.",
   "mobile.workflow.drawer.needYou": { one: "{count} wacht op jou", other: "{count} wachten op jou" },
   "mobile.workflow.drawer.running": { one: "{count} bezig", other: "{count} bezig" },
   "mobile.workflow.drawer.review": "Wacht op jou · tik om te bekijken",
@@ -33,7 +33,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "Kan de workflow niet laden.",
   "mobile.workflow.detail.starting": "Starten…",
   "mobile.workflow.detail.newerApp":
-    "Deze workflow heeft stappen uit een nieuwere OpenBot. Werk OpenBot op je telefoon bij om hem te wijzigen.",
+    "Deze workflow heeft stappen uit een nieuwere Builders Bot. Werk Builders Bot op je telefoon bij om hem te wijzigen.",
   "mobile.workflow.detail.waits": "Run {number} wacht op jou. Bekijken",
   "mobile.workflow.detail.canvasOrder": "De stappen staan van links naar rechts, zoals op het canvas.",
   "mobile.workflow.detail.trigger": "Trigger",
@@ -68,7 +68,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "Wordt uitgevoerd als het adres een request krijgt.",
   "mobile.workflow.trigger.message": "Bericht",
-  "mobile.workflow.trigger.messageHint": "Wijzig deze trigger in OpenBot op je computer.",
+  "mobile.workflow.trigger.messageHint": "Wijzig deze trigger in Builders Bot op je computer.",
   "mobile.workflow.trigger.startsWhen": "Start",
   "mobile.workflow.trigger.timezone": "Tijdzone: {zone}",
   "mobile.workflow.trigger.serverZone": "Het schema gebruikt de tijdzone van de server.",
@@ -103,7 +103,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "Keur goed om door te gaan.",
   "mobile.workflow.step.textEmpty": "Geen tekst",
   "mobile.workflow.step.textPlaceholder": "Tekst voor de volgende stap",
-  "mobile.workflow.step.computerOnly": "Wijzig deze stap in OpenBot op je computer.",
+  "mobile.workflow.step.computerOnly": "Wijzig deze stap in Builders Bot op je computer.",
   "mobile.workflow.step.gone": "Deze stap staat nu niet meer in de workflow.",
   "mobile.workflow.step.agent": "Agent",
   "mobile.workflow.step.agentHint": "De agent voert de taak uit met de uitvoer van de stap ervoor.",
@@ -121,7 +121,7 @@ export const messages = {
   "mobile.workflow.step.questionHint": "De run wacht tot je goedkeurt of afwijst. Je krijgt een melding.",
   "mobile.workflow.step.text": "Tekst",
   "mobile.workflow.step.sendTo": "Sturen naar",
-  "mobile.workflow.step.channelHint": "Een eigenaar of beheerder kiest de berichtenplek in OpenBot op de computer.",
+  "mobile.workflow.step.channelHint": "Een eigenaar of beheerder kiest de berichtenplek in Builders Bot op de computer.",
   "mobile.workflow.problem.noTitle": "Schrijf een naam.",
   "mobile.workflow.problem.noAgent": "Kies een agent",
   "mobile.workflow.problem.agentGone": "De agent is niet beschikbaar. Kies een agent",
@@ -145,7 +145,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "Vaste tekst voor de volgende stap.",
   "mobile.workflow.add.output": "Stuurt het resultaat naar jou.",
   "mobile.workflow.add.oneCondition":
-    "Op de telefoon heeft een workflow één voorwaarde. Gebruik OpenBot op je computer voor meer paden.",
+    "Op de telefoon heeft een workflow één voorwaarde. Gebruik Builders Bot op je computer voor meer paden.",
   "mobile.workflow.editor.title": "Workflow wijzigen",
   "mobile.workflow.editor.newTitle": "Nieuwe workflow",
   "mobile.workflow.editor.step": "Stap",
@@ -154,7 +154,7 @@ export const messages = {
   "mobile.workflow.editor.create": "Workflow maken",
   "mobile.workflow.editor.saveFailed": "Kan de workflow niet opslaan.",
   "mobile.workflow.editor.fieldsOnly":
-    "Deze workflow heeft een vorm die de telefoon niet als lijst kan tonen. Je kunt hier elke stap wijzigen. Gebruik OpenBot op je computer om stappen toe te voegen, te verplaatsen of te verwijderen.",
+    "Deze workflow heeft een vorm die de telefoon niet als lijst kan tonen. Je kunt hier elke stap wijzigen. Gebruik Builders Bot op je computer om stappen toe te voegen, te verplaatsen of te verwijderen.",
   "mobile.workflow.editor.annotationsKept": "De notities en tekeningen op het canvas blijven zoals ze zijn.",
   "mobile.workflow.editor.addStep": "Stap toevoegen",
   "mobile.workflow.editor.addAfter": "Stap toevoegen na",

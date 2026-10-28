@@ -10,7 +10,7 @@ export const messages = {
   "remoteDesktop.workspaceLabel": "Fernsteuerung",
   "remoteDesktop.displayLabel": "Remote-Bildschirm",
   "remoteDesktop.selectDisplay": "Bildschirm auswählen",
-  "remoteDesktop.backToOpenBot": "Zurück zu OpenBot",
+  "remoteDesktop.backToBuildersBot": "Zurück zu Builders Bot",
   "remoteDesktop.disconnect": "Trennen",
   "remoteDesktop.viewerTitle": "Sunshine-Remotedesktop",
   "remoteDesktop.viewerLoadFailed": "Der Moonlight-Viewer konnte nicht geladen werden.",
@@ -21,7 +21,7 @@ export const messages = {
   "remoteDesktop.openFailed": "Desktop konnte nicht geöffnet werden",
   "remoteDesktop.notSharingTitle": "{name} gibt seinen Bildschirm nicht frei",
   "remoteDesktop.notSharingDescription":
-    "Der Server verhindert, dass OpenBot seinen Bildschirm aufnimmt. Öffne auf diesem Server Systemeinstellungen → Datenschutz & Sicherheit → Bildschirmaufnahme, aktiviere OpenBot und versuche es hier erneut.",
+    "Der Server verhindert, dass Builders Bot seinen Bildschirm aufnimmt. Öffne auf diesem Server Systemeinstellungen → Datenschutz & Sicherheit → Bildschirmaufnahme, aktiviere Builders Bot und versuche es hier erneut.",
   "remoteDesktop.setup.check.screenRecording": "Bildschirmaufnahme",
   "remoteDesktop.setup.check.accessibility": "Bedienungshilfen",
   "remoteDesktop.setup.check.service": "Sunshine-Dienst",
@@ -42,7 +42,7 @@ export const messages = {
   "remoteDesktop.setup.startFailed": "Der Remotedesktop-Test konnte nicht gestartet werden.",
   "remoteDesktop.setup.connectionLost": "Die Testverbindung wurde unterbrochen.",
   "remoteDesktop.setup.hostUpdateRequired":
-    "Aktualisiere OpenBot auf dem Server, um Berechtigungen zu prüfen und den Remotedesktop zu testen.",
+    "Aktualisiere Builders Bot auf dem Server, um Berechtigungen zu prüfen und den Remotedesktop zu testen.",
   "remoteDesktop.setup.permissions": "Berechtigungen",
   "remoteDesktop.setup.checked": "Geprüft",
   "remoteDesktop.setup.checkAgain": "Erneut prüfen",

@@ -1,5 +1,5 @@
 import { AppLogo, type AppLogoVariant } from "@openbot/brand";
-import { APP_LOGO_EYE_POINTS } from "@openbot/brand/app-logo-shape";
+import { APP_LOGO_CUBE } from "@openbot/brand/app-logo-shape";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, onSettled } from "solid-js";
 
@@ -23,8 +23,8 @@ function strokeLength(points: string): number {
   return Math.ceil(length);
 }
 
-const LEFT_EYE_LENGTH = strokeLength(APP_LOGO_EYE_POINTS.left);
-const RIGHT_EYE_LENGTH = strokeLength(APP_LOGO_EYE_POINTS.right);
+const LEFT_EYE_LENGTH = strokeLength(APP_LOGO_CUBE.eyes.left);
+const RIGHT_EYE_LENGTH = strokeLength(APP_LOGO_CUBE.eyes.right);
 
 /**
  * Set on a splash root, so its CSS can draw the logo eyes with `stroke-dasharray`: one length for each

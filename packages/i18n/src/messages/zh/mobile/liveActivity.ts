@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/liveActivity";
 
 export const messages = {
-  "mobile.liveActivity.appName": "OpenBot",
+  "mobile.liveActivity.appName": "Builders Bot",
   "mobile.liveActivity.badge.working": "处理中",
   "mobile.liveActivity.badge.message": "消息",
   "mobile.liveActivity.badge.question": "提问",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.liveActivity.button.approve": "批准",
   "mobile.liveActivity.button.openDetails": "查看详情",
   "mobile.liveActivity.stale.label": "已过期",
-  "mobile.liveActivity.stale.detail": "请打开 OpenBot 查看当前状态。",
+  "mobile.liveActivity.stale.detail": "请打开 Builders Bot 查看当前状态。",
   "mobile.liveActivity.confirm.title": "批准该命令？",
   "mobile.liveActivity.confirm.cancel": "取消",
   "mobile.liveActivity.confirm.approve": "批准",
@@ -36,7 +36,7 @@ export const messages = {
   "mobile.liveActivity.error.decisionFallback": "请在桌面端打开该请求。",
   "mobile.liveActivity.island.taskWorking": "正在处理你的请求",
   "mobile.liveActivity.island.questionHeader": "你的助手有问题",
-  "mobile.liveActivity.island.questionText": "打开 OpenBot 来回答这个问题。",
+  "mobile.liveActivity.island.questionText": "打开 Builders Bot 来回答这个问题。",
   "mobile.liveActivity.island.optionFallback": "选项 {number}",
   "mobile.liveActivity.island.takeoverTitle": "浏览器中的步骤需要你",
   "mobile.liveActivity.island.takeoverDetail": "请在浏览器中完成登录、验证或授权。",

@@ -15,7 +15,7 @@ import {
   requiredNumberColumn,
   requiredStringColumn,
 } from "../database/database-rows";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 
 /** A refusal the agent reads: the text is already a sentence for it. */
 export class AgentWaitError extends Error {}
@@ -24,7 +24,7 @@ export class AgentWaitError extends Error {}
 export class AgentWaitLimitError extends AgentWaitError {}
 
 export interface AgentWaitStoreOptions {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   createId?: () => string;
   now?: () => Date;
 }
@@ -38,7 +38,7 @@ export interface OpenAgentWaitInput {
 }
 
 export class AgentWaitStore {
-  readonly #database: OpenBotDatabase;
+  readonly #database: BuildersBotDatabase;
   readonly #createId: () => string;
   readonly #now: () => Date;
 

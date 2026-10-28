@@ -1,5 +1,5 @@
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Context, Deferred, Effect, Exit, Fiber, Layer, ManagedRuntime, Scope } from "effect";
 import { RemoteWorkflowError } from "./remote-service-effects";
 import type { TeamWebRtcBridge } from "./team-webrtc-bridge";
@@ -13,7 +13,7 @@ interface TeamWebRtcHostGatewayOptions extends TeamWebRtcHostPeerOptions {
   privateNetwork?: () => boolean;
 }
 
-const logger = createOpenBotLogger("team-webrtc-host");
+const logger = createBuildersBotLogger("team-webrtc-host");
 
 class HostSignal extends Context.Service<
   HostSignal,

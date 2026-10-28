@@ -1,5 +1,5 @@
 /**
- * A provider that only the OpenBot app can sign in from here.
+ * A provider that only the Builders Bot app can sign in from here.
  *
  * Its sign-in page returns to the computer that opened it. The app on that computer receives it and
  * sends it on to the host; a browser tab cannot receive it. So the browser says where the sign-in
@@ -12,7 +12,7 @@ import { useText } from "../text";
 export interface ProviderUseAppDialogProps {
   open: boolean;
   providerName: string;
-  /** Opens the page that downloads the OpenBot app. */
+  /** Opens the page that downloads the Builders Bot app. */
   onDownload: () => void;
   onClose: () => void;
 }

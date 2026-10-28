@@ -1,4 +1,4 @@
-// Routine results: where an agent routine's answers go outside OpenBot, and what became of each one.
+// Routine results: where an agent routine's answers go outside Builders Bot, and what became of each one.
 // Only this computer's host keeps a destination. These handlers have no remote route; a joined server's
 // owner or admin uses `routine-results-v1` from the mobile app.
 

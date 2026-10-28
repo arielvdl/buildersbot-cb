@@ -1,5 +1,5 @@
 import { createEffect, createSignal, flush, onCleanup } from "solid-js";
-import { APP_LOGO_CORNER, APP_LOGO_EYE_POINTS, APP_LOGO_SIZE } from "./app-logo-shape";
+import { APP_LOGO_CORNER, APP_LOGO_CUBE, APP_LOGO_SIZE } from "./app-logo-shape";
 
 export type AppLogoAnimation = "none" | "blink" | "look-around" | "surprised";
 export type AppLogoVariant = "production" | "dev" | "preview";
@@ -142,7 +142,7 @@ export function AppLogo(props: AppLogoProps) {
       data-variant={props.variant}
       viewBox={`0 0 ${APP_LOGO_SIZE} ${APP_LOGO_SIZE}`}
       aria-hidden={props.interactive ? undefined : "true"}
-      aria-label={props.interactive ? "Animate OpenBot logo" : undefined}
+      aria-label={props.interactive ? "Animate Builders Bot logo" : undefined}
       role={props.interactive ? "button" : undefined}
       tabindex={props.interactive ? 0 : undefined}
       onClick={handleClick}
@@ -157,11 +157,22 @@ export function AppLogo(props: AppLogoProps) {
         rx={APP_LOGO_CORNER}
         ry={APP_LOGO_CORNER}
       />
-      <g class="app-logo-eye-motion">
-        <polyline class="app-logo-eye app-logo-eye-left" points={APP_LOGO_EYE_POINTS.left} />
-      </g>
-      <g class="app-logo-eye-motion">
-        <polyline class="app-logo-eye app-logo-eye-right" points={APP_LOGO_EYE_POINTS.right} />
+      <g class="app-logo-cube" transform={APP_LOGO_CUBE.fit}>
+        <path class="app-logo-face app-logo-face-top" d={APP_LOGO_CUBE.top} />
+        <path class="app-logo-face app-logo-face-left" d={APP_LOGO_CUBE.left} />
+        <path class="app-logo-face app-logo-face-right" d={APP_LOGO_CUBE.right} />
+        <g class="app-logo-eye-motion">
+          <polyline class="app-logo-eye app-logo-eye-left" points={APP_LOGO_CUBE.eyes.left} />
+        </g>
+        <g class="app-logo-eye-motion">
+          <polyline class="app-logo-eye app-logo-eye-right" points={APP_LOGO_CUBE.eyes.right} />
+        </g>
+        <circle
+          class="app-logo-dot"
+          cx={APP_LOGO_CUBE.dot.cx}
+          cy={APP_LOGO_CUBE.dot.cy}
+          r={APP_LOGO_CUBE.dot.r}
+        />
       </g>
     </svg>
   );

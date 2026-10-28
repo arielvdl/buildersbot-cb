@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/liveActivity";
 
 export const messages = {
-  "mobile.liveActivity.appName": "OpenBot",
+  "mobile.liveActivity.appName": "Builders Bot",
   "mobile.liveActivity.badge.working": "作業中",
   "mobile.liveActivity.badge.message": "メッセージ",
   "mobile.liveActivity.badge.question": "質問",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.liveActivity.button.approve": "承認",
   "mobile.liveActivity.button.openDetails": "詳細を開く",
   "mobile.liveActivity.stale.label": "最新ではありません",
-  "mobile.liveActivity.stale.detail": "現在の状態を見るには OpenBot を開いてください。",
+  "mobile.liveActivity.stale.detail": "現在の状態を見るには Builders Bot を開いてください。",
   "mobile.liveActivity.confirm.title": "このコマンドを承認しますか？",
   "mobile.liveActivity.confirm.cancel": "キャンセル",
   "mobile.liveActivity.confirm.approve": "承認",
@@ -36,7 +36,7 @@ export const messages = {
   "mobile.liveActivity.error.decisionFallback": "デスクトップでリクエストを開いてください。",
   "mobile.liveActivity.island.taskWorking": "リクエストを処理中",
   "mobile.liveActivity.island.questionHeader": "エージェントからの質問",
-  "mobile.liveActivity.island.questionText": "この質問に答えるには OpenBot を開いてください。",
+  "mobile.liveActivity.island.questionText": "この質問に答えるには Builders Bot を開いてください。",
   "mobile.liveActivity.island.optionFallback": "オプション {number}",
   "mobile.liveActivity.island.takeoverTitle": "ブラウザーでの操作が必要です",
   "mobile.liveActivity.island.takeoverDetail": "ブラウザーでサインイン、確認、または同意を完了してください。",

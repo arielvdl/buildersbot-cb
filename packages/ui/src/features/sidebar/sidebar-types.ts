@@ -62,7 +62,7 @@ export interface SidebarProps {
    * it is set. `back` and `forward` name the chat that each arrow opens, or are null when there is none.
    */
   chatHistory?: SidebarChatHistory | undefined;
-  /** A new OpenBot version of the server. The header shows a button that opens its update. */
+  /** A new Builders Bot version of the server. The header shows a button that opens its update. */
   serverUpdate?: { version: string; running: boolean; onOpen: () => void } | undefined;
   agents: AgentProfile[];
   activeAgentId: string;

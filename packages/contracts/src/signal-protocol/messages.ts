@@ -3,13 +3,13 @@
 // Signal (`remote/api`) relays SDP and ICE between a host and its clients and hands out resume
 // tokens and TURN credentials. Team chats, files and commands never pass through it - those travel
 // on the WebRTC data channels it helped negotiate, and their protocol is `../team-protocol` instead.
-// The one exception is Slack: the OpenBot Slack app posts every workspace's events to Signal.
+// The one exception is Slack: the Builders Bot Slack app posts every workspace's events to Signal.
 // Signal checks the Slack signature, reads only the workspace ID, and passes the request body to
 // the `ingress` socket of the host that the workspace is linked to, without storing or logging it.
-// Discord is the second: Signal holds the OpenBot Discord bot's Gateway connection, passes each
-// guild's mentions of OpenBot to the guild's host, and makes the host's Discord calls
+// Discord is the second: Signal holds the Builders Bot Discord bot's Gateway connection, passes each
+// guild's mentions of Builders Bot to the guild's host, and makes the host's Discord calls
 // (`./discord-api.ts`).
-// Telegram is the third: the OpenBot bot's updates come to Signal, which passes each to the host of
+// Telegram is the third: the Builders Bot bot's updates come to Signal, which passes each to the host of
 // its chat, and the host calls the Bot API through Signal, which holds the token (`./telegram-route.ts`).
 //
 // Three parties speak this and none of them ships together: the service

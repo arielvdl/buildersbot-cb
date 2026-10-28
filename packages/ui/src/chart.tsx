@@ -1,5 +1,5 @@
 // Adapted from Zaidan's chart registry (MIT): https://zaidan.carere.dev/r/kobalte/chart.json
-// Keep chart behavior in the shared UI layer; OpenBot supplies its own theme and layout.
+// Keep chart behavior in the shared UI layer; Builders Bot supplies its own theme and layout.
 import type { ComponentProps, JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 import { ResponsiveContainer, Tooltip, type TooltipContentProps } from "solid-recharts";

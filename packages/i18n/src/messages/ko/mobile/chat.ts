@@ -4,7 +4,7 @@ import type { messages as source } from "../../en/mobile/chat";
 export const messages = {
   "mobile.chat.dictation.microphoneOffTitle": "마이크 접근이 꺼져 있어요",
   "mobile.chat.dictation.microphoneOffMessage":
-    "메시지를 음성으로 입력하려면 설정에서 OpenBot이 마이크와 음성 인식을 사용하도록 허용해 주세요.",
+    "메시지를 음성으로 입력하려면 설정에서 Builders Bot이 마이크와 음성 인식을 사용하도록 허용해 주세요.",
   "mobile.chat.dictation.stopped": "음성 입력이 중지됐어요",
   "mobile.chat.dictation.tryAgain": "다시 시도해 주세요.",
   "mobile.chat.dictation.unavailable": "음성 입력을 사용할 수 없어요",
@@ -96,7 +96,7 @@ export const messages = {
   "mobile.chat.attachment.openFailed": "첨부 파일을 열 수 없어요",
   "mobile.chat.attachment.photosNeedUpdate": "사진을 저장하려면 앱을 최신 버전으로 업데이트해야 해요.",
   "mobile.chat.attachment.photosPermission":
-    "이 이미지를 저장하려면 설정에서 OpenBot이 사진을 추가하도록 허용해 주세요.",
+    "이 이미지를 저장하려면 설정에서 Builders Bot이 사진을 추가하도록 허용해 주세요.",
   "mobile.chat.attachment.imageUnavailable": "이미지를 사용할 수 없어요. 다시 시도해 주세요.",
   "mobile.chat.attachment.saveImageFailed": "이미지를 저장할 수 없어요",
   "mobile.chat.attachment.preview": "{name} 미리보기",
@@ -121,9 +121,9 @@ export const messages = {
   "mobile.chat.attachment.unsupported":
     "{name}: 이미지, MP3 오디오, MOV 또는 MP4 동영상, ZIP 압축 파일, PDF, Office 문서, EML, 텍스트, Markdown, 데이터 또는 소스 파일을 선택해 주세요.",
   "mobile.chat.attachment.hostRejectsType":
-    "{name}: 호스트 컴퓨터가 {type} 파일을 받지 않아요. 첨부하려면 호스트의 OpenBot을 업데이트해 주세요.",
+    "{name}: 호스트 컴퓨터가 {type} 파일을 받지 않아요. 첨부하려면 호스트의 Builders Bot을 업데이트해 주세요.",
   "mobile.chat.attachment.hostRejects":
-    "{name}: 호스트 컴퓨터가 이 파일을 받지 않아요. 첨부하려면 호스트의 OpenBot을 업데이트해 주세요.",
+    "{name}: 호스트 컴퓨터가 이 파일을 받지 않아요. 첨부하려면 호스트의 Builders Bot을 업데이트해 주세요.",
   "mobile.chat.attachment.nameTooLong": "이름이 더 짧은 파일을 선택해 주세요.",
   "mobile.chat.attachment.damaged": "첨부 파일이 손상됐어요. 다시 선택해 주세요.",
   "mobile.chat.attachment.tooLarge": "{name} 파일이 10MB보다 커요.",
@@ -194,7 +194,7 @@ export const messages = {
   "mobile.chat.video.retry": "동영상 다시 시도",
   "mobile.chat.video.share": "{name} 공유",
   "mobile.chat.video.save": "{name}을(를) 사진에 저장",
-  "mobile.chat.video.photosPermission": "이 동영상을 저장하려면 설정에서 OpenBot이 사진을 추가하도록 허용해 주세요.",
+  "mobile.chat.video.photosPermission": "이 동영상을 저장하려면 설정에서 Builders Bot이 사진을 추가하도록 허용해 주세요.",
   "mobile.chat.video.saveFailed": "동영상을 저장할 수 없어요",
   "mobile.chat.audio.play": "{name} 재생",
   "mobile.chat.audio.pause": "{name} 일시 정지",
@@ -208,7 +208,7 @@ export const messages = {
   "mobile.chat.browserSecret.authenticatorCode": "인증 앱 코드",
   "mobile.chat.browserSecret.oneTimeCode": "일회용 코드",
   "mobile.chat.browserSecret.takeoverTitle": "브라우저 직접 제어",
-  "mobile.chat.browserSecret.takeoverBody": "OpenBot을 실행하는 컴퓨터의 브라우저에서 이 단계를 완료해 주세요.",
+  "mobile.chat.browserSecret.takeoverBody": "Builders Bot을 실행하는 컴퓨터의 브라우저에서 이 단계를 완료해 주세요.",
   "mobile.chat.browserSecret.takeoverReload": "그런 다음 ‘완료’를 누르기 전에 페이지를 새로 고쳐 주세요.",
   "mobile.chat.browserSecret.takeoverFailed": "요청을 완료할 수 없어요.",
   "mobile.chat.browserSecret.done": "완료",
@@ -287,7 +287,7 @@ export const messages = {
   "mobile.chat.approval.effect.permissions":
     "허용하면 {name}에게 {server}에서 이 권한을 부여해요. 거부하면 현재 권한이 유지돼요.",
   "mobile.chat.approval.partial":
-    "이 요청은 너무 길어서 휴대폰에 표시할 수 없어요. 허용하려면 {server}에서 OpenBot을 열어 주세요. 여기서는 거부할 수 있어요.",
+    "이 요청은 너무 길어서 휴대폰에 표시할 수 없어요. 허용하려면 {server}에서 Builders Bot을 열어 주세요. 여기서는 거부할 수 있어요.",
   "mobile.chat.approval.allow": "허용",
   "mobile.chat.approval.deny": "거부",
   "mobile.chat.approval.reconnect": "이 요청에 응답하려면 {server}에 연결해 주세요.",
@@ -352,7 +352,7 @@ export const messages = {
   "mobile.chat.queue.steerNeedsTurn": "방향 지시는 실행 중인 턴이 있어야 해요.",
   "mobile.chat.queue.stillHoldingTitle": "메시지를 아직 보류 중이에요",
   "mobile.chat.queue.stillHoldingMessage":
-    "OpenBot이 이 메시지를 해제하지 못해서 에이전트가 계속 기다리고 있어요. 휴대폰이 다시 연결된 후 시도해 주세요.",
+    "Builders Bot이 이 메시지를 해제하지 못해서 에이전트가 계속 기다리고 있어요. 휴대폰이 다시 연결된 후 시도해 주세요.",
   "mobile.chat.queue.keepEditing": "계속 편집",
   "mobile.chat.queue.leaveAnyway": "그래도 나가기",
   "mobile.chat.queue.discardTitle": "변경 사항을 버릴까요?",
@@ -360,7 +360,7 @@ export const messages = {
   "mobile.chat.queue.discard": "버리기",
   "mobile.chat.queue.alreadyReceived": "에이전트가 이미 이 메시지를 받아서 변경할 수 없어요.",
   "mobile.chat.queue.holding": "메시지를 보류하는 중…",
-  "mobile.chat.queue.holdFailed": "OpenBot이 편집을 위해 이 메시지를 보류하지 못했어요.",
+  "mobile.chat.queue.holdFailed": "Builders Bot이 편집을 위해 이 메시지를 보류하지 못했어요.",
   "mobile.chat.queue.messageLabel": "메시지",
   "mobile.chat.queue.messagePlaceholder": "메시지 텍스트",
   "mobile.chat.queue.save": "대기 중인 메시지 저장",

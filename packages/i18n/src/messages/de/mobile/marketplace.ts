@@ -55,13 +55,13 @@ export const messages = {
   "mobile.marketplace.facts.accessNone": "Ohne Anmeldung",
   "mobile.marketplace.permission.admin": "Nur Eigentümer und Administratoren können aus dem Marketplace installieren.",
   "mobile.marketplace.permission.unavailable":
-    "Dieser Server ist offline, oder sein OpenBot ist dafür zu alt. Aktualisiere OpenBot auf dem Computer, der ihn ausführt.",
+    "Dieser Server ist offline, oder sein Builders Bot ist dafür zu alt. Aktualisiere Builders Bot auf dem Computer, der ihn ausführt.",
   "mobile.marketplace.error.agentUnsupported":
-    "Aktualisiere OpenBot auf dem Server, um Agenten aus dem Marketplace hinzuzufügen.",
+    "Aktualisiere Builders Bot auf dem Server, um Agenten aus dem Marketplace hinzuzufügen.",
   "mobile.marketplace.error.agentUpdateUnsupported":
-    "Aktualisiere OpenBot auf dem Server, um Agenten aus dem Marketplace zu aktualisieren.",
+    "Aktualisiere Builders Bot auf dem Server, um Agenten aus dem Marketplace zu aktualisieren.",
   "mobile.marketplace.error.signInUnsupported":
-    "Aktualisiere OpenBot auf dem Server, um dich vom Telefon aus bei Apps anzumelden.",
+    "Aktualisiere Builders Bot auf dem Server, um dich vom Telefon aus bei Apps anzumelden.",
   "mobile.marketplace.agent.add": "Agenten hinzufügen",
   "mobile.marketplace.agent.adding": "Agent wird hinzugefügt",
   "mobile.marketplace.agent.update": "Agenten aktualisieren",
@@ -105,9 +105,9 @@ export const messages = {
   "mobile.marketplace.app.connectFailed": "Die App konnte nicht verbunden werden.",
   "mobile.marketplace.app.linkInvalid": "Verwende einen https-Link auf {hostname}.",
   "mobile.marketplace.app.docs": "Schlüssel holen",
-  "mobile.marketplace.app.local": "Diese App läuft auf dem Computer mit OpenBot. Richte sie auf diesem Computer ein.",
+  "mobile.marketplace.app.local": "Diese App läuft auf dem Computer mit Builders Bot. Richte sie auf diesem Computer ein.",
   "mobile.marketplace.app.relayUnsupported":
-    "Diese App verlangt eine Anmeldung im Browser. Aktualisiere OpenBot auf dem Server oder verbinde die App auf dem Computer.",
+    "Diese App verlangt eine Anmeldung im Browser. Aktualisiere Builders Bot auf dem Server oder verbinde die App auf dem Computer.",
   "mobile.marketplace.app.waiting": "Warten auf die Anmeldeseite…",
   "mobile.marketplace.app.openAgain": "Anmeldeseite erneut öffnen",
   "mobile.marketplace.app.pasteHint":

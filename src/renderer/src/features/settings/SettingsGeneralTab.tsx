@@ -143,6 +143,13 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             label={i18n.t("settings.showAgentSteps.title")}
             description={i18n.t("settings.showAgentSteps.description")}
           />
+          <SwitchField
+            data-settings-row="settings.promptGuard.title"
+            checked={props.value.promptInjectionGuard}
+            onChange={(checked) => props.onUpdateSetting("promptInjectionGuard", checked)}
+            label={i18n.t("settings.promptGuard.title")}
+            description={i18n.t("settings.promptGuard.description")}
+          />
           <Item data-settings-row="settings.externalLinks.title" class="settings-modal-row">
             <ItemContent>
               <ItemTitle>{i18n.t("settings.externalLinks.title")}</ItemTitle>

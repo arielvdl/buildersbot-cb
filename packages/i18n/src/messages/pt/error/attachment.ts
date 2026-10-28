@@ -8,12 +8,12 @@ export const messages = {
   "error.attachment.unavailable": "Este arquivo não está mais disponível.",
   "error.attachment.tooMany": "Escolha no máximo {limit} arquivos.",
   "error.attachment.mediaUnsupported":
-    "Este servidor não oferece suporte a anexos MP3 ou MOV. Atualize o OpenBot no computador anfitrião e tente novamente.",
+    "Este servidor não oferece suporte a anexos MP3 ou MOV. Atualize o Builders Bot no computador anfitrião e tente novamente.",
   "error.attachment.emlUnsupported":
-    "Este servidor não oferece suporte a anexos EML. Atualize o OpenBot no computador anfitrião e tente novamente.",
+    "Este servidor não oferece suporte a anexos EML. Atualize o Builders Bot no computador anfitrião e tente novamente.",
   "error.attachment.zipUnsupported":
-    "Este servidor não oferece suporte a anexos ZIP. Atualize o OpenBot no computador anfitrião e tente novamente.",
+    "Este servidor não oferece suporte a anexos ZIP. Atualize o Builders Bot no computador anfitrião e tente novamente.",
   "error.attachment.mp4Unsupported":
-    "Este servidor não oferece suporte a anexos MP4. Atualize o OpenBot no computador anfitrião e tente novamente.",
+    "Este servidor não oferece suporte a anexos MP4. Atualize o Builders Bot no computador anfitrião e tente novamente.",
   "error.attachment.previewTooLarge": "O arquivo excede o limite de 100 MB.",
 } as const satisfies PartialTranslation<typeof source>;

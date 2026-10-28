@@ -8,7 +8,7 @@ import {
 // "Check agent": one trial start of a custom agent, before the user saves it.
 //
 // `initialize` is sent first. When the caller asks for models, one `session/new` follows, with no
-// MCP servers, to read the models that the session lists; the agent saves nothing for OpenBot to
+// MCP servers, to read the models that the session lists; the agent saves nothing for Builders Bot to
 // keep, and a failure there gives no models but does not fail the check. The process starts in an
 // empty temporary folder, in a process group of its own on POSIX, and the whole group is stopped
 // when the check ends, however it ends.

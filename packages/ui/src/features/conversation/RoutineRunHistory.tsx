@@ -19,7 +19,7 @@ interface RoutineHistoryActivity {
   routine: EventRoutineRef;
 }
 
-/** Where each run's answer went outside OpenBot. Only an agent routine on this computer has it. */
+/** Where each run's answer went outside Builders Bot. Only an agent routine on this computer has it. */
 interface RoutineHistoryDeliveries {
   items: RoutineResultDelivery[];
   onResend: (runId: string) => Promise<void>;
@@ -39,7 +39,7 @@ type HistoryEntry =
 
 const VISIBLE_ENTRIES = 10;
 const ACTIVITY_LIMIT = 50;
-/** A scheduled run that started this long after its time ran late: OpenBot was closed or asleep. */
+/** A scheduled run that started this long after its time ran late: Builders Bot was closed or asleep. */
 const LATE_RUN_MS = 60_000;
 
 /**

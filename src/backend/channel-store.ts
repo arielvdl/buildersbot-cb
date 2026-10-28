@@ -26,7 +26,7 @@ import {
   requiredNumberColumn,
   requiredStringColumn,
 } from "./database/database-rows";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 import { revokeRoutineWebhooks } from "./webhook-route-store";
 
 export interface ChannelAssignment {
@@ -84,7 +84,7 @@ export class ChannelStore {
   /** By channel: how many times a message changed in place after it was complete, in this process. */
   readonly #completedMessageChanges = new Map<string, number>();
 
-  constructor(readonly database: OpenBotDatabase) {}
+  constructor(readonly database: BuildersBotDatabase) {}
 
   /** A packet built before this count changed can show a message as it was before. */
   completedMessageChanges(channelId: string): number {

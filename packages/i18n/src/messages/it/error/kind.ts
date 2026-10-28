@@ -6,9 +6,9 @@ export const messages = {
   "error.kind.timeout":
     "La richiesta ha richiesto troppo tempo. Controlla se l'azione è stata completata prima di riprovare.",
   "error.kind.storage":
-    "Lo spazio di archiviazione non è sufficiente. Libera spazio sul computer su cui gira OpenBot, poi riprova.",
+    "Lo spazio di archiviazione non è sufficiente. Libera spazio sul computer su cui gira Builders Bot, poi riprova.",
   "error.kind.filePermission":
-    "OpenBot non ha il permesso di completare questa azione. Controlla i permessi del file o della cartella, poi riprova.",
+    "Builders Bot non ha il permesso di completare questa azione. Controlla i permessi del file o della cartella, poi riprova.",
   "error.kind.notFound":
     "Non è stato possibile trovare un file o una cartella necessari. Ripristinali o scegline un altro, poi riprova.",
   "error.kind.readOnly": "Questa cartella è di sola lettura. Scegli una cartella in cui puoi scrivere, poi riprova.",

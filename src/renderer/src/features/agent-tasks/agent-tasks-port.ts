@@ -1,15 +1,15 @@
-import type { AgentTaskInput, OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { AgentTaskInput, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /** What the side thread state reaches on a server: the list, a thread's conversation, and the thread actions. */
 export interface AgentTasksPort
   extends Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     "closeTask" | "deleteTask" | "listTasks" | "readTask" | "renameTask" | "reopenTask" | "startTask" | "stopTask"
   > {
   /** Steers the thread's running turn, or queues the message in the thread. */
   sendToTask(input: AgentTaskInput & { text: string; clientMessageId: string }): Promise<unknown>;
   /** Missing where the server cannot move a queued message of the agent's own chat to a new thread. */
-  runQueuedMessageAsTask?: OpenBotDesktopApi["agent"]["runQueuedMessageAsTask"];
+  runQueuedMessageAsTask?: BuildersBotDesktopApi["agent"]["runQueuedMessageAsTask"];
 }
 
 /**

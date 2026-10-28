@@ -88,7 +88,7 @@ export const messages = {
   "agentSettings.runtime.fullAccessNote":
     "El agente se ejecuta con acceso completo al equipo desde su espacio de trabajo y la carpeta compartida.",
   "agentSettings.runtime.askNote":
-    "Te pregunta antes de usar una herramienta de OpenBot o publicar un sitio, y cuando su proveedor pide aprobación.",
+    "Te pregunta antes de usar una herramienta de Builders Bot o publicar un sitio, y cuando su proveedor pide aprobación.",
   "agentSettings.runtime.fullNote": "Actúa sin preguntar, salvo las preguntas que te haga.",
   "agentSettings.access.workspace": "Solo espacio de trabajo",
   "agentSettings.access.ask": "Preguntar antes",
@@ -147,7 +147,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "Una edición de archivo fuera te pedirá permiso primero. Un comando no puede escribir fuera.",
   "agentSettings.runtime.workspaceUnlimited":
-    "El uso del equipo y el navegador de OpenBot no están limitados; puedes desactivar el uso del equipo a continuación.",
+    "El uso del equipo y el navegador de Builders Bot no están limitados; puedes desactivar el uso del equipo a continuación.",
   "agentSettings.computerUse.title": "Uso del equipo",
   "agentSettings.computerUse.description": "Permitir que este agente controle apps en este equipo",
   "agentSettings.automation.title": "Scripts locales",
@@ -159,6 +159,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Mostrar el plan antes de tareas largas",
   "agentSettings.quickAcknowledgement.description":
     "Antes de una tarea larga, el agente muestra su plan. Empieza tras 10 s o cuando pulsas Iniciar.",
+  "agentSettings.securityGuard.title": "Revisión de seguridad de cada mensaje",
+  "agentSettings.securityGuard.description":
+    'Antes de cada turno, una revisión lee el mensaje y sus imágenes en busca de inyección de prompt y muestra al agente lo que encontró. Usa el modelo del propio agente.',
   "agentSettings.browserProfile.label": "Perfil del navegador",
   "agentSettings.browserProfile.shared": "Compartido",
   "agentSettings.browserProfile.agent": "Solo este agente",

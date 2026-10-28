@@ -16,6 +16,7 @@ import {
   ROUTINE_EVENT_ITEM_TYPE_PREFIX,
   ROUTINE_QUIET_ANSWER_ITEM_TYPE,
   ROUTINE_RUN_EVENT_ITEM_TYPE_PREFIX,
+  SECURITY_SCAN_ITEM_TYPE,
   SKILL_EVENT_ITEM_TYPE_PREFIX,
 } from "@openbot/contracts/ipc";
 import type { AgentMessage } from "@openbot/ui/data";
@@ -43,7 +44,8 @@ export function isRoutineEventItem(message: { itemType?: string | undefined }): 
     message.itemType?.startsWith(SKILL_EVENT_ITEM_TYPE_PREFIX) === true ||
     message.itemType?.startsWith(MARKETPLACE_SUGGESTION_ITEM_TYPE_PREFIX) === true ||
     message.itemType?.startsWith(MODEL_SWITCH_ITEM_TYPE_PREFIX) === true ||
-    message.itemType === CONTEXT_RESET_ITEM_TYPE
+    message.itemType === CONTEXT_RESET_ITEM_TYPE ||
+    message.itemType === SECURITY_SCAN_ITEM_TYPE
   );
 }
 

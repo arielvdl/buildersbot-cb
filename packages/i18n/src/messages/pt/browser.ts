@@ -56,8 +56,8 @@ export const messages = {
   "browser.pip.reattach": "Reanexar navegador à barra lateral direita",
   "browser.pip.reattachTitle": "Reanexar navegador",
   "browser.pip.close": "Fechar janela flutuante do navegador",
-  "browser.pip.reattachFailed": "O OpenBot não conseguiu reanexar o navegador.",
-  "browser.pip.closeFailed": "O OpenBot não conseguiu fechar a janela flutuante do navegador.",
+  "browser.pip.reattachFailed": "O Builders Bot não conseguiu reanexar o navegador.",
+  "browser.pip.closeFailed": "O Builders Bot não conseguiu fechar a janela flutuante do navegador.",
   "browser.popupBlocked.title": "Pop-up bloqueado",
   "browser.popupBlocked.dismiss": "Dispensar mensagem de pop-up",
   "browser.liveView.label": "Visualização ao vivo da página no servidor",
@@ -131,20 +131,20 @@ export const messages = {
   "browser.signIn.local": "Entrar neste computador",
   "browser.signIn.title": "Entrar em {site}",
   "browser.signIn.description":
-    "Alguns sites recusam um login a partir de um servidor. Entre neste computador, e o OpenBot envia o login de {site} para {server}. Todos os agentes e membros em {server} podem usá-lo no navegador.",
+    "Alguns sites recusam um login a partir de um servidor. Entre neste computador, e o Builders Bot envia o login de {site} para {server}. Todos os agentes e membros em {server} podem usá-lo no navegador.",
   "browser.signIn.windowOpen":
-    "Entre na janela que abriu. O OpenBot envia o login quando ele estiver completo. Se a janela continuar aberta, selecione Concluído.",
+    "Entre na janela que abriu. O Builders Bot envia o login quando ele estiver completo. Se a janela continuar aberta, selecione Concluído.",
   "browser.signIn.windowClosed":
     "A janela de login está fechada. Selecione Concluído para enviar o login ou abra a janela novamente.",
   "browser.signIn.reopen": "Abrir a janela de login",
   "browser.signIn.sending": "Enviando para {server}…",
   "browser.signIn.sent": "Conectado a {site} em {server}",
-  "browser.signIn.notFound": "O OpenBot não encontrou um login para {site}. Entre na janela e selecione Concluído.",
+  "browser.signIn.notFound": "O Builders Bot não encontrou um login para {site}. Entre na janela e selecione Concluído.",
   "browser.signIn.stillSignedOut": "{server} ainda mostra uma página de login de {site}. Termine o login na janela.",
-  "browser.signIn.failed": "O OpenBot não conseguiu enviar o login.",
+  "browser.signIn.failed": "O Builders Bot não conseguiu enviar o login.",
   "browser.profiles.title": "Perfis do navegador",
   "browser.profiles.subtitle":
-    "Cada perfil mantém logins, cookies e dados de sites próprios no computador que executa o OpenBot.",
+    "Cada perfil mantém logins, cookies e dados de sites próprios no computador que executa o Builders Bot.",
   "browser.profiles.label": "Perfis do navegador",
   "browser.profiles.newName": "Nome do perfil",
   "browser.profiles.create": "Adicionar",
@@ -163,8 +163,8 @@ export const messages = {
   "browser.profiles.deleteDescription":
     "Isso exclui os logins, os cookies e os dados de sites do perfil. As abas abertas dele são fechadas.",
   "browser.profiles.deleteAgents": "Estes agentes passam a usar o perfil compartilhado: {agents}.",
-  "browser.profiles.failed": "O OpenBot não conseguiu alterar os perfis do navegador.",
-  "browser.profiles.loadFailed": "O OpenBot não conseguiu carregar os perfis do navegador.",
+  "browser.profiles.failed": "O Builders Bot não conseguiu alterar os perfis do navegador.",
+  "browser.profiles.loadFailed": "O Builders Bot não conseguiu carregar os perfis do navegador.",
   "browser.profiles.tabLabel": "Perfil: {name}",
   "browser.profiles.agentTabLabel": "Perfil próprio do agente",
 } as const satisfies PartialTranslation<typeof source>;

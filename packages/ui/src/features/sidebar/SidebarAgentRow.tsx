@@ -64,6 +64,11 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
     const current = state();
     return current?.kind === "limited" ? current : undefined;
   };
+  /** The row is being worked: a turn runs, or a routine of the row runs. */
+  const working = () => {
+    const current = state();
+    return current?.kind === "working" || (current?.kind === "routine" && current.phase === "running");
+  };
   const stateLabel = () => {
     const current = state();
     return current?.kind === "routine" || current?.kind === "waiting" || current?.kind === "limited"
@@ -100,7 +105,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
         <span class="agent-row-copy">
           <span class="agent-row-heading">
             <span class="agent-row-title">
-              <span class="agent-row-name">
+              <span class={["agent-row-name", { "agent-row-name-working": working() }]}>
                 <strong>{rowProps.agent.name}</strong>
                 <Show when={lockLabel()}>
                   <span class="agent-row-access" title={lockLabel()}>

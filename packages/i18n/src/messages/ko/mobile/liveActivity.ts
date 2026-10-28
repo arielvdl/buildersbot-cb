@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/liveActivity";
 
 export const messages = {
-  "mobile.liveActivity.appName": "OpenBot",
+  "mobile.liveActivity.appName": "Builders Bot",
   "mobile.liveActivity.badge.working": "작업 중",
   "mobile.liveActivity.badge.message": "메시지",
   "mobile.liveActivity.badge.question": "질문",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.liveActivity.button.approve": "승인",
   "mobile.liveActivity.button.openDetails": "상세 보기",
   "mobile.liveActivity.stale.label": "최신 아님",
-  "mobile.liveActivity.stale.detail": "OpenBot을 열어 현재 상태를 확인해 주세요.",
+  "mobile.liveActivity.stale.detail": "Builders Bot을 열어 현재 상태를 확인해 주세요.",
   "mobile.liveActivity.confirm.title": "이 명령을 승인할까요?",
   "mobile.liveActivity.confirm.cancel": "취소",
   "mobile.liveActivity.confirm.approve": "승인",
@@ -36,7 +36,7 @@ export const messages = {
   "mobile.liveActivity.error.decisionFallback": "데스크톱에서 요청을 열어 주세요.",
   "mobile.liveActivity.island.taskWorking": "요청을 처리하는 중",
   "mobile.liveActivity.island.questionHeader": "에이전트의 질문",
-  "mobile.liveActivity.island.questionText": "OpenBot을 열어 이 질문에 답해 주세요.",
+  "mobile.liveActivity.island.questionText": "Builders Bot을 열어 이 질문에 답해 주세요.",
   "mobile.liveActivity.island.optionFallback": "옵션 {number}",
   "mobile.liveActivity.island.takeoverTitle": "브라우저 단계에 도움이 필요해요",
   "mobile.liveActivity.island.takeoverDetail": "브라우저에서 로그인, 인증 또는 동의를 마무리해 주세요.",

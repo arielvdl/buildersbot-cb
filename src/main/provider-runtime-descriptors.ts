@@ -642,9 +642,9 @@ const PROVIDER_RUNTIME_DESCRIPTORS: Record<ManagedRuntimeId, ProviderRuntimeDesc
         });
       }
     }),
-    // The server takes no `--version`: it starts and waits for ACP on stdin. OpenBot writes the
+    // The server takes no `--version`: it starts and waits for ACP on stdin. Builders Bot writes the
     // manifest at install. `verify` hashes only the programs, so the version check compares the
-    // manifest with the version that OpenBot wrote, not with the programs.
+    // manifest with the version that Builders Bot wrote, not with the programs.
     versionFile: ANTIGRAVITY_MANIFEST,
     parseVersion: parseAntigravityVersion,
   },
@@ -667,7 +667,7 @@ const PROVIDER_RUNTIME_DESCRIPTORS: Record<ManagedRuntimeId, ProviderRuntimeDesc
     },
     // The launcher starts the Node.js runtime and the script beside it, so the whole folder goes to
     // `bin/`. The archive has no licence file; the manifest names the terms Cursor publishes instead.
-    // GNU tar on Linux reads no zip, so the Windows zip is read by OpenBot.
+    // GNU tar on Linux reads no zip, so the Windows zip is read by Builders Bot.
     stage: Effect.fn("ProviderRuntime.cursor.stage")(function* ({
       spec,
       downloadedPath,
@@ -710,7 +710,7 @@ const PROVIDER_RUNTIME_DESCRIPTORS: Record<ManagedRuntimeId, ProviderRuntimeDesc
       }
     }),
     // The Windows launcher is a `.cmd` file, which `execFile` cannot start, so the version comes from
-    // the manifest that OpenBot wrote, as for Antigravity.
+    // the manifest that Builders Bot wrote, as for Antigravity.
     versionFile: CURSOR_MANIFEST,
     parseVersion: parseCursorManifestVersion,
   },

@@ -1,4 +1,4 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the browser domain reaches in main: the tabs, the display and control state, and the
@@ -6,7 +6,7 @@ import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
  */
 export interface BrowserPort {
   browser: Pick<
-    OpenBotDesktopApi["browser"],
+    BuildersBotDesktopApi["browser"],
     | "activate"
     | "close"
     | "dockPictureInPicture"

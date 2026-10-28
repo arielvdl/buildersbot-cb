@@ -11,7 +11,7 @@ export const messages = {
     "Nenhuma tabela ainda. Um agente cria uma quando uma tarefa precisa manter registros entre interações, e todos os agentes podem usá-la.",
   "sharedTable.loadFailed": "Não foi possível carregar as tabelas.",
   "sharedTable.deleteFailed": "Não foi possível excluir.",
-  "sharedTable.madeOutside": "Criada fora do OpenBot · qualquer agente pode excluí-la",
+  "sharedTable.madeOutside": "Criada fora do Builders Bot · qualquer agente pode excluí-la",
   "sharedTable.keptBy": "Mantida por {name}",
   "sharedTable.keptByDeleted": "Mantida por um agente que não existe mais",
   "sharedTable.deleteName": "Excluir {name}",

@@ -206,7 +206,7 @@ export interface BrowserOpenInput {
 }
 
 /**
- * A sign-in on this computer for a tab of the active remote server. OpenBot opens the tab's address
+ * A sign-in on this computer for a tab of the active remote server. Builders Bot opens the tab's address
  * in a local window with its own session in memory; Done sends the cookies of that site to the tab.
  * When the site looks signed in, the window ends its wait before the person selects Done.
  */

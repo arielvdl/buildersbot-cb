@@ -6,7 +6,7 @@ export const messages = {
   "error.site.absolutePath": "请选择站点目录的绝对路径。",
   "error.site.rootSymlink": "托管站点不允许使用符号链接。",
   "error.site.notDirectory": "站点源必须是一个目录。",
-  "error.site.outsideWorkspace": "站点必须位于该助手的工作区或 OpenBot 共享文件夹内。",
+  "error.site.outsideWorkspace": "站点必须位于该助手的工作区或 Builders Bot 共享文件夹内。",
   "error.site.packageJsonInvalid": "站点的 package.json 无效。",
   "error.site.astroServerOutput": "Astro 必须使用静态输出。",
   "error.site.astroAdapter": "不允许使用 Astro 服务端适配器和 React 集成。",

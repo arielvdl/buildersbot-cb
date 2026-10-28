@@ -6,7 +6,7 @@ export const messages = {
   "error.site.absolutePath": "Mutlak bir site dizini yolu seçin.",
   "error.site.rootSymlink": "Barındırılan sitelerde sembolik bağlantılara izin verilmez.",
   "error.site.notDirectory": "Site kaynağı bir dizin olmalıdır.",
-  "error.site.outsideWorkspace": "Site, bu ajanın çalışma alanı veya OpenBot Paylaşılan klasörü içinde olmalıdır.",
+  "error.site.outsideWorkspace": "Site, bu ajanın çalışma alanı veya Builders Bot Paylaşılan klasörü içinde olmalıdır.",
   "error.site.packageJsonInvalid": "Sitenin package.json dosyası geçersiz.",
   "error.site.astroServerOutput": "Astro statik çıktı kullanmalıdır.",
   "error.site.astroAdapter": "Astro sunucu bağdaştırıcılarına ve React entegrasyonuna izin verilmez.",

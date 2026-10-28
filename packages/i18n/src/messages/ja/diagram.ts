@@ -121,7 +121,7 @@ export const messages = {
   "diagram.routine.runLabel": "{status}、{time}",
   "diagram.routine.manual": "手動",
   "diagram.flows.unsupported":
-    "このサーバーはルーティンフローに対応していません。サーバーを実行しているコンピューターの OpenBot を更新してください。",
+    "このサーバーはルーティンフローに対応していません。サーバーを実行しているコンピューターの Builders Bot を更新してください。",
   "diagram.flows.webhookAdminOnly":
     "Webhook ルーティンを変更または実行できるのは、このサーバーのオーナーまたは管理者だけです。",
   "diagram.flows.loadFailed": "このエージェントのルーティンを読み込めませんでした。",

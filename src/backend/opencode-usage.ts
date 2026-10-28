@@ -1,7 +1,7 @@
 // The OpenCode Go quota, read from the endpoint the OpenCode console serves for the Go API key.
 //
 // OpenCode's ACP process does not report a quota, so this is a direct HTTPS request with the key the
-// user pasted into OpenBot. The route is `packages/console/app/src/routes/zen/go/v1/usage.ts` in
+// user pasted into Builders Bot. The route is `packages/console/app/src/routes/zen/go/v1/usage.ts` in
 // anomalyco/opencode; it answers `{ usage: { rolling, weekly, monthly } }`, each with an integer
 // `percent` and an ISO `resetsAt`.
 

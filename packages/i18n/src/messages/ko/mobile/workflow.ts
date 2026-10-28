@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "휴대폰에서 워크플로를 사용하려면 이 서버의 OpenBot을 업데이트하세요.",
+  "mobile.workflow.unsupported": "휴대폰에서 워크플로를 사용하려면 이 서버의 Builders Bot을 업데이트하세요.",
   "mobile.workflow.offline": "서버가 오프라인이에요. 연결되면 워크플로가 표시돼요.",
   "mobile.workflow.list.loading": "불러오는 중…",
   "mobile.workflow.list.loadFailed": "워크플로를 불러올 수 없어요.",
@@ -20,7 +20,7 @@ export const messages = {
   "mobile.workflow.action.edit": "편집",
   "mobile.workflow.alert.runFailedTitle": "워크플로를 시작할 수 없어요",
   "mobile.workflow.alert.runFailedBody": "서버가 실행을 시작하지 않았어요. 다시 시도하세요.",
-  "mobile.workflow.alert.tryAgain": "OpenBot이 이 작업을 할 수 없었어요. 다시 시도하세요.",
+  "mobile.workflow.alert.tryAgain": "Builders Bot이 이 작업을 할 수 없었어요. 다시 시도하세요.",
   "mobile.workflow.drawer.needYou": { other: "{count}개가 확인 필요" },
   "mobile.workflow.drawer.running": { other: "{count}개 실행 중" },
   "mobile.workflow.drawer.review": "확인 필요 · 탭해서 검토",
@@ -32,7 +32,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "워크플로를 불러올 수 없어요.",
   "mobile.workflow.detail.starting": "시작하는 중…",
   "mobile.workflow.detail.newerApp":
-    "이 워크플로에는 최신 OpenBot의 단계가 있어요. 변경하려면 휴대폰의 OpenBot을 업데이트하세요.",
+    "이 워크플로에는 최신 Builders Bot의 단계가 있어요. 변경하려면 휴대폰의 Builders Bot을 업데이트하세요.",
   "mobile.workflow.detail.waits": "실행 {number}이(가) 기다리고 있어요. 검토",
   "mobile.workflow.detail.canvasOrder": "단계는 캔버스와 같이 왼쪽에서 오른쪽 순서로 표시돼요.",
   "mobile.workflow.detail.trigger": "트리거",
@@ -67,7 +67,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "웹훅",
   "mobile.workflow.trigger.webhookHint": "주소가 요청을 받으면 실행돼요.",
   "mobile.workflow.trigger.message": "메시지",
-  "mobile.workflow.trigger.messageHint": "이 트리거는 컴퓨터의 OpenBot에서 변경하세요.",
+  "mobile.workflow.trigger.messageHint": "이 트리거는 컴퓨터의 Builders Bot에서 변경하세요.",
   "mobile.workflow.trigger.startsWhen": "시작 조건",
   "mobile.workflow.trigger.timezone": "시간대: {zone}",
   "mobile.workflow.trigger.serverZone": "일정은 서버의 시간대를 사용해요.",
@@ -102,7 +102,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "계속하려면 승인하세요.",
   "mobile.workflow.step.textEmpty": "텍스트 없음",
   "mobile.workflow.step.textPlaceholder": "다음 단계에 보낼 텍스트",
-  "mobile.workflow.step.computerOnly": "이 단계는 컴퓨터의 OpenBot에서 변경하세요.",
+  "mobile.workflow.step.computerOnly": "이 단계는 컴퓨터의 Builders Bot에서 변경하세요.",
   "mobile.workflow.step.gone": "이 단계는 이제 워크플로에 없어요.",
   "mobile.workflow.step.agent": "에이전트",
   "mobile.workflow.step.agentHint": "에이전트가 이전 단계의 출력으로 작업을 수행해요.",
@@ -120,7 +120,7 @@ export const messages = {
   "mobile.workflow.step.questionHint": "승인하거나 거절할 때까지 실행이 기다려요. 알림을 받아요.",
   "mobile.workflow.step.text": "텍스트",
   "mobile.workflow.step.sendTo": "보낼 위치",
-  "mobile.workflow.step.channelHint": "메시지 채널은 소유자나 관리자가 컴퓨터의 OpenBot에서 선택해요.",
+  "mobile.workflow.step.channelHint": "메시지 채널은 소유자나 관리자가 컴퓨터의 Builders Bot에서 선택해요.",
   "mobile.workflow.problem.noTitle": "이름을 입력하세요.",
   "mobile.workflow.problem.noAgent": "에이전트 선택",
   "mobile.workflow.problem.agentGone": "에이전트를 사용할 수 없어요. 에이전트 선택",
@@ -141,7 +141,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "다음 단계에 보낼 고정 텍스트예요.",
   "mobile.workflow.add.output": "결과를 보내 줘요.",
   "mobile.workflow.add.oneCondition":
-    "휴대폰에서는 워크플로에 조건이 하나만 있어요. 경로를 더 만들려면 컴퓨터의 OpenBot을 사용하세요.",
+    "휴대폰에서는 워크플로에 조건이 하나만 있어요. 경로를 더 만들려면 컴퓨터의 Builders Bot을 사용하세요.",
   "mobile.workflow.editor.title": "워크플로 편집",
   "mobile.workflow.editor.newTitle": "새 워크플로",
   "mobile.workflow.editor.step": "단계",
@@ -150,7 +150,7 @@ export const messages = {
   "mobile.workflow.editor.create": "워크플로 만들기",
   "mobile.workflow.editor.saveFailed": "워크플로를 저장할 수 없어요.",
   "mobile.workflow.editor.fieldsOnly":
-    "이 워크플로는 휴대폰에서 목록으로 표시할 수 없는 구조예요. 여기서 각 단계를 변경할 수 있어요. 단계를 추가, 이동 또는 삭제하려면 컴퓨터의 OpenBot을 사용하세요.",
+    "이 워크플로는 휴대폰에서 목록으로 표시할 수 없는 구조예요. 여기서 각 단계를 변경할 수 있어요. 단계를 추가, 이동 또는 삭제하려면 컴퓨터의 Builders Bot을 사용하세요.",
   "mobile.workflow.editor.annotationsKept": "캔버스의 메모와 그림은 그대로 유지돼요.",
   "mobile.workflow.editor.addStep": "단계 추가",
   "mobile.workflow.editor.addAfter": "뒤에 단계 추가",

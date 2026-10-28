@@ -19,7 +19,7 @@ export const messages = {
   "dialog.saveExportSkill": "保存导出的技能",
   "dialog.saveTransfer": "保存传输文件",
   "dialog.chooseTransfer": "选择传输文件",
-  "dialog.filter.transfer": "OpenBot 传输文件",
+  "dialog.filter.transfer": "Builders Bot 传输文件",
   "dialog.chooseExternalLinkApp": "选择浏览器",
   "dialog.filter.applications": "应用程序",
 } as const satisfies PartialTranslation<typeof source>;

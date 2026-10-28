@@ -10,7 +10,7 @@ import type {
 import { Effect, type Scope } from "effect";
 import { isMailboxMessageCopy } from "../conversation-snapshots";
 import type { MailboxStore } from "../mailbox-store";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 import type { ConversationRuntime } from "./conversation-runtime";
 import { conversationContentSignature } from "./delivery-content";
 import type { RoutineScheduler } from "./routine-scheduler";
@@ -23,7 +23,7 @@ export interface MailboxSyncHooks {
 }
 
 export interface MailboxSyncOptions {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   mailbox: MailboxStore;
   conversation: ConversationRuntime;
   routines: RoutineScheduler;
@@ -41,7 +41,7 @@ export interface MailboxSyncOptions {
  * instead of reaching into the mailbox themselves.
  */
 export class MailboxSync {
-  readonly #database: OpenBotDatabase;
+  readonly #database: BuildersBotDatabase;
   readonly #mailbox: MailboxStore;
   readonly #conversation: ConversationRuntime;
   readonly #routines: RoutineScheduler;

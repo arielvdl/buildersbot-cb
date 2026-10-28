@@ -2,7 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import { type AgentProviderId, isAgentProvider } from "@openbot/contracts/agent-providers";
 
 /**
- * The provider CLI processes that OpenBot started, by PID. The resource monitor reads it to attribute
+ * The provider CLI processes that Builders Bot started, by PID. The resource monitor reads it to attribute
  * a process tree to a provider. It holds a closed-set provider id only, never a command line or a path.
  */
 const processes = new Map<number, AgentProviderId>();

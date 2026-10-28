@@ -10,7 +10,7 @@ interface RemoteNetworkRouteChoiceProps {
   onChange: (route: RemoteNetworkRoute) => void;
 }
 
-/** The two routes as cards with a radio dot. OpenBot is the default and has the recommended badge. */
+/** The two routes as cards with a radio dot. Builders Bot is the default and has the recommended badge. */
 export function RemoteNetworkRouteChoice(props: RemoteNetworkRouteChoiceProps) {
   const { t } = useText();
   return (

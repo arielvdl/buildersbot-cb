@@ -3,7 +3,7 @@ import type { messages as source } from "../../en/error/backend";
 
 export const messages = {
   "error.backend.eventsUnavailable": "이 호스트에서는 이벤트를 사용할 수 없어요.",
-  "error.backend.databaseIntegrity": "OpenBot 데이터베이스가 무결성 검사에 실패했어요.",
+  "error.backend.databaseIntegrity": "Builders Bot 데이터베이스가 무결성 검사에 실패했어요.",
   "error.backend.webhookRouteLimit": "호스트 하나에는 웹훅 루틴을 최대 {limit}개까지 둘 수 있어요.",
   "error.backend.webhookSettingsInvalid": "웹훅 설정을 확인한 후 다시 시도해 주세요.",
   "error.backend.webhookRouteUnavailable":
@@ -16,8 +16,8 @@ export const messages = {
   "error.backend.browserViewLimit": "이 호스트에서 열린 브라우저 보기가 너무 많아요.",
   "error.backend.browserViewEnded": "이 페이지의 실시간 보기가 종료되었어요.",
   "error.backend.browserViewFailed": "이 페이지의 실시간 보기에 실패했어요.",
-  "error.backend.windowTemporarilyUnavailable": "OpenBot 창을 일시적으로 사용할 수 없어요.",
-  "error.backend.windowUnavailable": "OpenBot 창을 사용할 수 없어요.",
+  "error.backend.windowTemporarilyUnavailable": "Builders Bot 창을 일시적으로 사용할 수 없어요.",
+  "error.backend.windowUnavailable": "Builders Bot 창을 사용할 수 없어요.",
   "error.backend.sunshineApiHttp": "Sunshine API가 HTTP {status}(으)로 실패했어요.",
   "error.backend.sunshinePortsUnavailable": "원격 데스크톱용으로 사용 가능한 Sunshine 포트 그룹을 확보할 수 없었어요.",
   "error.backend.moonlightPortsUnavailable":
@@ -33,7 +33,7 @@ export const messages = {
   "error.backend.moonlightRejectedPairing": "Moonlight이 Sunshine 페어링을 거부했어요.",
   "error.backend.moonlightNoPin": "Moonlight이 페어링 PIN을 반환하지 않았어요.",
   "error.backend.moonlightPairingIncomplete": "Moonlight 페어링이 완료되지 않았어요.",
-  "error.backend.moonlightWebNotEmbedded": "Moonlight Web이 OpenBot 내장 빌드가 아니에요.",
+  "error.backend.moonlightWebNotEmbedded": "Moonlight Web이 Builders Bot 내장 빌드가 아니에요.",
   "error.backend.moonlightEmptyResponse": "Moonlight이 빈 응답을 반환했어요.",
   "error.backend.remoteDesktopTimeout": "원격 데스크톱 요청 시간이 초과되었어요.",
   "error.backend.moonlightApiHttp": "Moonlight API가 HTTP {status}(으)로 실패했어요.",
@@ -47,8 +47,8 @@ export const messages = {
   "error.backend.browserUserControlBusy": "이 브라우저 탭이 비밀 값을 기다리고 있어요. 먼저 비밀 값 요청에 답하세요.",
   "error.backend.browserUserControlUnsupported": "이 원격 호스트는 브라우저 탭 제어권 가져오기를 지원하지 않아요.",
   "error.backend.browserSignInUnsupported": "이 원격 호스트는 이 컴퓨터에서 로그인을 받을 수 없어요.",
-  "error.backend.browserSignInOpenFailed": "OpenBot이 로그인 창을 열 수 없었어요.",
-  "error.backend.browserSignInReadFailed": "OpenBot이 창에서 로그인 정보를 읽을 수 없었어요.",
+  "error.backend.browserSignInOpenFailed": "Builders Bot이 로그인 창을 열 수 없었어요.",
+  "error.backend.browserSignInReadFailed": "Builders Bot이 창에서 로그인 정보를 읽을 수 없었어요.",
   "error.backend.browserStopUnsupported": "이 원격 호스트는 페이지 로딩을 중지할 수 없어요.",
   "error.backend.sharedDataLocalOnly": "공유 데이터는 이 에이전트를 실행하는 컴퓨터에서 관리해요.",
   "error.backend.browserUrlProtocol": "브라우저 URL은 HTTP(S)만 사용할 수 있어요.",
@@ -56,7 +56,7 @@ export const messages = {
   "error.backend.sunshineNotReadyReason": "Sunshine이 준비되지 않았어요. {reason}",
   "error.backend.channelLeadModelUnavailable": "채널 리더 모델을 사용할 수 없어요.",
   "error.backend.sharedDataUnavailable": "공유 데이터를 사용할 수 없어요.",
-  "error.backend.shuttingDown": "OpenBot이 종료되는 중이에요.",
+  "error.backend.shuttingDown": "Builders Bot이 종료되는 중이에요.",
   "error.backend.channelUnconfirmedStart":
     "채널에 시작을 확인하지 못한 배정이 있어요. 삭제하기 전에 결과를 확인하세요.",
   "error.backend.channelNotFound": "채널을 찾을 수 없어요.",
@@ -123,14 +123,14 @@ export const messages = {
   "error.backend.queueOrderStale": "대기열 순서가 오래되었어요. 대기열을 새로 고친 후 다시 시도해 주세요.",
   "error.backend.fileGone": "파일이 없거나 이미 삭제되었어요.",
   "error.backend.managedAttachmentChanged": "관리 중인 첨부 파일이 없거나 변경되었어요: {name}",
-  "error.backend.mailboxStateCorrupt": "메일함 상태가 손상되었거나 더 새로운 OpenBot 버전의 것이에요. 덮어쓰지 않아요.",
+  "error.backend.mailboxStateCorrupt": "메일함 상태가 손상되었거나 더 새로운 Builders Bot 버전의 것이에요. 덮어쓰지 않아요.",
   "error.backend.recipientDeleting": "받는 사람을 삭제하는 중이에요. 삭제가 끝난 후 다시 시도해 주세요.",
   "error.backend.recipientHidden": "이 에이전트는 숨겨져 있어요. 메시지를 보내려면 복원하세요.",
   "error.backend.attachBetween": "파일을 1개에서 {limit}개 사이로 첨부하세요.",
   "error.backend.attachmentNotFile": "첨부 파일이 파일이 아니에요: {path}",
   "error.backend.generatedImageTooLarge": "생성된 이미지가 100MB 한도를 넘었어요.",
   "error.backend.attachmentNotRegularFile": "일반 파일만 첨부할 수 있어요: {name}",
-  "error.backend.attachmentCopyFailed": "OpenBot이 {name}을(를) 복사할 수 없었어요.",
+  "error.backend.attachmentCopyFailed": "Builders Bot이 {name}을(를) 복사할 수 없었어요.",
   "error.backend.routineNameRequired": "루틴 이름이 필요해요.",
   "error.backend.routineNameTooLong": "루틴 이름이 너무 길어요.",
   "error.backend.routineInstructionRequired": "루틴 지침이 필요해요.",
@@ -152,12 +152,12 @@ export const messages = {
   "error.backend.routineWaitForAgent": "루틴을 실행하기 전에 에이전트 작업이 끝날 때까지 기다려 주세요.",
   "error.backend.routineRunStarting": "이 루틴 실행이 아직 시작되는 중이에요. 턴이 시작된 후 다시 시도해 주세요.",
   "error.backend.routineRunNoSession":
-    "제공자 세션을 사용할 수 없어서 OpenBot이 진행 중인 루틴 실행을 중단할 수 없어요.",
+    "제공자 세션을 사용할 수 없어서 Builders Bot이 진행 중인 루틴 실행을 중단할 수 없어요.",
   "error.backend.interruptSelf": "에이전트는 자기 자신을 중단할 수 없어요.",
   "error.backend.interruptOtherWork":
     "이 에이전트는 회원님의 메시지로 시작되지 않은 작업을 하고 있어요. 사용자 또는 해당 작업을 보낸 쪽만 중지할 수 있어요.",
   "error.backend.interruptStarting": "이 에이전트가 아직 턴을 시작하는 중이에요. 턴이 시작된 후 다시 시도해 주세요.",
-  "error.backend.interruptNoSession": "제공자 세션을 사용할 수 없어서 OpenBot이 이 에이전트를 중단할 수 없어요.",
+  "error.backend.interruptNoSession": "제공자 세션을 사용할 수 없어서 Builders Bot이 이 에이전트를 중단할 수 없어요.",
   "error.backend.memoryTextRequired": "메모리 내용이 필요해요.",
   "error.backend.memoryTextTooLong": "메모리 내용이 너무 길어요.",
   "error.backend.mcpServerGone": "이 MCP 서버는 더 이상 없어요.",
@@ -181,35 +181,35 @@ export const messages = {
     "대기를 깨우는 것은 내 루틴의 실행뿐인데, 루틴이 없어요. openbot.create_routine으로 루틴을 만든 후 대기를 여세요.",
   "error.backend.agentWaitRemoteUnsupported": "열린 대기는 이 컴퓨터의 에이전트에서만 사용할 수 있어요.",
   "error.backend.routineFlowHandoffFailed": "루틴이 이 에이전트에게 작업을 넘기지 못했어요.",
-  "error.backend.mcpServerLimit": "OpenBot은 MCP 서버를 최대 {limit}개까지 유지해요.",
+  "error.backend.mcpServerLimit": "Builders Bot은 MCP 서버를 최대 {limit}개까지 유지해요.",
   "error.backend.mcpServerNameTaken": "{name}(이)라는 MCP 서버가 이미 있어요.",
   "error.backend.mcpServerNoAnswer": "서버가 {seconds}초 안에 응답하지 않았어요.",
   "error.backend.mcpSignInNotAccepted": "서버가 해당 로그인을 수락하지 않았어요.",
   "error.backend.mcpSignInClientRefused":
-    "로그인을 완료할 때 로그인 서버가 OpenBot을 받아들이지 않았어요. 다시 로그인하세요. OpenBot이 서버에 다시 등록해요.",
+    "로그인을 완료할 때 로그인 서버가 Builders Bot을 받아들이지 않았어요. 다시 로그인하세요. Builders Bot이 서버에 다시 등록해요.",
   "error.backend.mcpCommandNotFound": "명령을 찾을 수 없어요: {command}",
   "error.backend.mcpRegistrationRefused":
-    "로그인 서버가 아직 OpenBot을 앱으로 허용하지 않아요. 계정 문제가 아니에요. 로컬 MCP 서버처럼 다른 방법으로 연결하세요.",
+    "로그인 서버가 아직 Builders Bot을 앱으로 허용하지 않아요. 계정 문제가 아니에요. 로컬 MCP 서버처럼 다른 방법으로 연결하세요.",
   "error.backend.mcpSignInAbandonedGeneric": "로그인이 중단되었어요.",
   "error.backend.mcpSignInForgotten": "MCP 로그인이 진행 중에 삭제되었어요.",
   "error.backend.mcpSignInAbandoned": "MCP 로그인이 중단되었어요.",
   "error.backend.mcpSignInNoBrowser": "이 MCP 로그인에서는 브라우저를 열 수 없어요.",
   "error.backend.mcpSignInNotWebPage": "로그인 주소가 웹 페이지가 아니에요.",
   "error.backend.mcpSignInRequired": "이 서버에 로그인해야 해요. 로그인을 선택해 브라우저에서 계속하세요.",
-  "error.backend.mcpSignInOnHost": "이 서버에 로그인해야 해요. 호스트 컴퓨터의 OpenBot에서 로그인하세요.",
+  "error.backend.mcpSignInOnHost": "이 서버에 로그인해야 해요. 호스트 컴퓨터의 Builders Bot에서 로그인하세요.",
   "error.backend.mcpSignInNeedsHttps":
-    "이 서버에 로그인해야 하는데, OpenBot은 https로만 로그인해요. URL을 {url}(으)로 변경하세요.",
+    "이 서버에 로그인해야 하는데, Builders Bot은 https로만 로그인해요. URL을 {url}(으)로 변경하세요.",
   "error.backend.mcpSignInCancelled": "로그인이 취소되었어요.",
   "error.backend.mcpSignInTimedOut": "브라우저에서 로그인을 마치지 않았어요.",
   "error.backend.mcpSignInResponseTimedOut": "로그인 응답이 제시간에 도착하지 않았어요.",
   "error.backend.mcpSignInMetadataUnreadable":
-    "OpenBot이 이 서버의 로그인 정보를 읽을 수 없었어요. 서버 주소를 확인한 후 다시 시도해 주세요.",
+    "Builders Bot이 이 서버의 로그인 정보를 읽을 수 없었어요. 서버 주소를 확인한 후 다시 시도해 주세요.",
   "error.backend.mcpServerExited": "서버가 응답하기 전에 중지되었어요. 터미널에서 명령을 실행해 오류를 확인하세요.",
   "error.backend.mcpOAuthProxyUnavailable":
-    "OpenBot이 이 서버용 로컬 로그인 연결을 시작할 수 없었어요. OpenBot을 다시 시작한 후 시도해 주세요.",
+    "Builders Bot이 이 서버용 로컬 로그인 연결을 시작할 수 없었어요. Builders Bot을 다시 시작한 후 시도해 주세요.",
   "error.backend.mcpOAuthSignInNeeded":
-    "이 MCP 서버의 로그인이 종료되었어요. 사용자가 OpenBot에서 다시 로그인해야 해요.",
-  "error.backend.mcpServerUnreachable": "OpenBot이 서버에 연결할 수 없었어요. URL과 네트워크를 확인하세요.",
+    "이 MCP 서버의 로그인이 종료되었어요. 사용자가 Builders Bot에서 다시 로그인해야 해요.",
+  "error.backend.mcpServerUnreachable": "Builders Bot이 서버에 연결할 수 없었어요. URL과 네트워크를 확인하세요.",
   "error.backend.mcpLocalServerOff":
     "이 컴퓨터의 {address}에서 응답하는 서버가 없어요. 서버를 시작하거나 서버를 실행하는 앱에서 켠 후 다시 시도해 주세요.",
   "error.backend.mcpServerBlocked":
@@ -217,7 +217,7 @@ export const messages = {
   "error.backend.mcpServerIncompatible":
     "이 주소에서 응답은 있지만 Streamable HTTP 기반 MCP 서버가 아니에요. URL을 확인하고 서버를 실행하는 앱을 업데이트하세요.",
   "error.backend.mcpRemoteBridge":
-    "{reason} 이 명령은 mcp-remote 브리지를 실행해요. 대신 Streamable HTTP를 선택하고 URL {url}을(를) 사용하면 OpenBot이 로그인해 줘요.",
+    "{reason} 이 명령은 mcp-remote 브리지를 실행해요. 대신 Streamable HTTP를 선택하고 URL {url}을(를) 사용하면 Builders Bot이 로그인해 줘요.",
   "error.backend.oauthNotHttps": "OAuth 엔드포인트 {origin}이(가) https가 아니어서 자격 증명을 보내지 않았어요.",
   "error.backend.oauthTooManyRedirects": "OAuth 엔드포인트가 너무 많이 리디렉션했어요.",
   "error.backend.oauthRedirectOrigin": "OAuth 엔드포인트가 {origin}(으)로 리디렉션해서 자격 증명을 전달하지 않았어요.",
@@ -260,7 +260,7 @@ export const messages = {
   "error.backend.approvalInactive": "이 승인은 더 이상 활성 상태가 아니에요.",
   "error.backend.takeoverInactive": "이 브라우저 제어권 가져오기는 더 이상 활성 상태가 아니에요.",
   "error.backend.authSubmitting": "인증을 이미 제출하는 중이에요.",
-  "error.backend.apiKeySaveFailed": "OpenBot이 API 키를 저장할 수 없었어요. 다시 시도해 주세요.",
+  "error.backend.apiKeySaveFailed": "Builders Bot이 API 키를 저장할 수 없었어요. 다시 시도해 주세요.",
   "error.backend.apiKeyNotAllowed": "서버 소유자 또는 관리자만 API 키를 입력할 수 있어요.",
   "error.backend.apiKeySaving": "API 키를 이미 저장하는 중이에요.",
   "error.backend.authRequestInactive": "이 보안 인증 요청은 더 이상 활성 상태가 아니에요.",
@@ -300,7 +300,7 @@ export const messages = {
   "error.backend.mcpSignInAppUrl": "로그인 앱에는 올바른 서버 URL이 필요해요.",
   "error.backend.mcpSignInAppClientId": "로그인 앱의 클라이언트 ID를 입력하세요.",
   "error.backend.mcpSignInAppIssuerChanged":
-    "이 MCP 서버의 로그인 서버가 바뀌어서 OpenBot이 로그인 앱을 보내지 않았어요. 변경이 맞다면 로그인 앱을 제거한 후 다시 추가하세요.",
+    "이 MCP 서버의 로그인 서버가 바뀌어서 Builders Bot이 로그인 앱을 보내지 않았어요. 변경이 맞다면 로그인 앱을 제거한 후 다시 추가하세요.",
   "error.backend.mcpSignInAppNoServer": "로그인 앱을 추가하기 전에 이 MCP 서버를 URL 서버로 저장하세요.",
   "error.backend.mcpSignInAppUnavailable": "이 컴퓨터에서는 로그인 앱을 보관할 수 없어요.",
   "error.backend.taskMoveRefused": "이 에이전트에게만 보낸 메시지만 작업으로 실행할 수 있어요.",
@@ -324,5 +324,5 @@ export const messages = {
   "error.backend.taskOpenLimitReached":
     "이 에이전트에는 열린 작업이 {count}개 있어요. 작업 하나를 닫은 후 다른 작업을 시작하거나 여세요.",
   "error.backend.taskRemoteUnsupported": "작업은 이 컴퓨터의 에이전트에서만 사용할 수 있어요.",
-  "error.backend.taskStartFailed": "OpenBot이 작업을 시작할 수 없었어요. 대신 이 턴에서 작업을 처리하세요.",
+  "error.backend.taskStartFailed": "Builders Bot이 작업을 시작할 수 없었어요. 대신 이 턴에서 작업을 처리하세요.",
 } as const satisfies PartialTranslation<typeof source>;

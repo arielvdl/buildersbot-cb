@@ -13,7 +13,7 @@ export const messages = {
   "skill.loadingDetails": "Wczytywanie szczegółów…",
   "skill.emptyEnabled": "Ten agent nie ma włączonych umiejętności.",
   "skill.emptyAssigned": "Ten agent nie ma jeszcze przypisanych umiejętności.",
-  "skill.folderSkill": "OpenBot nie zainstalował tej umiejętności. Edytuj ją lub usuń w {location}.",
+  "skill.folderSkill": "Builders Bot nie zainstalował tej umiejętności. Edytuj ją lub usuń w {location}.",
   "skill.moreFor": "Więcej: {name}",
   "skill.update": "Zaktualizuj",
   "skill.updateName": "Zaktualizuj: {name}",
@@ -34,7 +34,7 @@ export const messages = {
     "Aktualizacja tej umiejętności zastąpi lokalne pliki najnowszym pakietem. Twoje zmiany w folderze umiejętności przepadną.",
   "skill.confirm.removeModifiedBody":
     "Ta umiejętność ma lokalne zmiany w obszarze roboczym agenta. Usunięcie skasuje te pliki. Oryginalne wiadomości czatu zostaną.",
-  "skill.confirm.removeBody": "OpenBot usunie tę umiejętność z agenta. Historia czatu zostanie.",
+  "skill.confirm.removeBody": "Builders Bot usunie tę umiejętność z agenta. Historia czatu zostanie.",
   "skill.confirm.replace": "Zastąp umiejętność",
   "skill.confirm.remove": "Usuń umiejętność",
   "skill.unavailable.readOnly": "Zdalne umiejętności są tylko do odczytu.",

@@ -13,7 +13,7 @@ import { waitForSuccessfulProcess } from "./provider-status";
  *
  * `device` is a device code: the user opens the page, confirms the code, and the CLI sees the
  * approval by itself (Grok, Cline). `paste` is an authorization code the provider's page shows after
- * the sign-in, which the user copies back and OpenBot types into the CLI's prompt (Claude). `link` is
+ * the sign-in, which the user copies back and Builders Bot types into the CLI's prompt (Claude). `link` is
  * a page that signs the CLI in by itself, with no code to confirm or copy (Cursor).
  */
 export type CliCodePrompt =

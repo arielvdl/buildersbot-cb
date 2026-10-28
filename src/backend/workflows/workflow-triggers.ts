@@ -11,7 +11,7 @@
  */
 
 import type { RoutineSchedule, WorkflowGraph } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import {
   collapseMissedOccurrences,
   nextValidRoutineOccurrence,
@@ -25,7 +25,7 @@ import type { RoutineDueSource } from "../routine-timer";
 import { nodeTimezone } from "./workflow-graph";
 import type { DueWorkflowTrigger, WorkflowStore } from "./workflow-store";
 
-const logger = createOpenBotLogger("workflow-triggers");
+const logger = createBuildersBotLogger("workflow-triggers");
 
 /** One occurrence of a schedule trigger that came. */
 export interface ScheduledWorkflowStart {

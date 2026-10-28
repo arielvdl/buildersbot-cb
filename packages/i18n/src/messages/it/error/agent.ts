@@ -61,14 +61,14 @@ export const messages = {
   "error.agent.changedWhileDuplicating": "L'agente è cambiato durante la duplicazione. Riprova.",
   "error.agent.duplicatedAgentGone": "L'agente duplicato non esiste più.",
   "error.agent.stateCorrupt":
-    "Lo stato dell'agente è danneggiato o proviene da una versione di OpenBot più recente; non viene sovrascritto.",
+    "Lo stato dell'agente è danneggiato o proviene da una versione di Builders Bot più recente; non viene sovrascritto.",
   "error.agent.oldRoleField":
-    "I profili degli agenti salvati usano il vecchio campo role; aggiorna i dati prima di avviare OpenBot.",
+    "I profili degli agenti salvati usano il vecchio campo role; aggiorna i dati prima di avviare Builders Bot.",
   "error.agent.duplicateIds": "Lo stato degli agenti contiene ID di agente duplicati; non viene sovrascritto.",
-  "error.agent.copyNameFailed": "OpenBot non è riuscito a creare un nome univoco per la copia dell'agente.",
+  "error.agent.copyNameFailed": "Builders Bot non è riuscito a creare un nome univoco per la copia dell'agente.",
   "error.agent.endpointRemoved": "L'endpoint usato da questo agente è stato rimosso. Scegli un altro modello.",
   "error.agent.turnStalled":
-    "{provider} ha smesso di rispondere, quindi OpenBot ha terminato questo turno. Invia di nuovo il messaggio o scegli un altro modello.",
+    "{provider} ha smesso di rispondere, quindi Builders Bot ha terminato questo turno. Invia di nuovo il messaggio o scegli un altro modello.",
   "error.agent.selectedGone": "L'agente selezionato non esiste più.",
   "error.agent.profileEndpointsChanged": "Gli endpoint personalizzati sono cambiati durante la generazione. Riprova.",
   "error.agent.profileInvalid": "Il provider ha restituito un profilo non valido. Prova a rivedere il prompt.",
@@ -88,9 +88,9 @@ export const messages = {
   "error.agent.saveOtherAgent": "Questo salvataggio appartiene a un altro agente.",
   "error.agent.savedGone": "L'agente salvato non esiste più.",
   "error.agent.storedProfileUnreadable":
-    "Un profilo di agente salvato ha un valore illeggibile in «{field}»; aggiorna i dati prima di avviare OpenBot.",
+    "Un profilo di agente salvato ha un valore illeggibile in «{field}»; aggiorna i dati prima di avviare Builders Bot.",
   "error.agent.storedProfileUnreadableId":
-    "Il profilo di agente salvato {id} ha un valore illeggibile in «{field}»; aggiorna i dati prima di avviare OpenBot.",
+    "Il profilo di agente salvato {id} ha un valore illeggibile in «{field}»; aggiorna i dati prima di avviare Builders Bot.",
   "error.agent.queueEditRejected": "Modifica della coda rifiutata: {reason}",
   "error.agent.computerUseLocalOnly":
     "Il Controllo del computer si può cambiare solo sul computer che esegue l'agente.",
@@ -98,6 +98,7 @@ export const messages = {
   "error.agent.newChatLocalOnly": "Solo il computer che esegue l'agente può consentirgli di avviare nuove chat.",
   "error.agent.quickAcknowledgementLocalOnly":
     "Solo il computer che esegue l'agente può modificare questa impostazione.",
+  "error.agent.securityGuardLocalOnly": "Solo il computer che esegue l'agente può cambiare questa impostazione.",
   "error.agent.sideQuestionBusy": "Ci sono troppe domande a parte in corso. Riprova tra poco.",
   "error.agent.sideQuestionFailed": "L'agente non è riuscito a rispondere alla domanda a parte. Riprova.",
   "error.agent.busyMessageModeLocalOnly":
@@ -119,7 +120,7 @@ export const messages = {
   "error.agent.lowMemoryServer":
     "Questo server ha poca memoria. Il tuo messaggio resta in coda e parte quando si libera memoria.",
   "error.agent.workspaceOnlyToolMissing":
-    "Solo workspace richiede {tool}, che OpenBot non ha trovato. Installalo, oppure scegli Accesso completo nelle impostazioni dell'agente.",
+    "Solo workspace richiede {tool}, che Builders Bot non ha trovato. Installalo, oppure scegli Accesso completo nelle impostazioni dell'agente.",
   "error.agent.screenCaptureOff":
     "L'acquisizione dello schermo è disattivata per questo agente. L'utente può attivare il Controllo del computer nelle impostazioni dell'agente.",
   "error.agent.screenCaptureUnavailable": "L'acquisizione dello schermo non è disponibile su questo computer.",
@@ -134,7 +135,7 @@ export const messages = {
   "error.agent.screenCaptureRegionOutside":
     "L'area non è dentro un solo schermo. Usa punti del desktop entro i limiti di uno schermo indicato da list_capture_sources.",
   "error.agent.screenCapturePermissionMissing":
-    "OpenBot non ha il permesso Registrazione schermo. Chiedi all'utente di aprire Impostazioni di Sistema > Privacy e sicurezza > Registrazione schermo e audio di sistema, attivare OpenBot, poi uscire e riaprire OpenBot.",
+    "Builders Bot non ha il permesso Registrazione schermo. Chiedi all'utente di aprire Impostazioni di Sistema > Privacy e sicurezza > Registrazione schermo e audio di sistema, attivare Builders Bot, poi uscire e riaprire Builders Bot.",
   "error.agent.screenCaptureEmptyWindows":
     "Windows ha restituito un'immagine vuota. Chiedi all'utente di sbloccare il computer e chiudere i contenuti protetti. Anche un criterio dell'organizzazione può bloccare l'acquisizione dello schermo.",
   "error.agent.screenCaptureFailed": "L'acquisizione dello schermo non è riuscita. Riprova.",

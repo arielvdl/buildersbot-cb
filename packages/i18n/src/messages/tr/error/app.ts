@@ -6,7 +6,7 @@ export const messages = {
   "error.app.externalLinkProtocol": "Harici tarayıcıda yalnızca HTTP(S) bağlantıları açılabilir.",
   "error.app.notificationsUnsupported": "Bu sistem masaüstü bildirimlerini desteklemiyor.",
   "error.app.notificationSettingsMissing": "Bu sistemin bildirim ayarları sayfası yok.",
-  "error.app.notReady": "OpenBot hazır değil.",
+  "error.app.notReady": "Builders Bot hazır değil.",
   "error.app.macSecureStorageUnavailable": "macOS güvenli depolaması kullanılamıyor.",
   "error.app.secretStorageUnavailable": "Sistem gizli anahtar depolaması kullanılamıyor.",
   "error.app.remoteIdentityUnavailable": "Uzak ana makine kimliği kullanılamıyor.",

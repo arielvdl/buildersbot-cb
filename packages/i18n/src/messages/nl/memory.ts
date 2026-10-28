@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Alle herinneringen wissen",
   "memory.clearTitle": "Alle herinneringen wissen?",
   "memory.clearDescription":
-    "OpenBot verwijdert alle {total} opgeslagen herinneringen voor {name} definitief. De oorspronkelijke berichten blijven in de gespreksgeschiedenis staan.",
+    "Builders Bot verwijdert alle {total} opgeslagen herinneringen voor {name} definitief. De oorspronkelijke berichten blijven in de gespreksgeschiedenis staan.",
   "memory.loadFailed": "Kan herinneringen niet laden.",
   "memory.saveFailed": "Kan de herinnering niet opslaan.",
   "memory.updateFailed": "Kan de herinnering niet bijwerken.",

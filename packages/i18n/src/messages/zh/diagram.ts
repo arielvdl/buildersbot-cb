@@ -122,7 +122,7 @@ export const messages = {
   "diagram.routine.recent": "最近运行",
   "diagram.routine.runLabel": "{status}，{time}",
   "diagram.routine.manual": "手动",
-  "diagram.flows.unsupported": "该服务器不支持自动化任务流程，请更新运行它的电脑上的 OpenBot。",
+  "diagram.flows.unsupported": "该服务器不支持自动化任务流程，请更新运行它的电脑上的 Builders Bot。",
   "diagram.flows.webhookAdminOnly": "只有该服务器的所有者或管理员可以更改或运行 Webhook 自动化任务。",
   "diagram.flows.loadFailed": "无法加载该助手的自动化任务。",
   "diagram.flows.saveFailed": "无法把该更改保存到自动化任务。",

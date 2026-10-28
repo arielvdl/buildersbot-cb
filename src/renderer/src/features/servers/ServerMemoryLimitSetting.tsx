@@ -1,4 +1,4 @@
-import type { HostAgentMemoryLimit, OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { HostAgentMemoryLimit, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import {
   Item,
   ItemActions,
@@ -15,7 +15,7 @@ import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 
 /** The memory limit calls of one server's host. The desktop reaches them through main. */
-export type HostMemoryLimitCalls = Pick<OpenBotDesktopApi["hostAdmin"], "getAgentMemoryLimit" | "setAgentMemoryLimit">;
+export type HostMemoryLimitCalls = Pick<BuildersBotDesktopApi["hostAdmin"], "getAgentMemoryLimit" | "setAgentMemoryLimit">;
 
 export interface ServerMemoryLimitOptions {
   /** The calls of a client with no `window.openbot`, such as the web client. */

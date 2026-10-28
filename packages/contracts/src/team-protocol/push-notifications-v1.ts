@@ -3,7 +3,7 @@
 // What it grants, recorded here because freezing it makes it permanent: a signed-in member's iPhone
 // gives the host its Apple push token when it takes notifications, a secret that only the phone and
 // the host know, and the events the member wants to hear about. While the phone says it is away, the
-// host sends a notification for each such event of an agent this member can see, through the OpenBot
+// host sends a notification for each such event of an agent this member can see, through the Builders Bot
 // relay and Apple. While the phone shows the Live Activity of this host, the host sends no
 // notification, and the activity lights up the screen and plays the sound, unless the sound is
 // "none"; a phone without a token gets only that. The host seals the agent name and the text with keys

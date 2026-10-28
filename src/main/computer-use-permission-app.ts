@@ -9,7 +9,7 @@ import { basename, dirname } from "node:path";
  * for one that is not already there: what the user can always do is drag the bundle in. That is
  * the whole reason main has to name this path, and the reason the name it reports is the bundle's
  * own - in a development build the responsible application is Electron, and a window that called
- * it "OpenBot" would send the user looking for a row that never appears.
+ * it "Builders Bot" would send the user looking for a row that never appears.
  *
  * `null` on every system that is not macOS, and for a build that runs from a plain directory.
  */

@@ -1,4 +1,4 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import type {
   EventRoutine,
   EventRoutineOwner,
@@ -24,7 +24,7 @@ function mockSecret(): string {
  */
 export function createMockEvents(
   listRuns: (input: ListEventRoutineRunsInput) => Promise<EventRoutineRun[]>,
-): OpenBotDesktopApi["events"] {
+): BuildersBotDesktopApi["events"] {
   let routines: EventRoutine[] = [];
   let sequence = 0;
   const status: EventStatus = { supported: true, connected: true };

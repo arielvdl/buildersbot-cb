@@ -1,5 +1,5 @@
 /**
- * Routine results: an agent routine's answer sent on to a messaging place outside OpenBot.
+ * Routine results: an agent routine's answer sent on to a messaging place outside Builders Bot.
  *
  * The routine's run is not changed: it succeeds when its agent answers, and the delivery of that answer
  * has a status of its own. When a run of a routine with a destination succeeds, the sweep keeps its
@@ -26,13 +26,13 @@ import type {
   SetRoutineResultDestinationInput,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Cause, Context, Effect, Exit, Fiber, Layer, ManagedRuntime, Schema, Scope, Semaphore } from "effect";
 import { isNoUpdateAnswer } from "../agent/routine-quiet-runs";
 import type { MessagingPostFailure } from "../messaging/messaging-threads";
 import type { RoutineResultOutgoing, RoutineResultStore } from "./routine-result-store";
 
-const logger = createOpenBotLogger("routine-results");
+const logger = createBuildersBotLogger("routine-results");
 
 /** How far back a sweep looks for a run whose answer has no delivery yet. */
 const SWEEP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;

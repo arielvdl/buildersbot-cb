@@ -3,7 +3,7 @@ export const NOTIFICATION_SOUNDS = ["openbot", "warm", "mech", "bubble", "press"
 export type NotificationSound = (typeof NOTIFICATION_SOUNDS)[number];
 
 /**
- * One iOS notification that a host asks the OpenBot account service to send through Apple Push
+ * One iOS notification that a host asks the Builders Bot account service to send through Apple Push
  * Notification service. The host sealed the agent name and the text with keys that only the phone
  * knows, and the app opens them before iOS shows the notification. The service builds the Apple
  * payload itself, with the app name as the only text, so a host credential alone, without the keys of
@@ -28,7 +28,7 @@ export interface NotificationRelayPush {
 }
 
 /**
- * One Android notification that a host asks the OpenBot account service to send through Firebase
+ * One Android notification that a host asks the Builders Bot account service to send through Firebase
  * Cloud Messaging. The service sends a data message with the sealed bytes and the sound only, and the
  * app opens the seal before Android shows the notification. As for iOS, a host credential alone,
  * without the keys of the phone, cannot make a phone show text.

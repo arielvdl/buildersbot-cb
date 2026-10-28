@@ -33,7 +33,7 @@ import { useText } from "../../text";
 /** The text of each provider whose key this dialog saves. Muse, Gemini and Claude also sign in without a key. */
 const KEY_TEXT = {
   opencode: {
-    name: "OpenCode Go",
+    name: "Builders Go",
     title: "provider.openCodeKey.title",
     description: "provider.openCodeKey.description",
     label: "provider.openCodeKey.label",

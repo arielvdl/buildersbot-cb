@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Tüm bellekleri temizle",
   "memory.clearTitle": "Tüm bellekler temizlensin mi?",
   "memory.clearDescription":
-    "OpenBot, {name} için kaydedilen tüm {total} belleği kalıcı olarak kaldıracaktır. Orijinal mesajlar konuşma geçmişinde kalacaktır.",
+    "Builders Bot, {name} için kaydedilen tüm {total} belleği kalıcı olarak kaldıracaktır. Orijinal mesajlar konuşma geçmişinde kalacaktır.",
   "memory.loadFailed": "Bellekler yüklenemedi.",
   "memory.saveFailed": "Bellek kaydedilemedi.",
   "memory.updateFailed": "Bellek güncellenemedi.",

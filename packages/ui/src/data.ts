@@ -154,6 +154,8 @@ export type ChatActionMarkerModel =
   /** A member agent changed the channel at a person's request. `text` is the host's note. */
   | { kind: "channel-change"; text: string; timestamp: string }
   | { kind: "vault-change"; text: string; timestamp: string }
+  /** The security guard found something in the message that follows. `text` is what it found. */
+  | { kind: "security-scan"; text: string; timestamp: string }
   | {
       kind: "unavailable";
       label: string;
@@ -249,6 +251,8 @@ export interface AgentProfile {
   allowNewChat?: boolean | undefined;
   /** Absent means off. Absent for an agent on a remote host too, which does not share it. */
   quickAcknowledgement?: boolean | undefined;
+  /** Absent means on. Absent for an agent on a remote host too, which does not share it. */
+  securityGuard?: boolean | undefined;
   /** Absent means off. Absent for an agent on a remote host too, which does not share it. */
   ownBrowserSession?: boolean | undefined;
   /** The named browser profile of the agent's tabs. Absent for the shared or the agent's own session. */

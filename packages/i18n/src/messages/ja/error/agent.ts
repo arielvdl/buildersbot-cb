@@ -62,15 +62,15 @@ export const messages = {
   "error.agent.changedWhileDuplicating": "複製中にエージェントが変更されました。もう一度お試しください。",
   "error.agent.duplicatedAgentGone": "複製したエージェントはもう存在しません。",
   "error.agent.stateCorrupt":
-    "エージェントの状態が破損しているか、新しいバージョンの OpenBot のものです。上書きしません。",
+    "エージェントの状態が破損しているか、新しいバージョンの Builders Bot のものです。上書きしません。",
   "error.agent.oldRoleField":
-    "保存されたエージェントのプロフィールは古い role フィールドを使用しています。OpenBot を起動する前にデータを更新してください。",
+    "保存されたエージェントのプロフィールは古い role フィールドを使用しています。Builders Bot を起動する前にデータを更新してください。",
   "error.agent.duplicateIds": "エージェントの状態に重複したエージェント ID があります。上書きしません。",
-  "error.agent.copyNameFailed": "OpenBot はエージェントのコピーに固有の名前を作成できませんでした。",
+  "error.agent.copyNameFailed": "Builders Bot はエージェントのコピーに固有の名前を作成できませんでした。",
   "error.agent.endpointRemoved":
     "このエージェントが使用していたエンドポイントは削除されました。別のモデルを選択してください。",
   "error.agent.turnStalled":
-    "{provider} が応答しなくなったため、OpenBot はこのターンを終了しました。メッセージをもう一度送信するか、別のモデルを選択してください。",
+    "{provider} が応答しなくなったため、Builders Bot はこのターンを終了しました。メッセージをもう一度送信するか、別のモデルを選択してください。",
   "error.agent.selectedGone": "選択したエージェントはもう存在しません。",
   "error.agent.profileEndpointsChanged": "生成中にカスタムエンドポイントが変更されました。もう一度お試しください。",
   "error.agent.profileInvalid": "プロバイダーが無効なプロフィールを返しました。指示を修正してみてください。",
@@ -91,9 +91,9 @@ export const messages = {
   "error.agent.saveOtherAgent": "この保存は別のエージェントのものです。",
   "error.agent.savedGone": "保存したエージェントはもう存在しません。",
   "error.agent.storedProfileUnreadable":
-    "保存されたエージェントのプロフィールに読み取れない「{field}」の値があります。OpenBot を起動する前にデータを更新してください。",
+    "保存されたエージェントのプロフィールに読み取れない「{field}」の値があります。Builders Bot を起動する前にデータを更新してください。",
   "error.agent.storedProfileUnreadableId":
-    "保存されたエージェントのプロフィール {id} に読み取れない「{field}」の値があります。OpenBot を起動する前にデータを更新してください。",
+    "保存されたエージェントのプロフィール {id} に読み取れない「{field}」の値があります。Builders Bot を起動する前にデータを更新してください。",
   "error.agent.queueEditRejected": "キューの編集が拒否されました: {reason}",
   "error.agent.computerUseLocalOnly": "Computer Use は、エージェントを実行しているコンピューターでのみ変更できます。",
   "error.agent.automationLocalOnly":
@@ -102,6 +102,7 @@ export const messages = {
     "新しいチャットの開始を許可できるのは、エージェントを実行しているコンピューターだけです。",
   "error.agent.quickAcknowledgementLocalOnly":
     "この設定を変更できるのは、エージェントを実行しているコンピューターだけです。",
+  "error.agent.securityGuardLocalOnly": "この設定を変更できるのは、エージェントを実行するコンピューターだけです。",
   "error.agent.sideQuestionBusy": "実行中のサイド質問が多すぎます。しばらくしてからもう一度お試しください。",
   "error.agent.sideQuestionFailed": "エージェントはサイド質問に回答できませんでした。もう一度お試しください。",
   "error.agent.busyMessageModeLocalOnly":
@@ -123,7 +124,7 @@ export const messages = {
   "error.agent.lowMemoryServer":
     "このサーバーはメモリーが不足しています。メッセージはキューで待機し、メモリーが空くと開始します。",
   "error.agent.workspaceOnlyToolMissing":
-    "「ワークスペースのみ」には {tool} が必要ですが、OpenBot は見つけられませんでした。インストールするか、エージェントの設定で「フルアクセス」を選んでください。",
+    "「ワークスペースのみ」には {tool} が必要ですが、Builders Bot は見つけられませんでした。インストールするか、エージェントの設定で「フルアクセス」を選んでください。",
   "error.agent.screenCaptureOff":
     "このエージェントでは画面キャプチャがオフです。ユーザーはエージェントの設定で Computer Use をオンにできます。",
   "error.agent.screenCaptureUnavailable": "このコンピューターでは画面キャプチャを利用できません。",
@@ -138,7 +139,7 @@ export const messages = {
   "error.agent.screenCaptureRegionOutside":
     "この領域は 1 つのディスプレイの中に収まっていません。list_capture_sources が返す 1 つのディスプレイの範囲内で、デスクトップのポイント座標を使ってください。",
   "error.agent.screenCapturePermissionMissing":
-    "OpenBot に画面収録の権限がありません。ユーザーに「システム設定」→「プライバシーとセキュリティ」→「画面収録とシステムオーディオ録音」を開いて OpenBot をオンにし、OpenBot を終了してから再度開くよう依頼してください。",
+    "Builders Bot に画面収録の権限がありません。ユーザーに「システム設定」→「プライバシーとセキュリティ」→「画面収録とシステムオーディオ録音」を開いて Builders Bot をオンにし、Builders Bot を終了してから再度開くよう依頼してください。",
   "error.agent.screenCaptureEmptyWindows":
     "Windows が空の画像を返しました。コンピューターのロックを解除し、保護されたコンテンツを閉じるようユーザーに依頼してください。組織のポリシーによって画面キャプチャが止められている場合もあります。",
   "error.agent.screenCaptureFailed": "画面キャプチャに失敗しました。もう一度お試しください。",

@@ -29,7 +29,7 @@ const SPLIT_WINDOW_SAMPLES = SAMPLE_RATE / 50;
 /** The most leading silence a request can ask for. */
 const MAXIMUM_LEADING_SILENCE_SAMPLES = SAMPLE_RATE;
 
-/** The part of the sherpa-onnx offline recognizer configuration that OpenBot sets. */
+/** The part of the sherpa-onnx offline recognizer configuration that Builders Bot sets. */
 interface RecognizerConfig {
   featConfig: { sampleRate: number; featureDim: number };
   modelConfig: {

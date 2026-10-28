@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/liveActivity";
 
 export const messages = {
-  "mobile.liveActivity.appName": "OpenBot",
+  "mobile.liveActivity.appName": "Builders Bot",
   "mobile.liveActivity.badge.working": "Trabalhando",
   "mobile.liveActivity.badge.message": "Mensagem",
   "mobile.liveActivity.badge.question": "Perguntas",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.liveActivity.button.approve": "Aprovar",
   "mobile.liveActivity.button.openDetails": "Abrir detalhes",
   "mobile.liveActivity.stale.label": "Desatualizado",
-  "mobile.liveActivity.stale.detail": "Abra o OpenBot para ver o estado atual.",
+  "mobile.liveActivity.stale.detail": "Abra o Builders Bot para ver o estado atual.",
   "mobile.liveActivity.confirm.title": "Aprovar este comando?",
   "mobile.liveActivity.confirm.cancel": "Cancelar",
   "mobile.liveActivity.confirm.approve": "Aprovar",
@@ -36,7 +36,7 @@ export const messages = {
   "mobile.liveActivity.error.decisionFallback": "Abra a solicitação no aplicativo para computador.",
   "mobile.liveActivity.island.taskWorking": "Trabalhando na sua solicitação",
   "mobile.liveActivity.island.questionHeader": "Pergunta do seu agente",
-  "mobile.liveActivity.island.questionText": "Abra o OpenBot para responder a esta pergunta.",
+  "mobile.liveActivity.island.questionText": "Abra o Builders Bot para responder a esta pergunta.",
   "mobile.liveActivity.island.optionFallback": "Opção {number}",
   "mobile.liveActivity.island.takeoverTitle": "Uma etapa no navegador precisa de você",
   "mobile.liveActivity.island.takeoverDetail": "Conclua o login, a verificação ou o consentimento no navegador.",

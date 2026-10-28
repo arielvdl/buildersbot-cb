@@ -10,12 +10,12 @@ export const messages = {
   "error.workflow.conditionBranch": "Cada conexión de una condición debe ser sí o no.",
   "error.workflow.duplicateEdge": "Estos dos pasos ya tienen esta conexión.",
   "error.workflow.serverTooOld":
-    "Este servidor no admite flujos de trabajo. Actualiza OpenBot en el ordenador que lo ejecuta.",
+    "Este servidor no admite flujos de trabajo. Actualiza Builders Bot en el ordenador que lo ejecuta.",
   "error.workflow.nodeUnsupported":
-    "Esta versión de OpenBot aún no puede ejecutar pasos de imagen, archivo ni mensaje.",
-  "error.workflow.interrupted": "OpenBot se detuvo mientras se ejecutaba este paso. Ejecútalo de nuevo.",
+    "Esta versión de Builders Bot aún no puede ejecutar pasos de imagen, archivo ni mensaje.",
+  "error.workflow.interrupted": "Builders Bot se detuvo mientras se ejecutaba este paso. Ejecútalo de nuevo.",
   "error.workflow.agentMissing": "Elige un agente para este paso.",
-  "error.workflow.handoffFailed": "OpenBot no pudo enviar este paso a su agente.",
+  "error.workflow.handoffFailed": "Builders Bot no pudo enviar este paso a su agente.",
   "error.workflow.agentStepEnded": "El mensaje al agente se eliminó antes de que respondiera.",
   "error.workflow.conditionUnclear": "El modelo no respondió sí o no.",
   "error.workflow.modelFailed": "El modelo no pudo responder. Ejecuta el paso de nuevo.",
@@ -30,7 +30,7 @@ export const messages = {
     "La conexión de mensajería de esta salida está desactivada o se eliminó. Elige un lugar de nuevo.",
   "error.workflow.outputNotRunning":
     "La conexión de mensajería no está en marcha ahora. Inténtalo de nuevo cuando lo esté.",
-  "error.workflow.outputRefused": "El lugar rechazó la publicación. Asegúrate de que OpenBot pueda publicar allí.",
+  "error.workflow.outputRefused": "El lugar rechazó la publicación. Asegúrate de que Builders Bot pueda publicar allí.",
   "error.workflow.outputUncertain":
     "La publicación se detuvo a medio camino. Una parte puede estar ya en el lugar. Revísalo antes de intentarlo de nuevo.",
   "error.workflow.tooLarge":

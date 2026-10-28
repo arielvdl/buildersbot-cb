@@ -29,7 +29,7 @@ import { TELEGRAM_LINK_CODE_TTL_SECONDS } from "@openbot/contracts/signal-protoc
 import { SLACK_ORCHESTRATOR_AVATAR } from "@openbot/contracts/slack-app";
 import { TELEGRAM_ORCHESTRATOR_AVATAR } from "@openbot/contracts/telegram-app";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, redactText } from "@openbot/logging";
+import { createBuildersBotLogger, redactText } from "@openbot/logging";
 import { Deferred, Effect, Exit, Result, Schema, Scope } from "effect";
 import type { AgentLifecycleFailed } from "../agent-service";
 import { causeHelpers } from "../effect-boundary";
@@ -71,7 +71,7 @@ import { type TelegramAppPort, telegramLinkUrl } from "./telegram/telegram-conne
 import { telegramOrchestratorMemories, telegramOrchestratorProfile } from "./telegram/telegram-orchestrator";
 import { parseTelegramUpdate, telegramLink, telegramRemoval } from "./telegram/telegram-updates";
 
-const logger = createOpenBotLogger("messaging");
+const logger = createBuildersBotLogger("messaging");
 
 /** The tokens of each connection, kept by the main process in encrypted storage, by connection id. */
 export interface MessagingCredentials {
@@ -114,7 +114,7 @@ export interface MessagingServiceOptions {
   /** A private folder for files that arrive, until the mailbox has copied them. */
   downloadsRoot: string;
   /**
-   * The Signal relay of the OpenBot Slack and Discord apps. Without it and `slackApp` or
+   * The Signal relay of the Builders Bot Slack and Discord apps. Without it and `slackApp` or
    * `discordApp`, no workspace of that platform can connect.
    */
   ingress?: MessagingIngress;
@@ -122,7 +122,7 @@ export interface MessagingServiceOptions {
   discordApp?: DiscordAppPort;
   /** Only tests change this. */
   slackOrigin?: string;
-  /** The account service half of the OpenBot Telegram bot. Without it and `ingress`, no chat can connect. */
+  /** The account service half of the Builders Bot Telegram bot. Without it and `ingress`, no chat can connect. */
   telegramApp?: TelegramAppPort;
   /** Where the Slack, Discord and Telegram Orchestrators go in the sidebar: an Integrations section. */
   sidebar?: Pick<SidebarLayoutStore, "getSnapshot" | "mutate" | "removeAgent">;
@@ -173,7 +173,7 @@ const TELEGRAM_READY_TIMEOUT_MS = 15_000;
 const IDENTIFY_RETRY_MS = 30_000;
 /** How long a conversation waits before it sends a last post again that the platform did not take. */
 const SETTLE_RETRY_MS = 60_000;
-/** How many times the last post of a request is sent before OpenBot gives up on it. */
+/** How many times the last post of a request is sent before Builders Bot gives up on it. */
 const FINAL_POST_ATTEMPTS = 5;
 /** How long a new message waits for the name of its author and its place. */
 const RECEIVE_NAME_DEADLINE_MS = 5_000;
@@ -185,7 +185,7 @@ const MENTION_MARKERS = /[\uE000-\uE001]/g;
 /**
  * Owns the live connections to chat platform workspaces: it starts and stops each one's transport,
  * picks the agent of each new conversation with the router agent, turns inbound messages into agent
- * work through `MessagingThreads`, posts status and answers back as OpenBot, and relays approvals
+ * work through `MessagingThreads`, posts status and answers back as Builders Bot, and relays approvals
  * and stop requests. It never stores a token: `MessagingCredentials` does. It is platform-agnostic;
  * everything a platform does goes through its `MessagingDriver`.
  */
@@ -493,7 +493,7 @@ export class MessagingService {
   });
 
   /**
-   * Opens the OpenBot Slack app's install in the browser, or only returns it when `opensPage` is false.
+   * Opens the Builders Bot Slack app's install in the browser, or only returns it when `opensPage` is false.
    * A deep link to `completeSlackWorkspace` ends it.
    */
   readonly connectSlackWorkspace = Effect.fn("MessagingService.connectSlackWorkspace")(function* (
@@ -560,7 +560,7 @@ export class MessagingService {
     if (orphan) yield* this.#deleteOrchestrator(orphan);
   }, Effect.uninterruptible).bind(this);
 
-  /** The roles whose members can use OpenBot in a Discord server. Empty lets everyone. */
+  /** The roles whose members can use Builders Bot in a Discord server. Empty lets everyone. */
   readonly discordAccess = Effect.fn("MessagingService.discordAccess")(function* (
     this: MessagingService,
     guildId: string,
@@ -600,7 +600,7 @@ export class MessagingService {
     };
   }).bind(this);
 
-  /** Replaces the roles whose members can use OpenBot in a Discord server. Disconnect keeps them. */
+  /** Replaces the roles whose members can use Builders Bot in a Discord server. Disconnect keeps them. */
   readonly setDiscordAccess = Effect.fn("MessagingService.setDiscordAccess")(function* (
     this: MessagingService,
     input: SetDiscordAccessInput,
@@ -611,7 +611,7 @@ export class MessagingService {
   }).bind(this);
 
   /**
-   * Opens the OpenBot Discord app's install in the browser, or only returns it when `opensPage` is
+   * Opens the Builders Bot Discord app's install in the browser, or only returns it when `opensPage` is
    * false. A deep link to `completeDiscordGuild` ends it.
    */
   readonly connectDiscordGuild = Effect.fn("MessagingService.connectDiscordGuild")(function* (
@@ -657,7 +657,7 @@ export class MessagingService {
   }, Effect.uninterruptible).bind(this);
 
   /**
-   * Unlinks the guild, then stops its connection and forgets it. OpenBot stays in the guild until a
+   * Unlinks the guild, then stops its connection and forgets it. Builders Bot stays in the guild until a
    * guild admin removes it. When the unlink fails, nothing changes, so the user can try again: the
    * guild stays linked to this host until the account service unlinks it.
    */
@@ -934,7 +934,7 @@ export class MessagingService {
       yield* live.adapter
         .post(
           { platformChannelId: chatId, replyThreadId: null },
-          { text: sourceText("status.messaging.telegramLinked", { bot: botUsername ? `@${botUsername}` : "OpenBot" }) },
+          { text: sourceText("status.messaging.telegramLinked", { bot: botUsername ? `@${botUsername}` : "Builders Bot" }) },
         )
         .pipe(Effect.catch((failure) => Effect.sync(() => this.#warn(failure.cause))));
   }, Effect.uninterruptible);
@@ -1046,7 +1046,7 @@ export class MessagingService {
     // After `start`: a transport takes deliveries only once it has its sink.
     this.#transportDeadlines.delete(record.connectionId);
     for (const ready of [...(this.#transportWaiters.get(record.connectionId) ?? [])]) ready();
-    // So people can mention OpenBot in any public channel without inviting it first. Channels made
+    // So people can mention Builders Bot in any public channel without inviting it first. Channels made
     // while the host was off are joined here too.
     const join = live.adapter.joinPublicPlaces?.();
     if (join)
@@ -1101,7 +1101,7 @@ export class MessagingService {
     if (FATAL_STATES.has(state)) {
       this.#threads.store.updateConnection(live.record.connectionId, { lastErrorCode: state });
       logger.warn("A messaging connection stopped.", { platform: live.record.platform, state });
-      // The workspace uninstalled OpenBot or revoked its token, or the bot left the Telegram chat:
+      // The workspace uninstalled Builders Bot or revoked its token, or the bot left the Telegram chat:
       // Signal stops routing it here.
       const unlink:
         | Effect.Effect<void, DiscordConnectFailed | SlackConnectFailed | MessagingOperationFailed>
@@ -1245,7 +1245,7 @@ export class MessagingService {
       () =>
         Effect.gen({ self: this }, function* () {
           // The message's own files first, then the newest earlier ones, within the attachment limits.
-          // An earlier message of this conversation that reached OpenBot gave its files with itself.
+          // An earlier message of this conversation that reached Builders Bot gave its files with itself.
           const earlierFiles = earlier
             .filter(
               (entry) =>

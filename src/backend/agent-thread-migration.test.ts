@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: the upgrade changes or loses a row of any table; a task does not become a thread, or
 // loses a column; a task row with no thread stops the upgrade; a failed upgrade leaves the new table, or
@@ -24,7 +24,7 @@ function databaseAt(version: number): DatabaseSync {
 function migrateUpTo(db: DatabaseSync, version: number): void {
   db.exec(`CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
 }
 
@@ -141,7 +141,7 @@ describe("agent thread migration", () => {
       seedTasks(db);
       if (version < 46) migrateUpTo(db, 46);
       const before = contents(db);
-      migrateOpenBotDatabase(db);
+      migrateBuildersBotDatabase(db);
       expect(withoutTasks(contents(db))).toEqual(withoutTasks(before));
       expect(threads(db)).toEqual(THREADS);
       expect(agentTables(db)).toEqual([
@@ -160,7 +160,7 @@ describe("agent thread migration", () => {
     db.exec("PRAGMA foreign_keys=OFF; DELETE FROM projection_threads WHERE thread_id='openbot-thread-closed'");
     db.exec("PRAGMA foreign_keys=ON");
     expect(db.prepare("SELECT COUNT(*) AS count FROM projection_agent_tasks").get()).toEqual({ count: 2 });
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(threads(db)).toEqual([THREADS[1]]);
     expectHealthy(db);
   });
@@ -176,7 +176,7 @@ describe("agent thread migration", () => {
     db.exec(`INSERT INTO projection_deliveries
       (delivery_id, message_id, recipient_agent_id, status, turn_id, error, created_at, delivery_json, last_event_sequence)
       VALUES ('delivery-1', 'message-1', 'chief', 'queued', NULL, NULL, '2026-10-04', '{"id":"delivery-1"}', 10)`);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(db.prepare("SELECT message_json FROM projection_mailbox_messages").all()).toEqual([
       { message_json: message },
     ]);
@@ -199,13 +199,13 @@ describe("agent thread migration", () => {
     const tablesBefore = agentTables(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=47
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 47 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 47 failed");
     expect(contents(db)).toEqual(before);
     expect(agentTables(db)).toEqual(tablesBefore);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version=47").all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(threads(db)).toEqual(THREADS);
     expectHealthy(db);
   });
@@ -216,9 +216,9 @@ describe("agent thread migration", () => {
     seedTasks(db);
     const before = contents(db);
     db.exec("INSERT INTO schema_migrations VALUES(48,'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version=48; DELETE FROM schema_migrations WHERE version=20");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
   });
 
@@ -226,7 +226,7 @@ describe("agent thread migration", () => {
     const db = databaseAt(46);
     seedThreads(db);
     seedTasks(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     db.prepare(
       "INSERT INTO projection_threads VALUES ('openbot-thread-new', 'chief', 'Chief', NULL, '2026-10-04', '2026-10-04', 9)",
     ).run();
@@ -243,7 +243,7 @@ describe("agent thread migration", () => {
     const db = databaseAt(46);
     seedThreads(db);
     seedTasks(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     db.exec("DELETE FROM projection_threads WHERE thread_id IN ('openbot-thread-open', 'openbot-thread-closed')");
     expect(threads(db)).toEqual([]);
     expect(db.prepare("SELECT thread_id FROM projection_threads").all()).toEqual([

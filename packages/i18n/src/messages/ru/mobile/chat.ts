@@ -4,7 +4,7 @@ import type { messages as source } from "../../en/mobile/chat";
 export const messages = {
   "mobile.chat.dictation.microphoneOffTitle": "Доступ к микрофону выключен",
   "mobile.chat.dictation.microphoneOffMessage":
-    "Чтобы диктовать сообщения, разрешите OpenBot использовать микрофон и распознавание речи в настройках.",
+    "Чтобы диктовать сообщения, разрешите Builders Bot использовать микрофон и распознавание речи в настройках.",
   "mobile.chat.dictation.stopped": "Диктовка остановлена",
   "mobile.chat.dictation.tryAgain": "Повторите попытку.",
   "mobile.chat.dictation.unavailable": "Диктовка недоступна",
@@ -101,7 +101,7 @@ export const messages = {
   "mobile.chat.attachment.openFailed": "Не удалось открыть вложение",
   "mobile.chat.attachment.photosNeedUpdate": "Для сохранения фото нужна последняя версия приложения.",
   "mobile.chat.attachment.photosPermission":
-    "Чтобы сохранить изображение, разрешите OpenBot добавлять фото в настройках.",
+    "Чтобы сохранить изображение, разрешите Builders Bot добавлять фото в настройках.",
   "mobile.chat.attachment.imageUnavailable": "Изображение недоступно. Повторите попытку.",
   "mobile.chat.attachment.saveImageFailed": "Не удалось сохранить изображение",
   "mobile.chat.attachment.preview": "Просмотр: {name}",
@@ -126,9 +126,9 @@ export const messages = {
   "mobile.chat.attachment.unsupported":
     "{name}: выберите изображения, аудио MP3, видео MOV или MP4, архивы ZIP, PDF, документы Office, EML, текстовые файлы, Markdown, данные или исходный код.",
   "mobile.chat.attachment.hostRejectsType":
-    "{name}: компьютер-хост не принимает файлы {type}. Обновите там OpenBot, чтобы прикреплять их.",
+    "{name}: компьютер-хост не принимает файлы {type}. Обновите там Builders Bot, чтобы прикреплять их.",
   "mobile.chat.attachment.hostRejects":
-    "{name}: компьютер-хост не принимает такие файлы. Обновите там OpenBot, чтобы прикреплять их.",
+    "{name}: компьютер-хост не принимает такие файлы. Обновите там Builders Bot, чтобы прикреплять их.",
   "mobile.chat.attachment.nameTooLong": "Выберите файл с более коротким именем.",
   "mobile.chat.attachment.damaged": "Вложение повреждено. Выберите его заново.",
   "mobile.chat.attachment.tooLarge": "{name} больше 10 МБ.",
@@ -199,7 +199,7 @@ export const messages = {
   "mobile.chat.video.retry": "Повторить загрузку видео",
   "mobile.chat.video.share": "Поделиться: {name}",
   "mobile.chat.video.save": "Сохранить {name} в «Фото»",
-  "mobile.chat.video.photosPermission": "Разрешите OpenBot добавлять фото в Настройках, чтобы сохранить это видео.",
+  "mobile.chat.video.photosPermission": "Разрешите Builders Bot добавлять фото в Настройках, чтобы сохранить это видео.",
   "mobile.chat.video.saveFailed": "Не удалось сохранить видео",
   "mobile.chat.audio.play": "Воспроизвести: {name}",
   "mobile.chat.audio.pause": "Пауза: {name}",
@@ -213,7 +213,7 @@ export const messages = {
   "mobile.chat.browserSecret.authenticatorCode": "Код из приложения-аутентификатора",
   "mobile.chat.browserSecret.oneTimeCode": "Одноразовый код",
   "mobile.chat.browserSecret.takeoverTitle": "Управление браузером",
-  "mobile.chat.browserSecret.takeoverBody": "Выполните этот шаг в браузере на компьютере, где работает OpenBot.",
+  "mobile.chat.browserSecret.takeoverBody": "Выполните этот шаг в браузере на компьютере, где работает Builders Bot.",
   "mobile.chat.browserSecret.takeoverReload": "Затем обновите страницу и только потом нажмите «Готово».",
   "mobile.chat.browserSecret.takeoverFailed": "Не удалось выполнить запрос.",
   "mobile.chat.browserSecret.done": "Готово",
@@ -308,7 +308,7 @@ export const messages = {
   "mobile.chat.approval.effect.permissions":
     "«Разрешить» даст {name} эти разрешения на {server}. «Отклонить» сохранит текущие разрешения.",
   "mobile.chat.approval.partial":
-    "Этот запрос слишком длинный для телефона. Чтобы разрешить его, откройте OpenBot на {server}. Отклонить его можно здесь.",
+    "Этот запрос слишком длинный для телефона. Чтобы разрешить его, откройте Builders Bot на {server}. Отклонить его можно здесь.",
   "mobile.chat.approval.allow": "Разрешить",
   "mobile.chat.approval.deny": "Отклонить",
   "mobile.chat.approval.reconnect": "Подключитесь к {server}, чтобы ответить на этот запрос.",
@@ -381,7 +381,7 @@ export const messages = {
   "mobile.chat.queue.steerNeedsTurn": "Направить можно только во время выполнения хода.",
   "mobile.chat.queue.stillHoldingTitle": "Сообщение всё ещё удерживается",
   "mobile.chat.queue.stillHoldingMessage":
-    "OpenBot не удалось освободить это сообщение, поэтому агент продолжает его ждать. Повторите попытку после переподключения телефона.",
+    "Builders Bot не удалось освободить это сообщение, поэтому агент продолжает его ждать. Повторите попытку после переподключения телефона.",
   "mobile.chat.queue.keepEditing": "Продолжить",
   "mobile.chat.queue.leaveAnyway": "Всё равно выйти",
   "mobile.chat.queue.discardTitle": "Отменить изменения?",
@@ -389,7 +389,7 @@ export const messages = {
   "mobile.chat.queue.discard": "Отменить",
   "mobile.chat.queue.alreadyReceived": "Агент уже получил это сообщение, поэтому изменить его нельзя.",
   "mobile.chat.queue.holding": "Удерживаем сообщение для вас…",
-  "mobile.chat.queue.holdFailed": "OpenBot не удалось удержать это сообщение для редактирования.",
+  "mobile.chat.queue.holdFailed": "Builders Bot не удалось удержать это сообщение для редактирования.",
   "mobile.chat.queue.messageLabel": "Сообщение",
   "mobile.chat.queue.messagePlaceholder": "Текст сообщения",
   "mobile.chat.queue.save": "Сохранить сообщение из очереди",

@@ -105,7 +105,7 @@ export function createProviderRuntimeStore(
   const isLocalServer = owners.isLocalServer ?? (() => true);
   const managesRuntimes = owners.managesRuntimes ?? isLocalServer;
   function providerUpdate(provider: AgentProviderId, snapshot = providerRuntimeSnapshot()): ProviderUpdate {
-    if (!isManagedRuntimeProvider(provider)) throw new Error("OpenBot does not manage this provider's CLI.");
+    if (!isManagedRuntimeProvider(provider)) throw new Error("Builders Bot does not manage this provider's CLI.");
     const runtime = snapshot.providers[provider];
     const systemVersion = owners.systemCliVersion?.(provider) ?? null;
     const availableVersion = runtime.availableVersion ?? null;
@@ -252,7 +252,7 @@ export function createProviderRuntimeStore(
   }
 
   async function downloadProviderRuntime(provider: AgentProviderId): Promise<void> {
-    // A custom agent is the user's own command: OpenBot downloads nothing for it.
+    // A custom agent is the user's own command: Builders Bot downloads nothing for it.
     if (!isManagedRuntimeProvider(provider)) return;
     const source = api();
     if (!source) throw new Error(currentText().t("update.provider.downloadsUnavailable"));
@@ -299,7 +299,7 @@ export function createProviderRuntimeStore(
   }
 
   async function cancelProviderRuntimeDownload(provider: AgentProviderId): Promise<void> {
-    // A custom agent is the user's own command: OpenBot downloads nothing for it.
+    // A custom agent is the user's own command: Builders Bot downloads nothing for it.
     if (!isManagedRuntimeProvider(provider)) return;
     const source = api();
     if (!source) throw new Error(currentText().t("update.provider.downloadsUnavailable"));

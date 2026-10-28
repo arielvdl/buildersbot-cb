@@ -23,6 +23,7 @@ import {
   agentPermissionLevels,
   agentPermissionUpdate,
   agentQuickAcknowledgementEnabled,
+  agentSecurityGuardEnabled,
   type BrowserProfileSummary,
   type BusyMessageMode,
   type ClientAgentModelOption,
@@ -241,6 +242,7 @@ interface AgentSettingsDraft {
   allowAutomation: boolean;
   allowNewChat: boolean;
   quickAcknowledgement: boolean;
+  securityGuard: boolean;
   browserProfile: BrowserProfileChoice;
   /** `default` follows the app setting. */
   busyMessage: BusyMessageChoice;
@@ -284,6 +286,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     allowAutomation: false,
     allowNewChat: false,
     quickAcknowledgement: false,
+    securityGuard: true,
     browserProfile: "shared",
     busyMessage: "default",
     taskLimit: "default",
@@ -408,6 +411,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           String(agentAutomationAllowed(agent, agentDefaults())),
           String(agentNewChatAllowed(agent, agentDefaults())),
           String(agentQuickAcknowledgementEnabled(agent, agentDefaults())),
+          String(agentSecurityGuardEnabled(agent, agentDefaults())),
           browserProfile,
           agent.busyMessageMode ?? "default",
           String(agent.taskLimit ?? "default"),
@@ -453,6 +457,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           state.allowAutomation = agentAutomationAllowed(agent, agentDefaults());
           state.allowNewChat = agentNewChatAllowed(agent, agentDefaults());
           state.quickAcknowledgement = agentQuickAcknowledgementEnabled(agent, agentDefaults());
+          state.securityGuard = agentSecurityGuardEnabled(agent, agentDefaults());
           state.browserProfile = browserProfile;
           state.busyMessage = agent.busyMessageMode ?? "default";
           state.taskLimit = taskLimitChoice(agent.taskLimit);
@@ -901,6 +906,19 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     if (!disposed && props.agent.id === agentId && draft.quickAcknowledgement === next) {
       setDraft((state) => {
         state.quickAcknowledgement = !next;
+      });
+    }
+  }
+
+  async function saveSecurityGuard(next: boolean): Promise<void> {
+    const agentId = props.agent.id;
+    setDraft((state) => {
+      state.securityGuard = next;
+    });
+    if (await saveAgentPatch({ securityGuard: next }, agentId)) return;
+    if (!disposed && props.agent.id === agentId && draft.securityGuard === next) {
+      setDraft((state) => {
+        state.securityGuard = !next;
       });
     }
   }
@@ -1447,6 +1465,20 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                     </SelectTrigger>
                     <SelectContent />
                   </Select>
+                </Show>
+                <Show when={props.quickAcknowledgementEditable}>
+                  <div class="agent-settings-notifications">
+                    <div>
+                      <strong>{t("agentSettings.securityGuard.title")}</strong>
+                      <span>{t("agentSettings.securityGuard.description")}</span>
+                    </div>
+                    <Switch
+                      size="sm"
+                      aria-label={t("agentSettings.securityGuard.title")}
+                      checked={draft.securityGuard}
+                      onChange={(next) => void saveSecurityGuard(next)}
+                    />
+                  </div>
                 </Show>
                 <Show when={props.browserProfiles}>
                   {(options) => (

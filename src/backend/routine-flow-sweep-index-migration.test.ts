@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: an upgrade loses or changes a routine run, flow link or flow step; a partial migration
 // survives a failure; a retry fails on an index that the failed run left; a newer or incomplete history is
@@ -26,7 +26,7 @@ function databaseAt(version: number): DatabaseSync {
   db.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
   return db;
 }
@@ -93,7 +93,7 @@ describe("routine flow sweep index migration", () => {
     const db = databaseAt(version);
     seedRoutineFlow(db, version);
     const before = contents(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toMatchObject(before);
     expect(indexColumns(db)).toEqual(INDEXES);
     expectHealthy(db);
@@ -105,12 +105,12 @@ describe("routine flow sweep index migration", () => {
     const before = contents(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version = 42
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 42 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 42 failed");
     expect(indexColumns(db)).toEqual(NO_INDEXES);
     expect(contents(db)).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 42").all()).toEqual([]);
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toEqual(before);
     expect(indexColumns(db)).toEqual(INDEXES);
     expectHealthy(db);
@@ -123,12 +123,12 @@ describe("routine flow sweep index migration", () => {
     // The last of the three: the two before it are made and must roll back. SQLite refuses an index whose
     // name a table holds, even with IF NOT EXISTS.
     db.exec("CREATE TABLE routine_flow_steps_updated (conflict TEXT)");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 42 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 42 failed");
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 42").all()).toEqual([]);
     expect(indexColumns(db)).toEqual(NO_INDEXES);
     expect(contents(db)).toEqual(before);
     db.exec("DROP TABLE routine_flow_steps_updated");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toEqual(before);
     expect(indexColumns(db)).toEqual(INDEXES);
     expectHealthy(db);
@@ -139,9 +139,9 @@ describe("routine flow sweep index migration", () => {
     seedRoutineFlow(db, 41);
     const before = contents(db);
     db.exec("INSERT INTO schema_migrations VALUES(48, 'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version = 48; DELETE FROM schema_migrations WHERE version = 20");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(indexColumns(db)).toEqual(NO_INDEXES);
   });

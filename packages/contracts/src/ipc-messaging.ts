@@ -1,6 +1,6 @@
 /**
  * Messaging connections: a chat platform workspace, such as a Slack workspace or a Discord guild that
- * installed the OpenBot app, or a Telegram chat that added the OpenBot bot, where the agents of this
+ * installed the Builders Bot app, or a Telegram chat that added the Builders Bot bot, where the agents of this
  * computer answer. Each new conversation goes to the
  * workspace's orchestrator agent, which asks its teammates and answers. The connection belongs to the
  * computer that runs the agents. Tokens travel only towards that host; no result carries one.
@@ -28,7 +28,7 @@ export const MESSAGING_CONNECTION_STATES = [
   // Slack, Discord and Telegram send their events through Signal, and this host cannot reach it: it
   // is signed out, has no name yet, or Signal is down.
   "relay_unavailable",
-  // The OpenBot bot is no longer in the Telegram chat.
+  // The Builders Bot bot is no longer in the Telegram chat.
   "removed",
 ] as const;
 export type MessagingConnectionState = (typeof MESSAGING_CONNECTION_STATES)[number];
@@ -55,7 +55,7 @@ export interface MessagingConnection {
   enabled: boolean;
   state: MessagingConnectionState;
   workspaceName: string;
-  /** The platform user that OpenBot posts as. */
+  /** The platform user that Builders Bot posts as. */
   botUserId: string | null;
   missingScopes: string[];
   /** When the connection tries again after a rate limit, as an ISO time. */
@@ -101,8 +101,8 @@ export interface MessagingRole {
 }
 
 /**
- * Who can use OpenBot in one Discord server: the members with one of these roles. Empty lets everyone.
- * OpenBot ignores a mention from anyone else.
+ * Who can use Builders Bot in one Discord server: the members with one of these roles. Empty lets everyone.
+ * Builders Bot ignores a mention from anyone else.
  */
 export interface DiscordAccess {
   allowedRoles: MessagingRole[];
@@ -137,7 +137,7 @@ export type TelegramOverview = MessagingOverview;
 export type TelegramChatInput = MessagingWorkspaceInput;
 export type SetTelegramEnabledInput = SetMessagingEnabledInput;
 
-/** Where the user adds the OpenBot bot: a group, or a direct chat with the bot. */
+/** Where the user adds the Builders Bot bot: a group, or a direct chat with the bot. */
 export interface ConnectTelegramChatInput {
   place: "group" | "direct";
 }

@@ -1,7 +1,7 @@
 import type {
   InstalledSkill,
   InstallSkillInput,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   SetEnabledSkillInput,
   UninstallSkillInput,
 } from "@openbot/contracts/ipc";
@@ -13,7 +13,7 @@ import type {
  */
 export interface SkillsPort {
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     | "addMarketplaceAgent"
     | "cancelMcpSignIn"
     | "completeMcpSignInRelay"
@@ -32,10 +32,10 @@ export interface SkillsPort {
     | "testMcpServer"
     | "uninstallAgentSkill"
   >;
-  marketplaceAgents: Pick<OpenBotDesktopApi["marketplaceAgents"], "get" | "install" | "list">;
-  macAutomation: Pick<OpenBotDesktopApi["macAutomation"], "request">;
+  marketplaceAgents: Pick<BuildersBotDesktopApi["marketplaceAgents"], "get" | "install" | "list">;
+  macAutomation: Pick<BuildersBotDesktopApi["macAutomation"], "request">;
   skills: Pick<
-    OpenBotDesktopApi["skills"],
+    BuildersBotDesktopApi["skills"],
     | "get"
     | "install"
     | "list"

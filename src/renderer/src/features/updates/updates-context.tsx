@@ -92,7 +92,7 @@ const Updates = createSimpleContext({
 
     createScheduledUpdateToast({ status, cancel: cancelScheduledRestart });
 
-    /** Restarts OpenBot when no work runs. A downloaded update is installed by the same restart. */
+    /** Restarts Builders Bot when no work runs. A downloaded update is installed by the same restart. */
     async function restartWhenIdle(): Promise<void> {
       const current = status();
       const target = current.phase === "ready" && current.managedByHost !== true ? "update" : "relaunch";

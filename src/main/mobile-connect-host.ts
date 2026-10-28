@@ -41,7 +41,7 @@ export const createHostedMobileConnectLink = Effect.fn("MobileConnectHost.create
 const publishMobileConnectHost = Effect.fn("MobileConnectHost.publish")(function* (
   host: MobileConnectHostDependencies<never>["host"],
 ) {
-  if (!host.getStatus().configured) yield* host.configure({ serverName: "OpenBot" });
+  if (!host.getStatus().configured) yield* host.configure({ serverName: "Builders Bot" });
   const status = yield* host.start();
   if (!isPublishedHost(status)) {
     return yield* new RemoteWorkflowError({

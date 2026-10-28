@@ -11,6 +11,7 @@ import {
   removeToollessDirectory,
   startToolless,
   stopToolless,
+  type ToollessOptions,
   toollessTurn,
 } from "./profile-generation";
 
@@ -61,6 +62,7 @@ export class WarmGenerations {
     model: AgentModelOption,
     prompt: string,
     observe?: GenerationObserver,
+    options: ToollessOptions = {},
   ) {
     const owner = this.#options.ownerFor(provider);
     let warm = this.#warm.get(provider);
@@ -71,7 +73,7 @@ export class WarmGenerations {
     if (!owner || warm?.busy) {
       const client = this.#options.createClient(provider);
       return yield* this.#options.profileClients.run(client, (cancelled) =>
-        generateTextWithoutTools(client, model, prompt, cancelled, observe),
+        generateTextWithoutTools(client, model, prompt, cancelled, observe, options),
       );
     }
     const started = warm !== undefined;
@@ -90,7 +92,7 @@ export class WarmGenerations {
         if (current.timer) clearTimeout(current.timer);
         current.timer = null;
         current.busy = true;
-        const turn = yield* restore(this.#turn(provider, current, model, prompt, started, observe)).pipe(
+        const turn = yield* restore(this.#turn(provider, current, model, prompt, started, observe, options)).pipe(
           Effect.ensuring(Effect.sync(() => (current.busy = false))),
         );
         if (current.client.releaseThread) yield* current.client.releaseThread(turn.threadId).pipe(Effect.ignore);
@@ -110,6 +112,7 @@ export class WarmGenerations {
     prompt: string,
     started: boolean,
     observe: GenerationObserver | undefined,
+    options: ToollessOptions,
   ) {
     return (
       this.#options.profileClients
@@ -132,6 +135,7 @@ export class WarmGenerations {
                     : startToolless(entry.client),
                 ),
             observe,
+            options,
           ),
         )
         // A failed or interrupted turn can leave the provider mid-turn. Start the next one clean.

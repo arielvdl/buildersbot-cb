@@ -39,7 +39,7 @@ import {
   requiredNumberColumn,
   requiredStringColumn,
 } from "../database/database-rows";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 import { nodeTimezone } from "./workflow-graph";
 import { workflowTransaction } from "./workflow-transaction";
 
@@ -81,14 +81,14 @@ export interface DueWorkflowTrigger {
 }
 
 export interface WorkflowStoreOptions {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   createId?: () => string;
   /** The next occurrence of a schedule trigger, or null. The trigger service supplies it. */
   nextDueAt?: (schedule: RoutineSchedule, timezone: string | null, now: Date) => string | null;
 }
 
 export class WorkflowStore {
-  readonly #database: OpenBotDatabase;
+  readonly #database: BuildersBotDatabase;
   readonly #createId: () => string;
   readonly #nextDueAt: (schedule: RoutineSchedule, timezone: string | null, now: Date) => string | null;
 

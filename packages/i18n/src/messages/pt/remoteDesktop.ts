@@ -9,7 +9,7 @@ export const messages = {
   "remoteDesktop.workspaceLabel": "Controle remoto",
   "remoteDesktop.displayLabel": "Tela remota",
   "remoteDesktop.selectDisplay": "Selecionar tela",
-  "remoteDesktop.backToOpenBot": "Voltar ao OpenBot",
+  "remoteDesktop.backToBuildersBot": "Voltar ao Builders Bot",
   "remoteDesktop.disconnect": "Desconectar",
   "remoteDesktop.viewerTitle": "Área de trabalho remota do Sunshine",
   "remoteDesktop.viewerLoadFailed": "Não foi possível carregar o visualizador Moonlight.",
@@ -20,7 +20,7 @@ export const messages = {
   "remoteDesktop.openFailed": "Não foi possível abrir a área de trabalho",
   "remoteDesktop.notSharingTitle": "{name} não está compartilhando a tela",
   "remoteDesktop.notSharingDescription":
-    "O servidor impede o OpenBot de gravar a tela. Nesse servidor, abra Ajustes do Sistema → Privacidade e Segurança → Gravação de Tela, ative o OpenBot e tente novamente aqui.",
+    "O servidor impede o Builders Bot de gravar a tela. Nesse servidor, abra Ajustes do Sistema → Privacidade e Segurança → Gravação de Tela, ative o Builders Bot e tente novamente aqui.",
   "remoteDesktop.setup.check.screenRecording": "Gravação de Tela",
   "remoteDesktop.setup.check.accessibility": "Acessibilidade",
   "remoteDesktop.setup.check.service": "Serviço Sunshine",
@@ -41,7 +41,7 @@ export const messages = {
   "remoteDesktop.setup.startFailed": "Não foi possível iniciar o teste da área de trabalho remota.",
   "remoteDesktop.setup.connectionLost": "A conexão de teste foi perdida.",
   "remoteDesktop.setup.hostUpdateRequired":
-    "Atualize o OpenBot no servidor para verificar as permissões e testar a área de trabalho remota.",
+    "Atualize o Builders Bot no servidor para verificar as permissões e testar a área de trabalho remota.",
   "remoteDesktop.setup.permissions": "Permissões",
   "remoteDesktop.setup.checked": "Verificado",
   "remoteDesktop.setup.checkAgain": "Verificar novamente",

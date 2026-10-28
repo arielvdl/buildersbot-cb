@@ -11,8 +11,8 @@ export const messages = {
   "error.voice.modelUnavailable": "Het spraakmodel is niet beschikbaar.",
   "error.voice.transcriptionTimedOut": "De spraaktranscriptie duurde te lang.",
   "error.voice.prepareRequired":
-    "Lokale spraaktranscriptie is niet beschikbaar. Voer `bun run voice:prepare` uit en start OpenBot opnieuw.",
-  "error.voice.transcriptionFailed": "OpenBot kon deze opname niet transcriberen.",
+    "Lokale spraaktranscriptie is niet beschikbaar. Voer `bun run voice:prepare` uit en start Builders Bot opnieuw.",
+  "error.voice.transcriptionFailed": "Builders Bot kon deze opname niet transcriberen.",
   "error.voice.cloud.keyRequired": "Voeg je ElevenLabs-API-sleutel toe in Instellingen → Spraak.",
   "error.voice.cloud.keyRejected":
     "ElevenLabs heeft de API-sleutel niet geaccepteerd. Controleer de sleutel in Instellingen → Spraak.",
@@ -26,6 +26,6 @@ export const messages = {
   "error.voice.speech.runtimeUnavailable": "Lokale spraakuitvoer is niet beschikbaar op dit platform.",
   "error.voice.speech.modelRequired": "Download het spraakuitvoermodel in Instellingen → Spraak.",
   "error.voice.speech.timedOut": "Het voorlezen van het antwoord duurde te lang.",
-  "error.voice.speech.failed": "OpenBot kon het antwoord niet voorlezen.",
-  "error.voice.recordingNotKept": "OpenBot kon de spraakopname niet bewaren.",
+  "error.voice.speech.failed": "Builders Bot kon het antwoord niet voorlezen.",
+  "error.voice.recordingNotKept": "Builders Bot kon de spraakopname niet bewaren.",
 } as const satisfies PartialTranslation<typeof source>;

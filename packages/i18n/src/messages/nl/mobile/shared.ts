@@ -7,6 +7,6 @@ export const messages = {
   "mobile.shared.crop.hint": "Sleep om de foto te verplaatsen. Knijp om te schalen.",
   "mobile.shared.splash.loading": "Account laden",
   "mobile.shared.photo.openFailed": "Kan deze foto niet openen. Probeer opnieuw.",
-  "mobile.shared.photo.tooLarge": "OpenBot kan deze foto niet klein genoeg maken. Kies een eenvoudigere foto.",
+  "mobile.shared.photo.tooLarge": "Builders Bot kan deze foto niet klein genoeg maken. Kies een eenvoudigere foto.",
   "mobile.shared.save.changes": "Wijzigingen opslaan",
 } as const satisfies PartialTranslation<typeof source>;

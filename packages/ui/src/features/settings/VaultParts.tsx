@@ -111,7 +111,7 @@ export function VaultSecretForm(props: {
   );
 }
 
-/** The vaults or folders that OpenBot reads, as one card of `VaultRow`s and notes. */
+/** The vaults or folders that Builders Bot reads, as one card of `VaultRow`s and notes. */
 export function SharedVaultSection(props: { title: string; description: string; children: JSX.Element }) {
   return (
     <SettingsSection title={props.title} description={props.description}>

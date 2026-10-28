@@ -70,7 +70,7 @@ function browserRequest(accountFetch: typeof fetch) {
       credentials: "same-origin",
       cache: "no-store",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: post ? { "Content-Type": "application/json", "X-OpenBot-Browser": "1" } : {},
+      headers: post ? { "Content-Type": "application/json", "X-Builders Bot-Browser": "1" } : {},
       ...(post ? { body } : {}),
     }).catch(() => {
       throw new Error(errorMessage(null));

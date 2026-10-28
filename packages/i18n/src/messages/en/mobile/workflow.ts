@@ -1,7 +1,7 @@
 import { defineMessages } from "../../../message";
 
 export const messages = defineMessages("mobile.workflow", {
-  "mobile.workflow.unsupported": "Update OpenBot on this server to use workflows on your phone.",
+  "mobile.workflow.unsupported": "Update Builders Bot on this server to use workflows on your phone.",
   "mobile.workflow.offline": "The server is offline. Workflows show when it connects.",
   "mobile.workflow.list.loading": "Loading…",
   "mobile.workflow.list.loadFailed": "Could not load the workflows.",
@@ -19,7 +19,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.action.edit": "Edit",
   "mobile.workflow.alert.runFailedTitle": "Could not start the workflow",
   "mobile.workflow.alert.runFailedBody": "The server did not start the run. Try again.",
-  "mobile.workflow.alert.tryAgain": "OpenBot could not do this. Try again.",
+  "mobile.workflow.alert.tryAgain": "Builders Bot could not do this. Try again.",
   "mobile.workflow.drawer.needYou": { one: "{count} needs you", other: "{count} need you" },
   "mobile.workflow.drawer.running": { one: "{count} running", other: "{count} running" },
   "mobile.workflow.drawer.review": "Needs you · tap to review",
@@ -31,7 +31,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.detail.loadFailed": "Could not load the workflow.",
   "mobile.workflow.detail.starting": "Starting…",
   "mobile.workflow.detail.newerApp":
-    "This workflow has steps from a newer OpenBot. Update OpenBot on your phone to change it.",
+    "This workflow has steps from a newer Builders Bot. Update Builders Bot on your phone to change it.",
   "mobile.workflow.detail.waits": "Run {number} waits for you. Review",
   "mobile.workflow.detail.canvasOrder": "The steps show from left to right, as on the canvas.",
   "mobile.workflow.detail.trigger": "Trigger",
@@ -66,7 +66,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "Runs when its address gets a request.",
   "mobile.workflow.trigger.message": "Message",
-  "mobile.workflow.trigger.messageHint": "Change this trigger in OpenBot on your computer.",
+  "mobile.workflow.trigger.messageHint": "Change this trigger in Builders Bot on your computer.",
   "mobile.workflow.trigger.startsWhen": "Starts",
   "mobile.workflow.trigger.timezone": "Time zone: {zone}",
   "mobile.workflow.trigger.serverZone": "The schedule uses the time zone of the server.",
@@ -101,7 +101,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.step.questionDefault": "Approve to continue.",
   "mobile.workflow.step.textEmpty": "No text",
   "mobile.workflow.step.textPlaceholder": "Text for the next step",
-  "mobile.workflow.step.computerOnly": "Change this step in OpenBot on your computer.",
+  "mobile.workflow.step.computerOnly": "Change this step in Builders Bot on your computer.",
   "mobile.workflow.step.gone": "This step is not in the workflow now.",
   "mobile.workflow.step.agent": "Agent",
   "mobile.workflow.step.agentHint": "The agent does the task with the output of the step before it.",
@@ -119,7 +119,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.step.questionHint": "The run waits until you approve or decline. You get a notification.",
   "mobile.workflow.step.text": "Text",
   "mobile.workflow.step.sendTo": "Send to",
-  "mobile.workflow.step.channelHint": "An owner or admin chooses the messaging place in OpenBot on the computer.",
+  "mobile.workflow.step.channelHint": "An owner or admin chooses the messaging place in Builders Bot on the computer.",
   "mobile.workflow.problem.noTitle": "Write a name.",
   "mobile.workflow.problem.noAgent": "Choose an agent",
   "mobile.workflow.problem.agentGone": "The agent is not available. Choose an agent",
@@ -140,7 +140,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.add.prompt": "Fixed text for the next step.",
   "mobile.workflow.add.output": "Sends the result to you.",
   "mobile.workflow.add.oneCondition":
-    "On the phone, a workflow has one condition. For more paths, use OpenBot on your computer.",
+    "On the phone, a workflow has one condition. For more paths, use Builders Bot on your computer.",
   "mobile.workflow.editor.title": "Edit workflow",
   "mobile.workflow.editor.newTitle": "New workflow",
   "mobile.workflow.editor.step": "Step",
@@ -149,7 +149,7 @@ export const messages = defineMessages("mobile.workflow", {
   "mobile.workflow.editor.create": "Create workflow",
   "mobile.workflow.editor.saveFailed": "Could not save the workflow.",
   "mobile.workflow.editor.fieldsOnly":
-    "This workflow has a shape that the phone cannot show as a list. You can change each step here. To add, move or delete steps, use OpenBot on your computer.",
+    "This workflow has a shape that the phone cannot show as a list. You can change each step here. To add, move or delete steps, use Builders Bot on your computer.",
   "mobile.workflow.editor.annotationsKept": "The notes and drawings on the canvas stay as they are.",
   "mobile.workflow.editor.addStep": "Add a step",
   "mobile.workflow.editor.addAfter": "Add a step after",

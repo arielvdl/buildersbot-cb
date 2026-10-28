@@ -65,7 +65,7 @@ export const messages = {
   "prompt.browser.signInBlocked.title": "{host} bloqueou o login a partir de {server}",
   "prompt.browser.signInBlocked.cancelledTitle": "Login em {host} cancelado",
   "prompt.browser.signInBlocked.body":
-    "Entre neste computador. O OpenBot envia apenas o login de {host} para {server}, e {name} continua.",
+    "Entre neste computador. O Builders Bot envia apenas o login de {host} para {server}, e {name} continua.",
   "prompt.browser.signInBlocked.cancelledBody": "O login foi cancelado.",
   "prompt.browser.signInBlocked.waiting": "Aguardando o login",
   "prompt.browser.signInBlocked.waitingButton": "Aguardando o login…",

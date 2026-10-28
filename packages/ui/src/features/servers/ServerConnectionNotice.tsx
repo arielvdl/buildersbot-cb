@@ -52,7 +52,7 @@ export interface ServerConnectionNoticeProps {
   detail?: string | null;
   /** The code of the failure in `detail`, for a user to copy into a report. */
   reference?: string | null;
-  /** The OpenBot version that the server restarts into, while it updates. */
+  /** The Builders Bot version that the server restarts into, while it updates. */
   updateVersion?: string | null;
   /** Removes Details, for a notice that is not about the server connection. */
   hideDetails?: boolean;

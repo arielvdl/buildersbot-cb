@@ -11,7 +11,7 @@ export const messages = {
   "customProvider.registry.update": "更新",
   "customProvider.registry.remove": "移除运行时",
   "customProvider.registry.searchFailed": "无法搜索注册表，请重试。",
-  "customProvider.registry.statusFailed": "无法检查安装进度，OpenBot 会重试。",
+  "customProvider.registry.statusFailed": "无法检查安装进度，Builders Bot 会重试。",
   "customProvider.registry.installFailed": "无法安装该助手，请重试。",
   "customProvider.registry.updateFailed": "无法更新该助手，请重试。",
   "customProvider.registry.removeFailed": "无法移除运行时，请重试。",
@@ -20,7 +20,7 @@ export const messages = {
   "customProvider.error.providerIdRequired": "请输入服务商 ID。",
   "customProvider.error.providerIdPattern": "只能使用小写字母、数字、连字符或下划线，且以字母或数字开头。",
   "customProvider.error.providerIdLength": "服务商 ID 不能超过 {max} 个字符。",
-  "customProvider.error.providerIdBuiltIn": "OpenBot 已有名为 {id} 的服务商，请换一个 ID。",
+  "customProvider.error.providerIdBuiltIn": "Builders Bot 已有名为 {id} 的服务商，请换一个 ID。",
   "customProvider.error.providerIdSaved": "已保存名为 {id} 的端点，请先移除它或换一个 ID。",
   "customProvider.error.displayNameRequired": "请输入显示名称。",
   "customProvider.error.displayNameLength": "显示名称不能超过 {max} 个字符。",
@@ -41,15 +41,15 @@ export const messages = {
   "customProvider.error.baseUrlProtocol": "请使用 http:// 或 https:// 开头的 URL。",
   "customProvider.error.baseUrlCredential": "请把凭据放在请求头中，不要放在 URL 里。",
 
-  // The note after a save or a removal. It tells the user when OpenCode reads the new list.
-  "customProvider.saved.restarted": "已保存，OpenBot 正在加载模型。",
-  "customProvider.saved.skippedBusy": "已保存。当前任务结束后 OpenCode 会读取该列表。",
-  "customProvider.saved.notRunning": "已保存。OpenCode 下次启动时会读取该列表。",
-  "customProvider.removed.restarted": "已移除，OpenBot 正在加载模型。",
-  "customProvider.removed.skippedBusy": "已移除。当前任务结束后 OpenCode 会读取该列表。",
-  "customProvider.removed.notRunning": "已移除。OpenCode 下次启动时会读取该列表。",
-  "customProvider.saveFailed": "OpenBot 无法保存该端点。",
-  "customProvider.removeFailed": "OpenBot 无法移除 {name}。",
+  // The note after a save or a removal. It tells the user when Builders reads the new list.
+  "customProvider.saved.restarted": "已保存，Builders Bot 正在加载模型。",
+  "customProvider.saved.skippedBusy": "已保存。当前任务结束后 Builders 会读取该列表。",
+  "customProvider.saved.notRunning": "已保存。Builders 下次启动时会读取该列表。",
+  "customProvider.removed.restarted": "已移除，Builders Bot 正在加载模型。",
+  "customProvider.removed.skippedBusy": "已移除。当前任务结束后 Builders 会读取该列表。",
+  "customProvider.removed.notRunning": "已移除。Builders 下次启动时会读取该列表。",
+  "customProvider.saveFailed": "Builders Bot 无法保存该端点。",
+  "customProvider.removeFailed": "Builders Bot 无法移除 {name}。",
   "customProvider.saveUnavailable": "当前版本无法保存端点。",
   "customProvider.removeUnavailable": "当前版本无法移除端点。",
 
@@ -82,7 +82,7 @@ export const messages = {
   "customProvider.header.add": "添加请求头",
   "customProvider.submit": "提交",
 
-  // Model discovery. OpenBot asks the endpoint for its model list, and the user picks from it.
+  // Model discovery. Builders Bot asks the endpoint for its model list, and the user picks from it.
   "customProvider.discovery.find": "查找模型",
   "customProvider.discovery.refresh": "重新查找",
   "customProvider.discovery.loading": "正在向 {url} 请求模型列表。",
@@ -97,7 +97,7 @@ export const messages = {
   "customProvider.preset.title": "添加服务商或助手",
   "customProvider.preset.description": "选择本地模型服务器、端点或 ACP 助手。",
   "customProvider.preset.heading": "添加自定义项",
-  "customProvider.preset.subtitle": "供 OpenCode 使用的模型，或独立的助手。",
+  "customProvider.preset.subtitle": "供 Builders 使用的模型，或独立的助手。",
   "customProvider.preset.models": "模型",
   "customProvider.preset.agents": "助手",
   "customProvider.preset.ollama": "Ollama",
@@ -111,12 +111,12 @@ export const messages = {
   "customProvider.probe.checking": "检查中",
   "customProvider.probe.running": { one: "运行中 · {count} 个模型", other: "运行中 · {count} 个模型" },
 
-  // Automatic detection on the provider step and in Settings. OpenBot looks for local model servers
+  // Automatic detection on the provider step and in Settings. Builders Bot looks for local model servers
   // at their default addresses and for known ACP agent commands on the PATH.
   "customProvider.detected.title": "在这台电脑上发现",
   "customProvider.detected.scanning": "正在查找本地模型和助手。",
   "customProvider.detected.scanAgain": "重新扫描",
-  "customProvider.detected.empty": "OpenBot 没有发现本地模型服务器或 ACP 助手。",
+  "customProvider.detected.empty": "Builders Bot 没有发现本地模型服务器或 ACP 助手。",
   "customProvider.detected.add": "添加",
   "customProvider.detected.addLabel": "添加 {name}",
   "customProvider.detected.added": "已添加",
@@ -134,10 +134,10 @@ export const messages = {
   // Where the scan looks. The default addresses and PATH are always part of it.
   "customProvider.detection.title": "本地检测",
   "customProvider.detection.saveFailed": "无法保存检测设置。",
-  "customProvider.detection.description": "OpenBot 查找本地模型服务器和 ACP 助手的位置。",
+  "customProvider.detection.description": "Builders Bot 查找本地模型服务器和 ACP 助手的位置。",
   "customProvider.detection.enabled": "查找本地模型和助手",
   "customProvider.detection.enabledDescription":
-    "OpenBot 会检查 Ollama 和 LM Studio 的默认地址，并在 PATH 中查找已知的 ACP 助手。",
+    "Builders Bot 会检查 Ollama 和 LM Studio 的默认地址，并在 PATH 中查找已知的 ACP 助手。",
   "customProvider.detection.addresses": "其他模型服务器地址",
   "customProvider.detection.address.label": "地址 {number}",
   "customProvider.detection.address.remove": "移除地址 {number}",
@@ -158,12 +158,12 @@ export const messages = {
   "customProvider.acp.agentId": "助手 ID",
   "customProvider.acp.agentIdHint": "小写字母、数字或连字符。创建后无法更改。",
   "customProvider.acp.command": "命令",
-  "customProvider.acp.commandHint": "要启动的程序，OpenBot 会在你的 PATH 中查找。",
+  "customProvider.acp.commandHint": "要启动的程序，Builders Bot 会在你的 PATH 中查找。",
   "customProvider.acp.args": "参数",
   "customProvider.acp.argsHint": "参数之间用空格分隔；含空格的参数请加引号。",
   "customProvider.acp.usagePrompt": "用量命令",
   "customProvider.acp.usagePromptHint":
-    "OpenBot 最多每 5 分钟发送一次，并显示最近一次的回答。请使用助手自己能回答的命令，例如 /usage。",
+    "Builders Bot 最多每 5 分钟发送一次，并显示最近一次的回答。请使用助手自己能回答的命令，例如 /usage。",
   "customProvider.acp.env": "环境变量",
   "customProvider.acp.env.name": "变量 {number} 的名称",
   "customProvider.acp.env.value": "变量 {number} 的值",
@@ -171,7 +171,7 @@ export const messages = {
   "customProvider.acp.env.add": "添加变量",
   "customProvider.acp.check": "连接",
   "customProvider.acp.checkRun": "检查助手",
-  "customProvider.acp.checkIdle": "OpenBot 会启动该命令一次，以确认它能响应。",
+  "customProvider.acp.checkIdle": "Builders Bot 会启动该命令一次，以确认它能响应。",
   "customProvider.acp.checking": "正在启动 {command}。",
   "customProvider.acp.checkOk": "{name} 已响应",
   "customProvider.acp.checkOkVersion": "{name} {version} 已响应",
@@ -182,7 +182,7 @@ export const messages = {
   "customProvider.acp.checkFailed": "助手没有响应",
   "customProvider.acp.trustTitle": "该命令会在这台电脑上运行",
   "customProvider.acp.trustDescription":
-    "OpenBot 会以你的用户账号启动它。该助手可以读取和修改文件、执行命令。只添加你信任的助手。",
+    "Builders Bot 会以你的用户账号启动它。该助手可以读取和修改文件、执行命令。只添加你信任的助手。",
   "customProvider.acp.submit": "添加助手",
   "customProvider.acp.editTitle": "编辑自定义 ACP 助手",
   "customProvider.acp.submitEdit": "保存助手",
@@ -197,9 +197,9 @@ export const messages = {
   "customProvider.acp.error.usagePromptInvalid": "请填写一行，最多 {max} 个字符。",
   "customProvider.acp.error.agentIdPattern": "只能使用小写字母、数字或连字符，且以字母或数字开头，最多 40 个字符。",
 
-  // The user's own ACP agents in Settings. Each is a command that OpenBot starts on this computer.
+  // The user's own ACP agents in Settings. Each is a command that Builders Bot starts on this computer.
   "customProvider.agents.title": "自定义助手",
-  "customProvider.agents.description": "OpenBot 在这台电脑上启动的 ACP 助手。",
+  "customProvider.agents.description": "Builders Bot 在这台电脑上启动的 ACP 助手。",
   "customProvider.agents.empty": "还没有自定义助手。",
   "customProvider.agents.add": "添加助手",
   "customProvider.agents.restart": "重启助手",
@@ -210,11 +210,11 @@ export const messages = {
   "customProvider.agents.editLabel": "编辑 {name}",
   "customProvider.agents.deleteLabel": "删除 {name}",
   "customProvider.agents.confirmDescription": "其保存的变量会被丢弃，使用它的助手会切换到默认模型。",
-  "customProvider.agents.saveFailed": "OpenBot 无法保存该助手。",
-  "customProvider.agents.saved.restarted": "已保存，OpenBot 已重启自定义助手。",
+  "customProvider.agents.saveFailed": "Builders Bot 无法保存该助手。",
+  "customProvider.agents.saved.restarted": "已保存，Builders Bot 已重启自定义助手。",
   "customProvider.agents.saved.skippedBusy": "已保存。当前任务结束后会重启自定义助手。",
   "customProvider.agents.saved.notRunning": "已保存。自定义助手下次启动时会读取它。",
-  "customProvider.agents.removed.restarted": "已移除，OpenBot 已重启自定义助手。",
+  "customProvider.agents.removed.restarted": "已移除，Builders Bot 已重启自定义助手。",
   "customProvider.agents.removed.skippedBusy": "已移除。当前任务结束后会重启自定义助手。",
   "customProvider.agents.removed.notRunning": "已移除。自定义助手下次启动时会读取它。",
 

@@ -181,7 +181,7 @@
     "./features/custom-providers/ProviderDetectionSettings": "./src/features/custom-providers/ProviderDetectionSettings.tsx",
     "./features/custom-providers/custom-acp-agent-form": "./src/features/custom-providers/custom-acp-agent-form.ts",
     "./features/custom-providers/custom-provider-presets": "./src/features/custom-providers/custom-provider-presets.ts",
-    "./features/dynamic-island/OpenBotDynamicIsland": "./src/features/dynamic-island/OpenBotDynamicIsland.tsx",
+    "./features/dynamic-island/BuildersBotDynamicIsland": "./src/features/dynamic-island/BuildersBotDynamicIsland.tsx",
     "./features/dynamic-island/openbot-dynamic-island-motion": "./src/features/dynamic-island/openbot-dynamic-island-motion.ts",
     "./features/remote-desktop/RemoteCompatibilityScreen": "./src/features/remote-desktop/RemoteCompatibilityScreen.tsx",
     "./features/servers/AddServerDialog": "./src/features/servers/AddServerDialog.tsx",

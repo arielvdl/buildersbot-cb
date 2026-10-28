@@ -20,7 +20,7 @@ export const messages = {
   "plugin.uninstallDialog.confirm": "断开连接",
   "plugin.uninstallDialog.appsLabel": "要移除的应用，{number}",
   "plugin.uninstallDialog.appsTitle": "从此主机移除的应用",
-  "plugin.uninstallDialog.appsNote": "它们的工具将不可用，OpenBot 为它们保存的登录信息也会被遗忘。",
+  "plugin.uninstallDialog.appsNote": "它们的工具将不可用，Builders Bot 为它们保存的登录信息也会被遗忘。",
   "plugin.uninstallDialog.skillsLabel": "要移除的技能，{number}",
   "plugin.uninstallDialog.skillsTitle": "从 {agentName} 移除的技能",
 } as const satisfies PartialTranslation<typeof source>;

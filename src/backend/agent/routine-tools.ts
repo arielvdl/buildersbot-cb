@@ -90,12 +90,12 @@ export function localTimezone(): string {
 }
 
 /** The shape every `openbot` namespace dynamic tool answers with. */
-export interface OpenBotToolResponse {
+export interface BuildersBotToolResponse {
   success: boolean;
   contentItems: Array<{ type: "inputText"; text: string }>;
 }
 
-export function openBotToolResult(value: unknown): OpenBotToolResponse {
+export function openBotToolResult(value: unknown): BuildersBotToolResponse {
   return {
     success: true,
     contentItems: [{ type: "inputText", text: JSON.stringify(value) }],
@@ -109,7 +109,7 @@ export function openBotToolResult(value: unknown): OpenBotToolResponse {
  * give up on. `claude-client.ts` maps `success: false` onto `isError: true`, so both provider paths
  * show this as a failed tool call with the reason attached.
  */
-export function openBotToolFailure(message: string): OpenBotToolResponse {
+export function openBotToolFailure(message: string): BuildersBotToolResponse {
   return {
     success: false,
     contentItems: [{ type: "inputText", text: JSON.stringify({ error: message }) }],

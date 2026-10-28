@@ -3,12 +3,12 @@
 // `provider-host-sign-in-v1`), or the host only records the page address and the administrator's own
 // computer opens it and relays the callback (`sign-in-relay-v1`).
 
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Duration, Effect, Exit, Fiber, Scope } from "effect";
 import type { BrowserHost } from "../backend/browser-host";
 import { runCauseEffect } from "../backend/effect-boundary";
 
-const logger = createOpenBotLogger("host-sign-in-pages");
+const logger = createBuildersBotLogger("host-sign-in-pages");
 
 /** How long a finished sign-in still answers `status`, so the client that polls it reads the end. */
 const RESULT_KEPT_MS = 60_000;

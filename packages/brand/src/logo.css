@@ -30,14 +30,44 @@
   fill: var(--app-logo-background);
 }
 
+/* The cube of the icon. Its faces are the eye color, veiled by the body color so the three faces
+   keep the isometric step at any pair of colors; the eyes and the dot are the body color. */
+.app-logo-cube {
+  pointer-events: none;
+}
+
+.app-logo-face {
+  fill: var(--app-logo-eye);
+  stroke: var(--app-logo-background);
+  stroke-width: 1.1px;
+  stroke-linejoin: round;
+}
+
+.app-logo-face-top {
+  fill-opacity: 1;
+}
+
+.app-logo-face-left {
+  fill-opacity: 0.88;
+}
+
+.app-logo-face-right {
+  fill-opacity: 0.72;
+}
+
 .app-logo-eye {
   fill: none;
-  stroke: var(--app-logo-eye);
+  stroke: var(--app-logo-background);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 9.5px;
+  stroke-width: 4px;
   pointer-events: none;
   transform-box: view-box;
+}
+
+.app-logo-dot {
+  fill: var(--app-logo-background);
+  pointer-events: none;
 }
 
 .app-logo-eye-motion {
@@ -49,11 +79,11 @@
 }
 
 .app-logo-eye-left {
-  transform-origin: 28.7% 48.7%;
+  transform-origin: 35.7% 46.4%;
 }
 
 .app-logo-eye-right {
-  transform-origin: 71.2% 48.8%;
+  transform-origin: 46.3% 46.4%;
 }
 
 .app-logo[data-animation="blink"] .app-logo-eye {
@@ -233,5 +263,143 @@
   .app-logo-eye-motion {
     transition: none;
     transform: none;
+  }
+}
+
+/* The agent avatar is the mark itself, with a laser on its edge and on its eye. Nothing is drawn
+   around the box: the light stays on the mark. The tone follows the accent the avatar was given,
+   and a mood only changes how fast and how bright the laser runs. */
+.agent-mark {
+  --agent-mark-tone: var(--agent-mark-accent, var(--openbot-logo-production));
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.agent-mark-top {
+  fill: var(--openbot-mark-top, #f2f3f0);
+}
+
+.agent-mark-right {
+  fill: var(--openbot-mark-right, #191d1e);
+}
+
+.agent-mark-left {
+  fill: var(--openbot-mark-left, #222728);
+}
+
+.agent-mark-edge,
+.agent-mark-edge-inner,
+.agent-mark-eye {
+  fill: none;
+  stroke: var(--agent-mark-tone);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.agent-mark-edge {
+  stroke-width: 7;
+}
+
+.agent-mark-edge-inner {
+  stroke-width: 6;
+}
+
+.agent-mark-eye {
+  stroke-width: 8;
+}
+
+circle.agent-mark-eye {
+  fill: var(--agent-mark-tone);
+  stroke: none;
+}
+
+/* The laser: a bright dot that runs the silhouette. `pathLength="100"` keeps the dash arithmetic
+   in percentages of the outline. */
+.agent-mark-laser {
+  fill: none;
+  /* A white-hot core over the coloured edge, so the spark is brighter than what it runs along. */
+  stroke: color-mix(in srgb, var(--agent-mark-tone) 22%, #fff);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 8 92;
+  stroke-dashoffset: 100;
+  opacity: 0.75;
+  filter: drop-shadow(0 0 5px var(--agent-mark-tone));
+  animation: agent-mark-laser 5.2s linear infinite;
+}
+
+@keyframes agent-mark-laser {
+  from {
+    stroke-dashoffset: 100;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The eye lit from behind, as the laser passes it. */
+@keyframes agent-mark-eye-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 1px var(--agent-mark-tone));
+    opacity: 1;
+  }
+
+  50% {
+    filter: drop-shadow(0 0 5px var(--agent-mark-tone));
+    opacity: 0.82;
+  }
+}
+
+.agent-mark[data-mood="working"] .agent-mark-laser,
+.agent-mark[data-mood="connecting"] .agent-mark-laser {
+  opacity: 1;
+  animation-duration: 1.1s;
+}
+
+.agent-mark[data-mood="working"] .agent-mark-eye,
+.agent-mark[data-mood="connecting"] .agent-mark-eye {
+  animation: agent-mark-eye-glow 1.1s var(--openbot-ease-in-out) infinite;
+}
+
+.agent-mark[data-mood="connecting"] .agent-mark-laser {
+  animation-duration: 1.8s;
+}
+
+.agent-mark[data-mood="waiting"] .agent-mark-laser {
+  animation-duration: 3.4s;
+  animation-timing-function: steps(4, end);
+}
+
+.agent-mark[data-mood="failed"] {
+  --agent-mark-tone: var(--openbot-danger, #ff6b5e);
+}
+
+.agent-mark[data-mood="failed"] .agent-mark-laser {
+  animation-duration: 2.6s;
+  opacity: 0.8;
+}
+
+.agent-mark[data-mood="asleep"] .agent-mark-laser {
+  animation: none;
+  opacity: 0.14;
+}
+
+.agent-mark[data-mood="asleep"] .agent-mark-eye {
+  opacity: 0.45;
+}
+
+.agent-mark[data-animated="false"] .agent-mark-laser,
+.agent-mark[data-animated="false"] .agent-mark-eye {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-mark-laser,
+  .agent-mark-eye {
+    animation: none;
   }
 }

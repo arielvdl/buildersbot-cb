@@ -18,8 +18,8 @@ const { io: credentialIO, sync: credentialSync } = causeHelpers(CredentialStoreF
 /**
  * One envelope holding every provider's key, each encrypted on its own.
  *
- * `version` is checked rather than tolerated: an envelope OpenBot does not understand is reported
- * as unreadable instead of silently read as empty, because "no key" and "a key OpenBot cannot
+ * `version` is checked rather than tolerated: an envelope Builders Bot does not understand is reported
+ * as unreadable instead of silently read as empty, because "no key" and "a key Builders Bot cannot
  * decode" have to behave differently -- one starts the free tier, the other must not quietly drop a
  * saved account.
  */

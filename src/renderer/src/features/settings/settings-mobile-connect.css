@@ -433,7 +433,7 @@
   transform: scale(1);
 }
 
-/* The phone's platform, a link and OpenBot in the middle of the store code. The mark lands just
+/* The phone's platform, a link and Builders Bot in the middle of the store code. The mark lands just
  * after the code, and the link draws in last, so the pair reads as one connection. */
 .settings-mobile-app-qr .ui-qr-code-mark {
   gap: 3px;

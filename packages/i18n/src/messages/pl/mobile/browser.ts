@@ -46,7 +46,7 @@ export const messages = {
   "mobile.browser.status.offline": "Serwer nie jest połączony.",
   "mobile.browser.status.noTab": "Agent {name} nie ma otwartej karty przeglądarki.",
   "mobile.browser.status.unsupported":
-    "Ten serwer nie może pokazać swojej przeglądarki na telefonie. Zaktualizuj OpenBot na tym serwerze.",
+    "Ten serwer nie może pokazać swojej przeglądarki na telefonie. Zaktualizuj Builders Bot na tym serwerze.",
   "mobile.browser.status.off": "Przeglądarka nie jest dostępna w tej wersji aplikacji.",
   "mobile.browser.notice.copied": "Skopiowano na telefon.",
   "mobile.browser.notice.nothingSelected": "Na stronie nic nie jest zaznaczone.",

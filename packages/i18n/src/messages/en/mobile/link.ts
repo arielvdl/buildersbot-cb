@@ -1,27 +1,27 @@
 import { defineMessages } from "../../../message";
 
 export const messages = defineMessages("mobile.link", {
-  "mobile.link.connectFailed": "OpenBot could not connect. Try again.",
+  "mobile.link.connectFailed": "Builders Bot could not connect. Try again.",
   "mobile.link.invite.signInTitle": "Sign in to join this server",
   "mobile.link.invite.signInDescription":
-    "Scan the QR code in OpenBot on your computer. Then you can review the invitation.",
+    "Scan the QR code in Builders Bot on your computer. Then you can review the invitation.",
   "mobile.link.invite.cancel": "Cancel invitation",
   "mobile.link.pairing.title": "Connect this phone",
   "mobile.link.pairing.alreadySignedIn":
     "You are already signed in. Sign out in Settings before connecting another account.",
   "mobile.link.pairing.description": "Continue only if you requested this Mobile Connect link from your desktop.",
   "mobile.link.pairing.accountService":
-    "This link connects to the account service at {origin}, not to the OpenBot account service.",
+    "This link connects to the account service at {origin}, not to the Builders Bot account service.",
   "mobile.link.pairing.connect": "Connect",
   "mobile.link.plugin.title": "Open plugin page",
-  "mobile.link.plugin.description": "View this plugin on the OpenBot website.",
+  "mobile.link.plugin.description": "View this plugin on the Builders Bot website.",
   "mobile.link.plugin.openFailed": "Could not open the plugin page.",
   "mobile.link.plugin.view": "View plugin",
   "mobile.link.unavailable.title": "Link unavailable",
   "mobile.link.unavailable.description": "This link is invalid, is no longer available, or is not supported on mobile.",
   "mobile.link.template.signInTitle": "Sign in to add this agent",
   "mobile.link.template.signInDescription":
-    "Scan the QR code in OpenBot on your computer. Then you can review the agent before you add it.",
+    "Scan the QR code in Builders Bot on your computer. Then you can review the agent before you add it.",
   "mobile.link.template.loading": "Loading agent…",
   "mobile.link.template.creator": "By {name}",
   "mobile.link.template.section.instructions": "Instructions",
@@ -33,7 +33,7 @@ export const messages = defineMessages("mobile.link", {
   "mobile.link.template.skill.marketplace": "Marketplace skill, version {version}",
   "mobile.link.template.server.title": "Add to server",
   "mobile.link.template.server.footer": "Only servers where you are an owner or admin are listed.",
-  "mobile.link.template.server.updateRequired": "Update OpenBot on this server to add shared agents.",
+  "mobile.link.template.server.updateRequired": "Update Builders Bot on this server to add shared agents.",
   "mobile.link.template.server.none": "You must be an owner or admin of a server to add a shared agent.",
   "mobile.link.template.install.action": "Add agent",
   "mobile.link.template.install.pending": "Adding…",
@@ -43,5 +43,5 @@ export const messages = defineMessages("mobile.link", {
   "mobile.link.template.error.title": "Could not load the agent",
   "mobile.link.template.error.loadFailed": "Could not read the shared agent. Try again.",
   "mobile.link.template.error.unsupported":
-    "This server cannot add shared agents. Update OpenBot on the computer that runs the server.",
+    "This server cannot add shared agents. Update Builders Bot on the computer that runs the server.",
 });

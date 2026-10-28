@@ -22,7 +22,7 @@ import {
   type LandingSceneStep,
 } from "./landing-demo-scripts";
 import { LANDING_CONTEXT_TOKENS, LANDING_LEAD_AGENT_ID, landingRuntimeSnapshot } from "./landing-fixtures";
-import type { MockOpenBotControls, MockSentMessage } from "./mock-openbot";
+import type { MockBuildersBotControls, MockSentMessage } from "./mock-openbot";
 
 interface LandingDemoControllerOptions {
   agents: readonly ClientAgentSummary[];
@@ -96,7 +96,7 @@ function isBarrier(step: LandingSceneStep): boolean {
  * complete on return. A message that the visitor types stops the scene and removes what it added.
  */
 export function createLandingDemoController(
-  mock: MockOpenBotControls,
+  mock: MockBuildersBotControls,
   options: LandingDemoControllerOptions,
 ): { activate: () => void; dispose: () => void } {
   const scenes = options.scenes ?? LANDING_DEMO_SCENES;

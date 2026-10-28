@@ -10,7 +10,7 @@ export const messages = {
     "Таблиц пока нет. Агент создаёт её сам, когда задаче нужны записи между ходами, и ею может пользоваться любой агент.",
   "sharedTable.loadFailed": "Не удалось загрузить таблицы.",
   "sharedTable.deleteFailed": "Не удалось удалить это.",
-  "sharedTable.madeOutside": "Создано вне OpenBot · любой агент может удалить",
+  "sharedTable.madeOutside": "Создано вне Builders Bot · любой агент может удалить",
   "sharedTable.keptBy": "Хранит {name}",
   "sharedTable.keptByDeleted": "Хранит агент, которого больше нет",
   "sharedTable.deleteName": "Удалить {name}",

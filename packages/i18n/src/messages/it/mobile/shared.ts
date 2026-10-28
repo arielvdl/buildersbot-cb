@@ -8,6 +8,6 @@ export const messages = {
   "mobile.shared.splash.loading": "Caricamento dell'account",
   "mobile.shared.photo.openFailed": "Impossibile aprire questa foto. Riprova.",
   "mobile.shared.photo.tooLarge":
-    "OpenBot non è riuscito a rendere questa foto abbastanza piccola. Scegli una foto più semplice.",
+    "Builders Bot non è riuscito a rendere questa foto abbastanza piccola. Scegli una foto più semplice.",
   "mobile.shared.save.changes": "Salva modifiche",
 } as const satisfies PartialTranslation<typeof source>;

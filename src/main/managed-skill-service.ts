@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import type { AgentSummary, InstalledSkill } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Result, Schema } from "effect";
 import { parse as parseYaml } from "yaml";
 import { causeHelpers } from "../backend/effect-boundary";
@@ -13,17 +13,17 @@ import { isPathInside } from "../backend/path-containment";
 const MANAGED_SKILL_SLUG = "openbot-site-hosting";
 export const SKILL_CREATOR_SKILL_SLUG = "openbot-skill-creator";
 export const DATA_SKILL_SLUG = "openbot-data";
-/** The skills OpenBot writes into every agent workspace. Add a new managed skill here too. */
+/** The skills Builders Bot writes into every agent workspace. Add a new managed skill here too. */
 export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([
   MANAGED_SKILL_SLUG,
   SKILL_CREATOR_SKILL_SLUG,
   DATA_SKILL_SLUG,
 ]);
 export const OWNERSHIP_MARKER = ".openbot-managed.json";
-/** The workspace skill folders OpenBot writes. Each provider reads at least one of them. */
+/** The workspace skill folders Builders Bot writes. Each provider reads at least one of them. */
 export const MANAGED_SKILL_FOLDERS = [".agents/skills", ".claude/skills"] as const;
 
-const logger = createOpenBotLogger("managed-skill-service");
+const logger = createBuildersBotLogger("managed-skill-service");
 
 interface SyncTargetsResult {
   collisions: string[];
@@ -36,10 +36,10 @@ export class ManagedSkillService {
   constructor(
     private readonly sourcePath: string,
     private readonly reportCollision: (target: string) => void = (target) => {
-      logger.warn(`OpenBot preserved an unowned managed-skill collision at ${target}.`);
+      logger.warn(`Builders Bot preserved an unowned managed-skill collision at ${target}.`);
     },
     private readonly reportFailure: (target: string, error: unknown) => void = (target, error) => {
-      logger.error(`OpenBot could not synchronize the managed skill at ${target}.`, toLogValue(error));
+      logger.error(`Builders Bot could not synchronize the managed skill at ${target}.`, toLogValue(error));
     },
     private readonly slug = MANAGED_SKILL_SLUG,
   ) {}
@@ -237,7 +237,7 @@ function isFileExistsError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "EEXIST";
 }
 
-/** Read only OpenBot-owned skills from the active provider's skill folder. */
+/** Read only Builders Bot-owned skills from the active provider's skill folder. */
 export const listManagedSkillsForChat = Effect.fn("ManagedSkill.listForChat")(function* (agent: AgentSummary) {
   const root = yield* managedIO(() => realpath(agent.workspacePath));
   const reads = agentProviderDescriptor(agent.provider).skillFolders;

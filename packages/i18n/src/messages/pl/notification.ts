@@ -16,10 +16,10 @@ export const messages = {
   "notification.channelMessage": "Nowa wiadomość.",
   "notification.usageLimit.title": "Konto {provider} osiągnęło limit",
   "notification.usageLimit.body": {
-    one: "{count} agent czeka. OpenBot spróbuje ponownie później.",
-    few: "{count} agentów czeka. OpenBot spróbuje ponownie później.",
-    many: "{count} agentów czeka. OpenBot spróbuje ponownie później.",
-    other: "{count} agenta czeka. OpenBot spróbuje ponownie później.",
+    one: "{count} agent czeka. Builders Bot spróbuje ponownie później.",
+    few: "{count} agentów czeka. Builders Bot spróbuje ponownie później.",
+    many: "{count} agentów czeka. Builders Bot spróbuje ponownie później.",
+    other: "{count} agenta czeka. Builders Bot spróbuje ponownie później.",
   },
   "notification.usageLimit.bodyResets": {
     one: "{count} agent czeka. Reset: {reset}.",
@@ -28,7 +28,7 @@ export const messages = {
     other: "{count} agenta czeka. Reset: {reset}.",
   },
   "notification.test": "Powiadomienia działają.",
-  "notification.welcome": "OpenBot powiadomi cię tutaj, gdy agent będzie cię potrzebować.",
+  "notification.welcome": "Builders Bot powiadomi cię tutaj, gdy agent będzie cię potrzebować.",
   "notification.toast.region": "Powiadomienia",
   "notification.toast.close": "Zamknij powiadomienie",
 } as const satisfies PartialTranslation<typeof source>;

@@ -235,7 +235,7 @@ const CONNECTING_STATUS: AgentStatus = {
  * What the web client reports as its build. The browser has no main process to ask, and the web frame
  * uses the macOS geometry.
  */
-const WEB_APP_INFO: AppInfo = { name: "OpenBot", version: "web", platform: "darwin", variant: "production" };
+const WEB_APP_INFO: AppInfo = { name: "Builders Bot", version: "web", platform: "darwin", variant: "production" };
 /** Below this width the web shows one pane at a time; see `web-client.css`. */
 const PHONE_QUERY = "(max-width: 720px)";
 /** The account whose queue edit the browser may hold under `QUEUE_EDIT_STORAGE_KEY`. */
@@ -1151,7 +1151,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   };
   /**
    * A server with no agents shows the provider step before the first-agent form, for an account that
-   * can sign its host in. OpenBot includes no AI subscription, so an agent made first could not
+   * can sign its host in. Builders Bot includes no AI subscription, so an agent made first could not
    * answer. A member and an older host open the form as before.
    */
   const serverOnboarding = () =>
@@ -1833,7 +1833,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   // The browser client does not know the unread counts of agent chats it has not opened.
                   hasUnread
                   view={layout.sidebarView()}
-                  serverName={workspace.state.host?.name ?? "OpenBot"}
+                  serverName={workspace.state.host?.name ?? "Builders Bot"}
                   serverUpdate={(() => {
                     const id = server()?.id;
                     const badge = id ? serverUpdateBadge(id) : null;

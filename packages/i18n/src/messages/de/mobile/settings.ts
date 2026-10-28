@@ -16,7 +16,7 @@ export const messages = {
   "mobile.settings.about.privacy": "Datenschutzerklärung",
   "mobile.settings.home.profile": "Profil",
   "mobile.settings.home.preferences": "Einstellungen",
-  "mobile.settings.home.about": "Über OpenBot",
+  "mobile.settings.home.about": "Über Builders Bot",
   "mobile.settings.home.support": "Support",
   "mobile.settings.home.supportHint": "Hilfe erhalten und ein Supportprotokoll speichern",
   "mobile.settings.support.help": "Hilfe erhalten",
@@ -34,7 +34,7 @@ export const messages = {
   "mobile.settings.support.clearTitle": "Supportprotokoll leeren?",
   "mobile.settings.support.clearBody": "Dies entfernt alle Ereignisse aus dem Protokoll auf diesem Telefon.",
   "mobile.settings.support.logFooter":
-    "Das Protokoll bleibt auf diesem Telefon und wird von OpenBot nicht gesendet. Es erfasst Verbindungsschritte, Anfragen und Fehler. Es erfasst keine Nachrichten oder Dateien und maskiert Passwörter und Tokens. Lies die Datei, bevor du sie teilst.",
+    "Das Protokoll bleibt auf diesem Telefon und wird von Builders Bot nicht gesendet. Es erfasst Verbindungsschritte, Anfragen und Fehler. Es erfasst keine Nachrichten oder Dateien und maskiert Passwörter und Tokens. Lies die Datei, bevor du sie teilst.",
   "mobile.settings.support.saveFailed": "Die Protokolldatei konnte nicht gespeichert werden. Versuche es erneut.",
   "mobile.settings.support.sharingUnavailable": "Teilen ist auf diesem Telefon nicht verfügbar.",
   "mobile.settings.support.recent": "Letzte Ereignisse",
@@ -94,28 +94,28 @@ export const messages = {
   "mobile.settings.feedback.retry": "Haptikeinstellung erneut speichern",
   "mobile.settings.liveActivities.title": "Live-Aktivitäten",
   "mobile.settings.liveActivities.footer":
-    "Zeigt Agentenarbeit, Nachrichten, Fragen und Genehmigungen auf dem Sperrbildschirm und in Dynamic Island an, während OpenBot läuft.",
+    "Zeigt Agentenarbeit, Nachrichten, Fragen und Genehmigungen auf dem Sperrbildschirm und in Dynamic Island an, während Builders Bot läuft.",
   "mobile.settings.liveActivities.toggle": "Agentenaktivität anzeigen",
   "mobile.settings.liveActivities.retry": "Einstellung für Live-Aktivitäten erneut speichern",
   "mobile.settings.notifications.title": "Mitteilungen",
   "mobile.settings.notifications.toggle": "Mitteilungen erlauben",
   "mobile.settings.notifications.footer":
-    "Agenten melden sich, wenn sie fertig sind, mit einem Fehler anhalten oder deine Eingabe, eine Genehmigung oder einen Schritt im Browser brauchen. Nichts kommt, während du OpenBot hier oder in der Desktop-App benutzt. Solange die Live-Aktivität angezeigt wird, zeigt sie das Ereignis stattdessen.",
+    "Agenten melden sich, wenn sie fertig sind, mit einem Fehler anhalten oder deine Eingabe, eine Genehmigung oder einen Schritt im Browser brauchen. Nichts kommt, während du Builders Bot hier oder in der Desktop-App benutzt. Solange die Live-Aktivität angezeigt wird, zeigt sie das Ereignis stattdessen.",
   "mobile.settings.notifications.footerAndroid":
-    "Agenten melden sich, wenn sie fertig sind, mit einem Fehler anhalten oder deine Eingabe, eine Genehmigung oder einen Schritt im Browser brauchen. Nichts kommt, während du OpenBot hier oder in der Desktop-App benutzt.",
-  "mobile.settings.notifications.denied": "Mitteilungen für OpenBot sind in den iOS-Einstellungen ausgeschaltet.",
+    "Agenten melden sich, wenn sie fertig sind, mit einem Fehler anhalten oder deine Eingabe, eine Genehmigung oder einen Schritt im Browser brauchen. Nichts kommt, während du Builders Bot hier oder in der Desktop-App benutzt.",
+  "mobile.settings.notifications.denied": "Mitteilungen für Builders Bot sind in den iOS-Einstellungen ausgeschaltet.",
   "mobile.settings.notifications.deniedAndroid":
-    "Benachrichtigungen für OpenBot sind in den Android-Einstellungen ausgeschaltet.",
+    "Benachrichtigungen für Builders Bot sind in den Android-Einstellungen ausgeschaltet.",
   "mobile.settings.notifications.openSettings": "iOS-Einstellungen öffnen",
   "mobile.settings.notifications.openSettingsAndroid": "Android-Einstellungen öffnen",
   "mobile.settings.notifications.preview": "Vorschau der Antwort zeigen",
   "mobile.settings.notifications.previewFooter":
-    "Zeigt den Anfang einer Antwort, eine Frage oder die zu genehmigende Aktion. Apple und der OpenBot-Kontodienst können sie nicht lesen.",
+    "Zeigt den Anfang einer Antwort, eine Frage oder die zu genehmigende Aktion. Apple und der Builders Bot-Kontodienst können sie nicht lesen.",
   "mobile.settings.notifications.previewFooterAndroid":
-    "Zeigt den Anfang einer Antwort, eine Frage oder die zu genehmigende Aktion. Google und der OpenBot-Kontodienst können sie nicht lesen.",
+    "Zeigt den Anfang einer Antwort, eine Frage oder die zu genehmigende Aktion. Google und der Builders Bot-Kontodienst können sie nicht lesen.",
   "mobile.settings.notifications.sound": "Ton",
   "mobile.settings.notifications.playSound": "Ton abspielen",
-  "mobile.settings.notifications.sound.openbot": "OpenBot",
+  "mobile.settings.notifications.sound.openbot": "Builders Bot",
   "mobile.settings.notifications.sound.warm": "Warm",
   "mobile.settings.notifications.sound.mech": "Mechanisch",
   "mobile.settings.notifications.sound.bubble": "Blubbernd",
@@ -123,9 +123,9 @@ export const messages = {
   "mobile.settings.notifications.sound.default": "iOS-Standard",
   "mobile.settings.notifications.sound.defaultAndroid": "Android-Standard",
   "mobile.settings.notifications.soundFooter":
-    "Mitteilungen und die Live-Aktivität spielen diesen Ton. Die Live-Aktivität schaltet dabei auch den Bildschirm ein. Der OpenBot-Ton ist der Ton, den die Desktop-App spielt, wenn eine Aufgabe fertig ist. Die vier Töne danach sind die Töne der Klangthemen der Desktop-App.",
+    "Mitteilungen und die Live-Aktivität spielen diesen Ton. Die Live-Aktivität schaltet dabei auch den Bildschirm ein. Der Builders Bot-Ton ist der Ton, den die Desktop-App spielt, wenn eine Aufgabe fertig ist. Die vier Töne danach sind die Töne der Klangthemen der Desktop-App.",
   "mobile.settings.notifications.soundFooterAndroid":
-    "Benachrichtigungen spielen diesen Ton. Der OpenBot-Ton ist der Ton, den die Desktop-App spielt, wenn eine Aufgabe fertig ist. Die vier Töne danach sind die Töne der Klangthemen der Desktop-App.",
+    "Benachrichtigungen spielen diesen Ton. Der Builders Bot-Ton ist der Ton, den die Desktop-App spielt, wenn eine Aufgabe fertig ist. Die vier Töne danach sind die Töne der Klangthemen der Desktop-App.",
   "mobile.settings.notifications.notifyAbout": "Benachrichtige mich über",
   "mobile.settings.notifications.level.all": "Alle Aktivitäten",
   "mobile.settings.notifications.level.needsMe": "Nur wenn ich gebraucht werde",
@@ -142,7 +142,7 @@ export const messages = {
   "mobile.settings.notifications.serverFooter":
     "Die Ereignisse dieses Servers, die dieses Telefon benachrichtigen. Die Desktop-App hat eigene Einstellungen.",
   "mobile.settings.notifications.serverUnsupported":
-    "Dieser Server kann keine Mitteilungen senden. Aktualisiere OpenBot auf dem Computer, auf dem er läuft.",
+    "Dieser Server kann keine Mitteilungen senden. Aktualisiere Builders Bot auf dem Computer, auf dem er läuft.",
   "mobile.settings.notifications.channel": "Agenten-Benachrichtigungen ({sound})",
   "mobile.settings.notifications.channelSilent": "Agenten-Benachrichtigungen (ohne Ton)",
   "mobile.settings.privacy.title": "Datenschutz",
@@ -168,6 +168,6 @@ export const messages = {
   "mobile.settings.profile.accountSessions": "Kontositzungen",
   "mobile.settings.profile.signOutTitle": "Abmelden?",
   "mobile.settings.profile.signOutBody":
-    "Verbinde dich erneut, indem du einen neuen Code aus OpenBot auf deinem Desktop scannst.",
+    "Verbinde dich erneut, indem du einen neuen Code aus Builders Bot auf deinem Desktop scannst.",
   "mobile.settings.profile.signOut": "Abmelden",
 } as const satisfies PartialTranslation<typeof source>;

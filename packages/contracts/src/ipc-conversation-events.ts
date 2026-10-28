@@ -357,6 +357,21 @@ export function isVaultChangeMarker(message: ConversationMessage): boolean {
 }
 
 /**
+ * The item type of the line that the security guard adds before a suspicious message. The text names
+ * what the scan found; the message itself still follows, unchanged.
+ */
+export const SECURITY_SCAN_ITEM_TYPE = "security-scan";
+
+export function isSecurityScanMarker(message: ConversationMessage): boolean {
+  return (
+    message.author === "system" &&
+    message.source === "system" &&
+    message.status === "completed" &&
+    message.itemType === SECURITY_SCAN_ITEM_TYPE
+  );
+}
+
+/**
  * The item type of a message that one agent sends to another, in the sender's thread and in the
  * recipient's thread. It is traffic between agents, not a message to the user.
  */

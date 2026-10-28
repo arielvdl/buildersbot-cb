@@ -97,7 +97,7 @@ export function isUuidV4(value: string): boolean {
   return UUID_V4_PATTERN.test(value);
 }
 
-export function isOpenBotTeamApiHostname(value: string): boolean {
+export function isBuildersBotTeamApiHostname(value: string): boolean {
   const match = TEAM_HOST_PATTERN.exec(value);
   return Boolean(match && !value.startsWith("vnc-") && isValidTeamHostSlug(match[1]));
 }

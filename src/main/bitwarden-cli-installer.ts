@@ -1,4 +1,4 @@
-// Installs the Bitwarden CLI into a folder that OpenBot owns, so a server with no `bw` on its PATH,
+// Installs the Bitwarden CLI into a folder that Builders Bot owns, so a server with no `bw` on its PATH,
 // such as the Docker image, can connect Bitwarden or Vaultwarden.
 
 import { randomBytes } from "node:crypto";

@@ -6,8 +6,8 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 import type { AgentSummary, ConversationMessage } from "@openbot/contracts/ipc";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCauseEffect } from "./effect-boundary";
-import { OpenBotDatabase } from "./openbot-database";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { BuildersBotDatabase } from "./openbot-database";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: the upgrade deletes a reconcile event that is not a repeat, or the last event of a run,
 // or an event of another type or thread; it leaves the activity or receipt of a deleted event; it changes
@@ -33,7 +33,7 @@ function databaseAt(version: number): DatabaseSync {
 function migrateUpTo(db: DatabaseSync, version: number): void {
   db.exec(`CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
 }
 
@@ -128,7 +128,7 @@ describe("mailbox reconcile cleanup migration", () => {
       // The earlier migrations run first; the rows after them are what v39 must keep.
       if (version < 38) migrateUpTo(db, 38);
       const before = contents(db);
-      migrateOpenBotDatabase(db);
+      migrateBuildersBotDatabase(db);
       expect(contents(db)).toEqual(withoutRepeats(before));
       expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 47 });
       expect(db.prepare("SELECT name FROM sqlite_temp_master").all()).toEqual([]);
@@ -144,12 +144,12 @@ describe("mailbox reconcile cleanup migration", () => {
     const before = contents(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=39
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 39 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 39 failed");
     expect(contents(db)).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version=39").all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toEqual(withoutRepeats(before));
   });
 
@@ -158,16 +158,16 @@ describe("mailbox reconcile cleanup migration", () => {
     seed(db);
     const before = contents(db);
     db.exec("INSERT INTO schema_migrations VALUES(48,'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version=48; DELETE FROM schema_migrations WHERE version=20");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
   });
 
   it("keeps the messages and what a replay rebuilds from the writes of a page read", async () => {
     const root = await mkdtemp(join(tmpdir(), "openbot-db-mailbox-reconcile-"));
     roots.push(root);
-    const database = new OpenBotDatabase(root);
+    const database = new BuildersBotDatabase(root);
     await runCauseEffect(database.initialize());
     const agent = testAgent();
     database.replaceAgents("mailbox-reconcile-agents", [agent], "agents.imported");
@@ -200,7 +200,7 @@ describe("mailbox reconcile cleanup migration", () => {
     // From 38 on: migration 47 reads the task table that 38 creates.
     legacy.exec("DELETE FROM schema_migrations WHERE version IN (38, 39, 40, 41, 42, 43, 44, 45, 46, 47)");
     legacy.close();
-    const migrated = new OpenBotDatabase(root);
+    const migrated = new BuildersBotDatabase(root);
     await runCauseEffect(migrated.initialize());
     expect(migrated.connection.prepare("SELECT * FROM projection_thread_messages ORDER BY ordinal").all()).toEqual(
       rows,

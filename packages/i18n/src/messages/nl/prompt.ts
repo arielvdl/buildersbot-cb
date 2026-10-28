@@ -65,7 +65,7 @@ export const messages = {
   "prompt.browser.signInBlocked.title": "{host} heeft het inloggen vanaf {server} geblokkeerd",
   "prompt.browser.signInBlocked.cancelledTitle": "Inloggen bij {host} geannuleerd",
   "prompt.browser.signInBlocked.body":
-    "Log in op deze computer. OpenBot stuurt alleen de inloggegevens van {host} naar {server}, en {name} gaat verder.",
+    "Log in op deze computer. Builders Bot stuurt alleen de inloggegevens van {host} naar {server}, en {name} gaat verder.",
   "prompt.browser.signInBlocked.cancelledBody": "Het inloggen is geannuleerd.",
   "prompt.browser.signInBlocked.waiting": "Wachten op inloggen",
   "prompt.browser.signInBlocked.waitingButton": "Wachten op inloggen…",

@@ -137,7 +137,7 @@ function UsageRings(props: {
   );
 }
 
-/** The answer of one custom agent to its usage prompt. OpenBot cannot read a percent from it. */
+/** The answer of one custom agent to its usage prompt. Builders Bot cannot read a percent from it. */
 export interface CustomAgentUsageRailRow {
   id: string;
   name: string;
@@ -206,8 +206,8 @@ export interface PageRailProps {
   /** The Help menu, between Marketplace and Settings. */
   help: JSX.Element;
   /**
-   * The OpenBot logo in the top row, for a window that has no macOS window buttons there. With
-   * `href`, the logo is a link to the OpenBot site.
+   * The Builders Bot logo in the top row, for a window that has no macOS window buttons there. With
+   * `href`, the logo is a link to the Builders Bot site.
    */
   logo?: { variant: AppLogoVariant; href?: string | undefined } | undefined;
 }

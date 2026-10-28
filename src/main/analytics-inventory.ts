@@ -50,7 +50,7 @@ export interface AnalyticsInventorySources {
 }
 
 /**
- * Counts what this computer has set up. Only OpenBot's own catalog names leave this function:
+ * Counts what this computer has set up. Only Builders Bot's own catalog names leave this function:
  * a custom server, a community listing or a local skill is a count, never a name.
  */
 export const collectAnalyticsInventory = Effect.fn("Analytics.collectInventory")(function* (

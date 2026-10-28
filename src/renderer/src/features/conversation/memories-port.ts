@@ -7,7 +7,7 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentMemorySelectionState,
   MemoryEntry,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   SetAgentMemoryInclusionInput,
 } from "@openbot/contracts/ipc";
 
@@ -60,7 +60,7 @@ export function agentMemoriesPort(agentId: string, agentName: string, limit: num
 
 /** The host calls a channel's memories make. The desktop sends them through preload. */
 export type ChannelMemoriesApi = Pick<
-  OpenBotDesktopApi["agent"],
+  BuildersBotDesktopApi["agent"],
   | "listChannelMemories"
   | "createChannelMemory"
   | "updateChannelMemory"

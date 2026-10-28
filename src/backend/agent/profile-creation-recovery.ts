@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { decodeSaveAgentProfileResult } from "@openbot/contracts/ipc";
 import { isGeneratedAgentId, isUuidV4 } from "@openbot/contracts/validation";
 import { Effect } from "effect";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 import { StoredStateFailure, storedIO, storedSync } from "../stored-state-effects";
 
 /** A marker precedes every profile-created row, so a crash cannot orphan an executable agent. */
@@ -29,7 +29,7 @@ export class ProfileCreationRecovery {
 
   recover = Effect.fn("ProfileCreationRecovery.recover")(function* (
     this: ProfileCreationRecovery,
-    database: OpenBotDatabase,
+    database: BuildersBotDatabase,
     removeAgent: (agentId: string) => Effect.Effect<void, StoredStateFailure>,
   ) {
     yield* storedIO(() => mkdir(this.root, { recursive: true, mode: 0o700 }));

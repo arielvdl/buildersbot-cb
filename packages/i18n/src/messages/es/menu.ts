@@ -9,7 +9,7 @@ export const messages = {
   "menu.zoomIn": "Ampliar",
   "menu.zoomOut": "Reducir",
   "menu.copyLink": "Copiar enlace",
-  "menu.trayOpen": "Abrir OpenBot",
-  "menu.trayQuit": "Salir de OpenBot",
-  "menu.trayTooltip": "OpenBot",
+  "menu.trayOpen": "Abrir Builders Bot",
+  "menu.trayQuit": "Salir de Builders Bot",
+  "menu.trayTooltip": "Builders Bot",
 } as const satisfies PartialTranslation<typeof source>;

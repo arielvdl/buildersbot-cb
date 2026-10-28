@@ -536,7 +536,7 @@ export function ConversationTimeline() {
   const sampleRoutinePrompt = () =>
     props.routines?.find((routine) => routine.active && routine.instruction.trim())?.instruction ??
     props.routines?.find((routine) => routine.instruction.trim())?.instruction;
-  // A skill of the agent's own: every agent has the managed OpenBot skills.
+  // A skill of the agent's own: every agent has the managed Builders Bot skills.
   const sampleSkillName = () =>
     installedSkills().find((skill) => skill.enabled !== false && skill.origin !== "managed")?.name;
   return (

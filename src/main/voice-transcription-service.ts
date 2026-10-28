@@ -20,7 +20,7 @@ import {
   type VoiceTranscriptionResult,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Exit, Fiber, Scope } from "effect";
 import type { VoiceApiKeyStore } from "./voice-api-key-store";
 import {
@@ -38,7 +38,7 @@ import type {
   VoiceTranscriptionResponse,
 } from "./voice-transcription-protocol";
 
-const logger = createOpenBotLogger("voice-transcription-service");
+const logger = createBuildersBotLogger("voice-transcription-service");
 
 const TRANSCRIPTION_TIMEOUT_MS = 180_000;
 const MODEL_ENGINES: Record<LocalVoiceModelId, VoiceTranscriptionEngine> = {

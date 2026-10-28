@@ -2,9 +2,9 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/computerUse";
 
 export const messages = {
-  "error.computerUse.noAppToDrag": "Ta kompilacja OpenBot nie ma aplikacji do przeciągnięcia.",
+  "error.computerUse.noAppToDrag": "Ta kompilacja Builders Bot nie ma aplikacji do przeciągnięcia.",
   "error.computerUse.helpWindowChanged": "Okno pomocy uprawnień zmieniło się przed rozpoczęciem przeciągania.",
-  "error.computerUse.noAppToShow": "Ta kompilacja OpenBot nie ma aplikacji do pokazania.",
+  "error.computerUse.noAppToShow": "Ta kompilacja Builders Bot nie ma aplikacji do pokazania.",
   "error.computerUse.noDriver": "Ten komputer nie ma sterownika Sterowania komputerem.",
   "error.computerUse.socketPathTooLong":
     "Ścieżka gniazda Sterowania komputerem ma {length} znaków, a ten system dopuszcza {limit}.",

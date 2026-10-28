@@ -6,28 +6,28 @@ export const messages = {
   "error.update.unsupported":
     "Les mises à jour sont disponibles dans les versions installées de l’application de bureau.",
   "error.update.notReady": "Une mise à jour n’est pas prête à être installée.",
-  "error.update.restartFailed": "OpenBot n’a pas pu redémarrer pour installer la mise à jour.",
+  "error.update.restartFailed": "Builders Bot n’a pas pu redémarrer pour installer la mise à jour.",
   "error.update.downloadStalled": "Le téléchargement de la mise à jour ne répond plus. Réessayez.",
-  "error.update.installFailed": "Impossible d’installer la mise à jour. Quittez puis rouvrez OpenBot, et réessayez.",
+  "error.update.installFailed": "Impossible d’installer la mise à jour. Quittez puis rouvrez Builders Bot, et réessayez.",
   "error.update.downloadFailed": "Impossible de télécharger la mise à jour. Réessayez.",
   "error.update.checkFailed": "Impossible de rechercher des mises à jour. Réessayez.",
   "error.update.checkStalled": "La recherche de mise à jour ne répond plus. Réessayez.",
   "error.update.checkOffline":
     "Impossible de joindre le service de mise à jour. Vérifiez votre connexion Internet, puis réessayez.",
   "error.update.checkUnavailable":
-    "Le service de mise à jour n’a pas répondu. OpenBot réessaiera de lui-même dans quelques minutes.",
+    "Le service de mise à jour n’a pas répondu. Builders Bot réessaiera de lui-même dans quelques minutes.",
   "error.update.checkNoRelease":
-    "Aucune mise à jour publiée n’a été trouvée pour cette plateforme. OpenBot réessaiera de lui-même dans quelques minutes.",
-  "error.update.managedByNix": "Nix installe les mises à jour de cette copie d’OpenBot. Mettez-la à jour avec Nix.",
+    "Aucune mise à jour publiée n’a été trouvée pour cette plateforme. Builders Bot réessaiera de lui-même dans quelques minutes.",
+  "error.update.managedByNix": "Nix installe les mises à jour de cette copie d’Builders Bot. Mettez-la à jour avec Nix.",
   "error.update.managedByHost":
     "Sur ce Mac, l’hôte installe les mises à jour. La mise à jour reste prête jusqu’à la maintenance de l’hôte.",
   "error.update.siblingSession":
-    "Une autre session OpenBot utilise encore cette application. Quittez d’abord OpenBot dans tous les autres comptes utilisateur macOS, puis installez de nouveau la mise à jour.",
+    "Une autre session Builders Bot utilise encore cette application. Quittez d’abord Builders Bot dans tous les autres comptes utilisateur macOS, puis installez de nouveau la mise à jour.",
   "error.update.siblingSessionSameAccount":
-    "Un autre processus OpenBot est toujours en cours d’exécution dans ce compte utilisateur. Quittez-le, puis installez à nouveau la mise à jour.",
+    "Un autre processus Builders Bot est toujours en cours d’exécution dans ce compte utilisateur. Quittez-le, puis installez à nouveau la mise à jour.",
   "error.update.siblingCheckFailed":
-    "Impossible de vérifier les autres sessions OpenBot. Réessayez avant l’installation.",
+    "Impossible de vérifier les autres sessions Builders Bot. Réessayez avant l’installation.",
   "error.update.remoteDisabled": "Les mises à jour des administrateurs du serveur sont désactivées sur cet ordinateur.",
-  "error.update.restartStarted": "OpenBot redémarre déjà pour installer la mise à jour.",
-  "error.update.alreadyRestarting": "OpenBot redémarre déjà.",
+  "error.update.restartStarted": "Builders Bot redémarre déjà pour installer la mise à jour.",
+  "error.update.alreadyRestarting": "Builders Bot redémarre déjà.",
 } as const satisfies PartialTranslation<typeof source>;

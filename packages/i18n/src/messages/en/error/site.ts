@@ -5,7 +5,7 @@ export const messages = defineMessages("error.site", {
   "error.site.absolutePath": "Choose an absolute site directory path.",
   "error.site.rootSymlink": "Symlinks are not allowed in hosted sites.",
   "error.site.notDirectory": "The site source must be a directory.",
-  "error.site.outsideWorkspace": "The site must be inside this agent's workspace or OpenBot Shared.",
+  "error.site.outsideWorkspace": "The site must be inside this agent's workspace or Builders Bot Shared.",
   "error.site.packageJsonInvalid": "The site package.json is invalid.",
   "error.site.astroServerOutput": "Astro must use static output.",
   "error.site.astroAdapter": "Astro server adapters and React integration are not allowed.",

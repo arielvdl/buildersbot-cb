@@ -56,14 +56,14 @@ export const messages = {
   "error.agent.hostLimit": "Bir ana makinede en fazla {limit} ajan bulunabilir.",
   "error.agent.changedWhileDuplicating": "Ajan kopyalanırken değişti. Tekrar deneyin.",
   "error.agent.duplicatedAgentGone": "Kopyalanan ajan artık mevcut değil.",
-  "error.agent.stateCorrupt": "Ajan durumu bozuk veya daha yeni bir OpenBot sürümünden; üzerine yazılması reddedildi.",
+  "error.agent.stateCorrupt": "Ajan durumu bozuk veya daha yeni bir Builders Bot sürümünden; üzerine yazılması reddedildi.",
   "error.agent.oldRoleField":
-    "Kayıtlı ajan profilleri eski rol alanını kullanıyor; OpenBot'u başlatmadan önce verileri güncelleyin.",
+    "Kayıtlı ajan profilleri eski rol alanını kullanıyor; Builders Bot'u başlatmadan önce verileri güncelleyin.",
   "error.agent.duplicateIds": "Ajan durumu yinelenen ajan kimlikleri içeriyor; üzerine yazılması reddedildi.",
-  "error.agent.copyNameFailed": "OpenBot benzersiz bir ajan kopya adı oluşturamadı.",
+  "error.agent.copyNameFailed": "Builders Bot benzersiz bir ajan kopya adı oluşturamadı.",
   "error.agent.endpointRemoved": "Bu ajanın kullandığı uç nokta kaldırıldı. Ajan için başka bir model seçin.",
   "error.agent.turnStalled":
-    "{provider} yanıt vermeyi bıraktı, bu yüzden OpenBot bu turu bitirdi. Mesajı yeniden gönderin veya başka bir model seçin.",
+    "{provider} yanıt vermeyi bıraktı, bu yüzden Builders Bot bu turu bitirdi. Mesajı yeniden gönderin veya başka bir model seçin.",
   "error.agent.selectedGone": "Seçilen ajan artık mevcut değil.",
   "error.agent.profileEndpointsChanged": "Bu işlem oluşturulurken özel uç noktalar değişti. Tekrar deneyin.",
   "error.agent.profileInvalid": "Sağlayıcı geçersiz bir profil döndürdü. İsteminizi revize etmeyi deneyin.",
@@ -83,15 +83,16 @@ export const messages = {
   "error.agent.saveOtherAgent": "Bu kayıt başka bir ajana ait.",
   "error.agent.savedGone": "Kaydedilen ajan artık mevcut değil.",
   "error.agent.storedProfileUnreadable":
-    'Kayıtlı bir ajan profili okunamayan bir "{field}" değerine sahip; OpenBot\'u başlatmadan önce verileri güncelleyin.',
+    'Kayıtlı bir ajan profili okunamayan bir "{field}" değerine sahip; Builders Bot\'u başlatmadan önce verileri güncelleyin.',
   "error.agent.storedProfileUnreadableId":
-    '{id} kayıtlı ajan profili okunamayan bir "{field}" değerine sahip; OpenBot\'u başlatmadan önce verileri güncelleyin.',
+    '{id} kayıtlı ajan profili okunamayan bir "{field}" değerine sahip; Builders Bot\'u başlatmadan önce verileri güncelleyin.',
   // Written by `QueueEditRejectedError` in @openbot/contracts, which cannot import this package.
   "error.agent.queueEditRejected": "Kuyruk düzenlemesi reddedildi: {reason}",
   "error.agent.computerUseLocalOnly": "Bilgisayar Kullanımı yalnızca ajanı çalıştıran bilgisayarda değiştirilebilir.",
   "error.agent.automationLocalOnly": "Yerel betiklere yalnızca ajanı çalıştıran bilgisayarda izin verilebilir.",
   "error.agent.newChatLocalOnly": "Yalnızca ajanı çalıştıran bilgisayar ona yeni sohbet başlatma izni verebilir.",
   "error.agent.quickAcknowledgementLocalOnly": "Bu ayarı yalnızca ajanı çalıştıran bilgisayar değiştirebilir.",
+  "error.agent.securityGuardLocalOnly": "Bu ayarı yalnızca ajanı çalıştıran bilgisayar değiştirebilir.",
   "error.agent.sideQuestionBusy": "Çok fazla yan soru çalışıyor. Kısa bir süre sonra tekrar deneyin.",
   "error.agent.sideQuestionFailed": "Ajan yan soruyu yanıtlayamadı. Tekrar deneyin.",
   "error.agent.busyMessageModeLocalOnly":
@@ -112,7 +113,7 @@ export const messages = {
   "error.agent.lowMemoryServer":
     "Bu sunucunun belleği azaldı. Mesajınız kuyrukta bekler ve bellek boşaldığında başlar.",
   "error.agent.workspaceOnlyToolMissing":
-    "“Yalnızca çalışma alanı” seçeneği, OpenBot'un bulamadığı {tool} aracına ihtiyaç duyar. Aracı yükleyin veya ajan ayarlarından Tam erişim'i seçin.",
+    "“Yalnızca çalışma alanı” seçeneği, Builders Bot'un bulamadığı {tool} aracına ihtiyaç duyar. Aracı yükleyin veya ajan ayarlarından Tam erişim'i seçin.",
   "error.agent.screenCaptureOff":
     "Bu ajan için ekran yakalama kapalı. Kullanıcı, ajan ayarlarında Bilgisayar Kullanımı'nı açabilir.",
   "error.agent.screenCaptureUnavailable": "Ekran yakalama bu bilgisayarda kullanılamıyor.",
@@ -126,7 +127,7 @@ export const messages = {
   "error.agent.screenCaptureRegionOutside":
     "Bölge tek bir ekranın içinde değil. list_capture_sources sonucundaki tek bir ekranın sınırları içinde kalan masaüstü noktaları kullanın.",
   "error.agent.screenCapturePermissionMissing":
-    "OpenBot'un Ekran Kaydı izni yok. Kullanıcıdan Sistem Ayarları > Gizlilik ve Güvenlik > Ekran ve Sistem Sesi Kaydı bölümünü açmasını, OpenBot'u etkinleştirmesini, sonra OpenBot'tan çıkıp yeniden açmasını isteyin.",
+    "Builders Bot'un Ekran Kaydı izni yok. Kullanıcıdan Sistem Ayarları > Gizlilik ve Güvenlik > Ekran ve Sistem Sesi Kaydı bölümünü açmasını, Builders Bot'u etkinleştirmesini, sonra Builders Bot'tan çıkıp yeniden açmasını isteyin.",
   "error.agent.screenCaptureEmptyWindows":
     "Windows boş bir görüntü verdi. Kullanıcıdan bilgisayarın kilidini açmasını ve korumalı içeriği kapatmasını isteyin. Bir kuruluş ilkesi de ekran yakalamayı engelleyebilir.",
   "error.agent.screenCaptureFailed": "Ekran yakalama başarısız oldu. Tekrar deneyin.",

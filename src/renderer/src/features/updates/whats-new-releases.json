@@ -18,10 +18,10 @@
           "The secure password card can save the password to the Vault of this computer or of a joined server.",
           "When an agent asks for a password, a code or browser control in a thread, the thread now shows the card.",
           "Text that you type in a side thread and do not send now stays in that thread.",
-          "OpenBot now quits when a file operation never finishes, so it opens again without a forced quit.",
+          "Builders Bot now quits when a file operation never finishes, so it opens again without a forced quit.",
           "A long context compaction with Codex or Pi now runs to its end.",
           "Connect Railway works again.",
-          "OpenBot publishes this computer’s server again when the first try at start fails."
+          "Builders Bot publishes this computer’s server again when the first try at start fails."
         ]
       }
     ]
@@ -55,10 +55,10 @@
       {
         "type": "fixed",
         "items": [
-          "OpenBot starts again when an update for a provider CLI is available.",
-          "A chat with queued messages no longer slows down OpenBot.",
+          "Builders Bot starts again when an update for a provider CLI is available.",
+          "A chat with queued messages no longer slows down Builders Bot.",
           "Pi, DeepSeek, Inception, OpenRouter and Cursor agents with Workspace only access on macOS work again.",
-          "A Pi agent keeps its OpenBot tools after OpenBot restarts.",
+          "A Pi agent keeps its Builders Bot tools after Builders Bot restarts.",
           "Muse agents on Windows can start a turn again.",
           "An agent with Full access no longer asks before each Computer Use action.",
           "Slack, Discord and Telegram connect on this computer without a manual server publish first."
@@ -75,7 +75,7 @@
         "type": "fixed",
         "items": [
           "DeepSeek, Inception and OpenRouter now download the Pi CLI when you save their API key.",
-          "On Linux, closing the OpenBot AppImage no longer shows a crash report.",
+          "On Linux, closing the Builders Bot AppImage no longer shows a crash report.",
           "On a Docker server with LXCFS, Gemini starts again.",
           "On a server, programs that Claude agents start now use the server's CPU limit.",
           "Agents on a shared server no longer tell you to open the chat on another device."
@@ -108,13 +108,13 @@
         "type": "changed",
         "items": [
           "Claude agents use Claude Code's own prompt cache time again. To keep the cache for 1 hour, choose \"1 hour\" on the Claude page in Server settings → Providers.",
-          "When OpenBot updates, it also updates the provider CLIs that it installed. A notice shows only when an update fails."
+          "When Builders Bot updates, it also updates the provider CLIs that it installed. A notice shows only when an update fails."
         ]
       },
       {
         "type": "fixed",
         "items": [
-          "OpenBot starts the Codex app server again when it stops answering. Before, every agent turn and routine run failed.",
+          "Builders Bot starts the Codex app server again when it stops answering. Before, every agent turn and routine run failed.",
           "On Windows, Claude starts when the Claude Code CLI comes from npm.",
           "The Linux AppImage starts on Arch Linux, Omarchy and other systems with no libfuse2.",
           "On macOS 26 with the Dark icon style, the app icon shows its eyes again.",
@@ -167,7 +167,7 @@
           "An agent set to switch to a backup model now switches when its provider is overloaded or down.",
           "Gemini usage follows the limit of the model that an agent uses, and counts all tokens.",
           "A long channel keeps working when its history summary is too long.",
-          "An OpenCode agent with more than one chat keeps its OpenBot tools.",
+          "An OpenCode agent with more than one chat keeps its Builders Bot tools.",
           "When two or more notifications are open, you can reach each of them."
         ]
       }
@@ -208,7 +208,7 @@
           "A long chat keeps the older messages that you scrolled back to when a new message arrives.",
           "An hourly routine can run between two times that cross midnight.",
           "A failed Codex tool call no longer shows a ChatGPT error notice in each chat.",
-          "After an update installs, OpenBot deletes the downloaded update file.",
+          "After an update installs, Builders Bot deletes the downloaded update file.",
           "A long preview in a confirm card has a \"Show all\" button.",
           "In a channel, Open on a browser step card opens the page in the chat of the agent that asked."
         ]
@@ -241,7 +241,7 @@
       {
         "type": "fixed",
         "items": [
-          "OpenBot no longer quits on macOS when an agent opens a page that redirects while it loads.",
+          "Builders Bot no longer quits on macOS when an agent opens a page that redirects while it loads.",
           "An OpenCode turn that stops sending anything ends after 5 minutes with an error.",
           "MCP servers with a space in their name work with Gemini and other ACP agents."
         ]
@@ -290,7 +290,7 @@
         "items": [
           "An agent question that lets you pick more than one option shows check boxes and a Submit answer button.",
           "Agent chats stay at the latest message while a turn runs.",
-          "Claude usage counts each turn once after OpenBot resumes a session."
+          "Claude usage counts each turn once after Builders Bot resumes a session."
         ]
       }
     ]
@@ -317,7 +317,7 @@
       {
         "type": "fixed",
         "items": [
-          "Agents keep their provider sessions when OpenBot stops through a signal, for example from systemd or Docker.",
+          "Agents keep their provider sessions when Builders Bot stops through a signal, for example from systemd or Docker.",
           "In Discord, the agent gets the images and files of earlier messages.",
           "The Tasks page keeps the agent that you chose last."
         ]
@@ -342,14 +342,14 @@
         "type": "changed",
         "items": [
           "You can change the model of an agent while it works. The new model starts with the next turn.",
-          "OpenBot now installs OpenCode 2 as its own OpenCode CLI. Your threads keep their sessions.",
+          "Builders Bot now installs OpenCode 2 as its own OpenCode CLI. Your threads keep their sessions.",
           "Publish this server is now in Server settings → Members."
         ]
       },
       {
         "type": "fixed",
         "items": [
-          "On Linux desktops such as Hyprland, Sway, i3 and LXQt, OpenBot keeps your sign-in and API keys when a Secret Service runs.",
+          "On Linux desktops such as Hyprland, Sway, i3 and LXQt, Builders Bot keeps your sign-in and API keys when a Secret Service runs.",
           "A reply quote shows the Markdown of the original message.",
           "A remote session stays connected when Signal restarts."
         ]
@@ -364,11 +364,11 @@
       {
         "type": "added",
         "items": [
-          "OpenBot can read replies aloud. Turn on Read replies aloud in Settings → Voice → Spoken replies, and choose one of ten voices.",
+          "Builders Bot can read replies aloud. Turn on Read replies aloud in Settings → Voice → Spoken replies, and choose one of ten voices.",
           "Each agent message has a Read aloud button.",
           "Talk to an agent in the Voice pane of the side panel. Speak, and the agent reads its reply aloud. It also works with an agent on a remote server.",
           "A message that you speak in the Voice pane has a voice player. The recording stays on this computer.",
-          "Join the OpenBot community from a card at the bottom of the sidebar."
+          "Join the Builders Bot community from a card at the bottom of the sidebar."
         ]
       },
       {
@@ -378,9 +378,9 @@
       {
         "type": "fixed",
         "items": [
-          "On Windows and Linux, \"Keep OpenBot running in the background\" works, with an icon in the system tray.",
-          "\"Launch OpenBot at login\" opens OpenBot when you sign in to your computer.",
-          "OpenBot keeps your account sign-in when it cannot read it at one start.",
+          "On Windows and Linux, \"Keep Builders Bot running in the background\" works, with an icon in the system tray.",
+          "\"Launch Builders Bot at login\" opens Builders Bot when you sign in to your computer.",
+          "Builders Bot keeps your account sign-in when it cannot read it at one start.",
           "A question from a ChatGPT agent stays open until you answer it.",
           "An OpenCode agent continues in a new session when OpenCode cannot read its old session."
         ]
@@ -400,17 +400,17 @@
           "An agent can show its plan before a long task. Turn on \"Show the plan before long tasks\" in the agent's settings.",
           "The context meter in the composer has a New chat button.",
           "Ask side questions in the web client and on joined servers.",
-          "One OpenBot server can connect more than one Slack workspace or Discord server, and you can choose which Discord roles can use OpenBot."
+          "One Builders Bot server can connect more than one Slack workspace or Discord server, and you can choose which Discord roles can use Builders Bot."
         ]
       },
       {
         "type": "fixed",
         "items": [
           "A chat with unread messages opens at the \"NEW\" divider.",
-          "A Claude agent makes a routine in OpenBot when you ask for one, not a claude.ai cloud routine.",
+          "A Claude agent makes a routine in Builders Bot when you ask for one, not a claude.ai cloud routine.",
           "The Cline model picker shows Cline's free models, and a Cline agent runs on the model that you select.",
-          "An OpenCode agent uses the key that you paste into OpenBot, and an expired key shows an Update key button.",
-          "On Windows, OpenBot finds an OpenCode that you installed yourself, and a failed provider download shows why.",
+          "An OpenCode agent uses the key that you paste into Builders Bot, and an expired key shows an Update key button.",
+          "On Windows, Builders Bot finds an OpenCode that you installed yourself, and a failed provider download shows why.",
           "Renew in Settings → Billing works again for a cancelled server plan."
         ]
       }
@@ -433,7 +433,7 @@
         "items": [
           "The rail of a long chat stays smooth while you scroll.",
           "Side question in the composer + menu opens the side question pane.",
-          "An agent template that contains OpenBot's own skills installs again."
+          "An agent template that contains Builders Bot's own skills installs again."
         ]
       }
     ]
@@ -474,8 +474,8 @@
           "A provider account that is signing in has Cancel sign-in in its menu.",
           "A role change of a member no longer disconnects the server and every connected member.",
           "A message that runs again after a refused turn now runs to its end, and Claude agents accept new messages.",
-          "Claude agents can run tools from your shell PATH, such as Homebrew, when you open OpenBot from Finder or the Dock.",
-          "OpenBot starts when a power loss left a settings file empty, and a local file link over 100 MB opens the file panel."
+          "Claude agents can run tools from your shell PATH, such as Homebrew, when you open Builders Bot from Finder or the Dock.",
+          "Builders Bot starts when a power loss left a settings file empty, and a local file link over 100 MB opens the file panel."
         ]
       }
     ]
@@ -499,7 +499,7 @@
         "type": "changed",
         "items": [
           "The full browser view shows every tab in its top row. The composer floats over the page, so you can talk to the agent of the tab.",
-          "Agents no longer get the OAuth token of an MCP server. OpenBot adds the token to each call.",
+          "Agents no longer get the OAuth token of an MCP server. Builders Bot adds the token to each call.",
           "Save on a new HTTP MCP server tests it first, and signs in when the server asks for it.",
           "Agents with a long message history start queued work faster."
         ]
@@ -535,8 +535,8 @@
         "type": "changed",
         "items": [
           "Set what an agent may do with one Permissions setting in its agent settings: Workspace only, Ask first or Full access. It replaces Turbo mode and Auto approve. An agent keeps what it could do before.",
-          "OpenBot opens faster, and long chats stream, scroll and search with less work.",
-          "OpenBot keeps only the provider CLI version in use and one older version. Clean up on the Storage page removes old versions at once."
+          "Builders Bot opens faster, and long chats stream, scroll and search with less work.",
+          "Builders Bot keeps only the provider CLI version in use and one older version. Clean up on the Storage page removes old versions at once."
         ]
       },
       {
@@ -597,9 +597,9 @@
       {
         "type": "fixed",
         "items": [
-          "OpenBot starts faster after a clean stop when the database is large.",
-          "The database no longer grows each time you read a conversation. The first start after this update can take longer while OpenBot makes the file smaller.",
-          "Large chats open faster and no longer stall OpenBot.",
+          "Builders Bot starts faster after a clean stop when the database is large.",
+          "The database no longer grows each time you read a conversation. The first start after this update can take longer while Builders Bot makes the file smaller.",
+          "Large chats open faster and no longer stall Builders Bot.",
           "Agents with very long messages open from a remote device without reconnects.",
           "A hosted server stays on while you read it in a focused window, and the app waits while the server starts.",
           "Muse shows \"Connected\" after you sign in.",
@@ -638,7 +638,7 @@
         "items": [
           "Agents in Slack, Discord and Telegram no longer stop answering after a provider error or a restart.",
           "A paused, deleted or changed routine no longer starts its old run.",
-          "Custom agents that need Node start when you open OpenBot from Finder or the Dock.",
+          "Custom agents that need Node start when you open Builders Bot from Finder or the Dock.",
           "Gemini no longer fills the disk on Windows.",
           "A failed provider CLI update keeps your sign-in and shows a short reason.",
           "Large chats no longer stop the app for a second when old history is removed."
@@ -729,7 +729,7 @@
         "type": "fixed",
         "items": [
           "Gemini sign-in, quota and error messages are clearer, and a Gemini chat with a lost session starts a new one.",
-          "Open OpenBot on an invitation page now opens OpenBot on Windows.",
+          "Open Builders Bot on an invitation page now opens Builders Bot on Windows.",
           "Agents show in their sidebar sections when a server starts or reconnects.",
           "Opening or writing to a chat no longer shows \"Read state failed\" for a queued message."
         ]
@@ -740,7 +740,7 @@
     "version": "0.38.1",
     "date": "2026-10-13",
     "notices": [
-      "Put agents that work together in one sidebar section. Channels are no longer supported, and OpenBot archives and hides them. Your channel history stays on your computer for now. The next release removes channels and their data."
+      "Put agents that work together in one sidebar section. Channels are no longer supported, and Builders Bot archives and hides them. Your channel history stays on your computer for now. The next release removes channels and their data."
     ],
     "groups": [
       {
@@ -765,7 +765,7 @@
         "type": "fixed",
         "items": [
           "Claude background subagents keep running after the agent's turn ends, and the agent's answer after them shows in the chat.",
-          "OpenBot uses Electron 44.7.0, which can stop rare crashes while the app is idle on macOS.",
+          "Builders Bot uses Electron 44.7.0, which can stop rare crashes while the app is idle on macOS.",
           "Account sessions show a hosted server with its name, not as \"Desktop\"."
         ]
       }
@@ -808,7 +808,7 @@
         "type": "added",
         "items": [
           "Settings > Voice shows the dictation models. You can download Whisper large-v3 turbo and set a fixed dictation language, for example Hungarian.",
-          "A scheduled routine can skip a time that OpenBot missed while it was closed, or run once when OpenBot opens.",
+          "A scheduled routine can skip a time that Builders Bot missed while it was closed, or run once when Builders Bot opens.",
           "When a browser sign-in does not finish, you can log in with a code. Grok, Cursor, Cline and Muse also accept a code.",
           "Run openbot mobile-connect on a self-hosted or Docker server to connect the phone app to it."
         ]
@@ -838,8 +838,8 @@
       {
         "type": "added",
         "items": [
-          "OpenBot is now available in Polish. Choose Polski in Settings > General > Language.",
-          "With analytics on, OpenBot sends one daily summary of its memory and CPU use. It does not send process names, command lines or paths."
+          "Builders Bot is now available in Polish. Choose Polski in Settings > General > Language.",
+          "With analytics on, Builders Bot sends one daily summary of its memory and CPU use. It does not send process names, command lines or paths."
         ]
       },
       {
@@ -928,7 +928,7 @@
       {
         "type": "changed",
         "items": [
-          "The sidebar now shows \"OpenBot for mobile\". Open \"How to install\" for the iPhone and Android setup steps."
+          "The sidebar now shows \"Builders Bot for mobile\". Open \"How to install\" for the iPhone and Android setup steps."
         ]
       },
       {
@@ -948,7 +948,7 @@
           "See your routines on a canvas. Open an agent in Routines to see its next runs, past runs and results.",
           "Connect agents in a routine. Each agent can pass its answer to the next agent in the flow.",
           "Ask an agent to edit the routine canvas. Use the chat panel to add or change routines and their connections.",
-          "Use OpenBot in Russian, Spanish or German. Select the interface language in Settings."
+          "Use Builders Bot in Russian, Spanish or German. Select the interface language in Settings."
         ]
       },
       {

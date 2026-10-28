@@ -3,7 +3,7 @@ import type { messages as source } from "../../en/error/backend";
 
 export const messages = {
   "error.backend.eventsUnavailable": "Events zijn niet beschikbaar op deze host.",
-  "error.backend.databaseIntegrity": "De database van OpenBot heeft de integriteitscontrole niet doorstaan.",
+  "error.backend.databaseIntegrity": "De database van Builders Bot heeft de integriteitscontrole niet doorstaan.",
   "error.backend.webhookRouteLimit": "Een host kan maximaal {limit} webhookroutines hebben.",
   "error.backend.webhookSettingsInvalid": "Controleer de webhookinstellingen en probeer het opnieuw.",
   "error.backend.webhookRouteUnavailable":
@@ -16,8 +16,8 @@ export const messages = {
   "error.backend.browserViewLimit": "Er zijn te veel browserweergaven open op deze host.",
   "error.backend.browserViewEnded": "De live weergave van deze pagina is beëindigd.",
   "error.backend.browserViewFailed": "De live weergave van deze pagina is mislukt.",
-  "error.backend.windowTemporarilyUnavailable": "Het venster van OpenBot is tijdelijk niet beschikbaar.",
-  "error.backend.windowUnavailable": "Het venster van OpenBot is niet beschikbaar.",
+  "error.backend.windowTemporarilyUnavailable": "Het venster van Builders Bot is tijdelijk niet beschikbaar.",
+  "error.backend.windowUnavailable": "Het venster van Builders Bot is niet beschikbaar.",
   "error.backend.sunshineApiHttp": "Sunshine-API is mislukt met HTTP {status}.",
   "error.backend.sunshinePortsUnavailable": "Kan geen vrije Sunshine-poortgroep reserveren voor extern bureaublad.",
   "error.backend.moonlightPortsUnavailable":
@@ -33,7 +33,7 @@ export const messages = {
   "error.backend.moonlightRejectedPairing": "Moonlight heeft het koppelen met Sunshine geweigerd.",
   "error.backend.moonlightNoPin": "Moonlight heeft geen koppelpincode teruggegeven.",
   "error.backend.moonlightPairingIncomplete": "Koppelen met Moonlight is niet voltooid.",
-  "error.backend.moonlightWebNotEmbedded": "Moonlight Web is geen ingebouwde build van OpenBot.",
+  "error.backend.moonlightWebNotEmbedded": "Moonlight Web is geen ingebouwde build van Builders Bot.",
   "error.backend.moonlightEmptyResponse": "Moonlight gaf een leeg antwoord terug.",
   "error.backend.remoteDesktopTimeout": "Het verzoek voor extern bureaublad duurde te lang.",
   "error.backend.moonlightApiHttp": "Moonlight-API is mislukt met HTTP {status}.",
@@ -50,8 +50,8 @@ export const messages = {
   "error.backend.browserUserControlUnsupported":
     "Deze externe host ondersteunt het overnemen van een browsertabblad niet.",
   "error.backend.browserSignInUnsupported": "Deze externe host kan geen inlog van deze computer overnemen.",
-  "error.backend.browserSignInOpenFailed": "OpenBot kon het inlogvenster niet openen.",
-  "error.backend.browserSignInReadFailed": "OpenBot kon de inlog niet uit het venster lezen.",
+  "error.backend.browserSignInOpenFailed": "Builders Bot kon het inlogvenster niet openen.",
+  "error.backend.browserSignInReadFailed": "Builders Bot kon de inlog niet uit het venster lezen.",
   "error.backend.browserStopUnsupported": "Deze externe host kan het laden van een pagina niet stoppen.",
   "error.backend.sharedDataLocalOnly": "Gedeelde gegevens worden beheerd op de computer waarop deze agents draaien.",
   "error.backend.browserUrlProtocol": "Alleen HTTP(S)-URL’s zijn toegestaan in de browser.",
@@ -59,7 +59,7 @@ export const messages = {
   "error.backend.sunshineNotReadyReason": "Sunshine is niet klaar geworden. {reason}",
   "error.backend.channelLeadModelUnavailable": "Het model van de kanaalleider is niet beschikbaar.",
   "error.backend.sharedDataUnavailable": "Gedeelde gegevens zijn niet beschikbaar.",
-  "error.backend.shuttingDown": "OpenBot wordt afgesloten.",
+  "error.backend.shuttingDown": "Builders Bot wordt afgesloten.",
   "error.backend.channelUnconfirmedStart":
     "Het kanaal heeft een start van een opdracht die niet is bevestigd. Controleer het resultaat voordat je het verwijdert.",
   "error.backend.channelNotFound": "Kanaal niet gevonden.",
@@ -132,7 +132,7 @@ export const messages = {
   "error.backend.fileGone": "Het bestand bestaat niet of is al verwijderd.",
   "error.backend.managedAttachmentChanged": "Beheerde bijlage ontbreekt of is gewijzigd: {name}",
   "error.backend.mailboxStateCorrupt":
-    "De status van de postbus is beschadigd of komt van een nieuwere versie van OpenBot; OpenBot overschrijft deze niet.",
+    "De status van de postbus is beschadigd of komt van een nieuwere versie van Builders Bot; Builders Bot overschrijft deze niet.",
   "error.backend.recipientDeleting": "De ontvanger wordt verwijderd. Probeer het opnieuw als dit klaar is.",
   "error.backend.recipientHidden": "Deze agent is verborgen. Herstel de agent om berichten te sturen.",
   "error.backend.attachBetween": "Voeg tussen 1 en {limit} bestanden toe.",
@@ -141,7 +141,7 @@ export const messages = {
     "{name} is een SVG-bestand en kan niet worden bijgevoegd. Schrijf het absolute pad in je antwoord: de chat toont de afbeelding daar.",
   "error.backend.generatedImageTooLarge": "De gemaakte afbeelding is groter dan de limiet van 100 MB.",
   "error.backend.attachmentNotRegularFile": "Alleen gewone bestanden kunnen worden bijgevoegd: {name}",
-  "error.backend.attachmentCopyFailed": "OpenBot kon {name} niet kopiëren.",
+  "error.backend.attachmentCopyFailed": "Builders Bot kon {name} niet kopiëren.",
   "error.backend.routineNameRequired": "Een naam voor de routine is verplicht.",
   "error.backend.routineNameTooLong": "De naam van de routine is te lang.",
   "error.backend.routineInstructionRequired": "Een instructie voor de routine is verplicht.",
@@ -164,13 +164,13 @@ export const messages = {
   "error.backend.routineWaitForAgent": "Wacht tot de bewerking van de agent klaar is voordat je een routine uitvoert.",
   "error.backend.routineRunStarting": "Deze run van de routine start nog. Probeer het opnieuw als de beurt is gestart.",
   "error.backend.routineRunNoSession":
-    "OpenBot kan de actieve run van de routine niet onderbreken, omdat de sessie bij de aanbieder niet beschikbaar is.",
+    "Builders Bot kan de actieve run van de routine niet onderbreken, omdat de sessie bij de aanbieder niet beschikbaar is.",
   "error.backend.interruptSelf": "Een agent kan zichzelf niet onderbreken.",
   "error.backend.interruptOtherWork":
     "Deze agent werkt aan een taak die jouw bericht niet heeft gestart. Alleen de gebruiker of de afzender van die taak kan deze stoppen.",
   "error.backend.interruptStarting": "Deze agent start nog een beurt. Probeer het opnieuw als de beurt is gestart.",
   "error.backend.interruptNoSession":
-    "OpenBot kan deze agent niet onderbreken, omdat de sessie bij de aanbieder niet beschikbaar is.",
+    "Builders Bot kan deze agent niet onderbreken, omdat de sessie bij de aanbieder niet beschikbaar is.",
   "error.backend.memoryTextRequired": "Tekst voor de herinnering is verplicht.",
   "error.backend.memoryTextTooLong": "De tekst van de herinnering is te lang.",
   "error.backend.mcpServerGone": "Deze MCP-server bestaat niet meer.",
@@ -197,15 +197,15 @@ export const messages = {
     "Alleen een run van een van je routines wekt een wachtpunt, en je hebt geen routine. Maak er een met openbot.create_routine en open dan het wachtpunt.",
   "error.backend.agentWaitRemoteUnsupported": "Open wachtpunten zijn alleen beschikbaar voor agents op deze computer.",
   "error.backend.routineFlowHandoffFailed": "De routine kon het werk niet aan deze agent doorgeven.",
-  "error.backend.mcpServerLimit": "OpenBot bewaart maximaal {limit} MCP-servers.",
+  "error.backend.mcpServerLimit": "Builders Bot bewaart maximaal {limit} MCP-servers.",
   "error.backend.mcpServerNameTaken": "Er bestaat al een MCP-server met de naam {name}.",
   "error.backend.mcpServerNoAnswer": "De server reageerde niet binnen {seconds} seconden.",
   "error.backend.mcpSignInNotAccepted": "De server heeft die inlog niet geaccepteerd.",
   "error.backend.mcpSignInClientRefused":
-    "De inlogserver heeft OpenBot niet geaccepteerd bij het voltooien van de aanmelding. Meld je opnieuw aan: OpenBot registreert zich dan opnieuw bij de server.",
+    "De inlogserver heeft Builders Bot niet geaccepteerd bij het voltooien van de aanmelding. Meld je opnieuw aan: Builders Bot registreert zich dan opnieuw bij de server.",
   "error.backend.mcpCommandNotFound": "Opdracht niet gevonden: {command}",
   "error.backend.mcpRegistrationRefused":
-    "De inlogserver accepteert OpenBot nog niet als app. Dit ligt niet aan je account. Gebruik een andere manier om te verbinden, zoals een lokale MCP-server.",
+    "De inlogserver accepteert Builders Bot nog niet als app. Dit ligt niet aan je account. Gebruik een andere manier om te verbinden, zoals een lokale MCP-server.",
   "error.backend.mcpSignInAbandonedGeneric": "Het inloggen is afgebroken.",
   "error.backend.mcpSignInForgotten": "De MCP-inlog is vergeten terwijl deze bezig was.",
   "error.backend.mcpSignInAbandoned": "Het inloggen bij MCP is afgebroken.",
@@ -213,21 +213,21 @@ export const messages = {
   "error.backend.mcpSignInNotWebPage": "Het inlogadres is geen webpagina.",
   "error.backend.mcpSignInRequired":
     "Deze server vraagt je om in te loggen. Kies Inloggen om verder te gaan in je browser.",
-  "error.backend.mcpSignInOnHost": "Deze server vraagt om in te loggen. Log in via OpenBot op de hostcomputer.",
+  "error.backend.mcpSignInOnHost": "Deze server vraagt om in te loggen. Log in via Builders Bot op de hostcomputer.",
   "error.backend.mcpSignInNeedsHttps":
-    "Deze server vraagt om in te loggen, en OpenBot logt alleen in via https. Wijzig de URL in {url}.",
+    "Deze server vraagt om in te loggen, en Builders Bot logt alleen in via https. Wijzig de URL in {url}.",
   "error.backend.mcpSignInCancelled": "Het inloggen is geannuleerd.",
   "error.backend.mcpSignInTimedOut": "Het inloggen is niet afgerond in de browser.",
   "error.backend.mcpSignInResponseTimedOut": "Het antwoord op het inloggen kwam niet op tijd.",
   "error.backend.mcpSignInMetadataUnreadable":
-    "OpenBot kon de inloggegevens van deze server niet lezen. Controleer het serveradres en probeer het opnieuw.",
+    "Builders Bot kon de inloggegevens van deze server niet lezen. Controleer het serveradres en probeer het opnieuw.",
   "error.backend.mcpServerExited":
     "De server is gestopt voordat hij antwoordde. Voer de opdracht uit in een terminal om de fout te zien.",
   "error.backend.mcpOAuthProxyUnavailable":
-    "OpenBot kon de lokale inlogverbinding voor deze server niet starten. Start OpenBot opnieuw en probeer het nog eens.",
+    "Builders Bot kon de lokale inlogverbinding voor deze server niet starten. Start Builders Bot opnieuw en probeer het nog eens.",
   "error.backend.mcpOAuthSignInNeeded":
-    "De inlog bij deze MCP-server is verlopen. De gebruiker moet opnieuw inloggen in OpenBot.",
-  "error.backend.mcpServerUnreachable": "OpenBot kan de server niet bereiken. Controleer de URL en je netwerk.",
+    "De inlog bij deze MCP-server is verlopen. De gebruiker moet opnieuw inloggen in Builders Bot.",
+  "error.backend.mcpServerUnreachable": "Builders Bot kan de server niet bereiken. Controleer de URL en je netwerk.",
   "error.backend.mcpLocalServerOff":
     "Er reageert geen server op {address} op deze computer. Start de server, of zet hem aan in de app die hem draait, en probeer het opnieuw.",
   "error.backend.mcpServerBlocked":
@@ -235,7 +235,7 @@ export const messages = {
   "error.backend.mcpServerIncompatible":
     "Er reageerde iets op dit adres, maar niet als MCP-server via Streamable HTTP. Controleer de URL en werk de app bij die de server draait.",
   "error.backend.mcpRemoteBridge":
-    "{reason} Deze opdracht draait de mcp-remote-brug. Kies in plaats daarvan Streamable HTTP met de URL {url}, dan logt OpenBot je in.",
+    "{reason} Deze opdracht draait de mcp-remote-brug. Kies in plaats daarvan Streamable HTTP met de URL {url}, dan logt Builders Bot je in.",
   "error.backend.oauthNotHttps": "Het OAuth-endpoint {origin} is geen https, dus de inloggegevens zijn niet verstuurd.",
   "error.backend.oauthTooManyRedirects": "Het OAuth-endpoint heeft te vaak doorgestuurd.",
   "error.backend.oauthRedirectOrigin":
@@ -281,7 +281,7 @@ export const messages = {
   "error.backend.approvalOwnerOnly": "Alleen de eigenaar van de server kan deze actie goedkeuren.",
   "error.backend.takeoverInactive": "Deze overname van de browser is niet meer actief.",
   "error.backend.authSubmitting": "De verificatie wordt al verstuurd.",
-  "error.backend.apiKeySaveFailed": "OpenBot kon de API-sleutel niet opslaan. Probeer het opnieuw.",
+  "error.backend.apiKeySaveFailed": "Builders Bot kon de API-sleutel niet opslaan. Probeer het opnieuw.",
   "error.backend.apiKeyNotAllowed": "Alleen de eigenaar van de server of een beheerder kan een API-sleutel invoeren.",
   "error.backend.apiKeySaving": "De API-sleutel wordt al opgeslagen.",
   "error.backend.authRequestInactive": "Dit beveiligde verificatieverzoek is niet meer actief.",
@@ -325,7 +325,7 @@ export const messages = {
   "error.backend.mcpSignInAppUrl": "De inlogapp heeft een geldige server-URL nodig.",
   "error.backend.mcpSignInAppClientId": "Voer de client-ID van de inlogapp in.",
   "error.backend.mcpSignInAppIssuerChanged":
-    "De inlogserver van deze MCP-server is gewijzigd, dus OpenBot heeft de inlogapp niet verstuurd. Als de wijziging klopt, verwijder je de inlogapp en voeg je deze opnieuw toe.",
+    "De inlogserver van deze MCP-server is gewijzigd, dus Builders Bot heeft de inlogapp niet verstuurd. Als de wijziging klopt, verwijder je de inlogapp en voeg je deze opnieuw toe.",
   "error.backend.mcpSignInAppNoServer": "Sla deze MCP-server op als URL-server voordat je een inlogapp toevoegt.",
   "error.backend.mcpSignInAppUnavailable": "Deze computer kan geen inlogapp bewaren.",
   "error.backend.taskMoveRefused":
@@ -352,5 +352,5 @@ export const messages = {
   "error.backend.taskOpenLimitReached":
     "Deze agent heeft {count} open taken. Sluit een taak en start of open dan een andere.",
   "error.backend.taskRemoteUnsupported": "Taken zijn alleen beschikbaar voor agents op deze computer.",
-  "error.backend.taskStartFailed": "OpenBot kon de taak niet starten. Doe het werk in plaats daarvan in deze beurt.",
+  "error.backend.taskStartFailed": "Builders Bot kon de taak niet starten. Doe het werk in plaats daarvan in deze beurt.",
 } as const satisfies PartialTranslation<typeof source>;

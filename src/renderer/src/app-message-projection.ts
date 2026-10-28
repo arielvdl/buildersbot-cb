@@ -6,6 +6,7 @@ import {
   hostedSiteConversationEvent,
   isChannelChangeMarker,
   isContextResetMarker,
+  isSecurityScanMarker,
   isVaultChangeMarker,
   marketplaceSuggestionEvent,
   mcpSignInEvent,
@@ -45,6 +46,7 @@ export function toAgentProfile(stored: ClientAgentSummary): AgentProfile {
     ...(stored.allowAutomation === undefined ? {} : { allowAutomation: stored.allowAutomation }),
     ...(stored.allowNewChat === undefined ? {} : { allowNewChat: stored.allowNewChat }),
     ...(stored.quickAcknowledgement === undefined ? {} : { quickAcknowledgement: stored.quickAcknowledgement }),
+    ...(stored.securityGuard === undefined ? {} : { securityGuard: stored.securityGuard }),
     ...(stored.fastMode === undefined ? {} : { fastMode: stored.fastMode }),
     ...(stored.ownBrowserSession === undefined ? {} : { ownBrowserSession: stored.ownBrowserSession }),
     ...(stored.browserProfileId === undefined ? {} : { browserProfileId: stored.browserProfileId }),
@@ -236,6 +238,7 @@ export function agentProfilesEqual(left: AgentProfile, right: AgentProfile): boo
     left.allowAutomation === right.allowAutomation &&
     left.allowNewChat === right.allowNewChat &&
     left.quickAcknowledgement === right.quickAcknowledgement &&
+    left.securityGuard === right.securityGuard &&
     left.fastMode === right.fastMode &&
     left.ownBrowserSession === right.ownBrowserSession &&
     left.browserProfileId === right.browserProfileId &&
@@ -335,6 +338,7 @@ function chatActionMarker(
   if (isChannelChangeMarker(message))
     return { kind: "channel-change", text: message.text, timestamp: message.createdAt };
   if (isVaultChangeMarker(message)) return { kind: "vault-change", text: message.text, timestamp: message.createdAt };
+  if (isSecurityScanMarker(message)) return { kind: "security-scan", text: message.text, timestamp: message.createdAt };
   const skillEvent = skillConversationEvent(message);
   if (skillEvent) return { ...skillEvent, kind: "skill-lifecycle", timestamp: message.createdAt };
   const suggestion = marketplaceSuggestionEvent(message);

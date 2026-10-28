@@ -27,7 +27,7 @@ export const CHAT_VISUAL_OPEN_LINK = "ui/open-link";
 export const CHAT_VISUAL_REQUEST_DISPLAY_MODE = "ui/request-display-mode";
 export const CHAT_VISUAL_MESSAGE = "ui/message";
 export const CHAT_VISUAL_UPDATE_MODEL_CONTEXT = "ui/update-model-context";
-/** OpenBot's own notifications: MCP Apps has no method for these. */
+/** Builders Bot's own notifications: MCP Apps has no method for these. */
 export const CHAT_VISUAL_OPEN_IMAGE = "openbot/notifications/open-image";
 export const CHAT_VISUAL_KEY_DOWN = "openbot/notifications/keydown";
 

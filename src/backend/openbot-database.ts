@@ -62,12 +62,12 @@ export type { ProviderSession } from "./database/provider-sessions";
 export type { StoredThreadSummary } from "./database/thread-summaries";
 
 /**
- * The local OpenBot event log and its read projections.
+ * The local Builders Bot event log and its read projections.
  *
  * A command appends events, changes projections, and stores its receipt in one
  * SQLite transaction. Providers never receive direct access to this database.
  */
-export class OpenBotDatabase {
+export class BuildersBotDatabase {
   readonly #core: DatabaseCore;
   readonly usage: AgentUsage;
   readonly #conversations: ConversationQueries;

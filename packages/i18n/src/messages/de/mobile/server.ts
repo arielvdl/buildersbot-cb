@@ -9,11 +9,11 @@ export const messages = {
   "mobile.server.drawer.editOrder": "Reihenfolge bearbeiten",
   "mobile.server.drawer.leaveFailed": "{name} konnte nicht verlassen werden",
   "mobile.server.drawer.removeFailed": "{name} konnte nicht entfernt werden",
-  "mobile.server.drawer.actionFailed": "OpenBot konnte diese Aktion nicht ausführen. Versuche es erneut.",
+  "mobile.server.drawer.actionFailed": "Builders Bot konnte diese Aktion nicht ausführen. Versuche es erneut.",
   "mobile.server.drawer.moveUp": "Nach oben verschieben",
   "mobile.server.drawer.moveDown": "Nach unten verschieben",
   "mobile.server.drawer.orderHint":
-    "OpenBot öffnet den ersten Server. Die Reihenfolge wird auf diesem Gerät gespeichert.",
+    "Builders Bot öffnet den ersten Server. Die Reihenfolge wird auf diesem Gerät gespeichert.",
   "mobile.server.drawer.title": "Server",
   "mobile.server.drawer.serverSettings": "Servereinstellungen",
   "mobile.server.drawer.serverListHint": "Zeigt oder verbirgt die Server",
@@ -26,8 +26,8 @@ export const messages = {
   "mobile.server.drawer.close": "Serverleiste schließen",
   "mobile.server.invite.noExpiry": "{role} · Kein Ablaufdatum",
   "mobile.server.invite.expires": "{role} · Läuft ab: {date}",
-  "mobile.server.invite.loadFailed": "OpenBot konnte diese Einladung nicht laden.",
-  "mobile.server.invite.joinFailed": "OpenBot konnte diesem Server nicht beitreten.",
+  "mobile.server.invite.loadFailed": "Builders Bot konnte diese Einladung nicht laden.",
+  "mobile.server.invite.joinFailed": "Builders Bot konnte diesem Server nicht beitreten.",
   "mobile.server.invite.checking": "Einladung wird geprüft…",
   "mobile.server.invite.unavailable": "Einladung nicht verfügbar",
   "mobile.server.invite.verifying": "Die Serveridentität wird überprüft.",
@@ -68,14 +68,14 @@ export const messages = {
   "mobile.server.hosted.join": "Einem Server beitreten",
   "mobile.server.hosted.intro.title": "Deine Agenten, immer aktiv",
   "mobile.server.hosted.intro.description":
-    "Ein Cloud-Server führt deine Agenten und Routinen aus, wenn dein Computer aus ist. OpenBot richtet ihn ein und hält ihn am Laufen.",
+    "Ein Cloud-Server führt deine Agenten und Routinen aus, wenn dein Computer aus ist. Builders Bot richtet ihn ein und hält ihn am Laufen.",
   "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
   "mobile.server.hosted.computer.title": "Auf deinem Computer",
   "mobile.server.hosted.computer.add": "Cloud-Server hinzufügen",
   "mobile.server.hosted.computer.addHint":
-    "Öffne in OpenBot Einstellungen → Gehostete Server und wähle „Server hinzufügen“.",
+    "Öffne in Builders Bot Einstellungen → Gehostete Server und wähle „Server hinzufügen“.",
   "mobile.server.hosted.computer.change": "Tarif ändern",
-  "mobile.server.hosted.computer.changeHint": "Öffne in OpenBot Einstellungen → Abrechnung.",
+  "mobile.server.hosted.computer.changeHint": "Öffne in Builders Bot Einstellungen → Abrechnung.",
   "mobile.server.hosted.yourServers": "Deine Server",
   "mobile.server.hosted.plans": "Tarife",
   "mobile.server.hosted.currentPlan": "Dein Tarif",
@@ -92,7 +92,7 @@ export const messages = {
   "mobile.server.hosted.paymentTitle": "Warten auf die Zahlung",
   "mobile.server.hosted.paymentDescription": "Die Einrichtung beginnt, wenn die Zahlung bestätigt ist.",
   "mobile.server.hosted.progressTitle": "{name} wird eingerichtet",
-  "mobile.server.hosted.progressDescription": "OpenBot bereitet eine private Maschine für dich vor.",
+  "mobile.server.hosted.progressDescription": "Builders Bot bereitet eine private Maschine für dich vor.",
   "mobile.server.hosted.closeHint":
     "Du kannst dieses Fenster schließen. Die Einrichtung läuft weiter, und der Server erscheint in deiner Liste, sobald er bereit ist.",
   "mobile.server.hosted.readyTitle": "{name} ist bereit",
@@ -101,21 +101,21 @@ export const messages = {
   "mobile.server.hosted.open": "Server öffnen",
   "mobile.server.hosted.failedTitle": "Der Server konnte nicht starten",
   "mobile.server.hosted.failedDescription":
-    "Versuche es erneut. Wenn es wieder fehlschlägt, lösche den Server in den Einstellungen von OpenBot auf deinem Computer.",
+    "Versuche es erneut. Wenn es wieder fehlschlägt, lösche den Server in den Einstellungen von Builders Bot auf deinem Computer.",
   "mobile.server.hosted.retrying": "Wird gestartet…",
   "mobile.server.hosted.expiredTitle": "Die Zahlungsseite ist abgelaufen",
   "mobile.server.hosted.expiredDescription": "Der Server wurde nicht bezahlt und wurde daher entfernt.",
   "mobile.server.hosted.step.payment": "Zahlung bestätigen",
   "mobile.server.hosted.step.create": "Maschine erstellen",
-  "mobile.server.hosted.step.start": "OpenBot starten",
+  "mobile.server.hosted.step.start": "Builders Bot starten",
   "mobile.server.hosted.step.connect": "Mit deinem Konto verbinden",
   "mobile.server.hosted.detail.payment": "Warten auf Stripe",
   "mobile.server.hosted.detail.reserve": "Private Maschine wird reserviert",
-  "mobile.server.hosted.detail.copy": "OpenBot wird auf die Maschine kopiert",
+  "mobile.server.hosted.detail.copy": "Builders Bot wird auf die Maschine kopiert",
   "mobile.server.hosted.detail.key": "Einmaliger Anmeldeschlüssel wird hinzugefügt",
   "mobile.server.hosted.detail.boot": "Maschine wird eingeschaltet",
-  "mobile.server.hosted.detail.app": "OpenBot wird gestartet",
-  "mobile.server.hosted.detail.wait": "Warten auf eine Antwort von OpenBot",
+  "mobile.server.hosted.detail.app": "Builders Bot wird gestartet",
+  "mobile.server.hosted.detail.wait": "Warten auf eine Antwort von Builders Bot",
   "mobile.server.hosted.detail.signIn": "Anmeldung mit deinem Konto läuft",
   "mobile.server.hosted.detail.publish": "Server wird deinem Konto hinzugefügt",
   "mobile.server.hosted.detail.check": "Verbindung wird geprüft",
@@ -123,7 +123,7 @@ export const messages = {
   "mobile.server.hosted.stepActive": "läuft",
   "mobile.server.hosted.stepPending": "nicht begonnen",
   "mobile.server.hosted.stepFailed": "fehlgeschlagen",
-  "mobile.server.scan.notInvitation": "Dieser QR-Code ist keine OpenBot-Einladung.",
+  "mobile.server.scan.notInvitation": "Dieser QR-Code ist keine Builders Bot-Einladung.",
   "mobile.server.scan.title": "Einladung scannen",
   "mobile.server.role.owner": "Eigentümer",
   "mobile.server.role.admin": "Administrator",
@@ -163,7 +163,7 @@ export const messages = {
   "mobile.server.routines.status.paused": "Pausiert",
   "mobile.server.routines.status.failed": "Fehlgeschlagen",
   "mobile.server.routines.status.completed": "Abgeschlossen",
-  "mobile.server.tasks.unsupported": "Dieser Host unterstützt keine Aufgaben. Aktualisiere OpenBot auf dem Host.",
+  "mobile.server.tasks.unsupported": "Dieser Host unterstützt keine Aufgaben. Aktualisiere Builders Bot auf dem Host.",
   "mobile.server.tasks.ask": "Was soll erledigt werden?",
   "mobile.server.tasks.chooseAgent": "Aufgabe geben an",
   "mobile.server.tasks.agentLabel": "Aufgabe an {name} geben",
@@ -247,7 +247,7 @@ export const messages = {
   "mobile.server.settings.identityNotAllowed":
     "Nur ein Eigentümer oder Administrator kann den Servernamen und das Logo ändern.",
   "mobile.server.settings.identityUnsupported":
-    "Aktualisiere OpenBot auf diesem Server, um seinen Namen und sein Logo hier zu ändern.",
+    "Aktualisiere Builders Bot auf diesem Server, um seinen Namen und sein Logo hier zu ändern.",
   "mobile.server.settings.identityOffline": "Verbinde dich mit diesem Server, um seinen Namen und sein Logo zu ändern.",
   "mobile.server.route.cropLogo": "Logo zuschneiden",
   "mobile.server.members.remove": "Mitglied entfernen",
@@ -304,7 +304,7 @@ export const messages = {
   "mobile.server.storage.category.caches": "Zwischengespeicherte Serverdateien",
   "mobile.server.storage.category.runtimes": "Anbieter-Laufzeitumgebungen",
   "mobile.server.storage.category.logs": "Protokolle",
-  "mobile.server.storage.total": "OpenBot auf {name}",
+  "mobile.server.storage.total": "Builders Bot auf {name}",
   "mobile.server.storage.used": "Belegt",
   "mobile.server.storage.byType": "Speicher nach Typ",
   "mobile.server.storage.free": "{size} auf diesem Datenträger frei",
@@ -326,10 +326,10 @@ export const messages = {
   "mobile.server.storage.clearTitle.caches": "Zwischengespeicherte Serverdateien löschen?",
   "mobile.server.storage.clearTitle.logs": "Protokolle löschen?",
   "mobile.server.storage.clearBody.caches":
-    "Kopien von Serverdateien. OpenBot lädt sie erneut herunter, wenn du sie öffnest.",
+    "Kopien von Serverdateien. Builders Bot lädt sie erneut herunter, wenn du sie öffnest.",
   "mobile.server.storage.clearBody.logs": "Diagnoseprotokolle. Neue Protokolle werden sofort begonnen.",
   "mobile.server.storage.clearFailed": "Daten konnten nicht gelöscht werden",
-  "mobile.server.storage.clearFailedBody": "OpenBot konnte diese Daten auf dem Server nicht löschen.",
+  "mobile.server.storage.clearFailedBody": "Builders Bot konnte diese Daten auf dem Server nicht löschen.",
   "mobile.server.storage.noFiles": "Auf diesem Server sind keine Dateien gespeichert.",
   "mobile.server.route.providers": "Anbieter",
   "mobile.server.route.provider": "Anbieter",
@@ -378,7 +378,7 @@ export const messages = {
   "mobile.server.settings.timezoneUnavailable":
     "Verbinde dich als Eigentümer oder Admin mit diesem Server, um seine Zeitzone zu ändern.",
   "mobile.server.settings.timezoneUnsupported":
-    "Aktualisiere OpenBot auf diesem Server, um seine Zeitzone hier zu ändern.",
+    "Aktualisiere Builders Bot auf diesem Server, um seine Zeitzone hier zu ändern.",
   "mobile.server.settings.memoryLimit": "Erinnerungen pro Agent",
   "mobile.server.settings.memoryLimitDescription":
     "Wie viele Erinnerungen jeder Agent auf diesem Server behalten kann.",
@@ -386,13 +386,13 @@ export const messages = {
   "mobile.server.settings.memoryLimitSaveFailed":
     "Das Erinnerungslimit konnte nicht gespeichert werden. Versuche es erneut.",
   "mobile.server.settings.memoryLimitUnsupported":
-    "Aktualisiere OpenBot auf diesem Server, um sein Erinnerungslimit hier zu ändern.",
+    "Aktualisiere Builders Bot auf diesem Server, um sein Erinnerungslimit hier zu ändern.",
   "mobile.server.route.connectors": "Konnektoren",
   "mobile.server.settings.connectors": "Konnektoren",
   "mobile.server.connectors.unavailable":
     "Verbinde dich als Eigentümer oder Administrator mit diesem Server, um seine Konnektoren zu verwalten.",
   "mobile.server.connectors.unsupported":
-    "Aktualisiere OpenBot auf diesem Server, um seine Konnektoren hier zu verwalten.",
+    "Aktualisiere Builders Bot auf diesem Server, um seine Konnektoren hier zu verwalten.",
   "mobile.server.connectors.loading": "Konnektoren werden geladen…",
   "mobile.server.connectors.onServer": "Auf {name}",
   "mobile.server.connectors.notSetUp": "Nicht eingerichtet",
@@ -422,7 +422,7 @@ export const messages = {
   "mobile.server.connectors.bitwarden.description":
     "Browser-Anmeldungen auf {host} aus Bitwarden oder Vaultwarden ausfüllen.",
   "mobile.server.connectors.bitwarden.howItWorks":
-    "{host} meldet sich mit seiner eigenen Bitwarden CLI an. Erstelle in deinem Tresor einen Ordner mit dem Namen Shared with OpenBot und lege nur die Anmeldungen hinein, die Agenten verwenden dürfen. Öffne im Web-Tresor Einstellungen › Sicherheit › Schlüssel und zeige deinen API-Schlüssel an.",
+    "{host} meldet sich mit seiner eigenen Bitwarden CLI an. Erstelle in deinem Tresor einen Ordner mit dem Namen Shared with Builders Bot und lege nur die Anmeldungen hinein, die Agenten verwenden dürfen. Öffne im Web-Tresor Einstellungen › Sicherheit › Schlüssel und zeige deinen API-Schlüssel an.",
   "mobile.server.connectors.bitwarden.serverUrl": "Serveradresse",
   "mobile.server.connectors.bitwarden.serverUrlHint":
     "Bitwarden oder die Adresse deines Vaultwarden-Servers. {host} muss sie über HTTPS erreichen.",
@@ -436,7 +436,7 @@ export const messages = {
   "mobile.server.connectors.bitwarden.connectingBody":
     "{host} meldet sich bei Bitwarden an. Die erste Anmeldung kann einige Minuten dauern.",
   "mobile.server.connectors.bitwarden.folderTitle": "Geteilter Ordner",
-  "mobile.server.connectors.bitwarden.folderName": "Shared with OpenBot",
+  "mobile.server.connectors.bitwarden.folderName": "Shared with Builders Bot",
   "mobile.server.connectors.bitwarden.folderKind": "Ordner in Bitwarden",
   "mobile.server.connectors.bitwarden.folderFooter":
     "Verschiebe Anmeldedaten in diesen Ordner in Bitwarden, damit Agenten sie verwenden können. Entferne sie, um die Nutzung zu beenden.",
@@ -448,7 +448,7 @@ export const messages = {
   "mobile.server.connectors.github.summary": "Repositories, Issues und Pull Requests für alle Agenten",
   "mobile.server.connectors.github.description":
     "Alle Agenten auf {host} können deine GitHub-Repositories, Issues und Pull Requests sowie gh und git verwenden.",
-  "mobile.server.connectors.github.unavailable": "OpenBot auf diesem Server kann GitHub nicht verbinden.",
+  "mobile.server.connectors.github.unavailable": "Builders Bot auf diesem Server kann GitHub nicht verbinden.",
   "mobile.server.connectors.github.connect": "GitHub verbinden",
   "mobile.server.connectors.github.codeTitle": "Gib diesen Code auf GitHub ein",
   "mobile.server.connectors.github.codeFooter":
@@ -458,11 +458,11 @@ export const messages = {
   "mobile.server.connectors.github.connectedAs": "Verbunden als @{login}",
   "mobile.server.connectors.github.chooseRepositories": "Repositories auswählen",
   "mobile.server.connectors.github.repositoriesFooter":
-    "Agenten können nur Repositories verwenden, in denen die OpenBot GitHub App installiert ist.",
+    "Agenten können nur Repositories verwenden, in denen die Builders Bot GitHub App installiert ist.",
   "mobile.server.connectors.github.repositoriesTitle": "Repositories",
   "mobile.server.connectors.github.repositoriesLoading": "Repositories werden von GitHub gelesen",
-  "mobile.server.connectors.github.repositoriesFailed": "OpenBot konnte die Repositories von GitHub nicht lesen.",
-  "mobile.server.connectors.github.noRepositories": "Die OpenBot GitHub App ist noch in keinem Repository installiert.",
+  "mobile.server.connectors.github.repositoriesFailed": "Builders Bot konnte die Repositories von GitHub nicht lesen.",
+  "mobile.server.connectors.github.noRepositories": "Die Builders Bot GitHub App ist noch in keinem Repository installiert.",
   "mobile.server.connectors.github.moreRepositories": {
     one: "Und {count} weiteres Repository",
     other: "Und {count} weitere Repositories",
@@ -476,13 +476,13 @@ export const messages = {
   "mobile.server.connectors.github.disconnect": "GitHub trennen",
   "mobile.server.connectors.github.disconnectTitle": "GitHub trennen?",
   "mobile.server.connectors.github.disconnectBody":
-    "Dadurch wird die Anmeldung von @{login} von {host} entfernt, und alle Agenten verlieren die GitHub-Werkzeuge, gh und git. Danach öffnet sich GitHub. Dort kannst du den Zugriff von OpenBot widerrufen.",
+    "Dadurch wird die Anmeldung von @{login} von {host} entfernt, und alle Agenten verlieren die GitHub-Werkzeuge, gh und git. Danach öffnet sich GitHub. Dort kannst du den Zugriff von Builders Bot widerrufen.",
   "mobile.server.connectors.onePassword.title": "1Password",
-  "mobile.server.connectors.onePassword.summary": "Ein geteilter Tresor für Anmeldungen im OpenBot-Browser",
+  "mobile.server.connectors.onePassword.summary": "Ein geteilter Tresor für Anmeldungen im Builders Bot-Browser",
   "mobile.server.connectors.onePassword.description":
-    "Teile einen eigenen 1Password-Tresor über ein Dienstkonto mit OpenBot auf {host}, damit Agenten auf {host} sich in seinem Browser bei Websites anmelden können.",
+    "Teile einen eigenen 1Password-Tresor über ein Dienstkonto mit Builders Bot auf {host}, damit Agenten auf {host} sich in seinem Browser bei Websites anmelden können.",
   "mobile.server.connectors.onePassword.howItWorks":
-    "Erstelle auf 1Password.com ein Dienstkonto, das nur den Tresor lesen kann, den du mit OpenBot teilst, und füge sein Token hier ein. {host} prüft das Token und speichert es; dieses Telefon speichert es nicht. Agenten sehen nie ein Passwort.",
+    "Erstelle auf 1Password.com ein Dienstkonto, das nur den Tresor lesen kann, den du mit Builders Bot teilst, und füge sein Token hier ein. {host} prüft das Token und speichert es; dieses Telefon speichert es nicht. Agenten sehen nie ein Passwort.",
   "mobile.server.connectors.onePassword.token": "Dienstkonto-Token",
   "mobile.server.connectors.onePassword.tokenPlaceholder": "ops_…",
   "mobile.server.connectors.onePassword.connect": "1Password verbinden",
@@ -498,9 +498,9 @@ export const messages = {
   "mobile.server.connectors.onePassword.disconnectBody":
     "{host} vergisst das Token. Der Tresor und das Dienstkonto bleiben in 1Password; entferne sie dort, wenn du sie nicht mehr brauchst.",
   "mobile.server.connectors.slack.title": "Slack",
-  "mobile.server.connectors.slack.summary": "Personen erwähnen @OpenBot in Slack",
+  "mobile.server.connectors.slack.summary": "Personen erwähnen @Builders Bot in Slack",
   "mobile.server.connectors.slack.description":
-    "Personen erwähnen @OpenBot in Slack oder senden ihm eine Direktnachricht. Der Slack Orchestrator fragt den passenden Agenten und antwortet.",
+    "Personen erwähnen @Builders Bot in Slack oder senden ihm eine Direktnachricht. Der Slack Orchestrator fragt den passenden Agenten und antwortet.",
   "mobile.server.connectors.slack.connected": "{workspace} · Slack Orchestrator antwortet",
   "mobile.server.connectors.slack.noAgent": "{workspace} · Noch kein Agent antwortet",
   "mobile.server.connectors.slack.many": {
@@ -513,7 +513,7 @@ export const messages = {
   },
   "mobile.server.connectors.slack.connect": "Slack verbinden",
   "mobile.server.connectors.slack.connectFooter":
-    "Slack öffnet sich in einem Browser. Wähle den Arbeitsbereich oben rechts und dann „Zulassen“. OpenBot installiert eine App namens OpenBot. Sie tritt allen öffentlichen Kanälen bei.",
+    "Slack öffnet sich in einem Browser. Wähle den Arbeitsbereich oben rechts und dann „Zulassen“. Builders Bot installiert eine App namens Builders Bot. Sie tritt allen öffentlichen Kanälen bei.",
   "mobile.server.connectors.slack.add": "Arbeitsbereich hinzufügen",
   "mobile.server.connectors.slack.limit": {
     one: "Du kannst höchstens {count} Arbeitsbereich verbinden.",
@@ -521,17 +521,17 @@ export const messages = {
   },
   "mobile.server.connectors.slack.workspaceTitle": "Arbeitsbereich",
   "mobile.server.connectors.slack.workspaceDescription":
-    "Personen erwähnen @OpenBot oder senden ihm eine Direktnachricht.",
+    "Personen erwähnen @Builders Bot oder senden ihm eine Direktnachricht.",
   "mobile.server.connectors.slack.missingScopes":
-    "OpenBot hat diese Berechtigungen in Slack nicht: {scopes}. Trenne den Arbeitsbereich und verbinde ihn erneut.",
+    "Builders Bot hat diese Berechtigungen in Slack nicht: {scopes}. Trenne den Arbeitsbereich und verbinde ihn erneut.",
   "mobile.server.connectors.slack.retryAt":
-    "Slack hat OpenBot gebeten zu warten. OpenBot versucht es um {time} erneut.",
+    "Slack hat Builders Bot gebeten zu warten. Builders Bot versucht es um {time} erneut.",
   "mobile.server.connectors.slack.helpInvalidToken":
-    "Slack akzeptiert OpenBot in diesem Arbeitsbereich nicht mehr. Es wurde möglicherweise deinstalliert. Verbinde den Arbeitsbereich erneut.",
+    "Slack akzeptiert Builders Bot in diesem Arbeitsbereich nicht mehr. Es wurde möglicherweise deinstalliert. Verbinde den Arbeitsbereich erneut.",
   "mobile.server.connectors.slack.helpSecretStorage":
-    "OpenBot kann die gespeicherten Tokens auf {host} nicht lesen. Trenne den Arbeitsbereich und verbinde ihn erneut.",
+    "Builders Bot kann die gespeicherten Tokens auf {host} nicht lesen. Trenne den Arbeitsbereich und verbinde ihn erneut.",
   "mobile.server.connectors.slack.helpRelay":
-    "OpenBot auf {host} kann keine Slack-Ereignisse empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass OpenBot geöffnet.",
+    "Builders Bot auf {host} kann keine Slack-Ereignisse empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass Builders Bot geöffnet.",
   "mobile.server.connectors.slack.orchestratorTitle": "Slack Orchestrator",
   "mobile.server.connectors.slack.orchestratorDescription":
     "Dieser Agent erhält jede Anfrage aus Slack. Kurze Anfragen beantwortet er selbst. Andere Aufgaben gibt er an den passenden Agenten weiter und veröffentlicht die Antwort im Thread.",
@@ -539,22 +539,22 @@ export const messages = {
     "Füge den Slack Orchestrator hinzu, sonst erhält Slack keine Antwort.",
   "mobile.server.connectors.slack.addAgent": "Slack Orchestrator hinzufügen",
   "mobile.server.connectors.slack.note":
-    "OpenBot tritt allen öffentlichen Kanälen und jedem neuen Kanal automatisch bei. Lade ihn in einen privaten Kanal ein: /invite @OpenBot.",
+    "Builders Bot tritt allen öffentlichen Kanälen und jedem neuen Kanal automatisch bei. Lade ihn in einen privaten Kanal ein: /invite @Builders Bot.",
   "mobile.server.connectors.slack.disconnectTitle": "{workspace} trennen?",
   "mobile.server.connectors.slack.disconnectBody":
-    "OpenBot antwortet nicht mehr in {workspace} und entfernt sein Slack-Token von {host}.",
+    "Builders Bot antwortet nicht mehr in {workspace} und entfernt sein Slack-Token von {host}.",
   "mobile.server.connectors.slack.disconnectKept":
-    "Die Unterhaltungen und der Slack Orchestrator bleiben in OpenBot erhalten.",
+    "Die Unterhaltungen und der Slack Orchestrator bleiben in Builders Bot erhalten.",
   "mobile.server.connectors.slack.disconnectDeleted":
-    "Der Slack Orchestrator und seine Unterhaltungen werden aus OpenBot gelöscht.",
+    "Der Slack Orchestrator und seine Unterhaltungen werden aus Builders Bot gelöscht.",
   "mobile.server.connectors.slack.agentPromptTitle": "Slack Orchestrator hinzufügen?",
   "mobile.server.connectors.slack.agentPromptBody":
-    "Dieser neue Agent beantwortet alles, was Personen in {workspace} an @OpenBot senden.",
+    "Dieser neue Agent beantwortet alles, was Personen in {workspace} an @Builders Bot senden.",
   "mobile.server.connectors.slack.installFailed": "Slack hat die Installation nicht abgeschlossen. Versuche es erneut.",
   "mobile.server.connectors.discord.title": "Discord",
-  "mobile.server.connectors.discord.summary": "Personen erwähnen @OpenBot auf einem Discord-Server",
+  "mobile.server.connectors.discord.summary": "Personen erwähnen @Builders Bot auf einem Discord-Server",
   "mobile.server.connectors.discord.description":
-    "Personen erwähnen @OpenBot in einem Kanal eines Discord-Servers. Der Discord Orchestrator fragt den passenden Agenten und antwortet.",
+    "Personen erwähnen @Builders Bot in einem Kanal eines Discord-Servers. Der Discord Orchestrator fragt den passenden Agenten und antwortet.",
   "mobile.server.connectors.discord.connected": "{workspace} · Discord Orchestrator antwortet",
   "mobile.server.connectors.discord.noAgent": "{workspace} · Noch kein Agent antwortet",
   "mobile.server.connectors.discord.many": {
@@ -567,7 +567,7 @@ export const messages = {
   },
   "mobile.server.connectors.discord.connect": "Discord verbinden",
   "mobile.server.connectors.discord.connectFooter":
-    "Discord öffnet sich in einem Browser. Wähle den Discord-Server und dann „Autorisieren“. OpenBot fügt einen Bot namens OpenBot hinzu.",
+    "Discord öffnet sich in einem Browser. Wähle den Discord-Server und dann „Autorisieren“. Builders Bot fügt einen Bot namens Builders Bot hinzu.",
   "mobile.server.connectors.discord.add": "Discord-Server hinzufügen",
   "mobile.server.connectors.discord.limit": {
     one: "Du kannst höchstens {count} Discord-Server verbinden.",
@@ -575,40 +575,40 @@ export const messages = {
   },
   "mobile.server.connectors.discord.workspaceTitle": "Discord-Server",
   "mobile.server.connectors.discord.workspaceDescription":
-    "Erwähne @OpenBot in einem Kanal. Antworte OpenBot, um fortzufahren.",
+    "Erwähne @Builders Bot in einem Kanal. Antworte Builders Bot, um fortzufahren.",
   "mobile.server.connectors.discord.missingScopes":
-    "OpenBot hat diese Berechtigungen in Discord nicht: {scopes}. Trenne den Discord-Server und verbinde ihn erneut.",
+    "Builders Bot hat diese Berechtigungen in Discord nicht: {scopes}. Trenne den Discord-Server und verbinde ihn erneut.",
   "mobile.server.connectors.discord.retryAt":
-    "Discord hat OpenBot gebeten zu warten. OpenBot versucht es um {time} erneut.",
+    "Discord hat Builders Bot gebeten zu warten. Builders Bot versucht es um {time} erneut.",
   "mobile.server.connectors.discord.helpInvalidToken":
-    "Discord akzeptiert OpenBot auf diesem Discord-Server nicht mehr. Es wurde möglicherweise entfernt. Verbinde den Discord-Server erneut.",
+    "Discord akzeptiert Builders Bot auf diesem Discord-Server nicht mehr. Es wurde möglicherweise entfernt. Verbinde den Discord-Server erneut.",
   "mobile.server.connectors.discord.helpSecretStorage":
-    "OpenBot kann die gespeicherten Tokens auf {host} nicht lesen. Trenne den Discord-Server und verbinde ihn erneut.",
+    "Builders Bot kann die gespeicherten Tokens auf {host} nicht lesen. Trenne den Discord-Server und verbinde ihn erneut.",
   "mobile.server.connectors.discord.helpRelay":
-    "OpenBot auf {host} kann keine Discord-Ereignisse empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass OpenBot geöffnet.",
+    "Builders Bot auf {host} kann keine Discord-Ereignisse empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass Builders Bot geöffnet.",
   "mobile.server.connectors.discord.orchestratorTitle": "Discord Orchestrator",
   "mobile.server.connectors.discord.orchestratorDescription":
     "Dieser Agent erhält jede Anfrage aus Discord. Kurze Anfragen beantwortet er selbst. Andere Aufgaben gibt er an den passenden Agenten weiter und sendet die Antwort im Kanal.",
   "mobile.server.connectors.discord.orchestratorNone":
     "Füge den Discord Orchestrator hinzu, sonst erhält Discord keine Antwort.",
   "mobile.server.connectors.discord.addAgent": "Discord Orchestrator hinzufügen",
-  "mobile.server.connectors.discord.note": "OpenBot sieht die Kanäle, die seine Rolle sehen darf.",
+  "mobile.server.connectors.discord.note": "Builders Bot sieht die Kanäle, die seine Rolle sehen darf.",
   "mobile.server.connectors.discord.disconnectTitle": "{workspace} trennen?",
   "mobile.server.connectors.discord.disconnectBody":
-    "OpenBot antwortet nicht mehr in {workspace} und entfernt die Discord-Verbindung von {host}.",
+    "Builders Bot antwortet nicht mehr in {workspace} und entfernt die Discord-Verbindung von {host}.",
   "mobile.server.connectors.discord.disconnectKept":
-    "Die Unterhaltungen und der Discord Orchestrator bleiben in OpenBot erhalten.",
+    "Die Unterhaltungen und der Discord Orchestrator bleiben in Builders Bot erhalten.",
   "mobile.server.connectors.discord.disconnectDeleted":
-    "Der Discord Orchestrator und seine Unterhaltungen werden aus OpenBot gelöscht.",
+    "Der Discord Orchestrator und seine Unterhaltungen werden aus Builders Bot gelöscht.",
   "mobile.server.connectors.discord.agentPromptTitle": "Discord Orchestrator hinzufügen?",
   "mobile.server.connectors.discord.agentPromptBody":
-    "Dieser neue Agent beantwortet alles, was Personen in {workspace} an @OpenBot senden.",
+    "Dieser neue Agent beantwortet alles, was Personen in {workspace} an @Builders Bot senden.",
   "mobile.server.connectors.discord.installFailed":
     "Discord hat die Autorisierung nicht abgeschlossen. Versuche es erneut.",
   "mobile.server.connectors.telegram.title": "Telegram",
-  "mobile.server.connectors.telegram.summary": "Füge den OpenBot-Bot zu einem Telegram-Chat hinzu",
+  "mobile.server.connectors.telegram.summary": "Füge den Builders Bot-Bot zu einem Telegram-Chat hinzu",
   "mobile.server.connectors.telegram.description":
-    "Füge den OpenBot-Bot zu einer Telegram-Gruppe hinzu oder öffne einen direkten Chat mit ihm. Der Telegram-Orchestrator fragt den passenden Agenten und antwortet.",
+    "Füge den Builders Bot-Bot zu einer Telegram-Gruppe hinzu oder öffne einen direkten Chat mit ihm. Der Telegram-Orchestrator fragt den passenden Agenten und antwortet.",
   "mobile.server.connectors.telegram.connected": {
     one: "{count} Chat · Telegram-Orchestrator antwortet",
     other: "{count} Chats · Telegram-Orchestrator antwortet",
@@ -628,12 +628,12 @@ export const messages = {
   "mobile.server.connectors.telegram.directDescription":
     "Jede Nachricht in diesem Chat geht an den Telegram-Orchestrator.",
   "mobile.server.connectors.telegram.helpRemoved":
-    "Der OpenBot-Bot ist nicht mehr in diesem Chat. Trenne den Chat und füge den Bot dann erneut hinzu.",
+    "Der Builders Bot-Bot ist nicht mehr in diesem Chat. Trenne den Chat und füge den Bot dann erneut hinzu.",
   "mobile.server.connectors.telegram.helpRelay":
-    "OpenBot auf {host} kann keine Telegram-Nachrichten empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass OpenBot geöffnet.",
+    "Builders Bot auf {host} kann keine Telegram-Nachrichten empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass Builders Bot geöffnet.",
   "mobile.server.connectors.telegram.helpError":
-    "OpenBot kann diesen Chat nicht erreichen. Verbinde ihn erneut oder trenne den Chat.",
-  "mobile.server.connectors.telegram.retryAt": "Telegram hat OpenBot gebeten zu warten. Neuer Versuch um {time}.",
+    "Builders Bot kann diesen Chat nicht erreichen. Verbinde ihn erneut oder trenne den Chat.",
+  "mobile.server.connectors.telegram.retryAt": "Telegram hat Builders Bot gebeten zu warten. Neuer Versuch um {time}.",
   "mobile.server.connectors.telegram.linkTitle": "Chat verknüpfen",
   "mobile.server.connectors.telegram.linkAnother": "Weiteren Chat verknüpfen",
   "mobile.server.connectors.telegram.linkFooter":
@@ -646,17 +646,17 @@ export const messages = {
   "mobile.server.connectors.telegram.openDirectChat": "Direkten Chat öffnen",
   "mobile.server.connectors.telegram.orchestratorTitle": "Telegram-Orchestrator",
   "mobile.server.connectors.telegram.orchestratorDescription":
-    "Dieser Agent empfängt die Nachrichten für OpenBot aus all deinen Telegram-Chats. Kurze beantwortet er selbst, andere Aufgaben gibt er an den passenden Agenten weiter und postet die Antwort im Chat.",
+    "Dieser Agent empfängt die Nachrichten für Builders Bot aus all deinen Telegram-Chats. Kurze beantwortet er selbst, andere Aufgaben gibt er an den passenden Agenten weiter und postet die Antwort im Chat.",
   "mobile.server.connectors.telegram.orchestratorNone":
     "Füge den Telegram-Orchestrator hinzu, sonst bekommt Telegram keine Antwort.",
   "mobile.server.connectors.telegram.addAgent": "Telegram-Orchestrator hinzufügen",
   "mobile.server.connectors.telegram.disconnectTitle": "{chat} trennen?",
   "mobile.server.connectors.telegram.disconnectBody":
-    "Der OpenBot-Bot verlässt {chat}, und OpenBot antwortet dort nicht mehr.",
+    "Der Builders Bot-Bot verlässt {chat}, und Builders Bot antwortet dort nicht mehr.",
   "mobile.server.connectors.telegram.disconnectKept":
-    "Die Unterhaltungen und der Telegram-Orchestrator bleiben in OpenBot.",
+    "Die Unterhaltungen und der Telegram-Orchestrator bleiben in Builders Bot.",
   "mobile.server.connectors.telegram.disconnectDeleted":
-    "Das ist der letzte Chat, daher werden der Telegram-Orchestrator und seine Unterhaltungen aus OpenBot gelöscht.",
+    "Das ist der letzte Chat, daher werden der Telegram-Orchestrator und seine Unterhaltungen aus Builders Bot gelöscht.",
   "mobile.server.settings.providers": "Anbieter",
   "mobile.server.settings.providersConnected": { one: "{count} verbunden", other: "{count} verbunden" },
   "mobile.server.providers.description": "Die KI-Anbieter des Computers, auf dem dieser Server läuft.",
@@ -670,9 +670,9 @@ export const messages = {
   "mobile.server.providers.runtimesFailed": "Die Downloads dieses Servers konnten nicht geladen werden.",
   "mobile.server.providers.unavailable":
     "Verbinde dich als Eigentümer oder Administrator, um die Anbieter dieses Servers zu verwalten.",
-  "mobile.server.providers.unsupported": "Aktualisiere OpenBot auf diesem Server, um seine Anbieter hier zu verwalten.",
+  "mobile.server.providers.unsupported": "Aktualisiere Builders Bot auf diesem Server, um seine Anbieter hier zu verwalten.",
   "mobile.server.providers.signInUnsupported": "Dieser Server kann diesen Anbieter nicht über das Telefon anmelden.",
-  "mobile.server.providers.actionFailed": "OpenBot konnte diese Aktion nicht abschließen. Versuche es erneut.",
+  "mobile.server.providers.actionFailed": "Builders Bot konnte diese Aktion nicht abschließen. Versuche es erneut.",
   "mobile.server.providers.openFailed": "Die Anmeldeseite konnte nicht geöffnet werden.",
   "mobile.server.providers.copyFailed": "Der Code konnte nicht kopiert werden.",
   "mobile.server.providers.onHost": "Dieser Anbieter läuft auf dem Computer dieses Servers.",
@@ -685,16 +685,16 @@ export const messages = {
     "Der Server erhält eine Anmeldung vom Anbieter. Du schließt sie auf diesem Telefon ab.",
   "mobile.server.providers.relayHint":
     "Du meldest dich auf diesem Telefon auf der Seite des Anbieters an. Der Server erhält die Anmeldung.",
-  "mobile.server.providers.connectOnComputer": "Verbinde diesen Anbieter in OpenBot auf einem Computer.",
+  "mobile.server.providers.connectOnComputer": "Verbinde diesen Anbieter in Builders Bot auf einem Computer.",
   "mobile.server.providers.signIn": "Anmelden",
   "mobile.server.providers.starting": "Anmeldung wird auf dem Server gestartet…",
   "mobile.server.providers.openPage": "Anmeldeseite öffnen",
   "mobile.server.providers.copy": "Kopieren",
   "mobile.server.providers.copyCode": "Code kopieren",
   "mobile.server.providers.codeHint":
-    "Kopiere den Code, öffne die Seite und gib den Code ein. OpenBot macht dann allein weiter.",
+    "Kopiere den Code, öffne die Seite und gib den Code ein. Builders Bot macht dann allein weiter.",
   "mobile.server.providers.pasteHint": "Melde dich auf der Seite an und füge dann den Code ein, den die Seite zeigt.",
-  "mobile.server.providers.linkHint": "Melde dich auf der Seite an. OpenBot macht dann allein weiter.",
+  "mobile.server.providers.linkHint": "Melde dich auf der Seite an. Builders Bot macht dann allein weiter.",
   "mobile.server.providers.relayWaiting": "Warte auf die Anmeldeseite vom Server…",
   "mobile.server.providers.relayPasteHint":
     "Melde dich auf der Seite an. Danach lädt sie nicht. Tippe auf die Adressleiste, kopiere die Adresse und füge sie hier ein.",
@@ -748,7 +748,7 @@ export const messages = {
   "mobile.server.providers.status.checking": "Wird geprüft",
   "mobile.server.settings.mcp": "MCP-Server",
   "mobile.server.settings.mcpCount": { one: "{count} Server", other: "{count} Server" },
-  "mobile.server.mcp.unsupported": "Aktualisiere OpenBot auf diesem Server, um seine MCP-Server hier zu verwalten.",
+  "mobile.server.mcp.unsupported": "Aktualisiere Builders Bot auf diesem Server, um seine MCP-Server hier zu verwalten.",
   "mobile.server.mcp.unavailable":
     "Verbinde dich als Inhaber oder Admin mit diesem Server, um seine MCP-Server zu verwalten.",
   "mobile.server.mcp.description":
@@ -767,7 +767,7 @@ export const messages = {
   "mobile.server.mcp.addConfirm": "Hinzufügen",
   "mobile.server.mcp.name": "Name",
   "mobile.server.mcp.namePlaceholder": "Name des MCP-Servers",
-  "mobile.server.mcp.nameReserved": "OpenBot verwendet den Namen {name} bereits.",
+  "mobile.server.mcp.nameReserved": "Builders Bot verwendet den Namen {name} bereits.",
   "mobile.server.mcp.transport": "Transport",
   "mobile.server.mcp.stdio": "Befehl (STDIO)",
   "mobile.server.mcp.http": "URL (HTTP)",
@@ -778,12 +778,12 @@ export const messages = {
   "mobile.server.mcp.command": "Befehl",
   "mobile.server.mcp.commandHint": "Nur das Programm. Schreibe jedes Wort danach in Argumente.",
   "mobile.server.mcp.arguments": "Argumente",
-  "mobile.server.mcp.argumentsHint": "OpenBot gibt jedes Argument als ein Wort an das Programm.",
+  "mobile.server.mcp.argumentsHint": "Builders Bot gibt jedes Argument als ein Wort an das Programm.",
   "mobile.server.mcp.addArgument": "Argument hinzufügen",
   "mobile.server.mcp.argument": "Argument {position}",
   "mobile.server.mcp.removeArgument": "Argument {position} entfernen",
   "mobile.server.mcp.environment": "Umgebungsvariablen",
-  "mobile.server.mcp.environmentHint": "OpenBot gibt diese Variablen an den MCP-Server, wenn er startet.",
+  "mobile.server.mcp.environmentHint": "Builders Bot gibt diese Variablen an den MCP-Server, wenn er startet.",
   "mobile.server.mcp.addVariable": "Variable hinzufügen",
   "mobile.server.mcp.variableKey": "Name der Variable {position}",
   "mobile.server.mcp.variableValue": "Wert der Variable {position}",
@@ -798,7 +798,7 @@ export const messages = {
   "mobile.server.mcp.url": "Server-URL",
   "mobile.server.mcp.urlInvalid": "Gib eine http- oder https-Adresse ein.",
   "mobile.server.mcp.headers": "Header",
-  "mobile.server.mcp.headersHint": "OpenBot sendet diese Header mit jeder Anfrage.",
+  "mobile.server.mcp.headersHint": "Builders Bot sendet diese Header mit jeder Anfrage.",
   "mobile.server.mcp.addHeader": "Header hinzufügen",
   "mobile.server.mcp.headerName": "Name des Headers {position}",
   "mobile.server.mcp.headerValue": "Wert des Headers {position}",
@@ -815,7 +815,7 @@ export const messages = {
   "mobile.server.mcp.testFailed": "Der MCP-Server hat nicht geantwortet.",
   "mobile.server.mcp.connected": { one: "Verbunden · {count} Werkzeug", other: "Verbunden · {count} Werkzeuge" },
   "mobile.server.mcp.signInOnComputer":
-    "Dieser MCP-Server verlangt eine Anmeldung. Melde dich in OpenBot auf einem Computer an und teste dann erneut.",
+    "Dieser MCP-Server verlangt eine Anmeldung. Melde dich in Builders Bot auf einem Computer an und teste dann erneut.",
   "mobile.server.mcp.signedInDescription": "{server} ist bei diesem MCP-Server angemeldet.",
   "mobile.server.mcp.signOut": "Abmelden",
   "mobile.server.mcp.saveFailed": "Die Änderung konnte nicht gespeichert werden. Versuche es erneut.",
@@ -847,8 +847,8 @@ export const messages = {
   "mobile.server.settings.updates": "Updates",
   "mobile.server.settings.updateAvailable": "Update verfügbar",
   "mobile.server.route.updates": "Updates",
-  "mobile.server.update.hostTitle": "OpenBot auf {name}",
-  "mobile.server.update.version": "OpenBot {version}",
+  "mobile.server.update.hostTitle": "Builders Bot auf {name}",
+  "mobile.server.update.version": "Builders Bot {version}",
   "mobile.server.update.status.idle": "Suche nach Updates, um die neueste Version zu finden.",
   "mobile.server.update.status.checking": "Updates werden gesucht…",
   "mobile.server.update.status.available": "{version} ist verfügbar.",
@@ -856,28 +856,28 @@ export const messages = {
   "mobile.server.update.status.downloadingUnknown": "{version} wird heruntergeladen…",
   "mobile.server.update.status.ready": "{version} wurde heruntergeladen.",
   "mobile.server.update.status.installing": "{name} wird neu gestartet, um das Update zu installieren.",
-  "mobile.server.update.status.upToDate": "OpenBot ist auf {name} aktuell.",
+  "mobile.server.update.status.upToDate": "Builders Bot ist auf {name} aktuell.",
   "mobile.server.update.status.checkFailed": "{name} konnte nicht nach Updates suchen. Versuche es erneut.",
   "mobile.server.update.status.downloadFailed": "{name} konnte das Update nicht herunterladen. Versuche es erneut.",
   "mobile.server.update.status.installFailed":
-    "{name} konnte das Update nicht installieren. Stelle sicher, dass kein anderer Benutzer dieses Computers OpenBot ausführt, und versuche es erneut.",
+    "{name} konnte das Update nicht installieren. Stelle sicher, dass kein anderer Benutzer dieses Computers Builders Bot ausführt, und versuche es erneut.",
   "mobile.server.update.releaseCheckFailed":
     "{name} konnte den Versions-Feed nicht lesen. Prüfe die Netzwerkverbindung des Hosts und versuche es erneut.",
   "mobile.server.update.releaseUnavailable":
     "Diese Version kann nicht nach neuen Versionen suchen. Bitte den Host-Administrator, nach einer kompatiblen Version zu suchen.",
   "mobile.server.update.externalTitle": "Der Host steuert die Installation",
   "mobile.server.update.path.hostManager":
-    "OpenBot Host Manager installiert Updates, wenn alle Benutzer inaktiv sind. Bitte den Host-Administrator, den Status von Host Manager zu prüfen, wenn ein Update nicht startet.",
+    "Builders Bot Host Manager installiert Updates, wenn alle Benutzer inaktiv sind. Bitte den Host-Administrator, den Status von Host Manager zu prüfen, wenn ein Update nicht startet.",
   "mobile.server.update.path.hosted":
     "Der gehostete Dienst lädt Updates im Hintergrund herunter. Ein heruntergeladenes Update startet beim nächsten Serverstart. Warte, bis aktive Aufgaben beendet sind, bevor du den Server stoppst und fortsetzt. Bleibt er bei einer alten Version, kontaktiere den Host-Administrator.",
   "mobile.server.update.path.system":
-    "Führe auf dem Host sudo openbot update aus, um die neueste Version zu installieren. Dieser Befehl beendet OpenBot. Warte zuerst, bis aktive Aufgaben beendet sind. Automatische Downloads werden beim nächsten Systemstart installiert.",
+    "Führe auf dem Host sudo openbot update aus, um die neueste Version zu installieren. Dieser Befehl beendet Builders Bot. Warte zuerst, bis aktive Aufgaben beendet sind. Automatische Downloads werden beim nächsten Systemstart installiert.",
   "mobile.server.update.path.container":
-    "Lade auf dem Docker-Host das neue OpenBot-Image herunter und erstelle den Container mit denselben Datenvolumes neu. Warte zuerst, bis aktive Aufgaben beendet sind. Behalte die vorhandenen Volumes, um deine Daten zu erhalten.",
+    "Lade auf dem Docker-Host das neue Builders Bot-Image herunter und erstelle den Container mit denselben Datenvolumes neu. Warte zuerst, bis aktive Aufgaben beendet sind. Behalte die vorhandenen Volumes, um deine Daten zu erhalten.",
   "mobile.server.update.path.manual":
-    "Diese Installation kann sich nicht selbst ersetzen. Bitte den Host-Administrator, die kompatible Version von github.com/nightly-labs/openbot/releases zu installieren. Behalte die vorhandenen OpenBot-Daten.",
+    "Diese Installation kann sich nicht selbst ersetzen. Bitte den Host-Administrator, die kompatible Version von github.com/nightly-labs/openbot/releases zu installieren. Behalte die vorhandenen Builders Bot-Daten.",
   "mobile.server.update.path.unavailable":
-    "Dies ist eine Entwicklungsversion. Verwende eine installierte OpenBot-Version, um nach Updates zu suchen.",
+    "Dies ist eine Entwicklungsversion. Verwende eine installierte Builders Bot-Version, um nach Updates zu suchen.",
   "mobile.server.update.check": "Nach Updates suchen",
   "mobile.server.update.start": "Im Leerlauf aktualisieren",
   "mobile.server.update.restartNow": "Jetzt neu starten",
@@ -888,27 +888,27 @@ export const messages = {
   "mobile.server.update.automatic": "{name} installiert Updates automatisch.",
   "mobile.server.update.autoDownloadTitle": "Updates automatisch herunterladen",
   "mobile.server.update.autoDownloadDescription":
-    "{name} lädt jede neue OpenBot-Version herunter, sobald sie erscheint.",
+    "{name} lädt jede neue Builders Bot-Version herunter, sobald sie erscheint.",
   "mobile.server.update.autoInstallTitle": "Updates automatisch installieren",
   "mobile.server.update.autoInstallDescription":
     "{name} startet mit einem heruntergeladenen Update neu, sobald seine Agenten inaktiv sind. Mitglieder werden kurz getrennt und automatisch erneut verbunden.",
   "mobile.server.update.waitingFor": "Warten auf {reasons}.",
   "mobile.server.update.disabledTitle": "Remote-Updates sind deaktiviert",
   "mobile.server.update.disabledDescription":
-    "Der Benutzer von {name} hat Updates durch Servermitglieder deaktiviert. Bitte ihn, OpenBot zu aktualisieren oder die Einstellung zu aktivieren.",
+    "Der Benutzer von {name} hat Updates durch Servermitglieder deaktiviert. Bitte ihn, Builders Bot zu aktualisieren oder die Einstellung zu aktivieren.",
   "mobile.server.update.managedTitle": "Ein Host Manager steuert Updates",
   "mobile.server.update.managedDescription":
-    "OpenBot Host Manager aktualisiert {name}. Kontaktiere den Host-Administrator.",
+    "Builders Bot Host Manager aktualisiert {name}. Kontaktiere den Host-Administrator.",
   "mobile.server.update.unsupportedTitle": "{name} kann sich nicht selbst aktualisieren",
   "mobile.server.update.unsupportedDescription":
-    "Diese OpenBot-Version hat keine Update-Funktion. Installiere eine neue Version auf {name}.",
+    "Diese Builders Bot-Version hat keine Update-Funktion. Installiere eine neue Version auf {name}.",
   "mobile.server.update.restarting": "Wird neu gestartet…",
   "mobile.server.update.loadFailed": "Der Update-Status von {name} wurde nicht geladen.",
-  "mobile.server.update.dialog.offerTitle": "{name} auf OpenBot {version} aktualisieren",
+  "mobile.server.update.dialog.offerTitle": "{name} auf Builders Bot {version} aktualisieren",
   "mobile.server.update.dialog.offerDescription":
-    "{name} nutzt OpenBot {current}. Zuerst wird das Update heruntergeladen, dann startet {name} neu.",
+    "{name} nutzt Builders Bot {current}. Zuerst wird das Update heruntergeladen, dann startet {name} neu.",
   "mobile.server.update.dialog.offerReadyDescription":
-    "{name} nutzt OpenBot {current}. Das Update ist heruntergeladen. {name} startet neu, um es zu installieren.",
+    "{name} nutzt Builders Bot {current}. Das Update ist heruntergeladen. {name} startet neu, um es zu installieren.",
   "mobile.server.update.dialog.waitIdleDescription":
     "Der Neustart wartet, bis Agentendurchläufe und Routinen-Ausführungen abgeschlossen sind.",
   "mobile.server.update.dialog.updateNow": "Jetzt aktualisieren",
@@ -924,10 +924,10 @@ export const messages = {
   "mobile.server.update.reason.fileTransfer": "eine Dateiübertragung",
   "mobile.server.update.reason.browserControl": "Browsersteuerung durch einen Agenten",
   "mobile.server.update.reason.updateOperation": "einen weiteren Update-Schritt",
-  "mobile.server.update.reason.initialization": "den Start von OpenBot",
+  "mobile.server.update.reason.initialization": "den Start von Builders Bot",
   "mobile.server.update.reason.other": "andere Aufgaben",
   "mobile.server.update.actionFailed": "Die Serveraktion ist fehlgeschlagen.",
-  "mobile.server.update.unavailable": "Verbinde dich mit diesem Server, um seine OpenBot-Updates zu sehen.",
+  "mobile.server.update.unavailable": "Verbinde dich mit diesem Server, um seine Builders Bot-Updates zu sehen.",
   "mobile.server.update.loading": "Updates werden geladen…",
   "mobile.server.route.sites": "Websites",
   "mobile.server.settings.sites": "Websites",
@@ -950,13 +950,13 @@ export const messages = {
   "mobile.server.sites.deleteDescription": "Diese Adresse gibt sofort 410 Gone zurück.",
   "mobile.server.sites.deleteFailed": "Die Website konnte nicht gelöscht werden.",
   "mobile.server.sites.openFailed": "Die Website konnte nicht geöffnet werden.",
-  "mobile.server.sites.unsupported": "Aktualisiere OpenBot auf diesem Server, um seine Websites hier zu sehen.",
+  "mobile.server.sites.unsupported": "Aktualisiere Builders Bot auf diesem Server, um seine Websites hier zu sehen.",
   "mobile.server.sites.offline": "Verbinde dich mit diesem Server, um seine Websites zu sehen.",
   "mobile.server.route.roles": "Rollen",
   "mobile.server.route.role": "Rolle",
   "mobile.server.roles.description":
     "Wähle die Agenten, die Mitglieder nutzen können. Inhaber und Admins können alle Agenten nutzen.",
-  "mobile.server.roles.unsupported": "Aktualisiere OpenBot auf diesem Server, um Rollen zu verwalten.",
+  "mobile.server.roles.unsupported": "Aktualisiere Builders Bot auf diesem Server, um Rollen zu verwalten.",
   "mobile.server.roles.unavailable": "Nur ein Inhaber oder Admin eines Online-Servers kann Rollen verwalten.",
   "mobile.server.roles.loading": "Rollen werden geladen…",
   "mobile.server.roles.loadFailed": "Die Rollen dieses Servers konnten nicht geladen werden.",

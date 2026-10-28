@@ -91,7 +91,7 @@ export class McpGateway {
   readonly #computerUseMcpServer: () => McpServerConfig | null;
   readonly #githubConnector: GitHubConnectorSource | null;
   /**
-   * What OpenBot downloaded for the MCP servers, read at each use. It travels with the credentials
+   * What Builders Bot downloaded for the MCP servers, read at each use. It travels with the credentials
    * because both are the main process's knowledge of this machine, and because the clients already
    * take that object; this field is only for the two readers that are not a client: the Test button
    * and the Codex thread configuration.
@@ -241,7 +241,7 @@ export class McpGateway {
   /**
    * The MCP servers this machine holds.
    *
-   * Configurations only: OpenBot holds no connection of its own to report. A connection is made
+   * Configurations only: Builders Bot holds no connection of its own to report. A connection is made
    * when the user asks for a test, and when an agent starts - and the second is the provider's own.
    */
   list(): McpServerConfig[] {
@@ -443,7 +443,7 @@ export class McpGateway {
     return this.signInApp(input);
   }, Effect.uninterruptible);
 
-  /** Drops the sign-in app and the tokens it earned. The next sign-in registers OpenBot again. */
+  /** Drops the sign-in app and the tokens it earned. The next sign-in registers Builders Bot again. */
   readonly removeSignInApp = Effect.fn("McpGateway.removeSignInApp")(function* (
     this: McpGateway,
     input: McpSignInAppInput,

@@ -58,7 +58,7 @@ import { messages as workflow } from "./workflow";
  * is missing here renders its English source.
  *
  * Notes for a reviewer. The interface uses です・ます throughout, because the English source speaks
- * to the user directly rather than reporting state. Product names stay in Latin script: OpenBot is
+ * to the user directly rather than reporting state. Product names stay in Latin script: Builders Bot is
  * the application name, and ZIP and JSON are the file formats a picker shows.
  *
  * This is the desktop catalog: shared keys, source text, and every desktop area.

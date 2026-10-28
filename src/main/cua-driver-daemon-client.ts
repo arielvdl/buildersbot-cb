@@ -1,4 +1,4 @@
-// OpenBot's own read-only connection to the Computer Use daemon.
+// Builders Bot's own read-only connection to the Computer Use daemon.
 //
 // The rim asks the daemon the same two questions many times a second: which agent holds the
 // desktop, and where its windows are. The driver's command line answers both, but a command line

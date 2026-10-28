@@ -286,7 +286,7 @@ export class SkillMarketplaceService {
         } else result.push({ kind: "marketplace", ...(yield* this.publishedReferenceEffect(agent, entry)) });
       }
       for (const skill of yield* listFolderSkills(agent, lockedSlugs(lock)).pipe(toSkillMarketplaceFailure)) {
-        // A managed skill without its ownership marker is still OpenBot's: every install writes its own.
+        // A managed skill without its ownership marker is still Builders Bot's: every install writes its own.
         if (skill.problem || !skill.location || MANAGED_SKILL_SLUGS.has(skill.slug)) continue;
         result.push(yield* embeddedSkill(join(agent.workspacePath, skill.location, "SKILL.md"), skill.name));
       }

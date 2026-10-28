@@ -33,14 +33,14 @@ import type {
   UpdateRoutineFlowLinkInput,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { nextValidRoutineOccurrence, routineOnceInstant } from "@openbot/team-client/routine-schedule";
 import { Context, Effect, Exit, Layer, ManagedRuntime, Schema, Scope, Semaphore } from "effect";
 import { coalescedPasses } from "../coalesced-passes";
 import { routineFlowDepths } from "./routine-flow-graph";
 import { RoutineFlowError, type RoutineFlowRun, type RoutineFlowStore } from "./routine-flow-store";
 
-const logger = createOpenBotLogger("routine-flows");
+const logger = createBuildersBotLogger("routine-flows");
 
 /** How far back a sweep looks for a run whose flow may still move. */
 const SWEEP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;

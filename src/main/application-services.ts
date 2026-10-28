@@ -88,7 +88,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { REMOTE_ACCOUNT_CHECK_INTERVAL_MS } from "@openbot/team-client";
 import {
   app,
@@ -117,7 +117,7 @@ import { discordDriver } from "../backend/messaging/discord/discord-driver";
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
 import { telegramDriver } from "../backend/messaging/telegram/telegram-driver";
-import { OpenBotDatabase } from "../backend/openbot-database";
+import { BuildersBotDatabase } from "../backend/openbot-database";
 import { passwordVaultRouter } from "../backend/password-vault-router";
 import { sweepProviderTemp } from "../backend/provider-temp";
 import { SidebarLayoutStore } from "../backend/sidebar-layout-store";
@@ -275,6 +275,7 @@ import { StatementTimings } from "./resource-summary";
 import { RoutineFeedServer } from "./routine-feed-server";
 import { clearRoutineHold, ROUTINE_HOLD_FILE, takeRoutineHold, writeRoutineHold } from "./routine-hold-file";
 import { ScreenCapturer } from "./screen-capture";
+import { SecurityGuardService } from "./security-guard-service";
 import { agentProcessEnvironment, ServerMemory } from "./server-memory";
 import { ServerMode, type ServerModeEnvironment } from "./server-mode";
 import { ServerTimezonePreferenceStore } from "./server-timezone-preference-store";
@@ -305,7 +306,7 @@ import {
   type UpdateAdapter,
   UpdateService,
 } from "./update-service";
-import { listSiblingOpenBotInstances } from "./update-sibling-instances";
+import { listSiblingBuildersBotInstances } from "./update-sibling-instances";
 import { VaultService } from "./vault-service";
 import { VaultStore } from "./vault-store";
 import { VoiceApiKeyStore } from "./voice-api-key-store";
@@ -324,7 +325,7 @@ import { spawnVoiceTranscriptionHost } from "./voice-transcription-host-process"
 import { VoiceTranscriptionService } from "./voice-transcription-service";
 import { WebhookRelay } from "./webhook-relay";
 
-const logger = createOpenBotLogger("application-services");
+const logger = createBuildersBotLogger("application-services");
 const SETUP_FILE = "openbot-setup-v2.json";
 const ANALYTICS_PREFERENCE_FILE = "openbot-analytics-preference-v1.json";
 const ANALYTICS_INVENTORY_FILE = "openbot-analytics-inventory-v1.json";
@@ -349,6 +350,7 @@ const REMOTE_SESSION_REUSE_PREFERENCE_FILE = "openbot-remote-session-reuse-prefe
 const EXTERNAL_LINK_PREFERENCE_FILE = "openbot-external-link-preference-v1.json";
 const REMOTE_NETWORK_ROUTE_PREFERENCE_FILE = "openbot-remote-network-route-v1.json";
 const APP_BEHAVIOR_PREFERENCE_FILE = "openbot-app-behavior-preference-v1.json";
+const SECURITY_GUARD_PREFERENCE_FILE = "openbot-security-guard-v1.json";
 const DYNAMIC_ISLAND_PREFERENCE_FILE = "openbot-dynamic-island-preference-v1.json";
 const BROWSER_STATE_FILE = "openbot-browser-state-v1.json";
 const SIDEBAR_LAYOUT_FILE = "openbot-sidebar-layout-v1.json";
@@ -560,6 +562,8 @@ export interface ApplicationServices {
   remoteNetworkRoute: RemoteNetworkRoutePreferenceStore;
   remoteSessionCache: RemoteSessionCache;
   appBehavior: AppBehaviorService;
+  /** The security reviewer of the messages the user sends. */
+  securityGuard: SecurityGuardService;
   agentInitialization: AgentInitializationGate<AgentLifecycleFailed>;
   sidebarLayout: SidebarLayoutStore;
   host: HostService;
@@ -670,7 +674,7 @@ async function createMessagingServices({
   const messagingCredentialLoadError = await Effect.runPromise(messagingCredentials.load());
   if (messagingCredentialLoadError)
     logger.warn(
-      `OpenBot could not read the messaging token file (${messagingCredentialLoadError.name}). It was left unchanged.`,
+      `Builders Bot could not read the messaging token file (${messagingCredentialLoadError.name}). It was left unchanged.`,
     );
   // The Signal socket that brings the events of the Slack workspaces, Discord guilds and Telegram chats
   // linked to this host, and makes its Discord and Telegram calls.
@@ -695,7 +699,7 @@ async function createMessagingServices({
     Effect.runPromise(signalIngress.dispose()),
   );
   // Development only: `bun run dev:slack` names this loopback port, so a Slack install returns to this
-  // dev app and not to an installed OpenBot that owns `openbot://`.
+  // dev app and not to an installed Builders Bot that owns `openbot://`.
   const developmentSlackCallbackPort = app.isPackaged ? 0 : Number(process.env.OPENBOT_DEV_SLACK_CALLBACK_PORT ?? 0);
   const messaging = new MessagingService({
     threads: service.messaging,
@@ -825,7 +829,7 @@ async function createMessagingServices({
   );
   teardown.push(TEARDOWN_ORDER.messaging, "the messaging connections", () => Effect.runPromise(messaging.stop()));
   if (developmentSlackCallbackPort > 0) {
-    // As `openbot://` does for a packaged build, a finished install brings OpenBot to the front.
+    // As `openbot://` does for a packaged build, a finished install brings Builders Bot to the front.
     const callback = await startSlackDevCallbackServer(developmentSlackCallbackPort, async (nonce, grant) => {
       const received = await runCauseEffect(messaging.completeSlackWorkspace(nonce, grant));
       if (received) app.focus({ steal: true });
@@ -979,8 +983,11 @@ export async function createApplicationServices({
     join(app.getPath("userData"), AGENT_DEFAULTS_PREFERENCE_FILE),
   );
   await runCauseEffect(agentDefaults.load());
-  const store = new AgentStore(app.getPath("userData"), homedir(), new OpenBotDatabase(app.getPath("userData")), () =>
-    agentDefaults.get(),
+  const store = new AgentStore(
+    app.getPath("userData"),
+    homedir(),
+    new BuildersBotDatabase(app.getPath("userData")),
+    () => agentDefaults.get(),
   );
   // Phase marks for `dev:bench`, so a slow start shows which group of awaits it waited on. They
   // change nothing.
@@ -1047,7 +1054,7 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.teamWebRtcBridge, "the team WebRTC bridge", () =>
     runCauseEffect(teamWebRtcBridge.stop()),
   );
-  // Only a hosted, self-hosted or container server: one unit or container holds OpenBot and every
+  // Only a hosted, self-hosted or container server: one unit or container holds Builders Bot and every
   // agent process. The desktop app does not hold turns for memory.
   const hostMemory =
     hostedServer || serverModeEnvironment
@@ -1181,6 +1188,8 @@ export async function createApplicationServices({
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
     logger.warn("The login item did not refresh.", toLogValue(error)),
   );
+  const securityGuard = new SecurityGuardService(join(app.getPath("userData"), SECURITY_GUARD_PREFERENCE_FILE));
+  await runCauseEffect(securityGuard.load());
   const remoteSessionCache = new RemoteSessionCache({
     path: join(app.getPath("userData"), REMOTE_SESSIONS_FILE),
     enabled: remoteSessionReuse.get().keepBetweenRuns,
@@ -1212,9 +1221,9 @@ export async function createApplicationServices({
    * The installed CLIs are the computer's, the partial downloads are this profile's.
    *
    * Development gives every renderer port and every `--isolated` worktree a `userData` of its own,
-   * so a store kept there started empty each time: OpenBot fell back to the user's own CLI, offered
+   * so a store kept there started empty each time: Builders Bot fell back to the user's own CLI, offered
    * the pinned version against it, and downloaded 144 MB again for a profile that would be replaced
-   * by the next port. The packaged app's `userData` is `appData/OpenBot` already, so the shared
+   * by the next port. The packaged app's `userData` is `appData/Builders Bot` already, so the shared
    * store is the path it always used. The switch is read here rather than imported from the entry
    * point, which this file may not reach into; both readers read the same immutable value.
    */
@@ -1303,11 +1312,13 @@ export async function createApplicationServices({
   performance.mark("openbot:services.provider-detection");
   const credentialLoadError = await Effect.runPromise(providerCredentials.load());
   if (credentialLoadError) {
-    logger.warn(`OpenBot could not read the provider key file (${credentialLoadError.name}). It was left unchanged.`);
+    logger.warn(
+      `Builders Bot could not read the provider key file (${credentialLoadError.name}). It was left unchanged.`,
+    );
   }
   /*
    * The MCP sign-ins, in their own file with the same cipher. `mcp-remote` used to keep these where
-   * OpenBot could not redact them; here they are covered by the same rule as every other secret.
+   * Builders Bot could not redact them; here they are covered by the same rule as every other secret.
    *
    * Unreadable is not fatal, for the same reason as the keys above: every signed-in server asks for
    * a sign-in again, and nothing else on this machine stops working.
@@ -1315,7 +1326,7 @@ export async function createApplicationServices({
   const mcpOAuthStore = new McpOAuthStore(join(app.getPath("userData"), MCP_OAUTH_FILE), secretCipher);
   const mcpOAuthLoadError = await Effect.runPromise(mcpOAuthStore.load());
   if (mcpOAuthLoadError) {
-    logger.warn(`OpenBot could not read the MCP sign-in file (${mcpOAuthLoadError.name}). It was left unchanged.`);
+    logger.warn(`Builders Bot could not read the MCP sign-in file (${mcpOAuthLoadError.name}). It was left unchanged.`);
   }
   // The OAuth proxy port, so a Codex session resumed after a restart reaches the same address.
   const mcpOAuthProxySettings = new McpOAuthProxySettingsFile(
@@ -1325,13 +1336,13 @@ export async function createApplicationServices({
   const mcpOAuthProxyLoadError = await Effect.runPromise(mcpOAuthProxySettings.load());
   if (mcpOAuthProxyLoadError) {
     logger.warn(
-      `OpenBot could not read the MCP sign-in proxy file (${mcpOAuthProxyLoadError.name}). A new port is used.`,
+      `Builders Bot could not read the MCP sign-in proxy file (${mcpOAuthProxyLoadError.name}). A new port is used.`,
     );
   }
   /*
    * Where a returning grant lands. The loopback listener is the address RFC 8252 gives a native
    * app and the only one some authorization servers accept - Canva refuses `openbot://mcp-auth`
-   * on its own authorization page, where OpenBot cannot see the failure or explain it.
+   * on its own authorization page, where Builders Bot cannot see the failure or explain it.
    *
    * A port that cannot be bound is not fatal: the deep link is still registered with the
    * operating system, and the servers that accept it keep working. It is logged because it
@@ -1370,7 +1381,7 @@ export async function createApplicationServices({
     },
   }).catch((error: unknown) => {
     logger.warn(
-      "OpenBot could not listen for MCP sign-ins on this machine, so the openbot:// link is used instead. Servers that refuse it cannot be signed in to:",
+      "Builders Bot could not listen for MCP sign-ins on this machine, so the openbot:// link is used instead. Servers that refuse it cannot be signed in to:",
       toLogValue(error),
     );
     return null;
@@ -1382,7 +1393,7 @@ export async function createApplicationServices({
     storage: mcpOAuthStore,
     openExternal: openLink,
     redirectUrl: mcpOAuthRedirect?.redirectUrl ?? MCP_OAUTH_REDIRECT_URL,
-    logger: createOpenBotLogger("mcp-oauth"),
+    logger: createBuildersBotLogger("mcp-oauth"),
   });
   mcpOAuthAuthority = mcpOAuth;
   teardown.push(TEARDOWN_ORDER.mcpOAuth, "MCP token refresh", () => Effect.runPromise(mcpOAuth.close()));
@@ -1404,7 +1415,7 @@ export async function createApplicationServices({
   );
   /*
    * The Bitwarden connection. A host connection's API key and master password are stored, so the
-   * host unlocks again after a restart; its CLI data and OpenBot's copy of `bw` stay outside every
+   * host unlocks again after a restart; its CLI data and Builders Bot's copy of `bw` stay outside every
    * root an agent can write.
    */
   const bitwardenCliTarget = runtimeTarget(process.platform, process.arch);
@@ -1466,7 +1477,7 @@ export async function createApplicationServices({
       onStatementSettled: (durationMs) => statementTimings.record(durationMs),
     }),
   });
-  // Looked up again on demand, because a user may install the driver while OpenBot runs, and the
+  // Looked up again on demand, because a user may install the driver while Builders Bot runs, and the
   // panel's "Check again" has to see it.
   const resolveCuaDriverExecutable = () => {
     const installDirectory = process.env.CUA_DRIVER_RS_INSTALL_DIR ?? process.env.CUA_DRIVER_BIN_DIR;
@@ -1516,11 +1527,11 @@ export async function createApplicationServices({
   // daemon: stopping it first would leave them reading a socket nothing answers.
   teardown.push(TEARDOWN_ORDER.cuaDriver, "the Computer Use driver", () => runCauseEffect(cuaDriver.stop()));
   /*
-   * The rim OpenBot draws over the window an agent works in.
+   * The rim Builders Bot draws over the window an agent works in.
    *
    * It asks the daemon two read-only questions over a connection of its own: whether any agent
    * holds a live session, and where every window is. Both answers come from the daemon's own view,
-   * which an MCP client of OpenBot's could not see: the tools report only the sessions of the lease
+   * which an MCP client of Builders Bot's could not see: the tools report only the sessions of the lease
    * that asks, and the agent's lease is its own.
    */
   const computerUseReads = new CuaDriverDaemonClient(() =>
@@ -1531,7 +1542,7 @@ export async function createApplicationServices({
     loadWindow: loadComputerUseHighlightRenderer,
     place: sendComputerUseHighlightPlacement,
     displays: computerUseDisplays,
-    // The driver's own cursor on one screen, OpenBot's inside this overlay on more than one. The
+    // The driver's own cursor on one screen, Builders Bot's inside this overlay on more than one. The
     // runtime answers `null` for the screen it draws itself, so only one cursor is ever drawn.
     readPointer: () => {
       const pointer = cuaDriver.lastPointer(COMPUTER_USE_CURSOR_MAX_AGE_MS);
@@ -1569,7 +1580,7 @@ export async function createApplicationServices({
     computerUseHighlight.destroy();
     await Effect.runPromise(computerUseReads.close());
   });
-  // The overlays are OpenBot windows, so they can mark only the display OpenBot is on. With an agent
+  // The overlays are Builders Bot windows, so they can mark only the display Builders Bot is on. With an agent
   // display of its own, the driver works where they cannot be drawn.
   const drawsComputerUseHighlight = !hasSeparateAgentDisplay(process.platform);
   const computerUsePermissionHelp = new ComputerUsePermissionHelpWindowController({
@@ -1624,8 +1635,8 @@ export async function createApplicationServices({
         ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
         toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
       }),
-    // `desktopCapturer` captures the display OpenBot is on. With an agent display of its own, that
-    // is only the OpenBot window, so agents take their screenshots with the Computer Use driver.
+    // `desktopCapturer` captures the display Builders Bot is on. With an agent display of its own, that
+    // is only the Builders Bot window, so agents take their screenshots with the Computer Use driver.
     screenCapture: hasSeparateAgentDisplay(process.platform)
       ? null
       : new ScreenCapturer({
@@ -1715,6 +1726,7 @@ export async function createApplicationServices({
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
     busyMessageMode: () => busyMessageMode.get().mode,
+    securityGuard: () => securityGuard.get(),
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     timezone: () => serverTimezone.effective(),
     // `workflowTriggers` is built later, after the workflows.
@@ -1900,7 +1912,7 @@ export async function createApplicationServices({
   cuaDriver.onStateChanged((state) => service.setComputerUseCapability(computerUseCapability(state)));
   // Only when a live session would hold the wrong tool set: this deactivates every agent's stored
   // provider session, so the driver stays quiet for a grant, for the warm-up below, and from the
-  // moment OpenBot quits, where the sessions are being left for the next run.
+  // moment Builders Bot quits, where the sessions are being left for the next run.
   cuaDriver.onMcpServerChanged(() => {
     void runCauseEffect(service.notifyComputerUseChanged()).catch((error) =>
       logger.warn("Provider tools did not refresh.", toLogValue(error)),
@@ -1939,7 +1951,7 @@ export async function createApplicationServices({
   );
   /*
    * Where the decision put the download: onboarding, which is the screen this start is about to
-   * show. A user who finished onboarding before OpenBot downloaded a runtime at all is asked for
+   * show. A user who finished onboarding before Builders Bot downloaded a runtime at all is asked for
    * one here too, but only when this machine already has an MCP server to start.
    *
    * Nothing waits for it and nothing reports it. MCP is optional, so a failed download must not
@@ -2756,7 +2768,9 @@ export async function createApplicationServices({
     (hostedInstaller || (supportsInstalledUpdates(process.platform) && updateMetadataAvailable)) &&
     isValidSemver(currentVersion);
   if (app.isPackaged && updateMetadataAvailable && !isValidSemver(currentVersion)) {
-    logger.warn(`OpenBot updates are disabled because the application version is not valid SemVer: ${currentVersion}`);
+    logger.warn(
+      `Builders Bot updates are disabled because the application version is not valid SemVer: ${currentVersion}`,
+    );
   }
   let updateAdapter: UpdateAdapter = createDisabledUpdateAdapter();
   let updaterEnabled = updatesEnabled;
@@ -2776,11 +2790,11 @@ export async function createApplicationServices({
         updaterCacheDirectory = join(electronUpdaterCacheRoot(), "openbot-updater");
       } else {
         updaterEnabled = false;
-        logger.warn("OpenBot updates are disabled: electron-updater did not export autoUpdater");
+        logger.warn("Builders Bot updates are disabled: electron-updater did not export autoUpdater");
       }
     } catch {
       updaterEnabled = false;
-      logger.warn("OpenBot updates are disabled: electron-updater failed to load");
+      logger.warn("Builders Bot updates are disabled: electron-updater failed to load");
     }
   }
   const updater = new UpdateService(updateAdapter, {
@@ -2789,13 +2803,13 @@ export async function createApplicationServices({
     autoDownload: updatePreference.autoDownload,
     beforeInstall: prepareForUpdateInstall,
     // Packaged runs share one application bundle across macOS users. Installing while another
-    // login session runs OpenBot from that bundle would replace it underneath that session, so
+    // login session runs Builders Bot from that bundle would replace it underneath that session, so
     // the service refuses the install until every sibling session stopped. Unpackaged runs never
     // enable updates, so there is nothing to guard there.
     ...(app.isPackaged
       ? {
           checkSiblingInstances: () =>
-            listSiblingOpenBotInstances({
+            listSiblingBuildersBotInstances({
               executablePath: app.getPath("exe"),
               currentPid: process.pid,
               platform: process.platform,
@@ -2805,7 +2819,7 @@ export async function createApplicationServices({
                   if (siblings.length === 0) return;
                   const list = siblings.map(({ pid, uid }) => `pid ${pid} (uid ${uid})`).join(", ");
                   logger.warn(
-                    `OpenBot update install refused: other OpenBot processes run from this application: ${list}`,
+                    `Builders Bot update install refused: other Builders Bot processes run from this application: ${list}`,
                   );
                 }),
               ),
@@ -2832,7 +2846,7 @@ export async function createApplicationServices({
       yield* routineFlowRuntime.sweep();
       // Ends the workflow steps a restart cut off, and moves the runs on.
       yield* workflowRuntime.sweep();
-      // Marks the posts a restart cut off, and sends the answers that ended while OpenBot was closed.
+      // Marks the posts a restart cut off, and sends the answers that ended while Builders Bot was closed.
       yield* routineResultRuntime.recover();
     }),
   );
@@ -3068,6 +3082,7 @@ export async function createApplicationServices({
     remoteNetworkRoute,
     remoteSessionCache,
     appBehavior,
+    securityGuard,
     agentInitialization,
     hostUpdateCoordinator,
     requestedUpdate: remoteUpdate,

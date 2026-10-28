@@ -4,9 +4,9 @@ import type { messages as source } from "../../en/error/import";
 export const messages = {
   // Agent import errors and warnings.
   "error.import.manifestNotJson": "{manifest} は有効な JSON ではありません。",
-  "error.import.notAgentExport": "{manifest} は OpenBot のエージェントのエクスポートではありません。",
+  "error.import.notAgentExport": "{manifest} は Builders Bot のエージェントのエクスポートではありません。",
   "error.import.newerExportSkill":
-    "このエクスポートは、より新しいエクスポート用スキルで作成されました。OpenBot をアップデートしてから、もう一度お試しください。",
+    "このエクスポートは、より新しいエクスポート用スキルで作成されました。Builders Bot をアップデートしてから、もう一度お試しください。",
   "error.import.noAgents": "エクスポートにエージェントが含まれていません。",
   "error.import.tooManyAgents": "エクスポートに含まれるエージェントが {limit} 個を超えています。",
   "error.import.tooManyChannels": "エクスポートに含まれるチャンネルが {limit} 個を超えています。",
@@ -47,9 +47,9 @@ export const messages = {
     "{name}: サーバーにはすでにスキル「{skill}」があるため、エージェントはそのスキルを使います。更新は管理者に依頼してください。",
   "error.import.transferRemoteTooLarge":
     "参加しているサーバーの移行ファイルは 100 MB 未満である必要があります。ワークスペースのファイルをオフにするか、エクスポートするエージェントを減らしてください。",
-  "error.import.transferNotFile": "このファイルは OpenBot の移行ファイルではありません。",
+  "error.import.transferNotFile": "このファイルは Builders Bot の移行ファイルではありません。",
   "error.import.transferNewer":
-    "このファイルは新しいバージョンの OpenBot で作成されました。OpenBot をアップデートしてから、もう一度お試しください。",
+    "このファイルは新しいバージョンの Builders Bot で作成されました。Builders Bot をアップデートしてから、もう一度お試しください。",
   "error.import.transferEmpty": "このファイルにはエージェントも設定も含まれていません。",
   "error.import.transferTooLarge":
     "移行ファイルは 2 GB 未満、かつ 50,000 ファイル未満である必要があります。ワークスペースのファイルをオフにするか、エクスポートするエージェントを減らしてください。",

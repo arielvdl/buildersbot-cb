@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Wyczyść wszystko",
   "memory.clearTitle": "Wyczyścić wszystkie wspomnienia?",
   "memory.clearDescription":
-    "OpenBot trwale usunie wszystkie zapisane wspomnienia ({total}) dla: {name}. Oryginalne wiadomości pozostaną w historii rozmowy.",
+    "Builders Bot trwale usunie wszystkie zapisane wspomnienia ({total}) dla: {name}. Oryginalne wiadomości pozostaną w historii rozmowy.",
   "memory.loadFailed": "Nie udało się wczytać wspomnień.",
   "memory.saveFailed": "Nie udało się zapisać wspomnienia.",
   "memory.updateFailed": "Nie udało się zaktualizować wspomnienia.",

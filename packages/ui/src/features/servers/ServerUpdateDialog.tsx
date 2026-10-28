@@ -33,7 +33,7 @@ export interface ServerUpdateView {
 type StepStatus = "done" | "active" | "failed" | "pending";
 
 /**
- * The OpenBot update of a joined server: the download, the restart, and the server back online. One
+ * The Builders Bot update of a joined server: the download, the restart, and the server back online. One
  * confirm starts the download and the restart, because `host-update-v1` does both in one call. The
  * user can hide the dialog while the host works.
  */

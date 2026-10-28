@@ -1,5 +1,5 @@
 // The sealed hand-off from the account Worker to one desktop host, for an install that ends in the
-// browser, such as the OpenBot Slack or Discord app's.
+// browser, such as the Builders Bot Slack or Discord app's.
 //
 // The host makes a P-256 key pair for one sign-in and sends only the public key. The Worker seals
 // the result to it with ECDH, HKDF and AES-GCM, and only the host that holds the private key can open

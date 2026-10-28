@@ -104,7 +104,7 @@ export const messages = {
   "sidebar.delete.pending": "Excluindo…",
   "sidebar.delete.title": "Excluir {name}?",
   "sidebar.delete.agentDescription":
-    "Isso remove do aplicativo o agente e sua conversa no OpenBot. A fila, as memórias, as rotinas e o espaço de trabalho são excluídos. O histórico armazenado separadamente pelo provedor de CLI conectado não é excluído.",
+    "Isso remove do aplicativo o agente e sua conversa no Builders Bot. A fila, as memórias, as rotinas e o espaço de trabalho são excluídos. O histórico armazenado separadamente pelo provedor de CLI conectado não é excluído.",
   "sidebar.delete.channelDescription":
     "Isso para o canal. O histórico continua em Canais excluídos, somente para visualização. Você pode restaurá-lo de lá. Os agentes membros são mantidos.",
   "sidebar.delete.sectionDescription":
@@ -118,7 +118,7 @@ export const messages = {
   "sidebar.announce.movedPinned": "Chat fixado movido para a posição {position} de {total}.",
   "sidebar.announce.personFallback": "pessoa",
   "sidebar.announce.chatFallback": "chat",
-  "sidebar.mobileApp.title": "OpenBot para celular",
+  "sidebar.mobileApp.title": "Builders Bot para celular",
   "sidebar.mobileApp.body": "O aplicativo já está disponível para iPhone e Android.",
   "sidebar.mobileApp.howToInstall": "Como instalar",
   "sidebar.mobileApp.dismiss": "Dispensar anúncio do aplicativo para celular",
@@ -133,6 +133,6 @@ export const messages = {
   "sidebar.community.title": "Puxe uma cadeira.",
   "sidebar.community.body": "Há um lugar para você no futuro da IA. Participe da comunidade no Discord e no X.",
   "sidebar.community.joinDiscord": "Entrar no Discord",
-  "sidebar.community.followX": "Seguir o OpenBot no X",
+  "sidebar.community.followX": "Seguir o Builders Bot no X",
   "sidebar.community.dismiss": "Dispensar o convite para a comunidade",
 } as const satisfies PartialTranslation<typeof source>;

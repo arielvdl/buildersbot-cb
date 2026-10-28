@@ -24,9 +24,9 @@ export function devRuntimeDirectory(
   }
   if (platform === "win32") {
     const localAppData = environment.LOCALAPPDATA?.trim() || win32.join(homeDirectory, "AppData", "Local");
-    return win32.join(localAppData, "OpenBot", "openbot-dev-instances");
+    return win32.join(localAppData, "Builders Bot", "openbot-dev-instances");
   }
-  if (platform === "darwin") return posix.join(homeDirectory, "Library", "Caches", "OpenBot", "dev");
+  if (platform === "darwin") return posix.join(homeDirectory, "Library", "Caches", "Builders Bot", "dev");
   const runtimeDirectory = environment.XDG_RUNTIME_DIR?.trim();
   if (runtimeDirectory && posix.isAbsolute(runtimeDirectory)) return posix.join(runtimeDirectory, "openbot-dev");
   return posix.join(homeDirectory, ".cache", "openbot", "dev");

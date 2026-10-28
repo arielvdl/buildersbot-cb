@@ -65,7 +65,7 @@ export const messages = {
   "prompt.browser.signInBlocked.title": "{host} a bloqué la connexion depuis {server}",
   "prompt.browser.signInBlocked.cancelledTitle": "Connexion à {host} annulée",
   "prompt.browser.signInBlocked.body":
-    "Connectez-vous sur cet ordinateur. OpenBot envoie uniquement la connexion à {host} vers {server}, et {name} continue.",
+    "Connectez-vous sur cet ordinateur. Builders Bot envoie uniquement la connexion à {host} vers {server}, et {name} continue.",
   "prompt.browser.signInBlocked.cancelledBody": "La connexion a été annulée.",
   "prompt.browser.signInBlocked.waiting": "En attente de la connexion",
   "prompt.browser.signInBlocked.waitingButton": "En attente de la connexion…",

@@ -4,7 +4,7 @@ import type { messages as source } from "../../en/mobile/chat";
 export const messages = {
   "mobile.chat.dictation.microphoneOffTitle": "El acceso al micrófono está desactivado",
   "mobile.chat.dictation.microphoneOffMessage":
-    "Para dictar un mensaje, permite que OpenBot use el micrófono y el reconocimiento de voz en Ajustes.",
+    "Para dictar un mensaje, permite que Builders Bot use el micrófono y el reconocimiento de voz en Ajustes.",
   "mobile.chat.dictation.stopped": "Dictado detenido",
   "mobile.chat.dictation.tryAgain": "Vuelve a intentarlo.",
   "mobile.chat.dictation.unavailable": "El dictado no está disponible",
@@ -97,7 +97,7 @@ export const messages = {
   "mobile.chat.attachment.unavailable": "El archivo adjunto no está disponible. Vuelve a intentarlo.",
   "mobile.chat.attachment.openFailed": "No se pudo abrir el archivo adjunto",
   "mobile.chat.attachment.photosNeedUpdate": "Para guardar fotos necesitas la versión más reciente de la app.",
-  "mobile.chat.attachment.photosPermission": "Permite que OpenBot añada fotos en Ajustes para guardar esta imagen.",
+  "mobile.chat.attachment.photosPermission": "Permite que Builders Bot añada fotos en Ajustes para guardar esta imagen.",
   "mobile.chat.attachment.imageUnavailable": "La imagen no está disponible. Vuelve a intentarlo.",
   "mobile.chat.attachment.saveImageFailed": "No se pudo guardar la imagen",
   "mobile.chat.attachment.preview": "Vista previa de {name}",
@@ -122,9 +122,9 @@ export const messages = {
   "mobile.chat.attachment.unsupported":
     "{name}: elige imágenes, audio MP3, vídeo MOV o MP4, archivos ZIP, PDF, documentos de Office, EML, texto, Markdown, datos o archivos de código fuente.",
   "mobile.chat.attachment.hostRejectsType":
-    "{name}: el equipo host no acepta archivos {type}. Actualiza OpenBot en ese equipo para adjuntarlos.",
+    "{name}: el equipo host no acepta archivos {type}. Actualiza Builders Bot en ese equipo para adjuntarlos.",
   "mobile.chat.attachment.hostRejects":
-    "{name}: el equipo host no acepta estos archivos. Actualiza OpenBot en ese equipo para adjuntarlos.",
+    "{name}: el equipo host no acepta estos archivos. Actualiza Builders Bot en ese equipo para adjuntarlos.",
   "mobile.chat.attachment.nameTooLong": "Elige un archivo con un nombre más corto.",
   "mobile.chat.attachment.damaged": "El archivo adjunto está dañado. Vuelve a seleccionarlo.",
   "mobile.chat.attachment.tooLarge": "{name} ocupa más de 10 MB.",
@@ -195,7 +195,7 @@ export const messages = {
   "mobile.chat.video.retry": "Reintentar vídeo",
   "mobile.chat.video.share": "Compartir {name}",
   "mobile.chat.video.save": "Guardar {name} en Fotos",
-  "mobile.chat.video.photosPermission": "Permite que OpenBot añada fotos en Ajustes para guardar este vídeo.",
+  "mobile.chat.video.photosPermission": "Permite que Builders Bot añada fotos en Ajustes para guardar este vídeo.",
   "mobile.chat.video.saveFailed": "No se pudo guardar el vídeo",
   "mobile.chat.audio.play": "Reproducir {name}",
   "mobile.chat.audio.pause": "Pausar {name}",
@@ -209,7 +209,7 @@ export const messages = {
   "mobile.chat.browserSecret.authenticatorCode": "Código de autenticación",
   "mobile.chat.browserSecret.oneTimeCode": "Código de un solo uso",
   "mobile.chat.browserSecret.takeoverTitle": "Control del navegador",
-  "mobile.chat.browserSecret.takeoverBody": "Completa este paso en el navegador del equipo que ejecuta OpenBot.",
+  "mobile.chat.browserSecret.takeoverBody": "Completa este paso en el navegador del equipo que ejecuta Builders Bot.",
   "mobile.chat.browserSecret.takeoverReload": "Después, vuelve a cargar la página antes de elegir «He terminado».",
   "mobile.chat.browserSecret.takeoverFailed": "No se pudo completar la solicitud.",
   "mobile.chat.browserSecret.done": "He terminado",
@@ -292,7 +292,7 @@ export const messages = {
   "mobile.chat.approval.effect.permissions":
     "«Permitir» le da a {name} estos permisos en {server}. «Rechazar» mantiene los permisos actuales.",
   "mobile.chat.approval.partial":
-    "Esta solicitud es demasiado larga para mostrarla en el teléfono. Para permitirla, abre OpenBot en {server}. Puedes rechazarla aquí.",
+    "Esta solicitud es demasiado larga para mostrarla en el teléfono. Para permitirla, abre Builders Bot en {server}. Puedes rechazarla aquí.",
   "mobile.chat.approval.allow": "Permitir",
   "mobile.chat.approval.deny": "Rechazar",
   "mobile.chat.approval.reconnect": "Conéctate a {server} para responder a esta solicitud.",
@@ -358,7 +358,7 @@ export const messages = {
   "mobile.chat.queue.steerNeedsTurn": "Orientar necesita un turno en curso.",
   "mobile.chat.queue.stillHoldingTitle": "El mensaje sigue retenido",
   "mobile.chat.queue.stillHoldingMessage":
-    "OpenBot no pudo liberar este mensaje, así que el agente sigue esperándolo. Vuelve a intentarlo cuando el teléfono se vuelva a conectar.",
+    "Builders Bot no pudo liberar este mensaje, así que el agente sigue esperándolo. Vuelve a intentarlo cuando el teléfono se vuelva a conectar.",
   "mobile.chat.queue.keepEditing": "Seguir editando",
   "mobile.chat.queue.leaveAnyway": "Salir de todos modos",
   "mobile.chat.queue.discardTitle": "¿Descartar los cambios?",
@@ -366,7 +366,7 @@ export const messages = {
   "mobile.chat.queue.discard": "Descartar",
   "mobile.chat.queue.alreadyReceived": "El agente ya recibió este mensaje, así que no se puede cambiar.",
   "mobile.chat.queue.holding": "Reteniendo el mensaje para ti…",
-  "mobile.chat.queue.holdFailed": "OpenBot no pudo retener este mensaje para editarlo.",
+  "mobile.chat.queue.holdFailed": "Builders Bot no pudo retener este mensaje para editarlo.",
   "mobile.chat.queue.messageLabel": "Mensaje",
   "mobile.chat.queue.messagePlaceholder": "Texto del mensaje",
   "mobile.chat.queue.save": "Guardar mensaje en cola",

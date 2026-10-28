@@ -116,7 +116,7 @@ export interface ServerSettingsModalProps {
    * The Remove section appears only when a caller supplies this.
    */
   onRemoveServer?: (() => Promise<void>) | undefined;
-  /** Opens the macOS pane that grants OpenBot screen recording, for the host that was refused it. */
+  /** Opens the macOS pane that grants Builders Bot screen recording, for the host that was refused it. */
   onOpenScreenRecordingSettings: () => Promise<void>;
   /** Asks the host to read the grant again, so the owner who gave it sees the warning go. */
   onRecheckScreenRecording: () => Promise<void>;

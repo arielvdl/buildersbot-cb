@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: the upgrade changes or loses a row of any table; a failed upgrade leaves the table
 // or its marker; a newer or incomplete history is accepted; a profile has a bad id or a missing value.
@@ -38,7 +38,7 @@ function databaseAt(version: number): DatabaseSync {
 function migrateUpTo(db: DatabaseSync, version: number): void {
   db.exec(`CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
 }
 
@@ -119,7 +119,7 @@ describe("browser profile migration", () => {
       if (version < 44) migrateUpTo(db, 44);
       if (version < 25) seedConnection(db);
       const before = contents(db);
-      migrateOpenBotDatabase(db);
+      migrateBuildersBotDatabase(db);
       expect(contents(db)).toEqual({ ...before, ...NEW_TABLES });
       expectHealthy(db);
     },
@@ -134,7 +134,7 @@ describe("browser profile migration", () => {
     const db = releasedDatabase(tag, marker);
     migrateUpTo(db, 44);
     const before = contents(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toEqual({ ...before, ...NEW_TABLES });
     expectHealthy(db);
   });
@@ -145,13 +145,13 @@ describe("browser profile migration", () => {
     const before = contents(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=45
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 45 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 45 failed");
     expect(contents(db)).toEqual(before);
     expect(profileTables(db)).toEqual([]);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version=45").all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toEqual({ ...before, ...NEW_TABLES });
     expectHealthy(db);
   });
@@ -161,16 +161,16 @@ describe("browser profile migration", () => {
     seed(db, 44);
     const before = contents(db);
     db.exec("INSERT INTO schema_migrations VALUES(48,'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version=48; DELETE FROM schema_migrations WHERE version=20");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(profileTables(db)).toEqual([]);
   });
 
   it("refuses a profile id that is not 32 characters, a hue that is not an avatar hue, a missing value, and a repeated id", () => {
     const db = databaseAt(44);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     const insert = db.prepare(
       "INSERT INTO browser_profiles (profile_id, name, hue, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
     );

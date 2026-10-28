@@ -1,13 +1,13 @@
 import { isAgentModel } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Schema } from "effect";
 import type { AcpModel } from "./acp-configuration";
 
-const logger = createOpenBotLogger("provider-runtime");
+const logger = createBuildersBotLogger("provider-runtime");
 
 /**
  * Cline's own list of the models it recommends, free ones included. It is public: the CLI reads it
- * without the account, and so does OpenBot.
+ * without the account, and so does Builders Bot.
  */
 export const CLINE_RECOMMENDED_MODELS_URL = "https://api.cline.bot/api/v1/ai/cline/recommended-models";
 
@@ -36,7 +36,7 @@ const CLINE_FREE_MODEL_FALLBACKS = [
 /**
  * Reads Cline's free models, which `cline --acp` does not list: its ACP agent lists the OpenRouter
  * catalog bundled into the CLI, and only the CLI's own picker reads the free tier from Cline. The
- * agent takes a model it did not list, so OpenBot lists them and the agent runs them.
+ * agent takes a model it did not list, so Builders Bot lists them and the agent runs them.
  *
  * Never fails. A list that cannot be read gives the last one that could, then the bundled one.
  */

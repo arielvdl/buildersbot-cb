@@ -158,7 +158,7 @@ const BROWSER_TOOL_DEFINITIONS = [
       submission: z
         .enum(["click", "enter", "on_input"])
         .describe(
-          "Use click with submitTarget when the page has a Continue, Verify, Next, or Sign in button, even if disabled before entry. OpenBot fills the fields then clicks that button. Use enter only for a form submitted by Enter. on_input ONLY fills fields; use it only when the site explicitly submits on the final digit without a button. It does not find or click a button.",
+          "Use click with submitTarget when the page has a Continue, Verify, Next, or Sign in button, even if disabled before entry. Builders Bot fills the fields then clicks that button. Use enter only for a form submitted by Enter. on_input ONLY fills fields; use it only when the site explicitly submits on the final digit without a button. It does not find or click a button.",
         ),
       submitTarget: browserTargetSchema
         .optional()
@@ -168,33 +168,33 @@ const BROWSER_TOOL_DEFINITIONS = [
       loginId: identifier
         .optional()
         .describe(
-          "For password or authenticator: the id of a saved login from list_logins. OpenBot fills its password or current code without asking the user.",
+          "For password or authenticator: the id of a saved login from list_logins. Builders Bot fills its password or current code without asking the user.",
         ),
       username: z
         .string()
         .max(VAULT_TEXT_LIMIT)
         .optional()
         .describe(
-          "For password without loginId: the username or email of this sign-in, as typed on the page. When the user saves the password in the OpenBot Vault from the card, the login gets this username.",
+          "For password without loginId: the username or email of this sign-in, as typed on the page. When the user saves the password in the Builders Bot Vault from the card, the login gets this username.",
         ),
     },
   }),
   browserTool({
     name: "list_logins",
     description:
-      "List the logins that the user shared with OpenBot for the tab's current HTTPS site: id, title, username, and whether it has an authenticator code. Passwords and codes are never returned. Type the username yourself, then call submit_secret with loginId.",
+      "List the logins that the user shared with Builders Bot for the tab's current HTTPS site: id, title, username, and whether it has an authenticator code. Passwords and codes are never returned. Type the username yourself, then call submit_secret with loginId.",
     shape: { tabId },
   }),
   browserTool({
     name: "list_vault_items",
     description:
-      "List what the user saved in the OpenBot Vault. A login shows id, website and username; its password and notes are never returned, so sign in with list_logins and submit_secret. A card shows id, label, nameOnCard, brand, last4, expiry and hasSecurityCode; its number and security code are never returned, so fill card fields with fill_card. A contact shows every field: type them with fill_fields, type, or select_option. addedBy names the agent that added an item; it is absent when the user added it.",
+      "List what the user saved in the Builders Bot Vault. A login shows id, website and username; its password and notes are never returned, so sign in with list_logins and submit_secret. A card shows id, label, nameOnCard, brand, last4, expiry and hasSecurityCode; its number and security code are never returned, so fill card fields with fill_card. A contact shows every field: type them with fill_fields, type, or select_option. addedBy names the agent that added an item; it is absent when the user added it.",
     shape: {},
   }),
   browserTool({
     name: "save_vault_item",
     description:
-      "Add contact info to the OpenBot Vault, or change a saved item. A contact without id is new; with id, it changes. A login or a card needs its id from list_vault_items (not from list_logins). A login changes only its username; a card changes only fields that are not secret. You cannot set a password, a website, a card number or a security code. An omitted field keeps its value. Returns the id, kind and name, never a secret.",
+      "Add contact info to the Builders Bot Vault, or change a saved item. A contact without id is new; with id, it changes. A login or a card needs its id from list_vault_items (not from list_logins). A login changes only its username; a card changes only fields that are not secret. You cannot set a password, a website, a card number or a security code. An omitted field keeps its value. Returns the id, kind and name, never a secret.",
     shape: {
       kind: z.enum(["contact", "login", "card"]),
       id: identifier.optional().describe("The item to change. Omit it to add a contact."),
@@ -213,7 +213,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "delete_vault_item",
     description:
-      "Delete a login, card or contact from the OpenBot Vault by its id from list_vault_items (not from list_logins). A card that uses a deleted contact for billing keeps no billing address. This cannot be undone: ask first unless you added the item or the user asked for the delete.",
+      "Delete a login, card or contact from the Builders Bot Vault by its id from list_vault_items (not from list_logins). A card that uses a deleted contact for billing keeps no billing address. This cannot be undone: ask first unless you added the item or the user asked for the delete.",
     shape: { id: identifier },
   }),
   browserTool({
@@ -345,7 +345,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "upload_files",
     description:
-      "Set local files readable by OpenBot on a file input after validating paths, then return a fresh snapshot.",
+      "Set local files readable by Builders Bot on a file input after validating paths, then return a fresh snapshot.",
     shape: {
       ...targetAction,
       paths: z.array(z.string().min(1).max(INPUT_LIMITS.path)).min(1).max(INPUT_LIMITS.attachments),
@@ -432,7 +432,7 @@ export const BROWSER_DYNAMIC_TOOLS = [
   {
     type: "namespace" as const,
     name: OPENBOT_BROWSER_NAMESPACE,
-    description: "Operate OpenBot's private, persistent native Electron/CDP browser.",
+    description: "Operate Builders Bot's private, persistent native Electron/CDP browser.",
     tools: BROWSER_TOOL_DEFINITIONS.map((definition) => ({
       type: "function" as const,
       name: definition.name,

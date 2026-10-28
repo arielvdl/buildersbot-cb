@@ -40,7 +40,7 @@ export function claudeWorkspaceSandbox(roots: readonly string[]): NonNullable<Op
 }
 
 /**
- * Only the hooks of managed settings run, and OpenBot gives none. The SDK hook of
+ * Only the hooks of managed settings run, and Builders Bot gives none. The SDK hook of
  * `claudeWorkspaceHooks` still runs. A hook in the frontmatter of a workspace skill does not.
  */
 export const CLAUDE_WORKSPACE_MANAGED_SETTINGS: NonNullable<Options["managedSettings"]> = {

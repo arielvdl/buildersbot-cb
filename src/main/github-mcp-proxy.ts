@@ -21,11 +21,11 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { readJsonBody } from "../backend/local-mcp-bridge";
 
-const logger = createOpenBotLogger("github-mcp-proxy");
+const logger = createBuildersBotLogger("github-mcp-proxy");
 
 /** A GitHub call rarely takes long. The limit only stops a call that GitHub never answers. */
 const UPSTREAM_TIMEOUT_MS = 5 * 60_000;

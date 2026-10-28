@@ -1,4 +1,4 @@
-// Form side of a user-named ACP agent: a command that OpenBot starts on this computer and talks to
+// Form side of a user-named ACP agent: a command that Builders Bot starts on this computer and talks to
 // over the Agent Client Protocol on stdio. The dialog hands the trimmed draft to its host, which
 // turns it into the IPC input with `customAgentInput`.
 
@@ -46,7 +46,7 @@ export interface CustomAcpAgentErrors {
   envRows: (string | undefined)[];
 }
 
-/** The state of one trial start: OpenBot runs the command, asks it what it is, then stops it. */
+/** The state of one trial start: Builders Bot runs the command, asks it what it is, then stops it. */
 export type AcpAgentCheck =
   | { status: "idle" }
   | { status: "checking" }

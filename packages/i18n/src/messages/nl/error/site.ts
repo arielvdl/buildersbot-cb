@@ -5,7 +5,7 @@ export const messages = {
   "error.site.absolutePath": "Kies een absoluut pad naar de sitemap.",
   "error.site.rootSymlink": "Symlinks zijn niet toegestaan in gehoste sites.",
   "error.site.notDirectory": "De bron van de site moet een map zijn.",
-  "error.site.outsideWorkspace": "De site moet in de werkruimte van deze agent of in OpenBot Shared staan.",
+  "error.site.outsideWorkspace": "De site moet in de werkruimte van deze agent of in Builders Bot Shared staan.",
   "error.site.packageJsonInvalid": "De package.json van de site is ongeldig.",
   "error.site.astroServerOutput": "Astro moet statische output gebruiken.",
   "error.site.astroAdapter": "Serveradapters voor Astro en React-integratie zijn niet toegestaan.",

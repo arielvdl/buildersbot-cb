@@ -59,7 +59,7 @@ export interface AcpFlavor {
   thoughtsInsideAnswer?: true;
   /**
    * `session/prompt` stays open with no update while background tasks run, so a silent turn is not
-   * stalled and OpenBot does not end it (`ACP_TURN_STALL_MS`).
+   * stalled and Builders Bot does not end it (`ACP_TURN_STALL_MS`).
    */
   promptOpenForBackgroundTasks?: true;
   /**
@@ -72,12 +72,12 @@ export interface AcpFlavor {
   messagePerId?: true;
   /**
    * The agent keeps one MCP server of each name for a directory, and a session that opens there
-   * replaces the server that the others in it use. Their OpenBot servers then share one token.
+   * replaces the server that the others in it use. Their Builders Bot servers then share one token.
    */
   mcpServersPerDirectory?: true;
-  /** OpenBot compacts by replacing the session, for an agent that reports `usage_update` and has no compact request. */
+  /** Builders Bot compacts by replacing the session, for an agent that reports `usage_update` and has no compact request. */
   contextCompaction?: "handoff";
-  /** A whole answer chunk that is the agent's own transport error, not answer text. OpenBot drops it. */
+  /** A whole answer chunk that is the agent's own transport error, not answer text. Builders Bot drops it. */
   noiseChunk?: RegExp;
 }
 

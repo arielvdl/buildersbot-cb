@@ -26,7 +26,7 @@ export const messages = {
   "marketplace.description.agents": "独自の指示とスキルを持つ、すぐに使えるエージェント。",
   "marketplace.description.skills": "エージェントにタスクやツールの使い方を教える指示。",
 
-  "marketplace.plugins.missing": "このプラグインは OpenBot のカタログにありません。",
+  "marketplace.plugins.missing": "このプラグインは Builders Bot のカタログにありません。",
 
   "marketplace.agents.loadingDetail": "エージェントの詳細を読み込んでいます…",
   "marketplace.agents.skills": "スキル",
@@ -36,7 +36,7 @@ export const messages = {
 
   "marketplace.skill.loading": "スキルを読み込んでいます",
   "marketplace.skill.update": "スキルをアップデート",
-  "marketplace.try.readFailed": "OpenBot はこのエージェントのスキルを読み取れませんでした。もう一度お試しください。",
+  "marketplace.try.readFailed": "Builders Bot はこのエージェントのスキルを読み取れませんでした。もう一度お試しください。",
   "marketplace.try.enable": "試すには、エージェントの設定でこのスキルを有効にしてください。",
   "marketplace.try.repair": "試すには、エージェントの設定でこのスキルを修復してください。",
   "marketplace.try.update": "このバージョンを試すには、スキルをアップデートしてください。",
@@ -127,11 +127,11 @@ export const messages = {
   "marketplace.app.automation.description":
     "macOS はアプリごとに確認を表示します。閉じているアプリは一時的に開き、その後終了します。",
   "marketplace.app.automation.request": "アクセスを求める",
-  "marketplace.app.automation.allowed": "OpenBot はすべての Apple アプリを操作できるようになりました。",
+  "marketplace.app.automation.allowed": "Builders Bot はすべての Apple アプリを操作できるようになりました。",
   "marketplace.app.automation.refused":
-    "macOS は {apps} へのアクセスを許可しませんでした。システム設定 › プライバシーとセキュリティ › オートメーション で OpenBot を許可してください。",
+    "macOS は {apps} へのアクセスを許可しませんでした。システム設定 › プライバシーとセキュリティ › オートメーション で Builders Bot を許可してください。",
   "marketplace.app.automation.failed":
-    "OpenBot は {apps} について macOS に確認できませんでした。もう一度お試しください。",
+    "Builders Bot は {apps} について macOS に確認できませんでした。もう一度お試しください。",
   "marketplace.app.automation.app.calendar": "カレンダー",
   "marketplace.app.automation.app.contacts": "連絡先",
   "marketplace.app.automation.app.mail": "メール",
@@ -201,7 +201,7 @@ export const messages = {
   "marketplace.plugin.figma.prompt.assets": "アプリバンドル用に、マーケティングアイコンを 2x で書き出してください。",
   "marketplace.plugin.paper.tagline": "HTML と CSS で作られたデザインキャンバス",
   "marketplace.plugin.paper.description":
-    "Paper を使うと、エージェントは Paper Desktop で開いているデザインファイルを読み書きできます。アートボード、選択範囲、計算済みのスタイル、JSX、トークンを調べ、フレーム、テキスト、スタイルを作成・変更できます。Paper Desktop をインストールして一度開き、始める前にファイルを開いてください。OpenBot は Paper Desktop がインストールする Paper CLI を起動します。Paper にキーは不要です。書き込みツールは開いているファイルを変更するので、承認する前に各書き込みを確認してください。",
+    "Paper を使うと、エージェントは Paper Desktop で開いているデザインファイルを読み書きできます。アートボード、選択範囲、計算済みのスタイル、JSX、トークンを調べ、フレーム、テキスト、スタイルを作成・変更できます。Paper Desktop をインストールして一度開き、始める前にファイルを開いてください。Builders Bot は Paper Desktop がインストールする Paper CLI を起動します。Paper にキーは不要です。書き込みツールは開いているファイルを変更するので、承認する前に各書き込みを確認してください。",
   "marketplace.plugin.paper.app":
     "開いている Paper Desktop のファイルを、Paper CLI が中継するローカルの MCP サーバーで読み書きします。ファイルを開いた Paper Desktop が必要です。",
   "marketplace.plugin.paper.prompt.implement":
@@ -212,7 +212,7 @@ export const messages = {
     "開いている Paper のファイルにあるデザイントークンを一覧にして、私たちのテーマと比較してください。",
   "marketplace.plugin.appleApps.tagline": "Mac のメール、カレンダーなど",
   "marketplace.plugin.appleApps.description":
-    "Apple apps を使うと、エージェントはこの Mac のメール、カレンダー、連絡先、リマインダー、メモ、メッセージ、Safari を使えます。macOS でのみ動作します。OpenBot は mcp-icloud を起動します。これは Apple や OpenBot が作ったものではない、コミュニティのサーバーです。サーバーはこのコンピューター上で AppleScript を使ってアプリを操作し、アカウントもキーも不要です。インストール時に、OpenBot はこれらすべてのアプリへのアクセスを macOS にまとめて求めることができます。確認はアプリごとに 1 回表示されます。求めない場合は、エージェントが初めてアプリを使うときに macOS が確認します。後で変更するには、システム設定 › プライバシーとセキュリティ › オートメーション を開いてください。エージェントはメールや iMessage を送信し、イベント、連絡先、リマインダーを変更・削除できるので、承認する前に各書き込みを確認してください。ツールが読んだ内容（メールの本文など）は、エージェントのモデルプロバイダーに送られます。",
+    "Apple apps を使うと、エージェントはこの Mac のメール、カレンダー、連絡先、リマインダー、メモ、メッセージ、Safari を使えます。macOS でのみ動作します。Builders Bot は mcp-icloud を起動します。これは Apple や Builders Bot が作ったものではない、コミュニティのサーバーです。サーバーはこのコンピューター上で AppleScript を使ってアプリを操作し、アカウントもキーも不要です。インストール時に、Builders Bot はこれらすべてのアプリへのアクセスを macOS にまとめて求めることができます。確認はアプリごとに 1 回表示されます。求めない場合は、エージェントが初めてアプリを使うときに macOS が確認します。後で変更するには、システム設定 › プライバシーとセキュリティ › オートメーション を開いてください。エージェントはメールや iMessage を送信し、イベント、連絡先、リマインダーを変更・削除できるので、承認する前に各書き込みを確認してください。ツールが読んだ内容（メールの本文など）は、エージェントのモデルプロバイダーに送られます。",
   "marketplace.plugin.appleApps.app":
     "メール、カレンダー、連絡先、リマインダー、メモ、メッセージ、Safari を、ローカルの mcp-icloud サーバーで操作します。macOS とオートメーションの許可が必要です。",
   "marketplace.plugin.appleApps.prompt.unread": "Apple のメールで、今日の未読メールを要約してください。",

@@ -51,6 +51,8 @@ The architecture notes are in one file for each topic:
   - [Shared channel chats](architecture/channels-and-messaging.md#shared-channel-chats)
   - [Messaging connections](architecture/channels-and-messaging.md#messaging-connections)
   - [Mobile chat queue](architecture/channels-and-messaging.md#mobile-chat-queue)
+- [Prompt injection review](architecture/prompt-injection-guard.md)
+  - [Settings](architecture/prompt-injection-guard.md#settings)
 - [Skills and plugins](architecture/skills-and-plugins.md)
   - [Skill folders and MCP configuration](architecture/skills-and-plugins.md#skill-folders-and-mcp-configuration)
   - [Local skill library](architecture/skills-and-plugins.md#local-skill-library)

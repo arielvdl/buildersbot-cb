@@ -1,5 +1,5 @@
 // What the preview modules share. Each `createMock*` module owns the state of its own groups and gets
-// the event and timer helpers from `createMockOpenBot`, so `dispose` there still ends every timer.
+// the event and timer helpers from `createMockBuildersBot`, so `dispose` there still ends every timer.
 
 export type Listener<T> = (value: T) => void;
 

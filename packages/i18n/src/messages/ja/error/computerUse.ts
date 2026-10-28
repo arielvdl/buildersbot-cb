@@ -2,9 +2,9 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/computerUse";
 
 export const messages = {
-  "error.computerUse.noAppToDrag": "この OpenBot ビルドにはドラッグするアプリケーションがありません。",
+  "error.computerUse.noAppToDrag": "この Builders Bot ビルドにはドラッグするアプリケーションがありません。",
   "error.computerUse.helpWindowChanged": "ドラッグを開始する前に、権限のヘルプウィンドウが変わりました。",
-  "error.computerUse.noAppToShow": "この OpenBot ビルドには表示するアプリケーションがありません。",
+  "error.computerUse.noAppToShow": "この Builders Bot ビルドには表示するアプリケーションがありません。",
   "error.computerUse.noDriver": "このコンピューターには Computer Use ドライバーがありません。",
   "error.computerUse.socketPathTooLong":
     "Computer Use のソケットパスは {length} 文字ですが、このシステムでは {limit} 文字までです。",

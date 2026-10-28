@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: migration 21 misses a saved server whose name differs from `computer_use` only in case, gives two
 // servers one name, changes what the user configured, or keeps a rename after a failure.
@@ -16,7 +16,7 @@ function databaseAt(version: number): DatabaseSync {
   db.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
   return db;
 }
@@ -71,7 +71,7 @@ describe("Computer Use server name migration", () => {
     const db = databaseAt(20);
     seedServers(db);
     const before = servers(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expectRenamed(db, before);
     expectHealthy(db);
   });
@@ -82,11 +82,11 @@ describe("Computer Use server name migration", () => {
     const before = servers(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version = 21
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 21 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 21 failed");
     expect(servers(db)).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 21").all()).toEqual([]);
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expectRenamed(db, before);
     expectHealthy(db);
   });

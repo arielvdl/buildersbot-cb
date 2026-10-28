@@ -3,9 +3,9 @@ import type { messages as source } from "../../en/error/import";
 
 export const messages = {
   "error.import.manifestNotJson": "{manifest} non è un JSON valido.",
-  "error.import.notAgentExport": "{manifest} non è un'esportazione di agenti OpenBot.",
+  "error.import.notAgentExport": "{manifest} non è un'esportazione di agenti Builders Bot.",
   "error.import.newerExportSkill":
-    "Questa esportazione è stata creata da una skill di esportazione più recente. Aggiorna OpenBot e riprova.",
+    "Questa esportazione è stata creata da una skill di esportazione più recente. Aggiorna Builders Bot e riprova.",
   "error.import.noAgents": "L'esportazione non contiene agenti.",
   "error.import.tooManyAgents": "L'esportazione contiene più di {limit} agenti.",
   "error.import.tooManyChannels": "L'esportazione contiene più di {limit} canali.",
@@ -46,9 +46,9 @@ export const messages = {
     "{name}: il server ha già la skill «{skill}», quindi l'agente usa quella skill. Chiedi a un amministratore di aggiornarla.",
   "error.import.transferRemoteTooLarge":
     "Un file di trasferimento per un server a cui ti sei unito deve pesare meno di 100 MB. Disattiva i file del workspace o esporta meno agenti.",
-  "error.import.transferNotFile": "Questo file non è un file di trasferimento OpenBot.",
+  "error.import.transferNotFile": "Questo file non è un file di trasferimento Builders Bot.",
   "error.import.transferNewer":
-    "Questo file è stato creato da una versione più recente di OpenBot. Aggiorna OpenBot e riprova.",
+    "Questo file è stato creato da una versione più recente di Builders Bot. Aggiorna Builders Bot e riprova.",
   "error.import.transferEmpty": "Il file non contiene agenti né impostazioni.",
   "error.import.transferTooLarge":
     "Un file di trasferimento deve pesare meno di 2 GB e contenere meno di 50.000 file. Disattiva i file del workspace o esporta meno agenti.",

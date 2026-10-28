@@ -30,7 +30,7 @@ export interface ServerStatusDialogProps {
   phase: ServerWorkspacePhase;
   initial: boolean;
   issue?: HostedServerIssue | null;
-  /** The OpenBot version that the server restarts into. */
+  /** The Builders Bot version that the server restarts into. */
   updateVersion?: string | null;
   remainingSeconds?: number;
   detail?: string | null;

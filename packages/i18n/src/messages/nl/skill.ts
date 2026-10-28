@@ -14,7 +14,7 @@ export const messages = {
   "skill.loadingDetails": "Details laden…",
   "skill.emptyEnabled": "Deze agent heeft geen ingeschakelde vaardigheden.",
   "skill.emptyAssigned": "Deze agent heeft nog geen toegewezen vaardigheden.",
-  "skill.folderSkill": "OpenBot heeft deze vaardigheid niet geïnstalleerd. Bewerk of verwijder hem in {location}.",
+  "skill.folderSkill": "Builders Bot heeft deze vaardigheid niet geïnstalleerd. Bewerk of verwijder hem in {location}.",
   "skill.moreFor": "Meer voor {name}",
   "skill.update": "Bijwerken",
   "skill.updateName": "{name} bijwerken",
@@ -35,7 +35,7 @@ export const messages = {
     "Als je deze vaardigheid bijwerkt, worden de lokale bestanden vervangen door het nieuwste vaardigheidspakket. Je wijzigingen in deze vaardigheidsmap gaan verloren.",
   "skill.confirm.removeModifiedBody":
     "Deze vaardigheid heeft lokale wijzigingen in de agentwerkruimte. Verwijderen wist die bestanden. De oorspronkelijke chatberichten blijven staan.",
-  "skill.confirm.removeBody": "OpenBot verwijdert deze vaardigheid van de agent. De chatgeschiedenis blijft staan.",
+  "skill.confirm.removeBody": "Builders Bot verwijdert deze vaardigheid van de agent. De chatgeschiedenis blijft staan.",
   "skill.confirm.replace": "Vaardigheid vervangen",
   "skill.confirm.remove": "Vaardigheid verwijderen",
   "skill.unavailable.readOnly": "Externe vaardigheden zijn alleen-lezen.",

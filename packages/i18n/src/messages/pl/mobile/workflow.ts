@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "Zaktualizuj OpenBot na tym serwerze, aby używać przepływów na telefonie.",
+  "mobile.workflow.unsupported": "Zaktualizuj Builders Bot na tym serwerze, aby używać przepływów na telefonie.",
   "mobile.workflow.offline": "Serwer jest offline. Przepływy pojawią się, gdy się połączy.",
   "mobile.workflow.list.loading": "Wczytywanie…",
   "mobile.workflow.list.loadFailed": "Nie udało się wczytać przepływów.",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.workflow.action.edit": "Edytuj",
   "mobile.workflow.alert.runFailedTitle": "Nie udało się uruchomić przepływu",
   "mobile.workflow.alert.runFailedBody": "Serwer nie rozpoczął uruchomienia. Spróbuj ponownie.",
-  "mobile.workflow.alert.tryAgain": "OpenBot nie mógł tego zrobić. Spróbuj ponownie.",
+  "mobile.workflow.alert.tryAgain": "Builders Bot nie mógł tego zrobić. Spróbuj ponownie.",
   "mobile.workflow.drawer.needYou": {
     one: "{count} czeka na ciebie",
     few: "{count} czekają na ciebie",
@@ -48,7 +48,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "Nie udało się wczytać przepływu.",
   "mobile.workflow.detail.starting": "Uruchamianie…",
   "mobile.workflow.detail.newerApp":
-    "Ten przepływ ma kroki z nowszej wersji OpenBot. Zaktualizuj OpenBot na telefonie, aby go zmienić.",
+    "Ten przepływ ma kroki z nowszej wersji Builders Bot. Zaktualizuj Builders Bot na telefonie, aby go zmienić.",
   "mobile.workflow.detail.waits": "Uruchomienie {number} czeka na ciebie. Sprawdź",
   "mobile.workflow.detail.canvasOrder": "Kroki są pokazane od lewej do prawej, tak jak na kanwie.",
   "mobile.workflow.detail.trigger": "Wyzwalacz",
@@ -83,7 +83,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "Działa, gdy jego adres otrzyma żądanie.",
   "mobile.workflow.trigger.message": "Wiadomość",
-  "mobile.workflow.trigger.messageHint": "Zmień ten wyzwalacz w OpenBot na komputerze.",
+  "mobile.workflow.trigger.messageHint": "Zmień ten wyzwalacz w Builders Bot na komputerze.",
   "mobile.workflow.trigger.startsWhen": "Start",
   "mobile.workflow.trigger.timezone": "Strefa czasowa: {zone}",
   "mobile.workflow.trigger.serverZone": "Harmonogram używa strefy czasowej serwera.",
@@ -118,7 +118,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "Zatwierdź, aby kontynuować.",
   "mobile.workflow.step.textEmpty": "Brak tekstu",
   "mobile.workflow.step.textPlaceholder": "Tekst dla następnego kroku",
-  "mobile.workflow.step.computerOnly": "Zmień ten krok w OpenBot na komputerze.",
+  "mobile.workflow.step.computerOnly": "Zmień ten krok w Builders Bot na komputerze.",
   "mobile.workflow.step.gone": "Tego kroku nie ma już w przepływie.",
   "mobile.workflow.step.agent": "Agent",
   "mobile.workflow.step.agentHint": "Agent wykonuje zadanie na podstawie wyniku poprzedniego kroku.",
@@ -137,7 +137,7 @@ export const messages = {
   "mobile.workflow.step.text": "Tekst",
   "mobile.workflow.step.sendTo": "Wyślij do",
   "mobile.workflow.step.channelHint":
-    "Właściciel lub administrator wybiera miejsce wiadomości w OpenBot na komputerze.",
+    "Właściciel lub administrator wybiera miejsce wiadomości w Builders Bot na komputerze.",
   "mobile.workflow.problem.noTitle": "Wpisz nazwę.",
   "mobile.workflow.problem.noAgent": "Wybierz agenta",
   "mobile.workflow.problem.agentGone": "Agent jest niedostępny. Wybierz agenta",
@@ -163,7 +163,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "Stały tekst dla następnego kroku.",
   "mobile.workflow.add.output": "Wysyła ci wynik.",
   "mobile.workflow.add.oneCondition":
-    "Na telefonie przepływ ma jeden warunek. Aby dodać więcej ścieżek, użyj OpenBot na komputerze.",
+    "Na telefonie przepływ ma jeden warunek. Aby dodać więcej ścieżek, użyj Builders Bot na komputerze.",
   "mobile.workflow.editor.title": "Edytuj przepływ",
   "mobile.workflow.editor.newTitle": "Nowy przepływ",
   "mobile.workflow.editor.step": "Krok",
@@ -172,7 +172,7 @@ export const messages = {
   "mobile.workflow.editor.create": "Utwórz przepływ",
   "mobile.workflow.editor.saveFailed": "Nie udało się zapisać przepływu.",
   "mobile.workflow.editor.fieldsOnly":
-    "Ten przepływ ma kształt, którego telefon nie pokaże jako listy. Tutaj możesz zmienić każdy krok. Aby dodawać, przenosić lub usuwać kroki, użyj OpenBot na komputerze.",
+    "Ten przepływ ma kształt, którego telefon nie pokaże jako listy. Tutaj możesz zmienić każdy krok. Aby dodawać, przenosić lub usuwać kroki, użyj Builders Bot na komputerze.",
   "mobile.workflow.editor.annotationsKept": "Notatki i rysunki na kanwie pozostają bez zmian.",
   "mobile.workflow.editor.addStep": "Dodaj krok",
   "mobile.workflow.editor.addAfter": "Dodaj krok po",

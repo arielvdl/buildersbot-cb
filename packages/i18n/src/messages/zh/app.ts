@@ -3,7 +3,7 @@ import type { messages as source } from "../en/app";
 
 export const messages = {
   // The app shell, shared state, and shared controls without a feature of their own.
-  "app.loading": "正在加载 OpenBot",
+  "app.loading": "正在加载 Builders Bot",
   "app.leftPanel.resize": "调整左侧栏宽度",
   "app.host.thisMac": "这台 Mac",
   "app.host.thisComputer": "这台电脑",
@@ -30,16 +30,16 @@ export const messages = {
   "app.provider.codeExpired": "{name} 验证码已过期",
   "app.provider.codeExpiredDescription": "没在有效期内输入，验证码已失效。",
   "app.provider.connectFailed": "无法连接 {name}",
-  "app.provider.connectFailedRetry": "OpenBot 无法连接 {name}，请重试。",
+  "app.provider.connectFailedRetry": "Builders Bot 无法连接 {name}，请重试。",
   "app.provider.restartFailed": "无法重启 {name}",
-  "app.provider.included": "{name} 已包含在 OpenBot 中。",
+  "app.provider.included": "{name} 已包含在 Builders Bot 中。",
   "app.clipboard.copyFailed": "无法复制文本。",
   "app.voice.tooLong": "语音录制最长为两分钟。",
   "app.avatar.type": "请选择 PNG、JPEG、GIF 或 WebP 图片。",
   "app.avatar.size": "请选择小于 10 MB 的图片。",
   "app.avatar.processingUnavailable": "图片处理不可用。",
-  "app.avatar.tooLarge": "OpenBot 无法把这张图压缩到足够小，请换一张更简单的图片。",
-  "app.avatar.processFailed": "OpenBot 无法处理这张图片。",
+  "app.avatar.tooLarge": "Builders Bot 无法把这张图压缩到足够小，请换一张更简单的图片。",
+  "app.avatar.processFailed": "Builders Bot 无法处理这张图片。",
   "app.chart.total": "合计",
   "app.modelVariant.default": "默认",
   "app.qrCode.label": "二维码",
@@ -51,7 +51,7 @@ export const messages = {
   "app.standingApproval.titleUnnamed": "始终允许该助手？",
   // The page rail and the settings page of the desktop window.
   "app.rail.label": "页面",
-  "app.rail.website": "OpenBot 网站",
+  "app.rail.website": "Builders Bot 网站",
   "app.rail.agents": "助手",
   "app.rail.schedule": "日程",
   "app.rail.workflows": "工作流",

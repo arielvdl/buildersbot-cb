@@ -21,7 +21,7 @@ export const PROVIDER_DETECTION_LIMITS = {
   models: 256,
 } as const;
 
-/** The default addresses of the local servers OpenBot knows. Product names are not translated. */
+/** The default addresses of the local servers Builders Bot knows. Product names are not translated. */
 export const DEFAULT_MODEL_SERVERS = {
   ollama: { name: "Ollama", baseUrl: "http://127.0.0.1:11434/v1" },
   lmstudio: { name: "LM Studio", baseUrl: "http://127.0.0.1:1234/v1" },

@@ -16,7 +16,7 @@ export const messages = {
   "mobile.settings.about.privacy": "Política de privacidad",
   "mobile.settings.home.profile": "Perfil",
   "mobile.settings.home.preferences": "Preferencias",
-  "mobile.settings.home.about": "Acerca de OpenBot",
+  "mobile.settings.home.about": "Acerca de Builders Bot",
   "mobile.settings.home.support": "Ayuda",
   "mobile.settings.home.supportHint": "Obtener ayuda y guardar un registro de soporte",
   "mobile.settings.support.help": "Obtener ayuda",
@@ -34,7 +34,7 @@ export const messages = {
   "mobile.settings.support.clearTitle": "¿Borrar el registro de soporte?",
   "mobile.settings.support.clearBody": "Esto elimina todos los eventos del registro de este teléfono.",
   "mobile.settings.support.logFooter":
-    "El registro permanece en este teléfono y OpenBot no lo envía. Registra los pasos de conexión, las solicitudes y los errores. No registra mensajes ni archivos, y oculta contraseñas y tokens. Lee el archivo antes de compartirlo.",
+    "El registro permanece en este teléfono y Builders Bot no lo envía. Registra los pasos de conexión, las solicitudes y los errores. No registra mensajes ni archivos, y oculta contraseñas y tokens. Lee el archivo antes de compartirlo.",
   "mobile.settings.support.saveFailed": "No se pudo guardar el archivo de registro. Vuelve a intentarlo.",
   "mobile.settings.support.sharingUnavailable": "La función de compartir no está disponible en este teléfono.",
   "mobile.settings.support.recent": "Eventos recientes",
@@ -94,28 +94,28 @@ export const messages = {
   "mobile.settings.feedback.retry": "Reintentar guardar el ajuste háptico",
   "mobile.settings.liveActivities.title": "Actividades en directo",
   "mobile.settings.liveActivities.footer":
-    "Muestra el trabajo de los agentes, mensajes, preguntas y aprobaciones en la pantalla de bloqueo y en la Dynamic Island mientras OpenBot está en ejecución.",
+    "Muestra el trabajo de los agentes, mensajes, preguntas y aprobaciones en la pantalla de bloqueo y en la Dynamic Island mientras Builders Bot está en ejecución.",
   "mobile.settings.liveActivities.toggle": "Mostrar actividad de los agentes",
   "mobile.settings.liveActivities.retry": "Reintentar guardar el ajuste de actividades en directo",
   "mobile.settings.notifications.title": "Notificaciones",
   "mobile.settings.notifications.toggle": "Permitir notificaciones",
   "mobile.settings.notifications.footer":
-    "Los agentes te avisan cuando terminan, se detienen con un error o necesitan tu respuesta, una aprobación o un paso en el navegador. No llega nada mientras usas OpenBot aquí o en la app de escritorio. Mientras se muestra la actividad en directo, el evento aparece allí en su lugar.",
+    "Los agentes te avisan cuando terminan, se detienen con un error o necesitan tu respuesta, una aprobación o un paso en el navegador. No llega nada mientras usas Builders Bot aquí o en la app de escritorio. Mientras se muestra la actividad en directo, el evento aparece allí en su lugar.",
   "mobile.settings.notifications.footerAndroid":
-    "Los agentes te avisan cuando terminan, se detienen con un error o necesitan tu respuesta, una aprobación o un paso en el navegador. No llega nada mientras usas OpenBot aquí o en la app de escritorio.",
-  "mobile.settings.notifications.denied": "Las notificaciones de OpenBot están desactivadas en los Ajustes de iOS.",
+    "Los agentes te avisan cuando terminan, se detienen con un error o necesitan tu respuesta, una aprobación o un paso en el navegador. No llega nada mientras usas Builders Bot aquí o en la app de escritorio.",
+  "mobile.settings.notifications.denied": "Las notificaciones de Builders Bot están desactivadas en los Ajustes de iOS.",
   "mobile.settings.notifications.deniedAndroid":
-    "Las notificaciones de OpenBot están desactivadas en los ajustes de Android.",
+    "Las notificaciones de Builders Bot están desactivadas en los ajustes de Android.",
   "mobile.settings.notifications.openSettings": "Abrir Ajustes de iOS",
   "mobile.settings.notifications.openSettingsAndroid": "Abrir ajustes de Android",
   "mobile.settings.notifications.preview": "Mostrar vista previa de la respuesta",
   "mobile.settings.notifications.previewFooter":
-    "Muestra el inicio de una respuesta, una pregunta o la acción que hay que aprobar. Apple y el servicio de cuentas de OpenBot no pueden leerlo.",
+    "Muestra el inicio de una respuesta, una pregunta o la acción que hay que aprobar. Apple y el servicio de cuentas de Builders Bot no pueden leerlo.",
   "mobile.settings.notifications.previewFooterAndroid":
-    "Muestra el inicio de una respuesta, una pregunta o la acción que hay que aprobar. Google y el servicio de cuentas de OpenBot no pueden leerlo.",
+    "Muestra el inicio de una respuesta, una pregunta o la acción que hay que aprobar. Google y el servicio de cuentas de Builders Bot no pueden leerlo.",
   "mobile.settings.notifications.sound": "Sonido",
   "mobile.settings.notifications.playSound": "Reproducir sonido",
-  "mobile.settings.notifications.sound.openbot": "OpenBot",
+  "mobile.settings.notifications.sound.openbot": "Builders Bot",
   "mobile.settings.notifications.sound.warm": "Cálido",
   "mobile.settings.notifications.sound.mech": "Mecánico",
   "mobile.settings.notifications.sound.bubble": "Burbujas",
@@ -123,9 +123,9 @@ export const messages = {
   "mobile.settings.notifications.sound.default": "Predeterminado de iOS",
   "mobile.settings.notifications.sound.defaultAndroid": "Predeterminado de Android",
   "mobile.settings.notifications.soundFooter":
-    "Las notificaciones y la actividad en directo reproducen este sonido. La actividad en directo también enciende la pantalla. El sonido de OpenBot es el que reproduce la app de escritorio cuando termina una tarea. Los cuatro sonidos siguientes son los de los temas de sonido de la app de escritorio.",
+    "Las notificaciones y la actividad en directo reproducen este sonido. La actividad en directo también enciende la pantalla. El sonido de Builders Bot es el que reproduce la app de escritorio cuando termina una tarea. Los cuatro sonidos siguientes son los de los temas de sonido de la app de escritorio.",
   "mobile.settings.notifications.soundFooterAndroid":
-    "Las notificaciones reproducen este sonido. El sonido de OpenBot es el que reproduce la app de escritorio cuando termina una tarea. Los cuatro sonidos siguientes son los de los temas de sonido de la app de escritorio.",
+    "Las notificaciones reproducen este sonido. El sonido de Builders Bot es el que reproduce la app de escritorio cuando termina una tarea. Los cuatro sonidos siguientes son los de los temas de sonido de la app de escritorio.",
   "mobile.settings.notifications.notifyAbout": "Notificarme sobre",
   "mobile.settings.notifications.level.all": "Toda la actividad",
   "mobile.settings.notifications.level.needsMe": "Solo cuando me necesite",
@@ -142,7 +142,7 @@ export const messages = {
   "mobile.settings.notifications.serverFooter":
     "Los eventos de este servidor que notifican a este teléfono. La app de escritorio tiene sus propios ajustes.",
   "mobile.settings.notifications.serverUnsupported":
-    "Este servidor no puede enviar notificaciones. Actualiza OpenBot en el equipo que lo ejecuta.",
+    "Este servidor no puede enviar notificaciones. Actualiza Builders Bot en el equipo que lo ejecuta.",
   "mobile.settings.notifications.channel": "Notificaciones de agentes ({sound})",
   "mobile.settings.notifications.channelSilent": "Notificaciones de agentes (sin sonido)",
   "mobile.settings.privacy.title": "Privacidad",
@@ -167,6 +167,6 @@ export const messages = {
   "mobile.settings.profile.security": "Seguridad",
   "mobile.settings.profile.accountSessions": "Sesiones de la cuenta",
   "mobile.settings.profile.signOutTitle": "¿Cerrar sesión?",
-  "mobile.settings.profile.signOutBody": "Vuelve a conectarte escaneando un nuevo código desde OpenBot en tu equipo.",
+  "mobile.settings.profile.signOutBody": "Vuelve a conectarte escaneando un nuevo código desde Builders Bot en tu equipo.",
   "mobile.settings.profile.signOut": "Cerrar sesión",
 } as const satisfies PartialTranslation<typeof source>;

@@ -17,7 +17,7 @@ export const DATA_TOOL_DEFINITIONS = [
   {
     name: "list_tables",
     description:
-      "List the tables in the shared database with their CREATE statements, row counts, and the agent that created each one. Every OpenBot agent reads and writes the same tables. Call this first, so you add to a table that already holds this kind of record instead of making a near-duplicate.",
+      "List the tables in the shared database with their CREATE statements, row counts, and the agent that created each one. Every Builders Bot agent reads and writes the same tables. Call this first, so you add to a table that already holds this kind of record instead of making a near-duplicate.",
     shape: {},
   },
   {

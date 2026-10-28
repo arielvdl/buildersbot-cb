@@ -8,10 +8,10 @@ export const messages = {
   "mcp.connect.close": "Zamknij łączenie: {name}",
   "mcp.connect.getKey": "Uzyskaj klucz",
   "mcp.connect.keyDescription":
-    "Wklej dane uwierzytelniające z konta {name}. OpenBot połączy się za ich pomocą i przechowa je na: {host}.",
+    "Wklej dane uwierzytelniające z konta {name}. Builders Bot połączy się za ich pomocą i przechowa je na: {host}.",
   "mcp.connect.thisComputer": "ten komputer",
   "mcp.connect.noCredentialDescription":
-    "{name} nie wymaga danych uwierzytelniających. OpenBot połączy się raz, aby sprawdzić, jakie narzędzia oferuje.",
+    "{name} nie wymaga danych uwierzytelniających. Builders Bot połączy się raz, aby sprawdzić, jakie narzędzia oferuje.",
   "mcp.connect.connect": "Połącz",
   "mcp.connect.required": "Wymagane.",
   "mcp.connect.keptOn": "Przechowywane na: {host}.",
@@ -22,7 +22,7 @@ export const messages = {
   "mcp.local.address": "Adres",
   "mcp.local.docs": "Instrukcja konfiguracji",
   "mcp.signIn.description":
-    "Zaloguj się do konta {name}. OpenBot otrzyma narzędzia dostępne dla tego konta, ale nie hasło.",
+    "Zaloguj się do konta {name}. Builders Bot otrzyma narzędzia dostępne dla tego konta, ale nie hasło.",
   "mcp.signIn.waiting": "Oczekiwanie na przeglądarkę…",
   "mcp.signIn.continue": "Przejdź do {name}",
   "mcp.signIn.pageDescription": "Ta strona jest otwarta w przeglądarce na: {host}. Zaloguj się tutaj.",
@@ -59,12 +59,12 @@ export const messages = {
   "mcp.panel.changesNotSaved": "Zmiany nie zostały zapisane",
   "mcp.panel.title": "Serwery MCP",
   "mcp.panel.description":
-    "Serwery Model Context Protocol dają agentom tego serwera dodatkowe narzędzia. Agenci Claude i Codex otrzymują tylko serwery z tej listy; agenci OpenCode i Grok mogą też uruchamiać serwery z własnych plików konfiguracyjnych.",
+    "Serwery Model Context Protocol dają agentom tego serwera dodatkowe narzędzia. Agenci Claude i Codex otrzymują tylko serwery z tej listy; agenci Builders i Grok mogą też uruchamiać serwery z własnych plików konfiguracyjnych.",
   "mcp.panel.connectCustom": "Połącz własny MCP",
   "mcp.panel.empty": "Brak serwerów MCP.",
   "mcp.panel.enable": "Włącz {name}",
   "mcp.panel.detailsTitle": "Szczegóły",
-  "mcp.panel.detailsDescription": "Nazwij ten serwer i wybierz, jak OpenBot ma się z nim łączyć.",
+  "mcp.panel.detailsDescription": "Nazwij ten serwer i wybierz, jak Builders Bot ma się z nim łączyć.",
   "mcp.panel.transport": "Transport",
   "mcp.panel.name": "Nazwa",
   "mcp.panel.namePlaceholder": "Nazwa serwera MCP",
@@ -115,20 +115,20 @@ export const messages = {
   "mcp.panel.signInTo": "Zaloguj się do {name}",
   "mcp.panel.cancelSignInTo": "Anuluj logowanie do {name}",
   "mcp.panel.signInWaiting": {
-    one: "Dokończ logowanie w przeglądarce. OpenBot przestanie czekać po {count} minucie.",
-    few: "Dokończ logowanie w przeglądarce. OpenBot przestanie czekać po {count} minutach.",
-    many: "Dokończ logowanie w przeglądarce. OpenBot przestanie czekać po {count} minutach.",
-    other: "Dokończ logowanie w przeglądarce. OpenBot przestanie czekać po {count} minuty.",
+    one: "Dokończ logowanie w przeglądarce. Builders Bot przestanie czekać po {count} minucie.",
+    few: "Dokończ logowanie w przeglądarce. Builders Bot przestanie czekać po {count} minutach.",
+    many: "Dokończ logowanie w przeglądarce. Builders Bot przestanie czekać po {count} minutach.",
+    other: "Dokończ logowanie w przeglądarce. Builders Bot przestanie czekać po {count} minuty.",
   },
   "mcp.panel.signInWaitingOn": {
-    one: "Otwieranie strony logowania na: {host}. OpenBot przestanie czekać po {count} minucie.",
-    few: "Otwieranie strony logowania na: {host}. OpenBot przestanie czekać po {count} minutach.",
-    many: "Otwieranie strony logowania na: {host}. OpenBot przestanie czekać po {count} minutach.",
-    other: "Otwieranie strony logowania na: {host}. OpenBot przestanie czekać po {count} minuty.",
+    one: "Otwieranie strony logowania na: {host}. Builders Bot przestanie czekać po {count} minucie.",
+    few: "Otwieranie strony logowania na: {host}. Builders Bot przestanie czekać po {count} minutach.",
+    many: "Otwieranie strony logowania na: {host}. Builders Bot przestanie czekać po {count} minutach.",
+    other: "Otwieranie strony logowania na: {host}. Builders Bot przestanie czekać po {count} minuty.",
   },
   "mcp.panel.appTitle": "Aplikacja logowania",
   "mcp.panel.appDescription":
-    "Użyj aplikacji OAuth zarejestrowanej u dostawcy serwera. OpenBot używa jej, gdy serwer nie może sam zarejestrować OpenBot. Zostaw puste, aby OpenBot zarejestrował się sam.",
+    "Użyj aplikacji OAuth zarejestrowanej u dostawcy serwera. Builders Bot używa jej, gdy serwer nie może sam zarejestrować Builders Bot. Zostaw puste, aby Builders Bot zarejestrował się sam.",
   "mcp.panel.appSaveFirst": "Najpierw zapisz ten serwer. Potem możesz dodać aplikację logowania.",
   "mcp.panel.appUrlChanged":
     "Najpierw zapisz nowy adres URL serwera. Aplikacja logowania należy do zapisanego adresu URL.",
@@ -152,17 +152,17 @@ export const messages = {
   "mcp.panel.appSaved": "Aplikacja zapisana. Zaloguj się, aby jej użyć.",
   "mcp.panel.appRemoved": "Aplikacja usunięta.",
   "mcp.signIn.relayDescription":
-    "Sprawdź, czy strona logowania jest na {page}, a potem otwórz ją w przeglądarce. Gdy skończysz, OpenBot wyśle logowanie do {host}.",
+    "Sprawdź, czy strona logowania jest na {page}, a potem otwórz ją w przeglądarce. Gdy skończysz, Builders Bot wyśle logowanie do {host}.",
   "mcp.signIn.relayOpenDescription":
-    "Otwórz stronę logowania {page} w swojej przeglądarce. Gdy skończysz, wklej tutaj wyświetlany adres. OpenBot wyśle wtedy logowanie do {host}.",
+    "Otwórz stronę logowania {page} w swojej przeglądarce. Gdy skończysz, wklej tutaj wyświetlany adres. Builders Bot wyśle wtedy logowanie do {host}.",
   "mcp.signIn.relayDeviceDescription":
     "Sprawdź, czy strona logowania jest na {page}, a potem otwórz ją w przeglądarce i zakończ tam logowanie. {host} sam wykryje logowanie.",
   "mcp.signIn.relayOpen": "Otwórz stronę logowania",
-  "mcp.signIn.relayPasteHint": "Jeśli przeglądarka nie wróci do OpenBot, skopiuj wyświetlany adres i wklej go tutaj.",
+  "mcp.signIn.relayPasteHint": "Jeśli przeglądarka nie wróci do Builders Bot, skopiuj wyświetlany adres i wklej go tutaj.",
   "mcp.signIn.relayPasteRequired":
-    "OpenBot nie może sam odebrać logowania z przeglądarki. Gdy skończysz, skopiuj wyświetlany adres i wklej go tutaj.",
+    "Builders Bot nie może sam odebrać logowania z przeglądarki. Gdy skończysz, skopiuj wyświetlany adres i wklej go tutaj.",
   "mcp.signIn.relayAddress": "Adres z przeglądarki",
   "mcp.signIn.relaySend": "Wyślij",
   "mcp.panel.callbackUrlRelayed":
-    "Strona logowania otwiera się w twojej przeglądarce, a OpenBot na twoim komputerze wysyła logowanie do {host}. Dodaj dokładnie ten adres URL do dozwolonych adresów przekierowania aplikacji.",
+    "Strona logowania otwiera się w twojej przeglądarce, a Builders Bot na twoim komputerze wysyła logowanie do {host}. Dodaj dokładnie ten adres URL do dozwolonych adresów przekierowania aplikacji.",
 } as const satisfies PartialTranslation<typeof source>;

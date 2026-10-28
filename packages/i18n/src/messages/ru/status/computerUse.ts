@@ -7,7 +7,7 @@ export const messages = {
   "status.computerUse.driverNoAnswer": "Драйвер управления компьютером не ответил. {reason}",
   "status.computerUse.driverStopped": "Драйвер управления компьютером остановлен.",
   "status.computerUse.unsupported": "Управление компьютером доступно в macOS, Windows и Linux.",
-  "status.computerUse.driverMissing": "В этой сборке OpenBot нет драйвера управления компьютером.",
+  "status.computerUse.driverMissing": "В этой сборке Builders Bot нет драйвера управления компьютером.",
   "status.computerUse.progressActing": "Работаю с приложением на этом компьютере…",
   "status.computerUse.progressDeciding": "Выбираю следующий шаг в приложении…",
 } as const satisfies PartialTranslation<typeof source>;

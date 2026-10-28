@@ -6,7 +6,7 @@ import { causeHelpers } from "../../effect-boundary";
 /** How long a connect link stays usable. */
 const PENDING_TTL_MS = 15 * 60_000;
 
-/** The account service half of the OpenBot Discord app: the Worker holds its client secret. */
+/** The account service half of the Builders Bot Discord app: the Worker holds its client secret. */
 export interface DiscordAppPort {
   /** The Discord install URL for one connect of this host. The Worker seals the guild link to `hostPublicKey`. */
   authorize(input: { hostNonce: string; hostPublicKey: string }): Effect.Effect<string, DiscordConnectFailed>;
@@ -16,7 +16,7 @@ export interface DiscordAppPort {
 }
 
 /**
- * The install of the OpenBot Discord app in a guild, started on this computer. Each connect has a
+ * The install of the Builders Bot Discord app in a guild, started on this computer. Each connect has a
  * one-use key pair, as a Slack connect has: only this run can open the grant that names the guild.
  */
 export class DiscordConnect {

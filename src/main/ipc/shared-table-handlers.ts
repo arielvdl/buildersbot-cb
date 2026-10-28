@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 import type { RemoteWorkflowError } from "../remote-service-effects";
-// The tables agents create for themselves, in `~/OpenBot/Shared/Data/agent-data.db`.
+// The tables agents create for themselves, in `~/Builders Bot/Shared/Data/agent-data.db`.
 //
 // Neither call takes an agent: every agent shares every table, and the user's delete is not
 // owner-gated -- the owner rule binds agents, not the person whose computer holds the data. On a

@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../message";
 import type { messages as source } from "../en/webClient";
 
 export const messages = {
-  "webClient.loading": "OpenBot yükleniyor…",
+  "webClient.loading": "Builders Bot yükleniyor…",
   "webClient.loadingLine.wake": "Ajanlar uyandırılıyor…",
   "webClient.loadingLine.coffee": "Ajanlara kahve dolduruluyor…",
   "webClient.loadingLine.tokens": "Token'lar parmakla sayılıyor…",
@@ -24,13 +24,13 @@ export const messages = {
   "webClient.notice.hostsFailed": "Sunucularınız yüklenemedi",
   "webClient.notice.connectComputer": "Bir sunucu bağlayın",
   "webClient.connect.description":
-    "Bu tarayıcıdan ajanlarınızla sohbet etmek için bilgisayarınızda OpenBot'u çalıştırın. Ayrıca bir davetle bir sunucuya da katılabilirsiniz.",
+    "Bu tarayıcıdan ajanlarınızla sohbet etmek için bilgisayarınızda Builders Bot'u çalıştırın. Ayrıca bir davetle bir sunucuya da katılabilirsiniz.",
   "webClient.connect.descriptionHosted":
-    "Bu tarayıcıdan ajanlarınızla sohbet etmek için barındırılan bir sunucu oluşturun. OpenBot'u bilgisayarınızda da çalıştırabilir veya bir davetle bir sunucuya katılabilirsiniz.",
-  "webClient.connect.stepInstall": "Bilgisayarınıza OpenBot'u yükleyin ve açın.",
+    "Bu tarayıcıdan ajanlarınızla sohbet etmek için barındırılan bir sunucu oluşturun. Builders Bot'u bilgisayarınızda da çalıştırabilir veya bir davetle bir sunucuya katılabilirsiniz.",
+  "webClient.connect.stepInstall": "Bilgisayarınıza Builders Bot'u yükleyin ve açın.",
   "webClient.connect.stepSignIn": "E-posta adresinizle oturum açın.",
   "webClient.connect.stepRemote": "Uzaktan erişimi açın.",
-  "webClient.notice.download": "OpenBot'u indir",
+  "webClient.notice.download": "Builders Bot'u indir",
   "webClient.notice.createServer": "Barındırılan sunucu oluştur",
   "webClient.notice.join": "Davet ile katıl",
   "webClient.notice.refreshHosts": "Sunucuları yenile",
@@ -41,7 +41,7 @@ export const messages = {
   "webClient.error.usageOffline": "Kullanımı görüntülemek için sunucunuza bağlanın.",
   "webClient.error.desktopOnly": "Bu eylem masaüstü uygulamasında kullanılabilir.",
   "webClient.settings.preferences.title": "Tercihler",
-  "webClient.settings.preferences.description": "Bu tarayıcıda OpenBot'un dilini ve seslerini seçin.",
+  "webClient.settings.preferences.description": "Bu tarayıcıda Builders Bot'un dilini ve seslerini seçin.",
   "webClient.error.checkConversation": "Tekrar göndermeden önce konuşmayı kontrol edin.",
   "webClient.error.hostReported": "Sunucu bir hata bildirdi. Konuşmayı ve sunucu durumunu kontrol edin.",
   "webClient.error.requestFailed": "İstek başarısız oldu.",
@@ -69,14 +69,14 @@ export const messages = {
   "webClient.error.identityChanged": "Sunucu kimliği değişti. Bağlantı reddedildi.",
   "webClient.error.connectionUnavailable": "Sunucu bağlantısı kullanılamıyor.",
   "webClient.error.incompatible":
-    "Bu sunucu OpenBot web ile uyumlu değil. Sunucuyu güncelleyin ve bu sayfayı yeniden yükleyin.",
+    "Bu sunucu Builders Bot web ile uyumlu değil. Sunucuyu güncelleyin ve bu sayfayı yeniden yükleyin.",
   "webClient.error.sendUnconfirmed": "Mesaj teslimatı doğrulanmadı. Tekrar göndermeden önce sayfayı yenileyin.",
   "webClient.error.fileType": "Bu dosya türünü eklemek için sunucuyu güncelleyin.",
   "webClient.error.uploadCancelled": "Ek yüklemesi iptal edildi.",
   "webClient.error.duplication": "Bu sunucu ajan çoğaltmayı desteklemiyor.",
   "webClient.error.connectServerFirst": "Önce bu sunucuya bağlanın.",
   "webClient.error.agentInstallNotAllowed":
-    "Buraya yalnızca bir sahip veya yönetici bir ajan ekleyebilir ve sunucu güncel bir OpenBot çalıştırmalıdır.",
+    "Buraya yalnızca bir sahip veya yönetici bir ajan ekleyebilir ve sunucu güncel bir Builders Bot çalıştırmalıdır.",
   "webClient.error.linkDesktopOnly": "Bu bağlantı yalnızca masaüstü uygulamasında açılır.",
   "webClient.error.saveEndpointOffline": "Bir uç noktayı kaydetmek için sunucunuza bağlanın.",
   "webClient.error.removeEndpointOffline": "Bir uç noktayı kaldırmak için sunucunuza bağlanın.",

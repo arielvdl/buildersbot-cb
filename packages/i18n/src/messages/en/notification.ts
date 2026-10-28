@@ -19,15 +19,15 @@ export const messages = defineMessages("notification", {
   "notification.channelMessage": "Sent a message.",
   "notification.usageLimit.title": "{provider} account reached its limit",
   "notification.usageLimit.body": {
-    one: "{count} agent waits. OpenBot will try again later.",
-    other: "{count} agents wait. OpenBot will try again later.",
+    one: "{count} agent waits. Builders Bot will try again later.",
+    other: "{count} agents wait. Builders Bot will try again later.",
   },
   "notification.usageLimit.bodyResets": {
     one: "{count} agent waits. Resets {reset}.",
     other: "{count} agents wait. Resets {reset}.",
   },
   "notification.test": "Notifications are working.",
-  "notification.welcome": "OpenBot will tell you here when an agent needs you.",
+  "notification.welcome": "Builders Bot will tell you here when an agent needs you.",
   // The toast region in each window.
   "notification.toast.region": "Notifications",
   "notification.toast.close": "Close notification",

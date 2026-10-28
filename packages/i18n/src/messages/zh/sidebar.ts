@@ -104,7 +104,7 @@ export const messages = {
   "sidebar.delete.pending": "正在删除…",
   "sidebar.delete.title": "删除 {name}？",
   "sidebar.delete.agentDescription":
-    "这会从应用中移除该助手及其 OpenBot 对话，该助手的队列、记忆、自动化任务和工作区都会被删除。由所连接的 CLI 服务商单独保存的历史记录不会被删除。",
+    "这会从应用中移除该助手及其 Builders Bot 对话，该助手的队列、记忆、自动化任务和工作区都会被删除。由所连接的 CLI 服务商单独保存的历史记录不会被删除。",
   "sidebar.delete.channelDescription":
     "这会停止该频道。其历史记录会保留在“已删除的频道”中，仅供预览。你可以从那里恢复。频道内的助手会被保留。",
   "sidebar.delete.sectionDescription": "该分组内的助手会移动到“未分组”，助手本身不会被删除。",
@@ -117,7 +117,7 @@ export const messages = {
   "sidebar.announce.movedPinned": "已将置顶对话移动到第 {position} 位，共 {total} 个。",
   "sidebar.announce.personFallback": "成员",
   "sidebar.announce.chatFallback": "对话",
-  "sidebar.mobileApp.title": "OpenBot 手机版",
+  "sidebar.mobileApp.title": "Builders Bot 手机版",
   "sidebar.mobileApp.body": "现已支持 iPhone 和 Android。",
   "sidebar.mobileApp.howToInstall": "如何安装",
   "sidebar.mobileApp.dismiss": "关闭手机版公告",
@@ -132,6 +132,6 @@ export const messages = {
   "sidebar.community.title": "来坐坐吧。",
   "sidebar.community.body": "AI 的未来里有你的位置。欢迎加入 Discord 和 X 上的社区。",
   "sidebar.community.joinDiscord": "加入 Discord",
-  "sidebar.community.followX": "在 X 上关注 OpenBot",
+  "sidebar.community.followX": "在 X 上关注 Builders Bot",
   "sidebar.community.dismiss": "关闭社区邀请",
 } as const satisfies PartialTranslation<typeof source>;

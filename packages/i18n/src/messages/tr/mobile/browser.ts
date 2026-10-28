@@ -41,7 +41,7 @@ export const messages = {
   "mobile.browser.status.offline": "Sunucu bağlı değil.",
   "mobile.browser.status.noTab": "{name} için açık tarayıcı sekmesi yok.",
   "mobile.browser.status.unsupported":
-    "Bu sunucu tarayıcısını telefonda gösteremiyor. Bu sunucudaki OpenBot'u güncelleyin.",
+    "Bu sunucu tarayıcısını telefonda gösteremiyor. Bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.browser.status.off": "Tarayıcı, uygulamanın bu sürümünde kullanılamıyor.",
   "mobile.browser.notice.copied": "Telefonunuza kopyalandı.",
   "mobile.browser.notice.nothingSelected": "Sayfada hiçbir şey seçili değil.",

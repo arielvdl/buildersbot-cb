@@ -1,7 +1,7 @@
 import type {
   InstalledSkill,
   MarketplaceSkillDetail,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   SkillSubmission,
 } from "@openbot/contracts/ipc";
 import {
@@ -53,7 +53,7 @@ export function createMockSkills(options: MockSkillsOptions, onChanged: (agentId
     onChanged(agentId);
   }
 
-  const skills: OpenBotDesktopApi["skills"] = {
+  const skills: BuildersBotDesktopApi["skills"] = {
     localList: async () => clone(localSkills),
     localGet: async ({ skillId, revision }) => {
       const skill = revision
@@ -188,7 +188,7 @@ export function createMockSkills(options: MockSkillsOptions, onChanged: (agentId
     },
     uninstall: async ({ agentId, skillId }) => {
       const skill = readInstalledSkills(agentId).find((item) => item.skillId === skillId);
-      if (skill?.origin === "managed") throw new Error("This skill is managed by OpenBot.");
+      if (skill?.origin === "managed") throw new Error("This skill is managed by Builders Bot.");
       writeInstalled(
         agentId,
         readInstalledSkills(agentId).filter((item) => item.skillId !== skillId),
@@ -198,7 +198,7 @@ export function createMockSkills(options: MockSkillsOptions, onChanged: (agentId
       const current = readInstalledSkills(agentId);
       const skill = current.find((item) => item.skillId === skillId);
       if (!skill) throw new Error("Skill not found.");
-      if (skill.origin === "managed") throw new Error("This skill is managed by OpenBot.");
+      if (skill.origin === "managed") throw new Error("This skill is managed by Builders Bot.");
       const next: InstalledSkill = { ...skill, enabled };
       writeInstalled(
         agentId,

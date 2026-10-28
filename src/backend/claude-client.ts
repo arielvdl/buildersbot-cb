@@ -23,7 +23,7 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { type AgentContextCategoryUsage, defaultProviderModel } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Deferred, Effect, Exit, Fiber, Scope } from "effect";
 import {
   isTurnContextBlock,
@@ -131,8 +131,8 @@ type ClaudeEffort = (typeof CLAUDE_EFFORTS)[number];
 /**
  * Claude's own scheduling: session crons, the `/loop` wake-ups, and the `schedule` skill, alias
  * `routines`, that makes claude.ai cloud agents. A routine request matched that skill, and the
- * routine ran outside OpenBot, where the user cannot see or stop it. Scheduled work belongs to the
- * OpenBot routine tools. A deny rule takes the tools out of the model's context; the CLI still lists
+ * routine ran outside Builders Bot, where the user cannot see or stop it. Scheduled work belongs to the
+ * Builders Bot routine tools. A deny rule takes the tools out of the model's context; the CLI still lists
  * the two skills, but the rule refuses their call.
  */
 const CLAUDE_NATIVE_SCHEDULING = [
@@ -193,7 +193,7 @@ interface ActiveTurn {
    * message that only states the limit, so its text is held here and not published as the answer.
    */
   usageLimit: { resetsAt: number | null; text: string | null } | null;
-  /** The CLI started this turn itself, with no message from OpenBot, such as after a background task ended. */
+  /** The CLI started this turn itself, with no message from Builders Bot, such as after a background task ended. */
   unprompted: boolean;
 }
 
@@ -219,7 +219,7 @@ interface ThreadRuntime {
   consume: Fiber.Fiber<void, ProviderClientOperationError> | null;
   idleRelease: ReturnType<typeof setTimeout> | null;
   idleSince: number;
-  /** The plan Claude keeps with its todo and task tools, which OpenBot shows as a task list. */
+  /** The plan Claude keeps with its todo and task tools, which Builders Bot shows as a task list. */
   plan: ClaudePlanState;
   /** The subagents of the `Agent` tool, which can outlive their turn when they run in the background. */
   subagents: ClaudeSubagentState;
@@ -290,7 +290,7 @@ type QueryFactory = (params: Parameters<typeof query>[0]) => ClaudeQuery;
 type SessionHistoryReader = (sessionId: string, options?: { dir?: string }) => Promise<SessionMessage[]>;
 type ClaudeEffortCapability = { supported: ClaudeEffort[]; defaultEffort: ClaudeEffort } | null;
 
-const queryLogger = createOpenBotLogger("claude-query");
+const queryLogger = createBuildersBotLogger("claude-query");
 
 export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
   readonly contextCompaction = "native";
@@ -307,7 +307,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
   readonly #mcpEndpoint: McpEndpointSource | undefined;
   /** Where a Workspace only query keeps its skill plugin. Without it, such a query has no workspace skills. */
   readonly #stateDirectory: string | undefined;
-  /** Read at each session start, so a GitHub connection made while OpenBot runs reaches the next session. */
+  /** Read at each session start, so a GitHub connection made while Builders Bot runs reaches the next session. */
   readonly #agentEnvironment: ((inherited?: NodeJS.ProcessEnv) => Readonly<Record<string, string>>) | undefined;
   /**
    * The saved Anthropic API key, for the provider's own sign-in only. The CLI uses `ANTHROPIC_API_KEY`
@@ -333,7 +333,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
   readonly #modelEffortCapabilities = new Map<string, ClaudeEffortCapability>();
   readonly #modelSdkValues = new Map<string, string>();
   /**
-   * Each thread's essential memories: the latest that OpenBot gave, and the last that a turn sent.
+   * Each thread's essential memories: the latest that Builders Bot gave, and the last that a turn sent.
    * They go with the turns, not in the system prompt, so a memory change keeps the cached prefix
    * and restarts no query. Kept by thread, not by query: a restarted or reopened query resumes a
    * conversation that already holds the memories it was sent.
@@ -821,7 +821,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
           return yield* this.#requestUserInputEffect(threadId, toolInput, options.toolUseID ?? randomUUID());
         }),
       );
-    // OpenBot's own servers spread last: Claude keys this record by name, so a user configuration
+    // Builders Bot's own servers spread last: Claude keys this record by name, so a user configuration
     // that reached one of those names would take the agent's own tools away. Profile generation
     // asks one question and must not act, so it gets neither set.
     const handoff = config.profileGeneration
@@ -857,7 +857,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     // `stop()` may have run during the await: a query created now would outlive the client.
     if (!this.#running) return yield* providerFailure(new Error("Claude Agent SDK is not running."));
     if (handoff) this.#reportMcpDrops?.(this.provider, handoff.dropped);
-    const mcpServers = handoff ? { ...handoff.servers, ...this.#createOpenBotServers(threadId) } : {};
+    const mcpServers = handoff ? { ...handoff.servers, ...this.#createBuildersBotServers(threadId) } : {};
     const nodeOptions = this.#agentEnvironment?.().NODE_OPTIONS;
     const claudeQuery = yield* providerSync(() =>
       this.#createQuery({
@@ -889,7 +889,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
               : ["user", "project", "local"],
           // The MCP panel is the only door. Without this, Claude merges project `.mcp.json`, user
           // settings, plugin and agent-frontmatter servers into the record above, so two computers
-          // with the same OpenBot settings give their agents different tools and "which servers does
+          // with the same Builders Bot settings give their agents different tools and "which servers does
           // my agent have" has no answer. The flag takes away MCP and nothing else, so permissions and
           // hooks still load from those files. Workspace only loads the user settings alone: see
           // `claude-workspace-sandbox.ts`.
@@ -915,12 +915,12 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
           env: {
             ...claudeEnvironment(this.#cli),
             // The login shell's `PATH`, so the Bash tool and hooks find Homebrew and `~/.local/bin`
-            // tools when Finder starts OpenBot. An `env.PATH` in the Claude settings still wins.
+            // tools when Finder starts Builders Bot. An `env.PATH` in the Claude settings still wins.
             ...(launchPath ? { PATH: launchPath } : {}),
             ...this.#environment(this.#onApiKey),
             CLAUDE_AGENT_SDK_CLIENT_APP: "openbot/0.1.0",
             // Without a terminal, the CLI gives the newer models no TodoWrite or task tools, so the
-            // agent has no plan for OpenBot to show as a task list.
+            // agent has no plan for Builders Bot to show as a task list.
             CLAUDE_CODE_ENABLE_TODO_TOOLS: "1",
           },
         },
@@ -1473,7 +1473,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
   ): void {
     const turn = runtime.activeTurn;
     if (!turn) return;
-    // A bridged call names the OpenBot tool and holds its own arguments in `arguments`.
+    // A bridged call names the Builders Bot tool and holds its own arguments in `arguments`.
     const bridged = name === "mcp__openbot__tool_call" && isRecord(input) && input.name === "openbot.send_message";
     const message = name === "mcp__openbot__send_message" ? input : bridged ? input.arguments : undefined;
     const recipients =
@@ -1829,7 +1829,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     return { thread: { id: threadId, turns } };
   });
 
-  #createOpenBotServers(threadId: string) {
+  #createBuildersBotServers(threadId: string) {
     const call = (namespace: string, name: string, args: unknown) =>
       runCauseEffect(this.#callDynamicTool(threadId, namespace, name, args));
     return {
@@ -2221,7 +2221,7 @@ function messageText(message: unknown): string {
       (block) =>
         block.type === "text" &&
         isString(block.text) &&
-        // OpenBot's memory block is not text that the user wrote.
+        // Builders Bot's memory block is not text that the user wrote.
         !(message.role === "user" && isTurnContextBlock(block.text)),
     )
     .map((block) => block.text)

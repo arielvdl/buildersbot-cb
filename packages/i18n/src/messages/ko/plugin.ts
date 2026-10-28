@@ -19,7 +19,7 @@ export const messages = {
   "plugin.uninstallDialog.appsLabel": "삭제할 앱, {number}개",
   "plugin.uninstallDialog.appsTitle": "이 호스트에서 삭제되는 앱",
   "plugin.uninstallDialog.appsNote":
-    "앱의 도구를 더 이상 사용할 수 없고, OpenBot이 앱을 위해 보관한 로그인 정보도 삭제돼요.",
+    "앱의 도구를 더 이상 사용할 수 없고, Builders Bot이 앱을 위해 보관한 로그인 정보도 삭제돼요.",
   "plugin.uninstallDialog.skillsLabel": "삭제할 스킬, {number}개",
   "plugin.uninstallDialog.skillsTitle": "{agentName}에서 삭제되는 스킬",
 } as const satisfies PartialTranslation<typeof source>;

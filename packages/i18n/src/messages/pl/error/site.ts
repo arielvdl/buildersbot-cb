@@ -5,7 +5,7 @@ export const messages = {
   "error.site.absolutePath": "Wybierz bezwzględną ścieżkę katalogu witryny.",
   "error.site.rootSymlink": "Dowiązania symboliczne nie są dozwolone w hostowanych witrynach.",
   "error.site.notDirectory": "Źródło witryny musi być katalogiem.",
-  "error.site.outsideWorkspace": "Witryna musi znajdować się w obszarze roboczym tego agenta lub w OpenBot Shared.",
+  "error.site.outsideWorkspace": "Witryna musi znajdować się w obszarze roboczym tego agenta lub w Builders Bot Shared.",
   "error.site.packageJsonInvalid": "Plik package.json witryny jest nieprawidłowy.",
   "error.site.astroServerOutput": "Astro musi używać wyjścia statycznego.",
   "error.site.astroAdapter": "Adaptery serwerowe Astro i integracja React nie są dozwolone.",

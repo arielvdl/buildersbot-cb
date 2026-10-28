@@ -1,7 +1,7 @@
 import { defineMessages } from "../../message";
 
 export const messages = defineMessages("conversation", {
-  "conversation.globalSearch.title": "Search OpenBot",
+  "conversation.globalSearch.title": "Search Builders Bot",
   "conversation.globalSearch.filter": "Filter results",
   "conversation.globalSearch.tab.all": "All",
   "conversation.globalSearch.tab.messages": "Messages",

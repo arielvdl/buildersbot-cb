@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/liveActivity";
 
 export const messages = {
-  "mobile.liveActivity.appName": "OpenBot",
+  "mobile.liveActivity.appName": "Builders Bot",
   "mobile.liveActivity.badge.working": "Çalışıyor",
   "mobile.liveActivity.badge.message": "Mesaj",
   "mobile.liveActivity.badge.question": "Sorular",
@@ -30,7 +30,7 @@ export const messages = {
   "mobile.liveActivity.button.approve": "Onayla",
   "mobile.liveActivity.button.openDetails": "Ayrıntıları aç",
   "mobile.liveActivity.stale.label": "Güncel değil",
-  "mobile.liveActivity.stale.detail": "Mevcut durumu görmek için OpenBot'u açın.",
+  "mobile.liveActivity.stale.detail": "Mevcut durumu görmek için Builders Bot'u açın.",
   "mobile.liveActivity.confirm.title": "Bu komut onaylansın mı?",
   "mobile.liveActivity.confirm.cancel": "İptal",
   "mobile.liveActivity.confirm.approve": "Onayla",
@@ -45,7 +45,7 @@ export const messages = {
   "mobile.liveActivity.error.decisionFallback": "İsteği masaüstünde açın.",
   "mobile.liveActivity.island.taskWorking": "İsteğiniz üzerinde çalışılıyor",
   "mobile.liveActivity.island.questionHeader": "Ajanınızdan soru",
-  "mobile.liveActivity.island.questionText": "Bu soruyu yanıtlamak için OpenBot'u açın.",
+  "mobile.liveActivity.island.questionText": "Bu soruyu yanıtlamak için Builders Bot'u açın.",
   "mobile.liveActivity.island.optionFallback": "Seçenek {number}",
   "mobile.liveActivity.island.takeoverTitle": "Tarayıcı adımında size ihtiyaç var",
   "mobile.liveActivity.island.takeoverDetail": "Tarayıcıda oturum açma, doğrulama veya onaylama işlemini tamamlayın.",

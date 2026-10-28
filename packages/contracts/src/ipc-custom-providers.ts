@@ -1,4 +1,4 @@
-// A custom provider is an OpenAI-compatible endpoint the user names themselves. OpenBot serves it by
+// A custom provider is an OpenAI-compatible endpoint the user names themselves. Builders Bot serves it by
 // merging a `provider` entry into the OpenCode CLI's config, so the wire identity stays `opencode`
 // and no new `AgentProviderId` exists. What makes this file a contract rather than renderer state is
 // the API key: it travels renderer-to-main on `save` and must never come back, so both directions
@@ -11,9 +11,9 @@ import { isDynamicRecord, isOneOf, isString } from "./runtime-values";
 
 /**
  * A custom provider is served by the OpenCode CLI, so its bounds are OpenCode's config shape rather
- * than an OpenBot object: the id becomes a `provider` key, and `<id>/<model id>` becomes the model id
+ * than an Builders Bot object: the id becomes a `provider` key, and `<id>/<model id>` becomes the model id
  * OpenCode reports back. `INPUT_LIMITS` has no entry for a key or an endpoint because no other
- * OpenBot payload has ever carried one.
+ * Builders Bot payload has ever carried one.
  */
 export const CUSTOM_PROVIDER_LIMITS = {
   apiKey: 4_096,
@@ -102,7 +102,7 @@ export interface CustomProviderSummary {
 
 /**
  * Why a saved endpoint's models may not have appeared yet. One `opencode acp` process serves every
- * OpenCode agent, and it reads the config only at spawn, so a change needs a respawn that OpenBot
+ * OpenCode agent, and it reads the config only at spawn, so a change needs a respawn that Builders Bot
  * will not force through a turn in progress.
  */
 export const CUSTOM_PROVIDER_RESTARTS = ["restarted", "skipped-busy", "not-running"] as const;

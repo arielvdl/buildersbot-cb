@@ -3,11 +3,11 @@ import { mkdirSync, mkdtempSync, statfsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Schema } from "effect";
 import { causeHelpers } from "./effect-boundary";
 
-const logger = createOpenBotLogger("provider-temp");
+const logger = createBuildersBotLogger("provider-temp");
 
 /**
  * The free space a provider process needs in its temporary folder. The Windows Antigravity server
@@ -16,7 +16,7 @@ const logger = createOpenBotLogger("provider-temp");
 const PROVIDER_TEMP_FREE_BYTES = 1024 ** 3;
 
 export interface ProviderTempOptions {
-  /** A folder OpenBot owns. Each process gets a new folder in it, removed when the process ends. */
+  /** A folder Builders Bot owns. Each process gets a new folder in it, removed when the process ends. */
   root: string;
   provider: string;
   availableDiskBytes?: ((path: string) => number) | undefined;
@@ -35,7 +35,7 @@ const { io } = causeHelpers(ProviderTempIoError);
 /**
  * Starts a provider process with a temporary folder of its own. Only the program's own launcher
  * removes what it unpacked, and only when it ends normally: a process that is stopped or that times
- * out left each unpacked copy in the system temporary folder. OpenBot removes this folder after the
+ * out left each unpacked copy in the system temporary folder. Builders Bot removes this folder after the
  * process closes, and what is left in the root at launch (`sweepProviderTemp`).
  */
 export function spawnWithProviderTemp<Child extends ChildProcess>(

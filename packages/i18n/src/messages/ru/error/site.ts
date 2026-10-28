@@ -5,7 +5,7 @@ export const messages = {
   "error.site.absolutePath": "Укажите абсолютный путь к каталогу сайта.",
   "error.site.rootSymlink": "Символические ссылки в размещаемых сайтах не допускаются.",
   "error.site.notDirectory": "Источник сайта должен быть каталогом.",
-  "error.site.outsideWorkspace": "Сайт должен находиться в рабочем пространстве этого агента или в OpenBot Shared.",
+  "error.site.outsideWorkspace": "Сайт должен находиться в рабочем пространстве этого агента или в Builders Bot Shared.",
   "error.site.packageJsonInvalid": "Файл package.json сайта некорректен.",
   "error.site.astroServerOutput": "Astro должен использовать статический вывод.",
   "error.site.astroAdapter": "Серверные адаптеры Astro и интеграция с React не допускаются.",

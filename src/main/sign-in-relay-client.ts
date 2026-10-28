@@ -10,12 +10,12 @@ import {
 } from "@openbot/contracts/ipc";
 import { SIGN_IN_RELAY_ROUTES } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Deferred, Duration, Effect } from "effect";
 import type { LanguageService } from "./language-service";
 import { type LoopbackCallbackServer, startLoopbackCallbackServer } from "./loopback-callback-server";
 
-const logger = createOpenBotLogger("sign-in-relay-client");
+const logger = createBuildersBotLogger("sign-in-relay-client");
 
 /** How often a relayed sign-in asks the host how it is. */
 const POLL = Duration.seconds(1);
@@ -248,7 +248,7 @@ export class SignInRelayClient {
         return { status: 200, message: "error.mcp.redirectRelayed" };
       },
     }).catch((error: unknown) => {
-      logger.warn("OpenBot could not listen for a relayed sign-in, so only a pasted address works:", toLogValue(error));
+      logger.warn("Builders Bot could not listen for a relayed sign-in, so only a pasted address works:", toLogValue(error));
       return null;
     });
   }

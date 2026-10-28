@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "すべてのメモリーを消去",
   "memory.clearTitle": "すべてのメモリーを消去しますか？",
   "memory.clearDescription":
-    "OpenBot は {name} の保存済みメモリー {total} 件をすべて完全に削除します。元のメッセージは会話履歴に残ります。",
+    "Builders Bot は {name} の保存済みメモリー {total} 件をすべて完全に削除します。元のメッセージは会話履歴に残ります。",
 
   "memory.loadFailed": "メモリーを読み込めませんでした。",
   "memory.saveFailed": "メモリーを保存できませんでした。",

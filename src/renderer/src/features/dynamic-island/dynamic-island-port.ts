@@ -1,13 +1,13 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the dynamic island reaches in main: its presentation, preference, geometry and actions, and
  * the agent events it shows. The island window has no provider tree, so this is a module.
  */
 export interface DynamicIslandPort {
-  agent: Pick<OpenBotDesktopApi["agent"], "acknowledgeFailedTurn" | "onScopedEvent">;
+  agent: Pick<BuildersBotDesktopApi["agent"], "acknowledgeFailedTurn" | "onScopedEvent">;
   dynamicIsland: Pick<
-    OpenBotDesktopApi["dynamicIsland"],
+    BuildersBotDesktopApi["dynamicIsland"],
     | "getPreference"
     | "getPresentation"
     | "onAction"

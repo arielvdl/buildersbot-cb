@@ -6,7 +6,7 @@ import type {
 } from "@openbot/contracts/ipc";
 import { DEFAULT_DYNAMIC_ISLAND_PREFERENCE, IDLE_DYNAMIC_ISLAND_PRESENTATION } from "@openbot/contracts/ipc";
 import type { DynamicIslandNotchSize, DynamicIslandStateChangeReason, DynamicIslandViewState } from "@openbot/ui";
-import { OpenBotDynamicIsland } from "@openbot/ui/features/dynamic-island/OpenBotDynamicIsland";
+import { BuildersBotDynamicIsland } from "@openbot/ui/features/dynamic-island/BuildersBotDynamicIsland";
 import { useText } from "@openbot/ui/text";
 import { errorReference, type UserErrorDetails } from "@openbot/user-errors";
 import { createSignal, onSettled, Show } from "solid-js";
@@ -237,7 +237,7 @@ export function DynamicIslandSurface() {
           onFocusOut={leaveFocusInteraction}
           onPointerDown={(event) => void requestKeyboard(event)}
         >
-          <OpenBotDynamicIsland
+          <BuildersBotDynamicIsland
             presentation={presentation()}
             state={viewState()}
             displayMode={displayMode}

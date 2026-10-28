@@ -1,6 +1,6 @@
 /**
  * The parts that the chat channel pages share: Slack, Discord and Telegram. Each page connects places
- * where people talk to OpenBot (a workspace, a Discord server, a chat), and one orchestrator agent
+ * where people talk to Builders Bot (a workspace, a Discord server, a chat), and one orchestrator agent
  * answers there. The pages differ only in how a place connects and in their own extra sections.
  */
 
@@ -99,7 +99,7 @@ export interface ChannelText {
   orchestratorDescription: AppTextKey;
   orchestratorNone: AppTextKey;
   orchestratorNoneDescription: AppTextKey;
-  /** The last line of the orchestrator card: how people reach OpenBot. */
+  /** The last line of the orchestrator card: how people reach Builders Bot. */
   note: AppTextKey;
   connectStepBrowser: AppTextKey;
   connectStepAllow: AppTextKey;
@@ -289,7 +289,7 @@ function ChannelOrchestratorFace(props: { avatar: ChannelAvatar; size?: "md" | "
 
 /**
  * The orchestrators of a channel. With none, the card holds the step that adds one. The last line says
- * how people reach OpenBot.
+ * how people reach Builders Bot.
  */
 export function ChannelOrchestratorSection(props: {
   text: ChannelText;

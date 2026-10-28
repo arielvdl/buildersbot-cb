@@ -2,10 +2,10 @@
 
 import { execFile } from "node:child_process";
 import type { MacAutomationResult, MacAutomationTarget } from "@openbot/contracts/ipc";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect } from "effect";
 
-const logger = createOpenBotLogger("mac-automation");
+const logger = createBuildersBotLogger("mac-automation");
 
 /** Kept here, so the renderer names an app and never a bundle or a script. */
 const BUNDLE_IDS: Record<MacAutomationTarget, string> = {

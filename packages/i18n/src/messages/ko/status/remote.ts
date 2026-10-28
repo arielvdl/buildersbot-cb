@@ -18,7 +18,7 @@ export const messages = {
   "status.remote.stageCompatibility": "데스크톱 호환성 확인 중: {reason}",
   "status.remote.stageAgents": "에이전트 불러오는 중: {reason}",
   "status.remote.stageReads": "읽음 상태 불러오는 중: {reason}",
-  "status.remote.suspendedDetail": "연결하기 전에 OpenBot Mobile 또는 데스크톱 앱을 업데이트해 주세요.\n{detail}",
+  "status.remote.suspendedDetail": "연결하기 전에 Builders Bot Mobile 또는 데스크톱 앱을 업데이트해 주세요.\n{detail}",
   "status.remote.cooldownDetail":
     "{limit}번 시도했지만 연결하지 못했어요. {minutes}:{seconds} 후 다시 시도해요.\n{detail}",
   "status.remote.cooldown": "{limit}번 시도했지만 연결하지 못했어요. {minutes}:{seconds} 후 다시 시도해요.",

@@ -2,7 +2,7 @@ import type { AppTranslate } from "@openbot/i18n";
 import { Menu, type NativeImage, Tray } from "electron";
 
 export interface BackgroundTray {
-  /** Shows the icon when OpenBot keeps running after its window closes, and removes it otherwise. */
+  /** Shows the icon when Builders Bot keeps running after its window closes, and removes it otherwise. */
   sync: (keepRunningInBackground: boolean) => void;
   /** Builds the menu again: a native label cannot be changed in place. */
   relabel: () => void;
@@ -17,7 +17,7 @@ export interface BackgroundTray {
  *
  * Linux desktops show the menu on a click and do not report the click, so the menu also opens the
  * window. A desktop with no tray, such as GNOME without an extension, shows nothing: a second
- * launch of OpenBot then shows the window.
+ * launch of Builders Bot then shows the window.
  */
 export function createBackgroundTray(options: {
   icon: NativeImage;

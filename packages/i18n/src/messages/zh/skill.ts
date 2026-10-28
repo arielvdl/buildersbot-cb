@@ -13,7 +13,7 @@ export const messages = {
   "skill.loadingDetails": "正在加载详情…",
   "skill.emptyEnabled": "该助手没有已启用的技能。",
   "skill.emptyAssigned": "该助手还没有分配技能。",
-  "skill.folderSkill": "该技能不是由 OpenBot 安装的，请在 {location} 中编辑或移除。",
+  "skill.folderSkill": "该技能不是由 Builders Bot 安装的，请在 {location} 中编辑或移除。",
   "skill.moreFor": "{name} 的更多",
   "skill.update": "更新",
   "skill.updateName": "更新 {name}",
@@ -34,7 +34,7 @@ export const messages = {
   "skill.confirm.removeTitle": "移除该技能？",
   "skill.confirm.replaceBody": "更新会用最新的技能包替换本地文件，你在该技能文件夹中的修改将会丢失。",
   "skill.confirm.removeModifiedBody": "该技能在助手工作区中有本地修改。移除会删除这些文件，原有对话消息会保留。",
-  "skill.confirm.removeBody": "OpenBot 会从助手中移除该技能，对话记录会保留。",
+  "skill.confirm.removeBody": "Builders Bot 会从助手中移除该技能，对话记录会保留。",
   "skill.confirm.replace": "替换技能",
   "skill.confirm.remove": "移除技能",
 

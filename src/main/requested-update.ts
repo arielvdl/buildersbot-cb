@@ -332,7 +332,7 @@ export class RequestedUpdate extends EventEmitter<{ preference: [UpdatePreferenc
         Effect.catch((failure) =>
           Effect.sync(() => {
             const error = failure.cause;
-            // A refusal before teardown (another macOS session runs OpenBot) leaves the update ready.
+            // A refusal before teardown (another macOS session runs Builders Bot) leaves the update ready.
             this.#log(`The requested update restart failed: ${error instanceof Error ? error.message : String(error)}`);
             if (this.#schedule === schedule) {
               this.#installError = "install_failed";

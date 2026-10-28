@@ -14,7 +14,7 @@ interface FirstRunLaunchProps {
   team: readonly OnboardingAvatarVariant[];
   /** The build, for the color of the scribble. */
   variant: AppLogoVariant;
-  /** The free models are still downloading. Otherwise OpenBot is opening. */
+  /** The free models are still downloading. Otherwise Builders Bot is opening. */
   downloading: boolean;
   /** The download in percent, or null when it reports none. */
   progress: number | null;

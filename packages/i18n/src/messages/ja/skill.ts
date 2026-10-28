@@ -15,7 +15,7 @@ export const messages = {
   "skill.emptyEnabled": "このエージェントには有効なスキルがありません。",
   "skill.emptyAssigned": "このエージェントにはまだスキルが割り当てられていません。",
   "skill.folderSkill":
-    "このスキルは OpenBot がインストールしたものではありません。{location} で編集または削除してください。",
+    "このスキルは Builders Bot がインストールしたものではありません。{location} で編集または削除してください。",
   "skill.moreFor": "{name} のその他の操作",
   "skill.update": "更新",
   "skill.updateName": "{name} を更新",
@@ -38,7 +38,7 @@ export const messages = {
     "このスキルを更新すると、ローカルのファイルが最新のスキルパッケージに置き換えられます。このスキルフォルダーでの編集は失われます。",
   "skill.confirm.removeModifiedBody":
     "このスキルにはエージェントのワークスペースにローカルの変更があります。削除するとそれらのファイルも削除されます。元のチャットメッセージは残ります。",
-  "skill.confirm.removeBody": "OpenBot はこのスキルをエージェントから削除します。チャット履歴は残ります。",
+  "skill.confirm.removeBody": "Builders Bot はこのスキルをエージェントから削除します。チャット履歴は残ります。",
   "skill.confirm.replace": "スキルを置き換える",
   "skill.confirm.remove": "スキルを削除",
 

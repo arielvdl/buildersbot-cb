@@ -7,7 +7,7 @@ import { type PreferenceFileFailure, readPreferenceFile, writePreferenceFile } f
 const DEFAULT_PREFERENCE: NotificationPreference = { desktopNotifications: true, messagePreview: true };
 
 interface StoredNotificationPreference extends NotificationPreference {
-  /** Whether OpenBot has already shown the notification that makes macOS ask for permission. */
+  /** Whether Builders Bot has already shown the notification that makes macOS ask for permission. */
   permissionRequested: boolean;
 }
 

@@ -28,7 +28,7 @@ export interface AgentDatabaseStatement {
   databasePath: string;
   mode: AgentDatabaseMode;
   /**
-   * OpenBot's own setup statement rather than an agent's. Only `AgentTables` sets it, and it means
+   * Builders Bot's own setup statement rather than an agent's. Only `AgentTables` sets it, and it means
    * two things: create the file if it is missing, and allow this one statement to write the
    * reserved metadata table. No agent-authored SQL ever reaches a request with this set.
    */

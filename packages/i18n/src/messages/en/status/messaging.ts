@@ -1,18 +1,18 @@
 import { defineMessages } from "../../../message";
 
 export const messages = defineMessages("status.messaging", {
-  // Text that OpenBot posts in a Slack conversation. Slack users read it. It names no agent: in
-  // Slack, every answer comes from OpenBot.
+  // Text that Builders Bot posts in a Slack conversation. Slack users read it. It names no agent: in
+  // Slack, every answer comes from Builders Bot.
   "status.messaging.working": "Working on it…",
-  "status.messaging.queued": "Waiting: OpenBot is working on another request. The answer comes here.",
+  "status.messaging.queued": "Waiting: Builders Bot is working on another request. The answer comes here.",
   "status.messaging.busy": "Too many requests are waiting. Try again later.",
-  "status.messaging.failed": "OpenBot could not finish this request. The OpenBot host has the details.",
-  "status.messaging.noAnswer": "OpenBot finished without a written answer.",
-  "status.messaging.noAgent": "No agent can answer here yet. Add the Slack Orchestrator in OpenBot.",
+  "status.messaging.failed": "Builders Bot could not finish this request. The Builders Bot host has the details.",
+  "status.messaging.noAnswer": "Builders Bot finished without a written answer.",
+  "status.messaging.noAgent": "No agent can answer here yet. Add the Slack Orchestrator in Builders Bot.",
   "status.messaging.delegated": "A teammate is working on it. The answer comes here.",
   "status.messaging.stopped": "Stopped.",
   "status.messaging.stop": "Stop",
-  "status.messaging.approvalTitle": "OpenBot asks for approval to continue.",
+  "status.messaging.approvalTitle": "Builders Bot asks for approval to continue.",
   "status.messaging.approvalCommand": "Run a command",
   "status.messaging.approvalFileChange": "Change files",
   "status.messaging.approvalPermissions": "Get more permissions",
@@ -20,28 +20,28 @@ export const messages = defineMessages("status.messaging", {
   "status.messaging.deny": "Deny",
   "status.messaging.approvedBy": "Approved by {user}.",
   "status.messaging.deniedBy": "Denied by {user}.",
-  "status.messaging.answeredOnHost": "Answered on the OpenBot host.",
+  "status.messaging.answeredOnHost": "Answered on the Builders Bot host.",
   "status.messaging.requestInactive": "This request is no longer active.",
-  "status.messaging.onlyRequester": "Only {user} can do this. The OpenBot host can also answer.",
-  "status.messaging.hostOnly": "Only the OpenBot host can answer this request.",
+  "status.messaging.onlyRequester": "Only {user} can do this. The Builders Bot host can also answer.",
+  "status.messaging.hostOnly": "Only the Builders Bot host can answer this request.",
   "status.messaging.filesSkipped": "Some files were not sent: {names}.",
-  // The name and title of the agent that OpenBot adds to answer in Slack. The user can rename it.
+  // The name and title of the agent that Builders Bot adds to answer in Slack. The user can rename it.
   "status.messaging.orchestratorName": "Slack Orchestrator",
   "status.messaging.orchestratorTitle": "Answers in Slack and asks the team",
   // The same texts for Discord. Discord users read the first one.
-  "status.messaging.discordNoAgent": "No agent can answer here yet. Add the Discord Orchestrator in OpenBot.",
+  "status.messaging.discordNoAgent": "No agent can answer here yet. Add the Discord Orchestrator in Builders Bot.",
   "status.messaging.discordOrchestratorName": "Discord Orchestrator",
   "status.messaging.discordOrchestratorTitle": "Answers in Discord and asks the team",
-  // The sidebar section that OpenBot puts the Slack Orchestrator in. The user can rename it.
+  // The sidebar section that Builders Bot puts the Slack Orchestrator in. The user can rename it.
   "status.messaging.integrationsSection": "Integrations",
   // The page a development Slack install ends on.
-  "status.messaging.signInReceived": "OpenBot received the Slack install. You can close this tab.",
-  "status.messaging.signInUnknown": "OpenBot did not start this Slack install. Start it again in OpenBot.",
-  // Text that OpenBot posts in a Telegram chat, and the Telegram Orchestrator agent. Telegram users
+  "status.messaging.signInReceived": "Builders Bot received the Slack install. You can close this tab.",
+  "status.messaging.signInUnknown": "Builders Bot did not start this Slack install. Start it again in Builders Bot.",
+  // Text that Builders Bot posts in a Telegram chat, and the Telegram Orchestrator agent. Telegram users
   // read the posts. The user can rename the agent.
-  "status.messaging.telegramNoAgent": "No agent can answer here yet. Add the Telegram Orchestrator in OpenBot.",
+  "status.messaging.telegramNoAgent": "No agent can answer here yet. Add the Telegram Orchestrator in Builders Bot.",
   "status.messaging.telegramLinked":
-    "OpenBot is connected to this chat. Mention {bot} or reply to a message of OpenBot to ask the agents.",
+    "Builders Bot is connected to this chat. Mention {bot} or reply to a message of Builders Bot to ask the agents.",
   "status.messaging.telegramOrchestratorName": "Telegram Orchestrator",
   "status.messaging.telegramOrchestratorTitle": "Answers in Telegram and asks the team",
 });

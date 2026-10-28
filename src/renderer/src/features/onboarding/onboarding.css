@@ -921,7 +921,7 @@ html:active-view-transition-type(open)::view-transition-new(*) {
  * fills with the download; a wait with no percent draws and erases it.
  */
 .first-run-launch {
-  --first-run-launch-accent: var(--openbot-logo-production);
+  --first-run-launch-accent: var(--openbot-logo-signal);
   position: absolute;
   z-index: var(--openbot-layer-dialog);
   inset: 0;

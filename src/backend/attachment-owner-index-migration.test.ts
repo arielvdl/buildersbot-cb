@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: an upgrade loses or changes an attachment; a partial migration survives a failure; a retry
 // fails on the index that the failed run left; a newer or incomplete history is changed.
@@ -16,7 +16,7 @@ function databaseAt(version: number): DatabaseSync {
   db.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
   return db;
 }
@@ -60,7 +60,7 @@ describe("attachment owner index migration", () => {
     const db = databaseAt(version);
     seedAttachments(db);
     const before = attachments(db);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(attachments(db)).toEqual(before);
     expect(ownerIndexColumns(db)).toEqual(["owner_kind", "owner_id"]);
     expectHealthy(db);
@@ -72,12 +72,12 @@ describe("attachment owner index migration", () => {
     const before = attachments(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version = 41
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 41 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 41 failed");
     expect(ownerIndexColumns(db)).toEqual([]);
     expect(attachments(db)).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 41").all()).toEqual([]);
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(attachments(db)).toEqual(before);
     expect(ownerIndexColumns(db)).toEqual(["owner_kind", "owner_id"]);
     expectHealthy(db);
@@ -89,11 +89,11 @@ describe("attachment owner index migration", () => {
     const before = attachments(db);
     // SQLite refuses an index whose name a table holds, even with IF NOT EXISTS.
     db.exec("CREATE TABLE attachments_owner (conflict TEXT)");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 41 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 41 failed");
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 41").all()).toEqual([]);
     expect(attachments(db)).toEqual(before);
     db.exec("DROP TABLE attachments_owner");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(attachments(db)).toEqual(before);
     expect(ownerIndexColumns(db)).toEqual(["owner_kind", "owner_id"]);
     expectHealthy(db);
@@ -104,9 +104,9 @@ describe("attachment owner index migration", () => {
     seedAttachments(db);
     const before = attachments(db);
     db.exec("INSERT INTO schema_migrations VALUES(48, 'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version = 48; DELETE FROM schema_migrations WHERE version = 20");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(attachments(db)).toEqual(before);
     expect(ownerIndexColumns(db)).toEqual([]);
   });

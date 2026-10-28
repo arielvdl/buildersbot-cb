@@ -192,7 +192,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       method: body ? "POST" : "GET",
       credentials: "same-origin",
       cache: "no-store",
-      headers: body ? { "Content-Type": "application/json", "X-OpenBot-Browser": "1" } : {},
+      headers: body ? { "Content-Type": "application/json", "X-Builders Bot-Browser": "1" } : {},
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     const value = await response.json();

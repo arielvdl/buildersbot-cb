@@ -30,7 +30,7 @@ export const messages = {
   "memory.unknownDate": "日期未知",
   "memory.clearAll": "清空所有记忆",
   "memory.clearTitle": "清空所有记忆？",
-  "memory.clearDescription": "OpenBot 将永久移除 {name} 已保存的全部 {total} 条记忆。原始消息仍会保留在对话历史中。",
+  "memory.clearDescription": "Builders Bot 将永久移除 {name} 已保存的全部 {total} 条记忆。原始消息仍会保留在对话历史中。",
 
   "memory.loadFailed": "无法加载记忆。",
   "memory.saveFailed": "无法保存该记忆。",

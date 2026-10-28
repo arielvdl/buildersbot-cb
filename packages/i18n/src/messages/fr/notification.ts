@@ -18,15 +18,15 @@ export const messages = {
   "notification.channelMessage": "A envoyé un message.",
   "notification.usageLimit.title": "Le compte {provider} a atteint sa limite",
   "notification.usageLimit.body": {
-    one: "{count} agent attend. OpenBot réessaiera plus tard.",
-    other: "{count} agents attendent. OpenBot réessaiera plus tard.",
+    one: "{count} agent attend. Builders Bot réessaiera plus tard.",
+    other: "{count} agents attendent. Builders Bot réessaiera plus tard.",
   },
   "notification.usageLimit.bodyResets": {
     one: "{count} agent attend. La limite se réinitialise {reset}.",
     other: "{count} agents attendent. La limite se réinitialise {reset}.",
   },
   "notification.test": "Les notifications fonctionnent.",
-  "notification.welcome": "OpenBot vous préviendra ici quand un agent aura besoin de vous.",
+  "notification.welcome": "Builders Bot vous préviendra ici quand un agent aura besoin de vous.",
   // The toast region in each window.
   "notification.toast.region": "Notifications",
   "notification.toast.close": "Fermer la notification",

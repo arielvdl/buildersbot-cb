@@ -1,42 +1,42 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the app shell and the cross-domain root modules reach in main, plus the shell actions
  * (`openUrl`, `openExternal`) that several domains share.
  */
 export interface AppPort {
-  getAppInfo: OpenBotDesktopApi["getAppInfo"];
-  getAppAppearancePreference: OpenBotDesktopApi["getAppAppearancePreference"];
-  getAppInterfaceSizePreference: OpenBotDesktopApi["getAppInterfaceSizePreference"];
-  getAppLanguagePreference: OpenBotDesktopApi["getAppLanguagePreference"];
-  getAppLogoColorPreference: OpenBotDesktopApi["getAppLogoColorPreference"];
-  onAppAppearancePreference: OpenBotDesktopApi["onAppAppearancePreference"];
-  onAppInterfaceSizePreference: OpenBotDesktopApi["onAppInterfaceSizePreference"];
-  onAppLanguagePreference: OpenBotDesktopApi["onAppLanguagePreference"];
-  onAppLogoColorPreference: OpenBotDesktopApi["onAppLogoColorPreference"];
-  openExternal: OpenBotDesktopApi["openExternal"];
-  openUrl: OpenBotDesktopApi["openUrl"];
-  openChatWindow: OpenBotDesktopApi["openChatWindow"];
-  getChatWindows: OpenBotDesktopApi["getChatWindows"];
-  onChatWindows: OpenBotDesktopApi["onChatWindows"];
-  setAppAppearancePreference: OpenBotDesktopApi["setAppAppearancePreference"];
-  setAppInterfaceSizePreference: OpenBotDesktopApi["setAppInterfaceSizePreference"];
-  setAppLanguagePreference: OpenBotDesktopApi["setAppLanguagePreference"];
-  setAppLogoColorPreference: OpenBotDesktopApi["setAppLogoColorPreference"];
+  getAppInfo: BuildersBotDesktopApi["getAppInfo"];
+  getAppAppearancePreference: BuildersBotDesktopApi["getAppAppearancePreference"];
+  getAppInterfaceSizePreference: BuildersBotDesktopApi["getAppInterfaceSizePreference"];
+  getAppLanguagePreference: BuildersBotDesktopApi["getAppLanguagePreference"];
+  getAppLogoColorPreference: BuildersBotDesktopApi["getAppLogoColorPreference"];
+  onAppAppearancePreference: BuildersBotDesktopApi["onAppAppearancePreference"];
+  onAppInterfaceSizePreference: BuildersBotDesktopApi["onAppInterfaceSizePreference"];
+  onAppLanguagePreference: BuildersBotDesktopApi["onAppLanguagePreference"];
+  onAppLogoColorPreference: BuildersBotDesktopApi["onAppLogoColorPreference"];
+  openExternal: BuildersBotDesktopApi["openExternal"];
+  openUrl: BuildersBotDesktopApi["openUrl"];
+  openChatWindow: BuildersBotDesktopApi["openChatWindow"];
+  getChatWindows: BuildersBotDesktopApi["getChatWindows"];
+  onChatWindows: BuildersBotDesktopApi["onChatWindows"];
+  setAppAppearancePreference: BuildersBotDesktopApi["setAppAppearancePreference"];
+  setAppInterfaceSizePreference: BuildersBotDesktopApi["setAppInterfaceSizePreference"];
+  setAppLanguagePreference: BuildersBotDesktopApi["setAppLanguagePreference"];
+  setAppLogoColorPreference: BuildersBotDesktopApi["setAppLogoColorPreference"];
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     "readConversationPage" | "searchConversationMessages" | "searchConversationFiles" | "listRoutines" | "listAgents"
   >;
-  agentTemplates: Pick<OpenBotDesktopApi["agentTemplates"], "onOpenLink" | "takePendingLink">;
-  acpRegistry: OpenBotDesktopApi["acpRegistry"];
-  hostedSites: OpenBotDesktopApi["hostedSites"];
-  billing: OpenBotDesktopApi["billing"];
-  license: OpenBotDesktopApi["license"];
-  hostedServers: OpenBotDesktopApi["hostedServers"];
-  routineFeed: OpenBotDesktopApi["routineFeed"];
-  events: OpenBotDesktopApi["events"];
-  plugins: Pick<OpenBotDesktopApi["plugins"], "onOpenListing" | "takePendingListing">;
-  servers: Pick<OpenBotDesktopApi["servers"], "onInvite" | "takePendingInvite">;
+  agentTemplates: Pick<BuildersBotDesktopApi["agentTemplates"], "onOpenLink" | "takePendingLink">;
+  acpRegistry: BuildersBotDesktopApi["acpRegistry"];
+  hostedSites: BuildersBotDesktopApi["hostedSites"];
+  billing: BuildersBotDesktopApi["billing"];
+  license: BuildersBotDesktopApi["license"];
+  hostedServers: BuildersBotDesktopApi["hostedServers"];
+  routineFeed: BuildersBotDesktopApi["routineFeed"];
+  events: BuildersBotDesktopApi["events"];
+  plugins: Pick<BuildersBotDesktopApi["plugins"], "onOpenListing" | "takePendingListing">;
+  servers: Pick<BuildersBotDesktopApi["servers"], "onInvite" | "takePendingInvite">;
 }
 
 /** Read on each call: tests and stories replace `window.openbot` per case. */

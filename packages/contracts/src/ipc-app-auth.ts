@@ -75,7 +75,7 @@ export interface UpdateStatus {
   idleRestart?: IdleRestart;
 }
 
-/** `relaunch` starts OpenBot again; `update` installs the downloaded update. */
+/** `relaunch` starts Builders Bot again; `update` installs the downloaded update. */
 export const IDLE_RESTART_TARGETS = ["relaunch", "update"] as const;
 export type IdleRestartTarget = (typeof IDLE_RESTART_TARGETS)[number];
 
@@ -143,7 +143,7 @@ export type ProviderRuntimePhase = "not-downloaded" | "downloading" | "finishing
 export interface ProviderRuntimeStatus {
   /**
    * The newer version an update installs, when an older install exists: the latest upstream release
-   * the last check found, or the version this OpenBot release carries, whichever is newer.
+   * the last check found, or the version this Builders Bot release carries, whichever is newer.
    */
   availableVersion?: string | null;
   phase: ProviderRuntimePhase;
@@ -155,7 +155,7 @@ export interface ProviderRuntimeStatus {
 export interface ProviderRuntimeSnapshot {
   revision: number;
   /**
-   * Only the providers whose CLI OpenBot downloads and pins itself. A provider that ships without a
+   * Only the providers whose CLI Builders Bot downloads and pins itself. A provider that ships without a
    * managed runtime is absent from `ManagedProviderId`, so it needs no fake entry here, and every
    * provider that is in the tuple has a real status.
    */
@@ -239,7 +239,7 @@ export type MacPermissionId = "screen-recording" | "accessibility";
 
 /**
  * The Apple apps an MCP server may drive through AppleScript. macOS asks once for each, under
- * Privacy & Security › Automation, and keeps the answer for OpenBot.
+ * Privacy & Security › Automation, and keeps the answer for Builders Bot.
  */
 export const MAC_AUTOMATION_TARGETS = [
   "calendar",
@@ -305,7 +305,7 @@ export interface ComputerUseState {
  * macOS grants a permission to an application bundle, and the list in System Settings does not
  * always offer the one that asked. Dragging the bundle in is the way past that, so the window has
  * to show the user the same name and icon the list will show - which in a development build is
- * Electron, not OpenBot. `null` where there is no bundle to drag: every system that is not macOS,
+ * Electron, not Builders Bot. `null` where there is no bundle to drag: every system that is not macOS,
  * and a build that runs from a directory rather than an application.
  */
 export interface ComputerUsePermissionApp {
@@ -331,7 +331,7 @@ export interface ComputerUseHighlightPlacement {
   /** Which application window the agent works in, for the screen reader. Never logged. */
   windowTitle: string;
   /**
-   * Where OpenBot draws the agent cursor, or `null` when it draws none.
+   * Where Builders Bot draws the agent cursor, or `null` when it draws none.
    *
    * The driver draws a cursor of its own, and two cursors for one agent say two places. So this
    * carries a point only while the driver draws nothing, and only while the agent's last action is
@@ -379,17 +379,17 @@ export type ExternalDestination =
   | "claude-install"
   | "feedback"
   | "message"
-  // The release notes, the guides and the Discord community of OpenBot, from the Help menu of the window rail.
+  // The release notes, the guides and the Discord community of Builders Bot, from the Help menu of the window rail.
   // The community card of the sidebar also opens Discord.
   | "changelog"
   | "guides"
   | "discord"
-  // The OpenBot account on X, from the community card of the sidebar.
+  // The Builders Bot account on X, from the community card of the sidebar.
   | "x"
-  // The x.ai marketplace listing of the Grok Bot agent that exports agents for OpenBot.
+  // The x.ai marketplace listing of the Grok Bot agent that exports agents for Builders Bot.
   | "grok-bot-export"
   // The email for a hosted server plan that the add server dialog does not have, such as a Mac.
   | "hosted-server-contact"
-  // Not a page: the macOS pane that grants OpenBot screen recording. It is here rather than behind
+  // Not a page: the macOS pane that grants Builders Bot screen recording. It is here rather than behind
   // its own endpoint because the destination is still a fixed address the renderer only names.
   | "mac-screen-recording";

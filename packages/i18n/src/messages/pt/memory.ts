@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Limpar todas as memórias",
   "memory.clearTitle": "Limpar todas as memórias?",
   "memory.clearDescription":
-    "O OpenBot removerá permanentemente todas as {total} memórias salvas de {name}. As mensagens originais continuarão no histórico da conversa.",
+    "O Builders Bot removerá permanentemente todas as {total} memórias salvas de {name}. As mensagens originais continuarão no histórico da conversa.",
   "memory.loadFailed": "Não foi possível carregar as memórias.",
   "memory.saveFailed": "Não foi possível salvar a memória.",
   "memory.updateFailed": "Não foi possível atualizar a memória.",

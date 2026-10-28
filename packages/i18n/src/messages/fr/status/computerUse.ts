@@ -7,7 +7,7 @@ export const messages = {
   "status.computerUse.driverNoAnswer": "Le pilote Computer Use n’a pas répondu. {reason}",
   "status.computerUse.driverStopped": "Le pilote Computer Use s’est arrêté.",
   "status.computerUse.unsupported": "Computer Use est disponible sur macOS, Windows et Linux.",
-  "status.computerUse.driverMissing": "Cette version d’OpenBot ne contient pas de pilote Computer Use.",
+  "status.computerUse.driverMissing": "Cette version d’Builders Bot ne contient pas de pilote Computer Use.",
   "status.computerUse.progressActing": "Utilisation d’une application sur cet ordinateur…",
   "status.computerUse.progressDeciding": "Choix de la prochaine étape dans l’application…",
 } as const satisfies PartialTranslation<typeof source>;

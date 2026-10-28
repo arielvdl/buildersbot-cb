@@ -101,7 +101,7 @@ export function CustomProviderDialog(props: CustomProviderDialogProps) {
   const [draft, setDraft] = createStore<CustomProviderDraft>(
     untrack(() => (props.draft ? cloneDraft(props.draft) : emptyCustomProviderDraft())),
   );
-  // Nothing is red until the user has asked OpenBot to accept the form, so a blank form does not
+  // Nothing is red until the user has asked Builders Bot to accept the form, so a blank form does not
   // open covered in messages about fields nobody has reached yet.
   const [submitted, setSubmitted] = createSignal(untrack(() => Boolean(props.showErrors)));
 

@@ -56,13 +56,13 @@ export const messages = {
   "mobile.marketplace.permission.admin":
     "Solo los propietarios y administradores pueden instalar desde el marketplace.",
   "mobile.marketplace.permission.unavailable":
-    "Este servidor está sin conexión, o su OpenBot es demasiado antiguo para esto. Actualiza OpenBot en el ordenador que lo ejecuta.",
+    "Este servidor está sin conexión, o su Builders Bot es demasiado antiguo para esto. Actualiza Builders Bot en el ordenador que lo ejecuta.",
   "mobile.marketplace.error.agentUnsupported":
-    "Actualiza OpenBot en el servidor para añadir agentes desde el marketplace.",
+    "Actualiza Builders Bot en el servidor para añadir agentes desde el marketplace.",
   "mobile.marketplace.error.agentUpdateUnsupported":
-    "Actualiza OpenBot en el servidor para actualizar agentes del marketplace.",
+    "Actualiza Builders Bot en el servidor para actualizar agentes del marketplace.",
   "mobile.marketplace.error.signInUnsupported":
-    "Actualiza OpenBot en el servidor para iniciar sesión en apps desde el teléfono.",
+    "Actualiza Builders Bot en el servidor para iniciar sesión en apps desde el teléfono.",
   "mobile.marketplace.agent.add": "Añadir agente",
   "mobile.marketplace.agent.adding": "Añadiendo agente",
   "mobile.marketplace.agent.update": "Actualizar agente",
@@ -105,9 +105,9 @@ export const messages = {
   "mobile.marketplace.app.connectFailed": "No se pudo conectar la app.",
   "mobile.marketplace.app.linkInvalid": "Usa un enlace https de {hostname}.",
   "mobile.marketplace.app.docs": "Obtener clave",
-  "mobile.marketplace.app.local": "Esta app se ejecuta en el ordenador con OpenBot. Configúrala en ese ordenador.",
+  "mobile.marketplace.app.local": "Esta app se ejecuta en el ordenador con Builders Bot. Configúrala en ese ordenador.",
   "mobile.marketplace.app.relayUnsupported":
-    "Esta app pide iniciar sesión en el navegador. Actualiza OpenBot en el servidor o conecta la app en el ordenador.",
+    "Esta app pide iniciar sesión en el navegador. Actualiza Builders Bot en el servidor o conecta la app en el ordenador.",
   "mobile.marketplace.app.waiting": "Esperando la página de inicio de sesión…",
   "mobile.marketplace.app.openAgain": "Abrir de nuevo la página de inicio de sesión",
   "mobile.marketplace.app.pasteHint":

@@ -41,6 +41,7 @@ import {
   agentComputerUseEnabled,
   agentTaskLimit,
   type BrowserProfileSummary,
+  type BuildersBotDesktopApi,
   type BusyMessageModePreference,
   type CentralAuthState,
   type ClientAgentModelOption,
@@ -71,6 +72,7 @@ import {
   DEFAULT_PROVIDER_DETECTION_SETTINGS,
   DEFAULT_REMOTE_NETWORK_ROUTE,
   DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE,
+  DEFAULT_SECURITY_GUARD_PREFERENCE,
   DEFAULT_TRANSPARENT_WINDOW,
   type DirectConversationSnapshot,
   type DirectMessageRealtimeEvent,
@@ -92,7 +94,6 @@ import {
   nextBrowserProfileHue,
   normalizeMcpConfig,
   type OpenAttachmentInput,
-  type OpenBotDesktopApi,
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
   type PromptCacheTtlSetting,
@@ -112,6 +113,8 @@ import {
   type RoutineFlowStep,
   type RoutineRun,
   type RoutineSchedule,
+  type SecurityGuardPreference,
+  type SecurityGuardPreferenceChange,
   type SendMessageInput,
   type SetAgentAvatarInput,
   type SetMessageReactionInput,
@@ -192,7 +195,7 @@ import { createMockVault } from "./mock-vault";
 import { createMockVoice, type MockVoiceOptions } from "./mock-voice";
 import { type MockWorkflowSeed, mockWorkflows } from "./mock-workflows";
 
-export interface MockOpenBotOptions
+export interface MockBuildersBotOptions
   extends MockProviderRuntimeOptions,
     MockVoiceOptions,
     MockAuthOptions,
@@ -299,8 +302,8 @@ function mockCustomProviderModels(provider: CustomProviderSummary): ClientAgentM
   }));
 }
 
-export interface MockOpenBotControls {
-  api: OpenBotDesktopApi;
+export interface MockBuildersBotControls {
+  api: BuildersBotDesktopApi;
   emitAgentEvent: (event: AgentEvent) => void;
   onLatestConversationOpened: (listener: (agentId: string) => void) => () => void;
   onLatestDirectConversationOpened: (listener: (memberId: string) => void) => () => void;
@@ -352,7 +355,7 @@ function mockWorkspaceDirectory(path: string): WorkspaceDirectory {
   return {
     name: folder.split("/").at(-1) ?? folder,
     path: folder,
-    root: "/Users/demo/OpenBot/Agents/research",
+    root: "/Users/demo/Builders Bot/Agents/research",
     parentPath: folder === "." ? null : folder.split("/").slice(0, -1).join("/") || ".",
     entries: [
       { name: "sources", path: child("sources"), kind: "directory", size: 0, modifiedAt },
@@ -379,7 +382,7 @@ const MOCK_MCP_TOOL_COUNTS: Record<string, number> = { "Local SQLite": 12, Linea
 /** The one address that asks for a sign-in until it has one, so the preview shows Save signing in. */
 const MOCK_MCP_SIGN_IN_URL = "https://mcp.granola.ai/mcp";
 
-export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBotControls {
+export function createMockBuildersBot(options: MockBuildersBotOptions = {}): MockBuildersBotControls {
   const appInfo = clone(options.appInfo ?? STORY_APP_INFO);
   let setupState = clone<AppSetupState>(
     options.setupState ?? { completed: true, preferredProvider: "codex", preferredModel: null },
@@ -408,6 +411,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   let externalLinks: ExternalLinkPreference = clone(DEFAULT_EXTERNAL_LINK_PREFERENCE);
   // The preview computer has Tailscale, so the private route shows what it finds.
   let remoteNetworkRoute: RemoteNetworkRouteState = { route: DEFAULT_REMOTE_NETWORK_ROUTE, tailscaleConnected: true };
+  let securityGuard: SecurityGuardPreference = { ...DEFAULT_SECURITY_GUARD_PREFERENCE };
   let appBehavior: AppBehaviorPreference = {
     launchAtLogin: false,
     keepRunningInBackground: false,
@@ -884,7 +888,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       computerUse: input.computerUse ?? true,
       ...(input.allowAutomation ? { allowAutomation: true } : {}),
       threadId: input.threadId ?? `thread-${id}`,
-      workspacePath: input.workspacePath ?? `/mock/OpenBot/Agents/${id}`,
+      workspacePath: input.workspacePath ?? `/mock/Builders Bot/Agents/${id}`,
       preview: input.preview ?? "No messages yet",
       updatedAt: input.updatedAt ?? null,
       avatarSeed: input.avatarSeed ?? id,
@@ -947,7 +951,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   );
   const billingPlans = previewBillingServers();
 
-  const api: OpenBotDesktopApi = {
+  const api: BuildersBotDesktopApi = {
     getAppInfo: async () => clone(appInfo),
     getSetupState: async () => clone(setupState),
     saveSetup: async ({ preferredProvider, preferredModel }) => {
@@ -967,6 +971,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       return () => approvalAutomationListeners.delete(listener);
     },
     getBusyMessageModePreference: async () => clone(busyMessageMode),
+    getGuardPreference: async () => clone(securityGuard),
+    setGuardPreference: async (change: SecurityGuardPreferenceChange) => {
+      securityGuard = { ...securityGuard, ...change };
+      return clone(securityGuard);
+    },
     getAppBehaviorPreference: async () => clone(appBehavior),
     setAppBehaviorPreference: async (change) => {
       appBehavior = { ...appBehavior, ...change };
@@ -1241,7 +1250,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         limit: 3,
         used: hostedSites.filter((site) => site.status === "active").length,
       }),
-      chooseDirectory: async () => "/mock/OpenBot/Sites/launch-notes",
+      chooseDirectory: async () => "/mock/Builders Bot/Sites/launch-notes",
       publish: async (input) => {
         const hostname = `${input.title.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}.openbot.site`;
         const site: HostedSiteSummary = {
@@ -2066,11 +2075,12 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           allowAutomation,
           allowNewChat,
           quickAcknowledgement,
+          securityGuard,
           ...updates
         } = input;
         const updated: ClientAgentSummary = { ...current, ...updates };
         // `null` returns the agent to the account default, which an agent records by having no value.
-        const flags = { allowAutomation, allowNewChat, quickAcknowledgement };
+        const flags = { allowAutomation, allowNewChat, quickAcknowledgement, securityGuard };
         for (const key of AGENT_DEFAULT_KEYS) {
           const flag = flags[key];
           if (flag === null) delete updated[key];

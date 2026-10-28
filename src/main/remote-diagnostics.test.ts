@@ -57,12 +57,12 @@ describe("remote diagnostic log", () => {
       "x".repeat(8_010),
       "api_key=sk-live-",
       "0123456789abcdef\n",
-      `${"a ".repeat(3_987)}X-OpenBot-Remote-0123456789abcdef\n`,
+      `${"a ".repeat(3_987)}X-Builders Bot-Remote-0123456789abcdef\n`,
       "next line\n",
     ]);
 
     expect(log).not.toContain("0123456789abcdef");
-    expect(log).not.toContain("X-OpenBot-Remote-");
+    expect(log).not.toContain("X-Builders Bot-Remote-");
     expect(log).toContain("next line\n");
   });
 });

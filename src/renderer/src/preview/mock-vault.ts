@@ -1,6 +1,6 @@
 import {
   EMPTY_VAULT,
-  type OpenBotDesktopApi,
+  type BuildersBotDesktopApi,
   type VaultItemSummary,
   type VaultSaveInput,
   type VaultSecretField,
@@ -19,7 +19,7 @@ function brandOf(number: string): "visa" | "mastercard" | "amex" | "discover" | 
  * An empty Vault kept in memory. The import adds one login, as if the user chose a CSV file. The
  * preview has one host, so the `host*` calls of every server use the same items.
  */
-export function createMockVault(): OpenBotDesktopApi["vault"] {
+export function createMockVault(): BuildersBotDesktopApi["vault"] {
   let state: VaultState = EMPTY_VAULT;
   const secrets = new Map<string, Partial<Record<VaultSecretField, string>>>();
   const listeners = new Set<(state: VaultState) => void>();

@@ -14,7 +14,7 @@ export const messages = {
   "skill.loadingDetails": "상세 정보를 불러오는 중…",
   "skill.emptyEnabled": "이 에이전트에는 사용 중인 스킬이 없어요.",
   "skill.emptyAssigned": "이 에이전트에는 아직 할당된 스킬이 없어요.",
-  "skill.folderSkill": "OpenBot이 설치한 스킬이 아니에요. {location}에서 편집하거나 제거해 주세요.",
+  "skill.folderSkill": "Builders Bot이 설치한 스킬이 아니에요. {location}에서 편집하거나 제거해 주세요.",
   "skill.moreFor": "{name}의 더 보기",
   "skill.update": "업데이트",
   "skill.updateName": "{name} 업데이트",
@@ -37,7 +37,7 @@ export const messages = {
     "스킬을 업데이트하면 로컬 파일이 최신 스킬 패키지로 바뀌어요. 이 스킬 폴더에서 편집한 내용은 사라져요.",
   "skill.confirm.removeModifiedBody":
     "이 스킬은 에이전트 워크스페이스에 로컬 변경 사항이 있어요. 제거하면 해당 파일이 삭제돼요. 기존 채팅 메시지는 그대로 남아요.",
-  "skill.confirm.removeBody": "OpenBot이 에이전트에서 이 스킬을 제거해요. 채팅 기록은 그대로 남아요.",
+  "skill.confirm.removeBody": "Builders Bot이 에이전트에서 이 스킬을 제거해요. 채팅 기록은 그대로 남아요.",
   "skill.confirm.replace": "스킬 바꾸기",
   "skill.confirm.remove": "스킬 제거",
 

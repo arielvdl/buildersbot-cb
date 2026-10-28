@@ -43,7 +43,7 @@ export function createSidebarPreferences(options: { scope: () => string }) {
     });
   }
 
-  /** Collapses one section of the active scope, such as the Integrations section OpenBot just made. */
+  /** Collapses one section of the active scope, such as the Integrations section Builders Bot just made. */
   function collapseSidebarSection(sectionId: string): void {
     if (collapsedSidebarSectionIds().includes(sectionId)) return;
     toggleSidebarSection(sectionId);

@@ -64,7 +64,7 @@ export const messages = {
   "prompt.browser.signInBlocked.title": "{host} 拦截了来自 {server} 的登录",
   "prompt.browser.signInBlocked.cancelledTitle": "已取消登录 {host}",
   "prompt.browser.signInBlocked.body":
-    "请在这台电脑上登录。OpenBot 只会把 {host} 的登录状态发送给 {server}，{name} 随后继续工作。",
+    "请在这台电脑上登录。Builders Bot 只会把 {host} 的登录状态发送给 {server}，{name} 随后继续工作。",
   "prompt.browser.signInBlocked.cancelledBody": "登录已取消。",
   "prompt.browser.signInBlocked.waiting": "正在等待登录",
   "prompt.browser.signInBlocked.waitingButton": "正在等待登录…",

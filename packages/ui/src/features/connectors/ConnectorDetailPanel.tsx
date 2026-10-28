@@ -51,7 +51,7 @@ export interface ConnectorSummary {
   agents?: IntegrationAgent[] | undefined;
 }
 
-/** What a list shows for a connector whose state OpenBot could not read. */
+/** What a list shows for a connector whose state Builders Bot could not read. */
 function unknownSummary(t: TextValue["t"]): ConnectorSummary {
   return { status: UNKNOWN_STATUS.status, statusLabel: t(UNKNOWN_STATUS.label), summary: t("connector.readFailed") };
 }

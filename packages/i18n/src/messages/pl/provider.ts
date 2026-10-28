@@ -47,7 +47,7 @@ export const messages = {
   "provider.status.checking": "Sprawdzanie",
   "provider.status.off": "Wyłączony",
   "provider.gemini.hostSignIn":
-    "Aby połączyć Gemini, otwórz OpenBot na hoście i wybierz „Połącz” w sekcji Ustawienia > Dostawcy. Logowanie Google wymaga przeglądarki na tym hoście. Zdalne logowanie nie jest obsługiwane.",
+    "Aby połączyć Gemini, otwórz Builders Bot na hoście i wybierz „Połącz” w sekcji Ustawienia > Dostawcy. Logowanie Google wymaga przeglądarki na tym hoście. Zdalne logowanie nie jest obsługiwane.",
 
   "provider.key.free": "Darmowy",
 
@@ -74,13 +74,13 @@ export const messages = {
   "provider.aria.cancelSignIn": "Anuluj logowanie do {name}",
   "provider.aria.apiKey": "Klucz API {name}",
   "provider.connecting.browserHint": "Dokończ logowanie, jeśli otworzy się strona w przeglądarce.",
-  "provider.connecting.cancelFailed": "OpenBot nie mógł anulować logowania do {name}. Spróbuj ponownie.",
+  "provider.connecting.cancelFailed": "Builders Bot nie mógł anulować logowania do {name}. Spróbuj ponownie.",
   "provider.aria.install": "Zainstaluj {name}",
   "provider.aria.signIn": "Zaloguj się do {name}",
   "provider.aria.codeFallback": "Zaloguj się do {name} kodem",
   "provider.aria.moreActions": "Więcej działań: {name}",
 
-  "provider.aria.use": "Używaj {name} w OpenBot",
+  "provider.aria.use": "Używaj {name} w Builders Bot",
   "provider.use.inUseOne": "{agent} używa {name}. Zmień model tego agenta, a potem wyłącz {name}.",
   "provider.use.inUse": {
     one: "{count} agent używa {name}. Zmień model tego agenta, a potem wyłącz {name}.",
@@ -90,7 +90,7 @@ export const messages = {
   },
 
   "provider.codeLogin.title": "Zaloguj się do {name} kodem",
-  "provider.codeLogin.description": "Dokończ na telefonie lub w innej przeglądarce. OpenBot czeka tutaj.",
+  "provider.codeLogin.description": "Dokończ na telefonie lub w innej przeglądarce. Builders Bot czeka tutaj.",
   "provider.codeLogin.starting": "Pobieranie kodu od: {name}…",
   "provider.codeLogin.qrLabel": "Kod QR strony logowania {name}",
   "provider.codeLogin.open": "Otwórz",
@@ -111,10 +111,10 @@ export const messages = {
   "provider.codeLogin.pageDescription": "Ta strona jest otwarta w przeglądarce na: {host}. Zaloguj się tutaj.",
   "provider.codeLogin.relayStarting": "Uruchamianie logowania do {name} na {host}…",
   "provider.codeLogin.pageOpening": "Otwieranie strony logowania {name} na {host}…",
-  "provider.codeLogin.linkStep": "Zaloguj się do {name}. OpenBot będzie kontynuować samodzielnie.",
-  "provider.useApp.title": "Połącz {name} w aplikacji OpenBot",
+  "provider.codeLogin.linkStep": "Zaloguj się do {name}. Builders Bot będzie kontynuować samodzielnie.",
+  "provider.useApp.title": "Połącz {name} w aplikacji Builders Bot",
   "provider.useApp.description":
-    "Logowanie do {name} wraca na komputer, który je rozpoczął, a karta przeglądarki nie może go odebrać. Połącz {name} w aplikacji OpenBot. Aplikacja sama dokończy logowanie.",
+    "Logowanie do {name} wraca na komputer, który je rozpoczął, a karta przeglądarki nie może go odebrać. Połącz {name} w aplikacji Builders Bot. Aplikacja sama dokończy logowanie.",
   "provider.useApp.download": "Pobierz aplikację",
 
   "provider.picker.noEndpoints": "Brak endpointów",
@@ -125,7 +125,7 @@ export const messages = {
   "provider.picker.providers": "Dostawcy modeli",
   "provider.picker.downloading": "Pobieranie {percent}",
   "provider.picker.unavailable": "{name} jest niedostępny.",
-  "provider.picker.updateToUse": "Zaktualizuj OpenBot, aby używać {name}",
+  "provider.picker.updateToUse": "Zaktualizuj Builders Bot, aby używać {name}",
   "provider.picker.models": "Modele {name}",
   "provider.picker.addProvider": "Dodaj dostawcę",
   "provider.picker.download": "Pobieranie {name}",
@@ -164,22 +164,22 @@ export const messages = {
   "provider.claudeKey.label": "Klucz API Anthropic",
   "provider.inceptionKey.title": "Klucz API Inception",
   "provider.inceptionKey.description":
-    "Zapisz klucz API Inception na tym komputerze, aby używać modeli Mercury. OpenBot uruchamia je w pobranym Pi CLI.",
+    "Zapisz klucz API Inception na tym komputerze, aby używać modeli Mercury. Builders Bot uruchamia je w pobranym Pi CLI.",
   "provider.inceptionKey.label": "Klucz API Inception",
   "provider.deepseekKey.title": "Klucz API DeepSeek",
   "provider.deepseekKey.description":
-    "Zapisz klucz API DeepSeek na tym komputerze, aby używać modeli DeepSeek. OpenBot uruchamia je w pobranym Pi CLI.",
+    "Zapisz klucz API DeepSeek na tym komputerze, aby używać modeli DeepSeek. Builders Bot uruchamia je w pobranym Pi CLI.",
   "provider.deepseekKey.label": "Klucz API DeepSeek",
   "provider.openrouterKey.title": "Klucz API OpenRouter",
   "provider.openrouterKey.description":
-    "Zapisz klucz API OpenRouter na tym komputerze, aby używać modeli z OpenRouter. OpenBot uruchamia je w pobranym Pi CLI.",
+    "Zapisz klucz API OpenRouter na tym komputerze, aby używać modeli z OpenRouter. Builders Bot uruchamia je w pobranym Pi CLI.",
   "provider.openrouterKey.label": "Klucz API OpenRouter",
 
-  "provider.openCodeKey.title": "Zaloguj się do OpenCode Go",
+  "provider.openCodeKey.title": "Zaloguj się do Builders Go",
   "provider.openCodeKey.description": "Darmowe modele nie wymagają konta. Klucz odblokowuje płatne modele Go.",
   "provider.openCodeKey.unreadable": "Zapisanego klucza nie można odczytać. Wklej go ponownie lub usuń.",
   "provider.openCodeKey.saved": "Klucz zapisany. Wklej nowy, aby go zastąpić.",
-  "provider.openCodeKey.label": "Klucz OpenCode Go",
+  "provider.openCodeKey.label": "Klucz Builders Go",
   "provider.openCodeKey.placeholder": "Wklej swój klucz",
   "provider.openCodeKey.remove": "Usuń klucz",
   "provider.openCodeKey.save": "Zapisz klucz",
@@ -243,7 +243,7 @@ export const messages = {
     many: "{count} wersji · {size}",
     other: "{count} wersji · {size}",
   },
-  "provider.settings.downloadAgain": "Gdy włączysz {name}, OpenBot pobierze CLI ponownie.",
+  "provider.settings.downloadAgain": "Gdy włączysz {name}, Builders Bot pobierze CLI ponownie.",
   "provider.settings.removeDownloadConfirm": "Usunąć {size}?",
   "provider.settings.removeDownloadKeeps": "Konta, logowania i agenci zostają.",
   "provider.settings.removeDownload": "Usuń pobrane",

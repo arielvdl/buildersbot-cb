@@ -11,7 +11,7 @@ export const messages = {
     "Nie ma jeszcze tabel. Agent sam tworzy tabelę, gdy zadanie potrzebuje rekordów między turami, a każdy agent może z niej korzystać.",
   "sharedTable.loadFailed": "Nie udało się wczytać tabel.",
   "sharedTable.deleteFailed": "Nie udało się tego usunąć.",
-  "sharedTable.madeOutside": "Utworzona poza OpenBot · każdy agent może ją usunąć",
+  "sharedTable.madeOutside": "Utworzona poza Builders Bot · każdy agent może ją usunąć",
   "sharedTable.keptBy": "Prowadzi: {name}",
   "sharedTable.keptByDeleted": "Prowadzi agent, który już nie istnieje",
   "sharedTable.deleteName": "Usuń {name}",

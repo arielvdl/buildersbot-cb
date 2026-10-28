@@ -1,13 +1,13 @@
-// The installation tokens of the OpenBot GitHub App that the OpenBot API gives this computer, so
+// The installation tokens of the Builders Bot GitHub App that the Builders Bot API gives this computer, so
 // that GitHub shows an agent's work as the app and not as the signed-in user.
 
-import { createOpenBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
 import { Effect } from "effect";
 import { z } from "zod";
 import type { GitHubFetch } from "./github-device-flow";
 import { GitHubOperationError, githubCall, githubDecode } from "./github-effects";
 
-const logger = createOpenBotLogger("github-bot-tokens");
+const logger = createBuildersBotLogger("github-bot-tokens");
 
 /** An installation token lasts one hour. It is replaced when less than this is left. */
 const RENEW_MARGIN_MS = 10 * 60_000;
@@ -33,7 +33,7 @@ export interface GitHubBotToken {
 }
 
 export interface GitHubBotTokensOptions {
-  /** The origin of the OpenBot API, such as `https://api.openbot.run`. */
+  /** The origin of the Builders Bot API, such as `https://api.openbot.run`. */
   apiUrl: string;
   fetch: GitHubFetch;
   now: () => number;
@@ -125,7 +125,7 @@ export class GitHubBotTokens {
       }
       if (!response.ok)
         return yield* new GitHubOperationError({
-          cause: new Error(`The OpenBot API refused the GitHub token request (HTTP ${response.status}).`),
+          cause: new Error(`The Builders Bot API refused the GitHub token request (HTTP ${response.status}).`),
         });
       const json = yield* githubCall(() => response.json());
       const answer = yield* githubDecode(() => answerSchema.parse(json));

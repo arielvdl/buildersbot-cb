@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "Очистить всю память",
   "memory.clearTitle": "Очистить всю память?",
   "memory.clearDescription":
-    "OpenBot безвозвратно удалит все сохранённые записи ({total}) для {name}. Исходные сообщения останутся в истории диалога.",
+    "Builders Bot безвозвратно удалит все сохранённые записи ({total}) для {name}. Исходные сообщения останутся в истории диалога.",
   "memory.loadFailed": "Не удалось загрузить память.",
   "memory.saveFailed": "Не удалось сохранить запись.",
   "memory.updateFailed": "Не удалось обновить запись.",

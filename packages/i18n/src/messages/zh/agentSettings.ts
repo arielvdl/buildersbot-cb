@@ -87,7 +87,7 @@ export const messages = {
   "agentSettings.runtime.workingDirectory": "工作目录",
   "agentSettings.runtime.notAvailable": "暂不可用",
   "agentSettings.runtime.fullAccessNote": "助手可从其工作区和共享文件夹获得完整的电脑访问权限。",
-  "agentSettings.runtime.askNote": "在调用 OpenBot 工具、发布站点，以及服务商要求批准时，它会先询问你。",
+  "agentSettings.runtime.askNote": "在调用 Builders Bot 工具、发布站点，以及服务商要求批准时，它会先询问你。",
   "agentSettings.runtime.fullNote": "除非它主动提问，否则执行操作时不再询问。",
 
   "agentSettings.access.workspace": "仅工作区",
@@ -135,7 +135,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedCommand": "需要在外部写入的命令会先询问你。",
   "agentSettings.runtime.workspaceEnforcedClaude": "在工作区外编辑文件会先询问你；命令无法在外部写入。",
   "agentSettings.runtime.workspaceUnlimited":
-    "Computer Use 和 OpenBot 浏览器不受该限制；你可以在下方关闭 Computer Use。",
+    "Computer Use 和 Builders Bot 浏览器不受该限制；你可以在下方关闭 Computer Use。",
   "agentSettings.computerUse.title": "Computer Use",
   "agentSettings.computerUse.description": "允许该助手控制这台电脑上的应用",
   "agentSettings.automation.title": "本地脚本",
@@ -145,6 +145,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "长任务开始前显示计划",
   "agentSettings.quickAcknowledgement.description":
     "长任务开始前，助手会先显示计划。10 秒后或你点按“开始”时，任务开始。",
+  "agentSettings.securityGuard.title": "每条消息的安全扫描",
+  "agentSettings.securityGuard.description":
+    '每轮之前，一次扫描会读取消息及其图片，检查提示词注入，并把发现告知智能体。它使用智能体自己的模型。',
   "agentSettings.browserProfile.label": "浏览器配置文件",
   "agentSettings.browserProfile.shared": "共享",
   "agentSettings.browserProfile.agent": "仅该助手",

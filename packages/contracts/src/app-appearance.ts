@@ -1,6 +1,6 @@
 /**
  * The color scheme the user picks for the desktop app: follow the system, or always light or dark.
- * The main process holds it, and each OpenBot window applies it. Visited websites and the native
+ * The main process holds it, and each Builders Bot window applies it. Visited websites and the native
  * menus follow the computer, as they did before the choice existed, unless the window is transparent.
  *
  * The identifiers cross the IPC boundary and are saved as written. Add one, never rename one: a
@@ -10,7 +10,7 @@ export const APP_APPEARANCES = ["system", "light", "dark"] as const;
 
 export type AppAppearance = (typeof APP_APPEARANCES)[number];
 
-/** Dark: OpenBot was dark only before this choice existed, so an update does not change the look. */
+/** Dark: Builders Bot was dark only before this choice existed, so an update does not change the look. */
 export const DEFAULT_APP_APPEARANCE: AppAppearance = "dark";
 
 /** Off: a see-through window is a choice, and only macOS can blur what is behind it. */

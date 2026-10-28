@@ -31,7 +31,7 @@ const USAGE_CHANGE_DELAY_MS = 250;
 
 export interface ContextCompactionOptions {
   /**
-   * How long the provider takes to start a compaction before OpenBot stops it. A started compaction
+   * How long the provider takes to start a compaction before Builders Bot stops it. A started compaction
    * runs `CONTEXT_COMPACTION_RUN_FACTOR` times as long. Tests make it short.
    */
   timeoutMs?: number | undefined;
@@ -52,7 +52,7 @@ export interface ContextCompactionOptions {
   compacted?(threadId: string): void;
 }
 
-/** Whether OpenBot can ask for a compaction of this client, automatically or for the user. */
+/** Whether Builders Bot can ask for a compaction of this client, automatically or for the user. */
 export function compactsOnRequest(mode: AgentClient["contextCompaction"]): boolean {
   return mode === "events" || mode === "request" || mode === "handoff";
 }
@@ -90,7 +90,7 @@ export class ContextCompaction {
   readonly #compacting = new Map<string, { agentId: string; client: AgentClient | null }>();
   readonly #refusals = new Map<string, RefusalHold>();
   readonly #timeoutMs: number;
-  /** How long a started compaction runs before OpenBot stops it. */
+  /** How long a started compaction runs before Builders Bot stops it. */
   readonly #runTimeoutMs: number;
   /** How long a stopped compaction, or a refused queue, waits for the turn to end. */
   readonly #graceMs: number;

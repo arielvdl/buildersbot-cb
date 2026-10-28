@@ -80,14 +80,14 @@ export interface DeliveryPromptSources {
   executionText?: string | undefined;
 }
 
-const TEAMMATE_HEADER = "Message from OpenBot teammate";
+const TEAMMATE_HEADER = "Message from Builders Bot teammate";
 const NO_ANSWER_LINE = "The sender does not want an answer. This message passes information to you.";
 const COLLABORATOR_SEPARATOR = "--- collaborator message ---";
 const ATTACHED_FILES_HEADER = "\n\nAttached local files:\n";
 const NO_ANSWER_FROM = "No answer comes from ";
 const NO_ANSWER_REASON = ": the request to them ended before they answered. Do not wait for them.";
 /** The first words of a provider handoff. */
-export const HANDOFF_START = "Continue this OpenBot conversation.";
+export const HANDOFF_START = "Continue this Builders Bot conversation.";
 /** The last line of a provider handoff. */
 export const HANDOFF_END = "--- end previous transcript ---";
 /** Between a provider handoff and the prompt of the turn that takes it. */
@@ -199,19 +199,19 @@ export function deliveryPromptInput(context: DeliveryContext, sources: DeliveryP
       ? [
           "This is a reply to a message you sent earlier.",
           "Surface or summarize the result naturally for the user, and start with the name of the teammate.",
-          "When the reply reports blocked work, do not repeat that work with the same tools. Give the user the blocker and the action from its Unblock line. When OpenBot has a plugin for the service and that plugin is not in your tools, call openbot.suggest_marketplace_app and end your answer as its guidance says.",
+          "When the reply reports blocked work, do not repeat that work with the same tools. Give the user the blocker and the action from its Unblock line. When Builders Bot has a plugin for the service and that plugin is not in your tools, call openbot.suggest_marketplace_app and end your answer as its guidance says.",
           "Reply to the teammate only when the message requests another action, or when you have new information that unblocks its work. Do not send it the same request again. Otherwise do not send an acknowledgement and avoid reply loops.",
         ]
       : delivery.expectsReply === false
         ? [
             NO_ANSWER_LINE,
             "Use it if it changes your work, and continue with what you were doing.",
-            "Do not send a reply, an acknowledgement, or a result for it. OpenBot sends the sender nothing back.",
+            "Do not send a reply, an acknowledgement, or a result for it. Builders Bot sends the sender nothing back.",
           ]
         : [
             `After completing the request, send a concise result back to ${senderName} with openbot.send_message.`,
             `Use recipientAgentIds ["${senderAgentId}"], replyToMessageId "${delivery.messageId}", and expectsReply false.`,
-            "Format the reply as three lines: Status: done | partial | blocked, Result: <concrete outcome>, Evidence: <file, test, command, or none>. When Status is blocked, add a fourth line, Unblock: <the one action that unblocks the task>. When OpenBot has a plugin for the service and that plugin is not in your tools, call openbot.suggest_marketplace_app, and that action is the plugin sentence from its guidance.",
+            "Format the reply as three lines: Status: done | partial | blocked, Result: <concrete outcome>, Evidence: <file, test, command, or none>. When Status is blocked, add a fourth line, Unblock: <the one action that unblocks the task>. When Builders Bot has a plugin for the service and that plugin is not in your tools, call openbot.suggest_marketplace_app, and that action is the plugin sentence from its guidance.",
             "Do not acknowledge without a Status line. Do not leave the sender waiting for a result.",
           ];
     text = [
@@ -231,14 +231,14 @@ export function deliveryPromptInput(context: DeliveryContext, sources: DeliveryP
     const testRun = run !== null && !quietRoutineRun(run);
     const runKind = testRun ? "manual Test run" : run?.source ? `${run.source} run` : "scheduled run";
     text = [
-      "Execute one run of an existing OpenBot routine now.",
+      "Execute one run of an existing Builders Bot routine now.",
       `Routine name: ${delivery.sender.routineName}`,
       `Run type: ${runKind}`,
       `Scheduled for: ${delivery.sender.scheduledFor}`,
       "The routine already exists, and its schedule is already configured.",
       "Do not create, update, delete, list, or test routines during this run.",
       "Perform the task below now. Do not answer only that the routine or monitoring is active.",
-      "A task can tell you to remind the user or to send the user a message. When it names no other place, write that message as your final answer. OpenBot shows your final answer to the user in this chat. openbot.send_message sends to other agents, not to the user.",
+      "A task can tell you to remind the user or to send the user a message. When it names no other place, write that message as your final answer. Builders Bot shows your final answer to the user in this chat. openbot.send_message sends to other agents, not to the user.",
       testRun
         ? "This is a manual Test run. Report the action and result even when a normal scheduled run would suppress a notification because there is no change."
         : `This is a ${runKind}. Follow the notification conditions in the routine task. When they give nothing to report, call the ${ROUTINE_NO_UPDATE_TOOL} tool instead of a written answer. A requested reminder or message is a report, also when there is no new information. Do not call ${ROUTINE_NO_UPDATE_TOOL} for it unless the notification conditions of the task say to send nothing.`,

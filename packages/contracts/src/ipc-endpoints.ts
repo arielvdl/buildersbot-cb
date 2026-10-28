@@ -415,6 +415,7 @@ import type {
   TestRoutineInput,
   UpdateRoutineInput,
 } from "./ipc-routines";
+import type { SecurityGuardPreference, SecurityGuardPreferenceChange } from "./ipc-security-guard";
 import type { DeleteSharedTableInput, SharedTable } from "./ipc-shared-tables";
 import type { SidebarLayoutAction, SidebarLayoutSnapshot } from "./ipc-sidebar-layout";
 import type {
@@ -634,6 +635,10 @@ export const IPC_ENDPOINTS = {
     setRemoteNetworkRoute: request<RemoteNetworkRoutePreference, RemoteNetworkRouteState>()(
       "app:set-remote-network-route",
     ),
+    getGuardPreference: request<undefined, SecurityGuardPreference>()("security:get-guard-preference"),
+    setGuardPreference: request<SecurityGuardPreferenceChange, SecurityGuardPreference>()(
+      "security:set-guard-preference",
+    ),
     getAppBehaviorPreference: request<undefined, AppBehaviorPreference>()("app:get-behavior-preference"),
     setAppBehaviorPreference: request<AppBehaviorPreferenceChange, AppBehaviorPreference>()(
       "app:set-behavior-preference",
@@ -702,7 +707,7 @@ export const IPC_ENDPOINTS = {
     /** Ends the sign-in that `connectProvider` started and that still waits for the browser. */
     cancelProviderSignIn: request<AgentProviderId, AgentStatus>()("app:cancel-provider-sign-in"),
     /**
-     * `automatic`: the app asks, not the user. A provider that OpenBot stopped starting after failed
+     * `automatic`: the app asks, not the user. A provider that Builders Bot stopped starting after failed
      * starts in a row then stays stopped; only a refresh the user asks for starts it again.
      */
     refreshAgentProviders: request<{ automatic: boolean } | undefined, AgentStatus>()("app:refresh-agent-providers"),
@@ -716,7 +721,7 @@ export const IPC_ENDPOINTS = {
     /**
      * Runs the provider CLI's own updater, for a CLI the user installed themselves. It is their copy,
      * so the version they end on is whatever that updater fetches, which owes nothing to the version
-     * OpenBot pins for the runtime it manages.
+     * Builders Bot pins for the runtime it manages.
      */
     updateProviderCli: request<ManagedProviderId, AgentStatus>()("app:update-provider-cli"),
     /**
@@ -1023,12 +1028,12 @@ export const IPC_ENDPOINTS = {
     addDiscordOrchestrator: request<AddMessagingOrchestratorInput, AddMessagingOrchestratorResult>()(
       "messaging:add-discord-orchestrator",
     ),
-    // Who can use OpenBot in a Discord server: the members with one of the chosen roles. The roles to
+    // Who can use Builders Bot in a Discord server: the members with one of the chosen roles. The roles to
     // choose from come from Discord through Signal.
     getDiscordAccess: request<MessagingWorkspaceInput, DiscordAccess>()("messaging:get-discord-access"),
     listDiscordRoles: request<MessagingWorkspaceInput, DiscordRoleList>()("messaging:list-discord-roles"),
     setDiscordAccess: request<SetDiscordAccessInput, DiscordAccess>()("messaging:set-discord-access"),
-    // The Telegram chats that added the OpenBot bot. A connect opens a `t.me` link with a one-use code
+    // The Telegram chats that added the Builders Bot bot. A connect opens a `t.me` link with a one-use code
     // in this computer's browser; the chat links itself when the bot is added.
     getTelegramOverview: request<undefined, TelegramOverview>()("messaging:get-telegram-overview"),
     connectTelegramChat: request<ConnectTelegramChatInput, void>()("messaging:connect-telegram-chat"),
@@ -1150,7 +1155,7 @@ export const IPC_ENDPOINTS = {
     status: request<undefined, OnePasswordConnectorStatus>()("onepassword-connector:status"),
     // Looks again for the CLI and the 1Password app's CLI integration, for a page that opens or regains focus.
     checkSetup: request<undefined, OnePasswordConnectorStatus>()("onepassword-connector:check-setup"),
-    // Downloads the CLI release that main pins, into a folder that OpenBot owns.
+    // Downloads the CLI release that main pins, into a folder that Builders Bot owns.
     installCli: request<undefined, OnePasswordConnectorStatus>()("onepassword-connector:install-cli"),
     // Opens the 1Password app, or its download page when it is not installed.
     openApp: request<undefined, void>()("onepassword-connector:open-app"),
@@ -1192,7 +1197,7 @@ export const IPC_ENDPOINTS = {
     setUsers: request<LicenseUsersRequest, LicenseState>()("license:set-users"),
     setRenewal: request<LicenseRenewalRequest, LicenseState>()("license:set-renewal"),
   },
-  // OpenBot servers that the account server runs for this account. `wake` also works for a server
+  // Builders Bot servers that the account server runs for this account. `wake` also works for a server
   // that the account is a member of; it answers 404 for a host that is not a hosted server.
   hostedServers: {
     list: request<undefined, HostedServerList>()("hosted-servers:list"),
@@ -1252,7 +1257,7 @@ export const IPC_ENDPOINTS = {
     getPreference: request<undefined, UpdatePreference>()("update:get-preference"),
     setPreference: request<UpdatePreferenceChange, UpdatePreference>()("update:set-preference"),
     cancelScheduledRestart: request<undefined, UpdateStatus>()("update:cancel-scheduled-restart"),
-    // The user of this computer restarts OpenBot, or installs the update, when no work runs.
+    // The user of this computer restarts Builders Bot, or installs the update, when no work runs.
     restartWhenIdle: request<IdleRestartTarget, UpdateStatus>()("update:restart-when-idle"),
     cancelIdleRestart: request<undefined, UpdateStatus>()("update:cancel-idle-restart"),
     event: event<UpdateStatus>()("update:event"),
@@ -1263,9 +1268,9 @@ export const IPC_ENDPOINTS = {
     getPreference: request<undefined, NotificationPreference>()("notifications:get-preference"),
     setPreference: request<NotificationPreference, NotificationPreference>()("notifications:set-preference"),
     // Shows one OS notification now, even when the window has focus, so the user can check that the
-    // operating system lets OpenBot show them.
+    // operating system lets Builders Bot show them.
     test: request<undefined, void>()("notifications:test"),
-    // Opens the operating system page where the user allows OpenBot notifications. It rejects on a
+    // Opens the operating system page where the user allows Builders Bot notifications. It rejects on a
     // system that has no such page.
     openSettings: request<undefined, void>()("notifications:open-settings"),
     opened: event<NotificationOpenedEvent>()("notifications:opened-event"),
@@ -1755,7 +1760,7 @@ export type IpcEndpoints = typeof IPC_ENDPOINTS;
  * Where each group sits on `window.openbot`. The empty path is the top level, and several groups can
  * share one path: the agent groups are spread into `agent`. Null keeps a group off the page; only the
  * preload calls it. A new group does not compile until it has a place here, so the author decides
- * what the page can call. `OpenBotDesktopApi`, the built-preload verifier and the test harness all
+ * what the page can call. `BuildersBotDesktopApi`, the built-preload verifier and the test harness all
  * read this table; the preload and the preview mock are checked against it through the type.
  */
 export const IPC_GROUP_PATHS = {
@@ -1836,7 +1841,7 @@ type ScopedArgs<Inner, Server> = [Inner] extends [null]
   : [...OptionalArgs<Inner>, ...ServerArgs<Server>];
 
 /**
- * The `OpenBotDesktopApi` signature of a typed request, so a method that passes its input straight
+ * The `BuildersBotDesktopApi` signature of a typed request, so a method that passes its input straight
  * through takes its types from the endpoint instead of repeating them. An untyped endpoint is `never`.
  */
 export type Invoke<Endpoint> =
@@ -1848,7 +1853,7 @@ export type Invoke<Endpoint> =
         : (...args: OptionalArgs<Payload>) => Promise<Result>
       : never;
 
-/** The `OpenBotDesktopApi` subscription to a typed event. It answers the unsubscribe call. */
+/** The `BuildersBotDesktopApi` subscription to a typed event. It answers the unsubscribe call. */
 export type Subscribe<Endpoint> =
   Endpoint extends EventEndpoint<string, infer Payload>
     ? (listener: [Payload] extends [undefined] ? () => void : (payload: Payload) => void) => () => void
@@ -1857,7 +1862,7 @@ export type Subscribe<Endpoint> =
 type MethodName<Key extends string, Endpoint> = Endpoint extends EventEndpoint ? `on${Capitalize<Key>}` : Key;
 
 /**
- * The `OpenBotDesktopApi` surface of a group whose methods pass straight through: a request keeps
+ * The `BuildersBotDesktopApi` surface of a group whose methods pass straight through: a request keeps
  * its key, and an event is `on` and the key. The preload builds it with `bridgeGroup`, so a new
  * endpoint in such a group needs no line in `ipc-desktop-apis.ts`.
  */
@@ -1887,7 +1892,7 @@ type NestedPath = Exclude<IpcGroupPaths[IpcGroupName], "" | null>;
 
 /**
  * `window.openbot` as `IPC_GROUP_PATHS` lays it out, with every method passed straight through.
- * `OpenBotDesktopApi` is this, except for the few members the preload writes by hand.
+ * `BuildersBotDesktopApi` is this, except for the few members the preload writes by hand.
  */
 export type BridgedDesktopApi = PathApi<""> & { [Path in NestedPath]: PathApi<Path> };
 

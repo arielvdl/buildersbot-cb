@@ -201,7 +201,7 @@ body:has(.computer-use-highlight-surface),
 }
 
 /*
- * The agent cursor OpenBot draws when the driver draws none, which is every desktop of more than
+ * The agent cursor Builders Bot draws when the driver draws none, which is every desktop of more than
  * one display. The same dart as the driver theme, at about the size the driver renders it.
  *
  * The tip sits on the origin of the drawing, so the point main sends is the point the cursor holds

@@ -16,7 +16,7 @@ const START_COMMAND = /^\/start(?:@[A-Za-z0-9_]{1,64})?(?:\s+(\S+))?\s*$/u;
 
 export type TelegramUpdateEvent =
   | { type: "message"; message: InboundMessage }
-  /** A button press. Every press is answered, so the button stops its spinner; `action` is null for a button OpenBot does not know. */
+  /** A button press. Every press is answered, so the button stops its spinner; `action` is null for a button Builders Bot does not know. */
   | { type: "action"; callbackQueryId: string; action: InboundAction | null }
   /** The bot left the chat, was removed, or the group became a supergroup with a new ID. */
   | { type: "removed" }
@@ -50,9 +50,9 @@ export function telegramLink(update: DynamicRecord): TelegramLink | null {
 }
 
 /**
- * One update as an event for OpenBot, or null when it does not address OpenBot.
+ * One update as an event for Builders Bot, or null when it does not address Builders Bot.
  *
- * - A private chat is one conversation. Every message in it addresses OpenBot.
+ * - A private chat is one conversation. Every message in it addresses Builders Bot.
  * - In a group, a message that mentions the bot, or a reply to the bot, starts or continues the
  *   conversation of its reply chain. Another message in a chain counts only in a conversation that
  *   an agent already answers (`requiresLink`). With privacy mode on, Telegram sends the bot only
@@ -121,7 +121,7 @@ function messageEvent(
   const reply = isDynamicRecord(message.reply_to_message) ? message.reply_to_message : null;
   const replyFrom = reply && isDynamicRecord(reply.from) ? reply.from : null;
   const replyToBot = replyFrom !== null && String(replyFrom.id) === botId;
-  // The message it answers is the best context of a reply chain. OpenBot's own posts are in the
+  // The message it answers is the best context of a reply chain. Builders Bot's own posts are in the
   // agent's thread already.
   if (reply && replyFrom && !replyToBot && isNumber(reply.message_id)) {
     const replyAuthor = String(replyFrom.id);
@@ -244,7 +244,7 @@ export function telegramThreadKey(target: MessageTarget): string {
 }
 
 /**
- * The text without OpenBot's own mentions, and whether the message names OpenBot. A command such as
+ * The text without Builders Bot's own mentions, and whether the message names Builders Bot. A command such as
  * `/help@bot` keeps its name, so the agent sees it.
  */
 function withoutMention(

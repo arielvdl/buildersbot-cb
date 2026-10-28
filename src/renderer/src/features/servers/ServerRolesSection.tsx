@@ -2,7 +2,7 @@ import type {
   AgentAccessChange,
   AgentAccessRole,
   AgentAccessSnapshot,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { AGENT_ACCESS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-access-v1";
 import { Alert, AlertContent, AlertDescription } from "@openbot/ui";
@@ -14,7 +14,7 @@ import { serverCanAdminister } from "./server-capabilities";
 import type { ServerSettingsSectionHost } from "./server-settings-section";
 
 /** The role calls of one server's host. The desktop reaches them through main. */
-export type HostAgentAccessCalls = Pick<OpenBotDesktopApi["hostAdmin"], "getAgentAccess" | "setAgentAccess">;
+export type HostAgentAccessCalls = Pick<BuildersBotDesktopApi["hostAdmin"], "getAgentAccess" | "setAgentAccess">;
 
 export interface ServerAgentAccessOptions {
   /** The calls of a client with no `window.openbot`, such as the web client. */

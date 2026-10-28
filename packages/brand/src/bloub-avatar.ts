@@ -1,26 +1,26 @@
-import {
-  COLOR_BY_ID,
-  type ColorId,
-  EXPRESSIONS,
-  type ExpressionId,
-  SHAPES,
-  type ShapeId,
-} from "@norbert_bodziony/bloub";
+import { COLOR_BY_ID, type ColorId, EXPRESSIONS, type ExpressionId, type ShapeId } from "@norbert_bodziony/bloub";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 
 export type SupportedAvatarSilhouetteId = Exclude<ShapeId, "goutte">;
 
 export interface BloubAvatarProfile {
   shape: SupportedAvatarSilhouetteId;
-  color: ColorId;
+  color: string;
   expression: ExpressionId;
 }
 
+/** The app mark every generated agent wears: the box, its fill and its eyes (see `tokens.css`). */
+export const AVATAR_MARK_SHAPE = "squircle" satisfies SupportedAvatarSilhouetteId;
+// Bloub's colour table is a closed union, and the brand fill is registered into it at runtime.
+// biome-ignore lint/nursery/noUnsafeTypeAssertion: the id exists only once it is registered below.
+export const AVATAR_MARK_COLOR = "marca" as ColorId;
+export const AVATAR_MARK_EYE = "#040007";
+
+// Bloub resolves a colour id through its own table, so the brand fill has to be registered there
+// before any avatar asks for it.
+COLOR_BY_ID.set(AVATAR_MARK_COLOR, { id: AVATAR_MARK_COLOR, hex: "#98f94f" });
+
 const AUTOMATIC_COLORS = ["rouge", "orange", "ambre", "vert", "turquoise", "bleu", "violet", "rose"] as const;
-const UNSUPPORTED_AVATAR_SILHOUETTE = "goutte" as const satisfies ShapeId;
-const SUPPORTED_AVATAR_SILHOUETTES = SHAPES.map((option) => option.id).filter(
-  (silhouette): silhouette is SupportedAvatarSilhouetteId => silhouette !== UNSUPPORTED_AVATAR_SILHOUETTE,
-);
 
 const HUE_COLORS: Readonly<Record<AvatarHue, ColorId>> = {
   0: "rouge",
@@ -55,23 +55,14 @@ export const AVATAR_HUE_OPTIONS: ReadonlyArray<{
 export const AVATAR_HUE_CHOICES = AVATAR_HUE_OPTIONS.filter((option) => option.hue !== 100 && option.hue !== 280);
 
 export function bloubAvatarProfile(seed: string, hue: AvatarHue | null): BloubAvatarProfile {
-  const storedSilhouette = requiredItem(SHAPES, stableIndex(`${seed}:shape`, SHAPES.length)).id;
-  const silhouette =
-    storedSilhouette === UNSUPPORTED_AVATAR_SILHOUETTE
-      ? requiredItem(
-          SUPPORTED_AVATAR_SILHOUETTES,
-          stableIndex(`${seed}:shape:replacement`, SUPPORTED_AVATAR_SILHOUETTES.length),
-        )
-      : storedSilhouette;
   const expression = requiredItem(EXPRESSIONS, stableIndex(`${seed}:expression`, EXPRESSIONS.length)).id;
 
   return {
-    shape: silhouette,
+    // The silhouette is the app mark, so every agent is recognised by the same box. What stays
+    // personal is the face, and the fill only when the person picked a hue.
+    shape: AVATAR_MARK_SHAPE,
     expression,
-    color:
-      hue === null
-        ? requiredItem(AUTOMATIC_COLORS, stableIndex(`${seed}:color`, AUTOMATIC_COLORS.length))
-        : HUE_COLORS[hue],
+    color: hue === null ? AVATAR_MARK_COLOR : HUE_COLORS[hue],
   };
 }
 
@@ -80,23 +71,28 @@ export function avatarHueSwatch(hue: AvatarHue): string {
 }
 
 export function avatarHeadColor(seed: string, hue: AvatarHue | null): string {
-  return colorHex(bloubAvatarProfile(seed, hue).color);
+  // The name tint keeps the seeded palette, so two agents stay told apart in a chat even though
+  // every avatar is now the same brand box.
+  const color =
+    hue === null
+      ? requiredItem(AUTOMATIC_COLORS, stableIndex(`${seed}:color`, AUTOMATIC_COLORS.length))
+      : HUE_COLORS[hue];
+  return colorHex(color);
 }
 
 export function avatarCandidateSeeds(agentId: string, currentSeed: string, batch: number): string[] {
   const candidates = [currentSeed];
   const firstProfile = bloubAvatarProfile(currentSeed, null);
-  const unseenSilhouetteIds = new Set<SupportedAvatarSilhouetteId>(SUPPORTED_AVATAR_SILHOUETTES);
   const usedExpressions = new Set<ExpressionId>([firstProfile.expression]);
-  unseenSilhouetteIds.delete(firstProfile.shape);
   let index = 1;
 
-  while (unseenSilhouetteIds.size > 0) {
+  // The silhouette no longer varies, so a candidate is worth offering when its face is new.
+  while (usedExpressions.size < EXPRESSIONS.length) {
     const candidate = `${agentId}:avatar:${batch}:${index}`;
     index += 1;
     if (candidates.includes(candidate)) continue;
     const profile = bloubAvatarProfile(candidate, null);
-    if (!unseenSilhouetteIds.delete(profile.shape)) continue;
+    if (usedExpressions.has(profile.expression)) continue;
     candidates.push(candidate);
     usedExpressions.add(profile.expression);
   }
@@ -105,10 +101,7 @@ export function avatarCandidateSeeds(agentId: string, currentSeed: string, batch
     const candidate = `${agentId}:avatar:${batch}:${index}`;
     index += 1;
     if (candidates.includes(candidate)) continue;
-    const profile = bloubAvatarProfile(candidate, null);
-    if (usedExpressions.has(profile.expression)) continue;
     candidates.push(candidate);
-    usedExpressions.add(profile.expression);
   }
 
   return candidates;

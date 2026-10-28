@@ -1,4 +1,4 @@
-// Where OpenBot opens a web page for the user: links in chats, sign-in pages, billing pages and
+// Where Builders Bot opens a web page for the user: links in chats, sign-in pages, billing pages and
 // connector pages. Each computer has its own choice, because the page opens on that computer.
 
 import { isDynamicRecord } from "./runtime-values";

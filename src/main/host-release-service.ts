@@ -19,17 +19,17 @@ function releaseTarget(platform: NodeJS.Platform, arch: string): ReleaseTarget |
   if (platform === "linux")
     return {
       feed: arch === "arm64" ? "latest-linux-arm64.yml" : "latest-linux.yml",
-      asset: (version) => `OpenBot-${version}-${arch === "x64" ? "x86_64" : "arm64"}.AppImage`,
+      asset: (version) => `Builders Bot-${version}-${arch === "x64" ? "x86_64" : "arm64"}.AppImage`,
     };
   if (platform === "darwin")
     return {
       feed: "latest-mac.yml",
-      asset: (version) => `OpenBot-${version}-${arch}.zip`,
+      asset: (version) => `Builders Bot-${version}-${arch}.zip`,
     };
   if (platform === "win32" && arch === "x64")
     return {
       feed: "latest.yml",
-      asset: (version) => `OpenBot-${version}-x64.exe`,
+      asset: (version) => `Builders Bot-${version}-x64.exe`,
     };
   return null;
 }
@@ -48,7 +48,7 @@ interface HostReleaseOptions {
 /** Reads only the install marker. No command or application file is executed. */
 export const readInstallationMode = Effect.fn("HostRelease.readInstallationMode")(function* () {
   return yield* Effect.tryPromise({
-    try: (signal) => readFile("/opt/OpenBot/hosted/mode", { encoding: "utf8", signal }),
+    try: (signal) => readFile("/opt/Builders Bot/hosted/mode", { encoding: "utf8", signal }),
     catch: () => new ReleaseCheckFailed(),
   }).pipe(
     Effect.map((value) => value.trim()),

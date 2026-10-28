@@ -14,7 +14,7 @@ import {
   ROUTINE_QUIET_ANSWER_ITEM_TYPE,
 } from "@openbot/contracts/ipc";
 import type { MailboxStore } from "../mailbox-store";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 import type { AttentionRegistry } from "./attention-registry";
 import type { ConversationRuntime } from "./conversation-runtime";
 import type { TurnLifecycle } from "./turn-lifecycle";
@@ -141,7 +141,7 @@ export interface RuntimeSnapshotSources {
   contextStates?: AgentRuntimeSnapshot["contextStates"];
   agents: AgentSummary[];
   conversation: Pick<ConversationRuntime, "loadedSnapshot">;
-  database: Pick<OpenBotDatabase, "readConversationRuntime">;
+  database: Pick<BuildersBotDatabase, "readConversationRuntime">;
   mailbox: Pick<MailboxStore, "listRuntimeWork">;
   turn: Pick<TurnLifecycle, "failedTurns">;
   attention: Pick<AttentionRegistry, "runtimeAttention">;

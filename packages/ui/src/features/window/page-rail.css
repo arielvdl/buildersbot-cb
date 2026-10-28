@@ -1,6 +1,6 @@
 /* The page rail at the left of the window, on desktop and on the web. The window styles place it in
  * the window grid. The window buttons of macOS sit at the top of the rail, in the top row. Other
- * windows can show the OpenBot logo there. */
+ * windows can show the Builders Bot logo there. */
 .window-rail {
   position: relative;
   display: flex;

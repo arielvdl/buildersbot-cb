@@ -40,7 +40,7 @@ interface FirstRunState {
   step: FirstRunStep;
   path: FirstRunPath;
   saving: boolean;
-  /** The user asked to open OpenBot before the provider was ready, so setup ends when it is. */
+  /** The user asked to open Builders Bot before the provider was ready, so setup ends when it is. */
   finishWhenReady: boolean;
   /** The user left the plan step with "Start free instead". */
   skipped: boolean;

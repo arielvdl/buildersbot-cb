@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Schema } from "effect";
 import { causeHelpers } from "../backend/effect-boundary";
 
-const logger = createOpenBotLogger("linux-desktop-entry");
+const logger = createBuildersBotLogger("linux-desktop-entry");
 
 /**
  * The file name has to stay `openbot.desktop`: it is `desktopName` in package.json, which is what
@@ -26,7 +26,7 @@ function linuxDesktopEntry(appImagePath: string, iconPath: string): string {
   return `${[
     "[Desktop Entry]",
     "Type=Application",
-    "Name=OpenBot",
+    "Name=Builders Bot",
     "Comment=A local-first multi-agent desktop workspace.",
     `Exec=${quoteExecutable(appImagePath)} %U`,
     `Icon=${iconPath}`,
@@ -87,7 +87,7 @@ export const installLinuxDesktopEntry = Effect.fn("LinuxDesktopEntry.install")(f
  * that can disappear is still better than no invitation links at all.
  *
  * An AppImage mounts its resources in a temporary directory that the runtime removes when the app
- * exits, so an entry that points there loses its icon as soon as OpenBot is not running. The entry
+ * exits, so an entry that points there loses its icon as soon as Builders Bot is not running. The entry
  * names the copy by absolute path, which the desktop entry specification allows, rather than by
  * icon theme name: one loose file under the data home is not a theme.
  */

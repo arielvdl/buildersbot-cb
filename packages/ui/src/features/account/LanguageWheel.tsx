@@ -21,7 +21,7 @@ interface WheelEntry {
   option: AppLanguageOption;
 }
 
-const PRODUCT_NAME = "OpenBot";
+const PRODUCT_NAME = "Builders Bot";
 const TITLE_ID = "language-wheel-title";
 
 /** The catalog languages in selector order. "System default" is not a row: the wheel opens on it. */
@@ -281,7 +281,7 @@ function LanguageWheelPicker(props: {
 }
 
 /**
- * The first screen OpenBot shows, before sign-in, with the same brand lockup as the sign-in screen
+ * The first screen Builders Bot shows, before sign-in, with the same brand lockup as the sign-in screen
  * after it. The screen text follows the language in the centre, so a reader sees each choice at once.
  */
 export function LanguageWheel(props: LanguageWheelProps) {

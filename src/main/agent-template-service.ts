@@ -236,7 +236,7 @@ export class AgentTemplateService {
       return {
         ...detail,
         // A template published before its owner's copy of a managed skill was recognized carries that
-        // copy. The new agent gets OpenBot's own, and installing the copy would fail on its folder.
+        // copy. The new agent gets Builders Bot's own, and installing the copy would fail on its folder.
         skills: detail.skills.filter((skill) => skill.kind !== "embedded" || !MANAGED_SKILL_SLUGS.has(skill.slug)),
         avatarUrl: detail.avatarUrl ? this.auth.resolveApiUrl(detail.avatarUrl) : null,
       };

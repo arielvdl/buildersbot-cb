@@ -18,7 +18,7 @@ export interface BrowserLocalSignInDialogProps {
 
 /**
  * The step of a sign-in on this computer for a tab of a server's browser. The window on this computer
- * shows the site; this dialog stays in OpenBot until the person selects Done or Cancel.
+ * shows the site; this dialog stays in Builders Bot until the person selects Done or Cancel.
  */
 export default function BrowserLocalSignInDialog(props: BrowserLocalSignInDialogProps) {
   const { t } = useText();

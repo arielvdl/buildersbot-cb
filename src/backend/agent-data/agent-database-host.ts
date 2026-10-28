@@ -1,4 +1,4 @@
-// The child process that is the only thing in OpenBot allowed to open the shared agent database.
+// The child process that is the only thing in Builders Bot allowed to open the shared agent database.
 //
 // It is separate from the main process for one measured reason: a runaway statement cannot be
 // interrupted. `sqlite3_step` never returns to JavaScript, so V8 never reaches an interrupt point,

@@ -2,10 +2,10 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/computerUse";
 
 export const messages = {
-  "error.computerUse.noAppToDrag": "Cette version d’OpenBot n’a aucune application à faire glisser.",
+  "error.computerUse.noAppToDrag": "Cette version d’Builders Bot n’a aucune application à faire glisser.",
   "error.computerUse.helpWindowChanged":
     "La fenêtre d’aide sur les autorisations a changé avant le début du glissement.",
-  "error.computerUse.noAppToShow": "Cette version d’OpenBot n’a aucune application à afficher.",
+  "error.computerUse.noAppToShow": "Cette version d’Builders Bot n’a aucune application à afficher.",
   "error.computerUse.noDriver": "Cet ordinateur n’a pas de pilote Computer Use.",
   "error.computerUse.socketPathTooLong":
     "Le chemin du socket Computer Use fait {length} caractères, et ce système en autorise {limit}.",

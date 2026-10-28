@@ -14,7 +14,7 @@ export const messages = {
   "skill.loadingDetails": "Details werden geladen…",
   "skill.emptyEnabled": "Dieser Agent hat keine aktivierten Fähigkeiten.",
   "skill.emptyAssigned": "Diesem Agenten sind noch keine Fähigkeiten zugewiesen.",
-  "skill.folderSkill": "OpenBot hat diese Fähigkeit nicht installiert. Bearbeite oder entferne sie in {location}.",
+  "skill.folderSkill": "Builders Bot hat diese Fähigkeit nicht installiert. Bearbeite oder entferne sie in {location}.",
   "skill.moreFor": "Mehr für {name}",
   "skill.update": "Aktualisieren",
   "skill.updateName": "{name} aktualisieren",
@@ -35,7 +35,7 @@ export const messages = {
     "Beim Aktualisieren dieser Fähigkeit werden die lokalen Dateien durch das neueste Fähigkeitspaket ersetzt. Deine Änderungen in diesem Fähigkeitsordner gehen verloren.",
   "skill.confirm.removeModifiedBody":
     "Diese Fähigkeit enthält lokale Änderungen im Arbeitsbereich des Agenten. Entfernen löscht diese Dateien. Die ursprünglichen Chatnachrichten bleiben erhalten.",
-  "skill.confirm.removeBody": "OpenBot entfernt diese Fähigkeit vom Agenten. Der Chatverlauf bleibt erhalten.",
+  "skill.confirm.removeBody": "Builders Bot entfernt diese Fähigkeit vom Agenten. Der Chatverlauf bleibt erhalten.",
   "skill.confirm.replace": "Fähigkeit ersetzen",
   "skill.confirm.remove": "Fähigkeit entfernen",
   "skill.unavailable.readOnly": "Remote-Fähigkeiten sind schreibgeschützt.",

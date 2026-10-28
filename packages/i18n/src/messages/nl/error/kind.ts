@@ -6,9 +6,9 @@ export const messages = {
   "error.kind.timeout":
     "Het verzoek duurde te lang. Controleer of de actie is voltooid voordat je het opnieuw probeert.",
   "error.kind.storage":
-    "Er is niet genoeg opslagruimte. Maak ruimte vrij op de computer waarop OpenBot draait en probeer het opnieuw.",
+    "Er is niet genoeg opslagruimte. Maak ruimte vrij op de computer waarop Builders Bot draait en probeer het opnieuw.",
   "error.kind.filePermission":
-    "OpenBot heeft geen toestemming om deze actie uit te voeren. Controleer de rechten van het bestand of de map en probeer het opnieuw.",
+    "Builders Bot heeft geen toestemming om deze actie uit te voeren. Controleer de rechten van het bestand of de map en probeer het opnieuw.",
   "error.kind.notFound":
     "Een benodigd bestand of een benodigde map is niet gevonden. Zet het terug of kies een ander, en probeer het opnieuw.",
   "error.kind.readOnly": "Deze map is alleen-lezen. Kies een map waarin je kunt schrijven en probeer het opnieuw.",

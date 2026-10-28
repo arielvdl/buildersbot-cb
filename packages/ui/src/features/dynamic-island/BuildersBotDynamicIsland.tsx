@@ -73,7 +73,7 @@ import {
   waitForAnimations,
 } from "./openbot-dynamic-island-motion";
 
-export interface OpenBotDynamicIslandProps {
+export interface BuildersBotDynamicIslandProps {
   presentation: DynamicIslandPresentation;
   state: DynamicIslandViewState;
   displayMode?: "notch" | "island";
@@ -178,7 +178,7 @@ type StatusMode = Extract<
   "working" | "message" | "question" | "approval" | "takeover" | "failed"
 >;
 
-interface OpenBotIslandModeConfig {
+interface BuildersBotIslandModeConfig {
   label: AppTextKey;
   ariaLive?: "polite";
   badge?: {
@@ -204,7 +204,7 @@ const STATUS_SHARED_TRAILING: SharedLeadingMotion = {
   island: { x: 124, y: 51, scale: 1.08 },
 };
 
-const OPENBOT_ISLAND_MODE_CONFIG: Record<DynamicIslandPresentation["mode"], OpenBotIslandModeConfig> = {
+const OPENBOT_ISLAND_MODE_CONFIG: Record<DynamicIslandPresentation["mode"], BuildersBotIslandModeConfig> = {
   idle: {
     label: "island.label.idle",
   },
@@ -439,7 +439,7 @@ function measureCompactText(text: string, weight: number): number {
   }, 0);
 }
 
-export function OpenBotDynamicIsland(props: OpenBotDynamicIslandProps): JSX.Element {
+export function BuildersBotDynamicIsland(props: BuildersBotDynamicIslandProps): JSX.Element {
   const { t } = useText();
   const initialPresentation = untrack(() => props.presentation);
   const [visiblePresentation, setVisiblePresentation] = createSignal(initialPresentation);
@@ -1251,7 +1251,7 @@ export function ApprovalContent(props: {
   onAction: (action: DynamicIslandAction) => Promise<boolean> | undefined;
 }): JSX.Element {
   const { t, sourceText } = useText();
-  const openInOpenBot = () =>
+  const openInBuildersBot = () =>
     props.onAction({
       type: "review-attention",
       serverId: props.serverId,
@@ -1287,8 +1287,8 @@ export function ApprovalContent(props: {
       <div class="dynamic-island-surface-actions" data-island-motion-content>
         <IslandActionError message={props.actionError} />
         <Show when={props.allowDesktopReview !== false}>
-          <Button size="sm" variant="ghost" onClick={openInOpenBot}>
-            {t("island.action.reviewInOpenBot")}
+          <Button size="sm" variant="ghost" onClick={openInBuildersBot}>
+            {t("island.action.reviewInBuildersBot")}
           </Button>
         </Show>
         <Show when={props.allowDesktopReview === false && props.item.truncated}>
@@ -1359,7 +1359,7 @@ function QuestionContent(props: {
       : undefined;
   };
   const questionText = () => currentQuestion()?.question ?? props.item.detail ?? props.item.title;
-  const openInOpenBot = () =>
+  const openInBuildersBot = () =>
     props.onAction({
       type: "review-attention",
       serverId: props.serverId,
@@ -1500,8 +1500,8 @@ function QuestionContent(props: {
         <Button size="sm" variant="ghost" onClick={props.onClose}>
           {t("island.action.later")}
         </Button>
-        <Button size="sm" onClick={openInOpenBot}>
-          {t("island.action.answerInOpenBot")}
+        <Button size="sm" onClick={openInBuildersBot}>
+          {t("island.action.answerInBuildersBot")}
         </Button>
       </div>
     </div>

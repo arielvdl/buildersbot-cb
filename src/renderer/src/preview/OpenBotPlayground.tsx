@@ -9,28 +9,28 @@ import { App } from "../App";
 import { syncColorScheme } from "../color-scheme";
 import { syncLogoColor } from "../logo-color";
 import { createLandingPreviewOptions } from "./landing-fixtures";
-import { createMockOpenBot, type MockOpenBotControls, type MockOpenBotOptions } from "./mock-openbot";
+import { createMockBuildersBot, type MockBuildersBotControls, type MockBuildersBotOptions } from "./mock-openbot";
 
 const LANDING_PREVIEW_READY_RETRY_MS = 250;
 
-export interface OpenBotPlaygroundDependencies {
-  createMock: (options?: MockOpenBotOptions) => MockOpenBotControls;
+export interface BuildersBotPlaygroundDependencies {
+  createMock: (options?: MockBuildersBotOptions) => MockBuildersBotControls;
   loadLandingController?: () => Promise<typeof import("./landing-demo")>;
   renderApp: () => JSX.Element;
 }
 
-export interface OpenBotPlaygroundProps {
-  dependencies?: OpenBotPlaygroundDependencies;
-  options?: MockOpenBotOptions | undefined;
+export interface BuildersBotPlaygroundProps {
+  dependencies?: BuildersBotPlaygroundDependencies;
+  options?: MockBuildersBotOptions | undefined;
   variant?: "default" | "landing";
   /** The colors of the landing variant. The home page is dark. */
   theme?: "dark" | "light";
 }
 
-export function OpenBotPlayground(props: OpenBotPlaygroundProps) {
+export function BuildersBotPlayground(props: BuildersBotPlaygroundProps) {
   const landingPreview = props.variant === "landing";
   const dependencies = props.dependencies ?? {
-    createMock: createMockOpenBot,
+    createMock: createMockBuildersBot,
     renderApp: () => <App landingPreview={landingPreview} />,
   };
   const previousApi = window.openbot;

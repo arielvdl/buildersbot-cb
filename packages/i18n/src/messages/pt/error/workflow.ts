@@ -10,12 +10,12 @@ export const messages = {
   "error.workflow.conditionBranch": "Cada conexão de uma condição deve ser sim ou não.",
   "error.workflow.duplicateEdge": "Estas duas etapas já têm esta conexão.",
   "error.workflow.serverTooOld":
-    "Este servidor não oferece suporte a fluxos de trabalho. Atualize o OpenBot no computador que o executa.",
+    "Este servidor não oferece suporte a fluxos de trabalho. Atualize o Builders Bot no computador que o executa.",
   "error.workflow.nodeUnsupported":
-    "Esta versão do OpenBot ainda não pode executar etapas de imagem, arquivo e mensagem.",
-  "error.workflow.interrupted": "O OpenBot parou enquanto esta etapa era executada. Execute-a novamente.",
+    "Esta versão do Builders Bot ainda não pode executar etapas de imagem, arquivo e mensagem.",
+  "error.workflow.interrupted": "O Builders Bot parou enquanto esta etapa era executada. Execute-a novamente.",
   "error.workflow.agentMissing": "Escolha um agente para esta etapa.",
-  "error.workflow.handoffFailed": "O OpenBot não conseguiu enviar esta etapa ao agente.",
+  "error.workflow.handoffFailed": "O Builders Bot não conseguiu enviar esta etapa ao agente.",
   "error.workflow.agentStepEnded": "A mensagem ao agente foi removida antes da resposta.",
   "error.workflow.conditionUnclear": "O modelo não respondeu sim ou não.",
   "error.workflow.modelFailed": "O modelo não conseguiu responder. Execute a etapa novamente.",
@@ -29,7 +29,7 @@ export const messages = {
   "error.workflow.outputConnectionOff":
     "A conexão de mensagens desta saída está desativada ou foi removida. Escolha um local novamente.",
   "error.workflow.outputNotRunning": "A conexão de mensagens não está em execução agora. Tente de novo quando estiver.",
-  "error.workflow.outputRefused": "O local recusou a publicação. Verifique se o OpenBot pode publicar lá.",
+  "error.workflow.outputRefused": "O local recusou a publicação. Verifique se o Builders Bot pode publicar lá.",
   "error.workflow.outputUncertain":
     "A publicação parou no caminho. Uma parte pode já estar no local. Verifique antes de tentar de novo.",
   "error.workflow.tooLarge":

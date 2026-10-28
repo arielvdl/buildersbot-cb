@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Schema, Semaphore } from "effect";
 import { writeJsonFileAtomically } from "../atomic-json-file";
 
-const logger = createOpenBotLogger("messaging-status-posts");
+const logger = createBuildersBotLogger("messaging-status-posts");
 
 const Target = Schema.Struct({ platformChannelId: Schema.String, replyThreadId: Schema.NullOr(Schema.String) });
 
@@ -40,7 +40,7 @@ const decodeStatusPostsFile = Schema.decodeUnknownSync(StatusPostsFile);
 
 /**
  * Owns the status posts that wait for the end of a turn, by `linkId:platformMessageId`, and the Stop
- * buttons in them, by token. They are kept in a file, so that after a restart OpenBot still edits the
+ * buttons in them, by token. They are kept in a file, so that after a restart Builders Bot still edits the
  * "Waiting" and "Working" posts of the requests that ended while it was closed, and a Stop button
  * still works. With no path, they are kept in memory only.
  */
@@ -49,7 +49,7 @@ export class MessagingStatusPosts {
   readonly stops = new Map<string, StopButton>();
   /**
    * The posts that came from the file and that this run has not changed. Only for these is a request
-   * that is not pending a request that ended while OpenBot was closed.
+   * that is not pending a request that ended while Builders Bot was closed.
    */
   readonly restored = new Set<string>();
   readonly #path: string | null;

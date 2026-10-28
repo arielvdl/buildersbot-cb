@@ -12,8 +12,8 @@ export const messages = {
   "error.voice.modelUnavailable": "Ses modeli kullanılamıyor.",
   "error.voice.transcriptionTimedOut": "Ses dökümü zaman aşımına uğradı.",
   "error.voice.prepareRequired":
-    "Yerel ses dökümü kullanılamıyor. `bun run voice:prepare` komutunu çalıştırın ve OpenBot'u yeniden başlatın.",
-  "error.voice.transcriptionFailed": "OpenBot bu kaydın dökümünü çıkaramadı.",
+    "Yerel ses dökümü kullanılamıyor. `bun run voice:prepare` komutunu çalıştırın ve Builders Bot'u yeniden başlatın.",
+  "error.voice.transcriptionFailed": "Builders Bot bu kaydın dökümünü çıkaramadı.",
   "error.voice.cloud.keyRequired": "ElevenLabs API anahtarınızı Ayarlar → Ses bölümünde ekleyin.",
   "error.voice.cloud.keyRejected":
     "ElevenLabs API anahtarını kabul etmedi. Anahtarı Ayarlar → Ses bölümünde kontrol edin.",
@@ -26,6 +26,6 @@ export const messages = {
   "error.voice.speech.runtimeUnavailable": "Yerel konuşma sentezi bu platformda kullanılamıyor.",
   "error.voice.speech.modelRequired": "Konuşma modelini Ayarlar → Ses bölümünden indirin.",
   "error.voice.speech.timedOut": "Yanıtı sesli okuma zaman aşımına uğradı.",
-  "error.voice.speech.failed": "OpenBot yanıtı sesli okuyamadı.",
-  "error.voice.recordingNotKept": "OpenBot ses kaydını saklayamadı.",
+  "error.voice.speech.failed": "Builders Bot yanıtı sesli okuyamadı.",
+  "error.voice.recordingNotKept": "Builders Bot ses kaydını saklayamadı.",
 } as const satisfies PartialTranslation<typeof source>;

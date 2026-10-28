@@ -831,7 +831,7 @@ export function createWebWorkspaceRuntime(
       const response = await accountFetch(`/api/browser/v2/remote/hosts/${encodeURIComponent(hostId)}`, {
         method: "DELETE",
         credentials: "same-origin",
-        headers: { "X-OpenBot-Browser": "1", "Content-Type": "application/json" },
+        headers: { "X-Builders Bot-Browser": "1", "Content-Type": "application/json" },
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error(currentText().t("server.settings.actionFailed"));

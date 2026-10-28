@@ -48,7 +48,7 @@ export class ThreadReplay {
     const thread = decodeThreadAgentRow(
       db.prepare("SELECT agent_id FROM projection_threads WHERE thread_id = ?").get(threadId),
     );
-    if (!thread) throw new Error(`Unknown OpenBot thread: ${threadId}`);
+    if (!thread) throw new Error(`Unknown Builders Bot thread: ${threadId}`);
 
     let latest: ConversationSnapshot | null = null;
     let latestSequence = 0;

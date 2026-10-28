@@ -2,7 +2,7 @@
 // so "send again" marks the delivery as sent at once.
 
 import type {
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   Routine,
   RoutineResultConnectionOption,
   RoutineResultDelivery,
@@ -22,7 +22,7 @@ export function mockRoutineResults(
   routines: Map<string, Routine[]>,
   options: MockRoutineResultsOptions,
   emit: (agentId: string) => void,
-): OpenBotDesktopApi["routineResults"] {
+): BuildersBotDesktopApi["routineResults"] {
   const connections = structuredClone(options.routineResultOptions ?? []);
   const destinations = new Map(Object.entries(structuredClone(options.routineResultDestinations ?? {})));
   const deliveries = new Map(Object.entries(structuredClone(options.routineResultDeliveries ?? {})));

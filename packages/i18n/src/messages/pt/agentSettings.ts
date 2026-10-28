@@ -87,7 +87,7 @@ export const messages = {
   "agentSettings.runtime.fullAccessNote":
     "O agente tem acesso completo ao computador a partir do seu espaço de trabalho e da pasta compartilhada.",
   "agentSettings.runtime.askNote":
-    "Ele pergunta antes de usar uma ferramenta do OpenBot ou publicar um site, e quando o provedor pede aprovação.",
+    "Ele pergunta antes de usar uma ferramenta do Builders Bot ou publicar um site, e quando o provedor pede aprovação.",
   "agentSettings.runtime.fullNote": "Ele age sem perguntar, exceto pelas perguntas que faz a você.",
   "agentSettings.access.workspace": "Espaço de trabalho",
   "agentSettings.access.ask": "Perguntar antes",
@@ -135,7 +135,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "A edição de um arquivo fora desses locais pede sua aprovação. Um comando não pode gravar fora desses locais.",
   "agentSettings.runtime.workspaceUnlimited":
-    "O Uso do computador e o navegador do OpenBot não são limitados; você pode desativar o Uso do computador abaixo.",
+    "O Uso do computador e o navegador do Builders Bot não são limitados; você pode desativar o Uso do computador abaixo.",
   "agentSettings.computerUse.title": "Uso do computador",
   "agentSettings.computerUse.description": "Permitir que este agente controle aplicativos neste computador",
   "agentSettings.automation.title": "Scripts locais",
@@ -147,6 +147,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Mostrar o plano antes de tarefas longas",
   "agentSettings.quickAcknowledgement.description":
     "Antes de uma tarefa longa, o agente mostra o plano. Ele começa após 10 s ou quando você toca em Iniciar.",
+  "agentSettings.securityGuard.title": "Verificação de segurança de cada mensagem",
+  "agentSettings.securityGuard.description":
+    'Antes de cada turno, uma verificação lê a mensagem e as imagens em busca de injeção de prompt e mostra ao agente o que encontrou. Ela usa o modelo do próprio agente.',
   "agentSettings.browserProfile.label": "Perfil do navegador",
   "agentSettings.browserProfile.shared": "Compartilhado",
   "agentSettings.browserProfile.agent": "Somente este agente",

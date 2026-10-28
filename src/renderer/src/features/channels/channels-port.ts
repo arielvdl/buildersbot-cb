@@ -1,4 +1,4 @@
-import type { AttachmentSummary, FilePreview, OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { AttachmentSummary, FilePreview, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import type { AttachmentMediaSource } from "@openbot/ui/features/conversation/AttachmentCards";
 import type { ChannelMemoriesApi } from "../conversation/memories-port";
 import type { EventRoutinesApi } from "../conversation/routine-webhooks-api";
@@ -12,7 +12,7 @@ import type { ChannelRoutinesApi } from "../conversation/routines-port";
  */
 export interface ChannelsPort {
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     | "channelCommand"
     | "chooseAttachments"
     | "listChannels"
@@ -25,10 +25,10 @@ export interface ChannelsPort {
   > &
     ChannelMemoriesApi &
     ChannelRoutinesApi &
-    Partial<Pick<OpenBotDesktopApi["agent"], "discardDraftAttachment" | "downloadAttachments">>;
+    Partial<Pick<BuildersBotDesktopApi["agent"], "discardDraftAttachment" | "downloadAttachments">>;
   eventRoutines?: EventRoutinesApi | undefined;
-  browser: Pick<OpenBotDesktopApi["browser"], "capturePreview">;
-  openUrl: OpenBotDesktopApi["openUrl"];
+  browser: Pick<BuildersBotDesktopApi["browser"], "capturePreview">;
+  openUrl: BuildersBotDesktopApi["openUrl"];
   /** `browser` has no file manager to reveal a file in, so that action is hidden. */
   fileActions: "native" | "browser";
   /** Replaces the preview read from `previewUrl`, which a browser client never receives. */
@@ -43,7 +43,7 @@ export interface ChannelsPort {
   /** Uploads dropped or pasted files as drafts. Only a browser client has it; the desktop preload imports them. */
   importAttachments?: (files: File[]) => Promise<AttachmentSummary[]>;
   /** Reports the files the desktop preload imports from a drop or a paste. Only the desktop has it. */
-  onAttachmentImport?: OpenBotDesktopApi["agent"]["onAttachmentImport"];
+  onAttachmentImport?: BuildersBotDesktopApi["agent"]["onAttachmentImport"];
 }
 
 /** Read on each call: tests and stories replace `window.openbot` per case. */

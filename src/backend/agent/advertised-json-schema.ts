@@ -107,7 +107,7 @@ function compact(schema: unknown): JsonValue | undefined {
 }
 
 /**
- * The input schema that OpenBot advertises for a tool. It leaves out JSON that each request pays for
+ * The input schema that Builders Bot advertises for a tool. It leaves out JSON that each request pays for
  * and that tells the model nothing: `$schema`, safe-integer bounds and nested `anyOf`. A union of
  * objects that a tag tells apart becomes one object. Calls are still decoded with the Zod schema, so
  * the rules of each branch still apply. `null` branches stay: a `null` value can mean "clear".

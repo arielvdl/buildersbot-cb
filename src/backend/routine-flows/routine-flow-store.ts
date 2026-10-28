@@ -17,7 +17,7 @@ import {
 import { type DynamicRecord, isOneOf } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { databaseRow, databaseRows, placeholders } from "../database/database-rows";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 import { routineFlowConnectProblem, routineFlowDepths } from "./routine-flow-graph";
 
 /** A refusal the user reads: the text is already a sentence for them. */
@@ -38,7 +38,7 @@ export interface RoutineFlowRun {
 }
 
 export interface RoutineFlowStoreOptions {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   createId?: () => string;
 }
 
@@ -59,7 +59,7 @@ const RUN_STATUSES = [
 ] as const satisfies readonly RoutineRunStatus[];
 
 export class RoutineFlowStore {
-  readonly #database: OpenBotDatabase;
+  readonly #database: BuildersBotDatabase;
   readonly #createId: () => string;
 
   constructor(options: RoutineFlowStoreOptions) {

@@ -10,12 +10,12 @@ export const messages = {
   "error.workflow.conditionBranch": "Каждая связь от условия должна быть «да» или «нет».",
   "error.workflow.duplicateEdge": "У этих двух шагов уже есть такая связь.",
   "error.workflow.serverTooOld":
-    "Этот сервер не поддерживает рабочие процессы. Обновите OpenBot на компьютере, на котором он работает.",
+    "Этот сервер не поддерживает рабочие процессы. Обновите Builders Bot на компьютере, на котором он работает.",
   "error.workflow.nodeUnsupported":
-    "Эта версия OpenBot пока не может выполнять шаги с изображениями, файлами и сообщениями.",
-  "error.workflow.interrupted": "OpenBot остановился во время этого шага. Запустите его снова.",
+    "Эта версия Builders Bot пока не может выполнять шаги с изображениями, файлами и сообщениями.",
+  "error.workflow.interrupted": "Builders Bot остановился во время этого шага. Запустите его снова.",
   "error.workflow.agentMissing": "Выберите агента для этого шага.",
-  "error.workflow.handoffFailed": "OpenBot не смог отправить этот шаг агенту.",
+  "error.workflow.handoffFailed": "Builders Bot не смог отправить этот шаг агенту.",
   "error.workflow.agentStepEnded": "Сообщение агенту было удалено до его ответа.",
   "error.workflow.conditionUnclear": "Модель не ответила «да» или «нет».",
   "error.workflow.modelFailed": "Модель не смогла ответить. Запустите шаг снова.",
@@ -29,7 +29,7 @@ export const messages = {
   "error.workflow.outputConnectionOff":
     "Подключение мессенджера для этого вывода выключено или удалено. Выберите место снова.",
   "error.workflow.outputNotRunning": "Подключение мессенджера сейчас не работает. Повторите, когда оно заработает.",
-  "error.workflow.outputRefused": "Место отклонило публикацию. Убедитесь, что OpenBot может публиковать там.",
+  "error.workflow.outputRefused": "Место отклонило публикацию. Убедитесь, что Builders Bot может публиковать там.",
   "error.workflow.outputUncertain":
     "Публикация остановилась на полпути. Часть её может уже быть в этом месте. Проверьте перед повтором.",
   "error.workflow.tooLarge":

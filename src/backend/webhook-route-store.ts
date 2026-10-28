@@ -10,7 +10,7 @@ import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-
 import { sourceText } from "@openbot/i18n/source";
 import { RoutineInputError } from "@openbot/team-client/routine-schedule";
 import { databaseRows, optionalStringColumn, requiredStringColumn } from "./database/database-rows";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 import { ROUTINE_TABLES } from "./routine-tables";
 
 const RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -66,7 +66,7 @@ const ROUTE_TABLES = [
  * The trigger row itself belongs to the routine, and `RoutineStore` writes it.
  */
 export class WebhookRouteStore {
-  constructor(private readonly database: OpenBotDatabase) {}
+  constructor(private readonly database: BuildersBotDatabase) {}
 
   find(routeId: string): WebhookRoute | null {
     const row = this.database.connection.prepare(`SELECT * FROM (${ROUTE_SELECT}) WHERE route_id = ?`).get(routeId);
@@ -172,7 +172,7 @@ export class WebhookRouteStore {
 
 /** A receipt past retention no longer counts, so its delivery ID starts a new run. */
 export function hasWebhookReceipt(
-  db: OpenBotDatabase["connection"],
+  db: BuildersBotDatabase["connection"],
   receipt: Pick<WebhookReceipt, "ownerKind" | "routineId" | "deliveryId" | "receivedAt">,
 ): boolean {
   return isDynamicRecord(
@@ -186,7 +186,7 @@ export function hasWebhookReceipt(
 }
 
 /** Records one verified request in the caller's transaction and drops receipts past retention. */
-export function insertWebhookReceipt(db: OpenBotDatabase["connection"], receipt: WebhookReceipt): void {
+export function insertWebhookReceipt(db: BuildersBotDatabase["connection"], receipt: WebhookReceipt): void {
   db.prepare("DELETE FROM projection_webhook_receipts WHERE received_at < ?").run(
     webhookReceiptCutoff(receipt.receivedAt),
   );
@@ -218,7 +218,7 @@ export function webhookReceiptCutoff(receivedAt: string): string {
  * pass through here, so the public URL stops working with the trigger that it named.
  */
 export function revokeRoutineWebhooks(
-  db: OpenBotDatabase["connection"],
+  db: BuildersBotDatabase["connection"],
   ownerKind: EventRoutineOwner["kind"],
   routineIds: readonly string[],
   options: { forget: boolean },

@@ -521,7 +521,7 @@ export interface TeamApiOptions {
   onDirectTyping?: ((event: DirectTypingRealtimeEvent) => void) | undefined;
   createInvite?: OmitThisParameter<HostService["createInvite"]> | undefined;
   /**
-   * Changes and removes members as the desktop app does. With an OpenBot account, the account
+   * Changes and removes members as the desktop app does. With an Builders Bot account, the account
    * directory holds the membership; a change only in the team file has no effect there.
    */
   updateMember?: OmitThisParameter<HostService["updateMember"]> | undefined;

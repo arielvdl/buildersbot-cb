@@ -159,6 +159,7 @@ export function ServerMenu(props: ServerMenuProps) {
                 <span
                   class="server-menu-mark sidebar-server-name-mark"
                   data-entering={entering ? "" : undefined}
+                  data-local={server().kind === "local" ? "" : undefined}
                   aria-hidden="true"
                 >
                   <ServerMark server={server()} />
@@ -212,7 +213,7 @@ export function ServerMenu(props: ServerMenuProps) {
                       ref={(row) => selectOnKey(row, server)}
                     >
                       <CheckCircle checked={server().active} />
-                      <span class="server-menu-mark" aria-hidden="true">
+                      <span class="server-menu-mark" data-local={server().kind === "local" ? "" : undefined} aria-hidden="true">
                         <ServerMark server={server()} />
                       </span>
                       <span class="server-menu-name">{server().name}</span>

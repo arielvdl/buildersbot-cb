@@ -11,8 +11,8 @@ export const messages = {
   "error.voice.modelUnavailable": "Le modèle vocal est indisponible.",
   "error.voice.transcriptionTimedOut": "La transcription vocale a expiré.",
   "error.voice.prepareRequired":
-    "La transcription vocale locale est indisponible. Exécutez `bun run voice:prepare` et redémarrez OpenBot.",
-  "error.voice.transcriptionFailed": "OpenBot n’a pas pu transcrire cet enregistrement.",
+    "La transcription vocale locale est indisponible. Exécutez `bun run voice:prepare` et redémarrez Builders Bot.",
+  "error.voice.transcriptionFailed": "Builders Bot n’a pas pu transcrire cet enregistrement.",
   "error.voice.cloud.keyRequired": "Ajoutez votre clé API ElevenLabs dans Réglages → Voix.",
   "error.voice.cloud.keyRejected": "ElevenLabs n’a pas accepté la clé API. Vérifiez la clé dans Réglages → Voix.",
   "error.voice.cloud.quotaExceeded": "Votre quota ElevenLabs est épuisé.",
@@ -25,6 +25,6 @@ export const messages = {
   "error.voice.speech.runtimeUnavailable": "La synthèse vocale locale n’est pas disponible sur cette plateforme.",
   "error.voice.speech.modelRequired": "Téléchargez le modèle de synthèse vocale dans Réglages → Voix.",
   "error.voice.speech.timedOut": "La lecture à voix haute de la réponse a expiré.",
-  "error.voice.speech.failed": "OpenBot n’a pas pu lire la réponse à voix haute.",
-  "error.voice.recordingNotKept": "OpenBot n’a pas pu conserver l’enregistrement vocal.",
+  "error.voice.speech.failed": "Builders Bot n’a pas pu lire la réponse à voix haute.",
+  "error.voice.recordingNotKept": "Builders Bot n’a pas pu conserver l’enregistrement vocal.",
 } as const satisfies PartialTranslation<typeof source>;

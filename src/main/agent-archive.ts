@@ -1,5 +1,5 @@
 // Reading and writing `.zip` archives that carry agents: the Grok Bot agent import and the
-// OpenBot instance transfer share these checks, so both refuse the same unsafe entries.
+// Builders Bot instance transfer share these checks, so both refuse the same unsafe entries.
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -77,7 +77,7 @@ export function extract(bytes: Uint8Array, include: (name: string) => boolean): 
 }
 
 /**
- * The file entries whose Unix mode, from an OpenBot export or a Unix zip tool, is executable. `unzipSync`
+ * The file entries whose Unix mode, from an Builders Bot export or a Unix zip tool, is executable. `unzipSync`
  * does not give the attributes, so this reads the central directory as `unzipSync` does. It returns no
  * names for a ZIP64 archive; an archive below the import limits does not need ZIP64.
  */

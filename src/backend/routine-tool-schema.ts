@@ -84,7 +84,7 @@ export const routineLimitPolicyZodSchema = z
 export const routineMissedPolicyZodSchema = z
   .enum(ROUTINE_MISSED_POLICIES)
   .describe(
-    "What the routine does with occurrences that came due while OpenBot or its server was off: skip records and drops them, run-once runs the newest one when OpenBot starts and records the others. When a routine is created with no value, a one-time schedule uses run-once and other schedules use skip. An update with no value keeps the saved policy.",
+    "What the routine does with occurrences that came due while Builders Bot or its server was off: skip records and drops them, run-once runs the newest one when Builders Bot starts and records the others. When a routine is created with no value, a one-time schedule uses run-once and other schedules use skip. An update with no value keeps the saved policy.",
   );
 
 export const webhookEventTypeZodSchema = z

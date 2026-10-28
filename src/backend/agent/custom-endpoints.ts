@@ -519,7 +519,7 @@ function sameCustomAgent(model: string, agentModel: string): boolean {
  * The listed model and effort that a saved model ID names as `<model>-<effort>`.
  *
  * Antigravity 1.3.0 and later list `gemini-3.1-pro` with a Low and a High effort. Earlier versions of
- * OpenBot listed and saved each effort as a model of its own, `gemini-3.1-pro-high`. An agent saved on
+ * Builders Bot listed and saved each effort as a model of its own, `gemini-3.1-pro-high`. An agent saved on
  * one of these keeps its model and effort. Only an effort that the listed model offers matches.
  */
 function effortVariant(

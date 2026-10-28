@@ -8,11 +8,11 @@ export class SiblingScanFailed extends Schema.TaggedError<SiblingScanFailed>()("
 }) {}
 
 /**
- * Another OpenBot process running from the same application bundle. On a Mac shared by several
+ * Another Builders Bot process running from the same application bundle. On a Mac shared by several
  * macOS users this is how one tenant finds the others: the bundle is shared, the network
  * namespace is shared, and replacing the bundle under a live session breaks it.
  */
-export interface OpenBotSiblingInstance {
+export interface BuildersBotSiblingInstance {
   pid: number;
   uid: number;
 }
@@ -35,9 +35,9 @@ interface SiblingScanInput {
  * with `--type=` arguments, so a scan there always finds this session's own children. An AppImage
  * also mounts at a new path for each launch, so no other session can share the executable path.
  */
-export function listSiblingOpenBotInstances(
+export function listSiblingBuildersBotInstances(
   input: SiblingScanInput,
-): Effect.Effect<OpenBotSiblingInstance[], SiblingScanFailed> {
+): Effect.Effect<BuildersBotSiblingInstance[], SiblingScanFailed> {
   return Effect.suspend(() => {
     const platform = input.platform ?? process.platform;
     if (platform !== "darwin") return Effect.succeed([]);
@@ -50,8 +50,8 @@ export function listSiblingOpenBotInstances(
 function parseSiblingInstances(
   output: string,
   input: Pick<SiblingScanInput, "executablePath" | "currentPid">,
-): OpenBotSiblingInstance[] {
-  const siblings: OpenBotSiblingInstance[] = [];
+): BuildersBotSiblingInstance[] {
+  const siblings: BuildersBotSiblingInstance[] = [];
   if (!input.executablePath.trim()) return siblings;
   for (const line of output.split("\n")) {
     const match = /^\s*(\d+)\s+(\d+)\s+(.+?)\s*$/.exec(line);

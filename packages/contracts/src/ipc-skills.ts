@@ -100,7 +100,7 @@ export interface SubmitSkillInput {
 
 /**
  * `workspace` is a skill folder in `.agents/skills`, `.claude/skills` or `.opencode/skills` of the
- * agent workspace that OpenBot did not install. OpenBot lists it read-only and never writes to it.
+ * agent workspace that Builders Bot did not install. Builders Bot lists it read-only and never writes to it.
  */
 export const INSTALLED_SKILL_ORIGINS = ["marketplace", "managed", "local", "workspace"] as const;
 

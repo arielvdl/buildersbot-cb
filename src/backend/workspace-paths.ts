@@ -29,7 +29,7 @@ const LOCATION_SUFFIX = /(?::\d+(?::\d+)?|#L\d+(?:C\d+)?(?:-L?\d+(?:C\d+)?)?)$/u
 
 export function sharedPathFromInput(sharedRoot: string, inputPath: string): string {
   const normalized = inputPath.replaceAll("\\", "/");
-  for (const prefix of ["~/OpenBot/Shared/", "OpenBot/Shared/", "Shared/"]) {
+  for (const prefix of ["~/Builders Bot/Shared/", "Builders Bot/Shared/", "Shared/"]) {
     if (normalized.startsWith(prefix)) return join(sharedRoot, normalized.slice(prefix.length));
   }
   return isAbsolute(inputPath) ? inputPath : join(sharedRoot, normalized);
@@ -37,7 +37,7 @@ export function sharedPathFromInput(sharedRoot: string, inputPath: string): stri
 
 /**
  * The two `Bots` prefixes are permanent. This function reads paths the model writes and paths quoted in
- * messages, and the workspace root was `~/OpenBot/Bots/bot-<uuid>` in every release before the
+ * messages, and the workspace root was `~/Builders Bot/Bots/bot-<uuid>` in every release before the
  * bot-to-agent rename. A database restored from the user's own copy of the file never ran migration v13,
  * so it still spells both the id and the path that way; and a cross-device root legitimately leaves a
  * workspace under the old name even after v13. Dropping the prefix does not fail loudly -- the path just
@@ -48,10 +48,10 @@ export function workspacePathFromInput(workspaceRoot: string, agentId: string, i
   const normalized = decoded.replaceAll("\\", "/");
   const legacyId = legacyAgentId(agentId);
   for (const prefix of [
-    `~/OpenBot/Agents/${agentId}/`,
-    `OpenBot/Agents/${agentId}/`,
-    `~/OpenBot/Bots/${legacyId}/`,
-    `OpenBot/Bots/${legacyId}/`,
+    `~/Builders Bot/Agents/${agentId}/`,
+    `Builders Bot/Agents/${agentId}/`,
+    `~/Builders Bot/Bots/${legacyId}/`,
+    `Builders Bot/Bots/${legacyId}/`,
   ]) {
     if (normalized.startsWith(prefix)) return join(workspaceRoot, normalized.slice(prefix.length));
   }

@@ -2,9 +2,9 @@
  * How the agent cursor travels from one point to the next.
  *
  * This is the `adaptive` motion style of cua-driver 0.34.0, ported from
- * `libs/cua-driver/rust/crates/cursor-overlay/src/trajectory.rs` (MIT, trycua/cua). OpenBot starts
+ * `libs/cua-driver/rust/crates/cursor-overlay/src/trajectory.rs` (MIT, trycua/cua). Builders Bot starts
  * the driver with `--no-overlay` and draws the cursor itself, so the driver's own motion styles
- * never reach the screen; this gives OpenBot's cursor the motion the driver gives its own.
+ * never reach the screen; this gives Builders Bot's cursor the motion the driver gives its own.
  *
  * `adaptive` picks a move by its distance and its target: a careful approach for a target under
  * 16 points, a wide swoop for a move over 900 points, and a Fitts min-jerk glide otherwise. The tap

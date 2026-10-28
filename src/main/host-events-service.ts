@@ -21,7 +21,7 @@ import {
 } from "@openbot/contracts/signal-protocol/messages";
 import { WEBHOOK_ROUTES_LIMIT } from "@openbot/contracts/signal-protocol/webhook-route";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, registerSecretValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue } from "@openbot/logging";
 import { RoutineInputError } from "@openbot/team-client/routine-schedule";
 import { Effect, Semaphore } from "effect";
 import { RoutineOperationFailed } from "../backend/agent/routine-scheduler";
@@ -42,7 +42,7 @@ import type { SecretCipher } from "./provider-credential-store";
 import type { WebhookIngressDelivery } from "./signal-ingress";
 import { signWebhookBody, verifyWebhookSignature } from "./webhook-security";
 
-const logger = createOpenBotLogger("host-events");
+const logger = createBuildersBotLogger("host-events");
 const DEFAULT_ACTIVITY_LIMIT = 50;
 const DEFAULT_RUN_LIMIT = 10;
 /** The type of a test event for a routine that accepts every type. */

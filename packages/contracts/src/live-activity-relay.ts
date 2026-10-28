@@ -1,7 +1,7 @@
 import type { NotificationSound } from "./notification-relay";
 
 /**
- * One iOS Live Activity update that a host asks the OpenBot account service to send through Apple
+ * One iOS Live Activity update that a host asks the Builders Bot account service to send through Apple
  * Push Notification service. The content is sealed by the host with keys that only the phone knows,
  * so the service and Apple forward it without reading it. The service builds the Apple payload
  * itself, and an alert has only its own fixed text, so a host cannot use it to send an ordinary

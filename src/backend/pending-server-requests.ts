@@ -9,7 +9,7 @@ interface PendingServerRequest {
 }
 
 /**
- * The requests a provider client sends to OpenBot, such as an approval or a tool call, that wait for
+ * The requests a provider client sends to Builders Bot, such as an approval or a tool call, that wait for
  * `respond` or `respondError`. An answer to an id this table does not hold is ignored.
  */
 export class PendingServerRequests {
@@ -22,7 +22,7 @@ export class PendingServerRequests {
 
   /**
    * `signal` aborts when the provider stops waiting for this request. The request then rejects and
-   * leaves the table, and the same signal on the sent request tells OpenBot to stop asking the user.
+   * leaves the table, and the same signal on the sent request tells Builders Bot to stop asking the user.
    */
   readonly call = Effect.fn("PendingServerRequests.call")(function* (
     this: PendingServerRequests,

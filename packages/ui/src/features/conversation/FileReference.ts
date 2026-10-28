@@ -27,7 +27,7 @@ const UNQUOTED_PATH_PATTERNS = [
   new RegExp(`~[/\\\\][^${PATH_CHARACTER_EXCLUSIONS}]+`, "gu"),
   new RegExp(`[A-Za-z]:[/\\\\][^${PATH_CHARACTER_EXCLUSIONS}]+`, "gu"),
   new RegExp(`[/\\\\][^${PATH_CHARACTER_EXCLUSIONS}]+`, "gu"),
-  /(?:^|[\s"'`([{])((?:OpenBot[/\\])?Shared[/\\][^\s"'`<>()[\]]+)/gu,
+  /(?:^|[\s"'`([{])((?:Builders Bot[/\\])?Shared[/\\][^\s"'`<>()[\]]+)/gu,
 ];
 const QUOTED_PATH_PATTERN = /(["'`])([^"'`\r\n]+)\1/gu;
 const FILENAME_CHARACTER_PATTERN = /[\p{L}\p{N}_.-]/u;
@@ -108,7 +108,7 @@ function isSharedFilePath(value: string): boolean {
   const normalized = value.replaceAll("\\", "/");
   const segments = normalized.split("/").filter(Boolean);
   if (segments[0] === "Shared" && segments.length > 1) return true;
-  return segments.some((segment, index) => segment === "OpenBot" && segments[index + 1] === "Shared");
+  return segments.some((segment, index) => segment === "Builders Bot" && segments[index + 1] === "Shared");
 }
 
 function sharedPathCandidates(body: string): TextRange[] {

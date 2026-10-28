@@ -168,7 +168,7 @@ export function parseProviderApiKeyInput(value: unknown): SetProviderApiKeyInput
 
 export function parseManagedProviderId(value: unknown): ManagedProviderId {
   const provider = parseProviderId(value);
-  if (!isManagedRuntimeProvider(provider)) throw new Error("OpenBot does not manage this provider's CLI.");
+  if (!isManagedRuntimeProvider(provider)) throw new Error("Builders Bot does not manage this provider's CLI.");
   return provider;
 }
 

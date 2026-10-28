@@ -1,6 +1,6 @@
 /** The browser keeps the installed Chromium version and host platform. */
 export function sessionBrowserUserAgent(userAgent: string): string {
-  return userAgent.replace(/\s(?:Electron|OpenBot)\/[^\s]+/gu, "");
+  return userAgent.replace(/\s(?:Electron|Builders Bot)\/[^\s]+/gu, "");
 }
 
 /**

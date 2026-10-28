@@ -19,7 +19,7 @@ export const messages = {
   "status.remote.stageAgents": "Загрузка агентов: {reason}",
   "status.remote.stageReads": "Загрузка статуса прочтения: {reason}",
   "status.remote.suspendedDetail":
-    "Обновите OpenBot Mobile или приложение для компьютера, прежде чем подключаться.\n{detail}",
+    "Обновите Builders Bot Mobile или приложение для компьютера, прежде чем подключаться.\n{detail}",
   "status.remote.cooldownDetail":
     "Подключение не удалось после {limit} попыток. Повтор через {minutes}:{seconds}.\n{detail}",
   "status.remote.cooldown": "Подключение не удалось после {limit} попыток. Повтор через {minutes}:{seconds}.",

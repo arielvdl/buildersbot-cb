@@ -8,7 +8,7 @@ import type { HostManagerConfig, HostTenantStatus, HostUpdateState } from "../..
 import { causeHelpers } from "../backend/effect-boundary";
 import { isMissingFileError } from "../backend/file-errors";
 
-export const HOST_MANAGER_DIRECTORY = "/Library/Application Support/OpenBot/HostManager";
+export const HOST_MANAGER_DIRECTORY = "/Library/Application Support/Builders Bot/HostManager";
 export const HOST_POLL_MS = 5_000;
 export const HOST_HEARTBEAT_TIMEOUT_MS = 20_000;
 export const HOST_IDLE_GRACE_MS = 300_000;

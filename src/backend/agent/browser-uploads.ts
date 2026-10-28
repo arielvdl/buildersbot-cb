@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { ATTACHMENT_LIMITS } from "@openbot/contracts/input-limits";
-import { createOpenBotLogger, redactText } from "@openbot/logging";
+import { createBuildersBotLogger, redactText } from "@openbot/logging";
 import { Effect, Exit, Fiber, Scope } from "effect";
 import {
   type AttachmentOperationError,
@@ -87,7 +87,7 @@ const removeUploadRoot = Effect.fn("BrowserUploads.removeRoot")((path: string) =
   ),
 );
 
-const logger = createOpenBotLogger("browser-uploads");
+const logger = createBuildersBotLogger("browser-uploads");
 
 const MAX_BROWSER_UPLOAD_INPUTS_PER_TAB = 10;
 const MAX_BROWSER_UPLOAD_BYTES_PER_TAB = ATTACHMENT_LIMITS.totalBytes;

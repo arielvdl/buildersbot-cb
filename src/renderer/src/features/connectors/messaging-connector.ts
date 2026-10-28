@@ -41,7 +41,7 @@ export interface MessagingApi {
     target: MessagingOrchestratorTarget,
     choice: SlackOrchestratorChoice | null,
   ) => Promise<AddMessagingOrchestratorResult>;
-  /** Who can use OpenBot in a Discord server. */
+  /** Who can use Builders Bot in a Discord server. */
   discordAccess: (workspaceId: string) => Promise<DiscordAccess>;
   /** The roles of a Discord server to choose from. */
   discordRoles: (workspaceId: string) => Promise<DiscordRoleList>;
@@ -152,7 +152,7 @@ export function createMessagingConnector(
   /** Each read replaces the one before it, so a slow answer never overwrites a newer one. */
   let reads = 0;
 
-  /** Who can use OpenBot in each Discord server of one server. Discord only. */
+  /** Who can use Builders Bot in each Discord server of one server. Discord only. */
   const [access, setAccess] = createStore<{
     serverId: string | undefined;
     allowed: Record<string, MessagingRole[]>;

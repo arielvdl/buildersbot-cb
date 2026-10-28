@@ -4,7 +4,7 @@ import type { messages as source } from "../../en/mobile/chat";
 export const messages = {
   "mobile.chat.dictation.microphoneOffTitle": "Mikrofon erişimi kapalı",
   "mobile.chat.dictation.microphoneOffMessage":
-    "Bir mesajı sesle yazdırmak için Ayarlar'dan OpenBot'un mikrofon ve konuşma tanımayı kullanmasına izin verin.",
+    "Bir mesajı sesle yazdırmak için Ayarlar'dan Builders Bot'un mikrofon ve konuşma tanımayı kullanmasına izin verin.",
   "mobile.chat.dictation.stopped": "Dikte durduruldu",
   "mobile.chat.dictation.tryAgain": "Tekrar deneyin.",
   "mobile.chat.dictation.unavailable": "Dikte kullanılamıyor",
@@ -96,7 +96,7 @@ export const messages = {
   "mobile.chat.attachment.openFailed": "Ek açılamadı",
   "mobile.chat.attachment.photosNeedUpdate": "Fotoğrafları kaydetmek uygulamanın en son sürümünü gerektirir.",
   "mobile.chat.attachment.photosPermission":
-    "Bu görseli kaydetmek için Ayarlar'da OpenBot'un fotoğraf eklemesine izin verin.",
+    "Bu görseli kaydetmek için Ayarlar'da Builders Bot'un fotoğraf eklemesine izin verin.",
   "mobile.chat.attachment.imageUnavailable": "Görsel kullanılamıyor. Tekrar deneyin.",
   "mobile.chat.attachment.saveImageFailed": "Görsel kaydedilemedi",
   "mobile.chat.attachment.preview": "{name} önizlemesi",
@@ -121,9 +121,9 @@ export const messages = {
   "mobile.chat.attachment.unsupported":
     "{name}: görsel, MP3 ses, MOV veya MP4 video, ZIP arşivleri, PDF, Office belgeleri, EML, metin, Markdown, veri veya kaynak dosyaları seçin.",
   "mobile.chat.attachment.hostRejectsType":
-    "{name}: ana makine {type} dosyalarını kabul etmiyor. Bunları eklemek için oradaki OpenBot'u güncelleyin.",
+    "{name}: ana makine {type} dosyalarını kabul etmiyor. Bunları eklemek için oradaki Builders Bot'u güncelleyin.",
   "mobile.chat.attachment.hostRejects":
-    "{name}: ana makine bu dosyaları kabul etmiyor. Bunları eklemek için oradaki OpenBot'u güncelleyin.",
+    "{name}: ana makine bu dosyaları kabul etmiyor. Bunları eklemek için oradaki Builders Bot'u güncelleyin.",
   "mobile.chat.attachment.nameTooLong": "Daha kısa ada sahip bir dosya seçin.",
   "mobile.chat.attachment.damaged": "Ek bozuk. Tekrar seçin.",
   "mobile.chat.attachment.tooLarge": "{name} 10 MB'tan daha büyük.",
@@ -194,7 +194,7 @@ export const messages = {
   "mobile.chat.video.retry": "Videoyu tekrar dene",
   "mobile.chat.video.share": "{name} adlı videoyu paylaş",
   "mobile.chat.video.save": "{name} adlı videoyu Fotoğraflar'a kaydet",
-  "mobile.chat.video.photosPermission": "Bu videoyu kaydetmek için Ayarlar'da OpenBot'un fotoğraf eklemesine izin ver.",
+  "mobile.chat.video.photosPermission": "Bu videoyu kaydetmek için Ayarlar'da Builders Bot'un fotoğraf eklemesine izin ver.",
   "mobile.chat.video.saveFailed": "Video kaydedilemedi",
   "mobile.chat.audio.play": "{name} oynat",
   "mobile.chat.audio.pause": "{name} duraklat",
@@ -208,7 +208,7 @@ export const messages = {
   "mobile.chat.browserSecret.authenticatorCode": "Doğrulama kodu",
   "mobile.chat.browserSecret.oneTimeCode": "Tek kullanımlık kod",
   "mobile.chat.browserSecret.takeoverTitle": "Tarayıcı devralma",
-  "mobile.chat.browserSecret.takeoverBody": "Bu adımı OpenBot çalıştıran bilgisayardaki tarayıcıda tamamlayın.",
+  "mobile.chat.browserSecret.takeoverBody": "Bu adımı Builders Bot çalıştıran bilgisayardaki tarayıcıda tamamlayın.",
   "mobile.chat.browserSecret.takeoverReload": "Ardından “Bitirdim” seçeneğini seçmeden önce sayfayı yeniden yükleyin.",
   "mobile.chat.browserSecret.takeoverFailed": "İstek tamamlanamadı.",
   "mobile.chat.browserSecret.done": "Bitirdim",
@@ -289,7 +289,7 @@ export const messages = {
   "mobile.chat.approval.effect.permissions":
     "“İzin ver”, {name} ajanına {server} üzerinde bu izinleri verir. “Reddet” mevcut izinleri korur.",
   "mobile.chat.approval.partial":
-    "Bu istek telefonda gösterilemeyecek kadar uzun. İzin vermek için {server} üzerinde OpenBot'u açın. Burada reddedebilirsiniz.",
+    "Bu istek telefonda gösterilemeyecek kadar uzun. İzin vermek için {server} üzerinde Builders Bot'u açın. Burada reddedebilirsiniz.",
   "mobile.chat.approval.allow": "İzin ver",
   "mobile.chat.approval.deny": "Reddet",
   "mobile.chat.approval.reconnect": "Bu isteği yanıtlamak için {server} sunucusuna bağlanın.",
@@ -358,7 +358,7 @@ export const messages = {
   "mobile.chat.queue.steerNeedsTurn": "Yönlendirme için çalışan bir tur gereklidir.",
   "mobile.chat.queue.stillHoldingTitle": "Mesaj hâlâ tutuluyor",
   "mobile.chat.queue.stillHoldingMessage":
-    "OpenBot bu mesajı serbest bırakamadı, bu nedenle ajan bunu beklemeye devam ediyor. Telefon yeniden bağlandıktan sonra tekrar deneyin.",
+    "Builders Bot bu mesajı serbest bırakamadı, bu nedenle ajan bunu beklemeye devam ediyor. Telefon yeniden bağlandıktan sonra tekrar deneyin.",
   "mobile.chat.queue.keepEditing": "Düzenlemeye devam et",
   "mobile.chat.queue.leaveAnyway": "Yine de ayrıl",
   "mobile.chat.queue.discardTitle": "Değişiklikler atılsın mı?",
@@ -366,7 +366,7 @@ export const messages = {
   "mobile.chat.queue.discard": "At",
   "mobile.chat.queue.alreadyReceived": "Ajan bu mesajı zaten aldı, bu nedenle değiştirilemez.",
   "mobile.chat.queue.holding": "Mesaj sizin için tutuluyor…",
-  "mobile.chat.queue.holdFailed": "OpenBot bu mesajı düzenleme için tutamadı.",
+  "mobile.chat.queue.holdFailed": "Builders Bot bu mesajı düzenleme için tutamadı.",
   "mobile.chat.queue.messageLabel": "Mesaj",
   "mobile.chat.queue.messagePlaceholder": "Mesaj metni",
   "mobile.chat.queue.save": "Kuyruktaki mesajı kaydet",

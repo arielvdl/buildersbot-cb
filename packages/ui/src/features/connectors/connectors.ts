@@ -9,7 +9,7 @@ export { CONNECTOR_IDS, type ConnectorId } from "@openbot/contracts/ipc";
 export interface ConnectorDefinition {
   /**
    * The capability that lets a joined server run the connector for an owner or admin. Null when the
-   * connector works only on the computer that runs OpenBot, because its app or browser runs there.
+   * connector works only on the computer that runs Builders Bot, because its app or browser runs there.
    */
   server: TeamCurrentCapability | null;
 }

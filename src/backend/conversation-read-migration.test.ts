@@ -8,8 +8,8 @@ import type { ConversationSnapshot } from "@openbot/contracts/ipc";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConversationReadStore } from "./conversation-read-store";
 import { runCauseEffect } from "./effect-boundary";
-import { OpenBotDatabase } from "./openbot-database";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { BuildersBotDatabase } from "./openbot-database";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 import { directThreadId, TeamChatStore } from "./team-chat-store";
 
 const roots: string[] = [];
@@ -85,12 +85,12 @@ describe("conversation read-state migration", () => {
         legacyDirectMessage.createdAt,
         JSON.stringify(legacyDirectMessage),
       );
-    migrateOpenBotDatabase(legacy, {
+    migrateBuildersBotDatabase(legacy, {
       appliedAt: "2026-08-19T10:00:00.000Z",
     });
     legacy.close();
 
-    const database = new OpenBotDatabase(root);
+    const database = new BuildersBotDatabase(root);
     await runCauseEffect(database.initialize());
     const reads = new ConversationReadStore(database);
     const legacySnapshot = snapshot([message("legacy-answer", "assistant")]);

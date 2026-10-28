@@ -83,7 +83,7 @@ const OPENCODE_REQUEST_FAILURES = [
 /**
  * OpenCode retries a rate limit or a provider failure by itself. When it stops, it fails the prompt
  * with the provider's text behind `Internal error:`, so a billing refusal, a rate limit and an
- * offline computer all read as one failure of OpenBot, and the user could not tell whether
+ * offline computer all read as one failure of Builders Bot, and the user could not tell whether
  * waiting helps (#1163). The kind comes first; the provider's own text follows it.
  */
 function openCodeRequestFailure(

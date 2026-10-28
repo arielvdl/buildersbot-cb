@@ -30,7 +30,7 @@ import { For, Show } from "solid-js";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 
-/** A setting of the Agents tab: the three account defaults, and "Steer agents while they work". */
+/** A setting of the Agents tab: the account defaults, and "Steer agents while they work". */
 export type AgentDefaultSetting = AgentDefaultKey | "busyMessageMode";
 
 /** What one agent does for a setting: follow the default, or its own value. */
@@ -60,6 +60,11 @@ export const AGENT_DEFAULT_SETTINGS = [
     key: "quickAcknowledgement",
     title: "agentSettings.quickAcknowledgement.title",
     description: "agentSettings.quickAcknowledgement.description",
+  },
+  {
+    key: "securityGuard",
+    title: "agentSettings.securityGuard.title",
+    description: "agentSettings.securityGuard.description",
   },
   { key: "busyMessageMode", title: "settings.busyMessage.title", description: "settings.busyMessage.description" },
 ] as const satisfies ReadonlyArray<{ key: AgentDefaultSetting; title: AppTextKey; description: AppTextKey }>;

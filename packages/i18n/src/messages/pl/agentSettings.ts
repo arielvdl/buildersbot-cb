@@ -93,7 +93,7 @@ export const messages = {
   "agentSettings.runtime.fullAccessNote":
     "Agent działa z pełnym dostępem do komputera ze swojego obszaru roboczego i folderu współdzielonego.",
   "agentSettings.runtime.askNote":
-    "Pyta cię, zanim użyje narzędzia OpenBot lub opublikuje witrynę, oraz gdy jego dostawca prosi o zgodę.",
+    "Pyta cię, zanim użyje narzędzia Builders Bot lub opublikuje witrynę, oraz gdy jego dostawca prosi o zgodę.",
   "agentSettings.runtime.fullNote": "Działa bez pytania, z wyjątkiem pytań, które ci zadaje.",
   "agentSettings.access.workspace": "Tylko obszar roboczy",
   "agentSettings.access.ask": "Najpierw pytaj",
@@ -160,7 +160,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "Edycja pliku poza tymi folderami najpierw zapyta cię o zgodę. Polecenie nie może zapisać poza nimi.",
   "agentSettings.runtime.workspaceUnlimited":
-    "Sterowanie komputerem i przeglądarka OpenBot nie są ograniczone; Sterowanie komputerem możesz wyłączyć poniżej.",
+    "Sterowanie komputerem i przeglądarka Builders Bot nie są ograniczone; Sterowanie komputerem możesz wyłączyć poniżej.",
   "agentSettings.computerUse.title": "Sterowanie komputerem",
   "agentSettings.computerUse.description": "Pozwól temu agentowi sterować aplikacjami na tym komputerze",
   "agentSettings.automation.title": "Lokalne skrypty",
@@ -172,6 +172,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Pokaż plan przed długimi zadaniami",
   "agentSettings.quickAcknowledgement.description":
     "Przed długim zadaniem agent pokazuje swój plan. Zaczyna po 10 s lub po naciśnięciu Start.",
+  "agentSettings.securityGuard.title": "Kontrola bezpieczeństwa każdej wiadomości",
+  "agentSettings.securityGuard.description":
+    'Przed każdą turą kontrola czyta wiadomość i jej obrazy pod kątem wstrzyknięcia promptu i mówi agentowi, co znalazła. Używa modelu agenta.',
   "agentSettings.browserProfile.label": "Profil przeglądarki",
   "agentSettings.browserProfile.shared": "Wspólny",
   "agentSettings.browserProfile.agent": "Tylko ten agent",

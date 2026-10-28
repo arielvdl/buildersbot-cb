@@ -42,7 +42,7 @@ import { routineStatusForDelivery } from "./delivery-content";
 import { quietRoutineRun } from "./routine-quiet-runs";
 import {
   localTimezone,
-  type OpenBotToolResponse,
+  type BuildersBotToolResponse,
   openBotToolFailure,
   openBotToolResult,
   routineToolAgentId,
@@ -541,7 +541,7 @@ export class RoutineScheduler implements RoutineDueSource {
   handleTool(
     params: DynamicToolCallParams,
     senderAgentId: string,
-  ): Effect.Effect<OpenBotToolResponse | null, RoutineOperationFailed> {
+  ): Effect.Effect<BuildersBotToolResponse | null, RoutineOperationFailed> {
     return this.#handleTool(params, senderAgentId).pipe(
       Effect.catchDefect((cause) => Effect.fail(new RoutineOperationFailed({ cause }))),
       Effect.catch((failure) =>

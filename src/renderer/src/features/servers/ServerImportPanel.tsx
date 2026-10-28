@@ -3,7 +3,7 @@ import type {
   AgentImportResult,
   AgentImportSkillSource,
   HermesImportPreview,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { classifyFailure } from "@openbot/telemetry";
 import { AgentImportSources } from "@openbot/ui/features/import/AgentImportSources";
@@ -58,11 +58,11 @@ function readSetup(source: AgentImportSkillSource, folder: boolean): AgentImport
 
 type HermesCall = "readHermes" | "chooseHermes" | "applyHermes" | "discardHermes";
 
-export type AgentImportCalls = Omit<OpenBotDesktopApi["agentImport"], HermesCall> & {
+export type AgentImportCalls = Omit<BuildersBotDesktopApi["agentImport"], HermesCall> & {
   /** Opens the ready export agent's Grok Bot page. */
   openExportAgent(): void;
   /** The Hermes folder calls, on desktop only: main reads the Hermes folder of this computer. */
-  hermes?: Pick<OpenBotDesktopApi["agentImport"], HermesCall>;
+  hermes?: Pick<BuildersBotDesktopApi["agentImport"], HermesCall>;
 };
 
 export interface ServerImportOptions {
@@ -95,7 +95,7 @@ interface HermesState {
 
 /**
  * Server settings > Import. The user chooses where the agents are now: Hermes Agent, Grok Bot, or
- * another OpenBot computer. An export file from Grok Bot or Hermes takes the same steps: main opens
+ * another Builders Bot computer. An export file from Grok Bot or Hermes takes the same steps: main opens
  * the file dialog and the host keeps the export under a token, so the panel holds the preview and
  * never a path. Hermes on this computer can also be read from its folder, item by item. A preview
  * left open when the panel closes is released.

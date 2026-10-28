@@ -16,10 +16,10 @@ export const messages = {
   "notification.channelMessage": "Новое сообщение.",
   "notification.usageLimit.title": "Аккаунт {provider} достиг лимита",
   "notification.usageLimit.body": {
-    one: "Ждёт {count} агент. OpenBot попробует позже.",
-    few: "Ждут {count} агента. OpenBot попробует позже.",
-    many: "Ждут {count} агентов. OpenBot попробует позже.",
-    other: "Ждут {count} агента. OpenBot попробует позже.",
+    one: "Ждёт {count} агент. Builders Bot попробует позже.",
+    few: "Ждут {count} агента. Builders Bot попробует позже.",
+    many: "Ждут {count} агентов. Builders Bot попробует позже.",
+    other: "Ждут {count} агента. Builders Bot попробует позже.",
   },
   "notification.usageLimit.bodyResets": {
     one: "Ждёт {count} агент. Сброс {reset}.",
@@ -28,7 +28,7 @@ export const messages = {
     other: "Ждут {count} агента. Сброс {reset}.",
   },
   "notification.test": "Уведомления работают.",
-  "notification.welcome": "OpenBot сообщит здесь, когда вы понадобитесь агенту.",
+  "notification.welcome": "Builders Bot сообщит здесь, когда вы понадобитесь агенту.",
   "notification.toast.region": "Уведомления",
   "notification.toast.close": "Закрыть уведомление",
 } as const satisfies PartialTranslation<typeof source>;

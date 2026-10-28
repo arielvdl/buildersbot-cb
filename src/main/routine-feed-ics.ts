@@ -2,7 +2,7 @@
 //
 // Each run is a single event at a UTC time. The routine calendar already places each run with the
 // schedule code that fires it, daylight saving time included, so the file needs no time zone rules
-// and a calendar app cannot place a run at a time where OpenBot does not fire it.
+// and a calendar app cannot place a run at a time where Builders Bot does not fire it.
 
 import type { RoutineCalendar } from "@openbot/contracts/ipc";
 
@@ -24,7 +24,7 @@ export function routineFeedIcs(calendar: RoutineCalendar, text: RoutineFeedText,
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//OpenBot//Routines//EN",
+    "PRODID:-//Builders Bot//Routines//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `NAME:${icsText(text.calendarName)}`,

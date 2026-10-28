@@ -16,9 +16,10 @@ import type { MailboxStore } from "../mailbox-store";
 import { decodeRecordResponse } from "../protocol";
 import type { ConversationRuntime } from "./conversation-runtime";
 import type { CustomEndpoints } from "./custom-endpoints";
-import { agentNamesById, deliveryPromptInput } from "./delivery-content";
+import { agentNamesById, type DeliveryInputItem, deliveryPromptInput } from "./delivery-content";
 import { type DrainScheduler, REMOVED_ENDPOINT_MESSAGE } from "./drain-scheduler";
 import type { MailboxSync } from "./mailbox-sync";
+import type { PromptGuardScan } from "./prompt-guard";
 import type { ProviderRuntime } from "./provider-runtime";
 import type { RoutineScheduler } from "./routine-scheduler";
 import { providerForAgent } from "./thread-items";
@@ -31,6 +32,8 @@ export interface QueueControlsHooks {
    * deleted task.
    */
   taskThreadId(deliveryId: string): string | null;
+  /** The prompt-injection block of a steered message, or null; see `DrainScheduler`'s hook. */
+  scanPrompt(agentId: string, input: readonly DeliveryInputItem[]): Effect.Effect<PromptGuardScan | null>;
 }
 
 export interface QueueControlsOptions {
@@ -256,6 +259,14 @@ export class QueueControls {
     }
     yield* this.#mailbox.markSteering(input.deliveryId, turnId).pipe(toQueueOperationFailed);
     this.#mailboxSync.emitQueue(agent.id);
+    const prompt = deliveryPromptInput(context, {
+      agentNames: agentNamesById(this.#store.list()),
+      snapshot,
+      routineRun: context.delivery.sender.kind === "routine" ? this.#routines.runForDelivery(input.deliveryId) : null,
+      wokenWaits: context.delivery.sender.kind === "routine" ? this.#routines.wokenWaits(input.deliveryId) : [],
+    });
+    // The guard reads the steered message too: it joins the running turn with no drain of its own.
+    const guard = (yield* this.#hooks.scanPrompt(agent.id, prompt))?.block;
     yield* client
       .request(
         "turn/steer",
@@ -263,13 +274,13 @@ export class QueueControls {
           threadId: session,
           expectedTurnId: turnId,
           clientUserMessageId: input.deliveryId,
-          input: deliveryPromptInput(context, {
-            agentNames: agentNamesById(this.#store.list()),
-            snapshot,
-            routineRun:
-              context.delivery.sender.kind === "routine" ? this.#routines.runForDelivery(input.deliveryId) : null,
-            wokenWaits: context.delivery.sender.kind === "routine" ? this.#routines.wokenWaits(input.deliveryId) : [],
-          }),
+          input: guard
+            ? prompt.map((item, index) =>
+                index === 0 && item.type === "text"
+                  ? { ...item, text: `${guard}\n\n--- steered message ---\n${item.text}` }
+                  : item,
+              )
+            : prompt,
         },
         decodeRecordResponse,
       )

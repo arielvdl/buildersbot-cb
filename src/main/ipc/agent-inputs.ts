@@ -665,6 +665,11 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
       throw new Error("Invalid quick acknowledgement value.");
     result.quickAcknowledgement = value.quickAcknowledgement;
   }
+  if (value.securityGuard !== undefined) {
+    if (value.securityGuard !== null && !isBoolean(value.securityGuard))
+      throw new Error("Invalid security guard value.");
+    result.securityGuard = value.securityGuard;
+  }
   if (value.fastMode !== undefined) {
     if (!isBoolean(value.fastMode)) throw new Error("Invalid fast mode value.");
     result.fastMode = value.fastMode;

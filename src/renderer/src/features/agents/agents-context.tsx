@@ -102,7 +102,7 @@ const Agents = createSimpleContext({
     const [serverSetupChoice, setServerSetupChoice] = createSignal<CreationPreference | null>(null);
     /**
      * A joined server with no agents shows the provider step before the agent form, when the account
-     * can sign its host in. OpenBot includes no AI subscription, so an agent made first could not
+     * can sign its host in. Builders Bot includes no AI subscription, so an agent made first could not
      * answer. A member, an older host and this computer open the form as before.
      */
     const serverOnboardingOpen = createMemo(

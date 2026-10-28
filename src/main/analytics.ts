@@ -93,7 +93,7 @@ const TOOL_KINDS = [
   "subagent",
   "other",
 ] as const;
-// OpenBot's own tool servers. Every other server name is the user's, so only these and catalog
+// Builders Bot's own tool servers. Every other server name is the user's, so only these and catalog
 // plugins keep their tool names.
 const BUILTIN_TOOL_SERVERS = new Map<string, (typeof TOOL_KINDS)[number]>([
   ["openbot", "openbot"],

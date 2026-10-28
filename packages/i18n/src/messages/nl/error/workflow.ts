@@ -10,12 +10,12 @@ export const messages = {
   "error.workflow.conditionBranch": "Elke verbinding vanuit een voorwaarde moet ja of nee zijn.",
   "error.workflow.duplicateEdge": "Deze twee stappen hebben deze verbinding al.",
   "error.workflow.serverTooOld":
-    "Deze server ondersteunt geen workflows. Werk OpenBot bij op de computer waarop de server draait.",
+    "Deze server ondersteunt geen workflows. Werk Builders Bot bij op de computer waarop de server draait.",
   "error.workflow.nodeUnsupported":
-    "Deze versie van OpenBot kan nog geen stappen voor afbeeldingen, bestanden en berichten uitvoeren.",
-  "error.workflow.interrupted": "OpenBot is gestopt terwijl deze stap liep. Voer hem opnieuw uit.",
+    "Deze versie van Builders Bot kan nog geen stappen voor afbeeldingen, bestanden en berichten uitvoeren.",
+  "error.workflow.interrupted": "Builders Bot is gestopt terwijl deze stap liep. Voer hem opnieuw uit.",
   "error.workflow.agentMissing": "Kies een agent voor deze stap.",
-  "error.workflow.handoffFailed": "OpenBot kon deze stap niet naar de agent sturen.",
+  "error.workflow.handoffFailed": "Builders Bot kon deze stap niet naar de agent sturen.",
   "error.workflow.agentStepEnded": "Het bericht van de agent voor deze stap is verwijderd voordat de agent antwoordde.",
   "error.workflow.conditionUnclear": "Het model antwoordde niet met ja of nee.",
   "error.workflow.modelFailed": "Het model kon niet antwoorden. Voer de stap opnieuw uit.",
@@ -29,7 +29,7 @@ export const messages = {
   "error.workflow.outputConnectionOff":
     "De berichtenverbinding van deze uitvoer staat uit of is verwijderd. Kies opnieuw een plek.",
   "error.workflow.outputNotRunning": "De berichtenverbinding draait nu niet. Probeer het opnieuw als hij draait.",
-  "error.workflow.outputRefused": "De plek heeft het bericht geweigerd. Zorg dat OpenBot daar mag posten.",
+  "error.workflow.outputRefused": "De plek heeft het bericht geweigerd. Zorg dat Builders Bot daar mag posten.",
   "error.workflow.outputUncertain":
     "Het bericht is onderweg gestopt. Een deel ervan kan op de plek staan. Kijk daar voordat je het opnieuw probeert.",
   "error.workflow.tooLarge":

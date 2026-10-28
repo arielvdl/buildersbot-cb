@@ -7,6 +7,6 @@ export const messages = {
   "mobile.shared.crop.hint": "드래그해서 사진을 옮기고, 핀치로 크기를 조절하세요.",
   "mobile.shared.splash.loading": "계정 불러오는 중",
   "mobile.shared.photo.openFailed": "이 사진을 열 수 없어요. 다시 시도해 주세요.",
-  "mobile.shared.photo.tooLarge": "OpenBot이 이 사진을 충분히 작게 만들 수 없어요. 더 단순한 사진을 선택해 주세요.",
+  "mobile.shared.photo.tooLarge": "Builders Bot이 이 사진을 충분히 작게 만들 수 없어요. 더 단순한 사진을 선택해 주세요.",
   "mobile.shared.save.changes": "변경 사항 저장",
 } as const satisfies PartialTranslation<typeof source>;

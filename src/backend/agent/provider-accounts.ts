@@ -14,7 +14,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { CLAUDE_API_KEY_ACCOUNT_ID } from "@openbot/contracts/team-protocol/claude-api-key-v1";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Cause, Effect, Fiber, Schema, type Scope } from "effect";
 import { startAcpAuthentication } from "./../acp-sign-in";
 import type { AgentClient } from "./../agent-client";
@@ -31,7 +31,7 @@ import type { ProviderAccountStore, StoredProviderAccount } from "./provider-acc
 import { waitForSuccessfulProcess } from "./provider-status";
 import { providerLabel } from "./thread-items";
 
-const logger = createOpenBotLogger("provider-accounts");
+const logger = createBuildersBotLogger("provider-accounts");
 
 /**
  * How long an account check or a usage reading stays good. The dock asks for usage every five

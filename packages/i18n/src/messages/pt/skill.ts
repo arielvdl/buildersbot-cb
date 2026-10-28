@@ -14,7 +14,7 @@ export const messages = {
   "skill.loadingDetails": "Carregando detalhes…",
   "skill.emptyEnabled": "Este agente não tem habilidades ativadas.",
   "skill.emptyAssigned": "Este agente ainda não tem habilidades atribuídas.",
-  "skill.folderSkill": "O OpenBot não instalou esta habilidade. Edite ou remova em {location}.",
+  "skill.folderSkill": "O Builders Bot não instalou esta habilidade. Edite ou remova em {location}.",
   "skill.moreFor": "Mais para {name}",
   "skill.update": "Atualizar",
   "skill.updateName": "Atualizar {name}",
@@ -35,7 +35,7 @@ export const messages = {
     "Atualizar esta habilidade substitui os arquivos locais pelo pacote mais recente da habilidade. Suas edições nesta pasta de habilidade serão perdidas.",
   "skill.confirm.removeModifiedBody":
     "Esta habilidade tem alterações locais no espaço de trabalho do agente. Remover exclui esses arquivos. As mensagens originais do chat são mantidas.",
-  "skill.confirm.removeBody": "O OpenBot removerá esta habilidade do agente. O histórico do chat é mantido.",
+  "skill.confirm.removeBody": "O Builders Bot removerá esta habilidade do agente. O histórico do chat é mantido.",
   "skill.confirm.replace": "Substituir habilidade",
   "skill.confirm.remove": "Remover habilidade",
   "skill.unavailable.readOnly": "As habilidades remotas são somente para leitura.",

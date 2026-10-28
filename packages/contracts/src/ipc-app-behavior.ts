@@ -3,11 +3,11 @@
 
 /** As it crosses IPC. Null marks a choice that this run of the app does not offer. */
 export interface AppBehaviorPreference {
-  /** Open OpenBot when the user signs in. Null in a development run and on a server. */
+  /** Open Builders Bot when the user signs in. Null in a development run and on a server. */
   launchAtLogin: boolean | null;
   /**
    * Hide the main window on close and show a tray icon, rather than quit. Null on macOS, where
-   * OpenBot always keeps running after its window closes, and on a server.
+   * Builders Bot always keeps running after its window closes, and on a server.
    */
   keepRunningInBackground: boolean | null;
   /**

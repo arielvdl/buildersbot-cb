@@ -11,7 +11,7 @@ export const messages = {
   "error.voice.modelUnavailable": "Model głosowy jest niedostępny.",
   "error.voice.transcriptionTimedOut": "Przekroczono limit czasu transkrypcji głosu.",
   "error.voice.prepareRequired":
-    "Lokalna transkrypcja głosu jest niedostępna. Uruchom `bun run voice:prepare` i uruchom ponownie OpenBot.",
+    "Lokalna transkrypcja głosu jest niedostępna. Uruchom `bun run voice:prepare` i uruchom ponownie Builders Bot.",
   "error.voice.transcriptionFailed": "Nie udało się przetranskrybować tego nagrania.",
   "error.voice.cloud.keyRequired": "Dodaj klucz API ElevenLabs w sekcji Ustawienia → Głos.",
   "error.voice.cloud.keyRejected": "ElevenLabs nie zaakceptował klucza API. Sprawdź klucz w sekcji Ustawienia → Głos.",
@@ -24,6 +24,6 @@ export const messages = {
   "error.voice.speech.runtimeUnavailable": "Lokalna synteza mowy nie jest dostępna na tej platformie.",
   "error.voice.speech.modelRequired": "Pobierz model syntezy mowy w Ustawienia → Głos.",
   "error.voice.speech.timedOut": "Czytanie odpowiedzi na głos trwało zbyt długo.",
-  "error.voice.speech.failed": "OpenBot nie mógł przeczytać odpowiedzi na głos.",
-  "error.voice.recordingNotKept": "OpenBot nie mógł zachować nagrania głosowego.",
+  "error.voice.speech.failed": "Builders Bot nie mógł przeczytać odpowiedzi na głos.",
+  "error.voice.recordingNotKept": "Builders Bot nie mógł zachować nagrania głosowego.",
 } as const satisfies PartialTranslation<typeof source>;

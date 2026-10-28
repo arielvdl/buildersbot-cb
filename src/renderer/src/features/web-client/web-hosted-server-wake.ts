@@ -19,7 +19,7 @@ export function createWebHostedServerWake(accountFetch: typeof fetch, now: () =>
               method: "POST",
               credentials: "same-origin",
               cache: "no-store",
-              headers: { "Content-Type": "application/json", "X-OpenBot-Browser": "1" },
+              headers: { "Content-Type": "application/json", "X-Builders Bot-Browser": "1" },
               body: "{}",
             }
           : {
@@ -27,7 +27,7 @@ export function createWebHostedServerWake(accountFetch: typeof fetch, now: () =>
               method: "GET",
               credentials: "same-origin",
               cache: "no-store",
-              headers: { "X-OpenBot-Browser": "1" },
+              headers: { "X-Builders Bot-Browser": "1" },
             },
       ),
     );

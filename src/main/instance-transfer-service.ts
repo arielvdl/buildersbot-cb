@@ -92,7 +92,7 @@ const ARCHIVE: ArchiveLimits = {
   invalid: sourceText("error.import.transferNotFile"),
 };
 /**
- * `Data/` in `~/OpenBot/Shared` holds the shared tables database. It is open while the app runs, and
+ * `Data/` in `~/Builders Bot/Shared` holds the shared tables database. It is open while the app runs, and
  * its owner records name agent ids of this computer, so a transfer never copies it.
  */
 const SHARED_DATA = "data";
@@ -110,7 +110,7 @@ const LOCAL_OWNER = "local";
 const UPLOAD_TTL_MS = 30 * 60_000;
 /** Skill folders are copied here, published to the local library, and removed again. */
 const SKILL_STAGING = ".openbot/import-skills";
-/** Workspace folders an export leaves out: OpenBot's own state and the installed skills, which travel as skills. */
+/** Workspace folders an export leaves out: Builders Bot's own state and the installed skills, which travel as skills. */
 const WORKSPACE_SKIPPED = [".openbot", ...MANAGED_SKILL_FOLDERS];
 const AVATAR_EXTENSIONS: Record<AvatarImageInput["mimeType"], string> = {
   "image/png": "png",
@@ -160,7 +160,7 @@ export interface InstanceTransferOptions {
   agents: InstanceTransferAgents;
   skills: AgentImportSkills;
   settings: InstanceTransferSettings;
-  /** `~/OpenBot/Shared`. */
+  /** `~/Builders Bot/Shared`. */
   sharedRoot: string;
   appVersion: string;
   /** Where a file sent by a member of a joined client, or made for one, waits. */
@@ -769,7 +769,7 @@ export class InstanceTransferService {
     }
   });
 
-  /** Copies `~/OpenBot/Shared` files. A file that is already here is kept as it is. */
+  /** Copies `~/Builders Bot/Shared` files. A file that is already here is kept as it is. */
   readonly #importShared = Effect.fn("InstanceTransfer.importShared")(function* (
     this: InstanceTransferService,
     bytes: Uint8Array,
@@ -959,7 +959,7 @@ export class InstanceTransferService {
 
 /**
  * The files an export carries from one folder: no link, nothing `isUnsafeArchivePath` refuses on
- * import (`.git`, `node_modules`, `.env*`, private keys, nested archives), and not OpenBot's own
+ * import (`.git`, `node_modules`, `.env*`, private keys, nested archives), and not Builders Bot's own
  * workspace folders.
  */
 const workspaceFiles = Effect.fn("InstanceTransfer.workspaceFiles")(function* (
@@ -968,9 +968,9 @@ const workspaceFiles = Effect.fn("InstanceTransfer.workspaceFiles")(function* (
   return yield* walk(root, isWorkspaceSkipped);
 });
 
-/** OpenBot's own workspace folders: an export leaves them out, and an import never writes them. */
+/** Builders Bot's own workspace folders: an export leaves them out, and an import never writes them. */
 function isWorkspaceSkipped(name: string): boolean {
-  // A disk that ignores case writes `.OpenBot/` into `.openbot/`, so the check ignores case too.
+  // A disk that ignores case writes `.Builders Bot/` into `.openbot/`, so the check ignores case too.
   const lower = name.toLowerCase();
   return WORKSPACE_SKIPPED.some((skipped) => lower === skipped || lower.startsWith(`${skipped}/`));
 }
@@ -1007,7 +1007,7 @@ const walk = Effect.fn("InstanceTransfer.walk")(function* (
   return files.sort((a, b) => a.name.localeCompare(b.name));
 });
 
-/** The skills a user or a marketplace installed. OpenBot's own skills are installed again on import. */
+/** The skills a user or a marketplace installed. Builders Bot's own skills are installed again on import. */
 const skillFolders = Effect.fn("InstanceTransfer.skillFolders")(function* (
   workspace: string,
 ): Effect.fn.Return<Array<{ slug: string; files: FileEntry[] }>, ArchiveOperationError> {

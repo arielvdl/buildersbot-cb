@@ -87,7 +87,7 @@ export interface HermesImportProfile {
   name: string;
   /** The profile folder, with the home folder shown as `~`. */
   path: string;
-  /** The model in `config.yaml`, for the user to recognize the profile. The agent keeps OpenBot's model. */
+  /** The model in `config.yaml`, for the user to recognize the profile. The agent keeps Builders Bot's model. */
   model: string | null;
   /** The agent an earlier import made from this profile, while it is still on this computer. */
   agent: { id: string; name: string } | null;

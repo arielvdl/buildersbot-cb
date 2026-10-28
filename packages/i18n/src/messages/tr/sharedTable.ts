@@ -10,7 +10,7 @@ export const messages = {
     "Henüz tablo yok. Bir görev turlar arasında kayıtlara ihtiyaç duyduğunda ajan bunu kendisi oluşturur ve her ajan kullanabilir.",
   "sharedTable.loadFailed": "Tablolar yüklenemedi.",
   "sharedTable.deleteFailed": "Bu öğe silinemedi.",
-  "sharedTable.madeOutside": "OpenBot dışında oluşturuldu · herhangi bir ajan silebilir",
+  "sharedTable.madeOutside": "Builders Bot dışında oluşturuldu · herhangi bir ajan silebilir",
   "sharedTable.keptBy": "{name} tarafından tutuluyor",
   "sharedTable.keptByDeleted": "Artık var olmayan bir ajan tarafından tutuluyor",
   "sharedTable.deleteName": "{name} öğesini sil",

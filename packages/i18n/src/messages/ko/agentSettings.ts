@@ -87,7 +87,7 @@ export const messages = {
   "agentSettings.runtime.notAvailable": "아직 사용할 수 없음",
   "agentSettings.runtime.fullAccessNote": "에이전트가 워크스페이스와 공유 폴더에서 컴퓨터 전체 접근 권한으로 실행돼요.",
   "agentSettings.runtime.askNote":
-    "OpenBot 도구를 사용하거나 사이트를 게시하기 전, 그리고 제공자가 승인을 요청할 때 먼저 물어봐요.",
+    "Builders Bot 도구를 사용하거나 사이트를 게시하기 전, 그리고 제공자가 승인을 요청할 때 먼저 물어봐요.",
   "agentSettings.runtime.fullNote": "에이전트가 직접 묻는 질문을 제외하고는 묻지 않고 실행해요.",
   "agentSettings.access.workspace": "워크스페이스만",
   "agentSettings.access.ask": "먼저 묻기",
@@ -134,7 +134,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "밖에 있는 파일을 편집할 때는 먼저 물어봐요. 명령은 밖에 쓸 수 없어요.",
   "agentSettings.runtime.workspaceUnlimited":
-    "컴퓨터 제어와 OpenBot 브라우저는 제한되지 않아요. 아래에서 컴퓨터 제어를 끌 수 있어요.",
+    "컴퓨터 제어와 Builders Bot 브라우저는 제한되지 않아요. 아래에서 컴퓨터 제어를 끌 수 있어요.",
   "agentSettings.computerUse.title": "컴퓨터 제어",
   "agentSettings.computerUse.description": "이 에이전트가 이 컴퓨터의 앱을 제어하도록 허용",
   "agentSettings.automation.title": "로컬 스크립트",
@@ -146,6 +146,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "긴 작업 전에 계획 표시",
   "agentSettings.quickAcknowledgement.description":
     "긴 작업 전에 에이전트가 계획을 보여줘요. 10초 후 또는 시작을 누르면 작업이 시작돼요.",
+  "agentSettings.securityGuard.title": "각 메시지의 보안 검사",
+  "agentSettings.securityGuard.description":
+    '각 턴 전에 검사가 메시지와 이미지를 프롬프트 인젝션 여부로 읽고 찾은 내용을 에이전트에 알립니다. 에이전트 자체 모델을 사용합니다.',
   "agentSettings.browserProfile.label": "브라우저 프로필",
   "agentSettings.browserProfile.shared": "공유",
   "agentSettings.browserProfile.agent": "이 에이전트만",

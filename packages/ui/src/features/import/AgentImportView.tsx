@@ -38,7 +38,7 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 export type AgentImportPhase = "idle" | "reading" | "review" | "importing" | "done";
 
 /** What the user says to the export agent. It is also the copy button's value. */
-export const AGENT_IMPORT_PROMPT = "Export my agents for OpenBot";
+export const AGENT_IMPORT_PROMPT = "Export my agents for Builders Bot";
 
 /**
  * How the user starts the export. Grok Bot: `agent` installs the ready export agent from its link,
@@ -55,7 +55,7 @@ export const HERMES_SKILL_COMMAND = `/skills install ${HERMES_EXPORT_SKILL_ID}`;
 const HERMES_EXPORT_PROMPT = "/openbot-export";
 
 /** The name of the export agent on its Grok Bot page. */
-const EXPORT_AGENT_NAME = "OpenBot export";
+const EXPORT_AGENT_NAME = "Builders Bot export";
 const EXPORT_SKILL_FILE = "SKILL.md";
 const EXPORT_SKILL_ID = "openbot-export";
 

@@ -1,10 +1,10 @@
-import type { CustomProvidersDesktopApi, OpenBotDesktopApi, ProviderAdminDesktopApi } from "@openbot/contracts/ipc";
+import type { CustomProvidersDesktopApi, BuildersBotDesktopApi, ProviderAdminDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the custom providers context reaches in main: the endpoints the user named.
  */
 export interface CustomProvidersPort {
-  customProviders: OpenBotDesktopApi["customProviders"];
+  customProviders: BuildersBotDesktopApi["customProviders"];
 }
 
 /**
@@ -33,7 +33,7 @@ export function hostCustomProvidersApi(
 
 /** What the detection store reaches in main: the scans of this computer and their settings. */
 export interface ProviderDetectionPort {
-  providerDetection: OpenBotDesktopApi["providerDetection"];
+  providerDetection: BuildersBotDesktopApi["providerDetection"];
 }
 
 /** Read on each call, like `customProvidersPort`. */

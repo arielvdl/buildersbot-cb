@@ -68,7 +68,7 @@ export interface InstanceTransferViewProps {
 }
 
 /**
- * Settings > Transfer: move this computer's agents and app settings to another OpenBot computer.
+ * Settings > Transfer: move this computer's agents and app settings to another Builders Bot computer.
  * The first screen asks which computer this is, so each direction is one focused screen.
  */
 export function InstanceTransferView(props: InstanceTransferViewProps) {

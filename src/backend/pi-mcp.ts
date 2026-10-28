@@ -37,8 +37,8 @@ export const createPiMcpExtension = Effect.fn("PiMcp.createExtension")(function*
   const path = join(folder, "mcp.mjs");
   const environment: Record<string, string> = {};
   const secrets: string[] = [];
-  // Pi keeps the tool names in the session that OpenBot resumes, so a name must not change when
-  // OpenBot restarts: the model calls the old names, and Pi does not find them (#3343). The name
+  // Pi keeps the tool names in the session that Builders Bot resumes, so a name must not change when
+  // Builders Bot restarts: the model calls the old names, and Pi does not find them (#3343). The name
   // comes from the server's own name, not its position, which changes when a server is added or
   // removed. Pi replaces a tool name longer than 64 characters with a hash, and the model then cannot
   // find tools such as tool_search by name. Eight hex characters keep the names short.

@@ -1,7 +1,7 @@
 import type {
   AgentEvent,
   ConversationPage,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   TeamRealtimeEvent,
   TestRoutineInput,
   UpdateRoutineInput,
@@ -16,7 +16,7 @@ import { desktopEventRoutinesApi, type EventRoutinesApi } from "../conversation/
  */
 export interface RoutineFlowsHost {
   /** Called without a server: the host already names one. */
-  flows: OpenBotDesktopApi["routineFlows"];
+  flows: BuildersBotDesktopApi["routineFlows"];
   routines: {
     update(input: UpdateRoutineInput): Promise<unknown>;
     test(input: TestRoutineInput): Promise<unknown>;

@@ -46,7 +46,7 @@ export const messages = {
   "mobile.browser.status.offline": "Сервер не подключён.",
   "mobile.browser.status.noTab": "У {name} нет открытой вкладки браузера.",
   "mobile.browser.status.unsupported":
-    "Этот сервер не может показать браузер на телефоне. Обновите OpenBot на этом сервере.",
+    "Этот сервер не может показать браузер на телефоне. Обновите Builders Bot на этом сервере.",
   "mobile.browser.status.off": "Браузер недоступен в этой версии приложения.",
   "mobile.browser.notice.copied": "Скопировано на телефон.",
   "mobile.browser.notice.nothingSelected": "На странице ничего не выделено.",

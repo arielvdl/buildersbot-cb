@@ -41,7 +41,7 @@ export const messages = {
   "mobile.browser.status.offline": "서버가 연결되어 있지 않아요.",
   "mobile.browser.status.noTab": "{name}에 열린 브라우저 탭이 없어요.",
   "mobile.browser.status.unsupported":
-    "이 서버는 휴대전화에 브라우저를 표시할 수 없어요. 이 서버의 OpenBot을 업데이트해 주세요.",
+    "이 서버는 휴대전화에 브라우저를 표시할 수 없어요. 이 서버의 Builders Bot을 업데이트해 주세요.",
   "mobile.browser.status.off": "이 버전의 앱에서는 브라우저를 사용할 수 없어요.",
   "mobile.browser.notice.copied": "휴대전화로 복사했어요.",
   "mobile.browser.notice.nothingSelected": "페이지에서 선택한 내용이 없어요.",

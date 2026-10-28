@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile);
 const MINIMUM_CODEX_VERSION = [0, 156, 0] as const;
 const MINIMUM_CLAUDE_VERSION = [2, 1, 232] as const;
 const MINIMUM_GROK_VERSION = [1, 0, 5] as const;
-// The first Cline CLI that OpenBot was checked with: its sessions run in-process and it answers a lost
+// The first Cline CLI that Builders Bot was checked with: its sessions run in-process and it answers a lost
 // session with the ACP resource-not-found error.
 const MINIMUM_CLINE_VERSION = [3, 0, 68] as const;
 
@@ -79,7 +79,7 @@ export class CodexCliError extends Error {
 }
 
 /**
- * The managed CLI OpenBot downloaded for each provider, keyed by provider id. `null` means OpenBot
+ * The managed CLI Builders Bot downloaded for each provider, keyed by provider id. `null` means Builders Bot
  * has no managed copy and only the user's own installation is used. A missing key means the same as
  * an unset option: the resolver looks for the copy shipped inside the application itself.
  */
@@ -96,7 +96,7 @@ export const resolveCodexCli: (input?: {
       input.bundledExecutable === undefined ? bundledCodexExecutable() : input.bundledExecutable;
     const candidates = yield* cliCandidates("codex", input.systemCandidates, bundledExecutable);
     const failures: CodexCliError[] = [];
-    // The copy that OpenBot tried first. The message for it tells the user which copy to repair.
+    // The copy that Builders Bot tried first. The message for it tells the user which copy to repair.
     let firstFailedSource: "system" | "managed" | undefined;
 
     for (const candidate of candidates) {
@@ -162,7 +162,7 @@ export const resolveClaudeCli: (input?: {
       input.bundledExecutable === undefined ? bundledClaudeExecutable() : input.bundledExecutable;
     const candidates = yield* cliCandidates("claude", input.systemCandidates, bundledExecutable);
     const failures: CodexCliError[] = [];
-    // The copy that OpenBot tried first. The message for it tells the user which copy to repair.
+    // The copy that Builders Bot tried first. The message for it tells the user which copy to repair.
     let firstFailedSource: "system" | "managed" | undefined;
 
     for (const candidate of candidates) {
@@ -263,7 +263,7 @@ export const resolveGrokCli: (input?: {
 );
 
 /**
- * There is deliberately no minimum version here. OpenBot downloads and pins OpenCode now, but a
+ * There is deliberately no minimum version here. Builders Bot downloads and pins OpenCode now, but a
  * user who already has the CLI keeps it, and a floor would newly lock out an install that works.
  */
 export const resolveOpencodeCli: (input?: {
@@ -313,7 +313,7 @@ export function antigravityHarnessName(target: string): "localharness_external" 
 
 /**
  * The Antigravity server is never looked for on `PATH`: the Antigravity IDE installs an
- * `antigravity` command that is an editor, not this server. Only the copy OpenBot downloaded, or the
+ * `antigravity` command that is an editor, not this server. Only the copy Builders Bot downloaded, or the
  * path in `OPENBOT_ANTIGRAVITY_PATH`, is used. The server takes no `--version`, so the version comes
  * from the manifest two levels above the program, which a managed install writes. The server
  * still gets `cliLaunchPath`: the MCP servers that it starts are commands such as bare `node` (#3418).
@@ -825,7 +825,7 @@ const LOGIN_SHELL_MAX_OUTPUT_BYTES = 64 * 1024;
  *
  * The shell starts in a session of its own, with no controlling terminal. An interactive bash that
  * finds the terminal held by another process group sends SIGTTIN to its own group, and without a
- * session of its own that group is OpenBot's. An OpenBot started from a terminal then stopped as soon
+ * session of its own that group is Builders Bot's. An Builders Bot started from a terminal then stopped as soon
  * as two lookups overlapped, and only SIGKILL could end it (#766). With no terminal, the shell turns
  * job control off instead. `execFile` cannot do this: it does not pass `detached` on to `spawn`.
  *
@@ -1018,7 +1018,7 @@ function batchArgument(argument: string): string {
  * processor runs, so it is called through `cmd.exe` with the same verbatim quoting as
  * `readCliVersion`. Every other executable starts with no shell. That keeps a path that holds a
  * space runnable: a managed CLI lives under `userData`, which holds a space for a user such as
- * `C:\Users\Jane Doe` and for the `OpenBot Dev` profile, and `cmd.exe` would split it there.
+ * `C:\Users\Jane Doe` and for the `Builders Bot Dev` profile, and `cmd.exe` would split it there.
  */
 export function cliSpawnTarget(
   executable: string,

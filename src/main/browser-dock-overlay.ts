@@ -11,7 +11,7 @@ import type {
   BrowserDockPresentation,
 } from "@openbot/contracts/ipc";
 import { BROWSER_DOCK_LIMITS, IPC_ENDPOINTS } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Schema, Semaphore } from "effect";
 import { type BrowserWindow, type Input, type Rectangle, View, type WebContents, WebContentsView } from "electron";
 import type { BrowserMainPage } from "../backend/browser-host";
@@ -19,7 +19,7 @@ import { causeHelpers } from "../backend/effect-boundary";
 import { sendToRenderer } from "./renderer-ipc";
 import { isTrustedRendererUrl } from "./trusted-renderer";
 
-const logger = createOpenBotLogger("browser-dock-overlay");
+const logger = createBuildersBotLogger("browser-dock-overlay");
 
 /** The dock is at most 640 CSS pixels wide, with 24 on each side, so the overlay is never wider. */
 export const BROWSER_DOCK_OVERLAY_WIDTH = 688;

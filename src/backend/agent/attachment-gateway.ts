@@ -14,7 +14,7 @@ import {
 import type { GeneratedAttachmentSource, MailboxStore } from "../mailbox-store";
 import { isWithin, rebaseLegacyWorkspacePath, sharedPathFromInput, workspacePathFromInput } from "../workspace-paths";
 import type { ConversationRuntime } from "./conversation-runtime";
-import { type OpenBotToolResponse, openBotToolResult } from "./routine-tools";
+import { type BuildersBotToolResponse, openBotToolResult } from "./routine-tools";
 
 export interface AttachmentGatewayHooks {
   emit(event: AgentEvent): void;
@@ -25,7 +25,7 @@ export interface AttachmentGatewayHooks {
  * Where a path a tool named is allowed to point.
  *
  * The default is the attachment policy: the file must resolve inside this agent's own workspace or the
- * OpenBot shared directory, and a symlink anywhere on the way is refused outright.
+ * Builders Bot shared directory, and a symlink anywhere on the way is refused outright.
  *
  * `allowAnyReadablePath` is the browser-upload policy. `openbot_browser.upload_files` hands a local
  * file to a page, and the file the user names is almost never one the agent already copied into its
@@ -68,7 +68,7 @@ export class AttachmentGateway {
   readonly #mailbox: MailboxStore;
   readonly #sharedRoot: string;
   readonly #hooks: AttachmentGatewayHooks;
-  readonly #inFlight = new Map<string, Deferred.Deferred<OpenBotToolResponse, AttachmentOperationError>>();
+  readonly #inFlight = new Map<string, Deferred.Deferred<BuildersBotToolResponse, AttachmentOperationError>>();
 
   constructor(options: AttachmentGatewayOptions) {
     this.#conversation = options.conversation;
@@ -86,7 +86,7 @@ export class AttachmentGateway {
   ) {
     const inFlight = this.#inFlight.get(messageId);
     if (inFlight) return yield* Deferred.await(inFlight);
-    const completion = Deferred.makeUnsafe<OpenBotToolResponse, AttachmentOperationError>();
+    const completion = Deferred.makeUnsafe<BuildersBotToolResponse, AttachmentOperationError>();
     this.#inFlight.set(messageId, completion);
     const exit = yield* Effect.exit(this.#attachFilesToResponse(senderAgentId, params, paths, messageId));
     yield* Deferred.done(completion, exit);
@@ -107,7 +107,7 @@ export class AttachmentGateway {
     return this.#openSources(agentId, paths, scope);
   }
 
-  pendingCommands(): Effect.Effect<OpenBotToolResponse, AttachmentOperationError>[] {
+  pendingCommands(): Effect.Effect<BuildersBotToolResponse, AttachmentOperationError>[] {
     return [...this.#inFlight.values()].map(Deferred.await);
   }
 
@@ -121,7 +121,7 @@ export class AttachmentGateway {
     params: { threadId: string; turnId: string; callId: string },
     paths: string[],
     messageId: string,
-  ): Effect.fn.Return<OpenBotToolResponse, AttachmentOperationError> {
+  ): Effect.fn.Return<BuildersBotToolResponse, AttachmentOperationError> {
     const publicThreadId = this.#conversation.publicThreadId(senderAgentId, params.threadId);
     const snapshot = this.#conversation.ensureSnapshot(senderAgentId, publicThreadId);
     const existing = snapshot.messages.find((message) => message.id === messageId);
@@ -241,7 +241,7 @@ export class AttachmentGateway {
       Promise.all([realpath(agent.workspacePath), realpath(this.#sharedRoot)]),
     );
     const normalized = value.replaceAll("\\", "/");
-    const sharedReference = ["~/OpenBot/Shared/", "OpenBot/Shared/", "Shared/"].some((prefix) =>
+    const sharedReference = ["~/Builders Bot/Shared/", "Builders Bot/Shared/", "Shared/"].some((prefix) =>
       normalized.startsWith(prefix),
     );
     // An absolute path may be one the provider's own transcript still names under this agent's pre-rename
@@ -295,8 +295,8 @@ export class AttachmentGateway {
     return yield* attachmentFailure(
       new Error(
         scope.allowAnyReadablePath
-          ? "Upload files must exist, be regular files, and be readable by OpenBot."
-          : "Attachment files must exist inside this agent's workspace or the OpenBot shared directory.",
+          ? "Upload files must exist, be regular files, and be readable by Builders Bot."
+          : "Attachment files must exist inside this agent's workspace or the Builders Bot shared directory.",
       ),
     );
   });

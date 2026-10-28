@@ -2,20 +2,20 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/connector";
 
 export const messages = {
-  "error.connector.githubUnavailable": "Esta versión de OpenBot no tiene una GitHub App.",
+  "error.connector.githubUnavailable": "Esta versión de Builders Bot no tiene una GitHub App.",
   "error.connector.githubDenied": "Se rechazó el inicio de sesión de GitHub.",
   "error.connector.githubCodeExpired": "El código de GitHub caducó. Conecta GitHub de nuevo.",
   "error.connector.githubDeviceFlowDisabled": "La GitHub App no permite iniciar sesión desde un dispositivo.",
   "error.connector.githubClientUnknown": "GitHub no reconoce el Client ID de esta GitHub App.",
   "error.connector.githubUnexpected": "GitHub envió una respuesta inesperada: {detail}",
-  "error.connector.githubUnreachable": "OpenBot no puede acceder a GitHub: {detail}",
+  "error.connector.githubUnreachable": "Builders Bot no puede acceder a GitHub: {detail}",
   "error.connector.githubExpired": "La conexión con GitHub caducó. Conecta GitHub de nuevo.",
   "error.connector.githubFileUnreadable": "El archivo de conexión de GitHub no se puede leer.",
   "error.connector.githubFileTooLarge": "El archivo de conexión de GitHub es demasiado grande.",
   "error.connector.onePasswordCliMissing":
-    "OpenBot no encuentra la CLI de 1Password. Instálala y activa su integración en la aplicación 1Password, o usa un token de cuenta de servicio.",
+    "Builders Bot no encuentra la CLI de 1Password. Instálala y activa su integración en la aplicación 1Password, o usa un token de cuenta de servicio.",
   "error.connector.onePasswordCliInstallFailed":
-    "OpenBot no pudo instalar la CLI de 1Password. Comprueba la conexión a Internet e inténtalo de nuevo.",
+    "Builders Bot no pudo instalar la CLI de 1Password. Comprueba la conexión a Internet e inténtalo de nuevo.",
   "error.connector.onePasswordCliSignedOut":
     "La CLI de 1Password no tiene una sesión iniciada. Activa su integración en la aplicación 1Password y vuelve a conectar.",
   "error.connector.onePasswordCliFailed": "La CLI de 1Password falló: {detail}",
@@ -26,11 +26,11 @@ export const messages = {
   "error.connector.onePasswordFileUnreadable": "El archivo de conexión de 1Password no se puede leer.",
   "error.connector.onePasswordFileTooLarge": "El archivo de conexión de 1Password es demasiado grande.",
   "error.connector.bitwardenFailed":
-    "No se pudo leer Bitwarden. Instala la CLI bw, inicia sesión, desbloquéala y crea una carpeta llamada Shared with OpenBot. Conecta con una nueva clave de sesión.",
+    "No se pudo leer Bitwarden. Instala la CLI bw, inicia sesión, desbloquéala y crea una carpeta llamada Shared with Builders Bot. Conecta con una nueva clave de sesión.",
   "error.connector.bitwardenHostInput":
     "Introduce una dirección de servidor HTTPS, el client_id y el client_secret de la clave de API y la contraseña maestra.",
   "error.connector.bitwardenHostFailed":
-    "No se pudo abrir Bitwarden en este servidor. Comprueba la dirección del servidor, la clave de API y la contraseña maestra, y asegúrate de que una carpeta se llama Shared with OpenBot. Después, conecta de nuevo.",
+    "No se pudo abrir Bitwarden en este servidor. Comprueba la dirección del servidor, la clave de API y la contraseña maestra, y asegúrate de que una carpeta se llama Shared with Builders Bot. Después, conecta de nuevo.",
   "error.connector.bitwardenCliInstallFailed":
     "No se pudo instalar la CLI de Bitwarden en este servidor. Comprueba su conexión de red y conecta de nuevo.",
   "error.connector.bitwardenFileUnreadable": "El archivo de conexión de Bitwarden no se puede leer.",

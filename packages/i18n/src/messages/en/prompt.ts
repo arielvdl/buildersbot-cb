@@ -64,7 +64,7 @@ export const messages = defineMessages("prompt", {
   "prompt.browser.signInBlocked.title": "{host} blocked the sign-in from {server}",
   "prompt.browser.signInBlocked.cancelledTitle": "Sign-in to {host} cancelled",
   "prompt.browser.signInBlocked.body":
-    "Sign in on this computer. OpenBot sends only the {host} sign-in to {server}, and {name} continues.",
+    "Sign in on this computer. Builders Bot sends only the {host} sign-in to {server}, and {name} continues.",
   "prompt.browser.signInBlocked.cancelledBody": "The sign-in was cancelled.",
   "prompt.browser.signInBlocked.waiting": "Waiting for the sign-in",
   "prompt.browser.signInBlocked.waitingButton": "Waiting for the sign-in…",

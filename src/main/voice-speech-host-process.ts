@@ -7,7 +7,7 @@ import type { VoiceSpeechHostProcess, VoiceSpeechResponse } from "./voice-speech
 
 export function spawnVoiceSpeechHost(): VoiceSpeechHostProcess {
   const child = utilityProcess.fork(join(__dirname, "voice-speech-host.js"), [], {
-    serviceName: "OpenBot speech",
+    serviceName: "Builders Bot speech",
     stdio: "ignore",
   });
   return {

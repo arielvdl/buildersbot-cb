@@ -53,7 +53,7 @@ import {
   type WorkflowVersionInput,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Cause, Context, Effect, Exit, Fiber, Layer, ManagedRuntime, Result, Schema, Scope, Semaphore } from "effect";
 import { isNoUpdateAnswer } from "../agent/routine-quiet-runs";
 import type { AgentProvider } from "../agent-client";
@@ -86,7 +86,7 @@ import {
   unsupportedNode,
 } from "./workflow-walk";
 
-const logger = createOpenBotLogger("workflows");
+const logger = createBuildersBotLogger("workflows");
 
 class WorkflowFailed extends Schema.TaggedError<WorkflowFailed>()("WorkflowFailed", {
   cause: Schema.Defect(),

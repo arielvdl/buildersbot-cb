@@ -9,7 +9,7 @@ export const messages = {
   "remoteDesktop.workspaceLabel": "Удалённое управление",
   "remoteDesktop.displayLabel": "Удалённый экран",
   "remoteDesktop.selectDisplay": "Выбрать экран",
-  "remoteDesktop.backToOpenBot": "Вернуться в OpenBot",
+  "remoteDesktop.backToBuildersBot": "Вернуться в Builders Bot",
   "remoteDesktop.disconnect": "Отключить",
   "remoteDesktop.viewerTitle": "Удалённый рабочий стол Sunshine",
   "remoteDesktop.viewerLoadFailed": "Не удалось загрузить просмотр Moonlight.",
@@ -20,7 +20,7 @@ export const messages = {
   "remoteDesktop.openFailed": "Не удалось открыть рабочий стол",
   "remoteDesktop.notSharingTitle": "{name} не показывает свой экран",
   "remoteDesktop.notSharingDescription":
-    "Сервер не разрешает OpenBot записывать экран. На этом сервере откройте «Системные настройки» → «Конфиденциальность и безопасность» → «Запись экрана», включите OpenBot и повторите попытку здесь.",
+    "Сервер не разрешает Builders Bot записывать экран. На этом сервере откройте «Системные настройки» → «Конфиденциальность и безопасность» → «Запись экрана», включите Builders Bot и повторите попытку здесь.",
   "remoteDesktop.setup.check.screenRecording": "Запись экрана",
   "remoteDesktop.setup.check.accessibility": "Универсальный доступ",
   "remoteDesktop.setup.check.service": "Служба Sunshine",
@@ -41,7 +41,7 @@ export const messages = {
   "remoteDesktop.setup.startFailed": "Не удалось запустить проверку удалённого рабочего стола.",
   "remoteDesktop.setup.connectionLost": "Тестовое подключение потеряно.",
   "remoteDesktop.setup.hostUpdateRequired":
-    "Обновите OpenBot на сервере, чтобы проверить разрешения и удалённый рабочий стол.",
+    "Обновите Builders Bot на сервере, чтобы проверить разрешения и удалённый рабочий стол.",
   "remoteDesktop.setup.permissions": "Разрешения",
   "remoteDesktop.setup.checked": "Проверено",
   "remoteDesktop.setup.checkAgain": "Проверить снова",

@@ -3,9 +3,9 @@ import type { messages as source } from "../../en/error/import";
 
 export const messages = {
   "error.import.manifestNotJson": "{manifest} ist kein gültiges JSON.",
-  "error.import.notAgentExport": "{manifest} ist kein OpenBot-Agentenexport.",
+  "error.import.notAgentExport": "{manifest} ist kein Builders Bot-Agentenexport.",
   "error.import.newerExportSkill":
-    "Dieser Export wurde mit einer neueren Exportfähigkeit erstellt. Aktualisiere OpenBot und versuche es erneut.",
+    "Dieser Export wurde mit einer neueren Exportfähigkeit erstellt. Aktualisiere Builders Bot und versuche es erneut.",
   "error.import.noAgents": "Der Export enthält keine Agenten.",
   "error.import.tooManyAgents": "Der Export enthält mehr als {limit} Agenten.",
   "error.import.tooManyChannels": "Der Export enthält mehr als {limit} Kanäle.",
@@ -47,9 +47,9 @@ export const messages = {
     "{name}: Der Server hat die Fähigkeit „{skill}“ bereits. Der Agent verwendet daher diese Fähigkeit. Bitte einen Administrator, sie zu aktualisieren.",
   "error.import.transferRemoteTooLarge":
     "Eine Übertragungsdatei für einen beigetretenen Server muss kleiner als 100 MB sein. Deaktiviere die Dateien der Arbeitsbereiche oder exportiere weniger Agenten.",
-  "error.import.transferNotFile": "Diese Datei ist keine OpenBot-Übertragungsdatei.",
+  "error.import.transferNotFile": "Diese Datei ist keine Builders Bot-Übertragungsdatei.",
   "error.import.transferNewer":
-    "Eine neuere Version von OpenBot hat diese Datei erstellt. Aktualisiere OpenBot und versuche es erneut.",
+    "Eine neuere Version von Builders Bot hat diese Datei erstellt. Aktualisiere Builders Bot und versuche es erneut.",
   "error.import.transferEmpty": "Die Datei enthält keine Agenten und keine Einstellungen.",
   "error.import.transferTooLarge":
     "Eine Übertragungsdatei muss kleiner als 2 GB sein und weniger als 50.000 Dateien enthalten. Deaktiviere die Dateien der Arbeitsbereiche oder exportiere weniger Agenten.",

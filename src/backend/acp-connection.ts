@@ -2,7 +2,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { basename } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { type Client, ClientSideConnection, ndJsonStream } from "@agentclientprotocol/sdk";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Deferred, Effect } from "effect";
 import { AgentProcessExitError, type DiagnosticOrigin } from "./agent-client";
 import { type AgentCliInfo, cliPathEnvironment, cliSpawnTarget } from "./cli";
@@ -25,7 +25,7 @@ const EXIT_REPORT_WAIT_MS = 2_000;
  * report with `RAW: Raising signal 6`, which does not say why: the reason is in the first line.
  */
 const CRASH_LINE = /^(?:F\d{4} \d\d:\d\d:\d\d|FATAL ERROR:|Fatal Python error:|\*\*\* SIG[A-Z]+ .*received)/u;
-const logger = createOpenBotLogger("acp-connection");
+const logger = createBuildersBotLogger("acp-connection");
 interface ProcessEnd {
   ending: string;
   detail: string | null;

@@ -1,7 +1,7 @@
 // Shared by migration v37 and the separate new-database schema. IF NOT EXISTS throughout, because
 // this text is both the migration and the tail of the latest schema.
 //
-// A routine result is the answer of an agent routine's run, sent on to a place outside OpenBot. The
+// A routine result is the answer of an agent routine's run, sent on to a place outside Builders Bot. The
 // rows are written directly, not through `database.dispatch`: a delivery holds the answer text, and
 // the event log is never deleted from.
 //

@@ -78,7 +78,7 @@ export const GITHUB_STATUS = {
 } as const satisfies Record<GitHubConnectorStatus["state"], { status: IntegrationStatus; label: AppTextKey }>;
 
 /**
- * The GitHub page of one OpenBot computer. The token never reaches this component: the status holds
+ * The GitHub page of one Builders Bot computer. The token never reaches this component: the status holds
  * the account name and, during a sign-in, the code that the user types.
  *
  * Connect opens a dialog that follows the status: the wait for a code, the code, and the result.

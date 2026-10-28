@@ -7,12 +7,12 @@ import { once } from "node:events";
 import { createServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
 import { Effect, Semaphore } from "effect";
 import { runCauseEffect } from "./effect-boundary";
 import { McpOperationError, mcpCall, mcpSync } from "./mcp-effects";
 
-const logger = createOpenBotLogger("mcp-oauth-proxy");
+const logger = createBuildersBotLogger("mcp-oauth-proxy");
 
 /** The same limit as the GitHub proxy. The body is kept whole, so a refused request can be sent again. */
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
@@ -388,7 +388,7 @@ async function pipeBody(body: ReadableStream<Uint8Array>, response: ServerRespon
 }
 
 /**
- * The answer when OpenBot holds no usable sign-in for the route: a JSON-RPC error for each request
+ * The answer when Builders Bot holds no usable sign-in for the route: a JSON-RPC error for each request
  * in the body, so the agent reads why the tool is not there and the provider does not sign in by
  * itself. A body with notifications only is accepted, as a server would.
  */

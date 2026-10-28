@@ -12,18 +12,18 @@ import {
   type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Deferred, Effect } from "effect";
 import { z } from "zod";
 import type { ConversationRuntime } from "../agent/conversation-runtime";
 import type { TaskLanes } from "../agent/drain-scheduler";
-import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from "../agent/routine-tools";
+import { type BuildersBotToolResponse, openBotToolFailure, openBotToolResult } from "../agent/routine-tools";
 import type { AgentThreadOrigin, AgentThreadRecord, AgentThreadStore } from "../agent-threads/agent-thread-store";
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import { storedSync } from "../stored-state-effects";
 
-const logger = createOpenBotLogger("agent-tasks");
+const logger = createBuildersBotLogger("agent-tasks");
 
 /** The most open tasks that an agent can have when it starts one more itself. The user can have up to `INPUT_LIMITS.agentTasks`. */
 const AGENT_STARTED_OPEN_TASKS = 8;
@@ -299,7 +299,7 @@ export class AgentTasks implements TaskLanes {
     this: AgentTasks,
     params: DynamicToolCallParams,
     caller: AgentTaskCaller,
-  ): Effect.fn.Return<OpenBotToolResponse | null> {
+  ): Effect.fn.Return<BuildersBotToolResponse | null> {
     if (params.tool !== START_TASK_TOOL) return null;
     const parsed = startTaskToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.taskToolInvalid"));
@@ -445,7 +445,7 @@ export class AgentTasks implements TaskLanes {
   }
 }
 
-function startedTaskResult(task: AgentThreadRecord): OpenBotToolResponse {
+function startedTaskResult(task: AgentThreadRecord): BuildersBotToolResponse {
   return openBotToolResult({
     taskId: task.taskId,
     title: task.title,

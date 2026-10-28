@@ -126,7 +126,7 @@ export const messages = {
   "diagram.routine.runLabel": "{status}, {time}",
   "diagram.routine.manual": "A mano",
   "diagram.flows.unsupported":
-    "Questo server non supporta i flussi di routine. Aggiorna OpenBot sul computer che lo esegue.",
+    "Questo server non supporta i flussi di routine. Aggiorna Builders Bot sul computer che lo esegue.",
   "diagram.flows.webhookAdminOnly":
     "Solo un proprietario o un amministratore di questo server può modificare o avviare una routine webhook.",
   "diagram.flows.loadFailed": "Impossibile caricare le routine di questo agente.",

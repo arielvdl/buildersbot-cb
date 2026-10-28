@@ -17,7 +17,7 @@ export const messages = {
   "status.remote.stageCompatibility": "正在检查桌面兼容性：{reason}",
   "status.remote.stageAgents": "正在加载助手：{reason}",
   "status.remote.stageReads": "正在加载已读状态：{reason}",
-  "status.remote.suspendedDetail": "连接前请先更新 OpenBot 手机版或桌面应用。\n{detail}",
+  "status.remote.suspendedDetail": "连接前请先更新 Builders Bot 手机版或桌面应用。\n{detail}",
   "status.remote.cooldownDetail": "连续 {limit} 次连接失败，将在 {minutes}:{seconds} 后重试。\n{detail}",
   "status.remote.cooldown": "连续 {limit} 次连接失败，将在 {minutes}:{seconds} 后重试。",
   "status.remote.connectionLostDetail": {

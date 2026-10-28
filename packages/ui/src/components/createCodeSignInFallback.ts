@@ -2,7 +2,7 @@ import { createEffect, createSignal } from "solid-js";
 
 /**
  * How long a browser sign-in runs before the code is offered. A browser that works comes back in a
- * few seconds; one whose callback cannot reach OpenBot never does.
+ * few seconds; one whose callback cannot reach Builders Bot never does.
  */
 const CODE_FALLBACK_DELAY_MS = 25_000;
 

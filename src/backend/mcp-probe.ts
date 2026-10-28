@@ -66,7 +66,7 @@ export interface McpProbeOutcome extends McpProbeResult {
 /**
  * Tests one configuration, saved or not: connects, counts the tools, and disconnects.
  *
- * Only a user asking for it starts this. OpenBot does not test by itself, because a connection is
+ * Only a user asking for it starts this. Builders Bot does not test by itself, because a connection is
  * not free - an http server can want an OAuth sign-in, a cold `npx` can download for most of the
  * stdio deadline, and a server can do real work at startup. The answer is reported once and not
  * stored.
@@ -396,7 +396,7 @@ function createTransport(
     // which the form's own example uses.
     ...(server.workingDirectory ? { cwd: server.workingDirectory } : {}),
     // The SDK default first, then this user's own `PATH`, the names the user asked to pass through,
-    // and the user's own pairs. `envPassthrough` has no other meaning anywhere in OpenBot; this is
+    // and the user's own pairs. `envPassthrough` has no other meaning anywhere in Builders Bot; this is
     // where it is spent. The launch environment is the providers' as well, so what the panel tests
     // is what an agent starts.
     env: {

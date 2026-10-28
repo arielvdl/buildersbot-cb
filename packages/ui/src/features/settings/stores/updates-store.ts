@@ -11,7 +11,7 @@ interface UpdatesStoreProps {
   onUpdateAction: () => Promise<void>;
   /** Removes a restart that a server admin asked for. */
   onCancelScheduledRestart?: () => Promise<void>;
-  /** Restarts OpenBot, or installs the downloaded update, when no work runs. Absent: no such action. */
+  /** Restarts Builders Bot, or installs the downloaded update, when no work runs. Absent: no such action. */
   onRestartWhenIdle?: () => Promise<void>;
   onCancelIdleRestart?: () => Promise<void>;
 }
@@ -28,7 +28,7 @@ export function createSettingsUpdatesStore(props: UpdatesStoreProps) {
     props.updateStatus.currentVersion || props.appInfo?.version || currentText().t("settings.updates.versionUnknown");
   const targetUpdate = () =>
     props.updateStatus.availableVersion
-      ? `OpenBot v${props.updateStatus.availableVersion}`
+      ? `Builders Bot v${props.updateStatus.availableVersion}`
       : currentText().t("settings.updates.target.latest");
   /**
    * Host phases arrive mapped onto the shared update phases, so the managed wording says what the

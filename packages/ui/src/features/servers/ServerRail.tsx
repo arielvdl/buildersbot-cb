@@ -1,3 +1,4 @@
+import { AppLogo } from "@openbot/brand";
 import type { HostedServerSleep, ServerConnectionState, ServerSummary } from "@openbot/contracts/ipc";
 import type { AppTextKey, AppTranslate } from "@openbot/i18n";
 import { BellOff, buttonVariants, ContextMenu, ServerGradientLogo, Tooltip } from "@openbot/ui";
@@ -488,7 +489,15 @@ export function ServerMark(props: { server: ServerSummary }) {
     },
   );
   return (
-    <Show when={!failed() ? props.server.logoUrl : null} fallback={<ServerGradientLogo seed={props.server.id} />}>
+    <Show
+      when={!failed() ? props.server.logoUrl : null}
+      fallback={
+        <Show when={props.server.kind === "local"} fallback={<ServerGradientLogo seed={props.server.id} />}>
+          {/* The local server is this app, so it wears the app mark instead of a seeded gradient. */}
+          <AppLogo variant="production" class="server-rail-logo server-local-mark" />
+        </Show>
+      }
+    >
       {(url) => <img class="server-rail-logo" src={url()} alt="" draggable={false} onError={() => setFailed(true)} />}
     </Show>
   );

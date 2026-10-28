@@ -3,7 +3,7 @@ import type {
   CentralAuthState,
   CentralAuthUser,
   MobileConnectLink,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { clone, type Listener, type MockRuntime } from "./mock-support";
 
@@ -11,7 +11,7 @@ export interface MockAuthOptions {
   authState?: CentralAuthState;
 }
 
-/** The OpenBot account: its sign-in state and the sessions signed in to it. */
+/** The Builders Bot account: its sign-in state and the sessions signed in to it. */
 export function createMockAuth(options: MockAuthOptions, { emit }: MockRuntime) {
   const defaultAuthState: CentralAuthState = {
     status: "signed_in",
@@ -65,7 +65,7 @@ export function createMockAuth(options: MockAuthOptions, { emit }: MockRuntime) 
     emit(authListeners, state);
   }
 
-  const auth: OpenBotDesktopApi["auth"] = {
+  const auth: BuildersBotDesktopApi["auth"] = {
     getState: async () => clone(authState),
     retry: async () => clone(authState),
     requestEmailCode: async (email) => {

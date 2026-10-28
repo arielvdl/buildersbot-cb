@@ -8,12 +8,12 @@ export const messages = {
   "error.attachment.unavailable": "Dit bestand is niet meer beschikbaar.",
   "error.attachment.tooMany": "Kies maximaal {limit} bestanden.",
   "error.attachment.mediaUnsupported":
-    "Deze server ondersteunt geen MP3- of MOV-bijlagen. Werk OpenBot bij op de host en probeer het opnieuw.",
+    "Deze server ondersteunt geen MP3- of MOV-bijlagen. Werk Builders Bot bij op de host en probeer het opnieuw.",
   "error.attachment.emlUnsupported":
-    "Deze server ondersteunt geen EML-bijlagen. Werk OpenBot bij op de host en probeer het opnieuw.",
+    "Deze server ondersteunt geen EML-bijlagen. Werk Builders Bot bij op de host en probeer het opnieuw.",
   "error.attachment.zipUnsupported":
-    "Deze server ondersteunt geen ZIP-bijlagen. Werk OpenBot bij op de host en probeer het opnieuw.",
+    "Deze server ondersteunt geen ZIP-bijlagen. Werk Builders Bot bij op de host en probeer het opnieuw.",
   "error.attachment.mp4Unsupported":
-    "Deze server ondersteunt geen MP4-bijlagen. Werk OpenBot bij op de host en probeer het opnieuw.",
+    "Deze server ondersteunt geen MP4-bijlagen. Werk Builders Bot bij op de host en probeer het opnieuw.",
   "error.attachment.previewTooLarge": "Het bestand is groter dan de limiet van 100 MB.",
 } as const satisfies PartialTranslation<typeof source>;

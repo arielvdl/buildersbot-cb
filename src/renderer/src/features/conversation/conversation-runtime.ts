@@ -3,7 +3,7 @@ import type {
   AskSideQuestionInput,
   AttachmentSummary,
   FilePreview,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   ResetAgentSessionSettingInput,
   SetAgentSessionSettingInput,
 } from "@openbot/contracts/ipc";
@@ -18,7 +18,7 @@ import type { AgentRoutinesApi } from "./routines-port";
 
 export interface ConversationRuntime {
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     | "discardDraftAttachment"
     | "importAttachmentData"
     | "downloadAttachments"
@@ -36,9 +36,9 @@ export interface ConversationRuntime {
     | "setMessageReaction"
   > &
     // A joined server's sign-in link that the host relays. Absent, a link opens with `openUrl`.
-    Partial<Pick<OpenBotDesktopApi["agent"], "openMessageLink" | "pasteMessageLink" | "cancelMessageLink">>;
+    Partial<Pick<BuildersBotDesktopApi["agent"], "openMessageLink" | "pasteMessageLink" | "cancelMessageLink">>;
   browser: Pick<
-    OpenBotDesktopApi["browser"],
+    BuildersBotDesktopApi["browser"],
     | "capturePreview"
     | "closePictureInPicture"
     | "navigate"
@@ -52,7 +52,7 @@ export interface ConversationRuntime {
     | "takeControl"
   >;
   voice: Pick<
-    OpenBotDesktopApi["voice"],
+    BuildersBotDesktopApi["voice"],
     | "getSettings"
     | "onModelStatus"
     | "prepareModel"
@@ -63,7 +63,7 @@ export interface ConversationRuntime {
     | "cancelStream"
     | "onStreamTranscript"
   >;
-  openUrl: OpenBotDesktopApi["openUrl"];
+  openUrl: BuildersBotDesktopApi["openUrl"];
   /** Asks the connected host a side question. Absent, the host does not serve `side-question-v1`. */
   askSideQuestion?: ((input: AskSideQuestionInput) => Promise<string>) | undefined;
   previewAttachment?: (attachment: AttachmentSummary) => Promise<FilePreview>;

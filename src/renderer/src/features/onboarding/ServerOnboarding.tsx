@@ -26,7 +26,7 @@ export interface ServerOnboardingProps {
 /**
  * The provider step of a joined server that has no agent yet, for its owner or admin.
  *
- * OpenBot includes no AI subscription, and a new host has no provider signed in, so an agent made
+ * Builders Bot includes no AI subscription, and a new host has no provider signed in, so an agent made
  * there first could not answer. The step signs the host in, and the agent form comes after it.
  * The choice stays in this window: the saved setup choice is of this computer, not of the server.
  * The step covers the window, as the first-run screen does: the rail and the sidebar of a server

@@ -3,7 +3,7 @@ import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
   "mobile.workflow.unsupported":
-    "スマートフォンでワークフローを使うには、このサーバーの OpenBot をアップデートしてください。",
+    "スマートフォンでワークフローを使うには、このサーバーの Builders Bot をアップデートしてください。",
   "mobile.workflow.offline": "サーバーはオフラインです。接続するとワークフローが表示されます。",
   "mobile.workflow.list.loading": "読み込み中…",
   "mobile.workflow.list.loadFailed": "ワークフローを読み込めませんでした。",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.workflow.action.edit": "編集",
   "mobile.workflow.alert.runFailedTitle": "ワークフローを開始できませんでした",
   "mobile.workflow.alert.runFailedBody": "サーバーが実行を開始しませんでした。もう一度お試しください。",
-  "mobile.workflow.alert.tryAgain": "OpenBot はこの操作を完了できませんでした。もう一度お試しください。",
+  "mobile.workflow.alert.tryAgain": "Builders Bot はこの操作を完了できませんでした。もう一度お試しください。",
   "mobile.workflow.drawer.needYou": { other: "{count} 件が対応待ち" },
   "mobile.workflow.drawer.running": { other: "{count} 件実行中" },
   "mobile.workflow.drawer.review": "対応待ち · タップして確認",
@@ -33,7 +33,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "ワークフローを読み込めませんでした。",
   "mobile.workflow.detail.starting": "開始中…",
   "mobile.workflow.detail.newerApp":
-    "このワークフローには新しいバージョンの OpenBot のステップがあります。変更するには、スマートフォンの OpenBot をアップデートしてください。",
+    "このワークフローには新しいバージョンの Builders Bot のステップがあります。変更するには、スマートフォンの Builders Bot をアップデートしてください。",
   "mobile.workflow.detail.waits": "実行 {number} があなたの対応を待っています。確認",
   "mobile.workflow.detail.canvasOrder": "ステップはキャンバスと同じく左から右の順に表示されます。",
   "mobile.workflow.detail.trigger": "トリガー",
@@ -68,7 +68,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "アドレスがリクエストを受け取ったときに実行します。",
   "mobile.workflow.trigger.message": "メッセージ",
-  "mobile.workflow.trigger.messageHint": "このトリガーはコンピューターの OpenBot で変更してください。",
+  "mobile.workflow.trigger.messageHint": "このトリガーはコンピューターの Builders Bot で変更してください。",
   "mobile.workflow.trigger.startsWhen": "開始条件",
   "mobile.workflow.trigger.timezone": "タイムゾーン: {zone}",
   "mobile.workflow.trigger.serverZone": "スケジュールはサーバーのタイムゾーンを使用します。",
@@ -105,7 +105,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "承認すると続行します。",
   "mobile.workflow.step.textEmpty": "テキストなし",
   "mobile.workflow.step.textPlaceholder": "次のステップに渡すテキスト",
-  "mobile.workflow.step.computerOnly": "このステップはコンピューターの OpenBot で変更してください。",
+  "mobile.workflow.step.computerOnly": "このステップはコンピューターの Builders Bot で変更してください。",
   "mobile.workflow.step.gone": "このステップは現在ワークフローにありません。",
   "mobile.workflow.step.agent": "エージェント",
   "mobile.workflow.step.agentHint": "エージェントは前のステップの出力を使ってタスクを実行します。",
@@ -124,7 +124,7 @@ export const messages = {
   "mobile.workflow.step.text": "テキスト",
   "mobile.workflow.step.sendTo": "送信先",
   "mobile.workflow.step.channelHint":
-    "メッセージの送信先は、オーナーまたは管理者がコンピューターの OpenBot で選択します。",
+    "メッセージの送信先は、オーナーまたは管理者がコンピューターの Builders Bot で選択します。",
   "mobile.workflow.problem.noTitle": "名前を入力してください。",
   "mobile.workflow.problem.noAgent": "エージェントを選択",
   "mobile.workflow.problem.agentGone": "エージェントを利用できません。エージェントを選択",
@@ -145,7 +145,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "次のステップに渡す固定テキストです。",
   "mobile.workflow.add.output": "結果をあなたに送信します。",
   "mobile.workflow.add.oneCondition":
-    "スマートフォンでは、ワークフローの条件は 1 つです。パスを増やすには、コンピューターの OpenBot を使ってください。",
+    "スマートフォンでは、ワークフローの条件は 1 つです。パスを増やすには、コンピューターの Builders Bot を使ってください。",
   "mobile.workflow.editor.title": "ワークフローを編集",
   "mobile.workflow.editor.newTitle": "新規ワークフロー",
   "mobile.workflow.editor.step": "ステップ",
@@ -154,7 +154,7 @@ export const messages = {
   "mobile.workflow.editor.create": "ワークフローを作成",
   "mobile.workflow.editor.saveFailed": "ワークフローを保存できませんでした。",
   "mobile.workflow.editor.fieldsOnly":
-    "このワークフローの構成はスマートフォンではリストとして表示できません。各ステップはここで変更できます。ステップの追加、移動、削除には、コンピューターの OpenBot を使ってください。",
+    "このワークフローの構成はスマートフォンではリストとして表示できません。各ステップはここで変更できます。ステップの追加、移動、削除には、コンピューターの Builders Bot を使ってください。",
   "mobile.workflow.editor.annotationsKept": "キャンバス上のメモと描画はそのまま残ります。",
   "mobile.workflow.editor.addStep": "ステップを追加",
   "mobile.workflow.editor.addAfter": "後にステップを追加",

@@ -26,7 +26,7 @@ interface DetectedProviderSetupProps {
 
 /**
  * The step between Add and a saved provider: the form of its kind, filled from what the scan found,
- * so the user sees and can change every value before OpenBot saves it.
+ * so the user sees and can change every value before Builders Bot saves it.
  */
 export function DetectedProviderSetup(props: DetectedProviderSetupProps) {
   const { t, errorMessage } = useText();

@@ -23,9 +23,9 @@ import {
   SwitchField,
 } from "@openbot/ui";
 import {
-  OpenBotDynamicIsland,
+  BuildersBotDynamicIsland,
   openBotIdleCompactWidth,
-} from "@openbot/ui/features/dynamic-island/OpenBotDynamicIsland";
+} from "@openbot/ui/features/dynamic-island/BuildersBotDynamicIsland";
 import { ServerMark, serverStatusLabels } from "@openbot/ui/features/servers/ServerRail";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
 import type { JSX } from "@solidjs/web";
@@ -181,7 +181,7 @@ export function SettingsDynamicIslandTab(props: SettingsDynamicIslandTabProps) {
           <div class="settings-dynamic-island-preview">
             <figure class="settings-dynamic-island-preview-display">
               <PreviewFit widestWidth={widestBuiltInWidth()}>
-                <OpenBotDynamicIsland
+                <BuildersBotDynamicIsland
                   presentation={IDLE_DYNAMIC_ISLAND_PRESENTATION}
                   state="compact"
                   displayMode="notch"
@@ -199,7 +199,7 @@ export function SettingsDynamicIslandTab(props: SettingsDynamicIslandTabProps) {
             </figure>
             <figure class="settings-dynamic-island-preview-display">
               <PreviewFit widestWidth={widestExternalWidth}>
-                <OpenBotDynamicIsland
+                <BuildersBotDynamicIsland
                   presentation={IDLE_DYNAMIC_ISLAND_PRESENTATION}
                   state="compact"
                   displayMode="island"

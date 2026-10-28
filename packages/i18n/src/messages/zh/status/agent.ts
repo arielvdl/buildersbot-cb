@@ -34,9 +34,9 @@ export const messages = {
   "status.agent.memoryChangesWithConflicts":
     "记忆：已保存 {saved} 条，已更新 {updated} 条，已忘记 {forgotten} 条，{notChanged} 条因另一个话题先更改而未更改。",
   "status.agent.mcpServerAdd":
-    "添加 MCP 服务器 {name}：{target}。该服务器上的每个助手都能使用它的工具。OpenBot 会连接它进行测试。",
+    "添加 MCP 服务器 {name}：{target}。该服务器上的每个助手都能使用它的工具。Builders Bot 会连接它进行测试。",
   "status.agent.mcpServerChange":
-    "把 MCP 服务器 {name} 改为 {target}。该服务器上的每个助手都能使用它的工具。OpenBot 会连接它进行测试。",
+    "把 MCP 服务器 {name} 改为 {target}。该服务器上的每个助手都能使用它的工具。Builders Bot 会连接它进行测试。",
   "status.agent.mcpServerEnable": "为该服务器上的每个助手开启 MCP 服务器 {name}。",
   "status.agent.mcpServerDisable": "为该服务器上的每个助手关闭 MCP 服务器 {name}。",
   "status.agent.mcpServerRemove": "从该服务器上的每个助手移除 MCP 服务器 {name} 及其登录。",

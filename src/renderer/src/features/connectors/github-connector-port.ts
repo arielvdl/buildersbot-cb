@@ -1,9 +1,9 @@
-import type { GitHubConnectorStatus, OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { GitHubConnectorStatus, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 
 /** What the GitHub app page reaches: one GitHub connection, of this computer or of a joined server. */
 export type GitHubConnectorPort = Pick<
-  OpenBotDesktopApi["githubConnector"],
+  BuildersBotDesktopApi["githubConnector"],
   "status" | "connect" | "cancel" | "disconnect" | "repositories" | "openVerification" | "openInstall" | "onChanged"
 >;
 
@@ -56,7 +56,7 @@ export function polledGitHubConnectorPort(actions: Omit<GitHubConnectorPort, "on
 /** The connection of the joined server that `serverId` names, through main. */
 export function hostGitHubConnectorPort(serverId: () => string | undefined): GitHubConnectorPort {
   const call =
-    <T>(method: (api: OpenBotDesktopApi["githubConnector"], serverId: string) => Promise<T>) =>
+    <T>(method: (api: BuildersBotDesktopApi["githubConnector"], serverId: string) => Promise<T>) =>
     () => {
       const id = serverId();
       if (!id) return Promise.reject(new Error(sourceText("error.team.connectorsUnsupported")));

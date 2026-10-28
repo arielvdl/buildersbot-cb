@@ -34,7 +34,7 @@ import {
   type RemoteTicketClaims,
 } from "@openbot/contracts/signal-protocol/ticket";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { referenceFrom, safeReference } from "@openbot/user-errors";
 import { Deferred, Effect, type Layer, Result, Schema, Semaphore } from "effect";
 import { createLocalJWKSet, jwtVerify } from "jose";
@@ -94,7 +94,7 @@ interface StoredMobileConnectLink {
 
 const MOBILE_CONNECT_LINK_TOKEN = /^[A-Za-z0-9_-]{32,128}$/u;
 
-const logger = createOpenBotLogger("central-auth");
+const logger = createBuildersBotLogger("central-auth");
 
 /** The step of a session file read or write that failed, for the account log. */
 type StoredSessionStage = "read" | "decrypt" | "decode" | "encrypt" | "write";
@@ -154,6 +154,22 @@ export type VerifiedRemoteSessionTicket = Pick<
   role: RemoteMemberRole;
   clientPublicKey: string;
 };
+
+/**
+ * Builders Bot is shipped without an account service, so the window opens straight into the
+ * workspace. The account id is local: the usage and billing calls that need a session token stay
+ * off until a token exists, and `OPENBOT_LOCAL_ACCOUNT=0` brings the email sign-in back.
+ */
+const LOCAL_ACCOUNT_USER: CentralAuthUser = {
+  id: "local",
+  email: "voce@builders.bot",
+  name: null,
+  avatarUrl: null,
+};
+
+function localAccountEnabled(): boolean {
+  return process.env.OPENBOT_LOCAL_ACCOUNT !== "0";
+}
 
 export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   readonly #options: Required<CentralAuthManagerOptions>;
@@ -816,7 +832,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     (operation) => this.#owned(operation),
   ).bind(this);
 
-  /** A one-use code that links the next Telegram chat that adds the OpenBot bot to this host. */
+  /** A one-use code that links the next Telegram chat that adds the Builders Bot bot to this host. */
 
   readonly createTelegramLink = Effect.fn("CentralAuth.createTelegramLink")(
     function* (
@@ -1230,7 +1246,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
         `/v2/remote/hosts/${encodeURIComponent(hostId)}/logo`,
         {
           method: "PUT",
-          headers: { "Content-Type": image.mimeType, ...(version ? { "OpenBot-Logo-Version": version } : {}) },
+          headers: { "Content-Type": image.mimeType, ...(version ? { "Builders Bot-Logo-Version": version } : {}) },
           body: Buffer.from(image.bytes),
         },
         (value) => requiredString(decodeRecord(value, "remote host logo"), "logoKey"),
@@ -1348,6 +1364,10 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     this: CentralAuthManager,
   ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
     this.#setState({ status: "loading" });
+    if (localAccountEnabled()) {
+      this.#sessionAccountId = LOCAL_ACCOUNT_USER.id;
+      return this.#setState({ status: "signed_in", user: LOCAL_ACCOUNT_USER });
+    }
     // A session that cannot be read now stays on disk: a Keychain that is locked or asks for
     // permission at startup can open it at the next start, and the next sign-in replaces it.
     if (this.#options.canPersist()) {

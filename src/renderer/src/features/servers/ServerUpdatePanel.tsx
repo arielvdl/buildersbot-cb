@@ -2,7 +2,7 @@ import type {
   HostReleaseStatus,
   HostUpdateSettingsChange,
   HostUpdateStatus,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { classifyFailure } from "@openbot/telemetry";
 import {
@@ -34,10 +34,10 @@ import { openServerUpdate, serverUpdateStatus } from "./server-update-flow";
 
 /** The update calls of one server's host. The desktop reaches them through main. */
 export type HostUpdateCalls = Pick<
-  OpenBotDesktopApi["hostAdmin"],
+  BuildersBotDesktopApi["hostAdmin"],
   "getUpdateStatus" | "checkForUpdate" | "startUpdate" | "cancelUpdate" | "setUpdateSettings"
 > &
-  Partial<Pick<OpenBotDesktopApi["hostAdmin"], "getReleaseStatus" | "checkRelease">>;
+  Partial<Pick<BuildersBotDesktopApi["hostAdmin"], "getReleaseStatus" | "checkRelease">>;
 
 export interface ServerUpdateOptions {
   /** Only administrators can change preferences, cancel, or force a restart. */
@@ -52,7 +52,7 @@ const POLL_MS = 1000;
 const RETRY_MS = 5000;
 
 /**
- * Server Settings > Updates: the OpenBot update of a joined server's host (`host-update-v1`). The
+ * Server Settings > Updates: the Builders Bot update of a joined server's host (`host-update-v1`). The
  * host sends no progress event, so the panel reads the status again while something runs there.
  * The host checks permissions again on every call.
  */

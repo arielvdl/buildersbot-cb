@@ -15,7 +15,7 @@ export interface ThreadTurnMessageContext {
 }
 
 /**
- * Converts one bounded provider item page into OpenBot messages.
+ * Converts one bounded provider item page into Builders Bot messages.
  *
  * `itemOffset` keeps timestamps stable when a provider splits one turn over several pages. The
  * caller must release the item page after this function returns; this function keeps no provider

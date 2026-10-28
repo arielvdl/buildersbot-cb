@@ -1,4 +1,9 @@
-import { APP_LOGO_COLOR_HEX, APP_LOGO_COLORS, type AppLogoColor } from "@openbot/contracts/ipc";
+import {
+  APP_LOGO_COLOR_HEX,
+  APP_LOGO_COLORS,
+  APP_LOGO_EYE_HEX,
+  type AppLogoColor,
+} from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { Button } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
@@ -6,16 +11,14 @@ import { For } from "solid-js";
 import { useText } from "../../text";
 
 const COLOR_LABEL_KEYS = {
-  lavender: "settings.logoColor.lavender",
-  green: "settings.logoColor.green",
-  gold: "settings.logoColor.gold",
-  terracotta: "settings.logoColor.terracotta",
-  blue: "settings.logoColor.blue",
-  rose: "settings.logoColor.rose",
-  pink: "settings.logoColor.pink",
-  beige: "settings.logoColor.beige",
-  gray: "settings.logoColor.gray",
-  white: "settings.logoColor.white",
+  noite: "settings.logoColor.noite",
+  dia: "settings.logoColor.dia",
+  signal: "settings.logoColor.signal",
+  traco: "settings.logoColor.traco",
+  papel: "settings.logoColor.papel",
+  grafite: "settings.logoColor.grafite",
+  lima: "settings.logoColor.lima",
+  vidro: "settings.logoColor.vidro",
 } as const satisfies Record<AppLogoColor, AppTextKey>;
 
 export interface LogoColorPickerProps {
@@ -23,7 +26,10 @@ export interface LogoColorPickerProps {
   onChange: (value: AppLogoColor) => void;
 }
 
-/** One swatch for each logo color, in the same shape as the agent avatar color grid. */
+/**
+ * One swatch for each colorway of the cube mark, in the same shape as the agent avatar color grid.
+ * A swatch is the logo in miniature: the face of the mark and the eye that sits on it.
+ */
 export function LogoColorPicker(props: LogoColorPickerProps): JSX.Element {
   const { t } = useText();
   return (
@@ -39,7 +45,9 @@ export function LogoColorPicker(props: LogoColorPickerProps): JSX.Element {
             data-cuelume-tap="select"
             onClick={() => props.onChange(color)}
           >
-            <span class="logo-color-swatch" style={{ background: APP_LOGO_COLOR_HEX[color] }} />
+            <span class="logo-color-swatch" style={{ background: APP_LOGO_COLOR_HEX[color] }}>
+              <span class="logo-color-swatch-eye" style={{ background: APP_LOGO_EYE_HEX[color] }} />
+            </span>
           </Button>
         )}
       </For>

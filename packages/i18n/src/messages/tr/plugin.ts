@@ -22,7 +22,7 @@ export const messages = {
   "plugin.uninstallDialog.appsLabel": "Kaldırılacak uygulamalar, {number}",
   "plugin.uninstallDialog.appsTitle": "Bu ana makineden kaldırılan uygulamalar",
   "plugin.uninstallDialog.appsNote":
-    "Araçları artık kullanılamaz ve OpenBot'un onlar için sakladığı oturum bilgileri unutulur.",
+    "Araçları artık kullanılamaz ve Builders Bot'un onlar için sakladığı oturum bilgileri unutulur.",
   "plugin.uninstallDialog.skillsLabel": "Kaldırılacak beceriler, {number}",
   "plugin.uninstallDialog.skillsTitle": "{agentName} ajanından kaldırılan beceriler",
 } as const satisfies PartialTranslation<typeof source>;

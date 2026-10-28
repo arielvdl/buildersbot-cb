@@ -56,13 +56,13 @@ export const messages = defineMessages("error.agent", {
   "error.agent.hostLimit": "A host can have up to {limit} agents.",
   "error.agent.changedWhileDuplicating": "The agent changed while it was being duplicated. Try again.",
   "error.agent.duplicatedAgentGone": "The duplicated agent no longer exists.",
-  "error.agent.stateCorrupt": "Agent state is corrupt or from a newer OpenBot version; refusing to overwrite it.",
-  "error.agent.oldRoleField": "Stored agent profiles use the old role field; update the data before starting OpenBot.",
+  "error.agent.stateCorrupt": "Agent state is corrupt or from a newer Builders Bot version; refusing to overwrite it.",
+  "error.agent.oldRoleField": "Stored agent profiles use the old role field; update the data before starting Builders Bot.",
   "error.agent.duplicateIds": "Agent state contains duplicate agent ids; refusing to overwrite it.",
-  "error.agent.copyNameFailed": "OpenBot could not create a unique agent copy name.",
+  "error.agent.copyNameFailed": "Builders Bot could not create a unique agent copy name.",
   "error.agent.endpointRemoved": "The endpoint this agent used was removed. Choose another model for it.",
   "error.agent.turnStalled":
-    "{provider} stopped responding, so OpenBot ended this turn. Send the message again, or choose another model.",
+    "{provider} stopped responding, so Builders Bot ended this turn. Send the message again, or choose another model.",
   "error.agent.selectedGone": "The selected agent no longer exists.",
   "error.agent.profileEndpointsChanged": "The custom endpoints changed while this was generating. Try again.",
   "error.agent.profileInvalid": "The provider returned an invalid profile. Try revising your prompt.",
@@ -82,15 +82,16 @@ export const messages = defineMessages("error.agent", {
   "error.agent.saveOtherAgent": "This save belongs to another agent.",
   "error.agent.savedGone": "The saved agent no longer exists.",
   "error.agent.storedProfileUnreadable":
-    'A stored agent profile has an unreadable "{field}" value; update the data before starting OpenBot.',
+    'A stored agent profile has an unreadable "{field}" value; update the data before starting Builders Bot.',
   "error.agent.storedProfileUnreadableId":
-    'Stored agent profile {id} has an unreadable "{field}" value; update the data before starting OpenBot.',
+    'Stored agent profile {id} has an unreadable "{field}" value; update the data before starting Builders Bot.',
   // Written by `QueueEditRejectedError` in @openbot/contracts, which cannot import this package.
   "error.agent.queueEditRejected": "Queue edit rejected: {reason}",
   "error.agent.computerUseLocalOnly": "Computer Use can only be changed on the computer that runs the agent.",
   "error.agent.automationLocalOnly": "Local scripts can only be allowed on the computer that runs the agent.",
   "error.agent.newChatLocalOnly": "Only the computer that runs the agent can let it start new chats.",
   "error.agent.quickAcknowledgementLocalOnly": "Only the computer that runs the agent can change this setting.",
+  "error.agent.securityGuardLocalOnly": "Only the computer that runs the agent can change this setting.",
   "error.agent.sideQuestionBusy": "Too many side questions are running. Try again shortly.",
   "error.agent.sideQuestionFailed": "The agent could not answer the side question. Try again.",
   "error.agent.busyMessageModeLocalOnly":
@@ -111,7 +112,7 @@ export const messages = defineMessages("error.agent", {
   "error.agent.lowMemoryServer":
     "This server is low on memory. Your message waits in the queue and starts when memory is free.",
   "error.agent.workspaceOnlyToolMissing":
-    "Workspace only needs {tool}, which OpenBot did not find. Install it, or choose Full access in the agent settings.",
+    "Workspace only needs {tool}, which Builders Bot did not find. Install it, or choose Full access in the agent settings.",
   "error.agent.screenCaptureOff":
     "Screen capture is off for this agent. The user can turn on Computer Use in the agent settings.",
   "error.agent.screenCaptureUnavailable": "Screen capture is not available on this computer.",
@@ -130,7 +131,7 @@ export const messages = defineMessages("error.agent", {
   "error.agent.screenCaptureRegionOutside":
     "The region is not inside one display. Use desktop points inside the bounds of one display from list_capture_sources.",
   "error.agent.screenCapturePermissionMissing":
-    "OpenBot does not have the Screen Recording permission. Ask the user to open System Settings > Privacy & Security > Screen & System Audio Recording, turn on OpenBot, then quit and open OpenBot again.",
+    "Builders Bot does not have the Screen Recording permission. Ask the user to open System Settings > Privacy & Security > Screen & System Audio Recording, turn on Builders Bot, then quit and open Builders Bot again.",
   "error.agent.screenCaptureEmptyWindows":
     "Windows gave an empty image. Ask the user to unlock the computer and close protected content. A policy of the organization can also stop screen capture.",
   "error.agent.screenCaptureFailed": "The screen capture failed. Try again.",

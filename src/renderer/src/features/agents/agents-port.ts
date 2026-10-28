@@ -1,4 +1,4 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the agents domain reaches in main: agent records, their models and read state, and the agent
@@ -6,7 +6,7 @@ import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
  */
 export interface AgentsPort {
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     | "createAgent"
     | "deleteAgent"
     | "duplicateAgent"
@@ -28,7 +28,7 @@ export interface AgentsPort {
     | "updateAgentAdminSettings"
   >;
   /** The accounts of a joined server's providers, which its released agent routes do not carry. */
-  providerAdmin: Pick<OpenBotDesktopApi["providerAdmin"], "accounts" | "accountUsage">;
+  providerAdmin: Pick<BuildersBotDesktopApi["providerAdmin"], "accounts" | "accountUsage">;
 }
 
 /** Read on each call: tests and stories replace `window.openbot` per case. */

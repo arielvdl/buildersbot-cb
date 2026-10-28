@@ -27,7 +27,7 @@ import { LifecycleGate } from "./lifecycle-gate";
 import { forwardDiagnosticLines, stopRemoteProcess } from "./remote-diagnostics";
 
 const SOCKET_FILE = "driver.sock";
-/** The address OpenBot listens on itself, between the agents' proxies and the daemon. */
+/** The address Builders Bot listens on itself, between the agents' proxies and the daemon. */
 const TAP_SOCKET_FILE = "tap.sock";
 /** Where the Windows pipe name is kept, below the profile directory. */
 const PIPE_NAME_FILE = ["cua-driver", "pipe-name"] as const;
@@ -54,11 +54,11 @@ const ORPHAN_STOP_TIMEOUT_MS = 2_000;
 const PERMISSION_TIMEOUT_MS = 10_000;
 
 /**
- * Embedded mode, which is what makes the grant OpenBot's own.
+ * Embedded mode, which is what makes the grant Builders Bot's own.
  *
  * macOS attributes a permission to the responsible process, which it finds by walking up the
- * launch chain. Spawning the daemon directly from this process puts OpenBot at the top of that
- * chain, so the user grants Accessibility and Screen Recording to OpenBot rather than to a helper
+ * launch chain. Spawning the daemon directly from this process puts Builders Bot at the top of that
+ * chain, so the user grants Accessibility and Screen Recording to Builders Bot rather than to a helper
  * signed by somebody else. Launching it through `open(1)` or `NSWorkspace` would hand the chain to
  * `launchd` instead and break the attribution, so nothing here may do that.
  *
@@ -72,7 +72,7 @@ const EMBEDDED_ENV = "CUA_DRIVER_EMBEDDED";
  * Makes the daemon stop when its standard input closes.
  *
  * The kernel closes that pipe when this process ends for any reason, a crash or an out-of-memory
- * kill included, so the daemon cannot outlive OpenBot. Only the daemon gets it: the proxy reads its
+ * kill included, so the daemon cannot outlive Builders Bot. Only the daemon gets it: the proxy reads its
  * standard input as JSON-RPC. The driver reads it only together with `CUA_DRIVER_EMBEDDED`.
  */
 const PARENT_LIVENESS_ENV = "CUA_DRIVER_PARENT_LIVENESS_STDIN";
@@ -249,11 +249,11 @@ export interface CuaDriverRuntimeOptions {
   /** The resolved executable, or `null` when this computer has none. */
   executable: string | null;
   /**
-   * Looks for the executable again, for a computer that had none when OpenBot started.
+   * Looks for the executable again, for a computer that had none when Builders Bot started.
    *
    * The panel tells such a user to install the driver and then check again, and the check has to
    * read the filesystem rather than the answer from startup: otherwise the only way to finish the
-   * installation is to restart OpenBot.
+   * installation is to restart Builders Bot.
    */
   resolveExecutable?: () => Effect.Effect<string | null, CuaDriverFailure>;
   /**
@@ -281,11 +281,11 @@ export interface CuaDriverRuntimeOptions {
   /** Injected by the test, which listens on no address of its own. */
   actionTap?: CuaDriverActionTap;
   /**
-   * True once OpenBot starts to quit. The providers are told nothing more from then on.
+   * True once Builders Bot starts to quit. The providers are told nothing more from then on.
    *
    * A signal to the process group, which a terminal, `systemd` and Docker send, reaches the daemon
    * too, and the daemon can stop before the teardown stops it. Its exit then looks like a death
-   * under OpenBot, and announcing it would deactivate every agent's stored session, which the next
+   * under Builders Bot, and announcing it would deactivate every agent's stored session, which the next
    * run would otherwise resume. A function rather than a method to call, so a quit during startup,
    * before anything holds this runtime, counts too.
    */
@@ -306,7 +306,7 @@ export class CuaDriverRuntime {
   #child: ChildProcess | null = null;
   readonly #lifecycle = new LifecycleGate<void, CuaDriverFailure>();
   #state: ComputerUseState;
-  /** Mutable, because a user may install the driver while OpenBot runs. */
+  /** Mutable, because a user may install the driver while Builders Bot runs. */
   #executable: string | null;
   readonly #tap: CuaDriverActionTap;
 
@@ -333,7 +333,7 @@ export class CuaDriverRuntime {
   }
 
   /**
-   * The address the agents are handed: OpenBot's own while it listens, the daemon's own otherwise.
+   * The address the agents are handed: Builders Bot's own while it listens, the daemon's own otherwise.
    *
    * The tap forwards every request unchanged, so the agent gets the same tools either way - and a
    * tap that failed to listen costs the rim its answer, never the agent its tools. What it does
@@ -347,7 +347,7 @@ export class CuaDriverRuntime {
   /**
    * Where an agent last asked the daemon to act, as far as the window is concerned.
    *
-   * This is the only answer OpenBot has to "which window is the agent working in": it comes from
+   * This is the only answer Builders Bot has to "which window is the agent working in": it comes from
    * the request the agent's own proxy sent, not from which window happens to be in front.
    */
   lastAction(maxAgeMs: number): ObservedAction | null {
@@ -355,7 +355,7 @@ export class CuaDriverRuntime {
   }
 
   /**
-   * Where an agent last aimed the pointer, which is where OpenBot draws its own agent cursor.
+   * Where an agent last aimed the pointer, which is where Builders Bot draws its own agent cursor.
    */
   lastPointer(maxAgeMs: number): ObservedPointer | null {
     return this.#tap.lastPointer(maxAgeMs);
@@ -412,7 +412,7 @@ export class CuaDriverRuntime {
   }
 
   /**
-   * Told when the entry the providers are handed appears or the daemon dies under OpenBot, and at
+   * Told when the entry the providers are handed appears or the daemon dies under Builders Bot, and at
    * no other time.
    *
    * Separate from the state, because the two ask for different work. A state change updates the
@@ -424,7 +424,7 @@ export class CuaDriverRuntime {
    *
    * Three things it is quiet for. The warm-up at startup settles the entry the stored sessions were
    * already using. A stop this process asked for happens at teardown, where the sessions are being
-   * left for the next run. A daemon that dies once OpenBot quits dies with it: see the `quitting`
+   * left for the next run. A daemon that dies once Builders Bot quits dies with it: see the `quitting`
    * option. A state that moves below `ready` and back while the daemon keeps serving
    * is not quiet, because the entry goes with it.
    */
@@ -556,7 +556,7 @@ export class CuaDriverRuntime {
     yield* this.#stopOrphanedDaemon(socketPath);
     yield* this.#removeSocket();
     this.#command = yield* this.#linkCommandAlias(executable);
-    // OpenBot owns the cursor on every display, including displays connected after startup.
+    // Builders Bot owns the cursor on every display, including displays connected after startup.
     const child = yield* cuaSync(() =>
       this.#spawn(executable, ["serve", "--socket", socketPath, "--no-overlay"], {
         cwd: dirname(executable),
@@ -569,7 +569,7 @@ export class CuaDriverRuntime {
           [HOST_BUNDLE_ID_ENV]: this.#options.hostBundleId,
           ...waylandEnvironment(this.#options.platform),
         },
-        // Nothing is written to standard input. It stays open only so that it closes when OpenBot ends.
+        // Nothing is written to standard input. It stays open only so that it closes when Builders Bot ends.
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       }),
@@ -582,13 +582,13 @@ export class CuaDriverRuntime {
     const spawnFailure = Deferred.makeUnsafe<never, CuaDriverFailure>();
     child.once("error", (error: Error) => {
       if (this.#child === child) this.#child = null;
-      this.#options.onDiagnostic?.(`OpenBot: the Computer Use driver could not start. ${error.message}\n`);
+      this.#options.onDiagnostic?.(`Builders Bot: the Computer Use driver could not start. ${error.message}\n`);
       Deferred.doneUnsafe(spawnFailure, Exit.fail(new CuaDriverFailure({ cause: error })));
     });
     child.once("exit", (code) => {
       if (this.#child !== child) return;
       this.#child = null;
-      this.#options.onDiagnostic?.(`OpenBot: the Computer Use driver stopped with code ${code ?? "unknown"}.\n`);
+      this.#options.onDiagnostic?.(`Builders Bot: the Computer Use driver stopped with code ${code ?? "unknown"}.\n`);
       this.#announceMcpServer();
       this.#publish({
         status: "error",
@@ -623,13 +623,13 @@ export class CuaDriverRuntime {
       endpoint.kind === "windows-pipe" ? `${endpoint.name}-tap` : join(endpoint.directory, TAP_SOCKET_FILE);
     // A daemon that stops on its own leaves the tap listening, and `listen` returns at once while it
     // does. Without this, the restart would unlink the address below and then hand the providers a
-    // path nothing answers on, with no way back except restarting OpenBot.
+    // path nothing answers on, with no way back except restarting Builders Bot.
     yield* this.#tap.close();
     if (endpoint.kind === "unix-socket") yield* cuaIO(() => rm(address, { force: true }).catch(() => undefined));
     const listening = yield* Effect.result(this.#tap.listen({ upstream: socketPath, tap: address }));
     if (Result.isFailure(listening))
       this.#options.onDiagnostic?.(
-        `OpenBot: the Computer Use tap could not listen. ${describe(listening.failure.cause)}\n`,
+        `Builders Bot: the Computer Use tap could not listen. ${describe(listening.failure.cause)}\n`,
       );
   });
 
@@ -638,7 +638,7 @@ export class CuaDriverRuntime {
    *
    * Before the daemon watched its standard input, a run that crashed or was killed left it running.
    * Removing its socket file then hid it from every client while it kept its memory. The endpoint
-   * belongs to this profile, and the single-instance lock keeps a second OpenBot off the profile, so
+   * belongs to this profile, and the single-instance lock keeps a second Builders Bot off the profile, so
    * a daemon that answers here serves no other run.
    */
   #stopOrphanedDaemon = Effect.fn("CuaDriver.stopOrphanedDaemon")(function* (
@@ -646,13 +646,13 @@ export class CuaDriverRuntime {
     socketPath: string,
   ): Effect.fn.Return<void, CuaDriverFailure> {
     if (!(yield* acceptsEffect(socketPath, `${JSON.stringify({ method: "shutdown" })}\n`))) return;
-    this.#options.onDiagnostic?.("OpenBot: stopping a Computer Use driver that a previous run left running.\n");
+    this.#options.onDiagnostic?.("Builders Bot: stopping a Computer Use driver that a previous run left running.\n");
     const deadline = Date.now() + ORPHAN_STOP_TIMEOUT_MS;
     while (Date.now() < deadline) {
       yield* Effect.sleep(READY_POLL_MS / 4);
       if (!(yield* acceptsEffect(socketPath))) return;
     }
-    this.#options.onDiagnostic?.("OpenBot: the Computer Use driver left by a previous run did not stop.\n");
+    this.#options.onDiagnostic?.("Builders Bot: the Computer Use driver left by a previous run did not stop.\n");
   });
 
   #removeSocket = Effect.fn("CuaDriver.removeSocket")(function* (
@@ -691,7 +691,7 @@ export class CuaDriverRuntime {
     );
     if (Result.isFailure(linked)) {
       this.#options.onDiagnostic?.(
-        `OpenBot: the Computer Use driver link could not be written. ${describe(linked.failure.cause)}\n`,
+        `Builders Bot: the Computer Use driver link could not be written. ${describe(linked.failure.cause)}\n`,
       );
       return executable;
     }
@@ -778,8 +778,8 @@ function describe(error: unknown): string {
  *
  * The driver treats X11 as its supported Linux desktop and keeps the native Wayland backend behind
  * this variable. Without it a Wayland session falls back to XWayland, where the driver sees only the
- * XWayland clients and misses every native application on the screen. OpenBot starts the daemon, so
- * OpenBot is what has to say which desktop it woke up on.
+ * XWayland clients and misses every native application on the screen. Builders Bot starts the daemon, so
+ * Builders Bot is what has to say which desktop it woke up on.
  *
  * A value the user set already is left alone, so the fallback stays reachable when a compositor
  * handles the native backend badly.

@@ -71,9 +71,9 @@ export function parseHostedServerName(value: string): string | null {
   return slugifyTeamServerName(name).length >= INPUT_LIMITS.serverNameMin ? name : null;
 }
 
-const HOSTED_SERVER_CONTACT_SUBJECT = "Custom OpenBot setup";
+const HOSTED_SERVER_CONTACT_SUBJECT = "Custom Builders Bot setup";
 const HOSTED_SERVER_CONTACT_BODY = [
-  "I’d like to discuss a custom OpenBot setup for my needs. Please get in touch so we can explore the available options.",
+  "I’d like to discuss a custom Builders Bot setup for my needs. Please get in touch so we can explore the available options.",
   "",
   "Here’s some additional context:",
   "",
@@ -82,7 +82,7 @@ const HOSTED_SERVER_CONTACT_BODY = [
 
 /**
  * "Contact us" in the add server dialog, for a plan that the dialog does not have. The email opens
- * with a subject and a short message. The message is in English because the OpenBot team reads it.
+ * with a subject and a short message. The message is in English because the Builders Bot team reads it.
  * `encodeURIComponent`, not `URLSearchParams`: mail clients show a `+` as a literal plus sign.
  */
 export const HOSTED_SERVER_CONTACT_URL = `mailto:hello@openbot.run?subject=${encodeURIComponent(
@@ -92,7 +92,7 @@ export const HOSTED_SERVER_CONTACT_URL = `mailto:hello@openbot.run?subject=${enc
  * A development build sends the shared developer key in this header. A Worker with the same
  * `HOSTED_SERVERS_DEVELOPER_KEY` lets the account create servers, as the allow list does.
  */
-export const HOSTING_DEVELOPER_KEY_HEADER = "OpenBot-Hosting-Developer-Key";
+export const HOSTING_DEVELOPER_KEY_HEADER = "Builders Bot-Hosting-Developer-Key";
 
 export interface HostedServerSummary {
   deletionScheduledAt?: number | null;

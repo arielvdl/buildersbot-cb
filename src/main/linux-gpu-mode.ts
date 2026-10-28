@@ -18,7 +18,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { app, type Details } from "electron";
 import { isMissingFileError } from "../backend/file-errors";
 
@@ -36,7 +36,7 @@ const GPU_FAILURE_REASONS: ReadonlySet<Details["reason"]> = new Set([
 // context is lost (for example after suspend and resume), and Chromium starts it again.
 const GPU_EXIT_ON_CONTEXT_LOST = 34;
 
-const logger = createOpenBotLogger("linux-gpu");
+const logger = createBuildersBotLogger("linux-gpu");
 
 /** One GPU failure on this computer, with the Chromium major version that had it. */
 interface GpuFailureRecord {

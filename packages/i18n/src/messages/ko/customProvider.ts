@@ -12,7 +12,7 @@ export const messages = {
   "customProvider.registry.update": "업데이트",
   "customProvider.registry.remove": "런타임 제거",
   "customProvider.registry.searchFailed": "레지스트리를 검색할 수 없었어요. 다시 시도해 주세요.",
-  "customProvider.registry.statusFailed": "설치 진행 상황을 확인할 수 없었어요. OpenBot이 다시 시도해요.",
+  "customProvider.registry.statusFailed": "설치 진행 상황을 확인할 수 없었어요. Builders Bot이 다시 시도해요.",
   "customProvider.registry.installFailed": "에이전트를 설치할 수 없었어요. 다시 시도해 주세요.",
   "customProvider.registry.updateFailed": "에이전트를 업데이트할 수 없었어요. 다시 시도해 주세요.",
   "customProvider.registry.removeFailed": "런타임을 제거할 수 없었어요. 다시 시도해 주세요.",
@@ -22,7 +22,7 @@ export const messages = {
   "customProvider.error.providerIdPattern":
     "영문 소문자, 숫자, 하이픈, 밑줄을 사용하고 영문자 또는 숫자로 시작해야 해요.",
   "customProvider.error.providerIdLength": "제공자 ID는 {max}자 미만으로 입력해 주세요.",
-  "customProvider.error.providerIdBuiltIn": "OpenBot에 이미 {id}라는 제공자가 있어요. 다른 ID를 선택해 주세요.",
+  "customProvider.error.providerIdBuiltIn": "Builders Bot에 이미 {id}라는 제공자가 있어요. 다른 ID를 선택해 주세요.",
   "customProvider.error.providerIdSaved":
     "{id}라는 엔드포인트가 이미 저장되어 있어요. 먼저 제거하거나 다른 ID를 선택해 주세요.",
   "customProvider.error.displayNameRequired": "표시 이름을 입력해 주세요.",
@@ -44,15 +44,15 @@ export const messages = {
   "customProvider.error.baseUrlProtocol": "http:// 또는 https:// URL을 사용해 주세요.",
   "customProvider.error.baseUrlCredential": "자격 증명은 URL이 아닌 헤더에 넣어 주세요.",
 
-  // The note after a save or a removal. It tells the user when OpenCode reads the new list.
-  "customProvider.saved.restarted": "저장했어요. OpenBot이 모델을 불러오는 중이에요.",
-  "customProvider.saved.skippedBusy": "저장했어요. OpenCode는 현재 작업이 끝난 후 목록을 읽어요.",
-  "customProvider.saved.notRunning": "저장했어요. OpenCode는 다음에 시작할 때 목록을 읽어요.",
-  "customProvider.removed.restarted": "제거했어요. OpenBot이 모델을 불러오는 중이에요.",
-  "customProvider.removed.skippedBusy": "제거했어요. OpenCode는 현재 작업이 끝난 후 목록을 읽어요.",
-  "customProvider.removed.notRunning": "제거했어요. OpenCode는 다음에 시작할 때 목록을 읽어요.",
-  "customProvider.saveFailed": "OpenBot이 이 엔드포인트를 저장하지 못했어요.",
-  "customProvider.removeFailed": "OpenBot이 {name}을(를) 제거하지 못했어요.",
+  // The note after a save or a removal. It tells the user when Builders reads the new list.
+  "customProvider.saved.restarted": "저장했어요. Builders Bot이 모델을 불러오는 중이에요.",
+  "customProvider.saved.skippedBusy": "저장했어요. Builders는 현재 작업이 끝난 후 목록을 읽어요.",
+  "customProvider.saved.notRunning": "저장했어요. Builders는 다음에 시작할 때 목록을 읽어요.",
+  "customProvider.removed.restarted": "제거했어요. Builders Bot이 모델을 불러오는 중이에요.",
+  "customProvider.removed.skippedBusy": "제거했어요. Builders는 현재 작업이 끝난 후 목록을 읽어요.",
+  "customProvider.removed.notRunning": "제거했어요. Builders는 다음에 시작할 때 목록을 읽어요.",
+  "customProvider.saveFailed": "Builders Bot이 이 엔드포인트를 저장하지 못했어요.",
+  "customProvider.removeFailed": "Builders Bot이 {name}을(를) 제거하지 못했어요.",
   "customProvider.saveUnavailable": "이 빌드에서는 엔드포인트를 저장할 수 없어요.",
   "customProvider.removeUnavailable": "이 빌드에서는 엔드포인트를 제거할 수 없어요.",
 
@@ -85,7 +85,7 @@ export const messages = {
   "customProvider.header.add": "헤더 추가",
   "customProvider.submit": "제출",
 
-  // Model discovery. OpenBot asks the endpoint for its model list, and the user picks from it.
+  // Model discovery. Builders Bot asks the endpoint for its model list, and the user picks from it.
   "customProvider.discovery.find": "모델 찾기",
   "customProvider.discovery.refresh": "다시 찾기",
   "customProvider.discovery.loading": "{url}에 모델 목록을 요청하는 중이에요.",
@@ -99,7 +99,7 @@ export const messages = {
   "customProvider.preset.title": "제공자 또는 에이전트 추가",
   "customProvider.preset.description": "로컬 모델 서버, 엔드포인트, 또는 ACP 에이전트를 선택하세요.",
   "customProvider.preset.heading": "사용자 지정 추가",
-  "customProvider.preset.subtitle": "OpenCode용 모델 또는 독립 에이전트.",
+  "customProvider.preset.subtitle": "Builders용 모델 또는 독립 에이전트.",
   "customProvider.preset.models": "모델",
   "customProvider.preset.agents": "에이전트",
   "customProvider.preset.ollama": "Ollama",
@@ -113,12 +113,12 @@ export const messages = {
   "customProvider.probe.checking": "확인 중",
   "customProvider.probe.running": { other: "실행 중 · 모델 {count}개" },
 
-  // Automatic detection on the provider step and in Settings. OpenBot looks for local model servers
+  // Automatic detection on the provider step and in Settings. Builders Bot looks for local model servers
   // at their default addresses and for known ACP agent commands on the PATH.
   "customProvider.detected.title": "이 컴퓨터에서 찾았어요",
   "customProvider.detected.scanning": "로컬 모델과 에이전트를 찾는 중이에요.",
   "customProvider.detected.scanAgain": "다시 검색",
-  "customProvider.detected.empty": "OpenBot이 로컬 모델 서버나 ACP 에이전트를 찾지 못했어요.",
+  "customProvider.detected.empty": "Builders Bot이 로컬 모델 서버나 ACP 에이전트를 찾지 못했어요.",
   "customProvider.detected.add": "추가",
   "customProvider.detected.addLabel": "{name} 추가",
   "customProvider.detected.added": "추가됨",
@@ -135,10 +135,10 @@ export const messages = {
   // Where the scan looks. The default addresses and PATH are always part of it.
   "customProvider.detection.title": "로컬 감지",
   "customProvider.detection.saveFailed": "감지 설정을 저장할 수 없었어요.",
-  "customProvider.detection.description": "OpenBot이 로컬 모델 서버와 ACP 에이전트를 찾는 위치예요.",
+  "customProvider.detection.description": "Builders Bot이 로컬 모델 서버와 ACP 에이전트를 찾는 위치예요.",
   "customProvider.detection.enabled": "로컬 모델과 에이전트 찾기",
   "customProvider.detection.enabledDescription":
-    "OpenBot이 Ollama와 LM Studio의 기본 주소를 확인하고, PATH에서 알려진 ACP 에이전트를 찾아요.",
+    "Builders Bot이 Ollama와 LM Studio의 기본 주소를 확인하고, PATH에서 알려진 ACP 에이전트를 찾아요.",
   "customProvider.detection.addresses": "기타 모델 서버 주소",
   "customProvider.detection.address.label": "주소 {number}",
   "customProvider.detection.address.remove": "주소 {number} 제거",
@@ -159,7 +159,7 @@ export const messages = {
   "customProvider.acp.agentId": "에이전트 ID",
   "customProvider.acp.agentIdHint": "영문 소문자, 숫자, 하이픈. 나중에 변경할 수 없어요.",
   "customProvider.acp.command": "명령",
-  "customProvider.acp.commandHint": "시작할 프로그램이에요. OpenBot이 PATH에서 찾아요.",
+  "customProvider.acp.commandHint": "시작할 프로그램이에요. Builders Bot이 PATH에서 찾아요.",
   "customProvider.acp.args": "인수",
   "customProvider.acp.argsHint": "인수는 공백으로 구분하세요. 공백이 있는 인수는 따옴표로 묶으세요.",
   "customProvider.acp.env": "환경 변수",
@@ -169,7 +169,7 @@ export const messages = {
   "customProvider.acp.env.add": "변수 추가",
   "customProvider.acp.check": "연결",
   "customProvider.acp.checkRun": "에이전트 확인",
-  "customProvider.acp.checkIdle": "OpenBot이 명령을 한 번 실행해 응답하는지 확인해요.",
+  "customProvider.acp.checkIdle": "Builders Bot이 명령을 한 번 실행해 응답하는지 확인해요.",
   "customProvider.acp.checking": "{command}을(를) 시작하는 중이에요.",
   "customProvider.acp.checkOk": "{name}이(가) 응답했어요",
   "customProvider.acp.checkOkVersion": "{name} {version}이(가) 응답했어요",
@@ -180,7 +180,7 @@ export const messages = {
   "customProvider.acp.checkFailed": "에이전트가 응답하지 않았어요",
   "customProvider.acp.trustTitle": "이 명령은 내 컴퓨터에서 실행돼요",
   "customProvider.acp.trustDescription":
-    "OpenBot이 내 사용자 계정으로 이 명령을 시작해요. 에이전트는 파일을 읽고 변경하며 명령을 실행할 수 있어요. 신뢰하는 에이전트만 추가하세요.",
+    "Builders Bot이 내 사용자 계정으로 이 명령을 시작해요. 에이전트는 파일을 읽고 변경하며 명령을 실행할 수 있어요. 신뢰하는 에이전트만 추가하세요.",
   "customProvider.acp.submit": "에이전트 추가",
   "customProvider.acp.editTitle": "사용자 지정 ACP 에이전트 편집",
   "customProvider.acp.submitEdit": "에이전트 저장",
@@ -195,9 +195,9 @@ export const messages = {
   "customProvider.acp.error.agentIdPattern":
     "영문 소문자, 숫자, 하이픈을 사용하고 영문자 또는 숫자로 시작해야 해요. 최대 40자예요.",
 
-  // The user's own ACP agents in Settings. Each is a command that OpenBot starts on this computer.
+  // The user's own ACP agents in Settings. Each is a command that Builders Bot starts on this computer.
   "customProvider.agents.title": "사용자 지정 에이전트",
-  "customProvider.agents.description": "OpenBot이 이 컴퓨터에서 시작하는 ACP 에이전트예요.",
+  "customProvider.agents.description": "Builders Bot이 이 컴퓨터에서 시작하는 ACP 에이전트예요.",
   "customProvider.agents.empty": "아직 사용자 지정 에이전트가 없어요.",
   "customProvider.agents.add": "에이전트 추가",
   "customProvider.agents.restart": "에이전트 다시 시작",
@@ -209,11 +209,11 @@ export const messages = {
   "customProvider.agents.deleteLabel": "{name} 삭제",
   "customProvider.agents.confirmDescription":
     "저장된 변수는 삭제되고, 이 에이전트를 쓰는 각 에이전트는 기본 모델로 바뀌어요.",
-  "customProvider.agents.saveFailed": "OpenBot이 이 에이전트를 저장하지 못했어요.",
-  "customProvider.agents.saved.restarted": "저장했어요. OpenBot이 사용자 지정 에이전트를 다시 시작했어요.",
+  "customProvider.agents.saveFailed": "Builders Bot이 이 에이전트를 저장하지 못했어요.",
+  "customProvider.agents.saved.restarted": "저장했어요. Builders Bot이 사용자 지정 에이전트를 다시 시작했어요.",
   "customProvider.agents.saved.skippedBusy": "저장했어요. 현재 작업이 끝나면 사용자 지정 에이전트가 다시 시작돼요.",
   "customProvider.agents.saved.notRunning": "저장했어요. 사용자 지정 에이전트는 다음에 시작할 때 이 내용을 읽어요.",
-  "customProvider.agents.removed.restarted": "제거했어요. OpenBot이 사용자 지정 에이전트를 다시 시작했어요.",
+  "customProvider.agents.removed.restarted": "제거했어요. Builders Bot이 사용자 지정 에이전트를 다시 시작했어요.",
   "customProvider.agents.removed.skippedBusy": "제거했어요. 현재 작업이 끝나면 사용자 지정 에이전트가 다시 시작돼요.",
   "customProvider.agents.removed.notRunning": "제거했어요. 사용자 지정 에이전트는 다음에 시작할 때 이 내용을 읽어요.",
 

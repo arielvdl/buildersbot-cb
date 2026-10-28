@@ -51,10 +51,10 @@ export const messages = {
   "composer.voice.transcribing": "Trascrizione del prompt vocale",
   "composer.voice.start": "Crea un prompt con la voce",
   "composer.voice.blocked":
-    "L'accesso al microfono è bloccato. Consenti a OpenBot di usare il microfono nelle impostazioni di sistema.",
+    "L'accesso al microfono è bloccato. Consenti a Builders Bot di usare il microfono nelle impostazioni di sistema.",
   "composer.voice.noMicrophone": "Nessun microfono disponibile.",
-  "composer.voice.startFailed": "OpenBot non è riuscito ad avviare la registrazione vocale.",
-  "composer.voice.transcribeFailed": "OpenBot non è riuscito a trascrivere questa registrazione.",
+  "composer.voice.startFailed": "Builders Bot non è riuscito ad avviare la registrazione vocale.",
+  "composer.voice.transcribeFailed": "Builders Bot non è riuscito a trascrivere questa registrazione.",
   "composer.reply.toYou": "Risposta al tuo messaggio",
   "composer.reply.toAgent": "Risposta all'agente",
   "composer.reply.attachment": "Allegato",

@@ -60,7 +60,7 @@ export interface CustomAgentSettingsApi {
 }
 
 /**
- * The custom agents run in one process group that OpenBot restarts after a change, but not through a
+ * The custom agents run in one process group that Builders Bot restarts after a change, but not through a
  * turn in progress. The write is durable either way, so none of these is an error.
  */
 const RESTART_NOTE = {

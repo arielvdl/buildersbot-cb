@@ -16,7 +16,7 @@ export const messages = {
   "mobile.settings.about.privacy": "Privacybeleid",
   "mobile.settings.home.profile": "Profiel",
   "mobile.settings.home.preferences": "Voorkeuren",
-  "mobile.settings.home.about": "Over OpenBot",
+  "mobile.settings.home.about": "Over Builders Bot",
   "mobile.settings.home.support": "Ondersteuning",
   "mobile.settings.home.supportHint": "Krijg hulp en sla een ondersteuningslog op",
   "mobile.settings.support.help": "Hulp krijgen",
@@ -31,7 +31,7 @@ export const messages = {
   "mobile.settings.support.clearTitle": "Ondersteuningslog wissen?",
   "mobile.settings.support.clearBody": "Hiermee verwijder je alle gebeurtenissen uit het log op deze telefoon.",
   "mobile.settings.support.logFooter":
-    "Het log blijft op deze telefoon en OpenBot verstuurt het niet. Het legt verbindingsstappen, verzoeken en fouten vast. Het legt geen berichten of bestanden vast en het maskeert wachtwoorden en tokens. Lees het bestand voordat je het deelt.",
+    "Het log blijft op deze telefoon en Builders Bot verstuurt het niet. Het legt verbindingsstappen, verzoeken en fouten vast. Het legt geen berichten of bestanden vast en het maskeert wachtwoorden en tokens. Lees het bestand voordat je het deelt.",
   "mobile.settings.support.saveFailed": "Kan het logbestand niet opslaan. Probeer het opnieuw.",
   "mobile.settings.support.sharingUnavailable": "Delen is niet beschikbaar op deze telefoon.",
   "mobile.settings.support.recent": "Recente gebeurtenissen",
@@ -90,27 +90,27 @@ export const messages = {
   "mobile.settings.feedback.retry": "Opslaan van haptische instelling opnieuw proberen",
   "mobile.settings.liveActivities.title": "Live activiteiten",
   "mobile.settings.liveActivities.footer":
-    "Toont werk van agents, berichten, vragen en goedkeuringen op het toegangsscherm en in het Dynamic Island terwijl OpenBot actief is.",
+    "Toont werk van agents, berichten, vragen en goedkeuringen op het toegangsscherm en in het Dynamic Island terwijl Builders Bot actief is.",
   "mobile.settings.liveActivities.toggle": "Agentactiviteit tonen",
   "mobile.settings.liveActivities.retry": "Opslaan van instelling voor live activiteiten opnieuw proberen",
   "mobile.settings.notifications.title": "Meldingen",
   "mobile.settings.notifications.toggle": "Meldingen toestaan",
   "mobile.settings.notifications.footer":
-    "Agents laten je weten wanneer ze klaar zijn, stoppen met een fout of je invoer, een goedkeuring of een stap in de browser nodig hebben. Er komt niets binnen terwijl OpenBot hier of in de desktop-app in gebruik is. Zolang de live activiteit zichtbaar is, toont die de gebeurtenis in plaats daarvan.",
+    "Agents laten je weten wanneer ze klaar zijn, stoppen met een fout of je invoer, een goedkeuring of een stap in de browser nodig hebben. Er komt niets binnen terwijl Builders Bot hier of in de desktop-app in gebruik is. Zolang de live activiteit zichtbaar is, toont die de gebeurtenis in plaats daarvan.",
   "mobile.settings.notifications.footerAndroid":
-    "Agents laten je weten wanneer ze klaar zijn, stoppen met een fout of je invoer, een goedkeuring of een stap in de browser nodig hebben. Er komt niets binnen terwijl OpenBot hier of in de desktop-app in gebruik is.",
-  "mobile.settings.notifications.denied": "Meldingen voor OpenBot staan uit in iOS-instellingen.",
-  "mobile.settings.notifications.deniedAndroid": "Meldingen voor OpenBot staan uit in Android-instellingen.",
+    "Agents laten je weten wanneer ze klaar zijn, stoppen met een fout of je invoer, een goedkeuring of een stap in de browser nodig hebben. Er komt niets binnen terwijl Builders Bot hier of in de desktop-app in gebruik is.",
+  "mobile.settings.notifications.denied": "Meldingen voor Builders Bot staan uit in iOS-instellingen.",
+  "mobile.settings.notifications.deniedAndroid": "Meldingen voor Builders Bot staan uit in Android-instellingen.",
   "mobile.settings.notifications.openSettings": "Open iOS-instellingen",
   "mobile.settings.notifications.openSettingsAndroid": "Open Android-instellingen",
   "mobile.settings.notifications.preview": "Voorvertoning van antwoord tonen",
   "mobile.settings.notifications.previewFooter":
-    "Toont het begin van een antwoord, een vraag of de actie die je moet goedkeuren. Apple en de accountdienst van OpenBot kunnen dit niet lezen.",
+    "Toont het begin van een antwoord, een vraag of de actie die je moet goedkeuren. Apple en de accountdienst van Builders Bot kunnen dit niet lezen.",
   "mobile.settings.notifications.previewFooterAndroid":
-    "Toont het begin van een antwoord, een vraag of de actie die je moet goedkeuren. Google en de accountdienst van OpenBot kunnen dit niet lezen.",
+    "Toont het begin van een antwoord, een vraag of de actie die je moet goedkeuren. Google en de accountdienst van Builders Bot kunnen dit niet lezen.",
   "mobile.settings.notifications.sound": "Geluid",
   "mobile.settings.notifications.playSound": "Geluid afspelen",
-  "mobile.settings.notifications.sound.openbot": "OpenBot",
+  "mobile.settings.notifications.sound.openbot": "Builders Bot",
   "mobile.settings.notifications.sound.warm": "Warm",
   "mobile.settings.notifications.sound.mech": "Mechanisch",
   "mobile.settings.notifications.sound.bubble": "Bubbelend",
@@ -118,9 +118,9 @@ export const messages = {
   "mobile.settings.notifications.sound.default": "iOS-standaard",
   "mobile.settings.notifications.sound.defaultAndroid": "Android-standaard",
   "mobile.settings.notifications.soundFooter":
-    "Meldingen en de live activiteit spelen dit geluid af. De live activiteit laat ook het scherm oplichten. Het OpenBot-geluid is het geluid dat de desktop-app afspeelt als een taak klaar is. De vier geluiden daarna zijn de geluiden van de geluidsthema’s van de desktop-app.",
+    "Meldingen en de live activiteit spelen dit geluid af. De live activiteit laat ook het scherm oplichten. Het Builders Bot-geluid is het geluid dat de desktop-app afspeelt als een taak klaar is. De vier geluiden daarna zijn de geluiden van de geluidsthema’s van de desktop-app.",
   "mobile.settings.notifications.soundFooterAndroid":
-    "Meldingen spelen dit geluid af. Het OpenBot-geluid is het geluid dat de desktop-app afspeelt als een taak klaar is. De vier geluiden daarna zijn de geluiden van de geluidsthema’s van de desktop-app.",
+    "Meldingen spelen dit geluid af. Het Builders Bot-geluid is het geluid dat de desktop-app afspeelt als een taak klaar is. De vier geluiden daarna zijn de geluiden van de geluidsthema’s van de desktop-app.",
   "mobile.settings.notifications.notifyAbout": "Meld mij over",
   "mobile.settings.notifications.level.all": "Alle activiteit",
   "mobile.settings.notifications.level.needsMe": "Alleen als het mij nodig heeft",
@@ -137,7 +137,7 @@ export const messages = {
   "mobile.settings.notifications.serverFooter":
     "De gebeurtenissen van deze server die deze telefoon melden. De desktop-app heeft eigen instellingen.",
   "mobile.settings.notifications.serverUnsupported":
-    "Deze server kan geen meldingen versturen. Werk OpenBot bij op de computer waarop de server draait.",
+    "Deze server kan geen meldingen versturen. Werk Builders Bot bij op de computer waarop de server draait.",
   "mobile.settings.notifications.channel": "Agentmeldingen ({sound})",
   "mobile.settings.notifications.channelSilent": "Agentmeldingen (geen geluid)",
   "mobile.settings.privacy.title": "Privacy",
@@ -163,6 +163,6 @@ export const messages = {
   "mobile.settings.profile.accountSessions": "Accountsessies",
   "mobile.settings.profile.signOutTitle": "Uitloggen?",
   "mobile.settings.profile.signOutBody":
-    "Maak opnieuw verbinding door een nieuwe code te scannen in OpenBot op je desktop.",
+    "Maak opnieuw verbinding door een nieuwe code te scannen in Builders Bot op je desktop.",
   "mobile.settings.profile.signOut": "Uitloggen",
 } as const satisfies PartialTranslation<typeof source>;

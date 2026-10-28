@@ -8,10 +8,10 @@ export const messages = {
   "mcp.connect.close": "Cerrar el diálogo de conexión con {name}",
   "mcp.connect.getKey": "Obtener clave",
   "mcp.connect.keyDescription":
-    "Pega una credencial de tu cuenta de {name}. OpenBot se conecta con ella y la guarda en {host}.",
+    "Pega una credencial de tu cuenta de {name}. Builders Bot se conecta con ella y la guarda en {host}.",
   "mcp.connect.thisComputer": "este equipo",
   "mcp.connect.noCredentialDescription":
-    "{name} no solicita credenciales. OpenBot se conecta una vez para ver qué herramientas ofrece.",
+    "{name} no solicita credenciales. Builders Bot se conecta una vez para ver qué herramientas ofrece.",
   "mcp.connect.connect": "Conectar",
   "mcp.connect.required": "Obligatorio.",
   "mcp.connect.keptOn": "Se guarda en {host}.",
@@ -22,7 +22,7 @@ export const messages = {
   "mcp.local.address": "Dirección",
   "mcp.local.docs": "Guía de configuración",
   "mcp.signIn.description":
-    "Inicia sesión en tu cuenta de {name}. OpenBot obtiene las herramientas a las que puede acceder esa cuenta, pero no la contraseña.",
+    "Inicia sesión en tu cuenta de {name}. Builders Bot obtiene las herramientas a las que puede acceder esa cuenta, pero no la contraseña.",
   "mcp.signIn.waiting": "Esperando al navegador…",
   "mcp.signIn.continue": "Continuar en {name}",
   "mcp.signIn.pageDescription": "Esta página está abierta en el navegador de {host}. Inicia sesión aquí.",
@@ -58,12 +58,12 @@ export const messages = {
   "mcp.panel.changesNotSaved": "Cambios sin guardar",
   "mcp.panel.title": "Servidores MCP",
   "mcp.panel.description":
-    "Los servidores de Model Context Protocol proporcionan herramientas adicionales a los agentes de este servidor. Los agentes de Claude y Codex solo reciben los servidores de esta lista; los agentes de OpenCode y Grok también pueden iniciar servidores desde sus propios archivos de configuración.",
+    "Los servidores de Model Context Protocol proporcionan herramientas adicionales a los agentes de este servidor. Los agentes de Claude y Codex solo reciben los servidores de esta lista; los agentes de Builders y Grok también pueden iniciar servidores desde sus propios archivos de configuración.",
   "mcp.panel.connectCustom": "Conectar un MCP personalizado",
   "mcp.panel.empty": "Aún no hay servidores MCP.",
   "mcp.panel.enable": "Activar {name}",
   "mcp.panel.detailsTitle": "Detalles",
-  "mcp.panel.detailsDescription": "Asigna un nombre a este servidor y elige cómo accede OpenBot a él.",
+  "mcp.panel.detailsDescription": "Asigna un nombre a este servidor y elige cómo accede Builders Bot a él.",
   "mcp.panel.transport": "Transporte",
   "mcp.panel.name": "Nombre",
   "mcp.panel.namePlaceholder": "Nombre del servidor MCP",
@@ -114,16 +114,16 @@ export const messages = {
   "mcp.panel.signInTo": "Iniciar sesión en {name}",
   "mcp.panel.cancelSignInTo": "Cancelar inicio de sesión en {name}",
   "mcp.panel.signInWaiting": {
-    one: "Completa el inicio de sesión en tu navegador. OpenBot deja de esperar después de {count} minuto.",
-    other: "Completa el inicio de sesión en tu navegador. OpenBot deja de esperar después de {count} minutos.",
+    one: "Completa el inicio de sesión en tu navegador. Builders Bot deja de esperar después de {count} minuto.",
+    other: "Completa el inicio de sesión en tu navegador. Builders Bot deja de esperar después de {count} minutos.",
   },
   "mcp.panel.signInWaitingOn": {
-    one: "Abriendo la página de inicio de sesión en {host}. OpenBot deja de esperar después de {count} minuto.",
-    other: "Abriendo la página de inicio de sesión en {host}. OpenBot deja de esperar después de {count} minutos.",
+    one: "Abriendo la página de inicio de sesión en {host}. Builders Bot deja de esperar después de {count} minuto.",
+    other: "Abriendo la página de inicio de sesión en {host}. Builders Bot deja de esperar después de {count} minutos.",
   },
   "mcp.panel.appTitle": "App de inicio de sesión",
   "mcp.panel.appDescription":
-    "Usa una app OAuth que registraste con el proveedor del servidor. OpenBot la usa cuando el servidor no puede registrar OpenBot por sí mismo. Déjala vacía para que OpenBot se registre.",
+    "Usa una app OAuth que registraste con el proveedor del servidor. Builders Bot la usa cuando el servidor no puede registrar Builders Bot por sí mismo. Déjala vacía para que Builders Bot se registre.",
   "mcp.panel.appSaveFirst": "Primero guarda este servidor. Después puedes añadir una app de inicio de sesión.",
   "mcp.panel.appUrlChanged":
     "Primero guarda la nueva URL del servidor. La app de inicio de sesión pertenece a la URL guardada.",
@@ -147,17 +147,17 @@ export const messages = {
   "mcp.panel.appSaved": "App guardada. Inicia sesión para usarla.",
   "mcp.panel.appRemoved": "App eliminada.",
   "mcp.signIn.relayDescription":
-    "Comprueba que la página de inicio de sesión está en {page} y ábrela en tu navegador. Al terminar, OpenBot envía el inicio de sesión a {host}.",
+    "Comprueba que la página de inicio de sesión está en {page} y ábrela en tu navegador. Al terminar, Builders Bot envía el inicio de sesión a {host}.",
   "mcp.signIn.relayOpenDescription":
-    "Abre la página de inicio de sesión de {page} en tu navegador. Al terminar, pega aquí la dirección que muestra el navegador. Después, OpenBot envía el inicio de sesión a {host}.",
+    "Abre la página de inicio de sesión de {page} en tu navegador. Al terminar, pega aquí la dirección que muestra el navegador. Después, Builders Bot envía el inicio de sesión a {host}.",
   "mcp.signIn.relayDeviceDescription":
     "Comprueba que la página de inicio de sesión está en {page}, ábrela en tu navegador y termina allí. {host} detecta el inicio de sesión por sí mismo.",
   "mcp.signIn.relayOpen": "Abrir inicio de sesión",
-  "mcp.signIn.relayPasteHint": "Si el navegador no vuelve a OpenBot, copia la dirección que muestra y pégala aquí.",
+  "mcp.signIn.relayPasteHint": "Si el navegador no vuelve a Builders Bot, copia la dirección que muestra y pégala aquí.",
   "mcp.signIn.relayPasteRequired":
-    "OpenBot no puede obtener por sí solo el inicio de sesión del navegador. Al terminar, copia la dirección que muestra el navegador y pégala aquí.",
+    "Builders Bot no puede obtener por sí solo el inicio de sesión del navegador. Al terminar, copia la dirección que muestra el navegador y pégala aquí.",
   "mcp.signIn.relayAddress": "Dirección del navegador",
   "mcp.signIn.relaySend": "Enviar",
   "mcp.panel.callbackUrlRelayed":
-    "La página de inicio de sesión se abre en tu navegador y OpenBot en tu equipo envía el inicio de sesión a {host}. Añade exactamente esta URL a las URL de redirección permitidas de la app.",
+    "La página de inicio de sesión se abre en tu navegador y Builders Bot en tu equipo envía el inicio de sesión a {host}. Añade exactamente esta URL a las URL de redirección permitidas de la app.",
 } as const satisfies PartialTranslation<typeof source>;

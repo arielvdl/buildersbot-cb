@@ -16,7 +16,7 @@ import {
 import { recordRestartActivity } from "../restart-activity";
 
 const CODEX_LOGIN_TIMEOUT_MS = 10 * 60_000;
-const UNVERIFIED_MESSAGE = "OpenBot could not verify the ChatGPT connection. Try again.";
+const UNVERIFIED_MESSAGE = "Builders Bot could not verify the ChatGPT connection. Try again.";
 
 interface PendingCodexLogin {
   client: AgentClient;
@@ -95,7 +95,7 @@ export class CodexLoginFlow {
         this.#track(client, cli, login.loginId);
         const opened = yield* Effect.result(loginIo(() => openExternal(login.authUrl)));
         if (Result.isFailure(opened)) {
-          yield* this.cancel("OpenBot could not open the ChatGPT connection page.");
+          yield* this.cancel("Builders Bot could not open the ChatGPT connection page.");
           return yield* new CodexLoginFailed({ cause: new Error(sourceText("error.provider.chatgptPageFailed")) });
         }
       }),
@@ -264,7 +264,7 @@ export class CodexLoginFlow {
               .request(
                 "initialize",
                 {
-                  clientInfo: { name: "openbot", title: "OpenBot", version: "0.1.0" },
+                  clientInfo: { name: "openbot", title: "Builders Bot", version: "0.1.0" },
                   capabilities: { experimentalApi: true, mcpServerOpenaiFormElicitation: true },
                 },
                 decodeRecordResponse,
@@ -308,7 +308,7 @@ export class CodexLoginFlow {
   /**
    * Holds a started login open until the provider reports it finished, or until it times out.
    *
-   * The deadline is OpenBot's, not the provider's. The code flow counts down to the same moment on
+   * The deadline is Builders Bot's, not the provider's. The code flow counts down to the same moment on
    * screen, so the number the user reads is the one this timer acts on.
    */
   #track(client: AgentClient, cli: CodexCliInfo, loginId: string): PendingCodexLogin {

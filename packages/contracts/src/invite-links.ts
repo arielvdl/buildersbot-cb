@@ -1,4 +1,4 @@
-import { isOpenBotTeamApiHostname } from "./validation";
+import { isBuildersBotTeamApiHostname } from "./validation";
 
 export const OPENBOT_INVITE_ORIGIN = "https://openbot.run";
 export const OPENBOT_INVITE_PATH = "/join";
@@ -80,21 +80,21 @@ export function selfHostedApiOrigin(apiUrl: string | undefined): string | undefi
 export function createInviteUrl(payload: InviteLinkPayload, options: InviteLinkOptions = {}): string {
   validatePayload(payload, options);
   // Our website does not open a self-hosted invitation, and must not receive its token.
-  if (isSelfHostedApiUrl(new URL(payload.apiUrl), options)) return createOpenBotInviteUrl(payload, options);
+  if (isSelfHostedApiUrl(new URL(payload.apiUrl), options)) return createBuildersBotInviteUrl(payload, options);
   const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_INVITE_ORIGIN);
   writePayload(url, payload);
   return url.toString();
 }
 
-export function createOpenBotInviteUrl(payload: InviteLinkPayload, options: InviteLinkOptions = {}): string {
+export function createBuildersBotInviteUrl(payload: InviteLinkPayload, options: InviteLinkOptions = {}): string {
   validatePayload(payload, options);
   const url = new URL("openbot://join");
   writePayload(url, payload);
   return url.toString();
 }
 
-export function toOpenBotInviteUrl(value: string, options: InviteLinkOptions = {}): string {
-  return createOpenBotInviteUrl(parseInviteUrl(value, options), options);
+export function toBuildersBotInviteUrl(value: string, options: InviteLinkOptions = {}): string {
+  return createBuildersBotInviteUrl(parseInviteUrl(value, options), options);
 }
 
 /**
@@ -141,7 +141,7 @@ export function parseInviteUrl(value: string, options: InviteLinkOptions = {}): 
   try {
     url = new URL(value);
   } catch {
-    throw new Error("Enter a valid OpenBot invitation link.");
+    throw new Error("Enter a valid Builders Bot invitation link.");
   }
 
   const canonical =
@@ -156,7 +156,7 @@ export function parseInviteUrl(value: string, options: InviteLinkOptions = {}): 
     url.hash !== "" ||
     !hasOnlyInviteFields(url.searchParams)
   ) {
-    throw new Error("The OpenBot invitation link is invalid.");
+    throw new Error("The Builders Bot invitation link is invalid.");
   }
 
   const payload: InviteLinkPayload = {
@@ -189,7 +189,7 @@ export function isValidRemoteApiUrl(value: string, options: InviteLinkOptions = 
           url.port === "" &&
           (url.origin === OPENBOT_CONTROL_PLANE_ORIGIN ||
             TRY_CLOUDFLARE_HOST_PATTERN.test(url.hostname) ||
-            isOpenBotTeamApiHostname(url.hostname))))
+            isBuildersBotTeamApiHostname(url.hostname))))
     );
   } catch {
     return false;
@@ -207,7 +207,7 @@ function validatePayload(payload: InviteLinkPayload, options: InviteLinkOptions)
     !BASE64URL_SECRET_PATTERN.test(payload.fingerprint) ||
     !BASE64URL_SECRET_PATTERN.test(payload.token)
   ) {
-    throw new Error("The OpenBot invitation link is invalid.");
+    throw new Error("The Builders Bot invitation link is invalid.");
   }
 }
 

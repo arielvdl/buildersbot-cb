@@ -4,6 +4,7 @@ import type { messages as source } from "../../en/status/agent";
 export const messages = {
   "status.agent.claudeWriteOutside":
     "Gravar em {path}, fora do espaço de trabalho do agente, da pasta compartilhada e das pastas temporárias.",
+  "status.agent.securityScan": "Verificação de injeção de prompt: {finding}",
   "status.agent.contextCleared": "Contexto limpo. Um novo chat começa aqui.",
   "status.agent.modelSwitchedForLimit": "Limite de uso atingido. O modelo mudou para {model}.",
   "status.agent.modelReturnedAfterLimit": "O limite de uso terminou. O modelo voltou para {model}.",

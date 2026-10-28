@@ -15,7 +15,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { DynamicRecord } from "@openbot/contracts/runtime-values";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 import recordedSchemaHistory from "./openbot-database-schema-history.json";
 
 const appliedAt = "2026-09-03T10:00:00.000Z";
@@ -28,7 +28,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-describe("OpenBot database build paths", () => {
+describe("Builders Bot database build paths", () => {
   it("gives a new install the same tables, columns, indexes and foreign keys as an upgraded one", async () => {
     const fresh = await newInstallDatabase();
     const upgraded = await upgradedInstallDatabase();
@@ -56,7 +56,7 @@ describe("OpenBot database build paths", () => {
 // version added, changed or dropped, as normalized DDL, with `null` for a dropped declaration. The
 // entries only grow. A change to a recorded entry is allowed only for a version that has not shipped.
 // Data-only statements, such as an UPDATE, leave no trace in the schema, so review still covers them.
-describe("OpenBot database migration history", () => {
+describe("Builders Bot database migration history", () => {
   it("keeps the schema change of every recorded migration", async () => {
     const actual = await schemaChangesByVersion();
 
@@ -96,7 +96,7 @@ async function schemaChangesByVersion(): Promise<Record<string, SchemaChanges>> 
       BEGIN SELECT RAISE(ABORT, '${STOP_MESSAGE}'); END;
     `);
     try {
-      migrateOpenBotDatabase(database, { appliedAt });
+      migrateBuildersBotDatabase(database, { appliedAt });
     } catch (error) {
       if (!(error instanceof Error && error.cause instanceof Error && error.cause.message.includes(STOP_MESSAGE))) {
         throw error;
@@ -124,11 +124,11 @@ function diffDeclarations(before: ReadonlyMap<string, string>, after: ReadonlyMa
   return changes;
 }
 
-// An empty database has no tables, so `migrateOpenBotDatabase` takes the
+// An empty database has no tables, so `migrateBuildersBotDatabase` takes the
 // `createLatestDatabase` branch - the path every new install follows.
 async function newInstallDatabase(): Promise<DatabaseSync> {
   const database = await openDatabase();
-  migrateOpenBotDatabase(database, { appliedAt });
+  migrateBuildersBotDatabase(database, { appliedAt });
   return database;
 }
 
@@ -142,7 +142,7 @@ async function newInstallDatabase(): Promise<DatabaseSync> {
 async function upgradedInstallDatabase(): Promise<DatabaseSync> {
   const database = await openDatabase();
   database.exec("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-  migrateOpenBotDatabase(database, { appliedAt });
+  migrateBuildersBotDatabase(database, { appliedAt });
   return database;
 }
 

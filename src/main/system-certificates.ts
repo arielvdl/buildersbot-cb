@@ -5,7 +5,7 @@ import { getCACertificates, setDefaultCACertificates } from "node:tls";
 // as Fortinet or Zscaler, re-signs every connection with such a root. Sign-in and team calls then
 // fail although the same address opens in a browser. Adding the system roots gives the main process
 // the trust that Chromium already has; it does not turn off verification. The setting applies to
-// this process only: agent CLIs that OpenBot starts keep their own trust rules.
+// this process only: agent CLIs that Builders Bot starts keep their own trust rules.
 export function trustSystemCertificates(): void {
   const system = getCACertificates("system");
   if (system.length === 0) return;

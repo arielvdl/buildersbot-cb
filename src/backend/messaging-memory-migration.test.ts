@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: the upgrade changes or loses a row of any table; a failed upgrade leaves the table
 // or its marker; a newer or incomplete history is accepted; a memory can point to no connection; a
@@ -22,7 +22,7 @@ function databaseAt(version: number): DatabaseSync {
 function migrateUpTo(db: DatabaseSync, version: number): void {
   db.exec(`CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
 }
 
@@ -74,7 +74,7 @@ describe("messaging memory migration", () => {
       if (version < 35) migrateUpTo(db, 35);
       if (version < 25) seedConnection(db);
       const before = contents(db);
-      migrateOpenBotDatabase(db);
+      migrateBuildersBotDatabase(db);
       expect(contents(db)).toEqual({
         ...before,
         projection_messaging_memories: [],
@@ -107,13 +107,13 @@ describe("messaging memory migration", () => {
     const before = contents(db);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=36
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 36 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 36 failed");
     expect(contents(db)).toEqual(before);
     expect(memoryTables(db)).toEqual([]);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version=36").all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(contents(db)).toEqual({
       ...before,
       projection_messaging_memories: [],
@@ -140,16 +140,16 @@ describe("messaging memory migration", () => {
     const db = databaseAtWithSeed(35);
     const before = contents(db);
     db.exec("INSERT INTO schema_migrations VALUES(48,'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version=48; DELETE FROM schema_migrations WHERE version=20");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(memoryTables(db)).toEqual([]);
   });
 
   it("refuses a memory of no connection, and keeps a connection that has memories", () => {
     const db = databaseAtWithSeed(35);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     const insert = db.prepare(`INSERT INTO projection_messaging_memories
       (memory_id, connection_id, text, normalized_text, origin, source_turn_id, created_at, updated_at,
        last_event_sequence)

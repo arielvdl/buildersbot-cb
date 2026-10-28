@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/auth";
 
 export const messages = {
-  "mobile.auth.logo.animate": "OpenBot-Logo animieren",
+  "mobile.auth.logo.animate": "Builders Bot-Logo animieren",
   "mobile.auth.logo.animateHint": "Lässt das Logo zwinkern",
   "mobile.auth.scanQrCode": "QR-Code scannen",
   "mobile.auth.closeScanner": "Scanner schließen",
@@ -16,20 +16,20 @@ export const messages = {
   "mobile.auth.scanner.verifying": "Der Einmalcode wird überprüft.",
   "mobile.auth.scanner.checkingServer": "Die Identität des Servers wird geprüft.",
   "mobile.auth.scanner.keepCentered": "Halte den QR-Code mittig im Rahmen.",
-  "mobile.auth.scanner.connectFallback": "OpenBot konnte dieses Telefon nicht verbinden.",
+  "mobile.auth.scanner.connectFallback": "Builders Bot konnte dieses Telefon nicht verbinden.",
   "mobile.auth.scanner.cameraFailed": "Die Kamera konnte nicht gestartet werden. Versuche es erneut.",
   "mobile.auth.camera.title": "Kamerazugriff erforderlich",
   "mobile.auth.camera.pairingReason":
-    "OpenBot verwendet die Kamera nur, um den einmaligen QR-Code aus der Desktop-App zu scannen.",
-  "mobile.auth.camera.invitationReason": "OpenBot verwendet die Kamera nur, um den QR-Code der Einladung zu scannen.",
+    "Builders Bot verwendet die Kamera nur, um den einmaligen QR-Code aus der Desktop-App zu scannen.",
+  "mobile.auth.camera.invitationReason": "Builders Bot verwendet die Kamera nur, um den QR-Code der Einladung zu scannen.",
   "mobile.auth.camera.blocked":
-    "Der Kamerazugriff ist blockiert. Aktiviere ihn für OpenBot in den Geräteeinstellungen und kehre dann hierher zurück, um den Code zu scannen.",
+    "Der Kamerazugriff ist blockiert. Aktiviere ihn für Builders Bot in den Geräteeinstellungen und kehre dann hierher zurück, um den Code zu scannen.",
   "mobile.auth.camera.allow": "Kamerazugriff erlauben",
   "mobile.auth.camera.openSettings": "Einstellungen öffnen",
   "mobile.auth.signIn.title": "Deine Agenten, überall.",
-  "mobile.auth.signIn.subtitle": "Verbinde dich mit OpenBot auf deinem Computer.",
+  "mobile.auth.signIn.subtitle": "Verbinde dich mit Builders Bot auf deinem Computer.",
   "mobile.auth.signIn.helpTitle": "Wo ist der QR-Code?",
-  "mobile.auth.signIn.helpStep1": "1. Öffne OpenBot auf deinem Computer.",
+  "mobile.auth.signIn.helpStep1": "1. Öffne Builders Bot auf deinem Computer.",
   "mobile.auth.signIn.helpStep2": "2. Gehe zu Einstellungen → Mobilverbindung.",
   "mobile.auth.signIn.helpStep3": "3. Wähle „QR-Code erstellen“ und scanne ihn dann hier.",
   "mobile.auth.signIn.emailButton": "Mit E-Mail fortfahren",
@@ -60,28 +60,28 @@ export const messages = {
   "mobile.auth.email.error.invalidEmail": "Gib eine gültige E-Mail-Adresse ein.",
   "mobile.auth.email.error.wait": "Warte, bevor du einen weiteren Code anforderst.",
   "mobile.auth.email.error.deliveryUnconfirmed":
-    "OpenBot konnte nicht bestätigen, dass der Code gesendet wurde. Prüfe die Zustellung, bevor du einen weiteren Code sendest.",
-  "mobile.auth.email.error.sendFailed": "OpenBot konnte den Code nicht senden. Versuche es erneut.",
+    "Builders Bot konnte nicht bestätigen, dass der Code gesendet wurde. Prüfe die Zustellung, bevor du einen weiteren Code sendest.",
+  "mobile.auth.email.error.sendFailed": "Builders Bot konnte den Code nicht senden. Versuche es erneut.",
   "mobile.auth.email.error.codeIncorrect": "Dieser Code ist falsch. Versuche es erneut.",
   "mobile.auth.email.error.codeExpired": "Dieser Code ist abgelaufen. Sende einen neuen Code.",
   "mobile.auth.email.error.tooManyAttempts": "Zu viele falsche Codes. Sende einen neuen Code.",
-  "mobile.auth.email.error.verifyFailed": "OpenBot konnte den Code nicht bestätigen. Versuche es erneut.",
+  "mobile.auth.email.error.verifyFailed": "Builders Bot konnte den Code nicht bestätigen. Versuche es erneut.",
   "mobile.auth.error.sessionEnded": "Deine Sitzung ist beendet. Melde dich erneut an.",
   "mobile.auth.error.connectionInProgress":
     "Eine andere Verbindung wird gerade hergestellt. Warte, bis sie abgeschlossen ist.",
-  "mobile.auth.error.invalidCode": "Dies ist kein gültiger Code für die OpenBot-Mobilverbindung.",
+  "mobile.auth.error.invalidCode": "Dies ist kein gültiger Code für die Builders Bot-Mobilverbindung.",
   "mobile.auth.error.codeOutdated":
     "Erstelle in einer aktualisierten Desktop-App einen neuen Code für die Mobilverbindung.",
   "mobile.auth.error.alreadySignedIn":
     "Du bist bereits angemeldet. Melde dich ab, bevor du ein anderes Konto verbindest.",
   "mobile.auth.error.desktopUnreachable":
-    "OpenBot konnte deinen Desktop nicht erreichen. Halte beide Geräte im selben WLAN und erlaube den Zugriff auf das lokale Netzwerk.",
+    "Builders Bot konnte deinen Desktop nicht erreichen. Halte beide Geräte im selben WLAN und erlaube den Zugriff auf das lokale Netzwerk.",
   "mobile.auth.error.accountServiceUnreachable":
-    "OpenBot konnte den Kontodienst nicht erreichen. Prüfe deine Verbindung und versuche es erneut.",
+    "Builders Bot konnte den Kontodienst nicht erreichen. Prüfe deine Verbindung und versuche es erneut.",
   "mobile.auth.error.codeExpired": "Dieser Code für die Mobilverbindung ist ungültig oder abgelaufen.",
   "mobile.auth.error.revokePreviousFailed":
     "Die vorherige mobile Sitzung konnte nicht widerrufen werden. Prüfe deine Verbindung und scanne erneut.",
-  "mobile.auth.error.verifyFailed": "OpenBot konnte diese mobile Sitzung nicht überprüfen.",
+  "mobile.auth.error.verifyFailed": "Builders Bot konnte diese mobile Sitzung nicht überprüfen.",
   "mobile.auth.error.sessionsLoadFailed": "Die Kontositzungen konnten nicht geladen werden. Versuche es erneut.",
   "mobile.auth.error.useSignOut": "Verwende „Abmelden“, um dieses Gerät zu trennen.",
   "mobile.auth.error.desktopSession": "Desktop-Sitzungen können nicht vom Mobilgerät aus getrennt werden.",

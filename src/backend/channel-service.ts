@@ -46,7 +46,7 @@ import {
 import { ChannelMemoryStore } from "./channel-memory-store";
 import { type ChannelAssignment, type ChannelContext, ChannelStore } from "./channel-store";
 import type { DeliveryContext, MailboxStore } from "./mailbox-store";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 import { extractJsonObject, StructuredOutputError } from "./structured-output";
 
 export interface ChannelHooks {
@@ -178,7 +178,7 @@ export class ChannelService {
   readonly #preparedChanges = new Map<string, number>();
 
   constructor(
-    database: OpenBotDatabase,
+    database: BuildersBotDatabase,
     readonly mailbox: MailboxStore,
     readonly hooks: ChannelHooks,
   ) {

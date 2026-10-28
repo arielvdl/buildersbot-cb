@@ -8,10 +8,10 @@ export const messages = {
   "mcp.connect.close": "Chiudi la finestra di connessione di {name}",
   "mcp.connect.getKey": "Ottieni una chiave",
   "mcp.connect.keyDescription":
-    "Incolla una credenziale del tuo account {name}. OpenBot si collega con quella e la conserva su {host}.",
+    "Incolla una credenziale del tuo account {name}. Builders Bot si collega con quella e la conserva su {host}.",
   "mcp.connect.thisComputer": "questo computer",
   "mcp.connect.noCredentialDescription":
-    "{name} non richiede credenziali. OpenBot si collega una volta per vedere quali tool offre.",
+    "{name} non richiede credenziali. Builders Bot si collega una volta per vedere quali tool offre.",
   "mcp.connect.connect": "Connetti",
   "mcp.connect.required": "Obbligatorio.",
   "mcp.connect.keptOn": "Conservata su {host}.",
@@ -22,7 +22,7 @@ export const messages = {
   "mcp.local.address": "Indirizzo",
   "mcp.local.docs": "Guida alla configurazione",
   "mcp.signIn.description":
-    "Accedi al tuo account {name}. OpenBot ottiene i tool raggiungibili da quell'account, senza password.",
+    "Accedi al tuo account {name}. Builders Bot ottiene i tool raggiungibili da quell'account, senza password.",
   "mcp.signIn.waiting": "In attesa del browser…",
   "mcp.signIn.continue": "Continua su {name}",
   "mcp.signIn.pageDescription": "Questa pagina è aperta nel browser su {host}. Accedi da lì.",
@@ -55,12 +55,12 @@ export const messages = {
   "mcp.panel.changesNotSaved": "Modifiche non salvate",
   "mcp.panel.title": "Server MCP",
   "mcp.panel.description":
-    "I server Model Context Protocol danno agli agenti di questo server tool in più. Gli agenti Claude e Codex usano solo i server di questo elenco; gli agenti OpenCode e Grok possono avviare server anche dai propri file di configurazione.",
+    "I server Model Context Protocol danno agli agenti di questo server tool in più. Gli agenti Claude e Codex usano solo i server di questo elenco; gli agenti Builders e Grok possono avviare server anche dai propri file di configurazione.",
   "mcp.panel.connectCustom": "Connetti un MCP personalizzato",
   "mcp.panel.empty": "Ancora nessun server MCP.",
   "mcp.panel.enable": "Attiva {name}",
   "mcp.panel.detailsTitle": "Dettagli",
-  "mcp.panel.detailsDescription": "Dai un nome a questo server e scegli come OpenBot lo raggiunge.",
+  "mcp.panel.detailsDescription": "Dai un nome a questo server e scegli come Builders Bot lo raggiunge.",
   "mcp.panel.transport": "Trasporto",
   "mcp.panel.name": "Nome",
   "mcp.panel.namePlaceholder": "Nome del server MCP",
@@ -111,16 +111,16 @@ export const messages = {
   "mcp.panel.signInTo": "Accedi a {name}",
   "mcp.panel.cancelSignInTo": "Annulla accesso a {name}",
   "mcp.panel.signInWaiting": {
-    one: "Completa l'accesso nel browser. OpenBot smette di aspettare dopo {count} minuto.",
-    other: "Completa l'accesso nel browser. OpenBot smette di aspettare dopo {count} minuti.",
+    one: "Completa l'accesso nel browser. Builders Bot smette di aspettare dopo {count} minuto.",
+    other: "Completa l'accesso nel browser. Builders Bot smette di aspettare dopo {count} minuti.",
   },
   "mcp.panel.signInWaitingOn": {
-    one: "Apertura della pagina di accesso su {host}. OpenBot smette di aspettare dopo {count} minuto.",
-    other: "Apertura della pagina di accesso su {host}. OpenBot smette di aspettare dopo {count} minuti.",
+    one: "Apertura della pagina di accesso su {host}. Builders Bot smette di aspettare dopo {count} minuto.",
+    other: "Apertura della pagina di accesso su {host}. Builders Bot smette di aspettare dopo {count} minuti.",
   },
   "mcp.panel.appTitle": "App di accesso",
   "mcp.panel.appDescription":
-    "Usa un'app OAuth che hai registrato presso il provider del server. OpenBot la usa quando il server non può registrare OpenBot da solo. Lascia vuoto per far registrare OpenBot.",
+    "Usa un'app OAuth che hai registrato presso il provider del server. Builders Bot la usa quando il server non può registrare Builders Bot da solo. Lascia vuoto per far registrare Builders Bot.",
   "mcp.panel.appSaveFirst": "Prima salva questo server. Poi puoi aggiungere un'app di accesso.",
   "mcp.panel.appUrlChanged": "Prima salva il nuovo URL del server. L'app di accesso appartiene all'URL salvato.",
   "mcp.panel.appLoadFailed": "Impossibile leggere l'app di accesso.",
@@ -144,17 +144,17 @@ export const messages = {
   "mcp.panel.appSaved": "App salvata. Accedi per usarla.",
   "mcp.panel.appRemoved": "App rimossa.",
   "mcp.signIn.relayDescription":
-    "Controlla che la pagina di accesso sia su {page}, poi aprila nel browser. Quando hai finito, OpenBot invia l'accesso a {host}.",
+    "Controlla che la pagina di accesso sia su {page}, poi aprila nel browser. Quando hai finito, Builders Bot invia l'accesso a {host}.",
   "mcp.signIn.relayOpenDescription":
-    "Apri nel browser la pagina di accesso di {page}. Quando hai finito, incolla qui l'indirizzo che mostra il browser. OpenBot poi invia l'accesso a {host}.",
+    "Apri nel browser la pagina di accesso di {page}. Quando hai finito, incolla qui l'indirizzo che mostra il browser. Builders Bot poi invia l'accesso a {host}.",
   "mcp.signIn.relayDeviceDescription":
     "Controlla che la pagina di accesso sia su {page}, poi aprila nel browser e completa l'accesso lì. {host} vede l'accesso da solo.",
   "mcp.signIn.relayOpen": "Apri la pagina di accesso",
-  "mcp.signIn.relayPasteHint": "Se il browser non torna a OpenBot, copia l'indirizzo che mostra e incollalo qui.",
+  "mcp.signIn.relayPasteHint": "Se il browser non torna a Builders Bot, copia l'indirizzo che mostra e incollalo qui.",
   "mcp.signIn.relayPasteRequired":
-    "OpenBot non può ottenere l'accesso dal browser da solo. Quando hai finito, copia l'indirizzo che mostra il browser e incollalo qui.",
+    "Builders Bot non può ottenere l'accesso dal browser da solo. Quando hai finito, copia l'indirizzo che mostra il browser e incollalo qui.",
   "mcp.signIn.relayAddress": "Indirizzo del browser",
   "mcp.signIn.relaySend": "Invia",
   "mcp.panel.callbackUrlRelayed":
-    "La pagina di accesso si apre nel tuo browser, e OpenBot sul tuo computer invia l'accesso a {host}. Aggiungi esattamente questo URL agli URL di reindirizzamento consentiti dell'app.",
+    "La pagina di accesso si apre nel tuo browser, e Builders Bot sul tuo computer invia l'accesso a {host}. Aggiungi esattamente questo URL agli URL di reindirizzamento consentiti dell'app.",
 } as const satisfies PartialTranslation<typeof source>;

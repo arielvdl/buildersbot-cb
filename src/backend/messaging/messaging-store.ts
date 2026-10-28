@@ -9,7 +9,7 @@ import {
   requiredNumberColumn,
   requiredStringColumn,
 } from "../database/database-rows";
-import type { OpenBotDatabase } from "../openbot-database";
+import type { BuildersBotDatabase } from "../openbot-database";
 
 /** One workspace of a platform, where every agent of this computer can answer. */
 export interface MessagingConnectionRecord {
@@ -41,7 +41,7 @@ export interface MessagingLink {
   updatedAt: string;
 }
 
-/** A role whose members can use OpenBot in one connection, by the name the user chose it from. */
+/** A role whose members can use Builders Bot in one connection, by the name the user chose it from. */
 export interface MessagingAllowedRole {
   id: string;
   name: string;
@@ -68,9 +68,9 @@ const LINK_LIST_LIMIT = 200;
  * payload holds ids only: the event log is append-only and must not keep external text.
  */
 export class MessagingStore {
-  readonly #database: OpenBotDatabase;
+  readonly #database: BuildersBotDatabase;
 
-  constructor(database: OpenBotDatabase) {
+  constructor(database: BuildersBotDatabase) {
     this.#database = database;
   }
 
@@ -144,7 +144,7 @@ export class MessagingStore {
       );
   }
 
-  /** The roles whose members can use OpenBot here. Empty lets everyone. */
+  /** The roles whose members can use Builders Bot here. Empty lets everyone. */
   allowedRoles(connectionId: string): MessagingAllowedRole[] {
     return databaseRows(
       this.#database.connection

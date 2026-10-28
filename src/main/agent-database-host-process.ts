@@ -14,7 +14,7 @@ import type { AgentDatabaseHostProcess, AgentDatabaseResponse } from "../backend
 
 export function spawnAgentDatabaseHost(): AgentDatabaseHostProcess {
   const child = utilityProcess.fork(join(__dirname, "agent-database-host.js"), [], {
-    serviceName: "OpenBot databases",
+    serviceName: "Builders Bot databases",
     stdio: "ignore",
   });
   return {

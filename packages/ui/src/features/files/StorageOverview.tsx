@@ -45,7 +45,7 @@ export interface StorageOverviewProps {
   /** ISO time of the last completed scan. */
   scannedAt?: string | null;
   breakdown: readonly StorageBreakdown[];
-  /** Free space on the disk that holds the OpenBot folder. */
+  /** Free space on the disk that holds the Builders Bot folder. */
   freeBytes?: number | null;
   agents: readonly AgentProfile[];
   agentUsage: readonly AgentStorageRow[];
@@ -71,7 +71,7 @@ export interface StorageOverviewProps {
 const LARGEST_CHATS = 5;
 
 /**
- * The Storage page: how much space OpenBot takes on one computer, which agents and chats take it,
+ * The Storage page: how much space Builders Bot takes on one computer, which agents and chats take it,
  * every file in one list, and what can go without losing work. Chats and workspaces are never
  * cleared from here; the user deletes them where they live.
  */

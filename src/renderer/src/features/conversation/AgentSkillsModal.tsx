@@ -732,7 +732,7 @@ function isBuiltInSkill(skill: InstalledSkill): boolean {
   );
 }
 
-/** A skill in a skill folder that OpenBot lists but does not manage. */
+/** A skill in a skill folder that Builders Bot lists but does not manage. */
 function isFolderSkill(skill: InstalledSkill): boolean {
   return skill.origin === "workspace";
 }
@@ -749,7 +749,7 @@ function userAssignedSkills(skills: InstalledSkill[]): InstalledSkill[] {
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-/** A skill in a folder OpenBot did not write is not an assignment, so it does not count toward the cap. */
+/** A skill in a folder Builders Bot did not write is not an assignment, so it does not count toward the cap. */
 export function assignedSkillCount(skills: InstalledSkill[]): number {
   return skills.filter((skill) => !isBuiltInSkill(skill) && !isFolderSkill(skill)).length;
 }

@@ -46,15 +46,19 @@ export function agentComputerUseEnabled(agent: { computerUse?: boolean | undefin
 }
 
 /** The agent settings that have an account default. An agent with no value of its own follows it. */
-export const AGENT_DEFAULT_KEYS = ["allowAutomation", "allowNewChat", "quickAcknowledgement"] as const;
+export const AGENT_DEFAULT_KEYS = ["allowAutomation", "allowNewChat", "quickAcknowledgement", "securityGuard"] as const;
 export type AgentDefaultKey = (typeof AGENT_DEFAULT_KEYS)[number];
 export type AgentDefaults = Record<AgentDefaultKey, boolean>;
 
-/** Off, which is what every agent had before the defaults existed. */
+/**
+ * The automation and plan settings are off, which is what every agent had before the defaults
+ * existed. The security guard is on: it is the protection every agent has until the user turns it off.
+ */
 export const DEFAULT_AGENT_DEFAULTS: AgentDefaults = {
   allowAutomation: false,
   allowNewChat: false,
   quickAcknowledgement: false,
+  securityGuard: true,
 };
 
 export function isAgentDefaults(value: unknown): value is AgentDefaults {
@@ -77,6 +81,17 @@ export function agentQuickAcknowledgementEnabled(
   defaults: AgentDefaults,
 ): boolean {
   return agent.quickAcknowledgement ?? defaults.quickAcknowledgement;
+}
+
+/**
+ * Whether a security scan reads each message before its turn and tells the agent what it found.
+ * Absent means the account default, which is on; see `DEFAULT_AGENT_DEFAULTS`.
+ */
+export function agentSecurityGuardEnabled(
+  agent: { securityGuard?: boolean | undefined },
+  defaults: AgentDefaults,
+): boolean {
+  return agent.securityGuard ?? defaults.securityGuard;
 }
 
 /**
@@ -238,6 +253,12 @@ export interface AgentSummary {
    */
   quickAcknowledgement?: boolean;
   /**
+   * Whether a security scan reads each message the agent receives before its turn, checks it for
+   * prompt injection, and puts what it found in front of the message. Local-only, like `access`.
+   * Absent means the account default, which is on; see `agentSecurityGuardEnabled`.
+   */
+  securityGuard?: boolean;
+  /**
    * Whether the browser tabs of the agent use a session of their own, with their own cookies and
    * sign-ins. Local-only, like `access`. Absent means off: the tabs use the shared session. When
    * `browserProfileId` is also set, the named profile applies; see `agentBrowserProfile`.
@@ -246,12 +267,12 @@ export interface AgentSummary {
   /**
    * The named browser profile that the tabs of the agent use. Local-only, like `access`. It comes
    * before `ownBrowserSession`; see `agentBrowserProfile`. The agent store also sets
-   * `ownBrowserSession` with it, so an older OpenBot opens the agent's own session, never the shared one.
+   * `ownBrowserSession` with it, so an older Builders Bot opens the agent's own session, never the shared one.
    */
   browserProfileId?: string;
   /**
    * Whether the agent asks Codex for the fast service tier of its model. Local-only, like `access`.
-   * Absent means that OpenBot leaves the tier to Codex.
+   * Absent means that Builders Bot leaves the tier to Codex.
    */
   fastMode?: boolean;
   /**
@@ -308,7 +329,7 @@ export function isAgentSummary(value: unknown): value is AgentSummary {
 }
 
 /**
- * An agent that a client reads from a host. A newer host can run it on a provider that this OpenBot
+ * An agent that a client reads from a host. A newer host can run it on a provider that this Builders Bot
  * does not know; the agent stays listed, and its chat works because the host runs it.
  */
 export type ClientAgentSummary = Omit<AgentSummary, "provider"> & { provider: AgentProviderRef };
@@ -333,6 +354,7 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.allowAutomation === undefined || isBoolean(value.allowAutomation)) &&
     (value.allowNewChat === undefined || isBoolean(value.allowNewChat)) &&
     (value.quickAcknowledgement === undefined || isBoolean(value.quickAcknowledgement)) &&
+    (value.securityGuard === undefined || isBoolean(value.securityGuard)) &&
     (value.ownBrowserSession === undefined || isBoolean(value.ownBrowserSession)) &&
     (value.browserProfileId === undefined || isBrowserProfileId(value.browserProfileId)) &&
     (value.fastMode === undefined || isBoolean(value.fastMode)) &&
@@ -386,6 +408,8 @@ export interface UpdateAgentInput {
   allowAutomation?: boolean | null;
   allowNewChat?: boolean | null;
   quickAcknowledgement?: boolean | null;
+  /** `null` returns the agent to the account default, which is on. */
+  securityGuard?: boolean | null;
   fastMode?: boolean;
   /** `null` returns the agent to the app default. */
   busyMessageMode?: BusyMessageMode | null;

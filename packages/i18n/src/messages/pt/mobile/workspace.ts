@@ -19,7 +19,7 @@ export const messages = {
   "mobile.workspace.error.removeOwnedServerOnly": "Somente o proprietário pode remover este servidor.",
   "mobile.workspace.error.agentNotOnHost": "O agente não está neste computador anfitrião.",
   "mobile.workspace.error.filesUnsupported":
-    "Este computador anfitrião não permite gerenciar arquivos. Atualize o OpenBot nele.",
+    "Este computador anfitrião não permite gerenciar arquivos. Atualize o Builders Bot nele.",
   "mobile.workspace.error.agentUnavailableOnHost": "O agente está indisponível neste computador anfitrião.",
   "mobile.workspace.error.agentUnavailable": "O agente está indisponível.",
   "mobile.workspace.error.formUnavailable": "Este formulário não está mais disponível.",

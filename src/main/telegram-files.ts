@@ -1,4 +1,4 @@
-// The files of the OpenBot Telegram bot, over HTTPS to Signal: Signal holds the bot token, so it
+// The files of the Builders Bot Telegram bot, over HTTPS to Signal: Signal holds the bot token, so it
 // fetches a file from Telegram, and posts a document to Telegram, for a token it signed. Nothing here
 // logs a token or a file.
 

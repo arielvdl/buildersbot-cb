@@ -1,9 +1,9 @@
 // The seam between the platform-agnostic messaging core and one chat platform. A platform is one
-// `MessagingDriver`: an adapter for its API and a transport for its inbound events. The OpenBot
+// `MessagingDriver`: an adapter for its API and a transport for its inbound events. The Builders Bot
 // Slack app uses the Events API: Slack posts to Signal, Signal checks Slack's signature, and passes
 // each request of a workspace linked to this host over the `MessagingIngress` socket, which the host
-// opens. The OpenBot Discord app's Gateway connection is in Signal, which holds the bot token: Signal
-// passes each guild's events over the same socket and makes the host's Discord calls. The OpenBot
+// opens. The Builders Bot Discord app's Gateway connection is in Signal, which holds the bot token: Signal
+// passes each guild's events over the same socket and makes the host's Discord calls. The Builders Bot
 // Telegram bot works the same way: Telegram posts each update to Signal, which passes it over the same
 // socket, and the host calls the Bot API through Signal, which holds the bot token. No transport needs
 // a public endpoint on the host.
@@ -25,7 +25,7 @@ export interface MessageTarget {
   replyThreadId: string | null;
 }
 
-/** A channel, thread or chat that OpenBot can post in, for the agent's `messaging_list_places` tool. */
+/** A channel, thread or chat that Builders Bot can post in, for the agent's `messaging_list_places` tool. */
 export interface MessagingPlace {
   id: string;
   name: string;
@@ -40,7 +40,7 @@ export interface InboundFile {
   url: string;
 }
 
-/** One message that addresses OpenBot, in the same shape for every platform. */
+/** One message that addresses Builders Bot, in the same shape for every platform. */
 export interface InboundMessage {
   /** Stable for one message across redeliveries. */
   dedupKey: string;
@@ -50,12 +50,12 @@ export interface InboundMessage {
   target: MessageTarget;
   platformMessageId: string;
   isDirect: boolean;
-  /** True for a reply that does not name OpenBot: it counts only in a conversation that already has an agent. */
+  /** True for a reply that does not name Builders Bot: it counts only in a conversation that already has an agent. */
   requiresLink: boolean;
   authorId: string;
   /** Text with each user mention as `@<user id>`; `mentionedUserIds` lists those ids. */
   text: string;
-  /** The users the text mentions, without OpenBot, so the service can name them. */
+  /** The users the text mentions, without Builders Bot, so the service can name them. */
   mentionedUserIds: string[];
   files: InboundFile[];
   /**
@@ -183,12 +183,12 @@ export interface MessagingAdapter {
   download(file: InboundFile, destination: string, maxBytes: number): Effect.Effect<void, MessagingAdapterError>;
   authorName(userId: string): Effect.Effect<string, MessagingAdapterError>;
   placeName(platformChannelId: string): Effect.Effect<string, MessagingAdapterError>;
-  /** The places of this connection that OpenBot can post in now. */
+  /** The places of this connection that Builders Bot can post in now. */
   places(): Effect.Effect<MessagingPlace[], MessagingAdapterError>;
   /** The roles a person can have in this workspace, highest first, for a platform with role lists. */
   roles?(): Effect.Effect<Array<{ id: string; name: string }>, MessagingAdapterError>;
   mention(userId: string): string;
-  /** Joins every public place the platform lets OpenBot join without an invitation. */
+  /** Joins every public place the platform lets Builders Bot join without an invitation. */
   joinPublicPlaces?(): Effect.Effect<void, MessagingAdapterError>;
   /** Joins one public place, such as a channel that was just created. */
   joinPlace?(platformChannelId: string): Effect.Effect<void, MessagingAdapterError>;
@@ -198,7 +198,7 @@ export interface TransportSink {
   state(state: MessagingConnectionState, detail?: { retryAt?: string }): void;
   message(message: InboundMessage): void;
   action(action: InboundAction): void;
-  /** A public place was created that OpenBot can join. */
+  /** A public place was created that Builders Bot can join. */
   placeCreated?(platformChannelId: string): void;
   /** The workspace, such as a Telegram chat, has a new name. */
   renamed?(workspaceName: string): void;
@@ -250,7 +250,7 @@ export type IngressHandler = (
 ) => Effect.Effect<IngressAnswer, MessagingOperationFailed>;
 
 /**
- * The Bot API of the OpenBot Telegram bot, through Signal, which holds the token. Signal accepts a
+ * The Bot API of the Builders Bot Telegram bot, through Signal, which holds the token. Signal accepts a
  * call only for a chat routed to this host.
  */
 export interface TelegramGateway {

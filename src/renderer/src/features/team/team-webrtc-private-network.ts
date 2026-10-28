@@ -2,7 +2,7 @@
  * The private network route: a connection to this host uses only addresses on a local or private
  * network, such as the Wi-Fi or a Tailscale tailnet. The host gets no STUN or TURN servers, so it
  * has no relayed or server-reflexive candidates, and these filters remove every other candidate
- * that names a public address. Chats and files then never go through OpenBot servers.
+ * that names a public address. Chats and files then never go through Builders Bot servers.
  */
 
 /** Whether an ICE candidate line names a host address on a private network, or an mDNS name. */

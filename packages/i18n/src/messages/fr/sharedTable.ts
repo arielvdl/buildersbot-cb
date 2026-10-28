@@ -11,7 +11,7 @@ export const messages = {
     "Aucune table pour le moment. Un agent en crée une lui-même quand une tâche a besoin d’enregistrements entre les tours, et chaque agent peut l’utiliser.",
   "sharedTable.loadFailed": "Impossible de charger les tables.",
   "sharedTable.deleteFailed": "Impossible de supprimer cet élément.",
-  "sharedTable.madeOutside": "Créée hors d’OpenBot · n’importe quel agent peut la supprimer",
+  "sharedTable.madeOutside": "Créée hors d’Builders Bot · n’importe quel agent peut la supprimer",
   "sharedTable.keptBy": "Conservée par {name}",
   "sharedTable.keptByDeleted": "Conservée par un agent qui n’existe plus",
   "sharedTable.deleteName": "Supprimer {name}",

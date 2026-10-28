@@ -1,4 +1,4 @@
-// A custom agent is a command that the user names: OpenBot starts it on this computer and talks to
+// A custom agent is a command that the user names: Builders Bot starts it on this computer and talks to
 // it over the Agent Client Protocol on stdio. All custom agents are the one provider `acp`, and a
 // model id names the agent (`<customAgentId>/<agentModel>`).
 //
@@ -45,7 +45,7 @@ export interface SaveCustomAgentInput {
   args: string[];
   env: CustomAgentEnvInput[];
   /**
-   * The prompt that OpenBot sends, in a session that no thread owns, to read the plan usage, such as
+   * The prompt that Builders Bot sends, in a session that no thread owns, to read the plan usage, such as
    * `/usage`. Null for none. One line.
    */
   usagePrompt: string | null;

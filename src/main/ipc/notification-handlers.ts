@@ -12,7 +12,7 @@ import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-gro
 export interface NotificationIpcDependencies {
   notificationPreference: NotificationPreferenceStore;
   translate: AppTranslate;
-  /** Asks the operating system for permission if OpenBot has not asked yet. */
+  /** Asks the operating system for permission if Builders Bot has not asked yet. */
   requestPermission: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
 }
@@ -33,10 +33,10 @@ export function notificationIpcHandlers({
         return saved;
       }),
       // Shown even when the window has focus and the switch is off: the user asked for this one, and
-      // it is how they find out whether the operating system lets OpenBot show notifications at all.
+      // it is how they find out whether the operating system lets Builders Bot show notifications at all.
       test: handler(() => {
         if (!Notification.isSupported()) throw new Error(sourceText("error.app.notificationsUnsupported"));
-        showRetainedNotification(new Notification({ title: "OpenBot", body: translate("notification.test") }));
+        showRetainedNotification(new Notification({ title: "Builders Bot", body: translate("notification.test") }));
       }),
       openSettings: handler(async () => {
         const url = notificationSettingsUrl(process.platform);

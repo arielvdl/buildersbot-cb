@@ -3,7 +3,7 @@ import type { AppTextKey, AppTranslate } from "@openbot/i18n";
 
 /**
  * One `opencode acp` process serves every OpenCode agent, and it reads its config only at spawn, so a
- * saved or removed endpoint needs a respawn that OpenBot will not force through a turn in progress.
+ * saved or removed endpoint needs a respawn that Builders Bot will not force through a turn in progress.
  * The write is durable either way, which is why none of these is an error message: they say when the
  * model list catches up, not that something failed.
  */

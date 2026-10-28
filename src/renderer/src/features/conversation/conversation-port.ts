@@ -1,4 +1,4 @@
-import type { DeleteSharedTableInput, OpenBotDesktopApi, SharedTable } from "@openbot/contracts/ipc";
+import type { DeleteSharedTableInput, BuildersBotDesktopApi, SharedTable } from "@openbot/contracts/ipc";
 
 /**
  * What the conversation domain reaches in main: agent and direct message pages, sends, reads,
@@ -6,7 +6,7 @@ import type { DeleteSharedTableInput, OpenBotDesktopApi, SharedTable } from "@op
  */
 export interface ConversationPort {
   agent: Pick<
-    OpenBotDesktopApi["agent"],
+    BuildersBotDesktopApi["agent"],
     | "readAgentSessionSettings"
     | "askSideQuestion"
     | "setAgentSessionSetting"
@@ -23,7 +23,7 @@ export interface ConversationPort {
     | "sendMessage"
   >;
   browser: Pick<
-    OpenBotDesktopApi["browser"],
+    BuildersBotDesktopApi["browser"],
     | "capturePreview"
     | "finishLocalSignIn"
     | "onLiveViewEvent"
@@ -33,7 +33,7 @@ export interface ConversationPort {
     | "stopLiveView"
   >;
   servers: Pick<
-    OpenBotDesktopApi["servers"],
+    BuildersBotDesktopApi["servers"],
     | "listDirectThreads"
     | "markDirectRead"
     | "onDirectMessage"
@@ -42,8 +42,8 @@ export interface ConversationPort {
     | "sendDirectMessage"
     | "setDirectTyping"
   >;
-  storage: Pick<OpenBotDesktopApi["storage"], "openLocation">;
-  browserDock: Pick<OpenBotDesktopApi["browserDock"], "publishPresentation" | "onAction" | "onShown">;
+  storage: Pick<BuildersBotDesktopApi["storage"], "openLocation">;
+  browserDock: Pick<BuildersBotDesktopApi["browserDock"], "publishPresentation" | "onAction" | "onShown">;
 }
 
 /** Read on each call: tests and stories replace `window.openbot` per case. */

@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { AGENT_PROVIDERS, type AgentModelOption, type AgentSummary } from "@openbot/contracts/ipc";
+import {
+  AGENT_PROVIDERS,
+  type AgentModelOption,
+  type AgentSummary,
+  type ConversationMessage,
+  type ConversationSnapshot,
+  SECURITY_SCAN_ITEM_TYPE,
+} from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Deferred, Effect, Result, Schema } from "effect";
 import { type AgentProvider, ProviderTurnActiveError } from "../agent-client";
 import type { AgentStore } from "../agent-store";
@@ -16,12 +23,15 @@ import {
   agentNamesById,
   CURRENT_MESSAGE_SEPARATOR,
   combinedPromptInput,
+  type DeliveryInputItem,
   deliveryPromptInput,
 } from "./delivery-content";
 import type { DuplicationGate } from "./duplication-gate";
 import type { MailboxSync } from "./mailbox-sync";
 import type { MemoryHold } from "./memory-hold";
 import type { ProfileSave } from "./profile-save";
+import type { PromptGuardScan } from "./prompt-guard";
+import type { PromptInjectionGuard } from "./prompt-injection-guard";
 import { isPlanLimitDiagnostic } from "./provider-diagnostics";
 import type { ProviderRuntime } from "./provider-runtime";
 import type { RoutineScheduler } from "./routine-scheduler";
@@ -40,7 +50,7 @@ import { codexSandboxPolicy, workspaceWritableRoots } from "./workspace-sandbox"
 /** Shown to the user when a message names a model of an endpoint that was taken out. */
 export const REMOVED_ENDPOINT_MESSAGE = sourceText("error.agent.endpointRemoved");
 
-const logger = createOpenBotLogger("drain-scheduler");
+const logger = createBuildersBotLogger("drain-scheduler");
 const CHANNEL_START_FAILED = "The provider could not start this assignment. Resume to try again.";
 /** How long messages wait for their turn after the provider did not confirm `turn/start` in time. */
 const TURN_START_GRACE_MS = 5 * 60_000;
@@ -73,6 +83,11 @@ export interface DrainHooks {
    * again when it ends. Each path that starts a queue comes here, so no message runs on the wrong model.
    */
   followUsageLimit(agentId: string): boolean;
+  /**
+   * Checks the message of a turn for prompt injection, when the agent has the guard on. The answer
+   * is the block to put in front of the message, or null. It never fails the turn.
+   */
+  scanPrompt(agentId: string, input: readonly DeliveryInputItem[]): Effect.Effect<PromptGuardScan | null>;
   /** Whether this turn already ended. A provider can end a turn before its `turn/start` answer is read. */
   turnEnded(turnId: string): boolean;
   /** Forgets the end of an earlier turn with this id: a requeued delivery starts again under the same turn id. */
@@ -118,6 +133,17 @@ function laneOf(key: string): Lane {
 
 const mainLane = (agentId: string): Lane => ({ agentId, taskId: null });
 
+/**
+ * Puts the verdict of the security reviewer in front of the turn. It goes before the first text
+ * item, which is the message the agent reads first, and is a text item of its own when the turn
+ * starts with an image.
+ */
+function withGuardAnnotation(input: DeliveryInputItem[], annotation: string): DeliveryInputItem[] {
+  const [first] = input;
+  if (first?.type === "text") return [{ ...first, text: `${annotation}\n\n${first.text}` }, ...input.slice(1)];
+  return [{ type: "text", text: annotation }, ...input];
+}
+
 export interface DrainSchedulerOptions {
   store: AgentStore;
   mailbox: MailboxStore;
@@ -132,6 +158,8 @@ export interface DrainSchedulerOptions {
   memory: MemoryHold;
   usageLimits: UsageLimitGate;
   tasks: TaskLanes;
+  /** The security reviewer of the user messages of a turn. Omitted, no message is reviewed. */
+  security?: Pick<PromptInjectionGuard, "review">;
   hooks: DrainHooks;
   channels?: ChannelService;
   messaging?: MessagingThreads;
@@ -164,6 +192,7 @@ export class DrainScheduler {
   readonly #memory: MemoryHold;
   readonly #usageLimits: UsageLimitGate;
   readonly #tasks: TaskLanes;
+  readonly #security: Pick<PromptInjectionGuard, "review"> | undefined;
   readonly #slots: TurnSlots;
   /** Lanes that a full set of turn slots held back. A drain that may free a slot tries them again. */
   readonly #slotWaiters = new Set<string>();
@@ -211,6 +240,7 @@ export class DrainScheduler {
     this.#memory = options.memory;
     this.#usageLimits = options.usageLimits;
     this.#tasks = options.tasks;
+    this.#security = options.security;
     this.#hooks = options.hooks;
     this.#channels = options.channels;
     this.#messaging = options.messaging;
@@ -711,21 +741,24 @@ export class DrainScheduler {
           agentNames,
         );
       };
-      const completeInput = promptInput(execution?.text);
+      let completeInput = promptInput(execution?.text);
       // A channel packet with only unread messages, or an external message without the guidance, goes
       // only to the session that read the rest. The session can change from here to the retry below,
       // as when the provider cannot resume it.
       const shortened = channelDelivery ? channels : messagingDelivery ? messaging : undefined;
       const delta = shortened?.delta(delivery.id);
       const deltaInput = delta ? promptInput(delta.text) : null;
+      // The scan of this turn, once it ran: a block that says what the guard found, or null.
+      let guardBlock: string | null = null;
       const inputForThread = (providerThreadId: string) => {
-        const input = deltaInput && shortened?.sendsDelta(delivery.id, providerThreadId) ? deltaInput : completeInput;
+        const sendsDelta = Boolean(deltaInput && shortened?.sendsDelta(delivery.id, providerThreadId));
+        const input = sendsDelta && deltaInput ? deltaInput : completeInput;
         const handoff = this.#threads.consumePendingHandoff(providerThreadId);
-        if (!handoff) return input;
+        // A delta carries only the new text of a channel, so the block of the first delivery covers it.
+        const guard = !sendsDelta && guardBlock ? `${guardBlock}${CURRENT_MESSAGE_SEPARATOR}` : "";
+        if (!handoff && !guard) return input;
         return input.map((item, index) =>
-          index === 0 && item.type === "text"
-            ? { ...item, text: `${handoff}${CURRENT_MESSAGE_SEPARATOR}${item.text}` }
-            : item,
+          index === 0 && item.type === "text" ? { ...item, text: `${handoff ?? ""}${guard}${item.text}` } : item,
         );
       };
 
@@ -745,6 +778,25 @@ export class DrainScheduler {
         });
       }
       this.#conversation.emitConversation(snapshot);
+
+      // The security reviewer reads what the person wrote before the agent does. A review never
+      // blocks the turn: it only adds its verdict in front of the message.
+      const security = this.#security;
+      if (security) {
+        const fromUser = batch.filter(({ delivery: item }) => item.sender.kind === "user");
+        if (fromUser.length) {
+          const annotation = yield* security.review({
+            agent,
+            text: fromUser.map(({ delivery: item }) => item.text).join("\n\n---\n\n"),
+            images: fromUser.flatMap(({ managedAttachments }) =>
+              managedAttachments
+                .filter((attachment) => attachment.kind === "image")
+                .map((attachment) => ({ path: attachment.path, mimeType: attachment.mimeType })),
+            ),
+          });
+          if (annotation) completeInput = withGuardAnnotation(completeInput, annotation);
+        }
+      }
 
       const startTurn = (providerThreadId: string) =>
         Effect.gen({ self: this }, function* () {
@@ -787,6 +839,11 @@ export class DrainScheduler {
             )
             .pipe(toDeliveryStartFailed);
         });
+      // The guard reads the message before the agent does. It runs after the messages show in the chat,
+      // and a scan that fails leaves the turn without a block.
+      const guard = yield* this.#hooks.scanPrompt(agent.id, completeInput);
+      guardBlock = guard?.block ?? null;
+      if (guard?.note) this.#postSecurityNote(snapshot, threadId, guard.note);
       // Claude, ACP and Pi take the delivery id as the turn id. A delivery that a refused turn put back
       // in the queue keeps its id, and the end of that turn must not end this new run (#2468).
       this.#hooks.turnRestarting(delivery.id);
@@ -892,7 +949,7 @@ export class DrainScheduler {
             this.#channels?.deliveryUncertain(delivery.id);
             this.#hooks.emitError(
               "delivery_start_unconfirmed",
-              `${error.providerName} did not confirm the turn start in time. OpenBot will wait for lifecycle events instead of retrying potentially duplicated work.`,
+              `${error.providerName} did not confirm the turn start in time. Builders Bot will wait for lifecycle events instead of retrying potentially duplicated work.`,
               delivery.recipientAgentId,
             );
             // The wait has a limit: a turn that never starts would keep these messages starting, and
@@ -978,6 +1035,36 @@ export class DrainScheduler {
    * run does not read that whole session again. A routine run for a channel, an external
    * conversation or a task runs in that thread's session.
    */
+  /**
+   * Adds the line of a suspicious scan in front of the message that it checked. The chat shows the
+   * finding; the message itself still follows, unchanged.
+   */
+  #postSecurityNote(snapshot: ConversationSnapshot, threadId: string, note: string): void {
+    const message: ConversationMessage = {
+      id: randomUUID(),
+      author: "system",
+      source: "system",
+      status: "completed",
+      createdAt: new Date().toISOString(),
+      itemType: SECURITY_SCAN_ITEM_TYPE,
+      text: note,
+    };
+    snapshot.messages.push(message);
+    try {
+      snapshot.revision = this.#store.database.persistConversationChanges({
+        agentId: snapshot.agentId,
+        threadId,
+        activeTurnId: snapshot.activeTurnId,
+        changedMessages: [message],
+        eventType: "security.scan",
+        detail: {},
+      });
+    } catch (failure) {
+      // The line is a note: the turn still runs when the write fails, as for any lost snapshot write.
+      logger.warn("Could not save the security note.", { agentId: snapshot.agentId, error: failure });
+    }
+  }
+
   #runsInOwnSession(context: DeliveryContext): boolean {
     const id = context.delivery.id;
     return (

@@ -75,7 +75,7 @@ function meterLevel(usage: ContextUsageView): "quiet" | "normal" | RadialProgres
 /**
  * The composer's context ring and the popover it opens. It shows how full the agent's provider
  * thread is and when it compacts. `newChat` adds the New chat action, which asks first. `compact`
- * adds the Compact action, for a thread that OpenBot compacts (`autoCompactAt` is set).
+ * adds the Compact action, for a thread that Builders Bot compacts (`autoCompactAt` is set).
  */
 export function ContextUsageMeter(props: {
   usage: ContextUsageView;

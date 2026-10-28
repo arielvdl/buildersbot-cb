@@ -4,7 +4,7 @@ import type { messages as source } from "../../en/mobile/chat";
 export const messages = {
   "mobile.chat.dictation.microphoneOffTitle": "マイクへのアクセスがオフです",
   "mobile.chat.dictation.microphoneOffMessage":
-    "メッセージを音声入力するには、設定で OpenBot にマイクと音声認識の使用を許可してください。",
+    "メッセージを音声入力するには、設定で Builders Bot にマイクと音声認識の使用を許可してください。",
   "mobile.chat.dictation.stopped": "音声入力が停止しました",
   "mobile.chat.dictation.tryAgain": "もう一度お試しください。",
   "mobile.chat.dictation.unavailable": "音声入力は利用できません",
@@ -96,7 +96,7 @@ export const messages = {
   "mobile.chat.attachment.unavailable": "添付ファイルを利用できません。もう一度お試しください。",
   "mobile.chat.attachment.openFailed": "添付ファイルを開けませんでした",
   "mobile.chat.attachment.photosNeedUpdate": "写真を保存するには、アプリを最新版に更新してください。",
-  "mobile.chat.attachment.photosPermission": "この画像を保存するには、設定で OpenBot に写真の追加を許可してください。",
+  "mobile.chat.attachment.photosPermission": "この画像を保存するには、設定で Builders Bot に写真の追加を許可してください。",
   "mobile.chat.attachment.imageUnavailable": "画像を利用できません。もう一度お試しください。",
   "mobile.chat.attachment.saveImageFailed": "画像を保存できませんでした",
   "mobile.chat.attachment.preview": "{name} のプレビュー",
@@ -121,9 +121,9 @@ export const messages = {
   "mobile.chat.attachment.unsupported":
     "{name}: 画像、MP3 音声、MOV・MP4 動画、ZIP アーカイブ、PDF、Office 文書、EML、テキスト、Markdown、データ、またはソースファイルを選択してください。",
   "mobile.chat.attachment.hostRejectsType":
-    "{name}: ホストのコンピューターは {type} ファイルを受け付けません。添付するには、そのコンピューターの OpenBot を更新してください。",
+    "{name}: ホストのコンピューターは {type} ファイルを受け付けません。添付するには、そのコンピューターの Builders Bot を更新してください。",
   "mobile.chat.attachment.hostRejects":
-    "{name}: ホストのコンピューターはこれらのファイルを受け付けません。添付するには、そのコンピューターの OpenBot を更新してください。",
+    "{name}: ホストのコンピューターはこれらのファイルを受け付けません。添付するには、そのコンピューターの Builders Bot を更新してください。",
   "mobile.chat.attachment.nameTooLong": "名前が短いファイルを選択してください。",
   "mobile.chat.attachment.damaged": "添付ファイルが破損しています。もう一度選択してください。",
   "mobile.chat.attachment.tooLarge": "{name} は 10 MB を超えています。",
@@ -194,7 +194,7 @@ export const messages = {
   "mobile.chat.video.retry": "動画を再試行",
   "mobile.chat.video.share": "{name} を共有",
   "mobile.chat.video.save": "{name} を写真に保存",
-  "mobile.chat.video.photosPermission": "この動画を保存するには、設定で OpenBot に写真の追加を許可してください。",
+  "mobile.chat.video.photosPermission": "この動画を保存するには、設定で Builders Bot に写真の追加を許可してください。",
   "mobile.chat.video.saveFailed": "動画を保存できませんでした",
   "mobile.chat.audio.play": "{name} を再生",
   "mobile.chat.audio.pause": "{name} を一時停止",
@@ -209,7 +209,7 @@ export const messages = {
   "mobile.chat.browserSecret.oneTimeCode": "ワンタイムコード",
   "mobile.chat.browserSecret.takeoverTitle": "ブラウザーの引き継ぎ",
   "mobile.chat.browserSecret.takeoverBody":
-    "OpenBot を実行しているコンピューターのブラウザーで、この手順を完了してください。",
+    "Builders Bot を実行しているコンピューターのブラウザーで、この手順を完了してください。",
   "mobile.chat.browserSecret.takeoverReload": "その後、ページを再読み込みしてから「完了しました」を選択してください。",
   "mobile.chat.browserSecret.takeoverFailed": "リクエストを完了できませんでした。",
   "mobile.chat.browserSecret.done": "完了しました",
@@ -285,7 +285,7 @@ export const messages = {
   "mobile.chat.approval.effect.permissions":
     "許可すると {name} に {server} 上のこれらの権限を付与します。拒否すると現在の権限のままです。",
   "mobile.chat.approval.partial":
-    "このリクエストは長すぎるため、スマートフォンでは表示できません。許可するには {server} で OpenBot を開いてください。拒否はここでできます。",
+    "このリクエストは長すぎるため、スマートフォンでは表示できません。許可するには {server} で Builders Bot を開いてください。拒否はここでできます。",
   "mobile.chat.approval.allow": "許可",
   "mobile.chat.approval.deny": "拒否",
   "mobile.chat.approval.reconnect": "このリクエストに回答するには {server} に接続してください。",
@@ -350,7 +350,7 @@ export const messages = {
   "mobile.chat.queue.steerNeedsTurn": "方向を指示するには、実行中のターンが必要です。",
   "mobile.chat.queue.stillHoldingTitle": "メッセージはまだ保留中です",
   "mobile.chat.queue.stillHoldingMessage":
-    "OpenBot がこのメッセージの保留を解除できなかったため、エージェントは引き続き待機しています。スマートフォンが再接続したら、もう一度お試しください。",
+    "Builders Bot がこのメッセージの保留を解除できなかったため、エージェントは引き続き待機しています。スマートフォンが再接続したら、もう一度お試しください。",
   "mobile.chat.queue.keepEditing": "編集を続ける",
   "mobile.chat.queue.leaveAnyway": "このまま離れる",
   "mobile.chat.queue.discardTitle": "変更を破棄しますか？",
@@ -358,7 +358,7 @@ export const messages = {
   "mobile.chat.queue.discard": "破棄",
   "mobile.chat.queue.alreadyReceived": "エージェントはすでにこのメッセージを受け取ったため、編集できません。",
   "mobile.chat.queue.holding": "メッセージを保留しています…",
-  "mobile.chat.queue.holdFailed": "OpenBot は編集のためにこのメッセージを保留できませんでした。",
+  "mobile.chat.queue.holdFailed": "Builders Bot は編集のためにこのメッセージを保留できませんでした。",
   "mobile.chat.queue.messageLabel": "メッセージ",
   "mobile.chat.queue.messagePlaceholder": "メッセージのテキスト",
   "mobile.chat.queue.save": "キューのメッセージを保存",

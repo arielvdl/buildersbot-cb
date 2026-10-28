@@ -56,7 +56,7 @@ export const ANTIGRAVITY_ACP_FLAVOR: AcpFlavor = {
   // `jetbrains.*` or `android studio*` (`supports_third_party_models`). Any other client gets the
   // Gemini models only, also when the plan includes the others. The server also sends the name and
   // version to Google in its User-Agent (`_surface`), so Google sees these requests as `zed/0.1.0`.
-  clientInfo: { name: "zed", title: "OpenBot", version: "0.1.0" },
+  clientInfo: { name: "zed", title: "Builders Bot", version: "0.1.0" },
   // Antigravity 1.3.0 has three exact forms: a load or resume puts the ID in data.sessionId, a
   // configuration change uses the SDK's resource URI `session <id>`, and a prompt raises a plain
   // error that the SDK wraps as an internal error.

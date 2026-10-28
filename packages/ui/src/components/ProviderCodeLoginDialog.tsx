@@ -4,9 +4,9 @@
  * The browser sign-in every provider row offers today hands the account off to whatever browser
  * this computer opens, and comes back through it. That fails wherever the hand-off cannot close -
  * a machine with no browser, a remote session, a browser already signed in to the wrong account.
- * The code flow moves the sign-in to a device the user already trusts: OpenBot asks the provider
+ * The code flow moves the sign-in to a device the user already trusts: Builders Bot asks the provider
  * for a short-lived code, shows it, and waits. The user opens the verification page on a phone or
- * another browser, types the code there, and the provider tells OpenBot it is done.
+ * another browser, types the code there, and the provider tells Builders Bot it is done.
  *
  * The code on screen is the whole point of the flow and is safe to read out: it is a one-time
  * handle the provider issues, it expires, and it authorises nothing on its own. The token the
@@ -116,7 +116,7 @@ export type ProviderCodeLoginState =
       /** The page, once the host has its address. */
       page: McpSignInRelaySource | null;
     }
-  /** The code was accepted on the other device; OpenBot is finishing the sign-in. */
+  /** The code was accepted on the other device; Builders Bot is finishing the sign-in. */
   | { phase: "verifying" };
 
 export interface ProviderCodeLoginDialogProps {

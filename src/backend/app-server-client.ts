@@ -162,7 +162,7 @@ export class CodexAppServerClient extends EventEmitter<ClientEvents> {
 
   /**
    * Moves a replaced thread out of the list that the Codex app and ChatGPT show. Without this, each
-   * replacement session adds a row that starts with the OpenBot handoff to the user's own Codex
+   * replacement session adds a row that starts with the Builders Bot handoff to the user's own Codex
    * history.
    *
    * `thread/archive` moves the rollout to `archived_sessions` and unloads the thread when it is

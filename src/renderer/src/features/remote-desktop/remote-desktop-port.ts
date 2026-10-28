@@ -1,4 +1,4 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the remote desktop context reaches in main: the sessions this computer holds to other
@@ -6,7 +6,7 @@ import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
  */
 export interface RemoteDesktopPort {
   remoteDesktop: Pick<
-    OpenBotDesktopApi["remoteDesktop"],
+    BuildersBotDesktopApi["remoteDesktop"],
     "connect" | "disconnect" | "list" | "onEvent" | "selectDisplay"
   >;
 }

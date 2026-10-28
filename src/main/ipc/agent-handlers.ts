@@ -56,7 +56,7 @@ import {
   SIDE_QUESTION_ROUTES,
 } from "@openbot/contracts/team-protocol/side-question-v1";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { duplicateAgentIntoLayout } from "../../backend/agent/duplication-gate";
 import type { AgentService } from "../../backend/agent-service";
 import { runCauseEffect } from "../../backend/effect-boundary";
@@ -121,7 +121,7 @@ import { type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
 
 /** Its lines also go to the provider log. See `PROVIDER_LOG_PREFIXES`. */
-const modelLogger = createOpenBotLogger("provider-models");
+const modelLogger = createBuildersBotLogger("provider-models");
 
 /** A joined server without `agent-tasks-v1`, or a task request that it cannot carry, fails with a reason. */
 function taskRemoteUnsupported(): never {
@@ -454,6 +454,9 @@ export function agentIpcHandlers({
           }
           if (input.quickAcknowledgement !== undefined) {
             throw new Error(sourceText("error.agent.quickAcknowledgementLocalOnly"));
+          }
+          if (input.securityGuard !== undefined) {
+            throw new Error(sourceText("error.agent.securityGuardLocalOnly"));
           }
           if (input.fastMode !== undefined) {
             throw new Error(sourceText("error.agent.settingsLocalOnly"));

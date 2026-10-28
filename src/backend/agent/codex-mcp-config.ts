@@ -17,7 +17,7 @@ const registrationLock = Semaphore.makeUnsafe(1);
 /**
  * Codex can save tool approvals only for servers present in a file-backed config layer.
  *
- * `servers` builds OpenBot's servers from the transports that Codex's own files declare, because
+ * `servers` builds Builders Bot's servers from the transports that Codex's own files declare, because
  * those choose the keys that are registered.
  */
 export const readCodexMcpConfig = Effect.fn("Agent.readCodexMcpConfig")(function* (
@@ -68,7 +68,7 @@ export const readCodexMcpConfig = Effect.fn("Agent.readCodexMcpConfig")(function
   if (edits.length === 0) return response;
 
   // Save only a disabled placeholder. URLs, arguments, and credentials stay in the thread.
-  // Other Codex clients must not start servers that OpenBot owns.
+  // Other Codex clients must not start servers that Builders Bot owns.
   yield* client.request(
     "config/batchWrite",
     {

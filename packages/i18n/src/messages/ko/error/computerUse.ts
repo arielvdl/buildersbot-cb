@@ -3,9 +3,9 @@ import type { messages as source } from "../../en/error/computerUse";
 
 export const messages = {
   // Computer Use driver and permission window errors.
-  "error.computerUse.noAppToDrag": "이 OpenBot 빌드에는 끌어올 애플리케이션이 없어요.",
+  "error.computerUse.noAppToDrag": "이 Builders Bot 빌드에는 끌어올 애플리케이션이 없어요.",
   "error.computerUse.helpWindowChanged": "끌기를 시작하기 전에 권한 도움말 창이 바뀌었어요.",
-  "error.computerUse.noAppToShow": "이 OpenBot 빌드에는 표시할 애플리케이션이 없어요.",
+  "error.computerUse.noAppToShow": "이 Builders Bot 빌드에는 표시할 애플리케이션이 없어요.",
   "error.computerUse.noDriver": "이 컴퓨터에는 컴퓨터 제어 드라이버가 없어요.",
   "error.computerUse.socketPathTooLong":
     "컴퓨터 제어 소켓 경로가 {length}자인데, 이 시스템은 {limit}자까지만 허용해요.",

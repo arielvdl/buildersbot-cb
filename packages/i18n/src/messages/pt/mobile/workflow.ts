@@ -2,7 +2,7 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "Atualize o OpenBot neste servidor para usar fluxos de trabalho no celular.",
+  "mobile.workflow.unsupported": "Atualize o Builders Bot neste servidor para usar fluxos de trabalho no celular.",
   "mobile.workflow.offline": "O servidor está offline. Os fluxos de trabalho aparecem quando ele se conectar.",
   "mobile.workflow.list.loading": "Carregando…",
   "mobile.workflow.list.loadFailed": "Não foi possível carregar os fluxos de trabalho.",
@@ -21,7 +21,7 @@ export const messages = {
   "mobile.workflow.action.edit": "Editar",
   "mobile.workflow.alert.runFailedTitle": "Não foi possível iniciar o fluxo de trabalho",
   "mobile.workflow.alert.runFailedBody": "O servidor não iniciou a execução. Tente de novo.",
-  "mobile.workflow.alert.tryAgain": "O OpenBot não conseguiu fazer isso. Tente de novo.",
+  "mobile.workflow.alert.tryAgain": "O Builders Bot não conseguiu fazer isso. Tente de novo.",
   "mobile.workflow.drawer.needYou": { one: "{count} precisa de você", other: "{count} precisam de você" },
   "mobile.workflow.drawer.running": { one: "{count} em execução", other: "{count} em execução" },
   "mobile.workflow.drawer.review": "Precisa de você · toque para revisar",
@@ -33,7 +33,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "Não foi possível carregar o fluxo de trabalho.",
   "mobile.workflow.detail.starting": "Iniciando…",
   "mobile.workflow.detail.newerApp":
-    "Este fluxo de trabalho tem etapas de um OpenBot mais novo. Atualize o OpenBot no celular para alterá-lo.",
+    "Este fluxo de trabalho tem etapas de um Builders Bot mais novo. Atualize o Builders Bot no celular para alterá-lo.",
   "mobile.workflow.detail.waits": "A execução {number} espera por você. Revisar",
   "mobile.workflow.detail.canvasOrder": "As etapas aparecem da esquerda para a direita, como na tela.",
   "mobile.workflow.detail.trigger": "Gatilho",
@@ -69,7 +69,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "Executa quando o endereço dele recebe uma solicitação.",
   "mobile.workflow.trigger.message": "Mensagem",
-  "mobile.workflow.trigger.messageHint": "Altere este gatilho no OpenBot do seu computador.",
+  "mobile.workflow.trigger.messageHint": "Altere este gatilho no Builders Bot do seu computador.",
   "mobile.workflow.trigger.startsWhen": "Inicia",
   "mobile.workflow.trigger.timezone": "Fuso horário: {zone}",
   "mobile.workflow.trigger.serverZone": "O agendamento usa o fuso horário do servidor.",
@@ -104,7 +104,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "Aprove para continuar.",
   "mobile.workflow.step.textEmpty": "Sem texto",
   "mobile.workflow.step.textPlaceholder": "Texto para a próxima etapa",
-  "mobile.workflow.step.computerOnly": "Altere esta etapa no OpenBot do seu computador.",
+  "mobile.workflow.step.computerOnly": "Altere esta etapa no Builders Bot do seu computador.",
   "mobile.workflow.step.gone": "Esta etapa não está mais no fluxo de trabalho.",
   "mobile.workflow.step.agent": "Agente",
   "mobile.workflow.step.agentHint": "O agente faz a tarefa com a saída da etapa anterior.",
@@ -122,7 +122,7 @@ export const messages = {
   "mobile.workflow.step.questionHint": "A execução espera até você aprovar ou recusar. Você recebe uma notificação.",
   "mobile.workflow.step.text": "Texto",
   "mobile.workflow.step.sendTo": "Enviar para",
-  "mobile.workflow.step.channelHint": "Um proprietário ou admin escolhe o local de mensagens no OpenBot do computador.",
+  "mobile.workflow.step.channelHint": "Um proprietário ou admin escolhe o local de mensagens no Builders Bot do computador.",
   "mobile.workflow.problem.noTitle": "Escreva um nome.",
   "mobile.workflow.problem.noAgent": "Escolha um agente",
   "mobile.workflow.problem.agentGone": "O agente não está disponível. Escolha um agente",
@@ -146,7 +146,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "Texto fixo para a próxima etapa.",
   "mobile.workflow.add.output": "Envia o resultado para você.",
   "mobile.workflow.add.oneCondition":
-    "No celular, um fluxo de trabalho tem uma condição. Para mais caminhos, use o OpenBot no computador.",
+    "No celular, um fluxo de trabalho tem uma condição. Para mais caminhos, use o Builders Bot no computador.",
   "mobile.workflow.editor.title": "Editar fluxo",
   "mobile.workflow.editor.newTitle": "Novo fluxo",
   "mobile.workflow.editor.step": "Etapa",
@@ -155,7 +155,7 @@ export const messages = {
   "mobile.workflow.editor.create": "Criar fluxo",
   "mobile.workflow.editor.saveFailed": "Não foi possível salvar o fluxo de trabalho.",
   "mobile.workflow.editor.fieldsOnly":
-    "Este fluxo de trabalho tem uma forma que o celular não consegue mostrar como lista. Você pode alterar cada etapa aqui. Para adicionar, mover ou excluir etapas, use o OpenBot no computador.",
+    "Este fluxo de trabalho tem uma forma que o celular não consegue mostrar como lista. Você pode alterar cada etapa aqui. Para adicionar, mover ou excluir etapas, use o Builders Bot no computador.",
   "mobile.workflow.editor.annotationsKept": "As notas e os desenhos na tela continuam como estão.",
   "mobile.workflow.editor.addStep": "Adicionar etapa",
   "mobile.workflow.editor.addAfter": "Adicionar etapa depois",

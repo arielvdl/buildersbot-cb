@@ -4,7 +4,7 @@ import type { messages as source } from "../en/vault";
 export const messages = {
   "vault.items.title": "已保存的项目",
   "vault.items.description":
-    "该服务器上的所有助手都可以使用这些项目。OpenBot 会把密码、卡号和安全码直接填入页面，助手不会看到它们。",
+    "该服务器上的所有助手都可以使用这些项目。Builders Bot 会把密码、卡号和安全码直接填入页面，助手不会看到它们。",
   "vault.newItem": "新建项目",
   "vault.kind.login": "登录信息",
   "vault.kind.card": "银行卡",
@@ -81,15 +81,15 @@ export const messages = {
   "vault.importMenu": "从 CSV 导入",
   "vault.importTitle": "从 CSV 文件导入",
   "vault.importDescription":
-    "从 1Password、Bitwarden、Chrome、Edge、Firefox、Safari、Apple Passwords 或 LastPass 导出的 CSV 文件导入登录信息。OpenBot 在这台电脑上读取该文件，不会上传。",
+    "从 1Password、Bitwarden、Chrome、Edge、Firefox、Safari、Apple Passwords 或 LastPass 导出的 CSV 文件导入登录信息。Builders Bot 在这台电脑上读取该文件，不会上传。",
   "vault.importChoose": "选择 CSV 文件",
   "vault.importDone": "已导入：{imported}。已跳过：{skipped}。",
   "vault.unavailableTitle": "这台电脑无法保管密钥",
-  "vault.unavailableDescription": "OpenBot 使用系统的密钥存储来加密保险库。请先设置钥匙串，然后重新打开该页面。",
-  "vault.unreadableTitle": "OpenBot 无法读取保险库",
+  "vault.unavailableDescription": "Builders Bot 使用系统的密钥存储来加密保险库。请先设置钥匙串，然后重新打开该页面。",
+  "vault.unreadableTitle": "Builders Bot 无法读取保险库",
   "vault.unreadableDescription":
-    "保险库文件在这台电脑上，但 OpenBot 无法解密。系统钥匙串发生变化时可能出现这种情况。重置保险库后将从空白开始。",
+    "保险库文件在这台电脑上，但 Builders Bot 无法解密。系统钥匙串发生变化时可能出现这种情况。重置保险库后将从空白开始。",
   "vault.reset": "重置保险库",
   "vault.resetTitle": "重置保险库？",
-  "vault.resetDescription": "OpenBot 会删除保险库文件和其中的所有项目。该操作无法撤销。",
+  "vault.resetDescription": "Builders Bot 会删除保险库文件和其中的所有项目。该操作无法撤销。",
 } as const satisfies PartialTranslation<typeof source>;

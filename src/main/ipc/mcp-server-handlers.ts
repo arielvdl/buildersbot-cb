@@ -109,7 +109,7 @@ interface McpServerIpcDependencies {
   /**
    * Fetches the tool runtimes an MCP server is started with, if this machine does not hold them
    * yet. Onboarding asks for them first; this covers the user who was already past onboarding when
-   * OpenBot learned to download one. It answers at once and reports nothing, so a slow or failed
+   * Builders Bot learned to download one. It answers at once and reports nothing, so a slow or failed
    * download cannot turn saving a row into an error.
    */
   startToolRuntimes: () => void;
@@ -271,7 +271,7 @@ export function mcpServerIpcHandlers({
           );
         },
       }),
-      // A sign-in opens the browser of the computer that runs OpenBot. On a joined server that is the
+      // A sign-in opens the browser of the computer that runs Builders Bot. On a joined server that is the
       // host's browser, which the panel shows through the live view of the tab `mcpSignInPage` names.
       signInMcpServer: scopedHandler(parseTestMcpServer, {
         local: (parsed) => runCauseEffect(service.signInMcpServer(parsed)),

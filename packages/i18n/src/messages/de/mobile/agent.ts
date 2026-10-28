@@ -69,7 +69,7 @@ export const messages = {
     "„{name}“ wird von der Festplatte gelöscht. Die Nachrichten, die sie zeigen, bleiben ohne die Datei im Chat.",
   "mobile.agent.files.keep": "Behalten",
   "mobile.agent.files.deleteFailed": "Datei konnte nicht gelöscht werden",
-  "mobile.agent.files.deleteFailedBody": "OpenBot konnte diese Datei nicht löschen.",
+  "mobile.agent.files.deleteFailedBody": "Builders Bot konnte diese Datei nicht löschen.",
   "mobile.agent.files.downloading": "Wird heruntergeladen…",
   "mobile.agent.files.removeNamed": "{name} entfernen",
   "mobile.agent.files.deleteNamed": "{name} löschen",
@@ -122,13 +122,13 @@ export const messages = {
   "mobile.agent.info.noRoutines": "Noch keine Routinen.",
   "mobile.agent.info.addRoutine": "Routine hinzufügen",
   "mobile.agent.info.skillsUnsupported":
-    "Dieser Host unterstützt keine Fähigkeiten. Aktualisiere OpenBot auf dem Host.",
+    "Dieser Host unterstützt keine Fähigkeiten. Aktualisiere Builders Bot auf dem Host.",
   "mobile.agent.info.noSkills": "Noch keine Fähigkeiten.",
   "mobile.agent.info.skillsManaged": "Die Fähigkeiten dieses Agenten werden auf dem Host verwaltet.",
   "mobile.agent.info.skillsAddOnComputer":
-    "Verwende +, um mit diesem Agenten eine Fähigkeit zu erstellen. Füge Fähigkeiten aus dem Marketplace in OpenBot auf einem Computer oder in der Web-App hinzu.",
+    "Verwende +, um mit diesem Agenten eine Fähigkeit zu erstellen. Füge Fähigkeiten aus dem Marketplace in Builders Bot auf einem Computer oder in der Web-App hinzu.",
   "mobile.agent.info.filesUnsupported":
-    "Dieser Host unterstützt keine Dateiverwaltung. Aktualisiere OpenBot auf dem Host.",
+    "Dieser Host unterstützt keine Dateiverwaltung. Aktualisiere Builders Bot auf dem Host.",
   "mobile.agent.info.memoryGone": "Diese Erinnerung ist nicht mehr verfügbar.",
   "mobile.agent.info.routineGone": "Diese Routine ist nicht mehr verfügbar.",
   "mobile.agent.skill.workspaceFolder": "Arbeitsbereichsordner",
@@ -140,7 +140,7 @@ export const messages = {
   "mobile.agent.skill.uninstall": "Deinstallieren",
   "mobile.agent.skill.uninstallNamed": "{name} deinstallieren",
   "mobile.agent.skill.uninstallTitle": "{name} deinstallieren?",
-  "mobile.agent.skill.uninstallBody": "OpenBot entfernt diese Fähigkeit vom Agenten. Der Chatverlauf bleibt erhalten.",
+  "mobile.agent.skill.uninstallBody": "Builders Bot entfernt diese Fähigkeit vom Agenten. Der Chatverlauf bleibt erhalten.",
   "mobile.agent.skill.uninstallModifiedBody":
     "Diese Fähigkeit hat lokale Änderungen im Arbeitsbereich des Agenten. Beim Deinstallieren werden diese Dateien gelöscht. Der Chatverlauf bleibt erhalten.",
   "mobile.agent.skill.uninstalling": "Wird deinstalliert…",
@@ -148,7 +148,7 @@ export const messages = {
   "mobile.agent.skill.enableFailed": "{name} konnte nicht aktiviert werden.",
   "mobile.agent.skill.disableFailed": "{name} konnte nicht deaktiviert werden.",
   "mobile.agent.skill.manageUnsupported":
-    "Dieser Host kann keine Fähigkeiten ändern. Aktualisiere OpenBot auf dem Host.",
+    "Dieser Host kann keine Fähigkeiten ändern. Aktualisiere Builders Bot auf dem Host.",
   "mobile.agent.discard.title": "Änderungen verwerfen?",
   "mobile.agent.discard.body": "Deine Änderungen wurden nicht gespeichert.",
   "mobile.agent.discard.keepEditing": "Weiter bearbeiten",
@@ -188,7 +188,7 @@ export const messages = {
   "mobile.agent.record.addEventFilter": "Filter hinzufügen",
   "mobile.agent.record.removeEventFilter": "Filter entfernen",
   "mobile.agent.record.eventsUnsupported":
-    "Dieser Host unterstützt keine Ereignisroutinen. Aktualisiere OpenBot auf dem Host.",
+    "Dieser Host unterstützt keine Ereignisroutinen. Aktualisiere Builders Bot auf dem Host.",
   "mobile.agent.webhook.url": "Endpunkt",
   "mobile.agent.webhook.urlNew": "Speichere die Routine, um ihren Endpunkt und ihr Signaturgeheimnis zu erhalten.",
   "mobile.agent.webhook.urlPending":
@@ -265,7 +265,7 @@ export const messages = {
   "mobile.agent.record.resultDestination.createFailed":
     "Die Routine ist gespeichert, aber ihr Messaging-Ort nicht. Öffne die Routine und wähle den Ort erneut.",
   "mobile.agent.record.resultDestinationUnsupported":
-    "Dieser Host kann Antworten von Routinen nicht an einen Messaging-Ort senden. Aktualisiere OpenBot auf dem Host.",
+    "Dieser Host kann Antworten von Routinen nicht an einen Messaging-Ort senden. Aktualisiere Builders Bot auf dem Host.",
   "mobile.agent.record.enabled": "Aktiviert",
   "mobile.agent.record.routine": "Routine",
   "mobile.agent.record.testStarting": "Wird gestartet…",
@@ -281,7 +281,7 @@ export const messages = {
   "mobile.agent.permissions.title": "Berechtigungen",
   "mobile.agent.advanced.title": "Erweitert",
   "mobile.agent.runtime.unavailable": "Nicht verfügbar",
-  "mobile.agent.runtime.updateToUse": "Aktualisieren Sie OpenBot, um {name} zu verwenden",
+  "mobile.agent.runtime.updateToUse": "Aktualisieren Sie Builders Bot, um {name} zu verwenden",
   "mobile.agent.runtime.hostDefault": "Host-Standard",
   "mobile.agent.runtime.provider": "Anbieter",
   "mobile.agent.runtime.account": "Konto",
@@ -309,7 +309,7 @@ export const messages = {
   "mobile.agent.access.workspaceNote":
     "Der Agent arbeitet in seinem Arbeitsbereich und im gemeinsamen Ordner auf dem Host.",
   "mobile.agent.access.askNote":
-    "Der Agent fragt dich, bevor er ein OpenBot-Tool nutzt oder eine Website veröffentlicht, und wenn sein Anbieter eine Freigabe anfordert.",
+    "Der Agent fragt dich, bevor er ein Builders Bot-Tool nutzt oder eine Website veröffentlicht, und wenn sein Anbieter eine Freigabe anfordert.",
   "mobile.agent.access.fullNote": "Der Agent handelt ohne Rückfrage, außer bei Fragen, die er dir stellt.",
   "mobile.agent.access.fullTitle": "Diesem Agenten vollen Zugriff geben?",
   "mobile.agent.access.askTitle": "Diesen Agenten außerhalb seines Arbeitsbereichs arbeiten lassen?",
@@ -362,7 +362,7 @@ export const messages = {
     "Noch keine Tabellen. Ein Agent erstellt eine, wenn eine Aufgabe Daten über mehrere Durchläufe benötigt. Jeder Agent kann sie nutzen.",
   "mobile.agent.tables.note":
     "Alle Agenten auf diesem Host teilen diese Tabellen. Eine gelöschte Tabelle ist für jeden Agenten weg.",
-  "mobile.agent.tables.madeOutside": "Außerhalb von OpenBot erstellt · jeder Agent kann sie löschen",
+  "mobile.agent.tables.madeOutside": "Außerhalb von Builders Bot erstellt · jeder Agent kann sie löschen",
   "mobile.agent.tables.keptBy": "Verwaltet von {name}",
   "mobile.agent.tables.keptByDeleted": "Verwaltet von einem Agenten, der nicht mehr existiert",
   "mobile.agent.tables.notCounted": "Nicht gezählt",
@@ -373,7 +373,7 @@ export const messages = {
     "Die Tabelle wird für jeden Agenten gelöscht. Die Datensätze können nicht wiederhergestellt werden.",
   "mobile.agent.tables.keep": "Behalten",
   "mobile.agent.tables.deleteFailed": "Tabelle konnte nicht gelöscht werden",
-  "mobile.agent.tables.deleteFailedBody": "OpenBot konnte diese Tabelle nicht löschen.",
+  "mobile.agent.tables.deleteFailedBody": "Builders Bot konnte diese Tabelle nicht löschen.",
   "mobile.agent.tables.unsupported": "Dieser Host kann seine Tabellen nicht auf einem Remote-Gerät anzeigen.",
   "mobile.agent.publish.title": "Veröffentlichen",
   "mobile.agent.publish.loading": "Wird geladen…",
@@ -470,7 +470,7 @@ export const messages = {
   "mobile.agent.list.waiting.state.question": "Wartet auf deine Antwort",
   "mobile.agent.list.waiting.state.approval": "Wartet auf deine Genehmigung",
   "mobile.agent.list.waiting.state.takeover": "Wartet im Browser auf dich",
-  "mobile.agent.add.failed": "OpenBot konnte diesen Agenten nicht erstellen.",
+  "mobile.agent.add.failed": "Builders Bot konnte diesen Agenten nicht erstellen.",
   "mobile.agent.add.create": "Agent erstellen",
   "mobile.agent.add.creating": "Wird erstellt…",
   "mobile.agent.form.name": "Name",
@@ -481,7 +481,7 @@ export const messages = {
   "mobile.agent.add.nameRequired": "Gib einen Namen für diesen Agenten ein.",
   "mobile.agent.edit.loading": "Agent wird geladen…",
   "mobile.agent.edit.gone": "Dieser Agent ist auf diesem Host nicht mehr verfügbar.",
-  "mobile.agent.edit.failed": "OpenBot konnte diesen Agenten nicht aktualisieren.",
+  "mobile.agent.edit.failed": "Builders Bot konnte diesen Agenten nicht aktualisieren.",
   "mobile.agent.edit.appearance": "Aussehen bearbeiten",
   "mobile.agent.edit.title": "Titel",
   "mobile.agent.edit.titlePlaceholder": "Beschreibe, was dein Agent tut",

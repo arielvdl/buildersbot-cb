@@ -1,8 +1,8 @@
-// The OpenBot Slack app: one app for every workspace. `apps/slack-app/*/manifest.json` must list the
+// The Builders Bot Slack app: one app for every workspace. `apps/slack-app/*/manifest.json` must list the
 // same bot scopes and events.
 
 /**
- * What OpenBot asks from a workspace. The Worker requests them in the OAuth install, and the host
+ * What Builders Bot asks from a workspace. The Worker requests them in the OAuth install, and the host
  * compares them with what `auth.test` reports, so a missing one shows in the UI.
  */
 export const SLACK_BOT_SCOPES = [
@@ -23,5 +23,5 @@ export const SLACK_BOT_SCOPES = [
   "users:read",
 ] as const;
 
-/** The avatar of the Slack Orchestrator agent that OpenBot adds, so the dialog shows the agent it creates. */
+/** The avatar of the Slack Orchestrator agent that Builders Bot adds, so the dialog shows the agent it creates. */
 export const SLACK_ORCHESTRATOR_AVATAR = { avatarSeed: "slack-orchestrator", avatarHue: 280 } as const;

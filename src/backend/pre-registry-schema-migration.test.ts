@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: a database that v0.1.12 to v0.2.1 made loses a row on its first upgrade to the migration
 // registry; the upgrade leaves a schema that a new install does not have; a foreign key or a page is broken.
@@ -44,7 +44,7 @@ function releasedDatabase({ tag, markers }: ReleasedSchema): DatabaseSync {
 function freshDatabase(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   databases.push(db);
-  migrateOpenBotDatabase(db, { appliedAt });
+  migrateBuildersBotDatabase(db, { appliedAt });
   return db;
 }
 
@@ -82,7 +82,7 @@ function seedSharedTables(db: DatabaseSync): void {
     INSERT INTO projection_agents (agent_id, thread_id, model, updated_at, sort_order, agent_json, last_event_sequence)
     VALUES
       ('chief', 'openbot-thread-chief', 'gpt-5', '2026-01-02T09:00:00.000Z', 0,
-        '{"id":"chief","name":"Chief","workspacePath":"/Users/user/OpenBot/Bots/chief"}', 1),
+        '{"id":"chief","name":"Chief","workspacePath":"/Users/user/Builders Bot/Bots/chief"}', 1),
       ('scout', 'openbot-thread-scout', 'claude-opus', NULL, 1, '{"id":"scout","name":"Scout"}', 2);
     INSERT INTO projection_provider_sessions (id, thread_id, provider, external_session_id, model, effort, state,
       created_at, updated_at, resume_cursor, last_event_sequence)
@@ -129,7 +129,7 @@ function seedSharedTables(db: DatabaseSync): void {
     INSERT INTO projection_attachments
       (attachment_id, owner_kind, owner_id, name, path, metadata_json, created_at, last_event_sequence)
     VALUES ('openbot-thread-chief:message-1:file-1', 'thread-message', 'openbot-thread-chief:message-1', 'notes.md',
-      '/Users/user/OpenBot/Attachments/notes.md', '{"id":"file-1"}', '2026-01-02T10:00:00.000Z', 1);
+      '/Users/user/Builders Bot/Attachments/notes.md', '{"id":"file-1"}', '2026-01-02T10:00:00.000Z', 1);
     INSERT INTO projection_thread_summaries
       (summary_id, thread_id, through_message_id, summary_text, estimated_tokens, created_at, last_event_sequence)
     VALUES ('summary-1', 'openbot-thread-chief', 'message-1', 'The user asked for a plan.', 12,
@@ -144,7 +144,7 @@ function seedSharedTables(db: DatabaseSync): void {
     INSERT INTO projection_direct_reads (thread_id, member_id, last_read_sequence, updated_at)
     VALUES ('direct-1', 'chief', 4, '2026-01-02T09:05:00.000Z');
     INSERT INTO file_deletion_outbox (id, path, reason, created_at, attempts, last_error)
-    VALUES ('outbox-1', '/Users/user/OpenBot/Attachments/old.md', 'attachment-deleted', '2026-01-02T09:00:00.000Z', 2,
+    VALUES ('outbox-1', '/Users/user/Builders Bot/Attachments/old.md', 'attachment-deleted', '2026-01-02T09:00:00.000Z', 2,
       'EBUSY');
   `);
 }
@@ -256,7 +256,7 @@ describe("upgrade from a released schema before the migration registry", () => {
     const kept = Object.fromEntries(Object.entries(releasedColumns).filter(([table]) => !CHANGED_TABLES.has(table)));
     const before = releasedRows(db, kept);
 
-    migrateOpenBotDatabase(db, { appliedAt });
+    migrateBuildersBotDatabase(db, { appliedAt });
 
     expect(releasedRows(db, kept)).toEqual(before);
     expectHealthy(db);
@@ -322,7 +322,7 @@ describe("upgrade from a released schema before the migration registry", () => {
     ]);
     // No id is generated, so migration 13 changes no path.
     expect(db.prepare("SELECT agent_json FROM projection_agents WHERE agent_id = 'chief'").get()).toEqual({
-      agent_json: '{"id":"chief","name":"Chief","workspacePath":"/Users/user/OpenBot/Bots/chief"}',
+      agent_json: '{"id":"chief","name":"Chief","workspacePath":"/Users/user/Builders Bot/Bots/chief"}',
     });
 
     if (released.tag !== "v0.2.1") return;
@@ -354,7 +354,7 @@ describe("upgrade from a released schema before the migration registry", () => {
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version = 8
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
 
-    expect(() => migrateOpenBotDatabase(db, { appliedAt })).toThrow("migration to version 8 failed");
+    expect(() => migrateBuildersBotDatabase(db, { appliedAt })).toThrow("migration to version 8 failed");
     expect(userTables(db)).toEqual(Object.keys(tables).sort());
     expect(releasedRows(db, tables)).toEqual(before);
     expect(columnNames(db, "projection_reactions")).toEqual(tables.projection_reactions);
@@ -366,7 +366,7 @@ describe("upgrade from a released schema before the migration registry", () => {
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
 
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db, { appliedAt });
+    migrateBuildersBotDatabase(db, { appliedAt });
     expectHealthy(db);
     expect(db.prepare("SELECT COUNT(*) AS count FROM projection_thread_messages").get()).toEqual({ count: 3 });
   });

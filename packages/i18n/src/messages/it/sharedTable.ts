@@ -11,7 +11,7 @@ export const messages = {
     "Ancora nessuna tabella. Un agente ne crea una da solo quando un'attività ha bisogno di record tra un turno e l'altro, e ogni agente può usarla.",
   "sharedTable.loadFailed": "Impossibile caricare le tabelle.",
   "sharedTable.deleteFailed": "Impossibile eliminare questo elemento.",
-  "sharedTable.madeOutside": "Creata fuori da OpenBot · qualsiasi agente può eliminarla",
+  "sharedTable.madeOutside": "Creata fuori da Builders Bot · qualsiasi agente può eliminarla",
   "sharedTable.keptBy": "Gestita da {name}",
   "sharedTable.keptByDeleted": "Gestita da un agente che non esiste più",
   "sharedTable.deleteName": "Elimina {name}",

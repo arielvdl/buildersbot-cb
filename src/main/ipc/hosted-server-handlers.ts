@@ -1,4 +1,4 @@
-// OpenBot servers that the account server runs for the signed-in account.
+// Builders Bot servers that the account server runs for the signed-in account.
 
 import {
   type CreateHostedServerInput,

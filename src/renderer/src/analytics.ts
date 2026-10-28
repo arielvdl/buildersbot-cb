@@ -178,7 +178,7 @@ interface DesktopAnalyticsEvents {
     action: "view" | "install" | "update" | "uninstall" | "publish" | "enable" | "disable";
     result: AnalyticsResult;
     failure_code?: string;
-    /** A listing id or plugin slug. Only OpenBot's own curated listings and plugins are sent. */
+    /** A listing id or plugin slug. Only Builders Bot's own curated listings and plugins are sent. */
     listing_slug?: string;
   };
   memory_action: {

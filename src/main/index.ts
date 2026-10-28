@@ -9,7 +9,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { createFormat, resolveLocale, translateFor } from "@openbot/i18n";
 import { localizeSourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { createRemoteDirectoryRefresh } from "@openbot/team-client/remote-directory";
 import { Effect, Semaphore } from "effect";
 import {
@@ -125,7 +125,7 @@ import type { TraceFile } from "./trace-file";
 import { setIpcCallObserver } from "./trusted-ipc";
 import { setWindowAppearance } from "./window-appearance";
 
-const logger = createOpenBotLogger("main");
+const logger = createBuildersBotLogger("main");
 
 // Electron keeps running after both events: an unhandled rejection only prints a warning, and a
 // monitor leaves the default exception handling in place. These add a redacted log line and a
@@ -138,7 +138,7 @@ type ExitReason = "main_window_closed" | "signal" | "session_end" | "quit";
 let exitRecorded = false;
 
 /**
- * Records once why OpenBot quits, in the main log and in the trace, before the teardown closes the
+ * Records once why Builders Bot quits, in the main log and in the trace, before the teardown closes the
  * trace. The first reason wins: closing the window then also quits. A process that ends with no such
  * line and no crash dump stopped from outside, such as Task Manager.
  */
@@ -173,7 +173,7 @@ const developmentRemoteRole =
     ? process.env.OPENBOT_DEV_REMOTE_ROLE
     : null;
 const developmentTestClientEnabled = !app.isPackaged && process.env.OPENBOT_DEV_TEST_CLIENT_ENABLED === "1";
-// Before any child process starts: agents must not run as part of a Claude Code session that started OpenBot.
+// Before any child process starts: agents must not run as part of a Claude Code session that started Builders Bot.
 removeClaudeCodeSessionEnvironment(process.env);
 // Before any child process starts: this removes the single-use claim from the environment they inherit.
 const hostedServer = takeHostedServerEnvironment(process.env, app.isPackaged, process.platform);
@@ -211,9 +211,9 @@ if (commandLineUserDataDirectory) {
     ),
   );
 }
-app.setName("OpenBot");
+app.setName("Builders Bot");
 app.enableSandbox();
-if (process.platform === "win32") app.setAppUserModelId("app.openbot.desktop");
+if (process.platform === "win32") app.setAppUserModelId("app.buildersbot.desktop");
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 // A second launch exits at once and must not write into the files of the instance that runs.
 if (hasSingleInstanceLock) {
@@ -302,7 +302,7 @@ let systemSessionEndFlushStarted = false;
 let relaunchRequested = false;
 /**
  * Set by a quit signal, by `before-quit` and by a Windows `session-end`, and never cleared. Not
- * `isQuitting`: a Windows session end that another app cancels also sets that, and then OpenBot
+ * `isQuitting`: a Windows session end that another app cancels also sets that, and then Builders Bot
  * keeps running.
  */
 let quitStarted = false;
@@ -451,19 +451,19 @@ function applyAppIconColor(color: AppLogoColor): void {
 }
 
 /**
- * Outside macOS, closing the main window ends OpenBot, unless the user chose to keep it running in
+ * Outside macOS, closing the main window ends Builders Bot, unless the user chose to keep it running in
  * the background. The window is then hidden, not closed, so this event does not come.
  *
  * `window-all-closed` cannot carry that on its own any more. The Computer Use overlays are hidden
  * between actions and closed only after a minute of idle, and a hidden window is still a window,
- * so the event may never arrive: the user would close the last window they can see and leave OpenBot
+ * so the event may never arrive: the user would close the last window they can see and leave Builders Bot
  * and the driver running with no way back to them.
  */
 function attachQuitOnMainWindowClose(window: BrowserWindow): void {
   if (process.platform === "darwin") return;
   window.on("closed", () => {
     recordExit("main_window_closed");
-    // `quit`, not a teardown of its own: `before-quit` below is what OpenBot shuts down through,
+    // `quit`, not a teardown of its own: `before-quit` below is what Builders Bot shuts down through,
     // and it already ignores a second request while the first one runs.
     app.quit();
   });
@@ -476,9 +476,9 @@ function attachQuitOnMainWindowClose(window: BrowserWindow): void {
  * registered when the first window is built, long before any service exists, which is why every
  * read below goes through `services?.`.
  *
- * Another app can cancel a session end after the query, and OpenBot then keeps running. Provider
+ * Another app can cancel a session end after the query, and Builders Bot then keeps running. Provider
  * runtimes stop only on `session-end`: a stopped manager does not start again, so stopping it on the
- * query left every later Download failing with "OpenBot is closing." (#2518).
+ * query left every later Download failing with "Builders Bot is closing." (#2518).
  */
 function attachWindowsSessionEndHandlers(window: BrowserWindow): void {
   if (process.platform !== "win32") return;
@@ -597,6 +597,7 @@ function registerIpcHandlers({
   routineFlows,
   workflows,
   routineResults,
+  securityGuard,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
   // Nothing is bound inline here: this is the trust boundary, and a reviewer should be able to read
@@ -627,6 +628,7 @@ function registerIpcHandlers({
       applyRemoteNetworkRoute: () => runCauseEffect(host.applyNetworkRoute()),
       remoteSessionCache,
       appBehavior,
+      securityGuard,
       language,
       logoColor,
       appearance,
@@ -804,7 +806,7 @@ function requestDesktopNotificationPermission(
       preference,
       showWelcome: () => {
         if (!Notification.isSupported()) return;
-        showRetainedNotification(new Notification({ title: "OpenBot", body: translate("notification.welcome") }));
+        showRetainedNotification(new Notification({ title: "Builders Bot", body: translate("notification.welcome") }));
       },
     }),
   );
@@ -1071,7 +1073,7 @@ if (!hasSingleInstanceLock) {
       // A Windows development build does not register: the handler would be bare `electron.exe`.
       // A macOS development build does not register either: macOS ignores the path and arguments and
       // names the `com.github.Electron` bundle, so the link took `openbot://` from an installed
-      // OpenBot and opened some worktree's bare Electron.app. `bun run dev:slack` has a loopback return.
+      // Builders Bot and opened some worktree's bare Electron.app. `bun run dev:slack` has a loopback return.
       await Effect.runPromise(
         installLinuxDesktopEntry({ platform: process.platform, environment: process.env, iconPath: appIconPath }),
       );
@@ -1080,7 +1082,7 @@ if (!hasSingleInstanceLock) {
         ((process.platform === "darwin" || process.platform === "win32") && app.isPackaged)
       ) {
         if (!app.setAsDefaultProtocolClient("openbot")) {
-          logger.warn("Unable to register the openbot:// scheme. Invitation links will not open OpenBot.");
+          logger.warn("Unable to register the openbot:// scheme. Invitation links will not open Builders Bot.");
         }
       }
       configureContentSecurityPolicy();
@@ -1364,7 +1366,7 @@ if (!hasSingleInstanceLock) {
         })
       ) {
         void runCauseEffect(built.centralAuthInitialization.pipe(Effect.flatMap(() => host.start()))).catch((error) =>
-          logger.error("Unable to republish this OpenBot:", toLogValue(error)),
+          logger.error("Unable to republish this Builders Bot:", toLogValue(error)),
         );
       }
       void runCauseEffect(built.agentInitialization.start()).catch((error) => {
@@ -1437,7 +1439,7 @@ if (!hasSingleInstanceLock) {
       }
       // The Windows error box ends the text at a NUL character, so control characters are replaced.
       const message = (error instanceof Error ? error.message : String(error)).replace(/[^\P{Cc}\n\t]/gu, "�");
-      logger.error("OpenBot failed to start:", toLogValue(error));
+      logger.error("Builders Bot failed to start:", toLogValue(error));
       // A server has nobody at its virtual display to close the box, and the box blocks the quit.
       if (!serverMode && !hostedServer) {
         // The services, and with them the saved language, may not exist yet. Then the system language applies.
@@ -1490,7 +1492,7 @@ const SHUTDOWN_DEADLINE_MS = 30_000;
 
 function forceExitAfterShutdownDeadline(): void {
   setTimeout(() => {
-    logger.error(`OpenBot did not quit within ${SHUTDOWN_DEADLINE_MS} ms and will exit now.`);
+    logger.error(`Builders Bot did not quit within ${SHUTDOWN_DEADLINE_MS} ms and will exit now.`);
     app.exit(0);
   }, SHUTDOWN_DEADLINE_MS);
 }

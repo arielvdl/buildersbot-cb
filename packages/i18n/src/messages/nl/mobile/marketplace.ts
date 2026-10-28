@@ -55,13 +55,13 @@ export const messages = {
   "mobile.marketplace.facts.accessNone": "Geen inlog",
   "mobile.marketplace.permission.admin": "Alleen eigenaren en beheerders kunnen installeren uit de marktplaats.",
   "mobile.marketplace.permission.unavailable":
-    "Deze server is offline, of de OpenBot-versie is hiervoor te oud. Werk OpenBot bij op de computer waarop de server draait.",
+    "Deze server is offline, of de Builders Bot-versie is hiervoor te oud. Werk Builders Bot bij op de computer waarop de server draait.",
   "mobile.marketplace.error.agentUnsupported":
-    "Werk OpenBot bij op de server om agents uit de marktplaats toe te voegen.",
+    "Werk Builders Bot bij op de server om agents uit de marktplaats toe te voegen.",
   "mobile.marketplace.error.agentUpdateUnsupported":
-    "Werk OpenBot bij op de server om agents uit de marktplaats bij te werken.",
+    "Werk Builders Bot bij op de server om agents uit de marktplaats bij te werken.",
   "mobile.marketplace.error.signInUnsupported":
-    "Werk OpenBot bij op de server om vanaf je telefoon in te loggen bij apps.",
+    "Werk Builders Bot bij op de server om vanaf je telefoon in te loggen bij apps.",
   "mobile.marketplace.agent.add": "Voeg agent toe",
   "mobile.marketplace.agent.adding": "Agent toevoegen",
   "mobile.marketplace.agent.update": "Werk agent bij",
@@ -105,9 +105,9 @@ export const messages = {
   "mobile.marketplace.app.connectFailed": "De app is niet verbonden.",
   "mobile.marketplace.app.linkInvalid": "Gebruik een https-link op {hostname}.",
   "mobile.marketplace.app.docs": "Vraag een sleutel aan",
-  "mobile.marketplace.app.local": "Deze app draait op de computer met OpenBot. Stel de app in op die computer.",
+  "mobile.marketplace.app.local": "Deze app draait op de computer met Builders Bot. Stel de app in op die computer.",
   "mobile.marketplace.app.relayUnsupported":
-    "Voor deze app moet je inloggen in een browser. Werk OpenBot bij op de server, of verbind de app op de computer.",
+    "Voor deze app moet je inloggen in een browser. Werk Builders Bot bij op de server, of verbind de app op de computer.",
   "mobile.marketplace.app.waiting": "Wachten op de inlogpagina…",
   "mobile.marketplace.app.openAgain": "Open de inlogpagina opnieuw",
   "mobile.marketplace.app.pasteHint":

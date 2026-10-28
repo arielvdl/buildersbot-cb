@@ -58,7 +58,7 @@ export function siteLimitForPlan(plan: BillingPlanId | null): number {
 }
 
 /**
- * The Stripe subscription metadata that links a subscription to an OpenBot account and server. The
+ * The Stripe subscription metadata that links a subscription to an Builders Bot account and server. The
  * Checkout that creates a server's subscription must set both keys.
  */
 export const BILLING_METADATA = { userId: "openbot_user_id", serverId: "openbot_server_id" } as const;

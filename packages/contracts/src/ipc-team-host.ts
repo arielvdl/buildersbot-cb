@@ -105,7 +105,7 @@ export interface ServerSummary {
 export type HostedServerIssue = "plan_ended" | "wake_failed" | "start_timeout";
 
 /**
- * `machine`: the provider starts the machine. `openbot`: the machine runs and OpenBot on it starts.
+ * `machine`: the provider starts the machine. `openbot`: the machine runs and Builders Bot on it starts.
  * `provider_limit`: the provider refused the start for a short time, and the account server tries again.
  */
 export type HostedServerStartStep = "machine" | "openbot" | "provider_limit";
@@ -152,7 +152,7 @@ export interface HostStatus {
   logoUrl: string | null;
   apiOnline: boolean;
   remoteDesktopReady: boolean;
-  // True once this host has refused a member because the operating system will not let OpenBot record
+  // True once this host has refused a member because the operating system will not let Builders Bot record
   // the screen. The member's error tells them to ask the host owner; this is what the host owner sees.
   remoteDesktopScreenRecordingDenied: boolean;
   remoteDesktopUnattended: boolean;

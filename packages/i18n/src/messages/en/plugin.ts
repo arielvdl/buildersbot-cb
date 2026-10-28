@@ -21,7 +21,7 @@ export const messages = defineMessages("plugin", {
   "plugin.uninstallDialog.appsLabel": "Apps to remove, {number}",
   "plugin.uninstallDialog.appsTitle": "Apps removed from this host",
   "plugin.uninstallDialog.appsNote":
-    "Their tools stop being available, and any sign-in OpenBot kept for them is forgotten.",
+    "Their tools stop being available, and any sign-in Builders Bot kept for them is forgotten.",
   "plugin.uninstallDialog.skillsLabel": "Skills to remove, {number}",
   "plugin.uninstallDialog.skillsTitle": "Skills removed from {agentName}",
 });

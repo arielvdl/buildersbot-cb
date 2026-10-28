@@ -2,10 +2,10 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/link";
 
 export const messages = {
-  "mobile.link.connectFailed": "OpenBot kan geen verbinding maken. Probeer opnieuw.",
+  "mobile.link.connectFailed": "Builders Bot kan geen verbinding maken. Probeer opnieuw.",
   "mobile.link.invite.signInTitle": "Log in om lid te worden van deze server",
   "mobile.link.invite.signInDescription":
-    "Scan de QR-code in OpenBot op je computer. Daarna kun je de uitnodiging bekijken.",
+    "Scan de QR-code in Builders Bot op je computer. Daarna kun je de uitnodiging bekijken.",
   "mobile.link.invite.cancel": "Annuleer uitnodiging",
   "mobile.link.pairing.title": "Verbind deze telefoon",
   "mobile.link.pairing.alreadySignedIn":
@@ -13,10 +13,10 @@ export const messages = {
   "mobile.link.pairing.description":
     "Ga alleen door als je deze Mobile Connect-link zelf hebt aangevraagd op je computer.",
   "mobile.link.pairing.accountService":
-    "Deze link maakt verbinding met de accountservice op {origin}, niet met de accountservice van OpenBot.",
+    "Deze link maakt verbinding met de accountservice op {origin}, niet met de accountservice van Builders Bot.",
   "mobile.link.pairing.connect": "Verbinden",
   "mobile.link.plugin.title": "Open pluginpagina",
-  "mobile.link.plugin.description": "Bekijk deze plug-in op de website van OpenBot.",
+  "mobile.link.plugin.description": "Bekijk deze plug-in op de website van Builders Bot.",
   "mobile.link.plugin.openFailed": "Kan de pluginpagina niet openen.",
   "mobile.link.plugin.view": "Bekijk plug-in",
   "mobile.link.unavailable.title": "Link niet beschikbaar",
@@ -24,7 +24,7 @@ export const messages = {
     "Deze link is ongeldig, niet meer beschikbaar of wordt niet ondersteund op mobiel.",
   "mobile.link.template.signInTitle": "Log in om deze agent toe te voegen",
   "mobile.link.template.signInDescription":
-    "Scan de QR-code in OpenBot op je computer. Daarna kun je de agent bekijken voordat je hem toevoegt.",
+    "Scan de QR-code in Builders Bot op je computer. Daarna kun je de agent bekijken voordat je hem toevoegt.",
   "mobile.link.template.loading": "Agent laden…",
   "mobile.link.template.creator": "Door {name}",
   "mobile.link.template.section.instructions": "Instructies",
@@ -36,7 +36,7 @@ export const messages = {
   "mobile.link.template.skill.marketplace": "Vaardigheid uit marktplaats, versie {version}",
   "mobile.link.template.server.title": "Voeg toe aan server",
   "mobile.link.template.server.footer": "Alleen servers waar je eigenaar of beheerder bent, staan hier.",
-  "mobile.link.template.server.updateRequired": "Werk OpenBot bij op deze server om gedeelde agents toe te voegen.",
+  "mobile.link.template.server.updateRequired": "Werk Builders Bot bij op deze server om gedeelde agents toe te voegen.",
   "mobile.link.template.server.none":
     "Je moet eigenaar of beheerder van een server zijn om een gedeelde agent toe te voegen.",
   "mobile.link.template.install.action": "Voeg agent toe",
@@ -48,5 +48,5 @@ export const messages = {
   "mobile.link.template.error.title": "Kan de agent niet laden",
   "mobile.link.template.error.loadFailed": "Kan de gedeelde agent niet lezen. Probeer opnieuw.",
   "mobile.link.template.error.unsupported":
-    "Deze server kan geen gedeelde agents toevoegen. Werk OpenBot bij op de computer waarop de server draait.",
+    "Deze server kan geen gedeelde agents toevoegen. Werk Builders Bot bij op de computer waarop de server draait.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -2,9 +2,9 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/computerUse";
 
 export const messages = {
-  "error.computerUse.noAppToDrag": "В этой сборке OpenBot нет приложения для перетаскивания.",
+  "error.computerUse.noAppToDrag": "В этой сборке Builders Bot нет приложения для перетаскивания.",
   "error.computerUse.helpWindowChanged": "Окно подсказки по разрешениям изменилось до начала перетаскивания.",
-  "error.computerUse.noAppToShow": "В этой сборке OpenBot нет приложения для показа.",
+  "error.computerUse.noAppToShow": "В этой сборке Builders Bot нет приложения для показа.",
   "error.computerUse.noDriver": "На этом компьютере нет драйвера управления компьютером.",
   "error.computerUse.socketPathTooLong":
     "Путь к сокету управления компьютером — {length} символов, а система допускает {limit}.",

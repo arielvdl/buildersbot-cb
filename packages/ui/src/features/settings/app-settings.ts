@@ -48,6 +48,8 @@ export interface GeneralSettingsValue {
   sendShortcut: SendShortcutMode;
   /** The steps of an agent's turn (thinking, progress, memory changes) are open at first. */
   showAgentSteps: boolean;
+  /** A security reviewer reads every message before the agent does, and reports prompt injection. */
+  promptInjectionGuard: boolean;
   /** What a message sent to a busy agent does, unless the agent or the message sets its own. */
   busyMessageMode: BusyMessageMode;
   /** What an agent of this computer does when it has no value of its own for the setting. */
@@ -87,6 +89,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   taskCompletionSound: true,
   sendShortcut: "enter",
   showAgentSteps: false,
+  promptInjectionGuard: true,
   busyMessageMode: "queue",
   agentDefaults: DEFAULT_AGENT_DEFAULTS,
   agentMemoryLimit: DEFAULT_AGENT_MEMORY_LIMIT,

@@ -24,7 +24,7 @@ export const messages = {
   "marketplace.description.apps": "Koppel de tools en diensten waarmee je agents werken.",
   "marketplace.description.agents": "Kant-en-klare agents met eigen instructies en vaardigheden.",
   "marketplace.description.skills": "Instructies die een agent een taak of tool leren.",
-  "marketplace.plugins.missing": "Deze plug-in staat niet in de OpenBot-catalogus.",
+  "marketplace.plugins.missing": "Deze plug-in staat niet in de Builders Bot-catalogus.",
   "marketplace.agents.loadingDetail": "Agentgegevens laden…",
   "marketplace.agents.skills": "Vaardigheden",
   "marketplace.agents.routines": "Routines",
@@ -32,7 +32,7 @@ export const messages = {
   "marketplace.agents.routineInactive": "Inactief",
   "marketplace.skill.loading": "Vaardigheid laden",
   "marketplace.skill.update": "Vaardigheid bijwerken",
-  "marketplace.try.readFailed": "OpenBot kan de vaardigheden van deze agent niet lezen. Probeer het opnieuw.",
+  "marketplace.try.readFailed": "Builders Bot kan de vaardigheden van deze agent niet lezen. Probeer het opnieuw.",
   "marketplace.try.enable": "Schakel deze vaardigheid in bij de agentinstellingen om haar te proberen.",
   "marketplace.try.repair": "Herstel deze vaardigheid bij de agentinstellingen om haar te proberen.",
   "marketplace.try.update": "Werk deze vaardigheid bij om deze versie te proberen.",
@@ -121,10 +121,10 @@ export const messages = {
   "marketplace.app.automation.description":
     "macOS toont voor elke app één vraag. Een gesloten app opent even en stopt daarna.",
   "marketplace.app.automation.request": "Toegang vragen",
-  "marketplace.app.automation.allowed": "OpenBot kan nu alle Apple-apps besturen.",
+  "marketplace.app.automation.allowed": "Builders Bot kan nu alle Apple-apps besturen.",
   "marketplace.app.automation.refused":
-    "macOS heeft geen toegang gegeven tot {apps}. Sta OpenBot toe in Systeeminstellingen › Privacy en beveiliging › Automatisering.",
-  "marketplace.app.automation.failed": "OpenBot kon macOS niet vragen naar {apps}. Probeer het opnieuw.",
+    "macOS heeft geen toegang gegeven tot {apps}. Sta Builders Bot toe in Systeeminstellingen › Privacy en beveiliging › Automatisering.",
+  "marketplace.app.automation.failed": "Builders Bot kon macOS niet vragen naar {apps}. Probeer het opnieuw.",
   "marketplace.app.automation.app.calendar": "Agenda",
   "marketplace.app.automation.app.contacts": "Contacten",
   "marketplace.app.automation.app.mail": "Mail",
@@ -191,7 +191,7 @@ export const messages = {
   "marketplace.plugin.figma.prompt.assets": "Exporteer de marketingiconen op 2x voor de app-bundel.",
   "marketplace.plugin.paper.tagline": "Ontwerpcanvas op basis van HTML en CSS",
   "marketplace.plugin.paper.description":
-    "Met Paper kunnen agents het ontwerpbestand lezen en schrijven dat open is in Paper Desktop: artboards, selecties, berekende stijlen, JSX en tokens inspecteren, en frames, tekst en stijlen maken of wijzigen. Installeer Paper Desktop, open het één keer en open een bestand voordat je begint. OpenBot start de Paper CLI die Paper Desktop installeert. Paper heeft geen sleutel nodig. Schrijftools wijzigen het open bestand, dus controleer elke wijziging voordat je die goedkeurt.",
+    "Met Paper kunnen agents het ontwerpbestand lezen en schrijven dat open is in Paper Desktop: artboards, selecties, berekende stijlen, JSX en tokens inspecteren, en frames, tekst en stijlen maken of wijzigen. Installeer Paper Desktop, open het één keer en open een bestand voordat je begint. Builders Bot start de Paper CLI die Paper Desktop installeert. Paper heeft geen sleutel nodig. Schrijftools wijzigen het open bestand, dus controleer elke wijziging voordat je die goedkeurt.",
   "marketplace.plugin.paper.app":
     "Leest en schrijft het open Paper Desktop-bestand, via de lokale MCP-server die de Paper CLI doorgeeft. Vereist Paper Desktop met een open bestand.",
   "marketplace.plugin.paper.prompt.implement":
@@ -202,7 +202,7 @@ export const messages = {
     "Toon de designtokens in het open Paper-bestand en vergelijk ze met ons thema.",
   "marketplace.plugin.appleApps.tagline": "Mail, Agenda en meer op je Mac",
   "marketplace.plugin.appleApps.description":
-    "Met Apple-apps kunnen agents Mail, Agenda, Contacten, Herinneringen, Notities, Berichten en Safari op deze Mac gebruiken. Het werkt alleen op macOS. OpenBot start mcp-icloud, een communityserver die niet van Apple of OpenBot is. De server bestuurt de apps via AppleScript op deze computer en heeft geen account en geen sleutel nodig. Bij de installatie kan OpenBot macOS in één keer om toegang tot al deze apps vragen, met één vraag per app. Anders vraagt macOS het de eerste keer dat een agent een app gebruikt. Om dit later te wijzigen, open je Systeeminstellingen › Privacy en beveiliging › Automatisering. Agents kunnen e-mail en iMessages versturen en afspraken, contacten en herinneringen wijzigen of verwijderen, dus controleer elke wijziging voordat je die goedkeurt. Wat de tools lezen, zoals de tekst van e-mails, gaat naar de modelaanbieder van de agent.",
+    "Met Apple-apps kunnen agents Mail, Agenda, Contacten, Herinneringen, Notities, Berichten en Safari op deze Mac gebruiken. Het werkt alleen op macOS. Builders Bot start mcp-icloud, een communityserver die niet van Apple of Builders Bot is. De server bestuurt de apps via AppleScript op deze computer en heeft geen account en geen sleutel nodig. Bij de installatie kan Builders Bot macOS in één keer om toegang tot al deze apps vragen, met één vraag per app. Anders vraagt macOS het de eerste keer dat een agent een app gebruikt. Om dit later te wijzigen, open je Systeeminstellingen › Privacy en beveiliging › Automatisering. Agents kunnen e-mail en iMessages versturen en afspraken, contacten en herinneringen wijzigen of verwijderen, dus controleer elke wijziging voordat je die goedkeurt. Wat de tools lezen, zoals de tekst van e-mails, gaat naar de modelaanbieder van de agent.",
   "marketplace.plugin.appleApps.app":
     "Mail, Agenda, Contacten, Herinneringen, Notities, Berichten en Safari, via de lokale mcp-icloud-server. Vereist macOS en toegang tot Automatisering.",
   "marketplace.plugin.appleApps.prompt.unread": "Vat mijn ongelezen e-mail van vandaag in Apple Mail samen.",

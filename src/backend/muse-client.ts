@@ -110,7 +110,7 @@ interface MuseThread {
   replayed: Set<string>;
 }
 
-/** Owns one native MSP process, session MCP bridges, and the live view-to-OpenBot event adapter. */
+/** Owns one native MSP process, session MCP bridges, and the live view-to-Builders Bot event adapter. */
 export class MuseAgentClient extends EventEmitter<ClientEvents> implements AgentClient {
   readonly contextCompaction = "events";
   readonly provider: AgentProvider = "muse";

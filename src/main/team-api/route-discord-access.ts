@@ -10,7 +10,7 @@ import { readJson, requireAdmin, stringField } from "./request-helpers";
 const ROUTES: ReadonlySet<string> = new Set(Object.values(DISCORD_ACCESS_ROUTES));
 
 /**
- * Which Discord roles can use OpenBot in each Discord server of this host, read and set from a joined
+ * Which Discord roles can use Builders Bot in each Discord server of this host, read and set from a joined
  * server. Frozen by `discord-access-v1`. `requireAdmin` runs on every route.
  */
 export async function routeDiscordAccess(

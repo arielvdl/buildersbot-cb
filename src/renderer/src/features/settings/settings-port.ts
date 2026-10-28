@@ -1,39 +1,44 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the settings context reaches in main: the app-wide preferences, the switches for updates,
  * notifications and the Dynamic Island, and the local agents of the Agents tab.
  */
 export interface SettingsPort {
-  getAgentDefaults: OpenBotDesktopApi["getAgentDefaults"];
-  getAgentMemoryLimitPreference: OpenBotDesktopApi["getAgentMemoryLimitPreference"];
-  getAnalyticsPreference: OpenBotDesktopApi["getAnalyticsPreference"];
-  getAppBehaviorPreference: OpenBotDesktopApi["getAppBehaviorPreference"];
-  getApprovalAutomation: OpenBotDesktopApi["getApprovalAutomation"];
-  getBusyMessageModePreference: OpenBotDesktopApi["getBusyMessageModePreference"];
-  getExternalLinkPreference: OpenBotDesktopApi["getExternalLinkPreference"];
-  listExternalLinkBrowsers: OpenBotDesktopApi["listExternalLinkBrowsers"];
-  chooseExternalLinkApp: OpenBotDesktopApi["chooseExternalLinkApp"];
-  onExternalLinkFallback: OpenBotDesktopApi["onExternalLinkFallback"];
-  getRemoteNetworkRoute: OpenBotDesktopApi["getRemoteNetworkRoute"];
-  getRemoteSessionReusePreference: OpenBotDesktopApi["getRemoteSessionReusePreference"];
-  onAgentMemoryLimitPreference: OpenBotDesktopApi["onAgentMemoryLimitPreference"];
-  onApprovalAutomation: OpenBotDesktopApi["onApprovalAutomation"];
-  onOpenSettings: OpenBotDesktopApi["onOpenSettings"];
-  setAgentDefaults: OpenBotDesktopApi["setAgentDefaults"];
-  setAnalyticsPreference: OpenBotDesktopApi["setAnalyticsPreference"];
-  setAppBehaviorPreference: OpenBotDesktopApi["setAppBehaviorPreference"];
-  setBusyMessageModePreference: OpenBotDesktopApi["setBusyMessageModePreference"];
-  setExternalLinkPreference: OpenBotDesktopApi["setExternalLinkPreference"];
-  setRemoteNetworkRoute: OpenBotDesktopApi["setRemoteNetworkRoute"];
-  setRemoteSessionReusePreference: OpenBotDesktopApi["setRemoteSessionReusePreference"];
-  agent: Pick<OpenBotDesktopApi["agent"], "listAgents" | "updateAgent">;
+  getAgentDefaults: BuildersBotDesktopApi["getAgentDefaults"];
+  getAgentMemoryLimitPreference: BuildersBotDesktopApi["getAgentMemoryLimitPreference"];
+  getAnalyticsPreference: BuildersBotDesktopApi["getAnalyticsPreference"];
+  getAppBehaviorPreference: BuildersBotDesktopApi["getAppBehaviorPreference"];
+  getApprovalAutomation: BuildersBotDesktopApi["getApprovalAutomation"];
+  getBusyMessageModePreference: BuildersBotDesktopApi["getBusyMessageModePreference"];
+  getExternalLinkPreference: BuildersBotDesktopApi["getExternalLinkPreference"];
+  listExternalLinkBrowsers: BuildersBotDesktopApi["listExternalLinkBrowsers"];
+  chooseExternalLinkApp: BuildersBotDesktopApi["chooseExternalLinkApp"];
+  onExternalLinkFallback: BuildersBotDesktopApi["onExternalLinkFallback"];
+  getRemoteNetworkRoute: BuildersBotDesktopApi["getRemoteNetworkRoute"];
+  getRemoteSessionReusePreference: BuildersBotDesktopApi["getRemoteSessionReusePreference"];
+  getGuardPreference: BuildersBotDesktopApi["getGuardPreference"];
+  onAgentMemoryLimitPreference: BuildersBotDesktopApi["onAgentMemoryLimitPreference"];
+  onApprovalAutomation: BuildersBotDesktopApi["onApprovalAutomation"];
+  onOpenSettings: BuildersBotDesktopApi["onOpenSettings"];
+  setAgentDefaults: BuildersBotDesktopApi["setAgentDefaults"];
+  setAnalyticsPreference: BuildersBotDesktopApi["setAnalyticsPreference"];
+  setAppBehaviorPreference: BuildersBotDesktopApi["setAppBehaviorPreference"];
+  setBusyMessageModePreference: BuildersBotDesktopApi["setBusyMessageModePreference"];
+  setExternalLinkPreference: BuildersBotDesktopApi["setExternalLinkPreference"];
+  setRemoteNetworkRoute: BuildersBotDesktopApi["setRemoteNetworkRoute"];
+  setRemoteSessionReusePreference: BuildersBotDesktopApi["setRemoteSessionReusePreference"];
+  setGuardPreference: BuildersBotDesktopApi["setGuardPreference"];
+  agent: Pick<BuildersBotDesktopApi["agent"], "listAgents" | "updateAgent">;
   dynamicIsland: Pick<
-    OpenBotDesktopApi["dynamicIsland"],
+    BuildersBotDesktopApi["dynamicIsland"],
     "getBuiltInDisplayGeometry" | "getPreference" | "setPreference"
   >;
-  notifications: Pick<OpenBotDesktopApi["notifications"], "getPreference" | "openSettings" | "setPreference" | "test">;
-  update: Pick<OpenBotDesktopApi["update"], "getPreference" | "onPreference" | "setPreference">;
+  notifications: Pick<
+    BuildersBotDesktopApi["notifications"],
+    "getPreference" | "openSettings" | "setPreference" | "test"
+  >;
+  update: Pick<BuildersBotDesktopApi["update"], "getPreference" | "onPreference" | "setPreference">;
 }
 
 /** Read on each call: tests and stories replace `window.openbot` per case. */

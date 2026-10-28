@@ -1,5 +1,5 @@
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect } from "effect";
 import {
   ScreenCaptureFailed,
@@ -21,7 +21,7 @@ import {
  * wallpaper, and a capture of the wallpaper must not reach the model as if it were the screen.
  */
 
-const logger = createOpenBotLogger("screen-capture");
+const logger = createBuildersBotLogger("screen-capture");
 
 /** The same bound as a browser screenshot: a larger image costs the model more than it shows it. */
 const MAX_CAPTURE_PIXELS = 4_194_304;

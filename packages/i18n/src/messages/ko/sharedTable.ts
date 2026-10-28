@@ -10,7 +10,7 @@ export const messages = {
     "아직 테이블이 없어요. 작업에서 턴 사이에 레코드가 필요하면 에이전트가 직접 만들고, 모든 에이전트가 사용할 수 있어요.",
   "sharedTable.loadFailed": "테이블을 불러올 수 없어요.",
   "sharedTable.deleteFailed": "삭제할 수 없어요.",
-  "sharedTable.madeOutside": "OpenBot 밖에서 만들어짐 · 모든 에이전트가 삭제할 수 있어요",
+  "sharedTable.madeOutside": "Builders Bot 밖에서 만들어짐 · 모든 에이전트가 삭제할 수 있어요",
   "sharedTable.keptBy": "{name}이(가) 보관 중",
   "sharedTable.keptByDeleted": "더 이상 없는 에이전트가 보관 중",
   "sharedTable.deleteName": "{name} 삭제",

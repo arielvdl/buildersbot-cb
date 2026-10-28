@@ -19,7 +19,7 @@ export const messages = {
   "mobile.workspace.error.removeOwnedServerOnly": "Bu sunucuyu yalnızca sahibi kaldırabilir.",
   "mobile.workspace.error.agentNotOnHost": "Ajan bu ana makinede değil.",
   "mobile.workspace.error.filesUnsupported":
-    "Bu ana makine dosya yönetimini desteklemiyor. Ana makinedeki OpenBot'u güncelleyin.",
+    "Bu ana makine dosya yönetimini desteklemiyor. Ana makinedeki Builders Bot'u güncelleyin.",
   "mobile.workspace.error.agentUnavailableOnHost": "Ajan bu ana makinede kullanılamıyor.",
   "mobile.workspace.error.agentUnavailable": "Ajan kullanılamıyor.",
   "mobile.workspace.error.formUnavailable": "Bu form artık kullanılamıyor.",

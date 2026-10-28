@@ -16,7 +16,7 @@ import type { ProviderConnection } from "@openbot/ui/components/ProviderPicker";
 
 export type ProviderCodeLoginOpener = "composer";
 
-/** The hand-off to the OpenBot app, and the surface that opened it, as `opener` is for a sign-in. */
+/** The hand-off to the Builders Bot app, and the surface that opened it, as `opener` is for a sign-in. */
 export interface ProviderUseApp {
   provider: AgentProviderId;
   opener: ProviderCodeLoginOpener | null;
@@ -43,10 +43,10 @@ export interface ProviderConnectionApi extends ProviderConnection {
   connect: (provider: AgentProviderId, opener?: ProviderCodeLoginOpener) => Promise<void>;
   /** Runs the sign-in that the provider's ⋯ menu offers. */
   alternative: (provider: AgentProviderId, opener?: ProviderCodeLoginOpener) => void;
-  /** The provider that only the OpenBot app can sign in from here, while that dialog is open. */
+  /** The provider that only the Builders Bot app can sign in from here, while that dialog is open. */
   useApp: () => ProviderUseApp | null;
   closeUseApp: () => void;
-  /** Opens the page that downloads the OpenBot app. Only a browser tab, which can need the app, has it. */
+  /** Opens the page that downloads the Builders Bot app. Only a browser tab, which can need the app, has it. */
   openAppDownload?: (() => void) | undefined;
   /** Sends the code the page of a `paste` sign-in showed. */
   submit: (code: string) => void;

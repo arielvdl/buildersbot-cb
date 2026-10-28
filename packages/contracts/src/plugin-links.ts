@@ -57,7 +57,7 @@ export function pluginSlugFromWebAppSearch(search: string): string | null {
 }
 
 /** The link the page's button opens, which raises the app on this listing. */
-export function createOpenBotPluginUrl(slug: string): string {
+export function createBuildersBotPluginUrl(slug: string): string {
   assertPluginSlug(slug);
   return `openbot://${OPENBOT_PLUGIN_HOST}/${slug}`;
 }
@@ -85,7 +85,7 @@ export function parsePluginUrl(value: string): string {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("The OpenBot plugin link is invalid.");
+    throw new Error("The Builders Bot plugin link is invalid.");
   }
 
   /* The origin is compared as one string. An `endsWith` or a host expression here is what lets
@@ -103,7 +103,7 @@ export function parsePluginUrl(value: string): string {
     url.search !== "" ||
     url.hash !== ""
   ) {
-    throw new Error("The OpenBot plugin link is invalid.");
+    throw new Error("The Builders Bot plugin link is invalid.");
   }
 
   /* One segment after the prefix, and no empty one. `..` and a trailing slash both fail here before
@@ -111,7 +111,7 @@ export function parsePluginUrl(value: string): string {
   const rest = canonical ? url.pathname.slice(OPENBOT_PLUGIN_PATH_PREFIX.length) : url.pathname.replace(/^\//u, "");
   const segments = rest.split("/");
   if (segments.length !== 1) {
-    throw new Error("The OpenBot plugin link is invalid.");
+    throw new Error("The Builders Bot plugin link is invalid.");
   }
 
   const slug = segments[0] ?? "";
@@ -130,6 +130,6 @@ export function isPluginUrl(value: string): boolean {
 
 function assertPluginSlug(slug: string): void {
   if (!isPluginSlug(slug)) {
-    throw new Error("The OpenBot plugin link is invalid.");
+    throw new Error("The Builders Bot plugin link is invalid.");
   }
 }

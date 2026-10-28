@@ -648,7 +648,7 @@ export class TeamWebRtcHostPeer {
           headers: {
             Authorization: `Bearer ${this.#localSessionToken}`,
             "Content-Type": uploaded?.mimeType ?? input.contentType ?? "application/json",
-            "OpenBot-Protocol-Version": peerCapabilities.has(TEAM_OPEN_PROVIDERS_CAPABILITY)
+            "Builders Bot-Protocol-Version": peerCapabilities.has(TEAM_OPEN_PROVIDERS_CAPABILITY)
               ? "8"
               : peerCapabilities.has(TEAM_PI_MUSE_CAPABILITY)
                 ? "7"
@@ -661,9 +661,9 @@ export class TeamWebRtcHostPeer {
                       : isTeamProtocolV3OnlyRoute(input.method, input.path)
                         ? "3"
                         : "1",
-            "OpenBot-App-Version": this.#appVersion,
-            "OpenBot-Capabilities": [...this.#peerCapabilities].join(","),
-            ...(this.#localSessionId ? { "X-OpenBot-WebRTC-Session": this.#localSessionId } : {}),
+            "Builders Bot-App-Version": this.#appVersion,
+            "Builders Bot-Capabilities": [...this.#peerCapabilities].join(","),
+            ...(this.#localSessionId ? { "X-Builders Bot-WebRTC-Session": this.#localSessionId } : {}),
           },
           ...(requestBody === undefined ? {} : { body: requestBody }),
         }),
@@ -960,7 +960,7 @@ export class TeamWebRtcHostPeer {
     this.#closeDesktopSocket(streamId);
     const sessionId = this.#localSessionId ?? "";
     const socket = yield* remoteDecode(
-      () => new webSockets.WebSocket(url, { headers: { "X-OpenBot-WebRTC-Session": sessionId } }),
+      () => new webSockets.WebSocket(url, { headers: { "X-Builders Bot-WebRTC-Session": sessionId } }),
     );
     this.#desktopSockets.set(streamId, socket);
     socket.once("open", () => {

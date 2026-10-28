@@ -91,7 +91,7 @@ export const messages = {
   "agentSettings.runtime.fullAccessNote":
     "エージェントは、ワークスペースと共有フォルダーからコンピューターへのフルアクセスで実行されます。",
   "agentSettings.runtime.askNote":
-    "OpenBot のツールを使う前、サイトを公開する前、およびプロバイダーが承認を求めたときに確認します。",
+    "Builders Bot のツールを使う前、サイトを公開する前、およびプロバイダーが承認を求めたときに確認します。",
   "agentSettings.runtime.fullNote": "あなたへの質問を除き、確認せずに操作します。",
 
   "agentSettings.access.workspace": "ワークスペースのみ",
@@ -143,7 +143,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "外部のファイル編集は、先に確認します。コマンドは外部に書き込めません。",
   "agentSettings.runtime.workspaceUnlimited":
-    "Computer Use と OpenBot ブラウザーは制限されません。Computer Use は下でオフにできます。",
+    "Computer Use と Builders Bot ブラウザーは制限されません。Computer Use は下でオフにできます。",
   "agentSettings.computerUse.title": "Computer Use",
   "agentSettings.computerUse.description": "このエージェントにこのコンピューターのアプリの操作を許可します",
   "agentSettings.automation.title": "ローカルスクリプト",
@@ -155,6 +155,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "長いタスクの前に計画を表示",
   "agentSettings.quickAcknowledgement.description":
     "長いタスクの前に、エージェントが計画を表示します。10 秒後、または開始を押すと始まります。",
+  "agentSettings.securityGuard.title": "各メッセージのセキュリティ検査",
+  "agentSettings.securityGuard.description":
+    '各ターンの前に、検査がメッセージと画像をプロンプトインジェクションについて読み、見つけた内容をエージェントに伝えます。エージェント自身のモデルを使います。',
   "agentSettings.browserProfile.label": "ブラウザープロファイル",
   "agentSettings.browserProfile.shared": "共有",
   "agentSettings.browserProfile.agent": "このエージェントのみ",

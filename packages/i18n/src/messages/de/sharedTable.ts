@@ -11,7 +11,7 @@ export const messages = {
     "Noch keine Tabellen. Ein Agent erstellt eine, wenn eine Aufgabe Daten über mehrere Durchläufe benötigt. Jeder Agent kann sie nutzen.",
   "sharedTable.loadFailed": "Die Tabellen konnten nicht geladen werden.",
   "sharedTable.deleteFailed": "Dies konnte nicht gelöscht werden.",
-  "sharedTable.madeOutside": "Außerhalb von OpenBot erstellt · jeder Agent kann sie löschen",
+  "sharedTable.madeOutside": "Außerhalb von Builders Bot erstellt · jeder Agent kann sie löschen",
   "sharedTable.keptBy": "Verwaltet von {name}",
   "sharedTable.keptByDeleted": "Verwaltet von einem Agenten, der nicht mehr existiert",
   "sharedTable.deleteName": "{name} löschen",

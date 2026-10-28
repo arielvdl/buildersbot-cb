@@ -15,7 +15,7 @@ export const messages = {
   "notification.channelTitle": "{channel} の {agent}",
   "notification.channelMessage": "メッセージを送信しました。",
   "notification.usageLimit.title": "{provider} のアカウントが上限に達しました",
-  "notification.usageLimit.body": { other: "エージェント {count} 件が待機中です。OpenBot は後でもう一度試します。" },
+  "notification.usageLimit.body": { other: "エージェント {count} 件が待機中です。Builders Bot は後でもう一度試します。" },
   "notification.usageLimit.bodyResets": { other: "エージェント {count} 件が待機中です。{reset} にリセットされます。" },
   "notification.test": "通知は正常に動作しています。",
   "notification.welcome": "エージェントが対応を必要とするときは、ここでお知らせします。",

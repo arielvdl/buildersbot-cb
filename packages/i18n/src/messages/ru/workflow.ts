@@ -339,9 +339,9 @@ export const messages = {
   "workflow.canvas.version.run": "Перед запуском",
   "workflow.canvas.deleteUndo.title": "Удалено: {name}",
   "workflow.canvas.deleteUndo.action": "Отменить",
-  "workflow.page.failed": "OpenBot не смог это сделать. Повторите попытку.",
+  "workflow.page.failed": "Builders Bot не смог это сделать. Повторите попытку.",
   "workflow.page.conflict": "Изменено на другом устройстве. Отмените, чтобы вернуть свои правки.",
   "workflow.page.needsNewerApp":
-    "В этом рабочем процессе есть шаги из более новой версии OpenBot. Обновите OpenBot, чтобы изменить его.",
+    "В этом рабочем процессе есть шаги из более новой версии Builders Bot. Обновите Builders Bot, чтобы изменить его.",
   "workflow.page.manageOnly": "Чтобы изменить этот рабочий процесс, нужен доступ на управление каждым из его агентов.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -5,7 +5,7 @@ import type {
   RoutineRunStatus,
   UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 import {
   type DueRoutine,
   type OwnedRoutine,
@@ -30,7 +30,7 @@ export interface DueRoutineTrigger {
  * so this file only translates - which is why the callers did not change with the extraction.
  */
 export class AgentRoutineStore extends RoutineStore {
-  constructor(database: OpenBotDatabase) {
+  constructor(database: BuildersBotDatabase) {
     super(database, ROUTINE_TABLES.agent);
   }
 

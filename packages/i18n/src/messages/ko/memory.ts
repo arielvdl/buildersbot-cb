@@ -33,7 +33,7 @@ export const messages = {
   "memory.clearAll": "모든 메모리 지우기",
   "memory.clearTitle": "모든 메모리를 지울까요?",
   "memory.clearDescription":
-    "OpenBot이 {name}에 저장된 메모리 {total}개를 모두 영구적으로 삭제해요. 원본 메시지는 대화 기록에 그대로 남아요.",
+    "Builders Bot이 {name}에 저장된 메모리 {total}개를 모두 영구적으로 삭제해요. 원본 메시지는 대화 기록에 그대로 남아요.",
   "memory.loadFailed": "메모리를 불러올 수 없어요.",
   "memory.saveFailed": "메모리를 저장할 수 없어요.",
   "memory.updateFailed": "메모리를 업데이트할 수 없어요.",

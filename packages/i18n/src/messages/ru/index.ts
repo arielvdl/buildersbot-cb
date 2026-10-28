@@ -60,7 +60,7 @@ import { messages as workflow } from "./workflow";
  * («Откройте», «Проверьте»). Labels stay short, because Russian words run longer than English ones
  * and a button or a sidebar row has no room to spare. Typography follows Russian convention: quotes
  * are «ёлочки», the ellipsis is the single character …, and ё is written out. Plurals fill the one,
- * few, many and other forms. Product names stay in Latin script: OpenBot is the application name,
+ * few, many and other forms. Product names stay in Latin script: Builders Bot is the application name,
  * and ZIP and JSON are the file formats a picker shows.
  *
  * This is the desktop catalog: shared keys, source text, and every desktop area.

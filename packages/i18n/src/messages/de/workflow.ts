@@ -324,9 +324,9 @@ export const messages = {
   "workflow.canvas.version.run": "Vor einem Lauf",
   "workflow.canvas.deleteUndo.title": "{name} gelöscht",
   "workflow.canvas.deleteUndo.action": "Rückgängig",
-  "workflow.page.failed": "OpenBot konnte das nicht ausführen. Versuche es erneut.",
+  "workflow.page.failed": "Builders Bot konnte das nicht ausführen. Versuche es erneut.",
   "workflow.page.conflict": "Auf einem anderen Gerät geändert. Mit Rückgängig erhältst du deine Änderungen zurück.",
   "workflow.page.needsNewerApp":
-    "Dieser Workflow hat Schritte aus einer neueren OpenBot-Version. Aktualisiere OpenBot, um ihn zu ändern.",
+    "Dieser Workflow hat Schritte aus einer neueren Builders Bot-Version. Aktualisiere Builders Bot, um ihn zu ändern.",
   "workflow.page.manageOnly": "Um diesen Workflow zu ändern, brauchst du Verwalten-Zugriff auf jeden seiner Agenten.",
 } as const satisfies PartialTranslation<typeof source>;

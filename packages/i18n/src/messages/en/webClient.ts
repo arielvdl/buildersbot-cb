@@ -1,7 +1,7 @@
 import { defineMessages } from "../../message";
 
 export const messages = defineMessages("webClient", {
-  "webClient.loading": "Loading OpenBot…",
+  "webClient.loading": "Loading Builders Bot…",
   "webClient.loadingLine.wake": "Waking up the agents…",
   "webClient.loadingLine.coffee": "Pouring coffee for the agents…",
   "webClient.loadingLine.tokens": "Counting tokens on fingers…",
@@ -23,13 +23,13 @@ export const messages = defineMessages("webClient", {
   "webClient.notice.hostsFailed": "Could not load your servers",
   "webClient.notice.connectComputer": "Connect a server",
   "webClient.connect.description":
-    "Run OpenBot on your computer to chat with your agents from this browser. You can also join a server with an invitation.",
+    "Run Builders Bot on your computer to chat with your agents from this browser. You can also join a server with an invitation.",
   "webClient.connect.descriptionHosted":
-    "Create a hosted server to chat with your agents from this browser. You can also run OpenBot on your computer, or join a server with an invitation.",
-  "webClient.connect.stepInstall": "Install and open OpenBot on your computer.",
+    "Create a hosted server to chat with your agents from this browser. You can also run Builders Bot on your computer, or join a server with an invitation.",
+  "webClient.connect.stepInstall": "Install and open Builders Bot on your computer.",
   "webClient.connect.stepSignIn": "Sign in with your email.",
   "webClient.connect.stepRemote": "Turn on remote access.",
-  "webClient.notice.download": "Download OpenBot",
+  "webClient.notice.download": "Download Builders Bot",
   "webClient.notice.createServer": "Create a hosted server",
   "webClient.notice.join": "Join with invitation",
   "webClient.notice.refreshHosts": "Refresh servers",
@@ -41,7 +41,7 @@ export const messages = defineMessages("webClient", {
   "webClient.error.usageOffline": "Connect to your server to view usage.",
   "webClient.error.desktopOnly": "This action is available in the desktop app.",
   "webClient.settings.preferences.title": "Preferences",
-  "webClient.settings.preferences.description": "Choose the language and sounds of OpenBot in this browser.",
+  "webClient.settings.preferences.description": "Choose the language and sounds of Builders Bot in this browser.",
   "webClient.error.checkConversation": "Check the conversation before sending again.",
   "webClient.error.hostReported": "The server reported an error. Check the conversation and server status.",
   "webClient.error.requestFailed": "The request failed.",
@@ -69,14 +69,14 @@ export const messages = defineMessages("webClient", {
   "webClient.error.identityChanged": "The server identity changed. Connection refused.",
   "webClient.error.connectionUnavailable": "The server connection is not available.",
   "webClient.error.incompatible":
-    "This server is not compatible with OpenBot web. Update the server and reload this page.",
+    "This server is not compatible with Builders Bot web. Update the server and reload this page.",
   "webClient.error.sendUnconfirmed": "Message delivery is not confirmed. Refresh before sending it again.",
   "webClient.error.fileType": "Update the server to attach this file type.",
   "webClient.error.uploadCancelled": "The attachment upload was cancelled.",
   "webClient.error.duplication": "This server does not support agent duplication.",
   "webClient.error.connectServerFirst": "Connect to this server first.",
   "webClient.error.agentInstallNotAllowed":
-    "Only an owner or admin can add an agent here, and the server must run a current OpenBot.",
+    "Only an owner or admin can add an agent here, and the server must run a current Builders Bot.",
   "webClient.error.linkDesktopOnly": "This link opens only in the desktop app.",
   "webClient.error.saveEndpointOffline": "Connect to your server to save an endpoint.",
   "webClient.error.removeEndpointOffline": "Connect to your server to remove an endpoint.",

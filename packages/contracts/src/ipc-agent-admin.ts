@@ -46,7 +46,7 @@ export type AgentPermissionLevel = (typeof AGENT_PERMISSION_LEVELS)[number];
 
 /**
  * The levels a provider can honor. A provider that cannot ask in full reach has no `ask`, except
- * while the agent is stored at `ask`: OpenBot still asks before its built-in tools and sites then,
+ * while the agent is stored at `ask`: Builders Bot still asks before its built-in tools and sites then,
  * and the select must show that. An older host can leave the provider out; then every level shows.
  */
 export function agentPermissionLevels(
@@ -185,7 +185,7 @@ function copyModelChoice({ provider, model, providerAccountId }: AgentModelChoic
 }
 
 /**
- * Refuses a provider that this OpenBot does not know, so the client hides the setting instead of
+ * Refuses a provider that this Builders Bot does not know, so the client hides the setting instead of
  * saving an order without it. Copies only the known fields.
  */
 function decodeBackupModels(value: unknown): AgentBackupModels | null {

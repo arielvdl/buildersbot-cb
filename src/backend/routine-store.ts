@@ -34,7 +34,7 @@ import {
   requiredNumberColumn,
   requiredStringColumn,
 } from "./database/database-rows";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 import { hasWebhookReceipt, insertWebhookReceipt, revokeRoutineWebhooks } from "./webhook-route-store";
 import { parseEventFilters, validateWebhookTrigger, webhookMismatch, webhookRunInstruction } from "./webhook-trigger";
 
@@ -167,7 +167,7 @@ export interface RoutineHoldWindow {
  */
 export class RoutineStore {
   constructor(
-    protected readonly database: OpenBotDatabase,
+    protected readonly database: BuildersBotDatabase,
     protected readonly tables: RoutineTables,
   ) {}
 
@@ -792,7 +792,7 @@ export class RoutineStore {
   }
 
   /**
-   * A one-time routine that came due while OpenBot was closed. A run that a crash left behind
+   * A one-time routine that came due while Builders Bot was closed. A run that a crash left behind
    * finishes it. Otherwise `run-once` keeps it due, so the scheduler runs it now, and `skip`
    * records the missed time and finishes it.
    */
@@ -956,7 +956,7 @@ export class RoutineStore {
   }
 
   #insertRun(
-    db: OpenBotDatabase["connection"],
+    db: BuildersBotDatabase["connection"],
     runId: string,
     routine: RunSource,
     triggerId: string | null,
@@ -1156,7 +1156,7 @@ export class RoutineStore {
   #mutateRun(
     runId: string,
     eventType: string,
-    mutate: (db: OpenBotDatabase["connection"], sequence: number, now: string) => void,
+    mutate: (db: BuildersBotDatabase["connection"], sequence: number, now: string) => void,
   ): OwnedRoutineRun {
     const current = this.#requireRun(runId);
     return this.database.dispatch(
@@ -1170,7 +1170,7 @@ export class RoutineStore {
   }
 
   #insertTrigger(
-    db: OpenBotDatabase["connection"],
+    db: BuildersBotDatabase["connection"],
     routineId: string,
     timezone: string,
     schedule: RoutineSchedule,
@@ -1292,7 +1292,7 @@ function limitPolicyFor(schedule: RoutineSchedule, requested: RoutineLimitPolicy
   return schedule.kind === "once" ? "wait" : (requested ?? "wait");
 }
 
-/** A one-time routine that came due while OpenBot was closed runs late by default; it has no next run. */
+/** A one-time routine that came due while Builders Bot was closed runs late by default; it has no next run. */
 function defaultMissedPolicy(schedule: RoutineSchedule): RoutineMissedPolicy {
   return schedule.kind === "once" ? "run-once" : "skip";
 }

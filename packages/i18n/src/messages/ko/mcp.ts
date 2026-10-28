@@ -8,10 +8,10 @@ export const messages = {
   "mcp.connect.close": "{name} 연결 닫기",
   "mcp.connect.getKey": "키 발급받기",
   "mcp.connect.keyDescription":
-    "{name} 계정의 인증 정보를 붙여넣으세요. OpenBot이 이 정보로 연결하고 {host}에 보관해요.",
+    "{name} 계정의 인증 정보를 붙여넣으세요. Builders Bot이 이 정보로 연결하고 {host}에 보관해요.",
   "mcp.connect.thisComputer": "이 컴퓨터",
   "mcp.connect.noCredentialDescription":
-    "{name}은(는) 인증 정보가 필요 없어요. OpenBot이 한 번 연결해 제공하는 도구를 확인해요.",
+    "{name}은(는) 인증 정보가 필요 없어요. Builders Bot이 한 번 연결해 제공하는 도구를 확인해요.",
   "mcp.connect.connect": "연결",
   "mcp.connect.required": "필수 항목이에요.",
   "mcp.connect.keptOn": "{host}에 보관돼요.",
@@ -22,7 +22,7 @@ export const messages = {
   "mcp.local.address": "주소",
   "mcp.local.docs": "설정 가이드",
   "mcp.signIn.description":
-    "{name} 계정에 로그인하세요. OpenBot은 해당 계정이 접근할 수 있는 도구를 사용하며, 비밀번호는 받지 않아요.",
+    "{name} 계정에 로그인하세요. Builders Bot은 해당 계정이 접근할 수 있는 도구를 사용하며, 비밀번호는 받지 않아요.",
   "mcp.signIn.waiting": "브라우저를 기다리는 중…",
   "mcp.signIn.continue": "{name}(으)로 계속",
   "mcp.signIn.pageDescription": "이 페이지는 {host}의 브라우저에서 열려 있어요. 여기에서 로그인하세요.",
@@ -54,12 +54,12 @@ export const messages = {
   "mcp.panel.changesNotSaved": "변경 사항이 저장되지 않았어요",
   "mcp.panel.title": "MCP 서버",
   "mcp.panel.description":
-    "Model Context Protocol 서버는 이 서버의 에이전트에게 추가 도구를 제공해요. Claude와 Codex 에이전트는 이 목록에 있는 서버만 사용하고, OpenCode와 Grok 에이전트는 자체 설정 파일에서도 서버를 시작할 수 있어요.",
+    "Model Context Protocol 서버는 이 서버의 에이전트에게 추가 도구를 제공해요. Claude와 Codex 에이전트는 이 목록에 있는 서버만 사용하고, Builders와 Grok 에이전트는 자체 설정 파일에서도 서버를 시작할 수 있어요.",
   "mcp.panel.connectCustom": "사용자 지정 MCP 연결",
   "mcp.panel.empty": "아직 MCP 서버가 없어요.",
   "mcp.panel.enable": "{name} 사용",
   "mcp.panel.detailsTitle": "세부 정보",
-  "mcp.panel.detailsDescription": "서버 이름을 정하고 OpenBot이 연결하는 방식을 선택하세요.",
+  "mcp.panel.detailsDescription": "서버 이름을 정하고 Builders Bot이 연결하는 방식을 선택하세요.",
   "mcp.panel.transport": "전송 방식",
   "mcp.panel.name": "이름",
   "mcp.panel.namePlaceholder": "MCP 서버 이름",
@@ -109,14 +109,14 @@ export const messages = {
   "mcp.panel.signInTo": "{name}에 로그인",
   "mcp.panel.cancelSignInTo": "{name} 로그인 취소",
   "mcp.panel.signInWaiting": {
-    other: "브라우저에서 로그인을 완료하세요. OpenBot은 {count}분 후 대기를 중지해요.",
+    other: "브라우저에서 로그인을 완료하세요. Builders Bot은 {count}분 후 대기를 중지해요.",
   },
   "mcp.panel.signInWaitingOn": {
-    other: "{host}에서 로그인 페이지를 여는 중이에요. OpenBot은 {count}분 후 대기를 중지해요.",
+    other: "{host}에서 로그인 페이지를 여는 중이에요. Builders Bot은 {count}분 후 대기를 중지해요.",
   },
   "mcp.panel.appTitle": "로그인 앱",
   "mcp.panel.appDescription":
-    "서버 제공자에 직접 등록한 OAuth 앱을 사용하세요. 서버가 OpenBot을 직접 등록할 수 없을 때 OpenBot이 이 앱을 사용해요. 비워 두면 OpenBot이 등록해요.",
+    "서버 제공자에 직접 등록한 OAuth 앱을 사용하세요. 서버가 Builders Bot을 직접 등록할 수 없을 때 Builders Bot이 이 앱을 사용해요. 비워 두면 Builders Bot이 등록해요.",
   "mcp.panel.appSaveFirst": "먼저 이 서버를 저장하세요. 그런 다음 로그인 앱을 추가할 수 있어요.",
   "mcp.panel.appUrlChanged": "먼저 새 서버 URL을 저장하세요. 로그인 앱은 저장된 URL에 연결돼요.",
   "mcp.panel.appLoadFailed": "로그인 앱을 읽지 못했어요.",
@@ -139,18 +139,18 @@ export const messages = {
   "mcp.panel.appSaved": "앱이 저장되었어요. 로그인해서 사용하세요.",
   "mcp.panel.appRemoved": "앱이 삭제되었어요.",
   "mcp.signIn.relayDescription":
-    "로그인 페이지가 {page}에 있는지 확인한 다음 브라우저에서 여세요. 완료하면 OpenBot이 로그인 정보를 {host}로 보내요.",
+    "로그인 페이지가 {page}에 있는지 확인한 다음 브라우저에서 여세요. 완료하면 Builders Bot이 로그인 정보를 {host}로 보내요.",
   "mcp.signIn.relayOpenDescription":
-    "브라우저에서 {page}의 로그인 페이지를 여세요. 완료하면 브라우저에 표시되는 주소를 여기에 붙여넣으세요. 그러면 OpenBot이 로그인 정보를 {host}로 보내요.",
+    "브라우저에서 {page}의 로그인 페이지를 여세요. 완료하면 브라우저에 표시되는 주소를 여기에 붙여넣으세요. 그러면 Builders Bot이 로그인 정보를 {host}로 보내요.",
   "mcp.signIn.relayDeviceDescription":
     "로그인 페이지가 {page}에 있는지 확인한 다음 브라우저에서 열어 그곳에서 완료하세요. {host}가 로그인을 자동으로 인식해요.",
   "mcp.signIn.relayOpen": "로그인 페이지 열기",
   "mcp.signIn.relayPasteHint":
-    "브라우저가 OpenBot으로 돌아오지 않으면 브라우저에 표시되는 주소를 복사해 여기에 붙여넣으세요.",
+    "브라우저가 Builders Bot으로 돌아오지 않으면 브라우저에 표시되는 주소를 복사해 여기에 붙여넣으세요.",
   "mcp.signIn.relayPasteRequired":
-    "OpenBot이 브라우저에서 로그인 정보를 자동으로 가져올 수 없어요. 완료하면 브라우저에 표시되는 주소를 복사해 여기에 붙여넣으세요.",
+    "Builders Bot이 브라우저에서 로그인 정보를 자동으로 가져올 수 없어요. 완료하면 브라우저에 표시되는 주소를 복사해 여기에 붙여넣으세요.",
   "mcp.signIn.relayAddress": "브라우저 주소",
   "mcp.signIn.relaySend": "보내기",
   "mcp.panel.callbackUrlRelayed":
-    "로그인 페이지는 브라우저에서 열리고, 컴퓨터의 OpenBot이 로그인 정보를 {host}로 보내요. 이 URL을 그대로 앱의 허용된 리디렉션 URL에 추가하세요.",
+    "로그인 페이지는 브라우저에서 열리고, 컴퓨터의 Builders Bot이 로그인 정보를 {host}로 보내요. 이 URL을 그대로 앱의 허용된 리디렉션 URL에 추가하세요.",
 } as const satisfies PartialTranslation<typeof source>;

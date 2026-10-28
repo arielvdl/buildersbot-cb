@@ -39,8 +39,8 @@ export const messages = {
 
   "provider.status.off": "Désactivé",
   "provider.gemini.hostSignIn":
-    "Pour connecter Gemini, ouvrez OpenBot sur l’hôte et sélectionnez « Connecter » dans Réglages > Fournisseurs. La connexion Google nécessite un navigateur sur cet hôte. La connexion à distance n’est pas prise en charge.",
-  // Which account tier the OpenCode row runs on. It shows only while it adds to the runtime
+    "Pour connecter Gemini, ouvrez Builders Bot sur l’hôte et sélectionnez « Connecter » dans Réglages > Fournisseurs. La connexion Google nécessite un navigateur sur cet hôte. La connexion à distance n’est pas prise en charge.",
+  // Which account tier the Builders row runs on. It shows only while it adds to the runtime
   // badge: a saved key leaves the runtime "Connected" to speak for the row.
   "provider.key.free": "Gratuit",
 
@@ -69,20 +69,20 @@ export const messages = {
   "provider.aria.cancelSignIn": "Annuler la connexion à {name}",
   "provider.aria.apiKey": "Clé d’API {name}",
   "provider.connecting.browserHint": "Terminez la connexion si une page du navigateur s’ouvre.",
-  "provider.connecting.cancelFailed": "OpenBot n’a pas pu annuler la connexion à {name}. Réessayez.",
+  "provider.connecting.cancelFailed": "Builders Bot n’a pas pu annuler la connexion à {name}. Réessayez.",
   "provider.aria.install": "Installer {name}",
   "provider.aria.signIn": "Se connecter à {name}",
   "provider.aria.codeFallback": "Se connecter à {name} avec un code",
   "provider.aria.moreActions": "Autres actions pour {name}",
 
-  "provider.aria.use": "Utiliser {name} dans OpenBot",
+  "provider.aria.use": "Utiliser {name} dans Builders Bot",
   "provider.use.inUseOne": "{agent} utilise {name}. Changez le modèle de cet agent, puis désactivez {name}.",
   "provider.use.inUse": {
     one: "{count} agent utilise {name}. Changez le modèle de cet agent, puis désactivez {name}.",
     other: "{count} agents utilisent {name}. Changez le modèle de ces agents, puis désactivez {name}.",
   },
   "provider.codeLogin.title": "Se connecter à {name} avec un code",
-  "provider.codeLogin.description": "Terminez sur votre téléphone ou dans un autre navigateur. OpenBot attend ici.",
+  "provider.codeLogin.description": "Terminez sur votre téléphone ou dans un autre navigateur. Builders Bot attend ici.",
   "provider.codeLogin.starting": "Obtention d’un code auprès de {name}…",
   "provider.codeLogin.qrLabel": "Code QR de la page de connexion de {name}",
   "provider.codeLogin.open": "Ouvrez",
@@ -103,10 +103,10 @@ export const messages = {
   "provider.codeLogin.pageDescription": "Cette page est ouverte dans le navigateur de {host}. Connectez-vous ici.",
   "provider.codeLogin.relayStarting": "Démarrage de la connexion à {name} sur {host}…",
   "provider.codeLogin.pageOpening": "Ouverture de la page de connexion de {name} sur {host}…",
-  "provider.codeLogin.linkStep": "Connectez-vous à {name}. OpenBot continue tout seul.",
-  "provider.useApp.title": "Connectez {name} dans l’app OpenBot",
+  "provider.codeLogin.linkStep": "Connectez-vous à {name}. Builders Bot continue tout seul.",
+  "provider.useApp.title": "Connectez {name} dans l’app Builders Bot",
   "provider.useApp.description":
-    "La connexion à {name} revient sur l’ordinateur qui l’a lancée, et un onglet du navigateur ne peut pas la recevoir. Connectez {name} dans l’app OpenBot. L’app termine la connexion toute seule.",
+    "La connexion à {name} revient sur l’ordinateur qui l’a lancée, et un onglet du navigateur ne peut pas la recevoir. Connectez {name} dans l’app Builders Bot. L’app termine la connexion toute seule.",
   "provider.useApp.download": "Télécharger l’app",
 
   "provider.picker.noEndpoints": "Aucun point de terminaison pour l’instant",
@@ -117,7 +117,7 @@ export const messages = {
   "provider.picker.providers": "Fournisseurs de modèles",
   "provider.picker.downloading": "Téléchargement {percent}",
   "provider.picker.unavailable": "{name} n’est pas disponible.",
-  "provider.picker.updateToUse": "Mettez à jour OpenBot pour utiliser {name}",
+  "provider.picker.updateToUse": "Mettez à jour Builders Bot pour utiliser {name}",
   "provider.picker.models": "Modèles {name}",
   "provider.picker.addProvider": "Ajouter un fournisseur",
   "provider.picker.download": "Téléchargement de {name}",
@@ -157,22 +157,22 @@ export const messages = {
   "provider.claudeKey.label": "Clé d’API Anthropic",
   "provider.inceptionKey.title": "Clé d’API Inception",
   "provider.inceptionKey.description":
-    "Enregistrez une clé d’API Inception sur cet ordinateur pour utiliser les modèles Mercury. OpenBot les exécute dans la CLI Pi qu’il télécharge.",
+    "Enregistrez une clé d’API Inception sur cet ordinateur pour utiliser les modèles Mercury. Builders Bot les exécute dans la CLI Pi qu’il télécharge.",
   "provider.inceptionKey.label": "Clé d’API Inception",
   "provider.deepseekKey.title": "Clé d’API DeepSeek",
   "provider.deepseekKey.description":
-    "Enregistrez une clé d’API DeepSeek sur cet ordinateur pour utiliser les modèles DeepSeek. OpenBot les exécute dans la CLI Pi qu’il télécharge.",
+    "Enregistrez une clé d’API DeepSeek sur cet ordinateur pour utiliser les modèles DeepSeek. Builders Bot les exécute dans la CLI Pi qu’il télécharge.",
   "provider.deepseekKey.label": "Clé d’API DeepSeek",
   "provider.openrouterKey.title": "Clé d’API OpenRouter",
   "provider.openrouterKey.description":
-    "Enregistrez une clé d’API OpenRouter sur cet ordinateur pour utiliser les modèles d’OpenRouter. OpenBot les exécute dans la CLI Pi qu’il télécharge.",
+    "Enregistrez une clé d’API OpenRouter sur cet ordinateur pour utiliser les modèles d’OpenRouter. Builders Bot les exécute dans la CLI Pi qu’il télécharge.",
   "provider.openrouterKey.label": "Clé d’API OpenRouter",
-  "provider.openCodeKey.title": "Se connecter à OpenCode Go",
+  "provider.openCodeKey.title": "Se connecter à Builders Go",
   "provider.openCodeKey.description":
     "Les modèles gratuits ne demandent pas de compte. Une clé donne accès aux modèles Go payants.",
   "provider.openCodeKey.unreadable": "La clé enregistrée est illisible. Collez-la de nouveau, ou supprimez-la.",
   "provider.openCodeKey.saved": "Clé enregistrée. Collez-en une nouvelle pour la remplacer.",
-  "provider.openCodeKey.label": "Clé OpenCode Go",
+  "provider.openCodeKey.label": "Clé Builders Go",
   "provider.openCodeKey.placeholder": "Collez votre clé",
   "provider.openCodeKey.remove": "Supprimer la clé",
   "provider.openCodeKey.save": "Enregistrer la clé",
@@ -222,7 +222,7 @@ export const messages = {
     other: "{version} · {count} versions · {size}",
   },
   "provider.settings.downloadVersions": { one: "1 version · {size}", other: "{count} versions · {size}" },
-  "provider.settings.downloadAgain": "Quand vous activez {name}, OpenBot télécharge à nouveau sa CLI.",
+  "provider.settings.downloadAgain": "Quand vous activez {name}, Builders Bot télécharge à nouveau sa CLI.",
   "provider.settings.removeDownloadConfirm": "Supprimer {size} ?",
   "provider.settings.removeDownloadKeeps": "Les comptes, les connexions et les agents restent.",
   "provider.settings.removeDownload": "Supprimer le téléchargement",

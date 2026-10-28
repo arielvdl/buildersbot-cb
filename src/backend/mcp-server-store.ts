@@ -12,7 +12,7 @@ import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values"
 import { sourceText } from "@openbot/i18n/source";
 import { databaseRow, databaseRows, requiredStringColumn } from "./database/database-rows";
 import { registerMcpSecretValues } from "./mcp-redaction";
-import type { OpenBotDatabase } from "./openbot-database";
+import type { BuildersBotDatabase } from "./openbot-database";
 
 /**
  * The MCP server configurations this machine holds.
@@ -58,7 +58,7 @@ const MCP_REMOTE_BRIDGES: ReadonlyArray<{ name: string; remoteUrl: string; url: 
 const MCP_REMOTE_ARGS = (remoteUrl: string): string[] => ["-y", "mcp-remote@latest", remoteUrl];
 
 export class McpServerStore {
-  constructor(private readonly database: OpenBotDatabase) {}
+  constructor(private readonly database: BuildersBotDatabase) {}
 
   list(): McpServerConfig[] {
     return databaseRows(

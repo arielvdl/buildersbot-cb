@@ -2,7 +2,7 @@ import { isBoolean, isDynamicRecord, isNumber, isString } from "./runtime-values
 
 /**
  * The 1Password connection of this computer: a service account that reads one vault the user shares
- * with OpenBot. The embedded browser fills logins from it. The token never crosses to the renderer.
+ * with Builders Bot. The embedded browser fills logins from it. The token never crosses to the renderer.
  *
  * - `disconnected`: no token is stored.
  * - `connecting`: the 1Password CLI creates the vault and the service account. 1Password can ask the
@@ -25,9 +25,9 @@ export interface OnePasswordAccount {
 /**
  * The 1Password CLI that Connect runs.
  *
- * - `checking`: OpenBot looks for it.
+ * - `checking`: Builders Bot looks for it.
  * - `missing`: no CLI of version 2.18 or later is on this computer.
- * - `installing`: OpenBot downloads its own copy.
+ * - `installing`: Builders Bot downloads its own copy.
  * - `ready`: Connect can run.
  */
 export type OnePasswordCliState = "checking" | "missing" | "installing" | "ready";
@@ -40,7 +40,7 @@ function isOnePasswordCliState(value: unknown): value is OnePasswordCliState {
 export interface OnePasswordSetup {
   cli: OnePasswordCliState;
   cliVersion: string | null;
-  /** False when OpenBot has no CLI build for this computer. The user installs it from 1Password. */
+  /** False when Builders Bot has no CLI build for this computer. The user installs it from 1Password. */
   canInstall: boolean;
   /**
    * Whether the 1Password app lets the CLI use the user's accounts (Settings > Developer). Null

@@ -8,10 +8,10 @@ export const messages = {
   "mcp.connect.close": "Fermer la connexion à {name}",
   "mcp.connect.getKey": "Obtenir une clé",
   "mcp.connect.keyDescription":
-    "Collez un identifiant de votre compte {name}. OpenBot se connecte avec et le conserve sur {host}.",
+    "Collez un identifiant de votre compte {name}. Builders Bot se connecte avec et le conserve sur {host}.",
   "mcp.connect.thisComputer": "cet ordinateur",
   "mcp.connect.noCredentialDescription":
-    "{name} ne demande aucun identifiant. OpenBot se connecte une fois pour voir les outils proposés.",
+    "{name} ne demande aucun identifiant. Builders Bot se connecte une fois pour voir les outils proposés.",
   "mcp.connect.connect": "Connecter",
   "mcp.connect.required": "Obligatoire.",
   "mcp.connect.keptOn": "Conservé sur {host}.",
@@ -22,7 +22,7 @@ export const messages = {
   "mcp.local.address": "Adresse",
   "mcp.local.docs": "Guide d’installation",
   "mcp.signIn.description":
-    "Connectez-vous à votre compte {name}. OpenBot obtient les outils accessibles à ce compte, sans mot de passe.",
+    "Connectez-vous à votre compte {name}. Builders Bot obtient les outils accessibles à ce compte, sans mot de passe.",
   "mcp.signIn.waiting": "En attente du navigateur…",
   "mcp.signIn.continue": "Continuer vers {name}",
   "mcp.signIn.pageDescription": "Cette page est ouverte dans le navigateur de {host}. Connectez-vous ici.",
@@ -55,12 +55,12 @@ export const messages = {
   "mcp.panel.changesNotSaved": "Modifications non enregistrées",
   "mcp.panel.title": "Serveurs MCP",
   "mcp.panel.description":
-    "Les serveurs Model Context Protocol donnent des outils supplémentaires aux agents de ce serveur. Les agents Claude et Codex reçoivent uniquement les serveurs de cette liste ; les agents OpenCode et Grok peuvent aussi démarrer des serveurs depuis leurs propres fichiers de configuration.",
+    "Les serveurs Model Context Protocol donnent des outils supplémentaires aux agents de ce serveur. Les agents Claude et Codex reçoivent uniquement les serveurs de cette liste ; les agents Builders et Grok peuvent aussi démarrer des serveurs depuis leurs propres fichiers de configuration.",
   "mcp.panel.connectCustom": "Connecter un MCP personnalisé",
   "mcp.panel.empty": "Aucun serveur MCP pour le moment.",
   "mcp.panel.enable": "Activer {name}",
   "mcp.panel.detailsTitle": "Détails",
-  "mcp.panel.detailsDescription": "Nommez ce serveur et choisissez comment OpenBot le joint.",
+  "mcp.panel.detailsDescription": "Nommez ce serveur et choisissez comment Builders Bot le joint.",
   "mcp.panel.transport": "Transport",
   "mcp.panel.name": "Nom",
   "mcp.panel.namePlaceholder": "Nom du serveur MCP",
@@ -111,16 +111,16 @@ export const messages = {
   "mcp.panel.signInTo": "Se connecter à {name}",
   "mcp.panel.cancelSignInTo": "Annuler la connexion à {name}",
   "mcp.panel.signInWaiting": {
-    one: "Terminez la connexion dans votre navigateur. OpenBot cesse d’attendre après {count} minute.",
-    other: "Terminez la connexion dans votre navigateur. OpenBot cesse d’attendre après {count} minutes.",
+    one: "Terminez la connexion dans votre navigateur. Builders Bot cesse d’attendre après {count} minute.",
+    other: "Terminez la connexion dans votre navigateur. Builders Bot cesse d’attendre après {count} minutes.",
   },
   "mcp.panel.signInWaitingOn": {
-    one: "Ouverture de la page de connexion sur {host}. OpenBot cesse d’attendre après {count} minute.",
-    other: "Ouverture de la page de connexion sur {host}. OpenBot cesse d’attendre après {count} minutes.",
+    one: "Ouverture de la page de connexion sur {host}. Builders Bot cesse d’attendre après {count} minute.",
+    other: "Ouverture de la page de connexion sur {host}. Builders Bot cesse d’attendre après {count} minutes.",
   },
   "mcp.panel.appTitle": "App de connexion",
   "mcp.panel.appDescription":
-    "Utilisez une app OAuth que vous avez enregistrée auprès du fournisseur du serveur. OpenBot l’utilise quand le serveur ne peut pas enregistrer OpenBot lui-même. Laissez vide pour qu’OpenBot s’enregistre.",
+    "Utilisez une app OAuth que vous avez enregistrée auprès du fournisseur du serveur. Builders Bot l’utilise quand le serveur ne peut pas enregistrer Builders Bot lui-même. Laissez vide pour qu’Builders Bot s’enregistre.",
   "mcp.panel.appSaveFirst": "Enregistrez d’abord ce serveur. Vous pourrez ensuite ajouter une app de connexion.",
   "mcp.panel.appUrlChanged":
     "Enregistrez d’abord la nouvelle URL du serveur. L’app de connexion appartient à l’URL enregistrée.",
@@ -144,18 +144,18 @@ export const messages = {
   "mcp.panel.appSaved": "App enregistrée. Connectez-vous pour l’utiliser.",
   "mcp.panel.appRemoved": "App supprimée.",
   "mcp.signIn.relayDescription":
-    "Vérifiez que la page de connexion est sur {page}, puis ouvrez-la dans votre navigateur. Quand vous avez terminé, OpenBot envoie la connexion à {host}.",
+    "Vérifiez que la page de connexion est sur {page}, puis ouvrez-la dans votre navigateur. Quand vous avez terminé, Builders Bot envoie la connexion à {host}.",
   "mcp.signIn.relayOpenDescription":
-    "Ouvrez la page de connexion de {page} dans votre navigateur. Quand vous avez terminé, collez ici l’adresse affichée. OpenBot envoie ensuite la connexion à {host}.",
+    "Ouvrez la page de connexion de {page} dans votre navigateur. Quand vous avez terminé, collez ici l’adresse affichée. Builders Bot envoie ensuite la connexion à {host}.",
   "mcp.signIn.relayDeviceDescription":
     "Vérifiez que la page de connexion est sur {page}, puis ouvrez-la dans votre navigateur et terminez-y la connexion. {host} détecte la connexion lui-même.",
   "mcp.signIn.relayOpen": "Ouvrir la page de connexion",
   "mcp.signIn.relayPasteHint":
-    "Si le navigateur ne revient pas vers OpenBot, copiez l’adresse qu’il affiche et collez-la ici.",
+    "Si le navigateur ne revient pas vers Builders Bot, copiez l’adresse qu’il affiche et collez-la ici.",
   "mcp.signIn.relayPasteRequired":
-    "OpenBot ne peut pas récupérer seul la connexion depuis le navigateur. Quand vous avez terminé, copiez l’adresse affichée et collez-la ici.",
+    "Builders Bot ne peut pas récupérer seul la connexion depuis le navigateur. Quand vous avez terminé, copiez l’adresse affichée et collez-la ici.",
   "mcp.signIn.relayAddress": "Adresse du navigateur",
   "mcp.signIn.relaySend": "Envoyer",
   "mcp.panel.callbackUrlRelayed":
-    "La page de connexion s’ouvre dans votre navigateur, et OpenBot sur votre ordinateur envoie la connexion à {host}. Ajoutez exactement cette URL aux URL de redirection autorisées de l’app.",
+    "La page de connexion s’ouvre dans votre navigateur, et Builders Bot sur votre ordinateur envoie la connexion à {host}. Ajoutez exactement cette URL aux URL de redirection autorisées de l’app.",
 } as const satisfies PartialTranslation<typeof source>;

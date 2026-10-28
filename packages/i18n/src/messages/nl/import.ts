@@ -41,7 +41,7 @@ export const messages = {
   "import.guide.hermesStepFolder": "Lees de Hermes-map",
   "import.guide.hermesStep1": "Voeg de exportvaardigheid toe aan Hermes",
   "import.guide.readFolder": "Hermes-map lezen",
-  "import.guide.readFolderMeta": "OpenBot leest ~/.hermes en verandert er niets in.",
+  "import.guide.readFolderMeta": "Builders Bot leest ~/.hermes en verandert er niets in.",
   "import.guide.readFolderNote":
     "Je ziet elk onderdeel van elk profiel voordat er iets verandert. MCP-servers komen ook mee, uitgeschakeld.",
   "import.guide.copyCommand": "Opdracht kopiëren",
@@ -87,10 +87,10 @@ export const messages = {
   "import.result.notImportedTitle": "Niet geïmporteerd",
   "import.result.warnings": "Sommige onderdelen zijn niet meegegaan",
   "import.source.title": "Waar staan je agents nu?",
-  "import.source.lede": "OpenBot kopieert ze naar deze computer. Je ziet elk onderdeel voordat er iets verandert.",
+  "import.source.lede": "Builders Bot kopieert ze naar deze computer. Je ziet elk onderdeel voordat er iets verandert.",
   "import.source.hermesNote": "Lees de Hermes-map op deze computer, of exporteer een .zip-bestand uit Hermes.",
   "import.source.grokNote": "In de cloud. Een exportagent daar maakt een .zip-bestand.",
-  "import.source.transfer": "Andere OpenBot-computer",
+  "import.source.transfer": "Andere Builders Bot-computer",
   "import.source.transferNote": "Gebruik Overdracht om agents en instellingen samen te verplaatsen.",
   "import.hermes.reading": "Hermes-profielen lezen…",
   "import.hermes.readFailed": "De Hermes-map kan niet worden gelezen",
@@ -134,23 +134,23 @@ export const messages = {
   "import.hermes.item.gateway": "Bezorging naar {names}",
   "import.hermes.item.secrets": { one: "{count} geheim", other: "{count} geheimen" },
   "import.hermes.item.history": "Eerdere sessies",
-  "import.hermes.reason.defaultSoul": "Dit is de begintekst van Hermes, dus de agent houdt de instructies van OpenBot.",
+  "import.hermes.reason.defaultSoul": "Dit is de begintekst van Hermes, dus de agent houdt de instructies van Builders Bot.",
   "import.hermes.reason.scripts": "Het voert eigen scripts uit. Sta het alleen toe als je de code vertrouwt.",
   "import.hermes.reason.unsafeFile":
-    "Het bevat een geheim bestand, een privésleutel of een archief. OpenBot kopieert die nooit.",
+    "Het bevat een geheim bestand, een privésleutel of een archief. Builders Bot kopieert die nooit.",
   "import.hermes.reason.invalidSkill": "De SKILL.md heeft geen geldige naam en beschrijving.",
   "import.hermes.reason.duplicateSkill": "Een andere vaardigheid in dit profiel heeft dezelfde naam.",
-  "import.hermes.reason.builtIn": "Deze horen bij Hermes. OpenBot heeft eigen vaardigheden.",
+  "import.hermes.reason.builtIn": "Deze horen bij Hermes. Builders Bot heeft eigen vaardigheden.",
   "import.hermes.reason.mcpOff":
     "Wordt uitgeschakeld toegevoegd. Controleer het en zet het daarna aan in de MCP-instellingen.",
   "import.hermes.reason.mcpNameTaken": "Hier staat al een server met deze naam.",
-  "import.hermes.reason.routineSchedule": "OpenBot kan het schema niet uitvoeren, of het tijdstip is voorbij.",
+  "import.hermes.reason.routineSchedule": "Builders Bot kan het schema niet uitvoeren, of het tijdstip is voorbij.",
   "import.hermes.reason.routineScript": "Het voert een script uit, niet de agent.",
   "import.hermes.reason.terminalBackend":
-    "OpenBot voert opdrachten uit op deze computer, dus de agent gebruikt de terminal daarvan.",
-  "import.hermes.reason.gateway": "Verbind deze opnieuw in OpenBot. De routines behouden hun tekst.",
+    "Builders Bot voert opdrachten uit op deze computer, dus de agent gebruikt de terminal daarvan.",
+  "import.hermes.reason.gateway": "Verbind deze opnieuw in Builders Bot. De routines behouden hun tekst.",
   "import.hermes.reason.secrets":
-    "Niet gekopieerd. Voer elke sleutel opnieuw in OpenBot in als een tool die nodig heeft.",
+    "Niet gekopieerd. Voer elke sleutel opnieuw in Builders Bot in als een tool die nodig heeft.",
   "import.hermes.reason.history":
     "De chatgeschiedenis blijft in Hermes. De herinneringen bewaren wat hij heeft geleerd.",
 } as const satisfies PartialTranslation<typeof source>;

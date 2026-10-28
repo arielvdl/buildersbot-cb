@@ -144,7 +144,7 @@ export const messages = {
   "sidebar.delete.pending": "Usuwanie…",
   "sidebar.delete.title": "Usunąć {name}?",
   "sidebar.delete.agentDescription":
-    "To usunie agenta i jego rozmowę OpenBot z aplikacji. Jego kolejka, wspomnienia, rutyny i obszar roboczy zostaną usunięte. Historia przechowywana osobno przez połączonego dostawcę CLI nie zostanie usunięta.",
+    "To usunie agenta i jego rozmowę Builders Bot z aplikacji. Jego kolejka, wspomnienia, rutyny i obszar roboczy zostaną usunięte. Historia przechowywana osobno przez połączonego dostawcę CLI nie zostanie usunięta.",
   "sidebar.delete.channelDescription":
     "To zatrzyma kanał. Jego historia zostanie w sekcji „Usunięte kanały” tylko do podglądu. Można go stamtąd przywrócić. Agenci należący do kanału zostaną zachowani.",
   "sidebar.delete.sectionDescription":
@@ -158,7 +158,7 @@ export const messages = {
   "sidebar.announce.movedPinned": "Przeniesiono przypięty czat na pozycję {position} z {total}.",
   "sidebar.announce.personFallback": "osoba",
   "sidebar.announce.chatFallback": "czat",
-  "sidebar.mobileApp.title": "OpenBot na telefon",
+  "sidebar.mobileApp.title": "Builders Bot na telefon",
   "sidebar.mobileApp.body": "Aplikacja jest już dostępna na iPhone’a i Androida.",
   "sidebar.mobileApp.howToInstall": "Jak zainstalować",
   "sidebar.mobileApp.dismiss": "Zamknij ogłoszenie o aplikacji mobilnej",
@@ -173,6 +173,6 @@ export const messages = {
   "sidebar.community.title": "Dosiądź się.",
   "sidebar.community.body": "W przyszłości AI jest miejsce dla Ciebie. Dołącz do społeczności na Discordzie i X.",
   "sidebar.community.joinDiscord": "Dołącz do Discorda",
-  "sidebar.community.followX": "Obserwuj OpenBot na X",
+  "sidebar.community.followX": "Obserwuj Builders Bot na X",
   "sidebar.community.dismiss": "Zamknij zaproszenie do społeczności",
 } as const satisfies PartialTranslation<typeof source>;

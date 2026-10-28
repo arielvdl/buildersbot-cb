@@ -5,7 +5,7 @@ export const messages = {
   "error.site.absolutePath": "사이트 디렉터리의 절대 경로를 선택해 주세요.",
   "error.site.rootSymlink": "호스팅 사이트에서는 심볼릭 링크를 사용할 수 없어요.",
   "error.site.notDirectory": "사이트 소스는 디렉터리여야 해요.",
-  "error.site.outsideWorkspace": "사이트는 이 에이전트의 워크스페이스 또는 OpenBot Shared 안에 있어야 해요.",
+  "error.site.outsideWorkspace": "사이트는 이 에이전트의 워크스페이스 또는 Builders Bot Shared 안에 있어야 해요.",
   "error.site.packageJsonInvalid": "사이트의 package.json이 올바르지 않아요.",
   "error.site.astroServerOutput": "Astro는 정적 출력을 사용해야 해요.",
   "error.site.astroAdapter": "Astro 서버 어댑터와 React 통합은 사용할 수 없어요.",

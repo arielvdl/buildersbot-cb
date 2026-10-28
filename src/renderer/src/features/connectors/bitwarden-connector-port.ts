@@ -1,7 +1,7 @@
-import type { BitwardenConnectorStatus, BitwardenHostConnectInput, OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BitwardenConnectorStatus, BitwardenHostConnectInput, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 
-type DesktopBitwarden = OpenBotDesktopApi["bitwardenConnector"];
+type DesktopBitwarden = BuildersBotDesktopApi["bitwardenConnector"];
 
 /** What the Bitwarden page reaches: one connection, of this computer or of a joined server. */
 export type BitwardenConnectorPort = Pick<DesktopBitwarden, "status" | "connect" | "disconnect" | "onChanged"> & {

@@ -52,7 +52,7 @@ export interface StoppedAgentProcess {
 /**
  * The variables that each provider process on a server gets, and so every process an agent starts:
  * the marker of `AgentProcesses`, and `cpuLimitModule` (`resources/agent-runtime/cpu-limit.cjs`) in
- * NODE_OPTIONS after the options that OpenBot runs with. Node does not start when a `--require` file
+ * NODE_OPTIONS after the options that Builders Bot runs with. Node does not start when a `--require` file
  * is missing, so without the file NODE_OPTIONS stays as it is.
  */
 export function agentProcessEnvironment(

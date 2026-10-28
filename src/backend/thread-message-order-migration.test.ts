@@ -2,7 +2,7 @@
 import { DatabaseSync, type SQLOutputValue } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { ORDER_KEY_COLUMNS, ORDER_KEY_DESC, ORDERED_THREAD_MESSAGES } from "./database/conversation-queries";
-import { migrateOpenBotDatabase } from "./openbot-database-schema";
+import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: an upgrade loses or changes a message; a stored key differs from the order that pages
 // computed before, so a page or a cursor that a client holds moves; a turn id that two threads share
@@ -19,7 +19,7 @@ function databaseAt(version: number): DatabaseSync {
   db.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${version}
     BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-  expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
+  expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version + 1} failed`);
   db.exec("DROP TRIGGER stop_at_version");
   return db;
 }
@@ -182,7 +182,7 @@ describe("thread message order migration", () => {
         ORDER BY ${ORDER_KEY_DESC} LIMIT 3`;
       const releasedPage = db.prepare(`${RELEASED_ORDER} ${pageBefore}`).all(THREAD, ...cursorKeys);
 
-      migrateOpenBotDatabase(db);
+      migrateBuildersBotDatabase(db);
 
       expect(releasedRows(db)).toEqual(before);
       expect([THREAD, OTHER_THREAD].map((thread) => orderKeys(db, ORDERED_THREAD_MESSAGES, thread))).toEqual(released);
@@ -201,14 +201,14 @@ describe("thread message order migration", () => {
     const released = orderKeys(db, RELEASED_ORDER, THREAD);
     db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version = 40
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 40 failed");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 40 failed");
     expect(columnNames(db)).toEqual(columns);
     expect(orderIndexes(db)).toEqual([]);
     expect(releasedRows(db)).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 40").all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(releasedRows(db)).toEqual(before);
     expect(orderKeys(db, ORDERED_THREAD_MESSAGES, THREAD)).toEqual(released);
     expectHealthy(db);
@@ -224,7 +224,7 @@ describe("thread message order migration", () => {
       ALTER TABLE projection_thread_messages ADD COLUMN turn_rank INTEGER;
       UPDATE projection_thread_messages SET group_start = created_at, group_first = 0, group_id = 'stale', turn_rank = 9
         WHERE message_id IN ('ask', 'request');`);
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     expect(orderKeys(db, ORDERED_THREAD_MESSAGES, THREAD)).toEqual(released);
     expectHealthy(db);
   });
@@ -235,9 +235,9 @@ describe("thread message order migration", () => {
     const before = releasedRows(db);
     const columns = columnNames(db);
     db.exec("INSERT INTO schema_migrations VALUES(48, 'now')");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
     db.exec("DELETE FROM schema_migrations WHERE version = 48; DELETE FROM schema_migrations WHERE version = 38");
-    expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 38");
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 38");
     expect(releasedRows(db)).toEqual(before);
     expect(columnNames(db)).toEqual(columns);
   });

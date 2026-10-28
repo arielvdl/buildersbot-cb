@@ -1,12 +1,12 @@
-// What OpenBot puts between an agent's driver proxy and the driver daemon.
+// What Builders Bot puts between an agent's driver proxy and the driver daemon.
 //
-// The daemon answers one lease at a time and tells no lease about another, so OpenBot cannot ask it
+// The daemon answers one lease at a time and tells no lease about another, so Builders Bot cannot ask it
 // which window an agent works in: `list_sessions` and `get_agent_cursor_state` report only the
 // lease that asks, and `history` is refused to anything but the local command line. Front-to-back
 // window order is no answer either, because the driver acts in the background by design and leaves
 // the order alone, and because the user's own clicks move it.
 //
-// OpenBot does own one thing: the address it hands the providers. This listens on an address of its
+// Builders Bot does own one thing: the address it hands the providers. This listens on an address of its
 // own, forwards every request byte to the daemon unchanged, and reads the few fields it needs out
 // of the request line - which application, which window, and which point the agent asked the
 // daemon to act on.
@@ -27,7 +27,7 @@ import { chmod } from "node:fs/promises";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { Transform, type TransformCallback } from "node:stream";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, type Logger } from "@openbot/logging";
+import { createBuildersBotLogger, type Logger } from "@openbot/logging";
 import { Effect, Result } from "effect";
 import { CuaDriverFailure, cuaIO } from "./cua-driver-effects";
 import { rewriteCallAnswer } from "./cua-driver-structured-text";
@@ -57,7 +57,7 @@ const NEWLINE = 0x0a;
  */
 const SLOW_CALL_MS = 5_000;
 
-const defaultLogger = createOpenBotLogger("cua-driver-tap");
+const defaultLogger = createBuildersBotLogger("cua-driver-tap");
 
 /**
  * Where an agent last asked the daemon to act.
@@ -80,7 +80,7 @@ export interface ObservedAction {
 /**
  * Where an agent last aimed the pointer, on the desktop.
  *
- * This is what OpenBot draws its own agent cursor on. It is the point the agent asked for, not
+ * This is what Builders Bot draws its own agent cursor on. It is the point the agent asked for, not
  * where the pointer reached: the driver acts in the background and never moves the user's own
  * pointer there, so the request is the only account of it there is.
  */

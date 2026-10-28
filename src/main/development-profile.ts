@@ -37,7 +37,7 @@ export function developmentInstanceIdForWorktree(projectRoot: string): string {
 }
 
 export function developmentUserDataName(profile: DevelopmentProfile, instanceId: string | null = null): string {
-  const base = profile === "test-client" ? "OpenBot Dev Test Client" : "OpenBot Dev";
+  const base = profile === "test-client" ? "Builders Bot Dev Test Client" : "Builders Bot Dev";
   return instanceId ? `${base} ${instanceId}` : base;
 }
 

@@ -3,7 +3,7 @@ import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
   "mobile.workflow.unsupported":
-    "Mettez OpenBot à jour sur ce serveur pour utiliser les workflows sur votre téléphone.",
+    "Mettez Builders Bot à jour sur ce serveur pour utiliser les workflows sur votre téléphone.",
   "mobile.workflow.offline": "Le serveur est hors ligne. Les workflows s’affichent quand il se connecte.",
   "mobile.workflow.list.loading": "Chargement…",
   "mobile.workflow.list.loadFailed": "Impossible de charger les workflows.",
@@ -22,7 +22,7 @@ export const messages = {
   "mobile.workflow.action.edit": "Modifier",
   "mobile.workflow.alert.runFailedTitle": "Impossible de lancer le workflow",
   "mobile.workflow.alert.runFailedBody": "Le serveur n’a pas lancé l’exécution. Réessayez.",
-  "mobile.workflow.alert.tryAgain": "OpenBot n’a pas pu effectuer cette action. Réessayez.",
+  "mobile.workflow.alert.tryAgain": "Builders Bot n’a pas pu effectuer cette action. Réessayez.",
   "mobile.workflow.drawer.needYou": { one: "{count} vous attend", other: "{count} vous attendent" },
   "mobile.workflow.drawer.running": { one: "{count} en cours", other: "{count} en cours" },
   "mobile.workflow.drawer.review": "Vous attend · touchez pour examiner",
@@ -34,7 +34,7 @@ export const messages = {
   "mobile.workflow.detail.loadFailed": "Impossible de charger le workflow.",
   "mobile.workflow.detail.starting": "Démarrage…",
   "mobile.workflow.detail.newerApp":
-    "Ce workflow contient des étapes d’une version plus récente d’OpenBot. Mettez OpenBot à jour sur votre téléphone pour le modifier.",
+    "Ce workflow contient des étapes d’une version plus récente d’Builders Bot. Mettez Builders Bot à jour sur votre téléphone pour le modifier.",
   "mobile.workflow.detail.waits": "L’exécution {number} vous attend. Examiner",
   "mobile.workflow.detail.canvasOrder": "Les étapes s’affichent de gauche à droite, comme sur le canevas.",
   "mobile.workflow.detail.trigger": "Déclencheur",
@@ -69,7 +69,7 @@ export const messages = {
   "mobile.workflow.trigger.webhook": "Webhook",
   "mobile.workflow.trigger.webhookHint": "S’exécute quand son adresse reçoit une requête.",
   "mobile.workflow.trigger.message": "Message",
-  "mobile.workflow.trigger.messageHint": "Modifiez ce déclencheur dans OpenBot sur votre ordinateur.",
+  "mobile.workflow.trigger.messageHint": "Modifiez ce déclencheur dans Builders Bot sur votre ordinateur.",
   "mobile.workflow.trigger.startsWhen": "Démarre",
   "mobile.workflow.trigger.timezone": "Fuseau horaire : {zone}",
   "mobile.workflow.trigger.serverZone": "La planification utilise le fuseau horaire du serveur.",
@@ -104,7 +104,7 @@ export const messages = {
   "mobile.workflow.step.questionDefault": "Approuvez pour continuer.",
   "mobile.workflow.step.textEmpty": "Aucun texte",
   "mobile.workflow.step.textPlaceholder": "Texte pour l’étape suivante",
-  "mobile.workflow.step.computerOnly": "Modifiez cette étape dans OpenBot sur votre ordinateur.",
+  "mobile.workflow.step.computerOnly": "Modifiez cette étape dans Builders Bot sur votre ordinateur.",
   "mobile.workflow.step.gone": "Cette étape n’est plus dans le workflow.",
   "mobile.workflow.step.agent": "Agent",
   "mobile.workflow.step.agentHint": "L’agent effectue la tâche avec la sortie de l’étape précédente.",
@@ -124,7 +124,7 @@ export const messages = {
   "mobile.workflow.step.text": "Texte",
   "mobile.workflow.step.sendTo": "Envoyer à",
   "mobile.workflow.step.channelHint":
-    "Un propriétaire ou un administrateur choisit la messagerie dans OpenBot sur l’ordinateur.",
+    "Un propriétaire ou un administrateur choisit la messagerie dans Builders Bot sur l’ordinateur.",
   "mobile.workflow.problem.noTitle": "Saisissez un nom.",
   "mobile.workflow.problem.noAgent": "Choisir un agent",
   "mobile.workflow.problem.agentGone": "L’agent n’est pas disponible. Choisir un agent",
@@ -148,7 +148,7 @@ export const messages = {
   "mobile.workflow.add.prompt": "Texte fixe pour l’étape suivante.",
   "mobile.workflow.add.output": "Vous envoie le résultat.",
   "mobile.workflow.add.oneCondition":
-    "Sur le téléphone, un workflow a une seule condition. Pour plus de chemins, utilisez OpenBot sur votre ordinateur.",
+    "Sur le téléphone, un workflow a une seule condition. Pour plus de chemins, utilisez Builders Bot sur votre ordinateur.",
   "mobile.workflow.editor.title": "Modifier le workflow",
   "mobile.workflow.editor.newTitle": "Nouveau workflow",
   "mobile.workflow.editor.step": "Étape",
@@ -157,7 +157,7 @@ export const messages = {
   "mobile.workflow.editor.create": "Créer le workflow",
   "mobile.workflow.editor.saveFailed": "Impossible d’enregistrer le workflow.",
   "mobile.workflow.editor.fieldsOnly":
-    "Le téléphone ne peut pas afficher ce workflow sous forme de liste. Vous pouvez modifier chaque étape ici. Pour ajouter, déplacer ou supprimer des étapes, utilisez OpenBot sur votre ordinateur.",
+    "Le téléphone ne peut pas afficher ce workflow sous forme de liste. Vous pouvez modifier chaque étape ici. Pour ajouter, déplacer ou supprimer des étapes, utilisez Builders Bot sur votre ordinateur.",
   "mobile.workflow.editor.annotationsKept": "Les notes et les dessins du canevas restent inchangés.",
   "mobile.workflow.editor.addStep": "Ajouter une étape",
   "mobile.workflow.editor.addAfter": "Ajouter une étape après",

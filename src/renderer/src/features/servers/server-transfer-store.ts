@@ -2,7 +2,7 @@ import type {
   InstanceTransferPreview,
   InstanceTransferResult,
   InstanceTransferSummary,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { toast } from "@openbot/ui";
 import type {
@@ -16,7 +16,7 @@ import { createEffect, createStore } from "solid-js";
 import { desktopAnalytics } from "../../analytics";
 
 /** The transfer calls of one server. Main routes them to this computer or to a joined host. */
-export type ServerTransferCalls = OpenBotDesktopApi["instanceTransfer"];
+export type ServerTransferCalls = BuildersBotDesktopApi["instanceTransfer"];
 
 interface ServerTransferState {
   screen: InstanceTransferScreen;

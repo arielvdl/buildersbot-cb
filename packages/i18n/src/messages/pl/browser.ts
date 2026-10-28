@@ -137,21 +137,21 @@ export const messages = {
   "browser.signIn.local": "Zaloguj się na tym komputerze",
   "browser.signIn.title": "Zaloguj się do {site}",
   "browser.signIn.description":
-    "Niektóre witryny odrzucają logowanie z serwera. Zaloguj się na tym komputerze, a OpenBot wyśle logowanie do {site} na {server}. Wszyscy agenci i członkowie na {server} mogą go potem używać w przeglądarce.",
+    "Niektóre witryny odrzucają logowanie z serwera. Zaloguj się na tym komputerze, a Builders Bot wyśle logowanie do {site} na {server}. Wszyscy agenci i członkowie na {server} mogą go potem używać w przeglądarce.",
   "browser.signIn.windowOpen":
-    "Zaloguj się w oknie, które się otworzyło. OpenBot wyśle logowanie, gdy będzie gotowe. Jeśli okno pozostanie otwarte, wybierz Gotowe.",
+    "Zaloguj się w oknie, które się otworzyło. Builders Bot wyśle logowanie, gdy będzie gotowe. Jeśli okno pozostanie otwarte, wybierz Gotowe.",
   "browser.signIn.windowClosed":
     "Okno logowania jest zamknięte. Wybierz Gotowe, aby wysłać logowanie, albo otwórz okno ponownie.",
   "browser.signIn.reopen": "Otwórz okno logowania",
   "browser.signIn.sending": "Wysyłanie na {server}…",
   "browser.signIn.sent": "Zalogowano do {site} na {server}",
   "browser.signIn.notFound":
-    "OpenBot nie znalazł logowania do {site}. Zaloguj się w oknie, a następnie wybierz Gotowe.",
+    "Builders Bot nie znalazł logowania do {site}. Zaloguj się w oknie, a następnie wybierz Gotowe.",
   "browser.signIn.stillSignedOut": "{server} nadal pokazuje stronę logowania do {site}. Dokończ logowanie w oknie.",
-  "browser.signIn.failed": "OpenBot nie mógł wysłać logowania.",
+  "browser.signIn.failed": "Builders Bot nie mógł wysłać logowania.",
   "browser.profiles.title": "Profile przeglądarki",
   "browser.profiles.subtitle":
-    "Każdy profil przechowuje na komputerze, na którym działa OpenBot, własne logowania, pliki cookie i dane witryn.",
+    "Każdy profil przechowuje na komputerze, na którym działa Builders Bot, własne logowania, pliki cookie i dane witryn.",
   "browser.profiles.label": "Profile przeglądarki",
   "browser.profiles.newName": "Nazwa profilu",
   "browser.profiles.create": "Dodaj",
@@ -180,8 +180,8 @@ export const messages = {
   "browser.profiles.deleteDescription":
     "Spowoduje to usunięcie logowań, plików cookie i danych witryn profilu. Jego otwarte karty zostaną zamknięte.",
   "browser.profiles.deleteAgents": "Ci agenci przejdą na wspólny profil: {agents}.",
-  "browser.profiles.failed": "OpenBot nie mógł zmienić profili przeglądarki.",
-  "browser.profiles.loadFailed": "OpenBot nie mógł wczytać profili przeglądarki.",
+  "browser.profiles.failed": "Builders Bot nie mógł zmienić profili przeglądarki.",
+  "browser.profiles.loadFailed": "Builders Bot nie mógł wczytać profili przeglądarki.",
   "browser.profiles.tabLabel": "Profil: {name}",
   "browser.profiles.agentTabLabel": "Własny profil agenta",
 } as const satisfies PartialTranslation<typeof source>;

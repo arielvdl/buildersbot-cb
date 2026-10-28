@@ -21,7 +21,7 @@ export const messages = {
   "status.remote.stageAgents": "Carregando agentes: {reason}",
   "status.remote.stageReads": "Carregando o status de leitura: {reason}",
   "status.remote.suspendedDetail":
-    "Atualize o OpenBot Mobile ou o aplicativo para computador antes de conectar.\n{detail}",
+    "Atualize o Builders Bot Mobile ou o aplicativo para computador antes de conectar.\n{detail}",
   "status.remote.cooldownDetail":
     "A conexão falhou após {limit} tentativas. Nova tentativa em {minutes}:{seconds}.\n{detail}",
   "status.remote.cooldown": "A conexão falhou após {limit} tentativas. Nova tentativa em {minutes}:{seconds}.",

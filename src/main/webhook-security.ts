@@ -47,7 +47,7 @@ function signatureDigest(secret: string, timestamp: string, deliveryId: string, 
   return createHmac("sha256", secret).update(`${timestamp}.${deliveryId}.`).update(body).digest();
 }
 
-/** The `X-OpenBot-Signature` value that a sender with `secret` sends for these bytes. */
+/** The `X-Builders Bot-Signature` value that a sender with `secret` sends for these bytes. */
 export function signWebhookBody(secret: string, timestamp: string, deliveryId: string, body: Uint8Array): string {
   return `${WEBHOOK_SIGNATURE_PREFIX}${signatureDigest(secret, timestamp, deliveryId, body).toString("hex")}`;
 }

@@ -29,7 +29,7 @@ import {
   hostedSiteEventMessageId,
   hostedSiteTool,
 } from "./hosted-site-events";
-import { type OpenBotToolResponse, openBotToolResult, siteToolString } from "./routine-tools";
+import { type BuildersBotToolResponse, openBotToolResult, siteToolString } from "./routine-tools";
 
 /** The openbot.site host, injected so the backend never depends on the account Worker directly. */
 export interface AgentHostedSites {
@@ -80,7 +80,7 @@ interface HostedSiteApprovalDetails {
 }
 
 interface HostedSiteMutationResult {
-  response: OpenBotToolResponse;
+  response: BuildersBotToolResponse;
   eventDetails: HostedSiteConversationEventDetails;
 }
 
@@ -136,7 +136,7 @@ export class HostedSiteCoordinator {
     if (!turnId || !agentId) {
       client.respondError(request.id, {
         code: -32602,
-        message: "OpenBot could not identify this hosted site request.",
+        message: "Builders Bot could not identify this hosted site request.",
       });
       return null;
     }
@@ -233,7 +233,7 @@ export class HostedSiteCoordinator {
   }
 
   #requireHostedSites(): AgentHostedSites {
-    if (!this.#hostedSites) throw new Error("OpenBot site hosting is unavailable.");
+    if (!this.#hostedSites) throw new Error("Builders Bot site hosting is unavailable.");
     return this.#hostedSites;
   }
 

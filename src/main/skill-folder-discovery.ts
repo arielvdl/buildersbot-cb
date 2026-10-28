@@ -26,7 +26,7 @@ const MAX_SKILLS_PER_FOLDER = 200;
 const MAX_SKILL_FILE_BYTES = 256 * 1024;
 
 /**
- * Lists the skills a user or an agent put in a workspace skill folder without OpenBot. OpenBot reads
+ * Lists the skills a user or an agent put in a workspace skill folder without Builders Bot. Builders Bot reads
  * these folders and never writes to them. `exclude` holds the folder names in the lock file, which
  * the installed list already shows.
  */

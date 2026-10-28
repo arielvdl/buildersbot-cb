@@ -135,7 +135,7 @@ export function telegramIntegrationState(
 type DialogStart = "chat" | "agent";
 
 /**
- * Marketplace > Apps > Telegram. Each chat adds the one OpenBot bot, and one Telegram
+ * Marketplace > Apps > Telegram. Each chat adds the one Builders Bot bot, and one Telegram
  * Orchestrator agent receives the messages of all chats, asks the team and answers. A chat links in
  * Telegram, so the chat list follows the connections that the caller reads again.
  */

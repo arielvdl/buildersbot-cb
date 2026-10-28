@@ -16,10 +16,10 @@ export const messages = {
   "error.remote.sessionCapacity": "El host ya tiene cuatro sesiones activas.",
   "error.remote.linuxNeedsX11": "El escritorio remoto en Linux necesita una sesión X11. Wayland no es compatible.",
   "error.remote.runtimeMissing":
-    "El entorno de ejecución de Sunshine y Moonlight Web falta o no es compatible con este host. Instala la versión completa de OpenBot en un Mac, un host Windows x64 o un host Linux x64 y reinicia OpenBot.",
+    "El entorno de ejecución de Sunshine y Moonlight Web falta o no es compatible con este host. Instala la versión completa de Builders Bot en un Mac, un host Windows x64 o un host Linux x64 y reinicia Builders Bot.",
   "error.remote.testActive": "Hay una prueba de escritorio remoto activa. Inténtalo de nuevo cuando termine.",
   "error.remote.screenRecordingDenied":
-    "El host no ha permitido que OpenBot grabe su pantalla. Concede permiso de grabación de pantalla en el host e inténtalo de nuevo.",
+    "El host no ha permitido que Builders Bot grabe su pantalla. Concede permiso de grabación de pantalla en el host e inténtalo de nuevo.",
   "error.remote.teamSessionExpired": "La sesión del equipo caducó.",
   "error.remote.finishTestBeforeSwitch": "Termina la prueba de escritorio remoto antes de cambiar de pantalla.",
   "error.remote.displayNotFound": "No se encontró la pantalla remota.",
@@ -32,7 +32,7 @@ export const messages = {
   "error.remote.moonlightStartFailed":
     "Moonlight Web no se inició en el host. Comprueba los registros del escritorio remoto en el host e inténtalo de nuevo.",
   "error.remote.pairingFailed":
-    "Moonlight no pudo vincularse con Sunshine en el host. Inténtalo de nuevo. Si el problema continúa, reinicia OpenBot en el host.",
+    "Moonlight no pudo vincularse con Sunshine en el host. Inténtalo de nuevo. Si el problema continúa, reinicia Builders Bot en el host.",
   "error.remote.runtimeStartFailed":
     "El entorno de ejecución del escritorio remoto no se inició en el host. Comprueba los registros del escritorio remoto en el host e inténtalo de nuevo.",
   "error.remote.hostUnreachable": "No se puede acceder al host.",
@@ -40,7 +40,7 @@ export const messages = {
   "error.remote.invalidData": "El host devolvió datos no válidos.",
   "error.remote.unsafeData": "El host devolvió datos que esta aplicación no pudo usar de forma segura.",
   "error.remote.requestFailedStatus": "La solicitud al servidor remoto falló ({status}).",
-  "error.remote.appUpdateRequired": "Actualiza esta aplicación OpenBot antes de conectarte al host.",
+  "error.remote.appUpdateRequired": "Actualiza esta aplicación Builders Bot antes de conectarte al host.",
   "error.remote.identityNotVerified": "No se pudo verificar la identidad del servidor.",
   "error.remote.webRtcUnavailable": "El transporte WebRTC no está disponible.",
   "error.remote.invalidCompatibility": "El host devolvió información de compatibilidad no válida.",
@@ -60,9 +60,9 @@ export const messages = {
   "error.remote.inviteIdentityChanged": "La identidad del host de la invitación cambió mientras se aceptaba.",
   "error.remote.localServerRemove": "No se puede eliminar el servidor local.",
   "error.remote.desktopSetupHostUpdate":
-    "Actualiza OpenBot en el host para comprobar la configuración del escritorio remoto.",
+    "Actualiza Builders Bot en el host para comprobar la configuración del escritorio remoto.",
   "error.remote.desktopTestHostUpdate":
-    "Actualiza OpenBot en el host para probar la configuración del escritorio remoto.",
+    "Actualiza Builders Bot en el host para probar la configuración del escritorio remoto.",
   "error.remote.viewerProxyUnavailable": "El proxy local del visor remoto no está disponible.",
   "error.remote.viewerTransportInvalid": "El transporte del visor remoto no es válido.",
   "error.remote.viewerProxyNoPort": "El proxy local del visor remoto no recibió un puerto.",
@@ -132,11 +132,11 @@ export const messages = {
   "error.remote.permanentInviteNoEmail": "Las invitaciones permanentes no se pueden enviar por correo.",
   "error.remote.selfHostedInviteNoEmail":
     "Una invitación de un servicio de cuentas autoalojado no se puede enviar por correo. Copia el enlace.",
-  "error.remote.inviteOtherService": "Esta invitación pertenece a otro servicio de OpenBot.",
+  "error.remote.inviteOtherService": "Esta invitación pertenece a otro servicio de Builders Bot.",
   "error.remote.inviteFingerprintMismatch": "La identidad del host de la invitación no coincide con su huella.",
   "error.remote.inviteHostKeyMissing": "Falta la clave del host de la invitación.",
   "error.remote.inviteKeyConflict": "La invitación entra en conflicto con la clave del host de confianza.",
-  "error.remote.serviceRequestFailed": "La solicitud al servicio de OpenBot falló.",
+  "error.remote.serviceRequestFailed": "La solicitud al servicio de Builders Bot falló.",
   "error.remote.downloadTimeout": "Se agotó el tiempo de descarga del archivo adjunto. Inténtalo de nuevo.",
   "error.remote.attachmentConnectionClosed": "La conexión de archivos adjuntos se cerró.",
   "error.remote.tooManyDownloads": "Hay demasiadas descargas de archivos adjuntos.",
@@ -161,7 +161,7 @@ export const messages = {
   "error.remote.signalInvalidMessage": "Signal devolvió un mensaje no válido.",
   "error.remote.sessionInvalid": "La sesión remota no es válida.",
   "error.remote.ticketInvalid": "El ticket de conexión no es válido.",
-  "error.remote.mobileUpdateRequired": "Actualiza OpenBot Mobile o la aplicación de escritorio antes de conectarte.",
+  "error.remote.mobileUpdateRequired": "Actualiza Builders Bot Mobile o la aplicación de escritorio antes de conectarte.",
   "error.remote.connectionStepFailed": "No se pudo completar este paso de conexión.",
   "error.remote.signalNotConnected": "Signal no está conectado.",
   "error.remote.signalFrameUnreadable": "Signal envió una trama que este par no puede leer.",
@@ -170,9 +170,9 @@ export const messages = {
   "error.remote.hostBusy": "El host está ocupado con otra conexión. Inténtalo de nuevo en un momento.",
   "error.remote.signalPermissionDenied": "Tu cuenta no tiene acceso a este host. Pide acceso al propietario.",
   "error.remote.signalRateLimited":
-    "Demasiados intentos de conexión. OpenBot lo intentará de nuevo en {seconds} segundos.",
+    "Demasiados intentos de conexión. Builders Bot lo intentará de nuevo en {seconds} segundos.",
   "error.remote.signalProtocolError":
-    "Signal y esta aplicación no coinciden en el protocolo de conexión. Actualiza OpenBot e inténtalo de nuevo.",
+    "Signal y esta aplicación no coinciden en el protocolo de conexión. Actualiza Builders Bot e inténtalo de nuevo.",
   "error.remote.signalRefused": "Signal rechazó la conexión.",
   "error.remote.signalClosed": "La conexión con Signal se cerró antes de que el host respondiera.",
   "error.remote.relayUnavailable":
@@ -180,18 +180,18 @@ export const messages = {
   "error.remote.iceFailed":
     "No se pudo establecer una conexión directa con el host. Un cortafuegos, una VPN o un proxy pueden bloquearla.",
   "error.remote.iceDisconnected": "Se perdió la conexión directa con el host.",
-  "error.remote.directoryUnreachable": "OpenBot no pudo acceder al servicio de OpenBot. Comprueba tu conexión.",
-  "error.remote.directoryTimeout": "El servicio de OpenBot no respondió a tiempo. Inténtalo de nuevo.",
+  "error.remote.directoryUnreachable": "Builders Bot no pudo acceder al servicio de Builders Bot. Comprueba tu conexión.",
+  "error.remote.directoryTimeout": "El servicio de Builders Bot no respondió a tiempo. Inténtalo de nuevo.",
   "error.remote.inviteAlreadyUsed": "Esta invitación ya se usó. Pide una nueva invitación.",
   "error.remote.inviteNotFound": "Esta invitación no existe o caducó. Pide una nueva invitación.",
   "error.remote.licenseUsersFull":
     "La licencia del propietario del servidor no tiene usuarios libres. Pide al propietario que añada un usuario a la licencia.",
   "error.remote.memberLimitReached": "Este host alcanzó su límite de miembros. Pide al propietario que libere espacio.",
-  "error.remote.hostNotRegistered": "Este host ya no está registrado en el servicio de OpenBot.",
+  "error.remote.hostNotRegistered": "Este host ya no está registrado en el servicio de Builders Bot.",
   "error.remote.membershipEnded": "Ya no eres miembro de este host. Pide al propietario una nueva invitación.",
   "error.remote.accountSessionInactive": "Tu sesión ya no está activa. Inicia sesión de nuevo.",
   "error.remote.hostOtherAccount": "Este host pertenece a otra cuenta.",
-  "error.remote.remoteNotConfigured": "Las conexiones remotas no están configuradas en este servicio de OpenBot.",
+  "error.remote.remoteNotConfigured": "Las conexiones remotas no están configuradas en este servicio de Builders Bot.",
   "error.remote.hostRefused": "El host rechazó la solicitud ({status}).",
   "error.remote.formUnavailable": "Este formulario ya no está disponible.",
   "error.remote.hostedServerRemoval": "Usa Facturación para eliminar un servidor alojado.",

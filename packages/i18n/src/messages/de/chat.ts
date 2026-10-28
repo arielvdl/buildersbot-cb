@@ -408,7 +408,7 @@ export const messages = {
   "chat.suggestion.dismissNamed": "{name} ausblenden",
   "chat.suggestion.dismissed": "Vorschlag für {name} ausgeblendet.",
   "chat.suggestion.undo": "Rückgängig",
-  "chat.suggestion.localOnly": "Verbinde {name} in OpenBot auf deinem eigenen Computer.",
+  "chat.suggestion.localOnly": "Verbinde {name} in Builders Bot auf deinem eigenen Computer.",
   "chat.suggestion.unavailable": "Dieser Server kann {name} nicht verbinden.",
   "chat.compaction.running": "Kontext wird komprimiert",
   "chat.compaction.completed": "Kontext komprimiert",

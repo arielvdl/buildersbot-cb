@@ -56,14 +56,14 @@ export const messages = {
   "error.agent.hostLimit": "호스트 하나에는 에이전트를 최대 {limit}개까지 둘 수 있어요.",
   "error.agent.changedWhileDuplicating": "복제하는 동안 에이전트가 변경되었어요. 다시 시도해 주세요.",
   "error.agent.duplicatedAgentGone": "복제한 에이전트가 더 이상 없어요.",
-  "error.agent.stateCorrupt": "에이전트 상태가 손상되었거나 더 새로운 OpenBot 버전의 것이에요. 덮어쓰지 않아요.",
+  "error.agent.stateCorrupt": "에이전트 상태가 손상되었거나 더 새로운 Builders Bot 버전의 것이에요. 덮어쓰지 않아요.",
   "error.agent.oldRoleField":
-    "저장된 에이전트 프로필이 이전 role 필드를 사용해요. OpenBot을 시작하기 전에 데이터를 업데이트하세요.",
+    "저장된 에이전트 프로필이 이전 role 필드를 사용해요. Builders Bot을 시작하기 전에 데이터를 업데이트하세요.",
   "error.agent.duplicateIds": "에이전트 상태에 중복된 에이전트 ID가 있어요. 덮어쓰지 않아요.",
-  "error.agent.copyNameFailed": "OpenBot이 고유한 에이전트 사본 이름을 만들지 못했어요.",
+  "error.agent.copyNameFailed": "Builders Bot이 고유한 에이전트 사본 이름을 만들지 못했어요.",
   "error.agent.endpointRemoved": "이 에이전트가 사용하던 엔드포인트가 제거되었어요. 다른 모델을 선택해 주세요.",
   "error.agent.turnStalled":
-    "{provider}이(가) 응답하지 않아 OpenBot이 이 턴을 종료했어요. 메시지를 다시 보내거나 다른 모델을 선택해 주세요.",
+    "{provider}이(가) 응답하지 않아 Builders Bot이 이 턴을 종료했어요. 메시지를 다시 보내거나 다른 모델을 선택해 주세요.",
   "error.agent.selectedGone": "선택한 에이전트가 더 이상 없어요.",
   "error.agent.profileEndpointsChanged": "생성하는 동안 사용자 지정 엔드포인트가 변경되었어요. 다시 시도해 주세요.",
   "error.agent.profileInvalid": "제공자가 올바르지 않은 프로필을 반환했어요. 프롬프트를 수정해 보세요.",
@@ -82,15 +82,16 @@ export const messages = {
   "error.agent.saveOtherAgent": "이 저장은 다른 에이전트의 것이에요.",
   "error.agent.savedGone": "저장된 에이전트가 더 이상 없어요.",
   "error.agent.storedProfileUnreadable":
-    '저장된 에이전트 프로필의 "{field}" 값을 읽을 수 없어요. OpenBot을 시작하기 전에 데이터를 업데이트하세요.',
+    '저장된 에이전트 프로필의 "{field}" 값을 읽을 수 없어요. Builders Bot을 시작하기 전에 데이터를 업데이트하세요.',
   "error.agent.storedProfileUnreadableId":
-    '저장된 에이전트 프로필 {id}의 "{field}" 값을 읽을 수 없어요. OpenBot을 시작하기 전에 데이터를 업데이트하세요.',
+    '저장된 에이전트 프로필 {id}의 "{field}" 값을 읽을 수 없어요. Builders Bot을 시작하기 전에 데이터를 업데이트하세요.',
   "error.agent.queueEditRejected": "대기열 수정이 거부되었어요: {reason}",
   "error.agent.computerUseLocalOnly": "컴퓨터 제어는 에이전트를 실행하는 컴퓨터에서만 변경할 수 있어요.",
   "error.agent.automationLocalOnly": "로컬 스크립트는 에이전트를 실행하는 컴퓨터에서만 허용할 수 있어요.",
   "error.agent.newChatLocalOnly":
     "에이전트가 새 채팅을 시작하도록 허용하는 것은 에이전트를 실행하는 컴퓨터에서만 할 수 있어요.",
   "error.agent.quickAcknowledgementLocalOnly": "이 설정은 에이전트를 실행하는 컴퓨터에서만 변경할 수 있어요.",
+  "error.agent.securityGuardLocalOnly": "이 설정은 에이전트를 실행하는 컴퓨터에서만 변경할 수 있습니다.",
   "error.agent.sideQuestionBusy": "곁다리 질문이 너무 많이 실행 중이에요. 잠시 후 다시 시도해 주세요.",
   "error.agent.sideQuestionFailed": "에이전트가 곁다리 질문에 답하지 못했어요. 다시 시도해 주세요.",
   "error.agent.busyMessageModeLocalOnly":
@@ -111,7 +112,7 @@ export const messages = {
   "error.agent.lowMemoryServer":
     "이 서버의 메모리가 부족해요. 메시지는 대기열에서 기다리다가 메모리가 확보되면 시작돼요.",
   "error.agent.workspaceOnlyToolMissing":
-    "워크스페이스 전용 모드에는 {tool}이(가) 필요한데 OpenBot이 찾지 못했어요. 설치하거나 에이전트 설정에서 전체 접근 권한을 선택하세요.",
+    "워크스페이스 전용 모드에는 {tool}이(가) 필요한데 Builders Bot이 찾지 못했어요. 설치하거나 에이전트 설정에서 전체 접근 권한을 선택하세요.",
   "error.agent.screenCaptureOff":
     "이 에이전트는 화면 캡처가 꺼져 있어요. 사용자가 에이전트 설정에서 컴퓨터 제어를 켤 수 있어요.",
   "error.agent.screenCaptureUnavailable": "이 컴퓨터에서는 화면 캡처를 사용할 수 없어요.",
@@ -130,7 +131,7 @@ export const messages = {
   "error.agent.screenCaptureRegionOutside":
     "해당 영역이 하나의 디스플레이 안에 있지 않아요. list_capture_sources에서 가져온 한 디스플레이 범위 안의 데스크톱 포인트를 사용하세요.",
   "error.agent.screenCapturePermissionMissing":
-    "OpenBot에 화면 녹화 권한이 없어요. 사용자에게 시스템 설정 > 개인정보 보호 및 보안 > 화면 및 시스템 오디오 녹화를 열어 OpenBot을 켠 다음, OpenBot을 종료했다가 다시 열도록 요청하세요.",
+    "Builders Bot에 화면 녹화 권한이 없어요. 사용자에게 시스템 설정 > 개인정보 보호 및 보안 > 화면 및 시스템 오디오 녹화를 열어 Builders Bot을 켠 다음, Builders Bot을 종료했다가 다시 열도록 요청하세요.",
   "error.agent.screenCaptureEmptyWindows":
     "Windows가 빈 이미지를 반환했어요. 사용자에게 컴퓨터 잠금을 해제하고 보호된 콘텐츠를 닫도록 요청하세요. 조직의 정책이 화면 캡처를 막을 수도 있어요.",
   "error.agent.screenCaptureFailed": "화면 캡처에 실패했어요. 다시 시도해 주세요.",

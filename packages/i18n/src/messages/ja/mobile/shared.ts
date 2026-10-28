@@ -8,6 +8,6 @@ export const messages = {
   "mobile.shared.splash.loading": "アカウントを読み込んでいます",
   "mobile.shared.photo.openFailed": "この写真を開けませんでした。もう一度お試しください。",
   "mobile.shared.photo.tooLarge":
-    "OpenBot はこの写真を十分に小さくできませんでした。よりシンプルな写真を選んでください。",
+    "Builders Bot はこの写真を十分に小さくできませんでした。よりシンプルな写真を選んでください。",
   "mobile.shared.save.changes": "変更を保存",
 } as const satisfies PartialTranslation<typeof source>;

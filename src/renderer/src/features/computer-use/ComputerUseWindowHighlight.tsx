@@ -17,7 +17,7 @@ export interface ComputerUseWindowHighlightProps {
 }
 
 /**
- * The hue OpenBot draws over the window an agent is working in.
+ * The hue Builders Bot draws over the window an agent is working in.
  *
  * The agent cursor says where a click lands; it does not say which window the next twenty actions
  * belong to. This answers that with one even rim of the accent around the whole window and a short

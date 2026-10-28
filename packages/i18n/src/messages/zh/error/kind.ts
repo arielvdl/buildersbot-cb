@@ -5,8 +5,8 @@ import type { messages as source } from "../../en/error/kind";
 export const messages = {
   "error.kind.network": "无法连接，请检查网络后重试。",
   "error.kind.timeout": "请求超时。重试前请先确认该操作是否已完成。",
-  "error.kind.storage": "存储空间不足。请先在运行 OpenBot 的电脑上释放一些空间，然后重试。",
-  "error.kind.filePermission": "OpenBot 没有权限完成该操作。请检查文件或文件夹权限后重试。",
+  "error.kind.storage": "存储空间不足。请先在运行 Builders Bot 的电脑上释放一些空间，然后重试。",
+  "error.kind.filePermission": "Builders Bot 没有权限完成该操作。请检查文件或文件夹权限后重试。",
   "error.kind.notFound": "找不到所需的文件或文件夹。请恢复它或选择另一个，然后重试。",
   "error.kind.readOnly": "该文件夹为只读。请选择可写入的文件夹后重试。",
   "error.kind.conflict": "已存在同名项目。请换一个名称后重试。",

@@ -112,7 +112,7 @@ interface PiThread {
   closed: boolean;
   gate: Semaphore.Semaphore;
   /**
-   * Opened with the session settings of `thread/start` or `thread/resume`: OpenBot tools,
+   * Opened with the session settings of `thread/start` or `thread/resume`: Builders Bot tools,
    * instructions and access. A thread that a history read opened after a restart has none of them.
    */
   configured: boolean;
@@ -124,7 +124,7 @@ interface ClientEvents {
   diagnostic: [string, DiagnosticOrigin?];
 }
 
-/** Owns Pi's native sessions. The database owns OpenBot history and agent identity. */
+/** Owns Pi's native sessions. The database owns Builders Bot history and agent identity. */
 export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentClient {
   readonly contextCompaction = "request";
   readonly provider: "pi" | KeyOnlyProviderId;
@@ -413,7 +413,7 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
     if (resume && requestedId) {
       const live = this.#threads.get(requestedId);
       if (live && (live.configured || !configured)) return live;
-      // The live thread has no OpenBot tools, and its next prompt would remove them from the session
+      // The live thread has no Builders Bot tools, and its next prompt would remove them from the session
       // (#3343). An idle one is replaced by a thread with the session settings.
       if (live) {
         const replaced = yield* live.gate.withPermit(
@@ -634,7 +634,7 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
     params: unknown,
   ) {
     const turn = thread.turn;
-    // Pi starts a message for an ended turn as a run of its own, which OpenBot did not start.
+    // Pi starts a message for an ended turn as a run of its own, which Builders Bot did not start.
     // The message then waits in the queue.
     if (!turn || turn.id !== getString(params, "expectedTurnId") || turn.stopped || turn.finishing)
       return yield* providerFailure(new Error(sourceText("error.backend.steerTurnChanged")));
@@ -666,7 +666,7 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
       const index = steering.indexOf(message);
       if (index >= 0) steering.splice(index, 1);
       for (const text of steering) {
-        // A steer for an ended or stopped turn would start a Pi run that OpenBot did not start.
+        // A steer for an ended or stopped turn would start a Pi run that Builders Bot did not start.
         if (thread.turn !== turn || turn.stopped || turn.finishing) return;
         yield* thread.rpc
           .request({ type: "steer", message: text })

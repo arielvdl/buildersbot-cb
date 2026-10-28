@@ -53,7 +53,7 @@ export function agentTemplateShareOrigin(apiOrigin: string): string {
 
 export function createAgentTemplateShareUrl(id: string, origin: string = OPENBOT_AGENT_TEMPLATE_ORIGIN): string {
   assertAgentTemplateId(id);
-  if (!isAgentTemplateShareOrigin(origin)) throw new Error("The OpenBot agent link origin is invalid.");
+  if (!isAgentTemplateShareOrigin(origin)) throw new Error("The Builders Bot agent link origin is invalid.");
   return `${origin}${OPENBOT_AGENT_TEMPLATE_PATH_PREFIX}${id}`;
 }
 
@@ -72,7 +72,7 @@ export function agentTemplateIdFromWebAppSearch(search: string): string | null {
   return id !== null && isAgentTemplateId(id) ? id : null;
 }
 
-export function createOpenBotAgentTemplateUrl(id: string): string {
+export function createBuildersBotAgentTemplateUrl(id: string): string {
   assertAgentTemplateId(id);
   return `openbot://${OPENBOT_AGENT_TEMPLATE_HOST}/${id}`;
 }
@@ -83,7 +83,7 @@ export function parseAgentTemplateUrl(value: string): string {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("The OpenBot agent link is invalid.");
+    throw new Error("The Builders Bot agent link is invalid.");
   }
 
   // The origin is compared as one string, so `openbot.run.example.com` does not pass.
@@ -100,19 +100,19 @@ export function parseAgentTemplateUrl(value: string): string {
     url.search !== "" ||
     url.hash !== ""
   ) {
-    throw new Error("The OpenBot agent link is invalid.");
+    throw new Error("The Builders Bot agent link is invalid.");
   }
 
   const rest = canonical
     ? url.pathname.slice(OPENBOT_AGENT_TEMPLATE_PATH_PREFIX.length)
     : url.pathname.replace(/^\//u, "");
   const segments = rest.split("/");
-  if (segments.length !== 1) throw new Error("The OpenBot agent link is invalid.");
+  if (segments.length !== 1) throw new Error("The Builders Bot agent link is invalid.");
   const id = segments[0] ?? "";
   assertAgentTemplateId(id);
   return id;
 }
 
 function assertAgentTemplateId(id: string): void {
-  if (!isAgentTemplateId(id)) throw new Error("The OpenBot agent link is invalid.");
+  if (!isAgentTemplateId(id)) throw new Error("The Builders Bot agent link is invalid.");
 }

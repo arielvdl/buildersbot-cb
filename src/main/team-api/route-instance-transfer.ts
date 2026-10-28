@@ -18,7 +18,7 @@ import { sendFile } from "./route-files";
 const ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_ROUTES));
 
 /**
- * The server's agents and server settings to or from an OpenBot transfer file. Only an owner or an
+ * The server's agents and server settings to or from an Builders Bot transfer file. Only an owner or an
  * admin: an export holds every agent's memories and files, and an import adds server settings. The
  * token is the caller's own. Frozen by `instance-transfer-v1`.
  */

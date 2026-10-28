@@ -20,7 +20,7 @@ import {
   type TelegramCallParams,
   type TelegramCallResult,
 } from "@openbot/contracts/signal-protocol/telegram-route";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Context, Deferred, Effect, Exit, Layer, ManagedRuntime, Option, Result, Scope, Semaphore } from "effect";
 import WebSocket from "ws";
 import {
@@ -38,7 +38,7 @@ import type { IngressQueueKey } from "./ingress-queue-key";
 import { type RemoteWorkflowError, remoteDecode } from "./remote-service-effects";
 import { downloadTelegramFile, signalHttpOrigin, uploadTelegramFile } from "./telegram-files";
 
-const logger = createOpenBotLogger("signal-ingress");
+const logger = createBuildersBotLogger("signal-ingress");
 
 /** The route of a kept delivery, as Signal keeps its order: one Slack team, Discord guild or Telegram chat. */
 function queuedRoute(message: QueuedSignalMessage): string {

@@ -96,7 +96,7 @@ export const messages = {
   "agentSettings.runtime.fullAccessNote":
     "Агент работает с полным доступом к компьютеру из своего рабочего пространства и общей папки.",
   "agentSettings.runtime.askNote":
-    "Агент спрашивает вас, прежде чем использовать инструмент OpenBot или опубликовать сайт, а также когда его провайдер запрашивает одобрение.",
+    "Агент спрашивает вас, прежде чем использовать инструмент Builders Bot или опубликовать сайт, а также когда его провайдер запрашивает одобрение.",
   "agentSettings.runtime.fullNote": "Агент действует без подтверждения, кроме вопросов, которые он задаёт вам.",
 
   "agentSettings.access.workspace": "Рабочее пространство",
@@ -168,7 +168,7 @@ export const messages = {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "Изменение файла за пределами рабочего пространства сначала требует вашего подтверждения. Команда не может записывать за его пределами.",
   "agentSettings.runtime.workspaceUnlimited":
-    "Управление компьютером и браузер OpenBot не ограничены; управление компьютером можно отключить ниже.",
+    "Управление компьютером и браузер Builders Bot не ограничены; управление компьютером можно отключить ниже.",
   "agentSettings.computerUse.title": "Управление компьютером",
   "agentSettings.computerUse.description": "Разрешить этому агенту управлять приложениями на этом компьютере",
   "agentSettings.automation.title": "Локальные скрипты",
@@ -180,6 +180,9 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Показывать план перед долгими задачами",
   "agentSettings.quickAcknowledgement.description":
     "Перед долгой задачей агент показывает свой план. Он начинает через 10 с или когда вы нажимаете «Начать».",
+  "agentSettings.securityGuard.title": "Проверка безопасности каждого сообщения",
+  "agentSettings.securityGuard.description":
+    'Перед каждым ходом проверка читает сообщение и его изображения на внедрение промпта и сообщает агенту, что нашла. Она использует модель агента.',
   "agentSettings.browserProfile.label": "Профиль браузера",
   "agentSettings.browserProfile.shared": "Общий",
   "agentSettings.browserProfile.agent": "Только этот агент",

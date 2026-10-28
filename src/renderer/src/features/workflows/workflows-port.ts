@@ -1,8 +1,8 @@
-import type { AgentAccessLevels, OpenBotDesktopApi, ServerSummary } from "@openbot/contracts/ipc";
+import type { AgentAccessLevels, BuildersBotDesktopApi, ServerSummary } from "@openbot/contracts/ipc";
 import type { WorkflowPlace } from "@openbot/ui/features/workflows/workflow-model";
 import { serverRoleCanAdminister } from "../servers/server-capabilities";
 
-type WorkflowsApi = OpenBotDesktopApi["workflows"];
+type WorkflowsApi = BuildersBotDesktopApi["workflows"];
 /** Each method with its input only; `list` takes none. */
 type BoundWorkflowsApi = {
   [Name in Exclude<keyof WorkflowsApi, "list">]: (

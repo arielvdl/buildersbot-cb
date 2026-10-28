@@ -84,7 +84,7 @@ export interface MarketplacePluginApp {
   description: string;
   iconUrl: string | null;
   server: MarketplacePluginServer;
-  /** The Apple apps the server drives through AppleScript. OpenBot can ask macOS for them at install. */
+  /** The Apple apps the server drives through AppleScript. Builders Bot can ask macOS for them at install. */
   macAutomation?: readonly MacAutomationTarget[];
 }
 

@@ -7,7 +7,7 @@ export const messages = {
   "error.site.rootSymlink": "ホストするサイトではシンボリックリンクを使用できません。",
   "error.site.notDirectory": "サイトのソースはディレクトリである必要があります。",
   "error.site.outsideWorkspace":
-    "サイトはこのエージェントのワークスペースまたは OpenBot Shared の中にある必要があります。",
+    "サイトはこのエージェントのワークスペースまたは Builders Bot Shared の中にある必要があります。",
   "error.site.packageJsonInvalid": "サイトの package.json が無効です。",
   "error.site.astroServerOutput": "Astro では静的出力を使用する必要があります。",
   "error.site.astroAdapter": "Astro のサーバーアダプターと React 連携は使用できません。",

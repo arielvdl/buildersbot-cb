@@ -2,10 +2,10 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/computerUse";
 
 export const messages = {
-  "error.computerUse.noAppToDrag": "Questa build di OpenBot non ha nessuna applicazione da trascinare.",
+  "error.computerUse.noAppToDrag": "Questa build di Builders Bot non ha nessuna applicazione da trascinare.",
   "error.computerUse.helpWindowChanged":
     "La finestra di aiuto sui permessi è cambiata prima dell'inizio del trascinamento.",
-  "error.computerUse.noAppToShow": "Questa build di OpenBot non ha nessuna applicazione da mostrare.",
+  "error.computerUse.noAppToShow": "Questa build di Builders Bot non ha nessuna applicazione da mostrare.",
   "error.computerUse.noDriver": "Questo computer non ha un driver per il Controllo del computer.",
   "error.computerUse.socketPathTooLong":
     "Il percorso del socket del Controllo del computer è di {length} caratteri, e questo sistema ne consente {limit}.",

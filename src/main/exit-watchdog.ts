@@ -18,7 +18,7 @@ const WATCHDOG_SCRIPT = [
   '[ "$(ps -o lstart= -p "$0" 2>/dev/null)" = "$start" ] || exit 0',
   'kill -9 "$0"',
   'mkdir -p "$(dirname "$2")"',
-  'printf \'%s WARN [main] OpenBot did not exit within %s s with %s open file requests and was stopped.\\n\' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$3" >> "$2"',
+  'printf \'%s WARN [main] Builders Bot did not exit within %s s with %s open file requests and was stopped.\\n\' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$3" >> "$2"',
 ].join("\n");
 
 /**

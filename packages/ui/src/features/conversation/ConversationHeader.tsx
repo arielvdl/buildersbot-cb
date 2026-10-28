@@ -14,6 +14,8 @@ export interface ConversationHeaderProps {
   /** The title of a chat that has no one agent, such as a channel. It shows when `agent` is missing. */
   title?: JSX.Element | undefined;
   modelPicker: ComponentProps<typeof ProviderModelPicker>;
+  /** A turn of the chat runs: its title shimmers, so the work shows in the header too. */
+  working?: boolean | undefined;
   /** A model, effort, provider or account chosen during the running turn. It applies from the next turn. */
   pendingModel?: ConversationHeaderPendingModel | undefined;
   onSettingsIntent: () => void;
@@ -59,7 +61,7 @@ export function ConversationHeader(props: ConversationHeaderProps) {
               onClick={() => (props.onOpenChat ?? props.onOpenSettings)()}
             >
               <AgentAvatar agent={agent()} />
-              <h1>{agent().name}</h1>
+              <h1 class={props.working ? "conversation-title-working" : undefined}>{agent().name}</h1>
             </Button>
           )}
         </Show>

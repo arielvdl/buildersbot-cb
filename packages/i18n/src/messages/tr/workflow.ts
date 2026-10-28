@@ -324,9 +324,9 @@ export const messages = {
   "workflow.canvas.version.run": "Çalıştırmadan önce",
   "workflow.canvas.deleteUndo.title": "{name} silindi",
   "workflow.canvas.deleteUndo.action": "Geri al",
-  "workflow.page.failed": "OpenBot bunu yapamadı. Tekrar deneyin.",
+  "workflow.page.failed": "Builders Bot bunu yapamadı. Tekrar deneyin.",
   "workflow.page.conflict": "Başka bir cihazda değiştirildi. Düzenlemelerinizi geri almak için Geri Al'ı kullanın.",
   "workflow.page.needsNewerApp":
-    "Bu iş akışında daha yeni bir OpenBot sürümünden adımlar var. Değiştirmek için OpenBot'u güncelleyin.",
+    "Bu iş akışında daha yeni bir Builders Bot sürümünden adımlar var. Değiştirmek için Builders Bot'u güncelleyin.",
   "workflow.page.manageOnly": "Bu iş akışını değiştirmek için her bir ajanı üzerinde Yönetme erişiminiz olmalı.",
 } as const satisfies PartialTranslation<typeof source>;
