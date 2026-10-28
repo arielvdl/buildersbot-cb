@@ -32,7 +32,13 @@ import type {
   StatusReaction,
 } from "../messaging-types";
 import { DiscordApiError, MessagingAdapterError } from "../messaging-types";
-import { discordCustomId, discordMentionIds, discordPlainText, inboundFile } from "./discord-events";
+import {
+  discordContextText,
+  discordCustomId,
+  discordMentionIds,
+  discordPlainText,
+  inboundFile,
+} from "./discord-events";
 import { DiscordTransport } from "./discord-transport";
 
 /** A margin under Discord's limit for the fence that `chunkMarkdown` can add. */
@@ -392,14 +398,11 @@ class DiscordAdapter implements MessagingAdapter {
       (message): ContextEntry => ({
         id: message.id,
         authorName: message.authorIsBot ? `${message.authorName} (bot)` : message.authorName,
-        text: [
+        text: discordContextText(
           withMentionNames(discordPlainText(message.content), names),
-          message.attachments.length
-            ? `(Attached files: ${message.attachments.map((file) => file.filename).join(", ")})`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
+          message.attachments,
+          message.forwarded,
+        ),
         sentAt: message.sentAt,
         ...(message.attachments.length ? { files: message.attachments.map(inboundFile) } : {}),
       }),
@@ -536,9 +539,9 @@ function snowflakeTime(id: bigint): bigint {
   return (id >> 22n) + DISCORD_EPOCH_MS;
 }
 
-/** A message that has text or files for the context. */
+/** A message that has text or files for the context, or a forward, which says when it has neither. */
 function hasContent(message: DiscordHistoryMessage): boolean {
-  return discordPlainText(message.content) !== "" || message.attachments.length > 0;
+  return discordPlainText(message.content) !== "" || message.attachments.length > 0 || message.forwarded;
 }
 
 function compareSnowflakes(left: string, right: string): number {

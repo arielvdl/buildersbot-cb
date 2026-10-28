@@ -1,10 +1,10 @@
 {
-  "version": "0.52.1",
+  "version": "0.53.2",
   "highlights": [
-    "Keep API keys in the Vault: every agent on the server can use them, and the key never goes into the chat.",
-    "Remove the downloaded CLI of a provider that is off, in Settings > Providers, to free disk space.",
-    "Save a password that you type in the secure card to the Vault of a joined server.",
-    "Text that you do not send in a side thread now stays there after a turn ends or a restart.",
-    "OpenBot now quits fully when a file operation never finishes, and long Codex and Pi compactions run to the end."
+    "On Windows, do not uninstall OpenBot from Windows Settings to fix a failed update, because that can delete your agent folders. Install this version instead.",
+    "On Windows, updates work again when OpenBot was installed in the folder that holds your agents. Your agents, Shared and Downloads stay where they are.",
+    "Agents now save lasting preferences and facts from your chats and side threads in the background. Server settings › General › Memory review sets how often, or turns it off.",
+    "Agents search their saved memories before they say that they do not know something about you.",
+    "If the taskbar pin no longer opens OpenBot after this update, pin it again from the Start menu."
   ]
 }

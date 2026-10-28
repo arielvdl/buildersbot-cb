@@ -16,7 +16,7 @@ import { AgentStore } from "../src/backend/agent-store";
 import type { AgentModelChange } from "../src/backend/database/agent-roster";
 import { databaseRows, requiredStringColumn } from "../src/backend/database/database-rows";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/roster-event-prune-e2e");
 const LEGACY_WRITES = 50;
@@ -41,8 +41,8 @@ interface Report {
 
 const report: Report = { passed: false };
 
-async function boot<T>(use: (store: AgentStore, database: OpenBotDatabase) => T | Promise<T>): Promise<T> {
-  const database = new OpenBotDatabase(userData);
+async function boot<T>(use: (store: AgentStore, database: BuildersBotDatabase) => T | Promise<T>): Promise<T> {
+  const database = new BuildersBotDatabase(userData);
   const store = new AgentStore(userData, home, database);
   await runCauseEffect(store.initialize());
   try {
@@ -52,7 +52,7 @@ async function boot<T>(use: (store: AgentStore, database: OpenBotDatabase) => T 
   }
 }
 
-function rosterEvents(database: OpenBotDatabase): RosterEvents & { types: string[]; commandIds: string[] } {
+function rosterEvents(database: BuildersBotDatabase): RosterEvents & { types: string[]; commandIds: string[] } {
   const rows = databaseRows(
     database.connection
       .prepare(
@@ -84,7 +84,7 @@ interface LegacyRosterPayload {
 
 /** Appends a roster event and its receipt as a build before #2282 did, without a prune. */
 function appendLegacyRosterEvent(
-  database: OpenBotDatabase,
+  database: BuildersBotDatabase,
   commandId: string,
   eventType: string,
   payload: LegacyRosterPayload,

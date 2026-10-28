@@ -17,7 +17,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { isLocalVoiceModelId, type LocalVoiceModelId } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { VoiceApiKeyStore } from "../src/main/voice-api-key-store";
 import { openScribeSocket } from "../src/main/voice-cloud-stream";
@@ -46,7 +46,7 @@ const MAXIMUM_WORD_ERROR_RATE = 0.15;
 const PCM_FROM_JSON = `data:text/javascript,process.prependListener("message",(m)=>{if(m&&typeof m==="object"&&Array.isArray(m.pcm))m.pcm=Uint8Array.from(m.pcm)});`;
 const FAILURES: readonly VoiceTranscriptionFailure[] = ["runtime-unavailable", "model-load-failed", "inference-failed"];
 
-const logger = createOpenBotLogger("voice-transcription-smoke");
+const logger = createBuildersBotLogger("voice-transcription-smoke");
 
 /** Each sample starts with a short word: a model that loses the first word fails here. */
 const SAMPLES: readonly { name: string; text: string }[] = [

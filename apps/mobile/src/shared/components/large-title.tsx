@@ -166,6 +166,11 @@ export function LargeTitleBar({
   const reduced = useReducedMotion();
   const [collapsed, setCollapsed] = useState(false);
   const { scrolled, titleHeight } = scroll;
+  // At rest the Android fade would cover the top of the caption and the big title, so it comes in
+  // only as the content scrolls under the bar.
+  const androidFadeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrolled.get(), [0, ANDROID_FADE], [0, 1], Extrapolation.CLAMP),
+  }));
   // The scroll crosses the line on the UI thread; React learns of it only at the crossing. React then
   // owns the style, so a later render cannot put back a stale first-render opacity.
   useAnimatedReaction(
@@ -186,10 +191,15 @@ export function LargeTitleBar({
             className={surface === "sheet" ? "bg-sheet" : "bg-background"}
             style={{ position: "absolute", top: 0, left: 0, right: 0, height: scroll.headerHeight }}
           />
-          <SheetScrollEdgeEffect
-            surface={surface}
-            style={{ position: "absolute", top: scroll.headerHeight, left: 0, right: 0, height: ANDROID_FADE }}
-          />
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              { position: "absolute", top: scroll.headerHeight, left: 0, right: 0, height: ANDROID_FADE },
+              androidFadeStyle,
+            ]}
+          >
+            <SheetScrollEdgeEffect surface={surface} style={{ flex: 1 }} />
+          </Animated.View>
         </>
       ) : (
         <SheetScrollEdgeEffect

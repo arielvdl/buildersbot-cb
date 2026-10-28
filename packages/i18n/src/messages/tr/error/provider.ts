@@ -8,6 +8,7 @@ export const messages = {
     "Builders Bot, Bilgisayar Kullanımını Codex yapılandırmasına kaydedemedi. Codex config.toml dosyanızın geçerli ve yazılabilir olduğunu denetleyin, ardından Builders Bot'u yeniden başlatın. Onsuz devam etmek için ekip arkadaşı ayarlarından Bilgisayar Kullanımını kapatabilirsiniz.",
   // Provider, provider runtime and custom endpoint errors.
   "error.provider.codexUnresponsive": "Codex yanıt vermeyi bıraktı, bu yüzden Builders Bot işlemini sonlandırdı.",
+  "error.provider.acpUnresponsive": "{provider} zamanında yanıt vermedi, bu yüzden Builders Bot işlemini sonlandırdı.",
   "error.provider.endpointsReadOnly":
     "Kayıtlı uç noktalar Builders Bot'un daha yeni bir sürümü tarafından yazılmış veya dosya okunamıyor. Bunları değiştirmek için Builders Bot'u güncelleyin.",
   "error.provider.endpointNoSecureStorage":
@@ -42,10 +43,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Claude paketi çalışma zamanı kataloğuyla eşleşmiyor.",
   "error.provider.claudeChecksum": "Claude çalışma zamanı sağlama toplamı (checksum) eşleşmiyor.",
   "error.provider.claudeLicenseChecksum": "Claude lisansı sağlama toplamı (checksum) eşleşmiyor.",
-  "error.provider.opencodeArchivePath": "Builders arşivi beklenmeyen bir yola sahip.",
-  "error.provider.opencodePackageMismatch": "Builders paketi çalışma zamanı kataloğuyla eşleşmiyor.",
-  "error.provider.opencodeChecksum": "Builders çalışma zamanı sağlama toplamı (checksum) eşleşmiyor.",
-  "error.provider.opencodeLicenseChecksum": "Builders lisansı sağlama toplamı (checksum) eşleşmiyor.",
+  "error.provider.opencodeArchivePath": "OpenCode arşivi beklenmeyen bir yola sahip.",
+  "error.provider.opencodePackageMismatch": "OpenCode paketi çalışma zamanı kataloğuyla eşleşmiyor.",
+  "error.provider.opencodeChecksum": "OpenCode çalışma zamanı sağlama toplamı (checksum) eşleşmiyor.",
+  "error.provider.opencodeLicenseChecksum": "OpenCode lisansı sağlama toplamı (checksum) eşleşmiyor.",
   "error.provider.grokChecksum": "Grok çalışma zamanı sağlama toplamı (checksum) eşleşmiyor.",
   "error.provider.grokLicenseChecksum": "Grok lisansı sağlama toplamı (checksum) eşleşmiyor.",
   "error.provider.grokNoticesChecksum": "Grok bildirimleri sağlama toplamı (checksum) eşleşmiyor.",
@@ -141,12 +142,12 @@ export const messages = {
     "Grok CLI bulundu ancak başlatılamadı. Yeni bir terminalde `grok --version` komutunu çalıştırın.",
   "error.provider.grokMissing": "Grok indirilmedi. Devam etmek için Builders Bot içinde indirin.",
   "error.provider.opencodeNotStarted":
-    "Builders başlatılamadı. Bir terminalde `opencode --version` komutunu çalıştırın.",
-  "error.provider.opencodeMissing": "Builders indirilmedi. Devam etmek için Builders Bot içinde indirin.",
+    "OpenCode başlatılamadı. Bir terminalde `opencode --version` komutunu çalıştırın.",
+  "error.provider.opencodeMissing": "OpenCode indirilmedi. Devam etmek için Builders Bot içinde indirin.",
   "error.provider.codexVersionUnreadable": "Codex CLI sürümü okunamıyor.",
   "error.provider.claudeVersionUnreadable": "Claude CLI sürümü okunamıyor.",
   "error.provider.grokVersionUnreadable": "Grok CLI sürümü okunamıyor.",
-  "error.provider.opencodeVersionUnreadable": "Builders CLI sürümü okunamıyor.",
+  "error.provider.opencodeVersionUnreadable": "OpenCode CLI sürümü okunamıyor.",
   "error.provider.bunVersionUnreadable": "Bun çalışma zamanı sürümü okunamıyor.",
   "error.provider.connectBeforeProfile": "Bir profil oluşturmadan önce seçilen sağlayıcıyı bağlayın.",
   "error.provider.cliNotReady": "{provider} CLI hazır değil veya oturum açılmamış.",
@@ -183,35 +184,35 @@ export const messages = {
   "error.provider.cliBusyReconnect":
     "{provider} CLI bir tur üzerinde çalışıyor. Bitmesini bekleyin, ardından tekrar bağlanın.",
   "error.provider.opencodeCredentialsRejected":
-    "Model sağlayıcısı API anahtarını reddetti. Ayarlar'da Builders anahtarını veya `opencode auth login` ile sağlayıcının anahtarını düzeltin. Ardından tekrar deneyin ya da başka bir model seçin.\n{detail}",
+    "Model sağlayıcısı API anahtarını reddetti. Ayarlar'da OpenCode anahtarını veya `opencode auth login` ile sağlayıcının anahtarını düzeltin. Ardından tekrar deneyin ya da başka bir model seçin.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    'Builders, "{provider}" model sağlayıcısında oturum açmamış. Ücretsiz etiketli bir model seçin veya sağlayıcıyı bağlayın: Builders ayarlarına bir Builders Go anahtarı yapıştırın ya da bir terminalde `opencode auth login` komutunu çalıştırın. Ardından tekrar deneyin.',
+    'OpenCode, "{provider}" model sağlayıcısında oturum açmamış. Ücretsiz etiketli bir model seçin veya sağlayıcıyı bağlayın: OpenCode ayarlarına bir OpenCode Go anahtarı yapıştırın ya da bir terminalde `opencode auth login` komutunu çalıştırın. Ardından tekrar deneyin.',
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders, bu modelin sağlayıcısında oturum açmamış. Ücretsiz etiketli bir model seçin veya sağlayıcıyı bağlayın: Builders ayarlarına bir Builders Go anahtarı yapıştırın ya da bir terminalde `opencode auth login` komutunu çalıştırın. Ardından tekrar deneyin.",
+    "OpenCode, bu modelin sağlayıcısında oturum açmamış. Ücretsiz etiketli bir model seçin veya sağlayıcıyı bağlayın: OpenCode ayarlarına bir OpenCode Go anahtarı yapıştırın ya da bir terminalde `opencode auth login` komutunu çalıştırın. Ardından tekrar deneyin.",
   "error.provider.opencodeKeyExpired":
-    "Builders API anahtarınızın süresi doldu. Builders Console'da yeni bir anahtar oluşturun, Builders ayarlarına yapıştırın, ardından tekrar deneyin.",
+    "OpenCode API anahtarınızın süresi doldu. OpenCode Console'da yeni bir anahtar oluşturun, OpenCode ayarlarına yapıştırın, ardından tekrar deneyin.",
   "error.provider.opencodeServiceFailure":
-    "Yerel hizmeti başarısız olduğu için Builders bu turu tamamlayamadı. Tekrar deneyin. Hata devam ederse Ayarlar'dan Builders'a yeniden bağlanın.",
+    "Yerel hizmeti başarısız olduğu için OpenCode bu turu tamamlayamadı. Tekrar deneyin. Hata devam ederse Ayarlar'dan OpenCode'a yeniden bağlanın.",
   "error.provider.opencodeRateLimited":
     "Model sağlayıcısı hız sınırı nedeniyle isteği reddetti. Birkaç dakika bekleyin veya başka bir model seçip tekrar deneyin.\n{detail}",
   "error.provider.opencodeBilling":
     "Model sağlayıcısı hesabın faturalandırması nedeniyle isteği reddetti. Beklemek bunu düzeltmez. Sağlayıcı hesabına bir ödeme yöntemi veya bakiye ekleyin ya da başka bir model seçin.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Builders'un model sağlayıcısı geçersiz bir yükleme isteği bildirdi. Başka bir model seçin ve devam edin. Kayıtlı rutinleri yeniden oluşturmadan önce denetleyin.\n{detail}",
+    "OpenCode'un model sağlayıcısı geçersiz bir yükleme isteği bildirdi. Başka bir model seçin ve devam edin. Kayıtlı rutinleri yeniden oluşturmadan önce denetleyin.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Bu model, bu sohbetteki bir dosyayı veya görseli okuyamıyor. Dosya okuyabilen bir model seçin, ardından mesajınızı yeniden gönderin.",
   "error.provider.opencodeFreeLimit":
-    "Ücretsiz Builders modelleri kullanım sınırına ulaştı. Tüm ücretsiz modeller bu sınırı paylaşır. Devam etmek için Builders ayarlarına bir Builders Go anahtarı yapıştırın veya başka bir sağlayıcının modelini seçin.",
+    "Ücretsiz OpenCode modelleri kullanım sınırına ulaştı. Tüm ücretsiz modeller bu sınırı paylaşır. Devam etmek için OpenCode ayarlarına bir OpenCode Go anahtarı yapıştırın veya başka bir sağlayıcının modelini seçin.",
   "error.provider.opencodeProviderFailed":
     "Model sağlayıcısı kendi tarafında başarısız oldu. Bağlantınız bunun nedeni değildir. Daha sonra tekrar deneyin veya başka bir model seçin.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders model sağlayıcısına bağlanamadı. Builders Bot'u çalıştıran bilgisayarın ağ bağlantısını kontrol edin, ardından tekrar deneyin.\n{detail}",
+    "OpenCode model sağlayıcısına bağlanamadı. Builders Bot'u çalıştıran bilgisayarın ağ bağlantısını kontrol edin, ardından tekrar deneyin.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Daha yeni bir Builders sürümü veritabanını değiştirdiği için Builders veritabanını açamadı. Builders'u 2 veya daha yeni bir sürüme güncelleyin, sonra yeniden deneyin.",
+    "Daha yeni bir OpenCode sürümü veritabanını değiştirdiği için OpenCode veritabanını açamadı. OpenCode'u 2 veya daha yeni bir sürüme güncelleyin, sonra yeniden deneyin.",
   "error.provider.opencodeNoAnswer":
-    "Builders modeli turu yanıt vermeden bitirdi. Tekrar deneyin veya başka bir model seçin.",
+    "OpenCode modeli turu yanıt vermeden bitirdi. Tekrar deneyin veya başka bir model seçin.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Builders modeli turu akıl yürütmesinden sonra yanıt vermeden bitirdi. Tekrar deneyin veya başka bir model seçin.",
+    "OpenCode modeli turu akıl yürütmesinden sonra yanıt vermeden bitirdi. Tekrar deneyin veya başka bir model seçin.",
   "error.provider.chatgptPageFailed": "Builders Bot ChatGPT bağlantı sayfasını açamadı.",
   "error.provider.noneReady": "Hiçbir ajan sağlayıcısı hazır değil.",
   "error.provider.claudeTurnActive": "Bağlamını yenilemeden önce etkin Claude turunun bitmesini bekleyin.",
@@ -257,7 +258,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "Farklı bir hesap veya API anahtarı aldığı için {provider} bu sohbetteki önceki akıl yürütmeyi kabul etmedi. Builders Bot sohbet geçmişiyle yeni bir {provider} oturumu başlattı. Tekrar deneyin.",
   "error.provider.opencodeSessionRejected":
-    "Builders isteği reddetti ve nedenini belirtmedi. Bu, uzun bir sohbette veya model değişikliğinden sonra olabilir. Builders Bot, sohbet geçmişiyle yeni bir Builders oturumu başlattı. Yeniden deneyin. Hata sürerse başka bir model veya daha düşük bir efor seçin.",
+    "OpenCode isteği reddetti ve nedenini belirtmedi. Bu, uzun bir sohbette veya model değişikliğinden sonra olabilir. Builders Bot, sohbet geçmişiyle yeni bir OpenCode oturumu başlattı. Yeniden deneyin. Hata sürerse başka bir model veya daha düşük bir efor seçin.",
   "error.provider.museMcpStartupFault":
     "Muse bir MCP sunucusunu başlatamadı ve bu oturumda MCP’yi engelledi. Builders Bot, sohbet geçmişiyle yeni bir Muse oturumu başlattı. Tekrar deneyin. Hata devam ederse bu ajan için Bilgisayar Kullanımı’nı veya başarısız olan MCP sunucusunu kapatın.",
   "error.provider.grokSignIn": "Grok'u kullanmak için `grok login` komutunu çalıştırın veya XAI_API_KEY ayarlayın.",
@@ -265,6 +266,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "Oturum açma tamamlanmadan önce durdu.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini oturum açma sayfasını açamadı. Bir tarayıcı ve xdg-utils yükleyin, ardından bu ana makinede bir masaüstü oturumundan bağlanın. Masaüstü olmayan bir sunucu bu oturum açma işlemini tamamlayamaz.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini oturum açma sayfasını tarayıcınızda açamadı. Varsayılan tarayıcınızı kontrol edin, ardından yeniden bağlanın.",
   "error.provider.acpSignInFailed": "Oturum açma tamamlanmadı.",
   "error.provider.acpSignInFailedReason": "Oturum açma tamamlanmadı: {reason}",
   "error.provider.acpSignInMethodMissing":

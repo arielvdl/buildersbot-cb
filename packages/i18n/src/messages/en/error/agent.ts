@@ -91,7 +91,7 @@ export const messages = defineMessages("error.agent", {
   "error.agent.automationLocalOnly": "Local scripts can only be allowed on the computer that runs the agent.",
   "error.agent.newChatLocalOnly": "Only the computer that runs the agent can let it start new chats.",
   "error.agent.quickAcknowledgementLocalOnly": "Only the computer that runs the agent can change this setting.",
-  "error.agent.securityGuardLocalOnly": "Only the computer that runs the agent can change this setting.",
+  "error.agent.securityGuardLocalOnly": "Only the computer that runs the agent can review messages.",
   "error.agent.sideQuestionBusy": "Too many side questions are running. Try again shortly.",
   "error.agent.sideQuestionFailed": "The agent could not answer the side question. Try again.",
   "error.agent.busyMessageModeLocalOnly":

@@ -2,14 +2,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect } from "effect";
 import { z } from "zod";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { resolveRemoteDesktopRuntime } from "../src/main/remote-desktop-runtime-artifact";
 import { RemoteScreenGateway } from "../src/main/remote-screen-gateway";
 
-const logger = createOpenBotLogger("remote-desktop-browser-harness");
+const logger = createBuildersBotLogger("remote-desktop-browser-harness");
 
 const platform = process.platform === "darwin" || process.platform === "win32" ? process.platform : "linux";
 const runtimePaths = await Effect.runPromise(

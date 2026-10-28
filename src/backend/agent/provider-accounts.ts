@@ -66,11 +66,15 @@ export interface ProviderAccountsHost {
   defaultUsesApiKey(provider: AgentProviderId): boolean;
   /** The temporary folder of an ACP sign-in process, as the provider's own sign-in gets it. */
   signInTemp(provider: AgentProviderId): ProviderTempOptions | undefined;
-  /** Starts and checks a client that signs in to the account's folder. The caller stops it. */
+  /**
+   * Starts and checks a client that signs in to the account's folder. The caller stops it.
+   * `afterSignIn`: the check that ends a sign-in, which gets the long start wait.
+   */
   authenticate(
     provider: AgentProviderId,
     cli: AgentCliInfo,
     accountEnvironment: Readonly<Record<string, string>>,
+    afterSignIn?: boolean,
   ): Effect.Effect<{ client: AgentClient; account: NonNullable<AccountReadResult["account"]> }, ProviderAccountFailed>;
   stopClient(client: AgentClient): Effect.Effect<void>;
   /** The running process of an agent on this account, if there is one. */
@@ -222,7 +226,7 @@ export class ProviderAccounts {
       Effect.gen({ self: this }, function* () {
         if ("kind" in command) {
           // A Reconnect signs the account out first: its saved token would answer with no browser page.
-          // The server prints Google's page, which a host shows and Linux opens through the desktop.
+          // The server prints Google's page, which a host shows and this computer opens itself.
           const login = yield* startAcpAuthentication({
             executable: cli.executable,
             argv: command.argv,
@@ -231,7 +235,7 @@ export class ProviderAccounts {
             timeoutMs: command.timeoutMs,
             ...(added ? {} : { logout: true }),
             privateTemp: this.#host.signInTemp(provider),
-            ...(onHost || process.platform === "linux" ? { openGoogleSignIn: openExternal } : {}),
+            openGoogleSignIn: openExternal,
           });
           return yield* login.done;
         }
@@ -259,7 +263,7 @@ export class ProviderAccounts {
         yield* waitForSuccessfulProcess(child, command.timeoutMs);
       }),
     ).pipe(
-      Effect.andThen(this.#check(account)),
+      Effect.andThen(this.#check(account, true)),
       Effect.onError((cause) =>
         Cause.hasInterruptsOnly(cause)
           ? Effect.void
@@ -551,6 +555,7 @@ export class ProviderAccounts {
   readonly #check = Effect.fn("ProviderAccounts.check")(function* (
     this: ProviderAccounts,
     account: StoredProviderAccount,
+    afterSignIn = false,
   ) {
     const provider = account.provider;
     const cli = this.#host.cli(provider);
@@ -561,7 +566,7 @@ export class ProviderAccounts {
     if (this.#states.get(account.id)?.state !== "connecting")
       this.#setState(account.id, { state: "checking", message: null });
     yield* Effect.acquireUseRelease(
-      this.#host.authenticate(provider, cli, this.environment(account)),
+      this.#host.authenticate(provider, cli, this.environment(account), afterSignIn),
       ({ client, account: signedIn }) =>
         Effect.gen({ self: this }, function* () {
           const email = signedIn.email ?? null;

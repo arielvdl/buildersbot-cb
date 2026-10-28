@@ -309,6 +309,12 @@ export const messages = {
   "server.settings.memoryLimit": "에이전트당 메모리 수",
   "server.settings.memoryLimitDescription": "이 서버의 각 에이전트가 보관할 수 있는 메모리 수예요.",
   "server.settings.memoryLimitLoadFailed": "이 서버의 메모리 한도를 불러올 수 없었어요.",
+  "server.settings.memoryReview": "메모리 검토",
+  "server.settings.memoryReviewDescription":
+    "이 서버의 에이전트가 채팅에서 오래 쓸 사실을 백그라운드에서 저장하는 빈도예요.",
+  "server.settings.memoryReviewOff": "끄기",
+  "server.settings.memoryReviewTurns": { other: "{count}턴마다" },
+  "server.settings.memoryReviewLoadFailed": "메모리 검토 설정을 불러올 수 없었어요.",
   "server.settings.rolesTitle": "역할",
   "server.settings.rolesDescription":
     "멤버가 사용할 수 있는 에이전트를 선택하세요. 멤버는 모든 사용자와 자신의 역할 중 가장 높은 접근 권한을 받아요. 소유자와 관리자는 모든 에이전트를 사용할 수 있어요.",

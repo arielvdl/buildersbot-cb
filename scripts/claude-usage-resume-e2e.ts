@@ -50,7 +50,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { ClaudeAgentClient } = await import("../src/backend/claude-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 const { estimateUsageCost } = await import("../src/backend/agent/usage-pricing");
 
 // The stand-in for the Claude CLI. It speaks enough of the stream-json protocol for a turn to end.
@@ -278,7 +278,7 @@ function sum(entries: UsageTokens[]): UsageTokens {
 }
 
 await writeFile(claudeExecutable, STAND_IN_CLAUDE, { mode: 0o755 });
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const claudeClients: ClaudeStandIn[] = [];

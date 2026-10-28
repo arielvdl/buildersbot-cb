@@ -7,7 +7,7 @@
 
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createOpenBotLogger, redactText, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, redactText, toLogValue } from "@openbot/logging";
 import {
   type DevInstanceRecord,
   describeDevInstance,
@@ -30,7 +30,7 @@ import {
 } from "./dev-automation/stack-registry";
 import { type OwnedProcess, stopOwnedProcesses } from "./dev-services";
 
-const logger = createOpenBotLogger("dev-stack", (line) => process.stderr.write(`${line}\n`));
+const logger = createBuildersBotLogger("dev-stack", (line) => process.stderr.write(`${line}\n`));
 
 const USAGE = "Usage: bun scripts/dev-stack.ts <status|stop|forget> [--all] [--pid=<supervisor pid>]";
 

@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { AgentEvent, AgentSummary } from "@openbot/contracts/ipc";
 import { LIVE_ACTIVITY_PUSH_ROUTES } from "@openbot/contracts/team-protocol/live-activity-push-v1";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { plugin } from "bun";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/live-activity-server-mute-e2e");
@@ -27,7 +27,7 @@ const TIMED_MUTE_MS = 1_500;
 const PUSH_TOKEN = "e2e-activity-push-token";
 const SERVER_A = "server-a";
 const SERVER_B = "server-b";
-const logger = createOpenBotLogger("live-activity-server-mute-e2e");
+const logger = createBuildersBotLogger("live-activity-server-mute-e2e");
 const require = createRequire(import.meta.url);
 
 // --- The ActivityKit module of the iOS build, as the hook uses it. ---

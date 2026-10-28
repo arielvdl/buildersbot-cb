@@ -303,13 +303,30 @@ capability (`packages/contracts/src/team-protocol/agent-tasks-v1.ts`, host route
 with the ids in the body. A member who can send a message to the agent can use them; no role is
 checked, and the member is the sender of a start and of a message. A hidden agent, or one that the
 peer cannot see, answers 404. A start and a message carry text only, and "Run in new thread" stays local.
+Files go through `agent-thread-files-v1`, below.
 The host sends the task events (`agent-tasks-changed`, `agent-task-conversation`,
 `agent-task-conversation-delta`) in their local shape, only to a peer with the capability, and not
 for a hidden agent. The optional `agent-threads-v1` capability
 (`packages/contracts/src/team-protocol/agent-threads-v1.ts`, host route
 `src/main/team-api/route-agent-threads.ts`) adds `POST /v1/agent-threads/{rename,delete}` with the
 agent and task ids in the body. They need the `chat` agent level; a hidden agent answers 404. A server
-with only `agent-tasks-v1` shows threads with no rename or delete. A server without either shows only
+with only `agent-tasks-v1` shows threads with no rename or delete. The optional `agent-thread-reads-v1`
+capability (`packages/contracts/src/team-protocol/agent-thread-reads-v1.ts`, host route
+`routeAgentThreadReads` in `src/main/team-api/route-agent-threads.ts`) adds `POST /v1/agent-threads/{reads,read}`: the member's read
+mark of each open side thread, and a move of one. The marks are rows of `projection_thread_reads`
+under the side thread's own `threadId`, so the member's devices share them and no migration was
+needed. A desktop marks the open thread read while its window has focus (`markTaskRead` over IPC, or
+the route for a joined server); the phone marks it while the thread screen is in front, and shows a
+dot on the agent's name for an open thread with unread agent messages. The host sends no event when
+a mark moves; a client reads the marks again when `agent-tasks-changed` arrives or a screen that
+shows them opens. The optional `agent-thread-files-v1` capability
+(`packages/contracts/src/team-protocol/agent-thread-files-v1.ts`, host route `routeAgentThreadFiles` in
+`src/main/team-api/route-agent-threads.ts`) adds `POST /v1/agent-threads/{start-with-files,send-with-files}`:
+a start or a message with up to 10 attachment drafts that the member uploaded with `POST /v1/attachments`,
+and text that can be empty. The answers are the frozen `agent-tasks-v1` task and receipt. The team client
+uses these routes only for a message with files, so a message without files still works on an older host.
+A joined desktop refuses files for a server without the capability with `error.backend.threadRemoteUnsupported`,
+and the phone shows the plus in the thread composer only on a server that has it. A server without either shows only
 the main thread, and a task control there fails with `error.backend.taskRemoteUnsupported`. Prompts, approvals and warnings of a task turn show in the main chat. On desktop and the web, the
 approval of a side thread turn also shows in that thread. A provider
 error of a task turn goes to the task: `AgentTasks` stores the redacted text in the task's `error`

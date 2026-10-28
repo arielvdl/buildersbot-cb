@@ -8,6 +8,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot 无法在 Codex 配置中注册 Computer Use。请确认 Codex 的 config.toml 有效且可写，然后重启 Builders Bot。你可以在助手设置中关闭 Computer Use 以便继续。",
   "error.provider.codexUnresponsive": "Codex 停止响应，Builders Bot 已结束其进程。",
+  "error.provider.acpUnresponsive": "{provider} 未及时响应，Builders Bot 已结束其进程。",
   "error.provider.endpointsReadOnly":
     "已保存的端点由更新版本的 Builders Bot 写入，或文件无法读取。请更新 Builders Bot 后再修改。",
   "error.provider.endpointNoSecureStorage":
@@ -39,10 +40,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Claude 包与运行时目录不匹配。",
   "error.provider.claudeChecksum": "Claude 运行时校验和不匹配。",
   "error.provider.claudeLicenseChecksum": "Claude 许可证校验和不匹配。",
-  "error.provider.opencodeArchivePath": "Builders 压缩包中包含异常的路径。",
-  "error.provider.opencodePackageMismatch": "Builders 包与运行时目录不匹配。",
-  "error.provider.opencodeChecksum": "Builders 运行时校验和不匹配。",
-  "error.provider.opencodeLicenseChecksum": "Builders 许可证校验和不匹配。",
+  "error.provider.opencodeArchivePath": "OpenCode 压缩包中包含异常的路径。",
+  "error.provider.opencodePackageMismatch": "OpenCode 包与运行时目录不匹配。",
+  "error.provider.opencodeChecksum": "OpenCode 运行时校验和不匹配。",
+  "error.provider.opencodeLicenseChecksum": "OpenCode 许可证校验和不匹配。",
   "error.provider.grokChecksum": "Grok 运行时校验和不匹配。",
   "error.provider.grokLicenseChecksum": "Grok 许可证校验和不匹配。",
   "error.provider.grokNoticesChecksum": "Grok 声明文件校验和不匹配。",
@@ -129,12 +130,12 @@ export const messages = {
   "error.provider.grokNotStarted": "找到了 Grok CLI，但无法启动。",
   "error.provider.grokNotStartedHint": "找到了 Grok CLI，但无法启动。请在新终端中运行 `grok --version`。",
   "error.provider.grokMissing": "Grok 尚未下载。请在 Builders Bot 中下载后继续。",
-  "error.provider.opencodeNotStarted": "Builders 无法启动。请在终端中运行 `opencode --version`。",
-  "error.provider.opencodeMissing": "Builders 尚未下载。请在 Builders Bot 中下载后继续。",
+  "error.provider.opencodeNotStarted": "OpenCode 无法启动。请在终端中运行 `opencode --version`。",
+  "error.provider.opencodeMissing": "OpenCode 尚未下载。请在 Builders Bot 中下载后继续。",
   "error.provider.codexVersionUnreadable": "无法读取 Codex CLI 版本。",
   "error.provider.claudeVersionUnreadable": "无法读取 Claude CLI 版本。",
   "error.provider.grokVersionUnreadable": "无法读取 Grok CLI 版本。",
-  "error.provider.opencodeVersionUnreadable": "无法读取 Builders CLI 版本。",
+  "error.provider.opencodeVersionUnreadable": "无法读取 OpenCode CLI 版本。",
   "error.provider.bunVersionUnreadable": "无法读取 Bun 运行时版本。",
   "error.provider.connectBeforeProfile": "生成资料前请先连接所选服务商。",
   "error.provider.cliNotReady": "{provider} CLI 尚未就绪或未登录。",
@@ -160,34 +161,34 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot 无法激活托管的 CLI。",
   "error.provider.cliBusyReconnect": "{provider} CLI 正在处理对话，请等它结束后再重新连接。",
   "error.provider.opencodeCredentialsRejected":
-    "模型服务商拒绝了该 API 密钥。请在设置中修正 Builders 密钥，或用 `opencode auth login` 修正服务商密钥，然后重试或改用其他模型。\n{detail}",
+    "模型服务商拒绝了该 API 密钥。请在设置中修正 OpenCode 密钥，或用 `opencode auth login` 修正服务商密钥，然后重试或改用其他模型。\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders 尚未登录模型服务商“{provider}”。请选择带“免费”标签的模型，或连接该服务商：在 Builders 设置中粘贴 Builders Go 密钥，或在终端中运行 `opencode auth login`。然后重试。",
+    "OpenCode 尚未登录模型服务商“{provider}”。请选择带“免费”标签的模型，或连接该服务商：在 OpenCode 设置中粘贴 OpenCode Go 密钥，或在终端中运行 `opencode auth login`。然后重试。",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders 尚未登录该模型的服务商。请选择带“免费”标签的模型，或连接该服务商：在 Builders 设置中粘贴 Builders Go 密钥，或在终端中运行 `opencode auth login`。然后重试。",
+    "OpenCode 尚未登录该模型的服务商。请选择带“免费”标签的模型，或连接该服务商：在 OpenCode 设置中粘贴 OpenCode Go 密钥，或在终端中运行 `opencode auth login`。然后重试。",
   "error.provider.opencodeKeyExpired":
-    "你的 Builders API 密钥已过期。请在 Builders Console 中创建新密钥，粘贴到 Builders 设置中，然后重试。",
+    "你的 OpenCode API 密钥已过期。请在 OpenCode Console 中创建新密钥，粘贴到 OpenCode 设置中，然后重试。",
   "error.provider.opencodeServiceFailure":
-    "由于本地服务故障，Builders 无法完成本轮对话。请重试；若错误持续，请在设置中重新连接 Builders。",
+    "由于本地服务故障，OpenCode 无法完成本轮对话。请重试；若错误持续，请在设置中重新连接 OpenCode。",
   "error.provider.opencodeRateLimited":
     "由于触发速率限制，模型服务商拒绝了该请求。请等待几分钟或改用其他模型后重试。\n{detail}",
   "error.provider.opencodeBilling":
     "由于账号的账单问题，模型服务商拒绝了该请求。等待并不能解决。请为服务商账号添加支付方式或充值，或改用其他模型。\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Builders 的模型服务商报告上传请求无效。请改用其他模型继续；重新创建自动化任务前请先检查已保存的自动化任务。\n{detail}",
+    "OpenCode 的模型服务商报告上传请求无效。请改用其他模型继续；重新创建自动化任务前请先检查已保存的自动化任务。\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "该模型无法读取该对话中的文件或图片。请选择能读取文件的模型，然后重新发送消息。",
   "error.provider.opencodeFreeLimit":
-    "Builders 免费模型已达到使用上限。所有免费模型共用这一上限。要继续，请在 Builders 设置中粘贴 Builders Go 密钥，或选择其他提供商的模型。",
+    "OpenCode 免费模型已达到使用上限。所有免费模型共用这一上限。要继续，请在 OpenCode 设置中粘贴 OpenCode Go 密钥，或选择其他提供商的模型。",
   "error.provider.opencodeProviderFailed":
     "模型服务商一侧发生故障，不是你的网络问题。请稍后重试或改用其他模型。\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders 无法连接模型服务商。请检查运行 Builders Bot 的电脑的网络连接后重试。\n{detail}",
+    "OpenCode 无法连接模型服务商。请检查运行 Builders Bot 的电脑的网络连接后重试。\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders 无法打开它的数据库，因为较新的 Builders 版本已更改了数据库。请把 Builders 更新到版本 2 或更高，然后重试。",
-  "error.provider.opencodeNoAnswer": "Builders 模型结束本轮对话时没有给出回答。请重试或改用其他模型。",
+    "OpenCode 无法打开它的数据库，因为较新的 OpenCode 版本已更改了数据库。请把 OpenCode 更新到版本 2 或更高，然后重试。",
+  "error.provider.opencodeNoAnswer": "OpenCode 模型结束本轮对话时没有给出回答。请重试或改用其他模型。",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Builders 模型给出推理过程后结束本轮对话，但没有回答。请重试或改用其他模型。",
+    "OpenCode 模型给出推理过程后结束本轮对话，但没有回答。请重试或改用其他模型。",
   "error.provider.chatgptPageFailed": "Builders Bot 无法打开 ChatGPT 连接页面。",
   "error.provider.noneReady": "没有可用的助手服务商。",
   "error.provider.claudeTurnActive": "请等待当前 Claude 对话结束，再刷新其上下文。",
@@ -230,7 +231,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "此前的推理内容由另一个账号或 API 密钥接收，因此 {provider} 未接受它。Builders Bot 已带着聊天记录开启新的 {provider} 会话，请重试。",
   "error.provider.opencodeSessionRejected":
-    "Builders 拒绝了这次请求，但没有给出原因。长对话或更换模型之后可能出现这种情况。Builders Bot 已带着聊天记录开启新的 Builders 会话，请重试。如果仍然报错，请换一个模型或调低推理强度。",
+    "OpenCode 拒绝了这次请求，但没有给出原因。长对话或更换模型之后可能出现这种情况。Builders Bot 已带着聊天记录开启新的 OpenCode 会话，请重试。如果仍然报错，请换一个模型或调低推理强度。",
   "error.provider.museMcpStartupFault":
     "Muse 无法启动某个 MCP 服务器，并在本次会话中停用了 MCP。Builders Bot 已带着聊天记录开启新的 Muse 会话，请重试。如果仍然报错，请关闭 Computer Use，或对该助手关闭启动失败的 MCP 服务器。",
   "error.provider.grokSignIn": "请运行 `grok login`，或设置 XAI_API_KEY 以使用 Grok。",
@@ -238,6 +239,7 @@ export const messages = {
   "error.provider.acpSignInStopped": "登录在完成之前就停止了。",
   "error.provider.geminiBrowserUnavailable":
     "Gemini 无法打开登录页面。请安装浏览器与 xdg-utils，然后在该主机的桌面会话中连接。没有桌面的服务器无法完成该登录。",
+  "error.provider.geminiBrowserOpenFailed": "Gemini 无法在浏览器中打开登录页面。请检查默认浏览器，然后重新连接。",
   "error.provider.acpSignInFailed": "登录未完成。",
   "error.provider.acpSignInFailedReason": "登录未完成：{reason}",
   "error.provider.acpSignInMethodMissing": "该服务商在这台电脑上不提供该登录方式。请更新服务商后重试。",

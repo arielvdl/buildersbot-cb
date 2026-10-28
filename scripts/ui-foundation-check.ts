@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 function filesUnder(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -248,7 +248,7 @@ export function checkUiFoundation(
 }
 
 if (import.meta.main) {
-  const logger = createOpenBotLogger("ui-foundation-check");
+  const logger = createBuildersBotLogger("ui-foundation-check");
   const projectRoot = fileURLToPath(new URL("..", import.meta.url));
   const { failures, manualCompositeCount } = checkUiFoundation(
     resolve(projectRoot, "src/renderer/src"),

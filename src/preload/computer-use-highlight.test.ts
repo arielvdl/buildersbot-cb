@@ -1,16 +1,16 @@
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import { IPC_ENDPOINTS } from "@openbot/contracts/ipc";
 import { expect, it, vi } from "vitest";
 
 const bridge = vi.hoisted(() => {
   // The main window: the preload reads its URL for the server of a chat window.
   vi.stubGlobal("window", { addEventListener: () => {}, location: { search: "" } });
-  const api: { current: OpenBotDesktopApi | null } = { current: null };
+  const api: { current: BuildersBotDesktopApi | null } = { current: null };
   return { api, listeners: new Map<string, Set<(event: null, payload: unknown) => void>>() };
 });
 vi.mock("electron", () => ({
   contextBridge: {
-    exposeInMainWorld: (_name: string, api: OpenBotDesktopApi) => {
+    exposeInMainWorld: (_name: string, api: BuildersBotDesktopApi) => {
       bridge.api.current = api;
     },
   },

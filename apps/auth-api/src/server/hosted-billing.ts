@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { createAccountAnalytics } from "./account-analytics";
+import { type AccountAnalytics, createAccountAnalytics } from "./account-analytics";
 import { BillingSales } from "./billing-sales";
 import { BillingService, type FirstPlanStart } from "./billing-service";
 import { createWelcomeEmailDelivery, type EmailDeliveryBindings } from "./email-delivery";
@@ -57,7 +57,7 @@ export function createHostedBilling(
         fetch: (input, init) => fetch(input, init),
         analytics,
         ...(sales ? { sales } : {}),
-        onFirstPlanStarted: (start) => options.schedule(sendWelcomeEmail(bindings, start)),
+        onFirstPlanStarted: (start) => options.schedule(sendWelcomeEmail(bindings, analytics, start)),
         onSubscriptionSynced: (sync) =>
           hosting.onSubscriptionSynced(sync).pipe(Effect.andThen(() => options.planChanged(sync.serverId))),
       })
@@ -76,9 +76,13 @@ export function createHostedBilling(
  * A deployment without SMTP sends no welcome email. A failed send is not sent again. Each result logs
  * one line with no address.
  */
-function sendWelcomeEmail(bindings: EmailDeliveryBindings, start: FirstPlanStart): Effect.Effect<void> {
+function sendWelcomeEmail(
+  bindings: EmailDeliveryBindings,
+  analytics: AccountAnalytics,
+  start: FirstPlanStart,
+): Effect.Effect<void> {
   return Effect.try({
-    try: () => createWelcomeEmailDelivery(bindings),
+    try: () => createWelcomeEmailDelivery(bindings, analytics),
     catch: () => ({ message: "smtp_config_incomplete" }),
   }).pipe(
     Effect.flatMap((delivery) =>

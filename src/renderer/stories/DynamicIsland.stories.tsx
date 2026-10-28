@@ -5,7 +5,7 @@ import type {
   DynamicIslandPromptItem,
 } from "@openbot/contracts/ipc";
 import type { DynamicIslandViewState } from "@openbot/ui";
-import { OpenBotDynamicIsland } from "@openbot/ui/features/dynamic-island/OpenBotDynamicIsland";
+import { BuildersBotDynamicIsland } from "@openbot/ui/features/dynamic-island/BuildersBotDynamicIsland";
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal } from "solid-js";
 import { fn } from "storybook/test";
@@ -38,7 +38,7 @@ function DynamicIslandDemo(props: DynamicIslandDemoProps): JSX.Element {
     <DynamicIslandDisplayComparison
       defaultState={props.defaultState}
       renderIsland={(preview) => (
-        <OpenBotDynamicIsland
+        <BuildersBotDynamicIsland
           presentation={presentation()}
           state={preview.state()}
           displayMode={preview.displayMode}
@@ -311,7 +311,7 @@ export const OpenChatReturnsToIdle: Story = {
       renderIsland={(preview) => {
         const [presentation, setPresentation] = createSignal(presentationFor("chat", "standard", "single"));
         return (
-          <OpenBotDynamicIsland
+          <BuildersBotDynamicIsland
             presentation={presentation()}
             state={preview.state()}
             displayMode={preview.displayMode}

@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import type { AgentProviderId } from "@openbot/contracts/ipc";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, ".openbot-build", "agent-pending-runtime-e2e");
@@ -40,7 +40,7 @@ async function step<T>(name: string, run: () => Promise<T>): Promise<T> {
 const root = await mkdtemp(join(tmpdir(), "openbot-pending-runtime-"));
 const statePath = join(root, "state");
 const homePath = join(root, "home");
-const database = new OpenBotDatabase(statePath);
+const database = new BuildersBotDatabase(statePath);
 const store = new AgentStore(statePath, homePath, database);
 
 try {
@@ -64,7 +64,7 @@ try {
   });
 
   await step("The queued runtime survives a reload", async () => {
-    const reopened = new AgentStore(statePath, homePath, new OpenBotDatabase(statePath));
+    const reopened = new AgentStore(statePath, homePath, new BuildersBotDatabase(statePath));
     await runCauseEffect(reopened.initialize());
     const loaded = reopened.list().find((candidate) => candidate.id === agent.id);
     assert.ok(loaded);

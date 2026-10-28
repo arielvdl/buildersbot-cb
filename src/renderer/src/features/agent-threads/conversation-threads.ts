@@ -1,10 +1,16 @@
-import type { AgentApproval } from "@openbot/contracts/ipc";
+import type { AgentApproval, AgentContextState, AgentEvent } from "@openbot/contracts/ipc";
 import { isAgentTaskActive, taskApproval } from "@openbot/team-client/agent-tasks";
 import { activeThreadId, threadLists } from "@openbot/ui/features/conversation/threads/thread-items";
 import { DRAFT_THREAD_ID, MAIN_THREAD_ID } from "@openbot/ui/features/conversation/threads/thread-types";
 import type { AgentTasks } from "../agent-tasks/agent-tasks-state";
-import type { ConversationThreads } from "../conversation/conversation-types";
+import type {
+  BrowserTakeoverRequest,
+  ConversationThreads,
+  PromptAnswerOptions,
+} from "../conversation/conversation-types";
 import type { AgentThreadTabsState } from "./agent-thread-tabs";
+
+type PromptEvent = Extract<AgentEvent, { type: "prompt" }>;
 
 export interface ConversationThreadsInput {
   agent: { id: string; updatedAt: string };
@@ -12,13 +18,28 @@ export interface ConversationThreadsInput {
   tabs: AgentThreadTabsState;
   /** The approvals that wait on the server. A side thread's turn waits for the one of its own thread. */
   approvals: readonly AgentApproval[];
+  /** The questions that wait on the server. A side thread's turn waits for the one of its own thread. */
+  prompts: readonly PromptEvent[];
+  /** The browser takeovers that wait on the server. A side thread's turn waits for the one of its own thread. */
+  takeovers: readonly BrowserTakeoverRequest[];
   newThreadTitle: string;
-  onRespondApproval: (approval: AgentApproval, decision: "accept" | "decline") => Promise<boolean>;
+  onRespondApproval: (
+    approval: AgentApproval,
+    decision: "accept" | "decline",
+    options?: PromptAnswerOptions,
+  ) => Promise<boolean>;
+  /**
+   * The context of each side thread that reported it, by thread id. Only this computer reports it.
+   * Read only by `contextState`, so a new runtime snapshot does not build the threads again.
+   */
+  contextStates?: (() => Readonly<Record<string, AgentContextState>>) | undefined;
+  /** Missing when the host cannot compact a side thread. */
+  onCompactContext?: ((taskId: string) => Promise<void>) | undefined;
 }
 
 /** The threads of one agent, for the conversation. Read it in a memo: it reads the thread state. */
 export function conversationThreads(input: ConversationThreadsInput): ConversationThreads {
-  const { agent, tasks, tabs, approvals } = input;
+  const { agent, tasks, tabs, approvals, prompts, takeovers, onCompactContext } = input;
   const agentId = agent.id;
   const snapshot = tasks.snapshot(agentId);
   const list = snapshot?.tasks ?? [];
@@ -29,7 +50,14 @@ export function conversationThreads(input: ConversationThreadsInput): Conversati
     draft: tabs.hasDraft(agentId),
     draftTitle: input.newThreadTitle,
     hidden: tabs.hidden(),
-    waitsForApproval: (task) => taskApproval(task, approvals) !== undefined,
+    waitsFor: (task) =>
+      taskApproval(task, approvals) !== undefined
+        ? "approval"
+        : ofTaskThread(task, prompts) !== undefined
+          ? "question"
+          : ofTaskThread(task, takeovers) !== undefined
+            ? "takeover"
+            : undefined,
   });
   const activeId = activeThreadId(lists.tabs, tabs.activeId(agentId));
   const open =
@@ -61,12 +89,29 @@ export function conversationThreads(input: ConversationThreadsInput): Conversati
     running: list.filter(isAgentTaskActive).length,
     conversation: open ? tasks.conversation(open.id) : undefined,
     approval,
-    onSend: (text) => (open ? tabs.send(agentId, open.id, text) : tabs.sendDraft(agentId, text)),
+    acceptsFiles: tasks.local(),
+    onSend: (text, attachmentDraftIds) =>
+      open ? tabs.send(agentId, open.id, text, attachmentDraftIds) : tabs.sendDraft(agentId, text, attachmentDraftIds),
     onStop: () => {
       if (open) tasks.stopTask(agentId, open.id);
     },
-    onRespondApproval: (decision) => (approval ? input.onRespondApproval(approval, decision) : Promise.resolve(false)),
+    onRead: (messageId) => {
+      if (open) tasks.markTaskRead(agentId, open.id, messageId);
+    },
+    onRespondApproval: (decision, options) =>
+      approval ? input.onRespondApproval(approval, decision, options) : Promise.resolve(false),
+    get contextState() {
+      return open ? input.contextStates?.()[open.threadId] : undefined;
+    },
+    onCompactContext: open && onCompactContext ? () => onCompactContext(open.id) : undefined,
     // Only this computer moves a queued message to a new thread.
     onRunQueuedMessage: tasks.local() ? (deliveryId) => void tabs.runQueuedMessage(agentId, deliveryId) : undefined,
   };
+}
+
+type TaskThread = { agentId: string; threadId: string };
+
+/** The question or takeover that the turn of this task waits for: the one of the task's own thread. */
+function ofTaskThread<Request extends TaskThread>(task: TaskThread, requests: readonly Request[]): Request | undefined {
+  return requests.find((request) => request.agentId === task.agentId && request.threadId === task.threadId);
 }

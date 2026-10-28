@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { access, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { bundledLibraryLicense, isPortableLoadPath, readMachOLoadPaths } from "./mac-runtime-dylibs";
 import { createRemoteDesktopInputDigest, loadNativeRuntimeLock } from "./native-runtime-lock";
 import { runtimeTarget } from "./remote-desktop-runtime-release";
 
-const logger = createOpenBotLogger("verify-remote-desktop-runtime");
+const logger = createBuildersBotLogger("verify-remote-desktop-runtime");
 
 const platform = process.argv.includes("--windows") ? "win32" : process.argv.includes("--linux") ? "linux" : "darwin";
 const architecture = platform === "win32" ? "x64" : process.arch;
@@ -36,6 +36,9 @@ const moonlightPatch = basename(lock.remoteDesktop.moonlightWeb.patch.path);
 await Promise.all([
   ...names.map((name) => access(join(root, name))),
   access(join(root, "static/stream.html")),
+  ...(platform === "win32"
+    ? [access(join(root, "assets/shaders/directx/convert_yuv420_packed_uv_type0_ps.hlsl"))]
+    : []),
   access(resolve("build/remote-desktop-runtime/licenses/Sunshine-GPL-3.0.txt")),
   access(resolve("build/remote-desktop-runtime/licenses/moonlight-web-stream-GPL-3.0.txt")),
   access(resolve(`build/remote-desktop-runtime/sources/Sunshine-${lock.remoteDesktop.sunshine.version}-source.tar.gz`)),

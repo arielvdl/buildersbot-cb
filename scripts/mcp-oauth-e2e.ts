@@ -25,7 +25,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServerConfig } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createOpenBotLogger, redactText } from "@openbot/logging";
+import { createBuildersBotLogger, redactText } from "@openbot/logging";
 import { Effect } from "effect";
 import { McpGateway } from "../src/backend/agent/mcp-gateway";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -41,7 +41,7 @@ import type { McpOAuthProxySettings } from "../src/backend/mcp-oauth-proxy";
 import { claudeMcpServers, codexMcpServers, usableMcpServers } from "../src/backend/mcp-provider-shapes";
 import { McpServerStore } from "../src/backend/mcp-server-store";
 import { AddressLookupError, isPublicAddress } from "../src/backend/network-address";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { NO_PROVIDER_CREDENTIALS } from "../src/backend/provider-drivers";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/mcp-oauth-e2e");
@@ -245,7 +245,7 @@ async function main() {
         throw new Error("A silent path opened the browser.");
       },
       redirectUrl: REDIRECT_URL,
-      logger: createOpenBotLogger("mcp-oauth", (line) => {
+      logger: createBuildersBotLogger("mcp-oauth", (line) => {
         logLines.push(line);
         onLog();
       }),
@@ -589,7 +589,7 @@ async function proxyCases(auth: Awaited<ReturnType<typeof startAuthorizationServ
   auth.setRevokeStatus(200);
   const resource = await startResourceServer(auth.base);
   const root = await mkdtemp(join(tmpdir(), "openbot-mcp-oauth-proxy-"));
-  const database = new OpenBotDatabase(root);
+  const database = new BuildersBotDatabase(root);
   const clients: Client[] = [];
   const gateways: McpGateway[] = [];
   try {
@@ -621,7 +621,7 @@ async function proxyCases(auth: Awaited<ReturnType<typeof startAuthorizationServ
         throw new Error("A proxy path opened the browser.");
       },
       redirectUrl: REDIRECT_URL,
-      logger: createOpenBotLogger("mcp-oauth", (line) => logLines.push(line)),
+      logger: createBuildersBotLogger("mcp-oauth", (line) => logLines.push(line)),
     });
     // A holder, so the type is not narrowed to `null` across the writes in the callbacks.
     const saved: { value: McpOAuthProxySettings | null } = { value: null };
@@ -637,7 +637,7 @@ async function proxyCases(auth: Awaited<ReturnType<typeof startAuthorizationServ
         servers,
         credentials: { ...NO_PROVIDER_CREDENTIALS, mcpOAuth: oauth, mcpOAuthProxySettings: settings },
         computerUseMcpServer: () => null,
-        logger: createOpenBotLogger("agent-service", (line) => logLines.push(line)),
+        logger: createBuildersBotLogger("agent-service", (line) => logLines.push(line)),
         hooks: { emitError: () => undefined, refreshAllAgentRuntimes: () => Effect.void },
       });
       gateways.push(gateway);

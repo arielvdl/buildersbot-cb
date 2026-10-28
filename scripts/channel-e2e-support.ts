@@ -14,12 +14,12 @@ import type {
   ChannelPage,
   ChannelSummary,
   ClientAgentSummary,
-  OpenBotDesktopApi,
+  BuildersBotDesktopApi,
   QueueSnapshot,
   UpdateAgentInput,
 } from "@openbot/contracts/ipc";
 import { TEAM_PROTOCOL_V8, TEAM_PROTOCOL_VERSION_HEADER } from "@openbot/contracts/team-protocol";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import type { Page } from "playwright-core";
 import { decodeTeamProtocolSupportV8Base } from "../packages/contracts/src/team-protocol/v8-base";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
@@ -27,7 +27,7 @@ import { type DevInstanceRecord, readDevInstanceRecords } from "./dev-automation
 
 declare global {
   interface Window {
-    openbot: OpenBotDesktopApi;
+    openbot: BuildersBotDesktopApi;
   }
 }
 
@@ -59,7 +59,7 @@ export async function connectChannelE2e(command: string): Promise<ChannelE2e> {
     instanceNamed: true,
     target: instance.instanceId,
   });
-  const session = await connectToDevApp(instance.remoteDebuggingPort, createOpenBotLogger(command), {
+  const session = await connectToDevApp(instance.remoteDebuggingPort, createBuildersBotLogger(command), {
     expectedRendererPort: instance.rendererPort,
     ownerPid: instance.pid,
   });

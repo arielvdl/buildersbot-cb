@@ -18,7 +18,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import type { MessagingPostFailure } from "../src/backend/messaging/messaging-threads";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { WorkflowRunStore } from "../src/backend/workflows/workflow-run-store";
 import { WorkflowStore } from "../src/backend/workflows/workflow-store";
 import { workflowScheduleDueAt } from "../src/backend/workflows/workflow-triggers";
@@ -57,7 +57,7 @@ const graphOf = (text: string, output: WorkflowNode["fields"]): WorkflowGraph =>
 const toPlace = { connectionId: CONNECTION, placeId: PLACE };
 
 const directory = await mkdtemp(join(tmpdir(), "openbot-workflow-output-"));
-let database = new OpenBotDatabase(directory);
+let database = new BuildersBotDatabase(directory);
 let service: WorkflowsHandle | null = null;
 
 async function open() {
@@ -263,7 +263,7 @@ try {
   const waitingRun = await runOnce(workflows, quiet);
   const waiting = await outputStep(workflows, waitingRun.id, ended);
   await close();
-  database = new OpenBotDatabase(directory);
+  database = new BuildersBotDatabase(directory);
   await Effect.runPromise(database.initialize());
   // The second run's output as if the restart came between its keep and its post, and the first as
   // if the process died during its post.
@@ -281,7 +281,7 @@ try {
     .run(waiting.id, CONNECTION, PLACE, now, now);
   database.connection.prepare("UPDATE workflow_output_deliveries SET status = 'sending' WHERE step_id = ?").run(cut.id);
   database.close();
-  database = new OpenBotDatabase(directory);
+  database = new BuildersBotDatabase(directory);
   answer = "posted";
   const postsRestart = report.posts.length;
   workflows = await open();

@@ -43,7 +43,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { CuaDriverRuntime } = await import("../src/main/cua-driver-runtime");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 
 // A Codex app-server that keeps its threads in a file, as the real one keeps them on disk, so a
 // restarted process resumes a thread that the previous process started.
@@ -223,7 +223,7 @@ async function waitFor<T>(label: string, read: () => T | null | undefined | fals
 await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
 await writeFile(fakeOpenCode, FAKE_OPENCODE, { mode: 0o755 });
 await writeFile(fakeDriver, FAKE_DRIVER, { mode: 0o755 });
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({

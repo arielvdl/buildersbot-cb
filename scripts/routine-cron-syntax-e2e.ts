@@ -21,7 +21,7 @@ import { ChannelStore } from "../src/backend/channel-store";
 import { databaseRows, requiredStringColumn } from "../src/backend/database/database-rows";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { RoutineTimer } from "../src/backend/routine-timer";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -63,7 +63,7 @@ const SOURCES = [
 ];
 
 interface Fixture {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   store: AgentStore;
   mailbox: MailboxStore;
   conversation: ConversationRuntime;
@@ -124,7 +124,7 @@ function message(error: unknown): string {
 }
 
 async function openFixture(root: string): Promise<Fixture> {
-  const database = new OpenBotDatabase(join(root, "state"));
+  const database = new BuildersBotDatabase(join(root, "state"));
   const store = new AgentStore(join(root, "state"), join(root, "home"), database);
   const mailbox = new MailboxStore(join(root, "state"), store.sharedRoot, database);
   let conversation: ConversationRuntime | undefined;

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 // The baseline rules of `type-ratchet.ts`. A baseline file holds the count of each check (a
 // TypeScript option) for each file. A count above the baseline
@@ -28,7 +28,7 @@ export function runDebtRatchet(ratchet: DebtRatchet): void {
   const { baselinePath, noun } = ratchet;
   const write = process.argv.includes("--write");
   const added = process.argv.flatMap((argument) => (argument.startsWith("--add=") ? [argument.slice(6)] : []));
-  const logger = createOpenBotLogger(ratchet.script.replace(":", "-"));
+  const logger = createBuildersBotLogger(ratchet.script.replace(":", "-"));
 
   const baseline = readBaseline(baselinePath);
   for (const name of added) {

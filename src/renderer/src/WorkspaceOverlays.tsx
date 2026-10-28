@@ -1,4 +1,4 @@
-import type { CentralAuthUser, RoutineFields, ServerSummary } from "@openbot/contracts/ipc";
+import { type CentralAuthUser, LOCAL_SERVER_ID, type RoutineFields, type ServerSummary } from "@openbot/contracts/ipc";
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import { VAULT_V2_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v2";
@@ -27,6 +27,7 @@ import { useProviderDetection } from "./features/custom-providers/provider-detec
 import type { ServerStorageOptions } from "./features/files/ServerStoragePanel";
 import { useSetup } from "./features/onboarding/onboarding-context";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
+import { desktopScheduleSource } from "./features/schedule/schedule-port";
 import { AddServerOverlay } from "./features/servers/AddServerOverlay";
 import {
   createdRoutines,
@@ -238,7 +239,8 @@ function AddServer() {
 
 /**
  * The offer of a hosted server when routines depend on this computer or on the user's own remote
- * computer. A routine that an agent makes shows the offer when that agent's turn ends.
+ * computer. The modal opens only after the first routine on this computer, when the turn of the agent
+ * that made it ends.
  */
 function HostedUpsell(props: AccountProps) {
   const { activeServer, hostedServersAvailable, hostedServersLoaded, hostedServerIds, setAddServerOpen } = useServers();
@@ -257,6 +259,14 @@ function HostedUpsell(props: AccountProps) {
       }
     }
   });
+  // The calendar lists every routine of the host. A range in the future reads no run history.
+  function localActiveRoutineIds(): Promise<readonly string[] | null> {
+    if (untrack(activeServer)?.kind !== "local") return Promise.resolve(null);
+    const from = Date.now() + 60_000;
+    return desktopScheduleSource()
+      .calendar({ from: new Date(from).toISOString(), to: new Date(from + 60_000).toISOString() }, LOCAL_SERVER_ID)
+      .then((calendar) => calendar.routines.filter((routine) => routine.active).map((routine) => routine.id));
+  }
   return (
     <HostedServerUpsell
       accountId={props.account().id}
@@ -269,6 +279,7 @@ function HostedUpsell(props: AccountProps) {
         activeServer()?.hosted !== true
       }
       serverId={activeServer()?.id ?? "local"}
+      activeHostRoutineIds={localActiveRoutineIds}
       host={activeServer()?.kind === "remote" ? { name: activeServer()?.name ?? "" } : "this-computer"}
       busy={(agentId) => Boolean(activeTurns()[agentId])}
       openPlans={() => setAddServerOpen(true, "upsell")}
@@ -726,6 +737,7 @@ function ServerSettings() {
           hostUpdate={{}}
           hostTimezone={{}}
           hostMemoryLimit={{}}
+          memoryReview={{}}
           hostPromptCacheTtl={{}}
           agentAccess={{ listAgents: () => appPort().agent.listAgents(server().id) }}
           initialSection={serverSettingsSection()}

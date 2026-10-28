@@ -1,8 +1,8 @@
 import { cp, mkdir, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
-const logger = createOpenBotLogger("runtime-install");
+const logger = createBuildersBotLogger("runtime-install");
 
 export async function isCurrentInstallation(verify: () => Promise<void>): Promise<boolean> {
   try {

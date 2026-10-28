@@ -52,7 +52,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { ClaudeAgentClient } = await import("../src/backend/claude-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 
 // The stand-in for the Claude CLI. Like the real CLI, it refuses a `--resume` ID that is not a UUID
 // and exits. Otherwise it speaks just enough of the stream-json protocol for a turn to end.
@@ -316,7 +316,7 @@ async function settle<T>(label: string, read: () => T | null | undefined | false
 
 await writeFile(claudeExecutable, STAND_IN_CLAUDE, { mode: 0o755 });
 await writeFile(opencodeExecutable, "#!/bin/sh\necho 1.14.0\n", { mode: 0o755 });
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({

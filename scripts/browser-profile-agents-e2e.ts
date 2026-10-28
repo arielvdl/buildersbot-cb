@@ -21,7 +21,7 @@ import { AgentStore } from "../src/backend/agent-store";
 import { BrowserProfileStore } from "../src/backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { type BrowserProfileService, createBrowserProfileService } from "../src/main/browser-profile-service";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/browser-profile-agents-e2e");
@@ -60,7 +60,7 @@ const agentBrowser: AgentBrowserHost = {
 };
 
 interface Host {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   store: AgentStore;
   agents: AgentService;
   profiles: BrowserProfileService;
@@ -68,7 +68,7 @@ interface Host {
 
 /** Starts the stores on the profile, as the app does at each launch. */
 async function startHost(): Promise<Host> {
-  const database = new OpenBotDatabase(userData);
+  const database = new BuildersBotDatabase(userData);
   const store = new AgentStore(userData, home, database);
   const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
   await runCauseEffect(store.initialize());

@@ -313,6 +313,12 @@ export const messages = {
   "server.settings.memoryLimit": "Herinneringen per agent",
   "server.settings.memoryLimitDescription": "Hoeveel herinneringen elke agent op deze server kan bewaren.",
   "server.settings.memoryLimitLoadFailed": "Kan de geheugenlimiet van deze server niet laden.",
+  "server.settings.memoryReview": "Geheugencontrole",
+  "server.settings.memoryReviewDescription":
+    "Hoe vaak agents op deze server op de achtergrond blijvende feiten uit hun chats bewaren.",
+  "server.settings.memoryReviewOff": "Uit",
+  "server.settings.memoryReviewTurns": { one: "Elke {count} beurt", other: "Elke {count} beurten" },
+  "server.settings.memoryReviewLoadFailed": "Kan de instelling voor geheugencontrole niet laden.",
   "server.settings.rolesTitle": "Rollen",
   "server.settings.rolesDescription":
     "Kies de agents die leden kunnen gebruiken. Een lid krijgt de hoogste toegang van Iedereen en van zijn rollen. Eigenaars en beheerders kunnen alle agents gebruiken.",

@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "Die Nachrichten dieses Threads konnten nicht geladen werden.",
   "conversation.threads.error.start": "Der Thread konnte nicht gestartet werden.",
   "conversation.threads.error.send": "Die Nachricht konnte nicht an den Thread gesendet werden.",
+  "conversation.threads.error.files": "Dateien gehen nur an Threads von Agenten auf diesem Computer.",
   "conversation.threads.error.stop": "Der Thread konnte nicht gestoppt werden.",
   "conversation.threads.error.archive": "Der Thread konnte nicht archiviert werden.",
   "conversation.threads.error.restore": "Der Thread konnte nicht wiederhergestellt werden.",

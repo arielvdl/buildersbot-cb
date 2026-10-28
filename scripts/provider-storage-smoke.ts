@@ -9,7 +9,7 @@ import { ClaudeAgentClient } from "../src/backend/claude-client";
 import { type GrokCliInfo, resolveClaudeCli, resolveCodexCli, resolveGrokCli } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { GrokAgentClient } from "../src/backend/grok-client";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import {
   decodeAccountReadResult,
   decodeModelListResponse,
@@ -24,7 +24,7 @@ const EXPECTED = "OPENBOT_SQLITE_SMOKE_OK";
 const root = await mkdtemp(join(tmpdir(), "openbot-provider-storage-smoke-"));
 
 try {
-  const database = new OpenBotDatabase(join(root, "user-data"));
+  const database = new BuildersBotDatabase(join(root, "user-data"));
   await runCauseEffect(database.initialize());
   const grokOnly = process.argv.includes("--grok-only");
   if (!grokOnly) {
@@ -44,7 +44,7 @@ try {
   await rm(root, { recursive: true, force: true });
 }
 
-async function runOptionalGrok(database: OpenBotDatabase): Promise<boolean> {
+async function runOptionalGrok(database: BuildersBotDatabase): Promise<boolean> {
   let cli: GrokCliInfo;
   try {
     cli = await runCauseEffect(resolveGrokCli());
@@ -76,7 +76,7 @@ async function runOptionalGrok(database: OpenBotDatabase): Promise<boolean> {
 }
 
 async function runProvider(
-  database: OpenBotDatabase,
+  database: BuildersBotDatabase,
   provider: AgentProvider,
   client: AgentClient,
   model: AgentSummary["model"],

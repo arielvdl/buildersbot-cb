@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "Não foi possível carregar as mensagens deste tópico.",
   "conversation.threads.error.start": "Não foi possível iniciar o tópico.",
   "conversation.threads.error.send": "Não foi possível enviar a mensagem para o tópico.",
+  "conversation.threads.error.files": "Só é possível enviar arquivos para tópicos de agentes neste computador.",
   "conversation.threads.error.stop": "Não foi possível interromper o tópico.",
   "conversation.threads.error.archive": "Não foi possível arquivar o tópico.",
   "conversation.threads.error.restore": "Não foi possível restaurar o tópico.",

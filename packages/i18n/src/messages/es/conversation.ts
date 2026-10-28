@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "No se pudieron cargar los mensajes de este hilo.",
   "conversation.threads.error.start": "No se pudo iniciar el hilo.",
   "conversation.threads.error.send": "No se pudo enviar el mensaje al hilo.",
+  "conversation.threads.error.files": "Solo puedes enviar archivos a hilos de agentes en este ordenador.",
   "conversation.threads.error.stop": "No se pudo detener el hilo.",
   "conversation.threads.error.archive": "No se pudo archivar el hilo.",
   "conversation.threads.error.restore": "No se pudo restaurar el hilo.",

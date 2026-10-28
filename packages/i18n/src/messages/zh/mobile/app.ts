@@ -29,8 +29,7 @@ export const messages = {
   "mobile.app.route.workflow": "工作流",
   "mobile.app.route.workflowRun": "运行",
   "mobile.app.route.routine": "自动化任务",
-  "mobile.app.route.tasks": "任务",
-  "mobile.app.route.task": "任务",
+  "mobile.app.route.threads": "话题",
   "mobile.app.route.usage": "用量",
   "mobile.app.route.marketplace": "市场",
   // The quick actions of the app icon, which the phone shows when the icon is held.

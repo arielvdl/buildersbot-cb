@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { resolveRemoteDesktopRuntime } from "../src/main/remote-desktop-runtime-artifact";
 import { SunshineMoonlightRuntime } from "../src/main/sunshine-moonlight-runtime";
 
-const logger = createOpenBotLogger("remote-desktop-runtime-smoke");
+const logger = createBuildersBotLogger("remote-desktop-runtime-smoke");
 
 // Linux runs under a virtual X11 display, such as `xvfb-run`.
 if (process.platform !== "darwin" && process.platform !== "linux") {

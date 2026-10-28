@@ -21,7 +21,7 @@ import {
 } from "@openbot/team-client/routine-schedule-draft";
 import { Effect } from "effect";
 import { AgentRoutineStore } from "../src/backend/agent-routine-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 type HourlyDraft = Extract<RoutineScheduleDraft, { kind: "hourly" }>;
 
@@ -144,7 +144,7 @@ interface CaseReport {
 
 const reports: CaseReport[] = [];
 const root = await mkdtemp(join(tmpdir(), "openbot-routine-overnight-"));
-const database = new OpenBotDatabase(root);
+const database = new BuildersBotDatabase(root);
 let fatal: string | undefined;
 
 try {

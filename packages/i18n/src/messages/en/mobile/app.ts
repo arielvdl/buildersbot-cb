@@ -28,8 +28,7 @@ export const messages = defineMessages("mobile.app", {
   "mobile.app.route.workflow": "Workflow",
   "mobile.app.route.workflowRun": "Run",
   "mobile.app.route.routine": "Routine",
-  "mobile.app.route.tasks": "Tasks",
-  "mobile.app.route.task": "Task",
+  "mobile.app.route.threads": "Threads",
   "mobile.app.route.usage": "Usage",
   "mobile.app.route.marketplace": "Marketplace",
   // The quick actions of the app icon, which the phone shows when the icon is held.

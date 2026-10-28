@@ -313,14 +313,14 @@ export function createAgentThreadTabs(options: AgentThreadTabsOptions) {
   );
 
   /** Sends a message to a side thread. An archived thread is restored first. */
-  async function send(agentId: string, id: string, text: string): Promise<boolean> {
+  async function send(agentId: string, id: string, text: string, attachmentDraftIds: string[]): Promise<boolean> {
     if (task(agentId, id)?.state === "closed" && !(await tasks.reopenTask(agentId, id))) return false;
-    return tasks.sendToTask(agentId, id, text);
+    return tasks.sendToTask(agentId, id, text, attachmentDraftIds);
   }
 
   /** The first message of the new thread tab starts the thread, which then takes the place of the tab. */
-  async function sendDraft(agentId: string, text: string): Promise<boolean> {
-    const started = await tasks.startTask(agentId, text);
+  async function sendDraft(agentId: string, text: string, attachmentDraftIds: string[]): Promise<boolean> {
+    const started = await tasks.startTask(agentId, text, attachmentDraftIds);
     if (!started || !scopeIsCurrent()) return false;
     seen.add(started.id);
     const stillOpen = activeId(agentId) === DRAFT_THREAD_ID;

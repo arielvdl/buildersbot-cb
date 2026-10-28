@@ -9,9 +9,9 @@
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { type OpenBotDesktopApi, SPEECH_VOICES, type SpeechVoice } from "@openbot/contracts/ipc";
+import { type BuildersBotDesktopApi, SPEECH_VOICES, type SpeechVoice } from "@openbot/contracts/ipc";
 import { translateFor } from "@openbot/i18n";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import type { Page } from "playwright-core";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
 import { readDevInstanceRecords } from "./dev-automation/instance-registry";
@@ -19,7 +19,7 @@ import { readDevInstanceRecords } from "./dev-automation/instance-registry";
 // The page functions below run in the app window, where the preload bridge sets this.
 declare global {
   interface Window {
-    openbot: OpenBotDesktopApi;
+    openbot: BuildersBotDesktopApi;
   }
 }
 
@@ -38,7 +38,7 @@ assertMutationAllowed({
   instanceNamed: true,
   target: instance.instanceId,
 });
-const logger = createOpenBotLogger("speech-voice-select-e2e");
+const logger = createBuildersBotLogger("speech-voice-select-e2e");
 const session = await connectToDevApp(instance.remoteDebuggingPort, logger, {
   expectedRendererPort: instance.rendererPort,
   ownerPid: instance.pid,

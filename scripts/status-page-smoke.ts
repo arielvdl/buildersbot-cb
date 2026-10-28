@@ -18,10 +18,10 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { createServer, type Server } from "node:http";
 import { extname, resolve } from "node:path";
 import { promisify } from "node:util";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { chromium } from "playwright-core";
 
-const logger = createOpenBotLogger("status-page-smoke");
+const logger = createBuildersBotLogger("status-page-smoke");
 const run = promisify(execFile);
 
 const ROOT = resolve(import.meta.dirname, "..");

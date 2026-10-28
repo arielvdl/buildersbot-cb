@@ -14,7 +14,7 @@ import { WebHostIncompatibleError } from "../src/features/web-client/web-runtime
 import { createBenchWebRuntime } from "../src/preview/bench-web-runtime";
 import { mockAccountCatalogFetch } from "../src/preview/mock-account-catalog";
 import { MOCK_HOSTED_SERVER_CATALOG } from "../src/preview/mock-hosted-servers";
-import { createMockOpenBot } from "../src/preview/mock-openbot";
+import { createMockBuildersBot } from "../src/preview/mock-openbot";
 import { createMockWebRuntime, mockWebRuntimeFor } from "../src/preview/mock-web-runtime";
 import { AGENT_ID, TABS_KEY, THREAD_OPTIONS } from "./agent-threads-fixtures";
 import "../src/features/web-client/web-client.css";
@@ -113,7 +113,7 @@ const NEW_SERVER_ID = "cloud-server";
  */
 const newServerRuntime: WebRuntimeFactory = (accountId, events, accountFetch) => {
   const base = createMockWebRuntime(accountId, events, accountFetch);
-  const team = createMockOpenBot();
+  const team = createMockBuildersBot();
   let status: AgentStatus = {
     phase: "blocked",
     cliVersion: null,
@@ -203,7 +203,7 @@ export const NewServer: Story = {
 
 /** A host with side threads: the agent-tasks routes, and rename and delete through `agent-threads-v1`. */
 const threadsRuntime: WebRuntimeFactory = (_accountId, events) => {
-  const mock = createMockOpenBot(THREAD_OPTIONS);
+  const mock = createMockBuildersBot(THREAD_OPTIONS);
   const base = mockWebRuntimeFor(mock, events);
   const agent = mock.api.agent;
   const answers: Record<string, (body: Record<string, string>) => Promise<unknown>> = {

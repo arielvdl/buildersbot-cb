@@ -115,7 +115,7 @@ mac:
     - from: build/cua-driver/darwin/${arch}
       to: cua-driver/darwin/${arch}
   # The Computer Use driver arrives signed by Cua AI with the hardened runtime, a secure timestamp
-  # and `com.apple.security.automation.apple-events`. Re-signing it with OpenBot's inherited
+  # and `com.apple.security.automation.apple-events`. Re-signing it with Builders Bot's inherited
   # entitlements would drop that entitlement and break the driver's Automation route, so its own
   # Developer ID signature is kept. Notarization accepts a nested binary signed by another team.
   signIgnore:
@@ -127,8 +127,9 @@ mac:
     CFBundleIconName: Icon
     ElectronTeamID: ZTRDTUL87R
     NSMicrophoneUsageDescription: Builders Bot uses the microphone to transcribe voice prompts locally on this Mac.
-    # Computer Use runs the driver as a child process, so macOS asks for both grants in OpenBot's
-    # name and shows these sentences.
+    # Computer Use runs the driver as a child process, so macOS asks for both grants in Builders Bot's
+    # name and shows these sentences. Under the hardened runtime, macOS shows the Automation prompt
+    # only when the app has `com.apple.security.automation.apple-events` in its entitlements.
     NSScreenCaptureUsageDescription: Builders Bot captures the screen so an agent can see the app windows you ask it to control.
     NSAppleEventsUsageDescription: Builders Bot sends Automation events so an agent can control the apps you ask it to control.
     NSUserActivityTypes:
@@ -154,7 +155,7 @@ win:
       arch:
         - x64
 # The assisted installer lets the user choose the disk and folder. `build/installer.nsh` keeps it
-# per-user and moves the install into an `OpenBot` subfolder when the chosen folder holds other
+# per-user and moves the install into an `Builders Bot` subfolder when the chosen folder holds other
 # files, because the uninstaller deletes the whole folder. An update reads the folder from
 # `InstallLocation`. The app starts it silently (`src/main/update-service.ts`), so an update shows
 # no page.

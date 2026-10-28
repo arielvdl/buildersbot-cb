@@ -589,6 +589,7 @@ export class ThreadLifecycle {
         this.#computerUseInOwnChat(owner, publicThreadId),
         yield* this.#homeSkills(agent, client),
         this.#conversation.isTaskThread(publicThreadId),
+        mcpServers,
       ),
       serviceName: "openbot",
       dynamicTools: VISIBLE_DYNAMIC_TOOLS,
@@ -1031,6 +1032,7 @@ export class ThreadLifecycle {
     computerUseInOwnChat = false,
     homeSkills: readonly HomeSkill[] = [],
     sideThread = false,
+    mcpServers: readonly McpServerConfig[],
   ): DynamicRecord {
     const memories = this.#memories.essentialFor(agent.id);
     const options = {
@@ -1045,6 +1047,7 @@ export class ThreadLifecycle {
       teammatesInTurns: client.provider === "claude",
       sectionTeammates: section,
       homeSkills,
+      httpMcpServers: mcpServers.some((config) => config.transport === "http"),
     };
     const instructions = developerInstructions(
       agent,
@@ -1110,6 +1113,7 @@ export class ThreadLifecycle {
         computerUseInOwnChat,
         yield* this.#homeSkills(agent, client),
         this.#conversation.isTaskThread(publicThreadId),
+        configs,
       ),
       ...(client.provider === "codex" ? {} : { dynamicTools: VISIBLE_DYNAMIC_TOOLS }),
       ...(yield* this.codexConfigEffect(

@@ -13,7 +13,7 @@ import { ConversationRuntime } from "../src/backend/agent/conversation-runtime";
 import { ProviderRuntime } from "../src/backend/agent/provider-runtime";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { BUILT_IN_PROVIDER_DRIVERS, NO_PROVIDER_CREDENTIALS } from "../src/backend/provider-drivers";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/pi-sign-in-watch-e2e");
@@ -75,7 +75,7 @@ async function spawns(): Promise<number> {
   return text.split("\n").filter(Boolean).length;
 }
 
-const store = new AgentStore(join(root, "profile"), join(root, "home"), new OpenBotDatabase(join(root, "profile")));
+const store = new AgentStore(join(root, "profile"), join(root, "home"), new BuildersBotDatabase(join(root, "profile")));
 /** The Pi row state of each status event that changed it, in order. */
 const piStates: (AgentProviderState | undefined)[] = [];
 let onStatus = () => {};

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AgentContextCategoryUsage, AgentContextState } from "@openbot/contracts/ipc";
 import { Effect, Schema } from "effect";
 import type { AgentClient } from "../agent-client";
@@ -125,6 +126,25 @@ export class ContextCompaction {
       const display = session ? this.#display.get(session.externalSessionId) : null;
       return display && agent.threadId ? [{ agentId: agent.id, threadId: agent.threadId, ...display }] : [];
     });
+  }
+
+  /** The side threads of `threads` (`id` is the agent) that reported their context, keyed by thread id. */
+  threadSnapshot(threads: Array<{ id: string; threadId: string }>): AgentContextState[] {
+    if (this.#display.size === 0) return [];
+    const agents = new Map(this.#store.list().map((agent) => [agent.id, agent]));
+    return threads
+      .flatMap(({ id: agentId, threadId }) => {
+        const agent = agents.get(agentId);
+        const session = agent ? this.#store.database.activeProviderSession(threadId, agent.provider) : null;
+        const display = session ? this.#display.get(session.externalSessionId) : null;
+        if (!agent || !display) return [];
+        // A `handoff` provider compacts only a session it can replace, which a side thread never is, so
+        // nothing compacts the thread on its own.
+        const handoff = this.#providers.clientForAgent(agent)?.contextCompaction === "handoff";
+        const usage = display.usage && handoff ? { ...display.usage, autoCompactAt: null } : display.usage;
+        return [{ agentId, threadId, usage, compaction: display.compaction }];
+      })
+      .slice(0, INPUT_LIMITS.agents * INPUT_LIMITS.agentTasks);
   }
 
   observeUsage(

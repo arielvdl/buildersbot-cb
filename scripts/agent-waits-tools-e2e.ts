@@ -16,13 +16,13 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AgentEvent } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { ConversationRuntime } from "../src/backend/agent/conversation-runtime";
-import type { OpenBotToolResponse } from "../src/backend/agent/routine-tools";
+import type { BuildersBotToolResponse } from "../src/backend/agent/routine-tools";
 import { AgentStore } from "../src/backend/agent-store";
 import { AgentWaitStore } from "../src/backend/agent-waits/agent-wait-store";
 import { AgentWaits, AWAIT_EVENT_TOOL, CLOSE_WAIT_TOOL, LIST_WAITS_TOOL } from "../src/backend/agent-waits/agent-waits";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, ".openbot-build", "agent-waits-tools-e2e");
@@ -59,7 +59,7 @@ async function step<T>(name: string, run: () => Promise<T>): Promise<T> {
 }
 
 /** The JSON body of a tool answer. */
-function body(response: OpenBotToolResponse | null): { success: boolean; value: DynamicRecord } {
+function body(response: BuildersBotToolResponse | null): { success: boolean; value: DynamicRecord } {
   assert.ok(response, "AgentWaits answers the tool.");
   const item = response.contentItems[0];
   assert.ok(item && item.type === "inputText", "The answer is text.");
@@ -69,7 +69,7 @@ function body(response: OpenBotToolResponse | null): { success: boolean; value: 
 }
 
 const root = await mkdtemp(join(tmpdir(), "openbot-agent-waits-"));
-const database = new OpenBotDatabase(join(root, "state"));
+const database = new BuildersBotDatabase(join(root, "state"));
 const store = new AgentStore(join(root, "state"), join(root, "home"), database);
 const mailbox = new MailboxStore(join(root, "state"), store.sharedRoot, database);
 const conversation = new ConversationRuntime(

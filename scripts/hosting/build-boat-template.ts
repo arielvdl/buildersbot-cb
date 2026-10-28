@@ -19,9 +19,9 @@ import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
 
-const logger = createOpenBotLogger("build-boat-template");
+const logger = createBuildersBotLogger("build-boat-template");
 const BOAT_API_URL = "https://boat.dev/api/v1";
 const TEMPLATE_FILES = [
   "provision.sh",

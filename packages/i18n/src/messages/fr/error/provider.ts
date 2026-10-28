@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot n’a pas pu enregistrer Computer Use dans la configuration de Codex. Vérifiez que votre fichier config.toml de Codex est valide et accessible en écriture, puis redémarrez Builders Bot. Vous pouvez désactiver Computer Use dans les réglages du coéquipier pour continuer sans.",
   "error.provider.codexUnresponsive": "Codex ne répondait plus, Builders Bot a donc arrêté son processus.",
+  "error.provider.acpUnresponsive": "{provider} n’a pas répondu à temps, Builders Bot a donc arrêté son processus.",
   "error.provider.endpointsReadOnly":
     "Les points de terminaison enregistrés ont été écrits par une version plus récente d’Builders Bot, ou le fichier est illisible. Mettez à jour Builders Bot pour les modifier.",
   "error.provider.endpointNoSecureStorage":
@@ -43,11 +44,11 @@ export const messages = {
     "Le paquet Claude ne correspond pas au catalogue des environnements d’exécution.",
   "error.provider.claudeChecksum": "La somme de contrôle de l’environnement d’exécution Claude ne correspond pas.",
   "error.provider.claudeLicenseChecksum": "La somme de contrôle de la licence Claude ne correspond pas.",
-  "error.provider.opencodeArchivePath": "L’archive Builders contient un chemin inattendu.",
+  "error.provider.opencodeArchivePath": "L’archive OpenCode contient un chemin inattendu.",
   "error.provider.opencodePackageMismatch":
-    "Le paquet Builders ne correspond pas au catalogue des environnements d’exécution.",
-  "error.provider.opencodeChecksum": "La somme de contrôle de l’environnement d’exécution Builders ne correspond pas.",
-  "error.provider.opencodeLicenseChecksum": "La somme de contrôle de la licence Builders ne correspond pas.",
+    "Le paquet OpenCode ne correspond pas au catalogue des environnements d’exécution.",
+  "error.provider.opencodeChecksum": "La somme de contrôle de l’environnement d’exécution OpenCode ne correspond pas.",
+  "error.provider.opencodeLicenseChecksum": "La somme de contrôle de la licence OpenCode ne correspond pas.",
   "error.provider.grokChecksum": "La somme de contrôle de l’environnement d’exécution Grok ne correspond pas.",
   "error.provider.grokLicenseChecksum": "La somme de contrôle de la licence Grok ne correspond pas.",
   "error.provider.grokNoticesChecksum": "La somme de contrôle des mentions Grok ne correspond pas.",
@@ -159,12 +160,12 @@ export const messages = {
   "error.provider.grokNotStartedHint":
     "La CLI Grok a été trouvée mais n’a pas pu démarrer. Exécutez `grok --version` dans un nouveau terminal.",
   "error.provider.grokMissing": "Grok n’est pas téléchargé. Téléchargez-le dans Builders Bot pour continuer.",
-  "error.provider.opencodeNotStarted": "Builders n’a pas pu démarrer. Exécutez `opencode --version` dans un terminal.",
-  "error.provider.opencodeMissing": "Builders n’est pas téléchargé. Téléchargez-le dans Builders Bot pour continuer.",
+  "error.provider.opencodeNotStarted": "OpenCode n’a pas pu démarrer. Exécutez `opencode --version` dans un terminal.",
+  "error.provider.opencodeMissing": "OpenCode n’est pas téléchargé. Téléchargez-le dans Builders Bot pour continuer.",
   "error.provider.codexVersionUnreadable": "Impossible de lire la version de la CLI Codex.",
   "error.provider.claudeVersionUnreadable": "Impossible de lire la version de la CLI Claude.",
   "error.provider.grokVersionUnreadable": "Impossible de lire la version de la CLI Grok.",
-  "error.provider.opencodeVersionUnreadable": "Impossible de lire la version de la CLI Builders.",
+  "error.provider.opencodeVersionUnreadable": "Impossible de lire la version de la CLI OpenCode.",
   "error.provider.bunVersionUnreadable": "Impossible de lire la version de l’environnement d’exécution Bun.",
   "error.provider.connectBeforeProfile": "Connectez le fournisseur sélectionné avant de générer un profil.",
   "error.provider.cliNotReady": "La CLI {provider} n’est pas prête ou n’est pas connectée.",
@@ -198,35 +199,35 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot n’a pas pu activer la CLI gérée.",
   "error.provider.cliBusyReconnect": "La CLI {provider} traite un tour. Attendez la fin, puis reconnectez-vous.",
   "error.provider.opencodeCredentialsRejected":
-    "Le fournisseur du modèle a refusé la clé d’API. Corrigez la clé Builders dans les réglages, ou la clé du fournisseur avec `opencode auth login`. Réessayez ensuite ou choisissez un autre modèle.\n{detail}",
+    "Le fournisseur du modèle a refusé la clé d’API. Corrigez la clé OpenCode dans les réglages, ou la clé du fournisseur avec `opencode auth login`. Réessayez ensuite ou choisissez un autre modèle.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders n’a pas de connexion pour le fournisseur de modèle « {provider} ». Choisissez un modèle avec l’étiquette Gratuit, ou connectez le fournisseur : collez une clé Builders Go dans les réglages d’Builders, ou exécutez `opencode auth login` dans un terminal. Réessayez ensuite.",
+    "OpenCode n’a pas de connexion pour le fournisseur de modèle « {provider} ». Choisissez un modèle avec l’étiquette Gratuit, ou connectez le fournisseur : collez une clé OpenCode Go dans les réglages d’OpenCode, ou exécutez `opencode auth login` dans un terminal. Réessayez ensuite.",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders n’a pas de connexion pour le fournisseur de ce modèle. Choisissez un modèle avec l’étiquette Gratuit, ou connectez le fournisseur : collez une clé Builders Go dans les réglages d’Builders, ou exécutez `opencode auth login` dans un terminal. Réessayez ensuite.",
+    "OpenCode n’a pas de connexion pour le fournisseur de ce modèle. Choisissez un modèle avec l’étiquette Gratuit, ou connectez le fournisseur : collez une clé OpenCode Go dans les réglages d’OpenCode, ou exécutez `opencode auth login` dans un terminal. Réessayez ensuite.",
   "error.provider.opencodeKeyExpired":
-    "Votre clé d’API Builders a expiré. Créez une nouvelle clé dans Builders Console, collez-la dans les réglages d’Builders, puis réessayez.",
+    "Votre clé d’API OpenCode a expiré. Créez une nouvelle clé dans OpenCode Console, collez-la dans les réglages d’OpenCode, puis réessayez.",
   "error.provider.opencodeServiceFailure":
-    "Builders n’a pas pu terminer ce tour, car son service local a échoué. Réessayez. Si l’erreur continue, reconnectez Builders dans les réglages.",
+    "OpenCode n’a pas pu terminer ce tour, car son service local a échoué. Réessayez. Si l’erreur continue, reconnectez OpenCode dans les réglages.",
   "error.provider.opencodeRateLimited":
     "Le fournisseur du modèle a refusé la requête à cause de sa limite de débit. Attendez quelques minutes ou choisissez un autre modèle, puis réessayez.\n{detail}",
   "error.provider.opencodeBilling":
     "Le fournisseur du modèle a refusé la requête à cause de la facturation du compte. Attendre ne corrige pas ce problème. Ajoutez un moyen de paiement ou des fonds dans le compte du fournisseur, ou choisissez un autre modèle.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Le fournisseur de modèles d’Builders a signalé une demande d’envoi non valide. Choisissez un autre modèle et continuez. Vérifiez les routines enregistrées avant de les créer à nouveau.\n{detail}",
+    "Le fournisseur de modèles d’OpenCode a signalé une demande d’envoi non valide. Choisissez un autre modèle et continuez. Vérifiez les routines enregistrées avant de les créer à nouveau.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Ce modèle ne peut pas lire un fichier ou une image de cette conversation. Choisissez un modèle qui sait lire les fichiers, puis envoyez à nouveau votre message.",
   "error.provider.opencodeFreeLimit":
-    "Les modèles gratuits d’Builders ont atteint leur limite d’utilisation. Tous les modèles gratuits partagent cette limite. Pour continuer, collez une clé Builders Go dans les réglages d’Builders, ou choisissez un modèle d’un autre fournisseur.",
+    "Les modèles gratuits d’OpenCode ont atteint leur limite d’utilisation. Tous les modèles gratuits partagent cette limite. Pour continuer, collez une clé OpenCode Go dans les réglages d’OpenCode, ou choisissez un modèle d’un autre fournisseur.",
   "error.provider.opencodeProviderFailed":
     "Le fournisseur du modèle a échoué de son côté. Votre connexion n’en est pas la cause. Réessayez plus tard ou choisissez un autre modèle.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders n’a pas pu se connecter au fournisseur du modèle. Vérifiez la connexion réseau de l’ordinateur qui exécute Builders Bot, puis réessayez.\n{detail}",
+    "OpenCode n’a pas pu se connecter au fournisseur du modèle. Vérifiez la connexion réseau de l’ordinateur qui exécute Builders Bot, puis réessayez.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders n’a pas pu ouvrir sa base de données, car une version plus récente d’Builders l’a modifiée. Mettez Builders à jour vers la version 2 ou ultérieure, puis réessayez.",
+    "OpenCode n’a pas pu ouvrir sa base de données, car une version plus récente d’OpenCode l’a modifiée. Mettez OpenCode à jour vers la version 2 ou ultérieure, puis réessayez.",
   "error.provider.opencodeNoAnswer":
-    "Le modèle Builders a terminé le tour sans réponse. Réessayez ou choisissez un autre modèle.",
+    "Le modèle OpenCode a terminé le tour sans réponse. Réessayez ou choisissez un autre modèle.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Le modèle Builders a terminé le tour après son raisonnement, sans réponse. Réessayez ou choisissez un autre modèle.",
+    "Le modèle OpenCode a terminé le tour après son raisonnement, sans réponse. Réessayez ou choisissez un autre modèle.",
   "error.provider.chatgptPageFailed": "Builders Bot n’a pas pu ouvrir la page de connexion ChatGPT.",
   "error.provider.noneReady": "Aucun fournisseur d’agent n’est prêt.",
   "error.provider.claudeTurnActive": "Attendez la fin du tour Claude actif avant d’actualiser son contexte.",
@@ -275,7 +276,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "{provider} n’a pas accepté le raisonnement précédent de cette conversation, car un autre compte ou une autre clé API l’a reçu. Builders Bot a ouvert une nouvelle session {provider} avec l’historique de la conversation. Réessayez.",
   "error.provider.opencodeSessionRejected":
-    "Builders a refusé la requête sans en donner la cause. Cela peut arriver dans une longue conversation ou après un changement de modèle. Builders Bot a démarré une nouvelle session Builders avec l’historique de la conversation. Réessayez. Si l’erreur continue, choisissez un autre modèle ou un effort plus faible.",
+    "OpenCode a refusé la requête sans en donner la cause. Cela peut arriver dans une longue conversation ou après un changement de modèle. Builders Bot a démarré une nouvelle session OpenCode avec l’historique de la conversation. Réessayez. Si l’erreur continue, choisissez un autre modèle ou un effort plus faible.",
   "error.provider.museMcpStartupFault":
     "Muse n’a pas pu démarrer un serveur MCP et a bloqué MCP dans cette session. Builders Bot a démarré une nouvelle session Muse avec l’historique de la conversation. Réessayez. Si l’erreur persiste, désactivez Computer Use ou le serveur MCP en échec pour cet agent.",
   "error.provider.grokSignIn": "Exécutez `grok login` ou définissez XAI_API_KEY pour utiliser Grok.",
@@ -283,6 +284,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "La connexion s’est arrêtée avant la fin.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini n’a pas pu ouvrir la page de connexion. Installez un navigateur et xdg-utils, puis connectez-vous depuis une session de bureau sur cet hôte. Un serveur sans bureau ne peut pas terminer cette connexion.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini n’a pas pu ouvrir la page de connexion dans votre navigateur. Vérifiez votre navigateur par défaut, puis reconnectez-vous.",
   "error.provider.acpSignInFailed": "La connexion n’a pas abouti.",
   "error.provider.acpSignInFailedReason": "La connexion n’a pas abouti : {reason}",
   "error.provider.acpSignInMethodMissing":

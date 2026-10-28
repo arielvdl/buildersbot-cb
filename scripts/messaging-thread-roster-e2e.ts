@@ -11,7 +11,7 @@ import { ConversationRuntime } from "../src/backend/agent/conversation-runtime";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MessagingStore } from "../src/backend/messaging/messaging-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-thread-roster-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-messaging-thread-roster-"));
@@ -30,8 +30,8 @@ interface Report {
 
 const report: Report = { passed: false };
 
-async function boot<T>(use: (store: AgentStore, database: OpenBotDatabase) => T | Promise<T>): Promise<T> {
-  const database = new OpenBotDatabase(userData);
+async function boot<T>(use: (store: AgentStore, database: BuildersBotDatabase) => T | Promise<T>): Promise<T> {
+  const database = new BuildersBotDatabase(userData);
   const store = new AgentStore(userData, home, database);
   await runCauseEffect(store.initialize());
   try {

@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "Impossible de charger les messages de ce fil.",
   "conversation.threads.error.start": "Impossible de démarrer le fil.",
   "conversation.threads.error.send": "Impossible d’envoyer le message au fil.",
+  "conversation.threads.error.files": "Les fichiers ne vont que dans les fils des agents de cet ordinateur.",
   "conversation.threads.error.stop": "Impossible d’arrêter le fil.",
   "conversation.threads.error.archive": "Impossible d’archiver le fil.",
   "conversation.threads.error.restore": "Impossible de restaurer le fil.",

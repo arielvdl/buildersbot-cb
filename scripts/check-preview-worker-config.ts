@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 // The trusted preview publisher (.github/workflows/cloudflare-preview.yml) uploads a Worker that a
 // pull request built. The pull request also wrote the generated wrangler.json, so its Worker name,
@@ -20,7 +20,7 @@ const MAY_DIFFER = new Set([
   "userConfigPath",
 ]);
 
-const logger = createOpenBotLogger("check-preview-worker-config");
+const logger = createBuildersBotLogger("check-preview-worker-config");
 const [trustedPath, untrustedPath] = process.argv.slice(2);
 if (!trustedPath || !untrustedPath) {
   throw new Error(

@@ -20,16 +20,16 @@ import {
   type ClientAgentSummary,
   isAgentModelOption,
   isAgentSummary,
-  type OpenBotDesktopApi,
+  type BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
 import { readDevInstanceRecords } from "./dev-automation/instance-registry";
 
 // The page functions below run in the app window, where the preload bridge sets this.
 declare global {
   interface Window {
-    openbot: OpenBotDesktopApi;
+    openbot: BuildersBotDesktopApi;
   }
 }
 
@@ -77,7 +77,7 @@ assertMutationAllowed({
   instanceNamed: true,
   target: instance.instanceId,
 });
-const session = await connectToDevApp(instance.remoteDebuggingPort, createOpenBotLogger("agent-tasks-e2e"), {
+const session = await connectToDevApp(instance.remoteDebuggingPort, createBuildersBotLogger("agent-tasks-e2e"), {
   expectedRendererPort: instance.rendererPort,
   ownerPid: instance.pid,
 });

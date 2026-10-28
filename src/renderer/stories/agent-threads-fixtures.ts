@@ -1,5 +1,5 @@
 import type { AgentTask, ConversationMessage, ConversationSnapshot } from "@openbot/contracts/ipc";
-import type { MockOpenBotOptions } from "../src/preview/mock-openbot";
+import type { MockBuildersBotOptions } from "../src/preview/mock-openbot";
 
 /** Side threads of Chief for the desktop and web thread stories. */
 export const AGENT_ID = "chief";
@@ -63,8 +63,28 @@ function snapshot(task: AgentTask, messages: ConversationMessage[]): Conversatio
   return { agentId: AGENT_ID, threadId: task.threadId, activeTurnId: task.activeTurnId, revision: 1, messages };
 }
 
-export const THREAD_OPTIONS: MockOpenBotOptions = {
+export const THREAD_OPTIONS: MockBuildersBotOptions = {
   tasks: { [AGENT_ID]: THREADS },
+  // The open thread shows its context meter, with the Compact action.
+  runtimeSnapshot: {
+    threadContextStates: [
+      {
+        agentId: AGENT_ID,
+        threadId: PRICING.threadId,
+        usage: { usedTokens: 148_000, windowTokens: 258_000, autoCompactAt: 0.8, nativeManaged: false },
+        compaction: null,
+      },
+    ],
+    agents: [],
+    activeTurns: [],
+    work: [],
+    latestMessages: [],
+    attentionComplete: true,
+    pendingPrompts: [],
+    pendingApprovals: [],
+    pendingBrowserTakeovers: [],
+    failedTurns: [],
+  },
   taskConversations: {
     pricing: snapshot(PRICING, [
       message(

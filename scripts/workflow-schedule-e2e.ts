@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import type { RoutineSchedule, WorkflowGraph, WorkflowNode } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { RoutineTimer } from "../src/backend/routine-timer";
 import { WorkflowRunStore } from "../src/backend/workflows/workflow-run-store";
 import { WorkflowStore } from "../src/backend/workflows/workflow-store";
@@ -62,7 +62,7 @@ const graphOf = (schedule: RoutineSchedule | undefined, step: "notify" | "approv
 
 const directory = await mkdtemp(join(tmpdir(), "openbot-workflow-schedule-"));
 let clock = new Date(START);
-let database = new OpenBotDatabase(directory);
+let database = new BuildersBotDatabase(directory);
 let service: WorkflowsHandle | null = null;
 
 async function open() {
@@ -290,7 +290,7 @@ try {
 
   // The plan is in the database: a restart keeps it.
   await close();
-  database = new OpenBotDatabase(directory);
+  database = new BuildersBotDatabase(directory);
   app = await open();
   check("a restart keeps the plans", (await app.nextDueAt(once.summary.id)) === "2026-10-24T12:00:00.000Z");
   check("a restart keeps the earliest wake", app.timer.nextDueAt() === "2026-10-24T11:00:00.000Z");

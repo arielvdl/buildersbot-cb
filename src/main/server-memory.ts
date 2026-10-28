@@ -177,24 +177,7 @@ export class ServerMemory implements HostMemory {
   });
 
   #read = Effect.fn("ServerMemory.read")(function* (this: ServerMemory) {
-    const result = yield* Effect.result(
-      Effect.gen(function* () {
-        const text = yield* memoryIO(() => readFile("/proc/meminfo", "utf8"));
-        const machine = yield* Effect.try({
-          try: () => parseMeminfo(text),
-          catch: (cause) => new HostMemoryFailure({ cause }),
-        });
-        const unit = yield* readUnitMemory();
-        if (typeof unit === "string") return { sample: machine, unit };
-        return {
-          sample: {
-            total: Math.min(machine.total, unit.max),
-            available: Math.min(machine.available, Math.max(0, unit.max - unit.current)),
-          },
-          unit: "limited" as const,
-        };
-      }),
-    );
+    const result = yield* Effect.result(readLinuxMemory());
     if (result._tag === "Success") {
       if (result.success.unit === "unknown" && !this.#noCgroupLogged) {
         this.#noCgroupLogged = true;
@@ -244,6 +227,27 @@ function criticalBytes(sample: MemorySample): number {
   return Math.max(256 * MIB, sample.total * 0.06);
 }
 
+/**
+ * The memory of a Linux machine, or of main's cgroup when it has a smaller limit. `unit` says which
+ * one limits it. Server settings read it too, for the machine part of Storage.
+ */
+export const readLinuxMemory = Effect.fn("ServerMemory.readLinux")(function* () {
+  const text = yield* memoryIO(() => readFile("/proc/meminfo", "utf8"));
+  const machine = yield* Effect.try({
+    try: () => parseMeminfo(text),
+    catch: (cause) => new HostMemoryFailure({ cause }),
+  });
+  const unit = yield* readUnitMemory();
+  if (typeof unit === "string") return { sample: machine, unit };
+  return {
+    sample: {
+      total: Math.min(machine.total, unit.max),
+      available: Math.min(machine.available, Math.max(0, unit.max - unit.current)),
+    },
+    unit: "limited" as const,
+  };
+});
+
 function parseMeminfo(text: string): MemorySample {
   const kib = (name: string): number => {
     const match = new RegExp(`^${name}:\\s+(\\d+) kB$`, "m").exec(text);
@@ -253,18 +257,23 @@ function parseMeminfo(text: string): MemorySample {
   return { total: kib("MemTotal"), available: kib("MemAvailable") };
 }
 
+/** The cgroup v2 folder of main, or null on cgroup v1 or a hybrid hierarchy. */
+export const readCgroupRoot = Effect.fn("ServerMemory.readCgroupRoot")(function* () {
+  const cgroup = (yield* memoryIO(() => readFile("/proc/self/cgroup", "utf8")))
+    .split("\n")
+    .find((line) => line.startsWith("0::"));
+  // A container with its own cgroup namespace sees "0::/", and its limits at /sys/fs/cgroup.
+  return cgroup ? `/sys/fs/cgroup${cgroup.slice(3)}` : null;
+});
+
 /**
  * The limit and the use of main's cgroup, with no reclaimable file cache. "unlimited" when the cgroup
  * has no limit, and "unknown" when there is no cgroup v2 memory controller to read (cgroup v1 or a
  * hybrid hierarchy).
  */
 const readUnitMemory = Effect.fn("ServerMemory.readUnit")(function* () {
-  const cgroup = (yield* memoryIO(() => readFile("/proc/self/cgroup", "utf8")))
-    .split("\n")
-    .find((line) => line.startsWith("0::"));
-  if (!cgroup) return "unknown";
-  // A container with its own cgroup namespace sees "0::/", and its limit at /sys/fs/cgroup/memory.max.
-  const root = `/sys/fs/cgroup${cgroup.slice(3)}`;
+  const root = yield* readCgroupRoot();
+  if (!root) return "unknown";
   // Only a missing file means no memory controller. Another failure is a read error.
   const max = (yield* memoryIO(() => readFile(`${root}/memory.max`, "utf8")).pipe(
     Effect.catchIf(

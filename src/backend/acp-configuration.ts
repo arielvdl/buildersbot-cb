@@ -257,7 +257,7 @@ export class AcpConfiguration {
         const currentModel = models.find((candidate) => candidate.id === thread.currentModelId);
         if (currentModel && currentModel.usesModelReasoningEffort !== null) {
           if (currentModel.usesModelReasoningEffort && currentModel.supportedReasoningEfforts.includes(value)) {
-            yield* providerCall(() =>
+            yield* this.#timed("session/set_model", () =>
               this.options.connection().request("session/set_model", {
                 sessionId: thread.id,
                 modelId: thread.currentModelId,
@@ -273,7 +273,7 @@ export class AcpConfiguration {
       // `provider` goes back to the one whose models the session listed.
       if (category === "model" && !unlisted && thread.unlistedOverrides) {
         for (const [configId, original] of thread.unlistedOverrides) {
-          const response = yield* providerCall(() =>
+          const response = yield* this.#timed("session/set_config_option", () =>
             this.options.connection().setSessionConfigOption({ sessionId: thread.id, configId, value: original }),
           );
           thread.configOptions = response.configOptions;
@@ -294,7 +294,7 @@ export class AcpConfiguration {
         options[0];
       if (!option) {
         if (category === "model" && thread.currentModelId !== value) {
-          yield* providerCall(() =>
+          yield* this.#timed("session/set_model", () =>
             this.options.connection().request("session/set_model", {
               sessionId: thread.id,
               modelId: value,
@@ -317,12 +317,12 @@ export class AcpConfiguration {
         if (required?.type !== "select" || required.currentValue === configValue) continue;
         thread.unlistedOverrides ??= new Map();
         if (!thread.unlistedOverrides.has(configId)) thread.unlistedOverrides.set(configId, required.currentValue);
-        const response = yield* providerCall(() =>
+        const response = yield* this.#timed("session/set_config_option", () =>
           this.options.connection().setSessionConfigOption({ sessionId: thread.id, configId, value: configValue }),
         );
         thread.configOptions = response.configOptions;
       }
-      const response = yield* providerCall(() =>
+      const response = yield* this.#timed("session/set_config_option", () =>
         this.options.connection().setSessionConfigOption({
           sessionId: thread.id,
           configId: option.id,
@@ -349,22 +349,28 @@ export class AcpConfiguration {
     ) {
       return yield* providerFailure(new Error(sourceText("error.provider.sessionSettingInvalid")));
     }
-    const response = yield* providerCall(() =>
+    const response = yield* this.#timed("session/set_config_option", () =>
       typeof value === "boolean"
         ? this.options.connection().setSessionConfigOption({ sessionId: thread.id, configId, value, type: "boolean" })
         : this.options.connection().setSessionConfigOption({ sessionId: thread.id, configId, value }),
-    ).pipe(
-      Effect.timeoutOrElse({
-        duration: this.options.requestTimeoutMs,
-        orElse: () =>
-          Effect.fail(
-            providerFailure(new TimeoutError(`${this.options.label()} request timed out: session/set_config_option`)),
-          ),
-      }),
     );
     thread.configOptions = response.configOptions;
     return sessionSettingsSnapshot(thread.configOptions);
   });
+
+  /**
+   * A configuration request, which fails at the request timeout. A turn sends these before its
+   * prompt, so without the limit a process that stopped answering held the turn with no end (#3520).
+   */
+  #timed<T>(method: string, request: () => Promise<T>): Effect.Effect<T, ProviderClientOperationError> {
+    return providerCall(request).pipe(
+      Effect.timeoutOrElse({
+        duration: this.options.requestTimeoutMs,
+        orElse: () =>
+          Effect.fail(providerFailure(new TimeoutError(`${this.options.label()} request timed out: ${method}`))),
+      }),
+    );
+  }
 }
 
 /** Permission and secret controls stay outside the generic settings path. */

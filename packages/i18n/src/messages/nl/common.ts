@@ -19,6 +19,7 @@ export const messages = {
   "common.create": "Aanmaken",
   "common.open": "Openen",
   "common.search": "Zoeken",
+  "common.noMatches": "Geen resultaten",
   "common.loading": "Laden…",
   "common.saving": "Opslaan…",
   "common.tryAgain": "Probeer opnieuw",

@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "Impossibile caricare i messaggi di questo thread.",
   "conversation.threads.error.start": "Impossibile avviare il thread.",
   "conversation.threads.error.send": "Impossibile inviare il messaggio al thread.",
+  "conversation.threads.error.files": "Puoi inviare file solo ai thread degli agenti su questo computer.",
   "conversation.threads.error.stop": "Impossibile interrompere il thread.",
   "conversation.threads.error.archive": "Impossibile archiviare il thread.",
   "conversation.threads.error.restore": "Impossibile ripristinare il thread.",

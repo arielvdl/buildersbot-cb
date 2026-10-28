@@ -7,7 +7,7 @@ import { Effect } from "effect";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import type { DeliveryContext } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { isRecord } from "../src/backend/protocol";
 import type { ProviderHistoryFragment, ReadProviderHistory } from "../src/backend/provider-history";
 import { importProviderHistory, type ProviderHistoryImportResult } from "../src/backend/provider-history-import";
@@ -69,7 +69,7 @@ interface Report {
 async function runProviderHistoryReimportCheck(outputPath: string): Promise<Report> {
   const databaseRoot = await mkdtemp(join(tmpdir(), "openbot-provider-history-reimport-"));
   const homeRoot = await mkdtemp(join(tmpdir(), "openbot-provider-history-reimport-home-"));
-  const database = new OpenBotDatabase(databaseRoot);
+  const database = new BuildersBotDatabase(databaseRoot);
   const agentStore = new AgentStore(databaseRoot, homeRoot, database);
   const agentId = "provider-history-reimport-agent";
   try {
@@ -313,7 +313,7 @@ function splitTurn(turnId: string, startedAt: number, suffix?: string): Provider
   ];
 }
 
-function count(database: OpenBotDatabase, sql: string, ...parameters: string[]): number {
+function count(database: BuildersBotDatabase, sql: string, ...parameters: string[]): number {
   const row = database.connection.prepare(sql).get(...parameters);
   if (!isRecord(row) || typeof row.count !== "number") throw new Error("The reimport check read an invalid count.");
   return row.count;

@@ -12,9 +12,9 @@ import {
   type SkillCategory,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord, isOneOf, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 
-const logger = createOpenBotLogger("build-plugin-catalog");
+const logger = createBuildersBotLogger("build-plugin-catalog");
 
 const scriptRoot = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptRoot, "..");

@@ -3,11 +3,11 @@ import { createHash } from "node:crypto";
 import { copyFileSync, createReadStream, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { PARAKEET_MODEL_FILES, VOICE_RUNTIME_ADDON } from "../src/main/voice-model-service";
 import { elfSearchPaths, ORIGIN_SEARCH_PATH } from "./elf-search-paths";
 
-const logger = createOpenBotLogger("prepare-voice");
+const logger = createBuildersBotLogger("prepare-voice");
 
 const SHERPA_ONNX_VERSION = "1.13.8";
 

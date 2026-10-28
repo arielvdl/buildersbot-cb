@@ -50,6 +50,8 @@ export interface ChannelConversationEnvironment {
   approvals: () => readonly AgentApproval[];
   /** Every browser takeover that waits on the host. */
   takeovers: () => readonly BrowserTakeoverRequest[];
+  /** The agents that a user hid on the host. */
+  hiddenAgentIds: () => ReadonlySet<string>;
 }
 
 /** Must run inside the view that shows the channel: it reads the channel store and the interface text. */
@@ -228,7 +230,9 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
     },
     workers: () => {
       const current = page();
-      return current ? channelWorkers(current, channels.agents(), t("chat.activity.agentFallback")) : [];
+      return current
+        ? channelWorkers(current, channels.agents(), t("chat.activity.agentFallback"), env.hiddenAgentIds())
+        : [];
     },
     workingTurns,
     interactionAgentName: () => {

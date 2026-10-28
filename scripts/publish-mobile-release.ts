@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { isDynamicRecord, isOneOf, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { MOBILE_ANNOUNCEMENT_FILE, mobileAnnouncementProblems } from "./discord-mobile-release-announcement";
 import {
   formatStoreDates,
@@ -21,7 +21,7 @@ import {
 // to main posts the highlights of apps/mobile/release-announcement.json on Discord, so the command
 // stops while that file is not ready.
 
-const logger = createOpenBotLogger("publish-mobile-release");
+const logger = createBuildersBotLogger("publish-mobile-release");
 const USAGE = "Usage: bun run mobile:release:published <ios|android|both> [--version x.y.z]";
 
 const args = process.argv.slice(2);

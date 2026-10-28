@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { cliSpawnTarget } from "../src/backend/cli";
 import { withoutElectronRuntimeFlags } from "./electron-spawn-env";
 import { resolvePackageBin } from "./package-bin";
 
-const logger = createOpenBotLogger("preview");
+const logger = createBuildersBotLogger("preview");
 
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const executable = resolvePackageBin(projectRoot, "electron-vite");

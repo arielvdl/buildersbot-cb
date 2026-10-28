@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot이 Codex 구성에 컴퓨터 제어를 등록할 수 없었어요. Codex config.toml이 올바르고 쓰기 가능한지 확인한 후 Builders Bot을 다시 시작하세요. 에이전트 설정에서 컴퓨터 제어를 끄면 그 기능 없이 계속할 수 있어요.",
   "error.provider.codexUnresponsive": "Codex가 응답하지 않아 Builders Bot이 프로세스를 종료했습니다.",
+  "error.provider.acpUnresponsive": "{provider}가 제시간에 응답하지 않아 Builders Bot이 프로세스를 종료했습니다.",
   "error.provider.endpointsReadOnly":
     "저장된 엔드포인트가 더 새로운 버전의 Builders Bot에서 작성되었거나 파일을 읽을 수 없어요. 변경하려면 Builders Bot을 업데이트하세요.",
   "error.provider.endpointNoSecureStorage":
@@ -41,10 +42,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Claude 패키지가 런타임 카탈로그와 일치하지 않아요.",
   "error.provider.claudeChecksum": "Claude 런타임 체크섬이 일치하지 않아요.",
   "error.provider.claudeLicenseChecksum": "Claude 라이선스 체크섬이 일치하지 않아요.",
-  "error.provider.opencodeArchivePath": "Builders 아카이브에 예상하지 못한 경로가 있어요.",
-  "error.provider.opencodePackageMismatch": "Builders 패키지가 런타임 카탈로그와 일치하지 않아요.",
-  "error.provider.opencodeChecksum": "Builders 런타임 체크섬이 일치하지 않아요.",
-  "error.provider.opencodeLicenseChecksum": "Builders 라이선스 체크섬이 일치하지 않아요.",
+  "error.provider.opencodeArchivePath": "OpenCode 아카이브에 예상하지 못한 경로가 있어요.",
+  "error.provider.opencodePackageMismatch": "OpenCode 패키지가 런타임 카탈로그와 일치하지 않아요.",
+  "error.provider.opencodeChecksum": "OpenCode 런타임 체크섬이 일치하지 않아요.",
+  "error.provider.opencodeLicenseChecksum": "OpenCode 라이선스 체크섬이 일치하지 않아요.",
   "error.provider.grokChecksum": "Grok 런타임 체크섬이 일치하지 않아요.",
   "error.provider.grokLicenseChecksum": "Grok 라이선스 체크섬이 일치하지 않아요.",
   "error.provider.grokNoticesChecksum": "Grok 고지문 체크섬이 일치하지 않아요.",
@@ -141,12 +142,12 @@ export const messages = {
     "Grok CLI를 찾았지만 시작할 수 없었어요. 새 터미널에서 `grok --version`을 실행해 보세요.",
   "error.provider.grokMissing": "Grok이 다운로드되지 않았어요. 계속하려면 Builders Bot에서 다운로드하세요.",
   "error.provider.opencodeNotStarted":
-    "Builders를 시작할 수 없었어요. 터미널에서 `opencode --version`을 실행해 보세요.",
-  "error.provider.opencodeMissing": "Builders가 다운로드되지 않았어요. 계속하려면 Builders Bot에서 다운로드하세요.",
+    "OpenCode를 시작할 수 없었어요. 터미널에서 `opencode --version`을 실행해 보세요.",
+  "error.provider.opencodeMissing": "OpenCode가 다운로드되지 않았어요. 계속하려면 Builders Bot에서 다운로드하세요.",
   "error.provider.codexVersionUnreadable": "Codex CLI 버전을 읽을 수 없어요.",
   "error.provider.claudeVersionUnreadable": "Claude CLI 버전을 읽을 수 없어요.",
   "error.provider.grokVersionUnreadable": "Grok CLI 버전을 읽을 수 없어요.",
-  "error.provider.opencodeVersionUnreadable": "Builders CLI 버전을 읽을 수 없어요.",
+  "error.provider.opencodeVersionUnreadable": "OpenCode CLI 버전을 읽을 수 없어요.",
   "error.provider.bunVersionUnreadable": "Bun 런타임 버전을 읽을 수 없어요.",
   "error.provider.connectBeforeProfile": "프로필을 생성하기 전에 선택한 제공자를 연결하세요.",
   "error.provider.cliNotReady": "{provider} CLI가 준비되지 않았거나 로그인되어 있지 않아요.",
@@ -179,34 +180,34 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot이 관리형 CLI를 활성화할 수 없었어요.",
   "error.provider.cliBusyReconnect": "{provider} CLI가 턴을 처리하는 중이에요. 끝날 때까지 기다린 후 다시 연결하세요.",
   "error.provider.opencodeCredentialsRejected":
-    "모델 제공자가 API 키를 거부했어요. 설정에서 Builders 키를 수정하거나 `opencode auth login`으로 제공자 키를 수정하세요. 그런 다음 다시 시도하거나 다른 모델을 선택하세요.\n{detail}",
+    "모델 제공자가 API 키를 거부했어요. 설정에서 OpenCode 키를 수정하거나 `opencode auth login`으로 제공자 키를 수정하세요. 그런 다음 다시 시도하거나 다른 모델을 선택하세요.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    'Builders에 모델 제공자 "{provider}"의 로그인 정보가 없어요. 무료 라벨이 있는 모델을 선택하거나 제공자를 연결하세요. Builders 설정에 Builders Go 키를 붙여넣거나 터미널에서 `opencode auth login`을 실행하면 돼요. 그런 다음 다시 시도해 주세요.',
+    'OpenCode에 모델 제공자 "{provider}"의 로그인 정보가 없어요. 무료 라벨이 있는 모델을 선택하거나 제공자를 연결하세요. OpenCode 설정에 OpenCode Go 키를 붙여넣거나 터미널에서 `opencode auth login`을 실행하면 돼요. 그런 다음 다시 시도해 주세요.',
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders에 이 모델 제공자의 로그인 정보가 없어요. 무료 라벨이 있는 모델을 선택하거나 제공자를 연결하세요. Builders 설정에 Builders Go 키를 붙여넣거나 터미널에서 `opencode auth login`을 실행하면 돼요. 그런 다음 다시 시도해 주세요.",
+    "OpenCode에 이 모델 제공자의 로그인 정보가 없어요. 무료 라벨이 있는 모델을 선택하거나 제공자를 연결하세요. OpenCode 설정에 OpenCode Go 키를 붙여넣거나 터미널에서 `opencode auth login`을 실행하면 돼요. 그런 다음 다시 시도해 주세요.",
   "error.provider.opencodeKeyExpired":
-    "Builders API 키가 만료되었어요. Builders Console에서 새 키를 만들어 Builders 설정에 붙여넣은 후 다시 시도해 주세요.",
+    "OpenCode API 키가 만료되었어요. OpenCode Console에서 새 키를 만들어 OpenCode 설정에 붙여넣은 후 다시 시도해 주세요.",
   "error.provider.opencodeServiceFailure":
-    "로컬 서비스 오류로 Builders가 이 턴을 완료하지 못했어요. 다시 시도해 주세요. 오류가 계속되면 설정에서 Builders를 다시 연결하세요.",
+    "로컬 서비스 오류로 OpenCode가 이 턴을 완료하지 못했어요. 다시 시도해 주세요. 오류가 계속되면 설정에서 OpenCode를 다시 연결하세요.",
   "error.provider.opencodeRateLimited":
     "모델 제공자가 속도 제한 때문에 요청을 거부했어요. 몇 분 기다리거나 다른 모델을 선택한 후 다시 시도해 주세요.\n{detail}",
   "error.provider.opencodeBilling":
     "모델 제공자가 계정 결제 문제 때문에 요청을 거부했어요. 기다려도 해결되지 않아요. 제공자 계정에 결제 수단이나 잔액을 추가하거나 다른 모델을 선택하세요.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Builders의 모델 제공자가 올바르지 않은 업로드 요청이라고 알렸어요. 다른 모델을 선택해 계속하세요. 저장된 루틴을 다시 만들기 전에 확인하세요.\n{detail}",
+    "OpenCode의 모델 제공자가 올바르지 않은 업로드 요청이라고 알렸어요. 다른 모델을 선택해 계속하세요. 저장된 루틴을 다시 만들기 전에 확인하세요.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "이 모델은 이 채팅의 파일이나 이미지를 읽을 수 없어요. 파일을 읽을 수 있는 모델을 선택한 후 메시지를 다시 보내세요.",
   "error.provider.opencodeFreeLimit":
-    "Builders 무료 모델이 사용 한도에 도달했어요. 모든 무료 모델이 이 한도를 함께 사용해요. 계속하려면 Builders 설정에 Builders Go 키를 붙여넣거나 다른 제공자의 모델을 선택하세요.",
+    "OpenCode 무료 모델이 사용 한도에 도달했어요. 모든 무료 모델이 이 한도를 함께 사용해요. 계속하려면 OpenCode 설정에 OpenCode Go 키를 붙여넣거나 다른 제공자의 모델을 선택하세요.",
   "error.provider.opencodeProviderFailed":
     "모델 제공자 쪽에서 오류가 났어요. 회원님의 연결 문제가 아니에요. 나중에 다시 시도하거나 다른 모델을 선택하세요.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders가 모델 제공자에 연결할 수 없었어요. Builders Bot을 실행하는 컴퓨터의 네트워크 연결을 확인한 후 다시 시도해 주세요.\n{detail}",
+    "OpenCode가 모델 제공자에 연결할 수 없었어요. Builders Bot을 실행하는 컴퓨터의 네트워크 연결을 확인한 후 다시 시도해 주세요.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "더 새로운 Builders 버전이 데이터베이스를 변경해서 Builders가 데이터베이스를 열 수 없었어요. Builders를 버전 2 이상으로 업데이트한 후 다시 시도해 주세요.",
-  "error.provider.opencodeNoAnswer": "Builders 모델이 답변 없이 턴을 끝냈어요. 다시 시도하거나 다른 모델을 선택하세요.",
+    "더 새로운 OpenCode 버전이 데이터베이스를 변경해서 OpenCode가 데이터베이스를 열 수 없었어요. OpenCode를 버전 2 이상으로 업데이트한 후 다시 시도해 주세요.",
+  "error.provider.opencodeNoAnswer": "OpenCode 모델이 답변 없이 턴을 끝냈어요. 다시 시도하거나 다른 모델을 선택하세요.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Builders 모델이 추론만 하고 답변 없이 턴을 끝냈어요. 다시 시도하거나 다른 모델을 선택하세요.",
+    "OpenCode 모델이 추론만 하고 답변 없이 턴을 끝냈어요. 다시 시도하거나 다른 모델을 선택하세요.",
   "error.provider.chatgptPageFailed": "Builders Bot이 ChatGPT 연결 페이지를 열 수 없었어요.",
   "error.provider.noneReady": "준비된 에이전트 제공자가 없어요.",
   "error.provider.claudeTurnActive": "컨텍스트를 새로 고치기 전에 진행 중인 Claude 턴이 끝날 때까지 기다려 주세요.",
@@ -251,7 +252,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "다른 계정이나 API 키가 받은 추론이라서 {provider}이(가) 이 채팅의 이전 추론을 수락하지 않았어요. Builders Bot이 채팅 기록으로 새 {provider} 세션을 시작했어요. 다시 시도해 주세요.",
   "error.provider.opencodeSessionRejected":
-    "Builders가 원인을 알리지 않고 요청을 거부했어요. 긴 채팅이나 모델 변경 후에 발생할 수 있어요. Builders Bot이 채팅 기록으로 새 Builders 세션을 시작했어요. 다시 시도해 주세요. 오류가 계속되면 다른 모델이나 낮은 강도를 선택하세요.",
+    "OpenCode가 원인을 알리지 않고 요청을 거부했어요. 긴 채팅이나 모델 변경 후에 발생할 수 있어요. Builders Bot이 채팅 기록으로 새 OpenCode 세션을 시작했어요. 다시 시도해 주세요. 오류가 계속되면 다른 모델이나 낮은 강도를 선택하세요.",
   "error.provider.museMcpStartupFault":
     "Muse가 MCP 서버를 시작하지 못해서 이 세션에서 MCP를 차단했어요. Builders Bot이 채팅 기록으로 새 Muse 세션을 시작했어요. 다시 시도해 주세요. 오류가 계속되면 이 에이전트의 컴퓨터 제어 또는 실패한 MCP 서버를 끄세요.",
   "error.provider.grokSignIn": "Grok을 사용하려면 `grok login`을 실행하거나 XAI_API_KEY를 설정하세요.",
@@ -259,6 +260,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "로그인이 완료되기 전에 중단되었어요.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini가 로그인 페이지를 열 수 없었어요. 브라우저와 xdg-utils를 설치한 후 이 호스트의 데스크톱 세션에서 연결하세요. 데스크톱이 없는 서버에서는 이 로그인을 완료할 수 없어요.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini가 브라우저에서 로그인 페이지를 열 수 없었어요. 기본 브라우저를 확인한 후 다시 연결하세요.",
   "error.provider.acpSignInFailed": "로그인이 완료되지 않았어요.",
   "error.provider.acpSignInFailedReason": "로그인이 완료되지 않았어요: {reason}",
   "error.provider.acpSignInMethodMissing":

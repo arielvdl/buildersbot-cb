@@ -14,7 +14,7 @@ import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { saveSettingsPanelWidth } from "../src/components/settings-panel-width";
 import AgentSettingsPanel from "../src/features/conversation/AgentSettingsPanel";
 import { STORY_AGENT, STORY_AGENT_STATUS, STORY_AGENTS, STORY_MODELS, storyRuntimeSettings } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 /*
  * The channel panel and the agent panel open in the same slot, so this file draws them together:
@@ -98,7 +98,7 @@ function ChannelPanelStory(props: { title: string; body: () => ReturnType<typeof
 /** The agent panel beside it, so the two headers and the two field stacks can be compared. */
 function AgentPanelStory() {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot({});
+  const mock = createMockBuildersBot({});
   window.openbot = mock.api;
   onCleanup(() => {
     mock.dispose();

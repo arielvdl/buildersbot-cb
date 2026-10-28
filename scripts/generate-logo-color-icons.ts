@@ -24,7 +24,7 @@ import {
   DEFAULT_APP_LOGO_COLOR,
   DEFAULT_APP_LOGO_EYE_HEX,
 } from "@openbot/contracts/app-logo-color";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 type Rgb = readonly [number, number, number];
 
@@ -37,7 +37,7 @@ interface RgbaImage {
 const SOURCES = ["icon-production.png", "icon-production-macos-safe-area.png"] as const;
 const BUILD = resolve(import.meta.dirname, "../build");
 const OUTPUT = join(BUILD, "logo-colors");
-const logger = createOpenBotLogger("generate-logo-color-icons");
+const logger = createBuildersBotLogger("generate-logo-color-icons");
 /** The logo eyes in `build/icon-production*.png`, `--openbot-logo-eye`. */
 const ICON_EYE = hexToRgb(DEFAULT_APP_LOGO_EYE_HEX);
 

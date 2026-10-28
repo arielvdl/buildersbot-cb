@@ -23,6 +23,7 @@ import type {
   MacPermissionId,
   MarketplaceAgentQuery,
   MarketplaceSkillQuery,
+  MemoryReviewPreference,
   NotificationPreference,
   PublishHostedSiteInput,
   RemoteNetworkRoutePreference,
@@ -61,6 +62,7 @@ import {
   isDynamicIslandInteractive,
   isDynamicIslandPreference,
   isDynamicIslandPresentation,
+  isMemoryReviewInterval,
   isRemoteNetworkRoute,
   isSkillCategory,
   MAC_AUTOMATION_TARGETS,
@@ -116,6 +118,12 @@ export function parseAgentDefaults(input: unknown): AgentDefaults {
 export function parseAgentMemoryLimitPreference(input: unknown): AgentMemoryLimitPreference {
   if (!isDynamicRecord(input) || !isAgentMemoryLimit(input.limit)) throw new Error("Agent memory limit is required.");
   return { limit: input.limit };
+}
+
+export function parseMemoryReviewPreference(input: unknown): MemoryReviewPreference {
+  if (!isDynamicRecord(input) || !isMemoryReviewInterval(input.interval))
+    throw new Error("Memory review interval is required.");
+  return { interval: input.interval };
 }
 
 export function parseChatWindowTarget(input: unknown): ChatWindowTarget {

@@ -41,7 +41,7 @@ const { AgentRoutineStore } = await import("../src/backend/agent-routine-store")
 const { AgentStore } = await import("../src/backend/agent-store");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 const { routineFlowRoutines } = await import("../src/backend/routine-flows/routine-flow-routines");
 const { RoutineFlowStore } = await import("../src/backend/routine-flows/routine-flow-store");
 const { createRoutineFlows } = await import("../src/backend/routine-flows/routine-flows");
@@ -238,7 +238,7 @@ function pass(name: string, condition: boolean, detail?: unknown) {
 }
 
 await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({

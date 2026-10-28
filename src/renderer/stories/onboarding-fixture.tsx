@@ -7,7 +7,7 @@ import { fn } from "storybook/test";
 import type { FirstRunFlowProps } from "../src/features/onboarding/FirstRunFlow";
 import { providerKeyApi } from "../src/features/settings/provider-key-api";
 import { STORY_AGENT_STATUS } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 import { createFakeConnection } from "./provider-connection-fixture";
 
 export const noProvidersConnectedAgentStatus: AgentStatus = {
@@ -87,7 +87,7 @@ const downloadedRuntimeStatuses = (): Record<ManagedProviderId, ProviderRuntimeS
 /** Installs the mock `window.openbot` before the flow renders, and a toaster beside it. */
 export function MockedOnboardingApi(props: { permissions?: boolean; children: JSX.Element }) {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot();
+  const mock = createMockBuildersBot();
   if (props.permissions) {
     mock.api.computerUse.getState = async () => ({
       status: "permissions-required",

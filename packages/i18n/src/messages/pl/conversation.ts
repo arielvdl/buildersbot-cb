@@ -90,6 +90,7 @@ export const messages = {
   "conversation.threads.error.read": "Nie udało się wczytać wiadomości tego wątku.",
   "conversation.threads.error.start": "Nie udało się rozpocząć wątku.",
   "conversation.threads.error.send": "Nie udało się wysłać wiadomości do wątku.",
+  "conversation.threads.error.files": "Pliki można wysłać tylko do wątków agentów na tym komputerze.",
   "conversation.threads.error.stop": "Nie udało się zatrzymać wątku.",
   "conversation.threads.error.archive": "Nie udało się zarchiwizować wątku.",
   "conversation.threads.error.restore": "Nie udało się przywrócić wątku.",

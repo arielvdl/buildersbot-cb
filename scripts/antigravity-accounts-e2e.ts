@@ -19,7 +19,7 @@ import { ProviderRuntime } from "../src/backend/agent/provider-runtime";
 import { AgentStore } from "../src/backend/agent-store";
 import { ANTIGRAVITY_MANIFEST } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { BUILT_IN_PROVIDER_DRIVERS, NO_PROVIDER_CREDENTIALS } from "../src/backend/provider-drivers";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/antigravity-accounts-e2e");
@@ -150,7 +150,7 @@ async function server(version: string): Promise<string> {
   return executable;
 }
 
-const database = new OpenBotDatabase(join(root, "profile"));
+const database = new BuildersBotDatabase(join(root, "profile"));
 const agents = new AgentStore(join(root, "profile"), join(root, "home"), database);
 
 /** The agents that run a turn now. */

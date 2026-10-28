@@ -15,7 +15,7 @@ import { databaseRows } from "../src/backend/database/database-rows";
 import type { MailboxProjectionChanges, MailboxProjectionState } from "../src/backend/database/mailbox-projection";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/mailbox-incremental-persist-e2e");
 const AGENT = "agent-a";
@@ -54,10 +54,10 @@ interface Report {
 const report: Report = { steps: [], incrementalWrites: 0, fullWrites: 0, passed: false };
 
 /** Sends each mailbox write to the profile as the store asks, and the full replace of it to `reference`. */
-class MirroredDatabase extends OpenBotDatabase {
-  readonly #reference: OpenBotDatabase;
+class MirroredDatabase extends BuildersBotDatabase {
+  readonly #reference: BuildersBotDatabase;
 
-  constructor(path: string, reference: OpenBotDatabase) {
+  constructor(path: string, reference: BuildersBotDatabase) {
     super(path);
     this.#reference = reference;
   }
@@ -93,7 +93,7 @@ class MirroredDatabase extends OpenBotDatabase {
  * The rows of every mailbox table. The write sequence differs between the two databases, and a
  * generated attachment takes its time from the write that first stores it, so neither is compared.
  */
-function projectionRows(database: OpenBotDatabase): Record<string, unknown[]> {
+function projectionRows(database: BuildersBotDatabase): Record<string, unknown[]> {
   const rows: Record<string, unknown[]> = {};
   for (const [table, order] of TABLES) {
     rows[table] = databaseRows(database.connection.prepare(`SELECT * FROM ${table} ORDER BY ${order}`).all()).map(
@@ -106,7 +106,7 @@ function projectionRows(database: OpenBotDatabase): Record<string, unknown[]> {
   return rows;
 }
 
-function check(step: string, database: OpenBotDatabase, reference: OpenBotDatabase): void {
+function check(step: string, database: BuildersBotDatabase, reference: BuildersBotDatabase): void {
   const actual = projectionRows(database);
   const expected = projectionRows(reference);
   const rows = Object.values(actual).reduce((count, table) => count + table.length, 0);
@@ -115,9 +115,9 @@ function check(step: string, database: OpenBotDatabase, reference: OpenBotDataba
   assert.deepEqual(actual, expected, `The rows differ from the full replace after: ${step}`);
 }
 
-async function openProfile(root: string, name: string, reference?: OpenBotDatabase) {
+async function openProfile(root: string, name: string, reference?: BuildersBotDatabase) {
   const path = join(root, name);
-  const database = reference ? new MirroredDatabase(path, reference) : new OpenBotDatabase(path);
+  const database = reference ? new MirroredDatabase(path, reference) : new BuildersBotDatabase(path);
   const mailbox = new MailboxStore(path, join(root, "shared"), database);
   await runCauseEffect(mailbox.initialize());
   return { database, mailbox };
@@ -150,7 +150,7 @@ function deliveryOf(receipt: { deliveries: Array<{ id: string; recipientAgentId:
 }
 
 async function parity(root: string): Promise<void> {
-  const reference = new OpenBotDatabase(join(root, "reference"));
+  const reference = new BuildersBotDatabase(join(root, "reference"));
   await runCauseEffect(reference.initialize());
   let { database, mailbox } = await openProfile(root, "profile", reference);
   check("legacy import", database, reference);

@@ -210,6 +210,8 @@ import { localRoutineFeedDocument } from "./local-routine-calendar";
 import { createLoginItem } from "./login-item";
 import { LogoColorService } from "./logo-color-service";
 import type { MacHapticFeedback } from "./mac-haptic-feedback";
+import { MACHINE_ALERTS_PREFERENCE_FILE, MachineAlertMonitor, MachineAlertPreferenceStore } from "./machine-alerts";
+import { MachineMetricsSampler } from "./machine-metrics";
 import {
   computerUseCoveringWindowIds,
   computerUseDesktopPoint,
@@ -235,6 +237,7 @@ import {
   startMcpOAuthRedirectServer,
 } from "./mcp-oauth-redirect-server";
 import { McpOAuthStore } from "./mcp-oauth-store";
+import { MemoryReviewPreferenceStore } from "./memory-review-preference-store";
 import { MessagingCredentialStore } from "./messaging-credential-store";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
@@ -344,6 +347,7 @@ const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const PROVIDER_CLI_APP_VERSION_FILE = "openbot-provider-cli-app-version-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
 const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
+const MEMORY_REVIEW_PREFERENCE_FILE = "openbot-memory-review-v1.json";
 const SERVER_TIMEZONE_PREFERENCE_FILE = "openbot-server-timezone-v1.json";
 const PROMPT_CACHE_TTL_PREFERENCE_FILE = "openbot-prompt-cache-ttl-v1.json";
 const REMOTE_SESSION_REUSE_PREFERENCE_FILE = "openbot-remote-session-reuse-preference-v1.json";
@@ -410,6 +414,7 @@ const TEARDOWN_ORDER = {
   computerUseHighlight: 18,
   computerUsePermissionHelp: 19,
   dynamicIsland: 20,
+  machineAlerts: 21,
   // Before the browser, so no sign-in opens a tab while it stops.
   providerAccountsHost: 27,
   providerHostSignIns: 28,
@@ -551,6 +556,7 @@ export interface ApplicationServices {
   busyMessageMode: BusyMessageModePreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
+  memoryReview: MemoryReviewPreferenceStore;
   agentAccess: AgentAccessStore;
   serverTimezone: ServerTimezonePreferenceStore;
   promptCacheTtl: PromptCacheTtlPreferenceStore;
@@ -600,6 +606,7 @@ export interface ApplicationServices {
   analytics: HostAnalytics;
   trace: TraceFile;
   resourceMonitor: ResourceMonitor;
+  machineAlerts: MachineAlertMonitor;
   teamStore: TeamStore;
   /**
    * The account state this function read part-way through, and bound the local host to. The
@@ -1158,6 +1165,8 @@ export async function createApplicationServices({
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
   await runCauseEffect(agentMemoryLimit.load());
+  const memoryReview = new MemoryReviewPreferenceStore(join(app.getPath("userData"), MEMORY_REVIEW_PREFERENCE_FILE));
+  await runCauseEffect(memoryReview.load());
   const agentAccess = new AgentAccessStore(join(app.getPath("userData"), AGENT_ACCESS_FILE));
   if (!(await runCauseEffect(agentAccess.load())))
     logger.warn("The roles file did not load. Members get no access to agents until an admin saves the roles.");
@@ -1728,6 +1737,7 @@ export async function createApplicationServices({
     busyMessageMode: () => busyMessageMode.get().mode,
     securityGuard: () => securityGuard.get(),
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
+    memoryReviewInterval: () => memoryReview.get().interval,
     timezone: () => serverTimezone.effective(),
     // `workflowTriggers` is built later, after the workflows.
     extraRoutineSources: () => (workflowTriggers ? [workflowTriggers] : []),
@@ -2052,6 +2062,22 @@ export async function createApplicationServices({
   );
   await runCauseEffect(teamStore.initialize());
   performance.mark("openbot:services.team");
+  const machineAlertStore = new MachineAlertPreferenceStore(
+    join(app.getPath("userData"), MACHINE_ALERTS_PREFERENCE_FILE),
+  );
+  await runCauseEffect(machineAlertStore.load());
+  // The same disk as the sidebar storage card: the one that holds the data folder.
+  const machineMetrics = new MachineMetricsSampler(storageSources.roots.data);
+  // Its own sampler, so a Storage panel that reads in between does not shorten its one-minute CPU window.
+  const machineAlertMetrics = new MachineMetricsSampler(storageSources.roots.data);
+  const machineAlerts = new MachineAlertMonitor({
+    read: () => machineAlertMetrics.read(),
+    display: () => machineMetrics.read(),
+    store: machineAlertStore,
+    members: () => teamStore.listMembers(),
+    onError: (message, error) => logger.warn(message, toLogValue(error)),
+  });
+  teardown.push(TEARDOWN_ORDER.machineAlerts, "the machine alert check", () => machineAlerts.close());
   ingressHostId = () => teamStore.getIdentity()?.serverId ?? null;
   signalIngress.reconnect();
   const webhookRelay = new WebhookRelay({
@@ -2295,6 +2321,8 @@ export async function createApplicationServices({
     providerUsageResets: service,
     // Present, so the host advertises `storage-v1`. Members read; only admins delete or clear.
     storage: storageUsage,
+    // Present, so the host advertises `machine-resources-v1`. The routes are admin-only.
+    machine: machineAlerts,
     // Present, so the host advertises `hosted-sites-v1`. Members list; only admins delete.
     hostedSites,
     // Present, so the host advertises `agent-import-v1`. Any member can import.
@@ -2344,6 +2372,7 @@ export async function createApplicationServices({
       },
       timezone: serverTimezone,
       memoryLimit: agentMemoryLimitSetting,
+      memoryReview,
       promptCacheTtl,
       // The local Settings save does the same two steps (`saveSetup`).
       defaultProvider: {
@@ -3072,6 +3101,7 @@ export async function createApplicationServices({
     busyMessageMode,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
+    memoryReview,
     agentAccess,
     serverTimezone,
     promptCacheTtl,
@@ -3122,6 +3152,7 @@ export async function createApplicationServices({
     analytics,
     trace,
     resourceMonitor,
+    machineAlerts,
     teamStore,
     appliedAccount: signedInState,
     centralAuthInitialization,

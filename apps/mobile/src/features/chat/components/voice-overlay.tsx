@@ -2,14 +2,7 @@ import { BlurView } from "expo-blur";
 import { Typography } from "heroui-native";
 import Reply from "lucide-react-native/icons/reply";
 import { memo, useEffect, useId, useRef, useState } from "react";
-import {
-  type ColorValue,
-  ScrollView,
-  type ScrollViewInstance,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { type ColorValue, ScrollView, type ScrollViewInstance, StyleSheet, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -27,9 +20,7 @@ import { useCSSVariable } from "uniwind";
 import { SheetScrollEdgeEffect } from "@/shared/components/sheet-scroll-edge-effect";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { isIOS } from "@/shared/lib/platform";
-import type { VoicePalette } from "../model/voice-palette";
 import type { VoiceMode } from "./use-voice-mode";
-import { VoiceAurora } from "./voice-aurora";
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
@@ -49,8 +40,6 @@ const TOP_VEIL_REACH = 1;
 // The hint breathes while the recognizer listens and nothing is said yet.
 const HINT_PULSE_MS = 1100;
 const HINT_PULSE_LOW = 0.55;
-// The glow covers the lower part of the screen, behind the voice button.
-const AURORA_HEIGHT_RATIO = 0.62;
 // Words that arrive together come in one after another, from the top line down.
 const WORD_STAGGER_MS = 45;
 const WORD_MAX_DELAY_MS = 540;
@@ -213,13 +202,11 @@ function VoiceTranscript({
 }
 
 /**
- * Covers the chat while the user speaks: a blur and a veil that is strongest at the top, a
- * glow in the agent's colours that follows the voice, and the words as they
- * are recognized. The voice controls stay above it, in the composer.
+ * Covers the chat while the user dictates: a blur and a veil that is strongest at the top, and
+ * the words as they are recognized. The voice controls stay above it, in the composer.
  */
 export function VoiceOverlay({
   voice,
-  palette,
   hint,
   reply,
   muted,
@@ -228,7 +215,6 @@ export function VoiceOverlay({
   reducedTransparency,
 }: {
   voice: VoiceMode;
-  palette: VoicePalette;
   /** Shown before the first word. */
   hint: string;
   /** The message this one answers, if any. */
@@ -239,7 +225,6 @@ export function VoiceOverlay({
   controlsHeight: number;
   reducedTransparency: boolean;
 }) {
-  const { width, height } = useWindowDimensions();
   const { presence, exit } = voice;
   const blurred = isIOS && !reducedTransparency;
   const veil = blurred ? VEIL.blurred : VEIL.plain;
@@ -274,13 +259,6 @@ export function VoiceOverlay({
       >
         {topFade(topVeilId, TOP_VEIL_REACH, canvas)}
       </Animated.View>
-      <VoiceAurora
-        width={width}
-        height={height * AURORA_HEIGHT_RATIO}
-        level={voice.level}
-        presence={presence}
-        palette={palette}
-      />
       <Animated.View style={[StyleSheet.absoluteFill, transcriptStyle]}>
         <VoiceTranscript
           text={voice.transcript}

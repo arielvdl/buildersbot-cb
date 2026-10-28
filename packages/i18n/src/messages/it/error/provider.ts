@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot non è riuscito a registrare il Controllo del computer nella configurazione di Codex. Controlla che il config.toml di Codex sia valido e scrivibile, poi riavvia Builders Bot. Puoi disattivare il Controllo del computer nelle impostazioni dell'agente per continuare senza.",
   "error.provider.codexUnresponsive": "Codex ha smesso di rispondere, quindi Builders Bot ha terminato il suo processo.",
+  "error.provider.acpUnresponsive": "{provider} non ha risposto in tempo, quindi Builders Bot ha terminato il suo processo.",
   "error.provider.endpointsReadOnly":
     "Gli endpoint salvati sono stati scritti da una versione più recente di Builders Bot, oppure il file non è leggibile. Aggiorna Builders Bot per modificarli.",
   "error.provider.endpointNoSecureStorage":
@@ -41,10 +42,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Il pacchetto di Claude non corrisponde al catalogo dei runtime.",
   "error.provider.claudeChecksum": "Checksum del runtime di Claude non corrispondente.",
   "error.provider.claudeLicenseChecksum": "Checksum della licenza di Claude non corrispondente.",
-  "error.provider.opencodeArchivePath": "L'archivio di Builders ha un percorso inatteso.",
-  "error.provider.opencodePackageMismatch": "Il pacchetto di Builders non corrisponde al catalogo dei runtime.",
-  "error.provider.opencodeChecksum": "Checksum del runtime di Builders non corrispondente.",
-  "error.provider.opencodeLicenseChecksum": "Checksum della licenza di Builders non corrispondente.",
+  "error.provider.opencodeArchivePath": "L'archivio di OpenCode ha un percorso inatteso.",
+  "error.provider.opencodePackageMismatch": "Il pacchetto di OpenCode non corrisponde al catalogo dei runtime.",
+  "error.provider.opencodeChecksum": "Checksum del runtime di OpenCode non corrispondente.",
+  "error.provider.opencodeLicenseChecksum": "Checksum della licenza di OpenCode non corrispondente.",
   "error.provider.grokChecksum": "Checksum del runtime di Grok non corrispondente.",
   "error.provider.grokLicenseChecksum": "Checksum della licenza di Grok non corrispondente.",
   "error.provider.grokNoticesChecksum": "Checksum delle note legali di Grok non corrispondente.",
@@ -145,12 +146,12 @@ export const messages = {
   "error.provider.grokNotStartedHint":
     "La CLI di Grok è stata trovata ma non è stato possibile avviarla. Esegui `grok --version` in un nuovo terminale.",
   "error.provider.grokMissing": "Grok non è scaricato. Scaricalo in Builders Bot per continuare.",
-  "error.provider.opencodeNotStarted": "Impossibile avviare Builders. Esegui `opencode --version` in un terminale.",
-  "error.provider.opencodeMissing": "Builders non è scaricato. Scaricalo in Builders Bot per continuare.",
+  "error.provider.opencodeNotStarted": "Impossibile avviare OpenCode. Esegui `opencode --version` in un terminale.",
+  "error.provider.opencodeMissing": "OpenCode non è scaricato. Scaricalo in Builders Bot per continuare.",
   "error.provider.codexVersionUnreadable": "Impossibile leggere la versione della CLI di Codex.",
   "error.provider.claudeVersionUnreadable": "Impossibile leggere la versione della CLI di Claude.",
   "error.provider.grokVersionUnreadable": "Impossibile leggere la versione della CLI di Grok.",
-  "error.provider.opencodeVersionUnreadable": "Impossibile leggere la versione della CLI di Builders.",
+  "error.provider.opencodeVersionUnreadable": "Impossibile leggere la versione della CLI di OpenCode.",
   "error.provider.bunVersionUnreadable": "Impossibile leggere la versione del runtime di Bun.",
   "error.provider.connectBeforeProfile": "Connetti il provider selezionato prima di generare un profilo.",
   "error.provider.cliNotReady": "La CLI di {provider} non è pronta o non ha effettuato l'accesso.",
@@ -185,35 +186,35 @@ export const messages = {
   "error.provider.cliBusyReconnect":
     "La CLI di {provider} sta lavorando a un turno. Attendi che finisca, poi riconnetti.",
   "error.provider.opencodeCredentialsRejected":
-    "Il provider del modello ha rifiutato la chiave API. Correggi la chiave di Builders in Impostazioni, oppure la chiave del provider con `opencode auth login`. Poi riprova o scegli un altro modello.\n{detail}",
+    "Il provider del modello ha rifiutato la chiave API. Correggi la chiave di OpenCode in Impostazioni, oppure la chiave del provider con `opencode auth login`. Poi riprova o scegli un altro modello.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    'Builders non ha un accesso per il provider del modello "{provider}". Scegli un modello con l\'etichetta Gratuito, oppure collega il provider: incolla una chiave Builders Go nelle impostazioni di Builders, oppure esegui `opencode auth login` in un terminale. Poi riprova.',
+    'OpenCode non ha un accesso per il provider del modello "{provider}". Scegli un modello con l\'etichetta Gratuito, oppure collega il provider: incolla una chiave OpenCode Go nelle impostazioni di OpenCode, oppure esegui `opencode auth login` in un terminale. Poi riprova.',
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders non ha un accesso per il provider di questo modello. Scegli un modello con l'etichetta Gratuito, oppure collega il provider: incolla una chiave Builders Go nelle impostazioni di Builders, oppure esegui `opencode auth login` in un terminale. Poi riprova.",
+    "OpenCode non ha un accesso per il provider di questo modello. Scegli un modello con l'etichetta Gratuito, oppure collega il provider: incolla una chiave OpenCode Go nelle impostazioni di OpenCode, oppure esegui `opencode auth login` in un terminale. Poi riprova.",
   "error.provider.opencodeKeyExpired":
-    "La tua chiave API di Builders è scaduta. Crea una nuova chiave in Builders Console, incollala nelle impostazioni di Builders, poi riprova.",
+    "La tua chiave API di OpenCode è scaduta. Crea una nuova chiave in OpenCode Console, incollala nelle impostazioni di OpenCode, poi riprova.",
   "error.provider.opencodeServiceFailure":
-    "Builders non ha potuto completare questo turno perché il suo servizio locale è andato in errore. Riprova. Se l'errore continua, riconnetti Builders in Impostazioni.",
+    "OpenCode non ha potuto completare questo turno perché il suo servizio locale è andato in errore. Riprova. Se l'errore continua, riconnetti OpenCode in Impostazioni.",
   "error.provider.opencodeRateLimited":
     "Il provider del modello ha rifiutato la richiesta per via del limite di richieste. Attendi qualche minuto o scegli un altro modello, poi riprova.\n{detail}",
   "error.provider.opencodeBilling":
     "Il provider del modello ha rifiutato la richiesta per via della fatturazione dell'account. Aspettare non risolve. Aggiungi un metodo di pagamento o dei fondi nell'account del provider, oppure scegli un altro modello.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Il provider del modello di Builders ha segnalato una richiesta di caricamento non valida. Scegli un altro modello e continua. Controlla le routine salvate prima di ricrearle.\n{detail}",
+    "Il provider del modello di OpenCode ha segnalato una richiesta di caricamento non valida. Scegli un altro modello e continua. Controlla le routine salvate prima di ricrearle.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Questo modello non può leggere un file o un'immagine in questa chat. Scegli un modello che legge i file, poi invia di nuovo il messaggio.",
   "error.provider.opencodeFreeLimit":
-    "I modelli gratuiti di Builders hanno raggiunto il limite di utilizzo. Tutti i modelli gratuiti condividono questo limite. Per continuare, incolla una chiave Builders Go nelle impostazioni di Builders, oppure scegli un modello di un altro provider.",
+    "I modelli gratuiti di OpenCode hanno raggiunto il limite di utilizzo. Tutti i modelli gratuiti condividono questo limite. Per continuare, incolla una chiave OpenCode Go nelle impostazioni di OpenCode, oppure scegli un modello di un altro provider.",
   "error.provider.opencodeProviderFailed":
     "Il provider del modello è andato in errore dal suo lato. La tua connessione non c'entra. Riprova più tardi o scegli un altro modello.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders non è riuscito a connettersi al provider del modello. Controlla la connessione di rete del computer che esegue Builders Bot, poi riprova.\n{detail}",
+    "OpenCode non è riuscito a connettersi al provider del modello. Controlla la connessione di rete del computer che esegue Builders Bot, poi riprova.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders non è riuscito ad aprire il suo database perché una versione più recente di Builders lo ha modificato. Aggiorna Builders alla versione 2 o successiva, poi riprova.",
+    "OpenCode non è riuscito ad aprire il suo database perché una versione più recente di OpenCode lo ha modificato. Aggiorna OpenCode alla versione 2 o successiva, poi riprova.",
   "error.provider.opencodeNoAnswer":
-    "Il modello Builders ha terminato il turno senza risposta. Riprova o scegli un altro modello.",
+    "Il modello OpenCode ha terminato il turno senza risposta. Riprova o scegli un altro modello.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Il modello Builders ha terminato il turno dopo il ragionamento, senza risposta. Riprova o scegli un altro modello.",
+    "Il modello OpenCode ha terminato il turno dopo il ragionamento, senza risposta. Riprova o scegli un altro modello.",
   "error.provider.chatgptPageFailed": "Builders Bot non è riuscito ad aprire la pagina di connessione di ChatGPT.",
   "error.provider.noneReady": "Nessun provider di agenti è pronto.",
   "error.provider.claudeTurnActive": "Attendi il turno attivo di Claude prima di aggiornare il suo contesto.",
@@ -260,7 +261,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "{provider} non ha accettato il ragionamento precedente in questa chat, perché lo ha ricevuto un altro account o un'altra chiave API. Builders Bot ha avviato una nuova sessione di {provider} con la cronologia della chat. Riprova.",
   "error.provider.opencodeSessionRejected":
-    "Builders ha rifiutato la richiesta senza indicarne la causa. Può succedere in una chat lunga o dopo un cambio di modello. Builders Bot ha avviato una nuova sessione Builders con la cronologia della chat. Riprova. Se l’errore continua, scegli un altro modello o un impegno minore.",
+    "OpenCode ha rifiutato la richiesta senza indicarne la causa. Può succedere in una chat lunga o dopo un cambio di modello. Builders Bot ha avviato una nuova sessione OpenCode con la cronologia della chat. Riprova. Se l’errore continua, scegli un altro modello o un impegno minore.",
   "error.provider.museMcpStartupFault":
     "Muse non è riuscito ad avviare un server MCP e ha bloccato MCP in questa sessione. Builders Bot ha avviato una nuova sessione Muse con la cronologia della chat. Riprova. Se l’errore continua, disattiva Controllo del computer o il server MCP non riuscito per questo agente.",
   "error.provider.grokSignIn": "Esegui `grok login` o imposta XAI_API_KEY per usare Grok.",
@@ -268,6 +269,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "L'accesso si è interrotto prima di essere completato.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini non è riuscito ad aprire la pagina di accesso. Installa un browser e xdg-utils, poi connettiti da una sessione desktop su questo host. Un server senza desktop non può completare questo accesso.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini non è riuscito ad aprire la pagina di accesso nel browser. Controlla il browser predefinito, poi connettiti di nuovo.",
   "error.provider.acpSignInFailed": "L'accesso non è stato completato.",
   "error.provider.acpSignInFailedReason": "L'accesso non è stato completato: {reason}",
   "error.provider.acpSignInMethodMissing":

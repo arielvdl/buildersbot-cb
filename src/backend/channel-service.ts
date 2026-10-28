@@ -1916,8 +1916,10 @@ export class ChannelService {
       if (!assignment) continue;
       const task = tasks.get(assignment.taskId);
       const result = existing(`channel-result-${assignment.id}-revision-${assignment.taskRevision}`);
-      if (result?.message.text === message.text) continue;
       const original = existing(message.id);
+      // A repeat of the result adds nothing. But a row that streamed before its text matched still
+      // completes: a row left at streaming stopped every later assignment in the channel (#3673).
+      if (result?.message.text === message.text && original?.message.status !== "streaming") continue;
       // The result is the answer of the turn. Answer text that the running turn writes after it, such
       // as a "Yes.", folds into its steps. Before, it showed as a second reply from the same member.
       // Text from before the result has a row with a lower sequence and stays as it is, and so do the

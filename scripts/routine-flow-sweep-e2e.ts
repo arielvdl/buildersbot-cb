@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { RoutineFlowStore } from "../src/backend/routine-flows/routine-flow-store";
 import { createRoutineFlows } from "../src/backend/routine-flows/routine-flows";
 
@@ -48,7 +48,7 @@ const report: Report = {
   passed: false,
 };
 
-function seed(database: OpenBotDatabase): void {
+function seed(database: BuildersBotDatabase): void {
   const db = database.connection;
   const now = Date.now();
   const at = (ms: number) => new Date(ms).toISOString();
@@ -102,7 +102,7 @@ function seed(database: OpenBotDatabase): void {
  * The query plan of each statement that one sweep prepares. The sweep reads through the store, so the
  * statements come from the connection, not from a copy of their text here.
  */
-async function sweepPlans(database: OpenBotDatabase, sweep: () => Promise<void>): Promise<Record<string, string[]>> {
+async function sweepPlans(database: BuildersBotDatabase, sweep: () => Promise<void>): Promise<Record<string, string[]>> {
   const connection = database.connection;
   const prepare = connection.prepare.bind(connection);
   const statements = new Set<string>();
@@ -128,12 +128,12 @@ async function sweepPlans(database: OpenBotDatabase, sweep: () => Promise<void>)
   );
 }
 
-function count(database: OpenBotDatabase, sql: string): number {
+function count(database: BuildersBotDatabase, sql: string): number {
   return Number(database.connection.prepare(sql).get()?.count);
 }
 
 const root = await mkdtemp(join(tmpdir(), "openbot-routine-flow-sweep-"));
-const database = new OpenBotDatabase(join(root, "profile"));
+const database = new BuildersBotDatabase(join(root, "profile"));
 try {
   await runCauseEffect(database.initialize());
   const indexes = database.connection

@@ -255,6 +255,7 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
             <Loading>
               <FilePreviewPanel
                 allowExternalOpen={!props.runtime}
+                macWindowControls={props.platform === "darwin"}
                 preview={file().preview}
                 directory={file().directory ?? null}
                 agents={props.agents}
@@ -324,6 +325,7 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
             onAsk={askSideQuestion}
             onClosePanel={() => closeSidePanelPane("question")}
             onOpenLink={(url) => void openExternalMessageUrl(url)}
+            macWindowControls={props.platform === "darwin"}
           />
         )}
       </Show>

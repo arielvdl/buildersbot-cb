@@ -3,7 +3,7 @@ import { onSettled, snapshot } from "solid-js";
 import { fn } from "storybook/test";
 import { ServerSettingsModal, type ServerSettingsModalProps } from "../src/features/servers/ServerSettingsModal";
 import { STORY_HOST_STATUS, STORY_INVITES, STORY_PRESENCE, STORY_SERVERS } from "../src/preview/fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 import { SettingsPageStory } from "./settings-page-story";
 
 function storyServer(kind: (typeof STORY_SERVERS)[number]["kind"]) {
@@ -56,7 +56,7 @@ export function ServerSettingsStory(props: {
   const previous = window.openbot;
   // Storybook passes the args as a store, and the mock copies its options with `structuredClone`.
   const hostStatus = props.settings.hostStatus;
-  const mock = createMockOpenBot({
+  const mock = createMockBuildersBot({
     ...(hostStatus ? { hostStatus: snapshot(hostStatus) } : {}),
     ...(props.hostUpdate ? { hostUpdate: props.hostUpdate } : {}),
     ...(props.hostRelease ? { hostRelease: props.hostRelease } : {}),

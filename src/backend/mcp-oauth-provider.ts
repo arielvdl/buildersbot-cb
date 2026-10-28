@@ -211,6 +211,15 @@ export interface McpSignIn {
    */
   registrationFailed: () => boolean;
   /**
+   * The HTTP status of this attempt's last registration answer, or `null`. The SDK keeps the status
+   * only when the body is not an OAuth error, and turns a code it does not know into a
+   * `ServerError`: Dropbox answers 403 `registration_not_supported`, which arrives as a bare
+   * sentence. Only a fetch passed through `watchRegistration` sees the status.
+   */
+  registrationStatus: () => number | null;
+  /** `fetch` for an exchange that can register, keeping the status of the registration answer. */
+  watchRegistration: (fetch: FetchLike) => FetchLike;
+  /**
    * Whether the user cancelled this attempt. A cancel can land during discovery, registration or
    * the token exchange, where the step it stops fails with its own words; the reader says
    * "cancelled" instead, because that is what the user did.
@@ -451,7 +460,7 @@ export class McpOAuth implements McpOAuthAuthority {
           if (cancelled || abandoned || this.#options.storage.read(resource)?.tokens) return false;
           // Discovery and the registration read only public documents; the abort ends them with this step.
           const controller = new AbortController();
-          const fetchFn = this.#fetch(resource, controller.signal);
+          const fetchFn = provider.watchRegistration(this.#fetch(resource, controller.signal));
           return yield* withTimeout(
             Effect.gen(function* () {
               // A server that answers without a sign-in and names no authorization server takes none:
@@ -534,6 +543,8 @@ export class McpOAuth implements McpOAuthAuthority {
       abandon,
       secrets: () => provider.secrets(),
       registrationFailed: () => provider.registrationPending,
+      registrationStatus: () => provider.registrationStatus,
+      watchRegistration: (fetch) => provider.watchRegistration(fetch),
       cancelled: () => cancelled,
     };
   }
@@ -821,6 +832,8 @@ class McpOAuthClientProvider implements OAuthClientProvider {
   #discoveryState: OAuthDiscoveryState | undefined;
   /** Set when the SDK is told to register, and cleared when it saves what it registered. */
   #registrationPending = false;
+  /** The status the authorization server answered the pending registration with. */
+  #registrationStatus: number | null = null;
 
   constructor(options: ClientProviderOptions) {
     this.#options = options;
@@ -924,6 +937,34 @@ class McpOAuthClientProvider implements OAuthClientProvider {
     return this.#registrationPending;
   }
 
+  get registrationStatus(): number | null {
+    return this.#registrationStatus;
+  }
+
+  /**
+   * Matched by address, not by `#registrationPending`: the SDK also registers when it drops a
+   * client bound to another issuer, which this provider never hears about.
+   */
+  watchRegistration(fetch: FetchLike): FetchLike {
+    return async (input, init) => {
+      const response = await fetch(input, init);
+      const registrationUrl = this.#registrationUrl();
+      if (init?.method === "POST" && registrationUrl !== null && new URL(String(input)).href === registrationUrl)
+        this.#registrationStatus = response.status;
+      return response;
+    };
+  }
+
+  /** Where the SDK registers: the advertised endpoint, or `/register` when no metadata was found. */
+  #registrationUrl(): string | null {
+    const discovery = this.#discoveryState;
+    if (!discovery) return null;
+    const endpoint = discovery.authorizationServerMetadata
+      ? discovery.authorizationServerMetadata.registration_endpoint
+      : new URL("/register", discovery.authorizationServerUrl).href;
+    return endpoint && URL.canParse(endpoint) ? new URL(endpoint).href : null;
+  }
+
   /** No client, which makes the SDK register next. */
   #register(): undefined {
     this.#registrationPending = true;
@@ -942,6 +983,7 @@ class McpOAuthClientProvider implements OAuthClientProvider {
     return runCauseEffect(
       Effect.gen({ self: this }, function* () {
         this.#registrationPending = false;
+        this.#registrationStatus = null;
         this.recordSecret(information.client_secret);
         // The SDK binds an unstamped client to its issuer after an exchange. For a sign-in app that
         // binding is all that is written: the app is not a registration.

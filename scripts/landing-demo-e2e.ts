@@ -17,10 +17,10 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { type Browser, chromium, type FrameLocator, type Page } from "playwright-core";
 
-const logger = createOpenBotLogger("landing-demo-e2e");
+const logger = createBuildersBotLogger("landing-demo-e2e");
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = resolve(ROOT, ".openbot-build/landing-demo");

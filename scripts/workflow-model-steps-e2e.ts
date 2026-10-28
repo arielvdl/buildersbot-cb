@@ -19,7 +19,7 @@ import { WarmGenerations } from "../src/backend/agent/warm-generations";
 import type { AgentClient } from "../src/backend/agent-client";
 import type { AgentCliInfo } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { NO_PROVIDER_CREDENTIALS, requireProviderDriver } from "../src/backend/provider-drivers";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/workflow-model-steps-e2e");
@@ -101,7 +101,7 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
 const root = await mkdtemp(join(tmpdir(), "openbot-workflow-model-steps-e2e-"));
 const log = join(root, "agy.jsonl");
 process.env.FAKE_AGY_LOG = log;
-const database = new OpenBotDatabase(join(root, "profile"));
+const database = new BuildersBotDatabase(join(root, "profile"));
 const clients: AgentClient[] = [];
 
 async function readLog(): Promise<LogEntry[]> {

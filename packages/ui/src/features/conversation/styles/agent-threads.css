@@ -451,16 +451,16 @@
   white-space: nowrap;
 }
 
-/* The thread composer has no attach button, so it drops the empty first column, as `.side-question-composer` does. */
-.agent-thread-composer.composer[data-compact] {
+/* A thread composer with no attach button drops the empty first column, as `.side-question-composer` does. */
+.agent-thread-composer.composer[data-compact]:not([data-attach]) {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.agent-thread-composer.composer[data-compact] > .composer-input-label {
+.agent-thread-composer.composer[data-compact]:not([data-attach]) > .composer-input-label {
   grid-column: 1;
 }
 
-.agent-thread-composer.composer[data-compact] .composer-primary-actions {
+.agent-thread-composer.composer[data-compact]:not([data-attach]) .composer-primary-actions {
   grid-column: 2;
 }
 

@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot は Codex の設定に Computer Use を登録できませんでした。Codex の config.toml が有効で書き込み可能であることを確認してから、Builders Bot を再起動してください。Computer Use なしで続行するには、エージェントの設定で Computer Use をオフにできます。",
   "error.provider.codexUnresponsive": "Codex が応答しなくなったため、Builders Bot がそのプロセスを終了しました。",
+  "error.provider.acpUnresponsive": "{provider} が時間内に応答しなかったため、Builders Bot がそのプロセスを終了しました。",
   "error.provider.endpointsReadOnly":
     "保存されたエンドポイントは新しいバージョンの Builders Bot で書き込まれたか、ファイルを読み取れません。変更するには Builders Bot を更新してください。",
   "error.provider.endpointNoSecureStorage":
@@ -42,10 +43,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Claude パッケージがランタイムカタログと一致しません。",
   "error.provider.claudeChecksum": "Claude ランタイムのチェックサムが一致しません。",
   "error.provider.claudeLicenseChecksum": "Claude ライセンスのチェックサムが一致しません。",
-  "error.provider.opencodeArchivePath": "Builders のアーカイブに予期しないパスがあります。",
-  "error.provider.opencodePackageMismatch": "Builders パッケージがランタイムカタログと一致しません。",
-  "error.provider.opencodeChecksum": "Builders ランタイムのチェックサムが一致しません。",
-  "error.provider.opencodeLicenseChecksum": "Builders ライセンスのチェックサムが一致しません。",
+  "error.provider.opencodeArchivePath": "OpenCode のアーカイブに予期しないパスがあります。",
+  "error.provider.opencodePackageMismatch": "OpenCode パッケージがランタイムカタログと一致しません。",
+  "error.provider.opencodeChecksum": "OpenCode ランタイムのチェックサムが一致しません。",
+  "error.provider.opencodeLicenseChecksum": "OpenCode ライセンスのチェックサムが一致しません。",
   "error.provider.grokChecksum": "Grok ランタイムのチェックサムが一致しません。",
   "error.provider.grokLicenseChecksum": "Grok ライセンスのチェックサムが一致しません。",
   "error.provider.grokNoticesChecksum": "Grok 通知ファイルのチェックサムが一致しません。",
@@ -146,13 +147,13 @@ export const messages = {
     "Grok CLI は見つかりましたが、起動できませんでした。新しいターミナルで `grok --version` を実行してください。",
   "error.provider.grokMissing": "Grok はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
   "error.provider.opencodeNotStarted":
-    "Builders を起動できませんでした。ターミナルで `opencode --version` を実行してください。",
+    "OpenCode を起動できませんでした。ターミナルで `opencode --version` を実行してください。",
   "error.provider.opencodeMissing":
-    "Builders はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
+    "OpenCode はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
   "error.provider.codexVersionUnreadable": "Codex CLI のバージョンを読み取れません。",
   "error.provider.claudeVersionUnreadable": "Claude CLI のバージョンを読み取れません。",
   "error.provider.grokVersionUnreadable": "Grok CLI のバージョンを読み取れません。",
-  "error.provider.opencodeVersionUnreadable": "Builders CLI のバージョンを読み取れません。",
+  "error.provider.opencodeVersionUnreadable": "OpenCode CLI のバージョンを読み取れません。",
   "error.provider.bunVersionUnreadable": "Bun ランタイムのバージョンを読み取れません。",
   "error.provider.connectBeforeProfile": "プロフィールを生成する前に、選択したプロバイダーに接続してください。",
   "error.provider.cliNotReady": "{provider} CLI の準備ができていないか、サインインしていません。",
@@ -187,35 +188,35 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot は管理対象 CLI を有効にできませんでした。",
   "error.provider.cliBusyReconnect": "{provider} CLI はターンを処理中です。終わるまで待ってから再接続してください。",
   "error.provider.opencodeCredentialsRejected":
-    "モデルプロバイダーが API キーを拒否しました。設定で Builders のキーを修正するか、`opencode auth login` でプロバイダーのキーを修正してください。その後、もう一度お試しいただくか、別のモデルを選択してください。\n{detail}",
+    "モデルプロバイダーが API キーを拒否しました。設定で OpenCode のキーを修正するか、`opencode auth login` でプロバイダーのキーを修正してください。その後、もう一度お試しいただくか、別のモデルを選択してください。\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders はモデルプロバイダー「{provider}」にサインインしていません。「無料」ラベルのモデルを選択するか、プロバイダーを接続してください。Builders の設定に Builders Go のキーを貼り付けるか、ターミナルで `opencode auth login` を実行します。その後、もう一度お試しください。",
+    "OpenCode はモデルプロバイダー「{provider}」にサインインしていません。「無料」ラベルのモデルを選択するか、プロバイダーを接続してください。OpenCode の設定に OpenCode Go のキーを貼り付けるか、ターミナルで `opencode auth login` を実行します。その後、もう一度お試しください。",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders はこのモデルのプロバイダーにサインインしていません。「無料」ラベルのモデルを選択するか、プロバイダーを接続してください。Builders の設定に Builders Go のキーを貼り付けるか、ターミナルで `opencode auth login` を実行します。その後、もう一度お試しください。",
+    "OpenCode はこのモデルのプロバイダーにサインインしていません。「無料」ラベルのモデルを選択するか、プロバイダーを接続してください。OpenCode の設定に OpenCode Go のキーを貼り付けるか、ターミナルで `opencode auth login` を実行します。その後、もう一度お試しください。",
   "error.provider.opencodeKeyExpired":
-    "Builders の API キーの有効期限が切れました。Builders Console で新しいキーを作成し、Builders の設定に貼り付けてから、もう一度お試しください。",
+    "OpenCode の API キーの有効期限が切れました。OpenCode Console で新しいキーを作成し、OpenCode の設定に貼り付けてから、もう一度お試しください。",
   "error.provider.opencodeServiceFailure":
-    "Builders のローカルサービスが失敗したため、このターンを完了できませんでした。もう一度お試しください。エラーが続く場合は、設定で Builders を再接続してください。",
+    "OpenCode のローカルサービスが失敗したため、このターンを完了できませんでした。もう一度お試しください。エラーが続く場合は、設定で OpenCode を再接続してください。",
   "error.provider.opencodeRateLimited":
     "モデルプロバイダーがレート制限のためリクエストを拒否しました。数分待つか別のモデルを選んでから、もう一度お試しください。\n{detail}",
   "error.provider.opencodeBilling":
     "モデルプロバイダーがアカウントの請求の問題のためリクエストを拒否しました。待っても解決しません。プロバイダーのアカウントに支払い方法または残高を追加するか、別のモデルを選んでください。\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Builders のモデルプロバイダーが無効なアップロードリクエストを報告しました。別のモデルを選択して続行してください。ルーティンをもう一度作成する前に、保存済みのルーティンを確認してください。\n{detail}",
+    "OpenCode のモデルプロバイダーが無効なアップロードリクエストを報告しました。別のモデルを選択して続行してください。ルーティンをもう一度作成する前に、保存済みのルーティンを確認してください。\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "このモデルは、このチャット内のファイルまたは画像を読み取れません。ファイルを読み取れるモデルを選択してから、メッセージをもう一度送信してください。",
   "error.provider.opencodeFreeLimit":
-    "Builders の無料モデルが使用量の上限に達しました。この上限はすべての無料モデルで共有されます。続けるには、Builders の設定に Builders Go のキーを貼り付けるか、別のプロバイダーのモデルを選択してください。",
+    "OpenCode の無料モデルが使用量の上限に達しました。この上限はすべての無料モデルで共有されます。続けるには、OpenCode の設定に OpenCode Go のキーを貼り付けるか、別のプロバイダーのモデルを選択してください。",
   "error.provider.opencodeProviderFailed":
     "モデルプロバイダー側で障害が発生しました。お使いの接続は原因ではありません。後でもう一度試すか、別のモデルを選んでください。\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders がモデルプロバイダーに接続できませんでした。Builders Bot を実行しているコンピューターのネットワーク接続を確認してから、もう一度お試しください。\n{detail}",
+    "OpenCode がモデルプロバイダーに接続できませんでした。Builders Bot を実行しているコンピューターのネットワーク接続を確認してから、もう一度お試しください。\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "新しいバージョンの Builders がデータベースを変更したため、Builders はデータベースを開けませんでした。Builders をバージョン 2 以降に更新してから、もう一度お試しください。",
+    "新しいバージョンの OpenCode がデータベースを変更したため、OpenCode はデータベースを開けませんでした。OpenCode をバージョン 2 以降に更新してから、もう一度お試しください。",
   "error.provider.opencodeNoAnswer":
-    "Builders のモデルが、回答がないままターンを終了しました。もう一度お試しいただくか、別のモデルを選択してください。",
+    "OpenCode のモデルが、回答がないままターンを終了しました。もう一度お試しいただくか、別のモデルを選択してください。",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Builders のモデルが、推論のあと回答がないままターンを終了しました。もう一度お試しいただくか、別のモデルを選択してください。",
+    "OpenCode のモデルが、推論のあと回答がないままターンを終了しました。もう一度お試しいただくか、別のモデルを選択してください。",
   "error.provider.chatgptPageFailed": "Builders Bot は ChatGPT の接続ページを開けませんでした。",
   "error.provider.noneReady": "準備ができているエージェントのプロバイダーがありません。",
   "error.provider.claudeTurnActive": "コンテキストを更新する前に、実行中の Claude のターンが終わるまでお待ちください。",
@@ -263,7 +264,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "別のアカウントまたは API キーが受け取ったため、{provider} はこのチャットの以前の推論を受け付けませんでした。Builders Bot はチャット履歴を引き継いだ新しい {provider} セッションを開始しました。もう一度お試しください。",
   "error.provider.opencodeSessionRejected":
-    "Builders がリクエストを拒否しましたが、原因は示されていません。長いチャットやモデルの変更後に起こることがあります。Builders Bot はチャット履歴を引き継いだ新しい Builders セッションを開始しました。もう一度お試しください。エラーが続く場合は、別のモデルを選ぶか推論レベルを下げてください。",
+    "OpenCode がリクエストを拒否しましたが、原因は示されていません。長いチャットやモデルの変更後に起こることがあります。Builders Bot はチャット履歴を引き継いだ新しい OpenCode セッションを開始しました。もう一度お試しください。エラーが続く場合は、別のモデルを選ぶか推論レベルを下げてください。",
   "error.provider.museMcpStartupFault":
     "Muse が MCP サーバーを起動できず、このセッションで MCP をブロックしました。Builders Bot はチャット履歴を引き継いだ新しい Muse セッションを開始しました。もう一度お試しください。エラーが続く場合は、このエージェントの Computer Use または失敗した MCP サーバーをオフにしてください。",
   "error.provider.grokSignIn": "Grok を使うには `grok login` を実行するか、XAI_API_KEY を設定してください。",
@@ -271,6 +272,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "サインインが完了する前に停止しました。",
   "error.provider.geminiBrowserUnavailable":
     "Gemini はサインインページを開けませんでした。ブラウザーと xdg-utils をインストールしてから、このホストのデスクトップセッションで接続してください。デスクトップのないサーバーではこのサインインを完了できません。",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini はブラウザーでサインインページを開けませんでした。既定のブラウザーを確認してから、もう一度接続してください。",
   "error.provider.acpSignInFailed": "サインインが完了しませんでした。",
   "error.provider.acpSignInFailedReason": "サインインが完了しませんでした: {reason}",
   "error.provider.acpSignInMethodMissing":

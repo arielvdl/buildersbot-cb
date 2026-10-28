@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/mailbox-queue-scale-e2e");
 const AGENT = "agent-a";
@@ -207,7 +207,7 @@ function timeQueueChanges(mailbox: MailboxStore): NonNullable<Report["timing"]> 
 
 const root = await mkdtemp(join(tmpdir(), "openbot-mailbox-queue-scale-"));
 const path = join(root, "profile");
-const database = new OpenBotDatabase(path);
+const database = new BuildersBotDatabase(path);
 try {
   const mailbox = new MailboxStore(path, join(root, "shared"), database);
   await runCauseEffect(mailbox.initialize());

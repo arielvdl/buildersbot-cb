@@ -9,11 +9,11 @@ import assert from "node:assert/strict";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { type AppTextKey, en, TRANSLATED_LOCALES, type TranslatedLocale, translateFor } from "@openbot/i18n";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { type Browser, chromium, type Page } from "playwright-core";
 import { type FitProblem, measureFit } from "./i18n-fit-probe";
 
-const logger = createOpenBotLogger("i18n-fit-e2e");
+const logger = createBuildersBotLogger("i18n-fit-e2e");
 
 /** The Storybook preview API that switches a global, such as the locale, without a reload. */
 interface StorybookPreview {

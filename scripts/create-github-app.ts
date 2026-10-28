@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { createOpenBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
 import { z } from "zod";
 
 /**
@@ -22,7 +22,7 @@ import { z } from "zod";
  * https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest
  */
 
-const logger = createOpenBotLogger("create-github-app");
+const logger = createBuildersBotLogger("create-github-app");
 /** GitHub accepts the code for one hour. The script waits for less. */
 const WAIT_MS = 30 * 60_000;
 const MANIFEST_PATH = resolve(import.meta.dirname, "github-app/manifest.json");

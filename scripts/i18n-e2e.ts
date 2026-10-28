@@ -7,10 +7,10 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isAppLanguage } from "@openbot/contracts/app-language";
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import { en, TRANSLATED_LOCALES, type TranslatedLocale, translateFor } from "@openbot/i18n";
 import { type AppLanguage, appLanguageOption } from "@openbot/i18n/languages";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { userErrorMessage } from "@openbot/user-errors";
 import type { Page } from "playwright-core";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
@@ -20,7 +20,7 @@ import { type FitProblem, measureFit } from "./i18n-fit-probe";
 // The page functions below run in the app window, where the preload bridge sets this.
 declare global {
   interface Window {
-    openbot: OpenBotDesktopApi;
+    openbot: BuildersBotDesktopApi;
   }
 }
 
@@ -41,7 +41,7 @@ assertMutationAllowed({
   instanceNamed: true,
   target: instance.instanceId,
 });
-const logger = createOpenBotLogger("i18n-e2e");
+const logger = createBuildersBotLogger("i18n-e2e");
 const session = await connectToDevApp(instance.remoteDebuggingPort, logger, {
   expectedRendererPort: instance.rendererPort,
   ownerPid: instance.pid,

@@ -87,6 +87,51 @@ Memory refresh behavior remains unchanged. The Codex fake-provider test proves t
 instructions are sent on resume; it does not prove native model adoption. Claude prompt snapshots
 stay off so they cannot freeze changed profile or memory text.
 
+## Background memory review
+
+`agent/memory-review.ts` reviews an agent's memories in the background. Each conversation has its
+own count: the agent's own chat and each side thread. A review starts after 20 completed turns of a
+conversation, after 15 minutes with no turn in a conversation that has 3 or more new turns, when
+the user clears the chat, and when a side thread with new turns closes. Turns of channels,
+messaging threads and routine runs do not count. A turn in which the agent changes its memories
+itself starts the count again. A deleted side thread is not reviewed, and its running review ends.
+The counts and the last reviewed message are in memory only; after a restart, a review reads the
+latest messages.
+
+The number of turns is a setting of the server that runs the agents: Server settings > General >
+Memory review, with 10, 20 (the default) or 40 turns, or Off. An owner or admin of a joined server sets
+it through `memory-review-v1` (see [servers.md](servers.md)). Main owns
+`openbot-memory-review-v1.json` (`MemoryReviewPreferenceStore`) and passes
+`memoryReviewInterval()` to the agent service, which reads it at each use, so a change applies from
+the next turn. Off starts no review of any kind: not after turns, a pause, a clear or a closed side
+thread. The counts continue while it is off, so the first turn after it is on again can start a
+review.
+
+The review is one profile-client generation without tools, on the agent's own provider. It uses
+the provider's default model (`defaultProviderModel`) when that model is listed and its standard
+input price in `usage-pricing.ts` is lower than the price of the agent's model, with that model's
+default reasoning effort. Otherwise, also when a price is not known, it uses the agent's own model
+and reasoning effort. Benchmark v2 measured the review quality on `claude-haiku-5-5`. The review
+does not reuse the main chat's prompt cache: its prompt and tools are not the chat's, so its input
+is billed at the full rate. It reads the agent's profile, its memories, and the conversation since the last review and after
+the latest context reset, with the side-question transcript budget. The prompt holds every
+essential memory and as many searchable memories as fit 12,000 characters: first those that share
+the most words with the reviewed conversation, then the newest. It states how many are not shown,
+so a review stays the same size at any memory limit. Chat and memory text pass through
+the secret redaction before the prompt is made. The model answers `add`, `update` and `forget`
+operations as JSON. `AgentMemories.applyReview` commits them as one turn through the checks of the
+memory tools: the memory limit, the essential budget, duplicates and the user's selections. A
+review does not change a memory that the user wrote or whose inclusion the user chose, a memory
+whose text changed after the review read it, or a memory whose text the redaction changed. A memory
+clear during the review drops all of its changes.
+
+Only one review runs at a time, and only when a profile-client slot stays free for the user. A
+review that cannot start waits, and starts when the running review ends or at the next turn. A
+clear's review that waits for longer reads the new chat, not the chat that the clear ended. A failed generation or an answer that is not JSON is logged
+and shows nothing. A usage limit is skipped silently and does not mark the model. The changes show as a
+memory-changes line with its own `memory-review-` turn id, in the conversation that was reviewed.
+While a turn of that conversation runs, the line waits for the turn to end. Agent deletion and service stop end a running review.
+
 ## Compaction ownership
 
 Codex and Muse complete explicit compaction through turn events. Pi completes it through the request
@@ -942,6 +987,11 @@ The snapshot includes only active personal provider sessions. Reset, session rep
 provider changes remove the old indication. A provider change publishes a runtime snapshot before
 the next turn, so retired counts do not remain on screen. Execution-thread data does not enter
 personal chat.
+
+Optional `threadContextStates` carries the same state for the active provider session of each open
+side thread, keyed by its `threadId`. The side thread's message box shows it. It is local only, as
+`contextStates` is, and `fitRuntimeSnapshot` drops it first. A `handoff` provider cannot replace the
+session of a side thread, so its `autoCompactAt` is null there.
 Codex uses `tokenUsage.last.totalTokens` and its reported `modelContextWindow`. Claude reads the
 SDK `getContextUsage({ detail: "summary" })` result after a turn. This uses the previous response
 and local estimates; it avoids full per-category token-count requests. The read runs outside the
@@ -965,3 +1015,5 @@ summary is not copied into this state.
 when `autoCompactAt` is set, which means that OpenBot compacts the thread (`events`, `request` or
 `handoff`). It refuses while a turn, a queued message or a session start needs the session. It is
 local only: the Team API has no route, and a joined server's agent shows no ring.
+`agent:tasks:compact-context` does the same for one open side thread. It refuses while the thread
+has an active turn or delivery, or while its session compacts or waits after a refused start.

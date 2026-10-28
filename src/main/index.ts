@@ -547,6 +547,7 @@ function registerIpcHandlers({
   busyMessageMode,
   agentDefaults,
   agentMemoryLimit,
+  memoryReview,
   agentAccess,
   teamStore,
   serverTimezone,
@@ -592,6 +593,7 @@ function registerIpcHandlers({
   computerUsePermissionHelp,
   analytics,
   storageUsage,
+  machineAlerts,
   trace,
   resourceMonitor,
   routineFlows,
@@ -733,6 +735,8 @@ function registerIpcHandlers({
       remoteServers,
       serverTimezone,
       agentMemoryLimit,
+      memoryReview,
+      machineAlerts,
       promptCacheTtl,
       agentAccess,
       localServerId: () => teamStore.getIdentity()?.serverId,
@@ -771,6 +775,7 @@ function registerIpcHandlers({
     }),
     ...storageIpcHandlers({
       storage: storageUsage,
+      machine: machineAlerts,
       providerRuntimes,
       mailbox,
       remoteServers,
@@ -1233,6 +1238,7 @@ if (!hasSingleInstanceLock) {
       remoteServers.on("presence", forwardTeamPresence);
       remoteServers.on("directMessage", forwardDirectMessage);
       remoteServers.on("directTyping", forwardDirectTyping);
+      // Machine alerts are hidden for now: the check does not start, and no alert notification shows.
       // The selected server connects while the window loads. Its WebRTC setup takes seconds, and
       // the first screen waits for it. The other servers start after the load, below. The connection
       // needs the signed-in account, so it starts only after the account loads. A failed account

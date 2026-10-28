@@ -425,6 +425,8 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
   readonly #transport: AcpConnection;
   readonly #configuration: AcpConfiguration;
   readonly #requestTimeoutMs: number;
+  /** Whether `#endIfUnresponsive` waits for its probe. */
+  #probing = false;
   readonly #bridge = new LocalMcpBridge();
   readonly #threads = new IdleThreadPool<AcpThread, ReleasedAcpThread>({
     scope: () => this.#scope,
@@ -871,6 +873,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     try {
       return providerResult(yield* Effect.result(this.#requestEffect(method, params, decoder, timeoutMs)));
     } catch (error) {
+      if (error instanceof TimeoutError) yield* Effect.forkIn(this.#endIfUnresponsive(), this.#scope);
       const sessionId = getString(params, "threadId");
       if (
         sessionId &&
@@ -1829,7 +1832,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     turn.task = yield* Effect.forkIn(this.#consumePrompt(thread, turn, blocks), this.#scope, {
       startImmediately: true,
     });
-    if (!this.#flavor.promptOpenForBackgroundTasks) yield* Effect.forkIn(this.#watchStall(thread, turn), this.#scope);
+    yield* Effect.forkIn(this.#watchStall(thread, turn), this.#scope);
     return { turn: { id: turn.id, status: "inProgress" } };
   });
 
@@ -2214,15 +2217,31 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     yield* this.#completeTurn(thread, turn, status, error);
   });
 
-  /** Fails a turn that sends nothing while no tool call runs and no question waits for the user. */
+  /**
+   * Fails a turn that sends nothing while no tool call runs and no question waits for the user.
+   *
+   * A silent prompt of an agent that keeps it open for background tasks can still be working, so its
+   * turn goes on, and `#endIfUnresponsive` checks the process instead.
+   */
   readonly #watchStall = Effect.fn("AcpAgentClient.watchStall")(function* (
     this: AcpAgentClient,
     thread: AcpThread,
     turn: AcpTurn,
   ) {
     const limit = this.options.turnStallMs ?? ACP_TURN_STALL_MS;
+    let answeredAt = 0;
     // A stopped turn ends by its stop, as interrupted, and not as a stall.
     while (thread.activeTurn === turn && !turn.completing && !turn.stopped) {
+      if (this.#flavor.promptOpenForBackgroundTasks) {
+        const silentFor = Date.now() - Math.max(turn.lastActivityAt, answeredAt);
+        if (silentFor < limit) {
+          yield* Effect.sleep(limit - silentFor);
+          continue;
+        }
+        if (yield* this.#endIfUnresponsive()) return;
+        answeredAt = Date.now();
+        continue;
+      }
       const silentFor = Date.now() - turn.lastActivityAt;
       if (silentFor < limit || turn.toolItems.size > 0 || turn.waitingOnUser > 0) {
         yield* Effect.sleep(silentFor < limit ? limit - silentFor : limit);
@@ -2239,6 +2258,41 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
         }),
       );
     }
+  });
+
+  /**
+   * Ends a process that stopped answering, so the runtime starts a new one as it does after an exit.
+   * Without this the hung process stayed the provider's client, and every turn waited on it until the
+   * user restarted the provider (#3520). True when it ended the process.
+   *
+   * One request that timed out is not enough: a request can wait on the network. So one `session/list`
+   * probes the process. That request is local. Only an agent that keeps a prompt open while it serves
+   * other requests is probed: another agent can answer the probe only after its slow request.
+   */
+  readonly #endIfUnresponsive = Effect.fn("AcpAgentClient.endIfUnresponsive")(function* (this: AcpAgentClient) {
+    if (!this.#flavor.promptOpenForBackgroundTasks || this.#probing || !this.running) return false;
+    this.#probing = true;
+    const hung = yield* Effect.gen({ self: this }, function* () {
+      const connection = yield* providerSync(() => this.#requireConnection());
+      yield* providerCall(() => connection.listSessions({ cwd: this.options.discoveryCwd?.() ?? process.cwd() })).pipe(
+        this.#backgroundTimeout("session/list"),
+      );
+    }).pipe(
+      Effect.as(false),
+      Effect.catch((failure) => Effect.succeed(failure.cause instanceof TimeoutError)),
+      Effect.ensuring(
+        Effect.sync(() => {
+          this.#probing = false;
+        }),
+      ),
+    );
+    if (!hung || !this.running) return false;
+    this.emit("diagnostic", `${this.#label} did not answer session/list in time.`);
+    this.emit("exit", new Error(sourceText("error.provider.acpUnresponsive", { provider: this.#label })));
+    // A warm generation client has no runtime that stops it, and it is used again while it runs.
+    // The stop closes the scope of this fiber, so it runs detached.
+    yield* Effect.forkDetach(this.stop().pipe(Effect.ignore), { startImmediately: true });
+    return true;
   });
 
   /** Watches a session whose background task can start a turn that the agent sends no update for. */

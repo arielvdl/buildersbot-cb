@@ -9,10 +9,10 @@
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 import type { EventRoutineOwner, SaveEventRoutineInput } from "@openbot/contracts/ipc-events";
 import { WEBHOOK_TESTS_CAPABILITY } from "@openbot/contracts/team-protocol/webhook-tests-v1";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import type { Page } from "playwright-core";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
 import { type DevInstanceRecord, readDevInstanceRecords } from "./dev-automation/instance-registry";
@@ -20,7 +20,7 @@ import { type DevInstanceRecord, readDevInstanceRecords } from "./dev-automation
 // The page functions below run in the app window, where the preload bridge sets this.
 declare global {
   interface Window {
-    openbot: OpenBotDesktopApi;
+    openbot: BuildersBotDesktopApi;
   }
 }
 
@@ -48,7 +48,7 @@ function worktreeInstance(service: DevInstanceRecord["service"]): DevInstanceRec
   return record;
 }
 
-const logger = createOpenBotLogger("webhook-test-event-e2e");
+const logger = createBuildersBotLogger("webhook-test-event-e2e");
 const checks: Check[] = [];
 const check = (name: string, passed: boolean, detail: unknown = null) => checks.push({ name, passed, detail });
 

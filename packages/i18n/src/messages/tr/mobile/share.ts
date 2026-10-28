@@ -14,4 +14,11 @@ export const messages = {
   "mobile.share.noAgents": "Ajan yok",
   "mobile.share.chooseAgent": "Bir ajan seçin",
   "mobile.share.action": "{name} ile paylaş",
+  "mobile.share.extension.send": "Gönder",
+  "mobile.share.extension.footer": "Builders Bot bunu şimdi ajana gönderir. Uygulama açılmaz.",
+  "mobile.share.extension.sending": "{name} adlı ajana gönderiliyor…",
+  "mobile.share.extension.sent": "{name} adlı ajana gönderildi",
+  "mobile.share.extension.failed": "Builders Bot bunu gönderemedi. Oradan göndermek için uygulamayı aç.",
+  "mobile.share.extension.unconfirmed": "Sunucu mesajı onaylamadı. Yeniden göndermeden önce sohbete bak.",
+  "mobile.share.extension.openApp": "Builders Bot'u aç",
 } as const satisfies PartialTranslation<typeof source>;

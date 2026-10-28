@@ -1472,6 +1472,11 @@ export class MailboxStore {
       .map((delivery) => delivery.id);
   }
 
+  /** The file name of an attachment draft, or null when the draft is gone. */
+  draftName(draftId: string): string | null {
+    return this.#state.drafts.find((draft) => draft.id === draftId)?.name ?? null;
+  }
+
   getDelivery(deliveryId: string): DeliveryContext | null {
     const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
     return delivery ? this.#context(delivery) : null;

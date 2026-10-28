@@ -15,7 +15,7 @@ import type { WorkflowGraph, WorkflowRunDetail } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { WorkflowRunStore } from "../src/backend/workflows/workflow-run-store";
 import { WorkflowStore } from "../src/backend/workflows/workflow-store";
 import { workflowScheduleDueAt } from "../src/backend/workflows/workflow-triggers";
@@ -48,7 +48,7 @@ const graphOf = (agentId: string): WorkflowGraph => ({
 });
 
 const directory = await mkdtemp(join(tmpdir(), "openbot-workflow-agent-step-"));
-let database = new OpenBotDatabase(directory);
+let database = new BuildersBotDatabase(directory);
 let service: WorkflowsHandle | null = null;
 
 async function open() {
@@ -154,7 +154,7 @@ try {
   const writerDelivery = report.handoffs.find((handoff) => handoff.agentId === "agent-writer")?.deliveryId;
   assert.ok(runs.setRunStatus(writer.runId, "stopping", null));
   await close();
-  database = new OpenBotDatabase(directory);
+  database = new BuildersBotDatabase(directory);
   ({ workflows } = await open());
   const cut = await runCauseEffect(workflows.run(writer.runId));
   check(

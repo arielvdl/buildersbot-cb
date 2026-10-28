@@ -6,7 +6,12 @@ import {
 } from "@openbot/contracts/attachment-references";
 import { fileQuoteTarget } from "@openbot/contracts/chat-tag-references";
 import { ATTACHMENT_LIMITS, INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import { type DraftAttachment, LOCAL_SERVER_ID, type QueueDelivery } from "@openbot/contracts/ipc";
+import {
+  type AttachmentDataInput,
+  type DraftAttachment,
+  LOCAL_SERVER_ID,
+  type QueueDelivery,
+} from "@openbot/contracts/ipc";
 import { TEAM_MESSAGE_CLIENT_ID_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { isQueueEditRejected, TEAM_QUEUE_EDIT_CAPABILITY } from "@openbot/contracts/team-protocol/queue-edit-v1";
 import {
@@ -97,6 +102,43 @@ export interface ComposerActionsDeps {
   attachmentPicker: () => HTMLInputElement | undefined;
   /** False in a chat window (#2964): the stored queue edit is one slot, and the main window owns it. */
   persistQueueEdit: boolean;
+}
+
+/**
+ * Reads pasted files and imports them as draft attachments. Throws when the draft, which has
+ * `attached()` files when the files are ready, cannot take them.
+ */
+export async function importPastedFiles(
+  files: ReadonlyArray<File | Promise<File>>,
+  attached: () => number,
+  importData: (data: AttachmentDataInput[]) => Promise<DraftAttachment[]>,
+): Promise<DraftAttachment[]> {
+  const originals = await Promise.all(files);
+  if (originals.length + attached() > INPUT_LIMITS.attachments)
+    throw new Error(t("composer.error.attachmentLimit", { limit: INPUT_LIMITS.attachments }));
+  // Check the sizes before the bytes come into memory, as the path import does.
+  if (originals.some((file) => file.size > ATTACHMENT_LIMITS.fileBytes))
+    throw new Error(t("error.attachment.fileTooLarge"));
+  if (originals.reduce((total, file) => total + file.size, 0) > ATTACHMENT_LIMITS.totalBytes)
+    throw new Error(t("error.attachment.totalTooLarge"));
+  const data = await Promise.all(
+    originals.map(async (file) => ({
+      name: file.name,
+      mimeType: file.type,
+      // A pasted folder has no bytes to read.
+      bytes: new Uint8Array(
+        await file.arrayBuffer().catch(() => {
+          throw new Error(t("error.attachment.unavailable"));
+        }),
+      ),
+    })),
+  );
+  const imported = await importData(data);
+  imported.forEach((attachment, index) => {
+    const file = originals[index];
+    if (file) rememberComposerFile(attachment, file);
+  });
+  return imported;
 }
 
 export function createComposerActions(deps: ComposerActionsDeps) {
@@ -220,32 +262,11 @@ export function createComposerActions(deps: ComposerActionsDeps) {
     deps.setAttachmentBusy(true);
     deps.clearConversationError(target);
     try {
-      const originals = await Promise.all(files);
-      const draft = deps.drafts()[key] ?? EMPTY_DRAFT;
-      if (originals.length + draft.attachments.length > INPUT_LIMITS.attachments)
-        throw new Error(t("composer.error.attachmentLimit", { limit: INPUT_LIMITS.attachments }));
-      // Check the sizes before the bytes come into memory, as the path import does.
-      if (originals.some((file) => file.size > ATTACHMENT_LIMITS.fileBytes))
-        throw new Error(t("error.attachment.fileTooLarge"));
-      if (originals.reduce((total, file) => total + file.size, 0) > ATTACHMENT_LIMITS.totalBytes)
-        throw new Error(t("error.attachment.totalTooLarge"));
-      const data = await Promise.all(
-        originals.map(async (file) => ({
-          name: file.name,
-          mimeType: file.type,
-          // A pasted folder has no bytes to read.
-          bytes: new Uint8Array(
-            await file.arrayBuffer().catch(() => {
-              throw new Error(t("error.attachment.unavailable"));
-            }),
-          ),
-        })),
+      const imported = await importPastedFiles(
+        files,
+        () => (deps.drafts()[key] ?? EMPTY_DRAFT).attachments.length,
+        (data) => runtime.agent.importAttachmentData(data, target.serverId),
       );
-      const imported = await runtime.agent.importAttachmentData(data, target.serverId);
-      imported.forEach((attachment, index) => {
-        const file = originals[index];
-        if (file) rememberComposerFile(attachment, file);
-      });
       const accepted = await addAttachments(imported, target);
       // The draft refused the files and shows why. The text of a copy still comes, with their names.
       if (!accepted.length) return copy?.text ? insert(expandAttachmentReferences(copy.text)) : undefined;

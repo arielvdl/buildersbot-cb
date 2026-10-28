@@ -1,4 +1,4 @@
-import { isKnownAgentProvider } from "@openbot/contracts/agent-providers";
+import { isKnownAgentProvider, providerSteersTurns } from "@openbot/contracts/agent-providers";
 import { supportedAttachmentExtensions } from "@openbot/contracts/attachment-files";
 import {
   type AccountUsageLimit,
@@ -42,7 +42,11 @@ import {
   ComposerUpdateNotice,
   ComposerUsageLimitNotice,
 } from "@openbot/ui/features/conversation/ComposerNotice";
-import { ComposerCompactionNotice, ContextUsageMeter } from "@openbot/ui/features/conversation/ContextUsage";
+import {
+  ComposerCompactionNotice,
+  ContextUsageMeter,
+  contextUsageView,
+} from "@openbot/ui/features/conversation/ContextUsage";
 import { CloseIcon, StopIcon } from "@openbot/ui/features/conversation/ConversationIcons";
 import { type OpenWaitItem, OpenWaits } from "@openbot/ui/features/conversation/OpenWaits";
 import { ReplyQuote } from "@openbot/ui/features/conversation/ReplyQuote";
@@ -197,6 +201,8 @@ export function ConversationComposer() {
     const expired = localizeSourceText(sourceText("error.provider.opencodeKeyExpired"));
     return currentChatError() === expired ? props.onManageProviders : undefined;
   };
+  /** An ACP provider has no steer request, so its queued messages wait for the turn to end (#3689). */
+  const steers = () => !props.agent || providerSteersTurns(props.agent.provider);
   /** Why the running turn has no reply: the computer is offline, or the provider sends nothing. */
   const providerWaitNotice = createMemo(() => {
     const provider = agentProviderName();
@@ -398,7 +404,7 @@ export function ConversationComposer() {
                   onDismiss={dismissAwaitingReplies}
                   onOpenAgent={props.onSelectAgent}
                   // A channel's rows are its sub-tasks, not queued replies.
-                  onSteer={props.activeTurnId && !channel ? props.onSteerQueuedMessage : undefined}
+                  onSteer={props.activeTurnId && !channel && steers() ? props.onSteerQueuedMessage : undefined}
                 />
               </Show>
               <Show when={waitsVisible() && props.onCancelWait}>
@@ -429,7 +435,7 @@ export function ConversationComposer() {
                     skills={installedSkills()}
                     editingDeliveryId={editingDeliveryId()}
                     canSteer={Boolean(props.activeTurnId)}
-                    onSteer={props.onSteerQueuedMessage}
+                    onSteer={steers() ? props.onSteerQueuedMessage : undefined}
                     onRunAsTask={props.threads?.onRunQueuedMessage}
                     onCancel={props.onCancelQueuedMessage}
                     onEdit={editQueuedMessage}
@@ -814,7 +820,7 @@ export function ConversationComposer() {
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
             <div class="composer-primary-actions">
-              <Show when={context()?.usage}>
+              <Show when={contextUsageView(context())}>
                 {(usage) => (
                   <ContextUsageMeter
                     newChat={
@@ -823,20 +829,7 @@ export function ConversationComposer() {
                         : undefined
                     }
                     compact={props.onCompactAgentContext}
-                    usage={{
-                      ...usage(),
-                      compacting: context()?.compaction?.status === "running",
-                      ...(context()?.compaction?.status === "completed" &&
-                      context()?.compaction?.beforeTokens !== undefined &&
-                      context()?.compaction?.afterTokens !== undefined
-                        ? {
-                            lastCompaction: {
-                              beforeTokens: context()?.compaction?.beforeTokens ?? 0,
-                              afterTokens: context()?.compaction?.afterTokens ?? 0,
-                            },
-                          }
-                        : {}),
-                    }}
+                    usage={usage()}
                   />
                 )}
               </Show>

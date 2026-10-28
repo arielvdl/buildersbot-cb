@@ -4,8 +4,10 @@
 // failed starts stop after the limit, that an automatic refresh does not start the provider again
 // and a user refresh does, that low disk space stops a start before the process spawns, that a
 // launch removes what an earlier run left, and that a server that unpacks for longer than the
-// request timeout connects on the retry and after a key change (#2311), and that a key change that
-// ends after the runtime is disposed does not keep its new process or the previous one.
+// request timeout connects on the retry and after a key change (#2311), that a key change that
+// ends after the runtime is disposed does not keep its new process or the previous one, and that a
+// first install that unpacks for longer than the long start timeout stays installed and connects on
+// a retry that waits longer (#3532).
 // `bun scripts/antigravity-start-e2e.ts`. Writes .openbot-build/antigravity-start-e2e/report.json.
 import assert from "node:assert/strict";
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -13,14 +15,14 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { sourceText } from "@openbot/i18n/source";
 import { teeLogLines } from "@openbot/logging";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { ConversationRuntime } from "../src/backend/agent/conversation-runtime";
 import { ProviderRuntime } from "../src/backend/agent/provider-runtime";
 import type { AgentClient, AgentProvider } from "../src/backend/agent-client";
 import { AgentStore } from "../src/backend/agent-store";
 import { type AgentCliInfo, ANTIGRAVITY_MANIFEST } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import {
   BUILT_IN_PROVIDER_DRIVERS,
   NO_PROVIDER_CREDENTIALS,
@@ -32,6 +34,9 @@ const OUT = resolve(import.meta.dirname, "../.openbot-build/antigravity-start-e2
 const WAIT_MS = 15_000;
 /** Longer than the runtime's 5 s request timeout, and far shorter than the long start timeout. */
 const SLOW_UNPACK_MS = 7_000;
+/** The long start timeout of the first-install case, and an unpack between it and twice it. */
+const FIRST_INSTALL_START_TIMEOUT_MS = 4_000;
+const FIRST_INSTALL_UNPACK_MS = 6_000;
 
 // `FAKE_AGY_MODE`: `hang` never answers, `crash` exits at its first request, and `slow` unpacks for
 // `FAKE_AGY_UNPACK_MS` before it reads a request, then answers as an ACP server with one model.
@@ -130,6 +135,11 @@ interface Report {
     newProcessStopped: boolean;
     previousProcessStopped: boolean;
   };
+  firstInstallTimeout?: {
+    activated: boolean;
+    timedOut: { state: string | undefined; message: string | null | undefined };
+    retry: { spawns: number; state: string | undefined };
+  };
 }
 
 const root = await mkdtemp(join(tmpdir(), "openbot-antigravity-start-e2e-"));
@@ -169,8 +179,9 @@ function runtime(
   tempRoot: string,
   freeBytes: () => number,
   isStopping: () => boolean = () => false,
+  firstInstall = false,
 ): { providers: ProviderRuntime; store: AgentStore } {
-  const store = new AgentStore(join(root, "profile"), join(root, "home"), new OpenBotDatabase(join(root, "profile")));
+  const store = new AgentStore(join(root, "profile"), join(root, "home"), new BuildersBotDatabase(join(root, "profile")));
   const providers = new ProviderRuntime({
     offProviders: BUILT_IN_PROVIDER_DRIVERS.map((driver) => driver.id).filter((id) => id !== "antigravity"),
     conversation: new ConversationRuntime(
@@ -196,9 +207,11 @@ function runtime(
     emit: () => undefined,
     emitError: () => undefined,
     requestTimeoutMs: 5_000,
+    ...(firstInstall ? { longStartTimeoutMs: FIRST_INSTALL_START_TIMEOUT_MS } : {}),
     preferredProvider: "antigravity",
     clientFactory: null,
-    bundledExecutables: { antigravity: executable },
+    // As main does, a first install names the path before the file is there.
+    bundledExecutables: { antigravity: firstInstall ? firstInstallExecutable : executable },
     credentials: { ...NO_PROVIDER_CREDENTIALS, providerTempDirectory: tempRoot, availableDiskBytes: freeBytes },
     redactMcp: (text) => text,
   });
@@ -214,12 +227,20 @@ function antigravityRow(providers: ProviderRuntime) {
   return providers.status().providers?.find((row) => row.id === ("antigravity" satisfies AgentProvider));
 }
 
+/** Writes the fake server as a managed install of version 1.2.1 under `installRoot`. */
+async function installFakeAgy(installRoot: string): Promise<string> {
+  const path = join(installRoot, "1.2.1", "bin", "agy_acp_server");
+  await mkdir(join(installRoot, "1.2.1", "bin"), { recursive: true });
+  await writeFile(join(installRoot, "1.2.1", ANTIGRAVITY_MANIFEST), JSON.stringify({ version: "1.2.1" }));
+  await writeFile(path, FAKE_AGY);
+  await chmod(path, 0o755);
+  return path;
+}
+
 const executable = join(root, "agy", "1.2.1", "bin", "agy_acp_server");
+const firstInstallExecutable = join(root, "agy-first-install", "1.2.1", "bin", "agy_acp_server");
 try {
-  await mkdir(join(root, "agy", "1.2.1", "bin"), { recursive: true });
-  await writeFile(join(root, "agy", "1.2.1", ANTIGRAVITY_MANIFEST), JSON.stringify({ version: "1.2.1" }));
-  await writeFile(executable, FAKE_AGY);
-  await chmod(executable, 0o755);
+  await installFakeAgy(join(root, "agy"));
   const cli: AgentCliInfo = { executable, version: "1.2.1", source: "managed" };
 
   // 1. A process that is stopped while it unpacks: its folder is in OpenBot's root and is removed.
@@ -437,6 +458,43 @@ try {
   report.disposeDuringCatalogRefresh.newProcessStopped = true;
   await waitFor("the previous process to stop", async () => !running(previousStart.pid));
   report.disposeDuringCatalogRefresh.previousProcessStopped = true;
+
+  // 10. A first install whose server unpacks for longer than the long start timeout, as the Intel
+  // macOS build can (#3532). The install stays, and the retry waits twice as long and connects.
+  process.env.FAKE_AGY_UNPACK_MS = String(FIRST_INSTALL_UNPACK_MS);
+  await rm(log, { force: true });
+  const firstInstall = runtime(
+    join(root, "temp-first-install"),
+    () => Number.MAX_SAFE_INTEGER,
+    () => false,
+    true,
+  ).providers;
+  const activation = await runCauseEffect(
+    firstInstall
+      .updateProviderCli(
+        "antigravity",
+        () => Effect.promise(() => installFakeAgy(join(root, "agy-first-install"))),
+        new AbortController().signal,
+        () => undefined,
+      )
+      .pipe(Effect.result),
+  );
+  const activationRow = antigravityRow(firstInstall);
+  report.firstInstallTimeout = {
+    activated: Result.isSuccess(activation),
+    timedOut: { state: activationRow?.state, message: activationRow?.message },
+    retry: { spawns: 0, state: undefined },
+  };
+  assert.ok(report.firstInstallTimeout.activated, "a start that timed out keeps the first install");
+  assert.equal(activationRow?.message, sourceText("error.provider.cliTimedOut", { provider: "Gemini" }));
+  await waitFor(
+    "the retry to connect the first install",
+    async () => antigravityRow(firstInstall)?.state === "available",
+    5_000 + FIRST_INSTALL_UNPACK_MS + WAIT_MS,
+  );
+  report.firstInstallTimeout.retry = { spawns: (await starts()).length, state: antigravityRow(firstInstall)?.state };
+  await stopAll(firstInstall);
+  assert.equal(report.firstInstallTimeout.retry.spawns, 2, "one start that timed out, then one retry that connected");
 
   report.passed = true;
 } finally {

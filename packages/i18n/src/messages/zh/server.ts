@@ -303,6 +303,11 @@ export const messages = {
   "server.settings.memoryLimit": "每个助手的记忆数",
   "server.settings.memoryLimitDescription": "该服务器上每个助手最多可保留多少条记忆。",
   "server.settings.memoryLimitLoadFailed": "无法加载该服务器的记忆上限。",
+  "server.settings.memoryReview": "记忆整理",
+  "server.settings.memoryReviewDescription": "该服务器上的助手在后台从聊天中保存长期事实的频率。",
+  "server.settings.memoryReviewOff": "关闭",
+  "server.settings.memoryReviewTurns": { other: "每 {count} 轮" },
+  "server.settings.memoryReviewLoadFailed": "无法加载记忆整理设置。",
   "server.settings.rolesTitle": "角色",
   "server.settings.rolesDescription":
     "选择成员可以使用的助手。成员拥有“所有人”和自己所属角色中最高的访问权限。所有者和管理员可以使用所有助手。",

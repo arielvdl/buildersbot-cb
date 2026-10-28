@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import type { RoutineSchedule } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { AgentRoutineStore } from "../src/backend/agent-routine-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 interface ScheduleCase {
   name: string;
@@ -164,7 +164,7 @@ const cases: ScheduleCase[] = [
 
 const artifactDirectory = resolve(dirname(import.meta.filename), "../.openbot-build");
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "openbot-routine-dst-order-"));
-const database = new OpenBotDatabase(temporaryDirectory);
+const database = new BuildersBotDatabase(temporaryDirectory);
 const results: {
   name: string;
   timezone: string;

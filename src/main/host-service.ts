@@ -5,6 +5,7 @@ import type { HostKeyHandover } from "@openbot/contracts/host-key-handover";
 import { createInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import type {
   AgentEvent,
+  AgentTaskReadState,
   AvatarImageInput,
   CentralAuthUser,
   ChannelSummary,
@@ -21,6 +22,7 @@ import type {
   DirectTypingRealtimeEvent,
   HostStatus,
   InviteSummary,
+  MarkAgentTaskReadInput,
   MarkConversationReadInput,
   MarkDirectReadInput,
   RemoteDesktopDisplay,
@@ -96,6 +98,7 @@ interface HostServiceOptions {
   providerUsageResets?: ForwardedApiOptions["providerUsageResets"];
   mcpToolRuntimePreparation?: ForwardedApiOptions["mcpToolRuntimePreparation"];
   storage?: ForwardedApiOptions["storage"];
+  machine?: ForwardedApiOptions["machine"];
   hostedSites?: ForwardedApiOptions["hostedSites"];
   events?: ForwardedApiOptions["events"];
   agentImport?: ForwardedApiOptions["agentImport"];
@@ -110,7 +113,7 @@ interface HostServiceOptions {
   focusUse?: ForwardedApiOptions["focusUse"];
   appVersion: string;
   store: TeamStore;
-  agents: ForwardedApiOptions["agents"] & Pick<AgentService, "adoptConversationReads">;
+  agents: ForwardedApiOptions["agents"] & Pick<AgentService, "adoptConversationReads" | "markTaskRead">;
   agentsReady: NonNullable<ForwardedApiOptions["agentsReady"]>;
   skills: NonNullable<ForwardedApiOptions["skills"]>;
   sidebarLayout: NonNullable<ForwardedApiOptions["sidebarLayout"]>;
@@ -393,6 +396,7 @@ export class HostService extends EventEmitter<HostEvents> {
         ? {}
         : { mcpToolRuntimePreparation: options.mcpToolRuntimePreparation }),
       ...(options.storage === undefined ? {} : { storage: options.storage }),
+      ...(options.machine === undefined ? {} : { machine: options.machine }),
       ...(options.hostedSites === undefined ? {} : { hostedSites: options.hostedSites }),
       ...(options.events === undefined ? {} : { events: options.events }),
       ...(options.agentImport === undefined ? {} : { agentImport: options.agentImport }),
@@ -468,6 +472,17 @@ export class HostService extends EventEmitter<HostEvents> {
               yield* this.#browserView.revokeTeamSession(sessionId);
               this.#options.browser.releaseUserControlHeldBy({ kind: "session", sessionId });
             }),
+          // iOS suspends the phone app before Signal reports the lost connection, about 150 s later.
+          // The failed path tells it after about 30 s, so the host updates the phone sooner.
+          pathChanged: (sessionId, lost) => {
+            if (lost) {
+              this.#liveActivityPush?.disconnected(sessionId);
+              this.#pushNotifications?.disconnected(sessionId);
+            } else {
+              this.#liveActivityPush?.reconnected(sessionId);
+              this.#pushNotifications?.reconnected(sessionId);
+            }
+          },
           ...(options.verifyRemoteSessionTicket ? { verifyClientTicket: options.verifyRemoteSessionTicket } : {}),
           ...(options.privateNetwork ? { privateNetwork: options.privateNetwork } : {}),
         })
@@ -1120,6 +1135,11 @@ export class HostService extends EventEmitter<HostEvents> {
         this.#options.agents.markConversationRead(input.agentId, readerId, input.throughMessageId),
       ),
     );
+  }
+
+  /** Moves this computer's reader's mark of a side thread, the mark that the member's other devices read. */
+  markAgentTaskRead(input: MarkAgentTaskReadInput): AgentTaskReadState {
+    return this.#options.agents.markTaskRead(input, this.#currentAgentReaderId());
   }
 
   listDirectThreads(): DirectThreadSummary[] {

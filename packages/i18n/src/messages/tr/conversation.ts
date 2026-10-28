@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "Bu mesaj dizisinin mesajları yüklenemedi.",
   "conversation.threads.error.start": "Mesaj dizisi başlatılamadı.",
   "conversation.threads.error.send": "Mesaj, mesaj dizisine gönderilemedi.",
+  "conversation.threads.error.files": "Dosyalar yalnızca bu bilgisayardaki ajanların mesaj dizilerine gönderilebilir.",
   "conversation.threads.error.stop": "Mesaj dizisi durdurulamadı.",
   "conversation.threads.error.archive": "Mesaj dizisi arşivlenemedi.",
   "conversation.threads.error.restore": "Mesaj dizisi geri yüklenemedi.",

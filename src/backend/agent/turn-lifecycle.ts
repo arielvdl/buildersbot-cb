@@ -1,16 +1,11 @@
-import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   type AgentEvent,
   type AgentSummary,
   agentProviderDescriptor,
   type BrowserControlState,
   type BrowserTab,
-  CONVERSATION_MEMORY_CHANGE_LIMIT,
-  CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
   CONVERSATION_PLAN_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
-  type ConversationMemoryChange,
-  type ConversationMemoryChangeAction,
   type ConversationMessage,
   type ConversationPlan,
   type ConversationSnapshot,
@@ -19,12 +14,10 @@ import {
   clampConversationSubagents,
   conversationPlanText,
   conversationSubagentsText,
-  countConversationMemoryChanges,
   isAgentContextCategories,
   latestTurnAnswer,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values";
-import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { type CauseCode, classifyFailure } from "@openbot/telemetry";
 import { Cause, Deferred, Effect, Exit, Schema, Scope } from "effect";
@@ -47,6 +40,7 @@ import {
   type ThreadItem,
 } from "../protocol";
 import type { AgentMemories } from "./agent-memories";
+import { answerFilePaths } from "./answer-file-paths";
 import type { AttentionBrowserHost, AttentionRegistry } from "./attention-registry";
 import type { BrowserUploadTarget } from "./browser-uploads";
 import { type ContextCompaction, compactsOnRequest } from "./context-compaction";
@@ -57,6 +51,7 @@ import { readCapturedSteps } from "./handoff-tool-steps";
 import type { ImageGenRuntime } from "./image-gen-runtime";
 import { markIncompleteImageGeneration } from "./image-generation";
 import type { MailboxSync } from "./mailbox-sync";
+import { memoryChangesMessage } from "./memory-changes-message";
 import { PLAN_UPDATED_METHOD, planFromNotification } from "./plan-updates";
 import { isBalanceDiagnostic, isPlanLimitDiagnostic, isUsageLimitDiagnostic } from "./provider-diagnostics";
 import type { ProviderRuntime } from "./provider-runtime";
@@ -173,10 +168,28 @@ export interface TurnHooks {
    * Null after a restart or for any other delivery.
    */
   takeRoutinePreview(deliveryId: string): { previous: string; shown: string } | null;
+  /**
+   * A turn of the agent's own chat (`sideThreadId` null) or of its side thread ended. `counts` is true
+   * for a completed turn that a person started, and `memoryCommitted` when the agent changed its
+   * memories in it.
+   */
+  conversationTurnEnded(
+    agentId: string,
+    sideThreadId: string | null,
+    counts: boolean,
+    memoryCommitted: boolean,
+  ): Effect.Effect<void>;
   /** Ends the provider session of a routine run. Nothing for any other session, or a second time. */
   closeRoutineSession(externalThreadId: string): Effect.Effect<void>;
   /** Gives the answer of a routine run in its own session to the session of the agent's chat. */
   routineAnswered(agentId: string, deliveryId: string, answer: string): Effect.Effect<void>;
+  /** Attaches the files that a finished answer names by path to it. It never fails the turn. */
+  attachAnswerFiles(
+    agentId: string,
+    snapshot: ConversationSnapshot,
+    answer: ConversationSnapshot["messages"][number],
+    paths: string[],
+  ): Effect.Effect<void>;
 }
 
 export interface TurnLifecycleOptions {
@@ -1095,8 +1108,13 @@ export class TurnLifecycle {
           this.#hooks.emit({ type: "agents-changed", agents: this.#hooks.listAgents() });
         }
       }
+      if (outcome === "completed" && latestAssistant && !quiet && !markerAnswer) {
+        const paths = answerFilePaths(latestAssistant.text);
+        if (paths.length > 0) yield* this.#hooks.attachAnswerFiles(agentId, snapshot, latestAssistant, paths);
+      }
       if (trace) this.#attachTrace(snapshot.messages, agentId, turnId, trace);
-      addMemoryChangesMessage(snapshot, turnId, memoryChanges, (text) => this.#hooks.redactMcp(text));
+      const memoryLine = memoryChangesMessage(turnId, memoryChanges, (text) => this.#hooks.redactMcp(text));
+      if (memoryLine) snapshot.messages.push(memoryLine);
       this.#conversation.emitConversation(snapshot, "turn.completed", { turnId, status: outcome });
       if (deliveries.length > 0) {
         try {
@@ -1115,6 +1133,13 @@ export class TurnLifecycle {
         origin: deliveries[0]?.delivery.sender.kind ?? "unknown",
         ...(quiet ? { quiet: true as const } : {}),
       });
+      if (!channelTurn && !routineSession) {
+        const counts =
+          outcome === "completed" && !quiet && deliveries.every(({ delivery }) => delivery.sender.kind !== "routine");
+        const memoryCommitted = memoryChanges.some((change) => change.action !== "notChanged");
+        const sideThreadId = taskTurn ? snapshot.threadId : null;
+        yield* this.#hooks.conversationTurnEnded(agentId, sideThreadId, counts, memoryCommitted);
+      }
       if (shouldCompact) yield* this.#compaction.request(agentId, threadId);
       else this.#hooks.scheduleDrain(agentId);
     },
@@ -1583,47 +1608,6 @@ function isRepeatedWork(item: { type?: unknown; phase?: unknown; text?: unknown 
   if (item.type === "userMessage" || item.type === "reasoning" || item.type === "contextCompaction") return false;
   if (item.type !== "agentMessage") return true;
   return item.phase !== "commentary" && isString(item.text) && item.text.trim() !== "";
-}
-
-/**
- * Puts the memory changes that the turn committed on one system message of the turn, after its
- * answer. The text counts them for a client that does not read `memoryChanges`, such as a Team API
- * client. `redact` is the redaction that the memory tools use when the agent reads them back,
- * which also removes the secrets of the MCP servers.
- */
-function addMemoryChangesMessage(
-  snapshot: ConversationSnapshot,
-  turnId: string,
-  changes: readonly ConversationMemoryChange[],
-  redact: (text: string) => string,
-): void {
-  if (changes.length === 0) return;
-  const memoryChanges = changes.slice(0, CONVERSATION_MEMORY_CHANGE_LIMIT).map((change) => ({
-    ...change,
-    text: redact(change.text).slice(0, INPUT_LIMITS.agentMemoryText),
-    ...(change.previousText === undefined
-      ? {}
-      : { previousText: redact(change.previousText).slice(0, INPUT_LIMITS.agentMemoryText) }),
-  }));
-  snapshot.messages.push({
-    id: `${turnId}:memory-changes`,
-    turnId,
-    author: "system",
-    source: "system",
-    status: "completed",
-    createdAt: new Date().toISOString(),
-    itemType: CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
-    text: memoryChangesText(countConversationMemoryChanges(memoryChanges)),
-    memoryChanges,
-  });
-}
-
-/** The count of the changes. The older text stays for a turn whose changes all committed. */
-function memoryChangesText(counts: Record<ConversationMemoryChangeAction, number>): string {
-  const { notChanged, ...committed } = counts;
-  return notChanged > 0
-    ? sourceText("status.agent.memoryChangesWithConflicts", counts)
-    : sourceText("status.agent.memoryChanges", committed);
 }
 
 /** Which subagents a list holds and the state of each, without their steps. */

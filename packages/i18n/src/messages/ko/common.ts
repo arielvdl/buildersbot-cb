@@ -19,6 +19,7 @@ export const messages = {
   "common.create": "만들기",
   "common.open": "열기",
   "common.search": "검색",
+  "common.noMatches": "일치하는 항목 없음",
   "common.loading": "불러오는 중…",
   "common.saving": "저장 중…",
   "common.tryAgain": "다시 시도",

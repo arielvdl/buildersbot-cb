@@ -461,6 +461,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:mcp-sign-in-client-refused
 
+      - name: Run the unreadable MCP server row E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:mcp-server-unreadable-row
+
       - name: Run the agent bulk settings E2E test
         if: ${{ !cancelled() }}
         run: bun run test:agent-update-agents
@@ -542,6 +546,7 @@ jobs:
             .openbot-build/zip-attachment-e2e/
             .openbot-build/mp4-attachment-e2e/
             .openbot-build/agent-mcp-tools-e2e/
+            .openbot-build/mcp-server-unreadable-row-e2e/
             .openbot-build/agent-update-agents-e2e/
             .openbot-build/antigravity-usage-e2e/
             .openbot-build/antigravity-accounts-e2e/
@@ -745,6 +750,34 @@ jobs:
       - name: Validate the remote Compose files
         run: bun run remote:check:compose
 
+  mobile-share-sender-e2e:
+    # Builds the page that the iOS share extension runs and drives it in the runner's Chrome, as the
+    # extension's web view does. It needs no host, display or external service.
+    name: Share extension page E2E
+    needs: detect
+    if: needs.detect.outputs.surfaces == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Bun
+        uses: ./.github/actions/setup-bun
+        with:
+          install: ignore-scripts
+
+      - name: Run the share extension page E2E test
+        run: bun run test:mobile-share-sender
+
+      - name: Upload the share extension page E2E report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mobile-share-sender-e2e
+          path: .openbot-build/mobile-share-sender-e2e/report.json
+          if-no-files-found: ignore
+
   api:
     # `check:api` ends with `api:build:check`, the preview build of the Worker. For a pull request
     # from this repository, this job uploads that build. It has no write token, and its only secret
@@ -827,7 +860,7 @@ jobs:
     # fails this one.
     name: All required checks pass
     if: always()
-    needs: [detect, check, browser, tests-desktop, signal-e2e, automation-cli-e2e, team-api-routes-e2e, reverse-actions-e2e, provider-fakes-e2e, surfaces, api, storybook]
+    needs: [detect, check, browser, tests-desktop, signal-e2e, automation-cli-e2e, team-api-routes-e2e, reverse-actions-e2e, provider-fakes-e2e, surfaces, mobile-share-sender-e2e, api, storybook]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -853,7 +886,7 @@ jobs:
     # `apps/auth-api`, which `api` already covers: mobile, the site router, the
     # team client and the remote stack all consume the account API, so a red
     # Surfaces is the signal that this deploy is the thing about to break them.
-    needs: [check, browser, tests-desktop, signal-e2e, automation-cli-e2e, team-api-routes-e2e, reverse-actions-e2e, provider-fakes-e2e, api, storybook, surfaces]
+    needs: [check, browser, tests-desktop, signal-e2e, automation-cli-e2e, team-api-routes-e2e, reverse-actions-e2e, provider-fakes-e2e, api, storybook, surfaces, mobile-share-sender-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: cloudflare-production

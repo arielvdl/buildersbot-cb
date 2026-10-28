@@ -21,8 +21,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import type { OpenBotDesktopApi, StoredFileRow } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import type { BuildersBotDesktopApi, StoredFileRow } from "@openbot/contracts/ipc";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { ANALYTICS_GENERATIONS } from "@openbot/telemetry";
 import type { Page } from "playwright-core";
 import { z } from "zod";
@@ -31,7 +31,7 @@ import { type DevInstanceRecord, readDevInstanceRecords } from "./dev-automation
 
 declare global {
   interface Window {
-    openbot: OpenBotDesktopApi;
+    openbot: BuildersBotDesktopApi;
     voicePaneE2E?: { arm: (streams?: number) => void; calls: () => number; liveTracks: () => number };
   }
 }
@@ -65,7 +65,7 @@ for (const record of [hostRecord, clientRecord])
     target: record.instanceId,
   });
 
-const logger = createOpenBotLogger("voice-pane-e2e");
+const logger = createBuildersBotLogger("voice-pane-e2e");
 const connect = (record: DevInstanceRecord) =>
   connectToDevApp(record.remoteDebuggingPort, logger, {
     expectedRendererPort: record.rendererPort,

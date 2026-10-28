@@ -4,7 +4,7 @@
 // crashes the page renderer through the DevTools protocol. A "quit" line or the end of stdin quits.
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { app, BrowserWindow, crashReporter } from "electron";
 import { startMainLog } from "../src/main/provider-log";
@@ -26,7 +26,7 @@ app.setPath("userData", userDataPath);
 const logs = join(userDataPath, "logs");
 startMainLog(logs);
 crashReporter.start({ uploadToServer: false });
-const logger = createOpenBotLogger("main");
+const logger = createBuildersBotLogger("main");
 
 // No top-level await: Electron does not get ready until an ESM main module has run to its end.
 void app.whenReady().then(async () => {

@@ -39,7 +39,7 @@ import {
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { HttpError } from "../src/main/team-api/http-error";
 import type { TeamApiRequestContext } from "../src/main/team-api/request-context";
 import { requestCapabilities, requestProtocol } from "../src/main/team-api/request-helpers";
@@ -443,7 +443,7 @@ async function checkMixed(origin: string, mailbox: MailboxStore): Promise<void> 
 
 const root = await mkdtemp(join(tmpdir(), "openbot-queue-window-"));
 const path = join(root, "profile");
-const database = new OpenBotDatabase(path);
+const database = new BuildersBotDatabase(path);
 let host: { origin: string; close(): void } | null = null;
 try {
   const mailbox = new MailboxStore(path, join(root, "shared"), database);

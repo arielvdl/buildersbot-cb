@@ -67,6 +67,8 @@ import {
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
   DEFAULT_EXTERNAL_LINK_PREFERENCE,
+  DEFAULT_MACHINE_ALERT_SETTINGS,
+  DEFAULT_MEMORY_REVIEW_INTERVAL,
   DEFAULT_PROMPT_CACHE_TTL,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   DEFAULT_PROVIDER_DETECTION_SETTINGS,
@@ -79,6 +81,7 @@ import {
   type DirectTypingRealtimeEvent,
   type DynamicIslandPreference,
   type DynamicIslandPresentation,
+  decodeMachineAlertSettings,
   defaultProviderModel,
   type ExternalLinkBrowsers,
   type ExternalLinkPreference,
@@ -86,11 +89,15 @@ import {
   type HostedSiteSummary,
   type HostStatus,
   hostAgentMemoryLimit,
+  hostMemoryReview,
   isAgentMemoryLimit,
   isAgentSummary,
+  isMemoryReviewInterval,
   isPromptCacheTtl,
   isReleasedRoutineSchedule,
+  type MachineAlertSettings,
   type MacPermissionId,
+  type MemoryReviewPreference,
   nextBrowserProfileHue,
   normalizeMcpConfig,
   type OpenAttachmentInput,
@@ -404,6 +411,9 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
   let agentMemoryLimit: AgentMemoryLimitPreference = { limit: DEFAULT_AGENT_MEMORY_LIMIT };
+  let memoryReview: MemoryReviewPreference = { interval: DEFAULT_MEMORY_REVIEW_INTERVAL };
+  // The disk level is below the preview disk use (82%), so Storage shows a passed level.
+  let machineAlerts: MachineAlertSettings = { ...DEFAULT_MACHINE_ALERT_SETTINGS, diskPercent: 80 };
   let promptCacheTtl: PromptCacheTtlSetting = { ...DEFAULT_PROMPT_CACHE_TTL };
   let agentAccess: AgentAccessChange = { revision: 0, everyone: {}, roles: [] };
   const agentMemoryLimitListeners = new Set<(preference: AgentMemoryLimitPreference) => void>();
@@ -2588,6 +2598,15 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         taskConversations.delete(input.taskId);
         emitTasks(input.agentId);
       },
+      markTaskRead: async (input) => {
+        findTask(input.agentId, input.taskId);
+        return {
+          taskId: input.taskId,
+          unreadCount: 0,
+          firstUnreadMessageId: null,
+          throughMessageId: input.throughMessageId,
+        };
+      },
       acknowledgeFailedTurn: async () => undefined,
       cancelQueuedMessage: async (input) => {
         const queue = queues.get(input.agentId) ?? emptyQueue(input.agentId);
@@ -2686,6 +2705,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         });
       },
       compactContext: async () => undefined,
+      compactTaskContext: async () => undefined,
       respondToPrompt: async (input: RespondToPromptInput) => {
         emit(promptResponseListeners, input);
       },
@@ -2803,6 +2823,18 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         agentMemoryLimit = { limit };
         for (const listener of agentMemoryLimitListeners) listener(clone(agentMemoryLimit));
         return hostAgentMemoryLimit(agentMemoryLimit);
+      },
+      getMemoryReview: async () => hostMemoryReview(memoryReview),
+      setMemoryReview: async (interval) => {
+        if (!isMemoryReviewInterval(interval)) throw new Error("Memory review interval is required.");
+        memoryReview = { interval };
+        return hostMemoryReview(memoryReview);
+      },
+      // Preview has one host, so every server shares one set of machine alerts.
+      getMachineAlerts: async () => clone(machineAlerts),
+      setMachineAlerts: async (settings) => {
+        machineAlerts = decodeMachineAlertSettings(settings);
+        return clone(machineAlerts);
       },
       // Preview has one host, so every server shares one cache time.
       getPromptCacheTtl: async () => clone(promptCacheTtl),

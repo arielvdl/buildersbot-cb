@@ -15,7 +15,7 @@ import { join, resolve } from "node:path";
 import { type WorkflowGraph, type WorkflowStep, workflowLoopEdges } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { WorkflowRunStore } from "../src/backend/workflows/workflow-run-store";
 import { WorkflowStore } from "../src/backend/workflows/workflow-store";
 import { workflowScheduleDueAt } from "../src/backend/workflows/workflow-triggers";
@@ -54,7 +54,7 @@ const GRAPH: WorkflowGraph = {
 };
 
 const directory = await mkdtemp(join(tmpdir(), "openbot-workflow-loop-"));
-const database = new OpenBotDatabase(directory);
+const database = new BuildersBotDatabase(directory);
 let service: WorkflowsHandle | null = null;
 
 async function open() {

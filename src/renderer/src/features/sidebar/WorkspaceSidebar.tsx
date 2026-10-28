@@ -1,8 +1,9 @@
-import type { ChatWindowTarget } from "@openbot/contracts/ipc";
+import { type ChatWindowTarget, canAdministerServer } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
+import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineCard";
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates, sidebarChannelWaits } from "@openbot/ui/features/sidebar/sidebar-agent-states";
@@ -34,6 +35,7 @@ import { useSettings } from "../settings/settings-context";
 import { usePresence } from "../team/team-context";
 import { SidebarUpdateIsland } from "../updates/SidebarUpdateIsland";
 import { createCommunityCardVisibility } from "./community-card";
+import { createMachineCard } from "./machine-card";
 import { useSidebar } from "./sidebar-context";
 import { createStorageCard } from "./storage-card";
 
@@ -91,7 +93,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     activeServerSupportsCapability(AGENT_HIDDEN_CAPABILITY) && serverRoleCanAdminister(activeServer());
   const { activeTurns, queues, failedTurns, usageLimits, pendingPrompts, pendingApprovals, approvals } = useTurns();
   const { unreadReplies, recentReplies, markAllAgentMessagesRead } = useConversation();
-  const { directPeople } = usePresence();
+  const { directPeople, teamPresence } = usePresence();
   const { activeDirectMember, activeDirectMemberId, directThreads } = useDirectMessages();
   const { selectAgent, selectDirectMember, setGlobalSearchVisibility, chatHistory } = useNavigation();
   const agentTasks = useAgentTasks();
@@ -133,10 +135,41 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   );
   const communityCard = createCommunityCardVisibility();
   const storageCard = createStorageCard(activeServer);
-  // A clear in Server settings frees space, so the card reads the disk again when settings close.
+  const machineCard = createMachineCard(activeServer);
+  // A clear in Server settings frees space and can change an alert level, so both cards read
+  // again when settings close.
   createEffect(serverSettingsOpen, (open, wasOpen) => {
-    if (!open && wasOpen) storageCard.refresh();
+    if (!open && wasOpen) {
+      storageCard.refresh();
+      machineCard.refresh();
+    }
   });
+  // One warning card at a time. A disk machine card covers the disk, so it replaces the storage
+  // card. A memory or CPU card gives way to a full disk, unless it is critical itself.
+  const footerCard = createMemo(() => {
+    const machine = machineCard.card();
+    const storage = storageCard.card();
+    if (machine && (machine.metric === "disk" || !storage || (machine.critical && storage.level !== "full")))
+      return { kind: "machine" as const, card: machine };
+    return storage ? { kind: "storage" as const, card: storage } : null;
+  });
+  const shownMachineCard = () => {
+    const shown = footerCard();
+    return shown?.kind === "machine" ? shown.card : null;
+  };
+  const shownStorageCard = () => {
+    const shown = footerCard();
+    return shown?.kind === "storage" ? shown.card : null;
+  };
+  // As the host picks it: the responsible member while an active admin, otherwise the owner.
+  const machineRecipient = (memberId: string | null) => {
+    const members = teamPresence().members;
+    const member =
+      members.find(
+        (candidate) => candidate.id === memberId && !candidate.disabled && canAdministerServer(candidate.role),
+      ) ?? members.find((candidate) => candidate.role === "owner");
+    return member ? member.name?.trim() || member.username : null;
+  };
 
   /* Channels reach the sidebar as data, not as a list of their own: they sit in the layout's
    * sections beside the agents, so the sidebar has to be able to order and group them. The Routines
@@ -298,9 +331,24 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       onOpenSearch={() => setGlobalSearchVisibility(true)}
       footer={
         <>
-          {/* One card at a time. A disk that is almost full comes first; the community card waits
-           * until the mobile app card is dismissed. */}
-          <Show when={storageCard.card()}>
+          {/* One card at a time. A machine over its alert level comes first, then a disk that is
+           * almost full; the community card waits until the mobile app card is dismissed. */}
+          <Show when={shownMachineCard()}>
+            {(card) => (
+              <SidebarMachineCard
+                serverName={activeServer()?.name ?? ""}
+                metric={card().metric}
+                percent={card().percent}
+                level={card().level}
+                freeBytes={card().freeBytes}
+                critical={card().critical}
+                recipientName={machineRecipient(card().responsibleMemberId)}
+                onOpenDetails={() => openServerSettings(card().serverId, null, "storage")}
+                onDismiss={() => machineCard.dismiss(card().serverId, card())}
+              />
+            )}
+          </Show>
+          <Show when={shownStorageCard()}>
             {(card) => (
               <SidebarStorageCard
                 level={card().level}
@@ -312,7 +360,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
               />
             )}
           </Show>
-          <Show when={!platform.landingPreview && !storageCard.card() && !mobileAppDismissed()}>
+          <Show when={!platform.landingPreview && !footerCard() && !mobileAppDismissed()}>
             <SidebarMobileAppCard
               onOpenInstall={() => openAppSettings(null, "mobile-connect")}
               onDismiss={() => {
@@ -321,9 +369,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
               }}
             />
           </Show>
-          <Show
-            when={!platform.landingPreview && !storageCard.card() && mobileAppDismissed() && !communityCard.dismissed()}
-          >
+          <Show when={!platform.landingPreview && !footerCard() && mobileAppDismissed() && !communityCard.dismissed()}>
             <SidebarCommunityCard
               onJoinDiscord={() => void appPort().openExternal("discord")}
               onFollowX={() => void appPort().openExternal("x")}

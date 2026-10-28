@@ -92,6 +92,16 @@
     background: transparent;
   }
 
+  /* The sidebar shows the card, and the channel title sits on the top row, so an avatar outline takes
+   * the colour of the one it is on. */
+  .app-window > .app-frame-edge > .sidebar {
+    --agent-avatar-outline: var(--openbot-bg-canvas);
+  }
+
+  .app-window > .app-frame-edge .channel-title {
+    --agent-avatar-outline: var(--window-frame);
+  }
+
   .app-window > .app-frame-edge :is(.conversation-panel, .direct-conversation)::before {
     content: none;
   }

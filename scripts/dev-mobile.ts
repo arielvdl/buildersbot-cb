@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { parseMobileConnectUrl } from "@openbot/contracts/mobile-connect";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { connectToDevApp } from "./dev-automation/cdp-client";
 import { type DevInstanceRecord, readDevInstanceRecords, selectDevInstance } from "./dev-automation/instance-registry";
 
@@ -26,9 +26,9 @@ const PAIRING_CONFIRM_MS = 20_000;
 const POLL_INTERVAL_MS = 1_000;
 
 const writeLine = (line: string) => process.stderr.write(`${line}\n`);
-const logger = createOpenBotLogger("dev-mobile", writeLine, "info");
+const logger = createBuildersBotLogger("dev-mobile", writeLine, "info");
 // The CDP client reports every connection, and pairing polls the desktop each second.
-const cdpLogger = createOpenBotLogger("dev-mobile", writeLine, "warn");
+const cdpLogger = createBuildersBotLogger("dev-mobile", writeLine, "warn");
 const runCommand = promisify(execFile);
 
 export interface DevMobileOptions {

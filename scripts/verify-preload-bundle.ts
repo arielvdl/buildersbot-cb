@@ -9,7 +9,7 @@ import {
   type IpcEndpoint,
   type IpcGroupName,
 } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 // Runs the built preload bundles in a VM with a fake Electron, after `bun run build`. The types
 // describe the source; this reads what the renderer really gets. It fails when the bundle:
@@ -55,7 +55,7 @@ interface PreloadRun {
   readonly calls: IpcCall[];
 }
 
-const logger = createOpenBotLogger("verify-preload-bundle");
+const logger = createBuildersBotLogger("verify-preload-bundle");
 const failures: string[] = [];
 
 const main = runPreload("index.cjs");

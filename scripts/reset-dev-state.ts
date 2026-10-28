@@ -2,7 +2,7 @@ import { lstat, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, parse, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
 import { type DevelopmentProfile, developmentUserDataName } from "../src/main/development-profile";
 import { resolveDevelopmentAppDataRoot } from "./development-state-paths";
@@ -11,7 +11,7 @@ import { cleanupSeedOwnedTransfers, isDevelopmentProfileActive } from "./seed-de
 
 export { resolveDevelopmentAppDataRoot } from "./development-state-paths";
 
-const logger = createOpenBotLogger("reset-dev-state");
+const logger = createBuildersBotLogger("reset-dev-state");
 
 const developmentProfiles = ["app", "test-client"] as const satisfies readonly DevelopmentProfile[];
 const legacyDevelopmentStateNames = ["OpenBot Dev Host"] as const;

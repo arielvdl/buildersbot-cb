@@ -92,6 +92,7 @@ export const messages = {
   "error.team.hostTimezoneUnsupported": "Esta conexão não oferece suporte ao fuso horário do servidor.",
   "error.team.routineResultsUnsupported": "Esta conexão não oferece suporte a destinos de rotinas.",
   "error.team.agentMemoryLimitUnsupported": "Esta conexão não oferece suporte ao limite de memórias dos agentes.",
+  "error.team.memoryReviewUnsupported": "Esta conexão não oferece suporte à revisão de memórias.",
   "error.team.promptCacheTtlUnsupported": "Esta conexão não oferece suporte à duração do cache de prompts.",
   "error.team.providerDefaultUnsupported": "Esta conexão não oferece suporte ao provedor padrão.",
   "error.team.attachmentNameRequired": "É necessário informar um nome seguro para o anexo.",
@@ -102,6 +103,9 @@ export const messages = {
   "error.team.browserSessionNotFound": "Sessão de visualização do navegador não encontrada.",
   "error.team.mcpUnsupported": "Esta conexão não oferece suporte a servidores MCP.",
   "error.team.storageUnsupported": "Esta conexão não oferece suporte a armazenamento.",
+  "error.team.machineResourcesUnsupported": "Esta conexão não oferece suporte ao uso da máquina.",
+  "error.team.machineAlertMemberInvalid":
+    "Só um proprietário ou administrador deste servidor pode receber alertas da máquina.",
   "error.team.hostedSitesUnsupported": "Esta conexão não oferece suporte a sites.",
   "error.team.hostedSitesUnregistered": "Este servidor não está registrado no Builders Bot, por isso não tem sites.",
   "error.team.hostedSiteNotFound": "Site não encontrado.",

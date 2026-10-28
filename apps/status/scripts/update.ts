@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { createOpenBotLogger, registerSecretValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue } from "@openbot/logging";
 import { Schema } from "effect";
 import {
   type CheckDay,
@@ -37,7 +37,7 @@ import {
   statusDates,
 } from "../src/model";
 
-const logger = createOpenBotLogger("status-update");
+const logger = createBuildersBotLogger("status-update");
 
 const { values: args } = parseArgs({
   options: {

@@ -20,7 +20,7 @@ import type {
   Routine,
 } from "@openbot/contracts/ipc";
 import { channelRoutingConversationEventItemType } from "@openbot/contracts/ipc";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { strToU8, zipSync } from "fflate";
 import { z } from "zod";
 import { agentNamesById, displayMessageReferences } from "../src/backend/agent/delivery-content";
@@ -45,7 +45,7 @@ import { NO_SCALE, parseSeedScale, type SeedScale, seedScale } from "./seed-dev-
 
 export const DEVELOPMENT_SEED_MANIFEST_FILE = "openbot-dev-seed-v1.json";
 
-const logger = createOpenBotLogger("seed-dev-state");
+const logger = createBuildersBotLogger("seed-dev-state");
 
 const TEAM_FILE = "openbot-team-server-v2.json";
 /** Read only, exactly as the app reads it: the file a build without accounts owns. */

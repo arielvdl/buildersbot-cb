@@ -18,9 +18,9 @@ import { execFileSync } from "node:child_process";
 import { copyFile, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
-const logger = createOpenBotLogger("compile-macos-icon");
+const logger = createBuildersBotLogger("compile-macos-icon");
 const sourcePath = resolve("build/icon-production.icon");
 const targetPath = resolve("build/macos/Assets.car");
 

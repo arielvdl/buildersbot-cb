@@ -5,7 +5,7 @@ import { createServer } from "node:net";
 import { type NetworkInterfaceInfo, networkInterfaces } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { cliSpawnTarget } from "../src/backend/cli";
 import {
   developmentInstanceIdForWorktree,
@@ -41,7 +41,7 @@ import { withoutElectronRuntimeFlags } from "./electron-spawn-env";
 import { resolvePackageBin } from "./package-bin";
 import { prepareDevelopmentEnvironment } from "./prepare-dev-environment";
 
-const logger = createOpenBotLogger("dev-services");
+const logger = createBuildersBotLogger("dev-services");
 
 export type DevelopmentService = "api" | "remote" | "app" | "test-client";
 type DevelopmentTarget = Exclude<DevelopmentService, "remote"> | "all";

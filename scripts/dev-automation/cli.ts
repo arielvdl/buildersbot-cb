@@ -3,7 +3,7 @@
 // copies openbot.db: it drives the instance you already have open.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { createOpenBotLogger, redactText } from "@openbot/logging";
+import { createBuildersBotLogger, redactText } from "@openbot/logging";
 import { readScriptArguments } from "../script-arguments";
 import {
   assertMutationAllowed,
@@ -43,7 +43,7 @@ import {
 // which stays parseable for the calling agent.
 // `debug` so the renderer console and page errors this tool subscribes to are
 // visible; the default `info` threshold would drop them.
-const logger = createOpenBotLogger("dev-automation", (line) => process.stderr.write(`${line}\n`), "debug");
+const logger = createBuildersBotLogger("dev-automation", (line) => process.stderr.write(`${line}\n`), "debug");
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const SCREENSHOT_ROOT = join(process.cwd(), ".openbot-build", "dev-automation");

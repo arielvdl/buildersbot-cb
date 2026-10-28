@@ -9,7 +9,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { cliSpawnTarget } from "../src/backend/cli";
 import { withDevPortAllocation } from "./dev-automation/port-allocation";
 import {
@@ -23,7 +23,7 @@ import {
 import { findAvailablePort, stopOwnedProcesses } from "./dev-services";
 import { resolvePackageBin } from "./package-bin";
 
-const logger = createOpenBotLogger("dev-storybook");
+const logger = createBuildersBotLogger("dev-storybook");
 
 const scriptsRoot = dirname(fileURLToPath(import.meta.url));
 const projectRoot = dirname(scriptsRoot);

@@ -27,7 +27,7 @@ import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { NotificationRelayRequest } from "../src/main/push-notifications";
 
@@ -183,7 +183,7 @@ const cipher = {
 };
 const centralAccount = { createTeamAuthTicket: unused, getEmail: () => "e2e@example.invalid" };
 
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const agentStore = new AgentStore(userData, join(root, "home"), database);
 const mailbox = new MailboxStore(userData, agentStore.sharedRoot, agentStore.database);
 const sidebar = new SidebarLayoutStore(join(userData, "sidebar-layout.json"));

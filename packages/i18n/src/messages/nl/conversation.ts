@@ -88,6 +88,7 @@ export const messages = {
   "conversation.threads.error.read": "Kan de berichten van deze thread niet laden.",
   "conversation.threads.error.start": "Kan de thread niet starten.",
   "conversation.threads.error.send": "Kan het bericht niet naar de thread sturen.",
+  "conversation.threads.error.files": "Bestanden kunnen alleen naar threads van agents op deze computer.",
   "conversation.threads.error.stop": "Kan de thread niet stoppen.",
   "conversation.threads.error.archive": "Kan de thread niet archiveren.",
   "conversation.threads.error.restore": "Kan de thread niet herstellen.",

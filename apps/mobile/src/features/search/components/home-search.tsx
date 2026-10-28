@@ -355,8 +355,8 @@ export function useHomeSearch(): HomeSearch {
     const { t } = currentText();
     AccessibilityInfo.announceForAccessibility(
       result.ok
-        ? t("mobile.search.task.startedBy", { name: result.agent.name })
-        : t("mobile.search.task.failedFor", { name: result.agent.name }),
+        ? t("mobile.search.thread.startedBy", { name: result.agent.name })
+        : t("mobile.search.thread.failedFor", { name: result.agent.name }),
     );
     const timer = setTimeout(() => finishResult(result, false), RESULT_DURATION);
     return () => clearTimeout(timer);
@@ -521,13 +521,13 @@ function HomeSearchBody({ search }: { search: HomeSearch }) {
     <BlurSwap swapKey={targetMatches ? "targets" : "search"} mode={motion}>
       {targetMatches ? (
         <View className="pb-2">
-          <SearchCaption label={t("mobile.search.task.giveTo")} />
+          <SearchCaption label={t("mobile.search.thread.giveTo")} />
           {targetMatches.length > 0 ? (
             targetMatches.map((agent) => (
               <TaskTargetRow key={agent.id} agent={agent} onPress={() => search.chooseTarget(agent)} />
             ))
           ) : (
-            <SearchHint text={t("mobile.search.task.noAgent")} />
+            <SearchHint text={t("mobile.search.thread.noAgent")} />
           )}
         </View>
       ) : (
@@ -535,7 +535,7 @@ function HomeSearchBody({ search }: { search: HomeSearch }) {
           {target ? <TaskEditorPage agent={target} search={search} /> : null}
           {!target && text && search.canUseTasks && agents.length > 0 ? (
             <>
-              <SearchCaption label={t("mobile.search.task.newTextFor", { text })} />
+              <SearchCaption label={t("mobile.search.thread.newTextFor", { text })} />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -670,7 +670,7 @@ export function HomeSearchBar({
   };
   const canSend = Boolean(target && search.query.trim()) && !search.sending;
   const placeholder = target
-    ? t("mobile.search.task.placeholder")
+    ? t("mobile.search.thread.placeholder")
     : search.canUseTasks
       ? t("mobile.search.placeholder")
       : t("common.search");
@@ -775,7 +775,7 @@ export function HomeSearchBar({
               )}
               <TextInput
                 ref={search.input}
-                accessibilityLabel={target ? t("mobile.search.task.fieldLabel", { name: target.name }) : placeholder}
+                accessibilityLabel={target ? t("mobile.search.thread.fieldLabel", { name: target.name }) : placeholder}
                 autoCapitalize={target ? "sentences" : "none"}
                 autoCorrect={Boolean(target)}
                 className="h-10 min-w-0 flex-1 font-sans text-foreground"
@@ -823,7 +823,7 @@ export function HomeSearchBar({
               {target ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t("mobile.search.task.send")}
+                  accessibilityLabel={t("mobile.search.thread.send")}
                   accessibilityState={{ disabled: !canSend, busy: search.sending }}
                   className="size-9 items-center justify-center rounded-full"
                   hitSlop={4}
@@ -894,13 +894,13 @@ function TaskResultContent({
   const { t } = useText();
   const { agent, ok } = result;
   const label = ok
-    ? t("mobile.search.task.startedBy", { name: agent.name })
-    : t("mobile.search.task.failedFor", { name: agent.name });
+    ? t("mobile.search.thread.startedBy", { name: agent.name })
+    : t("mobile.search.thread.failedFor", { name: agent.name });
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint={ok ? undefined : t("mobile.search.task.tryAgain")}
+      accessibilityHint={ok ? undefined : t("mobile.search.thread.tryAgain")}
       className="flex-1 flex-row items-center gap-2.5 pr-4 pl-3"
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
       onPress={() => {
@@ -927,7 +927,7 @@ function TaskResultContent({
         <Check color={color} size={18} strokeWidth={2.4} />
       ) : (
         <Typography.Paragraph className="font-medium" style={[typeScale.caption, { color, opacity: 0.8 }]}>
-          {t("mobile.search.task.tryAgain")}
+          {t("mobile.search.thread.tryAgain")}
         </Typography.Paragraph>
       )}
     </Pressable>
@@ -947,7 +947,7 @@ function TargetChip({ agent, onPress }: { agent: MobileAgent; onPress: () => voi
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t("mobile.search.task.changeAgent")}
+      accessibilityLabel={t("mobile.search.thread.changeAgent")}
       className="-ml-2.5 h-10 flex-row items-center gap-1 rounded-full pr-2.5 pl-1"
       // 40 pt in the 52 pt field: the same 6 pt inset above, below and at the left edge.
       // The agent color at 18% opacity, so the avatar in the same color stays visible on it.
@@ -1042,7 +1042,7 @@ function HomeSearchIdle({ onLeave, canUseTasks }: { onLeave: () => void; canUseT
         ? [
             {
               id: "tasks",
-              label: t("mobile.app.route.tasks"),
+              label: t("mobile.app.route.threads"),
               icon: SquareCheck,
               href: { pathname: "/server-tasks", params: { serverId } } as const,
             },
@@ -1144,7 +1144,7 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
     .filter(Boolean)
     .slice(0, IDEA_LIMIT);
   const open = sorted.filter((task) => task.state === "running" || taskNeedsYou(task));
-  const [before = "", after = ""] = t("mobile.search.task.newFor", { name: NAME_MARK }).split(NAME_MARK);
+  const [before = "", after = ""] = t("mobile.search.thread.newFor", { name: NAME_MARK }).split(NAME_MARK);
   const message = () => {
     search.leave();
     if (!gate?.openFromHome(agent.id)) router.push({ pathname: "/chat/[agentId]", params: { agentId: agent.id } });
@@ -1180,26 +1180,26 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
             <SquareCheck color={muted} size={16} strokeWidth={1.8} />
           </View>
           <Typography.Paragraph className="min-w-0 flex-1 text-muted" style={typeScale.caption}>
-            {t("mobile.search.task.how", { name: agent.name })}{" "}
+            {t("mobile.search.thread.how", { name: agent.name })}{" "}
             <Typography.Paragraph
               accessibilityRole="link"
               className="font-medium"
               style={[typeScale.caption, { color }]}
               onPress={message}
             >
-              {t("mobile.search.task.message", { name: agent.name })}
+              {t("mobile.search.thread.message", { name: agent.name })}
             </Typography.Paragraph>
           </Typography.Paragraph>
         </View>
       </View>
       {ideas.length > 0 ? (
         <View className="pt-1.5">
-          <SearchCaption label={t("mobile.search.task.ideas")} />
+          <SearchCaption label={t("mobile.search.thread.ideas")} />
           {ideas.map((idea) => (
             <Pressable
               key={idea}
               accessibilityRole="button"
-              accessibilityHint={t("mobile.search.task.ideaHint")}
+              accessibilityHint={t("mobile.search.thread.ideaHint")}
               className="flex-row items-center gap-3 px-5 py-[9px]"
               style={({ pressed }) => ({ opacity: pressed ? 0.58 : 1 })}
               onPress={() => search.fillTask(idea)}
@@ -1209,7 +1209,7 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
                 {idea}
               </Typography.Paragraph>
               <Typography.Paragraph className="text-muted" style={typeScale.small}>
-                {t("mobile.search.task.again")}
+                {t("mobile.search.thread.again")}
               </Typography.Paragraph>
             </Pressable>
           ))}
@@ -1217,7 +1217,7 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
       ) : null}
       {open.length > 0 ? (
         <View className="pt-1.5">
-          <SearchCaption label={t("mobile.search.task.openWith", { name: agent.name })} />
+          <SearchCaption label={t("mobile.search.thread.openWith", { name: agent.name })} />
           {open.map((task) => (
             <TaskListRow
               key={task.id}
@@ -1258,7 +1258,7 @@ function SearchTasks({ query, onLeave }: { query?: string; onLeave: () => void }
   if (shown.length === 0) return null;
   return (
     <View>
-      <SearchCaption label={t(needle ? "mobile.app.route.tasks" : "mobile.server.tasks.section.needsYou")} />
+      <SearchCaption label={t(needle ? "mobile.app.route.threads" : "mobile.server.threads.section.needsYou")} />
       {shown.map((task) => (
         <TaskListRow
           key={task.id}

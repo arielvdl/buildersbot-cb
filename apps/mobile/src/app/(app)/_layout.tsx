@@ -34,6 +34,22 @@ import { useText } from "@/shared/lib/text";
 /** How long a notification tap waits for the channel list of its server before it opens the agent chat. */
 const NOTIFICATION_CHANNEL_WAIT_MS = 8_000;
 
+/**
+ * Android: autoFocus focuses the name field of a form sheet while the sheet opens, and Android does
+ * not show the keyboard then. Focusing the field again after the opening shows it.
+ */
+const refocusNameField = isAndroid
+  ? {
+      transitionEnd: (event: { data: { closing: boolean } }) => {
+        if (event.data.closing) return;
+        const input = TextInput.State.currentlyFocusedInput();
+        if (!input) return;
+        input.blur();
+        input.focus();
+      },
+    }
+  : undefined;
+
 export const unstable_settings = {
   anchor: "connected",
 };
@@ -344,21 +360,20 @@ function AuthenticatedStack() {
         <Stack.Screen
           name="section-form"
           // The header comes from the route's `_layout.tsx`: Android draws no header on a formSheet route.
-          // Android: autoFocus focuses the name field while the sheet opens, and Android does not show
-          // the keyboard then. Focusing the field again after the opening shows it.
-          listeners={
-            isAndroid
-              ? {
-                  transitionEnd: (event) => {
-                    if (event.data.closing) return;
-                    const input = TextInput.State.currentlyFocusedInput();
-                    if (!input) return;
-                    input.blur();
-                    input.focus();
-                  },
-                }
-              : undefined
-          }
+          listeners={refocusNameField}
+          options={{
+            contentStyle: { backgroundColor: sheetBackground },
+            headerShown: false,
+            scrollEdgeEffects: { top: "hidden", bottom: "soft" },
+            presentation: "formSheet",
+            sheetAllowedDetents: [0.85],
+            sheetGrabberVisible: true,
+          }}
+        />
+        <Stack.Screen
+          name="thread-rename"
+          // The header comes from the route's `_layout.tsx`, as for the section form.
+          listeners={refocusNameField}
           options={{
             contentStyle: { backgroundColor: sheetBackground },
             headerShown: false,

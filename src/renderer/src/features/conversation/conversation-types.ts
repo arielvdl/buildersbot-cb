@@ -71,6 +71,9 @@ export interface VoiceLiveTranscript extends ConversationTarget {
   text: string;
 }
 
+/** A browser takeover that an agent's turn waits for. */
+export type BrowserTakeoverRequest = Extract<AgentEvent, { type: "browser-takeover-requested" }>["request"];
+
 /** How an answer to a prompt reports a failure. */
 export interface PromptAnswerOptions {
   /**
@@ -264,7 +267,8 @@ export interface ConversationProps {
   usageLimitAsk?: UsageLimitAskCardProps | undefined;
   /** Whether a usage limit holds this model and account now. Absent for a joined server. */
   usageLimited?: ((choice: AgentModelChoice) => boolean) | undefined;
-  browserTakeover: Extract<AgentEvent, { type: "browser-takeover-requested" }>["request"] | undefined;
+  /** The takeover of the open thread: of a side thread while one is open, else of the agent's own chat. */
+  browserTakeover: BrowserTakeoverRequest | undefined;
   onSelectAgent: (agentId: string) => void;
   /**
    * What stops each agent in its own chat: a question, an approval, a browser takeover or a usage
@@ -321,7 +325,8 @@ export interface ConversationProps {
   onClearAgentContext?: (() => Promise<void>) | undefined;
   /** Compacts the agent's context now. The context ring offers it only where Builders Bot compacts. */
   onCompactAgentContext?: (() => Promise<void>) | undefined;
-  onRespondToBrowserTakeover: (decision: "complete" | "cancel") => Promise<boolean>;
+  /** Answers `browserTakeover`. */
+  onRespondToBrowserTakeover: (decision: "complete" | "cancel", options?: PromptAnswerOptions) => Promise<boolean>;
   onCancelQueuedMessage: (deliveryId: string) => void;
   onCancelWait?: ((waitId: string) => void) | undefined;
   onSteerQueuedMessage: (deliveryId: string) => void;
@@ -404,9 +409,18 @@ export interface ConversationThreads {
   conversation: ConversationSnapshot | undefined;
   /** The approval that the open side thread's turn waits for. */
   approval: AgentApproval | undefined;
-  onSend: (text: string) => Promise<boolean>;
+  /** The thread takes files. Only this computer sends them: `agent-tasks-v1` carries text only. */
+  acceptsFiles: boolean;
+  /** `attachmentDraftIds` are the files that the text names. */
+  onSend: (text: string, attachmentDraftIds: string[]) => Promise<boolean>;
   onStop: () => void;
-  onRespondApproval: (decision: "accept" | "decline") => Promise<boolean>;
+  /** The person sees the open side thread through this message. */
+  onRead: (messageId: string) => void;
+  onRespondApproval: (decision: "accept" | "decline", options?: PromptAnswerOptions) => Promise<boolean>;
+  /** The context of the open side thread, when its provider reported it. */
+  contextState: AgentContextState | undefined;
+  /** Missing when the host cannot compact a side thread. */
+  onCompactContext?: (() => Promise<void>) | undefined;
   /** Missing when the host cannot move a queued message to a new thread. */
   onRunQueuedMessage?: ((deliveryId: string) => void) | undefined;
 }

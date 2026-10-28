@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 // Pull request screenshots and recordings go in the pull request body, not in the repository
 // (AGENTS.md, "Pull requests"). Only the product owns image files, in these directories.
@@ -19,7 +19,7 @@ const ALLOWED_DIRECTORIES = [
 
 const IMAGE_FILE = /\.(avif|bmp|gif|heic|icns|ico|jpe?g|mov|mp4|png|svg|tiff?|webm|webp)$/i;
 
-const logger = createOpenBotLogger("check-image-assets");
+const logger = createBuildersBotLogger("check-image-assets");
 
 const result = spawnSync("git", ["ls-files", "-z"], { encoding: "utf8" });
 if (result.status !== 0) {

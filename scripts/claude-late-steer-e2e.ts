@@ -48,7 +48,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { ClaudeAgentClient } = await import("../src/backend/claude-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 
 // The stand-in for the Claude CLI. It speaks enough of the stream-json protocol for a turn to end,
 // and saves each user and assistant entry as the CLI's session transcript does.
@@ -253,7 +253,7 @@ async function waitFor<T>(label: string, read: () => T | null | undefined | fals
 
 /** One run of the service on the profile, as one start of the app. */
 function startService() {
-  const database = new OpenBotDatabase(userData);
+  const database = new BuildersBotDatabase(userData);
   const store = new AgentStore(userData, home, database);
   const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
   const agents = new AgentService({

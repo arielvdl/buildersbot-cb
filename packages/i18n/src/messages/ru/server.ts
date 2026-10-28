@@ -295,6 +295,17 @@ export const messages = {
   "server.settings.memoryLimit": "Записей памяти на агента",
   "server.settings.memoryLimitDescription": "Сколько записей памяти может хранить каждый агент на этом сервере.",
   "server.settings.memoryLimitLoadFailed": "Не удалось загрузить лимит памяти этого сервера.",
+  "server.settings.memoryReview": "Проверка памяти",
+  "server.settings.memoryReviewDescription":
+    "Как часто агенты на этом сервере сохраняют в фоне устойчивые факты из своих чатов.",
+  "server.settings.memoryReviewOff": "Выкл.",
+  "server.settings.memoryReviewTurns": {
+    one: "Каждый {count} ход",
+    few: "Каждые {count} хода",
+    many: "Каждые {count} ходов",
+    other: "Каждые {count} хода",
+  },
+  "server.settings.memoryReviewLoadFailed": "Не удалось загрузить настройку проверки памяти.",
   "server.settings.remoteOnline": "Хост в сети. Публикацией управляет его владелец.",
   "server.settings.remoteOffline": "Хост не в сети. Публикацией управляет его владелец.",
   "server.settings.reachable": "Доступен из интернета. Войти могут только приглашённые.",

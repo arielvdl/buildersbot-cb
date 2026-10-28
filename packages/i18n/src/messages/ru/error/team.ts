@@ -90,6 +90,7 @@ export const messages = {
   "error.team.hostTimezoneUnsupported": "Это подключение не поддерживает часовой пояс сервера.",
   "error.team.routineResultsUnsupported": "Это подключение не поддерживает места отправки рутин.",
   "error.team.agentMemoryLimitUnsupported": "Это подключение не поддерживает лимит памяти агентов.",
+  "error.team.memoryReviewUnsupported": "Это подключение не поддерживает проверку памяти.",
   "error.team.promptCacheTtlUnsupported": "Это подключение не поддерживает время кэша промптов.",
   "error.team.providerDefaultUnsupported": "Это подключение не поддерживает провайдера по умолчанию.",
   "error.team.attachmentNameRequired": "Нужно безопасное имя вложения.",
@@ -100,6 +101,9 @@ export const messages = {
   "error.team.browserSessionNotFound": "Сессия вида браузера не найдена.",
   "error.team.mcpUnsupported": "Это подключение не поддерживает серверы MCP.",
   "error.team.storageUnsupported": "Это подключение не поддерживает хранилище.",
+  "error.team.machineResourcesUnsupported": "Это подключение не поддерживает данные о машине.",
+  "error.team.machineAlertMemberInvalid":
+    "Оповещения о машине может получать только владелец или администратор этого сервера.",
   "error.team.hostedSitesUnsupported": "Это подключение не поддерживает сайты.",
   "error.team.hostedSitesUnregistered": "Этот сервер не зарегистрирован в Builders Bot, поэтому у него нет сайтов.",
   "error.team.hostedSiteNotFound": "Сайт не найден.",

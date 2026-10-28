@@ -1,7 +1,7 @@
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { extractCuaDriverArchive } from "./cua-driver-archive";
 import {
   CUA_DRIVER_LICENSE_FILE,
@@ -17,7 +17,7 @@ import {
 import { sha256 } from "./remote-desktop-runtime-release";
 import { download, isCurrentInstallation } from "./runtime-install";
 
-const logger = createOpenBotLogger("install-cua-driver");
+const logger = createBuildersBotLogger("install-cua-driver");
 
 /**
  * Puts the pinned `cua-driver` build under `build/cua-driver/<platform>/<architecture>` so

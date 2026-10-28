@@ -38,7 +38,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { CodexAppServerClient } = await import("../src/backend/app-server-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 const { decodeRecordResponse } = await import("../src/backend/protocol");
 const { providerLabel } = await import("../src/backend/agent/thread-items");
 
@@ -210,7 +210,7 @@ async function waitFor<T>(label: string, read: () => T | null | undefined | fals
 const lastStartPid = () => protocol().findLast((line) => line.start)?.pid ?? 0;
 
 await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({

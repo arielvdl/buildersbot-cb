@@ -23,7 +23,7 @@ import { ToolOperationFailed } from "../src/backend/agent/tool-operation";
 import { handleUpdateAgentsTool } from "../src/backend/agent/update-agents-tool";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, ".openbot-build", "agent-update-agents-e2e");
@@ -51,7 +51,7 @@ async function step<T>(name: string, run: () => Promise<T>): Promise<T> {
 }
 
 const root = await mkdtemp(join(tmpdir(), "openbot-update-agents-"));
-const database = new OpenBotDatabase(join(root, "state"));
+const database = new BuildersBotDatabase(join(root, "state"));
 const store = new AgentStore(join(root, "state"), join(root, "home"), database);
 const busyAgentIds = new Set<string>();
 const writes: UpdateAgentInput[] = [];

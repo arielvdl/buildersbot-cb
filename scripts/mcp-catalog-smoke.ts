@@ -18,7 +18,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { FetchLike, Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { secureOAuthFetch } from "../src/backend/mcp-oauth-provider";
 import { hostAddresses, isPublicAddress, systemAddressLookup } from "../src/backend/network-address";
@@ -26,7 +26,7 @@ import { defaultPluginCatalogPaths, loadPluginCatalog, type PluginApp } from "./
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/mcp-catalog-smoke");
 const TIMEOUT_MS = 20_000;
-const logger = createOpenBotLogger("mcp-catalog-smoke");
+const logger = createBuildersBotLogger("mcp-catalog-smoke");
 
 /** `open`: the catalog names no sign-in. `link`: the user signs in in the browser. */
 type Kind = "open" | "link";

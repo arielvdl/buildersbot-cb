@@ -90,6 +90,7 @@ export const messages = {
   "conversation.threads.error.read": "Не удалось загрузить сообщения этой ветки.",
   "conversation.threads.error.start": "Не удалось начать ветку.",
   "conversation.threads.error.send": "Не удалось отправить сообщение в ветку.",
+  "conversation.threads.error.files": "Файлы можно отправить только в ветки агентов на этом компьютере.",
   "conversation.threads.error.stop": "Не удалось остановить ветку.",
   "conversation.threads.error.archive": "Не удалось архивировать ветку.",
   "conversation.threads.error.restore": "Не удалось восстановить ветку.",

@@ -20,12 +20,12 @@ import { createServer, type Server } from "node:http";
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { isDynamicRecord, isNumber } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { type Spread, spread } from "./dev-automation/bench-stats";
 import { startRenderRecording } from "./dev-automation/render-metrics";
 
-const logger = createOpenBotLogger("web-client-perf-e2e");
+const logger = createBuildersBotLogger("web-client-perf-e2e");
 const ROOT = resolve(import.meta.dirname, "..");
 const API_DIR = resolve(ROOT, "apps/auth-api");
 const CLIENT_DIR = resolve(API_DIR, "dist/client");

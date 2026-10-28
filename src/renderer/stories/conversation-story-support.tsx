@@ -29,7 +29,7 @@ import {
   STORY_REMOTE_DESKTOP_SESSION,
   STORY_SERVERS,
 } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 export const CONVERSATION_STORY_ATTACHMENT = requireFixture(STORY_ATTACHMENTS[0], "Story attachment");
 
@@ -148,7 +148,7 @@ export const CONVERSATION_STORY_ARGS: Parameters<typeof Conversation>[0] = {
  */
 export function StoryConversation(props: Partial<Parameters<typeof ConversationView>[0]>) {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot();
+  const mock = createMockBuildersBot();
   const controller = createConversationController({ onTypingChange: CONVERSATION_STORY_ARGS.onTypingChange });
   window.openbot = mock.api;
   onCleanup(() => {

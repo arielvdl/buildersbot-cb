@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { normalizeEmailAddress } from "@openbot/contracts/validation";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 
-const logger = createOpenBotLogger("backfill-openpanel-identities");
+const logger = createBuildersBotLogger("backfill-openpanel-identities");
 
 const DEFAULT_OPENPANEL_API_URL = "https://analytics.openbot.run/api";
 const MAX_RETRIES = 3;

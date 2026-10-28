@@ -8,13 +8,13 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { McpServerConfig } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { McpGateway } from "../src/backend/agent/mcp-gateway";
 import { handleMcpServerTool, type McpServerToolName, mcpServersFromGateway } from "../src/backend/agent/mcp-tools";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { McpServerStore } from "../src/backend/mcp-server-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { NO_PROVIDER_CREDENTIALS } from "../src/backend/provider-drivers";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/agent-mcp-tools-e2e");
@@ -112,7 +112,7 @@ interface Call {
 }
 
 const root = await mkdtemp(join(tmpdir(), "openbot-agent-mcp-tools-"));
-const database = new OpenBotDatabase(root);
+const database = new BuildersBotDatabase(root);
 const servers: Record<Mode, { url: string; close: () => Promise<void> }> = {
   open: await mcpServer("open"),
   "sign-in": await mcpServer("sign-in"),
@@ -134,7 +134,7 @@ try {
     servers: store,
     credentials: NO_PROVIDER_CREDENTIALS,
     computerUseMcpServer: () => null,
-    logger: createOpenBotLogger("agent-service", () => undefined),
+    logger: createBuildersBotLogger("agent-service", () => undefined),
     hooks: {
       emitError: () => undefined,
       refreshAllAgentRuntimes: () =>

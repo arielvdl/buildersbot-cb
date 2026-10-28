@@ -22,7 +22,7 @@ import { AgentWaitStore } from "../src/backend/agent-waits/agent-wait-store";
 import { AgentWaits } from "../src/backend/agent-waits/agent-waits";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { RoutineTimer } from "../src/backend/routine-timer";
 import { parseCreateRoutine, parseUpdateRoutine } from "../src/main/ipc/agent-inputs";
 
@@ -33,7 +33,7 @@ const DAY = "2031-03-03";
 const at = (time: string) => new Date(`${DAY}T${time}:00.000Z`);
 
 interface Fixture {
-  database: OpenBotDatabase;
+  database: BuildersBotDatabase;
   mailbox: MailboxStore;
   scheduler: RoutineScheduler;
   runs: AgentRoutineStore;
@@ -44,7 +44,7 @@ interface Fixture {
 }
 
 async function openFixture(root: string): Promise<Fixture> {
-  const database = new OpenBotDatabase(join(root, "state"));
+  const database = new BuildersBotDatabase(join(root, "state"));
   const store = new AgentStore(join(root, "state"), join(root, "home"), database);
   const mailbox = new MailboxStore(join(root, "state"), store.sharedRoot, database);
   let conversation: ConversationRuntime | undefined;

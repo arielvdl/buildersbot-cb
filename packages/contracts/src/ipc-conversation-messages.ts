@@ -304,24 +304,25 @@ function isConversationDelivery(value: unknown): boolean {
 export const ROUTINE_QUIET_ANSWER_ITEM_TYPE = "routine_quiet_answer";
 
 /**
- * The answer an agent gave in one turn: its last message of that turn that says something to the
- * reader. Commentary, a question prompt, a plan, the subagents and a quiet routine answer are not the answer.
+ * An agent message that says something to the reader. Commentary, a question prompt, a plan, the
+ * subagents and a quiet routine answer are not an answer.
  */
+export function isAgentAnswer(message: ConversationMessage): boolean {
+  return (
+    message.author === "assistant" &&
+    message.itemType !== "commentary" &&
+    message.itemType !== "question_prompt" &&
+    message.itemType !== CONVERSATION_PLAN_ITEM_TYPE &&
+    message.itemType !== CONVERSATION_SUBAGENTS_ITEM_TYPE &&
+    message.itemType !== ROUTINE_QUIET_ANSWER_ITEM_TYPE &&
+    Boolean(message.text.trim())
+  );
+}
+
+/** The answer an agent gave in one turn: its last message of that turn that says something to the reader. */
 export function latestTurnAnswer(
   messages: readonly ConversationMessage[],
   turnId: string,
 ): ConversationMessage | undefined {
-  return [...messages]
-    .reverse()
-    .find(
-      (message) =>
-        message.author === "assistant" &&
-        message.turnId === turnId &&
-        message.itemType !== "commentary" &&
-        message.itemType !== "question_prompt" &&
-        message.itemType !== CONVERSATION_PLAN_ITEM_TYPE &&
-        message.itemType !== CONVERSATION_SUBAGENTS_ITEM_TYPE &&
-        message.itemType !== ROUTINE_QUIET_ANSWER_ITEM_TYPE &&
-        message.text.trim(),
-    );
+  return [...messages].reverse().find((message) => message.turnId === turnId && isAgentAnswer(message));
 }

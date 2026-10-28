@@ -7,7 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, normalize, relative, resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const LINK = /\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -15,7 +15,7 @@ const HEADING = /^#{1,6}\s+(.+?)\s*#*\s*$/;
 const HTML_ANCHOR = /<a\s[^>]*(?:id|name)="([^"]+)"/g;
 const INLINE_CODE = /(`+)[^`]*?\1/g;
 
-const logger = createOpenBotLogger("check-doc-links");
+const logger = createBuildersBotLogger("check-doc-links");
 
 /** The anchor GitHub gives a heading: lower case, no punctuation, a hyphen for each space. */
 function headingAnchor(heading: string): string {

@@ -2,7 +2,7 @@ import type { ComputerUseState, MacPermissionId } from "@openbot/contracts/ipc";
 import { onCleanup } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { ComputerUsePermissionHelp } from "../src/features/computer-use/ComputerUsePermissionHelp";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 function state(granted: readonly MacPermissionId[]): ComputerUseState {
   return {
@@ -19,7 +19,7 @@ function MockedHelp(props: {
   sunshine?: boolean;
 }) {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot();
+  const mock = createMockBuildersBot();
   mock.api.computerUse.getState = async () => state(props.granted ?? []);
   const name = props.app === undefined ? "Electron" : props.app;
   mock.api.computerUse.getPermissionApp = async () => (name ? { name, iconDataUrl: null } : null);

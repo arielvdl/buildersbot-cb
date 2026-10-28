@@ -24,6 +24,7 @@ export const messages = {
   "common.create": "创建",
   "common.open": "打开",
   "common.search": "搜索",
+  "common.noMatches": "无匹配项",
   "common.loading": "加载中…",
   "common.saving": "保存中…",
   "common.tryAgain": "重试",

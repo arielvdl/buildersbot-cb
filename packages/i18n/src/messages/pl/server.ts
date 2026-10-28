@@ -291,6 +291,17 @@ export const messages = {
   "server.settings.memoryLimit": "Wspomnienia na agenta",
   "server.settings.memoryLimitDescription": "Ile wspomnień może przechowywać każdy agent na tym serwerze.",
   "server.settings.memoryLimitLoadFailed": "Nie udało się wczytać limitu wspomnień tego serwera.",
+  "server.settings.memoryReview": "Przegląd wspomnień",
+  "server.settings.memoryReviewDescription":
+    "Jak często agenci na tym serwerze zapisują w tle trwałe fakty ze swoich czatów.",
+  "server.settings.memoryReviewOff": "Wyłączony",
+  "server.settings.memoryReviewTurns": {
+    one: "Co {count} turę",
+    few: "Co {count} tury",
+    many: "Co {count} tur",
+    other: "Co {count} tury",
+  },
+  "server.settings.memoryReviewLoadFailed": "Nie udało się wczytać ustawienia przeglądu wspomnień.",
   "server.settings.remoteOnline": "Host jest online. Publikacją zarządza jego właściciel.",
   "server.settings.remoteOffline": "Host jest offline. Publikacją zarządza jego właściciel.",
   "server.settings.reachable": "Dostępny online. Zalogować się mogą tylko zaproszone osoby.",

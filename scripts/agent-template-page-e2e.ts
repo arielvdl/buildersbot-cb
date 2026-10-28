@@ -14,11 +14,11 @@ import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { isAgentTemplateSnapshot } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { chromium } from "playwright-core";
 import { resolvePackageBin } from "./package-bin";
 
-const logger = createOpenBotLogger("agent-template-page-e2e");
+const logger = createBuildersBotLogger("agent-template-page-e2e");
 const run = promisify(execFile);
 
 const ROOT = resolve(import.meta.dirname, "..");

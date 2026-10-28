@@ -720,6 +720,59 @@
   outline: 0;
 }
 
+/* The search field stays at the top; only the rows scroll, so Kobalte scrolls the listbox. */
+.ui-search-select-content {
+  display: flex;
+  flex-direction: column;
+  width: max(var(--kb-popper-anchor-width, 0px), 240px);
+  overflow: hidden;
+  transform-origin: var(--kb-popover-content-transform-origin);
+}
+
+.ui-search-select-search {
+  position: relative;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--openbot-border);
+  padding: var(--openbot-space-1);
+}
+
+.ui-search-select-search > svg {
+  position: absolute;
+  top: 50%;
+  left: var(--openbot-space-3);
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  color: var(--openbot-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ui-search-select-input {
+  width: 100%;
+  padding-left: var(--openbot-space-8);
+}
+
+.ui-search-select-root {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.ui-search-select-content .ui-select-listbox {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.ui-search-select-empty {
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
 .ui-select-footer {
   border-top: 1px solid var(--openbot-border);
   padding: var(--openbot-space-1);
@@ -2078,6 +2131,8 @@
 }
 
 .ui-dialog-content.ui-confirm-dialog {
+  --agent-avatar-outline: var(--openbot-bg-sidebar);
+
   width: min(460px, 100%);
   max-height: calc(100dvh - 2 * var(--openbot-space-6));
   display: flex;

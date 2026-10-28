@@ -5,6 +5,7 @@ import {
   type FileAction,
   type WorkspaceDirectory,
 } from "@openbot/contracts/ipc";
+import type { MessageImageFile } from "@openbot/ui/features/conversation/MarkdownMessageText";
 import { currentText } from "@openbot/ui/text";
 import { createMemo, createSignal, type Store, type StoreSetter, untrack } from "solid-js";
 import { createScopeGuard } from "../../../scope-lifetime";
@@ -438,6 +439,19 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     void request.catch((error) => deps.setComposerError(errorMessage(error, fallback), target));
   }
 
+  /** Downloads an image file that a message names. `agentId` is the agent whose workspace holds a workspace path. */
+  function downloadMessageImageFile(file: MessageImageFile, agentId: string | undefined) {
+    const ownerAgentId = conversationOwnerId(deps.props);
+    if (!ownerAgentId) return;
+    const target = { agentId: ownerAgentId, serverId: deps.props.server?.id ?? "local" };
+    const agent = conversationRuntime(deps.props).agent;
+    let request: Promise<void>;
+    if (file.kind === "shared") request = agent.openSharedFile({ path: file.path, action: "download" });
+    else if (agentId) request = agent.openWorkspaceFile({ agentId, path: file.path, action: "download" });
+    else return;
+    void request.catch((error) => deps.setComposerError(errorMessage(error, t("attachment.error.download")), target));
+  }
+
   function closeSidebarFilePreview() {
     deps.invalidateFilePreviewGeneration();
     deps.setSidebarFilePreview(null);
@@ -478,6 +492,7 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     openSidebarFileBack,
     openSidebarFileExternally,
     downloadSidebarFile,
+    downloadMessageImageFile,
     revealSidebarFile,
     closeSidebarFilePreview,
   };

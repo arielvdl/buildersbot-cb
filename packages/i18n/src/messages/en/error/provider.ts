@@ -7,6 +7,7 @@ export const messages = defineMessages("error.provider", {
   "error.provider.computerUseConfig":
     "Builders Bot could not register Computer Use in the Codex configuration. Check that your Codex config.toml is valid and writable, then restart Builders Bot. You can turn off Computer Use in the teammate settings to continue without it.",
   "error.provider.codexUnresponsive": "Codex stopped answering, so Builders Bot ended its process.",
+  "error.provider.acpUnresponsive": "{provider} did not answer in time, so Builders Bot ended its process.",
   "error.provider.endpointsReadOnly":
     "The saved endpoints were written by a newer version of Builders Bot, or the file cannot be read. Update Builders Bot to change them.",
   "error.provider.endpointNoSecureStorage":
@@ -41,10 +42,10 @@ export const messages = defineMessages("error.provider", {
   "error.provider.claudePackageMismatch": "The Claude package does not match the runtime catalog.",
   "error.provider.claudeChecksum": "Claude runtime checksum mismatch.",
   "error.provider.claudeLicenseChecksum": "Claude license checksum mismatch.",
-  "error.provider.opencodeArchivePath": "The Builders archive has an unexpected path.",
-  "error.provider.opencodePackageMismatch": "The Builders package does not match the runtime catalog.",
-  "error.provider.opencodeChecksum": "Builders runtime checksum mismatch.",
-  "error.provider.opencodeLicenseChecksum": "Builders license checksum mismatch.",
+  "error.provider.opencodeArchivePath": "The OpenCode archive has an unexpected path.",
+  "error.provider.opencodePackageMismatch": "The OpenCode package does not match the runtime catalog.",
+  "error.provider.opencodeChecksum": "OpenCode runtime checksum mismatch.",
+  "error.provider.opencodeLicenseChecksum": "OpenCode license checksum mismatch.",
   "error.provider.grokChecksum": "Grok runtime checksum mismatch.",
   "error.provider.grokLicenseChecksum": "Grok license checksum mismatch.",
   "error.provider.grokNoticesChecksum": "Grok notices checksum mismatch.",
@@ -139,12 +140,12 @@ export const messages = defineMessages("error.provider", {
   "error.provider.grokNotStartedHint":
     "Grok CLI was found but could not be started. Run `grok --version` in a new terminal.",
   "error.provider.grokMissing": "Grok is not downloaded. Download it in Builders Bot to continue.",
-  "error.provider.opencodeNotStarted": "Builders could not start. Run `opencode --version` in a terminal.",
-  "error.provider.opencodeMissing": "Builders is not downloaded. Download it in Builders Bot to continue.",
+  "error.provider.opencodeNotStarted": "OpenCode could not start. Run `opencode --version` in a terminal.",
+  "error.provider.opencodeMissing": "OpenCode is not downloaded. Download it in Builders Bot to continue.",
   "error.provider.codexVersionUnreadable": "Unable to read the Codex CLI version.",
   "error.provider.claudeVersionUnreadable": "Unable to read the Claude CLI version.",
   "error.provider.grokVersionUnreadable": "Unable to read the Grok CLI version.",
-  "error.provider.opencodeVersionUnreadable": "Unable to read the Builders CLI version.",
+  "error.provider.opencodeVersionUnreadable": "Unable to read the OpenCode CLI version.",
   "error.provider.bunVersionUnreadable": "Unable to read the Bun runtime version.",
   "error.provider.connectBeforeProfile": "Connect the selected provider before generating a profile.",
   "error.provider.cliNotReady": "{provider} CLI is not ready or signed in.",
@@ -175,35 +176,35 @@ export const messages = defineMessages("error.provider", {
   "error.provider.cliActivateFailed": "Builders Bot could not activate the managed CLI.",
   "error.provider.cliBusyReconnect": "The {provider} CLI is working on a turn. Wait for it to finish, then reconnect.",
   "error.provider.opencodeCredentialsRejected":
-    "The model provider rejected the API key. Fix the Builders key in Settings, or the provider's key with `opencode auth login`. Then try again or choose another model.\n{detail}",
+    "The model provider rejected the API key. Fix the OpenCode key in Settings, or the provider's key with `opencode auth login`. Then try again or choose another model.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    'Builders has no sign-in for the model provider "{provider}". Choose a model with the Free label, or connect the provider: paste an Builders Go key in the Builders settings, or run `opencode auth login` in a terminal. Then try again.',
+    'OpenCode has no sign-in for the model provider "{provider}". Choose a model with the Free label, or connect the provider: paste an OpenCode Go key in the OpenCode settings, or run `opencode auth login` in a terminal. Then try again.',
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders has no sign-in for the provider of this model. Choose a model with the Free label, or connect the provider: paste an Builders Go key in the Builders settings, or run `opencode auth login` in a terminal. Then try again.",
+    "OpenCode has no sign-in for the provider of this model. Choose a model with the Free label, or connect the provider: paste an OpenCode Go key in the OpenCode settings, or run `opencode auth login` in a terminal. Then try again.",
   "error.provider.opencodeKeyExpired":
-    "Your Builders API key expired. Create a new key in Builders Console, paste it in the Builders settings, then try again.",
+    "Your OpenCode API key expired. Create a new key in OpenCode Console, paste it in the OpenCode settings, then try again.",
   "error.provider.opencodeServiceFailure":
-    "Builders could not complete this turn because its local service failed. Try again. If the error continues, reconnect Builders in Settings.",
+    "OpenCode could not complete this turn because its local service failed. Try again. If the error continues, reconnect OpenCode in Settings.",
   "error.provider.opencodeRateLimited":
     "The model provider refused the request because of its rate limit. Wait a few minutes or choose another model, then try again.\n{detail}",
   "error.provider.opencodeBilling":
     "The model provider refused the request because of the account's billing. Waiting does not fix this. Add a payment method or funds in the provider account, or choose another model.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Builders's model provider reported an invalid upload request. Choose another model and continue. Check saved routines before you create them again.\n{detail}",
+    "OpenCode's model provider reported an invalid upload request. Choose another model and continue. Check saved routines before you create them again.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "This model cannot read a file or image in this chat. Choose a model that can read files, then send your message again.",
   "error.provider.opencodeFreeLimit":
-    "The free Builders models reached their usage limit. All free models share this limit. To continue, paste an Builders Go key in the Builders settings, or choose a model from another provider.",
+    "The free OpenCode models reached their usage limit. All free models share this limit. To continue, paste an OpenCode Go key in the OpenCode settings, or choose a model from another provider.",
   "error.provider.opencodeProviderFailed":
     "The model provider failed on its side. Your connection is not the cause. Try again later or choose another model.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders could not connect to the model provider. Check the network connection of the computer that runs Builders Bot, then try again.\n{detail}",
+    "OpenCode could not connect to the model provider. Check the network connection of the computer that runs Builders Bot, then try again.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders could not open its database because a newer Builders version changed it. Update Builders to version 2 or later, then try again.",
+    "OpenCode could not open its database because a newer OpenCode version changed it. Update OpenCode to version 2 or later, then try again.",
   "error.provider.opencodeNoAnswer":
-    "The Builders model ended the turn with no answer. Try again, or choose another model.",
+    "The OpenCode model ended the turn with no answer. Try again, or choose another model.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "The Builders model ended the turn after its reasoning, with no answer. Try again, or choose another model.",
+    "The OpenCode model ended the turn after its reasoning, with no answer. Try again, or choose another model.",
   "error.provider.chatgptPageFailed": "Builders Bot could not open the ChatGPT connection page.",
   "error.provider.noneReady": "No agent provider is ready.",
   "error.provider.claudeTurnActive": "Wait for the active Claude turn before refreshing its context.",
@@ -248,7 +249,7 @@ export const messages = defineMessages("error.provider", {
   "error.provider.foreignReasoning":
     "{provider} did not accept the earlier reasoning in this chat, because a different account or API key received it. Builders Bot started a new {provider} session with the chat history. Try again.",
   "error.provider.opencodeSessionRejected":
-    "Builders refused the request and did not give the cause. This can occur in a long chat or after a model change. Builders Bot started a new Builders session with the chat history. Try again. If the error continues, select a different model or a lower effort.",
+    "OpenCode refused the request and did not give the cause. This can occur in a long chat or after a model change. Builders Bot started a new OpenCode session with the chat history. Try again. If the error continues, select a different model or a lower effort.",
   "error.provider.museMcpStartupFault":
     "Muse could not start an MCP server and blocked MCP in this session. Builders Bot started a new Muse session with the chat history. Try again. If the error continues, turn off Computer Use or the failed MCP server for this agent.",
   "error.provider.grokSignIn": "Run `grok login` or set XAI_API_KEY to use Grok.",
@@ -256,6 +257,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.acpSignInStopped": "The sign-in stopped before it was complete.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini could not open the sign-in page. Install a browser and xdg-utils, then connect from a desktop session on this host. A server with no desktop cannot complete this sign-in.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini could not open the sign-in page in your browser. Check your default browser, then connect again.",
   "error.provider.acpSignInFailed": "The sign-in did not complete.",
   "error.provider.acpSignInFailedReason": "The sign-in did not complete: {reason}",
   "error.provider.acpSignInMethodMissing":

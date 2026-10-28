@@ -19,7 +19,7 @@ import { resolve } from "node:path";
 import type { AgentTask, AgentTasksSnapshot, ConversationSnapshot } from "@openbot/contracts/ipc";
 import { AGENT_THREADS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-threads-v1";
 import { translateFor } from "@openbot/i18n";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { chromium, type Page } from "playwright-core";
 import { argument, connectChannelE2e, SHORT_PROMPT, waitFor, writeReport } from "./channel-e2e-support";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
@@ -66,7 +66,7 @@ assertMutationAllowed({
   instanceNamed: true,
   target: clientRecord.instanceId,
 });
-const client = await connectToDevApp(clientRecord.remoteDebuggingPort, createOpenBotLogger("web-client-threads-e2e"), {
+const client = await connectToDevApp(clientRecord.remoteDebuggingPort, createBuildersBotLogger("web-client-threads-e2e"), {
   expectedRendererPort: clientRecord.rendererPort,
   ownerPid: clientRecord.pid,
 });

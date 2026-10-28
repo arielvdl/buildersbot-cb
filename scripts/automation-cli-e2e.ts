@@ -126,7 +126,7 @@ const options: ConstructorParameters<typeof AutomationServer>[0] = {
     return {
       prompts: [],
       approvals: [],
-      browserTakeovers: waiting ? [{ requestId: "takeover-1", requiresOpenBot: true }] : [],
+      browserTakeovers: waiting ? [{ requestId: "takeover-1", requiresBuildersBot: true }] : [],
     };
   },
   respondToLocalAttention: () => Effect.void,

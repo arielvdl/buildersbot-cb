@@ -67,7 +67,7 @@ const { ClaudeAgentClient } = await import("../src/backend/claude-client");
 const { CodexAppServerClient } = await import("../src/backend/app-server-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 const { importProviderHistory } = await import("../src/backend/provider-history-import");
 
 // The stand-in for the Claude CLI. It speaks enough of the stream-json protocol for a turn to end,
@@ -427,7 +427,7 @@ interface CodexTurn {
 await writeFile(claudeExecutable, STAND_IN_CLAUDE, { mode: 0o755 });
 await writeFile(codexExecutable, STAND_IN_CODEX, { mode: 0o755 });
 failing([]);
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const clients: ClaudeStandIn[] = [];
 const events: AgentEvent[] = [];
 

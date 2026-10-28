@@ -25,6 +25,12 @@ export const messages = {
     "Capturer la zone de l’écran à {x}, {y}, {width} × {height} points et envoyer l’image au modèle de l’agent.",
   "status.agent.screenCaptureProgress": "Demande de capture d’écran…",
   "status.agent.screenCaptureReviewing": "Analyse de la capture d’écran…",
+  "status.agent.browserOpening": "Ouverture d’une page web…",
+  "status.agent.browserReading": "Lecture de la page web…",
+  "status.agent.browserClicking": "Clic sur la page web…",
+  "status.agent.browserTyping": "Saisie sur la page web…",
+  "status.agent.browserActing": "Utilisation de la page web…",
+  "status.agent.browserReviewing": "Analyse de la page web…",
   "status.agent.memoriesSearching": "Recherche dans ses souvenirs…",
   "status.agent.memoriesSearched": {
     one: "Souvenirs consultés : {count} trouvé",

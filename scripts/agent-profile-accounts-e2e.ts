@@ -50,7 +50,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { ProviderAccountStore } = await import("../src/backend/agent/provider-account-store");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 
 const CALL_MARK = "PROFILE-CALL";
 const MODEL = "gpt-6-luna";
@@ -250,7 +250,7 @@ await runCauseEffect(accounts.load());
 const second = await runCauseEffect(accounts.create("codex"));
 assert.ok(second, "The second Codex account was not created.");
 await runCauseEffect(accounts.rename("codex", second.id, "Team B"));
-const database = new OpenBotDatabase(userData);
+const database = new BuildersBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({

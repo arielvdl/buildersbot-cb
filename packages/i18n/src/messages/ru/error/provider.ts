@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot не смог зарегистрировать управление компьютером в конфигурации Codex. Убедитесь, что ваш config.toml для Codex корректен и доступен для записи, затем перезапустите Builders Bot. Чтобы продолжить без него, отключите управление компьютером в настройках агента.",
   "error.provider.codexUnresponsive": "Codex перестал отвечать, поэтому Builders Bot завершил его процесс.",
+  "error.provider.acpUnresponsive": "{provider} не ответил вовремя, поэтому Builders Bot завершил его процесс.",
   "error.provider.endpointsReadOnly":
     "Сохранённые эндпоинты записаны более новой версией Builders Bot, либо файл не читается. Чтобы изменить их, обновите Builders Bot.",
   "error.provider.endpointNoSecureStorage":
@@ -41,10 +42,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Пакет Claude не соответствует каталогу сред выполнения.",
   "error.provider.claudeChecksum": "Контрольная сумма среды выполнения Claude не совпадает.",
   "error.provider.claudeLicenseChecksum": "Контрольная сумма лицензии Claude не совпадает.",
-  "error.provider.opencodeArchivePath": "В архиве Builders неожиданный путь.",
-  "error.provider.opencodePackageMismatch": "Пакет Builders не соответствует каталогу сред выполнения.",
-  "error.provider.opencodeChecksum": "Контрольная сумма среды выполнения Builders не совпадает.",
-  "error.provider.opencodeLicenseChecksum": "Контрольная сумма лицензии Builders не совпадает.",
+  "error.provider.opencodeArchivePath": "В архиве OpenCode неожиданный путь.",
+  "error.provider.opencodePackageMismatch": "Пакет OpenCode не соответствует каталогу сред выполнения.",
+  "error.provider.opencodeChecksum": "Контрольная сумма среды выполнения OpenCode не совпадает.",
+  "error.provider.opencodeLicenseChecksum": "Контрольная сумма лицензии OpenCode не совпадает.",
   "error.provider.grokChecksum": "Контрольная сумма среды выполнения Grok не совпадает.",
   "error.provider.grokLicenseChecksum": "Контрольная сумма лицензии Grok не совпадает.",
   "error.provider.grokNoticesChecksum": "Контрольная сумма уведомлений Grok не совпадает.",
@@ -146,12 +147,12 @@ export const messages = {
   "error.provider.grokNotStartedHint":
     "Grok CLI найден, но запустить его не удалось. Выполните `grok --version` в новом терминале.",
   "error.provider.grokMissing": "Grok не загружен. Загрузите его в Builders Bot, чтобы продолжить.",
-  "error.provider.opencodeNotStarted": "Builders не удалось запустить. Выполните `opencode --version` в терминале.",
-  "error.provider.opencodeMissing": "Builders не загружен. Загрузите его в Builders Bot, чтобы продолжить.",
+  "error.provider.opencodeNotStarted": "OpenCode не удалось запустить. Выполните `opencode --version` в терминале.",
+  "error.provider.opencodeMissing": "OpenCode не загружен. Загрузите его в Builders Bot, чтобы продолжить.",
   "error.provider.codexVersionUnreadable": "Не удалось прочитать версию Codex CLI.",
   "error.provider.claudeVersionUnreadable": "Не удалось прочитать версию Claude CLI.",
   "error.provider.grokVersionUnreadable": "Не удалось прочитать версию Grok CLI.",
-  "error.provider.opencodeVersionUnreadable": "Не удалось прочитать версию Builders CLI.",
+  "error.provider.opencodeVersionUnreadable": "Не удалось прочитать версию OpenCode CLI.",
   "error.provider.bunVersionUnreadable": "Не удалось прочитать версию среды выполнения Bun.",
   "error.provider.connectBeforeProfile": "Подключите выбранного провайдера, прежде чем создавать профиль.",
   "error.provider.cliNotReady": "{provider} CLI не готов или в нём не выполнен вход.",
@@ -182,35 +183,35 @@ export const messages = {
   "error.provider.cliBusyReconnect":
     "{provider} CLI обрабатывает ход. Дождитесь его завершения, затем подключитесь заново.",
   "error.provider.opencodeCredentialsRejected":
-    "Провайдер моделей отклонил API-ключ. Исправьте ключ Builders в настройках или ключ провайдера командой `opencode auth login`. Затем повторите попытку или выберите другую модель.\n{detail}",
+    "Провайдер моделей отклонил API-ключ. Исправьте ключ OpenCode в настройках или ключ провайдера командой `opencode auth login`. Затем повторите попытку или выберите другую модель.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders не выполнил вход у провайдера модели «{provider}». Выберите модель с меткой «Бесплатно» или подключите провайдера: вставьте ключ Builders Go в настройках Builders или выполните `opencode auth login` в терминале. Затем повторите попытку.",
+    "OpenCode не выполнил вход у провайдера модели «{provider}». Выберите модель с меткой «Бесплатно» или подключите провайдера: вставьте ключ OpenCode Go в настройках OpenCode или выполните `opencode auth login` в терминале. Затем повторите попытку.",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders не выполнил вход у провайдера этой модели. Выберите модель с меткой «Бесплатно» или подключите провайдера: вставьте ключ Builders Go в настройках Builders или выполните `opencode auth login` в терминале. Затем повторите попытку.",
+    "OpenCode не выполнил вход у провайдера этой модели. Выберите модель с меткой «Бесплатно» или подключите провайдера: вставьте ключ OpenCode Go в настройках OpenCode или выполните `opencode auth login` в терминале. Затем повторите попытку.",
   "error.provider.opencodeKeyExpired":
-    "Срок действия API-ключа Builders истёк. Создайте новый ключ в Builders Console, вставьте его в настройках Builders, затем повторите попытку.",
+    "Срок действия API-ключа OpenCode истёк. Создайте новый ключ в OpenCode Console, вставьте его в настройках OpenCode, затем повторите попытку.",
   "error.provider.opencodeServiceFailure":
-    "Builders не смог завершить этот ход из-за сбоя локальной службы. Повторите попытку. Если ошибка повторяется, подключите Builders заново в настройках.",
+    "OpenCode не смог завершить этот ход из-за сбоя локальной службы. Повторите попытку. Если ошибка повторяется, подключите OpenCode заново в настройках.",
   "error.provider.opencodeRateLimited":
     "Провайдер моделей отклонил запрос из-за ограничения частоты. Подождите несколько минут или выберите другую модель и повторите попытку.\n{detail}",
   "error.provider.opencodeBilling":
     "Провайдер моделей отклонил запрос из-за оплаты аккаунта. Ожидание не поможет. Добавьте способ оплаты или средства в аккаунте провайдера либо выберите другую модель.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Провайдер моделей Builders сообщил о некорректном запросе на загрузку. Выберите другую модель и продолжайте. Проверьте сохранённые регулярные задачи, прежде чем создавать их заново.\n{detail}",
+    "Провайдер моделей OpenCode сообщил о некорректном запросе на загрузку. Выберите другую модель и продолжайте. Проверьте сохранённые регулярные задачи, прежде чем создавать их заново.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Эта модель не может прочитать файл или изображение в этом чате. Выберите модель, которая читает файлы, затем отправьте сообщение ещё раз.",
   "error.provider.opencodeFreeLimit":
-    "Бесплатные модели Builders исчерпали лимит использования. Этот лимит общий для всех бесплатных моделей. Чтобы продолжить, вставьте ключ Builders Go в настройках Builders или выберите модель другого провайдера.",
+    "Бесплатные модели OpenCode исчерпали лимит использования. Этот лимит общий для всех бесплатных моделей. Чтобы продолжить, вставьте ключ OpenCode Go в настройках OpenCode или выберите модель другого провайдера.",
   "error.provider.opencodeProviderFailed":
     "У провайдера моделей произошёл сбой на его стороне. Дело не в вашем соединении. Повторите попытку позже или выберите другую модель.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders не смог подключиться к провайдеру моделей. Проверьте сетевое подключение компьютера, где работает Builders Bot, и повторите попытку.\n{detail}",
+    "OpenCode не смог подключиться к провайдеру моделей. Проверьте сетевое подключение компьютера, где работает Builders Bot, и повторите попытку.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders не смог открыть свою базу данных, потому что её изменила более новая версия Builders. Обновите Builders до версии 2 или новее и повторите попытку.",
+    "OpenCode не смог открыть свою базу данных, потому что её изменила более новая версия OpenCode. Обновите OpenCode до версии 2 или новее и повторите попытку.",
   "error.provider.opencodeNoAnswer":
-    "Модель Builders завершила ход без ответа. Повторите попытку или выберите другую модель.",
+    "Модель OpenCode завершила ход без ответа. Повторите попытку или выберите другую модель.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Модель Builders завершила ход после рассуждения, без ответа. Повторите попытку или выберите другую модель.",
+    "Модель OpenCode завершила ход после рассуждения, без ответа. Повторите попытку или выберите другую модель.",
   "error.provider.chatgptPageFailed": "Builders Bot не смог открыть страницу подключения ChatGPT.",
   "error.provider.noneReady": "Ни один провайдер агентов не готов.",
   "error.provider.claudeTurnActive": "Дождитесь завершения текущего хода Claude, прежде чем обновлять его контекст.",
@@ -255,7 +256,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "{provider} не принял предыдущие рассуждения в этом чате, потому что их получил другой аккаунт или API-ключ. Builders Bot начал новую сессию {provider} с историей чата. Повторите попытку.",
   "error.provider.opencodeSessionRejected":
-    "Builders отклонил запрос и не указал причину. Это может произойти в длинном чате или после смены модели. Builders Bot начал новый сеанс Builders с историей чата. Повторите попытку. Если ошибка не исчезнет, выберите другую модель или меньший уровень усилий.",
+    "OpenCode отклонил запрос и не указал причину. Это может произойти в длинном чате или после смены модели. Builders Bot начал новый сеанс OpenCode с историей чата. Повторите попытку. Если ошибка не исчезнет, выберите другую модель или меньший уровень усилий.",
   "error.provider.museMcpStartupFault":
     "Muse не удалось запустить сервер MCP, и он заблокировал MCP в этом сеансе. Builders Bot начал новый сеанс Muse с историей чата. Повторите попытку. Если ошибка повторяется, отключите Управление компьютером или неисправный сервер MCP для этого агента.",
   "error.provider.grokSignIn": "Выполните `grok login` или задайте XAI_API_KEY, чтобы использовать Grok.",
@@ -263,6 +264,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "Вход прервался, не завершившись.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini не удалось открыть страницу входа. Установите браузер и xdg-utils, затем подключитесь из сеанса рабочего стола на этом хосте. Сервер без рабочего стола не может завершить этот вход.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini не удалось открыть страницу входа в браузере. Проверьте браузер по умолчанию и подключитесь снова.",
   "error.provider.acpSignInFailed": "Вход не завершён.",
   "error.provider.acpSignInFailedReason": "Вход не завершён: {reason}",
   "error.provider.acpSignInMethodMissing":

@@ -7,6 +7,8 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot konnte die Computersteuerung nicht in der Codex-Konfiguration registrieren. Prüfe, ob deine Codex-Datei config.toml gültig und beschreibbar ist, und starte Builders Bot neu. Du kannst die Computersteuerung in den Agenteneinstellungen ausschalten, um ohne sie fortzufahren.",
   "error.provider.codexUnresponsive": "Codex hat nicht mehr geantwortet, daher hat Builders Bot den Prozess beendet.",
+  "error.provider.acpUnresponsive":
+    "{provider} hat nicht rechtzeitig geantwortet, daher hat Builders Bot den Prozess beendet.",
   "error.provider.endpointsReadOnly":
     "Die gespeicherten Endpunkte wurden mit einer neueren Builders Bot-Version geschrieben oder die Datei kann nicht gelesen werden. Aktualisiere Builders Bot, um sie zu ändern.",
   "error.provider.endpointNoSecureStorage":
@@ -42,10 +44,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Das Claude-Paket stimmt nicht mit dem Laufzeitkatalog überein.",
   "error.provider.claudeChecksum": "Die Prüfsumme der Claude-Laufzeit stimmt nicht überein.",
   "error.provider.claudeLicenseChecksum": "Die Prüfsumme der Claude-Lizenz stimmt nicht überein.",
-  "error.provider.opencodeArchivePath": "Das Builders-Archiv hat einen unerwarteten Pfad.",
-  "error.provider.opencodePackageMismatch": "Das Builders-Paket stimmt nicht mit dem Laufzeitkatalog überein.",
-  "error.provider.opencodeChecksum": "Die Prüfsumme der Builders-Laufzeit stimmt nicht überein.",
-  "error.provider.opencodeLicenseChecksum": "Die Prüfsumme der Builders-Lizenz stimmt nicht überein.",
+  "error.provider.opencodeArchivePath": "Das OpenCode-Archiv hat einen unerwarteten Pfad.",
+  "error.provider.opencodePackageMismatch": "Das OpenCode-Paket stimmt nicht mit dem Laufzeitkatalog überein.",
+  "error.provider.opencodeChecksum": "Die Prüfsumme der OpenCode-Laufzeit stimmt nicht überein.",
+  "error.provider.opencodeLicenseChecksum": "Die Prüfsumme der OpenCode-Lizenz stimmt nicht überein.",
   "error.provider.grokChecksum": "Die Prüfsumme der Grok-Laufzeit stimmt nicht überein.",
   "error.provider.grokLicenseChecksum": "Die Prüfsumme der Grok-Lizenz stimmt nicht überein.",
   "error.provider.grokNoticesChecksum": "Die Prüfsumme der Grok-Hinweise stimmt nicht überein.",
@@ -146,13 +148,13 @@ export const messages = {
     "Grok CLI wurde gefunden, konnte aber nicht gestartet werden. Führe `grok --version` in einem neuen Terminal aus.",
   "error.provider.grokMissing": "Grok wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
   "error.provider.opencodeNotStarted":
-    "Builders konnte nicht starten. Führe `opencode --version` in einem Terminal aus.",
+    "OpenCode konnte nicht starten. Führe `opencode --version` in einem Terminal aus.",
   "error.provider.opencodeMissing":
-    "Builders wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
+    "OpenCode wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
   "error.provider.codexVersionUnreadable": "Die Version von Codex CLI konnte nicht gelesen werden.",
   "error.provider.claudeVersionUnreadable": "Die Version von Claude CLI konnte nicht gelesen werden.",
   "error.provider.grokVersionUnreadable": "Die Version von Grok CLI konnte nicht gelesen werden.",
-  "error.provider.opencodeVersionUnreadable": "Die Version von Builders CLI konnte nicht gelesen werden.",
+  "error.provider.opencodeVersionUnreadable": "Die Version von OpenCode CLI konnte nicht gelesen werden.",
   "error.provider.bunVersionUnreadable": "Die Version der Bun-Laufzeit konnte nicht gelesen werden.",
   "error.provider.connectBeforeProfile": "Verbinde den gewählten Anbieter, bevor du ein Profil erstellst.",
   "error.provider.cliNotReady": "Die CLI von {provider} ist nicht bereit oder nicht angemeldet.",
@@ -190,35 +192,35 @@ export const messages = {
   "error.provider.cliBusyReconnect":
     "Die CLI von {provider} bearbeitet einen Durchlauf. Warte auf den Abschluss und verbinde sie dann erneut.",
   "error.provider.opencodeCredentialsRejected":
-    "Der Modellanbieter hat den API-Schlüssel abgelehnt. Korrigiere den Builders-Schlüssel in den Einstellungen oder den Anbieterschlüssel mit `opencode auth login`. Versuche es dann erneut oder wähle ein anderes Modell.\n{detail}",
+    "Der Modellanbieter hat den API-Schlüssel abgelehnt. Korrigiere den OpenCode-Schlüssel in den Einstellungen oder den Anbieterschlüssel mit `opencode auth login`. Versuche es dann erneut oder wähle ein anderes Modell.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders hat keine Anmeldung für den Modellanbieter „{provider}“. Wähle ein Modell mit der Markierung „Kostenlos“ oder verbinde den Anbieter: Füge einen Builders-Go-Schlüssel in den Builders-Einstellungen ein oder führe `opencode auth login` in einem Terminal aus. Versuche es dann erneut.",
+    "OpenCode hat keine Anmeldung für den Modellanbieter „{provider}“. Wähle ein Modell mit der Markierung „Kostenlos“ oder verbinde den Anbieter: Füge einen OpenCode-Go-Schlüssel in den OpenCode-Einstellungen ein oder führe `opencode auth login` in einem Terminal aus. Versuche es dann erneut.",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders hat keine Anmeldung für den Anbieter dieses Modells. Wähle ein Modell mit der Markierung „Kostenlos“ oder verbinde den Anbieter: Füge einen Builders-Go-Schlüssel in den Builders-Einstellungen ein oder führe `opencode auth login` in einem Terminal aus. Versuche es dann erneut.",
+    "OpenCode hat keine Anmeldung für den Anbieter dieses Modells. Wähle ein Modell mit der Markierung „Kostenlos“ oder verbinde den Anbieter: Füge einen OpenCode-Go-Schlüssel in den OpenCode-Einstellungen ein oder führe `opencode auth login` in einem Terminal aus. Versuche es dann erneut.",
   "error.provider.opencodeKeyExpired":
-    "Dein Builders-API-Schlüssel ist abgelaufen. Erstelle in der Builders Console einen neuen Schlüssel, füge ihn in den Builders-Einstellungen ein und versuche es dann erneut.",
+    "Dein OpenCode-API-Schlüssel ist abgelaufen. Erstelle in der OpenCode Console einen neuen Schlüssel, füge ihn in den OpenCode-Einstellungen ein und versuche es dann erneut.",
   "error.provider.opencodeServiceFailure":
-    "Builders konnte diesen Durchlauf nicht abschließen, da sein lokaler Dienst fehlgeschlagen ist. Versuche es erneut. Falls der Fehler weiter auftritt, verbinde Builders in den Einstellungen erneut.",
+    "OpenCode konnte diesen Durchlauf nicht abschließen, da sein lokaler Dienst fehlgeschlagen ist. Versuche es erneut. Falls der Fehler weiter auftritt, verbinde OpenCode in den Einstellungen erneut.",
   "error.provider.opencodeRateLimited":
     "Der Modellanbieter hat die Anfrage wegen seiner Ratenbegrenzung abgelehnt. Warte einige Minuten oder wähle ein anderes Modell und versuche es erneut.\n{detail}",
   "error.provider.opencodeBilling":
     "Der Modellanbieter hat die Anfrage wegen der Kontoabrechnung abgelehnt. Warten behebt dies nicht. Füge im Anbieterkonto eine Zahlungsmethode oder Guthaben hinzu oder wähle ein anderes Modell.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Der Modellanbieter von Builders hat eine ungültige Upload-Anfrage gemeldet. Wähle ein anderes Modell und fahre fort. Prüfe gespeicherte Routinen, bevor du sie erneut erstellst.\n{detail}",
+    "Der Modellanbieter von OpenCode hat eine ungültige Upload-Anfrage gemeldet. Wähle ein anderes Modell und fahre fort. Prüfe gespeicherte Routinen, bevor du sie erneut erstellst.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Dieses Modell kann eine Datei oder ein Bild in diesem Chat nicht lesen. Wähle ein Modell, das Dateien lesen kann, und sende deine Nachricht dann erneut.",
   "error.provider.opencodeFreeLimit":
-    "Die kostenlosen Builders-Modelle haben ihr Nutzungslimit erreicht. Alle kostenlosen Modelle teilen sich dieses Limit. Um weiterzumachen, füge einen Builders-Go-Schlüssel in den Builders-Einstellungen ein oder wähle ein Modell eines anderen Anbieters.",
+    "Die kostenlosen OpenCode-Modelle haben ihr Nutzungslimit erreicht. Alle kostenlosen Modelle teilen sich dieses Limit. Um weiterzumachen, füge einen OpenCode-Go-Schlüssel in den OpenCode-Einstellungen ein oder wähle ein Modell eines anderen Anbieters.",
   "error.provider.opencodeProviderFailed":
     "Beim Modellanbieter ist ein Fehler aufgetreten. Deine Verbindung ist nicht die Ursache. Versuche es später erneut oder wähle ein anderes Modell.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders konnte keine Verbindung zum Modellanbieter herstellen. Prüfe die Netzwerkverbindung des Computers, auf dem Builders Bot läuft, und versuche es erneut.\n{detail}",
+    "OpenCode konnte keine Verbindung zum Modellanbieter herstellen. Prüfe die Netzwerkverbindung des Computers, auf dem Builders Bot läuft, und versuche es erneut.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders konnte seine Datenbank nicht öffnen, weil eine neuere Builders-Version sie geändert hat. Aktualisiere Builders auf Version 2 oder neuer und versuche es dann erneut.",
+    "OpenCode konnte seine Datenbank nicht öffnen, weil eine neuere OpenCode-Version sie geändert hat. Aktualisiere OpenCode auf Version 2 oder neuer und versuche es dann erneut.",
   "error.provider.opencodeNoAnswer":
-    "Das Builders-Modell hat den Durchlauf ohne Antwort beendet. Versuche es erneut oder wähle ein anderes Modell.",
+    "Das OpenCode-Modell hat den Durchlauf ohne Antwort beendet. Versuche es erneut oder wähle ein anderes Modell.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Das Builders-Modell hat den Durchlauf nach seinem Nachdenken ohne Antwort beendet. Versuche es erneut oder wähle ein anderes Modell.",
+    "Das OpenCode-Modell hat den Durchlauf nach seinem Nachdenken ohne Antwort beendet. Versuche es erneut oder wähle ein anderes Modell.",
   "error.provider.chatgptPageFailed": "Builders Bot konnte die ChatGPT-Verbindungsseite nicht öffnen.",
   "error.provider.noneReady": "Kein Agentenanbieter ist bereit.",
   "error.provider.claudeTurnActive":
@@ -268,7 +270,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "{provider} hat die früheren Überlegungen in diesem Chat nicht akzeptiert, da ein anderes Konto oder ein anderer API-Schlüssel sie erhalten hat. Builders Bot hat eine neue {provider}-Sitzung mit dem Chatverlauf gestartet. Versuche es erneut.",
   "error.provider.opencodeSessionRejected":
-    "Builders hat die Anfrage abgelehnt und keinen Grund genannt. Das kann in einem langen Chat oder nach einem Modellwechsel passieren. Builders Bot hat eine neue Builders-Sitzung mit dem Chatverlauf gestartet. Versuche es erneut. Wenn der Fehler bleibt, wähle ein anderes Modell oder einen niedrigeren Aufwand.",
+    "OpenCode hat die Anfrage abgelehnt und keinen Grund genannt. Das kann in einem langen Chat oder nach einem Modellwechsel passieren. Builders Bot hat eine neue OpenCode-Sitzung mit dem Chatverlauf gestartet. Versuche es erneut. Wenn der Fehler bleibt, wähle ein anderes Modell oder einen niedrigeren Aufwand.",
   "error.provider.museMcpStartupFault":
     "Muse konnte einen MCP-Server nicht starten und hat MCP in dieser Sitzung gesperrt. Builders Bot hat eine neue Muse-Sitzung mit dem Chatverlauf gestartet. Versuche es erneut. Wenn der Fehler bleibt, schalte Computersteuerung oder den fehlerhaften MCP-Server für diesen Agenten aus.",
   "error.provider.grokSignIn": "Führe `grok login` aus oder setze XAI_API_KEY, um Grok zu verwenden.",
@@ -276,6 +278,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "Die Anmeldung wurde vor dem Abschluss gestoppt.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini konnte die Anmeldeseite nicht öffnen. Installiere einen Browser und xdg-utils und verbinde dich dann aus einer Desktop-Sitzung auf diesem Host. Ein Server ohne Desktop kann diese Anmeldung nicht abschließen.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini konnte die Anmeldeseite nicht in deinem Browser öffnen. Prüfe deinen Standardbrowser und verbinde dich dann erneut.",
   "error.provider.acpSignInFailed": "Die Anmeldung wurde nicht abgeschlossen.",
   "error.provider.acpSignInFailedReason": "Die Anmeldung wurde nicht abgeschlossen: {reason}",
   "error.provider.acpSignInMethodMissing":

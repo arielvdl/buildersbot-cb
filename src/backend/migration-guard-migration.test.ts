@@ -3,8 +3,9 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
-// Failure modes: a migration commits a database with a broken foreign key; a failed migration leaves foreign-key
-// enforcement off; a history with a gap at any version runs the migrations after the gap.
+// Failure modes: a migration commits a database with a broken foreign key that it made; a broken foreign key from
+// before the upgrade stops a migration that does not touch it, or the upgrade deletes or changes its row; a failed
+// migration leaves foreign-key enforcement off; a history with a gap at any version runs the migrations after the gap.
 const databases: DatabaseSync[] = [];
 afterEach(() => {
   for (const db of databases.splice(0)) db.close();
@@ -65,33 +66,64 @@ function range(from: number, to: number): number[] {
 }
 
 describe("migration guards", () => {
-  // Migration 28 turns foreign keys off for its rebuild, and migrations 43 to 47 do not.
-  it.each([28, 43, 44, 45, 46, 47])("rolls back migration %i when the database has a broken foreign key", (version) => {
-    const db = databaseAt(version - 1);
+  // Migrations 13, 17, 19, 22 to 24, 26 and 28 turn foreign keys off for their rebuilds, and the others do not.
+  it.each([9, 13, 17, 19, 22, 23, 24, 26, 28, 39, 40, 43, 44, 45, 46, 47])(
+    "runs migration %i past broken foreign keys from before the upgrade",
+    (version) => {
+      const db = databaseAt(version - 1);
+      seedOrphans(db);
+      const before = contents(db);
+      const violationsBefore = db.prepare("PRAGMA foreign_key_check").all();
+      expect(violationsBefore).toHaveLength(2);
+
+      migrateBuildersBotDatabase(db);
+
+      expect(versions(db)).toEqual(range(8, 47));
+      // Migration 40 adds order columns to the message; every column the row had keeps its value.
+      expect(contents(db)).toMatchObject(before);
+      // A rebuild moves its table in the schema, which changes only the order of the rows.
+      const violationsAfter = db.prepare("PRAGMA foreign_key_check").all();
+      expect(violationsAfter).toHaveLength(violationsBefore.length);
+      expect(violationsAfter).toEqual(expect.arrayContaining(violationsBefore));
+      expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
+      expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
+    },
+  );
+
+  it("rolls back a migration that breaks a foreign key, next to one from before the upgrade", () => {
+    const db = databaseAt(27);
     seedOrphans(db);
+    // Migration 28 runs with foreign keys off. Its transaction deletes the thread of the turn, so the turn gets a
+    // second broken reference that the migration made.
+    db.exec(`CREATE TEMP TRIGGER break_reference AFTER INSERT ON schema_migrations WHEN new.version = 28
+      BEGIN DELETE FROM projection_threads WHERE thread_id = 'openbot-thread-chief'; END;`);
     const before = contents(db);
+    const threadsBefore = db.prepare("SELECT * FROM projection_threads").all();
     const schemaBefore = db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all();
 
     expect(() => migrateBuildersBotDatabase(db)).toThrow(
       expect.objectContaining({
-        message: `Builders Bot database migration to version ${version} failed.`,
-        cause: expect.objectContaining({ message: "Builders Bot database migration produced 2 foreign-key violation(s)." }),
+        message: "Builders Bot database migration to version 28 failed.",
+        cause: expect.objectContaining({
+          message:
+            "Builders Bot database migration produced 1 foreign-key violation(s) in projection_turns -> projection_threads.",
+        }),
       }),
     );
-    expect(versions(db)).toEqual(range(8, version - 1));
+    expect(versions(db)).toEqual(range(8, 27));
     expect(db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all()).toEqual(schemaBefore);
+    expect(db.prepare("SELECT * FROM projection_threads").all()).toEqual(threadsBefore);
     expect(contents(db)).toEqual(before);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
 
     // The next start meets the same rows and stops again. It deletes nothing to get past them.
-    expect(() => migrateBuildersBotDatabase(db)).toThrow(`migration to version ${version} failed`);
+    expect(() => migrateBuildersBotDatabase(db)).toThrow("migration to version 28 failed");
     expect(contents(db)).toEqual(before);
 
-    db.exec("DELETE FROM projection_thread_messages; DELETE FROM projection_turns");
+    db.exec("DROP TRIGGER break_reference");
     migrateBuildersBotDatabase(db);
     expect(versions(db)).toEqual(range(8, 47));
-    expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
-    expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
+    expect(contents(db)).toMatchObject(before);
   });
 
   it.each(range(8, 46))("rejects a history that is missing version %i and changes nothing", (missing) => {

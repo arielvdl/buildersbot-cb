@@ -14,4 +14,11 @@ export const messages = {
   "mobile.share.noAgents": "Brak agentów",
   "mobile.share.chooseAgent": "Wybierz agenta",
   "mobile.share.action": "Udostępnij: {name}",
+  "mobile.share.extension.send": "Wyślij",
+  "mobile.share.extension.footer": "Builders Bot wyśle to teraz do agenta. Aplikacja się nie otworzy.",
+  "mobile.share.extension.sending": "Wysyłanie do {name}…",
+  "mobile.share.extension.sent": "Wysłano do {name}",
+  "mobile.share.extension.failed": "Builders Bot nie mógł tego wysłać. Otwórz aplikację, aby wysłać to z niej.",
+  "mobile.share.extension.unconfirmed": "Serwer nie potwierdził wiadomości. Sprawdź czat, zanim wyślesz ją ponownie.",
+  "mobile.share.extension.openApp": "Otwórz Builders Bot",
 } as const satisfies PartialTranslation<typeof source>;

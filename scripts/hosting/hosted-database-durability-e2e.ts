@@ -20,9 +20,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger, registerSecretValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue } from "@openbot/logging";
 
-const logger = createOpenBotLogger("hosted-database-durability-e2e");
+const logger = createBuildersBotLogger("hosted-database-durability-e2e");
 const BOAT_API_URL = "https://boat.dev/api/v1";
 const TTL_SECONDS = 7200;
 const REMOTE_DIRECTORY = "/home/user/openbot-durability";

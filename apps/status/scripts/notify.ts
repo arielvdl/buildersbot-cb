@@ -17,7 +17,7 @@ import { createHash, createHmac } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { createOpenBotLogger, registerSecretValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue } from "@openbot/logging";
 import { Schema } from "effect";
 import {
   CheckResult,
@@ -31,7 +31,7 @@ import {
   serviceName,
 } from "../src/model";
 
-const logger = createOpenBotLogger("status-notify");
+const logger = createBuildersBotLogger("status-notify");
 
 const { values: args } = parseArgs({
   options: {

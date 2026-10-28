@@ -13,7 +13,7 @@ import {
   LICENSE_PRICES,
   LICENSE_PRODUCT_ID,
 } from "@openbot/contracts/license";
-import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { z } from "zod";
 
 /**
@@ -29,7 +29,7 @@ import { z } from "zod";
  * `bootstrapStripe` and stores the secret itself.
  */
 
-const logger = createOpenBotLogger("stripe-bootstrap");
+const logger = createBuildersBotLogger("stripe-bootstrap");
 const STRIPE_API_VERSION = "2025-03-31.basil";
 
 /**

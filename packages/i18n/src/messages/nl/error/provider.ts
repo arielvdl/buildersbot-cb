@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot kon Computerbesturing niet registreren in de configuratie van Codex. Controleer of je Codex-config.toml geldig en beschrijfbaar is en start Builders Bot opnieuw. Je kunt Computerbesturing uitzetten in de instellingen van de teamgenoot om zonder door te gaan.",
   "error.provider.codexUnresponsive": "Codex reageerde niet meer, dus Builders Bot heeft het proces beëindigd.",
+  "error.provider.acpUnresponsive": "{provider} reageerde niet op tijd, dus Builders Bot heeft het proces beëindigd.",
   "error.provider.endpointsReadOnly":
     "De opgeslagen endpoints zijn geschreven door een nieuwere versie van Builders Bot, of het bestand kan niet worden gelezen. Werk Builders Bot bij om ze te wijzigen.",
   "error.provider.endpointNoSecureStorage":
@@ -42,10 +43,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Het Claude-pakket komt niet overeen met de runtimecatalogus.",
   "error.provider.claudeChecksum": "Checksum van de Claude-runtime komt niet overeen.",
   "error.provider.claudeLicenseChecksum": "Checksum van de Claude-licentie komt niet overeen.",
-  "error.provider.opencodeArchivePath": "Het Builders-archief heeft een onverwacht pad.",
-  "error.provider.opencodePackageMismatch": "Het Builders-pakket komt niet overeen met de runtimecatalogus.",
-  "error.provider.opencodeChecksum": "Checksum van de Builders-runtime komt niet overeen.",
-  "error.provider.opencodeLicenseChecksum": "Checksum van de Builders-licentie komt niet overeen.",
+  "error.provider.opencodeArchivePath": "Het OpenCode-archief heeft een onverwacht pad.",
+  "error.provider.opencodePackageMismatch": "Het OpenCode-pakket komt niet overeen met de runtimecatalogus.",
+  "error.provider.opencodeChecksum": "Checksum van de OpenCode-runtime komt niet overeen.",
+  "error.provider.opencodeLicenseChecksum": "Checksum van de OpenCode-licentie komt niet overeen.",
   "error.provider.grokChecksum": "Checksum van de Grok-runtime komt niet overeen.",
   "error.provider.grokLicenseChecksum": "Checksum van de Grok-licentie komt niet overeen.",
   "error.provider.grokNoticesChecksum": "Checksum van de Grok-kennisgevingen komt niet overeen.",
@@ -142,12 +143,12 @@ export const messages = {
   "error.provider.grokNotStartedHint":
     "Grok CLI is gevonden, maar kon niet worden gestart. Voer `grok --version` uit in een nieuwe terminal.",
   "error.provider.grokMissing": "Grok is niet gedownload. Download het in Builders Bot om door te gaan.",
-  "error.provider.opencodeNotStarted": "Builders kon niet starten. Voer `opencode --version` uit in een terminal.",
-  "error.provider.opencodeMissing": "Builders is niet gedownload. Download het in Builders Bot om door te gaan.",
+  "error.provider.opencodeNotStarted": "OpenCode kon niet starten. Voer `opencode --version` uit in een terminal.",
+  "error.provider.opencodeMissing": "OpenCode is niet gedownload. Download het in Builders Bot om door te gaan.",
   "error.provider.codexVersionUnreadable": "Kan de versie van Codex CLI niet lezen.",
   "error.provider.claudeVersionUnreadable": "Kan de versie van Claude CLI niet lezen.",
   "error.provider.grokVersionUnreadable": "Kan de versie van Grok CLI niet lezen.",
-  "error.provider.opencodeVersionUnreadable": "Kan de versie van Builders CLI niet lezen.",
+  "error.provider.opencodeVersionUnreadable": "Kan de versie van OpenCode CLI niet lezen.",
   "error.provider.bunVersionUnreadable": "Kan de versie van de Bun-runtime niet lezen.",
   "error.provider.connectBeforeProfile": "Verbind de gekozen aanbieder voordat je een profiel maakt.",
   "error.provider.cliNotReady": "{provider} CLI is niet klaar of niet ingelogd.",
@@ -183,35 +184,35 @@ export const messages = {
   "error.provider.cliBusyReconnect":
     "De {provider} CLI werkt aan een beurt. Wacht tot die klaar is en verbind dan opnieuw.",
   "error.provider.opencodeCredentialsRejected":
-    "De modelaanbieder heeft de API-sleutel geweigerd. Corrigeer de Builders-sleutel in Instellingen, of de sleutel van de aanbieder met `opencode auth login`. Probeer het daarna opnieuw of kies een ander model.\n{detail}",
+    "De modelaanbieder heeft de API-sleutel geweigerd. Corrigeer de OpenCode-sleutel in Instellingen, of de sleutel van de aanbieder met `opencode auth login`. Probeer het daarna opnieuw of kies een ander model.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders heeft geen inlog voor de modelaanbieder “{provider}”. Kies een model met het label Gratis, of verbind de aanbieder: plak een Builders Go-sleutel in de Builders-instellingen, of voer `opencode auth login` uit in een terminal. Probeer het daarna opnieuw.",
+    "OpenCode heeft geen inlog voor de modelaanbieder “{provider}”. Kies een model met het label Gratis, of verbind de aanbieder: plak een OpenCode Go-sleutel in de OpenCode-instellingen, of voer `opencode auth login` uit in een terminal. Probeer het daarna opnieuw.",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders heeft geen inlog voor de aanbieder van dit model. Kies een model met het label Gratis, of verbind de aanbieder: plak een Builders Go-sleutel in de Builders-instellingen, of voer `opencode auth login` uit in een terminal. Probeer het daarna opnieuw.",
+    "OpenCode heeft geen inlog voor de aanbieder van dit model. Kies een model met het label Gratis, of verbind de aanbieder: plak een OpenCode Go-sleutel in de OpenCode-instellingen, of voer `opencode auth login` uit in een terminal. Probeer het daarna opnieuw.",
   "error.provider.opencodeKeyExpired":
-    "Je Builders-API-sleutel is verlopen. Maak een nieuwe sleutel in Builders Console, plak hem in de Builders-instellingen en probeer het opnieuw.",
+    "Je OpenCode-API-sleutel is verlopen. Maak een nieuwe sleutel in OpenCode Console, plak hem in de OpenCode-instellingen en probeer het opnieuw.",
   "error.provider.opencodeServiceFailure":
-    "Builders kon deze beurt niet voltooien, omdat de lokale service is mislukt. Probeer het opnieuw. Blijft de fout, verbind Builders dan opnieuw in Instellingen.",
+    "OpenCode kon deze beurt niet voltooien, omdat de lokale service is mislukt. Probeer het opnieuw. Blijft de fout, verbind OpenCode dan opnieuw in Instellingen.",
   "error.provider.opencodeRateLimited":
     "De modelaanbieder heeft het verzoek geweigerd vanwege de limiet op het aantal verzoeken. Wacht een paar minuten of kies een ander model, en probeer het opnieuw.\n{detail}",
   "error.provider.opencodeBilling":
     "De modelaanbieder heeft het verzoek geweigerd vanwege de facturering van het account. Wachten lost dit niet op. Voeg een betaalmethode of tegoed toe in het account van de aanbieder, of kies een ander model.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "De modelaanbieder van Builders meldde een ongeldig uploadverzoek. Kies een ander model en ga verder. Controleer opgeslagen routines voordat je ze opnieuw maakt.\n{detail}",
+    "De modelaanbieder van OpenCode meldde een ongeldig uploadverzoek. Kies een ander model en ga verder. Controleer opgeslagen routines voordat je ze opnieuw maakt.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Dit model kan een bestand of afbeelding in deze chat niet lezen. Kies een model dat bestanden kan lezen en stuur je bericht opnieuw.",
   "error.provider.opencodeFreeLimit":
-    "De gratis Builders-modellen hebben hun gebruikslimiet bereikt. Alle gratis modellen delen deze limiet. Plak een Builders Go-sleutel in de Builders-instellingen om door te gaan, of kies een model van een andere aanbieder.",
+    "De gratis OpenCode-modellen hebben hun gebruikslimiet bereikt. Alle gratis modellen delen deze limiet. Plak een OpenCode Go-sleutel in de OpenCode-instellingen om door te gaan, of kies een model van een andere aanbieder.",
   "error.provider.opencodeProviderFailed":
     "De modelaanbieder had een storing aan zijn kant. Het ligt niet aan je verbinding. Probeer het later opnieuw of kies een ander model.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders kon geen verbinding maken met de modelaanbieder. Controleer de netwerkverbinding van de computer waarop Builders Bot draait en probeer het opnieuw.\n{detail}",
+    "OpenCode kon geen verbinding maken met de modelaanbieder. Controleer de netwerkverbinding van de computer waarop Builders Bot draait en probeer het opnieuw.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders kon de database niet openen, omdat een nieuwere versie van Builders deze heeft gewijzigd. Werk Builders bij naar versie 2 of nieuwer en probeer het opnieuw.",
+    "OpenCode kon de database niet openen, omdat een nieuwere versie van OpenCode deze heeft gewijzigd. Werk OpenCode bij naar versie 2 of nieuwer en probeer het opnieuw.",
   "error.provider.opencodeNoAnswer":
-    "Het Builders-model beëindigde de beurt zonder antwoord. Probeer het opnieuw, of kies een ander model.",
+    "Het OpenCode-model beëindigde de beurt zonder antwoord. Probeer het opnieuw, of kies een ander model.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Het Builders-model beëindigde de beurt na het redeneren, zonder antwoord. Probeer het opnieuw, of kies een ander model.",
+    "Het OpenCode-model beëindigde de beurt na het redeneren, zonder antwoord. Probeer het opnieuw, of kies een ander model.",
   "error.provider.chatgptPageFailed": "Builders Bot kon de verbindingspagina van ChatGPT niet openen.",
   "error.provider.noneReady": "Er is geen agentaanbieder klaar.",
   "error.provider.claudeTurnActive": "Wacht op de actieve Claude-beurt voordat je de context vernieuwt.",
@@ -257,7 +258,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "{provider} heeft het eerdere redeneren in deze chat niet geaccepteerd, omdat een ander account of een andere API-sleutel het heeft ontvangen. Builders Bot heeft een nieuwe {provider}-sessie gestart met de chatgeschiedenis. Probeer het opnieuw.",
   "error.provider.opencodeSessionRejected":
-    "Builders heeft het verzoek geweigerd zonder de oorzaak te geven. Dit kan gebeuren in een lange chat of na een modelwijziging. Builders Bot heeft een nieuwe Builders-sessie gestart met de chatgeschiedenis. Probeer het opnieuw. Blijft de fout, kies dan een ander model of een lager niveau.",
+    "OpenCode heeft het verzoek geweigerd zonder de oorzaak te geven. Dit kan gebeuren in een lange chat of na een modelwijziging. Builders Bot heeft een nieuwe OpenCode-sessie gestart met de chatgeschiedenis. Probeer het opnieuw. Blijft de fout, kies dan een ander model of een lager niveau.",
   "error.provider.museMcpStartupFault":
     "Muse kon een MCP-server niet starten en heeft MCP in deze sessie geblokkeerd. Builders Bot heeft een nieuwe Muse-sessie gestart met de chatgeschiedenis. Probeer het opnieuw. Blijft de fout, zet dan Computerbesturing of de mislukte MCP-server uit voor deze agent.",
   "error.provider.grokSignIn": "Voer `grok login` uit of stel XAI_API_KEY in om Grok te gebruiken.",
@@ -265,6 +266,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "Het inloggen is gestopt voordat het klaar was.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini kon de inlogpagina niet openen. Installeer een browser en xdg-utils en verbind vanuit een desktopsessie op deze host. Een server zonder desktop kan deze inlog niet afronden.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini kon de inlogpagina niet in je browser openen. Controleer je standaardbrowser en verbind daarna opnieuw.",
   "error.provider.acpSignInFailed": "Het inloggen is niet voltooid.",
   "error.provider.acpSignInFailedReason": "Het inloggen is niet voltooid: {reason}",
   "error.provider.acpSignInMethodMissing":

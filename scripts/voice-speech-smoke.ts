@@ -15,7 +15,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { SpeechAudio, SpeechLanguage, SpeechVoice } from "@openbot/contracts/ipc";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { SpeechPreferenceStore } from "../src/main/speech-preference-store";
 import { SUPERTONIC_MODEL_DIRECTORY } from "../src/main/voice-model-service";
@@ -27,7 +27,7 @@ const OUTPUT = resolve(".openbot-build/voice-speech-smoke");
 const HOST = resolve("src/main/voice-speech-host.ts");
 const ELECTRON = resolve("node_modules/electron/dist/Electron.app/Contents/MacOS/Electron");
 
-const logger = createOpenBotLogger("voice-speech-smoke");
+const logger = createBuildersBotLogger("voice-speech-smoke");
 
 const SAMPLES: readonly { name: string; language: SpeechLanguage; voice: SpeechVoice; text: string }[] = [
   {

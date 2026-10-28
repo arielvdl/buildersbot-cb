@@ -3,17 +3,21 @@ import { Link, router } from "expo-router";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import ArrowLeft from "lucide-react-native/icons/arrow-left";
+import ChevronDown from "lucide-react-native/icons/chevron-down";
 import Globe from "lucide-react-native/icons/globe";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
 import { type ReactNode, useMemo } from "react";
-import { Pressable, View, type ViewStyle } from "react-native";
+import { Pressable, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { useUniwind } from "uniwind";
 import { AgentPinAvatar } from "@/features/agents/components/agent-pin-avatar";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
 import { useBrowserFeature } from "@/features/browser/components/use-browser-feature";
 import { ChannelAvatar } from "@/features/channels/components/channel-avatar";
 import { ChatGlassIconButton } from "@/features/chat/components/chat-glass-icon-button";
+import type { ChatThreadMenu } from "@/features/chat/components/chat-thread-menu";
 import { useMobileWorkspaceSelector } from "@/features/workspace/context/mobile-workspace-context";
 import { showsOnline } from "@/features/workspace/model/server-status";
+import { MenuView } from "@/shared/components/menu-view";
 import { SheetScrollEdgeEffect } from "@/shared/components/sheet-scroll-edge-effect";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
@@ -42,6 +46,8 @@ interface ChatHeaderProps {
   kicker?: string;
   /** Takes the place of the browser button, such as the actions of a task. */
   trailing?: ReactNode;
+  /** The agent's threads. The agent's name then opens this menu, and the menu has the agent's info. */
+  threadMenu?: ChatThreadMenu;
 }
 
 export function ChatHeader({
@@ -57,8 +63,11 @@ export function ChatHeader({
   title,
   kicker,
   trailing,
+  threadMenu,
 }: ChatHeaderProps) {
   const { t } = useText();
+  const { theme } = useUniwind();
+  const { width } = useWindowDimensions();
   const warning = useThemeColor("warning");
   const disconnected = useMobileWorkspaceSelector(
     (current) => !current.servers.some((server) => server.id === target.serverId && showsOnline(server)),
@@ -75,6 +84,43 @@ export function ChatHeader({
     [target],
   );
   const iconColor = String(foreground);
+  const identity = (
+    <>
+      <Link.AppleZoomTarget>
+        {target.kind === "channel" ? (
+          <View collapsable={false}>
+            <ChannelAvatar
+              channel={{ members: target.members.map((member) => ({ agentId: member.id })) }}
+              agents={members}
+              size={28}
+              disconnected={disconnected}
+            />
+          </View>
+        ) : (
+          <AgentPinAvatar agentId={target.id} location="chat" size={28}>
+            <BloubAvatar
+              agentId={target.id}
+              serverId={target.serverId}
+              hue={target.avatarHue}
+              seed={target.avatarSeed}
+              size={28}
+            />
+          </AgentPinAvatar>
+        )}
+      </Link.AppleZoomTarget>
+      {kicker ? (
+        <>
+          <Typography.Paragraph className="font-semibold" numberOfLines={1} style={typeScale.rowTitle}>
+            {kicker}
+          </Typography.Paragraph>
+          <View className="size-1 rounded-full bg-muted" />
+        </>
+      ) : null}
+      <Typography.Paragraph className="font-semibold min-w-0 shrink" numberOfLines={1} style={typeScale.rowTitle}>
+        {title ?? target.name}
+      </Typography.Paragraph>
+    </>
+  );
 
   return (
     <>
@@ -112,59 +158,58 @@ export function ChatHeader({
             overflow: "hidden",
           }}
         >
-          <Pressable
-            className="min-w-0 shrink flex-row items-center gap-2 self-stretch pr-4 pl-2.5"
-            accessibilityRole="button"
-            accessibilityLabel={t("mobile.chat.header.info", { name: target.name })}
-            hitSlop={8}
-            onPress={() => {
-              void haptics.impact("soft");
-              if (target.kind === "channel")
-                router.push({
-                  pathname: "/channel-info/[channelId]",
-                  params: { channelId: target.id, serverId: target.serverId },
-                });
-              else
-                router.push({
-                  pathname: "/agent-info/[agentId]",
-                  params: { agentId: target.id, serverId: target.serverId },
-                });
-            }}
-          >
-            <Link.AppleZoomTarget>
-              {target.kind === "channel" ? (
-                <View collapsable={false}>
-                  <ChannelAvatar
-                    channel={{ members: target.members.map((member) => ({ agentId: member.id })) }}
-                    agents={members}
-                    size={28}
-                    disconnected={disconnected}
+          {threadMenu ? (
+            <MenuView
+              colorScheme={theme === "dark" ? "dark" : "light"}
+              actions={threadMenu.actions}
+              onPressAction={({ nativeEvent }) => threadMenu.onPressAction(nativeEvent.event)}
+              style={{ alignSelf: "stretch" }}
+            >
+              {/* The native menu sizes its trigger to the content, so the title gets the width it can use. */}
+              <View
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={
+                  threadMenu.attention > 0
+                    ? t("mobile.chat.threads.menuAttention", { name: target.name, count: threadMenu.attention })
+                    : t("mobile.chat.threads.menu", { name: target.name })
+                }
+                className="h-12 min-w-0 flex-row items-center gap-2 pr-3 pl-2.5"
+                style={{ maxWidth: kicker ? width - 144 : 220 }}
+              >
+                {identity}
+                <ChevronDown color={iconColor} size={16} strokeWidth={2.5} />
+                {threadMenu.attention > 0 ? (
+                  <View
+                    className="absolute top-1.5 right-2 size-2.5 rounded-full"
+                    style={{ backgroundColor: threadMenu.color }}
                   />
-                </View>
-              ) : (
-                <AgentPinAvatar agentId={target.id} location="chat" size={28}>
-                  <BloubAvatar
-                    agentId={target.id}
-                    serverId={target.serverId}
-                    hue={target.avatarHue}
-                    seed={target.avatarSeed}
-                    size={28}
-                  />
-                </AgentPinAvatar>
-              )}
-            </Link.AppleZoomTarget>
-            {kicker ? (
-              <>
-                <Typography.Paragraph className="font-semibold" numberOfLines={1} style={typeScale.rowTitle}>
-                  {kicker}
-                </Typography.Paragraph>
-                <View className="size-1 rounded-full bg-muted" />
-              </>
-            ) : null}
-            <Typography.Paragraph className="font-semibold min-w-0 shrink" numberOfLines={1} style={typeScale.rowTitle}>
-              {title ?? target.name}
-            </Typography.Paragraph>
-          </Pressable>
+                ) : null}
+              </View>
+            </MenuView>
+          ) : (
+            <Pressable
+              className="min-w-0 shrink flex-row items-center gap-2 self-stretch pr-4 pl-2.5"
+              accessibilityRole="button"
+              accessibilityLabel={t("mobile.chat.header.info", { name: target.name })}
+              hitSlop={8}
+              onPress={() => {
+                void haptics.impact("soft");
+                if (target.kind === "channel")
+                  router.push({
+                    pathname: "/channel-info/[channelId]",
+                    params: { channelId: target.id, serverId: target.serverId },
+                  });
+                else
+                  router.push({
+                    pathname: "/agent-info/[agentId]",
+                    params: { agentId: target.id, serverId: target.serverId },
+                  });
+              }}
+            >
+              {identity}
+            </Pressable>
+          )}
         </GlassView>
 
         <View className="flex-1" />

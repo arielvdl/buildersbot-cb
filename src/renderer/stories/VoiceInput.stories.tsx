@@ -18,7 +18,7 @@ import type { ConversationProps } from "../src/features/conversation/conversatio
 import { VOICE_LEVEL_COUNT } from "../src/features/conversation/stores/voice-store";
 import { CONVERSATION_STORY_ARGS, StoryAppProviders } from "./conversation-story-support";
 import { STORY_AGENT_STATUS } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 /** A fixed stretch of speech, so the waveform looks the same in each screenshot. */
 const SPEECH_LEVELS = Array.from({ length: VOICE_LEVEL_COUNT }, (_, index) =>
@@ -117,7 +117,7 @@ function VoiceInputComposer(props: { state: VoiceInputState }) {
 
 function useMockOpenBot() {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot();
+  const mock = createMockBuildersBot();
   window.openbot = mock.api;
   onCleanup(() => {
     mock.dispose();

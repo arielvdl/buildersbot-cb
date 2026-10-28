@@ -15,7 +15,7 @@ import { AgentStore } from "../src/backend/agent-store";
 import { CodexAppServerClient } from "../src/backend/app-server-client";
 import { ClaudeAgentClient } from "../src/backend/claude-client";
 import { runCauseEffect } from "../src/backend/effect-boundary";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { BUILT_IN_PROVIDER_DRIVERS, NO_PROVIDER_CREDENTIALS } from "../src/backend/provider-drivers";
 
 export async function checkProviderAccountReload(): Promise<void> {
@@ -82,7 +82,7 @@ require("node:readline").createInterface({ input: process.stdin }).on("line", (l
     return join(root, `default-${provider}`);
   }
 
-  const database = new OpenBotDatabase(join(root, "profile"));
+  const database = new BuildersBotDatabase(join(root, "profile"));
   const agents = new AgentStore(join(root, "profile"), join(root, "home"), database);
   const accountsPath = join(root, "accounts.json");
   const accountsRoot = join(root, "accounts");

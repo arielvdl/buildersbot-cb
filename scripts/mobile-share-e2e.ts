@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writ
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { bootedSimulatorIds, hasMobileRuntime } from "./dev-mobile";
 
 const BUNDLE_ID = "run.openbot.mobile";
@@ -30,7 +30,7 @@ const PDF =
   "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj " +
   "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 72 72]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n";
 
-const logger = createOpenBotLogger("mobile-share-e2e");
+const logger = createBuildersBotLogger("mobile-share-e2e");
 const run = promisify(execFile);
 
 interface SharePayload {

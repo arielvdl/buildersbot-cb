@@ -85,6 +85,7 @@ export const messages = {
   "conversation.threads.error.read": "このスレッドのメッセージを読み込めませんでした。",
   "conversation.threads.error.start": "スレッドを開始できませんでした。",
   "conversation.threads.error.send": "スレッドにメッセージを送信できませんでした。",
+  "conversation.threads.error.files": "ファイルを送れるのは、このコンピューター上のエージェントのスレッドだけです。",
   "conversation.threads.error.stop": "スレッドを停止できませんでした。",
   "conversation.threads.error.archive": "スレッドをアーカイブできませんでした。",
   "conversation.threads.error.restore": "スレッドを復元できませんでした。",

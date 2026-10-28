@@ -35,7 +35,7 @@ import {
   STORY_QUEUES,
   STORY_REPLY_QUOTE_BODY,
 } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 const storyAttachment = CONVERSATION_STORY_ATTACHMENT;
 const messages = CONVERSATION_STORY_MESSAGES;
@@ -1089,7 +1089,7 @@ function MockedConversation(props: {
   replyToMessageId?: string;
 }) {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot();
+  const mock = createMockBuildersBot();
   const controller = createConversationController({ onTypingChange: props.args.onTypingChange });
   const previewUrls = new Set<string>();
   let storyFrameElement: HTMLDivElement | undefined;

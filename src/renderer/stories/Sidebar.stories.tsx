@@ -2,6 +2,7 @@ import type { ChannelSummary, HiddenAgent, SidebarLayoutAction, SidebarLayoutSna
 import type { AvatarMood } from "@openbot/ui/bloub-avatar";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
+import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineCard";
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { normalizeSidebarPinnedItems, type SidebarPinnedItem } from "@openbot/ui/features/sidebar/sidebar-pins";
@@ -362,6 +363,46 @@ export const StorageFull: Story = {
         freeBytes={0.14 * GB}
         totalBytes={12 * GB}
         onFreeUpSpace={fn()}
+        onDismiss={fn()}
+      />
+    ),
+  },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+/** The disk of a hosted server passed the 80% alert level that an admin set. */
+export const MachineDiskAlert: Story = {
+  args: {
+    footer: (
+      <SidebarMachineCard
+        serverName="Acme HQ"
+        metric="disk"
+        percent={87}
+        level={80}
+        freeBytes={9.6 * GB}
+        recipientName="Alice Chen"
+        critical={false}
+        onOpenDetails={fn()}
+        onDismiss={fn()}
+      />
+    ),
+  },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+/** Memory far above its level: the card is red and has no close button. */
+export const MachineMemoryCritical: Story = {
+  args: {
+    footer: (
+      <SidebarMachineCard
+        serverName="Acme HQ"
+        metric="memory"
+        percent={97}
+        level={85}
+        freeBytes={0.4 * GB}
+        recipientName="Alice Chen"
+        critical
+        onOpenDetails={fn()}
         onDismiss={fn()}
       />
     ),

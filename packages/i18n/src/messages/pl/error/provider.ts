@@ -7,6 +7,7 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Nie udało się zarejestrować Sterowania komputerem w konfiguracji Codex. Sprawdź, czy plik config.toml Codex jest poprawny i zapisywalny, a potem uruchom ponownie Builders Bot. Aby kontynuować bez tej funkcji, wyłącz Sterowanie komputerem w ustawieniach członka zespołu.",
   "error.provider.codexUnresponsive": "Codex przestał odpowiadać, więc Builders Bot zakończył jego proces.",
+  "error.provider.acpUnresponsive": "{provider} nie odpowiedział na czas, więc Builders Bot zakończył jego proces.",
   "error.provider.endpointsReadOnly":
     "Zapisane endpointy zapisała nowsza wersja Builders Bot albo nie można odczytać pliku. Zaktualizuj Builders Bot, aby je zmienić.",
   "error.provider.endpointNoSecureStorage":
@@ -41,10 +42,10 @@ export const messages = {
   "error.provider.claudePackageMismatch": "Pakiet Claude nie pasuje do katalogu środowisk uruchomieniowych.",
   "error.provider.claudeChecksum": "Niezgodna suma kontrolna środowiska uruchomieniowego Claude.",
   "error.provider.claudeLicenseChecksum": "Niezgodna suma kontrolna licencji Claude.",
-  "error.provider.opencodeArchivePath": "Archiwum Builders ma nieoczekiwaną ścieżkę.",
-  "error.provider.opencodePackageMismatch": "Pakiet Builders nie pasuje do katalogu środowisk uruchomieniowych.",
-  "error.provider.opencodeChecksum": "Niezgodna suma kontrolna środowiska uruchomieniowego Builders.",
-  "error.provider.opencodeLicenseChecksum": "Niezgodna suma kontrolna licencji Builders.",
+  "error.provider.opencodeArchivePath": "Archiwum OpenCode ma nieoczekiwaną ścieżkę.",
+  "error.provider.opencodePackageMismatch": "Pakiet OpenCode nie pasuje do katalogu środowisk uruchomieniowych.",
+  "error.provider.opencodeChecksum": "Niezgodna suma kontrolna środowiska uruchomieniowego OpenCode.",
+  "error.provider.opencodeLicenseChecksum": "Niezgodna suma kontrolna licencji OpenCode.",
   "error.provider.grokChecksum": "Niezgodna suma kontrolna środowiska uruchomieniowego Grok.",
   "error.provider.grokLicenseChecksum": "Niezgodna suma kontrolna licencji Grok.",
   "error.provider.grokNoticesChecksum": "Niezgodna suma kontrolna informacji prawnych Grok.",
@@ -145,12 +146,12 @@ export const messages = {
   "error.provider.grokNotStartedHint":
     "Znaleziono Grok CLI, ale nie udało się go uruchomić. Uruchom `grok --version` w nowym terminalu.",
   "error.provider.grokMissing": "Grok nie jest pobrany. Pobierz go w Builders Bot, aby kontynuować.",
-  "error.provider.opencodeNotStarted": "Nie udało się uruchomić Builders. Uruchom `opencode --version` w terminalu.",
-  "error.provider.opencodeMissing": "Builders nie jest pobrany. Pobierz go w Builders Bot, aby kontynuować.",
+  "error.provider.opencodeNotStarted": "Nie udało się uruchomić OpenCode. Uruchom `opencode --version` w terminalu.",
+  "error.provider.opencodeMissing": "OpenCode nie jest pobrany. Pobierz go w Builders Bot, aby kontynuować.",
   "error.provider.codexVersionUnreadable": "Nie można odczytać wersji Codex CLI.",
   "error.provider.claudeVersionUnreadable": "Nie można odczytać wersji Claude CLI.",
   "error.provider.grokVersionUnreadable": "Nie można odczytać wersji Grok CLI.",
-  "error.provider.opencodeVersionUnreadable": "Nie można odczytać wersji Builders CLI.",
+  "error.provider.opencodeVersionUnreadable": "Nie można odczytać wersji OpenCode CLI.",
   "error.provider.bunVersionUnreadable": "Nie można odczytać wersji środowiska uruchomieniowego Bun.",
   "error.provider.connectBeforeProfile": "Połącz wybranego dostawcę, zanim wygenerujesz profil.",
   "error.provider.cliNotReady": "{provider} CLI nie jest gotowy ani zalogowany.",
@@ -183,35 +184,35 @@ export const messages = {
   "error.provider.cliActivateFailed": "Nie udało się aktywować zarządzanego CLI.",
   "error.provider.cliBusyReconnect": "{provider} CLI pracuje nad turą. Zaczekaj, aż skończy, a potem połącz ponownie.",
   "error.provider.opencodeCredentialsRejected":
-    "Dostawca modelu odrzucił klucz API. Popraw klucz Builders w Ustawieniach albo klucz dostawcy poleceniem `opencode auth login`. Potem spróbuj ponownie lub wybierz inny model.\n{detail}",
+    "Dostawca modelu odrzucił klucz API. Popraw klucz OpenCode w Ustawieniach albo klucz dostawcy poleceniem `opencode auth login`. Potem spróbuj ponownie lub wybierz inny model.\n{detail}",
   "error.provider.opencodeAuthRequired":
-    "Builders nie jest zalogowany u dostawcy modelu „{provider}”. Wybierz model z etykietą Darmowy albo połącz dostawcę: wklej klucz Builders Go w ustawieniach Builders albo uruchom `opencode auth login` w terminalu. Potem spróbuj ponownie.",
+    "OpenCode nie jest zalogowany u dostawcy modelu „{provider}”. Wybierz model z etykietą Darmowy albo połącz dostawcę: wklej klucz OpenCode Go w ustawieniach OpenCode albo uruchom `opencode auth login` w terminalu. Potem spróbuj ponownie.",
   "error.provider.opencodeAuthRequiredUnknown":
-    "Builders nie jest zalogowany u dostawcy tego modelu. Wybierz model z etykietą Darmowy albo połącz dostawcę: wklej klucz Builders Go w ustawieniach Builders albo uruchom `opencode auth login` w terminalu. Potem spróbuj ponownie.",
+    "OpenCode nie jest zalogowany u dostawcy tego modelu. Wybierz model z etykietą Darmowy albo połącz dostawcę: wklej klucz OpenCode Go w ustawieniach OpenCode albo uruchom `opencode auth login` w terminalu. Potem spróbuj ponownie.",
   "error.provider.opencodeKeyExpired":
-    "Twój klucz API Builders wygasł. Utwórz nowy klucz w Builders Console, wklej go w ustawieniach Builders, potem spróbuj ponownie.",
+    "Twój klucz API OpenCode wygasł. Utwórz nowy klucz w OpenCode Console, wklej go w ustawieniach OpenCode, potem spróbuj ponownie.",
   "error.provider.opencodeServiceFailure":
-    "Builders nie ukończył tej tury, ponieważ jego lokalna usługa uległa awarii. Spróbuj ponownie. Jeśli błąd się powtarza, połącz ponownie Builders w Ustawieniach.",
+    "OpenCode nie ukończył tej tury, ponieważ jego lokalna usługa uległa awarii. Spróbuj ponownie. Jeśli błąd się powtarza, połącz ponownie OpenCode w Ustawieniach.",
   "error.provider.opencodeRateLimited":
     "Dostawca modelu odrzucił żądanie z powodu limitu zapytań. Zaczekaj kilka minut lub wybierz inny model, a potem spróbuj ponownie.\n{detail}",
   "error.provider.opencodeBilling":
     "Dostawca modelu odrzucił żądanie z powodu rozliczeń konta. Czekanie tego nie naprawi. Dodaj metodę płatności lub środki na koncie dostawcy albo wybierz inny model.\n{detail}",
   "error.provider.opencodeInvalidUpload":
-    "Dostawca modelu Builders zgłosił nieprawidłowe żądanie przesłania. Wybierz inny model i kontynuuj. Sprawdź zapisane rutyny, zanim utworzysz je ponownie.\n{detail}",
+    "Dostawca modelu OpenCode zgłosił nieprawidłowe żądanie przesłania. Wybierz inny model i kontynuuj. Sprawdź zapisane rutyny, zanim utworzysz je ponownie.\n{detail}",
   "error.provider.opencodeUnreadableContent":
     "Ten model nie może odczytać pliku lub obrazu w tym czacie. Wybierz model, który odczytuje pliki, a potem wyślij wiadomość ponownie.",
   "error.provider.opencodeFreeLimit":
-    "Darmowe modele Builders osiągnęły limit użycia. Wszystkie darmowe modele mają wspólny limit. Aby kontynuować, wklej klucz Builders Go w ustawieniach Builders albo wybierz model innego dostawcy.",
+    "Darmowe modele OpenCode osiągnęły limit użycia. Wszystkie darmowe modele mają wspólny limit. Aby kontynuować, wklej klucz OpenCode Go w ustawieniach OpenCode albo wybierz model innego dostawcy.",
   "error.provider.opencodeProviderFailed":
     "Wystąpił błąd po stronie dostawcy modelu. Twoje połączenie nie jest przyczyną. Spróbuj ponownie później lub wybierz inny model.\n{detail}",
   "error.provider.opencodeNetwork":
-    "Builders nie połączył się z dostawcą modelu. Sprawdź połączenie sieciowe komputera, na którym działa Builders Bot, a potem spróbuj ponownie.\n{detail}",
+    "OpenCode nie połączył się z dostawcą modelu. Sprawdź połączenie sieciowe komputera, na którym działa Builders Bot, a potem spróbuj ponownie.\n{detail}",
   "error.provider.opencodeDatabaseNewer":
-    "Builders nie może otworzyć swojej bazy danych, ponieważ zmieniła ją nowsza wersja Builders. Zaktualizuj Builders do wersji 2 lub nowszej, a potem spróbuj ponownie.",
+    "OpenCode nie może otworzyć swojej bazy danych, ponieważ zmieniła ją nowsza wersja OpenCode. Zaktualizuj OpenCode do wersji 2 lub nowszej, a potem spróbuj ponownie.",
   "error.provider.opencodeNoAnswer":
-    "Model Builders zakończył turę bez odpowiedzi. Spróbuj ponownie albo wybierz inny model.",
+    "Model OpenCode zakończył turę bez odpowiedzi. Spróbuj ponownie albo wybierz inny model.",
   "error.provider.opencodeReasoningWithoutAnswer":
-    "Model Builders zakończył turę po rozumowaniu, bez odpowiedzi. Spróbuj ponownie albo wybierz inny model.",
+    "Model OpenCode zakończył turę po rozumowaniu, bez odpowiedzi. Spróbuj ponownie albo wybierz inny model.",
   "error.provider.chatgptPageFailed": "Nie udało się otworzyć strony połączenia ChatGPT.",
   "error.provider.noneReady": "Żaden dostawca agentów nie jest gotowy.",
   "error.provider.claudeTurnActive": "Zaczekaj na zakończenie aktywnej tury Claude, zanim odświeżysz jego kontekst.",
@@ -257,7 +258,7 @@ export const messages = {
   "error.provider.foreignReasoning":
     "Dostawca {provider} nie przyjął wcześniejszego rozumowania z tego czatu, ponieważ otrzymało je inne konto lub inny klucz API. Builders Bot rozpoczął nową sesję {provider} z historią czatu. Spróbuj ponownie.",
   "error.provider.opencodeSessionRejected":
-    "Builders odrzucił żądanie i nie podał przyczyny. Może się to zdarzyć w długim czacie lub po zmianie modelu. Builders Bot rozpoczął nową sesję Builders z historią czatu. Spróbuj ponownie. Jeśli błąd się powtarza, wybierz inny model lub niższy wysiłek.",
+    "OpenCode odrzucił żądanie i nie podał przyczyny. Może się to zdarzyć w długim czacie lub po zmianie modelu. Builders Bot rozpoczął nową sesję OpenCode z historią czatu. Spróbuj ponownie. Jeśli błąd się powtarza, wybierz inny model lub niższy wysiłek.",
   "error.provider.museMcpStartupFault":
     "Muse nie mógł uruchomić serwera MCP i zablokował MCP w tej sesji. Builders Bot rozpoczął nową sesję Muse z historią czatu. Spróbuj ponownie. Jeśli błąd się powtarza, wyłącz Sterowanie komputerem lub serwer MCP, który zawiódł, dla tego agenta.",
   "error.provider.grokSignIn": "Uruchom `grok login` lub ustaw XAI_API_KEY, aby używać Grok.",
@@ -265,6 +266,8 @@ export const messages = {
   "error.provider.acpSignInStopped": "Logowanie zatrzymało się przed zakończeniem.",
   "error.provider.geminiBrowserUnavailable":
     "Gemini nie otworzył strony logowania. Zainstaluj przeglądarkę i xdg-utils, a potem połącz się z sesji pulpitu na tym hoście. Serwer bez pulpitu nie może ukończyć tego logowania.",
+  "error.provider.geminiBrowserOpenFailed":
+    "Gemini nie otworzył strony logowania w przeglądarce. Sprawdź domyślną przeglądarkę, a potem połącz się ponownie.",
   "error.provider.acpSignInFailed": "Logowanie nie zostało ukończone.",
   "error.provider.acpSignInFailedReason": "Logowanie nie zostało ukończone: {reason}",
   "error.provider.acpSignInMethodMissing":

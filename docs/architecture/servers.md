@@ -41,6 +41,32 @@ says "Storage almost full" and can be closed until the next level; under 2% free
 is red and cannot be closed. "Free up space" opens Server settings › Storage. A host without the
 capability shows no card.
 
+The optional `machine-resources-v1` capability (`team-protocol/machine-resources-v1.ts`) adds the
+machine part at the top of Server settings › Storage, for an owner or admin only. `POST
+/v1/admin/host/machine/metrics` answers the disk, memory and CPU use of the machine that runs the
+host (`src/main/machine-metrics.ts`), as the server can use it. The disk is the one that holds the
+data folder, counted as `df` counts it: space that ext4 keeps for root is neither used nor free. In
+a Docker container that is the disk of the Docker host, which all its containers share; Docker sets
+no disk limit per container. Memory counts what programs can still use: `MemAvailable` and the
+cgroup limit on Linux, Activity Monitor's "Memory Used" from `vm_stat` on macOS, and free memory on
+Windows. CPU is the use since the reading before. When main's cgroup has a CPU limit (`cpu.max`,
+such as `docker run --cpus`), it is the cgroup's `usage_usec` against that limit, and the core count
+is the limit; otherwise it is the use of all cores of the machine. The panel reads it each minute
+while it is open; the read routes are passive. `.../machine/alerts` and `.../alerts/update` read and
+set one level per metric (50–99%) and the owner or admin who gets the alert, in
+`openbot-machine-alerts-v1.json` (`src/main/machine-alerts.ts`). With no member set, or when that
+member is no longer an admin, the owner gets it. The host checks the machine once a minute. A metric
+at or above its level alerts once, and again each day while it stays there; CPU must stay above for
+five readings. The alert ends when the use goes 5 points below the level. The host sends the
+`machine-alert` event only to the event sockets of that member, and again to each device of theirs
+that connects while the alert is in force; the desktop shows each alert id once, as a notification.
+When the host is a desktop app and its owner gets the alert, that app shows it directly. For an
+owner or admin of the selected server, the sidebar machine card (`features/sidebar/machine-card.ts`)
+reads the use and the levels at start, every five minutes, and when Server settings closes. It shows
+the metric furthest above its level in place of the storage card, which then does not show; far
+above the level (95%, or 10 points above a higher level) it is red and cannot be closed. A closed card
+stays closed for that metric and level until the use goes below every level.
+
 ### Hosted sites per server
 
 A hosted site belongs to the server that published it (`hosted_sites.server_id`, D1 `0024`). The user
@@ -244,6 +270,14 @@ in words on a block that has one, is for the owner and admins only; the host ans
 resolution leave it out. The provider transcript of the tool call can keep it, and the agent can
 repeat it in a reply or a thought, which the conversation stores as any other message.
 
+`agent-task-ui-blocks-v1` (`team-protocol/agent-task-ui-blocks-v1.ts`) adds the same `uiBlock`, with
+the same normalization and wire budget, to the task conversations of `agent-tasks-v1`: the response
+of `POST /v1/agent-tasks/read` and the `snapshot` of the `agent-task-conversation` event. A client
+then shows a question in a side thread as its form, such as the API key card. The host adds it only
+for a connection that advertises the capability; the frozen agent-tasks-v1 decoder drops it for
+every other client. The HTTP and WebRTC clients accept it whenever it is present, and the WebRTC host
+peer encodes the local response and the events again with the same option.
+
 ### Subagents
 
 `subagents-v1` carries the subagents that an agent started in one turn (see
@@ -272,6 +306,24 @@ sends the flag, so a client keeps it whenever it is present, and a value that is
 closed. The WebRTC host peer encodes the local response and the events again with the same option.
 The iPhone app advertises it through the shared team client, but it still shows the question as a
 single choice.
+
+### Context usage
+
+`context-usage-v1` carries how full the context window of each agent is, so a desktop joined to a
+server shows the context meter of that server's agents (see `team-protocol/context-usage-v1.ts`). It
+adds `contextStates` and `threadContextStates` beside the frozen keys of the `snapshot` of the
+`runtime-snapshot` event, with the frozen keys of `AgentContextState` and the `botId` spelling of the
+rest of that snapshot. The host adds them only on protocol 8 and only for a connection that
+advertises the capability, so a released client gets the snapshot that it got before and shows no
+meter. The host filters the states as the rest of the snapshot, so a member gets only the agents that
+the member can see. It drops a category that the capability does not name, and a state that the v1
+shape cannot describe, such as a later compaction status, so a client never refuses the snapshot for
+it. A host without the
+capability never sends the fields, so a client keeps them whenever they are present, and a value that
+the runtime snapshot decoder refuses fails closed. A new socket gets a new snapshot, so the meter
+comes back after a reconnect. The WebRTC host peer encodes the events again with the same option.
+Compacting the context of a joined server's agent stays local only: the Team API has no route for it.
+The iPhone app advertises the capability through the shared team client, but it shows no meter.
 
 ### Queue window
 
@@ -392,6 +444,8 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `host-update-v1` | Check for, download and restart into an app update; cancel a restart that waits | `hostAdmin` |
 | `host-timezone-v1` | Read and set the server timezone | `hostAdmin` |
 | `agent-memory-limit-v1` | Read and set how many memories each agent keeps | `hostAdmin` |
+| `memory-review-v1` | Read and set how often the host's agents review their memories in the background, or Off | `hostAdmin` |
+| `machine-resources-v1` | Read the disk, memory and CPU use of the host machine; read and set the alert levels and the owner or admin who gets the `machine-alert` event | `storage`, `hostAdmin` |
 | `prompt-cache-ttl-v1` | Read and set how long Claude keeps the prompt cache of the host's agents | `hostAdmin` |
 | `provider-default-v1` | Read and set the provider that a new agent of the host starts on | none: only the mobile app sends it |
 | `agent-access-v1` | Read and set the roles that give members access to agents (see [Roles](#roles)) | `hostAdmin` |
@@ -453,6 +507,13 @@ agent's memories (`app:agent-memory-limit`). A lower limit deletes no memories. 
 change the 8,192-byte budget of essential memories. Server settings → General → Agents is the only
 place that sets the limit, for this computer (`hostAdmin.setAgentMemoryLimit`, local handler) and for a
 joined server. App Settings does not show it, so that one name does not have two values.
+
+`memory-review-v1` reads and sets how many completed turns of one conversation pass between two
+background memory reviews of the host's agents (`openbot-memory-review-v1.json`; 10, 20 or 40, default
+20; `0` is Off). The snapshot gives the value and the values that the host permits; the host refuses
+other values. The agent service reads the value at each use, so a change applies from the next turn.
+Server settings → General → Agents → Memory review sets it for this computer
+(`hostAdmin.setMemoryReview`, local handler) and for a joined server.
 
 `prompt-cache-ttl-v1` reads and sets how long Claude keeps the prompt cache of the host's agents
 (`openbot-prompt-cache-ttl-v1.json`; `5m` or `1h`, default `5m`). With `1h` the host starts each

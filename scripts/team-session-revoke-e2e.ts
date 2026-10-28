@@ -29,7 +29,7 @@ import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { BuildersBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser, TeamApiOptions } from "../src/main/team-api/dependencies";
 
@@ -128,7 +128,7 @@ async function runHost(root: string, configure: boolean): Promise<void> {
   const send = (message: HostMessage) => process.stdout.write(`${HOST_LINE}${JSON.stringify(message)}\n`);
 
   const userData = join(root, "user-data");
-  const database = new OpenBotDatabase(userData);
+  const database = new BuildersBotDatabase(userData);
   const agentStore = new AgentStore(userData, join(root, "home"), database);
   const mailbox = new MailboxStore(userData, agentStore.sharedRoot, agentStore.database);
   const sidebar = new SidebarLayoutStore(join(userData, "sidebar-layout.json"));

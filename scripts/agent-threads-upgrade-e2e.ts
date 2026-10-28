@@ -14,7 +14,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { migrateOpenBotDatabase } from "../src/backend/openbot-database-schema";
+import { migrateBuildersBotDatabase } from "../src/backend/openbot-database-schema";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/agent-threads-upgrade-e2e");
 const THREAD_VERSION = 47;
@@ -68,7 +68,7 @@ function migrateUpTo(db: DatabaseSync, last: number): void {
   db.exec(`CREATE TEMP TRIGGER stop_at_version BEFORE INSERT ON schema_migrations WHEN new.version > ${last}
     BEGIN SELECT RAISE(ABORT, 'upgrade smoke stop'); END;`);
   try {
-    assert.throws(() => migrateOpenBotDatabase(db), new RegExp(`migration to version ${last + 1} failed`));
+    assert.throws(() => migrateBuildersBotDatabase(db), new RegExp(`migration to version ${last + 1} failed`));
   } finally {
     db.exec("DROP TRIGGER stop_at_version");
   }
@@ -115,7 +115,7 @@ async function upgrade(source: string, workDirectory: string, index: number): Pr
     assert.deepEqual(tableHashes(db), before, "a failed migration 47 changed a table");
     report.rolledBack = true;
 
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     assert.equal(version(db), THREAD_VERSION);
     const names = tableNames(db);
     assert.ok(!names.includes("projection_agent_tasks"), "the task table is still there");

@@ -25,6 +25,12 @@ export const messages = {
     "화면의 {x}, {y} 위치에서 {width} × {height} 포인트 영역을 캡처해서 이미지를 에이전트의 모델에 보내요.",
   "status.agent.screenCaptureProgress": "화면 캡처를 요청하는 중…",
   "status.agent.screenCaptureReviewing": "화면 캡처를 확인하는 중…",
+  "status.agent.browserOpening": "웹 페이지를 여는 중…",
+  "status.agent.browserReading": "웹 페이지를 읽는 중…",
+  "status.agent.browserClicking": "웹 페이지를 클릭하는 중…",
+  "status.agent.browserTyping": "웹 페이지에 입력하는 중…",
+  "status.agent.browserActing": "웹 페이지를 사용하는 중…",
+  "status.agent.browserReviewing": "웹 페이지를 확인하는 중…",
   "status.agent.memoriesSearching": "메모리를 검색하는 중…",
   "status.agent.memoriesSearched": {
     other: "메모리를 검색했어요: {count}개 찾음",

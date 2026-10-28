@@ -29,14 +29,14 @@ import {
   WEBHOOK_SIGNATURE_HEADER,
   WEBHOOK_TIMESTAMP_HEADER,
 } from "@openbot/contracts/signal-protocol/webhook-route";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { exportJWK, type JWTPayload, SignJWT } from "jose";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = resolve(ROOT, ".openbot-build/signal-security-e2e");
 const WAIT_MS = 10_000;
 
-const logger = createOpenBotLogger("signal-security-e2e");
+const logger = createBuildersBotLogger("signal-security-e2e");
 
 // Throwaway values for this run only. The bot token's secret part must never leave Signal.
 const BOT_ID = "777000111";

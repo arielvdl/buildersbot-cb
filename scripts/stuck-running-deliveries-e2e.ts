@@ -44,7 +44,7 @@ const { AgentThreadStore } = await import("../src/backend/agent-threads/agent-th
 const { AgentStore } = await import("../src/backend/agent-store");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 const { StoredStateFailure } = await import("../src/backend/stored-state-effects");
 
 /**
@@ -155,7 +155,7 @@ process.stdin.on("data", (chunk) => {
 });
 `;
 
-type Database = InstanceType<typeof OpenBotDatabase>;
+type Database = InstanceType<typeof BuildersBotDatabase>;
 type Mailbox = InstanceType<typeof MailboxStore>;
 type Store = InstanceType<typeof AgentStore>;
 type Service = InstanceType<typeof AgentService>;
@@ -246,7 +246,7 @@ async function control(value: {
 }
 
 async function start(): Promise<Instance> {
-  const database = new OpenBotDatabase(userData);
+  const database = new BuildersBotDatabase(userData);
   const store = new AgentStore(userData, home, database);
   const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
   const agents = new AgentService({

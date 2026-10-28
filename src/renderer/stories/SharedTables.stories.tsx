@@ -11,13 +11,13 @@ import {
   STORY_SHARED_TABLES,
   storyRuntimeSettings,
 } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 const storyAgent = STORY_AGENT;
 
 function SharedTablesStory(props: { tables: SharedTable[] }) {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot({ tables: props.tables });
+  const mock = createMockBuildersBot({ tables: props.tables });
   window.openbot = mock.api;
 
   onCleanup(() => {

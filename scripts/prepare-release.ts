@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isDynamicRecord, isOneOf, isString } from "@openbot/contracts/runtime-values";
-import { createOpenBotLogger } from "@openbot/logging";
+import { createBuildersBotLogger } from "@openbot/logging";
 import {
   assembleSection,
   FRAGMENT_DIR,
@@ -17,7 +17,7 @@ import {
 //   bun scripts/prepare-release.ts <major|minor|patch>           the desktop app and the web client
 //   bun scripts/prepare-release.ts <major|minor|patch> --mobile  the iPhone app
 
-const logger = createOpenBotLogger("prepare-release");
+const logger = createBuildersBotLogger("prepare-release");
 
 type Increment = "major" | "minor" | "patch";
 

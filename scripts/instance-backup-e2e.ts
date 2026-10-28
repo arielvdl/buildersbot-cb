@@ -15,7 +15,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { migrateOpenBotDatabase } from "../src/backend/openbot-database-schema";
+import { migrateBuildersBotDatabase } from "../src/backend/openbot-database-schema";
 
 const reportRoot = resolve(".openbot-build/instance-backup-e2e");
 const dind = `openbot-backup-e2e-${randomBytes(4).toString("hex")}`;
@@ -82,7 +82,7 @@ async function writeFixture(root: string): Promise<void> {
   const now = new Date().toISOString();
   const db = new DatabaseSync(join(config, "openbot.db"));
   try {
-    migrateOpenBotDatabase(db);
+    migrateBuildersBotDatabase(db);
     db.prepare(
       "INSERT INTO projection_agents (agent_id, thread_id, model, updated_at, sort_order, agent_json, last_event_sequence) VALUES (?, ?, 'test', ?, 0, ?, 1)",
     ).run(agentId, "thread-e2e-1", now, JSON.stringify({ id: agentId, name: "E2E" }));

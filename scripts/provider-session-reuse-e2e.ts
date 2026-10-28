@@ -59,7 +59,7 @@ const { AgentStore } = await import("../src/backend/agent-store");
 const { ClaudeAgentClient } = await import("../src/backend/claude-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 const { CODEX_PLACEHOLDER_COMMAND, codexMcpServerKey } = await import("../src/backend/mcp-provider-shapes");
 const { CURRENT_MESSAGE_SEPARATOR, HANDOFF_START } = await import("../src/backend/agent/delivery-content");
 
@@ -397,7 +397,7 @@ async function runCase(
 ): Promise<void> {
   const result: CaseReport = { name, passed: false, details: {} };
   report.cases.push(result);
-  const database = new OpenBotDatabase(join(root, `user-data-${name}`));
+  const database = new BuildersBotDatabase(join(root, `user-data-${name}`));
   const store = new AgentStore(database.userDataPath, home, database);
   const mailbox = new MailboxStore(database.userDataPath, store.sharedRoot, store.database);
   const agents = new AgentService({

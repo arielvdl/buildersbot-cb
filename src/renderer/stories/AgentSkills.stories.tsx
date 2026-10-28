@@ -10,7 +10,7 @@ import {
   STORY_MODELS,
   storyRuntimeSettings,
 } from "./fixtures";
-import { createMockOpenBot } from "./mock-openbot";
+import { createMockBuildersBot } from "./mock-openbot";
 
 const storyAgent = STORY_AGENT;
 
@@ -20,7 +20,7 @@ function AgentSkillsStory(props: {
   onAddFromMarketplace?: (agentId: string) => void;
 }) {
   const previousApi = window.openbot;
-  const mock = createMockOpenBot({ installedSkills: { chief: props.skills } });
+  const mock = createMockBuildersBot({ installedSkills: { chief: props.skills } });
   window.openbot = mock.api;
 
   onCleanup(() => {
