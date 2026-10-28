@@ -19,6 +19,7 @@ import {
   type AgentEvent,
   type BrowserDisplayState,
   type ChannelSummary,
+  type DictationState,
   decodeChannelSummaries,
   IPC_ENDPOINTS,
   LOCAL_SERVER_ID,
@@ -489,6 +490,10 @@ export function createRendererForwarders({
     for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.voice.streamTranscript, transcript);
   }
 
+  function forwardDictationState(state: DictationState): void {
+    for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.voice.dictationState, state);
+  }
+
   function forwardProviderRuntimeStatus(snapshot: import("@openbot/contracts/ipc").ProviderRuntimeSnapshot): void {
     for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.providerRuntimes.event, snapshot);
   }
@@ -569,6 +574,7 @@ export function createRendererForwarders({
     forwardVoiceModelStatus,
     forwardVoiceStreamTranscript,
     forwardSpeechModelStatus,
+    forwardDictationState,
     forwardProviderRuntimeStatus,
     forwardGitHubConnectorStatus,
     forwardOnePasswordConnectorStatus,

@@ -1,23 +1,28 @@
 // The speech recognition models (Parakeet and Whisper turbo on this computer, ElevenLabs Scribe in
 // the cloud), their settings, and dictation. Also the speech model that reads replies aloud.
 
-import type {
-  DraftAttachment,
-  SpeechAudio,
-  SpeechModelStatus,
-  SpeechSettings,
-  VoiceModelStatus,
-  VoiceSettings,
-  VoiceStream,
-  VoiceTranscriptionResult,
+import {
+  type DictationPreference,
+  type DictationState,
+  type DraftAttachment,
+  parseDictationPreferenceChange,
+  type SpeechAudio,
+  type SpeechModelStatus,
+  type SpeechSettings,
+  type VoiceModelStatus,
+  type VoiceSettings,
+  type VoiceStream,
+  type VoiceTranscriptionResult,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { AgentService } from "../../backend/agent-service";
 import { runCauseEffect } from "../../backend/effect-boundary";
+import type { DictationService } from "../dictation-service";
 import type { VoiceSpeechService } from "../voice-speech-service";
 import type { VoiceTranscriptionService } from "../voice-transcription-service";
 import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import {
+  parseDictationResult,
   parseSpeechInput,
   parseSpeechSettings,
   parseVoiceApiKey,
@@ -34,9 +39,16 @@ export interface VoiceIpcDependencies {
   speech: VoiceSpeechService;
   /** Keeps a voice turn's recording as an attachment draft. Voice turns go to this computer's host only. */
   service: Pick<AgentService, "prepareVoiceRecording">;
+  /** The global dictation combination. Its recording runs in the window, not here. */
+  dictation: DictationService;
 }
 
-export function voiceIpcHandlers({ voice, speech, service }: VoiceIpcDependencies): Pick<IpcGroupHandlers, "voice"> {
+export function voiceIpcHandlers({
+  voice,
+  speech,
+  service,
+  dictation,
+}: VoiceIpcDependencies): Pick<IpcGroupHandlers, "voice"> {
   return {
     voice: {
       getModelStatus: handler((): Promise<VoiceModelStatus> => runCauseEffect(voice.getModelStatus())),
@@ -95,6 +107,15 @@ export function voiceIpcHandlers({ voice, speech, service }: VoiceIpcDependencie
         if (!draft) throw new Error(sourceText("error.voice.recordingNotKept"));
         return draft;
       }),
+      getDictationPreference: handler((): DictationPreference => dictation.preference),
+      setDictationPreference: payloadHandler(parseDictationPreferenceChange, (change) =>
+        dictation.setPreference(change),
+      ),
+      finishDictation: payloadHandler(
+        parseDictationResult,
+        (result): Promise<DictationState> => dictation.finish(result),
+      ),
+      cancelDictation: handler((): DictationState => dictation.cancel()),
     },
   };
 }

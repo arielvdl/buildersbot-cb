@@ -29,6 +29,7 @@ export interface SettingsPort {
   setRemoteNetworkRoute: BuildersBotDesktopApi["setRemoteNetworkRoute"];
   setRemoteSessionReusePreference: BuildersBotDesktopApi["setRemoteSessionReusePreference"];
   setGuardPreference: BuildersBotDesktopApi["setGuardPreference"];
+  voice: Pick<BuildersBotDesktopApi["voice"], "getDictationPreference" | "setDictationPreference">;
   agent: Pick<BuildersBotDesktopApi["agent"], "listAgents" | "updateAgent">;
   dynamicIsland: Pick<
     BuildersBotDesktopApi["dynamicIsland"],

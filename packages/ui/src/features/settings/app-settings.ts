@@ -4,7 +4,9 @@ import {
   type BusyMessageMode,
   DEFAULT_AGENT_DEFAULTS,
   DEFAULT_AGENT_MEMORY_LIMIT,
+  DEFAULT_DICTATION_PREFERENCE,
   DEFAULT_EXTERNAL_LINK_PREFERENCE,
+  type DictationMode,
   type ExternalLinkTarget,
 } from "@openbot/contracts/ipc";
 /** Which chord sends a message. Re-exported here so settings state can name the same type. */
@@ -50,6 +52,12 @@ export interface GeneralSettingsValue {
   showAgentSteps: boolean;
   /** A security reviewer reads every message before the agent does, and reports prompt injection. */
   promptInjectionGuard: boolean;
+  /** A global key combination dictates with the voice model of this computer. */
+  dictationEnabled: boolean;
+  /** The combination that starts and stops it. */
+  dictationAccelerator: string;
+  /** Whether a transcript is pasted into the focused app, or only put on the clipboard. */
+  dictationMode: DictationMode;
   /** What a message sent to a busy agent does, unless the agent or the message sets its own. */
   busyMessageMode: BusyMessageMode;
   /** What an agent of this computer does when it has no value of its own for the setting. */
@@ -90,6 +98,9 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   sendShortcut: "enter",
   showAgentSteps: false,
   promptInjectionGuard: true,
+  dictationEnabled: false,
+  dictationAccelerator: DEFAULT_DICTATION_PREFERENCE.accelerator,
+  dictationMode: DEFAULT_DICTATION_PREFERENCE.mode,
   busyMessageMode: "queue",
   agentDefaults: DEFAULT_AGENT_DEFAULTS,
   agentMemoryLimit: DEFAULT_AGENT_MEMORY_LIMIT,

@@ -35,6 +35,10 @@ export interface AppPort {
   hostedServers: BuildersBotDesktopApi["hostedServers"];
   routineFeed: BuildersBotDesktopApi["routineFeed"];
   events: BuildersBotDesktopApi["events"];
+  voice: Pick<
+    BuildersBotDesktopApi["voice"],
+    "transcribe" | "finishDictation" | "cancelDictation" | "onDictationState"
+  >;
   plugins: Pick<BuildersBotDesktopApi["plugins"], "onOpenListing" | "takePendingListing">;
   servers: Pick<BuildersBotDesktopApi["servers"], "onInvite" | "takePendingInvite">;
 }

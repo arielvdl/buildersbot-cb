@@ -141,6 +141,7 @@ const Settings = createSimpleContext({
     let agentMemoryLimitChanged = false;
     let keepRemoteSessionsChanged = false;
     let promptInjectionGuardChanged = false;
+    let dictationChanged = false;
     let externalLinkTargetChanged = false;
     let launchAtLoginChanged = false;
     let keepRunningInBackgroundChanged = false;
@@ -279,6 +280,37 @@ const Settings = createSimpleContext({
             .then((preference) => ({ enabled: preference.enabled })),
           (preference) => preference.enabled,
         );
+      }
+      if (
+        previous.dictationEnabled !== value.dictationEnabled ||
+        previous.dictationAccelerator !== value.dictationAccelerator ||
+        previous.dictationMode !== value.dictationMode
+      ) {
+        dictationChanged = true;
+        // Three fields answer together: a refused combination must put all of them back, not one.
+        void settingsPort()
+          .voice.setDictationPreference({
+            enabled: value.dictationEnabled,
+            accelerator: value.dictationAccelerator,
+            mode: value.dictationMode,
+          })
+          .then((preference) =>
+            setGeneralSettings((current) => ({
+              ...current,
+              dictationEnabled: preference.enabled,
+              dictationAccelerator: preference.accelerator,
+              dictationMode: preference.mode,
+            })),
+          )
+          .catch((error: unknown) => {
+            setGeneralSettings((current) => ({
+              ...current,
+              dictationEnabled: previous.dictationEnabled,
+              dictationAccelerator: previous.dictationAccelerator,
+              dictationMode: previous.dictationMode,
+            }));
+            showSaveFailure(error);
+          });
       }
       if (previous.busyMessageMode !== value.busyMessageMode) {
         busyMessageModeChanged = true;
@@ -508,6 +540,17 @@ const Settings = createSimpleContext({
           .then((preference) => {
             if (promptInjectionGuardChanged) return;
             setGeneralSettings((current) => ({ ...current, promptInjectionGuard: preference.enabled }));
+          }),
+        settingsPort()
+          .voice.getDictationPreference()
+          .then((preference) => {
+            if (dictationChanged) return;
+            setGeneralSettings((current) => ({
+              ...current,
+              dictationEnabled: preference.enabled,
+              dictationAccelerator: preference.accelerator,
+              dictationMode: preference.mode,
+            }));
           }),
         settingsPort()
           .getBusyMessageModePreference()

@@ -45,6 +45,8 @@ import {
   DEFAULT_AGENT_DEFAULTS,
   type DetectedAcpAgent,
   type DetectedModelServer,
+  type DictationPreference,
+  type DictationState,
   type DiscoverModelsResult,
   decodeExternalLinkTarget,
   decodeScheduledUpdateRestart,
@@ -76,6 +78,8 @@ import {
   isCustomProviderSummary,
   isDetectedAcpAgent,
   isDetectedModelServer,
+  isDictationPreference,
+  isDictationState,
   isDiscoverModelsResult,
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
@@ -361,6 +365,16 @@ export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreferen
 
 export function decodeSecurityGuardPreference(value: unknown): SecurityGuardPreference {
   if (!isSecurityGuardPreference(value)) throw new Error("Invalid security guard preference.");
+  return value;
+}
+
+export function decodeDictationPreference(value: unknown): DictationPreference {
+  if (!isDictationPreference(value)) throw new Error("Invalid dictation preference.");
+  return value;
+}
+
+export function decodeDictationState(value: unknown): DictationState {
+  if (!isDictationState(value)) throw new Error("Invalid dictation state.");
   return value;
 }
 

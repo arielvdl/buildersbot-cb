@@ -360,6 +360,7 @@ const {
   forwardVoiceModelStatus,
   forwardVoiceStreamTranscript,
   forwardSpeechModelStatus,
+  forwardDictationState,
   forwardProviderRuntimeStatus,
   forwardGitHubConnectorStatus,
   forwardOnePasswordConnectorStatus,
@@ -588,6 +589,7 @@ function registerIpcHandlers({
   instanceTransfer,
   voice,
   speech,
+  dictation,
   dynamicIsland,
   cuaDriver,
   computerUsePermissionHelp,
@@ -654,7 +656,7 @@ function registerIpcHandlers({
     }),
     ...macAutomationIpcHandlers({ platform: process.platform }),
     ...providerIpcHandlers({ service, providerRuntimes, credentials: providerCredentials, openLink }),
-    ...voiceIpcHandlers({ voice, speech, service }),
+    ...voiceIpcHandlers({ voice, speech, service, dictation }),
     ...accountIpcHandlers({ centralAuth, host }),
     ...skillIpcHandlers({ skills, getMainWindow: getDialogParent, translate: language.translate }),
     ...hostedSiteIpcHandlers({
@@ -799,6 +801,9 @@ function registerIpcHandlers({
     }),
     ...browserIpcHandlers({ browserPictureInPicture, browser, remoteServers, browserView, localSignIn }),
   });
+  // The combination is registered once the endpoints exist, so a press can never reach a window
+  // that cannot answer it.
+  dictation.apply();
 }
 
 function requestDesktopNotificationPermission(
@@ -1114,6 +1119,7 @@ if (!hasSingleInstanceLock) {
         forwardVoiceModelStatus,
         forwardVoiceStreamTranscript,
         forwardSpeechModelStatus,
+        forwardDictationState,
         forwardWorkflowNotice,
         prepareForUpdateInstall,
         quitting: () => quitStarted,

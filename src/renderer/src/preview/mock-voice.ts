@@ -1,8 +1,12 @@
 import {
+  type BuildersBotDesktopApi,
+  DEFAULT_DICTATION_PREFERENCE,
   DEFAULT_SPEECH_SETTINGS,
   DEFAULT_VOICE_SETTINGS,
+  DICTATION_IDLE,
+  type DictationPreference,
+  type DictationState,
   ELEVENLABS_VOICE_MODEL_ID,
-  type BuildersBotDesktopApi,
   SPEECH_MODEL_ID,
   type SpeechModelStatus,
   type SpeechSettings,
@@ -96,6 +100,8 @@ export function createMockVoice(options: MockVoiceOptions, { emit, schedule }: M
       schedule(() => advance(5), 200);
     });
 
+  let dictation: DictationPreference = { ...DEFAULT_DICTATION_PREFERENCE };
+  const dictationListeners = new Set<(state: DictationState) => void>();
   const voice: BuildersBotDesktopApi["voice"] = {
     getModelStatus: async () => status(settings.modelId),
     getModelStatuses: async () => VOICE_MODEL_IDS.map(status),
@@ -183,6 +189,18 @@ export function createMockVoice(options: MockVoiceOptions, { emit, schedule }: M
     onSpeechModelStatus: (listener) => {
       speechListeners.add(listener);
       return () => speechListeners.delete(listener);
+    },
+    // The preview has no global key, so a dictation only follows the calls of its own window.
+    getDictationPreference: async () => dictation,
+    setDictationPreference: async (change) => {
+      dictation = { ...dictation, ...change };
+      return dictation;
+    },
+    finishDictation: async () => DICTATION_IDLE,
+    cancelDictation: async () => DICTATION_IDLE,
+    onDictationState: (listener) => {
+      dictationListeners.add(listener);
+      return () => dictationListeners.delete(listener);
     },
   };
   return { voice };

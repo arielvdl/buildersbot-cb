@@ -1,8 +1,11 @@
 // @vitest-environment node
 
 import {
+  DEFAULT_DICTATION_PREFERENCE,
   DEFAULT_SPEECH_SETTINGS,
+  DICTATION_IDLE,
   type DraftAttachment,
+  parseDictationPreferenceChange,
   type SpeechModelStatus,
   type VoiceModelStatus,
   type VoiceSettings,
@@ -12,6 +15,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { handler, payloadHandler, registerIpcGroup } from "./define-ipc-group";
 import {
+  parseDictationResult,
   parseSpeechInput,
   parseSpeechSettings,
   parseVoiceApiKey,
@@ -85,6 +89,13 @@ function registerVoice(transcribe: (input: VoiceTranscriptionInput) => VoiceTran
     speak: payloadHandler(parseSpeechInput, () => ({ pcm: new Uint8Array(2), sampleRate: 44_100 })),
     warmSpeech: handler(() => undefined),
     keepRecording: payloadHandler(decodeNote, () => RECORDING),
+    getDictationPreference: handler(() => DEFAULT_DICTATION_PREFERENCE),
+    setDictationPreference: payloadHandler(parseDictationPreferenceChange, (change) => ({
+      ...DEFAULT_DICTATION_PREFERENCE,
+      ...change,
+    })),
+    finishDictation: payloadHandler(parseDictationResult, () => DICTATION_IDLE),
+    cancelDictation: handler(() => DICTATION_IDLE),
   });
 }
 

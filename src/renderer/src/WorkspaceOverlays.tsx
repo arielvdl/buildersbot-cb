@@ -49,6 +49,7 @@ import { useWhatsNew } from "./features/updates/whats-new-context";
 import { usePlanLimitRows } from "./features/usage/plan-limit-rows";
 import { createVaultStore } from "./features/vault/stores/vault-store";
 import { desktopVaultCalls, hostVaultCalls } from "./features/vault/vault-port";
+import { DictationOverlay } from "./features/voice/DictationOverlay";
 import { useWindowPage } from "./features/window/window-page-context";
 import { useGlobalSearchSources } from "./global-search-sources";
 import { RemoteDesktopWorkspace, SettingsModal } from "./lazy-views";
@@ -107,6 +108,7 @@ export function WorkspaceOverlays(props: AccountProps) {
       <GlobalMessageSearch />
       <RemoteDesktop />
       <ChannelCreateOverlay />
+      <DictationOverlay />
     </>
   );
 }

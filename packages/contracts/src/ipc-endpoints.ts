@@ -251,6 +251,7 @@ import type {
   SaveCustomProviderInput,
   UpdateCustomProviderInput,
 } from "./ipc-custom-providers";
+import type { DictationPreference, DictationPreferenceChange, DictationResult, DictationState } from "./ipc-dictation";
 import type {
   DynamicIslandAction,
   DynamicIslandGeometry,
@@ -832,6 +833,24 @@ export const IPC_ENDPOINTS = {
      */
     keepRecording: request<VoiceTranscriptionInput, DraftAttachment>()("voice:keep-recording"),
     speechModelStatus: event<SpeechModelStatus>()("voice:speech-model-status"),
+    /**
+     * The global dictation combination of this computer. Off by default: a global combination takes
+     * a key from every other app, so the user chooses it.
+     */
+    getDictationPreference: request<undefined, DictationPreference>()("voice:get-dictation-preference"),
+    setDictationPreference: request<DictationPreferenceChange, DictationPreference>()("voice:set-dictation-preference"),
+    /**
+     * Where the dictation is, for the overlay. Main sends it when the combination starts a
+     * recording, when the recording is read and when it ends.
+     */
+    dictationState: event<DictationState>()("voice:dictation-state"),
+    /**
+     * What the recording window made of the recording: the transcript, or why it has none. Main
+     * writes the clipboard and pastes it, then answers the state it ended in.
+     */
+    finishDictation: request<DictationResult, DictationState>()("voice:finish-dictation"),
+    /** Ends a recording without a transcript, from the overlay or from the same combination again. */
+    cancelDictation: request<undefined, DictationState>()("voice:cancel-dictation"),
   },
   dynamicIsland: {
     getPreference: request<undefined, DynamicIslandPreference>()("dynamic-island:get-preference"),

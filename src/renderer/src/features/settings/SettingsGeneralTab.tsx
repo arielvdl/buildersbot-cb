@@ -25,6 +25,8 @@ import { useAppearanceChoice } from "../../appearance-choice";
 import { useI18n } from "../../i18n-context";
 import { useInterfaceSizeChoice } from "../../interface-size";
 import { useLogoColorChoice } from "../../logo-color";
+import { DictationKeyField } from "./DictationKeyField";
+import { DictationModeSelect } from "./DictationModeSelect";
 import { ExternalLinkSelect } from "./ExternalLinkSelect";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
@@ -150,6 +152,40 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             label={i18n.t("settings.promptGuard.title")}
             description={i18n.t("settings.promptGuard.description")}
           />
+          <SwitchField
+            data-settings-row="settings.dictation.title"
+            checked={props.value.dictationEnabled}
+            onChange={(checked) => props.onUpdateSetting("dictationEnabled", checked)}
+            label={i18n.t("settings.dictation.title")}
+            description={i18n.t("settings.dictation.description")}
+          />
+          <Show when={props.value.dictationEnabled}>
+            <Item data-settings-row="settings.dictation.key" class="settings-modal-row">
+              <ItemContent>
+                <ItemTitle>{i18n.t("settings.dictation.key")}</ItemTitle>
+                <ItemDescription>{i18n.t("settings.dictation.keyDescription")}</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <DictationKeyField
+                  value={props.value.dictationAccelerator}
+                  onChange={(accelerator) => props.onUpdateSetting("dictationAccelerator", accelerator)}
+                />
+              </ItemActions>
+            </Item>
+            <Item data-settings-row="settings.dictation.mode" class="settings-modal-row">
+              <ItemContent>
+                <ItemTitle>{i18n.t("settings.dictation.mode")}</ItemTitle>
+                <ItemDescription>{i18n.t("settings.dictation.modeDescription")}</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <DictationModeSelect
+                  value={props.value.dictationMode}
+                  onChange={(mode) => props.onUpdateSetting("dictationMode", mode)}
+                  mount={props.selectMount}
+                />
+              </ItemActions>
+            </Item>
+          </Show>
           <Item data-settings-row="settings.externalLinks.title" class="settings-modal-row">
             <ItemContent>
               <ItemTitle>{i18n.t("settings.externalLinks.title")}</ItemTitle>

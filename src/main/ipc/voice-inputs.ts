@@ -1,4 +1,6 @@
+import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  type DictationResult,
   isSpeechLanguage,
   isSpeechVoice,
   isVoiceLanguage,
@@ -118,4 +120,15 @@ export function parseSpeechInput(input: unknown): SpeechInput {
     throw new Error("Speech needs text and a known language.");
   if (input.text.length > SPEECH_LIMITS.maximumTextLength) throw new Error("The speech text is too long.");
   return { text: input.text, language: input.language };
+}
+
+/** What the recording window answers. A transcript is bounded like the recording it came from. */
+export function parseDictationResult(input: unknown): DictationResult {
+  if (!isObject(input)) throw new Error("The dictation result is required.");
+  if ("failure" in input) {
+    if (typeof input.failure !== "string" || !input.failure) throw new Error("The dictation failure is invalid.");
+    return { failure: input.failure };
+  }
+  if (typeof input.text !== "string") throw new Error("The dictation transcript is required.");
+  return { text: input.text.slice(0, INPUT_LIMITS.messageText) };
 }

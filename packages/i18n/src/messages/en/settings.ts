@@ -5,6 +5,17 @@ export const messages = defineMessages("settings", {
   "settings.language.title": "Language",
   "settings.language.description": "Builders Bot shows menus, buttons and messages in this language.",
   "settings.language.system": "System default",
+  // The global dictation combination, General tab.
+  "settings.dictation.title": "Dictate with a key combination",
+  "settings.dictation.description":
+    "Press the combination anywhere to record, and again to stop. The transcript uses the voice model of the Voice settings.",
+  "settings.dictation.key": "Combination",
+  "settings.dictation.keyDescription": "Click the field and press the keys. A modifier is required.",
+  "settings.dictation.press": "Press the keys…",
+  "settings.dictation.mode": "After the recording",
+  "settings.dictation.modeDescription": "Paste into the app that had the focus, or leave the text on the clipboard.",
+  "settings.dictation.mode.paste": "Paste the text",
+  "settings.dictation.mode.copy": "Copy the text",
   // The logo color setting, General tab.
   "settings.appearance.title": "Appearance",
   "settings.appearance.theme.title": "Theme",

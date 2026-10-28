@@ -73,6 +73,7 @@ import type {
   CapabilityState,
   CentralAuthState,
   ComputerUseState,
+  DictationState,
   ProviderRuntimeSnapshot,
   SpeechModelStatus,
   VoiceModelStatus,
@@ -180,6 +181,8 @@ import {
   type DevelopmentRemoteRole,
   startDevelopmentRemoteRole,
 } from "./development-remote-bootstrap";
+import { DictationPreferenceStore } from "./dictation-preference-store";
+import { DictationService } from "./dictation-service";
 import { performDynamicIslandCriticalAction } from "./dynamic-island-actions";
 import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFailed } from "./dynamic-island-window";
 import {
@@ -430,6 +433,8 @@ const TEARDOWN_ORDER = {
   remoteServers: 60,
   voice: 70,
   speech: 71,
+  // Only a key registration: it goes before the windows that answer its recordings.
+  dictation: 72,
   remoteDesktop: 80,
   // Before messaging, so no routine answer starts a post while the connections stop.
   routineResults: 84,
@@ -500,6 +505,7 @@ export interface ApplicationServiceContext {
   forwardVoiceModelStatus: (status: VoiceModelStatus) => void;
   forwardVoiceStreamTranscript: (transcript: VoiceStreamTranscript) => void;
   forwardSpeechModelStatus: (status: SpeechModelStatus) => void;
+  forwardDictationState: (state: DictationState) => void;
   forwardWorkflowNotice: (notice: WorkflowNotice) => void;
   prepareForUpdateInstall: () => Promise<void>;
   /** True once a quit starts, also before this function returns. See `CuaDriverRuntimeOptions.quitting`. */
@@ -599,6 +605,7 @@ export interface ApplicationServices {
   instanceTransfer: InstanceTransferService;
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
+  dictation: DictationService;
   dynamicIsland: DynamicIslandWindowController;
   cuaDriver: CuaDriverRuntime;
   computerUseHighlight: ComputerUseHighlightController;
@@ -866,6 +873,7 @@ export async function createApplicationServices({
   forwardVoiceModelStatus,
   forwardVoiceStreamTranscript,
   forwardSpeechModelStatus,
+  forwardDictationState,
   forwardWorkflowNotice,
   prepareForUpdateInstall,
   quitting,
@@ -2773,6 +2781,10 @@ export async function createApplicationServices({
     spawnHost: spawnVoiceSpeechHost,
   });
   teardown.push(TEARDOWN_ORDER.speech, "speech", () => Effect.runPromise(speech.shutdown()));
+  const dictationPreferences = new DictationPreferenceStore(join(app.getPath("userData"), "dictation-preference.json"));
+  await runCauseEffect(dictationPreferences.load());
+  const dictation = new DictationService(dictationPreferences, forwardDictationState);
+  teardown.push(TEARDOWN_ORDER.dictation, "dictation", async () => dictation.dispose());
   speech.on("modelStatus", forwardSpeechModelStatus);
   const currentVersion = app.getVersion();
   // Skip the file check in dev: unpacked runs never enable updates, so avoid touching resourcesPath.
@@ -3145,6 +3157,7 @@ export async function createApplicationServices({
     instanceTransfer,
     voice,
     speech,
+    dictation,
     dynamicIsland,
     cuaDriver,
     computerUseHighlight,
