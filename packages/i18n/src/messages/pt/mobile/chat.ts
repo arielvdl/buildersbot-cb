@@ -430,7 +430,8 @@ export const messages = {
     "O Builders Bot exclui o tópico, as mensagens e os arquivos dele para sempre. O chat principal não muda.",
   "mobile.chat.threads.filesUnsupported":
     "Este host não pode receber arquivos em um tópico. Atualize o Builders Bot no host.",
-  "mobile.chat.threads.unsupported": "Este host não pode renomear nem excluir tópicos. Atualize o Builders Bot no host.",
+  "mobile.chat.threads.unsupported":
+    "Este host não pode renomear nem excluir tópicos. Atualize o Builders Bot no host.",
   "mobile.chat.threads.error.rename": "Não foi possível renomear o tópico.",
   "mobile.chat.threads.error.delete": "Não foi possível excluir o tópico.",
   "mobile.chat.channelWork.working": "Trabalhando em {channel}",

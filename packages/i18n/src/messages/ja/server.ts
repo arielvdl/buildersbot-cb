@@ -30,7 +30,8 @@ export const messages = {
 
   "server.status.steps": "接続の手順",
   "server.status.updateCause": "{name} は Builders Bot {version} をインストールするために再起動しています。",
-  "server.status.updateCauseNoVersion": "{name} は Builders Bot のアップデートをインストールするために再起動しています。",
+  "server.status.updateCauseNoVersion":
+    "{name} は Builders Bot のアップデートをインストールするために再起動しています。",
   "server.status.wakeCause": "{name} は停止していました。Builders Bot がもう一度起動します。",
   "server.status.connectCause": "このアプリは {name} に接続しています。",
   "server.status.connectionCause": "このアプリは {name} との接続を失いました。自動的に再接続します。",
@@ -431,7 +432,8 @@ export const messages = {
   "server.settings.providersSwitchNote": "AI プロバイダーを管理するには {name} に切り替えてください。",
   "server.settings.providersSwitch": "このサーバーに切り替える",
   "server.settings.updatesTitle": "アップデート",
-  "server.settings.updatesDescription": "このサーバーを実行しているコンピューターの Builders Bot をアップデートします。",
+  "server.settings.updatesDescription":
+    "このサーバーを実行しているコンピューターの Builders Bot をアップデートします。",
   "server.update.hostTitle": "{name} の Builders Bot",
   "server.update.version": "Builders Bot {version}",
   "server.update.status.idle": "アップデートを確認して最新のリリースを見つけます。",
@@ -473,7 +475,8 @@ export const messages = {
   "server.update.requestedBy": "{member} がこのアップデートを依頼しました。",
   "server.update.automatic": "{name} はアップデートを自動的にインストールします。",
   "server.update.autoDownloadTitle": "アップデートを自動的にダウンロードする",
-  "server.update.autoDownloadDescription": "{name} は Builders Bot の新しいバージョンが公開されるたびにダウンロードします。",
+  "server.update.autoDownloadDescription":
+    "{name} は Builders Bot の新しいバージョンが公開されるたびにダウンロードします。",
   "server.update.autoInstallTitle": "アップデートを自動的にインストールする",
   "server.update.autoInstallDescription":
     "{name} は、エージェントがアイドル状態になると、ダウンロードしたアップデートを適用して再起動します。メンバーの接続は短時間切れ、自動的に再接続されます。",

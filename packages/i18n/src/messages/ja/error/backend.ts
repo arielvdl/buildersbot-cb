@@ -347,5 +347,6 @@ export const messages = {
   "error.backend.taskOpenLimitReached":
     "このエージェントには {count} 件の開いているタスクがあります。タスクを閉じてから、別のタスクを開始するか開いてください。",
   "error.backend.taskRemoteUnsupported": "タスクは、このコンピューター上のエージェントでのみ利用できます。",
-  "error.backend.taskStartFailed": "Builders Bot はタスクを開始できませんでした。代わりにこのターンで作業してください。",
+  "error.backend.taskStartFailed":
+    "Builders Bot はタスクを開始できませんでした。代わりにこのターンで作業してください。",
 } as const satisfies PartialTranslation<typeof source>;

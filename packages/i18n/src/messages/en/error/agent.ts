@@ -57,7 +57,8 @@ export const messages = defineMessages("error.agent", {
   "error.agent.changedWhileDuplicating": "The agent changed while it was being duplicated. Try again.",
   "error.agent.duplicatedAgentGone": "The duplicated agent no longer exists.",
   "error.agent.stateCorrupt": "Agent state is corrupt or from a newer Builders Bot version; refusing to overwrite it.",
-  "error.agent.oldRoleField": "Stored agent profiles use the old role field; update the data before starting Builders Bot.",
+  "error.agent.oldRoleField":
+    "Stored agent profiles use the old role field; update the data before starting Builders Bot.",
   "error.agent.duplicateIds": "Agent state contains duplicate agent ids; refusing to overwrite it.",
   "error.agent.copyNameFailed": "Builders Bot could not create a unique agent copy name.",
   "error.agent.endpointRemoved": "The endpoint this agent used was removed. Choose another model for it.",

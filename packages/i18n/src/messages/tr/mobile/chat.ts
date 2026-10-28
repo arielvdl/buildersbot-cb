@@ -224,7 +224,8 @@ export const messages = {
   "mobile.chat.video.retry": "Videoyu tekrar dene",
   "mobile.chat.video.share": "{name} adlı videoyu paylaş",
   "mobile.chat.video.save": "{name} adlı videoyu Fotoğraflar'a kaydet",
-  "mobile.chat.video.photosPermission": "Bu videoyu kaydetmek için Ayarlar'da Builders Bot'un fotoğraf eklemesine izin ver.",
+  "mobile.chat.video.photosPermission":
+    "Bu videoyu kaydetmek için Ayarlar'da Builders Bot'un fotoğraf eklemesine izin ver.",
   "mobile.chat.video.saveFailed": "Video kaydedilemedi",
   "mobile.chat.audio.play": "{name} oynat",
   "mobile.chat.audio.pause": "{name} duraklat",

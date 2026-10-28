@@ -319,7 +319,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.storage.clearCategory": "Clear {category}",
   "mobile.server.storage.clearTitle.caches": "Clear cached server files?",
   "mobile.server.storage.clearTitle.logs": "Clear logs?",
-  "mobile.server.storage.clearBody.caches": "Copies of server files. Builders Bot downloads them again when you open them.",
+  "mobile.server.storage.clearBody.caches":
+    "Copies of server files. Builders Bot downloads them again when you open them.",
   "mobile.server.storage.clearBody.logs": "Diagnostic logs. New logs start at once.",
   "mobile.server.storage.clearFailed": "Could not clear the data",
   "mobile.server.storage.clearFailedBody": "Builders Bot could not clear this data on the server.",
@@ -372,7 +373,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.settings.memoryLimitDescription": "How many memories each agent on this server can keep.",
   "mobile.server.settings.memoryLimitLoadFailed": "Could not load the memory limit of this server.",
   "mobile.server.settings.memoryLimitSaveFailed": "Could not save the memory limit. Try again.",
-  "mobile.server.settings.memoryLimitUnsupported": "Update Builders Bot on this server to change its memory limit here.",
+  "mobile.server.settings.memoryLimitUnsupported":
+    "Update Builders Bot on this server to change its memory limit here.",
   // Server settings › Vault: the logins, cards and contact info of a joined server, for an owner or
   // admin. {host} is the server name, such as Studio. The phone never shows a saved secret.
   "mobile.server.route.vault": "Vault",
@@ -407,7 +409,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.vault.importFooter":
     "Use a password export from a browser or a password manager. {host} adds its logins. It skips a row that is not HTTPS, has no password or is saved already. This phone deletes its copy of the file after it reads it.",
   "mobile.server.vault.importResult": "Added: {imported}. Skipped: {skipped}.",
-  "mobile.server.vault.importTooLarge": "This file is too large to send from a phone. Import it in Builders Bot on {host}.",
+  "mobile.server.vault.importTooLarge":
+    "This file is too large to send from a phone. Import it in Builders Bot on {host}.",
   "mobile.server.vault.importReadFailed": "Could not read the file.",
   "mobile.server.vault.importFailed": "Could not import the file. Try again.",
   "mobile.server.vault.newLogin": "New login",
@@ -694,7 +697,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.connectors.discord.disconnectTitle": "Disconnect {workspace}?",
   "mobile.server.connectors.discord.disconnectBody":
     "Builders Bot stops answering in {workspace} and removes the Discord connection from {host}.",
-  "mobile.server.connectors.discord.disconnectKept": "The conversations and the Discord Orchestrator stay in Builders Bot.",
+  "mobile.server.connectors.discord.disconnectKept":
+    "The conversations and the Discord Orchestrator stay in Builders Bot.",
   "mobile.server.connectors.discord.disconnectDeleted":
     "The Discord Orchestrator and its conversations are deleted from Builders Bot.",
   "mobile.server.connectors.discord.agentPromptTitle": "Add the Discord Orchestrator?",
@@ -729,7 +733,8 @@ export const messages = defineMessages("mobile.server", {
     "The Builders Bot bot is no longer in this chat. Disconnect the chat, then add the bot again.",
   "mobile.server.connectors.telegram.helpRelay":
     "Builders Bot on {host} cannot receive Telegram messages. On {host}, sign in, give the server a name in Server settings, and keep Builders Bot open.",
-  "mobile.server.connectors.telegram.helpError": "Builders Bot cannot reach this chat. Reconnect, or disconnect the chat.",
+  "mobile.server.connectors.telegram.helpError":
+    "Builders Bot cannot reach this chat. Reconnect, or disconnect the chat.",
   // {time} is a time, such as 14:30.
   "mobile.server.connectors.telegram.retryAt": "Telegram asked Builders Bot to wait. It tries again at {time}.",
   "mobile.server.connectors.telegram.linkTitle": "Link a chat",
@@ -786,7 +791,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.providers.openPage": "Open sign-in page",
   "mobile.server.providers.copy": "Copy",
   "mobile.server.providers.copyCode": "Copy code",
-  "mobile.server.providers.codeHint": "Copy the code, open the page and enter the code. Builders Bot continues by itself.",
+  "mobile.server.providers.codeHint":
+    "Copy the code, open the page and enter the code. Builders Bot continues by itself.",
   "mobile.server.providers.pasteHint": "Sign in on the page, then paste the code that the page shows.",
   "mobile.server.providers.linkHint": "Sign in on the page. Builders Bot continues by itself.",
   "mobile.server.providers.relayWaiting": "Waiting for the sign-in page from the server…",
@@ -978,7 +984,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.update.requestedBy": "{member} asked for this update.",
   "mobile.server.update.automatic": "{name} installs updates automatically.",
   "mobile.server.update.autoDownloadTitle": "Download updates automatically",
-  "mobile.server.update.autoDownloadDescription": "{name} downloads each new version of Builders Bot when it comes out.",
+  "mobile.server.update.autoDownloadDescription":
+    "{name} downloads each new version of Builders Bot when it comes out.",
   "mobile.server.update.autoInstallTitle": "Install updates automatically",
   "mobile.server.update.autoInstallDescription":
     "{name} restarts into a downloaded update when its agents are idle. Members are disconnected for a short time and connect again automatically.",
@@ -987,9 +994,11 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.update.disabledDescription":
     "The user of {name} turned off updates from server members. Ask them to update Builders Bot or to turn the setting on.",
   "mobile.server.update.managedTitle": "A Host Manager controls updates",
-  "mobile.server.update.managedDescription": "Builders Bot Host Manager updates {name}. Contact the host administrator.",
+  "mobile.server.update.managedDescription":
+    "Builders Bot Host Manager updates {name}. Contact the host administrator.",
   "mobile.server.update.unsupportedTitle": "{name} cannot update itself",
-  "mobile.server.update.unsupportedDescription": "This Builders Bot build has no updater. Install a new version on {name}.",
+  "mobile.server.update.unsupportedDescription":
+    "This Builders Bot build has no updater. Install a new version on {name}.",
   "mobile.server.update.restarting": "Restarting…",
   "mobile.server.update.loadFailed": "The update status of {name} did not load.",
   "mobile.server.update.dialog.offerTitle": "Update {name} to Builders Bot {version}",

@@ -167,7 +167,8 @@ export const messages = {
   "settings.mobileConnect.add.install.title": "Hayır, uygulamayı indir",
   "settings.mobileConnect.add.install.hint": "iPhone veya Android",
   "settings.mobileConnect.add.install.heading": "Uygulamayı indirin",
-  "settings.mobileConnect.add.install.note": "Telefonun kamerasını koda doğrultun, Builders Bot'u yükleyin ve devam edin.",
+  "settings.mobileConnect.add.install.note":
+    "Telefonun kamerasını koda doğrultun, Builders Bot'u yükleyin ve devam edin.",
   "settings.mobileConnect.add.continue": "Oturum açmaya devam et",
   "settings.mobileConnect.qr.appStore": "App Store'u açar",
   "settings.mobileConnect.qr.playStore": "Google Play'i açar",

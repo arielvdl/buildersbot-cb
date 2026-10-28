@@ -3639,7 +3639,8 @@ export class ProviderRuntime implements ProviderPort {
     if (failures < START_FAILURE_LIMIT) return false;
     clearTimeout(this.#restartTimers.get(provider));
     this.#restartTimers.delete(provider);
-    if (failures === START_FAILURE_LIMIT) logger.warn("Builders Bot stopped starting a provider.", { provider, failures });
+    if (failures === START_FAILURE_LIMIT)
+      logger.warn("Builders Bot stopped starting a provider.", { provider, failures });
     return true;
   }
 

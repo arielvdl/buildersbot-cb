@@ -105,7 +105,8 @@ export const messages = {
   "mobile.chat.attachment.unavailable": "El archivo adjunto no está disponible. Vuelve a intentarlo.",
   "mobile.chat.attachment.openFailed": "No se pudo abrir el archivo adjunto",
   "mobile.chat.attachment.photosNeedUpdate": "Para guardar fotos necesitas la versión más reciente de la app.",
-  "mobile.chat.attachment.photosPermission": "Permite que Builders Bot añada fotos en Ajustes para guardar esta imagen.",
+  "mobile.chat.attachment.photosPermission":
+    "Permite que Builders Bot añada fotos en Ajustes para guardar esta imagen.",
   "mobile.chat.attachment.imageUnavailable": "La imagen no está disponible. Vuelve a intentarlo.",
   "mobile.chat.attachment.saveImageFailed": "No se pudo guardar la imagen",
   "mobile.chat.attachment.preview": "Vista previa de {name}",
@@ -432,7 +433,8 @@ export const messages = {
     "Builders Bot elimina el hilo, sus mensajes y sus archivos para siempre. El chat principal no cambia.",
   "mobile.chat.threads.filesUnsupported":
     "Este host no puede recibir archivos en un hilo. Actualiza Builders Bot en el host.",
-  "mobile.chat.threads.unsupported": "Este host no puede renombrar ni eliminar hilos. Actualiza Builders Bot en el host.",
+  "mobile.chat.threads.unsupported":
+    "Este host no puede renombrar ni eliminar hilos. Actualiza Builders Bot en el host.",
   "mobile.chat.threads.error.rename": "No se pudo renombrar el hilo.",
   "mobile.chat.threads.error.delete": "No se pudo eliminar el hilo.",
   "mobile.chat.channelWork.working": "Trabajando en {channel}",

@@ -511,7 +511,8 @@ export const messages = {
   "mobile.server.connectors.slack.disconnectKept": "对话和 Slack 调度助手会保留在 Builders Bot 中。",
   "mobile.server.connectors.slack.disconnectDeleted": "Slack 调度助手及其对话将从 Builders Bot 中删除。",
   "mobile.server.connectors.slack.agentPromptTitle": "添加 Slack 调度助手？",
-  "mobile.server.connectors.slack.agentPromptBody": "这个新助手会回答人们在 {workspace} 中发给 @Builders Bot 的所有消息。",
+  "mobile.server.connectors.slack.agentPromptBody":
+    "这个新助手会回答人们在 {workspace} 中发给 @Builders Bot 的所有消息。",
   "mobile.server.connectors.slack.installFailed": "Slack 未完成安装，请重试。",
   // Discord: a Discord server adds the one Builders Bot bot. Always write "Discord server": "server" alone
   // is an Builders Bot server. {workspace} is the Discord server name.
@@ -553,7 +554,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectKept": "对话和 Discord 调度助手会保留在 Builders Bot 中。",
   "mobile.server.connectors.discord.disconnectDeleted": "Discord 调度助手及其对话将从 Builders Bot 中删除。",
   "mobile.server.connectors.discord.agentPromptTitle": "添加 Discord 调度助手？",
-  "mobile.server.connectors.discord.agentPromptBody": "这个新助手会回答人们在 {workspace} 中发给 @Builders Bot 的所有消息。",
+  "mobile.server.connectors.discord.agentPromptBody":
+    "这个新助手会回答人们在 {workspace} 中发给 @Builders Bot 的所有消息。",
   "mobile.server.connectors.discord.installFailed": "Discord 未完成授权，请重试。",
   // Telegram: each chat adds the one Builders Bot bot, and the Telegram Orchestrator answers all chats.
   // {chat} is the Telegram chat name.
@@ -569,7 +571,8 @@ export const messages = {
   "mobile.server.connectors.telegram.directTitle": "私聊",
   "mobile.server.connectors.telegram.groupDescription": "人们提及机器人或回复它的消息。",
   "mobile.server.connectors.telegram.directDescription": "该聊天中的所有消息都会交给 Telegram 调度助手。",
-  "mobile.server.connectors.telegram.helpRemoved": "Builders Bot 机器人已不在该聊天中。请断开该聊天，然后重新添加机器人。",
+  "mobile.server.connectors.telegram.helpRemoved":
+    "Builders Bot 机器人已不在该聊天中。请断开该聊天，然后重新添加机器人。",
   "mobile.server.connectors.telegram.helpRelay":
     "{host} 上的 Builders Bot 无法接收 Telegram 消息。请在 {host} 上登录，在“服务器设置”中为服务器命名，并保持 Builders Bot 打开。",
   "mobile.server.connectors.telegram.helpError": "Builders Bot 无法连接到该聊天。请重新连接，或断开该聊天。",
@@ -588,7 +591,8 @@ export const messages = {
   "mobile.server.connectors.telegram.orchestratorNone": "请添加 Telegram 调度助手，否则 Telegram 中不会有人回答。",
   "mobile.server.connectors.telegram.addAgent": "添加 Telegram 调度助手",
   "mobile.server.connectors.telegram.disconnectTitle": "断开 {chat}？",
-  "mobile.server.connectors.telegram.disconnectBody": "Builders Bot 机器人会退出 {chat}，Builders Bot 将停止在那里回答。",
+  "mobile.server.connectors.telegram.disconnectBody":
+    "Builders Bot 机器人会退出 {chat}，Builders Bot 将停止在那里回答。",
   "mobile.server.connectors.telegram.disconnectKept": "对话和 Telegram 调度助手会保留在 Builders Bot 中。",
   "mobile.server.connectors.telegram.disconnectDeleted":
     "这是最后一个聊天，因此 Telegram 调度助手及其对话将从 Builders Bot 中删除。",

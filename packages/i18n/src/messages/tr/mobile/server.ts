@@ -385,7 +385,8 @@ export const messages = {
   "mobile.server.settings.connectors": "Bağlayıcılar",
   "mobile.server.connectors.unavailable":
     "Bağlayıcılarını yönetmek için bu sunucuya sahip veya yönetici olarak bağlanın.",
-  "mobile.server.connectors.unsupported": "Bağlayıcılarını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
+  "mobile.server.connectors.unsupported":
+    "Bağlayıcılarını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.connectors.loading": "Bağlayıcılar yükleniyor…",
   "mobile.server.connectors.onServer": "{name} üzerinde",
   "mobile.server.connectors.notSetUp": "Ayarlanmadı",
@@ -517,7 +518,8 @@ export const messages = {
     "Kullanıcılar @Builders Bot'tan bahseder veya doğrudan mesaj gönderir.",
   "mobile.server.connectors.slack.missingScopes":
     "Builders Bot Slack'te şu izinlere sahip değil: {scopes}. Çalışma alanı bağlantısını kesin, ardından tekrar bağlayın.",
-  "mobile.server.connectors.slack.retryAt": "Slack Builders Bot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
+  "mobile.server.connectors.slack.retryAt":
+    "Slack Builders Bot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
   "mobile.server.connectors.slack.helpInvalidToken":
     "Slack artık bu çalışma alanında Builders Bot'u kabul etmiyor. Kaldırılmış olabilir. Çalışma alanını tekrar bağlayın.",
   "mobile.server.connectors.slack.helpSecretStorage":
@@ -586,7 +588,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectBody":
     "Builders Bot {workspace} içinde yanıt vermeyi bırakır ve Discord bağlantısını {host} sunucusundan kaldırır.",
   "mobile.server.connectors.discord.disconnectKept": "Konuşmalar ve Discord Düzenleyicisi Builders Bot'ta kalır.",
-  "mobile.server.connectors.discord.disconnectDeleted": "Discord Düzenleyicisi ve konuşmaları Builders Bot'tan silinir.",
+  "mobile.server.connectors.discord.disconnectDeleted":
+    "Discord Düzenleyicisi ve konuşmaları Builders Bot'tan silinir.",
   "mobile.server.connectors.discord.agentPromptTitle": "Discord Düzenleyicisi eklensin mi?",
   "mobile.server.connectors.discord.agentPromptBody":
     "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
@@ -654,7 +657,8 @@ export const messages = {
   "mobile.server.providers.runtimesFailed": "Bu sunucunun indirmeleri yüklenemedi.",
   "mobile.server.providers.unavailable":
     "Sağlayıcılarını yönetmek için bu sunucuya sahip veya yönetici olarak bağlanın.",
-  "mobile.server.providers.unsupported": "Sağlayıcılarını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
+  "mobile.server.providers.unsupported":
+    "Sağlayıcılarını burada yönetmek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.server.providers.signInUnsupported": "Bu sunucu, bu sağlayıcıda telefondan oturum açamaz.",
   "mobile.server.providers.actionFailed": "Builders Bot bu işlemi tamamlayamadı. Tekrar deneyin.",
   "mobile.server.providers.openFailed": "Oturum açma sayfası açılamadı.",
@@ -673,7 +677,8 @@ export const messages = {
   "mobile.server.providers.openPage": "Oturum açma sayfasını aç",
   "mobile.server.providers.copy": "Kopyala",
   "mobile.server.providers.copyCode": "Kodu kopyala",
-  "mobile.server.providers.codeHint": "Kodu kopyalayın, sayfayı açın ve kodu girin. Builders Bot kendiliğinden devam eder.",
+  "mobile.server.providers.codeHint":
+    "Kodu kopyalayın, sayfayı açın ve kodu girin. Builders Bot kendiliğinden devam eder.",
   "mobile.server.providers.pasteHint": "Sayfada oturum açın, ardından sayfanın gösterdiği kodu yapıştırın.",
   "mobile.server.providers.linkHint": "Sayfada oturum açın. Builders Bot kendiliğinden devam eder.",
   "mobile.server.providers.relayWaiting": "Sunucudan oturum açma sayfası bekleniyor…",

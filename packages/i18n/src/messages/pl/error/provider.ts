@@ -112,7 +112,8 @@ export const messages = {
   "error.provider.keyInvalidCharacters": "Klucz dostawcy zawiera spację lub znak, którego klucz nie może zawierać.",
   "error.provider.noModel": "Wybrany dostawca nie ma dostępnego modelu.",
   "error.provider.noModelNamed": "Dostawca {provider} nie ma dostępnego modelu.",
-  "error.provider.acpNoModels": "ACP CLI nie udostępnił żadnych modeli ACP. Builders Bot nie zgaduje modelu zastępczego.",
+  "error.provider.acpNoModels":
+    "ACP CLI nie udostępnił żadnych modeli ACP. Builders Bot nie zgaduje modelu zastępczego.",
   "error.provider.endpointRemoveBusy": "Zaczekaj na zakończenie aktywnej tury i kolejki, zanim usuniesz ten endpoint.",
   "error.provider.codexOutdated": "Codex CLI {version} jest za stary. Builders Bot wymaga wersji 0.156.0 lub nowszej.",
   "error.provider.codexNotStarted": "Znaleziono Codex CLI, ale nie udało się go uruchomić.",
@@ -134,7 +135,8 @@ export const messages = {
     many: "Codex zignorował {count} ustawień w swojej konfiguracji. Popraw je lub usuń albo zaktualizuj Codex.",
     other: "Codex zignorował {count} ustawienia w swojej konfiguracji. Popraw je lub usuń albo zaktualizuj Codex.",
   },
-  "error.provider.claudeOutdated": "Claude Code {version} jest za stary. Builders Bot wymaga wersji 2.1.232 lub nowszej.",
+  "error.provider.claudeOutdated":
+    "Claude Code {version} jest za stary. Builders Bot wymaga wersji 2.1.232 lub nowszej.",
   "error.provider.claudeNotStarted": "Znaleziono Claude CLI, ale nie udało się go uruchomić.",
   "error.provider.claudeNotStartedHint":
     "Znaleziono Claude CLI, ale nie udało się go uruchomić. Uruchom `claude --version` w nowym terminalu.",
@@ -310,7 +312,8 @@ export const messages = {
   "error.provider.customAgentNotSaved": "Ten własny agent nie jest zapisany. Odśwież listę i spróbuj ponownie.",
   "error.provider.customAgentTooMany": "Możesz zapisać maksymalnie {count} własnych agentów.",
   "error.provider.customAgentEnvValueMissing": "Wpisz wartość dla {name}.",
-  "error.provider.off": "Dostawca {provider} jest wyłączony w Builders Bot. Najpierw włącz go w ustawieniach dostawców.",
+  "error.provider.off":
+    "Dostawca {provider} jest wyłączony w Builders Bot. Najpierw włącz go w ustawieniach dostawców.",
   "error.provider.inUse": "Agent używa dostawcy {provider}. Zmień jego model, zanim wyłączysz tego dostawcę.",
   "error.provider.useBusy": "Zaczekaj na zakończenie sprawdzania dostawcy lub logowania, a potem spróbuj ponownie.",
   "error.provider.useSettingsReadOnly":

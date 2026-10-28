@@ -237,7 +237,8 @@ export const messages = {
     "Builders Bot konnte die lokale Anmeldeverbindung für diesen Server nicht starten. Starte Builders Bot neu und versuche es dann erneut.",
   "error.backend.mcpOAuthSignInNeeded":
     "Die Anmeldung bei diesem MCP-Server ist beendet. Der Benutzer muss sich in Builders Bot erneut anmelden.",
-  "error.backend.mcpServerUnreachable": "Builders Bot konnte den Server nicht erreichen. Prüfe die URL und dein Netzwerk.",
+  "error.backend.mcpServerUnreachable":
+    "Builders Bot konnte den Server nicht erreichen. Prüfe die URL und dein Netzwerk.",
   "error.backend.mcpLocalServerOff":
     "Unter {address} antwortet auf diesem Computer kein Server. Starte den Server oder schalte ihn in der App ein, die ihn ausführt, und versuche es dann erneut.",
   "error.backend.mcpServerBlocked":

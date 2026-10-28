@@ -356,7 +356,8 @@ export const messages = {
   "mobile.server.settings.timezoneLoadFailed": "서버 시간대를 불러오지 못했어요.",
   "mobile.server.settings.timezoneSaveFailed": "시간대를 저장하지 못했어요. 다시 시도해 주세요.",
   "mobile.server.settings.timezoneUnavailable": "시간대를 변경하려면 소유자나 관리자로 이 서버에 연결하세요.",
-  "mobile.server.settings.timezoneUnsupported": "여기에서 시간대를 변경하려면 이 서버의 Builders Bot을 업데이트해 주세요.",
+  "mobile.server.settings.timezoneUnsupported":
+    "여기에서 시간대를 변경하려면 이 서버의 Builders Bot을 업데이트해 주세요.",
   "mobile.server.settings.memoryLimit": "에이전트당 메모리 수",
   "mobile.server.settings.memoryLimitDescription": "이 서버의 각 에이전트가 보관할 수 있는 메모리 수예요.",
   "mobile.server.settings.memoryLimitLoadFailed": "이 서버의 메모리 한도를 불러오지 못했어요.",
@@ -606,7 +607,8 @@ export const messages = {
   "mobile.server.connectors.telegram.disconnectTitle": "{chat} 연결을 해제할까요?",
   "mobile.server.connectors.telegram.disconnectBody":
     "Builders Bot 봇이 {chat}에서 나가고, Builders Bot이 그곳에서 답변을 중지해요.",
-  "mobile.server.connectors.telegram.disconnectKept": "대화와 Telegram Orchestrator는 Builders Bot에 그대로 남아 있어요.",
+  "mobile.server.connectors.telegram.disconnectKept":
+    "대화와 Telegram Orchestrator는 Builders Bot에 그대로 남아 있어요.",
   "mobile.server.connectors.telegram.disconnectDeleted":
     "마지막 채팅이므로 Telegram Orchestrator와 해당 대화가 Builders Bot에서 삭제돼요.",
   "mobile.server.settings.providers": "제공자",
@@ -819,7 +821,8 @@ export const messages = {
     "Docker 호스트에서 새 Builders Bot 이미지를 가져오고 같은 데이터 볼륨으로 컨테이너를 다시 만드세요. 먼저 진행 중인 작업이 끝나기를 기다리세요. 데이터를 보존하려면 기존 볼륨을 유지하세요.",
   "mobile.server.update.path.manual":
     "이 설치본은 스스로 교체할 수 없어요. 호스트 관리자에게 github.com/nightly-labs/openbot/releases에서 호환되는 릴리스를 설치해 달라고 요청하세요. 기존 Builders Bot 데이터는 유지하세요.",
-  "mobile.server.update.path.unavailable": "개발 빌드예요. 업데이트를 확인하려면 설치된 Builders Bot 릴리스를 사용하세요.",
+  "mobile.server.update.path.unavailable":
+    "개발 빌드예요. 업데이트를 확인하려면 설치된 Builders Bot 릴리스를 사용하세요.",
   "mobile.server.update.check": "업데이트 확인",
   "mobile.server.update.start": "대기 상태일 때 업데이트",
   "mobile.server.update.restartNow": "지금 다시 시작",

@@ -1092,9 +1092,12 @@ function readForeignKeyViolations(db: DatabaseSync): Map<string, number> {
 function readOldForeignKeyViolations(db: DatabaseSync): Map<string, number> {
   const violations = readForeignKeyViolations(db);
   if (violations.size > 0) {
-    logger.warn("The Builders Bot database has foreign-key violations from before this upgrade. They stay as they are.", {
-      violations: Object.fromEntries(violations),
-    });
+    logger.warn(
+      "The Builders Bot database has foreign-key violations from before this upgrade. They stay as they are.",
+      {
+        violations: Object.fromEntries(violations),
+      },
+    );
   }
   return violations;
 }

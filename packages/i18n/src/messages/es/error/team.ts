@@ -130,7 +130,8 @@ export const messages = {
     "Este servidor no puede retransmitir inicios de sesión. Actualiza Builders Bot en el host.",
   "error.team.connectorsUnsupported":
     "Las conexiones de este servidor no se pueden gestionar desde aquí. Actualiza Builders Bot en el host.",
-  "error.team.discordAccessUnsupported": "Este servidor no puede configurar roles de Discord. Actualiza Builders Bot en él.",
+  "error.team.discordAccessUnsupported":
+    "Este servidor no puede configurar roles de Discord. Actualiza Builders Bot en él.",
   "error.team.connectorPageRefused": "El servidor envió una página que Builders Bot no abre.",
   "error.team.signInRelayUnknown": "Este inicio de sesión terminó o no existe.",
   "error.team.signInRelayUsed": "Este inicio de sesión ya se envió.",

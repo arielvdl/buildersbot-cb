@@ -132,7 +132,8 @@ export const messages = {
   "settings.notch.size.previewNotch": "内置显示器",
   "settings.notch.size.previewIsland": "外接显示器",
   "settings.analytics.title": "分享产品分析数据",
-  "settings.analytics.description": "将使用情况和稳定性元数据，连同你的账号 ID 和邮箱发送到 Builders Bot 自建的分析服务。",
+  "settings.analytics.description":
+    "将使用情况和稳定性元数据，连同你的账号 ID 和邮箱发送到 Builders Bot 自建的分析服务。",
   "settings.analytics.webDescription":
     "将使用情况和可靠性元数据连同你的账号 ID 和邮箱发送到 Builders Bot 自托管的分析服务。该设置仅对该浏览器生效。",
   // The Settings window shell: its tab list, headers and save bar.
@@ -371,7 +372,8 @@ export const messages = {
     "助手空闲时，Builders Bot 会重启并应用已下载的更新。你的服务器成员会短暂断开连接。",
   // Restart Builders Bot, or install a downloaded update, when no agent works.
   "settings.updates.idleRestart.title": "重启 Builders Bot",
-  "settings.updates.idleRestart.relaunchDescription": "助手空闲时 Builders Bot 会重启。新的自动化任务会等到那时再运行。",
+  "settings.updates.idleRestart.relaunchDescription":
+    "助手空闲时 Builders Bot 会重启。新的自动化任务会等到那时再运行。",
   "settings.updates.idleRestart.updateDescription":
     "助手空闲时 Builders Bot 会安装 {target}。新的自动化任务会等到那时再运行。",
   "settings.updates.idleRestart.relaunch": "空闲时重启",

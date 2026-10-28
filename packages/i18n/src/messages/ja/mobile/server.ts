@@ -157,7 +157,8 @@ export const messages = {
   "mobile.server.routines.status.paused": "一時停止中",
   "mobile.server.routines.status.failed": "失敗",
   "mobile.server.routines.status.completed": "完了",
-  "mobile.server.threads.unsupported": "このホストはスレッドに対応していません。ホストの Builders Bot を更新してください。",
+  "mobile.server.threads.unsupported":
+    "このホストはスレッドに対応していません。ホストの Builders Bot を更新してください。",
   "mobile.server.threads.ask": "何をしてほしいですか？",
   "mobile.server.threads.chooseAgent": "スレッドを始める相手",
   "mobile.server.threads.agentLabel": "{name} とスレッドを始める",
@@ -377,7 +378,8 @@ export const messages = {
   "mobile.server.settings.connectors": "コネクター",
   "mobile.server.connectors.unavailable":
     "コネクターを管理するには、オーナーまたは管理者としてこのサーバーに接続してください。",
-  "mobile.server.connectors.unsupported": "ここでコネクターを管理するには、このサーバーの Builders Bot を更新してください。",
+  "mobile.server.connectors.unsupported":
+    "ここでコネクターを管理するには、このサーバーの Builders Bot を更新してください。",
   "mobile.server.connectors.loading": "コネクターを読み込んでいます…",
   "mobile.server.connectors.onServer": "{name} 上",
   "mobile.server.connectors.notSetUp": "未設定",
@@ -559,7 +561,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectBody":
     "Builders Bot は {workspace} での回答を停止し、Discord の接続を {host} から削除します。",
   "mobile.server.connectors.discord.disconnectKept": "会話と Discord Orchestrator は Builders Bot に残ります。",
-  "mobile.server.connectors.discord.disconnectDeleted": "Discord Orchestrator とその会話は Builders Bot から削除されます。",
+  "mobile.server.connectors.discord.disconnectDeleted":
+    "Discord Orchestrator とその会話は Builders Bot から削除されます。",
   "mobile.server.connectors.discord.agentPromptTitle": "Discord Orchestrator を追加しますか？",
   "mobile.server.connectors.discord.agentPromptBody":
     "この新しいエージェントは、{workspace} で @Builders Bot に送られたすべてのメッセージに回答します。",
@@ -693,7 +696,8 @@ export const messages = {
   "mobile.server.providers.status.checking": "確認中",
   "mobile.server.settings.mcp": "MCP サーバー",
   "mobile.server.settings.mcpCount": { other: "{count} 台" },
-  "mobile.server.mcp.unsupported": "ここで MCP サーバーを管理するには、このサーバーの Builders Bot を更新してください。",
+  "mobile.server.mcp.unsupported":
+    "ここで MCP サーバーを管理するには、このサーバーの Builders Bot を更新してください。",
   "mobile.server.mcp.unavailable":
     "MCP サーバーを管理するには、オーナーまたは管理者としてこのサーバーに接続してください。",
   "mobile.server.mcp.description":

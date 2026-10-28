@@ -146,7 +146,8 @@ export const messages = {
   "settings.tab.billing.title": "Fatturazione",
   "settings.tab.billing.description": "Licenza, piani dei server, metodo di pagamento e fatture.",
   "settings.tab.hostedServers.title": "Server ospitati",
-  "settings.tab.hostedServers.description": "Crea server Builders Bot che funzionano anche quando questo computer è spento.",
+  "settings.tab.hostedServers.description":
+    "Crea server Builders Bot che funzionano anche quando questo computer è spento.",
   "settings.sections.label": "Sezioni delle impostazioni",
   "settings.panel.resize": "Ridimensiona il pannello destro",
   "settings.preferences.loadFailed": "Impossibile caricare le tue impostazioni.",

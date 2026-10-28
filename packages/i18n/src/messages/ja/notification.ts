@@ -15,7 +15,9 @@ export const messages = {
   "notification.channelTitle": "{channel} の {agent}",
   "notification.channelMessage": "メッセージを送信しました。",
   "notification.usageLimit.title": "{provider} のアカウントが上限に達しました",
-  "notification.usageLimit.body": { other: "エージェント {count} 件が待機中です。Builders Bot は後でもう一度試します。" },
+  "notification.usageLimit.body": {
+    other: "エージェント {count} 件が待機中です。Builders Bot は後でもう一度試します。",
+  },
   "notification.usageLimit.bodyResets": { other: "エージェント {count} 件が待機中です。{reset} にリセットされます。" },
   "notification.machineAlert.disk": "{server}: ディスク使用率 {percent}",
   "notification.machineAlert.memory": "{server}: メモリ使用率 {percent}",

@@ -181,7 +181,11 @@ function runtime(
   isStopping: () => boolean = () => false,
   firstInstall = false,
 ): { providers: ProviderRuntime; store: AgentStore } {
-  const store = new AgentStore(join(root, "profile"), join(root, "home"), new BuildersBotDatabase(join(root, "profile")));
+  const store = new AgentStore(
+    join(root, "profile"),
+    join(root, "home"),
+    new BuildersBotDatabase(join(root, "profile")),
+  );
   const providers = new ProviderRuntime({
     offProviders: BUILT_IN_PROVIDER_DRIVERS.map((driver) => driver.id).filter((id) => id !== "antigravity"),
     conversation: new ConversationRuntime(

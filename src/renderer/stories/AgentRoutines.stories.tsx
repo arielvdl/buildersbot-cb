@@ -59,7 +59,10 @@ function RoutinesStory(props: {
   routines?: Routine[];
   runs?: RoutineRun[];
   localHost?: boolean;
-  results?: Pick<MockBuildersBotOptions, "routineResultOptions" | "routineResultDestinations" | "routineResultDeliveries">;
+  results?: Pick<
+    MockBuildersBotOptions,
+    "routineResultOptions" | "routineResultDestinations" | "routineResultDeliveries"
+  >;
 }) {
   const previousApi = window.openbot;
   const mock = createMockBuildersBot({ routines: { chief: props.routines ?? storyRoutines }, ...props.results });

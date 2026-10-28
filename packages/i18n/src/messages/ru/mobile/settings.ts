@@ -166,7 +166,8 @@ export const messages = {
   "mobile.settings.profile.security": "Безопасность",
   "mobile.settings.profile.accountSessions": "Сеансы аккаунта",
   "mobile.settings.profile.signOutTitle": "Выйти?",
-  "mobile.settings.profile.signOutBody": "Чтобы подключиться снова, отсканируйте новый код в Builders Bot на компьютере.",
+  "mobile.settings.profile.signOutBody":
+    "Чтобы подключиться снова, отсканируйте новый код в Builders Bot на компьютере.",
   "mobile.settings.profile.signOut": "Выйти",
   "mobile.settings.voice.title": "Голос",
   "mobile.settings.voice.sample": "Привет. Так я буду читать вам свои ответы.",

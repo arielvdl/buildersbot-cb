@@ -319,7 +319,8 @@ export const messages = {
   "mobile.server.storage.clearCategory": "Svuota {category}",
   "mobile.server.storage.clearTitle.caches": "Svuotare i file del server in cache?",
   "mobile.server.storage.clearTitle.logs": "Svuotare i log?",
-  "mobile.server.storage.clearBody.caches": "Copie dei file del server. Builders Bot le scarica di nuovo quando le apri.",
+  "mobile.server.storage.clearBody.caches":
+    "Copie dei file del server. Builders Bot le scarica di nuovo quando le apri.",
   "mobile.server.storage.clearBody.logs": "Log diagnostici. I nuovi log partono subito.",
   "mobile.server.storage.clearFailed": "Impossibile svuotare i dati",
   "mobile.server.storage.clearFailedBody": "Builders Bot non è riuscito a svuotare questi dati sul server.",
@@ -369,7 +370,8 @@ export const messages = {
   "mobile.server.settings.timezoneSaveFailed": "Impossibile salvare il fuso orario. Riprova.",
   "mobile.server.settings.timezoneUnavailable":
     "Connettiti a questo server come proprietario o admin per cambiarne il fuso orario.",
-  "mobile.server.settings.timezoneUnsupported": "Aggiorna Builders Bot su questo server per cambiarne qui il fuso orario.",
+  "mobile.server.settings.timezoneUnsupported":
+    "Aggiorna Builders Bot su questo server per cambiarne qui il fuso orario.",
   "mobile.server.settings.memoryLimit": "Memorie per agente",
   "mobile.server.settings.memoryLimitDescription": "Quante memorie può conservare ogni agente su questo server.",
   "mobile.server.settings.memoryLimitLoadFailed": "Impossibile caricare il limite di memorie di questo server.",
@@ -512,7 +514,8 @@ export const messages = {
     "Le persone menzionano @Builders Bot o gli mandano un messaggio diretto.",
   "mobile.server.connectors.slack.missingScopes":
     "Builders Bot non ha questi permessi in Slack: {scopes}. Disconnetti il workspace, poi connettilo di nuovo.",
-  "mobile.server.connectors.slack.retryAt": "Slack ha chiesto a Builders Bot di aspettare. Nuovo tentativo alle {time}.",
+  "mobile.server.connectors.slack.retryAt":
+    "Slack ha chiesto a Builders Bot di aspettare. Nuovo tentativo alle {time}.",
   "mobile.server.connectors.slack.helpInvalidToken":
     "Slack non accetta più Builders Bot in questo workspace. Potrebbe essere stato disinstallato. Connetti di nuovo il workspace.",
   "mobile.server.connectors.slack.helpSecretStorage":
@@ -564,7 +567,8 @@ export const messages = {
     "Menziona @Builders Bot in un canale. Rispondi a Builders Bot per continuare.",
   "mobile.server.connectors.discord.missingScopes":
     "Builders Bot non ha questi permessi in Discord: {scopes}. Disconnetti il server Discord, poi connettilo di nuovo.",
-  "mobile.server.connectors.discord.retryAt": "Discord ha chiesto a Builders Bot di aspettare. Nuovo tentativo alle {time}.",
+  "mobile.server.connectors.discord.retryAt":
+    "Discord ha chiesto a Builders Bot di aspettare. Nuovo tentativo alle {time}.",
   "mobile.server.connectors.discord.helpInvalidToken":
     "Discord non accetta più Builders Bot in questo server Discord. Potrebbe essere stato rimosso. Connetti di nuovo il server Discord.",
   "mobile.server.connectors.discord.helpSecretStorage":
@@ -581,7 +585,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectTitle": "Disconnettere {workspace}?",
   "mobile.server.connectors.discord.disconnectBody":
     "Builders Bot smette di rispondere in {workspace} e rimuove da {host} la connessione a Discord.",
-  "mobile.server.connectors.discord.disconnectKept": "Le conversazioni e il Discord Orchestrator restano in Builders Bot.",
+  "mobile.server.connectors.discord.disconnectKept":
+    "Le conversazioni e il Discord Orchestrator restano in Builders Bot.",
   "mobile.server.connectors.discord.disconnectDeleted":
     "Il Discord Orchestrator e le sue conversazioni vengono eliminati da Builders Bot.",
   "mobile.server.connectors.discord.agentPromptTitle": "Aggiungere il Discord Orchestrator?",
@@ -635,7 +640,8 @@ export const messages = {
   "mobile.server.connectors.telegram.disconnectTitle": "Disconnettere {chat}?",
   "mobile.server.connectors.telegram.disconnectBody":
     "Il bot Builders Bot esce da {chat} e Builders Bot smette di rispondere lì.",
-  "mobile.server.connectors.telegram.disconnectKept": "Le conversazioni e il Telegram Orchestrator restano in Builders Bot.",
+  "mobile.server.connectors.telegram.disconnectKept":
+    "Le conversazioni e il Telegram Orchestrator restano in Builders Bot.",
   "mobile.server.connectors.telegram.disconnectDeleted":
     "È l’ultima chat, quindi il Telegram Orchestrator e le sue conversazioni vengono eliminati da Builders Bot.",
   "mobile.server.settings.providers": "Provider",

@@ -496,7 +496,8 @@ export class BuildersBotToolRouter {
             const correctableFailure = (error: unknown) =>
               Effect.sync(() => {
                 const message = this.#hooks.redactMcp(profileToolErrorMessage(error));
-                if (!(error instanceof z.ZodError)) logger.warn("An Builders Bot tool failed.", { tool, error: message });
+                if (!(error instanceof z.ZodError))
+                  logger.warn("An Builders Bot tool failed.", { tool, error: message });
                 return openBotToolFailure(message);
               });
             const correctable = PROFILE_TOOL_NAMES.has(tool) || tool === "attach_files_to_response";
@@ -674,7 +675,10 @@ export class BuildersBotToolRouter {
    * headers can hold secrets.
    */
 
-  readonly #readAgent = Effect.fn("BuildersBotToolRouter.readAgent")(function* (this: BuildersBotToolRouter, agentId: string) {
+  readonly #readAgent = Effect.fn("BuildersBotToolRouter.readAgent")(function* (
+    this: BuildersBotToolRouter,
+    agentId: string,
+  ) {
     const agent = yield* toolStep(() => this.#requireAgent(agentId));
     const computerUse = agentComputerUseEnabled(agent);
     let skills: unknown[] | undefined;
@@ -1124,7 +1128,8 @@ export class BuildersBotToolRouter {
     if (!parsed.success) return openBotToolFailure(profileToolErrorMessage(parsed.error));
     const args = parsed.data;
     const preview = this.#visualPreview;
-    if (!preview) return openBotToolFailure("This Builders Bot cannot draw a page. Call html_render without a preview.");
+    if (!preview)
+      return openBotToolFailure("This Builders Bot cannot draw a page. Call html_render without a preview.");
     return yield* preview
       .capture({
         html: args.html,

@@ -126,8 +126,10 @@ export const messages = {
   "error.team.agentSettingsUnsupported": "이 연결에서는 에이전트 설정을 지원하지 않아요.",
   "error.team.adminRequired": "관리자 권한이 필요해요.",
   "error.team.requestTooLarge": "요청 본문이 너무 커요.",
-  "error.team.signInRelayUnsupported": "이 서버는 로그인을 중계할 수 없어요. 호스트의 Builders Bot을 업데이트해 주세요.",
-  "error.team.connectorsUnsupported": "이 서버는 여기서 연결을 관리할 수 없어요. 호스트의 Builders Bot을 업데이트해 주세요.",
+  "error.team.signInRelayUnsupported":
+    "이 서버는 로그인을 중계할 수 없어요. 호스트의 Builders Bot을 업데이트해 주세요.",
+  "error.team.connectorsUnsupported":
+    "이 서버는 여기서 연결을 관리할 수 없어요. 호스트의 Builders Bot을 업데이트해 주세요.",
   "error.team.discordAccessUnsupported": "이 서버는 Discord 역할을 설정할 수 없어요. Builders Bot을 업데이트해 주세요.",
   "error.team.connectorPageRefused": "서버가 Builders Bot에서 열 수 없는 페이지를 보냈어요.",
   "error.team.signInRelayUnknown": "이 로그인은 종료되었거나 존재하지 않아요.",

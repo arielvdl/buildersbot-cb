@@ -160,7 +160,8 @@ export const messages = {
   "error.backend.interruptOtherWork":
     "Bu ajan mesajınızın başlatmadığı bir görev üzerinde çalışıyor. Yalnızca kullanıcı veya o görevin göndereni görevi durdurabilir.",
   "error.backend.interruptStarting": "Bu ajan hâlâ bir tur başlatıyor. Tur başladıktan sonra tekrar deneyin.",
-  "error.backend.interruptNoSession": "Builders Bot sağlayıcı oturumu kullanılamadığı için bu ajanı kesintiye uğratamıyor.",
+  "error.backend.interruptNoSession":
+    "Builders Bot sağlayıcı oturumu kullanılamadığı için bu ajanı kesintiye uğratamıyor.",
   "error.backend.memoryTextRequired": "Bellek metni gereklidir.",
   "error.backend.memoryTextTooLong": "Bellek metni çok uzun.",
   "error.backend.mcpServerGone": "Bu MCP sunucusu artık mevcut değil.",

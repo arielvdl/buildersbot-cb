@@ -204,7 +204,8 @@ export const messages = {
   "mobile.settings.voice.elevenLabs.removeBody": "O Supertonic 3 volta a ler as respostas.",
   "mobile.settings.voice.elevenLabs.saveKey": "Salvar chave",
   "mobile.settings.voice.elevenLabs.testing": "Testando a chave",
-  "mobile.settings.voice.elevenLabs.keyHint": "O Builders Bot testa as duas primeiras permissões antes de salvar a chave.",
+  "mobile.settings.voice.elevenLabs.keyHint":
+    "O Builders Bot testa as duas primeiras permissões antes de salvar a chave.",
   "mobile.settings.voice.elevenLabs.testFailed": "A ElevenLabs não respondeu. Tente de novo.",
   "mobile.settings.voice.elevenLabs.getKey": "Obter uma chave de API",
   "mobile.settings.voice.engine.supertonicReady": "Neste celular · {voice}",

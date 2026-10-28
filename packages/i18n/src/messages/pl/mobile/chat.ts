@@ -109,7 +109,8 @@ export const messages = {
   "mobile.chat.attachment.unavailable": "Załącznik jest niedostępny. Spróbuj ponownie.",
   "mobile.chat.attachment.openFailed": "Nie udało się otworzyć załącznika",
   "mobile.chat.attachment.photosNeedUpdate": "Zapisywanie zdjęć wymaga najnowszej wersji aplikacji.",
-  "mobile.chat.attachment.photosPermission": "Zezwól Builders Bot na dodawanie zdjęć w Ustawieniach, aby zapisać ten obraz.",
+  "mobile.chat.attachment.photosPermission":
+    "Zezwól Builders Bot na dodawanie zdjęć w Ustawieniach, aby zapisać ten obraz.",
   "mobile.chat.attachment.imageUnavailable": "Obraz jest niedostępny. Spróbuj ponownie.",
   "mobile.chat.attachment.saveImageFailed": "Nie udało się zapisać obrazu",
   "mobile.chat.attachment.preview": "Podgląd: {name}",

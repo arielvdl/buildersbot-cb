@@ -211,7 +211,8 @@ export const messages = {
   "mobile.chat.browserSecret.authenticatorCode": "Authenticatiecode",
   "mobile.chat.browserSecret.oneTimeCode": "Eenmalige code",
   "mobile.chat.browserSecret.takeoverTitle": "Browser overnemen",
-  "mobile.chat.browserSecret.takeoverBody": "Voltooi deze stap in de browser op de computer waarop Builders Bot draait.",
+  "mobile.chat.browserSecret.takeoverBody":
+    "Voltooi deze stap in de browser op de computer waarop Builders Bot draait.",
   "mobile.chat.browserSecret.takeoverReload": "Laad daarna de pagina opnieuw voordat je Ik ben klaar kiest.",
   "mobile.chat.browserSecret.takeoverFailed": "Het verzoek kan niet worden voltooid.",
   "mobile.chat.browserSecret.done": "Ik ben klaar",

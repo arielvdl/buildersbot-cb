@@ -423,7 +423,8 @@ export const messages = {
   "server.desktop.connectionUnavailable": "Conexão indisponível",
   "server.desktop.hostOffline": "O computador anfitrião está offline",
   "server.desktop.hostOfflineDescription": "Reconecte-se ao computador anfitrião antes de abrir sua área de trabalho.",
-  "server.desktop.hostUpdateDescription": "Atualize o Builders Bot no computador anfitrião para usar o controle remoto.",
+  "server.desktop.hostUpdateDescription":
+    "Atualize o Builders Bot no computador anfitrião para usar o controle remoto.",
   "server.desktop.serviceAvailable": "Serviço disponível",
   "server.desktop.serviceAvailableDescription": "O controle por WebRTC está disponível para todos os membros ativos.",
   "server.desktop.serviceNotReady": "Serviço ainda não pronto",

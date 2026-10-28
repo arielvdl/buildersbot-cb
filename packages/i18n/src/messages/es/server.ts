@@ -209,7 +209,8 @@ export const messages = {
   "server.settings.mcpTitle": "MCP",
   "server.settings.mcpDescription": "Conecta servidores MCP y elige cuáles pueden usar los agentes de este servidor.",
   "server.settings.storageTitle": "Almacenamiento",
-  "server.settings.storageDescription": "Consulta qué guarda Builders Bot en el disco de este servidor y libera espacio.",
+  "server.settings.storageDescription":
+    "Consulta qué guarda Builders Bot en el disco de este servidor y libera espacio.",
   "server.settings.hostedSitesTitle": "Sitios",
   "server.settings.hostedSitesDescription":
     "Los sitios estáticos que los agentes de este servidor publicaron en openbot.site.",
@@ -335,7 +336,8 @@ export const messages = {
   "server.settings.restartTitle": "Reiniciar",
   "server.settings.restarting": "Reiniciando…",
   "server.settings.restartedTitle": "{name} se está reiniciando",
-  "server.settings.restartHiddenDescription": "Builders Bot se vuelve a conectar automáticamente cuando el servidor vuelve.",
+  "server.settings.restartHiddenDescription":
+    "Builders Bot se vuelve a conectar automáticamente cuando el servidor vuelve.",
   "server.settings.restartHide": "Ocultar",
   "server.settings.restartProgressTitle": "Reiniciando {name}",
   "server.settings.restartProgressDescription": "{time} · suele tardar un minuto. Puedes ocultar esta ventana.",
@@ -496,7 +498,8 @@ export const messages = {
   "server.update.disabledDescription":
     "El usuario de {name} desactivó las actualizaciones de los miembros del servidor. Pídele que actualice Builders Bot o que active el ajuste.",
   "server.update.managedTitle": "Un Host Manager controla las actualizaciones",
-  "server.update.managedDescription": "Builders Bot Host Manager actualiza {name}. Contacta con el administrador del host.",
+  "server.update.managedDescription":
+    "Builders Bot Host Manager actualiza {name}. Contacta con el administrador del host.",
   "server.update.unsupportedTitle": "{name} no puede actualizarse por sí mismo",
   "server.update.unsupportedDescription":
     "Esta versión de Builders Bot no tiene actualizador. Instala una nueva versión en {name}.",
@@ -514,7 +517,8 @@ export const messages = {
   "server.update.dialog.doneDescription": "La actualización tardó {time}.",
   "server.update.dialog.failedTitle": "{name} no se actualizó",
   "server.update.dialog.restartFailed": "{name} no ha vuelto a estar en línea. Revisa el host e inténtalo de nuevo.",
-  "server.update.dialog.notInstalled": "{name} se reinició con Builders Bot {current}. Vuelve a intentar la actualización.",
+  "server.update.dialog.notInstalled":
+    "{name} se reinició con Builders Bot {current}. Vuelve a intentar la actualización.",
   "server.update.dialog.steps": "Pasos de la actualización",
   "server.update.dialog.downloadStep": "Descargar Builders Bot {version}",
   "server.update.dialog.downloadPending": "Los agentes siguen trabajando durante la descarga.",

@@ -108,7 +108,8 @@ export const messages = {
   "files.machine.saveFailed": "アラート設定を保存できませんでした。",
   "files.cleanup.title": "クリーンアップ",
   "files.cleanup.canBeCleared": "{size} を消去できます",
-  "files.cleanup.description.caches": "サーバーのファイルのコピーです。開くと Builders Bot がもう一度ダウンロードします。",
+  "files.cleanup.description.caches":
+    "サーバーのファイルのコピーです。開くと Builders Bot がもう一度ダウンロードします。",
   "files.cleanup.description.logs": "診断ログです。新しいログがすぐに始まります。",
   "files.cleanup.description.runtimes":
     "どのエージェントも使っていない、古いプロバイダー CLI のバージョンです。Builders Bot は使用中のバージョンと、動作する古いバージョンを 1 つ残します。",

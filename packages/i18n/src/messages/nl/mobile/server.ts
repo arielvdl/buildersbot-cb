@@ -12,7 +12,8 @@ export const messages = {
   "mobile.server.drawer.actionFailed": "Builders Bot kan deze actie niet voltooien. Probeer het opnieuw.",
   "mobile.server.drawer.moveUp": "Omhoog",
   "mobile.server.drawer.moveDown": "Omlaag",
-  "mobile.server.drawer.orderHint": "Builders Bot opent op de eerste server. De volgorde wordt op dit apparaat bewaard.",
+  "mobile.server.drawer.orderHint":
+    "Builders Bot opent op de eerste server. De volgorde wordt op dit apparaat bewaard.",
   "mobile.server.drawer.title": "Servers",
   "mobile.server.drawer.serverSettings": "Serverinstellingen",
   "mobile.server.drawer.serverListHint": "Toont of verbergt de servers",
@@ -70,7 +71,8 @@ export const messages = {
   "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
   "mobile.server.hosted.computer.title": "Op je computer",
   "mobile.server.hosted.computer.add": "Cloudserver toevoegen",
-  "mobile.server.hosted.computer.addHint": "Open in Builders Bot Instellingen → Gehoste servers en kies Server toevoegen.",
+  "mobile.server.hosted.computer.addHint":
+    "Open in Builders Bot Instellingen → Gehoste servers en kies Server toevoegen.",
   "mobile.server.hosted.computer.change": "Abonnement wijzigen",
   "mobile.server.hosted.computer.changeHint": "Open in Builders Bot Instellingen → Facturering.",
   "mobile.server.hosted.yourServers": "Je servers",
@@ -540,7 +542,8 @@ export const messages = {
     "Noem @Builders Bot in een kanaal. Antwoord op Builders Bot om verder te gaan.",
   "mobile.server.connectors.discord.missingScopes":
     "Builders Bot heeft deze machtigingen niet in Discord: {scopes}. Ontkoppel de Discord-server en verbind hem opnieuw.",
-  "mobile.server.connectors.discord.retryAt": "Discord vroeg Builders Bot te wachten. Het probeert het opnieuw om {time}.",
+  "mobile.server.connectors.discord.retryAt":
+    "Discord vroeg Builders Bot te wachten. Het probeert het opnieuw om {time}.",
   "mobile.server.connectors.discord.helpInvalidToken":
     "Discord accepteert Builders Bot niet meer in deze Discord-server. Misschien is de bot verwijderd. Verbind de Discord-server opnieuw.",
   "mobile.server.connectors.discord.helpSecretStorage":
@@ -557,7 +560,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectTitle": "{workspace} ontkoppelen?",
   "mobile.server.connectors.discord.disconnectBody":
     "Builders Bot stopt met antwoorden in {workspace} en verwijdert de Discord-verbinding van {host}.",
-  "mobile.server.connectors.discord.disconnectKept": "De gesprekken en de Discord Orchestrator blijven in Builders Bot.",
+  "mobile.server.connectors.discord.disconnectKept":
+    "De gesprekken en de Discord Orchestrator blijven in Builders Bot.",
   "mobile.server.connectors.discord.disconnectDeleted":
     "De Discord Orchestrator en zijn gesprekken worden uit Builders Bot verwijderd.",
   "mobile.server.connectors.discord.agentPromptTitle": "De Discord Orchestrator toevoegen?",
@@ -590,7 +594,8 @@ export const messages = {
     "Builders Bot op {host} kan geen Telegram-berichten ontvangen. Log op {host} in, geef de server een naam in Serverinstellingen en houd Builders Bot open.",
   "mobile.server.connectors.telegram.helpError":
     "Builders Bot kan deze chat niet bereiken. Verbind opnieuw of ontkoppel de chat.",
-  "mobile.server.connectors.telegram.retryAt": "Telegram vroeg Builders Bot te wachten. Het probeert het opnieuw om {time}.",
+  "mobile.server.connectors.telegram.retryAt":
+    "Telegram vroeg Builders Bot te wachten. Het probeert het opnieuw om {time}.",
   "mobile.server.connectors.telegram.linkTitle": "Chat koppelen",
   "mobile.server.connectors.telegram.linkAnother": "Nog een chat koppelen",
   "mobile.server.connectors.telegram.linkFooter":
@@ -610,7 +615,8 @@ export const messages = {
   "mobile.server.connectors.telegram.disconnectTitle": "{chat} ontkoppelen?",
   "mobile.server.connectors.telegram.disconnectBody":
     "De Builders Bot-bot verlaat {chat} en Builders Bot stopt daar met antwoorden.",
-  "mobile.server.connectors.telegram.disconnectKept": "De gesprekken en de Telegram Orchestrator blijven in Builders Bot.",
+  "mobile.server.connectors.telegram.disconnectKept":
+    "De gesprekken en de Telegram Orchestrator blijven in Builders Bot.",
   "mobile.server.connectors.telegram.disconnectDeleted":
     "Dit is de laatste chat, dus de Telegram Orchestrator en zijn gesprekken worden uit Builders Bot verwijderd.",
   "mobile.server.settings.providers": "Aanbieders",
@@ -840,7 +846,8 @@ export const messages = {
   "mobile.server.update.requestedBy": "{member} heeft om deze update gevraagd.",
   "mobile.server.update.automatic": "{name} installeert updates automatisch.",
   "mobile.server.update.autoDownloadTitle": "Updates automatisch downloaden",
-  "mobile.server.update.autoDownloadDescription": "{name} downloadt elke nieuwe versie van Builders Bot zodra die uitkomt.",
+  "mobile.server.update.autoDownloadDescription":
+    "{name} downloadt elke nieuwe versie van Builders Bot zodra die uitkomt.",
   "mobile.server.update.autoInstallTitle": "Updates automatisch installeren",
   "mobile.server.update.autoInstallDescription":
     "{name} herstart met een gedownloade update als de agents inactief zijn. Leden worden kort losgekoppeld en maken automatisch opnieuw verbinding.",

@@ -206,7 +206,8 @@ export const messages = {
   "error.backend.mcpSignInNotWebPage": "Adres logowania nie jest stroną internetową.",
   "error.backend.mcpSignInRequired":
     "Ten serwer wymaga zalogowania. Wybierz „Zaloguj się”, aby kontynuować w przeglądarce.",
-  "error.backend.mcpSignInOnHost": "Ten serwer wymaga zalogowania. Zaloguj się do niego w Builders Bot na komputerze hosta.",
+  "error.backend.mcpSignInOnHost":
+    "Ten serwer wymaga zalogowania. Zaloguj się do niego w Builders Bot na komputerze hosta.",
   "error.backend.mcpSignInNeedsHttps":
     "Ten serwer wymaga zalogowania, a Builders Bot loguje się tylko przez https. Zmień URL na {url}.",
   "error.backend.mcpSignInCancelled": "Logowanie zostało anulowane.",

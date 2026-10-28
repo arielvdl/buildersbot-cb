@@ -8,13 +8,13 @@ import { resolve } from "node:path";
 import { isAgentProvider } from "@openbot/contracts/agent-providers";
 import type {
   AgentSummary,
+  BuildersBotDesktopApi,
   Channel,
   ChannelCommand,
   ChannelDraft,
   ChannelPage,
   ChannelSummary,
   ClientAgentSummary,
-  BuildersBotDesktopApi,
   QueueSnapshot,
   UpdateAgentInput,
 } from "@openbot/contracts/ipc";

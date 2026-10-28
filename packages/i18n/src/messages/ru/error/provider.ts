@@ -135,7 +135,8 @@ export const messages = {
     many: "Codex проигнорировал {count} настроек в своей конфигурации. Исправьте или удалите их либо обновите Codex.",
     other: "Codex проигнорировал {count} настройки в своей конфигурации. Исправьте или удалите их либо обновите Codex.",
   },
-  "error.provider.claudeOutdated": "Claude Code {version} слишком старый. Builders Bot требует версию 2.1.232 или новее.",
+  "error.provider.claudeOutdated":
+    "Claude Code {version} слишком старый. Builders Bot требует версию 2.1.232 или новее.",
   "error.provider.claudeNotStarted": "Claude CLI найден, но запустить его не удалось.",
   "error.provider.claudeNotStartedHint":
     "Claude CLI найден, но запустить его не удалось. Выполните `claude --version` в новом терминале.",
@@ -156,7 +157,8 @@ export const messages = {
   "error.provider.bunVersionUnreadable": "Не удалось прочитать версию среды выполнения Bun.",
   "error.provider.connectBeforeProfile": "Подключите выбранного провайдера, прежде чем создавать профиль.",
   "error.provider.cliNotReady": "{provider} CLI не готов или в нём не выполнен вход.",
-  "error.provider.cliTimedOut": "{provider} не ответил вовремя. Возможно, компьютер занят. Builders Bot повторит попытку.",
+  "error.provider.cliTimedOut":
+    "{provider} не ответил вовремя. Возможно, компьютер занят. Builders Bot повторит попытку.",
   "error.provider.cliTimedOutRefresh":
     "{provider} не ответил вовремя. Возможно, компьютер занят. Обновите провайдеров, чтобы повторить попытку.",
   "error.provider.acpStartTimedOut": "{provider} не завершил запуск за {seconds} с. Возможно, компьютер занят.",
@@ -277,7 +279,8 @@ export const messages = {
     "{provider} отклонил сохранённый ключ API. Замените или удалите ключ в настройках, затем повторите попытку.",
   "error.provider.keyProviderNoBalance":
     "На аккаунте {provider} для сохранённого ключа API нет средств. Пополните баланс аккаунта, затем повторите попытку.",
-  "error.provider.messageTooLarge": "Builders Bot остановил {provider}, потому что он отправил сообщение больше {limit} МБ.",
+  "error.provider.messageTooLarge":
+    "Builders Bot остановил {provider}, потому что он отправил сообщение больше {limit} МБ.",
   "error.provider.customAgentIdInvalid":
     "ID агента должен состоять из строчных букв, цифр или `-` и не может совпадать с ID встроенного провайдера.",
   "error.provider.customAgentEnvInvalid":
@@ -293,7 +296,8 @@ export const messages = {
   "error.provider.customAgentNotFound": "Builders Bot не находит {command}. Введите полный путь к команде.",
   "error.provider.customAgentCheckTimedOut": "Агент не ответил за 20 секунд.",
   "error.provider.customAgentCheckStopped": "Агент остановился, не ответив.",
-  "error.provider.customAgentProtocolVersion": "Агент использует ACP версии {version}. Builders Bot использует версию 1.",
+  "error.provider.customAgentProtocolVersion":
+    "Агент использует ACP версии {version}. Builders Bot использует версию 1.",
   "error.provider.customAgentCheckFailed": "Агент не ответил как агент ACP.",
   "error.provider.customAgentRemoveBusy":
     "Дождитесь, пока завершатся текущий ход и очередь, прежде чем удалять этого своего агента.",

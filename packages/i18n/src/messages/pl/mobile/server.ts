@@ -86,7 +86,8 @@ export const messages = {
   "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
   "mobile.server.hosted.computer.title": "Na komputerze",
   "mobile.server.hosted.computer.add": "Dodaj serwer w chmurze",
-  "mobile.server.hosted.computer.addHint": "W Builders Bot otwórz Ustawienia → Hostowane serwery i wybierz „Dodaj serwer”.",
+  "mobile.server.hosted.computer.addHint":
+    "W Builders Bot otwórz Ustawienia → Hostowane serwery i wybierz „Dodaj serwer”.",
   "mobile.server.hosted.computer.change": "Zmień plan",
   "mobile.server.hosted.computer.changeHint": "W Builders Bot otwórz Ustawienia → Rozliczenia.",
   "mobile.server.hosted.yourServers": "Twoje serwery",
@@ -366,7 +367,8 @@ export const messages = {
   "mobile.server.storage.clearCategory": "Wyczyść: {category}",
   "mobile.server.storage.clearTitle.caches": "Wyczyścić pliki serwera z pamięci podręcznej?",
   "mobile.server.storage.clearTitle.logs": "Wyczyścić logi?",
-  "mobile.server.storage.clearBody.caches": "Kopie plików serwera. Builders Bot pobierze je ponownie, gdy je otworzysz.",
+  "mobile.server.storage.clearBody.caches":
+    "Kopie plików serwera. Builders Bot pobierze je ponownie, gdy je otworzysz.",
   "mobile.server.storage.clearBody.logs": "Logi diagnostyczne. Nowe logi są tworzone od razu.",
   "mobile.server.storage.clearFailed": "Nie udało się wyczyścić danych",
   "mobile.server.storage.clearFailedBody": "Builders Bot nie mógł wyczyścić tych danych na serwerze.",
@@ -433,7 +435,8 @@ export const messages = {
   "mobile.server.settings.connectors": "Konektory",
   "mobile.server.connectors.unavailable":
     "Połącz się z tym serwerem jako właściciel lub administrator, aby zarządzać jego konektorami.",
-  "mobile.server.connectors.unsupported": "Zaktualizuj Builders Bot na tym serwerze, aby zarządzać tutaj jego konektorami.",
+  "mobile.server.connectors.unsupported":
+    "Zaktualizuj Builders Bot na tym serwerze, aby zarządzać tutaj jego konektorami.",
   "mobile.server.connectors.loading": "Wczytywanie konektorów…",
   "mobile.server.connectors.onServer": "Na serwerze {name}",
   "mobile.server.connectors.notSetUp": "Nieskonfigurowany",
@@ -597,7 +600,8 @@ export const messages = {
   "mobile.server.connectors.slack.disconnectBody":
     "Builders Bot przestaje odpowiadać w obszarze roboczym {workspace} i usuwa swój token Slack z serwera {host}.",
   "mobile.server.connectors.slack.disconnectKept": "Rozmowy i Slack Orchestrator zostają w Builders Bot.",
-  "mobile.server.connectors.slack.disconnectDeleted": "Slack Orchestrator i jego rozmowy zostaną usunięte z Builders Bot.",
+  "mobile.server.connectors.slack.disconnectDeleted":
+    "Slack Orchestrator i jego rozmowy zostaną usunięte z Builders Bot.",
   "mobile.server.connectors.slack.agentPromptTitle": "Dodać Slack Orchestrator?",
   "mobile.server.connectors.slack.agentPromptBody":
     "Ten nowy agent odpowiada na wszystko, co ludzie wysyłają do @Builders Bot w obszarze roboczym {workspace}.",

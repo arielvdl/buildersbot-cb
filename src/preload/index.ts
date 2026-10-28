@@ -1,6 +1,7 @@
 import {
   type AgentIpcRequest,
   type AttachmentImportEvent,
+  type BuildersBotDesktopApi,
   decodeAddedAgent,
   decodeAgentAccessSnapshot,
   decodeAgentAdminSettings,
@@ -60,7 +61,6 @@ import {
   IPC_ENDPOINTS,
   type IpcEndpointGroup,
   LOCAL_SERVER_ID,
-  type BuildersBotDesktopApi,
   type RequestEndpoint,
   type ServerScope,
   type ServerSummary,

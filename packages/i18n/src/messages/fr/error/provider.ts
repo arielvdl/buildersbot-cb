@@ -297,7 +297,8 @@ export const messages = {
     "{provider} a refusé la clé d’API enregistrée. Remplacez ou supprimez la clé dans les Réglages, puis réessayez.",
   "error.provider.keyProviderNoBalance":
     "Le compte {provider} de la clé d’API enregistrée n’a pas de solde. Ajoutez du crédit au compte, puis réessayez.",
-  "error.provider.messageTooLarge": "Builders Bot a arrêté {provider}, car il a envoyé un message de plus de {limit} Mo.",
+  "error.provider.messageTooLarge":
+    "Builders Bot a arrêté {provider}, car il a envoyé un message de plus de {limit} Mo.",
   "error.provider.customAgentIdInvalid":
     "Un ID d’agent ne peut contenir que des lettres minuscules, des chiffres ou `-`, et ne peut pas être l’ID d’un fournisseur intégré.",
   "error.provider.customAgentEnvInvalid":
@@ -310,7 +311,8 @@ export const messages = {
     "Un argument ne peut pas contenir de saut de ligne. Utilisez au plus 32 arguments.",
   "error.provider.customAgentWindowsScript":
     "Une commande .cmd ou .bat n’accepte que des lettres, des chiffres et - _ . , : = @ + / \\ dans ses arguments.",
-  "error.provider.customAgentNotFound": "Builders Bot ne trouve pas {command}. Saisissez le chemin complet de la commande.",
+  "error.provider.customAgentNotFound":
+    "Builders Bot ne trouve pas {command}. Saisissez le chemin complet de la commande.",
   "error.provider.customAgentCheckTimedOut": "L’agent n’a pas répondu en 20 secondes.",
   "error.provider.customAgentCheckStopped": "L’agent s’est arrêté avant de répondre.",
   "error.provider.customAgentProtocolVersion":
@@ -329,7 +331,8 @@ export const messages = {
     "Cet agent personnalisé n’est pas enregistré. Actualisez la liste et réessayez.",
   "error.provider.customAgentTooMany": "Vous pouvez enregistrer au plus {count} agents personnalisés.",
   "error.provider.customAgentEnvValueMissing": "Saisissez une valeur pour {name}.",
-  "error.provider.off": "{provider} est désactivé dans Builders Bot. Activez-le d’abord dans les réglages des fournisseurs.",
+  "error.provider.off":
+    "{provider} est désactivé dans Builders Bot. Activez-le d’abord dans les réglages des fournisseurs.",
   "error.provider.inUse": "Un agent utilise {provider}. Changez son modèle avant de désactiver ce fournisseur.",
   "error.provider.useBusy": "Attendez la fin de la vérification du fournisseur ou de la connexion, puis réessayez.",
   "error.provider.useSettingsReadOnly":

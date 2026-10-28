@@ -214,7 +214,8 @@ export const messages = {
   "server.settings.mcpDescription":
     "Подключайте серверы MCP и выбирайте, какие из них могут использовать агенты этого сервера.",
   "server.settings.storageTitle": "Хранилище",
-  "server.settings.storageDescription": "Посмотрите, что Builders Bot хранит на диске этого сервера, и освободите место.",
+  "server.settings.storageDescription":
+    "Посмотрите, что Builders Bot хранит на диске этого сервера, и освободите место.",
   "server.settings.hostedSitesTitle": "Сайты",
   "server.settings.hostedSitesDescription":
     "Статические сайты, которые агенты этого сервера опубликовали на openbot.site.",

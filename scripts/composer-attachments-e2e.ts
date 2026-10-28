@@ -19,10 +19,14 @@ assertMutationAllowed({
   instanceNamed: true,
   target: instance.instanceId,
 });
-const session = await connectToDevApp(instance.remoteDebuggingPort, createBuildersBotLogger("composer-attachments-e2e"), {
-  expectedRendererPort: instance.rendererPort,
-  ownerPid: instance.pid,
-});
+const session = await connectToDevApp(
+  instance.remoteDebuggingPort,
+  createBuildersBotLogger("composer-attachments-e2e"),
+  {
+    expectedRendererPort: instance.rendererPort,
+    ownerPid: instance.pid,
+  },
+);
 const out = resolve(".openbot-build/composer-attachments-e2e");
 mkdirSync(out, { recursive: true });
 const results: string[] = [];

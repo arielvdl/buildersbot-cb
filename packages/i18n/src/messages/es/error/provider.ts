@@ -120,7 +120,8 @@ export const messages = {
     "La CLI de ACP no anunció ningún modelo ACP. Builders Bot no adivinará un modelo alternativo.",
   "error.provider.endpointRemoveBusy":
     "Espera a que terminen el turno activo y la cola antes de eliminar este endpoint.",
-  "error.provider.codexOutdated": "Codex CLI {version} es demasiado antiguo. Builders Bot requiere 0.156.0 o posterior.",
+  "error.provider.codexOutdated":
+    "Codex CLI {version} es demasiado antiguo. Builders Bot requiere 0.156.0 o posterior.",
   "error.provider.codexNotStarted": "Se encontró Codex CLI, pero no se pudo iniciar.",
   "error.provider.codexNotStartedHint":
     "Se encontró Codex CLI, pero no se pudo iniciar. Ejecuta `codex --version` en una nueva terminal.",
@@ -135,7 +136,8 @@ export const messages = {
     one: "Codex ignoró {count} ajuste de su configuración. Corrígelo, elimínalo o actualiza Codex.",
     other: "Codex ignoró {count} ajustes de su configuración. Corrígelos, elimínalos o actualiza Codex.",
   },
-  "error.provider.claudeOutdated": "Claude Code {version} es demasiado antiguo. Builders Bot requiere 2.1.232 o posterior.",
+  "error.provider.claudeOutdated":
+    "Claude Code {version} es demasiado antiguo. Builders Bot requiere 2.1.232 o posterior.",
   "error.provider.claudeNotStarted": "Se encontró Claude CLI, pero no se pudo iniciar.",
   "error.provider.claudeNotStartedHint":
     "Se encontró Claude CLI, pero no se pudo iniciar. Ejecuta `claude --version` en una nueva terminal.",
@@ -300,7 +302,8 @@ export const messages = {
   "error.provider.customAgentNotFound": "Builders Bot no encuentra {command}. Introduce la ruta completa del comando.",
   "error.provider.customAgentCheckTimedOut": "El agente no respondió en 20 segundos.",
   "error.provider.customAgentCheckStopped": "El agente se detuvo antes de responder.",
-  "error.provider.customAgentProtocolVersion": "El agente usa la versión {version} de ACP. Builders Bot usa la versión 1.",
+  "error.provider.customAgentProtocolVersion":
+    "El agente usa la versión {version} de ACP. Builders Bot usa la versión 1.",
   "error.provider.customAgentCheckFailed": "El agente no respondió como un agente ACP.",
   "error.provider.customAgentRemoveBusy":
     "Espera a que terminen el turno activo y la cola antes de eliminar este agente personalizado.",

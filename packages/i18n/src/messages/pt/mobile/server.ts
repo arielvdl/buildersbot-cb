@@ -374,7 +374,8 @@ export const messages = {
   "mobile.server.settings.timezoneSaveFailed": "Não foi possível salvar o fuso horário. Tente de novo.",
   "mobile.server.settings.timezoneUnavailable":
     "Conecte-se a este servidor como proprietário ou admin para alterar o fuso horário.",
-  "mobile.server.settings.timezoneUnsupported": "Atualize o Builders Bot neste servidor para alterar o fuso horário aqui.",
+  "mobile.server.settings.timezoneUnsupported":
+    "Atualize o Builders Bot neste servidor para alterar o fuso horário aqui.",
   "mobile.server.settings.memoryLimit": "Memórias por agente",
   "mobile.server.settings.memoryLimitDescription": "Quantas memórias cada agente neste servidor pode manter.",
   "mobile.server.settings.memoryLimitLoadFailed": "Não foi possível carregar o limite de memórias deste servidor.",
@@ -385,7 +386,8 @@ export const messages = {
   "mobile.server.settings.connectors": "Conectores",
   "mobile.server.connectors.unavailable":
     "Conecte-se a este servidor como proprietário ou administrador para gerenciar os conectores dele.",
-  "mobile.server.connectors.unsupported": "Atualize o Builders Bot neste servidor para gerenciar os conectores dele aqui.",
+  "mobile.server.connectors.unsupported":
+    "Atualize o Builders Bot neste servidor para gerenciar os conectores dele aqui.",
   "mobile.server.connectors.loading": "Carregando conectores…",
   "mobile.server.connectors.onServer": "Em {name}",
   "mobile.server.connectors.notSetUp": "Não configurado",
@@ -519,7 +521,8 @@ export const messages = {
     "As pessoas mencionam @Builders Bot ou enviam uma mensagem direta para ele.",
   "mobile.server.connectors.slack.missingScopes":
     "O Builders Bot não tem estas permissões no Slack: {scopes}. Desconecte o espaço de trabalho e conecte-o novamente.",
-  "mobile.server.connectors.slack.retryAt": "O Slack pediu para o Builders Bot aguardar. Ele tentará novamente às {time}.",
+  "mobile.server.connectors.slack.retryAt":
+    "O Slack pediu para o Builders Bot aguardar. Ele tentará novamente às {time}.",
   "mobile.server.connectors.slack.helpInvalidToken":
     "O Slack não aceita mais o Builders Bot neste espaço de trabalho. Ele pode ter sido desinstalado. Conecte o espaço de trabalho novamente.",
   "mobile.server.connectors.slack.helpSecretStorage":
@@ -589,7 +592,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectTitle": "Desconectar {workspace}?",
   "mobile.server.connectors.discord.disconnectBody":
     "O Builders Bot para de responder em {workspace} e remove a conexão do Discord de {host}.",
-  "mobile.server.connectors.discord.disconnectKept": "As conversas e o Orquestrador do Discord continuam no Builders Bot.",
+  "mobile.server.connectors.discord.disconnectKept":
+    "As conversas e o Orquestrador do Discord continuam no Builders Bot.",
   "mobile.server.connectors.discord.disconnectDeleted":
     "O Orquestrador do Discord e as conversas dele são excluídos do Builders Bot.",
   "mobile.server.connectors.discord.agentPromptTitle": "Adicionar o Orquestrador do Discord?",
@@ -644,7 +648,8 @@ export const messages = {
   "mobile.server.connectors.telegram.disconnectTitle": "Desconectar {chat}?",
   "mobile.server.connectors.telegram.disconnectBody":
     "O bot do Builders Bot sai de {chat} e o Builders Bot para de responder lá.",
-  "mobile.server.connectors.telegram.disconnectKept": "As conversas e o Orquestrador do Telegram continuam no Builders Bot.",
+  "mobile.server.connectors.telegram.disconnectKept":
+    "As conversas e o Orquestrador do Telegram continuam no Builders Bot.",
   "mobile.server.connectors.telegram.disconnectDeleted":
     "Este é o último chat, então o Orquestrador do Telegram e as conversas dele são excluídos do Builders Bot.",
   "mobile.server.settings.providers": "Provedores",
@@ -679,7 +684,8 @@ export const messages = {
   "mobile.server.providers.openPage": "Abrir página de login",
   "mobile.server.providers.copy": "Copiar",
   "mobile.server.providers.copyCode": "Copiar código",
-  "mobile.server.providers.codeHint": "Copie o código, abra a página e digite o código. O Builders Bot continua sozinho.",
+  "mobile.server.providers.codeHint":
+    "Copie o código, abra a página e digite o código. O Builders Bot continua sozinho.",
   "mobile.server.providers.pasteHint": "Entre na página e cole o código que ela mostra.",
   "mobile.server.providers.linkHint": "Entre na página. O Builders Bot continua sozinho.",
   "mobile.server.providers.relayWaiting": "Aguardando a página de login do servidor…",

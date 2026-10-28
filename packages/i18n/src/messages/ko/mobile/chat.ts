@@ -222,7 +222,8 @@ export const messages = {
   "mobile.chat.video.retry": "동영상 다시 시도",
   "mobile.chat.video.share": "{name} 공유",
   "mobile.chat.video.save": "{name}을(를) 사진에 저장",
-  "mobile.chat.video.photosPermission": "이 동영상을 저장하려면 설정에서 Builders Bot이 사진을 추가하도록 허용해 주세요.",
+  "mobile.chat.video.photosPermission":
+    "이 동영상을 저장하려면 설정에서 Builders Bot이 사진을 추가하도록 허용해 주세요.",
   "mobile.chat.video.saveFailed": "동영상을 저장할 수 없어요",
   "mobile.chat.audio.play": "{name} 재생",
   "mobile.chat.audio.pause": "{name} 일시 정지",

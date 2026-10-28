@@ -12,7 +12,8 @@ export const messages = {
   "mobile.server.drawer.actionFailed": "Builders Bot no pudo completar esta acción. Inténtalo de nuevo.",
   "mobile.server.drawer.moveUp": "Subir",
   "mobile.server.drawer.moveDown": "Bajar",
-  "mobile.server.drawer.orderHint": "Builders Bot se abre en el primer servidor. El orden se guarda en este dispositivo.",
+  "mobile.server.drawer.orderHint":
+    "Builders Bot se abre en el primer servidor. El orden se guarda en este dispositivo.",
   "mobile.server.drawer.title": "Servidores",
   "mobile.server.drawer.serverSettings": "Ajustes del servidor",
   "mobile.server.drawer.serverListHint": "Muestra u oculta los servidores",
@@ -374,7 +375,8 @@ export const messages = {
   "mobile.server.settings.timezoneSaveFailed": "No se pudo guardar la zona horaria. Inténtalo de nuevo.",
   "mobile.server.settings.timezoneUnavailable":
     "Conéctate a este servidor como propietario o administrador para cambiar su zona horaria.",
-  "mobile.server.settings.timezoneUnsupported": "Actualiza Builders Bot en este servidor para cambiar aquí su zona horaria.",
+  "mobile.server.settings.timezoneUnsupported":
+    "Actualiza Builders Bot en este servidor para cambiar aquí su zona horaria.",
   "mobile.server.settings.memoryLimit": "Recuerdos por agente",
   "mobile.server.settings.memoryLimitDescription": "Cuántos recuerdos puede guardar cada agente en este servidor.",
   "mobile.server.settings.memoryLimitLoadFailed": "No se pudo cargar el límite de recuerdos de este servidor.",
@@ -524,7 +526,8 @@ export const messages = {
     "Las personas mencionan a @Builders Bot o le envían un mensaje directo.",
   "mobile.server.connectors.slack.missingScopes":
     "Builders Bot no tiene estos permisos en Slack: {scopes}. Desconecta el espacio de trabajo y vuelve a conectarlo.",
-  "mobile.server.connectors.slack.retryAt": "Slack pidió a Builders Bot que esperara. Lo intentará de nuevo a las {time}.",
+  "mobile.server.connectors.slack.retryAt":
+    "Slack pidió a Builders Bot que esperara. Lo intentará de nuevo a las {time}.",
   "mobile.server.connectors.slack.helpInvalidToken":
     "Slack ya no acepta Builders Bot en este espacio de trabajo. Puede que se haya desinstalado. Conecta el espacio de trabajo de nuevo.",
   "mobile.server.connectors.slack.helpSecretStorage":
@@ -688,7 +691,8 @@ export const messages = {
   "mobile.server.providers.openPage": "Abrir página de acceso",
   "mobile.server.providers.copy": "Copiar",
   "mobile.server.providers.copyCode": "Copiar código",
-  "mobile.server.providers.codeHint": "Copia el código, abre la página e introduce el código. Builders Bot continúa solo.",
+  "mobile.server.providers.codeHint":
+    "Copia el código, abre la página e introduce el código. Builders Bot continúa solo.",
   "mobile.server.providers.pasteHint": "Inicia sesión en la página y pega el código que muestra.",
   "mobile.server.providers.linkHint": "Inicia sesión en la página. Builders Bot continúa solo.",
   "mobile.server.providers.relayWaiting": "Esperando la página de acceso del servidor…",
@@ -881,7 +885,8 @@ export const messages = {
   "mobile.server.update.requestedBy": "{member} solicitó esta actualización.",
   "mobile.server.update.automatic": "{name} instala las actualizaciones automáticamente.",
   "mobile.server.update.autoDownloadTitle": "Descargar actualizaciones automáticamente",
-  "mobile.server.update.autoDownloadDescription": "{name} descarga cada nueva versión de Builders Bot cuando se publica.",
+  "mobile.server.update.autoDownloadDescription":
+    "{name} descarga cada nueva versión de Builders Bot cuando se publica.",
   "mobile.server.update.autoInstallTitle": "Instalar actualizaciones automáticamente",
   "mobile.server.update.autoInstallDescription":
     "{name} se reinicia con una actualización descargada cuando sus agentes están inactivos. Los miembros se desconectan brevemente y vuelven a conectarse automáticamente.",

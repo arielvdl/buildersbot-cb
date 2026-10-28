@@ -124,7 +124,8 @@ export const messages = {
   "mobile.chat.attachment.limit": "最多可附加 {limit} 个文件。",
   "mobile.chat.attachment.unsupported":
     "{name}：请选择图片、MP3 音频、MOV 或 MP4 视频、ZIP 压缩包、PDF、Office 文档、EML、文本、Markdown、数据或源代码文件。",
-  "mobile.chat.attachment.hostRejectsType": "{name}：主机电脑不接受 {type} 文件。请更新该电脑上的 Builders Bot 后再附加。",
+  "mobile.chat.attachment.hostRejectsType":
+    "{name}：主机电脑不接受 {type} 文件。请更新该电脑上的 Builders Bot 后再附加。",
   "mobile.chat.attachment.hostRejects": "{name}：主机电脑不接受这些文件。请更新该电脑上的 Builders Bot 后再附加。",
   "mobile.chat.attachment.nameTooLong": "请选择名称较短的文件。",
   "mobile.chat.attachment.damaged": "附件已损坏，请重新选择。",

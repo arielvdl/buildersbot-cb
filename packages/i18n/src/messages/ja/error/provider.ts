@@ -7,7 +7,8 @@ export const messages = {
   "error.provider.computerUseConfig":
     "Builders Bot は Codex の設定に Computer Use を登録できませんでした。Codex の config.toml が有効で書き込み可能であることを確認してから、Builders Bot を再起動してください。Computer Use なしで続行するには、エージェントの設定で Computer Use をオフにできます。",
   "error.provider.codexUnresponsive": "Codex が応答しなくなったため、Builders Bot がそのプロセスを終了しました。",
-  "error.provider.acpUnresponsive": "{provider} が時間内に応答しなかったため、Builders Bot がそのプロセスを終了しました。",
+  "error.provider.acpUnresponsive":
+    "{provider} が時間内に応答しなかったため、Builders Bot がそのプロセスを終了しました。",
   "error.provider.endpointsReadOnly":
     "保存されたエンドポイントは新しいバージョンの Builders Bot で書き込まれたか、ファイルを読み取れません。変更するには Builders Bot を更新してください。",
   "error.provider.endpointNoSecureStorage":
@@ -145,7 +146,8 @@ export const messages = {
   "error.provider.grokNotStarted": "Grok CLI は見つかりましたが、起動できませんでした。",
   "error.provider.grokNotStartedHint":
     "Grok CLI は見つかりましたが、起動できませんでした。新しいターミナルで `grok --version` を実行してください。",
-  "error.provider.grokMissing": "Grok はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
+  "error.provider.grokMissing":
+    "Grok はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
   "error.provider.opencodeNotStarted":
     "OpenCode を起動できませんでした。ターミナルで `opencode --version` を実行してください。",
   "error.provider.opencodeMissing":
@@ -255,7 +257,8 @@ export const messages = {
   "error.provider.clinePackageMismatch": "Cline のパッケージがランタイムカタログと一致しません。",
   "error.provider.clineChecksum": "Cline ランタイムのチェックサムが一致しません。",
   "error.provider.clineLicenseChecksum": "Cline のライセンスのチェックサムが一致しません。",
-  "error.provider.clineMissing": "Cline はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
+  "error.provider.clineMissing":
+    "Cline はダウンロードされていません。続けるには Builders Bot でダウンロードしてください。",
   "error.provider.clineOutdated": "Cline CLI {version} は古すぎます。Builders Bot には 3.0.68 以降が必要です。",
   "error.provider.clineNotStarted": "Cline を起動できませんでした。ターミナルで `cline --version` を実行してください。",
   "error.provider.clineVersionUnreadable": "Cline CLI のバージョンを読み取れません。",

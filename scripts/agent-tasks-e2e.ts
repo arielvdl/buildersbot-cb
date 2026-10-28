@@ -17,10 +17,10 @@ import {
   type AgentSummary,
   type AgentTask,
   type AgentTasksSnapshot,
+  type BuildersBotDesktopApi,
   type ClientAgentSummary,
   isAgentModelOption,
   isAgentSummary,
-  type BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";

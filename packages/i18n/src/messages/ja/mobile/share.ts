@@ -17,7 +17,8 @@ export const messages = {
   "mobile.share.extension.footer": "Builders Bot がこの内容を今すぐエージェントに送信します。アプリは開きません。",
   "mobile.share.extension.sending": "{name} に送信中…",
   "mobile.share.extension.sent": "{name} に送信しました",
-  "mobile.share.extension.failed": "Builders Bot はこれを送信できませんでした。アプリを開いて、そこから送信してください。",
+  "mobile.share.extension.failed":
+    "Builders Bot はこれを送信できませんでした。アプリを開いて、そこから送信してください。",
   "mobile.share.extension.unconfirmed":
     "サーバーがメッセージを確認しませんでした。もう一度送信する前にチャットを確認してください。",
   "mobile.share.extension.openApp": "Builders Bot を開く",

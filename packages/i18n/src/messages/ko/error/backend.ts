@@ -123,7 +123,8 @@ export const messages = {
   "error.backend.queueOrderStale": "대기열 순서가 오래되었어요. 대기열을 새로 고친 후 다시 시도해 주세요.",
   "error.backend.fileGone": "파일이 없거나 이미 삭제되었어요.",
   "error.backend.managedAttachmentChanged": "관리 중인 첨부 파일이 없거나 변경되었어요: {name}",
-  "error.backend.mailboxStateCorrupt": "메일함 상태가 손상되었거나 더 새로운 Builders Bot 버전의 것이에요. 덮어쓰지 않아요.",
+  "error.backend.mailboxStateCorrupt":
+    "메일함 상태가 손상되었거나 더 새로운 Builders Bot 버전의 것이에요. 덮어쓰지 않아요.",
   "error.backend.recipientDeleting": "받는 사람을 삭제하는 중이에요. 삭제가 끝난 후 다시 시도해 주세요.",
   "error.backend.recipientHidden": "이 에이전트는 숨겨져 있어요. 메시지를 보내려면 복원하세요.",
   "error.backend.attachBetween": "파일을 1개에서 {limit}개 사이로 첨부하세요.",

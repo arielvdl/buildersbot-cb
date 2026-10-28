@@ -63,7 +63,8 @@ export const messages = {
   "error.provider.removeWhileOn": "Schalte den Anbieter aus, bevor du seinen Download entfernst.",
   "error.provider.removeWhileDownloading": "Warte, bis der Download fertig ist, und entferne ihn dann.",
   "error.provider.removeIncomplete": "Ein Programm verwendet Dateien dieser CLI. Schließe es und versuche es erneut.",
-  "error.provider.cliOverride": "Entferne den ausdrücklich festgelegten CLI-Pfad, bevor du in Builders Bot aktualisierst.",
+  "error.provider.cliOverride":
+    "Entferne den ausdrücklich festgelegten CLI-Pfad, bevor du in Builders Bot aktualisierst.",
   "error.provider.runtimeUpdateIncomplete": "Die Laufzeitaktualisierung wurde nicht abgeschlossen.",
   "error.provider.downloadHttp": "Der Laufzeitdownload ist mit HTTP {status} fehlgeschlagen.",
   "error.provider.downloadNoData": "Der Laufzeitdownload hat keine Daten zurückgegeben.",
@@ -115,7 +116,8 @@ export const messages = {
     "Der Anbieterschlüssel enthält ein Leerzeichen oder ein Zeichen, das in einem Schlüssel nicht vorkommen kann.",
   "error.provider.noModel": "Der gewählte Anbieter hat kein verfügbares Modell.",
   "error.provider.noModelNamed": "{provider} hat kein verfügbares Modell.",
-  "error.provider.acpNoModels": "Die ACP CLI hat keine ACP-Modelle gemeldet. Builders Bot wird kein Ersatzmodell erraten.",
+  "error.provider.acpNoModels":
+    "Die ACP CLI hat keine ACP-Modelle gemeldet. Builders Bot wird kein Ersatzmodell erraten.",
   "error.provider.endpointRemoveBusy":
     "Warte, bis der aktive Durchlauf und die Warteschlange abgeschlossen sind, bevor du diesen Endpunkt entfernst.",
   "error.provider.codexOutdated": "Codex CLI {version} ist zu alt. Builders Bot benötigt 0.156.0 oder neuer.",
@@ -124,7 +126,8 @@ export const messages = {
     "Codex CLI wurde gefunden, konnte aber nicht gestartet werden. Führe `codex --version` in einem neuen Terminal aus.",
   "error.provider.codexManagedNotStarted":
     "ChatGPT wurde heruntergeladen, konnte aber nicht gestartet werden. Lade es in Builders Bot erneut herunter.",
-  "error.provider.codexMissing": "ChatGPT wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
+  "error.provider.codexMissing":
+    "ChatGPT wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
   "error.provider.codexConfigIgnored": {
     one: "Codex hat {count} Einstellung in seiner Konfiguration ignoriert: {settings}. Korrigiere oder entferne sie oder aktualisiere Codex.",
     other:
@@ -141,7 +144,8 @@ export const messages = {
     "Claude CLI wurde gefunden, konnte aber nicht gestartet werden. Führe `claude --version` in einem neuen Terminal aus.",
   "error.provider.claudeManagedNotStarted":
     "Claude wurde heruntergeladen, konnte aber nicht gestartet werden. Lade es in Builders Bot erneut herunter.",
-  "error.provider.claudeMissing": "Claude wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
+  "error.provider.claudeMissing":
+    "Claude wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
   "error.provider.grokOutdated": "Grok CLI {version} ist zu alt. Builders Bot benötigt 1.0.5 oder neuer.",
   "error.provider.grokNotStarted": "Grok CLI wurde gefunden, konnte aber nicht gestartet werden.",
   "error.provider.grokNotStartedHint":
@@ -253,7 +257,8 @@ export const messages = {
   "error.provider.cursorArchivePath": "Das Cursor-Archiv enthält eine unerwartete Datei.",
   "error.provider.cursorChecksum": "Die Prüfsumme der Cursor-Laufzeit stimmt nicht überein.",
   "error.provider.cursorReleaseShape": "Die Cursor-Version hat eine unerwartete Struktur.",
-  "error.provider.cursorMissing": "Cursor wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
+  "error.provider.cursorMissing":
+    "Cursor wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
   "error.provider.cursorNotStarted": "Der Cursor-Agent wurde gefunden, aber seine Version kann nicht gelesen werden.",
   "error.provider.cursorVersionUnreadable": "Die Version des Cursor-Agenten konnte nicht gelesen werden.",
   "error.provider.cursorSignIn": "Melde dich mit Cursor an oder setze CURSOR_API_KEY, um Cursor zu verwenden.",
@@ -261,7 +266,8 @@ export const messages = {
   "error.provider.clinePackageMismatch": "Das Cline-Paket stimmt nicht mit dem Laufzeitkatalog überein.",
   "error.provider.clineChecksum": "Die Prüfsumme der Cline-Laufzeit stimmt nicht überein.",
   "error.provider.clineLicenseChecksum": "Die Prüfsumme der Cline-Lizenz stimmt nicht überein.",
-  "error.provider.clineMissing": "Cline wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
+  "error.provider.clineMissing":
+    "Cline wurde nicht heruntergeladen. Lade es in Builders Bot herunter, um fortzufahren.",
   "error.provider.clineOutdated": "Cline CLI {version} ist zu alt. Builders Bot benötigt 3.0.68 oder neuer.",
   "error.provider.clineNotStarted": "Cline konnte nicht starten. Führe `cline --version` in einem Terminal aus.",
   "error.provider.clineVersionUnreadable": "Die Version von Cline CLI konnte nicht gelesen werden.",

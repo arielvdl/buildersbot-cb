@@ -3,7 +3,8 @@ import type { messages as source } from "../../en/error/team";
 
 export const messages = {
   "error.team.ownerNotLinked": "Dieser Host ist nicht mit einem Builders Bot-Eigentümerkonto verknüpft.",
-  "error.team.ownerEmailRequired": "Melde dich mit der Builders Bot-E-Mail-Adresse an, mit der dieser Host erstellt wurde.",
+  "error.team.ownerEmailRequired":
+    "Melde dich mit der Builders Bot-E-Mail-Adresse an, mit der dieser Host erstellt wurde.",
   "error.team.hostNotConfigured": "Der Teamhost ist nicht eingerichtet.",
   "error.team.alreadyConfigured": "Der Teamserver ist bereits eingerichtet.",
   "error.team.identityCreateFailed": "Die Teamidentität konnte nicht erstellt werden.",
@@ -54,7 +55,8 @@ export const messages = {
   "error.team.routeNotFound": "Route nicht gefunden.",
   "error.team.requestFailed": "Anfrage fehlgeschlagen.",
   "error.team.tooManySignInAttempts": "Zu viele Anmeldeversuche. Versuche es später erneut.",
-  "error.team.clientUpdateRequired": "Aktualisiere diesen Builders Bot-Client, bevor du dich mit diesem Host verbindest.",
+  "error.team.clientUpdateRequired":
+    "Aktualisiere diesen Builders Bot-Client, bevor du dich mit diesem Host verbindest.",
   "error.team.hostUpdateRequired": "Aktualisiere Builders Bot auf dem Host, bevor du dich verbindest.",
   "error.team.sidebarLayoutUnavailable": "Die Anordnung der Seitenleiste ist nicht verfügbar.",
   "error.team.providersUnsupported": "Diese Verbindung unterstützt keine Anbietereinstellungen.",
@@ -107,7 +109,8 @@ export const messages = {
   "error.team.machineAlertMemberInvalid":
     "Nur Eigentümer oder Administratoren dieses Servers können Maschinenwarnungen erhalten.",
   "error.team.hostedSitesUnsupported": "Diese Verbindung unterstützt keine Websites.",
-  "error.team.hostedSitesUnregistered": "Dieser Server ist nicht bei Builders Bot registriert und hat daher keine Websites.",
+  "error.team.hostedSitesUnregistered":
+    "Dieser Server ist nicht bei Builders Bot registriert und hat daher keine Websites.",
   "error.team.hostedSiteNotFound": "Website nicht gefunden.",
   "error.team.markUnreadUnsupported": "Dieser Client unterstützt das Markieren von Unterhaltungen als ungelesen nicht.",
   "error.team.inviteServiceUnavailable": "Der Einladungsdienst ist nicht verfügbar.",

@@ -1,4 +1,4 @@
-import type { HostTimezoneSettings, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, HostTimezoneSettings } from "@openbot/contracts/ipc";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle, SearchSelect } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, Show, untrack } from "solid-js";

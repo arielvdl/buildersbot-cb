@@ -2,7 +2,8 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/team";
 
 export const messages = {
-  "error.team.ownerNotLinked": "Este computador anfitrião não está vinculado a uma conta de proprietário do Builders Bot.",
+  "error.team.ownerNotLinked":
+    "Este computador anfitrião não está vinculado a uma conta de proprietário do Builders Bot.",
   "error.team.ownerEmailRequired": "Entre com o e-mail do Builders Bot que criou este computador anfitrião.",
   "error.team.hostNotConfigured": "O computador anfitrião da equipe não está configurado.",
   "error.team.alreadyConfigured": "O servidor da equipe já está configurado.",
@@ -53,7 +54,8 @@ export const messages = {
   "error.team.routeNotFound": "Rota não encontrada.",
   "error.team.requestFailed": "A solicitação falhou.",
   "error.team.tooManySignInAttempts": "Muitas tentativas de login. Tente novamente mais tarde.",
-  "error.team.clientUpdateRequired": "Atualize este cliente Builders Bot antes de conectar a este computador anfitrião.",
+  "error.team.clientUpdateRequired":
+    "Atualize este cliente Builders Bot antes de conectar a este computador anfitrião.",
   "error.team.hostUpdateRequired": "Atualize o Builders Bot no computador anfitrião antes de conectar.",
   "error.team.sidebarLayoutUnavailable": "A organização da barra lateral está indisponível.",
   "error.team.providersUnsupported": "Esta conexão não oferece suporte às configurações de provedores.",

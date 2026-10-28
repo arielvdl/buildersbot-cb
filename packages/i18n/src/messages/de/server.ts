@@ -8,7 +8,8 @@ export const messages = {
   "server.connection.sleeping": "{name} ruht",
   "server.connection.waking": "{name} wird gestartet",
   "server.connection.startProgress": "{step} · {time}",
-  "server.connection.providerLimit": "Der Cloud-Anbieter begrenzt gerade neue Starts. Builders Bot versucht es bald erneut.",
+  "server.connection.providerLimit":
+    "Der Cloud-Anbieter begrenzt gerade neue Starts. Builders Bot versucht es bald erneut.",
   "server.connection.updating": "{name} wird aktualisiert",
   "server.connection.loading": "{name} wird geladen",
   "server.connection.connecting": "Verbindung mit {name} wird hergestellt",
@@ -340,7 +341,8 @@ export const messages = {
   "server.settings.restartTitle": "Neu starten",
   "server.settings.restarting": "Wird neu gestartet…",
   "server.settings.restartedTitle": "{name} startet neu",
-  "server.settings.restartHiddenDescription": "Builders Bot verbindet sich automatisch wieder, wenn der Server zurück ist.",
+  "server.settings.restartHiddenDescription":
+    "Builders Bot verbindet sich automatisch wieder, wenn der Server zurück ist.",
   "server.settings.restartHide": "Ausblenden",
   "server.settings.restartProgressTitle": "{name} wird neu gestartet",
   "server.settings.restartProgressDescription": "{time} · meist etwa eine Minute. Du kannst dieses Fenster ausblenden.",
@@ -500,7 +502,8 @@ export const messages = {
   "server.update.disabledDescription":
     "Der Benutzer von {name} hat Updates durch Servermitglieder deaktiviert. Bitte ihn, Builders Bot zu aktualisieren oder die Einstellung zu aktivieren.",
   "server.update.managedTitle": "Ein Host Manager steuert Updates",
-  "server.update.managedDescription": "Builders Bot Host Manager aktualisiert {name}. Kontaktiere den Host-Administrator.",
+  "server.update.managedDescription":
+    "Builders Bot Host Manager aktualisiert {name}. Kontaktiere den Host-Administrator.",
   "server.update.unsupportedTitle": "{name} kann sich nicht selbst aktualisieren",
   "server.update.unsupportedDescription":
     "Diese Builders Bot-Version hat keine Update-Funktion. Installiere eine neue Version auf {name}.",
@@ -518,7 +521,8 @@ export const messages = {
   "server.update.dialog.doneDescription": "Das Update hat {time} gedauert.",
   "server.update.dialog.failedTitle": "{name} wurde nicht aktualisiert",
   "server.update.dialog.restartFailed": "{name} ist nicht wieder online. Prüfe den Host und versuche es dann erneut.",
-  "server.update.dialog.notInstalled": "{name} wurde mit Builders Bot {current} neu gestartet. Versuche das Update erneut.",
+  "server.update.dialog.notInstalled":
+    "{name} wurde mit Builders Bot {current} neu gestartet. Versuche das Update erneut.",
   "server.update.dialog.steps": "Update-Schritte",
   "server.update.dialog.downloadStep": "Builders Bot {version} herunterladen",
   "server.update.dialog.downloadPending": "Agenten arbeiten während des Downloads weiter.",

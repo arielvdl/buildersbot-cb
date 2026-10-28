@@ -200,7 +200,8 @@ export const messages = defineMessages("error.backend", {
   "error.backend.mcpSignInNoBrowser": "This MCP sign-in cannot open a browser.",
   "error.backend.mcpSignInNotWebPage": "The sign-in address is not a web page.",
   "error.backend.mcpSignInRequired": "This server asks you to sign in. Choose Sign in to continue in your browser.",
-  "error.backend.mcpSignInOnHost": "This server asks for a sign-in. Sign in to it in Builders Bot on the host computer.",
+  "error.backend.mcpSignInOnHost":
+    "This server asks for a sign-in. Sign in to it in Builders Bot on the host computer.",
   "error.backend.mcpSignInNeedsHttps":
     "This server asks for a sign-in, and Builders Bot signs in only over https. Change the URL to {url}.",
   "error.backend.mcpSignInCancelled": "The sign-in was cancelled.",

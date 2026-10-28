@@ -338,7 +338,8 @@ export const messages = {
   "server.settings.restartTitle": "Redémarrer",
   "server.settings.restarting": "Redémarrage…",
   "server.settings.restartedTitle": "{name} redémarre",
-  "server.settings.restartHiddenDescription": "Builders Bot se reconnecte automatiquement quand le serveur est de retour.",
+  "server.settings.restartHiddenDescription":
+    "Builders Bot se reconnecte automatiquement quand le serveur est de retour.",
   "server.settings.restartHide": "Masquer",
   "server.settings.restartProgressTitle": "Redémarrage de {name}",
   "server.settings.restartProgressDescription":
@@ -493,7 +494,8 @@ export const messages = {
   "server.update.disabledDescription":
     "L’utilisateur de {name} a désactivé les mises à jour par les membres du serveur. Demandez-lui de mettre à jour Builders Bot ou d’activer ce réglage.",
   "server.update.managedTitle": "Un Host Manager contrôle les mises à jour",
-  "server.update.managedDescription": "Builders Bot Host Manager met à jour {name}. Contactez l’administrateur de l’hôte.",
+  "server.update.managedDescription":
+    "Builders Bot Host Manager met à jour {name}. Contactez l’administrateur de l’hôte.",
   "server.update.unsupportedTitle": "{name} ne peut pas se mettre à jour",
   "server.update.unsupportedDescription":
     "Ce build d’Builders Bot n’a pas de programme de mise à jour. Installez une nouvelle version sur {name}.",
@@ -558,6 +560,7 @@ export const messages = {
   "server.restartNotice.waitingDescription":
     "Le redémarrage attend que ses agents soient inactifs. Vous êtes déconnecté brièvement, puis Builders Bot se reconnecte automatiquement.",
   "server.restartNotice.restartingTitle": "{name} redémarre pour installer une mise à jour",
-  "server.restartNotice.restartingDescription": "Builders Bot se reconnecte automatiquement quand {name} est de retour.",
+  "server.restartNotice.restartingDescription":
+    "Builders Bot se reconnecte automatiquement quand {name} est de retour.",
   "server.restartNotice.backTitle": "{name} est de nouveau en ligne",
 } as const satisfies PartialTranslation<typeof source>;

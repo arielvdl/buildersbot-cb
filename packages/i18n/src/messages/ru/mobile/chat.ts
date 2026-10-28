@@ -228,7 +228,8 @@ export const messages = {
   "mobile.chat.video.retry": "Повторить загрузку видео",
   "mobile.chat.video.share": "Поделиться: {name}",
   "mobile.chat.video.save": "Сохранить {name} в «Фото»",
-  "mobile.chat.video.photosPermission": "Разрешите Builders Bot добавлять фото в Настройках, чтобы сохранить это видео.",
+  "mobile.chat.video.photosPermission":
+    "Разрешите Builders Bot добавлять фото в Настройках, чтобы сохранить это видео.",
   "mobile.chat.video.saveFailed": "Не удалось сохранить видео",
   "mobile.chat.audio.play": "Воспроизвести: {name}",
   "mobile.chat.audio.pause": "Пауза: {name}",
@@ -452,9 +453,11 @@ export const messages = {
     "Сейчас нельзя переименовать эту ветку. Подключитесь к серверу или обновите Builders Bot на хосте.",
   "mobile.chat.threads.delete.action": "Удалить",
   "mobile.chat.threads.delete.title": "Удалить эту ветку?",
-  "mobile.chat.threads.delete.body": "Builders Bot навсегда удалит ветку, её сообщения и файлы. Основной чат не изменится.",
+  "mobile.chat.threads.delete.body":
+    "Builders Bot навсегда удалит ветку, её сообщения и файлы. Основной чат не изменится.",
   "mobile.chat.threads.filesUnsupported": "Этот хост не принимает файлы в ветке. Обновите Builders Bot на хосте.",
-  "mobile.chat.threads.unsupported": "Этот хост не может переименовывать или удалять ветки. Обновите Builders Bot на хосте.",
+  "mobile.chat.threads.unsupported":
+    "Этот хост не может переименовывать или удалять ветки. Обновите Builders Bot на хосте.",
   "mobile.chat.threads.error.rename": "Не удалось переименовать ветку.",
   "mobile.chat.threads.error.delete": "Не удалось удалить ветку.",
   "mobile.chat.channelWork.working": "Работает в канале {channel}",

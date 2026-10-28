@@ -7,7 +7,8 @@ export const messages = {
   "error.provider.computerUseConfig":
     "O Builders Bot não conseguiu registrar o Uso do computador na configuração do Codex. Verifique se seu config.toml do Codex é válido e gravável, depois reinicie o Builders Bot. Você pode desativar o Uso do computador nas configurações do agente para continuar sem ele.",
   "error.provider.codexUnresponsive": "O Codex parou de responder, então o Builders Bot encerrou o processo dele.",
-  "error.provider.acpUnresponsive": "O {provider} não respondeu a tempo, então o Builders Bot encerrou o processo dele.",
+  "error.provider.acpUnresponsive":
+    "O {provider} não respondeu a tempo, então o Builders Bot encerrou o processo dele.",
   "error.provider.endpointsReadOnly":
     "Os endpoints salvos foram gravados por uma versão mais recente do Builders Bot, ou o arquivo não pode ser lido. Atualize o Builders Bot para alterá-los.",
   "error.provider.endpointNoSecureStorage":
@@ -64,7 +65,8 @@ export const messages = {
   "error.provider.removeWhileOn": "Desative o provedor antes de remover o download dele.",
   "error.provider.removeWhileDownloading": "Aguarde o fim do download e depois remova.",
   "error.provider.removeIncomplete": "Um programa usa arquivos desta CLI. Feche-o e tente de novo.",
-  "error.provider.cliOverride": "Remova a substituição explícita do caminho da CLI antes de atualizar pelo Builders Bot.",
+  "error.provider.cliOverride":
+    "Remova a substituição explícita do caminho da CLI antes de atualizar pelo Builders Bot.",
   "error.provider.runtimeUpdateIncomplete": "A atualização do ambiente de execução não foi concluída.",
   "error.provider.downloadHttp": "O download do ambiente de execução falhou com HTTP {status}.",
   "error.provider.downloadNoData": "O download do ambiente de execução não retornou dados.",
@@ -281,7 +283,8 @@ export const messages = {
     "O {provider} recusou a chave de API salva. Substitua ou remova a chave nas Configurações e tente novamente.",
   "error.provider.keyProviderNoBalance":
     "A conta do {provider} da chave de API salva não tem saldo. Adicione crédito à conta e tente novamente.",
-  "error.provider.messageTooLarge": "O Builders Bot interrompeu {provider} porque enviou uma mensagem maior que {limit} MB.",
+  "error.provider.messageTooLarge":
+    "O Builders Bot interrompeu {provider} porque enviou uma mensagem maior que {limit} MB.",
   "error.provider.customAgentIdInvalid":
     "Um ID de agente deve conter letras minúsculas, dígitos ou `-`, e não pode ser o ID de um provedor integrado.",
   "error.provider.customAgentEnvInvalid":

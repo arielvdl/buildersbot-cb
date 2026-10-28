@@ -12,7 +12,8 @@ export const messages = {
   "mobile.server.drawer.actionFailed": "Builders Bot n’a pas pu terminer cette action. Réessayez.",
   "mobile.server.drawer.moveUp": "Monter",
   "mobile.server.drawer.moveDown": "Descendre",
-  "mobile.server.drawer.orderHint": "Builders Bot s’ouvre sur le premier serveur. L’ordre est enregistré sur cet appareil.",
+  "mobile.server.drawer.orderHint":
+    "Builders Bot s’ouvre sur le premier serveur. L’ordre est enregistré sur cet appareil.",
   "mobile.server.drawer.title": "Serveurs",
   "mobile.server.drawer.serverSettings": "Réglages du serveur",
   "mobile.server.drawer.serverListHint": "Affiche ou masque les serveurs",
@@ -161,7 +162,8 @@ export const messages = {
   "mobile.server.routines.status.paused": "En pause",
   "mobile.server.routines.status.failed": "Échouée",
   "mobile.server.routines.status.completed": "Terminée",
-  "mobile.server.threads.unsupported": "Cet hôte ne prend pas en charge les fils. Mettez à jour Builders Bot sur l’hôte.",
+  "mobile.server.threads.unsupported":
+    "Cet hôte ne prend pas en charge les fils. Mettez à jour Builders Bot sur l’hôte.",
   "mobile.server.threads.ask": "Que faut-il faire ?",
   "mobile.server.threads.chooseAgent": "Démarrer le fil avec",
   "mobile.server.threads.agentLabel": "Démarrer le fil avec {name}",
@@ -473,7 +475,8 @@ export const messages = {
   "mobile.server.connectors.github.disconnectBody":
     "Cela supprime la connexion de @{login} de {host}, et tous les agents perdent les outils GitHub, gh et git. GitHub s’ouvre ensuite, et vous pouvez y révoquer Builders Bot.",
   "mobile.server.connectors.onePassword.title": "1Password",
-  "mobile.server.connectors.onePassword.summary": "Un coffre partagé pour les connexions dans le navigateur Builders Bot",
+  "mobile.server.connectors.onePassword.summary":
+    "Un coffre partagé pour les connexions dans le navigateur Builders Bot",
   "mobile.server.connectors.onePassword.description":
     "Partagez un coffre 1Password dédié avec Builders Bot sur {host} via un compte de service, pour que les agents de {host} puissent se connecter aux sites dans son navigateur.",
   "mobile.server.connectors.onePassword.howItWorks":
@@ -537,7 +540,8 @@ export const messages = {
   "mobile.server.connectors.slack.disconnectTitle": "Déconnecter {workspace} ?",
   "mobile.server.connectors.slack.disconnectBody":
     "Builders Bot cesse de répondre dans {workspace} et supprime son jeton Slack de {host}.",
-  "mobile.server.connectors.slack.disconnectKept": "Les conversations et le Slack Orchestrator restent dans Builders Bot.",
+  "mobile.server.connectors.slack.disconnectKept":
+    "Les conversations et le Slack Orchestrator restent dans Builders Bot.",
   "mobile.server.connectors.slack.disconnectDeleted":
     "Le Slack Orchestrator et ses conversations sont supprimés d’Builders Bot.",
   "mobile.server.connectors.slack.agentPromptTitle": "Ajouter le Slack Orchestrator ?",
@@ -642,7 +646,8 @@ export const messages = {
     "Ajoutez le Telegram Orchestrator, sinon Telegram ne reçoit aucune réponse.",
   "mobile.server.connectors.telegram.addAgent": "Ajouter le Telegram Orchestrator",
   "mobile.server.connectors.telegram.disconnectTitle": "Déconnecter {chat} ?",
-  "mobile.server.connectors.telegram.disconnectBody": "Le bot Builders Bot quitte {chat}, et Builders Bot cesse d’y répondre.",
+  "mobile.server.connectors.telegram.disconnectBody":
+    "Le bot Builders Bot quitte {chat}, et Builders Bot cesse d’y répondre.",
   "mobile.server.connectors.telegram.disconnectKept":
     "Les conversations et le Telegram Orchestrator restent dans Builders Bot.",
   "mobile.server.connectors.telegram.disconnectDeleted":
@@ -681,7 +686,8 @@ export const messages = {
   "mobile.server.providers.openPage": "Ouvrir la page de connexion",
   "mobile.server.providers.copy": "Copier",
   "mobile.server.providers.copyCode": "Copier le code",
-  "mobile.server.providers.codeHint": "Copiez le code, ouvrez la page et saisissez le code. Builders Bot continue seul.",
+  "mobile.server.providers.codeHint":
+    "Copiez le code, ouvrez la page et saisissez le code. Builders Bot continue seul.",
   "mobile.server.providers.pasteHint": "Connectez-vous sur la page, puis collez le code qu’elle affiche.",
   "mobile.server.providers.linkHint": "Connectez-vous sur la page. Builders Bot continue seul.",
   "mobile.server.providers.relayWaiting": "En attente de la page de connexion du serveur…",
@@ -876,7 +882,8 @@ export const messages = {
   "mobile.server.update.requestedBy": "{member} a demandé cette mise à jour.",
   "mobile.server.update.automatic": "{name} installe les mises à jour automatiquement.",
   "mobile.server.update.autoDownloadTitle": "Télécharger les mises à jour automatiquement",
-  "mobile.server.update.autoDownloadDescription": "{name} télécharge chaque nouvelle version d’Builders Bot dès sa sortie.",
+  "mobile.server.update.autoDownloadDescription":
+    "{name} télécharge chaque nouvelle version d’Builders Bot dès sa sortie.",
   "mobile.server.update.autoInstallTitle": "Installer les mises à jour automatiquement",
   "mobile.server.update.autoInstallDescription":
     "{name} redémarre sur une mise à jour téléchargée quand ses agents sont inactifs. Les membres sont déconnectés brièvement, puis se reconnectent automatiquement.",

@@ -111,7 +111,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.keyInvalidCharacters": "The provider key contains a space or a character that a key cannot contain.",
   "error.provider.noModel": "The selected provider has no available model.",
   "error.provider.noModelNamed": "{provider} has no model available.",
-  "error.provider.acpNoModels": "ACP CLI did not advertise any ACP models. Builders Bot will not guess a fallback model.",
+  "error.provider.acpNoModels":
+    "ACP CLI did not advertise any ACP models. Builders Bot will not guess a fallback model.",
   "error.provider.endpointRemoveBusy": "Wait for the active turn and queue to finish before you remove this endpoint.",
   "error.provider.codexOutdated": "Codex CLI {version} is too old. Builders Bot requires 0.156.0 or newer.",
   "error.provider.codexNotStarted": "Codex CLI was found but could not be started.",
@@ -149,7 +150,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.bunVersionUnreadable": "Unable to read the Bun runtime version.",
   "error.provider.connectBeforeProfile": "Connect the selected provider before generating a profile.",
   "error.provider.cliNotReady": "{provider} CLI is not ready or signed in.",
-  "error.provider.cliTimedOut": "{provider} did not answer in time. The computer may be busy. Builders Bot will try again.",
+  "error.provider.cliTimedOut":
+    "{provider} did not answer in time. The computer may be busy. Builders Bot will try again.",
   "error.provider.cliTimedOutRefresh":
     "{provider} did not answer in time. The computer may be busy. Refresh the providers to try again.",
   "error.provider.acpStartTimedOut": "{provider} did not finish starting within {seconds} s. The computer may be busy.",

@@ -11,7 +11,9 @@ export const messages = {
   "notification.channelTitle": "{channel}의 {agent}",
   "notification.channelMessage": "메시지를 보냈어요.",
   "notification.usageLimit.title": "{provider} 계정이 한도에 도달했어요",
-  "notification.usageLimit.body": { other: "에이전트 {count}개가 대기 중이에요. Builders Bot이 나중에 다시 시도할게요." },
+  "notification.usageLimit.body": {
+    other: "에이전트 {count}개가 대기 중이에요. Builders Bot이 나중에 다시 시도할게요.",
+  },
   "notification.usageLimit.bodyResets": { other: "에이전트 {count}개가 대기 중이에요. {reset}에 초기화돼요." },
   "notification.machineAlert.disk": "{server}: 디스크 사용량 {percent}",
   "notification.machineAlert.memory": "{server}: 메모리 사용량 {percent}",

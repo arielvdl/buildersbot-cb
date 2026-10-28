@@ -114,7 +114,8 @@ export const messages = {
   "error.provider.acpNoModels": "ACP CLI가 ACP 모델을 알리지 않았어요. Builders Bot은 대체 모델을 추측하지 않아요.",
   "error.provider.endpointRemoveBusy":
     "이 엔드포인트를 제거하기 전에 진행 중인 턴과 대기열이 끝날 때까지 기다려 주세요.",
-  "error.provider.codexOutdated": "Codex CLI {version}이(가) 너무 오래되었어요. Builders Bot에는 0.156.0 이상이 필요해요.",
+  "error.provider.codexOutdated":
+    "Codex CLI {version}이(가) 너무 오래되었어요. Builders Bot에는 0.156.0 이상이 필요해요.",
   "error.provider.codexNotStarted": "Codex CLI를 찾았지만 시작할 수 없었어요.",
   "error.provider.codexNotStartedHint":
     "Codex CLI를 찾았지만 시작할 수 없었어요. 새 터미널에서 `codex --version`을 실행해 보세요.",
@@ -244,7 +245,8 @@ export const messages = {
   "error.provider.clineChecksum": "Cline 런타임 체크섬이 일치하지 않아요.",
   "error.provider.clineLicenseChecksum": "Cline 라이선스 체크섬이 일치하지 않아요.",
   "error.provider.clineMissing": "Cline이 다운로드되지 않았어요. 계속하려면 Builders Bot에서 다운로드하세요.",
-  "error.provider.clineOutdated": "Cline CLI {version}이(가) 너무 오래되었어요. Builders Bot에는 3.0.68 이상이 필요해요.",
+  "error.provider.clineOutdated":
+    "Cline CLI {version}이(가) 너무 오래되었어요. Builders Bot에는 3.0.68 이상이 필요해요.",
   "error.provider.clineNotStarted": "Cline을 시작할 수 없었어요. 터미널에서 `cline --version`을 실행해 보세요.",
   "error.provider.clineVersionUnreadable": "Cline CLI 버전을 읽을 수 없어요.",
   "error.provider.clineSignIn": "Cline을 사용하려면 Cline으로 로그인하거나 CLINE_API_KEY를 설정하세요.",
@@ -307,7 +309,8 @@ export const messages = {
   "error.provider.inUse":
     "에이전트가 {provider}을(를) 사용 중이에요. 이 제공자를 끄기 전에 에이전트의 모델을 변경하세요.",
   "error.provider.useBusy": "제공자 확인이나 로그인이 끝날 때까지 기다린 후 다시 시도해 주세요.",
-  "error.provider.useSettingsReadOnly": "저장된 제공자 설정을 읽을 수 없어요. 변경하기 전에 Builders Bot을 업데이트하세요.",
+  "error.provider.useSettingsReadOnly":
+    "저장된 제공자 설정을 읽을 수 없어요. 변경하기 전에 Builders Bot을 업데이트하세요.",
   "error.provider.useChangeFailed": "Builders Bot이 제공자 설정을 변경할 수 없었어요.",
   "error.provider.accountsUnsupported": "{provider}은(는) 계정을 하나만 둘 수 있어요.",
   "error.provider.accountNeedsConnection": "다른 계정을 추가하기 전에 {provider}을(를) 연결하세요.",
@@ -320,7 +323,8 @@ export const messages = {
   "error.provider.accountUsesKey":
     "이 {provider} 계정은 저장된 API 키를 사용하므로 로그인이 없어요. 키는 서버 설정 → 제공자에서 변경하세요.",
   "error.provider.accountInUse": "이 계정을 사용하는 에이전트가 작업 중이에요. 에이전트가 멈춘 후 다시 시도해 주세요.",
-  "error.provider.accountsReadOnly": "저장된 제공자 계정을 읽을 수 없어요. 변경하기 전에 Builders Bot을 업데이트하세요.",
+  "error.provider.accountsReadOnly":
+    "저장된 제공자 계정을 읽을 수 없어요. 변경하기 전에 Builders Bot을 업데이트하세요.",
   "error.provider.accountSignedOut": "이 {provider} 계정은 로그아웃되었어요. 다시 로그인하세요.",
   "error.provider.sessionSettingUnavailable": "현재 제공자 세션에서는 이 설정을 사용할 수 없어요.",
   "error.provider.sessionSettingInvalid": "이 설정에 사용할 수 없는 값이에요.",

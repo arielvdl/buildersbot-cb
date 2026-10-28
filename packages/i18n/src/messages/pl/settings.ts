@@ -143,7 +143,8 @@ export const messages = {
   "settings.tab.billing.title": "Rozliczenia",
   "settings.tab.billing.description": "Licencja, plany serwerów, metoda płatności i faktury.",
   "settings.tab.hostedServers.title": "Hostowane serwery",
-  "settings.tab.hostedServers.description": "Twórz serwery Builders Bot, które działają, gdy ten komputer jest wyłączony.",
+  "settings.tab.hostedServers.description":
+    "Twórz serwery Builders Bot, które działają, gdy ten komputer jest wyłączony.",
   "settings.sections.label": "Sekcje ustawień",
   "settings.panel.resize": "Zmień rozmiar prawego panelu",
   "settings.preferences.loadFailed": "Nie udało się wczytać ustawień.",

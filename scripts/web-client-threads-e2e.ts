@@ -66,10 +66,14 @@ assertMutationAllowed({
   instanceNamed: true,
   target: clientRecord.instanceId,
 });
-const client = await connectToDevApp(clientRecord.remoteDebuggingPort, createBuildersBotLogger("web-client-threads-e2e"), {
-  expectedRendererPort: clientRecord.rendererPort,
-  ownerPid: clientRecord.pid,
-});
+const client = await connectToDevApp(
+  clientRecord.remoteDebuggingPort,
+  createBuildersBotLogger("web-client-threads-e2e"),
+  {
+    expectedRendererPort: clientRecord.rendererPort,
+    ownerPid: clientRecord.pid,
+  },
+);
 const browser = await chromium.launch(
   browserExecutable ? { executablePath: browserExecutable } : { channel: "chrome" },
 );

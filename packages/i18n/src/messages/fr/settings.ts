@@ -112,7 +112,8 @@ export const messages = {
   "settings.notch.show.description":
     "Afficher l’activité des agents et les éléments nécessitant votre attention en haut de chaque écran.",
   "settings.notch.idle.title": "Afficher l’îlot au repos",
-  "settings.notch.idle.description": "Afficher le logo Builders Bot et un message d’accueil lorsqu’aucun état n’est actif.",
+  "settings.notch.idle.description":
+    "Afficher le logo Builders Bot et un message d’accueil lorsqu’aucun état n’est actif.",
   "settings.notch.displays.title": "Afficher sur les écrans supplémentaires",
   "settings.notch.displays.description": "Afficher l’îlot dynamique sur les écrans externes connectés.",
   "settings.notch.haptics.title": "Retour haptique",

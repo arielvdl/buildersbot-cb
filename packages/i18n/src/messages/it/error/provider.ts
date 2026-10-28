@@ -6,8 +6,10 @@ export const messages = {
     "Builders Bot non è riuscito a registrare i server MCP nella configurazione di Codex. Controlla che il config.toml di Codex sia valido e scrivibile, poi riavvia Builders Bot.",
   "error.provider.computerUseConfig":
     "Builders Bot non è riuscito a registrare il Controllo del computer nella configurazione di Codex. Controlla che il config.toml di Codex sia valido e scrivibile, poi riavvia Builders Bot. Puoi disattivare il Controllo del computer nelle impostazioni dell'agente per continuare senza.",
-  "error.provider.codexUnresponsive": "Codex ha smesso di rispondere, quindi Builders Bot ha terminato il suo processo.",
-  "error.provider.acpUnresponsive": "{provider} non ha risposto in tempo, quindi Builders Bot ha terminato il suo processo.",
+  "error.provider.codexUnresponsive":
+    "Codex ha smesso di rispondere, quindi Builders Bot ha terminato il suo processo.",
+  "error.provider.acpUnresponsive":
+    "{provider} non ha risposto in tempo, quindi Builders Bot ha terminato il suo processo.",
   "error.provider.endpointsReadOnly":
     "Gli endpoint salvati sono stati scritti da una versione più recente di Builders Bot, oppure il file non è leggibile. Aggiorna Builders Bot per modificarli.",
   "error.provider.endpointNoSecureStorage":
@@ -61,7 +63,8 @@ export const messages = {
   "error.provider.removeWhileOn": "Disattiva il provider prima di rimuoverne il download.",
   "error.provider.removeWhileDownloading": "Attendi la fine del download, poi rimuovilo.",
   "error.provider.removeIncomplete": "Un programma usa alcuni file di questa CLI. Chiudilo e riprova.",
-  "error.provider.cliOverride": "Rimuovi l'override esplicito del percorso della CLI prima di aggiornare da Builders Bot.",
+  "error.provider.cliOverride":
+    "Rimuovi l'override esplicito del percorso della CLI prima di aggiornare da Builders Bot.",
   "error.provider.runtimeUpdateIncomplete": "L'aggiornamento del runtime non è stato completato.",
   "error.provider.downloadHttp": "Download del runtime non riuscito con HTTP {status}.",
   "error.provider.downloadNoData": "Il download del runtime non ha restituito dati.",
@@ -134,14 +137,16 @@ export const messages = {
     other:
       "Codex ha ignorato {count} impostazioni nella sua configurazione. Correggile o rimuovile, oppure aggiorna Codex.",
   },
-  "error.provider.claudeOutdated": "Claude Code {version} è troppo vecchio. Builders Bot richiede la 2.1.232 o successiva.",
+  "error.provider.claudeOutdated":
+    "Claude Code {version} è troppo vecchio. Builders Bot richiede la 2.1.232 o successiva.",
   "error.provider.claudeNotStarted": "La CLI di Claude è stata trovata ma non è stato possibile avviarla.",
   "error.provider.claudeNotStartedHint":
     "La CLI di Claude è stata trovata ma non è stato possibile avviarla. Esegui `claude --version` in un nuovo terminale.",
   "error.provider.claudeManagedNotStarted":
     "Claude è stato scaricato ma non è stato possibile avviarlo. Scaricalo di nuovo in Builders Bot.",
   "error.provider.claudeMissing": "Claude non è scaricato. Scaricalo in Builders Bot per continuare.",
-  "error.provider.grokOutdated": "La CLI di Grok {version} è troppo vecchia. Builders Bot richiede la 1.0.5 o successiva.",
+  "error.provider.grokOutdated":
+    "La CLI di Grok {version} è troppo vecchia. Builders Bot richiede la 1.0.5 o successiva.",
   "error.provider.grokNotStarted": "La CLI di Grok è stata trovata ma non è stato possibile avviarla.",
   "error.provider.grokNotStartedHint":
     "La CLI di Grok è stata trovata ma non è stato possibile avviarla. Esegui `grok --version` in un nuovo terminale.",
@@ -298,7 +303,8 @@ export const messages = {
   "error.provider.customAgentNotFound": "Builders Bot non trova {command}. Inserisci il percorso completo del comando.",
   "error.provider.customAgentCheckTimedOut": "L'agente non ha risposto entro 20 secondi.",
   "error.provider.customAgentCheckStopped": "L'agente si è fermato prima di rispondere.",
-  "error.provider.customAgentProtocolVersion": "L'agente usa la versione {version} di ACP. Builders Bot usa la versione 1.",
+  "error.provider.customAgentProtocolVersion":
+    "L'agente usa la versione {version} di ACP. Builders Bot usa la versione 1.",
   "error.provider.customAgentCheckFailed": "L'agente non ha risposto come un agente ACP.",
   "error.provider.customAgentRemoveBusy":
     "Attendi che il turno attivo e la coda finiscano prima di rimuovere questo agente personalizzato.",

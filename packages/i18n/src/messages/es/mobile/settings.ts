@@ -102,7 +102,8 @@ export const messages = {
     "Los agentes te avisan cuando terminan, se detienen con un error o necesitan tu respuesta, una aprobación o un paso en el navegador. No llega nada mientras usas Builders Bot aquí o en la app de escritorio. Mientras se muestra la actividad en directo, el evento aparece allí en su lugar.",
   "mobile.settings.notifications.footerAndroid":
     "Los agentes te avisan cuando terminan, se detienen con un error o necesitan tu respuesta, una aprobación o un paso en el navegador. No llega nada mientras usas Builders Bot aquí o en la app de escritorio.",
-  "mobile.settings.notifications.denied": "Las notificaciones de Builders Bot están desactivadas en los Ajustes de iOS.",
+  "mobile.settings.notifications.denied":
+    "Las notificaciones de Builders Bot están desactivadas en los Ajustes de iOS.",
   "mobile.settings.notifications.deniedAndroid":
     "Las notificaciones de Builders Bot están desactivadas en los ajustes de Android.",
   "mobile.settings.notifications.openSettings": "Abrir Ajustes de iOS",
@@ -166,7 +167,8 @@ export const messages = {
   "mobile.settings.profile.security": "Seguridad",
   "mobile.settings.profile.accountSessions": "Sesiones de la cuenta",
   "mobile.settings.profile.signOutTitle": "¿Cerrar sesión?",
-  "mobile.settings.profile.signOutBody": "Vuelve a conectarte escaneando un nuevo código desde Builders Bot en tu equipo.",
+  "mobile.settings.profile.signOutBody":
+    "Vuelve a conectarte escaneando un nuevo código desde Builders Bot en tu equipo.",
   "mobile.settings.profile.signOut": "Cerrar sesión",
   "mobile.settings.voice.title": "Voz",
   "mobile.settings.voice.sample": "Hola. Así te leeré mis respuestas.",
@@ -207,7 +209,8 @@ export const messages = {
   "mobile.settings.voice.elevenLabs.removeBody": "Supertonic 3 vuelve a leer las respuestas.",
   "mobile.settings.voice.elevenLabs.saveKey": "Guardar clave",
   "mobile.settings.voice.elevenLabs.testing": "Probando la clave",
-  "mobile.settings.voice.elevenLabs.keyHint": "Builders Bot prueba los dos primeros permisos antes de guardar la clave.",
+  "mobile.settings.voice.elevenLabs.keyHint":
+    "Builders Bot prueba los dos primeros permisos antes de guardar la clave.",
   "mobile.settings.voice.elevenLabs.testFailed": "ElevenLabs no respondió. Inténtalo de nuevo.",
   "mobile.settings.voice.elevenLabs.getKey": "Obtener una clave de API",
   "mobile.settings.voice.engine.supertonicReady": "En este teléfono · {voice}",

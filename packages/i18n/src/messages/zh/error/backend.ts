@@ -194,7 +194,8 @@ export const messages = {
   "error.backend.mcpSignInResponseTimedOut": "登录响应未及时返回。",
   "error.backend.mcpSignInMetadataUnreadable": "Builders Bot 无法读取该服务器的登录信息。请检查服务器地址后重试。",
   "error.backend.mcpServerExited": "服务器在响应之前就停止了。请在终端中运行该命令以查看错误。",
-  "error.backend.mcpOAuthProxyUnavailable": "Builders Bot 无法为这台服务器建立本地登录连接。请重启 Builders Bot 后再试一次。",
+  "error.backend.mcpOAuthProxyUnavailable":
+    "Builders Bot 无法为这台服务器建立本地登录连接。请重启 Builders Bot 后再试一次。",
   "error.backend.mcpOAuthSignInNeeded": "该 MCP 服务器的登录已结束。用户需要在 Builders Bot 中重新登录。",
   "error.backend.mcpServerUnreachable": "Builders Bot 无法连接该服务器。请检查地址与网络。",
   "error.backend.mcpLocalServerOff":

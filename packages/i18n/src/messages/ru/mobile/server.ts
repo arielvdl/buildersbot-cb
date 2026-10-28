@@ -12,7 +12,8 @@ export const messages = {
   "mobile.server.drawer.actionFailed": "Builders Bot не смог выполнить это действие. Повторите попытку.",
   "mobile.server.drawer.moveUp": "Выше",
   "mobile.server.drawer.moveDown": "Ниже",
-  "mobile.server.drawer.orderHint": "Builders Bot открывается на первом сервере. Порядок сохраняется на этом устройстве.",
+  "mobile.server.drawer.orderHint":
+    "Builders Bot открывается на первом сервере. Порядок сохраняется на этом устройстве.",
   "mobile.server.drawer.title": "Серверы",
   "mobile.server.drawer.serverSettings": "Настройки сервера",
   "mobile.server.drawer.serverListHint": "Показывает или скрывает серверы",
@@ -367,7 +368,8 @@ export const messages = {
   "mobile.server.storage.clearCategory": "Очистить: {category}",
   "mobile.server.storage.clearTitle.caches": "Очистить кэш файлов сервера?",
   "mobile.server.storage.clearTitle.logs": "Очистить журналы?",
-  "mobile.server.storage.clearBody.caches": "Копии файлов сервера. Builders Bot скачает их снова, когда вы их откроете.",
+  "mobile.server.storage.clearBody.caches":
+    "Копии файлов сервера. Builders Bot скачает их снова, когда вы их откроете.",
   "mobile.server.storage.clearBody.logs": "Диагностические журналы. Новые начнут вестись сразу.",
   "mobile.server.storage.clearFailed": "Не удалось очистить данные",
   "mobile.server.storage.clearFailedBody": "Builders Bot не удалось очистить эти данные на сервере.",
@@ -433,7 +435,8 @@ export const messages = {
   "mobile.server.settings.connectors": "Коннекторы",
   "mobile.server.connectors.unavailable":
     "Подключитесь к этому серверу как владелец или администратор, чтобы управлять его коннекторами.",
-  "mobile.server.connectors.unsupported": "Обновите Builders Bot на этом сервере, чтобы управлять его коннекторами здесь.",
+  "mobile.server.connectors.unsupported":
+    "Обновите Builders Bot на этом сервере, чтобы управлять его коннекторами здесь.",
   "mobile.server.connectors.loading": "Загрузка коннекторов…",
   "mobile.server.connectors.onServer": "На {name}",
   "mobile.server.connectors.notSetUp": "Не настроено",
@@ -575,7 +578,8 @@ export const messages = {
     other: "Можно подключить не более {count} рабочего пространства.",
   },
   "mobile.server.connectors.slack.workspaceTitle": "Рабочее пространство",
-  "mobile.server.connectors.slack.workspaceDescription": "Люди упоминают @Builders Bot или пишут ему личным сообщением.",
+  "mobile.server.connectors.slack.workspaceDescription":
+    "Люди упоминают @Builders Bot или пишут ему личным сообщением.",
   "mobile.server.connectors.slack.missingScopes":
     "У Builders Bot нет этих разрешений в Slack: {scopes}. Отключите рабочее пространство и подключите его снова.",
   "mobile.server.connectors.slack.retryAt": "Slack попросил Builders Bot подождать. Следующая попытка в {time}.",
@@ -652,7 +656,8 @@ export const messages = {
   "mobile.server.connectors.discord.disconnectBody":
     "Builders Bot перестанет отвечать в {workspace} и удалит подключение к Discord с {host}.",
   "mobile.server.connectors.discord.disconnectKept": "Диалоги и Оркестратор Discord останутся в Builders Bot.",
-  "mobile.server.connectors.discord.disconnectDeleted": "Оркестратор Discord и его диалоги будут удалены из Builders Bot.",
+  "mobile.server.connectors.discord.disconnectDeleted":
+    "Оркестратор Discord и его диалоги будут удалены из Builders Bot.",
   "mobile.server.connectors.discord.agentPromptTitle": "Добавить Оркестратора Discord?",
   "mobile.server.connectors.discord.agentPromptBody":
     "Этот новый агент отвечает на всё, что люди отправляют @Builders Bot в {workspace}.",
@@ -709,7 +714,8 @@ export const messages = {
     "Добавьте Оркестратора Telegram, иначе Telegram не получит ответа.",
   "mobile.server.connectors.telegram.addAgent": "Добавить Оркестратора Telegram",
   "mobile.server.connectors.telegram.disconnectTitle": "Отключить {chat}?",
-  "mobile.server.connectors.telegram.disconnectBody": "Бот Builders Bot покинет {chat}, и Builders Bot перестанет там отвечать.",
+  "mobile.server.connectors.telegram.disconnectBody":
+    "Бот Builders Bot покинет {chat}, и Builders Bot перестанет там отвечать.",
   "mobile.server.connectors.telegram.disconnectKept": "Диалоги и Оркестратор Telegram останутся в Builders Bot.",
   "mobile.server.connectors.telegram.disconnectDeleted":
     "Это последний чат, поэтому Оркестратор Telegram и его диалоги будут удалены из Builders Bot.",
@@ -731,7 +737,8 @@ export const messages = {
   "mobile.server.providers.runtimesFailed": "Не удалось получить загрузки этого сервера.",
   "mobile.server.providers.unavailable":
     "Подключитесь к этому серверу как владелец или администратор, чтобы управлять его провайдерами.",
-  "mobile.server.providers.unsupported": "Обновите Builders Bot на этом сервере, чтобы управлять здесь его провайдерами.",
+  "mobile.server.providers.unsupported":
+    "Обновите Builders Bot на этом сервере, чтобы управлять здесь его провайдерами.",
   "mobile.server.providers.signInUnsupported": "Этот сервер не может выполнить вход в этого провайдера с телефона.",
   "mobile.server.providers.actionFailed": "Builders Bot не удалось выполнить это действие. Повторите попытку.",
   "mobile.server.providers.openFailed": "Не удалось открыть страницу входа.",

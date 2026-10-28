@@ -147,7 +147,8 @@ export const messages = {
   "settings.tab.billing.title": "Abrechnung",
   "settings.tab.billing.description": "Lizenz, Servertarife, Zahlungsmethode und Rechnungen.",
   "settings.tab.hostedServers.title": "Gehostete Server",
-  "settings.tab.hostedServers.description": "Erstelle Builders Bot-Server, die auch bei ausgeschaltetem Computer laufen.",
+  "settings.tab.hostedServers.description":
+    "Erstelle Builders Bot-Server, die auch bei ausgeschaltetem Computer laufen.",
   "settings.sections.label": "Einstellungsbereiche",
   "settings.panel.resize": "Größe des rechten Bereichs ändern",
   "settings.preferences.loadFailed": "Deine Einstellungen konnten nicht geladen werden.",

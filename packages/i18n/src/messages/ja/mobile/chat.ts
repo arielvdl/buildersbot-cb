@@ -104,7 +104,8 @@ export const messages = {
   "mobile.chat.attachment.unavailable": "添付ファイルを利用できません。もう一度お試しください。",
   "mobile.chat.attachment.openFailed": "添付ファイルを開けませんでした",
   "mobile.chat.attachment.photosNeedUpdate": "写真を保存するには、アプリを最新版に更新してください。",
-  "mobile.chat.attachment.photosPermission": "この画像を保存するには、設定で Builders Bot に写真の追加を許可してください。",
+  "mobile.chat.attachment.photosPermission":
+    "この画像を保存するには、設定で Builders Bot に写真の追加を許可してください。",
   "mobile.chat.attachment.imageUnavailable": "画像を利用できません。もう一度お試しください。",
   "mobile.chat.attachment.saveImageFailed": "画像を保存できませんでした",
   "mobile.chat.attachment.preview": "{name} のプレビュー",

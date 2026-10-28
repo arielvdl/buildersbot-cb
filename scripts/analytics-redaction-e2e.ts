@@ -23,7 +23,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { LOCAL_SERVER_ID, type BuildersBotDesktopApi } from "@openbot/contracts/ipc";
+import { type BuildersBotDesktopApi, LOCAL_SERVER_ID } from "@openbot/contracts/ipc";
 import { createBuildersBotLogger } from "@openbot/logging";
 import type { Page } from "playwright-core";
 import { z } from "zod";

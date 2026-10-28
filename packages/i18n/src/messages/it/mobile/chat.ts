@@ -241,7 +241,8 @@ export const messages = {
   "mobile.chat.browserSecret.authenticatorCode": "Codice dell'app di autenticazione",
   "mobile.chat.browserSecret.oneTimeCode": "Codice monouso",
   "mobile.chat.browserSecret.takeoverTitle": "Intervento nel browser",
-  "mobile.chat.browserSecret.takeoverBody": "Completa questo passaggio nel browser sul computer su cui gira Builders Bot.",
+  "mobile.chat.browserSecret.takeoverBody":
+    "Completa questo passaggio nel browser sul computer su cui gira Builders Bot.",
   "mobile.chat.browserSecret.takeoverReload": "Poi ricarica la pagina prima di scegliere «Ho finito».",
   "mobile.chat.browserSecret.takeoverFailed": "Impossibile completare la richiesta.",
   "mobile.chat.browserSecret.done": "Ho finito",
@@ -433,8 +434,10 @@ export const messages = {
   "mobile.chat.threads.delete.title": "Eliminare questo thread?",
   "mobile.chat.threads.delete.body":
     "Builders Bot elimina per sempre il thread, i suoi messaggi e i suoi file. La chat principale non cambia.",
-  "mobile.chat.threads.filesUnsupported": "Questo host non può ricevere file in un thread. Aggiorna Builders Bot sull’host.",
-  "mobile.chat.threads.unsupported": "Questo host non può rinominare o eliminare i thread. Aggiorna Builders Bot sull’host.",
+  "mobile.chat.threads.filesUnsupported":
+    "Questo host non può ricevere file in un thread. Aggiorna Builders Bot sull’host.",
+  "mobile.chat.threads.unsupported":
+    "Questo host non può rinominare o eliminare i thread. Aggiorna Builders Bot sull’host.",
   "mobile.chat.threads.error.rename": "Impossibile rinominare il thread.",
   "mobile.chat.threads.error.delete": "Impossibile eliminare il thread.",
   "mobile.chat.channelWork.working": "Lavora in {channel}",

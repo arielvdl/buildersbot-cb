@@ -1,4 +1,4 @@
-import type { HostMemoryReview, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, HostMemoryReview } from "@openbot/contracts/ipc";
 import {
   Item,
   ItemActions,

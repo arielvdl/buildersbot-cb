@@ -4,8 +4,8 @@ import { onCleanup } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { App } from "../src/App";
 import { LEFT_PANEL_COLLAPSED_STORAGE_KEY, SERVER_VIEW_STORAGE_KEY } from "../src/layout-constants";
-import { createMockBuildersBot, type MockBuildersBotOptions } from "../src/preview/mock-openbot";
 import { BuildersBotPlayground } from "../src/preview/BuildersBotPlayground";
+import { createMockBuildersBot, type MockBuildersBotOptions } from "../src/preview/mock-openbot";
 import { STORY_AGENT_STATUS, STORY_AGENT_SUMMARIES, STORY_APP_INFO, STORY_SERVERS } from "./fixtures";
 
 const [storyLocalServer, storyRemoteServer] = STORY_SERVERS;
@@ -32,7 +32,11 @@ function useStoredLayoutValue(key: string, value: string): void {
   });
 }
 
-function SidebarStatePlayground(props: { compact: boolean; serverView?: ServerView; options?: MockBuildersBotOptions }) {
+function SidebarStatePlayground(props: {
+  compact: boolean;
+  serverView?: ServerView;
+  options?: MockBuildersBotOptions;
+}) {
   useStoredLayoutValue(LEFT_PANEL_COLLAPSED_STORAGE_KEY, props.compact ? "true" : "false");
   if (props.serverView) useStoredLayoutValue(SERVER_VIEW_STORAGE_KEY, props.serverView);
   return <BuildersBotPlayground options={props.options} />;
@@ -167,7 +171,9 @@ export const RemoteHostUpdate: Story = {
 
 export const Onboarding: Story = {
   render: () => (
-    <BuildersBotPlayground options={{ setupState: { completed: false, preferredProvider: null, preferredModel: null } }} />
+    <BuildersBotPlayground
+      options={{ setupState: { completed: false, preferredProvider: null, preferredModel: null } }}
+    />
   ),
 };
 

@@ -8,7 +8,8 @@ export const messages = {
   "server.connection.sleeping": "{name}이(가) 잠들어 있어요",
   "server.connection.waking": "{name} 시작하는 중",
   "server.connection.startProgress": "{step} · {time}",
-  "server.connection.providerLimit": "클라우드 제공자가 지금 새 시작을 제한하고 있어요. Builders Bot이 곧 다시 시도해요.",
+  "server.connection.providerLimit":
+    "클라우드 제공자가 지금 새 시작을 제한하고 있어요. Builders Bot이 곧 다시 시도해요.",
   "server.connection.updating": "{name} 업데이트 중",
   "server.connection.loading": "{name} 불러오는 중",
   "server.connection.connecting": "{name}에 연결하는 중",
@@ -531,7 +532,8 @@ export const messages = {
   "server.update.disabledDescription":
     "{name}의 사용자가 서버 멤버의 업데이트를 꺼 두었어요. Builders Bot을 업데이트하거나 설정을 켜 달라고 요청하세요.",
   "server.update.managedTitle": "Host Manager가 업데이트를 제어해요",
-  "server.update.managedDescription": "Builders Bot Host Manager가 {name}을(를) 업데이트해요. 호스트 관리자에게 문의하세요.",
+  "server.update.managedDescription":
+    "Builders Bot Host Manager가 {name}을(를) 업데이트해요. 호스트 관리자에게 문의하세요.",
   "server.update.unsupportedTitle": "{name}은(는) 스스로 업데이트할 수 없어요",
   "server.update.unsupportedDescription": "이 Builders Bot 빌드에는 업데이터가 없어요. {name}에 새 버전을 설치하세요.",
   "server.update.restarting": "다시 시작하는 중…",

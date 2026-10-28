@@ -465,7 +465,8 @@ export const messages = {
   "mobile.server.connectors.github.repositoriesTitle": "Repositories",
   "mobile.server.connectors.github.repositoriesLoading": "Repositories werden von GitHub gelesen",
   "mobile.server.connectors.github.repositoriesFailed": "Builders Bot konnte die Repositories von GitHub nicht lesen.",
-  "mobile.server.connectors.github.noRepositories": "Die Builders Bot GitHub App ist noch in keinem Repository installiert.",
+  "mobile.server.connectors.github.noRepositories":
+    "Die Builders Bot GitHub App ist noch in keinem Repository installiert.",
   "mobile.server.connectors.github.moreRepositories": {
     one: "Und {count} weiteres Repository",
     other: "Und {count} weitere Repositories",
@@ -673,7 +674,8 @@ export const messages = {
   "mobile.server.providers.runtimesFailed": "Die Downloads dieses Servers konnten nicht geladen werden.",
   "mobile.server.providers.unavailable":
     "Verbinde dich als Eigentümer oder Administrator, um die Anbieter dieses Servers zu verwalten.",
-  "mobile.server.providers.unsupported": "Aktualisiere Builders Bot auf diesem Server, um seine Anbieter hier zu verwalten.",
+  "mobile.server.providers.unsupported":
+    "Aktualisiere Builders Bot auf diesem Server, um seine Anbieter hier zu verwalten.",
   "mobile.server.providers.signInUnsupported": "Dieser Server kann diesen Anbieter nicht über das Telefon anmelden.",
   "mobile.server.providers.actionFailed": "Builders Bot konnte diese Aktion nicht abschließen. Versuche es erneut.",
   "mobile.server.providers.openFailed": "Die Anmeldeseite konnte nicht geöffnet werden.",
@@ -751,7 +753,8 @@ export const messages = {
   "mobile.server.providers.status.checking": "Wird geprüft",
   "mobile.server.settings.mcp": "MCP-Server",
   "mobile.server.settings.mcpCount": { one: "{count} Server", other: "{count} Server" },
-  "mobile.server.mcp.unsupported": "Aktualisiere Builders Bot auf diesem Server, um seine MCP-Server hier zu verwalten.",
+  "mobile.server.mcp.unsupported":
+    "Aktualisiere Builders Bot auf diesem Server, um seine MCP-Server hier zu verwalten.",
   "mobile.server.mcp.unavailable":
     "Verbinde dich als Inhaber oder Admin mit diesem Server, um seine MCP-Server zu verwalten.",
   "mobile.server.mcp.description":

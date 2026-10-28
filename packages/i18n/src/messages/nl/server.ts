@@ -232,7 +232,8 @@ export const messages = {
   "server.settings.mcpTitle": "MCP",
   "server.settings.mcpDescription": "Verbind MCP-servers en kies welke de agents van deze server kunnen gebruiken.",
   "server.settings.storageTitle": "Opslag",
-  "server.settings.storageDescription": "Bekijk wat Builders Bot op de schijf van deze server bewaart, en maak ruimte vrij.",
+  "server.settings.storageDescription":
+    "Bekijk wat Builders Bot op de schijf van deze server bewaart, en maak ruimte vrij.",
   "server.settings.hostedSitesTitle": "Sites",
   "server.settings.hostedSitesDescription":
     "De statische sites die agents op deze server op openbot.site hebben gepubliceerd.",

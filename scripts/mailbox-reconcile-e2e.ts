@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ConversationPage, BuildersBotDesktopApi, QueueDeliveryStatus } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, ConversationPage, QueueDeliveryStatus } from "@openbot/contracts/ipc";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
 import { readDevInstanceRecords } from "./dev-automation/instance-registry";

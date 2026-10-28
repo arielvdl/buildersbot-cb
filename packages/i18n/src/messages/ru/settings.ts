@@ -144,7 +144,8 @@ export const messages = {
   "settings.tab.billing.title": "Оплата",
   "settings.tab.billing.description": "Лицензия, тарифы серверов, способ оплаты и счета.",
   "settings.tab.hostedServers.title": "Облачные серверы",
-  "settings.tab.hostedServers.description": "Серверы Builders Bot, которые работают, даже когда этот компьютер выключен.",
+  "settings.tab.hostedServers.description":
+    "Серверы Builders Bot, которые работают, даже когда этот компьютер выключен.",
   "settings.sections.label": "Разделы настроек",
   "settings.panel.resize": "Изменить размер правой панели",
   "settings.preferences.loadFailed": "Не удалось загрузить настройки.",

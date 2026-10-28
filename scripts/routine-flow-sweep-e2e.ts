@@ -102,7 +102,10 @@ function seed(database: BuildersBotDatabase): void {
  * The query plan of each statement that one sweep prepares. The sweep reads through the store, so the
  * statements come from the connection, not from a copy of their text here.
  */
-async function sweepPlans(database: BuildersBotDatabase, sweep: () => Promise<void>): Promise<Record<string, string[]>> {
+async function sweepPlans(
+  database: BuildersBotDatabase,
+  sweep: () => Promise<void>,
+): Promise<Record<string, string[]>> {
   const connection = database.connection;
   const prepare = connection.prepare.bind(connection);
   const statements = new Set<string>();

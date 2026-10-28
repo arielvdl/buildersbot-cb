@@ -522,7 +522,8 @@ export const messages = {
   "server.update.dialog.failedTitle": "{name} güncellenmedi",
   "server.update.dialog.restartFailed":
     "{name} tekrar çevrim içi olmadı. Ana makineyi kontrol edin, ardından tekrar deneyin.",
-  "server.update.dialog.notInstalled": "{name}, Builders Bot {current} ile yeniden başladı. Güncellemeyi tekrar deneyin.",
+  "server.update.dialog.notInstalled":
+    "{name}, Builders Bot {current} ile yeniden başladı. Güncellemeyi tekrar deneyin.",
   "server.update.dialog.steps": "Güncelleme adımları",
   "server.update.dialog.downloadStep": "Builders Bot {version} sürümünü indir",
   "server.update.dialog.downloadPending": "İndirme sırasında ajanlar çalışmaya devam eder.",
@@ -568,7 +569,8 @@ export const messages = {
   "server.update.reason.other": "diğer çalışmalar",
   // Katılınan bir sunucu bir güncellemeye yeniden başladığında her üyeye bir bildirim. {name} sunucudur.
   "server.restartNotice.waitingTitle": "{name}, bir güncellemeyi yüklemek için yeniden başlatılacak",
-  "server.restartNotice.waitingVersionTitle": "{name}, Builders Bot {version} sürümünü yüklemek için yeniden başlatılacak",
+  "server.restartNotice.waitingVersionTitle":
+    "{name}, Builders Bot {version} sürümünü yüklemek için yeniden başlatılacak",
   "server.restartNotice.waitingDescription":
     "Yeniden başlatma, ajanları boşta kalana kadar bekler. Kısa bir süre için bağlantınız kesilir, ardından Builders Bot otomatik olarak tekrar bağlanır.",
   "server.restartNotice.restartingTitle": "{name}, güncellemeyi yüklemek için yeniden başlatılıyor",
