@@ -24,10 +24,11 @@ import { readJsonObject } from "./json-body";
 import { type RemoteControlPlane, RemoteControlPlaneError } from "./remote-control-plane";
 import { sendTeamInviteEmail } from "./team-invite-email";
 import type { AuthUser, TeamInviteEmailDelivery } from "./types";
+import type { WebPushSender } from "./web-push";
+import { readWebPushSubscription, type WebPushStore } from "./web-push-store";
+import { webClientIdentity, webSessionCookie, webSessionToken } from "./web-session";
 
-const COOKIE = "__Host-openbot-web";
 const PREFIX = "/api/browser/";
-const COOKIE_ATTRIBUTES = "Path=/; Secure; HttpOnly; SameSite=Lax";
 
 export interface BrowserApiServices {
   auth: Pick<
@@ -72,6 +73,8 @@ export interface BrowserApiServices {
   avatarBucket: () => R2Bucket;
   hostedSites: () => Pick<HostedSiteService, "list" | "delete">;
   signalUrl: () => string;
+  /** Web Push for the installed web app, or null when this deployment has no VAPID key. */
+  webPush: () => { sender: WebPushSender; store: WebPushStore } | null;
   sourceIp: (request: Request) => string;
   errorResponse: (error: unknown) => Response;
 }
@@ -111,17 +114,6 @@ function refuseWith(refusal: abstract new (...args: never) => { status: number; 
           : Effect.failCause(cause);
       }),
     );
-}
-
-function browserSessionToken(request: Request): string | null {
-  const values = (request.headers.get("Cookie") ?? "")
-    .split(";")
-    .map((part) => part.trim())
-    .filter((part) => part.startsWith(`${COOKIE}=`));
-  const [value] = values;
-  if (values.length !== 1 || value === undefined) return null;
-  const token = value.slice(COOKIE.length + 1);
-  return /^[A-Za-z0-9_-]{20,512}$/u.test(token) ? token : null;
 }
 
 const METHODS: ReadonlySet<string> = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
@@ -184,14 +176,15 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
       sourceIp: services.sourceIp(request),
       surface: "web",
       firstTouch: requestFirstTouch(body.firstTouch),
+      client: webClientIdentity(request),
     });
-    const previous = browserSessionToken(request);
+    const previous = webSessionToken(request);
     if (previous) {
       const user = yield* services.auth.authenticate(previous);
       if (user) yield* services.remote.endAccountSession(user.id, yield* sha256(previous));
     }
     const response = json({ user: result.user });
-    response.headers.set("Set-Cookie", `${COOKIE}=${result.sessionToken}; ${COOKIE_ATTRIBUTES}; Max-Age=34560000`);
+    response.headers.set("Set-Cookie", webSessionCookie(result.sessionToken));
     return response;
   }
   if (path === "checkout-attribution" && request.method === "POST") {
@@ -206,18 +199,41 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
     }
     return json({ accepted: true });
   }
-  const token = browserSessionToken(request);
+  const token = webSessionToken(request);
   const user = token ? yield* services.auth.authenticate(token) : null;
   if (path === "logout" && request.method === "POST") {
     if (token && user) yield* services.remote.endAccountSession(user.id, yield* sha256(token));
     const response = json({ signedOut: true });
-    response.headers.set("Set-Cookie", `${COOKIE}=; ${COOKIE_ATTRIBUTES}; Max-Age=0`);
+    response.headers.set("Set-Cookie", webSessionCookie(null));
     return response;
   }
   if (!token || !user) return failure(401, "sign_in_required", "Sign in is required.");
   if (path === "session" && request.method === "GET") return json({ user });
   if (path === "v2/remote/hosts" && request.method === "GET")
     return json({ hosts: yield* services.remote.listHosts(user.id) });
+  if (path === "v1/push" && request.method === "GET") {
+    const push = services.webPush();
+    if (!push) return failure(503, "push_unavailable", "Notifications are not available.");
+    return json({ publicKey: push.sender.publicKey });
+  }
+  if (path === "v1/push/subscription" && request.method === "POST") {
+    const push = services.webPush();
+    if (!push) return failure(503, "push_unavailable", "Notifications are not available.");
+    const subscription = readWebPushSubscription(yield* readJsonObject(request));
+    if (!subscription) return failure(400, "invalid_subscription", "The subscription is invalid.");
+    // The token, not the user: the row belongs to this installation's session and goes with it.
+    yield* push.store.register(token, subscription);
+    return json({ subscribed: true });
+  }
+  if (path === "v1/push/subscription" && request.method === "DELETE") {
+    const push = services.webPush();
+    if (!push) return failure(503, "push_unavailable", "Notifications are not available.");
+    const body = yield* readJsonObject(request);
+    const endpoint = isString(body.endpoint) ? body.endpoint : "";
+    if (!endpoint) return failure(400, "invalid_subscription", "The subscription is invalid.");
+    yield* push.store.remove(token, endpoint);
+    return json({ subscribed: false });
+  }
   const [, removedHostId] = /^v2\/remote\/hosts\/([^/]+)$/u.exec(path) ?? [];
   if (removedHostId !== undefined && request.method === "DELETE") {
     yield* services.remote.removeOwnedHost(user.id, decodeURIComponent(removedHostId));

@@ -40,6 +40,8 @@ import {
 import { SkillMarketplace, SkillMarketplaceError } from "./skill-marketplace";
 import { SlackAppError, SlackAppService } from "./slack-app";
 import { requireWorkerBindings, type TeamInviteEmailDelivery, type WorkerBindings } from "./types";
+import { sharedWebPushSender, type WebPushSender } from "./web-push";
+import { WebPushStore } from "./web-push-store";
 
 function accountAnalytics(bindings: WorkerBindings): AccountAnalytics {
   return createAccountAnalytics({
@@ -226,6 +228,26 @@ export function requestFcmRelay(): {
   if (!sender) return null;
   const limit = relayLimit(LIVE_ACTIVITY_RATE_LIMITER);
   return { sender, allowNotification: (hostId) => limit(`notification:host:${hostId}`) };
+}
+
+/**
+ * Web Push to the installed web app: the sender and the subscription store, or `null` when this Worker
+ * has no VAPID key. The push service carries only the bytes of a short message, never account data.
+ */
+export function requestWebPush(): { sender: WebPushSender; store: WebPushStore } | null {
+  const bindings = requireWorkerBindings(env);
+  const { WEB_PUSH_PUBLIC_KEY, WEB_PUSH_PRIVATE_KEY, WEB_PUSH_SUBJECT, DB } = bindings;
+  if (!WEB_PUSH_PUBLIC_KEY || !WEB_PUSH_PRIVATE_KEY || !WEB_PUSH_SUBJECT) return null;
+  let privateKeyJwk: JsonWebKey;
+  try {
+    privateKeyJwk = JSON.parse(WEB_PUSH_PRIVATE_KEY);
+  } catch {
+    return null;
+  }
+  return {
+    sender: sharedWebPushSender({ publicKey: WEB_PUSH_PUBLIC_KEY, privateKeyJwk, subject: WEB_PUSH_SUBJECT }),
+    store: new WebPushStore(DB),
+  };
 }
 
 function relayLimit(limiter: RateLimit) {

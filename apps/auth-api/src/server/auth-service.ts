@@ -269,6 +269,8 @@ export class AuthService {
         surface: Exclude<AccountSurface, "mobile">;
         /** Only the web client sends one; it is already checked. */
         firstTouch?: FirstTouch | null;
+        /** The installation that signs in, so that the session is listed and revoked on its own. */
+        client?: { id: string; label: string } | null;
       },
     ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
       return yield* this.#verifyEmailChallenge(input);
@@ -306,6 +308,7 @@ export class AuthService {
       surface: AccountSurface;
       firstTouch?: FirstTouch | null;
       device?: MobileAuthDeviceIdentity;
+      client?: { id: string; label: string } | null;
     },
   ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
     const dependencies = yield* AuthDependencies;
@@ -325,6 +328,7 @@ export class AuthService {
         id: crypto.randomUUID(),
         token: randomToken(),
         expiresAt: PERSISTENT_SESSION_EXPIRES_AT,
+        ...(input.client ? { clientId: input.client.id, clientLabel: input.client.label } : {}),
       },
       ...(input.device ? { device: input.device } : {}),
     });

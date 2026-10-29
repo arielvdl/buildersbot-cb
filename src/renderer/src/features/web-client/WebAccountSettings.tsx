@@ -5,16 +5,20 @@ import type { AppTextKey } from "@openbot/i18n";
 import {
   Button,
   CreditCard,
+  Download,
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
   ItemGroup,
   ItemTitle,
+  RefreshCw,
   SettingsSection,
+  ShieldCheck,
   SlidersHorizontal,
   SwitchField,
   Tabs,
+  toast,
   UserRound,
 } from "@openbot/ui";
 import { AppearanceSelect } from "@openbot/ui/features/settings/AppearanceSelect";
@@ -25,7 +29,7 @@ import { SettingsProfileTab } from "@openbot/ui/features/settings/SettingsProfil
 import { SoundThemePicker } from "@openbot/ui/features/settings/SoundThemePicker";
 import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores/profile-store";
 import { useText } from "@openbot/ui/text";
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, onSettled, Show } from "solid-js";
 import { readActionSoundChoice, replayActionSoundChoice, setActionSoundChoice } from "../../action-sounds";
 import { setShowAgentSteps, useShowAgentSteps } from "../../agent-steps-preference";
 import { isCompletionSoundEnabled, setCompletionSoundEnabled } from "../../completion-sound";
@@ -33,6 +37,10 @@ import { webReportsEnabled } from "../../error-reports";
 import { currentDevicePlatform, setSendShortcutMode, useSendShortcutMode } from "../../send-shortcut-preference";
 import type { WebAccountCalls } from "./web-account";
 import { setWebAnalyticsEnabled } from "./web-analytics";
+import { appLockSupported, webAppLock } from "./web-app-lock";
+import { isInstalledWebApp, webInstallIdentity } from "./web-install-identity";
+import { disablePush, enablePush, pushSubscribed, pushSupported } from "./web-push";
+import { useWebAppInstall } from "./web-pwa";
 
 const TABS = ["profile", "preferences"] as const;
 type WebAccountSettingsTab = (typeof TABS)[number];
@@ -77,6 +85,12 @@ export interface WebAccountSettingsProps {
 export default function WebAccountSettings(props: WebAccountSettingsProps) {
   const [reportsEnabled, setReportsEnabled] = createSignal(webReportsEnabled());
   const { t } = useText();
+  const install = useWebAppInstall();
+  const [installed] = createSignal(isInstalledWebApp());
+  const lock = webAppLock();
+  const [lockEnabled, setLockEnabled] = createSignal(lock?.enabled() ?? false);
+  const [lockBusy, setLockBusy] = createSignal(false);
+  const [pushOn, setPushOn] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<WebAccountSettingsTab>("profile");
   const [completionSound, setCompletionSound] = createSignal(isCompletionSoundEnabled());
   const sendShortcutMode = useSendShortcutMode();
@@ -90,6 +104,27 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
   window.addEventListener("storage", readSoundSettings);
   onCleanup(() => window.removeEventListener("storage", readSoundSettings));
   let modalElement: HTMLElement | undefined;
+
+  // The stored subscription is the truth, not the last click: another tab may have turned it off.
+  onSettled(() => {
+    if (!pushSupported()) return;
+    void pushSubscribed().then(setPushOn);
+  });
+
+  /** Notifications ask the browser from this click, which is the only moment iOS accepts. */
+  async function changePush(checked: boolean) {
+    if (!checked) {
+      await disablePush();
+      setPushOn(false);
+      return;
+    }
+    const outcome = await enablePush();
+    if (outcome === "on") {
+      setPushOn(true);
+      return;
+    }
+    toast(outcome === "denied" ? t("webClient.app.pushDenied") : t("webClient.app.pushUnavailable"), {});
+  }
 
   const profile = createSettingsProfileStore(
     {
@@ -107,6 +142,33 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
     () => activeTab() === "profile",
   );
   const navItem = () => TAB_ITEMS[activeTab()];
+
+  /**
+   * The lock is a passkey of the device, so it is made only after the device says it has one. A
+   * refusal leaves the switch where it was instead of pretending to be on.
+   */
+  async function changeLock(checked: boolean) {
+    const current = webAppLock();
+    if (!current || lockBusy()) return;
+    if (!checked) {
+      current.disable();
+      setLockEnabled(false);
+      return;
+    }
+    if (!(await appLockSupported())) {
+      toast(t("webClient.app.lockUnsupported"), {});
+      return;
+    }
+    setLockBusy(true);
+    try {
+      await current.enable(webInstallIdentity().label);
+      setLockEnabled(true);
+    } catch {
+      toast.error(t("webClient.app.lockFailed"));
+    } finally {
+      setLockBusy(false);
+    }
+  }
 
   return (
     <Tabs.Root
@@ -173,6 +235,71 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
         </Tabs.Content>
 
         <Tabs.Content value="preferences" class="settings-modal-tab-panel" data-tab="preferences">
+          <SettingsSection title={t("webClient.app.title")}>
+            <ItemGroup class="settings-modal-card">
+              <Show
+                when={installed()}
+                fallback={
+                  <Item class="settings-modal-row">
+                    <ItemContent>
+                      <ItemTitle>{t("webClient.app.installTitle")}</ItemTitle>
+                      <ItemDescription>
+                        {install.canInstall() ? t("webClient.app.installDescription") : t("webClient.app.installHint")}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Show when={install.canInstall()}>
+                        <Button variant="secondary" onClick={() => void install.install()}>
+                          <Download aria-hidden="true" />
+                          {t("webClient.app.install")}
+                        </Button>
+                      </Show>
+                    </ItemActions>
+                  </Item>
+                }
+              >
+                <Item class="settings-modal-row">
+                  <ItemContent>
+                    <ItemTitle>{t("webClient.app.installedTitle")}</ItemTitle>
+                    <ItemDescription>
+                      {t("webClient.app.installedDescription", { device: webInstallIdentity().label })}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <ShieldCheck aria-hidden="true" />
+                  </ItemActions>
+                </Item>
+                <SwitchField
+                  checked={lockEnabled()}
+                  onChange={(checked) => void changeLock(checked)}
+                  label={t("webClient.app.lockTitle")}
+                  description={lockBusy() ? t("webClient.app.lockBusy") : t("webClient.app.lockDescription")}
+                />
+                <Show when={pushSupported()}>
+                  <SwitchField
+                    checked={pushOn()}
+                    onChange={(checked) => void changePush(checked)}
+                    label={t("webClient.app.pushTitle")}
+                    description={t("webClient.app.pushDescription")}
+                  />
+                </Show>
+              </Show>
+              <Show when={install.updateReady()}>
+                <Item class="settings-modal-row">
+                  <ItemContent>
+                    <ItemTitle>{t("webClient.update.ready")}</ItemTitle>
+                    <ItemDescription>{t("webClient.update.description")}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button variant="secondary" onClick={() => install.applyUpdate()}>
+                      <RefreshCw aria-hidden="true" />
+                      {t("webClient.update.apply")}
+                    </Button>
+                  </ItemActions>
+                </Item>
+              </Show>
+            </ItemGroup>
+          </SettingsSection>
           <SettingsSection title={t("settings.appBehavior.title")}>
             <ItemGroup class="settings-modal-card">
               <Item class="settings-modal-row">

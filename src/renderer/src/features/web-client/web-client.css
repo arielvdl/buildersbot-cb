@@ -392,3 +392,45 @@
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);
 }
+
+/* The cover of the installed app while the passkey is asked. Above everything, the settings sheet
+   included, because the workspace under it is still live and must not be read. */
+.web-app-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: var(--openbot-space-6);
+  background: var(--openbot-bg-canvas);
+}
+
+.web-app-lock-card {
+  display: flex;
+  width: min(320px, 100%);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  text-align: center;
+}
+
+.web-app-lock-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--openbot-radius-lg);
+}
+
+.web-app-lock-title {
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.web-app-lock-text {
+  max-width: 34ch;
+}
+
+.web-app-lock-button {
+  margin-top: var(--openbot-space-2);
+  min-width: 180px;
+}

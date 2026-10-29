@@ -10,6 +10,7 @@ import {
   requestFcmRelay,
   requestRemoteControlPlane,
 } from "../../../../../server/request-auth";
+import { sendWebPushForSession } from "../../../../../server/web-push-fanout";
 
 /**
  * A host sends one sealed notification for a member's Android phone. The body has the host
@@ -39,6 +40,8 @@ export const Route = createFileRoute("/v2/remote/hosts/$hostId/android-notificat
             }
             switch (yield* relay.sender.sendNotification(push)) {
               case "sent":
+                // The web app of the same session, if one is installed. Its failure never fails this.
+                yield* sendWebPushForSession(push.sessionId).pipe(Effect.catch(() => Effect.void));
                 return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
               case "gone":
                 return apiError(410, "notification_gone", "The phone no longer receives notifications.");

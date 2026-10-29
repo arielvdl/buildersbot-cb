@@ -97,6 +97,11 @@ export interface WorkerBindings {
    * Cloud Messaging. The Android notification relay is off without it.
    */
   FCM_SERVICE_ACCOUNT?: string;
+  /** The VAPID key pair of Web Push: the public key the page subscribes with, and the private JWK. */
+  WEB_PUSH_PUBLIC_KEY?: string;
+  WEB_PUSH_PRIVATE_KEY?: string;
+  /** The `mailto:` of the operator that RFC 8292 asks for in the token. */
+  WEB_PUSH_SUBJECT?: string;
 }
 
 function isWorkerBindings(value: unknown): value is WorkerBindings {

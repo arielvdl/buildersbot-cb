@@ -940,6 +940,9 @@ jobs:
           APNS_PRIVATE_KEY: ${{ secrets.APNS_PRIVATE_KEY }}
           APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
           FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
+          WEB_PUSH_PUBLIC_KEY: ${{ secrets.WEB_PUSH_PUBLIC_KEY }}
+          WEB_PUSH_PRIVATE_KEY: ${{ secrets.WEB_PUSH_PRIVATE_KEY }}
+          WEB_PUSH_SUBJECT: ${{ secrets.WEB_PUSH_SUBJECT }}
         run: |
           secrets_path="$RUNNER_TEMP/openbot-worker-secrets.json"
           umask 077
@@ -952,6 +955,9 @@ jobs:
             const remotePrivateJwk = process.env.REMOTE_TICKET_PRIVATE_JWK;
             const remotePublicJwks = process.env.REMOTE_TICKET_PUBLIC_JWKS;
             const remoteWebhookSecret = process.env.REMOTE_AUTH_WEBHOOK_SECRET;
+            const webPushPublicKey = process.env.WEB_PUSH_PUBLIC_KEY;
+            const webPushPrivateKey = process.env.WEB_PUSH_PRIVATE_KEY;
+            const webPushSubject = process.env.WEB_PUSH_SUBJECT;
             const openpanelClientId = process.env.OPENPANEL_CLIENT_ID?.trim();
             const openpanelClientSecret = process.env.OPENPANEL_CLIENT_SECRET?.trim();
             if (!openpanelClientId || !openpanelClientSecret) {
@@ -965,6 +971,9 @@ jobs:
               !remotePrivateJwk ||
               !remotePublicJwks ||
               !remoteWebhookSecret ||
+              !webPushPublicKey ||
+              !webPushPrivateKey ||
+              !webPushSubject ||
               !path
             ) {
               throw new Error("Required production secrets are missing.");
@@ -1013,6 +1022,9 @@ jobs:
               REMOTE_TICKET_PRIVATE_JWK: remotePrivateJwk,
               REMOTE_TICKET_PUBLIC_JWKS: remotePublicJwks,
               REMOTE_AUTH_WEBHOOK_SECRET: remoteWebhookSecret,
+              WEB_PUSH_PUBLIC_KEY: webPushPublicKey,
+              WEB_PUSH_PRIVATE_KEY: webPushPrivateKey,
+              WEB_PUSH_SUBJECT: webPushSubject,
             };
             await Bun.write(path, JSON.stringify(secrets));
           '

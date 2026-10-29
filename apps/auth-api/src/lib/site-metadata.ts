@@ -154,6 +154,13 @@ export function openBotRootHead(interLatinFont: string) {
       { name: "application-name", content: "OpenBot" },
       { name: "color-scheme", content: "dark" },
       { name: "theme-color", content: "#1a1a1a" },
+      // iOS reads these, not the manifest: the installed app opens without the Safari chrome, and the
+      // status bar draws over the app's own background. The title is the name under the icon.
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "OpenBot" },
+      { name: "format-detection", content: "telephone=no" },
     ],
     links: [
       {

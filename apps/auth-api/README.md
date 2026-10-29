@@ -162,10 +162,11 @@ EMAIL_FROM=hello@openbot.run
 
 For a deployed Worker, `bun run api:deploy` decrypts `.env.production`. It sends
 `EMAIL_SMTP_PASSWORD`, `SKILLS_ADMIN_TOKEN`, `REMOTE_TICKET_PRIVATE_JWK`,
-`REMOTE_TICKET_PUBLIC_JWKS`, `REMOTE_AUTH_WEBHOOK_SECRET`, and `SITE_REPORT_HASH_SECRET` to
-`wrangler secret put` through standard input, and `GITHUB_APP_PRIVATE_KEY` when it is set. It then
-builds and deploys the Worker. Production deployment preserves `HOSTED_SERVER_TEMPLATE`; the
-desktop release workflow owns that setting. Test deployment can still set its own template.
+`REMOTE_TICKET_PUBLIC_JWKS`, `REMOTE_AUTH_WEBHOOK_SECRET`, `SITE_REPORT_HASH_SECRET` and the three
+`WEB_PUSH_*` values to `wrangler secret put` through standard input, and `GITHUB_APP_PRIVATE_KEY`
+when it is set. It then builds and deploys the Worker. Production deployment preserves
+`HOSTED_SERVER_TEMPLATE`; the desktop release workflow owns that setting. Test deployment can still
+set its own template.
 
 Production also requires `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET` from an OpenPanel
 write-only server client. Keep both in the encrypted `.env.production` for local deployment and in
@@ -305,3 +306,33 @@ from Firebase console > Project settings > Service accounts > Generate new priva
 the encrypted environment as one line (`jq -c . <file>.json`) and into the `cloudflare-production`
 GitHub environment. A deployment stops before remote changes when the value is not a service account
 key file. The local Worker sends to Firebase directly.
+
+`GET /api/browser/v1/push` gives the VAPID public key to the installed web app, and
+`POST /api/browser/v1/push/subscription` stores the browser subscription against the account session
+of that installation. The same host notification routes then also push to those subscriptions, with
+the same session check and limit, and drop a subscription that answers 404 or 410. The push carries no
+account text: the browser has no seal yet, so it says that there is activity and the app reads the
+detail over WebRTC when it opens. Nothing of the conversation reaches the push service of the browser.
+
+Web Push is off until `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` (the private P-256 JWK as JSON) and
+`WEB_PUSH_SUBJECT` (a `mailto:` of the operator) are set. Make the pair once with
+`bun scripts/web-push-keys.ts` and keep the private half only in the encrypted environment and in the
+`cloudflare-production` GitHub environment. `bun run api:deploy` sends all three, and the CI deploy
+reads them from that environment; a production deployment stops before the build when one is missing.
+Rotating the pair invalidates every subscription: the pages subscribe again at their next start,
+because the key they hold no longer matches.
+
+### The login is being replaced
+
+The web app is moving to the Cultura Builder login, which is not the account login of OpenBot. All of
+the browser work above reads the session through `src/server/web-session.ts` instead of the cookie, so
+the swap is a change to that file. Whoever makes it must keep three things, or the installs lose
+their sessions and their notifications:
+
+- the session of a request, as a secret that `sha256` can turn into a stable hash for as long as the
+  session lives (`remote_sessions.auth_session_hash` and `web_push_subscriptions.auth_session_hash`
+  both depend on it);
+- the installation headers `X-OpenBot-Install` and `X-OpenBot-Install-Label`, which name the client
+  and fill `auth_sessions.client_id` / `client_label`, so that each install is listed and revoked on
+  its own;
+- the trigger that deletes the push subscriptions of a session when the session row is revoked.

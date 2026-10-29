@@ -12,6 +12,7 @@ import {
   requestRemoteControlPlane,
   requestRemoteSignalUrl,
   requestTeamInviteEmailDelivery,
+  requestWebPush,
 } from "../../../server/request-auth";
 import { requestSourceIp } from "../../../server/source-ip";
 
@@ -27,6 +28,7 @@ function handle({ request }: { request: Request }) {
     avatarBucket: requestAvatarBucket,
     hostedSites: requestHostedSiteService,
     signalUrl: requestRemoteSignalUrl,
+    webPush: requestWebPush,
     sourceIp: requestSourceIp,
     errorResponse: hostedServerErrorResponse,
   });

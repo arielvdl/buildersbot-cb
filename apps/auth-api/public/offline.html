@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#1a1a1a" />
+    <title>OpenBot is offline</title>
+    <style>
+      /* The page is served from the worker cache, so it carries its own styles and nothing else. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #1a1a1a;
+        color: #f2f2f2;
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      main {
+        display: grid;
+        align-content: center;
+        justify-items: center;
+        gap: 12px;
+        height: 100%;
+        padding: 24px;
+        text-align: center;
+      }
+      img {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+      }
+      h1 {
+        margin: 8px 0 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+      }
+      p {
+        max-width: 32ch;
+        margin: 0;
+        color: #a3a3a3;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      a {
+        margin-top: 8px;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: #f2f2f2;
+        color: #1a1a1a;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icon-192x192.png" alt="" />
+      <h1>OpenBot is offline</h1>
+      <p>The app is installed and the shell is here. The agents run on your computer, so the connection needs the network.</p>
+      <a href="/app">Try again</a>
+    </main>
+  </body>
+</html>

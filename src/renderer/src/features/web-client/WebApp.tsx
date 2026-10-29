@@ -12,16 +12,20 @@ import { AccountLogin } from "@openbot/ui/features/account/AccountLogin";
 import { AppLoadingScreen } from "@openbot/ui/features/account/AppLoadingScreen";
 import { currentText } from "@openbot/ui/text";
 import { Dynamic } from "@solidjs/web";
-import { createEffect, createSignal, createStore, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, createStore, onCleanup, onSettled, Show } from "solid-js";
 import type { DesktopAnalyticsProperties } from "../../analytics";
 import { configureWebReports, reportNotification } from "../../error-reports";
 import { StaticI18nProvider } from "../../i18n-context";
+import { WebAppLock } from "./WebAppLock";
 import type { WebWorkspace } from "./WebWorkspace";
+import { createWebAppLock, provideWebAppLock } from "./web-app-lock";
 import { createWebAppearancePreference } from "./web-appearance-preference";
 import { WEB_APP_BILLING_PARAM } from "./web-billing";
 import type { WebRuntimeFactory } from "./web-client-context";
 import { takeHostingReturn } from "./web-hosted-servers";
+import { webInstallIdentity } from "./web-install-identity";
 import { createWebLanguagePreference } from "./web-language-preference";
+import { registerWebApp, useWebAppInstall } from "./web-pwa";
 
 // The site loads this before it mounts `WebApp` (`apps/auth-api/src/routes/app.lazy.tsx`).
 export { loadSavedLanguage } from "./web-language-preference";
@@ -102,6 +106,12 @@ function takeBillingReturn(): BillingReturn | null {
 export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   // This component renders the text provider, so it reads the text of the last provider that rendered.
   const text = currentText();
+  // The lock covers the whole app, sign-in included, so a phone that is picked up shows nothing.
+  const appLock = createWebAppLock();
+  provideWebAppLock(appLock);
+  onCleanup(() => provideWebAppLock(null));
+  const install = useWebAppInstall();
+  let offeredUpdate = false;
   const [state, setState] = createStore<{
     account: CentralAuthUser | null;
     loaded: boolean;
@@ -192,7 +202,15 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       method: body ? "POST" : "GET",
       credentials: "same-origin",
       cache: "no-store",
-      headers: body ? { "Content-Type": "application/json", "X-Builders Bot-Browser": "1" } : {},
+      headers: body
+        ? {
+            "Content-Type": "application/json",
+            "X-Builders Bot-Browser": "1",
+            // This installation, so that the session is listed and revoked on its own.
+            "X-OpenBot-Install": webInstallIdentity().id,
+            "X-OpenBot-Install-Label": webInstallIdentity().label,
+          }
+        : {},
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     const value = await response.json();
@@ -337,6 +355,8 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       void checkSession();
     };
     void checkSession();
+    // The worker is registered after the session check has started, so it never holds the first screen.
+    void registerWebApp();
     // A page restored from the back-forward cache still has its session; its connection ends normally.
     const restore = () => {
       clearSession(false);
@@ -349,6 +369,18 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       window.removeEventListener("pageshow", restore);
     };
   });
+  createEffect(
+    () => install.updateReady(),
+    (ready) => {
+      if (!ready || offeredUpdate) return;
+      offeredUpdate = true;
+      // The update waits for the person: a swap mid-turn would reload the page under a running agent.
+      toast(text.t("webClient.update.ready"), {
+        duration: Number.POSITIVE_INFINITY,
+        action: { label: text.t("webClient.update.apply"), onClick: () => install.applyUpdate() },
+      });
+    },
+  );
   const variant: AppVariant = import.meta.env.DEV ? "dev" : "production";
   const languagePreference = createWebLanguagePreference();
   const appearancePreference = createWebAppearancePreference();
@@ -418,6 +450,9 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                 void loadWorkspace().catch(() => undefined);
               }}
             />
+          </Show>
+          <Show when={appLock.locked()}>
+            <WebAppLock onUnlock={appLock.unlock} onDisable={appLock.disable} />
           </Show>
         </div>
       </NotificationObserver>

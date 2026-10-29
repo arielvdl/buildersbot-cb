@@ -3,9 +3,9 @@
 // browser shows at the end, because a browser cannot listen for the callback.
 
 import {
+  type BuildersBotDesktopApi,
   type McpSignInRelayPage,
   type McpTestResult,
-  type BuildersBotDesktopApi,
   relayableSignInLink,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";

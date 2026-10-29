@@ -64,6 +64,10 @@ async function main(): Promise<void> {
   await putOptionalSecretSet("APNS_PRIVATE_KEY", "APNS_KEY_ID");
   // The Android notification relay stays off until the Firebase service account key is in the environment.
   await putOptionalSecret("FCM_SERVICE_ACCOUNT");
+  // Web Push to the installed web app: the VAPID pair and the operator subject. All three or none,
+  // because a pair without its subject, or the reverse, is not a sender. Production lists them as
+  // required secrets, so a missing value stops the deploy before the build.
+  await putOptionalSecretSet("WEB_PUSH_PUBLIC_KEY", "WEB_PUSH_PRIVATE_KEY", "WEB_PUSH_SUBJECT");
   await run(wranglerExecutable, ["d1", "migrations", "apply", "DB", "--remote", ...environmentArgs], {
     label: "Remote D1 migrations",
   });

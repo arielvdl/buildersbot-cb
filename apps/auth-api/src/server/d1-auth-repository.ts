@@ -192,7 +192,14 @@ export class D1AuthRepository implements AuthRepository {
         idHash: string;
         codeHash: string;
         now: number;
-        session: { id: string; token: string; expiresAt: number };
+        session: {
+          id: string;
+          token: string;
+          expiresAt: number;
+          /** The installation of the web app that signed in, when the client names itself. */
+          clientId?: string | null;
+          clientLabel?: string | null;
+        };
         device?: MobileAuthDeviceIdentity;
       },
     ): Effect.fn.Return<EmailVerificationResult, AuthStoreError, AuthDatabase> {
@@ -248,10 +255,19 @@ export class D1AuthRepository implements AuthRepository {
       const insertSession = database
         .prepare(
           `INSERT INTO auth_sessions(
-          id, user_id, token_hash, expires_at, created_at, last_used_at
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
+          id, user_id, token_hash, expires_at, created_at, last_used_at, client_id, client_label
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(input.session.id, user.id, tokenHash, input.session.expiresAt, input.now, input.now);
+        .bind(
+          input.session.id,
+          user.id,
+          tokenHash,
+          input.session.expiresAt,
+          input.now,
+          input.now,
+          input.session.clientId ?? null,
+          input.session.clientLabel ?? null,
+        );
       const device = input.device;
       if (device) {
         // One batch: a session without its mobile row would count as a desktop session.
@@ -915,7 +931,7 @@ export class D1AuthRepository implements AuthRepository {
       const result = yield* storeCall(() =>
         database
           .prepare(`
-      SELECT a.id AS sessionId, COALESCE(m.device_name, h.name, 'Desktop') AS name,
+      SELECT a.id AS sessionId, COALESCE(m.device_name, a.client_label, h.name, 'Desktop') AS name,
         CASE WHEN m.session_id IS NULL THEN 'desktop' ELSE 'mobile' END AS kind,
         a.token_hash = ? AS is_current, a.created_at AS connectedAt, a.last_used_at AS lastActiveAt,
         h.server_id IS NOT NULL AS is_hosted_server

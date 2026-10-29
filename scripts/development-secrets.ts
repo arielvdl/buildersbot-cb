@@ -1,4 +1,5 @@
 import { generateKeyPairSync, randomBytes } from "node:crypto";
+import { Buffer } from "node:buffer";
 import {
   chmodSync,
   closeSync,
@@ -63,6 +64,23 @@ function developmentSecret(): string {
   return randomBytes(32).toString("hex");
 }
 
+// The Web Push pair is generated the same way `scripts/web-push-keys.ts` makes a production pair: the
+// public key is the raw P-256 point, base64url, and the private half is its JWK. Local push stays
+// inside the machine, so a generated pair is enough and no one has to copy one.
+export function createDevelopmentWebPushKeys(): Record<string, string> {
+  const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const privateJwk = privateKey.export({ format: "jwk" });
+  const { x, y } = publicKey.export({ format: "jwk" });
+  const point = Buffer.concat([Buffer.from([4]), Buffer.from(x, "base64url"), Buffer.from(y, "base64url")]);
+  return {
+    WEB_PUSH_PUBLIC_KEY: point.toString("base64url"),
+    WEB_PUSH_PRIVATE_KEY: JSON.stringify(privateJwk),
+    WEB_PUSH_SUBJECT: "mailto:ops@openbot.run",
+  };
+}
+
+const WEB_PUSH_DEFAULT_NAMES = ["WEB_PUSH_PUBLIC_KEY", "WEB_PUSH_PRIVATE_KEY", "WEB_PUSH_SUBJECT"] as const;
+
 export function createDevelopmentDefaults(): Record<string, string> {
   const tickets = createDevelopmentTicketKeyPair();
   return {
@@ -78,6 +96,7 @@ export function createDevelopmentDefaults(): Record<string, string> {
     REMOTE_AUTH_WEBHOOK_SECRET: developmentSecret(),
     REMOTE_TICKET_PRIVATE_JWK: tickets.privateJwk,
     REMOTE_TICKET_PUBLIC_JWKS: tickets.publicJwks,
+    ...createDevelopmentWebPushKeys(),
   };
 }
 
@@ -96,12 +115,21 @@ export function readDevelopmentState(projectRoot: string): DevelopmentState {
   ensurePrivateDirectory(paths.directory);
 
   const current = readStateIfPresent(paths.state);
-  if (current) return current;
+  if (current && hasWebPushDefaults(current)) return current;
 
   const lock = acquireStateLock(paths.lock);
   try {
     const afterLock = readStateIfPresent(paths.state);
-    if (afterLock) return afterLock;
+    if (afterLock && hasWebPushDefaults(afterLock)) return afterLock;
+    // A state written before Web Push existed gets a pair without losing anything it already holds.
+    if (afterLock) {
+      const merged: DevelopmentState = {
+        ...afterLock,
+        defaults: { ...createDevelopmentWebPushKeys(), ...afterLock.defaults },
+      };
+      publishState(paths.state, merged);
+      return merged;
+    }
 
     const state = createInitialState();
     publishInitialState(paths.state, state);
@@ -109,6 +137,10 @@ export function readDevelopmentState(projectRoot: string): DevelopmentState {
   } finally {
     releaseStateLock(paths.lock, lock);
   }
+}
+
+function hasWebPushDefaults(state: DevelopmentState): boolean {
+  return WEB_PUSH_DEFAULT_NAMES.every((name) => Boolean(state.defaults[name]));
 }
 
 /**

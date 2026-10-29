@@ -132,6 +132,7 @@ export { default as Server } from "lucide-solid/icons/server";
 export { default as Settings } from "lucide-solid/icons/settings";
 export { default as Shapes } from "lucide-solid/icons/shapes";
 export { default as ShieldCheck } from "lucide-solid/icons/shield-check";
+export { default as ScanFace } from "lucide-solid/icons/scan-face";
 export { default as SlidersHorizontal } from "lucide-solid/icons/sliders-horizontal";
 export { default as Smartphone } from "lucide-solid/icons/smartphone";
 export { default as Sparkles } from "lucide-solid/icons/sparkles";
