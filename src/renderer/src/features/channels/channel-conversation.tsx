@@ -37,6 +37,7 @@ import {
   sentChannelMessageId,
   waitingChannelPrompt,
 } from "./channel-conversation-rows";
+import { channelReadCommand, openTabUnreadCount } from "./channel-tab-reads";
 import { useChannels } from "./channels-context";
 
 export interface ChannelConversationEnvironment {
@@ -92,7 +93,8 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
     rowsById = next;
     return rows;
   });
-  const unreadCount = () => summary()?.unreadCount ?? 0;
+  // The open tab's count: the transcript is that tab's, and the channel's count sums every tab.
+  const unreadCount = () => openTabUnreadCount(summary(), page()?.topicId);
   const stoppedTurns = new Set<string>();
   const workingTurns = createMemo(() => {
     const current = page();
@@ -286,12 +288,7 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
     onMarkRead: async () => {
       const current = page();
       if (!current || !env.connectionReady()) return;
-      await channels.command({
-        type: "read",
-        channelId,
-        throughSequence: current.throughSequence,
-        operationId: crypto.randomUUID(),
-      });
+      await channels.command(channelReadCommand(channelId, current, crypto.randomUUID()));
     },
     onLoadOlder: () => void channels.loadOlder(),
     onAnswerPrompt: (answers: Record<string, string[]>, options?: PromptAnswerOptions) => {

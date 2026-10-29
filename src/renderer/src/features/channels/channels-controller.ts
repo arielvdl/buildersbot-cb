@@ -6,6 +6,7 @@ import { createEffect, createStore, flush, onSettled, reconcile, untrack } from 
 import { actionToast } from "../../action-toast";
 import { type DesktopAnalyticsProperties, desktopAnalytics } from "../../analytics";
 import { mergeChannelPage } from "./channel-page-merge";
+import { ChannelReadMarks, channelReadCommand, unreadChannelTabs } from "./channel-tab-reads";
 
 /**
  * Takes the older edge of a page: its cursor, and the unloaded length that belongs to that cursor. A
@@ -99,7 +100,8 @@ export function createChannelsController(env: ChannelsEnvironment) {
   let pendingCommands = 0;
   let refreshId = 0;
   let failedCommand: ChannelCommand | null = null;
-  const readThrough = new Map<string, number>();
+  /** Per tab, not per channel: a message's sequence is the channel's, and each tab has its own cursor. */
+  const readMarks = new ChannelReadMarks();
 
   const supported = env.supported;
   /**
@@ -181,7 +183,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
           state.selectedId = null;
           state.topicId = null;
           state.editing = null;
-          readThrough.delete(selected);
+          readMarks.forget(selected);
           if (failedCommand?.channelId === selected) failedCommand = null;
         }
         if (page && state.page?.channel.id === page.channel.id) {
@@ -197,18 +199,12 @@ export function createChannelsController(env: ChannelsEnvironment) {
         if (!failedCommand) state.error = null;
       });
       if (selected && !selectedExists) env.writeSelection(null);
-      if (selected && page && env.canMarkRead() && page.throughSequence > (readThrough.get(selected) ?? 0)) {
-        readThrough.set(selected, page.throughSequence);
+      // The page's tab, which is the open one also after a tab that went fell back to the first.
+      if (selected && page && env.canMarkRead() && readMarks.claim(selected, page.topicId, page.throughSequence)) {
         try {
-          await env.port().agent.channelCommand({
-            type: "read",
-            channelId: selected,
-            ...(page.topicId ? { topicId: page.topicId } : {}),
-            throughSequence: page.throughSequence,
-            operationId: crypto.randomUUID(),
-          });
+          await env.port().agent.channelCommand(channelReadCommand(selected, page, crypto.randomUUID()));
         } catch (error) {
-          readThrough.delete(selected);
+          readMarks.release(selected, page.topicId);
           throw error;
         }
       }
@@ -391,7 +387,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
       if (next.scope !== previous?.scope) {
         const selected = next.supported ? env.readSelection(next.scope) : null;
         refreshId += 1;
-        readThrough.clear();
+        readMarks.clear();
         state.topicId = null;
         failedCommand = null;
         pendingCommands = 0;
@@ -439,23 +435,17 @@ export function createChannelsController(env: ChannelsEnvironment) {
       window.removeEventListener("focus", focus);
     };
   });
-  /** Reads each unread channel's latest page for its boundary, since a summary has no sequence. */
+  /** Reads each unread tab's latest page for its boundary, since a summary has no sequence. */
   function markAllRead(): Promise<boolean> {
-    const unread = state.channels.filter((channel) => channel.unreadCount > 0).map((channel) => channel.id);
+    const unread = unreadChannelTabs(state.channels);
     const account = env.scopeKey();
     return perform(async () => {
       const results = await Promise.allSettled(
-        unread.map(async (channelId) => {
-          const page = await env.port().agent.readChannel({ channelId });
+        unread.map(async ({ channelId, topicId }) => {
+          const page = await env.port().agent.readChannel({ channelId, ...(topicId ? { topicId } : {}) });
           // The port follows the current server, so a read for the previous one must not reach it.
           if (disposed || account !== env.scopeKey()) return;
-          await env.port().agent.channelCommand({
-            type: "read",
-            channelId,
-            ...(page.topicId ? { topicId: page.topicId } : {}),
-            throughSequence: page.throughSequence,
-            operationId: crypto.randomUUID(),
-          });
+          await env.port().agent.channelCommand(channelReadCommand(channelId, page, crypto.randomUUID()));
         }),
       );
       // The other channels are read, so the list shows them before the first failure is reported.

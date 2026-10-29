@@ -92,10 +92,10 @@ export function channelWorkingTurns(page: ChannelPage, stopped: Set<string>): st
 /**
  * The row the unread divider stands on, or `null` when the reader has seen everything.
  *
- * The count comes from the channel list, and it leaves out what the reader wrote, activity rows,
- * plans, subagents and the folded thinking, so the walk back leaves them out too. The page has no
- * read pointer of its own: its `throughSequence` is the newest message of the channel, not the
- * newest the reader saw. The walk goes over the stored entries, because a thinking row stands where
+ * The count is the open tab's, from the channel list, and it leaves out what the reader wrote,
+ * activity rows, plans, subagents and the folded thinking, so the walk back leaves them out too. The
+ * page has no read pointer of its own: its `throughSequence` is the newest message of the tab, not
+ * the newest the reader saw. The walk goes over the stored entries, because a thinking row stands where
  * the first item of its turn is.
  */
 export function firstUnreadChannelMessageId(
