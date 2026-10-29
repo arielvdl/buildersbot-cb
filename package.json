@@ -346,6 +346,8 @@
     "verify:preload": "bun scripts/verify-preload-bundle.ts",
     "package": "bun run voice:prepare-runtime && bun run prepare:remote-desktop-runtime && bun run verify:remote-desktop-runtime && bun run prepare:cua-driver && bun run build && electron-builder --dir --mac --config.mac.identity=null --config.mac.notarize=false",
     "verify:package": "bun scripts/verify-macos-package.ts",
+    "package:signed": "bun run package && ./scripts/sign-local-macos.sh",
+    "package:install": "bun run package:signed && ./scripts/sign-local-macos.sh --install",
     "package:verify": "bun run package && bun run verify:package",
     "package:win": "bun run voice:prepare-runtime && bun scripts/prepare-remote-desktop-runtime.ts win32 x64 && bun run verify:remote-desktop-runtime --windows && bun scripts/install-cua-driver.ts win32 x64 && bun run build && electron-builder --dir --win --x64 --publish never",
     "verify:package:win": "bun scripts/verify-windows-package.ts",

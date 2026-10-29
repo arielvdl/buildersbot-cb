@@ -395,7 +395,7 @@ const HERMES_IMPORT_LINKS_FILE = "openbot-hermes-imports-v1.json";
  * the Electron binary - which is also the name macOS shows in the Privacy & Security panes, and the
  * reason a dev grant does not carry over to a packaged build.
  */
-const PACKAGED_BUNDLE_IDENTIFIER = "app.openbot.desktop";
+const PACKAGED_BUNDLE_IDENTIFIER = "app.buildersbot.desktop";
 const DEVELOPMENT_BUNDLE_IDENTIFIER = "com.github.Electron";
 
 const TEARDOWN_ORDER = {
