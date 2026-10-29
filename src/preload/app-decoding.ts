@@ -246,6 +246,8 @@ export function decodeCentralAuthDevicePoll(value: unknown): CentralAuthDevicePo
       return { status: "denied" };
     case "expired":
       return { status: "expired" };
+    case "rate_limited":
+      return { status: "rate_limited", retryAfterSeconds: requiredNumber(poll, "retryAfterSeconds") };
     default:
       throw new Error("Invalid device poll status.");
   }

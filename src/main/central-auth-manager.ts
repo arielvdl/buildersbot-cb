@@ -1630,6 +1630,10 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
         yield* authCall(() => response.body?.cancel().then(() => undefined) ?? Promise.resolve());
         return { status: response.status === 403 ? "denied" : "expired" };
       }
+      if (response.status === 429) {
+        const retryAfter = deviceRetryAfterSeconds(response, yield* authCall(() => response.json().catch(() => null)));
+        return { status: "rate_limited", retryAfterSeconds: retryAfter };
+      }
       if (!response.ok) {
         return yield* new CentralAuthOperationError({ cause: yield* AuthApiError.fromResponseEffect(response) });
       }
@@ -2116,6 +2120,20 @@ const INTERCEPTED_TLS_CODES = new Set([
   "CERT_UNTRUSTED",
   "ERR_TLS_CERT_ALTNAME_INVALID",
 ]);
+
+/**
+ * How long a 429 asks the app to wait: the `Retry-After` header in seconds, or the service's own
+ * field. A minute is the fallback, because a dialog that retries at once makes the limit worse.
+ */
+function deviceRetryAfterSeconds(response: Response, body: unknown): number {
+  const header = Number(response.headers.get("retry-after") ?? Number.NaN);
+  if (Number.isFinite(header) && header > 0) return Math.ceil(header);
+  if (isDynamicRecord(body) && isNumber(body.retryAfterSeconds) && body.retryAfterSeconds > 0) {
+    return Math.ceil(body.retryAfterSeconds);
+  }
+  if (isDynamicRecord(body) && isNumber(body.retryAfter) && body.retryAfter > 0) return Math.ceil(body.retryAfter);
+  return 60;
+}
 
 function detectBlockingNetwork(fetcher: AuthFetcher, apiUrl: string): AuthFetcher {
   const blocked = () =>

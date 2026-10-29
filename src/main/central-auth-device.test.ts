@@ -147,6 +147,39 @@ describe("CentralAuthManager device grant", () => {
     expect(centralAuth.getState()).toEqual({ status: "loading" });
   });
 
+  it("reads 429 as a pause with the seconds it must wait", async () => {
+    const { centralAuth } = await manager([
+      { status: 429, body: { error: "rate_limited", message: "slow down", retryAfterSeconds: 12 } },
+    ]);
+
+    const poll = await Effect.runPromise(centralAuth.pollDeviceSignIn(START.flowId));
+
+    expect(poll).toEqual({ status: "rate_limited", retryAfterSeconds: 12 });
+    expect(centralAuth.getState()).toEqual({ status: "loading" });
+  });
+
+  it("takes the wait from the Retry-After header when the body has none", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "central-auth-device-"));
+    directories.push(directory);
+    const fetcher = async (): Promise<Response> =>
+      new Response(JSON.stringify({ error: "rate_limited" }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": "45" },
+      });
+    const centralAuth = new CentralAuthManager({
+      apiUrl: "https://auth-buildersbot.culturabuilder.com",
+      storagePath: join(directory, "session.bin"),
+      encrypt: (value) => Buffer.from(value, "utf8"),
+      decrypt: (value) => value.toString("utf8"),
+      fetch: fetcher,
+    });
+
+    expect(await Effect.runPromise(centralAuth.pollDeviceSignIn(START.flowId))).toEqual({
+      status: "rate_limited",
+      retryAfterSeconds: 45,
+    });
+  });
+
   it("keeps the unknown flow and a broken service as errors, not as an ending", async () => {
     const { centralAuth } = await manager([{ status: 404, body: { error: "flow_not_found" } }]);
 

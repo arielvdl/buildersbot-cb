@@ -1,7 +1,7 @@
-import { ProviderCodeLoginDialog, type ProviderCodeLoginState } from "@openbot/ui/components/ProviderCodeLoginDialog";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, Loading, Show } from "solid-js";
-import { type DeviceSignInView, useAuth } from "./features/account/account-context";
+import { DeviceSignInDialog } from "./components/DeviceSignInDialog";
+import { useAuth } from "./features/account/account-context";
 import { useProviderDetection } from "./features/custom-providers/provider-detection-context";
 import { createLanguageStep } from "./features/onboarding/language-step";
 import { useSetup } from "./features/onboarding/onboarding-context";
@@ -20,18 +20,6 @@ import { WorkspaceShell } from "./WorkspaceShell";
  * e-mail code stays for a build it does not answer, chosen with `VITE_BUILDERSBOT_AUTH_MODE=email`.
  */
 const deviceSignInEnabled = () => import.meta.env.VITE_BUILDERSBOT_AUTH_MODE !== "email";
-
-/** The dialog's phase, from the flow the account context is running. */
-function deviceSignInDialogState(view: DeviceSignInView): ProviderCodeLoginState {
-  if (view.phase === "starting") return { phase: "starting" };
-  return {
-    phase: "waiting",
-    userCode: view.userCode,
-    verificationUrl: view.verificationUrl,
-    ...(view.verificationUrlComplete === null ? {} : { verificationUrlComplete: view.verificationUrlComplete }),
-    expiresAt: view.expiresAt,
-  };
-}
 
 /** The placeholder every lazy view below falls back to while its code loads. */
 function LoadingScreen() {
@@ -104,11 +92,11 @@ export function AppAccessGate() {
                     />
                     <Show when={deviceSignInEnabled() ? auth.deviceSignIn() : null}>
                       {(view) => (
-                        <ProviderCodeLoginDialog
-                          open={true}
-                          providerName="Cultura Builder"
-                          state={deviceSignInDialogState(view())}
-                          onOpenVerificationUrl={(url) => void window.openbot.openUrl(url)}
+                        <DeviceSignInDialog
+                          view={view()}
+                          onOpenHub={(url) => void window.openbot.openUrl(url)}
+                          onRetry={auth.retryDeviceSignIn}
+                          onRestart={auth.startDeviceSignIn}
                           onCancel={auth.cancelDeviceSignIn}
                         />
                       )}

@@ -264,7 +264,9 @@ export type CentralAuthDevicePoll =
   | { status: "pending"; intervalMs: number }
   | { status: "authorized" }
   | { status: "denied" }
-  | { status: "expired" };
+  | { status: "expired" }
+  /** Too many polls or starts from this address. The dialog waits `retryAfterSeconds` and tries again. */
+  | { status: "rate_limited"; retryAfterSeconds: number };
 
 export type MacPermissionId = "screen-recording" | "accessibility";
 

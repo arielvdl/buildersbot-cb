@@ -25,7 +25,11 @@ export type DeviceSignInView =
       verificationUrl: string;
       verificationUrlComplete: string | null;
       expiresAt: number;
-    };
+      /** Epoch milliseconds. A 429 paused the polls; the dialog counts down and offers a new try. */
+      pausedUntil?: number;
+    }
+  | { phase: "expired" }
+  | { phase: "denied" };
 
 /** How long the sign-in success animation holds the account out of the view. */
 const AUTH_SUCCESS_HOLD_MS = 600;
@@ -85,6 +89,7 @@ const Auth = createSimpleContext({
     /** Bumped by every start and cancel, so a poll that resolves late cannot revive a closed dialog. */
     let deviceSignInGeneration = 0;
     let deviceSignInTimer: ReturnType<typeof setTimeout> | undefined;
+    let deviceSignInFlowId: string | null = null;
     const [accountUsageState, setAccountUsageState] = createStore<{
       targetKey: string | null;
       data: AccountUsage | null;
@@ -232,22 +237,22 @@ const Auth = createSimpleContext({
             pollDeviceFlow(flowId, generation, poll.intervalMs);
             return;
           }
+          if (poll.status === "rate_limited") {
+            // The flow stays valid; only the polls paused, so the same code stays on screen.
+            const current = deviceSignIn();
+            const pausedUntil = Date.now() + Math.max(1, poll.retryAfterSeconds) * 1_000;
+            if (current?.phase === "waiting") setDeviceSignIn({ ...current, pausedUntil });
+            return;
+          }
           setDeviceSignIn(null);
           // The authorised poll stored the session in main and reported it on the account state.
           if (poll.status === "authorized") return;
-          applyCentralAuthState({
-            status: "error",
-            issue: {
-              code: poll.status === "denied" ? "device_sign_in_denied" : "device_sign_in_expired",
-              message: currentText().t(
-                poll.status === "denied" ? "account.login.deviceDenied" : "account.login.deviceExpired",
-              ),
-            },
-          });
+          setDeviceSignIn({ phase: poll.status === "denied" ? "denied" : "expired" });
         })();
       }, intervalMs);
     }
 
+    /** Asks for a new code, after an expired one or a refusal the user wants to retry. */
     async function startDeviceSignIn(): Promise<void> {
       stopDeviceSignIn();
       const generation = deviceSignInGeneration;
@@ -255,6 +260,7 @@ const Auth = createSimpleContext({
       try {
         const started = await accountPort().auth.startDeviceSignIn();
         if (generation !== deviceSignInGeneration) return;
+        deviceSignInFlowId = started.flowId;
         setDeviceSignIn({
           phase: "waiting",
           userCode: started.userCode,
@@ -271,6 +277,20 @@ const Auth = createSimpleContext({
           issue: { code: "device_sign_in_failed", message: currentText().t("account.login.deviceStartFailed") },
         });
       }
+    }
+
+    /** Resumes the same flow after a pause the service asked for, with the same code on screen. */
+    function retryDeviceSignIn(): void {
+      const flowId = deviceSignInFlowId;
+      const current = deviceSignIn();
+      if (!flowId || current?.phase !== "waiting") {
+        void startDeviceSignIn();
+        return;
+      }
+      const { pausedUntil: _paused, ...waiting } = current;
+      const generation = deviceSignInGeneration;
+      setDeviceSignIn(waiting);
+      pollDeviceFlow(flowId, generation, 0);
     }
 
     async function logoutCentralAccount(): Promise<void> {
@@ -416,6 +436,7 @@ const Auth = createSimpleContext({
       verifyEmailCode,
       deviceSignIn,
       startDeviceSignIn,
+      retryDeviceSignIn,
       cancelDeviceSignIn,
       logoutCentralAccount,
       updateAccountName,

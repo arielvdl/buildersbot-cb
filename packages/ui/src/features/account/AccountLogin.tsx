@@ -394,7 +394,9 @@ export function AccountLogin(props: AccountLoginProps) {
                   ? t("account.login.connectingDescription")
                   : unavailable()
                     ? sourceText(currentIssue()?.message ?? t("account.login.unavailableDescription"))
-                    : t("account.login.signInDescription")
+                    : props.onStartDeviceSignIn
+                      ? t("account.login.deviceDescription")
+                      : t("account.login.signInDescription")
               }
             >
               {verified() ? (
