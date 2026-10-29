@@ -2,7 +2,6 @@ import { type ChatWindowTarget, canAdministerServer } from "@openbot/contracts/i
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
-import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineCard";
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
@@ -34,7 +33,6 @@ import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
 import { usePresence } from "../team/team-context";
 import { SidebarUpdateIsland } from "../updates/SidebarUpdateIsland";
-import { createCommunityCardVisibility } from "./community-card";
 import { createMachineCard } from "./machine-card";
 import { useSidebar } from "./sidebar-context";
 import { createStorageCard } from "./storage-card";
@@ -133,7 +131,6 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const [mobileAppDismissed, setMobileAppDismissed] = createSignal(
     window.localStorage.getItem(MOBILE_APP_DISMISSED_STORAGE_KEY) === "true",
   );
-  const communityCard = createCommunityCardVisibility();
   const storageCard = createStorageCard(activeServer);
   const machineCard = createMachineCard(activeServer);
   // A clear in Server settings frees space and can change an alert level, so both cards read
@@ -332,7 +329,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       footer={
         <>
           {/* One card at a time. A machine over its alert level comes first, then a disk that is
-           * almost full; the community card waits until the mobile app card is dismissed. */}
+           * almost full; the mobile app card comes last. */}
           <Show when={shownMachineCard()}>
             {(card) => (
               <SidebarMachineCard
@@ -367,13 +364,6 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
                 window.localStorage.setItem(MOBILE_APP_DISMISSED_STORAGE_KEY, "true");
                 setMobileAppDismissed(true);
               }}
-            />
-          </Show>
-          <Show when={!platform.landingPreview && !footerCard() && mobileAppDismissed() && !communityCard.dismissed()}>
-            <SidebarCommunityCard
-              onJoinDiscord={() => void appPort().openExternal("discord")}
-              onFollowX={() => void appPort().openExternal("x")}
-              onDismiss={communityCard.dismiss}
             />
           </Show>
           <SidebarUpdateIsland />

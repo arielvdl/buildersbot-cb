@@ -90,7 +90,6 @@ import { ServerRail } from "@openbot/ui/features/servers/ServerRail";
 import type { SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
 import { createSettingsHostedServersStore } from "@openbot/ui/features/settings/stores/hosted-servers-store";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
-import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import {
   computeSidebarAgentStates,
   sidebarAgentWaits,
@@ -187,7 +186,6 @@ import {
 } from "../servers/server-update-flow";
 import { licenseContactUs, trackLicenseEvent } from "../settings/license-analytics";
 import type { HostPromptCacheTtlCalls } from "../settings/provider-prompt-cache";
-import { createCommunityCardVisibility } from "../sidebar/community-card";
 import { isReaderAuthor } from "../team/reader-identity";
 import type { ServerVaultOptions } from "../vault/ServerVaultPanel";
 import { createVaultStore } from "../vault/stores/vault-store";
@@ -590,7 +588,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
         : null,
   });
   const [searchOpen, setSearchOpen] = createSignal(false);
-  const communityCard = createCommunityCardVisibility();
   const [messageFocusRequest, setMessageFocusRequest] = createSignal<{
     agentId: string;
     messageId: string;
@@ -849,6 +846,15 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       if (inviteUrl) setJoinOpen(true);
     },
   );
+  // The `Connect` shortcut of the installed app: `/app?connect=1` opens the join dialog once, then the
+  // query goes, so a reload does not open it again.
+  onSettled(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("connect") !== "1") return;
+    url.searchParams.delete("connect");
+    window.history.replaceState(window.history.state, "", url);
+    setJoinOpen(true);
+  });
   createEffect(
     () => props.pluginSlug,
     (slug) => {
@@ -1913,15 +1919,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   onExpand={layout.expandSidebar}
                   onOpenSearch={() => setSearchOpen(true)}
                   onOpenMarketplace={openMarketplace}
-                  footer={
-                    <Show when={!communityCard.dismissed()}>
-                      <SidebarCommunityCard
-                        onJoinDiscord={() => void openWebDestination("discord")}
-                        onFollowX={() => void openWebDestination("x")}
-                        onDismiss={communityCard.dismiss}
-                      />
-                    </Show>
-                  }
                   emptyAction={
                     firstAgent()
                       ? {
