@@ -149,6 +149,7 @@ export class DictationService {
       const taken = globalShortcut.register(accelerator, () => this.toggle());
       if (!taken) return false;
       this.#registered = accelerator;
+      logger.info("The dictation combination is registered.", { accelerator });
       return true;
     } catch (error) {
       logger.warn("The dictation combination could not be registered.", { accelerator, error });
@@ -218,6 +219,7 @@ export class DictationService {
 
   #set(state: DictationState): void {
     this.#state = state;
+    logger.info("The dictation changed phase.", { phase: state.phase, failure: state.failure });
     this.publish(state);
   }
 }

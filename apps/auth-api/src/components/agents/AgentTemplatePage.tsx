@@ -1,4 +1,4 @@
-import { createOpenBotAgentTemplateUrl, createWebAppAgentTemplatePath } from "@openbot/contracts/agent-template-links";
+import { createBuildersBotAgentTemplateUrl, createWebAppAgentTemplatePath } from "@openbot/contracts/agent-template-links";
 import type { AgentTemplateDetail } from "@openbot/contracts/ipc";
 import { markdownPlainText, markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import { Link } from "@tanstack/solid-router";
@@ -57,7 +57,7 @@ export function AgentTemplatePage(props: AgentTemplatePageProps) {
   // "Read more" is there also when the text fits but has headings, lists or other formatting.
   const preview = createMemo(() => markdownPreviewText(props.template.description));
   const hasMore = () => clamped() || preview() !== props.template.description.replace(/\s+/gu, " ").trim();
-  const openUrl = () => createOpenBotAgentTemplateUrl(props.template.id);
+  const openUrl = () => createBuildersBotAgentTemplateUrl(props.template.id);
   const counts = () =>
     [countLabel(props.template.skills.length, "skill"), countLabel(props.template.routines.length, "routine")].filter(
       (label): label is string => label !== null,

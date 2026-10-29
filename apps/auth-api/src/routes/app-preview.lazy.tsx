@@ -6,11 +6,11 @@ import "../../../../src/renderer/src/preview/preview.css";
 
 // The demo follows the visitor's language. Its catalogs load with the code, so the demo does not
 // start in English; if they fail, the demo shows English.
-const OpenBotPlayground = lazy(() =>
+const BuildersBotPlayground = lazy(() =>
   Promise.all([
     import("@openbot/renderer-preview"),
     loadLocale(resolveLocale(DEFAULT_APP_LANGUAGE, navigator.language)).catch(() => undefined),
-  ]).then(([module]) => ({ default: module.OpenBotPlayground })),
+  ]).then(([module]) => ({ default: module.BuildersBotPlayground })),
 );
 
 export const Route = createLazyFileRoute("/app-preview")({ component: AppPreviewPage });
@@ -27,7 +27,7 @@ export function AppPreviewPage() {
         when={mounted()}
         fallback={<div class="openbot-playground-loading" role="status" aria-label="Loading OpenBot preview" />}
       >
-        <OpenBotPlayground variant="landing" />
+        <BuildersBotPlayground variant="landing" />
       </Show>
     </div>
   );
