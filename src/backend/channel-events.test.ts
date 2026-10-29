@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { ChannelStore } from "./channel-store";
+import { databaseRow, requiredNumberColumn } from "./database/database-rows";
 import { BuildersBotDatabase } from "./openbot-database";
 
 const roots: string[] = [];
@@ -21,16 +22,24 @@ async function openStore(): Promise<{ store: ChannelStore; channelId: string; da
   await Effect.runPromise(database.initialize());
   const store = new ChannelStore(database);
   const channelId = "channel-events";
-  const draft = store.create(channelId, { name: "Launch", title: "", instructions: "", members: [], leadAgentId: null });
+  const draft = store.create(channelId, {
+    name: "Launch",
+    title: "",
+    instructions: "",
+    members: [],
+    leadAgentId: null,
+  });
   store.update(draft, {}, "events:create");
   return { store, channelId, database };
 }
 
 function countEvents(database: BuildersBotDatabase): number {
-  const row = database.connection
-    .prepare("SELECT COUNT(*) AS count FROM orchestration_events WHERE aggregate_type = 'channel'")
-    .get();
-  return Number((row as { count: number }).count);
+  const row = databaseRow(
+    database.connection
+      .prepare("SELECT COUNT(*) AS count FROM orchestration_events WHERE aggregate_type = 'channel'")
+      .get(),
+  );
+  return row === null || row === undefined ? 0 : requiredNumberColumn(row, "count");
 }
 
 afterEach(async () => {

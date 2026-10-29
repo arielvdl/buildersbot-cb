@@ -13,6 +13,7 @@ const FORCE_AFTER = 30 * 60_000;
 interface FakeThread extends IdleThread {
   released: boolean;
   reopened: number;
+  background: number;
 }
 
 describe("IdleThreadPool", () => {
@@ -22,7 +23,7 @@ describe("IdleThreadPool", () => {
   let scope: Scope.Closeable;
 
   function thread(id: string): FakeThread {
-    return { id, activeTurn: null, idleRelease: null, idleSince: 0, released: false, reopened: 0 };
+    return { id, activeTurn: null, idleRelease: null, idleSince: 0, released: false, reopened: 0, background: 0 };
   }
 
   function makePool(overrides: { idleLimit?: number } = {}) {
@@ -32,7 +33,7 @@ describe("IdleThreadPool", () => {
       forceReleaseAfterMs: FORCE_AFTER,
       idleLimit: overrides.idleLimit ?? 5,
       scope: () => scope,
-      canRelease: (candidate) => releasable.has(candidate.id) && (candidate as { background?: number }).background === undefined,
+      canRelease: (candidate) => releasable.has(candidate.id) && candidate.background === 0,
       snapshot: (candidate) => ({ id: candidate.id }),
       dispose: (candidate) =>
         Effect.sync(() => {
