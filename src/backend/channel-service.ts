@@ -368,7 +368,7 @@ export class ChannelService {
             // A new channel opens with one tab, written with it, so no channel is ever without one.
             ...(existing
               ? {}
-              : { topics: [this.newTopic(channel.id, `openbot-topic-${randomUUID()}`, CHANNEL_DEFAULT_TOPIC_NAME)] }),
+              : { topics: [this.newTopic(channel.id, `openbot-topic-${channel.id}`, CHANNEL_DEFAULT_TOPIC_NAME)] }),
             tasks: [
               ...tasks.map(
                 (task): ChannelTask => ({

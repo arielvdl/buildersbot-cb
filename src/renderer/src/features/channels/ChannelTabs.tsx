@@ -17,8 +17,8 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   const topics = () => channels.state.channels.find((channel) => channel.id === props.channelId)?.topics ?? [];
 
   async function add(): Promise<void> {
-    const id = await channels.createTopic();
-    if (id) void setRenaming(id);
+    // The name follows the position, so two new tabs are told apart before either is renamed.
+    await channels.createTopic(t("channel.topic.defaultName", { n: topics().length + 1 }));
   }
 
   return (

@@ -69,10 +69,10 @@ export const CHANNEL_TOPICS_MIGRATION_SQL = `
     revision INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX IF NOT EXISTS channel_topics_channel ON projection_channel_topics(channel_id, created_at);
-  INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at)
-  SELECT 'openbot-topic-' || lower(hex(randomblob(16))), channel_id, 'Main', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-  FROM projection_channels
-  WHERE channel_id NOT IN (SELECT channel_id FROM projection_channel_topics);
+  -- The id of the first tab is the channel's, so a migration that runs twice inserts once.
+  INSERT OR IGNORE INTO projection_channel_topics(topic_id, channel_id, name, created_at)
+  SELECT 'openbot-topic-' || channel_id, channel_id, 'Main', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  FROM projection_channels;
 
   UPDATE projection_channel_messages
   SET message_json = json_set(

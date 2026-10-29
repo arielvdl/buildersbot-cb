@@ -48,6 +48,7 @@ export const messages = defineMessages("channel", {
   "channel.error.loadOlder": "Could not load earlier messages.",
   "channel.error.delete": "Could not delete this channel.",
   // The tabs of a channel. The first one is named when a channel is made.
+  "channel.topic.defaultName": "Tab {n}",
   "channel.topic.new": "New tab",
   "channel.topic.name": "Tab name",
   "channel.topic.rename": "Rename tab",

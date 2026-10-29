@@ -48,6 +48,7 @@ export const messages = {
   "channel.error.update": "Não foi possível atualizar o canal.",
   "channel.error.loadOlder": "Não foi possível carregar as mensagens anteriores.",
   "channel.error.delete": "Não foi possível excluir este canal.",
+  "channel.topic.defaultName": "Aba {n}",
   "channel.topic.new": "Nova aba",
   "channel.topic.name": "Nome da aba",
   "channel.topic.rename": "Renomear aba",
