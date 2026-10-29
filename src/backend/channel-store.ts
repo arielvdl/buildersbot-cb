@@ -10,13 +10,14 @@ import {
   type ChannelSummary,
   type ChannelTask,
   type ChannelThread,
+  type ChannelTopic,
   decodeChannel,
   isChannelMessage,
   isChannelTask,
   SIGNED_OUT_CHANNEL_MEMBER_ID,
 } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
-import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
+import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { deleteAggregateHistory, deleteThreadAttachments } from "./database/database-core";
 import {
@@ -70,11 +71,13 @@ export interface ChannelHistorySummary {
   text: string;
 }
 
-interface ChannelChange {
+export interface ChannelChange {
   channel: Channel;
   messages: ChannelMessage[];
   tasks: ChannelTask[];
   assignments: ChannelAssignment[];
+  /** The tabs of the channel, whole: a tab missing here is deleted. Absent leaves them alone. */
+  topics?: ChannelTopic[];
 }
 
 /**
@@ -185,6 +188,14 @@ export class ChannelStore {
       };
       threads.set(channelId, [...(threads.get(channelId) ?? []), thread]);
     }
+    const topics = new Map<string, ChannelTopic[]>();
+    for (const topic of databaseRows(
+      this.database.connection
+        .prepare("SELECT * FROM projection_channel_topics ORDER BY channel_id, created_at, topic_id")
+        .all(),
+    ).map((row) => decodeTopic(row))) {
+      topics.set(topic.channelId, [...(topics.get(topic.channelId) ?? []), topic]);
+    }
     return rows.map((row) => {
       const channel = decodeChannel(JSON.parse(requiredStringColumn(row, "channel_json")));
       const latestJson = row.latest_json;
@@ -215,12 +226,102 @@ export class ChannelStore {
         threads: (threads.get(channel.id) ?? []).filter((thread) =>
           channel.members.some((item) => item.agentId === thread.agentId),
         ),
+        topics: topics.get(channel.id) ?? [],
       };
     });
   }
 
   create(channelId: string, draft: ChannelDraft): Channel {
     return { ...draft, id: channelId, archived: false, revision: 0, createdAt: new Date().toISOString() };
+  }
+
+  topics(channelId: string): ChannelTopic[] {
+    return databaseRows(
+      this.database.connection
+        .prepare("SELECT * FROM projection_channel_topics WHERE channel_id = ? ORDER BY created_at, topic_id")
+        .all(channelId),
+    ).map((row) => decodeTopic(row));
+  }
+
+  /** The id of the first tab, which every channel has. */
+  firstTopicId(channelId: string): string {
+    return this.firstTopic(channelId)?.id ?? "";
+  }
+
+  /** The first tab of the channel: where a client without tabs, and a new channel, lands. */
+  firstTopic(channelId: string): ChannelTopic | null {
+    const row = databaseRow(
+      this.database.connection
+        .prepare("SELECT * FROM projection_channel_topics WHERE channel_id = ? ORDER BY created_at, topic_id LIMIT 1")
+        .get(channelId),
+    );
+    return row ? decodeTopic(row) : null;
+  }
+
+  topic(channelId: string, topicId: string): ChannelTopic | null {
+    const row = databaseRow(
+      this.database.connection
+        .prepare("SELECT * FROM projection_channel_topics WHERE channel_id = ? AND topic_id = ?")
+        .get(channelId, topicId),
+    );
+    return row ? decodeTopic(row) : null;
+  }
+
+  /**
+   * Adds a tab. It is written with the channel in the same command, so a channel and its first tab
+   * cannot exist apart.
+   */
+  addTopic(topic: ChannelTopic): void {
+    this.database.connection
+      .prepare(
+        "INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at, revision) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(topic.id, topic.channelId, topic.name, topic.createdAt, topic.revision);
+  }
+
+  renameTopic(channelId: string, topicId: string, name: string): void {
+    const updated = this.database.connection
+      .prepare(
+        "UPDATE projection_channel_topics SET name = ?, revision = revision + 1 WHERE channel_id = ? AND topic_id = ?",
+      )
+      .run(name, channelId, topicId);
+    if (updated.changes === 0) throw new Error(sourceText("error.backend.channelTopicNotFound"));
+  }
+
+  /**
+   * Removes a tab with everything that belongs to it. The threads of its sessions go too, which is
+   * why the caller reads them first.
+   */
+  deleteTopic(channelId: string, topicId: string): void {
+    for (const table of ["projection_channel_contexts", "projection_channel_summaries", "projection_channel_reads"])
+      this.database.connection
+        .prepare(`DELETE FROM ${table} WHERE channel_id = ? AND topic_id = ?`)
+        .run(channelId, topicId);
+    this.database.connection
+      .prepare(
+        "DELETE FROM projection_channel_assignments WHERE channel_id = ? AND task_id IN (SELECT task_id FROM projection_channel_tasks WHERE channel_id = ? AND json_extract(task_json, '$.topicId') = ?)",
+      )
+      .run(channelId, channelId, topicId);
+    this.database.connection
+      .prepare("DELETE FROM projection_channel_tasks WHERE channel_id = ? AND json_extract(task_json, '$.topicId') = ?")
+      .run(channelId, topicId);
+    this.database.connection
+      .prepare(
+        "DELETE FROM projection_channel_messages WHERE channel_id = ? AND json_extract(message_json, '$.topicId') = ?",
+      )
+      .run(channelId, topicId);
+    this.database.connection
+      .prepare("DELETE FROM projection_channel_topics WHERE channel_id = ? AND topic_id = ?")
+      .run(channelId, topicId);
+  }
+
+  /** The execution threads of one tab, for the caller that deletes it. */
+  topicThreads(channelId: string, topicId: string): string[] {
+    return databaseRows(
+      this.database.connection
+        .prepare("SELECT thread_id FROM projection_channel_contexts WHERE channel_id = ? AND topic_id = ?")
+        .all(channelId, topicId),
+    ).map((row) => requiredStringColumn(row, "thread_id"));
   }
 
   exists(channelId: string): boolean {
@@ -230,18 +331,24 @@ export class ChannelStore {
     );
   }
 
-  messages(channelId: string, before = Number.MAX_SAFE_INTEGER, limit?: number): ChannelMessage[] {
+  messages(channelId: string, topicId: string, before = Number.MAX_SAFE_INTEGER, limit?: number): ChannelMessage[] {
+    // A message written before tabs, or replayed from an older event, carries none: it belongs to
+    // the first tab, which is where the channel opened before.
+    const first = this.firstTopicId(channelId) === topicId;
     const rows = databaseRows(
       this.database.connection
         .prepare(
-          "SELECT message_json FROM projection_channel_messages WHERE channel_id = ? AND sequence < ? ORDER BY sequence DESC, message_id DESC LIMIT ?",
+          `SELECT message_json FROM projection_channel_messages
+            WHERE channel_id = ? AND sequence < ?
+              AND (json_extract(message_json, '$.topicId') = ?${first ? " OR json_extract(message_json, '$.topicId') IS NULL" : ""})
+            ORDER BY sequence DESC, message_id DESC LIMIT ?`,
         )
-        .all(channelId, before, limit ?? -1),
+        .all(channelId, before, topicId, limit ?? -1),
     );
     return rows.reverse().map((row) => {
       const value = JSON.parse(requiredStringColumn(row, "message_json"));
       if (!isChannelMessage(value)) throw new Error("Invalid stored channel message.");
-      return value;
+      return { ...value, topicId: value.topicId ?? topicId };
     });
   }
 
@@ -258,15 +365,23 @@ export class ChannelStore {
     return value;
   }
 
-  tasks(channelId: string): ChannelTask[] {
+  /** The tasks of one tab, or of the whole channel when no tab is named. */
+  tasks(channelId: string, topicId?: string): ChannelTask[] {
+    const first = topicId !== undefined && this.firstTopicId(channelId) === topicId;
     return databaseRows(
       this.database.connection
-        .prepare("SELECT task_json FROM projection_channel_tasks WHERE channel_id = ? ORDER BY rowid")
-        .all(channelId),
+        .prepare(
+          topicId === undefined
+            ? "SELECT task_json FROM projection_channel_tasks WHERE channel_id = ? ORDER BY rowid"
+            : `SELECT task_json FROM projection_channel_tasks
+                WHERE channel_id = ? AND (json_extract(task_json, '$.topicId') = ?${first ? " OR json_extract(task_json, '$.topicId') IS NULL" : ""})
+                ORDER BY rowid`,
+        )
+        .all(...(topicId === undefined ? [channelId] : [channelId, topicId])),
     ).map((row) => {
       const value = JSON.parse(requiredStringColumn(row, "task_json"));
       if (!isChannelTask(value)) throw new Error("Invalid stored channel task.");
-      return value;
+      return { ...value, topicId: value.topicId ?? topicId };
     });
   }
 
@@ -357,18 +472,19 @@ export class ChannelStore {
     return row ? decodeAssignment(JSON.parse(requiredStringColumn(row, "assignment_json"))) : null;
   }
 
-  page(channelId: string, before?: number): ChannelPage {
-    const messages = this.messages(channelId, before, 101);
+  page(channelId: string, topicId: string, before?: number): ChannelPage {
+    const messages = this.messages(channelId, topicId, before, 101);
     const hasOlder = messages.length > 100;
     if (hasOlder) messages.shift();
     const olderCursor = hasOlder ? (messages[0]?.sequence ?? null) : null;
     return {
       channel: this.get(channelId),
-      tasks: this.tasks(channelId),
+      topicId,
+      tasks: this.tasks(channelId, topicId),
       messages,
       olderCursor,
-      throughSequence: this.messages(channelId, undefined, 1)[0]?.sequence ?? 0,
-      ...(olderCursor === null ? {} : this.olderExtent(channelId, olderCursor)),
+      throughSequence: this.messages(channelId, topicId, undefined, 1)[0]?.sequence ?? 0,
+      ...(olderCursor === null ? {} : this.olderExtent(channelId, topicId, olderCursor)),
     };
   }
 
@@ -376,16 +492,17 @@ export class ChannelStore {
    * How many messages are older than a page, and when the first one was written: the day rail draws
    * the unloaded part from it. The time is only in the message JSON, so only the oldest row is read.
    */
-  private olderExtent(channelId: string, before: number): { olderCount: number; oldestAt?: string } {
+  private olderExtent(channelId: string, topicId: string, before: number): { olderCount: number; oldestAt?: string } {
     const row = databaseRow(
       this.database.connection
         .prepare(
           `SELECT COUNT(*) AS older_count,
              (SELECT json_extract(message_json, '$.message.createdAt') FROM projection_channel_messages
-              WHERE channel_id = ? ORDER BY sequence LIMIT 1) AS oldest_at
-           FROM projection_channel_messages WHERE channel_id = ? AND sequence < ?`,
+              WHERE channel_id = ? AND json_extract(message_json, '$.topicId') = ? ORDER BY sequence LIMIT 1) AS oldest_at
+           FROM projection_channel_messages
+            WHERE channel_id = ? AND json_extract(message_json, '$.topicId') = ? AND sequence < ?`,
         )
-        .get(channelId, channelId, before),
+        .get(channelId, topicId, channelId, topicId, before),
     );
     const oldestAt = row ? optionalStringColumn(row, "oldest_at") : null;
     return { olderCount: row ? requiredNumberColumn(row, "older_count") : 0, ...(oldestAt ? { oldestAt } : {}) };
@@ -412,6 +529,20 @@ export class ChannelStore {
     db.prepare(
       "INSERT INTO projection_channels VALUES (?, ?) ON CONFLICT(channel_id) DO UPDATE SET channel_json = excluded.channel_json",
     ).run(change.channel.id, JSON.stringify(change.channel));
+    if (change.topics) {
+      const kept = new Set(change.topics.map((topic) => topic.id));
+      for (const row of databaseRows(
+        db.prepare("SELECT topic_id FROM projection_channel_topics WHERE channel_id = ?").all(change.channel.id),
+      ))
+        if (!kept.has(requiredStringColumn(row, "topic_id")))
+          db.prepare("DELETE FROM projection_channel_topics WHERE topic_id = ?").run(
+            requiredStringColumn(row, "topic_id"),
+          );
+      for (const topic of change.topics)
+        db.prepare(
+          "INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at, revision) VALUES (?, ?, ?, ?, ?) ON CONFLICT(topic_id) DO UPDATE SET name = excluded.name, revision = excluded.revision",
+        ).run(topic.id, topic.channelId, topic.name, topic.createdAt, topic.revision);
+    }
     for (const message of change.messages) {
       const existing = databaseRow(
         db
@@ -434,25 +565,38 @@ export class ChannelStore {
           : 1;
       db.prepare(
         "INSERT INTO projection_channel_messages VALUES (?, ?, ?, ?) ON CONFLICT(channel_id, message_id) DO UPDATE SET message_json = excluded.message_json",
-      ).run(change.channel.id, message.id, assigned, JSON.stringify({ ...message, sequence: assigned }));
+      ).run(
+        change.channel.id,
+        message.id,
+        assigned,
+        JSON.stringify({
+          ...message,
+          topicId: message.topicId ?? this.#firstTopicId(db, change.channel.id),
+          sequence: assigned,
+        }),
+      );
       if (existing) {
         // A streaming message changes on each part of its text; a packet already leaves it unread.
         if (existing.status !== "streaming")
           this.#completedMessageChanges.set(change.channel.id, this.completedMessageChanges(change.channel.id) + 1);
         db.prepare(
-          "UPDATE projection_channel_summaries SET version = version + 1, through_sequence = 0, text = '' WHERE channel_id = ? AND through_sequence >= ?",
-        ).run(change.channel.id, assigned);
+          "UPDATE projection_channel_summaries SET version = version + 1, through_sequence = 0, text = '' WHERE channel_id = ? AND topic_id = ? AND through_sequence >= ?",
+        ).run(change.channel.id, message.topicId ?? this.#firstTopicId(db, change.channel.id), assigned);
         // A member read this message before it changed, as when a correction supersedes a result. A
         // packet with only later messages would not show the change, so the next one is complete.
         db.prepare(
-          "UPDATE projection_channel_contexts SET through_sequence = 0, summary_version = 0 WHERE channel_id = ? AND through_sequence >= ?",
-        ).run(change.channel.id, assigned);
+          "UPDATE projection_channel_contexts SET through_sequence = 0, summary_version = 0 WHERE channel_id = ? AND topic_id = ? AND through_sequence >= ?",
+        ).run(change.channel.id, message.topicId ?? this.#firstTopicId(db, change.channel.id), assigned);
       }
     }
     for (const task of change.tasks)
       db.prepare(
         "INSERT INTO projection_channel_tasks VALUES (?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET task_json = excluded.task_json",
-      ).run(task.id, change.channel.id, JSON.stringify(task));
+      ).run(
+        task.id,
+        change.channel.id,
+        JSON.stringify({ ...task, topicId: task.topicId ?? this.#firstTopicId(db, change.channel.id) }),
+      );
     for (const assignment of change.assignments)
       db.prepare(
         "INSERT INTO projection_channel_assignments VALUES (?, ?, ?, ?, ?) ON CONFLICT(assignment_id) DO UPDATE SET delivery_id = excluded.delivery_id, assignment_json = excluded.assignment_json",
@@ -467,11 +611,11 @@ export class ChannelStore {
     return this.commit(operationId, { channel, messages: [], tasks: [], assignments: [], ...changes });
   }
 
-  context(channelId: string, agentId: string): ChannelContext {
+  context(channelId: string, topicId: string, agentId: string): ChannelContext {
     const row = databaseRow(
       this.database.connection
-        .prepare("SELECT * FROM projection_channel_contexts WHERE channel_id = ? AND agent_id = ?")
-        .get(channelId, agentId),
+        .prepare("SELECT * FROM projection_channel_contexts WHERE channel_id = ? AND topic_id = ? AND agent_id = ?")
+        .get(channelId, topicId, agentId),
     );
     if (row)
       return {
@@ -482,13 +626,13 @@ export class ChannelStore {
       };
     const threadId = `openbot-thread-${randomUUID()}`;
     return this.database.dispatch(
-      `channel-context:${channelId}:${agentId}`,
+      `channel-context:${channelId}:${topicId}:${agentId}`,
       [
         {
           aggregateType: "channel",
           aggregateId: channelId,
           eventType: "channel.context-created",
-          payload: { agentId, threadId },
+          payload: { agentId, threadId, topicId },
         },
       ],
       (db, sequences) => {
@@ -501,11 +645,9 @@ export class ChannelStore {
           now,
           sequences[0] ?? 0,
         );
-        db.prepare("INSERT INTO projection_channel_contexts(channel_id, agent_id, thread_id) VALUES (?, ?, ?)").run(
-          channelId,
-          agentId,
-          threadId,
-        );
+        db.prepare(
+          "INSERT INTO projection_channel_contexts(channel_id, topic_id, agent_id, thread_id) VALUES (?, ?, ?, ?)",
+        ).run(channelId, topicId, agentId, threadId);
         return { threadId, sessionId: null, throughSequence: 0, summaryVersion: 0 };
       },
     );
@@ -587,6 +729,7 @@ export class ChannelStore {
           "projection_channel_routine_runs",
           "projection_channel_routines",
           "projection_channel_memories",
+          "projection_channel_topics",
         ]) {
           db.prepare(`DELETE FROM ${table} WHERE channel_id = ?`).run(channelId);
         }
@@ -600,6 +743,15 @@ export class ChannelStore {
         return null;
       },
     );
+  }
+
+  /** Forgets threads whose tab was deleted, with the history and files of their turns. */
+  deleteThreads(threadIds: readonly string[]): void {
+    for (const threadId of threadIds) {
+      deleteAggregateHistory(this.database.connection, "thread", [threadId]);
+      deleteThreadAttachments(this.database.connection, threadId);
+      this.database.connection.prepare("DELETE FROM projection_threads WHERE thread_id = ?").run(threadId);
+    }
   }
 
   channelForThread(threadId: string): string | null {
@@ -675,11 +827,11 @@ export class ChannelStore {
       );
   }
 
-  summary(channelId: string): ChannelHistorySummary {
+  summary(channelId: string, topicId: string): ChannelHistorySummary {
     const row = databaseRow(
       this.database.connection
-        .prepare("SELECT * FROM projection_channel_summaries WHERE channel_id = ?")
-        .get(channelId),
+        .prepare("SELECT * FROM projection_channel_summaries WHERE channel_id = ? AND topic_id = ?")
+        .get(channelId, topicId),
     );
     return row
       ? {
@@ -690,14 +842,14 @@ export class ChannelStore {
       : { version: 0, throughSequence: 0, text: "" };
   }
 
-  saveSummary(channelId: string, summary: ChannelHistorySummary): void {
+  saveSummary(channelId: string, topicId: string, summary: ChannelHistorySummary): void {
     this.database.dispatch(
-      `channel-summary:${channelId}:${summary.version}`,
+      `channel-summary:${channelId}:${topicId}:${summary.version}`,
       [{ aggregateType: "channel", aggregateId: channelId, eventType: "channel.summarized", payload: summary }],
       (db) => {
         db.prepare(
-          "INSERT INTO projection_channel_summaries VALUES (?, ?, ?, ?) ON CONFLICT(channel_id) DO UPDATE SET version = excluded.version, through_sequence = excluded.through_sequence, text = excluded.text",
-        ).run(channelId, summary.version, summary.throughSequence, summary.text);
+          "INSERT INTO projection_channel_summaries VALUES (?, ?, ?, ?, ?) ON CONFLICT(channel_id, topic_id) DO UPDATE SET version = excluded.version, through_sequence = excluded.through_sequence, text = excluded.text",
+        ).run(channelId, topicId, summary.version, summary.throughSequence, summary.text);
       },
     );
   }
@@ -714,21 +866,34 @@ export class ChannelStore {
     if (sourceMemberId === targetMemberId) return;
     const rows = databaseRows(
       this.database.connection
-        .prepare("SELECT channel_id, through_sequence FROM projection_channel_reads WHERE member_id = ?")
+        .prepare("SELECT channel_id, topic_id, through_sequence FROM projection_channel_reads WHERE member_id = ?")
         .all(sourceMemberId),
     );
     for (const row of rows) {
       const channelId = requiredStringColumn(row, "channel_id");
-      if (this.#hasReadCursor(channelId, targetMemberId)) continue;
+      const topicId = requiredStringColumn(row, "topic_id");
+      if (this.#hasReadCursor(channelId, topicId, targetMemberId)) continue;
       const throughSequence = requiredNumberColumn(row, "through_sequence");
       // The command key holds the target member and this operation id, not the channel. Without the
       // channel here, every channel after the first would answer with the first channel's receipt.
-      this.markRead(channelId, targetMemberId, throughSequence, `adopt:${sourceMemberId}:${channelId}`);
+      this.markRead(
+        channelId,
+        topicId,
+        targetMemberId,
+        throughSequence,
+        `adopt:${sourceMemberId}:${channelId}:${topicId}`,
+      );
     }
   }
 
-  markRead(channelId: string, memberId: string, throughSequence: number, operationId: string): Channel {
-    const maximum = this.page(channelId).throughSequence;
+  markRead(
+    channelId: string,
+    topicId: string,
+    memberId: string,
+    throughSequence: number,
+    operationId: string,
+  ): Channel {
+    const maximum = this.page(channelId, topicId).throughSequence;
     if (throughSequence > maximum) throw new Error("The read position exceeds the channel history.");
     return this.database.dispatch(
       `channel-read:${memberId}:${operationId}`,
@@ -737,13 +902,13 @@ export class ChannelStore {
           aggregateType: "channel",
           aggregateId: channelId,
           eventType: "channel.read",
-          payload: { memberId, throughSequence },
+          payload: { memberId, throughSequence, topicId },
         },
       ],
       (db) => {
         db.prepare(
-          "INSERT INTO projection_channel_reads VALUES (?, ?, ?) ON CONFLICT(channel_id, member_id) DO UPDATE SET through_sequence = MAX(through_sequence, excluded.through_sequence)",
-        ).run(channelId, memberId, throughSequence);
+          "INSERT INTO projection_channel_reads VALUES (?, ?, ?, ?) ON CONFLICT(channel_id, topic_id, member_id) DO UPDATE SET through_sequence = MAX(through_sequence, excluded.through_sequence)",
+        ).run(channelId, topicId, memberId, throughSequence);
         return this.get(channelId);
       },
     );
@@ -761,7 +926,7 @@ export class ChannelStore {
           )
           .all(channelId),
       );
-      for (const table of ["assignments", "tasks", "messages", "summaries", "reads", "contexts", "memories"])
+      for (const table of ["assignments", "tasks", "messages", "summaries", "reads", "contexts", "memories", "topics"])
         db.prepare(`DELETE FROM projection_channel_${table} WHERE channel_id = ?`).run(channelId);
       db.prepare("DELETE FROM projection_channels WHERE channel_id = ?").run(channelId);
       for (const event of events) {
@@ -782,12 +947,14 @@ export class ChannelStore {
               messages: value.messages,
               tasks: value.tasks,
               assignments: value.assignments.map(decodeAssignment),
+              ...(Array.isArray(value.topics) ? { topics: value.topics.filter(isChannelTopic).map(decodeTopic) } : {}),
             });
             break;
           }
           case "channel.context-created": {
             if (!isString(value.agentId) || !isString(value.threadId))
               throw new Error("Invalid channel context event.");
+            const contextTopic = isString(value.topicId) ? value.topicId : this.#firstTopicId(db, channelId);
             const now = requiredStringColumn(event, "occurred_at");
             db.prepare("INSERT OR IGNORE INTO projection_threads VALUES (?, ?, ?, NULL, ?, ?, ?)").run(
               value.threadId,
@@ -797,11 +964,9 @@ export class ChannelStore {
               now,
               requiredNumberColumn(event, "sequence"),
             );
-            db.prepare("INSERT INTO projection_channel_contexts(channel_id, agent_id, thread_id) VALUES (?, ?, ?)").run(
-              channelId,
-              value.agentId,
-              value.threadId,
-            );
+            db.prepare(
+              "INSERT INTO projection_channel_contexts(channel_id, topic_id, agent_id, thread_id) VALUES (?, ?, ?, ?)",
+            ).run(channelId, contextTopic, value.agentId, value.threadId);
             break;
           }
           case "channel.context-accepted": {
@@ -813,15 +978,23 @@ export class ChannelStore {
             )
               throw new Error("Invalid context acceptance event.");
             db.prepare(
-              "UPDATE projection_channel_contexts SET session_id = ?, through_sequence = ?, summary_version = ? WHERE channel_id = ? AND agent_id = ?",
-            ).run(value.sessionId, value.throughSequence, value.summaryVersion, channelId, value.agentId);
+              "UPDATE projection_channel_contexts SET session_id = ?, through_sequence = ?, summary_version = ? WHERE channel_id = ? AND topic_id = ? AND agent_id = ?",
+            ).run(
+              value.sessionId,
+              value.throughSequence,
+              value.summaryVersion,
+              channelId,
+              isString(value.topicId) ? value.topicId : this.#firstTopicId(db, channelId),
+              value.agentId,
+            );
             break;
           }
           case "channel.summarized": {
             if (!isString(value.text) || typeof value.version !== "number" || typeof value.throughSequence !== "number")
               throw new Error("Invalid channel summary event.");
-            db.prepare("INSERT OR REPLACE INTO projection_channel_summaries VALUES (?, ?, ?, ?)").run(
+            db.prepare("INSERT OR REPLACE INTO projection_channel_summaries VALUES (?, ?, ?, ?, ?)").run(
               channelId,
+              isString(value.topicId) ? value.topicId : this.#firstTopicId(db, channelId),
               value.version,
               value.throughSequence,
               value.text,
@@ -832,8 +1005,13 @@ export class ChannelStore {
             if (!isString(value.memberId) || typeof value.throughSequence !== "number")
               throw new Error("Invalid channel read event.");
             db.prepare(
-              "INSERT INTO projection_channel_reads VALUES (?, ?, ?) ON CONFLICT(channel_id, member_id) DO UPDATE SET through_sequence = MAX(through_sequence, excluded.through_sequence)",
-            ).run(channelId, value.memberId, value.throughSequence);
+              "INSERT INTO projection_channel_reads VALUES (?, ?, ?, ?) ON CONFLICT(channel_id, topic_id, member_id) DO UPDATE SET through_sequence = MAX(through_sequence, excluded.through_sequence)",
+            ).run(
+              channelId,
+              isString(value.topicId) ? value.topicId : this.#firstTopicId(db, channelId),
+              value.memberId,
+              value.throughSequence,
+            );
             break;
           }
           default:
@@ -847,12 +1025,25 @@ export class ChannelStore {
     }
   }
 
+  /** The tab a replayed event without one belongs to: the first, which every channel has. */
+  #firstTopicId(db: DatabaseSync, channelId: string): string {
+    const row = databaseRow(
+      db
+        .prepare(
+          "SELECT topic_id FROM projection_channel_topics WHERE channel_id = ? ORDER BY created_at, topic_id LIMIT 1",
+        )
+        .get(channelId),
+    );
+    if (!row) throw new Error("The channel has no tab.");
+    return requiredStringColumn(row, "topic_id");
+  }
+
   /** A stored cursor of zero is a reader that read nothing, not a reader with no cursor at all. */
-  #hasReadCursor(channelId: string, memberId: string): boolean {
+  #hasReadCursor(channelId: string, topicId: string, memberId: string): boolean {
     return (
       this.database.connection
-        .prepare("SELECT 1 FROM projection_channel_reads WHERE channel_id = ? AND member_id = ?")
-        .get(channelId, memberId) !== undefined
+        .prepare("SELECT 1 FROM projection_channel_reads WHERE channel_id = ? AND topic_id = ? AND member_id = ?")
+        .get(channelId, topicId, memberId) !== undefined
     );
   }
 }
@@ -902,6 +1093,26 @@ function previewText(entry: ChannelMessage): string {
   if (entry.message.questionPrompt) return "Asked a question";
   if (entry.message.attachments?.length) return "Sent an attachment";
   return "Sent a message";
+}
+
+function isChannelTopic(value: unknown): boolean {
+  return (
+    isDynamicRecord(value) &&
+    isString(value.id) &&
+    isString(value.channelId) &&
+    isString(value.name) &&
+    isString(value.createdAt)
+  );
+}
+
+function decodeTopic(row: DynamicRecord): ChannelTopic {
+  return {
+    id: requiredStringColumn(row, "topic_id"),
+    channelId: requiredStringColumn(row, "channel_id"),
+    name: requiredStringColumn(row, "name"),
+    createdAt: requiredStringColumn(row, "created_at"),
+    revision: requiredNumberColumn(row, "revision"),
+  };
 }
 
 function decodeAssignment(value: unknown): ChannelAssignment {

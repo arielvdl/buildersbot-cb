@@ -173,6 +173,7 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
         recipientAgentId: mention?.id ?? null,
         replyToMessageId,
         attachmentDraftIds,
+        ...(channels.state.topicId ? { topicId: channels.state.topicId } : {}),
       });
       const messageId = sentChannelMessageId(after, sequenceBefore, body, env.isOwnSender);
       return messageId ? { messageId } : { error: t("channel.error.action") };

@@ -319,7 +319,7 @@ export async function seedScale(options: ScaledSeedOptions): Promise<void> {
       {},
       `dev-seed:${channelId}`,
     );
-    for (const agentId of channelMembers) store.context(channelId, agentId);
+    for (const agentId of channelMembers) store.context(channelId, store.firstTopicId(channelId), agentId);
     const messages: ChannelMessage[] = [];
     const tasks: ChannelTask[] = [];
     for (let position = 0; position < scale.channelMessages; position += 1) {

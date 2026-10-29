@@ -108,8 +108,10 @@ export class ChannelHistory {
       const dependencies = yield* ChannelHistoryDependencies;
       const characterBudget = Math.min(CONTEXT_CHARACTERS, requestedBudget);
       const channel = yield* channelSync(() => dependencies.store.get(task.channelId));
-      let messages = conversation(yield* channelSync(() => dependencies.store.messages(channel.id)));
-      let summary = yield* channelSync(() => dependencies.store.summary(channel.id));
+      const topicId =
+        task.topicId ?? (yield* channelSync(() => dependencies.store.firstTopic(task.channelId)?.id)) ?? "";
+      let messages = conversation(yield* channelSync(() => dependencies.store.messages(channel.id, topicId)));
+      let summary = yield* channelSync(() => dependencies.store.summary(channel.id, topicId));
       let recent = messages.filter((message) => message.sequence > summary.throughSequence);
       // Reserve half the handoff ceiling for instructions, requested sources, and provider overhead.
       while (render(recent).length > characterBudget / 2 && recent.length > 1) {
@@ -157,7 +159,7 @@ export class ChannelHistory {
             return yield* channelFailure(new Error(sourceText("error.backend.channelHistoryInvalid")));
         }
         // Another task can update the summary while this isolated model runs.
-        const current = yield* channelSync(() => dependencies.store.summary(channel.id));
+        const current = yield* channelSync(() => dependencies.store.summary(channel.id, topicId));
         if (current.version !== summary.version) summary = current;
         else {
           summary = {
@@ -165,9 +167,9 @@ export class ChannelHistory {
             throughSequence: old.at(-1)?.sequence ?? summary.throughSequence,
             text,
           };
-          yield* channelSync(() => dependencies.store.saveSummary(channel.id, summary));
+          yield* channelSync(() => dependencies.store.saveSummary(channel.id, topicId, summary));
         }
-        messages = conversation(yield* channelSync(() => dependencies.store.messages(channel.id)));
+        messages = conversation(yield* channelSync(() => dependencies.store.messages(channel.id, topicId)));
         recent = messages.filter((message) => message.sequence > summary.throughSequence);
       }
       const memories = yield* channelSync(() => dependencies.memories.list(channel.id));

@@ -289,6 +289,14 @@ export const messages = defineMessages("marketplace", {
   "marketplace.plugin.airtable.prompt.bases": "What bases do I have access to?",
   "marketplace.plugin.airtable.prompt.records": "Summarize the launch tracker table.",
   "marketplace.plugin.airtable.prompt.update": "Mark the shipped features as done in the roadmap base.",
+  "marketplace.plugin.playwright.tagline": "The browser on this computer",
+  "marketplace.plugin.playwright.description":
+    "Playwright opens and drives a real browser on this computer: read a page, click, fill a form, take a screenshot, and keep the work in a browser profile of its own. It is the default way to reach the web, and it needs no account and no key. The first start downloads the browser. It runs beside the Builders Bot browser, which keeps the sign-ins and the Vault.",
+  "marketplace.plugin.playwright.app":
+    "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
+  "marketplace.plugin.playwright.prompt.read": "Open this page and summarize what it says.",
+  "marketplace.plugin.playwright.prompt.form": "Fill this form with the details below and stop before submitting.",
+  "marketplace.plugin.playwright.prompt.shot": "Take a screenshot of the pricing page at desktop width.",
   "marketplace.plugin.firecrawl.tagline": "Web extraction and search",
   "marketplace.plugin.firecrawl.description":
     "Firecrawl lets agents scrape pages, extract structured data, and search the web through one API. An API key from the Firecrawl dashboard is passed to the local server as one environment variable.",

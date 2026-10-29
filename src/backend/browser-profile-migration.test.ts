@@ -12,7 +12,8 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 
-// Migration 45 adds the profiles and migration 46 the workflow tables, all empty.
+// Migration 45 adds the profiles, migration 46 the workflow tables and migration 48 the channel
+// tabs, all empty.
 const NEW_TABLES = {
   browser_profiles: [],
   workflow_edges: [],
@@ -25,6 +26,8 @@ const NEW_TABLES = {
   workflow_versions: [],
   workflow_webhook_receipts: [],
   workflows: [],
+  // Migration 48 adds the channel tabs, empty.
+  projection_channel_topics: [],
 };
 
 function databaseAt(version: number): DatabaseSync {
@@ -101,7 +104,7 @@ function profileTables(db: DatabaseSync) {
 }
 
 function expectHealthy(db: DatabaseSync): void {
-  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 47 });
+  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 48 });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -160,9 +163,9 @@ describe("browser profile migration", () => {
     const db = databaseAt(44);
     seed(db, 44);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(48,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(49,'now')");
     expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=48; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=49; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(profileTables(db)).toEqual([]);

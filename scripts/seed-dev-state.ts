@@ -1226,8 +1226,9 @@ async function seedLaunchRoom(
   );
   // The execution threads come first: a file an agent generates in a channel belongs to the shared
   // transcript, so it has to be owned by the channel thread rather than by the agent's own chat.
-  for (const agentId of ["chief", "research", "builder"]) store.context(channelId, agentId);
-  const launchThread = store.context(channelId, "launch").threadId;
+  for (const agentId of ["chief", "research", "builder"])
+    store.context(channelId, store.firstTopicId(channelId), agentId);
+  const launchThread = store.context(channelId, store.firstTopicId(channelId), "launch").threadId;
   const draft = await runCauseEffect(
     mailbox.storeGeneratedAttachment({
       name: "release-note-draft.md",
@@ -1411,7 +1412,7 @@ async function seedLaunchRoom(
   store.update(created, { messages, tasks }, "dev-seed:channel-launch-room:transcript");
   // Two messages the user did not write stay unread, so the sidebar count and the unread divider
   // both have something to show.
-  store.markRead(channelId, LOCAL_MEMBER_ID, 6, "dev-seed:channel-launch-room:read");
+  store.markRead(channelId, store.firstTopicId(channelId), LOCAL_MEMBER_ID, 6, "dev-seed:channel-launch-room:read");
 
   const standupRun = routines.createRun(standup, standup.trigger.id, "scheduled", clock.at(26 * HOUR));
   routines.attachRequest(standupRun.id, requestStandup);
@@ -1448,7 +1449,7 @@ function seedBetaFeedbackChannel(store: ChannelStore, agents: Map<string, AgentS
     {},
     "dev-seed:channel-beta-feedback",
   );
-  store.context(channelId, "research");
+  store.context(channelId, store.firstTopicId(channelId), "research");
   const requestSummary = "channel-beta-request-summary";
   const taskSummary = "channel-beta-task-summary";
   const summaryText = "Summarize the beta feedback and list the three most common requests.";
@@ -1493,7 +1494,13 @@ function seedBetaFeedbackChannel(store: ChannelStore, agents: Map<string, AgentS
     },
     "dev-seed:channel-beta-feedback:transcript",
   );
-  store.markRead(channelId, LOCAL_MEMBER_ID, messages.length, "dev-seed:channel-beta-feedback:read");
+  store.markRead(
+    channelId,
+    store.firstTopicId(channelId),
+    LOCAL_MEMBER_ID,
+    messages.length,
+    "dev-seed:channel-beta-feedback:read",
+  );
   store.update({ ...store.get(channelId), archived: true }, {}, "dev-seed:channel-beta-feedback:archive");
 }
 

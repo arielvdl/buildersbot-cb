@@ -213,6 +213,18 @@ const PLUGIN_TEXT = {
       "prompt-update": "marketplace.plugin.airtable.prompt.update",
     },
   },
+  playwright: {
+    tagline: "marketplace.plugin.playwright.tagline",
+    description: "marketplace.plugin.playwright.description",
+    apps: {
+      "app-playwright-mcp": "marketplace.plugin.playwright.app",
+    },
+    prompts: {
+      "prompt-read": "marketplace.plugin.playwright.prompt.read",
+      "prompt-form": "marketplace.plugin.playwright.prompt.form",
+      "prompt-shot": "marketplace.plugin.playwright.prompt.shot",
+    },
+  },
   firecrawl: {
     tagline: "marketplace.plugin.firecrawl.tagline",
     description: "marketplace.plugin.firecrawl.description",

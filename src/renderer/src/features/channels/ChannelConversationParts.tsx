@@ -18,6 +18,7 @@ import { channelMemoriesPort } from "../conversation/memories-port";
 import { desktopEventRoutinesApi } from "../conversation/routine-webhooks-api";
 import { channelRoutinesPort, eventRoutinesPort } from "../conversation/routines-port";
 import { ChannelEditor } from "./ChannelEditor";
+import { ChannelTabsFor } from "./ChannelTabs";
 import { stoppedChannelTasks } from "./channel-conversation-rows";
 import { useChannels } from "./channels-context";
 
@@ -67,22 +68,25 @@ export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: (
   return (
     <Show when={page()}>
       {(current) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          class="conversation-title channel-title no-drag"
-          aria-label={t("channel.settings.title")}
-          onClick={props.onOpenSettings}
-          disabled={current().channel.archived}
-        >
-          <ChannelAvatar members={current().channel.members} agents={channels.agents()} />
-          <span class="channel-header-copy">
-            <h1>{current().channel.name}</h1>
-            <Show when={current().channel.title.trim()}>
-              {(title) => <span class="channel-header-title">{title()}</span>}
-            </Show>
-          </span>
-        </Button>
+        <div class="channel-header-block">
+          <Button
+            variant="ghost"
+            size="sm"
+            class="conversation-title channel-title no-drag"
+            aria-label={t("channel.settings.title")}
+            onClick={props.onOpenSettings}
+            disabled={current().channel.archived}
+          >
+            <ChannelAvatar members={current().channel.members} agents={channels.agents()} />
+            <span class="channel-header-copy">
+              <h1>{current().channel.name}</h1>
+              <Show when={current().channel.title.trim()}>
+                {(title) => <span class="channel-header-title">{title()}</span>}
+              </Show>
+            </span>
+          </Button>
+          <ChannelTabsFor channelId={props.channelId} />
+        </div>
       )}
     </Show>
   );

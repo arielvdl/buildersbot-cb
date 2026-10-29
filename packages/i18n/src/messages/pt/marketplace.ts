@@ -275,6 +275,14 @@ export const messages = {
   "marketplace.plugin.airtable.prompt.records": "Resuma a tabela de acompanhamento do lançamento.",
   "marketplace.plugin.airtable.prompt.update":
     "Marque as funcionalidades entregues como concluídas na base do roadmap.",
+  "marketplace.plugin.playwright.tagline": "O navegador deste computador",
+  "marketplace.plugin.playwright.description":
+    "O Playwright abre e controla um navegador de verdade neste computador: lê uma página, clica, preenche formulário, tira print e mantém o trabalho num perfil de navegador próprio. É o jeito padrão de chegar à web, e não precisa de conta nem de chave. A primeira execução baixa o navegador. Ele roda ao lado do navegador do Builders Bot, que guarda os logins e o Cofre.",
+  "marketplace.plugin.playwright.app":
+    "Páginas, cliques, formulários e prints num navegador de verdade neste computador, por um servidor MCP local do Playwright. Sem chave.",
+  "marketplace.plugin.playwright.prompt.read": "Abra esta página e resuma o que ela diz.",
+  "marketplace.plugin.playwright.prompt.form": "Preencha este formulário com os dados abaixo e pare antes de enviar.",
+  "marketplace.plugin.playwright.prompt.shot": "Tire um print da página de preços na largura de desktop.",
   "marketplace.plugin.firecrawl.tagline": "Extração e busca na web",
   "marketplace.plugin.firecrawl.description":
     "O Firecrawl permite que agentes raspem páginas, extraiam dados estruturados e pesquisem a web por uma única API. Uma chave de API do painel do Firecrawl é passada ao servidor local como uma variável de ambiente.",

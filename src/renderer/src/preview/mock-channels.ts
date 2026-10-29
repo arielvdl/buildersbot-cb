@@ -23,6 +23,9 @@ import type {
 import { channelRoutingConversationEventItemType } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 
+/** The one tab the preview channel has: the preview draws the conversation, not the tab bar. */
+export const MOCK_CHANNEL_TOPIC_ID = "mock-channel-topic";
+
 /** A channel that exists when the preview starts, with its history. */
 export interface MockChannelSeed {
   channel: Channel;
@@ -68,6 +71,7 @@ export function createMockChannels(
       }),
     readChannel: async ({ channelId }: { channelId: string }): Promise<ChannelPage> => ({
       channel: structuredClone(requireChannel(channelId)),
+      topicId: MOCK_CHANNEL_TOPIC_ID,
       messages: structuredClone(messages.get(channelId) ?? []),
       tasks: structuredClone(tasks.get(channelId) ?? []),
       olderCursor: null,

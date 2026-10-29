@@ -236,7 +236,7 @@ const channels = () => agents.channels;
 const channelOf = (channelId: string) => channels().store.get(channelId);
 const notes = (channelId: string): ChannelMessage[] =>
   channels()
-    .store.messages(channelId)
+    .store.messages(channelId, channels().store.firstTopicId(channelId))
     .filter((entry) => isChannelChangeMarker(entry.message));
 
 /** Waits until no task of the channel is open, so the next request starts a task of its own. */

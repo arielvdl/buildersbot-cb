@@ -129,6 +129,12 @@
       "detailSha256": "b9371c8854d1fb2391afd2171d455957b7d73d5b45fb09b4ef9cd8d3fd8446ee"
     },
     {
+      "slug": "playwright",
+      "version": "1.0.0",
+      "featured": false,
+      "detailSha256": "66afbd6d01c9c1b77a43ae75a9557e466a1aac95da148d3714a44fc5ae97858d"
+    },
+    {
       "slug": "context7",
       "version": "1.0.0",
       "featured": false,

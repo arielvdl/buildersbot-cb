@@ -52,6 +52,99 @@ export const CHANNEL_SCHEMA_SQL = `
   );
 `;
 
+/**
+ * Migration 48: the tabs of a channel.
+ *
+ * Every channel gets one tab, `Main`, and every message, task, session, summary and read cursor it
+ * holds moves into it, so a channel that predates tabs opens exactly as it did. The three tables
+ * that key a conversation are rebuilt, because a tab belongs in their primary key; the messages and
+ * the tasks keep their JSON and gain the tab there, which needs no rebuild.
+ */
+export const CHANNEL_TOPICS_MIGRATION_SQL = `
+  CREATE TABLE IF NOT EXISTS projection_channel_topics (
+    topic_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL REFERENCES projection_channels(channel_id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS channel_topics_channel ON projection_channel_topics(channel_id, created_at);
+  INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at)
+  SELECT 'openbot-topic-' || lower(hex(randomblob(16))), channel_id, 'Main', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  FROM projection_channels
+  WHERE channel_id NOT IN (SELECT channel_id FROM projection_channel_topics);
+
+  UPDATE projection_channel_messages
+  SET message_json = json_set(
+    message_json,
+    '$.topicId',
+    (SELECT topic_id FROM projection_channel_topics t WHERE t.channel_id = projection_channel_messages.channel_id
+     ORDER BY t.created_at, t.topic_id LIMIT 1)
+  )
+  WHERE json_extract(message_json, '$.topicId') IS NULL;
+
+  UPDATE projection_channel_tasks
+  SET task_json = json_set(
+    task_json,
+    '$.topicId',
+    (SELECT topic_id FROM projection_channel_topics t WHERE t.channel_id = projection_channel_tasks.channel_id
+     ORDER BY t.created_at, t.topic_id LIMIT 1)
+  )
+  WHERE json_extract(task_json, '$.topicId') IS NULL;
+
+  CREATE TABLE projection_channel_contexts_v2 (
+    channel_id TEXT NOT NULL REFERENCES projection_channels(channel_id),
+    topic_id TEXT NOT NULL REFERENCES projection_channel_topics(topic_id),
+    agent_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL UNIQUE REFERENCES projection_threads(thread_id),
+    session_id TEXT,
+    through_sequence INTEGER NOT NULL DEFAULT 0,
+    summary_version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(channel_id, topic_id, agent_id)
+  );
+  INSERT INTO projection_channel_contexts_v2
+    SELECT channel_id,
+      (SELECT topic_id FROM projection_channel_topics t WHERE t.channel_id = projection_channel_contexts.channel_id
+       ORDER BY t.created_at, t.topic_id LIMIT 1),
+      agent_id, thread_id, session_id, through_sequence, summary_version
+    FROM projection_channel_contexts;
+  DROP TABLE projection_channel_contexts;
+  ALTER TABLE projection_channel_contexts_v2 RENAME TO projection_channel_contexts;
+
+  CREATE TABLE projection_channel_summaries_v2 (
+    channel_id TEXT NOT NULL REFERENCES projection_channels(channel_id),
+    topic_id TEXT NOT NULL REFERENCES projection_channel_topics(topic_id),
+    version INTEGER NOT NULL,
+    through_sequence INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    PRIMARY KEY(channel_id, topic_id)
+  );
+  INSERT INTO projection_channel_summaries_v2
+    SELECT channel_id,
+      (SELECT topic_id FROM projection_channel_topics t WHERE t.channel_id = projection_channel_summaries.channel_id
+       ORDER BY t.created_at, t.topic_id LIMIT 1),
+      version, through_sequence, text
+    FROM projection_channel_summaries;
+  DROP TABLE projection_channel_summaries;
+  ALTER TABLE projection_channel_summaries_v2 RENAME TO projection_channel_summaries;
+
+  CREATE TABLE projection_channel_reads_v2 (
+    channel_id TEXT NOT NULL REFERENCES projection_channels(channel_id),
+    topic_id TEXT NOT NULL REFERENCES projection_channel_topics(topic_id),
+    member_id TEXT NOT NULL,
+    through_sequence INTEGER NOT NULL,
+    PRIMARY KEY(channel_id, topic_id, member_id)
+  );
+  INSERT INTO projection_channel_reads_v2
+    SELECT channel_id,
+      (SELECT topic_id FROM projection_channel_topics t WHERE t.channel_id = projection_channel_reads.channel_id
+       ORDER BY t.created_at, t.topic_id LIMIT 1),
+      member_id, through_sequence
+    FROM projection_channel_reads;
+  DROP TABLE projection_channel_reads;
+  ALTER TABLE projection_channel_reads_v2 RENAME TO projection_channel_reads;
+`;
+
 // Shared by migration v19 and the separate new-database schema. A separate constant, and a new
 // version rather than an edit to CHANNEL_SCHEMA_SQL: a database that already ran 18 - every
 // development profile on this branch - would otherwise never meet these tables.

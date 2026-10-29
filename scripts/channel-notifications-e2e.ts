@@ -400,7 +400,11 @@ try {
         ),
       );
       // The member's execution thread, as the first channel turn makes it.
-      const { threadId } = agents.channels.store.context(channel.id, agent.id);
+      const { threadId } = agents.channels.store.context(
+        channel.id,
+        agents.channels.store.firstTopicId(channel.id),
+        agent.id,
+      );
       return { agent: { id: agent.id, name: agent.name, threadId: agent.threadId }, channel, threadId, host };
     },
     ({ agent, channel, threadId }) => ({ agent, channel, threadId }),

@@ -676,7 +676,7 @@ try {
       tasks: [],
       assignments: [],
     });
-    const channelThreadId = channels.context(channelId, agent.id).threadId;
+    const channelThreadId = channels.context(channelId, channels.firstTopicId(channelId), agent.id).threadId;
     const staleTurns = {
       agent: { threadId: agent.threadId, turnId: "stale-turn-of-a-dead-run" },
       task: { threadId: taskThreadId, turnId: "stale-task-turn-of-a-dead-run" },

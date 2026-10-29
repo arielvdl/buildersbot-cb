@@ -477,7 +477,7 @@ const PAPER: MarketplacePluginDetail = {
   name: "Paper",
   tagline: "Design canvas built on HTML and CSS",
   description:
-    "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. Builders Bot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
+    "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. OpenBot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
   category: "design",
   creatorName: "Paper",
   iconUrl: "https://paper.design/apple-touch-icon.png",
@@ -513,7 +513,7 @@ const APPLE_APPS: MarketplacePluginDetail = {
   name: "Apple apps",
   tagline: "Mail, Calendar and more on your Mac",
   description:
-    "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. Builders Bot starts mcp-icloud, a community server that is not made by Apple or Builders Bot. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, Builders Bot can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
+    "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. OpenBot starts mcp-icloud, a community server that is not made by Apple or OpenBot. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, OpenBot can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
   category: "productivity",
   creatorName: "MrGo2",
   iconUrl: "https://www.apple.com/favicon.ico",
@@ -928,6 +928,42 @@ const RENDER: MarketplacePluginDetail = {
   featured: false,
   updatedAt: "2026-09-30T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/render",
+};
+
+const PLAYWRIGHT: MarketplacePluginDetail = {
+  id: "plugin-playwright",
+  slug: "playwright",
+  name: "Playwright",
+  tagline: "The browser on this computer",
+  description:
+    "Playwright opens and drives a real browser on this computer: read a page, click, fill a form, take a screenshot, and keep the work in a browser profile of its own. It is the default way to reach the web, and it needs no account and no key. The first start downloads the browser. It runs beside the Builders Bot browser, which keeps the sign-ins and the Vault.",
+  category: "automation",
+  creatorName: "Microsoft",
+  iconUrl: "https://playwright.dev/img/playwright-logo.svg",
+  version: "1.0.0",
+  prompts: [
+    { id: "prompt-read", text: "Open this page and summarize what it says." },
+    { id: "prompt-form", text: "Fill this form with the details below and stop before submitting." },
+    { id: "prompt-shot", text: "Take a screenshot of the pricing page at desktop width." },
+  ],
+  apps: [
+    {
+      id: "app-playwright-mcp",
+      name: "Playwright",
+      description:
+        "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
+      iconUrl: "https://playwright.dev/img/playwright-logo.svg",
+      server: { name: "playwright", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@0.0.83"] },
+    },
+  ],
+  websiteUrl: "https://playwright.dev",
+  privacyPolicyUrl: "https://playwright.dev/docs/intro",
+  termsUrl: "https://github.com/microsoft/playwright-mcp/blob/main/LICENSE",
+  skills: [],
+  installs: 0,
+  featured: false,
+  updatedAt: "2026-09-30T00:00:00.000Z",
+  shareUrl: "https://openbot.run/plugins/playwright",
 };
 
 const CONTEXT7: MarketplacePluginDetail = {
@@ -1396,6 +1432,7 @@ export const MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
   NETLIFY,
   RAILWAY,
   RENDER,
+  PLAYWRIGHT,
   CONTEXT7,
   HUGGINGFACE,
   STRIPE,

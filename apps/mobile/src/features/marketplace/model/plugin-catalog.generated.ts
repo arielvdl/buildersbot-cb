@@ -800,6 +800,34 @@ export const MOBILE_PLUGINS: readonly MobilePlugin[] = [
     ],
   },
   {
+    slug: "playwright",
+    name: "Playwright",
+    tagline: "The browser on this computer",
+    description:
+      "Playwright opens and drives a real browser on this computer: read a page, click, fill a form, take a screenshot, and keep the work in a browser profile of its own. It is the default way to reach the web, and it needs no account and no key. The first start downloads the browser. It runs beside the Builders Bot browser, which keeps the sign-ins and the Vault.",
+    category: "automation",
+    creatorName: "Microsoft",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-read", text: "Open this page and summarize what it says." },
+      { id: "prompt-form", text: "Fill this form with the details below and stop before submitting." },
+      { id: "prompt-shot", text: "Take a screenshot of the pricing page at desktop width." },
+    ],
+    websiteUrl: "https://playwright.dev",
+    privacyPolicyUrl: "https://playwright.dev/docs/intro",
+    termsUrl: "https://github.com/microsoft/playwright-mcp/blob/main/LICENSE",
+    featured: false,
+    apps: [
+      {
+        id: "app-playwright-mcp",
+        name: "Playwright",
+        description:
+          "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
+        server: { name: "playwright", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@0.0.83"] },
+      },
+    ],
+  },
+  {
     slug: "context7",
     name: "Context7",
     tagline: "Current library documentation",

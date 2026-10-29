@@ -13,6 +13,16 @@ export const CHANNEL_DELETE_CAPABILITY = "channel-delete-v1";
  */
 export const SIGNED_OUT_CHANNEL_MEMBER_ID = "local";
 export const CHANNEL_PARALLEL_LIMIT = 2;
+/**
+ * The parallel conversations of one channel, as tabs beside each other. A tab has its own messages,
+ * its own work and its own agent sessions; the channel's memory, members and lead are the same in
+ * every one of them, which is the reason to have tabs rather than a second channel.
+ */
+export const CHANNEL_TOPICS_CAPABILITY = "channel-topics-v1";
+/** The most tabs a channel holds. */
+export const CHANNEL_TOPIC_LIMIT = 12;
+/** The name of the tab every channel starts with. It is not translated: it is a saved name. */
+export const CHANNEL_DEFAULT_TOPIC_NAME = "Main";
 export const CHANNEL_ASSIGNMENT_LIMIT = 8;
 
 export interface ChannelMember {
@@ -36,9 +46,20 @@ export interface Channel extends ChannelDraft {
 
 export type ChannelTaskState = "queued" | "running" | "waiting" | "paused" | "completed" | "failed" | "cancelled";
 
+/** One conversation of a channel, shown as a tab. */
+export interface ChannelTopic {
+  id: string;
+  channelId: string;
+  name: string;
+  createdAt: string;
+  revision: number;
+}
+
 export interface ChannelTask {
   id: string;
   channelId: string;
+  /** The tab the task belongs to. Like a message, it is written by the store and optional here. */
+  topicId?: string;
   parentTaskId: string | null;
   rootTaskId: string;
   ownerAgentId: string | null;
@@ -58,6 +79,11 @@ export interface ChannelTask {
 export interface ChannelMessage {
   id: string;
   channelId: string;
+  /**
+   * The tab the message belongs to. The store always writes one; it is optional here because a
+   * fixture, and a message stored before tabs, can arrive without it.
+   */
+  topicId?: string;
   sequence: number;
   author: { kind: "member" | "agent" | "coordinator"; id: string; name: string };
   taskId: string | null;
@@ -92,10 +118,14 @@ export interface ChannelSummary extends Channel {
   lastMessage: ChannelPreview | null;
   /** One for each member agent that has worked here. Absent from a host without channel-attention-v1. */
   threads?: ChannelThread[];
+  /** The tabs of the channel, in the order they were made. Absent from a host without channel-topics-v1. */
+  topics?: ChannelTopic[];
 }
 
 export interface ChannelPage {
   channel: Channel;
+  /** The tab this page is of. */
+  topicId: string;
   messages: ChannelMessage[];
   tasks: ChannelTask[];
   olderCursor: number | null;
@@ -129,6 +159,8 @@ export type ChannelCommand =
       recipientAgentId: string | null;
       replyToMessageId: string | null;
       attachmentDraftIds: string[];
+      /** The tab to write in. Absent writes in the first tab, which is what a client without tabs sends. */
+      topicId?: string | undefined;
     }
   | {
       /**
@@ -143,6 +175,7 @@ export type ChannelCommand =
       text: string;
       recipientAgentId: string | null;
       requestMessageId: string;
+      topicId?: string | undefined;
       origin: { kind: "routine"; routineId: string; routineName: string; runId: string };
     }
   | {
@@ -152,10 +185,16 @@ export type ChannelCommand =
       taskId: string;
       recipientAgentId: string | null;
     }
-  | { type: "read"; operationId: string; channelId: string; throughSequence: number };
+  | { type: "read"; operationId: string; channelId: string; topicId?: string; throughSequence: number }
+  | { type: "topic-create"; operationId: string; channelId: string; topicId: string; name?: string | undefined }
+  | { type: "topic-rename"; operationId: string; channelId: string; topicId: string; name: string }
+  /** Deletes a tab with its messages and work. The last tab of a channel cannot go. */
+  | { type: "topic-delete"; operationId: string; channelId: string; topicId: string };
 
 export interface ChannelReadInput {
   channelId: string;
+  /** The tab to read. Absent reads the first tab, which is what a client without topics sends. */
+  topicId?: string | undefined;
   beforeSequence?: number | undefined;
 }
 
@@ -222,6 +261,7 @@ export function isChannelTask(value: unknown): value is ChannelTask {
     isDynamicRecord(value) &&
     isIdentifier(value.id) &&
     isIdentifier(value.channelId) &&
+    (value.topicId === undefined || isIdentifier(value.topicId)) &&
     isIdentifier(value.rootTaskId) &&
     (value.parentTaskId === null || isIdentifier(value.parentTaskId)) &&
     (value.ownerAgentId === null || isIdentifier(value.ownerAgentId)) &&
@@ -246,6 +286,8 @@ export function isChannelMessage(value: unknown): value is ChannelMessage {
     isDynamicRecord(value) &&
     isIdentifier(value.id) &&
     isIdentifier(value.channelId) &&
+    // A message written before tabs has none; the store puts it in the channel's first tab.
+    (value.topicId === undefined || isIdentifier(value.topicId)) &&
     sequence(value.sequence) &&
     isDynamicRecord(value.author) &&
     isOneOf(["member", "agent", "coordinator"] as const, value.author.kind) &&
@@ -281,6 +323,7 @@ export function decodeChannelPage(value: unknown): ChannelPage {
   }
   return {
     channel,
+    topicId: isIdentifier(value.topicId) ? value.topicId : "",
     messages: value.messages,
     tasks: value.tasks,
     olderCursor: value.olderCursor,
@@ -341,7 +384,16 @@ export function parseChannelRead(value: unknown): ChannelReadInput {
   ) {
     throw new Error("Provide a valid channel and message cursor.");
   }
-  return { channelId: value.channelId, beforeSequence: value.beforeSequence };
+  return {
+    channelId: value.channelId,
+    ...(isIdentifier(value.topicId) ? { topicId: value.topicId } : {}),
+    beforeSequence: value.beforeSequence,
+  };
+}
+
+/** The tab a command names, when it names one. Absent leaves the command in the channel's first tab. */
+function topicOf(value: DynamicRecord): { topicId?: string } {
+  return isIdentifier(value.topicId) ? { topicId: value.topicId } : {};
 }
 
 export function parseChannelCommand(value: unknown): ChannelCommand {
@@ -352,8 +404,30 @@ export function parseChannelCommand(value: unknown): ChannelCommand {
   if (value.type === "save" && isChannelDraft(draft))
     return { ...common, type: value.type, draft, ...(value.update === true ? { update: true } : {}) };
   if (value.type === "archive" || value.type === "restore") return { ...common, type: value.type };
-  if (value.type === "read" && sequence(value.throughSequence))
-    return { ...common, type: value.type, throughSequence: value.throughSequence };
+  if (
+    value.type === "read" &&
+    sequence(value.throughSequence) &&
+    (value.topicId === undefined || isIdentifier(value.topicId))
+  )
+    return { ...common, type: value.type, throughSequence: value.throughSequence, ...topicOf(value) };
+  if (value.type === "topic-create" && isIdentifier(value.topicId)) {
+    if (value.name !== undefined && !isBoundedString(value.name, INPUT_LIMITS.agentName))
+      throw new Error("The tab name is too long.");
+    return {
+      ...common,
+      type: value.type,
+      topicId: value.topicId,
+      ...(isString(value.name) ? { name: value.name } : {}),
+    };
+  }
+  if (
+    value.type === "topic-rename" &&
+    isIdentifier(value.topicId) &&
+    isBoundedString(value.name, INPUT_LIMITS.agentName)
+  )
+    return { ...common, type: value.type, topicId: value.topicId, name: value.name };
+  if (value.type === "topic-delete" && isIdentifier(value.topicId))
+    return { ...common, type: value.type, topicId: value.topicId };
   if (
     (value.type === "stop" || value.type === "resume" || value.type === "reassign") &&
     isIdentifier(value.taskId) &&
@@ -376,6 +450,7 @@ export function parseChannelCommand(value: unknown): ChannelCommand {
       recipientAgentId: value.recipientAgentId,
       replyToMessageId: value.replyToMessageId,
       attachmentDraftIds: value.attachmentDraftIds,
+      ...topicOf(value),
     };
   }
   if (
@@ -396,6 +471,7 @@ export function parseChannelCommand(value: unknown): ChannelCommand {
       text: value.text,
       recipientAgentId: value.recipientAgentId,
       requestMessageId: value.requestMessageId,
+      ...topicOf(value),
       origin: {
         kind: "routine",
         routineId: value.origin.routineId,

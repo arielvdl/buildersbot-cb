@@ -169,7 +169,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
-      { version: 47 },
+      { version: 48 },
     ]);
     database.close();
   });
@@ -1506,7 +1506,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
-      { version: 47 },
+      { version: 48 },
     ]);
     expect(migrated.connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
     migrated.close();
@@ -1667,7 +1667,7 @@ describe("BuildersBotDatabase", () => {
         .get(),
     ).toMatchObject({ sql: expect.not.stringContaining("CHECK(provider") });
     expect(migrated.connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-      version: 47,
+      version: 48,
     });
     migrated.close();
   });
@@ -1711,7 +1711,7 @@ describe("BuildersBotDatabase", () => {
       { name: "Filesystem" },
     ]);
     expect(reopened.connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-      version: 47,
+      version: 48,
     });
     reopened.close();
   });
@@ -1777,7 +1777,7 @@ describe("BuildersBotDatabase", () => {
       expect(migrated.listAgents()).toEqual([agent]);
       expect(migrated.readConversation(agent.id, agent.threadId).messages).toEqual(conversation.messages);
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(connection.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -1937,7 +1937,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
-      { version: 47 },
+      { version: 48 },
     ]);
     migrated.close();
   });
@@ -2042,7 +2042,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
-      { version: 47 },
+      { version: 48 },
     ]);
     retried.close();
   });
@@ -2835,7 +2835,7 @@ describe("BuildersBotDatabase", () => {
       expect(migrated.connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(migrated.connection.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
       expect(migrated.connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(
         migrated.connection.prepare("SELECT provider_session_id FROM projection_turns WHERE turn_id = ?").get("turn-1"),
@@ -2976,7 +2976,7 @@ describe("BuildersBotDatabase", () => {
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(connection.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(
         connection.prepare("SELECT provider_session_id FROM projection_turns WHERE turn_id = ?").get("turn-1"),
@@ -3138,7 +3138,7 @@ describe("BuildersBotDatabase", () => {
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(connection.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(
         connection.prepare("SELECT provider_session_id FROM projection_turns WHERE turn_id = ?").get("turn-1"),
@@ -3313,7 +3313,7 @@ describe("BuildersBotDatabase", () => {
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(connection.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(
         connection.prepare("SELECT provider_session_id FROM projection_turns WHERE turn_id = ?").get("turn-1"),
@@ -3482,7 +3482,7 @@ describe("BuildersBotDatabase", () => {
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(connection.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       const agentRoutines = new AgentRoutineStore(migrated);
       expect(agentRoutines.get(agent.id, agentRoutine.id)?.limitPolicy).toBe("wait");
@@ -3647,7 +3647,7 @@ describe("BuildersBotDatabase", () => {
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(connection.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(
         connection.prepare("SELECT provider_session_id FROM projection_turns WHERE turn_id = ?").get("turn-1"),
@@ -3874,7 +3874,7 @@ describe("BuildersBotDatabase", () => {
       expect(migrated.readConversation(agent.id, agent.threadId).messages).toEqual(conversation.messages);
       expect(routineRows(connection)).toEqual(original);
       expect(connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: 47,
+        version: 48,
       });
       expect(connection.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);

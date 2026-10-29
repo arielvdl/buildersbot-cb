@@ -24,6 +24,8 @@ import type { ChannelsPort } from "./channels-port";
 interface ChannelsState {
   channels: ChannelSummary[];
   selectedId: string | null;
+  /** The open tab of the selected channel. Null until its list of tabs arrives. */
+  topicId: string | null;
   page: ChannelPage | null;
   loading: boolean;
   pending: boolean;
@@ -83,6 +85,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
   const [state, setState] = createStore<ChannelsState>({
     channels: [],
     selectedId: null,
+    topicId: null,
     page: null,
     loading: false,
     pending: false,
@@ -157,7 +160,12 @@ export function createChannelsController(env: ChannelsEnvironment) {
     try {
       const channels = await env.port().agent.listChannels();
       const selectedExists = selected !== null && channels.some((channel) => channel.id === selected);
-      const page = selectedExists ? await env.port().agent.readChannel({ channelId: selected }) : null;
+      const page = selectedExists
+        ? await env.port().agent.readChannel({
+            channelId: selected,
+            ...(state.topicId === null ? {} : { topicId: state.topicId }),
+          })
+        : null;
       if (disposed || account !== env.scopeKey() || id !== refreshId || selected !== state.selectedId) return;
       env.onList?.(channels, account);
       setState((state) => {
@@ -166,6 +174,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
         reconcile(channels, "id")(state.channels);
         if (selected && !selectedExists) {
           state.selectedId = null;
+          state.topicId = null;
           state.editing = null;
           readThrough.delete(selected);
           if (failedCommand?.channelId === selected) failedCommand = null;
@@ -177,6 +186,8 @@ export function createChannelsController(env: ChannelsEnvironment) {
           Object.assign(state.page, { channel: page.channel, throughSequence: page.throughSequence });
           if (merged.takeFetchedCursor) takeOlderWindow(state.page, page);
         } else state.page = page;
+        // The page names the tab it is of, and a tab that went falls back to the first one.
+        if (page) state.topicId = page.topicId;
         state.loading = false;
         if (!failedCommand) state.error = null;
       });
@@ -187,6 +198,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
           await env.port().agent.channelCommand({
             type: "read",
             channelId: selected,
+            ...(page.topicId ? { topicId: page.topicId } : {}),
             throughSequence: page.throughSequence,
             operationId: crypto.randomUUID(),
           });
@@ -204,6 +216,16 @@ export function createChannelsController(env: ChannelsEnvironment) {
           });
         });
     }
+  }
+  async function controllerSetTopic(topicId: string): Promise<void> {
+    const channelId = state.selectedId;
+    if (!channelId) return;
+    setState((state) => {
+      state.topicId = topicId;
+      state.page = null;
+      state.loading = true;
+    });
+    await refreshAfter();
   }
   async function open(channelId: string) {
     // A saved selection, a search result or a notification can name a channel on a server that has
@@ -322,13 +344,15 @@ export function createChannelsController(env: ChannelsEnvironment) {
     const port = env.port();
     const before = state.page?.channel.id === input.channelId ? state.page.throughSequence : null;
     await port.agent.channelCommand(input);
-    if (disposed || account !== env.scopeKey()) return port.agent.readChannel({ channelId: input.channelId });
+    const topic = input.topicId ?? state.topicId ?? undefined;
+    if (disposed || account !== env.scopeKey())
+      return port.agent.readChannel({ channelId: input.channelId, ...(topic ? { topicId: topic } : {}) });
     await refreshAfter();
     // A refresh that fails keeps the earlier page, which does not hold the message.
     const page = state.page;
     return page?.channel.id === input.channelId && (before === null || page.throughSequence > before)
       ? page
-      : port.agent.readChannel({ channelId: input.channelId });
+      : port.agent.readChannel({ channelId: input.channelId, ...(topic ? { topicId: topic } : {}) });
   }
   async function loadOlder() {
     const channelId = state.selectedId;
@@ -336,7 +360,11 @@ export function createChannelsController(env: ChannelsEnvironment) {
     const account = env.scopeKey();
     if (!channelId || !beforeSequence) return;
     try {
-      const older = await env.port().agent.readChannel({ channelId, beforeSequence });
+      const older = await env.port().agent.readChannel({
+        channelId,
+        ...(state.topicId === null ? {} : { topicId: state.topicId }),
+        beforeSequence,
+      });
       if (!disposed && account === env.scopeKey() && state.selectedId === channelId)
         setState((state) => {
           const page = state.page;
@@ -359,6 +387,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
         const selected = next.supported ? env.readSelection(next.scope) : null;
         refreshId += 1;
         readThrough.clear();
+        state.topicId = null;
         failedCommand = null;
         pendingCommands = 0;
         flush(() =>
@@ -389,7 +418,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
       env.beforeOpen();
       flush(() =>
         setState((state) => {
-          Object.assign(state, { selectedId: saved, page: null, editing: null, loading: true });
+          Object.assign(state, { selectedId: saved, topicId: null, page: null, editing: null, loading: true });
         }),
       );
       void refresh(saved);
@@ -418,6 +447,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
           await env.port().agent.channelCommand({
             type: "read",
             channelId,
+            ...(page.topicId ? { topicId: page.topicId } : {}),
             throughSequence: page.throughSequence,
             operationId: crypto.randomUUID(),
           });
@@ -447,6 +477,54 @@ export function createChannelsController(env: ChannelsEnvironment) {
       return null;
     },
     open,
+    /**
+     * Opens another tab of the channel. The transcript is read again for it: a tab has its own
+     * messages, and the ones on screen belong to the tab that was open.
+     */
+    setTopic: async (topicId: string) => {
+      const channelId = state.selectedId;
+      if (!channelId || state.topicId === topicId) return;
+      setState((state) => {
+        state.topicId = topicId;
+        state.page = null;
+        state.loading = true;
+      });
+      await refreshAfter();
+    },
+    createTopic: async (name?: string) => {
+      const channelId = state.selectedId;
+      if (!channelId) return null;
+      const topicId = `openbot-topic-${crypto.randomUUID()}`;
+      const created = await command({
+        type: "topic-create",
+        channelId,
+        topicId,
+        ...(name?.trim() ? { name: name.trim() } : {}),
+        operationId: crypto.randomUUID(),
+      });
+      if (!created) return null;
+      await controllerSetTopic(topicId);
+      return topicId;
+    },
+    renameTopic: (topicId: string, name: string) =>
+      command({
+        type: "topic-rename",
+        channelId: state.selectedId ?? "",
+        topicId,
+        name,
+        operationId: crypto.randomUUID(),
+      }),
+    /** Closes a tab with its work. The open one falls back to the first tab of the channel. */
+    deleteTopic: async (topicId: string) => {
+      const channelId = state.selectedId;
+      if (!channelId) return false;
+      const removed = await command({ type: "topic-delete", channelId, topicId, operationId: crypto.randomUUID() });
+      if (removed && state.topicId === topicId) {
+        const first = state.channels.find((channel) => channel.id === channelId)?.topics?.[0]?.id ?? null;
+        if (first) await controllerSetTopic(first);
+      }
+      return removed;
+    },
     editChannel: async (channelId: string) => {
       if (!supported()) return;
       if (state.selectedId !== channelId) await open(channelId);

@@ -442,3 +442,92 @@
   line-height: var(--openbot-leading-sm);
   text-align: center;
 }
+
+/*
+ * The tabs of a channel. They sit under the title, in the header, because they belong to the
+ * channel that is open and not to the sidebar. A tab is the width of its name and never wraps.
+ */
+.channel-tabs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.channel-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.channel-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--openbot-radius-sm);
+  color: var(--openbot-text-muted);
+  font-size: 12px;
+}
+
+.channel-tab:hover {
+  background: var(--openbot-hover);
+}
+
+.channel-tab[data-active] {
+  border-color: var(--openbot-border);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-primary);
+}
+
+.channel-tab-name {
+  max-width: 12rem;
+  overflow: hidden;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.channel-tab-input {
+  width: 7rem;
+  padding: 1px 6px;
+  border: 0;
+  background: none;
+  color: var(--openbot-text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.channel-tab-close {
+  padding: 0 5px 0 2px;
+  border: 0;
+  background: none;
+  color: var(--openbot-text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.channel-tab-close:hover {
+  color: var(--openbot-danger);
+}
+
+.channel-tab-add {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  color: var(--openbot-text-muted);
+}
+
+/* The title and its tabs share the header cell. */
+.channel-header-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}

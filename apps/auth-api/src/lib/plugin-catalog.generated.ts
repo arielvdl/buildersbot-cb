@@ -145,6 +145,12 @@ export const PLUGIN_CATALOG_INDEX: PluginCatalogIndex = {
       detailSha256: "b9371c8854d1fb2391afd2171d455957b7d73d5b45fb09b4ef9cd8d3fd8446ee",
     },
     {
+      slug: "playwright",
+      version: "1.0.0",
+      featured: false,
+      detailSha256: "66afbd6d01c9c1b77a43ae75a9557e466a1aac95da148d3714a44fc5ae97858d",
+    },
+    {
       slug: "context7",
       version: "1.0.0",
       featured: false,
@@ -1006,6 +1012,36 @@ export const PLUGIN_CATALOG_DETAILS: Record<string, PluginCatalogDetail> = {
     websiteUrl: "https://render.com",
     privacyPolicyUrl: "https://render.com/privacy",
     termsUrl: "https://render.com/terms",
+    skills: [],
+  },
+  playwright: {
+    slug: "playwright",
+    name: "Playwright",
+    tagline: "The browser on this computer",
+    description:
+      "Playwright opens and drives a real browser on this computer: read a page, click, fill a form, take a screenshot, and keep the work in a browser profile of its own. It is the default way to reach the web, and it needs no account and no key. The first start downloads the browser. It runs beside the Builders Bot browser, which keeps the sign-ins and the Vault.",
+    category: "automation",
+    creatorName: "Microsoft",
+    iconUrl: "https://playwright.dev/img/playwright-logo.svg",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-read", text: "Open this page and summarize what it says." },
+      { id: "prompt-form", text: "Fill this form with the details below and stop before submitting." },
+      { id: "prompt-shot", text: "Take a screenshot of the pricing page at desktop width." },
+    ],
+    apps: [
+      {
+        id: "app-playwright-mcp",
+        name: "Playwright",
+        description:
+          "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
+        iconUrl: "https://playwright.dev/img/playwright-logo.svg",
+        server: { name: "playwright", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@0.0.83"] },
+      },
+    ],
+    websiteUrl: "https://playwright.dev",
+    privacyPolicyUrl: "https://playwright.dev/docs/intro",
+    termsUrl: "https://github.com/microsoft/playwright-mcp/blob/main/LICENSE",
     skills: [],
   },
   context7: {

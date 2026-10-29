@@ -4851,7 +4851,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   #deliveryThreadId(deliveryId: string): string | null {
     const assignment = this.channels.store.assignmentForDelivery(deliveryId);
     return assignment
-      ? this.channels.store.context(assignment.channelId, assignment.agentId).threadId
+      ? this.channels.store.context(
+          assignment.channelId,
+          this.channels.store.tasks(assignment.channelId).find((task) => task.id === assignment.taskId)?.topicId ??
+            this.channels.store.firstTopic(assignment.channelId)?.id ??
+            "",
+          assignment.agentId,
+        ).threadId
       : (this.#tasks.threadForDelivery(deliveryId) ?? this.messaging.threadForDelivery(deliveryId));
   }
 

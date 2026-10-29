@@ -9,7 +9,7 @@ import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
 import { AGENT_THREAD_MIGRATION_SQL, AGENT_THREAD_SCHEMA_SQL } from "./agent-threads/agent-thread-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
-import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
+import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL, CHANNEL_TOPICS_MIGRATION_SQL } from "./channel-schema";
 import { PROVIDER_HISTORY_SCHEMA_SQL } from "./database/provider-history-schema";
 import { MCP_SERVERS_SCHEMA_SQL } from "./mcp-schema";
 import {
@@ -603,7 +603,9 @@ const LATEST_SCHEMA_SQL =
   MESSAGING_ALLOWED_ROLES_SCHEMA_SQL +
   BROWSER_PROFILE_SCHEMA_SQL +
   WORKFLOW_SCHEMA_SQL +
-  AGENT_THREAD_SCHEMA_SQL;
+  AGENT_THREAD_SCHEMA_SQL +
+  // The tabs of a channel. It also carries its data statements, which an empty database passes over.
+  CHANNEL_TOPICS_MIGRATION_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -872,6 +874,14 @@ const MIGRATIONS: readonly BuildersBotMigration[] = [
     // dropped table is a leaf, so no foreign-key pause; few rows, so no vacuum. Mailbox records keep their
     // task ids: the thread keeps the task id as `legacy_task_id`.
     up: (db) => db.exec(AGENT_THREAD_MIGRATION_SQL),
+  },
+  {
+    version: 48,
+    // Rebuilds the three tables that key a conversation to add the tab, and copies the JSON of the
+    // messages and tasks into the channel's first tab. Rebuilt tables, so the pause and the vacuum.
+    disableForeignKeys: true,
+    vacuumAfterCommit: true,
+    up: (db) => db.exec(CHANNEL_TOPICS_MIGRATION_SQL),
   },
 ];
 
