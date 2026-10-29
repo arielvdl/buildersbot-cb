@@ -31,9 +31,16 @@ older event replay and a client without tabs send.
 - `src/backend/channel-service.ts`: `#topicId`, `#topicOfTask`, `#topicChange`, `#autoNamedTopics`
   with `autoTopicName`, the tab of the parallel limit in `#waitsForWork`, and the tab on the
   `send`, `request` and `read` commands.
-- `src/renderer/src/features/channels/ChannelTabs.tsx`: the tab bar in the channel header.
+- `src/renderer/src/features/channels/ChannelTabs.tsx`: the tab bar in the channel header, with
+  the close dialog, the working shimmer, the unread dot and drag or `Alt+Shift+Arrow` reordering.
+- `src/renderer/src/features/channels/channel-tabs-model.ts`: the order the user gave the tabs on
+  this device (`openbot:channel-tab-order:v1` in local storage) and whether closing asks first.
+- `src/renderer/src/features/channels/channel-tab-reads.ts`: the open tab's unread count and the
+  read marks, kept per channel and tab.
 - `src/renderer/src/features/channels/channels-controller.ts`: `setTopic`, `createTopic`,
-  `renameTopic`, `deleteTopic`.
+  `renameTopic`, `deleteTopic`, and the read of the open tab.
+- `src/renderer/src/features/channels/channel-conversation.tsx`: the "new messages" bar and
+  "Mark as read" of the open tab.
 
 ## Rules that are easy to break
 
@@ -50,6 +57,11 @@ older event replay and a client without tabs send.
   The first tab and a renamed tab keep their name.
 - The summary counters of a tab (`unreadCount`, `activeTasks`, `openTasks`, `messageCount`) are for
   the sidebar only; the channel totals above them keep summing every tab.
+- Message sequences are the channel's, not the tab's. A read mark kept per channel would skip a tab
+  whose last message is older than another tab's, so the renderer keeps it per channel and tab, and
+  every `read` command names its tab.
+- Closing a tab with work or messages asks first; only a tab known to be empty and idle closes at
+  once. The order on screen is a device preference: a routine still lands in the oldest tab.
 
 ## Upstream
 

@@ -236,7 +236,10 @@ export function createChannelsController(env: ChannelsEnvironment) {
     env.writeSelection(channelId);
     flush(() =>
       setState((state) => {
-        Object.assign(state, { selectedId: channelId, page: null, editing: null, loading: true });
+        // A tab belongs to its channel: another channel opens on its first tab, not on a read of
+        // this tab id that fails before it falls back.
+        const topicId = state.selectedId === channelId ? state.topicId : null;
+        Object.assign(state, { selectedId: channelId, topicId, page: null, editing: null, loading: true });
       }),
     );
     await refreshAfter();
