@@ -214,6 +214,7 @@ export class ChannelStore {
     const perTopicMessages = this.#perTopicCounts(
       `SELECT m.channel_id AS channel_id, ${FIRST_TOPIC_OF("m.message_json", "m.channel_id")} AS topic_key,
          COUNT(*) AS messages,
+         MAX(json_extract(m.message_json, '$.message.createdAt')) AS last_at,
          SUM(CASE WHEN m.sequence > COALESCE(r.through_sequence, 0)
                AND json_extract(m.message_json, '$.author.id') IS NOT ?
                AND json_extract(m.message_json, '$.author.id') IS NOT ?
@@ -244,6 +245,7 @@ export class ChannelStore {
         ...(topics.get(topic.channelId) ?? []),
         {
           ...topic,
+          updatedAt: counts?.last_at ? String(counts.last_at) : topic.createdAt,
           unreadCount: Number(counts?.unread ?? 0),
           activeTasks: Number(tasks?.active ?? 0),
           openTasks: Number(tasks?.open ?? 0),

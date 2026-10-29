@@ -31,6 +31,8 @@ import {
   type AppSetupState,
   type BitwardenConnectorStatus,
   type BusyMessageModePreference,
+  type CentralAuthDeviceCode,
+  type CentralAuthDevicePoll,
   type CentralAuthIssue,
   type CentralAuthState,
   type CentralAuthUser,
@@ -217,6 +219,36 @@ export function decodeChatWindowTargets(value: unknown): ChatWindowTarget[] {
     if (!isString(target.serverId) || !isString(target.agentId)) throw new Error("Invalid chat window.");
     return { serverId: target.serverId, agentId: target.agentId };
   });
+}
+
+export function decodeCentralAuthDeviceCode(value: unknown): CentralAuthDeviceCode {
+  const code = decodeRecord(value, "device code");
+  const complete = code.verificationUrlComplete;
+  if (complete !== null && !isString(complete)) throw new Error("Invalid device verification address.");
+  return {
+    flowId: requiredString(code, "flowId"),
+    userCode: requiredString(code, "userCode"),
+    verificationUrl: requiredString(code, "verificationUrl"),
+    verificationUrlComplete: isString(complete) ? complete : null,
+    expiresAt: requiredNumber(code, "expiresAt"),
+    intervalMs: requiredNumber(code, "intervalMs"),
+  };
+}
+
+export function decodeCentralAuthDevicePoll(value: unknown): CentralAuthDevicePoll {
+  const poll = decodeRecord(value, "device poll");
+  switch (poll.status) {
+    case "pending":
+      return { status: "pending", intervalMs: requiredNumber(poll, "intervalMs") };
+    case "authorized":
+      return { status: "authorized" };
+    case "denied":
+      return { status: "denied" };
+    case "expired":
+      return { status: "expired" };
+    default:
+      throw new Error("Invalid device poll status.");
+  }
 }
 
 export function decodeCentralAuthState(value: unknown): CentralAuthState {

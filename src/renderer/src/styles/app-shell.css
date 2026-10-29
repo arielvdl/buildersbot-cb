@@ -1360,6 +1360,34 @@ textarea {
   padding: 8px 12px 6px;
 }
 
+/* The field and the activity filter share one line: the filter sits against the field's right edge. */
+.sidebar-search-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-search-row .sidebar-search-trigger {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sidebar-activity-button {
+  flex: 0 0 28px;
+  color: var(--openbot-text-muted);
+}
+
+.sidebar-activity-button[data-active] {
+  background: var(--openbot-bg-control-hover);
+  color: var(--openbot-accent-text);
+}
+
+.sidebar-activity-button > svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: var(--openbot-icon-stroke);
+}
+
 /* The field opens the global search, so it is a button drawn as the search field. */
 .sidebar-search-trigger {
   width: 100%;
@@ -3283,6 +3311,11 @@ textarea {
 
 .sidebar-compact .sidebar-search-wrap {
   padding-inline: 12px;
+}
+
+/* Compact mode has room for the field's own button only. */
+.sidebar-compact .sidebar-activity-button {
+  display: none;
 }
 
 .sidebar-compact .search-field {

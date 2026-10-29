@@ -33,6 +33,11 @@ older event replay and a client without tabs send.
   `send`, `request` and `read` commands.
 - `src/renderer/src/features/channels/ChannelTabs.tsx`: the tab bar in the channel header, with
   the close dialog, the working shimmer, the unread dot and drag or `Alt+Shift+Arrow` reordering.
+- `src/renderer/src/features/channels/ChannelTabOverview.tsx`: the list of tabs under the channel
+  title, with each tab's age, the running ones first, a search and a pin.
+- `src/renderer/src/features/channels/channel-tab-overview-model.ts`: the age of a tab, the filter
+  and order of the list, and the pins of this device (`openbot:channel-tab-pins:v1` in local
+  storage).
 - `src/renderer/src/features/channels/channel-tabs-model.ts`: the order the user gave the tabs on
   this device (`openbot:channel-tab-order:v1` in local storage) and whether closing asks first.
 - `src/renderer/src/features/channels/channel-tab-reads.ts`: the open tab's unread count and the
@@ -56,7 +61,11 @@ older event replay and a client without tabs send.
   writes in it, in the same commit: first line, spaces collapsed, 32 code points and an ellipsis.
   The first tab and a renamed tab keep their name.
 - The summary counters of a tab (`unreadCount`, `activeTasks`, `openTasks`, `messageCount`) are for
-  the sidebar only; the channel totals above them keep summing every tab.
+  the sidebar only; the channel totals above them keep summing every tab. `updatedAt` is the newest
+  message of the tab, or its creation while nobody wrote in it, and it is what the tab list ages.
+- The tab list under the title is a menu: the name opens it, Escape or a click outside closes it, a
+  card opens that tab. A pinned tab is always first and marked, whatever the sort is; like the tab
+  order, the pins are a device preference.
 - Message sequences are the channel's, not the tab's. A read mark kept per channel would skip a tab
   whose last message is older than another tab's, so the renderer keeps it per channel and tab, and
   every `read` command names its tab.

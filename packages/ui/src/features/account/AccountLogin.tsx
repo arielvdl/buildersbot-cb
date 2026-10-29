@@ -14,6 +14,11 @@ interface AccountLoginProps {
   onRetry: () => Promise<void>;
   onRequestEmailCode: (email: string) => Promise<void>;
   onVerifyEmailCode: (challengeId: string, code: string) => Promise<void>;
+  /**
+   * Starts the Cultura Builder device grant. Absent on a build that keeps the e-mail code only, and
+   * then the screen is exactly what it was.
+   */
+  onStartDeviceSignIn?: (() => void) | undefined;
   onReset: () => Promise<void>;
 }
 
@@ -443,88 +448,109 @@ export function AccountLogin(props: AccountLoginProps) {
             <Show
               when={challenge() || verified()}
               fallback={
-                <form
-                  class="account-login-form"
-                  data-auth-panel="email"
-                  aria-busy={emailBusy() ? "true" : "false"}
-                  novalidate
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void submitEmail();
-                  }}
-                >
-                  <label class="sr-only" for="account-email">
-                    {t("account.login.email")}
-                  </label>
-                  <div class={`account-login-email-field t-input-wrap${emailErrorActive() ? " is-error" : ""}`}>
-                    <Input
-                      ref={(element) => (emailInput = element)}
-                      class={`t-input${emailErrorActive() ? " is-error" : ""}${emailShaking() ? " is-shaking" : ""}`}
-                      id="account-email"
-                      type="email"
-                      autocomplete="email"
-                      autocapitalize="none"
-                      inputmode="email"
-                      spellcheck={false}
-                      placeholder={EMAIL_PLACEHOLDER}
-                      maxlength={INPUT_LIMITS.email}
-                      value={email()}
-                      aria-invalid={emailErrorActive() ? "true" : undefined}
-                      aria-describedby={emailErrorActive() ? "account-email-error" : undefined}
-                      autofocus
-                      onBlur={() => {
-                        const validationError = validateEmail(untrack(email));
-                        if (validationError) showEmailError(validationError);
-                        else hideEmailError();
+                <Show
+                  when={props.onStartDeviceSignIn}
+                  fallback={
+                    <form
+                      class="account-login-form"
+                      data-auth-panel="email"
+                      aria-busy={emailBusy() ? "true" : "false"}
+                      novalidate
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void submitEmail();
                       }}
-                      onValueChange={handleEmailInput}
-                    />
-                    <p
-                      id="account-email-error"
-                      class="account-login-field-error t-error-msg"
-                      role="alert"
-                      aria-hidden={emailErrorActive() ? undefined : "true"}
                     >
-                      {presentedEmailError()}
+                      <label class="sr-only" for="account-email">
+                        {t("account.login.email")}
+                      </label>
+                      <div class={`account-login-email-field t-input-wrap${emailErrorActive() ? " is-error" : ""}`}>
+                        <Input
+                          ref={(element) => (emailInput = element)}
+                          class={`t-input${emailErrorActive() ? " is-error" : ""}${emailShaking() ? " is-shaking" : ""}`}
+                          id="account-email"
+                          type="email"
+                          autocomplete="email"
+                          autocapitalize="none"
+                          inputmode="email"
+                          spellcheck={false}
+                          placeholder={EMAIL_PLACEHOLDER}
+                          maxlength={INPUT_LIMITS.email}
+                          value={email()}
+                          aria-invalid={emailErrorActive() ? "true" : undefined}
+                          aria-describedby={emailErrorActive() ? "account-email-error" : undefined}
+                          autofocus
+                          onBlur={() => {
+                            const validationError = validateEmail(untrack(email));
+                            if (validationError) showEmailError(validationError);
+                            else hideEmailError();
+                          }}
+                          onValueChange={handleEmailInput}
+                        />
+                        <p
+                          id="account-email-error"
+                          class="account-login-field-error t-error-msg"
+                          role="alert"
+                          aria-hidden={emailErrorActive() ? undefined : "true"}
+                        >
+                          {presentedEmailError()}
+                        </p>
+                      </div>
+
+                      <Show when={formIssue()}>
+                        {(issue) => (
+                          <p class="account-login-error" role="alert">
+                            {sourceText(issue().message)}
+                            <ErrorReference reference={issue().reference} />
+                          </p>
+                        )}
+                      </Show>
+                      <Show when={localError()}>
+                        {(failure) => (
+                          <p class="account-login-error" role="alert">
+                            {failure().message}
+                            <ErrorReference reference={failure().reference} />
+                          </p>
+                        )}
+                      </Show>
+
+                      <Button
+                        variant="default"
+                        type="submit"
+                        class="account-login-primary"
+                        disabled={emailBusy() || !email().trim() || emailRetryIn() > 0}
+                      >
+                        <Show when={emailBusy()} fallback={emailSubmitLabel()}>
+                          <span class="account-login-button-spinner" aria-hidden="true" />
+                          {pendingAction() === "check"
+                            ? t("account.login.checkingDelivery")
+                            : t("account.login.sendingCode")}
+                        </Show>
+                      </Button>
+                      {/* The account is for sign-in only. A new user asks what leaves the computer. */}
+                      <p class="account-login-local-data">
+                        <Lock size={13} aria-hidden="true" />
+                        {t("account.login.localData")}
+                      </p>
+                    </form>
+                  }
+                >
+                  <div class="account-login-form" data-auth-panel="device">
+                    <Button
+                      variant="default"
+                      type="button"
+                      class="account-login-primary"
+                      disabled={emailBusy()}
+                      onClick={() => props.onStartDeviceSignIn?.()}
+                    >
+                      {t("account.login.deviceSignIn")}
+                    </Button>
+                    <p class="account-login-local-data">
+                      <Lock size={13} aria-hidden="true" />
+                      {t("account.login.localData")}
                     </p>
                   </div>
-
-                  <Show when={formIssue()}>
-                    {(issue) => (
-                      <p class="account-login-error" role="alert">
-                        {sourceText(issue().message)}
-                        <ErrorReference reference={issue().reference} />
-                      </p>
-                    )}
-                  </Show>
-                  <Show when={localError()}>
-                    {(failure) => (
-                      <p class="account-login-error" role="alert">
-                        {failure().message}
-                        <ErrorReference reference={failure().reference} />
-                      </p>
-                    )}
-                  </Show>
-
-                  <Button
-                    variant="default"
-                    type="submit"
-                    class="account-login-primary"
-                    disabled={emailBusy() || !email().trim() || emailRetryIn() > 0}
-                  >
-                    <Show when={emailBusy()} fallback={emailSubmitLabel()}>
-                      <span class="account-login-button-spinner" aria-hidden="true" />
-                      {pendingAction() === "check"
-                        ? t("account.login.checkingDelivery")
-                        : t("account.login.sendingCode")}
-                    </Show>
-                  </Button>
-                  {/* The account is for sign-in only. A new user asks what leaves the computer. */}
-                  <p class="account-login-local-data">
-                    <Lock size={13} aria-hidden="true" />
-                    {t("account.login.localData")}
-                  </p>
-                </form>
+                </Show>
               }
             >
               <div

@@ -2,7 +2,7 @@ import { type HostKeyHandover, optionalHostKeyHandovers } from "@openbot/contrac
 import { inviteUseCount, isPermanentInvite } from "@openbot/contracts/invite-links";
 import type { CentralAuthUser, MobileConnectedDevice } from "@openbot/contracts/ipc";
 import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
-import { type DynamicRecord, isBoolean, isNumber, isString } from "@openbot/contracts/runtime-values";
+import { type DynamicRecord, isBoolean, isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 
 /** The account API's answers, and the decoders that `CentralAuthManager` checks them with. */
 
@@ -65,7 +65,7 @@ export interface RemoteMemberRecord {
   createdAt: number;
 }
 
-interface SessionResponse {
+export interface SessionResponse {
   sessionToken: string;
   user: CentralAuthUser;
 }
@@ -306,4 +306,49 @@ export function decodeSessionResponse(value: unknown): SessionResponse {
     sessionToken: requiredString(record, "sessionToken"),
     user: decodeCentralAuthUser(record.user),
   };
+}
+
+/**
+ * `POST /v1/auth/device/start`: the flow the app polls and the code the user types elsewhere.
+ *
+ * The two durations are the service's seconds, not milliseconds; the manager turns them into a
+ * deadline and an interval, so a decoder stays a schema and nothing here reads the clock.
+ */
+export interface DeviceAuthorization {
+  flowId: string;
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete: string | null;
+  expiresInSeconds: number;
+  intervalSeconds: number;
+}
+
+export function decodeDeviceAuthorization(value: unknown): DeviceAuthorization {
+  const record = decodeRecord(value, "device authorization");
+  const complete = record.verificationUriComplete;
+  const expiresIn = record.expiresIn;
+  const interval = record.interval;
+  if (complete !== undefined && complete !== null && !isString(complete)) {
+    throw new Error("Invalid device verification address.");
+  }
+  if (!isNumber(expiresIn) || expiresIn <= 0) throw new Error("Invalid device flow expiration.");
+  if (!isNumber(interval) || interval <= 0) throw new Error("Invalid device flow interval.");
+  return {
+    flowId: requiredString(record, "flowId"),
+    userCode: requiredString(record, "userCode"),
+    verificationUri: requiredString(record, "verificationUri"),
+    verificationUriComplete: isString(complete) ? complete : null,
+    expiresInSeconds: expiresIn,
+    intervalSeconds: interval,
+  };
+}
+
+/**
+ * The `interval` a pending answer may carry. `slow_down` and `authorization_pending` are the same
+ * 202 to the app, and the service may raise the interval after a slow poll; without one the caller
+ * keeps the interval it already had.
+ */
+export function decodeDevicePollInterval(value: unknown): number | null {
+  if (!isDynamicRecord(value)) return null;
+  return isNumber(value.interval) && value.interval > 0 ? value.interval : null;
 }

@@ -95,7 +95,7 @@ import {
   sidebarAgentWaits,
   sidebarChannelWaits,
 } from "@openbot/ui/features/sidebar/sidebar-agent-states";
-import type { SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
+import type { SidebarActivityFilter, SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
 import { PageRail, type PageRailPage } from "@openbot/ui/features/window/PageRail";
 import { useText } from "@openbot/ui/text";
 import { Effect } from "effect";
@@ -1098,6 +1098,8 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   /** As on desktop: the Routines view shows the open agent's canvas, on a host that serves it. */
   const routinesSupported = () => workspace.state.capabilities.includes(ROUTINE_FLOWS_CAPABILITY);
   const routinesView = () => routinesSupported() && layout.sidebarView() === "routines";
+  /** The list filter: only active channels, only active agents, or the layout as it is when null. */
+  const [activityFilter, setActivityFilter] = createSignal<SidebarActivityFilter | null>(null);
   /** The Routines view lists only agents: a channel has no routine canvas. */
   const channelsListed = () => channelsSupported() && !routinesView();
   const savedChannelId = () => {
@@ -1847,6 +1849,8 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   // The browser client does not know the unread counts of agent chats it has not opened.
                   hasUnread
                   view={layout.sidebarView()}
+                  activityFilter={activityFilter()}
+                  onActivityFilterChange={setActivityFilter}
                   serverName={workspace.state.host?.name ?? "Builders Bot"}
                   serverUpdate={(() => {
                     const id = server()?.id;

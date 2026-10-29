@@ -150,6 +150,7 @@ export type AgentAuthState =
   | { kind: "claude"; email: string | null }
   | { kind: "grok"; email: string | null }
   | { kind: "opencode"; email: string | null }
+  | { kind: "cultura-builder"; email: string | null }
   | { kind: "antigravity"; email: string | null }
   | { kind: "cursor"; email: string | null }
   | { kind: "cline"; email: string | null }

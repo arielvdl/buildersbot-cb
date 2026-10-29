@@ -8,6 +8,7 @@ import {
   ItemActions,
   ItemGroup,
   Listbox,
+  Pencil,
   Plus,
   Popover,
   Search,
@@ -21,7 +22,8 @@ import { InstructionsLimit, instructionsTooLong } from "@openbot/ui/features/age
 import { ChannelMemberRow } from "@openbot/ui/features/channels/ChannelMemberRow";
 import { ContentExitMotion } from "@openbot/ui/menu-motion";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createStore, For, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, createStore, For, onSettled, Show } from "solid-js";
+import { ChannelMemberDialog } from "./ChannelMemberDialog";
 import { useChannels } from "./channels-context";
 import { matchesAgentSearch, toggleChannelMember } from "./channels-draft";
 
@@ -113,6 +115,19 @@ export function ChannelEditor(props: ChannelEditorProps) {
     search: "",
     placement: "bottom-start",
   });
+  /**
+   * The member form, which is also how the channel gets a new agent. It opens over the panel, so a
+   * name, an instruction or a model is changed where the member is listed.
+   */
+  const [memberForm, setMemberForm] = createSignal<{ agentId: string | null } | null>(null);
+  const memberFormAgent = () => agentList().find((agent) => agent.id === memberForm()?.agentId);
+  function openMemberForm(agentId: string | null) {
+    setPickerOpen(false);
+    setMemberForm({ agentId });
+  }
+  function closeMemberForm() {
+    setMemberForm(null);
+  }
   const matching = () => available().filter((agent) => matchesAgentSearch(agent, picker.search));
   let pickerPanel: HTMLElement | undefined;
   const pickerFades = createScrollFades();
@@ -346,8 +361,30 @@ export function ChannelEditor(props: ChannelEditorProps) {
               <ChannelMemberRow
                 agent={entry.agent}
                 fallbackName={t("channel.members.unavailable", { id: entry.agentId })}
+                onActivate={entry.agent ? () => openMemberForm(entry.agentId) : undefined}
                 actions={
                   <ItemActions>
+                    <Show when={entry.agent}>
+                      {(agent) => (
+                        <Tooltip.Root openDelay={250} closeDelay={75} placement="top" gutter={8}>
+                          <Tooltip.Trigger
+                            type="button"
+                            class={buttonVariants({
+                              variant: "ghost",
+                              size: "icon-xs",
+                              class: "ui-icon-button channel-member-edit",
+                            })}
+                            aria-label={t("channel.members.editLabel", { name: agent().name })}
+                            onClick={() => openMemberForm(entry.agentId)}
+                          >
+                            <Pencil aria-hidden="true" />
+                          </Tooltip.Trigger>
+                          <Tooltip.Portal>
+                            <Tooltip.Content class="ui-tooltip">{t("channel.members.edit")}</Tooltip.Content>
+                          </Tooltip.Portal>
+                        </Tooltip.Root>
+                      )}
+                    </Show>
                     <Show when={entry.agent}>
                       {(agent) => (
                         <Tooltip.Root openDelay={250} closeDelay={75} placement="top" gutter={8}>
@@ -413,7 +450,6 @@ export function ChannelEditor(props: ChannelEditorProps) {
             <Popover.Trigger
               ref={pickerTrigger}
               class={buttonVariants({ variant: "ghost", class: "channel-member-add" })}
-              disabled={!available().length}
             >
               <Plus aria-hidden="true" />
               {t("channel.members.add")}
@@ -477,6 +513,10 @@ export function ChannelEditor(props: ChannelEditorProps) {
                     )}
                   />
                 </Show>
+                <Button type="button" variant="ghost" class="channel-member-new" onClick={() => openMemberForm(null)}>
+                  <Plus aria-hidden="true" />
+                  {t("channel.members.create")}
+                </Button>
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
@@ -485,6 +525,12 @@ export function ChannelEditor(props: ChannelEditorProps) {
           <p class="channel-members-note">{t("channel.members.empty")}</p>
         </Show>
       </section>
+      <ChannelMemberDialog
+        open={memberForm() !== null}
+        agent={memberFormAgent()}
+        onClose={closeMemberForm}
+        onCreated={addMember}
+      />
     </div>
   );
 }

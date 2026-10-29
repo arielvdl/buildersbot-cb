@@ -72,6 +72,7 @@
     "./features/agents/AgentAvatar": "./src/features/agents/AgentAvatar.tsx",
     "./features/agents/AgentDeleteUndoToast": "./src/features/agents/AgentDeleteUndoToast.tsx",
     "./features/agents/AgentTemplateInstallDialog": "./src/features/agents/AgentTemplateInstallDialog.tsx",
+    "./features/agents/avatar-hue-label": "./src/features/agents/avatar-hue-label.ts",
     "./features/agents/FirstAgentSetup": "./src/features/agents/FirstAgentSetup.tsx",
     "./features/agents/InstructionsLimit": "./src/features/agents/InstructionsLimit.tsx",
     "./features/agents/PublishAgentDialog": "./src/features/agents/PublishAgentDialog.tsx",

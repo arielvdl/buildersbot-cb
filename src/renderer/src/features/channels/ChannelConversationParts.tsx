@@ -9,7 +9,7 @@ import { SettingsPanel, SettingsPanelContent, SettingsPanelHeader } from "@openb
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createSignal, createStore, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createStore, onSettled, Show } from "solid-js";
 import { createSettingsPanelWidth, saveSettingsPanelWidth } from "../../components/settings-panel-width";
 import { AgentMemoriesModal } from "../conversation/AgentMemoriesModal";
 import { AgentRoutinesSettings } from "../conversation/AgentRoutinesSettings";
@@ -18,6 +18,7 @@ import { channelMemoriesPort } from "../conversation/memories-port";
 import { desktopEventRoutinesApi } from "../conversation/routine-webhooks-api";
 import { channelRoutinesPort, eventRoutinesPort } from "../conversation/routines-port";
 import { ChannelEditor } from "./ChannelEditor";
+import { ChannelTabOverview } from "./ChannelTabOverview";
 import { ChannelTabsFor } from "./ChannelTabs";
 import { stoppedChannelTasks } from "./channel-conversation-rows";
 import { useChannels } from "./channels-context";
@@ -66,11 +67,26 @@ export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: (
   const { t } = useText();
   const page = useOpenChannel(props.channelId);
   const [expanded, setExpanded] = createSignal(false);
+  let block: HTMLDivElement | undefined;
+  let nameButton: HTMLButtonElement | undefined;
+
+  // A click outside the title and its list closes the list; a click on a card or on the title is
+  // handled by them, and the tabs stay reachable while it is open.
+  onSettled(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!expanded()) return;
+      if (event.target instanceof Node && block?.contains(event.target)) return;
+      setExpanded(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  });
+
   return (
     <Show when={page()}>
       {(current) => (
-        <div class="channel-header-block">
-          {/* The avatar is the way into the settings; the name expands instead of leaving the row. */}
+        <div ref={block} class="channel-header-block">
+          {/* The avatar is the way into the settings; the name opens the list of tabs. */}
           <Button
             variant="ghost"
             size="sm"
@@ -82,15 +98,24 @@ export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: (
             <ChannelAvatar members={current().channel.members} agents={channels.agents()} />
           </Button>
           <button
+            ref={nameButton}
             type="button"
             class="channel-header-name"
             data-expanded={expanded() ? "" : undefined}
             title={current().channel.name}
+            aria-haspopup="dialog"
             aria-expanded={expanded() ? "true" : "false"}
             onClick={() => void setExpanded((open) => !open)}
           >
             <h1>{current().channel.name}</h1>
           </button>
+          <Show when={expanded()}>
+            <ChannelTabOverview
+              channelId={props.channelId}
+              onClose={() => setExpanded(false)}
+              restoreFocus={() => nameButton?.focus()}
+            />
+          </Show>
           <Show when={current().channel.title.trim()}>
             {(title) => (
               <span class="channel-header-title" title={title()}>

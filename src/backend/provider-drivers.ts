@@ -44,6 +44,12 @@ import {
   resolvePiCli,
 } from "./cli";
 import { clineFreeModels } from "./cline-free-models";
+import {
+  CULTURA_BUILDER_GATEWAY,
+  ensureCulturaBuilderToken,
+  readCulturaBuilderAccess,
+  readCulturaBuilderSession,
+} from "./cultura-builder-auth";
 import { readCursorUsage } from "./cursor-usage";
 import { CustomAcpAgentsClient, type CustomAgentConfig, type CustomAgentSource } from "./custom-acp-agents-client";
 import { GrokAgentClient } from "./grok-client";
@@ -53,6 +59,7 @@ import type { McpDropReporter, McpEndpointSource, McpServerSource, McpToolRuntim
 import { MuseAgentClient } from "./muse-client";
 import {
   type CustomProviderSource,
+  culturaBuilderConfigEnv,
   OPENCODE_PROFILE_CONFIG,
   openCodeConfigEnv,
   openCodeModelName,
@@ -76,7 +83,12 @@ import {
   type SpawnTarget,
 } from "./process-confinement";
 import type { AccountReadResult, ModelListResponse } from "./protocol";
-import { type ProviderClientOperationError, providerCall, providerFailure } from "./provider-client-effects";
+import {
+  type ProviderClientOperationError,
+  type ProviderSignInError,
+  providerCall,
+  providerFailure,
+} from "./provider-client-effects";
 
 /** One command Builders Bot runs against a provider's own CLI, waiting for the process to exit. */
 interface ProviderCliCommand {
@@ -147,6 +159,8 @@ type ProviderSignIn =
    * `muse login` with no terminal only prints that page and never opens it.
    */
   | { kind: "muse-device"; timeoutMs: number }
+  /** Builders Bot runs the Hub's device grant itself, then checks the account against the gateway. */
+  | { kind: "cultura-device" }
   | AcpAuthenticateSignIn;
 
 /**
@@ -171,6 +185,7 @@ interface AcpAuthenticateSignIn {
 type ProviderCodeSignIn =
   | { kind: "codex-device" }
   | { kind: "muse-device"; timeoutMs: number }
+  | { kind: "cultura-device" }
   | { kind: "cli"; flow: "device" | "paste" | "link"; command: ProviderCliCommand };
 
 /**
@@ -299,6 +314,11 @@ function confineClineTarget(target: SpawnTarget, confinement: ProcessConfinement
  */
 export interface ProviderClientContext {
   apiKey(provider: AgentProviderId): string | null;
+  /**
+   * Saves, or with `null` removes, the provider's stored credential. Only a sign-in that Builders Bot
+   * runs itself needs it: every other provider's credential is written by its own CLI.
+   */
+  readonly saveApiKey?: (provider: AgentProviderId, value: string | null) => Effect.Effect<void>;
   /** Durable provider-history ports, selected by the external provider id. */
   readonly history?: (provider: AgentProviderId) => AcpHistoryPersistence | undefined;
   readonly customProviders: CustomProviderSource;
@@ -470,6 +490,12 @@ export interface BuiltInProviderDriver {
   codeSignIn?: ProviderCodeSignIn;
   /** Absent for a provider that holds one account only. */
   accounts?: ProviderAccountSupport;
+  /**
+   * Runs before every spawn, for a provider whose credential the app keeps fresh itself. A refreshed
+   * token has to be in the store before the environment is built, and the environment is built at
+   * spawn, so a hook that runs later would be a spawn behind.
+   */
+  prepare?(context: ProviderClientContext): Effect.Effect<void, ProviderClientOperationError | ProviderSignInError>;
   /** The provider whose downloaded CLI this one runs. Absent when the provider has a CLI of its own. */
   cliProvider?: AgentProviderId;
   /** Absent for a provider whose `model/list` needs no special reading. */
@@ -814,6 +840,91 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         servesModel: context.servesModel,
       }),
     authState: (account) => ({ kind: "opencode", email: account?.email ?? null }),
+    validateAccount: () => undefined,
+  },
+  {
+    id: "cultura-builder",
+    // The Hub's own device grant, run here instead of by a CLI: the token is the credential, and the
+    // account is checked against the gateway before the provider counts as signed in.
+    signIn: { kind: "cultura-device" },
+    codeSignIn: { kind: "cultura-device" },
+    cliProvider: "opencode",
+    resolveCli: resolveOpencodeCli,
+    prepare: (context) =>
+      ensureCulturaBuilderToken(context.apiKey("cultura-builder"), (value) =>
+        context.saveApiKey ? context.saveApiKey("cultura-builder", value) : Effect.void,
+      ).pipe(Effect.asVoid),
+    // The bundled Builders CLI runs it, as one more OpenAI-compatible endpoint, and only that
+    // endpoint: the token is the only credential this process should spend.
+    createClient: (cli, timeout, context, confinement) => {
+      // The account read answers from the check that the authenticate hook already made.
+      let empresa: string | null = null;
+      return new AcpAgentClient(cli, timeout, {
+        provider: "cultura-builder",
+        flavor: OPENCODE_ACP_FLAVOR,
+        argv: ["acp"],
+        env: {},
+        ...(confinement ? { confine: (target) => confineSpawnTarget(target, confinement, openCodeStatePaths()) } : {}),
+        extraEnv: () => ({
+          ...opencodeEnv(cli, context),
+          ...culturaBuilderConfigEnv(
+            CULTURA_BUILDER_GATEWAY,
+            readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
+          ),
+        }),
+        authenticate: () =>
+          Effect.gen(function* () {
+            const session = readCulturaBuilderSession(context.apiKey("cultura-builder"));
+            if (!session) return yield* Effect.fail(providerFailure(new Error("Cultura Builder login required.")));
+            const access = yield* readCulturaBuilderAccess(session.access).pipe(
+              Effect.mapError((failure) => providerFailure(failure)),
+            );
+            empresa = access.empresa;
+            if (!access.active) {
+              return yield* Effect.fail(
+                providerFailure(new Error("Cultura Builder login required: no access to the LLM.")),
+              );
+            }
+          }),
+        readAccount: () => Effect.succeed({ email: empresa, planType: null }),
+        signInMessage: "Sign in with Cultura Builder to continue.",
+        modelName: (id, name) => openCodeModelName(id, name, () => []),
+        servesModel: context.servesModel,
+        mcpServers: context.mcpServers,
+        reportMcpDrops: context.reportMcpDrops,
+        mcpToolRuntimes: context.mcpToolRuntimes,
+        mcpEndpoint: context.mcpEndpoint,
+        history: context.history?.("cultura-builder"),
+      });
+    },
+    createProfileClient: (cli, timeout, context) =>
+      new AcpAgentClient(cli, timeout, {
+        provider: "cultura-builder",
+        flavor: OPENCODE_ACP_FLAVOR,
+        argv: ["acp"],
+        profileGeneration: true,
+        env: {},
+        extraEnv: () => ({
+          ...opencodeEnv(cli, context),
+          ...culturaBuilderConfigEnv(
+            CULTURA_BUILDER_GATEWAY,
+            readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
+          ),
+        }),
+        authenticate: () =>
+          readCulturaBuilderAccess(readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? "").pipe(
+            Effect.mapError((failure) => providerFailure(failure)),
+            Effect.asVoid,
+          ),
+        readAccount: () => Effect.succeed({ email: null, planType: null }),
+        signInMessage: "Sign in with Cultura Builder to continue.",
+        modelName: (id, name) => openCodeModelName(id, name, () => []),
+        servesModel: context.servesModel,
+      }),
+    authState: (account) =>
+      account?.type === "cultura-builder"
+        ? { kind: "cultura-builder", email: account.email ?? null }
+        : { kind: "unknown" },
     validateAccount: () => undefined,
   },
   {

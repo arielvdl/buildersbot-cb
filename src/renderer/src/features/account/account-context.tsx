@@ -1,4 +1,10 @@
-import type { AccountUsage, AccountUsageLimit, AvatarImageInput, CentralAuthState } from "@openbot/contracts/ipc";
+import type {
+  AccountUsage,
+  AccountUsageLimit,
+  AvatarImageInput,
+  CentralAuthDevicePoll,
+  CentralAuthState,
+} from "@openbot/contracts/ipc";
 import { currentText } from "@openbot/ui/text";
 import { createMemo, createSignal, createStore, flush, onCleanup, onSettled } from "solid-js";
 import { type DesktopAnalyticsProperties, desktopAnalytics } from "../../analytics";
@@ -6,6 +12,20 @@ import { createSimpleContext } from "../../simple-context";
 import { accountPort } from "./account-port";
 
 type MobileConnectAction = DesktopAnalyticsProperties<"mobile_connect_action">["action"];
+
+/**
+ * One device sign-in as the sign-in dialog shows it. The flow id stays in this module: the dialog
+ * shows the code and the page, and `pollDeviceSignIn` is what the account service answers to.
+ */
+export type DeviceSignInView =
+  | { phase: "starting" }
+  | {
+      phase: "waiting";
+      userCode: string;
+      verificationUrl: string;
+      verificationUrlComplete: string | null;
+      expiresAt: number;
+    };
 
 /** How long the sign-in success animation holds the account out of the view. */
 const AUTH_SUCCESS_HOLD_MS = 600;
@@ -61,6 +81,10 @@ const Auth = createSimpleContext({
   init: () => {
     const [centralAuth, setCentralAuth] = createSignal<CentralAuthState>({ status: "loading" });
     const [authSuccessVisible, setAuthSuccessVisible] = createSignal(false);
+    const [deviceSignIn, setDeviceSignIn] = createSignal<DeviceSignInView | null>(null);
+    /** Bumped by every start and cancel, so a poll that resolves late cannot revive a closed dialog. */
+    let deviceSignInGeneration = 0;
+    let deviceSignInTimer: ReturnType<typeof setTimeout> | undefined;
     const [accountUsageState, setAccountUsageState] = createStore<{
       targetKey: string | null;
       data: AccountUsage | null;
@@ -75,6 +99,7 @@ const Auth = createSimpleContext({
 
     onCleanup(() => {
       if (authSuccessTimer !== undefined) clearTimeout(authSuccessTimer);
+      stopDeviceSignIn();
     });
 
     /**
@@ -164,6 +189,87 @@ const Auth = createSimpleContext({
           failure_code: "verification_failed",
         });
         throw error;
+      }
+    }
+
+    function stopDeviceSignIn(): void {
+      deviceSignInGeneration += 1;
+      if (deviceSignInTimer !== undefined) {
+        clearTimeout(deviceSignInTimer);
+        deviceSignInTimer = undefined;
+      }
+    }
+
+    /** Closes the dialog. The service keeps the flow until it expires, and a late poll is ignored. */
+    function cancelDeviceSignIn(): void {
+      stopDeviceSignIn();
+      setDeviceSignIn(null);
+    }
+
+    /**
+     * Polls a device flow until it ends. The interval is the service's, and `slow_down` arrives as
+     * the same `pending` with a larger one, so the loop always takes the number it just read.
+     */
+    function pollDeviceFlow(flowId: string, generation: number, intervalMs: number): void {
+      deviceSignInTimer = setTimeout(() => {
+        deviceSignInTimer = undefined;
+        if (generation !== deviceSignInGeneration) return;
+        void (async () => {
+          let poll: CentralAuthDevicePoll;
+          try {
+            poll = await accountPort().auth.pollDeviceSignIn(flowId);
+          } catch {
+            if (generation !== deviceSignInGeneration) return;
+            setDeviceSignIn(null);
+            applyCentralAuthState({
+              status: "error",
+              issue: { code: "device_sign_in_failed", message: currentText().t("account.login.deviceFailed") },
+            });
+            return;
+          }
+          if (generation !== deviceSignInGeneration) return;
+          if (poll.status === "pending") {
+            pollDeviceFlow(flowId, generation, poll.intervalMs);
+            return;
+          }
+          setDeviceSignIn(null);
+          // The authorised poll stored the session in main and reported it on the account state.
+          if (poll.status === "authorized") return;
+          applyCentralAuthState({
+            status: "error",
+            issue: {
+              code: poll.status === "denied" ? "device_sign_in_denied" : "device_sign_in_expired",
+              message: currentText().t(
+                poll.status === "denied" ? "account.login.deviceDenied" : "account.login.deviceExpired",
+              ),
+            },
+          });
+        })();
+      }, intervalMs);
+    }
+
+    async function startDeviceSignIn(): Promise<void> {
+      stopDeviceSignIn();
+      const generation = deviceSignInGeneration;
+      setDeviceSignIn({ phase: "starting" });
+      try {
+        const started = await accountPort().auth.startDeviceSignIn();
+        if (generation !== deviceSignInGeneration) return;
+        setDeviceSignIn({
+          phase: "waiting",
+          userCode: started.userCode,
+          verificationUrl: started.verificationUrl,
+          verificationUrlComplete: started.verificationUrlComplete,
+          expiresAt: started.expiresAt,
+        });
+        pollDeviceFlow(started.flowId, generation, started.intervalMs);
+      } catch {
+        if (generation !== deviceSignInGeneration) return;
+        setDeviceSignIn(null);
+        applyCentralAuthState({
+          status: "error",
+          issue: { code: "device_sign_in_failed", message: currentText().t("account.login.deviceStartFailed") },
+        });
       }
     }
 
@@ -308,6 +414,9 @@ const Auth = createSimpleContext({
       requestEmailCode,
       retryCentralAccount,
       verifyEmailCode,
+      deviceSignIn,
+      startDeviceSignIn,
+      cancelDeviceSignIn,
       logoutCentralAccount,
       updateAccountName,
       updateAccountAvatar,

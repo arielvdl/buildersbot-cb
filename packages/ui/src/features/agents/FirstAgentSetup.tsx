@@ -93,8 +93,8 @@ export function createFirstAgentDraft(random: () => number = Math.random): First
     avatarSeed: FIRST_AGENT_AVATAR_SEEDS[index] ?? "first-bot",
     avatarHue: null,
     suggestionId: null,
-    provider: "codex",
-    model: agentProviderDescriptor("codex").defaultModel,
+    provider: "cultura-builder",
+    model: agentProviderDescriptor("cultura-builder").defaultModel,
   };
 }
 

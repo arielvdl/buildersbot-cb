@@ -1,6 +1,7 @@
+import { ProviderCodeLoginDialog, type ProviderCodeLoginState } from "@openbot/ui/components/ProviderCodeLoginDialog";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, Loading, Show } from "solid-js";
-import { useAuth } from "./features/account/account-context";
+import { type DeviceSignInView, useAuth } from "./features/account/account-context";
 import { useProviderDetection } from "./features/custom-providers/provider-detection-context";
 import { createLanguageStep } from "./features/onboarding/language-step";
 import { useSetup } from "./features/onboarding/onboarding-context";
@@ -13,6 +14,24 @@ import { WhatsNewOverlay } from "./features/updates/WhatsNewOverlay";
 import { AccountLogin, FirstRunFlow, InitialSetup, LanguageStep } from "./lazy-views";
 import { usePlatform } from "./platform";
 import { WorkspaceShell } from "./WorkspaceShell";
+
+/**
+ * Which sign-in the build offers. The device grant is the Cultura Builder account service; the
+ * e-mail code stays for a build it does not answer, chosen with `VITE_BUILDERSBOT_AUTH_MODE=email`.
+ */
+const deviceSignInEnabled = () => import.meta.env.VITE_BUILDERSBOT_AUTH_MODE !== "email";
+
+/** The dialog's phase, from the flow the account context is running. */
+function deviceSignInDialogState(view: DeviceSignInView): ProviderCodeLoginState {
+  if (view.phase === "starting") return { phase: "starting" };
+  return {
+    phase: "waiting",
+    userCode: view.userCode,
+    verificationUrl: view.verificationUrl,
+    ...(view.verificationUrlComplete === null ? {} : { verificationUrlComplete: view.verificationUrlComplete }),
+    expiresAt: view.expiresAt,
+  };
+}
 
 /** The placeholder every lazy view below falls back to while its code loads. */
 function LoadingScreen() {
@@ -73,14 +92,28 @@ export function AppAccessGate() {
               <Show
                 when={languageStepShown()}
                 fallback={
-                  <AccountLogin
-                    variant={platform.appInfo()?.variant ?? "production"}
-                    state={auth.centralAuth()}
-                    onRetry={auth.retryCentralAccount}
-                    onRequestEmailCode={auth.requestEmailCode}
-                    onVerifyEmailCode={auth.verifyEmailCode}
-                    onReset={auth.logoutCentralAccount}
-                  />
+                  <>
+                    <AccountLogin
+                      variant={platform.appInfo()?.variant ?? "production"}
+                      state={auth.centralAuth()}
+                      onRetry={auth.retryCentralAccount}
+                      onRequestEmailCode={auth.requestEmailCode}
+                      onVerifyEmailCode={auth.verifyEmailCode}
+                      onStartDeviceSignIn={deviceSignInEnabled() ? auth.startDeviceSignIn : undefined}
+                      onReset={auth.logoutCentralAccount}
+                    />
+                    <Show when={deviceSignInEnabled() ? auth.deviceSignIn() : null}>
+                      {(view) => (
+                        <ProviderCodeLoginDialog
+                          open={true}
+                          providerName="Cultura Builder"
+                          state={deviceSignInDialogState(view())}
+                          onOpenVerificationUrl={(url) => void window.openbot.openUrl(url)}
+                          onCancel={auth.cancelDeviceSignIn}
+                        />
+                      )}
+                    </Show>
+                  </>
                 }
               >
                 <LanguageStep variant={platform.appInfo()?.variant ?? "production"} onDone={languageStep.complete} />

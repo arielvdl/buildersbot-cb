@@ -187,16 +187,157 @@
   font-size: var(--openbot-text-sm);
   line-height: var(--openbot-leading-sm);
 }
+/* The name and the description are one button, so the whole line opens the member and the row
+   actions stay separate controls beside it. */
+.channel-member-open:is(.ui-button) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.channel-member-open:is(.ui-button):focus-visible {
+  outline: none;
+}
+.channel-member-open:is(.ui-button):focus-visible .ui-item-title {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* Creating an agent belongs under the list of the ones that already exist: the picker offers both,
+   and this row closes it. */
+.channel-member-new:is(.ui-button) {
+  width: 100%;
+  height: auto;
+  min-height: var(--openbot-control-md);
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  margin-top: var(--openbot-space-1);
+  padding: var(--openbot-space-1-5) var(--ui-menu-inset);
+  border-top: 1px solid var(--openbot-border);
+  border-radius: 0 0 var(--ui-menu-item-radius) var(--ui-menu-item-radius);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  text-align: left;
+}
+.channel-member-new:is(.ui-button):hover:not(:disabled) {
+  background: var(--ui-menu-item-hover);
+}
+.channel-member-new:is(.ui-button) > svg {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  flex: 0 0 auto;
+}
+/* The member form: the same dialog frame as a new channel, with the face and the model at the top
+   of the identity it edits. */
+.channel-member-dialog .channel-dialog-header {
+  border-bottom: 1px solid var(--openbot-border);
+}
+.channel-member-form {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.channel-member-form-note {
+  margin: var(--channel-dialog-inset) var(--channel-dialog-inset) 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+.channel-member-form > .ui-alert {
+  margin-inline: var(--channel-dialog-inset);
+}
+.channel-member-face {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin-inline: var(--channel-dialog-inset);
+}
+.channel-member-face-preview {
+  width: var(--openbot-space-8);
+  height: var(--openbot-space-8);
+  flex: 0 0 auto;
+}
+.channel-member-faces {
+  display: flex;
+  min-width: 0;
+  gap: var(--openbot-space-1);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.channel-member-face-choice {
+  width: var(--openbot-space-6);
+  height: var(--openbot-space-6);
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--openbot-radius-md);
+}
+.channel-member-face-choice .agent-avatar {
+  width: 100%;
+  height: 100%;
+}
+.channel-member-face-selected {
+  border-color: var(--openbot-accent);
+  background: var(--openbot-accent-soft);
+}
+.channel-member-hues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+  border: 0;
+  margin: 0 var(--channel-dialog-inset);
+  padding: 0;
+}
+.channel-member-hue {
+  width: var(--openbot-space-6);
+  height: var(--openbot-space-6);
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+.channel-member-hue-swatch {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--openbot-radius-pill);
+}
+.channel-member-runtime {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  margin-inline: var(--channel-dialog-inset);
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-md);
+  padding-block: var(--openbot-space-1);
+  overflow: hidden;
+}
+.channel-member-form > .channel-editor-footer {
+  position: sticky;
+  bottom: 0;
+  gap: var(--openbot-space-2);
+  justify-content: flex-end;
+  margin-top: auto;
+  padding: var(--channel-dialog-inset);
+  background: var(--openbot-bg-surface);
+}
 /* A row action reads as state until it is asked for: the crown stays on the lead, and Remove waits
    for the pointer or the keyboard. Hover is the condition, so a touch screen keeps both visible. */
 @media (hover: hover) and (pointer: fine) {
   .channel-member-remove,
+  .channel-member-edit,
   .channel-lead-toggle[aria-pressed="false"] {
     opacity: 0;
     transition: opacity var(--openbot-duration-hover) var(--openbot-ease-out);
   }
-  .channel-member:hover :is(.channel-member-remove, .channel-lead-toggle),
-  :is(.channel-member-remove, .channel-lead-toggle):focus-visible {
+  .channel-member:hover :is(.channel-member-remove, .channel-member-edit, .channel-lead-toggle),
+  :is(.channel-member-remove, .channel-member-edit, .channel-lead-toggle):focus-visible {
     opacity: 1;
   }
 }
@@ -573,6 +714,8 @@
   align-items: center;
   gap: 8px;
   margin-right: 6px;
+  /* The list of tabs hangs under the title, so the header row is its anchor. */
+  position: relative;
 }
 
 .channel-header-avatar {
@@ -615,4 +758,189 @@
   font: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The list of tabs, hung under the title. The block is the anchor, so it stays in the header. */
+.channel-tab-overview {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: var(--openbot-layer-popover);
+  width: min(32rem, calc(100vw - 4rem));
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  padding: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-control);
+  box-shadow:
+    0 0 0 1px var(--openbot-border),
+    0 4px 6px -1px var(--openbot-shadow-popover-ambient),
+    0 2px 4px -2px var(--openbot-shadow-popover-ambient);
+}
+
+.channel-tab-overview-bar {
+  position: sticky;
+  top: calc(var(--openbot-space-2) * -1);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--openbot-space-1) var(--openbot-space-2);
+  background: var(--openbot-bg-control);
+}
+
+.channel-tab-overview-search {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-primary);
+  font: inherit;
+  font-size: var(--openbot-text-sm);
+}
+
+.channel-tab-overview-search:focus {
+  border-color: var(--openbot-accent);
+  outline: none;
+}
+
+.channel-tab-overview-sort {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.channel-tab-overview-sort [data-active] {
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-primary);
+}
+
+.channel-tab-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.channel-tab-overview-item {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* A pinned tab is the short, marked way back: first, in the accent, and never as wide as the rest. */
+.channel-tab-overview-item[data-pinned] {
+  max-width: 8rem;
+}
+
+.channel-tab-card {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-primary);
+  font: inherit;
+  font-size: var(--openbot-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.channel-tab-card:hover {
+  border-color: var(--openbot-border);
+}
+
+.channel-tab-card[data-active] {
+  border-color: var(--openbot-accent);
+}
+
+.channel-tab-card[data-pinned] {
+  padding: 4px 8px;
+  border-color: var(--openbot-accent);
+  background: color-mix(in oklab, var(--openbot-accent) 14%, var(--openbot-bg-surface));
+}
+
+.channel-tab-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-tab-card-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  color: var(--openbot-text-muted);
+  font-size: 11px;
+}
+
+.channel-tab-card-working {
+  flex: none;
+  color: var(--openbot-accent);
+}
+
+.channel-tab-card-unread {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-primary);
+}
+
+.channel-tab-card-age {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-tab-card-pin {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--openbot-radius-sm);
+  background: none;
+  color: var(--openbot-text-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.channel-tab-overview-item:hover .channel-tab-card-pin,
+.channel-tab-card-pin:focus-visible,
+.channel-tab-card-pin[data-pinned] {
+  opacity: 1;
+}
+
+.channel-tab-card-pin[data-pinned] {
+  color: var(--openbot-accent);
+}
+
+.channel-tab-card-pin:hover {
+  background: var(--openbot-hover);
+  color: var(--openbot-text-primary);
+}
+
+.channel-tab-overview-empty {
+  margin: 0;
+  padding: var(--openbot-space-3);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-align: center;
 }

@@ -3,6 +3,15 @@ import { isBuildersBotTeamApiHostname } from "./validation";
 export const OPENBOT_INVITE_ORIGIN = "https://openbot.run";
 export const OPENBOT_INVITE_PATH = "/join";
 export const OPENBOT_CONTROL_PLANE_ORIGIN = "https://api.openbot.run";
+/** The Builders Bot account service on the Cultura Builder side. It runs the same Worker. */
+export const BUILDERSBOT_CONTROL_PLANE_ORIGIN = "https://buildersbot.culturabuilder.com";
+
+const CONTROL_PLANE_ORIGINS = new Set([OPENBOT_CONTROL_PLANE_ORIGIN, BUILDERSBOT_CONTROL_PLANE_ORIGIN]);
+
+/** Whether an origin is an account service that this build may talk to, whichever address it uses. */
+export function isControlPlaneOrigin(origin: string): boolean {
+  return CONTROL_PLANE_ORIGINS.has(origin);
+}
 
 /**
  * The finite deadline a permanent invitation carries. Invitation expiry travels the

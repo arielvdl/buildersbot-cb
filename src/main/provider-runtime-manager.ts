@@ -28,7 +28,7 @@ import { createBuildersBotLogger, type LogValue, redactText, toLogValue } from "
 import { Deferred, Effect, Exit, Fiber, Result, Scope, Stream } from "effect";
 import lockValue from "../../native-runtime.lock.json";
 import { type AgentRuntimeLock, parseAgentRuntimeLock } from "../../scripts/agent-runtime-lock";
-import { type BundledProviderExecutables, configuredCliPath, resolvePiCli } from "../backend/cli";
+import { type BundledProviderExecutables, configuredCliPath, resolveOpencodeCli, resolvePiCli } from "../backend/cli";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { sha256File } from "../backend/file-hash";
 import { type McpToolRuntimes, NO_MCP_TOOL_RUNTIMES } from "../backend/mcp-provider-shapes";
@@ -733,6 +733,15 @@ export class ProviderRuntimeManager extends EventEmitter<ProviderRuntimeManagerE
    * provider can already start, from Builders Bot or from the user, is kept.
    */
   ensureKeyProviderCli(provider: AgentProviderRef): Effect.Effect<void, ProviderRuntimeFailure> {
+    // The Cultura Builder sign-in opens a browser, but its turns run in the bundled Builders CLI.
+    if (provider === "cultura-builder") {
+      const removal = this.#removals.get("opencode");
+      return (removal ? Fiber.await(removal) : Effect.void).pipe(
+        Effect.andThen(resolveOpencodeCli({ bundledExecutable: this.executablePath("opencode") })),
+        Effect.asVoid,
+        Effect.catch(() => this.downloadAndWait("opencode")),
+      );
+    }
     if (!isKeyOnlyProvider(provider)) return Effect.void;
     // A removal of Pi's download that runs now would take away the CLI that this finds.
     const removal = this.#removals.get("pi");

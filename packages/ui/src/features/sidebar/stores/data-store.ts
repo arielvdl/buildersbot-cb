@@ -36,6 +36,35 @@ export function createSidebarDataStore(deps: {
   const agentIsUserHidden = (agentId: string) => userHiddenAt().has(agentId);
   const personById = createMemo(() => new Map(props.people.map((member) => [member.id, member])));
   const channels = () => props.channels ?? [];
+  /**
+   * The activity filter, when the user turned one on. A chat counts as active while work is in
+   * flight: an agent that thinks, waits, waits on its plan or runs a routine, and a channel with a
+   * running or open task or a wait for the user. The open chat stays listed, so its row does not
+   * vanish under the pointer.
+   */
+  const activityFilter = () => props.activityFilter ?? null;
+  const agentIsActive = (agentId: string): boolean => {
+    const state = props.agentStates[agentId];
+    if (!state) return false;
+    return (
+      state.kind === "working" ||
+      state.kind === "waiting" ||
+      state.kind === "limited" ||
+      (state.kind === "routine" && state.phase !== "failed")
+    );
+  };
+  const channelIsActive = (channel: ChannelSummary): boolean =>
+    channel.activeTasks > 0 || (channel.openTasks ?? 0) > 0 || props.channelWaits?.[channel.id] !== undefined;
+  const agentShown = (agent: AgentProfile): boolean => {
+    const filter = activityFilter();
+    if (!filter) return true;
+    return filter === "agents" && (agentIsActive(agent.id) || props.activeAgentId === agent.id);
+  };
+  const channelShown = (channel: ChannelSummary): boolean => {
+    const filter = activityFilter();
+    if (!filter) return true;
+    return filter === "channels" && (channelIsActive(channel) || props.activeChannelId === channel.id);
+  };
   const channelById = createMemo(() => new Map(channels().map((channel) => [channel.id, channel])));
   let pinnedItemCache = new Map<string, { source: PinnedItemSource; item: ResolvedPinnedItem }>();
   /** Both kinds of pinned chat, resolved against the chats the sidebar has: a pin that names none is
@@ -58,12 +87,13 @@ export function createSidebarDataStore(deps: {
       if (ref.kind === "agent") {
         const agent = agentById().get(ref.id);
         // A hidden agent keeps its pin, so a restore puts it back in the strip.
-        if (agent && !agentIsUserHidden(agent.id))
+        if (agent && !agentIsUserHidden(agent.id) && agentShown(agent))
           items.push(resolve(ref, agent, { ref, chat: { kind: "agent", id: agent.id, agent } }));
       }
       if (ref.kind === "channel") {
         const channel = channelById().get(ref.id);
-        if (channel) items.push(resolve(ref, channel, { ref, chat: { kind: "channel", id: channel.id, channel } }));
+        if (channel && channelShown(channel))
+          items.push(resolve(ref, channel, { ref, chat: { kind: "channel", id: channel.id, channel } }));
       }
     }
     pinnedItemCache = nextCache;
@@ -72,7 +102,9 @@ export function createSidebarDataStore(deps: {
   const listedAgents = createMemo(() =>
     props.agents.filter(
       (agent) =>
-        !agentIsUserHidden(agent.id) && !pinnedKeys().has(sidebarPinnedItemKey({ kind: "agent", id: agent.id })),
+        !agentIsUserHidden(agent.id) &&
+        !pinnedKeys().has(sidebarPinnedItemKey({ kind: "agent", id: agent.id })) &&
+        agentShown(agent),
     ),
   );
   /**
@@ -103,10 +135,13 @@ export function createSidebarDataStore(deps: {
   const filteredAgents = createMemo(() => listedAgents().filter((agent) => !chatWaits(agent.id)));
   /** The hidden agents, pinned ones included, in their layout order. They are not drag sources. */
   const userHiddenAgentList = createMemo(() =>
-    sortByLayoutOrder(props.agents.filter((agent) => agentIsUserHidden(agent.id))),
+    sortByLayoutOrder(props.agents.filter((agent) => agentIsUserHidden(agent.id) && agentShown(agent))),
   );
   const listedChannels = createMemo(() =>
-    channels().filter((channel) => !pinnedKeys().has(sidebarPinnedItemKey({ kind: "channel", id: channel.id }))),
+    channels().filter(
+      (channel) =>
+        !pinnedKeys().has(sidebarPinnedItemKey({ kind: "channel", id: channel.id })) && channelShown(channel),
+    ),
   );
   const filteredChannels = createMemo(() => listedChannels().filter((channel) => !chatWaits(channel.id)));
   function sortByLayoutOrder<T extends { id: string }>(items: T[]): T[] {
@@ -194,8 +229,11 @@ export function createSidebarDataStore(deps: {
   });
   const visibleSectionIds = createMemo(() =>
     props.layout.order.filter((sectionId) => {
-      if (sectionId === SIDEBAR_PEOPLE_SECTION_ID) return props.showPeople !== false && orderedPeople().length > 0;
-      if (customSectionById().has(sectionId)) return true;
+      // The filter lists chats only, so the people section and the sections it leaves empty give way.
+      if (sectionId === SIDEBAR_PEOPLE_SECTION_ID)
+        return !activityFilter() && props.showPeople !== false && orderedPeople().length > 0;
+      if (customSectionById().has(sectionId))
+        return !activityFilter() || (filteredChatsBySection().get(sectionId)?.length ?? 0) > 0;
       if (sectionId !== SIDEBAR_UNASSIGNED_SECTION_ID) return false;
       return (filteredChatsBySection().get(sectionId)?.length ?? 0) > 0;
     }),

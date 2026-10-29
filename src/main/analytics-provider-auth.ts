@@ -51,6 +51,9 @@ export function providerAuthKind(agent: AgentSummary, facts: ProviderAuthFacts):
     case "deepseek":
     case "openrouter":
       return facts.hasApiKey(agent.provider) ? "api_key" : "unknown";
+    case "cultura-builder":
+      // A Hub sign-in, which is the account's plan: the token is not a key the user bought.
+      return facts.hasApiKey("cultura-builder") ? "subscription" : "unknown";
     case "cursor":
       if (facts.envKey("CURSOR_API_KEY")) return "api_key";
       return facts.account("cursor") ? "subscription" : "unknown";

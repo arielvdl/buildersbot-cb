@@ -36,12 +36,22 @@ interface OpenCodeProviderOptions {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
+/** What OpenCode knows about one model beyond its name. Absent keys keep OpenCode's own defaults. */
+interface OpenCodeModelEntry {
+  readonly name: string;
+  readonly attachment?: boolean;
+  readonly reasoning?: boolean;
+  readonly tool_call?: boolean;
+  readonly modalities?: Readonly<{ input: readonly string[]; output: readonly string[] }>;
+  readonly limit?: Readonly<{ context: number; output: number }>;
+}
+
 /** One entry under OpenCode's own `provider` key, keyed there by the endpoint's id. */
 interface OpenCodeProviderEntry {
   readonly npm: string;
   readonly name: string;
   readonly options: OpenCodeProviderOptions;
-  readonly models: Readonly<Record<string, { readonly name: string }>>;
+  readonly models: Readonly<Record<string, OpenCodeModelEntry>>;
 }
 
 /**
@@ -63,6 +73,8 @@ type OpenCodePermissionLayer = Readonly<Record<string, "allow" | "ask" | "deny">
 interface OpenCodeConfig {
   readonly permission?: OpenCodePermissionLayer;
   readonly provider?: Readonly<Record<string, OpenCodeProviderEntry | OpenCodeKeyEntry>>;
+  /** The providers this process lists at all. Absent leaves every provider the user has. */
+  readonly enabled_providers?: readonly string[];
 }
 
 /** What a caller starts from: every layer except the providers this module adds. */
@@ -228,4 +240,74 @@ export function openCodeModelName(id: string, name: string, source: CustomProvid
 export function openCodeSignInMessage(customProviderCount: number): string {
   if (customProviderCount === 0) return OPENCODE_GO_ADVICE;
   return `OpenCode could not start a session. Check your custom provider's base URL and API key, or add an OpenCode Go key if you also use OpenCode's own models.`;
+}
+
+/**
+ * The Cultura Builder gateway, as an OpenCode provider. It is not a saved endpoint: the Hub owns the
+ * sign-in, so the token arrives per spawn and the process lists only these models.
+ *
+ * `builder-auto` takes images because the gateway reads them natively; `builder-plan` and
+ * `builder-review` think longer and are marked as reasoning models. The limits are the gateway's.
+ */
+const CULTURA_BUILDER_CONTEXT_TOKENS = 1_048_576;
+const CULTURA_BUILDER_OUTPUT_TOKENS = 32_768;
+
+const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
+  "builder-auto": {
+    name: "Cultura Builder",
+    attachment: true,
+    reasoning: true,
+    tool_call: true,
+    modalities: { input: ["text", "image"], output: ["text"] },
+    limit: { context: CULTURA_BUILDER_CONTEXT_TOKENS, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+  },
+  "builder-plan": {
+    name: "Builder Plan",
+    attachment: true,
+    reasoning: true,
+    tool_call: true,
+    modalities: { input: ["text", "image"], output: ["text"] },
+    limit: { context: 262_144, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+  },
+  "builder-code": {
+    name: "Builder Code",
+    reasoning: true,
+    tool_call: true,
+    limit: { context: CULTURA_BUILDER_CONTEXT_TOKENS, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+  },
+  "builder-fast": {
+    name: "Builder Fast",
+    tool_call: true,
+    limit: { context: CULTURA_BUILDER_CONTEXT_TOKENS, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+  },
+  "builder-review": {
+    name: "Builder Review",
+    reasoning: true,
+    tool_call: true,
+    limit: { context: 262_144, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+  },
+};
+
+/**
+ * The spawn environment of a Cultura Builder client: one provider on the Hub gateway, carrying the
+ * access token, and nothing else listed. A tokenless spawn still writes the provider so the row can
+ * show its models while signed out; OpenCode answers with a refused request, which is the sign-in
+ * prompt.
+ */
+export function culturaBuilderConfigEnv(baseUrl: string, accessToken: string | null): Record<string, string> {
+  const config: OpenCodeConfig = {
+    enabled_providers: ["cultura-builder"],
+    provider: {
+      "cultura-builder": {
+        npm: OPENCODE_COMPATIBLE_NPM,
+        name: "Cultura Builder",
+        options: {
+          baseURL: baseUrl,
+          ...(accessToken ? { apiKey: accessToken } : {}),
+        },
+        models: CULTURA_BUILDER_MODELS,
+      },
+    },
+  };
+  return { [OPENCODE_CONFIG_ENV]: JSON.stringify(config) };
 }

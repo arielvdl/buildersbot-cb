@@ -168,6 +168,26 @@ describe("channel tabs", () => {
     expect(store.summary(channelId, "topic-other").text).toBe("");
   });
 
+  it("gives each tab the time of its newest message, or its creation", async () => {
+    const { store, channelId, first } = await openStore();
+    store.update(store.get(channelId), {
+      topics: [
+        ...store.topics(channelId),
+        { id: "topic-second", channelId, name: "Second", createdAt: "2026-10-01T09:00:00.000Z", revision: 0 },
+      ],
+    });
+    const older = message(channelId, first, "message-older", "Older");
+    older.message.createdAt = "2026-10-01T10:00:00.000Z";
+    const newer = message(channelId, first, "message-newer", "Newer");
+    newer.message.createdAt = "2026-10-02T10:00:00.000Z";
+    store.update(store.get(channelId), { messages: [newer, older] });
+
+    const topics = store.list("local")[0]?.topics ?? [];
+    expect(topics.find((topic) => topic.id === first)?.updatedAt).toBe("2026-10-02T10:00:00.000Z");
+    // A tab nobody wrote in keeps its creation, so it still has an age.
+    expect(topics.find((topic) => topic.id === "topic-second")?.updatedAt).toBe("2026-10-01T09:00:00.000Z");
+  });
+
   it("carries the tab on a message that arrives without one, into the first tab", async () => {
     const { store, channelId, first } = await openStore();
     const withoutTopic = message(channelId, first, "message-plain", "From an older client");

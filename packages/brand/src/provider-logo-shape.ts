@@ -39,6 +39,9 @@ const ACP_PROMPT_PATH =
 
 const ACP_CURSOR_PATH = "M12 17a1 1 0 0 1 1-1h7a1 1 0 1 1 0 2h-7a1 1 0 0 1-1-1Z";
 
+// Cultura Builder's own provider mark: a thick "C" on the 24 grid, for the Hub behind the LLM.
+const CULTURA_BUILDER_PATH = "M12 2a10 10 0 1 0 8.66 15l-3.46-2a6 6 0 1 1 0-6l3.46-2A10 10 0 0 0 12 2Z";
+
 // A neutral ring for a provider that this build does not know. It is no provider's mark.
 const UNKNOWN_PATH = "M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z";
 
@@ -49,6 +52,7 @@ const GROK_PATHS = [
 ];
 
 export type ProviderLogoVariant =
+  | "cultura-builder"
   | "codex"
   | "claude"
   | "grok"
@@ -102,6 +106,8 @@ export function providerLogoShape(provider: ProviderLogoVariant): ProviderLogoSh
       return { viewBox: GRID_24, paths: [{ d: DEEPSEEK_PATH, evenOdd: true }] };
     case "openrouter":
       return { viewBox: GRID_24, paths: [{ d: OPENROUTER_PATH }] };
+    case "cultura-builder":
+      return { viewBox: GRID_24, paths: [{ d: CULTURA_BUILDER_PATH, evenOdd: true }] };
     // Native CLI providers use the neutral terminal mark.
     case "acp":
     case "pi":

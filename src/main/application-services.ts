@@ -8,6 +8,7 @@ import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { readCulturaBuilderSession } from "../backend/cultura-builder-auth";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
@@ -65,7 +66,7 @@ import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { homedir, hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { selfHostedApiOrigin } from "@openbot/contracts/invite-links";
+import { BUILDERSBOT_CONTROL_PLANE_ORIGIN, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import type {
   AgentStatus,
   AppVariant,
@@ -89,7 +90,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
 import { sourceText } from "@openbot/i18n/source";
-import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
+import { createBuildersBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
 import { REMOTE_ACCOUNT_CHECK_INTERVAL_MS } from "@openbot/team-client";
 import {
   app,
@@ -933,7 +934,7 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.dynamicIsland, "the Dynamic Island", () => dynamicIsland.destroy());
   const centralAuthApiUrl = readCentralAuthApiUrl(
     process.env.OPENBOT_AUTH_API_URL,
-    app.isPackaged ? "https://api.openbot.run" : "http://127.0.0.1:3100",
+    app.isPackaged ? BUILDERSBOT_CONTROL_PLANE_ORIGIN : "http://127.0.0.1:3100",
   );
   const centralAuth = new CentralAuthManager({
     apiUrl: centralAuthApiUrl,
@@ -1681,7 +1682,7 @@ export async function createApplicationServices({
         Effect.tap(() => providerRuntimes.providerUseChanged()),
         Effect.mapError((error) => new AgentLifecycleFailed({ operation: "saveProviderUse", cause: error.cause })),
       ),
-    preferredProvider: setupState.preferredProvider ?? "codex",
+    preferredProvider: setupState.preferredProvider ?? "cultura-builder",
     bundledExecutables: providerRuntimes.bundledExecutables(),
     prepareAgentWorkspace: (agent) =>
       Effect.gen(function* () {
@@ -1702,6 +1703,21 @@ export async function createApplicationServices({
     developmentDefaults: appVariant === "dev",
     credentials: {
       apiKey: (provider) => providerCredentials.get(provider),
+      // The Cultura Builder sign-in saves its own token: the Hub grants it, not the user. The stored
+      // value is JSON, so its tokens are registered on their own as well: an error quotes the token,
+      // not the envelope.
+      saveApiKey: (provider, value) =>
+        (value === null ? providerCredentials.clear(provider) : providerCredentials.set(provider, value)).pipe(
+          Effect.tap(
+            Effect.sync(() => {
+              if (provider !== "cultura-builder") return;
+              const session = readCulturaBuilderSession(value);
+              if (session?.access) registerSecretValue(session.access);
+              if (session?.refresh) registerSecretValue(session.refresh);
+            }),
+          ),
+          Effect.orDie,
+        ),
       // Read at each Claude spawn, so a change from Server settings applies to the next process.
       promptCacheTtl: () => promptCacheTtl.get().ttl,
       // `configs()`, not `list()`: this is the one path the API keys travel, and it ends at the

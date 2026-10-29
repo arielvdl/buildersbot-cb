@@ -1,10 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "openbot-auth-api",
+  "name": "buildersbot-auth",
   "compatibility_date": "2026-08-18",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/worker-entry.ts",
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "cache": {
     "enabled": true,
@@ -19,21 +19,7 @@
   "triggers": {
     "crons": ["*/5 * * * *"]
   },
-  "routes": [
-    {
-      "pattern": "openbot.run/*",
-      "zone_id": "bac5e044ba951c390229f0e93673ebd3"
-    },
-    // `www` has no origin. The Worker answers it only with a redirect to openbot.run.
-    {
-      "pattern": "www.openbot.run/*",
-      "zone_id": "bac5e044ba951c390229f0e93673ebd3"
-    },
-    {
-      "pattern": "api.openbot.run",
-      "custom_domain": true
-    }
-  ],
+  "routes": [],
   "secrets": {
     "required": [
       "EMAIL_SMTP_PASSWORD",
@@ -49,16 +35,16 @@
   },
   "vars": {
     "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
-    "EMAIL_SMTP_HOST": "mail.privateemail.com",
+    "EMAIL_SMTP_HOST": "smtp.resend.com",
     "EMAIL_SMTP_PORT": "465",
-    "EMAIL_SMTP_USERNAME": "hello@openbot.run",
-    "EMAIL_FROM": "hello@openbot.run",
-    "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
-    "REMOTE_SIGNAL_URL": "wss://signal.openbot.run/v1/signal",
-    "REMOTE_AUTH_WEBHOOK_URL": "https://signal.openbot.run/internal/auth-events",
+    "EMAIL_SMTP_USERNAME": "resend",
+    "EMAIL_FROM": "noreply@culturabuilder.com",
+    "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
+    "REMOTE_SIGNAL_URL": "wss://signal.culturabuilder.com/v1/signal",
+    "REMOTE_AUTH_WEBHOOK_URL": "https://signal.culturabuilder.com/internal/auth-events",
     // Creates stay off until the boat and Stripe secrets and the template are set. "false" stops new
     // servers only.
-    "HOSTED_SERVERS_ENABLED": "true",
+    "HOSTED_SERVERS_ENABLED": "false",
     // Each account can buy a server in production. Put account IDs here to limit creates to them.
     "HOSTED_SERVERS_ALLOWED_USER_IDS": "*",
     // The public Client ID of the OpenBotGit GitHub App. Its private key is the optional secret
@@ -70,29 +56,12 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "openbot-auth",
-      "database_id": "0cf7e5c1-63ad-4089-810a-e9eb67dd863d",
+      "database_name": "buildersbot-auth",
+      "database_id": "659ed706-ea75-4aec-9ff6-df731ab73cfa",
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "AVATARS",
-      "bucket_name": "openbot-avatars",
-      "preview_bucket_name": "openbot-avatars-test"
-    },
-    {
-      "binding": "SKILLS",
-      "bucket_name": "openbot-skills",
-      "preview_bucket_name": "openbot-skills-test"
-    },
-    {
-      "binding": "SITES",
-      "bucket_name": "openbot-sites",
-      "preview_bucket_name": "openbot-sites-test"
-    }
-  ],
-  "ratelimits": [
+    "ratelimits": [
     {
       "name": "MARKETPLACE_INGRESS_RATE_LIMITER",
       "namespace_id": "2026082701",
@@ -138,13 +107,13 @@
       },
       "vars": {
         "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
-        "EMAIL_SMTP_HOST": "mail.privateemail.com",
+        "EMAIL_SMTP_HOST": "smtp.resend.com",
         "EMAIL_SMTP_PORT": "465",
-        "EMAIL_SMTP_USERNAME": "hello@openbot.run",
-        "EMAIL_FROM": "hello@openbot.run",
+        "EMAIL_SMTP_USERNAME": "resend",
+        "EMAIL_FROM": "noreply@culturabuilder.com",
         "SITE_PUBLISH_ENABLED": "false",
         "SITE_COOKIE_ISOLATION_READY": "false",
-        "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
+        "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
         "REMOTE_SIGNAL_URL": "ws://127.0.0.1:8081/v1/signal",
         "REMOTE_AUTH_WEBHOOK_URL": "http://127.0.0.1:8081/internal/auth-events"
       },
@@ -229,16 +198,16 @@
       },
       "vars": {
         "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
-        "EMAIL_SMTP_HOST": "mail.privateemail.com",
+        "EMAIL_SMTP_HOST": "smtp.resend.com",
         "EMAIL_SMTP_PORT": "465",
-        "EMAIL_SMTP_USERNAME": "hello@openbot.run",
-        "EMAIL_FROM": "hello@openbot.run",
+        "EMAIL_SMTP_USERNAME": "resend",
+        "EMAIL_FROM": "noreply@culturabuilder.com",
         "SITE_PUBLISH_ENABLED": "false",
         "SITE_COOKIE_ISOLATION_READY": "false",
-        "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
-        "REMOTE_SIGNAL_URL": "wss://signal.openbot.run/v1/signal",
-        "REMOTE_AUTH_WEBHOOK_URL": "https://signal.openbot.run/internal/auth-events",
-        "HOSTED_SERVERS_ENABLED": "true",
+        "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
+        "REMOTE_SIGNAL_URL": "wss://signal.culturabuilder.com/v1/signal",
+        "REMOTE_AUTH_WEBHOOK_URL": "https://signal.culturabuilder.com/internal/auth-events",
+        "HOSTED_SERVERS_ENABLED": "false",
         "GITHUB_APP_CLIENT_ID": "Iv23lik5pzHz70cb0RUL",
         "APNS_TEAM_ID": "ZTRDTUL87R",
         "APNS_TOPIC": "run.openbot.mobile"

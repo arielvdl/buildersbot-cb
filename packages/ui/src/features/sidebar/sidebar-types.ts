@@ -27,6 +27,12 @@ import type { SidebarPinnedItem } from "./sidebar-pins";
 export type SidebarView = "agents" | "routines";
 
 /**
+ * The kind of chat the activity filter keeps: only channels, or only agents, that have work in
+ * flight. It is not a saved layout, so a null value lists every chat again as the layout has it.
+ */
+export type SidebarActivityFilter = "channels" | "agents";
+
+/**
  * The "Hidden" group is not a section of the layout, and it is collapsed by default. Its id in
  * `collapsedSectionIds` therefore records that the user opened it, not that the user collapsed it.
  * The colon keeps it apart from the section ids that the layout makes.
@@ -37,6 +43,13 @@ export interface SidebarProps {
   /** The switch over the list is shown only when the caller handles `onViewChange`. */
   view?: SidebarView | undefined;
   onViewChange?: ((view: SidebarView) => void) | undefined;
+  /**
+   * Lists only the chats of this kind that have work in flight, plus the open one. Null or absent
+   * lists every chat in its section, as the layout has it.
+   */
+  activityFilter?: SidebarActivityFilter | null | undefined;
+  /** Sets `activityFilter`. Without it, the search row shows no filter button. */
+  onActivityFilterChange?: ((filter: SidebarActivityFilter | null) => void) | undefined;
   deleteSupported?: boolean | undefined;
   marketplaceSupported?: boolean | undefined;
   channels?: ChannelSummary[] | undefined;

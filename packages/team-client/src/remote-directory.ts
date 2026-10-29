@@ -3,6 +3,7 @@ import {
   createInviteUrl,
   type InviteLinkOptions,
   inviteUseCount,
+  isControlPlaneOrigin,
   isPermanentInvite,
   OPENBOT_CONTROL_PLANE_ORIGIN,
   OPENBOT_INVITE_ORIGIN,
@@ -424,12 +425,10 @@ export class RemoteTeamDirectoryClient {
       const invite = yield* directoryDecode(() => parseInviteUrl(inviteUrl, this.#inviteLinks));
       const inviteOrigin = new URL(invite.apiUrl).origin;
       const origin = new URL(this.#apiUrl).origin;
-      // These production origins serve the same account Worker. Requests still use this client's origin.
-      const publicWebsiteInvite =
-        this.#authentication.kind === "browser" &&
-        origin === "https://openbot.run" &&
-        inviteOrigin === "https://api.openbot.run";
-      if (inviteOrigin !== origin && !publicWebsiteInvite) {
+      // The production origins serve the same account Worker, so an invitation from one opens on the
+      // other. Requests still use this client's origin.
+      const sameControlPlane = isControlPlaneOrigin(inviteOrigin) && isControlPlaneOrigin(origin);
+      if (inviteOrigin !== origin && !sameControlPlane) {
         return yield* directoryFailure(sourceText("error.remote.inviteOtherService"));
       }
       const value = yield* this.#request("/v2/remote/invites/preview", {

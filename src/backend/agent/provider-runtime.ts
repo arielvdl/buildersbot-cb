@@ -40,6 +40,14 @@ import {
   cliPathEnvironment,
   cliSpawnTarget,
 } from "./../cli";
+import {
+  type CulturaBuilderDeviceCode,
+  pollCulturaBuilderToken,
+  readCulturaBuilderAccess,
+  revokeCulturaBuilderSession,
+  serializeCulturaBuilderSession,
+  startCulturaBuilderSignIn,
+} from "../cultura-builder-auth";
 import { readCursorUsage } from "./../cursor-usage";
 import { causeHelpers } from "../effect-boundary";
 import { McpHandoffLog } from "./../mcp-handoff-log";
@@ -316,6 +324,7 @@ const INITIAL_STATUS: AgentStatus = {
   cliVersion: null,
   auth: { kind: "unknown" },
   providers: [
+    { id: "cultura-builder", state: "not-started", version: null, message: null },
     { id: "codex", state: "not-started", version: null, message: null },
     { id: "claude", state: "not-started", version: null, message: null },
     { id: "grok", state: "not-started", version: null, message: null },
@@ -341,6 +350,13 @@ const INITIAL_STATUS: AgentStatus = {
  * #status was read in five places outside this domain and written in sixteen inside it; the
  * ProviderPort above is what those five places get now.
  */
+/** A Cultura Builder sign-in waiting for the user. */
+interface CulturaLoginWait {
+  readonly settled: Deferred.Deferred<boolean>;
+  readonly deadline: number;
+  canceled: boolean;
+}
+
 export class ProviderRuntime implements ProviderPort {
   readonly #conversation: ConversationRuntime;
   readonly #hooks: ProviderHooks;
@@ -395,6 +411,11 @@ export class ProviderRuntime implements ProviderPort {
   readonly #cliSources = new Map<AgentProvider, AgentCliInfo["source"]>();
   readonly #accounts = new Map<AgentProvider, AccountReadResult["account"]>();
   readonly #providerStarts = new Map<AgentProvider, Deferred.Deferred<void, ProviderOperationFailed>>();
+  /**
+   * The Cultura Builder sign-in waiting for the user, if any. The Hub flow is not a CLI process, so
+   * its own poll fiber is what a cancel interrupts, and `settled` is what a host sign-in waits on.
+   */
+  #culturaLogin: CulturaLoginWait | null = null;
   readonly #providerConnectionCommands = new Map<AgentProvider, Deferred.Deferred<void, ProviderOperationFailed>>();
   readonly #replacingCli = new Set<AgentProvider>();
   #removingCustomRuntime = false;
@@ -1487,7 +1508,8 @@ export class ProviderRuntime implements ProviderPort {
           .start(provider, (cli) => startProviderTerminalLogin(cli, signIn.timeoutMs))
           .pipe(toProviderOperationFailed);
         return this.status();
-      case "muse-device": {
+      case "muse-device":
+      case "cultura-device": {
         const started = yield* this.#startProviderCode(provider, signIn);
         if (started.kind !== "code") return this.status();
         // A page that did not open cannot finish the sign-in, so its code stops working.
@@ -1625,10 +1647,15 @@ export class ProviderRuntime implements ProviderPort {
   ) {
     yield* this.#connectProvider(provider, openPage, true);
     // A sign-in that ended before this read leaves no task; the clients then tell how it ended.
+    const kind = requireProviderDriver(provider).signIn.kind;
     const pending =
-      requireProviderDriver(provider).signIn.kind === "browser"
+      kind === "browser"
         ? this.#codexLogin.settled()
-        : this.#cliLogin.settled(provider);
+        : kind === "cultura-device"
+          ? this.#culturaLogin
+            ? Deferred.await(this.#culturaLogin.settled)
+            : Effect.succeed(false)
+          : this.#cliLogin.settled(provider);
     const signedIn = (yield* pending) ?? (this.#clients.has(provider) && this.#accounts.has(provider));
     if (signedIn) return;
     const message = this.#status.providers?.find((status) => status.id === provider)?.message;
@@ -1645,7 +1672,12 @@ export class ProviderRuntime implements ProviderPort {
     // Codex signs in through its app-server, not a CLI login, and holds its callback port until it ends.
     const browser = requireProviderDriver(provider).signIn.kind === "browser";
     return yield* this.#runProviderConnectionCommand(provider, () =>
-      (browser ? this.#codexLogin.cancel(null) : this.#cancelCliLogin(provider)).pipe(Effect.map(() => this.status())),
+      (browser
+        ? this.#codexLogin.cancel(null)
+        : requireProviderDriver(provider).signIn.kind === "cultura-device"
+          ? this.#cancelCulturaLogin(provider)
+          : this.#cancelCliLogin(provider)
+      ).pipe(Effect.map(() => this.status())),
     );
   }).bind(this);
 
@@ -1670,6 +1702,99 @@ export class ProviderRuntime implements ProviderPort {
     return yield* this.#runProviderConnectionCommand(provider, () => this.#startProviderCode(provider, codeSignIn));
   }).bind(this);
 
+  /** Saves, or with null removes, the Cultura Builder session, which is the provider's credential. */
+  #saveCulturaSession(value: string | null): Effect.Effect<void> {
+    return this.#credentials.saveApiKey?.("cultura-builder", value) ?? Effect.void;
+  }
+
+  /** Ends a Cultura Builder sign-in that waits for the user. Its poll fiber sees the flag and stops. */
+  #cancelCulturaLogin(provider: AgentProvider): Effect.Effect<void> {
+    const pending = this.#culturaLogin;
+    if (!pending) return Effect.void;
+    pending.canceled = true;
+    this.#culturaLogin = null;
+    this.#clearProviderConnectionState(provider);
+    return Deferred.succeed(pending.settled, false).pipe(Effect.asVoid);
+  }
+
+  /**
+   * Starts the Hub device sign-in and returns the code to show. The poll runs on its own fiber: the
+   * user approves the code on any device, and the status is how the renderer hears the end.
+   */
+  readonly #startCulturaLogin = Effect.fn("ProviderRuntime.startCulturaLogin")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+  ): Effect.fn.Return<ProviderCodeLoginStart, ProviderOperationFailed> {
+    const flow = yield* startCulturaBuilderSignIn().pipe(toProviderOperationFailed);
+    const settled = Deferred.makeUnsafe<boolean>();
+    const pending = { settled, deadline: flow.expiresAt, canceled: false };
+    this.#culturaLogin = pending;
+    this.#setProviderConnectionState(provider, "connecting");
+    yield* this.#pollCulturaLogin(provider, flow, pending).pipe(Effect.forkIn(this.#scope));
+    return {
+      kind: "code",
+      userCode: flow.userCode,
+      verificationUrl: flow.verificationUrl,
+      ...(flow.verificationUrlComplete === undefined ? {} : { verificationUrlComplete: flow.verificationUrlComplete }),
+      expiresAt: flow.expiresAt,
+    };
+  }, Effect.uninterruptible);
+
+  /**
+   * Waits on the Hub for the approval. On success the session is saved, checked against the gateway
+   * and the provider re-probed, so the row reports what the account may actually use.
+   */
+  readonly #pollCulturaLogin = Effect.fn("ProviderRuntime.pollCulturaLogin")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+    flow: CulturaBuilderDeviceCode,
+    pending: CulturaLoginWait,
+  ) {
+    let interval = flow.intervalMs;
+    while (Date.now() < pending.deadline) {
+      yield* Effect.sleep(interval);
+      if (pending.canceled) return;
+      const outcome = yield* pollCulturaBuilderToken(flow);
+      if (outcome.status === "ready") {
+        // A dialog closed while the Hub was answering leaves nobody waiting for this token.
+        if (pending.canceled) {
+          yield* revokeCulturaBuilderSession(outcome.session);
+          return;
+        }
+        yield* this.#saveCulturaSession(serializeCulturaBuilderSession(outcome.session));
+        const access = yield* Effect.result(readCulturaBuilderAccess(outcome.session.access));
+        if (Result.isSuccess(access)) {
+          yield* this.#saveCulturaSession(
+            serializeCulturaBuilderSession({ ...outcome.session, empresa: access.success.empresa }),
+          );
+        }
+        if (this.#culturaLogin === pending) this.#culturaLogin = null;
+        yield* Deferred.succeed(pending.settled, true);
+        if (Result.isSuccess(access) && !access.success.active) {
+          this.#setProviderConnectionFailure(
+            provider,
+            new ProviderSignInError({ message: "This Cultura Builder account has no access to the LLM." }),
+            this.#cli.get(provider)?.version ?? null,
+          );
+          return;
+        }
+        yield* this.#reprobeProvider(provider).pipe(Effect.catch(() => Effect.void));
+        return;
+      }
+      // RFC 8628 raises the interval by five seconds on `slow_down` instead of repeating.
+      if (outcome.status === "slow_down") interval += 5_000;
+      else if (outcome.status === "stop") break;
+    }
+    if (this.#culturaLogin !== pending) return;
+    this.#culturaLogin = null;
+    yield* Deferred.succeed(pending.settled, false);
+    this.#setProviderConnectionFailure(
+      provider,
+      new ProviderSignInError({ message: "The Cultura Builder sign-in did not finish. Try again." }),
+      this.#cli.get(provider)?.version ?? null,
+    );
+  });
+
   readonly #startProviderCode = Effect.fn("ProviderRuntime.startCodeLogin")(function* (
     this: ProviderRuntime,
     provider: AgentProvider,
@@ -1680,6 +1805,10 @@ export class ProviderRuntime implements ProviderPort {
       return yield* this.#codexLogin.startDevice().pipe(toProviderOperationFailed);
     }
     yield* this.#cancelCliLogin(provider);
+    if (codeSignIn.kind === "cultura-device") {
+      yield* this.#cancelCulturaLogin(provider);
+      return yield* this.#startCulturaLogin(provider);
+    }
     if (codeSignIn.kind === "muse-device") {
       return yield* this.#cliLogin
         .startCode(
@@ -1726,6 +1855,7 @@ export class ProviderRuntime implements ProviderPort {
     return yield* this.#runProviderConnectionCommand(provider, () =>
       Effect.gen({ self: this }, function* () {
         if (codeSignIn.kind === "codex-device") yield* this.#codexLogin.cancel(null);
+        else if (codeSignIn.kind === "cultura-device") yield* this.#cancelCulturaLogin(provider);
         else yield* this.#cancelCliLogin(provider);
         return this.status();
       }),
@@ -2700,6 +2830,18 @@ export class ProviderRuntime implements ProviderPort {
       } = {},
     ) {
       const driver = requireProviderDriver(provider);
+      // A token the app refreshes itself has to reach the store before the environment is built.
+      const prepare = driver.prepare;
+      if (prepare) {
+        yield* prepare(this.#credentials).pipe(
+          Effect.mapError(
+            (failure) =>
+              new ProviderOperationFailed({
+                cause: failure instanceof ProviderSignInError ? failure : failure.cause,
+              }),
+          ),
+        );
+      }
       let transferred = false;
       return yield* Effect.acquireUseRelease(
         providerStep(() =>

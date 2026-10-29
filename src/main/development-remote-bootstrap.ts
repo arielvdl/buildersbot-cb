@@ -61,7 +61,7 @@ export const applyDevelopmentRemoteAccount = Effect.fn("DevelopmentRemote.applyA
     yield* teamStore.configureWithAccount("Builders Bot Local Dev Host", user);
   }
   if (role === "client" && !setupCompleted) {
-    yield* writeSetupState(setupFile, { preferredProvider: "codex", preferredModel: null }).pipe(toRemoteWorkflowError);
+    yield* writeSetupState(setupFile, { preferredProvider: "cultura-builder", preferredModel: null }).pipe(toRemoteWorkflowError);
   }
   if (role === "host" && !testClientEnabled) {
     const technicalMember = teamStore

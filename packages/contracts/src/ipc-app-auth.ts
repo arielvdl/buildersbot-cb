@@ -235,6 +235,37 @@ export interface VerifyEmailCodeInput {
   code: string;
 }
 
+/**
+ * A device sign-in as the account service issued it.
+ *
+ * The flow id is the handle the app polls with; the code is what the user types on the device that
+ * already has a browser session. Neither is a credential: the flow id is consumed by the first
+ * successful poll, and the code alone authorises nothing.
+ */
+export interface CentralAuthDeviceCode {
+  flowId: string;
+  userCode: string;
+  /** The page the user opens, in the short form that is readable on screen. */
+  verificationUrl: string;
+  /** The same page with the code already in it, for the QR code, when the service issued one. */
+  verificationUrlComplete: string | null;
+  /** Epoch milliseconds. */
+  expiresAt: number;
+  /** How long the app must wait between polls, from the service's `interval`. */
+  intervalMs: number;
+}
+
+/**
+ * What one poll answered. `pending` keeps the dialog waiting for the next tick; the three endings
+ * close it. The success case carries no session: the main process stored it and reported
+ * `signed_in` on the account state, so the token never crosses to the renderer.
+ */
+export type CentralAuthDevicePoll =
+  | { status: "pending"; intervalMs: number }
+  | { status: "authorized" }
+  | { status: "denied" }
+  | { status: "expired" };
+
 export type MacPermissionId = "screen-recording" | "accessibility";
 
 /**

@@ -53,7 +53,7 @@ export function SidebarNav() {
             waitingChats().length === 0 &&
             filteredChats().length === 0 &&
             userHiddenAgentList().length === 0 &&
-            (props.showPeople === false || orderedPeople().length === 0) &&
+            (props.showPeople === false || props.activityFilter || orderedPeople().length === 0) &&
             pending.sectionEditor?.target.kind !== "create"
           }
         >

@@ -53,6 +53,11 @@ export interface ChannelTopic {
   name: string;
   createdAt: string;
   revision: number;
+  /**
+   * When the tab last changed: its newest message, or its creation for a tab nobody wrote in. In a
+   * channel summary only, for the tab list's age.
+   */
+  updatedAt?: string;
   /** Counted for a channel summary only, against this tab's own read cursor. Absent elsewhere. */
   unreadCount?: number;
   /** Its running tasks, in a channel summary only. */

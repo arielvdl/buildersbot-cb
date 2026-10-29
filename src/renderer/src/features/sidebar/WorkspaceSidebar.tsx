@@ -6,6 +6,7 @@ import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineC
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates, sidebarChannelWaits } from "@openbot/ui/features/sidebar/sidebar-agent-states";
+import type { SidebarActivityFilter } from "@openbot/ui/features/sidebar/sidebar-types";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
@@ -131,6 +132,8 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const [mobileAppDismissed, setMobileAppDismissed] = createSignal(
     window.localStorage.getItem(MOBILE_APP_DISMISSED_STORAGE_KEY) === "true",
   );
+  /** The list filter: only active channels, only active agents, or the layout as it is when null. */
+  const [activityFilter, setActivityFilter] = createSignal<SidebarActivityFilter | null>(null);
   const storageCard = createStorageCard(activeServer);
   const machineCard = createMachineCard(activeServer);
   // A clear in Server settings frees space and can change an alert level, so both cards read
@@ -246,6 +249,8 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
         channels.hasUnread()
       }
       view={layout.sidebarView()}
+      activityFilter={activityFilter()}
+      onActivityFilterChange={setActivityFilter}
       serverName={activeServer()?.name ?? t("sidebar.topbar.localServer")}
       onOpenServerSettings={(trigger) => {
         const server = activeServer();

@@ -6,6 +6,8 @@ import type { HostKeyHandover } from "@openbot/contracts/host-key-handover";
 import { parseHostedServerClaim } from "@openbot/contracts/hosted-servers";
 import type {
   AvatarImageInput,
+  CentralAuthDeviceCode,
+  CentralAuthDevicePoll,
   CentralAuthIssue,
   CentralAuthState,
   CentralAuthUser,
@@ -45,6 +47,8 @@ import {
   decodeAcceptedRemoteInvite,
   decodeCentralAuthUser,
   decodeCreatedRemoteInvite,
+  decodeDeviceAuthorization,
+  decodeDevicePollInterval,
   decodeEmailChallenge,
   decodeMobileConnectedDevices,
   decodeMobileConnectLinkResponse,
@@ -62,6 +66,7 @@ import {
   type RemoteInvitePreview,
   type RemoteInviteRecord,
   type RemoteMemberRecord,
+  type SessionResponse,
 } from "./central-auth-records";
 import type { NotificationRelayRequest } from "./push-notifications";
 
@@ -156,9 +161,10 @@ export type VerifiedRemoteSessionTicket = Pick<
 };
 
 /**
- * Builders Bot is shipped without an account service, so the window opens straight into the
- * workspace. The account id is local: the usage and billing calls that need a session token stay
- * off until a token exists, and `OPENBOT_LOCAL_ACCOUNT=0` brings the email sign-in back.
+ * Builders Bot ships against the Builders Bot account service, so the window starts at the email
+ * sign-in and the account id is the real one. Signing in is what turns on hosted sites, updates,
+ * usage and billing, because each of those sends the central session token. `OPENBOT_LOCAL_ACCOUNT=1`
+ * keeps the old offline mode: the workspace opens at once with the account id `local` and no token.
  */
 const LOCAL_ACCOUNT_USER: CentralAuthUser = {
   id: "local",
@@ -168,7 +174,8 @@ const LOCAL_ACCOUNT_USER: CentralAuthUser = {
 };
 
 function localAccountEnabled(): boolean {
-  return process.env.OPENBOT_LOCAL_ACCOUNT !== "0";
+  const value = process.env.OPENBOT_LOCAL_ACCOUNT;
+  return value === "1" || value === "true";
 }
 
 export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
@@ -1517,19 +1524,8 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
           },
           decodeSessionResponse,
         );
-        // Signing in as somebody else without signing out first. The host credentials belong
-        // to the account that was issued them, and must not be filed under this session.
-        if (this.#sessionAccountId !== null && this.#sessionAccountId !== session.user.id) {
-          this.#teamHostTokens.clear();
-        }
-        this.#sessionToken = session.sessionToken;
-        this.#mobileConnectLink = null;
         sessionApplied = true;
-        yield* this.#writeStoredSession();
-        return this.#setState({
-          status: "signed_in",
-          user: this.#resolveUserAvatar(session.user),
-        });
+        return yield* this.#applySignedInSession(session);
       }).pipe(
         Effect.catch(({ cause: error }) =>
           Effect.gen({ self: this }, function* () {
@@ -1550,6 +1546,97 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
           }),
         ),
       );
+    },
+    (operation) => this.#owned(operation),
+  ).bind(this);
+
+  /**
+   * Files a session that a sign-in just obtained: the same write, account hand-off and state for
+   * every way in (the e-mail code and the device grant), so the two cannot drift.
+   */
+  readonly #applySignedInSession = Effect.fn("CentralAuth.applySignedInSession")(function* (
+    this: CentralAuthManager,
+    session: SessionResponse,
+  ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
+    // Signing in as somebody else without signing out first. The host credentials belong
+    // to the account that was issued them, and must not be filed under this session.
+    if (this.#sessionAccountId !== null && this.#sessionAccountId !== session.user.id) {
+      this.#teamHostTokens.clear();
+    }
+    this.#sessionToken = session.sessionToken;
+    this.#mobileConnectLink = null;
+    yield* this.#writeStoredSession();
+    return this.#setState({
+      status: "signed_in",
+      user: this.#resolveUserAvatar(session.user),
+    });
+  });
+
+  /**
+   * Starts the device grant sign-in: the account service issues a code and a page, and the app
+   * polls `pollDeviceSignIn` while the user confirms it on a device that already has a browser
+   * session. Nothing is stored until a poll is authorised.
+   */
+  readonly startDeviceSignIn = Effect.fn("CentralAuth.startDeviceSignIn")(
+    function* (
+      this: CentralAuthManager,
+    ): Effect.fn.Return<CentralAuthDeviceCode, CentralAuthOperationError, CentralAuthTransport> {
+      const started = yield* this.#requestEffect(
+        "/v1/auth/device/start",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientName: "Builders Bot" }),
+        },
+        decodeDeviceAuthorization,
+        this.#options.emailCodeRequestTimeoutMs,
+      );
+      return {
+        flowId: started.flowId,
+        userCode: started.userCode,
+        verificationUrl: started.verificationUri,
+        verificationUrlComplete: started.verificationUriComplete,
+        expiresAt: Date.now() + started.expiresInSeconds * 1_000,
+        intervalMs: Math.max(1_000, started.intervalSeconds * 1_000),
+      };
+    },
+    (operation) => this.#owned(operation),
+  ).bind(this);
+
+  /**
+   * One poll of a device flow. `pending` keeps the caller waiting for the next interval; an
+   * authorised flow stores the session exactly like the e-mail code does and reports `signed_in`
+   * on the account state. A refused or expired flow stores nothing.
+   */
+  readonly pollDeviceSignIn = Effect.fn("CentralAuth.pollDeviceSignIn")(
+    function* (
+      this: CentralAuthManager,
+      flowId: string,
+    ): Effect.fn.Return<CentralAuthDevicePoll, CentralAuthOperationError, CentralAuthTransport> {
+      const response = yield* CentralAuthTransport.use((transport) =>
+        transport.fetch(new URL("/v1/auth/device/poll", this.#options.apiUrl), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ flowId }),
+          signal: AbortSignal.timeout(this.#options.emailCodeRequestTimeoutMs),
+        }),
+      );
+      if (response.status === 202) {
+        const body = yield* authCall(() => response.json().catch(() => null));
+        const intervalSeconds = decodeDevicePollInterval(body);
+        return { status: "pending", intervalMs: Math.max(1_000, (intervalSeconds ?? 5) * 1_000) };
+      }
+      if (response.status === 403 || response.status === 410) {
+        yield* authCall(() => response.body?.cancel().then(() => undefined) ?? Promise.resolve());
+        return { status: response.status === 403 ? "denied" : "expired" };
+      }
+      if (!response.ok) {
+        return yield* new CentralAuthOperationError({ cause: yield* AuthApiError.fromResponseEffect(response) });
+      }
+      const value = yield* authCall(() => response.json());
+      const session = yield* authDecode(() => decodeSessionResponse(value));
+      yield* this.#applySignedInSession(session);
+      return { status: "authorized" };
     },
     (operation) => this.#owned(operation),
   ).bind(this);

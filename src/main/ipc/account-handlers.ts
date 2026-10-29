@@ -26,6 +26,10 @@ export function accountIpcHandlers({ centralAuth, host }: AccountIpcDependencies
       verifyEmailCode: payloadHandler(parseEmailCodeVerification, (verification) =>
         runCauseEffect(centralAuth.verifyEmailCode(verification.challengeId, verification.code)),
       ),
+      startDeviceSignIn: handler(() => runCauseEffect(centralAuth.startDeviceSignIn())),
+      pollDeviceSignIn: payloadHandler(stringPayload("flowId", INPUT_LIMITS.identifier), (flowId) =>
+        runCauseEffect(centralAuth.pollDeviceSignIn(flowId)),
+      ),
       updateName: payloadHandler(parseProfileName, (name) => runCauseEffect(centralAuth.updateName(name))),
       updateAvatar: payloadHandler(parseAvatarImage, (parsed) => runCauseEffect(centralAuth.updateAvatar(parsed))),
       createMobileConnect: handler(() => runCauseEffect(createHostedMobileConnect({ centralAuth, host }))),

@@ -13,13 +13,13 @@ import { useSidebarScope } from "./sidebar-scope";
 export function SidebarEmptyState() {
   const { props } = useSidebarScope();
   const { t } = useText();
+  const emptyLabel = () => {
+    if (props.agentsConnecting) return t("common.connecting");
+    if (props.activityFilter) return t("sidebar.activity.empty");
+    return t("sidebar.empty.noAgents");
+  };
   return (
-    <Show
-      when={props.emptyAction}
-      fallback={
-        <p class="empty-search">{props.agentsConnecting ? t("common.connecting") : t("sidebar.empty.noAgents")}</p>
-      }
-    >
+    <Show when={props.emptyAction} fallback={<p class="empty-search">{emptyLabel()}</p>}>
       {(action) => (
         <div class={props.layout.sections.length === 0 ? "sidebar-first-agent-state" : undefined}>
           <Button

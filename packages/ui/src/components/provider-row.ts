@@ -194,7 +194,7 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
   const signInOffered = () =>
     Boolean(host.onSignInProvider) &&
     !connectOptional() &&
-    (option().id === "opencode" || option().id === "muse"
+    (option().id === "opencode" || option().id === "muse" || option().id === "cultura-builder"
       ? runtimeAction() === undefined || runtimeAction() === "connect" || runtimeAction() === "restart"
       : option().id === "claude" &&
         !runtimeStatus() &&

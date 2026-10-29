@@ -1,4 +1,4 @@
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle, UserRound } from "@openbot/ui";
+import { Button, Item, ItemContent, ItemDescription, ItemMedia, ItemTitle, UserRound } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 import type { AgentProfile } from "../../data";
@@ -14,6 +14,8 @@ interface ChannelMemberRowProps {
   leading?: JSX.Element;
   /** What stands after the name, such as the lead crown and Remove. */
   actions?: JSX.Element;
+  /** Opens the member, as the name does in Channel settings. */
+  onActivate?: (() => void) | undefined;
   class?: string;
 }
 
@@ -33,9 +35,25 @@ export function ChannelMemberRow(props: ChannelMemberRowProps): JSX.Element {
         </Show>
       </ItemMedia>
       <ItemContent>
-        <ItemTitle>{props.agent?.name ?? props.fallbackName}</ItemTitle>
-        <Show when={props.description}>
-          <ItemDescription>{props.description}</ItemDescription>
+        <Show
+          when={props.onActivate}
+          fallback={
+            <>
+              <ItemTitle>{props.agent?.name ?? props.fallbackName}</ItemTitle>
+              <Show when={props.description}>
+                <ItemDescription>{props.description}</ItemDescription>
+              </Show>
+            </>
+          }
+        >
+          {(activate) => (
+            <Button type="button" variant="ghost" class="channel-member-open" onClick={activate()}>
+              <ItemTitle>{props.agent?.name ?? props.fallbackName}</ItemTitle>
+              <Show when={props.description}>
+                <ItemDescription>{props.description}</ItemDescription>
+              </Show>
+            </Button>
+          )}
         </Show>
       </ItemContent>
       <Show when={props.actions}>{props.actions}</Show>

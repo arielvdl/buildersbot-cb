@@ -57,6 +57,7 @@ function ChannelPanelBody() {
               <ChannelMemberRow
                 agent={agent}
                 fallbackName={agent.name}
+                onActivate={fn()}
                 actions={
                   <ItemActions>
                     <Button size="xs" variant="destructive" class="channel-member-remove">

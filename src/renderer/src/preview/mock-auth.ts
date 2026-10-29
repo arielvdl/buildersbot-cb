@@ -1,9 +1,9 @@
 import type {
   AccountSession,
+  BuildersBotDesktopApi,
   CentralAuthState,
   CentralAuthUser,
   MobileConnectLink,
-  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { clone, type Listener, type MockRuntime } from "./mock-support";
 
@@ -79,6 +79,15 @@ export function createMockAuth(options: MockAuthOptions, { emit }: MockRuntime) 
       };
       return clone(authState);
     },
+    startDeviceSignIn: async () => ({
+      flowId: "mock-flow",
+      userCode: "ABCD-EFGH",
+      verificationUrl: "https://auth-buildersbot.culturabuilder.com/device",
+      verificationUrlComplete: "https://auth-buildersbot.culturabuilder.com/device?user_code=ABCD-EFGH",
+      expiresAt: Date.now() + 900_000,
+      intervalMs: 5_000,
+    }),
+    pollDeviceSignIn: async () => ({ status: "pending", intervalMs: 5_000 }),
     verifyEmailCode: async () => {
       const email = authState.status === "code_sent" ? authState.email : "person@example.com";
       const user: CentralAuthUser = {

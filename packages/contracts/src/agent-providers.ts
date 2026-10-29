@@ -20,6 +20,7 @@ import { isOneOf, isString } from "./runtime-values";
  * stylesheet and the lock file.
  */
 export const AGENT_PROVIDERS = [
+  "cultura-builder",
   "codex",
   "claude",
   "grok",
@@ -176,6 +177,31 @@ export interface AgentProviderDescriptor {
  * row here is a `TS2741` naming the id, before anything runs and with no test to keep in step.
  */
 const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
+  // The official provider: the Cultura Builder private LLM behind the Hub proxy, reached with the
+  // user's own Hub sign-in. It runs in the bundled Builders CLI, like a custom endpoint, so it needs
+  // no runtime of its own. `pickerOrder: -1` keeps it above the other accounts everywhere the picker
+  // is ordered; the model ids carry the `builder-` prefix that an old `bots.json` could name.
+  "cultura-builder": {
+    id: "cultura-builder",
+    displayName: "Cultura Builder",
+    cliName: "Builders CLI",
+    onboardingDescription: "Private LLM through the Cultura Builder proxy",
+    signInMessage: "Sign in with Cultura Builder to continue.",
+    installGuideLink: null,
+    defaultModel: "cultura-builder/builder-auto",
+    legacyModelPrefix: "builder-",
+    authKind: "cultura-builder",
+    pickerOrder: -1,
+    localCodeSignIn: "device",
+    signInPageEnd: "page",
+    skillFolders: [".opencode/skills", ".agents/skills", ".claude/skills"],
+    homeSkills: "native",
+    workspaceEnforcement: "confined-process",
+    steer: "deferred",
+    concurrentTurns: true,
+    reportsUsage: false,
+    approvalsInFullAccess: true,
+  },
   codex: {
     id: "codex",
     displayName: "ChatGPT",
@@ -534,6 +560,7 @@ export function isManagedRuntimeProvider(provider: AgentProviderId): provider is
  * A joined server's settings list one only when the host's status names it.
  */
 export const LOCAL_ONLY_PROVIDERS = [
+  "cultura-builder",
   "antigravity",
   "cursor",
   "cline",

@@ -158,6 +158,7 @@ const args: Parameters<typeof Sidebar>[0] = {
   onExpand: fn(),
   onOpenSearch: fn(),
   onOpenMarketplace: fn(),
+  onActivityFilterChange: fn(),
 };
 
 function InteractiveSidebar(props: Parameters<typeof Sidebar>[0]) {
@@ -166,11 +167,17 @@ function InteractiveSidebar(props: Parameters<typeof Sidebar>[0]) {
   const [layout, setLayout] = createSignal(untrack(() => props.layout));
   const [collapsedSectionIds, setCollapsedSectionIds] = createSignal(untrack(() => props.collapsedSectionIds));
   const [hiddenAgents, setHiddenAgents] = createSignal(untrack(() => props.userHiddenAgents ?? []));
+  const [activityFilter, setActivityFilter] = createSignal(untrack(() => props.activityFilter ?? null));
   const onHideAgent = untrack(() => props.onHideAgent);
   const onRestoreAgent = untrack(() => props.onRestoreAgent);
   return (
     <Sidebar
       {...props}
+      activityFilter={activityFilter()}
+      onActivityFilterChange={(filter) => {
+        setActivityFilter(filter);
+        props.onActivityFilterChange?.(filter);
+      }}
       userHiddenAgents={hiddenAgents()}
       onHideAgent={
         onHideAgent &&
@@ -717,6 +724,17 @@ export const ChannelsWaiting: Story = {
 
 export const ChannelsCompact: Story = {
   args: { ...Channels.args, compact: true },
+};
+
+/** The activity filter keeps the working channel and drops the idle ones and the people section. */
+export const ChannelsActiveOnly: Story = {
+  args: { ...Channels.args, activityFilter: "channels" },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+export const AgentsActiveOnly: Story = {
+  args: { ...Channels.args, activityFilter: "agents" },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
 };
 
 export const ChannelContextMenu: Story = {
