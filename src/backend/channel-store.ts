@@ -20,7 +20,7 @@ import {
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
-import { deleteAggregateHistory, deleteThreadAttachments } from "./database/database-core";
+import { deleteAggregateHistory, deleteReceiptsOf, deleteThreadAttachments } from "./database/database-core";
 import {
   databaseRow,
   databaseRows,
@@ -599,11 +599,18 @@ export class ChannelStore {
       [{ aggregateType: "channel", aggregateId: channel.id, eventType: "channel.changed", payload }],
       (db) => {
         this.project(db, payload);
+        pruneChannelEvents(db, channel.id);
         return channel;
       },
     );
   }
 
+  /**
+   * Drops the older `channel.changed` events of this channel, with their receipts. Each one holds the
+   * whole channel and only the newest is ever read, so the log grew by a channel per change: 11k
+   * rows and 27 MB on a profile with 1.6k channel messages. The projection rows keep their own
+   * `last_event_sequence`, so a pruned sequence still reads as the revision it was.
+   */
   private project(db: DatabaseSync, change: ChannelChange): void {
     db.prepare(
       "INSERT INTO projection_channels VALUES (?, ?) ON CONFLICT(channel_id) DO UPDATE SET channel_json = excluded.channel_json",
@@ -1253,4 +1260,23 @@ function decodeAssignment(value: unknown): ChannelAssignment {
     turnId: value.turnId,
     state: value.state,
   };
+}
+
+function pruneChannelEvents(db: DatabaseSync, channelId: string): void {
+  const retained = databaseRow(
+    db
+      .prepare(
+        "SELECT MAX(sequence) AS sequence FROM orchestration_events WHERE aggregate_type = 'channel' AND aggregate_id = ?",
+      )
+      .get(channelId),
+  );
+  if (retained === null || retained === undefined) return;
+  const retainedSequence = requiredNumberColumn(retained, "sequence");
+  const older = "aggregate_type = 'channel' AND aggregate_id = ? AND event_type = 'channel.changed' AND sequence < ?";
+  const commandIds = databaseRows(
+    db.prepare(`SELECT command_id FROM orchestration_events WHERE ${older}`).all(channelId, retainedSequence),
+  ).map((row) => requiredStringColumn(row, "command_id"));
+  if (commandIds.length === 0) return;
+  db.prepare(`DELETE FROM orchestration_events WHERE ${older}`).run(channelId, retainedSequence);
+  deleteReceiptsOf(db, commandIds);
 }
