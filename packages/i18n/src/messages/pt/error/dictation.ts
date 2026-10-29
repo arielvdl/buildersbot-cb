@@ -3,6 +3,7 @@ import type { messages as source } from "../../en/error/dictation";
 
 export const messages = {
   "error.dictation.microphone": "O Builders Bot não conseguiu abrir o microfone.",
+  "error.dictation.noWindow": "Abra a janela do Builders Bot primeiro, para ele poder usar o microfone.",
   "error.dictation.empty": "Não deu para ouvir nada. Tente de novo.",
   "error.dictation.tooLong": "O ditado ficou longo demais.",
   "error.dictation.failed": "O Builders Bot não conseguiu transcrever o ditado.",

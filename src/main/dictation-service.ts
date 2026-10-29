@@ -10,7 +10,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
-import { clipboard, globalShortcut } from "electron";
+import { BrowserWindow, clipboard, globalShortcut } from "electron";
 import type { DictationPreferenceStore } from "./dictation-preference-store";
 
 const logger = createBuildersBotLogger("dictation");
@@ -72,6 +72,8 @@ export class DictationService {
     this.#preference = await Effect.runPromise(this.preferences.set(change));
     if (!this.#register()) {
       this.#preference = previous;
+      // The saved combination must work again: `#register` above unregistered it for the new one.
+      this.#register();
       await Effect.runPromise(this.preferences.set(previous));
       throw new Error(sourceText("error.dictation.shortcutTaken"));
     }
@@ -86,6 +88,12 @@ export class DictationService {
 
   start(): void {
     if (!this.#preference.enabled || this.#state.phase !== "idle") return;
+    // The microphone lives in a window. macOS destroys the main window when it is closed, so a
+    // press with no window has nobody to record.
+    if (BrowserWindow.getAllWindows().length === 0) {
+      this.#fail("error.dictation.noWindow");
+      return;
+    }
     this.#set({ phase: "recording", failure: null });
   }
 

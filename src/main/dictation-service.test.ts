@@ -13,6 +13,7 @@ interface TestState {
   registered: Map<string, () => void>;
   commands: { command: string; args: string[] }[];
   failPaste: boolean;
+  windows: number;
 }
 
 const state: TestState = {
@@ -20,6 +21,7 @@ const state: TestState = {
   registered: new Map<string, () => void>(),
   commands: [],
   failPaste: false,
+  windows: 1,
 };
 
 mock.module("electron", () => ({
@@ -29,6 +31,7 @@ mock.module("electron", () => ({
       state.clipboard = text;
     },
   },
+  BrowserWindow: { getAllWindows: () => Array.from({ length: state.windows }, () => ({})) },
   globalShortcut: {
     register: (accelerator: string, callback: () => void) => {
       if (state.registered.has(accelerator)) return false;
@@ -86,6 +89,7 @@ beforeEach(() => {
   state.registered.clear();
   state.commands.length = 0;
   state.failPaste = false;
+  state.windows = 1;
   phases.length = 0;
 });
 
@@ -174,6 +178,14 @@ describe("dictation service", () => {
     await built.finish({ text: "olá" });
     expect(built.state.phase).toBe("done");
     await until(() => expect(built.state).toEqual(DICTATION_IDLE));
+  });
+
+  it("names the missing window instead of recording with nobody", async () => {
+    const built = await service();
+    await built.setPreference({ enabled: true });
+    state.windows = 0;
+    built.start();
+    expect(built.state).toEqual({ phase: "failed", failure: "error.dictation.noWindow" });
   });
 
   it("cancels a recording without a transcript", async () => {
