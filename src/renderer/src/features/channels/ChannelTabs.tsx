@@ -62,7 +62,7 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
                 <button
                   type="button"
                   class="channel-tab-close"
-                  aria-label={t("channel.topic.delete")}
+                  aria-label={`${t("channel.topic.delete")}: ${topic.name}`}
                   onClick={() => void channels.deleteTopic(topic.id)}
                 >
                   ×

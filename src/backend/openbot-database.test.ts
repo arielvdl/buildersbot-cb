@@ -169,6 +169,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
+      { version: 47 },
       { version: 48 },
     ]);
     database.close();
@@ -878,8 +879,11 @@ describe("BuildersBotDatabase", () => {
       )
       .run(channelThreadId, agent.id, "Project", now, now);
     database.connection
-      .prepare("INSERT INTO projection_channel_contexts(channel_id, agent_id, thread_id) VALUES (?, ?, ?)")
-      .run("channel-1", agent.id, channelThreadId);
+      .prepare("INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at) VALUES (?, ?, ?, ?)")
+      .run("openbot-topic-channel-1", "channel-1", "Main", now);
+    database.connection
+      .prepare("INSERT INTO projection_channel_contexts(channel_id, topic_id, agent_id, thread_id) VALUES (?, ?, ?, ?)")
+      .run("channel-1", "openbot-topic-channel-1", agent.id, channelThreadId);
     const message = (id: string, text: string) => ({
       id,
       author: "assistant" as const,
@@ -1506,6 +1510,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
+      { version: 47 },
       { version: 48 },
     ]);
     expect(migrated.connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -1535,7 +1540,7 @@ describe("BuildersBotDatabase", () => {
     removeProviderHistorySchema(legacy);
     legacy
       .prepare(
-        "DELETE FROM schema_migrations WHERE version IN (29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47)",
+        "DELETE FROM schema_migrations WHERE version IN (29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48)",
       )
       .run();
     if (failFirst) legacy.exec("CREATE TABLE provider_history_imports_thread (conflict TEXT)");
@@ -1639,7 +1644,7 @@ describe("BuildersBotDatabase", () => {
       ALTER TABLE projection_provider_sessions_v18 RENAME TO projection_provider_sessions;
       CREATE INDEX provider_sessions_thread
         ON projection_provider_sessions(thread_id, provider, state);
-      DELETE FROM schema_migrations WHERE version IN (19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47);
+      DELETE FROM schema_migrations WHERE version IN (19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48);
       PRAGMA foreign_keys = ON;
     `);
     legacy.close();
@@ -1655,7 +1660,10 @@ describe("BuildersBotDatabase", () => {
       migrated.connection
         .prepare("SELECT message_json FROM projection_channel_messages WHERE message_id = ?")
         .get("channel-v18-message"),
-    ).toEqual({ message_json: JSON.stringify({ text: "Keep this channel message" }) });
+    ).toEqual({
+      // Migration 48 puts the message in the tab it gives the channel; nothing else changes.
+      message_json: JSON.stringify({ text: "Keep this channel message", topicId: "openbot-topic-channel-v18" }),
+    });
     expect(
       migrated.connection
         .prepare("SELECT provider_session_id FROM projection_turns WHERE turn_id = ?")
@@ -1686,7 +1694,7 @@ describe("BuildersBotDatabase", () => {
     removeProviderHistorySchema(legacy);
     legacy.exec(`
       DROP TABLE projection_mcp_servers;
-      DELETE FROM schema_migrations WHERE version IN (20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47);
+      DELETE FROM schema_migrations WHERE version IN (20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48);
     `);
     legacy.close();
 
@@ -1752,7 +1760,7 @@ describe("BuildersBotDatabase", () => {
         DROP TABLE projection_messaging_memories;
         DROP TABLE projection_messaging_threads;
         DROP TABLE projection_messaging_connections;
-        DELETE FROM schema_migrations WHERE version IN (25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47);
+        DELETE FROM schema_migrations WHERE version IN (25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48);
       `);
       // The squatted name is the index's: the tables use IF NOT EXISTS, so only the index can collide.
       if (failFirst) legacy.exec("CREATE TABLE messaging_threads_agent (conflict TEXT)");
@@ -1833,7 +1841,7 @@ describe("BuildersBotDatabase", () => {
          '2026-09-14T10:00:00.000Z', '2026-09-14T10:00:00.000Z'),
         ('mcp-2', 'computer_use_saved', 'stdio', 1, 'other', '[]', '[]', '[]', '', '', '[]', 1,
          '2026-09-14T10:00:00.000Z', '2026-09-14T10:00:00.000Z');
-      DELETE FROM schema_migrations WHERE version IN (21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47);
+      DELETE FROM schema_migrations WHERE version IN (21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48);
     `);
     legacy.close();
 
@@ -1937,6 +1945,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
+      { version: 47 },
       { version: 48 },
     ]);
     migrated.close();
@@ -2042,6 +2051,7 @@ describe("BuildersBotDatabase", () => {
       { version: 44 },
       { version: 45 },
       { version: 46 },
+      { version: 47 },
       { version: 48 },
     ]);
     retried.close();
@@ -3944,7 +3954,7 @@ describe("BuildersBotDatabase", () => {
     const database = await createDatabase();
     const userDataPath = database.userDataPath;
     database.connection.exec(
-      "DROP TABLE projection_agent_threads; DELETE FROM schema_migrations WHERE version IN (38, 39, 40, 41, 42, 43, 44, 45, 46, 47)",
+      "DROP TABLE projection_agent_threads; DELETE FROM schema_migrations WHERE version IN (38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48)",
     );
     damageProbeTable(database);
 

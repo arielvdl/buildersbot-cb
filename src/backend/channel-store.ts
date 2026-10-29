@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  CHANNEL_DEFAULT_TOPIC_NAME,
   CHANNEL_PREVIEW_LIMIT,
   CHANNEL_ROUTING_EVENT_ITEM_TYPE_PREFIX,
   type Channel,
@@ -289,30 +290,46 @@ export class ChannelStore {
   }
 
   /**
-   * Removes a tab with everything that belongs to it. The threads of its sessions go too, which is
-   * why the caller reads them first.
+   * Removes a tab with everything that belongs to it, in one transaction and in the order the
+   * foreign keys demand: assignments before tasks, contexts and summaries and cursors before the
+   * tab itself. The threads of its sessions go after, which is why the caller reads them first.
    */
-  deleteTopic(channelId: string, topicId: string): void {
-    for (const table of ["projection_channel_contexts", "projection_channel_summaries", "projection_channel_reads"])
-      this.database.connection
-        .prepare(`DELETE FROM ${table} WHERE channel_id = ? AND topic_id = ?`)
-        .run(channelId, topicId);
-    this.database.connection
-      .prepare(
-        "DELETE FROM projection_channel_assignments WHERE channel_id = ? AND task_id IN (SELECT task_id FROM projection_channel_tasks WHERE channel_id = ? AND json_extract(task_json, '$.topicId') = ?)",
-      )
-      .run(channelId, channelId, topicId);
-    this.database.connection
-      .prepare("DELETE FROM projection_channel_tasks WHERE channel_id = ? AND json_extract(task_json, '$.topicId') = ?")
-      .run(channelId, topicId);
-    this.database.connection
-      .prepare(
-        "DELETE FROM projection_channel_messages WHERE channel_id = ? AND json_extract(message_json, '$.topicId') = ?",
-      )
-      .run(channelId, topicId);
-    this.database.connection
-      .prepare("DELETE FROM projection_channel_topics WHERE channel_id = ? AND topic_id = ?")
-      .run(channelId, topicId);
+  deleteTopic(channelId: string, topicId: string, operationId: string): void {
+    this.database.dispatch(
+      operationId,
+      [
+        {
+          aggregateType: "channel",
+          aggregateId: channelId,
+          eventType: "channel.topic-deleted",
+          payload: { topicId },
+        },
+      ],
+      (db) => {
+        // A message or task written before tabs, or replayed from an older event, carries none and
+        // belongs to the first tab. It goes with it, as `messages` and `tasks` read it there.
+        const legacy = this.firstTopicId(channelId) === topicId ? " OR json_extract({row}, '$.topicId') IS NULL" : "";
+        const ofTopic = (row: string) => `json_extract(${row}, '$.topicId') = ?${legacy.replaceAll("{row}", row)}`;
+        db.prepare(
+          `DELETE FROM projection_channel_assignments WHERE channel_id = ? AND task_id IN (
+             SELECT task_id FROM projection_channel_tasks WHERE channel_id = ? AND ${ofTopic("task_json")})`,
+        ).run(channelId, channelId, topicId);
+        for (const table of ["projection_channel_contexts", "projection_channel_summaries", "projection_channel_reads"])
+          db.prepare(`DELETE FROM ${table} WHERE channel_id = ? AND topic_id = ?`).run(channelId, topicId);
+        db.prepare(`DELETE FROM projection_channel_tasks WHERE channel_id = ? AND ${ofTopic("task_json")}`).run(
+          channelId,
+          topicId,
+        );
+        db.prepare(`DELETE FROM projection_channel_messages WHERE channel_id = ? AND ${ofTopic("message_json")}`).run(
+          channelId,
+          topicId,
+        );
+        const deleted = db
+          .prepare("DELETE FROM projection_channel_topics WHERE channel_id = ? AND topic_id = ?")
+          .run(channelId, topicId);
+        if (deleted.changes === 0) throw new Error(sourceText("error.backend.channelTopicNotFound"));
+      },
+    );
   }
 
   /** The execution threads of one tab, for the caller that deletes it. */
@@ -542,6 +559,19 @@ export class ChannelStore {
         db.prepare(
           "INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at, revision) VALUES (?, ?, ?, ?, ?) ON CONFLICT(topic_id) DO UPDATE SET name = excluded.name, revision = excluded.revision",
         ).run(topic.id, topic.channelId, topic.name, topic.createdAt, topic.revision);
+    } else if (
+      !db.prepare("SELECT 1 FROM projection_channel_topics WHERE channel_id = ? LIMIT 1").get(change.channel.id)
+    ) {
+      // A caller that writes a channel without tabs — a seed, a migration replay — still gets the one
+      // tab a channel needs, with the id the service gives the tab of a new channel.
+      db.prepare(
+        "INSERT INTO projection_channel_topics(topic_id, channel_id, name, created_at, revision) VALUES (?, ?, ?, ?, 0)",
+      ).run(
+        `openbot-topic-${change.channel.id}`,
+        change.channel.id,
+        CHANNEL_DEFAULT_TOPIC_NAME,
+        new Date().toISOString(),
+      );
     }
     for (const message of change.messages) {
       const existing = databaseRow(

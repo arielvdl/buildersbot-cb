@@ -160,12 +160,17 @@ export function createChannelsController(env: ChannelsEnvironment) {
     try {
       const channels = await env.port().agent.listChannels();
       const selectedExists = selected !== null && channels.some((channel) => channel.id === selected);
-      const page = selectedExists
-        ? await env.port().agent.readChannel({
-            channelId: selected,
-            ...(state.topicId === null ? {} : { topicId: state.topicId }),
-          })
-        : null;
+      const wanted = state.topicId;
+      const readPage = (topicId: string | null) =>
+        env.port().agent.readChannel({
+          channelId: selected ?? "",
+          ...(topicId === null ? {} : { topicId }),
+        });
+      // A tab closed on another client is not an unreadable channel: read it without the tab, and
+      // the page below names the first one, which becomes the open tab.
+      const page = !selectedExists
+        ? null
+        : await readPage(wanted).catch((error: unknown) => (wanted === null ? Promise.reject(error) : readPage(null)));
       if (disposed || account !== env.scopeKey() || id !== refreshId || selected !== state.selectedId) return;
       env.onList?.(channels, account);
       setState((state) => {

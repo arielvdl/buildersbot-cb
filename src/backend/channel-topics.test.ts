@@ -14,7 +14,12 @@ import { BuildersBotDatabase } from "./openbot-database";
 const roots: string[] = [];
 const databases: BuildersBotDatabase[] = [];
 
-async function openStore(): Promise<{ store: ChannelStore; channelId: string; first: string }> {
+async function openStore(): Promise<{
+  store: ChannelStore;
+  channelId: string;
+  first: string;
+  database: BuildersBotDatabase;
+}> {
   const root = await mkdtemp(join(tmpdir(), "channel-topics-"));
   roots.push(root);
   const database = new BuildersBotDatabase(root);
@@ -29,7 +34,7 @@ async function openStore(): Promise<{ store: ChannelStore; channelId: string; fi
     },
     "topics:create",
   );
-  return { store: channels, channelId, first: "topic-main" };
+  return { store: channels, channelId, first: "topic-main", database };
 }
 
 function message(channelId: string, topicId: string, id: string, text: string): ChannelMessage {
@@ -151,11 +156,111 @@ describe("channel tabs", () => {
       messages: [message(channelId, "topic-second", "message-second", "Dropped")],
       tasks: [task(channelId, "topic-second", "task-second")],
     });
-    store.deleteTopic(channelId, "topic-second");
+    store.deleteTopic(channelId, "topic-second", "topic-delete:test");
 
     expect(store.topics(channelId).map((topic) => topic.id)).toEqual([first]);
     expect(store.page(channelId, first).messages.map((entry) => entry.id)).toEqual(["message-main"]);
     expect(store.tasks(channelId).map((entry) => entry.id)).toEqual([]);
+  });
+
+  it("deletes a tab with everything that points at it, and the other tab survives", async () => {
+    const { store, channelId, first } = await openStore();
+    store.update(store.get(channelId), {
+      topics: [
+        ...store.topics(channelId),
+        { id: "topic-second", channelId, name: "Second", createdAt: "2026-10-01T09:00:00.000Z", revision: 0 },
+      ],
+      messages: [message(channelId, first, "message-main", "Kept")],
+    });
+    store.update(store.get(channelId), {
+      messages: [message(channelId, "topic-second", "message-second", "Dropped")],
+      tasks: [task(channelId, "topic-second", "task-second")],
+      assignments: [
+        {
+          id: "assignment-second",
+          channelId,
+          taskId: "task-second",
+          agentId: "chief",
+          taskRevision: 0,
+          requestMessageId: "task-second-message",
+          resources: [],
+          deliveryId: "delivery-second",
+          turnId: null,
+          state: "running",
+          throughSequence: 0,
+          summaryVersion: 0,
+          awaitedTaskIds: [],
+          pendingRevision: null,
+          pendingOutcome: null,
+        },
+      ],
+    });
+    const context = store.context(channelId, "topic-second", "chief");
+    store.saveSummary(channelId, "topic-second", { version: 1, throughSequence: 3, text: "Second only." });
+    store.markRead(
+      channelId,
+      "topic-second",
+      "local",
+      store.page(channelId, "topic-second").throughSequence,
+      "read:second",
+    );
+
+    store.deleteTopic(channelId, "topic-second", "topic-delete:test");
+
+    // The rows that reference the tab go before it, so the session thread can go after.
+    expect(store.topics(channelId).map((topic) => topic.id)).toEqual([first]);
+    expect(store.tasks(channelId).map((entry) => entry.id)).toEqual([]);
+    expect(store.assignments(channelId)).toEqual([]);
+    expect(store.topicThreads(channelId, "topic-second")).toEqual([]);
+    expect(store.summary(channelId, "topic-second").text).toBe("");
+    expect(store.page(channelId, first).messages.map((entry) => entry.id)).toEqual(["message-main"]);
+    expect(() => store.deleteThreads([context.threadId])).not.toThrow();
+  });
+
+  it("takes a message with no tab with the first tab, where it is read", async () => {
+    const { store, channelId, first, database } = await openStore();
+    store.update(store.get(channelId), {
+      topics: [
+        ...store.topics(channelId),
+        { id: "topic-second", channelId, name: "Second", createdAt: "2026-10-01T09:00:00.000Z", revision: 0 },
+      ],
+    });
+    const plain = message(channelId, first, "message-plain", "From before tabs");
+    delete plain.topicId;
+    store.update(store.get(channelId), { messages: [plain] });
+    // The row carries no tab, as a replayed older event leaves it.
+    database.connection
+      .prepare("UPDATE projection_channel_messages SET message_json = json_remove(message_json, '$.topicId')")
+      .run();
+    expect(store.page(channelId, first).messages.map((entry) => entry.id)).toEqual(["message-plain"]);
+
+    store.deleteTopic(channelId, first, "topic-delete:first");
+
+    expect(store.topics(channelId).map((topic) => topic.id)).toEqual(["topic-second"]);
+    expect(store.page(channelId, "topic-second").messages).toEqual([]);
+  });
+
+  it("gives a channel written without tabs its one tab, and keeps it on the next write", async () => {
+    const root = await mkdtemp(join(tmpdir(), "channel-topics-seed-"));
+    roots.push(root);
+    const database = new BuildersBotDatabase(root);
+    databases.push(database);
+    await Effect.runPromise(database.initialize());
+    const channels = new ChannelStore(database);
+    const channelId = "channel-seed";
+    // What a seed does: create and update with no tab list.
+    channels.update(
+      channels.create(channelId, { name: "Seeded", title: "", instructions: "", members: [], leadAgentId: null }),
+      {},
+      "seed:create",
+    );
+    const first = channels.firstTopic(channelId);
+    expect(first?.id).toBe(`openbot-topic-${channelId}`);
+    expect(first?.name).toBe("Main");
+    // A context written with the tab the seed reads back is accepted.
+    expect(channels.context(channelId, first?.id ?? "", "chief").threadId).toContain("openbot-thread-");
+    channels.update(channels.get(channelId), { messages: [message(channelId, first?.id ?? "", "m", "Hi")] });
+    expect(channels.topics(channelId)).toHaveLength(1);
   });
 
   it("gives every channel a first tab in the upgrade of an older database", async () => {

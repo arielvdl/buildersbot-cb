@@ -659,7 +659,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly BuildersBotToolDefinition[] = [
   {
     name: "suggest_marketplace_app",
     description:
-      "Show the user a card in this conversation for one Marketplace app that the task needs and that is not in your tools. The user connects it, opens its listing, or dismisses the card; nothing connects without the user. Keep your normal answer. Returns not_found and the known apps, with no card, when no Marketplace app has that slug.",
+      "Show the user a card in this conversation for one Marketplace app that the task needs and that is not in your tools. The user connects it, opens its listing, or dismisses the card; nothing connects without the user. Keep your normal answer. Web access is not its case: that is Playwright on this computer, so do not suggest a scraping or search API for opening or reading a page. Returns not_found and the known apps, with no card, when no Marketplace app has that slug.",
     shape: {
       app: z
         .string()

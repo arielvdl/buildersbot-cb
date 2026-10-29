@@ -9,7 +9,7 @@ import { SettingsPanel, SettingsPanelContent, SettingsPanelHeader } from "@openb
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createStore, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createStore, Show } from "solid-js";
 import { createSettingsPanelWidth, saveSettingsPanelWidth } from "../../components/settings-panel-width";
 import { AgentMemoriesModal } from "../conversation/AgentMemoriesModal";
 import { AgentRoutinesSettings } from "../conversation/AgentRoutinesSettings";
@@ -65,26 +65,39 @@ export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: (
   const channels = useChannels();
   const { t } = useText();
   const page = useOpenChannel(props.channelId);
+  const [expanded, setExpanded] = createSignal(false);
   return (
     <Show when={page()}>
       {(current) => (
         <div class="channel-header-block">
+          {/* The avatar is the way into the settings; the name expands instead of leaving the row. */}
           <Button
             variant="ghost"
             size="sm"
-            class="conversation-title channel-title no-drag"
+            class="channel-header-avatar no-drag"
             aria-label={t("channel.settings.title")}
             onClick={props.onOpenSettings}
             disabled={current().channel.archived}
           >
             <ChannelAvatar members={current().channel.members} agents={channels.agents()} />
-            <span class="channel-header-copy">
-              <h1>{current().channel.name}</h1>
-              <Show when={current().channel.title.trim()}>
-                {(title) => <span class="channel-header-title">{title()}</span>}
-              </Show>
-            </span>
           </Button>
+          <button
+            type="button"
+            class="channel-header-name"
+            data-expanded={expanded() ? "" : undefined}
+            title={current().channel.name}
+            aria-expanded={expanded() ? "true" : "false"}
+            onClick={() => void setExpanded((open) => !open)}
+          >
+            <h1>{current().channel.name}</h1>
+          </button>
+          <Show when={current().channel.title.trim()}>
+            {(title) => (
+              <span class="channel-header-title" title={title()}>
+                {title()}
+              </span>
+            )}
+          </Show>
           <ChannelTabsFor channelId={props.channelId} />
         </div>
       )}

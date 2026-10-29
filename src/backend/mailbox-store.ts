@@ -71,6 +71,8 @@ export interface MessagingOrigin {
 
 interface StoredMessage {
   channelId?: string | undefined;
+  /** The tab of a channel the message belongs to. A channel message without one is in the first tab. */
+  channelTopicId?: string | undefined;
   messaging?: MessagingOrigin;
   /**
    * A request an agent sent from an external conversation, such as a Slack thread. The teammate's
@@ -170,6 +172,7 @@ interface StoredReaction {
 
 interface EnqueueInput {
   channelId?: string;
+  channelTopicId?: string;
   messaging?: MessagingOrigin;
   messagingReturn?: MessagingOrigin;
   taskId?: string;
@@ -566,6 +569,7 @@ export class MailboxStore {
       const messaging = input.messaging ?? this.#answerReturn(input, recipients);
       const message: StoredMessage = {
         ...(input.channelId === undefined ? {} : { channelId: input.channelId }),
+        ...(input.channelTopicId === undefined ? {} : { channelTopicId: input.channelTopicId }),
         ...(messaging ? { messaging } : {}),
         ...(input.messagingReturn ? { messagingReturn: input.messagingReturn } : {}),
         ...(input.taskId ? { taskId: input.taskId } : {}),
@@ -641,6 +645,7 @@ export class MailboxStore {
     this: MailboxStore,
     input: {
       channelId: string;
+      channelTopicId?: string;
       messageId: string;
       text: string;
       draftIds: string[];
@@ -688,6 +693,7 @@ export class MailboxStore {
       const committedByDraftId = new Map(drafts.map((draft, index) => [draft.id, attachments[index]] as const));
       const message: StoredMessage = {
         channelId: input.channelId,
+        ...(input.channelTopicId === undefined ? {} : { channelTopicId: input.channelTopicId }),
         id: input.messageId,
         sender,
         text: rewriteAttachmentReferences(input.text, (reference) => {
@@ -1655,6 +1661,54 @@ export class MailboxStore {
         this.#persist(
           "mailbox.channel-data-deleted",
           `mailbox:channel-delete:${randomUUID()}`,
+          [...removedTransferRoots],
+          true,
+        );
+      } catch (error) {
+        this.#state = previous;
+        throw error;
+      }
+      yield* this.#drainFileDeletionOutboxEffect();
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
+  /**
+   * The same for one tab of a channel: its messages, their deliveries and their files, while the
+   * other tabs keep theirs. A message without a tab belongs to the first one, and goes with it.
+   */
+  deleteChannelTopicData = Effect.fn("MailboxStore.deleteChannelTopicData")(function* (
+    this: MailboxStore,
+    channelId: string,
+    topicId: string,
+    firstTopicId: string,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      const previous = structuredClone(this.#state);
+      const belongs = (message: StoredMessage) =>
+        message.channelId === channelId &&
+        (message.channelTopicId === topicId || (message.channelTopicId === undefined && topicId === firstTopicId));
+      const removedMessageIds = new Set(this.#state.messages.filter(belongs).map((message) => message.id));
+      const removedTransferRoots = new Set<string>();
+      for (const message of this.#state.messages) {
+        if (!removedMessageIds.has(message.id)) continue;
+        removedTransferRoots.add(this.#files.transferRoot(message.id));
+        for (const attachment of messageFiles(message)) {
+          const transferRoot = this.#files.transferRootForPath(attachment.path);
+          if (transferRoot) removedTransferRoots.add(transferRoot);
+        }
+      }
+      this.#state.messages = this.#state.messages.filter((message) => !removedMessageIds.has(message.id));
+      this.#state.deliveries = this.#state.deliveries.filter((delivery) => !removedMessageIds.has(delivery.messageId));
+      this.#state.reactions = this.#state.reactions.filter((reaction) => !removedMessageIds.has(reaction.messageId));
+      this.#state.idempotency = Object.fromEntries(
+        Object.entries(this.#state.idempotency).filter(([, messageId]) => !removedMessageIds.has(messageId)),
+      );
+      try {
+        this.#persist(
+          "mailbox.channel-topic-data-deleted",
+          `mailbox:channel-topic-delete:${randomUUID()}`,
           [...removedTransferRoots],
           true,
         );
@@ -2972,6 +3026,7 @@ function isStoredMessage(value: unknown): value is StoredMessage {
   return (
     isRecord(value) &&
     (value.channelId === undefined || isString(value.channelId)) &&
+    (value.channelTopicId === undefined || isString(value.channelTopicId)) &&
     (value.messaging === undefined || isMessagingOrigin(value.messaging)) &&
     (value.messagingReturn === undefined || isMessagingOrigin(value.messagingReturn)) &&
     (value.taskId === undefined || isString(value.taskId)) &&

@@ -422,10 +422,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The subtitle gives way before a tab does, and never pushes the tabs under the title. */
 .channel-header-title {
   min-width: 0;
+  max-width: 14rem;
   overflow: hidden;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-sm);
   line-height: var(--openbot-leading-sm);
@@ -450,9 +452,10 @@
 .channel-tabs {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
+  margin-left: 2px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -525,9 +528,57 @@
 }
 
 /* The title and its tabs share the header cell. */
+/*
+ * The channel title and its tabs share the header row: the name gives way first, so the tabs never
+ * drop under it. The same arrangement as an agent's thread tabs.
+ */
 .channel-header-block {
   display: flex;
   min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+}
+
+.channel-header-avatar {
+  width: 32px;
+  min-width: 32px;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0;
+}
+
+.channel-header-name {
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--openbot-radius-sm);
+  background: none;
+  color: var(--openbot-text-primary);
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.channel-header-name:hover {
+  background: var(--openbot-hover);
+}
+
+/* Clicked, the name takes the room it needs and the tabs scroll instead. */
+.channel-header-name[data-expanded] {
+  max-width: none;
+  flex: 0 1 auto;
+}
+
+.channel-header-name h1 {
+  min-width: 0;
+  overflow: hidden;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

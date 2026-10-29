@@ -147,7 +147,7 @@ export class ChannelService {
   #scope = Scope.makeUnsafe();
   readonly #pumps = new Map<string, Fiber.Fiber<void>>();
   readonly #commands = new Map<string, Deferred.Deferred<void>>();
-  readonly #commandFibers = new Set<Fiber.Fiber<Channel | void, ChannelOperationError>>();
+  readonly #commandFibers = new Set<Fiber.Fiber<unknown, ChannelOperationError>>();
   readonly #interrupts = new Set<Fiber.Fiber<void>>();
   readonly #events = new Set<Fiber.Fiber<void>>();
   #stopped = false;
@@ -222,7 +222,7 @@ export class ChannelService {
   );
 
   readonly #serialize = Effect.fn("ChannelService.serialize")(
-    <A extends Channel | void>(channelId: string, operation: Effect.Effect<A, ChannelOperationError>) =>
+    <A>(channelId: string, operation: Effect.Effect<A, ChannelOperationError>) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen({ self: this }, function* () {
           const prior = this.#commands.get(channelId);
@@ -414,15 +414,52 @@ export class ChannelService {
         return result;
       }
       // A tab that goes takes its work with it: the running turns stop while their sessions still
-      // exist, and the sessions and their threads go after.
+      // exist and their task rows are still there to name them, the mailbox rows of its messages go,
+      // and the sessions and their threads go after. The tab row itself goes in `deleteTopic`, which
+      // removes what references it in the order the foreign keys demand; the change above carries no
+      // topic list, or the commit would delete the row first and hit a context still pointing at it.
       const threads = yield* channelSync(() => this.store.topicThreads(channel.id, command.topicId));
-      const running = (yield* channelSync(() => this.store.tasks(channel.id, command.topicId))).filter(
-        (task) => !terminal(task),
-      );
+      const removed = yield* channelSync(() => this.store.tasks(channel.id, command.topicId));
+      const running = removed.filter((task) => !terminal(task));
+      const agents = (yield* channelSync(() => this.store.assignments(channel.id)))
+        .filter((assignment) => activeAssignment(assignment) && running.some((task) => task.id === assignment.taskId))
+        .map((assignment) => assignment.agentId);
       const result = yield* channelSync(() => this.store.update(channel, change, command.operationId));
-      this.publish(channel.id);
+      // Interrupt before the rows go: the interrupt names the session thread through the task.
       yield* this.interruptTasks(channel.id, running);
+      yield* channelSync(() => this.store.deleteTopic(channel.id, command.topicId, `${command.operationId}:topic`));
+      this.publish(channel.id);
+      // A turn that is still starting would keep the thread row it needs. The archive path waits the
+      // same way before it deletes the rows.
+      yield* Effect.forEach(agents, (agentId) => this.hooks.awaitDrain?.(agentId) ?? Effect.void, {
+        concurrency: "unbounded",
+        discard: true,
+      });
+      yield* this.mailbox
+        .deleteChannelTopicData(channel.id, command.topicId, this.store.firstTopicId(channel.id))
+        .pipe(Effect.mapError(channelFailure));
+      for (const threadId of threads) yield* this.hooks.forgetThread?.(threadId) ?? Effect.void;
       yield* channelSync(() => this.store.deleteThreads(threads));
+      // A task of another tab that waited on one of these would wait for ever: a dependency that no
+      // longer exists never reads as completed. The dead ids leave its list, and a task with nothing
+      // left to wait for goes back to the queue, as a completed child would have released it.
+      const gone = new Set(removed.map((task) => task.id));
+      const survivors = yield* channelSync(() => this.store.tasks(channel.id));
+      const byId = new Map(survivors.map((task) => [task.id, task]));
+      const released = survivors
+        .filter((task) => task.dependencies.some((id) => gone.has(id)))
+        .map((task) => {
+          const dependencies = task.dependencies.filter((id) => !gone.has(id));
+          const ready = task.state === "waiting" && dependencies.every((id) => byId.get(id)?.state === "completed");
+          return {
+            ...task,
+            dependencies,
+            ...(ready ? { state: "queued" as const, revision: task.revision + 1 } : {}),
+          };
+        });
+      if (released.length) yield* channelSync(() => this.store.update(this.store.get(channel.id), { tasks: released }));
+      this.publish(channel.id);
+      yield* this.#releaseHeldAgents(agents);
       return result;
     }
     if (command.type === "archive" || command.type === "restore") {
@@ -459,6 +496,7 @@ export class ChannelService {
         ? yield* this.mailbox
             .commitChannelAttachments({
               channelId: channel.id,
+              channelTopicId: topicId,
               messageId: id,
               text: command.text,
               draftIds: command.attachmentDraftIds,
@@ -668,7 +706,9 @@ export class ChannelService {
       };
     }
     if (topics.length === 1) throw new Error(sourceText("error.backend.channelTopicLast"));
-    return { topics: topics.filter((item) => item.id !== topic.id) };
+    // The row is removed by `deleteTopic`, with the rows that reference it; the commit only writes
+    // the channel.
+    return {};
   }
 
   private newTopic(channelId: string, id: string, name: string): ChannelTopic {
@@ -1238,6 +1278,7 @@ export class ChannelService {
                 draftIds: task.attachmentDraftIds,
                 sourcePaths,
                 channelId,
+                channelTopicId: this.#topicOfTask(task),
                 idempotencyKey: `channel-assignment:${assignment.id}`,
               })
               .pipe(Effect.mapError(channelFailure)),
