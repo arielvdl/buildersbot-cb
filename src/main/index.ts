@@ -803,6 +803,7 @@ function registerIpcHandlers({
   });
   // The combination is registered once the endpoints exist, so a press can never reach a window
   // that cannot answer it.
+  dictation.watchRecorderWindow(() => windowHolder.current !== null && !windowHolder.current.isDestroyed());
   dictation.apply();
 }
 

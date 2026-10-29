@@ -1,5 +1,6 @@
 import { currentText } from "@openbot/ui/text";
 import { Show } from "solid-js";
+import { usePlatform } from "../../platform";
 import { createGlobalDictation, dictationState, dictationText } from "./global-dictation";
 
 /**
@@ -9,7 +10,8 @@ import { createGlobalDictation, dictationState, dictationText } from "./global-d
  * The combination works while this window is hidden too: the bar is the feedback when it is not.
  */
 export function DictationOverlay() {
-  createGlobalDictation();
+  // A chat window shows the bar, and the main window records for it.
+  createGlobalDictation(usePlatform().chatWindow === null);
   return (
     <Show when={dictationState().phase !== "idle"}>
       <div class="dictation-bar" role="status" aria-live="polite" data-phase={dictationState().phase}>

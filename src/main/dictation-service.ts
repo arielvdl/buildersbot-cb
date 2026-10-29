@@ -10,7 +10,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
-import { BrowserWindow, clipboard, globalShortcut } from "electron";
+import { clipboard, globalShortcut } from "electron";
 import type { DictationPreferenceStore } from "./dictation-preference-store";
 
 const logger = createBuildersBotLogger("dictation");
@@ -40,6 +40,7 @@ export class DictationService {
   #state: DictationState = DICTATION_IDLE;
   #restore: ReturnType<typeof setTimeout> | null = null;
   #settle: ReturnType<typeof setTimeout> | null = null;
+  #hasRecorder = () => true;
 
   constructor(
     private readonly preferences: DictationPreferenceStore,
@@ -56,6 +57,14 @@ export class DictationService {
 
   get preference(): DictationPreference {
     return this.#preference;
+  }
+
+  /**
+   * Where the recording happens: the main window, which the window manager owns. A chat window is
+   * not enough, because only the main one mounts the microphone of the dictation.
+   */
+  watchRecorderWindow(check: () => boolean): void {
+    this.#hasRecorder = check;
   }
 
   /** Registers the saved combination, when the setting is on. Called once the app is ready. */
@@ -90,7 +99,7 @@ export class DictationService {
     if (!this.#preference.enabled || this.#state.phase !== "idle") return;
     // The microphone lives in a window. macOS destroys the main window when it is closed, so a
     // press with no window has nobody to record.
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!this.#hasRecorder()) {
       this.#fail("error.dictation.noWindow");
       return;
     }

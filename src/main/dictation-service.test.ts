@@ -31,7 +31,7 @@ mock.module("electron", () => ({
       state.clipboard = text;
     },
   },
-  BrowserWindow: { getAllWindows: () => Array.from({ length: state.windows }, () => ({})) },
+
   globalShortcut: {
     register: (accelerator: string, callback: () => void) => {
       if (state.registered.has(accelerator)) return false;
@@ -80,6 +80,7 @@ async function service(platform: NodeJS.Platform = "darwin"): Promise<InstanceTy
   const preferences = new DictationPreferenceStore(join(directory, "dictation-preference.json"));
   await Effect.runPromise(preferences.load());
   const built = new DictationService(preferences, (next) => phases.push(next.phase), platform);
+  built.watchRecorderWindow(() => state.windows > 0);
   built.apply();
   return built;
 }

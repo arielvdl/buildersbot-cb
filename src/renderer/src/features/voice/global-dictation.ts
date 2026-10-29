@@ -106,10 +106,14 @@ function cancel(): void {
   for (const track of current.stream.getTracks()) track.stop();
 }
 
-/** Mounts the listener. One per window; the phase only ever comes from main. */
-export function createGlobalDictation(): void {
+/**
+ * Mounts the listener. Every window shows the phase, but only one records: a chat window and the
+ * main window are both open at times, and two microphones would answer the same press.
+ */
+export function createGlobalDictation(capture: boolean): void {
   const stopListening = appPort().voice.onDictationState((next) => {
     setState(next);
+    if (!capture) return;
     if (next.phase === "recording") void start();
     else if (next.phase === "transcribing") void stop();
     else if (next.phase === "idle" || next.phase === "failed") cancel();
