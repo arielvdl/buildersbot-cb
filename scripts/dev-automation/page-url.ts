@@ -14,6 +14,10 @@ function isLoopbackHost(hostname: string): boolean {
 // (`/callback/<code>`) where no redaction rule would recognize it. Aiming at
 // one of those pages uses its target id, so nothing needs the path.
 const APP_ROUTES = new Set(["/", "/index.html", "/helper.html"]);
+// What a built app loads its renderer from (`appRendererUrl` in `main-window.ts`). A development
+// app uses loopback instead, so both shapes name the app and nothing else does.
+const APP_RENDERER_SCHEME = "openbot-app:";
+const APP_RENDERER_HOST = "app";
 
 // A page title or a full URL can carry an OAuth code, a signed download URL or
 // the contents of a visited site, and log redaction recognizes none of those
@@ -44,14 +48,25 @@ export function isMainAppUrl(url: string, expectedRendererPort: number | null = 
   } catch {
     return false;
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
-  if (!isLoopbackHost(parsed.hostname)) return false;
+  // A built app serves the renderer from its own scheme, which is what `dev:bench` runs: only a
+  // development app reaches it over loopback. Both are the app; `file:` and an external origin are
+  // not, because a page reached by an agent could otherwise pass for the window.
+  if (parsed.protocol === APP_RENDERER_SCHEME) {
+    if (parsed.hostname !== APP_RENDERER_HOST) return false;
+  } else if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    if (!isLoopbackHost(parsed.hostname)) return false;
+  } else {
+    return false;
+  }
   if (parsed.searchParams.has("surface")) return false;
   // Every dev instance pins its renderer to one port with `strictPort`, so the
   // origin port is the only identity CDP does expose. When the registry named
   // an instance, a page on another port is another worktree's app reached
   // through a recycled debugging port - not the instance we were asked for.
-  if (expectedRendererPort !== null && parsed.port !== String(expectedRendererPort)) return false;
+  // A built app has no port to compare: its scheme already names this build.
+  if (parsed.protocol !== APP_RENDERER_SCHEME && expectedRendererPort !== null) {
+    if (parsed.port !== String(expectedRendererPort)) return false;
+  }
   return parsed.pathname === "/" || parsed.pathname === "/index.html";
 }
 

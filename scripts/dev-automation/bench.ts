@@ -40,6 +40,7 @@ import {
 import { verifyBrowserOwnership } from "./cdp-client";
 import { InspectorClient } from "./inspector-client";
 import { writeHeapSnapshot } from "./memory-profile";
+import { isMainAppUrl } from "./page-url";
 import { readStartupMarks, startRenderRecording } from "./render-metrics";
 import { ResourceSampler } from "./resource-sampler";
 
@@ -121,7 +122,9 @@ async function waitFor<T>(what: string, timeoutMs: number, probe: () => Promise<
 }
 
 function isAppWindowUrl(url: string): boolean {
-  return url.startsWith("openbot-app://app/index.html") && !url.includes("surface=");
+  // The chat windows are the app too, but a scenario drives the main one: it carries the sidebar
+  // and the sign-in screen. `isMainAppUrl` is the one place that decides what the app is.
+  return isMainAppUrl(url) && !url.includes("window=chat");
 }
 
 async function findAppPage(browser: Browser): Promise<Page | null> {
@@ -136,6 +139,17 @@ async function connect(app: BenchApp): Promise<{ browser: Browser; page: Page }>
   await waitFor("the CDP port", READY_TIMEOUT_MS, async () => {
     const response = await fetch(`http://127.0.0.1:${app.remoteDebuggingPort}/json/version`);
     return response.ok ? true : null;
+  });
+  // Before connecting, not after: `connectOverCDP` snapshots the contexts that exist at that moment,
+  // and the main window is opened a few seconds into the app's startup. A page that appears later
+  // never joins that list, so waiting on the open connection would time out on a slow start.
+  await waitFor("the app window", READY_TIMEOUT_MS, async () => {
+    const response = await fetch(`http://127.0.0.1:${app.remoteDebuggingPort}/json/list`);
+    if (!response.ok) return null;
+    const targets = (await response.json()) as { type?: string; url?: string }[];
+    return targets.some((target) => target.type === "page" && typeof target.url === "string" && isAppWindowUrl(target.url))
+      ? true
+      : null;
   });
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${app.remoteDebuggingPort}`);
   if (!(await verifyBrowserOwnership(browser, app.pid))) {
