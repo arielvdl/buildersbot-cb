@@ -1,11 +1,10 @@
 // @vitest-environment node
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DICTATION_IDLE } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** The clipboard of the test, and the combinations the service registered. */
 interface TestState {
@@ -16,15 +15,16 @@ interface TestState {
   windows: number;
 }
 
-const state: TestState = {
+// Hoisted with the mocks below, which vitest moves above every other statement of the file.
+const state = vi.hoisted<TestState>(() => ({
   clipboard: "",
   registered: new Map<string, () => void>(),
   commands: [],
   failPaste: false,
   windows: 1,
-};
+}));
 
-mock.module("electron", () => ({
+vi.mock("electron", () => ({
   clipboard: {
     readText: async () => state.clipboard,
     writeText: async (text: string) => {
@@ -43,7 +43,7 @@ mock.module("electron", () => ({
   },
 }));
 
-mock.module("node:child_process", () => ({
+vi.mock("node:child_process", () => ({
   execFile: (
     command: string,
     args: string[],
