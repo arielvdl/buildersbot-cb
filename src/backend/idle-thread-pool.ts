@@ -19,6 +19,13 @@ export interface IdleThreadPoolOptions<Thread extends IdleThread, Released> {
   scope(): Scope.Scope;
   /** How many idle threads stay open before the timeout. */
   idleLimit: number;
+  /**
+   * When a thread that cannot be released keeps its process anyway. `canRelease` answers for the
+   * state it can see; a provider that stops reporting one of those reasons would otherwise hold the
+   * process for the life of the app, because `#arm` never starts the timer. Three times the timeout
+   * is long enough for a real background task and short enough to bound the leak.
+   */
+  forceReleaseAfterMs?: number;
   /** Whether the thread can be closed and opened again. One that cannot would lose its session. */
   canRelease(thread: Thread): boolean;
   /** What opening the thread again needs, kept while it is closed. */
@@ -34,6 +41,9 @@ export interface IdleThreadPoolOptions<Thread extends IdleThread, Released> {
  * MCP servers. A closed thread keeps a snapshot, and its next turn opens it again from its session.
  * It never closes a thread in a turn, or one whose turn is starting.
  */
+/** How often a thread that cannot be released yet is looked at again. */
+const RETRY_UNRELEASABLE_MS = 60_000;
+
 export class IdleThreadPool<Thread extends IdleThread, Released> {
   readonly #options: IdleThreadPoolOptions<Thread, Released>;
   readonly #threads = new Map<string, Thread>();
@@ -181,14 +191,29 @@ export class IdleThreadPool<Thread extends IdleThread, Released> {
     return true;
   }, Effect.uninterruptible);
 
-  #arm(thread: Thread): void {
+  #arm(thread: Thread, armedAt: number = Date.now()): void {
     this.#disarm(thread);
-    if (!this.#options.canRelease(thread)) return;
-    thread.idleRelease = setTimeout(() => {
-      thread.idleRelease = null;
-      if (!this.#isIdle(thread)) return;
-      Effect.runFork(this.#release(thread));
-    }, this.#options.releaseAfterMs);
+    // `idleSince` stays 0 for a thread opened for a turn that has not started, so the cap counts
+    // from the first arm. A retry keeps that origin instead of starting the cap again.
+    thread.idleRelease = setTimeout(
+      () => {
+        thread.idleRelease = null;
+        if (!this.#isIdle(thread)) return;
+        // Not releasable yet: check again soon, and take the process anyway once the thread has been
+        // idle past the hard cap. Without the retry no timer would ever be armed again, and without
+        // the cap a reason that never clears holds the process until the app quits.
+        if (!this.#options.canRelease(thread)) {
+          const forceAfter = this.#options.forceReleaseAfterMs ?? this.#options.releaseAfterMs * 3;
+          if (Date.now() - armedAt < forceAfter) {
+            this.#arm(thread, armedAt);
+            return;
+          }
+        }
+        Effect.runFork(this.#release(thread));
+      },
+      // A thread that cannot be released is re-checked every minute rather than every timeout.
+      this.#options.canRelease(thread) ? this.#options.releaseAfterMs : RETRY_UNRELEASABLE_MS,
+    );
     thread.idleRelease.unref?.();
   }
 
