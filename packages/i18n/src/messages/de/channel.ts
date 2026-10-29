@@ -54,4 +54,13 @@ export const messages = {
   "channel.error.update": "Der Kanal konnte nicht aktualisiert werden.",
   "channel.error.loadOlder": "Frühere Nachrichten konnten nicht geladen werden.",
   "channel.error.delete": "Dieser Kanal konnte nicht gelöscht werden.",
+  "channel.topic.defaultName": "Tab {n}",
+  "channel.topic.new": "Neuer Tab",
+  "channel.topic.name": "Tab-Name",
+  "channel.topic.rename": "Tab umbenennen",
+  "channel.topic.delete": "Tab schließen",
+  "channel.topic.closeTitle": "Diesen Tab schließen?",
+  "channel.topic.closeDescription": "Seine Unterhaltung wird gelöscht.",
+  "channel.topic.closeBusyTitle": "Tab mit laufender Arbeit schließen?",
+  "channel.topic.closeBusyDescription": "Die Agenten stoppen und die Unterhaltung dieses Tabs wird gelöscht.",
 } as const satisfies PartialTranslation<typeof source>;

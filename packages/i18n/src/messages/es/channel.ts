@@ -54,4 +54,13 @@ export const messages = {
   "channel.error.update": "No se pudo actualizar el canal.",
   "channel.error.loadOlder": "No se pudieron cargar los mensajes anteriores.",
   "channel.error.delete": "No se pudo eliminar este canal.",
+  "channel.topic.defaultName": "Pestaña {n}",
+  "channel.topic.new": "Nueva pestaña",
+  "channel.topic.name": "Nombre de la pestaña",
+  "channel.topic.rename": "Renombrar pestaña",
+  "channel.topic.delete": "Cerrar pestaña",
+  "channel.topic.closeTitle": "¿Cerrar esta pestaña?",
+  "channel.topic.closeDescription": "Su conversación se elimina.",
+  "channel.topic.closeBusyTitle": "¿Cerrar la pestaña con trabajo en curso?",
+  "channel.topic.closeBusyDescription": "Los agentes se detienen y la conversación de esta pestaña se elimina.",
 } as const satisfies PartialTranslation<typeof source>;

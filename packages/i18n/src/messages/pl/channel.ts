@@ -58,4 +58,13 @@ export const messages = {
   "channel.error.update": "Nie udało się zaktualizować kanału.",
   "channel.error.loadOlder": "Nie udało się wczytać wcześniejszych wiadomości.",
   "channel.error.delete": "Nie udało się usunąć tego kanału.",
+  "channel.topic.defaultName": "Karta {n}",
+  "channel.topic.new": "Nowa karta",
+  "channel.topic.name": "Nazwa karty",
+  "channel.topic.rename": "Zmień nazwę karty",
+  "channel.topic.delete": "Zamknij kartę",
+  "channel.topic.closeTitle": "Zamknąć tę kartę?",
+  "channel.topic.closeDescription": "Jej rozmowa zostanie usunięta.",
+  "channel.topic.closeBusyTitle": "Zamknąć kartę z trwającą pracą?",
+  "channel.topic.closeBusyDescription": "Agenci się zatrzymają, a rozmowa z tej karty zostanie usunięta.",
 } as const satisfies PartialTranslation<typeof source>;

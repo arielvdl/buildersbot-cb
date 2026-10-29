@@ -1,32 +1,191 @@
 import type { ChannelTopic } from "@openbot/contracts/ipc";
-import { Button } from "@openbot/ui";
+import { Button, ConfirmDialog, ErrorReference } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, flush, Show } from "solid-js";
+import {
+  channelTabClose,
+  channelTabDropIndex,
+  channelTabDropSlot,
+  moveChannelTopic,
+  orderChannelTopics,
+  readChannelTabOrders,
+  saveChannelTabOrder,
+} from "./channel-tabs-model";
 import { useChannels } from "./channels-context";
+
+/** The drag data of a tab. A type of its own, so a text field or the file drop never takes it. */
+const TAB_DRAG_TYPE = "application/x-openbot-channel-tab";
 
 /**
  * The tabs of an open channel: one conversation each, under the same memory, members and lead.
  *
  * The tabs live beside the transcript rather than in the sidebar, because they belong to the
- * channel that is open. A double click renames one; the cross closes it with its work.
+ * channel that is open. A double click renames one; the cross closes it with its work, and asks
+ * first unless the tab is known to be empty and idle. Dragging a tab, or Alt+Shift+Left or Right on
+ * a focused tab, moves it; the order is kept on this device only.
  */
 export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   const channels = useChannels();
-  const { t } = useText();
+  const { t, sourceText } = useText();
   const [renaming, setRenaming] = createSignal<string | null>(null);
-  const topics = () => channels.state.channels.find((channel) => channel.id === props.channelId)?.topics ?? [];
+  const [orders, setOrders] = createSignal(readChannelTabOrders());
+  /** The tab that the pointer drags, and the gap it would be dropped in. */
+  const [dragged, setDragged] = createSignal<string | null>(null);
+  const [slot, setSlot] = createSignal<number | null>(null);
+  /**
+   * The tab whose close waits for an answer, with the warning it got. It stays after the dialog
+   * closes, so the text does not change while the dialog fades out.
+   */
+  const [closing, setClosing] = createSignal<{ topicId: string; work: boolean } | null>(null);
+  const [confirmOpen, setConfirmOpen] = createSignal(false);
+  const [closeError, setCloseError] = createSignal<string | null>(null);
+  let strip: HTMLDivElement | undefined;
+
+  /** In the service's order, which is the order the tabs were made in. */
+  const serviceTopics = () => channels.state.channels.find((channel) => channel.id === props.channelId)?.topics ?? [];
+  const topics = createMemo(() => orderChannelTopics(serviceTopics(), orders()[props.channelId]));
+  const isOpen = (topic: ChannelTopic) => channels.state.topicId === topic.id;
+  const movable = () => !props.archived && topics().length > 1;
+  /** A tab that is not open shows its unread count; the open one is being read. */
+  const unread = (topic: ChannelTopic) => (isOpen(topic) ? 0 : (topic.unreadCount ?? 0));
+  const working = (topic: ChannelTopic) => (topic.activeTasks ?? 0) > 0;
+  const openTabButton = () => strip?.querySelector<HTMLElement>('.channel-tab-name[aria-selected="true"]') ?? undefined;
+  /** A tab that closes elsewhere while its dialog is open takes the dialog with it. */
+  const closingTopic = () => serviceTopics().find((topic) => topic.id === closing()?.topicId);
 
   async function add(): Promise<void> {
     // The name follows the position, so two new tabs are told apart before either is renamed.
     await channels.createTopic(t("channel.topic.defaultName", { n: topics().length + 1 }));
   }
 
+  /** Puts a tab at `to` and keeps the order on this device. */
+  function reorder(topicId: string, to: number): void {
+    const ids = topics().map((topic) => topic.id);
+    const next = moveChannelTopic(ids, topicId, to);
+    if (next.every((value, index) => value === ids[index])) return;
+    setOrders(
+      saveChannelTabOrder(
+        props.channelId,
+        next,
+        serviceTopics().map((topic) => topic.id),
+      ),
+    );
+  }
+
+  /** The gap under the pointer, from the middle of each tab as it shows now. */
+  function slotAt(x: number): number {
+    const tabs = [...(strip?.querySelectorAll<HTMLElement>(".channel-tab") ?? [])];
+    return channelTabDropSlot(
+      tabs.map((tab) => {
+        const box = tab.getBoundingClientRect();
+        return box.left + box.width / 2;
+      }),
+      x,
+    );
+  }
+
+  function endDrag(): void {
+    setDragged(null);
+    setSlot(null);
+  }
+
+  /** Where the dragged tab would land, drawn on the tab beside the gap. A drop that moves nothing has no mark. */
+  function dropMark(index: number): "before" | "after" | undefined {
+    const gap = slot();
+    const from = topics().findIndex((topic) => topic.id === dragged());
+    if (gap === null || channelTabDropIndex(from, gap) === null) return undefined;
+    if (gap === index) return "before";
+    return gap === topics().length && index === topics().length - 1 ? "after" : undefined;
+  }
+
+  function close(topic: ChannelTopic): void {
+    const kind = channelTabClose(topic);
+    if (kind === "now") {
+      void closeNow(topic.id);
+      return;
+    }
+    setCloseError(null);
+    setClosing({ topicId: topic.id, work: kind === "confirm-work" });
+    setConfirmOpen(true);
+  }
+
+  /**
+   * An empty, idle tab closes without a dialog. A failure shows on the channel, as every failed
+   * command does, with its Retry.
+   */
+  async function closeNow(topicId: string): Promise<void> {
+    if (!(await channels.deleteTopic(topicId))) return;
+    flush();
+    // The cross that had the focus went with its tab.
+    if (!document.activeElement || document.activeElement === document.body) openTabButton()?.focus();
+  }
+
+  /** The dialog stays open on a failure, with the failure, so the user can try again or cancel. */
+  async function confirmClose(): Promise<void> {
+    const target = closing();
+    if (!target) return;
+    setCloseError(null);
+    if (await channels.deleteTopic(target.topicId)) {
+      flush();
+      setConfirmOpen(false);
+      return;
+    }
+    // A command that another one held back sets no error, but it did not close the tab either.
+    setCloseError(channels.state.error ?? t("channel.error.update"));
+  }
+
   return (
     <Show when={topics().length > 0}>
-      <div class="channel-tabs" role="tablist" aria-label={t("channel.topic.name")}>
+      <div
+        ref={strip}
+        class="channel-tabs"
+        role="tablist"
+        aria-label={t("channel.topic.name")}
+        onDragStart={(event) => {
+          // Only a tab itself; text dragged out of the rename field stays a text drag.
+          const tab = event.target instanceof HTMLElement && event.target.matches(".channel-tab") ? event.target : null;
+          const topicId = tab?.dataset.topicId;
+          if (!topicId || !event.dataTransfer) return;
+          event.dataTransfer.setData(TAB_DRAG_TYPE, topicId);
+          event.dataTransfer.effectAllowed = "move";
+          setDragged(topicId);
+        }}
+        onDragEnd={endDrag}
+        onDragOver={(event) => {
+          if (!dragged() || !event.dataTransfer?.types.includes(TAB_DRAG_TYPE)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setSlot(slotAt(event.clientX));
+        }}
+        onDragLeave={(event) => {
+          const next = event.relatedTarget;
+          if (!(next instanceof Node && event.currentTarget.contains(next))) setSlot(null);
+        }}
+        onDrop={(event) => {
+          const topicId = dragged();
+          if (!topicId || !event.dataTransfer?.types.includes(TAB_DRAG_TYPE)) return;
+          // The conversation under the header takes a drop as files to attach.
+          event.preventDefault();
+          event.stopPropagation();
+          const to = channelTabDropIndex(
+            topics().findIndex((topic) => topic.id === topicId),
+            slotAt(event.clientX),
+          );
+          endDrag();
+          if (to !== null) reorder(topicId, to);
+        }}
+      >
         <For each={topics()}>
-          {(topic) => (
-            <span class="channel-tab" data-active={channels.state.topicId === topic.id ? "" : undefined}>
+          {(topic, index) => (
+            // `no-drag`: the header moves the window, and a tab in that region gets no drag events.
+            <span
+              class="channel-tab no-drag"
+              data-topic-id={topic.id}
+              data-active={isOpen(topic) ? "" : undefined}
+              data-dragging={dragged() === topic.id ? "" : undefined}
+              data-drop={dropMark(index())}
+              draggable={movable() && renaming() !== topic.id ? "true" : "false"}
+            >
               <Show
                 when={renaming() === topic.id}
                 fallback={
@@ -34,11 +193,41 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
                     type="button"
                     role="tab"
                     class="channel-tab-name"
-                    aria-selected={channels.state.topicId === topic.id ? "true" : "false"}
+                    aria-selected={isOpen(topic) ? "true" : "false"}
+                    aria-keyshortcuts={movable() ? "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight" : undefined}
                     onClick={() => void channels.setTopic(topic.id)}
                     onDblClick={() => void setRenaming(topic.id)}
+                    onKeyDown={(event) => {
+                      // Alt+Left and Alt+Right are Back and Forward outside macOS, so a move takes Shift too,
+                      // as on an agent's thread tabs.
+                      if (!event.altKey || !event.shiftKey || event.metaKey || event.ctrlKey) return;
+                      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (!movable()) return;
+                      const button = event.currentTarget;
+                      reorder(topic.id, index() + (event.key === "ArrowLeft" ? -1 : 1));
+                      flush();
+                      // The element moved in the list, which can drop its focus.
+                      if (document.activeElement !== button) button.focus();
+                    }}
                   >
-                    {topic.name}
+                    <span class={["channel-tab-label", { "channel-tab-label-working": working(topic) }]}>
+                      {topic.name}
+                    </span>
+                    <Show when={working(topic)}>
+                      <span class="sr-only">{t("sidebar.state.working")}</span>
+                    </Show>
+                    <Show when={unread(topic)}>
+                      {(count) => (
+                        <span
+                          class="channel-tab-unread"
+                          role="img"
+                          aria-label={t("sidebar.channel.unread", { count: count() })}
+                          title={t("sidebar.channel.unread", { count: count() })}
+                        />
+                      )}
+                    </Show>
                   </button>
                 }
               >
@@ -63,7 +252,7 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
                   type="button"
                   class="channel-tab-close"
                   aria-label={`${t("channel.topic.delete")}: ${topic.name}`}
-                  onClick={() => void channels.deleteTopic(topic.id)}
+                  onClick={() => close(topic)}
                 >
                   ×
                 </button>
@@ -77,6 +266,25 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
           </Button>
         </Show>
       </div>
+      <ConfirmDialog
+        open={confirmOpen() && closingTopic() !== undefined}
+        initialFocus="cancel"
+        title={closing()?.work ? t("channel.topic.closeBusyTitle") : t("channel.topic.closeTitle")}
+        description={closing()?.work ? t("channel.topic.closeBusyDescription") : t("channel.topic.closeDescription")}
+        confirmLabel={t("channel.topic.delete")}
+        error={
+          closeError() ? (
+            <>
+              {sourceText(closeError() ?? "")}
+              <ErrorReference reference={channels.state.errorReference} />
+            </>
+          ) : undefined
+        }
+        // A closed tab takes its cross with it, so the focus goes to the tab that is open now.
+        restoreFocusTarget={closingTopic() ? undefined : openTabButton()}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmClose}
+      />
     </Show>
   );
 }

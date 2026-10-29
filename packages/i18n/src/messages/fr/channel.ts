@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "Impossible de mettre à jour le canal.",
   "channel.error.loadOlder": "Impossible de charger les messages précédents.",
   "channel.error.delete": "Impossible de supprimer ce canal.",
+  "channel.topic.defaultName": "Onglet {n}",
+  "channel.topic.new": "Nouvel onglet",
+  "channel.topic.name": "Nom de l’onglet",
+  "channel.topic.rename": "Renommer l’onglet",
+  "channel.topic.delete": "Fermer l’onglet",
+  "channel.topic.closeTitle": "Fermer cet onglet ?",
+  "channel.topic.closeDescription": "Sa conversation est supprimée.",
+  "channel.topic.closeBusyTitle": "Fermer l’onglet avec un travail en cours ?",
+  "channel.topic.closeBusyDescription": "Les agents s’arrêtent et la conversation de cet onglet est supprimée.",
 } as const satisfies PartialTranslation<typeof source>;

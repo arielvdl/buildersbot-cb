@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "Kanal güncellenemedi.",
   "channel.error.loadOlder": "Önceki mesajlar yüklenemedi.",
   "channel.error.delete": "Bu kanal silinemedi.",
+  "channel.topic.defaultName": "Sekme {n}",
+  "channel.topic.new": "Yeni sekme",
+  "channel.topic.name": "Sekme adı",
+  "channel.topic.rename": "Sekmeyi yeniden adlandır",
+  "channel.topic.delete": "Sekmeyi kapat",
+  "channel.topic.closeTitle": "Bu sekme kapatılsın mı?",
+  "channel.topic.closeDescription": "Sekmedeki konuşma silinir.",
+  "channel.topic.closeBusyTitle": "Devam eden işi olan sekme kapatılsın mı?",
+  "channel.topic.closeBusyDescription": "Ajanlar durur ve bu sekmedeki konuşma silinir.",
 } as const satisfies PartialTranslation<typeof source>;

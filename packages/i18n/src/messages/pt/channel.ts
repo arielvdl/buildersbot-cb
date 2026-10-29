@@ -53,4 +53,8 @@ export const messages = {
   "channel.topic.name": "Nome da aba",
   "channel.topic.rename": "Renomear aba",
   "channel.topic.delete": "Fechar aba",
+  "channel.topic.closeTitle": "Fechar esta aba?",
+  "channel.topic.closeDescription": "A conversa dela é apagada.",
+  "channel.topic.closeBusyTitle": "Fechar aba com trabalho em andamento?",
+  "channel.topic.closeBusyDescription": "Os agentes param e a conversa desta aba é apagada.",
 } as const satisfies PartialTranslation<typeof source>;

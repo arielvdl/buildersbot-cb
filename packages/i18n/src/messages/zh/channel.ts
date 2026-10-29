@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "无法更新该频道。",
   "channel.error.loadOlder": "无法加载更早的消息。",
   "channel.error.delete": "无法删除该频道。",
+  "channel.topic.defaultName": "标签页 {n}",
+  "channel.topic.new": "新标签页",
+  "channel.topic.name": "标签页名称",
+  "channel.topic.rename": "重命名标签页",
+  "channel.topic.delete": "关闭标签页",
+  "channel.topic.closeTitle": "关闭此标签页？",
+  "channel.topic.closeDescription": "其中的对话将被删除。",
+  "channel.topic.closeBusyTitle": "关闭仍有工作在进行的标签页？",
+  "channel.topic.closeBusyDescription": "助手将停止，此标签页的对话将被删除。",
 } as const satisfies PartialTranslation<typeof source>;

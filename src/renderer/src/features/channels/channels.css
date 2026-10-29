@@ -484,17 +484,51 @@
   color: var(--openbot-text-primary);
 }
 
+/* A dragged tab stays in its place, faded, until it is dropped. */
+.channel-tab[data-dragging] {
+  opacity: 0.5;
+}
+
+/*
+ * The gap the dragged tab would land in: a bar on the edge of the tab beside it. The bar is inside
+ * the tab, because the strip scrolls and cuts whatever is outside it.
+ */
+.channel-tab[data-drop="before"] {
+  box-shadow: inset 2px 0 0 var(--openbot-accent);
+}
+
+.channel-tab[data-drop="after"] {
+  box-shadow: inset -2px 0 0 var(--openbot-accent);
+}
+
 .channel-tab-name {
+  display: inline-flex;
   max-width: 12rem;
-  overflow: hidden;
+  align-items: center;
+  gap: 4px;
   padding: 2px 6px;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+/* The name gives way to the unread mark. A tab with work shimmers it (app-shell.css). */
+.channel-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Unread messages in a tab that is not open, in the colour of the sidebar's unread count. */
+.channel-tab-unread {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-primary);
 }
 
 .channel-tab-input {

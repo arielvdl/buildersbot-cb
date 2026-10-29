@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "Kan het kanaal niet bijwerken.",
   "channel.error.loadOlder": "Kan eerdere berichten niet laden.",
   "channel.error.delete": "Kan dit kanaal niet verwijderen.",
+  "channel.topic.defaultName": "Tabblad {n}",
+  "channel.topic.new": "Nieuw tabblad",
+  "channel.topic.name": "Naam van tabblad",
+  "channel.topic.rename": "Tabblad hernoemen",
+  "channel.topic.delete": "Tabblad sluiten",
+  "channel.topic.closeTitle": "Dit tabblad sluiten?",
+  "channel.topic.closeDescription": "Het gesprek erin wordt verwijderd.",
+  "channel.topic.closeBusyTitle": "Tabblad sluiten terwijl er werk loopt?",
+  "channel.topic.closeBusyDescription": "De agents stoppen en het gesprek van dit tabblad wordt verwijderd.",
 } as const satisfies PartialTranslation<typeof source>;

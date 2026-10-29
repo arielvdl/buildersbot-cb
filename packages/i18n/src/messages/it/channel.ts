@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "Non è stato possibile aggiornare il canale.",
   "channel.error.loadOlder": "Impossibile caricare i messaggi precedenti.",
   "channel.error.delete": "Impossibile eliminare questo canale.",
+  "channel.topic.defaultName": "Scheda {n}",
+  "channel.topic.new": "Nuova scheda",
+  "channel.topic.name": "Nome della scheda",
+  "channel.topic.rename": "Rinomina scheda",
+  "channel.topic.delete": "Chiudi scheda",
+  "channel.topic.closeTitle": "Chiudere questa scheda?",
+  "channel.topic.closeDescription": "La sua conversazione viene eliminata.",
+  "channel.topic.closeBusyTitle": "Chiudere la scheda con lavoro in corso?",
+  "channel.topic.closeBusyDescription": "Gli agenti si fermano e la conversazione di questa scheda viene eliminata.",
 } as const satisfies PartialTranslation<typeof source>;

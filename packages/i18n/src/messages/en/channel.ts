@@ -53,4 +53,9 @@ export const messages = defineMessages("channel", {
   "channel.topic.name": "Tab name",
   "channel.topic.rename": "Rename tab",
   "channel.topic.delete": "Close tab",
+  // Closing deletes the tab's conversation, so it asks first unless the tab is known to be empty and idle.
+  "channel.topic.closeTitle": "Close this tab?",
+  "channel.topic.closeDescription": "Its conversation is deleted.",
+  "channel.topic.closeBusyTitle": "Close tab with work in progress?",
+  "channel.topic.closeBusyDescription": "The agents stop and this tab’s conversation is deleted.",
 });

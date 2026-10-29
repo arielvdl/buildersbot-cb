@@ -2842,15 +2842,16 @@ textarea {
 }
 
 /*
- * A title that is being worked: a light band sweeps across the text, so a row and
- * the header of the chat say that something runs inside. It stops with the work,
+ * A title that is being worked: a light band sweeps across the text, so a row, the
+ * header of the chat and a channel tab say that something runs inside. It stops with the work,
  * because a background-clip animation repaints text on the main thread.
  *
  * The gradient starts and ends on the primary color, so the sweep loops without a
  * visible jump.
  */
 .agent-row-name-working strong,
-.conversation-title .conversation-title-working {
+.conversation-title .conversation-title-working,
+.channel-tab .channel-tab-label-working {
   background-image: linear-gradient(
     100deg,
     var(--openbot-text-primary) 0%,
@@ -2881,7 +2882,8 @@ textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .agent-row-name-working strong,
-  .conversation-title .conversation-title-working {
+  .conversation-title .conversation-title-working,
+  .channel-tab .channel-tab-label-working {
     background-image: none;
     animation: none;
     color: var(--openbot-text-primary);

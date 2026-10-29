@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "채널을 업데이트할 수 없어요.",
   "channel.error.loadOlder": "이전 메시지를 불러올 수 없어요.",
   "channel.error.delete": "이 채널을 삭제할 수 없어요.",
+  "channel.topic.defaultName": "탭 {n}",
+  "channel.topic.new": "새 탭",
+  "channel.topic.name": "탭 이름",
+  "channel.topic.rename": "탭 이름 바꾸기",
+  "channel.topic.delete": "탭 닫기",
+  "channel.topic.closeTitle": "이 탭을 닫을까요?",
+  "channel.topic.closeDescription": "탭의 대화가 삭제돼요.",
+  "channel.topic.closeBusyTitle": "작업 중인 탭을 닫을까요?",
+  "channel.topic.closeBusyDescription": "에이전트가 멈추고 이 탭의 대화가 삭제돼요.",
 } as const satisfies PartialTranslation<typeof source>;

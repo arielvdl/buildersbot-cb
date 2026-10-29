@@ -58,4 +58,13 @@ export const messages = {
   "channel.error.update": "Не удалось обновить канал.",
   "channel.error.loadOlder": "Не удалось загрузить прежние сообщения.",
   "channel.error.delete": "Не удалось удалить этот канал.",
+  "channel.topic.defaultName": "Вкладка {n}",
+  "channel.topic.new": "Новая вкладка",
+  "channel.topic.name": "Название вкладки",
+  "channel.topic.rename": "Переименовать вкладку",
+  "channel.topic.delete": "Закрыть вкладку",
+  "channel.topic.closeTitle": "Закрыть эту вкладку?",
+  "channel.topic.closeDescription": "Её переписка будет удалена.",
+  "channel.topic.closeBusyTitle": "Закрыть вкладку с незавершённой работой?",
+  "channel.topic.closeBusyDescription": "Агенты остановятся, а переписка этой вкладки будет удалена.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -48,4 +48,13 @@ export const messages = {
   "channel.error.update": "チャンネルを更新できませんでした。",
   "channel.error.loadOlder": "以前のメッセージを読み込めませんでした。",
   "channel.error.delete": "このチャンネルを削除できませんでした。",
+  "channel.topic.defaultName": "タブ {n}",
+  "channel.topic.new": "新しいタブ",
+  "channel.topic.name": "タブ名",
+  "channel.topic.rename": "タブ名を変更",
+  "channel.topic.delete": "タブを閉じる",
+  "channel.topic.closeTitle": "このタブを閉じますか？",
+  "channel.topic.closeDescription": "タブの会話は削除されます。",
+  "channel.topic.closeBusyTitle": "作業中のタブを閉じますか？",
+  "channel.topic.closeBusyDescription": "エージェントは停止し、このタブの会話は削除されます。",
 } as const satisfies PartialTranslation<typeof source>;
