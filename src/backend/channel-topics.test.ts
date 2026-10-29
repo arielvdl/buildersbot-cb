@@ -128,6 +128,39 @@ describe("channel tabs", () => {
     expect(store.page(channelId, "topic-second").messages).toHaveLength(0);
   });
 
+  it("counts the unread of each tab against that tab's own cursor", async () => {
+    const { store, channelId, first } = await openStore();
+    store.update(store.get(channelId), {
+      topics: [
+        ...store.topics(channelId),
+        { id: "topic-second", channelId, name: "Second", createdAt: "2026-10-01T09:00:00.000Z", revision: 0 },
+      ],
+    });
+    // Written by another member, so the reader's own messages do not hide the count.
+    const fromOther = (topicId: string, id: string, text: string) => {
+      const entry = message(channelId, topicId, id, text);
+      entry.author = { kind: "member", id: "other", name: "Other" };
+      return entry;
+    };
+    store.update(store.get(channelId), {
+      messages: [
+        fromOther(first, "message-main", "Read already"),
+        fromOther("topic-second", "message-second", "Not read"),
+      ],
+    });
+    // Reading the newer tab first must not hide the older tab's message: each tab has its cursor.
+    store.markRead(
+      channelId,
+      "topic-second",
+      "local",
+      store.page(channelId, "topic-second").throughSequence,
+      "read:second",
+    );
+    expect(store.list("local")[0]?.unreadCount).toBe(1);
+    store.markRead(channelId, first, "local", store.page(channelId, first).throughSequence, "read:first");
+    expect(store.list("local")[0]?.unreadCount).toBe(0);
+  });
+
   it("keeps the summary of each tab apart", async () => {
     const { store, channelId, first } = await openStore();
     store.saveSummary(channelId, first, { version: 1, throughSequence: 4, text: "Only the first tab." });

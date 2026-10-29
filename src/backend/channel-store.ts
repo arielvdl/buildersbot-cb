@@ -154,9 +154,14 @@ export class ChannelStore {
               ORDER BY m.sequence DESC, m.message_id DESC LIMIT 1) AS latest_json,
             (SELECT COUNT(*) FROM projection_channel_messages AS m
               WHERE m.channel_id = c.channel_id
+                -- Each tab counts against its own cursor; a message with no tab is the first tab's.
                 AND m.sequence > COALESCE(
                   (SELECT r.through_sequence FROM projection_channel_reads AS r
-                    WHERE r.channel_id = c.channel_id AND r.member_id = ?), 0)
+                    WHERE r.channel_id = c.channel_id AND r.member_id = ?
+                      AND r.topic_id = COALESCE(
+                        json_extract(m.message_json, '$.topicId'),
+                        (SELECT t.topic_id FROM projection_channel_topics AS t
+                          WHERE t.channel_id = c.channel_id ORDER BY t.created_at, t.topic_id LIMIT 1))), 0)
                 AND json_extract(m.message_json, '$.author.id') IS NOT ?
                 AND json_extract(m.message_json, '$.author.id') IS NOT ?
                 AND COALESCE(json_extract(m.message_json, '$.message.itemType'), '') != 'plan'
