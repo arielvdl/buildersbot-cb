@@ -82,6 +82,20 @@ export interface ChannelChange {
 }
 
 /**
+ * The tab a message or task belongs to: the one it carries, or the first tab for a row written
+ * before tabs or replayed from an older event. `messages` and `tasks` read those rows the same way.
+ */
+const FIRST_TOPIC_OF = (jsonColumn: string, channel: string) =>
+  `COALESCE(json_extract(${jsonColumn}, '$.topicId'), (SELECT ft.topic_id FROM projection_channel_topics AS ft
+     WHERE ft.channel_id = ${channel} ORDER BY ft.created_at, ft.topic_id LIMIT 1))`;
+
+/** The messages a person sees in a tab: no plan, subagent step, activity marker or thinking. */
+const VISIBLE_MESSAGE_FILTER = (column: string) =>
+  `COALESCE(json_extract(${column}, '$.message.itemType'), '') NOT IN
+     ('plan', 'subagents', 'channel-change', 'commentary')
+   AND COALESCE(json_extract(${column}, '$.message.itemType'), '') NOT LIKE ?`;
+
+/**
  * Owns durable channel records. Every change and its retry receipt commit together.
  */
 export class ChannelStore {
@@ -195,12 +209,47 @@ export class ChannelStore {
       threads.set(channelId, [...(threads.get(channelId) ?? []), thread]);
     }
     const topics = new Map<string, ChannelTopic[]>();
+    // The per-tab counters of the summary: one grouped query each, never one per channel. A message
+    // or a task with no tab belongs to the first one, as `messages` and `tasks` read it.
+    const perTopicMessages = this.#perTopicCounts(
+      `SELECT m.channel_id AS channel_id, ${FIRST_TOPIC_OF("m.message_json", "m.channel_id")} AS topic_key,
+         COUNT(*) AS messages,
+         SUM(CASE WHEN m.sequence > COALESCE(r.through_sequence, 0)
+               AND json_extract(m.message_json, '$.author.id') IS NOT ?
+               AND json_extract(m.message_json, '$.author.id') IS NOT ?
+             THEN 1 ELSE 0 END) AS unread
+       FROM projection_channel_messages AS m
+       LEFT JOIN projection_channel_reads AS r
+         ON r.channel_id = m.channel_id AND r.member_id = ?
+        AND r.topic_id = ${FIRST_TOPIC_OF("m.message_json", "m.channel_id")}
+       WHERE ${VISIBLE_MESSAGE_FILTER("m.message_json")}
+       GROUP BY m.channel_id, topic_key`,
+      [memberId, excludedId, memberId, `${CHANNEL_ROUTING_EVENT_ITEM_TYPE_PREFIX}%`],
+    );
+    const perTopicTasks = this.#perTopicCounts(
+      `SELECT t.channel_id AS channel_id, ${FIRST_TOPIC_OF("t.task_json", "t.channel_id")} AS topic_key,
+         SUM(CASE WHEN json_extract(t.task_json, '$.state') = 'running' THEN 1 ELSE 0 END) AS active,
+         SUM(CASE WHEN json_extract(t.task_json, '$.state') IN ('queued', 'waiting', 'running') THEN 1 ELSE 0 END) AS open
+       FROM projection_channel_tasks AS t
+       GROUP BY t.channel_id, topic_key`,
+    );
     for (const topic of databaseRows(
       this.database.connection
         .prepare("SELECT * FROM projection_channel_topics ORDER BY channel_id, created_at, topic_id")
         .all(),
     ).map((row) => decodeTopic(row))) {
-      topics.set(topic.channelId, [...(topics.get(topic.channelId) ?? []), topic]);
+      const counts = perTopicMessages.get(`${topic.channelId}\u0000${topic.id}`);
+      const tasks = perTopicTasks.get(`${topic.channelId}\u0000${topic.id}`);
+      topics.set(topic.channelId, [
+        ...(topics.get(topic.channelId) ?? []),
+        {
+          ...topic,
+          unreadCount: Number(counts?.unread ?? 0),
+          activeTasks: Number(tasks?.active ?? 0),
+          openTasks: Number(tasks?.open ?? 0),
+          messageCount: Number(counts?.messages ?? 0),
+        },
+      ]);
     }
     return rows.map((row) => {
       const channel = decodeChannel(JSON.parse(requiredStringColumn(row, "channel_json")));
@@ -235,6 +284,14 @@ export class ChannelStore {
         topics: topics.get(channel.id) ?? [],
       };
     });
+  }
+
+  /** One grouped count query, keyed by `channelId` and tab id, for the summary of each tab. */
+  #perTopicCounts(sql: string, params: readonly string[] = []): Map<string, DynamicRecord> {
+    const counts = new Map<string, DynamicRecord>();
+    for (const row of databaseRows(this.database.connection.prepare(sql).all(...params)))
+      counts.set(`${requiredStringColumn(row, "channel_id")}\u0000${requiredStringColumn(row, "topic_key")}`, row);
+    return counts;
   }
 
   create(channelId: string, draft: ChannelDraft): Channel {

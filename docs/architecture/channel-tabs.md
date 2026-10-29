@@ -26,9 +26,10 @@ older event replay and a client without tabs send.
   `channel-topics-v1`.
 - `src/backend/channel-schema.ts`: the tables, and `CHANNEL_TOPICS_MIGRATION_SQL` (migration 48).
 - `src/backend/channel-store.ts`: `topics`, `firstTopic`, `topic`, `addTopic`, `renameTopic`,
-  `deleteTopic`, `topicThreads`, `deleteThreads`, and the tab in every query that reads a
-  conversation.
-- `src/backend/channel-service.ts`: `#topicId`, `#topicOfTask`, `#topicChange`, and the tab on the
+  `deleteTopic`, `topicThreads`, `deleteThreads`, the tab in every query that reads a
+  conversation, and the per-tab counters of the summary (`#perTopicCounts`, one grouped query each).
+- `src/backend/channel-service.ts`: `#topicId`, `#topicOfTask`, `#topicChange`, `#autoNamedTopics`
+  with `autoTopicName`, the tab of the parallel limit in `#waitsForWork`, and the tab on the
   `send`, `request` and `read` commands.
 - `src/renderer/src/features/channels/ChannelTabs.tsx`: the tab bar in the channel header.
 - `src/renderer/src/features/channels/channels-controller.ts`: `setTopic`, `createTopic`,
@@ -41,6 +42,14 @@ older event replay and a client without tabs send.
   created by the service is written with its first tab in the same command.
 - A routine, the Team API and an older client name no tab, so they land in the first one.
 - Deleting a tab interrupts its running turns before its sessions and threads go.
+- The parallel limit (`CHANNEL_PARALLEL_LIMIT`) is counted per tab, through the task of each
+  assignment. One turn per agent stays channel-wide: it is what keeps one agent from opening two
+  sessions in the same directory.
+- A tab that was never renamed and has no message takes its name from the first message a person
+  writes in it, in the same commit: first line, spaces collapsed, 32 code points and an ellipsis.
+  The first tab and a renamed tab keep their name.
+- The summary counters of a tab (`unreadCount`, `activeTasks`, `openTasks`, `messageCount`) are for
+  the sidebar only; the channel totals above them keep summing every tab.
 
 ## Upstream
 

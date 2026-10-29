@@ -53,6 +53,14 @@ export interface ChannelTopic {
   name: string;
   createdAt: string;
   revision: number;
+  /** Counted for a channel summary only, against this tab's own read cursor. Absent elsewhere. */
+  unreadCount?: number;
+  /** Its running tasks, in a channel summary only. */
+  activeTasks?: number;
+  /** Its queued, waiting and running tasks, in a channel summary only. */
+  openTasks?: number;
+  /** The messages a person would see in it, in a channel summary only; 0 means nothing to lose. */
+  messageCount?: number;
 }
 
 export interface ChannelTask {

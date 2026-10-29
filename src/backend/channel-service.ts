@@ -512,6 +512,7 @@ export class ChannelService {
         if (current.archived) return yield* channelFailure(new Error(sourceText("error.backend.channelArchived")));
         const text = committed?.text ?? command.text;
         const messages = yield* channelSync(() => this.store.messages(current.id, topicId));
+        const named = yield* channelSync(() => this.#autoNamedTopics(current.id, topicId, messages, text));
         const referenced = command.replyToMessageId
           ? messages.find((message) => message.id === command.replyToMessageId)
           : undefined;
@@ -572,6 +573,8 @@ export class ChannelService {
                 message,
               ],
               tasks: [...stopped, task],
+              // The tab is named by its first message, in the commit of that message.
+              ...(named ? { topics: named } : {}),
             },
             operationId,
           ),
@@ -683,6 +686,26 @@ export class ChannelService {
     );
   }
 
+  /**
+   * The tab list with an unnamed tab named after the first message a person writes in it, or null
+   * when the tab keeps its name. Only a tab that was never renamed, still has no message, and is not
+   * the first one: the first tab keeps the channel's own name, and a manual rename always wins.
+   */
+  #autoNamedTopics(
+    channelId: string,
+    topicId: string,
+    messages: readonly ChannelMessage[],
+    text: string,
+  ): ChannelTopic[] | null {
+    if (topicId === this.store.firstTopicId(channelId) || messages.length > 0) return null;
+    const topics = this.store.topics(channelId);
+    const topic = topics.find((item) => item.id === topicId);
+    if (!topic || topic.revision > 0) return null;
+    const name = autoTopicName(text);
+    if (!name) return null;
+    return topics.map((item) => (item.id === topicId ? { ...item, name, revision: item.revision + 1 } : item));
+  }
+
   /** The topic list a create, rename or delete leaves behind, plus the messages that announce it. */
   #topicChange(
     channel: Channel,
@@ -769,7 +792,12 @@ export class ChannelService {
     // alone does not show that the task is free: the assignment of the previous owner does.
     return (
       assignments.some((assignment) => assignment.agentId === task.ownerAgentId || assignment.taskId === task.id) ||
-      assignments.filter((assignment) => assignment.channelId === task.channelId).length >= CHANNEL_PARALLEL_LIMIT ||
+      // The parallel limit is the tab's, not the channel's: a second tab runs beside a busy first one.
+      // The agent rule above still holds across tabs, so one agent never opens two sessions here.
+      assignments.filter((assignment) => {
+        const ofAssignment = tasks.get(assignment.taskId);
+        return ofAssignment?.channelId === task.channelId && ofAssignment.topicId === task.topicId;
+      }).length >= CHANNEL_PARALLEL_LIMIT ||
       task.dependencies.some((id) => tasks.get(id)?.state !== "completed")
     );
   }
@@ -2896,6 +2924,23 @@ export class ChannelService {
  * runs as a profile generation, whose texts name a profile; those become channel texts. Provider
  * texts can also name a profile, so they are not shown.
  */
+/** The most characters a tab takes from a first message, before the ellipsis. */
+const TOPIC_NAME_LENGTH = 32;
+
+/**
+ * A tab name from the first message a person writes: its first line with the spaces collapsed, cut
+ * to `TOPIC_NAME_LENGTH` code points with an ellipsis. Null when there is nothing to name it by.
+ */
+function autoTopicName(text: string): string | null {
+  const line = text.split("\n").find((candidate) => candidate.trim().length > 0);
+  if (!line) return null;
+  const collapsed = line.replace(/\s+/gu, " ").trim();
+  if (!collapsed) return null;
+  // Code points, so a cut never splits a surrogate pair.
+  const characters = Array.from(collapsed);
+  return characters.length > TOPIC_NAME_LENGTH ? `${characters.slice(0, TOPIC_NAME_LENGTH).join("")}…` : collapsed;
+}
+
 function routingFailureText(error: unknown): string | null {
   if (!(error instanceof Error) || !isFixedSourceText(error.message)) return null;
   if (error.message === sourceText("error.agent.profileTimedOut"))
