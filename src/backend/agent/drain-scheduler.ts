@@ -785,6 +785,10 @@ export class DrainScheduler {
       }
       this.#conversation.emitConversation(snapshot);
 
+      // The scan below reads the turn as it is here, before the verdict of the reviewer. That block is
+      // Builders Bot's own: a scan that reads it takes it for a forged verdict inside the message,
+      // and marks a plain request as suspicious.
+      const scanInput = completeInput;
       // The security reviewer reads what the person wrote before the agent does. A review never
       // blocks the turn: it only adds its verdict in front of the message.
       const security = this.#security;
@@ -847,9 +851,9 @@ export class DrainScheduler {
         });
       // The guard reads the message before the agent does. It runs after the messages show in the chat,
       // and a scan that fails leaves the turn without a block.
-      const guard = yield* this.#hooks.scanPrompt(agent.id, completeInput);
+      const guard = yield* this.#hooks.scanPrompt(agent.id, scanInput);
       guardBlock = guard?.block ?? null;
-      if (guard?.note) this.#postSecurityNote(snapshot, threadId, guard.note);
+      if (guard?.note) this.#postSecurityNote(snapshot, guard.note);
       // Claude, ACP and Pi take the delivery id as the turn id. A delivery that a refused turn put back
       // in the queue keeps its id, and the end of that turn must not end this new run (#2468).
       this.#hooks.turnRestarting(delivery.id);
@@ -1036,16 +1040,18 @@ export class DrainScheduler {
   }, Effect.uninterruptible);
 
   /**
-   * Whether this delivery is a routine run in the agent's own chat. It runs in a provider session
-   * of its own, which closes when the run ends: the chat session does not grow with each run, and a
-   * run does not read that whole session again. A routine run for a channel, an external
-   * conversation or a task runs in that thread's session.
-   */
-  /**
    * Adds the line of a suspicious scan in front of the message that it checked. The chat shows the
    * finding; the message itself still follows, unchanged.
+   *
+   * The line goes to the public thread of the snapshot: the agent's own chat, or the thread of the
+   * channel tab or the external conversation that the turn runs in. Not to the thread id the drain
+   * starts the turn on: that is the provider's session id, which no thread row has, so the write
+   * failed with "Unknown agent for conversation changes" on every turn.
    */
-  #postSecurityNote(snapshot: ConversationSnapshot, threadId: string, note: string): void {
+  #postSecurityNote(snapshot: ConversationSnapshot, note: string): void {
+    const threadId = snapshot.threadId;
+    // A snapshot of the drain always has its thread. Without one there is no chat to write to.
+    if (!threadId) return;
     const message: ConversationMessage = {
       id: randomUUID(),
       author: "system",
@@ -1067,10 +1073,16 @@ export class DrainScheduler {
       });
     } catch (failure) {
       // The line is a note: the turn still runs when the write fails, as for any lost snapshot write.
-      logger.warn("Could not save the security note.", { agentId: snapshot.agentId, error: failure });
+      logger.warn("Could not save the security note.", { agentId: snapshot.agentId, threadId, error: failure });
     }
   }
 
+  /**
+   * Whether this delivery is a routine run in the agent's own chat. It runs in a provider session
+   * of its own, which closes when the run ends: the chat session does not grow with each run, and a
+   * run does not read that whole session again. A routine run for a channel, an external
+   * conversation or a task runs in that thread's session.
+   */
   #runsInOwnSession(context: DeliveryContext): boolean {
     const id = context.delivery.id;
     return (
