@@ -118,7 +118,11 @@ import { createRendererForwarders } from "./renderer-forwarders";
 import { sendToRenderer } from "./renderer-ipc";
 import { RoutineWake } from "./routine-wake";
 import { takeServerModeEnvironment } from "./server-mode";
-import { configureContentSecurityPolicy, configureRendererPermissions } from "./session-configuration";
+import {
+  configureApplicationProtocol,
+  configureContentSecurityPolicy,
+  configureRendererPermissions,
+} from "./session-configuration";
 import { trustSystemCertificates } from "./system-certificates";
 import { TeardownRegistry } from "./teardown-registry";
 import type { TraceFile } from "./trace-file";
@@ -1098,8 +1102,19 @@ if (!hasSingleInstanceLock) {
       }
       configureContentSecurityPolicy();
       configureRendererPermissions();
+      // Before the window: it loads the renderer from `openbot-app://`, which answers 404 until this
+      // registers the scheme. It used to run inside the services, after the window had been opened.
+      configureApplicationProtocol();
       await Effect.runPromise(windows.restoreMainWindowBounds());
       const mainWindow = windows.openMainWindow();
+      // The renderer starts here rather than after the services: the window is already open, and the
+      // provider checks and store loads below are the longest stretch of startup with nothing on
+      // screen. Its first load runs while the stores are still opening, so it is reloaded once they
+      // are (below), from a warm process.
+      const rendererLoaded = windows.loadRenderer(mainWindow).catch((error: unknown) => {
+        logger.error("Could not load the main window:", toLogValue(error));
+        if (!mainWindow.isDestroyed()) mainWindow.destroy();
+      });
 
       const built = await createApplicationServices({
         mainWindow,
@@ -1324,7 +1339,19 @@ if (!hasSingleInstanceLock) {
       await runCauseEffect(dynamicIsland.initialize()).catch((error) =>
         logger.error("Unable to initialize Dynamic Island:", toLogValue(error)),
       );
-      await windows.loadRenderer(mainWindow);
+      await rendererLoaded;
+      // The first load ran while the stores were still opening, so its agent and conversation reads
+      // answered before they existed and the window settled empty. The second load starts with the
+      // stores open, and the work before it (bundle fetch and parse, GPU, the provider checks) was
+      // already paid by the first.
+      if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        const reloaded = new Promise<void>((resolve) => mainWindow.webContents.once("did-finish-load", () => resolve()));
+        // The flag tells an automation attached to the first load that the window is about to go:
+        // the reload destroys its execution context. It does not survive the reload.
+        void mainWindow.webContents.executeJavaScript("window.__openbotReloading = true").catch(() => undefined);
+        mainWindow.webContents.reload();
+        await reloaded;
+      }
       performance.mark("openbot:renderer-loaded");
       // `sendToRenderer` dropped the server changes made while the window loaded: the host list and
       // the connection of the selected server. The renderer can have read the list before them.

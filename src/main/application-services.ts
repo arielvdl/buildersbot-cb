@@ -285,11 +285,7 @@ import { SecurityGuardService } from "./security-guard-service";
 import { agentProcessEnvironment, ServerMemory } from "./server-memory";
 import { ServerMode, type ServerModeEnvironment } from "./server-mode";
 import { ServerTimezonePreferenceStore } from "./server-timezone-preference-store";
-import {
-  configureApplicationProtocol,
-  configureAttachmentProtocol,
-  configureServerLogoProtocols,
-} from "./session-configuration";
+import { configureAttachmentProtocol, configureServerLogoProtocols } from "./session-configuration";
 import { readSetupState, writeSetupState } from "./setup-store";
 import { SignInRelayClient } from "./sign-in-relay-client";
 import { agentPrintedLink, SignInRelayHost } from "./sign-in-relay-host";
@@ -1059,7 +1055,6 @@ export async function createApplicationServices({
   await runCauseEffect(sidebarLayout.initialize());
   const mailbox = new MailboxStore(app.getPath("userData"), store.sharedRoot, store.database);
   await runCauseEffect(mailbox.initialize());
-  configureApplicationProtocol();
   const developmentUrl = process.env.ELECTRON_RENDERER_URL;
   const teamWebRtcBridge = new TeamWebRtcBridge({
     developmentUrl: developmentUrl ?? null,
@@ -1148,65 +1143,75 @@ export async function createApplicationServices({
     systemLocale: app.getLocale(),
   });
   await runCauseEffect(language.load());
+  // Every store below reads one file of its own, and nothing reads another store's value before the
+  // window: the loads go together instead of one await per file, which was the longest stretch of
+  // the startup with no work in it. Constructors stay here because each one names its path.
   const logoColor = new LogoColorService({ path: join(app.getPath("userData"), LOGO_COLOR_PREFERENCE_FILE) });
-  await runCauseEffect(logoColor.load());
   // Before the renderer loads, so the window background takes the saved colors.
   const appearance = new AppearanceService({
     path: join(app.getPath("userData"), APPEARANCE_PREFERENCE_FILE),
     supportsTransparentWindow: process.platform === "darwin",
   });
-  await runCauseEffect(appearance.load());
   // Before the renderer loads, so its first navigation applies the saved size.
   const interfaceSize = new InterfaceSizeService({
     path: join(app.getPath("userData"), INTERFACE_SIZE_PREFERENCE_FILE),
   });
-  await runCauseEffect(interfaceSize.load());
   const notificationPreference = new NotificationPreferenceStore(
     join(app.getPath("userData"), NOTIFICATION_PREFERENCE_FILE),
   );
-  await runCauseEffect(notificationPreference.load());
   const busyMessageMode = new BusyMessageModePreferenceStore(
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
-  await runCauseEffect(busyMessageMode.load());
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
-  await runCauseEffect(agentMemoryLimit.load());
   const memoryReview = new MemoryReviewPreferenceStore(join(app.getPath("userData"), MEMORY_REVIEW_PREFERENCE_FILE));
-  await runCauseEffect(memoryReview.load());
   const agentAccess = new AgentAccessStore(join(app.getPath("userData"), AGENT_ACCESS_FILE));
-  if (!(await runCauseEffect(agentAccess.load())))
-    logger.warn("The roles file did not load. Members get no access to agents until an admin saves the roles.");
   const serverTimezone = new ServerTimezonePreferenceStore(
     join(app.getPath("userData"), SERVER_TIMEZONE_PREFERENCE_FILE),
   );
-  await runCauseEffect(serverTimezone.load());
   const promptCacheTtl = new PromptCacheTtlPreferenceStore(
     join(app.getPath("userData"), PROMPT_CACHE_TTL_PREFERENCE_FILE),
   );
-  await runCauseEffect(promptCacheTtl.load());
   const remoteSessionReuse = createRemoteSessionReusePreferenceStore(
     join(app.getPath("userData"), REMOTE_SESSION_REUSE_PREFERENCE_FILE),
   );
-  await runCauseEffect(remoteSessionReuse.load());
-  await runCauseEffect(externalLinkPreference.load());
   const remoteNetworkRoute = createRemoteNetworkRoutePreferenceStore(
     join(app.getPath("userData"), REMOTE_NETWORK_ROUTE_PREFERENCE_FILE),
   );
-  await runCauseEffect(remoteNetworkRoute.load());
   const appBehavior = new AppBehaviorService({
     path: join(app.getPath("userData"), APP_BEHAVIOR_PREFERENCE_FILE),
     loginItem: createLoginItem({ appVariant, server: Boolean(hostedServer || serverModeEnvironment) }),
     offersBackground: process.platform !== "darwin" && !hostedServer && !serverModeEnvironment,
     offersKeepAwake: process.platform !== "linux" && !hostedServer && !serverModeEnvironment,
   });
-  await runCauseEffect(appBehavior.load());
+  const securityGuard = new SecurityGuardService(join(app.getPath("userData"), SECURITY_GUARD_PREFERENCE_FILE));
+  // `agentAccess` is the one load that answers whether it worked, so its result is read back.
+  const agentAccessLoaded = (
+    await Promise.all([
+      runCauseEffect(language.load()),
+      runCauseEffect(logoColor.load()),
+      runCauseEffect(appearance.load()),
+      runCauseEffect(interfaceSize.load()),
+      runCauseEffect(notificationPreference.load()),
+      runCauseEffect(busyMessageMode.load()),
+      runCauseEffect(agentMemoryLimit.load()),
+      runCauseEffect(memoryReview.load()),
+      runCauseEffect(agentAccess.load()),
+      runCauseEffect(serverTimezone.load()),
+      runCauseEffect(promptCacheTtl.load()),
+      runCauseEffect(remoteSessionReuse.load()),
+      runCauseEffect(externalLinkPreference.load()),
+      runCauseEffect(remoteNetworkRoute.load()),
+      runCauseEffect(appBehavior.load()),
+      runCauseEffect(securityGuard.load()),
+    ])
+  )[8];
+  if (!agentAccessLoaded)
+    logger.warn("The roles file did not load. Members get no access to agents until an admin saves the roles.");
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
     logger.warn("The login item did not refresh.", toLogValue(error)),
   );
-  const securityGuard = new SecurityGuardService(join(app.getPath("userData"), SECURITY_GUARD_PREFERENCE_FILE));
-  await runCauseEffect(securityGuard.load());
   const remoteSessionCache = new RemoteSessionCache({
     path: join(app.getPath("userData"), REMOTE_SESSIONS_FILE),
     enabled: remoteSessionReuse.get().keepBetweenRuns,
@@ -1245,16 +1250,25 @@ export async function createApplicationServices({
    * point, which this file may not reach into; both readers read the same immutable value.
    */
   const providerUse = new ProviderUseSettingsStore(join(app.getPath("userData"), "openbot-provider-use-v1.json"));
-  await runCauseEffect(providerUse.load());
   const providerAccounts = new ProviderAccountStore(
     join(app.getPath("userData"), "openbot-provider-accounts-v1.json"),
     join(app.getPath("userData"), "provider-accounts"),
   );
-  await runCauseEffect(providerAccounts.load());
   const providerCliAppVersion = createProviderCliAppVersionStore(
     join(app.getPath("userData"), PROVIDER_CLI_APP_VERSION_FILE),
   );
-  await runCauseEffect(providerCliAppVersion.load());
+  const providerDetectionSettings = new ProviderDetectionSettingsStore(
+    join(app.getPath("userData"), PROVIDER_DETECTION_SETTINGS_FILE),
+  );
+  performance.mark("openbot:services.preferences");
+  // Four files, four stores, no order between them; `providerRuntimes.initialize()` below reads
+  // `providerUse` and waits for all four.
+  await Promise.all([
+    runCauseEffect(providerUse.load()),
+    runCauseEffect(providerAccounts.load()),
+    runCauseEffect(providerCliAppVersion.load()),
+    runCauseEffect(providerDetectionSettings.load()),
+  ]);
   const providerRuntimes = new ProviderRuntimeManager({
     isProviderOn: (provider) => !providerUse.off().includes(provider),
     root: providerRuntimeRoot({
@@ -1299,11 +1313,6 @@ export async function createApplicationServices({
     cipher: secretCipher,
   });
   await runCauseEffect(customAgents.load());
-  const providerDetectionSettings = new ProviderDetectionSettingsStore(
-    join(app.getPath("userData"), PROVIDER_DETECTION_SETTINGS_FILE),
-  );
-  performance.mark("openbot:services.preferences");
-  await runCauseEffect(providerDetectionSettings.load());
   const providerDetection = await Effect.runPromise(
     createProviderDetection({
       settings: providerDetectionSettings,

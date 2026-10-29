@@ -156,7 +156,23 @@ async function connect(app: BenchApp): Promise<{ browser: Browser; page: Page }>
     await browser.close();
     throw new Error(`The browser on :${app.remoteDebuggingPort} is not the bench app this run started.`);
   }
-  const page = await waitFor("the app window", READY_TIMEOUT_MS, () => findAppPage(browser));
+  // The app loads the window once early and reloads it when its stores are open, which destroys the
+  // execution context of the first load. A probe that lands in that gap fails, so the page only
+  // counts as found when it has settled: a complete document and no reload flag, twice, apart.
+  const settled = async (): Promise<Page | null> => {
+    const found = await findAppPage(browser);
+    if (!found) return null;
+    const ready = await found
+      .evaluate("document.readyState === 'complete' && window.__openbotReloading !== true")
+      .catch(() => false);
+    if (!ready) return null;
+    await wait(600);
+    const stillReady = await found
+      .evaluate("document.readyState === 'complete' && window.__openbotReloading !== true")
+      .catch(() => false);
+    return stillReady ? found : null;
+  };
+  const page = await waitFor("the app window", READY_TIMEOUT_MS, settled);
   // Ready means the backend answers, not only that the window painted.
   const agentCount = await waitFor("the agent list", READY_TIMEOUT_MS, () =>
     page.evaluate<number>("window.openbot.agent.listAgents().then((agents) => agents.length)"),
