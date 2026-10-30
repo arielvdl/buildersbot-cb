@@ -32,7 +32,11 @@ import {
 import { mcpSecretValues, redactMcpValues } from "../mcp-redaction";
 import { McpServerError, type McpServerStore } from "../mcp-server-store";
 import type { ProviderClientContext } from "../provider-drivers";
-import { applyBrowserAccess } from "./playwright-browser-access";
+import {
+  applyBrowserAccess,
+  BROWSER_BROKER_MCP_SERVER_ID,
+  type BrowserBrokerAddress,
+} from "./playwright-browser-access";
 import { providerLabel } from "./thread-items";
 
 /**
@@ -77,6 +81,11 @@ export interface McpGatewayOptions {
   githubConnector?: GitHubConnectorSource | null;
   /** Web access goes through the Builders Bot browser. Read at each hand-off, so the choice reaches the next turn. */
   browserInApp?: () => boolean;
+  /**
+   * Where the browser broker listens, or null while it does not. With an address, Playwright is
+   * handed to every agent as one shared http server, and no agent starts a Playwright of its own.
+   */
+  browserBroker?: () => BrowserBrokerAddress | null;
   /** The agent service logger, so a drop report keeps the `agent-service` prefix it always had. */
   logger: Logger;
   hooks: McpGatewayHooks;
@@ -94,6 +103,7 @@ export class McpGateway {
   readonly #computerUseMcpServer: () => McpServerConfig | null;
   readonly #githubConnector: GitHubConnectorSource | null;
   readonly #browserInApp: () => boolean;
+  readonly #browserBroker: () => BrowserBrokerAddress | null;
   /**
    * What Builders Bot downloaded for the MCP servers, read at each use. It travels with the credentials
    * because both are the main process's knowledge of this machine, and because the clients already
@@ -128,6 +138,7 @@ export class McpGateway {
     this.#computerUseMcpServer = options.computerUseMcpServer;
     this.#githubConnector = options.githubConnector ?? null;
     this.#browserInApp = options.browserInApp ?? (() => false);
+    this.#browserBroker = options.browserBroker ?? (() => null);
     this.#toolRuntimes = () => credentials.mcpToolRuntimes?.() ?? NO_MCP_TOOL_RUNTIMES;
     this.#oauth = credentials.mcpOAuth ?? null;
     this.#logger = options.logger;
@@ -167,6 +178,12 @@ export class McpGateway {
       if (token) this.#handoff.recordSecret(token);
       return { url: config.url, authorization: token, proxied: false };
     }
+    if (config.id === BROWSER_BROKER_MCP_SERVER_ID) {
+      const broker = this.#browserBroker();
+      if (!broker) return { error: sourceText("error.backend.browserBrokerUnavailable") };
+      this.#handoff.recordSecret(broker.bearer);
+      return { url: broker.url, authorization: broker.bearer, proxied: false };
+    }
     if (!this.#proxied(config)) return { url: config.url, authorization: null, proxied: false };
     const route = yield* this.#proxy.route(mcpOAuthProxyRoute(config.id, config.url)).pipe(Effect.result);
     if (Result.isFailure(route)) {
@@ -191,11 +208,19 @@ export class McpGateway {
       .filter((config) => config.enabled && this.#proxied(config))
       .map((config) => config.id)
       .sort();
-    if (proxied.length === 0) return null;
+    // Codex keeps the address of the browser broker with a session. A new address replaces it. The
+    // address joins the fingerprint only while the broker serves Playwright, so a computer without
+    // it keeps the fingerprints it had.
+    const broker = configs.some((config) => config.enabled && config.id === BROWSER_BROKER_MCP_SERVER_ID)
+      ? this.#browserBroker()
+      : null;
+    const brokerPart = broker ? [broker.url] : [];
+    if (proxied.length === 0)
+      return broker ? JSON.stringify([null, [BROWSER_BROKER_MCP_SERVER_ID], ...brokerPart]) : null;
     const identity = yield* this.#proxy.identity().pipe(Effect.result);
     // The hand-off leaves these rows out in this case, and the manifest records that.
-    if (Result.isFailure(identity)) return JSON.stringify([null, proxied]);
-    return JSON.stringify([identity.success, proxied]);
+    if (Result.isFailure(identity)) return JSON.stringify([null, proxied, ...brokerPart]);
+    return JSON.stringify([identity.success, proxied, ...brokerPart]);
   });
 
   /** Stops the OAuth proxy. Called once, after every provider process has stopped. */
@@ -502,7 +527,7 @@ export class McpGateway {
    * would collide in every provider's configuration.
    */
   enabled(): McpServerConfig[] {
-    const configured = applyBrowserAccess(this.#servers.listEnabled(), this.#browserInApp());
+    const configured = applyBrowserAccess(this.#servers.listEnabled(), this.#browserInApp(), this.#browserBroker());
     const builtIn: McpServerConfig[] = [];
     const computerUse = this.#computerUseMcpServer();
     if (computerUse) builtIn.push(computerUse);

@@ -65,7 +65,7 @@ import { RemoteWorkflowError, toRemoteWorkflowError } from "./remote-service-eff
 import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { homedir, hostname, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import {
   BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN,
   BUILDERSBOT_CONTROL_PLANE_ORIGIN,
@@ -112,6 +112,7 @@ import {
 } from "electron";
 import { pasteCodeLoginSupported } from "../backend/agent/cli-code-login";
 import { toMcpGatewayFailed } from "../backend/agent/mcp-gateway";
+import { playwrightUpstream } from "../backend/agent/playwright-browser-access";
 import { ProviderAccountStore } from "../backend/agent/provider-account-store";
 import { AgentLifecycleFailed, AgentService } from "../backend/agent-service";
 import { AgentStore } from "../backend/agent-store";
@@ -253,6 +254,13 @@ import { MessagingCredentialStore } from "./messaging-credential-store";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
+import { PlaywrightBroker } from "./playwright-broker";
+import {
+  BrokerIdentityFile,
+  brokerEnvironment,
+  COMMON_PROGRAM_DIRECTORIES,
+  findProgram,
+} from "./playwright-broker-runtime";
 import { PromptCacheTtlPreferenceStore } from "./prompt-cache-ttl-preference-store";
 import { ProviderAccountsHost } from "./provider-accounts-host";
 import { createProviderCliAppVersionStore } from "./provider-cli-app-version-store";
@@ -353,6 +361,7 @@ const NOTIFICATION_PREFERENCE_FILE = "openbot-notification-preference-v1.json";
 const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const CHANNEL_LANE_PREFERENCE_FILE = "openbot-channel-lane-v1.json";
+const PLAYWRIGHT_BROKER_FILE = "openbot-playwright-broker-v1.json";
 const PROVIDER_CLI_APP_VERSION_FILE = "openbot-provider-cli-app-version-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
 const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
@@ -468,6 +477,8 @@ const TEARDOWN_ORDER = {
   automation: 108,
   storageUsage: 109,
   service: 110,
+  // After the service, so no agent is cut off from the browser while its turn still ends.
+  browserBroker: 110.5,
   mcpOAuth: 111,
   analytics: 112,
   // After all account consumers have stopped.
@@ -1203,6 +1214,16 @@ export async function createApplicationServices({
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
+  // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
+  // only when an agent first asks for the browser. `service` is read at that time, not now.
+  const browserBroker = new PlaywrightBroker({
+    identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
+    upstream: () => {
+      const directories = [...(process.env.PATH ?? "").split(delimiter).filter(Boolean), ...COMMON_PROGRAM_DIRECTORIES];
+      const row = playwrightUpstream(service.listMcpServers(), (name) => findProgram(name, directories));
+      return row ? { command: row.command, args: row.args, env: brokerEnvironment(process.env, row) } : null;
+    },
+  });
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
@@ -1252,6 +1273,11 @@ export async function createApplicationServices({
   )[8];
   if (!agentAccessLoaded)
     logger.warn("The roles file did not load. Members get no access to agents until an admin saves the roles.");
+  // Before the first agent turn, so every agent is handed the shared browser. A failure leaves each agent
+  // with the Playwright of its own that the saved row describes.
+  await browserBroker
+    .start()
+    .catch((error: unknown) => logger.warn("The shared browser connection did not start.", toLogValue(error)));
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
     logger.warn("The login item did not refresh.", toLogValue(error)),
   );
@@ -1794,6 +1820,7 @@ export async function createApplicationServices({
     // handing every provider a command it cannot start.
     computerUseMcpServer: () => cuaDriver.mcpServerForProviders(),
     browserInApp: () => appBehavior.browserInApp,
+    browserBroker: () => browserBroker.endpoint(),
     githubConnector: {
       mcpServer: () => githubConnector.mcpServer(),
       mcpAuthorization: () => githubConnector.mcpAuthorization().pipe(toMcpGatewayFailed),
@@ -1838,6 +1865,7 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
+  teardown.push(TEARDOWN_ORDER.browserBroker, "the shared browser connection", () => browserBroker.stop());
   const agentMemoryLimitSetting = reloadingAgentMemoryLimit(agentMemoryLimit, service);
   /** The answer an agent gave in one turn, for routine flows, routine results and local scripts. */
   const turnAnswer = (agentId: string, turnId: string): string | null => {

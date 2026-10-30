@@ -406,6 +406,11 @@ export interface AgentServiceOptions {
   /** Web access goes through the Builders Bot browser, not Playwright in the person's own browser. Read at each turn. */
   browserInApp?: () => boolean;
   /**
+   * Where the browser broker listens, or null. With an address, Playwright reaches every agent as one
+   * shared server, and no agent starts a Playwright of its own. The main process owns the broker.
+   */
+  browserBroker?: () => { url: string; bearer: string } | null;
+  /**
    * The built-in GitHub connection of this computer, or `null`. Read at each spawn and each hand-off,
    * for the same reason as `computerUseMcpServer`: the user connects and disconnects while Builders Bot runs.
    */
@@ -519,6 +524,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       developmentDefaults = false,
       computerUseMcpServer = () => null,
       browserInApp = () => false,
+      browserBroker = () => null,
       githubConnector = null,
       hostMemory = null,
       busyMessageMode = () => DEFAULT_BUSY_MESSAGE_MODE,
@@ -538,6 +544,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       credentials,
       computerUseMcpServer,
       browserInApp,
+      browserBroker,
       githubConnector,
       logger,
       hooks: {

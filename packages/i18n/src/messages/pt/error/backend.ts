@@ -228,6 +228,8 @@ export const messages = {
     "O Builders Bot não conseguiu ler as informações de login deste servidor. Verifique o endereço do servidor e tente novamente.",
   "error.backend.mcpServerExited":
     "O servidor parou antes de responder. Execute o comando em um terminal para ver o erro.",
+  "error.backend.browserBrokerUnavailable":
+    "A conexão compartilhada do navegador não iniciou. Reinicie o Builders Bot e tente novamente.",
   "error.backend.mcpOAuthProxyUnavailable":
     "O Builders Bot não conseguiu iniciar a conexão local de login para este servidor. Reinicie o Builders Bot e tente novamente.",
   "error.backend.mcpOAuthSignInNeeded":
