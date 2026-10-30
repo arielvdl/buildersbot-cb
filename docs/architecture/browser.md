@@ -309,9 +309,15 @@ event; the extension relay uses only those. If the guard file cannot be written,
 
 | Limit | Value | Refusal |
 | --- | --- | --- |
-| Agent sessions | 8 | A JSON-RPC error on `initialize`, with the request id. |
+| Agent sessions | 64 | A JSON-RPC error on `initialize`, with the request id. |
 | Tabs for one session | 4 | A tool result with `isError: true` that tells the agent to close a tab with `browser_tabs` action `close`, or to reuse an open tab. |
 | Tabs for all sessions | 12 | The same. |
+
+A session is not a browsing agent. Each live agent CLI opens one when it starts and keeps it until it
+stops, also while it does nothing, so the number of sessions is the number of agents that are on. The
+tabs are what use the memory, and the tab limits are the ones that matter. A low session limit refuses
+agents that only run, and a client that is refused at start does not offer the tool for the rest of its
+life: the first limit of 8 did this, with 9 agent CLIs alive.
 
 The counts come from the upstream response, not from the request. A successful `browser_tabs`
 action `new` adds 1. A successful `browser_tabs` action `close` or `browser_close` removes 1. A
@@ -320,8 +326,9 @@ The broker reads about the first 256,000 bytes of a response to count; a longer 
 agent but is not counted. Two `initialize` requests at the same time can both pass the session check.
 
 `start()` only listens. The upstream starts at the first request that passes the door, one time. A
-session with no request for 15 min is ended, and the broker sends `DELETE` for it to the upstream. A
-timer checks every 30 s. After 10 min with no session, the upstream stops, so the person's browser is
+session with no request for 3 hours is ended, and the broker sends `DELETE` for it to the upstream. The
+long time is for the session that a closed agent leaves behind: a client that reads 404 is not sure to
+start a new session, so an idle agent must keep its own. A timer checks every 30 s. After 10 min with no session, the upstream stops, so the person's browser is
 free. When the upstream stops by itself, the broker forgets all sessions, and the agents start new
 ones. Teardown stops the broker after the agent service (`TEARDOWN_ORDER.browserBroker`).
 

@@ -424,7 +424,8 @@ describe("the sessions", () => {
     const reply = await post(s, initialize(5));
     const body: RpcReply = JSON.parse(reply.text);
     expect(body.id).toBe(5);
-    expect(body.error?.message).toContain("in use by 2 agents");
+    expect(body.error?.message).toContain("Too many agents use the browser");
+    expect(body.error?.message).toContain("2 is the limit");
     expect(s.broker.usage().sessions).toBe(2);
   });
 
@@ -598,6 +599,41 @@ describe("the idle stop", () => {
     expect(broker.usage().sessions).toBe(0);
     expect(fake.requests.some((line) => line.startsWith("DELETE upstream-"))).toBe(true);
     expect(fake.sessions.size).toBe(0);
+  });
+
+  it("does not end a session that is quiet for a quarter of an hour: a live agent keeps its session when idle", async () => {
+    const clock = { now: 1_000 };
+    const fake = await fakeUpstream();
+    const broker = new PlaywrightBroker({
+      upstream: () => ({ command: "unused", args: [], env: {} }),
+      guardPath: GUARD_PATH,
+      identity: memoryIdentity(),
+      now: () => clock.now,
+      launch: async (spec) => {
+        fake.token = spec.env[BROKER_TOKEN_ENV] ?? "";
+        return { url: fake.url, hostHeader: fake.hostHeader, stop: async () => {}, onExit: () => {} };
+      },
+    });
+    brokers.push(broker);
+    await broker.start();
+    const endpoint = broker.endpoint();
+    if (!endpoint) throw new Error("no endpoint");
+    const reply = await fetch(endpoint.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${endpoint.bearer}`,
+      },
+      body: JSON.stringify(initialize()),
+    });
+    await reply.text();
+    clock.now += 15 * 60_000;
+    await broker.releaseIdle();
+    expect(broker.usage().sessions).toBe(1);
+    clock.now += 3 * 60 * 60_000;
+    await broker.releaseIdle();
+    expect(broker.usage().sessions).toBe(0);
   });
 
   it("stops the upstream only after it has had no session for the idle time", async () => {

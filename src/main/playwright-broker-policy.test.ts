@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { BrowserLedger, inspectRpc, refusalResult, tabsDelta } from "./playwright-broker-policy";
+import {
+  BrowserLedger,
+  DEFAULT_BROWSER_LIMITS,
+  inspectRpc,
+  refusalResult,
+  tabsDelta,
+} from "./playwright-broker-policy";
 
 interface ToolArguments {
   action?: string;
@@ -187,5 +193,16 @@ describe("the refusal an agent reads", () => {
   it("names the total when the total is the limit", () => {
     const result = refusalResult({ allowed: false, reason: "total", limit: 12 });
     expect(result.content[0]?.text).toContain("12");
+  });
+});
+
+describe("the default limits", () => {
+  it("hold many agent sessions, because each live agent keeps one open even when it is idle", () => {
+    expect(DEFAULT_BROWSER_LIMITS.sessions).toBeGreaterThanOrEqual(32);
+  });
+
+  it("keep the tabs, which are what use the memory, few", () => {
+    expect(DEFAULT_BROWSER_LIMITS.tabsPerSession).toBeLessThanOrEqual(6);
+    expect(DEFAULT_BROWSER_LIMITS.tabsTotal).toBeLessThanOrEqual(16);
   });
 });

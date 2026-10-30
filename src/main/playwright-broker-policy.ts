@@ -83,7 +83,12 @@ export interface BrowserLimits {
   sessions: number;
 }
 
-export const DEFAULT_BROWSER_LIMITS: BrowserLimits = { tabsPerSession: 4, tabsTotal: 12, sessions: 8 };
+/**
+ * The sessions are many on purpose: each live agent keeps one open for as long as it runs, also while it
+ * does nothing, so the number of sessions is the number of agents that are on, not of agents that browse.
+ * What uses the memory is the tabs, and those are held to a few.
+ */
+export const DEFAULT_BROWSER_LIMITS: BrowserLimits = { tabsPerSession: 4, tabsTotal: 12, sessions: 64 };
 
 export type TabDecision = { allowed: true } | { allowed: false; reason: "session" | "total"; limit: number };
 

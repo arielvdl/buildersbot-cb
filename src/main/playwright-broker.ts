@@ -211,7 +211,7 @@ export class PlaywrightBroker {
   }
 
   #busyMessage(): string {
-    return `The browser is in use by ${this.#ledger.sessionCount()} agents, which is the limit. Try again in a minute, or go on without the browser.`;
+    return `Too many agents use the browser at once (${this.#limits.sessions} is the limit). Try again in a minute, or go on without the browser.`;
   }
 
   async #handlePost(request: IncomingMessage, response: ServerResponse, session: string | undefined): Promise<void> {
@@ -389,7 +389,9 @@ export class PlaywrightBroker {
    */
   async releaseIdle(): Promise<void> {
     const now = this.#now();
-    const idleSessionMs = this.#options.idleSessionMs ?? 15 * 60_000;
+    // An agent that is on keeps its session while it is quiet, and a client is not sure to start a new one when
+    // it reads 404. So a session ends only after hours with no request, for the one a closed agent leaves behind.
+    const idleSessionMs = this.#options.idleSessionMs ?? 3 * 60 * 60_000;
     for (const id of this.#ledger.idleSessions(now, idleSessionMs)) {
       this.#ledger.endSession(id);
       await this.#endUpstreamSession(id);
