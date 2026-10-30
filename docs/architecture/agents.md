@@ -251,38 +251,51 @@ An agent with no picture shows the app mark: a box seen from its corner (`AgentM
 `packages/brand/src/agent-mark.tsx`). All three faces have the agent's color. The lid has the color,
 and the sides have the same hue with less light; `agent-mark-shades.ts` makes the shades in OKLCH.
 The symbol on the lid is white, or a dark ink when the OKLab lightness of the color is more than
-0.78, as for lime and yellow. The box of a failed agent is red (`--openbot-danger`). The faces, the
-edges and the symbols get their colors as SVG attributes, so a copy of the SVG without the
+0.78, as for lime and yellow. The box of a failed agent is red (`--openbot-danger`). The silhouette
+clips the inner edges, so their round ends do not go past the rounded corners. The faces, the edges,
+the eyes and the symbols get their colors as SVG attributes, so a copy of the SVG without the
 stylesheet (`createStaticAvatarSvg`) still shows the box at rest.
 
-The left face shows the role of the agent. `avatarMarkRole` (`agent-mark-role.ts`) reads the title
-of the agent and looks for English or Portuguese word stems, without accents or case. It gives one
-of 12 symbols: research, support, finance, calendar, code, content, deploy, review, design, social,
-monitor and personal. The list is in order, and the first role that matches wins, so "Revisor de
-código" is review and not code. A stem of three letters or fewer must be the full word. A title with
-no match keeps the scribbled face that the avatar seed selects. The title only selects an entry of a
-fixed list: no text of the title goes into the SVG. There is no stored role field.
+The left face has two eyes (`AgentMarkSide`): a light eye with an outline, a dark pupil with a white
+glint, and an eyelid in the color of the left face. The white of the eye clips the pupil and the
+eyelid. `agentMarkEyelid` (`agent-mark-eyes.ts`) gives how far the eyelid comes down for each mood,
+from 0 (open) to 1 (closed). The pupils look around (`agent-mark-look`) and the eyelids blink
+(`agent-mark-blink`). A hash of the avatar seed shifts the start of both, so two agents do not blink
+together.
 
-The lid shows the mood (`AvatarMood`):
+The right face shows the emblem of the agent's role. `avatarMarkRole` (`agent-mark-role.ts`) reads the
+title of the agent and looks for English or Portuguese word stems, without accents or case. It gives
+one of 12 symbols: research, support, finance, calendar, code, content, deploy, review, design,
+social, monitor and personal. The list is in order, and the first role that matches wins, so "Revisor
+de código" is review and not code. A stem of three letters or fewer must be the full word. A title
+with no match has no emblem. The title only selects an entry of a fixed list: no text of the title
+goes into the SVG. There is no stored role field.
 
-| Mood | Lid | Motion |
-| --- | --- | --- |
-| `idle`, `responded` | Nothing | None. A slow laser runs on hover or keyboard focus. |
-| `working` | Three chevrons | A laser on the edge, four sparks, a halo, two points in orbit (3.2 s); the role symbol moves |
-| `live` | Equalizer | As `working`, 2.5 times faster, with a second laser, two halos, eight sparks, three points in orbit (0.95 s), and the box bounces |
-| `waiting` | Ring with a dot | The lid goes pale and back |
-| `failed` | × | The box is red and shakes one time |
+The mood (`AvatarMood`) sets the lid symbol, the eyelids and the motion:
+
+| Mood | Lid | Eyelid | Eyes | Other motion |
+| --- | --- | --- | --- | --- |
+| `idle`, `responded` | Nothing | 0.4 | Look round in 7 s, blink every 5.6 s | A slow laser. Only on hover or focus, as the eyes |
+| `working` | Three chevrons | 0.1 | 2.8 s, farther; blink every 3.2 s | A laser, four sparks, a halo, two points in orbit (3.2 s); the emblem moves |
+| `live` | Equalizer | 0 | 0.62 s, farther still; blink every 1.1 s | As `working`, 2.5 times faster, with a second laser, two halos, eight sparks, three points in orbit (0.95 s); the box bounces |
+| `waiting` | Ring with a dot | 0.25 | 5 s | The lid goes pale and back |
+| `failed` | × | Closed | Still | The box is red and shakes one time |
+| `asleep` | Nothing | Closed | Still | None |
 
 `live` is `working` in the chat that is open. `avatarMoodInChat`
 (`packages/ui/src/features/agents/agent-avatar-mood.ts`) changes `working` to `live` on the sidebar
 row and the pinned row of the active agent. The chat header, the activity line of the agent chat and
 of a channel, and the open chat panel of a diagram show `live` while their agent works.
-`avatarMoodIsBusy` counts `live` as busy, so it moves without hover, as `working` does.
+`avatarMoodIsBusy` counts `live` as busy.
 
 All motion is CSS in `packages/brand/src/logo.css`, only for `data-animated="true"` and
-`prefers-reduced-motion: no-preference`. With reduced motion, or `animated={false}`, nothing moves: a
-working lid stays lit with its orbit in place, and a waiting lid stays pale. A photo avatar does not
-show the mark. It keeps the breathing and the glow on its frame.
+`prefers-reduced-motion: no-preference`. `AgentAvatar` sets `animated` for a busy mood
+(`working`, `live`, `connecting`), for `motion="always"`, and while a pointer or the keyboard focus is
+on the avatar's control. So an idle row of the sidebar at rest does not move: its pupils look ahead
+and its eyelids stay at 0.4. With reduced motion, or `animated={false}`, nothing moves: the pupils look
+ahead, the eyelids stay where the mood puts them, a working lid stays lit with its orbit in place, and
+a waiting lid stays pale. A photo avatar does not show the mark. It keeps the breathing and the glow
+on its frame.
 
 ## Browser profile
 

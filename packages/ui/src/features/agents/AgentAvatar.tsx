@@ -1,11 +1,4 @@
-import {
-  AgentMark,
-  type AgentMarkExpression,
-  type AgentMarkRole,
-  avatarMarkAccent,
-  avatarMarkExpression,
-  avatarMarkRole,
-} from "@openbot/brand/agent-mark";
+import { AgentMark, type AgentMarkRole, avatarMarkAccent, avatarMarkRole } from "@openbot/brand/agent-mark";
 import { type AvatarMood, avatarMoodIsBusy, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { prefersReducedMotion } from "@openbot/ui/utils";
@@ -117,7 +110,6 @@ function GeneratedAvatar(props: {
   const [interacting, setInteracting] = createSignal(false);
   const [reducedMotion, setReducedMotion] = createSignal(prefersReducedMotion());
   const accent = createMemo(() => avatarMarkAccent(props.hue));
-  const expression = createMemo<AgentMarkExpression>(() => avatarMarkExpression(props.seed));
   const role = createMemo<AgentMarkRole | null>(() => avatarMarkRole(props.title));
   // A busy mood runs on its own; a resting one waits for the pointer or the focus, and the light
   // stops when neither is there.
@@ -171,14 +163,7 @@ function GeneratedAvatar(props: {
       data-mood={props.mood}
       aria-hidden="true"
     >
-      <AgentMark
-        mood={props.mood}
-        expression={expression()}
-        role={role()}
-        accent={accent()}
-        seed={props.seed}
-        animated={animated()}
-      />
+      <AgentMark mood={props.mood} role={role()} accent={accent()} seed={props.seed} animated={animated()} />
     </span>
   );
 }

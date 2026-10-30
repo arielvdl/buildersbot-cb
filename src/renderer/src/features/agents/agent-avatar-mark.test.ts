@@ -1,3 +1,4 @@
+import { agentMarkEyelid } from "@openbot/brand/agent-mark-eyes";
 import { avatarMarkRole } from "@openbot/brand/agent-mark-role";
 import { AGENT_MARK_DANGER, agentMarkShades } from "@openbot/brand/agent-mark-shades";
 import { avatarMoodIsBusy } from "@openbot/brand/bloub-avatar-motion";
@@ -35,7 +36,7 @@ describe("avatarMarkRole", () => {
     expect(avatarMarkRole("Devolutions")).toBeNull();
   });
 
-  it("keeps the face when the title has no known role", () => {
+  it("gives no emblem when the title has no known role", () => {
     expect(avatarMarkRole("Chief of staff")).toBeNull();
     expect(avatarMarkRole("")).toBeNull();
     expect(avatarMarkRole("   ")).toBeNull();
@@ -59,6 +60,20 @@ describe("live mood", () => {
       expect(avatarMoodInChat(mood, true)).toBe(mood);
       expect(avatarMoodInChat(mood, false)).toBe(mood);
     }
+  });
+});
+
+describe("agentMarkEyelid", () => {
+  it("opens the eyes more as the agent gets busier", () => {
+    expect(agentMarkEyelid("live")).toBe(0);
+    expect(agentMarkEyelid("working")).toBeLessThan(agentMarkEyelid("waiting"));
+    expect(agentMarkEyelid("waiting")).toBeLessThan(agentMarkEyelid("idle"));
+    expect(agentMarkEyelid("idle")).toBe(0.4);
+  });
+
+  it("closes the eyes of a failed or sleeping agent", () => {
+    expect(agentMarkEyelid("failed")).toBeGreaterThan(0.9);
+    expect(agentMarkEyelid("asleep")).toBeGreaterThan(0.9);
   });
 });
 

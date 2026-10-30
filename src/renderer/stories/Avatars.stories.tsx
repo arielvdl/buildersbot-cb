@@ -1,4 +1,4 @@
-import { AgentMark, avatarMarkAccent, avatarMarkExpression } from "@openbot/brand/agent-mark";
+import { AgentMark, avatarMarkAccent } from "@openbot/brand/agent-mark";
 import { AGENT_MARK_ROLES } from "@openbot/brand/agent-mark-role";
 import type { AvatarMood } from "@openbot/brand/bloub-avatar-motion";
 import type { AvatarHue } from "@openbot/contracts/ipc";
@@ -109,11 +109,10 @@ const AVATAR_MOODS = [
  * One seed across every mood and every size.
  *
  * This is the story that proves the point of the mood table: reading down a column, the box is the
- * same in all eight rows and only the lid and the light change.
+ * same in all eight rows and only the lid, the eyelids and the light change.
  */
 export const SizesAndMoods: AgentStory = {
   render: () => {
-    const expression = avatarMarkExpression("story-avatar");
     return (
       <div
         class="grid gap-6 p-8"
@@ -126,7 +125,7 @@ export const SizesAndMoods: AgentStory = {
               {AVATAR_SIZES.map((size) => (
                 <div class="grid justify-items-center gap-2">
                   <span class="agent-avatar agent-avatar-mark" style={{ width: `${size}px`, height: `${size}px` }}>
-                    <AgentMark mood={mood} expression={expression} accent={avatarMarkAccent(215)} />
+                    <AgentMark mood={mood} accent={avatarMarkAccent(215)} seed="story-avatar" />
                   </span>
                   <small style={{ color: "var(--openbot-text-muted)" }}>{size}</small>
                 </div>
@@ -156,7 +155,7 @@ export const Moods: AgentStory = {
 /** The states of the orbit mark, as the sidebar shows them. `live` is `working` in the open chat. */
 const ORBIT_MOODS = ["idle", "working", "live", "waiting", "failed"] as const satisfies readonly AvatarMood[];
 
-/** Agents whose titles pick a role symbol, in English and Portuguese, and one with no role: it keeps its face. */
+/** Agents whose titles pick a role emblem, in English and Portuguese, and one with no role: it has no emblem. */
 const ORBIT_AGENTS: ReadonlyArray<{ seed: string; hue: AvatarHue | null; title: string }> = [
   { seed: "story-research", hue: 185, title: "Pesquisadora de mercado" },
   { seed: "story-code", hue: 150, title: "Software engineer" },
@@ -171,9 +170,14 @@ const ORBIT_AGENTS: ReadonlyArray<{ seed: string; hue: AvatarHue | null; title: 
 const STORY_PHOTO =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23c9a27e'/%3E%3Ccircle cx='32' cy='26' r='12' fill='%23f3d9bd'/%3E%3Cpath d='M10 64c2-14 12-20 22-20s20 6 22 20z' fill='%23365f8c'/%3E%3C/svg%3E";
 
+/**
+ * `always` moves as a large view does. `idle` is a sidebar row at rest: the eyes of an idle agent stay
+ * still until a pointer or the focus reaches the row, and a busy agent moves anyway.
+ */
 const ORBIT_SIZES = [
-  { label: "96 px", style: { width: "96px", height: "96px" } },
-  { label: "36 px", style: { width: "36px", height: "36px" } },
+  { label: "96 px", style: { width: "96px", height: "96px" }, motion: "always" },
+  { label: "36 px", style: { width: "36px", height: "36px" }, motion: "always" },
+  { label: "36 px, a sidebar row at rest", style: { width: "36px", height: "36px" }, motion: "idle" },
 ] as const;
 
 /**
@@ -209,13 +213,19 @@ export const OrbitStates: AgentStory = {
                       hue={agent.hue}
                       title={agent.title}
                       mood={mood}
-                      motion="always"
+                      motion={size.motion}
                       style={size.style}
                     />
                   </span>
                 ))}
                 <span class="grid place-items-center">
-                  <AgentAvatar seed="story-photo" url={STORY_PHOTO} mood={mood} motion="always" style={size.style} />
+                  <AgentAvatar
+                    seed="story-photo"
+                    url={STORY_PHOTO}
+                    mood={mood}
+                    motion={size.motion}
+                    style={size.style}
+                  />
                 </span>
               </>
             ))}
@@ -226,7 +236,7 @@ export const OrbitStates: AgentStory = {
   ),
 };
 
-/** Every role symbol on the left face, at work, so each one moves. */
+/** Every role emblem on the right face, at work, so each one moves. */
 export const RoleSymbols: AgentStory = {
   render: () => (
     <div
@@ -239,7 +249,6 @@ export const RoleSymbols: AgentStory = {
             <AgentMark
               mood="working"
               role={role}
-              expression={avatarMarkExpression(role)}
               accent={avatarMarkAccent(([0, 30, 55, 150, 185, 215, 245, 320] as const)[index % 8] ?? 215)}
               seed={role}
             />

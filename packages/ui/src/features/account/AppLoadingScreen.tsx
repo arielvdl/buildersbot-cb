@@ -1,4 +1,4 @@
-import { AgentMark, type AgentMarkExpression, avatarMarkAccent, avatarMarkExpression } from "@openbot/brand/agent-mark";
+import { AgentMark, avatarMarkAccent } from "@openbot/brand/agent-mark";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import type { JSX } from "@solidjs/web";
@@ -33,20 +33,16 @@ const STATUS_LINES = [
   "webClient.loadingLine.almost",
 ] as const satisfies readonly AppTextKey[];
 
-// Each of the crew wears the mark in its own accent and face. The light does the rest: a laser
-// sweep per hop, so the row reads as boxes charging up rather than as faces blinking.
-const HOPPER_LOOKS: ReadonlyArray<{ hue: AvatarHue; expression: AgentMarkExpression }> = [
-  { hue: 215, expression: "wink" },
-  { hue: 320, expression: "dots" },
-  { hue: 55, expression: "squiggle" },
-];
+// Each of the crew wears the mark in its own accent. The light does the rest: a laser sweep per hop,
+// so the row reads as boxes charging up. Each one has its own seed, so the eyes do not blink together.
+const HOPPER_HUES: readonly AvatarHue[] = [215, 320, 55];
 
-const HOPPERS = HOPPER_LOOKS.map((look, index) => ({
+const HOPPERS = HOPPER_HUES.map((hue, index) => ({
   index,
-  expression: look.expression,
-  accent: avatarMarkAccent(look.hue),
+  seed: `crew-hopper-${index}`,
+  accent: avatarMarkAccent(hue),
 }));
-const SLEEPER = { accent: avatarMarkAccent(185), expression: avatarMarkExpression("crew-sleeper") };
+const SLEEPER = { accent: avatarMarkAccent(185) };
 
 // Three small scribbled "z" marks that float up from the sleeper's head, one after the other.
 const Z_POINTS = "1.5 1.5 8.5 1.5 1.5 8.5 8.5 8.5";
@@ -184,7 +180,7 @@ export function AppLoadingScreen(props: AppLoadingScreenProps) {
             {(hopper) => (
               <div class="app-loading-agent" style={{ "--app-loading-index": hopper.index }}>
                 <div class="app-loading-body">
-                  <AgentMark expression={hopper.expression} accent={hopper.accent} class="app-loading-bot" />
+                  <AgentMark seed={hopper.seed} accent={hopper.accent} class="app-loading-bot" />
                 </div>
               </div>
             )}
@@ -204,12 +200,7 @@ export function AppLoadingScreen(props: AppLoadingScreenProps) {
             {/* The clock does not draw the sleeper: `idle` blinks, and a blink on a sleepy face looks
                 like a twitch. It keeps its first pose, and only its CSS breath moves it. */}
             <div class="app-loading-body">
-              <AgentMark
-                mood="asleep"
-                expression={SLEEPER.expression}
-                accent={SLEEPER.accent}
-                class="app-loading-bot"
-              />
+              <AgentMark mood="asleep" accent={SLEEPER.accent} class="app-loading-bot" />
             </div>
           </div>
         </div>

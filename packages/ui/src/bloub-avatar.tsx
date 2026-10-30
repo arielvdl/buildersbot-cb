@@ -1,4 +1,4 @@
-import { AgentMark, avatarMarkAccent, avatarMarkExpression, avatarMarkRole } from "@openbot/brand/agent-mark";
+import { AgentMark, avatarMarkAccent, avatarMarkRole } from "@openbot/brand/agent-mark";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { render } from "@solidjs/web";
 import { flush } from "solid-js";
@@ -50,14 +50,7 @@ export function createStaticAvatarSvg(seed: string, hue: AvatarHue | null, title
 
 function mountStaticAvatar(host: HTMLElement, seed: string, hue: AvatarHue | null, title?: string): () => void {
   const dispose = render(
-    () => (
-      <AgentMark
-        expression={avatarMarkExpression(seed)}
-        role={avatarMarkRole(title)}
-        accent={avatarMarkAccent(hue)}
-        animated={false}
-      />
-    ),
+    () => <AgentMark role={avatarMarkRole(title)} accent={avatarMarkAccent(hue)} seed={seed} animated={false} />,
     host,
   );
   flush();

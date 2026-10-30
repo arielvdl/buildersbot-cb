@@ -1,8 +1,9 @@
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import type { JSX } from "@solidjs/web";
 import { createMemo, createUniqueId, Show } from "solid-js";
+import { agentMarkEyelid } from "./agent-mark-eyes";
 import type { AgentMarkRole } from "./agent-mark-role";
-import { AGENT_MARK_DANGER, agentMarkShades } from "./agent-mark-shades";
+import { AGENT_MARK_DANGER, type AgentMarkShades, agentMarkShades } from "./agent-mark-shades";
 import { avatarHueSwatch } from "./bloub-avatar";
 import type { AvatarMood } from "./bloub-avatar-motion";
 
@@ -10,12 +11,12 @@ export { type AgentMarkRole, avatarMarkRole } from "./agent-mark-role";
 
 /**
  * The agent avatar: the app mark itself, the box seen from its corner, tinted in the agent's colour.
- * Agents are recognised by the box, its colour and the symbol of their role on the left face. An
- * agent with no known role wears one of the mark's scribbled faces there.
+ * The left face has two eyes, and the right face has the emblem of the agent's role. Agents are
+ * recognised by the box, its colour and the emblem.
  *
- * A mood puts a symbol on the lid and decides the motion: a laser on the edge, sparks, a halo and
- * points of light in orbit while the agent works. Nothing is drawn behind the box: no frame and no
- * background.
+ * A mood puts a symbol on the lid, sets the eyelids and decides the motion: a laser on the edge,
+ * sparks, a halo and points of light in orbit while the agent works. Nothing is drawn behind the box:
+ * no frame and no background.
  */
 
 /** The mark is a square of this side, in its own units, like the app logo. */
@@ -25,15 +26,6 @@ const RADIUS = 78;
 const OUTER_CORNER = 10;
 
 const LIME = "#98f94f";
-
-export type AgentMarkExpression = "wink" | "squiggle" | "dots" | "flat";
-
-const EXPRESSIONS: readonly AgentMarkExpression[] = ["wink", "squiggle", "dots", "flat"];
-
-/** The resting face an agent keeps: the seed picks one of the mark's scribbles. */
-export function avatarMarkExpression(seed: string): AgentMarkExpression {
-  return EXPRESSIONS[seedHash(seed) % EXPRESSIONS.length] ?? "wink";
-}
 
 /** The accent of an agent's mark: the brand lime, or the hue the person picked. */
 export function avatarMarkAccent(hue: AvatarHue | null): string {
@@ -78,24 +70,19 @@ const LEFT_FACE = quad(UPPER_LEFT, MIDDLE, BOTTOM, LOWER_LEFT);
  * its corners go to the top, right, middle and left corners of the lid.
  */
 const LID_PLANE = "matrix(.676 .39 -.676 .39 120 42)";
-/** The role symbols are drawn in a 68 x 78 box. This matrix lays the box on the left face. */
-const SIDE_PLANE = "matrix(1 .5774 0 1 52.4 81)";
+/** The eyes are drawn in a 68 x 78 box. This matrix lays the box on the left face. */
+const LEFT_PLANE = "matrix(1 .5774 0 1 52.4 81)";
+/** The same box on the right face, for the emblem of the role. */
+const RIGHT_PLANE = "matrix(1 -.5774 0 1 120 120)";
+/** The role symbol is drawn in the 68 x 78 box too. This makes it smaller round the middle of the box. */
+const EMBLEM_SCALE = "translate(34 39) scale(.62) translate(-34 -39)";
 /** The orbit is a circle round the middle of the box, flattened to lie in the plane of the lid. */
 const ORBIT_PLANE = `translate(${CENTER} ${CENTER}) scale(1 .5774)`;
 
-/** The scribbles live on the left face, as they do on the mark. */
-const FACES: Readonly<Record<AgentMarkExpression, { strokes: string; dots: ReadonlyArray<[number, number]> }>> = {
-  wink: { strokes: "M64 146 78 132 92 158 102 146 116 170", dots: [[74, 163]] },
-  squiggle: { strokes: "M66 138 82 154 96 134 112 152", dots: [[76, 162]] },
-  dots: {
-    strokes: "",
-    dots: [
-      [74, 146],
-      [104, 160],
-    ],
-  },
-  flat: { strokes: "M66 154 112 136", dots: [[80, 164]] },
-};
+/** The eyes, in the box of the left face: the middle of each eye, and its half width and half height. */
+const EYES = { y: 24, centers: [22, 46], radiusX: 9.5, radiusY: 10 } as const;
+/** An eyelid at 1 comes down this far, in the units of the box: the height of the eye. */
+const EYELID_TRAVEL = 20;
 
 /** A four-point star, drawn round its own middle. */
 const SPARK = "M0-14Q2.4-2.4 14 0Q2.4 2.4 0 14Q-2.4 2.4-14 0Q-2.4-2.4 0-14Z";
@@ -142,7 +129,7 @@ const LID_SYMBOLS: Partial<Record<AvatarMood, () => JSX.Element>> = {
 };
 
 /**
- * The symbol of each role, on the left face. The classes name the part that moves while the agent
+ * The symbol of each role, on the right face. The classes name the part that moves while the agent
  * works: `sweep` goes from side to side, `bob` up and down, `flicker` goes on and off, `pulse` grows
  * and shrinks, and `dash` runs along its line.
  */
@@ -244,12 +231,11 @@ const ROLE_SYMBOLS: Readonly<Record<AgentMarkRole, () => JSX.Element>> = {
 
 export interface AgentMarkProps {
   mood?: AvatarMood;
-  expression?: AgentMarkExpression;
-  /** The symbol of the agent's role on the left face. Without one, the face wears `expression`. */
+  /** The emblem of the agent's role on the right face. Without one, the right face is plain. */
   role?: AgentMarkRole | null | undefined;
   /** Any CSS colour. The brand lime by default. A hex colour also gives the lid symbol its ink. */
   accent?: string;
-  /** Moves the start of the motion, so agents that work side by side do not flash together. */
+  /** Moves the start of the motion, so agents side by side do not blink or flash together. */
   seed?: string | undefined;
   animated?: boolean;
   class?: string;
@@ -259,9 +245,9 @@ export interface AgentMarkProps {
 export function AgentMark(props: AgentMarkProps) {
   const glossId = createUniqueId();
   const lidId = createUniqueId();
+  const shapeId = createUniqueId();
   const mood = (): AvatarMood => props.mood ?? "idle";
   const shades = createMemo(() => agentMarkShades(mood() === "failed" ? AGENT_MARK_DANGER : (props.accent ?? LIME)));
-  const face = createMemo(() => FACES[props.expression ?? "wink"]);
   const busy = () => mood() === "working" || mood() === "live";
   const orbit = () => (mood() === "live" ? ORBITS.live : ORBITS.working);
   const phase = () => (props.seed === undefined ? 0 : (seedHash(`${props.seed}:phase`) % 1600) / 1000);
@@ -271,6 +257,7 @@ export function AgentMark(props: AgentMarkProps) {
       style={{
         "--agent-mark-accent": shades().top,
         "--agent-mark-phase": `${-phase()}s`,
+        "--agent-mark-eyelid": String(agentMarkEyelid(mood())),
         ...(typeof props.style === "object" ? props.style : {}),
       }}
       viewBox={`0 0 ${MARK_SIZE} ${MARK_SIZE}`}
@@ -285,6 +272,9 @@ export function AgentMark(props: AgentMarkProps) {
         </linearGradient>
         <clipPath id={lidId}>
           <path d={TOP_FACE} />
+        </clipPath>
+        <clipPath id={shapeId}>
+          <path d={OUTLINE} />
         </clipPath>
       </defs>
       <Show when={busy()}>
@@ -326,9 +316,12 @@ export function AgentMark(props: AgentMarkProps) {
             stroke-width="7"
             stroke-linejoin="round"
           />
+          {/* The inner edges end at the corners of the silhouette. Their round caps would go past the
+              rounded corners, so the silhouette clips them. */}
           <path
             class="agent-mark-edge-inner"
             d={INNER_EDGES}
+            clip-path={`url(#${shapeId})`}
             fill="none"
             stroke={shades().lite}
             stroke-width="6"
@@ -351,29 +344,12 @@ export function AgentMark(props: AgentMarkProps) {
               </g>
             )}
           </Show>
-          <Show
-            when={props.role}
-            fallback={
-              <g class="agent-mark-face" color={shades().lite}>
-                <path
-                  class="agent-mark-eye"
-                  d={face().strokes}
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                {face().dots.map(([x, y]) => (
-                  <circle class="agent-mark-eye" cx={x} cy={y} r={5.4} fill="currentColor" />
-                ))}
-              </g>
-            }
-          >
+          <AgentMarkSide shades={shades()} eyelid={agentMarkEyelid(mood())} />
+          <Show when={props.role}>
             {(role) => (
               <g
-                class="agent-mark-role"
-                transform={SIDE_PLANE}
+                class="agent-mark-emblem"
+                transform={RIGHT_PLANE}
                 color={shades().lite}
                 fill="none"
                 stroke="currentColor"
@@ -382,7 +358,7 @@ export function AgentMark(props: AgentMarkProps) {
                 stroke-linejoin="round"
                 opacity="0.96"
               >
-                {ROLE_SYMBOLS[role()]()}
+                <g transform={EMBLEM_SCALE}>{ROLE_SYMBOLS[role()]()}</g>
               </g>
             )}
           </Show>
@@ -408,7 +384,57 @@ export function AgentMark(props: AgentMarkProps) {
   );
 }
 
-/** FNV-1a: the same seed always gives the same face and the same start of the motion. */
+/**
+ * The left face of the mark: two eyes. The pupils look around and the eyelids blink, and both are
+ * clipped to the white of the eye. The eyelid is a band in the colour of the face that comes down
+ * from above the eye; `eyelid` sets how far, from 0 (open) to 1 (closed). Its `transform` attribute
+ * holds that place for a copy of the SVG with no stylesheet. In the app, the CSS moves it.
+ */
+function AgentMarkSide(props: { shades: AgentMarkShades; eyelid: number }) {
+  const clipIds = EYES.centers.map(() => createUniqueId());
+  return (
+    <g class="agent-mark-side" transform={LEFT_PLANE}>
+      <defs>
+        {EYES.centers.map((x, index) => (
+          <clipPath id={clipIds[index]}>
+            <ellipse cx={x} cy={EYES.y} rx={EYES.radiusX} ry={EYES.radiusY} />
+          </clipPath>
+        ))}
+      </defs>
+      {EYES.centers.map((x, index) => (
+        <g>
+          <ellipse
+            cx={x}
+            cy={EYES.y}
+            rx={EYES.radiusX}
+            ry={EYES.radiusY}
+            fill={props.shades.lite}
+            stroke={props.shades.ink}
+            stroke-width="1.8"
+          />
+          <g clip-path={`url(#${clipIds[index]})`}>
+            <g class="agent-mark-pupil">
+              <circle cx={x} cy={EYES.y} r="4.6" fill={props.shades.ink} />
+              <circle cx={x + 1.8} cy={EYES.y - 2} r="1.5" fill="#fff" />
+            </g>
+            <g class="agent-mark-eyelid" transform={`translate(0 ${round(props.eyelid * EYELID_TRAVEL)})`}>
+              <rect x={x - 11} y={EYES.y - EYES.radiusY - 22} width="22" height="22" fill={props.shades.left} />
+              <path
+                d={`M${x - 10} ${EYES.y - EYES.radiusY}H${x + 10}`}
+                fill="none"
+                stroke={props.shades.ink}
+                stroke-width="2.6"
+                stroke-linecap="round"
+              />
+            </g>
+          </g>
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/** FNV-1a: the same seed always gives the same start of the motion. */
 function seedHash(seed: string): number {
   let hash = 0x811c9dc5;
   for (let index = 0; index < seed.length; index += 1) {
