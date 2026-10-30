@@ -20,6 +20,7 @@ import {
   refusalResult,
   tabsDelta,
 } from "./playwright-broker-policy";
+import { maskSecrets } from "./playwright-broker-runtime";
 
 const logger = createBuildersBotLogger("playwright-broker");
 
@@ -399,7 +400,7 @@ export class PlaywrightBroker {
       return;
     }
     this.#emptySince ??= now;
-    if (now - this.#emptySince >= (this.#options.idleUpstreamMs ?? 3 * 60_000)) {
+    if (now - this.#emptySince >= (this.#options.idleUpstreamMs ?? 10 * 60_000)) {
       this.#emptySince = null;
       await this.#stopUpstream();
     }
@@ -455,6 +456,11 @@ async function readBody(request: IncomingMessage): Promise<Buffer | "too-large">
 /** Starts the Playwright MCP server as a child process and waits for the address it prints. */
 export const launchPlaywrightMcp: UpstreamLauncher = (spec) =>
   new Promise<UpstreamProcess>((resolve, reject) => {
+    // The server prints the connect URL, with the token of the extension, when the extension does not
+    // answer. A message that reaches an agent must not carry it.
+    const secrets = [spec.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN, spec.env[BROKER_TOKEN_ENV]].filter(
+      (value): value is string => typeof value === "string",
+    );
     const child: ChildProcess = spawn(spec.command, spec.args, { env: spec.env, stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     let settled = false;
@@ -467,7 +473,7 @@ export const launchPlaywrightMcp: UpstreamLauncher = (spec) =>
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      reject(error);
+      reject(new Error(maskSecrets(error.message, secrets)));
     };
     const onData = (data: Buffer) => {
       if (settled) return;

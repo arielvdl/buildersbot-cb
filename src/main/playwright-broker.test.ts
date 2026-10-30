@@ -628,3 +628,25 @@ describe("the idle stop", () => {
     expect(stops()).toBe(0);
   });
 });
+
+describe("a message about a start that failed", () => {
+  it("does not carry the token of the extension or the token of the guard", async () => {
+    const { launchPlaywrightMcp } = await import("./playwright-broker");
+    const extensionToken = "ExtTok_0123456789abcdef";
+    const brokerToken = "BrokerTok_0123456789abcdef";
+    // A child that prints its connect URL and then ends before it listens.
+    const script = `console.error("Open http://127.0.0.1:1/connect?token=${extensionToken} with ${brokerToken}"); process.exit(1);`;
+    const error = await launchPlaywrightMcp({
+      command: process.execPath,
+      args: ["-e", script],
+      env: { PLAYWRIGHT_MCP_EXTENSION_TOKEN: extensionToken, BB_BROKER_TOKEN: brokerToken },
+    }).then(
+      () => new Error("started"),
+      (failure: Error) => failure,
+    );
+    expect(error.message).toContain("stopped before it was ready");
+    expect(error.message).not.toContain(extensionToken);
+    expect(error.message).not.toContain(brokerToken);
+    expect(error.message).toContain("***");
+  });
+});

@@ -1,4 +1,5 @@
 import { accessSync, constants, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import type { BrokerIdentityStore } from "./playwright-broker";
@@ -81,4 +82,42 @@ export class BrokerIdentityFile implements BrokerIdentityStore {
     writeFileSync(temporary, JSON.stringify({ version: 1, ...identity }), { mode: 0o600 });
     renameSync(temporary, this.#path);
   }
+}
+
+const EXTENSION_TOKEN_ENV = "PLAYWRIGHT_MCP_EXTENSION_TOKEN";
+/** Where the OpenCode tool of the person keeps the token that its Playwright server was approved with. */
+export const OPENCODE_CONFIG_PATH = join(homedir(), ".config", "opencode", "opencode.json");
+/** What the extension shows as a token: letters, digits, `_` and `-`, of a sane length. */
+const EXTENSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,200}$/u;
+
+/**
+ * The token of the Playwright extension, for the child, when the app has none of its own. The first
+ * approval in Chrome gives the extension a token, and a server that starts with it needs no click
+ * again. A person who set it up for OpenCode has it in that tool's configuration, so it is read from
+ * there: read only, never logged, and passed to the Playwright process alone. A file that is missing,
+ * damaged or of another shape, or a value that is not a token, gives nothing, and Chrome then asks.
+ */
+export function extensionTokenEnvironment(app: NodeJS.ProcessEnv, configPath: string): Record<string, string> {
+  if (app[EXTENSION_TOKEN_ENV]) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(configPath, "utf8"));
+    const mcp = isDynamicRecord(parsed) ? parsed.mcp : undefined;
+    const playwright = isDynamicRecord(mcp) ? mcp.playwright : undefined;
+    const environment = isDynamicRecord(playwright) ? playwright.environment : undefined;
+    const value = isDynamicRecord(environment) ? environment[EXTENSION_TOKEN_ENV] : undefined;
+    return isString(value) && EXTENSION_TOKEN_PATTERN.test(value) ? { [EXTENSION_TOKEN_ENV]: value } : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * A message without the secrets the Playwright server prints: the `token=` of its connect URL, and
+ * any `values` given. The server writes the connect URL when the extension does not answer, and that
+ * text can reach an agent through an error.
+ */
+export function maskSecrets(text: string, values: readonly string[] = []): string {
+  let masked = text.replace(/(token=)[A-Za-z0-9_-]+/giu, "$1***");
+  for (const value of values) if (value.length >= 8) masked = masked.split(value).join("***");
+  return masked;
 }

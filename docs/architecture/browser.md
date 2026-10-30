@@ -321,7 +321,7 @@ agent but is not counted. Two `initialize` requests at the same time can both pa
 
 `start()` only listens. The upstream starts at the first request that passes the door, one time. A
 session with no request for 15 min is ended, and the broker sends `DELETE` for it to the upstream. A
-timer checks every 30 s. After 3 min with no session, the upstream stops, so the person's browser is
+timer checks every 30 s. After 10 min with no session, the upstream stops, so the person's browser is
 free. When the upstream stops by itself, the broker forgets all sessions, and the agents start new
 ones. Teardown stops the broker after the agent service (`TEARDOWN_ORDER.browserBroker`).
 
@@ -333,6 +333,13 @@ while the broker row is enabled. A new address then replaces the old configurati
 
 `applyBrowserAccess` (`playwright-browser-access.ts`) hands the providers one http row in place of
 the Playwright row: id `builders-bot-browser-broker`, name `playwright`, the broker URL, no headers.
+The upstream gets the token that the first approval in Chrome gave the Playwright extension, so that
+Chrome does not ask again. The app's own `PLAYWRIGHT_MCP_EXTENSION_TOKEN` wins; without it,
+`extensionTokenEnvironment` reads `mcp.playwright.environment` of `~/.config/opencode/opencode.json`
+(read only, checked against `[A-Za-z0-9_-]{8,200}`, never logged) and gives it to the Playwright
+process alone. The server prints a connect URL with `token=` when the extension does not answer, so
+`maskSecrets` clears it from each start error that an agent can read.
+
 `McpGateway.endpoint` adds the bearer at each hand-off and records it as a secret for redaction. The
 bearer is never written to the saved row.
 

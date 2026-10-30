@@ -260,7 +260,9 @@ import {
   BrokerIdentityFile,
   brokerEnvironment,
   COMMON_PROGRAM_DIRECTORIES,
+  extensionTokenEnvironment,
   findProgram,
+  OPENCODE_CONFIG_PATH,
 } from "./playwright-broker-runtime";
 import { PromptCacheTtlPreferenceStore } from "./prompt-cache-ttl-preference-store";
 import { ProviderAccountsHost } from "./provider-accounts-host";
@@ -1229,7 +1231,10 @@ export async function createApplicationServices({
             ...COMMON_PROGRAM_DIRECTORIES,
           ];
           const row = playwrightUpstream(service.listMcpServers(), (name) => findProgram(name, directories));
-          return row ? { command: row.command, args: row.args, env: brokerEnvironment(process.env, row) } : null;
+          if (!row) return null;
+          // The token that the first approval in Chrome gave the extension, so that no click is asked again.
+          const token = extensionTokenEnvironment(process.env, OPENCODE_CONFIG_PATH);
+          return { command: row.command, args: row.args, env: { ...brokerEnvironment(process.env, row), ...token } };
         },
       });
     } catch (error) {

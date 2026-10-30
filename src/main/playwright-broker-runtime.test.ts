@@ -3,7 +3,13 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } fr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { BrokerIdentityFile, brokerEnvironment, findProgram } from "./playwright-broker-runtime";
+import {
+  BrokerIdentityFile,
+  brokerEnvironment,
+  extensionTokenEnvironment,
+  findProgram,
+  maskSecrets,
+} from "./playwright-broker-runtime";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -94,5 +100,57 @@ describe("the saved identity of the broker", () => {
     new BrokerIdentityFile(file).write({ port: 4000, secret: "long-enough-secret-value" });
     new BrokerIdentityFile(file).write({ port: 4001, secret: "long-enough-secret-value" });
     expect(new BrokerIdentityFile(file).read()?.port).toBe(4001);
+  });
+});
+
+describe("the token of the Playwright extension", () => {
+  const write = (config: object): string => {
+    const file = join(temp(), "opencode.json");
+    writeFileSync(file, JSON.stringify(config));
+    return file;
+  };
+  const config = (token: unknown) => ({
+    mcp: { playwright: { environment: { PLAYWRIGHT_MCP_EXTENSION_TOKEN: token } } },
+  });
+  const TOKEN = "AbCdEf0123456789_-xyzABCDEF0123456789";
+
+  it("keeps the one the app already has, and does not read the file", () => {
+    expect(extensionTokenEnvironment({ PLAYWRIGHT_MCP_EXTENSION_TOKEN: "from-app-0123456789" }, "/nowhere")).toEqual(
+      {},
+    );
+  });
+
+  it("reads it from the OpenCode configuration when the app has none", () => {
+    expect(extensionTokenEnvironment({}, write(config(TOKEN)))).toEqual({ PLAYWRIGHT_MCP_EXTENSION_TOKEN: TOKEN });
+  });
+
+  it("gives nothing for a missing file, damaged JSON, another shape, or a token that is not one", () => {
+    expect(extensionTokenEnvironment({}, join(temp(), "missing.json"))).toEqual({});
+    const damaged = join(temp(), "damaged.json");
+    writeFileSync(damaged, "{ nope");
+    expect(extensionTokenEnvironment({}, damaged)).toEqual({});
+    expect(extensionTokenEnvironment({}, write({ mcp: {} }))).toEqual({});
+    expect(extensionTokenEnvironment({}, write(config(42)))).toEqual({});
+    expect(extensionTokenEnvironment({}, write(config("")))).toEqual({});
+    expect(extensionTokenEnvironment({}, write(config("has spaces and\nnewline")))).toEqual({});
+    expect(extensionTokenEnvironment({}, write(config("x".repeat(500))))).toEqual({});
+  });
+});
+
+describe("masking secrets in a message", () => {
+  it("hides the token of a connect URL", () => {
+    const text = "Open http://127.0.0.1:5000/connect?client=a&token=SeCrEt_0123-abc&x=1 now";
+    expect(maskSecrets(text)).toBe("Open http://127.0.0.1:5000/connect?client=a&token=***&x=1 now");
+  });
+
+  it("hides the value of the token variable wherever it appears", () => {
+    expect(maskSecrets("PLAYWRIGHT_MCP_EXTENSION_TOKEN=abcDEF123456 failed", ["abcDEF123456"])).toBe(
+      "PLAYWRIGHT_MCP_EXTENSION_TOKEN=*** failed",
+    );
+    expect(maskSecrets("the value abcDEF123456 appeared", ["abcDEF123456"])).toBe("the value *** appeared");
+  });
+
+  it("leaves a message with no secret as it is", () => {
+    expect(maskSecrets("The Playwright server stopped.")).toBe("The Playwright server stopped.");
   });
 });
