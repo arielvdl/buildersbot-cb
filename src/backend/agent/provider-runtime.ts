@@ -175,6 +175,12 @@ const STABLE_RUN_MS = 2 * 60_000;
 /** How often a restart the user asked for checks whether the provider's turns have ended. */
 const PROVIDER_RESTART_POLL_MS = 1_000;
 /** The start failure of OpenCode 1 on a database that OpenCode 2 made. */
+const EARLY_CLI_EXIT = /\b(stopped before it answered|exited before reporting readiness)\b/u;
+/** A start that ended because the CLI process exited at once, which an OpenCode that lost a database lock does. */
+function isEarlyCliExit(failure: unknown): boolean {
+  const cause = failure instanceof ProviderOperationFailed ? failure.cause : failure;
+  return cause instanceof Error && EARLY_CLI_EXIT.test(cause.message);
+}
 const OPENCODE_NEWER_DATABASE = /\bDatabase is not empty and has no session table\b/u;
 /**
  * The providers whose shared process reads the agent environment only when it starts. Claude reads
@@ -480,6 +486,7 @@ export class ProviderRuntime implements ProviderPort {
   readonly #codexLogin: CodexLoginFlow;
   readonly #cliLogin: CliLoginFlow;
   #providerActivation = Semaphore.makeUnsafe(1);
+  readonly #cliStartGates = new Map<string, Semaphore.Semaphore>();
   #scope = Scope.makeUnsafe();
   #preferredProvider: AgentProvider;
   /**
@@ -2781,6 +2788,16 @@ export class ProviderRuntime implements ProviderPort {
     }
   });
 
+  /** One start at a time for the providers that run the same CLI. */
+  #cliStartGate(cli: string): Semaphore.Semaphore {
+    let gate = this.#cliStartGates.get(cli);
+    if (!gate) {
+      gate = Semaphore.makeUnsafe(1);
+      this.#cliStartGates.set(cli, gate);
+    }
+    return gate;
+  }
+
   /** A CLI exit with its last stderr line in the message, after the MCP values are out of it. */
   #withExitDetail(error: unknown): unknown {
     if (!(error instanceof AgentProcessExitError)) return error;
@@ -2843,7 +2860,7 @@ export class ProviderRuntime implements ProviderPort {
         );
       }
       let transferred = false;
-      return yield* Effect.acquireUseRelease(
+      const started = Effect.acquireUseRelease(
         providerStep(() =>
           this.#clientFactory
             ? this.#clientFactory(provider, cli, confinement, accountEnvironment)
@@ -2901,6 +2918,21 @@ export class ProviderRuntime implements ProviderPort {
           }),
         (client) => (transferred ? Effect.void : client.stop().pipe(Effect.catch(() => Effect.void))),
       );
+      // OpenCode providers share one CLI and one SQLite database. Started together they lock each
+      // other out ("database is locked") and the loser exits at once, so they start one at a time,
+      // and a start that died that way is tried again, as the database is free a moment later.
+      const gate = this.#cliStartGate(driver.cliProvider ?? provider);
+      const attempt = Effect.gen(function* () {
+        for (let retries = 2; ; retries -= 1) {
+          transferred = false;
+          const outcome = yield* Effect.result(started);
+          if (Result.isSuccess(outcome)) return outcome.success;
+          if (retries === 0 || (driver.cliProvider ?? provider) !== "opencode" || !isEarlyCliExit(outcome.failure))
+            return yield* Effect.fail(outcome.failure);
+          yield* Effect.sleep(`${400 + Math.floor(Math.random() * 600)} millis`);
+        }
+      });
+      return yield* gate.withPermit(attempt);
     },
     Effect.mapError((failure) => new ProviderOperationFailed({ cause: this.#withExitDetail(failure.cause) })),
   );
