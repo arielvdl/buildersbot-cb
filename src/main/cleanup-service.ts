@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { CleanupBlocker, CleanupCandidate, CleanupCandidates, CleanupReason } from "@openbot/contracts/ipc";
 
@@ -49,13 +49,29 @@ export interface CleanupServiceOptions {
   now?: () => number;
 }
 
+/**
+ * Settings that a repository's own config could use to run a program of its choosing, such as a file
+ * system monitor that `git status` starts. The folders scanned are not all ones the person made, so
+ * every call turns those off and reads no system config.
+ */
+const SAFE_GIT_SETTINGS = [
+  "-c",
+  "core.fsmonitor=false",
+  "-c",
+  "core.hooksPath=/dev/null",
+  "-c",
+  "core.untrackedCache=false",
+  "-c",
+  "core.pager=cat",
+];
+
 async function git(cwd: string, args: string[]): Promise<{ code: number; out: string }> {
   try {
-    const { stdout } = await run("git", args, {
+    const { stdout } = await run("git", [...SAFE_GIT_SETTINGS, ...args], {
       cwd,
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: 1_048_576,
-      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
     });
     return { code: 0, out: stdout.trim() };
   } catch (error) {
@@ -202,12 +218,16 @@ export class CleanupService {
 
   async #worktree(path: string): Promise<Found | null> {
     const pointer = await readFile(join(path, ".git"), "utf8").catch(() => "");
-    if (!/^gitdir:.*[\\/]worktrees[\\/]/u.test(pointer)) return null;
+    const gitdir = pointer.match(/^gitdir: (.+)$/mu)?.[1]?.trim();
+    if (!gitdir || basename(dirname(gitdir)) !== "worktrees") return null;
     const list = await git(path, ["worktree", "list", "--porcelain"]);
     if (list.code !== 0) return null;
     const blocks = list.out.split("\n\n");
     const main = blocks[0]?.match(/^worktree (.+)$/mu)?.[1];
     if (!main || main === path) return null;
+    // The pointer must lead to the repository that git itself names, so a folder cannot borrow another's identity.
+    const pointed = await realpath(dirname(dirname(resolve(path, gitdir)))).catch(() => null);
+    if (pointed === null || pointed !== (await realpath(join(main, ".git")).catch(() => null))) return null;
     const own = blocks.find((block) => block.split("\n")[0] === `worktree ${path}`);
     const committed = Number.parseInt((await git(path, ["log", "-1", "--format=%ct"])).out, 10);
     if (!Number.isFinite(committed)) return null;

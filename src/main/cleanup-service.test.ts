@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,6 +86,30 @@ describe("worktree cleanup", () => {
     rmSync(join(wt, "dirty.txt"));
     expect(await service.remove(candidate?.id ?? "")).toBe(true);
     expect(trash).toHaveBeenCalledWith(wt);
+  });
+
+  it("never runs a program that a repository's own config names", async () => {
+    const repo = repository();
+    const wt = join(base, "work", "wt-merged");
+    git(repo, "worktree", "add", "-q", "-b", "done", wt);
+    const marker = join(base, "fsmonitor-ran");
+    writeFileSync(join(repo, ".git", "config"), `[core]\n\tfsmonitor = touch ${marker}; echo\n`, { flag: "a" });
+    const service = new CleanupService({
+      roots: [join(base, "work")],
+      userDataPath: join(base, "data", "Builders Bot"),
+      trash: async () => undefined,
+      now: () => Date.now() + 40 * DAY,
+    });
+    expect((await service.scan()).candidates).toHaveLength(1);
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it("ignores a folder whose .git file points somewhere that is not a worktree of a repository", async () => {
+    const fake = join(base, "work", "fake");
+    mkdirSync(fake, { recursive: true });
+    writeFileSync(join(fake, ".git"), "gitdir: /nonexistent/.git/worktrees/fake\n");
+    const service = new CleanupService({ roots: [join(base, "work")], userDataPath: join(base, "x"), trash: vi.fn() });
+    expect((await service.scan()).candidates).toEqual([]);
   });
 
   it("knows no id it did not scan", async () => {
