@@ -17,7 +17,7 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import { agentAccessLockLabel } from "../agents/agent-access";
 import { SidebarAgentContextMenu } from "./SidebarAgentContextMenu";
 import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
-import { SidebarChatTabStrip } from "./SidebarChatTabStrip";
+import { clickIsOnAvatar, SidebarChatTabStrip } from "./SidebarChatTabStrip";
 import { sidebarAgentStateLabel, sidebarMessageTime, sidebarUsageResetTime } from "./sidebar-filtering";
 import { useSidebarScope } from "./sidebar-scope";
 import { sidebarChatTabsKey } from "./sidebar-types";
@@ -103,7 +103,10 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
         aria-pressed={props.activeAgentId === rowProps.agent.id ? "true" : "false"}
         data-cuelume-navigate=""
         onClick={(event: MouseEvent) => {
-          if (!sidebarClickIsSuppressed(event)) props.onSelectAgent(rowProps.agent.id);
+          if (sidebarClickIsSuppressed(event)) return;
+          // The avatar opens the tabs of a chat that has them; the rest of the row opens the chat.
+          if (tabs() && clickIsOnAvatar(event)) tabStrips.toggle(tabsKey());
+          else props.onSelectAgent(rowProps.agent.id);
         }}
       >
         <span class="agent-row-avatar">
@@ -187,8 +190,6 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
       draggable={draggable() ? "true" : "false"}
       onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => startChatDragging(event, rowProps.agent.id)}
       onDragEnd={endChatDragging}
-      onMouseEnter={() => tabs() && tabStrips.preview(tabsKey(), true)}
-      onMouseLeave={() => tabStrips.preview(tabsKey(), false)}
     >
       <Show when={wait()} fallback={row()}>
         {(current) => (

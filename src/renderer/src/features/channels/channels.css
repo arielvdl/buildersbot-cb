@@ -738,24 +738,32 @@ body:has(.channel-member-dialog) .ui-select-content {
   position: relative;
 }
 
+/* The face stack is wider than 32px with three members, so the button takes the width of the stack
+   and keeps a margin after it: the name never touches the last face. */
 .channel-header-avatar {
-  width: 32px;
+  width: auto;
   min-width: 32px;
   flex: 0 0 auto;
   justify-content: center;
-  padding: 0;
+  margin-right: var(--openbot-space-2);
+  padding: 0 var(--openbot-space-1);
 }
 
+/* The name is set as a tab is (`.channel-tab` and `.channel-tab-name`: 12px, the same padding), and
+   differs from it only in weight. */
 .channel-header-name {
   min-width: 0;
   max-width: 12rem;
   overflow: hidden;
-  padding: 2px 4px;
+  flex: 0 1 auto;
+  padding: 2px 6px;
   border: 0;
   border-radius: var(--openbot-radius-sm);
   background: none;
   color: var(--openbot-text-primary);
   font: inherit;
+  font-size: 12px;
+  font-weight: var(--openbot-weight-semibold);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -773,7 +781,9 @@ body:has(.channel-member-dialog) .ui-select-content {
 }
 
 .channel-header-name h1 {
+  display: block;
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   font: inherit;
   text-overflow: ellipsis;

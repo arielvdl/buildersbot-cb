@@ -1,16 +1,22 @@
 /**
  * The tab strip of one chat row: a bar at the bottom inside the row, and the tabs it opens.
  *
- * The bar is the deliberate control; the pointer entering the row only previews the tabs, as a
- * collapsed tab group does in Chrome. The tab that was open keeps a mark and `aria-current`, so the
- * row and the preview never fall back to the first tab. The bar and the tabs sit outside the row
- * button, because a button cannot hold another one.
+ * The user opens the tabs with a click on the avatar of the row or on the bar; the pointer over the
+ * row opens nothing. The row lists at most `SIDEBAR_CHAT_TABS_LIMIT` tabs. The tab that was open keeps
+ * a mark and `aria-current`, so the row never falls back to the first tab. The bar and the tabs sit
+ * outside the row button, because a button cannot hold another one.
  */
 
 import { For, Show } from "solid-js";
 import { useText } from "../../text";
 import { useSidebarScope } from "./sidebar-scope";
 import { type SidebarChatItem, type SidebarChatTabs, sidebarChatTabsKey } from "./sidebar-types";
+import { visibleSidebarChatTabs } from "./stores/tab-strip-store";
+
+/** A click inside the avatar of a row, which is where the tabs of a chat open. */
+export function clickIsOnAvatar(event: MouseEvent): boolean {
+  return event.target instanceof Element && event.target.closest(".agent-row-avatar") !== null;
+}
 
 export function SidebarChatTabStrip(props: {
   chat: SidebarChatItem;
@@ -43,7 +49,7 @@ export function SidebarChatTabStrip(props: {
       <div id={listId()} class="sidebar-chat-tabs" data-open={open() ? "" : undefined}>
         <div class="sidebar-chat-tabs-inner" inert={open() ? undefined : true}>
           <ul class="sidebar-chat-tab-list">
-            <For each={props.tabs.tabs}>
+            <For each={visibleSidebarChatTabs(props.tabs.tabs, props.tabs.activeId)}>
               {(tab) => (
                 <li>
                   <button

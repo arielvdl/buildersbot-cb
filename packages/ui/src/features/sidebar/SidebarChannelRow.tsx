@@ -15,7 +15,7 @@ import { useText } from "../../text";
 import { ChannelAvatar } from "../channels/ChannelAvatar";
 import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
 import { SidebarChannelContextMenu, SidebarDeletedChannelContextMenu } from "./SidebarChannelContextMenu";
-import { SidebarChatTabStrip } from "./SidebarChatTabStrip";
+import { clickIsOnAvatar, SidebarChatTabStrip } from "./SidebarChatTabStrip";
 import { sidebarAgentStateLabel, sidebarMessageTime } from "./sidebar-filtering";
 import { useSidebarScope } from "./sidebar-scope";
 import { sidebarChatTabsKey } from "./sidebar-types";
@@ -72,7 +72,10 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?:
         aria-pressed={active() ? "true" : "false"}
         data-cuelume-navigate=""
         onClick={(event: MouseEvent) => {
-          if (!sidebarClickIsSuppressed(event)) props.onSelectChannel?.(rowProps.channel.id);
+          if (sidebarClickIsSuppressed(event)) return;
+          // The avatar opens the tabs of a chat that has them; the rest of the row opens the chat.
+          if (tabs() && clickIsOnAvatar(event)) tabStrips.toggle(tabsKey());
+          else props.onSelectChannel?.(rowProps.channel.id);
         }}
       >
         <span class="agent-row-avatar">
@@ -147,8 +150,6 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?:
       draggable={draggable() ? "true" : "false"}
       onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => startChatDragging(event, rowProps.channel.id)}
       onDragEnd={endChatDragging}
-      onMouseEnter={() => tabs() && tabStrips.preview(tabsKey(), true)}
-      onMouseLeave={() => tabStrips.preview(tabsKey(), false)}
     >
       <Show when={wait()} fallback={row()}>
         {(current) => (
