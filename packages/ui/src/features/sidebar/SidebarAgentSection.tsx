@@ -12,6 +12,7 @@ import { useText } from "../../text";
 import { SidebarAgentRow } from "./SidebarAgentRow";
 import { SidebarChannelRow } from "./SidebarChannelRow";
 import { SidebarSectionHeader } from "./SidebarSectionHeader";
+import { sidebarSectionColorStyle } from "./section-color";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarAgentSection(sectionProps: { sectionId: string }) {
@@ -25,13 +26,16 @@ export function SidebarAgentSection(sectionProps: { sectionId: string }) {
     sectionId() === SIDEBAR_UNASSIGNED_SECTION_ID ? t("sidebar.section.unassigned") : (custom()?.name ?? "");
   const headed = () => Boolean(custom()) || props.layout.sections.length > 0;
   const collapsed = () => headed() && sectionIsCollapsed(sectionId());
+  // Empty when the section has no color: then the box has no new attribute and no new property.
+  const colorStyle = () => sidebarSectionColorStyle(custom()?.color);
   return (
     <Show when={name() && (chats().length > 0 || custom())}>
       <section
         class={["sidebar-chat-group sidebar-section", sectionDragClasses(sectionId())]}
-        style={`--sidebar-drag-y: ${dragOffset(sectionId()).y}px;`}
+        style={`--sidebar-drag-y: ${dragOffset(sectionId()).y}px;${colorStyle()}`}
         aria-label={name()}
         data-section-id={sectionId()}
+        data-section-color={colorStyle() ? "" : undefined}
       >
         <Show when={headed()}>
           <SidebarSectionHeader sectionId={sectionId()} name={name()} />

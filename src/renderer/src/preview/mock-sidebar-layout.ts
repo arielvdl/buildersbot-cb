@@ -1,4 +1,9 @@
-import type { SidebarLayoutAction, SidebarLayoutSnapshot } from "@openbot/contracts/ipc";
+import {
+  normalizeSidebarSectionColor,
+  type SidebarLayoutAction,
+  type SidebarLayoutSnapshot,
+  sidebarSectionWithColor,
+} from "@openbot/contracts/ipc";
 
 export function applySidebarLayoutAction(
   layout: SidebarLayoutSnapshot,
@@ -57,6 +62,18 @@ export function applySidebarLayoutAction(
     if (action.sectionId === null) delete agentAssignments[action.agentId];
     else agentAssignments[action.agentId] = action.sectionId;
     return { ...layout, revision, agentAssignments, agentOrder };
+  }
+  if (action.type === "set-section-color") {
+    // As main does: a color in any case is stored in lower case, and any other value is refused.
+    const color = action.color === null ? null : normalizeSidebarSectionColor(action.color);
+    if (action.color !== null && color === null) throw new Error("Invalid section color.");
+    return {
+      ...layout,
+      revision,
+      sections: layout.sections.map((section) =>
+        section.id === action.sectionId ? sidebarSectionWithColor(section, color) : section,
+      ),
+    };
   }
   const agentAssignments = { ...layout.agentAssignments };
   if (action.sectionId === null) delete agentAssignments[action.agentId];

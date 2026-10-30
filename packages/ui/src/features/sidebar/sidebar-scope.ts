@@ -16,6 +16,7 @@ import { createSidebarDataStore } from "./stores/data-store";
 import { createSidebarDragStateStore } from "./stores/drag-state-store";
 import { createSidebarLayoutActions } from "./stores/layout-actions";
 import { createSidebarPendingStore } from "./stores/pending-store";
+import { createSidebarSectionColorStore } from "./stores/section-color-store";
 import { createSidebarTabStripStore } from "./stores/tab-strip-store";
 
 export function createSidebarScope(props: SidebarProps) {
@@ -73,24 +74,38 @@ export function createSidebarScope(props: SidebarProps) {
 
   const dragState = createSidebarDragStateStore({ chatKind, sectionAcceptsChat });
   dragActive = () => dragState.draggingKind() !== undefined;
-  const { assignChatSection, commitSidebarDrop, duplicateSection, movePersonByKeyboard, movePinnedItem, moveSection } =
-    createSidebarLayoutActions({
-      announce,
-      announceError,
-      assignedSectionId,
-      canPinDraggedSidebarItem: dragState.canPinDraggedSidebarItem,
-      chatName,
-      chatPinnedItems,
-      draggedSidebarItem: dragState.draggedSidebarItem,
-      filteredChatsBySection,
-      layoutMutable,
-      orderedPeople,
-      personById,
-      props,
-      sectionLabel,
-      visiblePinnedKeys,
-      visibleSectionIds,
-    });
+  const {
+    assignChatSection,
+    commitSidebarDrop,
+    duplicateSection,
+    movePersonByKeyboard,
+    movePinnedItem,
+    moveSection,
+    setSectionColor,
+  } = createSidebarLayoutActions({
+    announce,
+    announceError,
+    assignedSectionId,
+    canPinDraggedSidebarItem: dragState.canPinDraggedSidebarItem,
+    chatName,
+    chatPinnedItems,
+    draggedSidebarItem: dragState.draggedSidebarItem,
+    filteredChatsBySection,
+    layoutMutable,
+    orderedPeople,
+    personById,
+    props,
+    sectionLabel,
+    visiblePinnedKeys,
+    visibleSectionIds,
+  });
+  const {
+    pickCustomSectionColor,
+    previewCustomSectionColor,
+    releaseSectionColorInput,
+    saveCustomSectionColor,
+    setSectionColorInput,
+  } = createSidebarSectionColorStore({ props, setSectionColor });
   const {
     dropSidebarNativeDrag,
     endChatDragging,
@@ -174,11 +189,15 @@ export function createSidebarScope(props: SidebarProps) {
     openDelete,
     orderedPeople,
     pending,
+    pickCustomSectionColor,
     pinnedDropActive: dragState.pinnedDropActive,
+    previewCustomSectionColor,
     props,
+    releaseSectionColorInput,
     releaseSectionNameInput,
     reorderAnnouncement,
     resolvedPinnedItems,
+    saveCustomSectionColor,
     saveSectionEditor,
     scrollFades,
     sectionDeleteTarget,
@@ -186,6 +205,8 @@ export function createSidebarScope(props: SidebarProps) {
     sectionIsCollapsed,
     sectionPosition,
     setAgentListElement,
+    setSectionColor,
+    setSectionColorInput,
     setSectionNameInput,
     sidebarClickIsSuppressed,
     startChatDragging,

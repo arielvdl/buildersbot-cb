@@ -392,6 +392,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       }
       duplicatingSectionIds={duplicatingSectionIds()}
       onDuplicateSection={duplicateSection}
+      sectionColorSupported={activeServer()?.kind === "local" && activeServerSupportsCapability("sidebar-layout")}
       onToggleSection={toggleSidebarSection}
       pinnedItems={pinnedSidebarItems()}
       peopleOrder={sidebarPeopleOrder()}

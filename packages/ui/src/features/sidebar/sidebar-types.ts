@@ -130,6 +130,11 @@ export interface SidebarProps {
   sectionDuplicateSupported?: boolean | undefined;
   duplicatingSectionIds?: ReadonlySet<string> | undefined;
   onDuplicateSection?: ((sectionId: string) => Promise<void>) | undefined;
+  /**
+   * Whether this server keeps a section color (`set-section-color`). Only the local server does: no
+   * Team API protocol carries it. Without it, the section menu has no color item.
+   */
+  sectionColorSupported?: boolean | undefined;
   onToggleSection: (sectionId: string) => void;
   pinnedItems: SidebarPinnedItem[];
   peopleOrder: string[];

@@ -7,6 +7,7 @@
 import { ArrowDown, ArrowUp, buttonVariants, ChevronDown, ContextMenu, Copy, Pencil, Trash2 } from "@openbot/ui";
 import { Show } from "solid-js";
 import { useText } from "../../text";
+import { SidebarSectionColorSubmenu } from "./SidebarSectionColorMenu";
 import { SidebarSectionEditor } from "./SidebarSectionEditor";
 import { useSidebarScope } from "./sidebar-scope";
 
@@ -89,6 +90,9 @@ export function SidebarSectionHeader(headerProps: { sectionId: string; name: str
                           : t("sidebar.section.duplicate")}
                       </span>
                     </ContextMenu.Item>
+                  </Show>
+                  <Show when={props.sectionColorSupported}>
+                    <SidebarSectionColorSubmenu sectionId={headerProps.sectionId} />
                   </Show>
                 </Show>
                 <ContextMenu.Item disabled={position() <= 0} onSelect={() => moveSection(headerProps.sectionId, "up")}>

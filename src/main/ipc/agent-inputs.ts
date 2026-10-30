@@ -40,6 +40,7 @@ import {
   type ListRoutineRunsInput,
   type MarkAgentTaskReadInput,
   type MarkConversationReadInput,
+  normalizeSidebarSectionColor,
   type OpenAttachmentInput,
   type OpenMessageLinkInput,
   type OpenSharedFileInput,
@@ -186,6 +187,15 @@ export function parseSidebarLayoutAction(value: unknown): SidebarLayoutAction {
         sectionId,
         beforeAgentId:
           beforeAgentId === null ? null : requireString(beforeAgentId, "beforeAgentId", INPUT_LIMITS.identifier),
+      };
+    }
+    case "set-section-color": {
+      const color = value.color === null ? null : normalizeSidebarSectionColor(value.color);
+      if (value.color !== null && color === null) throw new Error("Invalid section color.");
+      return {
+        type: "set-section-color",
+        sectionId: requireString(value.sectionId, "sectionId", INPUT_LIMITS.identifier),
+        color,
       };
     }
     default:

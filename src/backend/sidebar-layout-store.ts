@@ -5,11 +5,13 @@ import { dirname } from "node:path";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   isCompleteSectionOrder,
+  normalizeSidebarSectionColor,
   SIDEBAR_PEOPLE_SECTION_ID,
   SIDEBAR_UNASSIGNED_SECTION_ID,
   type SidebarLayoutAction,
   type SidebarLayoutSnapshot,
   type SidebarSection,
+  sidebarSectionWithColor,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { isUuidV4, legacyAgentId } from "@openbot/contracts/validation";
@@ -345,7 +347,28 @@ function applySidebarLayoutAction(
       }
       return { ...current, revision: current.revision + 1, agentAssignments, agentOrder };
     }
+    case "set-section-color": {
+      const section = requireCustomSection(current, action.sectionId);
+      const color = action.color === null ? null : normalizeSidebarSectionColor(action.color);
+      if (action.color !== null && color === null) throw new Error("Invalid section color.");
+      if ((section.color ?? null) === color) return current;
+      return {
+        ...current,
+        revision: current.revision + 1,
+        sections: current.sections.map((candidate) =>
+          candidate.id === section.id ? sidebarSectionWithColor(candidate, color) : candidate,
+        ),
+      };
+    }
   }
+}
+
+/**
+ * A section read from the file. A color that is not `#rrggbb` is dropped and the section is kept:
+ * a bad color must not reset the sections and the chats in them.
+ */
+function sectionFromStored(section: SidebarSection): SidebarSection {
+  return sidebarSectionWithColor(section, normalizeSidebarSectionColor(section.color));
 }
 
 function normalizedAgentOrder(order: readonly string[], agentIds: ReadonlySet<string>): string[] {
@@ -424,7 +447,7 @@ function isStoredSidebarLayoutBody(value: unknown): boolean {
 function snapshotFromStored(stored: StoredSidebarLayout): SidebarLayoutSnapshot {
   return {
     revision: stored.revision,
-    sections: stored.sections.map((section) => ({ ...section })),
+    sections: stored.sections.map(sectionFromStored),
     order: [...stored.order],
     agentAssignments: { ...stored.agentAssignments },
     agentOrder: [...stored.agentOrder],
@@ -434,7 +457,7 @@ function snapshotFromStored(stored: StoredSidebarLayout): SidebarLayoutSnapshot 
 function snapshotFromLegacyStored(stored: LegacyStoredSidebarLayout): Omit<SidebarLayoutSnapshot, "agentOrder"> {
   return {
     revision: stored.revision,
-    sections: stored.sections.map((section) => ({ ...section })),
+    sections: stored.sections.map(sectionFromStored),
     order: [...stored.order],
     agentAssignments: { ...stored.agentAssignments },
   };

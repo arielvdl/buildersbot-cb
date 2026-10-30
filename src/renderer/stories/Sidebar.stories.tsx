@@ -1,4 +1,10 @@
-import type { ChannelSummary, HiddenAgent, SidebarLayoutAction, SidebarLayoutSnapshot } from "@openbot/contracts/ipc";
+import {
+  type ChannelSummary,
+  type HiddenAgent,
+  type SidebarLayoutAction,
+  type SidebarLayoutSnapshot,
+  sidebarSectionWithColor,
+} from "@openbot/contracts/ipc";
 import type { AvatarMood } from "@openbot/ui/bloub-avatar";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
@@ -308,6 +314,15 @@ function applyStoryLayoutAction(layout: SidebarLayoutSnapshot, action: SidebarLa
     else agentAssignments[action.agentId] = action.sectionId;
     return { ...layout, revision, agentAssignments, agentOrder };
   }
+  if (action.type === "set-section-color") {
+    return {
+      ...layout,
+      revision,
+      sections: layout.sections.map((section) =>
+        section.id === action.sectionId ? sidebarSectionWithColor(section, action.color) : section,
+      ),
+    };
+  }
   const agentAssignments = { ...layout.agentAssignments };
   if (action.sectionId === null) delete agentAssignments[action.agentId];
   else agentAssignments[action.agentId] = action.sectionId;
@@ -609,6 +624,66 @@ export const DragStress: Story = {
 export const SectionsCollapsed: Story = {
   args: { layout: sectionedLayout, collapsedSectionIds: [demoSectionId], pinnedItems: [] },
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+const colorSectionIds = {
+  blue: "55555555-5555-4555-8555-555555555551",
+  red: "55555555-5555-4555-8555-555555555552",
+  violet: "55555555-5555-4555-8555-555555555553",
+  none: "55555555-5555-4555-8555-555555555554",
+  custom: "55555555-5555-4555-8555-555555555555",
+  yellow: "55555555-5555-4555-8555-555555555556",
+};
+/** Four presets, a custom color and a section with no color, which must look as it did before. */
+const coloredSectionLayout: SidebarLayoutSnapshot = {
+  revision: 1,
+  sections: [
+    { id: colorSectionIds.blue, name: "naia", color: "#3b82f6" },
+    { id: colorSectionIds.red, name: "Red Team", color: "#ef4444" },
+    { id: colorSectionIds.violet, name: "Claude Bots", color: "#a855f7" },
+    { id: colorSectionIds.none, name: "videos" },
+    { id: colorSectionIds.custom, name: "slop-cash", color: "#14b8a6" },
+    { id: colorSectionIds.yellow, name: "sec", color: "#eab308" },
+  ],
+  order: ["people", ...Object.values(colorSectionIds), "unassigned"],
+  agentAssignments: {
+    chief: colorSectionIds.blue,
+    research: colorSectionIds.blue,
+    sales: colorSectionIds.red,
+    "stress-agent-4": colorSectionIds.red,
+    "stress-agent-5": colorSectionIds.violet,
+    "stress-agent-6": colorSectionIds.violet,
+    "stress-agent-7": colorSectionIds.none,
+    "stress-agent-8": colorSectionIds.custom,
+    "stress-agent-9": colorSectionIds.yellow,
+  },
+  agentOrder: stressAgents.map((agent) => agent.id),
+};
+
+/** Each section box takes its color as a light tint. Right-click a header and open Color to change it. */
+export const SectionColors: Story = {
+  args: {
+    agents: stressAgents.slice(0, 13),
+    activeAgentId: "research",
+    layout: coloredSectionLayout,
+    people: [],
+    directThreads: [],
+    pinnedItems: [],
+    sectionColorSupported: true,
+  },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+export const SectionColorsCollapsed: Story = {
+  args: {
+    ...SectionColors.args,
+    collapsedSectionIds: [colorSectionIds.red, colorSectionIds.none],
+  },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+export const SectionColorsCompact: Story = {
+  args: { ...SectionColors.args, compact: true },
 };
 
 /** The Hidden group is collapsed until the user opens it. Hide and Restore work in the agent menu. */

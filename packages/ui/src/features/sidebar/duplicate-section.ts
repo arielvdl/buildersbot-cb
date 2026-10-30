@@ -1,6 +1,6 @@
 /**
- * Duplicating a section is a chain of calls the host already answers: create the section, copy each
- * agent, move each copy in, and move the section behind the original. No host has a single action
+ * Duplicating a section is a chain of calls the host already answers: create the section, give it the
+ * source color, copy each agent, move each copy in, and move the section behind the original. No host has a single action
  * for it, so the chain runs here for every consumer. Each call answers the layout it produced, and
  * the next step reads that layout rather than a signal that has not flushed yet.
  */
@@ -74,6 +74,11 @@ export async function duplicateSection(deps: SectionDuplicateDeps, sectionId: st
     added.find((section) => section.name.toLocaleLowerCase() === name.toLocaleLowerCase()) ??
     (added.length === 1 ? added[0] : undefined);
   if (!created) throw new Error("The new sidebar section is missing.");
+  // The copy keeps the box color. Only a local layout has a color, so a remote host never gets this action.
+  if (source.color !== undefined) {
+    layout = await deps.mutateLayout({ type: "set-section-color", sectionId: created.id, color: source.color });
+    if (!layout) return null;
+  }
   for (const agentId of copied) {
     const copy = await deps.duplicateAgent(agentId);
     if (!copy) return null;

@@ -12,6 +12,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { currentText } from "../../../text";
 import { teamMemberName } from "../../team/TeamPersonAvatar";
+import { sidebarSectionColorAction } from "../section-color";
 import type {
   ChatDropTarget,
   PersonDropTarget,
@@ -72,6 +73,13 @@ export function createSidebarLayoutActions(deps: {
   /** The host reports a failed copy itself; the live region only needs to hear that it failed. */
   function duplicateSection(sectionId: string): void {
     void props.onDuplicateSection?.(sectionId).catch(announceError);
+  }
+
+  /** Sets the box color of a section, or removes it with null. A choice that changes nothing sends nothing. */
+  function setSectionColor(sectionId: string, color: string | null): void {
+    const section = props.layout.sections.find((candidate) => candidate.id === sectionId);
+    const action = section ? sidebarSectionColorAction(section, color) : null;
+    if (action) void props.onMutateLayout(action).catch(announceError);
   }
 
   /**
@@ -295,5 +303,6 @@ export function createSidebarLayoutActions(deps: {
     reorderDraggedPerson,
     reorderDraggedSection,
     reorderPinnedItem,
+    setSectionColor,
   };
 }

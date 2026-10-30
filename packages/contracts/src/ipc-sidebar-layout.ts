@@ -6,6 +6,32 @@ export const SIDEBAR_UNASSIGNED_SECTION_ID = "unassigned";
 export interface SidebarSection {
   id: string;
   name: string;
+  /**
+   * The background color of the section box, as `#rrggbb` in lower case. Absent means no color.
+   * Only the local layout has it: no released Team API protocol carries it, and each frozen codec
+   * drops it from the section.
+   */
+  color?: string;
+}
+
+const SIDEBAR_SECTION_COLOR = /^#[0-9a-f]{6}$/;
+const SIDEBAR_SECTION_COLOR_INPUT = /^#[0-9a-f]{6}$/i;
+
+/** True for a section color as the layout stores it: `#rrggbb` in lower case. */
+export function isSidebarSectionColor(value: unknown): value is string {
+  return isString(value) && SIDEBAR_SECTION_COLOR.test(value);
+}
+
+/** A `#rrggbb` color in any case, in the stored form. Null for every other value. */
+export function normalizeSidebarSectionColor(value: unknown): string | null {
+  return isString(value) && SIDEBAR_SECTION_COLOR_INPUT.test(value) ? value.toLowerCase() : null;
+}
+
+/** The section with `color`, or without the field when `color` is null, so no color writes no key. */
+export function sidebarSectionWithColor<T extends SidebarSection>(section: T, color: string | null): T {
+  const next = { ...section };
+  delete next.color;
+  return color === null ? next : { ...next, color };
 }
 
 export interface SidebarLayoutSnapshot {
@@ -55,6 +81,7 @@ export function isSidebarLayoutSnapshot(value: unknown): value is SidebarLayoutS
   const sectionIds = new Set<string>();
   for (const section of value.sections) {
     if (!isDynamicRecord(section) || !isString(section.id) || !isString(section.name)) return false;
+    if (section.color !== undefined && !isSidebarSectionColor(section.color)) return false;
     if (sectionIds.has(section.id)) return false;
     sectionIds.add(section.id);
   }
@@ -72,4 +99,6 @@ export type SidebarLayoutAction =
   | { type: "delete"; sectionId: string }
   | { type: "move"; sectionId: string; direction: "up" | "down"; steps?: number }
   | { type: "assign"; agentId: string; sectionId: string | null }
-  | { type: "move-agent"; agentId: string; sectionId: string | null; beforeAgentId: string | null };
+  | { type: "move-agent"; agentId: string; sectionId: string | null; beforeAgentId: string | null }
+  /** Local layout only. `color` is `#rrggbb`; null removes the color. No Team API protocol sends it. */
+  | { type: "set-section-color"; sectionId: string; color: string | null };

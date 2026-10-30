@@ -116,6 +116,7 @@ export { default as PencilLine } from "lucide-solid/icons/pencil-line";
 export { default as PictureInPicture2 } from "lucide-solid/icons/picture-in-picture-2";
 export { default as Pin } from "lucide-solid/icons/pin";
 export { default as PinOff } from "lucide-solid/icons/pin-off";
+export { default as Pipette } from "lucide-solid/icons/pipette";
 export { default as Play } from "lucide-solid/icons/play";
 export { default as Plug } from "lucide-solid/icons/plug";
 export { default as Plus } from "lucide-solid/icons/plus";

@@ -326,6 +326,8 @@
     "./features/sidebar/SidebarTopbar": "./src/features/sidebar/SidebarTopbar.tsx",
     "./features/sidebar/SidebarViewSwitch": "./src/features/sidebar/SidebarViewSwitch.tsx",
     "./features/sidebar/sidebar-views.css": "./src/features/sidebar/sidebar-views.css",
+    "./features/sidebar/sidebar-section-color.css": "./src/features/sidebar/sidebar-section-color.css",
+    "./features/sidebar/section-color": "./src/features/sidebar/section-color.ts",
     "./features/sidebar/createSidebarDragEngine": "./src/features/sidebar/createSidebarDragEngine.ts",
     "./features/sidebar/duplicate-section": "./src/features/sidebar/duplicate-section.ts",
     "./features/sidebar/sidebar-drag-dom": "./src/features/sidebar/sidebar-drag-dom.ts",

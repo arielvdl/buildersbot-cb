@@ -1,0 +1,66 @@
+/*
+ * The color that a user gives a custom section (`data-section-color`): a light tint of it over the
+ * sidebar, behind the header and the chats. `--sidebar-section-color` is a stored #rrggbb. A section
+ * without a color has neither the attribute nor the property, so no rule here applies to it. The box
+ * keeps the radius of `.sidebar-section` in `app-shell.css`.
+ *
+ * The tint lowers the contrast of the muted and the readable text. Inside the box, both move toward
+ * the primary text color, which keeps them at or above 4.5:1 on each preset in both themes.
+ */
+.sidebar-section[data-section-color] {
+  --sidebar-section-tint: 18%;
+  --sidebar-section-muted: var(--openbot-text-muted);
+  --sidebar-section-readable: var(--openbot-text-readable);
+}
+
+:root[data-openbot-color-scheme="light"] .sidebar-section[data-section-color] {
+  --sidebar-section-tint: 16%;
+}
+
+/* A chat dragged over the section shows the drop target fill, not the color. */
+.sidebar-section[data-section-color]:not(.sidebar-section-agent-drop-target) {
+  /* The ring of a face takes the color under it: the tint over the sidebar, made opaque. */
+  --agent-avatar-outline: color-mix(
+    in srgb,
+    var(--sidebar-section-color) var(--sidebar-section-tint),
+    var(--openbot-bg-sidebar)
+  );
+
+  background: color-mix(in srgb, var(--sidebar-section-color) var(--sidebar-section-tint), transparent);
+}
+
+.sidebar-section[data-section-color] > * {
+  --openbot-text-muted: color-mix(in srgb, var(--sidebar-section-muted) 70%, var(--openbot-text-primary));
+  --openbot-text-readable: color-mix(in srgb, var(--sidebar-section-readable) 70%, var(--openbot-text-primary));
+}
+
+/* The glass sidebar is clear, so no opaque ring matches what shows through the tint. */
+:root[data-openbot-window-glass] .sidebar-section[data-section-color] {
+  --agent-avatar-outline: transparent;
+}
+
+/* A swatch in the section color menu. "No color" is an empty ring with a slash. */
+.sidebar-section-color-swatch {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin: 1px;
+  border-radius: var(--openbot-radius-pill);
+  box-shadow: inset 0 0 0 1px var(--openbot-border-strong);
+}
+
+.sidebar-section-color-swatch-none {
+  box-shadow: inset 0 0 0 1px var(--openbot-text-dim);
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 0.75px),
+    var(--openbot-text-muted) calc(50% - 0.75px),
+    var(--openbot-text-muted) calc(50% + 0.75px),
+    transparent calc(50% + 0.75px)
+  );
+}
+
+.sidebar-section-color-check {
+  margin-inline-start: auto;
+  flex: none;
+}

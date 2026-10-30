@@ -538,6 +538,17 @@ to ungroup an agent; deleting a section also ungroups its agents without deletin
 use the same `SidebarLayoutStore` as manual sidebar edits, including persistence, validation,
 and change events delivered to desktop and connected clients.
 
+A custom section can have a box color: `SidebarSection.color`, a `#rrggbb` value in lower case.
+No field means no color. The section menu sets it with the `set-section-color` action of
+`mutateSidebarLayout` (presets, or a custom color from the system picker). The parser, the store
+and `isSidebarLayoutSnapshot` refuse any other value. The layout file keeps version 2, so an older
+build still reads it. A color in the file that is not valid is dropped, and the section stays.
+Delete removes the color with the section; Duplicate gives the copy the same color. The color is
+local only: the frozen Team API codecs drop it from each section and refuse the action, so a remote
+client does not see it and the desktop shows the menu item only for the local server. The renderer
+draws the color as a light tint (`sidebar-section-color.css`); a section with no color has no new
+attribute or style.
+
 `html_render` publishes a visual reply: an HTML page that shows above the agent's reply. The router
 stores the page as a generated `text/html` attachment and adds an assistant message with the item
 type `visual-reply:<height>` and the page title as its text (`@openbot/contracts/chat-visual`). A
