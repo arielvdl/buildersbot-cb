@@ -84,9 +84,12 @@ interface CentralAuthManagerOptions {
   decrypt: (value: Buffer) => string;
   canPersist?: () => boolean;
   fetch?: AuthFetcher;
+  /** Another address of the same account service, tried when the main one answers wrongly. */
+  fallbackApiUrl?: string;
   startupRetryWindowMs?: number;
   startupRequestTimeoutMs?: number;
   startupRetryDelaysMs?: readonly number[];
+  revalidateDelaysMs?: readonly number[];
   emailCodeRequestTimeoutMs?: number;
 }
 
@@ -125,6 +128,11 @@ const TELEGRAM_BOT_USERNAME = /^[A-Za-z0-9_]{5,32}$/u;
 const STARTUP_RETRY_WINDOW_MS = 30_000;
 const STARTUP_REQUEST_TIMEOUT_MS = 3_000;
 const STARTUP_RETRY_DELAYS_MS = [250, 500, 1_000, 2_000] as const;
+/** With a saved account to open, the start waits this long for the service, not the whole window. */
+const CACHED_STARTUP_WINDOW_MS = 6_000;
+const REVALIDATE_DELAYS_MS = [10_000, 30_000, 60_000, 120_000, 300_000] as const;
+/** After the main address failed, the fallback is asked first for this long. */
+const FALLBACK_PREFERENCE_MS = 5 * 60_000;
 const EMAIL_CODE_REQUEST_TIMEOUT_MS = 35_000;
 const RESEND_FALLBACK_DELAY_MS = 60_000;
 const DEFINITIVE_EMAIL_CODE_REQUEST_FAILURES = new Set([
@@ -200,16 +208,30 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   #emailCodeRequest: EmailCodeRequest | null = null;
   #profileRefresh: Deferred.Deferred<CentralAuthState, CentralAuthOperationError> | null = null;
   #profileRefreshGeneration = 0;
+  /** The account the service last confirmed. It lets a start open while the service cannot answer. */
+  #lastKnownUser: CentralAuthUser | null = null;
+  #revalidationGeneration = 0;
+  #revalidationTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: CentralAuthManagerOptions) {
     super();
-    const fetcher = detectBlockingNetwork(options.fetch ?? fetch, options.apiUrl);
+    const baseFetch = options.fetch ?? fetch;
+    const fetcher = options.fallbackApiUrl
+      ? withFallbackOrigin(
+          detectBlockingNetwork(baseFetch, options.apiUrl),
+          options.apiUrl,
+          detectBlockingNetwork(baseFetch, options.fallbackApiUrl),
+          options.fallbackApiUrl,
+        )
+      : detectBlockingNetwork(baseFetch, options.apiUrl);
     this.#transport = CentralAuthTransport.layer(fetcher);
     this.#options = {
       ...options,
       mobileConnectApiUrl: options.mobileConnectApiUrl ?? options.apiUrl,
       canPersist: options.canPersist ?? (() => true),
       fetch: fetcher,
+      fallbackApiUrl: options.fallbackApiUrl ?? "",
+      revalidateDelaysMs: options.revalidateDelaysMs ?? REVALIDATE_DELAYS_MS,
       startupRetryWindowMs: options.startupRetryWindowMs ?? STARTUP_RETRY_WINDOW_MS,
       startupRequestTimeoutMs: options.startupRequestTimeoutMs ?? STARTUP_REQUEST_TIMEOUT_MS,
       startupRetryDelaysMs: options.startupRetryDelaysMs ?? STARTUP_RETRY_DELAYS_MS,
@@ -220,6 +242,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   readonly #pending = new Set<Deferred.Deferred<void>>();
   readonly dispose = Effect.fn("CentralAuth.dispose")(function* (this: CentralAuthManager) {
     this.stopProfileRefresh();
+    this.#stopRevalidation();
     while (this.#pending.size) yield* Effect.forEach([...this.#pending], Deferred.await, { concurrency: "unbounded" });
     yield* this.#sessionWrites.withPermit(Effect.void);
   }).bind(this);
@@ -1402,15 +1425,30 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       return this.#setState({ status: "signed_out" });
     }
     const sessionToken = this.#sessionToken;
+    const savedUser = this.#lastKnownUser;
     return yield* Effect.gen({ self: this }, function* () {
-      const user = yield* this.#startupRequestEffect("/v1/me", { method: "GET" }, decodeCentralAuthUser, sessionToken);
-      return this.#setState({ status: "signed_in", user: this.#resolveUserAvatar(user) });
+      const user = yield* this.#startupRequestEffect(
+        "/v1/me",
+        { method: "GET" },
+        decodeCentralAuthUser,
+        sessionToken,
+        savedUser ? Math.min(this.#options.startupRetryWindowMs, CACHED_STARTUP_WINDOW_MS) : undefined,
+      );
+      const resolved = this.#resolveUserAvatar(user);
+      yield* this.#rememberUser(resolved);
+      return this.#setState({ status: "signed_in", user: resolved });
     }).pipe(
       Effect.catch(({ cause: error }) =>
         Effect.gen({ self: this }, function* () {
           if (error instanceof AuthApiError && error.status === 401) {
             yield* this.#clearStoredSessionEffect();
             return this.#setState({ status: "signed_out" });
+          }
+          // The service cannot answer, but this person has a session and an account it confirmed before:
+          // open with it, and let the background check end the session if the service later refuses it.
+          if (savedUser && isTransientStartupError(error)) {
+            this.#watchStoredSession(sessionToken);
+            return this.#setState({ status: "signed_in", user: savedUser });
           }
           return yield* new CentralAuthOperationError({ cause: error });
         }),
@@ -1565,11 +1603,10 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     }
     this.#sessionToken = session.sessionToken;
     this.#mobileConnectLink = null;
+    const user = this.#resolveUserAvatar(session.user);
+    this.#lastKnownUser = user;
     yield* this.#writeStoredSession();
-    return this.#setState({
-      status: "signed_in",
-      user: this.#resolveUserAvatar(session.user),
-    });
+    return this.#setState({ status: "signed_in", user });
   });
 
   /**
@@ -1720,15 +1757,18 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     }
     const previousToken = this.#sessionToken;
     const previousMobileConnectLink = this.#mobileConnectLink;
+    const previousUser = this.#lastKnownUser;
+    const user = this.#resolveUserAvatar(session.user);
     this.#sessionToken = session.sessionToken;
     this.#mobileConnectLink = null;
+    this.#lastKnownUser = user;
     const stored = yield* this.#writeStoredSession({ required: true }).pipe(Effect.result);
     if (Result.isFailure(stored)) {
       this.#sessionToken = previousToken;
       this.#mobileConnectLink = previousMobileConnectLink;
+      this.#lastKnownUser = previousUser;
       return yield* new CentralAuthOperationError({ cause: stored.failure.cause });
     }
-    const user = this.#resolveUserAvatar(session.user);
     this.#setState({ status: "signed_in", user });
     return user;
   });
@@ -1844,8 +1884,9 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     init: RequestInit,
     decoder: (value: unknown) => T,
     sessionToken?: string,
+    windowMs?: number,
   ): Effect.fn.Return<T, CentralAuthOperationError, CentralAuthTransport> {
-    let deadline = Date.now() + this.#options.startupRetryWindowMs;
+    let deadline = Date.now() + (windowMs ?? this.#options.startupRetryWindowMs);
     // A timer that fires late means a blocked event loop, such as a slow database check at start,
     // not a slow server. The window counts only the time the loop ran.
     const excludeBlockedTime = (startedAt: number, expectedMs: number) => {
@@ -1932,6 +1973,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       const value = JSON.stringify({
         version: 2,
         sessionToken,
+        ...(this.#lastKnownUser ? { user: this.#lastKnownUser } : {}),
         teamHostTokens: Object.fromEntries(this.#teamHostTokens),
         ...(this.#mobileConnectLink ? { mobileConnectLink: this.#mobileConnectLink } : {}),
       });
@@ -1978,6 +2020,8 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   }
 
   #forgetSession(): void {
+    this.#stopRevalidation();
+    this.#lastKnownUser = null;
     this.#sessionToken = null;
     this.#sessionAccountId = null;
     this.#teamHostTokens.clear();
@@ -1987,6 +2031,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   #restoreStoredSession(value: string): void {
     if (!value.trimStart().startsWith("{")) {
       this.#sessionToken = value;
+      this.#lastKnownUser = null;
       this.#teamHostTokens.clear();
       this.#mobileConnectLink = null;
       return;
@@ -1996,6 +2041,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       throw new Error("Invalid protected account session.");
     }
     this.#sessionToken = stored.sessionToken;
+    this.#lastKnownUser = restoreStoredUser(stored.user);
     this.#teamHostTokens.clear();
     if (isDynamicRecord(stored.teamHostTokens)) {
       for (const [serverId, token] of Object.entries(stored.teamHostTokens)) {
@@ -2005,6 +2051,66 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       }
     }
     this.#mobileConnectLink = restoreMobileConnectLink(stored.mobileConnectLink);
+  }
+
+  /** Keeps the confirmed account in the stored file, written only when it differs from what is there. */
+  #rememberUser(user: CentralAuthUser) {
+    const known = this.#lastKnownUser;
+    const unchanged =
+      known !== null &&
+      known.id === user.id &&
+      known.email === user.email &&
+      known.name === user.name &&
+      known.avatarUrl === user.avatarUrl;
+    this.#lastKnownUser = user;
+    return unchanged ? Effect.void : this.#writeStoredSession().pipe(Effect.catch(() => Effect.void));
+  }
+
+  #stopRevalidation(): void {
+    this.#revalidationGeneration += 1;
+    if (this.#revalidationTimer !== null) clearTimeout(this.#revalidationTimer);
+    this.#revalidationTimer = null;
+  }
+
+  /**
+   * The start opened with a saved account because the service could not answer. Asks again with
+   * growing pauses until it answers: a 401 ends the session, an answer renews the account.
+   */
+  #watchStoredSession(sessionToken: string): void {
+    this.#stopRevalidation();
+    const generation = this.#revalidationGeneration;
+    const current = () => generation === this.#revalidationGeneration && this.#sessionToken === sessionToken;
+    const delays = this.#options.revalidateDelaysMs;
+    let attempt = 0;
+    const schedule = () => {
+      const delay = delays[Math.min(attempt, delays.length - 1)] ?? 0;
+      attempt += 1;
+      this.#revalidationTimer = setTimeout(() => void check(), delay);
+      this.#revalidationTimer.unref?.();
+    };
+    const check = async () => {
+      if (!current()) return;
+      const result = await Effect.runPromise(
+        this.#owned(this.#authorizedRequestEffect("/v1/me", { method: "GET" }, decodeCentralAuthUser, 10_000)).pipe(
+          Effect.result,
+        ),
+      );
+      if (!current()) return;
+      if (Result.isSuccess(result)) {
+        const user = this.#resolveUserAvatar(result.success);
+        await Effect.runPromise(this.#owned(this.#rememberUser(user)).pipe(Effect.ignore));
+        if (current()) this.#setState({ status: "signed_in", user });
+        return;
+      }
+      const error = result.failure.cause;
+      if (error instanceof AuthApiError && error.status === 401) {
+        await Effect.runPromise(this.#owned(this.#clearStoredSessionEffect()).pipe(Effect.ignore));
+        this.#setState({ status: "signed_out" });
+        return;
+      }
+      schedule();
+    };
+    schedule();
   }
 
   #setState(state: CentralAuthState): CentralAuthState {
@@ -2133,6 +2239,79 @@ function deviceRetryAfterSeconds(response: Response, body: unknown): number {
   }
   if (isDynamicRecord(body) && isNumber(body.retryAfter) && body.retryAfter > 0) return Math.ceil(body.retryAfter);
   return 60;
+}
+
+function restoreStoredUser(value: unknown): CentralAuthUser | null {
+  if (value === undefined) return null;
+  try {
+    return decodeCentralAuthUser(value);
+  } catch {
+    return null;
+  }
+}
+
+type FallbackOutcome = { response: Response } | { error: unknown };
+
+/** An answer the account service never gives: a server error, or a web page in place of JSON. */
+function isMisroutedAnswer(response: Response): boolean {
+  return response.status >= 500 || Boolean(response.headers.get("content-type")?.toLowerCase().startsWith("text/html"));
+}
+
+/**
+ * Sends a request meant for the main address to the fallback address when the main one fails: no
+ * answer, a 5xx, or a page that is not the account service. A real answer, even a 401, stays where it
+ * came from. After a failure the fallback is asked first for a while, so a dead address costs one
+ * request, not one per call. When both fail, the caller sees the main address's own failure.
+ */
+function withFallbackOrigin(
+  primary: AuthFetcher,
+  primaryUrl: string,
+  fallback: AuthFetcher,
+  fallbackUrl: string,
+): AuthFetcher {
+  const primaryOrigin = new URL(primaryUrl).origin;
+  const fallbackOrigin = new URL(fallbackUrl).origin;
+  if (primaryOrigin === fallbackOrigin) return primary;
+  let preferFallbackUntil = 0;
+  const attempt = async (
+    fetcher: AuthFetcher,
+    input: string | URL | Request,
+    init: RequestInit | undefined,
+  ): Promise<FallbackOutcome & { healthy: boolean }> => {
+    try {
+      const response = await fetcher(input, init);
+      return { response, healthy: !isMisroutedAnswer(response) };
+    } catch (error) {
+      return { error, healthy: false };
+    }
+  };
+  const discard = (outcome: FallbackOutcome) => {
+    if ("response" in outcome) void outcome.response.body?.cancel().catch(() => undefined);
+  };
+  return async (input, init) => {
+    const original = input instanceof Request ? input.url : String(input);
+    const url = URL.canParse(original) ? new URL(original) : null;
+    if (url === null || url.origin !== primaryOrigin) return primary(input, init);
+    const rebased = new URL(`${url.pathname}${url.search}`, fallbackOrigin);
+    const fallbackFirst = Date.now() < preferFallbackUntil;
+    const sides = fallbackFirst ? (["fallback", "primary"] as const) : (["primary", "fallback"] as const);
+    let primaryOutcome: FallbackOutcome | null = null;
+    for (const side of sides) {
+      if (init?.signal?.aborted) break;
+      const outcome = side === "primary" ? await attempt(primary, input, init) : await attempt(fallback, rebased, init);
+      if (outcome.healthy && "response" in outcome) {
+        if (side === "fallback" && !fallbackFirst) preferFallbackUntil = Date.now() + FALLBACK_PREFERENCE_MS;
+        if (side === "primary" && fallbackFirst) preferFallbackUntil = 0;
+        if (primaryOutcome) discard(primaryOutcome);
+        return outcome.response;
+      }
+      if (side === "primary") primaryOutcome = outcome;
+      else discard(outcome);
+    }
+    if (primaryOutcome === null) return primary(input, init);
+    if ("error" in primaryOutcome) throw primaryOutcome.error;
+    return primaryOutcome.response;
+  };
 }
 
 function detectBlockingNetwork(fetcher: AuthFetcher, apiUrl: string): AuthFetcher {

@@ -66,7 +66,11 @@ import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { homedir, hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { BUILDERSBOT_CONTROL_PLANE_ORIGIN, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
+import {
+  BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN,
+  BUILDERSBOT_CONTROL_PLANE_ORIGIN,
+  selfHostedApiOrigin,
+} from "@openbot/contracts/invite-links";
 import type {
   AgentStatus,
   AppVariant,
@@ -943,6 +947,9 @@ export async function createApplicationServices({
   const centralAuth = new CentralAuthManager({
     apiUrl: centralAuthApiUrl,
     mobileConnectApiUrl: readMobileConnectApiUrl(process.env.OPENBOT_MOBILE_AUTH_API_URL, centralAuthApiUrl),
+    ...(app.isPackaged && centralAuthApiUrl === BUILDERSBOT_CONTROL_PLANE_ORIGIN
+      ? { fallbackApiUrl: BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN }
+      : {}),
     storagePath: join(app.getPath("userData"), CENTRAL_AUTH_FILE),
     ...safeStorageCipher("error.app.macSecureStorageUnavailable"),
   });

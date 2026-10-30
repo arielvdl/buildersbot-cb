@@ -5,6 +5,11 @@ export const OPENBOT_INVITE_PATH = "/join";
 export const OPENBOT_CONTROL_PLANE_ORIGIN = "https://api.openbot.run";
 /** The Builders Bot account service on the Cultura Builder side. It runs the same Worker. */
 export const BUILDERSBOT_CONTROL_PLANE_ORIGIN = "https://buildersbot.culturabuilder.com";
+/**
+ * The same account service on its own address. The app uses it when the main address answers with a
+ * server error or a web page, so a wrong route or deploy there does not lock everybody out.
+ */
+export const BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN = "https://auth-buildersbot.culturabuilder.com";
 
 const CONTROL_PLANE_ORIGINS = new Set([OPENBOT_CONTROL_PLANE_ORIGIN, BUILDERSBOT_CONTROL_PLANE_ORIGIN]);
 
