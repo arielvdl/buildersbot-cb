@@ -10,6 +10,7 @@ import {
 } from "node:http";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { listenLoopback } from "./listen-loopback";
+import { BROKER_TOKEN_ENV, BROKER_TOKEN_HEADER, guardNodeOptions } from "./playwright-broker-guard";
 import {
   BrowserLedger,
   type BrowserLimits,
@@ -61,6 +62,11 @@ export interface BrokerIdentityStore {
 }
 
 export interface PlaywrightBrokerOptions {
+  /**
+   * The guard file that the Playwright process loads (`installGuard`). The process refuses every request
+   * without the token that the broker makes for it, so the door is the only way in.
+   */
+  guardPath: string;
   /** The upstream to start, from the saved Playwright row, or null while no such row is enabled. */
   upstream: () => BrokerUpstreamSpec | null;
   identity: BrokerIdentityStore;
@@ -116,6 +122,8 @@ export class PlaywrightBroker {
   #port: number | null = null;
   #secret: string | null = null;
   #upstream: UpstreamProcess | null = null;
+  /** The token of the running upstream. A new upstream has a new one. */
+  #upstreamToken: string | null = null;
   #starting: Promise<UpstreamProcess> | null = null;
   #timer: NodeJS.Timeout | null = null;
   #emptySince: number | null = null;
@@ -256,7 +264,10 @@ export class PlaywrightBroker {
     }
     this.#emptySince = null;
     const target = new URL(upstream.url);
-    const headers: Record<string, string> = { host: upstream.hostHeader ?? target.host };
+    const headers: Record<string, string> = {
+      host: upstream.hostHeader ?? target.host,
+      [BROKER_TOKEN_HEADER]: this.#upstreamToken ?? "",
+    };
     for (const name of FORWARDED_REQUEST_HEADERS) {
       const value = singleHeader(request.headers[name]);
       if (value !== undefined) headers[name] = value;
@@ -337,9 +348,16 @@ export class PlaywrightBroker {
     if (!this.#starting) {
       const spec = this.#options.upstream();
       if (!spec) throw new Error("No Playwright server is set up in Builders Bot.");
-      this.#starting = this.#launch(spec).then(
+      const token = randomBytes(32).toString("base64url");
+      const env: NodeJS.ProcessEnv = {
+        ...spec.env,
+        [BROKER_TOKEN_ENV]: token,
+        NODE_OPTIONS: guardNodeOptions(this.#options.guardPath, spec.env.NODE_OPTIONS),
+      };
+      this.#starting = this.#launch({ ...spec, env }).then(
         (process) => {
           this.#upstream = process;
+          this.#upstreamToken = token;
           this.#starting = null;
           process.onExit(() => {
             if (this.#upstream === process) this.#upstream = null;
@@ -360,6 +378,7 @@ export class PlaywrightBroker {
   async #stopUpstream(): Promise<void> {
     const upstream = this.#upstream;
     this.#upstream = null;
+    this.#upstreamToken = null;
     if (upstream) await upstream.stop();
   }
 
@@ -398,7 +417,11 @@ export class PlaywrightBroker {
           port: target.port,
           path: "/mcp",
           method: "DELETE",
-          headers: { host: upstream.hostHeader ?? target.host, "mcp-session-id": id },
+          headers: {
+            host: upstream.hostHeader ?? target.host,
+            "mcp-session-id": id,
+            [BROKER_TOKEN_HEADER]: this.#upstreamToken ?? "",
+          },
         },
         (incoming) => {
           incoming.resume();

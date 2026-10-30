@@ -255,6 +255,7 @@ import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
 import { PlaywrightBroker } from "./playwright-broker";
+import { installGuard } from "./playwright-broker-guard";
 import {
   BrokerIdentityFile,
   brokerEnvironment,
@@ -1215,15 +1216,27 @@ export async function createApplicationServices({
   );
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
-  // only when an agent first asks for the browser. `service` is read at that time, not now.
-  const browserBroker = new PlaywrightBroker({
-    identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
-    upstream: () => {
-      const directories = [...(process.env.PATH ?? "").split(delimiter).filter(Boolean), ...COMMON_PROGRAM_DIRECTORIES];
-      const row = playwrightUpstream(service.listMcpServers(), (name) => findProgram(name, directories));
-      return row ? { command: row.command, args: row.args, env: brokerEnvironment(process.env, row) } : null;
-    },
-  });
+  // only when an agent first asks for the browser. `service` is read at that time, not now. Without its
+  // guard file the server would answer any program on this computer, so then there is no broker at all.
+  const browserBroker = ((): PlaywrightBroker | null => {
+    try {
+      return new PlaywrightBroker({
+        guardPath: installGuard(app.getPath("userData")),
+        identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
+        upstream: () => {
+          const directories = [
+            ...(process.env.PATH ?? "").split(delimiter).filter(Boolean),
+            ...COMMON_PROGRAM_DIRECTORIES,
+          ];
+          const row = playwrightUpstream(service.listMcpServers(), (name) => findProgram(name, directories));
+          return row ? { command: row.command, args: row.args, env: brokerEnvironment(process.env, row) } : null;
+        },
+      });
+    } catch (error) {
+      logger.warn("The shared browser connection has no guard file, so it is off.", toLogValue(error));
+      return null;
+    }
+  })();
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
@@ -1276,7 +1289,7 @@ export async function createApplicationServices({
   // Before the first agent turn, so every agent is handed the shared browser. A failure leaves each agent
   // with the Playwright of its own that the saved row describes.
   await browserBroker
-    .start()
+    ?.start()
     .catch((error: unknown) => logger.warn("The shared browser connection did not start.", toLogValue(error)));
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
     logger.warn("The login item did not refresh.", toLogValue(error)),
@@ -1820,7 +1833,7 @@ export async function createApplicationServices({
     // handing every provider a command it cannot start.
     computerUseMcpServer: () => cuaDriver.mcpServerForProviders(),
     browserInApp: () => appBehavior.browserInApp,
-    browserBroker: () => browserBroker.endpoint(),
+    browserBroker: () => browserBroker?.endpoint() ?? null,
     githubConnector: {
       mcpServer: () => githubConnector.mcpServer(),
       mcpAuthorization: () => githubConnector.mcpAuthorization().pipe(toMcpGatewayFailed),
@@ -1865,7 +1878,7 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
-  teardown.push(TEARDOWN_ORDER.browserBroker, "the shared browser connection", () => browserBroker.stop());
+  teardown.push(TEARDOWN_ORDER.browserBroker, "the shared browser connection", () => browserBroker?.stop() ?? Promise.resolve());
   const agentMemoryLimitSetting = reloadingAgentMemoryLimit(agentMemoryLimit, service);
   /** The answer an agent gave in one turn, for routine flows, routine results and local scripts. */
   const turnAnswer = (agentId: string, turnId: string): string | null => {

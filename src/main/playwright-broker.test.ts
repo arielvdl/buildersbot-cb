@@ -2,7 +2,13 @@
 // The Playwright broker against a fake upstream that speaks the part of MCP the broker reads.
 import { createServer, request as httpRequest, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { type BrokerIdentityStore, PlaywrightBroker, type UpstreamProcess } from "./playwright-broker";
+import {
+  type BrokerIdentityStore,
+  type BrokerUpstreamSpec,
+  PlaywrightBroker,
+  type UpstreamProcess,
+} from "./playwright-broker";
+import { BROKER_TOKEN_ENV, BROKER_TOKEN_HEADER } from "./playwright-broker-guard";
 
 interface RpcMessage {
   id?: number;
@@ -21,6 +27,8 @@ interface Fake {
   url: string;
   /** The only `Host` the fake answers. */
   hostHeader: string;
+  /** The token the broker gave it at launch. Every request must carry it, as the guard of the real process requires. */
+  token: string;
   /** Every request the fake upstream got: `METHOD session body`. */
   requests: string[];
   /** The headers of the last request, to see what the broker forwards. */
@@ -29,6 +37,7 @@ interface Fake {
   failNextTab: boolean;
 }
 
+const GUARD_PATH = "/app support/guard.cjs";
 const fakes: Fake[] = [];
 const brokers: PlaywrightBroker[] = [];
 
@@ -44,10 +53,15 @@ async function fakeUpstream(): Promise<Fake> {
   const requests: string[] = [];
   const lastHeaders: Fake["lastHeaders"] = {};
   const state = { requests, sessions: new Set<string>(), tabs: new Map<string, number>() };
-  const fake = { requests, sessions: state.sessions, failNextTab: false, lastHeaders };
+  const fake = { requests, sessions: state.sessions, failNextTab: false, lastHeaders, token: "" };
   let counter = 0;
   let expectedHost = "";
   const server = createServer((request, response) => {
+    // The guard runs before the server's own checks: no token, or a wrong one, and nothing else is read.
+    if (!fake.token || request.headers[BROKER_TOKEN_HEADER] !== fake.token) {
+      response.writeHead(401, { "content-type": "text/plain" }).end("Unauthorized");
+      return;
+    }
     // The real Playwright server answers only the host it prints, so this one does as well.
     if (request.headers.host !== expectedHost) {
       response.writeHead(403, { "content-type": "text/plain" }).end(`Access is only allowed at ${expectedHost}`);
@@ -133,6 +147,8 @@ interface Setup {
   broker: PlaywrightBroker;
   fake: Fake;
   launched: () => number;
+  /** The specs the broker launched the upstream with. */
+  specs: () => BrokerUpstreamSpec[];
   stopped: () => number;
   exit: () => void;
   base: string;
@@ -151,15 +167,19 @@ async function setup(
   let launches = 0;
   let stops = 0;
   const exitListeners: (() => void)[] = [];
+  const specs: BrokerUpstreamSpec[] = [];
   const identity = memoryIdentity();
   const clock = options.clock ?? { now: 1_000 };
   const broker = new PlaywrightBroker({
-    upstream: () => (options.noSpec ? null : { command: "unused", args: [], env: {} }),
+    upstream: () => (options.noSpec ? null : { command: "unused", args: [], env: { KEEP: "1" } }),
+    guardPath: GUARD_PATH,
     identity,
     limits: options.limits ?? { tabsPerSession: 2, tabsTotal: 3, sessions: 2 },
     now: () => clock.now,
-    launch: async (): Promise<UpstreamProcess> => {
+    launch: async (spec: BrokerUpstreamSpec): Promise<UpstreamProcess> => {
       launches += 1;
+      specs.push(spec);
+      fake.token = spec.env[BROKER_TOKEN_ENV] ?? "";
       return {
         url: fake.url,
         hostHeader: fake.hostHeader,
@@ -178,6 +198,7 @@ async function setup(
     broker,
     fake,
     launched: () => launches,
+    specs: () => specs,
     stopped: () => stops,
     exit: () => {
       for (const listener of exitListeners) listener();
@@ -317,6 +338,69 @@ describe("the upstream", () => {
   });
 });
 
+describe("the token of the upstream", () => {
+  it("gives the upstream a new token at each launch, and loads the guard that checks it", async () => {
+    const s = await setup();
+    await open(s);
+    const [spec] = s.specs();
+    expect(spec?.env[BROKER_TOKEN_ENV]?.length).toBeGreaterThanOrEqual(32);
+    expect(spec?.env.NODE_OPTIONS).toContain(`--require "${GUARD_PATH}"`);
+    expect(spec?.env.KEEP).toBe("1");
+
+    s.exit();
+    await open(s);
+    const second = s.specs()[1];
+    expect(second?.env[BROKER_TOKEN_ENV]).toBeTruthy();
+    expect(second?.env[BROKER_TOKEN_ENV]).not.toBe(spec?.env[BROKER_TOKEN_ENV]);
+  });
+
+  it("keeps the person's own NODE_OPTIONS and puts the guard after them", async () => {
+    const fake = await fakeUpstream();
+    let seen: BrokerUpstreamSpec | undefined;
+    const broker = new PlaywrightBroker({
+      upstream: () => ({ command: "unused", args: [], env: { NODE_OPTIONS: "--max-old-space-size=512" } }),
+      guardPath: GUARD_PATH,
+      identity: memoryIdentity(),
+      launch: async (spec) => {
+        seen = spec;
+        fake.token = spec.env[BROKER_TOKEN_ENV] ?? "";
+        return { url: fake.url, hostHeader: fake.hostHeader, stop: async () => {}, onExit: () => {} };
+      },
+    });
+    brokers.push(broker);
+    await broker.start();
+    const endpoint = broker.endpoint();
+    if (!endpoint) throw new Error("no endpoint");
+    await fetch(endpoint.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${endpoint.bearer}`,
+      },
+      body: JSON.stringify(initialize()),
+    });
+    expect(seen?.env.NODE_OPTIONS).toBe(`--max-old-space-size=512 --require "${GUARD_PATH}"`);
+  });
+
+  it("is the only way in: the upstream refuses a request that does not come through the door", async () => {
+    const s = await setup();
+    await open(s);
+    const direct = await fetch(s.fake.url, { method: "POST", headers: { host: s.fake.hostHeader }, body: "{}" });
+    expect(direct.status).toBe(401);
+  });
+
+  it("does not hand the token to an agent in any answer", async () => {
+    const s = await setup();
+    const session = await open(s);
+    const reply = await post(s, tabs(2, "list"), session);
+    const token = s.specs()[0]?.env[BROKER_TOKEN_ENV] ?? "";
+    expect(token).not.toBe("");
+    expect(reply.text).not.toContain(token);
+    expect(s.broker.endpoint()?.bearer).not.toBe(token);
+  });
+});
+
 describe("the sessions", () => {
   it("keeps each agent's own session id, and sends a request to the upstream with it", async () => {
     const s = await setup();
@@ -432,6 +516,7 @@ describe("the identity", () => {
 
     const broker = new PlaywrightBroker({
       upstream: () => null,
+      guardPath: GUARD_PATH,
       identity: { read: () => saved, write: () => {} },
     });
     brokers.push(broker);
@@ -453,18 +538,22 @@ describe("the idle stop", () => {
     let stops = 0;
     const broker = new PlaywrightBroker({
       upstream: () => ({ command: "unused", args: [], env: {} }),
+      guardPath: GUARD_PATH,
       identity: memoryIdentity(),
       now: () => clock.now,
       idleSessionMs: 1_000,
       idleUpstreamMs: 1_000,
-      launch: async () => ({
-        url: fake.url,
-        hostHeader: fake.hostHeader,
-        stop: async () => {
-          stops += 1;
-        },
-        onExit: () => {},
-      }),
+      launch: async (spec) => {
+        fake.token = spec.env[BROKER_TOKEN_ENV] ?? "";
+        return {
+          url: fake.url,
+          hostHeader: fake.hostHeader,
+          stop: async () => {
+            stops += 1;
+          },
+          onExit: () => {},
+        };
+      },
     });
     brokers.push(broker);
     await broker.start();

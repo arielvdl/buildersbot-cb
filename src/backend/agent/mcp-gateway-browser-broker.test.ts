@@ -4,10 +4,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { McpServerConfig } from "@openbot/contracts/ipc";
+import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { McpServerStore } from "../mcp-server-store";
 import { BuildersBotDatabase } from "../openbot-database";
+import { NO_PROVIDER_CREDENTIALS } from "../provider-drivers";
 import { McpGateway } from "./mcp-gateway";
 import { BROWSER_BROKER_MCP_SERVER_ID, type BrowserBrokerAddress } from "./playwright-browser-access";
 
@@ -44,11 +46,11 @@ async function gatewayWith(broker: { current: BrowserBrokerAddress | null }, bro
   servers.save(playwrightRow);
   const gateway = new McpGateway({
     servers,
-    credentials: {},
+    credentials: NO_PROVIDER_CREDENTIALS,
     computerUseMcpServer: () => null,
     browserInApp: () => browserInApp,
     browserBroker: () => broker.current,
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
+    logger: createBuildersBotLogger("mcp-gateway-test"),
     hooks: { emitError() {}, refreshAllAgentRuntimes: () => Effect.void },
   });
   return gateway;

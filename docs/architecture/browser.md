@@ -278,6 +278,101 @@ previous one. Back, forward, reload, new tab and close tab use the released `bro
 routes. The account server's `browser` mobile feature flag turns the phone's browser off for an app
 version (`apps/auth-api/src/server/mobile-features-config.ts`).
 
+## One Playwright server for all agents
+
+`PlaywrightBroker` (`src/main/playwright-broker.ts`) runs one Playwright MCP server for all agents:
+`@playwright/mcp --extension --shared-browser-context --port 0 --host 127.0.0.1`. The server
+attaches to the open browser through the Playwright extension. Builders Bot starts no browser. Each
+agent is one MCP session of this server. Before, each agent started its own `@playwright/mcp`, and a
+few at once used all the memory. When web access is the Builders Bot browser, providers get no
+Playwright.
+
+The broker is a door on a loopback port. It checks each request in this order: the `Host` must be
+`127.0.0.1:PORT` or `localhost:PORT` (403); the bearer is compared in constant time
+(`timingSafeEqual`, 401); the path must be `/mcp` (404); the method must be `POST`, `GET` or
+`DELETE` (405); an `mcp-session-id` that the broker did not record gets 404. A body of more than
+1,000,000 bytes (413), a body that is not JSON, and a batch of more than one message (400) are
+refused. `GET`, `DELETE` and each `POST` other than `initialize` need a session id. Only a fixed list
+of headers goes to the upstream, so the `Authorization` of the agent stays in the broker.
+
+The upstream is guarded too, because the door is not the only way to its port. The broker makes a new
+token each time it starts the upstream and gives it to the process in `BB_BROKER_TOKEN`. The process
+loads `playwright-broker-guard.cjs` (`installGuard`, written to `userData` with mode 0600) through
+`NODE_OPTIONS=--require`. The guard wraps `http.Server.prototype.emit` and answers 401 to each HTTP
+request that does not carry the token in `x-bb-broker`, before the server reads anything else. It
+fails closed: with no token in its environment it refuses everything. WebSocket upgrades are another
+event; the extension relay uses only those. If the guard file cannot be written,
+`createApplicationServices` makes no broker. Do not use the `Host` as a secret instead: the Playwright
+403 prints the hosts that it accepts.
+
+`BrowserLedger` (`playwright-broker-policy.ts`) holds the limits (`DEFAULT_BROWSER_LIMITS`):
+
+| Limit | Value | Refusal |
+| --- | --- | --- |
+| Agent sessions | 8 | A JSON-RPC error on `initialize`, with the request id. |
+| Tabs for one session | 4 | A tool result with `isError: true` that tells the agent to close a tab with `browser_tabs` action `close`, or to reuse an open tab. |
+| Tabs for all sessions | 12 | The same. |
+
+The counts come from the upstream response, not from the request. A successful `browser_tabs`
+action `new` adds 1. A successful `browser_tabs` action `close` or `browser_close` removes 1. A
+failed call changes nothing, and a count never goes below 0. A session that ends gives its tabs back.
+The broker reads about the first 256,000 bytes of a response to count; a longer response goes to the
+agent but is not counted. Two `initialize` requests at the same time can both pass the session check.
+
+`start()` only listens. The upstream starts at the first request that passes the door, one time. A
+session with no request for 15 min is ended, and the broker sends `DELETE` for it to the upstream. A
+timer checks every 30 s. After 3 min with no session, the upstream stops, so the person's browser is
+free. When the upstream stops by itself, the broker forgets all sessions, and the agents start new
+ones. Teardown stops the broker after the agent service (`TEARDOWN_ORDER.browserBroker`).
+
+`openbot-playwright-broker-v1.json` in `userData` holds the port and the bearer (`BrokerIdentityFile`,
+`playwright-broker-runtime.ts`). The file has mode 0600. The bearer stays the same across restarts;
+the port stays the same when it is free. A missing or damaged file gives a new pair. Codex keeps the
+MCP configuration of a resumed session, so `McpGateway.proxyFingerprint` includes the broker URL
+while the broker row is enabled. A new address then replaces the old configuration.
+
+`applyBrowserAccess` (`playwright-browser-access.ts`) hands the providers one http row in place of
+the Playwright row: id `builders-bot-browser-broker`, name `playwright`, the broker URL, no headers.
+`McpGateway.endpoint` adds the bearer at each hand-off and records it as a secret for redaction. The
+bearer is never written to the saved row.
+
+`playwrightUpstream` reads the row that the person saved as it is, at each upstream start. It does
+not change the stored row. A package row (`npx`, `bunx`) keeps its command and package argument. A
+row with the gated launcher `playwright-mcp-gated.mjs` loses the launcher: the broker runs the
+`playwright-mcp` program from `PATH` or `COMMON_PROGRAM_DIRECTORIES`, else the pinned package
+`@playwright/mcp@0.0.83` through `npx -y`. The flags `--port`, `--host`, `--mode`, `--cdp-endpoint`,
+`--user-data-dir`, `--allowed-hosts` (with their values), `--extension`, `--isolated`, `--headless`
+and `--shared-browser-context` are removed from the row, and the broker sets its own. The child
+environment is an allowlist (`brokerEnvironment`): the names in `BASE_PASSTHROUGH` and in the row's
+`envPassthrough`, copied from the app environment, then the row's own `env`. No provider key gets to
+the child unless the row names it.
+
+### Rules that are easy to break
+
+- The Playwright server answers only the `Host` that it prints, `localhost:PORT`. `localhost` can
+  resolve to `::1`, so the broker connects to `127.0.0.1` and sends that `Host`
+  (`UpstreamProcess.hostHeader`). A test with a fake upstream that accepted all hosts hid this one
+  time. The fake in `playwright-broker.test.ts` now answers only its own host.
+- The upstream has no sign-in of its own, and its browser holds the person's signed-in sites. Its
+  guard and the loopback port are what stop another program. Keep both: a program of the same user can
+  still read the token from the environment of the process, which this does not prevent.
+- An unknown session id must get 404. Never add it to the ledger. The ledger records a session only
+  from the `mcp-session-id` that the upstream sends for `initialize`.
+- `createApplicationServices` must start the broker (`await browserBroker.start()`) before the first
+  agent turn. Before `start`, `endpoint()` is null, and an agent gets the old row: one Playwright
+  process for each agent.
+- The counts are of tabs that agents opened through the broker, not of the person's own tabs. A tab
+  that a page opens by itself is not counted; the session end limits it.
+
+### Not verified
+
+- The real extension path. The person must approve the connection one time in Chrome.
+- The broker and its guard were checked by hand with a real `@playwright/mcp` 0.0.82 in isolated
+  headless mode, not with the extension: two sessions, the tab count from real answers, the session
+  limit, a request to the upstream port with no token or a wrong one (401), and no process left after
+  `stop`. The tests in `src/main/playwright-broker*.test.ts` use a fake upstream, and
+  `playwright-broker-guard.test.ts` runs the real guard in a Node process.
+
 ## Secure browser authentication
 
 `openbot_browser.submit_secret` uses the existing attention/takeover lifecycle with optional public
