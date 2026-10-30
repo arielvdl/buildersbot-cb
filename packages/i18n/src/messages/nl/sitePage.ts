@@ -19,8 +19,6 @@ export const messages = {
   "sitePage.join.download": "Builders Bot downloaden",
   "sitePage.join.notOpened":
     "Is Builders Bot niet geopend? Installeer het met {download}, of start Builders Bot één keer zodat het uitnodigingslinks kan openen. Je kunt ook {browser} gebruiken.",
-  "sitePage.join.mobile":
-    "Is Builders Bot geïnstalleerd? Tik dan op {open}. Je kunt deze link ook plakken bij Server toevoegen in de app.",
   "sitePage.join.singleUse":
     "Een eenmalige link werkt één keer en verloopt daarna. Een permanente link werkt totdat de eigenaar hem intrekt. Builders Bot toont de vervaldatum voordat je lid wordt.",
   "sitePage.join.email": "Kwam de uitnodiging per e-mail? Log dan in bij Builders Bot met dat e-mailadres.",
@@ -41,7 +39,8 @@ export const messages = {
     "Een andere Builders Bot-server beantwoordt deze Slack-werkruimte al. Verbreek daar de verbinding en probeer het opnieuw.",
   "sitePage.connect.failure.takenDiscord":
     "Een andere Builders Bot-server beantwoordt deze Discord-server al. Verbreek daar de verbinding en probeer het opnieuw.",
-  "sitePage.connect.failure.unavailable": "Builders Bot kan nu geen verbinding maken met {name}. Probeer het later opnieuw.",
+  "sitePage.connect.failure.unavailable":
+    "Builders Bot kan nu geen verbinding maken met {name}. Probeer het later opnieuw.",
   "sitePage.connect.failure.tabClosed":
     "Het Builders Bot-tabblad dat de verbinding met {name} startte, reageert niet. Open Builders Bot in je browser en verbind {name} opnieuw.",
   "sitePage.connect.failure.failed": "{name} heeft de verbinding niet afgerond. Probeer het opnieuw.",

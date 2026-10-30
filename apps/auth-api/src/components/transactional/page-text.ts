@@ -25,7 +25,7 @@ export function joinPageText(t: AppTranslate) {
     browser,
     download,
     notOpened: t("sitePage.join.notOpened", { download, browser }),
-    mobile: t("sitePage.join.mobile", { open }),
+    mobile: t("sitePage.join.webApp", { browser }),
     // The link carries no expiry, use limit or email, and the page does not send the token anywhere to
     // ask. So these notes give the rules, and the app shows the details before the visitor joins.
     singleUse: t("sitePage.join.singleUse"),

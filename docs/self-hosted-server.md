@@ -1,9 +1,9 @@
 # Self-hosted servers
 
 A self-hosted server is the Linux OpenBot build on your own computer with no screen: a VPS, a home
-server or a cloud VM. It is a normal Remote host of your account. You use it from the desktop app,
-the iPhone app or `openbot.run/app`, as you use a [hosted server](hosted-servers.md). You install
-and control it from a terminal.
+server or a cloud VM. It is a normal Remote host of your account. You use it from the desktop app or
+from `openbot.run/app`, in a browser or as the web app on a phone, as you use a
+[hosted server](hosted-servers.md). You install and control it from a terminal.
 
 To run it in a container, see [Docker](docker.md).
 
@@ -72,7 +72,7 @@ open a database that a newer one migrated. It also refuses a computer that is a 
 | `openbot status` | Show the version, the account, the server state, the memory and a staged update. |
 | `openbot login [<email>] [--name <name>]` | Sign in with an email code. |
 | `openbot login --claim [--name <name>]` | Sign in with an operator's one-time claim (see [Sign in with a server claim](#sign-in-with-a-server-claim)). |
-| `openbot mobile-connect` | Show a Mobile Connect QR code for the phone app (see [Phone app](#phone-app)). |
+| `openbot mobile-connect` | Show a Mobile Connect QR code. The web app on a phone does not use it (see [Phone](#phone)). |
 | `openbot logout` | Sign out. The server is not available until the next sign-in. |
 | `openbot name <name>` | Change the server name. |
 | `openbot logs [-f]` | Show the journal of `openbot.service`. |
@@ -193,23 +193,20 @@ What a model reads of a full-display screenshot at 1920x1080:
 
 A 1280x800 screenshot is not made smaller by any Claude or Codex model.
 
-## Phone app
+## Phone
 
-The phone app has no email sign-in. It signs in with a Mobile Connect code. A server has no screen
-for the code, so `openbot mobile-connect` shows it in the terminal:
+A phone uses the web app at `openbot.run/app`, installed from the browser of the phone. There is no
+phone app to get from a store. The web app signs in with the email code of the account, as a browser
+does, so a server with no screen needs no code in the terminal:
 
 1. Sign in the server with `openbot login`.
-2. Run `openbot mobile-connect`. In a container, run `docker exec -it <container> openbot mobile-connect`.
-3. In the phone app, select **Scan QR code** and scan the code in the terminal.
+2. On an iPhone, open `openbot.run/app` in Safari, then select **Share > Add to Home Screen**. On
+   Android, open it in Chrome, then select **Install app** in the Chrome menu.
+3. Open the web app from its icon and sign in with the email of the account of the server.
 
-The code signs the phone in to the account of the server. It works for one sign-in and expires after
-two minutes. The phone then shows all servers of the account, and it opens this server first. The
-phone connects through the account server and Signal, as the desktop app does. The server publishes
-no port.
-
-If the phone app is already connected to the same account from the desktop app, the server is
-already in its server list. Remove a phone from the account in the desktop app, in
-**Settings > Mobile Connect**.
+The phone then shows all servers of the account. It connects through the account server and Signal,
+as the desktop app does. The server publishes no port. To remove a phone, sign out in the web app, or
+end its session in the desktop app, in **Settings > Profile > Account sessions**.
 
 ## Remove
 

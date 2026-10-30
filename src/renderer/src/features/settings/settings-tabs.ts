@@ -160,7 +160,10 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         titleKey: "settings.mobileConnect.phones.title",
         descriptionKey: "settings.mobileConnect.phones.description",
       },
-      { titleKey: "settings.mobileConnect.phones.add", descriptionKey: "settings.mobileConnect.add.question" },
+      {
+        titleKey: "settings.mobileConnect.phones.add",
+        descriptionKey: "settings.mobileConnect.add.webApp.question",
+      },
       { titleKey: "settings.mobileConnect.link.title", descriptionKey: "settings.mobileConnect.link.cardHint" },
       {
         titleKey: "settings.mobileConnect.route.title",

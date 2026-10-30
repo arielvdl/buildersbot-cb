@@ -125,7 +125,7 @@ export const messages = defineMessages("sidebar", {
   "sidebar.announce.personFallback": "person",
   "sidebar.announce.chatFallback": "chat",
   "sidebar.mobileApp.title": "Builders Bot for mobile",
-  "sidebar.mobileApp.body": "The app is now on iPhone and Android.",
+  "sidebar.mobileApp.webAppBody": "Install the web app from the phone browser, on iPhone or Android.",
   "sidebar.mobileApp.howToInstall": "How to install",
   "sidebar.mobileApp.dismiss": "Dismiss the mobile app announcement",
   "sidebar.storage.lowTitle": "Storage almost full",

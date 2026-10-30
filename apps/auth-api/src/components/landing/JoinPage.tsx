@@ -52,24 +52,27 @@ export function JoinPage(props: { lang: string; text: JoinPageText }) {
       <Show when={!invalid()} fallback={<p class="join-card-error">{props.text.invalid}</p>}>
         <div class="join-card-actions">
           {/* Until the page reads the link, the app cannot open it. The button is then a real
-              disabled button, so it is not a link that goes nowhere. */}
-          <Show
-            when={openUrl()}
-            fallback={
-              <Button as="button" type="button" disabled variant="primary" size="lg" icon="open">
-                {props.text.open}
-              </Button>
-            }
-          >
-            {(href) => (
-              <Button href={href()} variant="primary" size="lg" icon="open" onClick={() => setOpenAttempted(true)}>
-                {props.text.open}
-              </Button>
-            )}
+              disabled button, so it is not a link that goes nowhere. A phone uses the web app, so it
+              gets no `openbot://` button: only a phone app from a store reads that link. */}
+          <Show when={!mobile()}>
+            <Show
+              when={openUrl()}
+              fallback={
+                <Button as="button" type="button" disabled variant="primary" size="lg" icon="open">
+                  {props.text.open}
+                </Button>
+              }
+            >
+              {(href) => (
+                <Button href={href()} variant="primary" size="lg" icon="open" onClick={() => setOpenAttempted(true)}>
+                  {props.text.open}
+                </Button>
+              )}
+            </Show>
           </Show>
           <Show when={browserUrl()}>
             {(href) => (
-              <Button href={href()} variant="secondary" size="lg" icon="arrow-right">
+              <Button href={href()} variant={mobile() ? "primary" : "secondary"} size="lg" icon="arrow-right">
                 {props.text.browser}
               </Button>
             )}

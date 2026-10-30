@@ -138,6 +138,7 @@ import {
   requiredString,
 } from "@openbot/contracts/ipc-decoding";
 import { type LicenseState, parseLicenseState } from "@openbot/contracts/license";
+import { parseMobileWebAppUrl } from "@openbot/contracts/mobile-connect";
 import { isPluginSlug } from "@openbot/contracts/plugin-links";
 import { isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 
@@ -328,6 +329,16 @@ function decodeCentralAuthIssue(value: unknown): CentralAuthIssue {
 export function decodeMobileConnectTicket(value: unknown): MobileConnectTicket {
   const ticket = decodeRecord(value, "Mobile Connect ticket");
   return { qrData: requiredString(ticket, "qrData"), expiresAt: requiredNumber(ticket, "expiresAt") };
+}
+
+/**
+ * The web client address that a phone QR code shows. Only the `/app` page of an account service
+ * passes: never a store page, a deep link or an address with a query.
+ */
+export function decodeMobileWebAppUrl(value: unknown): string {
+  const url = typeof value === "string" ? parseMobileWebAppUrl(value) : null;
+  if (!url) throw new Error("Invalid web app address.");
+  return url;
 }
 
 export function decodeMobileConnectLink(value: unknown): MobileConnectLink {

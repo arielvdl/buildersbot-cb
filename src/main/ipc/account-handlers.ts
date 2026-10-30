@@ -35,6 +35,7 @@ export function accountIpcHandlers({ centralAuth, host }: AccountIpcDependencies
       createMobileConnect: handler(() => runCauseEffect(createHostedMobileConnect({ centralAuth, host }))),
       cancelMobileConnect: handler(() => runCauseEffect(centralAuth.cancelMobileConnect(host.getMobileConnectHost()))),
       getMobileConnectLink: handler(() => centralAuth.getMobileConnectLink(host.getMobileConnectHost())),
+      getMobileWebAppUrl: handler(() => centralAuth.getMobileWebAppUrl()),
       createMobileConnectLink: handler(() => runCauseEffect(createHostedMobileConnectLink({ centralAuth, host }))),
       revokeMobileConnectLink: handler(() =>
         runCauseEffect(centralAuth.revokeMobileConnectLink(host.getMobileConnectHost())),

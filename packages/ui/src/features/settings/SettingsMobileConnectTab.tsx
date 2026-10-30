@@ -27,8 +27,9 @@ import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
 
 interface SettingsMobileConnectTabProps {
   store: SettingsMobileConnectStore;
+  /** The email of this account, which a phone signs in to the web app with. */
+  accountEmail: string;
   canCreateTicket: boolean;
-  canCancelTicket: boolean;
   canManageLink: boolean;
   canRevokeDevice: boolean;
   canSetRoute: boolean;
@@ -38,9 +39,9 @@ const IOS_PLATFORM_LABEL = "iOS";
 const ANDROID_PLATFORM_LABEL = "Android";
 
 /**
- * The phones that use this account, as cards. "Add phone" opens a dialog that shows one code at a
- * time, so a phone camera cannot catch the wrong code. The permanent link is one more card, and how
- * devices connect is a chip in the header.
+ * The phones that use this account, as cards. "Add phone" opens a dialog that installs the web app on
+ * the phone from its browser, then tells how to sign in there. The permanent link is one more card,
+ * and how devices connect is a chip in the header.
  */
 export function SettingsMobileConnectTab(props: SettingsMobileConnectTabProps) {
   const { t } = useText();
@@ -120,7 +121,7 @@ export function SettingsMobileConnectTab(props: SettingsMobileConnectTabProps) {
       <MobileConnectAddPhoneDialog
         open={adding()}
         store={props.store}
-        canCancelTicket={props.canCancelTicket}
+        accountEmail={props.accountEmail}
         onClose={() => setAdding(false)}
       />
       <Show when={props.canManageLink}>

@@ -19,8 +19,6 @@ export const messages = {
   "sitePage.join.download": "Скачать Builders Bot",
   "sitePage.join.notOpened":
     "Если Builders Bot не открылся, установите его кнопкой «{download}» или запустите Builders Bot один раз, чтобы он мог открывать ссылки-приглашения. Также можно использовать кнопку «{browser}».",
-  "sitePage.join.mobile":
-    "Если Builders Bot установлен, нажмите «{open}». Также можно вставить эту ссылку в «Добавить сервер» в приложении.",
   "sitePage.join.singleUse":
     "Одноразовая ссылка работает один раз, затем истекает. Постоянная ссылка работает, пока владелец её не отзовёт. Builders Bot показывает срок действия до того, как вы присоединитесь.",
   "sitePage.join.email": "Если приглашение пришло по электронной почте, войдите в Builders Bot с этим адресом.",
@@ -30,7 +28,8 @@ export const messages = {
   "sitePage.connect.openApp": "Открыть Builders Bot",
   "sitePage.connect.tryAgainApp": "Повторить в Builders Bot",
   "sitePage.connect.tryAgainBrowser": "Повторить в браузере",
-  "sitePage.connect.doneInWebClient": "Ваша вкладка Builders Bot завершает подключение к {name}. Эту вкладку можно закрыть.",
+  "sitePage.connect.doneInWebClient":
+    "Ваша вкладка Builders Bot завершает подключение к {name}. Эту вкладку можно закрыть.",
   "sitePage.connect.doneInApp": "Builders Bot завершает подключение к {name} на вашем компьютере.",
   "sitePage.connect.failure.cancelled": "Подключение к {name} отменено. Ничего не изменилось.",
   "sitePage.connect.failure.expired": "Срок входа в {name} истёк. Начните подключение снова.",

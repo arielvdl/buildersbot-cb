@@ -19,11 +19,10 @@ export const messages = {
   "sitePage.join.download": "Descargar Builders Bot",
   "sitePage.join.notOpened":
     "Si Builders Bot no se abrió, instálalo con {download} o inicia Builders Bot una vez para que pueda abrir enlaces de invitación. También puedes usar {browser}.",
-  "sitePage.join.mobile":
-    "Si Builders Bot está instalado, toca {open}. También puedes pegar este enlace en Añadir servidor dentro de la app.",
   "sitePage.join.singleUse":
     "Un enlace de un solo uso funciona una vez y luego caduca. Un enlace permanente funciona hasta que el propietario lo revoca. Builders Bot muestra la caducidad antes de que te unas.",
-  "sitePage.join.email": "Si la invitación llegó por correo, inicia sesión en Builders Bot con esa dirección de correo.",
+  "sitePage.join.email":
+    "Si la invitación llegó por correo, inicia sesión en Builders Bot con esa dirección de correo.",
   "sitePage.join.share": "Este enlace da acceso a un servidor. Compártelo solo con las personas que quieras invitar.",
   "sitePage.connect.title": "Volver a Builders Bot",
   "sitePage.connect.failedTitle": "La conexión no terminó",
@@ -45,7 +44,8 @@ export const messages = {
   "sitePage.connect.failure.tabClosed":
     "La pestaña de Builders Bot que inició la conexión con {name} no respondió. Abre Builders Bot en tu navegador y vuelve a conectar {name}.",
   "sitePage.connect.failure.failed": "{name} no terminó la conexión. Inténtalo de nuevo.",
-  "sitePage.connect.restartHint": "En Builders Bot, abre {marketplace}, luego {apps}, luego {name}, y selecciona {connect}.",
+  "sitePage.connect.restartHint":
+    "En Builders Bot, abre {marketplace}, luego {apps}, luego {name}, y selecciona {connect}.",
   "sitePage.connect.notOpened":
     "Inicia Builders Bot y vuelve a intentarlo. Si Builders Bot no está en este ordenador, descárgalo y conecta {name} desde la app.",
   "sitePage.openApp.title": "¿No se abrió nada?",

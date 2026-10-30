@@ -23,6 +23,8 @@ interface MobileConnectStoreProps {
   onRevokeMobileConnectedDevice?: (sessionId: string) => Promise<void>;
   onGetRemoteNetworkRoute?: () => Promise<RemoteNetworkRouteState>;
   onSetRemoteNetworkRoute?: (route: RemoteNetworkRoute) => Promise<RemoteNetworkRouteState>;
+  /** The address of the web client that a phone installs, on the origin of the account service. */
+  onGetMobileWebAppUrl?: () => Promise<string>;
 }
 
 /** A generated Mobile Connect code, from the moment it is displayed until it is cleared. */
@@ -78,11 +80,19 @@ interface RemoteNetworkRoutePanel {
   error: string | null;
 }
 
+/** The web client that a phone installs from its browser. */
+interface MobileWebAppPanel {
+  /** Null until main answers. */
+  url: string | null;
+  error: string | null;
+}
+
 interface SettingsMobileConnectPanels {
   connect: MobileConnectPanel;
   devices: MobileDeviceList;
   link: MobileConnectLinkPanel;
   route: RemoteNetworkRoutePanel;
+  webApp: MobileWebAppPanel;
 }
 
 /**
@@ -104,6 +114,7 @@ export function createSettingsMobileConnectStore(props: MobileConnectStoreProps,
       error: null,
     },
     route: { current: null, busy: false, error: null },
+    webApp: { url: null, error: null },
   });
   /** A clock, not panel state: it ticks the code's countdown and the device list's "3m ago" labels. */
   const [now, setNow] = createSignal(Date.now());
@@ -206,6 +217,34 @@ export function createSettingsMobileConnectStore(props: MobileConnectStoreProps,
           setPanels((state) => {
             const text = currentText();
             state.route.error = text.errorMessage(error, text.t("settings.mobileConnect.route.error.load"));
+          });
+        }
+      });
+      return () => {
+        current = false;
+      };
+    },
+  );
+
+  // The address does not change while the app runs, so the first answer stays.
+  createEffect(
+    () => ({ open: props.open, active: isActive(), get: props.onGetMobileWebAppUrl }),
+    ({ open, active, get }) => {
+      if (!open || !active || !get || untrack(() => panels.webApp.url)) return;
+      let current = true;
+      void untrack(async () => {
+        try {
+          const url = await get();
+          if (!current) return;
+          setPanels((state) => {
+            state.webApp.url = url;
+            state.webApp.error = null;
+          });
+        } catch (error) {
+          if (!current) return;
+          setPanels((state) => {
+            const text = currentText();
+            state.webApp.error = text.errorMessage(error, text.t("settings.mobileConnect.webApp.unavailable"));
           });
         }
       });

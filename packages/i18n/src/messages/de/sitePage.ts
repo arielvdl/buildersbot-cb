@@ -19,8 +19,6 @@ export const messages = {
   "sitePage.join.download": "Builders Bot laden",
   "sitePage.join.notOpened":
     "Wenn Builders Bot sich nicht geöffnet hat, installiere es mit {download} oder starte Builders Bot einmal, damit es Einladungslinks öffnen kann. Du kannst auch {browser} verwenden.",
-  "sitePage.join.mobile":
-    "Wenn Builders Bot installiert ist, tippe auf {open}. Du kannst diesen Link auch in der App unter Server hinzufügen einfügen.",
   "sitePage.join.singleUse":
     "Ein Einmal-Link funktioniert einmal und läuft dann ab. Ein dauerhafter Link funktioniert, bis der Inhaber ihn widerruft. Builders Bot zeigt das Ablaufdatum, bevor du beitrittst.",
   "sitePage.join.email": "Wenn die Einladung per E-Mail kam, melde dich mit dieser E-Mail-Adresse bei Builders Bot an.",

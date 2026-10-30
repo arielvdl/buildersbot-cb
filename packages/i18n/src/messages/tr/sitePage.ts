@@ -18,8 +18,6 @@ export const messages = {
   "sitePage.join.download": "Builders Bot'u indir",
   "sitePage.join.notOpened":
     "Builders Bot açılmadıysa {download} ile yükleyin veya davet bağlantılarını açabilmesi için Builders Bot'u bir kez başlatın. {browser} seçeneğini de kullanabilirsiniz.",
-  "sitePage.join.mobile":
-    "Builders Bot yüklüyse {open} öğesine dokunun. Bu bağlantıyı uygulamadaki Sunucu ekle bölümüne de yapıştırabilirsiniz.",
   "sitePage.join.singleUse":
     "Tek kullanımlık bağlantı bir kez çalışır ve sonra süresi dolar. Kalıcı bağlantı, sahibi iptal edene kadar çalışır. Builders Bot, katılmadan önce son kullanma tarihini gösterir.",
   "sitePage.join.email": "Davet e-postayla geldiyse Builders Bot'ta o e-posta adresiyle oturum açın.",
@@ -29,7 +27,8 @@ export const messages = {
   "sitePage.connect.openApp": "Builders Bot'u aç",
   "sitePage.connect.tryAgainApp": "Builders Bot'ta tekrar dene",
   "sitePage.connect.tryAgainBrowser": "Tarayıcıda tekrar dene",
-  "sitePage.connect.doneInWebClient": "Builders Bot sekmeniz {name} bağlantısını tamamlar. Bu sekmeyi kapatabilirsiniz.",
+  "sitePage.connect.doneInWebClient":
+    "Builders Bot sekmeniz {name} bağlantısını tamamlar. Bu sekmeyi kapatabilirsiniz.",
   "sitePage.connect.doneInApp": "Builders Bot, {name} bağlantısını bilgisayarınızda tamamlar.",
   "sitePage.connect.failure.cancelled": "{name} bağlantısı iptal edildi. Hiçbir şey değişmedi.",
   "sitePage.connect.failure.expired": "{name} oturum açma süresi doldu. Bağlantıyı yeniden başlatın.",
@@ -39,7 +38,8 @@ export const messages = {
     "Başka bir Builders Bot sunucusu bu Slack çalışma alanında zaten yanıt veriyor. O sunucuda bağlantısını kesin, sonra tekrar deneyin.",
   "sitePage.connect.failure.takenDiscord":
     "Başka bir Builders Bot sunucusu bu Discord sunucusunda zaten yanıt veriyor. O sunucuda bağlantısını kesin, sonra tekrar deneyin.",
-  "sitePage.connect.failure.unavailable": "Builders Bot şu anda {name} ile bağlantı kuramıyor. Daha sonra tekrar deneyin.",
+  "sitePage.connect.failure.unavailable":
+    "Builders Bot şu anda {name} ile bağlantı kuramıyor. Daha sonra tekrar deneyin.",
   "sitePage.connect.failure.tabClosed":
     "{name} bağlantısını başlatan Builders Bot sekmesi yanıt vermedi. Builders Bot'u tarayıcınızda açın ve {name} bağlantısını yeniden kurun.",
   "sitePage.connect.failure.failed": "{name} bağlantıyı tamamlamadı. Tekrar deneyin.",

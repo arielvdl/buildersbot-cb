@@ -184,6 +184,7 @@ function SettingsModalStory(props: {
             }}
             onGetRemoteNetworkRoute={mock.api.getRemoteNetworkRoute}
             onSetRemoteNetworkRoute={(route) => mock.api.setRemoteNetworkRoute({ route })}
+            onGetMobileWebAppUrl={mock.api.auth.getMobileWebAppUrl}
             onUpdateAction={runUpdateAction}
             billingApi={billingApi}
             hostedServersApi={props.hostedServers ? hostedServersApi : undefined}

@@ -1,5 +1,5 @@
 import { AppLogo, type MobilePlatformLogoVariant, PlatformLogo } from "@openbot/brand";
-import type { AppTextKey } from "@openbot/i18n";
+import { mobileWebAppAddress } from "@openbot/contracts/mobile-connect";
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,14 +8,14 @@ import {
   CircleCheck,
   CopyButton,
   Dialog,
-  Download,
   Eye,
   EyeOff,
+  Globe2,
   IconButton,
   Link2,
   Lock,
+  LogIn,
   QrCode,
-  Scan,
   ShieldCheck,
   SlidingTabs,
   Text,
@@ -24,8 +24,7 @@ import {
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
 import { useText } from "../../text";
-import { ANDROID_PLAY_STORE_URL } from "../mobile-app/android-play-store";
-import { IOS_APP_STORE_URL } from "../mobile-app/ios-app-store";
+import { MOBILE_WEB_APP_PLATFORMS } from "../mobile-app/mobile-web-app";
 import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
 
 type Store = SettingsMobileConnectStore;
@@ -36,46 +35,17 @@ const CONNECTED_CLOSE_MS = 1_400;
 /** The permanent code hides itself after this, so it does not stay on the screen. */
 const LINK_VISIBLE_SECONDS = 60;
 
-interface PhoneApp {
-  platform: MobilePlatformLogoVariant;
-  label: string;
-  url: string;
-  qrLabel: AppTextKey;
-  tag: AppTextKey;
-}
-
-/** The store page of each phone app. Its QR code opens the store on the phone. */
-const PHONE_APPS: readonly PhoneApp[] = [
-  {
-    platform: "ios",
-    label: "iPhone",
-    url: IOS_APP_STORE_URL,
-    qrLabel: "settings.mobileConnect.iosApp.qrLabel",
-    tag: "settings.mobileConnect.qr.appStore",
-  },
-  {
-    platform: "android",
-    label: "Android",
-    url: ANDROID_PLAY_STORE_URL,
-    qrLabel: "settings.mobileConnect.androidApp.qrLabel",
-    tag: "settings.mobileConnect.qr.playStore",
-  },
-];
-
 function countdown(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 /** The tag under each code: what the code does, in words and with an icon. */
-function QrTag(props: { kind: "store" | "signin" | "permanent" | "success" | "idle"; children: JSX.Element }) {
+function QrTag(props: { kind: "web" | "permanent" | "success" | "idle"; children: JSX.Element }) {
   return (
     <span class="settings-mobile-qr-tag" data-kind={props.kind}>
       <Switch>
-        <Match when={props.kind === "store"}>
-          <Download aria-hidden="true" />
-        </Match>
-        <Match when={props.kind === "signin"}>
-          <Scan aria-hidden="true" />
+        <Match when={props.kind === "web"}>
+          <Globe2 aria-hidden="true" />
         </Match>
         <Match when={props.kind === "permanent"}>
           <Lock aria-hidden="true" />
@@ -164,49 +134,30 @@ function createConnectedClose(source: () => { name: string; value: string } | nu
 type AddScreen = "ask" | "install" | "signin";
 
 /**
- * Adds a phone in steps, with one code per step: the store code to get the app, or the one-time
- * sign-in code. Closing the dialog cancels a code that no phone used.
+ * Adds a phone in steps. A phone uses the web app: the QR code opens its address in the browser of
+ * the phone, the steps add it to the Home Screen, and the person signs in there with the email of
+ * this account. No step offers a phone app from a store.
  */
 export function MobileConnectAddPhoneDialog(props: {
   open: boolean;
   store: Store;
-  canCancelTicket: boolean;
+  /** The email of this account, which the phone signs in with. */
+  accountEmail: string;
   onClose: () => void;
 }) {
   const { t } = useText();
   const [screen, setScreen] = createSignal<AddScreen>("ask");
   const [platform, setPlatform] = createSignal<MobilePlatformLogoVariant>("ios");
-  const session = () => props.store.state.connect.session;
-  const live = () => {
-    const current = session();
-    return Boolean(current && !current.collapsing && !current.successDeviceName && !props.store.expired());
-  };
-  // A code that no phone used is cancelled when its screen closes, also when it arrives after that.
-  createEffect(
-    () => !(props.open && screen() === "signin") && live() && !props.store.state.connect.busy && props.canCancelTicket,
-    (cancel) => {
-      if (cancel) void props.store.cancelTicket();
-    },
-  );
   const close = () => {
     setScreen("ask");
-    setConnected(null);
     props.onClose();
   };
-  const [connected, setConnected] = createConnectedClose(() => {
-    const current = session();
-    return props.open && current?.successDeviceName
-      ? { name: current.successDeviceName, value: current.ticket.qrData }
-      : null;
-  }, close);
-  const toSignIn = () => {
-    setScreen("signin");
-    if (!live()) void props.store.createTicket();
-  };
+  const toSignIn = () => setScreen("signin");
   const back = () => setScreen("ask");
-  const app = () => PHONE_APPS.find((candidate) => candidate.platform === platform()) ?? PHONE_APPS[0];
+  const phone = () =>
+    MOBILE_WEB_APP_PLATFORMS.find((candidate) => candidate.platform === platform()) ?? MOBILE_WEB_APP_PLATFORMS[0];
   const title = () => {
-    if (screen() === "install") return t("settings.mobileConnect.add.install.heading");
+    if (screen() === "install") return t("settings.mobileConnect.add.webApp.heading");
     if (screen() === "signin") return t("settings.mobileConnect.signIn.title");
     return t("settings.mobileConnect.add.title");
   };
@@ -219,14 +170,16 @@ export function MobileConnectAddPhoneDialog(props: {
             <Switch>
               <Match when={current === "ask"}>
                 <Text variant="body-sm" tone="secondary">
-                  {t("settings.mobileConnect.add.question")}
+                  {t("settings.mobileConnect.add.webApp.question")}
                 </Text>
                 <div class="settings-mobile-choices">
                   <Button type="button" variant="outline" class="settings-mobile-choice" onClick={toSignIn}>
-                    <Scan aria-hidden="true" />
+                    <LogIn aria-hidden="true" />
                     <span class="settings-mobile-choice-text">
                       <span class="settings-mobile-choice-title">{t("settings.mobileConnect.add.signIn.title")}</span>
-                      <span class="settings-mobile-choice-hint">{t("settings.mobileConnect.add.signIn.hint")}</span>
+                      <span class="settings-mobile-choice-hint">
+                        {t("settings.mobileConnect.add.signIn.emailHint")}
+                      </span>
                     </span>
                   </Button>
                   <Button
@@ -235,9 +188,9 @@ export function MobileConnectAddPhoneDialog(props: {
                     class="settings-mobile-choice"
                     onClick={() => setScreen("install")}
                   >
-                    <Download aria-hidden="true" />
+                    <Globe2 aria-hidden="true" />
                     <span class="settings-mobile-choice-text">
-                      <span class="settings-mobile-choice-title">{t("settings.mobileConnect.add.install.title")}</span>
+                      <span class="settings-mobile-choice-title">{t("settings.mobileConnect.add.webApp.title")}</span>
                       <span class="settings-mobile-choice-hint">{t("settings.mobileConnect.add.install.hint")}</span>
                     </span>
                   </Button>
@@ -251,32 +204,34 @@ export function MobileConnectAddPhoneDialog(props: {
                   }}
                 >
                   <SlidingTabs.List aria-label={t("settings.mobileConnect.install.platformLabel")}>
-                    <For each={PHONE_APPS}>
-                      {(phone) => (
-                        <SlidingTabs.Trigger class="settings-mobile-app-tab" value={phone.platform}>
-                          <PlatformLogo platform={phone.platform} />
-                          {phone.label}
+                    <For each={MOBILE_WEB_APP_PLATFORMS}>
+                      {(candidate) => (
+                        <SlidingTabs.Trigger class="settings-mobile-app-tab" value={candidate.platform}>
+                          <PlatformLogo platform={candidate.platform} />
+                          {candidate.label}
                         </SlidingTabs.Trigger>
                       )}
                     </For>
                   </SlidingTabs.List>
                 </SlidingTabs.Root>
-                <Show when={app()} keyed>
-                  {(phone) => (
-                    <div class="settings-mobile-qr">
-                      <QrCode class="settings-mobile-qr-code" value={phone.url} size={QR_SIZE} label={t(phone.qrLabel)}>
-                        <PlatformLogo platform={phone.platform} class="settings-mobile-app-qr-platform" />
-                      </QrCode>
-                      <QrTag kind="store">{t(phone.tag)}</QrTag>
-                    </div>
+                <WebAppCode store={props.store} />
+                <Show when={phone()} keyed>
+                  {(current) => (
+                    <ol class="settings-mobile-steps">
+                      <For each={current.steps}>{(step) => <li>{t(step)}</li>}</For>
+                    </ol>
                   )}
                 </Show>
                 <Text variant="caption" tone="muted" class="settings-mobile-dialog-note">
-                  {t("settings.mobileConnect.add.install.note")}
+                  {t("settings.mobileConnect.webApp.note")}
                 </Text>
               </Match>
               <Match when={current === "signin"}>
-                <SignInCode store={props.store} connected={connected()} live={live()} />
+                <ol class="settings-mobile-steps">
+                  <li>{t("settings.mobileConnect.webApp.signIn.open")}</li>
+                  <li>{t("settings.mobileConnect.webApp.signIn.email", { email: props.accountEmail })}</li>
+                  <li>{t("settings.mobileConnect.webApp.signIn.code")}</li>
+                </ol>
               </Match>
             </Switch>
           </div>
@@ -295,16 +250,9 @@ export function MobileConnectAddPhoneDialog(props: {
                 <ArrowRight aria-hidden="true" />
               </Button>
             </Match>
-            <Match when={screen() === "signin" && live()}>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive-ghost"
-                loading={props.store.state.connect.cancelling}
-                disabled={!props.canCancelTicket || props.store.state.connect.busy}
-                onClick={() => void props.store.cancelTicket()}
-              >
-                {t("settings.mobileConnect.code.cancel")}
+            <Match when={screen() === "signin"}>
+              <Button type="button" onClick={close}>
+                {t("common.done")}
               </Button>
             </Match>
           </Switch>
@@ -314,81 +262,45 @@ export function MobileConnectAddPhoneDialog(props: {
   );
 }
 
-/** The one-time code with its countdown, the phone that it connected, or a way to get a new code. */
-function SignInCode(props: { store: Store; connected: { name: string; value: string } | null; live: boolean }) {
+/**
+ * The QR code of the web app address, made on this computer. The address comes from main, which
+ * checked it; the same check runs again in the preload. A missing address shows why, not a code.
+ */
+function WebAppCode(props: { store: Store }) {
   const { t } = useText();
+  const webApp = () => props.store.state.webApp;
   return (
-    <>
-      <Switch
-        fallback={
-          <CodeSlot>
-            <Show
-              when={!props.store.state.connect.busy}
-              fallback={
-                <Text variant="caption" tone="muted" role="status">
-                  {t("settings.mobileConnect.generating")}
-                </Text>
-              }
-            >
-              <Text variant="caption" tone="muted">
-                {props.store.expired()
-                  ? t("settings.mobileConnect.code.expired")
-                  : t("settings.mobileConnect.code.none")}
-              </Text>
-              <Button size="xs" variant="outline" type="button" onClick={() => void props.store.createTicket()}>
-                {t("settings.mobileConnect.code.new")}
-              </Button>
-            </Show>
-          </CodeSlot>
-        }
-      >
-        <Match when={props.connected}>
-          {(connected) => (
-            <div aria-live="polite">
-              <CodeStage
-                value={connected().value}
-                label={t("settings.mobileConnect.qrLabel")}
-                connected
-                tag={
-                  <span role="status">
-                    <QrTag kind="success">{t("settings.mobileConnect.qr.connected", { name: connected().name })}</QrTag>
-                  </span>
-                }
-              />
-            </div>
-          )}
-        </Match>
-        <Match when={props.live && props.store.state.connect.session}>
-          {(session) => (
-            <>
-              <CodeStage
-                value={session().ticket.qrData}
-                label={t("settings.mobileConnect.qrLabel")}
-                connected={false}
-                tag={
-                  <QrTag kind="signin">
-                    {t("settings.mobileConnect.qr.signIn")}
-                    <span class="settings-mobile-qr-tag-time">{props.store.expiryLabel()}</span>
-                  </QrTag>
-                }
-              />
-              <ol class="settings-mobile-steps">
-                <li>{t("settings.mobileConnect.step.open")}</li>
-                <li>{t("settings.mobileConnect.step.scan")}</li>
-                <li>{t("settings.mobileConnect.step.point")}</li>
-              </ol>
-            </>
-          )}
-        </Match>
-      </Switch>
-      <Show when={props.store.state.connect.error}>
-        {(error) => (
-          <Text class="settings-modal-error" variant="caption" role="alert">
-            {error()}
+    <Show
+      when={webApp().url}
+      fallback={
+        <CodeSlot>
+          <Text variant="caption" tone="muted" role={webApp().error ? "alert" : "status"}>
+            {webApp().error ?? t("common.loading")}
           </Text>
-        )}
-      </Show>
-    </>
+        </CodeSlot>
+      }
+    >
+      {(url) => (
+        <div class="settings-mobile-qr">
+          <QrCode
+            class="settings-mobile-qr-code"
+            value={url()}
+            size={QR_SIZE}
+            label={t("settings.mobileConnect.webApp.qrLabel")}
+          >
+            <AppLogo variant="production" class="settings-mobile-app-qr-logo" />
+          </QrCode>
+          <QrTag kind="web">{t("settings.mobileConnect.qr.webApp", { address: mobileWebAppAddress(url()) })}</QrTag>
+          <CopyButton
+            variant="ghost"
+            size="xs"
+            value={url()}
+            label={t("settings.mobileConnect.app.copyLink")}
+            copiedLabel={t("settings.mobileConnect.app.linkCopied")}
+          />
+        </div>
+      )}
+    </Show>
   );
 }
 

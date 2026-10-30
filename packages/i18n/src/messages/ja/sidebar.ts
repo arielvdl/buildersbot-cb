@@ -119,7 +119,7 @@ export const messages = {
   "sidebar.announce.personFallback": "ユーザー",
   "sidebar.announce.chatFallback": "チャット",
   "sidebar.mobileApp.title": "モバイル版 Builders Bot",
-  "sidebar.mobileApp.body": "iPhone と Android でアプリを利用できます。",
+  "sidebar.mobileApp.webAppBody": "スマートフォンのブラウザから Web アプリをインストールできます（iPhone・Android）。",
   "sidebar.mobileApp.howToInstall": "インストール方法",
   "sidebar.mobileApp.dismiss": "モバイルアプリのお知らせを閉じる",
   "sidebar.storage.lowTitle": "ストレージがほぼいっぱいです",

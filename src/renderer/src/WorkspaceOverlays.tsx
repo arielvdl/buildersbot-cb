@@ -854,6 +854,7 @@ function AppSettings(props: AccountProps) {
         onRevokeMobileConnectedDevice={auth.revokeMobileConnectedDevice}
         onGetRemoteNetworkRoute={() => settingsPort().getRemoteNetworkRoute()}
         onSetRemoteNetworkRoute={(route) => settingsPort().setRemoteNetworkRoute({ route })}
+        onGetMobileWebAppUrl={auth.getMobileWebAppUrl}
         onListAccountSessions={auth.listAccountSessions}
         onRevokeAccountSession={auth.revokeAccountSession}
         onSignOut={platform.landingPreview ? undefined : auth.logoutCentralAccount}

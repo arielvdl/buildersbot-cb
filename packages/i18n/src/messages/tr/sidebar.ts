@@ -118,7 +118,7 @@ export const messages = {
   "sidebar.announce.personFallback": "kişi",
   "sidebar.announce.chatFallback": "sohbet",
   "sidebar.mobileApp.title": "Mobil için Builders Bot",
-  "sidebar.mobileApp.body": "Uygulama artık iPhone ve Android'de.",
+  "sidebar.mobileApp.webAppBody": "Web uygulamasını telefonun tarayıcısından yükleyin; iPhone veya Android'de.",
   "sidebar.mobileApp.howToInstall": "Nasıl yüklenir",
   "sidebar.mobileApp.dismiss": "Mobil uygulama duyurusunu kapat",
   "sidebar.storage.lowTitle": "Depolama neredeyse dolu",

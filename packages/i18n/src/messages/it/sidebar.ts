@@ -122,7 +122,7 @@ export const messages = {
   "sidebar.announce.personFallback": "persona",
   "sidebar.announce.chatFallback": "chat",
   "sidebar.mobileApp.title": "Builders Bot per dispositivi mobili",
-  "sidebar.mobileApp.body": "L'app è ora disponibile su iPhone e Android.",
+  "sidebar.mobileApp.webAppBody": "Installa l'app web dal browser del telefono, su iPhone o Android.",
   "sidebar.mobileApp.howToInstall": "Come installarla",
   "sidebar.mobileApp.dismiss": "Chiudi l'annuncio dell'app mobile",
   "sidebar.storage.lowTitle": "Spazio quasi esaurito",

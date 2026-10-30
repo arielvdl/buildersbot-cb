@@ -1,12 +1,13 @@
-// The /download pages: one per operating system and phone app, and a hub that lists them. Each
-// statement here comes from the release configuration, README.md or docs/TROUBLESHOOTING.md, and for
-// the phone apps from the native module minimums, the Mobile Connect settings and the mobile changelog. Keep it to what the
-// released app does, because these pages are what a search engine shows for "OpenBot for Linux".
+// The /download pages: one per operating system and phone, and a hub that lists them. Each statement
+// here comes from the release configuration, README.md or docs/TROUBLESHOOTING.md, and for the phones
+// from the web client (docs/web-client.md): a phone installs it from its browser, never from a store.
+// Keep it to what the released app does, because these pages are what a search engine shows for
+// "OpenBot for Linux".
 
 import { DOWNLOAD_PLATFORM_ORDER, type DownloadPlatform } from "./download-platforms";
 import { LANDING_FAQ, type LandingQuestion } from "./landing-faq";
 import { OPENBOT_ALTERNATE_DOWNLOAD_LINKS, OPENBOT_DOWNLOAD_LINKS, OPENBOT_DOWNLOAD_PAGE_LINKS } from "./landing-links";
-import { MOBILE_APP_ORDER, MOBILE_APPS, type MobilePlatform } from "./mobile-apps";
+import { MOBILE_APP_ORDER, type MobilePlatform } from "./mobile-apps";
 import {
   OPENBOT_SITE_URL,
   OPENBOT_SOCIAL_IMAGE_ALT,
@@ -17,7 +18,7 @@ import {
 import { OPENBOT_SOFTWARE_APPLICATION } from "./software-application";
 
 /** The sitemap date of the pages. Change it when their text changes. */
-export const DOWNLOAD_PAGES_UPDATED_AT = "2026-10-15";
+export const DOWNLOAD_PAGES_UPDATED_AT = "2026-10-30";
 
 /** A system with its own page: a desktop installer or a phone app. */
 export type DownloadPagePlatform = DownloadPlatform | MobilePlatform;
@@ -86,22 +87,27 @@ const UPDATES_SPEC: DownloadSpec = { label: "Updates", value: "Automatic" };
 const COMPUTER_STEP: DownloadStep = {
   text: "Install OpenBot on the Mac, Windows or Linux computer that runs your agents, and sign in to your OpenBot account.",
 };
-const GENERATE_CODE_STEP: DownloadStep = {
-  text: "On the computer, open Settings, then Mobile Connect, and select Generate QR code. The code expires after two minutes and works for one sign-in.",
+// A phone uses the web client at `/app`, installed from its browser. There is no phone app to get
+// from a store.
+const WEB_APP_PATH = "/app";
+const WEB_APP_ADDRESS = `${new URL(OPENBOT_SITE_URL).host}${WEB_APP_PATH}`;
+const PHONE_SIGN_IN_STEP: DownloadStep = {
+  text: "Open OpenBot from its new icon, enter the email of your OpenBot account and type the code from the email.",
 };
+const WEB_APP_UPDATES_SPEC: DownloadSpec = { label: "Updates", value: "When the app opens again" };
 const PHONE_NOTES = [
   "Your chats and files stay on the computer that runs your agents. The phone connects to it over an encrypted connection, directly between your devices when it can, and no cloud stores your chats or files.",
   "You set up no VPN or tunnel. Remote access needs an OpenBot account.",
   "The computer must be on and running OpenBot for the phone to reach your agents.",
-  "To remove a phone, open Settings, then Mobile Connect, on the computer and disconnect it. Its access stops at once.",
+  "To remove a phone, sign out in the web app, or end its session in Settings, then Profile, then Account sessions, on the computer.",
 ];
 const PHONE_COMPUTER_QUESTION: LandingQuestion = {
-  question: "Do I need a computer to use the mobile app?",
+  question: "Do I need a computer to use OpenBot on my phone?",
   answer:
-    "Yes. The app controls the agents that run in OpenBot on your Mac, Windows or Linux computer, or on a server that runs OpenBot. Your chats and files stay there.",
+    "Yes. The web app controls the agents that run in OpenBot on your Mac, Windows or Linux computer, or on a server that runs OpenBot. Your chats and files stay there.",
 };
 const PHONE_FREE_ANSWER =
-  "Yes. The app costs $0. You pay only your AI provider, through the plan or API key you already have.";
+  "Yes. The web app costs $0. You pay only your AI provider, through the plan or API key you already have.";
 
 function providersQuestion(system: string): LandingQuestion {
   return {
@@ -282,7 +288,7 @@ export const DOWNLOAD_PAGES: Record<DownloadPagePlatform, DownloadPageContent> =
             text: "On Ubuntu 24.04 or 26.04 with systemd, install OpenBot as an always-on server of your account, then sign in with an email code:",
             code: "curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash\nsudo openbot login",
           },
-          { text: "Then use it from the desktop app, the mobile app or openbot.run/app." },
+          { text: `Then use it from the desktop app, or from ${WEB_APP_ADDRESS} in a browser or on a phone.` },
         ],
       },
     ],
@@ -313,75 +319,76 @@ export const DOWNLOAD_PAGES: Record<DownloadPagePlatform, DownloadPageContent> =
   ios: {
     platform: "ios",
     name: "iPhone",
-    title: "Download OpenBot for iPhone: your AI agents on your phone",
+    title: "OpenBot on iPhone: install the web app from Safari",
     description:
-      "Get OpenBot for iPhone on the App Store. Chat with the AI agents on your computer, follow their work and send files from anywhere.",
-    heading: "OpenBot for iPhone",
+      "Add the OpenBot web app to the Home Screen of your iPhone from Safari. Chat with the AI agents on your computer, follow their work and send files from anywhere.",
+    heading: "OpenBot on iPhone",
     intro:
-      "Chat with the agents on your computer from anywhere, follow their progress and send them files. Get the app on the App Store.",
+      "Chat with the agents on your computer from anywhere, follow their progress and send them files. The web app installs from Safari and opens from the Home Screen.",
     installers: [
       {
-        label: "Download on the App Store",
-        shortLabel: "App Store",
-        detail: "For an iPhone with iOS 16.4 or later",
-        href: MOBILE_APPS.ios.href,
-        external: true,
+        label: "Open the web app",
+        shortLabel: "Web app",
+        detail: "Open it in Safari on the iPhone",
+        href: WEB_APP_PATH,
       },
     ],
     specs: [
-      { label: "System", value: "iOS 16.4 or later" },
-      { label: "Store", value: "App Store" },
+      { label: "System", value: "iOS 16.4 or later, for notifications" },
+      { label: "Install", value: "Safari, Share, Add to Home Screen" },
       { label: "Needs", value: "OpenBot on a computer" },
-      { label: "Updates", value: "Through the App Store" },
+      WEB_APP_UPDATES_SPEC,
     ],
     installSteps: [
       COMPUTER_STEP,
-      { text: "On your iPhone, install OpenBot from the App Store." },
-      GENERATE_CODE_STEP,
-      { text: "Open OpenBot on your iPhone, choose Scan QR code and point the camera at the code." },
+      { text: `On your iPhone, open ${WEB_APP_ADDRESS} in Safari.` },
+      { text: "Tap Share, then Add to Home Screen, then Add." },
+      PHONE_SIGN_IN_STEP,
     ],
     extraSections: [],
-    notes: PHONE_NOTES,
-    faq: [{ question: "Is OpenBot for iPhone free?", answer: PHONE_FREE_ANSWER }, PHONE_COMPUTER_QUESTION],
+    notes: [
+      ...PHONE_NOTES,
+      "Notifications need iOS 16.4 or later and the app on the Home Screen. Turn them on in Settings in the web app.",
+    ],
+    faq: [{ question: "Is OpenBot on iPhone free?", answer: PHONE_FREE_ANSWER }, PHONE_COMPUTER_QUESTION],
     operatingSystem: "iOS 16.4 or later",
   },
   android: {
     platform: "android",
     name: "Android",
-    title: "Download OpenBot for Android: your AI agents on your phone",
+    title: "OpenBot on Android: install the web app from Chrome",
     description:
-      "Get OpenBot for Android on Google Play. Chat with the AI agents on your computer, follow their work and send files from anywhere.",
-    heading: "OpenBot for Android",
+      "Install the OpenBot web app on your Android phone from Chrome. Chat with the AI agents on your computer, follow their work and send files from anywhere.",
+    heading: "OpenBot on Android",
     intro:
-      "Chat with the agents on your computer from anywhere, follow their progress and send them files. Get the app on Google Play.",
+      "Chat with the agents on your computer from anywhere, follow their progress and send them files. The web app installs from Chrome and opens from the Home screen.",
     installers: [
       {
-        label: "Get it on Google Play",
-        shortLabel: "Google Play",
-        detail: "For a phone with Android 7.0 or later",
-        href: MOBILE_APPS.android.href,
-        external: true,
+        label: "Open the web app",
+        shortLabel: "Web app",
+        detail: "Open it in Chrome on the phone",
+        href: WEB_APP_PATH,
       },
     ],
     specs: [
-      { label: "System", value: "Android 7.0 or later" },
-      { label: "Store", value: "Google Play" },
+      { label: "Browser", value: "A current version of Chrome" },
+      { label: "Install", value: "Chrome menu, Install app" },
       { label: "Needs", value: "OpenBot on a computer" },
-      { label: "Updates", value: "Through Google Play" },
+      WEB_APP_UPDATES_SPEC,
     ],
     installSteps: [
       COMPUTER_STEP,
-      { text: "On your phone, install OpenBot from Google Play." },
-      GENERATE_CODE_STEP,
-      { text: "Open OpenBot on your phone, choose Scan QR code and point the camera at the code." },
+      { text: `On your phone, open ${WEB_APP_ADDRESS} in Chrome.` },
+      { text: "Open the Chrome menu, then tap Install app. Some versions show Add to Home screen." },
+      PHONE_SIGN_IN_STEP,
     ],
     extraSections: [],
     notes: [
       ...PHONE_NOTES,
-      "The app does not ask for access to all your photos and videos. You choose photos and files with the system picker.",
+      "To get notifications, turn them on in Settings in the web app and allow them when Chrome asks.",
     ],
-    faq: [{ question: "Is OpenBot for Android free?", answer: PHONE_FREE_ANSWER }, PHONE_COMPUTER_QUESTION],
-    operatingSystem: "Android 7.0 or later",
+    faq: [{ question: "Is OpenBot on Android free?", answer: PHONE_FREE_ANSWER }, PHONE_COMPUTER_QUESTION],
+    operatingSystem: "Android",
   },
 };
 
@@ -391,7 +398,7 @@ export const DOWNLOAD_HUB = {
     "Download OpenBot, the free app that runs AI agents as a team on your computer. For macOS 13 or later, Windows 10 or later, and Linux on x64 or arm64.",
   heading: "Download OpenBot",
   intro:
-    "Free for Mac, Windows and Linux, with apps for iPhone and Android. Get the installer for this computer, or choose a system below for its requirements and install steps.",
+    "Free for Mac, Windows and Linux, with a web app for iPhone and Android. Get the installer for this computer, or choose a system below for its requirements and install steps.",
 } as const;
 
 export function downloadPagePath(platform: DownloadPagePlatform | "hub"): string {

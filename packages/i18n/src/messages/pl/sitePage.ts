@@ -18,8 +18,6 @@ export const messages = {
   "sitePage.join.download": "Pobierz Builders Bot",
   "sitePage.join.notOpened":
     "Jeśli Builders Bot się nie otworzył, zainstaluj go przyciskiem {download} albo uruchom Builders Bot raz, aby mógł otwierać linki z zaproszeniami. Możesz też użyć przycisku {browser}.",
-  "sitePage.join.mobile":
-    "Jeśli Builders Bot jest zainstalowany, stuknij {open}. Możesz też wkleić ten link w Dodaj serwer w aplikacji.",
   "sitePage.join.singleUse":
     "Link jednorazowy działa raz, a potem wygasa. Link stały działa, dopóki właściciel go nie unieważni. Builders Bot pokazuje datę wygaśnięcia, zanim dołączysz.",
   "sitePage.join.email": "Jeśli zaproszenie przyszło e-mailem, zaloguj się do Builders Bot tym adresem e-mail.",
@@ -43,7 +41,8 @@ export const messages = {
   "sitePage.connect.failure.tabClosed":
     "Karta Builders Bot, która rozpoczęła połączenie z {name}, nie odpowiedziała. Otwórz Builders Bot w przeglądarce i ponownie połącz {name}.",
   "sitePage.connect.failure.failed": "{name} nie zakończył połączenia. Spróbuj ponownie.",
-  "sitePage.connect.restartHint": "W Builders Bot otwórz {marketplace}, potem {apps}, potem {name} i wybierz {connect}.",
+  "sitePage.connect.restartHint":
+    "W Builders Bot otwórz {marketplace}, potem {apps}, potem {name} i wybierz {connect}.",
   "sitePage.connect.notOpened":
     "Uruchom Builders Bot, a potem spróbuj ponownie. Jeśli Builders Bot nie jest zainstalowany na tym komputerze, pobierz go i połącz {name} w aplikacji.",
   "sitePage.openApp.title": "Nic się nie otworzyło?",

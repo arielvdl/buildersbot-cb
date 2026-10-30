@@ -122,7 +122,7 @@ export const messages = {
   "sidebar.announce.personFallback": "persoon",
   "sidebar.announce.chatFallback": "chat",
   "sidebar.mobileApp.title": "Builders Bot voor mobiel",
-  "sidebar.mobileApp.body": "De app is nu beschikbaar voor iPhone en Android.",
+  "sidebar.mobileApp.webAppBody": "Installeer de web-app vanuit de browser van je telefoon, op iPhone of Android.",
   "sidebar.mobileApp.howToInstall": "Zo installeer je hem",
   "sidebar.mobileApp.dismiss": "Aankondiging van mobiele app sluiten",
   "sidebar.storage.lowTitle": "Opslag bijna vol",

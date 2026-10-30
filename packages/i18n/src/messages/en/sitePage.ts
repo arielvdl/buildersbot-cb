@@ -24,9 +24,9 @@ export const messages = defineMessages("sitePage", {
   // {download} and {browser} are the labels of the two buttons above this note.
   "sitePage.join.notOpened":
     "If Builders Bot did not open, install it with {download}, or start Builders Bot once so that it can open invitation links. You can also use {browser}.",
-  // {open} is the label of the button above this note.
-  "sitePage.join.mobile":
-    "If Builders Bot is installed, tap {open}. You can also paste this link into Add server in the app.",
+  // {browser} is the label of the button above this note. A phone uses the web app, not a store app.
+  "sitePage.join.webApp":
+    "On a phone, tap {browser} to join in the web app. If Builders Bot is on the Home Screen, you can also paste this link into Add server there.",
   "sitePage.join.singleUse":
     "A single-use link works one time and then expires. A permanent link works until the owner revokes it. Builders Bot shows the expiry before you join.",
   "sitePage.join.email": "If the invitation came by email, sign in to Builders Bot with that email address.",
@@ -52,7 +52,8 @@ export const messages = defineMessages("sitePage", {
     "The Builders Bot tab that started the {name} connection did not answer. Open Builders Bot in your browser and connect {name} again.",
   "sitePage.connect.failure.failed": "{name} did not finish the connection. Try again.",
   // {marketplace}, {apps} and {connect} are the names of these screens and that button in the app.
-  "sitePage.connect.restartHint": "In Builders Bot, open {marketplace}, then {apps}, then {name}, and select {connect}.",
+  "sitePage.connect.restartHint":
+    "In Builders Bot, open {marketplace}, then {apps}, then {name}, and select {connect}.",
   "sitePage.connect.notOpened":
     "Start Builders Bot, then try again. If Builders Bot is not on this computer, download it and connect {name} from the app.",
   "sitePage.openApp.title": "Nothing opened?",

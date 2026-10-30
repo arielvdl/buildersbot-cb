@@ -18,7 +18,6 @@ export const messages = {
   "sitePage.join.notOpened":
     "如果 Builders Bot 没有打开，请通过“{download}”安装，或先启动一次 Builders Bot，使它能打开邀请链接。你也可以使用“{browser}”。",
   // {open} is the label of the button above this note.
-  "sitePage.join.mobile": "如果已安装 Builders Bot，请点按“{open}”。你也可以把该链接粘贴到应用的“添加服务器”中。",
   "sitePage.join.singleUse":
     "一次性链接只能使用一次，之后即失效。永久链接在所有者撤销之前一直有效。加入前，Builders Bot 会显示有效期。",
   "sitePage.join.email": "如果邀请是通过电子邮件发来的，请用该邮箱地址登录 Builders Bot。",
@@ -46,7 +45,8 @@ export const messages = {
   // {marketplace}, {apps} and {connect} are the names of these screens and that button in the app.
   "sitePage.connect.restartHint":
     "在 Builders Bot 中打开“{marketplace}”，再打开“{apps}”，然后打开“{name}”并选择“{connect}”。",
-  "sitePage.connect.notOpened": "请启动 Builders Bot，然后重试。如果这台电脑上没有 Builders Bot，请下载并在应用中连接 {name}。",
+  "sitePage.connect.notOpened":
+    "请启动 Builders Bot，然后重试。如果这台电脑上没有 Builders Bot，请下载并在应用中连接 {name}。",
   "sitePage.openApp.title": "没有打开？",
   "sitePage.openApp.dismiss": "暂不",
   "sitePage.billing.pageTitle": "Builders Bot 账单",

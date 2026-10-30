@@ -21,7 +21,6 @@ import {
   OPENBOT_DOWNLOAD_PAGE_LINKS,
   OPENBOT_LINKS,
 } from "./landing-links";
-import { MOBILE_APPS } from "./mobile-apps";
 import { PRIVACY_POLICY_ROUTE } from "./privacy-policy";
 import { TEAMS_ROUTE } from "./teams-page";
 import { TERMS_ROUTE } from "./terms";
@@ -94,7 +93,10 @@ const LANDING_PLACEMENTS = [
   "content_related",
   "other",
 ] as const satisfies readonly LandingPlacement[];
-/** The platforms the landing page can send a visitor to a download or a phone app store for. */
+/**
+ * The platforms the landing page can offer: a desktop download, or the web app page of a phone. A
+ * phone card opens a page of this site, so its click counts as a download page link.
+ */
 type LandingDownloadPlatform = "linux" | "macos" | "windows" | "ios" | "android";
 type LandingDestination =
   | "download_page"
@@ -211,8 +213,6 @@ const DOWNLOAD_PLATFORMS_BY_HREF = new Map<string, LandingDownloadPlatform>([
   [OPENBOT_DOWNLOAD_LINKS.linux, "linux"],
   [OPENBOT_ALTERNATE_DOWNLOAD_LINKS.macos, "macos"],
   [OPENBOT_ALTERNATE_DOWNLOAD_LINKS.linux, "linux"],
-  [MOBILE_APPS.ios.href, "ios"],
-  [MOBILE_APPS.android.href, "android"],
 ]);
 
 const LINK_DESTINATIONS = new Map<string, LandingDestination>([

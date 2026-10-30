@@ -17,8 +17,6 @@ export const messages = {
   "sitePage.join.download": "Builders Bot 다운로드",
   "sitePage.join.notOpened":
     "Builders Bot이 열리지 않았다면 {download}에서 설치하거나, 초대 링크를 열 수 있도록 Builders Bot을 한 번 실행해 주세요. {browser}도 사용할 수 있어요.",
-  "sitePage.join.mobile":
-    "Builders Bot이 설치되어 있다면 {open}을(를) 탭해 주세요. 앱의 서버 추가에 이 링크를 붙여넣을 수도 있어요.",
   "sitePage.join.singleUse":
     "일회용 링크는 한 번만 사용할 수 있고 이후 만료돼요. 영구 링크는 소유자가 취소할 때까지 사용할 수 있어요. 참여하기 전에 Builders Bot에서 만료 시간을 보여줘요.",
   "sitePage.join.email": "초대를 이메일로 받았다면 해당 이메일 주소로 Builders Bot에 로그인해 주세요.",

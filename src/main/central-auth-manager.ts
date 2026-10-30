@@ -19,6 +19,7 @@ import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
 import type { LiveActivityRelayPush } from "@openbot/contracts/live-activity-relay";
 import {
   createMobileConnectUrl,
+  createMobileWebAppUrl,
   isMobileConnectHostBinding,
   type MobileConnectHostBinding,
 } from "@openbot/contracts/mobile-connect";
@@ -432,6 +433,14 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     },
     (operation) => this.#owned(operation),
   ).bind(this);
+
+  /**
+   * The web client that a phone installs from its browser. It uses the origin of the Mobile Connect
+   * code, so a development phone on the local network reaches the same account service.
+   */
+  getMobileWebAppUrl(): string {
+    return createMobileWebAppUrl(this.#options.mobileConnectApiUrl);
+  }
 
   /** The stored persistent link, if it was made for this host identity. */
   getMobileConnectLink(host: MobileConnectHostBinding | null): MobileConnectLink | null {

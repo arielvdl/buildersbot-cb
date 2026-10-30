@@ -469,6 +469,7 @@ const Auth = createSimpleContext({
       createMobileConnect,
       cancelMobileConnect: () => trackMobileConnect("cancelled", () => accountPort().auth.cancelMobileConnect()),
       getMobileConnectLink: () => accountPort().auth.getMobileConnectLink(),
+      getMobileWebAppUrl: () => accountPort().auth.getMobileWebAppUrl(),
       createMobileConnectLink: () =>
         trackMobileConnect("link_created", () => accountPort().auth.createMobileConnectLink()),
       revokeMobileConnectLink: () =>

@@ -12,6 +12,7 @@ export interface AccountPort {
     | "createMobileConnect"
     | "createMobileConnectLink"
     | "getMobileConnectLink"
+    | "getMobileWebAppUrl"
     | "getState"
     | "listAccountSessions"
     | "listMobileConnectedDevices"

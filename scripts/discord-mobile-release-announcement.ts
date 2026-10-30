@@ -12,8 +12,6 @@
 // No package imports: the workflow runs this before `bun install`.
 
 import { readFileSync } from "node:fs";
-import { ANDROID_PLAY_STORE_URL } from "../packages/ui/src/features/mobile-app/android-play-store";
-import { IOS_APP_STORE_URL } from "../packages/ui/src/features/mobile-app/ios-app-store";
 import {
   announcementFileProblems,
   LONGEST_ROLE_ID,
@@ -22,6 +20,11 @@ import {
   roleIdProblems,
 } from "./discord-announcement";
 import { MOBILE_CHANGELOG, MOBILE_STORES, parseStoreDates } from "./release-notes";
+
+// Only this release post of the native app names its store pages. The apps, the website and the
+// desktop offer a phone the web client at `/app`.
+const IOS_APP_STORE_URL = "https://apps.apple.com/us/app/openbot-run/id6807024266";
+const ANDROID_PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=run.openbot.mobile";
 
 export const MOBILE_ANNOUNCEMENT_FILE = "apps/mobile/release-announcement.json";
 const DOCS = "apps/mobile/README.md#discord-announcement";

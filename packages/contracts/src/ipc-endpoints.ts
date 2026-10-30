@@ -1304,6 +1304,8 @@ export const IPC_ENDPOINTS = {
     createMobileConnect: request<undefined, MobileConnectTicket>()("auth:create-mobile-connect"),
     cancelMobileConnect: request<undefined, void>()("auth:cancel-mobile-connect"),
     getMobileConnectLink: request<undefined, MobileConnectLink | null>()("auth:get-mobile-connect-link"),
+    // The web client that a phone installs from its browser, on the origin of the Mobile Connect code.
+    getMobileWebAppUrl: request<undefined, string>()("auth:get-mobile-web-app-url"),
     createMobileConnectLink: request<undefined, MobileConnectLink>()("auth:create-mobile-connect-link"),
     revokeMobileConnectLink: request<undefined, void>()("auth:revoke-mobile-connect-link"),
     listMobileConnectedDevices: request<undefined, MobileConnectedDevice[]>()("auth:list-mobile-connected-devices"),

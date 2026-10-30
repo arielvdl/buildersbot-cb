@@ -159,7 +159,7 @@ export const messages = {
   "sidebar.announce.personFallback": "человек",
   "sidebar.announce.chatFallback": "чат",
   "sidebar.mobileApp.title": "Builders Bot для телефона",
-  "sidebar.mobileApp.body": "Приложение теперь доступно для iPhone и Android.",
+  "sidebar.mobileApp.webAppBody": "Установите веб-приложение из браузера телефона на iPhone или Android.",
   "sidebar.mobileApp.howToInstall": "Как установить",
   "sidebar.mobileApp.dismiss": "Закрыть объявление о мобильном приложении",
   "sidebar.storage.lowTitle": "Хранилище почти заполнено",

@@ -10,15 +10,14 @@ export const messages = {
   "sitePage.join.title": "Builders Bot サーバーに参加",
   "sitePage.join.description": "非公開のサーバー招待を Builders Bot で開きます。",
   "sitePage.join.eyebrow": "非公開の招待",
-  "sitePage.join.intro": "この招待を Builders Bot で開いてください。アプリがサーバーを確認し、接続する前に確認を求めます。",
+  "sitePage.join.intro":
+    "この招待を Builders Bot で開いてください。アプリがサーバーを確認し、接続する前に確認を求めます。",
   "sitePage.join.invalid": "この招待リンクは無効か、不完全です。サーバーのオーナーに新しい招待を依頼してください。",
   "sitePage.join.open": "Builders Bot を開く",
   "sitePage.join.browser": "ブラウザーで開く",
   "sitePage.join.download": "Builders Bot をダウンロード",
   "sitePage.join.notOpened":
     "Builders Bot が開かなかった場合は、{download} からインストールするか、Builders Bot を一度起動して招待リンクを開けるようにしてください。{browser} も使えます。",
-  "sitePage.join.mobile":
-    "Builders Bot がインストールされている場合は、{open} をタップしてください。このリンクをアプリの「サーバーを追加」に貼り付けることもできます。",
   "sitePage.join.singleUse":
     "1 回限りのリンクは 1 回だけ使え、その後は期限切れになります。無期限のリンクは、オーナーが取り消すまで使えます。Builders Bot は参加前に有効期限を表示します。",
   "sitePage.join.email": "招待がメールで届いた場合は、そのメールアドレスで Builders Bot にサインインしてください。",
@@ -28,7 +27,8 @@ export const messages = {
   "sitePage.connect.openApp": "Builders Bot を開く",
   "sitePage.connect.tryAgainApp": "Builders Bot で再試行",
   "sitePage.connect.tryAgainBrowser": "ブラウザーで再試行",
-  "sitePage.connect.doneInWebClient": "Builders Bot のタブが {name} との接続を完了します。このタブは閉じてかまいません。",
+  "sitePage.connect.doneInWebClient":
+    "Builders Bot のタブが {name} との接続を完了します。このタブは閉じてかまいません。",
   "sitePage.connect.doneInApp": "Builders Bot がこのコンピューターで {name} との接続を完了します。",
   "sitePage.connect.failure.cancelled": "{name} との接続はキャンセルされました。何も変更されていません。",
   "sitePage.connect.failure.expired": "{name} へのサインインの期限が切れました。接続をもう一度始めてください。",
@@ -43,7 +43,8 @@ export const messages = {
   "sitePage.connect.failure.tabClosed":
     "{name} との接続を始めた Builders Bot のタブが応答しませんでした。ブラウザーで Builders Bot を開き、{name} をもう一度接続してください。",
   "sitePage.connect.failure.failed": "{name} が接続を完了しませんでした。もう一度お試しください。",
-  "sitePage.connect.restartHint": "Builders Bot で {marketplace}、{apps}、{name} の順に開き、{connect} を選択してください。",
+  "sitePage.connect.restartHint":
+    "Builders Bot で {marketplace}、{apps}、{name} の順に開き、{connect} を選択してください。",
   "sitePage.connect.notOpened":
     "Builders Bot を起動してから、もう一度お試しください。このコンピューターに Builders Bot がない場合は、ダウンロードしてアプリから {name} を接続してください。",
   "sitePage.openApp.title": "何も開きませんでしたか?",

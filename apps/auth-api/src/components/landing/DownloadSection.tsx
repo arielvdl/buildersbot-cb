@@ -2,7 +2,6 @@ import { type MobilePlatformLogoVariant, PlatformLogo, type PlatformLogoVariant 
 import { Link } from "@tanstack/solid-router";
 import { For, Show } from "solid-js";
 import { DOWNLOAD_PLATFORM_ORDER, DOWNLOAD_PLATFORMS } from "../../lib/download-platforms";
-import { EXTERNAL_LINK_REL } from "../../lib/landing-links";
 import { MOBILE_APP_ORDER, MOBILE_APPS } from "../../lib/mobile-apps";
 import { createLandingReveal } from "./createLandingReveal";
 import { LandingIcon } from "./LandingIcon";
@@ -51,7 +50,7 @@ export function DownloadSection() {
           <h2 id="download-title">Download OpenBot</h2>
           <p>
             Choose your platform. Run Codex, Claude, Gemini, Grok, OpenCode, Muse Code, Pi or your own model from one
-            desktop app, and talk to your agents from your phone.
+            desktop app, and talk to your agents from the web app on your phone.
           </p>
         </header>
 
@@ -115,8 +114,6 @@ export function DownloadSection() {
                 <a
                   class="landing-download-card"
                   href={app.href}
-                  target="_blank"
-                  rel={EXTERNAL_LINK_REL}
                   data-download-platform={platform}
                   data-state="available"
                   data-revealed={revealState()}
@@ -135,8 +132,9 @@ export function DownloadSection() {
         </div>
 
         {/* The cards start the download, so the pages that explain each installer get their own
-            links. They are also how a crawler finds those pages from the home page. The phone apps
-            are a separate group after a rule, as their cards are a separate row. */}
+            links. They are also how a crawler finds those pages from the home page. The phone pages
+            (the web app, installed from the browser) are a separate group after a rule, as their cards
+            are a separate row. */}
         <p class="landing-download-pages">
           System requirements and install steps:
           <For each={DOWNLOAD_PLATFORM_ORDER}>

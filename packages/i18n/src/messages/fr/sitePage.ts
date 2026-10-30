@@ -19,11 +19,10 @@ export const messages = {
   "sitePage.join.download": "Télécharger Builders Bot",
   "sitePage.join.notOpened":
     "Si Builders Bot ne s’est pas ouvert, installez-le avec {download}, ou lancez Builders Bot une fois pour qu’il puisse ouvrir les liens d’invitation. Vous pouvez aussi utiliser {browser}.",
-  "sitePage.join.mobile":
-    "Si Builders Bot est installé, touchez {open}. Vous pouvez aussi coller ce lien dans Ajouter un serveur dans l’app.",
   "sitePage.join.singleUse":
     "Un lien à usage unique fonctionne une fois puis expire. Un lien permanent fonctionne jusqu’à ce que le propriétaire le révoque. Builders Bot affiche l’expiration avant que vous ne rejoigniez.",
-  "sitePage.join.email": "Si l’invitation est arrivée par e-mail, connectez-vous à Builders Bot avec cette adresse e-mail.",
+  "sitePage.join.email":
+    "Si l’invitation est arrivée par e-mail, connectez-vous à Builders Bot avec cette adresse e-mail.",
   "sitePage.join.share":
     "Ce lien donne accès à un serveur. Partagez-le uniquement avec les personnes que vous voulez inviter.",
   "sitePage.connect.title": "Revenir à Builders Bot",

@@ -1,12 +1,10 @@
-import { ANDROID_PLAY_STORE_URL } from "@openbot/ui/features/mobile-app/android-play-store";
-import { IOS_APP_STORE_URL } from "@openbot/ui/features/mobile-app/ios-app-store";
 import { prefersReducedMotion } from "@openbot/ui/utils";
 import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 import { landingAnalytics } from "../../lib/analytics";
 import { CHANGELOG_ROUTE, type ChangelogPlatform, type ChangelogRelease as Release } from "../../lib/changelog";
 import { CHANGELOG_RELEASES } from "../../lib/changelog-releases";
 import { formatArticleDate } from "../../lib/content-collection";
-import { EXTERNAL_LINK_REL } from "../../lib/landing-links";
+import { MOBILE_APPS } from "../../lib/mobile-apps";
 import { ArticleGradient } from "../content/ArticleGradient";
 import { ContentCallToAction } from "../content/ContentCallToAction";
 import { LandingFooter } from "../landing/LandingFooter";
@@ -255,26 +253,13 @@ function LatestRelease(props: { platform: ChangelogPlatform }) {
               </ButtonLink>
             }
           >
+            {/* A phone installs the web app from its browser. These pages give the steps; no store. */}
             <div class="changelog-latest-actions">
-              <Button
-                href={IOS_APP_STORE_URL}
-                target="_blank"
-                rel={EXTERNAL_LINK_REL}
-                variant="secondary"
-                size="sm"
-                icon="download"
-              >
-                Download for iPhone
+              <Button href={MOBILE_APPS.ios.href} variant="secondary" size="sm" icon="download">
+                Web app for iPhone
               </Button>
-              <Button
-                href={ANDROID_PLAY_STORE_URL}
-                target="_blank"
-                rel={EXTERNAL_LINK_REL}
-                variant="secondary"
-                size="sm"
-                icon="download"
-              >
-                Download for Android
+              <Button href={MOBILE_APPS.android.href} variant="secondary" size="sm" icon="download">
+                Web app for Android
               </Button>
             </div>
           </Show>

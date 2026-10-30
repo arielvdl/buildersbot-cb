@@ -19,8 +19,8 @@ export const messages = {
   "sitePage.join.download": "Baixar Builders Bot",
   "sitePage.join.notOpened":
     "Se o Builders Bot não abriu, instale-o com {download} ou inicie o Builders Bot uma vez para que ele possa abrir links de convite. Você também pode usar {browser}.",
-  "sitePage.join.mobile":
-    "Se o Builders Bot estiver instalado, toque em {open}. Você também pode colar este link em Adicionar servidor no app.",
+  "sitePage.join.webApp":
+    "No celular, toque em {browser} para entrar pelo app web. Se o Builders Bot estiver na tela de início, você também pode colar este link em Adicionar servidor.",
   "sitePage.join.singleUse":
     "Um link de uso único funciona uma vez e depois expira. Um link permanente funciona até o proprietário revogá-lo. O Builders Bot mostra a validade antes de você entrar.",
   "sitePage.join.email": "Se o convite chegou por e-mail, entre no Builders Bot com esse endereço de e-mail.",
@@ -30,7 +30,8 @@ export const messages = {
   "sitePage.connect.openApp": "Abrir Builders Bot",
   "sitePage.connect.tryAgainApp": "Tentar no Builders Bot",
   "sitePage.connect.tryAgainBrowser": "Tentar no navegador",
-  "sitePage.connect.doneInWebClient": "Sua aba do Builders Bot conclui a conexão com {name}. Você pode fechar esta aba.",
+  "sitePage.connect.doneInWebClient":
+    "Sua aba do Builders Bot conclui a conexão com {name}. Você pode fechar esta aba.",
   "sitePage.connect.doneInApp": "O Builders Bot conclui a conexão com {name} no seu computador.",
   "sitePage.connect.failure.cancelled": "A conexão com {name} foi cancelada. Nada mudou.",
   "sitePage.connect.failure.expired": "O login no {name} expirou. Inicie a conexão novamente.",

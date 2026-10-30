@@ -34,13 +34,8 @@ the container for somebody else can use `openbot login --claim` instead (see
 server shows in the server list of that account. Then connect a provider from the app, as on a
 [hosted server](hosted-servers.md#providers).
 
-To connect the phone app, show a Mobile Connect code in the terminal and scan it with the app:
-
-```sh
-docker exec -it openbot openbot mobile-connect
-```
-
-See [Phone app](self-hosted-server.md#phone-app).
+To use the server from a phone, install the web app from the browser of the phone and sign in with
+the email of the same account. See [Phone](self-hosted-server.md#phone).
 
 The options in both examples are necessary:
 

@@ -117,6 +117,38 @@ export function parseMobileConnectUrl(value: string): MobileConnectPayload | nul
   }
 }
 
+/** Where the account service serves the installable web client. */
+const MOBILE_WEB_APP_PATH = "/app";
+
+/**
+ * The web client that a phone installs from its browser. It is on the origin of the sign-in code,
+ * so the origin rules of that code apply: HTTPS, or HTTP to a development address.
+ */
+export function createMobileWebAppUrl(apiUrl: string): string {
+  const origin = normalizeMobileConnectApiUrl(apiUrl);
+  if (!origin) throw new Error("Invalid web app origin.");
+  return new URL(MOBILE_WEB_APP_PATH, origin).toString();
+}
+
+/** The web client address, or null for any other address. It carries no query, fragment or credential. */
+export function parseMobileWebAppUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.pathname !== MOBILE_WEB_APP_PATH || url.search !== "" || url.hash !== "") return null;
+    if (url.username !== "" || url.password !== "") return null;
+    const origin = normalizeMobileConnectApiUrl(url.origin);
+    return origin ? new URL(MOBILE_WEB_APP_PATH, origin).toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The web client address as a person types it: host and path, with no scheme. */
+export function mobileWebAppAddress(webAppUrl: string): string {
+  const url = new URL(webAppUrl);
+  return `${url.host}${url.pathname}`;
+}
+
 function normalizeMobileConnectApiUrl(value: string): string | null {
   try {
     const url = new URL(value);

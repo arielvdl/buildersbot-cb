@@ -86,6 +86,7 @@ export interface SettingsModalProps {
   onRevokeMobileConnectedDevice?: (sessionId: string) => Promise<void>;
   onGetRemoteNetworkRoute?: () => Promise<RemoteNetworkRouteState>;
   onSetRemoteNetworkRoute?: (route: RemoteNetworkRoute) => Promise<RemoteNetworkRouteState>;
+  onGetMobileWebAppUrl?: () => Promise<string>;
   onListAccountSessions?: () => Promise<AccountSession[]>;
   onRevokeAccountSession?: (sessionId: string) => Promise<void>;
   onSignOut?: (() => Promise<void>) | undefined;
@@ -356,8 +357,8 @@ export function SettingsModal(props: SettingsModalProps) {
         <Tabs.Content value="mobile-connect" class="settings-modal-tab-panel" data-tab="mobile-connect">
           <SettingsMobileConnectTab
             store={mobileConnect}
+            accountEmail={props.account.email}
             canCreateTicket={Boolean(props.onCreateMobileConnect)}
-            canCancelTicket={Boolean(props.onCancelMobileConnect)}
             canManageLink={Boolean(props.onCreateMobileConnectLink && props.onRevokeMobileConnectLink)}
             canRevokeDevice={Boolean(props.onRevokeMobileConnectedDevice)}
             canSetRoute={Boolean(props.onSetRemoteNetworkRoute)}

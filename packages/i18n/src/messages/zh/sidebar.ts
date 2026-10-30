@@ -118,7 +118,7 @@ export const messages = {
   "sidebar.announce.personFallback": "成员",
   "sidebar.announce.chatFallback": "对话",
   "sidebar.mobileApp.title": "Builders Bot 手机版",
-  "sidebar.mobileApp.body": "现已支持 iPhone 和 Android。",
+  "sidebar.mobileApp.webAppBody": "在手机浏览器中安装网页版，支持 iPhone 和 Android。",
   "sidebar.mobileApp.howToInstall": "如何安装",
   "sidebar.mobileApp.dismiss": "关闭手机版公告",
   "sidebar.storage.lowTitle": "存储空间即将用尽",

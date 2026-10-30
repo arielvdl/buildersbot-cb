@@ -181,12 +181,44 @@ mock. The separate web preview implements the browser runtime with that same moc
   task edits, Run now, a new agent from the right-click menu, and the chat panel that asks the agent
   to edit the canvas. Webhook config and webhook routine changes need an owner or admin with
   `events-v1`. On a phone the canvas takes the chat pane, and the pane button reads Routines.
-- No full remote desktop, push notifications, or offline operation is included. See
-  [Remote desktop](#remote-desktop) for the reason.
+- No full remote desktop or offline operation is included. See [Remote desktop](#remote-desktop)
+  for the reason. The installed app has push notifications and an offline start page; see
+  [Phones](#phones).
 - These stay desktop only: the application Settings page (permissions, app updates),
   permissions review, hosted site publishing, marketplace publishing, Picture in Picture, the Memories, Routines and Files sections of agent settings, the
   conversation Files panel, and file reveal. The browser shows host files in Server settings >
   Storage.
+
+## Phones
+
+A phone uses this web client, installed from its browser to the Home Screen. Builders Bot offers no
+phone app from a store: the desktop app, the sidebar card and the website show no App Store or Google
+Play link or QR code.
+
+- Desktop **Settings > Mobile Connect > Add phone** shows a QR code of `<account service>/app`. Main
+  makes the address from the origin of the Mobile Connect code (`mobileConnectApiUrl`,
+  `createMobileWebAppUrl` in `packages/contracts/src/mobile-connect.ts`), and gives it through
+  `auth:get-mobile-web-app-url`. The preload accepts only that `/app` address
+  (`parseMobileWebAppUrl`): never a store page, a deep link, a query, a fragment or a credential. The
+  shared `QrCode` makes the code on the computer; no service gets the address.
+- iPhone: open the address in Safari, then **Share > Add to Home Screen**. Android: open it in
+  Chrome, then **Install app** in the Chrome menu; some versions show **Add to Home screen**. The
+  steps are `MOBILE_WEB_APP_PLATFORMS` in `packages/ui/src/features/mobile-app/mobile-web-app.ts`.
+- The phone signs in with the email code of the account, as in a browser tab. Each installation has
+  its own session, app lock and push subscription (`web-install-identity.ts`, `web-push.ts`). Web
+  Push on an iPhone needs iOS 16.4 or later and the app on the Home Screen.
+- Such a phone is an account session of the web client. The desktop shows it in **Settings >
+  Profile > Account sessions**, not in the phone list of Mobile Connect, which lists the sessions of
+  the earlier phone app.
+- Add phone does not show the one-time Mobile Connect code: only the earlier phone app reads it. The
+  permanent link, the `/v1/mobile-auth/*` routes and the `openbot mobile-connect` command stay, so a
+  phone app that is already installed keeps its sign-in.
+- The website pages `/download/ios` and `/download/android` keep their addresses and give the same
+  steps. On a phone, `/join` opens the invitation in this client and shows no `openbot://` button.
+
+`scripts/phone-web-app-flow.test.ts` fails when a store name or address is in the catalog text of the
+flow in any language, and checks the address builder. `apps/auth-api/test/phone-web-app-pages.test.ts`
+does the same for the phone pages of the website.
 
 ## Remote desktop
 

@@ -121,6 +121,8 @@ export function createMockAuth(options: MockAuthOptions, { emit }: MockRuntime) 
     }),
     cancelMobileConnect: async () => undefined,
     getMobileConnectLink: async () => clone(mobileConnectLink),
+    // The web app of the Builders Bot account service, as main builds it for a packaged app.
+    getMobileWebAppUrl: async () => "https://buildersbot.culturabuilder.com/app",
     createMobileConnectLink: async () => {
       mobileConnectLink = {
         url: `openbot://mobile-connect?api=https%3A%2F%2Fapi.openbot.run&ticket=preview-mobile-link_${crypto.randomUUID().replaceAll("-", "")}`,

@@ -92,7 +92,7 @@ curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/i
 sudo openbot login
 ```
 
-Then use it from the desktop app, the iPhone app or `openbot.run/app`. See
+Then use it from the desktop app, or from `openbot.run/app` in a browser or as the web app on a phone. See
 [self-hosted servers](docs/self-hosted-server.md) for the options and the `openbot` commands.
 
 #### Docker

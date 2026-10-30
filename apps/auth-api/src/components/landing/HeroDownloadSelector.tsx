@@ -7,7 +7,6 @@ import {
   type DownloadPlatform,
   detectDownloadPlatform,
 } from "../../lib/download-platforms";
-import { EXTERNAL_LINK_REL } from "../../lib/landing-links";
 import { detectMobilePlatform, MOBILE_APP_ORDER, MOBILE_APPS, type MobilePlatform } from "../../lib/mobile-apps";
 import { LandingIcon } from "./LandingIcon";
 
@@ -19,14 +18,13 @@ interface HeroOffer {
   href?: string;
   label: string;
   status: string;
-  /** A store page on another site, which opens in a new tab. */
-  external: boolean;
 }
 
 function heroOffer(platform: HeroPlatform): HeroOffer {
-  if (platform === "ios" || platform === "android") return { ...MOBILE_APPS[platform], external: true };
+  // A phone gets the page that installs the web app from its browser, on this site.
+  if (platform === "ios" || platform === "android") return MOBILE_APPS[platform];
   const { href, ...details } = DOWNLOAD_PLATFORMS[platform];
-  return details.available && href ? { ...details, href, external: false } : { ...details, external: false };
+  return details.available && href ? { ...details, href } : details;
 }
 
 interface HeroMenuItemProps {
@@ -59,8 +57,6 @@ function HeroMenuItem(props: HeroMenuItemProps) {
         <a
           class="landing-download-menu-item"
           href={href()}
-          target={offer().external ? "_blank" : undefined}
-          rel={offer().external ? EXTERNAL_LINK_REL : undefined}
           role="menuitem"
           data-state="available"
           data-selected={props.selected ? "true" : undefined}
@@ -133,7 +129,7 @@ export function HeroDownloadSelector() {
   }
 
   onSettled(() => {
-    // A phone cannot run the desktop app, so a visitor on one is offered the phone app.
+    // A phone cannot run the desktop app, so a visitor on one is offered the web app for that phone.
     const detected = detectMobilePlatform(globalThis.navigator) ?? detectDownloadPlatform(globalThis.navigator);
     if (detected) {
       setPlatform(detected);
@@ -167,13 +163,7 @@ export function HeroDownloadSelector() {
           }
         >
           {(href) => (
-            <a
-              class="landing-download-primary"
-              href={href()}
-              target={current().external ? "_blank" : undefined}
-              rel={current().external ? EXTERNAL_LINK_REL : undefined}
-              data-state="available"
-            >
+            <a class="landing-download-primary" href={href()} data-state="available">
               <PlatformLogo platform={platform()} solid />
               {current().action}
             </a>
@@ -213,7 +203,7 @@ export function HeroDownloadSelector() {
           </For>
           <hr class="landing-download-menu-separator" />
           <span class="landing-download-menu-label" aria-hidden="true">
-            Phone apps
+            Web app on a phone
           </span>
           <For each={MOBILE_APP_ORDER}>
             {(menuPlatform) => (

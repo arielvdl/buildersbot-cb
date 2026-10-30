@@ -118,7 +118,7 @@ export const messages = {
   "sidebar.announce.personFallback": "사람",
   "sidebar.announce.chatFallback": "채팅",
   "sidebar.mobileApp.title": "모바일용 Builders Bot",
-  "sidebar.mobileApp.body": "이제 iPhone과 Android에서 앱을 사용할 수 있어요.",
+  "sidebar.mobileApp.webAppBody": "휴대폰 브라우저에서 웹 앱을 설치하세요. iPhone과 Android에서 쓸 수 있어요.",
   "sidebar.mobileApp.howToInstall": "설치 방법",
   "sidebar.mobileApp.dismiss": "모바일 앱 공지 닫기",
   "sidebar.storage.lowTitle": "저장 공간이 거의 찼어요",

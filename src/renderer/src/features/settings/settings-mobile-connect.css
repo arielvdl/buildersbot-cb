@@ -1,6 +1,6 @@
 /* Mobile Connect: the phones as cards, with the permanent link as one more card. "Add phone" and
  * the permanent link open a dialog that shows one code at a time, so a phone camera cannot catch
- * the wrong code. */
+ * the wrong code. The code of "Add phone" opens the web app, which the phone adds to its Home Screen. */
 .settings-mobile-app-tab {
   display: inline-flex;
   align-items: center;
@@ -10,12 +10,6 @@
 .settings-mobile-app-tab > svg {
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);
-  flex: 0 0 auto;
-}
-
-.settings-mobile-app-qr-platform {
-  width: 14px;
-  height: 14px;
   flex: 0 0 auto;
 }
 
@@ -71,7 +65,7 @@
   flex: 0 0 auto;
 }
 
-.settings-mobile-qr-tag[data-kind="signin"] {
+.settings-mobile-qr-tag[data-kind="web"] {
   background: var(--openbot-accent-soft);
   color: var(--openbot-accent-text);
 }
