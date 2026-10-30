@@ -234,7 +234,9 @@ export function pollCulturaBuilderToken(
       }
       const value = await readJson(response, TokenGrant);
       if (response.ok) {
-        if (!value?.access_token) return { status: "stop" };
+        // A 200 with no token is a malformed answer, not a refusal - the same reasoning as the
+        // unrecognised error case below.
+        if (!value?.access_token) return { status: "pending" };
         return {
           status: "ready",
           session: {
@@ -247,7 +249,12 @@ export function pollCulturaBuilderToken(
       }
       if (value?.error === "authorization_pending") return { status: "pending" };
       if (value?.error === "slow_down") return { status: "slow_down" };
-      return { status: "stop" };
+      // RFC 8628 has exactly two terminal errors; everything else - an error code this flow does not
+      // know, a malformed body, a transient 5xx from the Hub - is a hiccup, not a refusal. The
+      // deadline in `#pollCulturaLogin` is what actually ends an unanswered flow, so treating the
+      // unknown case as fatal only trades one bad round-trip for the whole sign-in.
+      if (value?.error === "access_denied" || value?.error === "expired_token") return { status: "stop" };
+      return { status: "pending" };
     },
     catch: () => ({ status: "pending" as const }),
   }).pipe(Effect.catch(() => Effect.succeed({ status: "pending" as const })));

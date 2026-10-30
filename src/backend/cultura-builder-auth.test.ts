@@ -103,9 +103,20 @@ describe("pollCulturaBuilderToken", () => {
     expect(outcome.status === "ready" ? outcome.session.access : null).toBe("cbmcp_1");
   });
 
-  it("stops on a refused grant", async () => {
-    const { fetcher } = hub([{ status: 400, body: { error: "access_denied" } }]);
+  it("stops on a refused or expired grant", async () => {
+    const { fetcher } = hub([{ status: 400, body: { error: "access_denied" } }, { status: 400, body: { error: "expired_token" } }]);
     expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("stop");
+    expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("stop");
+  });
+
+  it("keeps polling through an error code this flow does not know, instead of giving up on it", async () => {
+    const { fetcher } = hub([{ status: 500, body: { error: "internal_error" } }]);
+    expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("pending");
+  });
+
+  it("keeps polling through a 200 with no token, a malformed answer rather than a refusal", async () => {
+    const { fetcher } = hub([{ body: { ok: true } }]);
+    expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("pending");
   });
 });
 

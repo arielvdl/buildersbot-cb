@@ -35,6 +35,14 @@ export type DeviceSignInView =
 const AUTH_SUCCESS_HOLD_MS = 600;
 
 /**
+ * Consecutive device-poll failures tolerated before giving up on the flow. A device code lives for
+ * minutes and polls every few seconds, so one dropped request or a slow Hub answer is routine, not
+ * a refusal - the same reasoning `pollCulturaBuilderToken` already applies to its own network errors.
+ * Only a real streak, long enough that retrying at the same pace could not be a fluke, ends the flow.
+ */
+const MAX_DEVICE_POLL_FAILURES = 6;
+
+/**
  * Analytics only carries codes the account service is known to send, so an
  * unrecognised one becomes `unknown` rather than leaking a new string into the
  * property vocabulary.
@@ -90,6 +98,8 @@ const Auth = createSimpleContext({
     let deviceSignInGeneration = 0;
     let deviceSignInTimer: ReturnType<typeof setTimeout> | undefined;
     let deviceSignInFlowId: string | null = null;
+    /** Consecutive poll failures for the flow `stopDeviceSignIn` last reset; see `MAX_DEVICE_POLL_FAILURES`. */
+    let deviceSignInPollFailures = 0;
     const [accountUsageState, setAccountUsageState] = createStore<{
       targetKey: string | null;
       data: AccountUsage | null;
@@ -199,13 +209,14 @@ const Auth = createSimpleContext({
 
     function stopDeviceSignIn(): void {
       deviceSignInGeneration += 1;
+      deviceSignInPollFailures = 0;
       if (deviceSignInTimer !== undefined) {
         clearTimeout(deviceSignInTimer);
         deviceSignInTimer = undefined;
       }
     }
 
-    /** Closes the dialog. The service keeps the flow until it expires, and a late poll is ignored. */
+    /** Closes the dialog and stops polling. The service keeps the flow until it expires. */
     function cancelDeviceSignIn(): void {
       stopDeviceSignIn();
       setDeviceSignIn(null);
@@ -225,6 +236,14 @@ const Auth = createSimpleContext({
             poll = await accountPort().auth.pollDeviceSignIn(flowId);
           } catch {
             if (generation !== deviceSignInGeneration) return;
+            deviceSignInPollFailures += 1;
+            // A dropped request or a slow Hub answer is not a refusal: the code still lives for
+            // minutes, so keep polling at the same pace instead of tearing the flow down over one
+            // bad round-trip. Only a real streak ends it.
+            if (deviceSignInPollFailures <= MAX_DEVICE_POLL_FAILURES) {
+              pollDeviceFlow(flowId, generation, intervalMs);
+              return;
+            }
             setDeviceSignIn(null);
             applyCentralAuthState({
               status: "error",
@@ -232,6 +251,7 @@ const Auth = createSimpleContext({
             });
             return;
           }
+          deviceSignInPollFailures = 0;
           if (generation !== deviceSignInGeneration) return;
           if (poll.status === "pending") {
             pollDeviceFlow(flowId, generation, poll.intervalMs);
@@ -279,7 +299,10 @@ const Auth = createSimpleContext({
       }
     }
 
-    /** Resumes the same flow after a pause the service asked for, with the same code on screen. */
+    /**
+     * Polls the same flow again now. Used by "I have signed in" and to resume after a pause the
+     * service asked for, with the same code on screen.
+     */
     function retryDeviceSignIn(): void {
       const flowId = deviceSignInFlowId;
       const current = deviceSignIn();
@@ -287,8 +310,10 @@ const Auth = createSimpleContext({
         void startDeviceSignIn();
         return;
       }
-      const { pausedUntil: _paused, ...waiting } = current;
+      // One poll loop at a time: a second click must not leave the previous timer running.
+      stopDeviceSignIn();
       const generation = deviceSignInGeneration;
+      const { pausedUntil: _paused, ...waiting } = current;
       setDeviceSignIn(waiting);
       pollDeviceFlow(flowId, generation, 0);
     }
