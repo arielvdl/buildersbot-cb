@@ -93,6 +93,7 @@ export const messages = defineMessages("account", {
   "account.device.starting": "Asking the Hub for a code…",
   "account.device.waiting": "Waiting for you to authorise on the Hub…",
   "account.device.openHub": "Open the Hub and authorise",
+  "account.device.checkNow": "I have signed in",
   "account.device.copyCode": "Copy code",
   "account.device.expiresIn": "The code expires in {time}.",
   "account.device.expired": "The code expired",

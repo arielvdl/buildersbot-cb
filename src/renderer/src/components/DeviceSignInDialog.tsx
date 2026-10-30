@@ -29,6 +29,8 @@ export function DeviceSignInDialog(props: {
   onRetry: () => void;
   /** Asks for a new code, after an expired or refused one. */
   onRestart: () => void;
+  /** Checks the flow again now, without waiting for the next scheduled poll. */
+  onCheckNow: () => void;
   onCancel: () => void;
 }) {
   const { t } = useText();
@@ -71,9 +73,10 @@ export function DeviceSignInDialog(props: {
   return (
     <Dialog.Root
       open={true}
-      onOpenChange={(open) => {
-        if (!open) props.onCancel();
-      }}
+      // The Hub opens in the browser, so the app loses focus. That is not a dismissal: the
+      // flow must stay alive while the user confirms the code on the other window. Closing is
+      // only possible through the explicit buttons below.
+      onOpenChange={() => undefined}
     >
       <Dialog.Portal>
         <Dialog.Overlay class="provider-code-login-backdrop">
@@ -119,6 +122,15 @@ export function DeviceSignInDialog(props: {
                     >
                       {t("account.device.openHub")}
                     </Button>
+
+                    <div class="provider-code-login-secondary-actions">
+                      <Button variant="outline" type="button" onClick={props.onCheckNow}>
+                        {t("account.device.checkNow")}
+                      </Button>
+                      <Button variant="outline" type="button" onClick={props.onRestart}>
+                        {t("account.device.generateNew")}
+                      </Button>
+                    </div>
 
                     <div class="provider-code-login-value">
                       <output

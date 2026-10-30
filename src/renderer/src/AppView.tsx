@@ -97,6 +97,7 @@ export function AppAccessGate() {
                           onOpenHub={(url) => void window.openbot.openUrl(url)}
                           onRetry={auth.retryDeviceSignIn}
                           onRestart={auth.startDeviceSignIn}
+                          onCheckNow={auth.retryDeviceSignIn}
                           onCancel={auth.cancelDeviceSignIn}
                         />
                       )}

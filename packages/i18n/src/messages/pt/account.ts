@@ -95,6 +95,7 @@ export const messages = {
   "account.device.starting": "Pedindo um código ao Hub…",
   "account.device.waiting": "Aguardando você autorizar no Hub…",
   "account.device.openHub": "Abrir o Hub e autorizar",
+  "account.device.checkNow": "Já fiz login",
   "account.device.copyCode": "Copiar código",
   "account.device.expiresIn": "O código expira em {time}.",
   "account.device.expired": "O código expirou",

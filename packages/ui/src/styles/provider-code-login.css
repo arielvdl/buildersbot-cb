@@ -107,6 +107,17 @@
   stroke-width: var(--openbot-icon-stroke);
 }
 
+.provider-code-login-secondary-actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--openbot-space-2);
+  align-self: stretch;
+}
+
+.provider-code-login-secondary-actions > button {
+  flex: 1 1 0;
+}
+
 .provider-code-login-value {
   display: flex;
   align-items: center;
