@@ -110,6 +110,14 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       if (channelId && topicId) setLastChannelTopics(saveChannelLastTopic(channelId, topicId));
     },
   );
+  /* Channels reach the sidebar as data, not as a list of their own: they sit in the layout's
+   * sections beside the agents, so the sidebar has to be able to order and group them. The Routines
+   * view lists only agents: a channel has no routine canvas. Declared before `chatTabs`, whose memo
+   * reads it as soon as it is created. */
+  const channelsListed = () => channels.supported() && layout.sidebarView() !== "routines";
+  const visibleChannels = createMemo(() =>
+    channelsListed() ? channels.state.channels.filter((channel) => !channel.archived) : [],
+  );
   /** The tab a channel row opens: its open one, the last one it had, or the first. */
   const channelTopicFor = (channelId: string): string | undefined => {
     if (channels.state.selectedId === channelId && channels.state.topicId) return channels.state.topicId;
@@ -261,13 +269,6 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     return member ? member.name?.trim() || member.username : null;
   };
 
-  /* Channels reach the sidebar as data, not as a list of their own: they sit in the layout's
-   * sections beside the agents, so the sidebar has to be able to order and group them. The Routines
-   * view lists only agents: a channel has no routine canvas. */
-  const channelsListed = () => channels.supported() && layout.sidebarView() !== "routines";
-  const visibleChannels = createMemo(() =>
-    channelsListed() ? channels.state.channels.filter((channel) => !channel.archived) : [],
-  );
   /* A channel can open while the Routines view is on: from search, a notification, or a selection
    * restored at start. Its row must be in the list, so the list goes back to the agents view. */
   createEffect(
