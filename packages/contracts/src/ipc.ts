@@ -71,6 +71,7 @@ export * from "./ipc-provider-detection";
 export * from "./ipc-queue";
 export * from "./ipc-remote-desktop-setup";
 export * from "./ipc-remote-sessions";
+export * from "./ipc-resume";
 export * from "./ipc-routine-flows";
 export * from "./ipc-routine-results";
 export * from "./ipc-routines";

@@ -39,6 +39,7 @@ import { isTailscaleConnected } from "../private-network-detection";
 import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-preference-store";
 import type { RemoteSessionCache } from "../remote-session-cache";
 import type { RemoteSessionReusePreferenceStore } from "../remote-session-reuse-preference-store";
+import type { ResumeOffer } from "../resume-offer";
 import type { SecurityGuardService } from "../security-guard-service";
 import { readSetupState, writeSetupState } from "../setup-store";
 import type { UpdateService } from "../update-service";
@@ -57,6 +58,7 @@ import {
   parseLoadLanePreference,
   parseRemoteNetworkRoutePreference,
   parseRemoteSessionReusePreference,
+  parseResumeInterruptedWorkInput,
   parseRunChannelNowInput,
   parseSetup,
 } from "./app-inputs";
@@ -132,6 +134,7 @@ export interface AppIpcDependencies {
   setAnalyticsTrackingEnabled: (enabled: boolean) => void;
   trace: TraceFile;
   resources: ResourceMonitor;
+  resumeOffer: ResumeOffer;
 }
 
 export function appIpcHandlers({
@@ -168,6 +171,7 @@ export function appIpcHandlers({
   setAnalyticsTrackingEnabled,
   trace,
   resources,
+  resumeOffer,
 }: AppIpcDependencies): Pick<IpcGroupHandlers, "app" | "maintenance"> {
   // One write at a time, so two quick toggles leave the file and the tracker at the last choice.
   const analyticsPreferenceWrites = Semaphore.makeUnsafe(1);
@@ -218,6 +222,12 @@ export function appIpcHandlers({
         await runCauseEffect(service.channels.runChannelNow(parsed.channelId));
         return loadSnapshot();
       }),
+      // Only a click resumes work. The read waits until boot recovery has settled the stopped work.
+      getResumeOffer: handler(() => runCauseEffect(resumeOffer.current())),
+      resumeInterruptedWork: payloadHandler(parseResumeInterruptedWorkInput, (parsed) =>
+        runCauseEffect(resumeOffer.resume(parsed)),
+      ),
+      dismissResumeOffer: handler(() => resumeOffer.dismiss()),
       getAgentDefaults: handler(() => agentDefaults.get()),
       // The agents that follow a changed default get it at once: see `AgentService.agentDefaultsChanged`.
       setAgentDefaults: payloadHandler(parseAgentDefaults, async (parsed) => {

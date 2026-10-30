@@ -4,6 +4,7 @@ import type {
   ApprovalAutomationPreference,
   AppSetupState,
   CentralAuthState,
+  InterruptedWorkOffer,
   MobileConnectedDevice,
   NotificationOpenedEvent,
   UpdateStatus,
@@ -29,9 +30,16 @@ import {
   decodeNotificationOpenedEvent,
   decodeNotificationPreference,
   decodeProviderDetectionSettings,
+  decodeResumeInterruptedWorkResult,
+  decodeResumeOffer,
   decodeUpdatePreference,
   decodeUpdateStatus,
 } from "./app-decoding";
+
+const resumeOffer: InterruptedWorkOffer = {
+  channels: [{ id: "c1", name: "Launch", stoppedTasks: 2 }],
+  agents: [{ id: "a1", name: "Nova" }],
+};
 
 const updateStatus = {
   phase: "downloading",
@@ -164,9 +172,21 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     decodeProviderDetectionSettings,
     { enabled: true, addresses: ["http://192.168.1.20:11434/v1"], folders: ["~/bin"], hiddenIds: [] },
   ],
+  ["no resume offer", decodeResumeOffer, null],
+  ["a resume offer", decodeResumeOffer, resumeOffer],
+  ["a resume result with work left", decodeResumeInterruptedWorkResult, { offer: resumeOffer, failed: 1 }],
+  ["a resume result with nothing left", decodeResumeInterruptedWorkResult, { offer: null, failed: 0 }],
 ];
 
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
+  ["a resume offer with no agent list", decodeResumeOffer, { channels: [] }],
+  [
+    "a resume offer with no stopped task",
+    decodeResumeOffer,
+    { channels: [{ id: "c1", name: "Launch", stoppedTasks: 0 }], agents: [] },
+  ],
+  ["a resume offer with an empty id", decodeResumeOffer, { channels: [], agents: [{ id: "", name: "Nova" }] }],
+  ["a resume result with a negative count", decodeResumeInterruptedWorkResult, { offer: null, failed: -1 }],
   [
     "app info on an unknown platform",
     decodeAppInfo,

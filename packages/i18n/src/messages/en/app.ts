@@ -78,6 +78,17 @@ export const messages = defineMessages("app", {
   "app.rail.load.nowHint": "Starts this channel beside the one that works.",
   "app.rail.load.noneRunning": "No channel is running.",
   "app.rail.load.noneWaiting": "No channel is waiting.",
+  // The modal after a forced close or a crash. Nothing starts again until the user selects it.
+  "app.resume.title": "Continue the stopped work?",
+  "app.resume.description":
+    "Builders Bot closed while this work ran. Select the work to continue. Nothing starts until you select it.",
+  "app.resume.channels": "Channels",
+  "app.resume.agents": "Agents",
+  "app.resume.stoppedTasks": { one: "{count} stopped task", other: "{count} stopped tasks" },
+  "app.resume.all": "Resume all",
+  "app.resume.selected": "Resume selected",
+  "app.resume.notNow": "Not now",
+  "app.resume.failed": "Some work did not continue. Try again.",
   "app.rail.marketplace": "Marketplace",
   "app.rail.settings": "Settings",
   "app.rail.settingsNotice": "Settings. {notice}",

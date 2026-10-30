@@ -30,6 +30,7 @@ import type {
   RemoteNetworkRoutePreference,
   RemoteSessionReusePreference,
   ReplaceHostedSiteInput,
+  ResumeInterruptedWorkInput,
   RunChannelNowInput,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
@@ -67,6 +68,7 @@ import {
   isLoadLanePreference,
   isMemoryReviewInterval,
   isRemoteNetworkRoute,
+  isResumeInterruptedWorkInput,
   isRunChannelNowInput,
   isSkillCategory,
   MAC_AUTOMATION_TARGETS,
@@ -117,6 +119,13 @@ export function parseLoadLanePreference(input: unknown): LoadLanePreference {
 export function parseRunChannelNowInput(input: unknown): RunChannelNowInput {
   if (!isRunChannelNowInput(input)) throw new Error("A channel is required.");
   return { channelId: input.channelId };
+}
+
+/** All the work that a restart stopped, or bounded lists of channel and agent ids, each id once. */
+export function parseResumeInterruptedWorkInput(input: unknown): ResumeInterruptedWorkInput {
+  if (!isResumeInterruptedWorkInput(input)) throw new Error("A choice of work to resume is required.");
+  if ("all" in input) return { all: true };
+  return { channelIds: [...new Set(input.channelIds)], agentIds: [...new Set(input.agentIds)] };
 }
 
 export function parseAgentDefaults(input: unknown): AgentDefaults {

@@ -1,0 +1,78 @@
+/* The modal that offers to continue the work that a restart stopped. It has the frame of the
+   confirmation dialog, with two lists of checkboxes and three actions. */
+.resume-offer-dialog {
+  width: min(460px, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  outline: 0;
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-xl);
+  box-shadow: none;
+  background: var(--openbot-bg-sidebar);
+  color: var(--openbot-text-primary);
+}
+.resume-offer-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  overflow-y: auto;
+  padding: var(--openbot-space-6);
+}
+.resume-offer-header h2 {
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  line-height: var(--openbot-leading-xl);
+  font-weight: var(--openbot-weight-semibold);
+}
+.resume-offer-header p {
+  margin: var(--openbot-space-2) 0 0;
+  color: var(--openbot-text-muted);
+}
+.resume-offer-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.resume-offer-group legend {
+  margin-bottom: var(--openbot-space-1);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+/* The label is the row, so a click anywhere on it changes the checkbox. */
+.resume-offer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-2) 0;
+  cursor: pointer;
+}
+.resume-offer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resume-offer-count {
+  flex-shrink: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+.resume-offer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-4) var(--openbot-space-6);
+  border-top: 1px solid var(--openbot-dialog-ring);
+}
+/* Not now stands apart from the two resume actions. */
+.resume-offer-dismiss {
+  margin-right: auto;
+}

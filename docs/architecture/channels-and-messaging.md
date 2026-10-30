@@ -329,6 +329,48 @@ Rules that are easy to break:
   stalled). The end of a pump marks a channel that is not busy as stalled before it calls
   `#laneAdvance`. These two checks stop a loop; keep both.
 
+## Resume after a restart
+
+When the app stops while work runs (a forced quit, a crash, or a quit), boot recovery stops that
+work and never starts it again. After the restart, the main window asks which work must continue:
+all, some channels, or some agents. Nothing continues until the user clicks. Not now drops the
+offer for this run.
+
+What boot recovery leaves in the database:
+
+- An agent turn. `BootRecovery.recoverPersistedTurns` (before providers start) clears the
+  `activeTurnId` of the thread and marks its streaming messages `interrupted`. When providers are
+  ready, `reconcileUnresolvedDeliveries` reads the provider history. Each delivery that was
+  `starting` or `running` becomes `completed` or `failed` when the history shows it; otherwise it
+  becomes `interrupted`. A queued delivery stays queued and starts as usual.
+- A channel task. After that reconcile, `ChannelService.recover` ends each active assignment whose
+  delivery is not live: `completed` when the delivery completed, else `interrupted`, with the task
+  `paused` and the error "The previous turn has no confirmed result. Check its work before you
+  resume." The channel shows the task above the composer (`stoppedChannelTasks`).
+
+How the offer works:
+
+- `startedDeliveries` reads `MailboxStore.unresolvedDeliveries()` right after the mailbox loads,
+  before recovery. It keeps ids only: an agent's own chat when the user sent the message, a channel
+  task, or other work (agent tasks, external conversations, routines, teammates), which the offer
+  leaves out.
+- `ResumeOffer` (`src/main/resume-offer.ts`) follows the `queue-changed` and `channels-changed`
+  events until each started delivery is settled and its channel assignment is not active. It then
+  keeps the agents whose delivery is `interrupted`, and the channels that have a stopped run. A
+  deleted or hidden agent and a deleted or archived channel drop out. It holds names and counts
+  only, in memory.
+- `getResumeOffer` waits until that point. `resumeInterruptedWork` takes `{ all: true }` or lists of
+  ids; an id that the offer does not hold does nothing. The work that the user did not choose drops
+  out, and the work whose request failed stays in the offer. One choice runs at a time, so a second
+  click sends nothing again.
+- An agent gets a user message in its own chat (`AgentService.sendMessage`), with the English prompt
+  `RESUME_CONTINUE_TEXT`. A channel gets the `resume` command on the entry of each stopped run, as
+  its Continue button sends it. The task goes into the queue, so the one-channel-at-a-time lane
+  decides when it starts. A task that runs again before the click is not sent: `resume` would stop
+  its turn. The ids of both requests make a retry idempotent.
+- `ResumeOfferHost` (`src/renderer/src/features/resume/`) reads the offer once, in the main window
+  only. The preview mock has no offer.
+
 ## Messaging connections
 
 The agents of a computer can answer in an external chat platform: Slack, Discord (see **Discord**

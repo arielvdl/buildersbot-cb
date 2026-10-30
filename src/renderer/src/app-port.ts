@@ -26,6 +26,9 @@ export interface AppPort {
   getLoad: BuildersBotDesktopApi["getLoad"];
   setLoadLane: BuildersBotDesktopApi["setLoadLane"];
   runChannelNow: BuildersBotDesktopApi["runChannelNow"];
+  getResumeOffer: BuildersBotDesktopApi["getResumeOffer"];
+  resumeInterruptedWork: BuildersBotDesktopApi["resumeInterruptedWork"];
+  dismissResumeOffer: BuildersBotDesktopApi["dismissResumeOffer"];
   agent: Pick<
     BuildersBotDesktopApi["agent"],
     "readConversationPage" | "searchConversationMessages" | "searchConversationFiles" | "listRoutines" | "listAgents"

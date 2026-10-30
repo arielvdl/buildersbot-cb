@@ -1076,6 +1076,10 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       return previewLoad();
     },
     runChannelNow: async () => previewLoad(),
+    // The preview never restarts, so no work waits to resume and the resume modal stays closed.
+    getResumeOffer: async () => null,
+    resumeInterruptedWork: async () => ({ offer: null, failed: 0 }),
+    dismissResumeOffer: async () => {},
     getAppInterfaceSizePreference: async () => clone(interfaceSizePreference),
     setAppInterfaceSizePreference: async ({ percent }) => {
       interfaceSizePreference = { percent };

@@ -20,6 +20,7 @@ import { WorkspaceDirectConversation } from "./features/conversation/WorkspaceDi
 import { useCustomAgentUsagePolling } from "./features/custom-agents/custom-agent-usage-polling";
 import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServerOnboarding";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
+import { ResumeOfferHost } from "./features/resume/ResumeOfferModal";
 import { WorkspaceRoutineFlows } from "./features/routine-flows/WorkspaceRoutineFlows";
 import { createRoutineTimezonePrompt, desktopRoutineZoneTargets } from "./features/schedule/routine-timezone-prompt";
 import { createHostedUpsellOffline } from "./features/servers/hosted-server-upsell-controller";
@@ -257,6 +258,8 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
               <WorkspaceOverlays account={props.account} />
               <Show when={!chatWindow}>
                 <ServerUpdateDialogHost hosts={remoteHosts()} />
+                {/* The work of this computer that a restart stopped. Only the main window asks. */}
+                <ResumeOfferHost />
               </Show>
             </>
           }

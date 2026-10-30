@@ -297,6 +297,7 @@ import { sendToRenderer } from "./renderer-ipc";
 import { RequestedUpdate, RequestedUpdateRefusal } from "./requested-update";
 import { ResourceMonitor } from "./resource-monitor";
 import { StatementTimings } from "./resource-summary";
+import { createLocalResumeOffer, type ResumeOffer, startedDeliveries } from "./resume-offer";
 import { RoutineFeedServer } from "./routine-feed-server";
 import { clearRoutineHold, ROUTINE_HOLD_FILE, takeRoutineHold, writeRoutineHold } from "./routine-hold-file";
 import { ScreenCapturer } from "./screen-capture";
@@ -635,6 +636,8 @@ export interface ApplicationServices {
   analytics: HostAnalytics;
   trace: TraceFile;
   resourceMonitor: ResourceMonitor;
+  /** The work that the restart stopped, until the user resumes or dismisses it. */
+  resumeOffer: ResumeOffer;
   machineAlerts: MachineAlertMonitor;
   teamStore: TeamStore;
   /**
@@ -1084,6 +1087,11 @@ export async function createApplicationServices({
   await runCauseEffect(sidebarLayout.initialize());
   const mailbox = new MailboxStore(app.getPath("userData"), store.sharedRoot, store.database);
   await runCauseEffect(mailbox.initialize());
+  // Before boot recovery settles anything: the work that the previous run left started. Ids only.
+  const startedAtBoot = startedDeliveries(mailbox.unresolvedDeliveries(), {
+    taskId: (deliveryId) => mailbox.taskIdForDelivery(deliveryId),
+    external: (deliveryId) => mailbox.messagingOrigin(deliveryId) !== null,
+  });
   const developmentUrl = process.env.ELECTRON_RENDERER_URL;
   const teamWebRtcBridge = new TeamWebRtcBridge({
     developmentUrl: developmentUrl ?? null,
@@ -2691,6 +2699,15 @@ export async function createApplicationServices({
     Effect.runPromise(resourceMonitor.close()),
   );
   service.on("event", (event) => resourceMonitor.observeAgentEvent(event));
+  const resumeOffer = createLocalResumeOffer({
+    started: startedAtBoot,
+    service,
+    mailbox,
+    conversationSender: () => host.conversationSender(),
+    channelActor: () => host.channelActor(),
+    onFailure: (kind, id, cause) =>
+      logger.warn("Could not resume work that a restart stopped.", { kind, id, error: toLogValue(cause) }),
+  });
   const analytics = new HostAnalytics({
     ...(failureReports ? { reports: failureReports } : {}),
     enabled: analyticsEnabled,
@@ -3281,6 +3298,7 @@ export async function createApplicationServices({
     analytics,
     trace,
     resourceMonitor,
+    resumeOffer,
     machineAlerts,
     teamStore,
     appliedAccount: signedInState,

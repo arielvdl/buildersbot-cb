@@ -63,6 +63,7 @@ import {
   type HostedSiteSummary,
   IDLE_RESTART_TARGETS,
   type IdleRestart,
+  type InterruptedWorkOffer,
   isAgentMemoryLimit,
   isAgentModel,
   isAgentProvider,
@@ -83,11 +84,13 @@ import {
   isDictationPreference,
   isDictationState,
   isDiscoverModelsResult,
+  isInterruptedWorkOffer,
   isLoadSnapshot,
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
   isRemoteDesktopTestStatus,
   isRemoteNetworkRoute,
+  isResumeInterruptedWorkResult,
   isSecurityGuardPreference,
   isSpeechVoice,
   isVoiceLanguage,
@@ -107,6 +110,7 @@ import {
   type RemoteDesktopTestStatus,
   type RemoteNetworkRouteState,
   type RemoteSessionReusePreference,
+  type ResumeInterruptedWorkResult,
   type SecurityGuardPreference,
   SPEECH_MODEL_ID,
   type SpeechAudio,
@@ -171,6 +175,18 @@ export const decodeApprovalAutomationPreference: (value: unknown) => ApprovalAut
 );
 
 export const decodeLoadSnapshot: (value: unknown) => LoadSnapshot = guardedDecoder(isLoadSnapshot, "load snapshot");
+
+const decodeInterruptedWorkOffer = guardedDecoder(isInterruptedWorkOffer, "resume offer");
+
+/** Null when no work stopped, or when the user already resumed or dismissed it. */
+export function decodeResumeOffer(value: unknown): InterruptedWorkOffer | null {
+  return value === null ? null : decodeInterruptedWorkOffer(value);
+}
+
+export const decodeResumeInterruptedWorkResult: (value: unknown) => ResumeInterruptedWorkResult = guardedDecoder(
+  isResumeInterruptedWorkResult,
+  "resume result",
+);
 
 export function decodeBusyMessageModePreference(value: unknown): BusyMessageModePreference {
   const preference = decodeRecord(value, "busy message mode preference");
