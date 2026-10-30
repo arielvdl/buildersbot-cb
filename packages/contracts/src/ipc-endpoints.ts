@@ -303,6 +303,7 @@ import type {
   InstanceTransferResult,
   InstanceTransferSummary,
 } from "./ipc-instance-transfer";
+import type { LoadLanePreference, LoadSnapshot, RunChannelNowInput } from "./ipc-load";
 import type { MachineAlertSettings, MachineMetrics } from "./ipc-machine-resources";
 import type {
   AgentPublicationPreview,
@@ -631,6 +632,10 @@ export const IPC_ENDPOINTS = {
     setBusyMessageModePreference: request<BusyMessageModePreference, BusyMessageModePreference>()(
       "app:set-busy-message-mode",
     ),
+    // The load of this computer and the one-channel-at-a-time mode (`ipc-load.ts`).
+    getLoad: request<undefined, LoadSnapshot>()("app:get-load"),
+    setLoadLane: request<LoadLanePreference, LoadSnapshot>()("app:set-load-lane"),
+    runChannelNow: request<RunChannelNowInput, LoadSnapshot>()("app:run-channel-now"),
     getAgentDefaults: request<undefined, AgentDefaults>()("app:get-agent-defaults"),
     setAgentDefaults: request<AgentDefaults, AgentDefaults>()("app:set-agent-defaults"),
     getAgentMemoryLimitPreference: request<undefined, AgentMemoryLimitPreference>()("app:get-agent-memory-limit"),

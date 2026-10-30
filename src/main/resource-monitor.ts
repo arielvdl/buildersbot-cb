@@ -16,6 +16,7 @@ import {
 import { providerProcessIds } from "../backend/provider-processes";
 import type { AnalyticsResourceSource } from "./analytics";
 import { AnalyticsOperationFailure, toAnalyticsOperationFailure } from "./analytics-effects";
+import type { LoadReading } from "./load-snapshot";
 import { readPreferenceFile, writePreferenceFile } from "./preference-file";
 import {
   addCount,
@@ -174,6 +175,23 @@ export class ResourceMonitor implements AnalyticsResourceSource {
       this.#previousHandled = true;
       return this.#persist().pipe(toAnalyticsOperationFailure);
     });
+  }
+
+  /**
+   * What the load ring shows: the last memory sample, which is up to a minute old, and the turns
+   * that run now. The agents' memory is that of the provider processes.
+   */
+  loadReading(): LoadReading {
+    const sample = this.#lastSample;
+    const providers = sample ? Object.values(sample.providers) : [];
+    return {
+      sampledAt: sample?.at ?? null,
+      usedMb: sample?.rssMb.total ?? null,
+      agentsMb: sample ? sum(providers.map((provider) => provider.rssMb)) : null,
+      totalMb: Math.round(totalmem() / (1024 * 1024)),
+      activeAgents: this.#activeTurns.size,
+      providerProcesses: sum(providers.map((provider) => provider.processes)),
+    };
   }
 
   /** The last sample and the summaries of today and the last closed day, for the diagnostics export. */

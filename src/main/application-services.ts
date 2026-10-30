@@ -162,6 +162,7 @@ import { BrowserPictureInPicture } from "./browser-picture-in-picture";
 import { BrowserViewClient } from "./browser-view-client";
 import { BusyMessageModePreferenceStore } from "./busy-message-mode-preference-store";
 import { CentralAuthManager, readCentralAuthApiUrl, readMobileConnectApiUrl } from "./central-auth-manager";
+import { ChannelLanePreferenceStore } from "./channel-lane-preference-store";
 import { ChatVisualPreviewer } from "./chat-visual-preview";
 import { readChromeSiteCookies } from "./chrome-site-session";
 import { ComputerUseHighlightController } from "./computer-use-highlight-window";
@@ -351,6 +352,7 @@ const UPDATE_PREFERENCE_FILE = "openbot-update-preference-v1.json";
 const NOTIFICATION_PREFERENCE_FILE = "openbot-notification-preference-v1.json";
 const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
+const CHANNEL_LANE_PREFERENCE_FILE = "openbot-channel-lane-v1.json";
 const PROVIDER_CLI_APP_VERSION_FILE = "openbot-provider-cli-app-version-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
 const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
@@ -565,6 +567,7 @@ export interface ApplicationServices {
   interfaceSize: InterfaceSizeService;
   notificationPreference: NotificationPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
+  channelLane: ChannelLanePreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   memoryReview: MemoryReviewPreferenceStore;
@@ -1199,6 +1202,7 @@ export async function createApplicationServices({
   const busyMessageMode = new BusyMessageModePreferenceStore(
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
+  const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
@@ -1242,6 +1246,8 @@ export async function createApplicationServices({
       runCauseEffect(remoteNetworkRoute.load()),
       runCauseEffect(appBehavior.load()),
       runCauseEffect(securityGuard.load()),
+      // Last: the result above is read by position, `[8]`.
+      runCauseEffect(channelLane.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -1805,6 +1811,7 @@ export async function createApplicationServices({
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
     busyMessageMode: () => busyMessageMode.get().mode,
+    channelLane: () => channelLane.get(),
     securityGuard: () => securityGuard.get(),
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     memoryReviewInterval: () => memoryReview.get().interval,
@@ -3173,6 +3180,7 @@ export async function createApplicationServices({
     interfaceSize,
     notificationPreference,
     busyMessageMode,
+    channelLane,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     memoryReview,

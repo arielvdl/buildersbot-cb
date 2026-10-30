@@ -350,6 +350,11 @@ export interface AgentServiceOptions {
    */
   securityGuard?: () => SecurityGuardPreference;
   /**
+   * The one-channel-at-a-time mode and the order the user chose. The main process owns the
+   * preference. Omitted, every channel starts its work when it can.
+   */
+  channelLane?: () => { enabled: boolean; order: readonly string[] };
+  /**
    * How many memories one agent can hold. The main process owns the preference. Omitted, the
    * default cap, which was the only cap before the setting existed.
    */
@@ -518,6 +523,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       hostMemory = null,
       busyMessageMode = () => DEFAULT_BUSY_MESSAGE_MODE,
       securityGuard = () => DEFAULT_SECURITY_GUARD_PREFERENCE,
+      channelLane,
     } = options;
     this.#developmentDefaults = developmentDefaults;
     this.#busyMessageMode = busyMessageMode;
@@ -1170,6 +1176,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         for (const agent of this.#store.list())
           if (this.#mailbox.queuedDeliveryIds(agent.id).length) this.#mailboxSync.emitQueue(agent.id);
       },
+      ...(channelLane ? { lane: channelLane } : {}),
       error: (error) => this.#emitError("channel_coordination_failed", error),
     });
     this.#channelRoutines = new ChannelRoutineScheduler({

@@ -35,6 +35,7 @@ import {
   type DeliveredChannelContext,
   isMemberThinking,
 } from "./channel-history";
+import { admittedChannels, nextLaneChannel } from "./channel-lane";
 import {
   CHANNEL_MANAGEMENT_TOOLS,
   type ChannelChangeNote,
@@ -107,7 +108,23 @@ export interface ChannelHooks {
   remotePerson?(personId: string): boolean;
   /** The schedule routines of the channels, for the routine tools. Omitted, those tools fail. */
   routines?: ChannelRoutineToolPort;
+  /**
+   * The one-channel-at-a-time mode and the order the user chose. Omitted, or not enabled, every
+   * channel starts its work when it can, as before.
+   */
+  lane?(): { enabled: boolean; order: readonly string[] };
   error(error: unknown): void;
+}
+
+/** A channel that started no work when its pump ran is not offered to the lane again for this long. */
+const LANE_STALL_MS = 30_000;
+
+/** What the lane shows: the channels that work, and the ones that wait for them, in start order. */
+export interface ChannelLaneSnapshot {
+  enabled: boolean;
+  order: readonly string[];
+  running: string[];
+  queued: string[];
 }
 
 class ChannelRoutingError extends Schema.TaggedError<ChannelRoutingError>()("ChannelRoutingError", {
@@ -169,6 +186,13 @@ export class ChannelService {
    */
   readonly #waitingForAgents = new Set<string>();
   readonly #deletedChannels = new Set<string>();
+  /** The lane's memory, all of it derived or disposable: a restart rebuilds it from the stored tasks. */
+  readonly #laneArrivals = new Map<string, number>();
+  #nextLaneArrival = 0;
+  /** The channels the user chose to run now, beside the lane, until they stop working. */
+  readonly #laneForced = new Set<string>();
+  /** By channel: when its pump ran and started nothing, so it cannot hold the lane back. */
+  readonly #laneStalled = new Map<string, number>();
   readonly #assignmentTerminalWaiters = new Map<string, Set<() => void>>();
   /** The active assignments last seen per channel, so turn traffic reports no new hold. */
   readonly #activeAssignments = new Map<string, string>();
@@ -212,6 +236,7 @@ export class ChannelService {
       actor: { id: string; name: string },
       beforeApply: (command: ChannelCommand) => ChannelCommand | null = (queued) => queued,
     ) => {
+      this.#laneStalled.delete(command.channelId);
       const operation = Effect.suspend(() => {
         const next = beforeApply(command);
         return next ? this.apply(next, actor) : channelSync(() => this.store.get(command.channelId));
@@ -285,6 +310,9 @@ export class ChannelService {
           for (const threadId of threadIds) yield* this.hooks.forgetThread?.(threadId) ?? Effect.void;
           yield* channelSync(() => this.store.delete(channelId));
           this.#pumps.delete(channelId);
+          this.#laneArrivals.delete(channelId);
+          this.#laneForced.delete(channelId);
+          this.#laneStalled.delete(channelId);
           this.#wakeAgain.delete(channelId);
           this.#waitingForAgents.delete(channelId);
           yield* this.#releaseHeldAgents(agentIds);
@@ -929,9 +957,13 @@ export class ChannelService {
       Effect.gen({ self: this }, function* () {
         if (this.#stopped) return;
         const archived = yield* channelSync(() => this.store.archivedIds());
+        // With the lane on, only the channels it admits start. The others wait in the queue, and the
+        // end of the pump that works wakes the next one (`#laneAdvance`).
+        const admitted = yield* channelSync(() => this.#laneAdmitted(channelId));
         for (const id of yield* channelSync(() => this.store.ids())) {
           if (this.#deletedChannels.has(id)) continue;
           if (archived.has(id) || (channelId && channelId !== id)) continue;
+          if (admitted && !admitted.has(id)) continue;
           if (this.#pumps.has(id)) {
             this.#wakeAgain.add(id);
             continue;
@@ -941,11 +973,16 @@ export class ChannelService {
             Effect.ensuring(
               Effect.gen({ self: this }, function* () {
                 this.#pumps.delete(id);
+                if (admitted && !this.#laneBusy().has(id)) this.#laneStalled.set(id, Date.now());
                 yield* this.#wakeHeldBehind().pipe(
                   Effect.catch((failure) => Effect.sync(() => this.hooks.error(failure.cause))),
                 );
                 if (this.#wakeAgain.delete(id))
                   yield* this.wake(id).pipe(
+                    Effect.catch((failure) => Effect.sync(() => this.hooks.error(failure.cause))),
+                  );
+                else
+                  yield* this.#laneAdvance().pipe(
                     Effect.catch((failure) => Effect.sync(() => this.hooks.error(failure.cause))),
                   );
               }),
@@ -954,8 +991,111 @@ export class ChannelService {
           const fiber = yield* Effect.forkIn(work, this.#scope, { startImmediately: false });
           this.#pumps.set(id, fiber);
         }
+        // A named channel that waits for the lane leaves the pump of the channel that is next.
+        if (admitted && channelId && !admitted.has(channelId)) yield* this.#laneAdvance();
       }),
   );
+
+  /** The channels that work now: a pump runs, or an assignment is active. */
+  #laneBusy(): Set<string> {
+    const busy = new Set<string>();
+    for (const id of this.store.ids()) {
+      if (this.#deletedChannels.has(id)) continue;
+      if (this.#pumps.has(id) || this.store.assignments(id).some(activeAssignment)) busy.add(id);
+    }
+    return busy;
+  }
+
+  /**
+   * The channels with a queued task that could start now, in the order they began to wait. A task
+   * that its owner, a spent plan or a dependency holds back does not count: a channel that cannot
+   * start must not hold the lane while another could run.
+   */
+  #laneRunnable(busy: ReadonlySet<string>): string[] {
+    const { tasks, assignments } = this.#scheduling();
+    const archived = this.store.archivedIds();
+    const now = Date.now();
+    const ready = new Set<string>();
+    for (const task of tasks.values()) {
+      const id = task.channelId;
+      if (task.state !== "queued" || ready.has(id) || busy.has(id) || archived.has(id)) continue;
+      if (this.#deletedChannels.has(id) || now - (this.#laneStalled.get(id) ?? -Infinity) < LANE_STALL_MS) continue;
+      const startable = task.ownerAgentId
+        ? this.#waiterReady(task, tasks, assignments)
+        : this.eligibleMembers(this.store.get(id)).length > 0;
+      if (startable) ready.add(id);
+    }
+    for (const id of [...this.#laneArrivals.keys()]) if (!ready.has(id)) this.#laneArrivals.delete(id);
+    for (const id of ready) if (!this.#laneArrivals.has(id)) this.#laneArrivals.set(id, this.#nextLaneArrival++);
+    return [...ready].sort((left, right) => (this.#laneArrivals.get(left) ?? 0) - (this.#laneArrivals.get(right) ?? 0));
+  }
+
+  /** The channels whose pump may run, or null when the lane is off and every channel may. */
+  #laneAdmitted(requested?: string): ReadonlySet<string> | null {
+    const lane = this.hooks.lane?.();
+    if (!lane?.enabled) return null;
+    const busy = this.#laneBusy();
+    return admittedChannels({
+      enabled: true,
+      order: lane.order,
+      runnable: this.#laneRunnable(busy),
+      busy,
+      forced: this.#laneForced,
+      requested,
+    });
+  }
+
+  /**
+   * Starts the next channel when none works. It wakes only a channel that no pump runs and that
+   * is not busy, so it cannot loop: a channel that starts nothing is marked and the next one is tried.
+   */
+  #laneAdvance(): Effect.Effect<void, ChannelOperationError> {
+    return Effect.gen({ self: this }, function* () {
+      const lane = this.hooks.lane?.();
+      if (!lane?.enabled || this.#stopped) return;
+      const busy = this.#laneBusy();
+      for (const id of [...this.#laneForced]) if (!busy.has(id)) this.#laneForced.delete(id);
+      if (busy.size > 0) return;
+      const next = nextLaneChannel(lane.order, this.#laneRunnable(busy));
+      if (next) yield* this.wake(next);
+    });
+  }
+
+  /** The lane as the app shows it. */
+  laneSnapshot(): ChannelLaneSnapshot {
+    const lane = this.hooks.lane?.() ?? { enabled: false, order: [] };
+    const busy = this.#laneBusy();
+    const queued = this.#laneRunnable(busy);
+    const rank = (id: string) => {
+      const index = lane.order.indexOf(id);
+      return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+    };
+    queued.sort((left, right) => rank(left) - rank(right));
+    return { enabled: lane.enabled, order: lane.order, running: [...busy], queued };
+  }
+
+  /**
+   * Lets one waiting channel start now, beside the one that works. This is the way out when the
+   * channel that holds the lane waits for the user for a long time.
+   */
+  readonly runChannelNow = Effect.fn("ChannelService.runChannelNow")(function* (
+    this: ChannelService,
+    channelId: string,
+  ) {
+    yield* channelSync(() => {
+      if (!this.store.exists(channelId)) throw new Error(sourceText("error.backend.channelNotFound"));
+      this.#laneForced.add(channelId);
+      this.#laneStalled.delete(channelId);
+    });
+    yield* this.wake(channelId);
+  });
+
+  /** The mode or the order changed. Switched off, every waiting channel starts; on, the lane fills. */
+  readonly laneChanged = Effect.fn("ChannelService.laneChanged")(function* (this: ChannelService) {
+    if (!this.hooks.lane?.().enabled) this.#laneForced.clear();
+    this.#laneStalled.clear();
+    yield* this.wake();
+  });
 
   private routingState(channelId: string): string {
     const channel = this.store.get(channelId);

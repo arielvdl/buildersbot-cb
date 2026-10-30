@@ -27,9 +27,11 @@ import type { AppBehaviorService } from "../app-behavior-service";
 import type { AppearanceService } from "../appearance-service";
 import type { ApprovalAutomation } from "../approval-automation-store";
 import type { BusyMessageModePreferenceStore } from "../busy-message-mode-preference-store";
+import type { ChannelLanePreferenceStore } from "../channel-lane-preference-store";
 import type { ExternalLinkOpener, ExternalLinkPreferenceStore } from "../external-link-opener";
 import type { InterfaceSizeService } from "../interface-size-service";
 import type { LanguageService } from "../language-service";
+import { buildLoadSnapshot } from "../load-snapshot";
 import type { LogoColorService } from "../logo-color-service";
 import { MAC_PERMISSION_URLS } from "../mac-permission-urls";
 import { exportBuildersBotData, exportDiagnostics } from "../maintenance-service";
@@ -52,8 +54,10 @@ import {
   parseChatWindowTarget,
   parseExternalDestination,
   parseExternalLinkPreference,
+  parseLoadLanePreference,
   parseRemoteNetworkRoutePreference,
   parseRemoteSessionReusePreference,
+  parseRunChannelNowInput,
   parseSetup,
 } from "./app-inputs";
 import { stringPayload } from "./validation";
@@ -101,6 +105,7 @@ export interface AppIpcDependencies {
   analyticsPreferenceFile: string;
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
+  channelLane: ChannelLanePreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
@@ -138,6 +143,7 @@ export function appIpcHandlers({
   analyticsPreferenceFile,
   approvalAutomation,
   busyMessageMode,
+  channelLane,
   agentDefaults,
   agentMemoryLimit,
   remoteSessionReuse,
@@ -165,6 +171,8 @@ export function appIpcHandlers({
 }: AppIpcDependencies): Pick<IpcGroupHandlers, "app" | "maintenance"> {
   // One write at a time, so two quick toggles leave the file and the tracker at the last choice.
   const analyticsPreferenceWrites = Semaphore.makeUnsafe(1);
+  const loadSnapshot = () =>
+    buildLoadSnapshot(resources.loadReading(), service.channels.laneSnapshot(), new Set(service.channels.store.ids()));
   return {
     app: {
       getAppInfo: handler((): AppInfo => {
@@ -199,6 +207,17 @@ export function appIpcHandlers({
       setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
         runCauseEffect(busyMessageMode.set(parsed)),
       ),
+      getLoad: handler(() => loadSnapshot()),
+      // The mode only decides which channel starts next: switching it never stops work that runs.
+      setLoadLane: payloadHandler(parseLoadLanePreference, async (parsed) => {
+        await runCauseEffect(channelLane.set(parsed));
+        await runCauseEffect(service.channels.laneChanged());
+        return loadSnapshot();
+      }),
+      runChannelNow: payloadHandler(parseRunChannelNowInput, async (parsed) => {
+        await runCauseEffect(service.channels.runChannelNow(parsed.channelId));
+        return loadSnapshot();
+      }),
       getAgentDefaults: handler(() => agentDefaults.get()),
       // The agents that follow a changed default get it at once: see `AgentService.agentDefaultsChanged`.
       setAgentDefaults: payloadHandler(parseAgentDefaults, async (parsed) => {

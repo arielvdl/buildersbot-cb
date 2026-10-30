@@ -19,6 +19,7 @@ import type {
   IdleRestartTarget,
   InstallMarketplaceAgentInput,
   InstallSkillInput,
+  LoadLanePreference,
   MacAutomationTarget,
   MacPermissionId,
   MarketplaceAgentQuery,
@@ -29,6 +30,7 @@ import type {
   RemoteNetworkRoutePreference,
   RemoteSessionReusePreference,
   ReplaceHostedSiteInput,
+  RunChannelNowInput,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
   SetAppAppearancePreferenceInput,
@@ -62,8 +64,10 @@ import {
   isDynamicIslandInteractive,
   isDynamicIslandPreference,
   isDynamicIslandPresentation,
+  isLoadLanePreference,
   isMemoryReviewInterval,
   isRemoteNetworkRoute,
+  isRunChannelNowInput,
   isSkillCategory,
   MAC_AUTOMATION_TARGETS,
 } from "@openbot/contracts/ipc";
@@ -103,6 +107,16 @@ export function parseAnalyticsPreference(input: unknown): SetAnalyticsPreference
 export function parseBusyMessageModePreference(input: unknown): BusyMessageModePreference {
   if (!isDynamicRecord(input) || !isBusyMessageMode(input.mode)) throw new Error("Busy message mode is required.");
   return { mode: input.mode };
+}
+
+export function parseLoadLanePreference(input: unknown): LoadLanePreference {
+  if (!isLoadLanePreference(input)) throw new Error("Channel lane preference is required.");
+  return { enabled: input.enabled, order: [...input.order] };
+}
+
+export function parseRunChannelNowInput(input: unknown): RunChannelNowInput {
+  if (!isRunChannelNowInput(input)) throw new Error("A channel is required.");
+  return { channelId: input.channelId };
 }
 
 export function parseAgentDefaults(input: unknown): AgentDefaults {

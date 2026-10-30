@@ -83,6 +83,7 @@ import {
   isDictationPreference,
   isDictationState,
   isDiscoverModelsResult,
+  isLoadSnapshot,
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
   isRemoteDesktopTestStatus,
@@ -91,6 +92,7 @@ import {
   isSpeechVoice,
   isVoiceLanguage,
   isVoiceModelId,
+  type LoadSnapshot,
   type MobileConnectedDevice,
   type MobileConnectLink,
   type MobileConnectTicket,
@@ -167,6 +169,8 @@ export const decodeApprovalAutomationPreference: (value: unknown) => ApprovalAut
   isApprovalAutomationPreference,
   "approval automation preference",
 );
+
+export const decodeLoadSnapshot: (value: unknown) => LoadSnapshot = guardedDecoder(isLoadSnapshot, "load snapshot");
 
 export function decodeBusyMessageModePreference(value: unknown): BusyMessageModePreference {
   const preference = decodeRecord(value, "busy message mode preference");
