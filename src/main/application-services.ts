@@ -1104,7 +1104,8 @@ export async function createApplicationServices({
         message: t("dialog.siteSession.message", { site }),
         detail: t("dialog.siteSession.detail", { site }),
         buttons: [t("dialog.siteSession.always", { site }), t("dialog.siteSession.once"), t("dialog.siteSession.deny")],
-        defaultId: 1,
+        // Return and Escape refuse: consent is a click on an Allow button, never a keypress.
+        defaultId: 2,
         cancelId: 2,
         noLink: true,
       };
