@@ -364,6 +364,21 @@ the child unless the row names it.
 ### Rules that are easy to break
 
 - The Playwright server answers only the `Host` that it prints, `localhost:PORT`. `localhost` can
+Two more rules keep the memory low:
+
+- The broker reads the memory level of the computer (`memoryLevel`, from `MacMemory`; see
+  [Memory of the computer](providers.md#memory-of-the-computer)). Without `MacMemory` the level is
+  `ok`. While the level is `low`, `browser_tabs` action `new` gets a tool result with
+  `isError: true`. While it is `critical`, a new `initialize` also gets a JSON-RPC error. Tools that
+  list or close tabs always work, so an agent can give memory back.
+- OpenCode starts each MCP server of the person's own `opencode.json` for each agent, so its
+  Playwright started one server and one Chrome for each agent. Each OpenCode and Cultura Builder
+  spawn now gets `mcp.playwright.enabled=false` on `OPENCODE_CONFIG_CONTENT` (`OWN_PLAYWRIGHT_OFF`
+  in `src/backend/opencode-config.ts`). Only the name `playwright` is overridden: the other servers
+  of the person still run, and the file does not change. The shared broker reaches the agent
+  through ACP `mcpServers`. This was checked by hand with the real OpenCode `debug config`;
+  `opencode-config.test.ts` checks only the JSON that Builders Bot sends.
+
   resolve to `::1`, so the broker connects to `127.0.0.1` and sends that `Host`
   (`UpstreamProcess.hostHeader`). A test with a fake upstream that accepted all hosts hid this one
   time. The fake in `playwright-broker.test.ts` now answers only its own host.

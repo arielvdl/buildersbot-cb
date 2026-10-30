@@ -329,6 +329,77 @@ Rules that are easy to break:
   stalled). The end of a pump marks a channel that is not busy as stalled before it calls
   `#laneAdvance`. These two checks stop a loop; keep both.
 
+## Stopped work and its recovery
+
+The load panel lists the work that runs and the work that stopped. The person can stop a run, start
+stopped work again, or give it to another agent. `WorkControl` (`src/main/work-control.ts`) owns
+this. It reads the channels at each request and keeps no copy of them. Each list has at most 50 rows
+(`LOAD_WORK_LIST_LIMIT`).
+
+- Work that runs: each agent turn that runs now. `ActiveTurnTracker` (`src/main/work-overview.ts`)
+  follows the `turn-started` and `turn-completed` events of the agent service, in memory. A turn on
+  the execution thread of a channel shows the channel and the task of the active assignment
+  (`starting` or `running`) of that agent. A turn in the chat of an agent shows no channel.
+- Work that stopped: each channel task that is `paused` or `failed` and has an error, which is the
+  reason. There is one row for each run: the root task when the root stopped, else the task that
+  stopped (`buildStoppedWork`). This is the rule of the Continue button of a channel. Archived
+  channels are not listed. The ring shows the count of these rows as a red mark.
+
+The actions (`app:stop-work`, `app:resume-stopped-work`, `app:reassign-stopped-work`; handlers in
+`src/main/ipc/app-handlers.ts`):
+
+- `stopWork`: for a channel turn, sends the `stop` command to the top active task of its run
+  (`topActiveTask`), because a channel stops its run and not one turn. When the task is not active,
+  nothing is sent. A chat turn goes to `AgentService.interrupt`.
+- `resumeStopped`: sends the `resume` command for each row, from `{ all: true }` or a list of ids.
+- `reassignStopped`: sends the `reassign` command to one task.
+
+Each of `resumeStopped` and `reassignStopped` checks the ids against the work that is stopped now.
+An id that is not stopped is ignored, so a forged or old id starts nothing. A reassign also needs an
+agent that the panel offered for that task; the channel service then checks that the agent is an
+available member.
+
+Candidates (`reassignCandidates` in `src/main/auto-recovery.ts`):
+
+- Only available members of the channel: the agent exists, is not hidden, and no spent plan holds
+  it. Never the owner of the task. At most 8.
+- The same model first, then the same provider, then the rest. Each group is in name order.
+- The automatic recovery takes only an agent with the same model or the same provider
+  (`autoReassignee`), and never an agent that it tried for that task.
+
+The automatic recovery (`AutoRecovery`, same file):
+
+- It is off by default. The panel turns it on and sets the interval: 5 to 1440 minutes, 30
+  suggested. A second switch lets it give a task to another agent; that switch is also off by
+  default.
+- `AutoRecoveryPreferenceStore` keeps the preference in `openbot-auto-recovery-v1.json` in the user
+  data folder. A missing or damaged file, another shape, or a value out of range reads as the
+  default.
+- A timer looks every 60 s. One look does not overlap the one before it.
+- A task waits the whole interval from the first time a look saw it stopped, and again after each
+  action.
+- Each task gets `MAX_RESUMES` (2) resumes, then, when the switch allows it, `MAX_REASSIGNS` (2)
+  reassigns. Then the recovery gives up. A failed request counts as a try.
+- One look acts on at most 3 tasks. A give-up counts as one.
+- A record stays for 6 hours after the last look that saw its task stopped. So a task that runs and
+  stops again keeps its count.
+- The records are in memory only. A restart resets the counts and the wait.
+- While the recovery is on, each stopped row shows that it waits, or that the recovery gave up. The
+  panel also lists the last 5 actions.
+
+Rules that are easy to break:
+
+- `resume` puts the whole run below the task in the queue again and stops the turns in it. A
+  `resume` of a task that runs stops its turn. So each action touches only tasks that are stopped
+  now. Keep the check against the stopped rows.
+- `resume` puts the task in the queue and calls `wake()`. The one-channel-at-a-time lane still
+  decides when a resumed channel starts. Do not start a pump from `WorkControl`.
+- `LoadRing` draws the panel in a `Popover.Portal`, and the panel has `-webkit-app-region:
+  no-drag`. The rail is a drag region (`-webkit-app-region: drag`) and clips its children. Inside
+  the rail, a click did not open the panel.
+- Teardown stops the recovery timer before the agent service (`TEARDOWN_ORDER.workControl`), so no
+  look starts work while the service stops.
+
 ## Resume after a restart
 
 When the app stops while work runs (a forced quit, a crash, or a quit), boot recovery stops that

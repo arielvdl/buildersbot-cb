@@ -429,7 +429,8 @@ export interface AgentServiceOptions {
   /**
    * The memory of a desktop computer, or `null`. It holds a new turn while memory is low and closes the
    * idle provider threads when it is critical, as `hostMemory` does on a server, but it makes this a
-   * desktop and not a server: the instructions of the agents and the turn limit do not change.
+   * desktop and not a server: the instructions of the agents do not change. The turn limit is the one
+   * that `MacMemory` gives (64).
    */
   memoryPressure?: HostMemory | null;
 }

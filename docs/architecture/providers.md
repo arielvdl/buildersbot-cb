@@ -153,6 +153,39 @@ Cumulative account usage is not context occupancy. A missing report is not zero 
 The design uses Hermes's on-demand discovery, stable instruction ordering, and bounded local
 history recall as references. OpenBot retains each native provider's session and compaction rules.
 
+## Memory of the computer
+
+Before, only a server reacted to memory pressure (`ServerMemory`, see
+[Hosted servers](../hosted-servers.md#memory)). On a Mac, a few agents, each with its own MCP
+servers, filled the memory until macOS asked the person to close apps. `MacMemory`
+(`src/main/mac-memory.ts`) gives the desktop the same guard, through the same `MemoryHold`
+(`src/backend/agent/memory-hold.ts`).
+
+- It runs only on macOS, and only when there is no server reading (`hostMemory` is null).
+- Every 10 s it reads the free percentage of `memory_pressure` and the used swap of
+  `sysctl vm.swapusage`. When macOS gives no free percentage, or a command fails, the level stays
+  as it was and the log gets one warning.
+
+| Level | When | What `MemoryHold` does |
+| --- | --- | --- |
+| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. |
+| `critical` | Less than 8% free, or more than 9000 MB of swap with less than 15% free. | As `low`. Also, the provider threads with no turn close one time. They open again from their session. |
+| `ok` | Other times. | Turns start. The held agents start again. |
+
+A level goes up at once. It goes down only when the free percentage is 6 points above the
+threshold that it went past (`RECOVER_MARGIN_PERCENT`). The swap counts only together with little
+free memory, because macOS keeps the used swap high after the pressure stops. These numbers are a
+first guess. They are not tuned on other machines.
+
+- `AgentService` gets this reading as `memoryPressure`, not as `hostMemory`. `hostMemory` makes the
+  app a server and changes the agent instructions (`serverHost`). `MacMemory` has
+  `kind: "desktop"`, counts no memory for a new turn (`reserveTurn` does nothing), and gives a turn
+  limit of 64 (`DESKTOP_TURN_LIMIT`), so only the level holds a turn.
+- The browser broker reads the same level (`memoryLevel`): no new tab while the level is `low`, and
+  no new session while it is `critical`. See [browser.md](browser.md#one-playwright-server-for-all-agents).
+- The load panel shows a line with the free percentage while the level is not `ok`
+  (`memory.pressure` of `LoadSnapshot`, from `MacMemory.reading()`).
+
 ## Model catalog
 
 `ModelCatalog.refresh` (`src/backend/agent/model-catalog.ts`) reads `model/list` from each running

@@ -85,7 +85,6 @@ export const messages = defineMessages("app", {
   "app.rail.load.pressureCritical":
     "The computer is almost out of memory ({percent}% free). New messages wait, and idle agents are closed to free memory. Close the apps that you do not use.",
   "app.rail.load.stoppedAlert": "{count} stopped",
-  "app.rail.load.stoppedTitle": "Stopped",
   "app.rail.load.stoppedCount": { one: "{count} stopped", other: "{count} stopped" },
   "app.rail.load.resumeAll": "Resume all",
   "app.rail.load.resume": "Resume",

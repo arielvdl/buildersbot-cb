@@ -85,7 +85,6 @@ export const messages = {
   "app.rail.load.pressureCritical":
     "O computador está quase sem memória ({percent}% livre). As mensagens novas esperam e os agentes parados são fechados para liberar memória. Feche os apps que você não usa.",
   "app.rail.load.stoppedAlert": "{count} paradas",
-  "app.rail.load.stoppedTitle": "Paradas",
   "app.rail.load.stoppedCount": { one: "{count} parada", other: "{count} paradas" },
   "app.rail.load.resumeAll": "Retomar todas",
   "app.rail.load.resume": "Retomar",
