@@ -442,6 +442,8 @@ import type {
   UninstallSkillInput,
 } from "./ipc-skills";
 import type {
+  CleanupCandidates,
+  CleanupRemoval,
   ClearStorageInput,
   DeleteStoredFileInput,
   GetStorageUsageInput,
@@ -449,6 +451,7 @@ import type {
   OpenStorageLocationInput,
   OpenStoredFileInput,
   ProviderRuntimeDownload,
+  RemoveCleanupCandidateInput,
   StorageDisk,
   StorageUsage,
 } from "./ipc-storage";
@@ -1705,6 +1708,10 @@ export const IPC_ENDPOINTS = {
     getOldRuntimeVersions: request<undefined, OldRuntimeVersions>()("storage:get-old-runtime-versions"),
     /** Removes the old versions no instance uses now, and answers what is left. */
     removeOldRuntimeVersions: request<undefined, OldRuntimeVersions>()("storage:remove-old-runtime-versions"),
+    // Local only: worktrees and development folders of this computer, found by a scan the person asks for.
+    getCleanupCandidates: request<undefined, CleanupCandidates>()("storage:get-cleanup-candidates"),
+    /** Asks the person to confirm in a native dialog, then moves the candidate to the Trash. */
+    removeCleanupCandidate: request<RemoveCleanupCandidateInput, CleanupRemoval>()("storage:remove-cleanup-candidate"),
   },
   // Bound against the agent import service, which holds the staged archives. A remote server is
   // reached with `agent-import-v1`; main still opens the file dialog and sends the file.

@@ -12,7 +12,14 @@ export interface FilesPort {
    */
   storage: Pick<BuildersBotDesktopApi["storage"], "clear" | "deleteFile" | "getUsage" | "openFile"> &
     Partial<
-      Pick<BuildersBotDesktopApi["storage"], "getOldRuntimeVersions" | "removeOldRuntimeVersions" | "getMachineMetrics">
+      Pick<
+        BuildersBotDesktopApi["storage"],
+        | "getOldRuntimeVersions"
+        | "removeOldRuntimeVersions"
+        | "getMachineMetrics"
+        | "getCleanupCandidates"
+        | "removeCleanupCandidate"
+      >
     >;
   /** The machine alert settings, beside `storage.getMachineMetrics`. */
   hostAdmin?: Pick<BuildersBotDesktopApi["hostAdmin"], "getMachineAlerts" | "setMachineAlerts">;

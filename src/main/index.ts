@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import {
@@ -32,6 +33,7 @@ import { readAppVariant, resolveAppIconPath, resolveLogoColorIconPath } from "./
 import { type ApplicationServices, createApplicationServices } from "./application-services";
 import { type BackgroundTray, createBackgroundTray } from "./background-tray";
 import { removeClaudeCodeSessionEnvironment } from "./claude-session-environment";
+import { CleanupService } from "./cleanup-service";
 import { type DeepLink, findDeepLink, parseDeepLink } from "./deep-link-router";
 import { requestNotificationPermission, showRetainedNotification } from "./desktop-notifications";
 import { guardDevelopmentOutput } from "./development-output";
@@ -782,6 +784,11 @@ function registerIpcHandlers({
     }),
     ...storageIpcHandlers({
       storage: storageUsage,
+      cleanup: new CleanupService({
+        roots: [join(homedir(), "Documents"), join(homedir(), "Projects"), join(homedir(), "Builders Bot")],
+        userDataPath: app.getPath("userData"),
+        trash: (path) => shell.trashItem(path),
+      }),
       machine: machineAlerts,
       providerRuntimes,
       mailbox,

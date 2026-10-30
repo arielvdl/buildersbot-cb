@@ -147,6 +147,51 @@ export interface OldRuntimeVersions {
   bytes: number;
 }
 
+export const CLEANUP_KINDS = ["worktree", "dev-profile"] as const;
+/** A git worktree that was merged or went idle, or the data folder of an old development run. */
+export type CleanupKind = (typeof CLEANUP_KINDS)[number];
+
+export const CLEANUP_REASONS = ["merged", "stale"] as const;
+export type CleanupReason = (typeof CLEANUP_REASONS)[number];
+
+/** Why a candidate cannot be removed from here. The person has to deal with it first. */
+export const CLEANUP_BLOCKERS = ["dirty", "unpushed", "locked"] as const;
+export type CleanupBlocker = (typeof CLEANUP_BLOCKERS)[number];
+
+/**
+ * One thing on this computer that Builders Bot found old enough to offer for removal. The row has no
+ * path: main resolves a candidate from its id at removal time, so a renderer can only name what a scan
+ * found, never an arbitrary folder.
+ */
+export interface CleanupCandidate {
+  id: string;
+  kind: CleanupKind;
+  /** The folder name. */
+  label: string;
+  /** The branch of a worktree, or an empty string. */
+  detail: string;
+  bytes: number;
+  reason: CleanupReason;
+  /** Whole days since the last commit, or since the folder was last used. */
+  idleDays: number;
+  blocker: CleanupBlocker | null;
+}
+
+export interface CleanupCandidates {
+  candidates: CleanupCandidate[];
+  /** Unix milliseconds of the scan. */
+  scannedAt: number;
+}
+
+export interface RemoveCleanupCandidateInput {
+  id: string;
+}
+
+/** Whether the person confirmed and the candidate went to the Trash. */
+export interface CleanupRemoval {
+  removed: boolean;
+}
+
 /** The downloaded versions of one provider CLI that Builders Bot can remove now. */
 export interface ProviderRuntimeDownload {
   bytes: number;
@@ -224,6 +269,41 @@ export function parseOpenStorageLocationInput(value: unknown): OpenStorageLocati
 
 export function decodeOldRuntimeVersions(value: unknown): OldRuntimeVersions {
   return { bytes: byteCount(record(value, "old runtime versions").bytes, "old runtime versions") };
+}
+
+export function parseRemoveCleanupCandidateInput(value: unknown): RemoveCleanupCandidateInput {
+  return { id: identifier(record(value, "cleanup request").id, "cleanup candidate") };
+}
+
+function decodeCleanupCandidate(value: unknown): CleanupCandidate {
+  const row = record(value, "cleanup candidate");
+  if (!isOneOf(CLEANUP_KINDS, row.kind) || !isOneOf(CLEANUP_REASONS, row.reason)) invalid("cleanup candidate");
+  if (!isBoundedString(row.label, 255) || !isBoundedString(row.detail, 255)) invalid("cleanup candidate");
+  if (row.blocker !== null && !isOneOf(CLEANUP_BLOCKERS, row.blocker)) invalid("cleanup candidate");
+  return {
+    id: identifier(row.id, "cleanup candidate"),
+    kind: row.kind,
+    label: row.label,
+    detail: row.detail,
+    bytes: byteCount(row.bytes, "cleanup candidate"),
+    reason: row.reason,
+    idleDays: byteCount(row.idleDays, "cleanup candidate"),
+    blocker: row.blocker,
+  };
+}
+
+export function decodeCleanupCandidates(value: unknown): CleanupCandidates {
+  const result = record(value, "cleanup candidates");
+  return {
+    candidates: list(result.candidates, 500, decodeCleanupCandidate, "cleanup candidates"),
+    scannedAt: byteCount(result.scannedAt, "cleanup scan time"),
+  };
+}
+
+export function decodeCleanupRemoval(value: unknown): CleanupRemoval {
+  const result = record(value, "cleanup removal");
+  if (!isBoolean(result.removed)) invalid("cleanup removal");
+  return { removed: result.removed };
 }
 
 export function decodeProviderRuntimeDownload(value: unknown): ProviderRuntimeDownload {

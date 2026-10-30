@@ -24,4 +24,8 @@ export const messages = {
   "dialog.siteSession.always": "Sempre permitir {site}",
   "dialog.siteSession.once": "Permitir desta vez",
   "dialog.siteSession.deny": "Não permitir",
+  "dialog.cleanup.message": "Mover {name} para a Lixeira?",
+  "dialog.cleanup.detail": "Ocupa cerca de {size}. Você ainda pode recuperar da Lixeira até esvaziá-la.",
+  "dialog.cleanup.confirm": "Mover para a Lixeira",
+  "dialog.cleanup.cancel": "Cancelar",
 } as const satisfies PartialTranslation<typeof source>;

@@ -1,5 +1,6 @@
 import type { Effect } from "effect";
 import type { RemoteWorkflowError } from "../remote-service-effects";
+
 // Storage: what the files, chats and caches of the local host or a joined server take on disk.
 //
 // Every method takes the server explicitly, because Server Settings can be open for a server that
@@ -16,6 +17,7 @@ import {
   parseGetStorageUsageInput,
   parseOpenStorageLocationInput,
   parseOpenStoredFileInput,
+  parseRemoveCleanupCandidateInput,
   STORAGE_CAPABILITY,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
@@ -27,8 +29,10 @@ import {
 import { STORAGE_DISK_CAPABILITY, STORAGE_DISK_ROUTES } from "@openbot/contracts/team-protocol/storage-disk-v1";
 import { STORAGE_ROUTES } from "@openbot/contracts/team-protocol/storage-v1";
 import { sourceText } from "@openbot/i18n/source";
+import { dialog } from "electron";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { StorageAgent, StorageUsageService } from "../../backend/storage-usage";
+import type { CleanupService } from "../cleanup-service";
 import type { MachineAlertMonitor } from "../machine-alerts";
 import type { ProviderRuntimeManager } from "../provider-runtime-manager";
 import type { ResponseDecoder } from "../remote-host-decoding";
@@ -52,6 +56,7 @@ interface StorageRemoteServers extends Pick<OpenAttachmentDependencies["remoteSe
 
 export interface StorageIpcDependencies extends Omit<OpenAttachmentDependencies, "remoteServers"> {
   storage: Pick<StorageUsageService, "usage" | "deleteFile" | "clear" | "disk">;
+  cleanup: Pick<CleanupService, "scan" | "find" | "remove">;
   machine: Pick<MachineAlertMonitor, "metrics">;
   providerRuntimes: Pick<ProviderRuntimeManager, "oldVersions" | "removeOldVersions">;
   remoteServers: StorageRemoteServers;
@@ -68,6 +73,7 @@ function decodeStorageChange(value: unknown): undefined {
 
 export function storageIpcHandlers({
   storage,
+  cleanup,
   machine,
   providerRuntimes,
   mailbox,
@@ -149,6 +155,28 @@ export function storageIpcHandlers({
       }),
       getOldRuntimeVersions: handler(() => runCauseEffect(providerRuntimes.oldVersions())),
       removeOldRuntimeVersions: handler(() => runCauseEffect(providerRuntimes.removeOldVersions())),
+      getCleanupCandidates: handler(() => cleanup.scan()),
+      // The question is asked here, in a native dialog, so only a click of the person can answer it.
+      removeCleanupCandidate: payloadHandler(parseRemoveCleanupCandidateInput, async ({ id }) => {
+        const candidate = cleanup.find(id);
+        if (!candidate || candidate.blocker !== null) return { removed: false };
+        const megabytes = Math.max(1, Math.round(candidate.bytes / 1_048_576));
+        const options = {
+          type: "warning" as const,
+          message: translate("dialog.cleanup.message", { name: candidate.label }),
+          detail: translate("dialog.cleanup.detail", { size: `${megabytes} MB` }),
+          buttons: [translate("dialog.cleanup.confirm"), translate("dialog.cleanup.cancel")],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true,
+        };
+        const parent = getMainWindow();
+        const { response } =
+          parent && !parent.isDestroyed()
+            ? await dialog.showMessageBox(parent, options)
+            : await dialog.showMessageBox(options);
+        return { removed: response === 0 && (await cleanup.remove(id)) };
+      }),
     },
   };
 }

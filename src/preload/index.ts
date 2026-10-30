@@ -23,6 +23,8 @@ import {
   decodeChannelRoutineRuns,
   decodeChannelRoutines,
   decodeChannelSummaries,
+  decodeCleanupCandidates,
+  decodeCleanupRemoval,
   decodeHermesImportPreview,
   decodeHermesImportResult,
   decodeHostAgentMemoryLimit,
@@ -1289,6 +1291,8 @@ const openbotApi: BuildersBotDesktopApi = {
     openLocation: decodeVoid,
     getOldRuntimeVersions: decodeOldRuntimeVersions,
     removeOldRuntimeVersions: decodeOldRuntimeVersions,
+    getCleanupCandidates: decodeCleanupCandidates,
+    removeCleanupCandidate: decodeCleanupRemoval,
   }),
   remoteDesktop: bridgeGroup(IPC_ENDPOINTS.remoteDesktop, {
     checkSetup: decodeRemoteDesktopSetupFromMain,

@@ -68,5 +68,7 @@ export function createMockStorage(): StorageDesktopApi {
       oldRuntimeBytes = 0;
       return { bytes: 0 };
     },
+    getCleanupCandidates: async () => ({ candidates: [], scannedAt: 0 }),
+    removeCleanupCandidate: async () => ({ removed: false }),
   };
 }

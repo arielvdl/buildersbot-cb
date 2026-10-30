@@ -6,6 +6,7 @@ import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { toAgentProfile } from "../../app-message-projection";
 import { type FilesPort, filesPort } from "./files-port";
 import { createMachineResources } from "./machine-resources";
+import { StorageCleanup } from "./StorageCleanup";
 import { createStorageUsage } from "./storage-usage";
 
 export interface ServerStorageOptions {
@@ -90,47 +91,52 @@ export function ServerStoragePanel(props: ServerStorageOptions & { serverId: str
   const usage = () => storage.state.usage;
 
   return (
-    <StorageOverview
-      hostName={props.hostName}
-      state={storage.scanState()}
-      error={storage.error()}
-      scannedAt={usage()?.scannedAt ?? null}
-      breakdown={usage()?.breakdown ?? []}
-      freeBytes={usage()?.freeBytes ?? null}
-      agents={agents()}
-      agentUsage={usage()?.agents ?? []}
-      conversations={usage()?.conversations ?? []}
-      files={usage()?.files ?? []}
-      canManage={props.canManage}
-      onRescan={() => void storage.refresh(true)}
-      onOpenAgent={props.onOpenAgent}
-      onOpenConversation={(conversationId) => {
-        const agentId = usage()?.conversations.find((chat) => chat.id === conversationId)?.agentId;
-        if (agentId) props.onOpenAgent(agentId);
-      }}
-      onClear={storage.clear}
-      oldRuntimeBytes={runtimes() ? oldRuntimeBytes() : 0}
-      onRemoveOldRuntimes={removeOldRuntimes}
-      // Settings has no preview pane, so a preview opens the file in its app.
-      onPreviewFile={(file) => void storage.fileAction(file, "open", { onShowInChat: () => undefined })}
-      machine={
-        <Show when={machine.state.available}>
-          <MachineResources
-            metrics={machine.state.metrics}
-            error={machine.state.error}
-            alerts={machine.state.alerts}
-            members={props.members ?? []}
-            onChangeAlerts={machine.saveAlerts}
-          />
-        </Show>
-      }
-      onFileAction={(file, action) =>
-        storage.fileAction(file, action, {
-          onShowInChat: (row) => {
-            if (row.agentId && row.messageId) props.onShowMessage(row.agentId, row.messageId);
-          },
-        })
-      }
-    />
+    <>
+      <StorageOverview
+        hostName={props.hostName}
+        state={storage.scanState()}
+        error={storage.error()}
+        scannedAt={usage()?.scannedAt ?? null}
+        breakdown={usage()?.breakdown ?? []}
+        freeBytes={usage()?.freeBytes ?? null}
+        agents={agents()}
+        agentUsage={usage()?.agents ?? []}
+        conversations={usage()?.conversations ?? []}
+        files={usage()?.files ?? []}
+        canManage={props.canManage}
+        onRescan={() => void storage.refresh(true)}
+        onOpenAgent={props.onOpenAgent}
+        onOpenConversation={(conversationId) => {
+          const agentId = usage()?.conversations.find((chat) => chat.id === conversationId)?.agentId;
+          if (agentId) props.onOpenAgent(agentId);
+        }}
+        onClear={storage.clear}
+        oldRuntimeBytes={runtimes() ? oldRuntimeBytes() : 0}
+        onRemoveOldRuntimes={removeOldRuntimes}
+        // Settings has no preview pane, so a preview opens the file in its app.
+        onPreviewFile={(file) => void storage.fileAction(file, "open", { onShowInChat: () => undefined })}
+        machine={
+          <Show when={machine.state.available}>
+            <MachineResources
+              metrics={machine.state.metrics}
+              error={machine.state.error}
+              alerts={machine.state.alerts}
+              members={props.members ?? []}
+              onChangeAlerts={machine.saveAlerts}
+            />
+          </Show>
+        }
+        onFileAction={(file, action) =>
+          storage.fileAction(file, action, {
+            onShowInChat: (row) => {
+              if (row.agentId && row.messageId) props.onShowMessage(row.agentId, row.messageId);
+            },
+          })
+        }
+      />
+      <Show when={props.serverId === LOCAL_SERVER_ID && props.canManage}>
+        <StorageCleanup {...(props.calls ? { calls: props.calls } : {})} />
+      </Show>
+    </>
   );
 }

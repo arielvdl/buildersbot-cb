@@ -28,4 +28,9 @@ export const messages = defineMessages("dialog", {
   "dialog.siteSession.always": "Always allow {site}",
   "dialog.siteSession.once": "Allow this time",
   "dialog.siteSession.deny": "Do not allow",
+  // The one question before a cleanup candidate goes to the Trash.
+  "dialog.cleanup.message": "Move {name} to the Trash?",
+  "dialog.cleanup.detail": "It holds about {size}. You can still get it back from the Trash until you empty it.",
+  "dialog.cleanup.confirm": "Move to the Trash",
+  "dialog.cleanup.cancel": "Cancel",
 });
