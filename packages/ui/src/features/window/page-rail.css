@@ -176,12 +176,213 @@
   line-height: 1;
 }
 
-/* The panel opens on a click and stays until it is closed, so it has room for the queue. */
+/* The panel opens on a click and stays until it is closed, so it has room for the queue. It is drawn in a
+ * portal, outside the rail, which is a drag region of the window: it takes no drag, or a click on it would
+ * move the window instead. */
 .window-rail-load-panel {
   display: grid;
-  width: min(320px, calc(100vw - 32px));
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(78vh, 680px);
   gap: var(--openbot-space-3);
+  overflow-y: auto;
   padding: var(--openbot-space-3);
+  -webkit-app-region: no-drag;
+}
+
+/* The count of stopped work: a red mark at the corner of the ring. */
+.window-rail-load-alert {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  display: grid;
+  min-width: 15px;
+  height: 15px;
+  place-items: center;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-danger);
+  padding: 0 3px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--openbot-weight-semibold);
+  line-height: 1;
+}
+
+/* The computer is low on memory: new messages wait. It says why, because a message that waits looks like one that failed. */
+.window-rail-load-pressure {
+  margin: 0;
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-warning) 16%, transparent);
+  padding: var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-pressure[data-level="critical"] {
+  background: color-mix(in srgb, var(--openbot-danger) 16%, transparent);
+}
+
+.window-rail-load-section {
+  display: grid;
+  gap: var(--openbot-space-2);
+}
+
+.window-rail-load-section[data-alert] {
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-danger) 9%, transparent);
+  padding: var(--openbot-space-2);
+}
+
+.window-rail-load-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.window-rail-load-section-head h3,
+.window-rail-load-subhead {
+  margin: 0;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.window-rail-load-stopped,
+.window-rail-load-running,
+.window-rail-load-recent {
+  display: grid;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.window-rail-load-stopped-row {
+  display: grid;
+  gap: 2px;
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-surface);
+  padding: var(--openbot-space-2);
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-stopped-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.window-rail-load-stopped-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-rail-load-stopped-title,
+.window-rail-load-stopped-reason,
+.window-rail-load-stopped-by {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.window-rail-load-stopped-title {
+  color: var(--openbot-text-primary);
+}
+
+.window-rail-load-stopped-reason {
+  color: var(--openbot-danger-text);
+}
+
+.window-rail-load-stopped-by {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.window-rail-load-stopped-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin-top: var(--openbot-space-1);
+}
+
+.window-rail-load-chip {
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-control-hover);
+  padding: 1px 6px;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  white-space: nowrap;
+}
+
+.window-rail-load-chip[data-tone="danger"] {
+  color: var(--openbot-danger-text);
+}
+
+.window-rail-load-select,
+.window-rail-load-number {
+  min-width: 0;
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-surface);
+  padding: 3px 6px;
+  color: var(--openbot-text-primary);
+  font: inherit;
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-number {
+  width: 64px;
+  font-variant-numeric: tabular-nums;
+}
+
+.window-rail-load-interval {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-run {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-run-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.window-rail-load-run-copy strong,
+.window-rail-load-run-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-rail-load-run-copy span {
+  color: var(--openbot-text-muted);
+}
+
+.window-rail-load-run-time {
+  flex: 0 0 auto;
+  color: var(--openbot-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.window-rail-load-recent li {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
 }
 
 .window-rail-load-body {

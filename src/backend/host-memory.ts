@@ -19,4 +19,9 @@ export interface HostMemory {
   subscribe(listener: () => void): () => void;
   /** True on a hosted server: its plan sets the memory, so the low-memory notice names the plan. */
   readonly hostedPlan: boolean;
+  /**
+   * Whose memory it is. A server holds Builders Bot and every agent in one unit; a desktop is a person's
+   * own computer, where the notice says that the computer is low on memory. Absent reads as a server.
+   */
+  readonly kind?: "server" | "desktop";
 }

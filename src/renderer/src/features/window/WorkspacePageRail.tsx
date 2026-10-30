@@ -78,6 +78,11 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
               onOpenChange: load.setOpen,
               onLaneChange: (preference) => void load.setLane(preference),
               onRunNow: (channelId) => void load.runNow(channelId),
+              onStop: (work) => void load.stop(work),
+              onResumeAll: () => void load.resumeAll(),
+              onResume: (work) => void load.resume(work),
+              onReassign: (work, agentId) => void load.reassign(work, agentId),
+              onRecoveryChange: (preference) => void load.setRecovery(preference),
             }
           : undefined
       }

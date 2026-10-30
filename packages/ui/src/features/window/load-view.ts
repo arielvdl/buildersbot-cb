@@ -42,3 +42,21 @@ export function withChannelFirst(snapshot: LoadSnapshot, channelId: string): Loa
     order: [channelId, ...snapshot.lane.order.filter((id) => id !== channelId)],
   };
 }
+
+/** The interval of the automatic recovery in minutes: whole, from 5 to 1440, and 30 for anything that is not a number. */
+export function clampRecoveryMinutes(value: number): number {
+  if (!Number.isFinite(value)) return 30;
+  return Math.min(1440, Math.max(5, Math.round(value)));
+}
+
+/** Whole minutes since `startedAt`, never below zero, and zero for a date that does not parse. */
+export function elapsedMinutes(startedAt: string, now: number): number {
+  const started = Date.parse(startedAt);
+  if (Number.isNaN(started)) return 0;
+  return Math.max(0, Math.floor((now - started) / 60_000));
+}
+
+/** How many stopped tasks the panel lists, which is the number of the alert on the ring. */
+export function stoppedCount(snapshot: LoadSnapshot): number {
+  return snapshot.stopped.length;
+}

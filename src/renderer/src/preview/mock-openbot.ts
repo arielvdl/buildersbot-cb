@@ -2,6 +2,7 @@ import { AGENT_MEMORY_CONTEXT_BUDGET_BYTES, essentialMemoryBytes } from "@openbo
 import type {
   AcpRegistryEntry,
   AgentSessionSettings,
+  AutoRecoveryPreference,
   HiddenAgentsSnapshot,
   LoadLanePreference,
   LoadSnapshot,
@@ -442,12 +443,16 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   const appearanceListeners = new Set<(preference: AppAppearancePreference) => void>();
   let interfaceSizePreference: AppInterfaceSizePreference = { percent: DEFAULT_APP_INTERFACE_SIZE };
   let previewLoadLane: LoadLanePreference = { enabled: false, order: [] };
+  let previewRecovery: AutoRecoveryPreference = { enabled: false, intervalMinutes: 30, reassign: false };
   const previewLoad = (): LoadSnapshot => ({
     sampledAt: new Date().toISOString(),
     memory: { usedMb: 7625, agentsMb: 6611, totalMb: 32768 },
     activeAgents: 3,
     providerProcesses: 91,
     lane: { ...previewLoadLane, order: [...previewLoadLane.order], running: [], queued: [] },
+    running: [],
+    stopped: [],
+    recovery: { ...previewRecovery, recent: [] },
   });
   const interfaceSizeListeners = new Set<(preference: AppInterfaceSizePreference) => void>();
   const approvalAutomationListeners = new Set<(preference: ApprovalAutomationPreference) => void>();
@@ -1076,6 +1081,13 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       return previewLoad();
     },
     runChannelNow: async () => previewLoad(),
+    stopWork: async () => previewLoad(),
+    resumeStoppedWork: async () => previewLoad(),
+    reassignStoppedWork: async () => previewLoad(),
+    setAutoRecovery: async (preference) => {
+      previewRecovery = { ...preference };
+      return previewLoad();
+    },
     // The preview never restarts, so no work waits to resume and the resume modal stays closed.
     getResumeOffer: async () => null,
     resumeInterruptedWork: async () => ({ offer: null, failed: 0 }),

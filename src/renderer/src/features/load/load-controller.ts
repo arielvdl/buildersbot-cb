@@ -1,4 +1,10 @@
-import type { LoadLanePreference, LoadSnapshot } from "@openbot/contracts/ipc";
+import type {
+  AutoRecoveryPreference,
+  LoadLanePreference,
+  LoadSnapshot,
+  RunningWork,
+  StoppedWork,
+} from "@openbot/contracts/ipc";
 import { createSignal, onSettled } from "solid-js";
 import type { AppPort } from "../../app-port";
 
@@ -6,7 +12,16 @@ import type { AppPort } from "../../app-port";
 export const LOAD_POLL_MS = 15_000;
 export const LOAD_POLL_OPEN_MS = 3_000;
 
-type LoadPort = Pick<AppPort, "getLoad" | "setLoadLane" | "runChannelNow">;
+type LoadPort = Pick<
+  AppPort,
+  | "getLoad"
+  | "setLoadLane"
+  | "runChannelNow"
+  | "stopWork"
+  | "resumeStoppedWork"
+  | "reassignStoppedWork"
+  | "setAutoRecovery"
+>;
 
 /**
  * The load of this computer for the rail. It reads on a timer, faster while the panel is open, and
@@ -74,6 +89,29 @@ export function createLoadController(port: () => LoadPort, enabled: () => boolea
     },
     async runNow(channelId: string): Promise<void> {
       await apply(() => port().runChannelNow({ channelId }));
+    },
+    async stop(work: RunningWork): Promise<void> {
+      await apply(() =>
+        port().stopWork({ turnId: work.turnId, agentId: work.agentId, channelId: work.channelId, taskId: work.taskId }),
+      );
+    },
+    async resumeAll(): Promise<void> {
+      await apply(() => port().resumeStoppedWork({ all: true }));
+    },
+    async resume(work: StoppedWork): Promise<void> {
+      await apply(() => port().resumeStoppedWork({ items: [{ channelId: work.channelId, taskId: work.taskId }] }));
+    },
+    async reassign(work: StoppedWork, recipientAgentId: string): Promise<void> {
+      await apply(() =>
+        port().reassignStoppedWork({ channelId: work.channelId, taskId: work.taskId, recipientAgentId }),
+      );
+    },
+    async setRecovery(preference: AutoRecoveryPreference): Promise<void> {
+      const current = snapshot();
+      // The switch and the number answer at once, and the host's answer replaces them.
+      if (current) setSnapshot({ ...current, recovery: { ...current.recovery, ...preference } });
+      await apply(() => port().setAutoRecovery(preference));
+      if (snapshot()?.recovery.enabled !== preference.enabled) await refresh();
     },
   };
 }

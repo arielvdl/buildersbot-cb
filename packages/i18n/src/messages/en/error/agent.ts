@@ -112,6 +112,8 @@ export const messages = defineMessages("error.agent", {
     "This server is low on memory. Your message waits in the queue and starts when memory is free. A larger plan gives the server more memory.",
   "error.agent.lowMemoryServer":
     "This server is low on memory. Your message waits in the queue and starts when memory is free.",
+  "error.agent.lowMemoryDesktop":
+    "This computer is low on memory. Your message waits in the queue and starts by itself when memory is free again. Closing apps that you do not use helps.",
   "error.agent.workspaceOnlyToolMissing":
     "Workspace only needs {tool}, which Builders Bot did not find. Install it, or choose Full access in the agent settings.",
   "error.agent.screenCaptureOff":

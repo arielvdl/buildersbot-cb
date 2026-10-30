@@ -303,7 +303,15 @@ import type {
   InstanceTransferResult,
   InstanceTransferSummary,
 } from "./ipc-instance-transfer";
-import type { LoadLanePreference, LoadSnapshot, RunChannelNowInput } from "./ipc-load";
+import type {
+  AutoRecoveryPreference,
+  LoadLanePreference,
+  LoadSnapshot,
+  ReassignStoppedWorkInput,
+  ResumeStoppedWorkInput,
+  RunChannelNowInput,
+  StopWorkInput,
+} from "./ipc-load";
 import type { MachineAlertSettings, MachineMetrics } from "./ipc-machine-resources";
 import type {
   AgentPublicationPreview,
@@ -637,6 +645,11 @@ export const IPC_ENDPOINTS = {
     getLoad: request<undefined, LoadSnapshot>()("app:get-load"),
     setLoadLane: request<LoadLanePreference, LoadSnapshot>()("app:set-load-lane"),
     runChannelNow: request<RunChannelNowInput, LoadSnapshot>()("app:run-channel-now"),
+    // What runs and what stopped, and what to do about it (`ipc-load.ts`).
+    stopWork: request<StopWorkInput, LoadSnapshot>()("app:stop-work"),
+    resumeStoppedWork: request<ResumeStoppedWorkInput, LoadSnapshot>()("app:resume-stopped-work"),
+    reassignStoppedWork: request<ReassignStoppedWorkInput, LoadSnapshot>()("app:reassign-stopped-work"),
+    setAutoRecovery: request<AutoRecoveryPreference, LoadSnapshot>()("app:set-auto-recovery"),
     // The work that a restart stopped (`ipc-resume.ts`). The read waits until boot recovery ends.
     getResumeOffer: request<undefined, InterruptedWorkOffer | null>()("app:get-resume-offer"),
     resumeInterruptedWork: request<ResumeInterruptedWorkInput, ResumeInterruptedWorkResult>()(

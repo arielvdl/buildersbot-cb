@@ -1,10 +1,13 @@
 import type { LoadSnapshot } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
 import {
+  clampRecoveryMinutes,
+  elapsedMinutes,
   formatGigabytes,
   loadLaneRows,
   loadMemoryPercent,
   loadTone,
+  stoppedCount,
   withChannelFirst,
 } from "../../../../../packages/ui/src/features/window/load-view";
 
@@ -15,6 +18,9 @@ function snapshot(overrides: Partial<LoadSnapshot> = {}): LoadSnapshot {
     activeAgents: 2,
     providerProcesses: 40,
     lane: { enabled: true, order: ["b", "a"], running: ["a"], queued: ["b", "c"] },
+    running: [],
+    stopped: [],
+    recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
     ...overrides,
   };
 }
@@ -57,5 +63,46 @@ describe("the channel lane in the panel", () => {
   it("puts a channel first without losing the rest of the order", () => {
     expect(withChannelFirst(snapshot(), "c")).toEqual({ enabled: true, order: ["c", "b", "a"] });
     expect(withChannelFirst(snapshot(), "a")).toEqual({ enabled: true, order: ["a", "b"] });
+  });
+});
+
+describe("the recovery interval", () => {
+  it("keeps a whole number of minutes between 5 and 1440", () => {
+    expect(clampRecoveryMinutes(30)).toBe(30);
+    expect(clampRecoveryMinutes(2)).toBe(5);
+    expect(clampRecoveryMinutes(99999)).toBe(1440);
+    expect(clampRecoveryMinutes(17.6)).toBe(18);
+  });
+
+  it("falls back to 30 for a value that is not a number", () => {
+    expect(clampRecoveryMinutes(Number.NaN)).toBe(30);
+    expect(clampRecoveryMinutes(Number.POSITIVE_INFINITY)).toBe(30);
+  });
+});
+
+describe("the time a turn has run", () => {
+  it("counts whole minutes, and never goes below zero", () => {
+    expect(elapsedMinutes("2026-10-30T20:00:00.000Z", Date.parse("2026-10-30T20:07:30.000Z"))).toBe(7);
+    expect(elapsedMinutes("2026-10-30T20:00:00.000Z", Date.parse("2026-10-30T19:00:00.000Z"))).toBe(0);
+    expect(elapsedMinutes("not a date", Date.now())).toBe(0);
+  });
+});
+
+describe("the alert of stopped work", () => {
+  const row = (taskId: string) => ({
+    channelId: "c",
+    channelName: "cadastro",
+    taskId,
+    title: "Do it",
+    reason: "boom",
+    agentName: null,
+    state: "failed" as const,
+    candidates: [],
+    auto: null,
+  });
+
+  it("counts the stopped work that the panel lists", () => {
+    expect(stoppedCount(snapshot())).toBe(0);
+    expect(stoppedCount(snapshot({ stopped: [row("a"), row("b")] }))).toBe(2);
   });
 });

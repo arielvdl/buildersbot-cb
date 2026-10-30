@@ -153,6 +153,7 @@ import { providerAuthKind } from "./analytics-provider-auth";
 import { AppBehaviorService } from "./app-behavior-service";
 import { AppearanceService } from "./appearance-service";
 import { ApprovalAutomation, readApprovalAutomation } from "./approval-automation-store";
+import { AutoRecoveryPreferenceStore } from "./auto-recovery-preference-store";
 import { AutomationServer } from "./automation-server";
 import { BillingDesktopService } from "./billing-service";
 import { managedBitwardenCli } from "./bitwarden-cli-installer";
@@ -222,6 +223,7 @@ import { localRoutineFeedDocument } from "./local-routine-calendar";
 import { createLoginItem } from "./login-item";
 import { LogoColorService } from "./logo-color-service";
 import type { MacHapticFeedback } from "./mac-haptic-feedback";
+import { MacMemory } from "./mac-memory";
 import { MACHINE_ALERTS_PREFERENCE_FILE, MachineAlertMonitor, MachineAlertPreferenceStore } from "./machine-alerts";
 import { MachineMetricsSampler } from "./machine-metrics";
 import {
@@ -347,6 +349,7 @@ import { VoiceSpeechService } from "./voice-speech-service";
 import { spawnVoiceTranscriptionHost } from "./voice-transcription-host-process";
 import { VoiceTranscriptionService } from "./voice-transcription-service";
 import { WebhookRelay } from "./webhook-relay";
+import { WorkControl } from "./work-control";
 
 const logger = createBuildersBotLogger("application-services");
 const SETUP_FILE = "openbot-setup-v2.json";
@@ -365,6 +368,7 @@ const NOTIFICATION_PREFERENCE_FILE = "openbot-notification-preference-v1.json";
 const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const CHANNEL_LANE_PREFERENCE_FILE = "openbot-channel-lane-v1.json";
+const AUTO_RECOVERY_PREFERENCE_FILE = "openbot-auto-recovery-v1.json";
 const PLAYWRIGHT_BROKER_FILE = "openbot-playwright-broker-v1.json";
 const PROVIDER_CLI_APP_VERSION_FILE = "openbot-provider-cli-app-version-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
@@ -425,6 +429,8 @@ const DEVELOPMENT_BUNDLE_IDENTIFIER = "com.github.Electron";
 const TEARDOWN_ORDER = {
   // First, so a process that the teardown ends does not count as a crash.
   resourceMonitor: 9,
+  // Before the service, so no look of the recovery starts work while the service stops.
+  workControl: 9.5,
   updater: 10,
   idleRestart: 11,
   hostUpdateCoordinator: 12,
@@ -583,6 +589,9 @@ export interface ApplicationServices {
   notificationPreference: NotificationPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
+  autoRecovery: AutoRecoveryPreferenceStore;
+  /** What runs and what stopped, and the automatic recovery of the stopped work. */
+  workControl: WorkControl;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   memoryReview: MemoryReviewPreferenceStore;
@@ -1124,6 +1133,20 @@ export async function createApplicationServices({
     hostMemory.start();
     teardown.push(TEARDOWN_ORDER.serverMemory, "the server memory reading", () => Effect.runPromise(hostMemory.stop()));
   }
+  // A desktop has no memory reading of its own: a few agents, each with its own MCP servers, can fill the
+  // memory until macOS asks for apps to be closed. This one holds a new turn while the memory is low and
+  // closes the idle provider threads when it is critical. A server has its own reading above.
+  const macMemory =
+    hostMemory === null && process.platform === "darwin"
+      ? new MacMemory({ onError: (message, error) => logger.warn(message, toLogValue(error)) })
+      : null;
+  if (macMemory) {
+    macMemory.start();
+    teardown.push(TEARDOWN_ORDER.serverMemory, "the desktop memory reading", () => {
+      macMemory.stop();
+      return Promise.resolve();
+    });
+  }
   const browserProfileStore = new BrowserProfileStore(store.database);
   const siteSessionGrants = new SiteSessionGrants(join(app.getPath("userData"), SITE_SESSION_GRANTS_FILE));
   await siteSessionGrants.load();
@@ -1225,6 +1248,7 @@ export async function createApplicationServices({
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
+  const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
   // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
   // only when an agent first asks for the browser. `service` is read at that time, not now. Without its
   // guard file the server would answer any program on this computer, so then there is no broker at all.
@@ -1232,6 +1256,8 @@ export async function createApplicationServices({
     try {
       return new PlaywrightBroker({
         guardPath: installGuard(app.getPath("userData")),
+        // The Mac is low on memory: no new session and no new tab, as for a new agent turn.
+        memoryLevel: () => macMemory?.level() ?? "ok",
         identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
         upstream: () => {
           const directories = [
@@ -1295,6 +1321,7 @@ export async function createApplicationServices({
       runCauseEffect(securityGuard.load()),
       // Last: the result above is read by position, `[8]`.
       runCauseEffect(channelLane.load()),
+      runCauseEffect(autoRecovery.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -1768,6 +1795,7 @@ export async function createApplicationServices({
           getSources: (options) => desktopCapturer.getSources(options),
         }),
     hostMemory,
+    memoryPressure: macMemory,
     requestTimeoutMs: 30_000,
     offProviders: providerUse.off(),
     providerAccounts,
@@ -1891,7 +1919,11 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
-  teardown.push(TEARDOWN_ORDER.browserBroker, "the shared browser connection", () => browserBroker?.stop() ?? Promise.resolve());
+  teardown.push(
+    TEARDOWN_ORDER.browserBroker,
+    "the shared browser connection",
+    () => browserBroker?.stop() ?? Promise.resolve(),
+  );
   const agentMemoryLimitSetting = reloadingAgentMemoryLimit(agentMemoryLimit, service);
   /** The answer an agent gave in one turn, for routine flows, routine results and local scripts. */
   const turnAnswer = (agentId: string, turnId: string): string | null => {
@@ -2694,6 +2726,7 @@ export async function createApplicationServices({
     trace,
     statementTimings,
     tabProcessIds: () => browser.tabProcessIds(),
+    memoryPressure: () => macMemory?.reading() ?? null,
   });
   teardown.push(TEARDOWN_ORDER.resourceMonitor, "the resource monitor", () =>
     Effect.runPromise(resourceMonitor.close()),
@@ -2707,6 +2740,19 @@ export async function createApplicationServices({
     channelActor: () => host.channelActor(),
     onFailure: (kind, id, cause) =>
       logger.warn("Could not resume work that a restart stopped.", { kind, id, error: toLogValue(cause) }),
+  });
+  // The load panel: who runs, what stopped and why, and the recovery that is off until the person turns it on.
+  const workControl = new WorkControl({
+    service,
+    channelActor: () => host.channelActor(),
+    preference: () => autoRecovery.get(),
+    onFailure: (action, cause) => logger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
+  });
+  service.on("event", (event) => workControl.observeAgentEvent(event));
+  workControl.start();
+  teardown.push(TEARDOWN_ORDER.workControl, "the recovery timer", () => {
+    workControl.stop();
+    return Promise.resolve();
   });
   const analytics = new HostAnalytics({
     ...(failureReports ? { reports: failureReports } : {}),
@@ -3244,6 +3290,8 @@ export async function createApplicationServices({
     notificationPreference,
     busyMessageMode,
     channelLane,
+    autoRecovery,
+    workControl,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     memoryReview,

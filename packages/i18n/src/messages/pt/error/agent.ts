@@ -115,6 +115,8 @@ export const messages = {
     "Este servidor está com pouca memória. Sua mensagem aguarda na fila e começa quando houver memória livre. Um plano maior oferece mais memória ao servidor.",
   "error.agent.lowMemoryServer":
     "Este servidor está com pouca memória. Sua mensagem aguarda na fila e começa quando houver memória livre.",
+  "error.agent.lowMemoryDesktop":
+    "O computador está com pouca memória. Sua mensagem aguarda na fila e começa sozinha quando a memória voltar. Fechar apps que você não usa ajuda.",
   "error.agent.workspaceOnlyToolMissing":
     "O acesso Somente o espaço de trabalho exige {tool}, que o Builders Bot não encontrou. Instale a ferramenta ou escolha Acesso completo nas configurações do agente.",
   "error.agent.screenCaptureOff":

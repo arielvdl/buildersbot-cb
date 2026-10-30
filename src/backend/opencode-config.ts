@@ -69,8 +69,17 @@ interface OpenCodeKeyEntry {
 /** One rule per tool pattern, which is all Builders Bot sends under `permission`. */
 type OpenCodePermissionLayer = Readonly<Record<string, "allow" | "ask" | "deny">>;
 
+/**
+ * OpenCode starts every MCP server in the global config file of the person, for each agent. The
+ * Playwright of that file starts a Chrome and a server for each agent; Builders Bot hands every agent one
+ * shared Playwright of its own, so this layer turns the one in the file off. Only the name `playwright`
+ * is overridden: the other servers of the person keep running. The file itself is untouched.
+ */
+const OWN_PLAYWRIGHT_OFF = { playwright: { enabled: false } } as const;
+
 /** The config layer Builders Bot owns on `OPENCODE_CONFIG_CONTENT`. The user's own file is untouched. */
 interface OpenCodeConfig {
+  readonly mcp?: { readonly playwright: { readonly enabled: boolean } };
   readonly permission?: OpenCodePermissionLayer;
   readonly provider?: Readonly<Record<string, OpenCodeProviderEntry | OpenCodeKeyEntry>>;
   /** The providers this process lists at all. Absent leaves every provider the user has. */
@@ -194,16 +203,15 @@ function mergeOpenCodeConfig(
 }
 
 /**
- * The spawn environment for one OpenCode client. Returns `{}` when there is nothing to configure, so
- * a build with no custom providers, no stored key and no base layer spawns exactly as it did before
- * this existed. With no stored key, the user's own `opencode auth login` keys stay in use.
+ * The spawn environment for one OpenCode client. It always carries the layer that turns the Playwright of
+ * the person's own file off. With no stored key, the user's own `opencode auth login` keys stay in use.
  */
 export function openCodeConfigEnv(
   base: OpenCodeConfigBase,
   source: CustomProviderSource,
   apiKey: string | null,
 ): Record<string, string> {
-  const config = mergeOpenCodeConfig(base, source(), apiKey);
+  const config = mergeOpenCodeConfig({ ...base, mcp: OWN_PLAYWRIGHT_OFF }, source(), apiKey);
   return config ? { [OPENCODE_CONFIG_ENV]: JSON.stringify(config) } : {};
 }
 
@@ -296,6 +304,7 @@ const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
  */
 export function culturaBuilderConfigEnv(baseUrl: string, accessToken: string | null): Record<string, string> {
   const config: OpenCodeConfig = {
+    mcp: OWN_PLAYWRIGHT_OFF,
     enabled_providers: ["cultura-builder"],
     provider: {
       "cultura-builder": {

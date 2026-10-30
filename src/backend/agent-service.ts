@@ -426,6 +426,12 @@ export interface AgentServiceOptions {
    * while memory is low, and only a fixed number of turns run at the same time.
    */
   hostMemory?: HostMemory | null;
+  /**
+   * The memory of a desktop computer, or `null`. It holds a new turn while memory is low and closes the
+   * idle provider threads when it is critical, as `hostMemory` does on a server, but it makes this a
+   * desktop and not a server: the instructions of the agents and the turn limit do not change.
+   */
+  memoryPressure?: HostMemory | null;
 }
 
 /** How long a user send's `clientMessageId` answers a retry. A retry follows a lost reply, not a day. */
@@ -527,6 +533,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       browserBroker = () => null,
       githubConnector = null,
       hostMemory = null,
+      memoryPressure = null,
       busyMessageMode = () => DEFAULT_BUSY_MESSAGE_MODE,
       securityGuard = () => DEFAULT_SECURITY_GUARD_PREFERENCE,
       channelLane,
@@ -1225,7 +1232,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       },
     });
     this.#memoryHold = new MemoryHold({
-      memory: hostMemory,
+      memory: hostMemory ?? memoryPressure,
       hooks: {
         scheduleAll: () => {
           for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);

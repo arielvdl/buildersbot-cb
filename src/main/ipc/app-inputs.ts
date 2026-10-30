@@ -4,6 +4,7 @@ import type {
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
+  AutoRecoveryPreference,
   BrowserDockAction,
   BrowserDockFrame,
   BrowserDockPresentation,
@@ -27,10 +28,12 @@ import type {
   MemoryReviewPreference,
   NotificationPreference,
   PublishHostedSiteInput,
+  ReassignStoppedWorkInput,
   RemoteNetworkRoutePreference,
   RemoteSessionReusePreference,
   ReplaceHostedSiteInput,
   ResumeInterruptedWorkInput,
+  ResumeStoppedWorkInput,
   RunChannelNowInput,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
@@ -40,6 +43,7 @@ import type {
   SetAppLogoColorPreferenceInput,
   SetDynamicIslandInteractiveInput,
   SetEnabledSkillInput,
+  StopWorkInput,
   SubmitMarketplaceAgentInput,
   SubmitSkillInput,
   UninstallSkillInput,
@@ -57,6 +61,7 @@ import {
   isAppInterfaceSize,
   isAppLanguage,
   isAppLogoColor,
+  isAutoRecoveryPreference,
   isBrowserDockAction,
   isBrowserDockFrame,
   isBrowserDockPresentation,
@@ -67,10 +72,13 @@ import {
   isDynamicIslandPresentation,
   isLoadLanePreference,
   isMemoryReviewInterval,
+  isReassignStoppedWorkInput,
   isRemoteNetworkRoute,
   isResumeInterruptedWorkInput,
+  isResumeStoppedWorkInput,
   isRunChannelNowInput,
   isSkillCategory,
+  isStopWorkInput,
   MAC_AUTOMATION_TARGETS,
 } from "@openbot/contracts/ipc";
 import {
@@ -114,6 +122,28 @@ export function parseBusyMessageModePreference(input: unknown): BusyMessageModeP
 export function parseLoadLanePreference(input: unknown): LoadLanePreference {
   if (!isLoadLanePreference(input)) throw new Error("Channel lane preference is required.");
   return { enabled: input.enabled, order: [...input.order] };
+}
+
+export function parseAutoRecoveryPreference(input: unknown): AutoRecoveryPreference {
+  if (!isAutoRecoveryPreference(input)) throw new Error("A recovery preference is required.");
+  return { enabled: input.enabled, intervalMinutes: input.intervalMinutes, reassign: input.reassign };
+}
+
+export function parseStopWorkInput(input: unknown): StopWorkInput {
+  if (!isStopWorkInput(input)) throw new Error("A turn to stop is required.");
+  return { turnId: input.turnId, agentId: input.agentId, channelId: input.channelId, taskId: input.taskId };
+}
+
+export function parseResumeStoppedWorkInput(input: unknown): ResumeStoppedWorkInput {
+  if (!isResumeStoppedWorkInput(input)) throw new Error("A choice of stopped work is required.");
+  return "all" in input
+    ? { all: true }
+    : { items: input.items.map((item) => ({ channelId: item.channelId, taskId: item.taskId })) };
+}
+
+export function parseReassignStoppedWorkInput(input: unknown): ReassignStoppedWorkInput {
+  if (!isReassignStoppedWorkInput(input)) throw new Error("A task and an agent are required.");
+  return { channelId: input.channelId, taskId: input.taskId, recipientAgentId: input.recipientAgentId };
 }
 
 export function parseRunChannelNowInput(input: unknown): RunChannelNowInput {

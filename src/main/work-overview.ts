@@ -1,0 +1,123 @@
+import type { AgentEvent, ChannelTask, RunningWork, StoppedWork, StoppedWorkCandidate } from "@openbot/contracts/ipc";
+import { LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
+
+const TITLE_LIMIT = 160;
+const REASON_LIMIT = 200;
+const MAX_TRACKED_TURNS = 1_000;
+
+/** One line of text: spaces collapsed, and cut with an ellipsis at `limit` characters. */
+export function clipText(text: string, limit: number): string {
+  const line = text.replace(/\s+/gu, " ").trim();
+  return line.length <= limit ? line : `${line.slice(0, limit - 1).trimEnd()}…`;
+}
+
+/** The agent turns that run now, from the events of the agent service. Bounded; a turn that ends leaves. */
+export class ActiveTurnTracker {
+  readonly #turns = new Map<string, { turnId: string; agentId: string; threadId: string; startedAt: string }>();
+  readonly #now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.#now = now;
+  }
+
+  observe(event: AgentEvent): void {
+    if (event.type === "turn-started") {
+      if (this.#turns.size >= MAX_TRACKED_TURNS && !this.#turns.has(event.turnId)) return;
+      this.#turns.set(event.turnId, {
+        turnId: event.turnId,
+        agentId: event.agentId,
+        threadId: event.threadId,
+        startedAt: new Date(this.#now()).toISOString(),
+      });
+    } else if (event.type === "turn-completed") {
+      this.#turns.delete(event.turnId);
+    }
+  }
+
+  list(): { turnId: string; agentId: string; threadId: string; startedAt: string }[] {
+    return [...this.#turns.values()];
+  }
+}
+
+export interface RunningContext {
+  /** The name of an agent, or null when it was deleted. */
+  agentName(agentId: string): string | null;
+  /** The channel that owns an execution thread, or null for the chat of an agent. */
+  channelOfThread(threadId: string): { id: string; name: string } | null;
+  /** The task that an agent works on in a channel, or null when none is found. */
+  taskOf(channelId: string, agentId: string): { taskId: string; title: string } | null;
+}
+
+/** The work that runs now, each turn with where it runs. */
+export function buildRunningWork(
+  turns: readonly { turnId: string; agentId: string; threadId: string; startedAt: string }[],
+  context: RunningContext,
+): RunningWork[] {
+  return turns.slice(0, LOAD_WORK_LIST_LIMIT).map((turn): RunningWork => {
+    const channel = context.channelOfThread(turn.threadId);
+    const task = channel ? context.taskOf(channel.id, turn.agentId) : null;
+    return {
+      turnId: turn.turnId,
+      agentId: turn.agentId,
+      agentName: context.agentName(turn.agentId) ?? turn.agentId,
+      channelId: channel?.id ?? null,
+      channelName: channel?.name ?? null,
+      taskId: task?.taskId ?? null,
+      title: task ? clipText(task.title, TITLE_LIMIT) : "",
+      startedAt: turn.startedAt,
+    };
+  });
+}
+
+function stopped(task: ChannelTask): task is ChannelTask & { state: "paused" | "failed"; error: string } {
+  return (task.state === "paused" || task.state === "failed") && Boolean(task.error);
+}
+
+export interface StoppedChannelInput {
+  id: string;
+  name: string;
+  archived: boolean;
+  tasks: readonly ChannelTask[];
+}
+
+/**
+ * The stopped runs of the channels, one row for each run: the root when the root stopped, else the task
+ * that did. This is the rule of the Continue button of a channel, and a resume of this task starts the run again.
+ */
+export function buildStoppedWork(
+  channels: readonly StoppedChannelInput[],
+  agentName: (agentId: string) => string | null,
+  enrich: (
+    channelId: string,
+    task: ChannelTask,
+  ) => { candidates: StoppedWorkCandidate[]; auto: StoppedWork["auto"] } = () => ({
+    candidates: [],
+    auto: null,
+  }),
+): StoppedWork[] {
+  const rows: StoppedWork[] = [];
+  for (const channel of channels) {
+    if (channel.archived) continue;
+    const entries = new Map<string, ChannelTask>();
+    for (const task of channel.tasks) {
+      if (!stopped(task)) continue;
+      const known = entries.get(task.rootTaskId);
+      if (!known || task.id === task.rootTaskId) entries.set(task.rootTaskId, task);
+    }
+    for (const task of entries.values()) {
+      if (!stopped(task)) continue;
+      rows.push({
+        channelId: channel.id,
+        channelName: channel.name,
+        taskId: task.id,
+        title: clipText(task.instruction, TITLE_LIMIT),
+        reason: clipText(task.error ?? "", REASON_LIMIT),
+        agentName: task.ownerAgentId ? agentName(task.ownerAgentId) : null,
+        state: task.state,
+        ...enrich(channel.id, task),
+      });
+      if (rows.length >= LOAD_WORK_LIST_LIMIT) return rows;
+    }
+  }
+  return rows;
+}

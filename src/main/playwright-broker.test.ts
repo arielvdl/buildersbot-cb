@@ -401,6 +401,78 @@ describe("the token of the upstream", () => {
   });
 });
 
+type MemoryLevel = "ok" | "low" | "critical";
+
+describe("when the computer is low on memory", () => {
+  async function pressured(level: { current: MemoryLevel }) {
+    const fake = await fakeUpstream();
+    const broker = new PlaywrightBroker({
+      upstream: () => ({ command: "unused", args: [], env: {} }),
+      guardPath: GUARD_PATH,
+      identity: memoryIdentity(),
+      memoryLevel: () => level.current,
+      launch: async (spec) => {
+        fake.token = spec.env[BROKER_TOKEN_ENV] ?? "";
+        return { url: fake.url, hostHeader: fake.hostHeader, stop: async () => {}, onExit: () => {} };
+      },
+    });
+    brokers.push(broker);
+    await broker.start();
+    const endpoint = broker.endpoint();
+    if (!endpoint) throw new Error("no endpoint");
+    const send = (body: unknown, session?: string) =>
+      fetch(endpoint.url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          authorization: `Bearer ${endpoint.bearer}`,
+          ...(session ? { "mcp-session-id": session } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+    return { broker, send, fake };
+  }
+
+  it("opens a session and a tab as usual while memory is ok", async () => {
+    const { send } = await pressured({ current: "ok" });
+    const reply = await send(initialize());
+    const session = reply.headers.get("mcp-session-id") ?? "";
+    expect(session).not.toBe("");
+    expect((await (await send(tabs(2, "new"), session)).text()).includes("isError")).toBe(false);
+  });
+
+  it("refuses a new tab when memory is low, and says why and what to do", async () => {
+    const level: { current: MemoryLevel } = { current: "ok" };
+    const { send } = await pressured(level);
+    const session = (await send(initialize())).headers.get("mcp-session-id") ?? "";
+    level.current = "low";
+    const body: RpcReply = JSON.parse(await (await send(tabs(2, "new"), session)).text());
+    expect(body.result?.isError).toBe(true);
+    expect(body.result?.content[0]?.text).toContain("low on memory");
+  });
+
+  it("still lets an agent list and close tabs when memory is low, so it can give memory back", async () => {
+    const level: { current: MemoryLevel } = { current: "ok" };
+    const { send } = await pressured(level);
+    const session = (await send(initialize())).headers.get("mcp-session-id") ?? "";
+    level.current = "critical";
+    expect((await (await send(tabs(2, "list"), session)).text()).includes("isError")).toBe(false);
+    expect((await (await send(tabs(3, "close"), session)).text()).includes("isError")).toBe(false);
+  });
+
+  it("refuses a new session when memory is critical, and not when it is only low", async () => {
+    const level: { current: MemoryLevel } = { current: "low" };
+    const { send } = await pressured(level);
+    expect((await send(initialize())).headers.get("mcp-session-id")).not.toBeNull();
+    level.current = "critical";
+    const refused = await send(initialize(9));
+    expect(refused.headers.get("mcp-session-id")).toBeNull();
+    const body: RpcReply = JSON.parse(await refused.text());
+    expect(body.error?.message).toContain("low on memory");
+  });
+});
+
 describe("the sessions", () => {
   it("keeps each agent's own session id, and sends a request to the upstream with it", async () => {
     const s = await setup();

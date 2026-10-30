@@ -26,6 +26,10 @@ export interface AppPort {
   getLoad: BuildersBotDesktopApi["getLoad"];
   setLoadLane: BuildersBotDesktopApi["setLoadLane"];
   runChannelNow: BuildersBotDesktopApi["runChannelNow"];
+  stopWork: BuildersBotDesktopApi["stopWork"];
+  resumeStoppedWork: BuildersBotDesktopApi["resumeStoppedWork"];
+  reassignStoppedWork: BuildersBotDesktopApi["reassignStoppedWork"];
+  setAutoRecovery: BuildersBotDesktopApi["setAutoRecovery"];
   getResumeOffer: BuildersBotDesktopApi["getResumeOffer"];
   resumeInterruptedWork: BuildersBotDesktopApi["resumeInterruptedWork"];
   dismissResumeOffer: BuildersBotDesktopApi["dismissResumeOffer"];

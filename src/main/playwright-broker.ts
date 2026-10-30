@@ -33,6 +33,11 @@ const REAP_INTERVAL_MS = 30_000;
 const FORWARDED_REQUEST_HEADERS = ["content-type", "accept", "mcp-session-id", "mcp-protocol-version", "last-event-id"];
 const FORWARDED_RESPONSE_HEADERS = ["content-type", "mcp-session-id", "cache-control", "mcp-protocol-version"];
 
+const LOW_MEMORY_MESSAGE =
+  "The computer is low on memory, so the browser opens no new connection now. Try again in a minute, or go on without the browser.";
+const LOW_MEMORY_TAB_MESSAGE =
+  "The computer is low on memory, so no new tab opens now. Close a tab you opened with browser_tabs action=close, or reuse an open tab, and try again in a minute.";
+
 /** How the Playwright MCP server is started: from the row the person saved, with the flags set below. */
 export interface BrokerUpstreamSpec {
   command: string;
@@ -68,6 +73,12 @@ export interface PlaywrightBrokerOptions {
    * without the token that the broker makes for it, so the door is the only way in.
    */
   guardPath: string;
+  /**
+   * How much memory this computer has left. While it is low no new tab opens, and while it is critical no
+   * new session opens either: a tab is the thing that grows. Listing and closing tabs always work, so an
+   * agent can give memory back. Absent reads as ok.
+   */
+  memoryLevel?: () => "ok" | "low" | "critical";
   /** The upstream to start, from the saved Playwright row, or null while no such row is enabled. */
   upstream: () => BrokerUpstreamSpec | null;
   identity: BrokerIdentityStore;
@@ -230,11 +241,23 @@ export class PlaywrightBroker {
 
     if (initialize && session === undefined && !this.#ledger.canAdmit())
       return reply(response, 200, jsonRpcError(initialize.id, -32000, this.#busyMessage()));
+    if (initialize && session === undefined && this.#options.memoryLevel?.() === "critical")
+      return reply(response, 200, jsonRpcError(initialize.id, -32000, LOW_MEMORY_MESSAGE));
     if (!initialize && session === undefined)
       return reply(response, 400, jsonRpcError(null, -32000, "A session id is required."));
 
     if (session !== undefined) {
       const newTab = entries.find((entry) => entry.kind === "tab-new");
+      if (newTab && (this.#options.memoryLevel?.() ?? "ok") !== "ok")
+        return reply(
+          response,
+          200,
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: newTab.id,
+            result: { isError: true, content: [{ type: "text", text: LOW_MEMORY_TAB_MESSAGE }] },
+          }),
+        );
       if (newTab) {
         const decision = this.#ledger.checkNewTab(session);
         if (!decision.allowed)

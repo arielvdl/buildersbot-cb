@@ -69,6 +69,8 @@ export interface ResourceMonitorOptions {
   trace: TraceFile;
   statementTimings: StatementTimings;
   tabProcessIds: () => number[];
+  /** The last reading of the memory of this computer, or null where nothing reads it. */
+  memoryPressure?: () => { level: "ok" | "low" | "critical"; freePercent: number; swapUsedMb: number } | null;
 }
 
 /** One sample as `resources.ndjson` and the diagnostics export hold it. Group and provider names only. */
@@ -191,6 +193,7 @@ export class ResourceMonitor implements AnalyticsResourceSource {
       totalMb: Math.round(totalmem() / (1024 * 1024)),
       activeAgents: this.#activeTurns.size,
       providerProcesses: sum(providers.map((provider) => provider.processes)),
+      pressure: this.#options.memoryPressure?.() ?? null,
     };
   }
 

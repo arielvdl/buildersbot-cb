@@ -1,0 +1,231 @@
+// @vitest-environment node
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { AgentSummary } from "@openbot/contracts/ipc";
+import { Effect } from "effect";
+import { afterEach, describe, expect, it } from "vitest";
+import { ChannelService } from "../backend/channel-service";
+import { MailboxStore } from "../backend/mailbox-store";
+import { BuildersBotDatabase } from "../backend/openbot-database";
+import { topActiveTask, WorkControl } from "./work-control";
+
+const roots: string[] = [];
+const databases: BuildersBotDatabase[] = [];
+afterEach(async () => {
+  for (const database of databases.splice(0)) database.close();
+  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+});
+
+const actor = { id: "local", name: "You" };
+const agent = (id: string, provider: AgentSummary["provider"], model: string): AgentSummary => ({
+  id,
+  name: id.toUpperCase(),
+  title: id,
+  description: "Works in a channel.",
+  notifications: true,
+  provider,
+  model,
+  reasoningEffort: "low",
+  threadId: null,
+  workspacePath: "/tmp",
+  preview: "",
+  updatedAt: null,
+  avatarSeed: id,
+  avatarHue: null,
+  avatarUrl: null,
+});
+
+async function setup(options: { preference?: { enabled: boolean; intervalMinutes: number; reassign: boolean } } = {}) {
+  const root = await mkdtemp(join(tmpdir(), "work-control-"));
+  roots.push(root);
+  const database = new BuildersBotDatabase(root);
+  databases.push(database);
+  await Effect.runPromise(database.initialize());
+  const mailbox = new MailboxStore(root, root, database);
+  await Effect.runPromise(mailbox.initialize());
+  const members = [
+    agent("alpha", "codex", "m1"),
+    agent("beta", "codex", "m1"),
+    agent("gamma", "codex", "m2"),
+    agent("delta", "claude", "m9"),
+  ];
+  const channels = new ChannelService(database, mailbox, {
+    agents: () => members,
+    generate: () => Effect.succeed("{}"),
+    schedule: () => {},
+    interrupt: () => Effect.void,
+    busy: () => false,
+    awaitDrain: () => Effect.void,
+    changed: () => {},
+    error: () => {},
+  });
+  await Effect.runPromise(
+    channels.command(
+      {
+        type: "save",
+        operationId: "save:c",
+        channelId: "c1",
+        update: false,
+        draft: {
+          name: "cadastro",
+          title: "",
+          instructions: "",
+          members: members.map((member) => ({ agentId: member.id })),
+          leadAgentId: null,
+        },
+      },
+      actor,
+    ),
+  );
+  // A task of alpha that stopped with a reason: failed, no assignment left.
+  await Effect.runPromise(
+    channels.command(
+      {
+        type: "send",
+        operationId: "send:one",
+        channelId: "c1",
+        text: "Fix the form",
+        recipientAgentId: "alpha",
+        replyToMessageId: null,
+        attachmentDraftIds: [],
+      },
+      actor,
+    ),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const fail = (error: string | null = "The provider could not start this assignment.") => {
+    const channel = channels.store.get("c1");
+    channels.store.update(channel, {
+      assignments: channels.store.assignments("c1").map((entry) => ({ ...entry, state: "failed" as const })),
+      tasks: channels.store.tasks("c1").map((task) => ({ ...task, state: "failed" as const, error })),
+    });
+  };
+  fail();
+  const clock = { now: 1_000 };
+  const failures: string[] = [];
+  const preference = options.preference ?? { enabled: false, intervalMinutes: 30, reassign: false };
+  const control = new WorkControl({
+    service: { listAgents: () => members, channels, interrupt: () => Effect.void },
+    channelActor: () => actor,
+    preference: () => preference,
+    onFailure: (action) => failures.push(action),
+    now: () => clock.now,
+  });
+  const taskId = channels.store.tasks("c1")[0]?.id ?? "";
+  return { control, channels, clock, failures, taskId, fail };
+}
+
+describe("the stopped work", () => {
+  it("lists a task that stopped with its channel, request and reason, and the agents that can take it", async () => {
+    const { control, taskId } = await setup();
+    const [row] = control.overview().stopped;
+    expect(row).toMatchObject({
+      channelId: "c1",
+      channelName: "cadastro",
+      taskId,
+      title: "Fix the form",
+      reason: "The provider could not start this assignment.",
+      agentName: "ALPHA",
+      state: "failed",
+      auto: null,
+    });
+    // The same model first, then the same provider, then another provider; never the owner.
+    expect(row?.candidates.map((candidate) => candidate.name)).toEqual(["BETA", "GAMMA", "DELTA"]);
+    expect(row?.candidates[0]?.sameModel).toBe(true);
+  });
+
+  it("starts a task again, and clears its stop", async () => {
+    const { control, channels, taskId } = await setup();
+    expect(await control.resumeStopped({ all: true })).toBe(1);
+    const task = channels.store.tasks("c1").find((entry) => entry.id === taskId);
+    expect(task?.error).toBeNull();
+    expect(task?.state).not.toBe("failed");
+    expect(control.overview().stopped).toEqual([]);
+  });
+
+  it("ignores an id that is not stopped now, so a forged request starts nothing", async () => {
+    const { control, channels } = await setup();
+    const before = JSON.stringify(channels.store.tasks("c1"));
+    expect(await control.resumeStopped({ items: [{ channelId: "c1", taskId: "forged" }] })).toBe(0);
+    expect(await control.resumeStopped({ items: [{ channelId: "nope", taskId: "forged" }] })).toBe(0);
+    expect(JSON.stringify(channels.store.tasks("c1"))).toBe(before);
+  });
+
+  it("gives a task to an agent that the panel offered, and to no other", async () => {
+    const { control, channels, taskId } = await setup();
+    expect(await control.reassignStopped({ channelId: "c1", taskId, recipientAgentId: "alpha" })).toBe(false);
+    expect(await control.reassignStopped({ channelId: "c1", taskId, recipientAgentId: "ghost" })).toBe(false);
+    expect(await control.reassignStopped({ channelId: "c1", taskId, recipientAgentId: "beta" })).toBe(true);
+    expect(channels.store.tasks("c1").find((entry) => entry.id === taskId)?.ownerAgentId).toBe("beta");
+  });
+
+  it("does not list a task that was stopped on purpose, with no reason", async () => {
+    const { control, fail } = await setup();
+    fail(null);
+    expect(control.overview().stopped).toEqual([]);
+  });
+});
+
+describe("stopping a run", () => {
+  it("stops the run of a channel through the channel", async () => {
+    const { control, channels, taskId } = await setup();
+    const channel = channels.store.get("c1");
+    channels.store.update(channel, {
+      tasks: channels.store.tasks("c1").map((task) => ({ ...task, state: "running" as const, error: null })),
+    });
+    expect(await control.stopWork({ turnId: "t", agentId: "alpha", channelId: "c1", taskId })).toBe(true);
+    expect(channels.store.tasks("c1").find((entry) => entry.id === taskId)?.state).toBe("paused");
+  });
+
+  it("answers false for a task that does not run", async () => {
+    const { control, taskId } = await setup();
+    expect(await control.stopWork({ turnId: "t", agentId: "alpha", channelId: "c1", taskId })).toBe(false);
+  });
+
+  it("finds the top of a run, not a child", () => {
+    const base = {
+      channelId: "c",
+      topicId: "t",
+      ownerAgentId: null,
+      requestMessageId: "m",
+      instruction: "x",
+      attachmentDraftIds: [],
+      expectedResult: "",
+      sourceMessageIds: [],
+      dependencies: [],
+      resources: [],
+      revision: 0,
+      assignmentCount: 0,
+      error: null,
+    };
+    const root = { ...base, id: "root", parentTaskId: null, rootTaskId: "root", state: "running" as const };
+    const child = { ...base, id: "child", parentTaskId: "root", rootTaskId: "root", state: "running" as const };
+    const done = { ...base, id: "done", parentTaskId: "root", rootTaskId: "root", state: "completed" as const };
+    expect(topActiveTask([root, child], "child")).toBe("root");
+    expect(topActiveTask([root, child, done], "done")).toBeNull();
+    expect(topActiveTask([{ ...root, state: "failed" as const }, child], "child")).toBe("child");
+  });
+});
+
+describe("the automatic recovery in the app", () => {
+  it("starts a stopped task again after the interval, and not before", async () => {
+    const { control, clock, channels, taskId } = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: false },
+    });
+    await control.tick();
+    clock.now += 29 * 60_000;
+    await control.tick();
+    expect(channels.store.tasks("c1").find((entry) => entry.id === taskId)?.state).toBe("failed");
+    clock.now += 2 * 60_000;
+    await control.tick();
+    expect(channels.store.tasks("c1").find((entry) => entry.id === taskId)?.state).not.toBe("failed");
+    expect(control.overview().recovery.recent[0]).toMatchObject({ action: "resumed", channelName: "cadastro" });
+  });
+
+  it("shows on the row that it waits its turn", async () => {
+    const { control } = await setup({ preference: { enabled: true, intervalMinutes: 30, reassign: false } });
+    await control.tick();
+    expect(control.overview().stopped[0]?.auto).toBe("waiting");
+  });
+});

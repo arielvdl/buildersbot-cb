@@ -26,6 +26,7 @@ import { readAnalyticsPreference, writeAnalyticsPreference } from "../analytics-
 import type { AppBehaviorService } from "../app-behavior-service";
 import type { AppearanceService } from "../appearance-service";
 import type { ApprovalAutomation } from "../approval-automation-store";
+import type { AutoRecoveryPreferenceStore } from "../auto-recovery-preference-store";
 import type { BusyMessageModePreferenceStore } from "../busy-message-mode-preference-store";
 import type { ChannelLanePreferenceStore } from "../channel-lane-preference-store";
 import type { ExternalLinkOpener, ExternalLinkPreferenceStore } from "../external-link-opener";
@@ -43,6 +44,7 @@ import type { ResumeOffer } from "../resume-offer";
 import type { SecurityGuardService } from "../security-guard-service";
 import { readSetupState, writeSetupState } from "../setup-store";
 import type { UpdateService } from "../update-service";
+import type { WorkControl } from "../work-control";
 import {
   parseAgentDefaults,
   parseAnalyticsPreference,
@@ -51,16 +53,20 @@ import {
   parseAppInterfaceSizePreference,
   parseAppLanguagePreference,
   parseAppLogoColorPreference,
+  parseAutoRecoveryPreference,
   parseBusyMessageModePreference,
   parseChatWindowTarget,
   parseExternalDestination,
   parseExternalLinkPreference,
   parseLoadLanePreference,
+  parseReassignStoppedWorkInput,
   parseRemoteNetworkRoutePreference,
   parseRemoteSessionReusePreference,
   parseResumeInterruptedWorkInput,
+  parseResumeStoppedWorkInput,
   parseRunChannelNowInput,
   parseSetup,
+  parseStopWorkInput,
 } from "./app-inputs";
 import { stringPayload } from "./validation";
 
@@ -108,6 +114,8 @@ export interface AppIpcDependencies {
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
+  autoRecovery: AutoRecoveryPreferenceStore;
+  workControl: WorkControl;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
@@ -147,6 +155,8 @@ export function appIpcHandlers({
   approvalAutomation,
   busyMessageMode,
   channelLane,
+  autoRecovery,
+  workControl,
   agentDefaults,
   agentMemoryLimit,
   remoteSessionReuse,
@@ -176,7 +186,12 @@ export function appIpcHandlers({
   // One write at a time, so two quick toggles leave the file and the tracker at the last choice.
   const analyticsPreferenceWrites = Semaphore.makeUnsafe(1);
   const loadSnapshot = () =>
-    buildLoadSnapshot(resources.loadReading(), service.channels.laneSnapshot(), new Set(service.channels.store.ids()));
+    buildLoadSnapshot(
+      resources.loadReading(),
+      service.channels.laneSnapshot(),
+      new Set(service.channels.store.ids()),
+      workControl.overview(),
+    );
   return {
     app: {
       getAppInfo: handler((): AppInfo => {
@@ -220,6 +235,24 @@ export function appIpcHandlers({
       }),
       runChannelNow: payloadHandler(parseRunChannelNowInput, async (parsed) => {
         await runCauseEffect(service.channels.runChannelNow(parsed.channelId));
+        return loadSnapshot();
+      }),
+      // A person's own click: stop a run, start stopped work again, give it to another agent.
+      stopWork: payloadHandler(parseStopWorkInput, async (parsed) => {
+        await workControl.stopWork(parsed);
+        return loadSnapshot();
+      }),
+      resumeStoppedWork: payloadHandler(parseResumeStoppedWorkInput, async (parsed) => {
+        await workControl.resumeStopped(parsed);
+        return loadSnapshot();
+      }),
+      reassignStoppedWork: payloadHandler(parseReassignStoppedWorkInput, async (parsed) => {
+        await workControl.reassignStopped(parsed);
+        return loadSnapshot();
+      }),
+      // Off until the person turns it on. The timer of `workControl` reads the stored value at each look.
+      setAutoRecovery: payloadHandler(parseAutoRecoveryPreference, async (parsed) => {
+        await runCauseEffect(autoRecovery.set(parsed));
         return loadSnapshot();
       }),
       // Only a click resumes work. The read waits until boot recovery has settled the stopped work.

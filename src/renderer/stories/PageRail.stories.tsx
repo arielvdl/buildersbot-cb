@@ -1,4 +1,10 @@
-import type { LoadLanePreference, LoadSnapshot } from "@openbot/contracts/ipc";
+import type {
+  AutoRecoveryPreference,
+  LoadLanePreference,
+  LoadSnapshot,
+  RunningWork,
+  StoppedWork,
+} from "@openbot/contracts/ipc";
 import { accountUsageProviderRows } from "@openbot/ui/features/account/account-usage-view";
 import { HelpMenu } from "@openbot/ui/features/updates/HelpMenu";
 import {
@@ -61,7 +67,63 @@ const loadChannelNames: Record<string, string> = {
   releases: "CB - geral",
 };
 
-function loadSnapshot(usedMb: number, lane: LoadLanePreference): LoadSnapshot {
+const storyRunning: RunningWork[] = [
+  {
+    turnId: "t1",
+    agentId: "designer",
+    agentName: "Design Advisor",
+    channelId: "c1",
+    channelName: "naia novas features",
+    taskId: "k1",
+    title: "O servidor de testes está no ar de novo: http://localhost:3000/autopilot/dev-cadastro-chat",
+    startedAt: new Date(Date.now() - 14 * 60_000).toISOString(),
+  },
+  {
+    turnId: "t2",
+    agentId: "chief",
+    agentName: "CEO",
+    channelId: null,
+    channelName: null,
+    taskId: null,
+    title: "",
+    startedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+  },
+];
+
+const storyStopped: StoppedWork[] = [
+  {
+    channelId: "c1",
+    channelName: "naia novas features",
+    taskId: "k2",
+    title: "Correção pequena no cadastro em chat, worktree iavista-wt-cadastro-chat, branch feat/cadastro",
+    reason: "The provider could not start this assignment. Resume to try again.",
+    agentName: "Front Fluxos Naia",
+    state: "failed",
+    candidates: [
+      { agentId: "a2", name: "Design Advisor", sameModel: true },
+      { agentId: "a3", name: "QA Naia", sameModel: false },
+    ],
+    auto: "waiting",
+  },
+  {
+    channelId: "c2",
+    channelName: "bugs",
+    taskId: "k3",
+    title: "Publicar a resposta completa no canal, com o diff",
+    reason: "The previous turn has no confirmed result. It may have stopped when Builders Bot restarted.",
+    agentName: null,
+    state: "paused",
+    candidates: [{ agentId: "a4", name: "Backend IA Naia", sameModel: true }],
+    auto: "gave-up",
+  },
+];
+
+function loadSnapshot(
+  usedMb: number,
+  lane: LoadLanePreference,
+  recovery: AutoRecoveryPreference,
+  withWork: boolean,
+): LoadSnapshot {
   return {
     sampledAt: "2026-10-30T20:00:00.000Z",
     memory: { usedMb, agentsMb: Math.round(usedMb * 0.85), totalMb: 32768 },
@@ -70,18 +132,36 @@ function loadSnapshot(usedMb: number, lane: LoadLanePreference): LoadSnapshot {
     lane: lane.enabled
       ? { ...lane, running: ["deploys"], queued: ["security", "videos", "releases"] }
       : { ...lane, running: [], queued: [] },
+    running: withWork ? storyRunning : [],
+    stopped: withWork ? storyStopped : [],
+    recovery: {
+      ...recovery,
+      recent: recovery.enabled
+        ? [{ at: "2026-10-30T20:30:00.000Z", channelName: "bugs", action: "resumed", agentName: "Writer" }]
+        : [],
+    },
   };
 }
 
 /** The load ring with a lane that follows its switch, as the window's controller does. */
-function loadProps(usedMb: number): () => LoadRailProps {
+function loadProps(usedMb: number, withWork: boolean): () => LoadRailProps {
   const [lane, setLane] = createSignal<LoadLanePreference>({ enabled: false, order: [] });
+  const [recovery, setRecovery] = createSignal<AutoRecoveryPreference>({
+    enabled: false,
+    intervalMinutes: 30,
+    reassign: false,
+  });
   return () => ({
-    snapshot: loadSnapshot(usedMb, lane()),
+    snapshot: loadSnapshot(usedMb, lane(), recovery(), withWork),
     channelName: (id) => loadChannelNames[id] ?? id,
     onOpenChange: fn(),
     onLaneChange: setLane,
     onRunNow: fn(),
+    onStop: fn(),
+    onResumeAll: fn(),
+    onResume: fn(),
+    onReassign: fn(),
+    onRecoveryChange: setRecovery,
   });
 }
 
@@ -93,9 +173,11 @@ function RailPreview(props: {
   usageRows?: PageRailProps["usageRows"];
   /** The memory in use, in MB, of a load ring. Absent: no ring. */
   loadMb?: number;
+  /** Work that runs and work that stopped, in the load panel. */
+  loadWork?: boolean;
 }) {
   const { t } = useText();
-  const load = props.loadMb === undefined ? undefined : loadProps(props.loadMb);
+  const load = props.loadMb === undefined ? undefined : loadProps(props.loadMb, props.loadWork ?? false);
   const [current, setCurrent] = createSignal<PageRailPage | null>("agents");
   const [pinned, setPinned] = createSignal<readonly PageRailPinnablePage[]>(["usage"]);
   return (
@@ -181,4 +263,9 @@ export const Load: Story = {
 /** Past 80% of the memory the arc is red. */
 export const LoadHigh: Story = {
   args: { loadMb: 28000 },
+};
+
+/** Two agents run and two tasks stopped: the ring carries a red count, and the panel lists what to do about each. */
+export const LoadWithStoppedWork: Story = {
+  args: { loadMb: 14000, loadWork: true },
 };
