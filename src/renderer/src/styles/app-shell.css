@@ -2628,12 +2628,12 @@ textarea {
 
 /* A mood that flies rings. They sit outside the circle, so the parent stops
    clipping and the image rounds itself instead. */
-.agent-avatar[data-avatar="image"]:is([data-mood="working"], [data-mood="connecting"]) {
+.agent-avatar[data-avatar="image"]:is([data-mood="working"], [data-mood="live"], [data-mood="connecting"]) {
   position: relative;
   overflow: visible;
 }
 
-.agent-avatar[data-avatar="image"]:is([data-mood="working"], [data-mood="connecting"]) > img {
+.agent-avatar[data-avatar="image"]:is([data-mood="working"], [data-mood="live"], [data-mood="connecting"]) > img {
   border-radius: var(--openbot-radius-pill);
 }
 
@@ -2656,13 +2656,13 @@ textarea {
   }
 }
 
-/* The mood glow. It reads before the face does at sidebar sizes, and it never
-   touches the Bloub's own colour, which is identity and comes from the seed. */
-.agent-avatar[data-mood="waiting"] {
+/* The mood glow of a photo. It reads before the photo does at sidebar sizes. The
+   mark has no glow: its lid shows the mood. */
+.agent-avatar[data-avatar="image"][data-mood="waiting"] {
   filter: drop-shadow(0 0 3px var(--openbot-accent));
 }
 
-.agent-avatar[data-mood="failed"] {
+.agent-avatar[data-avatar="image"][data-mood="failed"] {
   filter: drop-shadow(0 0 3px var(--openbot-danger));
 }
 

@@ -40,3 +40,11 @@ export function computeAgentAvatarMoods(input: AgentAvatarMoodsInput): Record<st
   }
   return moods;
 }
+
+/**
+ * The mood of an avatar that shows an agent whose chat is open. A working agent in the open chat
+ * is `live`: the person watches it work, so the avatar moves faster. All other moods do not change.
+ */
+export function avatarMoodInChat(mood: AvatarMood, chatOpen: boolean): AvatarMood {
+  return chatOpen && mood === "working" ? "live" : mood;
+}

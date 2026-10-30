@@ -24,8 +24,11 @@ export type ShapeSafeStateId = (typeof SHAPE_SAFE_STATES)[number];
  * `idle`, `working`, `waiting`, `failed` and `responded` are derived from the agent's own runtime
  * signals. `connecting` and `asleep` belong to the surface around it - a remote desktop dialling
  * in, a snoozed or disconnected agent - so they are passed in rather than derived.
+ *
+ * `live` is `working` in the chat that the person has open: the surface that shows the open chat
+ * promotes the mood, because only it knows which chat is open. It moves faster than `working`.
  */
-export type AvatarMood = "idle" | "working" | "waiting" | "failed" | "responded" | "connecting" | "asleep";
+export type AvatarMood = "idle" | "working" | "live" | "waiting" | "failed" | "responded" | "connecting" | "asleep";
 
 export interface AvatarMoodPresentation {
   state: ShapeSafeStateId;
@@ -55,6 +58,7 @@ export interface AvatarMoodPresentation {
 const MOOD_PRESENTATIONS: Readonly<Record<AvatarMood, AvatarMoodPresentation>> = {
   idle: { state: "idle", expression: null, rings: false, breathe: 0 },
   working: { state: "idle", expression: "attentif", rings: true, breathe: 0.03 },
+  live: { state: "idle", expression: "attentif", rings: true, breathe: 0.03 },
   waiting: { state: "idle", expression: "curieux", rings: false, breathe: 0 },
   failed: { state: "idle", expression: "triste", rings: false, breathe: 0 },
   responded: { state: "idle", expression: "heureux", rings: false, breathe: 0 },

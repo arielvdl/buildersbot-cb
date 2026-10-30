@@ -11,6 +11,7 @@
 import { Badge, buttonVariants, ContextMenu } from "@openbot/ui";
 import { For, Match, Show, Switch } from "solid-js";
 import { useText } from "../../text";
+import { avatarMoodInChat } from "../agents/agent-avatar-mood";
 import { ChannelAvatar } from "../channels/ChannelAvatar";
 import { SidebarAgentContextMenu } from "./SidebarAgentContextMenu";
 import { SidebarAgentIndicator, SidebarPinnedAvatar } from "./SidebarAgentIndicator";
@@ -132,7 +133,7 @@ export function SidebarPinnedGroup() {
                             <>
                               <SidebarPinnedAvatar
                                 agent={agent()}
-                                mood={props.agentMoods[agent().id] ?? "idle"}
+                                mood={avatarMoodInChat(props.agentMoods[agent().id] ?? "idle", active())}
                                 agentState={() => props.agentStates[agent().id]}
                               />
                               <span class="agent-row-copy sidebar-pinned-copy">

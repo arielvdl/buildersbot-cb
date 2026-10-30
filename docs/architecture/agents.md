@@ -245,6 +245,45 @@ A joined desktop, the web client and the mobile app use the optional `agent-hidd
 owner or an admin hides or restores an agent on a host.
 `/v1/agents` and the released agent codecs do not carry `hiddenAt`.
 
+## Agent avatar
+
+An agent with no picture shows the app mark: a box seen from its corner (`AgentMark` in
+`packages/brand/src/agent-mark.tsx`). All three faces have the agent's color. The lid has the color,
+and the sides have the same hue with less light; `agent-mark-shades.ts` makes the shades in OKLCH.
+The symbol on the lid is white, or a dark ink when the OKLab lightness of the color is more than
+0.78, as for lime and yellow. The box of a failed agent is red (`--openbot-danger`). The faces, the
+edges and the symbols get their colors as SVG attributes, so a copy of the SVG without the
+stylesheet (`createStaticAvatarSvg`) still shows the box at rest.
+
+The left face shows the role of the agent. `avatarMarkRole` (`agent-mark-role.ts`) reads the title
+of the agent and looks for English or Portuguese word stems, without accents or case. It gives one
+of 12 symbols: research, support, finance, calendar, code, content, deploy, review, design, social,
+monitor and personal. The list is in order, and the first role that matches wins, so "Revisor de
+código" is review and not code. A stem of three letters or fewer must be the full word. A title with
+no match keeps the scribbled face that the avatar seed selects. The title only selects an entry of a
+fixed list: no text of the title goes into the SVG. There is no stored role field.
+
+The lid shows the mood (`AvatarMood`):
+
+| Mood | Lid | Motion |
+| --- | --- | --- |
+| `idle`, `responded` | Nothing | None. A slow laser runs on hover or keyboard focus. |
+| `working` | Three chevrons | A laser on the edge, four sparks, a halo, two points in orbit (3.2 s); the role symbol moves |
+| `live` | Equalizer | As `working`, 2.5 times faster, with a second laser, two halos, eight sparks, three points in orbit (0.95 s), and the box bounces |
+| `waiting` | Ring with a dot | The lid goes pale and back |
+| `failed` | × | The box is red and shakes one time |
+
+`live` is `working` in the chat that is open. `avatarMoodInChat`
+(`packages/ui/src/features/agents/agent-avatar-mood.ts`) changes `working` to `live` on the sidebar
+row and the pinned row of the active agent. The chat header, the activity line of the agent chat and
+of a channel, and the open chat panel of a diagram show `live` while their agent works.
+`avatarMoodIsBusy` counts `live` as busy, so it moves without hover, as `working` does.
+
+All motion is CSS in `packages/brand/src/logo.css`, only for `data-animated="true"` and
+`prefers-reduced-motion: no-preference`. With reduced motion, or `animated={false}`, nothing moves: a
+working lid stays lit with its orbit in place, and a waiting lid stays pale. A photo avatar does not
+show the mark. It keeps the breathing and the glow on its frame.
+
 ## Browser profile
 
 Agent settings > Advanced selects the browser profile of an agent: Shared or a named profile

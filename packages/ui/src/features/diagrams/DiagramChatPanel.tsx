@@ -34,7 +34,8 @@ export interface DiagramChatPanelProps {
 export function DiagramChatPanel(props: DiagramChatPanelProps) {
   const { t } = useText();
   const [draft, setDraft] = createSignal("");
-  const mood = (): AvatarMood => (props.working ? "working" : "idle");
+  // The open panel is a chat with the agent, so the agent works `live` there.
+  const mood = (): AvatarMood => (props.working ? (props.open ? "live" : "working") : "idle");
   const [focusRequest, setFocusRequest] = createSignal(0);
   const [offset, setOffset] = createSignal({ x: 0, y: 0 });
   let launcher: HTMLElement | undefined;

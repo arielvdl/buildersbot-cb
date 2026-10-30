@@ -45,6 +45,9 @@ export interface ConversationHeaderRemoteControl {
 
 export function ConversationHeader(props: ConversationHeaderProps) {
   const { t } = useText();
+  // The chat is open, so its agent works `live`. A function, not a ternary in the prop: the compiler
+  // wraps a ternary prop in a memo, and the avatar reads its mood in a tracked effect.
+  const mood = () => (props.working ? "live" : "idle");
   return (
     <header class="window-drag conversation-header">
       <div class="conversation-heading-group">
@@ -60,7 +63,7 @@ export function ConversationHeader(props: ConversationHeaderProps) {
               onFocus={() => props.onOpenChat || props.onSettingsIntent()}
               onClick={() => (props.onOpenChat ?? props.onOpenSettings)()}
             >
-              <AgentAvatar agent={agent()} />
+              <AgentAvatar agent={agent()} mood={mood()} />
               <h1 class={props.working ? "conversation-title-working" : undefined}>{agent().name}</h1>
             </Button>
           )}

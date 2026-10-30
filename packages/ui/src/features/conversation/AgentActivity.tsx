@@ -103,8 +103,9 @@ export function AgentActivityIndicator(props: {
       : t("chat.activity.status", { name, label: label() });
   };
   // A named function, not a ternary in the prop: the compiler wraps a ternary prop in a memo, and
-  // the avatar reads its mood in a tracked effect, where a new memo halts the reactive system.
-  const mood = () => (props.waitingFor ? "connecting" : "working");
+  // the avatar reads its mood in a tracked effect, where a new memo halts the reactive system. The
+  // line shows in the open chat, so the agent works `live`.
+  const mood = () => (props.waitingFor ? "connecting" : "live");
   const waiting = () => (props.waitingFor ? "true" : undefined);
   const elapsedMs = createElapsed(() => (props.phase === "exiting" ? undefined : props.since));
   const elapsed = createMemo(() => {

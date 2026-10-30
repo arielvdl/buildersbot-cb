@@ -1,4 +1,4 @@
-import { AgentMark, avatarMarkAccent, avatarMarkExpression } from "@openbot/brand/agent-mark";
+import { AgentMark, avatarMarkAccent, avatarMarkExpression, avatarMarkRole } from "@openbot/brand/agent-mark";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { render } from "@solidjs/web";
 import { flush } from "solid-js";
@@ -30,9 +30,10 @@ export {
   type ShapeSafeStateId,
 } from "@openbot/brand/bloub-avatar-motion";
 
-export function createStaticAvatarSvg(seed: string, hue: AvatarHue | null): SVGSVGElement {
+/** The mark at rest, as a detached SVG. `title` picks the role symbol, as it does on `AgentAvatar`. */
+export function createStaticAvatarSvg(seed: string, hue: AvatarHue | null, title?: string): SVGSVGElement {
   const host = document.createElement("span");
-  const dispose = mountStaticAvatar(host, seed, hue);
+  const dispose = mountStaticAvatar(host, seed, hue, title);
   const svg = host.querySelector("svg");
   if (!svg) {
     dispose();
@@ -47,9 +48,16 @@ export function createStaticAvatarSvg(seed: string, hue: AvatarHue | null): SVGS
   return result;
 }
 
-function mountStaticAvatar(host: HTMLElement, seed: string, hue: AvatarHue | null): () => void {
+function mountStaticAvatar(host: HTMLElement, seed: string, hue: AvatarHue | null, title?: string): () => void {
   const dispose = render(
-    () => <AgentMark expression={avatarMarkExpression(seed)} accent={avatarMarkAccent(hue)} animated={false} />,
+    () => (
+      <AgentMark
+        expression={avatarMarkExpression(seed)}
+        role={avatarMarkRole(title)}
+        accent={avatarMarkAccent(hue)}
+        animated={false}
+      />
+    ),
     host,
   );
   flush();

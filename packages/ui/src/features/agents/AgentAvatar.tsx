@@ -1,4 +1,11 @@
-import { AgentMark, type AgentMarkExpression, avatarMarkAccent, avatarMarkExpression } from "@openbot/brand/agent-mark";
+import {
+  AgentMark,
+  type AgentMarkExpression,
+  type AgentMarkRole,
+  avatarMarkAccent,
+  avatarMarkExpression,
+  avatarMarkRole,
+} from "@openbot/brand/agent-mark";
 import { type AvatarMood, avatarMoodIsBusy, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { prefersReducedMotion } from "@openbot/ui/utils";
@@ -15,12 +22,16 @@ const STATIC_MOTIONS: ReadonlySet<AvatarMotion> = new Set(["hover", "idle"]);
 const HOVER_GROUP = "[data-avatar-hover], button, a, [role='button'], [role='link'], [role='menuitem']";
 
 interface AgentAvatarProps {
-  agent?: Pick<AgentProfile, "avatarSeed" | "avatarHue" | "avatarUrl"> | undefined;
+  agent?:
+    | (Pick<AgentProfile, "avatarSeed" | "avatarHue" | "avatarUrl"> & Partial<Pick<AgentProfile, "title">>)
+    | undefined;
   seed?: string | undefined;
+  /** The agent's title. It picks the role symbol on the mark. The title of `agent` by default. */
+  title?: string | undefined;
   hue?: AvatarHue | null;
   url?: string | null | undefined;
   motion?: AvatarMotion;
-  /** What the agent is doing. It decides how the mark's laser runs. */
+  /** What the agent is doing. It decides the symbol on the lid of the mark and how the mark moves. */
   mood?: AvatarMood;
   cycleOffset?: number;
   animationOffset?: number;
@@ -40,6 +51,7 @@ export function AgentAvatar(props: AgentAvatarProps) {
   const hue = () => (props.hue !== undefined ? props.hue : (props.agent?.avatarHue ?? null));
   const motion = () => props.motion ?? "hover";
   const url = () => (props.url !== undefined ? props.url : (props.agent?.avatarUrl ?? null));
+  const title = () => props.title ?? props.agent?.title ?? "";
   const mood = (): AvatarMood => props.mood ?? "idle";
   const presentation = () => avatarMoodPresentation(mood());
   const [imageFailed, setImageFailed] = createSignal(false);
@@ -62,12 +74,12 @@ export function AgentAvatar(props: AgentAvatarProps) {
         <GeneratedAvatar
           seed={seed()}
           hue={hue()}
+          title={title()}
           motion={motion()}
           mood={mood()}
           followPointer={props.followPointer === true}
-          breathe={breathe()}
           class={className()}
-          style={style()}
+          style={props.style}
         />
       }
     >
@@ -87,21 +99,26 @@ export function AgentAvatar(props: AgentAvatarProps) {
   );
 }
 
+/**
+ * The generated avatar is the agent mark. The mark moves on its own, so it does not take the
+ * breathing of the photo avatar.
+ */
 function GeneratedAvatar(props: {
   seed: string;
   hue: AvatarHue | null;
+  title: string;
   motion: AvatarMotion;
   mood: AvatarMood;
   followPointer: boolean;
-  breathe?: string | undefined;
   class: string;
-  style?: Record<string, string>;
+  style?: Record<string, string> | undefined;
 }) {
   let element: HTMLSpanElement | undefined;
   const [interacting, setInteracting] = createSignal(false);
   const [reducedMotion, setReducedMotion] = createSignal(prefersReducedMotion());
   const accent = createMemo(() => avatarMarkAccent(props.hue));
   const expression = createMemo<AgentMarkExpression>(() => avatarMarkExpression(props.seed));
+  const role = createMemo<AgentMarkRole | null>(() => avatarMarkRole(props.title));
   // A busy mood runs on its own; a resting one waits for the pointer or the focus, and the light
   // stops when neither is there.
   const animated = () =>
@@ -152,10 +169,16 @@ function GeneratedAvatar(props: {
       style={props.style}
       data-avatar="generated"
       data-mood={props.mood}
-      data-breathe={props.breathe}
       aria-hidden="true"
     >
-      <AgentMark mood={props.mood} expression={expression()} accent={accent()} animated={animated()} />
+      <AgentMark
+        mood={props.mood}
+        expression={expression()}
+        role={role()}
+        accent={accent()}
+        seed={props.seed}
+        animated={animated()}
+      />
     </span>
   );
 }

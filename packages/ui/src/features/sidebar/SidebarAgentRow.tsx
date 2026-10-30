@@ -15,6 +15,7 @@ import type { AgentProfile } from "../../data";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { agentAccessLockLabel } from "../agents/agent-access";
+import { avatarMoodInChat } from "../agents/agent-avatar-mood";
 import { SidebarAgentContextMenu } from "./SidebarAgentContextMenu";
 import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
 import { clickIsOnAvatar, SidebarChatTabStrip } from "./SidebarChatTabStrip";
@@ -55,8 +56,11 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
       : "";
   };
   // A function, not a JSX ternary: the compiler wraps a ternary in a memo, and the avatar reads its
-  // mood inside an effect, where a memo cannot be created.
-  const mood = () => (rowProps.userHidden ? "asleep" : (props.agentMoods[rowProps.agent.id] ?? "idle"));
+  // mood inside an effect, where a memo cannot be created. The row of the open chat shows its work `live`.
+  const mood = () =>
+    rowProps.userHidden
+      ? "asleep"
+      : avatarMoodInChat(props.agentMoods[rowProps.agent.id] ?? "idle", props.activeAgentId === rowProps.agent.id);
   const hiddenLabel = () => (rowProps.userHidden ? `${t("sidebar.hidden.title")}. ` : "");
   const draggable = () => layoutMutable() && !props.compact && !rowProps.waiting && !rowProps.userHidden;
   const wait = () => {

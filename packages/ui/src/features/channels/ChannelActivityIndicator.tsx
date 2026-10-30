@@ -66,10 +66,11 @@ function workerNameStyle(worker: ChannelWorker) {
  *
  * It uses the `agent-activity-*` rules and the same shifting label as the agent chat, so a reader
  * who moves between a channel and an agent chat meets one indicator. What differs is the number of
- * faces and the names: in a channel the face alone does not say which member works. A channel runs
- * at most `CHANNEL_PARALLEL_LIMIT` agents, which is what keeps the count of animating avatars low -
- * each one costs the renderer a style recalculation and a paint per frame. The steps of the turns
- * that have no answer yet open under the line, as in the agent chat.
+ * faces and the names: in a channel the face alone does not say which member works. The channel is
+ * the open chat, so each face works `live`. A channel runs at most `CHANNEL_PARALLEL_LIMIT` agents,
+ * which is what keeps the count of animating avatars low - each one costs the renderer a style
+ * recalculation and a paint per frame. The steps of the turns that have no answer yet open under
+ * the line, as in the agent chat.
  */
 export function ChannelActivityIndicator(props: {
   workers: ChannelWorker[];
@@ -118,7 +119,7 @@ export function ChannelActivityIndicator(props: {
               <AgentAvatar
                 agent={worker.agent}
                 seed={worker.agent ? undefined : worker.id}
-                mood="working"
+                mood="live"
                 class="agent-activity-avatar"
               />
             )}

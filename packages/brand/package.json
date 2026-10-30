@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./bloub-avatar": "./src/bloub-avatar.ts",
-  "./agent-mark": "./src/agent-mark.tsx",
+    "./agent-mark": "./src/agent-mark.tsx",
+    "./agent-mark-role": "./src/agent-mark-role.ts",
+    "./agent-mark-shades": "./src/agent-mark-shades.ts",
     "./bloub-avatar-motion": "./src/bloub-avatar-motion.ts",
     "./logo.css": "./src/logo.css",
     "./tokens.css": "./src/tokens.css",
