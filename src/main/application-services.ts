@@ -97,6 +97,7 @@ import {
   BrowserWindow,
   clipboard,
   desktopCapturer,
+  dialog,
   Notification,
   nativeImage,
   powerMonitor,
@@ -111,6 +112,8 @@ import { ProviderAccountStore } from "../backend/agent/provider-account-store";
 import { AgentLifecycleFailed, AgentService } from "../backend/agent-service";
 import { AgentStore } from "../backend/agent-store";
 import { BrowserHost } from "../backend/browser-host";
+import { readChromeSiteCookies } from "./chrome-site-session";
+import { createSiteSessionSource, SiteSessionGrants } from "./site-session-source";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { MailboxStore } from "../backend/mailbox-store";
@@ -357,6 +360,7 @@ const APP_BEHAVIOR_PREFERENCE_FILE = "openbot-app-behavior-preference-v1.json";
 const SECURITY_GUARD_PREFERENCE_FILE = "openbot-security-guard-v1.json";
 const DYNAMIC_ISLAND_PREFERENCE_FILE = "openbot-dynamic-island-preference-v1.json";
 const BROWSER_STATE_FILE = "openbot-browser-state-v1.json";
+const SITE_SESSION_GRANTS_FILE = "openbot-site-session-grants-v1.json";
 const SIDEBAR_LAYOUT_FILE = "openbot-sidebar-layout-v1.json";
 const TEAM_FILE = "openbot-team-server-v1.json";
 /** One host per account. The v1 file above stays as the last build without accounts left it. */
@@ -1089,6 +1093,29 @@ export async function createApplicationServices({
     teardown.push(TEARDOWN_ORDER.serverMemory, "the server memory reading", () => Effect.runPromise(hostMemory.stop()));
   }
   const browserProfileStore = new BrowserProfileStore(store.database);
+  const siteSessionGrants = new SiteSessionGrants(join(app.getPath("userData"), SITE_SESSION_GRANTS_FILE));
+  await siteSessionGrants.load();
+  const siteSessionSource = createSiteSessionSource({
+    grants: siteSessionGrants,
+    confirm: async (site) => {
+      const t = language.translate;
+      const options = {
+        type: "question" as const,
+        message: t("dialog.siteSession.message", { site }),
+        detail: t("dialog.siteSession.detail", { site }),
+        buttons: [t("dialog.siteSession.always", { site }), t("dialog.siteSession.once"), t("dialog.siteSession.deny")],
+        defaultId: 1,
+        cancelId: 2,
+        noLink: true,
+      };
+      const { response } = mainWindow.isDestroyed()
+        ? await dialog.showMessageBox(options)
+        : await dialog.showMessageBox(mainWindow, options);
+      return response === 0 ? "always" : response === 1 ? "once" : "deny";
+    },
+    read: readChromeSiteCookies,
+    onError: (error) => logger.warn("The Chrome sign-in of a site could not be read.", toLogValue(error)),
+  });
   const browser = new BrowserHost(mainWindow, store.downloadsRoot, join(app.getPath("userData"), BROWSER_STATE_FILE), {
     memoryLow: () => (hostMemory?.level() ?? "ok") !== "ok",
     browserProfile: (agentId) => {
@@ -1096,6 +1123,7 @@ export async function createApplicationServices({
       return agent ? agentBrowserProfile(agent) : { kind: "shared" };
     },
     profileExists: (profileId) => browserProfileStore.get(profileId) !== undefined,
+    siteSession: siteSessionSource,
   });
   teardown.push(TEARDOWN_ORDER.browser, "the browser", () => runCauseEffect(browser.destroy()));
   await runCauseEffect(browser.restore(store.list().map((agent) => ({ id: agent.id, threadId: agent.threadId }))));

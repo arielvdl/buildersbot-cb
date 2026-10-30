@@ -18,4 +18,10 @@ export const messages = {
   "dialog.filter.transfer": "Arquivos de transferência do Builders Bot",
   "dialog.chooseExternalLinkApp": "Escolha um navegador",
   "dialog.filter.applications": "Aplicativos",
+  "dialog.siteSession.message": "Usar seu login do Chrome em {site}?",
+  "dialog.siteSession.detail":
+    "Um agente pediu para abrir {site} já logado. O Builders Bot copia do seu Chrome só os cookies de {site}, de nenhum outro site, para o navegador do Builders Bot. O macOS pode pedir uma vez para liberar a chave do Chrome.",
+  "dialog.siteSession.always": "Sempre permitir {site}",
+  "dialog.siteSession.once": "Permitir desta vez",
+  "dialog.siteSession.deny": "Não permitir",
 } as const satisfies PartialTranslation<typeof source>;

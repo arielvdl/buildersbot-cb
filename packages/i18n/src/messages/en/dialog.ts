@@ -21,4 +21,11 @@ export const messages = defineMessages("dialog", {
   "dialog.filter.transfer": "Builders Bot transfer files",
   "dialog.chooseExternalLinkApp": "Choose a browser",
   "dialog.filter.applications": "Applications",
+  // The one question before an agent uses the Chrome sign-in of a site.
+  "dialog.siteSession.message": "Use your Chrome sign-in for {site}?",
+  "dialog.siteSession.detail":
+    "An agent asked to open {site} already signed in. Builders Bot copies only the cookies of {site} from your Chrome into the Builders Bot browser, and no other site. macOS may ask once to let it read the Chrome key.",
+  "dialog.siteSession.always": "Always allow {site}",
+  "dialog.siteSession.once": "Allow this time",
+  "dialog.siteSession.deny": "Do not allow",
 });

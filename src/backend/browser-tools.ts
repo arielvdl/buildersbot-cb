@@ -239,6 +239,12 @@ const BROWSER_TOOL_DEFINITIONS = [
     },
   }),
   browserTool({
+    name: "use_site_session",
+    description:
+      "Sign this tab's site in with the sign-in of the user's own Chrome, instead of asking for a password. Open the site first; only the cookies of that one site are copied, never another site's. The first time for a site, the user is asked, and Always remembers that site only. Returns whether it imported and how many cookies, never their values; then take a fresh snapshot. If it did not import, fall back to the normal sign-in or request_takeover.",
+    shape: { tabId },
+  }),
+  browserTool({
     name: "request_takeover",
     description:
       "Ask the user to take over a tab for unclear OAuth account selection, CAPTCHA, passkeys, payment confirmation such as 3-D Secure, or when secure password/code handoff or card fill is unavailable.",

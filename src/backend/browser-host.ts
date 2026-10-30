@@ -316,6 +316,11 @@ export interface BrowserMainPage {
   zoomFactor: number;
 }
 
+/** What a request for the Chrome sign-in of one site came to. Cookie values leave only through `ok`. */
+export type BrowserSiteSession = (
+  hostname: string,
+) => Promise<{ status: "ok"; cookies: BrowserSignInCookie[] } | { status: "denied" | "none" | "unavailable" }>;
+
 export class BrowserHost {
   static readonly CONTROL_IDLE_GRACE_MS = BrowserControlSessions.IDLE_GRACE_MS;
   readonly #window: BrowserWindow;
@@ -360,6 +365,7 @@ export class BrowserHost {
   #destroying: Deferred.Deferred<void, BrowserOperationError> | null = null;
   /** Whether the machine is too low on memory for one more tab. Only a server has a reading. */
   readonly #memoryLow: () => boolean;
+  readonly #siteSession: BrowserSiteSession;
   readonly #idleTabSweep: NodeJS.Timeout;
 
   constructor(
@@ -375,10 +381,13 @@ export class BrowserHost {
       browserProfile?: (agentId: string) => AgentBrowserProfile;
       /** Whether a named profile still exists. A tab never opens in a deleted profile. */
       profileExists?: (profileId: string) => boolean;
+      /** The sign-in of the person's own Chrome for one site, after the person agreed to it. */
+      siteSession?: BrowserSiteSession;
     } = {},
   ) {
     this.#window = window;
     this.#memoryLow = options.memoryLow ?? (() => false);
+    this.#siteSession = options.siteSession ?? (async () => ({ status: "unavailable" }));
     this.#browserProfile = options.browserProfile ?? (() => ({ kind: "shared" }));
     this.#profileExists = options.profileExists ?? (() => false);
     this.#downloadsRoot = downloadsRoot;
@@ -1906,6 +1915,25 @@ export class BrowserHost {
     // service, which intercepts the namespace before the call reaches a host. Reaching here
     // means a caller bypassed that, and silently succeeding would tell the model the user had
     // been asked for control when nobody was.
+    use_site_session: ({ args }, params) =>
+      Effect.gen({ self: this }, function* () {
+        yield* browserSync(() => this.#requireToolTab(params, args.tabId));
+        const tab = yield* this.#requireTab(args.tabId);
+        const page = URL.canParse(tab.contents.getURL()) ? new URL(tab.contents.getURL()) : null;
+        if (!page || page.protocol !== "https:")
+          return textResult({ imported: false, reason: "Open the site over https in this tab first." });
+        const outcome = yield* browserCall(() => this.#siteSession(page.hostname));
+        if (outcome.status !== "ok") {
+          const reason = {
+            denied: "The user did not allow it.",
+            none: "Chrome has no sign-in for this site.",
+            unavailable: "The Chrome sign-in could not be read.",
+          }[outcome.status];
+          return textResult({ imported: false, reason });
+        }
+        const cookies = yield* this.importSignIn(args.tabId, outcome.cookies);
+        return textResult({ imported: cookies > 0, cookies });
+      }),
     submit_secret: rejectTakeoverTool,
     request_takeover: rejectTakeoverTool,
     list_logins: rejectTakeoverTool,
