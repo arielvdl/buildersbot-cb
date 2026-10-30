@@ -19,6 +19,8 @@ export const messages = {
   "channel.settings.memoryCount": { one: "已保存 {count} 条", other: "已保存 {count} 条" },
   "channel.settings.routines": "自动化任务",
   "channel.settings.routineCount": { one: "已配置 {count} 个", other: "已配置 {count} 个" },
+  "channel.empty.summary": "查看摘要",
+  "channel.empty.closeSummary": "关闭摘要",
   "channel.create.close": "关闭新建频道",
   "channel.create.addAgents": "添加助手",
   "channel.create.searchAgents": "搜索助手",

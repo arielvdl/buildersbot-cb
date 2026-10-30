@@ -19,6 +19,8 @@ export const messages = {
   "channel.settings.memoryCount": { one: "{count} opgeslagen", other: "{count} opgeslagen" },
   "channel.settings.routines": "Routines",
   "channel.settings.routineCount": { one: "{count} ingesteld", other: "{count} ingesteld" },
+  "channel.empty.summary": "Samenvatting",
+  "channel.empty.closeSummary": "Samenvatting sluiten",
   "channel.create.close": "Nieuw kanaal sluiten",
   "channel.create.addAgents": "Agents toevoegen",
   "channel.create.searchAgents": "Agents zoeken",

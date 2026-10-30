@@ -53,6 +53,11 @@ older event replay and a client without tabs send.
 - The first tab's id is `openbot-topic-<channelId>`, so the migration is idempotent and a channel
   created by the service is written with its first tab in the same command.
 - A routine, the Team API and an older client name no tab, so they land in the first one.
+- A tab belongs to its channel. A channel that the reader creates or opens starts on its first tab:
+  the renderer clears `topicId` on both paths. A read that names a tab which is not in the channel
+  fails (`readTopicId`), as `send` does, so the renderer falls back to the first tab. An empty page
+  for a foreign tab would keep the reader on it, and the first message would fail with "This tab of
+  the channel no longer exists."
 - Deleting a tab interrupts its running turns before its sessions and threads go.
 - The parallel limit (`CHANNEL_PARALLEL_LIMIT`) is counted per tab, through the task of each
   assignment. One turn per agent stays channel-wide: it is what keeps one agent from opening two

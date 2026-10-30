@@ -323,6 +323,16 @@ export class ChannelStore {
     return row ? decodeTopic(row) : null;
   }
 
+  /**
+   * The tab a read names, or the first one. A tab that is not in the channel is refused, as `send`
+   * refuses it: an empty page for it would keep the reader on a tab of another channel.
+   */
+  readTopicId(channelId: string, requested?: string): string {
+    const topic = requested === undefined ? this.firstTopic(channelId) : this.topic(channelId, requested);
+    if (!topic) throw new Error(sourceText("error.backend.channelTopicNotFound"));
+    return topic.id;
+  }
+
   topic(channelId: string, topicId: string): ChannelTopic | null {
     const row = databaseRow(
       this.database.connection

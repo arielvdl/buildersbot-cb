@@ -29,6 +29,8 @@ export const messages = {
     many: "Настроено: {count}",
     other: "Настроено: {count}",
   },
+  "channel.empty.summary": "Показать сводку",
+  "channel.empty.closeSummary": "Закрыть сводку",
   "channel.create.close": "Закрыть создание канала",
   "channel.create.addAgents": "Добавить агентов",
   "channel.create.searchAgents": "Поиск агентов",

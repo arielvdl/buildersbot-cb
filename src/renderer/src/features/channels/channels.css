@@ -34,6 +34,19 @@
   color: var(--openbot-text-primary);
 }
 
+/* The summary of an empty channel is the instructions, read in full: it scrolls inside the dialog and
+   keeps the line breaks the author wrote. */
+.channel-summary-text {
+  margin: 0;
+  padding: 0 var(--channel-dialog-inset) var(--channel-dialog-inset);
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+}
+
 /* The editor stacks the same fields the agent panel stacks, so it adds no spacing of its own: the
    shared field carries its own bottom margin, and a gap here would add to it and set the whole
    channel form further apart than the agent form. */
@@ -237,6 +250,13 @@
    of the identity it edits. */
 .channel-member-dialog .channel-dialog-header {
   border-bottom: 1px solid var(--openbot-border);
+}
+/* The model and reasoning menus open in a portal, on the popover layer, which is under the dialog
+   that holds their triggers. While this dialog is open they take the step above it, as the skill
+   menu of the agent panel does. */
+body:has(.channel-member-dialog) .provider-model-popover,
+body:has(.channel-member-dialog) .ui-select-content {
+  z-index: calc(var(--openbot-layer-dialog) + var(--openbot-layer-popover) + 1);
 }
 .channel-member-form {
   min-height: 0;

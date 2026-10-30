@@ -19,6 +19,8 @@ export const messages = {
   "channel.settings.memoryCount": { other: "{count} 件保存済み" },
   "channel.settings.routines": "ルーティン",
   "channel.settings.routineCount": { other: "{count} 件設定済み" },
+  "channel.empty.summary": "概要を見る",
+  "channel.empty.closeSummary": "概要を閉じる",
   "channel.create.close": "新しいチャンネルを閉じる",
   "channel.create.addAgents": "エージェントを追加",
   "channel.create.searchAgents": "エージェントを検索",

@@ -37,6 +37,8 @@ function host() {
   /** The unread count of each tab in the channel list. */
   const unread = new Map<string, number>();
   const commands: ChannelCommand[] = [];
+  /** The channels a `save` created, as the host holds them next to the first one. */
+  const created = new Set<string>();
   const summary = (): ChannelSummary => ({
     ...channel,
     unreadCount: [...unread.values()].reduce((sum, count) => sum + count, 0),
@@ -53,8 +55,29 @@ function host() {
   });
   const port: ChannelsPort = {
     agent: {
-      listChannels: async (): Promise<ChannelSummary[]> => [summary()],
+      listChannels: async (): Promise<ChannelSummary[]> => [
+        summary(),
+        ...[...created].map(
+          (id): ChannelSummary => ({
+            ...summary(),
+            id,
+            topics: [
+              { id: `openbot-topic-${id}`, channelId: id, name: "Main", createdAt: channel.createdAt, revision: 0 },
+            ],
+          }),
+        ),
+      ],
       readChannel: async (input: ChannelReadInput): Promise<ChannelPage> => {
+        // The local host does not check the tab of a channel it reads, and answers an empty page.
+        if (created.has(input.channelId))
+          return {
+            channel: { ...channel, id: input.channelId },
+            topicId: input.topicId ?? `openbot-topic-${input.channelId}`,
+            messages: [],
+            tasks: [],
+            olderCursor: null,
+            throughSequence: 0,
+          };
         const topicId = input.topicId ?? MAIN;
         const throughSequence = newest.get(topicId);
         if (throughSequence === undefined) throw new Error("The tab is not in this channel.");
@@ -62,6 +85,7 @@ function host() {
       },
       channelCommand: async (command: ChannelCommand): Promise<Channel> => {
         commands.push(command);
+        if (command.type === "save") created.add(command.channelId);
         if (command.type === "topic-delete") newest.delete(command.topicId);
         return channel;
       },
@@ -188,5 +212,25 @@ describe("the read a channel tab sends", () => {
     expect(await channels.markAllRead()).toBe(true);
 
     expect(fake.reads().at(-1)).toBe(`${SECOND}:11`);
+  });
+});
+
+describe("the tab of a channel the reader creates", () => {
+  it("opens the new channel on its first tab, not on the tab that was open", async () => {
+    const fake = host();
+    const channels = await mount(fake.port);
+    await channels.setTopic(SECOND);
+    channels.create();
+    await vi.waitFor(() => expect(channels.state.editing).toBe("create"));
+
+    await channels.command({
+      type: "save",
+      operationId: "create-1",
+      channelId: "channel-new",
+      draft: { name: "New", title: "", instructions: "", members: [], leadAgentId: null },
+    });
+
+    expect(channels.state.selectedId).toBe("channel-new");
+    expect(channels.state.topicId).toBe("openbot-topic-channel-new");
   });
 });

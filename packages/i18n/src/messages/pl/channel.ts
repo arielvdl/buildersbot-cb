@@ -29,6 +29,8 @@ export const messages = {
     many: "{count} skonfigurowanych",
     other: "{count} skonfigurowanej",
   },
+  "channel.empty.summary": "Zobacz podsumowanie",
+  "channel.empty.closeSummary": "Zamknij podsumowanie",
   "channel.create.close": "Zamknij nowy kanał",
   "channel.create.addAgents": "Dodaj agentów",
   "channel.create.searchAgents": "Szukaj agentów",

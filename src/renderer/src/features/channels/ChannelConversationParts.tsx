@@ -4,7 +4,7 @@
  * data, so each part reads the open channel from `useChannels()`.
  */
 
-import { Button, ErrorReference } from "@openbot/ui";
+import { Button, Dialog, ErrorReference, IconButton, X } from "@openbot/ui";
 import { SettingsPanel, SettingsPanelContent, SettingsPanelHeader } from "@openbot/ui/components/SettingsPanel";
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
@@ -132,7 +132,9 @@ export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: (
 
 export function ChannelEmptyState(props: { channelId: string }) {
   const channels = useChannels();
+  const { t } = useText();
   const page = useOpenChannel(props.channelId);
+  const [summaryOpen, setSummaryOpen] = createSignal(false);
   return (
     <Show when={page()}>
       {(current) => (
@@ -142,8 +144,36 @@ export function ChannelEmptyState(props: { channelId: string }) {
           <Show when={current().channel.title}>
             <p class="channel-empty-title">{current().channel.title}</p>
           </Show>
+          {/* The instructions can run to a page, so the first screen shows a button and the modal the text. */}
           <Show when={current().channel.instructions}>
-            <p>{current().channel.instructions}</p>
+            {(instructions) => (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => setSummaryOpen(true)}>
+                  {t("channel.empty.summary")}
+                </Button>
+                <Show when={summaryOpen()}>
+                  <Dialog.Root open onOpenChange={(open) => !open && setSummaryOpen(false)}>
+                    <Dialog.Portal>
+                      <Dialog.Overlay class="channel-dialog-backdrop">
+                        <Dialog.Content class="channel-create-dialog channel-summary-dialog">
+                          <header class="channel-dialog-header">
+                            <Dialog.Title>{current().channel.name}</Dialog.Title>
+                            <IconButton
+                              label={t("channel.empty.closeSummary")}
+                              variant="ghost"
+                              onClick={() => setSummaryOpen(false)}
+                            >
+                              <X />
+                            </IconButton>
+                          </header>
+                          <p class="channel-summary-text">{instructions()}</p>
+                        </Dialog.Content>
+                      </Dialog.Overlay>
+                    </Dialog.Portal>
+                  </Dialog.Root>
+                </Show>
+              </>
+            )}
           </Show>
         </div>
       )}

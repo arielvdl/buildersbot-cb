@@ -352,9 +352,8 @@ export function agentIpcHandlers({
       }),
       readChannel: scopedHandler(parseChannelRead, {
         local: (input) => {
-          const topicId = input.topicId ?? service.channels.store.firstTopic(input.channelId)?.id;
-          if (!topicId) throw new Error(sourceText("error.backend.channelTopicNotFound"));
-          return service.channels.store.page(input.channelId, topicId, input.beforeSequence);
+          const { store } = service.channels;
+          return store.page(input.channelId, store.readTopicId(input.channelId, input.topicId), input.beforeSequence);
         },
         remote: (input, serverId) =>
           runCauseEffect(

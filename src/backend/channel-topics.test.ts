@@ -78,6 +78,16 @@ afterEach(async () => {
 });
 
 describe("channel tabs", () => {
+  it("reads the first tab when a read names none, and refuses a tab that is not in the channel", async () => {
+    const { store, channelId, first } = await openStore();
+
+    expect(store.readTopicId(channelId)).toBe(first);
+    expect(store.readTopicId(channelId, first)).toBe(first);
+    expect(() => store.readTopicId(channelId, "openbot-topic-of-another-channel")).toThrow(
+      "This tab of the channel no longer exists.",
+    );
+  });
+
   it("keeps each tab's messages and work to itself", async () => {
     const { store, channelId, first } = await openStore();
     store.update(store.get(channelId), {

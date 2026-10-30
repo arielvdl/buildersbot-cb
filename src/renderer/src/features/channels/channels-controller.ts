@@ -312,6 +312,9 @@ export function createChannelsController(env: ChannelsEnvironment) {
         flush(() =>
           setState((state) => {
             state.selectedId = input.channelId;
+            // A tab belongs to its channel: the new channel opens on its first tab, and a first
+            // message that named the tab of the channel left would be refused.
+            state.topicId = null;
             if (state.editing === "create") state.editing = null;
           }),
         );

@@ -19,6 +19,8 @@ export const messages = {
   "channel.settings.memoryCount": { other: "{count}개 저장됨" },
   "channel.settings.routines": "루틴",
   "channel.settings.routineCount": { other: "{count}개 설정됨" },
+  "channel.empty.summary": "요약 보기",
+  "channel.empty.closeSummary": "요약 닫기",
   "channel.create.close": "새 채널 닫기",
   "channel.create.addAgents": "에이전트 추가",
   "channel.create.searchAgents": "에이전트 검색",

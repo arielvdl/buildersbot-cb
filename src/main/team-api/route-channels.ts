@@ -67,9 +67,12 @@ export async function routeChannels(
   if (list) return json(200, channels.store.list(member.id));
   if (read) {
     const input = parseChannelRead(channelRequest(url.pathname, await readJson(request)));
-    const topicId = input.topicId ?? channels.store.firstTopic(input.channelId)?.id;
-    if (!topicId) throw new HttpError(404, sourceText("error.backend.channelTopicNotFound"));
-    return json(200, channels.store.page(input.channelId, topicId, input.beforeSequence));
+    const topic =
+      input.topicId === undefined
+        ? channels.store.firstTopic(input.channelId)
+        : channels.store.topic(input.channelId, input.topicId);
+    if (!topic) throw new HttpError(404, sourceText("error.backend.channelTopicNotFound"));
+    return json(200, channels.store.page(input.channelId, topic.id, input.beforeSequence));
   }
   if (remove) {
     if (!capabilities.has(CHANNEL_DELETE_CAPABILITY))

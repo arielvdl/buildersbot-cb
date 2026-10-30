@@ -18,6 +18,8 @@ export const messages = defineMessages("channel", {
   "channel.settings.memoryCount": { one: "{count} saved", other: "{count} saved" },
   "channel.settings.routines": "Routines",
   "channel.settings.routineCount": { one: "{count} configured", other: "{count} configured" },
+  "channel.empty.summary": "View summary",
+  "channel.empty.closeSummary": "Close summary",
   "channel.create.close": "Close new channel",
   "channel.create.addAgents": "Add agents",
   "channel.create.searchAgents": "Search agents",
