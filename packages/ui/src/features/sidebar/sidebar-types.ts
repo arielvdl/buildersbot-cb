@@ -105,6 +105,14 @@ export interface SidebarProps {
   /** The desktop server menu. Without it, the server name opens the server settings. */
   serverMenu?: Omit<ServerMenuProps, "serverName" | "compact"> | undefined;
   /**
+   * The section rail at the left of the list. It is drawn when set: "All", one item for each section,
+   * and a button that creates a section. While a section is selected, the list shows only its chats.
+   * `selectedId` null is "All". A section that is gone reads as "All".
+   */
+  sectionRail?: { selectedId: string | null; onSelect: (sectionId: string | null) => void } | undefined;
+  /** Whether this server keeps a section icon (`set-section-icon`). Only the local server does. */
+  sectionIconsSupported?: boolean | undefined;
+  /**
    * Back and Forward between the chats this window opened. The top bar shows the two arrows only when
    * it is set. `back` and `forward` name the chat that each arrow opens, or are null when there is none.
    */

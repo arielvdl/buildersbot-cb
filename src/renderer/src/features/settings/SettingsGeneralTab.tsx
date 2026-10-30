@@ -1,4 +1,5 @@
 import { APP_INTERFACE_SIZES, type AppInterfaceSize, type AppVariant } from "@openbot/contracts/ipc";
+import type { AppTextKey } from "@openbot/i18n";
 import {
   Item,
   ItemActions,
@@ -24,12 +25,21 @@ import { Show } from "solid-js";
 import { useAppearanceChoice } from "../../appearance-choice";
 import { useI18n } from "../../i18n-context";
 import { useInterfaceSizeChoice } from "../../interface-size";
+import { useLayout } from "../../layout";
+import type { LeftColumnView } from "../../left-column";
 import { useLogoColorChoice } from "../../logo-color";
 import { DictationKeyField } from "./DictationKeyField";
 import { DictationModeSelect } from "./DictationModeSelect";
 import { ExternalLinkSelect } from "./ExternalLinkSelect";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
+
+const LEFT_COLUMN_OPTIONS: LeftColumnView[] = ["sections", "servers"];
+
+const LEFT_COLUMN_LABELS = {
+  sections: "settings.leftColumn.sections",
+  servers: "settings.leftColumn.servers",
+} as const satisfies Record<LeftColumnView, AppTextKey>;
 
 interface SettingsGeneralTabProps {
   value: GeneralSettingsValue;
@@ -48,6 +58,8 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
   const appearance = useAppearanceChoice();
   const logoColor = useLogoColorChoice();
   const interfaceSize = useInterfaceSizeChoice();
+  const layout = useLayout();
+  const leftColumnLabel = (value: LeftColumnView | undefined) => (value ? i18n.t(LEFT_COLUMN_LABELS[value]) : "");
   const { format } = useText();
   const interfaceSizeLabel = (value: AppInterfaceSize | undefined) =>
     value === undefined ? "" : format.percent(value / 100);
@@ -104,6 +116,29 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
               >
                 <SelectTrigger size="sm" aria-label={i18n.t("settings.interfaceSize.title")}>
                   <SelectValue<AppInterfaceSize>>{(state) => interfaceSizeLabel(state.selectedOption())}</SelectValue>
+                </SelectTrigger>
+                <SelectContent mount={props.selectMount} />
+              </Select>
+            </ItemActions>
+          </Item>
+          <Item data-settings-row="settings.leftColumn.title" class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("settings.leftColumn.title")}</ItemTitle>
+              <ItemDescription>{i18n.t("settings.leftColumn.description")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Select<LeftColumnView>
+                class="settings-modal-select"
+                options={LEFT_COLUMN_OPTIONS}
+                value={layout.leftColumn()}
+                onChange={(value) => value && layout.setLeftColumn(value)}
+                placement="bottom-end"
+                itemComponent={(selectProps) => (
+                  <SelectItem item={selectProps.item}>{leftColumnLabel(selectProps.item.rawValue)}</SelectItem>
+                )}
+              >
+                <SelectTrigger size="sm" aria-label={i18n.t("settings.leftColumn.title")}>
+                  <SelectValue<LeftColumnView>>{(state) => leftColumnLabel(state.selectedOption())}</SelectValue>
                 </SelectTrigger>
                 <SelectContent mount={props.selectMount} />
               </Select>

@@ -1,3 +1,4 @@
+import { isSidebarSectionIcon, type SidebarSectionIcon } from "./ipc-sidebar-section-icon";
 import { isDynamicRecord, isNumber, isString } from "./runtime-values";
 
 export const SIDEBAR_PEOPLE_SECTION_ID = "people";
@@ -12,6 +13,11 @@ export interface SidebarSection {
    * drops it from the section.
    */
   color?: string;
+  /**
+   * The mark of the section in the section rail. Absent means the first letter of the name. Only the
+   * local layout has it: no released Team API protocol carries it, and each frozen codec drops it.
+   */
+  icon?: SidebarSectionIcon;
 }
 
 const SIDEBAR_SECTION_COLOR = /^#[0-9a-f]{6}$/;
@@ -82,6 +88,7 @@ export function isSidebarLayoutSnapshot(value: unknown): value is SidebarLayoutS
   for (const section of value.sections) {
     if (!isDynamicRecord(section) || !isString(section.id) || !isString(section.name)) return false;
     if (section.color !== undefined && !isSidebarSectionColor(section.color)) return false;
+    if (section.icon !== undefined && !isSidebarSectionIcon(section.icon)) return false;
     if (sectionIds.has(section.id)) return false;
     sectionIds.add(section.id);
   }
@@ -101,4 +108,6 @@ export type SidebarLayoutAction =
   | { type: "assign"; agentId: string; sectionId: string | null }
   | { type: "move-agent"; agentId: string; sectionId: string | null; beforeAgentId: string | null }
   /** Local layout only. `color` is `#rrggbb`; null removes the color. No Team API protocol sends it. */
-  | { type: "set-section-color"; sectionId: string; color: string | null };
+  | { type: "set-section-color"; sectionId: string; color: string | null }
+  /** Local layout only. Null removes the icon, so the rail shows the first letter. No Team API protocol sends it. */
+  | { type: "set-section-icon"; sectionId: string; icon: SidebarSectionIcon | null };

@@ -41,6 +41,7 @@ import {
   type MarkAgentTaskReadInput,
   type MarkConversationReadInput,
   normalizeSidebarSectionColor,
+  normalizeSidebarSectionIcon,
   type OpenAttachmentInput,
   type OpenMessageLinkInput,
   type OpenSharedFileInput,
@@ -196,6 +197,15 @@ export function parseSidebarLayoutAction(value: unknown): SidebarLayoutAction {
         type: "set-section-color",
         sectionId: requireString(value.sectionId, "sectionId", INPUT_LIMITS.identifier),
         color,
+      };
+    }
+    case "set-section-icon": {
+      const icon = value.icon === null ? null : normalizeSidebarSectionIcon(value.icon);
+      if (value.icon !== null && icon === null) throw new Error("Invalid section icon.");
+      return {
+        type: "set-section-icon",
+        sectionId: requireString(value.sectionId, "sectionId", INPUT_LIMITS.identifier),
+        icon,
       };
     }
     default:

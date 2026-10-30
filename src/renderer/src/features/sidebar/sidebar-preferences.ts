@@ -6,10 +6,17 @@ import {
 } from "@openbot/ui/features/sidebar/sidebar-pins";
 import { createMemo, createSignal } from "solid-js";
 import { readSidebarPins, type SidebarPinsByServer, writeSidebarPins } from "./sidebar-pins-storage";
+import {
+  readSidebarSectionRail,
+  type SidebarSectionRailByScope,
+  withSidebarSectionRailSelection,
+  writeSidebarSectionRail,
+} from "./sidebar-section-rail-storage";
 import { readSidebarCollapsed, type SidebarCollapsedByServer, writeSidebarCollapsed } from "./sidebar-sections-storage";
 
 /**
- * The pinned items and collapsed sections that this computer remembers for each scope. The desktop
+ * The pinned items, collapsed sections and the section that the section rail selects, which this
+ * computer remembers for each scope. The desktop
  * scope is the server id; the browser client's is the account and host, because one browser can
  * sign in to more than one account.
  *
@@ -28,6 +35,18 @@ export function createSidebarPreferences(options: { scope: () => string }) {
 
   const pinnedSidebarItems = createMemo(() => sidebarPinsByServer()[options.scope()] ?? []);
   const collapsedSidebarSectionIds = createMemo(() => sidebarCollapsedByServer()[options.scope()] ?? []);
+  const [sectionRailByScope, setSectionRailByScope] = createSignal<SidebarSectionRailByScope>(readSidebarSectionRail());
+  /** The section the rail selects in this scope, or null for "All". */
+  const selectedRailSectionId = createMemo(() => sectionRailByScope()[options.scope()] ?? null);
+
+  function selectRailSection(sectionId: string | null): void {
+    const scope = options.scope();
+    setSectionRailByScope((current) => {
+      const next = withSidebarSectionRailSelection(current, scope, sectionId);
+      writeSidebarSectionRail(next);
+      return next;
+    });
+  }
 
   function toggleSidebarSection(sectionId: string): void {
     const serverId = options.scope();
@@ -114,6 +133,8 @@ export function createSidebarPreferences(options: { scope: () => string }) {
   }
 
   return {
+    selectedRailSectionId,
+    selectRailSection,
     collapsedSidebarSectionIds,
     toggleSidebarSection,
     collapseSidebarSection,

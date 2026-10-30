@@ -16,27 +16,23 @@ import {
   NARROW_SERVER_RAIL_WIDTH,
   RAIL_PINS_STORAGE_KEY,
   SERVER_RAIL_WIDTH,
-  SERVER_VIEW_STORAGE_KEY,
   SIDEBAR_VIEW_STORAGE_KEY,
 } from "./layout-constants";
+import { type LeftColumnView, readLeftColumnView, writeLeftColumnView } from "./left-column";
 import { usePlatform } from "./platform";
 import { createSimpleContext } from "./simple-context";
 
 /**
  * Whether the conversation still has room beside a sidebar of this width. The
- * server rail is part of the arithmetic rather than a style detail, and its
+ * rail column is part of the arithmetic rather than a style detail, and its
  * width depends on the platform: macOS reserves space for the traffic lights,
  * while the two platforms that draw a standard OS frame narrow the rail on a
- * small window. A width of `0` means the rail is not drawn: main has not reported
- * the platform yet, or the user chose the server menu.
+ * small window. The section rail and the server rail have the same width. A
+ * width of `0` means no rail is drawn: main has not reported the platform yet.
  */
-function shouldAutoCompactSidebar(
-  platform: AppInfo["platform"] | undefined,
-  panelWidth: number,
-  serverView: ServerView,
-): boolean {
+function shouldAutoCompactSidebar(platform: AppInfo["platform"] | undefined, panelWidth: number): boolean {
   const serverRailWidth =
-    platform === undefined || serverView === "menu"
+    platform === undefined
       ? 0
       : platform === "darwin"
         ? MAC_SERVER_RAIL_WIDTH
@@ -79,11 +75,12 @@ function readRailPinChoices(): RailPinChoices {
  * `expandSidebar` clears both, because a user asking for the sidebar back means
  * both reasons at once.
  *
- * The user also chooses how servers are switched: a menu on the server name,
- * which is the default, or a server rail beside the page rail. That choice is
- * persisted on this computer. A compact sidebar hides the server name, so in the
- * menu view the user expands the sidebar to switch servers; the rail does not
- * come back.
+ * The user also chooses what the column beside the page rail shows: the
+ * sections of the active server, which is the default, or the servers. With the
+ * sections, the menu on the server name lists the servers and switches between
+ * them. That choice is persisted on this computer. A compact sidebar hides the
+ * server name, so with the sections the user expands the sidebar to switch
+ * servers.
  *
  * The user also pins pages to the page rail. Pages that are not pinned are in its More menu. The
  * choice is saved on this computer.
@@ -101,11 +98,10 @@ const Layout = createSimpleContext({
     const [leftPanelCollapsed, setLeftPanelCollapsed] = createSignal(
       window.localStorage.getItem(LEFT_PANEL_COLLAPSED_STORAGE_KEY) === "true",
     );
-    // The page rail is the left column of the window, so the server menu is the default. The rail
-    // shows only for a user who chose it; `setServerView` saves only an explicit choice.
-    const [serverView, setServerViewSignal] = createSignal<ServerView>(
-      window.localStorage.getItem(SERVER_VIEW_STORAGE_KEY) === "rail" ? "rail" : "menu",
-    );
+    // The column shows the sections unless the user chose the servers. With the sections, the server
+    // menu on the server name lists the servers, so `serverView` follows this one choice.
+    const [leftColumn, setLeftColumnSignal] = createSignal<LeftColumnView>(readLeftColumnView(window.localStorage));
+    const serverView = createMemo<ServerView>(() => (leftColumn() === "servers" ? "rail" : "menu"));
     const [sidebarView, setSidebarViewSignal] = createSignal<SidebarView>(
       window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY) === "routines" ? "routines" : "agents",
     );
@@ -117,20 +113,22 @@ const Layout = createSimpleContext({
     const [leftPanelAutoCompact, setLeftPanelAutoCompact] = createSignal(false);
     const leftPanelCompact = createMemo(() => leftPanelCollapsed() || leftPanelAutoCompact());
     /**
-     * Whether the window draws the vertical server rail. The frame class and
-     * the rail itself need the answer. `appInfo` is null
-     * until main answers, and no rail is drawn before then.
+     * Whether the window draws a rail column: the section rail or the server rail. The frame class and
+     * the rails need the answer. `appInfo` is null until main answers, and no rail is drawn before then.
+     * A window of one chat has no sidebar, so it has no rail column either.
      */
-    const serverRailVisible = createMemo(() => platform.appInfo() !== null && serverView() === "rail");
+    const railColumnVisible = createMemo(() => platform.appInfo() !== null && platform.chatWindow === null);
+    const serverRailVisible = createMemo(() => railColumnVisible() && leftColumn() === "servers");
+    const sectionRailVisible = createMemo(() => railColumnVisible() && leftColumn() === "sections");
 
     function updateResponsiveSidebar(): void {
-      setLeftPanelAutoCompact(shouldAutoCompactSidebar(platform.appInfo()?.platform, leftPanelWidth(), serverView()));
+      setLeftPanelAutoCompact(shouldAutoCompactSidebar(platform.appInfo()?.platform, leftPanelWidth()));
     }
 
     createEffect(
-      () => ({ osPlatform: platform.appInfo()?.platform, panelWidth: leftPanelWidth(), view: serverView() }),
-      ({ osPlatform, panelWidth, view }) => {
-        setLeftPanelAutoCompact(shouldAutoCompactSidebar(osPlatform, panelWidth, view));
+      () => ({ osPlatform: platform.appInfo()?.platform, panelWidth: leftPanelWidth() }),
+      ({ osPlatform, panelWidth }) => {
+        setLeftPanelAutoCompact(shouldAutoCompactSidebar(osPlatform, panelWidth));
       },
     );
 
@@ -154,9 +152,14 @@ const Layout = createSimpleContext({
       window.localStorage.setItem(LEFT_PANEL_COLLAPSED_STORAGE_KEY, String(collapsed));
     }
 
+    function setLeftColumn(view: LeftColumnView): void {
+      setLeftColumnSignal(view);
+      writeLeftColumnView(view, window.localStorage);
+    }
+
+    /** The choice of the server menu: the server rail puts the servers in the column, the menu the sections. */
     function setServerView(view: ServerView): void {
-      setServerViewSignal(view);
-      window.localStorage.setItem(SERVER_VIEW_STORAGE_KEY, view);
+      setLeftColumn(view === "rail" ? "servers" : "sections");
     }
 
     function setSidebarView(view: SidebarView): void {
@@ -186,9 +189,13 @@ const Layout = createSimpleContext({
       leftPanelCompact,
       setSidebarCollapsed,
       expandSidebar,
+      leftColumn,
+      setLeftColumn,
       serverView,
       setServerView,
+      railColumnVisible,
       serverRailVisible,
+      sectionRailVisible,
       sidebarView,
       setSidebarView,
       railPinned,

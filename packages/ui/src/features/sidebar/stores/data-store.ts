@@ -11,6 +11,7 @@ import { currentText } from "../../../text";
 import { teamMemberName } from "../../team/TeamPersonAvatar";
 import { sidebarPinnedItemKey } from "../sidebar-pins";
 import type { ResolvedPinnedItem, SidebarChatItem, SidebarProps } from "../sidebar-types";
+import { createSidebarSectionRailStore } from "./section-rail-store";
 
 type PinnedItemSource = SidebarProps["agents"][number] | NonNullable<SidebarProps["channels"]>[number];
 
@@ -36,6 +37,8 @@ export function createSidebarDataStore(deps: {
   const agentIsUserHidden = (agentId: string) => userHiddenAt().has(agentId);
   const personById = createMemo(() => new Map(props.people.map((member) => [member.id, member])));
   const channels = () => props.channels ?? [];
+  /** The section rail. While it has a section selected, every group below lists only that section's chats. */
+  const sectionRail = createSidebarSectionRailStore(props);
   /**
    * The activity filter, when the user turned one on. A chat counts as active while work is in
    * flight: an agent that thinks, waits, waits on its plan or runs a routine, and a channel with a
@@ -56,11 +59,13 @@ export function createSidebarDataStore(deps: {
   const channelIsActive = (channel: ChannelSummary): boolean =>
     channel.activeTasks > 0 || (channel.openTasks ?? 0) > 0 || props.channelWaits?.[channel.id] !== undefined;
   const agentShown = (agent: AgentProfile): boolean => {
+    if (!sectionRail.chatInFocus(agent.id)) return false;
     const filter = activityFilter();
     if (!filter) return true;
     return filter === "agents" && (agentIsActive(agent.id) || props.activeAgentId === agent.id);
   };
   const channelShown = (channel: ChannelSummary): boolean => {
+    if (!sectionRail.chatInFocus(channel.id)) return false;
     const filter = activityFilter();
     if (!filter) return true;
     return filter === "channels" && (channelIsActive(channel) || props.activeChannelId === channel.id);
@@ -228,7 +233,7 @@ export function createSidebarDataStore(deps: {
     return groups;
   });
   const visibleSectionIds = createMemo(() =>
-    props.layout.order.filter((sectionId) => {
+    sectionRail.order().filter((sectionId) => {
       // The filter lists chats only, so the people section and the sections it leaves empty give way.
       if (sectionId === SIDEBAR_PEOPLE_SECTION_ID)
         return !activityFilter() && props.showPeople !== false && orderedPeople().length > 0;
@@ -308,6 +313,7 @@ export function createSidebarDataStore(deps: {
     personById,
     resolvedPinnedItems,
     sectionAcceptsChat,
+    sectionRail,
     sectionIsCollapsed,
     sectionLabel,
     sectionPosition,

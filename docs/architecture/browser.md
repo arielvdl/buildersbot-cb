@@ -9,6 +9,9 @@ sidebar, and full conversation view. `ConversationRuntime` routes host actions t
 the browser connection; its desktop default is the preload API. The desktop `WorkspaceShell` and the
 web client draw the same `WorkspaceFrame` under `LayoutProvider`, so the rail geometry, the sidebar
 resizer and compact modes, the compatibility screen, and the usage report slot are the same on both.
+The rail column holds the section rail or the server rail, as Settings > General > Left column
+chooses (`layout.railColumnVisible`). Both use the `server-rail` classes, so the frame, the window
+styles and the small-screen panes place and hide them in the same way.
 The overlays that both clients raise - join, marketplace, shared agent, server settings, global
 search and channel creation - are prop-driven views in `WorkspaceOverlayViews.tsx`.
 `WorkspaceOverlays` fills them from the desktop contexts, and the web client fills them from its

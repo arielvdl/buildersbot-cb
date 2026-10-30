@@ -28,6 +28,7 @@ export function SidebarNav() {
     reorderAnnouncement,
     resolvedPinnedItems,
     scrollFades,
+    sectionRail,
     setAgentListElement,
     startCreateSection,
     updateSidebarNativeDrag,
@@ -54,7 +55,8 @@ export function SidebarNav() {
             filteredChats().length === 0 &&
             userHiddenAgentList().length === 0 &&
             (props.showPeople === false || props.activityFilter || orderedPeople().length === 0) &&
-            pending.sectionEditor?.target.kind !== "create"
+            pending.sectionEditor?.target.kind !== "create" &&
+            sectionRail.focus() === null
           }
         >
           <SidebarEmptyState />

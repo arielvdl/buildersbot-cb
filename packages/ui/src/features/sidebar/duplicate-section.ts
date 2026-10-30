@@ -79,6 +79,11 @@ export async function duplicateSection(deps: SectionDuplicateDeps, sectionId: st
     layout = await deps.mutateLayout({ type: "set-section-color", sectionId: created.id, color: source.color });
     if (!layout) return null;
   }
+  // The copy keeps the rail icon too. Only a local layout has an icon, as for the color.
+  if (source.icon !== undefined) {
+    layout = await deps.mutateLayout({ type: "set-section-icon", sectionId: created.id, icon: source.icon });
+    if (!layout) return null;
+  }
   for (const agentId of copied) {
     const copy = await deps.duplicateAgent(agentId);
     if (!copy) return null;

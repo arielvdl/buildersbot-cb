@@ -323,6 +323,17 @@ function applyStoryLayoutAction(layout: SidebarLayoutSnapshot, action: SidebarLa
       ),
     };
   }
+  if (action.type === "set-section-icon") {
+    return {
+      ...layout,
+      revision,
+      sections: layout.sections.map((section) => {
+        if (section.id !== action.sectionId) return section;
+        const { icon: _previous, ...rest } = section;
+        return action.icon ? { ...rest, icon: action.icon } : rest;
+      }),
+    };
+  }
   const agentAssignments = { ...layout.agentAssignments };
   if (action.sectionId === null) delete agentAssignments[action.agentId];
   else agentAssignments[action.agentId] = action.sectionId;

@@ -6,7 +6,12 @@
 
 export const LEFT_PANEL_STORAGE_KEY = "openbot:left-panel-width";
 export const LEFT_PANEL_COLLAPSED_STORAGE_KEY = "openbot:left-panel-collapsed";
-export const SERVER_VIEW_STORAGE_KEY = "openbot:server-view";
+/**
+ * What the column at the left of the sidebar shows: "sections", the default, or "servers". This key
+ * replaces `openbot:server-view` (the server rail or the server menu), which is no longer read, so
+ * each computer starts with the sections.
+ */
+export const LEFT_COLUMN_STORAGE_KEY = "openbot:left-column";
 /** Whether the middle shows the open agent's chat or its routines. */
 export const SIDEBAR_VIEW_STORAGE_KEY = "openbot:sidebar-view";
 /** The pages that the user pinned to the page rail or took off it: a JSON record of booleans. */

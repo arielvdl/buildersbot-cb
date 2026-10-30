@@ -9,6 +9,7 @@ import { Show } from "solid-js";
 import { useText } from "../../text";
 import { SidebarSectionColorSubmenu } from "./SidebarSectionColorMenu";
 import { SidebarSectionEditor } from "./SidebarSectionEditor";
+import { SidebarSectionIconMenuItem } from "./SidebarSectionIconDialog";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarSectionHeader(headerProps: { sectionId: string; name: string }) {
@@ -78,6 +79,7 @@ export function SidebarSectionHeader(headerProps: { sectionId: string; name: str
                     <Pencil class="agent-context-icon size-4" aria-hidden="true" />
                     <span>{t("common.rename")}</span>
                   </ContextMenu.Item>
+                  <SidebarSectionIconMenuItem sectionId={headerProps.sectionId} />
                   <Show when={props.sectionDuplicateSupported && props.onDuplicateSection}>
                     <ContextMenu.Item
                       disabled={props.duplicatingSectionIds?.has(headerProps.sectionId) ?? false}

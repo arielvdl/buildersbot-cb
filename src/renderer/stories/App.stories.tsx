@@ -1,9 +1,9 @@
 import type { AgentEvent } from "@openbot/contracts/ipc";
-import type { ServerView } from "@openbot/ui/features/servers/ServerMenu";
 import { onCleanup } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { App } from "../src/App";
-import { LEFT_PANEL_COLLAPSED_STORAGE_KEY, SERVER_VIEW_STORAGE_KEY } from "../src/layout-constants";
+import { LEFT_COLUMN_STORAGE_KEY, LEFT_PANEL_COLLAPSED_STORAGE_KEY } from "../src/layout-constants";
+import type { LeftColumnView } from "../src/left-column";
 import { BuildersBotPlayground } from "../src/preview/BuildersBotPlayground";
 import { createMockBuildersBot, type MockBuildersBotOptions } from "../src/preview/mock-openbot";
 import { STORY_AGENT_STATUS, STORY_AGENT_SUMMARIES, STORY_APP_INFO, STORY_SERVERS } from "./fixtures";
@@ -34,11 +34,11 @@ function useStoredLayoutValue(key: string, value: string): void {
 
 function SidebarStatePlayground(props: {
   compact: boolean;
-  serverView?: ServerView;
+  leftColumn?: LeftColumnView;
   options?: MockBuildersBotOptions;
 }) {
   useStoredLayoutValue(LEFT_PANEL_COLLAPSED_STORAGE_KEY, props.compact ? "true" : "false");
-  if (props.serverView) useStoredLayoutValue(SERVER_VIEW_STORAGE_KEY, props.serverView);
+  if (props.leftColumn) useStoredLayoutValue(LEFT_COLUMN_STORAGE_KEY, props.leftColumn);
   return <BuildersBotPlayground options={props.options} />;
 }
 
@@ -50,9 +50,14 @@ export const ExpandedSidebar: Story = {
   render: () => <SidebarStatePlayground compact={false} />,
 };
 
-/** The servers in a rail at the left of the sidebar, instead of the server menu. */
+/** The default: the sections of the server in the column at the left of the sidebar, and "All" selected. */
+export const SectionRailView: Story = {
+  render: () => <SidebarStatePlayground compact={false} leftColumn="sections" />,
+};
+
+/** The servers in the column at the left of the sidebar, instead of the sections. */
 export const ServerRailView: Story = {
-  render: () => <SidebarStatePlayground compact={false} serverView="rail" />,
+  render: () => <SidebarStatePlayground compact={false} leftColumn="servers" />,
 };
 
 export const CompactSidebar: Story = {

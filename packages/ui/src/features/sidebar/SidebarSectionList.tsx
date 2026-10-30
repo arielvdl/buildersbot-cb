@@ -13,11 +13,12 @@ import { SidebarSectionEditor } from "./SidebarSectionEditor";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarSectionList() {
-  const { pending, props } = useSidebarScope();
+  const { pending, sectionRail } = useSidebarScope();
   const { t } = useText();
   return (
     <>
-      <For each={props.layout.order}>
+      {/* Every section, or only the one that the section rail selects. */}
+      <For each={sectionRail.order()}>
         {(sectionId) =>
           sectionId === SIDEBAR_PEOPLE_SECTION_ID ? (
             <SidebarPeopleSection sectionId={sectionId} />

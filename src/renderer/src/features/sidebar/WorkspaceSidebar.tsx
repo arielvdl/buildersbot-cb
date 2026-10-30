@@ -226,6 +226,8 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     unpinSidebarItem,
     reorderPinnedSidebarItems,
     reorderSidebarPeople,
+    selectedRailSectionId,
+    selectRailSection,
   } = useSidebar();
   const [mobileAppDismissed, setMobileAppDismissed] = createSignal(
     window.localStorage.getItem(MOBILE_APP_DISMISSED_STORAGE_KEY) === "true",
@@ -374,6 +376,10 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
             }
           : undefined
       }
+      sectionRail={
+        layout.sectionRailVisible() ? { selectedId: selectedRailSectionId(), onSelect: selectRailSection } : undefined
+      }
+      sectionIconsSupported={activeServer()?.kind === "local" && activeServerSupportsCapability("sidebar-layout")}
       agents={agentList()}
       activeAgentId={activeDirectMember() || channels.state.selectedId ? "" : (activeAgent()?.id ?? "")}
       showPeople={props.peopleEnabled}

@@ -26,6 +26,10 @@ export const messages = {
     "Mostra a área de trabalho desfocada atrás da janela. Sites e menus passam a usar o tema do app.",
   "settings.interfaceSize.title": "Tamanho da interface",
   "settings.interfaceSize.description": "O tamanho do texto e dos controles no Builders Bot.",
+  "settings.leftColumn.title": "Coluna à esquerda",
+  "settings.leftColumn.description": "O que a coluna estreita à esquerda da lista de chats mostra.",
+  "settings.leftColumn.sections": "Seções",
+  "settings.leftColumn.servers": "Servidores",
   "settings.logoColor.title": "Cor do logotipo",
   "settings.logoColor.description": "Aparece no Dock, na barra de tarefas e na Dynamic Island.",
   "settings.logoColor.buildNote":

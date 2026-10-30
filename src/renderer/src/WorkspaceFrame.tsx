@@ -68,7 +68,8 @@ export function WorkspaceFrame(props: WorkspaceFrameProps) {
         {
           "app-frame-sidebar-compact": props.compact,
           "app-frame-edge": platform.appInfo() !== null,
-          "app-frame-with-server-rail": layout.serverRailVisible(),
+          // The section rail takes the column of the server rail, so both use this class.
+          "app-frame-with-server-rail": layout.railColumnVisible(),
           "app-frame-page-open": pageOpen(),
           "app-frame-platform-darwin": platform.appInfo()?.platform === "darwin",
         },

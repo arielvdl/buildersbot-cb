@@ -6,12 +6,15 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   isCompleteSectionOrder,
   normalizeSidebarSectionColor,
+  normalizeSidebarSectionIcon,
   SIDEBAR_PEOPLE_SECTION_ID,
   SIDEBAR_UNASSIGNED_SECTION_ID,
   type SidebarLayoutAction,
   type SidebarLayoutSnapshot,
   type SidebarSection,
+  sameSidebarSectionIcon,
   sidebarSectionWithColor,
+  sidebarSectionWithIcon,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { isUuidV4, legacyAgentId } from "@openbot/contracts/validation";
@@ -360,15 +363,31 @@ function applySidebarLayoutAction(
         ),
       };
     }
+    case "set-section-icon": {
+      const section = requireCustomSection(current, action.sectionId);
+      const icon = action.icon === null ? null : normalizeSidebarSectionIcon(action.icon);
+      if (action.icon !== null && icon === null) throw new Error("Invalid section icon.");
+      if (sameSidebarSectionIcon(section.icon, icon)) return current;
+      return {
+        ...current,
+        revision: current.revision + 1,
+        sections: current.sections.map((candidate) =>
+          candidate.id === section.id ? sidebarSectionWithIcon(candidate, icon) : candidate,
+        ),
+      };
+    }
   }
 }
 
 /**
  * A section read from the file. A color that is not `#rrggbb` is dropped and the section is kept:
- * a bad color must not reset the sections and the chats in them.
+ * a bad color must not reset the sections and the chats in them. A bad icon is dropped the same way.
  */
 function sectionFromStored(section: SidebarSection): SidebarSection {
-  return sidebarSectionWithColor(section, normalizeSidebarSectionColor(section.color));
+  return sidebarSectionWithIcon(
+    sidebarSectionWithColor(section, normalizeSidebarSectionColor(section.color)),
+    normalizeSidebarSectionIcon(section.icon),
+  );
 }
 
 function normalizedAgentOrder(order: readonly string[], agentIds: ReadonlySet<string>): string[] {

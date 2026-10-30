@@ -1964,6 +1964,14 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     addCreatesServer: hostedServers.available(),
                     ...serverActionCallbacks,
                   }}
+                  sectionRail={
+                    layout.sectionRailVisible()
+                      ? {
+                          selectedId: workspace.preferences.selectedRailSectionId(),
+                          onSelect: workspace.preferences.selectRailSection,
+                        }
+                      : undefined
+                  }
                   agents={workspace.profiles()}
                   activeAgentId={channelOpen() ? "" : (workspace.state.selectedId ?? "")}
                   people={[]}

@@ -1,8 +1,10 @@
 import {
   normalizeSidebarSectionColor,
+  normalizeSidebarSectionIcon,
   type SidebarLayoutAction,
   type SidebarLayoutSnapshot,
   sidebarSectionWithColor,
+  sidebarSectionWithIcon,
 } from "@openbot/contracts/ipc";
 
 export function applySidebarLayoutAction(
@@ -72,6 +74,18 @@ export function applySidebarLayoutAction(
       revision,
       sections: layout.sections.map((section) =>
         section.id === action.sectionId ? sidebarSectionWithColor(section, color) : section,
+      ),
+    };
+  }
+  if (action.type === "set-section-icon") {
+    // As main does: a letter loses its spaces, and any other value is refused.
+    const icon = action.icon === null ? null : normalizeSidebarSectionIcon(action.icon);
+    if (action.icon !== null && icon === null) throw new Error("Invalid section icon.");
+    return {
+      ...layout,
+      revision,
+      sections: layout.sections.map((section) =>
+        section.id === action.sectionId ? sidebarSectionWithIcon(section, icon) : section,
       ),
     };
   }

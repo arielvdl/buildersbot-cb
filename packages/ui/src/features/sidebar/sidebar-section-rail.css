@@ -1,0 +1,264 @@
+/*
+ * The section rail (`SidebarSectionRail.tsx`). It has the server rail classes, so `app-shell.css`
+ * gives it the column, the padding, the drag region and the selection bar, and the web and window
+ * styles place and hide it as they do the server rail. These rules draw the section marks, the
+ * badges and the icon editor.
+ *
+ * A section with a color has `--sidebar-section-color` (a stored #rrggbb) and `data-section-color`.
+ * Its mark shows a light tint and a ring of that color. A section without a color stays neutral.
+ */
+
+.section-rail-mark-tile {
+  position: relative;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-secondary);
+  transition:
+    background-color var(--openbot-duration-hover) var(--openbot-ease-out),
+    border-color var(--openbot-duration-hover) var(--openbot-ease-out),
+    color var(--openbot-duration-hover) var(--openbot-ease-out);
+}
+
+/* The editor preview draws the same mark, larger. */
+.section-icon-preview-tile .section-rail-mark-tile {
+  width: 56px;
+  height: 56px;
+}
+
+.section-rail-letter {
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-bold);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.section-icon-preview-tile .section-rail-letter {
+  font-size: var(--openbot-text-xl);
+}
+
+.section-rail-mark-tile[data-wide] .section-rail-letter {
+  font-size: var(--openbot-text-sm);
+}
+
+.section-icon-preview-tile .section-rail-mark-tile[data-wide] .section-rail-letter {
+  font-size: var(--openbot-text-lg);
+}
+
+.section-rail-glyph {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--openbot-icon-stroke);
+}
+
+.section-icon-preview-tile .section-rail-glyph {
+  width: 26px;
+  height: 26px;
+}
+
+.section-rail-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.section-rail-mark-tile[data-kind="image"] {
+  border-color: transparent;
+  outline: 1px solid var(--openbot-image-outline);
+  outline-offset: -1px;
+}
+
+/* "No section" holds the chats outside every section, so its mark is an open box. */
+.section-rail-mark-tile[data-kind="unassigned"] {
+  border-style: dashed;
+  background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .section-rail-button:hover .section-rail-mark-tile {
+    border-color: var(--openbot-border-strong);
+    color: var(--openbot-text-primary);
+  }
+}
+
+.section-rail-button[aria-pressed="true"] .section-rail-mark-tile {
+  border-color: var(--openbot-border-strong);
+  background: var(--openbot-bg-control-active);
+  color: var(--openbot-text-primary);
+}
+
+.section-rail-button[data-section-color] .section-rail-mark-tile,
+.section-icon-preview-tile[data-section-color] .section-rail-mark-tile {
+  border-color: color-mix(in srgb, var(--sidebar-section-color) 55%, transparent);
+  background: color-mix(in srgb, var(--sidebar-section-color) 22%, var(--openbot-bg-surface));
+  color: var(--openbot-text-primary);
+}
+
+.section-rail-button[data-section-color][aria-pressed="true"] .section-rail-mark-tile {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sidebar-section-color) 70%, transparent);
+}
+
+/* One badge: a dot for a wait, the count of unread messages, or a dot for work in flight. */
+.section-rail-badge {
+  position: absolute;
+  z-index: 2;
+  right: -1px;
+  bottom: -1px;
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 2px solid var(--openbot-bg-sidebar);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-primary);
+  padding: 0 4px;
+  color: var(--openbot-bg-sidebar);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--openbot-weight-semibold);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.section-rail-badge[data-kind="waiting"],
+.section-rail-badge[data-kind="working"] {
+  top: 0;
+  bottom: auto;
+  min-width: 14px;
+  height: 14px;
+  padding: 0;
+}
+
+.section-rail-badge[data-kind="waiting"] {
+  background: var(--openbot-warning);
+}
+
+.section-rail-badge[data-kind="working"] {
+  background: var(--openbot-accent);
+  animation: section-rail-working 1.6s var(--openbot-ease-in-out) infinite;
+}
+
+@keyframes section-rail-working {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-rail-badge[data-kind="working"] {
+    animation: none;
+  }
+}
+
+.section-rail-add .server-rail-monogram svg {
+  width: 20px;
+  height: 20px;
+}
+
+.section-rail-tooltip-name {
+  display: block;
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.section-rail-tooltip-status {
+  display: block;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+/* The icon editor. */
+/* The editor has the surface of the confirmation dialog (`primitives.css`). */
+.ui-dialog-content.section-icon-dialog {
+  width: min(400px, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  overflow: auto;
+  outline: 0;
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-sidebar);
+  box-shadow: none;
+  padding: var(--openbot-space-4) var(--openbot-space-6) var(--openbot-space-6);
+  color: var(--openbot-text-primary);
+  animation: ui-confirm-dialog-in var(--openbot-duration-slow) var(--openbot-ease-out);
+}
+
+.section-icon-form {
+  display: grid;
+  gap: var(--openbot-space-4);
+}
+
+.section-icon-header,
+.section-icon-footer,
+.section-icon-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-3);
+}
+
+.section-icon-header {
+  justify-content: space-between;
+}
+
+.section-icon-title {
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.section-icon-preview-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-icon-glyphs {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--openbot-space-1);
+}
+
+.ui-button.section-icon-glyph[aria-pressed="true"] {
+  background: var(--openbot-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--openbot-accent);
+  color: var(--openbot-accent-text);
+}
+
+.section-icon-image {
+  display: grid;
+  justify-items: start;
+  gap: var(--openbot-space-2);
+}
+
+.section-icon-hint {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.section-icon-error {
+  color: var(--openbot-danger-text);
+}
+
+.section-icon-footer {
+  justify-content: flex-end;
+}
+
+/* The reset is not the next step, so it stands apart at the start of the row. */
+.section-icon-reset {
+  margin-right: auto;
+}
