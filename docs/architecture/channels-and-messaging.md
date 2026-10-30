@@ -277,6 +277,58 @@ memory and routine editors share their controls with agent settings and use chan
 Channel settings have no provider or model controls because each member retains its own runtime.
 No account API, Signal, IPC contract, or database migration changes are required for mobile channels.
 
+## One channel at a time
+
+When this mode is on, only one channel starts work, so the agents of many channels do not use memory
+together. The other channels wait. When no channel works, the next one starts: first in the order
+that the user chose, then the channel that waited longest. The mode is off by default. The lane
+controls only the channel pump (`ChannelService.wake`). A direct chat with an agent does not wait for
+it.
+
+- A channel is busy when its pump runs or it has an active assignment. The service calculates this
+  each time and does not store it, so a restart loses no work. The wait order, the Run now choices
+  and the stall marks are only in memory.
+- Work that runs is never stopped. A busy channel is always admitted, because its next task needs its
+  pump. A change of the mode or the order changes only which channel starts next. When the mode goes
+  off, all waiting channels start.
+- A queued task that its owner, a spent plan or a dependency holds back does not count, so a channel
+  that cannot start does not hold the lane.
+- A channel whose pump starts nothing is not offered again for 30 s (`LANE_STALL_MS`). A new command
+  in that channel, Run now, or a change of the mode removes the mark.
+- Run now (`runChannelNow`) starts one waiting channel beside the one that works, until it stops
+  working. It is the way out when the channel that works waits for the user.
+- The load ring in the page rail shows the last memory sample, up to 60 s old
+  (`SAMPLE_INTERVAL_MS`), and the number of turns that run now (`#activeTurns`, "Active agents" in
+  the panel). The arc is the memory of the app and its provider processes, as a share of the memory
+  of the computer. Only the local host shows the ring. A click opens it, never hover. The window
+  reads the load every 15 s, and every 3 s while the panel is open.
+
+The code:
+
+- `src/backend/channel-lane.ts`: `nextLaneChannel` and `admittedChannels`. They only decide and hold
+  no state.
+- `src/backend/channel-service.ts`: `wake` with `#laneAdmitted`, `#laneBusy`, `#laneRunnable`,
+  `#laneAdvance`, `laneSnapshot`, `runChannelNow` and `laneChanged`.
+- `src/main/channel-lane-preference-store.ts`: the mode and the order, in
+  `openbot-channel-lane-v1.json` in the user data folder. A missing file, bad JSON or another shape
+  reads as off.
+- `packages/contracts/src/ipc-load.ts` and `ipc-endpoints.ts`: `getLoad`, `setLoadLane` and
+  `runChannelNow`. `src/main/ipc/app-handlers.ts` answers them with `buildLoadSnapshot`
+  (`src/main/load-snapshot.ts`) and `ResourceMonitor.loadReading`.
+- `packages/ui/src/features/window/LoadRing.tsx`, `load-view.ts` and `page-rail.css`: the ring and
+  its panel. `src/renderer/src/features/load/load-controller.ts` reads the load, and
+  `WorkspacePageRail.tsx` gives the ring only on the local host.
+
+Rules that are easy to break:
+
+- `createApplicationServices` reads the result of one `Promise.all` by position (`[8]`). Add a new
+  `load()` at the end of that list, never before index 8.
+- `wake()` must not start the pump of a channel that the lane does not admit. Start a pump only
+  through `wake()`.
+- `#laneAdvance` wakes a channel only when no channel is busy, and only a runnable one (not busy, not
+  stalled). The end of a pump marks a channel that is not busy as stalled before it calls
+  `#laneAdvance`. These two checks stop a loop; keep both.
+
 ## Messaging connections
 
 The agents of a computer can answer in an external chat platform: Slack, Discord (see **Discord**

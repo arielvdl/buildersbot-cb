@@ -46,6 +46,9 @@ older event replay and a client without tabs send.
   `renameTopic`, `deleteTopic`, and the read of the open tab.
 - `src/renderer/src/features/channels/channel-conversation.tsx`: the "new messages" bar and
   "Mark as read" of the open tab.
+- `packages/ui/src/features/sidebar/SidebarChatTabStrip.tsx` and `stores/tab-strip-store.ts`: the
+  tabs under a chat row in the sidebar. A click on the avatar or the bar opens them, never hover;
+  `visibleSidebarChatTabs` lists 10 at most and keeps the open tab.
 
 ## Rules that are easy to break
 
