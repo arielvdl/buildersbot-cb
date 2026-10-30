@@ -1919,8 +1919,9 @@ export class BrowserHost {
       Effect.gen({ self: this }, function* () {
         yield* browserSync(() => this.#requireToolTab(params, args.tabId));
         const tab = yield* this.#requireTab(args.tabId);
-        const page = URL.canParse(tab.contents.getURL()) ? new URL(tab.contents.getURL()) : null;
-        if (!page || page.protocol !== "https:")
+        const tabUrl = tab.contents.getURL();
+        const page = URL.canParse(tabUrl) ? new URL(tabUrl) : null;
+        if (page?.protocol !== "https:")
           return textResult({ imported: false, reason: "Open the site over https in this tab first." });
         const outcome = yield* browserCall(() => this.#siteSession(page.hostname));
         if (outcome.status !== "ok") {

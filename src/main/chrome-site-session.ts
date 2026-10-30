@@ -5,6 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
+import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import {
   type BrowserSignInCookie,
   browserSignInCookieFitsHost,
@@ -95,14 +96,40 @@ export interface ChromeSiteSessionIo {
   now(): number;
 }
 
+/** The profile folders that a `Local State` file names, the one used last first. */
+export function profilesFromLocalState(state: unknown): string[] {
+  const profile = isDynamicRecord(state) ? state.profile : undefined;
+  if (!isDynamicRecord(profile)) return [];
+  const all = isDynamicRecord(profile.info_cache) ? Object.keys(profile.info_cache) : [];
+  const last = profile.last_used;
+  return isString(last) && all.includes(last) ? [last, ...all.filter((name) => name !== last)] : all;
+}
+
+/** One row of the cookie table, or null when Chrome's schema is not what this reads. */
+export function parseCookieRow(raw: unknown): CookieRow | null {
+  if (!isDynamicRecord(raw)) return null;
+  const { host_key, name, path, expires_s, is_secure, is_httponly, samesite, last_access_s, encrypted_value, value } =
+    raw;
+  if (
+    !isString(host_key) ||
+    !isString(name) ||
+    !isString(path) ||
+    !isNumber(expires_s) ||
+    !isNumber(is_secure) ||
+    !isNumber(is_httponly) ||
+    !isNumber(samesite) ||
+    !isNumber(last_access_s) ||
+    !(encrypted_value instanceof Uint8Array) ||
+    !isString(value)
+  )
+    return null;
+  return { host_key, name, path, expires_s, is_secure, is_httponly, samesite, last_access_s, encrypted_value, value };
+}
+
 async function chromeProfiles(): Promise<string[]> {
   try {
-    const state = JSON.parse(await readFile(join(CHROME_ROOT, "Local State"), "utf8")) as {
-      profile?: { last_used?: string; info_cache?: Record<string, unknown> };
-    };
-    const all = Object.keys(state.profile?.info_cache ?? {});
-    const last = state.profile?.last_used;
-    return last && all.includes(last) ? [last, ...all.filter((name) => name !== last)] : all;
+    const profiles = profilesFromLocalState(JSON.parse(await readFile(join(CHROME_ROOT, "Local State"), "utf8")));
+    return profiles.length > 0 ? profiles : ["Default"];
   } catch {
     return ["Default"];
   }
@@ -162,7 +189,9 @@ export async function readChromeSiteCookies(
                     last_access_utc / 1000000 AS last_access_s,
                     encrypted_value, value FROM cookies WHERE host_key IN (${keys.map(() => "?").join(",")})`,
           )
-          .all(...keys) as unknown as CookieRow[];
+          .all(...keys)
+          .map(parseCookieRow)
+          .filter((row): row is CookieRow => row !== null);
         const fitting = rows.filter((row) => browserSignInCookieFitsHost(row.host_key, hostname));
         if (fitting.length === 0) continue;
         const lastAccess = Math.max(...fitting.map((row) => row.last_access_s));

@@ -1,6 +1,13 @@
 import { createCipheriv, createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { chromeCookieKey, cookieHostKeys, decryptChromeCookie, toSignInCookie } from "./chrome-site-session";
+import {
+  chromeCookieKey,
+  cookieHostKeys,
+  decryptChromeCookie,
+  parseCookieRow,
+  profilesFromLocalState,
+  toSignInCookie,
+} from "./chrome-site-session";
 import { createSiteSessionSource, siteSessionKey } from "./site-session-source";
 
 const cookie = {
@@ -120,5 +127,18 @@ describe("chrome cookies", () => {
     const expired = { ...row, expires_s: 1500 + 11_644_473_600 };
     expect(toSignInCookie(expired, "v", 2000)).toBeNull();
     expect(toSignInCookie(expired, "v", 1000)?.expirationDate).toBeCloseTo(1500, 0);
+  });
+
+  it("puts the profile used last first and ignores a Local State it cannot read", () => {
+    const state = {
+      profile: { last_used: "Profile 2", info_cache: { Default: {}, "Profile 1": {}, "Profile 2": {} } },
+    };
+    expect(profilesFromLocalState(state)).toEqual(["Profile 2", "Default", "Profile 1"]);
+    expect(profilesFromLocalState("nope")).toEqual([]);
+  });
+
+  it("rejects a cookie row that is not the shape of Chrome's table", () => {
+    expect(parseCookieRow({ host_key: ".example.com" })).toBeNull();
+    expect(parseCookieRow(null)).toBeNull();
   });
 });
