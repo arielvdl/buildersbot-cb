@@ -32,6 +32,7 @@ import {
 import { mcpSecretValues, redactMcpValues } from "../mcp-redaction";
 import { McpServerError, type McpServerStore } from "../mcp-server-store";
 import type { ProviderClientContext } from "../provider-drivers";
+import { applyBrowserAccess } from "./playwright-browser-access";
 import { providerLabel } from "./thread-items";
 
 /**
@@ -74,6 +75,8 @@ export interface McpGatewayOptions {
   credentials: ProviderClientContext;
   computerUseMcpServer: () => McpServerConfig | null;
   githubConnector?: GitHubConnectorSource | null;
+  /** Web access goes through the Builders Bot browser. Read at each hand-off, so the choice reaches the next turn. */
+  browserInApp?: () => boolean;
   /** The agent service logger, so a drop report keeps the `agent-service` prefix it always had. */
   logger: Logger;
   hooks: McpGatewayHooks;
@@ -90,6 +93,7 @@ export class McpGateway {
   readonly #servers: McpServerStore;
   readonly #computerUseMcpServer: () => McpServerConfig | null;
   readonly #githubConnector: GitHubConnectorSource | null;
+  readonly #browserInApp: () => boolean;
   /**
    * What Builders Bot downloaded for the MCP servers, read at each use. It travels with the credentials
    * because both are the main process's knowledge of this machine, and because the clients already
@@ -123,6 +127,7 @@ export class McpGateway {
     this.#servers = options.servers;
     this.#computerUseMcpServer = options.computerUseMcpServer;
     this.#githubConnector = options.githubConnector ?? null;
+    this.#browserInApp = options.browserInApp ?? (() => false);
     this.#toolRuntimes = () => credentials.mcpToolRuntimes?.() ?? NO_MCP_TOOL_RUNTIMES;
     this.#oauth = credentials.mcpOAuth ?? null;
     this.#logger = options.logger;
@@ -497,7 +502,7 @@ export class McpGateway {
    * would collide in every provider's configuration.
    */
   enabled(): McpServerConfig[] {
-    const configured = this.#servers.listEnabled();
+    const configured = applyBrowserAccess(this.#servers.listEnabled(), this.#browserInApp());
     const builtIn: McpServerConfig[] = [];
     const computerUse = this.#computerUseMcpServer();
     if (computerUse) builtIn.push(computerUse);

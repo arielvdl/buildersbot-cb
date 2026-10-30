@@ -29,6 +29,8 @@ export interface GeneralSettingsValue {
   keepAwake: boolean | null;
   /** Null where `keepAwake` is null. */
   keepAwakeOnBattery: boolean | null;
+  /** Web access uses the Builders Bot browser, not Playwright in the person's own browser. */
+  browserInApp: boolean;
   restoreLastWorkspace: boolean;
   externalLinkTarget: ExternalLinkTarget;
   desktopNotifications: boolean;
@@ -82,6 +84,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   keepRunningInBackground: null,
   keepAwake: null,
   keepAwakeOnBattery: null,
+  browserInApp: false,
   restoreLastWorkspace: true,
   externalLinkTarget: DEFAULT_EXTERNAL_LINK_PREFERENCE.target,
   desktopNotifications: true,

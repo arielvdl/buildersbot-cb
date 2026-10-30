@@ -27,6 +27,20 @@ function agent(): AgentSummary {
 
 const instructions = () => developerInstructions(agent(), "/tmp/shared", [], "/tmp/automation", DEFAULT_AGENT_DEFAULTS);
 
+describe("web access when the Builders Bot browser is chosen", () => {
+  it("points at openbot_browser and does not name Playwright as the way in", () => {
+    const text = developerInstructions(agent(), "/tmp/shared", [], "/tmp/automation", DEFAULT_AGENT_DEFAULTS, {
+      browserInApp: true,
+    });
+    expect(text).toContain("Web access is the Builders Bot browser");
+    expect(text).not.toContain("Web access is Playwright");
+  });
+
+  it("tells Playwright to share the person's own tabs politely", () => {
+    expect(instructions()).toContain("run one browsing task at a time");
+  });
+});
+
 describe("web access in the developer instructions", () => {
   it("names Playwright as the default and points at its tools", () => {
     const text = instructions();

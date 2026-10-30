@@ -159,6 +159,8 @@ export interface ThreadLifecycleOptions {
   vaultItems?: () => VaultContents;
   /** Builders Bot runs on a server. The prompt then names the sign-in on the user's computer. */
   serverHost?: boolean;
+  /** Web access goes through the Builders Bot browser. Read at each start and resume of a session. */
+  browserInApp?: () => boolean;
   /** The other agents in an agent's sidebar section, read at each start and resume of a session. */
   sectionTeammates?: (agentId: string) => SectionTeammates | null;
   /** Whether a public thread is a channel member's thread. */
@@ -193,6 +195,7 @@ export class ThreadLifecycle {
   readonly #passwordVaultConnected: () => boolean;
   readonly #vaultItems: () => VaultContents;
   readonly #serverHost: boolean;
+  readonly #browserInApp: () => boolean;
   readonly #sectionTeammates: (agentId: string) => SectionTeammates | null;
   readonly #channelThread: (threadId: string) => boolean;
   readonly #pendingHandoffs = new Map<string, string>();
@@ -224,6 +227,7 @@ export class ThreadLifecycle {
     this.#passwordVaultConnected = options.passwordVaultConnected ?? (() => false);
     this.#vaultItems = options.vaultItems ?? (() => ({ available: false, cards: false, contacts: false }));
     this.#serverHost = options.serverHost ?? false;
+    this.#browserInApp = options.browserInApp ?? (() => false);
     this.#sectionTeammates = options.sectionTeammates ?? (() => null);
     this.#channelThread = options.channelThread ?? (() => false);
   }
@@ -1041,6 +1045,7 @@ export class ThreadLifecycle {
       passwordVault: this.#passwordVaultConnected(),
       vaultItems: this.#vaultItems(),
       serverHost: this.#serverHost,
+      browserInApp: this.#browserInApp(),
       memoryLimit: this.#memories.limit(),
       storedMemoryCount: this.#memories.listFor(agent.id).length,
       memoriesInTurns: client.provider === "claude",

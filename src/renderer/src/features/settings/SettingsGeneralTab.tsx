@@ -254,6 +254,13 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             label={i18n.t("settings.restoreWorkspace.title")}
             description={i18n.t("settings.restoreWorkspace.description")}
           />
+          <SwitchField
+            data-settings-row="settings.browserInApp.title"
+            checked={props.value.browserInApp}
+            onChange={(checked) => props.onUpdateSetting("browserInApp", checked)}
+            label={i18n.t("settings.browserInApp.title")}
+            description={i18n.t("settings.browserInApp.description")}
+          />
         </ItemGroup>
       </SettingsSection>
 

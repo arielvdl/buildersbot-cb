@@ -17,6 +17,11 @@ export interface AppBehaviorPreference {
   keepAwake: boolean | null;
   /** Keep the computer awake on battery power too. Null where `keepAwake` is null. */
   keepAwakeOnBattery: boolean | null;
+  /**
+   * Web access goes through the Builders Bot browser instead of Playwright in the person's own browser.
+   * Off by default: Playwright attaches to the browser that is already open, so no second Chrome starts.
+   */
+  browserInApp: boolean;
 }
 
 /** The choices to change. A choice that is not given keeps its value. */
@@ -25,4 +30,5 @@ export interface AppBehaviorPreferenceChange {
   keepRunningInBackground?: boolean;
   keepAwake?: boolean;
   keepAwakeOnBattery?: boolean;
+  browserInApp?: boolean;
 }

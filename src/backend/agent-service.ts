@@ -398,6 +398,8 @@ export interface AgentServiceOptions {
    * main process, not of this class.
    */
   computerUseMcpServer?: () => McpServerConfig | null;
+  /** Web access goes through the Builders Bot browser, not Playwright in the person's own browser. Read at each turn. */
+  browserInApp?: () => boolean;
   /**
    * The built-in GitHub connection of this computer, or `null`. Read at each spawn and each hand-off,
    * for the same reason as `computerUseMcpServer`: the user connects and disconnects while Builders Bot runs.
@@ -511,6 +513,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       routineFlowTools,
       developmentDefaults = false,
       computerUseMcpServer = () => null,
+      browserInApp = () => false,
       githubConnector = null,
       hostMemory = null,
       busyMessageMode = () => DEFAULT_BUSY_MESSAGE_MODE,
@@ -528,6 +531,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       servers: new McpServerStore(store.database),
       credentials,
       computerUseMcpServer,
+      browserInApp,
       githubConnector,
       logger,
       hooks: {
@@ -1024,6 +1028,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       }),
       // Only a server has a memory reading.
       serverHost: hostMemory !== null,
+      browserInApp,
       sectionTeammates: (agentId) => this.sectionTeammates(agentId),
       channelThread: (threadId) => this.channels.store.channelForThread(threadId) !== null,
       hooks: {

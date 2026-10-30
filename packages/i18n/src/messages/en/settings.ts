@@ -53,6 +53,9 @@ export const messages = defineMessages("settings", {
     "Keep the computer awake on battery power too. The battery runs down faster.",
   "settings.restoreWorkspace.title": "Restore the last workspace on launch",
   "settings.restoreWorkspace.description": "Open the workspace and tasks from your previous session.",
+  "settings.browserInApp.title": "Use the Builders Bot browser for the web",
+  "settings.browserInApp.description":
+    "Off, agents use the Playwright extension in your own browser and no second Chrome starts. On, they use the Builders Bot browser.",
   "settings.externalLinks.title": "Open external links in",
   "settings.externalLinks.description": "Links in chats, sign-in pages and billing pages open here.",
   // The two link targets. The saved value stays in English; only the label is translated.

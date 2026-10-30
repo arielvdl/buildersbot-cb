@@ -147,6 +147,7 @@ const Settings = createSimpleContext({
     let keepRunningInBackgroundChanged = false;
     let keepAwakeChanged = false;
     let keepAwakeOnBatteryChanged = false;
+    let browserInAppChanged = false;
 
     createEffect(
       () => ({
@@ -358,6 +359,14 @@ const Settings = createSimpleContext({
           "keepAwakeOnBattery",
           settingsPort().setAppBehaviorPreference({ keepAwakeOnBattery: value.keepAwakeOnBattery }),
           (preference) => preference.keepAwakeOnBattery,
+        );
+      }
+      if (previous.browserInApp !== value.browserInApp) {
+        browserInAppChanged = true;
+        persistField(
+          "browserInApp",
+          settingsPort().setAppBehaviorPreference({ browserInApp: value.browserInApp }),
+          (preference) => preference.browserInApp,
         );
       }
       if (!sameExternalLinkTarget(previous.externalLinkTarget, value.externalLinkTarget)) {
@@ -583,6 +592,7 @@ const Settings = createSimpleContext({
               keepAwakeOnBattery: keepAwakeOnBatteryChanged
                 ? current.keepAwakeOnBattery
                 : preference.keepAwakeOnBattery,
+              browserInApp: browserInAppChanged ? current.browserInApp : preference.browserInApp,
             }));
           }),
         settingsPort()

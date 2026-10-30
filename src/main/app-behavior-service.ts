@@ -31,6 +31,7 @@ export class AppBehaviorService {
   #keepRunningInBackground = false;
   #keepAwake = false;
   #keepAwakeOnBattery = false;
+  #browserInApp = false;
   #writes = Semaphore.makeUnsafe(1);
   readonly #listeners = new Set<() => void>();
 
@@ -55,6 +56,7 @@ export class AppBehaviorService {
                 keepRunningInBackground: parsed.keepRunningInBackground === true,
                 keepAwake: parsed.keepAwake === true,
                 keepAwakeOnBattery: parsed.keepAwakeOnBattery === true,
+                browserInApp: parsed.browserInApp === true,
               }
             : null,
         ),
@@ -64,6 +66,7 @@ export class AppBehaviorService {
           this.#keepRunningInBackground = loaded.success.keepRunningInBackground;
           this.#keepAwake = loaded.success.keepAwake;
           this.#keepAwakeOnBattery = loaded.success.keepAwakeOnBattery;
+          this.#browserInApp = loaded.success.browserInApp;
         }
       } else if (!isMissingFileError(loaded.failure.cause) && !(loaded.failure.cause instanceof SyntaxError))
         return yield* loaded.failure;
@@ -85,12 +88,18 @@ export class AppBehaviorService {
     return this.#offersKeepAwake && this.#keepAwakeOnBattery;
   }
 
+  /** Read at each hand-off of the MCP servers to a provider, so the choice applies to the next turn. */
+  get browserInApp(): boolean {
+    return this.#browserInApp;
+  }
+
   readonly get = Effect.fn("AppBehavior.get")(function* (this: AppBehaviorService) {
     const preference: AppBehaviorPreference = {
       launchAtLogin: yield* this.#readLoginItem(),
       keepRunningInBackground: this.#offersBackground ? this.#keepRunningInBackground : null,
       keepAwake: this.#offersKeepAwake ? this.#keepAwake : null,
       keepAwakeOnBattery: this.#offersKeepAwake ? this.#keepAwakeOnBattery : null,
+      browserInApp: this.#browserInApp,
     };
     return preference;
   });
@@ -122,7 +131,13 @@ export class AppBehaviorService {
     const keepRunningInBackground = this.#offersBackground ? change.keepRunningInBackground : undefined;
     const keepAwake = this.#offersKeepAwake ? change.keepAwake : undefined;
     const keepAwakeOnBattery = this.#offersKeepAwake ? change.keepAwakeOnBattery : undefined;
-    if (keepRunningInBackground !== undefined || keepAwake !== undefined || keepAwakeOnBattery !== undefined) {
+    const browserInApp = change.browserInApp;
+    if (
+      keepRunningInBackground !== undefined ||
+      keepAwake !== undefined ||
+      keepAwakeOnBattery !== undefined ||
+      browserInApp !== undefined
+    ) {
       yield* this.#writes.withPermit(
         Effect.uninterruptible(
           Effect.suspend(() => {
@@ -130,6 +145,7 @@ export class AppBehaviorService {
               keepRunningInBackground: keepRunningInBackground ?? this.#keepRunningInBackground,
               keepAwake: keepAwake ?? this.#keepAwake,
               keepAwakeOnBattery: keepAwakeOnBattery ?? this.#keepAwakeOnBattery,
+              browserInApp: browserInApp ?? this.#browserInApp,
             };
             return writePreferenceFile(this.#path, { version: 1, ...next }).pipe(
               Effect.tap(() =>
@@ -137,6 +153,7 @@ export class AppBehaviorService {
                   this.#keepRunningInBackground = next.keepRunningInBackground;
                   this.#keepAwake = next.keepAwake;
                   this.#keepAwakeOnBattery = next.keepAwakeOnBattery;
+                  this.#browserInApp = next.browserInApp;
                 }),
               ),
             );

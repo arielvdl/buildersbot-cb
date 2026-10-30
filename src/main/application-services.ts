@@ -1751,6 +1751,7 @@ export async function createApplicationServices({
     // ACP providers. Null until the daemon runs, which is what keeps a machine with no driver from
     // handing every provider a command it cannot start.
     computerUseMcpServer: () => cuaDriver.mcpServerForProviders(),
+    browserInApp: () => appBehavior.browserInApp,
     githubConnector: {
       mcpServer: () => githubConnector.mcpServer(),
       mcpAuthorization: () => githubConnector.mcpAuthorization().pipe(toMcpGatewayFailed),

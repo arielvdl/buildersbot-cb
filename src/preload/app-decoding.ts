@@ -394,6 +394,7 @@ export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreferen
     keepRunningInBackground: nullableBoolean(preference, "keepRunningInBackground"),
     keepAwake: nullableBoolean(preference, "keepAwake"),
     keepAwakeOnBattery: nullableBoolean(preference, "keepAwakeOnBattery"),
+    browserInApp: requiredBoolean(preference, "browserInApp"),
   };
 }
 
