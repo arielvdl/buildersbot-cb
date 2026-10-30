@@ -83,9 +83,11 @@ const CACHED_TRANSPARENT_WINDOW_KEY = "openbot.transparentWindow";
 function cachedPreference(): AppAppearancePreference {
   try {
     const appearance = window.localStorage.getItem(CACHED_APPEARANCE_KEY);
+    const transparentWindow = window.localStorage.getItem(CACHED_TRANSPARENT_WINDOW_KEY);
     return {
       appearance: isAppAppearance(appearance) ? appearance : DEFAULT_APP_APPEARANCE,
-      transparentWindow: window.localStorage.getItem(CACHED_TRANSPARENT_WINDOW_KEY) === "true",
+      // A window that has not saved a choice yet shows the default.
+      transparentWindow: transparentWindow === null ? DEFAULT_TRANSPARENT_WINDOW : transparentWindow === "true",
     };
   } catch {
     return { appearance: DEFAULT_APP_APPEARANCE, transparentWindow: DEFAULT_TRANSPARENT_WINDOW };

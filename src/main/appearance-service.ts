@@ -17,13 +17,17 @@ const DEFAULT_PREFERENCE: AppAppearancePreference = {
 /**
  * The saved appearance, or the default. A file that is missing, unreadable or names an appearance
  * this build does not offer reads as the default: a lost choice must not stop the app from starting.
- * A file with no `transparentWindow` reads as an opaque window.
+ * A file with no `transparentWindow` was saved before the choice existed, so it reads as the default.
  */
 const readAppearancePreference = Effect.fn("AppearancePreference.read")((path: string) =>
   readPreferenceFile(path, (parsed): AppAppearancePreference => {
     if (!isDynamicRecord(parsed) || parsed.version !== 1 || !isAppAppearance(parsed.appearance))
       return { ...DEFAULT_PREFERENCE };
-    return { appearance: parsed.appearance, transparentWindow: parsed.transparentWindow === true };
+    return {
+      appearance: parsed.appearance,
+      transparentWindow:
+        typeof parsed.transparentWindow === "boolean" ? parsed.transparentWindow : DEFAULT_TRANSPARENT_WINDOW,
+    };
   }).pipe(Effect.catch(() => Effect.succeed({ ...DEFAULT_PREFERENCE }))),
 );
 
