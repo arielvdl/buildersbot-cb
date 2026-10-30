@@ -156,6 +156,110 @@
   stroke: var(--openbot-danger);
 }
 
+/* The load ring: the arc is the memory in use, the number is the agents that run. */
+.window-rail-usage-arc[data-load-tone="warning"] {
+  stroke: var(--openbot-warning);
+}
+
+.window-rail-usage-arc[data-load-tone="critical"] {
+  stroke: var(--openbot-danger);
+}
+
+.window-rail-load-count {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--openbot-weight-semibold);
+  line-height: 1;
+}
+
+/* The panel opens on a click and stays until it is closed, so it has room for the queue. */
+.window-rail-load-panel {
+  display: grid;
+  width: min(320px, calc(100vw - 32px));
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3);
+}
+
+.window-rail-load-body {
+  display: grid;
+  gap: var(--openbot-space-3);
+}
+
+.window-rail-load-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--openbot-space-1) var(--openbot-space-3);
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-stats dt {
+  color: var(--openbot-text-secondary);
+}
+
+.window-rail-load-stats dd {
+  margin: 0;
+  color: var(--openbot-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.window-rail-load-lane {
+  display: grid;
+  max-height: 240px;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  overflow-y: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.window-rail-load-channel {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 var(--openbot-space-2);
+  font-size: var(--openbot-text-sm);
+}
+
+/* The buttons take a row of their own, so a long channel name keeps the room above them. */
+.window-rail-load-channel-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-self: end;
+  gap: var(--openbot-space-1);
+}
+
+.window-rail-load-channel-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-rail-load-channel-state {
+  flex: 0 0 auto;
+  color: var(--openbot-text-secondary);
+  white-space: nowrap;
+}
+
+.window-rail-load-channel[data-status="running"] .window-rail-load-channel-state {
+  color: var(--openbot-accent-text);
+}
+
+.window-rail-load-empty {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
 /* The usage of a custom agent: its logo with no ring, at the size of a rail icon. The hover card
  * shows the answer of the agent as it wrote it. */
 .window-rail-button .window-rail-agent-usage-logo {

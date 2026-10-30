@@ -18,6 +18,9 @@ import { type AccountUsageProviderRow, accountUsageRowKey } from "@openbot/ui/fe
 import { useText } from "@openbot/ui/text";
 import { Dynamic, type JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { type LoadRailProps, LoadRing } from "./LoadRing";
+
+export type { LoadRailProps } from "./LoadRing";
 
 /** One rail button. Its name shows as a tooltip, unless it has a `card`: the card shows instead. */
 function RailButton(props: {
@@ -190,6 +193,8 @@ export interface PageRailProps {
   usageRows: readonly AccountUsageProviderRow[];
   /** The answers of the custom agents on this computer that have a usage prompt. Absent on the web. */
   customAgentUsage?: readonly CustomAgentUsageRailRow[] | undefined;
+  /** The load ring and its panel. Absent where this computer's load is not the window's to show, as on the web. */
+  load?: LoadRailProps | undefined;
   onAgents: () => void;
   /** Absent when the server has no routines. */
   onRoutines?: (() => void) | undefined;
@@ -380,6 +385,7 @@ export function PageRail(props: PageRailProps) {
         <RailMoreMenu pages={pages()} current={props.current} pinned={props.pinned} onPinChange={props.onPinChange} />
       </div>
       <div class="window-rail-group">
+        <Show when={props.load}>{(load) => <LoadRing {...load()} />}</Show>
         {/* A status update builds new rows. The key keeps each ring, and its open hover card, mounted. */}
         <For each={rings()} keyed={(ring) => accountUsageRowKey(ring.row)}>
           {(ring) => <UsageRings row={ring().row} shared={ring().shared} onOpen={props.onUsage} />}

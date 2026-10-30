@@ -23,6 +23,9 @@ export interface AppPort {
   setAppInterfaceSizePreference: BuildersBotDesktopApi["setAppInterfaceSizePreference"];
   setAppLanguagePreference: BuildersBotDesktopApi["setAppLanguagePreference"];
   setAppLogoColorPreference: BuildersBotDesktopApi["setAppLogoColorPreference"];
+  getLoad: BuildersBotDesktopApi["getLoad"];
+  setLoadLane: BuildersBotDesktopApi["setLoadLane"];
+  runChannelNow: BuildersBotDesktopApi["runChannelNow"];
   agent: Pick<
     BuildersBotDesktopApi["agent"],
     "readConversationPage" | "searchConversationMessages" | "searchConversationFiles" | "listRoutines" | "listAgents"

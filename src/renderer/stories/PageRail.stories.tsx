@@ -1,7 +1,9 @@
+import type { LoadLanePreference, LoadSnapshot } from "@openbot/contracts/ipc";
 import { accountUsageProviderRows } from "@openbot/ui/features/account/account-usage-view";
 import { HelpMenu } from "@openbot/ui/features/updates/HelpMenu";
 import {
   type CustomAgentUsageRailRow,
+  type LoadRailProps,
   PageRail,
   type PageRailPage,
   type PageRailPinnablePage,
@@ -51,14 +53,49 @@ const customAgentUsage: CustomAgentUsageRailRow[] = [
   { id: "devin", name: "Devin", text: "Plan: Team\nACUs used this cycle: 42 of 250\nThe cycle resets in 12 days." },
 ];
 
+/** The channels of the load panel's queue. */
+const loadChannelNames: Record<string, string> = {
+  deploys: "naia - deploys",
+  security: "segurança",
+  videos: "imasters --update",
+  releases: "CB - geral",
+};
+
+function loadSnapshot(usedMb: number, lane: LoadLanePreference): LoadSnapshot {
+  return {
+    sampledAt: "2026-10-30T20:00:00.000Z",
+    memory: { usedMb, agentsMb: Math.round(usedMb * 0.85), totalMb: 32768 },
+    activeAgents: 7,
+    providerProcesses: 91,
+    lane: lane.enabled
+      ? { ...lane, running: ["deploys"], queued: ["security", "videos", "releases"] }
+      : { ...lane, running: [], queued: [] },
+  };
+}
+
+/** The load ring with a lane that follows its switch, as the window's controller does. */
+function loadProps(usedMb: number): () => LoadRailProps {
+  const [lane, setLane] = createSignal<LoadLanePreference>({ enabled: false, order: [] });
+  return () => ({
+    snapshot: loadSnapshot(usedMb, lane()),
+    channelName: (id) => loadChannelNames[id] ?? id,
+    onOpenChange: fn(),
+    onLaneChange: setLane,
+    onRunNow: fn(),
+  });
+}
+
 /** The page rail as the desktop window shows it. Hover a button, or move to it with Tab, to see its tooltip. */
 function RailPreview(props: {
   updateReady?: boolean;
   logo?: PageRailProps["logo"];
   customAgentUsage?: readonly CustomAgentUsageRailRow[];
   usageRows?: PageRailProps["usageRows"];
+  /** The memory in use, in MB, of a load ring. Absent: no ring. */
+  loadMb?: number;
 }) {
   const { t } = useText();
+  const load = props.loadMb === undefined ? undefined : loadProps(props.loadMb);
   const [current, setCurrent] = createSignal<PageRailPage | null>("agents");
   const [pinned, setPinned] = createSignal<readonly PageRailPinnablePage[]>(["usage"]);
   return (
@@ -74,6 +111,7 @@ function RailPreview(props: {
           }
           usageRows={props.usageRows ?? usageRows}
           customAgentUsage={props.customAgentUsage}
+          load={load?.()}
           onAgents={() => setCurrent("agents")}
           onRoutines={() => setCurrent("routines")}
           onSchedule={() => setCurrent("schedule")}
@@ -133,4 +171,14 @@ export const WebLogo: Story = {
 /** Windows and Linux: the logo is in the top row, with no link. */
 export const DesktopLogo: Story = {
   args: { logo: { variant: "production" } },
+};
+
+/** The load ring at a quarter of the memory: green. Click it for the panel and the one-channel mode. */
+export const Load: Story = {
+  args: { loadMb: 8192 },
+};
+
+/** Past 80% of the memory the arc is red. */
+export const LoadHigh: Story = {
+  args: { loadMb: 28000 },
 };

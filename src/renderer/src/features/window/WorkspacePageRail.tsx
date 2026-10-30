@@ -7,6 +7,7 @@ import { useLayout } from "../../layout";
 import { usePlatform } from "../../platform";
 import { useChannels } from "../channels/channels-context";
 import { useCustomAgents } from "../custom-agents/custom-agents-context";
+import { createLoadController } from "../load/load-controller";
 import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
 import { useUpdates } from "../updates/updates-context";
@@ -45,6 +46,11 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
   const { customAgentUsage } = useCustomAgents();
   /** The custom agents run on this computer, so a joined server does not show their usage. */
   const localAgentUsage = () => (activeServer()?.kind === "local" ? customAgentUsage() : []);
+  /** The load is that of this computer, so a joined server does not show it either. */
+  const localLoad = () => activeServer()?.kind === "local";
+  const load = createLoadController(appPort, localLoad);
+  const channelName = (channelId: string) =>
+    channels.state.channels.find((channel) => channel.id === channelId)?.name ?? channelId;
   /** The compact sidebar has no footer, so the update island does not show. The Settings button then marks the update. */
   const updateNotice = () => {
     const phase = updates.status().phase;
@@ -64,6 +70,17 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
       onPinChange={layout.setRailPinned}
       usageRows={usageRows()}
       customAgentUsage={localAgentUsage()}
+      load={
+        localLoad()
+          ? {
+              snapshot: load.snapshot(),
+              channelName,
+              onOpenChange: load.setOpen,
+              onLaneChange: (preference) => void load.setLane(preference),
+              onRunNow: (channelId) => void load.runNow(channelId),
+            }
+          : undefined
+      }
       onAgents={() => showSidebarView("agents")}
       onRoutines={() => showSidebarView("routines")}
       // A joined server without workflows shows its notice on the page.

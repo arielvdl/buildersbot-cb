@@ -3,6 +3,8 @@ import type {
   AcpRegistryEntry,
   AgentSessionSettings,
   HiddenAgentsSnapshot,
+  LoadLanePreference,
+  LoadSnapshot,
   McpSignInApp,
   McpSignInAppState,
 } from "@openbot/contracts/ipc";
@@ -439,6 +441,14 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   };
   const appearanceListeners = new Set<(preference: AppAppearancePreference) => void>();
   let interfaceSizePreference: AppInterfaceSizePreference = { percent: DEFAULT_APP_INTERFACE_SIZE };
+  let previewLoadLane: LoadLanePreference = { enabled: false, order: [] };
+  const previewLoad = (): LoadSnapshot => ({
+    sampledAt: new Date().toISOString(),
+    memory: { usedMb: 7625, agentsMb: 6611, totalMb: 32768 },
+    activeAgents: 3,
+    providerProcesses: 91,
+    lane: { ...previewLoadLane, order: [...previewLoadLane.order], running: [], queued: [] },
+  });
   const interfaceSizeListeners = new Set<(preference: AppInterfaceSizePreference) => void>();
   const approvalAutomationListeners = new Set<(preference: ApprovalAutomationPreference) => void>();
   let dynamicIslandPreference: DynamicIslandPreference = { ...DEFAULT_DYNAMIC_ISLAND_PREFERENCE };
@@ -1059,6 +1069,13 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       appearanceListeners.add(listener);
       return () => appearanceListeners.delete(listener);
     },
+    // The preview has no providers to measure, so the load is a fixed reading with a lane that follows the switch.
+    getLoad: async () => previewLoad(),
+    setLoadLane: async (preference) => {
+      previewLoadLane = { enabled: preference.enabled, order: [...preference.order] };
+      return previewLoad();
+    },
+    runChannelNow: async () => previewLoad(),
     getAppInterfaceSizePreference: async () => clone(interfaceSizePreference),
     setAppInterfaceSizePreference: async ({ percent }) => {
       interfaceSizePreference = { percent };
