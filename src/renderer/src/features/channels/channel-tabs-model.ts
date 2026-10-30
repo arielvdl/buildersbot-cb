@@ -22,6 +22,7 @@ type ChannelTabOrderStorage = Pick<Storage, "getItem" | "setItem">;
 
 const id = z.string().trim().min(1).max(200);
 const ordersSchema = z.record(id, z.array(id.nullable().catch(null)).catch([]));
+const lastTopicsSchema = z.record(id, id);
 
 function uniqueIds(ids: readonly (string | null)[]): string[] {
   return [...new Set(ids.flatMap((value) => (value ? [value] : [])))].slice(0, MAX_STORED_TABS);
@@ -61,6 +62,42 @@ export function saveChannelTabOrder(
   const kept = Object.fromEntries(Object.entries(next).slice(-MAX_STORED_CHANNELS));
   try {
     storage.setItem(CHANNEL_TAB_ORDER_STORAGE_KEY, JSON.stringify(kept));
+  } catch {
+    // A UI preference must not block the tabs when browser storage is unavailable.
+  }
+  return kept;
+}
+
+/**
+ * The tab that was open last in each channel, so opening the channel from the list goes back to it
+ * instead of the first tab. The tab stays marked in the list, and a tab that is gone falls back.
+ */
+export type ChannelLastTopics = Record<string, string>;
+
+const CHANNEL_LAST_TOPIC_STORAGE_KEY = "openbot:channel-last-tab:v1";
+
+export function readChannelLastTopics(storage: ChannelTabOrderStorage = window.localStorage): ChannelLastTopics {
+  try {
+    const parsed = lastTopicsSchema.safeParse(JSON.parse(storage.getItem(CHANNEL_LAST_TOPIC_STORAGE_KEY) ?? "{}"));
+    if (!parsed.success) return {};
+    return Object.fromEntries(Object.entries(parsed.data));
+  } catch {
+    return {};
+  }
+}
+
+/** Keeps the last open tab of a channel and returns every stored choice. */
+export function saveChannelLastTopic(
+  channelId: string,
+  topicId: string,
+  storage: ChannelTabOrderStorage = window.localStorage,
+): ChannelLastTopics {
+  const next = readChannelLastTopics(storage);
+  delete next[channelId];
+  next[channelId] = topicId;
+  const kept = Object.fromEntries(Object.entries(next).slice(-MAX_STORED_CHANNELS));
+  try {
+    storage.setItem(CHANNEL_LAST_TOPIC_STORAGE_KEY, JSON.stringify(kept));
   } catch {
     // A UI preference must not block the tabs when browser storage is unavailable.
   }

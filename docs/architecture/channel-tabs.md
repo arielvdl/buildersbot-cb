@@ -57,9 +57,12 @@ older event replay and a client without tabs send.
 - The parallel limit (`CHANNEL_PARALLEL_LIMIT`) is counted per tab, through the task of each
   assignment. One turn per agent stays channel-wide: it is what keeps one agent from opening two
   sessions in the same directory.
-- A tab that was never renamed and has no message takes its name from the first message a person
-  writes in it, in the same commit: first line, spaces collapsed, 32 code points and an ellipsis.
-  The first tab and a renamed tab keep their name.
+- A tab that was never renamed and has no message takes a placeholder name from the first message
+  a person writes in it, in the same commit: first line, spaces collapsed, 32 code points and an
+  ellipsis. Beside the turn that starts, the channel model then writes the real name over it: two
+  or three words in the language of the request, on the model of the member that took the request
+  (else the lead's, else a member's). A rename made while the model runs wins, and a failed or
+  empty answer keeps the placeholder. The first tab and a renamed tab keep their name.
 - The summary counters of a tab (`unreadCount`, `activeTasks`, `openTasks`, `messageCount`) are for
   the sidebar only; the channel totals above them keep summing every tab. `updatedAt` is the newest
   message of the tab, or its creation while nobody wrote in it, and it is what the tab list ages.

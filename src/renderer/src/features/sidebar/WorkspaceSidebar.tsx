@@ -1,12 +1,14 @@
 import { type ChatWindowTarget, canAdministerServer } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
+import { DRAFT_THREAD_ID, MAIN_THREAD_ID } from "@openbot/ui/features/conversation/threads/thread-types";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineCard";
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates, sidebarChannelWaits } from "@openbot/ui/features/sidebar/sidebar-agent-states";
-import type { SidebarActivityFilter } from "@openbot/ui/features/sidebar/sidebar-types";
+import type { SidebarActivityFilter, SidebarChatTabs } from "@openbot/ui/features/sidebar/sidebar-types";
+import { sidebarChatTabsKey } from "@openbot/ui/features/sidebar/sidebar-types";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
@@ -23,6 +25,7 @@ import { useAgentActions } from "../agents/agent-actions";
 import { attentionByAgent } from "../agents/agent-runtime-snapshot";
 import { agentThreadAttention } from "../agents/agent-thread-attention";
 import { useAgents } from "../agents/agents-context";
+import { readChannelLastTopics, saveChannelLastTopic } from "../channels/channel-tabs-model";
 import { useChannels } from "../channels/channels-context";
 import { useConversation } from "../conversation/conversation-context";
 import { useDirectMessages } from "../conversation/direct-messages-context";
@@ -97,6 +100,93 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const { selectAgent, selectDirectMember, setGlobalSearchVisibility, chatHistory } = useNavigation();
   const agentTasks = useAgentTasks();
   const agentThreads = useAgentThreads();
+  /** The last open tab of each channel, so its row opens there and the tab stays marked. */
+  const [lastChannelTopics, setLastChannelTopics] = createSignal(readChannelLastTopics());
+  createEffect(
+    () => `${channels.state.selectedId ?? ""}\n${channels.state.topicId ?? ""}`,
+    () => {
+      const channelId = channels.state.selectedId;
+      const topicId = channels.state.topicId;
+      if (channelId && topicId) setLastChannelTopics(saveChannelLastTopic(channelId, topicId));
+    },
+  );
+  /** The tab a channel row opens: its open one, the last one it had, or the first. */
+  const channelTopicFor = (channelId: string): string | undefined => {
+    if (channels.state.selectedId === channelId && channels.state.topicId) return channels.state.topicId;
+    const topics = visibleChannels().find((channel) => channel.id === channelId)?.topics ?? [];
+    const last = lastChannelTopics()[channelId];
+    return topics.find((topic) => topic.id === last)?.id ?? topics[0]?.id;
+  };
+  const openChannel = (channelId: string) => {
+    const topicId = channelTopicFor(channelId);
+    void channels.open(channelId).then(() => {
+      if (topicId) void channels.setTopic(topicId);
+    });
+  };
+  const openChatTab = (kind: "agent" | "channel", chatId: string, tabId: string) => {
+    if (kind === "channel") {
+      void channels.open(chatId).then(() => channels.setTopic(tabId));
+      return;
+    }
+    if (selectAgent(chatId)) agentThreads.open(chatId, tabId);
+  };
+  /** The tabs of each chat, as its row shows them: the agent's own chat and its threads, a channel's tabs. */
+  const chatTabs = createMemo((): Record<string, SidebarChatTabs> => {
+    const tabsByChat: Record<string, SidebarChatTabs> = {};
+    if (agentTasks.available()) {
+      for (const agent of agentList()) {
+        const snapshot = agentTasks.snapshot(agent.id);
+        const ids = snapshot ? agentThreads.openIds(agent.id) : agentThreads.storedOpenIds(agent.id);
+        const tasks = snapshot?.tasks ?? [];
+        const tabs = [
+          { id: MAIN_THREAD_ID, title: t("sidebar.tabs.main") },
+          ...ids.flatMap((id) => {
+            const task = tasks.find((entry) => entry.id === id);
+            return task
+              ? [{ id, title: task.title, working: task.state === "running", queued: task.state === "queued" }]
+              : [];
+          }),
+          ...(agentThreads.hasDraft(agent.id) ? [{ id: DRAFT_THREAD_ID, title: t("sidebar.tabs.thread") }] : []),
+        ];
+        if (tabs.length > 1) {
+          tabsByChat[sidebarChatTabsKey({ kind: "agent", id: agent.id })] = {
+            tabs,
+            activeId: agentThreads.activeId(agent.id),
+          };
+        }
+      }
+    }
+    for (const channel of visibleChannels()) {
+      const topics = channel.topics ?? [];
+      if (topics.length < 2) continue;
+      const activeId =
+        (channels.state.selectedId === channel.id ? channels.state.topicId : null) ?? lastChannelTopics()[channel.id];
+      tabsByChat[sidebarChatTabsKey({ kind: "channel", id: channel.id })] = {
+        tabs: topics.map((topic) => ({
+          id: topic.id,
+          title: topic.name,
+          unread: topic.unreadCount,
+          working: (topic.activeTasks ?? 0) > 0,
+          queued: (topic.openTasks ?? 0) > (topic.activeTasks ?? 0),
+        })),
+        activeId: topics.some((topic) => topic.id === activeId) ? (activeId ?? "") : (topics[0]?.id ?? ""),
+      };
+    }
+    return tabsByChat;
+  });
+  // A chat that is not open has no thread list here yet. Its stored tabs are read so the row can show them.
+  createEffect(
+    () =>
+      agentTasks.available()
+        ? agentList()
+            .filter((agent) => !agentTasks.snapshot(agent.id) && agentThreads.storedOpenIds(agent.id).length > 0)
+            .map((agent) => agent.id)
+            .join("\n")
+        : "",
+    (missing) => {
+      for (const agentId of missing ? missing.split("\n") : []) void agentTasks.loadTasks(agentId);
+    },
+  );
   /**
    * Opens the agent's chat with a new thread. A host without threads has no such item, and neither has a
    * chat window: another agent opens in a window of its own, which does not get the new thread.
@@ -233,7 +323,9 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       channels={visibleChannels()}
       deletedChannels={channelsListed() ? channels.state.channels.filter((channel) => channel.archived) : []}
       activeChannelId={channels.state.selectedId}
-      onSelectChannel={(id) => void channels.open(id)}
+      onSelectChannel={openChannel}
+      chatTabs={chatTabs()}
+      onOpenChatTab={openChatTab}
       onEditChannel={(id) => void channels.editChannel(id)}
       onDeleteChannel={channels.deletionSupported() ? channels.remove : undefined}
       onRestoreChannel={channels.deletionSupported() ? channels.restore : undefined}

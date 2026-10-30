@@ -8,9 +8,18 @@
   "iconUrl": "https://playwright.dev/img/playwright-logo.svg",
   "version": "1.0.0",
   "prompts": [
-    { "id": "prompt-read", "text": "Open this page and summarize what it says." },
-    { "id": "prompt-form", "text": "Fill this form with the details below and stop before submitting." },
-    { "id": "prompt-shot", "text": "Take a screenshot of the pricing page at desktop width." }
+    {
+      "id": "prompt-read",
+      "text": "Open this page and summarize what it says."
+    },
+    {
+      "id": "prompt-form",
+      "text": "Fill this form with the details below and stop before submitting."
+    },
+    {
+      "id": "prompt-shot",
+      "text": "Take a screenshot of the pricing page at desktop width."
+    }
   ],
   "apps": [
     {
@@ -21,8 +30,10 @@
       "server": {
         "name": "playwright",
         "transport": "stdio",
-        "command": "npx",
-        "args": ["-y", "@playwright/mcp@0.0.83"]
+        "command": "node",
+        "args": [
+          "/Users/arielsilva/Builders Bot/Shared/redteam/stress/browser-gate/playwright-mcp-gated.mjs"
+        ]
       }
     }
   ],

@@ -5,7 +5,9 @@ import {
   channelTabDropSlot,
   moveChannelTopic,
   orderChannelTopics,
+  readChannelLastTopics,
   readChannelTabOrders,
+  saveChannelLastTopic,
   saveChannelTabOrder,
 } from "./channel-tabs-model";
 
@@ -109,6 +111,22 @@ describe("moving a tab", () => {
     expect(channelTabDropIndex(1, 3)).toBe(2);
     expect(channelTabDropIndex(1, 4)).toBe(3);
     expect(channelTabDropIndex(-1, 0)).toBeNull();
+  });
+});
+
+describe("the tab a channel opens on", () => {
+  it("keeps the last open tab of each channel", () => {
+    const storage = memoryStorage();
+    saveChannelLastTopic("one", "second", storage);
+    saveChannelLastTopic("two", "other", storage);
+    expect(readChannelLastTopics(storage)).toEqual({ one: "second", two: "other" });
+    saveChannelLastTopic("one", "third", storage);
+    expect(readChannelLastTopics(storage)).toEqual({ one: "third", two: "other" });
+  });
+
+  it("ignores a stored value that is not a tab id", () => {
+    expect(readChannelLastTopics(memoryStorage({ "openbot:channel-last-tab:v1": "[]" }))).toEqual({});
+    expect(readChannelLastTopics(memoryStorage({ "openbot:channel-last-tab:v1": '{ "one": "" }' }))).toEqual({});
   });
 });
 

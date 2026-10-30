@@ -17,8 +17,10 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import { agentAccessLockLabel } from "../agents/agent-access";
 import { SidebarAgentContextMenu } from "./SidebarAgentContextMenu";
 import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
+import { SidebarChatTabStrip } from "./SidebarChatTabStrip";
 import { sidebarAgentStateLabel, sidebarMessageTime, sidebarUsageResetTime } from "./sidebar-filtering";
 import { useSidebarScope } from "./sidebar-scope";
+import { sidebarChatTabsKey } from "./sidebar-types";
 
 /**
  * `waiting` is set by the "Needs you" group. The row reads it rather than the agent's state, because
@@ -34,9 +36,12 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
     props,
     sidebarClickIsSuppressed,
     startChatDragging,
+    tabStrips,
     userHiddenSince,
   } = useSidebarScope();
   const { t, format } = useText();
+  const tabsKey = () => sidebarChatTabsKey({ kind: "agent", id: rowProps.agent.id });
+  const tabs = () => props.chatTabs?.[tabsKey()];
   const title = () => rowProps.agent.title.trim();
   const lockLabel = () => agentAccessLockLabel(rowProps.agent, t);
   const accessLabel = () => (lockLabel() ? `. ${lockLabel()}` : "");
@@ -173,6 +178,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
         {
           "sidebar-agent-item-user-hidden": rowProps.userHidden === true,
           "sidebar-agent-item-dragging": draggedChatId() === rowProps.agent.id,
+          "sidebar-agent-item-with-tabs": tabs() !== undefined,
           "sidebar-drag-shifting": dragOffset(rowProps.agent.id).y !== 0,
         },
       ]}
@@ -181,12 +187,23 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
       draggable={draggable() ? "true" : "false"}
       onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => startChatDragging(event, rowProps.agent.id)}
       onDragEnd={endChatDragging}
+      onMouseEnter={() => tabs() && tabStrips.preview(tabsKey(), true)}
+      onMouseLeave={() => tabStrips.preview(tabsKey(), false)}
     >
       <Show when={wait()} fallback={row()}>
         {(current) => (
           <SidebarWaitTooltip wait={current()} menuOpen={menuOpen()}>
             {row()}
           </SidebarWaitTooltip>
+        )}
+      </Show>
+      <Show when={tabs()}>
+        {(chatTabs) => (
+          <SidebarChatTabStrip
+            chat={{ kind: "agent", id: rowProps.agent.id, agent: rowProps.agent }}
+            tabs={chatTabs()}
+            onOpen={(tabId) => props.onOpenChatTab?.("agent", rowProps.agent.id, tabId)}
+          />
         )}
       </Show>
     </div>

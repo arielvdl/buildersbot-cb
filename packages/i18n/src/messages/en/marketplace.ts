@@ -329,6 +329,14 @@ export const messages = defineMessages("marketplace", {
   "marketplace.plugin.resend.prompt.send": "Send the launch announcement draft to the beta list.",
   "marketplace.plugin.resend.prompt.status": "Did the invoice email reach the customer?",
   "marketplace.plugin.resend.prompt.template": "Draft a password-reset email for the new flow.",
+  "marketplace.plugin.whatsapp.tagline": "Your own chats, as a linked device",
+  "marketplace.plugin.whatsapp.description":
+    "WhatsApp lets agents read, search and send messages on your own number. It links the way WhatsApp Web does, as a linked device with a pairing code, so it needs no business account, no Meta app and no API key. OpenBot starts wazap, a community MCP server that is not made by WhatsApp or OpenBot. The account, its history and the media it keeps stay on this computer, in the wazap data folder. Pairing is a one-time step: the agent shows an 8-character code and you type it in WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead. Agents can send, edit and delete messages and change groups, and a draft is only sent after you approve it. What the tools read, such as message text, goes to the model provider of the agent.",
+  "marketplace.plugin.whatsapp.app":
+    "Chats, messages, media and groups on your own WhatsApp number, over the local wazap server. Links as a device with a pairing code and needs no key.",
+  "marketplace.plugin.whatsapp.prompt.catchUp": "What did I miss on WhatsApp today?",
+  "marketplace.plugin.whatsapp.prompt.find": "Find the invoice Ana sent last week and open the file.",
+  "marketplace.plugin.whatsapp.prompt.late": "Tell Ana I'll be twenty minutes late.",
   "marketplace.plugin.composio.tagline": "Many apps through your own Composio link",
   "marketplace.plugin.composio.description":
     "Composio connects agents to Gmail, Slack, GitHub, and hundreds of other apps through one MCP server. Connect the apps you want in your Composio account, then paste its MCP URL and API key here.",

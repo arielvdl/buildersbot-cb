@@ -10,6 +10,8 @@ import { readChannelSelection, writeChannelSelection } from "./channel-selection
 import { type ChannelsController, createChannelsController } from "./channels-controller";
 import { channelsPort } from "./channels-port";
 
+export type { ChannelsController } from "./channels-controller";
+
 const ChannelsContext = createContext<ChannelsController>(undefined, { name: "Channels" });
 
 export function useChannels(): ChannelsController {

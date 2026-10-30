@@ -49,6 +49,7 @@ import {
 import { ChannelMemoryStore } from "./channel-memory-store";
 import type { ChannelChange } from "./channel-store";
 import { type ChannelAssignment, type ChannelContext, ChannelStore } from "./channel-store";
+import { cleanTopicName, topicNamePrompt } from "./channel-topic-name";
 import type { DeliveryContext, MailboxStore } from "./mailbox-store";
 import type { BuildersBotDatabase } from "./openbot-database";
 import { extractJsonObject, StructuredOutputError } from "./structured-output";
@@ -579,7 +580,7 @@ export class ChannelService {
             operationId,
           ),
         );
-        return { current, previous, affected, task, message, result };
+        return { current, previous, affected, task, message, result, named };
       }).pipe(
         Effect.onExit((exit) =>
           committed
@@ -590,8 +591,20 @@ export class ChannelService {
             : Effect.void,
         ),
       );
-      const { current, previous, affected, task, message, result } = stored;
+      const { current, previous, affected, task, message, result, named } = stored;
       this.publish(current.id);
+      // The tab takes a written name from its first message, beside the turn that starts: it is the
+      // first thing the channel does with a new tab, and it never holds the work. The name runs on
+      // the model of the member that took the request, else the lead's, else a member's.
+      const members = this.hooks
+        .agents()
+        .filter((agent) => current.members.some((member) => member.agentId === agent.id));
+      const naming =
+        members.find((agent) => agent.id === task.ownerAgentId) ??
+        members.find((agent) => agent.id === current.leadAgentId) ??
+        members[0];
+      if (named && naming)
+        yield* this.#forkEvent(this.#nameTopic(current.id, topicId, stored.message.message.text, naming));
       if (previous) {
         yield* this.interruptTasks(
           current.id,
@@ -687,9 +700,10 @@ export class ChannelService {
   }
 
   /**
-   * The tab list with an unnamed tab named after the first message a person writes in it, or null
-   * when the tab keeps its name. Only a tab that was never renamed, still has no message, and is not
-   * the first one: the first tab keeps the channel's own name, and a manual rename always wins.
+   * The tab list with an unnamed tab given a placeholder from the first message a person writes in
+   * it, or null when the tab keeps its name. Only a tab that was never renamed, still has no
+   * message, and is not the first one: the first tab keeps the channel's own name, and a manual
+   * rename always wins. The channel model then writes the real name over the placeholder.
    */
   #autoNamedTopics(
     channelId: string,
@@ -704,6 +718,33 @@ export class ChannelService {
     const name = autoTopicName(text);
     if (!name) return null;
     return topics.map((item) => (item.id === topicId ? { ...item, name, revision: item.revision + 1 } : item));
+  }
+
+  /**
+   * Names a tab the first message left unnamed, with the channel model, after the message is
+   * written. The first line is already there as a placeholder, so a slow or failed turn keeps it.
+   *
+   * The tab is renamed only while it is still the tab that message named: a rename made in the
+   * meantime takes the revision past the one the placeholder set, and it wins. A tab with a name
+   * the person set before writing is never here at all.
+   */
+  #nameTopic(channelId: string, topicId: string, text: string, agent: AgentSummary): Effect.Effect<void> {
+    return Effect.gen({ self: this }, function* () {
+      const raw = yield* this.hooks.generate(agent, topicNamePrompt(this.store.get(channelId).name, text));
+      const name = cleanTopicName(raw);
+      if (!name) return;
+      const named = yield* channelSync(() => {
+        const channel = this.store.get(channelId);
+        const topics = this.store.topics(channelId);
+        const topic = topics.find((item) => item.id === topicId);
+        // The placeholder is revision 1; anything else is a rename that came first.
+        if (topic?.revision !== 1 || topic.name === name) return null;
+        return this.store.update(channel, {
+          topics: topics.map((item) => (item.id === topicId ? { ...item, name, revision: item.revision + 1 } : item)),
+        });
+      });
+      if (named) this.publish(channelId);
+    }).pipe(Effect.catch((failure) => Effect.sync(() => this.hooks.error(failure.cause))));
   }
 
   /** The topic list a create, rename or delete leaves behind, plus the messages that announce it. */
@@ -2928,8 +2969,9 @@ export class ChannelService {
 const TOPIC_NAME_LENGTH = 32;
 
 /**
- * A tab name from the first message a person writes: its first line with the spaces collapsed, cut
- * to `TOPIC_NAME_LENGTH` code points with an ellipsis. Null when there is nothing to name it by.
+ * The placeholder a tab takes from the first message a person writes: its first line with the
+ * spaces collapsed, cut to `TOPIC_NAME_LENGTH` code points with an ellipsis. Null when there is
+ * nothing to name it by. The channel model writes the real name over it.
  */
 function autoTopicName(text: string): string | null {
   const line = text.split("\n").find((candidate) => candidate.trim().length > 0);

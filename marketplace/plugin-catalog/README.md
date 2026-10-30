@@ -105,3 +105,32 @@ Troubleshooting:
   the prompts again.
 - Mail or Calendar tools time out: AppleScript is slow on large mailboxes and
   on many subscribed calendars. Ask for one folder and a smaller count.
+
+## WhatsApp
+
+The listing starts the community server `wazap-mcp`
+(<https://github.com/razvangirgiz/wazap>, MIT) through `npx`. It is not the
+official WhatsApp Business Cloud API: the server links the account as a device,
+the way WhatsApp Web does, over Baileys, so it needs no Meta app, no business
+account and no API key. The version is pinned because the server reads and sends
+messages; to update it, review the upstream release, change the version in
+`args`, and increase the listing `version`.
+
+Pairing is a one-time step and happens from the agent: `link_account` takes the
+number in E.164 and returns an 8-character code. The user types it in WhatsApp ›
+Settings › Linked devices › Link a device › Link with phone number instead. The
+code lasts two minutes; call `link_account` again if it expires. The QR path
+(`npx wazap-mcp login`) needs a terminal, so the listing uses the code.
+
+The account, its history, credentials and kept media live in `~/.wazap`, on the
+computer that runs the server. The stdio session lasts as long as the agent
+session that started it; `npx wazap-mcp service install` keeps a server up on
+`127.0.0.1:8766` between sessions. Agents draft and then send: `send_message`
+returns a preview and `confirm_send` only sends after the user approves it.
+
+Troubleshooting:
+
+- "Command not found: npx": install Node.js 22.16+ or 24+.
+- The code is refused: it expired or the number has no country code. Call
+  `link_account` again with the full number.
+- The link drops repeatedly: run `npx wazap-mcp status`; it prints the fix.

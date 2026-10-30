@@ -68,6 +68,9 @@ export function createAgentThreadTabs(options: AgentThreadTabsOptions) {
   function activeId(agentId: string): string {
     const active = storedTabs(agentId).active;
     if (active === DRAFT_THREAD_ID) return hasDraft(agentId) ? DRAFT_THREAD_ID : MAIN_THREAD_ID;
+    // The list has no snapshot of an agent that is not open: its stored tab is the one to mark, and
+    // the row falls back to the agent's own chat only when there is none.
+    if (!tasks.snapshot(agentId)) return active ?? MAIN_THREAD_ID;
     return active !== null && shown(agentId, active) && openIds(agentId).includes(active) ? active : MAIN_THREAD_ID;
   }
 
@@ -392,6 +395,8 @@ export function createAgentThreadTabs(options: AgentThreadTabsOptions) {
 
   return {
     openIds,
+    /** The stored tabs of an agent whose thread list this window has not read. */
+    storedOpenIds: (agentId: string) => storedTabs(agentId).open,
     hasDraft,
     activeId,
     hidden,

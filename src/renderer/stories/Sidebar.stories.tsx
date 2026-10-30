@@ -159,6 +159,24 @@ const args: Parameters<typeof Sidebar>[0] = {
   onOpenSearch: fn(),
   onOpenMarketplace: fn(),
   onActivityFilterChange: fn(),
+  chatTabs: {
+    "agent:research": {
+      activeId: "research-second",
+      tabs: [
+        { id: "main", title: "Main chat" },
+        { id: "research-second", title: "Pricing review", working: true },
+        { id: "research-third", title: "Competitor scan", unread: 2 },
+      ],
+    },
+    "channel:channel-2": {
+      activeId: "channel-2-second",
+      tabs: [
+        { id: "channel-2-main", title: "Main chat" },
+        { id: "channel-2-second", title: "Launch checklist", queued: true },
+      ],
+    },
+  },
+  onOpenChatTab: fn(),
 };
 
 function InteractiveSidebar(props: Parameters<typeof Sidebar>[0]) {
@@ -308,6 +326,42 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
+/** Rows with open tabs keep a bar at the bottom; hovering previews the tabs and marks the open one. */
+export const ChatTabs: Story = {
+  args: { ...args, pinnedItems: [] },
+  render: () => (
+    <InteractiveSidebar
+      {...args}
+      pinnedItems={[]}
+      channels={storyChannels.map((channel, index) =>
+        index === 1
+          ? {
+              ...channel,
+              topics: [
+                {
+                  id: "channel-2-main",
+                  channelId: channel.id,
+                  name: "Main chat",
+                  createdAt: channel.createdAt,
+                  revision: 1,
+                },
+                {
+                  id: "channel-2-second",
+                  channelId: channel.id,
+                  name: "Launch checklist",
+                  createdAt: channel.createdAt,
+                  revision: 1,
+                  openTasks: 1,
+                },
+              ],
+            }
+          : channel,
+      )}
+    />
+  ),
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
 };
 

@@ -39,6 +39,33 @@ export type SidebarActivityFilter = "channels" | "agents";
  */
 export const SIDEBAR_HIDDEN_GROUP_OPEN_ID = "hidden-agents:open";
 
+/** One tab of a chat in the list: a side thread of an agent, or a tab of a channel. */
+export interface SidebarChatTab {
+  id: string;
+  title: string;
+  /** Messages that the tab holds unread. */
+  unread?: number | undefined;
+  /** A turn runs in the tab. */
+  working?: boolean | undefined;
+  /** A message of the tab waits for a free turn. */
+  queued?: boolean | undefined;
+}
+
+/**
+ * The tabs of one chat, as the list shows them under its row. The bar at the bottom of the row opens
+ * them; hovering the row previews them, and the tab that was open stays marked so a click on the row
+ * does not fall back to the first one.
+ */
+export interface SidebarChatTabs {
+  tabs: readonly SidebarChatTab[];
+  activeId: string;
+}
+
+/** The key of a chat's tabs: the kind keeps an agent and a channel of the same id apart. */
+export function sidebarChatTabsKey(chat: Pick<SidebarChatItem, "kind" | "id">): string {
+  return `${chat.kind}:${chat.id}`;
+}
+
 export interface SidebarProps {
   /** The switch over the list is shown only when the caller handles `onViewChange`. */
   view?: SidebarView | undefined;
@@ -56,6 +83,13 @@ export interface SidebarProps {
   deletedChannels?: ChannelSummary[] | undefined;
   activeChannelId?: string | null | undefined;
   onSelectChannel?: ((channelId: string) => void) | undefined;
+  /**
+   * The open tabs of each chat, by `sidebarChatTabsKey`. A chat with more than one tab shows a bar at
+   * the bottom of its row, and hovering the row previews the tabs.
+   */
+  chatTabs?: Record<string, SidebarChatTabs> | undefined;
+  /** Opens one tab of a chat: a side thread of the agent, or a tab of the channel. */
+  onOpenChatTab?: ((kind: SidebarChatItem["kind"], chatId: string, tabId: string) => void) | undefined;
   showingArchivedChannels?: boolean | undefined;
   onToggleArchivedChannels?: (() => void) | undefined;
   onCreateChannel?: (() => void) | undefined;

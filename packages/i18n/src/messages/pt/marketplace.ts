@@ -317,6 +317,14 @@ export const messages = {
   "marketplace.plugin.resend.prompt.send": "Envie o rascunho do anúncio de lançamento para a lista beta.",
   "marketplace.plugin.resend.prompt.status": "O e-mail da fatura chegou ao cliente?",
   "marketplace.plugin.resend.prompt.template": "Rascunhe um e-mail de redefinição de senha para o novo fluxo.",
+  "marketplace.plugin.whatsapp.tagline": "Suas próprias conversas, como um dispositivo vinculado",
+  "marketplace.plugin.whatsapp.description":
+    "O WhatsApp permite que agentes leiam, pesquisem e enviem mensagens no seu próprio número. Ele vincula como o WhatsApp Web, como um dispositivo vinculado com código de pareamento, então não precisa de conta business, app da Meta nem chave de API. O OpenBot inicia o wazap, um servidor MCP da comunidade que não é feito pelo WhatsApp nem pelo OpenBot. A conta, o histórico e as mídias que ele guarda ficam neste computador, na pasta de dados do wazap. O pareamento é uma etapa única: o agente mostra um código de 8 caracteres e você o digita em WhatsApp › Configurações › Dispositivos conectados › Conectar dispositivo › Conectar com número de telefone. Agentes podem enviar, editar e apagar mensagens e alterar grupos, e um rascunho só é enviado depois da sua aprovação. O que as ferramentas leem, como o texto das mensagens, vai para o provedor de modelo do agente.",
+  "marketplace.plugin.whatsapp.app":
+    "Conversas, mensagens, mídias e grupos no seu próprio número de WhatsApp, pelo servidor local wazap. Vincula como dispositivo com código de pareamento e não precisa de chave.",
+  "marketplace.plugin.whatsapp.prompt.catchUp": "O que eu perdi no WhatsApp hoje?",
+  "marketplace.plugin.whatsapp.prompt.find": "Encontre a nota fiscal que a Ana mandou semana passada e abra o arquivo.",
+  "marketplace.plugin.whatsapp.prompt.late": "Avise a Ana que vou chegar vinte minutos atrasado.",
   "marketplace.plugin.composio.tagline": "Muitos apps pelo seu próprio link do Composio",
   "marketplace.plugin.composio.description":
     "O Composio conecta agentes ao Gmail, Slack, GitHub e centenas de outros apps por um único servidor MCP. Conecte os apps que quiser na sua conta Composio e cole aqui a URL do MCP e a chave de API dela.",

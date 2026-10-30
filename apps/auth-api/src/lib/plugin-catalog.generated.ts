@@ -16,7 +16,7 @@ export interface PluginCatalogIndex {
 export const PLUGIN_CATALOG_INDEX: PluginCatalogIndex = {
   schemaVersion: 1,
   catalogVersion: "v1",
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   plugins: [
     {
       slug: "aave",
@@ -148,7 +148,7 @@ export const PLUGIN_CATALOG_INDEX: PluginCatalogIndex = {
       slug: "playwright",
       version: "1.0.0",
       featured: false,
-      detailSha256: "66afbd6d01c9c1b77a43ae75a9557e466a1aac95da148d3714a44fc5ae97858d",
+      detailSha256: "dbc37dd8779fc205c1ecaafb44e954221be05534534485935aa1023cc4b3d9fd",
     },
     {
       slug: "context7",
@@ -203,6 +203,12 @@ export const PLUGIN_CATALOG_INDEX: PluginCatalogIndex = {
       version: "1.1.0",
       featured: false,
       detailSha256: "fae1384d23b374e5b0e08c0c220b3bd72cf0b4f880231eeb2565747f3549655f",
+    },
+    {
+      slug: "whatsapp",
+      version: "1.0.0",
+      featured: false,
+      detailSha256: "328985737c57a6688a3928e0636e0e7aace9f0af8c0a82125a63abf3175a5a35",
     },
   ],
 };
@@ -1036,7 +1042,12 @@ export const PLUGIN_CATALOG_DETAILS: Record<string, PluginCatalogDetail> = {
         description:
           "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
         iconUrl: "https://playwright.dev/img/playwright-logo.svg",
-        server: { name: "playwright", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@0.0.83"] },
+        server: {
+          name: "playwright",
+          transport: "stdio",
+          command: "node",
+          args: ["/Users/arielsilva/Builders Bot/Shared/redteam/stress/browser-gate/playwright-mcp-gated.mjs"],
+        },
       },
     ],
     websiteUrl: "https://playwright.dev",
@@ -1438,6 +1449,36 @@ export const PLUGIN_CATALOG_DETAILS: Record<string, PluginCatalogDetail> = {
     websiteUrl: "https://composio.dev",
     privacyPolicyUrl: "https://composio.dev/privacy-policy",
     termsUrl: "https://composio.dev/terms-of-service",
+    skills: [],
+  },
+  whatsapp: {
+    slug: "whatsapp",
+    name: "WhatsApp",
+    tagline: "Your own chats, as a linked device",
+    description:
+      "WhatsApp lets agents read, search and send messages on your own number. It links the way WhatsApp Web does, as a linked device with a pairing code, so it needs no business account, no Meta app and no API key. OpenBot starts wazap, a community MCP server that is not made by WhatsApp or OpenBot. The account, its history and the media it keeps stay on this computer, in the wazap data folder. Pairing is a one-time step: the agent shows an 8-character code and you type it in WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead. Agents can send, edit and delete messages and change groups, and a draft is only sent after you approve it. What the tools read, such as message text, goes to the model provider of the agent.",
+    category: "productivity",
+    creatorName: "razvangirgiz",
+    iconUrl: "https://www.whatsapp.com/favicon.ico",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-catch-up", text: "What did I miss on WhatsApp today?" },
+      { id: "prompt-find", text: "Find the invoice Ana sent last week and open the file." },
+      { id: "prompt-late", text: "Tell Ana I'll be twenty minutes late." },
+    ],
+    apps: [
+      {
+        id: "app-whatsapp-mcp",
+        name: "WhatsApp",
+        description:
+          "Chats, messages, media and groups on your own WhatsApp number, over the local wazap server. Links as a device with a pairing code and needs no key.",
+        iconUrl: "https://www.whatsapp.com/favicon.ico",
+        server: { name: "whatsapp", transport: "stdio", command: "npx", args: ["-y", "wazap-mcp@1.6.0"] },
+      },
+    ],
+    websiteUrl: "https://github.com/razvangirgiz/wazap",
+    privacyPolicyUrl: "https://github.com/razvangirgiz/wazap/blob/main/docs/data.md",
+    termsUrl: "https://github.com/razvangirgiz/wazap/blob/main/LICENSE",
     skills: [],
   },
 };

@@ -15,8 +15,10 @@ import { useText } from "../../text";
 import { ChannelAvatar } from "../channels/ChannelAvatar";
 import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
 import { SidebarChannelContextMenu, SidebarDeletedChannelContextMenu } from "./SidebarChannelContextMenu";
+import { SidebarChatTabStrip } from "./SidebarChatTabStrip";
 import { sidebarAgentStateLabel, sidebarMessageTime } from "./sidebar-filtering";
 import { useSidebarScope } from "./sidebar-scope";
+import { sidebarChatTabsKey } from "./sidebar-types";
 
 /** `waiting` is set by the "Needs you" group, as on `SidebarAgentRow`. */
 export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?: boolean }) {
@@ -28,8 +30,11 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?:
     props,
     sidebarClickIsSuppressed,
     startChatDragging,
+    tabStrips,
   } = useSidebarScope();
   const { t, format } = useText();
+  const tabsKey = () => sidebarChatTabsKey({ kind: "channel", id: rowProps.channel.id });
+  const tabs = () => props.chatTabs?.[tabsKey()];
   const active = () => props.activeChannelId === rowProps.channel.id;
   const channelWait = () => props.channelWaits?.[rowProps.channel.id];
   const wait = () => (rowProps.waiting ? channelWait() : undefined);
@@ -133,6 +138,7 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?:
         "sidebar-agent-item",
         {
           "sidebar-agent-item-dragging": draggedChatId() === rowProps.channel.id,
+          "sidebar-agent-item-with-tabs": tabs() !== undefined,
           "sidebar-drag-shifting": dragOffset(rowProps.channel.id).y !== 0,
         },
       ]}
@@ -141,12 +147,23 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?:
       draggable={draggable() ? "true" : "false"}
       onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => startChatDragging(event, rowProps.channel.id)}
       onDragEnd={endChatDragging}
+      onMouseEnter={() => tabs() && tabStrips.preview(tabsKey(), true)}
+      onMouseLeave={() => tabStrips.preview(tabsKey(), false)}
     >
       <Show when={wait()} fallback={row()}>
         {(current) => (
           <SidebarWaitTooltip wait={current()} menuOpen={menuOpen()}>
             {row()}
           </SidebarWaitTooltip>
+        )}
+      </Show>
+      <Show when={tabs()}>
+        {(chatTabs) => (
+          <SidebarChatTabStrip
+            chat={{ kind: "channel", id: rowProps.channel.id, channel: rowProps.channel }}
+            tabs={chatTabs()}
+            onOpen={(tabId) => props.onOpenChatTab?.("channel", rowProps.channel.id, tabId)}
+          />
         )}
       </Show>
     </div>

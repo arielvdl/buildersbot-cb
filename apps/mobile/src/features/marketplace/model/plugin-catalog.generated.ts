@@ -823,7 +823,12 @@ export const MOBILE_PLUGINS: readonly MobilePlugin[] = [
         name: "Playwright",
         description:
           "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
-        server: { name: "playwright", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@0.0.83"] },
+        server: {
+          name: "playwright",
+          transport: "stdio",
+          command: "node",
+          args: ["/Users/arielsilva/Builders Bot/Shared/redteam/stress/browser-gate/playwright-mcp-gated.mjs"],
+        },
       },
     ],
   },
@@ -1202,6 +1207,34 @@ export const MOBILE_PLUGINS: readonly MobilePlugin[] = [
             },
           ],
         },
+      },
+    ],
+  },
+  {
+    slug: "whatsapp",
+    name: "WhatsApp",
+    tagline: "Your own chats, as a linked device",
+    description:
+      "WhatsApp lets agents read, search and send messages on your own number. It links the way WhatsApp Web does, as a linked device with a pairing code, so it needs no business account, no Meta app and no API key. OpenBot starts wazap, a community MCP server that is not made by WhatsApp or OpenBot. The account, its history and the media it keeps stay on this computer, in the wazap data folder. Pairing is a one-time step: the agent shows an 8-character code and you type it in WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead. Agents can send, edit and delete messages and change groups, and a draft is only sent after you approve it. What the tools read, such as message text, goes to the model provider of the agent.",
+    category: "productivity",
+    creatorName: "razvangirgiz",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-catch-up", text: "What did I miss on WhatsApp today?" },
+      { id: "prompt-find", text: "Find the invoice Ana sent last week and open the file." },
+      { id: "prompt-late", text: "Tell Ana I'll be twenty minutes late." },
+    ],
+    websiteUrl: "https://github.com/razvangirgiz/wazap",
+    privacyPolicyUrl: "https://github.com/razvangirgiz/wazap/blob/main/docs/data.md",
+    termsUrl: "https://github.com/razvangirgiz/wazap/blob/main/LICENSE",
+    featured: false,
+    apps: [
+      {
+        id: "app-whatsapp-mcp",
+        name: "WhatsApp",
+        description:
+          "Chats, messages, media and groups on your own WhatsApp number, over the local wazap server. Links as a device with a pairing code and needs no key.",
+        server: { name: "whatsapp", transport: "stdio", command: "npx", args: ["-y", "wazap-mcp@1.6.0"] },
       },
     ],
   },

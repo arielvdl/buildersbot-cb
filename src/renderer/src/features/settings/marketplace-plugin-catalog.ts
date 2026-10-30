@@ -72,7 +72,7 @@ const AAVE: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: true,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/aave",
 };
 
@@ -113,7 +113,7 @@ const CANVA: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: true,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/canva",
 };
 
@@ -154,7 +154,7 @@ const LINEAR: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/linear",
 };
 
@@ -195,7 +195,7 @@ const NOTION: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: true,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/notion",
 };
 
@@ -252,7 +252,7 @@ const OBSIDIAN: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/obsidian",
 };
 
@@ -292,7 +292,7 @@ const ATLASSIAN: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/atlassian",
 };
 
@@ -332,7 +332,7 @@ const TODOIST: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/todoist",
 };
 
@@ -372,7 +372,7 @@ const TRELLO: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/trello",
 };
 
@@ -412,7 +412,7 @@ const COBRAIN: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/cobrain",
 };
 
@@ -467,7 +467,7 @@ const FIGMA: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: true,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/figma",
 };
 
@@ -503,7 +503,7 @@ const PAPER: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/paper",
 };
 
@@ -543,7 +543,7 @@ const APPLE_APPS: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/apple-apps",
 };
 
@@ -583,7 +583,7 @@ const SENTRY: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/sentry",
 };
 
@@ -624,7 +624,7 @@ const VERCEL: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/vercel",
 };
 
@@ -664,7 +664,7 @@ const CLOUDFLARE: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/cloudflare",
 };
 
@@ -704,7 +704,7 @@ const SUPABASE: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/supabase",
 };
 
@@ -747,7 +747,7 @@ const NEON: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/neon",
 };
 
@@ -787,7 +787,7 @@ const PRISMA: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/prisma",
 };
 
@@ -828,7 +828,7 @@ const NETLIFY: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/netlify",
 };
 
@@ -868,7 +868,7 @@ const RAILWAY: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/railway",
 };
 
@@ -926,7 +926,7 @@ const RENDER: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/render",
 };
 
@@ -953,7 +953,12 @@ const PLAYWRIGHT: MarketplacePluginDetail = {
       description:
         "Pages, clicks, forms and screenshots in a real browser on this computer, over the local Playwright MCP server. No key.",
       iconUrl: "https://playwright.dev/img/playwright-logo.svg",
-      server: { name: "playwright", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@0.0.83"] },
+      server: {
+        name: "playwright",
+        transport: "stdio",
+        command: "node",
+        args: ["/Users/arielsilva/Builders Bot/Shared/redteam/stress/browser-gate/playwright-mcp-gated.mjs"],
+      },
     },
   ],
   websiteUrl: "https://playwright.dev",
@@ -962,7 +967,7 @@ const PLAYWRIGHT: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/playwright",
 };
 
@@ -997,7 +1002,7 @@ const CONTEXT7: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/context7",
 };
 
@@ -1032,7 +1037,7 @@ const HUGGINGFACE: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/huggingface",
 };
 
@@ -1072,7 +1077,7 @@ const STRIPE: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/stripe",
 };
 
@@ -1130,7 +1135,7 @@ const POSTHOG: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/posthog",
 };
 
@@ -1180,7 +1185,7 @@ const AIRTABLE: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/airtable",
 };
 
@@ -1238,7 +1243,7 @@ const FIRECRAWL: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/firecrawl",
 };
 
@@ -1290,7 +1295,7 @@ const BRAVE_SEARCH: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/brave-search",
 };
 
@@ -1342,7 +1347,7 @@ const RESEND: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/resend",
 };
 
@@ -1406,8 +1411,44 @@ const COMPOSIO: MarketplacePluginDetail = {
   skills: [],
   installs: 0,
   featured: false,
-  updatedAt: "2026-09-30T00:00:00.000Z",
+  updatedAt: "2026-10-29T00:00:00.000Z",
   shareUrl: "https://openbot.run/plugins/composio",
+};
+
+const WHATSAPP: MarketplacePluginDetail = {
+  id: "plugin-whatsapp",
+  slug: "whatsapp",
+  name: "WhatsApp",
+  tagline: "Your own chats, as a linked device",
+  description:
+    "WhatsApp lets agents read, search and send messages on your own number. It links the way WhatsApp Web does, as a linked device with a pairing code, so it needs no business account, no Meta app and no API key. OpenBot starts wazap, a community MCP server that is not made by WhatsApp or OpenBot. The account, its history and the media it keeps stay on this computer, in the wazap data folder. Pairing is a one-time step: the agent shows an 8-character code and you type it in WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead. Agents can send, edit and delete messages and change groups, and a draft is only sent after you approve it. What the tools read, such as message text, goes to the model provider of the agent.",
+  category: "productivity",
+  creatorName: "razvangirgiz",
+  iconUrl: "https://www.whatsapp.com/favicon.ico",
+  version: "1.0.0",
+  prompts: [
+    { id: "prompt-catch-up", text: "What did I miss on WhatsApp today?" },
+    { id: "prompt-find", text: "Find the invoice Ana sent last week and open the file." },
+    { id: "prompt-late", text: "Tell Ana I'll be twenty minutes late." },
+  ],
+  apps: [
+    {
+      id: "app-whatsapp-mcp",
+      name: "WhatsApp",
+      description:
+        "Chats, messages, media and groups on your own WhatsApp number, over the local wazap server. Links as a device with a pairing code and needs no key.",
+      iconUrl: "https://www.whatsapp.com/favicon.ico",
+      server: { name: "whatsapp", transport: "stdio", command: "npx", args: ["-y", "wazap-mcp@1.6.0"] },
+    },
+  ],
+  websiteUrl: "https://github.com/razvangirgiz/wazap",
+  privacyPolicyUrl: "https://github.com/razvangirgiz/wazap/blob/main/docs/data.md",
+  termsUrl: "https://github.com/razvangirgiz/wazap/blob/main/LICENSE",
+  skills: [],
+  installs: 0,
+  featured: false,
+  updatedAt: "2026-10-29T00:00:00.000Z",
+  shareUrl: "https://openbot.run/plugins/whatsapp",
 };
 
 export const MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
@@ -1442,4 +1483,5 @@ export const MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
   BRAVE_SEARCH,
   RESEND,
   COMPOSIO,
+  WHATSAPP,
 ];

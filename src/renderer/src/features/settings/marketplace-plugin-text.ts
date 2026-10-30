@@ -285,6 +285,18 @@ const PLUGIN_TEXT = {
       "prompt-apps": "marketplace.plugin.composio.prompt.apps",
     },
   },
+  whatsapp: {
+    tagline: "marketplace.plugin.whatsapp.tagline",
+    description: "marketplace.plugin.whatsapp.description",
+    apps: {
+      "app-whatsapp-mcp": "marketplace.plugin.whatsapp.app",
+    },
+    prompts: {
+      "prompt-catch-up": "marketplace.plugin.whatsapp.prompt.catchUp",
+      "prompt-find": "marketplace.plugin.whatsapp.prompt.find",
+      "prompt-late": "marketplace.plugin.whatsapp.prompt.late",
+    },
+  },
   neon: {
     tagline: "marketplace.plugin.neon.tagline",
     description: "marketplace.plugin.neon.description",

@@ -76,6 +76,7 @@ import { createBillingStore } from "@openbot/ui/features/billing/billing-store";
 import { LicenseSection } from "@openbot/ui/features/billing/LicenseSection";
 import { createLicenseStore } from "@openbot/ui/features/billing/license-store";
 import { unloadedHistory } from "@openbot/ui/features/conversation/ChatScrollRail";
+import { DRAFT_THREAD_ID, MAIN_THREAD_ID } from "@openbot/ui/features/conversation/threads/thread-types";
 import type { DiagramModelChoice } from "@openbot/ui/features/diagrams/DiagramNewAgentCard";
 import { LeaveServerDialog } from "@openbot/ui/features/servers/LeaveServerDialog";
 import { RestartServerDialog } from "@openbot/ui/features/servers/RestartServerDialog";
@@ -95,7 +96,8 @@ import {
   sidebarAgentWaits,
   sidebarChannelWaits,
 } from "@openbot/ui/features/sidebar/sidebar-agent-states";
-import type { SidebarActivityFilter, SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
+import type { SidebarActivityFilter, SidebarChatTabs, SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
+import { sidebarChatTabsKey } from "@openbot/ui/features/sidebar/sidebar-types";
 import { PageRail, type PageRailPage } from "@openbot/ui/features/window/PageRail";
 import { useText } from "@openbot/ui/text";
 import { Effect } from "effect";
@@ -144,6 +146,7 @@ import { createBrowserProfilesStore } from "../browser/stores/browser-profiles-s
 import { ChannelErrorNotice } from "../channels/ChannelConversationParts";
 import { createChannelConversation } from "../channels/channel-conversation";
 import { readChannelSelection, writeChannelSelection } from "../channels/channel-selection";
+import { readChannelLastTopics, saveChannelLastTopic } from "../channels/channel-tabs-model";
 import { ChannelsControllerProvider } from "../channels/channels-context";
 import { createChannelsController } from "../channels/channels-controller";
 import { globalSearchChannels } from "../channels/global-search-channels";
@@ -1100,6 +1103,16 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const routinesView = () => routinesSupported() && layout.sidebarView() === "routines";
   /** The list filter: only active channels, only active agents, or the layout as it is when null. */
   const [activityFilter, setActivityFilter] = createSignal<SidebarActivityFilter | null>(null);
+  /** The last open tab of each channel, so its row opens there and the tab stays marked. */
+  const [lastChannelTopics, setLastChannelTopics] = createSignal(readChannelLastTopics());
+  createEffect(
+    () => `${channels.state.selectedId ?? ""}\n${channels.state.topicId ?? ""}`,
+    () => {
+      const channelId = channels.state.selectedId;
+      const topicId = channels.state.topicId;
+      if (channelId && topicId) setLastChannelTopics(saveChannelLastTopic(channelId, topicId));
+    },
+  );
   /** The Routines view lists only agents: a channel has no routine canvas. */
   const channelsListed = () => channelsSupported() && !routinesView();
   const savedChannelId = () => {
@@ -1399,6 +1412,69 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
         reportedFailure(() => workspace.approve({ requestId: item.requestId, decision }), options),
     });
   });
+  /** The tabs of each chat, as its row shows them: the agent's own chat and its threads, a channel's tabs. */
+  const chatTabs = createMemo((): Record<string, SidebarChatTabs> => {
+    const tabsByChat: Record<string, SidebarChatTabs> = {};
+    const current = agentThreads();
+    if (current?.tasks.available()) {
+      for (const agent of workspace.profiles()) {
+        const snapshot = current.tasks.snapshot(agent.id);
+        const ids = snapshot ? current.tabs.openIds(agent.id) : current.tabs.storedOpenIds(agent.id);
+        const tasks = snapshot?.tasks ?? [];
+        const tabs = [
+          { id: MAIN_THREAD_ID, title: t("sidebar.tabs.main") },
+          ...ids.flatMap((id) => {
+            const task = tasks.find((entry) => entry.id === id);
+            return task
+              ? [{ id, title: task.title, working: task.state === "running", queued: task.state === "queued" }]
+              : [];
+          }),
+          ...(current.tabs.hasDraft(agent.id) ? [{ id: DRAFT_THREAD_ID, title: t("sidebar.tabs.thread") }] : []),
+        ];
+        if (tabs.length > 1) {
+          tabsByChat[sidebarChatTabsKey({ kind: "agent", id: agent.id })] = {
+            tabs,
+            activeId: current.tabs.activeId(agent.id),
+          };
+        }
+      }
+    }
+    for (const channel of channelsListed() ? channels.state.channels : []) {
+      if (channel.archived) continue;
+      const topics = channel.topics ?? [];
+      if (topics.length < 2) continue;
+      const activeId =
+        (channels.state.selectedId === channel.id ? channels.state.topicId : null) ?? lastChannelTopics()[channel.id];
+      tabsByChat[sidebarChatTabsKey({ kind: "channel", id: channel.id })] = {
+        tabs: topics.map((topic) => ({
+          id: topic.id,
+          title: topic.name,
+          unread: topic.unreadCount,
+          working: (topic.activeTasks ?? 0) > 0,
+          queued: (topic.openTasks ?? 0) > (topic.activeTasks ?? 0),
+        })),
+        activeId: topics.some((topic) => topic.id === activeId) ? (activeId ?? "") : (topics[0]?.id ?? ""),
+      };
+    }
+    return tabsByChat;
+  });
+  // A chat that is not open has no thread list here yet. Its stored tabs are read so the row can show them.
+  createEffect(
+    () => {
+      const current = agentThreads();
+      if (!current?.tasks.available()) return "";
+      return workspace
+        .profiles()
+        .filter((agent) => !current.tasks.snapshot(agent.id) && current.tabs.storedOpenIds(agent.id).length > 0)
+        .map((agent) => agent.id)
+        .join("\n");
+    },
+    (missing) => {
+      const current = agentThreads();
+      if (!current) return;
+      for (const agentId of missing ? missing.split("\n") : []) void current.tasks.loadTasks(agentId);
+    },
+  );
   /** The thread that the conversation shows: the open side thread, or the agent's own chat. */
   const openThreadId = () => threads()?.open?.threadId;
   const browserTakeover = createMemo(() => {
@@ -1466,11 +1542,31 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
    * A channel that the user opens closes the pages. On a phone the sidebar shows while a page stays open
    * in the conversation pane. The automatic open after a host connects goes through `beforeOpen` only.
    */
+  /** The tab a channel row opens: its open one, the last one it had, or the first. */
+  const channelTopicFor = (channelId: string): string | undefined => {
+    if (channels.state.selectedId === channelId && channels.state.topicId) return channels.state.topicId;
+    const topics = channels.state.channels.find((channel) => channel.id === channelId)?.topics ?? [];
+    const last = lastChannelTopics()[channelId];
+    return topics.find((topic) => topic.id === last)?.id ?? topics[0]?.id;
+  };
+  const openChatTab = (kind: "agent" | "channel", chatId: string, tabId: string) => {
+    if (kind === "channel") {
+      void channels.open(chatId).then(() => channels.setTopic(tabId));
+      return;
+    }
+    const current = agentThreads();
+    void select(chatId).then(() => current?.tabs.open(chatId, tabId));
+  };
   function openChannel(id: string, edit = false) {
     userOpensChat("channel", id);
     setMobilePane("conversation");
     showAgents();
-    void (edit ? channels.editChannel(id) : channels.open(id));
+    const topicId = channelTopicFor(id);
+    void (edit
+      ? channels.editChannel(id)
+      : channels.open(id).then(() => {
+          if (topicId) void channels.setTopic(topicId);
+        }));
   }
   async function openAddedAgent(agent: AddedAgent) {
     setMobilePane("conversation");
@@ -1828,6 +1924,8 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   }
                   activeChannelId={channels.state.selectedId}
                   onSelectChannel={openChannel}
+                  chatTabs={chatTabs()}
+                  onOpenChatTab={openChatTab}
                   onEditChannel={(id) => openChannel(id, true)}
                   onDeleteChannel={channels.deletionSupported() ? channels.remove : undefined}
                   onRestoreChannel={channels.deletionSupported() ? channels.restore : undefined}

@@ -16,10 +16,12 @@ import { createSidebarDataStore } from "./stores/data-store";
 import { createSidebarDragStateStore } from "./stores/drag-state-store";
 import { createSidebarLayoutActions } from "./stores/layout-actions";
 import { createSidebarPendingStore } from "./stores/pending-store";
+import { createSidebarTabStripStore } from "./stores/tab-strip-store";
 
 export function createSidebarScope(props: SidebarProps) {
   const layoutMutable = () => props.layoutMutable !== false;
   const scrollFades = createScrollFades();
+  const tabStrips = createSidebarTabStripStore();
 
   const { announce, announceError, reorderAnnouncement } = createSidebarAnnouncementStore();
   // The drag state is built from the data store, so the data store reads it through this reference,
@@ -193,6 +195,7 @@ export function createSidebarScope(props: SidebarProps) {
     startRenameSection,
     startSectionDragging,
     stopSidebarDragging,
+    tabStrips,
     updateSectionEditorName,
     updateSidebarNativeDrag,
     userHiddenAgentList,

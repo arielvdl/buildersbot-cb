@@ -13,6 +13,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
+import { type ChannelOperationError, channelFailure } from "./channel-effects";
 import { ChannelService } from "./channel-service";
 import { MailboxStore } from "./mailbox-store";
 import { BuildersBotDatabase } from "./openbot-database";
@@ -53,7 +54,9 @@ interface Harness {
   cleanup(): Promise<void>;
 }
 
-async function harness(): Promise<Harness> {
+async function harness(
+  options: { naming?: () => Effect.Effect<string, ChannelOperationError> } = {},
+): Promise<Harness> {
   const root = await mkdtemp(join(tmpdir(), "channel-summary-"));
   roots.push(root);
   const database = new BuildersBotDatabase(root);
@@ -64,7 +67,10 @@ async function harness(): Promise<Harness> {
   const members = [agent("writer"), agent("helper"), agent("second")];
   const service = new ChannelService(database, mailbox, {
     agents: () => members,
-    generate: () => Effect.succeed("{}"),
+    generate: (_lead, prompt) =>
+      prompt.startsWith("Name this channel tab")
+        ? (options.naming?.() ?? Effect.succeed("Resumo Curto"))
+        : Effect.succeed("{}"),
     schedule: () => {},
     interrupt: () => Effect.void,
     busy: () => false,
@@ -135,6 +141,12 @@ async function send(
   );
 }
 
+/** Waits for a condition the naming turn settles on its own. */
+async function until(check: () => boolean, timeoutMs = 1500): Promise<void> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end && !check()) await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
 /** Waits for the pump to put a queued delivery in the agent's mailbox. */
 async function queuedDelivery(mailbox: MailboxStore, agentId: string, timeoutMs = 1500): Promise<string | null> {
   const until = Date.now() + timeoutMs;
@@ -146,8 +158,12 @@ async function queuedDelivery(mailbox: MailboxStore, agentId: string, timeoutMs 
   return null;
 }
 
-/** A message written by another member, so it is unread for the reader. */
-function message(channelId: string, topicId: string | null, id: string, text: string): ChannelMessage {
+/** A message written by another member, so it is unread for the reader. */ function message(
+  channelId: string,
+  topicId: string | null,
+  id: string,
+  text: string,
+): ChannelMessage {
   return {
     id,
     channelId,
@@ -293,18 +309,26 @@ describe("channel tab summary", () => {
 });
 
 describe("a tab named by its first message", () => {
-  it("names the tab from the first line, collapsed and cut", async () => {
-    const { service, channelId, cleanup } = await harness();
+  it("shows the first line at once, then the model's name over it", async () => {
+    let release: (value: string) => void = () => {};
+    const held = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const { service, channelId, cleanup } = await harness({ naming: () => Effect.promise(() => held) });
     await addTopic(service, channelId, "topic-second", "Aba 2");
     const long = `${"  Revisar   o lançamento ".repeat(3)}\nsegunda linha`;
     await send(service, channelId, long, { topicId: "topic-second", operationId: "send:first" });
 
-    const topic = service.store.topic(channelId, "topic-second");
-    expect(topic?.name.startsWith("Revisar o lançamento")).toBe(true);
-    expect(Array.from(topic?.name ?? "")).toHaveLength(33);
-    expect(topic?.name.endsWith("…")).toBe(true);
-    expect(topic?.name).not.toContain("segunda linha");
-    expect(topic?.revision).toBe(1);
+    // The placeholder is the first line, collapsed and cut, while the model still runs.
+    const placeholder = service.store.topic(channelId, "topic-second")?.name ?? "";
+    expect(placeholder.startsWith("Revisar o lançamento")).toBe(true);
+    expect(Array.from(placeholder)).toHaveLength(33);
+    expect(placeholder.endsWith("…")).toBe(true);
+    expect(placeholder).not.toContain("segunda linha");
+
+    release('"Lançamento do login"');
+    await until(() => service.store.topic(channelId, "topic-second")?.name === "Lançamento do login");
+    expect(service.store.topic(channelId, "topic-second")?.revision).toBe(2);
     await cleanup();
   });
 
@@ -312,8 +336,10 @@ describe("a tab named by its first message", () => {
     const { service, channelId, cleanup } = await harness();
     await addTopic(service, channelId, "topic-second", "Aba 2");
     await send(service, channelId, "Primeira mensagem", { topicId: "topic-second", operationId: "send:one" });
+    await until(() => service.store.topic(channelId, "topic-second")?.name === "Resumo Curto");
+    expect(service.store.topic(channelId, "topic-second")?.name).toBe("Resumo Curto");
     await send(service, channelId, "Outra mensagem", { topicId: "topic-second", operationId: "send:two" });
-    expect(service.store.topic(channelId, "topic-second")?.name).toBe("Primeira mensagem");
+    expect(service.store.topic(channelId, "topic-second")?.name).toBe("Resumo Curto");
 
     await Effect.runPromise(
       service.command(
@@ -326,7 +352,43 @@ describe("a tab named by its first message", () => {
     expect(service.store.topic(channelId, "topic-second")?.name).toBe("Escolhido");
     // A tab with a message already written never takes a new name from the next one.
     await send(service, channelId, "Aba 3 primeiro", { topicId: "topic-third", operationId: "send:four" });
-    expect(service.store.topic(channelId, "topic-third")?.name).toBe("Aba 3 primeiro");
+    await until(() => service.store.topic(channelId, "topic-third")?.name === "Resumo Curto");
+    expect(service.store.topic(channelId, "topic-third")?.name).toBe("Resumo Curto");
+    await cleanup();
+  });
+
+  it("keeps a rename made while the model runs", async () => {
+    let release: (value: string) => void = () => {};
+    const held = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const { service, channelId, cleanup } = await harness({ naming: () => Effect.promise(() => held) });
+    await addTopic(service, channelId, "topic-second", "Aba 2");
+    await send(service, channelId, "Primeira mensagem", { topicId: "topic-second", operationId: "send:one" });
+    await Effect.runPromise(
+      service.command(
+        { type: "topic-rename", operationId: "rename", channelId, topicId: "topic-second", name: "Escolhido" },
+        { id: "local", name: "You" },
+      ),
+    );
+    release("Nome atrasado");
+    await until(() => service.store.topic(channelId, "topic-second")?.revision === 2);
+    expect(service.store.topic(channelId, "topic-second")?.name).toBe("Escolhido");
+    await cleanup();
+  });
+
+  it("keeps the placeholder when the model fails", async () => {
+    let called = false;
+    const { service, channelId, cleanup } = await harness({
+      naming: () => {
+        called = true;
+        return channelFailure(new Error("no model"));
+      },
+    });
+    await addTopic(service, channelId, "topic-second", "Aba 2");
+    await send(service, channelId, "Ajustar o filtro", { topicId: "topic-second", operationId: "send:one" });
+    await until(() => called);
+    expect(service.store.topic(channelId, "topic-second")?.name).toBe("Ajustar o filtro");
     await cleanup();
   });
 
