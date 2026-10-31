@@ -415,6 +415,7 @@ const CHECKED_SAMPLES = {
   "openbot_browser.evaluate": { tabId: "t", expression: "document.title" },
   "openbot_browser.act": { tabId: "t", action: { type: "type", ref: "e1", text: "hello" } },
   "openbot_browser.run_script": { tabId: "t", script: "await snapshot()" },
+  "openbot_connections.call": { connection: "tool-catalog", operation: "search", input: { query: "keyword volume" } },
 } as const;
 
 /** The sample arguments of a tool, or undefined for a tool that the Guard does not check. */

@@ -48,6 +48,13 @@ import {
   guardInboundContent,
   guardOutboundItem,
 } from "../guard/guard-gate";
+import { HUB_CONNECTIONS_NAMESPACE } from "../hub-connections/hub-connection-tool-definitions";
+import {
+  type HubConnectionContext,
+  type HubConnectionTools,
+  type HubTurnOrigin,
+  hubTurnOrigin,
+} from "../hub-connections/hub-connection-tools";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -118,7 +125,7 @@ import { type AgentSidebar, handleSidebarTool } from "./sidebar-tools";
 import { LOCAL_SKILL_TOOL_DEFINITIONS, type LocalSkillTools, runLocalSkillTool } from "./skill-tools";
 import { isDynamicToolCall } from "./thread-items";
 import { toolCallIdempotencyKey } from "./tool-call-idempotency";
-import { discoverTools, namesInSearch, resolveDeferredTool } from "./tool-catalog";
+import { deferredToolName, discoverTools, namesInSearch, resolveDeferredTool } from "./tool-catalog";
 import { ToolOperationFailed, toolStep, toToolOperationFailed } from "./tool-operation";
 import type { AgentBrowserHost } from "./turn-lifecycle";
 import { handleUpdateAgentsTool } from "./update-agents-tool";
@@ -242,6 +249,10 @@ export interface BuildersBotToolRouterOptions {
    * agent reads it. Null where no Guard runs; every call then goes on as before.
    */
   guardGate?: GuardGate | null | undefined;
+  /** The Hub connections (`openbot_connections`); null where this server has no Cultura Builder session. */
+  hubConnections?: HubConnectionTools | null | undefined;
+  /** Whether a person that the host stamped on a message is someone other than this computer's user. */
+  remotePerson?: ((memberId: string) => boolean) | undefined;
   hooks: BuildersBotToolRouterHooks;
 }
 
@@ -280,6 +291,8 @@ export class BuildersBotToolRouter {
   readonly #mcpServers: AgentMcpServers | null;
   readonly #apiKeys: AgentApiKeys | null;
   readonly #guardGate: GuardGate | null;
+  readonly #hubConnections: HubConnectionTools | null;
+  readonly #remotePerson: (memberId: string) => boolean;
   readonly #hooks: BuildersBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
 
@@ -315,6 +328,9 @@ export class BuildersBotToolRouter {
     this.#mcpServers = options.mcpServers ?? null;
     this.#apiKeys = options.apiKeys ?? null;
     this.#guardGate = options.guardGate ?? null;
+    this.#hubConnections = options.hubConnections ?? null;
+    // Without a host, nobody but this computer's user writes a user message.
+    this.#remotePerson = options.remotePerson ?? (() => false);
     this.#hooks = options.hooks;
     this.#interruptTool = new AgentInterruptTool({
       store: options.store,
@@ -367,6 +383,29 @@ export class BuildersBotToolRouter {
     if (!agentId) return Effect.succeed(result);
     const publicParams = { ...params, threadId: this.#conversation.publicThreadId(agentId, params.threadId) };
     return this.#guardGate.afterTool(client, request, publicParams, agentId, result, null);
+  }
+
+  /** Where the turn of a connection call came from. The process decides it, never the agent's text. */
+  #connectionContext(agentId: string, params: DynamicToolCallParams): HubConnectionContext {
+    const publicThreadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    const origin: HubTurnOrigin = hubTurnOrigin(
+      this.#mailbox.turnSenders(agentId, params.turnId),
+      {
+        messaging: this.#messaging.store.linkForThread(publicThreadId) !== null,
+        channel: this.#channels.store.channelForThread(publicThreadId) !== null,
+      },
+      this.#remotePerson,
+    );
+    return { agentId, turnId: params.turnId, origin };
+  }
+
+  /** The gated tool namespaces that this agent has in this turn: the Hub connections, or none. */
+  #grantedNamespaces(agentId: string, params: DynamicToolCallParams): Effect.Effect<ReadonlySet<string>> {
+    const tools = this.#hubConnections;
+    if (!tools) return Effect.succeed(new Set<string>());
+    return tools
+      .available(this.#connectionContext(agentId, params))
+      .pipe(Effect.map((available) => new Set<string>(available ? [HUB_CONNECTIONS_NAMESPACE] : [])));
   }
 
   /** The URL of the tab that a browser call names, for the approval card. */
@@ -427,9 +466,10 @@ export class BuildersBotToolRouter {
               const agentId = this.#conversation.agentForThread(params.threadId);
               if (!agentId) throw new Error("The calling Builders Bot agent is unknown.");
               let result: ReturnType<typeof discoverTools>;
+              const granted = yield* this.#grantedNamespaces(agentId, params);
               try {
                 this.#requireAgent(agentId);
-                result = discoverTools(params);
+                result = discoverTools(params, granted);
               } catch {
                 client.respond(request.id, openBotToolFailure(sourceText("error.agent.toolRequestInvalid")));
                 return;
@@ -443,7 +483,12 @@ export class BuildersBotToolRouter {
               return;
             }
             if (params.tool === "tool_call") {
-              const resolved = resolveDeferredTool(params);
+              // A gated tool resolves only for an agent that has it now; the others get "invalid".
+              const gatedAgentId = deferredToolName(params)?.startsWith(`${HUB_CONNECTIONS_NAMESPACE}.`)
+                ? this.#conversation.agentForThread(params.threadId)
+                : undefined;
+              const granted = gatedAgentId ? yield* this.#grantedNamespaces(gatedAgentId, params) : new Set<string>();
+              const resolved = resolveDeferredTool(params, granted);
               if (!resolved) {
                 client.respond(request.id, openBotToolFailure(sourceText("error.agent.toolRequestInvalid")));
                 return;
@@ -546,6 +591,11 @@ export class BuildersBotToolRouter {
               ? yield* this.#guardGate.afterTool(client, toolRequest, params, agentId, result, this.#tabUrl(params))
               : result;
             if (guarded && !signal?.aborted && client.running) client.respond(toolRequest.id, guarded);
+            return;
+          }
+          if (toolRequest.params.namespace === HUB_CONNECTIONS_NAMESPACE) {
+            const result = yield* this.#hubConnectionTool(client, toolRequest);
+            if (result && !toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, result);
             return;
           }
           if (toolRequest.params.namespace === "openbot") {
@@ -658,6 +708,58 @@ export class BuildersBotToolRouter {
       Effect.catchDefect(reportFailure),
     );
   }).bind(this);
+
+  /**
+   * `openbot_connections.list` and `.call`. The controller runs the input checks first; the Guard
+   * then reads what the call sends, and reads the result before the agent does. A cost approval and a
+   * payer choice are approval cards that only the owner can answer, also for an agent with Full access.
+   */
+  readonly #hubConnectionTool = Effect.fn("BuildersBotToolRouter.hubConnectionTool")(function* (
+    this: BuildersBotToolRouter,
+    client: AgentClient,
+    request: AppServerRequest & { params: DynamicToolCallParams },
+  ) {
+    const { params } = request;
+    const agentId = this.#conversation.agentForThread(params.threadId);
+    if (!agentId) throw new Error("The calling Builders Bot agent is unknown.");
+    const tools = this.#hubConnections;
+    if (!tools) return openBotToolFailure("Connections are not available on this Builders Bot server.");
+    const publicParams = { ...params, threadId: this.#conversation.publicThreadId(agentId, params.threadId) };
+    const ask = (reason: string) =>
+      this.#attention
+        .awaitToolApproval(
+          client,
+          request,
+          {
+            requestId: request.id,
+            agentId,
+            threadId: publicParams.threadId,
+            turnId: params.turnId,
+            kind: "permissions",
+            command: null,
+            cwd: null,
+            reason,
+            grantRoot: null,
+            permissions: null,
+            // A standing grant never answers it, so the card offers no "Always allow".
+            guard: true,
+          },
+          { alwaysAsk: true, ownerOnly: true },
+        )
+        .pipe(Effect.catchCause(() => Effect.succeed("cancel" as const)));
+    const guard = () =>
+      this.#guardGate && guardOutboundItem(params.namespace, params.tool, params.arguments)
+        ? this.#guardBefore(client, request, publicParams, agentId)
+        : Effect.succeed({ proceed: true } as const);
+    const result = yield* tools.handle(this.#connectionContext(agentId, params), params.tool, params.arguments, {
+      ask,
+      guard,
+    });
+    if (!result) return null;
+    return this.#guardGate
+      ? yield* this.#guardGate.afterTool(client, request, publicParams, agentId, result, null)
+      : result;
+  });
 
   /**
    * Checks an `ask_ui` call and shows its block. Like `ask_user`, it answers the call only when the

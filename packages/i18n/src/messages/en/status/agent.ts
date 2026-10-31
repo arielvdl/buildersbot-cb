@@ -59,4 +59,12 @@ export const messages = defineMessages("status.agent", {
   "status.agent.vaultDeleted": "Deleted from Vault: {name}",
   "status.agent.planContinues": "The plan has open steps. The agent continues ({current} of {limit}).",
   "status.agent.branchTitle": "Branched chat",
+  "status.agent.connectionConfirmCost":
+    "An agent wants to run {endpoint} from the tool catalog. It costs up to {amount}, paid by {org}. Allow sends this call once. Deny cancels it.",
+  "status.agent.connectionConfirmCostPersonal":
+    "An agent wants to run {endpoint} from the tool catalog with your personal plan. It costs up to {amount}. Allow sends this call once. Deny cancels it.",
+  "status.agent.connectionChoosePayer":
+    "Who pays for {connection}? Allow makes {org} pay for this call and the next ones. Deny does not use this organization.",
+  "status.agent.connectionChoosePayerPersonal":
+    "Pay for {connection} with your personal plan? Allow makes the personal plan pay for this call and the next ones.",
 });

@@ -260,6 +260,8 @@ import type { GuardOutboundItem } from "./guard/guard-triage";
 import { providerGuardModel } from "./guard/provider-guard-model";
 import { type GuardResult, ToolGuard } from "./guard/tool-guard";
 import type { HostMemory } from "./host-memory";
+import { HubConnectionClient } from "./hub-connections/hub-connection-client";
+import { HubConnectionTools } from "./hub-connections/hub-connection-tools";
 import type { MailboxStore } from "./mailbox-store";
 import { toMcpOperationError } from "./mcp-effects";
 import type { McpSignInOpener } from "./mcp-oauth-provider";
@@ -444,6 +446,12 @@ export interface AgentServiceOptions {
   /** Where the API keys that users enter through `request_api_key` are saved, or `null`. */
   agentApiKeys?: AgentApiKeys | null;
   /**
+   * The Hub connections of the Cultura Builder session (`openbot_connections`). `fetch` is for tests
+   * only: production always reaches the Hub origin. `enabled` is the setting of this computer;
+   * omitted, on. Null turns the tools off for this service.
+   */
+  hubConnections?: { readonly fetch?: typeof fetch; readonly enabled?: () => boolean } | null;
+  /**
    * The memory of a server, or `null` on a desktop computer. With it, no new turn starts
    * while memory is low, and only a fixed number of turns run at the same time.
    */
@@ -542,6 +550,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #securityGuard: () => SecurityGuardPreference;
   readonly #security: PromptInjectionGuard;
   readonly #toolGuard: ToolGuard;
+  readonly #hubConnections: HubConnectionTools | null;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
   readonly #stoppedTurns = new Map<string, string>();
 
@@ -1557,6 +1566,20 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             .pipe(Effect.mapError((failure) => new AgentRemovalFailed({ cause: failure.cause }))),
       },
     });
+    // The session stays in this process: the client reads it from the credential store at each request.
+    const hubConnections = options.hubConnections === undefined ? {} : options.hubConnections;
+    this.#hubConnections = hubConnections
+      ? new HubConnectionTools({
+          client: new HubConnectionClient({
+            session: () => credentials.apiKey("cultura-builder"),
+            saveSession: (value) => credentials.saveApiKey?.("cultura-builder", value) ?? Effect.void,
+            ...(hubConnections.fetch ? { fetch: hubConnections.fetch } : {}),
+          }),
+          ...(hubConnections.enabled ? { enabledOnComputer: hubConnections.enabled } : {}),
+          agentConnectionsOff: (agentId) =>
+            store.list().find((candidate) => candidate.id === agentId)?.connectionsOff ?? [],
+        })
+      : null;
     this.#toolGuard = new ToolGuard({
       preference: options.guard ?? (() => DEFAULT_GUARD_PREFERENCE),
       models: [
@@ -1614,6 +1637,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       ...(options.screenCapture === undefined ? {} : { screenCapture: options.screenCapture }),
       mcpServers: mcpServersFromGateway(this.#mcp, options.prepareMcpTest),
       apiKeys: options.agentApiKeys ?? null,
+      hubConnections: this.#hubConnections,
+      ...(options.channelRemotePerson ? { remotePerson: options.channelRemotePerson } : {}),
       hooks: {
         listAgents: () => this.listAgents(),
         listModels: () => this.listModels(),

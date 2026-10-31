@@ -820,6 +820,38 @@ export class MailboxStore {
     return new Map(this.#state.messages.map((message) => [message.id, message]));
   }
 
+  /**
+   * Who started the running deliveries of a turn: the sender kind, whether the message came from a
+   * chat app (also through an agent that answers there), whether it is channel work, and the person
+   * that the host stamped on a user message. The Hub connections read it to decide the turn's origin.
+   */
+  turnSenders(
+    agentId: string,
+    turnId: string,
+  ): Array<{ sender: "user" | "agent" | "routine"; messaging: boolean; channel: boolean; memberId: string | null }> {
+    const messages = this.#messagesById();
+    return this.#state.deliveries
+      .filter(
+        (delivery) =>
+          delivery.recipientAgentId === agentId &&
+          delivery.turnId === turnId &&
+          (delivery.status === "starting" || delivery.status === "running"),
+      )
+      .flatMap((delivery) => {
+        // A delivery whose message is gone says nothing about its sender, so it does not count.
+        const message = messages.get(delivery.messageId);
+        if (!message) return [];
+        return [
+          {
+            sender: message.sender.kind,
+            messaging: message.messaging !== undefined || message.messagingReturn !== undefined,
+            channel: message.channelId !== undefined,
+            memberId: message.senderMember?.id ?? null,
+          },
+        ];
+      });
+  }
+
   /** The task a delivery runs in, or null for the agent's own chat. */
   taskIdForDelivery(deliveryId: string): string | null {
     const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);

@@ -67,6 +67,7 @@ export type GuardBefore =
 
 const BROWSER = "openbot_browser";
 const OPENBOT = "openbot";
+const CONNECTIONS = "openbot_connections";
 /**
  * How long the person's "allow" holds for the same item in the same thread. A page that a snapshot,
  * a wait or a click reads again gives the same findings, and the same chat post sent again is the
@@ -225,7 +226,23 @@ export const GUARD_TOOL_EGRESS: Readonly<Record<string, GuardToolEgress>> = {
   "openbot_browser.run_script": CHECKED,
   "openbot_browser.handle_dialog": none("It accepts or cancels a dialog and sends no text."),
   "openbot_browser.close_tab": LOCAL_BROWSER,
+  "openbot_connections.list": none("It reads the person's Hub connections and their state; it sends no agent data."),
+  // The input goes to the Cultura Builder Hub and, for a call, to the vendor and the provider of the endpoint.
+  "openbot_connections.call": CHECKED,
 };
+
+/** Every string of a value, depth first, for the Guard to read what a connection call sends. */
+function strings(value: unknown, out: string[] = [], depth = 0): string[] {
+  if (depth > 16 || out.length > 512) return out;
+  if (isString(value)) out.push(value);
+  else if (Array.isArray(value)) for (const item of value) strings(item, out, depth + 1);
+  else if (isDynamicRecord(value))
+    for (const [key, item] of Object.entries(value)) {
+      out.push(key);
+      strings(item, out, depth + 1);
+    }
+  return out;
+}
 
 function stringField(record: unknown, key: string): string | null {
   if (!isDynamicRecord(record)) return null;
@@ -296,6 +313,14 @@ export function guardOutboundItem(namespace: string | null, tool: string, args: 
     case `${OPENBOT}.html_render`:
       // The page can load files from the network, so a URL in it can carry data out.
       return payload(stringField(args, "html"));
+    case `${CONNECTIONS}.call`: {
+      // All of the input leaves the computer: a search text, an endpoint id, its query and its body.
+      const input = isDynamicRecord(args) ? args.input : undefined;
+      const parts = strings(input);
+      const urls = parts.filter((part) => /^https?:\/\//iu.test(part.trim())).map((part) => part.trim());
+      const text = JSON.stringify(input ?? null) ?? "";
+      return { tool: name, payload: text, ...(urls.length > 0 ? { urls } : {}) };
+    }
     case `${OPENBOT}.save_mcp_server`: {
       const url = stringField(args, "url");
       // Each argument stands as one shell word, so inline code of a `node -e` argument reaches the
@@ -460,6 +485,9 @@ export const GUARD_TOOL_INBOUND: Readonly<Record<string, GuardToolInbound>> = {
   "openbot.tool_call": noOutsideContent(
     "The router finds the tool that it calls first, and the Guard reads that result.",
   ),
+  // Names and prices that the Hub sends, mirrored vendor text, and the content of a vendor endpoint.
+  "openbot_connections.list": CONTENT_CHECKED,
+  "openbot_connections.call": CONTENT_CHECKED,
 };
 
 /**
@@ -481,6 +509,11 @@ export const GUARD_INBOUND_PATHS = {
     covered: true,
     where:
       "PlaywrightBroker checks each tools/call with the Guard before it runs, and reads each result with McpResultGuard.",
+  },
+  "hub-connections": {
+    covered: true,
+    where:
+      "BuildersBotToolRouter calls GuardGate.beforeTool for openbot_connections.call and GuardGate.afterTool for each openbot_connections result.",
   },
   "chat-app-messages": {
     covered: true,
