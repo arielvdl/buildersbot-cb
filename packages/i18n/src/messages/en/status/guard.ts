@@ -1,0 +1,36 @@
+import { defineMessages } from "../../../message";
+
+/** Text that the Guard sends from the backend: the reason on an approval card, and each local finding. */
+export const messages = defineMessages("status.guard", {
+  "status.guard.askAction": "The Guard asks you to check this step. {reason}",
+  "status.guard.askContent":
+    "The Guard found possible prompt injection in what the agent is about to read. {reason} Approve to let the agent read it as data. Decline to hold it back.",
+  "status.guard.contentSubject": "Read the result of {tool} from {origin}",
+  "status.guard.finding.override": "The content tells the agent to ignore its instructions.",
+  "status.guard.finding.newInstructions": "The content gives the agent new instructions.",
+  "status.guard.finding.promptLeak": "The content asks the agent to reveal its instructions.",
+  "status.guard.finding.roleChange": "The content tries to give the agent a new role.",
+  "status.guard.finding.roleMarker": "The content imitates a system or developer message.",
+  "status.guard.finding.aiAddressed": "The content addresses instructions to an AI agent.",
+  "status.guard.finding.judgeManipulation": "The content tries to make the security check approve it.",
+  "status.guard.finding.hiddenUnicodeTags": "The content holds invisible Unicode tag characters.",
+  "status.guard.finding.hiddenBidi": "The content holds characters that reverse the reading direction.",
+  "status.guard.finding.hiddenZeroWidth": "The content holds many invisible characters.",
+  "status.guard.finding.hiddenMarkup": "The content hides instructions in markup that a reader cannot see.",
+  "status.guard.finding.imageExfiltration": "The content makes an image link that sends data to another site.",
+  "status.guard.finding.exfiltrationRequest": "The content asks to send data to another site.",
+  "status.guard.finding.secretRequest": "The content mentions secrets.",
+  "status.guard.finding.secretSendRequest": "The content asks to send secrets.",
+  "status.guard.finding.remoteCodeRequest": "The content asks to run a script from the network.",
+  "status.guard.finding.reverseShell": "The command opens a remote shell.",
+  "status.guard.finding.encodedExecution": "The command runs hidden encoded code.",
+  "status.guard.finding.pipeToShell": "The command runs a script from the network at once.",
+  "status.guard.finding.secretFileUpload": "The action reads secrets and sends them over the network.",
+  "status.guard.finding.secretVariableInTransfer": "The action sends a secret variable over the network.",
+  "status.guard.finding.secretInTransfer": "The action sends a secret value out of this computer.",
+  "status.guard.finding.dataInUrl": "The URL carries a block of data.",
+  "status.guard.finding.credentialsInUrl": "The URL carries a user name or a password.",
+  "status.guard.finding.pasteHost": "The action sends data to a site that keeps anonymous uploads.",
+  "status.guard.finding.pageScriptExfiltration": "The page script reads cookies or storage and sends them out.",
+  "status.guard.finding.pageScriptNetwork": "The page script sends a network request.",
+});
