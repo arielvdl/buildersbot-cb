@@ -5,7 +5,7 @@ import { parse as parseYaml } from "yaml";
 import { decideUpdateFeed } from "../src/main/update-feed-policy";
 
 /** The names that electron-builder.yml gives to every package: the app name, its folders and its id. */
-export interface BuilderIdentity {
+interface BuilderIdentity {
   readonly productName: string;
   readonly appId: string;
 }

@@ -4,7 +4,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ProgressInfo, UpdateInfo } from "electron-updater";
-import { fetchLatestLinuxRelease, newerRelease } from "./host-release-service";
+import { fetchLatestLinuxRelease, newerRelease, type ReleaseRequest } from "./host-release-service";
 import { decideReleaseFeed, type ReleaseFeedDecision } from "./update-feed-policy";
 import {
   isValidSemver,
@@ -48,7 +48,7 @@ export const CONTAINER_UPDATE_TRIGGER = "/var/lib/openbot-update/status/enabled"
 interface HostedUpdateOptions {
   currentVersion: string;
   arch: string;
-  fetch?: typeof fetch;
+  fetch?: ReleaseRequest;
   /** The release feed that the feed policy allows. Default: `decideReleaseFeed()`, which allows none yet. */
   releaseFeed?: ReleaseFeedDecision;
   paths?: HostedUpdatePaths;

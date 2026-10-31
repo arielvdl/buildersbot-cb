@@ -14,6 +14,9 @@ const ReleaseManifest = Schema.Struct({
 
 type ReleaseTarget = { feed: string; asset: (version: string) => string };
 
+/** The part of `fetch` that a release check uses. The global `fetch` is one. */
+export type ReleaseRequest = (url: string, init: { signal: AbortSignal }) => Promise<Response>;
+
 /** Only published desktop targets have a compatible release feed. */
 function releaseTarget(platform: NodeJS.Platform, arch: string): ReleaseTarget | null {
   if (arch !== "x64" && arch !== "arm64") return null;
@@ -43,7 +46,7 @@ interface HostReleaseOptions {
   environment: NodeJS.ProcessEnv;
   updateStatus: () => Pick<UpdateStatus, "phase" | "managedByHost">;
   installationMode: string | null;
-  fetch?: typeof fetch;
+  fetch?: ReleaseRequest;
   /** The release feed that the feed policy allows. Default: `decideReleaseFeed()`, which allows none yet. */
   releaseFeed?: ReleaseFeedDecision;
 }
@@ -141,7 +144,7 @@ export class HostReleaseService {
 async function fetchLatestRelease(
   baseUrl: string,
   target: ReleaseTarget,
-  request: typeof fetch,
+  request: ReleaseRequest,
   signal: AbortSignal,
 ): Promise<string> {
   const response = await request(`${baseUrl}/${target.feed}`, {
@@ -190,7 +193,7 @@ function acceptsAsset(target: ReleaseTarget, url: string, version: string): bool
  */
 export function fetchLatestLinuxRelease(
   arch: string,
-  request: typeof fetch,
+  request: ReleaseRequest,
   signal: AbortSignal,
   feed: ReleaseFeedDecision = decideReleaseFeed(),
 ): Promise<string> {

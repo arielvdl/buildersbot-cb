@@ -25,7 +25,7 @@ import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contract
 import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { fetchLatestLinuxRelease, HostReleaseService } from "../src/main/host-release-service";
+import { fetchLatestLinuxRelease, HostReleaseService, type ReleaseRequest } from "../src/main/host-release-service";
 import { HostedUpdateAdapter } from "../src/main/hosted-update-adapter";
 import {
   ALLOWED_UPDATE_FEED_ORIGINS,
@@ -179,8 +179,8 @@ function effectivePublish(layers: readonly DynamicRecord[], platformKey: string,
 /** A fetch that records each address and fails the request. */
 function recordingFetch() {
   const urls: string[] = [];
-  const request: typeof fetch = async (input) => {
-    urls.push(input instanceof Request ? input.url : input.toString());
+  const request: ReleaseRequest = async (url) => {
+    urls.push(url);
     throw new Error("A request was sent.");
   };
   return { request, urls };

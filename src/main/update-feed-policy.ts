@@ -28,14 +28,9 @@ export const SHIPIT_DIRECTORY_NAME = "app.buildersbot.desktop.ShipIt";
 /** Larger than any app-update.yml that electron-builder writes. */
 const MAX_METADATA_LENGTH = 64 * 1024;
 
-export type UpdateFeedRefusal =
-  | "no-feed"
-  | "unreadable"
-  | "provider-not-allowed"
-  | "origin-not-allowed"
-  | "cache-not-allowed";
+type UpdateFeedRefusal = "no-feed" | "unreadable" | "provider-not-allowed" | "origin-not-allowed" | "cache-not-allowed";
 
-export type UpdateFeedDecision =
+type UpdateFeedDecision =
   | { readonly allowed: true; readonly origin: string; readonly cacheDirName: string }
   | { readonly allowed: false; readonly reason: UpdateFeedRefusal };
 

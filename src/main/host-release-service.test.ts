@@ -1,14 +1,14 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { fetchLatestLinuxRelease, HostReleaseService } from "./host-release-service";
+import { fetchLatestLinuxRelease, HostReleaseService, type ReleaseRequest } from "./host-release-service";
 import { HostedUpdateAdapter } from "./hosted-update-adapter";
 import type { ReleaseFeedDecision } from "./update-feed-policy";
 
 /** A fetch that records each address. With no body, a request fails the test. */
 function recordingFetch(body?: string) {
   const urls: string[] = [];
-  const request: typeof fetch = async (input) => {
-    urls.push(input instanceof Request ? input.url : input.toString());
+  const request: ReleaseRequest = async (url) => {
+    urls.push(url);
     if (body === undefined) throw new Error("A request was sent.");
     return new Response(body);
   };
