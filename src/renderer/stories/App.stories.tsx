@@ -52,7 +52,37 @@ export const ExpandedSidebar: Story = {
 
 /** The default: the sections of the server in the column at the left of the sidebar, and "All" selected. */
 export const SectionRailView: Story = {
-  render: () => <SidebarStatePlayground compact={false} leftColumn="sections" />,
+  render: () => (
+    <SidebarStatePlayground
+      compact={false}
+      leftColumn="sections"
+      options={{
+        sidebarLayout: {
+          revision: 1,
+          sections: [
+            { id: "61111111-1111-4111-8111-111111111111", name: "naia", color: "#a855f7" },
+            {
+              id: "62222222-2222-4222-8222-222222222222",
+              name: "Red Team",
+              icon: { kind: "glyph", glyph: "shield" },
+            },
+          ],
+          order: [
+            "people",
+            "61111111-1111-4111-8111-111111111111",
+            "62222222-2222-4222-8222-222222222222",
+            "unassigned",
+          ],
+          agentAssignments: {
+            chief: "61111111-1111-4111-8111-111111111111",
+            research: "61111111-1111-4111-8111-111111111111",
+            sales: "62222222-2222-4222-8222-222222222222",
+          },
+          agentOrder: ["chief", "research", "sales"],
+        },
+      }}
+    />
+  ),
 };
 
 /** The servers in the column at the left of the sidebar, instead of the sections. */

@@ -31,7 +31,7 @@ import { useSidebarScope } from "./sidebar-scope";
 import { type SidebarSectionRailBadge, sidebarSectionMark, sidebarSectionRailBadgeKind } from "./sidebar-section-rail";
 
 export function SidebarSectionRail() {
-  const { layoutMutable, openDelete, props, sectionRail, startCreateSection, startRenameSection } = useSidebarScope();
+  const { layoutMutable, openDelete, props, sectionRail } = useSidebarScope();
   const { t } = useText();
   const scrollFades = createScrollFades();
   let list: HTMLDivElement | undefined;
@@ -72,18 +72,6 @@ export function SidebarSectionRail() {
     buttons[target]?.focus();
   }
 
-  function createSection(): void {
-    // The new section field is at the end of the list, which shows it only with every section.
-    select(null);
-    startCreateSection();
-  }
-
-  function renameSection(sectionId: string): void {
-    // The name field is in the section header, which the list draws while the section shows.
-    if (sectionRail.focus() !== null && sectionRail.focus() !== sectionId) select(sectionId);
-    queueMicrotask(() => startRenameSection(sectionId));
-  }
-
   return (
     <nav class="server-rail section-rail" aria-label={t("sidebar.sectionRail.label")}>
       <div
@@ -110,6 +98,31 @@ export function SidebarSectionRail() {
             const name = () => item().section?.name ?? t("sidebar.section.unassigned");
             const custom = () => item().section !== null;
             const editable = () => custom() && layoutMutable();
+            // A function, not an element: the menu builds its items once, when it opens.
+            const sectionMenu = () => (
+              <>
+                <Show when={sectionRail.iconEditable(item().id)}>
+                  <ContextMenu.Item onSelectAfterClose={() => sectionRail.openIconEditor(item().id)}>
+                    <Shapes class="agent-context-icon size-4" aria-hidden="true" />
+                    <span>{t("sidebar.sectionIcon.open")}</span>
+                  </ContextMenu.Item>
+                </Show>
+                <ContextMenu.Item
+                  onSelectAfterClose={() => sectionRail.openNameDialog({ kind: "rename", sectionId: item().id })}
+                >
+                  <Pencil class="agent-context-icon size-4" aria-hidden="true" />
+                  <span>{t("common.rename")}</span>
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <ContextMenu.Item
+                  class="ui-action-menu-danger agent-context-danger"
+                  onSelect={() => openDelete("section", item().id)}
+                >
+                  <Trash2 class="agent-context-icon agent-context-danger-icon size-4" aria-hidden="true" />
+                  <span>{t("common.delete")}</span>
+                </ContextMenu.Item>
+              </>
+            );
             return (
               <SectionRailButton
                 onNavigate={moveFocus}
@@ -131,35 +144,7 @@ export function SidebarSectionRail() {
                     {(section) => <SidebarSectionMark icon={sidebarSectionMark(section())} />}
                   </Show>
                 }
-                menu={
-                  editable()
-                    ? {
-                        label: t("sidebar.section.actions"),
-                        items: (
-                          <>
-                            <Show when={sectionRail.iconEditable(item().id)}>
-                              <ContextMenu.Item onSelectAfterClose={() => sectionRail.openIconEditor(item().id)}>
-                                <Shapes class="agent-context-icon size-4" aria-hidden="true" />
-                                <span>{t("sidebar.sectionIcon.open")}</span>
-                              </ContextMenu.Item>
-                            </Show>
-                            <ContextMenu.Item onSelectAfterClose={() => renameSection(item().id)}>
-                              <Pencil class="agent-context-icon size-4" aria-hidden="true" />
-                              <span>{t("common.rename")}</span>
-                            </ContextMenu.Item>
-                            <ContextMenu.Separator />
-                            <ContextMenu.Item
-                              class="ui-action-menu-danger agent-context-danger"
-                              onSelect={() => openDelete("section", item().id)}
-                            >
-                              <Trash2 class="agent-context-icon agent-context-danger-icon size-4" aria-hidden="true" />
-                              <span>{t("common.delete")}</span>
-                            </ContextMenu.Item>
-                          </>
-                        ),
-                      }
-                    : undefined
-                }
+                menuItems={editable() ? sectionMenu : undefined}
                 unassigned={item().id === SIDEBAR_UNASSIGNED_SECTION_ID}
               />
             );
@@ -174,7 +159,7 @@ export function SidebarSectionRail() {
               aria-label={t("sidebar.new.section")}
               data-cuelume-open=""
               data-cuelume-emphasis="subtle"
-              onClick={createSection}
+              onClick={() => sectionRail.openNameDialog({ kind: "create" })}
             >
               <span class="server-rail-monogram" aria-hidden="true">
                 <Plus />
@@ -195,11 +180,13 @@ function SectionRailButton(props: {
   colorStyle?: string;
   unassigned?: boolean;
   mark: JSX.Element;
-  menu?: { label: string; items: JSX.Element } | undefined;
+  /** The actions of the item. Without them, a right click opens nothing. */
+  menuItems?: (() => JSX.Element) | undefined;
   onSelect: () => void;
   /** Moves the focus to another item on an arrow key. */
   onNavigate: (event: KeyboardEvent) => void;
 }) {
+  const { t } = useText();
   const [menuOpen, setMenuOpen] = createSignal(false);
   const badgeKind = () => (props.badge ? sidebarSectionRailBadgeKind(props.badge) : null);
   const status = () => props.status ?? [];
@@ -223,7 +210,7 @@ function SectionRailButton(props: {
           class={buttonVariants({ variant: "ghost", class: "server-rail-button section-rail-button" })}
           aria-label={[props.label, ...status()].join(", ")}
           aria-pressed={props.selected ? "true" : "false"}
-          aria-keyshortcuts={props.menu ? "Shift+F10" : undefined}
+          aria-keyshortcuts={props.menuItems ? "Shift+F10" : undefined}
           tabindex={props.selected ? 0 : -1}
           style={props.colorStyle || undefined}
           data-section-color={props.colorStyle ? "" : undefined}
@@ -232,7 +219,7 @@ function SectionRailButton(props: {
           onClick={() => props.onSelect()}
           onKeyDown={(event: KeyboardEvent & { currentTarget: HTMLButtonElement }) => {
             props.onNavigate(event);
-            if (!props.menu || !(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
+            if (!props.menuItems || !(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
             event.preventDefault();
             const bounds = event.currentTarget.getBoundingClientRect();
             event.currentTarget.dispatchEvent(
@@ -255,11 +242,11 @@ function SectionRailButton(props: {
             )}
           </Show>
         </ContextMenu.Trigger>
-        <Show when={props.menu}>
-          {(menu) => (
+        <Show when={props.menuItems}>
+          {(items) => (
             <ContextMenu.Portal>
-              <ContextMenu.Content class="agent-context-menu" aria-label={menu().label}>
-                {menu().items}
+              <ContextMenu.Content class="agent-context-menu" aria-label={t("sidebar.section.actions")}>
+                {items()()}
               </ContextMenu.Content>
             </ContextMenu.Portal>
           )}

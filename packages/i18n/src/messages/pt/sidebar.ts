@@ -56,6 +56,7 @@ export const messages = {
   "sidebar.section.fallback": "Seção",
   "sidebar.sectionRail.label": "Seções",
   "sidebar.sectionRail.all": "Todas",
+  "sidebar.sectionName.field": "Nome da seção",
   "sidebar.sectionRail.unread": { one: "{count} não lida", other: "{count} não lidas" },
   "sidebar.sectionRail.working": { one: "{count} chat trabalhando", other: "{count} chats trabalhando" },
   "sidebar.sectionIcon.open": "Mudar ícone…",

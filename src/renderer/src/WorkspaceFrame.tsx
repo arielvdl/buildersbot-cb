@@ -5,6 +5,7 @@ import { omit, type ParentProps, Show } from "solid-js";
 import { type WindowPage, windowPageKind } from "./features/window/window-page-context";
 import { useLayout } from "./layout";
 import { LEFT_PANEL_COMPACT } from "./layout-constants";
+import { sectionRailShowsOn } from "./left-column";
 import { usePlatform } from "./platform";
 import { WorkspaceLeftPanelResizer } from "./WorkspaceLeftPanelResizer";
 
@@ -68,8 +69,10 @@ export function WorkspaceFrame(props: WorkspaceFrameProps) {
         {
           "app-frame-sidebar-compact": props.compact,
           "app-frame-edge": platform.appInfo() !== null,
-          // The section rail takes the column of the server rail, so both use this class.
-          "app-frame-with-server-rail": layout.railColumnVisible(),
+          // The section rail takes the column of the server rail, so both use this class. The section
+          // rail shows only on the pages that it filters.
+          "app-frame-with-server-rail":
+            layout.serverRailVisible() || (layout.sectionRailVisible() && sectionRailShowsOn(props.windowPage)),
           "app-frame-page-open": pageOpen(),
           "app-frame-platform-darwin": platform.appInfo()?.platform === "darwin",
         },

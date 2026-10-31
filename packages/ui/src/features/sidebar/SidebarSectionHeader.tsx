@@ -23,6 +23,7 @@ export function SidebarSectionHeader(headerProps: { sectionId: string; name: str
     props,
     sectionIsCollapsed,
     sectionPosition,
+    sectionRail,
     sidebarClickIsSuppressed,
     startRenameSection,
     startSectionDragging,
@@ -35,6 +36,8 @@ export function SidebarSectionHeader(headerProps: { sectionId: string; name: str
     return target?.kind === "rename" && target.sectionId === headerProps.sectionId;
   };
   const collapsed = () => sectionIsCollapsed(headerProps.sectionId);
+  // The section that the rail selects is the whole list, so it stays open and its header does not close it.
+  const railSelected = () => sectionRail.focus() !== null;
   const custom = () => customSectionById().has(headerProps.sectionId);
   const position = () => sectionPosition(headerProps.sectionId);
   return (
@@ -50,13 +53,13 @@ export function SidebarSectionHeader(headerProps: { sectionId: string; name: str
             })}
             draggable={!layoutMutable() || props.compact ? "false" : "true"}
             title={!layoutMutable() ? t("sidebar.section.layoutUnsupported") : undefined}
-            aria-expanded={collapsed() ? "false" : "true"}
-            aria-controls={`sidebar-section-body-${headerProps.sectionId}`}
-            data-cuelume-open={collapsed() ? "" : undefined}
-            data-cuelume-close={collapsed() ? undefined : ""}
+            aria-expanded={railSelected() ? undefined : collapsed() ? "false" : "true"}
+            aria-controls={railSelected() ? undefined : `sidebar-section-body-${headerProps.sectionId}`}
+            data-cuelume-open={!railSelected() && collapsed() ? "" : undefined}
+            data-cuelume-close={railSelected() || collapsed() ? undefined : ""}
             data-cuelume-emphasis="subtle"
             onClick={(event: MouseEvent) => {
-              if (!sidebarClickIsSuppressed(event)) props.onToggleSection(headerProps.sectionId);
+              if (!sidebarClickIsSuppressed(event) && !railSelected()) props.onToggleSection(headerProps.sectionId);
             }}
             onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) =>
               startSectionDragging(event, headerProps.sectionId)
@@ -66,10 +69,12 @@ export function SidebarSectionHeader(headerProps: { sectionId: string; name: str
             <span class="sidebar-section-name" title={headerProps.name}>
               {headerProps.name}
             </span>
-            <ChevronDown
-              class={`sidebar-section-chevron size-4${collapsed() ? " sidebar-section-chevron-collapsed" : ""}`}
-              aria-hidden="true"
-            />
+            <Show when={!railSelected()}>
+              <ChevronDown
+                class={`sidebar-section-chevron size-4${collapsed() ? " sidebar-section-chevron-collapsed" : ""}`}
+                aria-hidden="true"
+              />
+            </Show>
           </ContextMenu.Trigger>
           <Show when={layoutMutable()}>
             <ContextMenu.Portal>

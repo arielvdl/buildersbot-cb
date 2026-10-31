@@ -244,8 +244,12 @@ export function createSidebarDataStore(deps: {
     }),
   );
 
+  /**
+   * Whether a section draws only its header. The section that the rail selects is the whole list, so it
+   * is always open; its saved state comes back with "All". The Hidden group keeps its own flag here.
+   */
   function sectionIsCollapsed(sectionId: string): boolean {
-    return collapsedSectionIds().has(sectionId);
+    return sectionRail.focus() !== sectionId && collapsedSectionIds().has(sectionId);
   }
 
   function sectionPosition(sectionId: string): number {

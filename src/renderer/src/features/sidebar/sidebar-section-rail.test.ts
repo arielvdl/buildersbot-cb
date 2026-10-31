@@ -6,10 +6,14 @@ import {
 } from "../../../../../packages/ui/src/features/sidebar/section-icon-image";
 import {
   resolveSidebarSectionRailSelection,
+  sameSidebarSectionRailItems,
   sidebarChatSectionId,
+  sidebarCreatedSectionId,
   sidebarSectionLetter,
   sidebarSectionMark,
+  sidebarSectionNameProblem,
   sidebarSectionRailBadgeKind,
+  sidebarSectionRailFocus,
   sidebarSectionRailItems,
   sidebarSectionRailOrder,
 } from "../../../../../packages/ui/src/features/sidebar/sidebar-section-rail";
@@ -169,5 +173,76 @@ describe("a picked icon image", () => {
     expect(sidebarSectionIconSide(40, 80)).toBe(40);
     expect(sidebarSectionIconSide(96, 96)).toBe(96);
     expect(sidebarSectionIconSide(0.5, 10)).toBe(1);
+  });
+});
+
+describe("the rail items between two agent state changes", () => {
+  const input = {
+    layout,
+    agents,
+    channels,
+    agentStates: { hacker: { kind: "working" as const } },
+  };
+
+  it("read as the same rail when no badge, count or section changed", () => {
+    const before = sidebarSectionRailItems(input);
+    const after = sidebarSectionRailItems({ ...input, agentStates: { hacker: { kind: "working" } } });
+    expect(after).not.toBe(before);
+    expect(sameSidebarSectionRailItems(before, after)).toBe(true);
+  });
+
+  it("read as another rail when a badge or a section changed", () => {
+    const before = sidebarSectionRailItems(input);
+    const waiting = sidebarSectionRailItems({
+      ...input,
+      agentStates: { scout: { kind: "waiting", reason: "question", detail: null } },
+    });
+    expect(sameSidebarSectionRailItems(before, waiting)).toBe(false);
+    const renamed = sidebarSectionRailItems({
+      ...input,
+      layout: { ...layout, sections: layout.sections.map((section) => ({ ...section })) },
+    });
+    expect(sameSidebarSectionRailItems(before, renamed)).toBe(false);
+  });
+});
+
+describe("the section that the Workflows and Schedule pages filter by", () => {
+  const chats = ["scout", "hacker", "loose"];
+
+  it("is the section of the rail, or All when it is gone", () => {
+    expect(sidebarSectionRailFocus(layout, NAIA, chats)).toBe(NAIA);
+    expect(sidebarSectionRailFocus(layout, GONE, chats)).toBeNull();
+    expect(sidebarSectionRailFocus(layout, null, chats)).toBeNull();
+  });
+
+  it("is the unassigned section only while it holds a chat, as in the rail", () => {
+    expect(sidebarSectionRailFocus(layout, "unassigned", chats)).toBe("unassigned");
+    expect(sidebarSectionRailFocus(layout, "unassigned", ["scout", "hacker"])).toBeNull();
+  });
+});
+
+describe("the name in the section dialog", () => {
+  const sections = [
+    { id: NAIA, name: "naia" },
+    { id: RED_TEAM, name: "Red Team" },
+  ];
+
+  it("is required, and unique in any case", () => {
+    expect(sidebarSectionNameProblem("  ", sections)).toBe("required");
+    expect(sidebarSectionNameProblem("NAIA", sections)).toBe("duplicate");
+    expect(sidebarSectionNameProblem(" Claude Bots ", sections)).toBeNull();
+  });
+
+  it("can keep its own name on a rename", () => {
+    expect(sidebarSectionNameProblem("Naia", sections, NAIA)).toBeNull();
+    expect(sidebarSectionNameProblem("red team", sections, NAIA)).toBe("duplicate");
+  });
+
+  it("finds the section that a create added, so the rail can select it", () => {
+    const before = new Set([NAIA]);
+    expect(
+      sidebarCreatedSectionId(before, [...sections, { id: CLAUDE_BOTS, name: "Claude Bots" }], " claude bots"),
+    ).toBe(CLAUDE_BOTS);
+    expect(sidebarCreatedSectionId(new Set([NAIA, RED_TEAM]), sections, "x")).toBeNull();
   });
 });

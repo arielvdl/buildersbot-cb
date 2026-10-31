@@ -96,6 +96,7 @@ import {
   sidebarAgentWaits,
   sidebarChannelWaits,
 } from "@openbot/ui/features/sidebar/sidebar-agent-states";
+import { sidebarChatSectionId, sidebarSectionRailFocus } from "@openbot/ui/features/sidebar/sidebar-section-rail";
 import type { SidebarActivityFilter, SidebarChatTabs, SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
 import { sidebarChatTabsKey } from "@openbot/ui/features/sidebar/sidebar-types";
 import { PageRail, type PageRailPage } from "@openbot/ui/features/window/PageRail";
@@ -124,6 +125,7 @@ import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import { isGlobalSearchShortcut } from "../../global-search-shortcut";
 import { LayoutProvider, useLayout } from "../../layout";
 import { AgentUsagePanel, RoutineFlowsCanvas, ScheduleView, ServerOnboarding } from "../../lazy-views";
+import { sectionRailShowsOn } from "../../left-column";
 import { PlatformProvider } from "../../platform";
 import { WorkspaceFrame } from "../../WorkspaceFrame";
 import {
@@ -1115,6 +1117,21 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   );
   /** The Routines view lists only agents: a channel has no routine canvas. */
   const channelsListed = () => channelsSupported() && !routinesView();
+  /** The section that the rail selects, from the chats that the list shows, for the Schedule page. */
+  const railSection = createMemo(() =>
+    layout.sectionRailVisible()
+      ? sidebarSectionRailFocus(workspace.state.sidebarLayout, workspace.preferences.selectedRailSectionId(), [
+          ...workspace.profiles().map((agent) => agent.id),
+          ...(channelsListed()
+            ? channels.state.channels.filter((channel) => !channel.archived).map((channel) => channel.id)
+            : []),
+        ])
+      : null,
+  );
+  const chatInRailSection = (chatId: string) => {
+    const section = railSection();
+    return section === null || sidebarChatSectionId(workspace.state.sidebarLayout, chatId) === section;
+  };
   const savedChannelId = () => {
     const hostId = workspace.state.host?.hostId;
     return hostId ? (readChannelSelection()[props.accountId]?.[hostId] ?? null) : null;
@@ -1897,6 +1914,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                           }}
                           onOpenRoutine={openRoutine}
                           onCreateRoutine={createRoutine}
+                          inSection={chatInRailSection}
                         />
                       </Loading>
                     </Match>
@@ -1964,8 +1982,9 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     addCreatesServer: hostedServers.available(),
                     ...serverActionCallbacks,
                   }}
+                  // As on desktop, only Agents, Routines and Schedule show the rail.
                   sectionRail={
-                    layout.sectionRailVisible()
+                    layout.sectionRailVisible() && sectionRailShowsOn(page())
                       ? {
                           selectedId: workspace.preferences.selectedRailSectionId(),
                           onSelect: workspace.preferences.selectRailSection,

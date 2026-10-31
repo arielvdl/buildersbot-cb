@@ -13,6 +13,7 @@ import { createEffect, createMemo, createSignal, createStore, onSettled } from "
 import { useNavigation } from "../../navigation";
 import { useAgents } from "../agents/agents-context";
 import { useChannels } from "../channels/channels-context";
+import { useSectionRailFocus } from "../sidebar/section-rail-focus";
 import { useWindowPage } from "../window/window-page-context";
 import { desktopScheduleSource, type ScheduleSource } from "./schedule-port";
 
@@ -37,6 +38,11 @@ interface ScheduleViewProps extends SchedulePanelProps {
   onOpenRoutine: (routine: ScheduleRoutine) => void;
   /** Opens the routine settings of the agent on a new routine. */
   onCreateRoutine: (agentId: string) => void;
+  /**
+   * Whether the owner of a routine, an agent or a channel, is in the section that the rail selects.
+   * Without it, the calendar shows every routine.
+   */
+  inSection?: ((chatId: string) => boolean) | undefined;
 }
 
 /**
@@ -71,6 +77,7 @@ export function SchedulePanel(props: SchedulePanelProps) {
   const { selectAgent } = useNavigation();
   const channels = useChannels();
   const windowPage = useWindowPage();
+  const sectionRail = useSectionRailFocus();
 
   function openRoutine(routine: ScheduleRoutine): void {
     if (routine.owner.kind === "channel") {
@@ -103,6 +110,7 @@ export function SchedulePanel(props: SchedulePanelProps) {
       onOpenAgent={selectAgent}
       onOpenRoutine={openRoutine}
       onCreateRoutine={createRoutine}
+      inSection={sectionRail.inSection}
     />
   );
 }
@@ -144,9 +152,16 @@ export function ScheduleView(props: ScheduleViewProps) {
     }
   }
 
-  /** A channel routine that cannot open would leave its pane loading, so it does not show. */
+  /**
+   * A channel routine that cannot open would leave its pane loading, so it does not show. A section in
+   * the rail keeps the routines whose owner, the agent or the channel, is in that section.
+   */
   const visibleRoutines = createMemo(() =>
-    (state.calendar?.routines ?? []).filter((routine) => props.channelsSupported || routine.owner.kind !== "channel"),
+    (state.calendar?.routines ?? []).filter(
+      (routine) =>
+        (props.channelsSupported || routine.owner.kind !== "channel") &&
+        (props.inSection?.(routine.owner.kind === "agent" ? routine.owner.agentId : routine.owner.channelId) ?? true),
+    ),
   );
 
   const routines = createMemo<RoutineCalendarRoutine[]>(() => {

@@ -16,6 +16,7 @@ import { appPort } from "../../app-port";
 import { type ChatHistoryEntry, chatHistoryKeys } from "../../chat-history";
 import { useLayout } from "../../layout";
 import { DirectConversation } from "../../lazy-views";
+import { sectionRailShowsOn } from "../../left-column";
 import { useNavigation } from "../../navigation";
 import { usePlatform } from "../../platform";
 import { useTurns } from "../../turns";
@@ -37,6 +38,7 @@ import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
 import { usePresence } from "../team/team-context";
 import { SidebarUpdateIsland } from "../updates/SidebarUpdateIsland";
+import { useWindowPage } from "../window/window-page-context";
 import { createMachineCard } from "./machine-card";
 import { useSidebar } from "./sidebar-context";
 import { createStorageCard } from "./storage-card";
@@ -58,6 +60,7 @@ const MOBILE_APP_DISMISSED_STORAGE_KEY = "openbot:mobile-app-card-dismissed";
 export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const { t } = useText();
   const layout = useLayout();
+  const windowPage = useWindowPage();
   const platform = usePlatform();
   const channels = useChannels();
   const { activeServer, activeServerId, activeServerSupportsCapability } = useServers();
@@ -376,8 +379,11 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
             }
           : undefined
       }
+      // Only Agents, Routines, Workflows and Schedule show the rail; another page has no rail column.
       sectionRail={
-        layout.sectionRailVisible() ? { selectedId: selectedRailSectionId(), onSelect: selectRailSection } : undefined
+        layout.sectionRailVisible() && sectionRailShowsOn(windowPage.page())
+          ? { selectedId: selectedRailSectionId(), onSelect: selectRailSection }
+          : undefined
       }
       sectionIconsSupported={activeServer()?.kind === "local" && activeServerSupportsCapability("sidebar-layout")}
       agents={agentList()}

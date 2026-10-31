@@ -120,6 +120,85 @@ export function resolveSidebarSectionRailSelection(
   return items.some((item) => item.id === selectedId) ? selectedId : null;
 }
 
+/**
+ * True when two item lists draw the same rail. The items are built again on each change of an agent
+ * state, which happens many times a second while an agent works. When nothing that the rail shows has
+ * changed, the memo keeps the old list, so no rail item and no list filter runs again.
+ */
+export function sameSidebarSectionRailItems(
+  left: readonly SidebarSectionRailItem[],
+  right: readonly SidebarSectionRailItem[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((item, index) => {
+      const other = right[index];
+      return (
+        other !== undefined &&
+        item.id === other.id &&
+        item.section === other.section &&
+        item.chatCount === other.chatCount &&
+        item.badge.waiting === other.badge.waiting &&
+        item.badge.working === other.badge.working &&
+        item.badge.unread === other.badge.unread
+      );
+    })
+  );
+}
+
+/**
+ * The section that a page other than the list filters by: the same answer as the rail, from the ids of
+ * the chats that the list shows. The schedule and the workflows pages use it.
+ */
+export function sidebarSectionRailFocus(
+  layout: SidebarLayoutSnapshot,
+  selectedId: string | null | undefined,
+  chatIds: readonly string[],
+): string | null {
+  if (!selectedId) return null;
+  if (selectedId === SIDEBAR_UNASSIGNED_SECTION_ID) {
+    return chatIds.some((chatId) => sidebarChatSectionId(layout, chatId) === SIDEBAR_UNASSIGNED_SECTION_ID)
+      ? selectedId
+      : null;
+  }
+  return layout.sections.some((section) => section.id === selectedId) && layout.order.includes(selectedId)
+    ? selectedId
+    : null;
+}
+
+/**
+ * Why a section name cannot be saved, or null when it can: a name is required, and two sections cannot
+ * have the same name in any case. A rename may keep its own name.
+ */
+export function sidebarSectionNameProblem(
+  name: string,
+  sections: readonly Pick<SidebarSection, "id" | "name">[],
+  renamedId?: string,
+): "required" | "duplicate" | null {
+  const trimmed = name.trim();
+  if (!trimmed) return "required";
+  const lower = trimmed.toLocaleLowerCase();
+  return sections.some((section) => section.id !== renamedId && section.name.toLocaleLowerCase() === lower)
+    ? "duplicate"
+    : null;
+}
+
+/**
+ * The section that a create added: the new section with the name that was typed, or the only new
+ * section. The host may store the name in another form, as for a duplicate.
+ */
+export function sidebarCreatedSectionId(
+  before: ReadonlySet<string>,
+  sections: readonly Pick<SidebarSection, "id" | "name">[],
+  name: string,
+): string | null {
+  const added = sections.filter((section) => !before.has(section.id));
+  const lower = name.trim().toLocaleLowerCase();
+  const created =
+    added.find((section) => section.name.toLocaleLowerCase() === lower) ?? (added.length === 1 ? added[0] : undefined);
+  return created?.id ?? null;
+}
+
 /** The sections the list draws: every section in the layout order, or only the selected one. */
 export function sidebarSectionRailOrder(layout: SidebarLayoutSnapshot, focus: string | null): string[] {
   return focus === null ? layout.order : layout.order.filter((sectionId) => sectionId === focus);

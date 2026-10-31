@@ -56,6 +56,7 @@ export const messages = defineMessages("sidebar", {
   // The section rail: the narrow column at the left of the chat list, and the section icon editor.
   "sidebar.sectionRail.label": "Sections",
   "sidebar.sectionRail.all": "All",
+  "sidebar.sectionName.field": "Section name",
   "sidebar.sectionRail.unread": { one: "{count} unread", other: "{count} unread" },
   "sidebar.sectionRail.working": { one: "{count} chat working", other: "{count} chats working" },
   "sidebar.sectionIcon.open": "Change icon…",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LEFT_COLUMN_STORAGE_KEY } from "./layout-constants";
-import { readLeftColumnView, writeLeftColumnView } from "./left-column";
+import { readLeftColumnView, sectionRailShowsOn, writeLeftColumnView } from "./left-column";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -39,5 +39,17 @@ describe("the left column setting", () => {
     };
     expect(readLeftColumnView(blocked)).toBe("sections");
     expect(() => writeLeftColumnView("servers", blocked)).not.toThrow();
+  });
+});
+
+describe("the pages with the section rail", () => {
+  it("are Agents and Routines (the agents page), Workflows and Schedule", () => {
+    for (const page of ["agents", "workflows", "schedule"]) expect(sectionRailShowsOn(page)).toBe(true);
+  });
+
+  it("leave out every other page", () => {
+    for (const page of ["usage", "marketplace", "settings", "server-settings", "routines"]) {
+      expect(sectionRailShowsOn(page)).toBe(false);
+    }
   });
 });

@@ -12,6 +12,8 @@ import { useAuth } from "../account/account-context";
 import { useAgents } from "../agents/agents-context";
 import { serverRoleCanAdminister, serverSupportsCapability } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
+import { useSectionRailFocus } from "../sidebar/section-rail-focus";
+import { createWorkflowAgentIndex, workflowsInSection } from "./workflow-sections";
 import { createWorkflowsController } from "./workflows-controller";
 import { desktopWorkflowHost, type WorkflowHost } from "./workflows-port";
 
@@ -76,6 +78,20 @@ function WorkflowsCanvas(props: { host: WorkflowHost; admin: boolean }) {
       return signedInAccount()?.name ?? undefined;
     },
   };
+  // A section in the rail keeps the workflows with an agent of that section. The open one stays.
+  const sectionRail = useSectionRailFocus();
+  const workflowAgents = createWorkflowAgentIndex(
+    untrack(() => props.host),
+    () => workflows.props.library,
+    () => sectionRail.focus() !== null,
+  );
+  const library = createMemo(() =>
+    workflowsInSection(
+      workflows.props.library,
+      workflowAgents(),
+      sectionRail.focus() === null ? null : sectionRail.inSection,
+    ),
+  );
   // A channel output needs a messaging place. Without one, a new output posts a notification.
   const features = createMemo<WorkflowFeatures>(() =>
     workflows.places().length > 0
@@ -93,6 +109,7 @@ function WorkflowsCanvas(props: { host: WorkflowHost; admin: boolean }) {
           frame="window"
           readOnly={workflows.readOnly()}
           {...workflows.props}
+          library={library()}
           onRotateWebhookSecret={props.admin ? workflows.props.onRotateWebhookSecret : undefined}
         />
       )}

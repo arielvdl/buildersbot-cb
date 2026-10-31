@@ -5,6 +5,7 @@ import { SidebarNav } from "./SidebarNav";
 import { SidebarSearch } from "./SidebarSearch";
 import { SidebarSectionColorInput } from "./SidebarSectionColorMenu";
 import { SidebarSectionIconDialog } from "./SidebarSectionIconDialog";
+import { SidebarSectionNameDialog } from "./SidebarSectionNameDialog";
 import { SidebarSectionRail } from "./SidebarSectionRail";
 import { SidebarTopbar } from "./SidebarTopbar";
 import { SidebarViewSwitch } from "./SidebarViewSwitch";
@@ -35,6 +36,8 @@ export function Sidebar(props: SidebarProps) {
         <SidebarDialogs />
 
         <SidebarSectionIconDialog />
+
+        <SidebarSectionNameDialog />
 
         <Show when={props.sectionColorSupported && props.layoutMutable !== false}>
           <SidebarSectionColorInput />

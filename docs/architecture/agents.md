@@ -631,14 +631,27 @@ icon. As the color, the icon is local only: the frozen Team API codecs drop it a
 so a remote peer shows the letter.
 
 The section rail (`SidebarSectionRail.tsx`) is the column at the left of the sidebar: "All", one item
-for each custom section in the layout order, "Unassigned" while it holds a chat, and a plus button
-that opens the new section field. Each item shows one badge: a wait for the user, the unread
-messages, or work in flight. It reads the agent states, channel waits and channel counts that the rows
-read. A selected section filters the pinned strip, Needs you, the sections and Hidden to the chats of
-that section; global search still finds every chat. This computer keeps the selection for each server
-(`openbot:sidebar-section-rail:v1`), and a section that is gone reads as "All". Settings > General >
-Left column (`openbot:left-column`) shows the sections, the default, or the server rail. With the
-sections, the menu on the server name lists the servers, Add server and the server actions.
+for each custom section in the layout order, "Unassigned" while it holds a chat, and a plus button.
+The plus button, Rename in the menu of an item, and each "New section" item while the rail shows open
+one name dialog (`SidebarSectionNameDialog.tsx`); the rail selects a new section. Each item shows one
+badge: a wait for the user, the unread messages, or work in flight. It reads the agent states, channel
+waits and channel counts that the rows read. The rail keeps its item list while no badge, count or
+section changes (`sameSidebarSectionRailItems`), so a change of an agent state does not run the rail
+or the list filters again.
+
+The rail shows only on the Agents page (Agents and Routines), Workflows and Schedule
+(`sectionRailShowsOn`); another page has no rail column. The selection is the same on the four pages.
+A selected section filters the pinned strip, Needs you, the sections and Hidden to the chats of that
+section; global search still finds every chat. The selected section is always open, also when the user
+collapsed it under "All", and its header does not collapse it; "All" shows the saved collapse state
+again. Routines lists the agents of the section. Schedule keeps the routines whose owner, the agent or
+the channel, is in the section. A workflow has no owner, so Workflows keeps the workflows with an agent
+step of an agent in the section (`workflow-sections.ts` reads the graph of each workflow while a section
+is selected); a workflow with no agent step shows only with "All". This computer keeps the selection
+for each server (`openbot:sidebar-section-rail:v1`), and a section that is gone reads as "All".
+Settings > General > Left column (`openbot:left-column`) shows the sections, the default, or the
+server rail. With the sections, the menu on the server name lists the servers, Add server and the
+server actions.
 
 `html_render` publishes a visual reply: an HTML page that shows above the agent's reply. The router
 stores the page as a generated `text/html` attachment and adds an assistant message with the item

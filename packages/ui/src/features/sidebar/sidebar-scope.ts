@@ -67,10 +67,18 @@ export function createSidebarScope(props: SidebarProps) {
     saveSectionEditor,
     sectionDeleteTarget,
     setSectionNameInput,
-    startCreateSection,
+    startCreateSection: startInlineCreateSection,
     startRenameSection,
     updateSectionEditorName,
   } = createSidebarPendingStore({ customSectionById, props });
+  /**
+   * With the section rail, a new section opens the name dialog, and the rail selects the new section.
+   * The field at the end of the list would show only with "All". Without the rail, the field stays.
+   */
+  const startCreateSection = (agentId?: string): void => {
+    if (props.sectionRail) sectionRail.openNameDialog({ kind: "create", ...(agentId ? { agentId } : {}) });
+    else startInlineCreateSection(agentId);
+  };
   let agentList: HTMLElement | undefined;
 
   const dragState = createSidebarDragStateStore({ chatKind, sectionAcceptsChat });

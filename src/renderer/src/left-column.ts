@@ -25,3 +25,14 @@ export function writeLeftColumnView(view: LeftColumnView, storage: Pick<Storage,
     // Blocked or full storage keeps the choice for this window only.
   }
 }
+
+/**
+ * The pages that show the section rail: Agents and Routines (both on the agents page), Workflows and
+ * Schedule. A section there filters the list, the workflows or the calendar. The other pages have no
+ * rail column; the selection stays, so it is the same when the user comes back.
+ */
+export const SECTION_RAIL_PAGES = ["agents", "workflows", "schedule"] as const;
+
+export function sectionRailShowsOn(page: string): boolean {
+  return SECTION_RAIL_PAGES.some((candidate) => candidate === page);
+}
