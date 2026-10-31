@@ -191,6 +191,7 @@ import {
   serverRoleCanAdminister,
 } from "../servers/server-capabilities";
 import { createServerConnectionToast } from "../servers/server-connection-toast";
+import { createServerCreationAccess } from "../servers/server-creation-access";
 import { serverSettingsPaletteActions } from "../servers/server-settings-palette";
 import { type ServerSettingsSearchEntry, serverSettingsSectionShown } from "../servers/server-settings-sections";
 import {
@@ -475,6 +476,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     avatarUrl: props.accountAvatarUrl ?? null,
   }));
   const accountCalls = createWebAccountCalls(props.accountFetch, props.onSessionCheck);
+  const serverCreation = createServerCreationAccess(joinOpen, () => hostedServers.calls);
   const [accountSettingsOpen, setAccountSettingsOpen] = createSignal(false);
   /** The settings pages stay mounted after their first open, so a closed page gives the focus back, as on desktop. */
   const [accountSettingsLoaded, setAccountSettingsLoaded] = createSignal(false);
@@ -2357,6 +2359,16 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   }}
                   onPreview={({ inviteUrl }) => workspace.runtime.previewInvite(inviteUrl)}
                   onJoin={({ inviteUrl }) => workspace.joinInvite(inviteUrl)}
+                  createAccess={{
+                    access: serverCreation.access(),
+                    // The section shows only when the account server says that this deployment can create
+                    // servers, so the plans open also before the hosted server list knows of an approval.
+                    onCreate: () => {
+                      setJoinOpen(false);
+                      hostedServers.openPlans("server_rail");
+                    },
+                    onRequest: serverCreation.request,
+                  }}
                 />
                 <Show when={accountSettingsLoaded()}>
                   <Loading>
@@ -2375,6 +2387,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       notifications={notificationSettings}
                       notificationFocusRequest={notificationFocusRequest()}
                       tabRequest={accountTabRequest()}
+                      serverCreationApi={hostedServers.calls}
                     />
                   </Loading>
                 </Show>

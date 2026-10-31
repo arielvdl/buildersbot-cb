@@ -8,6 +8,7 @@ import {
 } from "@openbot/contracts/hosted-servers";
 import type { HostedServersDesktopApi } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
+import { parseServerCreationAccess, parseServerCreationAdminState } from "@openbot/contracts/server-creation";
 import { currentText } from "@openbot/ui/text";
 import type { AddServerResume } from "../servers/AddServerOverlay";
 
@@ -15,8 +16,9 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * The hosted server calls for a signed-in browser: the add server dialog and the server list in
- * Billing. They use the `/api/browser/v2/hosting/...` operations. The page goes only to a Stripe
- * Checkout URL, which the contract parser checks.
+ * Billing. They use the `/api/browser/v2/hosting/...` operations, and the permission to create a server
+ * uses `/api/browser/v2/server-creation/...`. The page goes only to a Stripe Checkout URL, which the
+ * contract parser checks.
  */
 export function createWebHostedServerCalls(
   accountFetch: typeof fetch,
@@ -27,7 +29,8 @@ export function createWebHostedServerCalls(
     init: { method?: "POST" | "DELETE"; body?: string; headers?: Record<string, string> } = {},
   ): Promise<Response> {
     const post = init.body !== undefined;
-    const response = await accountFetch(`/api/browser/v2/hosting/${path}`, {
+    const url = path.startsWith(CREATION) ? `/api/browser/${path}` : `/api/browser/v2/hosting/${path}`;
+    const response = await accountFetch(url, {
       method: init.method ?? (post ? "POST" : "GET"),
       credentials: "same-origin",
       cache: "no-store",
@@ -44,7 +47,7 @@ export function createWebHostedServerCalls(
   async function request<T>(
     path: string,
     decode: (value: unknown) => T | null,
-    init: { body?: string; headers?: Record<string, string> } = {},
+    init: { method?: "POST" | "DELETE"; body?: string; headers?: Record<string, string> } = {},
   ): Promise<T> {
     const value = await (await send(path, init)).json().catch(() => null);
     const decoded = decode(value);
@@ -82,8 +85,27 @@ export function createWebHostedServerCalls(
         body: JSON.stringify({ confirmName }),
       });
     },
+    creationAccess: () => request(`${CREATION}access`, parseServerCreationAccess),
+    requestCreationAccess: (input) =>
+      request(`${CREATION}requests`, parseServerCreationAccess, { body: JSON.stringify(input) }),
+    creationAdmin: () => request(`${CREATION}admin`, parseServerCreationAdminState),
+    grantCreation: (input) =>
+      request(`${CREATION}admin/grants`, parseServerCreationAdminState, { body: JSON.stringify(input) }),
+    // The browser API takes a JSON body on each write, also on a DELETE.
+    revokeCreation: (userId) =>
+      request(`${CREATION}admin/grants/${encodeURIComponent(userId)}`, parseServerCreationAdminState, {
+        method: "DELETE",
+        body: "{}",
+      }),
+    decideCreationRequest: ({ requestId, decision }) =>
+      request(`${CREATION}admin/requests/${encodeURIComponent(requestId)}/${decision}`, parseServerCreationAdminState, {
+        body: "{}",
+      }),
   };
 }
+
+/** The permission routes live beside the hosting routes, under this path of the browser API. */
+const CREATION = "v2/server-creation/";
 
 function errorMessage(value: unknown): string {
   if (isDynamicRecord(value) && isDynamicRecord(value.error) && isString(value.error.message))

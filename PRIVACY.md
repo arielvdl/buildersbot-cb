@@ -4,7 +4,10 @@ Builders Bot is local-first, but it is not offline-only. Agent workspaces, conve
 browser data, and team data stay on the computer that runs Builders Bot. The optional Builders Bot account
 service stores the minimum central data needed for email sign-in, account avatars, remote host
 configuration, memberships, invitations, logical sessions, and the account's product analytics
-answer.
+answer. When a person asks for the permission to create a remote server, the account service also
+stores the reason that they write, the decision of the administrator, and the permissions that
+administrators give (with an optional note), until the account is deleted. An audit row for each
+change keeps only account IDs, the action and the time.
 
 Builders Bot sends no product analytics and no error reports. See [Product analytics](#product-analytics)
 for what earlier versions sent and where.

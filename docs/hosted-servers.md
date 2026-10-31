@@ -20,9 +20,12 @@ To run the same build on your own computer, see [self-hosted servers](self-hoste
 uses the scripts and units of this page with `mode` set to `self`.
 
 The Worker enables hosted servers only when it has the boat and Stripe secrets and
-`HOSTED_SERVER_TEMPLATE`, and only for the account IDs or emails in `HOSTED_SERVERS_ALLOWED_USER_IDS` (`*`
-allows each account; with no value, no account can create a server). Production sets `*` in
-`wrangler.jsonc`, so each account can buy a server. See [Production](#production). An account can have 50 servers that are not
+`HOSTED_SERVER_TEMPLATE`, and only for a person who has the
+[server creation permission](architecture/server-creation-permission.md): an administrator
+(`ADMIN_USER_IDS`), a person whom an administrator gave the permission, or an account ID or email in
+the bootstrap list `HOSTED_SERVERS_ALLOWED_USER_IDS`. With no value, nobody else can create a server.
+`*` allows each account; it is an explicit opt-in only, and the Worker logs it. Production sets `""`
+in `wrangler.jsonc`. See [Production](#production). An account can have 50 servers that are not
 deleted (`MAX_SERVERS_PER_ACCOUNT`). An account has at most one server that waits for its first
 payment: a create with a new Idempotency-Key gives its plan to that server and opens a new page. So a
 cancelled or abandoned Checkout page adds no server, also when the client lost its key (the web client
@@ -351,7 +354,8 @@ value that you set by hand for these four is replaced. Set `DOTENV_PRIVATE_KEY_D
 | Name | Value |
 | --- | --- |
 | `HOSTED_SERVER_TEMPLATE` | The named snapshot from the template build, such as `openbot-server-0-9-0`. |
-| `HOSTED_SERVERS_ALLOWED_USER_IDS` | Comma-separated account IDs or emails that can create servers. `api:deploy:test` sets it from `HOSTED_SERVERS_TEST_ALLOW_LIST` and refuses `*`: the test Worker is public, and it shares its boat account with production. |
+| `HOSTED_SERVERS_ALLOWED_USER_IDS` | The bootstrap list: comma-separated account IDs or emails that can create servers. `api:deploy:test` sets it from `HOSTED_SERVERS_TEST_ALLOW_LIST` and refuses `*`: the test Worker is public, and it shares its boat account with production. |
+| `ADMIN_USER_IDS` | Optional. Comma-separated account IDs of the administrators, who can create servers and give the permission to other people. Set it with `wrangler secret put ADMIN_USER_IDS --env test`. |
 
 The `BOAT_API_KEY` in `.env.dev` is the development key of the boat test account. It also has
 command access, because the e2e script (`scripts/stripe-flows-e2e.ts`) reads the VM with it. Use it
@@ -403,7 +407,10 @@ each month (about 555 hours).
 
 The production Worker has `HOSTED_SERVERS_ENABLED=true` in `wrangler.jsonc`. Nothing starts until
 the secrets below are set. Set `HOSTED_SERVERS_ENABLED` to `false` to stop new servers; existing
-servers, their webhooks and the cron continue.
+servers, their webhooks and the cron continue. Only a person with the
+[server creation permission](architecture/server-creation-permission.md) can create a server: set
+`ADMIN_USER_IDS` with `wrangler secret put ADMIN_USER_IDS`, then give the permission in the app,
+signed in with Cultura Builder.
 
 1. **boat.** Use a paid boat account: a trial allows 2 sandboxes and only `small` and `default`, so
    Pro (`large`) fails. Make the Worker key with the scope in the table above. Turn on auto-pay in

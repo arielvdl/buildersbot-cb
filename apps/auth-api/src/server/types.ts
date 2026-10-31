@@ -91,8 +91,18 @@ export interface WorkerBindings {
    */
   LICENSE_TRIAL_END?: string;
   HOSTED_SERVERS_ENABLED?: string;
-  /** Comma-separated account IDs or emails that can create hosted servers. `*` allows each account. */
+  /**
+   * The bootstrap list of server creation: comma-separated account IDs or emails that can create remote
+   * servers. Empty or absent = nobody. `*` allows each account; it is an explicit opt-in only, and the
+   * Worker logs it (see docs/architecture/server-creation-permission.md).
+   */
   HOSTED_SERVERS_ALLOWED_USER_IDS?: string;
+  /**
+   * Comma-separated account IDs (`users.id`) of the Builders Bot administrators. They can create remote
+   * servers and give the permission to other people. Set it as a secret or a dashboard value, never in
+   * the `vars` of `wrangler.jsonc`: a deploy with `--keep-vars` overwrites a dashboard value of the same name.
+   */
+  ADMIN_USER_IDS?: string;
   /** A request with this key in `OpenBot-Hosting-Developer-Key` can create hosted servers. Test Worker only. */
   HOSTED_SERVERS_DEVELOPER_KEY?: string;
   /** The boat named snapshot that new hosted servers start from. */

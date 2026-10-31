@@ -588,6 +588,13 @@ import type {
   LicenseUsersRequest,
 } from "./license";
 import type { AccountSession, MobileConnectedDevice, MobileConnectLink, MobileConnectTicket } from "./mobile-connect";
+import type {
+  ServerCreationAccess,
+  ServerCreationAccessRequest,
+  ServerCreationAdminState,
+  ServerCreationDecisionInput,
+  ServerCreationGrantInput,
+} from "./server-creation";
 
 declare const payloadType: unique symbol;
 declare const resultType: unique symbol;
@@ -1401,6 +1408,18 @@ export const IPC_ENDPOINTS = {
     wake: request<string, HostedServerSummary>()("hosted-servers:wake"),
     // Owner only. Stops a running server and starts it again; a server that does not run starts.
     restart: request<string, HostedServerSummary>()("hosted-servers:restart"),
+    // The permission to create a remote server (docs/architecture/server-creation-permission.md).
+    creationAccess: request<undefined, ServerCreationAccess>()("hosted-servers:creation-access"),
+    requestCreationAccess: request<ServerCreationAccessRequest, ServerCreationAccess>()(
+      "hosted-servers:request-creation-access",
+    ),
+    // Administrators only. Each write returns the new administrator state.
+    creationAdmin: request<undefined, ServerCreationAdminState>()("hosted-servers:creation-admin"),
+    grantCreation: request<ServerCreationGrantInput, ServerCreationAdminState>()("hosted-servers:grant-creation"),
+    revokeCreation: request<string, ServerCreationAdminState>()("hosted-servers:revoke-creation"),
+    decideCreationRequest: request<ServerCreationDecisionInput, ServerCreationAdminState>()(
+      "hosted-servers:decide-creation-request",
+    ),
   },
   // Servers that the desktop app starts on this computer, each with its own data. Each one is in the
   // server list as a joined server with `thisComputer`. `create` takes the name; the others take the

@@ -128,8 +128,9 @@ function assertStripeKeyMode(): void {
 /**
  * The test Worker is public and shares its boat account with production, so only the accounts in
  * the encrypted `HOSTED_SERVERS_TEST_ALLOW_LIST` (account IDs or emails), and a request with the
- * developer key, can create servers there. Production allows each account with a var in
- * wrangler.jsonc, and a var and a secret cannot have one name.
+ * developer key, can create servers there. Production reads its bootstrap list from a var in
+ * wrangler.jsonc (empty: nobody; see docs/architecture/server-creation-permission.md), and a var and a
+ * secret cannot have one name.
  */
 async function putTestAllowList(): Promise<void> {
   const value = process.env.HOSTED_SERVERS_TEST_ALLOW_LIST?.trim();

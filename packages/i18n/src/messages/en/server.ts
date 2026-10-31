@@ -77,6 +77,21 @@ export const messages = defineMessages("server", {
   "server.join.account": "Account",
   "server.join.emailBound": "This invitation only works for its email recipient.",
   "server.join.unknownDate": "Unknown",
+  // The section of the join dialog about a new remote server. Joining needs no permission; creating does.
+  "server.createAccess.title": "Create a remote server",
+  "server.createAccess.allowedDescription": "You have permission to create a remote server.",
+  "server.createAccess.create": "Create remote server",
+  "server.createAccess.requestDescription":
+    "Only people with permission can create a remote server. Ask the administrator for permission.",
+  "server.createAccess.ask": "Ask for permission",
+  "server.createAccess.askAgain": "Ask again",
+  "server.createAccess.reason": "Why do you need a server?",
+  "server.createAccess.reasonHint": "The administrator reads this. At most {max} characters.",
+  "server.createAccess.send": "Send request",
+  "server.createAccess.sending": "Sending…",
+  "server.createAccess.pending": "Your request waits for the administrator.",
+  "server.createAccess.denied": "The administrator did not approve your last request.",
+  "server.createAccess.requestFailed": "Could not send the request.",
   // The dialog that the plus button on the server rail opens. {price} is a formatted amount, such as "€20".
   "server.add.title": "Run Builders Bot 24/7 on an external server",
   "server.add.description":

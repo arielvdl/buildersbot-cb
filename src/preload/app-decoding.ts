@@ -153,6 +153,12 @@ import { type LicenseState, parseLicenseState } from "@openbot/contracts/license
 import { parseMobileWebAppUrl } from "@openbot/contracts/mobile-connect";
 import { isPluginSlug } from "@openbot/contracts/plugin-links";
 import { type DynamicRecord, isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
+import {
+  parseServerCreationAccess,
+  parseServerCreationAdminState,
+  type ServerCreationAccess,
+  type ServerCreationAdminState,
+} from "@openbot/contracts/server-creation";
 
 export function decodeAppInfo(value: unknown): AppInfo {
   const info = decodeRecord(value, "app info");
@@ -703,6 +709,18 @@ export function decodeHostedServerList(value: unknown): HostedServerList {
   const list = parseHostedServerList(value);
   if (!list) throw new Error("Invalid hosted server list response.");
   return list;
+}
+
+export function decodeServerCreationAccess(value: unknown): ServerCreationAccess {
+  const access = parseServerCreationAccess(value);
+  if (!access) throw new Error("Invalid server creation access response.");
+  return access;
+}
+
+export function decodeServerCreationAdminState(value: unknown): ServerCreationAdminState {
+  const state = parseServerCreationAdminState(value);
+  if (!state) throw new Error("Invalid server creation administrator response.");
+  return state;
 }
 
 /**

@@ -65,6 +65,7 @@
 @import "@openbot/ui/features/settings/onepassword-connector.css";
 @import "@openbot/ui/features/settings/slack-integration.css";
 @import "@openbot/ui/features/settings/hosted-servers.css";
+@import "@openbot/ui/features/settings/server-creation-admin.css";
 @import "@openbot/ui/features/settings/profile.css";
 @import "./features/computer-use/computer-use.css";
 @import "./features/servers/server-settings-modal.css";

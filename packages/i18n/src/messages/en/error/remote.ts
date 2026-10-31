@@ -201,4 +201,21 @@ export const messages = defineMessages("error.remote", {
     "You can have at most {limit} servers on this computer. Delete one to create another.",
   "error.remote.localServersReadOnly":
     "This version of Builders Bot cannot read the list of servers on this computer. Update Builders Bot.",
+  // The permission to create a remote server, from the account service.
+  "error.remote.serverCreationNotAllowed":
+    "Only people with permission can create a remote server. Ask the administrator for permission.",
+  "error.remote.serverCreationAdminRequired": "Only an administrator of Builders Bot can do this.",
+  "error.remote.serverCreationAdminSession":
+    "To manage server creation, sign in with Cultura Builder. This session cannot do it.",
+  "error.remote.serverCreationSelfGrant": "You cannot give the permission to yourself.",
+  "error.remote.serverCreationAlreadyAllowed": "You can already create a remote server.",
+  "error.remote.serverCreationRequestPending": "Your request for permission waits for the administrator.",
+  "error.remote.serverCreationRequestDecided": "This request has a decision already.",
+  "error.remote.serverCreationRequestNotFound": "The request for permission was not found.",
+  "error.remote.serverCreationAccountNotFound": "No account has this email.",
+  "error.remote.serverCreationGrantNotFound": "This person has no active permission to remove.",
+  "error.remote.serverCreationInvalidReason": "Write a reason of 1 to {max} characters.",
+  "error.remote.serverCreationInvalidGrant": "Enter the email of an account, and a note of at most {max} characters.",
+  "error.remote.serverCreationUnavailable": "Remote servers cannot be created now.",
+  "error.remote.serverCreationRateLimited": "Too many permission requests. Try again later.",
 });

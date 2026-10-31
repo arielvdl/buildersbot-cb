@@ -1,0 +1,30 @@
+/* The administrator section of server creation (`ServerCreationAdminSection`), in the account settings. */
+.server-creation-admin-error {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.server-creation-admin .ui-item-description {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+}
+
+.server-creation-admin-reason {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.server-creation-admin-grant {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--openbot-space-3);
+}
+
+@media (max-width: 700px) {
+  .server-creation-admin-grant {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

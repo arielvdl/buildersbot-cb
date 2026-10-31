@@ -8,6 +8,12 @@ import {
   parseHostedServerLifecycleInput,
 } from "@openbot/contracts/hosted-servers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
+import {
+  isServerCreationUserId,
+  parseServerCreationAccessRequest,
+  parseServerCreationDecisionInput,
+  parseServerCreationGrantInput,
+} from "@openbot/contracts/server-creation";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { HostedServerDesktopService } from "../hosted-server-service";
 import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
@@ -54,8 +60,31 @@ export function hostedServerIpcHandlers({
         (value) => requireString(value, "serverId", INPUT_LIMITS.identifier),
         (serverId) => runCauseEffect(hostedServers.restart(serverId)),
       ),
+      creationAccess: handler(() => runCauseEffect(hostedServers.creationAccess())),
+      requestCreationAccess: payloadHandler(
+        (value) => required(parseServerCreationAccessRequest(value), "Invalid server creation request."),
+        (input) => runCauseEffect(hostedServers.requestCreationAccess(input)),
+      ),
+      creationAdmin: handler(() => runCauseEffect(hostedServers.creationAdmin())),
+      grantCreation: payloadHandler(
+        (value) => required(parseServerCreationGrantInput(value), "Invalid server creation grant."),
+        (input) => runCauseEffect(hostedServers.grantCreation(input)),
+      ),
+      revokeCreation: payloadHandler(
+        (value) => required(isServerCreationUserId(value) ? value : null, "Invalid account."),
+        (userId) => runCauseEffect(hostedServers.revokeCreation(userId)),
+      ),
+      decideCreationRequest: payloadHandler(
+        (value) => required(parseServerCreationDecisionInput(value), "Invalid server creation decision."),
+        (input) => runCauseEffect(hostedServers.decideCreationRequest(input)),
+      ),
     },
   };
+}
+
+function required<T>(value: T | null, message: string): T {
+  if (value === null) throw new Error(message);
+  return value;
 }
 
 function parseCreate(value: unknown): CreateHostedServerInput {

@@ -80,5 +80,14 @@ export function createWebHostedServers(options: WebHostedServersOptions) {
       else options.onJoin();
       void refresh();
     },
+    /**
+     * Opens the add server dialog with no check of the last answer. The join dialog uses it when the
+     * account server says that this person can create a server, which can be newer than the last list.
+     * The account server checks the permission again when the plans load.
+     */
+    openPlans(entryPoint: HostedServerEntryPoint): void {
+      setAddServer({ resume: null, entryPoint, order: null });
+      void refresh();
+    },
   };
 }

@@ -11,6 +11,7 @@ import {
   type HostedServerSummary,
 } from "@openbot/contracts/hosted-servers";
 import type { HostedServersDesktopApi } from "@openbot/contracts/ipc";
+import type { ServerCreationAccess, ServerCreationAdminState } from "@openbot/contracts/server-creation";
 
 import { sourceText } from "@openbot/i18n/source";
 
@@ -191,5 +192,55 @@ export function createMockHostedServers(billingPlans?: BillingServerPlan[]): Hos
     },
     wake: async (serverId) => update(serverId, { state: "waking" }),
     restart: async (serverId) => update(serverId, { state: "stopping" }),
+    // The preview account is an administrator, so the preview shows the administrator section.
+    creationAccess: async () => structuredClone(access),
+    requestCreationAccess: async () => structuredClone(access),
+    creationAdmin: async () => structuredClone(admin),
+    grantCreation: async ({ email, note }) => {
+      admin.grants = [
+        { userId: crypto.randomUUID(), email, name: null, grantedAt: Date.now(), note: note ?? null },
+        ...admin.grants.filter((grant) => grant.email !== email),
+      ];
+      return structuredClone(admin);
+    },
+    revokeCreation: async (userId) => {
+      admin.grants = admin.grants.filter((grant) => grant.userId !== userId);
+      return structuredClone(admin);
+    },
+    decideCreationRequest: async ({ requestId, decision }) => {
+      const request = admin.requests.find((entry) => entry.id === requestId);
+      admin.requests = admin.requests.filter((entry) => entry.id !== requestId);
+      if (request && decision === "approve") {
+        const { userId, email, name } = request;
+        admin.grants = [{ userId, email, name, grantedAt: Date.now(), note: null }, ...admin.grants];
+      }
+      return structuredClone(admin);
+    },
   };
 }
+
+const access: ServerCreationAccess = { canCreate: true, administrator: true, creationAvailable: true, request: null };
+
+const admin: ServerCreationAdminState = {
+  requests: [
+    {
+      id: "5d6e7f80-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
+      userId: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      email: "marina@example.com",
+      name: "Marina Costa",
+      reason: "The sales team needs a server that runs at night.",
+      status: "pending",
+      createdAt: Date.parse(CREATED_AT),
+      decidedAt: null,
+    },
+  ],
+  grants: [
+    {
+      userId: "f0e1d2c3-b4a5-4968-8776-655443322110",
+      email: "joao@example.com",
+      name: "João Lima",
+      grantedAt: Date.parse(CREATED_AT),
+      note: "Operations",
+    },
+  ],
+};

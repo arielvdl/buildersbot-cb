@@ -12,6 +12,7 @@ import {
   requestHostedServerService,
   requestHostedSiteService,
   requestRemoteControlPlane,
+  requestServerCreationPermission,
   requestTeamInviteEmailDelivery,
   requestWebPush,
 } from "../../../server/request-auth";
@@ -33,6 +34,7 @@ function handle({ request }: { request: Request }) {
       const bridgeUrl = requestDeviceBridgeUrl();
       return bridgeUrl ? createDeviceSignInBridge(bridgeUrl) : null;
     },
+    serverCreation: requestServerCreationPermission,
     sourceIp: requestSourceIp,
     errorResponse: hostedServerErrorResponse,
   });
