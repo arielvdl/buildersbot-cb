@@ -129,13 +129,6 @@ export function PrivacyPolicy() {
         The central account service does not send account, subscription, payment, or email events to an analytics
         service.
       </p>
-      <p>
-        Earlier versions of the Builders Bot desktop application were built from the source code of the OpenBot project.
-        They sent product usage events, error reports, and the Builders Bot account ID and email address of a signed-in
-        user to an analytics service that the OpenBot project operates. Builders Bot did not host or control that
-        service. Current versions do not send this data.
-      </p>
-
       <h3>Information You Provide</h3>
       <p>Builders Bot may collect and process personal data provided directly by users, including:</p>
       <ul>
@@ -510,7 +503,7 @@ export function PrivacyPolicy() {
       <h2>Product Analytics</h2>
       <p>
         Builders Bot does not use a product analytics service. Its applications do not send product usage events or
-        error reports. The section "Information we collect automatically" describes the earlier versions that did.
+        error reports.
       </p>
       <p>
         Certain information remains identifiable where necessary for account authentication, security, and payment or
