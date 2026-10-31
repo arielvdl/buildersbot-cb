@@ -2,7 +2,7 @@ import { Link } from "@tanstack/solid-router";
 import { ArticleImage } from "../../components/content/ArticleMedia";
 import pricing from "./media/openbot-hosted-servers/pricing.png";
 
-export function BuildersBotHostedServers() {
+export function OpenBotHostedServers() {
   return (
     <>
       <p>

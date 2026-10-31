@@ -26,7 +26,6 @@ function handle({ request }: { request: Request }) {
     billing: requestBillingService,
     avatarBucket: requestAvatarBucket,
     hostedSites: requestHostedSiteService,
-    signalUrl: requestRemoteSignalUrl,
     webPush: requestWebPush,
     sourceIp: requestSourceIp,
     errorResponse: hostedServerErrorResponse,

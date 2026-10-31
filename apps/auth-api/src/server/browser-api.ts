@@ -74,7 +74,6 @@ export interface BrowserApiServices {
   billing: () => Pick<BillingService, "getState" | "createPortal" | "license"> | null;
   avatarBucket: () => R2Bucket;
   hostedSites: () => Pick<HostedSiteService, "list" | "delete">;
-  signalUrl: () => string;
   /** Web Push for the installed web app, or null when this deployment has no VAPID key. */
   webPush: () => { sender: WebPushSender; store: WebPushStore } | null;
   sourceIp: (request: Request) => string;
