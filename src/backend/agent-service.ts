@@ -5262,11 +5262,16 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   /**
    * What the task reviewer reads about one agent: when its provider last sent an event (a delta, a tool
-   * item, a usage update) since Builders Bot started, and whether it waits for the person: a question,
-   * an approval or a browser takeover.
+   * item, a usage update) since Builders Bot started, whether it waits for the person (a question, an
+   * approval or a browser takeover), and whether a running turn has a work step that started and did
+   * not end, such as a long command with no output.
    */
-  taskWatchSignals(agentId: string): { lastEventAt: number | null; waitsOnPerson: boolean } {
-    return { lastEventAt: this.#turn.lastEventAt(agentId), waitsOnPerson: this.#attention.hasAttentionFor(agentId) };
+  taskWatchSignals(agentId: string): { lastEventAt: number | null; waitsOnPerson: boolean; stepOpen: boolean } {
+    return {
+      lastEventAt: this.#turn.lastEventAt(agentId),
+      waitsOnPerson: this.#attention.hasAttentionFor(agentId),
+      stepOpen: this.#turn.hasOpenWorkStep(agentId),
+    };
   }
 
   /**
