@@ -118,7 +118,7 @@ show_builder_log() { # <tag>
   local stream=''
   for _ in 1 2 3 4 5 6; do
     stream=$(aws_cb logs describe-log-streams --log-group-name /bb-srv/builder --log-stream-name-prefix "build-$1-" \
-      --order-by LogStreamName --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text 2>/dev/null || true)
+      --order-by LogStreamName --descending --limit 1 --query 'logStreams[0].logStreamName' --output text 2>/dev/null | head -n 1 || true)
     { [ -n "$stream" ] && [ "$stream" != None ]; } && break
     stream=''
     sleep 5
@@ -480,7 +480,11 @@ on_host() {
     sleep 1
   done
   echo "$status"
-  if ! grep -Fxq "Builders Bot $version" <<<"$status" || ! grep -Fxq "Account: signed out. Sign in with: openbot login" <<<"$status"; then
+  # Sem rede o container não alcança o serviço de contas: a linha "Account:" vem como "signed out" (release
+  # com rede) ou como "the account server does not answer." (este teste). As duas provam que o app subiu
+  # e respondeu pelo socket; qualquer outra linha de conta reprova.
+  if ! grep -Fxq "Builders Bot $version" <<<"$status" ||
+    ! grep -Eq '^Account: (signed out\. Sign in with: openbot login|the account server does not answer\.( .*)?)$' <<<"$status"; then
     docker logs bb-srv-smoke 2>&1 | tail -n 40
     fail "teste de fumaça"
   fi
