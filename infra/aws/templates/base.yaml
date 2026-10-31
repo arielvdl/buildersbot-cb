@@ -454,7 +454,8 @@ Resources:
             Resource: '*'
 
   # Ceiling of every bb-srv-<sector>-host role. A sector role narrows it to its own log groups and
-  # its own parameters (/bb-srv/sectors/<sector>/*).
+  # its own parameters (/bb-srv/sectors/<sector>/*), plus the credential of the egress proxy
+  # (/bb-srv/proxy/*, README section 16), which no other role of the project reads.
   HostBoundary:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -489,16 +490,21 @@ Resources:
               - cloudwatch:PutMetricData
               - kms:Decrypt
             Resource: '*'
-          - Sid: DenyParametersOutsideSectors
+          - Sid: DenyParametersOutsideSectorsAndProxy
             Effect: Deny
             Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory]
-            NotResource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
-          - Sid: DenyDecryptOutsideSectorParameters
+            NotResource:
+              - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
+              - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
+          - Sid: DenyDecryptOutsideSectorAndProxyParameters
             Effect: Deny
             Action: kms:Decrypt
             Resource: '*'
             Condition:
-              StringNotLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'}
+              StringNotLike:
+                'kms:EncryptionContext:PARAMETER_ARN':
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
           - Sid: DenySecrets
             Effect: Deny
             Action: 'secretsmanager:*'
@@ -760,6 +766,17 @@ Resources:
                 Effect: Allow
                 Action: ssm:GetParameter
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/images/*'
+              # The credential of the egress proxy is for the sector hosts alone (README section 16), and
+              # a sector leaves the proxy only through the stack parameter EgressProxy, which an
+              # administrator session sets: the operator neither reads the one nor writes the other.
+              - Sid: DenyProxyCredential
+                Effect: Deny
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory, ssm:PutParameter, ssm:DeleteParameter]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
+              - Sid: DenyEgressOptOut
+                Effect: Deny
+                Action: [ssm:PutParameter, ssm:DeleteParameter]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*/egress'
               # Only the reads that the scripts use. Not ec2:Describe*: DescribeInstanceAttribute and
               # DescribeLaunchTemplateVersions read the user data of every instance of the account.
               # ssm:GetCommandInvocation has no resource-level permission (ssm_run needs it); the List

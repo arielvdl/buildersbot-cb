@@ -93,12 +93,13 @@ Conditions:
 Resources:
   # ---------------------------------------------------------------- identity of the host
   # The agents in the container cannot read these credentials: IMDSv2 with hop limit 1 and the
-  # host firewall (DESIGN 4.6). Even root on the host reads only /bb-srv/sectors/<sector>/*.
+  # host firewall (DESIGN 4.6). Even root on the host reads only /bb-srv/sectors/<sector>/* and the
+  # credential of the egress proxy, /bb-srv/proxy/* (README section 16), and decrypts nothing else.
   HostRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub bb-srv-${Sector}-host
-      Description: !Sub Builders Bot sector ${Sector} host (SSM, its logs and metrics, its parameters, image pull).
+      Description: !Sub Builders Bot sector ${Sector} host (SSM, its logs and metrics, its parameters, the egress proxy credential, image pull).
       PermissionsBoundary: !ImportValue bb-srv-base-HostBoundaryArn
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -140,24 +141,34 @@ Resources:
               - Sid: OwnParameters
                 Effect: Allow
                 Action: [ssm:GetParameter, ssm:GetParameters]
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
               - Sid: DecryptOwnParameters
                 Effect: Allow
                 Action: kms:Decrypt
                 Resource: '*'
                 Condition:
                   StringEquals: {'kms:ViaService': !Sub 'ssm.${AWS::Region}.amazonaws.com'}
-                  StringLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'}
+                  StringLike:
+                    'kms:EncryptionContext:PARAMETER_ARN':
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
               - Sid: DenyOtherParameters
                 Effect: Deny
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory]
-                NotResource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                NotResource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
               - Sid: DenyDecryptElsewhere
                 Effect: Deny
                 Action: kms:Decrypt
                 Resource: '*'
                 Condition:
-                  StringNotLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'}
+                  StringNotLike:
+                    'kms:EncryptionContext:PARAMETER_ARN':
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
               - Sid: DenySecrets
                 Effect: Deny
                 Action: 'secretsmanager:*'
