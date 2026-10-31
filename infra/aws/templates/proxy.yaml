@@ -39,14 +39,20 @@ Resources:
               [ -x /usr/sbin/dnsmasq ] || fail "dnsmasq-base is not installed (bootstrap of sector-compute.yaml): replace the VM (README, section 11)"
               S=$(cat /etc/bb-srv/sector)
               P=/usr/local/sbin/bb-srv-proxy
-              # ss <options> <address:port>: up to 30 s for the socket.
-              listens() { for _ in $(seq 1 30); do ss "$1" | awk -v a="$2" '$4 == a { f = 1 } END { exit !f }' && return 0; sleep 1; done; return 1; }
+              # ss <options> <address> <port>: up to 30 s for the socket (ss may print address%device:port).
+              listens() {
+                for _ in $(seq 1 30); do
+                  ss "$1" | awk -v a="$2" -v p="$3" '{ n = split($4, f, ":"); h = substr($4, 1, length($4) - length(f[n]) - 1); sub(/%.*/, "", h) }
+                    h == a && f[n] == p { ok = 1 } END { exit !ok }' && return 0
+                  sleep 1
+                done
+                return 1
+              }
               cat >"$P" <<'BBSRVPROXY'
               #!/bin/bash
               # Egress proxy of the sector (README section 16). Written by bb-srv-ProxySetup; runs as root.
-              #   config     read /bb-srv/proxy/egress (SecureString host:port:user:password) with the role of the VM
-              #              into /etc/bb-proxy/upstream.conf (root 0600, folder 0700), the tinyproxy configuration that
-              #              bb-proxy.service gets by LoadCredential. A failed read or check keeps the previous file.
+              #   config     /bb-srv/proxy/egress (host:port:user:password, role of the VM) -> /etc/bb-proxy/upstream.conf
+              #              (root 0600, the tinyproxy configuration, by LoadCredential); a failed read keeps the old file
               #   sync-mode  /bb-srv/sectors/<sector>/egress -> /etc/bb-srv/egress, only while this VM has none
               #   mode       proxy or direct
               #   guard      the egress firewall of the container and of the forwarder (fail closed), proxy.env
@@ -179,7 +185,7 @@ Resources:
                 echo "BB_PROXY config ok"
               }
 
-              # The egress of this sector from its stack (adopt_mode). Without an answer nothing is written (proxy).
+              # The egress from the stack (adopt_mode); without an answer, nothing is written (proxy).
               sync_mode() {
                 local sector value
                 sector=$(cat "$ETC/sector")
@@ -296,7 +302,7 @@ Resources:
                 placed "$m" "$uid" || ok=0
                 ! marked_hold || ok=0
                 if [ "$current" != "$desired" ] || [ "$ok" = 0 ]; then
-                  # Nothing is forwarded from the containers, and the forwarder sends nothing, while the rules change.
+                  # Nothing leaves the containers or the forwarder while the rules change.
                   iptables -I DOCKER-USER 1 -i "$BRIDGE" -m comment --comment "$HOLD" -j DROP
                   if [[ $uid =~ ^[0-9]+$ ]]; then iptables -I OUTPUT 1 -m owner --uid-owner "$uid" -m comment --comment "$HOLD" -j REJECT; fi
                   for chain in "$IN_CHAIN" "$OUT_CHAIN" "$FWD_CHAIN"; do iptables -F "$chain"; done
@@ -390,10 +396,8 @@ Resources:
                   'LimitNOFILE=65536' 'TasksMax=1024' '[Install]' 'WantedBy=multi-user.target'
               }
 
-              # The DNS of the container: dnsmasq on the gateway of the bridge (the "dns" of daemon.json). With the
-              # proxy, only signal./turn. of the zone go to the resolver of the host; every other name gets NXDOMAIN
-              # here, so no query reaches a resolver outside (no DNS tunnel, no leaked name). The proxy resolves the
-              # names of the sites. Direct egress: every name goes on.
+              # The DNS of the container (dnsmasq on 172.30.0.1, the "dns" of daemon.json). With the proxy only signal./turn.
+              # go on; every other name gets NXDOMAIN here (no DNS tunnel, no leaked name). Direct egress: every name goes on.
               dns_unit() {
                 local m=${1:-} zone=${2:-} servers
                 case $m in proxy | direct) ;; *) fail "usage: bb-srv-proxy dns-unit <proxy|direct> <zone>" ;; esac
@@ -680,7 +684,7 @@ Resources:
               esac
               BBSRVPROXY
               chmod 0755 "$P"
-              # The guard runs before Docker at every boot, and Docker requires it. The refresh follows signal./turn.
+              # The guard runs before Docker, which requires it. The refresh follows signal./turn.
               cat >/etc/systemd/system/bb-srv-egress-guard.service <<'UNIT'
               [Unit]
               Description=Builders Bot - egress firewall of the container (proxy required, fail closed)
@@ -722,7 +726,7 @@ Resources:
               [Install]
               WantedBy=multi-user.target
               UNIT
-              # The forwarder (forwarder_unit in the tool). Its static user: DynamicUser= takes it with the same sandbox.
+              # The forwarder (forwarder_unit) and its static user.
               getent passwd bb-proxy >/dev/null ||
                 useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin bb-proxy
               "$P" forwarder-unit >/etc/systemd/system/bb-proxy.service
@@ -735,7 +739,7 @@ Resources:
               "$P" guard
               systemctl enable --quiet bb-srv-egress-guard.service
               systemctl start bb-srv-egress-guard.service
-              # The DNS of the container (dns_unit). The stub of systemd-resolved once bootstrapped there gives the port back.
+              # The DNS of the container (dns_unit); an old resolved stub on 172.30.0.1 gives the port back.
               if [ -e /etc/systemd/resolved.conf.d/bb-srv-containers.conf ]; then
                 rm -f /etc/systemd/resolved.conf.d/bb-srv-containers.conf
                 systemctl restart systemd-resolved
@@ -744,14 +748,14 @@ Resources:
               systemctl daemon-reload
               systemctl enable --quiet bb-srv-container-dns.service
               systemctl restart bb-srv-container-dns.service
-              listens -Hlnu 172.30.0.1:53 || fail "the DNS of the container (bb-srv-container-dns.service) does not listen on 172.30.0.1:53: journalctl -u bb-srv-container-dns"
+              listens -Hlnu 172.30.0.1 53 || fail "the DNS of the container (bb-srv-container-dns.service) does not listen on 172.30.0.1:53: journalctl -u bb-srv-container-dns"
               if [ "$("$P" mode)" = proxy ]; then
                 "$P" config || fail "the egress proxy is required, and /bb-srv/proxy/egress could not be read or is not host:port:user:password (message above; no secret is printed)"
                 "$P" guard
                 systemctl enable --quiet bb-proxy-config.service bb-proxy.service bb-proxy-health.timer bb-srv-egress-refresh.timer
                 systemctl restart bb-proxy.service
                 systemctl start bb-proxy-health.timer bb-srv-egress-refresh.timer
-                listens -Hltn 172.30.0.1:3128 || fail "the forwarder (bb-proxy.service) does not listen on 172.30.0.1:3128: journalctl -u bb-proxy"
+                listens -Hltn 172.30.0.1 3128 || fail "the forwarder (bb-proxy.service) does not listen on 172.30.0.1:3128: journalctl -u bb-proxy"
               else
                 systemctl disable --now --quiet bb-proxy.service bb-proxy-config.service bb-proxy-health.timer bb-srv-egress-refresh.timer 2>/dev/null || true
                 echo "BB_PROXY direct egress for $S (EgressProxy=direct, decision of the owner)"
@@ -818,7 +822,7 @@ Resources:
               sleep 3
               systemctl is-active --quiet bb-proxy.service || fail "the forwarder did not start: journalctl -u bb-proxy (root on the host)"
               "$P" health
-              # The line just written (grep: not a BB_HEALTH line of the same moment). A wrong password ends here.
+              # The line just written (not a BB_HEALTH line). A wrong password ends here.
               line=$(grep BB_PROXY_HEALTH /var/log/bb-srv/health.log | tail -n 1 || true)
               echo "$line"
               [[ $line == *"BB_PROXY_HEALTH ok BR" ]] || fail "the health line after the reload is not ok BR (README section 16, the table of lines)"
