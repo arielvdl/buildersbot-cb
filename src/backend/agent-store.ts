@@ -113,6 +113,9 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   pendingRuntime?: AgentPendingRuntime;
   // Present only while a user hides the agent. Absent on every agent stored before hiding existed.
   hiddenAt?: string;
+  // The first message of the agent's own chat, kept for the row's hover preview. Absent until the
+  // first message, and on every agent stored before the preview existed.
+  firstMessage?: string;
 };
 type StoredAgentBase = Omit<PersistedStoredAgent, "avatarSeed" | "avatarHue"> & DynamicRecord;
 
@@ -1518,6 +1521,26 @@ export class AgentStore {
     }
   }, Effect.uninterruptible).bind(this);
 
+  /**
+   * Keeps the first message of the agent's own chat, once. A later message, or a routine that moves
+   * the preview, leaves it. It feeds the row's hover preview, which says what the chat started with.
+   */
+  noteFirstMessage = Effect.fn("AgentStore.noteFirstMessage")(function* (
+    this: AgentStore,
+    id: string,
+    text: string,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      const agent = this.#requireAgent(id);
+      const first = text.trim().slice(0, AGENT_PREVIEW_MAX_LENGTH);
+      if (agent.firstMessage || !first) return;
+      agent.firstMessage = first;
+      this.#persist("agent.first-message-set");
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
   #readStateEffect = Effect.fn("AgentStore.readState")(function* (
     this: AgentStore,
   ): Effect.fn.Return<StoredState, StoredStateFailure> {
@@ -1681,14 +1704,14 @@ function duplicateAgentName(sourceName: string, agents: readonly StoredAgent[]):
 /**
  * The part of an agent a copy is actually built from, which is what "the agent changed" has to mean.
  *
- * `preview`, `updatedAt` and `threadId` move on their own the moment a message lands, and a
- * duplicate takes none of the three — it gets a fresh thread and its own empty preview. Signing them
- * aborted duplications that were never incoherent, and copying a large workspace takes long enough
- * for an incoming message to land inside the window. Everything else is signed by omission, so a new
- * `AgentSummary` field is guarded until someone decides otherwise here.
+ * `preview`, `updatedAt`, `threadId` and `firstMessage` move on their own the moment a message
+ * lands, and a duplicate takes none of them — it gets a fresh thread and its own empty preview and
+ * first message. Signing them aborted duplications that were never incoherent, and copying a large
+ * workspace takes long enough for an incoming message to land inside the window. Everything else is
+ * signed by omission, so a new `AgentSummary` field is guarded until someone decides otherwise here.
  */
 export function duplicationProfileSignature(agent: AgentSummary): string {
-  const { preview, updatedAt, threadId, ...copied } = agent;
+  const { preview, updatedAt, threadId, firstMessage, ...copied } = agent;
   return JSON.stringify(copied);
 }
 
@@ -2009,6 +2032,7 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
       : reset("reasoningEffort", DEFAULT_REASONING_EFFORT),
     threadId: value.threadId,
     workspacePath: value.workspacePath,
+    ...(isString(value.firstMessage) && value.firstMessage ? { firstMessage: value.firstMessage } : {}),
     preview: isString(value.preview) ? value.preview : reset("preview", NEW_AGENT_PREVIEW),
     updatedAt: isString(value.updatedAt) || value.updatedAt === null ? value.updatedAt : reset("updatedAt", null),
     avatarSeed: isAvatarSeed(value.avatarSeed) ? value.avatarSeed : reset("avatarSeed", id),

@@ -788,7 +788,7 @@ body:has(.channel-member-dialog) .ui-select-content {
   min-width: 32px;
   flex: 0 0 auto;
   justify-content: center;
-  margin-right: var(--openbot-space-2);
+  margin-right: var(--openbot-space-4);
   padding: 0 var(--openbot-space-1);
 }
 

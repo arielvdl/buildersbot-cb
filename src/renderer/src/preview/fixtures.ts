@@ -61,6 +61,7 @@ export const STORY_AGENT_SUMMARIES: ClientAgentSummary[] = [
     access: "full",
     threadId: "thread-chief",
     workspacePath: "/mock/Builders Bot/Agents/chief",
+    firstMessage: "Plan the Q4 launch and tell me what blocks it.",
     preview: "I pulled together the latest project notes and next steps.",
     updatedAt: STORY_NOW,
     avatarSeed: "chief",
@@ -79,6 +80,7 @@ export const STORY_AGENT_SUMMARIES: ClientAgentSummary[] = [
     access: "full",
     threadId: "thread-research",
     workspacePath: "/mock/Builders Bot/Agents/research",
+    firstMessage: "Find sources on the mattress market and summarize them.",
     preview: "Three useful sources are ready for your review.",
     updatedAt: "2026-08-18T16:32:00.000Z",
     avatarSeed: "research",
@@ -97,6 +99,7 @@ export const STORY_AGENT_SUMMARIES: ClientAgentSummary[] = [
     access: "workspace",
     threadId: "thread-sales",
     workspacePath: "/mock/Builders Bot/Agents/sales",
+    firstMessage: "Draft a follow-up for the leads from last week.",
     preview: "The follow-up draft is ready to send.",
     updatedAt: "2026-08-17T09:20:00.000Z",
     avatarSeed: "sales-outbound",
@@ -123,6 +126,7 @@ export const STORY_AGENTS: AgentProfile[] = STORY_AGENT_SUMMARIES.map((agent, in
   avatarUrl: agent.avatarUrl,
   time: index === 0 ? "10:00" : index === 1 ? "Yesterday" : "Mon",
   preview: agent.preview,
+  firstMessage: agent.firstMessage ?? "",
 }));
 
 /** Returns a fixture item that a story reads by index. A missing item means a fixture edit broke the story. */

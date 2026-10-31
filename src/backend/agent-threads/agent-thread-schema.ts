@@ -22,6 +22,8 @@ export const AGENT_THREAD_SCHEMA_SQL = `
     origin TEXT NOT NULL CHECK(origin IN ('user', 'agent')),
     title TEXT NOT NULL,
     title_source TEXT NOT NULL CHECK(title_source IN ('auto', 'agent', 'user')),
+    first_message TEXT NOT NULL DEFAULT '',
+    preview TEXT NOT NULL DEFAULT '',
     outcome TEXT CHECK(outcome IS NULL OR outcome IN ('completed', 'failed', 'interrupted')),
     error TEXT,
     created_at TEXT NOT NULL,

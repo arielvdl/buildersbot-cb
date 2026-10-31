@@ -883,6 +883,24 @@ const MIGRATIONS: readonly BuildersBotMigration[] = [
     vacuumAfterCommit: true,
     up: (db) => db.exec(CHANNEL_TOPICS_MIGRATION_SQL),
   },
+  {
+    version: 49,
+    // Adds the two preview columns of a side thread. Only columns are added, so no foreign-key pause
+    // and no vacuum. Migration 47 creates the table from the latest schema, so a database that just
+    // went through it already has them: each column is added only when it is missing.
+    up: (db) => {
+      const columns = new Set(
+        db
+          .prepare("PRAGMA table_info(projection_agent_threads)")
+          .all()
+          .map((row) => String(row.name)),
+      );
+      if (!columns.has("first_message"))
+        db.exec("ALTER TABLE projection_agent_threads ADD COLUMN first_message TEXT NOT NULL DEFAULT ''");
+      if (!columns.has("preview"))
+        db.exec("ALTER TABLE projection_agent_threads ADD COLUMN preview TEXT NOT NULL DEFAULT ''");
+    },
+  },
 ];
 
 const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? BASELINE_SCHEMA_VERSION;

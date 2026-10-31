@@ -103,6 +103,13 @@
   display: none;
 }
 
+/* The hover preview anchors to a wrapper, which takes the tab's place in the list. */
+.agent-threads-tabs > .sidebar-agent-tooltip-trigger {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
 .agent-threads-tab.ui-sliding-tabs-trigger {
   display: inline-flex;
   max-width: 200px;

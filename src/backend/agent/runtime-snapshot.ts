@@ -171,6 +171,7 @@ export function buildRuntimeSnapshot({
     name: agent.name,
     notifications: agent.notifications,
     preview: agent.preview.slice(0, AGENT_RUNTIME_TEXT_LIMIT),
+    ...(agent.firstMessage ? { firstMessage: agent.firstMessage.slice(0, AGENT_RUNTIME_TEXT_LIMIT) } : {}),
     updatedAt: agent.updatedAt,
     avatarSeed: agent.avatarSeed,
     avatarHue: agent.avatarHue,

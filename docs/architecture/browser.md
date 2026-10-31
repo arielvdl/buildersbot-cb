@@ -364,9 +364,6 @@ environment is an allowlist (`brokerEnvironment`): the names in `BASE_PASSTHROUG
 `envPassthrough`, copied from the app environment, then the row's own `env`. No provider key gets to
 the child unless the row names it.
 
-### Rules that are easy to break
-
-- The Playwright server answers only the `Host` that it prints, `localhost:PORT`. `localhost` can
 Two more rules keep the memory low:
 
 - The broker reads the memory level of the computer (`memoryLevel`, from `MacMemory`; see
@@ -382,6 +379,9 @@ Two more rules keep the memory low:
   through ACP `mcpServers`. This was checked by hand with the real OpenCode `debug config`;
   `opencode-config.test.ts` checks only the JSON that Builders Bot sends.
 
+### Rules that are easy to break
+
+- The Playwright server answers only the `Host` that it prints, `localhost:PORT`. `localhost` can
   resolve to `::1`, so the broker connects to `127.0.0.1` and sends that `Host`
   (`UpstreamProcess.hostHeader`). A test with a fake upstream that accepted all hosts hid this one
   time. The fake in `playwright-broker.test.ts` now answers only its own host.

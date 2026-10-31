@@ -11,6 +11,11 @@ import type { SidebarAgentState, SidebarChannelWait, SidebarRoutinePhase, Sideba
 
 /** Long enough that moving the pointer down the list does not flash every waiting row's tooltip. */
 const SIDEBAR_WAIT_TOOLTIP_OPEN_DELAY = 350;
+/**
+ * The chat preview opens a little later than a wait tooltip: the pointer crosses many rows on its way
+ * to one, and each preview would otherwise cover the row under it.
+ */
+const SIDEBAR_CHAT_PREVIEW_OPEN_DELAY = 450;
 
 export function SidebarAgentIndicator(props: { state: () => SidebarAgentState | undefined }) {
   const { t } = useText();
@@ -144,6 +149,59 @@ export function SidebarWaitTooltip(props: { wait: SidebarChannelWait; menuOpen: 
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
+  );
+}
+
+/**
+ * The hover preview of a chat: its title when the caller has one, what the chat started with, then
+ * its last message, the two texts cut short with an ellipsis. It opens without a click, after a
+ * short pause, and says what the row or tab is about before the user opens it. It stays closed while
+ * the chat's context menu is open.
+ */
+export function SidebarChatPreviewTooltip(props: {
+  title?: string;
+  firstMessage: string;
+  preview: string;
+  menuOpen: boolean;
+  /** Where the card opens: beside a row, below a tab. */
+  placement?: "right" | "bottom-start";
+  children: JSX.Element;
+}) {
+  const { t } = useText();
+  const [open, setOpen] = createSignal(false);
+  const title = () => props.title?.trim() ?? "";
+  const first = () => props.firstMessage.trim();
+  const last = () => props.preview.trim();
+  return (
+    <Show when={last()} fallback={props.children}>
+      <Tooltip.Root
+        open={open() && !props.menuOpen}
+        onOpenChange={setOpen}
+        placement={props.placement ?? "right"}
+        gutter={10}
+        openDelay={SIDEBAR_CHAT_PREVIEW_OPEN_DELAY}
+        closeDelay={0}
+        skipDelayDuration={300}
+      >
+        <Tooltip.Trigger as="div" class="sidebar-agent-tooltip-trigger">
+          {props.children}
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content class="sidebar-chat-preview-tooltip">
+            <Show when={title()}>{(name) => <span class="sidebar-chat-preview-title">{name()}</span>}</Show>
+            <Show when={first()}>
+              {(start) => (
+                <span class="sidebar-chat-preview-first">
+                  <span class="sidebar-chat-preview-label">{t("sidebar.preview.startedWith")}</span>
+                  <span class="sidebar-chat-preview-text">{start()}</span>
+                </span>
+              )}
+            </Show>
+            <span class="sidebar-chat-preview-last">{last()}</span>
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Show>
   );
 }
 

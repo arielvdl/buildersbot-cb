@@ -98,6 +98,7 @@ export const messages = {
   "sidebar.hidden.count": { one: "({count})", other: "({count})" },
   "sidebar.hidden.label": { one: "Verborgen, {count} agent", other: "Verborgen, {count} agents" },
   "sidebar.hidden.since": "Gepauzeerd sinds {date}",
+  "sidebar.preview.startedWith": "Begon met",
   "sidebar.state.routineFailed": { one: "Routine mislukt", other: "{count} routines mislukt" },
   "sidebar.state.routineWaiting": { one: "Routine wacht", other: "{count} routines wachten" },
   "sidebar.state.routineRunning": { one: "Routine actief", other: "{count} routines actief" },

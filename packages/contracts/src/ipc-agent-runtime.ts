@@ -23,6 +23,8 @@ export interface AgentRuntimeRosterEntry {
   name: string;
   notifications: boolean;
   preview: string;
+  /** The first message of the agent's own chat, for the row's hover preview. Absent when there is none. */
+  firstMessage?: string;
   updatedAt: string | null;
   avatarSeed: string;
   avatarHue: AvatarHue | null;
@@ -36,6 +38,7 @@ function isAgentRuntimeRosterEntry(value: unknown): value is AgentRuntimeRosterE
     isBoundedString(value.name, INPUT_LIMITS.agentName) &&
     isBoolean(value.notifications) &&
     isBoundedString(value.preview, AGENT_RUNTIME_TEXT_LIMIT) &&
+    (value.firstMessage === undefined || isBoundedString(value.firstMessage, AGENT_RUNTIME_TEXT_LIMIT)) &&
     (value.updatedAt === null || isBoundedString(value.updatedAt, 160)) &&
     isAvatarSeed(value.avatarSeed) &&
     (value.avatarHue === null || isAvatarHue(value.avatarHue)) &&

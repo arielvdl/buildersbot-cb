@@ -239,6 +239,7 @@ export const messages = defineMessages("sidebar", {
   "sidebar.hidden.count": { one: "({count})", other: "({count})" },
   "sidebar.hidden.label": { one: "Hidden, {count} agent", other: "Hidden, {count} agents" },
   "sidebar.hidden.since": "Paused since {date}",
+  "sidebar.preview.startedWith": "Started with",
   "sidebar.state.routineFailed": { one: "Routine failed", other: "{count} routines failed" },
   "sidebar.state.routineWaiting": { one: "Routine waiting", other: "{count} routines waiting" },
   "sidebar.state.routineRunning": { one: "Routine running", other: "{count} routines running" },

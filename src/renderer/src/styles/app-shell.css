@@ -2534,6 +2534,62 @@ textarea {
   font-size: var(--openbot-text-sm);
 }
 
+/* The hover preview of a chat row: how the chat started, then its last message. */
+.sidebar-chat-preview-tooltip {
+  z-index: var(--openbot-layer-tooltip);
+  display: grid;
+  max-width: min(320px, calc(100vw - 16px));
+  gap: var(--openbot-space-2);
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-surface-raised);
+  box-shadow: var(--openbot-shadow-raised);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+  pointer-events: none;
+}
+
+.sidebar-chat-preview-first {
+  display: grid;
+  gap: 1px;
+}
+
+.sidebar-chat-preview-label {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.sidebar-chat-preview-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-weight: var(--openbot-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.sidebar-chat-preview-text,
+.sidebar-chat-preview-last {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+/* The first message says what the chat is about, so it stays quiet and short. */
+.sidebar-chat-preview-text {
+  -webkit-line-clamp: 2;
+  color: var(--openbot-text-muted);
+}
+
+/* The last message is the one the row is about, so it gets the third line. */
+.sidebar-chat-preview-last {
+  -webkit-line-clamp: 3;
+}
+
 .agent-row-agent-status-entering {
   animation: sidebar-reply-in var(--openbot-duration-overlay) cubic-bezier(0.22, 1, 0.36, 1) both;
 }

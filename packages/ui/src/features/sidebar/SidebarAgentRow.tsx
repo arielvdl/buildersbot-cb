@@ -17,7 +17,12 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import { agentAccessLockLabel } from "../agents/agent-access";
 import { avatarMoodInChat } from "../agents/agent-avatar-mood";
 import { SidebarAgentContextMenu } from "./SidebarAgentContextMenu";
-import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
+import {
+  SidebarAgentIndicator,
+  SidebarChatPreviewTooltip,
+  SidebarWaitChip,
+  SidebarWaitTooltip,
+} from "./SidebarAgentIndicator";
 import { clickIsOnAvatar, SidebarChatTabStrip } from "./SidebarChatTabStrip";
 import { sidebarAgentStateLabel, sidebarMessageTime, sidebarUsageResetTime } from "./sidebar-filtering";
 import { useSidebarScope } from "./sidebar-scope";
@@ -195,7 +200,18 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
       onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => startChatDragging(event, rowProps.agent.id)}
       onDragEnd={endChatDragging}
     >
-      <Show when={wait()} fallback={row()}>
+      <Show
+        when={wait()}
+        fallback={
+          <SidebarChatPreviewTooltip
+            firstMessage={rowProps.agent.firstMessage}
+            preview={rowProps.agent.preview}
+            menuOpen={menuOpen()}
+          >
+            {row()}
+          </SidebarChatPreviewTooltip>
+        }
+      >
         {(current) => (
           <SidebarWaitTooltip wait={current()} menuOpen={menuOpen()}>
             {row()}

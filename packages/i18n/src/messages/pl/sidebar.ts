@@ -120,6 +120,7 @@ export const messages = {
     other: "Ukryte, {count} agenta",
   },
   "sidebar.hidden.since": "Wstrzymany od {date}",
+  "sidebar.preview.startedWith": "Zaczęło się od",
   "sidebar.state.routineFailed": {
     one: "Rutyna nie powiodła się",
     few: "{count} rutyny nie powiodły się",

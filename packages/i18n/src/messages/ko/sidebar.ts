@@ -95,6 +95,7 @@ export const messages = {
   "sidebar.hidden.count": { other: "({count})" },
   "sidebar.hidden.label": { other: "숨김, 에이전트 {count}개" },
   "sidebar.hidden.since": "{date}부터 일시 정지됨",
+  "sidebar.preview.startedWith": "시작:",
   "sidebar.state.routineFailed": { other: "루틴 {count}개 실패" },
   "sidebar.state.routineWaiting": { other: "루틴 {count}개 대기 중" },
   "sidebar.state.routineRunning": { other: "루틴 {count}개 실행 중" },

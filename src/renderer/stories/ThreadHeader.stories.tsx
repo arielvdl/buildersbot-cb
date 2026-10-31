@@ -16,7 +16,15 @@ const IDLE: ThreadStatus = { kind: "idle" };
 
 function item(id: string, title: string, minutesAgo: number, status: ThreadStatus = IDLE): ThreadItem {
   const updatedAt = new Date(Date.parse("2026-08-19T10:00:00.000Z") - minutesAgo * 60_000).toISOString();
-  return { id, kind: "side", title, updatedAt, status };
+  return {
+    id,
+    kind: "side",
+    title,
+    firstMessage: `Start of ${title.toLowerCase()}`,
+    preview: `Last message of ${title.toLowerCase()}`,
+    updatedAt,
+    status,
+  };
 }
 
 /** When the agent's own chat changed last. The new thread tab shows this time. */
@@ -68,7 +76,17 @@ function ThreadHeaderStory(props: HeaderFixture) {
   const tabs = (): ThreadItem[] => {
     const open = state.open.flatMap((id) => byId(id) ?? []);
     const draft: ThreadItem[] = state.draft
-      ? [{ id: DRAFT_THREAD_ID, kind: "draft", title: "New thread", updatedAt: MAIN_UPDATED_AT, status: IDLE }]
+      ? [
+          {
+            id: DRAFT_THREAD_ID,
+            kind: "draft",
+            title: "New thread",
+            firstMessage: "",
+            preview: "",
+            updatedAt: MAIN_UPDATED_AT,
+            status: IDLE,
+          },
+        ]
       : [];
     return [...open, ...draft];
   };
@@ -187,7 +205,7 @@ type Story = StoryObj<typeof meta>;
 /** The agent has only its own chat: the header shows "New thread" and nothing more. */
 export const OwnChatOnly: Story = { render: () => <ThreadHeaderStory threads={[]} open={[]} /> };
 
-/** One tab for each state: done, working, waiting for an approval, queued and failed. */
+/** One tab for each state: done, working, waiting for an approval, queued and failed. Hovering a tab previews how the thread started and its last message. */
 export const States: Story = {
   render: () => <ThreadHeaderStory threads={STATES} open={STATES.map((thread) => thread.id)} active="pricing" />,
 };

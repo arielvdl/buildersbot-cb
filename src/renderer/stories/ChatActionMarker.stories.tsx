@@ -444,6 +444,7 @@ function agent(id: string, name: string): AgentProfile {
     avatarUrl: null,
     time: "",
     preview: "",
+    firstMessage: "",
   };
 }
 

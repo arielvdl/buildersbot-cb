@@ -151,7 +151,13 @@ export class AgentTasks implements TaskLanes {
     const title = taskTitle(text);
     if (!title) throw new Error(sourceText("error.backend.threadTitleRequired"));
     this.#requireRoom(agentId);
-    const task = this.#store.create({ agentId, origin, title, titleSource: origin === "agent" ? "agent" : "auto" });
+    const task = this.#store.create({
+      agentId,
+      origin,
+      text,
+      title,
+      titleSource: origin === "agent" ? "agent" : "auto",
+    });
     this.#conversation.registerTaskThread(agentId, task.threadId);
     return task;
   }
@@ -348,6 +354,11 @@ export class AgentTasks implements TaskLanes {
     return startedTaskResult(task);
   });
 
+  /** Keeps the last message the person sent, for the tab's hover preview. */
+  setPreview(task: AgentThreadRecord, text: string): void {
+    this.#store.setPreview(task.taskId, text);
+  }
+
   changed(agentId: string): void {
     this.#hooks.emit({ type: "agent-tasks-changed", snapshot: this.snapshot(agentId) });
   }
@@ -437,6 +448,8 @@ export class AgentTasks implements TaskLanes {
       threadId: task.threadId,
       origin: task.origin,
       title: task.title,
+      firstMessage: task.firstMessage,
+      preview: task.preview,
       state,
       outcome: task.outcome,
       hold,

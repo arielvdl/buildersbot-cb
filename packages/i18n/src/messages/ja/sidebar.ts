@@ -95,6 +95,7 @@ export const messages = {
   "sidebar.hidden.count": { other: "({count})" },
   "sidebar.hidden.label": { other: "非表示のエージェント {count} 件" },
   "sidebar.hidden.since": "{date} から一時停止中",
+  "sidebar.preview.startedWith": "開始:",
   "sidebar.state.routineFailed": { other: "{count} 件のルーティンが失敗しました" },
   "sidebar.state.routineWaiting": { other: "{count} 件のルーティンが待機中です" },
   "sidebar.state.routineRunning": { other: "{count} 件のルーティンが実行中です" },

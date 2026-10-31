@@ -17,6 +17,10 @@ export interface ThreadItem {
   id: string;
   kind: "side" | "draft";
   title: string;
+  /** The message that started the thread, for the tab's hover preview. Empty when unknown. */
+  firstMessage: string;
+  /** The last message the person sent, for the tab's hover preview. Empty when unknown. */
+  preview: string;
   updatedAt: string;
   status: ThreadStatus;
 }
