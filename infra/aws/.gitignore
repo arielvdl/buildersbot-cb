@@ -1,13 +1,12 @@
-# Caches de validação (esquemas do describe-type, shell extraído dos templates)
+# Regras só desta pasta. O .gitignore da raiz do repositório já ignora .env, .env.*, *.pem, *.key,
+# *.p12 e .DS_Store.
+# Caches de validação (esquemas do describe-type, shell extraído dos templates, testes)
 .cache/
-# Nunca versionar segredos ou credenciais
-.env
-.env.*
-*.pem
-*.key
-*.p12
+# IPs de saída permitidos: arquivo local com o IP do operador. Versionado só o exemplo
+# (config/allowed-egress-ips.example.txt).
+config/allowed-egress-ips.txt
+# Nunca versionar credenciais da AWS
 credentials
 .aws/
 # Lixo local
-.DS_Store
 *.swp

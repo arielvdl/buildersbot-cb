@@ -16,7 +16,9 @@ export FAKE_AWS_LOG=$WORK/fake-aws.log
 export PATH="$ROOT/tests/fake-bin:$PATH"
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN \
   AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE AWS_ENDPOINT_URL
-unset BB_SRV_YES BB_SRV_ALLOW_LONG_TERM_KEY BB_SRV_IGNORE_QUOTA BB_SRV_ACCEPT_CRITICAL BB_SRV_ACCEPT_UNSCANNED
+unset BB_SRV_YES BB_SRV_ALLOW_LONG_TERM_KEY BB_SRV_IGNORE_QUOTA BB_SRV_ACCEPT_CRITICAL BB_SRV_ACCEPT_UNSCANNED FAKE_EGRESS_IP
+# Os IPs de saída vêm do exemplo versionado (203.0.113.0/24), nunca do arquivo real e local.
+export BB_SRV_TEST_EGRESS_EXAMPLE=1
 cd "$ROOT" || exit 1
 
 passed=0
@@ -1384,6 +1386,21 @@ else
     bad "F12 o script do bb-srv-Status não saiu do ops.yaml para o host falso"
   fi
 fi
+
+# ---------------------------------------------------------------- G: infra/aws dentro do repositório do Builders Bot
+# Sem o arquivo local de IPs de saída, check-access.sh para antes de qualquer chamada (falha fechada).
+# Cópia do script numa árvore sem config/allowed-egress-ips.txt, porque o checkout do operador tem o arquivo.
+NO_IPS=$WORK/no-egress-file
+install -d "$NO_IPS/scripts" "$NO_IPS/config"
+cp scripts/check-access.sh "$NO_IPS/scripts/check-access.sh"
+cp config/mfa-roles.txt config/allowed-egress-ips.example.txt "$NO_IPS/config/"
+rm -f "$NO_IPS/config/allowed-egress-ips.txt"
+expect_refusal "G1 check-access recusa sem config/allowed-egress-ips.txt (arquivo local fora do git)" \
+  "falta config/allowed-egress-ips.txt" h_sector env -u BB_SRV_TEST_EGRESS_EXAMPLE bash "$NO_IPS/scripts/check-access.sh"
+if [ -s "$FAKE_AWS_LOG" ]; then bad "G1 check-access chamou o aws antes de achar o arquivo" "$(cat "$FAKE_AWS_LOG")"; fi
+expect_refusal "G1 check-access recusa um IP de saída fora da lista" "não está em config/allowed-egress-ips.example.txt" h_sector \
+  env FAKE_EGRESS_IP=198.51.100.99 bash scripts/check-access.sh
+expect_success "G1 check-access aceita o IP de saída da lista" "acesso ok" h_sector bash scripts/check-access.sh
 
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]

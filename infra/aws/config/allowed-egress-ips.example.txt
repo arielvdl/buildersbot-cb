@@ -1,0 +1,17 @@
+# Exemplo de config/allowed-egress-ips.txt: os IPs de saída de onde os scripts podem chamar a AWS
+# da conta cb. O arquivo real é local e fica fora do git (.gitignore desta pasta): ele tem o IP de
+# casa ou do escritório do operador.
+#
+# Para criar o arquivo real, de infra/aws:
+#   cp config/allowed-egress-ips.example.txt config/allowed-egress-ips.txt
+#   curl -fsS https://checkip.amazonaws.com      (mostra o IP de saída desta rede)
+# e troque os endereços abaixo por esse IP.
+#
+# Formato: um IPv4 por linha, exato (sem faixa CIDR); linhas vazias e linhas com # são ignoradas.
+# scripts/check-access.sh para quando o IP de saída atual não está no arquivo, e para também quando
+# o arquivo falta (falha fechada). Não é segredo; é uma trava contra rodar de uma rede inesperada.
+#
+# Os endereços abaixo são da faixa de documentação 203.0.113.0/24 (RFC 5737): nenhum checkip real
+# os devolve. tests/negative.sh usa este arquivo, nunca o real.
+203.0.113.10
+203.0.113.20

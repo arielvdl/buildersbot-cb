@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # `curl` falso dos testes: o único curl dos scripts no Mac é o checkip de check-access.sh.
-# Responde com o primeiro IP de config/allowed-egress-ips.txt.
+# Responde com FAKE_EGRESS_IP, ou com o primeiro IP de config/allowed-egress-ips.example.txt (os
+# testes nunca dependem do arquivo real, que é local e fica fora do git).
 root=$(cd "$(dirname "$0")/../.." && pwd)
-awk '$1 !~ /^#/ && NF { print $1; exit }' "$root/config/allowed-egress-ips.txt"
+if [ -n "${FAKE_EGRESS_IP:-}" ]; then
+  printf '%s\n' "$FAKE_EGRESS_IP"
+  exit 0
+fi
+awk '$1 !~ /^#/ && NF { print $1; exit }' "$root/config/allowed-egress-ips.example.txt"

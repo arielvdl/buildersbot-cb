@@ -1,4 +1,0 @@
-# IPs de saída de onde os scripts podem chamar a AWS da conta cb (um IPv4 por linha, exato).
-# check-access.sh para quando o IP atual não está aqui. Não é segredo; é uma trava contra rodar
-# de uma rede inesperada. Confirmado em 31/10/2026 (checkip.amazonaws.com).
-89.115.7.240

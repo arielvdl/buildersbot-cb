@@ -3,7 +3,8 @@
 #   1. nenhuma variável de ambiente troca as credenciais, o perfil, o endpoint ou (com --writes) os
 #      arquivos de configuração do AWS CLI;
 #   2. o perfil é `cb` e a conta é 358748433479 (região us-east-1);
-#   3. o IP de saída deste computador está em config/allowed-egress-ips.txt;
+#   3. o IP de saída deste computador está em config/allowed-egress-ips.txt (arquivo local, fora do
+#      git: copie config/allowed-egress-ips.example.txt). Sem o arquivo, para (falha fechada);
 #   4. com --writes (todo script que altera a AWS: todos menos status.sh e validate.sh): a credencial
 #      é a sessão de uma role de config/mfa-roles.txt (roles cuja trust exige MFA). Qualquer outra
 #      (credencial de usuário IAM, AKIA ou sessão ASIA sem MFA comprovável, ou outra role) é recusada,
@@ -63,6 +64,13 @@ bb_check_access() { # [--writes]
   esac
   root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
   file=$root/config/allowed-egress-ips.txt
+  # Só tests/negative.sh: o exemplo versionado tem só endereços de documentação (203.0.113.0/24), que
+  # nenhum checkip real devolve. Fora dos testes, apontar para ele só faz a checagem recusar.
+  [ "${BB_SRV_TEST_EGRESS_EXAMPLE:-0}" != 1 ] || file=$root/config/allowed-egress-ips.example.txt
+  if [ ! -f "$file" ]; then
+    bb_access_fail "falta config/allowed-egress-ips.txt (arquivo local, fora do git, com os IPs de saída permitidos). Crie a partir do exemplo: cp config/allowed-egress-ips.example.txt config/allowed-egress-ips.txt, troque os endereços de exemplo pelo IP de saída desta rede (curl -fsS https://checkip.amazonaws.com) e rode de novo."
+    return 1
+  fi
 
   # Credenciais em variáveis de ambiente teriam precedência sobre a configuração do perfil, e um
   # endpoint trocado responderia no lugar da AWS (inclusive o sts get-caller-identity abaixo).
@@ -92,12 +100,11 @@ bb_check_access() { # [--writes]
   ip=$(curl -fsS -m 8 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]') ||
     { bb_access_fail "não consegui ler o IP de saída (checkip.amazonaws.com)."; return 1; }
   [[ $ip =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { bb_access_fail "resposta inesperada do checkip: $ip"; return 1; }
-  [ -f "$file" ] || { bb_access_fail "falta $file."; return 1; }
   while read -r line _; do
     case $line in '' | '#'*) continue ;; esac
     if [ "$line" = "$ip" ]; then allowed=1; fi
   done <"$file"
-  [ "$allowed" = 1 ] || { bb_access_fail "o IP de saída $ip não está em config/allowed-egress-ips.txt. Pare: a política da conta pode negar a chamada, ou a rede é outra."; return 1; }
+  [ "$allowed" = 1 ] || { bb_access_fail "o IP de saída $ip não está em config/${file##*/}. Pare: a política da conta pode negar a chamada, ou a rede é outra."; return 1; }
 
   if ! read -r account arn < <(aws --profile "$BB_EXPECTED_PROFILE" --region "$BB_EXPECTED_REGION" sts get-caller-identity --query '[Account,Arn]' --output text 2>/dev/null); then
     bb_access_fail "sts get-caller-identity falhou com o perfil $BB_EXPECTED_PROFILE (credencial vencida, MFA ou rede)."; return 1
