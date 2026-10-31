@@ -3,9 +3,9 @@
 #   1. bb-srv-dns  (a zona Route 53 delegada; fica de pé quando as outras são apagadas ou refeitas,
 #                   então os 4 NS do Cloudflare não mudam);
 #   2. bb-srv-base (rede, ECR, buckets, alertas, IAM, orçamento do projeto);
-#   3. bb-srv-ops  (documentos SSM e backups DLM);
-#   4. bb-srv-proxy (documentos SSM do proxy de saída residencial: bb-srv-ProxySetup, que o
-#                    bb-srv-Install roda, e bb-srv-ProxyReload; README, seção 16).
+#   3. bb-srv-ops  (documentos SSM, inclusive o bb-srv-ProxyReload do proxy de saída, e backups DLM);
+#   4. bb-srv-proxy (o documento SSM bb-srv-ProxySetup do proxy de saída residencial, que o
+#                    bb-srv-Install roda; README, seção 16).
 # Mostra cada change set e pede confirmação. No fim, mostra os 4 registros NS que o dono cria no
 # Cloudflare (a única ação de DNS).
 #

@@ -1,7 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   bb-srv-ops - Builders Bot servers per sector: the shared SSM documents (install, upgrade, snapshot
-  hooks) and the DLM snapshot policies with their alarms. Deploy after bb-srv-base.
+  hooks, reload of the egress proxy) and the DLM snapshot policies with their alarms. Deploy after
+  bb-srv-base.
 
 Parameters:
   DailySnapshotRetentionDays:
@@ -340,6 +341,50 @@ Resources:
                   else
                     echo "BB_PROXY_MODE not-installed"
                   fi
+
+  # After a rotation of /bb-srv/proxy/egress (README section 16): the credential again, the firewall, the
+  # forwarder and one health line that must be "ok BR". The container keeps running. It runs the tool that
+  # bb-srv-ProxySetup (stack bb-srv-proxy) writes; it lives here for the 51,200 bytes of that template.
+  ProxyReloadDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-ProxyReload
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - re-read the egress proxy credential (/bb-srv/proxy/egress), restart the local
+          forwarder of this sector and re-apply its egress firewall. Prints no secret.
+        mainSteps:
+          - action: aws:runShellScript
+            name: proxy_reload
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '300'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  fail() { echo "BB_PROXY_RELOAD fail: $*" >&2; exit 1; }
+                  S=$(cat /etc/bb-srv/sector 2>/dev/null) || fail "this is not a bb-srv sector host"
+                  P=/usr/local/sbin/bb-srv-proxy
+                  [ -x "$P" ] || fail "the egress proxy is not installed on this host: run bb-srv-ProxySetup (README section 16)"
+                  if [ "$("$P" mode)" = direct ]; then
+                    echo "BB_PROXY_RELOAD ok $S: direct egress (EgressProxy=direct), nothing to reload"
+                    exit 0
+                  fi
+                  "$P" config || fail "the forwarder keeps the previous credential (message above; no secret is printed)"
+                  "$P" guard
+                  systemctl restart bb-proxy.service
+                  sleep 3
+                  systemctl is-active --quiet bb-proxy.service || fail "the forwarder did not start: journalctl -u bb-proxy (root on the host)"
+                  "$P" health
+                  # The line just written (not a BB_HEALTH line). A wrong password ends here.
+                  line=$(grep BB_PROXY_HEALTH /var/log/bb-srv/health.log | tail -n 1 || true)
+                  echo "$line"
+                  [[ $line == *"BB_PROXY_HEALTH ok BR" ]] || fail "the health line after the reload is not ok BR (README section 16, the table of lines)"
+                  echo "BB_PROXY_RELOAD ok $S"
 
   # The tag DLMScriptsAccess=true follows the DLM convention; the role bb-srv-dlm (below) may send
   # only this document, and only to Builders Bot instances.
@@ -695,6 +740,8 @@ Outputs:
     Value: !Ref UpgradeDocument
   SnapshotHooksDocumentName:
     Value: !Ref SnapshotHooksDocument
+  ProxyReloadDocumentName:
+    Value: !Ref ProxyReloadDocument
   DailyPolicyId:
     Value: !GetAtt DailyPolicy.PolicyId
   WeeklyPolicyId:
