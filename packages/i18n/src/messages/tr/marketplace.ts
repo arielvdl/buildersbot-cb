@@ -27,6 +27,8 @@ export const messages = {
   "marketplace.description.apps": "Ajanlarınızın çalıştığı araçları ve hizmetleri bağlayın.",
   "marketplace.description.agents": "Kendi talimatları ve becerileri olan hazır ajanlar.",
   "marketplace.description.skills": "Bir ajana bir görevi veya aracı öğreten talimatlar.",
+  "marketplace.apps.showAll": "Tüm uygulamaları göster",
+  "marketplace.apps.profile": "{tag} için seçildi",
 
   // A plugin link.
   "marketplace.plugins.missing": "Bu eklenti Builders Bot kataloğunda yok.",

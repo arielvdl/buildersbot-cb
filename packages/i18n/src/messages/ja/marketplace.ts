@@ -25,6 +25,8 @@ export const messages = {
   "marketplace.description.apps": "エージェントが使うツールやサービスに接続します。",
   "marketplace.description.agents": "独自の指示とスキルを持つ、すぐに使えるエージェント。",
   "marketplace.description.skills": "エージェントにタスクやツールの使い方を教える指示。",
+  "marketplace.apps.showAll": "すべてのアプリを表示",
+  "marketplace.apps.profile": "{tag} 向けの選択",
 
   "marketplace.plugins.missing": "このプラグインは Builders Bot のカタログにありません。",
 

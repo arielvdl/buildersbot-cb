@@ -26,6 +26,10 @@ export const messages = defineMessages("marketplace", {
   "marketplace.description.apps": "Connect the tools and services that your agents work with.",
   "marketplace.description.agents": "Ready-made agents with their own instructions and skills.",
   "marketplace.description.skills": "Instructions that teach an agent a task or a tool.",
+  // The Apps list: the switch that shows the apps that the list hides, and the organization
+  // profile that chose the list. {tag} is the name of the profile.
+  "marketplace.apps.showAll": "Show all apps",
+  "marketplace.apps.profile": "Selected for {tag}",
 
   // A plugin link.
   "marketplace.plugins.missing": "This plugin is not in the Builders Bot catalog.",

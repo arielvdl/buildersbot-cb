@@ -1,11 +1,12 @@
 import { SKILL_CATEGORIES, type SkillCategory } from "@openbot/contracts/ipc";
-import { Button, Heading, Input, Plus, Search, Text } from "@openbot/ui";
+import { Button, Heading, Input, Plus, Search, SwitchField, Text } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createEffect, For, Match, Show, Switch } from "solid-js";
+import { createEffect, createMemo, For, Match, Show, Switch } from "solid-js";
 import { AgentGrid, AppRow } from "./MarketplaceCards";
 import { type FilterGroup, MarketplaceFilter } from "./MarketplaceFilter";
 import { ListingPanel } from "./MarketplaceParts";
 import { SkillLibrary } from "./MarketplaceSkills";
+import { curateApps } from "./marketplace-curation";
 import { CATEGORY_LABELS } from "./marketplace-listing";
 import {
   appCategories,
@@ -114,10 +115,14 @@ export function createBrowseLists(scope: MarketplaceScope) {
       .items()
       .filter((listing) => owns(state().agentsOwned, (model().agentState(listing) ?? "add") !== "add"));
   const skills = () => scope.skills.items();
+  /** The apps of the list before a search. A model with no curation shows every app. */
+  const curated = createMemo(() => {
+    const curation = model().curation;
+    return curateApps(model().apps(), curation?.profile() ?? null, curation ? curation.showAll() : true);
+  });
+  // A search reaches every app, also one that the list does not show.
   const apps = () =>
-    model()
-      .apps()
-      .filter((app) => matchesApp(app, state().query));
+    (state().query.trim() === "" ? curated().shown : model().apps()).filter((app) => matchesApp(app, state().query));
   const counts = (): Record<MarketplaceTab, number> => ({
     agents: agents().length,
     apps: apps().length,
@@ -127,6 +132,7 @@ export function createBrowseLists(scope: MarketplaceScope) {
     agents,
     skills,
     apps,
+    curated,
     counts,
     searching: () => state().query.trim() !== "",
     /** A listing that pages shows "50+" while the server holds more rows than the loaded ones. */
@@ -185,6 +191,11 @@ export function MarketplaceBrowse(props: { scope: MarketplaceScope; lists: Brows
   const agents = () => props.lists.agents();
   /** Add custom, on the Apps list for a user who can add a server. */
   const addServer = () => (state().tab === "apps" ? model().addServer : undefined);
+  /** "Show all apps", on the Apps list while it hides an app or the user chose to see all. */
+  const showAllSwitch = () => {
+    const curation = state().tab === "apps" ? model().curation : undefined;
+    return curation && (curation.showAll() || props.lists.curated().hidden > 0) ? curation : undefined;
+  };
 
   /* "Your skills" and the agents of each skill row need each agent's skills. */
   createEffect(
@@ -264,6 +275,13 @@ export function MarketplaceBrowse(props: { scope: MarketplaceScope; lists: Brows
             <Text as="p" variant="body" tone="muted">
               {t(DESCRIPTION[state().tab])}
             </Text>
+            <Show when={state().tab === "apps" ? props.lists.curated().profile : null}>
+              {(profile) => (
+                <Text as="p" variant="body-sm" tone="muted">
+                  {t("marketplace.apps.profile", { tag: profile().tag })}
+                </Text>
+              )}
+            </Show>
           </div>
           <div class="marketplace-toolbar">
             <label class="search-field marketplace-search">
@@ -281,6 +299,17 @@ export function MarketplaceBrowse(props: { scope: MarketplaceScope; lists: Brows
                 }}
               />
             </label>
+            <Show when={showAllSwitch()}>
+              {(curation) => (
+                <SwitchField
+                  class="marketplace-show-all"
+                  size="sm"
+                  label={t("marketplace.apps.showAll")}
+                  checked={curation().showAll()}
+                  onChange={(on) => curation().setShowAll(on)}
+                />
+              )}
+            </Show>
             <Show when={addServer()}>
               {(add) => (
                 <Button type="button" size="sm" onClick={() => add()()}>

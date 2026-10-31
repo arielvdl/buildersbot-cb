@@ -51,6 +51,7 @@ import { writeClipboardText } from "../../clipboard";
 import type { AgentSkillCalls } from "../../skills-port";
 import type { ConnectorRegistry } from "../connectors/connector-registry";
 import { mcpSignInRecord } from "../servers/mcp-servers";
+import { marketplaceAppCuration } from "./marketplace-app-curation";
 import { desktopMarketplaceCalls, type MarketplaceCalls, type MarketplaceSignInRelay } from "./marketplace-calls";
 import { createPluginAppConfig } from "./marketplace-plugin-catalog";
 import { localizedPlugin } from "./marketplace-plugin-text";
@@ -1309,6 +1310,7 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     },
 
     apps,
+    curation: marketplaceAppCuration,
     canConnectApps: () => Boolean(props.pluginServerId),
     appBusy: (id) => Boolean(busy[`app:${id}`]) || connector(id)?.busy() === true,
     connectApp: (app) => installPlugin(app.plugin),
