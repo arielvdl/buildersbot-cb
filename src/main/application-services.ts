@@ -121,7 +121,7 @@ import { AgentStore } from "../backend/agent-store";
 import { BrowserHost } from "../backend/browser-host";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
-import { memoryIsLow } from "../backend/host-memory";
+import { browserMemory } from "../backend/host-memory";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
 import { discordDriver } from "../backend/messaging/discord/discord-driver";
@@ -1210,10 +1210,12 @@ export async function createApplicationServices({
     read: readChromeSiteCookies,
     onError: (error) => logger.warn("The Chrome sign-in of a site could not be read.", toLogValue(error)),
   });
+  // A server that is low on memory refuses a new tab and a popup. The Mac reading refuses nothing: it
+  // only unloads sooner the idle tabs of the agents with no running turn (`setAgentWorking` below).
+  const browserMemoryRules = browserMemory(hostMemory, macMemory);
   const browser = new BrowserHost(mainWindow, store.downloadsRoot, join(app.getPath("userData"), BROWSER_STATE_FILE), {
-    // The reading of a server, else the reading of the Mac, as the broker reads it: an idle agent tab
-    // unloads after 5 min instead of 30, and no new tab opens while the memory is low.
-    memoryLow: () => memoryIsLow(hostMemory ?? macMemory),
+    memoryLow: browserMemoryRules.memoryLow,
+    sleepSooner: browserMemoryRules.sleepSooner,
     browserProfile: (agentId) => {
       const agent = store.list().find((candidate) => candidate.id === agentId);
       return agent ? agentBrowserProfile(agent) : { kind: "shared" };
@@ -1978,6 +1980,9 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
+  // A turn can wait for the approval of the person with a filled form on the page, so the idle tab of
+  // an agent with a running turn keeps its page for 30 min also while the Mac is low on memory.
+  browser.setAgentWorking((agentId) => service.runningTurns().some((turn) => turn.agentId === agentId));
   teardown.push(
     TEARDOWN_ORDER.browserBroker,
     "the shared browser connection",

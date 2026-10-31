@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { memoryIsLow } from "../backend/host-memory";
+import { browserMemory } from "../backend/host-memory";
 import { classifyMacMemory, MacMemory, parseFreePercent, parseSwapUsedMb } from "./mac-memory";
 
 describe("reading the numbers of macOS", () => {
@@ -120,18 +120,41 @@ describe("the memory of the Mac as the agents see it", () => {
     expect(memory.reading()).toEqual({ level: "ok", freePercent: 31, swapUsedMb: 1200 });
   });
 
-  it("tells the in-app browser that the memory is low, as it tells the broker", async () => {
+  it("makes the idle tabs of the in-app browser sleep sooner, and never stops the person opening a tab", async () => {
     const { memory, set } = setup();
+    // The desktop wiring: no server reading, the reading of the Mac.
+    const browser = browserMemory(null, memory);
     await memory.sample();
-    expect(memoryIsLow(memory)).toBe(false);
+    expect(browser.memoryLow()).toBe(false);
+    expect(browser.sleepSooner(false)).toBe(false);
     set({ freePercent: 10, swapUsedMb: 0 });
     await memory.sample();
-    expect(memoryIsLow(memory)).toBe(true);
+    expect(memory.level()).toBe("low");
+    // A new tab and a popup still open, for the person and for an agent.
+    expect(browser.memoryLow()).toBe(false);
+    // Only the tab of an agent with no running turn unloads after 5 min.
+    expect(browser.sleepSooner(false)).toBe(true);
+    expect(browser.sleepSooner(true)).toBe(false);
     set({ freePercent: 5, swapUsedMb: 0 });
     await memory.sample();
-    expect(memoryIsLow(memory)).toBe(true);
+    expect(memory.level()).toBe("critical");
+    expect(browser.memoryLow()).toBe(false);
+    expect(browser.sleepSooner(false)).toBe(true);
+  });
+
+  it("keeps the server rules of the in-app browser: no new tab, and each idle agent tab sleeps sooner", () => {
+    let level: "ok" | "low" | "critical" = "low";
+    const browser = browserMemory({ level: () => level }, null);
+    expect(browser.memoryLow()).toBe(true);
+    expect(browser.sleepSooner(true)).toBe(true);
+    expect(browser.sleepSooner(false)).toBe(true);
+    level = "ok";
+    expect(browser.memoryLow()).toBe(false);
+    expect(browser.sleepSooner(false)).toBe(false);
     // No reading at all: a Linux or Windows desktop.
-    expect(memoryIsLow(null)).toBe(false);
+    const none = browserMemory(null, null);
+    expect(none.memoryLow()).toBe(false);
+    expect(none.sleepSooner(false)).toBe(false);
   });
 
   it("does not limit the turns that run together: only the level holds a new one", () => {

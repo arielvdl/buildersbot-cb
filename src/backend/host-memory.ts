@@ -26,10 +26,39 @@ export interface HostMemory {
   readonly kind?: "server" | "desktop";
 }
 
-/**
- * Whether the memory is too low for one more browser tab. The caller gives the reading it has: the
- * reading of a server, else the reading of the Mac. No reading reads as `ok`.
- */
-export function memoryIsLow(reading: Pick<HostMemory, "level"> | null): boolean {
+/** A memory level as the browser rules read it. No reading reads as `ok`. */
+type MemoryReading = Pick<HostMemory, "level"> | null;
+
+function isLow(reading: MemoryReading): boolean {
   return (reading?.level() ?? "ok") !== "ok";
+}
+
+/**
+ * How the Builders Bot browser (`BrowserHost`) reads the memory of this computer. A server and a Mac
+ * get different rules, so the two readings stay apart.
+ */
+export interface BrowserMemory {
+  /**
+   * The server is low on memory: no new tab and no popup opens, for the person or for an agent. A
+   * desktop has no server reading, so on a desktop this is always false and the person can always open
+   * a tab.
+   */
+  memoryLow(): boolean;
+  /**
+   * Whether an idle agent tab unloads its page after 5 min instead of 30. On a server that is low on
+   * memory, each idle agent tab does. On a Mac that is low on memory, only the tab of an agent that runs
+   * no turn does: a running turn can wait for the approval of the person with a filled form on the page.
+   */
+  sleepSooner(agentWorking: boolean): boolean;
+}
+
+/**
+ * The browser rules from the reading of a server (`ServerMemory`) and the reading of the Mac
+ * (`MacMemory`). Only one of the two exists in a process; a desktop that is not a Mac has neither.
+ */
+export function browserMemory(server: MemoryReading, mac: MemoryReading): BrowserMemory {
+  return {
+    memoryLow: () => isLow(server),
+    sleepSooner: (agentWorking) => isLow(server) || (!agentWorking && isLow(mac)),
+  };
 }
