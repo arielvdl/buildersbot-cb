@@ -102,6 +102,12 @@ export interface ServerClient {
 
 export interface WhatsAppAccountsOptions {
   platform: NodeJS.Platform;
+  /**
+   * The egress proxy variables of this server, read at each command. With the proxy on, the `npx`
+   * download and wazap itself (the pairing and the history sync) go through the egress gateway, as
+   * the wazap server that an agent starts does. Absent or empty: direct.
+   */
+  environment?: (() => Readonly<Record<string, string>>) | undefined;
   /** Tests only. The app leaves it out, so wazap uses `~/.wazap`, as the plugin's server does. */
   dataDir?: string | undefined;
   /** Finds `npx`. Absent: the provider lookup (`usableMcpServer`). */
@@ -142,22 +148,25 @@ async function defaultLaunch(): Promise<WazapLaunch | null> {
   return server.error === undefined ? { command: server.command, path: server.path } : null;
 }
 
-/** The MCP SDK's default environment and the resolved `PATH`. No `WAZAP_*` value of the app passes. */
-function wazapEnvironment(launch: WazapLaunch): Record<string, string> {
+/**
+ * The MCP SDK's default environment and the resolved `PATH`. No `WAZAP_*` value of the app passes.
+ * With the egress proxy on, its variables come last: `npx` and the Node of wazap read them.
+ */
+function wazapEnvironment(launch: WazapLaunch, egress: Readonly<Record<string, string>>): Record<string, string> {
   const environment: Record<string, string> = { ...getDefaultEnvironment() };
   if (launch.path) environment.PATH = launch.path;
   environment.NO_COLOR = "1";
   environment.WAZAP_NO_UPDATE_CHECK = "1";
-  return environment;
+  return { ...environment, ...egress };
 }
 
-function defaultExecute(launch: WazapLaunch, args: string[]): Promise<CommandResult> {
+function defaultExecute(launch: WazapLaunch, args: string[], env: Record<string, string>): Promise<CommandResult> {
   return new Promise((resolve) => {
     execFile(
       launch.command,
       args,
       {
-        env: wazapEnvironment(launch),
+        env,
         timeout: COMMAND_DEADLINE_MS,
         maxBuffer: OUTPUT_LIMIT,
         windowsHide: true,
@@ -177,9 +186,9 @@ function defaultExecute(launch: WazapLaunch, args: string[]): Promise<CommandRes
   });
 }
 
-function defaultStartLogin(launch: WazapLaunch, args: string[]): LoginProcess {
+function defaultStartLogin(launch: WazapLaunch, args: string[], env: Record<string, string>): LoginProcess {
   const child = spawn(launch.command, args, {
-    env: wazapEnvironment(launch),
+    env,
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -196,11 +205,15 @@ function defaultStartLogin(launch: WazapLaunch, args: string[]): LoginProcess {
   };
 }
 
-async function defaultOpenServerClient(launch: WazapLaunch, args: string[]): Promise<ServerClient> {
+async function defaultOpenServerClient(
+  launch: WazapLaunch,
+  args: string[],
+  env: Record<string, string>,
+): Promise<ServerClient> {
   const transport = new StdioClientTransport({
     command: launch.command,
     args,
-    env: wazapEnvironment(launch),
+    env,
     stderr: "ignore",
   });
   const client = new Client({ name: "builders-bot-whatsapp-accounts", version: "1.0.0" });
@@ -283,9 +296,15 @@ function pairingFromTool(result: unknown, now: number): WhatsAppLinkState {
 export function createWhatsAppAccounts(options: WhatsAppAccountsOptions): WhatsAppAccounts {
   const now = options.now ?? Date.now;
   const resolveLaunch = options.resolveLaunch ?? defaultLaunch;
-  const execute = options.execute ?? defaultExecute;
-  const startLogin = options.startLogin ?? defaultStartLogin;
-  const openServerClient = options.openServerClient ?? defaultOpenServerClient;
+  const environmentOf = (launch: WazapLaunch) => wazapEnvironment(launch, options.environment?.() ?? {});
+  const execute =
+    options.execute ?? ((launch: WazapLaunch, args: string[]) => defaultExecute(launch, args, environmentOf(launch)));
+  const startLogin =
+    options.startLogin ??
+    ((launch: WazapLaunch, args: string[]) => defaultStartLogin(launch, args, environmentOf(launch)));
+  const openServerClient =
+    options.openServerClient ??
+    ((launch: WazapLaunch, args: string[]) => defaultOpenServerClient(launch, args, environmentOf(launch)));
   const readDatabaseOwner = options.readDatabaseOwner ?? readDatabaseOwnerFile;
   const dataDirArgs = options.dataDir === undefined ? [] : [`--data-dir=${options.dataDir}`];
   const sessions = new Map<string, LinkSession>();

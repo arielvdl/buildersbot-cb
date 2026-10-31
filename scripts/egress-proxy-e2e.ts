@@ -2,7 +2,8 @@
 // a fake "internet" host, all on loopback: no real network and no real credential. It checks the
 // pasted-line parser, the bypass rules, the option builders, the loopback gateway with a real
 // child process (curl), the fetch of the main process, the spawn environment of the Codex
-// app-server and of each stdio MCP server, the fail-closed rules, that a saved password never goes
+// app-server, of Cultura Builder, of a WhatsApp accounts command and of each stdio MCP server, the
+// fail-closed rules, that a saved password never goes
 // to another host, the encrypted store, the redaction of the secret, and the default that a new
 // server takes, with no password in the environment of the new server. See
 // docs/architecture/egress-proxy.md.
@@ -28,6 +29,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { redactText } from "@openbot/logging";
 import { Effect, Result } from "effect";
+import type { AgentCliInfo } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { acpMcpServers, claudeMcpServers, codexMcpServers, usableMcpServer } from "../src/backend/mcp-provider-shapes";
 import { NO_PROVIDER_CREDENTIALS, requireProviderDriver } from "../src/backend/provider-drivers";
@@ -48,6 +50,7 @@ import {
 } from "../src/main/egress-proxy-service";
 import { EGRESS_PROXY_FILE, EgressProxyStore } from "../src/main/egress-proxy-store";
 import { LocalServers } from "../src/main/local-servers/local-servers";
+import { createWhatsAppAccounts } from "../src/main/whatsapp-accounts";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/egress-proxy-e2e");
 const FAKE_DOMAIN = ".egress-test.invalid";
@@ -113,6 +116,22 @@ function stdioServer(id: string): McpServerConfig {
     url: "",
     headers: [],
   };
+}
+
+/**
+ * A fake CLI that writes its environment to `dump`. With `wait`, it then reads stdin until it is
+ * stopped, as a provider process does; without, it exits with a failure, as a refused command does.
+ */
+function fakeEnvironmentCli(folder: string, name: string, wait: boolean): { executable: string; dump: string } {
+  const dump = join(folder, `${name}-environment.txt`);
+  const executable = join(folder, `fake-${name}`);
+  const end = wait ? "cat > /dev/null" : "exit 1";
+  writeFileSync(
+    executable,
+    `#!/bin/sh\nenv > "${dump}.part"\necho END >> "${dump}.part"\nmv "${dump}.part" "${dump}"\n${end}\n`,
+    { mode: 0o755 },
+  );
+  return { executable, dump };
 }
 
 /** Waits for a file that a child process writes. */
@@ -459,6 +478,59 @@ async function main(): Promise<void> {
   assert.ok(codexEnvironment.includes(`NO_PROXY=${agentEnvironment.NO_PROXY}\n`), "Codex gets NO_PROXY.");
   assert.ok(!codexEnvironment.includes(PASSWORD), "Codex does not get the upstream password.");
   pass("Codex app-server: its spawn environment has the gateway variables while the switch is on");
+
+  // Cultura Builder: its agent client gets the agent environment, which has the gateway variables,
+  // and its client without tools (titles, reviewer, routing) gets the gateway variables only.
+  const culturaBuilder = requireProviderDriver("cultura-builder");
+  const agentOnly = { GH_CONFIG_DIR: join(folder, "gh") };
+  const culturaContext = {
+    ...NO_PROVIDER_CREDENTIALS,
+    agentEnvironment: () => ({ ...agentOnly, ...service.environment() }),
+    egressEnvironment: () => service.environment(),
+  };
+  const culturaClients = [
+    ["agent", (cli: AgentCliInfo) => culturaBuilder.createClient(cli, 5_000, culturaContext)],
+    ["profile", (cli: AgentCliInfo) => culturaBuilder.createProfileClient?.(cli, 5_000, culturaContext)],
+  ] as const;
+  for (const [name, create] of culturaClients) {
+    const fake = fakeEnvironmentCli(folder, `cultura-builder-${name}`, true);
+    const client = create({ executable: fake.executable, version: "1.0.0", source: "system" });
+    assert.ok(client, `Cultura Builder has a ${name} client.`);
+    client.start();
+    const spawned = await waitForFile(fake.dump);
+    await Effect.runPromise(client.stop());
+    assert.ok(
+      spawned.includes(`HTTPS_PROXY=${agentEnvironment.HTTPS_PROXY}\n`),
+      `The ${name} client gets HTTPS_PROXY.`,
+    );
+    assert.ok(spawned.includes(`NO_PROXY=${agentEnvironment.NO_PROXY}\n`), `The ${name} client gets NO_PROXY.`);
+    assert.ok(spawned.includes("OPENCODE_CONFIG_CONTENT="), `The ${name} client keeps its gateway config.`);
+    assert.equal(
+      spawned.includes(`GH_CONFIG_DIR=${agentOnly.GH_CONFIG_DIR}\n`),
+      name === "agent",
+      "Only the agent client gets the other agent variables.",
+    );
+    assert.ok(!spawned.includes(PASSWORD), `The ${name} client does not get the upstream password.`);
+  }
+  pass("Cultura Builder: the agent client and the client without tools start with the gateway variables");
+
+  // The WhatsApp accounts panel: the `npx` of a wazap command starts with the gateway variables, so
+  // the download and `wazap login` leave through the proxy, as the agents' wazap server does.
+  const npx = fakeEnvironmentCli(folder, "npx", false);
+  const whatsapp = createWhatsAppAccounts({
+    platform: "linux",
+    dataDir: join(folder, "wazap"),
+    resolveLaunch: async () => ({ command: npx.executable, path: null }),
+    environment: () => service.environment(),
+  });
+  await whatsapp.list();
+  await whatsapp.dispose();
+  const wazapSpawn = await waitForFile(npx.dump);
+  assert.ok(wazapSpawn.includes(`HTTPS_PROXY=${agentEnvironment.HTTPS_PROXY}\n`), "wazap gets HTTPS_PROXY.");
+  assert.ok(wazapSpawn.includes("NODE_USE_ENV_PROXY=1\n"), "The Node of wazap reads the variables.");
+  assert.ok(wazapSpawn.includes("WAZAP_NO_UPDATE_CHECK=1\n"), "The panel's own variables stay.");
+  assert.ok(!wazapSpawn.includes(PASSWORD), "wazap does not get the upstream password.");
+  pass("WhatsApp accounts panel: a wazap command starts with the gateway variables while the switch is on");
 
   // Each stdio MCP server, for each provider shape: the gateway variables come last, so a configured
   // proxy cannot send a server's traffic past the egress proxy.

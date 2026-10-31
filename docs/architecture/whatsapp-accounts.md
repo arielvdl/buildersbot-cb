@@ -52,6 +52,11 @@ days. A second number must always get its own account.
   argument array and no shell of its own. The environment is the MCP SDK default environment, the
   resolved `PATH`, `NO_COLOR=1` and `WAZAP_NO_UPDATE_CHECK=1`. No `WAZAP_*` value of the app passes
   through.
+- With Server settings › Network egress on, the egress proxy variables come last in that
+  environment (`WhatsAppAccountsOptions.environment`, read at each command). So the `npx` download
+  and `wazap login` (the pairing and the history sync) leave through the egress gateway, as the
+  wazap server that an agent starts does. A number is not linked from one address and used from
+  another. See [Network egress](egress-proxy.md).
 - `npx` itself is not shell-free: `npm exec` runs the wazap bin with `sh -c` (`@npmcli/run-script`),
   and npm's quoting (`@npmcli/promise-spawn`, `escape.js`) leaves `{`, `}`, `[` and `]` bare. On
   macOS `sh` is bash, which expands braces: `Loja{1,2}` became `Loja2`. So the nickname refuses
@@ -196,6 +201,8 @@ in CI, so they have Vitest files (a default set aside, not a protected area):
   `openServerClient`: a running server takes a code over MCP, no server takes `wazap login`, a QR
   with a server is refused, cancel stops the child, an unused code expires, dispose closes every
   pairing, and the database owner is read read-only from a real SQLite file.
+- `scripts/egress-proxy-e2e.ts`: the spawn environment of a wazap command of the panel has the
+  gateway variables while the egress proxy is on.
 - `scripts/whatsapp-accounts-e2e.ts`: drives the real pinned wazap CLI in a temporary data folder
   (only commands that do not contact WhatsApp), including the refusal after an unlink with a fake
   account database. It writes `.openbot-build/whatsapp-accounts-e2e/report.json`. Run it with

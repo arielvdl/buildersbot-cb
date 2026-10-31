@@ -52,7 +52,9 @@ does. A file that cannot be read or a password that cannot be decrypted makes th
 | Traffic | How | Owner |
 | --- | --- | --- |
 | Embedded browser: the shared session, agent and profile sessions, private sign-in sessions | `session.setProxy` with `proxyRules` set to the proxy and `proxyBypassRules` from the list. The `login` event answers a proxy challenge (`authInfo.isProxy`) with the stored user and password, and never shows a prompt. WebRTC gets `disable_non_proxied_udp`. | `BrowserHost.#configureSession` calls `EgressProxyService.attachSession` |
-| Processes that agents start: provider CLIs, their tools and shells | `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, the lowercase forms, and `NODE_USE_ENV_PROXY=1` | `agentEnvironment` in `application-services.ts`, read at each spawn |
+| Processes that agents start: provider CLIs (Cultura Builder too), their tools and shells | `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, the lowercase forms, and `NODE_USE_ENV_PROXY=1` | `agentEnvironment` in `application-services.ts`, read at each spawn |
+| The provider clients without tools: titles, the message reviewer, the routing of a channel message, side questions | The same variables, and no other agent variable | `egressEnvironment` in each `createProfileClient` of `provider-drivers.ts` |
+| The WhatsApp accounts panel: the `npx` download of wazap and `wazap login` (pairing and history sync) | The same variables last in the command's environment | `WhatsAppAccountsOptions.environment` in `src/main/whatsapp-accounts.ts` |
 | The Codex app-server: its model calls, its MCP clients and the stdio servers it starts | The same variables in the spawn environment of the one app-server process. Codex gives a thread's shell commands only `shell_environment_policy`, so the app-server needs them too | `egressEnvironment` of `ProviderClientContext`, read in the Codex `createClient` |
 | Each stdio MCP server, for every provider and for the MCP test | The same variables last in the server's launch environment, after the pairs of its row. Codex starts a stdio server with only the variables of its entry, so no server depends on what a provider passes down | `McpToolRuntimes.launchEnvironment`, read by `mcpLaunchEnvironment` |
 | The requests that Builders Bot sends for the agents: tool calls through the MCP OAuth proxy, GitHub tools through the GitHub MCP proxy, and the MCP test of an http server | A `fetch` that sends each request that is not to a bypass host to the gateway (`undici` `ProxyAgent` with the gateway token). With the gateway down, it refuses | `EgressProxyService.fetch` (`src/main/egress-fetch.ts`); `McpOAuthProxyOptions.fetch`, `GitHubMcpProxyOptions.fetch`, `McpToolRuntimes.fetch` |
@@ -73,10 +75,12 @@ thread and the browser makes many requests. Its credentials stay in the main pro
 
 When the switch turns on or off, or the bypass list changes, the variables change. The host then
 hands the MCP set over again and starts again each provider process that read them at spawn: grok,
-opencode, antigravity, cursor, cline, acp and the Codex app-server
+opencode, cultura-builder, muse, antigravity, cursor, cline, acp and the Codex app-server
 (`AgentService.notifyEgressProxyChanged`, `reloadAgentEnvironment` with `appServer`). A process with a
 turn in progress starts again after the turn, as for the GitHub connection. A Codex session is
-replaced at its next turn, because the variables are part of its fingerprint. Proxy and blocked give
+replaced at its next turn, because the variables are part of its fingerprint. A warm client without
+tools stops with the main client that it started under (`WarmGenerations.ownerStopped`). Claude and
+Pi read the variables for each session or thread process. Proxy and blocked give
 the same variables: the gateway applies that change for each new connection, with no restart.
 
 ### Not covered
@@ -188,7 +192,9 @@ The agents keep their loopback address, so no agent restarts.
   and a fake host on loopback, with `curl` as the agent tool. It checks the parser, the bypass rules
   (Tailscale too), the option builders and the Playwright file with its WebRTC flag, plain HTTP and
   `CONNECT` through the gateway, the `fetch` of the main process, the spawn environment of a fake
-  Codex app-server, the stdio MCP entries of Codex, Claude and ACP, a bypass host that goes direct,
+  Codex app-server, of a fake Cultura Builder process (the agent client and the client without
+  tools) and of a wazap command of the WhatsApp accounts panel, the stdio MCP entries of Codex,
+  Claude and ACP, a bypass host that goes direct,
   the fail-closed cases, that a second proxy gets no `Proxy-Authorization` when only the host
   changes, a password rotation, the store, the redaction, the default of a new local server (a file
   before the first start, no password in the environment of the child, a failed write that stops the
@@ -209,7 +215,9 @@ The agents keep their loopback address, so no agent restarts.
   the WebRTC policy. The service drives them through `BrowserEgressSession`, which the end-to-end
   check replaces with a fake.
 - The real Codex CLI and the other provider CLIs with the variables: the end-to-end check reads the
-  spawn environment of a fake app-server. That a CLI or a stdio server reads the variables is the
+  spawn environment of a fake app-server and of a fake Cultura Builder process.
+- That the WhatsApp connection of wazap (Baileys, a WebSocket) reads the variables. `npm` and the
+  `fetch` of Node do. That a CLI or a stdio server reads the variables is the
   convention above.
 - The restart of the provider processes after a change of the switch in a running app.
 - A new server on this computer on Windows. There, `safeStorage` can use a key of each user data

@@ -3229,7 +3229,12 @@ export async function createApplicationServices({
   lidAwake.subscribe(forwardLidAwakeStatus);
   await runCauseEffect(lidAwake.load());
   teardown.push(TEARDOWN_ORDER.providerLog, "the lid-closed mode", () => lidAwake.dispose());
-  const whatsappAccounts = createWhatsAppAccounts({ platform: process.platform });
+  // With the egress proxy on, the panel's `npx` download and `wazap login` go through it too, so a
+  // number is linked from the same address that the agents' wazap server uses.
+  const whatsappAccounts = createWhatsAppAccounts({
+    platform: process.platform,
+    environment: () => egressProxy.environment(),
+  });
   teardown.push(TEARDOWN_ORDER.whatsappAccounts, "the WhatsApp pairings", () => whatsappAccounts.dispose());
   const currentVersion = app.getVersion();
   const updateMetadataPath = join(process.resourcesPath, "app-update.yml");

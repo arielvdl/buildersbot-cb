@@ -194,7 +194,8 @@ type ProviderCodeSignIn =
  * The Gemini API key sign-in, the other way in when Google's browser sign-in cannot reach this
  * computer. The CLI saves only the chosen method, never the key, so the key goes in
  * `GEMINI_API_KEY` at every spawn. A saved key wins over a Google account: the user saved it last.
- * A profile-generation client gets the key but not the agent environment, as before.
+ * A profile-generation client gets the key and the egress proxy variables, but not the rest of the
+ * agent environment.
  *
  * The key belongs to the provider's own sign-in. An account after the first is a Google account in
  * its own `GEMINI_HOME`, so its processes get that folder and never the key.
@@ -206,7 +207,7 @@ function antigravityKeyOptions(context: ProviderClientContext, agentEnvironment:
     extraEnv: () => {
       const saved = key();
       return {
-        ...(agentEnvironment ? context.agentEnvironment?.() : {}),
+        ...(agentEnvironment ? context.agentEnvironment?.() : context.egressEnvironment?.()),
         ...account,
         ...(saved ? { GEMINI_API_KEY: saved } : {}),
       };
@@ -401,7 +402,9 @@ export interface ProviderClientContext {
    * process starts. They are in `agentEnvironment` too, for the programs that agents start. The Codex
    * app-server gets them in its own spawn environment as well, for its model calls, its MCP clients
    * and the stdio servers it starts. A change restarts it (`reloadAgentEnvironment` with
-   * `appServer`). Empty while the switch is off. See docs/architecture/egress-proxy.md.
+   * `appServer`). Each profile-generation client gets them too, and no other agent variable, so a
+   * title, the message reviewer, a routing or a side question also goes through the proxy. Empty
+   * while the switch is off. See docs/architecture/egress-proxy.md.
    */
   readonly egressEnvironment?: () => Readonly<Record<string, string>>;
   /**
@@ -605,6 +608,7 @@ function piProfileClient(
   return new PiAgentClient(cli, {
     requestTimeoutMs: timeout,
     profileGeneration: true,
+    extraEnv: () => ({ ...context.egressEnvironment?.() }),
     ...piKeyProvider(provider, context),
     ...(context.providerStateDirectory ? { providerStateDirectory: context.providerStateDirectory } : {}),
   });
@@ -802,18 +806,11 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         withAccountEnvironment(context),
         context.history?.("grok"),
       ),
-    createProfileClient: (cli, requestTimeoutMs, { accountEnvironment }) =>
-      new GrokAgentClient(
-        cli,
-        requestTimeoutMs,
-        true,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        accountEnvironment && (() => accountEnvironment),
-      ),
+    createProfileClient: (cli, requestTimeoutMs, context) =>
+      new GrokAgentClient(cli, requestTimeoutMs, true, undefined, undefined, undefined, undefined, undefined, () => ({
+        ...context.egressEnvironment?.(),
+        ...context.accountEnvironment,
+      })),
     authState: (account) => ({ kind: "grok", email: account?.email ?? null }),
     validateAccount: () => undefined,
   },
@@ -870,6 +867,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         profileGeneration: true,
         env: {},
         extraEnv: () => ({
+          ...context.egressEnvironment?.(),
           ...opencodeEnv(cli, context),
           ...openCodeConfigEnv(OPENCODE_PROFILE_CONFIG, openCodeEndpoints(context), context.apiKey("opencode")),
         }),
@@ -903,7 +901,10 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         argv: ["acp"],
         env: {},
         ...(confinement ? { confine: (target) => confineSpawnTarget(target, confinement, openCodeStatePaths()) } : {}),
+        // The agent environment first, as for OpenCode: the egress proxy variables reach the shell and
+        // the tools of the agent, and the gateway config below still wins.
         extraEnv: () => ({
+          ...context.agentEnvironment?.(),
           ...opencodeEnv(cli, context),
           ...culturaBuilderConfigEnv(
             CULTURA_BUILDER_GATEWAY,
@@ -947,6 +948,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         profileGeneration: true,
         env: {},
         extraEnv: () => ({
+          ...context.egressEnvironment?.(),
           ...opencodeEnv(cli, context),
           ...culturaBuilderConfigEnv(
             CULTURA_BUILDER_GATEWAY,
@@ -1064,6 +1066,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         argv: ["acp"],
         profileGeneration: true,
         env: {},
+        extraEnv: () => ({ ...context.egressEnvironment?.() }),
         signInMessage: sourceText("error.provider.cursorSignIn"),
         servesModel: context.servesModel,
       }),
@@ -1112,6 +1115,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         argv: CLINE_ARGV,
         profileGeneration: true,
         env: { ...CLINE_ENV },
+        extraEnv: () => ({ ...context.egressEnvironment?.() }),
         additionalModels: clineFreeModels(),
         signInMessage: sourceText("error.provider.clineSignIn"),
         servesModel: context.servesModel,
@@ -1191,7 +1195,12 @@ function customAgentChild(
     signInMessage: sourceText("error.provider.customAgentSignIn"),
     servesModel: () => savedCustomAgents(context).some((saved) => saved.id === config.id),
     ...(profileGeneration
-      ? {}
+      ? {
+          // The egress proxy variables only, as for a built-in profile client. A variable that the
+          // user saved on this agent wins, as below.
+          extraEnv: () =>
+            Object.fromEntries(Object.entries(context.egressEnvironment?.() ?? {}).filter(([name]) => !(name in env))),
+        }
       : {
           // A variable the user saved on this agent wins over the GitHub connection's. The
           // `GIT_CONFIG_*` entries count on from the user's own, so they always apply.

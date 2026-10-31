@@ -842,8 +842,9 @@ Network traffic can also occur when:
 - an owner or admin turns on Server settings › Network egress. Then the agents' internet traffic
   goes through the HTTP proxy that the admin set, so that proxy sees the addresses that the agents
   reach: the embedded browser, the shared Playwright browser, the provider CLIs (the Codex app-server
-  too), the tools and stdio MCP servers that agents start, and the requests that the server sends
-  for the agents to signed-in MCP servers and to GitHub's MCP server. The hosts in the bypass list,
+  and Cultura Builder too) and their clients without tools, the tools and stdio MCP servers that
+  agents start, the wazap commands of the WhatsApp accounts panel, and the requests that the server
+  sends for the agents to signed-in MCP servers and to GitHub's MCP server. The hosts in the bypass list,
   Signal, TURN, the account service, the update feed, telemetry, the messaging connectors, and the
   sign-ins and token refreshes of providers, MCP servers and GitHub stay direct. A program that does
   not read the proxy variables can also go direct. To check the proxy, the server sends one request
@@ -851,6 +852,14 @@ Network traffic can also occur when:
   sends this check when an admin saves or presses **Test proxy**, and when the server starts. The
   proxy password stays encrypted on the server and is never put in a process environment. See
   `docs/architecture/egress-proxy.md`;
+- the user opens the accounts panel of the WhatsApp plugin in Marketplace › Apps. Builders Bot runs
+  the pinned `wazap-mcp` package with `npx`; the first run downloads it from the npm registry, with
+  no user data. To link an account, the user types its number, and wazap sends the number to
+  WhatsApp, which answers a pairing code; with a QR code, the phone scans it and no number is typed.
+  After the link, WhatsApp sends the account's history to wazap, which keeps it in its data folder
+  (`~/.wazap`) on this computer. Builders Bot keeps no copy of the numbers or the codes, and masks
+  them in each log line. With Network egress on, these connections go through its proxy. See
+  `docs/architecture/whatsapp-accounts.md`;
 - the local Codex App Server connects to OpenAI;
 - the local Claude Agent SDK connects to Anthropic through Claude CLI;
 - a user or an agent visits a page in the embedded browser;

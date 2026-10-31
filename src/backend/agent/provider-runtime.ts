@@ -196,11 +196,13 @@ function isEarlyCliExit(failure: unknown): boolean {
 const OPENCODE_NEWER_DATABASE = /\bDatabase is not empty and has no session table\b/u;
 /**
  * The providers whose shared process reads the agent environment only when it starts. Claude reads
- * it at each session start, and Codex with each thread's config.
+ * it at each session start, Codex with each thread's config, and Pi at each thread's process.
  */
 const SPAWN_ENVIRONMENT_PROVIDERS: readonly AgentProvider[] = [
   "grok",
   "opencode",
+  "cultura-builder",
+  "muse",
   "antigravity",
   "cursor",
   "cline",
