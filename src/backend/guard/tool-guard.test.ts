@@ -354,3 +354,55 @@ describe("decideGuard", () => {
     }
   });
 });
+
+describe("ToolGuard.ask, for the task reviewer of the load panel", () => {
+  const request = { system: "You are the task reviewer.", prompt: "Is the task stuck?" };
+  const ask = (guard: ToolGuard, timeoutMs: number) => Effect.runPromise(Effect.result(guard.ask(request, timeoutMs)));
+  const failure = (result: Awaited<ReturnType<typeof ask>>) => (result._tag === "Failure" ? result.failure : null);
+
+  it("fails as unavailable, with no call, when no model is chosen or the chosen one cannot run", async () => {
+    const localOnly = fakePort(() => Effect.succeed('{"decision":"act"}'));
+    const none = guardWith(localOnly.port, { ...DEFAULT_GUARD_PREFERENCE, judge: null });
+    expect(failure(await ask(none.guard, 50))).toMatchObject({ reason: "unavailable" });
+    const signedOut = fakePort(() => Effect.succeed('{"decision":"act"}'), false);
+    const notReady = guardWith(signedOut.port);
+    expect(failure(await ask(notReady.guard, 50))).toMatchObject({ reason: "unavailable" });
+    expect([...localOnly.prompts, ...signedOut.prompts]).toEqual([]);
+  });
+
+  it("asks the port of the model that the Guard uses, also when the Guard is off", async () => {
+    const gateway = fakePort(() => Effect.succeed("gateway"));
+    const asked: string[] = [];
+    const codex: GuardModelPort = {
+      serves: (choice) => choice.provider === "codex",
+      ready: () => true,
+      complete: (choice, sent) => {
+        asked.push(`${choice.model} ${sent.prompt}`);
+        return Effect.succeed('{"decision":"wait"}');
+      },
+    };
+    const guard = new ToolGuard({
+      preference: () => ({ level: "off", judge: { provider: "codex", model: "gpt-5" } }),
+      models: [gateway.port, codex],
+      log: { info: () => {} },
+      timeoutMs: 50,
+    });
+    expect(await ask(guard, 50)).toMatchObject({ _tag: "Success", success: '{"decision":"wait"}' });
+    expect(asked).toEqual(["gpt-5 Is the task stuck?"]);
+    expect(gateway.prompts).toEqual([]);
+  });
+
+  it("fails at its deadline when the model hangs, and keeps the longer deadline of the port", async () => {
+    const hanging = fakePort(() => Effect.never);
+    const started = Date.now();
+    expect(failure(await ask(guardWith(hanging.port).guard, 30))).toMatchObject({ reason: "http" });
+    expect(Date.now() - started).toBeLessThan(1_000);
+
+    const late = (portTimeoutMs?: number): GuardModelPort => ({
+      ...fakePort(() => Effect.succeed("late").pipe(Effect.delay("80 millis"))).port,
+      ...(portTimeoutMs === undefined ? {} : { timeoutMs: portTimeoutMs }),
+    });
+    expect(failure(await ask(guardWith(late()).guard, 20))).toMatchObject({ reason: "http" });
+    expect(await ask(guardWith(late(400)).guard, 20)).toMatchObject({ _tag: "Success", success: "late" });
+  });
+});
