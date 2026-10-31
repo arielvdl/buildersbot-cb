@@ -365,6 +365,7 @@ import { VoiceSpeechService } from "./voice-speech-service";
 import { spawnVoiceTranscriptionHost } from "./voice-transcription-host-process";
 import { VoiceTranscriptionService } from "./voice-transcription-service";
 import { WebhookRelay } from "./webhook-relay";
+import { createWhatsAppAccounts, type WhatsAppAccounts } from "./whatsapp-accounts";
 import { WorkControl } from "./work-control";
 
 const logger = createBuildersBotLogger("application-services");
@@ -500,6 +501,8 @@ const TEARDOWN_ORDER = {
   // Before the agent service. It holds no file an agent reads; only a CLI run that waits is stopped.
   onePasswordConnector: 106,
   bitwardenConnector: 106.5,
+  // Before the agent service. It holds no file an agent reads; only a WhatsApp pairing that waits is stopped.
+  whatsappAccounts: 106.7,
   // Before the agent service, so no agent is handed a token file that is being removed.
   githubConnector: 107,
   // Before the agent service, so no script starts a run while the service stops.
@@ -671,6 +674,7 @@ export interface ApplicationServices {
   dictation: DictationService;
   voiceServer: VoiceServerService;
   lidAwake: LidAwakeService;
+  whatsappAccounts: WhatsAppAccounts;
   dynamicIsland: DynamicIslandWindowController;
   cuaDriver: CuaDriverRuntime;
   computerUseHighlight: ComputerUseHighlightController;
@@ -3043,6 +3047,8 @@ export async function createApplicationServices({
   lidAwake.subscribe(forwardLidAwakeStatus);
   await runCauseEffect(lidAwake.load());
   teardown.push(TEARDOWN_ORDER.providerLog, "the lid-closed mode", () => lidAwake.dispose());
+  const whatsappAccounts = createWhatsAppAccounts({ platform: process.platform });
+  teardown.push(TEARDOWN_ORDER.whatsappAccounts, "the WhatsApp pairings", () => whatsappAccounts.dispose());
   const currentVersion = app.getVersion();
   const updateMetadataPath = join(process.resourcesPath, "app-update.yml");
   // Skip the file check in dev: unpacked runs never enable updates, so avoid touching resourcesPath.
@@ -3442,6 +3448,7 @@ export async function createApplicationServices({
     dictation,
     voiceServer,
     lidAwake,
+    whatsappAccounts,
     dynamicIsland,
     cuaDriver,
     computerUseHighlight,

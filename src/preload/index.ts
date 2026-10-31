@@ -310,6 +310,12 @@ import {
 } from "./team-decoding";
 import { decodeVaultImportResult, decodeVaultSecret, decodeVaultState } from "./vault-decoding";
 import {
+  decodeOptionalWhatsAppLinkState,
+  decodeWhatsAppAccountsResult,
+  decodeWhatsAppAccountsSnapshot,
+  decodeWhatsAppLinkState,
+} from "./whatsapp-accounts-decoding";
+import {
   decodeWorkflowDetail,
   decodeWorkflowGraph,
   decodeWorkflowRunDetail,
@@ -754,6 +760,14 @@ const openbotApi: BuildersBotDesktopApi = {
   }),
   macAutomation: bridgeGroup(IPC_ENDPOINTS.macAutomation, {
     request: decodeMacAutomationResults,
+  }),
+  whatsappAccounts: bridgeGroup(IPC_ENDPOINTS.whatsappAccounts, {
+    list: decodeWhatsAppAccountsSnapshot,
+    add: decodeWhatsAppAccountsResult,
+    act: decodeWhatsAppAccountsResult,
+    startLink: decodeWhatsAppLinkState,
+    linkState: decodeOptionalWhatsAppLinkState,
+    cancelLink: decodeVoid,
   }),
   lidAwake: bridgeGroup(IPC_ENDPOINTS.lidAwake, {
     getStatus: decodeLidAwakeStatus,

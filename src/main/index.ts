@@ -104,6 +104,7 @@ import { teamIpcHandlers } from "./ipc/team-handlers";
 import { updateIpcHandlers } from "./ipc/update-handlers";
 import { vaultIpcHandlers } from "./ipc/vault-handlers";
 import { voiceIpcHandlers } from "./ipc/voice-handlers";
+import { whatsAppAccountsIpcHandlers } from "./ipc/whatsapp-accounts-handlers";
 import { workflowIpcHandlers } from "./ipc/workflow-handlers";
 import { KeepAwake } from "./keep-awake";
 import { LidAwakeRoutines } from "./lid-awake-routines";
@@ -649,6 +650,7 @@ function registerIpcHandlers({
   voiceServer,
   dynamicIsland,
   lidAwake,
+  whatsappAccounts,
   cuaDriver,
   computerUsePermissionHelp,
   storageUsage,
@@ -717,6 +719,7 @@ function registerIpcHandlers({
       permissionHelp: computerUsePermissionHelp,
     }),
     ...macAutomationIpcHandlers({ platform: process.platform }),
+    ...whatsAppAccountsIpcHandlers({ accounts: whatsappAccounts }),
     ...lidAwakeIpcHandlers({ lidAwake }),
     ...backgroundProcessIpcHandlers({ platform: process.platform, agents: () => service.listAgents() }),
     ...providerIpcHandlers({ service, providerRuntimes, credentials: providerCredentials, openLink }),
