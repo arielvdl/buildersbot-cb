@@ -3,6 +3,8 @@
 // device steps to the bridge and mints a local session from the account the bridge confirms: the
 // session token the app keeps is this Worker's, and every other route finds the account here.
 
+import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
+
 const BRIDGE_TIMEOUT_MS = 15_000;
 const RESPONSE_LIMIT_BYTES = 16 * 1024;
 
@@ -28,6 +30,22 @@ export interface DeviceAccount {
   avatarUrl: string | null;
 }
 
+/** The two device steps against one bridge. The web app's routes take it as a dependency. */
+export interface DeviceSignInBridge {
+  /** The bridge origin. A Hub address on it is a development bridge's own page. */
+  url: string;
+  start: () => Promise<DeviceAuthorizationStart>;
+  poll: (flowId: string) => Promise<DevicePollResult>;
+}
+
+export function createDeviceSignInBridge(bridgeUrl: string): DeviceSignInBridge {
+  return {
+    url: bridgeUrl,
+    start: () => startDeviceAuthorization(bridgeUrl),
+    poll: (flowId) => pollDeviceAuthorization(bridgeUrl, flowId),
+  };
+}
+
 /** The bridge answered something this Worker cannot use; the route turns it into a 502. */
 export class DeviceBridgeError extends Error {
   constructor(message: string) {
@@ -36,7 +54,7 @@ export class DeviceBridgeError extends Error {
   }
 }
 
-async function readBoundedJson(response: Response): Promise<Record<string, unknown> | null> {
+async function readBoundedJson(response: Response): Promise<DynamicRecord | null> {
   const declared = Number(response.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > RESPONSE_LIMIT_BYTES) {
     await response.body?.cancel().catch(() => undefined);
@@ -45,10 +63,8 @@ async function readBoundedJson(response: Response): Promise<Record<string, unkno
   const text = await response.text().catch(() => "");
   if (text === "" || text.length > RESPONSE_LIMIT_BYTES) return null;
   try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
+    const value = JSON.parse(text);
+    return isDynamicRecord(value) ? value : null;
   } catch {
     return null;
   }
@@ -77,7 +93,7 @@ async function post(bridgeUrl: string, path: string, body: unknown): Promise<Res
     });
   } catch (error) {
     throw new DeviceBridgeError(
-      `The Cultura Builder sign-in service did not answer: ${error instanceof Error ? `${error.name} ${error.message} ${String((error as { cause?: unknown }).cause ?? "")}` : String(error)}`,
+      `The Cultura Builder sign-in service did not answer: ${error instanceof Error ? `${error.name} ${error.message} ${String(error.cause ?? "")}` : String(error)}`,
     );
   }
 }
@@ -120,8 +136,7 @@ export async function pollDeviceAuthorization(bridgeUrl: string, flowId: string)
   if (!response.ok || body === null) {
     throw new DeviceBridgeError(`The sign-in service answered ${response.status}.`);
   }
-  const user = body.user;
-  const record = typeof user === "object" && user !== null ? (user as Record<string, unknown>) : null;
+  const record = isDynamicRecord(body.user) ? body.user : null;
   const email = boundedString(record?.email, 320);
   if (!email) throw new DeviceBridgeError("The sign-in service returned no account.");
   return {

@@ -374,6 +374,8 @@ export class AuthService {
         avatarUrl: string | null;
         sourceIp: string;
         surface: AccountSurface;
+        /** The web app installation that signs in, so that the session is listed and revoked on its own. */
+        client?: { id: string; label: string } | null;
       },
     ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
       const dependencies = yield* AuthDependencies;
@@ -385,9 +387,32 @@ export class AuthService {
         name: input.name,
         avatarUrl: input.avatarUrl,
         now,
-        session: { id: crypto.randomUUID(), token: randomToken(), expiresAt: PERSISTENT_SESSION_EXPIRES_AT },
+        session: {
+          id: crypto.randomUUID(),
+          token: randomToken(),
+          expiresAt: PERSISTENT_SESSION_EXPIRES_AT,
+          ...(input.client ? { clientId: input.client.id, clientLabel: input.client.label } : {}),
+        },
       });
       return session;
+    },
+    (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
+  ).bind(this);
+
+  /**
+   * The web app's Cultura Builder sign-in. Each start asks the Hub for a new code, so it has the limit
+   * of an email start. A code lives up to 15 minutes with a poll each 5 seconds or more, so the poll
+   * limit leaves room for a few people behind one address.
+   */
+  readonly enforceDeviceSignInRateLimit = Effect.fn("AuthService.enforceDeviceSignInRateLimit")(
+    function* (
+      this: AuthService,
+      step: "start" | "poll",
+      sourceIp: string,
+    ): Effect.fn.Return<void, AuthWorkflowFailure, AuthDependencies> {
+      const dependencies = yield* AuthDependencies;
+      const limit = step === "start" ? 20 : 600;
+      yield* this.#enforceRateLimit(`device-${step}:ip:${normalizeSourceIp(sourceIp)}`, limit, dependencies.now());
     },
     (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
   ).bind(this);

@@ -301,7 +301,14 @@ export class D1AuthRepository implements AuthRepository {
         name: string | null;
         avatarUrl: string | null;
         now: number;
-        session: { id: string; token: string; expiresAt: number };
+        session: {
+          id: string;
+          token: string;
+          expiresAt: number;
+          /** The installation of the web app that signed in, when the client names itself. */
+          clientId?: string | null;
+          clientLabel?: string | null;
+        };
       },
     ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthStoreError, AuthDatabase> {
       const database = yield* AuthDatabase;
@@ -326,9 +333,18 @@ export class D1AuthRepository implements AuthRepository {
           .prepare(
             `INSERT INTO auth_sessions(
           id, user_id, token_hash, expires_at, created_at, last_used_at, client_id, client_label
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .bind(input.session.id, user.id, tokenHash, input.session.expiresAt, input.now, input.now)
+          .bind(
+            input.session.id,
+            user.id,
+            tokenHash,
+            input.session.expiresAt,
+            input.now,
+            input.now,
+            input.session.clientId ?? null,
+            input.session.clientLabel ?? null,
+          )
           .run(),
       );
       return { sessionToken: input.session.token, user: { ...user, name, avatarUrl } };

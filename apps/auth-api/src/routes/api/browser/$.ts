@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { handleBrowserApi } from "../../../server/browser-api";
+import { createDeviceSignInBridge } from "../../../server/device-bridge";
 import { readHostLogo } from "../../../server/host-logo";
 import {
   hostedServerErrorResponse,
@@ -7,6 +8,7 @@ import {
   requestAuthService,
   requestAvatarBucket,
   requestBillingService,
+  requestDeviceBridgeUrl,
   requestHostedServerService,
   requestHostedSiteService,
   requestRemoteControlPlane,
@@ -27,6 +29,10 @@ function handle({ request }: { request: Request }) {
     avatarBucket: requestAvatarBucket,
     hostedSites: requestHostedSiteService,
     webPush: requestWebPush,
+    deviceBridge: () => {
+      const bridgeUrl = requestDeviceBridgeUrl();
+      return bridgeUrl ? createDeviceSignInBridge(bridgeUrl) : null;
+    },
     sourceIp: requestSourceIp,
     errorResponse: hostedServerErrorResponse,
   });

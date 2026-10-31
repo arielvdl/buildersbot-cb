@@ -273,7 +273,7 @@ export interface AuthRepository {
     name: string | null;
     avatarUrl: string | null;
     now: number;
-    session: { id: string; token: string; expiresAt: number };
+    session: { id: string; token: string; expiresAt: number; clientId?: string | null; clientLabel?: string | null };
   }): Effect.Effect<{ sessionToken: string; user: AuthUser }, AuthStoreError>;
   incrementRateLimit(
     keyHash: string,
