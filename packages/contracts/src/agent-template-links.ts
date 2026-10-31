@@ -3,17 +3,25 @@
  * the app, and the browser client's entry for it.
  *
  * ```
- * https://openbot.run/agents/<id>    the link a person shares and the app copies
- * openbot://agents/<id>              the link the page button opens
- * /app?agent=<id>                    the page's link to the browser client, on the same origin
+ * https://buildersbot.culturabuilder.com/agents/<id>    the link a person shares and the app copies
+ * openbot://agents/<id>                                 the link the page button opens
+ * /app?agent=<id>                                       the page's link to the browser client, on the same origin
  * ```
+ *
+ * The template is stored by the account service that the app uses, so the share link is on that
+ * service's site: the Builders Bot one, which also serves `/agents/<id>` and the web app. A link on the
+ * upstream `openbot.run` site, from before, still opens in the app.
  *
  * This follows `plugin-links.ts`: the host gives the kind, one path segment gives the id, and a
  * query is refused, so the shape cannot grow an `?install=1`. A link opens a preview in the app;
  * installing is still a press of Install there.
  */
 
+import { BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN, BUILDERSBOT_CONTROL_PLANE_ORIGIN } from "./invite-links";
+
 export const OPENBOT_AGENT_TEMPLATE_ORIGIN = "https://openbot.run";
+/** The Builders Bot account service, which stores the templates of this build and serves their pages. */
+export const BUILDERSBOT_AGENT_TEMPLATE_ORIGIN = BUILDERSBOT_CONTROL_PLANE_ORIGIN;
 export const OPENBOT_AGENT_TEMPLATE_PATH_PREFIX = "/agents/";
 export const OPENBOT_AGENT_TEMPLATE_HOST = "agents";
 export const WEB_APP_AGENT_TEMPLATE_PARAM = "agent";
@@ -26,12 +34,12 @@ export function isAgentTemplateId(value: string): boolean {
 }
 
 /**
- * The site a share link names: `openbot.run`, or a loopback origin while a developer runs the Account
- * Worker on this computer. Nothing else passes, so a configured address cannot turn the copied link
- * into another site.
+ * The site a share link names: the Builders Bot site, `openbot.run`, or a loopback origin while a
+ * developer runs the Account Worker on this computer. Nothing else passes, so a configured address
+ * cannot turn the copied link into another site.
  */
 export function isAgentTemplateShareOrigin(origin: string): boolean {
-  if (origin === OPENBOT_AGENT_TEMPLATE_ORIGIN) return true;
+  if (origin === BUILDERSBOT_AGENT_TEMPLATE_ORIGIN || origin === OPENBOT_AGENT_TEMPLATE_ORIGIN) return true;
   try {
     const url = new URL(origin);
     return (
@@ -44,14 +52,19 @@ export function isAgentTemplateShareOrigin(origin: string): boolean {
   }
 }
 
-/** The share origin for an Account Worker: the local Worker in development, `openbot.run` otherwise. */
+/**
+ * The share origin for an Account Worker: the Builders Bot site for the Builders Bot service (on its
+ * main or its own address), the local Worker in development, `openbot.run` otherwise.
+ */
 export function agentTemplateShareOrigin(apiOrigin: string): string {
+  if (apiOrigin === BUILDERSBOT_CONTROL_PLANE_ORIGIN || apiOrigin === BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN)
+    return BUILDERSBOT_AGENT_TEMPLATE_ORIGIN;
   return apiOrigin !== OPENBOT_AGENT_TEMPLATE_ORIGIN && isAgentTemplateShareOrigin(apiOrigin)
     ? apiOrigin
     : OPENBOT_AGENT_TEMPLATE_ORIGIN;
 }
 
-export function createAgentTemplateShareUrl(id: string, origin: string = OPENBOT_AGENT_TEMPLATE_ORIGIN): string {
+export function createAgentTemplateShareUrl(id: string, origin: string = BUILDERSBOT_AGENT_TEMPLATE_ORIGIN): string {
   assertAgentTemplateId(id);
   if (!isAgentTemplateShareOrigin(origin)) throw new Error("The Builders Bot agent link origin is invalid.");
   return `${origin}${OPENBOT_AGENT_TEMPLATE_PATH_PREFIX}${id}`;
@@ -89,7 +102,7 @@ export function parseAgentTemplateUrl(value: string): string {
   // The origin is compared as one string, so `openbot.run.example.com` does not pass.
   const canonical =
     url.protocol === "https:" &&
-    url.origin === OPENBOT_AGENT_TEMPLATE_ORIGIN &&
+    (url.origin === BUILDERSBOT_AGENT_TEMPLATE_ORIGIN || url.origin === OPENBOT_AGENT_TEMPLATE_ORIGIN) &&
     url.pathname.startsWith(OPENBOT_AGENT_TEMPLATE_PATH_PREFIX);
   const customScheme = url.protocol === "openbot:" && url.hostname === OPENBOT_AGENT_TEMPLATE_HOST;
   if (
