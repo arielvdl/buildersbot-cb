@@ -1,3 +1,5 @@
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { APP_PROFILE_LIMITS, type AppProfile, decodeAppProfile } from "@openbot/contracts/app-profile";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import type { MarketplaceAppCuration } from "@openbot/ui/features/marketplace/marketplace-curation";
@@ -13,9 +15,15 @@ import { createSignal } from "solid-js";
 
 const SHOW_ALL_STORAGE_KEY = "openbot:marketplace-show-all-apps";
 const PROFILE_STORAGE_KEY = "openbot:marketplace-app-profile";
-/** The account key is an opaque id that the caller gives. It is never shown. */
-const ACCOUNT_KEY_LIMIT = 128;
-const ACCOUNT_KEY_PATTERN = /^[\x21-\x7e]+$/u;
+/** The longest account key that the caller can give, in UTF-16 code units. */
+const ACCOUNT_KEY_LIMIT = 256;
+/** The cache keeps the SHA-256 hash of the account key, as 64 hex digits, and never the key. */
+const ACCOUNT_HASH_PATTERN = /^[0-9a-f]{64}$/u;
+/**
+ * The JSON text of the cache entry: a profile, which `decodeAppProfile` keeps within
+ * `APP_PROFILE_LIMITS.text`, and the 89 code units of the wrapper with the hash.
+ */
+const CACHE_TEXT_LIMIT = APP_PROFILE_LIMITS.text + 128;
 
 /** The choice for this page after the browser did not save it. It wins over an older saved value. */
 let unsavedShowAll: boolean | undefined;
@@ -38,14 +46,19 @@ function writeShowAll(show: boolean): void {
   }
 }
 
-/** The profile and the account it belongs to. */
+/** The profile and the hash of the account it belongs to. */
 interface CachedProfile {
   account: string;
   profile: AppProfile;
 }
 
-function isAccountKey(value: unknown): value is string {
-  return typeof value === "string" && value.length <= ACCOUNT_KEY_LIMIT && ACCOUNT_KEY_PATTERN.test(value);
+/**
+ * The hash of an account key, or null when the key is not text, is empty, or is too long. Only the
+ * hash goes to storage, so the key can be a name or an e-mail address without a copy on disk.
+ */
+function accountHash(account: unknown): string | null {
+  if (typeof account !== "string" || account.length > ACCOUNT_KEY_LIMIT || account.trim() === "") return null;
+  return bytesToHex(sha256(utf8ToBytes(`openbot:marketplace-app-profile:${account}`)));
 }
 
 /**
@@ -55,9 +68,11 @@ function isAccountKey(value: unknown): value is string {
 function readCachedProfile(): CachedProfile | null {
   try {
     const text = window.localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (!text || text.length > APP_PROFILE_LIMITS.text + ACCOUNT_KEY_LIMIT * 2) return null;
+    if (!text || text.length > CACHE_TEXT_LIMIT) return null;
     const value = JSON.parse(text);
-    if (!isDynamicRecord(value) || !isAccountKey(value.account)) return null;
+    if (!isDynamicRecord(value) || typeof value.account !== "string" || !ACCOUNT_HASH_PATTERN.test(value.account)) {
+      return null;
+    }
     const profile = decodeAppProfile(value.profile);
     return profile ? { account: value.account, profile } : null;
   } catch {
@@ -76,6 +91,11 @@ function writeCachedProfile(entry: CachedProfile | null): void {
 
 const [showAll, setShowAllSignal] = createSignal(readShowAll());
 const [cachedProfile, setCachedProfile] = createSignal<CachedProfile | null>(readCachedProfile());
+/**
+ * The hash of the account that the last answer to this page named. Null until the first answer, so
+ * the cached profile waits until an answer names its account.
+ */
+const [answeredAccount, setAnsweredAccount] = createSignal<string | null>(null);
 
 function readStorageIntoSignals(event: StorageEvent): void {
   if (event.key === null || event.key === SHOW_ALL_STORAGE_KEY) setShowAllSignal(readShowAll());
@@ -110,29 +130,36 @@ export type AppProfileAnswer =
 
 /**
  * ADAPTER POINT. The one way in for an organization's app profile. Nothing calls it yet: the Hub
- * does not send `appProfile` today. The client that reads the Hub's `/session` calls it after each
- * read, sign-in and sign-out (see docs/architecture/marketplace-apps-curation.md).
+ * does not send `appProfile` today. Main reads the Hub's `/session`, so the profile comes to this
+ * page through an IPC event, which the preload decodes. Each page calls this after each read,
+ * sign-in and sign-out (see docs/architecture/marketplace-apps-curation.md).
  *
- * `account` is an opaque, stable key of the signed-in account, such as its Hub user id. It binds the
- * cache to that account, so a profile never applies to another account. An unreachable Hub keeps the
- * cached profile of the same account; any other answer replaces it.
+ * `account` is a stable key of the signed-in account, 1 to 256 UTF-16 code units, such as the Hub
+ * user id. Storage keeps only its SHA-256 hash. The cached profile applies only after an answer to
+ * this page names the account that the cache holds, so it never applies to another account. An
+ * unreachable Hub keeps the cached profile of the same account; any other answer replaces it.
  */
 export function receiveAppProfile(answer: AppProfileAnswer): void {
-  if (answer.kind === "signed-out" || !isAccountKey(answer.account)) {
+  const account = answer.kind === "signed-out" ? null : accountHash(answer.account);
+  setAnsweredAccount(account);
+  if (answer.kind === "signed-out" || account === null) {
     setProfile(null);
     return;
   }
   if (answer.kind === "unreachable") {
-    if (cachedProfile()?.account !== answer.account) setProfile(null);
+    if (cachedProfile()?.account !== account) setProfile(null);
     return;
   }
   const profile = decodeAppProfile(answer.value);
-  setProfile(profile ? { account: answer.account, profile } : null);
+  setProfile(profile ? { account, profile } : null);
 }
 
 /** The curation of the Apps tab, shared by every Marketplace of this page. */
 export const marketplaceAppCuration: MarketplaceAppCuration = {
-  profile: () => cachedProfile()?.profile ?? null,
+  profile: () => {
+    const entry = cachedProfile();
+    return entry && entry.account === answeredAccount() ? entry.profile : null;
+  },
   showAll,
   setShowAll: (show) => {
     writeShowAll(show);
