@@ -50,7 +50,9 @@ Resources:
               #                    tinyproxy configuration, which bb-proxy.service gets through LoadCredential. When
               #                    the read or the check fails, the previous file stays.
               #   parse <file>     the same, from the value on standard input (tests)
-              #   sync-mode        /bb-srv/sectors/<sector>/egress -> /etc/bb-srv/egress (proxy unless "direct")
+              #   sync-mode        /bb-srv/sectors/<sector>/egress -> /etc/bb-srv/egress (proxy unless "direct"),
+              #                    only while this VM has none: the egress changes only with a new VM
+              #   adopt-mode <file> <value>             that rule (tests)
               #   mode             print proxy or direct
               #   guard            the egress firewall of the container and of the forwarder (fail closed), proxy.env
               #   rules <proxy|direct> <port|-> [ip...] print the rules of guard (tests)
@@ -85,8 +87,22 @@ Resources:
               }
 
               # "direct" only when the stack says so (EgressProxy=direct); anything else, or nothing, is the proxy.
-              mode() {
-                if [ "$(cat "$ETC/egress" 2>/dev/null || true)" = direct ]; then echo direct; else echo proxy; fi
+              mode_of() { if [ "$(cat "$1" 2>/dev/null || true)" = direct ]; then echo direct; else echo proxy; fi; }
+              mode() { mode_of "$ETC/egress"; }
+
+              # The first answer of the stack fixes the egress of this VM. A later "direct" (a put-parameter, an
+              # update of the stack) does not open the container: the egress changes only with a new VM.
+              adopt_mode() {
+                local file=$1 want=proxy
+                [ "${2:-}" != direct ] || want=direct
+                if [ -s "$file" ]; then
+                  [ "$want" = "$(mode_of "$file")" ] ||
+                    echo "BB_PROXY warning: the stack asks for $want egress; this VM keeps $(mode_of "$file"): the egress changes only with a new VM (add-sector.sh --reattach)" >&2
+                  return 0
+                fi
+                printf '%s\n' "$want" >"$file.new"
+                chmod 0644 "$file.new"
+                mv -f "$file.new" "$file"
               }
 
               # A public IPv4 address in plain decimal: none of the ranges that openbot-firewall blocks.
@@ -165,16 +181,13 @@ Resources:
                 echo "BB_PROXY config ok"
               }
 
-              # The egress of this sector from its stack. Without an answer, the last mode stays (proxy on a new VM).
+              # The egress of this sector from its stack (adopt_mode). Without an answer nothing is written (proxy).
               sync_mode() {
                 local sector value
                 sector=$(cat "$ETC/sector")
-                if value=$(HOME=/root "$AWS" ssm get-parameter --region "$(cat "$ETC/region")" \
+                if value=$(HOME=/root "$AWS" ssm get-parameter --cli-connect-timeout 10 --cli-read-timeout 20 --region "$(cat "$ETC/region")" \
                   --name "/bb-srv/sectors/$sector/egress" --query Parameter.Value --output text 2>/dev/null); then
-                  if [ "$value" = direct ]; then value=direct; else value=proxy; fi
-                  printf '%s\n' "$value" >"$ETC/egress.new"
-                  chmod 0644 "$ETC/egress.new"
-                  mv -f "$ETC/egress.new" "$ETC/egress"
+                  adopt_mode "$ETC/egress" "$value"
                 else
                   echo "BB_PROXY warning: could not read /bb-srv/sectors/$sector/egress; the egress stays $(mode)" >&2
                 fi
@@ -482,6 +495,10 @@ Resources:
                   render "$2"
                   ;;
                 sync-mode) sync_mode ;;
+                adopt-mode)
+                  [ "$#" -eq 3 ] || fail "usage: bb-srv-proxy adopt-mode <file> <value>"
+                  adopt_mode "$2" "$3"
+                  ;;
                 mode) mode ;;
                 guard) guard ;;
                 rules) shift; rules "$@" ;;

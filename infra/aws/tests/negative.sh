@@ -724,6 +724,27 @@ else
   bad "F4 DNS do contêiner recusa zona inválida"
 fi
 
+# adopt-mode: a primeira resposta da stack fixa a saída da VM. Um "direct" depois (put-parameter, update da
+# stack) não abre o contêiner: a saída muda só com uma VM nova (--reattach).
+EGRESS_T=$WORK/egress
+printf 'proxy\n' >"$EGRESS_T"
+adopt_msg=$(bash "$TOOL" adopt-mode "$EGRESS_T" direct 2>&1)
+if [ "$(cat "$EGRESS_T")" = proxy ] && grep -q 'changes only with a new VM' <<<"$adopt_msg"; then
+  ok_case "F4 VM em proxy continua em proxy quando o SSM passa a responder 'direct' (aviso, nada muda)"
+else
+  bad "F4 VM em proxy não pode virar direct sem VM nova" "$adopt_msg"
+fi
+rm -f "$EGRESS_T"
+bash "$TOOL" adopt-mode "$EGRESS_T" direct >/dev/null 2>&1
+first_direct=$(cat "$EGRESS_T" 2>/dev/null)
+rm -f "$EGRESS_T"
+bash "$TOOL" adopt-mode "$EGRESS_T" required >/dev/null 2>&1
+if [ "$first_direct" = direct ] && [ "$(cat "$EGRESS_T" 2>/dev/null)" = proxy ]; then
+  ok_case "F4 VM nova adota a saída da stack na primeira resposta (direct ou proxy)"
+else
+  bad "F4 VM nova adota a saída da stack" "$first_direct / $(cat "$EGRESS_T" 2>/dev/null)"
+fi
+
 # add-sector: proxy obrigatório. Só describe-parameters (existência e tipo); o valor nunca é lido.
 h_proxy() {
   case "$1 $2" in
