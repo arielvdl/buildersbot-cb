@@ -159,9 +159,14 @@ function cookieNamed(response: Response, name: string): string | undefined {
   return response.headers.getSetCookie().find((cookie) => cookie.startsWith(`${name}=`));
 }
 
+/** The `{ error: { code, message } }` refusal of the account service. */
+async function refusal(response: Response): Promise<{ code: string; message: string }> {
+  const body = await response.json<{ error: { code: string; message: string } }>();
+  return body.error;
+}
+
 async function errorCode(response: Response): Promise<string> {
-  const body = await response.json();
-  return body.error.code;
+  return (await refusal(response)).code;
 }
 
 describe("web app Cultura Builder sign-in", () => {
@@ -218,7 +223,7 @@ describe("web app Cultura Builder sign-in", () => {
     });
     const started = await handleBrowserApi(browserPost("device/start"), plainHttp.services);
     expect(started.status).toBe(200);
-    expect((await started.json()).verificationUriComplete).toBeNull();
+    expect((await started.json<{ verificationUriComplete: string | null }>()).verificationUriComplete).toBeNull();
   });
 
   it("polls only the flow of this browser's cookie, never a flow ID that the page sends", async () => {
@@ -305,9 +310,9 @@ describe("web app Cultura Builder sign-in", () => {
     });
     const response = await handleBrowserApi(browserPost("device/start"), api);
     expect(response.status).toBe(502);
-    const body = await response.json();
-    expect(body.error.code).toBe("sign_in_service_unavailable");
-    expect(body.error.message).not.toContain("internal");
+    const error = await refusal(response);
+    expect(error.code).toBe("sign_in_service_unavailable");
+    expect(error.message).not.toContain("internal");
   });
 
   it("answers 503 when no sign-in service is configured", async () => {

@@ -381,7 +381,7 @@ export class AuthService {
       const dependencies = yield* AuthDependencies;
       const now = dependencies.now();
       yield* this.#enforceRateLimit(`device:ip:${normalizeSourceIp(input.sourceIp)}`, 30, now);
-      const email = yield* authValidate(() => normalizeEmailAddress(input.email));
+      const email = yield* authValidate(() => normalizeEmail(input.email));
       const session = yield* dependencies.repository.signInWithDeviceAccount({
         email,
         name: input.name,

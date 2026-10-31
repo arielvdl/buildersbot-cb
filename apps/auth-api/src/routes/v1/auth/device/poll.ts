@@ -22,11 +22,12 @@ export const Route = createFileRoute("/v1/auth/device/poll")({
             const bridgeUrl = requestDeviceBridgeUrl();
             if (!bridgeUrl) return apiError(503, "device_sign_in_disabled", "Device sign-in is not configured.");
             const body = yield* readJsonObject(request);
-            if (!isString(body.flowId)) {
+            const flowId = body.flowId;
+            if (!isString(flowId)) {
               return apiError(400, "invalid_device_flow", "The device flow is invalid.");
             }
             const result = yield* Effect.tryPromise({
-              try: () => pollDeviceAuthorization(bridgeUrl, body.flowId),
+              try: () => pollDeviceAuthorization(bridgeUrl, flowId),
               catch: (error) => error,
             }).pipe(
               Effect.catchIf(

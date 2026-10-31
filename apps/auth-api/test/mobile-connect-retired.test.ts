@@ -51,7 +51,7 @@ describe("retired Mobile Connect routes", () => {
     const response = await post(path, `https://buildersbot.test/v1/mobile-auth/${name}`);
     expect(response.status).toBe(410);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    const body = await response.json();
+    const body = await response.json<{ error: { code: string; message: string } }>();
     expect(body.error.code).toBe("mobile_connect_retired");
     expect(body.error.message).not.toMatch(/openbot/iu);
   });
