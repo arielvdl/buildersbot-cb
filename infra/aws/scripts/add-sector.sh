@@ -270,6 +270,7 @@ cat <<EOF
 
 == Setor $sector no ar (ainda sem conta).
 Saída do contêiner: $([ "$egress" = direct ] && echo 'DIRETA, sem o proxy residencial (decisão do dono).' || echo 'só pelo proxy residencial (falha fechada). IP e país vistos de dentro: scripts/status.sh '"$sector"' --deep')
+$([ "$install" = 1 ] && echo "Num setor 24/7, um e-mail de ALARM de bb-srv-$sector-health ou -egress-proxy durante a criação é esperado: as linhas de saúde só começam no fim do bb-srv-Install, e os alarmes voltam a OK em ~10 min (README, seção 16).")
 Próximo passo (o código chega na caixa da conta dona do setor; nunca use a conta pessoal do Ariel):
   scripts/login-sector.sh $sector bb-$sector@culturabuilder.com "CB $sector"
 Depois, com a conta dona num perfil separado do app: Configurações do servidor -> Membros ->
