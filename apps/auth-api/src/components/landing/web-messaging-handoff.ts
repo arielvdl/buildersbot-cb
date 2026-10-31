@@ -11,8 +11,9 @@ const RECEIPT_TIMEOUT_MS = 3_000;
 
 /**
  * Gives a Slack or Discord install's sealed grant to the browser client tab that started it. Null when
- * no tab of this browser marked the nonce: the page then opens the `openbot://` link. Otherwise true
- * when the tab took the grant, and false when no tab answered, for example after a reload.
+ * no tab of this browser marked the nonce: the page then opens the `openbot://` link of the desktop app,
+ * or, on a phone, asks to start again in the web app. Otherwise true when the tab took the grant, and
+ * false when no tab answered, for example after a reload.
  */
 export function handOffToWebClient(
   platform: WebMessagingInstallPlatform,

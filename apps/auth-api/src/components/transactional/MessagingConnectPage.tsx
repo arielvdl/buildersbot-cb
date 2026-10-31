@@ -77,6 +77,14 @@ const MESSAGING_PROVIDERS: Record<WebMessagingInstallPlatform, MessagingProvider
 const APP_URL = "openbot://";
 const WEB_CLIENT_URL = "/app";
 
+/** The same test as the `/join` page: a phone or a tablet, which gets the web app and no `openbot://` link. */
+function isPhone(): boolean {
+  return (
+    /android|iphone|ipad|ipod/iu.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
 /** The code comes from the address bar, so only the map's own keys count, not `constructor` and others. */
 function failureKind(provider: MessagingProvider, code: string): FailureKind {
   return Object.hasOwn(provider.errors, code) ? (provider.errors[code] ?? "failed") : "failed";
@@ -102,8 +110,10 @@ export function MessagingConnectPage(props: {
   const [openUrl, setOpenUrl] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [webClient, setWebClient] = createSignal(false);
+  const [phone, setPhone] = createSignal(false);
 
   onSettled(() => {
+    setPhone(isPhone());
     const provider = MESSAGING_PROVIDERS[props.provider];
     const page = new URL(window.location.href);
     const fragment = new URLSearchParams(page.hash.slice(1));
@@ -120,6 +130,12 @@ export function MessagingConnectPage(props: {
       void handoff.then((received) => (received ? setWebClient(true) : setFailure(provider.tabClosedCode)));
       return;
     }
+    // A phone has no desktop app to take the link: the install came from the web app, whose storage
+    // this browser does not share (an installed iPhone web app, for example). It starts again there.
+    if (isPhone()) {
+      setFailure(provider.tabClosedCode);
+      return;
+    }
     setOpenUrl(target);
     window.location.assign(target);
   });
@@ -132,6 +148,7 @@ export function MessagingConnectPage(props: {
       openUrl={openUrl()}
       failure={failure()}
       webClient={webClient()}
+      phone={phone()}
     />
   );
 }
@@ -145,6 +162,8 @@ export function MessagingConnectView(props: {
   openUrl: string;
   failure: string | null;
   webClient?: boolean;
+  /** A phone gets only the web app: no `openbot://` button, which no app on it opens. */
+  phone?: boolean;
 }) {
   const provider = () => MESSAGING_PROVIDERS[props.provider];
   const kind = () => (props.failure ? failureKind(provider(), props.failure) : null);
@@ -185,7 +204,7 @@ export function MessagingConnectView(props: {
             <div class="join-card-actions">
               {/* The browser client is the first action when its tab started the install. */}
               <Show
-                when={failed() === "tabClosed"}
+                when={failed() === "tabClosed" || props.phone}
                 fallback={
                   <>
                     <Button href={APP_URL} variant="primary" size="lg" icon="open" onClick={fallback.arm}>
@@ -200,9 +219,11 @@ export function MessagingConnectView(props: {
                 <Button href={WEB_CLIENT_URL} variant="primary" size="lg" icon="arrow-right">
                   {props.text.tryAgainBrowser}
                 </Button>
-                <Button href={APP_URL} variant="secondary" size="lg" icon="open" onClick={fallback.arm}>
-                  {props.text.tryAgainApp}
-                </Button>
+                <Show when={!props.phone}>
+                  <Button href={APP_URL} variant="secondary" size="lg" icon="open" onClick={fallback.arm}>
+                    {props.text.tryAgainApp}
+                  </Button>
+                </Show>
               </Show>
             </div>
             <p class="join-card-note">{props.text.restartHint}</p>
