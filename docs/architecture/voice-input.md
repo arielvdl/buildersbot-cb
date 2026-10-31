@@ -25,7 +25,7 @@ wants the preview while speaking chooses `voice`.
 
 ### Why the system engine first
 
-- Nothing to download, and the audio does not leave the computer on device.
+- Nothing to download, and the audio does not leave the computer: macOS recognizes on device only.
 - The same key works in every app, which is the point of a global combination.
 - It is the only engine that is already installed on both target systems.
 
@@ -38,9 +38,12 @@ and `auto` moves to the model when the system cannot work.
 
 `resources/os-speech/darwin/os-speech.swift` is compiled by `scripts/build-os-speech.ts` into
 `.openbot-build/voice/os-speech/darwin/os-speech`, carried by `extraResources` and run with the WAV
-path and the language. It requests `SFSpeechRecognizer` authorization, recognizes **on device** when
-the language has its asset, and retries on the system server when the on-device pass fails. It exits
-with a category (`permission`, `language`, `empty`, `recognize`) that main maps to a catalog key.
+path and the language. It requests `SFSpeechRecognizer` authorization and recognizes **on device
+only** (`requiresOnDeviceRecognition`). It never uses the speech server of Apple, so the audio stays
+on the Mac, as `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` say. A
+language without its on-device asset answers `language`, and a failed pass answers `recognize`; in
+both cases `auto` moves to the voice model. It exits with a category (`permission`, `language`,
+`empty`, `recognize`) that main maps to a catalog key.
 
 The app's `Info.plist` carries `NSSpeechRecognitionUsageDescription`; the helper carries its own copy
 in an embedded plist, so the permission still resolves if macOS attributes it to the binary. The app

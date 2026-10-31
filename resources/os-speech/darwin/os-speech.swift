@@ -86,12 +86,17 @@ guard let recognizer = SFSpeechRecognizer(locale: locale) else {
     fail("language", "The system does not recognize this language.", 5)
 }
 guard recognizer.isAvailable else { fail("unavailable", "The recognizer is not available.", 6) }
+// The audio stays on this Mac, as the usage descriptions of the app say: recognition on the server
+// of Apple is never used. A language without its on-device asset answers `language`, so `auto`
+// moves to the voice model of the app.
+guard recognizer.supportsOnDeviceRecognition else {
+    fail("language", "This language has no speech recognition on this Mac.", 5)
+}
 
-/// One pass over the recording. On device keeps the audio on this Mac; a language without its
-/// asset, or a Mac with Dictation off, fails there and is retried on the server.
-func recognize(onDevice: Bool) -> (text: String, failure: Error?) {
+/// One pass over the recording, on device only. A Mac with Dictation off fails here.
+func recognize() -> (text: String, failure: Error?) {
     let request = SFSpeechURLRecognitionRequest(url: URL(fileURLWithPath: path))
-    request.requiresOnDeviceRecognition = onDevice
+    request.requiresOnDeviceRecognition = true
     request.shouldReportPartialResults = false
 
     var text = ""
@@ -113,10 +118,7 @@ func recognize(onDevice: Bool) -> (text: String, failure: Error?) {
     return (text, failure)
 }
 
-var outcome = recognize(onDevice: recognizer.supportsOnDeviceRecognition)
-if outcome.failure != nil && outcome.text.isEmpty && recognizer.supportsOnDeviceRecognition {
-    outcome = recognize(onDevice: false)
-}
+let outcome = recognize()
 
 let transcript = outcome.text.trimmingCharacters(in: .whitespacesAndNewlines)
 if transcript.isEmpty {

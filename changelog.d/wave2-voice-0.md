@@ -42,3 +42,7 @@
 - The macOS microphone prompt says that commands that agents run from Builders Bot can also use the
   microphone, and that the audio stays on the Mac unless you choose a cloud voice model or your own
   voice server.
+- The system dictation of macOS recognizes on the Mac only. Before, when the on-device pass failed
+  or the language had no on-device recognition, it sent the audio to the speech server of Apple. Now
+  such a language uses the voice model when the dictation engine is Automatic, and says that the
+  system cannot recognize it when the engine is System.
