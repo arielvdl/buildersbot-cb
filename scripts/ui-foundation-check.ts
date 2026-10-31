@@ -105,34 +105,124 @@ function declaredClasses(source: string): Set<string> {
 
 /** An i18n key: dotted words, so `${anchor}` in a selector template is not one. */
 const KEY = String.raw`[\w-]+(?:\.[\w-]+)+`;
+/** An anchor written as text: `="key"`, `='key'` or `={"key"}`. */
+const LITERAL_ANCHOR = new RegExp(
+  String.raw`data-settings-row=(?:"(${KEY})"|'(${KEY})'|\{\s*["'\x60](${KEY})["'\x60]\s*\})`,
+  "gu",
+);
+/** An anchor set from a property of a value, such as `data-settings-row={setting.title}`. */
+const PROPERTY_ANCHOR = /data-settings-row=\{\s*[\w$]+(?:\??\.[\w$]+)*\??\.([\w$]+)\s*\}/gu;
+/** A row title that is a catalog key: `t("key")` or `i18n.t("key")`, with or without arguments. */
+const TITLE_KEY = String.raw`\{\s*(?:[\w$]+\.)?t\(\s*"(${KEY})"`;
+
+/** The end of the JSX opening tag that starts at `start`: the `>` outside braces and strings. */
+function openingTagEnd(source: string, start: number): number {
+  let depth = 0;
+  let quote = "";
+  for (let index = start + 1; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote) {
+      if (char === quote) quote = "";
+    } else if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "{") depth += 1;
+    else if (char === "}") depth -= 1;
+    else if (char === ">" && depth === 0) return index;
+  }
+  return source.length;
+}
+
+interface OpeningTag {
+  name: string;
+  start: number;
+  end: number;
+  attributes: string;
+  selfClosing: boolean;
+}
+
+function openingTags(source: string, names: string): OpeningTag[] {
+  const tags: OpeningTag[] = [];
+  for (const match of source.matchAll(new RegExp(String.raw`<(${names})(?=[\s>/])`, "gu"))) {
+    const name = match[1];
+    if (name === undefined) continue;
+    const end = openingTagEnd(source, match.index);
+    const attributes = source.slice(match.index + name.length + 1, end);
+    tags.push({ name, start: match.index, end, attributes, selfClosing: attributes.trimEnd().endsWith("/") });
+  }
+  return tags;
+}
+
+/** Whether the element that `tag` opens is still open at `position`: its closing tag comes later. */
+function openAt(source: string, tag: OpeningTag, position: number): boolean {
+  if (tag.selfClosing || position <= tag.end) return false;
+  const between = source.slice(tag.end, position);
+  const opened = between.match(new RegExp(String.raw`<${tag.name}(?=[\s>])`, "gu"))?.length ?? 0;
+  const closed = between.match(new RegExp(`</${tag.name}>`, "gu"))?.length ?? 0;
+  return opened >= closed;
+}
+
+/**
+ * The rows of a settings file that have a catalog title and no anchor: a `SwitchField` with
+ * `label={t("key")}`, or an `Item` whose `ItemTitle` is `{t("key")}`. A row inside an element with
+ * an anchor, such as a section, moves with that anchor. A row with `data-settings-row-skip` is not
+ * a setting, such as a status line.
+ */
+function rowsWithoutAnchor(source: string): Array<{ key: string; start: number }> {
+  const anchored = openingTags(source, String.raw`[A-Za-z][\w.]*`).filter((tag) =>
+    tag.attributes.includes("data-settings-row="),
+  );
+  const rows: Array<{ key: string; start: number }> = [];
+  for (const tag of openingTags(source, "SwitchField|Item")) {
+    if (/data-settings-row(?:-skip)?=/u.test(tag.attributes)) continue;
+    let key: string | undefined;
+    if (tag.name === "SwitchField") {
+      key = tag.attributes.match(new RegExp(String.raw`\blabel=${TITLE_KEY}`, "u"))?.[1];
+    } else {
+      const body = source.slice(tag.end + 1).split(/<\/Item>|<Item(?=[\s>])/u)[0] ?? "";
+      key = body.match(new RegExp(String.raw`<ItemTitle>\s*${TITLE_KEY}`, "u"))?.[1];
+    }
+    if (key === undefined) continue;
+    if (anchored.some((parent) => parent.start < tag.start && openAt(source, parent, tag.start))) continue;
+    rows.push({ key, start: tag.start });
+  }
+  return rows;
+}
 
 /**
  * The settings search moves to a row through its `data-settings-row` anchor, and its index names
  * each anchor as `anchor: "key"`. A row that is not in the index is never found, and an entry with no
- * row opens its tab and moves nowhere, so both fail. An anchor that markup sets from a value, such as
- * `data-settings-row={setting.title}`, cannot be read here: an entry counts as placed when its key is a
- * string in a file that sets such an anchor, and the type of the index holds that list.
+ * row opens its tab and moves nowhere, so both fail. An anchor that markup sets from a property of a
+ * value, such as `data-settings-row={setting.title}`, cannot be read here: an entry counts as placed
+ * when its key is the value of that property in the same file, such as `title: "key"`, and the type
+ * of the index holds that list. In a file that sets an anchor, a row with a catalog title and no
+ * anchor fails too: the search cannot find a setting that the tab adds without one.
  */
 function settingsSearchFailures(files: readonly string[], labelRoot: string): string[] {
   const anchors = new Map<string, string>();
   const entries = new Map<string, string>();
   const valueAnchorStrings = new Set<string>();
+  const failures: string[] = [];
   for (const file of files) {
     if (!/\.tsx?$/u.test(file) || /\.test\.tsx?$/u.test(file)) continue;
     const source = readFileSync(file, "utf8");
     const label = relative(labelRoot, file);
-    for (const [, key] of source.matchAll(new RegExp(`data-settings-row="(${KEY})"`, "gu"))) {
+    for (const match of source.matchAll(LITERAL_ANCHOR)) {
+      const key = match[1] ?? match[2] ?? match[3];
       if (key !== undefined && !anchors.has(key)) anchors.set(key, label);
     }
     for (const [, key] of source.matchAll(new RegExp(`\\banchor:\\s*"(${KEY})"`, "gu"))) {
       if (key !== undefined && !entries.has(key)) entries.set(key, label);
     }
-    if (/data-settings-row=\{/u.test(source)) {
-      for (const [, key] of source.matchAll(new RegExp(`"(${KEY})"`, "gu")))
+    for (const [, property] of source.matchAll(PROPERTY_ANCHOR)) {
+      for (const [, key] of source.matchAll(new RegExp(String.raw`\b${property}:\s*"(${KEY})"`, "gu")))
         if (key !== undefined) valueAnchorStrings.add(key);
     }
+    if (!source.includes("data-settings-row=")) continue;
+    for (const row of rowsWithoutAnchor(source)) {
+      failures.push(
+        `${label}: the settings row "${row.key}" has no data-settings-row; add one and a settings search entry, or data-settings-row-skip`,
+      );
+    }
   }
-  const failures: string[] = [];
   for (const [key, label] of anchors) {
     if (!entries.has(key)) failures.push(`${label}: the settings row "${key}" has no entry in the settings search`);
   }

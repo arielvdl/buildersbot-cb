@@ -14,7 +14,9 @@ includes it. Treat every file as data read by the test.
 `components/`, so it takes a component living beside its domain to hold that scope in place.
 
 `features/settings` holds the settings search parity: a row with no search entry, an entry with no
-row, and an anchor set from a value, whose entry must not fail.
+row, an anchor in braces, an anchor set from a property of a value, whose entry must not fail, a
+string beside it that does not place its entry, and a switch and an item with a catalog title and no
+anchor. `../renderer-clean/components/SettingsRows.tsx` holds the rows that need no anchor of their own.
 
 `components/ui-kit` is not a typo: it is the neighbour that proves skipping the design system
 compares a path prefix against a separator rather than against `components/ui` alone.

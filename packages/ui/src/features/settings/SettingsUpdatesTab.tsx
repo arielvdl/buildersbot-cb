@@ -151,7 +151,7 @@ export function SettingsUpdatesTab(props: SettingsUpdatesTabProps) {
             </Select>
           </ItemActions>
         </Item>
-        <Item class="settings-modal-row settings-modal-update-row">
+        <Item data-settings-row-skip="version and update status" class="settings-modal-row settings-modal-update-row">
           <ItemContent>
             <ItemTitle>{t("settings.updates.version", { version: props.store.installedVersion() })}</ItemTitle>
             <Show when={!managed()}>

@@ -65,11 +65,16 @@ describe("ui foundation check", () => {
         // neither - the template
         // literal that would cover it is an id, so a prefix taken outside a class-building
         // region would silently spare every identifier-* rule in the tree.
-        // The settings search parity, once in each direction. ValueRows.tsx sets its anchor from a
-        // value, so its entry in settings-index.ts reports nothing; without the string branch for such
-        // a file, a third line reads "settings.value.title".
+        // The settings search parity, once in each direction, and for an anchor in braces. ValueRows.tsx
+        // sets its anchor from a property, so the entry for "settings.value.title" reports nothing;
+        // "settings.stray.title" is only a string of that file, so its entry reports.
         'features/settings/SettingsRows.tsx: the settings row "settings.orphan.title" has no entry in the settings search',
+        'features/settings/SettingsRows.tsx: the settings row "settings.braced.title" has no entry in the settings search',
         'features/settings/settings-index.ts: the settings search entry "settings.missing.title" has no row with that data-settings-row',
+        'features/settings/settings-index.ts: the settings search entry "settings.stray.title" has no row with that data-settings-row',
+        // A switch and an item with a catalog title and no anchor, one line for each.
+        'features/settings/SettingsRows.tsx: the settings row "settings.unanchored.switch" has no data-settings-row; add one and a settings search entry, or data-settings-row-skip',
+        'features/settings/SettingsRows.tsx: the settings row "settings.unanchored.item" has no data-settings-row; add one and a settings search entry, or data-settings-row-skip',
         "styles/unreachable.css: .identifier-panel is not reachable from any markup; delete the rule",
         "styles/unreachable.css: .unreachable-panel is not reachable from any markup; delete the rule",
         budget("hand-rolled composite ARIA roles", 9),
