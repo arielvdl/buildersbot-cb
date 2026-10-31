@@ -98,6 +98,7 @@ export const messages = {
   "sidebar.hidden.count": { one: "({count})", other: "({count})" },
   "sidebar.hidden.label": { one: "Masqués, {count} agent", other: "Masqués, {count} agents" },
   "sidebar.hidden.since": "En pause depuis le {date}",
+  "sidebar.preview.startedWith": "A commencé par",
   "sidebar.state.routineFailed": { one: "Échec de la routine", other: "{count} routines ont échoué" },
   "sidebar.state.routineWaiting": { one: "Routine en attente", other: "{count} routines en attente" },
   "sidebar.state.routineRunning": { one: "Routine en cours", other: "{count} routines en cours" },

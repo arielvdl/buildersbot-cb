@@ -356,8 +356,12 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {
+  args: { ...args },
+  render: (storyArgs) => <InteractiveSidebar {...storyArgs} />,
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
 };
+
+/** Hovering a row, without a click, shows what the chat started with and its last message, both cut short. */
 
 /** Rows with open tabs keep a bar at the bottom; hovering previews the tabs and marks the open one. */
 export const ChatTabs: Story = {

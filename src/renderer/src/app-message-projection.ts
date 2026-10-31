@@ -64,6 +64,7 @@ export function toAgentProfile(stored: ClientAgentSummary): AgentProfile {
     updatedAt: stored.updatedAt,
     time: stored.updatedAt ? formatTime(stored.updatedAt) : currentText().t("chat.day.now"),
     preview: cleanPreview(stored.preview),
+    firstMessage: cleanPreview(stored.firstMessage ?? ""),
   };
 }
 
@@ -251,7 +252,8 @@ export function agentProfilesEqual(left: AgentProfile, right: AgentProfile): boo
     marketplaceSourcesEqual(left.marketplaceSource, right.marketplaceSource) &&
     left.updatedAt === right.updatedAt &&
     left.time === right.time &&
-    left.preview === right.preview
+    left.preview === right.preview &&
+    left.firstMessage === right.firstMessage
   );
 }
 

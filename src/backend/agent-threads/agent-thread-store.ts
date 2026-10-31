@@ -12,6 +12,9 @@ export type AgentThreadOrigin = (typeof AGENT_THREAD_ORIGINS)[number];
 const AGENT_THREAD_TITLE_SOURCES = ["auto", "agent", "user"] as const;
 type AgentThreadTitleSource = (typeof AGENT_THREAD_TITLE_SOURCES)[number];
 
+/** The longest preview a side thread keeps, as the agent row keeps its own. */
+const AGENT_THREAD_PREVIEW_LIMIT = 2000;
+
 /**
  * A side thread: a second conversation of one agent, with its own thread, next to the agent's own chat.
  *
@@ -26,6 +29,10 @@ export interface AgentThreadRecord {
   origin: AgentThreadOrigin;
   title: string;
   titleSource: AgentThreadTitleSource;
+  /** The message that started the thread, as written. The tab's hover preview shows it. */
+  firstMessage: string;
+  /** The last message the person sent in the thread, as written. The tab's hover preview shows it. */
+  preview: string;
   /** The end of the last turn. Null before the first turn ends. */
   outcome: AgentTaskOutcome | null;
   /** The redacted provider error of the last failed turn. A new turn clears it. */
@@ -39,6 +46,8 @@ export interface AgentThreadRecord {
 export interface AgentThreadInput {
   agentId: string;
   origin: AgentThreadOrigin;
+  /** The message that starts the thread, kept whole for the tab's hover preview. The title stands in. */
+  text?: string;
   title: string;
   titleSource: Exclude<AgentThreadTitleSource, "user">;
 }
@@ -150,6 +159,7 @@ export class AgentThreadStore {
       (db, sequences) => {
         const now = new Date().toISOString();
         const sequence = sequences[0] ?? 0;
+        const firstMessage = (input.text ?? input.title).trim().slice(0, AGENT_THREAD_PREVIEW_LIMIT);
         db.prepare("INSERT INTO projection_threads VALUES (?, ?, ?, NULL, ?, ?, ?)").run(
           threadId,
           input.agentId,
@@ -160,10 +170,21 @@ export class AgentThreadStore {
         );
         db.prepare(
           `INSERT INTO projection_agent_threads
-             (thread_id, agent_id, legacy_task_id, origin, title, title_source, outcome, error, created_at,
-              updated_at, archived_at, last_event_sequence)
-           VALUES (?, ?, NULL, ?, ?, ?, NULL, NULL, ?, ?, NULL, ?)`,
-        ).run(threadId, input.agentId, input.origin, input.title, input.titleSource, now, now, sequence);
+             (thread_id, agent_id, legacy_task_id, origin, title, title_source, first_message, preview, outcome,
+              error, created_at, updated_at, archived_at, last_event_sequence)
+           VALUES (?, ?, NULL, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL, ?)`,
+        ).run(
+          threadId,
+          input.agentId,
+          input.origin,
+          input.title,
+          input.titleSource,
+          firstMessage,
+          firstMessage,
+          now,
+          now,
+          sequence,
+        );
         return null;
       },
     );
@@ -199,6 +220,13 @@ export class AgentThreadStore {
     this.#database.connection
       .prepare(`UPDATE projection_agent_threads SET error = ? WHERE ${BY_TASK_ID}`)
       .run(error, taskId, taskId);
+  }
+
+  /** Keeps the last message the person sent, for the tab's hover preview. */
+  setPreview(taskId: string, preview: string): void {
+    this.#database.connection
+      .prepare(`UPDATE projection_agent_threads SET preview = ? WHERE ${BY_TASK_ID}`)
+      .run(preview.slice(0, AGENT_THREAD_PREVIEW_LIMIT), taskId, taskId);
   }
 
   /** Marks new activity, so the thread lists first among its peers. */
@@ -312,6 +340,8 @@ function decodeThread(row: DynamicRecord): AgentThreadRecord {
     origin,
     title: requiredStringColumn(row, "title"),
     titleSource,
+    firstMessage: optionalStringColumn(row, "first_message") ?? "",
+    preview: optionalStringColumn(row, "preview") ?? "",
     outcome,
     error: optionalStringColumn(row, "error"),
     createdAt: requiredStringColumn(row, "created_at"),

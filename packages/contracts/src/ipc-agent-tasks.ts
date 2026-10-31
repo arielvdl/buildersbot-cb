@@ -70,6 +70,10 @@ export interface AgentTask {
   /** `agent`: the agent started it with its `start_task` tool. */
   origin: "user" | "agent";
   title: string;
+  /** The message that started the thread. Absent from a host older than the tab preview. */
+  firstMessage?: string;
+  /** The last message the person sent. Absent from a host older than the tab preview. */
+  preview?: string;
   state: AgentTaskState;
   /** The end of the last turn. Null before the first turn ends. */
   outcome: AgentTaskOutcome | null;
@@ -159,6 +163,8 @@ export function isAgentTask(value: unknown): value is AgentTask {
     isIdentifier(value.threadId) &&
     (value.origin === "user" || value.origin === "agent") &&
     isBoundedString(value.title, INPUT_LIMITS.agentTaskTitle) &&
+    (value.firstMessage === undefined || isBoundedString(value.firstMessage, INPUT_LIMITS.messageText)) &&
+    (value.preview === undefined || isBoundedString(value.preview, INPUT_LIMITS.messageText)) &&
     isOneOf(AGENT_TASK_STATES, value.state) &&
     (value.outcome === null || isOneOf(AGENT_TASK_OUTCOMES, value.outcome)) &&
     (value.hold === null || isOneOf(AGENT_TASK_HOLDS, value.hold)) &&

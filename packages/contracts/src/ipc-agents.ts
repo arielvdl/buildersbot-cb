@@ -310,6 +310,12 @@ export interface AgentSummary {
   hiddenAt?: string;
   threadId: string | null;
   workspacePath: string;
+  /**
+   * The first message the user sent in the agent's own chat, kept for the row's hover preview. It is
+   * set once and never replaced. Absent on an agent that has no message yet, and on a host older
+   * than the preview.
+   */
+  firstMessage?: string;
   preview: string;
   updatedAt: string | null;
   avatarSeed: string;
@@ -367,6 +373,7 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.hiddenAt === undefined || isHiddenAt(value.hiddenAt)) &&
     (value.threadId === null || isIdentifier(value.threadId)) &&
     isBoundedString(value.workspacePath, INPUT_LIMITS.path) &&
+    (value.firstMessage === undefined || isBoundedString(value.firstMessage, INPUT_LIMITS.messageText)) &&
     isBoundedString(value.preview, INPUT_LIMITS.messageText) &&
     (value.updatedAt === null || isBoundedString(value.updatedAt, 160)) &&
     isAvatarSeed(value.avatarSeed) &&

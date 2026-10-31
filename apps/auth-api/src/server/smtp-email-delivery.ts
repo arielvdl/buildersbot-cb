@@ -525,9 +525,16 @@ const writeCommand = Effect.fn("SmtpEmail.writeCommand")(
 function validateConfig(config: SmtpEmailConfig): void {
   if (!isValidHostname(config.host)) throw new Error("smtp_invalid_host");
   if (config.port !== 465) throw new Error("smtp_port_must_be_465");
-  validateEmail(config.username, "username");
+  // A relay may use a fixed word as the SMTP user instead of an address: Resend's relay accepts only
+  // `resend`, and the password carries the API key.
+  if (!isSmtpUsername(config.username)) throw new Error("smtp_invalid_username");
   validateEmail(config.from, "sender");
   if (!config.password || hasHeaderBreak(config.password)) throw new Error("smtp_invalid_password");
+}
+
+/** One SMTP command word: no spaces, no header break, and inside the address length limit. */
+function isSmtpUsername(value: string): boolean {
+  return value.length > 0 && value.length <= INPUT_LIMITS.email && !hasHeaderBreak(value) && !/\s/u.test(value);
 }
 
 function validateEmail(value: string, field: string): void {

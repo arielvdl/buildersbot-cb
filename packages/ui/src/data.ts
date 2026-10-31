@@ -279,6 +279,8 @@ export interface AgentProfile {
   updatedAt?: string | null;
   time: string;
   preview: string;
+  /** The first message of the agent's own chat, for the row's hover preview. Empty until there is one. */
+  firstMessage: string;
 }
 
 /** The agent fields that the composer, the queue, rich text and the browser dock read. */

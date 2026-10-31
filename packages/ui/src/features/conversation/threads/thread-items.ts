@@ -47,6 +47,8 @@ export function threadLists(input: ThreadListsInput): ThreadLists {
       id: task.id,
       kind: "side",
       title: task.title,
+      firstMessage: task.firstMessage ?? "",
+      preview: task.preview ?? "",
       updatedAt: task.updatedAt,
       status: agentTaskThreadStatus(task, input.waitsFor(task)),
     };
@@ -68,6 +70,8 @@ export function threadLists(input: ThreadListsInput): ThreadLists {
       id: DRAFT_THREAD_ID,
       kind: "draft",
       title: input.draftTitle,
+      firstMessage: "",
+      preview: "",
       updatedAt: input.mainUpdatedAt,
       status: { kind: "idle" },
     });

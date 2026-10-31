@@ -239,6 +239,7 @@ export const messages = {
   "sidebar.hidden.count": { one: "({count})", other: "({count})" },
   "sidebar.hidden.label": { one: "Ocultos, {count} agente", other: "Ocultos, {count} agentes" },
   "sidebar.hidden.since": "Em pausa desde {date}",
+  "sidebar.preview.startedWith": "Começou com",
   "sidebar.state.routineFailed": { one: "{count} rotina falhou", other: "{count} rotinas falharam" },
   "sidebar.state.routineWaiting": { one: "{count} rotina aguardando", other: "{count} rotinas aguardando" },
   "sidebar.state.routineRunning": { one: "{count} rotina em execução", other: "{count} rotinas em execução" },

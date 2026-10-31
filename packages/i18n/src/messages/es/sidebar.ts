@@ -107,6 +107,7 @@ export const messages = {
   "sidebar.hidden.count": { one: "({count})", other: "({count})" },
   "sidebar.hidden.label": { one: "Ocultos, {count} agente", other: "Ocultos, {count} agentes" },
   "sidebar.hidden.since": "En pausa desde el {date}",
+  "sidebar.preview.startedWith": "Empezó con",
   "sidebar.state.routineFailed": {
     one: "Rutina fallida",
     other: "{count} rutinas fallidas",

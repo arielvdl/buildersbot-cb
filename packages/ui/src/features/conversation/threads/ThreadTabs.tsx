@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
 } from "@openbot/ui";
+import { SidebarChatPreviewTooltip } from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, flush, onSettled, Show } from "solid-js";
 import { ThreadStatusMark, threadAttention } from "./ThreadStatusMark";
@@ -75,14 +76,13 @@ function ThreadTab(props: {
   };
   const menuMark = () => (props.menuOpen ? "" : undefined);
   const closeLabel = () => t("conversation.threads.closeTab");
-  return (
+  const tab = () => (
     <SlidingTabs.Trigger
       value={props.thread.id}
       class="agent-threads-tab no-drag"
       data-thread-id={props.thread.id}
       data-attention={threadAttention(props.thread.status)}
       data-menu-open={menuMark()}
-      title={props.thread.title}
       onDblClick={(event: MouseEvent) => {
         if (event.target instanceof Element && event.target.closest(".agent-threads-tab-close")) return;
         props.onRename();
@@ -120,6 +120,18 @@ function ThreadTab(props: {
         <X />
       </span>
     </SlidingTabs.Trigger>
+  );
+  // The tab shows only its title, so the preview says what the thread started with and where it is.
+  return (
+    <SidebarChatPreviewTooltip
+      title={props.thread.title}
+      firstMessage={props.thread.firstMessage}
+      preview={props.thread.preview}
+      menuOpen={props.menuOpen}
+      placement="bottom-start"
+    >
+      {tab()}
+    </SidebarChatPreviewTooltip>
   );
 }
 

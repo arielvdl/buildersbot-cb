@@ -4743,24 +4743,33 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     const snapshot = this.#conversation.ensureSnapshot(agent.id, task?.threadId ?? agent.threadId);
     // A task message shows in the task's row until its turn starts, not in the agent's own chat.
     if (!task) this.#mailboxSync.syncMailboxMessages(snapshot);
-    if (!task)
+    const preview =
+      displayMessageReferences(
+        delivery.delivery.text,
+        delivery.delivery.attachments,
+        agentNamesById(this.#store.list()),
+        { fileHeadings: false },
+      ) || delivery.delivery.attachments.map((item) => item.name).join(", ");
+    if (task) {
+      // The tab's hover preview says where the thread stands, so it keeps the person's last message.
+      this.#tasks.setPreview(task, preview);
+    } else {
+      yield* this.#store.updatePreview(agent.id, preview).pipe(
+        // The message is already queued: a failed preview write must not leave it without a drain,
+        // and a retry with the same id returns the stored receipt without one.
+        Effect.catch((failure) =>
+          Effect.sync(() => this.#emitError("message_preview_failed", failure.cause, agent.id)),
+        ),
+      );
+      // The row's hover preview says what the chat started with, so the first message is kept once.
       yield* this.#store
-        .updatePreview(
-          agent.id,
-          displayMessageReferences(
-            delivery.delivery.text,
-            delivery.delivery.attachments,
-            agentNamesById(this.#store.list()),
-            { fileHeadings: false },
-          ) || delivery.delivery.attachments.map((item) => item.name).join(", "),
-        )
+        .noteFirstMessage(agent.id, preview)
         .pipe(
-          // The message is already queued: a failed preview write must not leave it without a drain,
-          // and a retry with the same id returns the stored receipt without one.
           Effect.catch((failure) =>
             Effect.sync(() => this.#emitError("message_preview_failed", failure.cause, agent.id)),
           ),
         );
+    }
     yield* this.#steerWhenBusy(agent, task, snapshot, delivery.delivery.id, true);
     if (!task) {
       this.#emit({ type: "agents-changed", agents: this.listAgents() });
