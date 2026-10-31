@@ -39,20 +39,25 @@ valid_email() {
   [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9._%+-]{0,63}@[A-Za-z0-9][A-Za-z0-9.-]{0,189}\.[A-Za-z]{2,24}$ ]] || die "e-mail inválido: '$1'."
 }
 
-# Tamanho -> "tipo vcpus memória-do-container cpus-do-container tmpfs arquitetura" (DESIGN 2.6).
+# Tamanho -> "tipo vcpus memória-do-container cpus-do-container tmpfs arquitetura budget-usd"
+# (DESIGN 2.6). O budget padrão é ~1,25 x a estimativa 24/7 do tamanho (README, seção 9).
 size_info() {
   case $1 in
-    medium) echo "t4g.medium 2 3000m 2 1g arm64" ;;
-    large) echo "t4g.large 2 6500m 2 3g arm64" ;;
-    xlarge) echo "t4g.xlarge 4 14g 4 4g arm64" ;;
-    steady) echo "m7g.large 2 6500m 2 3g arm64" ;;
-    x86) echo "t3a.large 2 6500m 2 3g amd64" ;;
+    medium) echo "t4g.medium 2 3000m 2 1g arm64 50" ;;
+    large) echo "t4g.large 2 6500m 2 3g arm64 80" ;;
+    xlarge) echo "t4g.xlarge 4 14g 4 4g arm64 140" ;;
+    steady) echo "m7g.large 2 6500m 2 3g arm64 95" ;;
+    x86) echo "t3a.large 2 6500m 2 3g amd64 90" ;;
     *) die "tamanho inválido: '$1'. Use medium, large, xlarge, steady ou x86." ;;
   esac
 }
 
 date_plus_days() {
   date -u -v+"$1"d +%F 2>/dev/null || date -u -d "+$1 days" +%F
+}
+
+date_minus_days() {
+  date -u -v-"$1"d +%F 2>/dev/null || date -u -d "-$1 days" +%F
 }
 
 confirm() { # <pergunta> <resposta esperada>
@@ -126,8 +131,9 @@ stack_recovery_help() { # <stack> <status>
   esac
 }
 
-# Cria um change set, mostra, recusa substituição ou remoção de instância, volume ou anexo numa
-# atualização (DESIGN R2-1), pede confirmação e executa. Parâmetros: ParameterKey=K,ParameterValue=V
+# Cria um change set, mostra, recusa numa atualização a substituição ou remoção de instância, volume
+# ou anexo (DESIGN R2-1) e da zona DNS, do ECR e dos buckets (nomes fixos, dados que não voltam, NS já
+# delegados no Cloudflare), pede confirmação e executa. Parâmetros: ParameterKey=K,ParameterValue=V
 # ou ParameterKey=K,UsePreviousValue=true. Template @previous = o template já implantado (só troca
 # parâmetros; o arquivo local não entra).
 deploy_stack() { # <stack> <template|@previous> <setor-para-tags> [parâmetros...]
@@ -164,10 +170,10 @@ deploy_stack() { # <stack> <template|@previous> <setor-para-tags> [parâmetros..
     --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType,Replacement]' --output table
   if [ "$type" = UPDATE ]; then
     risky=$(aws_cb cloudformation describe-change-set --stack-name "$stack" --change-set-name "$name" --output text \
-      --query "Changes[?(ResourceChange.ResourceType=='AWS::EC2::Instance' || ResourceChange.ResourceType=='AWS::EC2::Volume' || ResourceChange.ResourceType=='AWS::EC2::VolumeAttachment') && (ResourceChange.Action=='Remove' || (ResourceChange.Action=='Modify' && ResourceChange.Replacement!='False'))].ResourceChange.LogicalResourceId")
+      --query "Changes[?(ResourceChange.ResourceType=='AWS::EC2::Instance' || ResourceChange.ResourceType=='AWS::EC2::Volume' || ResourceChange.ResourceType=='AWS::EC2::VolumeAttachment' || ResourceChange.ResourceType=='AWS::Route53::HostedZone' || ResourceChange.ResourceType=='AWS::ECR::Repository' || ResourceChange.ResourceType=='AWS::S3::Bucket') && (ResourceChange.Action=='Remove' || (ResourceChange.Action=='Modify' && ResourceChange.Replacement!='False'))].ResourceChange.LogicalResourceId")
     if [ -n "$risky" ] && [ "$risky" != None ]; then
       aws_cb cloudformation delete-change-set --stack-name "$stack" --change-set-name "$name" >/dev/null || true
-      die "recusado: este change set substitui ou remove $risky. Use o fluxo de troca de VM do README (seção Recuperação)."
+      die "recusado: este change set substitui ou remove $risky. VM, volume ou anexo: use o fluxo de troca de VM do README (seção 11). Zona DNS, ECR ou bucket: isso não se faz por atualização de stack (README, seção 11, 'Desfazer tudo')."
     fi
   fi
   confirm "Executar o change set $name em $stack? Digite 'sim':" sim
@@ -201,16 +207,49 @@ image_tag_of() { # <sha256:...> <arm64|amd64>
   echo none
 }
 
-# Liga a proteção contra término da VM de um setor e grava a tag da imagem em uso, sem mexer em mais
-# nada: change set sobre o template já implantado, com os outros parâmetros como estão.
-protect_sector() { # <setor> <tag da imagem em uso ou none>
-  local stack="bb-srv-$1-compute" key
+# Troca só os parâmetros dados de uma stack, sobre o template já implantado; os outros ficam como
+# estão (UsePreviousValue). Mostra o change set e pede confirmação como o deploy_stack.
+update_parameters() { # <stack> <setor-para-tags> <Chave=Valor>...
+  local stack=$1 sector=$2 key pair changed
+  shift 2
   local -a stack_params=()
   for key in $(aws_cb cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].Parameters[].ParameterKey' --output text); do
-    case $key in TerminationProtection | ImageTag) ;; *) stack_params+=("ParameterKey=$key,UsePreviousValue=true") ;; esac
+    changed=0
+    for pair in "$@"; do [ "${pair%%=*}" != "$key" ] || changed=1; done
+    [ "$changed" = 1 ] || stack_params+=("ParameterKey=$key,UsePreviousValue=true")
   done
-  stack_params+=("ParameterKey=TerminationProtection,ParameterValue=true" "ParameterKey=ImageTag,ParameterValue=$2")
-  deploy_stack "$stack" @previous "$1" "${stack_params[@]}"
+  for pair in "$@"; do stack_params+=("ParameterKey=${pair%%=*},ParameterValue=${pair#*=}"); done
+  deploy_stack "$stack" @previous "$sector" "${stack_params[@]}"
+}
+
+# Liga a proteção contra término da VM de um setor e grava a tag da imagem em uso, sem mexer em mais nada.
+protect_sector() { # <setor> <tag da imagem em uso ou none>
+  update_parameters "bb-srv-$1-compute" "$1" TerminationProtection=true "ImageTag=$2"
+}
+
+# Budget do projeto = soma dos budgets dos setores + 30 (o fixo compartilhado, ~23,41, com folga).
+# Roda no fim do add-sector.sh e do remove-sector.sh; uma falha só avisa (o setor já está pronto).
+project_budget_target() {
+  local total=30 stack value
+  for stack in $(aws_cb cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE \
+    --query "StackSummaries[?starts_with(StackName,'bb-srv-') && ends_with(StackName,'-compute')].StackName" --output text); do
+    value=$(stack_parameter "$stack" BudgetUsd)
+    if [[ $value =~ ^[0-9]+$ ]]; then total=$((total + value)); fi
+  done
+  printf '%s\n' "$total"
+}
+
+sync_project_budget() {
+  local target current
+  target=$(project_budget_target)
+  current=$(stack_parameter bb-srv-base ProjectBudgetUsd)
+  if [ "$target" = "$current" ]; then
+    say "   budget do projeto já está em US\$ $target."
+    return 0
+  fi
+  say "== budget do projeto: US\$ $current -> $target (soma dos budgets dos setores + 30)"
+  ( update_parameters bb-srv-base shared "ProjectBudgetUsd=$target" ) ||
+    warn "não atualizei o budget do projeto. Faça depois: scripts/deploy-base.sh --project-budget-usd $target"
 }
 
 # Roda um documento SSM numa instância e espera o fim. Mostra a saída (as últimas 60 linhas) e a
@@ -275,6 +314,20 @@ check_vcpu_quota() { # <vcpus-novos>
   say "   cota de vCPU on-demand: $quota; em uso: $used; depois desta operação: $free livres (reserva: $BB_VCPU_RESERVE)."
   if [ "$free" -lt "$BB_VCPU_RESERVE" ] && [ "${BB_SRV_IGNORE_QUOTA:-0}" != 1 ]; then
     die "a folga de vCPU ficaria abaixo de $BB_VCPU_RESERVE (o EKS/Karpenter divide a cota L-1216C47A). Peça aumento da cota (README, ação do dono) ou use BB_SRV_IGNORE_QUOTA=1 conscientemente."
+  fi
+}
+
+# Elastic IPs da região: a cota L-0263D0A3 é dividida com o resto da conta (o NAT da VPC 10.50.0.0/17
+# usa um). Sempre sobra pelo menos 1 para a conta (BB_SRV_EIP_RESERVE).
+check_eip_quota() { # <EIPs novos>
+  local need=$1 quota used free reserve=${BB_SRV_EIP_RESERVE:-1}
+  quota=$(aws_cb service-quotas get-service-quota --service-code ec2 --quota-code L-0263D0A3 --query Quota.Value --output text)
+  quota=${quota%.*}
+  used=$(aws_cb ec2 describe-addresses --query 'length(Addresses)' --output text)
+  free=$((quota - used - need))
+  say "   cota de Elastic IPs: $quota; em uso: $used; depois desta operação: $free livres (reserva: $reserve)."
+  if [ "$free" -lt "$reserve" ] && [ "${BB_SRV_IGNORE_QUOTA:-0}" != 1 ]; then
+    die "a cota de Elastic IPs (L-0263D0A3) ficaria abaixo da reserva de $reserve, que fica para a conta (ex.: recriar o NAT da VPC existente). Peça aumento da cota, use o setor sem --static-ip ou BB_SRV_IGNORE_QUOTA=1 conscientemente."
   fi
 }
 

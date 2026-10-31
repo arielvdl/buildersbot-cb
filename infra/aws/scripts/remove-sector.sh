@@ -6,9 +6,11 @@
 #      com uma confirmação digitada (a sessão fica no snapshot e volta numa restauração);
 #   3. para a VM e TIRA UM SNAPSHOT do volume de dados (espera ficar completo);
 #   4. apaga a stack -compute e depois a -data (que ainda deixa o snapshot final da DeletionPolicy);
-#   5. grava /bb-srv/sectors/<setor>/final-snapshot e mostra como recriar.
+#   5. grava /bb-srv/sectors/<setor>/final-snapshot, ajusta o budget do projeto e mostra como recriar.
 #
 # Uso: scripts/remove-sector.sh <setor> [--keep-days 180] [--app-removed] [--keep-registration] [--yes]
+#   --keep-days N        data (tag ExpiresAt) a partir da qual scripts/gc-snapshots.sh pode apagar o
+#                        snapshot; nada apaga sozinho (padrão 180)
 #   --keep-registration  para restaurar o mesmo servidor logo depois (rollback de upgrade, troca de
 #                        disco): não pede a remoção no app e não encerra a sessão da conta dona.
 set -euo pipefail
@@ -16,7 +18,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,14p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,16p' "$0"; exit 1; }
 shift
 keep_days=180
 app_removed=0
@@ -33,7 +35,7 @@ done
 valid_sector "$sector"
 [[ $keep_days =~ ^[0-9]+$ ]] && [ "$keep_days" -ge 1 ] || die "--keep-days inválido."
 
-bb_check_access
+bb_check_access --writes
 compute_stack="bb-srv-$sector-compute"
 data_stack="bb-srv-$sector-data"
 volume=$(sector_volume "$sector")
@@ -48,7 +50,7 @@ case $compute_status in
 esac
 
 say "== remover o setor $sector: instância ${instance:-nenhuma}, volume $volume"
-say "   O snapshot fica $keep_days dias (tag ExpiresAt). Os alarmes, logs e o budget do setor saem com a stack."
+say "   O snapshot fica guardado; depois de $keep_days dias (tag ExpiresAt) o scripts/gc-snapshots.sh pode apagá-lo. Os alarmes, logs e o budget do setor saem com a stack."
 if [ "$app_removed" != 1 ]; then
   say "   Antes: a conta dona do setor remove o servidor no app (Configurações do servidor -> Remover)."
   say "   'openbot logout' só encerra a sessão; o host continua registrado e contando no limite de membros."
@@ -122,10 +124,14 @@ for extra in $(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=vo
     "Key=Project,Value=$BB_PROJECT" "Key=Purpose,Value=final" "Key=ExpiresAt,Value=$(date_plus_days "$keep_days")"
 done
 
+sync_project_budget
+
 cat <<EOF
 
-== Setor $sector removido. Dados no snapshot $snapshot (até $(date_plus_days "$keep_days")).
+== Setor $sector removido. Dados no snapshot $snapshot (guardado; o scripts/gc-snapshots.sh pode
+apagá-lo a partir de $(date_plus_days "$keep_days"), quando você rodar com --delete).
 Recriar o mesmo servidor (mesma identidade, agentes e conversas; precisa de novo login):
   scripts/add-sector.sh $sector --from-snapshot $snapshot
-Os snapshots diários do DLM deste setor expiram sozinhos (7 e 28 dias).
+Os snapshots do DLM deste setor expiram sozinhos (7 e 28 dias), menos o último de cada agenda, que o
+DLM guarda para sempre: o scripts/gc-snapshots.sh apaga esses depois de 28 dias.
 EOF

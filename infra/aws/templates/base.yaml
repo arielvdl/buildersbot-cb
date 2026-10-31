@@ -2,8 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   bb-srv-base - Builders Bot servers per sector (Cultura Builder). Shared parts: a new isolated VPC
   with public subnets and no NAT, the ECR repository, the build and log buckets, the alert topic,
-  IAM policies and boundaries, the scheduler role and queue, the builder launch template, the
-  delegated Route 53 zone and the project budget. It changes no existing resource.
+  IAM policies and boundaries, the scheduler role and queue, the builder launch template and the
+  project budget. The delegated Route 53 zone is in bb-srv-dns (deploy it first). It changes no
+  existing resource.
 
 Parameters:
   AlertEmail:
@@ -11,11 +12,6 @@ Parameters:
     Default: ''
     Description: E-mail that receives the bb-srv-alerts topic (the owner confirms the subscription). Empty = no e-mail.
     AllowedPattern: '^$|^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}$'
-  DelegatedZoneName:
-    Type: String
-    Default: bb-aws.culturabuilder.com
-    Description: Subdomain that the owner delegates from Cloudflare to Route 53 (4 NS records). Signal and TURN live under it.
-    AllowedPattern: '^[a-z0-9][a-z0-9.-]{1,200}[a-z0-9]$'
   VpcCidr:
     Type: String
     Default: 10.60.0.0/24
@@ -39,7 +35,9 @@ Parameters:
     Type: Number
     Default: 150
     MinValue: 10
-    Description: Monthly budget of everything tagged Project=buildersbot-servers (needs the Project cost allocation tag active).
+    Description: >-
+      Monthly budget of everything tagged Project=buildersbot-servers (needs the Project cost allocation
+      tag active). add-sector.sh and remove-sector.sh set it to the sum of the sector budgets + 30.
 
 Conditions:
   HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
@@ -137,9 +135,11 @@ Resources:
       Tags: [{Key: Name, Value: bb-srv-builder}]
 
   # ---------------------------------------------------------------- buckets
+  # Fixed names: RetainExceptOnCreate keeps them on a stack delete (logs, sources, reports, images) but
+  # removes them when the very creation of bb-srv-base rolls back, so a retry does not hit AlreadyExists.
   LogsBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub bb-srv-logs-${AWS::AccountId}
@@ -208,7 +208,7 @@ Resources:
   # overwritten report (and its author in CloudTrail), so a rewrite leaves a trail and can be undone.
   BuildBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub bb-srv-build-${AWS::AccountId}
@@ -258,7 +258,7 @@ Resources:
   # ---------------------------------------------------------------- image registry
   ServerRepository:
     Type: AWS::ECR::Repository
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: bb-srv/server
@@ -282,14 +282,16 @@ Resources:
              "action": {"type": "expire"}}
           ]}
       # A deleted immutable tag can be pushed again, so nobody but the break-glass role deletes images.
-      # The ECR lifecycle policy expires images as the service, not through this action.
+      # The ECR lifecycle policy expires images as the service, not through this action. DeleteRepository
+      # is not denied: CloudFormation must remove the empty repository when the creation of the stack
+      # rolls back, and a repository with images is not deleted by a stack (no EmptyOnDelete).
       RepositoryPolicyText:
         Version: '2012-10-17'
         Statement:
           - Sid: DenyImageDeleteExceptBreakglass
             Effect: Deny
             Principal: '*'
-            Action: [ecr:BatchDeleteImage, ecr:DeleteRepository]
+            Action: ecr:BatchDeleteImage
             Condition:
               StringNotLike: {'aws:PrincipalArn': !Sub 'arn:aws:iam::${AWS::AccountId}:role/bb-srv-breakglass'}
 
@@ -707,23 +709,36 @@ Resources:
                 Condition: {StringEquals: {'aws:ResourceTag/Project': buildersbot-servers}}
               - Sid: NewSnapshots
                 Effect: Allow
-                Action: [ec2:CreateSnapshot, ec2:CreateTags]
+                Action: ec2:CreateSnapshot
                 Resource: !Sub 'arn:aws:ec2:${AWS::Region}::snapshot/*'
+              # Tags only in the same call that creates the snapshot: no re-tagging of an existing
+              # snapshot (its Sector tag is what add-sector.sh checks before a restore).
+              - Sid: TagNewSnapshots
+                Effect: Allow
+                Action: ec2:CreateTags
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}::snapshot/*'
+                Condition: {StringEquals: {'ec2:CreateAction': CreateSnapshot}}
               - Sid: SectorParameters
                 Effect: Allow
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:PutParameter]
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
+              # Only the reads that the scripts use. Not ec2:Describe*: DescribeInstanceAttribute and
+              # DescribeLaunchTemplateVersions read the user data of every instance of the account.
+              # ssm:GetCommandInvocation has no resource-level permission (ssm_run needs it); the List
+              # calls that would find other teams' commands are left out.
               - Sid: Reads
                 Effect: Allow
                 Action:
-                  - ec2:Describe*
-                  - cloudformation:Describe*
-                  - cloudformation:List*
-                  - cloudformation:GetTemplate*
+                  - ec2:DescribeInstances
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeSnapshots
+                  - ec2:DescribeLaunchTemplates
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeNatGateways
+                  - ec2:DescribeAddresses
+                  - cloudformation:ListStacks
                   - ssm:DescribeInstanceInformation
                   - ssm:GetCommandInvocation
-                  - ssm:ListCommandInvocations
-                  - ssm:ListCommands
                   - ssm:DescribeSessions
                   - cloudwatch:DescribeAlarms
                   - cloudwatch:GetMetricData
@@ -731,6 +746,20 @@ Resources:
                   - servicequotas:GetServiceQuota
                   - sts:GetCallerIdentity
                 Resource: '*'
+              - Sid: DelegatedZoneRead
+                Effect: Allow
+                Action: route53:GetHostedZone
+                Resource: !Sub
+                  - 'arn:aws:route53:::hostedzone/${ZoneId}'
+                  - ZoneId: !ImportValue bb-srv-dns-HostedZoneId
+              - Sid: OwnStacks
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/bb-srv-*/*'
               - Sid: ImageReads
                 Effect: Allow
                 Action: [ecr:DescribeImages, ecr:DescribeImageScanFindings]
@@ -766,14 +795,6 @@ Resources:
                 Action: [ecr:BatchDeleteImage, ecr:DescribeImages, ecr:ListImages]
                 Resource: !GetAtt ServerRepository.Arn
 
-  # ---------------------------------------------------------------- DNS (one owner action: 4 NS records)
-  DelegatedZone:
-    Type: AWS::Route53::HostedZone
-    Properties:
-      Name: !Ref DelegatedZoneName
-      HostedZoneConfig:
-        Comment: Builders Bot Signal and TURN. Delegated from Cloudflare with 4 NS records.
-
   # ---------------------------------------------------------------- cost
   ProjectBudget:
     Type: AWS::Budgets::Budget
@@ -788,6 +809,9 @@ Resources:
       NotificationsWithSubscribers:
         - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
           Subscribers: [{SubscriptionType: SNS, Address: !Ref AlertsTopic}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: SNS, Address: !Ref AlertsTopic}]
+        # FORECASTED needs about 5 weeks of history: until then only the ACTUAL alerts work.
         - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
           Subscribers: [{SubscriptionType: SNS, Address: !Ref AlertsTopic}]
 
@@ -843,15 +867,6 @@ Outputs:
   SignalLogGroupName:
     Value: !Ref SignalLogGroup
     Export: {Name: bb-srv-base-SignalLogGroupName}
-  HostedZoneId:
-    Value: !Ref DelegatedZone
-    Export: {Name: bb-srv-base-HostedZoneId}
-  HostedZoneName:
-    Value: !Ref DelegatedZoneName
-    Export: {Name: bb-srv-base-HostedZoneName}
-  HostedZoneNameServers:
-    Description: The 4 NS records that the owner adds in Cloudflare (name = the first label of DelegatedZoneName).
-    Value: !Join [',', !GetAtt DelegatedZone.NameServers]
   BuilderLaunchTemplateName:
     Value: bb-srv-builder
   OperatorRoleArn:

@@ -7,14 +7,16 @@
 #      contra término: uma falha na criação desfaz tudo (ROLLBACK_COMPLETE), sem ROLLBACK_FAILED;
 #   4. espera o SSM e roda bb-srv-Install com os digests (create, attach ou auto: o disco decide);
 #   5. grava /bb-srv/sectors/<setor>/image com a imagem que o host roda e liga a proteção contra
-#      término (segundo change set, só esse parâmetro e a tag da imagem).
+#      término (segundo change set, só esse parâmetro e a tag da imagem);
+#   6. ajusta o budget do projeto (soma dos budgets dos setores + 30).
 #
 # Uso: scripts/add-sector.sh <setor> [medium|large|xlarge|steady|x86] [opções]
 #   --volume-gib N            disco de dados em GiB (padrão 40; o disco do container é N-4)
 #   --az a|b                  zona (padrão: alterna a/b pelo número de setores)
 #   --schedule always-on|business-hours   (padrão always-on)
 #   --static-ip               IP fixo (Elastic IP) para logins em redes sociais
-#   --budget-usd N            budget mensal do setor (padrão 80)
+#   --budget-usd N            budget mensal do setor (padrão pelo tamanho, ~1,25 x a estimativa:
+#                             medium 50, large 80, steady 95, x86 90, xlarge 140)
 #   --budget-email E          e-mail extra dos avisos do budget
 #   --image-tag T             tag de um relatório do builder (padrão: o mais novo da arquitetura). Num
 #                             disco já instalado (attach) a imagem é a do .env do disco, e a tag só
@@ -33,7 +35,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,30p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,32p' "$0"; exit 1; }
 shift
 size=large
 size_given=0
@@ -42,7 +44,7 @@ volume_gib=40
 az=''
 schedule=always-on
 static_ip=false
-budget_usd=80
+budget_usd=''
 budget_email=''
 image_tag=''
 from_snapshot=''
@@ -71,7 +73,7 @@ valid_sector "$sector"
 # A atribuição propaga o erro de size_info (um die dentro de $(...) só sairia do subshell).
 info=$(size_info "$size") || exit 1
 [[ $volume_gib =~ ^[0-9]+$ ]] && [ "$volume_gib" -ge 20 ] && [ "$volume_gib" -le 2000 ] || die "--volume-gib precisa ficar entre 20 e 2000."
-[[ $budget_usd =~ ^[0-9]+$ ]] || die "--budget-usd precisa ser inteiro."
+[ -z "$budget_usd" ] || [[ $budget_usd =~ ^[0-9]+$ ]] || die "--budget-usd precisa ser inteiro."
 case $schedule in always-on | business-hours) ;; *) die "--schedule precisa ser always-on ou business-hours." ;; esac
 [ -z "$budget_email" ] || valid_email "$budget_email"
 [ -z "$from_snapshot" ] || [[ $from_snapshot =~ ^snap-[0-9a-f]{8,17}$ ]] || die "--from-snapshot inválido."
@@ -79,7 +81,7 @@ case $schedule in always-on | business-hours) ;; *) die "--schedule precisa ser 
 [ "$reattach" = 0 ] || [ -z "$from_snapshot" ] || die "--reattach e --from-snapshot não combinam."
 [ "$resume" = 0 ] || { [ -z "$from_snapshot" ] && [ "$reattach" = 0 ]; } || die "--resume não combina com --from-snapshot nem com --reattach."
 
-bb_check_access
+bb_check_access --writes
 require_stack bb-srv-base "Rode scripts/deploy-base.sh antes."
 require_stack bb-srv-ops "Rode scripts/deploy-base.sh antes."
 [ "$(stack_status bb-srv-signal)" != NONE ] || warn "a stack bb-srv-signal não existe: o setor sobe, mas ninguém conecta nele até o Signal próprio estar no ar (README, passo 4)."
@@ -105,7 +107,8 @@ if [ "$resume" = 1 ]; then
     die "o setor $sector já está instalado e protegido: nada a retomar. Veja scripts/status.sh $sector --deep."
   fi
 fi
-read -r instance_type vcpus mem cpus tmp arch <<<"$info"
+read -r instance_type vcpus mem cpus tmp arch size_budget <<<"$info"
+[ -n "$budget_usd" ] || budget_usd=$size_budget
 
 if [ "$resume" = 1 ]; then
   instance=$(sector_instance "$sector")
@@ -165,8 +168,9 @@ else
   fi
   zone="us-east-1$az"
 
-  say "== setor $sector: $instance_type ($size), $zone, disco $volume_gib GiB, $schedule, IP fixo: $static_ip"
+  say "== setor $sector: $instance_type ($size), $zone, disco $volume_gib GiB, $schedule, IP fixo: $static_ip, budget US\$ $budget_usd"
   check_vcpu_quota "$vcpus"
+  [ "$static_ip" != true ] || check_eip_quota 1
   resolve_image "$image_tag" "$arch"
   ami=$(ubuntu_ami "$arch")
   [[ $ami =~ ^ami-[0-9a-f]+$ ]] || die "não consegui resolver a AMI do Ubuntu 24.04 $arch."
@@ -223,6 +227,7 @@ fi
 
 say "== proteção contra término da VM (e a tag da imagem em uso na stack)"
 protect_sector "$sector" "$(image_tag_of "${running##*@}" "$arch")"
+sync_project_budget
 
 cat <<EOF
 

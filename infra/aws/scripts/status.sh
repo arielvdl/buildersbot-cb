@@ -24,15 +24,25 @@ done
 bb_check_access
 
 say "== compartilhado"
-for stack in bb-srv-base bb-srv-ops bb-srv-signal; do
+for stack in bb-srv-dns bb-srv-base bb-srv-ops bb-srv-signal; do
   printf '   %-16s %s\n' "$stack" "$(stack_status "$stack")"
 done
 
-if [ "$(stack_status bb-srv-base)" != NONE ]; then
-  zone=$(stack_output bb-srv-base HostedZoneName)
+if [ "$(stack_status bb-srv-dns)" != NONE ]; then
+  zone=$(stack_output bb-srv-dns HostedZoneName)
   if command -v dig >/dev/null; then
-    ns=$(dig +short NS "$zone" @1.1.1.1 | grep -c awsdns || true)
-    printf '   DNS %-31s %s\n' "$zone" "$([ "$ns" -ge 4 ] && echo "delegado ao Route 53" || echo "NÃO delegado (ação do dono no Cloudflare)")"
+    # Os NS públicos têm de ser os DESTA zona: outros NS são uma delegação pendurada (zona recriada).
+    expected=$(aws_cb route53 get-hosted-zone --id "$(stack_output bb-srv-dns HostedZoneId)" \
+      --query 'DelegationSet.NameServers' --output text 2>/dev/null | tr '\t' '\n' | sort || true)
+    actual=$(dig +short NS "$zone" @1.1.1.1 | sed 's/\.$//' | sort || true)
+    if [ -z "$actual" ]; then
+      delegation="NÃO delegado (ação do dono no Cloudflare)"
+    elif [ "$actual" = "$expected" ]; then
+      delegation="delegado ao Route 53 (os 4 NS da zona bb-srv-dns)"
+    else
+      delegation="delegado a OUTROS name servers: refaça os 4 NS no Cloudflare com os da zona bb-srv-dns"
+    fi
+    printf '   DNS %-31s %s\n' "$zone" "$delegation"
   fi
   alarms=$(aws_cb cloudwatch describe-alarms --alarm-name-prefix bb-srv- --state-value ALARM --query 'MetricAlarms[].AlarmName' --output text)
   printf '   alarmes em ALARM: %s\n' "${alarms:-nenhum}"

@@ -3,7 +3,7 @@ Description: >-
   bb-srv-signal - the own Signal (WSS) and TURN relay of Builders Bot, from remote/compose.yaml of the
   fork (DESIGN 2.7). Without it no sector connects: remote/.env.production of the fork still points to
   the upstream. It is the only VM with inbound ports, and they open only with IngressApproved=true
-  (an explicit decision of the owner). Deploy after bb-srv-base and after the DNS delegation works.
+  (an explicit decision of the owner). Deploy after bb-srv-dns, bb-srv-base and after the DNS delegation works.
 
 Parameters:
   AmiId:
@@ -168,19 +168,19 @@ Resources:
                 Action: route53:ChangeResourceRecordSets
                 Resource: !Sub
                   - 'arn:aws:route53:::hostedzone/${ZoneId}'
-                  - ZoneId: !ImportValue bb-srv-base-HostedZoneId
+                  - ZoneId: !ImportValue bb-srv-dns-HostedZoneId
                 Condition:
                   'ForAllValues:StringEquals':
                     'route53:ChangeResourceRecordSetsNormalizedRecordNames':
-                      - !Sub ['_acme-challenge.signal.${ZoneName}', {ZoneName: !ImportValue bb-srv-base-HostedZoneName}]
-                      - !Sub ['_acme-challenge.turn.${ZoneName}', {ZoneName: !ImportValue bb-srv-base-HostedZoneName}]
+                      - !Sub ['_acme-challenge.signal.${ZoneName}', {ZoneName: !ImportValue bb-srv-dns-HostedZoneName}]
+                      - !Sub ['_acme-challenge.turn.${ZoneName}', {ZoneName: !ImportValue bb-srv-dns-HostedZoneName}]
                     'route53:ChangeResourceRecordSetsRecordTypes': [TXT]
               - Sid: AcmeDnsRead
                 Effect: Allow
                 Action: route53:ListResourceRecordSets
                 Resource: !Sub
                   - 'arn:aws:route53:::hostedzone/${ZoneId}'
-                  - ZoneId: !ImportValue bb-srv-base-HostedZoneId
+                  - ZoneId: !ImportValue bb-srv-dns-HostedZoneId
               - Sid: AcmeDnsChange
                 Effect: Allow
                 Action: [route53:GetChange, route53:ListHostedZonesByName]
@@ -515,8 +515,8 @@ Resources:
             touch /var/lib/bb-srv/bootstrap.done
             echo "BB_BOOTSTRAP done $(date -u +%FT%TZ)"
           - Bucket: !ImportValue bb-srv-base-BuildBucketName
-            ZoneName: !ImportValue bb-srv-base-HostedZoneName
-            ZoneId: !ImportValue bb-srv-base-HostedZoneId
+            ZoneName: !ImportValue bb-srv-dns-HostedZoneName
+            ZoneId: !ImportValue bb-srv-dns-HostedZoneId
 
   SignalAddress:
     Type: AWS::EC2::EIP
@@ -533,10 +533,10 @@ Resources:
   SignalRecord:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneId: !ImportValue bb-srv-base-HostedZoneId
+      HostedZoneId: !ImportValue bb-srv-dns-HostedZoneId
       Name: !Sub
         - 'signal.${ZoneName}.'
-        - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+        - ZoneName: !ImportValue bb-srv-dns-HostedZoneName
       Type: A
       TTL: '300'
       ResourceRecords: [!Ref SignalAddress]
@@ -544,10 +544,10 @@ Resources:
   TurnRecord:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneId: !ImportValue bb-srv-base-HostedZoneId
+      HostedZoneId: !ImportValue bb-srv-dns-HostedZoneId
       Name: !Sub
         - 'turn.${ZoneName}.'
-        - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+        - ZoneName: !ImportValue bb-srv-dns-HostedZoneName
       Type: A
       TTL: '300'
       ResourceRecords: [!Ref SignalAddress]
@@ -608,12 +608,12 @@ Outputs:
     Description: REMOTE_SIGNAL_URL of the account Worker (change it only after /health/ready answers).
     Value: !Sub
       - 'wss://signal.${ZoneName}/v1/signal'
-      - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+      - ZoneName: !ImportValue bb-srv-dns-HostedZoneName
   AuthWebhookUrl:
     Description: REMOTE_AUTH_WEBHOOK_URL of the account Worker.
     Value: !Sub
       - 'https://signal.${ZoneName}/internal/auth-events'
-      - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+      - ZoneName: !ImportValue bb-srv-dns-HostedZoneName
   InstanceId:
     Value: !Ref SignalInstance
   IngressOpen:

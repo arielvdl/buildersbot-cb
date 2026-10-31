@@ -29,7 +29,7 @@ case $email in
 esac
 command -v session-manager-plugin >/dev/null || die "instale o session-manager-plugin do AWS CLI."
 
-bb_check_access
+bb_check_access --writes
 instance=$(sector_instance "$sector")
 params=$(jq -cn --arg email "$email" --arg name "$name" '{email: [$email], name: [$name]}')
 say "== login do setor $sector como $email (digite o código que chegar nessa caixa)"

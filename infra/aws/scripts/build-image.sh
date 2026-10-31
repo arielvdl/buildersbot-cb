@@ -41,7 +41,7 @@ launch() {
     esac
   done
   [ -n "$commit" ] || die "informe o commit do fork."
-  bb_check_access
+  bb_check_access --writes
   require_stack bb-srv-base "Rode scripts/deploy-base.sh antes."
   bucket=$(build_bucket)
   repo=$(repo_uri)

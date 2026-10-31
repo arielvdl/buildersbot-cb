@@ -184,7 +184,7 @@ h_signal() {
 }
 export -f h_signal
 signal_env() {
-  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE bb-srv-signal=UPDATE_COMPLETE" FAKE_OUTPUT_HostedZoneName=bb-aws.example.com \
+  env FAKE_STACKS="bb-srv-dns=CREATE_COMPLETE bb-srv-base=CREATE_COMPLETE bb-srv-signal=UPDATE_COMPLETE" FAKE_OUTPUT_HostedZoneName=bb-aws.example.com \
     FAKE_OUTPUT_HostedZoneId=Z123 FAKE_PARAM_SourceCommit="$FIRST" FAKE_PARAM_AcmeEmail=acme@example.com "$@"
 }
 expect_refusal "B13 atualização recusa outro commit (exige recriar a VM)" "Trocar o commit exige recriar" h_signal \
@@ -254,6 +254,87 @@ EXTRA_STACKS="bb-srv-rh-compute=CREATE_COMPLETE" expect_calls "C23 login aceita 
 EXTRA_STACKS="bb-srv-rh-juridico-compute=CREATE_COMPLETE" expect_calls "C23 login aceita 'CB rh-juridico'" \
   'WRITE ssm start-session .*bb-srv-rh-juridico-Login' 'NADA' h_sector \
   sector_env bash scripts/login-sector.sh rh-juridico bb-rh-juridico@example.com "CB rh-juridico"
+
+# ---------------------------------------------------------------- D: chave de longa duração (achado 5)
+LONG_TERM="arn:aws:iam::358748433479:user/ariel"
+expect_refusal "D5 script de escrita recusa chave de longa duração e mostra a sessão com MFA" "role/culturabuilder-admin" h_sector \
+  env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 recusa também no deploy-base, antes de qualquer leitura de stack" "este script altera a AWS" h_sector \
+  env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE bash scripts/deploy-base.sh --alert-email ops@example.com
+expect_refusal "D5 aceita sessão do usuário com MFA (ASIA) e segue" "não tem instância" h_sector \
+  env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=ASIAFAKEFAKEFAKEFAKE bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 aceita a chave de longa duração só com BB_SRV_ALLOW_LONG_TERM_KEY=1" "não tem instância" h_sector \
+  env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE BB_SRV_ALLOW_LONG_TERM_KEY=1 bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 recusa a conta root mesmo com BB_SRV_ALLOW_LONG_TERM_KEY=1" "é a conta root" h_sector \
+  env FAKE_ARN="arn:aws:iam::358748433479:root" BB_SRV_ALLOW_LONG_TERM_KEY=1 bash scripts/upgrade-sector.sh piloto "$TAG"
+h_status() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "cloudformation list-stacks") echo "" ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_status
+expect_success "D5 status.sh (só leitura) só avisa da chave de longa duração" "Os scripts que alteram a AWS a recusam" h_status \
+  env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE bash scripts/status.sh
+
+# ---------------------------------------------------------------- D: cota de Elastic IP (achado 8)
+h_eip() {
+  case "$1 $2" in
+    "service-quotas get-service-quota") echo 5.0 ;;
+    "ec2 describe-addresses") echo "${FAKE_EIPS:-2}" ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_eip
+expect_success "D8 aceita EIP com folga (5 de cota, 2 em uso)" "cota de Elastic IPs: 5" h_eip lib check_eip_quota 1
+expect_refusal "D8 recusa o EIP que deixaria a conta sem reserva (5 de cota, 4 em uso)" "cota de Elastic IPs (L-0263D0A3)" h_eip \
+  env FAKE_EIPS=4 bash -c 'source "$0/scripts/lib.sh"; check_eip_quota 1' "$ROOT"
+
+# ---------------------------------------------------------------- D: sobras da base (achado 16)
+h_leftover() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "s3api head-bucket") [[ "$*" == *bb-srv-build-* ]] ;;
+    "ecr describe-repositories") return 1 ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_leftover
+expect_refusal "D16 deploy-base recusa criar a base sobre sobras (bucket de build), antes de escrever" "s3://bb-srv-build-358748433479" h_leftover \
+  bash scripts/deploy-base.sh --alert-email ops@example.com
+expect_refusal "D16 deploy-base exige --alert-email só na criação" "informe --alert-email" h_leftover bash scripts/deploy-base.sh
+
+# ---------------------------------------------------------------- D: zona em stack própria (achado 20)
+expect_refusal "D20 deploy-signal exige a stack bb-srv-dns" "bb-srv-dns precisa existir" h_signal \
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE" bash scripts/deploy-signal.sh --commit "$FIRST" --acme-email acme@example.com
+
+# ---------------------------------------------------------------- D: limpeza de snapshots (achado 19)
+h_gc() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "ec2 describe-snapshots")
+      printf 'snap-0000000000000000a\t2026-01-01T07:00:00.000Z\tfin\t2020-01-01\tNone\t40\n'
+      printf 'snap-0000000000000000b\t2026-01-01T07:00:00.000Z\tfin\t2999-01-01\tNone\t40\n'
+      printf 'snap-0000000000000000c\t2026-01-01T07:00:00.000Z\tantigo\tNone\tpolicy-1\t40\n'
+      printf 'snap-0000000000000000d\t2999-01-01T07:00:00.000Z\tantigo\tNone\tpolicy-1\t40\n'
+      printf 'snap-0000000000000000e\t2026-01-01T07:00:00.000Z\tpiloto\tNone\tpolicy-1\t40\n'
+      ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_gc
+gc_env() { env FAKE_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE bb-srv-piloto-data=CREATE_COMPLETE" "$@"; }
+: >"$FAKE_AWS_LOG"
+gc_out=$(FAKE_AWS_HANDLER=h_gc gc_env bash scripts/gc-snapshots.sh 2>&1 </dev/null)
+if grep -q 'snap-0000000000000000a.*ExpiresAt 2020-01-01' <<<"$gc_out" && grep -q 'snap-0000000000000000c.*DLM de setor removido' <<<"$gc_out" &&
+  ! grep -Eq 'snap-0000000000000000[bde]' <<<"$gc_out" && grep -q '2 snapshot(s)' <<<"$gc_out" && ! grep -q '^WRITE' "$FAKE_AWS_LOG"; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "D19 gc lista só o vencido e o órfão do DLM de setor removido (sem escrever)"
+else
+  bad "D19 gc lista só o vencido e o órfão do DLM de setor removido" "$gc_out"
+fi
+expect_refusal "D19 gc --delete exige a confirmação digitada (sem terminal, para antes de apagar)" "a confirmação precisa de um terminal" h_gc \
+  gc_env bash scripts/gc-snapshots.sh --delete
 
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]

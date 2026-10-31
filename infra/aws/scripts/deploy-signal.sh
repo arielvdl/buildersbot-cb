@@ -7,7 +7,7 @@
 #   2. cria os 4 segredos em /bb-srv/signal/* (SSM SecureString) se ainda não existem. Os valores
 #      vêm do openssl pela entrada padrão do AWS CLI: nunca aparecem na tela, em argumento ou em disco;
 #   3. envia o código do commit para o bucket de build (com o sha256, que a VM confere);
-#   4. resolve a AMI do Ubuntu uma vez, confere a cota de vCPU e cria a stack.
+#   4. resolve a AMI do Ubuntu uma vez, confere as cotas de vCPU e de Elastic IP e cria a stack.
 # ATUALIZAÇÃO (a stack existe): só abre ou fecha as portas (--approve-ingress) e, se pedido, troca o
 #   tamanho. AMI, commit, hash do código e e-mail ACME ficam os da criação (UsePreviousValue): mudar
 #   qualquer um deles mexe no ImageId ou no user data, que só se trocam recriando a VM (README, seção
@@ -44,10 +44,11 @@ done
 [ -z "$acme_email" ] || valid_email "$acme_email"
 case $instance_type in '' | t4g.small | t4g.medium) ;; *) die "--instance-type precisa ser t4g.small ou t4g.medium." ;; esac
 
-bb_check_access
+bb_check_access --writes
+require_stack bb-srv-dns "Rode scripts/deploy-base.sh antes."
 require_stack bb-srv-base "Rode scripts/deploy-base.sh antes."
-zone=$(stack_output bb-srv-base HostedZoneName)
-zone_id=$(stack_output bb-srv-base HostedZoneId)
+zone=$(stack_output bb-srv-dns HostedZoneName)
+zone_id=$(stack_output bb-srv-dns HostedZoneId)
 status=$(stack_status bb-srv-signal)
 secrets="remote-session-secret remote-auth-webhook-secret remote-metrics-token turn-shared-secret"
 secret_exists() { aws_cb ssm describe-parameters --parameter-filters "Key=Name,Values=/bb-srv/signal/$1" --query 'length(Parameters)' --output text | grep -qx 1; }
@@ -83,6 +84,7 @@ if [ "$status" = NONE ] || [ "$status" = REVIEW_IN_PROGRESS ]; then
   [[ $ami =~ ^ami-[0-9a-f]+$ ]] || die "não consegui resolver a AMI do Ubuntu 24.04 arm64."
   say "   criação: commit $sha, AMI $ami (fixada até recriar a VM), portas de entrada abertas: $ingress"
   check_vcpu_quota 2
+  check_eip_quota 1
   params=("ParameterKey=AmiId,ParameterValue=$ami"
     "ParameterKey=InstanceType,ParameterValue=$instance_type"
     "ParameterKey=SourceCommit,ParameterValue=$sha"

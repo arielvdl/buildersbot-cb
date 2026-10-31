@@ -298,8 +298,8 @@ Resources:
                   echo "disks:"; df -h /srv "/srv/openbot/$S/data" 2>/dev/null || true
                   echo "firewall:"; iptables -S OPENBOT-EGRESS 2>/dev/null | head -n 3 || true
 
-  # Only this document carries DLMScriptsAccess=true: AWSDataLifecycleManagerSSMFullAccess lets DLM
-  # send any tagged document to any instance of the account (DESIGN 4.5).
+  # The tag DLMScriptsAccess=true follows the DLM convention; the role bb-srv-dlm (below) may send
+  # only this document, and only to Builders Bot instances.
   SnapshotHooksDocument:
     Type: AWS::SSM::Document
     Properties:
@@ -379,10 +379,30 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole
-        - arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerSSMFullAccess
+      # Not AWSDataLifecycleManagerSSMFullAccess: it allows ssm:SendCommand on every instance of the
+      # account with any document tagged DLMScriptsAccess=true (and AWSEC2-CreateVssSnapshot). The same
+      # actions here, but only the hooks document and only the Builders Bot instances.
+      Policies:
+        - PolicyName: snapshot-hooks
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: SsmReads
+                Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommands, ssm:DescribeInstanceInformation]
+                Resource: '*'
+              - Sid: HooksDocumentOnly
+                Effect: Allow
+                Action: [ssm:SendCommand, ssm:DescribeDocument, ssm:GetDocument]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/${SnapshotHooksDocument}'
+              - Sid: BuildersBotInstancesOnly
+                Effect: Allow
+                Action: ssm:SendCommand
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition: {StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}}
 
-  # Always-on sectors (tag BackupPlan=bb-srv-daily). Retention by age: a removed instance leaves
-  # no snapshot that DLM keeps forever except the last one (DESIGN 10).
+  # Always-on sectors (tag BackupPlan=bb-srv-daily). Retention by age; DLM keeps the last snapshot of
+  # each schedule of a removed instance forever, and scripts/gc-snapshots.sh deletes those (DESIGN 10).
   DailyPolicy:
     Type: AWS::DLM::LifecyclePolicy
     Properties:

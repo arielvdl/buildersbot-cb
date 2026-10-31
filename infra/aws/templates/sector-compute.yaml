@@ -54,6 +54,9 @@ Parameters:
     Type: Number
     Default: 80
     MinValue: 10
+    Description: >-
+      Monthly budget of the sector. add-sector.sh picks ~1.25x the estimate of the size by default
+      (medium 50, large 80, steady 95, x86 90, xlarge 140).
   BudgetEmail:
     Type: String
     Default: ''
@@ -638,6 +641,11 @@ Resources:
           Subscribers:
             - {SubscriptionType: SNS, Address: !ImportValue bb-srv-base-AlertTopicArn}
             - !If [HasBudgetEmail, {SubscriptionType: EMAIL, Address: !Ref BudgetEmail}, !Ref AWS::NoValue]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers:
+            - {SubscriptionType: SNS, Address: !ImportValue bb-srv-base-AlertTopicArn}
+            - !If [HasBudgetEmail, {SubscriptionType: EMAIL, Address: !Ref BudgetEmail}, !Ref AWS::NoValue]
+        # FORECASTED needs about 5 weeks of history: a new sector has only the ACTUAL alerts at first.
         - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
           Subscribers:
             - {SubscriptionType: SNS, Address: !ImportValue bb-srv-base-AlertTopicArn}

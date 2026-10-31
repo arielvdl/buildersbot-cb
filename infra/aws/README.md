@@ -4,7 +4,7 @@ Infraestrutura como código (CloudFormation + AWS CLI) para rodar **um servidor 
 
 O desenho completo, com as fontes e as três revisões adversariais, está em `/Users/arielsilva/Projects/openbot-local/.openbot-build/remote-servers/DESIGN.md` (citado aqui como **DESIGN**). Este repositório implementa esse desenho, com os desvios listados na seção [Desvios do DESIGN](#desvios-do-design).
 
-> **Estado:** código pronto e validado só por leitura (`validate-template`, esquemas oficiais via `describe-type`, `shellcheck`). **Nada foi criado na AWS.** Os scripts que criam recursos pedem confirmação digitada e nunca rodaram.
+> **Estado:** código pronto e validado só por leitura (`validate-template`, esquemas oficiais via `describe-type`, `shellcheck`, `bash -n`) e por testes negativos contra um `aws` falso que recusa qualquer escrita (`tests/negative.sh`). **Nada foi criado na AWS.** Os scripts que criam recursos pedem confirmação digitada, exigem sessão temporária com MFA e nunca rodaram.
 
 ---
 
@@ -37,21 +37,24 @@ Operador ──SSM Session Manager (documentos bb-srv-*)──► VMs   (sem SSH
 
 | Arquivo | Para quê |
 |---|---|
-| `templates/base.yaml` → stack `bb-srv-base` | VPC, sub-redes, SGs, ECR `bb-srv/server` (tags imutáveis, scan, delete negado), buckets de log e build, tópico `bb-srv-alerts`, policies e boundaries IAM, roles do scheduler, builder, operador (MFA) e break-glass, launch template do builder, zona Route 53, budget do projeto |
-| `templates/ops.yaml` → stack `bb-srv-ops` | Documentos SSM `bb-srv-Install`, `-Upgrade`, `-Down`, `-Status`, `-SnapshotHooks` (o único com `DLMScriptsAccess=true`), role e políticas DLM, alarmes de backup, regras do EventBridge |
+| `templates/dns.yaml` → stack `bb-srv-dns` | Só a zona Route 53 `bb-aws.culturabuilder.com` (retida no delete e na substituição; apagada só se a própria criação falhar). Fica de pé quando a base é apagada ou refeita, então os 4 NS do Cloudflare não mudam |
+| `templates/base.yaml` → stack `bb-srv-base` | VPC, sub-redes (zonas fixas `us-east-1a`/`b`), SGs, ECR `bb-srv/server` (tags imutáveis, scan, delete de imagem negado), buckets de log e build (o de build com versionamento), tópico `bb-srv-alerts`, policies e boundaries IAM, roles do scheduler, builder, operador (MFA) e break-glass, launch template do builder, documento `bb-srv-builder-Shell`, budget do projeto |
+| `templates/ops.yaml` → stack `bb-srv-ops` | Documentos SSM `bb-srv-Install`, `-Upgrade`, `-Down`, `-Status`, `-SnapshotHooks` (o único com `DLMScriptsAccess=true`), role DLM (policy própria: só o documento de hooks e só instâncias `Project=buildersbot-servers`) e políticas DLM, alarmes de backup, regras do EventBridge |
 | `templates/signal.yaml` → stack `bb-srv-signal` | VM do Signal/TURN, EIP, registros `signal`/`turn`, role com boundary, alarmes, documento de shell logado `bb-srv-signal-Shell` e alertas de sessão. Portas só com `IngressApproved=true` |
 | `templates/sector-data.yaml` → stack `bb-srv-<setor>-data` | Só o volume de dados (gp3 cifrado, `DeletionPolicy: Snapshot`) |
 | `templates/sector-compute.yaml` → stack `bb-srv-<setor>-compute` | Role e instance profile, VM (criada **sem** proteção contra término; o `add-sector.sh` liga a proteção depois do `bb-srv-Install`), anexo do volume, log groups, parâmetros SSM do setor, documentos de sessão (`-Shell`, `-Login`), 7 alarmes, budget, agenda opcional, alerta de sessão fora dos documentos |
-| `scripts/check-access.sh` | Para tudo se o perfil não for `cb`, a conta não for `358748433479` ou o IP de saída não estiver em `config/allowed-egress-ips.txt`. Todos os scripts chamam antes de qualquer comando |
-| `scripts/deploy-base.sh` | Cria/atualiza `bb-srv-base` e `bb-srv-ops`; mostra os 4 NS para o Cloudflare |
+| `scripts/check-access.sh [--writes]` | Para tudo se o perfil não for `cb`, a conta não for `358748433479` ou o IP de saída não estiver em `config/allowed-egress-ips.txt`. Com `--writes` (todo script que altera a AWS) recusa chave de longa duração de usuário IAM (salvo `BB_SRV_ALLOW_LONG_TERM_KEY=1`) e sempre a do root. Todos os scripts chamam antes de qualquer comando |
+| `scripts/deploy-base.sh` | Cria/atualiza `bb-srv-dns`, `bb-srv-base` e `bb-srv-ops`, nessa ordem; recusa criar a base sobre sobras; mostra os 4 NS para o Cloudflare |
 | `scripts/deploy-signal.sh` | Segredos do Signal no SSM (sem exibir), código do commit no bucket, stack `bb-srv-signal` |
 | `scripts/build-image.sh` | Constrói a imagem linux/arm64 do fork numa EC2 efêmera e envia ao ECR (ver [Imagem](#6-imagem-do-servidor)) |
 | `scripts/add-sector.sh <setor> [tamanho]` | Cria um setor do zero ou a partir de um snapshot |
 | `scripts/login-sector.sh` | Login do servidor com a conta dona do setor (sessão SSM `bb-srv-<setor>-Login`) |
 | `scripts/upgrade-sector.sh` | Troca a imagem de um setor (pull antes, snapshot pre-upgrade, troca) |
-| `scripts/remove-sector.sh <setor>` | Snapshot primeiro, depois apaga as stacks do setor |
+| `scripts/remove-sector.sh <setor>` | Snapshot primeiro, depois apaga as stacks do setor e ajusta o budget do projeto |
+| `scripts/gc-snapshots.sh [--delete]` | Lista (padrão) ou apaga, com confirmação digitada, os snapshots com `ExpiresAt` vencido e os do DLM de setores removidos com mais de 28 dias |
 | `scripts/status.sh [setor] [--deep]` | Estado de tudo (só leitura) |
-| `scripts/validate.sh` | Validação só leitura: `validate-template`, esquemas oficiais, `shellcheck` (também do shell dentro dos templates) |
+| `scripts/validate.sh` | Validação só leitura: `validate-template`, esquemas oficiais, `shellcheck` e `bash -n` (também do shell dentro dos templates) e `tests/negative.sh` |
+| `tests/negative.sh`, `tests/fake-bin/` | Os caminhos de recusa dos scripts contra um `aws` falso que responde às leituras do cenário e recusa qualquer escrita (não toca a AWS) |
 | `tools/cfn-schema-check.py`, `tools/extract-shell.py` | Usados pelo `validate.sh` (o `cfn-lint` não está instalado neste Mac) |
 
 Nomes: tudo começa com `bb-srv-` (stacks, roles, SGs, documentos, alarmes, budgets, ECR `bb-srv/server`, parâmetros `/bb-srv/...`, log groups `/bb-srv/...`). Tags em tudo: `Project=buildersbot-servers`, `Sector=<setor>` (ou `shared`), `CostCenter=<setor>` (ou `shared`), `Owner=cultura-builder`, `ManagedBy=cloudformation` (as stacks recebem as tags no deploy e os templates repetem as principais).
@@ -60,14 +63,28 @@ Nomes: tudo começa com `bb-srv-` (stacks, roles, SGs, documentos, alarmes, budg
 
 - AWS CLI v2 com o perfil `cb`, `session-manager-plugin`, `jq`, `dig`, `openssl`, `git`, `shellcheck` (opcional).
 - `config/allowed-egress-ips.txt` com o IP de saída atual (hoje `89.115.7.240`). **Não encontrei condição de IP na IAM da conta `cb`** (`iam list-attached-user-policies`/`list-user-policies` do `ariel` e as policies locais sem `aws:SourceIp`, 31/10/2026); a trava fica no `check-access.sh`.
-- **Acesso:** o usuário `ariel` usa chave de longa duração com AdministratorAccess (o `check-access.sh` avisa). Recomendado: sessão temporária com MFA para criar/apagar stacks, e a role `bb-srv-operator` (MFA) para o dia a dia (`status`, `login`, `upgrade`). Exemplo de perfil para a role, em `~/.aws/config`:
+- **Acesso (sessão temporária com MFA).** Todo script que altera a AWS (todos menos `status.sh` e `validate.sh`) **recusa a chave de longa duração** do usuário `ariel` (AdministratorAccess) e mostra como abrir a sessão. O caminho: a role `culturabuilder-admin`, que **já existe** na conta (AdministratorAccess, confia na conta só com `aws:MultiFactorAuthPresent`, sessão de até 4 h; conferido por leitura em 31/10/2026). Ação do dono, uma vez:
+  1. em `~/.aws/credentials`, renomear o perfil `[cb]` (a chave) para `[cb-chave]`;
+  2. em `~/.aws/config`:
+     ```ini
+     [profile cb]
+     source_profile = cb-chave
+     role_arn = arn:aws:iam::358748433479:role/culturabuilder-admin
+     mfa_serial = arn:aws:iam::358748433479:mfa/cb-ariel-local-20261020
+     duration_seconds = 14400
+     region = us-east-1
+     ```
+  3. `scripts/check-access.sh --writes` pede o código MFA uma vez e mostra `credencial temporary`. O AWS CLI guarda a sessão até ela vencer (4 h cobrem o build mais longo, que espera até 3,5 h).
+  Uma sessão do próprio usuário com MFA (`sts get-session-token`, chave `ASIA…`) também é aceita. **`BB_SRV_ALLOW_LONG_TERM_KEY=1`** antes do comando aceita a chave de longa duração, com aviso; use só se não houver outro jeito e conscientemente. A chave do root é sempre recusada. O `check-access.sh` sem `--writes`, o `status.sh` e o `validate.sh` só avisam.
+- **Dia a dia com a role `bb-srv-operator`** (MFA; `status`, `login`, `upgrade`, sem criar ou apagar stack). Exemplo, também com a chave em `cb-chave` (não use `source_profile = cb`, que já é uma role: encadear roles limita a sessão a 1 h):
   ```ini
   [profile cb-operator]
-  source_profile = cb
+  source_profile = cb-chave
   role_arn = arn:aws:iam::358748433479:role/bb-srv-operator
-  mfa_serial = arn:aws:iam::358748433479:mfa/<dispositivo>
+  mfa_serial = arn:aws:iam::358748433479:mfa/cb-ariel-local-20261020
   ```
-  (os scripts usam o nome `cb`; para usar a role, aponte o perfil `cb` para ela.)
+  (os scripts usam o nome `cb`; para usar essa role, aponte o perfil `cb` para ela.)
+- **Role de serviço do CloudFormation (`bb-cfn-exec`):** não criada (opcional, decisão do dono). As stacks rodam com a sessão MFA de quem as aplica; ver [Desvios](#14-desvios-do-design).
 - O fork em `/Users/arielsilva/Projects/openbot-local` (ou `BB_SRV_FORK=<caminho>`). Os scripts só **leem** o fork (`git archive` de um commit).
 
 ## 4. Bloqueios antes do primeiro setor (DESIGN 0.9, atualizados em 31/10/2026)
@@ -76,6 +93,7 @@ Nomes: tudo começa com `bb-srv-` (stacks, roles, SGs, documentos, alarmes, budg
 2. **Signal próprio no ar** (passos 4 a 6 abaixo) e o Worker apontando para ele.
 3. **Serviço de contas:** no HEAD `bc39bf94d`, `apps/auth-api/wrangler.jsonc:50` está com `AUTH_EXPOSE_DEVELOPMENT_CODE: "false"` (no `c8188b077` do DESIGN estava `"true"`). **O valor publicado não foi verificado** (o deploy usa `--keep-vars`). Antes do piloto: conferir de fora que `/v1/auth/email/start` não devolve o código, e fazer a revogação e a auditoria da DESIGN 4.10 se o flag esteve ligado em produção.
 4. **Cota de vCPU** `L-1216C47A`: 64, dividida com o EKS/Karpenter (44 em uso em 31/10 segundo o DESIGN). Os scripts recusam deixar menos de 16 livres. Pedir aumento (ação do dono, passo 1).
+5. **Cota de Elastic IP** `L-0263D0A3`: 5, com 2 em uso na conta (um é do NAT da VPC `10.50.0.0/17`). O Signal usa 1 e cada `--static-ip` mais 1; o `deploy-signal.sh` e o `add-sector.sh --static-ip` recusam deixar menos de 1 livre para a conta (`BB_SRV_EIP_RESERVE`). Com mais de um setor de IP fixo, pedir aumento da cota.
 
 ## 5. Primeira implantação, em ordem
 
@@ -83,10 +101,10 @@ Cada passo tem verificação e rollback. Não avance sem a verificação do ante
 
 | # | Quem | Comando / ação | Verificação | Rollback |
 |---|---|---|---|---|
-| 0 | Operador | `scripts/check-access.sh` e `scripts/validate.sh` | `acesso ok` e `validação ok` | — |
+| 0 | **Dono** + operador | Perfil `cb` com MFA (seção 3); `scripts/check-access.sh --writes` e `scripts/validate.sh` | `acesso ok … credencial temporary` e `validação ok` | — |
 | 1 | **Dono** | Pedir aumento da cota: `aws --profile cb --region us-east-1 service-quotas request-service-quota-increase --service-code ec2 --quota-code L-1216C47A --desired-value 128` | `service-quotas get-service-quota … --quota-code L-1216C47A` mostra 128 | — |
-| 2 | Operador | `scripts/deploy-base.sh --alert-email <e-mail>` (cria `bb-srv-base` e `bb-srv-ops`) | `CREATE_COMPLETE` nas duas; o script confere 0 regras de entrada no SG `bb-srv-sector` e 0 NAT na VPC nova | `aws … cloudformation delete-stack --stack-name bb-srv-ops`, depois `bb-srv-base` (ECR e buckets ficam por `Retain`) |
-| 3 | **Dono** | **Ação de DNS** (seção 7): 4 registros NS `bb-aws` no Cloudflare | `dig +short NS bb-aws.culturabuilder.com` mostra os 4 `awsdns`; `scripts/status.sh` diz "delegado" | Apagar os 4 NS |
+| 2 | Operador | `scripts/deploy-base.sh --alert-email <e-mail>` (cria `bb-srv-dns`, `bb-srv-base` e `bb-srv-ops`, nessa ordem; antes de escrever, recusa sobras de uma base anterior) | `CREATE_COMPLETE` nas três; o script confere 0 regras de entrada no SG `bb-srv-sector` e 0 NAT na VPC nova | Uma criação que falha se desfaz sozinha, inclusive os buckets e o ECR (`RetainExceptOnCreate`). Depois de criadas: `aws … cloudformation delete-stack --stack-name bb-srv-ops`, depois `bb-srv-base` (ECR e buckets com dados ficam; ver "Sobras da base" na seção 11). **Nunca** apague `bb-srv-dns` num rollback: os 4 NS continuam valendo |
+| 3 | **Dono** | **Ação de DNS** (seção 7): 4 registros NS `bb-aws` no Cloudflare | `dig +short NS bb-aws.culturabuilder.com` mostra os 4 `awsdns`; `scripts/status.sh` diz "delegado ao Route 53 (os 4 NS da zona bb-srv-dns)" | Apagar os 4 NS |
 | 4 | **Dono** | Confirmar o e-mail do tópico `bb-srv-alerts`; ativar as tags `Project`, `Sector` e `CostCenter` em Billing → Cost allocation tags | E-mail confirmado; tags ativas (até 24 h) | — |
 | 5 | Operador | `scripts/deploy-signal.sh --commit <sha do Worker publicado> --acme-email <e-mail>` (sem portas abertas ainda) | Stack `CREATE_COMPLETE`; em ~20 min o alarme `bb-srv-signal-health` fica OK (o teste local de `/health/ready` e `/health/turn` passa com certificado válido) | `delete-stack bb-srv-signal` (os segredos ficam no SSM) |
 | 6 | **Dono aprova** a exceção de portas da VM do Signal (TCP 443, TCP/UDP 3478, TCP 5349, UDP 49152-65535, todas autenticadas); operador roda `scripts/deploy-signal.sh --approve-ingress` (atualização: a AMI, o commit, o hash do código e o e-mail ACME ficam os da criação) | `curl -fsS https://signal.bb-aws.culturabuilder.com/health/turn` responde de fora; teste TURN externo em UDP 3478 | `scripts/deploy-signal.sh` sem `--approve-ingress` (fecha as portas; não resolve AMI, não confere cota nem DNS, então sempre funciona) |
@@ -98,9 +116,9 @@ Cada passo tem verificação e rollback. Não avance sem a verificação do ante
 | 12 | Operador + Ariel | Convite Admin para o Ariel e conexão (seção 8) | O servidor aparece no app do Ariel; conecta de casa e de 4G | Remover o membro na tela Membros |
 | 13 | Ariel | Provedor (chave de API do setor), agentes, papéis (Everyone em `none`/`view`), teste de navegador, busca, login num SaaS, rede social | Ver DESIGN 12, passo 9 | — |
 | 14 | Operador | Piloto de backup: esperar o DLM das 07:00 UTC; `status.sh` mostra o último snapshot < 26 h | Snapshot com tag `Sector=piloto` | — |
-| 15 | Operador | Setores reais: `scripts/add-sector.sh financeiro`, `scripts/add-sector.sh marketing medium`, … (uma conta dona por setor) | Igual aos passos 10 a 12 | `scripts/remove-sector.sh <setor>` |
+| 15 | Operador | Setores reais: `scripts/add-sector.sh financeiro`, `scripts/add-sector.sh marketing medium`, … (uma conta dona por setor). Cada `add-sector`/`remove-sector` ajusta o budget do projeto | Igual aos passos 10 a 12 | `scripts/remove-sector.sh <setor>` |
 
-Opções úteis do `add-sector.sh`: `--schedule business-hours` (liga 08:00 e desliga 20:00 de seg a sex, BRT; parada de segurança 22:30), `--static-ip` (IP fixo para redes sociais; cota de 5 EIPs, 2 em uso), `--volume-gib 80`, `--budget-usd 120 --budget-email <e-mail>`, `--image-tag <tag>`, `--from-snapshot snap-…`.
+Opções úteis do `add-sector.sh`: `--schedule business-hours` (liga 08:00 e desliga 20:00 de seg a sex, BRT; parada de segurança 22:30), `--static-ip` (IP fixo para redes sociais; a cota de EIP é conferida, bloqueio 5), `--volume-gib 80`, `--budget-usd 120 --budget-email <e-mail>` (sem `--budget-usd`, o padrão segue o tamanho: medium 50, large 80, steady 95, x86 90, xlarge 140), `--image-tag <tag>`, `--from-snapshot snap-…`, `--resume`.
 
 ## 6. Imagem do servidor
 
@@ -122,14 +140,14 @@ Shell no builder (para acompanhar um build), logado em `/bb-srv/builder`: `aws -
 
 ## 7. A única ação de DNS do dono
 
-Depois do passo 2, o `deploy-base.sh` imprime os 4 name servers da zona `bb-aws.culturabuilder.com`. No painel da Cloudflare:
+Depois do passo 2, o `deploy-base.sh` imprime os 4 name servers da zona `bb-aws.culturabuilder.com` (stack `bb-srv-dns`, que nenhum rollback da base apaga: os NS não mudam). No painel da Cloudflare:
 
 1. Conta da Cultura Builder → zona **culturabuilder.com** → **DNS** → **Records** → **Add record**.
 2. Tipo **NS**, Nome **`bb-aws`**, Nameserver = o 1º name server (ex.: `ns-123.awsdns-45.com`), TTL **Auto**. Salvar. (Registro NS não tem proxy.)
 3. Repetir para o 2º, o 3º e o 4º, sempre com o nome `bb-aws`.
 4. Conferir: `dig +short NS bb-aws.culturabuilder.com` (4 `awsdns`) e `dig +short SOA bb-aws.culturabuilder.com` (`awsdns-hostmaster.amazon.com`).
 
-Rollback: apagar os 4 registros (o Signal perde o nome e ninguém conecta). O domínio não tem DNSSEC nem CAA (DESIGN 6.3), então a delegação não precisa de `DS` e o Let's Encrypt pode emitir.
+Rollback: apagar os 4 registros (o Signal perde o nome e ninguém conecta). O domínio não tem DNSSEC nem CAA (DESIGN 6.3), então a delegação não precisa de `DS` e o Let's Encrypt pode emitir. **Se a zona um dia for apagada e criada de novo, ela vem com outros 4 NS:** é preciso refazer os registros (o `status.sh` avisa "delegado a OUTROS name servers"). E nunca apague a zona antes de tirar os NS do Cloudflare (seção 11, "Desfazer tudo").
 
 ## 8. Como conectar pelo app desktop
 
@@ -150,20 +168,26 @@ Rollback: apagar os 4 registros (o Signal perde o nome e ninguém conecta). O do
 
 ## 9. Custo estimado (US$/mês, us-east-1, On-Demand)
 
-Preços conferidos na Pricing API em 31/10/2026: `t4g.small` 0,0168/h, `t4g.medium` 0,0336/h, `t4g.large` 0,0672/h, gp3 0,08/GB-mês; os demais itens vêm do DESIGN 9.1 (mesma fonte). Volumes de log, snapshot e saída são **[palpite]**.
+Preços conferidos na Pricing API em 31/10/2026: `t4g.small` 0,0168/h, `t4g.medium` 0,0336/h, `t4g.large` 0,0672/h, `t4g.xlarge` 0,1344/h, `m7g.large` 0,0816/h, `t3a.large` 0,0752/h, gp3 0,08/GB-mês; Savings Plan Compute 1 ano sem entrada para `t4g.large` 0,0485/h; alarme 0,10, métrica custom 0,30, IPv4 0,005/h; budgets sem custo. Os demais itens vêm do DESIGN 9.1 (mesma fonte). Volumes de log, snapshot e saída são **[palpite]**.
 
-**Por setor `t4g.large` 24/7 ≈ US$ 62,74:** EC2 49,06 + EBS 60 GB 4,80 + snapshots ~20 GB 1,00 + IPv4 3,65 + logs ~1 GB 0,53 + saída ~20 GB 1,80 + 7 alarmes 0,70 + 4 métricas custom 1,20 (`Healthy`, `mem_used_percent`, `disk_used_percent` do `/data` e do `/`).
-`t4g.medium` 24/7 ≈ **38,21**. `t4g.large` em horário comercial (264 h) ≈ **28,86**. Com live view intenso (~150 GB de saída) ≈ 74,44.
+**Por setor `t4g.large` 24/7 ≈ US$ 63,44:** EC2 49,06 + EBS 60 GB 4,80 + snapshots ~20 GB 1,00 + IPv4 3,65 + logs ~1 GB 0,53 + saída ~20 GB 1,80 + 7 alarmes 0,70 + 4 métricas custom 1,20 (`Healthy`, `mem_used_percent`, `disk_used_percent` do `/data` e do `/`) + ~0,70 que crescem com cada setor **[palpite]**: `PutMetricData` do CloudWatch agent (~1 chamada por minuto, ~43.800 por mês, ~0,44 além da franquia da conta) e Flow Logs da VPC para o S3 (~0,26).
+`t4g.medium` 24/7 ≈ **38,91**. `t4g.large` em horário comercial (264 h) ≈ **29,16** (o agent e os Flow Logs só com a VM ligada, ~0,30); com `--static-ip` soma **2,33** (o Elastic IP cobra 3,65 o mês todo, e não 1,32 das horas ligadas). Com live view intenso (~150 GB de saída) ≈ 75,14.
+**Pior caso de CPU:** o modo unlimited cobra o que passar da linha de base, até **+40,88** num `t4g.large` a 100% o mês todo (DESIGN 9.1): `t4g.large` 24/7 ≈ **104,32**. O `steady` (`m7g.large`, sem crédito de CPU) custa ≈ **73,95** 24/7: se o alarme `bb-srv-<setor>-cpu-surplus-charged` disparar com frequência (mais de ~US$ 10,50 por mês de crédito cobrado), o `steady` sai mais barato.
+**Relay TURN:** o tráfego setor→TURN vai pelo IP público na mesma região e paga 0,01/GB em cada direção, além dos 0,09/GB de saída para a internet: ~0,11 por GB que passa pelo relay (só quando o P2P falha).
 
-**Fixo compartilhado ≈ US$ 23,01:** Signal/TURN 18,31 (EC2 12,26 + IPv4 3,65 + EBS 1,60 + logs 0,30 + alarmes/métrica 0,50), zona Route 53 0,50, ECR ~2,00, ~4 builds 1,20, Flow Logs ~0,50, 5 alarmes da base/backup 0,50. Budgets, EventBridge, SQS e e-mail do SNS ≈ 0. Mais o relay TURN a US$ 0,09/GB.
+**Fixo compartilhado ≈ US$ 23,41:** Signal/TURN 18,71 (EC2 12,26 + IPv4 3,65 + EBS 1,60 + logs 0,30 + 3 alarmes 0,30 + 2 métricas 0,60, `Healthy` e `mem_used_percent`), zona Route 53 0,50, ECR ~2,00, ~4 builds 1,20, Flow Logs da base ~0,50, 5 alarmes da base/backup 0,50. Budgets, EventBridge, SQS e e-mail do SNS ≈ 0.
 
 | Cenário | 1 setor | 5 setores | 20 setores |
 |---|---|---|---|
-| Todos `t4g.large` 24/7 | **85,75** | **336,71** | **1.277,81** |
-| Mix com 20 (6 large 24/7 + 8 medium 24/7 + 6 large horário comercial) | — | — | **878,29** |
-| `t4g.large` 24/7 com Savings Plan Compute 1 ano (0,0485/h) | 72,10 | 268,46 | 1.004,81 |
+| Todos `t4g.large` 24/7 | **86,85** | **340,61** | **1.292,21** |
+| Mix com 20 (6 large 24/7 + 8 medium 24/7 + 6 large horário comercial) | — | — | **890,29** |
+| `t4g.large` 24/7 com Savings Plan Compute 1 ano (0,0485/h) | 73,20 | 272,36 | 1.019,21 |
+| `t4g.large` 24/7 no pior caso de CPU | 127,73 | 545,01 | 2.109,81 |
+| `steady` (`m7g.large`) 24/7 | 97,36 | 393,16 | 1.502,41 |
 
-Fórmula: N × custo por setor + 23,01. Com 20 setores o Signal provavelmente precisa de `t4g.medium` (+~12) **[palpite]**. Fora desta conta: o uso dos provedores de IA, em geral o maior custo. Contexto: o budget da conta é US$ 400 e o gasto de outubro passou de US$ 2.500 (DESIGN 9.3); quantos setores ligar é decisão do dono. Cada setor tem um budget próprio (padrão US$ 80) e o projeto um budget total (padrão US$ 150), que dependem das tags de custo ativas.
+Fórmula: N × custo por setor + 23,41. A ordem de grandeza é a mesma da estimativa anterior (+1 a 2%). Com 20 setores o Signal provavelmente precisa de `t4g.medium` (+~12) **[palpite]**. Fora desta conta: o uso dos provedores de IA, em geral o maior custo. Contexto: o budget da conta é US$ 400 e o gasto de outubro passou de US$ 2.500 (DESIGN 9.3); quantos setores ligar é decisão do dono.
+
+**Budgets** (dependem das tags de custo ativas, passo 4): cada setor tem um budget próprio cujo padrão segue o tamanho, ~1,25 × a estimativa 24/7 (medium 50, large 80, steady 95, x86 90, xlarge 140; `--budget-usd` troca), com avisos ACTUAL > 80%, ACTUAL > 100% e FORECASTED > 100%. A previsão do AWS Budgets precisa de ~5 semanas de histórico: um setor novo só tem os avisos ACTUAL no começo. O budget do projeto é a **soma dos budgets dos setores + 30** (o fixo com folga), recalculada no fim de cada `add-sector.sh` e `remove-sector.sh` (só esse parâmetro, sobre o template já implantado). Com o piloto `large`: 80 + 30 = 110. Numa atualização, o `deploy-base.sh` mantém o valor, salvo `--project-budget-usd`.
 
 ## 10. Operação
 
@@ -172,6 +196,7 @@ Fórmula: N × custo por setor + 23,01. Com 20 setores o Signal provavelmente pr
 - **Shell da VM do Signal** (logado em `/bb-srv/signal/ssm-sessions`; o root dessa VM lê os 4 segredos): `… ssm start-session --target <instância do Signal> --document-name bb-srv-signal-Shell`. Sessão sem documento ou com outro documento alerta (regras `bb-srv-signal-session-*`).
 - **Atualizar imagem:** `scripts/upgrade-sector.sh <setor> <tag>`; primeiro num setor canário, 24 h, depois os outros. Nunca voltar para imagem mais antiga sobre o mesmo `/data`.
 - **Backups:** automáticos (DLM). Setores 24/7: 07:00 UTC com pre/post script (~1-2 min fora do ar entre 04:00 e 05:00 BRT) e semanal domingo 04:00 UTC. Setores em horário comercial: 02:00 UTC com a VM parada. Reboot de patches do SO às 09:30 UTC.
+- **Limpeza de snapshots:** nada apaga snapshot por prazo sozinho. A tag `ExpiresAt` (pre-remove e final: `--keep-days`, padrão 180; pre-upgrade: 30 dias) marca quando o `scripts/gc-snapshots.sh` pode apagar. Ele também pega os snapshots do DLM de setores removidos (sem stack `-compute` nem `-data`) com mais de 28 dias, porque o DLM guarda para sempre o último de cada agenda. `scripts/gc-snapshots.sh` só lista; `--delete` apaga depois da confirmação digitada `apagar <N>`. Rodar uma vez por mês.
 - **Logs:** `/bb-srv/<setor>` (container, saúde, bootstrap; 30 dias), `/bb-srv/<setor>/ssm-sessions` (90 dias), Flow Logs da VPC em `s3://bb-srv-logs-358748433479/flow/` (90 dias). CloudTrail da conta é o registro confiável.
 - **Alertas:** tudo no tópico `bb-srv-alerts`. O alarme de saúde conta as linhas `BB_HEALTH ok`; com a VM ligada, as outras linhas do log publicam 0 (`DefaultValue`), então um container caído alerta também nos setores em horário comercial. Memória e disco ficam no namespace próprio do setor (`bb-srv/<setor>/host`; o Signal em `bb-srv/signal/host`): a role de um host só publica no dele, e nenhum setor esconde os alarmes de outro.
 
@@ -183,15 +208,16 @@ Fórmula: N × custo por setor + 23,01. Com 20 setores o Signal provavelmente pr
 | `ROLLBACK_FAILED` ou `DELETE_FAILED` | O `deploy_stack` (e o `status.sh`) imprime os comandos com os ids: `aws … ec2 modify-instance-attribute --instance-id <i> --no-disable-api-termination` para cada VM da stack, depois `aws … cloudformation delete-stack --stack-name <stack>` e `wait stack-delete-complete`. Se um recurso que deve ficar travar o delete: `--retain-resources <LogicalResourceId>` e resolver à mão |
 | `UPDATE_ROLLBACK_FAILED` | Corrigir a causa (eventos) e `aws … cloudformation continue-update-rollback --stack-name <stack>` (um recurso que não volta pode ir em `--resources-to-skip`, e fica fora de sincronia) |
 | A instalação do setor falhou ou não terminou (stack `-compute` criada) | `scripts/add-sector.sh <setor> --resume`: liga a VM se a agenda a desligou, espera o SSM, repete o `bb-srv-Install` em modo `auto` (com o `.env` no disco faz attach; sem ele, create) e liga a proteção contra término. Se só a proteção ficou de fora, o `--resume` faz só ela. Uma criação interrompida que deixou `/srv/openbot/<setor>` sem `.env` é recusada pelo `bb-srv-Install` (nada é apagado): inspecionar pela sessão `bb-srv-<setor>-Shell` |
-| Desfazer um setor | `scripts/remove-sector.sh <setor>` (snapshot completo **antes** de apagar; grava o id em `/bb-srv/sectors/<setor>/final-snapshot`, retido 180 dias). Antes do snapshot, o logout da conta dona: com a VM parada (horário comercial), o script liga a VM para isso; se o `bb-srv-Down` não confirmar o logout (`BB_LOGOUT ok`), só segue com a confirmação digitada `sessao-no-snapshot` (a sessão fica no snapshot e volta numa restauração) |
+| Desfazer um setor | `scripts/remove-sector.sh <setor>` (snapshot completo **antes** de apagar; grava o id em `/bb-srv/sectors/<setor>/final-snapshot`; guardado até alguém rodar `scripts/gc-snapshots.sh --delete` depois do `ExpiresAt`, 180 dias por padrão). Ajusta o budget do projeto no fim. Antes do snapshot, o logout da conta dona: com a VM parada (horário comercial), o script liga a VM para isso; se o `bb-srv-Down` não confirmar o logout (`BB_LOGOUT ok`), só segue com a confirmação digitada `sessao-no-snapshot` (a sessão fica no snapshot e volta numa restauração) |
 | Recriar um setor removido | `scripts/add-sector.sh <setor> --from-snapshot <snap>` (mesma identidade, agentes e conversas; novo login). Recusa snapshot de outro setor |
 | Upgrade deu errado | Restaurar o snapshot `pre-upgrade` **com a imagem anterior** (tag `PreviousImage` do snapshot): `scripts/remove-sector.sh <setor> --keep-registration` (sem remover no app e sem logout), depois `scripts/add-sector.sh <setor> --from-snapshot <snap-pre-upgrade>`. O modo attach roda a imagem gravada no `.env` do disco restaurado, que é a anterior (só `bb-srv/server` por digest; outra origem é recusada), e o `add-sector.sh` grava em `/bb-srv/sectors/<setor>/image` a imagem que o `bb-srv-Install` informou (linha `BB_IMAGE`), não a do relatório mais novo. `--image-tag` aqui só escolhe o bundle de operação. Nunca rode a imagem nova sobre o disco antigo nem duas cópias do mesmo snapshot |
 | VM com defeito (disco bom) ou trocar a AMI | 1) `aws --profile cb --region us-east-1 ec2 stop-instances --instance-ids <i>` e esperar `stopped`; 2) `aws … ec2 modify-instance-attribute --instance-id <i> --no-disable-api-termination`; 3) `aws … cloudformation delete-stack --stack-name bb-srv-<setor>-compute` (o volume fica na stack `-data` e volta a `available`); 4) `scripts/add-sector.sh <setor> <tamanho> --reattach` (VM nova na zona do volume, AMI atual, sem proteção até o fim; `bb-srv-Install` em modo `auto`: attach com a imagem gravada no disco). Antes, se quiser, um snapshot: `aws … ec2 create-snapshot --volume-id <vol>` |
 | Atualizar o Signal para outro commit, outro e-mail ACME ou AMI nova | Numa atualização o `deploy-signal.sh` **recusa** outro `--commit` ou `--acme-email` e nunca troca a AMI (ImageId e user data só mudam recriando a VM). Fluxo: `aws --profile cb --region us-east-1 cloudformation delete-stack --stack-name bb-srv-signal`, esperar `stack-delete-complete`, e `scripts/deploy-signal.sh --commit <novo> --acme-email <e-mail>` (resolve a AMI atual uma vez). Os segredos ficam no SSM. O EIP muda e os registros DNS acompanham (TTL 300); conexões novas param ~20 min; as portas voltam fechadas até o `--approve-ingress` |
 | Desligar a exposição do Signal | `scripts/deploy-signal.sh` sem `--approve-ingress` (só o `IngressApproved` muda; sem AMI, cota ou DNS no caminho) |
-| Desfazer tudo | Remover os setores; `delete-stack` de `bb-srv-signal`, `bb-srv-ops`, `bb-srv-base`; apagar os 4 NS no Cloudflare. Ficam por `Retain`: o ECR `bb-srv/server`, os buckets `bb-srv-build-*` e `bb-srv-logs-*` e os parâmetros `/bb-srv/signal/*` (apagar à mão, conscientemente) |
+| Sobras da base | O `deploy-base.sh` recusa **criar** a `bb-srv-base` se já existirem `s3://bb-srv-logs-358748433479`, `s3://bb-srv-build-358748433479` ou o ECR `bb-srv/server` (ficaram de uma base apagada). Vazios e dispensáveis: apagar à mão (o bucket de build tem versionamento: apagar também as versões; o ECR só sem imagens, `aws … ecr delete-repository --repository-name bb-srv/server`) e rodar de novo. Com dados que devem ficar (relatórios, imagens, logs): trazê-los para a stack com um change set `IMPORT` (doc da AWS "Bringing existing resources into CloudFormation management") antes de criar o resto. Uma primeira criação que falha não deixa sobras (`RetainExceptOnCreate`) |
+| Desfazer tudo | Nesta ordem: 1) remover os setores (`scripts/remove-sector.sh`, um por um); 2) `delete-stack` de `bb-srv-signal`, `bb-srv-ops` e `bb-srv-base`; 3) **dono:** apagar os 4 NS `bb-aws` no Cloudflare e conferir `dig +short NS bb-aws.culturabuilder.com @1.1.1.1` **vazio** (esperar o TTL); 4) **só então** `delete-stack bb-srv-dns` (a zona fica, por política) e apagar a zona à mão: `aws --profile cb --region us-east-1 route53 delete-hosted-zone --id <HostedZoneId>`. Apagar a zona com a delegação ainda no Cloudflare quebra o Signal e deixa o subdomínio pendurado (outra conta poderia criar uma zona com o mesmo nome). Ficam, para apagar à mão e conscientemente: o ECR `bb-srv/server`, os buckets `bb-srv-build-*` (com versões) e `bb-srv-logs-*`, os parâmetros `/bb-srv/signal/*` e os snapshots (`scripts/gc-snapshots.sh` lista) |
 
-Toda atualização de stack de setor passa por change set, e o script **recusa** executar um change set que substitua ou remova instância, volume ou anexo (DESIGN R2-1).
+Toda atualização de stack passa por change set, e o script **recusa** executar um change set que substitua ou remova instância, volume ou anexo (DESIGN R2-1), a zona Route 53, o ECR ou um bucket (por exemplo `deploy-base.sh --zone <outra>` numa atualização).
 
 ## 12. Segurança (resumo)
 
@@ -207,14 +233,17 @@ O Builders Bot é **PolyForm Noncommercial 1.0.0** (`package.json:11`; AGENTS.md
 |---|---|---|
 | Nomes `buildersbot-*`, `bb-sector-*`, `BuildersBot-*`; tag `Project=buildersbot` | Prefixo único `bb-srv-`; `Project=buildersbot-servers`, `Owner`, `CostCenter` | Pedido desta tarefa |
 | Documentos e DLM na stack base | Stack separada `bb-srv-ops` | O DLM referencia o documento de hooks; e cada template fica abaixo de 51.200 bytes (limite de `--template-body`) |
-| Role de serviço `bb-cfn-exec` | Não criada | Uma role de serviço mínima para EC2+IAM+SSM+Scheduler+Budgets é extensa e não testável sem criar recursos. O boundary `bb-srv-host-boundary` fica em toda role de setor. Próximo passo |
+| Role de serviço `bb-cfn-exec` | Não criada (opcional, decisão do dono) | No lugar: todo script que altera a AWS exige **sessão temporária com MFA** (role `culturabuilder-admin`) e recusa a chave de longa duração, salvo `BB_SRV_ALLOW_LONG_TERM_KEY=1`. Uma role de serviço mínima para EC2, IAM, SSM, Logs, Scheduler, Budgets, DLM, Route 53, S3 e ECR é extensa e não testável sem criar recursos; um erro nela bloquearia o primeiro deploy. O boundary `bb-srv-host-boundary` fica em toda role de setor |
+| Zona Route 53 na stack base | Stack própria `bb-srv-dns`, criada antes da base, zona retida (`RetainExceptOnCreate`, `UpdateReplacePolicy: Retain`) | Um rollback ou uma recriação da base não troca os 4 NS: continua uma só ação de DNS do dono |
+| `bb-dlm` com `AWSDataLifecycleManagerSSMFullAccess` | Policy própria: `ssm:SendCommand` só no `bb-srv-SnapshotHooks` e só em instâncias `Project=buildersbot-servers` | A gerenciada permite comando em qualquer instância da conta com qualquer documento marcado `DLMScriptsAccess=true` |
+| (não especificado) | Buckets e ECR com `RetainExceptOnCreate`; repositório nega só `ecr:BatchDeleteImage` | Uma primeira criação que falha não deixa sobras de nome fixo; um repositório com imagens não é apagado pela stack (sem `EmptyOnDelete`) |
 | Trust da role do host com `aws:SourceAccount` | Sem a condição | Se a EC2 não enviar a chave, a VM fica sem credenciais (DESIGN marcou "[validar]"); a proteção real é o `iam:PassRole` |
 | (não especificado) | Trust da role `bb-srv-dlm` sem condição; tópico aceita EventBridge só de regras `bb-srv-*` (`aws:SourceArn`) | Uma condição que o DLM não envie pararia todos os backups em silêncio |
 | Host sem nenhuma leitura de parâmetro | Lê só `/bb-srv/sectors/<setor>/*` (config do CloudWatch agent); `Deny` explícito no resto, também para `kms:Decrypt` fora desse caminho | Pedido desta tarefa ("read of its own SSM parameters"); mantém a garantia da DESIGN 4.5 para `/hub/prod/*` |
 | Sem parâmetro de imagem na stack | `ImageTag` na stack só grava `/bb-srv/sectors/<setor>/image-tag`; a imagem real vai por digest no `bb-srv-Install`/`-Upgrade` | Pedido desta tarefa, sem reintroduzir o drift de R2-1 |
 | `lego` no host por timer | O serviço `acme` do próprio compose com `--dns route53` (override, rede do host) | Menos peças; o compose continua o do fork |
 | `TURN_PUBLIC_IP=<EIP>` | `<EIP>/<IP privado>` lido do IMDS a cada start | O coturn atrás do NAT 1:1 da EC2 precisa do mapeamento (`external-ip=público/privado`); o entrypoint aceita o valor como está **[inferência; validar no piloto]** |
-| `--idle-stop`, `resize`, `grow`, `restore-check`, `gc`, `backups` | Não implementados (`replace`/`rebase` = `add-sector.sh --reattach`) | Escopo. `status.sh` mostra a idade do último snapshot (> 26 h = atrasado). Mudar o tamanho exige também trocar `OPENBOT_MEM` no `.env` do disco (DESIGN 2.6): faça com `--reattach` e o tamanho novo só depois de ajustar o `.env` pela sessão `bb-srv-<setor>-Shell` |
+| `--idle-stop`, `resize`, `grow`, `restore-check`, `gc`, `backups` | `gc` = `scripts/gc-snapshots.sh`; os outros não implementados (`replace`/`rebase` = `add-sector.sh --reattach`) | Escopo. `status.sh` mostra a idade do último snapshot (> 26 h = atrasado). Mudar o tamanho exige também trocar `OPENBOT_MEM` no `.env` do disco (DESIGN 2.6): faça com `--reattach` e o tamanho novo só depois de ajustar o `.env` pela sessão `bb-srv-<setor>-Shell` |
 | Builder x86 | Só arm64 | Escopo |
 
 ## 15. Não verificado (validar no piloto)
@@ -230,4 +259,8 @@ O Builders Bot é **PolyForm Noncommercial 1.0.0** (`package.json:11`; AGENTS.md
 - O mapeamento `external-ip` do coturn e o certificado com `lego --dns route53` pela role da VM, já com a condição por nome de registro (`_acme-challenge.signal.`/`turn.`, TXT).
 - Que o coturn roda sem privilégio (`docker exec openbot-coturn id -u` diferente de 0), condição para a regra do IMDS da VM do Signal bloqueá-lo; e que o CloudWatch agent, o SSM agent e o `bb-srv-signal-env` (todos root) seguem lendo o IMDS.
 - Se as sessões `InteractiveCommands` (`-Login`) também vão para o log de sessão.
-- Os números de custo marcados como palpite (logs, saída, snapshots, duração do build).
+- O DLM rodando os pre/post scripts com a policy própria do `bb-srv-dlm` (sem a `AWSDataLifecycleManagerSSMFullAccess`): piloto de backup, passo 14.
+- A limpeza de uma primeira criação da `bb-srv-base` que falha (`RetainExceptOnCreate` nos buckets e no ECR, sem o `Deny` de `ecr:DeleteRepository`).
+- Os avisos ACTUAL > 100% dos budgets e a atualização do budget do projeto pelo `add-sector.sh`/`remove-sector.sh`.
+- A checagem de credencial do `check-access.sh --writes` com o perfil `cb` apontado para a `culturabuilder-admin` (ARN `assumed-role`, aceito sem ler a chave).
+- Os números de custo marcados como palpite (logs, saída, snapshots, duração do build, agent e Flow Logs por setor).
