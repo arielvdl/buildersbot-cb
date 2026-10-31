@@ -16,6 +16,8 @@ import {
   decodeGuardJudgeReply,
   GUARD_JUDGE_SYSTEM,
   type GuardDirection,
+  GuardJudgeFailed,
+  type GuardJudgeRequest,
   type GuardJudgeVerdict,
   type GuardModelPort,
   guardJudgePrompt,
@@ -98,6 +100,25 @@ export class ToolGuard {
   #port(choice: GuardJudgeChoice): GuardModelPort | undefined {
     return this.#options.models.find((port) => port.serves(choice));
   }
+
+  /**
+   * One request to the reviewer model that the person chose, for the task reviewer of the load panel
+   * (`src/main/task-watch.ts`). The level of the Guard does not matter here, only its model choice. It
+   * takes no review slot of the Guard, so it never delays a check, and it keeps no verdict. A port
+   * with a longer deadline keeps it. It fails with `unavailable` when no model is chosen or the chosen
+   * one cannot run now.
+   */
+  readonly ask = Effect.fn("ToolGuard.ask")(function* (this: ToolGuard, request: GuardJudgeRequest, timeoutMs: number) {
+    const choice = this.#options.preference().judge;
+    const port = choice ? this.#port(choice) : undefined;
+    if (!choice || !port?.ready(choice)) return yield* new GuardJudgeFailed({ reason: "unavailable" });
+    return yield* port.complete(choice, request).pipe(
+      Effect.timeoutOrElse({
+        duration: Math.max(timeoutMs, port.timeoutMs ?? 0),
+        orElse: () => Effect.fail(new GuardJudgeFailed({ reason: "http" })),
+      }),
+    );
+  });
 
   /** Checks one item. It never fails. */
   readonly check = Effect.fn("ToolGuard.check")(function* (this: ToolGuard, item: GuardItem) {

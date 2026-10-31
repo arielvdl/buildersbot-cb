@@ -658,6 +658,7 @@ const openbotApi: BuildersBotDesktopApi = {
     resumeStoppedWork: decodeLoadSnapshot,
     reassignStoppedWork: decodeLoadSnapshot,
     setAutoRecovery: decodeLoadSnapshot,
+    setTaskWatch: decodeLoadSnapshot,
     getAgentLimit: decodeAgentLimitPreference,
     setAgentLimit: decodeLoadSnapshot,
     getResumeOffer: decodeResumeOffer,

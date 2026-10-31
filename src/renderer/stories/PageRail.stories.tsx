@@ -5,6 +5,8 @@ import type {
   LoadSnapshot,
   RunningWork,
   StoppedWork,
+  TaskWatchEvent,
+  TaskWatchPreference,
 } from "@openbot/contracts/ipc";
 import { accountUsageProviderRows } from "@openbot/ui/features/account/account-usage-view";
 import { HelpMenu } from "@openbot/ui/features/updates/HelpMenu";
@@ -189,13 +191,47 @@ const manyStopped: StoppedWork[] = [
 /** The work in the load panel: none, two of each, or eleven stopped tasks. */
 type LoadWork = "none" | "some" | "many";
 
+/** What the task reviewer did lately, in the story where it is on. */
+const storyWatchEvents: TaskWatchEvent[] = [
+  {
+    at: "2026-10-30T20:40:00.000Z",
+    channelName: "naia - deploys",
+    action: "reassigned",
+    agentName: "QA Naia",
+    reason: "no-sign",
+    minutes: 34,
+    by: "local",
+  },
+  {
+    at: "2026-10-30T20:35:00.000Z",
+    channelName: "imasters --update",
+    action: "waited",
+    agentName: "Editor",
+    reason: "no-sign",
+    minutes: 18,
+    by: "model",
+  },
+  {
+    at: "2026-10-30T20:20:00.000Z",
+    channelName: "CB - geral",
+    action: "gave-up",
+    agentName: null,
+    reason: "start-failed",
+    minutes: null,
+    by: "local",
+  },
+];
+
 function loadSnapshot(
   usedMb: number,
   lane: LoadLanePreference,
   recovery: AutoRecoveryPreference,
   work: LoadWork,
   agentLimit: AgentLimitPreference,
+  taskWatch: TaskWatchPreference,
 ): LoadSnapshot {
+  const watching = taskWatch.enabled && recovery.enabled;
+  const running = work === "none" ? [] : storyRunning;
   return {
     sampledAt: "2026-10-30T20:00:00.000Z",
     memory: { usedMb, agentsMb: Math.round(usedMb * 0.85), totalMb: 32768 },
@@ -204,7 +240,10 @@ function loadSnapshot(
     lane: lane.enabled
       ? { ...lane, running: ["deploys"], queued: ["security", "videos", "releases"] }
       : { ...lane, running: [], queued: [] },
-    running: work === "none" ? [] : storyRunning,
+    // While the task reviewer looks, the run of 42 minutes with no sign shows that it is stalled.
+    running: watching
+      ? running.map((row) => (row.turnId === "t3" ? { ...row, quiet: { state: "stalled", minutes: 42 } } : row))
+      : running,
     // With the cap on and reached, two agents wait for a place.
     waiting:
       agentLimit.enabled && agentLimit.max <= 7
@@ -221,20 +260,22 @@ function loadSnapshot(
         ? [{ at: "2026-10-30T20:30:00.000Z", channelName: "bugs", action: "resumed", agentName: "Writer" }]
         : [],
     },
+    taskWatch: { ...taskWatch, active: watching, modelReady: true, recent: watching ? storyWatchEvents : [] },
   };
 }
 
 /** The load ring with a lane that follows its switch, as the window's controller does. */
-function loadProps(usedMb: number, work: LoadWork): () => LoadRailProps {
+function loadProps(usedMb: number, work: LoadWork, reviewer: boolean): () => LoadRailProps {
   const [lane, setLane] = createSignal<LoadLanePreference>({ enabled: false, order: [] });
   const [recovery, setRecovery] = createSignal<AutoRecoveryPreference>({
-    enabled: false,
+    enabled: reviewer,
     intervalMinutes: 30,
-    reassign: false,
+    reassign: reviewer,
   });
   const [agentLimit, setAgentLimit] = createSignal<AgentLimitPreference>({ enabled: false, max: 10 });
+  const [taskWatch, setTaskWatch] = createSignal<TaskWatchPreference>({ enabled: reviewer, quietMinutes: 15 });
   return () => ({
-    snapshot: loadSnapshot(usedMb, lane(), recovery(), work, agentLimit()),
+    snapshot: loadSnapshot(usedMb, lane(), recovery(), work, agentLimit(), taskWatch()),
     channelName: (id) => loadChannelNames[id] ?? id,
     onOpenChange: fn(),
     onLaneChange: setLane,
@@ -245,6 +286,7 @@ function loadProps(usedMb: number, work: LoadWork): () => LoadRailProps {
     onReassign: fn(),
     onRecoveryChange: setRecovery,
     onAgentLimitChange: setAgentLimit,
+    onTaskWatchChange: setTaskWatch,
   });
 }
 
@@ -258,9 +300,14 @@ function RailPreview(props: {
   loadMb?: number;
   /** Work that runs and work that stopped, in the load panel. */
   loadWork?: LoadWork;
+  /** "Resume by itself" and the task reviewer start on. */
+  loadReviewer?: boolean;
 }) {
   const { t } = useText();
-  const load = props.loadMb === undefined ? undefined : loadProps(props.loadMb, props.loadWork ?? "none");
+  const load =
+    props.loadMb === undefined
+      ? undefined
+      : loadProps(props.loadMb, props.loadWork ?? "none", props.loadReviewer ?? false);
   const [current, setCurrent] = createSignal<PageRailPage | null>("agents");
   const [pinned, setPinned] = createSignal<readonly PageRailPinnablePage[]>(["usage"]);
   return (
@@ -360,4 +407,12 @@ export const LoadWithStoppedWork: Story = {
  */
 export const LoadWithManyStoppedTasks: Story = {
   args: { loadMb: 14000, loadWork: "many" },
+};
+
+/**
+ * "Resume by itself" and the experimental task reviewer are on. A run with no sign for 42 minutes shows
+ * that it is stalled, and "Lately" lists what both did. Turn the reviewer off to see the panel without it.
+ */
+export const LoadWithTaskReviewer: Story = {
+  args: { loadMb: 14000, loadWork: "some", loadReviewer: true },
 };

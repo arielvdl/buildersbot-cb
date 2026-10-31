@@ -128,6 +128,26 @@ export const messages = defineMessages("app", {
     "When the limit is reached, a new turn waits in its queue and starts by itself when an agent ends. Off: no limit.",
   "app.rail.load.limitMax": "Most agents",
   "app.rail.load.limitUnit": "(1 to 64, 10 is suggested)",
+  // The task reviewer: experimental, inside "Resume by itself". See docs/architecture/task-reviewer.md.
+  "app.rail.load.watchTitle": "Task reviewer (experimental)",
+  "app.rail.load.watchHint":
+    "Finds tasks that give no sign or wait too long in the queue, and tries to move them, one at a time. It looks only while Resume by itself is on.",
+  "app.rail.load.watchModel": "Uses the same model as the Guard.",
+  "app.rail.load.watchModelOff": "The Guard's model is not available now, so only the local rules decide.",
+  "app.rail.load.watchQuiet": "Consider it stopped after",
+  "app.rail.load.watchQuietUnit": "minutes with no sign (5 to 120, 15 is suggested)",
+  "app.rail.load.quietSlow": "No sign for {minutes} min",
+  "app.rail.load.quietStalled": "Stalled: no sign for {minutes} min",
+  "app.rail.load.watchEventWaited": "Task reviewer: waited a bit more with {channel} ({why})",
+  "app.rail.load.watchEventResumed": "Task reviewer: resumed {channel} ({why})",
+  "app.rail.load.watchEventReassigned": "Task reviewer: gave {channel} to {agent} ({why})",
+  "app.rail.load.watchEventStopped": "Task reviewer: stopped {channel} and gave up ({why})",
+  "app.rail.load.watchEventGaveUp": "Task reviewer: gave up on {channel} ({why})",
+  "app.rail.load.watchWhyNoSign": "no sign for {minutes} min",
+  "app.rail.load.watchWhyQueued": "in the queue for {minutes} min",
+  "app.rail.load.watchWhyStartFailed": "the provider did not start it",
+  "app.rail.load.watchByModel": "The Guard's model decided.",
+  "app.rail.load.watchByLocal": "The local rules decided.",
   // The modal after a forced close or a crash. Nothing starts again until the user selects it.
   "app.resume.title": "Continue the stopped work?",
   "app.resume.description":

@@ -4,7 +4,7 @@
  */
 
 import { isIdentifier } from "./ipc-bounded-values";
-import { isBoolean, isDynamicRecord, isNumber, isString } from "./runtime-values";
+import { isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
 
 /** The most rows the load panel lists for work that runs, and for work that stopped. */
 export const LOAD_WORK_LIST_LIMIT = 50;
@@ -41,6 +41,17 @@ export interface RunningWork {
   /** The request of the task, clipped. Empty for a turn in the chat of an agent. */
   title: string;
   startedAt: string;
+  /**
+   * The minutes with no sign of life, when the task reviewer finds the run slow or stalled. Absent
+   * while the run gives signs, and while the task reviewer is off.
+   */
+  quiet?: RunningWorkQuiet;
+}
+
+/** Why the task reviewer watches a run: it gave no sign of life for `minutes`. */
+export interface RunningWorkQuiet {
+  state: "slow" | "stalled";
+  minutes: number;
 }
 
 /** An agent of the channel that can take a stopped task. The same model comes first. */
@@ -108,6 +119,62 @@ export interface RecoveryEvent {
 
 export interface AutoRecoveryState extends AutoRecoveryPreference {
   recent: RecoveryEvent[];
+}
+
+/**
+ * The task reviewer ("Revisor"), as it is stored and as it crosses IPC. It is experimental and off
+ * by default, and it looks only while "Resume by itself" is on too. See
+ * `docs/architecture/task-reviewer.md`.
+ */
+export interface TaskWatchPreference {
+  enabled: boolean;
+  /** Minutes with no sign of life before a task is slow, from 5 to 120. At twice this, it is stalled. */
+  quietMinutes: number;
+}
+
+export const TASK_WATCH_MIN_MINUTES = 5;
+export const TASK_WATCH_MAX_MINUTES = 120;
+export const DEFAULT_TASK_WATCH_PREFERENCE: TaskWatchPreference = { enabled: false, quietMinutes: 15 };
+
+export function isTaskWatchPreference(value: unknown): value is TaskWatchPreference {
+  return (
+    isDynamicRecord(value) &&
+    isBoolean(value.enabled) &&
+    isNumber(value.quietMinutes) &&
+    Number.isInteger(value.quietMinutes) &&
+    value.quietMinutes >= TASK_WATCH_MIN_MINUTES &&
+    value.quietMinutes <= TASK_WATCH_MAX_MINUTES
+  );
+}
+
+/** The most actions of the task reviewer that the panel lists. */
+export const TASK_WATCH_RECENT_LIMIT = 5;
+
+/** What the task reviewer did with one task. */
+export interface TaskWatchEvent {
+  at: string;
+  channelName: string;
+  /**
+   * `waited`: it gave the task more time. `resumed`: it put the task in the queue again.
+   * `reassigned`: it gave the task to `agentName`. `stopped`: it stopped a run that gave no sign and
+   * left it. `gave-up`: it left the task after its tries.
+   */
+  action: "waited" | "resumed" | "reassigned" | "stopped" | "gave-up";
+  agentName: string | null;
+  /** `no-sign`: a run with no sign of life. `queued`: a request that waits. `start-failed`: a start that failed again. */
+  reason: "no-sign" | "queued" | "start-failed";
+  /** The minutes with no sign or in the queue. Null for a failed start. */
+  minutes: number | null;
+  /** Who decided: the local rules, or the model of the Guard. */
+  by: "local" | "model";
+}
+
+export interface TaskWatchState extends TaskWatchPreference {
+  /** It looks now: its switch and "Resume by itself" are both on. */
+  active: boolean;
+  /** The model of the Guard can run now. False: the local rules decide alone. */
+  modelReady: boolean;
+  recent: TaskWatchEvent[];
 }
 
 /** The most channels the user's order holds. A longer list is cut, not refused. */
@@ -191,6 +258,7 @@ export interface LoadSnapshot {
   stopped: StoppedWork[];
   recovery: AutoRecoveryState;
   agentLimit: AgentLimitPreference;
+  taskWatch: TaskWatchState;
 }
 
 function isIdentifierList(value: unknown): value is string[] {
@@ -208,7 +276,18 @@ function isRunningWork(value: unknown): value is RunningWork {
     (value.topicName === null || isString(value.topicName)) &&
     (value.taskId === null || isIdentifier(value.taskId)) &&
     isString(value.title) &&
-    isString(value.startedAt)
+    isString(value.startedAt) &&
+    (value.quiet === undefined || isRunningWorkQuiet(value.quiet))
+  );
+}
+
+function isRunningWorkQuiet(value: unknown): value is RunningWorkQuiet {
+  return (
+    isDynamicRecord(value) &&
+    (value.state === "slow" || value.state === "stalled") &&
+    isNumber(value.minutes) &&
+    Number.isInteger(value.minutes) &&
+    value.minutes >= 0
   );
 }
 
@@ -250,6 +329,38 @@ function isAutoRecoveryState(value: unknown): value is AutoRecoveryState {
   return isAutoRecoveryPreference(value) && isDynamicRecord(value) && isBoundedList(value.recent, 5, isRecoveryEvent);
 }
 
+const TASK_WATCH_ACTIONS = [
+  "waited",
+  "resumed",
+  "reassigned",
+  "stopped",
+  "gave-up",
+] as const satisfies readonly TaskWatchEvent["action"][];
+const TASK_WATCH_REASONS = ["no-sign", "queued", "start-failed"] as const satisfies readonly TaskWatchEvent["reason"][];
+
+function isTaskWatchEvent(value: unknown): value is TaskWatchEvent {
+  return (
+    isDynamicRecord(value) &&
+    isString(value.at) &&
+    isString(value.channelName) &&
+    isOneOf(TASK_WATCH_ACTIONS, value.action) &&
+    (value.agentName === null || isString(value.agentName)) &&
+    isOneOf(TASK_WATCH_REASONS, value.reason) &&
+    (value.minutes === null || (isNumber(value.minutes) && Number.isInteger(value.minutes) && value.minutes >= 0)) &&
+    (value.by === "local" || value.by === "model")
+  );
+}
+
+export function isTaskWatchState(value: unknown): value is TaskWatchState {
+  return (
+    isTaskWatchPreference(value) &&
+    isDynamicRecord(value) &&
+    isBoolean(value.active) &&
+    isBoolean(value.modelReady) &&
+    isBoundedList(value.recent, TASK_WATCH_RECENT_LIMIT, isTaskWatchEvent)
+  );
+}
+
 function isBoundedList<T>(value: unknown, limit: number, guard: (item: unknown) => item is T): value is T[] {
   return Array.isArray(value) && value.length <= limit && value.every(guard);
 }
@@ -280,7 +391,8 @@ export function isLoadSnapshot(value: unknown): value is LoadSnapshot {
     isBoundedWorkList(value.waiting, isWaitingWork) &&
     isBoundedWorkList(value.stopped, isStoppedWork) &&
     isAutoRecoveryState(value.recovery) &&
-    isAgentLimitPreference(value.agentLimit)
+    isAgentLimitPreference(value.agentLimit) &&
+    isTaskWatchState(value.taskWatch)
   );
 }
 

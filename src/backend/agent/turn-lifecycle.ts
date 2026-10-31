@@ -55,6 +55,7 @@ import { markIncompleteImageGeneration } from "./image-generation";
 import { type InstructionsChanges, instructionsChangeMessage } from "./instructions-changes";
 import type { MailboxSync } from "./mailbox-sync";
 import { memoryChangesMessage } from "./memory-changes-message";
+import { OpenWorkSteps } from "./open-work-steps";
 import type { PlanContinuation } from "./plan-continuation";
 import { PLAN_UPDATED_METHOD, planFromNotification } from "./plan-updates";
 import { isBalanceDiagnostic, isPlanLimitDiagnostic, isUsageLimitDiagnostic } from "./provider-diagnostics";
@@ -316,6 +317,8 @@ export class TurnLifecycle {
    * update. It is the only clock that moves while a turn works, and it is lost on restart.
    */
   readonly #lastEventAt = new Map<string, number>();
+  /** The work steps that started and did not end, so a long command with no output is not a stall. */
+  readonly #openSteps = new OpenWorkSteps();
 
   constructor(options: TurnLifecycleOptions) {
     this.#store = options.store;
@@ -343,6 +346,7 @@ export class TurnLifecycle {
     this.fileHistory.forgetAgent(agentId);
     this.#failedTurns.delete(agentId);
     this.#lastEventAt.delete(agentId);
+    this.#openSteps.forgetAgent(agentId);
   }
 
   /** When this running turn sent `turn/started`, in epoch milliseconds. Null for a turn that is not running. */
@@ -379,6 +383,11 @@ export class TurnLifecycle {
     return this.#lastEventAt.get(agentId) ?? null;
   }
 
+  /** Whether a running turn of this agent has a work step that started and did not end, such as a command. */
+  hasOpenWorkStep(agentId: string): boolean {
+    return this.#openSteps.has(agentId, (turnId) => this.#runningTurns.has(turnId));
+  }
+
   trackItem(itemId: string, turnId: string): void {
     this.#itemTurns.set(itemId, turnId);
   }
@@ -405,6 +414,7 @@ export class TurnLifecycle {
     this.#endedTurns.clear();
     this.#refusedRetries.clear();
     this.#lastEventAt.clear();
+    this.#openSteps.clear();
     this.#itemTurns.clear();
     this.#traces.clear();
     this.#observedCompactions.clear();
@@ -621,7 +631,13 @@ export class TurnLifecycle {
           getArray(params, "filePaths"),
         );
         const itemId = getString(item, "id");
-        if (itemId) this.#itemTurns.set(itemId, turnId);
+        if (itemId) {
+          this.#itemTurns.set(itemId, turnId);
+          this.#openSteps.observe(notification.method === "item/started" ? "started" : "completed", agentId, turnId, {
+            id: itemId,
+            type: item.type,
+          });
+        }
         this.#markProduced(turnId, isRepeatedWork(item));
         if (item.type === "contextCompaction") {
           if (this.#conversation.loadedClientFor(threadId) !== source) return;
@@ -1037,6 +1053,7 @@ export class TurnLifecycle {
       }
       // Only this loop reads the map, so the finished turn's items go, or it holds every item ever seen.
       for (const [itemId, itemTurnId] of this.#itemTurns) if (itemTurnId === turnId) this.#itemTurns.delete(itemId);
+      this.#openSteps.endTurn(turnId);
       if (requeue) {
         const workSteps =
           continuing && running
@@ -1378,6 +1395,7 @@ export class TurnLifecycle {
       });
     }).pipe(Effect.catchCause(report));
     for (const [itemId, itemTurnId] of this.#itemTurns) if (itemTurnId === turnId) this.#itemTurns.delete(itemId);
+    this.#openSteps.endTurn(turnId);
     // A routine run's own session ends with its turn. A task or channel turn runs in another session.
     if (runningThreadId && this.#conversation.isRoutineSession(runningThreadId))
       yield* this.#hooks.closeRoutineSession(runningThreadId);

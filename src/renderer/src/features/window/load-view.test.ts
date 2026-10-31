@@ -4,11 +4,13 @@ import {
   activeAgentLimit,
   clampAgentLimit,
   clampRecoveryMinutes,
+  clampWatchMinutes,
   elapsedMinutes,
   formatGigabytes,
   loadAgentArc,
   loadLaneRows,
   loadMemoryPercent,
+  loadRecentEvents,
   loadRingTone,
   loadTone,
   requestText,
@@ -30,6 +32,7 @@ function snapshot(overrides: Partial<LoadSnapshot> = {}): LoadSnapshot {
     stopped: [],
     recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
     agentLimit: { enabled: false, max: 10 },
+    taskWatch: { enabled: false, quietMinutes: 15, active: false, modelReady: false, recent: [] },
     ...overrides,
   };
 }
@@ -121,6 +124,60 @@ describe("the recovery interval", () => {
   it("falls back to 30 for a value that is not a number", () => {
     expect(clampRecoveryMinutes(Number.NaN)).toBe(30);
     expect(clampRecoveryMinutes(Number.POSITIVE_INFINITY)).toBe(30);
+  });
+});
+
+describe("the task reviewer in the panel", () => {
+  it("keeps its threshold a whole number of minutes between 5 and 120, and 15 for a value that is not a number", () => {
+    expect(clampWatchMinutes(15)).toBe(15);
+    expect(clampWatchMinutes(1)).toBe(5);
+    expect(clampWatchMinutes(500)).toBe(120);
+    expect(clampWatchMinutes(22.4)).toBe(22);
+    expect(clampWatchMinutes(Number.NaN)).toBe(15);
+  });
+
+  it("lists its actions in Lately beside those of the automatic recovery, the newest first", () => {
+    const events = loadRecentEvents(
+      snapshot({
+        recovery: {
+          enabled: true,
+          intervalMinutes: 30,
+          reassign: true,
+          recent: [{ at: "2026-10-30T20:10:00.000Z", channelName: "bugs", action: "resumed", agentName: null }],
+        },
+        taskWatch: {
+          enabled: true,
+          quietMinutes: 15,
+          active: true,
+          modelReady: false,
+          recent: [
+            {
+              at: "2026-10-30T20:20:00.000Z",
+              channelName: "pagamentos",
+              action: "reassigned",
+              agentName: "QA",
+              reason: "no-sign",
+              minutes: 32,
+              by: "local",
+            },
+            {
+              at: "2026-10-30T20:00:00.000Z",
+              channelName: "deploys",
+              action: "waited",
+              agentName: null,
+              reason: "queued",
+              minutes: 18,
+              by: "model",
+            },
+          ],
+        },
+      }),
+    );
+    expect(events.map((entry) => `${entry.by}:${entry.event.channelName}`)).toEqual([
+      "reviewer:pagamentos",
+      "recovery:bugs",
+      "reviewer:deploys",
+    ]);
   });
 });
 

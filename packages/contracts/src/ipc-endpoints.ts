@@ -335,6 +335,7 @@ import type {
   ResumeStoppedWorkInput,
   RunChannelNowInput,
   StopWorkInput,
+  TaskWatchPreference,
 } from "./ipc-load";
 import type { MachineAlertSettings, MachineMetrics } from "./ipc-machine-resources";
 import type {
@@ -690,6 +691,8 @@ export const IPC_ENDPOINTS = {
     resumeStoppedWork: request<ResumeStoppedWorkInput, LoadSnapshot>()("app:resume-stopped-work"),
     reassignStoppedWork: request<ReassignStoppedWorkInput, LoadSnapshot>()("app:reassign-stopped-work"),
     setAutoRecovery: request<AutoRecoveryPreference, LoadSnapshot>()("app:set-auto-recovery"),
+    // The task reviewer (`ipc-load.ts`). Experimental and off until the person turns it on.
+    setTaskWatch: request<TaskWatchPreference, LoadSnapshot>()("app:set-task-watch"),
     // The cap on the agents that run at the same time (`ipc-load.ts`). Off until the person turns it on.
     getAgentLimit: request<undefined, AgentLimitPreference>()("app:get-agent-limit"),
     setAgentLimit: request<AgentLimitPreference, LoadSnapshot>()("app:set-agent-limit"),

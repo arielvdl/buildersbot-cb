@@ -130,6 +130,18 @@ never sends the conversation. With no sign-in, or with "Local check only", nothi
 computer. The Guard's log records verdicts, categories and times, never the content. The Guard sends
 nothing to the account service or analytics.
 
+## The task reviewer
+
+The task reviewer of the load panel is experimental and off by default. It watches channel tasks
+on this computer with local rules first. Only for a task that gave no sign of life for a while, and
+at most 12 times in one hour, it can ask the review model that the person chose for the Guard, with
+the same sign-in. It sends the kind of task, minutes, counts of tries and of running agents, the
+provider name, at most 200 characters of the request and at most 300 characters of the agent's last
+words in the channel, with secrets and email addresses masked before the text leaves this computer.
+It never sends the conversation. With "Local check only" or no sign-in, nothing leaves this
+computer. Its log records actions and minutes, never the text. It sends nothing to the account
+service or analytics.
+
 ## Local scripts
 
 Local scripts is off by default for each agent. When enabled, scripts that run as the same OS user

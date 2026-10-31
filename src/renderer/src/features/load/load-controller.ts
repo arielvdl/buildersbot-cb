@@ -5,6 +5,7 @@ import type {
   LoadSnapshot,
   RunningWork,
   StoppedWork,
+  TaskWatchPreference,
 } from "@openbot/contracts/ipc";
 import { createSignal, onSettled } from "solid-js";
 import type { AppPort } from "../../app-port";
@@ -22,6 +23,7 @@ type LoadPort = Pick<
   | "resumeStoppedWork"
   | "reassignStoppedWork"
   | "setAutoRecovery"
+  | "setTaskWatch"
   | "setAgentLimit"
 >;
 
@@ -121,6 +123,13 @@ export function createLoadController(port: () => LoadPort, enabled: () => boolea
       if (current) setSnapshot({ ...current, recovery: { ...current.recovery, ...preference } });
       await apply(() => port().setAutoRecovery(preference));
       if (snapshot()?.recovery.enabled !== preference.enabled) await refresh();
+    },
+    async setTaskWatch(preference: TaskWatchPreference): Promise<void> {
+      const current = snapshot();
+      // The switch and the number answer at once, and the host's answer replaces them.
+      if (current) setSnapshot({ ...current, taskWatch: { ...current.taskWatch, ...preference } });
+      await apply(() => port().setTaskWatch(preference));
+      if (snapshot()?.taskWatch.enabled !== preference.enabled) await refresh();
     },
   };
 }

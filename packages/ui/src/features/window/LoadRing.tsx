@@ -6,6 +6,9 @@ import type {
   RecoveryEvent,
   RunningWork,
   StoppedWork,
+  TaskWatchEvent,
+  TaskWatchPreference,
+  TaskWatchState,
 } from "@openbot/contracts/ipc";
 import {
   Button,
@@ -30,12 +33,15 @@ import {
   activeAgentLimit,
   clampAgentLimit,
   clampRecoveryMinutes,
+  clampWatchMinutes,
   elapsedMinutes,
   formatGigabytes,
+  type LoadRecentEvent,
   type LoadTone,
   loadAgentArc,
   loadLaneRows,
   loadMemoryPercent,
+  loadRecentEvents,
   loadRingTone,
   requestText,
   stoppedCount,
@@ -61,6 +67,8 @@ export interface LoadRailProps {
   onReassign: (work: StoppedWork, agentId: string) => void;
   onRecoveryChange: (preference: AutoRecoveryPreference) => void;
   onAgentLimitChange: (preference: AgentLimitPreference) => void;
+  /** The task reviewer: its switch and its threshold. */
+  onTaskWatchChange: (preference: TaskWatchPreference) => void;
 }
 
 /**
@@ -326,7 +334,13 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
         </Show>
       </Show>
       <AgentLimitSettings limit={props.snapshot.agentLimit} onChange={props.onAgentLimitChange} />
-      <RecoverySettings recovery={props.snapshot.recovery} onChange={props.onRecoveryChange} />
+      <RecoverySettings
+        recovery={props.snapshot.recovery}
+        taskWatch={props.snapshot.taskWatch}
+        recent={loadRecentEvents(props.snapshot)}
+        onChange={props.onRecoveryChange}
+        onTaskWatchChange={props.onTaskWatchChange}
+      />
     </div>
   );
 }
@@ -454,6 +468,16 @@ function RunningRow(props: WorkRowProps & { work: RunningWork; onStop: (work: Ru
       <Show when={props.work.channelName !== null}>
         <p class="window-rail-load-item-meta">
           <span>{t("app.rail.load.runningWith", { agent: props.work.agentName })}</span>
+          {/* The task reviewer finds this run slow or stalled: it says why. */}
+          <Show when={props.work.quiet}>
+            {(quiet) => (
+              <span data-tone={quiet().state === "stalled" ? "danger" : undefined}>
+                {quiet().state === "stalled"
+                  ? t("app.rail.load.quietStalled", { minutes: quiet().minutes })
+                  : t("app.rail.load.quietSlow", { minutes: quiet().minutes })}
+              </span>
+            )}
+          </Show>
         </p>
       </Show>
       <div class="window-rail-load-item-actions">
@@ -580,10 +604,16 @@ function AgentLimitSettings(props: {
   );
 }
 
-/** The switches and the interval of the automatic recovery, and what it did lately. */
+/**
+ * The switches and the interval of the automatic recovery, the task reviewer that looks only while it is
+ * on, and what both did lately.
+ */
 function RecoverySettings(props: {
   recovery: LoadSnapshot["recovery"];
+  taskWatch: TaskWatchState;
+  recent: LoadRecentEvent[];
   onChange: (preference: AutoRecoveryPreference) => void;
+  onTaskWatchChange: (preference: TaskWatchPreference) => void;
 }) {
   const { t } = useText();
   const [draft, setDraft] = createSignal<string | null>(null);
@@ -630,11 +660,26 @@ function RecoverySettings(props: {
           label={t("app.rail.load.recoveryReassign")}
           description={t("app.rail.load.recoveryReassignHint")}
         />
-        <Show when={props.recovery.recent.length > 0}>
+        <TaskWatchSettings taskWatch={props.taskWatch} onChange={props.onTaskWatchChange} />
+        <Show when={props.recent.length > 0}>
           <h3 class="window-rail-load-subhead">{t("app.rail.load.recoveryRecent")}</h3>
           <ul class="window-rail-load-recent">
-            <For each={props.recovery.recent} keyed={(event) => `${event.at}:${event.action}:${event.channelName}`}>
-              {(event) => <li>{recoveryEventText(event(), t)}</li>}
+            <For
+              each={props.recent}
+              keyed={(item) => `${item.by}:${item.event.at}:${item.event.action}:${item.event.channelName}`}
+            >
+              {(item) => {
+                const entry = item();
+                return entry.by === "recovery" ? (
+                  <li>{recoveryEventText(entry.event, t)}</li>
+                ) : (
+                  <li
+                    title={t(entry.event.by === "model" ? "app.rail.load.watchByModel" : "app.rail.load.watchByLocal")}
+                  >
+                    {taskWatchEventText(entry.event, t)}
+                  </li>
+                );
+              }}
             </For>
           </ul>
         </Show>
@@ -643,9 +688,70 @@ function RecoverySettings(props: {
   );
 }
 
+/** The switch of the task reviewer, which model decides, and its threshold. */
+function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (preference: TaskWatchPreference) => void }) {
+  const { t } = useText();
+  const [draft, setDraft] = createSignal<string | null>(null);
+  return (
+    <>
+      <SwitchField
+        checked={props.taskWatch.enabled}
+        onChange={(enabled) => props.onChange({ enabled, quietMinutes: props.taskWatch.quietMinutes })}
+        label={t("app.rail.load.watchTitle")}
+        description={t("app.rail.load.watchHint")}
+      />
+      <Show when={props.taskWatch.enabled}>
+        <p class="window-rail-load-empty">
+          {props.taskWatch.modelReady ? t("app.rail.load.watchModel") : t("app.rail.load.watchModelOff")}
+        </p>
+        <label class="window-rail-load-interval">
+          <span>{t("app.rail.load.watchQuiet")}</span>
+          <Input
+            class="window-rail-load-number"
+            data-cuelume-type={undefined}
+            type="number"
+            min="5"
+            max="120"
+            step="5"
+            inputmode="numeric"
+            value={draft() ?? String(props.taskWatch.quietMinutes)}
+            onInput={(event) => setDraft(event.currentTarget.value)}
+            onChange={(event) => {
+              const quietMinutes = clampWatchMinutes(Number(event.currentTarget.value));
+              setDraft(null);
+              event.currentTarget.value = String(quietMinutes);
+              // A late change, sent on blur when the switch is clicked, must not turn the reviewer on again.
+              props.onChange({ enabled: props.taskWatch.enabled, quietMinutes });
+            }}
+          />
+          <span>{t("app.rail.load.watchQuietUnit")}</span>
+        </label>
+      </Show>
+    </>
+  );
+}
+
 function recoveryEventText(event: RecoveryEvent, t: ReturnType<typeof useText>["t"]): string {
   if (event.action === "resumed") return t("app.rail.load.eventResumed", { channel: event.channelName });
   if (event.action === "reassigned")
     return t("app.rail.load.eventReassigned", { channel: event.channelName, agent: event.agentName ?? "" });
   return t("app.rail.load.eventGaveUp", { channel: event.channelName });
+}
+
+/** One action of the task reviewer, with why it acted: "Task reviewer: resumed Payments (no sign for 32 min)". */
+function taskWatchEventText(event: TaskWatchEvent, t: ReturnType<typeof useText>["t"]): string {
+  const minutes = event.minutes ?? 0;
+  const why =
+    event.reason === "start-failed"
+      ? t("app.rail.load.watchWhyStartFailed")
+      : event.reason === "queued"
+        ? t("app.rail.load.watchWhyQueued", { minutes })
+        : t("app.rail.load.watchWhyNoSign", { minutes });
+  const channel = event.channelName;
+  if (event.action === "waited") return t("app.rail.load.watchEventWaited", { channel, why });
+  if (event.action === "resumed") return t("app.rail.load.watchEventResumed", { channel, why });
+  if (event.action === "reassigned")
+    return t("app.rail.load.watchEventReassigned", { channel, agent: event.agentName ?? "", why });
+  if (event.action === "stopped") return t("app.rail.load.watchEventStopped", { channel, why });
+  return t("app.rail.load.watchEventGaveUp", { channel, why });
 }

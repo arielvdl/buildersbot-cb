@@ -48,6 +48,7 @@ import type {
   StopWorkInput,
   SubmitMarketplaceAgentInput,
   SubmitSkillInput,
+  TaskWatchPreference,
   UninstallSkillInput,
   UpdatePreferenceChange,
   VerifyEmailCodeInput,
@@ -82,6 +83,7 @@ import {
   isRunChannelNowInput,
   isSkillCategory,
   isStopWorkInput,
+  isTaskWatchPreference,
   MAC_AUTOMATION_TARGETS,
 } from "@openbot/contracts/ipc";
 import {
@@ -137,6 +139,12 @@ export function parseAgentLimitPreference(input: unknown): AgentLimitPreference 
 export function parseAutoRecoveryPreference(input: unknown): AutoRecoveryPreference {
   if (!isAutoRecoveryPreference(input)) throw new Error("A recovery preference is required.");
   return { enabled: input.enabled, intervalMinutes: input.intervalMinutes, reassign: input.reassign };
+}
+
+/** The threshold must be a whole number of minutes from 5 to 120; anything else is refused, not clamped. */
+export function parseTaskWatchPreference(input: unknown): TaskWatchPreference {
+  if (!isTaskWatchPreference(input)) throw new Error("A task reviewer preference is required.");
+  return { enabled: input.enabled, quietMinutes: input.quietMinutes };
 }
 
 export function parseStopWorkInput(input: unknown): StopWorkInput {

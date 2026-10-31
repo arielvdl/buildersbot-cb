@@ -130,6 +130,16 @@ export interface ChannelLaneSnapshot {
   queued: string[];
 }
 
+/**
+ * Why the pump of a channel would not start a queued task now (`ChannelService.queuedHolds`).
+ * `starting`: the task has an active assignment of its own, so its start is under way. `owner-busy`:
+ * its owner runs a turn or has messages in its queue. `waits`: anything else that holds it back: a
+ * root that stopped, a lead or owner that is hidden or held by a spent plan, a dependency that is not
+ * complete, a full tab (`CHANNEL_PARALLEL_LIMIT`), an assignment of its owner in another place, a
+ * resource that another run holds, or an older request that waits for the same resource.
+ */
+export type ChannelQueueHold = "starting" | "owner-busy" | "waits";
+
 class ChannelRoutingError extends Schema.TaggedError<ChannelRoutingError>()("ChannelRoutingError", {
   message: Schema.String,
 }) {
@@ -208,6 +218,8 @@ export class ChannelService {
   readonly #laneForced = new Set<string>();
   /** By channel: when its pump ran and started nothing, so it cannot hold the lane back. */
   readonly #laneStalled = new Map<string, number>();
+  /** What `observeCommands` calls with each command. */
+  readonly #commandObservers = new Set<(command: ChannelCommand, actor: { id: string; name: string }) => void>();
   readonly #assignmentTerminalWaiters = new Map<string, Set<() => void>>();
   /** The active assignments last seen per channel, so turn traffic reports no new hold. */
   readonly #activeAssignments = new Map<string, string>();
@@ -241,6 +253,19 @@ export class ChannelService {
   }
 
   /**
+   * Calls `observer` with each command that `command` receives, before it waits in the queue. The main
+   * process uses it to tell a stop by a person from a stop by the app (`src/main/task-watch.ts`). An
+   * observer that throws does not stop the command; its error goes to the error hook. Returns the
+   * function that removes the observer.
+   */
+  observeCommands(observer: (command: ChannelCommand, actor: { id: string; name: string }) => void): () => void {
+    this.#commandObservers.add(observer);
+    return () => {
+      this.#commandObservers.delete(observer);
+    };
+  }
+
+  /**
    * `beforeApply` changes the command when its turn in the queue comes, immediately before it is
    * applied, or returns null to drop it. A caller that completes a command from the stored channel must do it there: the
    * channel it reads before the call can be older than the commands that still wait in the queue.
@@ -252,6 +277,13 @@ export class ChannelService {
       beforeApply: (command: ChannelCommand) => ChannelCommand | null = (queued) => queued,
     ) => {
       this.#laneStalled.delete(command.channelId);
+      for (const observer of this.#commandObservers) {
+        try {
+          observer(command, actor);
+        } catch (cause) {
+          this.hooks.error(cause);
+        }
+      }
       const operation = Effect.suspend(() => {
         const next = beforeApply(command);
         return next ? this.apply(next, actor) : channelSync(() => this.store.get(command.channelId));
@@ -1007,18 +1039,19 @@ export class ChannelService {
 
   /**
    * The oldest waiting task that is ready and whose resources conflict with these. A place is
-   * dropped once its task is no longer queued.
+   * dropped once its task is no longer queued, unless `prune` is false: a read changes nothing.
    */
   #olderWaiter(
     task: ChannelTask,
     tasks: ReadonlyMap<string, ChannelTask>,
     assignments: readonly ChannelAssignment[],
+    prune = true,
   ): ChannelTask | undefined {
     const place = this.#queuePlaces.get(task.id);
     for (const [id, otherPlace] of this.#queuePlaces) {
       const waiter = tasks.get(id);
       if (waiter?.state !== "queued") {
-        this.#queuePlaces.delete(id);
+        if (prune) this.#queuePlaces.delete(id);
         continue;
       }
       if (id === task.id || (place !== undefined && otherPlace > place)) continue;
@@ -1026,6 +1059,59 @@ export class ChannelService {
         return waiter;
     }
     return undefined;
+  }
+
+  /**
+   * For each queued task of a channel that is not archived: why the pump of its channel would not
+   * start it now, or null when its next pass would start it or route it. See `ChannelQueueHold`. The
+   * task reviewer (`src/main/task-watch.ts`) reads it, so that only a request that nothing holds back
+   * can count as parked. It uses the checks of the pump and changes nothing.
+   */
+  queuedHolds(): ReadonlyMap<string, ChannelQueueHold | null> {
+    const holds = new Map<string, ChannelQueueHold | null>();
+    if (this.#stopped) return holds;
+    const { tasks, assignments } = this.#scheduling();
+    const archived = this.store.archivedIds();
+    for (const task of tasks.values()) {
+      if (task.state !== "queued" || archived.has(task.channelId) || this.#deletedChannels.has(task.channelId))
+        continue;
+      holds.set(task.id, this.#queuedHold(task, tasks, assignments));
+    }
+    return holds;
+  }
+
+  /** The hold of one queued task, in the order of the checks of `pump`. */
+  #queuedHold(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+  ): ChannelQueueHold | null {
+    if (assignments.some((assignment) => assignment.taskId === task.id)) return "starting";
+    const root = tasks.get(task.rootTaskId);
+    if (root && (root.state === "paused" || root.state === "failed" || root.state === "cancelled")) return "waits";
+    const channel = this.store.get(task.channelId);
+    let owner = task.ownerAgentId;
+    if (!owner) {
+      const [onlyMember, ...otherMembers] = this.eligibleMembers(channel);
+      if (!onlyMember || otherMembers.length > 0) {
+        // The lead routes the task, unless it is hidden or a spent plan holds it.
+        const lead = this.hooks.agents().find((agent) => agent.id === channel.leadAgentId);
+        return lead && (this.hooks.hidden?.(lead.id) || this.hooks.usageLimited?.(lead.id)) ? "waits" : null;
+      }
+      owner = onlyMember;
+    }
+    if (this.hooks.usageLimited?.(owner) || this.hooks.hidden?.(owner)) return "waits";
+    if (this.hooks.busy(owner)) return "owner-busy";
+    // An owner that left the channel or was deleted: the next pass pauses the task with a reason.
+    if (
+      !channel.members.some((member) => member.agentId === owner) ||
+      !this.hooks.agents().some((agent) => agent.id === owner)
+    )
+      return null;
+    const owned = { ...task, ownerAgentId: owner };
+    if (this.#waitsForWork(owned, tasks, assignments)) return "waits";
+    if (assignments.some((assignment) => resourcesConflict(task.resources, assignment.resources))) return "waits";
+    return this.#olderWaiter(owned, tasks, assignments, false) ? "waits" : null;
   }
 
   /**

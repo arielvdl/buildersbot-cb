@@ -252,7 +252,7 @@ import type { ConversationMarkerExclusions } from "./conversation-read-store";
 import type { ProviderSession } from "./database/provider-sessions";
 import { reportOriginalFailure } from "./effect-boundary";
 import { GuardGate, guardResultNotice } from "./guard/guard-gate";
-import { culturaBuilderGuardModel } from "./guard/guard-judge";
+import { culturaBuilderGuardModel, type GuardJudgeFailed, type GuardJudgeRequest } from "./guard/guard-judge";
 import { resolveGuardPaths } from "./guard/guard-paths";
 import type { GuardOutboundItem } from "./guard/guard-triage";
 import { providerGuardModel } from "./guard/provider-guard-model";
@@ -5274,6 +5274,28 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   /** Whether the Guard's chosen reviewer can run now, such as Cultura Builder with a sign-in. */
   guardJudgeReady(): boolean {
     return this.#toolGuard.judgeReady();
+  }
+
+  /**
+   * One request to the Guard's chosen reviewer model, for the task reviewer of the load panel. It
+   * takes no review slot of the Guard. It fails when no model is chosen or the model gives no reply.
+   */
+  askGuardModel(request: GuardJudgeRequest, timeoutMs: number): Effect.Effect<string, GuardJudgeFailed> {
+    return this.#toolGuard.ask(request, timeoutMs);
+  }
+
+  /**
+   * What the task reviewer reads about one agent: when its provider last sent an event (a delta, a tool
+   * item, a usage update) since Builders Bot started, whether it waits for the person (a question, an
+   * approval or a browser takeover), and whether a running turn has a work step that started and did
+   * not end, such as a long command with no output.
+   */
+  taskWatchSignals(agentId: string): { lastEventAt: number | null; waitsOnPerson: boolean; stepOpen: boolean } {
+    return {
+      lastEventAt: this.#turn.lastEventAt(agentId),
+      waitsOnPerson: this.#attention.hasAttentionFor(agentId),
+      stepOpen: this.#turn.hasOpenWorkStep(agentId),
+    };
   }
 
   /**
