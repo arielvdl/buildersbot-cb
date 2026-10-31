@@ -651,7 +651,8 @@ body:has(.channel-member-dialog) .ui-select-content {
 
 /*
  * The tabs of a channel. They sit under the title, in the header, because they belong to the
- * channel that is open and not to the sidebar. A tab is the width of its name and never wraps.
+ * channel that is open and not to the sidebar. A tab is the width of its name and never wraps. The
+ * strip is a `fieldset`, so it sets back the border, the padding and the minimum width of one.
  */
 .channel-tabs {
   display: flex;
@@ -659,7 +660,9 @@ body:has(.channel-member-dialog) .ui-select-content {
   flex: 1 1 auto;
   align-items: center;
   gap: 4px;
-  margin-left: 2px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  border: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -675,7 +678,7 @@ body:has(.channel-member-dialog) .ui-select-content {
   border: 1px solid transparent;
   border-radius: var(--openbot-radius-sm);
   color: var(--openbot-text-muted);
-  font-size: 12px;
+  font-size: var(--openbot-text-sm);
 }
 
 .channel-tab:hover {
@@ -735,14 +738,19 @@ body:has(.channel-member-dialog) .ui-select-content {
   background: var(--openbot-text-primary);
 }
 
+/* An `Input`: it sets back the size, the corners and no transition of a plain field. */
 .channel-tab-input {
   width: 7rem;
+  min-width: auto;
+  height: auto;
   padding: 1px 6px;
   border: 0;
+  border-radius: 0;
   background: none;
   color: var(--openbot-text-primary);
   font: inherit;
   outline: none;
+  transition: none;
 }
 
 .channel-tab-close {
@@ -750,7 +758,7 @@ body:has(.channel-member-dialog) .ui-select-content {
   border: 0;
   background: none;
   color: var(--openbot-text-muted);
-  font-size: 13px;
+  font-size: var(--openbot-text-md);
   line-height: 1;
   cursor: pointer;
 }
@@ -805,7 +813,7 @@ body:has(.channel-member-dialog) .ui-select-content {
   background: none;
   color: var(--openbot-text-primary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--openbot-text-sm);
   font-weight: var(--openbot-weight-semibold);
   text-align: left;
   text-overflow: ellipsis;
@@ -833,13 +841,17 @@ body:has(.channel-member-dialog) .ui-select-content {
   white-space: nowrap;
 }
 
-/* The list of tabs, hung under the title. The block is the anchor, so it stays in the header. */
+/* The list of tabs, hung under the title. The block is the anchor, so it stays in the header. It is a
+   `fieldset`, so it sets back the border, the margin and the minimum width of one. */
 .channel-tab-overview {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: var(--openbot-layer-popover);
   width: min(32rem, calc(100vw - 4rem));
+  min-width: 0;
+  margin: 0;
+  border: 0;
   max-height: min(24rem, 60vh);
   overflow-y: auto;
   padding: var(--openbot-space-2);
@@ -862,7 +874,10 @@ body:has(.channel-member-dialog) .ui-select-content {
   background: var(--openbot-bg-control);
 }
 
+/* An `Input`: it sets back the size, the placeholder color and no transition of a plain field. */
 .channel-tab-overview-search {
+  width: auto;
+  height: auto;
   min-width: 0;
   flex: 1 1 auto;
   padding: 4px 8px;
@@ -872,6 +887,11 @@ body:has(.channel-member-dialog) .ui-select-content {
   color: var(--openbot-text-primary);
   font: inherit;
   font-size: var(--openbot-text-sm);
+  transition: none;
+}
+
+.channel-tab-overview-search::placeholder {
+  color: revert-layer;
 }
 
 .channel-tab-overview-search:focus {
@@ -959,7 +979,7 @@ body:has(.channel-member-dialog) .ui-select-content {
   align-items: center;
   gap: 4px;
   color: var(--openbot-text-muted);
-  font-size: 11px;
+  font-size: var(--openbot-text-sm);
 }
 
 .channel-tab-card-working {

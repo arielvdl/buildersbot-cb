@@ -9,7 +9,7 @@ import { SettingsPanel, SettingsPanelContent, SettingsPanelHeader } from "@openb
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createSignal, createStore, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createStore, createUniqueId, onSettled, Show } from "solid-js";
 import { createSettingsPanelWidth, saveSettingsPanelWidth } from "../../components/settings-panel-width";
 import { AgentMemoriesSettings } from "../conversation/AgentMemoriesSettings";
 import { AgentRoutinesSettings } from "../conversation/AgentRoutinesSettings";
@@ -72,6 +72,7 @@ export function ChannelHeaderTitle(props: {
   const { t } = useText();
   const page = useOpenChannel(props.channelId);
   const [expanded, setExpanded] = createSignal(false);
+  const overviewId = createUniqueId();
   let block: HTMLDivElement | undefined;
   let nameButton: HTMLButtonElement | undefined;
 
@@ -107,20 +108,23 @@ export function ChannelHeaderTitle(props: {
               open
             />
           </Button>
-          <button
+          {/* It shows and hides the list of tabs under it, which is a group and not a dialog. */}
+          <Button
             ref={nameButton}
-            type="button"
+            variant="unstyled"
+            data-cuelume-tap={undefined}
             class="channel-header-name"
             data-expanded={expanded() ? "" : undefined}
             title={current().channel.name}
-            aria-haspopup="dialog"
             aria-expanded={expanded() ? "true" : "false"}
+            aria-controls={expanded() ? overviewId : undefined}
             onClick={() => void setExpanded((open) => !open)}
           >
             <h1>{current().channel.name}</h1>
-          </button>
+          </Button>
           <Show when={expanded()}>
             <ChannelTabOverview
+              id={overviewId}
               channelId={props.channelId}
               onClose={() => setExpanded(false)}
               restoreFocus={() => nameButton?.focus()}

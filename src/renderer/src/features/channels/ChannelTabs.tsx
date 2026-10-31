@@ -1,5 +1,5 @@
 import type { ChannelTopic } from "@openbot/contracts/ipc";
-import { Button, ConfirmDialog, ErrorReference } from "@openbot/ui";
+import { Button, ConfirmDialog, ErrorReference, Input } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, For, flush, Show } from "solid-js";
 import {
@@ -23,6 +23,11 @@ const TAB_DRAG_TYPE = "application/x-openbot-channel-tab";
  * channel that is open. A double click renames one; the cross closes it with its work, and asks
  * first unless the tab is known to be empty and idle. Dragging a tab, or Alt+Shift+Left or Right on
  * a focused tab, moves it; the order is kept on this device only.
+ *
+ * The strip is a group of buttons (a `fieldset`), not a tablist: it also holds the crosses, the rename field and the
+ * add button, and Tab moves through every tab. The open tab has `aria-current`, as the tabs of a chat
+ * row in the sidebar do. The buttons and the field are shared controls with their own drawing and no
+ * cue, as they had as plain elements.
  */
 export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   const channels = useChannels();
@@ -39,7 +44,7 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   const [closing, setClosing] = createSignal<{ topicId: string; work: boolean } | null>(null);
   const [confirmOpen, setConfirmOpen] = createSignal(false);
   const [closeError, setCloseError] = createSignal<string | null>(null);
-  let strip: HTMLDivElement | undefined;
+  let strip: HTMLFieldSetElement | undefined;
 
   /** In the service's order, which is the order the tabs were made in. */
   const serviceTopics = () => channels.state.channels.find((channel) => channel.id === props.channelId)?.topics ?? [];
@@ -49,7 +54,7 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   /** A tab that is not open shows its unread count; the open one is being read. */
   const unread = (topic: ChannelTopic) => (isOpen(topic) ? 0 : (topic.unreadCount ?? 0));
   const working = (topic: ChannelTopic) => (topic.activeTasks ?? 0) > 0;
-  const openTabButton = () => strip?.querySelector<HTMLElement>('.channel-tab-name[aria-selected="true"]') ?? undefined;
+  const openTabButton = () => strip?.querySelector<HTMLElement>('.channel-tab-name[aria-current="true"]') ?? undefined;
   /** A tab that closes elsewhere while its dialog is open takes the dialog with it. */
   const closingTopic = () => serviceTopics().find((topic) => topic.id === closing()?.topicId);
 
@@ -136,10 +141,9 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
 
   return (
     <Show when={topics().length > 0}>
-      <div
+      <fieldset
         ref={strip}
         class="channel-tabs"
-        role="tablist"
         aria-label={t("channel.topic.name")}
         onDragStart={(event) => {
           // Only a tab itself; text dragged out of the rename field stays a text drag.
@@ -189,11 +193,11 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
               <Show
                 when={renaming() === topic.id}
                 fallback={
-                  <button
-                    type="button"
-                    role="tab"
+                  <Button
+                    variant="unstyled"
+                    data-cuelume-tap={undefined}
                     class="channel-tab-name"
-                    aria-selected={isOpen(topic) ? "true" : "false"}
+                    aria-current={isOpen(topic) ? "true" : undefined}
                     aria-keyshortcuts={movable() ? "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight" : undefined}
                     onClick={() => void channels.setTopic(topic.id)}
                     onDblClick={() => void setRenaming(topic.id)}
@@ -228,11 +232,12 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
                         />
                       )}
                     </Show>
-                  </button>
+                  </Button>
                 }
               >
-                <input
+                <Input
                   class="channel-tab-input"
+                  data-cuelume-type={undefined}
                   value={topic.name}
                   aria-label={t("channel.topic.rename")}
                   autofocus
@@ -248,14 +253,15 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
                 />
               </Show>
               <Show when={topics().length > 1 && !props.archived}>
-                <button
-                  type="button"
+                <Button
+                  variant="unstyled"
+                  data-cuelume-tap={undefined}
                   class="channel-tab-close"
                   aria-label={`${t("channel.topic.delete")}: ${topic.name}`}
                   onClick={() => close(topic)}
                 >
                   ×
-                </button>
+                </Button>
               </Show>
             </span>
           )}
@@ -265,7 +271,7 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
             +
           </Button>
         </Show>
-      </div>
+      </fieldset>
       <ConfirmDialog
         open={confirmOpen() && closingTopic() !== undefined}
         initialFocus="cancel"

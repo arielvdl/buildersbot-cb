@@ -1,5 +1,5 @@
 import type { ChannelTopic } from "@openbot/contracts/ipc";
-import { Button, Pin, PinOff } from "@openbot/ui";
+import { Button, Input, Pin, PinOff } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 import {
@@ -17,9 +17,18 @@ import { useChannels } from "./channels-context";
  * running ones first by default, and a search inside the channel. A tab is pinned to stay first,
  * short and marked, so the way back to it is always the same place.
  *
- * The list is a menu of the title, so Escape closes it and the arrow keys walk the cards.
+ * The list is a menu of the title, so Escape closes it and the arrow keys walk the cards. It is a
+ * labelled group (a `fieldset`) that the title shows and hides (`aria-expanded` and `aria-controls` on the title), and
+ * not a dialog: it takes no focus trap, and the tabs beside it stay reachable while it is open. Its
+ * field and buttons are shared controls with their own drawing and no cue, as they had as plain
+ * elements.
  */
-export function ChannelTabOverview(props: { channelId: string; onClose: () => void; restoreFocus: () => void }) {
+export function ChannelTabOverview(props: {
+  id?: string;
+  channelId: string;
+  onClose: () => void;
+  restoreFocus: () => void;
+}) {
   const channels = useChannels();
   const { t, format } = useText();
   const [query, setQuery] = createSignal("");
@@ -96,10 +105,16 @@ export function ChannelTabOverview(props: { channelId: string; onClose: () => vo
   }
 
   return (
-    <div class="channel-tab-overview no-drag" role="dialog" aria-label={t("channel.topic.list")} onKeyDown={onKeyDown}>
+    <fieldset
+      id={props.id}
+      class="channel-tab-overview no-drag"
+      aria-label={t("channel.topic.list")}
+      onKeyDown={onKeyDown}
+    >
       <div class="channel-tab-overview-bar">
-        <input
+        <Input
           class="channel-tab-overview-search"
+          data-cuelume-type={undefined}
           type="search"
           value={query()}
           placeholder={t("channel.topic.search")}
@@ -139,8 +154,9 @@ export function ChannelTabOverview(props: { channelId: string; onClose: () => vo
               const active = () => channels.state.topicId === topic.id;
               return (
                 <li class="channel-tab-overview-item" data-pinned={pinned() ? "" : undefined}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="unstyled"
+                    data-cuelume-tap={undefined}
                     class="channel-tab-card"
                     data-pinned={pinned() ? "" : undefined}
                     data-active={active() ? "" : undefined}
@@ -161,9 +177,10 @@ export function ChannelTabOverview(props: { channelId: string; onClose: () => vo
                       </Show>
                       <span class="channel-tab-card-age">{age(topic)}</span>
                     </span>
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="unstyled"
+                    data-cuelume-tap={undefined}
                     class="channel-tab-card-pin"
                     data-pinned={pinned() ? "" : undefined}
                     aria-pressed={pinned() ? "true" : "false"}
@@ -174,13 +191,13 @@ export function ChannelTabOverview(props: { channelId: string; onClose: () => vo
                     <Show when={pinned()} fallback={<Pin size={12} />}>
                       <PinOff size={12} />
                     </Show>
-                  </button>
+                  </Button>
                 </li>
               );
             }}
           </For>
         </ul>
       </Show>
-    </div>
+    </fieldset>
   );
 }
