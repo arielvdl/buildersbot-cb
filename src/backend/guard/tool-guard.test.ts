@@ -194,12 +194,46 @@ describe("ToolGuard", () => {
   });
 });
 
+describe("ToolGuard on actions that leave", () => {
+  it("asks the person, with no model call, for an action too long to read in full", async () => {
+    const { port, prompts } = fakePort(() => Effect.succeed('{"verdict":"allow","category":"none","reason":"ok"}'));
+    const { guard } = guardWith(port);
+    const payload = "plain words. ".repeat(Math.ceil((GUARD_SCAN_LIMIT + 10) / 13));
+    const result = await run(guard, {
+      direction: "outbound",
+      subject: "openbot.messaging_post",
+      action: { tool: "openbot.messaging_post", payload },
+    });
+    expect(result).toMatchObject({ action: "ask", by: "local", judge: "not-needed" });
+    expect(prompts).toHaveLength(0);
+  });
+});
+
 describe("decideGuard", () => {
   const suspicious = triageContent(SUSPICIOUS_PAGE);
   it("treats a planned level as Light, and off as off", () => {
     expect(
       decideGuard({ level: "off", direction: "outbound", triage: suspicious, judge: { kind: "not-needed" } }),
     ).toMatchObject({ action: "allow", by: "off" });
+  });
+
+  it("lets no allow clear an action whose marked places the reviewer did not all see", () => {
+    expect(
+      decideGuard({
+        level: "light",
+        direction: "outbound",
+        triage: suspicious,
+        judge: { kind: "verdict", verdict: { verdict: "allow", category: "none", reason: "r" }, covered: false },
+      }),
+    ).toMatchObject({ action: "ask", by: "model" });
+    expect(
+      decideGuard({
+        level: "light",
+        direction: "inbound",
+        triage: suspicious,
+        judge: { kind: "verdict", verdict: { verdict: "allow", category: "none", reason: "r" }, covered: false },
+      }),
+    ).toMatchObject({ action: "annotate" });
   });
 
   it("never blocks at Light", () => {
@@ -209,7 +243,7 @@ describe("decideGuard", () => {
           level: "light",
           direction: "outbound",
           triage: suspicious,
-          judge: { kind: "verdict", verdict: { verdict, category: "exfiltration", reason: "r" } },
+          judge: { kind: "verdict", verdict: { verdict, category: "exfiltration", reason: "r" }, covered: true },
         }).action,
       ).toBe("ask");
     }

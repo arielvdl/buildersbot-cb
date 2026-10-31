@@ -165,6 +165,26 @@ export function isSecretName(name: string): boolean {
   return SECRET_KEY.test(name);
 }
 
+/**
+ * Where `value` holds a secret by the shape of the value alone: a secret that this app registered, a
+ * key with a known prefix, a JSON Web Token, or a PEM private key. Null when it holds none.
+ *
+ * The label rules of `redactText` are left out, so `password: $PASS` or `Authorization: Bearer
+ * $TOKEN` is not a secret here: a check of what an action sends must not flag a variable name. It
+ * reads the whole text with a few linear scans, so it suits a long payload.
+ */
+export function findSecretValue(value: string): { index: number; length: number } | null {
+  let found: { index: number; length: number } | null = null;
+  for (const pattern of [registeredSecretPattern, PEM_PRIVATE_KEY, KNOWN_SECRET_PREFIXES, JSON_WEB_TOKEN]) {
+    if (!pattern) continue;
+    pattern.lastIndex = 0;
+    const match = pattern.exec(value);
+    pattern.lastIndex = 0;
+    if (match && (found === null || match.index < found.index)) found = { index: match.index, length: match[0].length };
+  }
+  return found;
+}
+
 export function redactText(value: string): string {
   const marked = markRegisteredSecrets(value);
   const redacted = redactSerializedJson(marked) ?? applyTextRules(redactEmbeddedJson(marked));

@@ -96,7 +96,7 @@ export class ToolGuard {
       return { ...off, durationMs: 0, judge: "not-needed" } satisfies GuardResult;
     }
     const triage = item.direction === "inbound" ? triageContent(item.content) : triageAction(item.action);
-    const judge: GuardJudgeOutcome = guardNeedsJudge(level, triage)
+    const judge: GuardJudgeOutcome = guardNeedsJudge(level, item.direction, triage)
       ? yield* this.#review(preference.judge, item, triage)
       : { kind: "not-needed" };
     const decision = decideGuard({ level, direction: item.direction, triage, judge });

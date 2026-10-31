@@ -40,12 +40,13 @@ export interface GuardDecision {
  * Whether the reviewer must read this item. At Light, only an item that the local check calls
  * suspicious, and that has a marked place to show. An item that is suspicious only because it was not
  * read in full, or for a finding with no place, gives the reviewer nothing to judge: the local check
- * decides it, and nothing is sent.
+ * decides it, and nothing is sent. An action that was not read in full goes to the person, so it
+ * needs no review either.
  */
-export function guardNeedsJudge(level: GuardAvailableLevel, triage: GuardTriage): boolean {
-  return (
-    level === "light" && triage.level === "suspicious" && triage.hits.some((hit) => guardFindingNeedsReview(hit.code))
-  );
+export function guardNeedsJudge(level: GuardAvailableLevel, direction: GuardDirection, triage: GuardTriage): boolean {
+  if (level !== "light" || triage.level !== "suspicious") return false;
+  if (direction === "outbound" && triage.incomplete) return false;
+  return triage.hits.some((hit) => guardFindingNeedsReview(hit.code));
 }
 
 export const GUARD_ALLOW: GuardDecision = { action: "allow", category: "none", reason: null, by: "local" };
@@ -55,11 +56,14 @@ export const GUARD_ALLOW: GuardDecision = { action: "allow", category: "none", r
  * - Clean: the item passes, and no model is asked.
  * - High: the person decides on the approval card. No model is asked, so it is fast, and a model
  *   that the same content could fool cannot clear it.
+ * - An action that the check could not read in full: the person decides. Light still never stops
+ *   ordinary work: no real action comes near the limits, and reading one is fast.
  * - Suspicious: the reviewer decides. Allow passes, but only when the excerpt showed every marked
- *   place. Ask and block go to the person: Light never blocks by itself. With no verdict (no
- *   sign-in, a timeout, an error, a reply outside the schema), or with an allow on an excerpt that
- *   did not show everything, the local check decides: content passes with a note to the agent, and
- *   an action passes. The event is logged.
+ *   place. Ask and block go to the person: Light never blocks by itself. An allow on an excerpt that
+ *   did not show everything does not clear the item: content passes with a note to the agent, and an
+ *   action goes to the person. With no verdict (no sign-in, a timeout, an error, a reply outside the
+ *   schema), the local check decides: content passes with a note to the agent, and an action passes.
+ *   The event is logged.
  */
 export function decideGuard(input: {
   level: GuardAvailableLevel;
@@ -72,6 +76,9 @@ export function decideGuard(input: {
   if (triage.level === "clean") return GUARD_ALLOW;
   const localReason = triageReason(triage);
   if (triage.level === "high") return { action: "ask", category: triage.category, reason: localReason, by: "local" };
+  const outbound = input.direction === "outbound";
+  if (outbound && triage.incomplete)
+    return { action: "ask", category: triage.category, reason: localReason, by: "local" };
   if (judge.kind === "verdict") {
     const { verdict } = judge;
     if (verdict.verdict !== "allow")
@@ -82,6 +89,7 @@ export function decideGuard(input: {
         by: "model",
       };
     if (judge.covered) return { action: "allow", category: "none", reason: null, by: "model" };
+    if (outbound) return { action: "ask", category: triage.category, reason: localReason, by: "model" };
   }
   return {
     action: input.direction === "inbound" ? "annotate" : "allow",

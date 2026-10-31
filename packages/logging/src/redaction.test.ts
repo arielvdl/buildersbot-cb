@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createBuildersBotLogger,
+  findSecretValue,
   type LogValue,
   redactText,
   redactValue,
@@ -261,6 +262,23 @@ describe("redactText", () => {
 
   it("keeps the text around an embedded payload", () => {
     expect(redactText("read [1, 2, 3] items")).toBe("read [1,2,3] items");
+  });
+});
+
+describe("findSecretValue", () => {
+  it("finds a value by its shape, and the first one when there are more", () => {
+    const text = `one ghp_abcdefghijklmnopqrstuvwxyz0123456789 two eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2ln`;
+    expect(findSecretValue(text)).toEqual({ index: 4, length: 40 });
+    expect(findSecretValue("-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA")?.index).toBe(0);
+  });
+
+  it("finds a registered secret of any shape", () => {
+    registerSecretValue("plainRegisteredValue4417");
+    expect(findSecretValue("send plainRegisteredValue4417 out")).toEqual({ index: 5, length: 24 });
+  });
+
+  it("does not take a label, a variable or an email for a secret", () => {
+    expect(findSecretValue('Authorization: Bearer $GITHUB_TOKEN password: "$PASS" ana@example.com')).toBeNull();
   });
 });
 

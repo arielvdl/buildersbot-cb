@@ -4,9 +4,10 @@
 // content is safe to obey: it only says which items a model must review, and which items need the
 // person. An item that it could not read in full is never clean.
 
+import { posix } from "node:path";
 import type { GuardCategory } from "@openbot/contracts/ipc";
 import { type SourceMessages, sourceText } from "@openbot/i18n/source";
-import { redactText } from "@openbot/logging";
+import { findSecretValue } from "@openbot/logging";
 
 /** The result of the local check, from the safest. */
 export type GuardTriageLevel = "clean" | "suspicious" | "high";
@@ -55,6 +56,11 @@ export interface GuardOutboundItem {
   readonly payload?: string | null;
   /** Local files that the action sends, such as an upload or an attachment. */
   readonly files?: readonly string[];
+  /**
+   * True when the caller could not resolve every file to the path that the tool will open, such as
+   * a folder it may not read. The check is then incomplete, so the person decides.
+   */
+  readonly unresolved?: boolean;
 }
 
 export interface GuardTriageOptions {
@@ -63,8 +69,21 @@ export interface GuardTriageOptions {
   readonly budgetMs?: number;
 }
 
-/** The most characters of one item that the check reads. A longer item is incomplete, so never clean. */
-export const GUARD_SCAN_LIMIT = 500_000;
+/**
+ * The most characters of one item that the check reads in full. Past it, the check reads the first
+ * and the last half of that, and the item is incomplete, so never clean. Real items are far shorter:
+ * a page snapshot, a script or a message.
+ */
+export const GUARD_SCAN_LIMIT = 4_000_000;
+/** The rules read the text in parts of this size, so the budget can stop a light rule in a long text. */
+const SCAN_PART = 64_000;
+/** Each part reads this much of the next one, more than the longest match of any rule. */
+const SCAN_OVERLAP = 2_048;
+/**
+ * The most statements, URLs or files of one action that the check reads. Past it, the action is
+ * incomplete, so the person decides. No real action comes near it.
+ */
+const ITEM_LIMIT = 20_000;
 /**
  * The time budget of one check. The rules that weigh `high` always run. The budget can stop only the
  * lighter rules, and an item whose rules did not all run is incomplete, so never clean.
@@ -351,10 +370,10 @@ const REVERSE_SHELL_RULES: readonly Rule[] = [
 ];
 
 const PIPE_TO_SHELL: readonly RegExp[] = [
-  /\b(?:curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod|fetch)\b[^|\n;]{0,300}\|\s*(?:sudo\s+)?(?:ba|z|da|k|fi)?sh\b/iu,
-  /\b(?:curl|wget)\b[^|\n;]{0,300}\|\s*(?:sudo\s+)?(?:python3?|node|perl|ruby|php)\b(?:\s+-)?\s*(?:$|[\n;&)])/iu,
-  /\biex\s*\(?\s*(?:\(?\s*)?(?:iwr|irm|invoke-webrequest|invoke-restmethod|new-object\s+net\.webclient)\b/iu,
-  /\b(?:ba|z)?sh\s+<\(\s*(?:curl|wget)\b/iu,
+  /\b(?:curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod|fetch)\b[^|\n;]{0,300}\|\s*(?:sudo\s+)?(?:ba|z|da|k|fi)?sh\b/giu,
+  /\b(?:curl|wget)\b[^|\n;]{0,300}\|\s*(?:sudo\s+)?(?:python3?|node|perl|ruby|php)\b(?:\s+-)?\s*(?:$|[\n;&)])/giu,
+  /\biex\s*\(?\s*(?:\(?\s*)?(?:iwr|irm|invoke-webrequest|invoke-restmethod|new-object\s+net\.webclient)\b/giu,
+  /\b(?:ba|z)?sh\s+<\(\s*(?:curl|wget)\b/giu,
 ];
 
 /**
@@ -401,19 +420,24 @@ const STATEMENT_BREAK = /\n|;|&&|\|\|/gu;
 const LONG_QUERY_LIMIT = 400;
 const DATA_RUN = /[A-Za-z0-9+/_=-]{120,}/u;
 const URL_IN_TEXT = /\bhttps?:\/\/[^\s"'`<>|;)]{1,2048}/giu;
-/** The most URLs, files and statements that one action check reads. More makes it incomplete. */
-const PART_LIMIT = 64;
 
 /** The name of a file that holds secrets, whatever folder it is in. */
 const SECRET_FILE_NAME =
   /^(?:\.env(?:\.(?!example$|sample$|template$|dist$)[\w-]{1,20})?|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.pgpass|\.htpasswd|id_(?:rsa|dsa|ecdsa|ed25519)|credentials\.json|service[-_]account[\w.-]{0,40}\.json|login\.keychain(?:-db)?|[\w.-]{1,200}\.(?:pem|p12|pfx|kdbx|ppk|jks|keystore))$/iu;
-/** A folder or a file whose place says that it holds secrets. A public key and known_hosts do not. */
+/**
+ * A folder or a file whose place says that it holds secrets: a key folder itself, or a file in it.
+ * A public key and known_hosts do not.
+ */
 const SECRET_FILE_PLACE =
-  /(?:^|\/)(?:\.ssh\/(?!known_hosts$|config$|[\w.-]+\.pub$)[\w.-]+|\.aws\/credentials$|\.docker\/config\.json$|\.kube\/config$|\.gnupg\/|Library\/Keychains\/)/iu;
+  /(?:^|\/)(?:\.ssh\/(?!known_hosts$|config$|[\w.-]+\.pub$)[\w.-]+|(?:\.ssh|\.gnupg|\.aws)$|\.aws\/credentials$|\.docker\/config\.json$|\.kube\/config$|\.gnupg\/|Library\/Keychains(?:\/|$))/iu;
 
-/** Whether a local file path names a file that holds secrets, such as `.env` or a private key. */
+/**
+ * Whether a local file path names a file that holds secrets, such as `.env` or a private key. The
+ * path is normalized first: `/a/../b`, `./x` and repeated slashes read as the path they name. The
+ * caller also checks the real path behind a symbolic link.
+ */
 export function isSecretPath(path: string): boolean {
-  const normalized = path.replaceAll("\\", "/").replace(/\/+$/u, "");
+  const normalized = posix.normalize(path.trim().replaceAll("\\", "/")).replace(/\/+$/u, "");
   const name = normalized.slice(normalized.lastIndexOf("/") + 1);
   return SECRET_FILE_NAME.test(name) || SECRET_FILE_PLACE.test(normalized);
 }
@@ -481,26 +505,43 @@ class Findings {
     this.#skipped = true;
   }
 
-  /** Every place of one rule in `text`, at most `HITS_PER_RULE`. `offset` moves the places into the whole text. */
-  scan(text: string, { code, pattern }: Rule, offset = 0): void {
-    pattern.lastIndex = 0;
+  /**
+   * Every place of one rule in `text`, at most `HITS_PER_RULE` recorded. `offset` moves the places
+   * into the whole text. The text is read in parts that overlap by more than the longest match, so a
+   * match across the end of a part is found whole, and found once. A rule that weighs less than high
+   * stops when the budget ends, and returns false.
+   */
+  scan(text: string, { code, pattern }: Rule, offset = 0): boolean {
     let count = 0;
-    for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
-      this.add(code, offset + match.index, offset + match.index + match[0].length);
-      if (match[0].length === 0) pattern.lastIndex += 1;
-      count += 1;
-      if (count >= HITS_PER_RULE) {
-        // More places may follow that are not recorded.
-        if (pattern.exec(text) !== null) this.#unplaced = true;
+    for (let partStart = 0; partStart < text.length || partStart === 0; partStart += SCAN_PART) {
+      if (WEIGHT[code] !== "high" && partStart > 0 && !this.inBudget()) return false;
+      const part = text.slice(partStart, partStart + SCAN_PART + SCAN_OVERLAP);
+      pattern.lastIndex = 0;
+      for (let match = pattern.exec(part); match !== null; match = pattern.exec(part)) {
+        if (match[0].length === 0) pattern.lastIndex += 1;
+        // A match that starts in the overlap belongs to the next part.
+        if (match.index >= SCAN_PART && partStart + SCAN_PART < text.length) break;
+        count += 1;
+        if (count > HITS_PER_RULE) {
+          // More places than the check records: the excerpt cannot show them all.
+          this.#unplaced = true;
+          break;
+        }
+        const start = offset + partStart + match.index;
+        this.add(code, start, start + match[0].length);
+      }
+      pattern.lastIndex = 0;
+      if (count > HITS_PER_RULE) {
+        this.add(code);
         break;
       }
     }
-    pattern.lastIndex = 0;
+    return true;
   }
 
   /**
-   * Runs the rules, which come heaviest first. A rule that weighs high always runs. When the budget
-   * ends, the lighter rules that are left do not run, and the item is incomplete.
+   * Runs the rules, which come heaviest first. A rule that weighs high always runs to the end of the
+   * text. When the budget ends, the lighter rules stop, and the item is incomplete.
    */
   scanAll(text: string, rules: readonly Rule[], offset = 0): void {
     for (const current of rules) {
@@ -508,7 +549,10 @@ class Findings {
         this.skip();
         return;
       }
-      this.scan(text, current, offset);
+      if (!this.scan(text, current, offset)) {
+        this.skip();
+        return;
+      }
     }
   }
 
@@ -555,14 +599,24 @@ function grade(found: Findings, text: string, incomplete: boolean): GuardTriage 
 }
 
 /**
+ * The text that one check reads: all of it, or past `GUARD_SCAN_LIMIT` its first and its last half
+ * of the limit, so the end of a long item, where an attacker likes to put the payload, is read too.
+ */
+function scanned(text: string): { text: string; cut: boolean } {
+  if (text.length <= GUARD_SCAN_LIMIT) return { text, cut: false };
+  const half = GUARD_SCAN_LIMIT / 2;
+  return { text: `${text.slice(0, half)}\n${text.slice(-half)}`, cut: true };
+}
+
+/**
  * Checks content that enters an agent's work: a page, a file, a tool or MCP result, a message from
  * a third party. Content is data; the check looks for text that tries to act as an instruction. It
- * reads the whole item up to `GUARD_SCAN_LIMIT`; a longer item is incomplete, so never clean.
+ * reads the whole item up to `GUARD_SCAN_LIMIT`; a longer item is read at its start and its end and
+ * is incomplete, so never clean.
  */
 export function triageContent(content: string, options: GuardTriageOptions = {}): GuardTriage {
   const found = new Findings(options);
-  const capped = content.length > GUARD_SCAN_LIMIT;
-  const raw = capped ? content.slice(0, GUARD_SCAN_LIMIT) : content;
+  const { text: raw, cut: capped } = scanned(content);
   // Hidden characters are counted in the raw text, before the readable text takes them out.
   if (UNICODE_TAGS.test(raw.replace(TAG_FLAG, ""))) found.add("hidden-unicode-tags");
   if (countMatches(raw, ZERO_WIDTH) >= ZERO_WIDTH_LIMIT) found.add("hidden-zero-width");
@@ -584,38 +638,21 @@ export function urlHost(value: string): string | null {
 
 /** The http(s) URLs that a command or a script names, with their places. */
 function urlsIn(text: string): Array<{ url: string; index: number }> {
-  return [...text.matchAll(URL_IN_TEXT)].slice(0, PART_LIMIT).map((match) => ({ url: match[0], index: match.index }));
+  return [...text.matchAll(URL_IN_TEXT)].map((match) => ({ url: match[0], index: match.index }));
 }
-
-/** A run of characters that can be one credential. No `=` or `:`, so a label never joins its value. */
-const CREDENTIAL_RUN = /[A-Za-z0-9._~+/-]{8,512}/gu;
-const PRIVATE_KEY = /-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----/u;
-/** The most different runs that one check reads. More makes the check incomplete. */
-const CREDENTIAL_RUN_LIMIT = 4_000;
 
 /**
  * Where a text holds a secret value: a key with a known shape, a token, a private key, or a secret
- * that this app saved. Each run is read alone, with the rules that keep secrets out of the logs, so
- * only the value counts: `Authorization: Bearer $TOKEN` names a variable, not a secret. `complete`
- * is false when the text had too many runs to read them all.
+ * that this app saved. Only the value counts: `Authorization: Bearer $TOKEN` names a variable, not
+ * a secret. It reads the whole text, with no limit on its length.
  */
-export function secretAt(text: string): { index: number; length: number; complete: boolean } {
-  const key = PRIVATE_KEY.exec(text);
-  if (key) return { index: key.index, length: key[0].length, complete: true };
-  const seen = new Set<string>();
-  for (const match of text.matchAll(CREDENTIAL_RUN)) {
-    const run = match[0];
-    if (seen.has(run)) continue;
-    if (seen.size >= CREDENTIAL_RUN_LIMIT) return { index: -1, length: 0, complete: false };
-    seen.add(run);
-    if (redactText(run) !== run) return { index: match.index, length: run.length, complete: true };
-  }
-  return { index: -1, length: 0, complete: true };
+export function secretAt(text: string): { index: number; length: number } | null {
+  return findSecretValue(text);
 }
 
 /** Whether a text holds a secret value. See `secretAt`. */
 export function holdsSecret(text: string): boolean {
-  return secretAt(text).index >= 0;
+  return secretAt(text) !== null;
 }
 
 function decodeComponent(value: string): string {
@@ -674,15 +711,15 @@ class ActionText {
 export function triageAction(action: GuardOutboundItem, options: GuardTriageOptions = {}): GuardTriage {
   const found = new Findings(options);
   let incomplete = false;
+  if (action.unresolved) incomplete = true;
   const read = (value: string | null | undefined): string => {
-    const text = value ?? "";
-    if (text.length <= GUARD_SCAN_LIMIT) return guardReadableText(text);
-    incomplete = true;
-    return guardReadableText(text.slice(0, GUARD_SCAN_LIMIT));
+    const { text, cut } = scanned(value ?? "");
+    if (cut) incomplete = true;
+    return guardReadableText(text);
   };
   const listed = <T>(values: readonly T[] | undefined): readonly T[] => {
-    if ((values?.length ?? 0) > PART_LIMIT) incomplete = true;
-    return (values ?? []).slice(0, PART_LIMIT);
+    if ((values?.length ?? 0) > ITEM_LIMIT) incomplete = true;
+    return (values ?? []).slice(0, ITEM_LIMIT);
   };
   const command = read(action.command);
   const payload = read(action.payload);
@@ -698,8 +735,7 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
   /** The place of a secret in `value`, moved by `offset`, or null. */
   const secretIn = (value: string, offset: number): Place | null => {
     const secret = secretAt(value);
-    if (!secret.complete) incomplete = true;
-    return secret.index < 0 ? null : [offset + secret.index, offset + secret.index + secret.length];
+    return secret ? [offset + secret.index, offset + secret.index + secret.length] : null;
   };
   const record = (code: GuardFindingCode, ...places: ReadonlyArray<Place | null>): void => {
     for (const place of places) if (place) found.add(code, place[0], place[1]);
@@ -710,8 +746,8 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
   // A command is read one statement at a time: `cp .env.example .env && curl …` sends nothing,
   // and `cat .env | curl -d @- …` sends the file.
   const sentences = statements(command);
-  if (sentences.length > PART_LIMIT) incomplete = true;
-  for (const statement of sentences.slice(0, PART_LIMIT)) {
+  if (sentences.length > ITEM_LIMIT) incomplete = true;
+  for (const statement of sentences.slice(0, ITEM_LIMIT)) {
     const sends = placeOf(NETWORK_COMMAND, statement.text, commandAt + statement.start);
     if (!sends) continue;
     const at = commandAt + statement.start;
@@ -762,13 +798,14 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
   if (!found.inBudget()) {
     found.skip();
   } else {
+    // Each pipe to a shell on its own: one from a known installer does not clear another one.
     for (const pattern of PIPE_TO_SHELL) {
-      const match = command ? pattern.exec(command) : null;
-      if (!match) continue;
-      const hosts = urlsIn(command).map(({ url }) => urlHost(url));
-      const known = hosts.length > 0 && hosts.every((host) => host !== null && INSTALLER_HOSTS.has(host));
-      if (!known) found.add("pipe-to-shell", commandAt + match.index, commandAt + match.index + match[0].length);
-      break;
+      if (!command) break;
+      for (const match of command.matchAll(pattern)) {
+        const hosts = urlsIn(match[0]).map(({ url }) => urlHost(url));
+        const known = hosts.length > 0 && hosts.every((host) => host !== null && INSTALLER_HOSTS.has(host));
+        if (!known) found.add("pipe-to-shell", commandAt + match.index, commandAt + match.index + match[0].length);
+      }
     }
     if (PAGE_SCRIPT_TOOLS.has(action.tool) && sendsFrom && !found.has("page-script-exfiltration"))
       record("page-script-network", sendsFrom);
