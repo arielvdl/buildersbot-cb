@@ -158,6 +158,7 @@ const Settings = createSimpleContext({
     let keepAwakeChanged = false;
     let keepAwakeOnBatteryChanged = false;
     let browserInAppChanged = false;
+    let culturaBuilderFullContextChanged = false;
 
     createEffect(
       () => ({
@@ -386,6 +387,14 @@ const Settings = createSimpleContext({
           "browserInApp",
           settingsPort().setAppBehaviorPreference({ browserInApp: value.browserInApp }),
           (preference) => preference.browserInApp,
+        );
+      }
+      if (previous.culturaBuilderFullContext !== value.culturaBuilderFullContext) {
+        culturaBuilderFullContextChanged = true;
+        persistField(
+          "culturaBuilderFullContext",
+          settingsPort().setAppBehaviorPreference({ culturaBuilderFullContext: value.culturaBuilderFullContext }),
+          (preference) => preference.culturaBuilderFullContext,
         );
       }
       if (!sameExternalLinkTarget(previous.externalLinkTarget, value.externalLinkTarget)) {
@@ -634,6 +643,9 @@ const Settings = createSimpleContext({
                 ? current.keepAwakeOnBattery
                 : preference.keepAwakeOnBattery,
               browserInApp: browserInAppChanged ? current.browserInApp : preference.browserInApp,
+              culturaBuilderFullContext: culturaBuilderFullContextChanged
+                ? current.culturaBuilderFullContext
+                : preference.culturaBuilderFullContext,
             }));
           }),
         settingsPort()

@@ -72,4 +72,15 @@ describe("the Cultura Builder models", () => {
       expect(models[id].limit).toEqual({ context: 262_144, output: 32_768 });
     }
   });
+
+  it("declare the 1M window of the gateway where it has one when the person chose the full context", () => {
+    const provider = overlay(culturaBuilderConfigEnv("https://hub.example/v1", null, true)).provider;
+    const models = JSON.parse(JSON.stringify(provider))["cultura-builder"].models;
+    for (const id of ["builder-auto", "builder-code", "builder-fast"]) {
+      expect(models[id].limit).toEqual({ context: 1_048_576, output: 32_768 });
+    }
+    for (const id of ["builder-plan", "builder-review"]) {
+      expect(models[id].limit).toEqual({ context: 262_144, output: 32_768 });
+    }
+  });
 });

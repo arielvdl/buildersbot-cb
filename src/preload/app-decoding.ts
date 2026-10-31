@@ -441,6 +441,7 @@ export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreferen
     keepAwake: nullableBoolean(preference, "keepAwake"),
     keepAwakeOnBattery: nullableBoolean(preference, "keepAwakeOnBattery"),
     browserInApp: requiredBoolean(preference, "browserInApp"),
+    culturaBuilderFullContext: requiredBoolean(preference, "culturaBuilderFullContext"),
   };
 }
 

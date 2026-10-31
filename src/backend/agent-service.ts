@@ -2257,6 +2257,16 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }).bind(this);
 
   /**
+   * The context window of Cultura Builder changed. Its process reads the model windows only when it
+   * starts, so it starts again when no turn runs on it, and resumes its sessions.
+   */
+  readonly notifyCulturaBuilderContextChanged = Effect.fn("AgentService.notifyCulturaBuilderContextChanged")(function* (
+    this: AgentService,
+  ) {
+    yield* this.#providers.reloadProviderEnvironment("cultura-builder");
+  }).bind(this);
+
+  /**
    * A setting that lives outside the agent store changed, such as an agent's auto-approve grant.
    * Clients of this host read those settings again when the agent list changes. A grant given now
    * also answers the requests that already wait for it.

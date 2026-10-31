@@ -2102,6 +2102,17 @@ export class ProviderRuntime implements ProviderPort {
     });
   }).bind(this);
 
+  /**
+   * The same for one provider whose spawn configuration changed, such as the context window of
+   * Cultura Builder. A provider that does not run reads the new one at its next start.
+   */
+  readonly reloadProviderEnvironment = Effect.fn("ProviderRuntime.reloadProviderEnvironment")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+  ) {
+    yield* this.#reloadAgentEnvironment(provider);
+  }).bind(this);
+
   readonly #reloadAgentEnvironment = Effect.fn("ProviderRuntime.reloadEnvironmentForProvider")(function* (
     this: ProviderRuntime,
     provider: AgentProvider,

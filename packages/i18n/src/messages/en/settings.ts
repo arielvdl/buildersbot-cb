@@ -129,6 +129,9 @@ export const messages = defineMessages("settings", {
   "settings.browserInApp.title": "Use the Builders Bot browser for the web",
   "settings.browserInApp.description":
     "Off, agents use the Playwright extension in your own browser and no second Chrome starts. On, they use the Builders Bot browser.",
+  "settings.culturaBuilderFullContext.title": "Use the full 1M context of Cultura Builder",
+  "settings.culturaBuilderFullContext.description":
+    "Off, every Cultura Builder model compacts a long conversation near 262K tokens, so each step is faster and costs less. On, Builder Auto, Builder Code and Builder Fast keep up to 1M tokens before they compact.",
   "settings.externalLinks.title": "Open external links in",
   "settings.externalLinks.description": "Links in chats, sign-in pages and billing pages open here.",
   // The two link targets. The saved value stays in English; only the label is translated.
@@ -736,6 +739,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.busyMessage": "steer, busy, queue, interrupt, message while working",
   "settings.search.keywords.computerUse": "computer use, control the computer, screen, mouse, keyboard",
   "settings.search.keywords.computerUsePermissions": "permissions, accessibility, screen recording, macOS",
+  "settings.search.keywords.culturaBuilderFullContext": "context window, tokens, 1M, compaction, Cultura Builder",
   "settings.search.keywords.desktopNotifications": "banners, alerts, system notifications, pop-ups",
   "settings.search.keywords.dictation": "dictation, microphone, voice typing, speech to text, push to talk",
   "settings.search.keywords.dictationKey": "shortcut, hotkey, key combination, keyboard",

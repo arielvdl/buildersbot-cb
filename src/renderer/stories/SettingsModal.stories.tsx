@@ -27,6 +27,7 @@ const storyGeneralSettings: GeneralSettingsValue = {
   keepAwake: false,
   keepAwakeOnBattery: false,
   browserInApp: false,
+  culturaBuilderFullContext: false,
 };
 
 const storyAppInfo = { name: "Builders Bot", version: "0.2.1", platform: "darwin", variant: "dev" } as const;

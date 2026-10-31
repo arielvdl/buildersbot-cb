@@ -248,6 +248,11 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         keywordsKey: "settings.search.keywords.browserInApp",
       },
       {
+        anchor: "settings.culturaBuilderFullContext.title",
+        descriptionKey: "settings.culturaBuilderFullContext.description",
+        keywordsKey: "settings.search.keywords.culturaBuilderFullContext",
+      },
+      {
         anchor: "settings.analytics.title",
         descriptionKey: "settings.analytics.description",
         keywordsKey: "settings.search.keywords.analytics",

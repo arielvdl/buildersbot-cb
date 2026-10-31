@@ -304,15 +304,25 @@ export function openCodeSignInMessage(customProviderCount: number): string {
  */
 const CULTURA_BUILDER_OUTPUT_TOKENS = 32_768;
 /**
- * The context window that Builders Bot declares for each model, and the size that the context meter
- * shows. The gateway accepts up to 1,048,576 tokens on `builder-auto`, `builder-code` and
- * `builder-fast`, but OpenCode compacts a session only near the declared window, and Builders Bot
- * does not compact an ACP session itself. With the full window, an agent that keeps one session for
- * its whole life sent up to 1M tokens again on each model step, which made each step slower and more
- * expensive. With this window, OpenCode compacts near 262K, as it already did on `builder-plan` and
- * `builder-review`.
+ * The context window that Builders Bot declares for each model by default, and the size that the
+ * context meter shows. The gateway accepts up to 1,048,576 tokens on `builder-auto`, `builder-code`
+ * and `builder-fast` (`CULTURA_BUILDER_FULL_CONTEXT_TOKENS`), but OpenCode compacts a session only
+ * near the declared window, and Builders Bot does not compact an ACP session itself. With the full
+ * window, an agent that keeps one session for its whole life sent up to 1M tokens again on each model
+ * step, which made each step slower and more expensive. With this window, OpenCode compacts near 262K,
+ * as it already did on `builder-plan` and `builder-review`.
  */
 const CULTURA_BUILDER_CONTEXT_TOKENS = 262_144;
+/**
+ * The window of the gateway on the models below, which the person can choose instead in Settings ›
+ * General (`AppBehaviorPreference.culturaBuilderFullContext`).
+ */
+const CULTURA_BUILDER_FULL_CONTEXT_TOKENS = 1_048_576;
+const CULTURA_BUILDER_FULL_CONTEXT_MODELS: ReadonlySet<string> = new Set([
+  "builder-auto",
+  "builder-code",
+  "builder-fast",
+]);
 
 const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
   "builder-auto": {
@@ -350,13 +360,28 @@ const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
   },
 };
 
+/** The same models, with the full window of the gateway where it has one. */
+const CULTURA_BUILDER_FULL_CONTEXT_MODEL_ENTRIES: Readonly<Record<string, OpenCodeModelEntry>> = Object.fromEntries(
+  Object.entries(CULTURA_BUILDER_MODELS).map(([id, model]) => [
+    id,
+    CULTURA_BUILDER_FULL_CONTEXT_MODELS.has(id)
+      ? { ...model, limit: { context: CULTURA_BUILDER_FULL_CONTEXT_TOKENS, output: CULTURA_BUILDER_OUTPUT_TOKENS } }
+      : model,
+  ]),
+);
+
 /**
  * The spawn environment of a Cultura Builder client: one provider on the Hub gateway, carrying the
  * access token, and nothing else listed. A tokenless spawn still writes the provider so the row can
  * show its models while signed out; OpenCode answers with a refused request, which is the sign-in
- * prompt.
+ * prompt. With `fullContext`, the models that the gateway serves with 1,048,576 tokens declare that
+ * window instead of 262,144.
  */
-export function culturaBuilderConfigEnv(baseUrl: string, accessToken: string | null): Record<string, string> {
+export function culturaBuilderConfigEnv(
+  baseUrl: string,
+  accessToken: string | null,
+  fullContext = false,
+): Record<string, string> {
   const config: OpenCodeConfig = {
     mcp: OWN_PLAYWRIGHT_OFF,
     enabled_providers: ["cultura-builder"],
@@ -368,7 +393,7 @@ export function culturaBuilderConfigEnv(baseUrl: string, accessToken: string | n
           baseURL: baseUrl,
           ...(accessToken ? { apiKey: accessToken } : {}),
         },
-        models: CULTURA_BUILDER_MODELS,
+        models: fullContext ? CULTURA_BUILDER_FULL_CONTEXT_MODEL_ENTRIES : CULTURA_BUILDER_MODELS,
       },
     },
   };

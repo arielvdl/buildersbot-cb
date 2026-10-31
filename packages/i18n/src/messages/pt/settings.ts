@@ -128,6 +128,9 @@ export const messages = {
   "settings.browserInApp.title": "Usar o navegador do Builders Bot na web",
   "settings.browserInApp.description":
     "Desligado, os agentes usam a extensão do Playwright no seu navegador, sem abrir outro Chrome. Ligado, usam o navegador do próprio Builders Bot.",
+  "settings.culturaBuilderFullContext.title": "Usar o contexto completo de 1M do Cultura Builder",
+  "settings.culturaBuilderFullContext.description":
+    "Desligado, todos os modelos do Cultura Builder compactam uma conversa longa perto de 262K tokens, e cada passo fica mais rápido e mais barato. Ligado, o Builder Auto, o Builder Code e o Builder Fast guardam até 1M de tokens antes de compactar.",
   "settings.externalLinks.title": "Abrir links externos em",
   "settings.externalLinks.description": "Links de chats, páginas de login e páginas de cobrança abrem aqui.",
   "settings.externalLinks.defaultBrowser": "Navegador padrão",
@@ -672,6 +675,7 @@ export const messages = {
   "settings.search.keywords.busyMessage": "orientar, ocupado, fila, interromper, mensagem durante o trabalho",
   "settings.search.keywords.computerUse": "controle do computador, tela, mouse, teclado",
   "settings.search.keywords.computerUsePermissions": "permissões, acessibilidade, gravação de tela, macOS",
+  "settings.search.keywords.culturaBuilderFullContext": "janela de contexto, tokens, 1M, compactação, Cultura Builder",
   "settings.search.keywords.desktopNotifications": "banners, alertas, notificações do sistema, avisos",
   "settings.search.keywords.dictation": "ditado, microfone, digitar por voz, fala para texto, apertar para falar",
   "settings.search.keywords.dictationKey": "atalho, tecla, combinação de teclas, teclado",

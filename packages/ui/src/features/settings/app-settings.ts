@@ -35,6 +35,8 @@ export interface GeneralSettingsValue {
   keepAwakeOnBattery: boolean | null;
   /** Web access uses the Builders Bot browser, not Playwright in the person's own browser. */
   browserInApp: boolean;
+  /** Builder Auto, Builder Code and Builder Fast declare the full 1M window of the Cultura Builder gateway. */
+  culturaBuilderFullContext: boolean;
   restoreLastWorkspace: boolean;
   externalLinkTarget: ExternalLinkTarget;
   desktopNotifications: boolean;
@@ -89,6 +91,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   keepAwake: null,
   keepAwakeOnBattery: null,
   browserInApp: false,
+  culturaBuilderFullContext: false,
   restoreLastWorkspace: true,
   externalLinkTarget: DEFAULT_EXTERNAL_LINK_PREFERENCE.target,
   desktopNotifications: true,
