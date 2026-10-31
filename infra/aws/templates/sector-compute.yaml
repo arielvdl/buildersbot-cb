@@ -1,0 +1,867 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-<sector>-compute - one Builders Bot sector: a dedicated EC2 VM (no inbound rule, IMDSv2,
+  encrypted disks), its least-privilege role, logs, session documents, alarms, budget and optional
+  business-hours schedule. The image is not in this stack: scripts/add-sector.sh installs it by
+  digest with the bb-srv-Install document. Deploy after bb-srv-base, bb-srv-ops and bb-srv-<sector>-data.
+
+Parameters:
+  Sector:
+    Type: String
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{0,23}$'
+  Size:
+    Type: String
+    Default: large
+    AllowedValues: [medium, large, xlarge, steady, x86]
+    Description: >-
+      medium=t4g.medium 4 GiB, large=t4g.large 8 GiB, xlarge=t4g.xlarge 16 GiB, steady=m7g.large 8 GiB
+      (no CPU burst), x86=t3a.large 8 GiB (amd64 image, remote desktop). Change it only with a resize.
+  AvailabilityZone:
+    Type: String
+    AllowedValues: [us-east-1a, us-east-1b]
+    Default: us-east-1a
+    Description: Must be the zone of the data volume.
+  DataVolumeId:
+    Type: String
+    AllowedPattern: '^vol-[0-9a-f]{17}$'
+  AmiId:
+    Type: String
+    Description: Ubuntu 24.04 AMI, resolved once by add-sector.sh (a String, so an update never replaces the VM).
+    AllowedPattern: '^ami-[0-9a-f]{8,17}$'
+  RootVolumeGiB:
+    Type: Number
+    Default: 20
+    MinValue: 12
+    MaxValue: 200
+  ImageTag:
+    Type: String
+    Default: none
+    Description: >-
+      Image tag at installation (add-sector.sh). upgrade-sector.sh does not update it (bb-srv-operator
+      cannot update stacks): the image in use is /bb-srv/sectors/<sector>/image (digest). A change of
+      this value changes only the SSM parameter, never the VM.
+    AllowedPattern: '^(none|[0-9A-Za-z][0-9A-Za-z._-]{0,127})$'
+  Schedule:
+    Type: String
+    Default: always-on
+    AllowedValues: [always-on, business-hours]
+    Description: business-hours = on 08:00-20:00 Mon-Fri America/Sao_Paulo, safety stop 22:30 daily.
+  StaticIp:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
+    Description: Elastic IP (a fixed address for logins in social networks). Uses the EIP quota.
+  BudgetUsd:
+    Type: Number
+    Default: 80
+    MinValue: 10
+    Description: >-
+      Monthly budget of the sector. add-sector.sh picks ~1.25x the estimate of the size by default
+      (medium 50, large 80, steady 95, x86 90, xlarge 140).
+  BudgetEmail:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}$'
+  NetworkOutAlarmBytes:
+    Type: Number
+    Default: 5368709120
+    Description: Daily outbound bytes that raise an alarm (default 5 GiB). Recalibrate after the pilot.
+  TerminationProtection:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
+    Description: >-
+      DisableApiTermination of the VM. false at creation, so that a failed creation rolls back cleanly
+      (no ROLLBACK_FAILED); add-sector.sh sets true after bb-srv-Install succeeds (No interruption).
+  EgressProxy:
+    Type: String
+    Default: required
+    AllowedValues: [required, direct]
+    Description: >-
+      required = every connection of the container leaves through the residential proxy of
+      /bb-srv/proxy/egress, and nothing leaves when it is down (README section 16). direct = the
+      owner's explicit decision to opt this sector out (add-sector.sh --egress-direct, typed
+      confirmation). Changed only with a new VM (add-sector.sh --reattach).
+
+Mappings:
+  Sizes:
+    medium: {InstanceType: t4g.medium, Burstable: 'true'}
+    large: {InstanceType: t4g.large, Burstable: 'true'}
+    xlarge: {InstanceType: t4g.xlarge, Burstable: 'true'}
+    steady: {InstanceType: m7g.large, Burstable: 'false'}
+    x86: {InstanceType: t3a.large, Burstable: 'true'}
+
+Conditions:
+  InZoneA: !Equals [!Ref AvailabilityZone, us-east-1a]
+  IsBurstable: !Equals [!FindInMap [Sizes, !Ref Size, Burstable], 'true']
+  IsAlwaysOn: !Equals [!Ref Schedule, always-on]
+  IsBusinessHours: !Equals [!Ref Schedule, business-hours]
+  UseStaticIp: !Equals [!Ref StaticIp, 'true']
+  HasBudgetEmail: !Not [!Equals [!Ref BudgetEmail, '']]
+  UseEgressProxy: !Equals [!Ref EgressProxy, required]
+
+Resources:
+  # ---------------------------------------------------------------- identity of the host
+  # The agents in the container cannot read these credentials: IMDSv2 with hop limit 1 and the
+  # host firewall (DESIGN 4.6). Even root on the host reads only /bb-srv/sectors/<sector>/* and the
+  # credential of the egress proxy, /bb-srv/proxy/* (README section 16), and decrypts nothing else.
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub bb-srv-${Sector}-host
+      Description: !Sub Builders Bot sector ${Sector} host (SSM, its logs and metrics, its parameters, the egress proxy credential, image pull).
+      PermissionsBoundary: !ImportValue bb-srv-base-HostBoundaryArn
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [!ImportValue bb-srv-base-HostSsmPolicyArn]
+      Policies:
+        - PolicyName: sector-host
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: EcrLogin
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: EcrPullOwnRepository
+                Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: !ImportValue bb-srv-base-RepositoryArn
+              - Sid: OwnLogGroups
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/${Sector}:*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/${Sector}/ssm-sessions:*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/${Sector}/health:*'
+              - Sid: DescribeLogGroups
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
+              # Its own namespace: a compromised sector cannot publish the metrics that the alarms of
+              # another sector (or of the Signal VM) read.
+              - Sid: AgentMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition: {StringEquals: {'cloudwatch:namespace': !Sub 'bb-srv/${Sector}/host'}}
+              - Sid: OwnParameters
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
+              - Sid: DecryptOwnParameters
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals: {'kms:ViaService': !Sub 'ssm.${AWS::Region}.amazonaws.com'}
+                  StringLike:
+                    'kms:EncryptionContext:PARAMETER_ARN':
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
+              - Sid: DenyOtherParameters
+                Effect: Deny
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory]
+                NotResource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
+              - Sid: DenyDecryptElsewhere
+                Effect: Deny
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringNotLike:
+                    'kms:EncryptionContext:PARAMETER_ARN':
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/${Sector}/*'
+                      - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/proxy/*'
+              - Sid: DenySecrets
+                Effect: Deny
+                Action: 'secretsmanager:*'
+                Resource: '*'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub bb-srv-${Sector}-host
+      Roles: [!Ref HostRole]
+
+  # ---------------------------------------------------------------- logs, metrics, parameters
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /bb-srv/${Sector}
+      RetentionInDays: 30
+
+  SessionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /bb-srv/${Sector}/ssm-sessions
+      RetentionInDays: 90
+
+  # Only /var/log/bb-srv/health.log goes here (written by root timers on the host), and the health metric
+  # filters read ONLY this group. The app log is in the main group and carries text that agents and web
+  # pages can influence: a line like "BB_HEALTH ok" printed there must never count as a health signal
+  # (a metric filter cannot be limited to one stream, so it needs its own group).
+  HealthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /bb-srv/${Sector}/health
+      RetentionInDays: 30
+
+  # DefaultValue 0: while the host is on, every other line of the health log group (a "BB_HEALTH fail", a
+  # BB_PROXY_HEALTH line) publishes 0, so a failing sector alarms even with TreatMissingData=notBreaching. With the
+  # VM stopped there is no line and no data point, so a business-hours sector stays quiet at night.
+  HealthMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref HealthLogGroup
+      FilterName: bb-srv-health-ok
+      FilterPattern: '"BB_HEALTH ok"'
+      MetricTransformations:
+        - MetricNamespace: !Sub bb-srv/${Sector}
+          MetricName: Healthy
+          MetricValue: '1'
+          DefaultValue: 0
+          Unit: Count
+
+  # Read by the CloudWatch agent of the host (its own parameter; no secret).
+  AgentConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /bb-srv/sectors/${Sector}/cwagent
+      Type: String
+      Tier: Standard
+      Description: !Sub CloudWatch agent configuration of sector ${Sector}
+      Value: !Sub |
+        {
+          "agent": {"metrics_collection_interval": 60, "run_as_user": "root", "omit_hostname": true},
+          "metrics": {
+            "namespace": "bb-srv/${Sector}/host",
+            "metrics_collected": {
+              "mem": {"measurement": ["mem_used_percent"], "append_dimensions": {"Sector": "${Sector}"}},
+              "disk": {"measurement": ["used_percent"], "resources": ["/srv/openbot/${Sector}/data", "/"],
+                       "drop_device": true, "append_dimensions": {"Sector": "${Sector}"}}
+            }
+          },
+          "logs": {"logs_collected": {"files": {"collect_list": [
+            {"file_path": "/var/log/openbot/openbot-${Sector}.log", "log_group_name": "/bb-srv/${Sector}", "log_stream_name": "{instance_id}/openbot"},
+            {"file_path": "/var/log/bb-srv/health.log", "log_group_name": "/bb-srv/${Sector}/health", "log_stream_name": "{instance_id}/health"},
+            {"file_path": "/var/log/bb-srv-bootstrap.log", "log_group_name": "/bb-srv/${Sector}", "log_stream_name": "{instance_id}/bootstrap"}
+          ]}}}
+        }
+
+  # The egress of the container (README section 16), read on the host by bb-srv-ProxySetup (inside
+  # bb-srv-Install): "direct" (EgressProxy=direct) opts out of the proxy; any other value, or no answer,
+  # keeps the proxy. bb-srv-operator cannot write it.
+  EgressParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /bb-srv/sectors/${Sector}/egress
+      Type: String
+      Tier: Standard
+      Description: !Sub Egress of sector ${Sector} - required (residential proxy, fail closed) or direct (owner opt-out)
+      Value: !Ref EgressProxy
+
+  # One line every 4 minutes from bb-srv-proxy health (installed by bb-srv-ProxySetup). Only "ok BR"
+  # counts: a failure ("fail <reason>") or another country ("ok US") publishes 0 through DefaultValue,
+  # like every other line of the health log group while the host is on.
+  ProxyHealthMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: UseEgressProxy
+    Properties:
+      LogGroupName: !Ref HealthLogGroup
+      FilterName: bb-srv-proxy-health-ok-br
+      FilterPattern: '"BB_PROXY_HEALTH ok BR"'
+      MetricTransformations:
+        - MetricNamespace: !Sub bb-srv/${Sector}
+          MetricName: ProxyHealthy
+          MetricValue: '1'
+          DefaultValue: 0
+          Unit: Count
+
+  ImageTagParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /bb-srv/sectors/${Sector}/image-tag
+      Type: String
+      Tier: Standard
+      Description: Image tag at installation (not updated by upgrades). The image in use is /bb-srv/sectors/<sector>/image.
+      Value: !Ref ImageTag
+
+  # ---------------------------------------------------------------- session documents of this sector
+  ShellDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: !Sub bb-srv-${Sector}-Shell
+      DocumentType: Session
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '1.0'
+        description: !Sub Builders Bot - administration shell of sector ${Sector}, logged to CloudWatch.
+        sessionType: Standard_Stream
+        inputs:
+          cloudWatchLogGroupName: !Ref SessionLogGroup
+          cloudWatchEncryptionEnabled: false
+          cloudWatchStreamingEnabled: true
+          s3EncryptionEnabled: false
+          runAsEnabled: false
+          idleSessionTimeout: '20'
+          maxSessionDuration: '60'
+          shellProfile:
+            linux: cd /srv/openbot-docker/instances 2>/dev/null || cd /
+
+  # The e-mail pattern refuses a leading "-", so a value cannot become an option of openbot login. The
+  # name (3 to 32 letters, digits, spaces and "-", starting with a letter or digit) has no quote, so it
+  # stays inside the single quotes of the command.
+  LoginDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: !Sub bb-srv-${Sector}-Login
+      DocumentType: Session
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '1.0'
+        description: !Sub Builders Bot - sign in the server of sector ${Sector} with the owner account of the sector (code by e-mail).
+        sessionType: InteractiveCommands
+        parameters:
+          email:
+            type: String
+            allowedPattern: '^[A-Za-z0-9][A-Za-z0-9._%+-]{0,63}@[A-Za-z0-9][A-Za-z0-9.-]{0,189}\.[A-Za-z]{2,24}$'
+          name:
+            type: String
+            allowedPattern: '^[A-Za-z0-9][A-Za-z0-9 -]{2,31}$'
+        properties:
+          linux:
+            commands: !Sub "docker exec -it openbot-${Sector} openbot login {{ email }} --name '{{ name }}'"
+            runAsElevated: true
+
+  # ---------------------------------------------------------------- the VM
+  Instance:
+    Type: AWS::EC2::Instance
+    # The user data runs once: its agent configuration and log groups must exist before the first boot.
+    DependsOn: [AgentConfigParameter, EgressParameter, LogGroup, SessionLogGroup, HealthLogGroup]
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !FindInMap [Sizes, !Ref Size, InstanceType]
+      SubnetId: !If [InZoneA, !ImportValue bb-srv-base-SubnetAId, !ImportValue bb-srv-base-SubnetBId]
+      SecurityGroupIds: [!ImportValue bb-srv-base-SectorSecurityGroupId]
+      IamInstanceProfile: !Ref InstanceProfile
+      DisableApiTermination: !Ref TerminationProtection
+      InstanceInitiatedShutdownBehavior: stop
+      Monitoring: false
+      CreditSpecification: !If [IsBurstable, {CPUCredits: unlimited}, !Ref AWS::NoValue]
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+        InstanceMetadataTags: disabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: {VolumeType: gp3, VolumeSize: !Ref RootVolumeGiB, Encrypted: true, DeleteOnTermination: true}
+      PropagateTagsToVolumeOnCreation: true
+      Tags:
+        - {Key: Name, Value: !Sub 'bb-srv-${Sector}'}
+        - {Key: Sector, Value: !Ref Sector}
+        - {Key: CostCenter, Value: !Ref Sector}
+        - {Key: Project, Value: buildersbot-servers}
+        - {Key: Owner, Value: cultura-builder}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Role, Value: sector-host}
+        - {Key: BackupPlan, Value: !If [IsAlwaysOn, bb-srv-daily, bb-srv-stopped]}
+      # Fn::Sub: only ${Sector}, ${VolNoDash}, ${RepoUri}, ${RepoHost}, ${ZoneName} and ${AWS::Region}
+      # come from CloudFormation. The shell variables are written without braces. No image and no secret
+      # here: the credential of the egress proxy is read by bb-srv-Install with the instance role.
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euo pipefail
+            exec >>/var/log/bb-srv-bootstrap.log 2>&1
+            echo "BB_BOOTSTRAP start $(date -u +%FT%TZ)"
+            SECTOR='${Sector}'
+            install -d -m 0755 /etc/bb-srv /var/lib/bb-srv /var/log/bb-srv
+            printf '%s\n' "$SECTOR" >/etc/bb-srv/sector
+            printf '%s\n' '${RepoUri}' >/etc/bb-srv/repo
+            # For bb-srv-proxy (README section 16): the region of SSM and the zone of signal./turn.
+            printf '%s\n' '${AWS::Region}' >/etc/bb-srv/region
+            printf '%s\n' '${ZoneName}' >/etc/bb-srv/zone
+
+            # 1. The data volume on /srv (XFS). mkfs only when the low-level probe finds nothing (exit 2).
+            dev=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${VolNoDash}
+            for _ in $(seq 1 180); do [ -e "$dev" ] && break; sleep 5; done
+            [ -e "$dev" ] || { echo "BB_BOOTSTRAP fail data-volume-missing"; exit 1; }
+            rc=0; blkid -p "$dev" >/dev/null 2>&1 || rc=$?
+            if [ "$rc" -eq 2 ]; then mkfs.xfs -q "$dev"; elif [ "$rc" -ne 0 ]; then echo "BB_BOOTSTRAP fail blkid-$rc"; exit 1; fi
+            uuid=$(blkid -s UUID -o value "$dev")
+            grep -q ' /srv ' /etc/fstab || echo "UUID=$uuid /srv xfs defaults,nofail,x-systemd.device-timeout=120s 0 2" >>/etc/fstab
+            systemctl daemon-reload
+            mountpoint -q /srv || mount /srv
+
+            # 2. Packages. unattended-upgrades reboots at 09:30 UTC, outside the DLM window (07:00-08:00 UTC).
+            #    The user data runs once: wait for the dpkg lock of the first-boot apt-daily, and retry.
+            export DEBIAN_FRONTEND=noninteractive
+            apt_get() {
+              for attempt in 1 2 3 4 5; do
+                apt-get -o DPkg::Lock::Timeout=600 "$@" && return 0
+                echo "apt-get $1 failed (attempt $attempt)"; sleep 20
+              done
+              return 1
+            }
+            apt_get update -q
+            # tinyproxy is the local forwarder of the egress proxy, configured and started by
+            # bb-srv-ProxySetup (bb-proxy.service). Masked first, so the package never starts its own
+            # instance (port 8888 on every address of the host). dnsmasq-base (no service of its own) is
+            # the DNS of the container, bb-srv-container-dns.service of bb-srv-ProxySetup; bind9-dnsutils
+            # is the dig with which the host asks that DNS from the network of the container (bb-srv-proxy).
+            systemctl mask tinyproxy.service
+            apt_get install -y -q --no-install-recommends docker.io docker-compose-v2 amazon-ecr-credential-helper \
+              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates tinyproxy dnsmasq-base bind9-dnsutils
+            printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' \
+              >/etc/apt/apt.conf.d/52bb-srv-reboot
+            # The AWS CLI that bb-srv-Install and bb-srv-proxy use to read their parameters and the
+            # document bb-srv-ProxySetup with the instance role.
+            for attempt in 1 2 3; do
+              snap install aws-cli --classic && break
+              [ "$attempt" -lt 3 ] || { echo "BB_BOOTSTRAP fail aws-cli"; exit 1; }
+              sleep 20
+            done
+
+            # 3. CloudWatch agent: official package. The signature counts only when it was made by the
+            #    known key (VALIDSIG names the signing key and its primary key): any other key that the
+            #    downloaded .gpg file may carry is refused.
+            arch=$(dpkg --print-architecture)
+            cwa=https://amazoncloudwatch-agent-${AWS::Region}.s3.${AWS::Region}.amazonaws.com
+            work=$(mktemp -d)
+            curl -fsS --proto =https --tlsv1.2 -o "$work/cwa.deb" "$cwa/ubuntu/$arch/latest/amazon-cloudwatch-agent.deb"
+            curl -fsS --proto =https --tlsv1.2 -o "$work/cwa.deb.sig" "$cwa/ubuntu/$arch/latest/amazon-cloudwatch-agent.deb.sig"
+            curl -fsS --proto =https --tlsv1.2 -o "$work/cwa.gpg" https://amazoncloudwatch-agent.s3.amazonaws.com/assets/amazon-cloudwatch-agent.gpg
+            export GNUPGHOME="$work/gnupg"
+            install -d -m 0700 "$GNUPGHOME"
+            gpg --batch --quiet --import "$work/cwa.gpg"
+            gpg --batch --status-fd 1 --verify "$work/cwa.deb.sig" "$work/cwa.deb" >"$work/verify.status" 2>/dev/null ||
+              { echo "BB_BOOTSTRAP fail cwagent-signature"; exit 1; }
+            awk -v want=937616F3450B7D806CBD9725D58167303B789C72 \
+              '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && ($3 == want || $NF == want) { ok = 1 } END { exit !ok }' "$work/verify.status" ||
+              { echo "BB_BOOTSTRAP fail cwagent-key"; exit 1; }
+            dpkg -i "$work/cwa.deb"
+            unset GNUPGHOME
+            for attempt in 1 2 3; do
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+                -c "ssm:/bb-srv/sectors/$SECTOR/cwagent" && break
+              [ "$attempt" -lt 3 ] || { echo "BB_BOOTSTRAP fail cwagent-config"; exit 1; }
+              sleep 20
+            done
+
+            # 4. Docker hardened before any container (DESIGN 4.6). The VPC resolver is in a range that the
+            #    firewall of the instances blocks, and no packet of a container may go to a resolver on the
+            #    internet (README section 16): the containers ask the DNS of the host on the gateway of the
+            #    openbot bridge (172.30.0.1, the subnet of docker/instances), port 53 only. That DNS is
+            #    bb-srv-container-dns (dnsmasq, written by bb-srv-ProxySetup): with the proxy it answers only
+            #    signal./turn. of the zone and NXDOMAIN for every other name.
+            install -d -m 0755 /etc/docker
+            cat >/etc/docker/daemon.json <<'JSON'
+            {"userns-remap": "default", "live-restore": true, "no-new-privileges": true, "icc": false,
+             "dns": ["172.30.0.1"]}
+            JSON
+            systemctl restart docker
+            install -d -m 0700 /root/.docker
+            printf '{"credHelpers": {"%s": "ecr-login"}}\n' '${RepoHost}' >/root/.docker/config.json
+
+            # 5. No SSH. The SSM agent (the only administration path) survives an OOM of the host.
+            systemctl disable --now ssh.socket ssh.service 2>/dev/null || true
+            for unit in snap.amazon-ssm-agent.amazon-ssm-agent.service amazon-ssm-agent.service; do
+              install -d "/etc/systemd/system/$unit.d"
+              printf '[Service]\nOOMScoreAdjust=-900\n' >"/etc/systemd/system/$unit.d/bb-srv-oom.conf"
+            done
+
+            # 6. setup points openbot-firewall.service at /srv/openbot-docker (on the data volume, a nofail
+            #    mount), and Docker requires that unit: it must wait for the mount at every boot.
+            install -d /etc/systemd/system/openbot-firewall.service.d
+            printf '[Unit]\nRequiresMountsFor=/srv/openbot-docker\n' >/etc/systemd/system/openbot-firewall.service.d/bb-srv-mount.conf
+            # The sector starts at every boot, but only once bb-srv-Install finished on THIS VM (a disk that came
+            # with its .env, attach or restore, waits for it), and only with the egress firewall of
+            # bb-srv-ProxySetup: before that unit exists, Requires= fails the start. A health line every 5 minutes.
+            cat >/etc/systemd/system/bb-srv-sector-up.service <<UNIT
+            [Unit]
+            Description=Start the Builders Bot instance of sector $SECTOR
+            Requires=docker.service bb-srv-egress-guard.service
+            After=docker.service bb-srv-egress-guard.service network-online.target
+            RequiresMountsFor=/srv
+            ConditionPathExists=/srv/openbot-docker/instances/$SECTOR.env
+            ConditionPathExists=/var/lib/bb-srv/installed
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/srv/openbot-docker/instances/openbot-instance up $SECTOR
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+            cat >/usr/local/sbin/bb-srv-health <<'HEALTH'
+            #!/bin/bash
+            # One line per run. CloudWatch counts "BB_HEALTH ok" (metric filter of sector-compute.yaml).
+            sector=$(cat /etc/bb-srv/sector)
+            log=/var/log/bb-srv/health.log
+            now=$(date -u +%FT%TZ)
+            if [ ! -f "/srv/openbot-docker/instances/$sector.env" ]; then
+              echo "$now BB_HEALTH fail not-installed" >>"$log"; exit 0
+            fi
+            if ! out=$(timeout 30 docker exec "openbot-$sector" openbot status 2>&1); then
+              echo "$now BB_HEALTH fail no-status" >>"$log"; exit 0
+            fi
+            case "$out" in
+              *"Account: loading"*) echo "$now BB_HEALTH fail loading" ;;
+              *"Account: signed out"*) echo "$now BB_HEALTH ok account=signed-out" ;;
+              *) echo "$now BB_HEALTH ok account=signed-in" ;;
+            esac >>"$log"
+            HEALTH
+            chmod 0755 /usr/local/sbin/bb-srv-health
+            printf '[Unit]\nDescription=Builders Bot health line\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-health\n' \
+              >/etc/systemd/system/bb-srv-health.service
+            printf '[Unit]\nDescription=Builders Bot health line every 5 minutes\n[Timer]\nOnBootSec=3min\nOnUnitActiveSec=5min\n[Install]\nWantedBy=timers.target\n' \
+              >/etc/systemd/system/bb-srv-health.timer
+            printf '/var/log/bb-srv/*.log /var/log/bb-srv-bootstrap.log {\n  weekly\n  rotate 4\n  compress\n  missingok\n  notifempty\n  copytruncate\n}\n' \
+              >/etc/logrotate.d/bb-srv
+            systemctl daemon-reload
+            systemctl enable bb-srv-sector-up.service
+
+            touch /var/lib/bb-srv/bootstrap.done
+            echo "BB_BOOTSTRAP done $(date -u +%FT%TZ)"
+          - VolNoDash: !Join ['', !Split ['-', !Ref DataVolumeId]]
+            RepoUri: !ImportValue bb-srv-base-RepositoryUri
+            RepoHost: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
+            ZoneName: !ImportValue bb-srv-dns-HostedZoneName
+
+  DataAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Instance
+      VolumeId: !Ref DataVolumeId
+      Device: /dev/sdf
+
+  # Lives and dies with this stack: replacing the VM (delete this stack, add-sector.sh --reattach) or a
+  # restore releases the address and the new stack gets another one (README, section 11).
+  StaticAddress:
+    Type: AWS::EC2::EIP
+    Condition: UseStaticIp
+    Properties:
+      Domain: vpc
+      Tags: [{Key: Name, Value: !Sub 'bb-srv-${Sector}'}]
+
+  StaticAddressAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Condition: UseStaticIp
+    Properties:
+      AllocationId: !GetAtt StaticAddress.AllocationId
+      InstanceId: !Ref Instance
+
+  # ---------------------------------------------------------------- alarms (all to bb-srv-alerts)
+  SystemStatusAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-system-status
+      AlarmDescription: AWS hardware or network failure. The action recovers the VM on other hardware.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Dimensions: [{Name: InstanceId, Value: !Ref Instance}]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:recover'
+        - !ImportValue bb-srv-base-AlertTopicArn
+
+  InstanceStatusAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-instance-status
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Dimensions: [{Name: InstanceId, Value: !Ref Instance}]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:reboot'
+        - !ImportValue bb-srv-base-AlertTopicArn
+
+  HealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-health
+      AlarmDescription: >-
+        No "BB_HEALTH ok" line for 15 minutes while the host logs (container down, status does not answer,
+        loading), or no data at all on an always-on sector (host off).
+      Namespace: !Sub bb-srv/${Sector}
+      MetricName: Healthy
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: !If [IsAlwaysOn, breaching, notBreaching]
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  # The residential proxy (README section 16): no "BB_PROXY_HEALTH ok BR" line in two 5-minute periods
+  # while the host logs (forwarder down, upstream refused or unreachable, the egress firewall open, or
+  # an exit outside Brazil). Missing data as in the health alarm: the host off alarms on an always-on
+  # sector only.
+  ProxyHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UseEgressProxy
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-egress-proxy
+      AlarmDescription: >-
+        The container of the sector is not leaving through the residential proxy in Brazil: read the
+        BB_PROXY_HEALTH lines of the log group /bb-srv/<sector>/health (fail <reason> or ok <country>) and run
+        scripts/status.sh <sector> --deep. Nothing leaves directly meanwhile (fail closed).
+      Namespace: !Sub bb-srv/${Sector}
+      MetricName: ProxyHealthy
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: !If [IsAlwaysOn, breaching, notBreaching]
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  MemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-host-memory
+      Namespace: !Sub bb-srv/${Sector}/host
+      MetricName: mem_used_percent
+      Dimensions: [{Name: Sector, Value: !Ref Sector}]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  # On the ext4 of the container, not on /srv: create reserves all of data.img with fallocate.
+  DiskAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-data-disk
+      Namespace: !Sub bb-srv/${Sector}/host
+      MetricName: disk_used_percent
+      Dimensions:
+        - {Name: Sector, Value: !Ref Sector}
+        - {Name: path, Value: !Sub '/srv/openbot/${Sector}/data'}
+        - {Name: fstype, Value: ext4}
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  CpuCreditsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: IsBurstable
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-cpu-surplus-charged
+      AlarmDescription: The sector pays for CPU above the baseline. Consider Size=steady (m7g.large).
+      Namespace: AWS/EC2
+      MetricName: CPUSurplusCreditsCharged
+      Dimensions: [{Name: InstanceId, Value: !Ref Instance}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  NetworkOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-network-out
+      AlarmDescription: Unusual outbound traffic in one day (exfiltration, mining, abuse, or heavy live view).
+      Namespace: AWS/EC2
+      MetricName: NetworkOut
+      Dimensions: [{Name: InstanceId, Value: !Ref Instance}]
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: !Ref NetworkOutAlarmBytes
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  # A session without a bb-srv document runs as ssm-user with sudo and without a log (DESIGN 4.9).
+  # CloudTrail is the trusted record; these rules turn it into an alert.
+  SessionWithoutDocumentRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub bb-srv-${Sector}-session-no-doc
+      Description: !Sub An SSM session to sector ${Sector} without a document.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [StartSession]
+          requestParameters:
+            target: [!Ref Instance]
+            documentName: [{exists: false}]
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
+
+  SessionOtherDocumentRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub bb-srv-${Sector}-session-other-doc
+      Description: !Sub An SSM session to sector ${Sector} with a document other than its own Shell and Login.
+      # The exact names, not a prefix: bb-srv-<another sector>-Shell (whose log this host cannot
+      # write) and a prefix shared by sectors such as fin and fin-x must alert too.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [StartSession]
+          requestParameters:
+            target: [!Ref Instance]
+            documentName: [{anything-but: [!Sub 'bb-srv-${Sector}-Shell', !Sub 'bb-srv-${Sector}-Login']}]
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
+
+  # Run Command runs as root without a session log (root reads the owner account session in /data).
+  # bb-srv-operator may send only bb-srv-* documents, but the administrator identities of the account
+  # are not limited: any other document sent to this VM alerts. A command sent by targets (tags) is
+  # caught by bb-srv-command-by-targets in bb-srv-ops. DLM may name its document by ARN.
+  CommandOtherDocumentRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub bb-srv-${Sector}-command-other-doc
+      Description: !Sub An SSM Run Command on sector ${Sector} with a document other than the bb-srv ones.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [SendCommand]
+          requestParameters:
+            instanceIds: [!Ref Instance]
+            documentName:
+              - anything-but:
+                  - bb-srv-Install
+                  - bb-srv-Upgrade
+                  - bb-srv-Down
+                  - bb-srv-Status
+                  - bb-srv-ProxySetup
+                  - bb-srv-ProxyReload
+                  - bb-srv-SnapshotHooks
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/bb-srv-SnapshotHooks'
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
+
+  # ---------------------------------------------------------------- cost
+  SectorBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub bb-srv-${Sector}
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref BudgetUsd, Unit: USD}
+        CostFilters:
+          TagKeyValue: [!Sub 'user:Sector$${Sector}']
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers:
+            - {SubscriptionType: SNS, Address: !ImportValue bb-srv-base-AlertTopicArn}
+            - !If [HasBudgetEmail, {SubscriptionType: EMAIL, Address: !Ref BudgetEmail}, !Ref AWS::NoValue]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers:
+            - {SubscriptionType: SNS, Address: !ImportValue bb-srv-base-AlertTopicArn}
+            - !If [HasBudgetEmail, {SubscriptionType: EMAIL, Address: !Ref BudgetEmail}, !Ref AWS::NoValue]
+        # FORECASTED needs about 5 weeks of history: a new sector has only the ACTUAL alerts at first.
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers:
+            - {SubscriptionType: SNS, Address: !ImportValue bb-srv-base-AlertTopicArn}
+            - !If [HasBudgetEmail, {SubscriptionType: EMAIL, Address: !Ref BudgetEmail}, !Ref AWS::NoValue]
+
+  StartSchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: IsBusinessHours
+    Properties:
+      Name: !Sub bb-srv-${Sector}-start
+      Description: !Sub Start sector ${Sector} on working days.
+      ScheduleExpression: 'cron(0 8 ? * MON-FRI *)'
+      ScheduleExpressionTimezone: America/Sao_Paulo
+      FlexibleTimeWindow: {Mode: 'OFF'}
+      State: ENABLED
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:ec2:startInstances
+        RoleArn: !ImportValue bb-srv-base-SchedulerRoleArn
+        Input: !Sub '{"InstanceIds": ["${Instance}"]}'
+        RetryPolicy: {MaximumRetryAttempts: 3, MaximumEventAgeInSeconds: 3600}
+        DeadLetterConfig: {Arn: !ImportValue bb-srv-base-SchedulerDlqArn}
+
+  StopSchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: IsBusinessHours
+    Properties:
+      Name: !Sub bb-srv-${Sector}-stop
+      Description: !Sub Stop sector ${Sector} after working hours.
+      ScheduleExpression: 'cron(0 20 ? * MON-FRI *)'
+      ScheduleExpressionTimezone: America/Sao_Paulo
+      FlexibleTimeWindow: {Mode: 'OFF'}
+      State: ENABLED
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:ec2:stopInstances
+        RoleArn: !ImportValue bb-srv-base-SchedulerRoleArn
+        Input: !Sub '{"InstanceIds": ["${Instance}"]}'
+        RetryPolicy: {MaximumRetryAttempts: 3, MaximumEventAgeInSeconds: 3600}
+        DeadLetterConfig: {Arn: !ImportValue bb-srv-base-SchedulerDlqArn}
+
+  # Stopped before the 02:00 UTC snapshot of bb-srv-stopped even when someone started it late.
+  SafetyStopSchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: IsBusinessHours
+    Properties:
+      Name: !Sub bb-srv-${Sector}-safety-stop
+      Description: !Sub Daily safety stop of sector ${Sector} before its snapshot.
+      ScheduleExpression: 'cron(30 22 * * ? *)'
+      ScheduleExpressionTimezone: America/Sao_Paulo
+      FlexibleTimeWindow: {Mode: 'OFF'}
+      State: ENABLED
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:ec2:stopInstances
+        RoleArn: !ImportValue bb-srv-base-SchedulerRoleArn
+        Input: !Sub '{"InstanceIds": ["${Instance}"]}'
+        RetryPolicy: {MaximumRetryAttempts: 3, MaximumEventAgeInSeconds: 3600}
+        DeadLetterConfig: {Arn: !ImportValue bb-srv-base-SchedulerDlqArn}
+
+Outputs:
+  InstanceId:
+    Value: !Ref Instance
+  HostRoleArn:
+    Value: !GetAtt HostRole.Arn
+  LogGroupName:
+    Value: !Ref LogGroup
+  SessionLogGroupName:
+    Value: !Ref SessionLogGroup
+  HealthLogGroupName:
+    Value: !Ref HealthLogGroup
+  ShellDocumentName:
+    Value: !Ref ShellDocument
+  LoginDocumentName:
+    Value: !Ref LoginDocument
+  InstanceType:
+    Value: !FindInMap [Sizes, !Ref Size, InstanceType]
+  EgressProxy:
+    Value: !Ref EgressProxy
+  StaticIp:
+    Condition: UseStaticIp
+    Value: !Ref StaticAddress

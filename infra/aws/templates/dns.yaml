@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-dns - the delegated Route 53 zone of the Builders Bot servers (Signal and TURN names, DNS-01
+  certificates). Its own minimal stack, created before bb-srv-base and never deleted by a rollback of
+  the other stacks: its 4 name servers are the ones the owner puts in Cloudflare (one DNS action).
+
+Parameters:
+  DelegatedZoneName:
+    Type: String
+    Default: bb-aws.culturabuilder.com
+    Description: Subdomain that the owner delegates from Cloudflare to Route 53 (4 NS records). Signal and TURN live under it.
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]{1,200}[a-z0-9]$'
+
+Resources:
+  # Retained on stack delete and on replacement: deleting the zone while Cloudflare still delegates to
+  # it leaves the subdomain dangling (anyone could create a zone with the same name elsewhere). It is
+  # deleted only when its own creation rolls back (an empty zone that nobody delegates yet). Remove the
+  # 4 NS records in Cloudflare first, then delete the zone by hand (README, "Desfazer tudo").
+  DelegatedZone:
+    Type: AWS::Route53::HostedZone
+    DeletionPolicy: RetainExceptOnCreate
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Ref DelegatedZoneName
+      HostedZoneConfig:
+        Comment: Builders Bot Signal and TURN. Delegated from Cloudflare with 4 NS records.
+
+Outputs:
+  HostedZoneId:
+    Value: !Ref DelegatedZone
+    Export: {Name: bb-srv-dns-HostedZoneId}
+  HostedZoneName:
+    Value: !Ref DelegatedZoneName
+    Export: {Name: bb-srv-dns-HostedZoneName}
+  HostedZoneNameServers:
+    Description: The 4 NS records that the owner adds in Cloudflare (name = the first label of DelegatedZoneName).
+    Value: !Join [',', !GetAtt DelegatedZone.NameServers]

@@ -1,0 +1,946 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-ops - Builders Bot servers per sector: the shared SSM documents (install, upgrade, snapshot
+  hooks, reload and checks of the egress proxy) and the DLM snapshot policies with their alarms. Deploy
+  after bb-srv-base.
+
+Parameters:
+  DailySnapshotRetentionDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+  WeeklySnapshotRetentionDays:
+    Type: Number
+    Default: 28
+    MinValue: 7
+    MaxValue: 180
+
+Resources:
+  # ---------------------------------------------------------------- SSM documents
+  # The sector of a host is in /etc/bb-srv/sector and its ECR repository in /etc/bb-srv/repo (written
+  # by the bootstrap of sector-compute.yaml), so no document takes the sector as a parameter.
+  # The scripts never use Go templates ({{...}}): SSM reads double braces as its own parameters.
+  InstallDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Install
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - install (mode=create) or re-attach (mode=attach) the instance of this sector
+          from images pinned by digest; mode=auto picks attach when the data disk already has the
+          instance and create otherwise (a retry after a failed install, or a new VM on the old disk).
+          Run by scripts/add-sector.sh, never by the user data.
+        parameters:
+          mode:
+            type: String
+            allowedValues: [create, attach, auto]
+            default: create
+          imageDigest:
+            type: String
+            allowedPattern: '^sha256:[0-9a-f]{64}$'
+          opsDigest:
+            type: String
+            allowedPattern: '^sha256:[0-9a-f]{64}$'
+          cpus:
+            type: String
+            default: '2'
+            allowedPattern: '^[0-9]{1,2}$'
+          mem:
+            type: String
+            default: 6500m
+            allowedPattern: '^[0-9]{1,6}[mg]$'
+          disk:
+            type: String
+            default: 36G
+            allowedPattern: '^[0-9]{1,4}G$'
+          tmp:
+            type: String
+            default: 3g
+            allowedPattern: '^[0-9]{1,5}[mg]$'
+        mainSteps:
+          - action: aws:runShellScript
+            name: install
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '2700'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  export HOME=/root DOCKER_CONFIG=/root/.docker
+                  fail() { echo "BB_INSTALL fail: $*" >&2; exit 1; }
+                  [ -s /etc/bb-srv/sector ] && [ -s /etc/bb-srv/repo ] || fail "this is not a bb-srv sector host"
+                  S=$(cat /etc/bb-srv/sector); REPO=$(cat /etc/bb-srv/repo)
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  ENVF=/srv/openbot-docker/instances/$S.env
+                  P=/usr/local/sbin/bb-srv-proxy
+                  for _ in $(seq 1 120); do [ -f /var/lib/bb-srv/bootstrap.done ] && break; sleep 10; done
+                  [ -f /var/lib/bb-srv/bootstrap.done ] || fail "the bootstrap did not finish: read /var/log/bb-srv-bootstrap.log"
+                  mountpoint -q /srv || fail "/srv (the data volume) is not mounted"
+                  # The egress proxy (step 3) needs what the bootstrap of sector-compute.yaml writes for it.
+                  [ -s /etc/bb-srv/region ] && [ -s /etc/bb-srv/zone ] && [ -x /snap/bin/aws ] ||
+                    fail "the bootstrap of this VM predates the egress proxy (no region, zone or AWS CLI): replace the VM (README, section 11)"
+                  MODE='{{ mode }}'
+                  IMG="$REPO@{{ imageDigest }}"
+                  OPS="$REPO@{{ opsDigest }}"
+                  if [ "$MODE" = auto ]; then
+                    if [ -e "$ENVF" ]; then MODE=attach; else MODE=create; fi
+                    echo "mode auto -> $MODE"
+                  fi
+                  if [ "$MODE" = create ]; then
+                    [ ! -e "$ENVF" ] || fail "$S already exists on this data disk: use mode=attach"
+                    # An interrupted create (killed before its own cleanup) leaves the folder without the
+                    # env file. Nothing here deletes data: inspect it with the bb-srv-<sector>-Shell session.
+                    [ ! -e "/srv/openbot/$S" ] || fail "/srv/openbot/$S exists without $ENVF (an interrupted create): inspect it with the bb-srv-$S-Shell session"
+                  else
+                    [ -f "$ENVF" ] || fail "there is no $ENVF on this data disk: use mode=create"
+                    # attach runs the image of the disk. Only bb-srv/server by digest: an image from
+                    # elsewhere would skip the build report and the scan.
+                    IMG=$(sed -n 's/^BUILDERSBOT_IMAGE=//p' "$ENVF" | tail -n 1)
+                    [ "${IMG%@sha256:*}" = "$REPO" ] && [[ ${IMG#"$REPO"@sha256:} =~ ^[0-9a-f]{64}$ ]] ||
+                      fail "BUILDERSBOT_IMAGE in $ENVF is not $REPO pinned by digest"
+                  fi
+                  # The image that this host runs. add-sector.sh records it in /bb-srv/sectors/<sector>/image.
+                  echo "BB_IMAGE $IMG"
+                  # 1. The operation bundle (the docker/ folder of the same commit) to /srv/openbot-docker.
+                  #    It has no *.env file, so the env file of the instance stays.
+                  docker pull --quiet "$OPS" >/dev/null
+                  cid=$(docker create "$OPS" /noop)
+                  install -d -m 0755 /srv/openbot-docker
+                  docker cp "$cid:/docker/." /srv/openbot-docker/
+                  docker rm "$cid" >/dev/null
+                  [ -x "$I" ] || fail "the bundle has no instances/openbot-instance"
+                  # 2. Firewall, network, rsyslog, logrotate and LXCFS of the instances.
+                  "$I" setup
+                  # 3. The egress proxy (README section 16), before any container starts: the script of the
+                  #    document bb-srv-ProxySetup (stack bb-srv-proxy, too large to live here) runs now, after
+                  #    the bundle and the firewall of the instances. With it, the container reaches only the
+                  #    local forwarder, the DNS of the host and our Signal/TURN; the rest is dropped.
+                  setup=$(mktemp /run/bb-srv-proxy-setup.XXXXXX)
+                  if ! /snap/bin/aws ssm get-document --region "$(cat /etc/bb-srv/region)" --name bb-srv-ProxySetup \
+                    --document-format JSON --query Content --output text | jq -er '.mainSteps[0].inputs.runCommand[0]' >"$setup"; then
+                    rm -f "$setup"
+                    fail "could not read the document bb-srv-ProxySetup (stack bb-srv-proxy: scripts/deploy-base.sh)"
+                  fi
+                  rc=0; bash "$setup" --from-install || rc=$?
+                  rm -f "$setup"
+                  [ "$rc" = 0 ] || fail "bb-srv-ProxySetup failed (message above)"
+                  grep -qxF '    env_file: [/etc/bb-srv/proxy.env]' /srv/openbot-docker/instances/compose.yaml ||
+                    fail "compose.yaml of the bundle did not get the env_file of the egress proxy"
+                  if [ "$MODE" = create ]; then
+                    # compose.yaml has pull_policy: never, so the image is pulled here, by digest.
+                    docker pull --quiet "$IMG" >/dev/null
+                    BUILDERSBOT_IMAGE="$IMG" "$I" create "$S" --cpus '{{ cpus }}' --mem '{{ mem }}' --disk '{{ disk }}'
+                  else
+                    docker pull --quiet "$IMG" >/dev/null
+                    data=/srv/openbot/$S/data
+                    # The line that openbot-instance create writes (docker/instances/openbot-instance).
+                    grep -qF "/srv/openbot/$S/data.img " /etc/fstab ||
+                      printf '%s %s ext4 loop,nofail,x-systemd.before=docker.service,X-fstrim.notrim 0 2\n' "/srv/openbot/$S/data.img" "$data" >>/etc/fstab
+                    systemctl daemon-reload
+                    mountpoint -q "$data" || mount "$data"
+                    base=$(awk -F: '$1 == "dockremap" { print $2; exit }' /etc/subuid)
+                    [ -n "$base" ] || fail "dockremap has no range in /etc/subuid"
+                    have=$(stat -c %u "$data")
+                    [ "$have" = "$((base + 1000))" ] || fail "$data belongs to UID $have, not $((base + 1000)) (userns-remap range differs). Fix the owner before the start."
+                    "$I" up "$S"
+                  fi
+                  # The agents use the browser of the app, not Playwright on a computer (DESIGN 5). Only
+                  # when missing (a create that stopped early): a restored disk keeps the choice of its owner.
+                  docker exec "openbot-$S" sh -c 'f="$HOME/.config/Builders Bot/openbot-app-behavior-preference-v1.json"; [ -e "$f" ] || { install -d -m 0700 "$HOME/.config/Builders Bot" && printf "%s\n" "{\"version\":1,\"browserInApp\":true}" >"$f"; }'
+                  # The tmpfs /tmp counts toward the memory limit (docs/docker.md, Memory).
+                  grep -q '^OPENBOT_TMP=' "$ENVF" || printf 'OPENBOT_TMP=%s\n' '{{ tmp }}' >>"$ENVF"
+                  "$I" down "$S"
+                  "$I" up "$S"
+                  st=''
+                  for _ in $(seq 1 120); do
+                    if docker exec "openbot-$S" test -S /run/openbot/control.sock 2>/dev/null; then
+                      st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
+                      grep -q '^Account: loading' <<<"$st" || break
+                    fi
+                    sleep 2
+                  done
+                  printf '%s\n' "$st"
+                  [ -n "$st" ] || fail "openbot status did not answer: openbot-instance logs $S"
+                  # The egress seen from the container (bb-srv-proxy verify; output to CloudWatch: the country, no
+                  # address): the proxy and Brazil, no direct path (an IP literal, from its network namespace), its
+                  # DNS only for signal./turn., and the Signal reached when the host reaches it. A leak stops the
+                  # container and keeps it stopped at boot until a check passes; any other failure stops the install.
+                  if [ "$("$P" mode)" = proxy ]; then
+                    "$P" verify || fail "the egress check of the container failed (BB_PROXY lines above)"
+                    "$P" health
+                  fi
+                  systemctl enable --now bb-srv-health.timer
+                  touch /var/lib/bb-srv/installed
+                  echo "BB_INSTALL ok $S"
+
+  UpgradeDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Upgrade
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - move the instance of this sector to a newer image, pinned by digest. step=pull
+          only pulls and checks the version (the instance keeps running); step=apply switches and starts.
+          Refuses an older version: the database migration cannot be undone (docs/docker.md, Upgrades).
+        parameters:
+          imageDigest:
+            type: String
+            allowedPattern: '^sha256:[0-9a-f]{64}$'
+          step:
+            type: String
+            allowedValues: [pull, apply]
+            default: apply
+        mainSteps:
+          - action: aws:runShellScript
+            name: upgrade
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '1800'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  export HOME=/root DOCKER_CONFIG=/root/.docker
+                  fail() { echo "BB_UPGRADE fail: $*" >&2; exit 1; }
+                  S=$(cat /etc/bb-srv/sector); REPO=$(cat /etc/bb-srv/repo)
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  ENVF=/srv/openbot-docker/instances/$S.env
+                  [ -f "$ENVF" ] || fail "the instance $S is not installed"
+                  NEW="$REPO@{{ imageDigest }}"
+                  CUR=$(sed -n 's/^BUILDERSBOT_IMAGE=//p' "$ENVF" | tail -n 1)
+                  [ "$CUR" != "$NEW" ] || { echo "BB_UPGRADE ok $S (already on this image)"; exit 0; }
+                  label() { docker image inspect "$1" | jq -r '.[0].Config.Labels["org.opencontainers.image.version"] // ""'; }
+                  docker pull --quiet "$NEW" >/dev/null
+                  vnew=$(label "$NEW")
+                  vcur=$(label "$CUR" 2>/dev/null || true)
+                  [[ $vnew =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "the new image has no release version label"
+                  if [[ $vcur =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    lowest=$(printf '%s\n%s\n' "$vcur" "$vnew" | sort -V | head -n 1)
+                    [ "$lowest" = "$vcur" ] || fail "refused: $vnew is older than $vcur"
+                  fi
+                  STEP='{{ step }}'
+                  if [ "$STEP" = pull ]; then echo "BB_UPGRADE pulled $S $vcur -> $vnew"; exit 0; fi
+                  # A container stopped by a leak of the egress proxy starts only through a check (README section 16).
+                  [ ! -e /var/lib/bb-srv/egress-open ] || fail "the container was stopped by an egress leak: repair it with bb-srv-ProxySetup first (README section 16)"
+                  sed -i "s#^BUILDERSBOT_IMAGE=.*#BUILDERSBOT_IMAGE=$NEW#" "$ENVF"
+                  "$I" up "$S"
+                  st=''
+                  for _ in $(seq 1 120); do
+                    if docker exec "openbot-$S" test -S /run/openbot/control.sock 2>/dev/null; then
+                      st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
+                      grep -q '^Account: loading' <<<"$st" || break
+                    fi
+                    sleep 2
+                  done
+                  printf '%s\n' "$st"
+                  echo "BB_UPGRADE ok $S $vcur -> $vnew"
+
+  # Stops the container cleanly (OpenBot closes its databases in up to 60 s) before a snapshot, an
+  # upgrade or a removal. logout=true also ends the session of the owner account on this server.
+  DownDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Down
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: Builders Bot - stop the instance of this sector (optionally sign it out first) and flush the disks.
+        parameters:
+          logout:
+            type: String
+            allowedValues: ['false', 'true']
+            default: 'false'
+        mainSteps:
+          - action: aws:runShellScript
+            name: down
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '480'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  S=$(cat /etc/bb-srv/sector)
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  LOGOUT='{{ logout }}'
+                  if [ ! -f "/srv/openbot-docker/instances/$S.env" ]; then
+                    [ "$LOGOUT" != true ] || echo "BB_LOGOUT none (not installed)"
+                    echo "BB_DOWN ok $S (not installed)"; exit 0
+                  fi
+                  # remove-sector.sh needs "BB_LOGOUT ok" (or none) to trust that the session of the owner
+                  # account is not left in the snapshot. The logout needs the app, so start it if needed.
+                  if [ "$LOGOUT" = true ]; then
+                    # Not a container stopped by an egress leak (/var/lib/bb-srv/egress-open): no logout then.
+                    docker exec "openbot-$S" true 2>/dev/null || [ -e /var/lib/bb-srv/egress-open ] || "$I" up "$S" || true
+                    st=''
+                    for _ in $(seq 1 90); do
+                      st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
+                      case "$st" in *"Account: loading"* | '') sleep 2 ;; *) break ;; esac
+                    done
+                    if grep -q '^Account: signed out' <<<"$st"; then
+                      echo "BB_LOGOUT none (signed out)"
+                    elif docker exec "openbot-$S" openbot logout; then
+                      echo "BB_LOGOUT ok"
+                    else
+                      echo "BB_LOGOUT fail (the app did not answer or the logout failed); continuing with the stop"
+                    fi
+                  fi
+                  "$I" down "$S"
+                  sync
+                  echo "BB_DOWN ok $S"
+
+  # Read-only view of the host for scripts/status.sh --deep.
+  StatusDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Status
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: Builders Bot - read-only status of the instance of this sector.
+        mainSteps:
+          - action: aws:runShellScript
+            name: status
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '300'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  S=$(cat /etc/bb-srv/sector 2>/dev/null || echo unknown)
+                  echo "sector: $S"
+                  echo "bootstrap: $(test -f /var/lib/bb-srv/bootstrap.done && echo 'done' || echo pending)"
+                  echo "installed: $(test -f /var/lib/bb-srv/installed && echo yes || echo no)"
+                  # What comes from the container and the app goes behind "  | ", so it never forms a line that
+                  # scripts/status.sh reads (only from the last "egress proxy:" to BB_PROXY_END, printed below by
+                  # root), and is capped at 20 lines of 200 characters per command, so it never pushes that part out
+                  # of the first 24,000 characters of the output, all that SSM keeps.
+                  /srv/openbot-docker/instances/openbot-instance list 2>&1 | sed 's/^/  | /' | cut -c 1-200 | head -n 20
+                  { timeout 30 docker exec "openbot-$S" openbot status 2>&1 || echo "openbot status: no answer"; } |
+                    sed 's/^/  | /' | cut -c 1-200 | head -n 20
+                  echo "image: $(sed -n 's/^BUILDERSBOT_IMAGE=//p' "/srv/openbot-docker/instances/$S.env" 2>/dev/null | tail -n 1)"
+                  echo "last health lines:"; tail -n 3 /var/log/bb-srv/health.log 2>/dev/null || true
+                  echo "host memory:"; free -m | sed -n '1,2p'
+                  echo "disks:"; df -h /srv "/srv/openbot/$S/data" 2>/dev/null || true
+                  echo "firewall:"; iptables -S OPENBOT-EGRESS 2>/dev/null | head -n 3 || true
+                  # The egress proxy (README section 16). Exit IP and country as the container sees them;
+                  # scripts/status.sh reads the BB_PROXY_* lines. This output stays in SSM (no log group). The last
+                  # line, BB_PROXY_END, proves that the part arrived whole: without it, status.sh concludes nothing.
+                  echo "egress proxy:"
+                  if [ -x /usr/local/sbin/bb-srv-proxy ]; then
+                    echo "  forwarder: $(systemctl is-active bb-proxy.service 2>/dev/null || true)"
+                    echo "  firewall: $(iptables -S BB-SRV-EGRESS 2>/dev/null | tail -n 1)"
+                    grep 'BB_PROXY_HEALTH' /var/log/bb-srv/health.log 2>/dev/null | tail -n 2 || true
+                    timeout 200 /usr/local/sbin/bb-srv-proxy check-container || echo "BB_PROXY_EXIT fail"
+                  else
+                    echo "BB_PROXY_MODE not-installed"
+                  fi
+                  echo "BB_PROXY_END"
+
+  # After a rotation of /bb-srv/proxy/egress (README section 16): the credential again, the firewall, the
+  # forwarder and one health line that must be "ok BR". The container keeps running. It runs the tool that
+  # bb-srv-ProxySetup (stack bb-srv-proxy) writes; it lives here for the 51,200 bytes of that template.
+  ProxyReloadDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-ProxyReload
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - re-read the egress proxy credential (/bb-srv/proxy/egress), restart the local
+          forwarder of this sector and re-apply its egress firewall. Prints no secret.
+        mainSteps:
+          - action: aws:runShellScript
+            name: proxy_reload
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '300'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  fail() { echo "BB_PROXY_RELOAD fail: $*" >&2; exit 1; }
+                  S=$(cat /etc/bb-srv/sector 2>/dev/null) || fail "this is not a bb-srv sector host"
+                  P=/usr/local/sbin/bb-srv-proxy
+                  [ -x "$P" ] || fail "the egress proxy is not installed on this host: run bb-srv-ProxySetup (README section 16)"
+                  if [ "$("$P" mode)" = direct ]; then
+                    echo "BB_PROXY_RELOAD ok $S: direct egress (EgressProxy=direct), nothing to reload"
+                    exit 0
+                  fi
+                  "$P" config || fail "the forwarder keeps the previous credential (message above; no secret is printed)"
+                  "$P" guard
+                  systemctl restart bb-proxy.service
+                  sleep 3
+                  systemctl is-active --quiet bb-proxy.service || fail "the forwarder did not start: journalctl -u bb-proxy (root on the host)"
+                  "$P" health
+                  # The line just written (not a BB_HEALTH line). A wrong password ends here.
+                  line=$(grep BB_PROXY_HEALTH /var/log/bb-srv/health.log | tail -n 1 || true)
+                  echo "$line"
+                  [[ $line == *"BB_PROXY_HEALTH ok BR" ]] || fail "the health line after the reload is not ok BR (README section 16, the table of lines)"
+                  echo "BB_PROXY_RELOAD ok $S"
+
+  # The checks of the egress proxy tool (README section 16): health, check-container, judge, contain and verify of
+  # /usr/local/sbin/bb-srv-proxy. bb-srv-ProxySetup (stack bb-srv-proxy) reads this script and writes it after the
+  # rest of the tool, whose constants and functions it uses; it lives here for the 51,200 bytes of that template.
+  # Never sent: alone it only defines functions, and a send-command of it raises bb-srv-<sector>-command-other-doc.
+  ProxyChecksDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-ProxyChecks
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - the checks of the egress proxy tool, written into it by bb-srv-ProxySetup. Never sent:
+          alone it only defines functions.
+        mainSteps:
+          - action: aws:runShellScript
+            name: proxy_checks
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              runCommand:
+                - |
+                  # Part of /usr/local/sbin/bb-srv-proxy (README section 16), after the functions of the tool and before main "$@".
+                  # It uses the constants and functions of the tool (mode, container_pid, direct_probe, dns_filter, classify...).
+
+                  # One line per run, with the country and never an address. With the container running, from its network:
+                  # the proxy (through INPUT and the bridge), its direct path and its DNS. A proven leak stops it (contain). A
+                  # container that docker gives no clear answer about is no "ok": it may run, and nothing could be tested.
+                  health() {
+                    local log=/var/log/bb-srv/health.log result='' body rc=0 code c pid sig direct dns
+                    [ "$(mode)" = proxy ] || return 0
+                    # Not in the middle of a guard run, which changes the rules for a moment.
+                    exec 8>/run/bb-srv-proxy.lock
+                    flock -w 120 8 || true
+                    c=openbot-$(cat "$ETC/sector")
+                    pid=$(container_pid "$c")
+                    sig=$(signal_name)
+                    if [ -e "$CONTAINED" ]; then
+                      result="fail contained"
+                    elif ! systemctl is-active --quiet bb-proxy.service; then
+                      result="fail forwarder-down"
+                    elif [ "$(grep -c '^Upstream http ' "$PINNED" 2>/dev/null || true)" != 1 ] ||
+                      ! iptables -C "$FWD_CHAIN" -d "$(upstream_host "$PINNED")/32" -p tcp -m tcp --dport "$(upstream_port "$PINNED")" -j RETURN 2>/dev/null; then
+                      # The forwarder has no single upstream address that the firewall lets it reach (pin of guard).
+                      result="fail no-upstream"
+                    elif held; then
+                      result="fail firewall-hold"
+                    elif ! firewall_ok; then
+                      result="fail firewall-open"
+                    elif [ -n "$sig" ] && ! grep -q -- ' -j RETURN$' <<<"$(iptables -S "$OUT_CHAIN")"; then
+                      result="fail no-signal-rule"
+                    elif [ "$pid" = unknown ]; then
+                      result="fail container-unknown"
+                    elif [ "$pid" != down ]; then
+                      direct=$(direct_probe "$pid")
+                      dns=$(dns_filter "$pid")
+                      if [ "$direct" = OPEN ]; then
+                        contain
+                        result="fail direct-open"
+                      elif [ "$dns" = OPEN ]; then
+                        contain
+                        result="fail dns-open"
+                      elif [ "$direct" != blocked ]; then
+                        result="fail direct-unknown"
+                      elif [ "$dns" != ok ]; then
+                        result="fail dns-unknown"
+                      elif [ -n "$sig" ] && ! timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then
+                        result="fail container-dns"
+                      fi
+                    fi
+                    if [ -z "$result" ]; then
+                      if [ "$pid" != down ]; then
+                        body=$(in_net "$pid" curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                      else
+                        body=$(curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                      fi
+                      code=$(awk '$1 == "BB_CONNECT" { c = $2 } END { print c }' <<<"$body")
+                      result=$(classify "$rc" "${code:-000}" <<<"$body")
+                    fi
+                    echo "$(date -u +%FT%TZ) BB_PROXY_HEALTH $result" >>"$log"
+                  }
+
+                  check_container() {
+                    local c show_ip=1 body ip country rc=0 pid sig
+                    [ "${1:-}" != --no-ip ] || show_ip=0
+                    c=openbot-$(cat "$ETC/sector")
+                    echo "BB_PROXY_MODE $(mode)"
+                    [ "$(mode)" = proxy ] || return 0
+                    [ ! -e "$CONTAINED" ] || echo "BB_PROXY_CONTAINED yes"
+                    # Running or not by docker inspect alone, and the probes of the host first: a container that breaks
+                    # docker exec only loses the lines that need it (ENV missing, EXIT fail), never these two.
+                    pid=$(container_pid "$c")
+                    case $pid in down | unknown) echo "BB_PROXY_CONTAINER $pid"; return 0 ;; esac
+                    echo "BB_PROXY_DIRECT $(direct_probe "$pid")"
+                    echo "BB_PROXY_DNS_FILTER $(dns_filter "$pid")"
+                    if [ "$(timeout 20 docker exec "$c" printenv HTTPS_PROXY 2>/dev/null || true)" = "http://$GATEWAY:$PORT" ] &&
+                      [ "$(timeout 20 docker exec "$c" printenv NODE_USE_ENV_PROXY 2>/dev/null || true)" = 1 ]; then
+                      echo "BB_PROXY_ENV ok"
+                    else
+                      echo "BB_PROXY_ENV missing"
+                    fi
+                    body=$(timeout 45 docker exec "$c" curl -sS -m 30 "$TRACE" 2>/dev/null) || rc=$?
+                    ip=$(awk -F= '$1 == "ip" { print $2; exit }' <<<"$body")
+                    country=$(awk -F= '$1 == "loc" && $2 ~ /^[A-Z][A-Z]$/ { print $2; exit }' <<<"$body")
+                    public_ipv4 "$ip" || ip=''
+                    if [ "$rc" = 0 ] && [ -n "$country" ]; then
+                      if [ "$show_ip" = 1 ] && [ -n "$ip" ]; then
+                        echo "BB_PROXY_EXIT ip=$ip country=$country"
+                      else
+                        echo "BB_PROXY_EXIT country=$country"
+                      fi
+                    else
+                      echo "BB_PROXY_EXIT fail"
+                    fi
+                    # The two direct paths of the design: the DNS of signal./turn. and the Signal itself. Without a
+                    # record of the Signal (no stack yet) there is nothing to test.
+                    sig=$(signal_name)
+                    if [ -z "$sig" ]; then
+                      printf '%s\n' "BB_PROXY_DNS skipped" "BB_PROXY_SIGNAL skipped"
+                      return 0
+                    fi
+                    if timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then echo "BB_PROXY_DNS ok"; else echo "BB_PROXY_DNS fail"; fi
+                    if timeout 25 docker exec "$c" curl -sS -m 10 --noproxy '*' -o /dev/null "https://$sig/health/ready" 2>/dev/null; then
+                      echo "BB_PROXY_SIGNAL ok"
+                    elif curl -sS -m 10 -o /dev/null "https://$sig/health/ready" 2>/dev/null; then
+                      echo "BB_PROXY_SIGNAL fail"
+                    else
+                      echo "BB_PROXY_SIGNAL unreachable"
+                    fi
+                  }
+
+                  line_in() { grep -qx -- "$1" <<<"$2"; }
+
+                  # The lines of check-container -> ok, direct, down, unknown (docker gave no clear answer: nothing tested), leak
+                  # <what> (stop the container) or fail <what>.
+                  judge() {
+                    local out
+                    out=$(cat)
+                    if line_in 'BB_PROXY_MODE direct' "$out"; then echo direct
+                    elif line_in 'BB_PROXY_CONTAINER down' "$out"; then echo down
+                    elif line_in 'BB_PROXY_CONTAINER unknown' "$out"; then echo unknown
+                    elif ! line_in 'BB_PROXY_DIRECT blocked' "$out"; then echo "leak direct"
+                    elif ! line_in 'BB_PROXY_DNS_FILTER ok' "$out"; then echo "leak dns"
+                    elif ! line_in 'BB_PROXY_ENV ok' "$out"; then echo "fail env"
+                    elif line_in 'BB_PROXY_DNS fail' "$out"; then echo "fail dns"
+                    elif line_in 'BB_PROXY_SIGNAL fail' "$out"; then echo "fail signal"
+                    elif ! grep -qE '^BB_PROXY_EXIT (ip=[0-9.]+ )?country=BR$' <<<"$out"; then echo "fail exit"
+                    else echo ok
+                    fi
+                  }
+
+                  # Never leave running a container with a way out besides the proxy: stop it and keep it stopped at
+                  # boot (drop-in of bb-srv-sector-up) until verify passes (bb-srv-Install or bb-srv-ProxySetup).
+                  contain() {
+                    local s
+                    s=$(cat "$ETC/sector")
+                    install -d -m 0755 "${CONTAINED%/*}"
+                    : >"$CONTAINED"
+                    systemctl disable --quiet bb-srv-sector-up.service 2>/dev/null || true
+                    timeout 180 "$INSTANCE" down "$s" >/dev/null 2>&1 || timeout 90 docker stop "openbot-$s" >/dev/null 2>&1 || true
+                  }
+
+                  verify() {
+                    local chk verdict
+                    if [ "$(mode)" != proxy ]; then echo "BB_PROXY_VERIFY skipped (direct egress)"; return 0; fi
+                    chk=$(check_container --no-ip)
+                    printf '%s\n' "$chk"
+                    verdict=$(judge <<<"$chk")
+                    case $verdict in
+                      ok)
+                        rm -f "$CONTAINED"
+                        systemctl enable --quiet bb-srv-sector-up.service 2>/dev/null || true
+                        ! line_in 'BB_PROXY_SIGNAL unreachable' "$chk" ||
+                          echo "BB_PROXY warning: the Signal does not answer the host either (ports not approved yet, or it is down): nobody connects until it does" >&2
+                        echo "BB_PROXY_VERIFY ok"
+                        ;;
+                      leak*)
+                        contain
+                        fail "the container had a way out besides the proxy (${verdict#leak }, lines above): it was stopped, and stays stopped at boot until bb-srv-ProxySetup or bb-srv-Install passes this check (README section 16)"
+                        ;;
+                      down) fail "the container is not running: openbot-instance logs $(cat "$ETC/sector")" ;;
+                      unknown) fail "docker inspect gave no clear answer about the container, so nothing was checked: repeat (systemctl status docker)" ;;
+                      "fail env") fail "the container did not get the proxy variables (env_file of compose.yaml)" ;;
+                      "fail dns") fail "the container does not resolve the Signal (bb-srv-container-dns, port 53 of $IN_CHAIN)" ;;
+                      "fail signal") fail "the host reaches the Signal and the container does not (no RETURN for it in $OUT_CHAIN?)" ;;
+                      *) fail "the container does not leave through the residential proxy in Brazil (BB_PROXY_EXIT above; tail /var/log/bb-srv/health.log)" ;;
+                    esac
+                  }
+
+  # The tag DLMScriptsAccess=true follows the DLM convention; the role bb-srv-dlm (below) may send
+  # only this document, and only to Builders Bot instances.
+  SnapshotHooksDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-SnapshotHooks
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Tags: [{Key: DLMScriptsAccess, Value: 'true'}]
+      Content:
+        schemaVersion: '2.2'
+        description: Builders Bot - DLM pre and post scripts. Stops the instance, freezes the disks, thaws and starts it again.
+        parameters:
+          executionId:
+            type: String
+            default: None
+            description: Set by DLM.
+            allowedPattern: '^(None|[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})$'
+          command:
+            type: String
+            default: dry-run
+            description: Set by DLM.
+            allowedValues: [pre-script, post-script, dry-run]
+        mainSteps:
+          - action: aws:runShellScript
+            name: snapshot_hooks
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              runCommand:
+                - |
+                  #!/bin/bash
+                  # Exit codes for DLM: 201 pre-script failed, 202 post-script failed, 206 not ready.
+                  set -uo pipefail
+                  OPERATION='{{ command }}'
+                  S=$(cat /etc/bb-srv/sector 2>/dev/null) || { echo "not a bb-srv sector host"; exit 206; }
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  D=/srv/openbot/$S/data
+                  thaw() { fsfreeze -u /srv 2>/dev/null || true; fsfreeze -u "$D" 2>/dev/null || true; }
+                  # A container stopped by an egress leak (bb-srv-proxy contain) starts only through a check: not here.
+                  OPEN=/var/lib/bb-srv/egress-open
+                  up() { [ -e "$OPEN" ] || "$I" up "$S"; }
+                  case "$OPERATION" in
+                    pre-script)
+                      [ -x "$I" ] && [ -f "/srv/openbot-docker/instances/$S.env" ] || { echo "the instance is not installed"; exit 206; }
+                      "$I" down "$S" || exit 201
+                      sync
+                      # Auto-thaw: when the post-script does not come, thaw and start after 110 s.
+                      systemd-run --quiet --unit "bb-srv-autothaw-$(date +%s)" --on-active=110s \
+                        /bin/sh -c "fsfreeze -u /srv; fsfreeze -u $D; [ -e $OPEN ] || $I up $S; true"
+                      # Inner ext4 image first, then the XFS that holds it.
+                      fsfreeze -f "$D" || { thaw; up; exit 201; }
+                      fsfreeze -f /srv || { thaw; up; exit 201; }
+                      echo "pre-script ok"
+                      ;;
+                    post-script)
+                      # Outer XFS first: thawing the ext4 image writes to the XFS.
+                      thaw
+                      up || exit 202
+                      echo "post-script ok"
+                      ;;
+                    dry-run)
+                      echo "dry-run ok"
+                      ;;
+                    *)
+                      echo "unknown command"; exit 1
+                      ;;
+                  esac
+
+  # ---------------------------------------------------------------- DLM
+  DlmRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-dlm
+      Description: Data Lifecycle Manager - snapshots of Builders Bot sector data volumes with pre and post scripts.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Same trust as the default AWSDataLifecycleManagerDefaultRole: a condition that DLM did not
+          # send would make every backup fail.
+          - Effect: Allow
+            Principal: {Service: dlm.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole
+      # Not AWSDataLifecycleManagerSSMFullAccess: it allows ssm:SendCommand on every instance of the
+      # account with any document tagged DLMScriptsAccess=true (and AWSEC2-CreateVssSnapshot). The same
+      # actions here, but only the hooks document and only the Builders Bot instances.
+      Policies:
+        - PolicyName: snapshot-hooks
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: SsmReads
+                Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommands, ssm:DescribeInstanceInformation]
+                Resource: '*'
+              - Sid: HooksDocumentOnly
+                Effect: Allow
+                Action: [ssm:SendCommand, ssm:DescribeDocument, ssm:GetDocument]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/${SnapshotHooksDocument}'
+              - Sid: BuildersBotInstancesOnly
+                Effect: Allow
+                Action: ssm:SendCommand
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition: {StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}}
+
+  # Always-on sectors (tag BackupPlan=bb-srv-daily). Retention by age; DLM keeps the last snapshot of
+  # each schedule of a removed instance forever, and scripts/gc-snapshots.sh deletes those (DESIGN 10).
+  DailyPolicy:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: bb-srv-daily application-consistent snapshots of always-on sectors
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt DlmRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [INSTANCE]
+        TargetTags: [{Key: BackupPlan, Value: bb-srv-daily}]
+        Parameters: {ExcludeBootVolume: true}
+        Schedules:
+          - Name: daily-0700-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: daily}]
+            CreateRule:
+              CronExpression: 'cron(0 7 * * ? *)'
+              Scripts:
+                - Stages: [PRE, POST]
+                  ExecutionHandlerService: AWS_SYSTEMS_MANAGER
+                  ExecutionHandler: !Ref SnapshotHooksDocument
+                  ExecuteOperationOnScriptFailure: false
+                  ExecutionTimeout: 120
+                  MaximumRetryCount: 2
+            RetainRule: {Interval: !Ref DailySnapshotRetentionDays, IntervalUnit: DAYS}
+
+  # AWS accepts the scripts of ONE schedule per policy (the first create failed with ServiceLimitExceeded),
+  # so the weekly snapshot is its own policy on the same tag. Same hooks, same target, own alarms.
+  WeeklyPolicy:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: bb-srv-weekly application-consistent snapshots of always-on sectors
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt DlmRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [INSTANCE]
+        TargetTags: [{Key: BackupPlan, Value: bb-srv-daily}]
+        Parameters: {ExcludeBootVolume: true}
+        Schedules:
+          - Name: weekly-sunday-0400-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: weekly}]
+            CreateRule:
+              CronExpression: 'cron(0 4 ? * SUN *)'
+              Scripts:
+                - Stages: [PRE, POST]
+                  ExecutionHandlerService: AWS_SYSTEMS_MANAGER
+                  ExecutionHandler: !Ref SnapshotHooksDocument
+                  ExecuteOperationOnScriptFailure: false
+                  ExecutionTimeout: 120
+                  MaximumRetryCount: 2
+            RetainRule: {Interval: !Ref WeeklySnapshotRetentionDays, IntervalUnit: DAYS}
+
+  # Business-hours sectors (tag BackupPlan=bb-srv-stopped): stopped at 02:00 UTC, so the disk is
+  # consistent and SSM could not reach them anyway.
+  StoppedPolicy:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: bb-srv-stopped snapshots of business-hours sectors while they are stopped
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt DlmRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [INSTANCE]
+        TargetTags: [{Key: BackupPlan, Value: bb-srv-stopped}]
+        Parameters: {ExcludeBootVolume: true}
+        Schedules:
+          - Name: daily-0200-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: daily}]
+            CreateRule: {CronExpression: 'cron(0 2 * * ? *)'}
+            RetainRule: {Interval: !Ref DailySnapshotRetentionDays, IntervalUnit: DAYS}
+          - Name: weekly-sunday-0230-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: weekly}]
+            CreateRule: {CronExpression: 'cron(30 2 ? * SUN *)'}
+            RetainRule: {Interval: !Ref WeeklySnapshotRetentionDays, IntervalUnit: DAYS}
+
+  DailySnapshotsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-daily-snapshots-failed
+      Namespace: AWS/EBS
+      MetricName: SnapshotsCreateFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt DailyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  DailyPreScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-daily-prescript-failed
+      AlarmDescription: With ExecuteOperationOnScriptFailure=false, a failed pre-script means no snapshot for that instance.
+      Namespace: AWS/EBS
+      MetricName: PreScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt DailyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  DailyPostScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-daily-postscript-failed
+      AlarmDescription: The post-script did not start the instance again. The auto-thaw or bb-srv-sector-up should, check the sector.
+      Namespace: AWS/EBS
+      MetricName: PostScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt DailyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  WeeklySnapshotsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-weekly-snapshots-failed
+      Namespace: AWS/EBS
+      MetricName: SnapshotsCreateFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt WeeklyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  WeeklyPreScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-weekly-prescript-failed
+      AlarmDescription: With ExecuteOperationOnScriptFailure=false, a failed pre-script means no weekly snapshot for that instance.
+      Namespace: AWS/EBS
+      MetricName: PreScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt WeeklyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  WeeklyPostScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-weekly-postscript-failed
+      AlarmDescription: The post-script did not start the instance again. The auto-thaw or bb-srv-sector-up should, check the sector.
+      Namespace: AWS/EBS
+      MetricName: PostScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt WeeklyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  StoppedSnapshotsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-stopped-snapshots-failed
+      Namespace: AWS/EBS
+      MetricName: SnapshotsCreateFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt StoppedPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  SnapshotFailedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-ebs-snapshot-failed
+      Description: An EBS snapshot of the account failed.
+      EventPattern:
+        source: [aws.ec2]
+        detail-type: [EBS Snapshot Notification]
+        detail:
+          result: [failed]
+      Targets:
+        - Id: alerts
+          Arn: !ImportValue bb-srv-base-AlertTopicArn
+
+  DlmStateRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-dlm-policy-state
+      Description: A DLM policy of the account changed state (for example to ERROR).
+      EventPattern:
+        source: [aws.dlm]
+        detail-type: [DLM Policy State Change]
+      Targets:
+        - Id: alerts
+          Arn: !ImportValue bb-srv-base-AlertTopicArn
+
+  # A Run Command sent by targets (tags, resource groups) does not name the instances, so the rules
+  # per VM (bb-srv-<sector>-command-other-doc, bb-srv-signal-command) do not see it, although it may
+  # reach a Builders Bot host as root. Account-wide: it also alerts on other teams' targeted commands.
+  # CloudTrail writes the field as targets[].key; Key covers the other spelling.
+  CommandByTargetsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-command-by-targets
+      Description: An SSM Run Command sent by targets in the account (it may reach a Builders Bot host without naming it).
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [SendCommand]
+          $or:
+            - requestParameters:
+                targets:
+                  key: [{exists: true}]
+            - requestParameters:
+                targets:
+                  Key: [{exists: true}]
+      Targets:
+        - Id: alerts
+          Arn: !ImportValue bb-srv-base-AlertTopicArn
+
+Outputs:
+  InstallDocumentName:
+    Value: !Ref InstallDocument
+  UpgradeDocumentName:
+    Value: !Ref UpgradeDocument
+  SnapshotHooksDocumentName:
+    Value: !Ref SnapshotHooksDocument
+  ProxyReloadDocumentName:
+    Value: !Ref ProxyReloadDocument
+  ProxyChecksDocumentName:
+    Value: !Ref ProxyChecksDocument
+  DailyPolicyId:
+    Value: !GetAtt DailyPolicy.PolicyId
+  WeeklyPolicyId:
+    Value: !GetAtt WeeklyPolicy.PolicyId
+  StoppedPolicyId:
+    Value: !GetAtt StoppedPolicy.PolicyId
