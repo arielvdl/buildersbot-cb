@@ -720,7 +720,8 @@ function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (prefer
               const quietMinutes = clampWatchMinutes(Number(event.currentTarget.value));
               setDraft(null);
               event.currentTarget.value = String(quietMinutes);
-              props.onChange({ enabled: true, quietMinutes });
+              // A late change, sent on blur when the switch is clicked, must not turn the reviewer on again.
+              props.onChange({ enabled: props.taskWatch.enabled, quietMinutes });
             }}
           />
           <span>{t("app.rail.load.watchQuietUnit")}</span>
