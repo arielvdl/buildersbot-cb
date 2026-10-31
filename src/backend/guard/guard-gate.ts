@@ -66,6 +66,13 @@ export type GuardBefore =
 
 const BROWSER = "openbot_browser";
 const OPENBOT = "openbot";
+/**
+ * How long the person's "allow" holds for the same item in the same thread. A page that a snapshot,
+ * a wait or a click reads again gives the same findings, and the same chat post sent again is the
+ * same action: neither asks again in that time. Another item, another page or another thread asks.
+ */
+const ANSWER_TTL_MS = 10 * 60_000;
+const ANSWER_LIMIT = 256;
 /** The most characters of a payload that the approval card shows. */
 const CARD_PAYLOAD_LIMIT = 400;
 
@@ -626,9 +633,39 @@ function approvalFor(
 
 export class GuardGate<Client = AgentClient> {
   readonly #options: GuardGateOptions<Client>;
+  /** The items that the person allowed, by thread and item, with the time of the answer. */
+  readonly #allowed = new Map<string, number>();
 
   constructor(options: GuardGateOptions<Client>) {
     this.#options = options;
+  }
+
+  /** The key of a remembered answer: the agent, the thread, the page and what the check found. */
+  #answerKey(agentId: string, params: DynamicToolCallParams, host: string | null, checked: GuardResult): string | null {
+    if (!checked.fingerprint) return null;
+    return JSON.stringify([agentId, params.threadId, host ?? "", checked.fingerprint]);
+  }
+
+  #remembered(key: string | null): boolean {
+    if (key === null) return false;
+    const at = this.#allowed.get(key);
+    if (at === undefined) return false;
+    if (Date.now() - at > ANSWER_TTL_MS) {
+      this.#allowed.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  #remember(key: string | null): void {
+    if (key === null) return;
+    this.#allowed.delete(key);
+    this.#allowed.set(key, Date.now());
+    while (this.#allowed.size > ANSWER_LIMIT) {
+      const oldest = this.#allowed.keys().next().value;
+      if (oldest === undefined) break;
+      this.#allowed.delete(oldest);
+    }
   }
 
   /**
@@ -662,6 +699,9 @@ export class GuardGate<Client = AgentClient> {
     const checked = yield* guard.check({ direction: "outbound", subject: item.tool, action: item });
     if (checked.action === "allow" || checked.action === "annotate") return run;
     if (checked.action === "block") return { proceed: false, result: declined(checked.reason) } satisfies GuardBefore;
+    // The same action, with the same real files, that the person allowed a short time ago.
+    const key = this.#answerKey(agentId, params, null, checked);
+    if (this.#remembered(key)) return run;
     const answer = yield* this.#options.ask(
       client,
       request,
@@ -683,6 +723,7 @@ export class GuardGate<Client = AgentClient> {
           return { proceed: false, result: refusal(FILES_CHANGED) } satisfies GuardBefore;
       }
     }
+    this.#remember(key);
     return run;
   });
 
@@ -719,6 +760,9 @@ export class GuardGate<Client = AgentClient> {
       case "block":
         return withheld(checked.reason);
       case "ask": {
+        // The same findings on the same page that the person allowed a short time ago.
+        const key = this.#answerKey(agentId, params, host, checked);
+        if (this.#remembered(key)) return withNotice(result, checked.reason);
         const answer = yield* this.#options.ask(
           client,
           request,
@@ -726,7 +770,9 @@ export class GuardGate<Client = AgentClient> {
           { ownerOnly: guardOwnerOnly(checked) },
         );
         if (answer === "cancel") return null;
-        return answer === "accept" ? withNotice(result, checked.reason) : withheld(checked.reason);
+        if (answer !== "accept") return withheld(checked.reason);
+        this.#remember(key);
+        return withNotice(result, checked.reason);
       }
     }
   });

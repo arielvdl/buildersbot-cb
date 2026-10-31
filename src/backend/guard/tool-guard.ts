@@ -32,6 +32,12 @@ export interface GuardResult extends GuardDecision {
   readonly durationMs: number;
   /** What the reviewer gave, for the log. */
   readonly judge: GuardJudgeOutcome["kind"];
+  /**
+   * A hash that names what the local check found, so the gate can remember the person's answer for
+   * the same item: for content, the findings and the text of each marked place (a page read again by
+   * a snapshot or a wait gives the same one); for an action, its whole text. Null for a clean item.
+   */
+  readonly fingerprint: string | null;
 }
 
 /** The log of the Guard: verdict, category and time only, never the content. */
@@ -51,7 +57,9 @@ export interface ToolGuardOptions {
 
 /**
  * How many reviews may run at once. A check past the limit waits for a free slot within the same
- * deadline as the review itself; when none comes free, the review counts as `busy`.
+ * deadline as the review itself. When the deadline ends after any wait for a slot, the review counts
+ * as `busy`, not as a timeout: a review that started late after the wait would else end as a
+ * timeout, which lets an action pass.
  */
 const MAX_REVIEWS_IN_FLIGHT = 4;
 /** How long a verdict is kept for the same item, so a repeated item costs no second review. */
@@ -66,6 +74,8 @@ export class ToolGuard {
   readonly #now: () => number;
   readonly #verdicts = new Map<string, { verdict: GuardJudgeVerdict; at: number }>();
   readonly #slots = Semaphore.makeUnsafe(MAX_REVIEWS_IN_FLIGHT);
+  /** How many reviews hold a slot now. */
+  #inFlight = 0;
 
   constructor(options: ToolGuardOptions) {
     this.#options = options;
@@ -96,14 +106,19 @@ export class ToolGuard {
     const level = guardEffectiveLevel(preference.level);
     if (level === "off") {
       const off = decideGuard({ level, direction: item.direction, triage: CLEAN, judge: { kind: "not-needed" } });
-      return { ...off, durationMs: 0, judge: "not-needed" } satisfies GuardResult;
+      return { ...off, durationMs: 0, judge: "not-needed", fingerprint: null } satisfies GuardResult;
     }
     const triage = item.direction === "inbound" ? triageContent(item.content) : triageAction(item.action);
     const judge: GuardJudgeOutcome = guardNeedsJudge(level, item.direction, triage)
       ? yield* this.#review(preference.judge, item, triage)
       : { kind: "not-needed" };
     const decision = decideGuard({ level, direction: item.direction, triage, judge });
-    const result: GuardResult = { ...decision, durationMs: Math.round(this.#now() - started), judge: judge.kind };
+    const result: GuardResult = {
+      ...decision,
+      durationMs: Math.round(this.#now() - started),
+      judge: judge.kind,
+      fingerprint: triage.level === "clean" ? null : fingerprintOf(item.direction, triage),
+    };
     // Every finding is logged, an incomplete read too, with no content: names, verdicts and times only.
     if (triage.level !== "clean") {
       this.#log.info("The Guard checked an item.", {
@@ -148,19 +163,29 @@ export class ToolGuard {
       findings: triage.findings.map((finding) => finding.code),
       excerpt: excerpt.text,
     });
-    // The wait for a slot counts in the deadline: a check never waits longer than one review.
+    // The wait for a slot counts in the deadline: a check never waits longer than one review. A check
+    // that found every slot taken waited, and its timeout is `busy`.
     let started = false;
+    const waited = this.#inFlight >= MAX_REVIEWS_IN_FLIGHT;
     const review = Effect.suspend(() => {
       started = true;
+      this.#inFlight += 1;
       return port.complete(choice, { system: GUARD_JUDGE_SYSTEM, prompt });
-    }).pipe(Effect.map((text) => ({ text })));
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (started) this.#inFlight -= 1;
+        }),
+      ),
+      Effect.map((text) => ({ text })),
+    );
     const reply = yield* this.#slots
       .withPermits(1)(review)
       .pipe(
         // A reviewer that hangs must not hold the tool call: the local check decides.
         Effect.timeoutOrElse({
           duration: this.#options.timeoutMs ?? port.timeoutMs ?? GUARD_JUDGE_TIMEOUT_MS,
-          orElse: () => Effect.succeed(started ? ("timeout" as const) : ("busy" as const)),
+          orElse: () => Effect.succeed(started && !waited ? ("timeout" as const) : ("busy" as const)),
         }),
         Effect.catch(() => Effect.succeed("error" as const)),
         Effect.catchDefect(() => Effect.succeed("error" as const)),
@@ -192,6 +217,22 @@ export class ToolGuard {
       this.#verdicts.delete(oldest);
     }
   }
+}
+
+/**
+ * What names one item for a remembered answer. Content: the findings and the text at each marked
+ * place, or the whole text when a finding has no place. An action: its whole text, with every URL,
+ * file and command, so an answer never covers another action.
+ */
+function fingerprintOf(direction: GuardItem["direction"], triage: GuardTriage): string {
+  const hash = createHash("sha256").update(direction);
+  if (direction === "outbound") return hash.update(triage.text).digest("hex");
+  const codes = triage.findings.map((finding) => finding.code);
+  hash.update(JSON.stringify(codes));
+  const placed = triage.findings.every((finding) => triage.hits.some((hit) => hit.code === finding.code));
+  if (!placed || triage.incomplete || triage.unplaced) return hash.update(triage.text).digest("hex");
+  const places = triage.hits.map((hit) => `${hit.code}\u0000${triage.text.slice(hit.start, hit.end)}`).sort();
+  return hash.update(JSON.stringify(places)).digest("hex");
 }
 
 const CLEAN: GuardTriage = {
