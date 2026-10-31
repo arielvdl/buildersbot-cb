@@ -1,12 +1,13 @@
 // Checks the curated Apps list of the Marketplace and the app profile decoder that guards the Hub's
 // answer. The list part drives the curated stories in Storybook, with the real catalog, the real
-// curation store and the real CSS, in a headless browser with a new profile. Pass the URL that
-// `bun run storybook` reports:
+// curation store (receiveAppProfile and local storage) and the real CSS, in a headless browser with
+// a new profile. Pass the URL that `bun run storybook` reports:
 //
 //   bun scripts/marketplace-apps-curation-e2e.ts --storybook=http://localhost:6006
 //
 // Writes .openbot-build/marketplace-apps-curation-e2e/report.json and one screenshot per state:
-// en and pt, dark and light, 1280 x 880, 720 x 780 and 390 x 844, "Show all apps" off and on.
+// en and pt, dark and light, 1280 x 880, 720 x 780 and 390 x 844, "Show all apps" off and on, and
+// the Agents tab at each size.
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -31,6 +32,18 @@ const VALID = {
   categories: ["design"],
   updatedAt: "2026-10-31T12:00:00.000Z",
 };
+
+/** `count` well-formed ids of 62 characters that the catalog does not have, as in the stories. */
+const futureIds = (count: number, prefix: string) =>
+  Array.from({ length: count }, (_, index) => `${prefix}-${String(index).padStart(3, "0")}-`.padEnd(62, "x"));
+
+/** Slack, Notion and `count` future ids: 123 give 8,134 code units as JSON, 124 give 8,199. */
+const sized = (count: number) => ({
+  version: 1,
+  tag: "Agência de design",
+  apps: { show: ["slack", "notion", ...futureIds(count, "future-app")] },
+  updatedAt: "2026-10-31T12:00:00.000Z",
+});
 
 interface DecoderCase {
   name: string;
@@ -82,7 +95,18 @@ const DECODER_CASES: DecoderCase[] = [
   { name: "not an object", value: "figma,canva", accepted: false },
   { name: "an array", value: [VALID], accepted: false },
   { name: "null", value: null, accepted: false },
-  { name: "no version", value: { ...VALID, version: undefined }, accepted: false },
+  { name: "a profile without version is version 1", value: { ...VALID, version: undefined }, accepted: true },
+  {
+    name: "null in version, hide and categories reads as an absent field",
+    value: { ...VALID, version: null, apps: { show: ["figma"], hide: null }, categories: null },
+    accepted: true,
+    check: (profile) => {
+      assert.equal(profile.version, 1);
+      assert.deepEqual(profile.apps.hide, []);
+      assert.deepEqual(profile.categories, []);
+    },
+  },
+  { name: "show is null", value: { ...VALID, apps: { show: null } }, accepted: false },
   { name: "a newer version", value: { ...VALID, version: 2 }, accepted: false },
   { name: "the version as text", value: { ...VALID, version: "1" }, accepted: false },
   { name: "markup in the tag", value: { ...VALID, tag: "<img src=x onerror=alert(1)>" }, accepted: false },
@@ -115,6 +139,21 @@ const DECODER_CASES: DecoderCase[] = [
   },
   { name: "a date that is not ISO 8601", value: { ...VALID, updatedAt: "31/10/2026" }, accepted: false },
   { name: "an impossible date", value: { ...VALID, updatedAt: "2026-13-45T99:99:00Z" }, accepted: false },
+  {
+    name: "a profile of 8,134 code units as JSON, under the size limit",
+    value: sized(123),
+    accepted: true,
+    check: (profile) => assert.equal(JSON.stringify(profile).length, 8_134),
+  },
+  { name: "a profile of 8,199 code units as JSON, over the size limit", value: sized(124), accepted: false },
+  {
+    name: "128 ids in show and 128 in hide, 16,712 code units as JSON",
+    value: {
+      ...VALID,
+      apps: { show: ["slack", ...futureIds(127, "future-app")], hide: futureIds(128, "retired-app") },
+    },
+    accepted: false,
+  },
 ];
 
 const decoder = DECODER_CASES.map((entry) => {
@@ -161,6 +200,12 @@ const CONNECTOR_NAMES: Readonly<Record<string, string>> = {
   onepassword: "1Password",
   bitwarden: "Bitwarden",
 };
+/** A subtitle of a connector and of a catalog app, in each language of the screenshots. */
+const TAGLINES = {
+  en: ["Mentions and direct messages in Slack", "Docs and knowledge base"],
+  pt: ["Menções e mensagens diretas no Slack", "Docs e base de conhecimento"],
+} as const;
+
 /** The server that the stories hold and no catalog app claims. The list always shows it. */
 const CUSTOM_SERVER = "Local SQLite";
 
@@ -302,17 +347,20 @@ try {
   await waitForRows(page, DEFAULT_NAMES.length);
   steps.push("the search finds a hidden app");
 
-  // Show all apps: every app, and the choice stays after a reload.
+  // Show all apps: every app. A new page load that does not set the choice reads the saved one, as
+  // the app does at its next start.
   await page.getByText("Show all apps", { exact: true }).click();
   await waitForRows(page, ALL_NAMES.length);
   assert.deepEqual(await rowNames(page), ALL_NAMES, "Show all apps does not show every app.");
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 300_000 });
-  await page.locator(".marketplace-app-row").first().waitFor();
+  await open(page, storyUrl("apps-saved-choice"));
   await waitForRows(page, ALL_NAMES.length);
-  assert.equal(await showAllSwitch(page).isChecked(), true, "The choice did not stay after a reload.");
+  assert.equal(await showAllSwitch(page).isChecked(), true, "A new page load did not read the saved choice.");
   await page.getByText("Show all apps", { exact: true }).click();
   await waitForRows(page, DEFAULT_NAMES.length);
-  steps.push("Show all apps shows every app, and the choice stays after a reload");
+  await open(page, storyUrl("apps-saved-choice"));
+  await waitForRows(page, DEFAULT_NAMES.length);
+  assert.equal(await showAllSwitch(page).isChecked(), false, "A new page load did not read the choice off.");
+  steps.push("Show all apps shows every app, and a new page load reads the saved choice, on and off");
   await context.close();
 
   // A profile from the Hub replaces the default list, and its tag shows.
@@ -356,6 +404,33 @@ try {
   steps.push("a link to a hidden app opens its page");
   await profileContext.close();
 
+  // The size limit and the kept profile, through receiveAppProfile and the local storage of the page.
+  const keptContext = await browser.newContext({ viewport: { width: 1280, height: 880 }, reducedMotion: "reduce" });
+  const keptPage = await keptContext.newPage();
+  const largeNames = sorted(["GitHub", "Slack", "Notion", CUSTOM_SERVER]);
+  const expectRows = async (story: string, names: string[], message: string) => {
+    await open(keptPage, storyUrl(story));
+    await waitForRows(keptPage, names.length);
+    assert.deepEqual(await rowNames(keptPage), names, message);
+  };
+  await expectRows("apps-large-profile", largeNames, "A profile under the size limit was refused.");
+  const kept = await keptPage.evaluate(() => window.localStorage.getItem("openbot:marketplace-app-profile") ?? "");
+  assert.ok(kept.length > 8_134, `The profile under the size limit was not kept (${kept.length} code units).`);
+  assert.ok(!kept.includes("story-account"), "The cache holds the account key, not its hash.");
+  await expectRows("apps-before-answer", DEFAULT_NAMES, "A kept profile applied before an answer named its account.");
+  await expectRows("apps-kept-profile", largeNames, "The kept profile did not apply after a new page load.");
+  assert.equal(
+    await keptPage.getByText("Selected for Agência de design", { exact: true }).count(),
+    1,
+    "The tag of the kept profile does not show.",
+  );
+  await expectRows("apps-oversize-profile", DEFAULT_NAMES, "A profile over the size limit changed the list.");
+  await expectRows("apps-kept-profile", DEFAULT_NAMES, "A refused profile did not replace the kept profile.");
+  steps.push(
+    "a profile under the size limit applies and is kept; it waits for an answer that names its account, and applies after a new page load; a profile over the limit gives the default list and replaces the kept one",
+  );
+  await keptContext.close();
+
   // The screenshots: each language, scheme and size, with Show all apps off and on.
   const sizes = [
     { name: "1280", width: 1280, height: 880 },
@@ -375,6 +450,13 @@ try {
         const label = locale === "pt" ? "Mostrar todos os apps" : "Show all apps";
         assert.equal(await shotPage.getByText(label, { exact: true }).count(), 1, `No "${label}" switch.`);
         await waitForRows(shotPage, DEFAULT_NAMES.length);
+        // The subtitles of a connector and of a catalog app are in the language of the story.
+        for (const tagline of TAGLINES[locale]) {
+          assert.ok(
+            (await shotPage.getByText(tagline, { exact: true }).count()) >= 1,
+            `The ${locale} list has no "${tagline}".`,
+          );
+        }
         await assertFits(shotPage, `off-${locale}-${scheme}-${size.name}`);
         await shot(shotPage, `off-${locale}-${scheme}-${size.name}`);
         await shotPage.getByText(label, { exact: true }).click();
@@ -386,7 +468,30 @@ try {
       }
     }
   }
-  steps.push("screenshots in en and pt, dark and light, 1280, 720 and 390 wide, off and on; nothing scrolls sideways");
+  steps.push(
+    "screenshots in en and pt, dark and light, 1280, 720 and 390 wide, off and on; the subtitles are in the language of the story; nothing scrolls sideways",
+  );
+
+  // The Agents tab has the same head and no switch: its toolbar stays on one line, and nothing
+  // scrolls sideways.
+  for (const size of sizes) {
+    const agentsContext = await browser.newContext({
+      viewport: { width: size.width, height: size.height },
+      reducedMotion: "reduce",
+    });
+    const agentsPage = await agentsContext.newPage();
+    await agentsPage.goto(storyUrl("agents"), { waitUntil: "domcontentloaded", timeout: 300_000 });
+    await agentsPage.locator(".marketplace-toolbar").waitFor({ timeout: 240_000 });
+    const wrap = await agentsPage.evaluate(() => {
+      const toolbar = document.querySelector(".marketplace-toolbar");
+      return toolbar ? getComputedStyle(toolbar).flexWrap : "";
+    });
+    assert.equal(wrap, "nowrap", `The Agents toolbar wraps at ${size.name} pixels.`);
+    await assertFits(agentsPage, `agents-en-dark-${size.name}`);
+    await shot(agentsPage, `agents-en-dark-${size.name}`);
+    await agentsContext.close();
+  }
+  steps.push("the Agents toolbar stays on one line at 1280, 720 and 390 pixels, and nothing scrolls sideways");
 } finally {
   await browser.close();
 }

@@ -19,13 +19,18 @@ import {
 } from "@openbot/ui/features/marketplace/marketplace-view";
 import { McpConnectDialog } from "@openbot/ui/features/settings/McpConnectDialog";
 import type { McpConnectSubject } from "@openbot/ui/features/settings/McpConnectShell";
-import { currentText } from "@openbot/ui/text";
+import { currentText, useText } from "@openbot/ui/text";
 import { createSignal, createStore, onSettled, Show, untrack } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { marketplaceAppCuration, receiveAppProfile } from "../src/features/settings/marketplace-app-curation";
+import {
+  type AppProfileAnswer,
+  marketplaceAppCuration,
+  receiveAppProfile,
+} from "../src/features/settings/marketplace-app-curation";
 import { MARKETPLACE_PLUGINS } from "../src/features/settings/marketplace-plugin-catalog";
 import { localizedPlugin } from "../src/features/settings/marketplace-plugin-text";
+import { useI18n } from "../src/i18n-context";
 import {
   STORY_AGENT_SUMMARIES,
   STORY_MARKETPLACE_AGENT_DETAILS,
@@ -262,8 +267,22 @@ function pluginStatus(held: HeldState | undefined): MarketplaceApp["status"] {
   return held ? "connected" : "idle";
 }
 
-/** The real window on fixtures. Each action changes the fixture state, so the states can be tried. */
+/**
+ * The real window on fixtures, in the language of the story. The fixtures fix their names once, so
+ * the window waits until the text of that language loaded, and a change of language makes it again.
+ */
 function MarketplaceStory(props: StoryProps) {
+  const i18n = useI18n();
+  return (
+    <Show when={i18n.locale() === i18n.language() ? i18n.locale() : undefined} keyed>
+      {(_loaded) => <MarketplaceWindow {...props} />}
+    </Show>
+  );
+}
+
+/** The real window on fixtures. Each action changes the fixture state, so the states can be tried. */
+function MarketplaceWindow(props: StoryProps) {
+  const { t } = useText();
   const {
     member,
     empty,
@@ -280,7 +299,7 @@ function MarketplaceStory(props: StoryProps) {
   const held = heldProp ?? (realCatalog ? {} : FIRST_HELD);
   const plugins = untrack(() =>
     realCatalog
-      ? MARKETPLACE_PLUGINS.map((plugin) => localizedPlugin(plugin, currentText().t))
+      ? MARKETPLACE_PLUGINS.map((plugin) => localizedPlugin(plugin, t))
       : [...STORY_MARKETPLACE_PLUGINS, ...(macOS ? APPLE_APPS : [])],
   );
   const details = connected ? CONNECTED_CONNECTOR_DETAILS : STORY_CONNECTOR_DETAILS;
@@ -296,8 +315,8 @@ function MarketplaceStory(props: StoryProps) {
         kind: "connector",
         id,
         connector: id,
-        name: currentText().t(listing.title),
-        tagline: currentText().t(listing.tagline),
+        name: t(listing.title),
+        tagline: t(listing.tagline),
         status: connected || id === "github" ? "connected" : "idle",
         category: listing.category,
       };
@@ -701,16 +720,42 @@ const STORY_APP_PROFILE = {
 
 const STORY_ACCOUNT = "story-account";
 
+/** `count` well-formed ids of 62 characters that this catalog does not have, as a newer catalog can have. */
+const futureIds = (count: number, prefix: string) =>
+  Array.from({ length: count }, (_, index) => `${prefix}-${String(index).padStart(3, "0")}-`.padEnd(62, "x"));
+
+/** A profile near the size limit: Slack, Notion and 123 future ids, 8,134 of 8,192 code units as JSON. */
+const LARGE_APP_PROFILE = {
+  version: 1,
+  tag: "Agência de design",
+  apps: { show: ["slack", "notion", ...futureIds(123, "future-app")] },
+  updatedAt: "2026-10-31T12:00:00.000Z",
+};
+
+/** A profile over the size limit: 128 ids in `show` and 128 in `hide`, 16,712 code units as JSON. */
+const OVERSIZE_APP_PROFILE = {
+  ...STORY_APP_PROFILE,
+  apps: { show: ["slack", ...futureIds(127, "future-app")], hide: futureIds(128, "retired-app") },
+};
+
 /** The Apps list as the app shows it: the real catalog, curated. */
 const curatedApps = (props: Omit<StoryProps, "start"> = {}) => ({ realCatalog: true, curated: true, ...props });
 
 /**
- * The default list, with no organization profile. "Show all apps" keeps the choice of this browser,
- * so a reload shows the choice again.
+ * Gives the page an answer of the Hub and sets "Show all apps" before the story renders. Each
+ * curated story sets both, so the order of the stories in a browser changes nothing.
  */
+const before =
+  (answer: AppProfileAnswer, showAll = false) =>
+  () => {
+    receiveAppProfile(answer);
+    marketplaceAppCuration.setShowAll(showAll);
+  };
+
+/** The default list, with no organization profile. */
 export const AppsCurated: Story = {
   args: curatedApps(),
-  beforeEach: () => receiveAppProfile({ kind: "signed-out" }),
+  beforeEach: before({ kind: "signed-out" }),
 };
 
 export const AppsCuratedNarrow: Story = {
@@ -721,48 +766,72 @@ export const AppsCuratedNarrow: Story = {
 /** "Show all apps" is on: every app of the catalog. */
 export const AppsShowAll: Story = {
   args: curatedApps(),
-  beforeEach: () => {
-    receiveAppProfile({ kind: "signed-out" });
-    marketplaceAppCuration.setShowAll(true);
-  },
+  beforeEach: before({ kind: "signed-out" }, true),
+};
+
+/**
+ * The "Show all apps" choice that this browser saved, as the app reads it when it starts. This story
+ * does not set the choice, so it shows what the last story or click left.
+ */
+export const AppsSavedChoice: Story = {
+  args: curatedApps(),
+  beforeEach: () => receiveAppProfile({ kind: "signed-out" }),
 };
 
 /** The Hub gave a profile: its apps and categories replace the default list, and its tag shows. */
 export const AppsOrganizationProfile: Story = {
   args: curatedApps(),
-  beforeEach: () => {
-    receiveAppProfile({ kind: "answer", account: STORY_ACCOUNT, value: STORY_APP_PROFILE });
-    marketplaceAppCuration.setShowAll(false);
-  },
+  beforeEach: before({ kind: "answer", account: STORY_ACCOUNT, value: STORY_APP_PROFILE }),
 };
 
 /** The Hub gave a profile with markup in its tag: the client refuses it and shows the default list. */
 export const AppsMalformedProfile: Story = {
   args: curatedApps(),
-  beforeEach: () => {
-    receiveAppProfile({
-      kind: "answer",
-      account: STORY_ACCOUNT,
-      value: { ...STORY_APP_PROFILE, tag: "<b>Design</b>" },
-    });
-    marketplaceAppCuration.setShowAll(false);
-  },
+  beforeEach: before({
+    kind: "answer",
+    account: STORY_ACCOUNT,
+    value: { ...STORY_APP_PROFILE, tag: "<b>Design</b>" },
+  }),
+};
+
+/** The Hub gave a profile near the size limit: the client uses it and keeps it. */
+export const AppsLargeProfile: Story = {
+  args: curatedApps(),
+  beforeEach: before({ kind: "answer", account: STORY_ACCOUNT, value: LARGE_APP_PROFILE }),
+};
+
+/** The Hub gave a profile over the size limit: the client refuses it and shows the default list. */
+export const AppsOversizeProfile: Story = {
+  args: curatedApps(),
+  beforeEach: before({ kind: "answer", account: STORY_ACCOUNT, value: OVERSIZE_APP_PROFILE }),
+};
+
+/**
+ * No answer of the Hub yet, as when the app starts. A profile that this browser kept waits for an
+ * answer that names its account, so the default list shows.
+ */
+export const AppsBeforeAnswer: Story = {
+  args: curatedApps(),
+  beforeEach: () => marketplaceAppCuration.setShowAll(false),
+};
+
+/**
+ * The Hub did not answer for the story account: the profile that this browser kept for the account
+ * applies, as at a start with no network. With no kept profile, the default list shows.
+ */
+export const AppsKeptProfile: Story = {
+  args: curatedApps(),
+  beforeEach: before({ kind: "unreachable", account: STORY_ACCOUNT }),
 };
 
 /** Stripe is not in the default list, but it is installed, so the list shows it. */
 export const AppsInstalledHidden: Story = {
   args: curatedApps({ held: { stripe: "connected" } }),
-  beforeEach: () => {
-    receiveAppProfile({ kind: "signed-out" });
-    marketplaceAppCuration.setShowAll(false);
-  },
+  beforeEach: before({ kind: "signed-out" }),
 };
 
 /** A link to an app that the list does not show still opens its page. */
 export const AppsHiddenLink: Story = {
   ...at(plugin("stripe"), curatedApps()),
-  beforeEach: () => {
-    receiveAppProfile({ kind: "signed-out" });
-    marketplaceAppCuration.setShowAll(false);
-  },
+  beforeEach: before({ kind: "signed-out" }),
 };
