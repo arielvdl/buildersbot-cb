@@ -116,6 +116,17 @@ export const messages = {
   "app.rail.load.eventResumed": "Retomou {channel}",
   "app.rail.load.eventReassigned": "Passou {channel} para {agent}",
   "app.rail.load.eventGaveUp": "Desistiu de {channel}",
+  "app.rail.load.agentsOfLimit": "{agents} de {limit}",
+  "app.rail.load.waitingTitle": "Esperando vaga",
+  "app.rail.load.waitingReason": {
+    one: "Limite de {count} agente atingido",
+    other: "Limite de {count} agentes atingido",
+  },
+  "app.rail.load.limitTitle": "Limitar agentes executando ao mesmo tempo",
+  "app.rail.load.limitHint":
+    "Quando o limite é atingido, um novo turno espera na fila e começa sozinho quando um agente termina. Desligado: sem limite.",
+  "app.rail.load.limitMax": "Máximo",
+  "app.rail.load.limitUnit": "(de 1 a 64, 10 é o sugerido)",
   "app.resume.title": "Continuar o trabalho interrompido?",
   "app.resume.description":
     "O Builders Bot fechou enquanto este trabalho rodava. Selecione o que deve continuar. Nada recomeça sem a sua escolha.",

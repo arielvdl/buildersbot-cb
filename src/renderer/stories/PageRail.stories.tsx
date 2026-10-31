@@ -1,4 +1,5 @@
 import type {
+  AgentLimitPreference,
   AutoRecoveryPreference,
   LoadLanePreference,
   LoadSnapshot,
@@ -193,6 +194,7 @@ function loadSnapshot(
   lane: LoadLanePreference,
   recovery: AutoRecoveryPreference,
   work: LoadWork,
+  agentLimit: AgentLimitPreference,
 ): LoadSnapshot {
   return {
     sampledAt: "2026-10-30T20:00:00.000Z",
@@ -203,7 +205,16 @@ function loadSnapshot(
       ? { ...lane, running: ["deploys"], queued: ["security", "videos", "releases"] }
       : { ...lane, running: [], queued: [] },
     running: work === "none" ? [] : storyRunning,
+    // With the cap on and reached, two agents wait for a place.
+    waiting:
+      agentLimit.enabled && agentLimit.max <= 7
+        ? [
+            { agentId: "writer", agentName: "Writer" },
+            { agentId: "qa", agentName: "QA Naia" },
+          ]
+        : [],
     stopped: work === "none" ? [] : work === "many" ? manyStopped : storyStopped,
+    agentLimit,
     recovery: {
       ...recovery,
       recent: recovery.enabled
@@ -221,8 +232,9 @@ function loadProps(usedMb: number, work: LoadWork): () => LoadRailProps {
     intervalMinutes: 30,
     reassign: false,
   });
+  const [agentLimit, setAgentLimit] = createSignal<AgentLimitPreference>({ enabled: false, max: 10 });
   return () => ({
-    snapshot: loadSnapshot(usedMb, lane(), recovery(), work),
+    snapshot: loadSnapshot(usedMb, lane(), recovery(), work, agentLimit()),
     channelName: (id) => loadChannelNames[id] ?? id,
     onOpenChange: fn(),
     onLaneChange: setLane,
@@ -232,6 +244,7 @@ function loadProps(usedMb: number, work: LoadWork): () => LoadRailProps {
     onResume: fn(),
     onReassign: fn(),
     onRecoveryChange: setRecovery,
+    onAgentLimitChange: setAgentLimit,
   });
 }
 

@@ -1,4 +1,11 @@
-import type { AutoRecoveryState, LoadSnapshot, RunningWork, StoppedWork } from "@openbot/contracts/ipc";
+import type {
+  AgentLimitPreference,
+  AutoRecoveryState,
+  LoadSnapshot,
+  RunningWork,
+  StoppedWork,
+  WaitingWork,
+} from "@openbot/contracts/ipc";
 import type { ChannelLaneSnapshot } from "../backend/channel-service";
 
 /** The reading of the resource monitor, as `ResourceMonitor.loadReading` gives it. */
@@ -17,8 +24,10 @@ export interface LoadWork {
   running: RunningWork[];
   /** The agents that run now, from the same turns as `running`. */
   activeAgents: number;
+  waiting: WaitingWork[];
   stopped: StoppedWork[];
   recovery: AutoRecoveryState;
+  agentLimit: AgentLimitPreference;
 }
 
 export function buildLoadSnapshot(
@@ -45,8 +54,10 @@ export function buildLoadSnapshot(
       queued: known(lane.queued),
     },
     running: work.running,
+    waiting: work.waiting,
     stopped: work.stopped,
     recovery: work.recovery,
+    agentLimit: work.agentLimit,
   };
   return snapshot;
 }

@@ -1,6 +1,7 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentDefaults,
+  AgentLimitPreference,
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
@@ -54,6 +55,7 @@ import {
   decodeExternalLinkTarget,
   IDLE_RESTART_TARGETS,
   isAgentDefaults,
+  isAgentLimitPreference,
   isAgentMemoryLimit,
   isAgentModel,
   isAgentProvider,
@@ -122,6 +124,12 @@ export function parseBusyMessageModePreference(input: unknown): BusyMessageModeP
 export function parseLoadLanePreference(input: unknown): LoadLanePreference {
   if (!isLoadLanePreference(input)) throw new Error("Channel lane preference is required.");
   return { enabled: input.enabled, order: [...input.order] };
+}
+
+/** The cap must be a whole number of agents from 1 to 64; anything else is refused, not clamped. */
+export function parseAgentLimitPreference(input: unknown): AgentLimitPreference {
+  if (!isAgentLimitPreference(input)) throw new Error("An agent limit from 1 to 64 is required.");
+  return { enabled: input.enabled, max: input.max };
 }
 
 export function parseAutoRecoveryPreference(input: unknown): AutoRecoveryPreference {

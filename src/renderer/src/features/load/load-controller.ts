@@ -1,4 +1,5 @@
 import type {
+  AgentLimitPreference,
   AutoRecoveryPreference,
   LoadLanePreference,
   LoadSnapshot,
@@ -21,6 +22,7 @@ type LoadPort = Pick<
   | "resumeStoppedWork"
   | "reassignStoppedWork"
   | "setAutoRecovery"
+  | "setAgentLimit"
 >;
 
 /**
@@ -105,6 +107,13 @@ export function createLoadController(port: () => LoadPort, enabled: () => boolea
       await apply(() =>
         port().reassignStoppedWork({ channelId: work.channelId, taskId: work.taskId, recipientAgentId }),
       );
+    },
+    async setAgentLimit(preference: AgentLimitPreference): Promise<void> {
+      const current = snapshot();
+      // The switch and the number answer at once, and the host's answer replaces them.
+      if (current) setSnapshot({ ...current, agentLimit: { ...preference } });
+      await apply(() => port().setAgentLimit(preference));
+      if (snapshot()?.agentLimit.enabled !== preference.enabled) await refresh();
     },
     async setRecovery(preference: AutoRecoveryPreference): Promise<void> {
       const current = snapshot();

@@ -68,6 +68,17 @@ export function withChannelFirst(snapshot: LoadSnapshot, channelId: string): Loa
   };
 }
 
+/** The cap on the agents that run: whole, from 1 to 64, and 10 for anything that is not a number. */
+export function clampAgentLimit(value: number): number {
+  if (!Number.isFinite(value)) return 10;
+  return Math.min(64, Math.max(1, Math.round(value)));
+}
+
+/** The cap that the arc and the labels read, or null while it is off. */
+export function activeAgentLimit(snapshot: LoadSnapshot): number | null {
+  return snapshot.agentLimit.enabled ? snapshot.agentLimit.max : null;
+}
+
 /** The interval of the automatic recovery in minutes: whole, from 5 to 1440, and 30 for anything that is not a number. */
 export function clampRecoveryMinutes(value: number): number {
   if (!Number.isFinite(value)) return 30;

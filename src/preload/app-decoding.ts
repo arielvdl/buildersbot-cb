@@ -19,6 +19,7 @@ import {
   type AccountSession,
   AGENT_DEFAULT_KEYS,
   type AgentDefaults,
+  type AgentLimitPreference,
   type AgentMemoryLimitPreference,
   type AnalyticsPreference,
   type AppAppearancePreference,
@@ -64,6 +65,7 @@ import {
   IDLE_RESTART_TARGETS,
   type IdleRestart,
   type InterruptedWorkOffer,
+  isAgentLimitPreference,
   isAgentMemoryLimit,
   isAgentModel,
   isAgentProvider,
@@ -176,6 +178,10 @@ export const decodeApprovalAutomationPreference: (value: unknown) => ApprovalAut
 );
 
 export const decodeLoadSnapshot: (value: unknown) => LoadSnapshot = guardedDecoder(isLoadSnapshot, "load snapshot");
+export const decodeAgentLimitPreference: (value: unknown) => AgentLimitPreference = guardedDecoder(
+  isAgentLimitPreference,
+  "agent limit preference",
+);
 
 const decodeInterruptedWorkOffer = guardedDecoder(isInterruptedWorkOffer, "resume offer");
 

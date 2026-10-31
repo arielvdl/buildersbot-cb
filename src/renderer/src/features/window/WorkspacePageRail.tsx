@@ -83,6 +83,7 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
               onResume: (work) => void load.resume(work),
               onReassign: (work, agentId) => void load.reassign(work, agentId),
               onRecoveryChange: (preference) => void load.setRecovery(preference),
+              onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
             }
           : undefined
       }

@@ -433,6 +433,12 @@ export interface AgentServiceOptions {
    * that `MacMemory` gives (64).
    */
   memoryPressure?: HostMemory | null;
+  /**
+   * The most agents that run turns at the same time, as the person set it, or null for no cap. A new
+   * turn waits in its queue while the cap is reached, and starts by itself when a place frees. The
+   * memory turn limit applies too; the cap that is reached first holds the turn.
+   */
+  agentLimit?: () => number | null;
 }
 
 /** How long a user send's `clientMessageId` answers a retry. A retry follows a lost reply, not a day. */
@@ -1304,6 +1310,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       routines: this.#routines,
       threads: this.#threads,
       memory: this.#memoryHold,
+      ...(options.agentLimit ? { agentLimit: options.agentLimit } : {}),
       usageLimits: this.#usageLimits,
       tasks: this.#tasks,
       security: this.#security,
@@ -2120,6 +2127,16 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   runningTurns(): RunningTurn[] {
     return this.#turn.runningTurns();
+  }
+
+  /** The agents whose next turn waits for a free place under the turn and agent caps. */
+  slotWaitingAgents(): string[] {
+    return this.#drain.slotWaiters();
+  }
+
+  /** The cap on the agents that run changed: each agent tries its queue again, as a free place does. */
+  agentLimitChanged(): void {
+    for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
   }
 
   /**

@@ -1,6 +1,8 @@
 import type { LoadSnapshot } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
 import {
+  activeAgentLimit,
+  clampAgentLimit,
   clampRecoveryMinutes,
   elapsedMinutes,
   formatGigabytes,
@@ -24,8 +26,10 @@ function snapshot(overrides: Partial<LoadSnapshot> = {}): LoadSnapshot {
     providerProcesses: 40,
     lane: { enabled: true, order: ["b", "a"], running: ["a"], queued: ["b", "c"] },
     running: [],
+    waiting: [],
     stopped: [],
     recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
+    agentLimit: { enabled: false, max: 10 },
     ...overrides,
   };
 }
@@ -68,6 +72,15 @@ describe("the arc and the colour of the ring", () => {
     expect(loadAgentArc(3, 4)).toBe(75);
     expect(loadAgentArc(4, 4)).toBe(100);
     expect(loadAgentArc(3, 10)).toBe(30);
+    expect(activeAgentLimit(snapshot())).toBeNull();
+    expect(activeAgentLimit(snapshot({ agentLimit: { enabled: true, max: 4 } }))).toBe(4);
+  });
+
+  it("keeps the limit a whole number from 1 to 64, and 10 for a value that is not a number", () => {
+    expect(clampAgentLimit(0)).toBe(1);
+    expect(clampAgentLimit(3.6)).toBe(4);
+    expect(clampAgentLimit(100)).toBe(64);
+    expect(clampAgentLimit(Number.NaN)).toBe(10);
   });
 
   it("takes its colour from the memory: what macOS says, else the share in use", () => {

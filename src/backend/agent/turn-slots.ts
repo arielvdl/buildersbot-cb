@@ -4,6 +4,13 @@ export interface TurnSlotsOptions {
   /** The most turns that run at the same time, or null for no limit. */
   limit(): number | null;
   /**
+   * The most agents that run turns at the same time, as the person set it, or null for no limit. An
+   * agent that runs a turn already can start another lane: it is still one agent.
+   */
+  agentLimit(): number | null;
+  /** The agent of a lane. */
+  agentOf(lane: string): string;
+  /**
    * The key of each queue that runs one turn at a time: an agent's own chat, and each of its tasks.
    * A lane key sorts as its agent id does, so a tie in age goes the same way as before tasks.
    */
@@ -18,7 +25,9 @@ export interface TurnSlotsOptions {
 
 /**
  * Owns the turn slot clause of the queue drain: on a hosted server only a fixed number of turns run
- * at the same time, and each task of an agent uses a slot of its own. When the slots are full, the
+ * at the same time, and each task of an agent uses a slot of its own. The person can also cap the
+ * agents that run at the same time; then an agent is one slot, whatever its lanes run. A lane starts
+ * only when both caps have room, so the cap that is reached first holds it. When the slots are full, the
  * waiting lanes go by the head of their queue: a message from a person first, then routine runs and
  * teammate messages, and the oldest first in each group. A delivery that waits stays queued. It never imports the service.
  *
@@ -33,20 +42,35 @@ export class TurnSlots {
   }
 
   mayStart(lane: string): boolean {
-    const limit = this.#options.limit();
-    if (limit === null) return true;
+    const turns = this.#options.limit();
+    const agents = this.#options.agentLimit();
+    if (turns !== null && !this.#fits(lane, turns, (key) => key)) return false;
+    if (agents !== null && !this.#fits(lane, agents, this.#options.agentOf)) return false;
+    return true;
+  }
+
+  /**
+   * Whether `lane` has a slot under `limit`, where `unit` says what takes a slot: the lane itself for
+   * turns, its agent for agents. The waiting lanes of other units that start before it take the free
+   * slots first.
+   */
+  #fits(lane: string, limit: number, unit: (lane: string) => string): boolean {
     const lanes = this.#options.lanes();
-    const free = limit - lanes.filter((id) => this.#options.isRunning(id)).length;
+    const running = new Set(lanes.filter((id) => this.#options.isRunning(id)).map(unit));
+    const own = unit(lane);
+    if (running.has(own)) return true;
+    const free = limit - running.size;
     if (free <= 0) return false;
     const head = this.#options.head(lane);
     if (!head) return true;
-    let ahead = 0;
+    const ahead = new Set<string>();
     for (const other of lanes) {
-      if (other === lane || this.#options.isRunning(other) || !this.#options.isWaiting(other)) continue;
+      const otherUnit = unit(other);
+      if (other === lane || otherUnit === own || running.has(otherUnit) || !this.#options.isWaiting(other)) continue;
       const otherHead = this.#options.head(other);
-      if (otherHead && startsBefore(otherHead, other, head, lane)) ahead += 1;
+      if (otherHead && startsBefore(otherHead, other, head, lane)) ahead.add(otherUnit);
     }
-    return ahead < free;
+    return ahead.size < free;
   }
 }
 

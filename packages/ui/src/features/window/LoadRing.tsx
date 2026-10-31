@@ -1,4 +1,5 @@
 import type {
+  AgentLimitPreference,
   AutoRecoveryPreference,
   LoadLanePreference,
   LoadSnapshot,
@@ -25,6 +26,8 @@ import { useText } from "@openbot/ui/text";
 import { cx } from "@openbot/ui/utils";
 import { createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
 import {
+  activeAgentLimit,
+  clampAgentLimit,
   clampRecoveryMinutes,
   elapsedMinutes,
   formatGigabytes,
@@ -56,11 +59,13 @@ export interface LoadRailProps {
   onResume: (work: StoppedWork) => void;
   onReassign: (work: StoppedWork, agentId: string) => void;
   onRecoveryChange: (preference: AutoRecoveryPreference) => void;
+  onAgentLimitChange: (preference: AgentLimitPreference) => void;
 }
 
 /**
  * The load of this computer as one ring in the rail: the number inside is how many agents run now, and
- * the arc is that count of ten (more can run, and the arc stays full). The memory is the colour of the
+ * the arc is that count of ten (more can run, and the arc stays full), or of the cap when the person set
+ * one, so a full circle is the cap reached. The memory is the colour of the
  * ring, and the tooltip and the panel give it. A red mark on the ring counts the work that stopped. The
  * pointer over the ring gives a one-line summary; a click opens the panel, where the person can stop
  * what runs, start stopped work again or give it to another agent, and let the app do it by itself.
@@ -72,7 +77,13 @@ export function LoadRing(props: LoadRailProps) {
   const { t } = useText();
   const tone = (): LoadTone => (props.snapshot ? loadRingTone(props.snapshot) : "ok");
   const agents = () => props.snapshot?.activeAgents ?? 0;
-  const arc = () => loadAgentArc(agents());
+  const limit = () => (props.snapshot ? activeAgentLimit(props.snapshot) : null);
+  const arc = () => loadAgentArc(agents(), limit());
+  /** The count, or the count of the cap: "3" or "3 of 10". */
+  const agentsText = () => {
+    const cap = limit();
+    return cap === null ? String(agents()) : t("app.rail.load.agentsOfLimit", { agents: agents(), limit: cap });
+  };
   const stopped = () => (props.snapshot ? stoppedCount(props.snapshot) : 0);
   const radius = (RING.size - RING.stroke) / 2;
   const memory = () => {
@@ -83,8 +94,8 @@ export function LoadRing(props: LoadRailProps) {
   const label = () => {
     const used = memory();
     const base = used
-      ? t("app.rail.load.ring", { agents: agents(), used: used.used, total: used.total })
-      : t("app.rail.load.ringUnmeasured", { agents: agents() });
+      ? t("app.rail.load.ring", { agents: agentsText(), used: used.used, total: used.total })
+      : t("app.rail.load.ringUnmeasured", { agents: agentsText() });
     return stopped() > 0 ? `${base} ${t("app.rail.load.stoppedAlert", { count: stopped() })}` : base;
   };
   /** The line that shows when the pointer rests on the ring. */
@@ -92,8 +103,8 @@ export function LoadRing(props: LoadRailProps) {
     const used = memory();
     if (!used) return label();
     return stopped() > 0
-      ? t("app.rail.load.summary", { agents: agents(), stopped: stopped(), used: used.used, total: used.total })
-      : t("app.rail.load.summaryQuiet", { agents: agents(), used: used.used, total: used.total });
+      ? t("app.rail.load.summary", { agents: agentsText(), stopped: stopped(), used: used.used, total: used.total })
+      : t("app.rail.load.summaryQuiet", { agents: agentsText(), used: used.used, total: used.total });
   };
   return (
     <Popover.Root placement="right-end" gutter={8} onOpenChange={props.onOpenChange}>
@@ -194,6 +205,27 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
           </ul>
         </section>
       </Show>
+      <Show when={props.snapshot.waiting.length > 0}>
+        <section class="window-rail-load-work">
+          <header class="window-rail-load-section-head">
+            <h3>{t("app.rail.load.waitingTitle")}</h3>
+          </header>
+          <ul class="window-rail-load-list">
+            <For each={props.snapshot.waiting} keyed={(work) => work.agentId}>
+              {(work) => (
+                <li class="window-rail-load-item">
+                  <div class="window-rail-load-item-head">
+                    <span class="window-rail-load-item-name">{work().agentName}</span>
+                  </div>
+                  <p class="window-rail-load-item-meta">
+                    <span>{t("app.rail.load.waitingReason", { count: props.snapshot.agentLimit.max })}</span>
+                  </p>
+                </li>
+              )}
+            </For>
+          </ul>
+        </section>
+      </Show>
       <section class="window-rail-load-work">
         <header class="window-rail-load-section-head">
           <h3>{t("app.rail.load.runningTitle")}</h3>
@@ -218,7 +250,14 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
       </section>
       <dl class="window-rail-load-stats">
         <dt>{t("app.rail.load.agents")}</dt>
-        <dd>{props.snapshot.activeAgents}</dd>
+        <dd>
+          {activeAgentLimit(props.snapshot) === null
+            ? props.snapshot.activeAgents
+            : t("app.rail.load.agentsOfLimit", {
+                agents: props.snapshot.activeAgents,
+                limit: props.snapshot.agentLimit.max,
+              })}
+        </dd>
         <dt>{t("app.rail.load.memory")}</dt>
         <dd>
           <Show when={memory().usedMb !== null} fallback={t("app.rail.load.unmeasured")}>
@@ -285,6 +324,7 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
           <p class="window-rail-load-empty">{t("app.rail.load.noneWaiting")}</p>
         </Show>
       </Show>
+      <AgentLimitSettings limit={props.snapshot.agentLimit} onChange={props.onAgentLimitChange} />
       <RecoverySettings recovery={props.snapshot.recovery} onChange={props.onRecoveryChange} />
     </div>
   );
@@ -494,6 +534,47 @@ function WorkRequest(props: WorkRowProps & { request: string }) {
         </Button>
       </Show>
     </div>
+  );
+}
+
+/** The switch and the number of the cap on the agents that run at the same time. */
+function AgentLimitSettings(props: {
+  limit: AgentLimitPreference;
+  onChange: (preference: AgentLimitPreference) => void;
+}) {
+  const { t } = useText();
+  const [draft, setDraft] = createSignal<string | null>(null);
+  return (
+    <section class="window-rail-load-section">
+      <SwitchField
+        checked={props.limit.enabled}
+        onChange={(enabled) => props.onChange({ enabled, max: props.limit.max })}
+        label={t("app.rail.load.limitTitle")}
+        description={t("app.rail.load.limitHint")}
+      />
+      <Show when={props.limit.enabled}>
+        <label class="window-rail-load-interval">
+          <span>{t("app.rail.load.limitMax")}</span>
+          <input
+            class="window-rail-load-number"
+            type="number"
+            min="1"
+            max="64"
+            step="1"
+            inputmode="numeric"
+            value={draft() ?? String(props.limit.max)}
+            onInput={(event) => setDraft(event.currentTarget.value)}
+            onChange={(event) => {
+              const max = clampAgentLimit(Number(event.currentTarget.value));
+              setDraft(null);
+              event.currentTarget.value = String(max);
+              props.onChange({ enabled: true, max });
+            }}
+          />
+          <span>{t("app.rail.load.limitUnit")}</span>
+        </label>
+      </Show>
+    </section>
   );
 }
 

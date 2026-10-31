@@ -1,6 +1,7 @@
 import { AGENT_MEMORY_CONTEXT_BUDGET_BYTES, essentialMemoryBytes } from "@openbot/contracts/agent-memory-context";
 import type {
   AcpRegistryEntry,
+  AgentLimitPreference,
   AgentSessionSettings,
   AutoRecoveryPreference,
   HiddenAgentsSnapshot,
@@ -62,6 +63,7 @@ import {
   createMcpServerId,
   DEFAULT_AGENT_ACCESS,
   DEFAULT_AGENT_DEFAULTS,
+  DEFAULT_AGENT_LIMIT_PREFERENCE,
   DEFAULT_AGENT_MEMORY_LIMIT,
   DEFAULT_APP_APPEARANCE,
   DEFAULT_APP_INTERFACE_SIZE,
@@ -444,6 +446,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let interfaceSizePreference: AppInterfaceSizePreference = { percent: DEFAULT_APP_INTERFACE_SIZE };
   let previewLoadLane: LoadLanePreference = { enabled: false, order: [] };
   let previewRecovery: AutoRecoveryPreference = { enabled: false, intervalMinutes: 30, reassign: false };
+  let previewAgentLimit: AgentLimitPreference = { ...DEFAULT_AGENT_LIMIT_PREFERENCE };
   const previewLoad = (): LoadSnapshot => ({
     sampledAt: new Date().toISOString(),
     memory: { usedMb: 7625, agentsMb: 6611, totalMb: 32768 },
@@ -451,8 +454,10 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     providerProcesses: 91,
     lane: { ...previewLoadLane, order: [...previewLoadLane.order], running: [], queued: [] },
     running: [],
+    waiting: [],
     stopped: [],
     recovery: { ...previewRecovery, recent: [] },
+    agentLimit: { ...previewAgentLimit },
   });
   const interfaceSizeListeners = new Set<(preference: AppInterfaceSizePreference) => void>();
   const approvalAutomationListeners = new Set<(preference: ApprovalAutomationPreference) => void>();
@@ -1086,6 +1091,11 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     reassignStoppedWork: async () => previewLoad(),
     setAutoRecovery: async (preference) => {
       previewRecovery = { ...preference };
+      return previewLoad();
+    },
+    getAgentLimit: async () => ({ ...previewAgentLimit }),
+    setAgentLimit: async (preference) => {
+      previewAgentLimit = { ...preference };
       return previewLoad();
     },
     // The preview never restarts, so no work waits to resume and the resume modal stays closed.

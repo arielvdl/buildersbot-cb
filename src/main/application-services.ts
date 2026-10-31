@@ -138,6 +138,7 @@ import {
 } from "./agent-defaults-preference-store";
 import { AgentImportService } from "./agent-import-service";
 import { AgentInitializationGate } from "./agent-initialization";
+import { AgentLimitPreferenceStore } from "./agent-limit-preference-store";
 import { AgentMarketplaceService } from "./agent-marketplace-service";
 import {
   AgentMemoryLimitPreferenceStore,
@@ -369,6 +370,7 @@ const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const CHANNEL_LANE_PREFERENCE_FILE = "openbot-channel-lane-v1.json";
 const AUTO_RECOVERY_PREFERENCE_FILE = "openbot-auto-recovery-v1.json";
+const AGENT_LIMIT_PREFERENCE_FILE = "openbot-agent-limit-v1.json";
 const PLAYWRIGHT_BROKER_FILE = "openbot-playwright-broker-v1.json";
 const PROVIDER_CLI_APP_VERSION_FILE = "openbot-provider-cli-app-version-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
@@ -590,6 +592,8 @@ export interface ApplicationServices {
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
+  /** The cap on the agents that run at the same time. Off until the person turns it on. */
+  agentLimit: AgentLimitPreferenceStore;
   /** What runs and what stopped, and the automatic recovery of the stopped work. */
   workControl: WorkControl;
   agentDefaults: AgentDefaultsPreferenceStore;
@@ -1249,6 +1253,7 @@ export async function createApplicationServices({
   );
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
+  const agentLimit = new AgentLimitPreferenceStore(join(app.getPath("userData"), AGENT_LIMIT_PREFERENCE_FILE));
   // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
   // only when an agent first asks for the browser. `service` is read at that time, not now. Without its
   // guard file the server would answer any program on this computer, so then there is no broker at all.
@@ -1322,6 +1327,7 @@ export async function createApplicationServices({
       // Last: the result above is read by position, `[8]`.
       runCauseEffect(channelLane.load()),
       runCauseEffect(autoRecovery.load()),
+      runCauseEffect(agentLimit.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -1796,6 +1802,7 @@ export async function createApplicationServices({
         }),
     hostMemory,
     memoryPressure: macMemory,
+    agentLimit: () => agentLimit.limit(),
     requestTimeoutMs: 30_000,
     offProviders: providerUse.off(),
     providerAccounts,
@@ -2746,6 +2753,7 @@ export async function createApplicationServices({
     service,
     channelActor: () => host.channelActor(),
     preference: () => autoRecovery.get(),
+    agentLimit: () => agentLimit.get(),
     onFailure: (action, cause) => logger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
   });
   workControl.start();
@@ -3290,6 +3298,7 @@ export async function createApplicationServices({
     busyMessageMode,
     channelLane,
     autoRecovery,
+    agentLimit,
     workControl,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,

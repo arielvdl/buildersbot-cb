@@ -21,6 +21,7 @@ import type { AgentService } from "../../backend/agent-service";
 import type { BrowserHost } from "../../backend/browser-host";
 import type { MailboxStore } from "../../backend/mailbox-store";
 import type { AgentDefaultsPreferenceStore } from "../agent-defaults-preference-store";
+import type { AgentLimitPreferenceStore } from "../agent-limit-preference-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
 import { readAnalyticsPreference, writeAnalyticsPreference } from "../analytics-preference-store";
 import type { AppBehaviorService } from "../app-behavior-service";
@@ -47,6 +48,7 @@ import type { UpdateService } from "../update-service";
 import type { WorkControl } from "../work-control";
 import {
   parseAgentDefaults,
+  parseAgentLimitPreference,
   parseAnalyticsPreference,
   parseAppAppearancePreference,
   parseAppBehaviorPreferenceChange,
@@ -115,6 +117,7 @@ export interface AppIpcDependencies {
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
+  agentLimit: AgentLimitPreferenceStore;
   workControl: WorkControl;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
@@ -156,6 +159,7 @@ export function appIpcHandlers({
   busyMessageMode,
   channelLane,
   autoRecovery,
+  agentLimit,
   workControl,
   agentDefaults,
   agentMemoryLimit,
@@ -253,6 +257,14 @@ export function appIpcHandlers({
       // Off until the person turns it on. The timer of `workControl` reads the stored value at each look.
       setAutoRecovery: payloadHandler(parseAutoRecoveryPreference, async (parsed) => {
         await runCauseEffect(autoRecovery.set(parsed));
+        return loadSnapshot();
+      }),
+      getAgentLimit: handler(() => agentLimit.get()),
+      // Off until the person turns it on. A changed cap tries each queue again, so a raised or removed
+      // cap starts the turns that waited for it. The parser refuses a cap out of 1 to 64.
+      setAgentLimit: payloadHandler(parseAgentLimitPreference, async (parsed) => {
+        await runCauseEffect(agentLimit.set(parsed));
+        service.agentLimitChanged();
         return loadSnapshot();
       }),
       // Only a click resumes work. The read waits until boot recovery has settled the stopped work.

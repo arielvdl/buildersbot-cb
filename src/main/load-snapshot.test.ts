@@ -6,6 +6,8 @@ import { buildLoadSnapshot } from "./load-snapshot";
 const NO_WORK = {
   running: [],
   activeAgents: 3,
+  waiting: [],
+  agentLimit: { enabled: false, max: 10 },
   stopped: [],
   recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
 };

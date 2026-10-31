@@ -15,6 +15,7 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
   decodeAccountSessions,
+  decodeAgentLimitPreference,
   decodeAnalyticsPreference,
   decodeAppAppearancePreference,
   decodeAppInfo,
@@ -105,8 +106,10 @@ const loadSnapshot = {
   providerProcesses: 4,
   lane: { enabled: false, order: [], running: [], queued: [] },
   running: [runningWork],
+  waiting: [{ agentId: "agent-2", agentName: "Writer" }],
   stopped: [stoppedWork],
   recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
+  agentLimit: { enabled: true, max: 10 },
 } satisfies LoadSnapshot;
 
 const codeSent = {
@@ -219,10 +222,16 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   ["a resume result with work left", decodeResumeInterruptedWorkResult, { offer: resumeOffer, failed: 1 }],
   ["a resume result with nothing left", decodeResumeInterruptedWorkResult, { offer: null, failed: 0 }],
   ["a load snapshot with the tab of each work, or no tab", decodeLoadSnapshot, loadSnapshot],
+  ["an agent limit at the low end", decodeAgentLimitPreference, { enabled: true, max: 1 }],
+  ["an agent limit that is off", decodeAgentLimitPreference, { enabled: false, max: 64 }],
 ];
 
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["a resume offer with no agent list", decodeResumeOffer, { channels: [] }],
+  ["an agent limit of zero", decodeAgentLimitPreference, { enabled: true, max: 0 }],
+  ["an agent limit above 64", decodeAgentLimitPreference, { enabled: true, max: 65 }],
+  ["an agent limit that is not whole", decodeAgentLimitPreference, { enabled: true, max: 2.5 }],
+  ["a load snapshot with no agent limit", decodeLoadSnapshot, { ...loadSnapshot, agentLimit: undefined }],
   [
     "a resume offer with no stopped task",
     decodeResumeOffer,

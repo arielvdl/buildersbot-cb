@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
+  AgentLimitPreference,
   AgentSummary,
   AutoRecoveryPreference,
   AutoRecoveryState,
@@ -9,6 +10,7 @@ import type {
   RunningWork,
   StoppedWork,
   StopWorkInput,
+  WaitingWork,
 } from "@openbot/contracts/ipc";
 import { LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
@@ -26,7 +28,9 @@ const TICK_MS = 60_000;
 
 export interface WorkControlOptions {
   /** `runningTurns` is the one record of the turns that run, also the ones in a channel or a side thread. */
-  service: Pick<AgentService, "listAgents" | "channels" | "interrupt" | "runningTurns">;
+  service: Pick<AgentService, "listAgents" | "channels" | "interrupt" | "runningTurns" | "slotWaitingAgents">;
+  /** The cap on the agents that run at the same time. */
+  agentLimit: () => AgentLimitPreference;
   channelActor: () => { id: string; name: string };
   preference: () => AutoRecoveryPreference;
   onFailure: (action: string, cause: unknown) => void;
@@ -94,14 +98,19 @@ export class WorkControl {
   overview(): {
     running: RunningWork[];
     activeAgents: number;
+    waiting: WaitingWork[];
     stopped: StoppedWork[];
     recovery: AutoRecoveryState;
+    agentLimit: AgentLimitPreference;
   } {
     const preference = this.#options.preference();
     const turns = this.#options.service.runningTurns();
+    const agentLimit = this.#options.agentLimit();
     return {
       running: this.#running(turns),
       activeAgents: runningAgentCount(turns),
+      waiting: agentLimit.enabled ? this.#waiting() : [],
+      agentLimit,
       stopped: this.#stoppedRows(),
       recovery: { ...preference, recent: this.#recovery.recent() },
     };
@@ -179,6 +188,15 @@ export class WorkControl {
 
   #agentName(agentId: string): string | null {
     return this.#agents().get(agentId)?.name ?? null;
+  }
+
+  /** The agents whose next turn waits for a free place under the cap, by name. */
+  #waiting(): WaitingWork[] {
+    const agents = this.#agents();
+    return this.#options.service
+      .slotWaitingAgents()
+      .slice(0, LOAD_WORK_LIST_LIMIT)
+      .map((agentId) => ({ agentId, agentName: agents.get(agentId)?.name ?? agentId }));
   }
 
   #running(turns: readonly RunningTurnRecord[]): RunningWork[] {

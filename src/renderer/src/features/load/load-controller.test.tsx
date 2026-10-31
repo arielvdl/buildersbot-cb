@@ -17,8 +17,10 @@ function snapshot(overrides: Partial<LoadSnapshot["lane"]> = {}, activeAgents = 
     providerProcesses: 10,
     lane: { enabled: false, order: [], running: [], queued: [], ...overrides },
     running: [],
+    waiting: [],
     stopped: [],
     recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
+    agentLimit: { enabled: false, max: 10 },
   };
 }
 
@@ -35,6 +37,7 @@ function fullPort(overrides: Partial<Port> = {}): Port {
     resumeStoppedWork: idle,
     reassignStoppedWork: idle,
     setAutoRecovery: idle,
+    setAgentLimit: idle,
     ...overrides,
   };
 }

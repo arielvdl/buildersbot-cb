@@ -131,6 +131,38 @@ export function isLoadLanePreference(value: unknown): value is LoadLanePreferenc
   );
 }
 
+/**
+ * The cap on the agents that run at the same time, as it is stored and as it crosses IPC. It is off
+ * until the person turns it on: then a new turn waits while `max` agents run, and starts by itself
+ * when a place frees.
+ */
+export interface AgentLimitPreference {
+  enabled: boolean;
+  /** The most agents that run at the same time, from 1 to 64. */
+  max: number;
+}
+
+export const AGENT_LIMIT_MIN = 1;
+export const AGENT_LIMIT_MAX = 64;
+export const DEFAULT_AGENT_LIMIT_PREFERENCE: AgentLimitPreference = { enabled: false, max: 10 };
+
+export function isAgentLimitPreference(value: unknown): value is AgentLimitPreference {
+  return (
+    isDynamicRecord(value) &&
+    isBoolean(value.enabled) &&
+    isNumber(value.max) &&
+    Number.isInteger(value.max) &&
+    value.max >= AGENT_LIMIT_MIN &&
+    value.max <= AGENT_LIMIT_MAX
+  );
+}
+
+/** An agent whose next turn waits for a free place under the cap. */
+export interface WaitingWork {
+  agentId: string;
+  agentName: string;
+}
+
 /** The channels the lane shows: the ones that work, and the ones that wait, in start order. */
 export interface LoadLaneState extends LoadLanePreference {
   running: string[];
@@ -154,8 +186,11 @@ export interface LoadSnapshot {
   providerProcesses: number;
   lane: LoadLaneState;
   running: RunningWork[];
+  /** The agents whose turn waits for a free place under the cap. Empty while the cap is off. */
+  waiting: WaitingWork[];
   stopped: StoppedWork[];
   recovery: AutoRecoveryState;
+  agentLimit: AgentLimitPreference;
 }
 
 function isIdentifierList(value: unknown): value is string[] {
@@ -175,6 +210,10 @@ function isRunningWork(value: unknown): value is RunningWork {
     isString(value.title) &&
     isString(value.startedAt)
   );
+}
+
+function isWaitingWork(value: unknown): value is WaitingWork {
+  return isDynamicRecord(value) && isIdentifier(value.agentId) && isString(value.agentName);
 }
 
 function isStoppedWork(value: unknown): value is StoppedWork {
@@ -238,8 +277,10 @@ export function isLoadSnapshot(value: unknown): value is LoadSnapshot {
     isIdentifierList(value.lane.running) &&
     isIdentifierList(value.lane.queued) &&
     isBoundedWorkList(value.running, isRunningWork) &&
+    isBoundedWorkList(value.waiting, isWaitingWork) &&
     isBoundedWorkList(value.stopped, isStoppedWork) &&
-    isAutoRecoveryState(value.recovery)
+    isAutoRecoveryState(value.recovery) &&
+    isAgentLimitPreference(value.agentLimit)
   );
 }
 

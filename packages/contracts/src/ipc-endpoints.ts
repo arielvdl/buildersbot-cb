@@ -304,6 +304,7 @@ import type {
   InstanceTransferSummary,
 } from "./ipc-instance-transfer";
 import type {
+  AgentLimitPreference,
   AutoRecoveryPreference,
   LoadLanePreference,
   LoadSnapshot,
@@ -650,6 +651,9 @@ export const IPC_ENDPOINTS = {
     resumeStoppedWork: request<ResumeStoppedWorkInput, LoadSnapshot>()("app:resume-stopped-work"),
     reassignStoppedWork: request<ReassignStoppedWorkInput, LoadSnapshot>()("app:reassign-stopped-work"),
     setAutoRecovery: request<AutoRecoveryPreference, LoadSnapshot>()("app:set-auto-recovery"),
+    // The cap on the agents that run at the same time (`ipc-load.ts`). Off until the person turns it on.
+    getAgentLimit: request<undefined, AgentLimitPreference>()("app:get-agent-limit"),
+    setAgentLimit: request<AgentLimitPreference, LoadSnapshot>()("app:set-agent-limit"),
     // The work that a restart stopped (`ipc-resume.ts`). The read waits until boot recovery ends.
     getResumeOffer: request<undefined, InterruptedWorkOffer | null>()("app:get-resume-offer"),
     resumeInterruptedWork: request<ResumeInterruptedWorkInput, ResumeInterruptedWorkResult>()(

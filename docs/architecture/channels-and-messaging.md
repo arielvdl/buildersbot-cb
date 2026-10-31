@@ -311,6 +311,19 @@ it.
   thread first, and does not pass it to the listeners when one of them takes it. A count of those
   events read 0 while agents worked in channels. The record of the lifecycle also drops a turn that a
   client stop ended, so no turn counts after it ends.
+- The agent limit caps the agents that run at the same time. It is off by default (no limit). On,
+  with `max` from 1 to 64 (10 is suggested), a new turn waits in its queue while `max` agents run,
+  and starts by itself when an agent ends. Work that runs is never stopped. The limit is a clause of
+  the one turn slot gate of the queue drain (`TurnSlots`, `src/backend/agent/turn-slots.ts`), beside
+  the memory turn limit (`MacMemory.turnLimit()`, 64 on a desktop, or the server limit): a lane starts
+  only when both have room, so the one that is reached first holds it. An agent that runs a turn
+  already can start another lane, because it is still one agent; the memory limit counts each turn.
+  The waiting lanes go by the head of their queue, a message from a person first, as for the memory
+  limit. A change of the limit tries each queue again (`AgentService.agentLimitChanged`).
+- With the limit on, the ring arc is the agents of `max` instead of ten, the tooltip says "3 of 10",
+  and the panel lists the agents that wait for a place (`AgentService.slotWaitingAgents`) with the
+  reason "Limit of N agents reached". The switch and the number are in the panel, beside "One channel
+  at a time" and "Resume by itself".
 
 The code:
 
@@ -321,8 +334,11 @@ The code:
 - `src/main/channel-lane-preference-store.ts`: the mode and the order, in
   `openbot-channel-lane-v1.json` in the user data folder. A missing file, bad JSON or another shape
   reads as off.
-- `packages/contracts/src/ipc-load.ts` and `ipc-endpoints.ts`: `getLoad`, `setLoadLane` and
-  `runChannelNow`. `src/main/ipc/app-handlers.ts` answers them with `buildLoadSnapshot`
+- `src/main/agent-limit-preference-store.ts`: the agent limit, in `openbot-agent-limit-v1.json` in
+  the user data folder. A missing file, bad JSON, another shape or a value out of range reads as off.
+- `packages/contracts/src/ipc-load.ts` and `ipc-endpoints.ts`: `getLoad`, `setLoadLane`,
+  `runChannelNow`, `getAgentLimit` and `setAgentLimit`. Main refuses a `max` that is not a whole
+  number from 1 to 64 (`parseAgentLimitPreference`), and the preload decodes the answer. `src/main/ipc/app-handlers.ts` answers them with `buildLoadSnapshot`
   (`src/main/load-snapshot.ts`), `ResourceMonitor.loadReading` for the memory, and
   `WorkControl.overview` for the count and the work.
 - `packages/ui/src/features/window/LoadRing.tsx`, `load-view.ts` and `page-rail.css`: the ring and

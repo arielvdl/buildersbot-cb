@@ -108,15 +108,25 @@ async function setup(options: { preference?: { enabled: boolean; intervalMinutes
   const preference = options.preference ?? { enabled: false, intervalMinutes: 30, reassign: false };
   // What `AgentService.runningTurns` gives: the turns that run, in any thread.
   const turns: RunningTurnRecord[] = [];
+  // What `AgentService.slotWaitingAgents` gives: the agents whose turn waits for a free place.
+  const slotWaiting: string[] = [];
+  const agentLimit = { enabled: false, max: 10 };
   const control = new WorkControl({
-    service: { listAgents: () => members, channels, interrupt: () => Effect.void, runningTurns: () => turns },
+    service: {
+      listAgents: () => members,
+      channels,
+      interrupt: () => Effect.void,
+      runningTurns: () => turns,
+      slotWaitingAgents: () => slotWaiting,
+    },
+    agentLimit: () => agentLimit,
     channelActor: () => actor,
     preference: () => preference,
     onFailure: (action) => failures.push(action),
     now: () => clock.now,
   });
   const taskId = channels.store.tasks("c1")[0]?.id ?? "";
-  return { control, channels, clock, failures, taskId, fail, turns };
+  return { control, channels, clock, failures, taskId, fail, turns, slotWaiting, agentLimit };
 }
 
 /** The thread of alpha in the channel, as the channel makes it when the agent starts there. */
@@ -153,6 +163,19 @@ describe("the agents that run", () => {
     turns.splice(0, 3);
     expect(control.overview().activeAgents).toBe(0);
     expect(control.overview().running).toEqual([]);
+  });
+
+  it("lists the agents that wait for a place only while the cap is on, by name", async () => {
+    const { control, slotWaiting, agentLimit } = await setup();
+    slotWaiting.push("beta", "ghost");
+    expect(control.overview().waiting).toEqual([]);
+    agentLimit.enabled = true;
+    agentLimit.max = 2;
+    expect(control.overview().agentLimit).toEqual({ enabled: true, max: 2 });
+    expect(control.overview().waiting).toEqual([
+      { agentId: "beta", agentName: "BETA" },
+      { agentId: "ghost", agentName: "ghost" },
+    ]);
   });
 });
 

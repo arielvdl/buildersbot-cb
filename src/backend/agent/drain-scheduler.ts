@@ -157,6 +157,8 @@ export interface DrainSchedulerOptions {
   routines: RoutineScheduler;
   threads: ThreadLifecycle;
   memory: MemoryHold;
+  /** The most agents that run turns at the same time, as the person set it, or null for no cap. */
+  agentLimit?: () => number | null;
   usageLimits: UsageLimitGate;
   tasks: TaskLanes;
   /** The security reviewer of the user messages of a turn. Omitted, no message is reviewed. */
@@ -245,8 +247,11 @@ export class DrainScheduler {
     this.#hooks = options.hooks;
     this.#channels = options.channels;
     this.#messaging = options.messaging;
+    const agentLimit = options.agentLimit ?? (() => null);
     this.#slots = new TurnSlots({
       limit: () => this.#memory.turnLimit(),
+      agentLimit,
+      agentOf: (key) => laneOf(key).agentId,
       lanes: () =>
         this.#store
           .list()
@@ -378,6 +383,11 @@ export class DrainScheduler {
     const lane = { agentId, taskId };
     if (!this.#mailbox.nextQueued(agentId, taskId)) return null;
     return this.#heldBy(lane) ?? (this.#slotWaiters.has(laneKey(lane)) ? "machine" : null);
+  }
+
+  /** The agents with a lane that waits for a free turn slot, for the load panel. */
+  slotWaiters(): string[] {
+    return [...new Set([...this.#slotWaiters].map((key) => laneOf(key).agentId))];
   }
 
   /** `followUsageLimit` is false after a move that failed, so that the drain does not try it again. */

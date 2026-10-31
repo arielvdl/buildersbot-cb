@@ -116,6 +116,17 @@ export const messages = defineMessages("app", {
   "app.rail.load.eventResumed": "Resumed {channel}",
   "app.rail.load.eventReassigned": "Gave {channel} to {agent}",
   "app.rail.load.eventGaveUp": "Gave up on {channel}",
+  "app.rail.load.agentsOfLimit": "{agents} of {limit}",
+  "app.rail.load.waitingTitle": "Waiting for a place",
+  "app.rail.load.waitingReason": {
+    one: "Limit of {count} agent reached",
+    other: "Limit of {count} agents reached",
+  },
+  "app.rail.load.limitTitle": "Limit the agents that run at the same time",
+  "app.rail.load.limitHint":
+    "When the limit is reached, a new turn waits in its queue and starts by itself when an agent ends. Off: no limit.",
+  "app.rail.load.limitMax": "Most agents",
+  "app.rail.load.limitUnit": "(1 to 64, 10 is suggested)",
   // The modal after a forced close or a crash. Nothing starts again until the user selects it.
   "app.resume.title": "Continue the stopped work?",
   "app.resume.description":
