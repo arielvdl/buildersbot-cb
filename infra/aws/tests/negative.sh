@@ -673,6 +673,38 @@ else
   bad "F4 setor sem proxy: proxy.env sem variáveis"
 fi
 
+# dns-unit: o DNS do contêiner. Com o proxy, só signal./turn. da zona saem (pelo resolvedor do host) e o
+# resto recebe NXDOMAIN ali mesmo: nenhuma consulta do contêiner chega a um resolvedor de fora.
+dns_proxy=$(bash "$TOOL" dns-unit proxy bb-aws.example.com 2>&1)
+dns_exec=$(sed -n 's/^ExecStart=//p' <<<"$dns_proxy")
+dns_ok=1
+for word in /usr/sbin/dnsmasq --no-resolv --no-hosts --listen-address=172.30.0.1 --bind-dynamic --pid-file= \
+  --conf-file=/dev/null --server=/signal.bb-aws.example.com/127.0.0.53 --server=/turn.bb-aws.example.com/127.0.0.53 \
+  --address=/#/; do
+  case " $dns_exec " in *" $word "*) ;; *) dns_ok=0 ;; esac
+done
+[ "$(grep -o -- '--server=' <<<"$dns_exec" | wc -l | tr -d ' ')" = 2 ] || dns_ok=0
+for line in 'DynamicUser=yes' 'IPAddressDeny=any' 'IPAddressAllow=localhost 172.30.0.0/16' 'LimitCORE=0' \
+  'CapabilityBoundingSet=CAP_NET_BIND_SERVICE' 'Before=docker.service' 'WantedBy=multi-user.target'; do
+  grep -qxF -- "$line" <<<"$dns_proxy" || dns_ok=0
+done
+if [ "$dns_ok" = 1 ]; then
+  ok_case "F4 DNS do contêiner com proxy: só signal./turn. da zona, NXDOMAIN para o resto, sem rede além do host e da ponte"
+else
+  bad "F4 DNS do contêiner com proxy" "$dns_proxy"
+fi
+dns_direct=$(bash "$TOOL" dns-unit direct bb-aws.example.com 2>&1)
+if grep -q -- ' --server=127.0.0.53$' <<<"$dns_direct" && ! grep -q -- '--address=' <<<"$dns_direct"; then
+  ok_case "F4 DNS do contêiner sem proxy (decisão do dono): todos os nomes vão ao resolvedor do host"
+else
+  bad "F4 DNS do contêiner sem proxy" "$dns_direct"
+fi
+if ! bash "$TOOL" dns-unit proxy 'bb-aws.example.com/127.0.0.1 --address=/x' >/dev/null 2>&1; then
+  ok_case "F4 DNS do contêiner recusa zona que não é nome DNS (nada entra na linha do dnsmasq)"
+else
+  bad "F4 DNS do contêiner recusa zona inválida"
+fi
+
 # add-sector: proxy obrigatório. Só describe-parameters (existência e tipo); o valor nunca é lido.
 h_proxy() {
   case "$1 $2" in
@@ -754,11 +786,13 @@ check grep -q "grep -qx 'BB_PROXY_DIRECT blocked'" templates/ops.yaml
 check grep -q "grep -qx 'BB_PROXY_EXIT country=BR'" templates/ops.yaml
 # O bootstrap: tinyproxy mascarado antes do apt (o pacote não sobe sozinho) e DNS do contêiner só no host.
 mask_line=$(grep -n 'systemctl mask tinyproxy.service' templates/sector-compute.yaml | cut -d: -f1)
-apt_line=$(grep -n 'ca-certificates tinyproxy$' templates/sector-compute.yaml | cut -d: -f1)
+apt_line=$(grep -n 'ca-certificates tinyproxy dnsmasq-base$' templates/sector-compute.yaml | cut -d: -f1)
 check test "${mask_line:-0}" -gt 0
 check test "${apt_line:-0}" -gt "${mask_line:-0}"
 check grep -q '"dns": \["172.30.0.1"\]' templates/sector-compute.yaml
-check grep -q 'DNSStubListenerExtra=172.30.0.1' templates/sector-compute.yaml
+# O stub do systemd-resolved em 172.30.0.1 resolvia qualquer nome pelo resolvedor da VPC: só o dnsmasq restrito.
+check test "$(grep -c 'DNSStubListenerExtra=' templates/sector-compute.yaml)" = 0
+check grep -q 'dns-unit "$("$P" mode)"' templates/proxy.yaml
 # Alarme: só "ok BR" conta; horário comercial trata falta de dado como o alarme de saúde; tópico de alertas.
 check grep -q "FilterPattern: '\"BB_PROXY_HEALTH ok BR\"'" templates/sector-compute.yaml
 check test "$(grep -c 'TreatMissingData: !If \[IsAlwaysOn, breaching, notBreaching\]' templates/sector-compute.yaml)" = 2

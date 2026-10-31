@@ -416,10 +416,11 @@ Resources:
             apt_get update -q
             # tinyproxy is the local forwarder of the egress proxy, configured and started by
             # bb-srv-ProxySetup (bb-proxy.service). Masked first, so the package never starts its own
-            # instance (port 8888 on every address of the host).
+            # instance (port 8888 on every address of the host). dnsmasq-base (no service of its own) is
+            # the DNS of the container, bb-srv-container-dns.service of bb-srv-ProxySetup.
             systemctl mask tinyproxy.service
             apt_get install -y -q --no-install-recommends docker.io docker-compose-v2 amazon-ecr-credential-helper \
-              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates tinyproxy
+              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates tinyproxy dnsmasq-base
             printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' \
               >/etc/apt/apt.conf.d/52bb-srv-reboot
             # The AWS CLI that bb-srv-Install and bb-srv-proxy use to read their parameters and the
@@ -458,13 +459,10 @@ Resources:
 
             # 4. Docker hardened before any container (DESIGN 4.6). The VPC resolver is in a range that the
             #    firewall of the instances blocks, and no packet of a container may go to a resolver on the
-            #    internet (README section 16): the containers ask systemd-resolved of the host on the
-            #    gateway of the openbot bridge (172.30.0.1, the subnet of docker/instances), which the
-            #    egress firewall of bb-srv-proxy opens on port 53 only. FREEBIND: it listens before the
-            #    bridge exists.
-            install -d -m 0755 /etc/systemd/resolved.conf.d
-            printf '[Resolve]\nDNSStubListenerExtra=172.30.0.1\n' >/etc/systemd/resolved.conf.d/bb-srv-containers.conf
-            systemctl restart systemd-resolved
+            #    internet (README section 16): the containers ask the DNS of the host on the gateway of the
+            #    openbot bridge (172.30.0.1, the subnet of docker/instances), port 53 only. That DNS is
+            #    bb-srv-container-dns (dnsmasq, written by bb-srv-ProxySetup): with the proxy it answers only
+            #    signal./turn. of the zone and NXDOMAIN for every other name.
             install -d -m 0755 /etc/docker
             cat >/etc/docker/daemon.json <<'JSON'
             {"userns-remap": "default", "live-restore": true, "no-new-privileges": true, "icc": false,
