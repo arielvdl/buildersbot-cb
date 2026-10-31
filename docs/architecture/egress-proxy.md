@@ -45,7 +45,9 @@ the gateway and the agents' own local servers are there.
 `src/main/egress-proxy-store.ts` keeps the setting in `openbot-egress-proxy-v1.json` in the user
 data of the server. The password is encrypted with `safeStorage`, as `ProviderCredentialStore`
 does. A file that cannot be read or a password that cannot be decrypted makes the state
-`error` with the reason `secret`; the file stays until an admin saves again.
+`error` with the reason `secret`; the file stays until an admin saves again. Settings › General
+lists such a file with the other encrypted files of this computer (`registerSecretHealthSource`
+with `egress-proxy`, and `egress-default` for the app default below).
 
 ## What goes through the proxy
 

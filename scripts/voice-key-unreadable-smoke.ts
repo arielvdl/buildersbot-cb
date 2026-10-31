@@ -16,7 +16,8 @@
 //      A new key clears the state.
 //   5. The secret health registry (Fase 0b): a custom agent whose values cannot be decrypted is
 //      counted, and the registry lists only the stores that cannot read their file now, with the
-//      file name and no value. A key that is saved again leaves the list at once.
+//      file name and no value. The egress proxy file of the server is listed too. A key that is
+//      saved again leaves the list at once.
 //
 // Run: bun scripts/voice-key-unreadable-smoke.ts
 // It writes .openbot-build/voice-anywhere/f0a-key-unreadable.json and exits non-zero on a failure.
@@ -25,12 +26,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { ELEVENLABS_VOICE_MODEL_ID, type LocalVoiceModelId } from "@openbot/contracts/ipc";
+import { EGRESS_DEFAULT_BYPASS, ELEVENLABS_VOICE_MODEL_ID, type LocalVoiceModelId } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger, teeLogLines } from "@openbot/logging";
 import { Effect, Result } from "effect";
 import { CUSTOM_AGENTS_FILE, CustomAgentStore } from "../src/main/custom-agent-store";
+import { EGRESS_PROXY_FILE, EgressProxyStore } from "../src/main/egress-proxy-store";
 import { registerSecretHealthSource, unreadableSecrets } from "../src/main/secret-health";
 import { type VoiceApiKeyCipher, VoiceApiKeyStore } from "../src/main/voice-api-key-store";
 import { VoicePreferenceStore } from "../src/main/voice-preference-store";
@@ -242,17 +244,37 @@ try {
   check("a custom agent whose values cannot be decrypted is counted", agents.unreadableSecretCount() === 1, {
     count: agents.unreadableSecretCount(),
   });
+  // The proxy password of the server, sealed by the old cipher. The proxy then blocks the agents.
+  const egressPath = join(directory, EGRESS_PROXY_FILE);
+  const sealedEgress = new EgressProxyStore(egressPath, aesCipher());
+  await Effect.runPromise(sealedEgress.load());
+  await Effect.runPromise(
+    sealedEgress.save({
+      enabled: true,
+      host: "proxy.example.test",
+      port: 3128,
+      username: "smoke-user",
+      bypass: [...EGRESS_DEFAULT_BYPASS],
+      expectedCountry: "BR",
+      blockOtherCountry: true,
+      password: KEY,
+    }),
+  );
+  const egress = new EgressProxyStore(egressPath, aesCipher());
+  await Effect.runPromise(egress.load());
   const unreadableKeys = new VoiceApiKeyStore({ path: keyPath, cipher: aesCipher() });
   await Effect.runPromise(unreadableKeys.load());
   registerSecretHealthSource("voice-api-key", "voice-api-key.json", () => unreadableKeys.status() === "unreadable");
   registerSecretHealthSource("voice-server-key", "voice-server-key.json", () => serverKeys.status() === "unreadable");
   registerSecretHealthSource("custom-agents", CUSTOM_AGENTS_FILE, () => agents.unreadableSecretCount() > 0);
+  registerSecretHealthSource("egress-proxy", EGRESS_PROXY_FILE, () => egress.unreadable());
   const listed = unreadableSecrets();
   check(
     "the registry lists the unreadable stores with their file names only",
-    listed.length === 2 &&
+    listed.length === 3 &&
       listed.some((entry) => entry.store === "voice-api-key" && entry.file === "voice-api-key.json") &&
       listed.some((entry) => entry.store === "custom-agents" && entry.file === CUSTOM_AGENTS_FILE) &&
+      listed.some((entry) => entry.store === "egress-proxy" && entry.file === EGRESS_PROXY_FILE) &&
       !JSON.stringify(listed).includes(KEY),
     listed,
   );

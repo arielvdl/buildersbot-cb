@@ -1229,6 +1229,8 @@ export async function createApplicationServices({
     safeStorageCipher("error.app.secretStorageUnavailable"),
   );
   await runCauseEffect(egressStore.load());
+  // A file that this keychain item cannot open blocks the agents' traffic (`secret`): say which one.
+  registerSecretHealthSource("egress-proxy", EGRESS_PROXY_FILE, () => egressStore.unreadable());
   const egressGateway = new EgressGateway({
     route: () => egressProxy.gatewayRoute(),
     onResult: (result) => egressProxy.onTraffic(result),
@@ -1245,6 +1247,7 @@ export async function createApplicationServices({
     safeStorageCipher("error.app.secretStorageUnavailable"),
   );
   await runCauseEffect(egressDefaultStore.load());
+  registerSecretHealthSource("egress-default", EGRESS_DEFAULT_FILE, () => egressDefaultStore.unreadable());
   const egressDefault = new EgressProxyDefault({
     store: egressDefaultStore,
     log: { warn: (message, detail) => logger.warn(message, toLogValue(detail)) },

@@ -292,6 +292,10 @@ export const messages = {
     "Chaves de API de provedores ({file}): salve cada chave de novo nas configurações de provedores deste computador.",
   "settings.secretHealth.store.messagingCredentials":
     "Tokens de conexões de mensagens ({file}): conecte cada espaço de trabalho de novo.",
+  "settings.secretHealth.store.egressProxy":
+    "Proxy da saída de rede deste servidor ({file}): em Configurações do servidor › Saída de rede, digite a senha de novo e salve. Até lá, o tráfego de internet dos agentes fica bloqueado.",
+  "settings.secretHealth.store.egressDefault":
+    "Proxy padrão para novos servidores ({file}): em Configurações do servidor › Saída de rede, salve o padrão de novo ou remova-o.",
   "settings.preferences.saveFailed": "Não foi possível salvar esta configuração. Tente de novo.",
   "settings.agentSelect.placeholder": "Escolha um agente",
   "settings.agentSelect.empty": "Nenhum agente local",

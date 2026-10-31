@@ -12,6 +12,8 @@ const STORE_TEXT = {
   "custom-providers": "settings.secretHealth.store.customProviders",
   "provider-credentials": "settings.secretHealth.store.providerCredentials",
   "messaging-credentials": "settings.secretHealth.store.messagingCredentials",
+  "egress-proxy": "settings.secretHealth.store.egressProxy",
+  "egress-default": "settings.secretHealth.store.egressDefault",
 } as const satisfies Record<SecretHealthStore, `settings.secretHealth.store.${string}`>;
 
 /**

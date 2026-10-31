@@ -311,6 +311,10 @@ export const messages = defineMessages("settings", {
     "Provider API keys ({file}): save each key again in the Providers settings of this computer.",
   "settings.secretHealth.store.messagingCredentials":
     "Tokens of messaging connections ({file}): connect each workspace again.",
+  "settings.secretHealth.store.egressProxy":
+    "Network egress proxy of this server ({file}): in Server settings › Network egress, type the password again and save. Until then, the internet traffic of the agents stays blocked.",
+  "settings.secretHealth.store.egressDefault":
+    "Default proxy for new servers ({file}): in Server settings › Network egress, save the default again or remove it.",
   "settings.preferences.saveFailed": "Could not save this setting. Try again.",
   // The agent picker on the skill and plugin install pages.
   "settings.agentSelect.placeholder": "Choose an agent",

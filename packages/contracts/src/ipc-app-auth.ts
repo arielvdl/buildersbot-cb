@@ -289,6 +289,8 @@ export const SECRET_HEALTH_STORES = [
   "custom-providers",
   "provider-credentials",
   "messaging-credentials",
+  "egress-proxy",
+  "egress-default",
 ] as const;
 export type SecretHealthStore = (typeof SECRET_HEALTH_STORES)[number];
 

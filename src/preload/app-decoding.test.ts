@@ -205,6 +205,14 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
       { store: "custom-agents", file: "custom-agents.json" },
     ],
   ],
+  [
+    "the unreadable egress proxy files",
+    decodeUnreadableSecrets,
+    [
+      { store: "egress-proxy", file: "openbot-egress-proxy-v1.json" },
+      { store: "egress-default", file: "openbot-egress-default-v1.json" },
+    ],
+  ],
   ["a microphone grant that the system does not tell", decodeMicrophoneAccess, "unknown"],
   [
     "a voice server test that found models",

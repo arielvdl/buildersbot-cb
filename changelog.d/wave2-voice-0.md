@@ -30,8 +30,9 @@
 
 - Settings > General warns when Builders Bot cannot decrypt saved data on this computer, which
   happens when the keychain changes or a profile is copied from another app. It lists the ElevenLabs
-  key, the voice server key, custom agent values, custom provider credentials, provider API keys and
-  messaging tokens that cannot be read, with the file name and what to do for each.
+  key, the voice server key, custom agent values, custom provider credentials, provider API keys,
+  messaging tokens and the network egress proxy that cannot be read, with the file name and what to
+  do for each.
 
 ### Changed
 
