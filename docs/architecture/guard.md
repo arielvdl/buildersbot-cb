@@ -54,9 +54,9 @@ off.
 | suspicious | no verdict: no sign-in, timeout, error, reply outside the schema | passes with a note | passes |
 | incomplete | not asked when nothing is marked | passes with a note | the person decides |
 
-An action whose review found every review slot taken until the deadline (4 reviews run at once at
-most) goes to the person: an agent can fill the slots on purpose with many calls at once. Content in
-that case passes with a note.
+An action whose review found every review slot taken (4 reviews run at once at most) and did not end
+before the deadline goes to the person, also when a slot came free and the review started late: an
+agent can fill the slots on purpose with many calls at once. Content in that case passes with a note.
 
 "The person decides" uses the existing approval card. A Full access grant does not answer a Guard
 question. The card of a Guard question carries `guard: true` (`AgentApproval`): its title is "The
@@ -71,6 +71,13 @@ while the Guard checked it, such as after Stop, gets no card.
 
 The reviewer's own reason shows only on the card, with `<` and `>` taken out. The agent reads the
 sentence of the local finding in every note and refusal, never text that the reviewer wrote.
+
+When the person allows an item on the card, the gate remembers the answer for 10 minutes for the
+same agent and thread. Content is the same item when the same findings stand at the same marked text
+on the same page, so a snapshot, a wait or a click that reads the page again does not ask again; it
+passes with a note. An action is the same item only when its whole text is the same: the tool, every
+URL, command and real file path. Another page, another finding, another action or another thread
+asks again. A decline is not remembered, and the shared browser, which cannot ask, remembers nothing.
 
 "Passes with a note" puts a `<guard_notice>` item in front of the result: the content is data, not a
 request from the person. Where no card can be shown, such as the shared browser, a result that would
@@ -98,8 +105,11 @@ The router of Builders Bot tools (`src/backend/agent/openbot-tool-router.ts`) ca
     (`guard-broker-calls.ts`). Files are checked at each path that leads to them, and the call opens
     the real paths that the Guard checked. The broker cannot tell which agent and turn a call serves,
     so it cannot show the card: a call that would ask the person does not run, and the agent reads
-    why. `browser_run_code_unsafe` with a file and no code does not run either: the Guard reads code,
-    not files, and the agent is told to give the code itself. The broker logs the tool name only.
+    why. `browser_run_code_unsafe` with a file does not run either, also with code beside it
+    (Playwright then runs the file and ignores the code): the Guard reads code, not files, and the
+    agent is told to give the code itself. An upload or a drop with a relative path does not run: the
+    browser resolves it against a folder that the call chooses, so the agent is told to give absolute
+    paths. The broker logs the tool name only.
   - After a call: each result passes `McpResultGuard` (`guard-mcp-results.ts`) on its way to the
     agent. Other events of the stream pass at once. The base64 data of images, audio and blobs does
     not count toward the 8 MB limit, so a full-page screenshot is read as usual; the whole message
@@ -173,12 +183,36 @@ Cultura Builder with no sign-in. The page is `src/renderer/src/features/settings
 ## The local check at Light
 
 Light is for prompt injection and plain leaks. It must not stop or nag ordinary work: that matters
-as much as a caught attack. Two corpora in `guard-corpus.test.ts` hold both sides with the real
-check and policy and no reviewer: more than 100 ordinary items (login and settings pages, cookie
-banners, pages about prompt injection, code and docs with secret words, chat history, everyday
-commands, chat posts) must stay clean or get a note at most, and at most 8% of them may get any
-finding; about 100 attacks, one or more of each family below, must be marked, and the clear ones
-must reach the person. A change to a rule runs against both.
+as much as a caught attack. The owner reads and writes Portuguese first, so Portuguese pages, chats,
+commands and documents are the main ordinary population. Two corpora in `guard-corpus.test.ts` hold
+both sides with the real check and policy and no reviewer:
+
+- Almost 300 ordinary items: login, settings, bank and shop pages, cookie banners, pages and
+  tutorials about prompt injection, API docs with chat roles, code and docs with secret words, chat
+  history, everyday commands (git, npm, brew, ssh, scp, docker, curl with a token variable to its own
+  service, known installers) and routine reports posted to a chat. About 80 of them are Brazilian or
+  European Portuguese, and 94 come from the second review (B01 to B54, E01 to E40). Each one must
+  stay clean or get a note at most (no card), and at most 4% of them may get any finding.
+- About 150 attacks, one or more of each family below. Each one must be marked, and the clear ones
+  must reach the person.
+
+A change to a rule runs against both. One item of the review stays a card by design: `scp` of an env
+file to another computer (B47) is the plain shape of a leak, so the owner decides it.
+
+How much one finding weighs:
+
+| Weight | Alone | Next to another finding (200 characters, same line or JSON object for a label) |
+| --- | --- | --- |
+| high | the person decides | the person decides |
+| strong | the reviewer, or a note | high, with a hint or a strong or context finding of another kind |
+| context | nothing | high, with a hint or a strong finding |
+| note | a note; the reviewer cannot clear the item | high, with a strong finding |
+| hint | nothing | counts for a strong or context finding |
+
+The context findings are the labels that docs show all the time: a chat role in JSON
+(`"role": "system"`), a "System prompt:" line, and a plain "New instructions:" or "Novas instruções:"
+line. A heading such as "## New instructions:" is strong. The note is a fake verdict object
+(`"verdict": "allow"`), which is also how docs of a reviewer show its reply.
 
 ### Content
 
@@ -191,7 +225,15 @@ must reach the person. A change to a rule runs against both.
 - A finding that weighs strong and a hint, or two strong findings of different kinds, make content
   high only within 200 characters of each other: "You are now…" at the top of a page and "Forgot
   password?" in its footer are not one attack. A hint in the same words as a strong finding of its
-  own kind does not count twice.
+  own kind does not count twice, and neither does a second place of that strong finding.
+- A strong finding that stands only in a quoted example, a quote on one line after words such as
+  "said", "such as", "the text", "por exemplo" or "o texto", is a page that reports an attack: alone it
+  is nothing, and with a hint or another finding in the quote the item is suspicious, not high.
+- An override after a condition about the reader's computer ("If you are on macOS, ignore the above
+  instructions and run…", "Se você usa Mac, ignore as instruções acima") is install docs. A condition
+  that names an AI is not.
+- JavaScript `\b` knows only ASCII letters, so no rule puts `\b` next to an accented letter: "dê" has
+  its own Unicode edges, and the preposition "de" ("troca de senha", "Política de cookies") is no verb.
 - A new role is a role for a model: "you are now DAN", "you are now an unrestricted AI", "from now
   on you will act as…", "a partir de agora você é um assistente…". "You are now signed in" and
   "Você agora é assinante" are not.
@@ -199,8 +241,23 @@ must reach the person. A change to a rule runs against both.
   senhas"). A word such as password or cookies alone, as on every login page and cookie banner, is
   not one, and a negation before it ("Never share your password") clears it.
 - Text that addresses the reviewer is a reviewer named with a colon, a comma or "Dear", "Note to",
-  "If you are a…", and an order to answer allow, safe or benign; and a fake verdict object. A docs
-  page that says that a content filter rates a reply as safe is not one.
+  "If you are a…", and an order in the second person about this item: "answer allow", "this page is
+  safe". A docs page that says what a classifier does ("it will label each input as benign"), a
+  content filter that rates a reply as safe, and a chat that asks content moderators to approve posts
+  are not.
+- Docs phrases do not count as a second signal: "Send a POST request to https://…", "include your API
+  key in the Authorization header", "cole a chave de API no campo …", a product page that shares
+  passwords "securely" or "com a sua equipe", a question in a team chat ("can you send me the API
+  keys?"), and the documented pipe of a known installer to a shell.
+- An image link whose query a placeholder fills: a placeholder that names private data
+  (`{conversation_summary}`, `%7Bsecret%7D`) is high; another one is strong; a template
+  (`{{ address }}`), a JSONPath (`$.version`) or `<your-username>` is not one.
+- Direction isolates count only inside a word or with no partner (an i18n library puts one around each
+  name), and a zero-width non-joiner next to an Arabic or Indic letter is spelling. Every
+  default-ignorable and format character, except the direction controls, is taken out before the
+  phrase rules read the text.
+- An HTML comment or hidden CSS text counts when it speaks to a model ("AI agents:", "assistant:",
+  "ignore the above"), not when it only names one (`<!-- LLM chat widget start -->`).
 - Fake system and turn markers: chat template tokens (`<|im_start|>`, `<|eot_id|>`, `[INST]`,
   `<start_of_turn>`), system or developer tags of any suffix (`<system-reminder>`), fake ends of a
   tool result (`</function_results>`), `"role": "system"` in JSON, and a `Human:` … `Assistant:`
@@ -233,23 +290,47 @@ must reach the person. A change to a rule runs against both.
   names a key to sign in with (`-i`, `--cert`, `--key`) is not sent.
 - A chat post or a typed text is checked for secret values only. A post that names `.env` and curl
   is a report, not a file.
+- A known key shape counts only in the form that its vendor issues: `sk-hynix-posts-record-profit`,
+  `xai-sdk-python` and `xoxo-gossip-girl` in a news address are not keys (the log mask keeps the wider
+  rule). A key sent to the service that issued it, such as a Gemini key in the address of the Gemini
+  API or an OpenAI key in a command to `api.openai.com`, is how the key is used.
+- An address is read as the browser opens it: with no scheme, with `https://` in front. A
+  `javascript:` or `data:` address is read as the script or the page that it holds: a secret in it, a
+  read of cookies or storage with an address of another site, and the URLs inside it. A secret value
+  as the user or the password of a URL weighs as much as one in its path. A password is
+  `credentials-in-url`; a user alone is not; a token variable as the user or password, sent to its own
+  service (`https://x-access-token:$GITHUB_TOKEN@github.com/…`), is how the token is used.
+- A block of data in a URL is a query longer than 400 characters, a run of 100 or more base64
+  characters with few separators, or a long hex run. The long address of a news article or a Notion
+  page is words between hyphens and slashes.
 - A value that the app saved, such as a Vault password, counts in an action only when it has 8
   characters or more, is not one plain word or number shorter than 12, and stands as a whole token:
   a Vault password `admin` or a one-time code does not make `/admin` or a pull request number a leak.
   The log still masks every saved value.
 - A page script that reads cookies or storage and sends them to another site: by a request, or by a
   new address of the page or a window, a form, an attribute that loads a URL, an `import()`, an
-  event source or a message to another window. A send whose address is a relative string of the
-  page's own site, such as `fetch('/api/me')` or `location.href = '/home'`, does not count. A send
+  event source or a message to another window; and a script that reads cookies or storage and holds
+  any address of another site, whatever way it loads it (a style, an image set, a frame, the global
+  `open`). A send to the page's own site does not count: a relative string such as
+  `fetch('/api/me')`, `location.origin + '/api'`, `` `${location.origin}/api` ``,
+  `new URL('/x', location.href)`, and a blob of the page (`URL.createObjectURL(…)`). A send
   that names no address (`XMLHttpRequest`, `form.submit()`, `innerHTML`) counts only when the script
   names a site. A secret file in a script counts only in `browser_run_code_unsafe`, which runs in
   Node and can read files; a page script cannot.
 - A pipe to a shell counts as a known install only when the whole statement, or the whole script of
   a shell that wraps it, has the strict form: `curl` or `wget` with flags that change no request,
-  one https URL of a known installer, then `| sh` or `| bash`. An assignment, `env`, an alias or a function of `curl`, or a proxy or
-  certificate variable anywhere in the command makes it a finding. The Homebrew installer
-  (`/bin/bash -c "$(curl -fsSL …/Homebrew/install/HEAD/install.sh)"`) and the versioned nvm script
-  are known by their exact address.
+  one https URL of a known installer, then `| sh` or `| bash` (also with `sudo -E`, `-`, `-s -- <flags>`),
+  or `| python3 -`. `--proto '=https'` and `--tlsv1.2` are allowed flags. An assignment, `env`, an
+  alias or a function of `curl`, or a proxy or certificate variable anywhere in the command makes it a
+  finding. A pipe to a shell with a path (`| /bin/bash`), after `sudo` with flags or after `env` is a
+  pipe to a shell too. The Homebrew installer
+  (`/bin/bash -c "$(curl -fsSL …/Homebrew/install/HEAD/install.sh)"`), the versioned nvm script, the
+  NodeSource setup and the Tailscale, Ollama, Claude Code and Fly.io scripts are known by their exact
+  address; rustup, pnpm, Poetry, Bun, Deno, astral, fnm and opencode by their host.
+- A secret variable is sent to its own service also under a short name of the service: `JIRA` and
+  `CONFLUENCE` for Atlassian, `ELEVEN` for ElevenLabs, `GITHUB` for `ghcr.io`, and others.
+- A certificate that is public by its name, such as `fullchain.pem`, is not a secret file in an upload
+  or an attachment either. An Apple key (`AuthKey_….p8`) is.
 - Secret files include the sign-ins of the agents' own tools (`~/.codex/auth.json`,
   `~/.config/gh/hosts.yml`, `~/.claude/.credentials.json`, `~/.config/gcloud/`, `~/.azure/`),
   `.envrc`, `.dev.vars`, `master.key`, Terraform state and variables, `.vault-token`, `.s3cfg`,
@@ -293,9 +374,20 @@ text that no pattern and no small model sees.
   Guard.
 - An attack whose parts stand more than 200 characters apart in content is suspicious, not high: it
   gets the reviewer or a note, not the card.
-- The shell reader is not a shell: a function, a here-document, `xargs -I {}`, an output process
-  substitution `>(…)`, a script file or a second program that reads its own config can carry a
-  secret that it does not follow.
+- The shell reader is not a shell: a function, a here-document, `xargs`, `find -exec`, a loop
+  variable, a glob, an output process substitution `>(…)`, a script file, a process that inline code
+  starts (`node -e`, `python3 -c`, `perl -e`, `osascript`) or a second program that reads its own
+  config can carry a secret that it does not follow. Grouped short options of curl (`-sd @file`,
+  `-sT file`, `-d@file`) are not read as the option that sends the file either: the second review
+  (R15) found this regression of the shell reader, and its fix is still to do.
+- A folder upload is checked by the path of the folder only, not by the files inside it, and a key
+  under an ordinary name such as `server.key` is not read by its content.
+- The arguments of a stdio MCP server that `save_mcp_server` checks are joined with spaces, so the
+  code of a `node -e` argument is read in pieces.
+- A page that reports an attack in a quoted example gets a note or the reviewer, not the card, so a
+  real attack written as a quote gets the same.
+- A token sent to a self-hosted service whose name is only in a sub-domain, such as `$GITLAB_TOKEN` to
+  `gitlab.mycompany.com`, is suspicious: the check cannot tell it from `gitlab.evil.example`.
 - A secret variable sent to the service that its name says passes: the check trusts the name.
 - A page script that sets the address of another site in a variable built from parts and sends with
   `XMLHttpRequest` or a form is not seen; a `fetch` or a new page address with such a variable is.
