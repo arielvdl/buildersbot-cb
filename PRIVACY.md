@@ -877,7 +877,9 @@ Network traffic can also occur when:
   tokens for those repositories. It does not store or log either token, and it gets no chats, files
   or commands. Agents reach the GitHub MCP server through a local server on `127.0.0.1`, which adds
   the right token to each call;
-- an installed build checks GitHub Releases for updates;
+- this version of Builders Bot does not check for app updates. It has no update feed, so the app,
+  a hosted or self-installed server and the Servers panel send no update request and download no
+  release;
 - Builders Bot checks for new provider CLI releases when it starts, once an hour, and when you select
   `Check for updates`. It asks `api.github.com` for Codex, `registry.npmjs.org` for Claude,
   OpenCode and Cline, `x.ai/cli` for Grok, and `raw.githubusercontent.com/agentclientprotocol/registry` and

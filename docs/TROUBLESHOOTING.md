@@ -232,7 +232,10 @@ Ask the network administrator to allow these hosts over HTTPS (TCP 443) and WebS
 | `signal.openbot.run` | Connection setup for teams and remote servers |
 | `openbot.run` | Public site and images in invitation emails |
 | `*.openbot.run` | Hosted servers and sites, and `analytics.openbot.run` |
-| `github.com`, `*.githubusercontent.com` | App updates |
+| `github.com`, `*.githubusercontent.com` | Provider CLI releases and the list of blocked provider versions |
+
+This version of Builders Bot does not check for app updates, so it needs no host for them. Settings →
+Updates says "Updates are not available in this version of Builders Bot yet."
 
 Teams and remote servers also send WebRTC traffic to the other device or to the TURN relay that
 Signal names, on the UDP and TCP ports that it names. A filter that blocks WebRTC makes these
