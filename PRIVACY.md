@@ -6,7 +6,8 @@ service stores the minimum central data needed for email sign-in, account avatar
 configuration, memberships, invitations, logical sessions, and the account's product analytics
 answer. When a person asks for the permission to create a remote server, the account service also
 stores the reason that they write, the decision of the administrator, and the permissions that
-administrators give, with an audit row for each change.
+administrators give (with an optional note), until the account is deleted. An audit row for each
+change keeps only account IDs, the action and the time.
 
 Builders Bot sends no product analytics and no error reports. See [Product analytics](#product-analytics)
 for what earlier versions sent and where.

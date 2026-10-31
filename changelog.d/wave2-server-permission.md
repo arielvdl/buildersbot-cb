@@ -3,4 +3,11 @@
 - Only an administrator, or a person whom an administrator gives permission, can create a new
   remote server. Each person can still join a server with an invite or add their own computer.
   The join dialog shows "Ask for permission" to a person without it, and administrators approve or
-  deny the requests in Settings > Profile. Servers that exist do not change.
+  deny the requests in Settings > Profile. Servers that exist do not change. When this deployment
+  cannot create remote servers, the apps show nothing about it. The administrator section needs a
+  Cultura Builder sign-in. A revoke closes the payment pages that the person opened before it.
+
+### Known issues
+
+- The mobile app does not show "Ask for permission" yet. A person without the permission does not
+  see the plans on the phone; they can ask from the desktop app or the web client.

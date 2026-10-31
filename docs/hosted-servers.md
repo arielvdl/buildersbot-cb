@@ -409,7 +409,8 @@ The production Worker has `HOSTED_SERVERS_ENABLED=true` in `wrangler.jsonc`. Not
 the secrets below are set. Set `HOSTED_SERVERS_ENABLED` to `false` to stop new servers; existing
 servers, their webhooks and the cron continue. Only a person with the
 [server creation permission](architecture/server-creation-permission.md) can create a server: set
-`ADMIN_USER_IDS` with `wrangler secret put ADMIN_USER_IDS`, then give the permission in the app.
+`ADMIN_USER_IDS` with `wrangler secret put ADMIN_USER_IDS`, then give the permission in the app,
+signed in with Cultura Builder.
 
 1. **boat.** Use a paid boat account: a trial allows 2 sandboxes and only `small` and `default`, so
    Pro (`large`) fails. Make the Worker key with the scope in the table above. Turn on auto-pay in

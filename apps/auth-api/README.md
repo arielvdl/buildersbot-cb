@@ -24,7 +24,9 @@ Worker. The boat key creates real VMs, but only when the Worker also has
 `HOSTED_SERVER_TEMPLATE`. `wrangler.jsonc` sets
 `HOSTED_SERVERS_ALLOWED_USER_IDS` to `""`, so a local Worker lets nobody create a server. Set
 `ADMIN_USER_IDS` (your local account ID) or `HOSTED_SERVERS_ALLOWED_USER_IDS` in the shell to create
-one; `*` allows each local account and the Worker logs it. See
+one; `*` allows each local account and the Worker logs it. The administrator routes also need a
+Cultura Builder sign-in (`AUTH_BRIDGE_URL`): a local email code session answers 403
+`admin_session_required` there. See
 [server creation permission](../../docs/architecture/server-creation-permission.md). A VM cannot reach a local Worker. `bun run dev --hosting=test` used the test Worker of the
 upstream project and now stops with an error (see
 [Real servers from a development build](../../docs/hosted-servers.md#real-servers-from-a-development-build)).
