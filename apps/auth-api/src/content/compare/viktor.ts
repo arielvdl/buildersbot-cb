@@ -53,7 +53,7 @@ export const VIKTOR_COMPARISON: Comparison = {
       icon: "lock",
       topic: "Your data",
       openbot:
-        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. Product analytics, with no chat content, are on by default and linked to your account when you sign in; you can turn them off.",
+        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. The app sends no product analytics and no error reports.",
       rival:
         "Stored in the US. Viktor can read all messages in the Slack channels it joins, not only those that mention it, and can get up to about 90 days of earlier history. EU data residency is only on Enterprise contracts.",
       better: "openbot",
@@ -146,7 +146,7 @@ export const VIKTOR_COMPARISON: Comparison = {
     {
       title: "What it reads, and who holds your data",
       openbot:
-        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. Product analytics, which never include chat content, are on by default and linked to your account when you sign in; you can turn them off in Settings.",
+        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. It sends no product analytics and no error reports.",
       rival:
         "Viktor's privacy policy says that it reads all messages in the Slack channels it joins, not only the messages that mention it, and that it can get up to about 90 days of earlier history when it joins. A user can give it wider search access, which can include private channels and direct messages. Data is stored with cloud providers in US regions, and the policy names more than 30 other services that process it. Viktor says that it does not train foundation models on your data, but it can use your data for small internal models, such as one that chooses the model for a task.",
       better: "openbot",

@@ -73,7 +73,7 @@ export const INSTINCT_COMPARISON: Comparison = {
       icon: "lock",
       topic: "Your data",
       openbot:
-        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. Product analytics, with no chat content, are on by default and linked to your account when you sign in; you can turn them off.",
+        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. The app sends no product analytics and no error reports.",
       rival:
         "Instinct can use your data to train its AI models, unless you opt out. A disconnected app does not delete the data that Instinct collected from it, and when you delete your account, Instinct does not have to delete your materials.",
       better: "openbot",
@@ -166,7 +166,7 @@ export const INSTINCT_COMPARISON: Comparison = {
     {
       title: "Data and privacy",
       openbot:
-        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. Product analytics, which never include chat content, are on by default and linked to your account when you sign in; you can turn them off in Settings.",
+        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. It sends no product analytics and no error reports.",
       rival:
         "Instinct's privacy policy says that it can use your information to train the AI models behind its products. You can opt out, but models already trained on your data stay, and data flagged for safety review can still be used. It does not use data from Google Workspace to train models. Disconnecting an app does not delete the data that Instinct collected from it; you delete that data on the web. When you delete your account, Instinct may delete your materials, but it does not have to. A tester told TechCrunch that Instinct still summarized her inbox after she disconnected it, and that it said it kept the emails in plain text.",
       better: "openbot",

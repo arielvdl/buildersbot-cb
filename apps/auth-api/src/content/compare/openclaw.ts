@@ -159,7 +159,7 @@ export const OPENCLAW_COMPARISON: Comparison = {
     {
       title: "Data and privacy",
       openbot:
-        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. Product analytics, which never include chat content, are on by default and linked to your account when you sign in; you can turn them off in Settings.",
+        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. It sends no product analytics and no error reports.",
       rival:
         "OpenClaw keeps settings, sessions and memory under ~/.openclaw on the computer that runs the Gateway, with session history in SQLite and memory in Markdown files. A daily update check is on by default and sends the app version and system details; anonymous feature statistics are off until you turn them on. OpenClaw says that third-party skills and inbound messages are untrusted input.",
     },

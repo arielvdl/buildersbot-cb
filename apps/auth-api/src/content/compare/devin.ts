@@ -96,7 +96,7 @@ export const DEVIN_COMPARISON: Comparison = {
       icon: "lock",
       topic: "Your data",
       openbot:
-        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. Product analytics, with no chat content, are on by default and linked to your account when you sign in; you can turn them off.",
+        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. The app sends no product analytics and no error reports.",
       rival:
         "Code and sessions are processed in Cognition's cloud. By default, Cognition can use your data for model training; only paid plans can opt out.",
       better: "openbot",
@@ -163,7 +163,7 @@ export const DEVIN_COMPARISON: Comparison = {
     {
       title: "Data and privacy",
       openbot:
-        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. Product analytics, which never include chat content, are on by default and linked to your account when you sign in; you can turn them off in Settings.",
+        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. It sends no product analytics and no error reports.",
       rival:
         "Devin processes your code and sessions in Cognition's cloud on AWS, and keeps the data for as long as you are a customer. By default, Cognition can use your data for model training; on a paid plan you can opt out, and on Enterprise it trains only with your written consent. Cognition is SOC 2 Type II certified. A deployment in your own cloud is only for Enterprise.",
       better: "openbot",

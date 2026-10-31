@@ -98,7 +98,7 @@ export const CLAUDE_COWORK_COMPARISON: Comparison = {
       icon: "lock",
       topic: "Your data",
       openbot:
-        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. Product analytics, with no chat content, are on by default and linked to your account when you sign in; you can turn them off.",
+        "Workspaces, chats and files stay in a database on your computer. The provider you choose gets the requests you send. The app sends no product analytics and no error reports.",
       rival:
         "Cloud sessions and their files are saved to your Claude account; local files that a cloud session opens are processed on Anthropic's servers. On Pro and Max, you can opt out of model training.",
       better: "openbot",
@@ -167,7 +167,7 @@ export const CLAUDE_COWORK_COMPARISON: Comparison = {
     {
       title: "Data and privacy",
       openbot:
-        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. Product analytics, which never include chat content, are on by default and linked to your account when you sign in; you can turn them off in Settings.",
+        "OpenBot keeps workspaces, conversations, attachments and browser data in a SQLite database on the computer that runs it. OpenBot keeps no other copy. On a hosted OpenBot server, the database is on that server in the EU. An account holds your profile, team memberships, invitations, sign-in sessions, the settings that let devices find each other, and any agent templates that you publish. It sends no product analytics and no error reports.",
       rival:
         "Cloud sessions and their files are saved to your Claude account. Local files that a cloud session opens through the desktop app are processed on Anthropic's servers, not only on your computer. On Pro and Max, you can opt out of model training; if you allow it, Anthropic can keep your data for up to 5 years. A deleted conversation leaves Anthropic's storage within 30 days.",
       better: "openbot",
