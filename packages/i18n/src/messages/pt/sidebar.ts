@@ -34,6 +34,13 @@ export const messages = {
   "sidebar.activity.channels": "Canais ativos",
   "sidebar.activity.agents": "Agentes ativos",
   "sidebar.activity.empty": "Nenhuma sessão ativa agora",
+  "sidebar.activity.finished": "Finalizados recentemente",
+  "sidebar.activity.finishedEmpty": "Nada terminou nas últimas 24 horas",
+  "sidebar.activity.notice": {
+    one: "Filtro: {filter} · {count} chat escondido",
+    other: "Filtro: {filter} · {count} chats escondidos",
+  },
+  "sidebar.activity.showAll": "Mostrar tudo",
   "sidebar.section.layoutUnsupported": "Este servidor não permite alterar a organização da barra lateral.",
   "sidebar.section.actions": "Ações da seção",
   "sidebar.section.moveUp": "Mover para cima",

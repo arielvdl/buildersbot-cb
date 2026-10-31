@@ -659,6 +659,19 @@ Settings > General > Left column (`openbot:left-column`) shows the sections, the
 server rail. With the sections, the menu on the server name lists the servers, Add server and the
 server actions.
 
+The activity filter (the button beside the search field, `sidebar-activity-filter.ts`) keeps one kind
+of chat: the channels with work in flight, the agents with work in flight, or the agents and channels
+that finished recently. The three choices exclude each other. "Finished recently" has a window of 24
+hours (`SIDEBAR_RECENT_WINDOW_MS`) and reads data that the list already has: for an agent, no work in
+flight and the newest message of its own chat (`updatedAt`) in the window; for a channel, no task in
+flight, no wait, and a newest message (`lastMessage`) in the window that is a complete agent reply. A
+host without channel-attention-v1 sends no author and no status, so for it the newest message counts
+whoever wrote it. The open chat stays listed under a filter that lists its kind. While a filter is on,
+the button has a dot, and a notice sticks to the bottom of the list: the filter, how many chats it
+hides in the selected section, and "Show all", which turns the filter off. The notice is a polite live
+region. The search field opens the global search and does not filter the list, so "Show all" has no
+search to clear.
+
 `html_render` publishes a visual reply: an HTML page that shows above the agent's reply. The router
 stores the page as a generated `text/html` attachment and adds an assistant message with the item
 type `visual-reply:<height>` and the page title as its text (`@openbot/contracts/chat-visual`). A

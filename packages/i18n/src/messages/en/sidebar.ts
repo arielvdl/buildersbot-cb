@@ -33,6 +33,13 @@ export const messages = defineMessages("sidebar", {
   "sidebar.activity.channels": "Active channels",
   "sidebar.activity.agents": "Active agents",
   "sidebar.activity.empty": "No active session right now",
+  "sidebar.activity.finished": "Finished recently",
+  "sidebar.activity.finishedEmpty": "Nothing finished in the last 24 hours",
+  "sidebar.activity.notice": {
+    one: "Filter: {filter} · {count} chat hidden",
+    other: "Filter: {filter} · {count} chats hidden",
+  },
+  "sidebar.activity.showAll": "Show all",
   "sidebar.section.layoutUnsupported": "This server does not support sidebar layout changes.",
   "sidebar.section.actions": "Section actions",
   "sidebar.section.moveUp": "Move up",

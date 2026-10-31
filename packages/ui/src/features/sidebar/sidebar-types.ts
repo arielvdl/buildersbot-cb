@@ -28,9 +28,11 @@ export type SidebarView = "agents" | "routines";
 
 /**
  * The kind of chat the activity filter keeps: only channels, or only agents, that have work in
- * flight. It is not a saved layout, so a null value lists every chat again as the layout has it.
+ * flight, or the agents and channels that finished their work in the last 24 hours. The choices
+ * exclude each other. It is not a saved layout, so a null value lists every chat again as the layout
+ * has it.
  */
-export type SidebarActivityFilter = "channels" | "agents";
+export type SidebarActivityFilter = "channels" | "agents" | "finished";
 
 /**
  * The "Hidden" group is not a section of the layout, and it is collapsed by default. Its id in

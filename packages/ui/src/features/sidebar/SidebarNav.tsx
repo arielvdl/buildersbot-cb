@@ -7,6 +7,7 @@
 import { Bot, CheckCheck, ContextMenu, FolderPlus, Hash } from "@openbot/ui";
 import { For, Show } from "solid-js";
 import { useText } from "../../text";
+import { SidebarActivityNotice } from "./SidebarActivityNotice";
 import { SidebarChannelRow } from "./SidebarChannelRow";
 import { SidebarEmptyState } from "./SidebarEmptyState";
 import { SidebarHiddenGroup } from "./SidebarHiddenGroup";
@@ -76,6 +77,8 @@ export function SidebarNav() {
         <span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {reorderAnnouncement()}
         </span>
+        {/* Last, so it sticks to the bottom of the list while the filter is on. */}
+        <SidebarActivityNotice />
       </div>
       <Show
         when={

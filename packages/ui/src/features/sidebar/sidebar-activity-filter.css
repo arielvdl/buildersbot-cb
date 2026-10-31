@@ -1,0 +1,77 @@
+/*
+ * The activity filter of the list: the dot on its button while a filter is on (`SidebarSearch.tsx`),
+ * and the notice at the bottom of the list with "Show all" (`SidebarActivityNotice.tsx`).
+ */
+
+.sidebar-activity-button[data-active] {
+  position: relative;
+}
+
+.sidebar-activity-button[data-active]::after {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent);
+  box-shadow: 0 0 0 2px var(--openbot-bg-sidebar);
+  content: "";
+  pointer-events: none;
+}
+
+/* Sticky in the scrolling list, so the way back to every chat stays in view. */
+.sidebar-activity-notice {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+  margin-top: var(--openbot-space-2);
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-surface-raised);
+  padding: var(--openbot-space-1) var(--openbot-space-1) var(--openbot-space-1) var(--openbot-space-3);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.sidebar-activity-notice-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-activity-show-all {
+  flex: none;
+}
+
+.sidebar-activity-show-all-icon {
+  display: none;
+}
+
+/* The compact sidebar has room for the button only. Its text stays for a screen reader. */
+.sidebar-compact .sidebar-activity-notice {
+  justify-content: center;
+  padding: var(--openbot-space-1);
+}
+
+.sidebar-compact .sidebar-activity-notice-text {
+  display: none;
+}
+
+.sidebar-compact .sidebar-activity-show-all-icon {
+  display: block;
+}
+
+.sidebar-compact .sidebar-activity-show-all-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

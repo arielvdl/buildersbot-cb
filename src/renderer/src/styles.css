@@ -23,6 +23,7 @@
 @import "@openbot/ui/features/sidebar/sidebar-views.css";
 @import "@openbot/ui/features/sidebar/sidebar-section-color.css";
 @import "@openbot/ui/features/sidebar/sidebar-section-rail.css";
+@import "@openbot/ui/features/sidebar/sidebar-activity-filter.css";
 @import "./features/account/account-update-island.css";
 @import "@openbot/ui/features/servers/join-server-dialog.css";
 @import "@openbot/ui/features/servers/add-server-dialog.css";

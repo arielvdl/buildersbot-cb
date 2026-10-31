@@ -9,6 +9,11 @@ import { createMemo } from "solid-js";
 import type { AgentProfile } from "../../../data";
 import { currentText } from "../../../text";
 import { teamMemberName } from "../../team/TeamPersonAvatar";
+import {
+  sidebarActivityHiddenCount,
+  sidebarAgentPassesActivityFilter,
+  sidebarChannelPassesActivityFilter,
+} from "../sidebar-activity-filter";
 import { sidebarPinnedItemKey } from "../sidebar-pins";
 import type { ResolvedPinnedItem, SidebarChatItem, SidebarProps } from "../sidebar-types";
 import { createSidebarSectionRailStore } from "./section-rail-store";
@@ -40,36 +45,46 @@ export function createSidebarDataStore(deps: {
   /** The section rail. While it has a section selected, every group below lists only that section's chats. */
   const sectionRail = createSidebarSectionRailStore(props);
   /**
-   * The activity filter, when the user turned one on. A chat counts as active while work is in
-   * flight: an agent that thinks, waits, waits on its plan or runs a routine, and a channel with a
-   * running or open task or a wait for the user. The open chat stays listed, so its row does not
-   * vanish under the pointer.
+   * The activity filter, when the user turned one on: active channels, active agents, or the chats
+   * that finished recently (`sidebar-activity-filter.ts`). "Finished recently" reads the clock, so it
+   * reads it again when the filter or the chats change.
    */
   const activityFilter = () => props.activityFilter ?? null;
-  const agentIsActive = (agentId: string): boolean => {
-    const state = props.agentStates[agentId];
-    if (!state) return false;
-    return (
-      state.kind === "working" ||
-      state.kind === "waiting" ||
-      state.kind === "limited" ||
-      (state.kind === "routine" && state.phase !== "failed")
-    );
-  };
-  const channelIsActive = (channel: ChannelSummary): boolean =>
-    channel.activeTasks > 0 || (channel.openTasks ?? 0) > 0 || props.channelWaits?.[channel.id] !== undefined;
   const agentShown = (agent: AgentProfile): boolean => {
     if (!sectionRail.chatInFocus(agent.id)) return false;
-    const filter = activityFilter();
-    if (!filter) return true;
-    return filter === "agents" && (agentIsActive(agent.id) || props.activeAgentId === agent.id);
+    return sidebarAgentPassesActivityFilter(
+      activityFilter(),
+      agent,
+      props.agentStates[agent.id],
+      props.activeAgentId === agent.id,
+      Date.now(),
+    );
   };
   const channelShown = (channel: ChannelSummary): boolean => {
     if (!sectionRail.chatInFocus(channel.id)) return false;
-    const filter = activityFilter();
-    if (!filter) return true;
-    return filter === "channels" && (channelIsActive(channel) || props.activeChannelId === channel.id);
+    return sidebarChannelPassesActivityFilter(
+      activityFilter(),
+      channel,
+      props.channelWaits?.[channel.id],
+      props.activeChannelId === channel.id,
+      Date.now(),
+    );
   };
+  /** How many chats of the selected section the activity filter hides. The notice under the list says it. */
+  const activityHiddenCount = createMemo(() =>
+    activityFilter()
+      ? sidebarActivityHiddenCount({
+          filter: activityFilter(),
+          agents: props.agents.filter((agent) => !agentIsUserHidden(agent.id) && sectionRail.chatInFocus(agent.id)),
+          channels: channels().filter((channel) => sectionRail.chatInFocus(channel.id)),
+          agentStates: props.agentStates,
+          channelWaits: props.channelWaits,
+          activeAgentId: props.activeAgentId,
+          activeChannelId: props.activeChannelId,
+          now: Date.now(),
+        })
+      : 0,
+  );
   const channelById = createMemo(() => new Map(channels().map((channel) => [channel.id, channel])));
   let pinnedItemCache = new Map<string, { source: PinnedItemSource; item: ResolvedPinnedItem }>();
   /** Both kinds of pinned chat, resolved against the chats the sidebar has: a pin that names none is
@@ -301,6 +316,7 @@ export function createSidebarDataStore(deps: {
   }
 
   return {
+    activityHiddenCount,
     assignedSectionId,
     agentById,
     channelById,

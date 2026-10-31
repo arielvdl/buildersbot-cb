@@ -329,6 +329,7 @@
     "./features/sidebar/sidebar-section-color.css": "./src/features/sidebar/sidebar-section-color.css",
     "./features/sidebar/sidebar-section-rail.css": "./src/features/sidebar/sidebar-section-rail.css",
     "./features/sidebar/sidebar-section-rail": "./src/features/sidebar/sidebar-section-rail.ts",
+    "./features/sidebar/sidebar-activity-filter.css": "./src/features/sidebar/sidebar-activity-filter.css",
     "./features/sidebar/section-color": "./src/features/sidebar/section-color.ts",
     "./features/sidebar/createSidebarDragEngine": "./src/features/sidebar/createSidebarDragEngine.ts",
     "./features/sidebar/duplicate-section": "./src/features/sidebar/duplicate-section.ts",

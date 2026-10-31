@@ -1,6 +1,7 @@
 /**
  * The search field, the activity filter beside it, and the compact-mode button in the field's place.
  * The field and the compact button both open the global search; the filter narrows the list itself.
+ * The three filters exclude each other. A dot on the button shows that one is on.
  */
 
 import { Activity, Button, DropdownMenu } from "@openbot/ui";
@@ -18,6 +19,7 @@ export function SidebarSearch() {
     const current = filter();
     if (current === "channels") return t("sidebar.activity.channels");
     if (current === "agents") return t("sidebar.activity.agents");
+    if (current === "finished") return t("sidebar.activity.finished");
     return t("sidebar.activity.label");
   };
   return (
@@ -65,6 +67,14 @@ export function SidebarSearch() {
                   >
                     <MenuCheck on={filter() === "agents"} />
                     <span>{t("sidebar.activity.agents")}</span>
+                  </DropdownMenu.CheckboxItem>
+                  <DropdownMenu.CheckboxItem
+                    closeOnSelect={false}
+                    checked={filter() === "finished"}
+                    onChange={(checked: boolean) => change()(checked ? "finished" : null)}
+                  >
+                    <MenuCheck on={filter() === "finished"} />
+                    <span>{t("sidebar.activity.finished")}</span>
                   </DropdownMenu.CheckboxItem>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>

@@ -29,6 +29,7 @@ export function createSidebarScope(props: SidebarProps) {
   // which is set once the drag state exists.
   let dragActive = () => false;
   const {
+    activityHiddenCount,
     assignedSectionId,
     chatKind,
     chatName,
@@ -166,6 +167,7 @@ export function createSidebarScope(props: SidebarProps) {
    * store's writers are deliberately absent: only the engine may move a drag along.
    */
   return {
+    activityHiddenCount,
     assignChatSection,
     cancelSectionEditor,
     closeDelete,

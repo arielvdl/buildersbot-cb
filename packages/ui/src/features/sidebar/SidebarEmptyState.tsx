@@ -15,6 +15,8 @@ export function SidebarEmptyState() {
   const { t } = useText();
   const emptyLabel = () => {
     if (props.agentsConnecting) return t("common.connecting");
+    if (props.activityFilter === "finished") return t("sidebar.activity.finishedEmpty");
+    // The notice under the list names the filter and turns it off.
     if (props.activityFilter) return t("sidebar.activity.empty");
     return t("sidebar.empty.noAgents");
   };
