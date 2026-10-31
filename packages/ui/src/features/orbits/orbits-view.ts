@@ -102,6 +102,7 @@ export interface OrbitsView {
   systems: OrbitSystem[];
   agents: Record<string, OrbitAgent>;
   links: OrbitLink[];
+  /** Each family of the shown agents, in a fixed order. */
   families: OrbitFamilyCount[];
 }
 
@@ -155,6 +156,7 @@ const TIER_NAMES: Readonly<Record<OrbitTier, string>> = {
   haiku: "Haiku",
   fable: "Fable",
 };
+const TIER_ORDER: readonly OrbitTier[] = ["opus", "sonnet", "haiku", "fable"];
 const TIER_PATTERN = /(?:^|[^a-z])(opus|sonnet|haiku|fable)(?:[^a-z]|$)/u;
 /** Model ids that name the maker of the model when another provider, such as OpenRouter, runs it. */
 const MODEL_MAKERS: readonly { pattern: RegExp; provider: AgentProviderId }[] = [
@@ -586,6 +588,19 @@ function linksOf(queues: OrbitsViewInput["queues"], shown: ReadonlySet<string>):
   return links;
 }
 
+/** The Claude tiers first, from the largest model, then the other families by name, then `other`. */
+function familyRank(family: OrbitFamily): number {
+  switch (family.kind) {
+    case "tier":
+      return TIER_ORDER.indexOf(family.id);
+    case "other":
+      return TIER_ORDER.length + 1;
+    default:
+      return TIER_ORDER.length;
+  }
+}
+
+/** The families of the shown agents, in a fixed order: a mark does not move while the work changes. */
 function familyCounts(agents: readonly OrbitAgent[]): OrbitFamilyCount[] {
   const counts = new Map<string, OrbitFamilyCount>();
   for (const agent of agents) {
@@ -596,8 +611,17 @@ function familyCounts(agents: readonly OrbitAgent[]): OrbitFamilyCount[] {
   }
   return [...counts.values()].sort(
     (left, right) =>
-      right.generating - left.generating || right.shown - left.shown || left.family.id.localeCompare(right.family.id),
+      familyRank(left.family) - familyRank(right.family) ||
+      (left.family.name ?? "").localeCompare(right.family.name ?? ""),
   );
+}
+
+/**
+ * The model marks at the top of the panel: the families that generate now, and the family of the
+ * filter while it is on, so the person can always clear the filter. The order is that of `families`.
+ */
+export function orbitFamilyChips(families: readonly OrbitFamilyCount[], family: string | null): OrbitFamilyCount[] {
+  return families.filter((entry) => entry.generating > 0 || entry.family.id === family);
 }
 
 /** The whole panel, from the signals of the sidebar and this computer's load. */

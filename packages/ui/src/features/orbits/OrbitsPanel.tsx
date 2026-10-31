@@ -12,6 +12,7 @@ import {
   type OrbitsView,
   orbitBubbleIds,
   orbitCounts,
+  orbitFamilyChips,
   orbitMotionIds,
   toggledOrbitFamily,
 } from "./orbits-view";
@@ -100,7 +101,29 @@ function OrbitsBody(props: OrbitsPanelProps) {
   const bubbleIds = createMemo(() => orbitBubbleIds(agents(), props.view.systems, family()));
   const motionIds = createMemo(() => orbitMotionIds(agents()));
   const counts = createMemo(() => orbitCounts(agents(), family()));
+  const chips = createMemo(() => orbitFamilyChips(props.view.families, family()));
   let scroller: HTMLDivElement | undefined;
+
+  // A filter on a family that left the panel would dim every agent and leave no mark to clear it.
+  createEffect(
+    () => {
+      const current = family();
+      return current !== null && !props.view.families.some((entry) => entry.family.id === current);
+    },
+    (stale) => {
+      if (stale) setFamily(null);
+    },
+  );
+  // The card of an agent that left the panel closes, so that it does not open again when the agent comes back.
+  createEffect(
+    () => {
+      const current = selectedId();
+      return current !== null && props.view.agents[current] === undefined;
+    },
+    (gone) => {
+      if (gone) setSelectedId(null);
+    },
+  );
   let systemsEl: HTMLDivElement | undefined;
   const linkPaths: SVGPathElement[] = [];
 
@@ -177,7 +200,7 @@ function OrbitsBody(props: OrbitsPanelProps) {
     <>
       <div class="orbits-bar">
         <fieldset class="orbits-chips" aria-label={t("app.orbits.filter")}>
-          <For each={props.view.families} keyed={(entry) => entry.family.id}>
+          <For each={chips()} keyed={(entry) => entry.family.id}>
             {(entry) => (
               <Button
                 variant="unstyled"
