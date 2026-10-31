@@ -70,6 +70,11 @@ const ALLOWED_MENTIONS: ReadonlyArray<{ file: string; line: RegExp; reason: stri
     reason: "refuses the upstream image",
   },
   {
+    file: "scripts/nix-sources.ts",
+    line: /^if \(\/\^nightly-labs\\\/\/iu\.test\(repository\)\) \{$/u,
+    reason: "refuses the upstream repository",
+  },
+  {
     // A list of provider CLI versions to avoid, not an app release. Section 7.5 of the design moves it.
     file: "src/main/provider-runtime-releases.ts",
     line: /"https:\/\/raw\.githubusercontent\.com\/nightly-labs\/openbot\/main\/provider-runtime-blocklist\.json";$/u,
@@ -224,6 +229,8 @@ await check("nightly-labs appears only in documentation links and comments", () 
     ...filesUnder("src/main").filter((file) => !/\.test\.tsx?$/u.test(file)),
     ...filesUnder("scripts/hosting"),
     ...filesUnder("docker"),
+    ...filesUnder("nix"),
+    "scripts/nix-sources.ts",
     "scripts/install-server.sh",
     "scripts/host-manager.ts",
     "scripts/host-manager-macos.ts",
@@ -450,6 +457,38 @@ await check("the container instances pull no image and offer no update", () => {
   } finally {
     rmSync(fake, { recursive: true, force: true });
   }
+});
+
+await check("the Nix package has no upstream release and fetches nothing", () => {
+  const sources = JSON.parse(readText("nix/sources.json"));
+  // No Builders Bot release exists yet, so each hash would be the hash of another app.
+  if (!isDynamicRecord(sources) || !isDynamicRecord(sources.assets) || Object.keys(sources.assets).length > 0) {
+    fail("nix/sources.json names release assets.");
+  }
+  const nixPackage = readText("nix/package.nix");
+  if (/\bfetchurl\b|https:\/\/github\.com/u.test(nixPackage)) fail("nix/package.nix downloads a release.");
+  if (!/^\s*src = throw "/mu.test(nixPackage)) fail("nix/package.nix does not stop with a message.");
+  const before = readText("nix/sources.json");
+  const runs = [undefined, "nightly-labs/openbot"].map((repository) => {
+    const environment = { ...process.env };
+    delete environment.GITHUB_REPOSITORY;
+    if (repository !== undefined) environment.GITHUB_REPOSITORY = repository;
+    const result = spawnSync(process.execPath, ["scripts/nix-sources.ts"], {
+      cwd: ROOT,
+      env: environment,
+      encoding: "utf8",
+    });
+    const error = result.stderr.split("\n").find((line) => line.startsWith("error: "));
+    return { repository: repository ?? null, status: result.status, error: error?.trim() ?? result.stderr.trim() };
+  });
+  if (readText("nix/sources.json") !== before) fail("scripts/nix-sources.ts changed nix/sources.json.");
+  const expected = ["error: Set GITHUB_REPOSITORY", "error: nightly-labs/openbot has the releases of the upstream"];
+  runs.forEach((run, index) => {
+    if (run.status === 0 || !run.error.startsWith(expected[index] ?? "")) {
+      fail(`scripts/nix-sources.ts did not refuse: ${JSON.stringify(run)}`);
+    }
+  });
+  return { assets: 0, runs };
 });
 
 await check("the updater folders and the Windows installer use Builders Bot names", () => {

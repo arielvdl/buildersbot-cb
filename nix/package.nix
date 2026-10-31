@@ -1,12 +1,15 @@
-# OpenBot from its GitHub release: the AppImage on Linux and the app ZIP on macOS. `sources.json`
-# names the release and its hashes; `bun scripts/nix-sources.ts` writes it after each release.
+# Builders Bot from its release: the AppImage on Linux and the app ZIP on macOS.
 #
-# OpenBot does not update itself from the Nix store (`isNixStoreInstall` in
+# Builders Bot has no release feed yet (phase 0 of the update design), so this package has no source
+# and stops with a message. Before, it downloaded the upstream OpenBot release, and `sources.json`
+# had the hashes of that release. The source comes back with the Builders Bot release feed;
+# `bun scripts/nix-sources.ts` then writes the version and the hashes of a Builders Bot release.
+#
+# Builders Bot does not update itself from the Nix store (`isNixStoreInstall` in
 # src/main/update-service.ts). Nix replaces the whole package instead.
 {
   lib,
   stdenvNoCC,
-  fetchurl,
   appimageTools,
   buildFHSEnv,
   makeBinaryWrapper,
@@ -17,18 +20,12 @@
 let
   pname = "openbot";
   inherit (sources) version;
-  system = stdenvNoCC.hostPlatform.system;
-  asset = sources.assets.${system} or (throw "OpenBot has no release for ${system}");
 
-  src = fetchurl {
-    url = "https://github.com/nightly-labs/openbot/releases/download/v${version}/${asset.name}";
-    inherit (asset) hash;
-  };
+  src = throw "Builders Bot has no release feed yet, so the Nix package is not available in this version.";
 
   meta = {
     description = "Local-first multi-agent desktop workspace for Codex, Claude, Grok and other coding agents";
-    homepage = "https://github.com/nightly-labs/openbot";
-    changelog = "https://github.com/nightly-labs/openbot/releases/tag/v${version}";
+    homepage = "https://buildersbot.culturabuilder.com";
     license = {
       shortName = "polyform-nc-10";
       fullName = "PolyForm Noncommercial License 1.0.0";
@@ -38,7 +35,12 @@ let
       redistributable = false;
     };
     sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
-    platforms = builtins.attrNames sources.assets;
+    platforms = [
+      "x86_64-linux"
+      "aarch64-linux"
+      "x86_64-darwin"
+      "aarch64-darwin"
+    ];
     mainProgram = "openbot";
   };
 
