@@ -3,6 +3,7 @@ import { Button, ErrorReference, IconButton, X } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createSignal, createUniqueId, onSettled, Show } from "solid-js";
 import { listenForEscape } from "./onboarding-escape";
+import { FREE_PROVIDER } from "./onboarding-provider-rows";
 import { createSetupProviders, SetupProviderPicker, type SetupProviderProps } from "./SetupProviderPicker";
 import { createSetupNext } from "./setup-next";
 
@@ -26,8 +27,10 @@ export interface ServerOnboardingProps {
 /**
  * The provider step of a joined server that has no agent yet, for its owner or admin.
  *
- * Builders Bot includes no AI subscription, and a new host has no provider signed in, so an agent made
- * there first could not answer. The step signs the host in, and the agent form comes after it.
+ * Builders Bot includes no AI subscription. Builders runs free models with no account, and a new
+ * host has no other provider signed in, so an agent made there first could not answer with anything
+ * else. The step recommends Builders, signs the host in to another provider when the user wants one,
+ * and the agent form comes after it.
  * The choice stays in this window: the saved setup choice is of this computer, not of the server.
  * The step covers the window, as the first-run screen does: the rail and the sidebar of a server
  * with no agent have nothing to use yet.
@@ -39,6 +42,7 @@ export function ServerOnboarding(props: ServerOnboardingProps) {
   const providers = createSetupProviders(props.setup);
   const next = createSetupNext(providers);
   const reasonId = createUniqueId();
+  const freeOffered = () => providers.rows().listed.some((option) => option.id === FREE_PROVIDER);
 
   // The sign-in dialog, the add server dialog and a row menu close on Escape themselves.
   onSettled(() => listenForEscape(() => props.onClose));
@@ -68,7 +72,10 @@ export function ServerOnboarding(props: ServerOnboardingProps) {
       <div class="onboarding-shell">
         <section class="onboarding-panel">
           <h1 id="server-onboarding-title">{t("onboarding.server.title", { server: props.serverName })}</h1>
-          <p class="onboarding-description">{t("onboarding.server.description")}</p>
+          {/* Builders runs free models with no account, so the line names it when the host offers it. */}
+          <p class="onboarding-description">
+            {freeOffered() ? t("onboarding.server.descriptionFree") : t("onboarding.server.description")}
+          </p>
           <div class="onboarding-provider">
             <SetupProviderPicker
               providers={providers}
@@ -96,7 +103,7 @@ export function ServerOnboarding(props: ServerOnboardingProps) {
             aria-describedby={next.blockedReason() ? reasonId : undefined}
             onClick={continueToAgent}
           >
-            {providers.selectedProviderConnected() ? t("onboarding.server.continue") : t("onboarding.action.connect")}
+            {providers.selectedProviderConnected() ? t("onboarding.server.continue") : next.connectLabel()}
           </Button>
           <Show when={next.blockedReason()}>
             {(reason) => (

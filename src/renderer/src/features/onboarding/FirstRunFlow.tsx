@@ -305,17 +305,10 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
   const freeDownloading = () => freeStatus()?.phase === "downloading";
   const freeProgress = () => freeStatus()?.progress ?? null;
   const mainLabel = () => {
-    // Also on the last step: the button then connects the provider and does not open the app.
-    if (state.step === "plan" && !providers.selectedProviderConnected()) {
-      // The button then starts the download, so it says so.
-      const selected = option(providers.selectedProvider());
-      const phase = selected?.runtimeStatus?.phase;
-      if (phase === "not-downloaded" || phase === "download-error") return t("common.download");
-      // It names the provider it connects, such as "Connect Cultura Builder" for the first choice.
-      return selected && !providers.customSelected()
-        ? t("onboarding.action.connectProvider", { provider: selected.name })
-        : t("onboarding.action.connect");
-    }
+    // Also on the last step: the button then connects the provider and does not open the app. It
+    // says Download when it starts the download, and else names the provider it connects, such as
+    // "Connect Cultura Builder" for the first choice.
+    if (state.step === "plan" && !providers.selectedProviderConnected()) return next.connectLabel();
     if (lastStep()) return t("onboarding.action.open");
     return t("onboarding.action.next");
   };

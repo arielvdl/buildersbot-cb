@@ -101,6 +101,11 @@ export interface ProviderPickerOption {
    * installer. It repeats what the row already says, so assistive technology does not read it.
    */
   callout?: { title: string; detail: string } | null;
+  /**
+   * The screen recommends this row, such as Builders in setup, which runs free models with no
+   * account. The row shows a "Recommended" badge beside its name.
+   */
+  recommended?: boolean | undefined;
   /** The newer runtime main says exists. The renderer never works this out itself. */
   availableVersion?: string | null;
   /** The provider's last failure, kept until a model list fetched after it succeeds. */
@@ -519,7 +524,14 @@ export function ProviderPicker(props: ProviderPickerProps) {
                     />
                     <ProviderLogo provider={option().id} class="provider-picker-logo" />
                     <span class="provider-picker-identity">
-                      <span class="provider-picker-name">{option().name}</span>
+                      <span class="provider-picker-name">
+                        {option().name}
+                        <Show when={option().recommended}>
+                          <Badge class="provider-picker-recommended" variant="primary-light">
+                            {t("provider.recommended")}
+                          </Badge>
+                        </Show>
+                      </span>
                       <Show
                         when={
                           listedAccounts()

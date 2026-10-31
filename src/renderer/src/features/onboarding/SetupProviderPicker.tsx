@@ -1,7 +1,9 @@
+import { isKeyOnlyProvider } from "@openbot/contracts/agent-providers";
 import {
   AGENT_PROVIDER_DESCRIPTORS,
   type AgentModelId,
   type AgentProviderId,
+  type AgentProviderStatus,
   type AgentStatus,
   type CustomProviderRestart,
   type CustomProviderSummary,
@@ -10,6 +12,7 @@ import {
   type SaveCustomProviderInput,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
+import { sourceText } from "@openbot/i18n/source";
 import {
   type ProviderConnection,
   ProviderPicker,
@@ -20,6 +23,7 @@ import { CustomProviderDialog } from "@openbot/ui/features/custom-providers/Cust
 import { CustomProviderListDialog } from "@openbot/ui/features/custom-providers/CustomProviderListDialog";
 import { DetectedProviders } from "@openbot/ui/features/custom-providers/DetectedProviders";
 import type { DetectedProviderApi, ProviderDetection } from "@openbot/ui/features/custom-providers/detected-providers";
+import { providerUpdateAvailable } from "@openbot/ui/features/provider-updates/provider-update";
 import {
   isKeyDialogProvider,
   type KeyDialogProvider,
@@ -32,8 +36,15 @@ import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import type { ProviderConnectionApi } from "../../components/provider-connection-api";
 import { createCustomProviderHostState } from "../custom-providers/custom-provider-host-state";
-import { automaticProviderChoice, FREE_PROVIDER, onboardingProviderRows } from "./onboarding-provider-rows";
+import {
+  automaticProviderChoice,
+  FEATURED_PROVIDER,
+  FREE_PROVIDER,
+  type OnboardingRowRule,
+  onboardingProviderRows,
+} from "./onboarding-provider-rows";
 import { fallbackProviderState } from "./onboarding-provider-state";
+import { SetupProviderNotices } from "./SetupProviderNotices";
 
 /** The providers of this computer, and the actions on them, as both setup screens take them. */
 export interface SetupProviderProps {
@@ -129,6 +140,11 @@ const PROVIDER_DESCRIPTION_KEYS: Readonly<Record<string, AppTextKey>> = {
   "Private LLM through the Cultura Builder proxy": "onboarding.provider.culturaBuilder",
 };
 
+const NO_PROVIDERS: ReadonlySet<AgentProviderId> = new Set();
+
+/** What a host with no Cultura Builder sign-in sends, in English as every host sends it. */
+const CULTURA_LOGIN_REQUIRED = sourceText("error.provider.culturaLoginRequired");
+
 /**
  * Whether setup can continue with this provider. A signed-in provider can; so can a downloaded
  * provider that runs free models, because it has no sign-in to wait for.
@@ -200,6 +216,66 @@ export function createSetupProviders(
   let blurredAfterProviderConnect = false;
   let focusRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /**
+   * The providers that this window cannot connect.
+   *
+   * Cultura Builder signs in with a Hub device code that only the computer that runs it can start,
+   * and no released Team API route carries that sign-in to a joined server's host. A host with no
+   * Cultura Builder sign-in of its own reports it as "login required", and the row could then only
+   * offer a button that does nothing. The desktop account of this window is not the host's sign-in.
+   *
+   * A server with no screen, such as a sector server in a container, has no place to sign in at all.
+   * What makes Cultura Builder work there is an optional Team API route that starts the
+   * `cultura-device` sign-in on the host, behind a new capability. Until a host has it, the row says
+   * that Cultura Builder does not connect through a remote server yet.
+   */
+  const unreachable = createMemo<ReadonlySet<AgentProviderId>>(() => {
+    if (!props.hostProviders) return NO_PROVIDERS;
+    const status = props.agentStatus.providers?.find((candidate) => candidate.id === FEATURED_PROVIDER);
+    if (!status || status.state === "available" || props.connection?.connectKind(FEATURED_PROVIDER)) {
+      return NO_PROVIDERS;
+    }
+    return new Set([FEATURED_PROVIDER]);
+  });
+
+  /**
+   * The line of a row that this window cannot connect. A host that has no Cultura Builder sign-in
+   * reports "sign-in required", or, before this release, an error with the login text. The row then
+   * says that this window cannot sign it in, and what to use instead. Any other problem of the host,
+   * such as a gateway that does not answer, keeps the host's own message, which is true.
+   */
+  function unreachableLine(status: AgentProviderStatus | undefined): string | null | undefined {
+    return status?.state === "sign-in-required" || status?.message === CULTURA_LOGIN_REQUIRED
+      ? t("onboarding.provider.culturaBuilderRemote")
+      : status?.message;
+  }
+
+  /**
+   * The line of a CLI that is too old.
+   *
+   * The key providers run in Pi, so they would each repeat Pi's message: the step shows one notice
+   * for them instead, and their rows say nothing. A row that offers the download or the update that
+   * replaces the CLI says it in one short line beside that action. A row with no such action, such as
+   * a Cursor that the user installed, keeps the message of the provider, which names the version it
+   * needs.
+   */
+  function outdatedLine(
+    provider: AgentProviderId,
+    status: AgentProviderStatus,
+    runtime: ProviderRuntimeStatus | undefined,
+    availableVersion: string | null,
+  ): string | null {
+    if (isKeyOnlyProvider(provider)) return null;
+    const download =
+      Boolean(props.onDownloadProvider) && (runtime?.phase === "not-downloaded" || runtime?.phase === "download-error");
+    const update =
+      Boolean(props.onUpdateProvider) && runtime !== undefined && providerUpdateAvailable(runtime, availableVersion);
+    if (!download && !update) return status.message;
+    return status.version
+      ? t("onboarding.provider.outdated", { version: status.version })
+      : t("onboarding.provider.outdatedUnknown");
+  }
+
   const providerOptions = createMemo<ProviderPickerOption[]>(() =>
     SETUP_PROVIDERS.filter(
       (provider) =>
@@ -210,17 +286,26 @@ export function createSetupProviders(
       const status = props.agentStatus.providers?.find((candidate) => candidate.id === provider.id);
       const runtime = props.providerRuntimeStatuses?.[provider.id];
       const descriptionKey = provider.description ? PROVIDER_DESCRIPTION_KEYS[provider.description] : undefined;
+      const elsewhere = unreachable().has(provider.id);
+      const outdated = status?.state === "outdated";
+      const availableVersion = props.providerAvailableVersions?.[provider.id] ?? null;
       return {
         ...provider,
         description: descriptionKey ? t(descriptionKey) : provider.description,
         state: status?.state ?? fallbackProviderState(props.agentStatus),
-        message: status?.message,
+        // The row says why it cannot be used here and what to do, in one short line.
+        message: elsewhere
+          ? unreachableLine(status)
+          : outdated
+            ? outdatedLine(provider.id, status, runtime, availableVersion)
+            : status?.message,
         email: status?.email,
         connectionState: status?.connectionState,
         signInPending: status?.signInPending,
-        checkError: status?.checkError,
-        availableVersion: props.providerAvailableVersions?.[provider.id] ?? null,
+        checkError: elsewhere || outdated ? null : status?.checkError,
+        availableVersion,
         freeModels: provider.id === "opencode",
+        recommended: provider.id === FREE_PROVIDER,
         // For a user with no account anywhere, this row is the way forward, and among four rows it
         // reads like any other; the note points it out.
         callout:
@@ -247,11 +332,12 @@ export function createSetupProviders(
     includeFree() || (selectedProvider() === FREE_PROVIDER && providerSelectedByUser() && !customSelected());
   const providerRows = createMemo(() => {
     const kept = keptProviders();
-    const rows = onboardingProviderRows(providerOptions(), kept ?? [], freeRow());
+    const rule: OnboardingRowRule = { includeFree: freeRow(), unreachable: unreachable() };
+    const rows = onboardingProviderRows(providerOptions(), { ...rule, kept: kept ?? [] });
     // A saved choice that the row rule hides still shows, after the rows the rule gives.
     const saved = initial?.provider;
     if (kept || !saved || rows.listed.some((option) => option.id === saved)) return rows;
-    return onboardingProviderRows(providerOptions(), [...planRowIds(rows.listed), saved], freeRow());
+    return onboardingProviderRows(providerOptions(), { ...rule, kept: [...planRowIds(rows.listed), saved] });
   });
   const customInMore = () =>
     Boolean(props.onAddCustomProvider) && (props.customProviders ?? []).length === 0 && !customRevealed();
@@ -373,13 +459,21 @@ export function createSetupProviders(
       selected: selectedProvider(),
       selectedByUser: providerSelectedByUser(),
       withFree: includeFree(),
+      blocked: unreachable(),
     }),
-    ({ options: allOptions, selected, selectedByUser, withFree }) => {
+    ({ options: allOptions, selected, selectedByUser, withFree, blocked }) => {
       if (selectedByUser && selected && allOptions.some((provider) => provider.id === selected)) return;
       // A step without the free row does not choose the free provider by itself.
       const options = withFree ? allOptions : allOptions.filter((provider) => provider.id !== FREE_PROVIDER);
-      if (selected && options.some((provider) => provider.id === selected && providerReady(provider))) return;
-      setSelectedProvider(automaticProviderChoice(options, providerReady));
+      const choice = automaticProviderChoice(options, providerReady, { recommendFree: withFree, unreachable: blocked });
+      // A ready choice stays, so the selection does not move while a check runs. Builders is the
+      // exception: it is the choice only while no account is connected. Its runtime is ready before
+      // the host's check ends, so an account that connects after the first render takes its place.
+      // The choice of the user never changes here: the first line returns for it.
+      const freeGivesWay = withFree && selected === FREE_PROVIDER && choice !== null && choice !== FREE_PROVIDER;
+      if (!freeGivesWay && selected && options.some((provider) => provider.id === selected && providerReady(provider)))
+        return;
+      setSelectedProvider(choice);
     },
   );
 
@@ -516,16 +610,42 @@ export function createSetupProviders(
   async function downloadProvider(provider: AgentProviderId): Promise<boolean> {
     if (!props.onDownloadProvider) return true;
     keepProviderRows();
-    setError("");
-    setProviderErrors((current) => ({ ...current, [provider]: undefined }));
     setProviderSelectedByUser(true);
     setSelectedProvider(provider);
+    return await runDownload(provider);
+  }
+
+  /**
+   * Downloads the runtime of `provider` and does not choose it, as the install suggestion of
+   * Builders and the Pi notice do. Resolves `false` when the request failed; the error says why.
+   */
+  async function installRuntime(provider: AgentProviderId): Promise<boolean> {
+    if (!props.onDownloadProvider) return true;
+    keepProviderRows();
+    return await runDownload(provider);
+  }
+
+  async function runDownload(provider: AgentProviderId): Promise<boolean> {
+    setError("");
+    setProviderErrors((current) => ({ ...current, [provider]: undefined }));
     try {
-      await props.onDownloadProvider(provider);
+      await props.onDownloadProvider?.(provider);
       return true;
     } catch (cause) {
       setError(t("onboarding.error.download", { provider: providerName(provider) }), cause);
       return false;
+    }
+  }
+
+  /** Updates the runtime of `provider` that is on the computer, as the Pi notice does. */
+  async function updateRuntime(provider: AgentProviderId): Promise<void> {
+    if (!props.onUpdateProvider) return;
+    keepProviderRows();
+    setError("");
+    try {
+      await props.onUpdateProvider(provider);
+    } catch (cause) {
+      setError(t("onboarding.error.download", { provider: providerName(provider) }), cause);
     }
   }
 
@@ -587,6 +707,10 @@ export function createSetupProviders(
     signInProvider,
     connectProvider,
     downloadProvider,
+    installRuntime,
+    updateRuntime,
+    /** The providers that this window cannot connect. Their rows say why, and setup does not choose them. */
+    unreachable,
     /** Forgets the user's choice, so the step chooses again from the rows it shows. */
     clearChoice: () => {
       choiceChanged = true;
@@ -686,31 +810,35 @@ export function SetupProviderPicker(props: SetupProviderPickerProps) {
         onChooseMoreProvider={props.providers.chooseProvider}
         onChooseMoreCustom={props.providers.chooseMoreCustom}
         detected={
-          // In setup a scan that found nothing is noise, so the list goes away. Hidden rows keep it:
-          // Show hidden is the only way back to them in this step.
-          <Show
-            when={
-              source().providerDetection?.scanning ||
-              source().providerDetection?.found.length ||
-              source().providerDetection?.hidden
-                ? source().providerDetection
-                : undefined
-            }
-          >
-            {(detection) => (
-              <Show when={props.providers.detectedApi()}>
-                {(api) => (
-                  <DetectedProviders
-                    detection={detection()}
-                    api={api()}
-                    takenProviderIds={(source().customProviders ?? []).map((provider) => provider.id)}
-                    takenAgentIds={source().takenAgentIds}
-                    disabled={props.disabled}
-                  />
-                )}
-              </Show>
-            )}
-          </Show>
+          <>
+            {/* Below the rows they are about: the Builders install and the one Pi update notice. */}
+            <SetupProviderNotices providers={props.providers} disabled={props.disabled} />
+            {/* In setup a scan that found nothing is noise, so the list goes away. Hidden rows keep it:
+                Show hidden is the only way back to them in this step. */}
+            <Show
+              when={
+                source().providerDetection?.scanning ||
+                source().providerDetection?.found.length ||
+                source().providerDetection?.hidden
+                  ? source().providerDetection
+                  : undefined
+              }
+            >
+              {(detection) => (
+                <Show when={props.providers.detectedApi()}>
+                  {(api) => (
+                    <DetectedProviders
+                      detection={detection()}
+                      api={api()}
+                      takenProviderIds={(source().customProviders ?? []).map((provider) => provider.id)}
+                      takenAgentIds={source().takenAgentIds}
+                      disabled={props.disabled}
+                    />
+                  )}
+                </Show>
+              )}
+            </Show>
+          </>
         }
         onChange={props.providers.chooseProvider}
       />

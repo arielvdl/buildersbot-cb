@@ -499,12 +499,10 @@ function ProviderPage(props: PageProps) {
   };
   const accountsShown = () =>
     Boolean(props.accountActions) && (props.option.accounts?.length ?? 0) > 0 && row.available() && !row.off();
+  // Cultura Builder has no key: the Hub device code that Connect starts is its only sign-in.
   const keyShown = () =>
     Boolean(props.onSignInProvider) &&
-    (props.option.id === "opencode" ||
-      props.option.id === "muse" ||
-      props.option.id === "cultura-builder" ||
-      row.apiKeyOffered());
+    (props.option.id === "opencode" || props.option.id === "muse" || row.apiKeyOffered());
   return (
     <>
       <DetailHeader

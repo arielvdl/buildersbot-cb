@@ -191,11 +191,14 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
    * the row cannot offer it: with no runtime action at all, or a Connect or Restart that retries the
    * same credentials. A saved key that blocks startup must stay replaceable and removable, so those
    * actions never take the dialog away.
+   *
+   * Cultura Builder has no key and no guide: its only sign-in is the Hub device code that Connect
+   * starts. A Sign in beside it had no handler on any surface, so the row does not offer one.
    */
   const signInOffered = () =>
     Boolean(host.onSignInProvider) &&
     !connectOptional() &&
-    (option().id === "opencode" || option().id === "muse" || option().id === "cultura-builder"
+    (option().id === "opencode" || option().id === "muse"
       ? runtimeAction() === undefined || runtimeAction() === "connect" || runtimeAction() === "restart"
       : option().id === "claude" &&
         !runtimeStatus() &&

@@ -9,6 +9,7 @@
 // Everything here is data, so it runs under a unit test: the fetch is injected, and no module-level
 // state survives a sign-in.
 
+import { sourceText } from "@openbot/i18n/source";
 import { Effect, Option, Schema } from "effect";
 import { type ProviderClientOperationError, ProviderSignInError, providerFailure } from "./provider-client-effects";
 
@@ -124,6 +125,22 @@ export function readCulturaBuilderSession(raw: string | null): CulturaBuilderSes
     expires: stored.expires ?? 0,
     empresa: stored.empresa ?? null,
   };
+}
+
+/**
+ * The stored session, or a sign-in error when there is none.
+ *
+ * A missing session is a signed-out provider, not a broken one. As a `ProviderSignInError` the
+ * provider status says "sign-in required", and the start is not counted as a failure. A plain error
+ * made the row read "Unavailable" and counted toward the starts that stop the provider.
+ */
+export function requireCulturaBuilderSession(
+  raw: string | null,
+): Effect.Effect<CulturaBuilderSession, ProviderSignInError> {
+  const session = readCulturaBuilderSession(raw);
+  return session
+    ? Effect.succeed(session)
+    : Effect.fail(new ProviderSignInError({ message: sourceText("error.provider.culturaLoginRequired") }));
 }
 
 export function serializeCulturaBuilderSession(session: CulturaBuilderSession): string {
@@ -260,14 +277,22 @@ export function pollCulturaBuilderToken(
   }).pipe(Effect.catch(() => Effect.succeed({ status: "pending" as const })));
 }
 
-/** Exchanges the refresh token for a new access token. */
+/**
+ * Exchanges the refresh token for a new access token.
+ *
+ * A session with no refresh token, and a refresh token that the Hub refuses (OAuth `invalid_grant`,
+ * or a 401), end the sign-in: the failure is a `ProviderSignInError`, so the row asks for a new
+ * sign-in and the start does not count as a failure. Other failures, such as a Hub that does not
+ * answer, stay plain errors.
+ */
 export function refreshCulturaBuilderSession(
   session: CulturaBuilderSession,
   fetcher: Fetcher = fetch,
 ): Effect.Effect<CulturaBuilderSession, ProviderClientOperationError> {
   return Effect.tryPromise({
     try: async () => {
-      if (session.refresh === "") throw new Error("A sessão Cultura Builder expirou. Entre de novo.");
+      const expired = () => new ProviderSignInError({ message: sourceText("error.provider.culturaSessionExpired") });
+      if (session.refresh === "") throw expired();
       const response = await fetcher(`${CULTURA_BUILDER_HUB}${TOKEN_PATH}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
@@ -276,6 +301,7 @@ export function refreshCulturaBuilderSession(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const value = await readJson(response, TokenGrant);
+      if (response.status === 401 || (response.status === 400 && value?.error === "invalid_grant")) throw expired();
       if (!response.ok || !value?.access_token) {
         throw new Error(`Cultura Builder token refresh failed (${response.status})`);
       }
@@ -326,7 +352,7 @@ export function readCulturaBuilderAccess(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (response.status === 401 || response.status === 403) {
-        throw new ProviderSignInError({ message: "Cultura Builder login required." });
+        throw new ProviderSignInError({ message: sourceText("error.provider.culturaLoginRequired") });
       }
       const value = await readJson(response, GatewaySession);
       if (!response.ok) throw new Error(`Cultura Builder access check failed (${response.status})`);
@@ -345,14 +371,14 @@ export function ensureCulturaBuilderToken(
   save: (value: string) => Effect.Effect<void>,
   fetcher: Fetcher = fetch,
 ): Effect.Effect<string, ProviderClientOperationError | ProviderSignInError> {
-  const session = readCulturaBuilderSession(raw);
-  if (!session) {
-    return Effect.fail(new ProviderSignInError({ message: "Cultura Builder login required." }));
-  }
-  if (sessionIsFresh(session)) return Effect.succeed(session.access);
-  if (session.refresh === "") return Effect.succeed(session.access);
-  return refreshCulturaBuilderSession(session, fetcher).pipe(
-    Effect.tap((refreshed) => save(serializeCulturaBuilderSession(refreshed))),
-    Effect.map((refreshed) => refreshed.access),
+  return requireCulturaBuilderSession(raw).pipe(
+    Effect.flatMap((session): Effect.Effect<string, ProviderClientOperationError> => {
+      if (sessionIsFresh(session)) return Effect.succeed(session.access);
+      if (session.refresh === "") return Effect.succeed(session.access);
+      return refreshCulturaBuilderSession(session, fetcher).pipe(
+        Effect.tap((refreshed) => save(serializeCulturaBuilderSession(refreshed))),
+        Effect.map((refreshed) => refreshed.access),
+      );
+    }),
   );
 }

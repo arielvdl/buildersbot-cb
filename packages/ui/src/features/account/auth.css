@@ -744,6 +744,12 @@
   line-height: 18px;
 }
 
+/* The badge of the row that the screen recommends, beside the name it qualifies. */
+.provider-picker-recommended {
+  margin-inline-start: var(--openbot-space-1-5);
+  vertical-align: text-bottom;
+}
+
 .provider-picker-email {
   color: var(--text-muted);
   font-size: var(--openbot-text-sm);

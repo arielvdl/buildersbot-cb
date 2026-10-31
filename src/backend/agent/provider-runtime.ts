@@ -1932,7 +1932,7 @@ export class ProviderRuntime implements ProviderPort {
         if (Result.isSuccess(access) && !access.success.active) {
           this.#setProviderConnectionFailure(
             provider,
-            new ProviderSignInError({ message: "This Cultura Builder account has no access to the LLM." }),
+            new ProviderSignInError({ message: sourceText("error.provider.culturaNoAccess") }),
             this.#cli.get(provider)?.version ?? null,
           );
           return;
@@ -1949,7 +1949,7 @@ export class ProviderRuntime implements ProviderPort {
     yield* Deferred.succeed(pending.settled, false);
     this.#setProviderConnectionFailure(
       provider,
-      new ProviderSignInError({ message: "The Cultura Builder sign-in did not finish. Try again." }),
+      new ProviderSignInError({ message: sourceText("error.provider.culturaSignInUnfinished") }),
       this.#cli.get(provider)?.version ?? null,
     );
   });
@@ -3028,6 +3028,25 @@ export class ProviderRuntime implements ProviderPort {
     yield* providerStep(() => client.notify("initialized"));
   });
 
+  /**
+   * Runs the `prepare` hook of the driver of `provider`, before its client is made. A token that the
+   * app refreshes itself has to reach the store before the environment is built, on every path that
+   * makes a client: a provider check, a sign-in, an account and a turn.
+   *
+   * A sign-in to do stays a `ProviderSignInError`, so the row says "sign-in required" and the start
+   * does not count toward the failures that stop the provider.
+   */
+  #prepareDriver(provider: AgentProvider): Effect.Effect<void, ProviderOperationFailed> {
+    const prepare = requireProviderDriver(provider).prepare;
+    if (!prepare) return Effect.void;
+    return prepare(this.#credentials).pipe(
+      Effect.mapError(
+        (failure) =>
+          new ProviderOperationFailed({ cause: failure instanceof ProviderSignInError ? failure : failure.cause }),
+      ),
+    );
+  }
+
   readonly #authenticateClient = Effect.fn("ProviderRuntime.authenticateClient")(
     function* (
       this: ProviderRuntime,
@@ -3048,18 +3067,7 @@ export class ProviderRuntime implements ProviderPort {
       } = {},
     ) {
       const driver = requireProviderDriver(provider);
-      // A token the app refreshes itself has to reach the store before the environment is built.
-      const prepare = driver.prepare;
-      if (prepare) {
-        yield* prepare(this.#credentials).pipe(
-          Effect.mapError(
-            (failure) =>
-              new ProviderOperationFailed({
-                cause: failure instanceof ProviderSignInError ? failure : failure.cause,
-              }),
-          ),
-        );
-      }
+      yield* this.#prepareDriver(provider);
       let transferred = false;
       const started = Effect.acquireUseRelease(
         providerStep(() =>
@@ -3579,6 +3587,11 @@ export class ProviderRuntime implements ProviderPort {
             source: resolvedCli.source ?? null,
             durationMs: stageMs(),
           });
+          // The check starts the client as a turn does: an access token that ended is refreshed and
+          // saved first, and a missing sign-in stops the check here, with no process.
+          stage = "prepare";
+          stageStartedAt = performance.now();
+          yield* this.#prepareDriver(provider);
           stage = "initialize";
           stageStartedAt = performance.now();
           const candidate = yield* providerStep(() =>

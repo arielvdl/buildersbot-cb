@@ -49,6 +49,7 @@ import {
   ensureCulturaBuilderToken,
   readCulturaBuilderAccess,
   readCulturaBuilderSession,
+  requireCulturaBuilderSession,
 } from "./cultura-builder-auth";
 import { readCursorUsage } from "./cursor-usage";
 import { CustomAcpAgentsClient, type CustomAgentConfig, type CustomAgentSource } from "./custom-acp-agents-client";
@@ -86,7 +87,7 @@ import {
 import { type AccountReadResult, isCodexLoginType, type ModelListResponse } from "./protocol";
 import {
   type ProviderClientOperationError,
-  type ProviderSignInError,
+  ProviderSignInError,
   providerCall,
   providerFailure,
 } from "./provider-client-effects";
@@ -895,17 +896,20 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
             context.culturaBuilderFullContext?.() ?? false,
           ),
         }),
+        // A missing session and an account without the LLM are sign-ins to do, not a broken
+        // provider: the row then says "Not connected" and offers Connect, not "Unavailable".
         authenticate: () =>
           Effect.gen(function* () {
-            const session = readCulturaBuilderSession(context.apiKey("cultura-builder"));
-            if (!session) return yield* Effect.fail(providerFailure(new Error("Cultura Builder login required.")));
+            const session = yield* requireCulturaBuilderSession(context.apiKey("cultura-builder")).pipe(
+              Effect.mapError((failure) => providerFailure(failure)),
+            );
             const access = yield* readCulturaBuilderAccess(session.access).pipe(
               Effect.mapError((failure) => providerFailure(failure)),
             );
             empresa = access.empresa;
             if (!access.active) {
               return yield* Effect.fail(
-                providerFailure(new Error("Cultura Builder login required: no access to the LLM.")),
+                providerFailure(new ProviderSignInError({ message: sourceText("error.provider.culturaNoAccess") })),
               );
             }
           }),
