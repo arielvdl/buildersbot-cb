@@ -47,11 +47,13 @@ const CREDENTIAL_ASSIGNMENT = new RegExp(
 // The prefix has to start a token: without the boundary, `sk-` matched inside
 // ordinary words and `risk-register` came out as `ri[redacted]`, erasing the
 // part of a diagnostic that names what failed.
+// `cbp_` starts the Cultura Builder Hub proxy token and `treg_` a key of the tool catalog vendor
+// (docs/architecture/hub-connections.md): neither is registered, so the prefix is what masks them.
 // `npm_`, `hf_` and `gsk_` also start ordinary names such as `npm_config_user_agent`, so their
 // value must be one long alphanumeric run, as the vendors issue them. `ASIA` is a word, so only the
 // exact shape of an AWS key ID counts.
 const KNOWN_SECRET_PREFIXES =
-  /(?<![A-Za-z0-9_-])(?:(?:sk-ant|sk-|sk_|xai-|ghp_|gho_|ghu_|ghr_|ghs_|github_pat_|AKIA|xox[abeoprs]-|xapp-|glpat-|rk_live_|whsec_)[A-Za-z0-9._-]{8,}|AIza[A-Za-z0-9_-]{30,}|(?:npm|hf|gsk)_[A-Za-z0-9]{30,}|ASIA[A-Z0-9]{16}(?![A-Za-z0-9]))/g;
+  /(?<![A-Za-z0-9_-])(?:(?:sk-ant|sk-|sk_|xai-|ghp_|gho_|ghu_|ghr_|ghs_|github_pat_|AKIA|xox[abeoprs]-|xapp-|glpat-|rk_live_|whsec_|cbp_|treg_)[A-Za-z0-9._-]{8,}|AIza[A-Za-z0-9_-]{30,}|(?:npm|hf|gsk)_[A-Za-z0-9]{30,}|ASIA[A-Z0-9]{16}(?![A-Za-z0-9]))/g;
 // A JSON Web Token: a header and a payload that both start as a JSON object, then the signature.
 const JSON_WEB_TOKEN = /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g;
 // A PEM private key, with its body. A key that the text cuts off before its END line is removed to
@@ -234,7 +236,7 @@ export function findSecretValue(value: string): { index: number; length: number 
 // of an action counts such a value only in the shape that the vendors issue: one part of 16
 // characters or more, between `-`, `_` or `.`, that mixes letters and digits or upper and lower case,
 // or a UUID. The log mask keeps the wider rule: hiding a slug in a log costs little.
-const GENERIC_SECRET_PREFIX = /^(?:sk-ant-|sk-|sk_|xai-|xox[abeoprs]-)/u;
+const GENERIC_SECRET_PREFIX = /^(?:sk-ant-|sk-|sk_|xai-|xox[abeoprs]-|cbp_|treg_)/u;
 const ISSUED_PART = /^(?=.{16})(?:(?=.*[A-Za-z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z]))/u;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu;
 
