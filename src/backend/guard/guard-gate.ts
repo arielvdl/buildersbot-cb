@@ -20,9 +20,15 @@ export interface GuardGateOptions<Client = AgentClient> {
   guard: ToolGuard;
   /**
    * Shows the approval card and waits for the person. It must ask also when the agent has Full
-   * access: a standing grant does not answer a Guard question.
+   * access: a standing grant does not answer a Guard question. `ownerOnly` is set when a secret may
+   * leave: then only the owner of this computer can answer, not a team member.
    */
-  ask(client: Client, request: AppServerRequest, approval: AgentApproval): Effect.Effect<GuardApprovalAnswer>;
+  ask(
+    client: Client,
+    request: AppServerRequest,
+    approval: AgentApproval,
+    options: { readonly ownerOnly: boolean },
+  ): Effect.Effect<GuardApprovalAnswer>;
 }
 
 /** What the router does next with a tool call. */
@@ -205,6 +211,7 @@ export class GuardGate<Client = AgentClient> {
       client,
       request,
       approvalFor(request, params, agentId, actionSummary(item), askReason("action", checked)),
+      { ownerOnly: checked.category === "secret-leak" },
     );
     if (answer === "accept") return proceed;
     return { proceed: false, result: answer === "cancel" ? null : declined(checked.reason) } satisfies GuardBefore;
@@ -248,6 +255,7 @@ export class GuardGate<Client = AgentClient> {
           client,
           request,
           approvalFor(request, params, agentId, subject, askReason("content", checked)),
+          { ownerOnly: false },
         );
         if (answer === "cancel") return null;
         return answer === "accept" ? withNotice(result, checked.reason) : withheld(checked.reason);

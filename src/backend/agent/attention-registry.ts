@@ -736,7 +736,16 @@ export class AttentionRegistry {
     }
   }
 
-  surfaceApproval(client: AgentClient, request: AppServerRequest, kind: AgentApprovalKind): void {
+  /**
+   * `guardReason` is set when the Guard found a risk in the command. The card then shows the Guard's
+   * reason and asks also when the agent has Full access, and a later grant does not answer it.
+   */
+  surfaceApproval(
+    client: AgentClient,
+    request: AppServerRequest,
+    kind: AgentApprovalKind,
+    guardReason: string | null = null,
+  ): void {
     const threadId = getString(request.params, "threadId");
     const turnId = getString(request.params, "turnId") ?? (kind === "file-change" ? String(request.id) : null);
     const agentId = threadId ? this.#conversation.agentForThread(threadId) : undefined;
@@ -753,17 +762,18 @@ export class AttentionRegistry {
       kind,
       command: commandText(request.params),
       cwd: getString(request.params, "cwd"),
-      reason: getString(request.params, "reason"),
+      reason: guardReason ?? getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
       permissions: kind === "permissions" ? approvalPermissions(request.params) : null,
     };
-    if (this.#answerWithoutAsking(client, request, approval)) return;
+    if (!guardReason && this.#answerWithoutAsking(client, request, approval)) return;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
       approval,
+      ...(guardReason ? { alwaysAsk: true } : {}),
     });
     this.#routines.markNeedsAttention(turnId);
     this.#emit({ type: "approval", approval });
@@ -830,7 +840,8 @@ export class AttentionRegistry {
     this.#emit({ type: "approval", approval: prepared.approval });
   }, Effect.uninterruptible).bind(this);
 
-  surfaceLegacyApproval(client: AgentClient, request: AppServerRequest): void {
+  /** `guardReason` works as it does for `surfaceApproval`. */
+  surfaceLegacyApproval(client: AgentClient, request: AppServerRequest, guardReason: string | null = null): void {
     const threadId = getString(request.params, "conversationId");
     const agentId = threadId ? this.#conversation.agentForThread(threadId) : undefined;
     if (!threadId || !agentId) {
@@ -847,17 +858,18 @@ export class AttentionRegistry {
       kind,
       command: commandText(request.params),
       cwd: getString(request.params, "cwd"),
-      reason: getString(request.params, "reason"),
+      reason: guardReason ?? getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
       permissions: null,
     };
-    if (this.#answerWithoutAsking(client, request, approval)) return;
+    if (!guardReason && this.#answerWithoutAsking(client, request, approval)) return;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
       approval,
+      ...(guardReason ? { alwaysAsk: true } : {}),
     });
     this.#routines.markNeedsAttention(approval.turnId);
     this.#emit({ type: "approval", approval });

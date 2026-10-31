@@ -118,8 +118,10 @@ import {
   CONTEXT_RESET_ITEM_TYPE,
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_CUSTOM_PROVIDER_HARNESS,
+  DEFAULT_GUARD_PREFERENCE,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   DEFAULT_SECURITY_GUARD_PREFERENCE,
+  type GuardPreference,
   isContextResetMarker,
   isCustomProviderHarness,
   MODEL_SWITCH_ITEM_TYPES,
@@ -247,6 +249,10 @@ import type { BundledProviderExecutables } from "./cli";
 import type { ConversationMarkerExclusions } from "./conversation-read-store";
 import type { ProviderSession } from "./database/provider-sessions";
 import { reportOriginalFailure } from "./effect-boundary";
+import { GuardGate } from "./guard/guard-gate";
+import { culturaBuilderGuardModel } from "./guard/guard-judge";
+import { providerGuardModel } from "./guard/provider-guard-model";
+import { ToolGuard } from "./guard/tool-guard";
 import type { HostMemory } from "./host-memory";
 import type { MailboxStore } from "./mailbox-store";
 import { toMcpOperationError } from "./mcp-effects";
@@ -353,6 +359,11 @@ export interface AgentServiceOptions {
    * Omitted, the reviewer is on for every message, which is the default of a new install.
    */
   securityGuard?: () => SecurityGuardPreference;
+  /**
+   * The Guard of tool calls and their results. The main process owns the preference. Omitted, the
+   * Guard runs at Light, the default of a new install.
+   */
+  guard?: () => GuardPreference;
   /**
    * The one-channel-at-a-time mode and the order the user chose. The main process owns the
    * preference. Omitted, every channel starts its work when it can.
@@ -521,6 +532,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #busyMessageMode: () => BusyMessageMode;
   readonly #securityGuard: () => SecurityGuardPreference;
   readonly #security: PromptInjectionGuard;
+  readonly #toolGuard: ToolGuard;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
   readonly #stoppedTurns = new Map<string, string>();
 
@@ -1535,7 +1547,27 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             .pipe(Effect.mapError((failure) => new AgentRemovalFailed({ cause: failure.cause }))),
       },
     });
+    this.#toolGuard = new ToolGuard({
+      preference: options.guard ?? (() => DEFAULT_GUARD_PREFERENCE),
+      models: [
+        culturaBuilderGuardModel({
+          session: () => credentials.apiKey("cultura-builder"),
+          saveSession: (value) => credentials.saveApiKey?.("cultura-builder", value) ?? Effect.void,
+        }),
+        providerGuardModel({
+          models: () => this.#endpoints.available(),
+          ensureProvider: (provider) => this.#providers.ensureProvider(provider),
+          createClient: (provider) => this.#providers.createProfileClient(provider),
+          clients: this.#profileClients,
+        }),
+      ],
+    });
     this.#tools = new BuildersBotToolRouter({
+      guardGate: new GuardGate({
+        guard: this.#toolGuard,
+        ask: (client, request, approval, { ownerOnly }) =>
+          this.#attention.awaitToolApproval(client, request, approval, { alwaysAsk: true, ownerOnly }),
+      }),
       capturedSteps: (session) => this.#threads.capturedWorkSteps(session).pipe(toToolOperationFailed),
       store,
       mailbox,
@@ -5153,6 +5185,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       .pipe(
         Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "respondToPrompt", cause: failure.cause })),
       );
+  }
+
+  /** Whether the Guard's chosen reviewer can run now, such as Cultura Builder with a sign-in. */
+  guardJudgeReady(): boolean {
+    return this.#toolGuard.judgeReady();
   }
 
   /** `responder` is absent for the person at this computer; the Team API gives the member who answers. */

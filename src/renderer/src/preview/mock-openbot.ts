@@ -81,6 +81,7 @@ import {
   DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
   DEFAULT_EXTERNAL_LINK_PREFERENCE,
+  DEFAULT_GUARD_PREFERENCE,
   DEFAULT_MACHINE_ALERT_SETTINGS,
   DEFAULT_MEMORY_REVIEW_INTERVAL,
   DEFAULT_PROMPT_CACHE_TTL,
@@ -101,6 +102,7 @@ import {
   type ExternalLinkPreference,
   type FilePreview,
   folderInside,
+  type GuardPreference,
   type HostedSiteSummary,
   type HostStatus,
   hostAgentMemoryLimit,
@@ -460,6 +462,8 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   // The preview computer has Tailscale, so the private route shows what it finds.
   let remoteNetworkRoute: RemoteNetworkRouteState = { route: DEFAULT_REMOTE_NETWORK_ROUTE, tailscaleConnected: true };
   let securityGuard: SecurityGuardPreference = { ...DEFAULT_SECURITY_GUARD_PREFERENCE };
+  // The preview has no Cultura Builder sign-in, so the Guard tab shows its local-check notice.
+  let guardPreference: GuardPreference = clone(DEFAULT_GUARD_PREFERENCE);
   let appBehavior: AppBehaviorPreference = {
     launchAtLogin: false,
     keepRunningInBackground: false,
@@ -1491,6 +1495,16 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     bitwardenConnector: createMockBitwardenConnector(),
     vault: createMockVault(),
     billing: createMockBilling(billingPlans),
+    guard: {
+      getState: async () => ({ preference: clone(guardPreference), judgeReady: false }),
+      setPreference: async (change) => {
+        guardPreference = {
+          level: change.level ?? guardPreference.level,
+          judge: change.judge === undefined ? guardPreference.judge : change.judge,
+        };
+        return { preference: clone(guardPreference), judgeReady: false };
+      },
+    },
     license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
     hostedServers: createMockHostedServers(billingPlans),

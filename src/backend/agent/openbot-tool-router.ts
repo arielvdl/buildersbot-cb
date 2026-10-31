@@ -41,6 +41,7 @@ import type { AgentWaits } from "../agent-waits/agent-waits";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import type { ChannelService } from "../channel-service";
 import type { ProviderSession } from "../database/provider-sessions";
+import { type GuardBefore, type GuardGate, guardOutboundItem } from "../guard/guard-gate";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -96,7 +97,7 @@ import {
   updateProfileToolSchema,
   widensAgentSettings,
 } from "./profile-tools";
-import { apiKeyFormSpec, browserUserControlResult } from "./prompts";
+import { apiKeyFormSpec, browserUserControlResult, commandText } from "./prompts";
 import { ROUTINE_NO_UPDATE_TOOL, ROUTINE_REPORT_FAILURE_TOOL } from "./routine-quiet-runs";
 import type { RoutineScheduler } from "./routine-scheduler";
 import { type BuildersBotToolResponse, openBotToolFailure, openBotToolResult } from "./routine-tools";
@@ -215,6 +216,11 @@ export interface BuildersBotToolRouterOptions {
   mcpServers?: AgentMcpServers | null | undefined;
   /** The API keys that users saved for agents; null where nothing can save them. */
   apiKeys?: AgentApiKeys | null | undefined;
+  /**
+   * The Guard: it checks a tool call before it sends something out, and a browser result before the
+   * agent reads it. Null where no Guard runs; every call then goes on as before.
+   */
+  guardGate?: GuardGate | null | undefined;
   hooks: BuildersBotToolRouterHooks;
 }
 
@@ -252,6 +258,7 @@ export class BuildersBotToolRouter {
   readonly #screenCapture: ScreenCaptureHost | null;
   readonly #mcpServers: AgentMcpServers | null;
   readonly #apiKeys: AgentApiKeys | null;
+  readonly #guardGate: GuardGate | null;
   readonly #hooks: BuildersBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
 
@@ -286,6 +293,7 @@ export class BuildersBotToolRouter {
     this.#screenCapture = options.screenCapture ?? null;
     this.#mcpServers = options.mcpServers ?? null;
     this.#apiKeys = options.apiKeys ?? null;
+    this.#guardGate = options.guardGate ?? null;
     this.#hooks = options.hooks;
     this.#interruptTool = new AgentInterruptTool({
       store: options.store,
@@ -299,6 +307,34 @@ export class BuildersBotToolRouter {
         interrupt: (agentId, turnId, mayStop) => options.hooks.interrupt(agentId, turnId, mayStop),
       },
     });
+  }
+
+  /** The Guard reason of a provider's command approval, or null when the Guard lets it pass or is off. */
+  #guardCommand(request: AppServerRequest): Effect.Effect<string | null> {
+    return this.#guardGate ? this.#guardGate.commandReason(commandText(request.params)) : Effect.succeed(null);
+  }
+
+  /** The Guard check before a tool call, or a pass when no Guard runs. */
+  #guardBefore(
+    client: AgentClient,
+    request: AppServerRequest,
+    params: DynamicToolCallParams,
+    agentId: string,
+  ): Effect.Effect<GuardBefore> {
+    return this.#guardGate
+      ? this.#guardGate.beforeTool(client, request, params, agentId)
+      : Effect.succeed({ proceed: true } satisfies GuardBefore);
+  }
+
+  /** The URL of the tab that a browser call names, for the approval card. */
+  #tabUrl(params: DynamicToolCallParams): string | null {
+    const args = params.arguments;
+    const tabId = isRecord(args) && typeof args.tabId === "string" ? args.tabId : null;
+    const tabs = this.#browser.listTabs();
+    const tab = tabId
+      ? tabs.find((candidate) => candidate.id === tabId)
+      : tabs.find((candidate) => candidate.ownerThreadId === params.threadId);
+    return tab?.url ?? null;
   }
 
   readonly handle = Effect.fn("BuildersBotToolRouter.handle")(function* (
@@ -324,7 +360,7 @@ export class BuildersBotToolRouter {
     return yield* Effect.gen({ self: this }, function* () {
       switch (request.method) {
         case "item/commandExecution/requestApproval":
-          this.#attention.surfaceApproval(client, request, "command");
+          this.#attention.surfaceApproval(client, request, "command", yield* this.#guardCommand(request));
           return;
         case "item/fileChange/requestApproval":
           this.#attention.surfaceApproval(client, request, "file-change");
@@ -334,7 +370,11 @@ export class BuildersBotToolRouter {
           return;
         case "applyPatchApproval":
         case "execCommandApproval":
-          this.#attention.surfaceLegacyApproval(client, request);
+          this.#attention.surfaceLegacyApproval(
+            client,
+            request,
+            request.method === "execCommandApproval" ? yield* this.#guardCommand(request) : null,
+          );
           return;
         case "item/tool/call": {
           if (!isDynamicToolCall(request.params)) throw new Error("Invalid dynamic tool request.");
@@ -445,11 +485,21 @@ export class BuildersBotToolRouter {
               return Effect.sync(() => signal?.removeEventListener("abort", abort));
             });
             if (signal?.aborted) return;
+            // The Guard checks what the call sends out before it runs.
+            const before = yield* this.#guardBefore(client, toolRequest, params, agentId);
+            if (!before.proceed) {
+              if (before.result && !signal?.aborted && client.running) client.respond(toolRequest.id, before.result);
+              return;
+            }
             const result = yield* operation.pipe(
               Effect.raceFirst(cancelled),
               Effect.onInterrupt(() => Effect.sync(() => this.#browser.endControl(params.threadId, params.turnId))),
             );
-            if (!signal?.aborted && client.running) client.respond(toolRequest.id, result);
+            // The Guard checks the page content before the agent reads it.
+            const guarded = this.#guardGate
+              ? yield* this.#guardGate.afterTool(client, toolRequest, params, agentId, result, this.#tabUrl(params))
+              : result;
+            if (guarded && !signal?.aborted && client.running) client.respond(toolRequest.id, guarded);
             return;
           }
           if (toolRequest.params.namespace === "openbot") {
@@ -489,6 +539,28 @@ export class BuildersBotToolRouter {
               const result = yield* this.#mcpServerTool(client, toolRequest, toolRequest.params);
               if (!toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, result);
               return;
+            }
+            if (
+              this.#guardGate &&
+              guardOutboundItem(toolRequest.params.namespace, toolRequest.params.tool, toolRequest.params.arguments)
+            ) {
+              const agentId = this.#conversation.agentForThread(toolRequest.params.threadId);
+              if (agentId) {
+                const before = yield* this.#guardBefore(
+                  client,
+                  toolRequest,
+                  {
+                    ...toolRequest.params,
+                    threadId: this.#conversation.publicThreadId(agentId, toolRequest.params.threadId),
+                  },
+                  agentId,
+                );
+                if (!before.proceed) {
+                  if (before.result && !toolRequest.signal?.aborted && client.running)
+                    client.respond(toolRequest.id, before.result);
+                  return;
+                }
+              }
             }
             const tool = toolRequest.params.tool;
             // The calling agent can correct a profile request or an attachment path, so it gets the reason as a

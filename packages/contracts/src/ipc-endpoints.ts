@@ -293,6 +293,7 @@ import type {
   ExternalLinkPreference,
 } from "./ipc-external-links";
 import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-github-connector";
+import type { GuardPreferenceChange, GuardState } from "./ipc-guard";
 import type { ApplyHermesImportInput, HermesImportPreview } from "./ipc-hermes-import";
 import type { HiddenAgentsSnapshot, SetAgentHiddenInput } from "./ipc-hidden-agents";
 import type { HostAnalytics, HostAnalyticsInput } from "./ipc-host-analytics";
@@ -1300,6 +1301,12 @@ export const IPC_ENDPOINTS = {
     getState: request<undefined, BillingState>()("billing:get-state"),
     openPortal: request<BillingPortalRequest, void>()("billing:open-portal"),
   },
+  // The Guard of this computer (`ipc-guard.ts`): its level and its reviewer model. It is on at Light
+  // by default. The state also says whether the reviewer can run now, such as with no sign-in.
+  guard: {
+    getState: request<undefined, GuardState>()("guard:get-state"),
+    setPreference: request<GuardPreferenceChange, GuardState>()("guard:set-preference"),
+  },
   // The commercial license of the account. Main opens the Checkout page; the renderer never sends a URL.
   license: {
     getState: request<undefined, LicenseState>()("license:get-state"),
@@ -1950,6 +1957,7 @@ export const IPC_GROUP_PATHS = {
   workflows: "workflows",
   routineResults: "routineResults",
   billing: "billing",
+  guard: "guard",
   license: "license",
   hostedServers: "hostedServers",
   localServers: "localServers",

@@ -208,6 +208,7 @@ import {
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
+import { GUARD_PREFERENCE_FILE, GuardPreferenceStore } from "./guard-preference-store";
 import { HermesImportService } from "./hermes-import-service";
 import { HostEventsRuntime } from "./host-events-runtime";
 import { agentWebhookRoutineWriter, HostEventsService } from "./host-events-service";
@@ -628,6 +629,8 @@ export interface ApplicationServices {
   appBehavior: AppBehaviorService;
   /** The security reviewer of the messages the user sends. */
   securityGuard: SecurityGuardService;
+  /** The Guard of tool calls and their results: its level and its reviewer model. */
+  guardPreference: GuardPreferenceStore;
   agentInitialization: AgentInitializationGate<AgentLifecycleFailed>;
   sidebarLayout: SidebarLayoutStore;
   host: HostService;
@@ -1338,6 +1341,7 @@ export async function createApplicationServices({
     offersKeepAwake: process.platform !== "linux" && !hostedServer && !serverModeEnvironment && !localServerChild,
   });
   const securityGuard = new SecurityGuardService(join(app.getPath("userData"), SECURITY_GUARD_PREFERENCE_FILE));
+  const guardPreference = new GuardPreferenceStore(join(app.getPath("userData"), GUARD_PREFERENCE_FILE));
   // `agentAccess` is the one load that answers whether it worked, so its result is read back.
   const agentAccessLoaded = (
     await Promise.all([
@@ -1361,6 +1365,7 @@ export async function createApplicationServices({
       runCauseEffect(channelLane.load()),
       runCauseEffect(autoRecovery.load()),
       runCauseEffect(agentLimit.load()),
+      runCauseEffect(guardPreference.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -1933,6 +1938,7 @@ export async function createApplicationServices({
     busyMessageMode: () => busyMessageMode.get().mode,
     channelLane: () => channelLane.get(),
     securityGuard: () => securityGuard.get(),
+    guard: () => guardPreference.get(),
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     memoryReviewInterval: () => memoryReview.get().interval,
     timezone: () => serverTimezone.effective(),
@@ -3431,6 +3437,7 @@ export async function createApplicationServices({
     remoteSessionCache,
     appBehavior,
     securityGuard,
+    guardPreference,
     agentInitialization,
     hostUpdateCoordinator,
     requestedUpdate: remoteUpdate,
