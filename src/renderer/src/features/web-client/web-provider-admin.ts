@@ -89,14 +89,12 @@ const CODE_LOGIN_POLL_MS = 3000;
 /**
  * The pages the key dialog, the Help menu and the community card link to. The desktop app keeps its table in main; the
  * browser has no main process, so the pages it opens are listed here, and any other name is refused.
+ *
+ * The changelog, guides, Discord and feedback pages of the upstream project are not listed: they are
+ * another product, and the feedback went to its author. They come back when Builders Bot has its own.
  */
 const WEB_EXTERNAL_DESTINATIONS: Partial<Record<ExternalDestination, string>> = {
   "opencode-auth": "https://opencode.ai/auth",
-  feedback: "https://x.com/intent/post?text=Feedback%20for%20BuildersBot%20%40norbertbodziony%3A%20",
-  message: "https://x.com/norbertbodziony",
-  changelog: "https://openbot.run/changelog",
-  guides: "https://openbot.run/guides",
-  discord: "https://discord.openbot.run",
   x: "https://x.com/BuildersBot_",
 };
 
