@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Verifica, antes de qualquer comando na AWS, que:
-#   1. nenhuma variável de ambiente troca as credenciais ou o perfil;
+#   1. nenhuma variável de ambiente troca as credenciais, o perfil, o endpoint ou (com --writes) os
+#      arquivos de configuração do AWS CLI;
 #   2. o perfil é `cb` e a conta é 358748433479 (região us-east-1);
 #   3. o IP de saída deste computador está em config/allowed-egress-ips.txt;
 #   4. com --writes (todo script que altera a AWS: todos menos status.sh e validate.sh): a credencial
-#      é TEMPORÁRIA (role assumida com MFA, ou sessão do usuário com MFA). Uma chave de longa duração
-#      de usuário IAM é recusada, salvo com BB_SRV_ALLOW_LONG_TERM_KEY=1 explícito; a do root, sempre.
+#      é a sessão de uma role de config/mfa-roles.txt (roles cuja trust exige MFA). Qualquer outra
+#      (credencial de usuário IAM, AKIA ou sessão ASIA sem MFA comprovável, ou outra role) é recusada,
+#      salvo com BB_SRV_ALLOW_LONG_TERM_KEY=1 explícito; a do root, sempre.
 # Para em qualquer falha. Os outros scripts carregam este arquivo e chamam bb_check_access.
-# Só faz leituras: checkip.amazonaws.com, `sts get-caller-identity` e, para um ARN de usuário, o
-# prefixo do id da chave em uso (`aws configure export-credentials`, lido só pelo jq; nada é exibido).
+# Só faz leituras: checkip.amazonaws.com e `sts get-caller-identity`. Nenhuma credencial é lida.
 #
 # Uso: scripts/check-access.sh [--writes]
 
@@ -39,21 +40,21 @@ Só se não houver outro jeito, com a chave de longa duração e conscientemente
 EOF
 }
 
-# Tipo da credencial de um ARN de usuário IAM: uma sessão do usuário com MFA (sts get-session-token)
-# também aparece como :user/. O id da chave diz: ASIA = temporária, AKIA = longa duração.
-bb_user_key_kind() {
-  local prefix=''
-  # O segredo só passa pelo pipe até o jq, que devolve os 4 primeiros caracteres do id da chave.
-  prefix=$(aws configure export-credentials --profile "$BB_EXPECTED_PROFILE" --format process 2>/dev/null |
-    jq -r '(.AccessKeyId // "") | .[0:4]' 2>/dev/null) || prefix=''
-  case $prefix in
-    ASIA) echo temporary ;;
-    *) echo long-term ;;
-  esac
+# A role de um ARN assumed-role está em config/mfa-roles.txt?
+bb_mfa_role() { # <arn> <arquivo>
+  local role line
+  role=${1#*:assumed-role/}
+  role=${role%%/*}
+  [ -f "$2" ] || return 1
+  while read -r line _; do
+    case $line in '' | '#'*) continue ;; esac
+    [ "$line" != "$role" ] || return 0
+  done <"$2"
+  return 1
 }
 
 bb_check_access() { # [--writes]
-  local root file ip line allowed=0 account arn variable writes=0 kind
+  local root file ip line allowed=0 account arn variable writes=0 kind reason
 
   case ${1:-} in
     '') ;;
@@ -63,9 +64,19 @@ bb_check_access() { # [--writes]
   root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
   file=$root/config/allowed-egress-ips.txt
 
-  # Credenciais em variáveis de ambiente teriam precedência sobre a configuração do perfil.
-  for variable in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN; do
+  # Credenciais em variáveis de ambiente teriam precedência sobre a configuração do perfil, e um
+  # endpoint trocado responderia no lugar da AWS (inclusive o sts get-caller-identity abaixo).
+  for variable in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN \
+    $(compgen -v | grep -E '^AWS_ENDPOINT_URL' || true); do
     [ -z "${!variable:-}" ] || { bb_access_fail "a variável $variable está definida. Remova-a: os scripts usam só o perfil $BB_EXPECTED_PROFILE."; return 1; }
+  done
+  # Outros arquivos de configuração trocam o que o perfil cb é (outra role, outra chave, credential_process).
+  for variable in AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE; do
+    [ -n "${!variable:-}" ] || continue
+    if [ "$writes" = 1 ]; then
+      bb_access_fail "a variável $variable está definida e este script altera a AWS. Remova-a: o perfil $BB_EXPECTED_PROFILE vem de ~/.aws."; return 1
+    fi
+    printf 'AVISO: %s está definida e troca a configuração do perfil %s. Os scripts que alteram a AWS a recusam.\n' "$variable" "$BB_EXPECTED_PROFILE" >&2
   done
   if [ -n "${AWS_PROFILE:-}" ] && [ "$AWS_PROFILE" != "$BB_EXPECTED_PROFILE" ]; then
     bb_access_fail "AWS_PROFILE=$AWS_PROFILE. Use AWS_PROFILE=$BB_EXPECTED_PROFILE ou remova a variável."; return 1
@@ -94,23 +105,32 @@ bb_check_access() { # [--writes]
   [ "$account" = "$BB_EXPECTED_ACCOUNT" ] ||
     { bb_access_fail "o perfil $BB_EXPECTED_PROFILE aponta para a conta $account, não para $BB_EXPECTED_ACCOUNT."; return 1; }
 
+  # Temporária com MFA só a sessão de uma role de config/mfa-roles.txt (a trust dela exige MFA). Uma
+  # credencial do usuário IAM pode ser a chave AKIA ou uma sessão ASIA de get-session-token, que
+  # também sai sem MFA: nas duas o MFA não é comprovável daqui. Outra role pode não exigir MFA.
   case $arn in
     arn:aws:iam::*:root) kind=root ;;
-    arn:aws:sts::*:assumed-role/* | arn:aws:sts::*:federated-user/*) kind=temporary ;;
-    arn:aws:iam::*:user/*) kind=$(bb_user_key_kind) ;;
+    arn:aws:sts::*:assumed-role/*)
+      if bb_mfa_role "$arn" "$root/config/mfa-roles.txt"; then kind=temporary; else kind=unlisted-role; fi
+      ;;
     *) kind=long-term ;;
   esac
   if [ "$kind" = root ]; then
     bb_access_fail "$arn é a conta root. Estes scripts nunca rodam com ela."; return 1
   fi
-  if [ "$kind" = long-term ]; then
+  if [ "$kind" != temporary ]; then
+    if [ "$kind" = unlisted-role ]; then
+      reason="é a sessão de uma role fora de config/mfa-roles.txt (roles cuja trust exige MFA)"
+    else
+      reason="usa uma chave de longa duração ou uma sessão de usuário IAM (MFA não comprovável)"
+    fi
     if [ "$writes" = 0 ]; then
-      printf 'AVISO: %s usa uma chave de longa duração. Os scripts que alteram a AWS a recusam: use uma sessão com MFA (README, seção 3).\n' "$arn" >&2
+      printf 'AVISO: %s %s. Os scripts que alteram a AWS a recusam: use uma sessão com MFA (README, seção 3).\n' "$arn" "$reason" >&2
     elif [ "${BB_SRV_ALLOW_LONG_TERM_KEY:-0}" = 1 ]; then
-      printf 'AVISO: %s usa uma chave de longa duração, aceita só porque BB_SRV_ALLOW_LONG_TERM_KEY=1.\n' "$arn" >&2
+      printf 'AVISO: %s %s; aceita só porque BB_SRV_ALLOW_LONG_TERM_KEY=1.\n' "$arn" "$reason" >&2
     else
       # Sob set -e, um retorno 1 do bb_access_fail sairia antes da ajuda.
-      bb_access_fail "recusado: $arn usa uma chave de longa duração e este script altera a AWS." || true
+      bb_access_fail "recusado: $arn $reason, e este script altera a AWS." || true
       bb_mfa_help
       return 1
     fi

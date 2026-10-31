@@ -1,0 +1,6 @@
+# Roles cuja sessão os scripts que alteram a AWS aceitam como "temporária com MFA" (um nome por linha).
+# Cada role listada TEM de exigir aws:MultiFactorAuthPresent na trust policy: check-access.sh confia
+# no nome, não lê a trust. Conferido em 31/10/2026: culturabuilder-admin (iam get-role, só com MFA);
+# bb-srv-operator (templates/base.yaml, OperatorRole). Não acrescente uma role sem essa condição.
+culturabuilder-admin
+bb-srv-operator

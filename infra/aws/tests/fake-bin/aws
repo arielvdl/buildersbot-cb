@@ -23,11 +23,6 @@ case "$service $op" in
     echo cb
     exit 0
     ;;
-  "configure export-credentials")
-    # Nenhum segredo real: só o formato que check-access.sh lê (o prefixo da chave).
-    printf '{"Version": 1, "AccessKeyId": "%s", "SecretAccessKey": "fake"}\n' "${FAKE_KEY_ID:-ASIAFAKEFAKEFAKEFAKE}"
-    exit 0
-    ;;
   "sts get-caller-identity")
     printf '%s\t%s\n' 358748433479 "${FAKE_ARN:-arn:aws:sts::358748433479:assumed-role/culturabuilder-admin/teste}"
     exit 0

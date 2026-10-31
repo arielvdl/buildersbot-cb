@@ -14,7 +14,8 @@ WORK=$ROOT/.cache/tests
 install -d "$WORK"
 export FAKE_AWS_LOG=$WORK/fake-aws.log
 export PATH="$ROOT/tests/fake-bin:$PATH"
-unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN \
+  AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE AWS_ENDPOINT_URL
 unset BB_SRV_YES BB_SRV_ALLOW_LONG_TERM_KEY BB_SRV_IGNORE_QUOTA BB_SRV_ACCEPT_CRITICAL BB_SRV_ACCEPT_UNSCANNED
 cd "$ROOT" || exit 1
 
@@ -307,8 +308,18 @@ expect_refusal "D5 script de escrita recusa chave de longa duração e mostra a 
   env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE bash scripts/upgrade-sector.sh piloto "$TAG"
 expect_refusal "D5 recusa também no deploy-base, antes de qualquer leitura de stack" "este script altera a AWS" h_sector \
   env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE bash scripts/deploy-base.sh --alert-email ops@example.com
-expect_refusal "D5 aceita sessão do usuário com MFA (ASIA) e segue" "não tem instância" h_sector \
+expect_refusal "D5 recusa sessão de usuário IAM (ASIA de get-session-token: MFA não comprovável)" "MFA não comprovável" h_sector \
   env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=ASIAFAKEFAKEFAKEFAKE bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 recusa sessão de uma role fora de config/mfa-roles.txt" "fora de config/mfa-roles.txt" h_sector \
+  env FAKE_ARN="arn:aws:sts::358748433479:assumed-role/OutraRole/teste" bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 aceita a role bb-srv-operator (trust com MFA) e segue" "não tem instância" h_sector \
+  env FAKE_ARN="arn:aws:sts::358748433479:assumed-role/bb-srv-operator/teste" bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 recusa AWS_CONFIG_FILE num script de escrita" "AWS_CONFIG_FILE está definida" h_sector \
+  env AWS_CONFIG_FILE=/dev/null bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 recusa AWS_SHARED_CREDENTIALS_FILE num script de escrita" "AWS_SHARED_CREDENTIALS_FILE está definida" h_sector \
+  env AWS_SHARED_CREDENTIALS_FILE=/dev/null bash scripts/upgrade-sector.sh piloto "$TAG"
+expect_refusal "D5 recusa endpoint trocado (AWS_ENDPOINT_URL_STS)" "AWS_ENDPOINT_URL_STS está definida" h_sector \
+  env AWS_ENDPOINT_URL_STS=http://127.0.0.1:9 bash scripts/status.sh
 expect_refusal "D5 aceita a chave de longa duração só com BB_SRV_ALLOW_LONG_TERM_KEY=1" "não tem instância" h_sector \
   env FAKE_ARN="$LONG_TERM" FAKE_KEY_ID=AKIAFAKEFAKEFAKEFAKE BB_SRV_ALLOW_LONG_TERM_KEY=1 bash scripts/upgrade-sector.sh piloto "$TAG"
 expect_refusal "D5 recusa a conta root mesmo com BB_SRV_ALLOW_LONG_TERM_KEY=1" "é a conta root" h_sector \

@@ -43,7 +43,7 @@ Operador ──SSM Session Manager (documentos bb-srv-*)──► VMs   (sem SSH
 | `templates/signal.yaml` → stack `bb-srv-signal` | VM do Signal/TURN, EIP, registros `signal`/`turn`, role com boundary, alarmes, documento de shell logado `bb-srv-signal-Shell` e alertas de sessão. Portas só com `IngressApproved=true` |
 | `templates/sector-data.yaml` → stack `bb-srv-<setor>-data` | Só o volume de dados (gp3 cifrado, `DeletionPolicy: Snapshot`) |
 | `templates/sector-compute.yaml` → stack `bb-srv-<setor>-compute` | Role e instance profile, VM (criada **sem** proteção contra término; o `add-sector.sh` liga a proteção depois do `bb-srv-Install`), anexo do volume, log groups, parâmetros SSM do setor, documentos de sessão (`-Shell`, `-Login`), 7 alarmes, budget, agenda opcional, alerta de sessão fora dos documentos |
-| `scripts/check-access.sh [--writes]` | Para tudo se o perfil não for `cb`, a conta não for `358748433479` ou o IP de saída não estiver em `config/allowed-egress-ips.txt`. Com `--writes` (todo script que altera a AWS) recusa chave de longa duração de usuário IAM (salvo `BB_SRV_ALLOW_LONG_TERM_KEY=1`) e sempre a do root. Todos os scripts chamam antes de qualquer comando |
+| `scripts/check-access.sh [--writes]` | Para tudo se o perfil não for `cb`, a conta não for `358748433479`, o IP de saída não estiver em `config/allowed-egress-ips.txt` ou houver credencial ou endpoint em variável de ambiente (`AWS_ACCESS_KEY_ID`…, `AWS_ENDPOINT_URL*`). Com `--writes` (todo script que altera a AWS) aceita só a sessão de uma role de `config/mfa-roles.txt` (roles cuja trust exige MFA): recusa credencial de usuário IAM (chave `AKIA` ou sessão `ASIA`) e outras roles (salvo `BB_SRV_ALLOW_LONG_TERM_KEY=1`), `AWS_CONFIG_FILE`/`AWS_SHARED_CREDENTIALS_FILE` definidas e sempre a do root. Todos os scripts chamam antes de qualquer comando |
 | `scripts/deploy-base.sh` | Cria/atualiza `bb-srv-dns`, `bb-srv-base` e `bb-srv-ops`, nessa ordem; recusa criar a base sobre sobras; mostra os 4 NS para o Cloudflare |
 | `scripts/deploy-signal.sh` | Segredos do Signal no SSM (sem exibir), código do commit no bucket, stack `bb-srv-signal` |
 | `scripts/build-image.sh` | Constrói a imagem linux/arm64 do fork numa EC2 efêmera, envia ao ECR e grava a aprovação `/bb-srv/images/<tag>` (`launch`); `approve`/`reject` aprovam depois ou rejeitam (ver [Imagem](#6-imagem-do-servidor)) |
@@ -63,7 +63,7 @@ Nomes: tudo começa com `bb-srv-` (stacks, roles, SGs, documentos, alarmes, budg
 
 - AWS CLI v2 com o perfil `cb`, `session-manager-plugin`, `jq`, `dig`, `openssl`, `git`, `shellcheck` (opcional).
 - `config/allowed-egress-ips.txt` com o IP de saída atual (hoje `89.115.7.240`). **Não encontrei condição de IP na IAM da conta `cb`** (`iam list-attached-user-policies`/`list-user-policies` do `ariel` e as policies locais sem `aws:SourceIp`, 31/10/2026); a trava fica no `check-access.sh`.
-- **Acesso (sessão temporária com MFA).** Todo script que altera a AWS (todos menos `status.sh` e `validate.sh`) **recusa a chave de longa duração** do usuário `ariel` (AdministratorAccess) e mostra como abrir a sessão. O caminho: a role `culturabuilder-admin`, que **já existe** na conta (AdministratorAccess, confia na conta só com `aws:MultiFactorAuthPresent`, sessão de até 4 h; conferido por leitura em 31/10/2026). Ação do dono, uma vez:
+- **Acesso (sessão temporária com MFA).** Todo script que altera a AWS (todos menos `status.sh` e `validate.sh`) aceita só a sessão de uma role listada em `config/mfa-roles.txt` (`culturabuilder-admin` e `bb-srv-operator`, cujas trusts exigem MFA). **Recusa a chave de longa duração** do usuário `ariel` (AdministratorAccess) e mostra como abrir a sessão; recusa também `AWS_CONFIG_FILE` e `AWS_SHARED_CREDENTIALS_FILE` definidas (elas trocam o que o perfil `cb` é). O caminho: a role `culturabuilder-admin`, que **já existe** na conta (AdministratorAccess, confia na conta só com `aws:MultiFactorAuthPresent`, sessão de até 4 h; conferido por leitura em 31/10/2026). Ação do dono, uma vez:
   1. em `~/.aws/credentials`, renomear o perfil `[cb]` (a chave) para `[cb-chave]`;
   2. em `~/.aws/config`:
      ```ini
@@ -75,7 +75,18 @@ Nomes: tudo começa com `bb-srv-` (stacks, roles, SGs, documentos, alarmes, budg
      region = us-east-1
      ```
   3. `scripts/check-access.sh --writes` pede o código MFA uma vez e mostra `credencial temporary`. O AWS CLI guarda a sessão até ela vencer (4 h cobrem o build mais longo, que espera até 3,5 h).
-  Uma sessão do próprio usuário com MFA (`sts get-session-token`, chave `ASIA…`) também é aceita. **`BB_SRV_ALLOW_LONG_TERM_KEY=1`** antes do comando aceita a chave de longa duração, com aviso; use só se não houver outro jeito e conscientemente. A chave do root é sempre recusada. O `check-access.sh` sem `--writes`, o `status.sh` e o `validate.sh` só avisam.
+  Uma sessão do próprio usuário (`sts get-session-token`, chave `ASIA…`) **não** é aceita: ela também sai sem MFA, e daqui não dá para provar que houve MFA. Uma role fora da lista também não (a trust dela pode não exigir MFA); acrescente uma role à lista só se a trust exigir `aws:MultiFactorAuthPresent`. **`BB_SRV_ALLOW_LONG_TERM_KEY=1`** antes do comando aceita as outras credenciais, com aviso; use só se não houver outro jeito e conscientemente. A chave do root é sempre recusada. O `check-access.sh` sem `--writes`, o `status.sh` e o `validate.sh` só avisam.
+- **Ação do dono: o MFA ainda só vale nos scripts, não na IAM.** Lido por `iam list-entities-for-policy` em 31/10/2026: os usuários `ariel` **e `developer`** têm `AdministratorAccess`, sem exigência de MFA. Qualquer processo do Mac que leia `~/.aws/credentials` (perfil `[cb-chave]`), ou quem copiar o arquivo, tem admin total da conta sem MFA, e os scripts não impedem isso. Antes de mudar, levante quais outros projetos e automações usam essas duas chaves (eles param de funcionar). Depois, uma de duas:
+  1. **(recomendada)** tirar `AdministratorAccess` dos dois usuários e deixar só `sts:AssumeRole` nas roles `culturabuilder-admin` e `bb-srv-operator`, `sts:GetCallerIdentity` e a autogestão do próprio MFA;
+  2. anexar aos dois usuários uma política que nega tudo sem MFA, exceto assumir role e cuidar do MFA (o padrão da AWS):
+     ```json
+     {"Version": "2012-10-17", "Statement": [{"Sid": "DenyWithoutMfa", "Effect": "Deny",
+       "NotAction": ["sts:AssumeRole", "sts:GetSessionToken", "sts:GetCallerIdentity", "iam:GetUser",
+         "iam:ListMFADevices", "iam:ListVirtualMFADevices", "iam:CreateVirtualMFADevice", "iam:EnableMFADevice",
+         "iam:ResyncMFADevice"],
+       "Resource": "*", "Condition": {"BoolIfExists": {"aws:MultiFactorAuthPresent": "false"}}}]}
+     ```
+  Nos dois casos a chave guardada em `[cb-chave]` sozinha deixa de ser admin.
 - **Dia a dia com a role `bb-srv-operator`** (MFA; `status`, `login`, `upgrade`, sem criar ou apagar stack). Exemplo, também com a chave em `cb-chave` (não use `source_profile = cb`, que já é uma role: encadear roles limita a sessão a 1 h):
   ```ini
   [profile cb-operator]
@@ -269,5 +280,5 @@ O Builders Bot é **PolyForm Noncommercial 1.0.0** (`package.json:11`; AGENTS.md
 - O builder com `userns-remap` (build e teste de fumaça), o `Dockerfile` derivado (estágio `release` trocado pela árvore extraída) e o teste de fumaça com `--network none` (se o `openbot status` precisar de rede para sair de `Account: loading`, o build falha fechado).
 - A condição `s3:if-none-match` na política do bucket de build e o `put-object --if-none-match '*'` do AWS CLI do snap no builder.
 - Os avisos ACTUAL > 100% dos budgets e a atualização do budget do projeto pelo `add-sector.sh`/`remove-sector.sh`.
-- A checagem de credencial do `check-access.sh --writes` com o perfil `cb` apontado para a `culturabuilder-admin` (ARN `assumed-role`, aceito sem ler a chave).
+- A checagem de credencial do `check-access.sh --writes` com o perfil `cb` apontado para a `culturabuilder-admin` (ARN `assumed-role/culturabuilder-admin/…`, aceito por estar em `config/mfa-roles.txt`).
 - Os números de custo marcados como palpite (logs, saída, snapshots, duração do build, agent e Flow Logs por setor).
