@@ -488,11 +488,20 @@ The automatic recovery (`AutoRecovery`, same file):
 - While the recovery is on, each stopped row shows that it waits, or that the recovery gave up. The
   panel also lists the last 5 actions.
 
+The [task reviewer](task-reviewer.md) (`TaskWatch`, `src/main/task-watch.ts`) looks after the
+automatic recovery in the same look, only while both switches are on. It watches runs with no sign
+of life, requests that wait too long and failed starts. It shares the tries of each task with the
+automatic recovery (`RecoveryLedger`), and while it is on, the automatic recovery leaves the failed
+starts to it. Its commands carry `work-auto:` operation ids, as the commands of the automatic
+recovery do.
+
 Rules that are easy to break:
 
 - `resume` puts the whole run below the task in the queue again and stops the turns in it. A
-  `resume` of a task that runs stops its turn. So each action touches only tasks that are stopped
-  now. Keep the check against the stopped rows.
+  `resume` of a task that runs stops its turn. So each action of a person and of the automatic
+  recovery touches only tasks that are stopped now. Keep the check against the stopped rows. The
+  task reviewer is the one exception: it restarts a run on purpose, and it reads the task again
+  when the command applies (`beforeApply`), and drops the command when the task changed.
 - `resume` puts the task in the queue and calls `wake()`. The one-channel-at-a-time lane still
   decides when a resumed channel starts. Do not start a pump from `WorkControl`.
 - Tasks of older versions keep their reason in the database. Keep the English of a source key that

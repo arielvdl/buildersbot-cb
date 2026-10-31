@@ -54,12 +54,15 @@ A task is never touched when:
 
 - the person stopped it on purpose (see [A stop by the person](#a-stop-by-the-person));
 - its agent waits for the person: a question, an approval or a browser takeover
-  (`AttentionRegistry.hasAttentionFor`), or a wait that the agent set;
-- the Mac is low on memory (`pressure` is not `ok`): new turns wait then, and so does the reviewer;
+  (`AttentionRegistry.hasAttentionFor`);
+- the memory of the Mac is `critical`. For a request, also when it is `low`: new turns wait then,
+  and so does the reviewer. A run is left alone only at `critical`, because a memory that is often
+  low would stop the reviewer;
+- a task below it works (`queued`, `running` or `waiting`): a resume would start that work again;
+- its agent has a spent plan;
 - for a request: the lane holds its channel, its agent waits for a free place
-  (`slotWaitingAgents`), the cap on agents is reached, its agent has a spent plan, or its agent
-  runs another turn. When that other turn is stalled, the reviewer acts on the turn, not on the
-  request;
+  (`slotWaitingAgents`), the cap on agents is reached, or its agent runs another turn. When that
+  other turn is stalled, the reviewer acts on the turn, not on the request;
 - it acted on the task less than one interval of "Resume by itself" ago, or it gave up on it.
 
 ## The model
@@ -73,7 +76,8 @@ only its model choice does.
 
 - At most one model call in one look, and at most 12 in one hour.
 - One answer for each slow period of a task: an answer to wait holds until the task is stalled.
-- A deadline of 10 s (12 s for a model of another provider).
+- A deadline of 10 s (12 s for a model of another provider). A safety deadline of 15 s around the
+  call keeps a look from waiting longer.
 - What it sends: the kind of task, the minutes since the start and with no sign, the tries so far,
   the count of agents that run and of the cap, the provider name, and one JSON string with at most
   200 characters of the request and 300 of the agent's last words in the channel. `maskSecrets` of
@@ -86,9 +90,10 @@ only its model choice does.
 
 ## What it does
 
-It acts on one task in each look. Stalled runs come first, because they hold a place; then stalled
-requests, then failed starts that are due, then slow tasks. Each action uses a command that the
-person also has:
+It decides about one task in each look. Stalled runs come first, because they hold a place; then
+stalled requests, then failed starts that are due, then slow tasks; in each group, the longest time
+with no sign first. A slow task whose period already has its answer is passed over. Each action
+uses a command that the person also has:
 
 | Task | 1st | Then | At the end |
 | --- | --- | --- | --- |
@@ -106,7 +111,9 @@ person also has:
 - The command gives a task to the queue. The drain of each agent starts it, so the cap on agents and
   the lane still decide when. The reviewer never starts a turn by itself.
 - Immediately before the command applies, it reads the task again. When the state or the revision
-  changed, or a run gave a new sign, the command is dropped.
+  changed, or a run gave a new sign, the command is dropped and counts as no try. A command that
+  fails counts as a try, as in "Resume by itself".
+- It never throws. A look that fails is logged, and the next look runs as usual.
 
 ## What it shows
 
@@ -115,8 +122,10 @@ In the load panel, in the section of "Resume by itself":
 - the switch "Task reviewer (experimental)", with a line that says it uses the model of the Guard,
   or that only the local rules decide now;
 - the threshold, "consider it stopped after N minutes with no sign";
-- its actions in "Lately", beside those of "Resume by itself", such as "Task reviewer: gave
-  Pagamentos to Writer (no sign for 32 min)". The last 5 actions stay.
+- its actions in "Lately", beside those of "Resume by itself", the newest first, such as "Task
+  reviewer: gave Pagamentos to Writer (no sign for 32 min)". The pointer over a line says whether
+  the model or the local rules decided. Each of the two keeps its last 5 actions, and the list shows
+  6 (`loadRecentEvents`). A "waited" line comes once for each slow period of a task.
 
 A running row that is slow or stalled shows the minutes with no sign. A stopped row that the
 reviewer gave up on shows "Gave up after its tries".
@@ -154,6 +163,12 @@ carries `taskWatch` (the preference, `active`, `modelReady` and `recent`).
 ## Known limits
 
 - The records are in memory. A restart forgets the tries, the waits and the stops by the person.
+  Turned off and on again, a request in the queue waits anew.
+- A turn that ends interrupted for another reason, such as the Stop of the agent's own chat, is not
+  a stop by the person for the reviewer. It is `paused`, so the reviewer does not act on it, but
+  "Resume by itself" can start it again, and then the reviewer watches it.
+- The panel lists at most 50 stopped rows (`LOAD_WORK_LIST_LIMIT`); a failed start past them is
+  not seen until the list is shorter.
 - The provider clock is per agent, not per turn, and a restart loses it.
 - A long command with no output for more than `2 × N` minutes is restarted. Set a larger `N` for
   work like that.
