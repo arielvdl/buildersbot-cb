@@ -1,6 +1,7 @@
 // @vitest-environment node
 // The Playwright broker against a fake upstream that speaks the part of MCP the broker reads.
 import { createServer, request as httpRequest, type Server } from "node:http";
+import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type BrokerIdentityStore,
@@ -161,6 +162,7 @@ async function setup(
     limits?: { tabsPerSession: number; tabsTotal: number; sessions: number };
     noSpec?: boolean;
     clock?: { now: number };
+    guardResult?: (text: string) => Promise<string | null>;
   } = {},
 ): Promise<Setup> {
   const fake = await fakeUpstream();
@@ -176,6 +178,7 @@ async function setup(
     identity,
     limits: options.limits ?? { tabsPerSession: 2, tabsTotal: 3, sessions: 2 },
     now: () => clock.now,
+    ...(options.guardResult ? { guardResult: () => options.guardResult ?? null } : {}),
     launch: async (spec: BrokerUpstreamSpec): Promise<UpstreamProcess> => {
       launches += 1;
       specs.push(spec);
@@ -756,5 +759,44 @@ describe("a message about a start that failed", () => {
     expect(error.message).not.toContain(extensionToken);
     expect(error.message).not.toContain(brokerToken);
     expect(error.message).toContain("***");
+  });
+});
+
+describe("the Guard on browser results", () => {
+  /** The text items of the tool result in an event-stream reply. */
+  const resultTexts = (reply: Reply): string[] => {
+    const texts: string[] = [];
+    for (const line of reply.text.split("\n")) {
+      if (!line.startsWith("data:")) continue;
+      const message = JSON.parse(line.slice(5).trim());
+      const content = isDynamicRecord(message) && isDynamicRecord(message.result) ? message.result.content : null;
+      if (!Array.isArray(content)) continue;
+      for (const item of content) if (isDynamicRecord(item) && typeof item.text === "string") texts.push(item.text);
+    }
+    return texts;
+  };
+
+  it("puts the Guard's note in front of a result that the check marks, and keeps the tab count", async () => {
+    const checked: string[] = [];
+    const s = await setup({
+      guardResult: async (text) => {
+        checked.push(text);
+        return "GUARD NOTE";
+      },
+    });
+    const session = await open(s);
+    const reply = await post(s, tabs(2, "new"), session);
+    expect(resultTexts(reply)).toEqual(["GUARD NOTE", "### Result\n- 0: [x](about:blank)\n- 1: [x](about:blank)"]);
+    expect(checked).toHaveLength(1);
+    expect(s.broker.usage().tabs).toBe(1);
+  });
+
+  it("passes a result as it is when the check finds nothing, or fails", async () => {
+    for (const guardResult of [async () => null, async () => Promise.reject(new Error("broken"))]) {
+      const s = await setup({ guardResult });
+      const session = await open(s);
+      const reply = await post(s, tabs(2, "list"), session);
+      expect(resultTexts(reply)).toEqual(["### Result\n- 0: [x](about:blank)"]);
+    }
   });
 });

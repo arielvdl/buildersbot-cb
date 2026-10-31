@@ -249,8 +249,9 @@ import type { BundledProviderExecutables } from "./cli";
 import type { ConversationMarkerExclusions } from "./conversation-read-store";
 import type { ProviderSession } from "./database/provider-sessions";
 import { reportOriginalFailure } from "./effect-boundary";
-import { GuardGate } from "./guard/guard-gate";
+import { GuardGate, guardResultNotice } from "./guard/guard-gate";
 import { culturaBuilderGuardModel } from "./guard/guard-judge";
+import { resolveGuardPaths } from "./guard/guard-paths";
 import { providerGuardModel } from "./guard/provider-guard-model";
 import { ToolGuard } from "./guard/tool-guard";
 import type { HostMemory } from "./host-memory";
@@ -1567,6 +1568,16 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         guard: this.#toolGuard,
         ask: (client, request, approval, { ownerOnly }) =>
           this.#attention.awaitToolApproval(client, request, approval, { alwaysAsk: true, ownerOnly }),
+        // The same roots that the attachment code opens a relative path in.
+        resolvePaths: (agentId, paths) => {
+          let workspaceRoot: string | null = null;
+          try {
+            workspaceRoot = this.#conversation.requireKnownAgent(agentId).workspacePath;
+          } catch {
+            // An agent that is not known has no workspace; the tool refuses its relative paths too.
+          }
+          return resolveGuardPaths(paths, { agentId, workspaceRoot, sharedRoot: store.sharedRoot });
+        },
       }),
       capturedSteps: (session) => this.#threads.capturedWorkSteps(session).pipe(toToolOperationFailed),
       store,
@@ -5187,9 +5198,24 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
   }
 
+  /** Whether the Guard is on. A proxy of this app skips its reader while it is off. */
+  guardEnabled(): boolean {
+    return this.#toolGuard.enabled();
+  }
+
   /** Whether the Guard's chosen reviewer can run now, such as Cultura Builder with a sign-in. */
   guardJudgeReady(): boolean {
     return this.#toolGuard.judgeReady();
+  }
+
+  /**
+   * The Guard's note for a tool result that a proxy of this app passes on, such as the shared
+   * Playwright browser, or null when the result passes as it is. It never fails.
+   */
+  guardResultNotice(source: string, text: string): Effect.Effect<string | null> {
+    return this.#toolGuard
+      .check({ direction: "inbound", tool: source, subject: source, content: text })
+      .pipe(Effect.map(guardResultNotice));
   }
 
   /** `responder` is absent for the person at this computer; the Team API gives the member who answers. */

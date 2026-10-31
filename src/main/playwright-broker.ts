@@ -8,7 +8,9 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
+import { type GuardResultCheck, McpResultGuard } from "../backend/guard/guard-mcp-results";
 import { listenLoopback } from "./listen-loopback";
 import { BROKER_TOKEN_ENV, BROKER_TOKEN_HEADER, guardNodeOptions } from "./playwright-broker-guard";
 import {
@@ -89,6 +91,12 @@ export interface PlaywrightBrokerOptions {
   /** With no session for this long the upstream stops, so the person's browser is free. */
   idleUpstreamMs?: number;
   now?: () => number;
+  /**
+   * The Guard's check of a tool result, read at each call. A page that the browser reads is content
+   * from outside: the check puts a note in front of a result that may hold a prompt injection. Null
+   * while the Guard is off or not ready; results then pass as they are.
+   */
+  guardResult?: () => GuardResultCheck | null;
 }
 
 export interface BrokerEndpoint {
@@ -268,7 +276,25 @@ export class PlaywrightBroker {
           );
       }
     }
-    await this.#forward(request, response, session, raw, entries);
+    // A tool result can hold a page: the Guard reads it on its way to the agent.
+    const toolCall = (Array.isArray(body) ? body : [body]).some(
+      (message) => isDynamicRecord(message) && message.method === "tools/call",
+    );
+    await this.#forward(request, response, session, raw, entries, toolCall ? this.#guardCheck() : null);
+  }
+
+  /** The Guard's check for one response, made safe: a check that fails lets the result pass as it is. */
+  #guardCheck(): GuardResultCheck | null {
+    const check = this.#options.guardResult?.() ?? null;
+    if (!check) return null;
+    return async (text) => {
+      try {
+        return await check(text);
+      } catch (error) {
+        logger.warn("The Guard did not check a browser result.", { cause: toLogValue(error) });
+        return null;
+      }
+    };
   }
 
   async #forward(
@@ -277,6 +303,7 @@ export class PlaywrightBroker {
     session: string | undefined,
     body: Buffer | undefined,
     entries: readonly RpcEntry[],
+    guard: GuardResultCheck | null = null,
   ): Promise<void> {
     let upstream: UpstreamProcess;
     try {
@@ -310,23 +337,47 @@ export class PlaywrightBroker {
           response.writeHead(status, responseHeaders);
           const tee: Buffer[] = [];
           let teeSize = 0;
+          // With the Guard, each tool result passes through its reader, in order; other events at once.
+          const reader = guard
+            ? new McpResultGuard(singleHeader(incoming.headers["content-type"]) ?? null, guard)
+            : null;
+          let written = Promise.resolve();
           incoming.on("data", (chunk: Buffer) => {
             if (teeSize < MAX_TEE_BYTES) {
               tee.push(chunk);
               teeSize += chunk.length;
             }
-            response.write(chunk);
+            if (!reader) {
+              response.write(chunk);
+              return;
+            }
+            written = written.then(async () => {
+              const text = await reader.push(chunk);
+              if (text) response.write(text);
+            });
           });
           incoming.on("end", () => {
-            response.end();
-            this.#afterResponse(
-              request.method ?? "",
-              session,
-              incoming.headers,
-              entries,
-              Buffer.concat(tee).toString("utf8"),
-            );
-            resolve();
+            const finish = () => {
+              response.end();
+              this.#afterResponse(
+                request.method ?? "",
+                session,
+                incoming.headers,
+                entries,
+                Buffer.concat(tee).toString("utf8"),
+              );
+              resolve();
+            };
+            if (!reader) return finish();
+            written = written
+              .then(async () => {
+                const text = await reader.end();
+                if (text) response.write(text);
+              })
+              .catch((error: unknown) => {
+                logger.warn("The Guard reader of a browser result failed.", { cause: toLogValue(error) });
+              })
+              .then(finish);
           });
           incoming.on("error", () => {
             response.destroy();

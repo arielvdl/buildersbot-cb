@@ -41,7 +41,13 @@ import type { AgentWaits } from "../agent-waits/agent-waits";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import type { ChannelService } from "../channel-service";
 import type { ProviderSession } from "../database/provider-sessions";
-import { type GuardApprovalMark, type GuardBefore, type GuardGate, guardOutboundItem } from "../guard/guard-gate";
+import {
+  type GuardApprovalMark,
+  type GuardBefore,
+  type GuardGate,
+  guardInboundContent,
+  guardOutboundItem,
+} from "../guard/guard-gate";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -326,6 +332,24 @@ export class BuildersBotToolRouter {
       : Effect.succeed({ proceed: true } satisfies GuardBefore);
   }
 
+  /**
+   * The Guard check of a Builders Bot tool result with content from outside. Null when nobody waits
+   * for the result any more. Other results pass as they are.
+   */
+  #guardAfterBuildersBotTool(
+    client: AgentClient,
+    request: AppServerRequest & { params: DynamicToolCallParams },
+    result: DynamicToolResult,
+  ): Effect.Effect<DynamicToolResult | null> {
+    const { params } = request;
+    if (!this.#guardGate || guardInboundContent(params.namespace, params.tool, result) === null)
+      return Effect.succeed(result);
+    const agentId = this.#conversation.agentForThread(params.threadId);
+    if (!agentId) return Effect.succeed(result);
+    const publicParams = { ...params, threadId: this.#conversation.publicThreadId(agentId, params.threadId) };
+    return this.#guardGate.afterTool(client, request, publicParams, agentId, result, null);
+  }
+
   /** The URL of the tab that a browser call names, for the approval card. */
   #tabUrl(params: DynamicToolCallParams): string | null {
     const args = params.arguments;
@@ -578,7 +602,9 @@ export class BuildersBotToolRouter {
             const response = this.#handleBuildersBotTool(toolRequest.params).pipe(
               Effect.catch((failure) => (correctable ? correctableFailure(failure.cause) : Effect.fail(failure))),
               Effect.catchDefect((defect) => (correctable ? correctableFailure(defect) : Effect.die(defect))),
-              Effect.tap((result) => Effect.sync(() => client.respond(toolRequest.id, result))),
+              // A result with content from outside, such as chat app history, passes the Guard first.
+              Effect.flatMap((result) => this.#guardAfterBuildersBotTool(client, toolRequest, result)),
+              Effect.tap((result) => Effect.sync(() => result && client.respond(toolRequest.id, result))),
             );
             // Both store a file and then add the message that names it.
             yield* tool === "attach_files_to_response" || tool === "html_render"

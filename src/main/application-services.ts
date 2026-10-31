@@ -1291,6 +1291,9 @@ export async function createApplicationServices({
         guardPath: installGuard(app.getPath("userData")),
         // The Mac is low on memory: no new session and no new tab, as for a new agent turn.
         memoryLevel: () => macMemory?.level() ?? "ok",
+        // The Guard reads each page that the browser gives an agent. `service` is read at that time.
+        guardResult: () =>
+          service.guardEnabled() ? (text) => runCauseEffect(service.guardResultNotice("playwright", text)) : null,
         identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
         upstream: () => {
           const directories = [
