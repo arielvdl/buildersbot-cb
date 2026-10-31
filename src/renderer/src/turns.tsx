@@ -4,6 +4,7 @@ import type {
   AgentEvent,
   AgentModelChoice,
   AgentWaitsSnapshot,
+  ForceQueuedMessageOutcome,
   QueueSnapshot,
   RoutineFields,
 } from "@openbot/contracts/ipc";
@@ -392,25 +393,29 @@ const Turns = createSimpleContext({
 
     /**
      * Stops the turn the agent runs and starts this queued message next, alone. It names the turn the
-     * person saw, so a turn that started since is not stopped. It answers false when the force did
-     * not go through: the message stays in the queue, and the error shows in the chat.
+     * person saw, so a turn that started since is not stopped. It answers what the host did, or null
+     * when the force did not go through: the message stays in the queue, and the error shows in the chat.
      */
-    async function forceQueuedMessage(deliveryId: string): Promise<boolean> {
+    async function forceQueuedMessage(deliveryId: string): Promise<ForceQueuedMessageOutcome | null> {
       const agent = activeAgent();
-      if (!agent) return false;
+      if (!agent) return null;
       const serverId = activeServerId();
       const analytics = desktopAnalytics.scope();
       try {
-        await turnsPort().agent.forceQueuedMessage(
+        const { outcome } = await turnsPort().agent.forceQueuedMessage(
           { agentId: agent.id, deliveryId, expectedTurnId: activeTurns()[agent.id] ?? null },
           serverId,
         );
         analytics.track("queue_action", { action: "force", result: "succeeded" });
-        return true;
+        return outcome;
       } catch (error) {
         analytics.track("queue_action", { action: "force", result: "failed", failure_code: "force_failed" });
+        // A message that left the queue has started already, for example with the message before it
+        // when that turn ended by itself. The refusal is old news, as for a steer (#3206).
+        const queue = queues()[agent.id];
+        if (queue && queue.deliveries.find((item) => item.id === deliveryId)?.status !== "queued") return null;
         appendUiError(agent.id, error, currentText().t("app.errorStatus.force"), serverId);
-        return false;
+        return null;
       }
     }
 

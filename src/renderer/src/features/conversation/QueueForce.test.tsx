@@ -1,4 +1,4 @@
-import type { QueueDelivery } from "@openbot/contracts/ipc";
+import type { ForceQueuedMessageOutcome, QueueDelivery } from "@openbot/contracts/ipc";
 import { QueuePanel } from "@openbot/ui/features/conversation/QueuePanel";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
@@ -23,7 +23,7 @@ function delivery(id: string, position: number, extra: Partial<QueueDelivery> = 
 
 interface Mount {
   deliveries?: QueueDelivery[];
-  onForce?: (deliveryId: string) => Promise<boolean>;
+  onForce?: (deliveryId: string) => Promise<ForceQueuedMessageOutcome | null>;
   askBeforeForce?: boolean;
   forceUnsupported?: boolean;
   onStopAskingBeforeForce?: () => void;
@@ -45,12 +45,14 @@ function mount(options: Mount) {
   ));
 }
 
+const interrupted = async (): Promise<ForceQueuedMessageOutcome | null> => "interrupted";
+
 const forceButton = (position: number) => screen.getByRole("button", { name: `Force queued message ${position} now` });
 const dialog = () => screen.queryByRole("alertdialog", { name: "Force send?" });
 
 describe("the Force now action of a queued message", () => {
   it("is on each queued row, with an accessible name", () => {
-    mount({ onForce: async () => true });
+    mount({ onForce: interrupted });
     expect(forceButton(1)).toBeEnabled();
     expect(forceButton(2)).toBeEnabled();
   });
@@ -61,7 +63,7 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("asks first, and Cancel sends nothing", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     mount({ onForce, askBeforeForce: true });
     fireEvent.click(forceButton(2));
     await waitFor(() => expect(dialog()).not.toBeNull());
@@ -72,7 +74,7 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("closes the question with Escape and sends nothing", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     mount({ onForce, askBeforeForce: true });
     fireEvent.click(forceButton(1));
     const shown = await screen.findByRole("alertdialog", { name: "Force send?" });
@@ -82,7 +84,7 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("forces the message when the person confirms, and keeps asking when the box is clear", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     const onStopAskingBeforeForce = vi.fn();
     mount({ onForce, askBeforeForce: true, onStopAskingBeforeForce });
     fireEvent.click(forceButton(2));
@@ -92,7 +94,7 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("stores “Don’t ask me again” only when the person confirms with the box checked", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     const onStopAskingBeforeForce = vi.fn();
     mount({ onForce, askBeforeForce: true, onStopAskingBeforeForce });
     fireEvent.click(forceButton(1));
@@ -103,7 +105,7 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("confirms with Enter from the checkbox", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     mount({ onForce, askBeforeForce: true });
     fireEvent.click(forceButton(2));
     fireEvent.keyDown(await screen.findByRole("checkbox", { name: "Don’t ask me about this again" }), { key: "Enter" });
@@ -111,7 +113,7 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("forces at once, with no question, after the person chose not to be asked", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     mount({ onForce, askBeforeForce: false });
     fireEvent.click(forceButton(2));
     await waitFor(() => expect(onForce).toHaveBeenCalledWith("m2"));
@@ -119,10 +121,10 @@ describe("the Force now action of a queued message", () => {
   });
 
   it("does nothing on a second click while the force is in flight", async () => {
-    let finish: (forced: boolean) => void = () => {};
+    let finish: (outcome: ForceQueuedMessageOutcome | null) => void = () => {};
     const onForce = vi.fn(
       () =>
-        new Promise<boolean>((resolve) => {
+        new Promise<ForceQueuedMessageOutcome | null>((resolve) => {
           finish = resolve;
         }),
     );
@@ -133,12 +135,12 @@ describe("the Force now action of a queued message", () => {
     await waitFor(() => expect(forceButton(1)).toBeDisabled());
     expect(forceButton(1)).toHaveAttribute("aria-busy", "true");
     expect(onForce).toHaveBeenCalledTimes(1);
-    finish(true);
+    finish("interrupted");
     await waitFor(() => expect(forceButton(1)).toBeEnabled());
   });
 
   it("stays visible but turned off, with no question, when the host is too old", async () => {
-    const onForce = vi.fn(async () => true);
+    const onForce = vi.fn(interrupted);
     mount({ onForce, askBeforeForce: true, forceUnsupported: true });
     expect(forceButton(1)).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(forceButton(1));
@@ -148,10 +150,36 @@ describe("the Force now action of a queued message", () => {
 
   it("is off for a message that is starting or that another editor holds", () => {
     mount({
-      onForce: async () => true,
+      onForce: interrupted,
       deliveries: [delivery("m1", 1, { status: "starting" }), delivery("m2", 2, { editing: true })],
     });
     expect(forceButton(1)).toBeDisabled();
     expect(forceButton(2)).toBeDisabled();
+  });
+
+  it("says that the message is next when other work of the agent goes first", async () => {
+    mount({ onForce: async () => "next", askBeforeForce: false });
+    fireEvent.click(forceButton(2));
+    const next = "The agent is busy with other work. Your message is next in the queue.";
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(next));
+    expect(screen.getByText("Up next")).toBeVisible();
+  });
+
+  it("announces a force that stopped the agent, with no “Up next” mark", async () => {
+    mount({ onForce: interrupted, askBeforeForce: false });
+    fireEvent.click(forceButton(2));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("The agent stopped. Your message starts next."),
+    );
+    expect(screen.queryByText("Up next")).toBeNull();
+  });
+
+  it("gives focus to the row of the forced message after the person confirms", async () => {
+    const onForce = vi.fn(interrupted);
+    mount({ onForce, askBeforeForce: true });
+    fireEvent.click(forceButton(2));
+    fireEvent.click(await screen.findByRole("button", { name: "Force anyway" }));
+    await waitFor(() => expect(onForce).toHaveBeenCalledWith("m2"));
+    await waitFor(() => expect(screen.getByRole("group", { name: /^Queued message 2:/u })).toHaveFocus());
   });
 });

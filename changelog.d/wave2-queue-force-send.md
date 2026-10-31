@@ -4,7 +4,9 @@
   works now, as Stop does, puts the message in the conversation and starts the same agent again with
   it, before the other queued messages. In a channel, only that agent stops. If the turn ends by
   itself first, the message starts once, with no stop. If the stop fails, the message stays in the
-  queue and you see why.
+  queue and you see why. When other work of the agent must go first, such as channel work or a
+  context compaction, nothing is stopped: the message moves to the head of the queue, marked "Up
+  next", and the queue says why. Screen readers hear the result of each force.
 - Before a force, a question explains that other agents that depend on the stopped work can get out
   of sync. "Don't ask me about this again" stops the question on this device and browser; "Ask before
   forcing a message" in Settings › General turns it on again.

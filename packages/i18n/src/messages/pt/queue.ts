@@ -21,6 +21,7 @@ export const messages = {
   "queue.item.forceLabel": "Forçar agora a mensagem na fila {position}",
   "queue.item.forceTooltip": "Forçar agora",
   "queue.item.forceUnsupported": "Atualize este servidor para forçar uma mensagem",
+  "queue.item.forcedNext": "A próxima",
   "queue.item.runAsTask": "Executar em novo tópico",
   "queue.item.runAsTaskLabel": "Executar a mensagem na fila {position} em um novo tópico",
   "queue.item.deleteLabel": "Excluir mensagem na fila {position}",
@@ -35,4 +36,7 @@ export const messages = {
     "Isso para o agente que está trabalhando agora, coloca a sua mensagem na conversa e reinicia o mesmo agente com ela. Outros agentes que dependem do que ele estava fazendo podem ficar dessincronizados.",
   "queue.force.confirm": "Forçar mesmo assim",
   "queue.force.stopAsking": "Não me pergunte mais sobre isso",
+  "queue.force.interrupted": "O agente parou. Sua mensagem começa em seguida.",
+  "queue.force.started": "Sua mensagem começa agora.",
+  "queue.force.next": "O agente está ocupado com outro trabalho. Sua mensagem é a próxima da fila.",
 } as const satisfies PartialTranslation<typeof source>;

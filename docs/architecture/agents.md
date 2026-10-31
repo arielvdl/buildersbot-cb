@@ -606,6 +606,12 @@ message stays queued. `scripts/queue-force-e2e.ts` checks these steps with the r
 a fake Codex app-server. A second force of the same message waits for the first one and gets its answer, and a later
 one sends no second Stop while the stopped turn ends. The start-alone mark is in memory only.
 
+`forceQueuedMessage` (desktop) and `forceQueued` (web client) give the outcome to `QueuePanel`, or
+null when the force failed. The queue's live region says each outcome, and `next` marks the row "Up
+next" while the message waits. Focus goes to the row of the forced message, or to the list when it
+has left: the new queue draws the rows again. A refusal for a message that has left the queue, because
+it started with the message before it, shows no error, as for a steer.
+
 The composer asks first, with "Don't ask me about this again". That choice is stored for each device
 and browser (`src/renderer/src/force-send-preference.ts`), and "Ask before forcing a message" in
 Settings › General, and in the web client's Preferences, turns the question on again. A joined server

@@ -4,6 +4,11 @@ import { useText } from "../../text";
 
 interface ForceSendDialogProps {
   open: boolean;
+  /**
+   * Gets focus when the dialog closes. The force changes the queue, so the button that opened the
+   * dialog can be gone by then.
+   */
+  restoreFocusTarget?: HTMLElement | null | undefined;
   onCancel: () => void;
   /** `stopAsking` is the person's "Do not ask me again" choice. */
   onConfirm: (stopAsking: boolean) => void;
@@ -35,6 +40,7 @@ export function ForceSendDialog(props: ForceSendDialogProps) {
       confirmLabel={t("queue.force.confirm")}
       cancelLabel={t("common.cancel")}
       initialFocus="confirm"
+      restoreFocusTarget={props.restoreFocusTarget}
       onCancel={() => {
         stopAsking = false;
         props.onCancel();
