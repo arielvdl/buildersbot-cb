@@ -30,7 +30,7 @@ import type { ConnectorId } from "../connectors/connectors";
 import { DangerZone, IntegrationPage, StatusPill, WizardDialog } from "../settings/IntegrationLayout";
 import type { MarketplacePluginApp } from "../settings/marketplace-plugins";
 import { AppAction } from "./MarketplaceCards";
-import { AppMark, TryCard } from "./MarketplaceParts";
+import { AppMark, hasListingMark, ListingMark, TryCard } from "./MarketplaceParts";
 import { CATEGORY_LABELS } from "./marketplace-listing";
 import {
   appSetup,
@@ -254,7 +254,11 @@ function ConnectionRow(props: { scope: MarketplaceScope; app: PluginApp; entry: 
   return (
     <Item class="settings-modal-row">
       <ItemMedia>
-        <PluginIcon iconUrl={props.entry.iconUrl} />
+        <Show when={hasListingMark(props.app.plugin.slug)} fallback={<PluginIcon iconUrl={props.entry.iconUrl} />}>
+          <span class="skills-marketplace-icon">
+            <ListingMark slug={props.app.plugin.slug} />
+          </span>
+        </Show>
       </ItemMedia>
       <ItemContent>
         <ItemTitle>{props.entry.name}</ItemTitle>
