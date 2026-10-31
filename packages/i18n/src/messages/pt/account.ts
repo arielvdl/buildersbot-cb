@@ -104,6 +104,10 @@ export const messages = {
   "account.device.generateNew": "Gerar novo código",
   "account.device.denied": "Login não aprovado",
   "account.device.deniedDescription": "O Hub não autorizou este login. Nada foi alterado neste computador.",
+  "account.device.deniedDescriptionWeb":
+    "O Hub não aprovou este login, ou esta conta Cultura Builder não tem acesso ao Builders Bot. Nenhum acesso foi liberado.",
+  "account.device.onlyThisCode":
+    "Aprove no Hub só o código que aparece nesta tela agora. Ninguém deve pedir para você aprovar um código.",
   "account.device.back": "Voltar",
   "account.device.rateLimited": "Muitas tentativas. Aguarde {seconds}s para tentar de novo.",
   "account.device.retry": "Tentar de novo",

@@ -38,6 +38,8 @@ export function DeviceSignInDialog(props: {
    * code cannot be read by the phone that shows it.
    */
   showAddress?: boolean;
+  /** The text of a refused sign-in. The desktop text says that nothing changed on this computer. */
+  deniedDescription?: string;
   /** Opens the Hub page, with the code in it, in the default browser. */
   onOpenHub: (url: string) => void;
   /** Resumes the same flow after the pause a 429 asked for. */
@@ -169,6 +171,12 @@ export function DeviceSignInDialog(props: {
                       </Text>
                     </Show>
 
+                    {/* A code that someone else sends is the phishing of a device sign-in (RFC 8628,
+                      section 5.4): its approval signs that person in, not this screen. */}
+                    <Text class="provider-code-login-expiry" as="p" variant="caption">
+                      {t("account.device.onlyThisCode")}
+                    </Text>
+
                     {/* Outside the region that announces the code: a countdown every second would
                       bury the thing it counts down. */}
                     <Text class="provider-code-login-expiry" as="p" variant="caption" tone="muted" aria-live="off">
@@ -213,7 +221,7 @@ export function DeviceSignInDialog(props: {
               <Show when={props.view.phase === "denied"}>
                 <div class="provider-code-login-pending">
                   <Text as="p" tone="muted">
-                    {t("account.device.deniedDescription")}
+                    {props.deniedDescription ?? t("account.device.deniedDescription")}
                   </Text>
                   <Button variant="default" type="button" class="account-login-primary" onClick={props.onCancel}>
                     {t("account.device.back")}

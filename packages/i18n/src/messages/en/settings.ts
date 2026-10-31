@@ -322,8 +322,10 @@ export const messages = defineMessages("settings", {
   "settings.mobileConnect.webApp.unavailable": "Could not load the address of the web app.",
   "settings.mobileConnect.webApp.signIn.open": "Open Builders Bot from its icon on the phone.",
   // {email} is the email address of the account. The button name is the one on the sign-in page.
-  "settings.mobileConnect.webApp.signIn.cultura": "Select Sign in with Cultura Builder, with the Cultura Builder account of {email}.",
-  "settings.mobileConnect.webApp.signIn.hub": "Approve the code on the Cultura Builder Hub, then go back to Builders Bot.",
+  "settings.mobileConnect.webApp.signIn.cultura":
+    "Select Sign in with Cultura Builder, with the Cultura Builder account of {email}.",
+  "settings.mobileConnect.webApp.signIn.hub":
+    "On the Cultura Builder Hub, approve only the code that the phone shows, then go back to Builders Bot.",
   "settings.mobileConnect.install.platformLabel": "Phone",
   "settings.mobileConnect.app.copyLink": "Copy link",
   "settings.mobileConnect.app.linkCopied": "Link copied",

@@ -58,6 +58,11 @@ function loadWorkspace(): Promise<typeof WebWorkspace> {
 
 /** The Cultura Builder sign-in routes of the account service (`apps/auth-api/src/server/browser-api.ts`). */
 const DEVICE_SIGN_IN_PREFIX = "/api/browser/device/";
+/**
+ * A sign-in request that does not answer in this time fails, and the poll tries again. Without it, a
+ * request that a phone froze could hold the polls for minutes after the page comes back.
+ */
+const DEVICE_SIGN_IN_TIMEOUT_MS = 20_000;
 
 /**
  * The shared agent a `/app?agent=<id>` link names. The query is removed after it is read, so a reload
@@ -303,20 +308,39 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
    * an HttpOnly cookie and sets the session cookie on the approval; this page never gets a token.
    */
   const deviceSignIn = createWebDeviceSignIn({
-    post: (step: WebDeviceSignInStep) =>
+    post: (step: WebDeviceSignInStep, body: { flow?: string }) =>
       fetch(`${DEVICE_SIGN_IN_PREFIX}${step}`, {
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
         headers: writeHeaders(),
-        body: "{}",
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(DEVICE_SIGN_IN_TIMEOUT_MS),
       }),
     onAuthorized: signedIn,
     onFailed: (issue) =>
       setState((draft) => {
         draft.login = { status: "error", issue };
       }),
+    // Another tab can have taken the approval: its session cookie is this browser's too.
+    onUsed: () => void checkSession(),
   });
+  // Signed in another way, such as in another tab: the flow of this page has no use, and must not show
+  // its dialog again after a sign-out.
+  createEffect(
+    () => state.account?.id,
+    (accountId) => {
+      if (accountId) deviceSignIn.forget();
+    },
+  );
+  /**
+   * The session check of a page that loads or comes back. Signed out, the page polls again the flow
+   * that this tab kept, because a phone can reload the page while the person approves on the Hub.
+   */
+  async function checkSessionAndResume() {
+    await checkSession();
+    if (!disposed && !state.account && state.login.status === "signed_out") deviceSignIn.resume();
+  }
   /** Starting the sign-in accepts the Terms of Service. The web app sends no analytics. */
   function startDeviceSignIn() {
     setState((draft) => {
@@ -361,13 +385,13 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       clearSession();
       void checkSession();
     };
-    void checkSession();
+    void checkSessionAndResume();
     // The worker is registered after the session check has started, so it never holds the first screen.
     void registerWebApp();
     // A page restored from the back-forward cache still has its session; its connection ends normally.
     const restore = () => {
       clearSession(false);
-      void checkSession();
+      void checkSessionAndResume();
     };
     window.addEventListener("pageshow", restore);
     return () => {
@@ -423,6 +447,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                       <DeviceSignInDialog
                         view={view()}
                         showAddress
+                        deniedDescription={text.t("account.device.deniedDescriptionWeb")}
                         onOpenHub={openHub}
                         onRetry={deviceSignIn.checkNow}
                         onRestart={() => void deviceSignIn.start()}

@@ -102,6 +102,10 @@ export const messages = defineMessages("account", {
   "account.device.generateNew": "Generate a new code",
   "account.device.denied": "Sign-in not approved",
   "account.device.deniedDescription": "The Hub did not authorise this sign-in. Nothing was changed on this computer.",
+  "account.device.deniedDescriptionWeb":
+    "The Hub did not approve this sign-in, or this Cultura Builder account has no access to Builders Bot. Nothing was signed in.",
+  "account.device.onlyThisCode":
+    "Approve on the Hub only the code that this screen shows now. Nobody should ask you to approve a code.",
   "account.device.back": "Back",
   "account.device.rateLimited": "Too many tries. Wait {seconds}s to try again.",
   "account.device.retry": "Try again",

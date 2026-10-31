@@ -294,8 +294,10 @@ export const messages = {
   "settings.mobileConnect.webApp.qrLabel": "Código QR do app web",
   "settings.mobileConnect.webApp.unavailable": "Não foi possível carregar o endereço do app web.",
   "settings.mobileConnect.webApp.signIn.open": "Abra o Builders Bot pelo ícone no celular.",
-  "settings.mobileConnect.webApp.signIn.cultura": "Toque em Entrar com Cultura Builder e use a conta Cultura Builder de {email}.",
-  "settings.mobileConnect.webApp.signIn.hub": "Aprove o código no Hub da Cultura Builder e volte para o Builders Bot.",
+  "settings.mobileConnect.webApp.signIn.cultura":
+    "Toque em Entrar com Cultura Builder e use a conta Cultura Builder de {email}.",
+  "settings.mobileConnect.webApp.signIn.hub":
+    "No Hub da Cultura Builder, aprove só o código que aparece no celular e volte para o Builders Bot.",
   "settings.mobileConnect.install.platformLabel": "Celular",
   "settings.mobileConnect.app.copyLink": "Copiar link",
   "settings.mobileConnect.app.linkCopied": "Link copiado",
