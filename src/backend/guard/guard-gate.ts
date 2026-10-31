@@ -7,6 +7,7 @@ import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import type { AgentClient } from "../agent-client";
+import { shellQuote } from "../automation-command";
 import type { AppServerRequest, DynamicToolCallParams, DynamicToolResult } from "../protocol";
 import { maskSecrets } from "./guard-excerpt";
 import type { GuardPaths } from "./guard-paths";
@@ -238,6 +239,19 @@ function stringList(record: unknown, key: string): string[] {
 }
 
 /**
+ * An argument of an MCP command that needs no shell quote: letters, digits and a small set of
+ * punctuation that a shell leaves as is. An ordinary command such as `npx -y @scope/server /path`
+ * shows on the approval card unchanged, while an argument that carries spaces, quotes, parentheses or
+ * other shell syntax is quoted, so the Guard reads it as one word, not in pieces.
+ */
+const MCP_SAFE_ARG = /^[\w@%+=:,./-]+$/u;
+
+/** One argument of an MCP command, quoted only when it carries characters outside the safe set. */
+function mcpCommandArg(arg: string): string {
+  return arg && !MCP_SAFE_ARG.test(arg) ? shellQuote(arg) : arg;
+}
+
+/**
  * The part of a tool call that leaves the computer, or null when the call sends nothing out. Every
  * tool that `GUARD_TOOL_EGRESS` marks `checked` has a case here.
  */
@@ -284,7 +298,12 @@ export function guardOutboundItem(namespace: string | null, tool: string, args: 
       return payload(stringField(args, "html"));
     case `${OPENBOT}.save_mcp_server`: {
       const url = stringField(args, "url");
-      const command = [stringField(args, "command") ?? "", ...stringList(args, "args")].join(" ").trim();
+      // Each argument stands as one shell word, so inline code of a `node -e` argument reaches the
+      // Guard whole, not split on its own spaces. A safe argument is left unquoted for the card.
+      const command = [stringField(args, "command") ?? "", ...stringList(args, "args")]
+        .map(mcpCommandArg)
+        .join(" ")
+        .trim();
       if (!url && !command) return null;
       return { tool: name, ...(url ? { urls: [url] } : {}), ...(command ? { command } : {}) };
     }
