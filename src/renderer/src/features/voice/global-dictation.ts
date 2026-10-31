@@ -8,6 +8,7 @@ import {
 import { type AppTextKey, en } from "@openbot/i18n";
 import { isFixedSourceText, matchingSourceKeys } from "@openbot/i18n/source";
 import { currentText } from "@openbot/ui/text";
+import { normalizeMessage } from "@openbot/user-errors/reference";
 import { createSignal, onCleanup } from "solid-js";
 import { appPort } from "../../app-port";
 import { encodePcm16, recordingToSamples, recordingToWav } from "../../voice-recording";
@@ -149,9 +150,12 @@ async function report(result: { text: string } | { failure: string }): Promise<v
  * to its one `error.*` key. A key itself is kept. Text with a value in it, such as a host name, reads
  * as the generic failure: the state has no place for the value, and the overlay must not show a
  * placeholder.
+ *
+ * Electron puts `Error invoking remote method '…': Error: ` (or `Error[ref:…]: `) in front of the
+ * text of a failure from main. `normalizeMessage` removes that prefix before the text is compared.
  */
 function failureKey(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = normalizeMessage(error);
   if (message.startsWith("error.")) return message;
   if (!isFixedSourceText(message)) return "error.dictation.failed";
   const keys = matchingSourceKeys(message).filter((key) => key.startsWith("error."));

@@ -84,6 +84,15 @@ function installVoice(settings: VoiceSettings, server: VoiceServerSettings | nul
   return { voice, publish: (state: DictationState) => listener?.(state) };
 }
 
+/**
+ * A failure as the renderer gets it from main. Electron puts the channel and the error name in front
+ * of the text; an error that has a reference crosses IPC with the name `Error[ref:…]`.
+ */
+function fromMain(channel: string, text: string, reference?: string): Error {
+  const name = reference === undefined ? "Error" : `Error[ref:${reference}]`;
+  return new Error(`Error invoking remote method '${channel}': ${name}: ${text}`);
+}
+
 /** Presses the combination two times: the first press records, the second press stops. */
 async function dictate(publish: (state: DictationState) => void): Promise<void> {
   publish({ phase: "recording", failure: null });
@@ -181,7 +190,7 @@ describe("the dictation of the global combination", () => {
 
   it("reports the real reason when main sends the English text of a catalog key", async () => {
     const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
-    voice.startStream.mockRejectedValueOnce(new Error(sourceText("error.voice.cloud.keyRequired")));
+    voice.startStream.mockRejectedValueOnce(fromMain("voice:start-stream", sourceText("error.voice.cloud.keyRequired")));
     mount();
 
     await dictate(publish);
@@ -193,7 +202,9 @@ describe("the dictation of the global combination", () => {
 
   it("says that the saved key cannot be read, not that a key is missing", async () => {
     const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
-    voice.startStream.mockRejectedValueOnce(new Error(sourceText("error.voice.cloud.keyUnreadable")));
+    voice.startStream.mockRejectedValueOnce(
+      fromMain("voice:start-stream", sourceText("error.voice.cloud.keyUnreadable")),
+    );
     mount();
 
     await dictate(publish);
@@ -203,6 +214,24 @@ describe("the dictation of the global combination", () => {
     expect(dictationText({ phase: "failed", failure: "error.voice.cloud.keyUnreadable" })).toBe(
       sourceText("error.voice.cloud.keyUnreadable"),
     );
+  });
+
+  it("reads the real reason also when the failure from main carries a reference", async () => {
+    const server: VoiceServerSettings = {
+      address: "http://studio.local:8000/v1",
+      hasApiKey: false,
+      routes: { dictation: true, speech: false, transcriptionModel: "whisper-1", speechModel: null, voice: null },
+    };
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: "pt" }, server);
+    voice.transcribe.mockRejectedValueOnce(
+      fromMain("voice:transcribe", sourceText("error.voice.server.keyUnreadable"), "http/401"),
+    );
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.voice.server.keyUnreadable" });
   });
 
   it("does not open the microphone that the system refused, and says why", async () => {
@@ -240,7 +269,7 @@ describe("the dictation of the global combination", () => {
     };
     const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: "pt" }, server);
     voice.transcribe.mockRejectedValueOnce(
-      new Error(sourceText("error.voice.server.keyRefused", { host: "studio.local" })),
+      fromMain("voice:transcribe", sourceText("error.voice.server.keyRefused", { host: "studio.local" })),
     );
     mount();
 
