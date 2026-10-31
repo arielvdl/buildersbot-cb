@@ -1,6 +1,6 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { unlinkSync } from "node:fs";
-import { readFile, unlink, utimes, writeFile } from "node:fs/promises";
+import { readFile, stat, unlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   DEFAULT_LID_AWAKE_PREFERENCE,
@@ -23,6 +23,7 @@ import { isMissingFileError } from "../backend/file-errors";
 import {
   adminScriptArgs,
   isUserCancel,
+  LID_AWAKE_ALIVE_PATH,
   LID_AWAKE_GRANT_DIR,
   LID_AWAKE_PLIST_PATH,
   LID_AWAKE_TOOL_PATH,
@@ -37,6 +38,7 @@ import {
   GRANT_FILE_NAMES,
   GRANT_RENEW_MS,
   grantFileName,
+  helperState,
   IOREG_PATH,
   IOREG_ROOT_DOMAIN_ARGS,
   isActive,
@@ -82,6 +84,13 @@ const GRANT_RELEASE_GRACE_MS = 60_000;
 /** After a safety stop with the lid closed, macOS must show sleep on in this time. */
 const SLEEP_REQUEST_TRIES = 15;
 const SLEEP_REQUEST_STEP_MS = 2_000;
+/** The service checks each 15 seconds. A new grant shows in `ioreg` in this time, or it is not accepted. */
+const GRANT_CONFIRM_MS = 25_000;
+/** After the install, launchd starts the service at once. It touches `alive` in this time. */
+const INSTALL_ALIVE_TRIES = 20;
+const INSTALL_ALIVE_STEP_MS = 500;
+
+type HelperFiles = "installed" | "missing" | "outdated";
 
 export interface LidAwakeServiceOptions {
   /** False on Windows and Linux, on a server, and in the local server process. */
@@ -188,7 +197,11 @@ export class LidAwakeService {
   #holdExits: number[] = [];
   #holdFailed = false;
   #grantActive = false;
+  #grantStartedAt = 0;
   #grantStoppedAt = 0;
+  #confirmTimer: NodeJS.Timeout | null = null;
+  /** The user saw the notification that sleep is off with no grant. */
+  #warnedSleepDisabled = false;
   #grantTimer: NodeJS.Timeout | null = null;
   #grantWrites: Promise<void> = Promise.resolve();
   #pollTimer: NodeJS.Timeout | null = null;
@@ -229,12 +242,17 @@ export class LidAwakeService {
    * mini, does not offer the mode. Call after the app is ready: the thermal state comes from Electron.
    */
   readonly start = Effect.fn("LidAwake.start")(function* (this: LidAwakeService) {
+    // A grant that an earlier run left keeps sleep off for up to 90 seconds. Only `battery` renews it.
+    if (this.#options.offered && this.#preference.get().mode !== "battery") yield* this.#removeStrayGrants();
     yield* this.refresh();
   });
 
-  /** True while the Mac stays on with its lid closed: routines can run in dark wake. */
+  /**
+   * True while the Mac stays on with its lid closed: routines can run in dark wake. In the `battery`
+   * mode, `ioreg` must show sleep off.
+   */
   get holdsThroughLidClose(): boolean {
-    return isActive(this.#state);
+    return this.#state === "active-plugged" || (this.#state === "active-battery" && this.#sleepDisabled);
   }
 
   status(): LidAwakeStatus {
@@ -268,11 +286,12 @@ export class LidAwakeService {
   /** Reads the power source, the lid, the sleep setting and the service, then applies the rules. */
   readonly refresh = Effect.fn("LidAwake.refresh")(function* (this: LidAwakeService) {
     if (!this.#options.offered || this.#disposed || (this.#probed && !this.#supported)) return this.status();
-    const [battery, rootDomain, helper] = yield* Effect.all(
+    const [battery, rootDomain, helper, times] = yield* Effect.all(
       [
         run(PMSET_PATH, PMSET_BATTERY_ARGS).pipe(Effect.map(parsePowerSource), Effect.option),
         run(IOREG_PATH, IOREG_ROOT_DOMAIN_ARGS).pipe(Effect.map(parseRootDomain), Effect.option),
         this.#readHelper(),
+        readSleepWakeTimes(),
       ],
       { concurrency: "unbounded" },
     );
@@ -292,7 +311,7 @@ export class LidAwakeService {
       this.#lidClosed = rootDomain.value.lidClosed;
       this.#sleepDisabled = rootDomain.value.sleepDisabled;
     }
-    this.#helper = helper;
+    this.#helper = helperState(helper.files, helper.aliveMs, times.lastWakeMs, Date.now());
     this.#apply();
     return this.status();
   });
@@ -322,6 +341,11 @@ export class LidAwakeService {
     if (!this.#supported) return this.status();
     yield* this.#runAdmin("install", "settings.lidAwake.helper.prompt");
     logger.info("The lid-closed safety service was installed.");
+    for (let attempt = 0; attempt < INSTALL_ALIVE_TRIES; attempt++) {
+      const { aliveMs } = yield* this.#readHelper();
+      if (aliveMs !== null && Date.now() - aliveMs < 5_000) break;
+      yield* Effect.sleep(INSTALL_ALIVE_STEP_MS);
+    }
     return yield* this.refresh();
   });
 
@@ -374,6 +398,8 @@ export class LidAwakeService {
   dispose(): void {
     this.#disposed = true;
     this.#stopTestTimer();
+    if (this.#confirmTimer) clearTimeout(this.#confirmTimer);
+    this.#confirmTimer = null;
     if (this.#pollTimer) clearTimeout(this.#pollTimer);
     this.#pollTimer = null;
     this.#stopHold();
@@ -397,6 +423,8 @@ export class LidAwakeService {
         now,
         helper: this.#helper,
         holdFailed: this.#holdFailed,
+        sleepDisabled: this.#sleepDisabled,
+        grantPending: !this.#grantActive || now - this.#grantStartedAt < GRANT_CONFIRM_MS,
       });
     let decision = decide();
     if (decision.assertion) this.#startHold();
@@ -463,6 +491,12 @@ export class LidAwakeService {
 
   #emit(): void {
     const status = this.status();
+    // Settings shows a red warning too, but only while it is open.
+    if (status.sleepDisabledWithoutGrant && !this.#warnedSleepDisabled) {
+      this.#warnedSleepDisabled = true;
+      logger.warn("Sleep is off on this computer, and the lid-closed mode did not ask for it.");
+      this.#options.notify(this.#options.translate("notification.lidAwakeSleepDisabled"));
+    } else if (!status.sleepDisabledWithoutGrant) this.#warnedSleepDisabled = false;
     const text = JSON.stringify(status);
     if (text === this.#lastSent) return;
     this.#lastSent = text;
@@ -519,6 +553,16 @@ export class LidAwakeService {
 
   #renewGrant(): void {
     const name = grantFileName(this.#preference.get().batteryFloor);
+    if (!this.#grantActive) {
+      this.#grantStartedAt = Date.now();
+      // The state needs `ioreg` after the next check of the service, so read it again then.
+      if (this.#confirmTimer) clearTimeout(this.#confirmTimer);
+      this.#confirmTimer = setTimeout(() => {
+        this.#confirmTimer = null;
+        this.changed();
+      }, GRANT_CONFIRM_MS + 1_000);
+      this.#confirmTimer.unref?.();
+    }
     this.#grantActive = true;
     // One write at a time, so a renewal never lands after the removal that `#stopGrant` queued.
     this.#grantWrites = this.#grantWrites
@@ -561,17 +605,42 @@ export class LidAwakeService {
       .catch((error) => logger.warn("The lid-closed grant could not be removed.", toLogValue(error)));
   }
 
-  #readHelper(): Effect.Effect<LidAwakeHelperState> {
+  /** The files of the service, and when it last touched `alive`. */
+  #readHelper(): Effect.Effect<{ files: HelperFiles; aliveMs: number | null }> {
     return Effect.promise(async () => {
+      let files: HelperFiles;
       try {
         const [tool] = await Promise.all([
           readFile(LID_AWAKE_TOOL_PATH, "utf8"),
           readFile(LID_AWAKE_PLIST_PATH, "utf8"),
         ]);
-        return tool === LID_AWAKE_TOOL_SCRIPT ? "installed" : "outdated";
+        files = tool === LID_AWAKE_TOOL_SCRIPT ? "installed" : "outdated";
       } catch {
-        return "missing";
+        files = "missing";
       }
+      const aliveMs = await stat(LID_AWAKE_ALIVE_PATH).then(
+        (info) => info.mtimeMs,
+        () => null,
+      );
+      return { files, aliveMs };
+    });
+  }
+
+  #removeStrayGrants(): Effect.Effect<void> {
+    return Effect.promise(async () => {
+      let removed = false;
+      for (const name of GRANT_FILE_NAMES)
+        await unlink(join(LID_AWAKE_GRANT_DIR, name)).then(
+          () => {
+            removed = true;
+          },
+          (error: unknown) => {
+            if (!isMissingFileError(error))
+              logger.warn("A lid-closed grant of an earlier run could not be removed.", toLogValue(error));
+          },
+        );
+      // The service turns sleep on in its next check, so until then sleep off is expected.
+      if (removed) this.#grantStoppedAt = Date.now();
     });
   }
 

@@ -5,6 +5,8 @@ export const messages = {
   "notification.lidAwakeBatteryLow": "O modo com a tampa fechada parou: a bateria está baixa.",
   "notification.lidAwakeTooHot": "O modo com a tampa fechada parou: o computador está quente demais.",
   "notification.lidAwakeTimeLimit": "O modo com a tampa fechada parou: o limite de tempo foi atingido.",
+  "notification.lidAwakeSleepDisabled":
+    "O repouso está desligado neste Mac, e o Builders Bot não pediu isso. Abra Configurações › Geral no Builders Bot e escolha Restaurar repouso normal.",
   "notification.needsInput": "Precisa de uma resposta sua.",
   "notification.needsApproval": "Precisa da sua aprovação.",
   "notification.needsBrowserStep": "Precisa que você conclua uma etapa no navegador.",

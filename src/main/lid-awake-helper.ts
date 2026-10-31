@@ -9,6 +9,8 @@ export const LID_AWAKE_PLIST_PATH = "/Library/LaunchDaemons/app.buildersbot.lid-
 export const LID_AWAKE_BASE = "/Library/Application Support/BuildersBot/LidAwake";
 /** Owned by the user who installed the service. The app keeps its grant file here. */
 export const LID_AWAKE_GRANT_DIR = `${LID_AWAKE_BASE}/grant`;
+/** Owned by root. The service touches it at each check. */
+export const LID_AWAKE_ALIVE_PATH = `${LID_AWAKE_BASE}/alive`;
 /** The service looks for a process with this path. A development run cannot use the `battery` mode. */
 export const LID_AWAKE_APP_EXECUTABLE = "/Applications/Builders Bot.app/Contents/MacOS/Builders Bot";
 export const OSASCRIPT_PATH = "/usr/bin/osascript";

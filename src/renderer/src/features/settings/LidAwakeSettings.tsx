@@ -142,6 +142,8 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
         return t("settings.lidAwake.state.pausedTimeLimit");
       case "paused-helper-missing":
         return t("settings.lidAwake.state.pausedHelperMissing");
+      case "paused-helper-not-confirmed":
+        return t("settings.lidAwake.state.pausedHelperNotConfirmed");
       case "failed":
         return t("settings.lidAwake.state.failed");
     }
@@ -150,6 +152,16 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
   const currentStateText = () => {
     const current = state.status;
     return current?.supported ? stateText(current) : null;
+  };
+
+  // The mode says that it holds, but the last test saw this Mac sleep with the lid closed.
+  const notConfirmed = () => {
+    const current = state.status;
+    return (
+      current?.supported === true &&
+      (current.state === "active-plugged" || current.state === "active-battery") &&
+      current.test?.verdict === "slept"
+    );
   };
 
   const testText = (current: LidAwakeStatus): string | null => {
@@ -170,6 +182,7 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
   const helperText = (current: LidAwakeStatus): string => {
     if (current.helper === "installed") return t("settings.lidAwake.helper.installed");
     if (current.helper === "outdated") return t("settings.lidAwake.helper.outdated");
+    if (current.helper === "stopped") return t("settings.lidAwake.helper.stopped");
     return t("settings.lidAwake.helper.missing");
   };
 
@@ -183,6 +196,9 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
             <ItemDescription>{t("settings.lidAwake.unsupported")}</ItemDescription>
           </Show>
           <Show when={currentStateText()}>{(text) => <ItemDescription>{text()}</ItemDescription>}</Show>
+          <Show when={notConfirmed()}>
+            <ItemDescription>{t("settings.lidAwake.state.notConfirmed")}</ItemDescription>
+          </Show>
           <Show when={supported() && mode() !== "off"}>
             <ItemDescription>{t("settings.lidAwake.warning")}</ItemDescription>
           </Show>

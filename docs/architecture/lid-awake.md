@@ -42,6 +42,14 @@ macOS update can change this. The test with the lid closed (below) shows the cha
    or `finishing charge`. macOS can stop the charge (`AC attached; not charging`) for heat or with a
    weak adapter, and `disablesleep 1` also stops the sleep at low battery.
 
+5. `battery` with the service: the state is `active-battery` only when `ioreg` shows
+   `SleepDisabled = Yes`, or in the first 25 seconds of a new grant (the service checks each 15
+   seconds). Else the service refused, for example because of heat that only it sees, or because
+   the app does not run from `/Applications`. Then the state is `active-plugged` on the power
+   adapter (the assertion still holds) and `paused-helper-not-confirmed` on battery. The grant stays,
+   so the service can still accept. `holdsThroughLidClose` is true only for `active-plugged`, and
+   for `active-battery` with `SleepDisabled = Yes`.
+
 A stop from rule 1, 2 or 4 while the mode was active shows a desktop notification. The app reads
 `pmset -g batt` and `ioreg` each 30 seconds while the mode is on, and at each power or thermal event.
 
@@ -108,10 +116,20 @@ launchd starts the service. The service touches the root file `alive` at each ch
 is not in `/Applications` for 8 checks (2 minutes), the service turns sleep on, removes its files
 and runs `launchctl bootout` for itself.
 
+The app shows the service as `installed` only when the files match and `alive` changed in the last
+45 seconds, or the Mac woke in the last 45 seconds (`kern.waketime`). Else it is `stopped`: macOS
+can turn off the background item in System Settings › General › Login Items & Extensions, or
+`launchctl bootstrap` can fail. A stopped service does not count as installed for the `battery`
+mode.
+
+At its start in a mode other than `battery`, the app removes the grant files that an earlier run
+left.
+
 **Restore normal sleep** in Settings runs the remove script. It works also when the service is not
 installed: it stops the service, runs `pmset -a disablesleep 0`, and removes the files. Settings
 shows a red warning with this button when `ioreg` shows `SleepDisabled = Yes` and the app has no
-fresh grant.
+fresh grant from an installed service that runs. The app also shows a desktop notification one
+time for each such period, because the warning shows only while Settings is open.
 
 The service cannot prove that the request comes from the app. Any process of the same user can renew
 the grant, and any process can take the path of the app as its name (`exec -a`). The app bundle also

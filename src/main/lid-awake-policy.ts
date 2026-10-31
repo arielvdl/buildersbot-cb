@@ -48,6 +48,10 @@ export interface LidAwakeInput {
   helper: LidAwakeHelperState;
   /** The assertion process could not start again after it stopped. */
   holdFailed: boolean;
+  /** `ioreg` shows `SleepDisabled = Yes`. */
+  sleepDisabled: boolean;
+  /** The grant is new, so the service has not had its next check yet. */
+  grantPending: boolean;
 }
 
 export interface LidAwakeDecision {
@@ -101,8 +105,14 @@ export function decideLidAwake(input: LidAwakeInput): LidAwakeDecision {
   }
   const aboveFloor = input.batteryPercent !== null && input.batteryPercent >= preference.batteryFloor;
   if (!aboveFloor && !(input.onPowerAdapter && input.charging)) return { state: "paused-battery-low", ...NONE };
-  // The assertion also keeps App Nap off, so the grant stays fresh with the lid closed.
-  return { state: "active-battery", assertion: !input.holdFailed, grant: true };
+  // The state says what macOS does. The service can refuse (another path of the app, heat that only
+  // it sees), so `active-battery` needs `SleepDisabled = Yes` after its next check. The grant stays,
+  // so the service can still accept.
+  if (input.sleepDisabled || input.grantPending)
+    return { state: "active-battery", assertion: !input.holdFailed, grant: true };
+  if (input.onPowerAdapter)
+    return { state: input.holdFailed ? "failed" : "active-plugged", assertion: !input.holdFailed, grant: true };
+  return { state: "paused-helper-not-confirmed", assertion: false, grant: true };
 }
 
 /** The states that a safety rule caused. A change into one of them tells the user. */
@@ -115,6 +125,24 @@ export function safetyStop(state: LidAwakeState): "battery-low" | "too-hot" | "t
 
 export function isActive(state: LidAwakeState): boolean {
   return state === "active-plugged" || state === "active-battery";
+}
+
+/** The service touches `alive` each 15 seconds. After a wake, its next check can be 15 seconds away. */
+export const SERVICE_ALIVE_MAX_AGE_MS = 45_000;
+
+/**
+ * The files of the service can be in place while it does not run: macOS can turn off its background
+ * item, or `launchctl bootstrap` can fail. Then it is `stopped`.
+ */
+export function helperState(
+  files: "installed" | "missing" | "outdated",
+  aliveMs: number | null,
+  lastWakeMs: number | null,
+  now: number,
+): LidAwakeHelperState {
+  if (files !== "installed") return files;
+  const recent = (time: number | null) => time !== null && now - time <= SERVICE_ALIVE_MAX_AGE_MS;
+  return recent(aliveMs) || recent(lastWakeMs) ? "installed" : "stopped";
 }
 
 export interface PowerSource {

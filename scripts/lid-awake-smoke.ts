@@ -32,6 +32,7 @@ import {
   CAFFEINATE_PATH,
   caffeinateArgs,
   decideLidAwake,
+  helperState,
   type LidAwakeInput,
   type LidTestProgress,
   lidTestDone,
@@ -69,6 +70,8 @@ function decide(change: Partial<Omit<LidAwakeInput, "preference">> & { preferenc
     now: 10 * HOUR,
     helper: "missing",
     holdFailed: false,
+    sleepDisabled: true,
+    grantPending: false,
     ...change,
     preference: { ...DEFAULT_LID_AWAKE_PREFERENCE, mode: "plugged", ...change.preference },
   };
@@ -215,6 +218,33 @@ equal(
   }).state,
   "active-battery",
 );
+// The service can refuse, so `active-battery` needs `SleepDisabled = Yes` after its next check.
+equal(
+  "battery mode with a new grant is active before the next check of the service",
+  decide({
+    preference: { mode: "battery" },
+    helper: "installed",
+    onPowerAdapter: false,
+    sleepDisabled: false,
+    grantPending: true,
+  }).state,
+  "active-battery",
+);
+equal(
+  "battery mode on battery with no sleep off after the check pauses and keeps the grant",
+  decide({ preference: { mode: "battery" }, helper: "installed", onPowerAdapter: false, sleepDisabled: false }),
+  { state: "paused-helper-not-confirmed", assertion: false, grant: true },
+);
+equal(
+  "battery mode on AC with no sleep off after the check holds as plugged and keeps the grant",
+  decide({ preference: { mode: "battery" }, helper: "installed", onPowerAdapter: true, sleepDisabled: false }),
+  { state: "active-plugged", assertion: true, grant: true },
+);
+equal(
+  "battery mode with a service that does not run pauses on battery",
+  decide({ preference: { mode: "battery" }, helper: "stopped", onPowerAdapter: false }).state,
+  "paused-helper-missing",
+);
 equal(
   "battery mode keeps the grant when the assertion failed",
   decide({ preference: { mode: "battery" }, helper: "installed", holdFailed: true }),
@@ -223,6 +253,24 @@ equal(
     assertion: false,
     grant: true,
   },
+);
+
+// The state of the service: its files, and when it last touched `alive`.
+const NOW = 10 * HOUR;
+equal("service files missing", helperState("missing", NOW, null, NOW), "missing");
+equal("service files of another version", helperState("outdated", NOW, null, NOW), "outdated");
+equal("service alive 10 s ago runs", helperState("installed", NOW - 10_000, null, NOW), "installed");
+equal("service alive 60 s ago is stopped", helperState("installed", NOW - 60_000, null, NOW), "stopped");
+equal("service never alive is stopped", helperState("installed", null, null, NOW), "stopped");
+equal(
+  "service alive 10 minutes ago, and a wake 20 s ago, runs",
+  helperState("installed", NOW - 600_000, NOW - 20_000, NOW),
+  "installed",
+);
+equal(
+  "service alive 10 minutes ago, and a wake 60 s ago, is stopped",
+  helperState("installed", NOW - 600_000, NOW - 60_000, NOW),
+  "stopped",
 );
 
 // Parsers, with the text of `pmset` and `ioreg` on a MacBook Pro with macOS 26.4.1.

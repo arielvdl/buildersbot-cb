@@ -6,6 +6,8 @@ export const messages = defineMessages("notification", {
   "notification.lidAwakeBatteryLow": "The lid-closed mode stopped: the battery is low.",
   "notification.lidAwakeTooHot": "The lid-closed mode stopped: the computer is too hot.",
   "notification.lidAwakeTimeLimit": "The lid-closed mode stopped: its time limit was reached.",
+  "notification.lidAwakeSleepDisabled":
+    "Sleep is off on this Mac, and Builders Bot did not ask for it. Open Settings › General in Builders Bot and select Restore normal sleep.",
   "notification.needsInput": "Needs your input.",
   "notification.needsApproval": "Needs your approval.",
   "notification.needsBrowserStep": "Needs you to finish a step in the browser.",

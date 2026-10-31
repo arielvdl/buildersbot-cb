@@ -76,6 +76,10 @@ export const messages = {
     "Pausado: o limite de tempo acabou, então este Mac pode dormir. O modo volta quando você abrir a tampa.",
   "settings.lidAwake.state.pausedHelperMissing":
     "Pausado: na bateria, o modo precisa do serviço de segurança. Instale-o abaixo. Na tomada, o modo já funciona.",
+  "settings.lidAwake.state.pausedHelperNotConfirmed":
+    "Pausado: o serviço de segurança não desligou o repouso, então este Mac dorme quando você fecha a tampa. O Mac pode estar quente demais, ou o Builders Bot não está na pasta Aplicativos. Você também pode instalar o serviço de novo.",
+  "settings.lidAwake.state.notConfirmed":
+    "O último teste viu este Mac dormir com a tampa fechada. Se ele estava na tomada, o macOS não está respeitando este modo agora.",
   "settings.lidAwake.state.failed": "O modo não conseguiu iniciar. O log do app mostra a causa.",
   "settings.lidAwake.warning":
     "Não guarde este Mac numa mochila ou capa com o modo ligado. Ele continua funcionando e pode esquentar.",
@@ -93,6 +97,8 @@ export const messages = {
   "settings.lidAwake.helper.installed": "Instalado.",
   "settings.lidAwake.helper.missing": "Não instalado. O macOS pede a senha de administrador.",
   "settings.lidAwake.helper.outdated": "Precisa de uma versão nova. O macOS pede a senha de administrador.",
+  "settings.lidAwake.helper.stopped":
+    "Instalado, mas parado. O macOS pode desligá-lo em Ajustes do Sistema › Geral › Itens de Início e Extensões. Ative-o lá ou instale de novo.",
   "settings.lidAwake.helper.install": "Instalar",
   "settings.lidAwake.helper.update": "Atualizar",
   "settings.lidAwake.helper.remove": "Remover",

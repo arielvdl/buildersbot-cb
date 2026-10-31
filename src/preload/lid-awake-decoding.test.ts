@@ -35,6 +35,13 @@ describe("decodeLidAwakeStatus", () => {
     expect(decoded.preference).not.toHaveProperty("extra");
   });
 
+  it("accepts the state with no confirmation from the service, and a service that does not run", () => {
+    expect(decodeLidAwakeStatus({ ...STATUS, state: "paused-helper-not-confirmed", helper: "stopped" })).toMatchObject({
+      state: "paused-helper-not-confirmed",
+      helper: "stopped",
+    });
+  });
+
   it("accepts no test and an unknown battery level", () => {
     expect(decodeLidAwakeStatus({ ...STATUS, test: null, batteryPercent: null })).toMatchObject({
       test: null,

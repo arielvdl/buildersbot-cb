@@ -77,6 +77,10 @@ export const messages = defineMessages("settings", {
     "Paused: the time limit ended, so this Mac can sleep. The mode starts again when you open the lid.",
   "settings.lidAwake.state.pausedHelperMissing":
     "Paused: on battery, the mode needs the safety service. Install it below. On the power adapter, the mode works now.",
+  "settings.lidAwake.state.pausedHelperNotConfirmed":
+    "Paused: the safety service did not turn sleep off, so this Mac sleeps when you close the lid. This Mac can be too hot, or Builders Bot is not in the Applications folder. You can also install the service again.",
+  "settings.lidAwake.state.notConfirmed":
+    "The last test saw this Mac sleep with the lid closed. If it was on the power adapter, macOS does not obey this mode now.",
   "settings.lidAwake.state.failed": "The mode could not start. The app log shows the cause.",
   "settings.lidAwake.warning":
     "Do not put this Mac in a bag or a case while the mode is on. It continues to run and can get hot.",
@@ -94,6 +98,8 @@ export const messages = defineMessages("settings", {
   "settings.lidAwake.helper.installed": "Installed.",
   "settings.lidAwake.helper.missing": "Not installed. macOS asks for an administrator password.",
   "settings.lidAwake.helper.outdated": "A new version is necessary. macOS asks for an administrator password.",
+  "settings.lidAwake.helper.stopped":
+    "Installed, but it does not run. macOS can turn it off in System Settings › General › Login Items & Extensions. Turn it on there, or install it again.",
   "settings.lidAwake.helper.install": "Install",
   "settings.lidAwake.helper.update": "Update",
   "settings.lidAwake.helper.remove": "Remove",

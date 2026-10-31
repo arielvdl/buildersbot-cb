@@ -33,7 +33,10 @@ export type LidAwakePreferenceChange = Partial<LidAwakePreference>;
  * What the mode does now.
  *
  * - `active-plugged`: a system sleep assertion holds. macOS obeys it only on the power adapter.
- * - `active-battery`: the safety service turned off all sleep, on battery too.
+ * - `active-battery`: the safety service turned off all sleep, on battery too. `ioreg` shows it, or
+ *   the service has not had its next check yet.
+ * - `paused-helper-not-confirmed`: on battery, the app asks the service, but `ioreg` does not show
+ *   sleep off after the next check of the service. The Mac sleeps when the lid closes.
  * - `paused-*`: the mode is on, but Builders Bot holds nothing, so the Mac sleeps when the lid closes.
  * - `failed`: the assertion could not start.
  */
@@ -46,12 +49,17 @@ export const LID_AWAKE_STATES = [
   "paused-too-hot",
   "paused-time-limit",
   "paused-helper-missing",
+  "paused-helper-not-confirmed",
   "failed",
 ] as const;
 export type LidAwakeState = (typeof LID_AWAKE_STATES)[number];
 
-/** The root safety service that the `battery` mode needs. `outdated` is a different version. */
-export const LID_AWAKE_HELPER_STATES = ["installed", "missing", "outdated"] as const;
+/**
+ * The root safety service that the `battery` mode needs. `outdated` is a different version.
+ * `stopped`: the files are there, but the service did not run its check in the last 45 seconds, for
+ * example because macOS turned off its background item.
+ */
+export const LID_AWAKE_HELPER_STATES = ["installed", "missing", "outdated", "stopped"] as const;
 export type LidAwakeHelperState = (typeof LID_AWAKE_HELPER_STATES)[number];
 
 export const LID_AWAKE_TEST_VERDICTS = ["running", "stayed-awake", "slept", "lid-not-closed"] as const;
