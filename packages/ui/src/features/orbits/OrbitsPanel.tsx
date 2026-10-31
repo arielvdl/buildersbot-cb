@@ -153,25 +153,13 @@ function OrbitsBody(props: OrbitsPanelProps) {
       panel?.removeEventListener("focus", openInitial);
       media?.removeEventListener?.("change", syncReduced);
       observer.disconnect();
+      engine.dispose();
     };
   });
 
+  // The engine runs its frame loop only while a node moves and motion is allowed.
   createEffect(running, (on) => {
-    engine.setGlides(on);
-    if (!on) {
-      engine.placeAll();
-      return;
-    }
-    let frame = 0;
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      if (engine.moves()) engine.frame(dt);
-      frame = requestAnimationFrame(step);
-    };
-    frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
+    engine.setRunning(on);
   });
 
   createEffect(

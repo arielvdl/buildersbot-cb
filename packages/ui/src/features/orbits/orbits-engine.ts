@@ -9,9 +9,11 @@ import {
 } from "./orbits-geometry";
 
 /**
- * The motion of the Team panel. Solid draws the structure once; this module writes only `transform`
- * and `z-index` on each frame, so a frame does no layout and no reactive work. One loop serves the
- * whole panel, and it runs only while the panel is open, the window shows and motion is allowed.
+ * The motion of the Team panel. Solid draws the structure once; this module owns the one
+ * `requestAnimationFrame` loop of the panel. A frame writes the `transform` of the nodes that move,
+ * a `z-index` only when it changes, and the path of a link only when one of its ends moved. It reads
+ * no layout: the place of each system is read once, at the start of the first frame after a layout.
+ * The loop runs only while a node orbits, drifts or glides, the window shows and motion is allowed.
  */
 
 interface OrbitNode {
@@ -20,7 +22,7 @@ interface OrbitNode {
   el: HTMLElement;
   trails: HTMLElement[];
   slot: OrbitSlot | null;
-  /** The node moves on each frame. Outside the motion budget, a working agent holds its place. */
+  /** The node is on an orbit or a drift and in the motion budget, so it moves on each frame. */
   moving: boolean;
   point: OrbitPoint;
   glide: { from: OrbitPoint; progress: number } | null;
@@ -28,6 +30,10 @@ interface OrbitNode {
   lag: number;
   held: boolean;
   phase: number;
+  /** The last `transform` and `z-index` written, so a frame writes only what changed. */
+  transform: string;
+  z: string;
+  trailZ: string[];
 }
 
 type OrbitSlots = Readonly<Record<string, { slot: OrbitSlot; moving: boolean }>>;
@@ -37,6 +43,8 @@ interface OrbitSystemState {
   geometry: OrbitGeometry | null;
   /** The last slots, so a node that mounts after the layout finds its place. */
   slots: OrbitSlots;
+  /** The place of the system in the container of the links, read after a layout. */
+  offset: { x: number; y: number };
 }
 
 interface OrbitLinkPath {
@@ -49,24 +57,38 @@ interface OrbitLinkPath {
 const GLIDE_SECONDS = 0.7;
 /** The gap, in radians, between an orbiting agent and each dot of its trail. */
 const TRAIL_STEP = 0.26;
+/** The longest step of the clock in one frame, so a slow frame does not make a node jump. */
+const MAX_STEP_SECONDS = 0.05;
 
 export type OrbitEngine = ReturnType<typeof createOrbitEngine>;
 
 export function createOrbitEngine() {
   let clock = 0;
-  let glides = true;
+  /** Motion is allowed: the window shows and the person did not ask for reduced motion. */
+  let running = false;
+  let frame = 0;
+  let last = 0;
+  let offsetsChanged = true;
   const nodes = new Map<string, OrbitNode>();
   const systems = new Map<string, OrbitSystemState>();
   /** Trails that came before their node. */
   const waitingTrails = new Map<string, HTMLElement[]>();
-  let links: OrbitLinkPath[] = [];
+  let links: (OrbitLinkPath & { d: string })[] = [];
 
   function place(node: OrbitNode, point: OrbitPoint) {
     node.point = point;
     const ring = node.slot?.kind === "orbit" || node.slot?.kind === "drift" || node.slot?.kind === "still";
     const scale = ring ? 0.86 + (0.16 * (point.depth + 1)) / 2 : 1;
-    node.el.style.transform = `translate3d(${point.x.toFixed(1)}px, ${point.y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${scale.toFixed(3)})`;
-    node.el.style.zIndex = node.slot?.kind === "sun" ? "4" : point.depth < 0 ? "2" : "5";
+    const transform = `translate3d(${point.x.toFixed(1)}px, ${point.y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${scale.toFixed(3)})`;
+    if (transform !== node.transform) {
+      node.el.style.transform = transform;
+      node.transform = transform;
+    }
+    const z = node.slot?.kind === "sun" ? "4" : point.depth < 0 ? "2" : "5";
+    if (z !== node.z) {
+      node.el.style.zIndex = z;
+      node.z = z;
+    }
   }
 
   function target(node: OrbitNode): OrbitPoint | null {
@@ -83,7 +105,11 @@ export function createOrbitEngine() {
     node.trails.forEach((trail, index) => {
       const point = orbitTrailPoint(geometry, angle - TRAIL_STEP * (index + 1));
       trail.style.transform = `translate3d(${point.x.toFixed(1)}px, ${point.y.toFixed(1)}px, 0)`;
-      trail.style.zIndex = point.depth < 0 ? "1" : "4";
+      const z = point.depth < 0 ? "1" : "4";
+      if (node.trailZ[index] !== z) {
+        trail.style.zIndex = z;
+        node.trailZ[index] = z;
+      }
     });
   }
 
@@ -105,42 +131,99 @@ export function createOrbitEngine() {
     placeTrails(node);
   }
 
+  /** Whether a node changes its place on the next frame. */
+  function moves() {
+    for (const node of nodes.values()) if ((node.moving && !node.held) || node.glide) return true;
+    return false;
+  }
+
+  /** Reads the place of each system. Only a frame after a layout does it, before it writes. */
+  function readOffsets() {
+    for (const system of systems.values()) system.offset = { x: system.el.offsetLeft, y: system.el.offsetTop };
+    offsetsChanged = false;
+  }
+
   function linkPoint(id: string): { x: number; y: number } | null {
     const node = nodes.get(id);
     const system = node ? systems.get(node.systemKey) : undefined;
     if (!node || !system?.geometry) return null;
-    return { x: node.point.x + system.el.offsetLeft, y: node.point.y + system.el.offsetTop };
+    return { x: node.point.x + system.offset.x, y: node.point.y + system.offset.y };
   }
 
+  /** Writes the path of each link whose ends moved. */
   function drawLinks() {
     for (const link of links) {
       const from = linkPoint(link.from);
       const to = linkPoint(link.to);
-      if (!from || !to) {
-        link.path.setAttribute("d", "");
-        continue;
-      }
-      const same = nodes.get(link.from)?.systemKey === nodes.get(link.to)?.systemKey;
-      const bend = Math.max(from.x, to.x) + 50;
-      link.path.setAttribute(
-        "d",
-        same
+      let d = "";
+      if (from && to) {
+        const same = nodes.get(link.from)?.systemKey === nodes.get(link.to)?.systemKey;
+        const bend = Math.max(from.x, to.x) + 50;
+        d = same
           ? `M${from.x.toFixed(1)} ${from.y.toFixed(1)} L${to.x.toFixed(1)} ${to.y.toFixed(1)}`
-          : `M${from.x.toFixed(1)} ${from.y.toFixed(1)} Q${bend.toFixed(1)} ${((from.y + to.y) / 2).toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`,
-      );
+          : `M${from.x.toFixed(1)} ${from.y.toFixed(1)} Q${bend.toFixed(1)} ${((from.y + to.y) / 2).toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
+      }
+      if (d === link.d) continue;
+      link.path.setAttribute("d", d);
+      link.d = d;
     }
   }
 
+  function tick(now: number) {
+    frame = 0;
+    const dt = running && last > 0 ? Math.min(MAX_STEP_SECONDS, (now - last) / 1000) : 0;
+    last = now;
+    if (offsetsChanged) readOffsets();
+    if (dt > 0) {
+      clock += dt;
+      for (const node of nodes.values()) {
+        if (node.held && node.moving) node.lag += dt;
+        if ((node.moving && !node.held) || node.glide) update(node, dt);
+      }
+    }
+    drawLinks();
+    if (running && moves()) frame = requestAnimationFrame(tick);
+    else last = 0;
+  }
+
+  /** Asks for one frame. The frame asks for the next one only while a node moves. */
+  function wake() {
+    if (frame === 0) frame = requestAnimationFrame(tick);
+  }
+
   return {
-    /** A glide only runs when motion is allowed. Without it, a node jumps to its new place. */
-    setGlides(on: boolean) {
-      glides = on;
+    /**
+     * Motion is allowed, or not: the window hides, or the person asks for reduced motion. Without
+     * motion, the loop stops, a glide ends at once, and a node keeps its place.
+     */
+    setRunning(on: boolean) {
+      if (running === on) return;
+      running = on;
+      if (!on) {
+        for (const node of nodes.values()) {
+          if (!node.glide) continue;
+          node.glide = null;
+          update(node, 0);
+        }
+      }
+      last = 0;
+      wake();
     },
     system(key: string, el: HTMLElement) {
       const previous = systems.get(key);
-      systems.set(key, { el, geometry: previous?.geometry ?? null, slots: previous?.slots ?? {} });
+      systems.set(key, {
+        el,
+        geometry: previous?.geometry ?? null,
+        slots: previous?.slots ?? {},
+        offset: previous?.offset ?? { x: 0, y: 0 },
+      });
+      offsetsChanged = true;
+      wake();
       return () => {
-        if (systems.get(key)?.el === el) systems.delete(key);
+        if (systems.get(key)?.el !== el) return;
+        systems.delete(key);
+        offsetsChanged = true;
+        wake();
       };
     },
     /** A node of an agent. Its place comes from the last layout of its system. */
@@ -158,10 +241,14 @@ export function createOrbitEngine() {
         lag: 0,
         held: false,
         phase: Math.random() * 6,
+        transform: "",
+        z: "",
+        trailZ: [],
       };
       nodes.set(id, node);
       waitingTrails.delete(id);
       update(node, 0);
+      wake();
       return () => {
         if (nodes.get(id) === node) nodes.delete(id);
       };
@@ -174,6 +261,7 @@ export function createOrbitEngine() {
         return;
       }
       node.trails = trails;
+      node.trailZ = [];
       placeTrails(node);
     },
     /** New measures for a system, and the slot of each of its agents. Nodes that change place glide. */
@@ -187,43 +275,34 @@ export function createOrbitEngine() {
         const next = slots[node.id];
         if (!next) continue;
         const moved = node.slot !== null && !sameOrbitSlot(node.slot, next.slot);
-        if (moved && glides) node.glide = { from: { ...node.point }, progress: 0 };
+        if (moved && running) node.glide = { from: { ...node.point }, progress: 0 };
         node.slot = next.slot;
         node.moving = next.moving;
         update(node, 0);
       }
-      drawLinks();
+      // The height of the system can change, and the systems under it move.
+      offsetsChanged = true;
+      wake();
     },
     /** Holds a node in place, such as while its card is open. */
     hold(id: string, held: boolean) {
       const node = nodes.get(id);
-      if (node) node.held = held;
-    },
-    /** One frame: `dt` seconds passed. */
-    frame(dt: number) {
-      clock += dt;
-      for (const node of nodes.values()) {
-        if (node.held && node.moving) node.lag += dt;
-        if (node.moving || node.glide) update(node, dt);
-      }
-      drawLinks();
-    },
-    /** Places every node again, such as after a resize while the loop does not run. */
-    placeAll() {
-      for (const node of nodes.values()) update(node, 0);
-      drawLinks();
+      if (!node || node.held === held) return;
+      node.held = held;
+      if (!held) wake();
     },
     setLinks(next: OrbitLinkPath[]) {
-      links = next;
-      drawLinks();
-    },
-    /** Whether some node moves on each frame. Without one, the loop does not need to run. */
-    moves() {
-      for (const node of nodes.values()) if (node.moving || node.glide) return true;
-      return false;
+      links = next.map((link) => ({ ...link, d: link.path.getAttribute("d") ?? "" }));
+      wake();
     },
     point(id: string): OrbitPoint | null {
       return nodes.get(id)?.point ?? null;
+    },
+    /** Stops the loop for good: the panel closes. */
+    dispose() {
+      running = false;
+      if (frame !== 0) cancelAnimationFrame(frame);
+      frame = 0;
     },
   };
 }

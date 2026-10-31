@@ -149,7 +149,8 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
     const moving = new Set(input.moving);
     const slots: Record<string, { slot: OrbitSlot; moving: boolean }> = {};
     for (const [agentId, slot] of Object.entries(next.slots)) {
-      slots[agentId] = { slot, moving: moving.has(agentId) && slot.kind !== "park" && slot.kind !== "sun" };
+      // Only an orbit or a drift changes place on each frame. A still slot is placed once.
+      slots[agentId] = { slot, moving: moving.has(agentId) && (slot.kind === "orbit" || slot.kind === "drift") };
     }
     lastShape = next;
     setGeometry(next);
@@ -350,12 +351,18 @@ function OrbitAgentNode(props: OrbitAgentNodeProps) {
             }
           >
             <Show when={props.agent.state === "working"}>
-              <svg class="orbit-progress" viewBox="0 0 44 44" aria-hidden="true">
+              {/* The whole SVG turns, not a group in it: a turning SVG element gets its own layer,
+                  so the turn does not repaint on each frame. The track is a full circle, so it
+                  looks the same as it turns. */}
+              <svg
+                class="orbit-progress"
+                data-race={props.moving ? "" : undefined}
+                viewBox="0 0 44 44"
+                aria-hidden="true"
+              >
                 <circle class="orbit-progress-track" cx="22" cy="22" r="19" />
                 <Show when={props.moving}>
-                  <g class="orbit-progress-race">
-                    <circle cx="22" cy="22" r="19" />
-                  </g>
+                  <circle class="orbit-progress-race" cx="22" cy="22" r="19" />
                 </Show>
               </svg>
               <Show when={props.moving}>

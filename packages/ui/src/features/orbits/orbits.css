@@ -449,12 +449,11 @@
   stroke-width: 2.2;
 }
 
-.orbit-progress-race {
-  transform-origin: 22px 22px;
+.orbit-progress[data-race] {
   animation: orbit-spin 0.8s linear infinite;
 }
 
-.orbit-progress-race circle {
+.orbit-progress-race {
   fill: none;
   stroke: var(--orbit-color);
   stroke-dasharray: 18 200;
@@ -734,14 +733,14 @@
 }
 
 /* The window is hidden, or motion is off: every loop holds its frame. */
-.orbits-scroll[data-motion="off"] :is(.orbit-progress-race, .orbit-sparks, .orbit-pulse, .orbit-alarm, .orbit-avatar) {
+.orbits-scroll[data-motion="off"] :is(.orbit-progress, .orbit-sparks, .orbit-pulse, .orbit-alarm, .orbit-avatar) {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ui-dialog-content.orbits-panel,
   .orbits-panel .orbit-card,
-  .orbits-scroll :is(.orbit-progress-race, .orbit-sparks, .orbit-pulse, .orbit-alarm, .orbit-avatar) {
+  .orbits-scroll :is(.orbit-progress, .orbit-sparks, .orbit-pulse, .orbit-alarm, .orbit-avatar) {
     animation: none;
   }
 
