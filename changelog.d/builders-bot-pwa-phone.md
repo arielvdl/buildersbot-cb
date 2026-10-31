@@ -18,6 +18,14 @@
 - The web app shows its notifications in Chrome on Android and as an installed app on a phone, while
   the app is open in the background. Before, the browser refused them and nothing showed. A click
   on such a notification opens the agent or the channel.
+- Mobile Connect tells a published server that is offline now, such as after sleep, from a server
+  that is not published. It shows the cause and Try again. Before, it said "This server is not
+  published" in both cases, and also while the server was connecting.
+- Mobile Connect says that a phone reaches the computer only while the computer is on and awake, and
+  names the settings that keep it awake.
+- Mobile Connect says where a phone with the web app is: Profile > Account sessions. Before, the
+  phone list stayed empty, and the phone seemed not to be paired.
+- The settings search finds Publish this server with "publish" and "remote access".
 - **Install this version on the computer that phones connect to.**
 
 ### Security

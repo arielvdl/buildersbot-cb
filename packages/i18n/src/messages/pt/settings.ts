@@ -269,11 +269,12 @@ export const messages = {
   "settings.disconnect.action": "Desconectar",
   "settings.disconnect.pending": "Desconectando…",
   "settings.mobileConnect.phones.title": "Seus celulares",
-  "settings.mobileConnect.phones.description": "Celulares que usam o Builders Bot com esta conta.",
+  "settings.mobileConnect.phones.description":
+    "Celulares com o app de celular anterior do Builders Bot e esta conta. Um celular com o web app aparece em Perfil > Sessões da conta.",
   "settings.mobileConnect.phones.add": "Adicionar celular",
   "settings.mobileConnect.phones.empty.title": "Nenhum celular ainda",
   "settings.mobileConnect.phones.empty.description":
-    "Converse com seus agentes e acompanhe o trabalho deles pelo celular.",
+    "Converse com seus agentes e acompanhe o trabalho deles pelo celular. Um celular com o web app aparece em Perfil > Sessões da conta.",
   "settings.mobileConnect.devices.lastActive": "Última atividade: {time}",
   "settings.mobileConnect.add.title": "Adicionar um celular",
   "settings.mobileConnect.add.webApp.question": "O Builders Bot já está na tela de início do celular?",

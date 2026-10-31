@@ -218,16 +218,23 @@ Play link or QR code.
   whether the server of this computer is published (`MobileConnectReachNotice`), and **Publish this
   server** publishes it as the Members switch of Server settings does. Publishing waits for that
   click, because the members of the server can then connect to it. The phone connects to the computer
-  directly, so the computer must stay on and awake.
+  directly, so the computer must stay on and awake; the published notice says so.
+- The notice has four states (`MobileConnectReach`, set in `WorkspaceOverlays.tsx`): online,
+  starting, disconnected (published with `enabledOnLaunch`, but not online, such as after a Signal
+  failure at wake; the launch publish retry publishes it again) and offline (not published).
+  Disconnected and offline show the last failure of the host. The settings search finds the notice
+  as `settings.mobileConnect.reach.publish`.
 - The web client sends `X-OpenBot-Browser`, `X-OpenBot-Install` and `X-OpenBot-Install-Label`, and
   the host sends `X-OpenBot-WebRTC-Session` and the `OpenBot-*` Team API headers. These names keep the
   upstream spelling: a header name cannot hold a space. The rename of 28 October put the space of
   "Builders Bot" into these names, and `fetch` refuses such a name before it sends the request. That
   stopped the sign-in on the phone and each phone request on the host. `scripts/builders-bot-rename.pl`
-  keeps these names, and the Biome rule `no-spaced-header-names` (`tools/biome/anti-slop/rules`)
-  rejects a header name with a space in a `headers` object, in `headers.get` and in a `*_HEADER`
-  constant. `scripts/phone-web-app-flow.test.ts` checks each header name of the code with `Headers`,
-  and checks that no deployed account service returns the sign-in code in its answer.
+  keeps `X-OpenBot-*` and a closed list of published `OpenBot-*` names, and renames other quoted
+  text, such as German prose. The phone flow test runs it on each header name of the code. The Biome
+  rule `no-spaced-header-names` (`tools/biome/anti-slop/rules`) rejects a header name with a space in
+  a `headers` object, in `headers.get` and in a `*_HEADER` constant.
+  `scripts/phone-web-app-flow.test.ts` checks each header name of the code with `Headers`, and checks
+  that no deployed account service returns the sign-in code in its answer.
 - Such a phone is an account session of the web client. The desktop shows it in **Settings >
   Profile > Account sessions**, not in the phone list of Mobile Connect, which lists the sessions of
   the earlier phone app.

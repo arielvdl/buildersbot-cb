@@ -291,10 +291,12 @@ export const messages = defineMessages("settings", {
   "settings.disconnect.pending": "Disconnecting…",
   // The Mobile Connect tab.
   "settings.mobileConnect.phones.title": "Your phones",
-  "settings.mobileConnect.phones.description": "Phones that use Builders Bot with this account.",
+  "settings.mobileConnect.phones.description":
+    "Phones with the earlier Builders Bot phone app and this account. A phone with the web app is in Profile > Account sessions.",
   "settings.mobileConnect.phones.add": "Add phone",
   "settings.mobileConnect.phones.empty.title": "No phones yet",
-  "settings.mobileConnect.phones.empty.description": "Chat with your agents and follow their work from your phone.",
+  "settings.mobileConnect.phones.empty.description":
+    "Chat with your agents and follow their work from your phone. A phone with the web app is in Profile > Account sessions.",
   // {time} is "Just now", "5m ago", "2h ago" or a date.
   "settings.mobileConnect.devices.lastActive": "Last active: {time}",
   "settings.mobileConnect.add.title": "Add a phone",
