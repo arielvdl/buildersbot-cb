@@ -90,7 +90,12 @@ function writeCachedProfile(entry: CachedProfile | null): void {
 }
 
 const [showAll, setShowAllSignal] = createSignal(readShowAll());
-const [cachedProfile, setCachedProfile] = createSignal<CachedProfile | null>(readCachedProfile());
+/**
+ * The cache entry as this page last wrote or read it. `receiveAppProfile` reads this value, not the
+ * signal: Solid can give the older signal value until it flushes a write.
+ */
+let keptEntry = readCachedProfile();
+const [cachedProfile, setCachedProfile] = createSignal<CachedProfile | null>(keptEntry);
 /**
  * The hash of the account that the last answer to this page named. Null until the first answer, so
  * the cached profile waits until an answer names its account.
@@ -99,7 +104,10 @@ const [answeredAccount, setAnsweredAccount] = createSignal<string | null>(null);
 
 function readStorageIntoSignals(event: StorageEvent): void {
   if (event.key === null || event.key === SHOW_ALL_STORAGE_KEY) setShowAllSignal(readShowAll());
-  if (event.key === null || event.key === PROFILE_STORAGE_KEY) setCachedProfile(readCachedProfile());
+  if (event.key === null || event.key === PROFILE_STORAGE_KEY) {
+    keptEntry = readCachedProfile();
+    setCachedProfile(keptEntry);
+  }
 }
 
 if (typeof window !== "undefined") {
@@ -112,6 +120,7 @@ if (typeof window !== "undefined") {
 }
 
 function setProfile(entry: CachedProfile | null): void {
+  keptEntry = entry;
   writeCachedProfile(entry);
   setCachedProfile(entry);
 }
@@ -147,7 +156,7 @@ export function receiveAppProfile(answer: AppProfileAnswer): void {
     return;
   }
   if (answer.kind === "unreachable") {
-    if (cachedProfile()?.account !== account) setProfile(null);
+    if (keptEntry?.account !== account) setProfile(null);
     return;
   }
   const profile = decodeAppProfile(answer.value);
