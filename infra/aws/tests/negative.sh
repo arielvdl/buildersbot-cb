@@ -266,6 +266,44 @@ expect_calls "C14 proteção liga só TerminationProtection e ImageTag, sobre o 
   env FAKE_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE" FAKE_PARAM_KEYS="Sector Size AmiId TerminationProtection ImageTag" \
   bash -c 'source "$0/scripts/lib.sh"; protect_sector piloto "$1"' "$ROOT" "$TAG"
 
+# ---------------------------------------------------------------- C: change set cancelado ou falho (achado 6)
+# O create-change-set é simulado (nada vai para a AWS) para chegar à confirmação; o delete-change-set
+# e o delete-stack que vêm depois são escritas, recusadas e anotadas pelo aws falso.
+h_changeset() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "cloudformation create-change-set") echo "arn:aws:cloudformation:us-east-1:358748433479:changeSet/x/y" ;;
+    "cloudformation wait") [ "${FAKE_CS_FAILS:-0}" = 0 ] ;;
+    "cloudformation describe-change-set")
+      case "$*" in *StatusReason*) echo "Template format error: teste" ;; *) echo "Add Volume AWS::EC2::Volume None" ;; esac ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_changeset
+expect_calls "C6 confirmação recusada numa criação apaga o change set e a stack vazia (REVIEW_IN_PROGRESS)" \
+  'WRITE cloudformation delete-stack --stack-name bb-srv-piloto-data' 'execute-change-set' h_changeset \
+  env FAKE_AWS_SIMULATE="cloudformation create-change-set" FAKE_STACKS="bb-srv-piloto-data=REVIEW_IN_PROGRESS" \
+  bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-data "$0/templates/sector-data.yaml" piloto' "$ROOT"
+expect_calls "C6 change set falho numa criação também apaga a stack vazia" \
+  'WRITE cloudformation delete-stack --stack-name bb-srv-piloto-data' 'execute-change-set' h_changeset \
+  env FAKE_AWS_SIMULATE="cloudformation create-change-set" FAKE_CS_FAILS=1 FAKE_STACKS="bb-srv-piloto-data=REVIEW_IN_PROGRESS" \
+  bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-data "$0/templates/sector-data.yaml" piloto' "$ROOT"
+expect_calls "C6 confirmação recusada numa atualização apaga só o change set" \
+  'WRITE cloudformation delete-change-set --stack-name bb-srv-piloto-data' 'execute-change-set|delete-stack' h_changeset \
+  env FAKE_AWS_SIMULATE="cloudformation create-change-set" FAKE_STACKS="bb-srv-piloto-data=CREATE_COMPLETE" \
+  bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-data "$0/templates/sector-data.yaml" piloto' "$ROOT"
+expect_refusal "C6 update_parameters recusa lista de parâmetros vazia (não aplica os padrões)" "voltou vazia" h_changeset \
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE" FAKE_PARAM_KEYS="" bash -c 'source "$0/scripts/lib.sh"; update_parameters bb-srv-base shared ProjectBudgetUsd=110' "$ROOT"
+expect_success "C6 sync_project_budget não mexe no budget se a soma falha (list-stacks ilegível)" "não consegui somar" h_changeset \
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE" bash -c 'source "$0/scripts/lib.sh"; sync_project_budget' "$ROOT"
+expect_calls "C6 remove-sector apaga as stacks vazias de um setor cancelado, sem snapshot" \
+  'WRITE cloudformation delete-stack --stack-name bb-srv-piloto-compute' 'create-snapshot|describe-volumes' h_changeset \
+  env FAKE_STACKS="bb-srv-piloto-compute=REVIEW_IN_PROGRESS bb-srv-piloto-data=REVIEW_IN_PROGRESS" \
+  bash scripts/remove-sector.sh piloto --app-removed --yes
+expect_calls "C6 ssm_run para logo quando o send-command falha (sem esperar o timeout)" \
+  'WRITE ssm send-command' 'get-command-invocation' h_changeset \
+  bash -c 'source "$0/scripts/lib.sh"; ssm_run i-0123456789abcdef0 bb-srv-Status "{}" 30' "$ROOT"
+
 # ---------------------------------------------------------------- C: retomar o add-sector (achado 15)
 h_sector() {
   case "$1 $2" in
@@ -289,6 +327,8 @@ expect_refusal "C15 --resume não troca o tamanho" "não troca o tamanho" h_sect
 expect_refusal "C15 --resume não combina com --from-snapshot" "não combina" h_sector \
   sector_env bash scripts/add-sector.sh piloto --resume --from-snapshot snap-0123456789abcdef0
 EXTRA_STACKS='' expect_refusal "C15 --resume sem a stack -compute pede o fluxo normal" "rode sem --resume" h_sector \
+  sector_env bash scripts/add-sector.sh piloto --resume
+EXTRA_STACKS="bb-srv-piloto-compute=REVIEW_IN_PROGRESS" expect_refusal "C6 stack -compute vazia (REVIEW_IN_PROGRESS) conta como inexistente" "rode sem --resume" h_sector \
   sector_env bash scripts/add-sector.sh piloto --resume
 
 # ---------------------------------------------------------------- C: nome do servidor no login (achado 23)

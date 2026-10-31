@@ -5,7 +5,8 @@
 #      VM parada (setor em horário comercial), liga a VM para isso; sem logout confirmado, só segue
 #      com uma confirmação digitada (a sessão fica no snapshot e volta numa restauração);
 #   3. para a VM e TIRA UM SNAPSHOT do volume de dados (espera ficar completo);
-#   4. apaga a stack -compute e depois a -data (que ainda deixa o snapshot final da DeletionPolicy);
+#   4. apaga a stack -compute e depois a -data (que ainda deixa o snapshot final da DeletionPolicy).
+#      Stacks sem recursos (criação cancelada em REVIEW_IN_PROGRESS, ou desfeita) só saem, sem snapshot;
 #   5. grava /bb-srv/sectors/<setor>/final-snapshot, ajusta o budget do projeto e mostra como recriar.
 #
 # Uso: scripts/remove-sector.sh <setor> [--keep-days 180] [--app-removed] [--keep-registration] [--yes]
@@ -18,7 +19,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,16p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,17p' "$0"; exit 1; }
 shift
 keep_days=180
 app_removed=0
@@ -38,18 +39,30 @@ valid_sector "$sector"
 bb_check_access --writes
 compute_stack="bb-srv-$sector-compute"
 data_stack="bb-srv-$sector-data"
-volume=$(sector_volume "$sector")
+volume=''
 instance=''
+# Sem recursos: REVIEW_IN_PROGRESS (criação cancelada) e ROLLBACK_COMPLETE (criação desfeita) só saem.
+data_status=$(stack_status "$data_stack")
+case $data_status in
+  NONE) ;;
+  REVIEW_IN_PROGRESS | ROLLBACK_COMPLETE) say "   $data_stack está em $data_status (sem volume): ela também sai." ;;
+  *_IN_PROGRESS) die "a stack $data_stack está em $data_status. Espere terminar." ;;
+  *_FAILED) stack_failures "$data_stack"; die "$(stack_recovery_help "$data_stack" "$data_status")" ;;
+  *) volume=$(sector_volume "$sector") ;;
+esac
 compute_status=$(stack_status "$compute_stack")
 case $compute_status in
   NONE) ;;
-  ROLLBACK_COMPLETE) say "   $compute_stack está em ROLLBACK_COMPLETE (a criação falhou; não há VM): ela também sai." ;;
+  REVIEW_IN_PROGRESS | ROLLBACK_COMPLETE) say "   $compute_stack está em $compute_status (a criação não chegou ao fim; não há VM): ela também sai." ;;
   *_IN_PROGRESS) die "a stack $compute_stack está em $compute_status. Espere terminar." ;;
   *_FAILED) stack_failures "$compute_stack"; die "$(stack_recovery_help "$compute_stack" "$compute_status")" ;;
   *) instance=$(sector_instance "$sector") ;;
 esac
+[ "$compute_status" != NONE ] || [ "$data_status" != NONE ] || die "o setor $sector não existe (sem $compute_stack nem $data_stack)."
+[ -n "$volume" ] || [ -z "$instance" ] ||
+  die "a VM $instance existe, mas $data_stack não tem volume: inspecione (scripts/status.sh $sector) antes de remover."
 
-say "== remover o setor $sector: instância ${instance:-nenhuma}, volume $volume"
+say "== remover o setor $sector: instância ${instance:-nenhuma}, volume ${volume:-nenhum}"
 say "   O snapshot fica guardado; depois de $keep_days dias (tag ExpiresAt) o scripts/gc-snapshots.sh pode apagá-lo. Os alarmes, logs e o budget do setor saem com a stack."
 if [ "$app_removed" != 1 ]; then
   say "   Antes: a conta dona do setor remove o servidor no app (Configurações do servidor -> Remover)."
@@ -64,6 +77,7 @@ without_logout() { # <motivo>
 }
 
 if [ -n "$instance" ]; then
+  started=0
   state=$(aws_cb ec2 describe-instances --instance-ids "$instance" --query 'Reservations[0].Instances[0].State.Name' --output text)
   case $state in
     pending) aws_cb ec2 wait instance-running --instance-ids "$instance"; state=running ;;
@@ -72,11 +86,13 @@ if [ -n "$instance" ]; then
   if [ "$state" = stopped ] && [ "$logout" = true ]; then
     # O logout precisa do container no ar: sem ele, a sessão da conta dona fica no /data do snapshot.
     say "== a VM está parada: ligando para encerrar a sessão da conta dona antes do snapshot"
-    if aws_cb ec2 start-instances --instance-ids "$instance" >/dev/null &&
-      aws_cb ec2 wait instance-running --instance-ids "$instance" && wait_ssm_online "$instance" 900; then
+    if aws_cb ec2 start-instances --instance-ids "$instance" >/dev/null; then started=1; fi
+    if [ "$started" = 1 ] && aws_cb ec2 wait instance-running --instance-ids "$instance" && wait_ssm_online "$instance" 900; then
       state=running
     else
       without_logout "não consegui ligar a VM $instance ou ela não ficou Online no SSM."
+      # Ligada por este script sem SSM: tem de parar antes do snapshot.
+      [ "$started" = 0 ] || aws_cb ec2 stop-instances --instance-ids "$instance" >/dev/null
     fi
   fi
   if [ "$state" = running ]; then
@@ -95,11 +111,14 @@ if [ -n "$instance" ]; then
   say "   instância $instance parada."
 fi
 
-say "== snapshot do volume $volume antes de apagar qualquer coisa"
-snapshot=$(snapshot_volume "$sector" "$volume" pre-remove "$keep_days")
-aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/final-snapshot" --type String --overwrite \
-  --value "$snapshot" --description "Snapshot final do setor $sector (removido em $(date -u +%F))" >/dev/null
-say "   snapshot $snapshot completo e gravado em /bb-srv/sectors/$sector/final-snapshot."
+snapshot=''
+if [ -n "$volume" ]; then
+  say "== snapshot do volume $volume antes de apagar qualquer coisa"
+  snapshot=$(snapshot_volume "$sector" "$volume" pre-remove "$keep_days")
+  aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/final-snapshot" --type String --overwrite \
+    --value "$snapshot" --description "Snapshot final do setor $sector (removido em $(date -u +%F))" >/dev/null
+  say "   snapshot $snapshot completo e gravado em /bb-srv/sectors/$sector/final-snapshot."
+fi
 
 if [ "$compute_status" != NONE ]; then
   [ -z "$instance" ] || aws_cb ec2 modify-instance-attribute --instance-id "$instance" --no-disable-api-termination
@@ -107,25 +126,33 @@ if [ "$compute_status" != NONE ]; then
   aws_cb cloudformation delete-stack --stack-name "$compute_stack"
   if ! aws_cb cloudformation wait stack-delete-complete --stack-name "$compute_stack"; then
     stack_failures "$compute_stack"
-    die "a remoção de $compute_stack falhou. O snapshot $snapshot está seguro. $(stack_recovery_help "$compute_stack" "$(stack_status "$compute_stack")")"
+    die "a remoção de $compute_stack falhou. ${snapshot:+O snapshot $snapshot está seguro. }$(stack_recovery_help "$compute_stack" "$(stack_status "$compute_stack")")"
   fi
 fi
-say "== apagando $data_stack (a DeletionPolicy ainda faz um snapshot final)"
-aws_cb cloudformation delete-stack --stack-name "$data_stack"
-if ! aws_cb cloudformation wait stack-delete-complete --stack-name "$data_stack"; then
-  stack_failures "$data_stack"
-  die "a remoção de $data_stack falhou. O snapshot $snapshot está seguro. $(stack_recovery_help "$data_stack" "$(stack_status "$data_stack")")"
+if [ "$data_status" != NONE ]; then
+  say "== apagando $data_stack${volume:+ (a DeletionPolicy ainda faz um snapshot final)}"
+  aws_cb cloudformation delete-stack --stack-name "$data_stack"
+  if ! aws_cb cloudformation wait stack-delete-complete --stack-name "$data_stack"; then
+    stack_failures "$data_stack"
+    die "a remoção de $data_stack falhou. ${snapshot:+O snapshot $snapshot está seguro. }$(stack_recovery_help "$data_stack" "$(stack_status "$data_stack")")"
+  fi
 fi
 
-# Marca o snapshot da DeletionPolicy com o setor e o prazo, para a regra de restauração e a limpeza.
-for extra in $(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=volume-id,Values=$volume" \
-  --query "Snapshots[?SnapshotId!='$snapshot' && !(Tags[?Key=='Sector'])].SnapshotId" --output text); do
-  aws_cb ec2 create-tags --resources "$extra" --tags "Key=Sector,Value=$sector" "Key=CostCenter,Value=$sector" \
-    "Key=Project,Value=$BB_PROJECT" "Key=Purpose,Value=final" "Key=ExpiresAt,Value=$(date_plus_days "$keep_days")"
-done
+if [ -n "$volume" ]; then
+  # Marca o snapshot da DeletionPolicy com o setor e o prazo, para a regra de restauração e a limpeza.
+  for extra in $(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=volume-id,Values=$volume" \
+    --query "Snapshots[?SnapshotId!='$snapshot' && !(Tags[?Key=='Sector'])].SnapshotId" --output text); do
+    aws_cb ec2 create-tags --resources "$extra" --tags "Key=Sector,Value=$sector" "Key=CostCenter,Value=$sector" \
+      "Key=Project,Value=$BB_PROJECT" "Key=Purpose,Value=final" "Key=ExpiresAt,Value=$(date_plus_days "$keep_days")"
+  done
+fi
 
 sync_project_budget
 
+if [ -z "$snapshot" ]; then
+  say "== Setor $sector removido (não havia volume de dados: nenhum snapshot)."
+  exit 0
+fi
 cat <<EOF
 
 == Setor $sector removido. Dados no snapshot $snapshot (guardado; o scripts/gc-snapshots.sh pode

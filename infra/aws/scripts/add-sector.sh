@@ -90,6 +90,9 @@ require_stack bb-srv-ops "Rode scripts/deploy-base.sh antes."
 data_stack="bb-srv-$sector-data"
 compute_stack="bb-srv-$sector-compute"
 compute_status=$(stack_status "$compute_stack")
+# Uma criação cancelada pode ter deixado a stack vazia em REVIEW_IN_PROGRESS (sem recursos): para este
+# script ela não existe, e o deploy_stack cria sobre ela.
+[ "$compute_status" != REVIEW_IN_PROGRESS ] || compute_status=NONE
 install=1
 mode=''
 
@@ -136,6 +139,7 @@ else
     die "o setor $sector já existe ($compute_stack: $compute_status). Se a instalação falhou ou não terminou: scripts/add-sector.sh $sector --resume. Para trocar a VM: README, seção 11 ('VM com defeito'). Estado: scripts/status.sh $sector."
   fi
   data_status=$(stack_status "$data_stack")
+  [ "$data_status" != REVIEW_IN_PROGRESS ] || data_status=NONE
   [ "$reattach" = 0 ] || require_stack "$data_stack" "--reattach precisa do volume de dados do setor."
   if [ -n "$from_snapshot" ]; then
     [ "$data_status" = NONE ] || die "$data_stack já existe: uma restauração recria o volume. Remova o setor antes."

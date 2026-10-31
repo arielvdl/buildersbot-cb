@@ -60,13 +60,18 @@ date_minus_days() {
   date -u -v-"$1"d +%F 2>/dev/null || date -u -d "-$1 days" +%F
 }
 
-confirm() { # <pergunta> <resposta esperada>
+# Pergunta e volta 0 só com a resposta exata; volta 1 (sem sair) com outra resposta ou sem terminal.
+ask() { # <pergunta> <resposta esperada>
   if [ "${BB_SRV_YES:-0}" = 1 ]; then return 0; fi
-  [ -t 0 ] || die "a confirmação precisa de um terminal (ou use --yes)."
-  local answer
+  [ -t 0 ] || { warn "a confirmação precisa de um terminal (ou use --yes)."; return 1; }
+  local answer=''
   printf '%s ' "$1" >&2
-  read -r answer
-  [ "$answer" = "$2" ] || die "cancelado."
+  read -r answer || return 1
+  [ "$answer" = "$2" ]
+}
+
+confirm() { # <pergunta> <resposta esperada>
+  ask "$1" "$2" || die "cancelado."
 }
 
 stack_status() {
@@ -131,11 +136,29 @@ stack_recovery_help() { # <stack> <status>
   esac
 }
 
+# Apaga uma stack sem recursos (REVIEW_IN_PROGRESS: só teve change sets de criação não executados).
+drop_empty_stack() { # <stack>
+  say "   apagando a stack vazia $1 (REVIEW_IN_PROGRESS, sem recursos)"
+  aws_cb cloudformation delete-stack --stack-name "$1" &&
+    aws_cb cloudformation wait stack-delete-complete --stack-name "$1"
+}
+
+# Um change set que não vai ser executado sai, e numa criação também a stack vazia que ele deixou em
+# REVIEW_IN_PROGRESS: sem isso, add-sector.sh e remove-sector.sh não conseguem seguir nem remover.
+discard_change_set() { # <stack> <change set> <CREATE|UPDATE>
+  aws_cb cloudformation delete-change-set --stack-name "$1" --change-set-name "$2" >/dev/null 2>&1 ||
+    warn "não consegui apagar o change set $2 de $1."
+  if [ "$3" = CREATE ] && [ "$(stack_status "$1")" = REVIEW_IN_PROGRESS ]; then
+    drop_empty_stack "$1" || warn "não consegui apagar a stack vazia $1: aws --profile $BB_PROFILE --region $BB_REGION cloudformation delete-stack --stack-name $1"
+  fi
+}
+
 # Cria um change set, mostra, recusa numa atualização a substituição ou remoção de instância, volume
 # ou anexo (DESIGN R2-1) e da zona DNS, do ECR e dos buckets (nomes fixos, dados que não voltam, NS já
 # delegados no Cloudflare), pede confirmação e executa. Parâmetros: ParameterKey=K,ParameterValue=V
 # ou ParameterKey=K,UsePreviousValue=true. Template @previous = o template já implantado (só troca
-# parâmetros; o arquivo local não entra).
+# parâmetros; o arquivo local não entra). Um change set falho, recusado ou não confirmado é apagado
+# (discard_change_set), com a stack vazia de uma criação.
 deploy_stack() { # <stack> <template|@previous> <setor-para-tags> [parâmetros...]
   local stack=$1 template=$2 sector=$3 status type name reason risky after
   shift 3
@@ -164,19 +187,25 @@ deploy_stack() { # <stack> <template|@previous> <setor-para-tags> [parâmetros..
         return 0
         ;;
     esac
+    discard_change_set "$stack" "$name" "$type"
     die "o change set de $stack falhou: $reason"
   fi
   aws_cb cloudformation describe-change-set --stack-name "$stack" --change-set-name "$name" \
-    --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType,Replacement]' --output table
+    --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType,Replacement]' --output table ||
+    { discard_change_set "$stack" "$name" "$type"; die "não consegui ler o change set $name de $stack."; }
   if [ "$type" = UPDATE ]; then
     risky=$(aws_cb cloudformation describe-change-set --stack-name "$stack" --change-set-name "$name" --output text \
-      --query "Changes[?(ResourceChange.ResourceType=='AWS::EC2::Instance' || ResourceChange.ResourceType=='AWS::EC2::Volume' || ResourceChange.ResourceType=='AWS::EC2::VolumeAttachment' || ResourceChange.ResourceType=='AWS::Route53::HostedZone' || ResourceChange.ResourceType=='AWS::ECR::Repository' || ResourceChange.ResourceType=='AWS::S3::Bucket') && (ResourceChange.Action=='Remove' || (ResourceChange.Action=='Modify' && ResourceChange.Replacement!='False'))].ResourceChange.LogicalResourceId")
+      --query "Changes[?(ResourceChange.ResourceType=='AWS::EC2::Instance' || ResourceChange.ResourceType=='AWS::EC2::Volume' || ResourceChange.ResourceType=='AWS::EC2::VolumeAttachment' || ResourceChange.ResourceType=='AWS::Route53::HostedZone' || ResourceChange.ResourceType=='AWS::ECR::Repository' || ResourceChange.ResourceType=='AWS::S3::Bucket') && (ResourceChange.Action=='Remove' || (ResourceChange.Action=='Modify' && ResourceChange.Replacement!='False'))].ResourceChange.LogicalResourceId") ||
+      { discard_change_set "$stack" "$name" "$type"; die "não consegui ler o change set $name de $stack: recusado sem a checagem de substituição."; }
     if [ -n "$risky" ] && [ "$risky" != None ]; then
-      aws_cb cloudformation delete-change-set --stack-name "$stack" --change-set-name "$name" >/dev/null || true
+      discard_change_set "$stack" "$name" "$type"
       die "recusado: este change set substitui ou remove $risky. VM, volume ou anexo: use o fluxo de troca de VM do README (seção 11). Zona DNS, ECR ou bucket: isso não se faz por atualização de stack (README, seção 11, 'Desfazer tudo')."
     fi
   fi
-  confirm "Executar o change set $name em $stack? Digite 'sim':" sim
+  if ! ask "Executar o change set $name em $stack? Digite 'sim':" sim; then
+    discard_change_set "$stack" "$name" "$type"
+    die "cancelado: o change set $name de $stack foi apagado e nada mudou."
+  fi
   aws_cb cloudformation execute-change-set --stack-name "$stack" --change-set-name "$name"
   if [ "$type" = CREATE ]; then
     if ! aws_cb cloudformation wait stack-create-complete --stack-name "$stack"; then
@@ -210,10 +239,15 @@ image_tag_of() { # <sha256:...> <arm64|amd64>
 # Troca só os parâmetros dados de uma stack, sobre o template já implantado; os outros ficam como
 # estão (UsePreviousValue). Mostra o change set e pede confirmação como o deploy_stack.
 update_parameters() { # <stack> <setor-para-tags> <Chave=Valor>...
-  local stack=$1 sector=$2 key pair changed
+  local stack=$1 sector=$2 key pair changed keys
   shift 2
   local -a stack_params=()
-  for key in $(aws_cb cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].Parameters[].ParameterKey' --output text); do
+  # Sem a lista completa, o change set aplicaria o valor PADRÃO a todo parâmetro que faltasse (por
+  # exemplo AlertEmail vazio): uma leitura que falha ou volta vazia para tudo.
+  keys=$(aws_cb cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].Parameters[].ParameterKey' --output text) ||
+    die "não consegui ler os parâmetros de $stack."
+  [ -n "$keys" ] && [ "$keys" != None ] || die "a leitura dos parâmetros de $stack voltou vazia: recusado, para não aplicar os valores padrão."
+  for key in $keys; do
     changed=0
     for pair in "$@"; do [ "${pair%%=*}" != "$key" ] || changed=1; done
     [ "$changed" = 1 ] || stack_params+=("ParameterKey=$key,UsePreviousValue=true")
@@ -227,29 +261,40 @@ protect_sector() { # <setor> <tag da imagem em uso ou none>
   update_parameters "bb-srv-$1-compute" "$1" TerminationProtection=true "ImageTag=$2"
 }
 
-# Budget do projeto = soma dos budgets dos setores + 30 (o fixo compartilhado, ~23,41, com folga).
+# Budget do projeto = soma dos budgets dos setores + 30 (o fixo compartilhado, ~23,85, com folga).
 # Roda no fim do add-sector.sh e do remove-sector.sh; uma falha só avisa (o setor já está pronto).
+# Qualquer leitura que falhe faz a soma falhar (uma soma parcial baixaria o budget).
 project_budget_target() {
-  local total=30 stack value
-  for stack in $(aws_cb cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE \
-    --query "StackSummaries[?starts_with(StackName,'bb-srv-') && ends_with(StackName,'-compute')].StackName" --output text); do
-    value=$(stack_parameter "$stack" BudgetUsd)
-    if [[ $value =~ ^[0-9]+$ ]]; then total=$((total + value)); fi
+  local total=30 stacks stack value
+  stacks=$(aws_cb cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE \
+    --query "StackSummaries[?starts_with(StackName,'bb-srv-') && ends_with(StackName,'-compute')].StackName" --output text) || return 1
+  for stack in $stacks; do
+    value=$(stack_parameter "$stack" BudgetUsd) || return 1
+    [[ $value =~ ^[0-9]+$ ]] || return 1
+    total=$((total + value))
   done
   printf '%s\n' "$total"
 }
 
 sync_project_budget() {
-  local target current
-  target=$(project_budget_target)
-  current=$(stack_parameter bb-srv-base ProjectBudgetUsd)
+  local target current rc
+  target=$(project_budget_target) || { warn "não consegui somar os budgets dos setores: o budget do projeto ficou como estava (scripts/deploy-base.sh --project-budget-usd N)."; return 0; }
+  current=$(stack_parameter bb-srv-base ProjectBudgetUsd) || { warn "não consegui ler o budget do projeto: ficou como estava."; return 0; }
   if [ "$target" = "$current" ]; then
     say "   budget do projeto já está em US\$ $target."
     return 0
   fi
   say "== budget do projeto: US\$ $current -> $target (soma dos budgets dos setores + 30)"
-  ( update_parameters bb-srv-base shared "ProjectBudgetUsd=$target" ) ||
-    warn "não atualizei o budget do projeto. Faça depois: scripts/deploy-base.sh --project-budget-usd $target"
+  # Num subshell do lado esquerdo de `||` o set -e fica desligado (até o die dos comandos sem checagem
+  # deixaria de valer): o subshell roda como comando simples, com set -e, e o retorno é lido depois.
+  set +e
+  (
+    set -e
+    update_parameters bb-srv-base shared "ProjectBudgetUsd=$target"
+  )
+  rc=$?
+  set -e
+  [ "$rc" = 0 ] || warn "não atualizei o budget do projeto. Faça depois: scripts/deploy-base.sh --project-budget-usd $target"
 }
 
 # Roda um documento SSM numa instância e espera o fim. Mostra a saída (as últimas 60 linhas) e a
@@ -262,7 +307,10 @@ ssm_run() { # <instância> <documento> <parâmetros-json> <timeout-s> [log group
   if [ -n "$group" ]; then
     args+=(--cloud-watch-output-config "CloudWatchOutputEnabled=true,CloudWatchLogGroupName=$group")
   fi
-  id=$(aws_cb ssm send-command "${args[@]}")
+  # Chamado dentro de `||`/`if` (set -e desligado): sem isto, um send-command recusado esperaria o
+  # timeout inteiro consultando um comando vazio.
+  id=$(aws_cb ssm send-command "${args[@]}") || { warn "send-command de $document em $instance falhou."; return 1; }
+  [[ $id =~ ^[0-9a-f-]{36}$ ]] || { warn "id de comando inválido de $document: $id"; return 1; }
   say "   $document em $instance: comando $id"
   while :; do
     sleep 10
