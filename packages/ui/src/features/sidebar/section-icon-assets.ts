@@ -14,7 +14,7 @@ import {
   sectionIconEntries,
 } from "./section-icon-search";
 
-type GlyphIcon = typeof import("./section-icon-library")["SECTION_ICON_COMPONENTS"][SidebarSectionGlyph];
+type GlyphIcon = typeof import("../../section-icon-library")["SECTION_ICON_COMPONENTS"][SidebarSectionGlyph];
 
 interface SectionIconLibrary {
   entries: readonly SectionIconEntry[];
@@ -49,11 +49,12 @@ export function loadSectionIconLibrary(): void {
   if (libraryLoad !== "idle") return;
   libraryLoad = "loading";
   setLibraryState("loading");
-  import("./section-icon-library").then(
-    (module) => {
+  // The drawings are in the primitive layer, which alone imports `lucide-solid`; the names are here.
+  Promise.all([import("../../section-icon-library"), import("./section-icon-library-data")]).then(
+    ([drawings, names]) => {
       const value: SectionIconLibrary = {
-        entries: sectionIconEntries(module.SECTION_ICON_LIBRARY_DATA),
-        icons: module.SECTION_ICON_COMPONENTS,
+        entries: sectionIconEntries(names.SECTION_ICON_LIBRARY_DATA),
+        icons: drawings.SECTION_ICON_COMPONENTS,
       };
       libraryLoad = "ready";
       setLibrary(() => value);

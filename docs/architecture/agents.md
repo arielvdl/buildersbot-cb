@@ -762,7 +762,8 @@ editor, which saves the `set-section-icon` action. Its tabs are Letters, Icon, E
 The Icon tab is a library of 434 `lucide-solid` icons, which the app already has. The table keeps
 the 24 glyphs of the first editor first, and their names; each other name is the Lucide name. A name
 in the table stays: a removed name makes each saved icon with it invalid. The rail draws the 24 first
-glyphs at once; the other drawings (`section-icon-library.ts`) and their English and Portuguese names
+glyphs at once; the other drawings (`packages/ui/src/section-icon-library.ts`, in the primitive layer
+because only that layer imports `lucide-solid`) and their English and Portuguese names
 and keywords (`section-icon-library-data.ts`) load with `import()` the first time the editor or a rail
 mark needs them. The Emoji tab lists 1,906 emoji of Emoji 16.0 and before in nine categories, drawn in
 the system emoji font. Its names and keywords in English and Portuguese come from emojibase-data 17.0.0

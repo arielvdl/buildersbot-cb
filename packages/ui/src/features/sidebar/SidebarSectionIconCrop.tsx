@@ -19,7 +19,7 @@ import {
   sectionIconMaxZoom,
   zoomSectionIconCrop,
 } from "./section-icon-crop";
-import type { SectionIconBackground } from "./section-icon-image";
+import { SECTION_ICON_FILLS, type SectionIconBackground } from "./section-icon-image";
 
 /** The side of the editor frame, in pixels. The crop is in these pixels. */
 export const SECTION_ICON_CROP_FRAME = 200;
@@ -44,7 +44,13 @@ export function SectionIconCropImage(props: {
 }) {
   const rect = () => sectionIconDrawRect(props.crop, props.size, SECTION_ICON_CROP_FRAME, 100);
   return (
-    <span class="section-icon-crop-canvas" data-background={props.background} aria-hidden="true">
+    <span
+      class="section-icon-crop-canvas"
+      data-background={props.background}
+      // A fill of the saved image is a fixed color, so the preview takes it from the same table.
+      style={props.background === "transparent" ? undefined : { background: SECTION_ICON_FILLS[props.background] }}
+      aria-hidden="true"
+    >
       <img
         class="section-icon-crop-image"
         src={props.url}

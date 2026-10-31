@@ -1,7 +1,10 @@
 /**
  * The drawing of each glyph of the section icon library. Each one is an icon of `lucide-solid`, which
  * the app already has, so the library adds no package. The editor and the section rail load this
- * module with `import()` when they need it, so it does not add to the start of the app.
+ * module with `import()` when they need it (`features/sidebar/section-icon-assets.ts`), so it does not
+ * add to the start of the app. It is an icon set, as `icons.ts` is, so it is in the primitive layer:
+ * only that layer imports `lucide-solid`. The names and the search words are in
+ * `features/sidebar/section-icon-library-data.ts`, which loads at the same time.
  */
 
 import type { SidebarSectionGlyph } from "@openbot/contracts/ipc";
@@ -878,5 +881,3 @@ export const SECTION_ICON_COMPONENTS = {
   "life-buoy": LifeBuoyIcon,
   "circle-parking": CircleParkingIcon,
 } as const satisfies Record<SidebarSectionGlyph, GlyphIcon>;
-
-export { SECTION_ICON_LIBRARY_DATA } from "./section-icon-library-data";

@@ -4,9 +4,11 @@
  * The user opens the tabs with a click on the avatar of the row or on the bar; the pointer over the
  * row opens nothing. The row lists at most `SIDEBAR_CHAT_TABS_LIMIT` tabs. The tab that was open keeps
  * a mark and `aria-current`, so the row never falls back to the first tab. The bar and the tabs sit
- * outside the row button, because a button cannot hold another one.
+ * outside the row button, because a button cannot hold another one. Both are `Button`s with their own
+ * drawing and no tap cue, as they had as plain buttons.
  */
 
+import { Button } from "@openbot/ui";
 import { For, Show } from "solid-js";
 import { useText } from "../../text";
 import { useSidebarScope } from "./sidebar-scope";
@@ -35,8 +37,9 @@ export function SidebarChatTabStrip(props: {
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="unstyled"
+        data-cuelume-tap={undefined}
         class="sidebar-chat-tab-strip"
         aria-expanded={open() ? "true" : "false"}
         aria-controls={listId()}
@@ -45,15 +48,16 @@ export function SidebarChatTabStrip(props: {
         onClick={() => tabStrips.toggle(key())}
       >
         <span class="sidebar-chat-tab-strip-line" aria-hidden="true" />
-      </button>
+      </Button>
       <div id={listId()} class="sidebar-chat-tabs" data-open={open() ? "" : undefined}>
         <div class="sidebar-chat-tabs-inner" inert={open() ? undefined : true}>
           <ul class="sidebar-chat-tab-list">
             <For each={visibleSidebarChatTabs(props.tabs.tabs, props.tabs.activeId)}>
               {(tab) => (
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="unstyled"
+                    data-cuelume-tap={undefined}
                     class="sidebar-chat-tab"
                     aria-current={props.tabs.activeId === tab.id ? "true" : undefined}
                     title={tab.title}
@@ -73,7 +77,7 @@ export function SidebarChatTabStrip(props: {
                         aria-hidden="true"
                       />
                     </Show>
-                  </button>
+                  </Button>
                 </li>
               )}
             </For>

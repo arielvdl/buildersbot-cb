@@ -5,7 +5,7 @@
  * reach every swatch.
  */
 
-import { Check, ChevronRight, ContextMenu, Palette, Pipette } from "@openbot/ui";
+import { Check, ChevronRight, ContextMenu, Palette, Pipette, SystemColorInput } from "@openbot/ui";
 import { For, onCleanup, Show } from "solid-js";
 import { useText } from "../../text";
 import { isCustomSidebarSectionColor, SIDEBAR_SECTION_COLOR_PRESETS, SIDEBAR_SECTION_NO_COLOR } from "./section-color";
@@ -87,12 +87,11 @@ export function SidebarSectionColorInput() {
   let element: HTMLInputElement | undefined;
   onCleanup(() => releaseSectionColorInput(element));
   return (
-    <input
+    <SystemColorInput
       ref={(input: HTMLInputElement) => {
         element = input;
         setSectionColorInput(input);
       }}
-      type="color"
       class="sr-only"
       tabindex="-1"
       aria-label={t("sidebar.section.colorPick")}

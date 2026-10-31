@@ -1,7 +1,8 @@
 /**
  * The names and the search words of each icon of the section icon library, in English and in
- * Portuguese. The words of both languages are searched in every language. This module and
- * `section-icon-library.ts` load only when the icon editor or a library icon needs them.
+ * Portuguese. The words of both languages are searched in every language. This module and the
+ * drawings (`packages/ui/src/section-icon-library.ts`) load only when the icon editor or a library icon
+ * needs them.
  */
 
 import type { SidebarSectionGlyph } from "@openbot/contracts/ipc";

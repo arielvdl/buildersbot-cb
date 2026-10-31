@@ -53,9 +53,10 @@ export type SectionIconBackground = "transparent" | "light" | "dark";
 
 /**
  * The fills that go into the saved image. They are part of a generated image, not of the theme, so they
- * are fixed colors: the icon looks the same in the light and the dark theme.
+ * are fixed colors: the icon looks the same in the light and the dark theme. The crop preview paints
+ * the same values (`SectionIconCropImage`).
  */
-const SECTION_ICON_FILLS = { light: "#f4f4f5", dark: "#18181b" } as const;
+export const SECTION_ICON_FILLS = { light: "#f4f4f5", dark: "#18181b" } as const;
 
 /**
  * Why an image is refused or cannot be made:

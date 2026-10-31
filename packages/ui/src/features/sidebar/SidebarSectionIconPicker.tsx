@@ -1,9 +1,9 @@
 /**
  * The Icon and Emoji tabs of the section icon editor. Each one has a search field that has the focus
- * when the tab opens, category buttons, the recent choices, and a grid. The grid is a listbox: the
- * arrow keys move in rows of eight, Home and End go to the ends, and Enter or Space picks. The grid
- * renders the first rows and adds more while it scrolls or while the keys move past them, so a list of
- * hundreds of items stays fast.
+ * when the tab opens, category buttons, the recent choices, and a grid. The grid is a listbox
+ * (`OptionGrid`): the arrow keys move in rows of eight, Home and End go to the ends, and Enter or Space
+ * picks. The grid renders the first rows and adds more while it scrolls or while the keys move past
+ * them, so a list of hundreds of items stays fast.
  *
  * The lists load with `import()` (`section-icon-assets.ts`). The editor stores only a glyph name of a
  * fixed table or one emoji, never markup.
@@ -11,10 +11,11 @@
 
 import type { SidebarSectionGlyph } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { Button, Input, Search } from "@openbot/ui";
+import { Button, Input, OptionGrid, type OptionGridHandle, Search } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, flush, Match, onSettled, Show, Switch } from "solid-js";
+import { createMemo, createSignal, For, Match, onSettled, Show, Switch } from "solid-js";
 import { useText } from "../../text";
+import { cx } from "../../utils";
 import { isSidebarSectionBuiltinGlyph, SectionGlyphIcon, SIDEBAR_SECTION_GLYPH_LABELS } from "./SidebarSectionMark";
 import {
   loadSectionEmojiList,
@@ -92,11 +93,9 @@ const TONE_LABELS = {
 } as const satisfies Record<SectionEmojiTone, AppTextKey>;
 
 /** What the search field asks of the grid below it. */
-interface PickerGridHandle {
-  focusFirst: () => void;
-  pickFirst: () => void;
-}
+type PickerGridHandle = OptionGridHandle;
 
+/** The grid of a picker: a listbox in rows of eight, from the primitive layer. */
 function PickerGrid<T>(props: {
   label: string;
   items: readonly T[];
@@ -110,107 +109,22 @@ function PickerGrid<T>(props: {
   handle?: (handle: PickerGridHandle) => void;
   class?: string;
 }) {
-  let list: HTMLDivElement | undefined;
-  const [count, setCount] = createSignal(BATCH);
-  const [active, setActive] = createSignal(0);
-  const shown = createMemo(() => props.items.slice(0, count()));
-
-  // A new list starts at its first rows, with the selected item active when the list has it.
-  createEffect(
-    () => props.items,
-    (items) => {
-      const selected = items.findIndex((item) => props.itemKey(item) === props.selectedKey);
-      setActive(Math.max(0, selected));
-      setCount(Math.max(BATCH, Math.ceil((selected + 1) / BATCH) * BATCH));
-      if (list) list.scrollTop = 0;
-    },
-  );
-
-  function focusIndex(index: number): void {
-    const target = Math.min(Math.max(index, 0), props.items.length - 1);
-    if (target < 0) return;
-    if (target >= count()) setCount(Math.ceil((target + 1) / BATCH) * BATCH);
-    setActive(target);
-    flush();
-    list?.querySelector<HTMLElement>(`[data-index="${target}"]`)?.focus();
-  }
-
-  props.handle?.({
-    focusFirst: () => focusIndex(active()),
-    pickFirst: () => {
-      const first = props.items[0];
-      if (first) props.onPick(first);
-    },
-  });
-
-  const moves: Record<string, number> = {
-    ArrowLeft: -1,
-    ArrowRight: 1,
-    ArrowUp: -COLUMNS,
-    ArrowDown: COLUMNS,
-    PageUp: -COLUMNS * 4,
-    PageDown: COLUMNS * 4,
-  };
-
-  function keyDown(event: KeyboardEvent): void {
-    const current = active();
-    const move = moves[event.key];
-    if (move !== undefined) {
-      event.preventDefault();
-      if (event.key === "ArrowUp" && current < COLUMNS && props.onLeaveTop) props.onLeaveTop();
-      else focusIndex(current + move);
-    } else if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      focusIndex(event.key === "Home" ? 0 : props.items.length - 1);
-    } else if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      const item = props.items[current];
-      if (item) props.onPick(item);
-    }
-  }
-
   return (
-    <div
-      ref={list}
-      role="listbox"
-      aria-label={props.label}
-      class={["section-picker-grid", props.class]}
-      onKeyDown={keyDown}
-      onClick={(event) => {
-        // One handler for the list: the keys of the options are handled here too.
-        const option = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-index]") : null;
-        const index = Number(option?.dataset.index);
-        const item = props.items[index];
-        if (!option || item === undefined) return;
-        setActive(index);
-        props.onPick(item);
-      }}
-      onScroll={(event) => {
-        const element = event.currentTarget;
-        if (count() >= props.items.length) return;
-        if (element.scrollTop + element.clientHeight >= element.scrollHeight - 120) setCount((value) => value + BATCH);
-      }}
-    >
-      <For each={shown()}>
-        {(item, index) => (
-          <button
-            type="button"
-            role="option"
-            class="section-picker-item"
-            data-index={index()}
-            aria-label={props.itemLabel(item)}
-            aria-selected={props.itemKey(item) === props.selectedKey ? "true" : "false"}
-            aria-setsize={props.items.length}
-            aria-posinset={index() + 1}
-            tabindex={index() === active() ? 0 : -1}
-            title={props.itemLabel(item)}
-            onFocus={() => setActive(index())}
-          >
-            {props.renderItem(item)}
-          </button>
-        )}
-      </For>
-    </div>
+    <OptionGrid
+      label={props.label}
+      items={props.items}
+      columns={COLUMNS}
+      batch={BATCH}
+      itemKey={props.itemKey}
+      itemLabel={props.itemLabel}
+      renderItem={props.renderItem}
+      selectedKey={props.selectedKey}
+      onPick={props.onPick}
+      onLeaveTop={props.onLeaveTop}
+      handle={props.handle}
+      class={cx("section-picker-grid", props.class)}
+      itemClass="section-picker-item"
+    />
   );
 }
 

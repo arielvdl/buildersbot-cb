@@ -81,12 +81,12 @@
 /* An emoji sits on the tile, large and centered, in the system emoji font. */
 .section-rail-emoji {
   font-family: var(--section-emoji-font);
-  font-size: 24px;
+  font-size: var(--openbot-text-3xl);
   line-height: 1;
 }
 
 .section-icon-preview-tile .section-rail-emoji {
-  font-size: 34px;
+  font-size: var(--openbot-text-display);
 }
 
 /* "No section" holds the chats outside every section, so its mark is an open box. */
@@ -379,17 +379,10 @@
 }
 
 /* A transparent background shows as a check pattern. Light and dark are the fixed fills of the saved
-   image (`SECTION_ICON_FILLS` in `section-icon-image.ts`), so the preview shows the same colors. */
+   image (`SECTION_ICON_FILLS` in `section-icon-image.ts`): the canvas takes them from that table as an
+   inline style, so the preview shows the same colors. */
 .section-icon-crop-canvas[data-background="transparent"] {
   background: repeating-conic-gradient(var(--openbot-bg-control-active) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
-}
-
-.section-icon-crop-canvas[data-background="light"] {
-  background: #f4f4f5;
-}
-
-.section-icon-crop-canvas[data-background="dark"] {
-  background: #18181b;
 }
 
 .section-icon-crop-image {
@@ -565,7 +558,7 @@
 .section-picker-emoji {
   display: inline-block;
   font-family: var(--section-emoji-font);
-  font-size: 26px;
+  font-size: var(--openbot-text-3xl);
   line-height: 1;
   transition: transform var(--openbot-duration-hover) var(--openbot-ease-out);
 }
@@ -573,7 +566,7 @@
 .section-picker-categories .section-picker-emoji,
 .section-picker-tones .section-picker-emoji,
 .section-picker-tone-button .section-picker-emoji {
-  font-size: 18px;
+  font-size: var(--openbot-text-2xl);
 }
 
 .section-picker-status {
