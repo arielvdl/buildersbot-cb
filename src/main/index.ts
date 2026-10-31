@@ -279,9 +279,11 @@ const appIconPath = resolveAppIconPath({
   sourceRoot: resolve(__dirname, "../.."),
 });
 protocol.registerSchemesAsPrivileged([
+  // `codeCache` keeps the V8 code cache of the bundle (in `Code Cache/js`), so a window that opens
+  // again does not compile the same scripts from the start. It needs `standard`.
   {
     scheme: "openbot-app",
-    privileges: { standard: true, secure: true, supportFetchAPI: true },
+    privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true },
   },
   // `stream` lets an <audio> or <video> element play a file from the scheme: without it the
   // element cannot make the range requests that playback needs.
