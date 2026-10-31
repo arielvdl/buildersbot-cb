@@ -26,7 +26,13 @@ import { readJsonObject } from "./json-body";
 import { type RemoteControlPlane, RemoteControlPlaneError } from "./remote-control-plane";
 import { sendTeamInviteEmail } from "./team-invite-email";
 import type { AuthUser, TeamInviteEmailDelivery } from "./types";
-import { deviceVerificationUrl, webDeviceFlowCookie, webDeviceFlowId } from "./web-device-flow";
+import {
+  deviceVerificationUrl,
+  newWebDeviceFlowTag,
+  webDeviceFlowCookie,
+  webDeviceFlowId,
+  webDeviceFlowTag,
+} from "./web-device-flow";
 import type { WebPushSender } from "./web-push";
 import { readWebPushSubscription, type WebPushStore } from "./web-push-store";
 import { webClientIdentity, webSessionCookie, webSessionToken } from "./web-session";
@@ -39,6 +45,7 @@ export interface BrowserApiServices {
     | "signInWithDeviceAccount"
     | "enforceDeviceSignInRateLimit"
     | "authenticate"
+    | "authenticateWeb"
     | "enforceTeamInviteRateLimit"
     | "updateAnalytics"
     | "updateName"
@@ -165,7 +172,7 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
 ) {
   // The web app signs in with Cultura Builder only. A page from before that change gets a clear answer.
   if (path === "email/start" || path === "email/verify")
-    return failure(410, "email_sign_in_retired", "Sign in with Cultura Builder.");
+    return failure(410, "email_sign_in_retired", sourceText("error.auth.emailSignInRetired"));
   const deviceSignIn = yield* handleDeviceSignIn(request, path, services);
   if (deviceSignIn) return deviceSignIn;
   if (path === "checkout-attribution" && request.method === "POST") {
@@ -181,7 +188,8 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
     return json({ accepted: true });
   }
   const token = webSessionToken(request);
-  const user = token ? yield* services.auth.authenticate(token) : null;
+  // Only a Cultura Builder session opens the web app: a token of another sign-in in the cookie does not.
+  const user = token ? yield* services.auth.authenticateWeb(token) : null;
   if (path === "logout" && request.method === "POST") {
     if (token && user) yield* services.remote.endAccountSession(user.id, yield* sha256(token));
     const response = json({ signedOut: true });
@@ -283,7 +291,7 @@ const DEVICE_SIGN_IN_PATHS: ReadonlySet<string> = new Set(["device/start", "devi
 
 /** The bridge did not answer or answered something unusable. Its detail stays out of the page. */
 function signInServiceUnavailable(): Response {
-  return failure(502, "sign_in_service_unavailable", "The Cultura Builder sign-in did not answer. Try again.");
+  return failure(502, "sign_in_service_unavailable", sourceText("error.auth.signInServiceUnavailable"));
 }
 
 /** A bridge call, with its known failure as the 502 answer. Any other failure stays a failure. */
@@ -291,22 +299,30 @@ function bridgeCall<A>(call: () => Promise<A>) {
   return Effect.tryPromise({ try: call, catch: (error) => error }).pipe(
     Effect.catchIf(
       (error) => error instanceof DeviceBridgeError,
-      () => Effect.succeed(signInServiceUnavailable()),
+      (error) =>
+        Effect.sync(() => {
+          console.warn(`device sign-in: ${error.message}`);
+          return signInServiceUnavailable();
+        }),
     ),
   );
 }
 
-/** A refusal that also ends the flow of this browser, so the next poll does not ask the bridge again. */
-function endFlow(response: Response): Response {
-  response.headers.append("Set-Cookie", webDeviceFlowCookie(null));
+/** A refusal that also ends the flow `tag` of this browser, so the next poll does not ask the bridge again. */
+function endFlow(tag: string, response: Response): Response {
+  response.headers.append("Set-Cookie", webDeviceFlowCookie(tag, null));
   return response;
+}
+
+function codeExpired(): Response {
+  return failure(410, "expired_token", sourceText("error.auth.deviceCodeExpired"));
 }
 
 /**
  * The Cultura Builder sign-in of the web app: the Hub device grant of the desktop app, with the flow
- * bound to this browser (`web-device-flow.ts`). The page shows the code and the Hub address and polls;
- * the poll that finds the approval gets the same session cookie as the email code gave, and never a
- * token that JavaScript can read. Returns null for any other path.
+ * bound to this browser (`web-device-flow.ts`). The page shows the code and the Hub address and polls
+ * with the tag of its flow; the poll that finds the approval gets the session cookie, and never a token
+ * that JavaScript can read. Returns null for any other path.
  */
 const handleDeviceSignIn = Effect.fn("BrowserApi.handleDeviceSignIn")(function* (
   request: Request,
@@ -314,61 +330,78 @@ const handleDeviceSignIn = Effect.fn("BrowserApi.handleDeviceSignIn")(function* 
   services: BrowserApiServices,
 ) {
   if (request.method !== "POST" || !DEVICE_SIGN_IN_PATHS.has(path)) return null;
-  // The bridge keeps the flow until it expires; this browser only forgets it.
-  if (path === "device/cancel") return endFlow(json({ cancelled: true }));
-  const bridge = services.deviceBridge();
-  if (!bridge) return failure(503, "device_sign_in_disabled", "The Cultura Builder sign-in is not available.");
-  const sourceIp = services.sourceIp(request);
-  if (path === "device/start") {
-    yield* services.auth.enforceDeviceSignInRateLimit("start", sourceIp);
-    const started = yield* bridgeCall(() => bridge.start());
-    if (started instanceof Response) return started;
-    const verificationUri = deviceVerificationUrl(started.verificationUri, bridge.url);
-    if (!verificationUri) return signInServiceUnavailable();
-    const response = json({
-      userCode: started.userCode,
-      verificationUri,
-      verificationUriComplete: deviceVerificationUrl(started.verificationUriComplete, bridge.url),
-      expiresIn: started.expiresIn,
-      interval: started.interval,
-    });
-    response.headers.append(
-      "Set-Cookie",
-      webDeviceFlowCookie({ flowId: started.flowId, maxAgeSeconds: started.expiresIn }),
-    );
-    return response;
+  if (path !== "device/start") {
+    const tag = webDeviceFlowTag((yield* readJsonObject(request)).flow);
+    // The bridge keeps the flow until it expires; this browser only forgets it.
+    if (path === "device/cancel") return tag ? endFlow(tag, json({ cancelled: true })) : json({ cancelled: true });
+    const flowId = tag ? webDeviceFlowId(request, tag) : null;
+    if (!tag || !flowId) return tag ? endFlow(tag, codeExpired()) : codeExpired();
+    return yield* pollDeviceSignIn(request, tag, flowId, services);
   }
-  const flowId = webDeviceFlowId(request);
-  if (!flowId) return endFlow(failure(410, "expired_token", "The sign-in code expired. Ask for a new one."));
-  yield* services.auth.enforceDeviceSignInRateLimit("poll", sourceIp);
+  const bridge = services.deviceBridge();
+  if (!bridge) return failure(503, "device_sign_in_disabled", sourceText("error.auth.deviceSignInDisabled"));
+  // Each sign-in needs a start, so this is also the sign-in limit of the address.
+  yield* services.auth.enforceDeviceSignInRateLimit("start", services.sourceIp(request));
+  const started = yield* bridgeCall(() => bridge.start());
+  if (started instanceof Response) return started;
+  const verificationUri = deviceVerificationUrl(started.verificationUri, bridge.url);
+  if (!verificationUri) return signInServiceUnavailable();
+  const tag = newWebDeviceFlowTag();
+  const response = json({
+    flow: tag,
+    userCode: started.userCode,
+    verificationUri,
+    verificationUriComplete: deviceVerificationUrl(started.verificationUriComplete, bridge.url),
+    expiresIn: started.expiresIn,
+    interval: started.interval,
+  });
+  response.headers.append(
+    "Set-Cookie",
+    webDeviceFlowCookie(tag, { flowId: started.flowId, maxAgeSeconds: started.expiresIn }),
+  );
+  return response;
+});
+
+/** One poll of the flow `tag`. On the approval, the session cookie replaces the earlier session of this browser. */
+const pollDeviceSignIn = Effect.fn("BrowserApi.pollDeviceSignIn")(function* (
+  request: Request,
+  tag: string,
+  flowId: string,
+  services: BrowserApiServices,
+) {
+  const bridge = services.deviceBridge();
+  if (!bridge) return failure(503, "device_sign_in_disabled", sourceText("error.auth.deviceSignInDisabled"));
+  yield* services.auth.enforceDeviceSignInRateLimit("poll", services.sourceIp(request));
   const result = yield* bridgeCall(() => bridge.poll(flowId));
   if (result instanceof Response) return result;
   if (result.status === "pending") return json({ status: "pending", interval: result.interval }, 202);
   if (result.status === "rate_limited") {
     // The Hub's `slow_down`: the page adds 5 seconds to its interval and waits at least this long.
-    const response = failure(429, "slow_down", "The Cultura Builder sign-in asked to wait.");
+    const response = failure(429, "slow_down", sourceText("error.auth.deviceSlowDown"));
     response.headers.set("Retry-After", String(result.retryAfterSeconds));
     return response;
   }
   if (result.status === "denied")
-    return endFlow(failure(403, "access_denied", "The sign-in was not approved on the Hub."));
-  if (result.status === "expired")
-    return endFlow(failure(410, "expired_token", "The sign-in code expired. Ask for a new one."));
+    return endFlow(tag, failure(403, "access_denied", sourceText("error.auth.deviceSignInDenied")));
+  if (result.status === "expired") return endFlow(tag, codeExpired());
+  // An earlier poll took the approval, maybe in another tab that shares this cookie. The page checks
+  // the session before it asks for a new code.
+  if (result.status === "consumed")
+    return endFlow(tag, failure(410, "flow_consumed", sourceText("error.auth.deviceCodeUsed")));
   const session = yield* services.auth.signInWithDeviceAccount({
     email: result.user.email,
     name: result.user.name,
     avatarUrl: result.user.avatarUrl,
-    sourceIp,
     surface: "web",
     client: webClientIdentity(request),
   });
-  // As for an email code: the session that this browser had before ends with its remote sessions.
+  // The session that this browser had before ends with its remote sessions, whatever sign-in made it.
   const previous = webSessionToken(request);
   if (previous) {
     const user = yield* services.auth.authenticate(previous);
     if (user) yield* services.remote.endAccountSession(user.id, yield* sha256(previous));
   }
-  const response = endFlow(json({ user: session.user }));
+  const response = endFlow(tag, json({ user: session.user }));
   response.headers.append("Set-Cookie", webSessionCookie(session.sessionToken));
   return response;
 });

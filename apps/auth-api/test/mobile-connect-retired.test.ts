@@ -56,6 +56,17 @@ describe("retired Mobile Connect routes", () => {
     expect(body.error.message).not.toMatch(/openbot/iu);
   });
 
+  it("refuses the phone email code, which never asked the Hub", async () => {
+    const response = await post(
+      "../src/routes/v1/mobile-auth/email/verify",
+      "https://buildersbot.test/v1/mobile-auth/email/verify",
+    );
+    expect(response.status).toBe(410);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    const body = await response.json<{ error: { code: string } }>();
+    expect(body.error.code).toBe("email_sign_in_retired");
+  });
+
   it("keeps cancel and revoke, so a code or link that exists can still be removed", async () => {
     expect(await routeMethods(ROUTES.ticket)).toEqual(["DELETE", "POST"]);
     expect(await routeMethods(ROUTES.link)).toEqual(["DELETE", "POST"]);

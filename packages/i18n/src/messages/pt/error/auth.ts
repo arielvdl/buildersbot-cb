@@ -25,4 +25,15 @@ export const messages = {
     "A conexão terminou antes de o Builders Bot confirmar a entrega. Verifique a entrega para evitar o envio de outro código.",
   "error.auth.deliveryUnknown":
     "O Builders Bot não conseguiu confirmar se o código de login foi enviado. Verifique a entrega antes de enviar novamente.",
+  "error.auth.signInServiceUnavailable": "O login da Cultura Builder não respondeu. Tente de novo.",
+  "error.auth.deviceSignInDisabled": "O login da Cultura Builder não está disponível.",
+  "error.auth.emailSignInRetired": "Entre com Cultura Builder.",
+  "error.auth.deviceCodeExpired": "O código de login expirou. Peça um novo.",
+  "error.auth.deviceCodeUsed": "Este código de login já foi usado. Peça um novo.",
+  "error.auth.deviceSignInDenied": "O login não foi aprovado no Hub.",
+  "error.auth.deviceSlowDown": "O login da Cultura Builder pediu para aguardar.",
+  "error.auth.mobileConnectRetired":
+    "Os códigos e links do Mobile Connect não estão mais disponíveis. Abra o app web e entre com Cultura Builder.",
+  "error.auth.desktopInstallerUnpublished":
+    "O instalador do Builders Bot para computador ainda não foi publicado neste site.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -47,6 +47,11 @@ interface HostBindingRow {
 }
 
 const SESSION_ACTIVITY_UPDATE_INTERVAL_MS = 15 * 60_000;
+/**
+ * `auth_sessions.sign_in_method` of a session that the Cultura Builder sign-in (the Hub device grant)
+ * opened. Other sessions have NULL. The web app accepts only this one.
+ */
+const CULTURA_SIGN_IN_METHOD = "cultura";
 
 class AuthDatabase extends Context.Service<AuthDatabase, D1Database>()("auth-api/D1AuthRepository/Database") {}
 export class AuthStoreError extends Schema.TaggedError<AuthStoreError>()("AuthStoreError", {
@@ -332,8 +337,8 @@ export class D1AuthRepository implements AuthRepository {
         database
           .prepare(
             `INSERT INTO auth_sessions(
-          id, user_id, token_hash, expires_at, created_at, last_used_at, client_id, client_label
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, user_id, token_hash, expires_at, created_at, last_used_at, client_id, client_label, sign_in_method
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             input.session.id,
@@ -344,6 +349,7 @@ export class D1AuthRepository implements AuthRepository {
             input.now,
             input.session.clientId ?? null,
             input.session.clientLabel ?? null,
+            CULTURA_SIGN_IN_METHOD,
           )
           .run(),
       );
@@ -431,6 +437,37 @@ export class D1AuthRepository implements AuthRepository {
            )`,
           )
           .bind(tokenHash, now)
+          .first<AuthenticatedUserRow>(),
+      );
+      if (!row) return null;
+      yield* this.#updateSessionActivityEffect(tokenHash, row.last_used_at, now);
+      return mapUser(row);
+    },
+    (operation) => operation.pipe(Effect.provide(this.#layer)),
+  ).bind(this);
+
+  readonly authenticateCulturaSession = Effect.fn("D1AuthRepository.authenticateCulturaSession")(
+    function* (
+      this: D1AuthRepository,
+      sessionToken: string,
+      now: number,
+    ): Effect.fn.Return<AuthUser | null, AuthStoreError, AuthDatabase> {
+      const database = yield* AuthDatabase;
+      const tokenHash = yield* sha256(sessionToken).pipe(
+        Effect.mapError(() => new AuthStoreError({ message: "Account store operation failed." })),
+      );
+      const row = yield* storeCall(() =>
+        database
+          .prepare(
+            `SELECT users.id, users.email, users.name, users.avatar_url, users.analytics_enabled, auth_sessions.last_used_at
+         FROM auth_sessions
+         JOIN users ON users.id = auth_sessions.user_id
+         WHERE auth_sessions.token_hash = ?
+           AND auth_sessions.revoked_at IS NULL
+           AND auth_sessions.expires_at > ?
+           AND auth_sessions.sign_in_method = ?`,
+          )
+          .bind(tokenHash, now, CULTURA_SIGN_IN_METHOD)
           .first<AuthenticatedUserRow>(),
       );
       if (!row) return null;

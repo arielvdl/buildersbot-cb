@@ -282,6 +282,8 @@ export interface AuthRepository {
   ): Effect.Effect<{ allowed: boolean; count: number; windowStart: number }, AuthStoreError>;
   authenticate(sessionToken: string, now: number): Effect.Effect<AuthUser | null, AuthStoreError>;
   authenticateDesktopSession(sessionToken: string, now: number): Effect.Effect<AuthUser | null, AuthStoreError>;
+  /** The account of a live session that the Cultura Builder sign-in opened, or null. */
+  authenticateCulturaSession(sessionToken: string, now: number): Effect.Effect<AuthUser | null, AuthStoreError>;
   revokeSession(sessionToken: string, now: number): Effect.Effect<void, AuthStoreError>;
   revokeMobileSession(sessionToken: string, now: number): Effect.Effect<boolean, AuthStoreError>;
   updateUserName(userId: string, name: string, now: number): Effect.Effect<AuthUser, AuthStoreError>;

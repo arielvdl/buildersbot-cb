@@ -292,27 +292,6 @@ export class AuthService {
     (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
   ).bind(this);
 
-  /** Signs a phone in with an email code. The session is a mobile session with no host binding. */
-  readonly verifyMobileEmailCode = Effect.fn("AuthService.verifyMobileEmailCode")(
-    function* (
-      this: AuthService,
-      input: {
-        challengeId: string;
-        code: string;
-        sourceIp: string;
-        device: MobileAuthDeviceIdentity;
-      },
-    ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
-      const dependencies = yield* AuthDependencies;
-      const device = yield* authValidate(() => normalizeMobileDevice(input.device));
-      const session = yield* this.#verifyEmailChallenge({ ...input, device, surface: "mobile" });
-      // The new session replaces the earlier session of this device.
-      yield* dependencies.flushSessionRevocations();
-      return session;
-    },
-    (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
-  ).bind(this);
-
   readonly #verifyEmailChallenge = Effect.fn("AuthService.verifyEmailChallenge")(function* (
     this: AuthService,
     input: {
@@ -363,7 +342,12 @@ export class AuthService {
 
   /**
    * The account a confirmed Hub device sign-in names. The Hub has already verified the e-mail, so
-   * this finds or creates the account and opens a persistent session for it.
+   * this finds or creates the account and opens a persistent session for it, marked as a Cultura
+   * Builder session.
+   *
+   * It has no rate limit of its own: it runs only after the bridge gave an approval, and the bridge
+   * gives an approval to one poll only. A refusal here would lose an approval that the person already
+   * gave on the Hub, so the limit is at the start of each flow (`enforceDeviceSignInRateLimit`).
    */
   readonly signInWithDeviceAccount = Effect.fn("AuthService.signInWithDeviceAccount")(
     function* (
@@ -372,7 +356,6 @@ export class AuthService {
         email: string;
         name: string | null;
         avatarUrl: string | null;
-        sourceIp: string;
         surface: AccountSurface;
         /** The web app installation that signs in, so that the session is listed and revoked on its own. */
         client?: { id: string; label: string } | null;
@@ -380,7 +363,6 @@ export class AuthService {
     ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
       const dependencies = yield* AuthDependencies;
       const now = dependencies.now();
-      yield* this.#enforceRateLimit(`device:ip:${normalizeSourceIp(input.sourceIp)}`, 30, now);
       const email = yield* authValidate(() => normalizeEmail(input.email));
       const session = yield* dependencies.repository.signInWithDeviceAccount({
         email,
@@ -400,9 +382,11 @@ export class AuthService {
   ).bind(this);
 
   /**
-   * The web app's Cultura Builder sign-in. Each start asks the Hub for a new code, so it has the limit
-   * of an email start. A code lives up to 15 minutes with a poll each 5 seconds or more, so the poll
-   * limit leaves room for a few people behind one address.
+   * The Cultura Builder sign-in of the desktop and the web app. Each start asks the Hub for a new code,
+   * and each sign-in needs a start, so the start limit is also the sign-in limit of one address. It is
+   * the earlier sign-in limit (30), so a class behind one address keeps that room. A code lives up to
+   * 15 minutes with a poll each 5 seconds or more, so the poll limit leaves room for a few people
+   * behind one address.
    */
   readonly enforceDeviceSignInRateLimit = Effect.fn("AuthService.enforceDeviceSignInRateLimit")(
     function* (
@@ -411,8 +395,24 @@ export class AuthService {
       sourceIp: string,
     ): Effect.fn.Return<void, AuthWorkflowFailure, AuthDependencies> {
       const dependencies = yield* AuthDependencies;
-      const limit = step === "start" ? 20 : 600;
+      const limit = step === "start" ? 30 : 600;
       yield* this.#enforceRateLimit(`device-${step}:ip:${normalizeSourceIp(sourceIp)}`, limit, dependencies.now());
+    },
+    (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
+  ).bind(this);
+
+  /**
+   * The account of a web app session: only a session that the Cultura Builder sign-in opened. A session
+   * of another sign-in (an email code, a Mobile Connect code or link) does not open the web app, even
+   * when someone puts its token in the cookie.
+   */
+  readonly authenticateWeb = Effect.fn("AuthService.authenticateWeb")(
+    function* (
+      this: AuthService,
+      sessionToken: string,
+    ): Effect.fn.Return<AuthUser | null, AuthWorkflowFailure, AuthDependencies> {
+      const dependencies = yield* AuthDependencies;
+      return yield* dependencies.repository.authenticateCulturaSession(sessionToken, dependencies.now());
     },
     (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
   ).bind(this);

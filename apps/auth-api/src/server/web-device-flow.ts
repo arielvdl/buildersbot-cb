@@ -9,9 +9,16 @@
  *
  * `__Host-` keeps a subdomain from setting the cookie, and `SameSite=Strict` keeps it off requests that
  * another site starts. The cookie lives only as long as the code.
+ *
+ * Each flow has its own cookie, named with a random tag that the page gets and sends back. Two tabs, or
+ * a browser tab and the installed web app that share the cookies, can then each wait for their own
+ * code: a second start does not replace the flow of the first. The tag is not a secret. Without the
+ * HttpOnly cookie, nobody can poll the flow.
  */
 
-const COOKIE = "__Host-buildersbot-device";
+const COOKIE_PREFIX = "__Host-buildersbot-device-";
+/** 8 random bytes in base64url. */
+const TAG = /^[A-Za-z0-9_-]{11}$/u;
 const COOKIE_ATTRIBUTES = "Path=/; Secure; HttpOnly; SameSite=Strict";
 /** The bridge refuses a longer flow ID (`device-bridge.ts`). */
 const FLOW_ID_LIMIT = 128;
@@ -36,25 +43,45 @@ function fromBase64Url(value: string): string | null {
   }
 }
 
-/** The flow ID of this browser's sign-in, or null. A cookie that the browser sends twice is not trusted. */
-export function webDeviceFlowId(request: Request): string | null {
+/** A new tag for the cookie of one flow. */
+export function newWebDeviceFlowTag(): string {
+  let binary = "";
+  for (const byte of crypto.getRandomValues(new Uint8Array(8))) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+}
+
+/** The tag that a poll or a cancel sends, or null when it is not one that a start made. */
+export function webDeviceFlowTag(value: unknown): string | null {
+  return typeof value === "string" && TAG.test(value) ? value : null;
+}
+
+/**
+ * The flow ID of the flow that `tag` names in this browser, or null. A cookie that the browser sends
+ * twice is not trusted.
+ */
+export function webDeviceFlowId(request: Request, tag: string): string | null {
+  const name = `${COOKIE_PREFIX}${tag}`;
   const values = (request.headers.get("Cookie") ?? "")
     .split(";")
     .map((part) => part.trim())
-    .filter((part) => part.startsWith(`${COOKIE}=`));
+    .filter((part) => part.startsWith(`${name}=`));
   const [value] = values;
   if (values.length !== 1 || value === undefined) return null;
-  const encoded = value.slice(COOKIE.length + 1);
+  const encoded = value.slice(name.length + 1);
   if (!/^[A-Za-z0-9_-]{1,256}$/u.test(encoded)) return null;
   const flowId = fromBase64Url(encoded);
   return flowId && flowId.length <= FLOW_ID_LIMIT ? flowId : null;
 }
 
-/** The `Set-Cookie` value that binds a flow to this browser for `maxAgeSeconds`, or the one that clears it. */
-export function webDeviceFlowCookie(flow: { flowId: string; maxAgeSeconds: number } | null): string {
-  if (flow === null) return `${COOKIE}=; ${COOKIE_ATTRIBUTES}; Max-Age=0`;
+/**
+ * The `Set-Cookie` value that binds the flow `tag` to this browser for `maxAgeSeconds`, or the one that
+ * clears it.
+ */
+export function webDeviceFlowCookie(tag: string, flow: { flowId: string; maxAgeSeconds: number } | null): string {
+  const name = `${COOKIE_PREFIX}${tag}`;
+  if (flow === null) return `${name}=; ${COOKIE_ATTRIBUTES}; Max-Age=0`;
   const maxAge = Math.max(1, Math.floor(flow.maxAgeSeconds));
-  return `${COOKIE}=${toBase64Url(flow.flowId)}; ${COOKIE_ATTRIBUTES}; Max-Age=${maxAge}`;
+  return `${name}=${toBase64Url(flow.flowId)}; ${COOKIE_ATTRIBUTES}; Max-Age=${maxAge}`;
 }
 
 /**

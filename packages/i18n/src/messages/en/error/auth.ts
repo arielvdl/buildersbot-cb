@@ -24,4 +24,16 @@ export const messages = defineMessages("error.auth", {
     "The connection ended before Builders Bot confirmed delivery. Check delivery to avoid sending another code.",
   "error.auth.deliveryUnknown":
     "Builders Bot could not confirm whether the sign-in code was sent. Check delivery before sending again.",
+  // The Cultura Builder sign-in (the Hub device grant) through the account service.
+  "error.auth.signInServiceUnavailable": "The Cultura Builder sign-in did not answer. Try again.",
+  "error.auth.deviceSignInDisabled": "The Cultura Builder sign-in is not available.",
+  "error.auth.emailSignInRetired": "Sign in with Cultura Builder.",
+  "error.auth.deviceCodeExpired": "The sign-in code expired. Ask for a new one.",
+  "error.auth.deviceCodeUsed": "This sign-in code was already used. Ask for a new one.",
+  "error.auth.deviceSignInDenied": "The sign-in was not approved on the Hub.",
+  "error.auth.deviceSlowDown": "The Cultura Builder sign-in asked to wait.",
+  "error.auth.mobileConnectRetired":
+    "Mobile Connect codes and links are no longer available. Open the web app and sign in with Cultura Builder.",
+  "error.auth.desktopInstallerUnpublished":
+    "The Builders Bot installer for computers is not published on this site yet.",
 });

@@ -6,6 +6,8 @@
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
 
 const BRIDGE_TIMEOUT_MS = 15_000;
+/** The sign-out of the bridge session is clean-up. The approval does not wait longer for it. */
+const BRIDGE_LOGOUT_TIMEOUT_MS = 5_000;
 const RESPONSE_LIMIT_BYTES = 16 * 1024;
 
 export interface DeviceAuthorizationStart {
@@ -21,6 +23,8 @@ export type DevicePollResult =
   | { status: "pending"; interval: number }
   | { status: "denied" }
   | { status: "expired" }
+  /** An earlier poll of this flow took the approval. The bridge gives an approval to one poll only. */
+  | { status: "consumed" }
   | { status: "rate_limited"; retryAfterSeconds: number }
   | { status: "authorized"; user: DeviceAccount };
 
@@ -124,7 +128,9 @@ export async function pollDeviceAuthorization(bridgeUrl: string, flowId: string)
     return { status: "pending", interval: positiveInteger(body?.interval, 5, 60) };
   }
   if (response.status === 403) return { status: "denied" };
-  if (response.status === 410) return { status: "expired" };
+  // 404: the bridge does not know the flow any more, so it ended.
+  if (response.status === 410 || response.status === 404) return { status: "expired" };
+  if (response.status === 409) return { status: "consumed" };
   if (response.status === 429) {
     const retryAfter = Number(response.headers.get("retry-after") ?? "");
     return {
@@ -136,6 +142,11 @@ export async function pollDeviceAuthorization(bridgeUrl: string, flowId: string)
   if (!response.ok || body === null) {
     throw new DeviceBridgeError(`The sign-in service answered ${response.status}.`);
   }
+  // The bridge also opens its own session, which holds a Hub token. This Worker keeps only its own
+  // session, so it ends the bridge session now: then the bridge revokes that Hub token at once,
+  // instead of keeping an unused one for each sign-in.
+  const bridgeSession = boundedString(body.sessionToken, 512);
+  if (bridgeSession) await endBridgeSession(bridgeUrl, bridgeSession);
   const record = isDynamicRecord(body.user) ? body.user : null;
   const email = boundedString(record?.email, 320);
   if (!email) throw new DeviceBridgeError("The sign-in service returned no account.");
@@ -147,4 +158,25 @@ export async function pollDeviceAuthorization(bridgeUrl: string, flowId: string)
       avatarUrl: nullableString(record?.avatarUrl, 2048),
     },
   };
+}
+
+/**
+ * Signs the bridge session out (`POST /v1/auth/logout`), which also revokes its Hub token. A failure
+ * only leaves that session to the bridge's own expiry and checks, so it does not stop the sign-in.
+ */
+async function endBridgeSession(bridgeUrl: string, sessionToken: string): Promise<void> {
+  try {
+    const response = await fetch(new URL("/v1/auth/logout", bridgeUrl), {
+      method: "POST",
+      headers: { authorization: `Bearer ${sessionToken}`, accept: "application/json" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(BRIDGE_LOGOUT_TIMEOUT_MS),
+    });
+    await response.body?.cancel().catch(() => undefined);
+    if (!response.ok) console.warn(`device-bridge: the bridge session sign-out answered ${response.status}`);
+  } catch (error) {
+    console.warn(
+      `device-bridge: the bridge session sign-out failed (${error instanceof Error ? error.name : "unknown"})`,
+    );
+  }
 }
