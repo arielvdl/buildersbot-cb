@@ -132,6 +132,40 @@ describe("the gate gives an upload the real paths that it checked", () => {
     expect(await realpath(realFile)).toBe(realFile);
   });
 
+  it("refuses the upload when the given link points elsewhere after the person decided", async () => {
+    const { context, workspace, home } = await computer();
+    await writeFile(join(workspace, "notes.pem"), "certificate");
+    await symlink(join(workspace, "notes.pem"), join(workspace, "today.pem"));
+    // A secret name, so the Guard asks; while the person decides, the link moves to the key.
+    const swap = async () => {
+      await unlink(join(workspace, "today.pem"));
+      await symlink(join(home, ".ssh", "id_rsa"), join(workspace, "today.pem"));
+    };
+    const before = await Effect.runPromise(
+      gate(context, swap).beforeTool(
+        "client",
+        { id: "r3", method: "item/tool/call", params: {} },
+        upload(["today.pem"]),
+        "agent-1",
+      ),
+    );
+    expect(before.proceed).toBe(false);
+  });
+
+  it("refuses the upload when a file is gone after the person decided", async () => {
+    const { context, workspace } = await computer();
+    await writeFile(join(workspace, "server.pem"), "certificate");
+    const before = await Effect.runPromise(
+      gate(context, () => unlink(join(workspace, "server.pem"))).beforeTool(
+        "client",
+        { id: "r4", method: "item/tool/call", params: {} },
+        upload(["server.pem"]),
+        "agent-1",
+      ),
+    );
+    expect(before.proceed).toBe(false);
+  });
+
   it("refuses the upload when a folder on the checked path became a link while the person decided", async () => {
     const { context, workspace, home } = await computer();
     await mkdir(join(workspace, "keys"));

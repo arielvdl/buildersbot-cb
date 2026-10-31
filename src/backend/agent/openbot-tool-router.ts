@@ -143,6 +143,21 @@ function listedDescription(description: string): string {
     .trimEnd()}…`;
 }
 
+/** Whether a tool result has only the text and image items of a dynamic tool result, so the Guard can read it. */
+function isDynamicToolResult<Result extends { readonly contentItems: ReadonlyArray<{ readonly type: string }> }>(
+  result: Result,
+): result is Result & DynamicToolResult {
+  return (
+    "success" in result &&
+    typeof result.success === "boolean" &&
+    result.contentItems.every(
+      (item) =>
+        (item.type === "inputText" && "text" in item && typeof item.text === "string") ||
+        (item.type === "inputImage" && "imageUrl" in item && typeof item.imageUrl === "string"),
+    )
+  );
+}
+
 /** The Marketplace apps that the chat draws a card for: the bundled catalog plugins and the connectors. */
 const MARKETPLACE_APP_IDS: readonly string[] = [
   ...pluginCatalog.plugins.map((plugin) => plugin.slug),
@@ -336,13 +351,17 @@ export class BuildersBotToolRouter {
    * The Guard check of a Builders Bot tool result with content from outside. Null when nobody waits
    * for the result any more. Other results pass as they are.
    */
-  #guardAfterBuildersBotTool(
+  #guardAfterBuildersBotTool<Result extends { readonly contentItems: ReadonlyArray<{ readonly type: string }> }>(
     client: AgentClient,
     request: AppServerRequest & { params: DynamicToolCallParams },
-    result: DynamicToolResult,
-  ): Effect.Effect<DynamicToolResult | null> {
+    result: Result,
+  ): Effect.Effect<Result | DynamicToolResult | null> {
     const { params } = request;
-    if (!this.#guardGate || guardInboundContent(params.namespace, params.tool, result) === null)
+    if (
+      !this.#guardGate ||
+      !isDynamicToolResult(result) ||
+      guardInboundContent(params.namespace, params.tool, result) === null
+    )
       return Effect.succeed(result);
     const agentId = this.#conversation.agentForThread(params.threadId);
     if (!agentId) return Effect.succeed(result);

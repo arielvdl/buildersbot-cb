@@ -641,9 +641,11 @@ export class GuardGate<Client = AgentClient> {
     // A file is checked at each path that leads to it: as given, in normal form, and behind every link.
     let item = given;
     let run: GuardBefore = proceed;
+    let firstReals: ReadonlyArray<string | null> | null = null;
     const resolvePaths = this.#options.resolvePaths;
     if (given.files && given.files.length > 0 && resolvePaths) {
       const resolved = yield* resolvePaths(agentId, given.files);
+      firstReals = resolved.reals;
       item = { ...given, files: resolved.paths, ...(resolved.complete ? {} : { unresolved: true }) };
       const real = withRealPaths(params, resolved.reals);
       if (real) run = { proceed: true, params: real };
@@ -659,12 +661,18 @@ export class GuardGate<Client = AgentClient> {
     );
     if (answer !== "accept")
       return { proceed: false, result: answer === "cancel" ? null : declined(checked.reason) } satisfies GuardBefore;
-    // The person may answer much later. The real paths must still be the files that the card named.
-    if (run.params && resolvePaths) {
-      const checkedPaths = realPathsOf(run.params);
-      const again = yield* resolvePaths(agentId, checkedPaths);
-      if (!again.complete || again.reals.some((real, index) => real !== checkedPaths[index]))
-        return { proceed: false, result: refusal(FILES_CHANGED) } satisfies GuardBefore;
+    // The person may answer much later. Each path must still lead to the same real file as when the
+    // card was made, and each real path that the call now names must still be that file.
+    if (firstReals && given.files && resolvePaths) {
+      const again = yield* resolvePaths(agentId, given.files);
+      const same = again.complete && again.reals.every((real, index) => real !== null && real === firstReals[index]);
+      if (!same) return { proceed: false, result: refusal(FILES_CHANGED) } satisfies GuardBefore;
+      if (run.params) {
+        const checkedPaths = realPathsOf(run.params);
+        const still = yield* resolvePaths(agentId, checkedPaths);
+        if (!still.complete || still.reals.some((real, index) => real !== checkedPaths[index]))
+          return { proceed: false, result: refusal(FILES_CHANGED) } satisfies GuardBefore;
+      }
     }
     return run;
   });

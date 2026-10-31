@@ -411,6 +411,14 @@ const INSTALLER_HOSTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The one form of a pipe to a shell that counts as a known install: `curl` or `wget`, only flags that
+ * change no request (`-f`, `-s`, `-S`, `-L`, `-q`, `-o-`, `-O-` and their long forms), exactly one
+ * https URL with no query, then `| sh` or `| bash`, with `sudo` or not.
+ */
+const KNOWN_INSTALL =
+  /^(?:curl|wget)(?:\s{1,16}(?:-[fsSLq]{1,8}|-[qO]{0,2}O-|-o-|--fail|--silent|--show-error|--location|--quiet))*\s{1,16}(?<quote>["']?)(?<url>https:\/\/[A-Za-z0-9.-]{1,253}(?:\/[A-Za-z0-9._~/-]{0,500})?)\k<quote>(?:\s{1,16}(?:-[fsSLq]{1,8}|-[qO]{0,2}O-|-o-))*\s{0,16}\|\s{0,16}(?:sudo\s{1,16})?(?:ba)?sh$/u;
+
+/**
  * A part of a command that the shell or the download tool fills in later: a variable, a command in
  * `$( )` or backticks, a curl config file (`-K`, `--config`) or data read from a file (`@file`).
  */
@@ -834,19 +842,25 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
     found.skip();
   } else {
     // Each pipe to a shell on its own: one from a known installer does not clear another one. A pipe
-    // counts as a known install only when it names one URL, of a known host, with nothing that the
-    // shell fills in later, and when every URL of the whole command is of a known host.
+    // counts as a known install only in the strict form of `KNOWN_INSTALL`, as a whole statement, from
+    // a known host, and when every URL of the whole command is of a known host. Any other token, such
+    // as a proxy, a header, a resolve rule or a redirect, makes it a finding.
     const commandHostsKnown = urlsIn(command).every(({ url }) => isInstallerUrl(url));
     for (const pattern of PIPE_TO_SHELL) {
       if (!command) break;
       for (const match of command.matchAll(pattern)) {
-        const urls = urlsIn(match[0]);
+        const end = match.index + match[0].length;
+        // The statement goes on until a new line, `;`, `&&`, `||` or `&`; a further `|` is part of it.
+        const statementEnd = command.slice(end).search(/\n|;|&&|\|\||&/u);
+        const rest = command.slice(end, statementEnd < 0 ? command.length : end + statementEnd);
+        const install = KNOWN_INSTALL.exec(match[0]);
         const known =
           commandHostsKnown &&
-          urls.length === 1 &&
-          urls.every(({ url }) => isInstallerUrl(url)) &&
-          !UNRESOLVED_PART.test(match[0]);
-        if (!known) found.add("pipe-to-shell", commandAt + match.index, commandAt + match.index + match[0].length);
+          install !== null &&
+          isInstallerUrl(install.groups?.url ?? "") &&
+          !UNRESOLVED_PART.test(match[0]) &&
+          rest.trim() === "";
+        if (!known) found.add("pipe-to-shell", commandAt + match.index, commandAt + end);
       }
     }
     if (PAGE_SCRIPT_TOOLS.has(action.tool) && sendsFrom && !found.has("page-script-exfiltration"))

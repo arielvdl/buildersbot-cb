@@ -169,6 +169,11 @@ describe("decodeGuardJudgeReply", () => {
   });
 });
 
+/** A fetch for a test: the answer comes from `answer`, and nothing goes over the network. */
+function fakeFetch(answer: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>): typeof fetch {
+  return Object.assign(answer, { preconnect: () => undefined });
+}
+
 describe("culturaBuilderGuardModel", () => {
   const session = JSON.stringify({ access: "access-token-123456789", refresh: "", expires: Date.now() + 3_600_000 });
 
@@ -183,12 +188,12 @@ describe("culturaBuilderGuardModel", () => {
 
   it("sends one short request to the gateway with the fast model and returns the reply", async () => {
     const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
-    const fake: typeof fetch = async (input, init) => {
+    const fake = fakeFetch(async (input, init) => {
       calls.push({ url: String(input), init });
       return new Response(JSON.stringify({ choices: [{ message: { content: '{"verdict":"allow"}' } }] }), {
         status: 200,
       });
-    };
+    });
     const port = culturaBuilderGuardModel({ session: () => session, saveSession: () => Effect.void, fetch: fake });
     const reply = await Effect.runPromise(port.complete(DEFAULT_GUARD_JUDGE, { system: "s", prompt: "p" }));
     expect(reply).toBe('{"verdict":"allow"}');
@@ -211,7 +216,7 @@ describe("culturaBuilderGuardModel", () => {
     const refused = culturaBuilderGuardModel({
       session: () => session,
       saveSession: () => Effect.void,
-      fetch: async () => new Response("denied", { status: 401 }),
+      fetch: fakeFetch(async () => new Response("denied", { status: 401 })),
     });
     const failed = await Effect.runPromiseExit(refused.complete(DEFAULT_GUARD_JUDGE, { system: "s", prompt: "p" }));
     expect(Exit.isFailure(failed)).toBe(true);
