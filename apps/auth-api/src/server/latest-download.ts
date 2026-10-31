@@ -1,5 +1,5 @@
+import { sourceText } from "@openbot/i18n/source";
 import { Effect, Schema } from "effect";
-import { OPENBOT_LINKS } from "../lib/landing-links";
 
 export type AvailableDownloadPlatform = "linux" | "macos" | "windows";
 
@@ -20,7 +20,13 @@ interface DownloadManifestConfig {
   manifest: "latest-linux-arm64.yml" | "latest-linux.yml" | "latest-mac.yml" | "latest.yml";
 }
 
-const RELEASES_BASE_URL = "https://github.com/nightly-labs/openbot/releases";
+/**
+ * The GitHub releases of the Builders Bot desktop app, or null while there are none. The upstream
+ * releases are another app: it signs in to the upstream account service, not with Cultura Builder,
+ * so no download button may lead there. Until Builders Bot publishes its releases, each download
+ * answers that the installer is not published here yet.
+ */
+const RELEASES_BASE_URL: string | null = null;
 
 const DOWNLOAD_PLATFORMS = ["linux", "macos", "windows"] as const satisfies readonly AvailableDownloadPlatform[];
 
@@ -81,9 +87,17 @@ function findInstaller(
  * why. Written to the Worker log rather than to analytics: a server event has no session, and the
  * landing reports are defined on sessions. Platform and reason only, never a URL or a response body.
  */
-function fallbackToReleases(platform: AvailableDownloadPlatform, reason: string): Response {
+function fallbackToReleases(platform: AvailableDownloadPlatform, releasesUrl: string, reason: string): Response {
   console.warn(`latest-download: serving the releases page for ${platform} (${reason})`);
-  return redirect(OPENBOT_LINKS.releases);
+  return redirect(releasesUrl);
+}
+
+/** The answer while there is no Builders Bot release to download. */
+function installerNotPublished(): Response {
+  return new Response(sourceText("error.auth.desktopInstallerUnpublished"), {
+    status: 404,
+    headers: { "cache-control": "no-store", "content-type": "text/plain; charset=utf-8" },
+  });
 }
 
 class DownloadManifestError extends Schema.TaggedError<DownloadManifestError>()("DownloadManifestError", {}) {}
@@ -92,9 +106,10 @@ const latestDownload = Effect.fn("LatestDownload.resolve")(function* (
   platform: AvailableDownloadPlatform,
   fetcher: typeof fetch,
   architecture: DownloadArchitecture,
+  releasesUrl: string,
 ) {
   const config = downloadManifest(platform, architecture);
-  const manifestUrl = `${RELEASES_BASE_URL}/latest/download/${config.manifest}`;
+  const manifestUrl = `${releasesUrl}/latest/download/${config.manifest}`;
   const response = yield* Effect.tryPromise({
     try: (signal) =>
       fetcher(manifestUrl, {
@@ -103,23 +118,25 @@ const latestDownload = Effect.fn("LatestDownload.resolve")(function* (
       }),
     catch: () => new DownloadManifestError({}),
   });
-  if (!response.ok) return fallbackToReleases(platform, `manifest status ${response.status}`);
+  if (!response.ok) return fallbackToReleases(platform, releasesUrl, `manifest status ${response.status}`);
   const manifest = yield* Effect.tryPromise({
     try: () => response.text(),
     catch: () => new DownloadManifestError({}),
   });
   // Only the macOS manifest lists two architectures.
   const installer = findInstaller(manifest, config.extension, platform === "macos" ? architecture : undefined);
-  if (!installer) return fallbackToReleases(platform, `no ${config.extension} asset in the manifest`);
-  return redirect(`${RELEASES_BASE_URL}/latest/download/${encodeURIComponent(installer)}`);
+  if (!installer) return fallbackToReleases(platform, releasesUrl, `no ${config.extension} asset in the manifest`);
+  return redirect(`${releasesUrl}/latest/download/${encodeURIComponent(installer)}`);
 });
 
 export function latestDownloadResponse(
   platform: AvailableDownloadPlatform,
   fetcher: typeof fetch = fetch,
   architecture: DownloadArchitecture = downloadArchitecture(platform, null),
+  releasesUrl: string | null = RELEASES_BASE_URL,
 ) {
-  return latestDownload(platform, fetcher, architecture).pipe(
-    Effect.catch(() => Effect.sync(() => fallbackToReleases(platform, "the manifest request failed"))),
+  if (releasesUrl === null) return Effect.succeed(installerNotPublished());
+  return latestDownload(platform, fetcher, architecture, releasesUrl).pipe(
+    Effect.catch(() => Effect.sync(() => fallbackToReleases(platform, releasesUrl, "the manifest request failed"))),
   );
 }
