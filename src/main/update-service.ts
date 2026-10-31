@@ -91,6 +91,11 @@ interface UpdateServiceEvents {
 interface UpdateServiceOptions {
   currentVersion: string;
   enabled: boolean;
+  /**
+   * True when the feed policy (`update-feed-policy.ts`) allows no feed for this build. The service is
+   * then disabled, and its status says that updates are not available in this version.
+   */
+  noUpdateFeed?: boolean | undefined;
   autoDownload: boolean;
   beforeInstall: () => Promise<void>;
   checkSiblingInstances?: (() => Effect.Effect<readonly BuildersBotSiblingInstance[], SiblingScanFailed>) | undefined;
@@ -172,8 +177,9 @@ export function isNixStoreInstall(executablePath: string = process.execPath): bo
   return executablePath.startsWith("/nix/store/");
 }
 
-function unsupportedMessage(): string {
-  return sourceText(isNixStoreInstall() ? "error.update.managedByNix" : "error.update.unsupported");
+function unsupportedMessage(noUpdateFeed: boolean): string {
+  if (isNixStoreInstall()) return sourceText("error.update.managedByNix");
+  return sourceText(noUpdateFeed ? "error.update.notAvailableInThisVersion" : "error.update.unsupported");
 }
 
 export class UpdateService extends EventEmitter<UpdateServiceEvents> {
@@ -186,6 +192,7 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
       | "beforeInstall"
       | "checkSiblingInstances"
       | "currentUid"
+      | "noUpdateFeed"
       | "logDirectory"
       | "shipItDirectory"
       | "updaterCacheDirectory"
@@ -239,7 +246,7 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
       availableVersion: null,
       progress: null,
       checkedAt: null,
-      message: options.enabled ? null : unsupportedMessage(),
+      message: options.enabled ? null : unsupportedMessage(options.noUpdateFeed === true),
       errorCode: null,
     };
     this.on("diagnostic", (event) => {
@@ -359,7 +366,7 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
         phase: this.#options.enabled ? "idle" : "unsupported",
         availableVersion: null,
         progress: null,
-        message: null,
+        message: this.#options.enabled ? null : unsupportedMessage(this.#options.noUpdateFeed === true),
         errorCode: null,
       });
       if (this.#options.enabled) this.#scheduleCheck(this.#options.initialCheckDelayMs);

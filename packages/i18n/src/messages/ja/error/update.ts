@@ -3,6 +3,7 @@ import type { messages as source } from "../../en/error/update";
 
 export const messages = {
   "error.update.unsupported": "アップデートはインストール済みのデスクトップ版でご利用いただけます。",
+  "error.update.notAvailableInThisVersion": "このバージョンの Builders Bot では、まだアップデートを利用できません。",
   "error.update.notReady": "インストールできるアップデートがありません。",
   "error.update.restartFailed": "アップデートをインストールするための再起動ができませんでした。",
   "error.update.downloadStalled": "アップデートのダウンロードが応答しなくなりました。もう一度お試しください。",

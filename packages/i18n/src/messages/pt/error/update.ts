@@ -3,6 +3,7 @@ import type { messages as source } from "../../en/error/update";
 
 export const messages = {
   "error.update.unsupported": "As atualizações estão disponíveis nas versões instaladas para computador.",
+  "error.update.notAvailableInThisVersion": "As atualizações ainda não estão disponíveis nesta versão do Builders Bot.",
   "error.update.notReady": "Nenhuma atualização está pronta para instalar.",
   "error.update.restartFailed": "O Builders Bot não conseguiu reiniciar para instalar a atualização.",
   "error.update.downloadStalled": "O download da atualização parou de responder. Tente novamente.",

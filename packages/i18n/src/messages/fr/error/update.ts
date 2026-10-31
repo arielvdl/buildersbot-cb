@@ -5,10 +5,13 @@ export const messages = {
   // Updater state the user reads.
   "error.update.unsupported":
     "Les mises à jour sont disponibles dans les versions installées de l’application de bureau.",
+  "error.update.notAvailableInThisVersion":
+    "Les mises à jour ne sont pas encore disponibles dans cette version de Builders Bot.",
   "error.update.notReady": "Une mise à jour n’est pas prête à être installée.",
   "error.update.restartFailed": "Builders Bot n’a pas pu redémarrer pour installer la mise à jour.",
   "error.update.downloadStalled": "Le téléchargement de la mise à jour ne répond plus. Réessayez.",
-  "error.update.installFailed": "Impossible d’installer la mise à jour. Quittez puis rouvrez Builders Bot, et réessayez.",
+  "error.update.installFailed":
+    "Impossible d’installer la mise à jour. Quittez puis rouvrez Builders Bot, et réessayez.",
   "error.update.downloadFailed": "Impossible de télécharger la mise à jour. Réessayez.",
   "error.update.checkFailed": "Impossible de rechercher des mises à jour. Réessayez.",
   "error.update.checkStalled": "La recherche de mise à jour ne répond plus. Réessayez.",
@@ -18,7 +21,8 @@ export const messages = {
     "Le service de mise à jour n’a pas répondu. Builders Bot réessaiera de lui-même dans quelques minutes.",
   "error.update.checkNoRelease":
     "Aucune mise à jour publiée n’a été trouvée pour cette plateforme. Builders Bot réessaiera de lui-même dans quelques minutes.",
-  "error.update.managedByNix": "Nix installe les mises à jour de cette copie d’Builders Bot. Mettez-la à jour avec Nix.",
+  "error.update.managedByNix":
+    "Nix installe les mises à jour de cette copie d’Builders Bot. Mettez-la à jour avec Nix.",
   "error.update.managedByHost":
     "Sur ce Mac, l’hôte installe les mises à jour. La mise à jour reste prête jusqu’à la maintenance de l’hôte.",
   "error.update.siblingSession":

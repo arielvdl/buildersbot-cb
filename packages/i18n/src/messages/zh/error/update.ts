@@ -4,6 +4,7 @@ import type { messages as source } from "../../en/error/update";
 export const messages = {
   // Updater state the user reads.
   "error.update.unsupported": "仅已安装的桌面版本支持更新。",
+  "error.update.notAvailableInThisVersion": "此版本的 Builders Bot 暂不支持更新。",
   "error.update.notReady": "更新尚未准备好安装。",
   "error.update.restartFailed": "Builders Bot 无法重启以安装更新。",
   "error.update.downloadStalled": "更新下载停止响应，请重试。",

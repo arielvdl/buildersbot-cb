@@ -330,6 +330,13 @@ import { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcClientTransport } from "./team-webrtc-client-transport";
 import type { TeardownRegistry } from "./teardown-registry";
 import { TraceFile } from "./trace-file";
+import {
+  decideReleaseFeed,
+  decideUpdateFeed,
+  readUpdateFeedMetadata,
+  SHIPIT_DIRECTORY_NAME,
+  UPDATER_CACHE_DIRECTORY_NAME,
+} from "./update-feed-policy";
 import { readUpdatePreference, writeUpdatePreference } from "./update-preference-store";
 import { checkRestartReadiness, type RestartReadiness } from "./update-readiness";
 import {
@@ -3094,8 +3101,9 @@ export async function createApplicationServices({
   const voiceServer = new VoiceServerService({ preferences: voiceServerPreferences, apiKeys: voiceServerKeys });
   voiceServer.on("settings", forwardVoiceServerSettings);
   const currentVersion = app.getVersion();
+  const updateMetadataPath = join(process.resourcesPath, "app-update.yml");
   // Skip the file check in dev: unpacked runs never enable updates, so avoid touching resourcesPath.
-  const updateMetadataAvailable = app.isPackaged && existsSync(join(process.resourcesPath, "app-update.yml"));
+  const updateMetadataAvailable = app.isPackaged && existsSync(updateMetadataPath);
   // A hosted or self-installed server runs a release that root owns. Root installs updates for it
   // when openbot-hosted-update has installed its request units. A container of openbot-instance asks
   // the host instead, which pulls the image. Other containers have neither.
@@ -3110,13 +3118,25 @@ export async function createApplicationServices({
       process.platform === "linux" &&
       (process.env.OPENBOT_HOSTED_SERVER === "1" || installationMode === "self") &&
       existsSync(HOSTED_UPDATE_TRIGGER));
+  // The feed policy decides before electron-updater loads, because electron-updater reads
+  // app-update.yml by itself, and before a hosted server asks root for a release. No feed passes
+  // yet: each packaged build says that updates are not available in this version, and sends no
+  // update request.
+  const updateFeed = hostedInstaller
+    ? decideReleaseFeed()
+    : decideUpdateFeed(app.isPackaged ? readUpdateFeedMetadata(updateMetadataPath) : null);
+  if (app.isPackaged && !localServerChild && !updateFeed.allowed) {
+    const route = hostedInstaller ? "hosted-feed-not-allowed" : "update-feed-not-allowed";
+    logger.info(`Builders Bot updates are not available in this version: ${route} (${updateFeed.reason})`);
+  }
   // A local server is the same application as its parent, which installs the update for both.
   const updatesEnabled =
     !localServerChild &&
     app.isPackaged &&
     !isNixStoreInstall() &&
     (hostedInstaller || (supportsInstalledUpdates(process.platform) && updateMetadataAvailable)) &&
-    isValidSemver(currentVersion);
+    isValidSemver(currentVersion) &&
+    updateFeed.allowed;
   if (app.isPackaged && updateMetadataAvailable && !isValidSemver(currentVersion)) {
     logger.warn(
       `Builders Bot updates are disabled because the application version is not valid SemVer: ${currentVersion}`,
@@ -3137,7 +3157,7 @@ export async function createApplicationServices({
       const realAdapter = updaterModule.autoUpdater ?? updaterModule.default?.autoUpdater ?? updaterModule.default;
       if (realAdapter) {
         updateAdapter = realAdapter;
-        updaterCacheDirectory = join(electronUpdaterCacheRoot(), "openbot-updater");
+        updaterCacheDirectory = join(electronUpdaterCacheRoot(), UPDATER_CACHE_DIRECTORY_NAME);
       } else {
         updaterEnabled = false;
         logger.warn("Builders Bot updates are disabled: electron-updater did not export autoUpdater");
@@ -3150,6 +3170,7 @@ export async function createApplicationServices({
   const updater = new UpdateService(updateAdapter, {
     currentVersion,
     enabled: updaterEnabled,
+    noUpdateFeed: app.isPackaged && !updateFeed.allowed,
     autoDownload: updatePreference.autoDownload,
     beforeInstall: prepareForUpdateInstall,
     // Packaged runs share one application bundle across macOS users. Installing while another
@@ -3182,7 +3203,7 @@ export async function createApplicationServices({
     logDirectory: join(app.getPath("userData"), "logs", "update"),
     // Squirrel.Mac only. The path is meaningless under a Linux or Windows home directory.
     ...(process.platform === "darwin"
-      ? { shipItDirectory: join(homedir(), "Library", "Caches", "app.openbot.desktop.ShipIt") }
+      ? { shipItDirectory: join(homedir(), "Library", "Caches", SHIPIT_DIRECTORY_NAME) }
       : {}),
     updaterCacheDirectory,
   });

@@ -4,6 +4,7 @@ import type { messages as source } from "../../en/error/update";
 export const messages = {
   // Updater state the user reads.
   "error.update.unsupported": "설치된 데스크톱 빌드에서만 업데이트할 수 있어요.",
+  "error.update.notAvailableInThisVersion": "이 버전의 Builders Bot에서는 아직 업데이트를 사용할 수 없어요.",
   "error.update.notReady": "설치할 업데이트가 아직 준비되지 않았어요.",
   "error.update.restartFailed": "Builders Bot이 업데이트를 설치하기 위해 다시 시작하지 못했어요.",
   "error.update.downloadStalled": "업데이트 다운로드가 응답하지 않아요. 다시 시도해 주세요.",
@@ -12,7 +13,8 @@ export const messages = {
   "error.update.checkFailed": "업데이트를 확인할 수 없었어요. 다시 시도해 주세요.",
   "error.update.checkStalled": "업데이트 확인이 응답하지 않아요. 다시 시도해 주세요.",
   "error.update.checkOffline": "업데이트 서비스에 연결할 수 없어요. 인터넷 연결을 확인한 후 다시 시도해 주세요.",
-  "error.update.checkUnavailable": "업데이트 서비스가 응답하지 않아요. Builders Bot이 몇 분 후에 자동으로 다시 시도해요.",
+  "error.update.checkUnavailable":
+    "업데이트 서비스가 응답하지 않아요. Builders Bot이 몇 분 후에 자동으로 다시 시도해요.",
   "error.update.checkNoRelease":
     "이 플랫폼용으로 게시된 업데이트가 없어요. Builders Bot이 몇 분 후에 자동으로 다시 시도해요.",
   "error.update.managedByNix": "이 Builders Bot은 Nix로 업데이트를 설치해요. Nix로 업데이트해 주세요.",

@@ -3,6 +3,7 @@ import { defineMessages } from "../../../message";
 export const messages = defineMessages("error.update", {
   // Updater state the user reads.
   "error.update.unsupported": "Updates are available in installed desktop builds.",
+  "error.update.notAvailableInThisVersion": "Updates are not available in this version of Builders Bot yet.",
   "error.update.notReady": "An update is not ready to install.",
   "error.update.restartFailed": "Builders Bot could not restart to install the update.",
   "error.update.downloadStalled": "The update download stopped responding. Try again.",

@@ -4,6 +4,7 @@ import type { messages as source } from "../../en/error/update";
 export const messages = {
   // Kullanıcının okuduğu güncelleyici durumu.
   "error.update.unsupported": "Güncellemeler yüklü masaüstü derlemelerinde kullanılabilir.",
+  "error.update.notAvailableInThisVersion": "Güncellemeler bu Builders Bot sürümünde henüz kullanılamıyor.",
   "error.update.notReady": "Bir güncelleme yüklenmeye hazır değil.",
   "error.update.restartFailed": "Builders Bot güncellemeyi yüklemek için yeniden başlatılamadı.",
   "error.update.downloadStalled": "Güncelleme indirmesi yanıt vermeyi durdurdu. Tekrar deneyin.",
