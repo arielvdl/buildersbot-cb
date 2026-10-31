@@ -78,7 +78,8 @@ export function ChannelTabOverview(props: { channelId: string; onClose: () => vo
     }
     const cards = [...(grid?.querySelectorAll<HTMLElement>(".channel-tab-card") ?? [])];
     if (cards.length === 0) return;
-    const index = cards.indexOf(document.activeElement as HTMLElement);
+    const focused = document.activeElement;
+    const index = focused instanceof HTMLElement ? cards.indexOf(focused) : -1;
     const target =
       event.key === "ArrowRight" || event.key === "ArrowDown"
         ? cards[Math.min(cards.length - 1, index + 1)]

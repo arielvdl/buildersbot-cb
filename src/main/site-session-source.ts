@@ -16,6 +16,11 @@ export function siteSessionKey(hostname: string): string {
   return hostname.toLowerCase().replace(/^www\./u, "");
 }
 
+/** The `sites` list of a parsed grants file, or no site when the file has a different shape. */
+function storedSites(file: unknown): unknown[] {
+  return typeof file === "object" && file !== null && "sites" in file && Array.isArray(file.sites) ? file.sites : [];
+}
+
 /**
  * The sites whose sign-in the person allowed for good. Only the host names are kept: no cookie, no
  * value, nothing that a stolen file could replay. A file that is missing or unreadable grants nothing.
@@ -30,9 +35,8 @@ export class SiteSessionGrants {
 
   async load(): Promise<void> {
     try {
-      const parsed: unknown = JSON.parse(await readFile(this.#path, "utf8"));
-      if (typeof parsed === "object" && parsed !== null && "sites" in parsed && Array.isArray(parsed.sites)) {
-        for (const site of parsed.sites) if (typeof site === "string" && site.length < 254) this.#sites.add(site);
+      for (const site of storedSites(JSON.parse(await readFile(this.#path, "utf8")))) {
+        if (typeof site === "string" && site.length < 254) this.#sites.add(site);
       }
     } catch {}
   }

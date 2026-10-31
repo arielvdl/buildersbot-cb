@@ -3,6 +3,11 @@
 import { makeWebPushKeys } from "../apps/auth-api/src/server/web-push";
 
 const keys = await makeWebPushKeys();
-console.log(`WEB_PUSH_PUBLIC_KEY=${keys.publicKey}`);
-console.log(`WEB_PUSH_PRIVATE_KEY=${JSON.stringify(keys.privateKeyJwk)}`);
-console.log("WEB_PUSH_SUBJECT=mailto:ops@openbot.run");
+process.stdout.write(
+  [
+    `WEB_PUSH_PUBLIC_KEY=${keys.publicKey}`,
+    `WEB_PUSH_PRIVATE_KEY=${JSON.stringify(keys.privateKeyJwk)}`,
+    "WEB_PUSH_SUBJECT=mailto:ops@openbot.run",
+    "",
+  ].join("\n"),
+);

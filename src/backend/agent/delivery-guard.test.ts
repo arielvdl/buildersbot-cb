@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DeliveryInputItem } from "../agent/delivery-content";
 import type { AgentClient } from "../agent-client";
 import { AgentService, type AgentServiceOptions } from "../agent-service";
+import { AgentStore } from "../agent-store";
 import { MailboxStore } from "../mailbox-store";
 import { BuildersBotDatabase } from "../openbot-database";
 import type { AppServerNotification, ResponseDecoder } from "../protocol";
@@ -32,12 +33,51 @@ const AGENT_ID = "bot-guard";
 const MODEL = "gpt-6-luna";
 
 /**
- * Every browser callback of the constructor answers an unsubscribe, and nothing else is called.
- * The real host is a class with private state, so a literal stands in for it.
+ * Every browser callback of the constructor answers an unsubscribe. A scan calls no other method,
+ * so each of them fails. The real host is a class with private state, so a literal stands in for it.
  */
 function browserStub(): AgentServiceOptions["browser"] {
   const unsubscribe = () => () => {};
-  return { onControlChanged: unsubscribe, onChanged: unsubscribe, onDocumentChanged: unsubscribe } as never;
+  const unused = () => Effect.die(new Error("A scan does not use the browser."));
+  return {
+    listTabs: () => [],
+    beginTakeover: unused,
+    endTakeover: () => {},
+    userControlTabFor: () => null,
+    awaitUserControlRelease: unused,
+    resolveUploadTarget: unused,
+    handleDynamicTool: unused,
+    onChanged: unsubscribe,
+    onControlChanged: unsubscribe,
+    onDocumentChanged: unsubscribe,
+    clearControls: () => {},
+    endControl: () => {},
+    close: unused,
+    clearAgentSession: unused,
+  };
+}
+
+/**
+ * The real store with one agent. The constructor only sets paths, so no file is read; `list` gives
+ * the one agent, and the shared folder is the test folder, as for the mailbox.
+ */
+class OneAgentStore extends AgentStore {
+  readonly #root: string;
+  readonly #record: AgentSummary;
+
+  constructor(root: string, database: BuildersBotDatabase, record: AgentSummary) {
+    super(root, root, database, () => DEFAULT_AGENT_DEFAULTS, root);
+    this.#root = root;
+    this.#record = record;
+  }
+
+  override get sharedRoot(): string {
+    return this.#root;
+  }
+
+  override list(): AgentSummary[] {
+    return [this.#record];
+  }
 }
 
 function agent(): AgentSummary {
@@ -138,18 +178,11 @@ async function harness(options: {
   await chmod(cli, 0o755);
   const database = new BuildersBotDatabase(root);
   await Effect.runPromise(database.initialize());
-  const record = agent();
-  // Only the reads the scan makes; the real store is a class with private state.
-  const store = {
-    database,
-    list: () => [record],
-    agentDefaults: () => DEFAULT_AGENT_DEFAULTS,
-    sharedRoot: root,
-  };
+  const store = new OneAgentStore(root, database, agent());
   const client = new FakeClient(options.reply ?? '{"verdict":"clean","findings":[],"note":""}', options.hangs === true);
   const state: { scans: number; models: string[] } = { scans: 0, models: [] };
   const service = new AgentService({
-    store: store as never,
+    store,
     mailbox: new MailboxStore(root, root, database),
     browser: browserStub(),
     preferredProvider: "codex",

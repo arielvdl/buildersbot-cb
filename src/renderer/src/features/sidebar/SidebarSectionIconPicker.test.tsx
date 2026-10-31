@@ -1,13 +1,20 @@
 import type { SidebarSectionGlyph } from "@openbot/contracts/ipc";
 import { SectionEmojiPicker, SectionGlyphPicker } from "@openbot/ui/features/sidebar/SidebarSectionIconPicker";
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
   window.localStorage.clear();
 });
 
-const options = (name: string) => screen.getByRole("listbox", { name }).querySelectorAll('[role="option"]');
+const options = (name: string) => within(screen.getByRole("listbox", { name })).getAllByRole("option");
+
+/** The item at `index`, or a failure that names the missing one. */
+function nth<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`There is no item ${index}.`);
+  return item;
+}
 
 describe("the icon picker", () => {
   it("loads the library, searches in Portuguese, and picks with the keyboard", async () => {
@@ -25,10 +32,12 @@ describe("the icon picker", () => {
     await waitFor(() => expect(options("Icons")[0]).toHaveAttribute("aria-label", "Shield"));
 
     fireEvent.keyDown(search, { key: "ArrowDown" });
-    expect(document.activeElement).toBe(options("Icons")[0]);
-    fireEvent.keyDown(document.activeElement ?? search, { key: "ArrowRight" });
-    expect(document.activeElement).toBe(options("Icons")[1]);
-    fireEvent.keyDown(document.activeElement ?? search, { key: "Enter" });
+    const first = nth(options("Icons"), 0);
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    const second = nth(options("Icons"), 1);
+    expect(second).toHaveFocus();
+    fireEvent.keyDown(second, { key: "Enter" });
     expect(onSelect).toHaveBeenCalledTimes(1);
 
     fireEvent.input(search, { target: { value: "seguranca" } });
@@ -58,7 +67,7 @@ describe("the emoji picker", () => {
     await waitFor(() => expect(screen.getByRole("listbox", { name: "Emoji" })).toBeInTheDocument());
     fireEvent.input(screen.getByRole("searchbox", { name: "Search emoji…" }), { target: { value: "foguete" } });
     await waitFor(() => expect(options("Emoji")[0]).toHaveAttribute("aria-label", "rocket"));
-    fireEvent.click(options("Emoji")[0] as Element);
+    fireEvent.click(nth(options("Emoji"), 0));
     expect(onSelect).toHaveBeenLastCalledWith("🚀");
   });
 
@@ -70,7 +79,7 @@ describe("the emoji picker", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Medium" }));
     fireEvent.input(screen.getByRole("searchbox"), { target: { value: "woman technologist" } });
     await waitFor(() => expect(options("Emoji")[0]).toHaveAttribute("aria-label", "woman technologist"));
-    fireEvent.click(options("Emoji")[0] as Element);
+    fireEvent.click(nth(options("Emoji"), 0));
     expect(onSelect).toHaveBeenLastCalledWith("👩🏽‍💻");
   });
 });

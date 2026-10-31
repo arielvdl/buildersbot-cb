@@ -13,15 +13,20 @@ import {
   startCulturaBuilderSignIn,
 } from "./cultura-builder-auth";
 
+/** A fetch for a test: the answer comes from `answer`, and nothing goes over the network. */
+function fakeFetch(answer: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>): typeof fetch {
+  return Object.assign(answer, { preconnect: () => undefined });
+}
+
 /** A fake Hub: each call answers with the next queued reply, and the requests are kept for assertions. */
 function hub(replies: Array<{ status?: number; body: unknown }>) {
   const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
-  const fetcher = (async (url: string, init?: RequestInit) => {
-    calls.push({ url, init });
+  const fetcher = fakeFetch(async (input, init) => {
+    calls.push({ url: input instanceof Request ? input.url : String(input), init });
     const reply = replies.shift();
     if (!reply) throw new Error("unexpected request");
     return new Response(JSON.stringify(reply.body), { status: reply.status ?? 200 });
-  }) as unknown as typeof fetch;
+  });
   return { fetcher, calls };
 }
 
@@ -98,9 +103,9 @@ describe("pollCulturaBuilderToken", () => {
   });
 
   it("keeps polling through a dropped network", async () => {
-    const fetcher = (async () => {
+    const fetcher = fakeFetch(async () => {
       throw new Error("offline");
-    }) as unknown as typeof fetch;
+    });
     expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("pending");
   });
 

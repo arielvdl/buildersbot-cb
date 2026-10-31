@@ -5,7 +5,7 @@ import {
   VOICE_STREAM_LIMITS,
   type VoiceTranscriptionResult,
 } from "@openbot/contracts/ipc";
-import type { AppTextKey } from "@openbot/i18n";
+import { type AppTextKey, en } from "@openbot/i18n";
 import { currentText } from "@openbot/ui/text";
 import { createSignal, onCleanup } from "solid-js";
 import { appPort } from "../../app-port";
@@ -167,10 +167,18 @@ export function createGlobalDictation(capture: boolean): void {
   });
 }
 
+/** Whether `key` names a plain message of the catalog, as each failure that main sends does. */
+function isTextKey(key: string): key is AppTextKey {
+  return Object.entries(en).some(([name, message]) => name === key && typeof message === "string");
+}
+
 /** What the overlay says, in the user's language. */
 export function dictationText(next: DictationState): string {
   const text = currentText();
-  if (next.phase === "failed") return text.t((next.failure ?? "error.dictation.failed") as AppTextKey);
+  if (next.phase === "failed") {
+    const failure = next.failure ?? "error.dictation.failed";
+    return text.t(isTextKey(failure) ? failure : "error.dictation.failed");
+  }
   if (next.phase === "transcribing") return text.t("app.dictation.transcribing");
   if (next.phase === "recording") return text.t("app.dictation.recording");
   return text.t("app.dictation.done");
