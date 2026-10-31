@@ -686,6 +686,9 @@ export const messages = {
   "settings.transfer.result.warnings": "Verifique estes itens",
 
   // Palavras que também encontram uma linha ou seção na busca de Configurações e na paleta de comandos.
+  // As palavras de ligação são palavras curtas de uma busca que não dão nome a uma configuração.
+  "settings.search.fillerWords":
+    "o, a, os, as, um, uma, de, do, da, dos, das, em, no, na, nos, nas, para, pra, por, pelo, pela, com, e, ou, meu, minha, configuração, configurações, configurar, ajustes, preferências, opções",
   "settings.search.keywords.agentAutomation": "automação, rotinas, agendar, sozinho",
   "settings.search.keywords.agents": "agentes, padrões dos agentes, assistentes, bots",
   "settings.search.keywords.analytics": "análises, telemetria, dados de uso, privacidade, rastreamento",
@@ -714,7 +717,7 @@ export const messages = {
   "settings.search.keywords.import": "importar, migrar, trazer agentes, Hermes",
   "settings.search.keywords.interfaceSize": "zoom, escala, tamanho do texto, tamanho da fonte, maior, menor",
   "settings.search.keywords.keepAwake":
-    "acordado, ativo, suspensão, repouso, dormir, tampa, tampa fechada, energia, não desligar, desligar",
+    "acordado, ativo, suspensão, suspender, hibernar, repouso, dormir, tampa, tampa fechada, energia, não desligar, desligar",
   "settings.search.keywords.keepAwakeOnBattery": "bateria, fora da tomada, energia, dormir, tampa",
   "settings.search.keywords.lidAwake":
     "tampa, tampa fechada, notebook, laptop, MacBook, manter acordado, dormir, repouso, não desligar, desligar, bateria, serviço de segurança",
@@ -729,11 +732,13 @@ export const messages = {
   "settings.search.keywords.mcp": "MCP, ferramentas, conectores, integrações",
   "settings.search.keywords.members": "membros, pessoas, convidar, convite, equipe, usuários",
   "settings.search.keywords.memory": "memória, memórias, limite, revisão, lembrar",
-  "settings.search.keywords.mobileConnect": "celular, telefone, iPhone, Android, código QR, parear, app web",
+  "settings.search.keywords.mobileConnect":
+    "celular, telefone, iPhone, Android, código QR, parear, app web, PWA, instalar no celular, tela inicial",
   "settings.search.keywords.notifications": "notificações, alertas, avisos, sons, banners",
   "settings.search.keywords.profile": "perfil, conta, nome, foto, avatar, sair",
   "settings.search.keywords.promptGuard": "injeção de prompt, segurança, verificar mensagens, proteção",
-  "settings.search.keywords.providers": "provedores, modelos, chave de API, entrar, OpenAI, Claude, Codex",
+  "settings.search.keywords.providers":
+    "provedores, modelos, chave de API, entrar, OpenAI, Claude, Codex, cache de prompt",
   "settings.search.keywords.readReplies": "ler em voz alta, texto para fala, TTS, falar respostas",
   "settings.search.keywords.remoteDesktop": "área de trabalho remota, compartilhar tela, controle remoto, tela",
   "settings.search.keywords.removeServer": "remover, excluir, apagar, excluir servidor",
@@ -754,7 +759,8 @@ export const messages = {
   "settings.search.keywords.taskSound": "som, aviso sonoro, tarefa concluída, terminou",
   "settings.search.keywords.theme": "tema, escuro, claro, modo escuro, modo noturno, aparência, cores",
   "settings.search.keywords.timezone": "fuso, fuso horário, horário, relógio, hora",
-  "settings.search.keywords.transfer": "transferir, mover, migrar, outro computador",
+  "settings.search.keywords.transfer":
+    "transferir, mover, migrar, outro computador, exportar, backup, cópia de segurança, arquivo",
   "settings.search.keywords.transparentWindow": "transparente, translúcida, desfoque, vidro, transparência",
   "settings.search.keywords.updateTrack": "canal, beta, estável, versão de teste",
   "settings.search.keywords.updates": "atualizar, atualização, versão, nova versão, upgrade",

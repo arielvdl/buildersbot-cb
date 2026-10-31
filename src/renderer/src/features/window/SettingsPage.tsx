@@ -20,6 +20,7 @@ import {
   type SettingsTab,
   settingsTabShown,
 } from "../settings/settings-tabs";
+import { useUpdates } from "../updates/updates-context";
 import { ServerSettingsPageTitle, SettingsPageFrame } from "./SettingsPageFrame";
 import { clearSettingsRowMark, openServerSettingsSection, revealSettingsRow } from "./settings-row-reveal";
 import { type SettingsKind, useWindowPage } from "./window-page-context";
@@ -76,7 +77,8 @@ export function SettingsPage(props: { kind: SettingsKind }) {
   const settings = useSettings();
   const serverSettings = useServerSettings();
   const platform = usePlatform();
-  const { activeServer, hostStatus } = useServers();
+  const updates = useUpdates();
+  const { activeServer, hostStatus, hostedServerIds, hostedServersLoaded } = useServers();
   const [query, setQuery] = createSignal("");
   /** The server whose sections the search lists: the one this page shows, else the active server. */
   const searchServer = () =>
@@ -98,9 +100,18 @@ export function SettingsPage(props: { kind: SettingsKind }) {
     if (!value) return null;
     const platformName = platform.appInfo()?.platform;
     const islandShown = dynamicIslandSettingsShown(platformName, platform.chatWindow !== null);
-    const rowState: SettingsRowState = { platform: platformName, general: settings.generalSettings() };
+    const rowState: SettingsRowState = {
+      platform: platformName,
+      general: settings.generalSettings(),
+      update: updates.status(),
+    };
     const server = searchServer();
-    const serverContext = { platform: platformName, host: hostStatus() };
+    const serverContext = {
+      platform: platformName,
+      host: hostStatus(),
+      hostedServerIds: hostedServersLoaded() ? hostedServerIds() : null,
+      canLeave: true,
+    };
     // An entry shows only where the page shows it: a tab of this computer, a row that the state does
     // not hide, a section that the server has.
     const shown = (entry: SearchEntry) => {
@@ -109,7 +120,8 @@ export function SettingsPage(props: { kind: SettingsKind }) {
       }
       return settingsTabShown(entry.tab, islandShown) && (entry.shown?.(rowState) ?? true);
     };
-    return searchSettings(value, index(), shown);
+    // This app and the server each show their best matches, so "servidor" also lists the server sections.
+    return searchSettings(value, index(), shown, (entry) => entry.kind);
   });
   /** What a screen reader hears while the user types a query. */
   const resultStatus = () => {
@@ -122,8 +134,8 @@ export function SettingsPage(props: { kind: SettingsKind }) {
 
   /** A row that the state hides shows no anchor in time; the user then reads why the tab does not show it. */
   const reveal = (panel: string, anchor: string) => {
-    void revealSettingsRow(panel, anchor).then((found) => {
-      if (!found) toast.info(i18n.t("app.settingsPage.rowHidden"));
+    void revealSettingsRow(panel, anchor).then((result) => {
+      if (result === "hidden") toast.info(i18n.t("app.settingsPage.rowHidden"));
     });
   };
 

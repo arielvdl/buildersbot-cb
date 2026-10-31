@@ -207,7 +207,7 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
         </ItemActions>
       </Item>
       <Show when={supported() && mode() === "battery"}>
-        <Item class="settings-modal-row">
+        <Item data-settings-row="settings.lidAwake.batteryFloor.title" class="settings-modal-row">
           <ItemContent>
             <ItemTitle>{t("settings.lidAwake.batteryFloor.title")}</ItemTitle>
             <ItemDescription>{t("settings.lidAwake.batteryFloor.description")}</ItemDescription>
@@ -241,7 +241,7 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
         </Item>
       </Show>
       <Show when={supported() && mode() !== "off"}>
-        <Item class="settings-modal-row">
+        <Item data-settings-row="settings.lidAwake.timeLimit.title" class="settings-modal-row">
           <ItemContent>
             <ItemTitle>{t("settings.lidAwake.timeLimit.title")}</ItemTitle>
             <ItemDescription>{t("settings.lidAwake.timeLimit.description")}</ItemDescription>
@@ -276,7 +276,7 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
       </Show>
       <Show when={supported() && (mode() === "battery" || state.status?.helper !== "missing") ? status() : null}>
         {(current) => (
-          <Item class="settings-modal-row">
+          <Item data-settings-row-skip="status of the helper" class="settings-modal-row">
             <ItemContent>
               <ItemTitle>{t("settings.lidAwake.helper.title")}</ItemTitle>
               <ItemDescription>{t("settings.lidAwake.helper.description")}</ItemDescription>
@@ -318,7 +318,7 @@ export function LidAwakeSettings(props: { selectMount: HTMLElement | undefined }
         )}
       </Show>
       <Show when={state.status?.sleepDisabledWithoutGrant}>
-        <Item class="settings-modal-row">
+        <Item data-settings-row-skip="warning about the sleep state" class="settings-modal-row">
           <ItemContent>
             <ItemTitle>{t("settings.lidAwake.sleepDisabled.title")}</ItemTitle>
             <ItemDescription>{t("settings.lidAwake.sleepDisabled.description")}</ItemDescription>

@@ -724,6 +724,8 @@ const ServerSettings = createSimpleContext({
     return {
       serverSettingsTarget,
       serverSettingsSection,
+      /** A request for the section that is already requested changes nothing, so a caller clears it first. */
+      clearServerSettingsSection: () => setServerSettingsSection(null),
       serverSettingsOpen,
       setServerSettingsOpen,
       serverSettingsOpenRequest,

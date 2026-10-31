@@ -21,7 +21,7 @@ import {
   UsersRound,
 } from "@openbot/ui";
 import { serverHasStorage } from "../files/storage-usage";
-import { keyList, type SettingsSearchKeys } from "../settings/settings-search";
+import type { SettingsSearchKeys } from "../settings/settings-search";
 import {
   activeServerHasProviderSettings,
   remoteUpdateServer,
@@ -196,6 +196,13 @@ export function serverSettingsSectionShown(
 export interface ServerSettingsSearchContext {
   platform: AppInfo["platform"] | undefined;
   host: Pick<HostStatus, "configured" | "phase"> | null;
+  /**
+   * The hosted servers of the account, or null until they load. Billing deletes a hosted server, so
+   * General offers Remove only for a server that is not in this list.
+   */
+  hostedServerIds: ReadonlySet<string> | null;
+  /** False where the settings cannot leave a server, such as the web client, which stays on one host. */
+  canLeave: boolean;
 }
 
 /**
@@ -269,7 +276,7 @@ const GENERAL_ROWS: ReadonlyArray<ServerSettingsSearchEntry> = [
     titleKey: "server.settings.leaveTitle",
     descriptionKey: "server.settings.leaveDescription",
     keywordsKey: "settings.search.keywords.leaveServer",
-    shown: (server) => server.kind === "remote" && server.role !== "owner",
+    shown: (server, context) => context.canLeave && server.kind === "remote" && server.role !== "owner",
   },
   {
     section: "general",
@@ -277,29 +284,38 @@ const GENERAL_ROWS: ReadonlyArray<ServerSettingsSearchEntry> = [
     titleKey: "server.settings.removeTitle",
     descriptionKey: "server.settings.removeDescription",
     keywordsKey: "settings.search.keywords.removeServer",
-    // A hosted server is deleted in billing, not here; the dialog checks that.
-    shown: (server) => server.kind === "remote" && server.role === "owner",
+    // Billing deletes a hosted server, so the dialog offers Remove only for another server.
+    shown: (server, context) =>
+      server.kind === "remote" &&
+      server.role === "owner" &&
+      context.hostedServerIds !== null &&
+      !context.hostedServerIds.has(server.id),
   },
 ];
 
-/** Each entry of the server settings also matches "server", so that word finds them in the user settings too. */
-const SERVER_KEYWORDS: AppTextKey = "settings.search.keywords.server";
+/**
+ * The place of each entry of the server settings: "server" names it, so "cofre do servidor" finds the
+ * Vault section and "servidor" finds each section, also in the user settings.
+ */
+const SERVER_SCOPE: AppTextKey = "settings.search.keywords.server";
 
-/** Each section, and the rows of General after the General section. */
-export const SERVER_SETTINGS_SEARCH: ReadonlyArray<ServerSettingsSearchEntry> = SERVER_SETTINGS_SECTION_LIST.flatMap(
-  (section) => {
-    const keys = SERVER_SETTINGS_SECTIONS[section];
-    const entry: ServerSettingsSearchEntry = {
+/**
+ * Each section in the order of the section list, then the rows of General. A query that names only
+ * the server finds the sections before the rows.
+ */
+export const SERVER_SETTINGS_SEARCH: ReadonlyArray<ServerSettingsSearchEntry> = [
+  ...SERVER_SETTINGS_SECTION_LIST.map(
+    (section): ServerSettingsSearchEntry => ({
       section,
-      titleKey: keys.title,
-      descriptionKey: keys.description,
-      keywordsKey: [keys.keywords, SERVER_KEYWORDS],
+      titleKey: SERVER_SETTINGS_SECTIONS[section].title,
+      descriptionKey: SERVER_SETTINGS_SECTIONS[section].description,
+      keywordsKey: SERVER_SETTINGS_SECTIONS[section].keywords,
+      scopeKey: SERVER_SCOPE,
       shown: SECTION_SHOWN[section],
-    };
-    const rows = section === "general" ? GENERAL_ROWS : [];
-    return [entry, ...rows.map((row) => ({ ...row, keywordsKey: [...keyList(row.keywordsKey), SERVER_KEYWORDS] }))];
-  },
-);
+    }),
+  ),
+  ...GENERAL_ROWS.map((row) => ({ ...row, scopeKey: SERVER_SCOPE })),
+];
 
 /** Whether the settings of `server` show the entry: its section, and for a row of General, the row. */
 export function serverSettingsEntryShown(

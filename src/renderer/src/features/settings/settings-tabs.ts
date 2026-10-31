@@ -1,4 +1,4 @@
-import type { AppInfo } from "@openbot/contracts/ipc";
+import type { AppInfo, UpdateStatus } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
   Bell,
@@ -35,6 +35,8 @@ export type SettingsTab =
 export interface SettingsRowState {
   platform: AppInfo["platform"] | undefined;
   general: GeneralSettingsValue;
+  /** The Updates tab shows its rows by the update phase and by the host that manages the updates. */
+  update: Pick<UpdateStatus, "phase" | "managedByHost">;
 }
 
 /**
@@ -101,6 +103,8 @@ const AGENT_ROWS = {
 };
 
 const autoUpdateKeywords = "settings.search.keywords.autoUpdate";
+/** A host that manages the updates replaces the three update switches with one note. */
+const updatesManaged = (state: SettingsRowState) => state.update.managedByHost === true;
 
 export const navItems: ReadonlyArray<SettingsNavItem> = [
   {
@@ -207,7 +211,8 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         keywordsKey: "settings.search.keywords.keepAwakeOnBattery",
         shown: (state) => state.general.keepAwake !== null,
       },
-      // `LidAwakeSettings` shows these rows on macOS. A Mac with no lid shows the first one with a note.
+      // `LidAwakeSettings` shows these rows on macOS. A Mac with no lid shows the first one with a note. The
+      // battery and time rows show only in a lid mode that uses them; a result for a hidden row says why.
       {
         anchor: "settings.lidAwake.title",
         descriptionKey: "settings.lidAwake.description",
@@ -218,6 +223,18 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         anchor: "settings.lidAwake.test.title",
         descriptionKey: "settings.lidAwake.test.description",
         keywordsKey: "settings.search.keywords.lidAwakeTest",
+        shown: (state) => state.platform === "darwin" && state.general.keepAwake !== null,
+      },
+      {
+        anchor: "settings.lidAwake.batteryFloor.title",
+        descriptionKey: "settings.lidAwake.batteryFloor.description",
+        keywordsKey: "settings.search.keywords.keepAwakeOnBattery",
+        shown: (state) => state.platform === "darwin" && state.general.keepAwake !== null,
+      },
+      {
+        anchor: "settings.lidAwake.timeLimit.title",
+        descriptionKey: "settings.lidAwake.timeLimit.description",
+        keywordsKey: "settings.search.keywords.lidAwake",
         shown: (state) => state.platform === "darwin" && state.general.keepAwake !== null,
       },
       {
@@ -406,19 +423,30 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         descriptionKey: "settings.updates.track.description",
         keywordsKey: "settings.search.keywords.updateTrack",
       },
-      { anchor: "settings.updates.idleRestart.title", keywordsKey: autoUpdateKeywords },
+      // The tab offers the restart in each phase but the install itself.
+      { anchor: "settings.updates.idleRestart.title", shown: (state) => state.update.phase !== "installing" },
       {
         anchor: "settings.updates.autoDownload.title",
         descriptionKey: "settings.updates.autoDownload.description",
         keywordsKey: autoUpdateKeywords,
+        shown: (state) => !updatesManaged(state),
       },
       {
         anchor: "settings.updates.autoInstall.title",
         descriptionKey: "settings.updates.autoInstall.description",
         keywordsKey: autoUpdateKeywords,
+        shown: (state) => !updatesManaged(state),
       },
-      { anchor: "settings.updates.allowRemote.title", descriptionKey: "settings.updates.allowRemote.description" },
-      { anchor: "settings.updates.managed.title", descriptionKey: "settings.updates.managed.description" },
+      {
+        anchor: "settings.updates.allowRemote.title",
+        descriptionKey: "settings.updates.allowRemote.description",
+        shown: (state) => !updatesManaged(state),
+      },
+      {
+        anchor: "settings.updates.managed.title",
+        descriptionKey: "settings.updates.managed.description",
+        shown: updatesManaged,
+      },
     ],
   },
   {

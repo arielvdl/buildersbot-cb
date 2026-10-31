@@ -750,6 +750,10 @@ export const messages = defineMessages("settings", {
 
   // Words that also find a settings row or section in the settings search and the command palette.
   // A list of other names and related words, separated by commas. Keep each term of docs/i18n.md.
+  // The filler words are short words of a query that do not name a setting: articles, prepositions and
+  // the words for "settings". The search reads them only when the query has no other word.
+  "settings.search.fillerWords":
+    "a, an, the, of, to, for, in, on, at, by, with, from, my, and, or, settings, setting, preferences, options",
   "settings.search.keywords.agentAutomation": "automation, routines, schedule, run alone",
   "settings.search.keywords.agents": "agent defaults, assistants, bots",
   "settings.search.keywords.analytics": "analytics, telemetry, usage data, privacy, tracking",
@@ -777,7 +781,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.import": "import, migrate, bring agents, Hermes",
   "settings.search.keywords.interfaceSize": "zoom, scale, text size, font size, bigger, smaller",
   "settings.search.keywords.keepAwake":
-    "awake, sleep, lid, closed lid, power, energy, prevent sleep, shut down, turn off, caffeinate",
+    "awake, sleep, suspend, hibernate, lid, closed lid, power, energy, prevent sleep, shut down, turn off, caffeinate",
   "settings.search.keywords.keepAwakeOnBattery": "battery, unplugged, power, sleep, lid",
   "settings.search.keywords.lidAwake":
     "lid, closed lid, clamshell, laptop, MacBook, keep awake, sleep, shut down, turn off, battery, safety service",
@@ -792,11 +796,12 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.mcp": "MCP, tools, connectors, integrations",
   "settings.search.keywords.members": "members, people, invite, team, users",
   "settings.search.keywords.memory": "memory, memories, limit, review, remember",
-  "settings.search.keywords.mobileConnect": "phone, mobile, iPhone, Android, QR code, pair, web app",
+  "settings.search.keywords.mobileConnect":
+    "phone, mobile, iPhone, Android, QR code, pair, web app, PWA, install on the phone, home screen",
   "settings.search.keywords.notifications": "notifications, alerts, sounds, banners",
   "settings.search.keywords.profile": "profile, account, name, photo, avatar, sign out",
   "settings.search.keywords.promptGuard": "prompt injection, security, scan messages, safety",
-  "settings.search.keywords.providers": "providers, models, API key, sign in, OpenAI, Claude, Codex",
+  "settings.search.keywords.providers": "providers, models, API key, sign in, OpenAI, Claude, Codex, prompt cache",
   "settings.search.keywords.readReplies": "read aloud, text to speech, TTS, speak replies",
   "settings.search.keywords.remoteDesktop": "remote desktop, screen sharing, remote control, screen",
   "settings.search.keywords.removeServer": "remove, delete, delete server",
@@ -817,7 +822,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.taskSound": "sound, chime, task done, finished",
   "settings.search.keywords.theme": "theme, dark, light, dark mode, appearance, colors",
   "settings.search.keywords.timezone": "time zone, timezone, clock, hour, schedule",
-  "settings.search.keywords.transfer": "transfer, move, migrate, another computer",
+  "settings.search.keywords.transfer": "transfer, move, migrate, another computer, export, backup, file",
   "settings.search.keywords.transparentWindow": "transparent, translucent, blur, vibrancy, glass",
   "settings.search.keywords.updateTrack": "channel, beta, stable, release track",
   "settings.search.keywords.updates": "update, upgrade, version, release, new version",

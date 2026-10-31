@@ -91,6 +91,12 @@ export interface GlobalSearchAction {
   detail?: string | undefined;
   /** More words that find the action, such as the English name in another language. */
   keywords?: string;
+  /**
+   * Finds the action for a query in place of its text: the rank of the action, where a lower rank
+   * shows first in its group, or null when the action does not match. Without it, the action matches
+   * when its label, detail or keywords hold the query.
+   */
+  rank?: ((query: string) => number | null) | undefined;
   run: () => void;
 }
 
@@ -291,6 +297,17 @@ function indexed<T extends ResultData>(results: T[]): Array<T & Option> {
 
 function matching<T extends GlobalSearchResult>(items: T[], query: string): T[] {
   return query ? items.filter((item) => item.text.includes(query)) : items;
+}
+
+/** The actions that match the query, best rank first. Actions of the same rank keep their order. */
+function matchingActions(items: Array<ActionResult & Option>, query: string): Array<ActionResult & Option> {
+  if (!query) return items;
+  const ranked: Array<{ item: ActionResult & Option; rank: number; order: number }> = [];
+  items.forEach((item, order) => {
+    const rank = item.action.rank ? item.action.rank(query) : item.text.includes(query) ? 0 : null;
+    if (rank !== null) ranked.push({ item, rank, order });
+  });
+  return ranked.sort((a, b) => a.rank - b.rank || a.order - b.order).map(({ item }) => item);
 }
 
 function section(
@@ -802,7 +819,7 @@ export function GlobalSearch(props: GlobalSearchProps) {
     else if (!value) {
       groups = [...list("agents", scopedAgentItems()), ...list("channels", scopedChannelItems())];
     } else {
-      const actions = matching(actionItems(), value);
+      const actions = matchingActions(actionItems(), value);
       const preview = { limit: ALL_SECTION_LIMIT };
       groups = [
         section("agents", matching(scopedAgentItems(), value), preview),
@@ -927,6 +944,15 @@ export function GlobalSearch(props: GlobalSearchProps) {
       const firstResult = flatResults()[0];
       if (!firstResult) return;
       event.preventDefault();
+      // A settings page that other words found, and not its name, waits for the messages and files
+      // that are still on the way: they show above it.
+      if (
+        firstResult.kind === "action" &&
+        firstResult.action.group === "settings" &&
+        pending() &&
+        !normalizedSearchText(firstResult.label).includes(normalizedQuery())
+      )
+        return;
       activate(firstResult);
       return;
     }
