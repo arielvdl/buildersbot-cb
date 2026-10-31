@@ -79,7 +79,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "免费模型，无需订阅。",
   "onboarding.choice.subscription": "我已有订阅",
   "onboarding.choice.subscriptionDetail": "ChatGPT、Claude 或 Grok",
-  "onboarding.choice.startFreeInstead": "改为免费开始",
   "onboarding.consent.notice": "继续即表示你接受{terms}并已阅读{privacy}。",
   "onboarding.consent.termsLink": "服务条款",
   "onboarding.consent.privacyLink": "隐私政策",

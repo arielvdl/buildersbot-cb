@@ -81,7 +81,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "Darmowe modele. Bez subskrypcji.",
   "onboarding.choice.subscription": "Mam subskrypcję",
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude lub Grok",
-  "onboarding.choice.startFreeInstead": "Zacznij za darmo",
   "onboarding.consent.notice": "Kontynuując, akceptujesz {terms}. Przeczytaj też: {privacy}.",
   "onboarding.consent.termsLink": "Warunki korzystania",
   "onboarding.consent.privacyLink": "Polityka prywatności",

@@ -81,7 +81,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "Gratis modellen. Geen abonnement nodig.",
   "onboarding.choice.subscription": "Ik heb een abonnement",
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude of Grok",
-  "onboarding.choice.startFreeInstead": "Toch gratis beginnen",
   "onboarding.consent.notice": "Door verder te gaan, accepteer je de {terms} en neem je kennis van het {privacy}.",
   "onboarding.consent.termsLink": "Servicevoorwaarden",
   "onboarding.consent.privacyLink": "Privacybeleid",

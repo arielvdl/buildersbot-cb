@@ -93,7 +93,6 @@ export const messages = defineMessages("onboarding", {
   "onboarding.choice.freeDetail": "Free models. No subscription needed.",
   "onboarding.choice.subscription": "I have a subscription",
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude, or Grok",
-  "onboarding.choice.startFreeInstead": "Start free instead",
   "onboarding.consent.notice": "By continuing, you accept the {terms} and acknowledge the {privacy}.",
   "onboarding.consent.termsLink": "Terms of Service",
   "onboarding.consent.privacyLink": "Privacy Policy",

@@ -72,7 +72,7 @@ export const ChoiceWithoutComputerStep: Story = {
 
 /**
  * "Use your … plan": ChatGPT, Claude and Grok are downloaded, so the plan step only connects.
- * OpenCode is not in the list; "Start free instead" leaves the plan step.
+ * OpenCode is not in the list; the free path is the first question, not part of this step.
  */
 export const SubscriptionPath: Story = {
   render: (storyArgs) => <NewComputerFirstRun args={storyArgs} downloaded />,

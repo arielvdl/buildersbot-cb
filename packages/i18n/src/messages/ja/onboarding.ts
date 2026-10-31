@@ -86,7 +86,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "無料のモデル。サブスクリプションは不要です。",
   "onboarding.choice.subscription": "サブスクリプションがあります",
   "onboarding.choice.subscriptionDetail": "ChatGPT、Claude、Grok",
-  "onboarding.choice.startFreeInstead": "代わりに無料で始める",
   "onboarding.consent.notice": "続行すると、{terms}に同意し、{privacy}を確認したものとみなされます。",
   "onboarding.consent.termsLink": "利用規約",
   "onboarding.consent.privacyLink": "プライバシーポリシー",

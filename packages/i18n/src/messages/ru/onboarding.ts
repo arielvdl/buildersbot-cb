@@ -83,7 +83,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "Бесплатные модели. Подписка не нужна.",
   "onboarding.choice.subscription": "У меня есть подписка",
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude или Grok",
-  "onboarding.choice.startFreeInstead": "Лучше начать бесплатно",
   "onboarding.consent.notice": "Продолжая, вы принимаете {terms}. Подробнее о данных: {privacy}.",
   "onboarding.consent.termsLink": "Условия использования",
   "onboarding.consent.privacyLink": "Политика конфиденциальности",

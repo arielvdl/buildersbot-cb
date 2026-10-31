@@ -45,7 +45,7 @@ interface FirstRunState {
   saving: boolean;
   /** The user asked to open Builders Bot before the provider was ready, so setup ends when it is. */
   finishWhenReady: boolean;
-  /** The user left the plan step with "Start free instead". */
+  /** Always false: the plan step has no button that skips it. Kept because the journey type reports it. */
   skipped: boolean;
 }
 
@@ -176,15 +176,13 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
 
   // A write shows in reads only after the next flush, so this reads no state that it writes.
   function startFree(): void {
-    const fromPlan = state.step === "plan";
-    trackStep(fromPlan ? "skipped" : "next", "free");
+    trackStep("next", "free");
     providers.chooseProvider(FREE_PROVIDER);
     setState((current) => {
       current.path = "free";
-      if (fromPlan) current.skipped = true;
     });
     retryFree();
-    // The step after the first question; the plan step's "Start free instead" also lands there.
+    // The step after the first question.
     const following = stepsFor("free")[1];
     if (following) {
       moveTo(following);
@@ -416,11 +414,6 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
                     {reason()}
                   </p>
                 )}
-              </Show>
-              <Show when={state.step === "plan"}>
-                <Button type="button" variant="ghost" disabled={busy()} onClick={startFree}>
-                  {t("onboarding.choice.startFreeInstead")}
-                </Button>
               </Show>
             </div>
           </Show>

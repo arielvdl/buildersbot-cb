@@ -83,7 +83,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "Ücretsiz modeller. Abonelik gerekmez.",
   "onboarding.choice.subscription": "Aboneliğim var",
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude veya Grok",
-  "onboarding.choice.startFreeInstead": "Bunun yerine ücretsiz başla",
   "onboarding.consent.notice": "Devam ederek {terms}’nı kabul etmiş ve {privacy}’nı okumuş olursunuz.",
   "onboarding.consent.termsLink": "Hizmet Şartları",
   "onboarding.consent.privacyLink": "Gizlilik Politikası",

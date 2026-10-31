@@ -80,7 +80,6 @@ export const messages = {
   "onboarding.choice.freeDetail": "무료 모델. 구독이 필요 없어요.",
   "onboarding.choice.subscription": "구독 중이에요",
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude 또는 Grok",
-  "onboarding.choice.startFreeInstead": "대신 무료로 시작",
   "onboarding.consent.notice": "계속하면 {terms}에 동의하고 {privacy}을 확인한 것으로 간주됩니다.",
   "onboarding.consent.termsLink": "서비스 약관",
   "onboarding.consent.privacyLink": "개인정보 처리방침",
