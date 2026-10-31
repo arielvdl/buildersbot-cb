@@ -281,6 +281,33 @@ describe("findSecretValue", () => {
     expect(findSecretValue('Authorization: Bearer $GITHUB_TOKEN password: "$PASS" ana@example.com')).toBeNull();
   });
 
+  // News about SK hynix and xAI is daily work: a URL slug or a repository name is not a key.
+  it("counts a generic prefix only in the shape that a vendor issues", () => {
+    for (const slug of [
+      "https://www.reuters.com/technology/sk-hynix-posts-record-quarterly-profit-hbm-demand-2026-10-28/",
+      "https://techcrunch.com/2026/10/30/xai-raises-20-billion-at-200-billion-valuation/",
+      "git clone https://github.com/xai-org/xai-sdk-python",
+      "xoxo-gossip-girl-reboot",
+      "https://example.com/news/sk-anthropic-partnership-announced",
+      "Big news: xai-grok-5-preview is live",
+      "STRIPE_SECRET_KEY=sk_test_xxx",
+    ])
+      expect(findSecretValue(slug)).toBeNull();
+    for (const key of [
+      "sk-proj-AbCdEf0123456789xyzXYZ",
+      `sk-ant-api03-${"Ab1".repeat(30)}`,
+      "sk-0123456789abcdef0123456789abcdef",
+      "sk-or-v1-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "sk_live_51HxYzAbCdEfGhIjKlMnOpQr",
+      `xai-${"Ab1".repeat(27)}`,
+      "xoxb-123456789012-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx",
+      "sk-lf-1234abcd-12ab-34cd-56ef-1234567890ab",
+    ])
+      expect(findSecretValue(`curl -H "Authorization: Bearer ${key}" https://x.example`)).not.toBeNull();
+    // The log still hides the wider shape.
+    expect(redactText("see xai-sdk-python")).toBe("see [redacted]");
+  });
+
   // A Vault password `admin` or a one-time code must not make `/admin` or a pull request number a leak.
   it("counts a registered value only when it is long, not a plain word or number, and a whole token", () => {
     registerSecretValue("admin", { allowShort: true });

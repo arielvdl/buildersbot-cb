@@ -214,11 +214,28 @@ export function findSecretValue(value: string): { index: number; length: number 
   let found = findRegisteredValue(value);
   for (const pattern of [PEM_PRIVATE_KEY, KNOWN_SECRET_PREFIXES, JSON_WEB_TOKEN]) {
     pattern.lastIndex = 0;
-    const match = pattern.exec(value);
+    let match = pattern.exec(value);
+    while (match !== null && pattern === KNOWN_SECRET_PREFIXES && !looksIssued(match[0])) match = pattern.exec(value);
     pattern.lastIndex = 0;
     if (match && (found === null || match.index < found.index)) found = { index: match.index, length: match[0].length };
   }
   return found;
+}
+
+// `sk-`, `sk_`, `xai-` and `xox?-` also start ordinary words in a URL or a sentence:
+// `sk-hynix-posts-record-profit`, `xai-sdk-python`, `xoxo-gossip-girl`, `sk-anthropic-deal`. A check
+// of an action counts such a value only in the shape that the vendors issue: one part of 16
+// characters or more, between `-`, `_` or `.`, that mixes letters and digits or upper and lower case,
+// or a UUID. The log mask keeps the wider rule: hiding a slug in a log costs little.
+const GENERIC_SECRET_PREFIX = /^(?:sk-ant-|sk-|sk_|xai-|xox[abeoprs]-)/u;
+const ISSUED_PART = /^(?=.{16})(?:(?=.*[A-Za-z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z]))/u;
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu;
+
+function looksIssued(match: string): boolean {
+  const prefix = GENERIC_SECRET_PREFIX.exec(match);
+  if (!prefix) return true;
+  const rest = match.slice(prefix[0].length);
+  return UUID.test(rest) || rest.split(/[-_.]/u).some((part) => ISSUED_PART.test(part));
 }
 
 export function redactText(value: string): string {
