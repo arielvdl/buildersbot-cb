@@ -23,8 +23,9 @@ export const EGRESS_PROXY_LIMITS = {
 export const EGRESS_DEFAULT_COUNTRY = "BR";
 
 /**
- * Local addresses and the Cultura Builder control plane: sign-in, the account service and Signal
- * never go through the proxy. Loopback is always direct, also when an admin removes it here.
+ * Local addresses, the Tailscale network and the Cultura Builder control plane: sign-in, the account
+ * service and Signal never go through the proxy, and a proxy in another country cannot reach the
+ * machines of the person's tailnet. Loopback is always direct, also when an admin removes it here.
  */
 export const EGRESS_DEFAULT_BYPASS: readonly string[] = [
   "localhost",
@@ -37,6 +38,10 @@ export const EGRESS_DEFAULT_BYPASS: readonly string[] = [
   "fc00::/7",
   "fe80::/10",
   "*.local",
+  // Tailscale: the CGNAT range of its IPv4 addresses, its IPv6 prefix and its MagicDNS names.
+  "100.64.0.0/10",
+  "fd7a:115c:a1e0::/48",
+  "*.ts.net",
   "culturabuilder.com",
   "*.culturabuilder.com",
   "openbot.run",

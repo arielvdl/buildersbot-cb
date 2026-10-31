@@ -641,7 +641,7 @@ export const messages = {
   "server.egress.passwordSavedPlaceholder": "salva",
   "server.egress.bypass": "Lista de exceções",
   "server.egress.bypassDescription":
-    "Um host, endereço ou faixa por linha. Estes vão direto. Mantenha aqui os hosts da Cultura Builder: o login, o serviço de contas e o Signal precisam deles.",
+    "Um host, endereço ou faixa por linha. Estes vão direto. Mantenha aqui os hosts da Cultura Builder: o login, o serviço de contas e o Signal precisam deles. Os endereços do Tailscale também estão aqui.",
   "server.egress.bypassRestore": "Restaurar padrões",
   "server.egress.country": "País esperado",
   "server.egress.countryDescription": "Duas letras, como BR. A verificação compara o endereço do proxy com ele.",

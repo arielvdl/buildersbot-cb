@@ -21,8 +21,8 @@ export interface BrowserEgressSession {
 export type BrowserProxyLogin = { username: string; password: string } | "cancel" | null;
 
 export interface BrowserEgress {
-  /** Called for each session before its first request. */
-  attachSession(session: BrowserEgressSession): void;
+  /** Called once for each session before its first request. The answer detaches the session. */
+  attachSession(session: BrowserEgressSession): () => void;
   proxyLogin(
     contentsId: number,
     url: string,

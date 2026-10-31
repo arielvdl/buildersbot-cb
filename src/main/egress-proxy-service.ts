@@ -233,16 +233,21 @@ export class EgressProxyService implements BrowserEgress {
 
   /**
    * A new embedded browser session. While the switch is on, its requests wait at the gate until the
-   * proxy is set, so the first request of a restored tab cannot go direct.
+   * proxy is set, so the first request of a restored tab cannot go direct. The answer detaches the
+   * session, such as a private sign-in session whose last tab closed.
    */
-  attachSession(port: EgressSessionPort): void {
+  attachSession(port: EgressSessionPort): () => void {
     // The signature follows the mode first, so the new session applies the mode of now.
     this.#changed();
     const session: AttachedSession = { port, applied: null, touched: false, ready: Promise.resolve() };
     this.#sessions.add(session);
+    const detach = () => {
+      this.#sessions.delete(session);
+    };
     const mode = this.mode();
-    if (mode.kind === "off") return;
+    if (mode.kind === "off") return detach;
     session.ready = this.#applyTo(session, mode, this.#signatureOf(mode));
+    return detach;
   }
 
   /**
@@ -426,7 +431,18 @@ export function writePlaywrightEgressConfig(userData: string, proxy: PlaywrightP
   const configPath = join(userData, PLAYWRIGHT_EGRESS_CONFIG);
   const userDataDir = join(userData, PLAYWRIGHT_EGRESS_PROFILE);
   mkdirSync(userDataDir, { recursive: true, mode: 0o700 });
-  writeFileSync(configPath, `${JSON.stringify({ browser: { launchOptions: { proxy } } })}\n`, { mode: 0o600 });
+  writeFileSync(configPath, `${JSON.stringify(playwrightEgressConfig(proxy))}\n`, { mode: 0o600 });
   chmodSync(configPath, 0o600);
   return { configPath, userDataDir };
+}
+
+const PLAYWRIGHT_WEBRTC_POLICY = "--force-webrtc-ip-handling-policy=disable_non_proxied_udp";
+
+/**
+ * The `@playwright/mcp` configuration of the server's own browser. WebRTC sends no UDP outside the
+ * proxy, as in the embedded browser: without the flag, a page reads the real address from the ICE
+ * candidates of a STUN request.
+ */
+export function playwrightEgressConfig(proxy: PlaywrightProxyOption) {
+  return { browser: { launchOptions: { proxy, args: [PLAYWRIGHT_WEBRTC_POLICY] } } };
 }

@@ -683,7 +683,7 @@ export const messages = defineMessages("server", {
   "server.egress.passwordSavedPlaceholder": "saved",
   "server.egress.bypass": "Bypass list",
   "server.egress.bypassDescription":
-    "One host, address or range per line. These go direct. Keep the Cultura Builder hosts here: sign-in, the account service and Signal need them.",
+    "One host, address or range per line. These go direct. Keep the Cultura Builder hosts here: sign-in, the account service and Signal need them. The Tailscale addresses are here too.",
   "server.egress.bypassRestore": "Restore defaults",
   "server.egress.country": "Expected country",
   "server.egress.countryDescription": "Two letters, such as BR. The check compares the proxy address with it.",

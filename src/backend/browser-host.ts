@@ -395,6 +395,11 @@ export class BrowserHost {
   readonly #siteSession: BrowserSiteSession;
   /** The egress proxy of this server, or null where there is none (a test). */
   readonly #egress: BrowserEgress | null;
+  /**
+   * The sessions that the egress proxy has, each with its detach. `fromPartition` gives the same
+   * session again after `clearTabSession`, and two attachments would share its one request gate.
+   */
+  readonly #egressSessions = new WeakMap<Session, () => void>();
   readonly #idleTabSweep: NodeJS.Timeout;
 
   constructor(
@@ -1006,8 +1011,12 @@ export class BrowserHost {
           if (!tab.contents.isDestroyed()) tab.contents.close();
         });
         const privateSession = tab.privateSession;
-        if (privateSession && ![...this.#tabs.values()].some((other) => other.privateSession === privateSession))
+        if (privateSession && ![...this.#tabs.values()].some((other) => other.privateSession === privateSession)) {
+          // The private session is not used again: the egress proxy stops following it.
+          this.#egressSessions.get(privateSession)?.();
+          this.#egressSessions.delete(privateSession);
           yield* browserCall(() => privateSession.clearStorageData()).pipe(Effect.ignore);
+        }
         if (Exit.isFailure(discarded)) return yield* Effect.failCause(discarded.cause);
       }),
       this.#scope,
@@ -2638,8 +2647,9 @@ export class BrowserHost {
   }
 
   #configureSession(target: Session): void {
-    // First, so the proxy gate is in place before the session sends anything.
-    this.#egress?.attachSession(electronEgressSession(target));
+    // First, so the proxy gate is in place before the session sends anything. Once for each session.
+    if (this.#egress && !this.#egressSessions.has(target))
+      this.#egressSessions.set(target, this.#egress.attachSession(electronEgressSession(target)));
     // Use the installed Chromium identity for pages, frames and workers.
     // The request policy keeps the Google account compatibility exception.
     // Service workers read the process fallback instead of the session, so it changes too.
