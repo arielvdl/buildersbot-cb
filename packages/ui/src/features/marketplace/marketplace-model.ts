@@ -17,6 +17,7 @@ import type {
   MarketplacePluginPrompt,
 } from "../settings/marketplace-plugins";
 import type { CatalogList, MarketplaceHomeCache } from "./marketplace-listing";
+import type { WhatsAppAccountsModel } from "./whatsapp-accounts-model";
 
 /** An agent of the user's that a skill can go to. */
 export type MarketplaceAgent = Pick<
@@ -204,6 +205,11 @@ export interface MarketplaceModel {
   appHostName?: string | undefined;
   /** Absent when this client cannot ask macOS, or when a joined server runs the apps. */
   macAutomation?: MarketplaceMacAutomation | undefined;
+  /**
+   * The accounts of the wazap server that the WhatsApp plugin starts. Absent when this client cannot
+   * run wazap, such as the web client, or when a joined server runs the apps (`appHostName`).
+   */
+  whatsappAccounts?: WhatsAppAccountsModel | undefined;
   /** Asks for a confirmation, then removes what the catalog app installed. */
   disconnectApp: (app: Extract<MarketplaceApp, { kind: "plugin" }>) => void;
   /** Removes a custom MCP server. */

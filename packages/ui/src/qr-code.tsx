@@ -7,6 +7,12 @@ import { cx } from "./utils";
 
 export interface QrCodeProps {
   value: string;
+  /**
+   * A code that another program already encoded: rows of `1` (dark) and `0` (light), with no quiet
+   * zone. The code then draws these modules, and `value` only names it. A WhatsApp pairing QR comes
+   * this way, because the program that pairs prints the modules and not the text.
+   */
+  modules?: readonly string[] | undefined;
   label?: string;
   size?: number;
   class?: string;
@@ -31,9 +37,11 @@ function holeModules(pixels: number, modulePixels: number): number {
   return modules % 2 === 1 ? modules : modules + 1;
 }
 
-function qrSvg(value: string, size: number, mark: MarkBox | null): string {
-  const code = QRCode.create(value, { errorCorrectionLevel: mark ? "H" : "M" });
-  const count = code.modules.size;
+function qrSvg(value: string, size: number, mark: MarkBox | null, modules?: readonly string[]): string {
+  const code = modules ? null : QRCode.create(value, { errorCorrectionLevel: mark ? "H" : "M" });
+  const count = modules ? modules.length : (code?.modules.size ?? 0);
+  const dark = (row: number, column: number) =>
+    modules ? modules[row]?.[column] === "1" : Boolean(code?.modules.get(row, column));
   const total = count + QR_MARGIN * 2;
   const modulePixels = size / total;
   const holeWidth = mark && mark.width > 0 ? Math.min(holeModules(mark.width, modulePixels), count) : 0;
@@ -45,7 +53,7 @@ function qrSvg(value: string, size: number, mark: MarkBox | null): string {
     const inHoleRow = row >= holeTop && row < holeTop + holeHeight;
     for (let column = 0; column < count; column += 1) {
       if (inHoleRow && column >= holeLeft && column < holeLeft + holeWidth) continue;
-      if (code.modules.get(row, column)) path += `M${column + QR_MARGIN} ${row + QR_MARGIN}h1v1h-1z`;
+      if (dark(row, column)) path += `M${column + QR_MARGIN} ${row + QR_MARGIN}h1v1h-1z`;
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${size}" height="${size}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#ffffff"/><path d="${path}" fill="#000000"/></svg>`;
@@ -79,11 +87,13 @@ export function QrCode(props: QrCodeProps): JSX.Element {
   });
 
   createEffect(
-    () => ({ value: props.value, size: size(), marked: hasMark(), box: markBox() }),
-    ({ value, size: requestedSize, marked, box }) => {
+    () => ({ value: props.value, modules: props.modules, size: size(), marked: hasMark(), box: markBox() }),
+    ({ value, modules, size: requestedSize, marked, box }) => {
       if (disposed || (marked && !box)) return;
       try {
-        setSource(`data:image/svg+xml,${encodeURIComponent(qrSvg(value, requestedSize, marked ? box : null))}`);
+        setSource(
+          `data:image/svg+xml,${encodeURIComponent(qrSvg(value, requestedSize, marked ? box : null, modules))}`,
+        );
         setError(false);
       } catch {
         setSource(null);

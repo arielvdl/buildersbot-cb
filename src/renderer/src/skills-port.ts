@@ -34,6 +34,7 @@ export interface SkillsPort {
   >;
   marketplaceAgents: Pick<BuildersBotDesktopApi["marketplaceAgents"], "get" | "install" | "list">;
   macAutomation: Pick<BuildersBotDesktopApi["macAutomation"], "request">;
+  whatsappAccounts: BuildersBotDesktopApi["whatsappAccounts"];
   skills: Pick<
     BuildersBotDesktopApi["skills"],
     | "get"
