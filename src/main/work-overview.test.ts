@@ -27,6 +27,7 @@ function task(id: string, overrides: Partial<ChannelTask> = {}): ChannelTask {
 }
 
 const names = (id: string) => ({ writer: "Writer", qa: "QA Naia" })[id] ?? null;
+const topics = (topicId: string) => ({ t1: "Main", t2: "cadastro" })[topicId] ?? null;
 
 describe("clipping text", () => {
   it("keeps a short text, collapses spaces, and ends a long one with an ellipsis within the limit", () => {
@@ -43,9 +44,10 @@ describe("the stopped work of the channels", () => {
     name: "cadastro",
     archived: overrides.archived ?? false,
     tasks,
+    topicName: topics,
   });
 
-  it("lists a paused or failed task that has a reason, with the channel, the request and the reason", () => {
+  it("lists a paused or failed task that has a reason, with the channel, its tab, the request and the reason", () => {
     const stopped = buildStoppedWork(
       [channel([task("a", { state: "failed", error: "The provider could not start this assignment." })])],
       names,
@@ -54,6 +56,7 @@ describe("the stopped work of the channels", () => {
       {
         channelId: "c1",
         channelName: "cadastro",
+        topicName: "Main",
         taskId: "a",
         title: "Do a",
         reason: "The provider could not start this assignment.",
@@ -76,6 +79,20 @@ describe("the stopped work of the channels", () => {
     );
     expect(entry?.candidates).toEqual([{ agentId: "c1-a", name: "QA Naia", sameModel: true }]);
     expect(entry?.auto).toBe("waiting");
+  });
+
+  it("names the tab of each task, and no tab when the task has none or its tab is gone", () => {
+    const stopped = buildStoppedWork(
+      [
+        channel([
+          task("a", { state: "failed", error: "x", topicId: "t2" }),
+          task("b", { state: "failed", error: "x", topicId: "gone" }),
+          task("c", { state: "failed", error: "x", topicId: undefined }),
+        ]),
+      ],
+      names,
+    );
+    expect(stopped.map((entry) => entry.topicName)).toEqual(["cadastro", null, null]);
   });
 
   it("skips a task with no reason: it was stopped on purpose or never ran", () => {
@@ -117,11 +134,11 @@ describe("the stopped work of the channels", () => {
 
   it("clips a long request and a long reason, and keeps the most recent first up to the limit", () => {
     const many = Array.from({ length: 70 }, (_, index) =>
-      task(`t${index}`, { state: "failed", error: "r".repeat(500), instruction: "i".repeat(500) }),
+      task(`t${index}`, { state: "failed", error: "r".repeat(500), instruction: "i".repeat(5_000) }),
     );
     const stopped = buildStoppedWork([channel(many)], names);
     expect(stopped).toHaveLength(50);
-    expect(stopped[0]?.title.length).toBeLessThanOrEqual(160);
+    expect(stopped[0]?.title.length).toBeLessThanOrEqual(1_000);
     expect(stopped[0]?.reason.length).toBeLessThanOrEqual(200);
   });
 
@@ -133,12 +150,14 @@ describe("the stopped work of the channels", () => {
           name: "one",
           archived: false,
           tasks: [task("a", { channelId: "c1", state: "failed", error: "x" })],
+          topicName: topics,
         },
         {
           id: "c2",
           name: "two",
           archived: false,
           tasks: [task("b", { channelId: "c2", state: "paused", error: "y" })],
+          topicName: topics,
         },
       ],
       names,
@@ -193,12 +212,13 @@ describe("the running work", () => {
     startedAt: "2026-10-30T21:00:00.000Z",
   });
 
-  it("says where a turn runs: in a channel with its task, or in the chat of the agent", () => {
+  it("says where a turn runs: in a channel with its tab and task, or in the chat of the agent", () => {
     const running = buildRunningWork([turn("a", "writer", "ch-thread"), turn("b", "qa", "chat-thread")], {
       agentName: names,
       channelOfThread: (threadId) => (threadId === "ch-thread" ? { id: "c1", name: "cadastro" } : null),
       taskOf: (channelId, agentId) =>
-        channelId === "c1" && agentId === "writer" ? { taskId: "t9", title: "Fix the form" } : null,
+        channelId === "c1" && agentId === "writer" ? { taskId: "t9", title: "Fix the form", topicId: "t2" } : null,
+      topicName: (channelId, topicId) => (channelId === "c1" ? topics(topicId) : null),
     });
     expect(running).toEqual([
       {
@@ -207,6 +227,7 @@ describe("the running work", () => {
         agentName: "Writer",
         channelId: "c1",
         channelName: "cadastro",
+        topicName: "cadastro",
         taskId: "t9",
         title: "Fix the form",
         startedAt: "2026-10-30T21:00:00.000Z",
@@ -217,6 +238,7 @@ describe("the running work", () => {
         agentName: "QA Naia",
         channelId: null,
         channelName: null,
+        topicName: null,
         taskId: null,
         title: "",
         startedAt: "2026-10-30T21:00:00.000Z",
@@ -229,7 +251,8 @@ describe("the running work", () => {
       agentName: names,
       channelOfThread: () => ({ id: "c1", name: "cadastro" }),
       taskOf: () => null,
+      topicName: topics,
     });
-    expect(entry).toMatchObject({ agentName: "ghost", channelId: "c1", taskId: null, title: "" });
+    expect(entry).toMatchObject({ agentName: "ghost", channelId: "c1", topicName: null, taskId: null, title: "" });
   });
 });

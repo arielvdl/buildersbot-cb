@@ -1,4 +1,5 @@
-import type { LoadLanePreference, LoadSnapshot } from "@openbot/contracts/ipc";
+import { attachmentReferences, expandAttachmentReferences } from "@openbot/contracts/attachment-references";
+import type { LoadLanePreference, LoadSnapshot, StoppedWork } from "@openbot/contracts/ipc";
 
 export type LoadTone = "ok" | "warning" | "critical";
 
@@ -59,4 +60,34 @@ export function elapsedMinutes(startedAt: string, now: number): number {
 /** How many stopped tasks the panel lists, which is the number of the alert on the ring. */
 export function stoppedCount(snapshot: LoadSnapshot): number {
   return snapshot.stopped.length;
+}
+
+/** An attachment mark that the main process cut at the end of a clipped request: `@[name](attach…`. */
+const CLIPPED_ATTACHMENT = /@\[[^\x5d\r\n]*(?:\](?:\([^)\r\n]*)?)?…$/u;
+
+/**
+ * A request as the panel shows it: with no attachment marks, and the number of marks it had. A
+ * request is clipped with an ellipsis, so the last mark can be cut; that part goes too.
+ */
+export function requestText(request: string): { text: string; attachments: number } {
+  let attachments = attachmentReferences(request).length;
+  let text = expandAttachmentReferences(request, () => "");
+  if (CLIPPED_ATTACHMENT.test(text)) {
+    attachments += 1;
+    text = text.replace(CLIPPED_ATTACHMENT, "…");
+  }
+  text = text.replace(/\s+/gu, " ").trim();
+  return { text: text === "…" ? "" : text, attachments };
+}
+
+/** A failed task is an error; a paused one waits for the person, for example after a restart. */
+export function stoppedTone(state: StoppedWork["state"]): "danger" | "warning" {
+  return state === "failed" ? "danger" : "warning";
+}
+
+/** The set of expanded requests with `key` changed: added when it was not in the set, else removed. */
+export function toggledKey(keys: ReadonlySet<string>, key: string): ReadonlySet<string> {
+  const next = new Set(keys);
+  if (!next.delete(key)) next.add(key);
+  return next;
 }

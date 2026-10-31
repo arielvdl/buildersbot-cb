@@ -181,7 +181,7 @@
  * move the window instead. */
 .window-rail-load-panel {
   display: grid;
-  width: min(360px, calc(100vw - 32px));
+  width: min(380px, calc(100vw - 32px));
   max-height: min(78vh, 680px);
   gap: var(--openbot-space-3);
   overflow-y: auto;
@@ -226,105 +226,248 @@
   gap: var(--openbot-space-2);
 }
 
-.window-rail-load-section[data-alert] {
-  border-radius: var(--openbot-radius-md);
-  background: color-mix(in srgb, var(--openbot-danger) 9%, transparent);
-  padding: var(--openbot-space-2);
-}
-
 .window-rail-load-section-head {
   display: flex;
+  min-height: var(--openbot-control-sm);
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--openbot-space-2);
+}
+
+.window-rail-load-section-head h3 {
+  white-space: nowrap;
 }
 
 .window-rail-load-section-head h3,
 .window-rail-load-subhead {
   margin: 0;
   color: var(--openbot-text-primary);
-  font-size: var(--openbot-text-sm);
+  font-size: var(--openbot-text-md);
   font-weight: var(--openbot-weight-semibold);
 }
 
-.window-rail-load-stopped,
-.window-rail-load-running,
+/* The work that stopped and the work that runs: a heading with its action, then a short list. Thin
+ * lines, not cards, part the items, so that eleven of them still read as one list. */
+.window-rail-load-work {
+  display: grid;
+  border-bottom: 1px solid color-mix(in srgb, var(--openbot-text-primary) 9%, transparent);
+  padding-bottom: var(--openbot-space-1);
+}
+
+.window-rail-load-work .window-rail-load-section-head {
+  padding-bottom: var(--openbot-space-2);
+}
+
+.window-rail-load-empty {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.window-rail-load-work .window-rail-load-empty {
+  padding-bottom: var(--openbot-space-2);
+}
+
+.window-rail-load-list,
 .window-rail-load-recent {
   display: grid;
-  gap: var(--openbot-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.window-rail-load-stopped-row {
-  display: grid;
-  gap: 2px;
-  border-radius: var(--openbot-radius-sm);
-  background: var(--openbot-bg-surface);
-  padding: var(--openbot-space-2);
-  font-size: var(--openbot-text-sm);
+.window-rail-load-recent {
+  gap: var(--openbot-space-2);
 }
 
-.window-rail-load-stopped-head {
+.window-rail-load-item {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-1);
+  border-top: 1px solid color-mix(in srgb, var(--openbot-text-primary) 9%, transparent);
+  padding: var(--openbot-space-3) 0;
+}
+
+/* The channel, and at the right the state icon of a stopped task or the minutes of a run. */
+.window-rail-load-item-head {
   display: flex;
   min-width: 0;
+  min-height: var(--openbot-control-xs);
   align-items: center;
   gap: var(--openbot-space-2);
 }
 
-.window-rail-load-stopped-head strong {
+.window-rail-load-item-name {
   min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-lg);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.window-rail-load-stopped-title,
-.window-rail-load-stopped-reason,
-.window-rail-load-stopped-by {
-  margin: 0;
-  overflow-wrap: anywhere;
+.window-rail-load-item-time {
+  flex: 0 0 auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
-.window-rail-load-stopped-title {
-  color: var(--openbot-text-primary);
+/* The reason is the tooltip of this icon. A failed task is a quiet red, a paused one amber. */
+.window-rail-load-panel .window-rail-load-state {
+  flex: 0 0 auto;
+  margin-right: calc(var(--openbot-space-1) * -1);
 }
 
-.window-rail-load-stopped-reason {
+.window-rail-load-panel .window-rail-load-state[data-tone="danger"] {
   color: var(--openbot-danger-text);
 }
 
-.window-rail-load-stopped-by {
-  color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-xs);
+.window-rail-load-panel .window-rail-load-state[data-tone="warning"] {
+  color: var(--openbot-warning-text);
 }
 
-.window-rail-load-stopped-actions {
+/* The tab of the channel, or the chat of the agent: smaller and muted under the channel. */
+.window-rail-load-item-place {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.window-rail-load-item-place svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: 0 0 auto;
+}
+
+.window-rail-load-item-place-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The actions keep one height and one gap. In a narrow panel they wrap to a second line at the left. */
+.window-rail-load-item-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--openbot-space-2);
-  margin-top: var(--openbot-space-1);
+  padding-top: var(--openbot-space-1-5);
 }
 
-.window-rail-load-chip {
+/* A filled button that reads on the panel. The secondary fill is almost the color of the panel. */
+.window-rail-load-panel .window-rail-load-action {
+  height: var(--openbot-control-sm);
+  gap: var(--openbot-space-1-5);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--openbot-text-primary) 10%, transparent);
+  padding-inline: var(--openbot-space-3);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+}
+
+.window-rail-load-panel .window-rail-load-action svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
   flex: 0 0 auto;
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-bg-control-hover);
-  padding: 1px 6px;
+}
+
+.window-rail-load-panel .window-rail-load-action[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--openbot-text-primary) 16%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .window-rail-load-panel .window-rail-load-action:hover:not(:disabled):not([data-disabled]) {
+    background: color-mix(in srgb, var(--openbot-text-primary) 16%, transparent);
+  }
+}
+
+/* The request: one line, and all of it when it is open. Closed, the hit area of the chevron covers the
+ * line, so a click anywhere on it opens the request. */
+.window-rail-load-request {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--openbot-space-1);
+}
+
+.window-rail-load-request-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  overflow: hidden;
   color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-xs);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.window-rail-load-chip[data-tone="danger"] {
+.window-rail-load-request-text[data-empty] {
+  color: var(--openbot-text-muted);
+  font-style: italic;
+}
+
+.window-rail-load-request[data-expanded] .window-rail-load-request-text {
+  max-height: calc(var(--openbot-leading-md) * 8);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.window-rail-load-panel .window-rail-load-request-toggle {
+  position: static;
+  height: var(--openbot-leading-md);
+}
+
+.window-rail-load-panel .window-rail-load-request-toggle svg {
+  transition: transform var(--openbot-duration-fast) var(--openbot-ease-out);
+}
+
+.window-rail-load-panel .window-rail-load-request[data-expanded] .window-rail-load-request-toggle svg {
+  transform: rotate(180deg);
+}
+
+.window-rail-load-request:not([data-expanded]) .window-rail-load-request-toggle::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+/* Who had the task, and what the automatic recovery does with it, on one muted line. */
+.window-rail-load-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--openbot-space-1-5);
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.window-rail-load-item-meta > span + span::before {
+  margin-right: var(--openbot-space-1-5);
+  content: "·";
+}
+
+.window-rail-load-item-meta [data-tone="danger"] {
   color: var(--openbot-danger-text);
 }
 
-.window-rail-load-select,
 .window-rail-load-number {
+  width: 64px;
   min-width: 0;
   border: 1px solid var(--openbot-border-strong);
   border-radius: var(--openbot-radius-sm);
@@ -333,10 +476,6 @@
   color: var(--openbot-text-primary);
   font: inherit;
   font-size: var(--openbot-text-sm);
-}
-
-.window-rail-load-number {
-  width: 64px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -347,37 +486,6 @@
   gap: var(--openbot-space-2);
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
-}
-
-.window-rail-load-run {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: var(--openbot-space-2);
-  font-size: var(--openbot-text-sm);
-}
-
-.window-rail-load-run-copy {
-  display: grid;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.window-rail-load-run-copy strong,
-.window-rail-load-run-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.window-rail-load-run-copy span {
-  color: var(--openbot-text-muted);
-}
-
-.window-rail-load-run-time {
-  flex: 0 0 auto;
-  color: var(--openbot-text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
 .window-rail-load-recent li {
@@ -453,12 +561,6 @@
 
 .window-rail-load-channel[data-status="running"] .window-rail-load-channel-state {
   color: var(--openbot-accent-text);
-}
-
-.window-rail-load-empty {
-  margin: 0;
-  color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-sm);
 }
 
 /* The usage of a custom agent: its logo with no ring, at the size of a rail icon. The hover card

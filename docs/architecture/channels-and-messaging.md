@@ -345,6 +345,30 @@ this. It reads the channels at each request and keeps no copy of them. Each list
   stopped (`buildStoppedWork`). This is the rule of the Continue button of a channel. Archived
   channels are not listed. The ring shows the count of these rows as a red mark.
 
+Each row of both lists names the tab of its task (`topicName`): the name of the tab that
+`ChannelTask.topicId` points to, from `ChannelStore.topic`. It is null for a chat turn, a task with no
+tab, or a tab that is gone. The lookup runs only for the rows that the panel lists. The request is
+clipped to 1,000 characters (`TITLE_LIMIT`) and the reason to 200.
+
+The panel (`packages/ui/src/features/window/LoadRing.tsx`) shows each row as a short list item, with
+thin lines between the items:
+
+- The channel name. At its right, a stopped task has one state icon: red for `failed`, amber for
+  `paused`. The reason is the tooltip and the accessible name of that icon, not text in the item.
+  A run has its minutes there.
+- The tab name, smaller and muted. A chat turn shows "In its chat".
+- One line of the request. A click on the line, or the chevron (`aria-expanded`), shows all of it,
+  with a scroll after eight lines. `requestText` (`load-view.ts`) removes the attachment marks
+  (`@[name](attachment:id)`), also a mark that the clip cut; a request with only attachments reads
+  "Attached file". The open requests are kept in the panel and close with it.
+- Who had the task, and what the automatic recovery does with it.
+- Resume and a Reassign menu (the agents with the same model first, marked), or Stop.
+
+The reason is stored as English. The panel translates it with `sourceText` (`useText`): a stored
+reason that is the English of a source key, such as `error.backend.channelStartFailed` or
+`error.backend.channelTurnUnconfirmed`, shows in the reader's language; any other reason shows as it
+is stored.
+
 The actions (`app:stop-work`, `app:resume-stopped-work`, `app:reassign-stopped-work`; handlers in
 `src/main/ipc/app-handlers.ts`):
 
@@ -394,6 +418,9 @@ Rules that are easy to break:
   now. Keep the check against the stopped rows.
 - `resume` puts the task in the queue and calls `wake()`. The one-channel-at-a-time lane still
   decides when a resumed channel starts. Do not start a pump from `WorkControl`.
+- Tasks of older versions keep their reason in the database. Keep the English of a source key that
+  a task stores as its reason byte for byte, or the panel and the channel show those reasons in
+  English again.
 - `LoadRing` draws the panel in a `Popover.Portal`, and the panel has `-webkit-app-region:
   no-drag`. The rail is a drag region (`-webkit-app-region: drag`) and clips its children. Inside
   the rail, a click did not open the panel.

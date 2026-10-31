@@ -191,9 +191,14 @@ export class WorkControl {
           .assignments(channelId)
           .find((assignment) => assignment.agentId === agentId && ["starting", "running"].includes(assignment.state));
         const task = active ? channels.store.tasks(channelId).find((entry) => entry.id === active.taskId) : undefined;
-        return task ? { taskId: task.id, title: task.instruction } : null;
+        return task ? { taskId: task.id, title: task.instruction, topicId: task.topicId ?? null } : null;
       },
+      topicName: (channelId, topicId) => this.#topicName(channelId, topicId),
     });
+  }
+
+  #topicName(channelId: string, topicId: string): string | null {
+    return this.#options.service.channels.store.topic(channelId, topicId)?.name ?? null;
   }
 
   #members(channelId: string): MemberInfo[] {
@@ -228,7 +233,15 @@ export class WorkControl {
     const inputs = channels.store.ids().flatMap((id) => {
       if (!channels.store.exists(id)) return [];
       const channel = channels.store.get(id);
-      return [{ id, name: channel.name, archived: channel.archived, tasks: channels.store.tasks(id) }];
+      return [
+        {
+          id,
+          name: channel.name,
+          archived: channel.archived,
+          tasks: channels.store.tasks(id),
+          topicName: (topicId: string) => this.#topicName(id, topicId),
+        },
+      ];
     });
     return buildStoppedWork(
       inputs,

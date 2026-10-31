@@ -117,12 +117,14 @@ async function setup(options: { preference?: { enabled: boolean; intervalMinutes
 }
 
 describe("the stopped work", () => {
-  it("lists a task that stopped with its channel, request and reason, and the agents that can take it", async () => {
+  it("lists a task that stopped with its channel, tab, request and reason, and the agents that can take it", async () => {
     const { control, taskId } = await setup();
     const [row] = control.overview().stopped;
     expect(row).toMatchObject({
       channelId: "c1",
       channelName: "cadastro",
+      // The message went to no tab, so the task is in the first tab, which keeps its name.
+      topicName: "Main",
       taskId,
       title: "Fix the form",
       reason: "The provider could not start this assignment.",

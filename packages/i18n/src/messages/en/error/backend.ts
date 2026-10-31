@@ -59,6 +59,9 @@ export const messages = defineMessages("error.backend", {
   "error.backend.shuttingDown": "Builders Bot is shutting down.",
   "error.backend.channelUnconfirmedStart":
     "The channel has an unconfirmed assignment start. Check its outcome before deleting it.",
+  // A channel task that recovery paused. Stored as the task error, so this English must not change.
+  "error.backend.channelTurnUnconfirmed":
+    "The previous turn has no confirmed result. Check its work before you resume.",
   "error.backend.channelNotFound": "Channel not found.",
   "error.backend.channelMemberUnavailable": "A channel member is unavailable.",
   "error.backend.channelArchived": "Restore this channel before sending messages or changing tasks.",

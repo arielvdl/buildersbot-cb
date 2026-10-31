@@ -65,6 +65,8 @@ export const messages = {
   "error.backend.shuttingDown": "O Builders Bot está encerrando.",
   "error.backend.channelUnconfirmedStart":
     "O canal tem uma tarefa atribuída cujo início não foi confirmado. Verifique o resultado antes de excluí-lo.",
+  "error.backend.channelTurnUnconfirmed":
+    "O turno anterior não tem um resultado confirmado. Confira o trabalho dele antes de retomar.",
   "error.backend.channelNotFound": "Canal não encontrado.",
   "error.backend.channelMemberUnavailable": "Um membro do canal está indisponível.",
   "error.backend.channelArchived": "Restaure este canal antes de enviar mensagens ou alterar tarefas.",

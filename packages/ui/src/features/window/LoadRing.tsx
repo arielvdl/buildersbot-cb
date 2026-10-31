@@ -6,9 +6,24 @@ import type {
   RunningWork,
   StoppedWork,
 } from "@openbot/contracts/ipc";
-import { Button, Popover, SwitchField } from "@openbot/ui";
+import {
+  Button,
+  buttonVariants,
+  ChevronDown,
+  CircleAlert,
+  Clock3,
+  DropdownMenu,
+  IconButton,
+  MessageSquare,
+  PanelTop,
+  Play,
+  Popover,
+  Square,
+  SwitchField,
+} from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createSignal, For, Show } from "solid-js";
+import { cx } from "@openbot/ui/utils";
+import { createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
 import {
   clampRecoveryMinutes,
   elapsedMinutes,
@@ -17,7 +32,10 @@ import {
   loadLaneRows,
   loadMemoryPercent,
   loadTone,
+  requestText,
   stoppedCount,
+  stoppedTone,
+  toggledKey,
   withChannelFirst,
 } from "./load-view";
 
@@ -132,6 +150,11 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
   const memory = () => props.snapshot.memory;
   const rows = () => loadLaneRows(props.snapshot);
   const queued = () => rows().filter((row) => row.status === "queued");
+  // The requests that the person opened. They close again with the panel.
+  const [expanded, setExpanded] = createSignal<ReadonlySet<string>>(new Set());
+  const toggle = (key: string) => setExpanded((keys) => toggledKey(keys, key));
+  const stoppedKey = (work: StoppedWork) => `stopped:${work.channelId}:${work.taskId}`;
+  const runningKey = (work: RunningWork) => `running:${work.turnId}`;
   return (
     <div class="window-rail-load-body">
       <Show when={props.snapshot.memory.pressure}>
@@ -146,21 +169,30 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
         )}
       </Show>
       <Show when={props.snapshot.stopped.length > 0}>
-        <section class="window-rail-load-section" data-alert="">
+        <section class="window-rail-load-work">
           <header class="window-rail-load-section-head">
             <h3>{t("app.rail.load.stoppedCount", { count: props.snapshot.stopped.length })}</h3>
-            <Button variant="ghost" size="sm" onClick={() => props.onResumeAll()}>
+            <Button variant="secondary" size="sm" class="window-rail-load-action" onClick={() => props.onResumeAll()}>
+              <Play aria-hidden="true" />
               {t("app.rail.load.resumeAll")}
             </Button>
           </header>
-          <ul class="window-rail-load-stopped">
-            <For each={props.snapshot.stopped} keyed={(row) => `${row.channelId}:${row.taskId}`}>
-              {(row) => <StoppedRow work={row()} {...props} />}
+          <ul class="window-rail-load-list">
+            <For each={props.snapshot.stopped} keyed={stoppedKey}>
+              {(row) => (
+                <StoppedRow
+                  work={row()}
+                  expanded={expanded().has(stoppedKey(row()))}
+                  onToggle={() => toggle(stoppedKey(row()))}
+                  onResume={props.onResume}
+                  onReassign={props.onReassign}
+                />
+              )}
             </For>
           </ul>
         </section>
       </Show>
-      <section class="window-rail-load-section">
+      <section class="window-rail-load-work">
         <header class="window-rail-load-section-head">
           <h3>{t("app.rail.load.runningTitle")}</h3>
         </header>
@@ -168,32 +200,15 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
           when={props.snapshot.running.length > 0}
           fallback={<p class="window-rail-load-empty">{t("app.rail.load.nothingRuns")}</p>}
         >
-          <ul class="window-rail-load-running">
-            <For each={props.snapshot.running} keyed={(work) => work.turnId}>
+          <ul class="window-rail-load-list">
+            <For each={props.snapshot.running} keyed={runningKey}>
               {(work) => (
-                <li class="window-rail-load-run">
-                  <span class="window-rail-load-run-copy">
-                    <strong>{work().agentName}</strong>
-                    <span>
-                      {work().channelName
-                        ? work().title
-                          ? `${work().channelName} · ${work().title}`
-                          : work().channelName
-                        : t("app.rail.load.inChat")}
-                    </span>
-                  </span>
-                  <span class="window-rail-load-run-time">
-                    {t("app.rail.load.minutes", { minutes: elapsedMinutes(work().startedAt, Date.now()) })}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={t("app.rail.load.stopLabel", { agent: work().agentName })}
-                    onClick={() => props.onStop(work())}
-                  >
-                    {t("app.rail.load.stop")}
-                  </Button>
-                </li>
+                <RunningRow
+                  work={work()}
+                  expanded={expanded().has(runningKey(work()))}
+                  onToggle={() => toggle(runningKey(work()))}
+                  onStop={props.onStop}
+                />
               )}
             </For>
           </ul>
@@ -273,52 +288,210 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
   );
 }
 
-function StoppedRow(props: LoadRailProps & { work: StoppedWork }) {
-  const { t } = useText();
+interface WorkRowProps {
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+/**
+ * One stopped task: the channel, with an icon whose tooltip gives the reason; the tab; one line of the
+ * request; who had it; then Resume and Reassign. The reason is in the tooltip only, because most tasks
+ * stop for the same reason and the same sentence on each one hid the requests.
+ */
+function StoppedRow(
+  props: WorkRowProps & {
+    work: StoppedWork;
+    onResume: (work: StoppedWork) => void;
+    onReassign: (work: StoppedWork, agentId: string) => void;
+  },
+) {
+  const { t, sourceText } = useText();
+  const tone = () => stoppedTone(props.work.state);
   return (
-    <li class="window-rail-load-stopped-row">
-      <div class="window-rail-load-stopped-head">
-        <strong>{props.work.channelName}</strong>
-        <Show when={props.work.auto === "waiting"}>
-          <span class="window-rail-load-chip">{t("app.rail.load.autoWaiting")}</span>
-        </Show>
-        <Show when={props.work.auto === "gave-up"}>
-          <span class="window-rail-load-chip" data-tone="danger">
-            {t("app.rail.load.autoGaveUp")}
-          </span>
-        </Show>
+    <li class="window-rail-load-item">
+      <div class="window-rail-load-item-head">
+        <span class="window-rail-load-item-name">{props.work.channelName}</span>
+        <IconButton
+          variant="ghost"
+          size="icon-xs"
+          class="window-rail-load-state"
+          data-tone={tone()}
+          label={sourceText(props.work.reason)}
+        >
+          <Show when={tone() === "danger"} fallback={<Clock3 aria-hidden="true" />}>
+            <CircleAlert aria-hidden="true" />
+          </Show>
+        </IconButton>
       </div>
-      <p class="window-rail-load-stopped-title">{props.work.title}</p>
-      <p class="window-rail-load-stopped-reason">{props.work.reason}</p>
-      <Show when={props.work.agentName}>
-        {(agent) => <p class="window-rail-load-stopped-by">{t("app.rail.load.stoppedBy", { agent: agent() })}</p>}
+      <WorkTab name={props.work.topicName} />
+      <Show when={props.work.title}>
+        <WorkRequest request={props.work.title} expanded={props.expanded} onToggle={props.onToggle} />
       </Show>
-      <div class="window-rail-load-stopped-actions">
-        <Button variant="ghost" size="sm" onClick={() => props.onResume(props.work)}>
+      <Show when={props.work.agentName || props.work.auto}>
+        <p class="window-rail-load-item-meta">
+          <Show when={props.work.agentName}>
+            {(agent) => <span>{t("app.rail.load.stoppedBy", { agent: agent() })}</span>}
+          </Show>
+          <Show when={props.work.auto === "waiting"}>
+            <span>{t("app.rail.load.autoWaiting")}</span>
+          </Show>
+          <Show when={props.work.auto === "gave-up"}>
+            <span data-tone="danger">{t("app.rail.load.autoGaveUp")}</span>
+          </Show>
+        </p>
+      </Show>
+      <div class="window-rail-load-item-actions">
+        <Button
+          variant="secondary"
+          size="sm"
+          class="window-rail-load-action"
+          onClick={() => props.onResume(props.work)}
+        >
+          <Play aria-hidden="true" />
           {t("app.rail.load.resume")}
         </Button>
         <Show when={props.work.candidates.length > 0}>
-          <select
-            class="window-rail-load-select"
-            aria-label={t("app.rail.load.reassignLabel")}
-            onChange={(event) => {
-              const agentId = event.currentTarget.value;
-              event.currentTarget.value = "";
-              if (agentId) props.onReassign(props.work, agentId);
-            }}
-          >
-            <option value="">{t("app.rail.load.reassign")}</option>
-            <For each={props.work.candidates} keyed={(candidate) => candidate.agentId}>
-              {(candidate) => (
-                <option value={candidate().agentId}>
-                  {candidate().sameModel ? t("app.rail.load.sameModel", { name: candidate().name }) : candidate().name}
-                </option>
-              )}
-            </For>
-          </select>
+          <DropdownMenu.Root placement="bottom-start" gutter={4} modal={false}>
+            <DropdownMenu.Trigger
+              class={cx(buttonVariants({ variant: "secondary", size: "sm" }), "window-rail-load-action")}
+            >
+              {t("app.rail.load.reassign")}
+              <ChevronDown aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content>
+                <span class="ui-menu-label" aria-hidden="true">
+                  {t("app.rail.load.reassignLabel")}
+                </span>
+                {/* The main process lists the agents with the same model first. */}
+                <For each={props.work.candidates} keyed={(candidate) => candidate.agentId}>
+                  {(candidate) => (
+                    <DropdownMenu.Item onSelectAfterClose={() => props.onReassign(props.work, candidate().agentId)}>
+                      <span>{candidate().name}</span>
+                      <Show when={candidate().sameModel}>
+                        <span class="ui-menu-trailing">{t("app.rail.load.sameModel")}</span>
+                      </Show>
+                    </DropdownMenu.Item>
+                  )}
+                </For>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </Show>
       </div>
     </li>
+  );
+}
+
+/** One turn that runs, in the layout of a stopped task: where it runs, the request, the agent, and Stop. */
+function RunningRow(props: WorkRowProps & { work: RunningWork; onStop: (work: RunningWork) => void }) {
+  const { t } = useText();
+  return (
+    <li class="window-rail-load-item">
+      <div class="window-rail-load-item-head">
+        <span class="window-rail-load-item-name">{props.work.channelName ?? props.work.agentName}</span>
+        <span class="window-rail-load-item-time">
+          {t("app.rail.load.minutes", { minutes: elapsedMinutes(props.work.startedAt, Date.now()) })}
+        </span>
+      </div>
+      <Show
+        when={props.work.channelName !== null}
+        fallback={
+          <p class="window-rail-load-item-place">
+            <MessageSquare aria-hidden="true" />
+            <span class="window-rail-load-item-place-name">{t("app.rail.load.inChat")}</span>
+          </p>
+        }
+      >
+        <WorkTab name={props.work.topicName} />
+      </Show>
+      <Show when={props.work.title}>
+        <WorkRequest request={props.work.title} expanded={props.expanded} onToggle={props.onToggle} />
+      </Show>
+      <Show when={props.work.channelName !== null}>
+        <p class="window-rail-load-item-meta">
+          <span>{t("app.rail.load.runningWith", { agent: props.work.agentName })}</span>
+        </p>
+      </Show>
+      <div class="window-rail-load-item-actions">
+        <Button
+          variant="secondary"
+          size="sm"
+          class="window-rail-load-action"
+          aria-label={t("app.rail.load.stopLabel", { agent: props.work.agentName })}
+          onClick={() => props.onStop(props.work)}
+        >
+          <Square aria-hidden="true" />
+          {t("app.rail.load.stop")}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+/** The tab of the channel that holds the work. No line when the tab is not known. */
+function WorkTab(props: { name: string | null }) {
+  const { t } = useText();
+  return (
+    <Show when={props.name}>
+      {(name) => (
+        <p class="window-rail-load-item-place">
+          <PanelTop aria-hidden="true" />
+          <span class="sr-only">{`${t("app.rail.load.tab")} `}</span>
+          <span class="window-rail-load-item-place-name">{name()}</span>
+        </p>
+      )}
+    </Show>
+  );
+}
+
+/**
+ * The request on one line. The chevron shows the whole request, and a click on the line does the same:
+ * the chevron's hit area covers the line while it is closed. Open, the text can be selected and scrolls
+ * after eight lines.
+ */
+function WorkRequest(props: WorkRowProps & { request: string }) {
+  const { t } = useText();
+  const id = `window-rail-load-request-${createUniqueId()}`;
+  const request = () => requestText(props.request);
+  const [clipped, setClipped] = createSignal(false);
+  let line: HTMLParagraphElement | undefined;
+  onSettled(() => {
+    const element = line;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    // A request that fits on its line has nothing to show. An open request wraps, so it is measured closed.
+    const observer = new ResizeObserver(() => {
+      if (!props.expanded) setClipped(element.scrollWidth > element.clientWidth);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  });
+  return (
+    <div class="window-rail-load-request" data-expanded={props.expanded ? "" : undefined}>
+      <p
+        id={id}
+        ref={(element) => {
+          line = element;
+        }}
+        class="window-rail-load-request-text"
+        data-empty={request().text ? undefined : ""}
+      >
+        {request().text || t("app.rail.load.attachmentOnly")}
+      </p>
+      <Show when={props.expanded || clipped()}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          class="window-rail-load-request-toggle"
+          aria-label={props.expanded ? t("app.rail.load.collapseRequest") : t("app.rail.load.expandRequest")}
+          aria-expanded={props.expanded ? "true" : "false"}
+          aria-controls={id}
+          onClick={() => props.onToggle()}
+        >
+          <ChevronDown aria-hidden="true" />
+        </Button>
+      </Show>
+    </div>
   );
 }
 

@@ -74,6 +74,7 @@ const storyRunning: RunningWork[] = [
     agentName: "Design Advisor",
     channelId: "c1",
     channelName: "naia novas features",
+    topicName: "cadastro",
     taskId: "k1",
     title: "O servidor de testes está no ar de novo: http://localhost:3000/autopilot/dev-cadastro-chat",
     startedAt: new Date(Date.now() - 14 * 60_000).toISOString(),
@@ -84,19 +85,37 @@ const storyRunning: RunningWork[] = [
     agentName: "CEO",
     channelId: null,
     channelName: null,
+    topicName: null,
     taskId: null,
     title: "",
     startedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
   },
+  {
+    turnId: "t3",
+    agentId: "backend",
+    agentName: "Backend IA Naia",
+    channelId: "c3",
+    channelName: "imasters --update · edição de sexta com a vinheta nova",
+    topicName: "Aba 4",
+    taskId: "k4",
+    title:
+      "Monte o episódio de sexta com a vinheta nova, a bolinha só na introdução e as legendas em três idiomas, " +
+      "e depois agende o vídeo para as 13h de Brasília.",
+    startedAt: new Date(Date.now() - 42 * 60_000).toISOString(),
+  },
 ];
+
+const startFailed = "The provider could not start this assignment. Resume to try again.";
+const unconfirmed = "The previous turn has no confirmed result. Check its work before you resume.";
 
 const storyStopped: StoppedWork[] = [
   {
     channelId: "c1",
     channelName: "naia novas features",
+    topicName: "cadastro",
     taskId: "k2",
     title: "Correção pequena no cadastro em chat, worktree iavista-wt-cadastro-chat, branch feat/cadastro",
-    reason: "The provider could not start this assignment. Resume to try again.",
+    reason: startFailed,
     agentName: "Front Fluxos Naia",
     state: "failed",
     candidates: [
@@ -108,9 +127,10 @@ const storyStopped: StoppedWork[] = [
   {
     channelId: "c2",
     channelName: "bugs",
+    topicName: null,
     taskId: "k3",
     title: "Publicar a resposta completa no canal, com o diff",
-    reason: "The previous turn has no confirmed result. It may have stopped when Builders Bot restarted.",
+    reason: unconfirmed,
     agentName: null,
     state: "paused",
     candidates: [{ agentId: "a4", name: "Backend IA Naia", sameModel: true }],
@@ -118,11 +138,61 @@ const storyStopped: StoppedWork[] = [
   },
 ];
 
+const longRequest =
+  "Rodada do cadastro em chat: revise o fluxo inteiro com o print @[image.png](attachment:0a1b2c3d) e ajuste o " +
+  "passo do CNPJ, o resumo final e a mensagem de erro quando a Receita não responde. Depois rode os testes E2E do " +
+  "cadastro, suba o preview e mande o link aqui no canal com o que mudou, em tópicos curtos, sem colar o diff inteiro.";
+
+/** Eleven stopped tasks, as the person saw them: long requests, an attachment, one task with no tab. */
+const manyStopped: StoppedWork[] = [
+  ["naia novas features", "cadastro", longRequest, startFailed, "Backend IA Naia", "failed"],
+  ["naia novas features", "Main", "Corrigir o botão de login no Safari", unconfirmed, "Front Fluxos Naia", "paused"],
+  ["imasters --update · edição de sexta com a vinheta nova", "Aba 4", longRequest, startFailed, "Editor", "failed"],
+  ["bugs", null, "Publicar a resposta completa no canal, com o diff", unconfirmed, null, "paused"],
+  ["CB - geral", "Main", "@[image.png](attachment:4e5f6071)", startFailed, "Design Advisor", "failed"],
+  [
+    "segurança",
+    "CVE da semana",
+    "Atualizar o next para a versão com a correção e abrir o PR",
+    startFailed,
+    "QA Naia",
+    "failed",
+  ],
+  ["naia - deploys", "Main", "Subir a release 2.14 na hub-prod-02", unconfirmed, "Backend IA Naia", "paused"],
+  ["gotas stream", "Labs", longRequest, startFailed, "Backend IA Naia", "failed"],
+  ["CB - geral", "Aula 216", "Revisar a legenda em espanhol", startFailed, "Writer", "failed"],
+  ["imasters --update", "Main", "Gerar a thumbnail em inglês", unconfirmed, "Editor", "paused"],
+  ["naia novas features", "cadastro", "Rodar o lint só nos arquivos que mudaram", startFailed, "QA Naia", "failed"],
+].map(
+  ([channelName, topicName, title, reason, agentName, state], index): StoppedWork => ({
+    channelId: `m${index}`,
+    channelName: channelName ?? "",
+    topicName: topicName ?? null,
+    taskId: `mk${index}`,
+    title: title ?? "",
+    reason: reason ?? "",
+    agentName: agentName ?? null,
+    state: state === "paused" ? "paused" : "failed",
+    candidates:
+      index % 3 === 2
+        ? []
+        : [
+            { agentId: "a2", name: "Design Advisor", sameModel: true },
+            { agentId: "a4", name: "Backend IA Naia", sameModel: true },
+            { agentId: "a3", name: "QA Naia", sameModel: false },
+          ],
+    auto: index === 1 ? "waiting" : index === 2 ? "gave-up" : null,
+  }),
+);
+
+/** The work in the load panel: none, two of each, or eleven stopped tasks. */
+type LoadWork = "none" | "some" | "many";
+
 function loadSnapshot(
   usedMb: number,
   lane: LoadLanePreference,
   recovery: AutoRecoveryPreference,
-  withWork: boolean,
+  work: LoadWork,
 ): LoadSnapshot {
   return {
     sampledAt: "2026-10-30T20:00:00.000Z",
@@ -132,8 +202,8 @@ function loadSnapshot(
     lane: lane.enabled
       ? { ...lane, running: ["deploys"], queued: ["security", "videos", "releases"] }
       : { ...lane, running: [], queued: [] },
-    running: withWork ? storyRunning : [],
-    stopped: withWork ? storyStopped : [],
+    running: work === "none" ? [] : storyRunning,
+    stopped: work === "none" ? [] : work === "many" ? manyStopped : storyStopped,
     recovery: {
       ...recovery,
       recent: recovery.enabled
@@ -144,7 +214,7 @@ function loadSnapshot(
 }
 
 /** The load ring with a lane that follows its switch, as the window's controller does. */
-function loadProps(usedMb: number, withWork: boolean): () => LoadRailProps {
+function loadProps(usedMb: number, work: LoadWork): () => LoadRailProps {
   const [lane, setLane] = createSignal<LoadLanePreference>({ enabled: false, order: [] });
   const [recovery, setRecovery] = createSignal<AutoRecoveryPreference>({
     enabled: false,
@@ -152,7 +222,7 @@ function loadProps(usedMb: number, withWork: boolean): () => LoadRailProps {
     reassign: false,
   });
   return () => ({
-    snapshot: loadSnapshot(usedMb, lane(), recovery(), withWork),
+    snapshot: loadSnapshot(usedMb, lane(), recovery(), work),
     channelName: (id) => loadChannelNames[id] ?? id,
     onOpenChange: fn(),
     onLaneChange: setLane,
@@ -174,10 +244,10 @@ function RailPreview(props: {
   /** The memory in use, in MB, of a load ring. Absent: no ring. */
   loadMb?: number;
   /** Work that runs and work that stopped, in the load panel. */
-  loadWork?: boolean;
+  loadWork?: LoadWork;
 }) {
   const { t } = useText();
-  const load = props.loadMb === undefined ? undefined : loadProps(props.loadMb, props.loadWork ?? false);
+  const load = props.loadMb === undefined ? undefined : loadProps(props.loadMb, props.loadWork ?? "none");
   const [current, setCurrent] = createSignal<PageRailPage | null>("agents");
   const [pinned, setPinned] = createSignal<readonly PageRailPinnablePage[]>(["usage"]);
   return (
@@ -267,5 +337,14 @@ export const LoadHigh: Story = {
 
 /** Two agents run and two tasks stopped: the ring carries a red count, and the panel lists what to do about each. */
 export const LoadWithStoppedWork: Story = {
-  args: { loadMb: 14000, loadWork: true },
+  args: { loadMb: 14000, loadWork: "some" },
+};
+
+/**
+ * Eleven stopped tasks with long requests, an attachment and a task with no tab. Hover or focus the
+ * icon at the right of a channel for the reason, and click a request to read all of it. Make the
+ * window narrow to see the actions wrap.
+ */
+export const LoadWithManyStoppedTasks: Story = {
+  args: { loadMb: 14000, loadWork: "many" },
 };

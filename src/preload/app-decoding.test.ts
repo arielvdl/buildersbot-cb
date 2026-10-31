@@ -5,8 +5,11 @@ import type {
   AppSetupState,
   CentralAuthState,
   InterruptedWorkOffer,
+  LoadSnapshot,
   MobileConnectedDevice,
   NotificationOpenedEvent,
+  RunningWork,
+  StoppedWork,
   UpdateStatus,
 } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
@@ -25,6 +28,7 @@ import {
   decodeCustomAgentUsage,
   decodeDetectedModelServers,
   decodeDiscoverModelsResult,
+  decodeLoadSnapshot,
   decodeMobileConnectedDevices,
   decodeMobileConnectTicket,
   decodeMobileWebAppUrl,
@@ -68,6 +72,42 @@ const customAgent = {
   usagePrompt: null,
   resolvedCommand: "/opt/homebrew/bin/goose",
 };
+
+const runningWork = {
+  turnId: "turn-1",
+  agentId: "writer",
+  agentName: "Writer",
+  channelId: "channel-1",
+  channelName: "cadastro",
+  topicName: "Main",
+  taskId: "task-1",
+  title: "Fix the form",
+  startedAt: "2026-10-30T20:00:00.000Z",
+} satisfies RunningWork;
+
+const stoppedWork = {
+  channelId: "channel-1",
+  channelName: "cadastro",
+  topicName: null,
+  taskId: "task-2",
+  title: "Publish the answer",
+  reason: "The provider could not start this assignment. Resume to try again.",
+  agentName: null,
+  state: "paused",
+  candidates: [{ agentId: "qa", name: "QA", sameModel: true }],
+  auto: null,
+} satisfies StoppedWork;
+
+const loadSnapshot = {
+  sampledAt: "2026-10-30T20:00:00.000Z",
+  memory: { usedMb: 8192, agentsMb: 6000, totalMb: 32768 },
+  activeAgents: 1,
+  providerProcesses: 4,
+  lane: { enabled: false, order: [], running: [], queued: [] },
+  running: [runningWork],
+  stopped: [stoppedWork],
+  recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
+} satisfies LoadSnapshot;
 
 const codeSent = {
   status: "code_sent",
@@ -178,6 +218,7 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   ["a resume offer", decodeResumeOffer, resumeOffer],
   ["a resume result with work left", decodeResumeInterruptedWorkResult, { offer: resumeOffer, failed: 1 }],
   ["a resume result with nothing left", decodeResumeInterruptedWorkResult, { offer: null, failed: 0 }],
+  ["a load snapshot with the tab of each work, or no tab", decodeLoadSnapshot, loadSnapshot],
 ];
 
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
@@ -189,6 +230,19 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ],
   ["a resume offer with an empty id", decodeResumeOffer, { channels: [], agents: [{ id: "", name: "Nova" }] }],
   ["a resume result with a negative count", decodeResumeInterruptedWorkResult, { offer: null, failed: -1 }],
+  [
+    "stopped work with a tab name that is not text",
+    decodeLoadSnapshot,
+    { ...loadSnapshot, stopped: [{ ...stoppedWork, topicName: 7 }] },
+  ],
+  [
+    "running work with no tab name",
+    decodeLoadSnapshot,
+    {
+      ...loadSnapshot,
+      running: [Object.fromEntries(Object.entries(runningWork).filter(([key]) => key !== "topicName"))],
+    },
+  ],
   [
     "app info on an unknown platform",
     decodeAppInfo,

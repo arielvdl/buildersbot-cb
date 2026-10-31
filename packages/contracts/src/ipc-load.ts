@@ -35,6 +35,8 @@ export interface RunningWork {
   agentName: string;
   channelId: string | null;
   channelName: string | null;
+  /** The name of the tab of the channel that holds the task. Null when the task or its tab is not found. */
+  topicName: string | null;
   taskId: string | null;
   /** The request of the task, clipped. Empty for a turn in the chat of an agent. */
   title: string;
@@ -52,6 +54,8 @@ export interface StoppedWorkCandidate {
 export interface StoppedWork {
   channelId: string;
   channelName: string;
+  /** The name of the tab of the channel that holds the task. Null when its tab is not found. */
+  topicName: string | null;
   taskId: string;
   /** The request, clipped. */
   title: string;
@@ -166,6 +170,7 @@ function isRunningWork(value: unknown): value is RunningWork {
     isString(value.agentName) &&
     (value.channelId === null || isIdentifier(value.channelId)) &&
     (value.channelName === null || isString(value.channelName)) &&
+    (value.topicName === null || isString(value.topicName)) &&
     (value.taskId === null || isIdentifier(value.taskId)) &&
     isString(value.title) &&
     isString(value.startedAt)
@@ -177,6 +182,7 @@ function isStoppedWork(value: unknown): value is StoppedWork {
     isDynamicRecord(value) &&
     isIdentifier(value.channelId) &&
     isString(value.channelName) &&
+    (value.topicName === null || isString(value.topicName)) &&
     isIdentifier(value.taskId) &&
     isString(value.title) &&
     isString(value.reason) &&

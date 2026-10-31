@@ -1,7 +1,8 @@
 import type { AgentEvent, ChannelTask, RunningWork, StoppedWork, StoppedWorkCandidate } from "@openbot/contracts/ipc";
 import { LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
 
-const TITLE_LIMIT = 160;
+/** The panel shows one line of the request, and the whole request when the person expands it. */
+const TITLE_LIMIT = 1_000;
 const REASON_LIMIT = 200;
 const MAX_TRACKED_TURNS = 1_000;
 
@@ -45,7 +46,9 @@ export interface RunningContext {
   /** The channel that owns an execution thread, or null for the chat of an agent. */
   channelOfThread(threadId: string): { id: string; name: string } | null;
   /** The task that an agent works on in a channel, or null when none is found. */
-  taskOf(channelId: string, agentId: string): { taskId: string; title: string } | null;
+  taskOf(channelId: string, agentId: string): { taskId: string; title: string; topicId: string | null } | null;
+  /** The name of a tab of a channel, or null when the tab is not found. */
+  topicName(channelId: string, topicId: string): string | null;
 }
 
 /** The work that runs now, each turn with where it runs. */
@@ -62,6 +65,7 @@ export function buildRunningWork(
       agentName: context.agentName(turn.agentId) ?? turn.agentId,
       channelId: channel?.id ?? null,
       channelName: channel?.name ?? null,
+      topicName: channel && task?.topicId ? context.topicName(channel.id, task.topicId) : null,
       taskId: task?.taskId ?? null,
       title: task ? clipText(task.title, TITLE_LIMIT) : "",
       startedAt: turn.startedAt,
@@ -78,6 +82,8 @@ export interface StoppedChannelInput {
   name: string;
   archived: boolean;
   tasks: readonly ChannelTask[];
+  /** The name of a tab of this channel, or null when the tab is not found. Called only for a stopped task. */
+  topicName(topicId: string): string | null;
 }
 
 /**
@@ -109,6 +115,7 @@ export function buildStoppedWork(
       rows.push({
         channelId: channel.id,
         channelName: channel.name,
+        topicName: task.topicId ? channel.topicName(task.topicId) : null,
         taskId: task.id,
         title: clipText(task.instruction, TITLE_LIMIT),
         reason: clipText(task.error ?? "", REASON_LIMIT),

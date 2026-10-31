@@ -7,7 +7,10 @@ import {
   loadLaneRows,
   loadMemoryPercent,
   loadTone,
+  requestText,
   stoppedCount,
+  stoppedTone,
+  toggledKey,
   withChannelFirst,
 } from "../../../../../packages/ui/src/features/window/load-view";
 
@@ -92,6 +95,7 @@ describe("the alert of stopped work", () => {
   const row = (taskId: string) => ({
     channelId: "c",
     channelName: "cadastro",
+    topicName: null,
     taskId,
     title: "Do it",
     reason: "boom",
@@ -104,5 +108,50 @@ describe("the alert of stopped work", () => {
   it("counts the stopped work that the panel lists", () => {
     expect(stoppedCount(snapshot())).toBe(0);
     expect(stoppedCount(snapshot({ stopped: [row("a"), row("b")] }))).toBe(2);
+  });
+
+  it("marks a failed task as an error and a paused one as a warning", () => {
+    expect(stoppedTone("failed")).toBe("danger");
+    expect(stoppedTone("paused")).toBe("warning");
+  });
+});
+
+describe("the request of a task in the panel", () => {
+  it("removes the attachment marks and counts them", () => {
+    expect(requestText("Fix the form @[image.png](attachment:a1) as in @[shot.png](attachment:a2) please")).toEqual({
+      text: "Fix the form as in please",
+      attachments: 2,
+    });
+  });
+
+  it("keeps a request with no marks as it is", () => {
+    expect(requestText("Publish the answer in the channel")).toEqual({
+      text: "Publish the answer in the channel",
+      attachments: 0,
+    });
+  });
+
+  it("removes a mark that the clip cut, and keeps the ellipsis", () => {
+    expect(requestText("Check this @[image.png](attachm…")).toEqual({ text: "Check this …", attachments: 1 });
+    expect(requestText("Check this @[ima…")).toEqual({ text: "Check this …", attachments: 1 });
+    expect(requestText("Check this @[image.png]…")).toEqual({ text: "Check this …", attachments: 1 });
+  });
+
+  it("has no text when the request is only attachments", () => {
+    expect(requestText("@[image.png](attachment:a1)")).toEqual({ text: "", attachments: 1 });
+    expect(requestText("@[image.png](attach…")).toEqual({ text: "", attachments: 1 });
+  });
+
+  it("keeps an ellipsis that is not part of a mark", () => {
+    expect(requestText("Wait for it…")).toEqual({ text: "Wait for it…", attachments: 0 });
+  });
+});
+
+describe("the expanded requests", () => {
+  it("adds a request that is closed, and removes one that is open", () => {
+    const open = toggledKey(new Set(), "c1:t1");
+    expect([...open]).toEqual(["c1:t1"]);
+    expect([...toggledKey(open, "c1:t2")]).toEqual(["c1:t1", "c1:t2"]);
+    expect([...toggledKey(open, "c1:t1")]).toEqual([]);
   });
 });

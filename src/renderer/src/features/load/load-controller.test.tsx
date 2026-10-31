@@ -55,6 +55,7 @@ const run: RunningWork = {
   agentName: "Writer",
   channelId: "c1",
   channelName: "cadastro",
+  topicName: "Main",
   taskId: "task1",
   title: "Fix the form",
   startedAt: "2026-10-30T20:00:00.000Z",
@@ -63,6 +64,7 @@ const run: RunningWork = {
 const stopped: StoppedWork = {
   channelId: "c1",
   channelName: "cadastro",
+  topicName: "Main",
   taskId: "task1",
   title: "Fix the form",
   reason: "The provider could not start this assignment.",

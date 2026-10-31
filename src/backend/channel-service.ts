@@ -1992,7 +1992,7 @@ export class ChannelService {
                       {
                         ...task,
                         state: "paused",
-                        error: "The previous turn has no confirmed result. Check its work before you resume.",
+                        error: sourceText("error.backend.channelTurnUnconfirmed"),
                       },
                     ]
                   : [],
