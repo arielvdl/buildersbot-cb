@@ -237,7 +237,8 @@ const DETAILS: ThreadItem[] = [
 /**
  * The selected tab has an info button before its title, and its icon slot moves to its end. The button
  * opens the details: the first message, cut to six lines with "Show more", and the person's last
- * message. The agent's name, as the tab of the agent's own chat, previews that chat on hover. A tab
+ * message. The agent's name, as the tab of the agent's own chat, previews that chat on hover, and
+ * while it is selected, its button shows the chat's first message and the person's last one. A tab
  * with no message to show has no preview and no button.
  */
 export const Details: Story = {
@@ -267,4 +268,14 @@ export const AtLimit: Story = {
 /** A narrow window: the tabs become one button with the open thread. */
 export const Narrow: Story = {
   render: () => <ThreadHeaderStory threads={STATES} open={["pricing", "competitors"]} active="pricing" narrow />,
+};
+
+/**
+ * A narrow window: the tabs become one button with the open thread. Its menu has "Thread details" for
+ * the open thread, because the details button of the tabs is gone.
+ */
+export const NarrowDetails: Story = {
+  render: () => (
+    <ThreadHeaderStory threads={DETAILS} open={DETAILS.map((thread) => thread.id)} active="launch-plan" narrow />
+  ),
 };

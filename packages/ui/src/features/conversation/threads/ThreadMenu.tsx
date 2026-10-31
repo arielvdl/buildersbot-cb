@@ -1,9 +1,11 @@
-import { Archive, buttonVariants, ChevronDown, ChevronRight, DropdownMenu, MessageCirclePlus } from "@openbot/ui";
+import { Archive, buttonVariants, ChevronDown, ChevronRight, DropdownMenu, Info, MessageCirclePlus } from "@openbot/ui";
 import { createScrollFades } from "@openbot/ui/components/createScrollFades";
 import { sidebarMessageTime } from "@openbot/ui/features/sidebar/sidebar-filtering";
 import { useText } from "@openbot/ui/text";
-import { For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { ThreadDetailsDialog, threadDetails } from "./ThreadDetailsDialog";
 import { ThreadStatusMark, ThreadStatusText, ThreadTabIcon, threadAttention } from "./ThreadStatusMark";
+import { threadHasDetails } from "./thread-preview-text";
 import type { ThreadHeaderProps, ThreadRowMode } from "./thread-types";
 
 /** The threads in the menu. The list scrolls without a scrollbar, and fades at an edge with more threads. */
@@ -76,52 +78,84 @@ function ThreadMenuTrigger(props: ThreadHeaderProps & { mode: ThreadRowMode }) {
   );
 }
 
-/** Every side thread of the agent. A thread without a tab opens in a new tab. */
+/**
+ * Every side thread of the agent. A thread without a tab opens in a new tab. In a narrow header the
+ * tabs, and with them the details button of the selected tab, are gone, so the menu has the details
+ * of the open thread.
+ */
 export function ThreadMenu(props: ThreadHeaderProps & { mode: ThreadRowMode }) {
   const { t, format } = useText();
+  const [detailsShown, setDetailsShown] = createSignal(false);
+  /** The open side thread when the header has no tabs and the thread has a message to show. */
+  const openWithDetails = () => {
+    if (props.mode === "tabs") return undefined;
+    const thread = props.tabs.find((item) => item.id === props.activeId);
+    return threadHasDetails(thread) ? thread : undefined;
+  };
+  const shownDetails = createMemo(() => {
+    const thread = detailsShown() ? openWithDetails() : undefined;
+    return thread ? threadDetails(thread) : null;
+  });
+  // The dialog closes by its `open` prop when the open thread changes or the tabs come back, and
+  // Kobalte then does not call `onOpenChange`. The state goes too, so it does not open again by itself.
+  createEffect(
+    () => detailsShown() && shownDetails() === null,
+    (gone) => {
+      if (gone) setDetailsShown(false);
+    },
+  );
   return (
-    <DropdownMenu.Root placement="bottom-start" gutter={4}>
-      <ThreadMenuTrigger {...props} />
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content class="agent-threads-menu">
-          <DropdownMenu.Item disabled={!props.canStartNew} onSelectAfterClose={props.onNew}>
-            <MessageCirclePlus aria-hidden="true" />
-            {t("conversation.threads.new")}
-          </DropdownMenu.Item>
-          <Show when={props.threads.length > 0}>
-            <DropdownMenu.Separator />
-            <ThreadMenuList {...props} />
-          </Show>
-          <Show when={props.archived.length > 0}>
-            <DropdownMenu.Separator />
-            <DropdownMenu.Sub>
-              <DropdownMenu.SubTrigger>
-                <Archive class="agent-context-icon size-4" aria-hidden="true" />
-                <span>{t("conversation.threads.archived")}</span>
-                <ChevronRight class="agent-context-submenu-chevron size-4" aria-hidden="true" />
-              </DropdownMenu.SubTrigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.SubContent class="ui-action-menu agent-context-menu agent-context-submenu agent-threads-archived">
-                  {/* Opening an archived thread restores it. */}
-                  <For each={props.archived}>
-                    {(thread) => (
-                      <DropdownMenu.Item
-                        class="agent-threads-menu-item"
-                        onSelectAfterClose={() => props.onRestore(thread.id)}
-                      >
-                        <span class="agent-threads-menu-title">{thread.title}</span>
-                        <span class="agent-threads-menu-time ui-menu-trailing">
-                          {sidebarMessageTime(thread.updatedAt, format)}
-                        </span>
-                      </DropdownMenu.Item>
-                    )}
-                  </For>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Sub>
-          </Show>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <>
+      <DropdownMenu.Root placement="bottom-start" gutter={4}>
+        <ThreadMenuTrigger {...props} />
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content class="agent-threads-menu">
+            <DropdownMenu.Item disabled={!props.canStartNew} onSelectAfterClose={props.onNew}>
+              <MessageCirclePlus aria-hidden="true" />
+              {t("conversation.threads.new")}
+            </DropdownMenu.Item>
+            <Show when={openWithDetails()}>
+              <DropdownMenu.Item onSelectAfterClose={() => setDetailsShown(true)}>
+                <Info aria-hidden="true" />
+                {t("conversation.threads.details.open")}
+              </DropdownMenu.Item>
+            </Show>
+            <Show when={props.threads.length > 0}>
+              <DropdownMenu.Separator />
+              <ThreadMenuList {...props} />
+            </Show>
+            <Show when={props.archived.length > 0}>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Sub>
+                <DropdownMenu.SubTrigger>
+                  <Archive class="agent-context-icon size-4" aria-hidden="true" />
+                  <span>{t("conversation.threads.archived")}</span>
+                  <ChevronRight class="agent-context-submenu-chevron size-4" aria-hidden="true" />
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent class="ui-action-menu agent-context-menu agent-context-submenu agent-threads-archived">
+                    {/* Opening an archived thread restores it. */}
+                    <For each={props.archived}>
+                      {(thread) => (
+                        <DropdownMenu.Item
+                          class="agent-threads-menu-item"
+                          onSelectAfterClose={() => props.onRestore(thread.id)}
+                        >
+                          <span class="agent-threads-menu-title">{thread.title}</span>
+                          <span class="agent-threads-menu-time ui-menu-trailing">
+                            {sidebarMessageTime(thread.updatedAt, format)}
+                          </span>
+                        </DropdownMenu.Item>
+                      )}
+                    </For>
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+            </Show>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+      <ThreadDetailsDialog details={shownDetails()} onClose={() => setDetailsShown(false)} />
+    </>
   );
 }

@@ -12,16 +12,24 @@ import {
   Plus,
   Settings,
   Tabs,
+  Tooltip,
   Workflow,
   X,
 } from "@openbot/ui";
 import { ComputerIcon } from "@openbot/ui/features/conversation/ConversationIcons";
 import type { ThreadItem } from "@openbot/ui/features/conversation/threads/thread-types";
+import {
+  CHAT_PREVIEW_OPEN_DELAY,
+  CHAT_PREVIEW_SKIP_DELAY,
+  ChatPreviewCard,
+  createChatPreviewOpen,
+} from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
-import { For, flush, onSettled, Show } from "solid-js";
+import { createMemo, createSignal, For, flush, onSettled, Show } from "solid-js";
 import { ThreadStatusText, ThreadTabIcon, threadAttention } from "./threads/ThreadStatusMark";
 import { ThreadTabGhost } from "./threads/ThreadTabGhost";
+import { chatPreviewLine, sameMessageText, threadHasDetails } from "./threads/thread-preview-text";
 import { carriedThreadTab, setCarriedThreadTab, swallowNextClick } from "./threads/thread-tab-drag";
 
 /** A tab starts to move after the pointer moves this far, so a click stays a click. */
@@ -184,6 +192,8 @@ export function SidePanelHeader(props: SidePanelHeaderProps) {
     if (next) tabList?.querySelector<HTMLElement>(`[data-key="${CSS.escape(next)}"]`)?.focus();
   };
   const carriedHere = () => carriedThreadTab()?.from === "chat";
+  /** A thread tab moves with the pointer. The previews of the thread tabs stay closed meanwhile. */
+  const [dragging, setDragging] = createSignal(false);
 
   onSettled(() => {
     const element = tabList;
@@ -250,6 +260,7 @@ export function SidePanelHeader(props: SidePanelHeaderProps) {
         if (Math.hypot(event.clientX - current.startX, event.clientY - current.startY) < DRAG_START) return;
         current.moving = true;
         element.setAttribute("data-dragging", "");
+        setDragging(true);
       }
       current.away = overChat(event.clientX);
       // Over the chat, the tab goes back to its place, faded, and a copy follows the pointer.
@@ -274,6 +285,7 @@ export function SidePanelHeader(props: SidePanelHeaderProps) {
       stop();
       if (!current.moving) return;
       element.removeAttribute("data-dragging");
+      setDragging(false);
       tabOf(current.thread.id)?.removeAttribute("data-dragged");
       setCarriedThreadTab(null);
       swallowNextClick();
@@ -366,6 +378,15 @@ export function SidePanelHeader(props: SidePanelHeaderProps) {
               const selected = () => props.threads?.selectedId === thread().id;
               const select = () => props.threads?.onSelect(thread().id);
               const close = () => props.threads?.onClose(thread().id);
+              // As a tab of the chat header: the pointer over the tab previews what the thread started
+              // with and the person's last message, shown once when they are the same.
+              const previewState = createChatPreviewOpen(dragging);
+              const firstLine = createMemo(() => chatPreviewLine(thread().firstMessage));
+              const lastLine = createMemo(() => {
+                const line = chatPreviewLine(thread().preview);
+                return sameMessageText(firstLine(), line) ? "" : line;
+              });
+              const preview = () => threadHasDetails(thread());
               return (
                 <div
                   role="presentation"
@@ -388,23 +409,41 @@ export function SidePanelHeader(props: SidePanelHeaderProps) {
                     </span>
                     <X class="side-panel-tab-x" aria-hidden="true" />
                   </Button>
-                  <Tabs.Trigger
-                    as="button"
-                    type="button"
-                    value={value()}
-                    class={buttonVariants({ variant: "ghost", class: "side-panel-tab-select" })}
-                    aria-keyshortcuts="Delete"
-                    title={thread().title}
-                    onClick={select}
-                    onAuxClick={(event: MouseEvent) => {
-                      if (event.button === 1) close();
-                    }}
-                    onFocus={(event) => event.relatedTarget !== null && !selected() && select()}
-                    onKeyDown={(event) => onTabKeyDown(event, value(), close)}
+                  <Tooltip.Root
+                    open={previewState.open()}
+                    onOpenChange={previewState.onOpenChange}
+                    placement="bottom-start"
+                    gutter={10}
+                    openDelay={CHAT_PREVIEW_OPEN_DELAY}
+                    closeDelay={0}
+                    skipDelayDuration={CHAT_PREVIEW_SKIP_DELAY}
+                    disabled={!preview()}
                   >
-                    <span class="side-panel-tab-label">{thread().title}</span>
-                    <ThreadStatusText status={thread().status} />
-                  </Tabs.Trigger>
+                    <Tooltip.Trigger
+                      as={Tabs.Trigger}
+                      type="button"
+                      value={value()}
+                      class={buttonVariants({ variant: "ghost", class: "side-panel-tab-select" })}
+                      aria-keyshortcuts="Delete"
+                      // The preview names the thread. Without one, the title shows on hover in full.
+                      title={preview() ? undefined : thread().title}
+                      onClick={select}
+                      onAuxClick={(event: MouseEvent) => {
+                        if (event.button === 1) close();
+                      }}
+                      onFocus={(event: FocusEvent) => event.relatedTarget !== null && !selected() && select()}
+                      onKeyDown={(event: KeyboardEvent) => onTabKeyDown(event, value(), close)}
+                    >
+                      <span class="side-panel-tab-label">{thread().title}</span>
+                      <ThreadStatusText status={thread().status} />
+                    </Tooltip.Trigger>
+                    <ChatPreviewCard
+                      title={thread().title}
+                      firstMessage={firstLine()}
+                      preview={lastLine()}
+                      variant="tab"
+                    />
+                  </Tooltip.Root>
                 </div>
               );
             }}
