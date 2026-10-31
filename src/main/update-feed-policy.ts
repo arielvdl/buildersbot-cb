@@ -18,7 +18,7 @@ export const RELEASE_FEED_BASE_URL: string | null = null;
 
 /**
  * electron-updater keeps its downloads in this folder of the user cache. electron-builder names it
- * `<package name>-updater`. The upstream app uses `openbot-updater`, so its stale downloads stay out.
+ * `<package name>-updater`. The upstream app has a folder with its own name, so its downloads stay out.
  */
 export const UPDATER_CACHE_DIRECTORY_NAME = "buildersbot-updater";
 

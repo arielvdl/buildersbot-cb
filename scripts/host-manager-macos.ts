@@ -6,6 +6,7 @@ import { z } from "zod";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import type { HostManagerOperations } from "../src/main/host-manager";
 import { HOST_MANAGER_DIRECTORY, verifyHostDirectory } from "../src/main/host-update-files";
+import { decideReleaseFeed } from "../src/main/update-feed-policy";
 
 const exec = promisify(execFile);
 export const SHARED_APP = "/Applications/OpenBot.app";
@@ -154,6 +155,9 @@ export function macHostOperations(): HostManagerOperations {
       return bundleVersion();
     },
     stageLatest: async () => {
+      // Builders Bot has no release feed yet (src/main/update-feed-policy.ts). The Host Manager then
+      // finds no release and sends no request. The code below reads the upstream OpenBot release.
+      if (!decideReleaseFeed().allowed) return null;
       await verifySharedAppParent();
       await verifyBundleTree(SHARED_APP, true);
       await verifySignature(SHARED_APP);
