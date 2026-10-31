@@ -835,15 +835,16 @@ export const WebhookRoutine: Story = {
 };
 
 /**
- * An agent with no routine yet: a faint morning brief builds itself behind the pitch, one run
- * passes through it, and it starts again. Under reduced motion it shows the finished run.
+ * An agent with no routine yet: the first four agents stand in a row, and a wave passes through
+ * them. Below them are a title in two lines, "Create Routine", and a link that opens the chat with a
+ * request to make a routine. Under reduced motion, nothing moves.
  */
 export const Empty: Story = {
   render: () => <InteractiveDiagram diagram={emptyDiagram} owner={chief} onCreateRoutine={fn()} />,
   decorators: [(Story) => <div style={{ display: "flex", height: "100vh" }}>{Story()}</div>],
 };
 
-/** The same canvas in a narrow pane: a smaller title and a fainter diagram. */
+/** The same canvas in a narrow pane: a smaller title and smaller agents. */
 export const EmptyNarrow: Story = {
   render: () => <InteractiveDiagram diagram={emptyDiagram} owner={chief} onCreateRoutine={fn()} />,
   decorators: [(Story) => <div style={{ display: "flex", width: "640px", height: "100vh" }}>{Story()}</div>],

@@ -4,34 +4,15 @@ import type { messages as source } from "../en/diagram";
 export const messages = {
   "diagram.view.label": "다이어그램 {name}",
   "diagram.board.label": "{name} 캔버스",
-  "diagram.board.emptyLead": "한 번만 그려 보세요.",
-  "diagram.board.emptyTitle": "{run}되는 모습을 지켜보세요.",
-  "diagram.board.emptyRun": "실행",
-  "diagram.board.emptyStart": "루틴이 작업을 시작해요.",
-  "diagram.board.emptyHandoff": "각 에이전트가 답변을 다음 에이전트에게 넘겨요.",
-  "diagram.board.sample.routine": "아침 브리핑",
-  "diagram.board.sample.instruction":
-    "어제 이후 시장과 영업 파이프라인에서 바뀐 내용을 모아 오늘의 우선순위로 정리해 줘.",
-  "diagram.board.sample.researchName": "리서치",
-  "diagram.board.sample.researchTitle": "리서치 파트너",
-  "diagram.board.sample.researchTask": "어제 이후의 시장 및 제품 뉴스를 항목마다 출처와 함께 모아 줘.",
-  "diagram.board.sample.researchOutput":
-    "1. Northwind가 API 가격을 20% 인하했어요.\n2. 범용 모델에 대한 EU 지침이 확정됐어요.\n3. 경쟁사 두 곳이 이번 주에 에이전트 캔버스를 출시했어요.",
-  "diagram.board.sample.salesName": "영업",
-  "diagram.board.sample.salesTitle": "아웃바운드 전문가",
-  "diagram.board.sample.salesTask": "어제 이후 단계가 바뀐 거래와 각 거래의 다음 단계를 정리해 줘.",
-  "diagram.board.sample.salesOutput":
-    "- Contoso가 협상 단계로 넘어갔어요. 다음 단계: 보안 검토 보내기.\n- Fabrikam이 9일째 멈춰 있어요. 다음 단계: 담당자에게 전화하기.",
-  "diagram.board.sample.writerName": "작성자",
-  "diagram.board.sample.writerTitle": "브리핑 작성자",
-  "diagram.board.sample.writerTask": "리서치와 파이프라인을 바탕으로 브리핑을 하나 써 줘. 200단어 이내로 부탁해.",
-  "diagram.board.sample.writerOutput":
-    "Northwind가 API 가격을 인하했고, EU 지침이 확정됐으며, Contoso와의 계약이 가까워졌어요. Fabrikam에는 오늘 전화가 필요해요.",
-  "diagram.board.sample.chiefName": "총괄",
-  "diagram.board.sample.chiefTitle": "비서실장",
-  "diagram.board.sample.chiefTask": "브리핑을 읽고 오늘의 우선순위 세 가지를 정해서 팀에 공유해 줘.",
-  "diagram.board.sample.chiefOutput":
-    "오늘의 우선순위:\n1. Contoso 보안 검토 보내기.\n2. Northwind 가격 인하에 대응하기.\n3. Fabrikam에 전화하기.",
+  "diagram.board.empty.ready": "첫 루틴을 맡을 준비가 됐어요",
+  "diagram.board.empty.lead": "루틴은",
+  "diagram.board.empty.title": "에이전트에게 맡기세요.",
+  "diagram.board.empty.body":
+    "무엇을 언제 해야 하는지 알려 주세요. 에이전트가 루틴을 만들고 매일 챙겨서, 따로 기억할 필요가 없어요.",
+  "diagram.board.empty.ask": "에이전트에게 만들기 요청",
+  "diagram.board.empty.askPrompt": "루틴을 만들어 주세요: ",
+  "diagram.board.empty.examplesLabel": "예시:",
+  "diagram.board.empty.examples": "오전 7시 아침 브리핑 · 매주 월요일 매출 보고서 · 오후 6시 이메일 분류",
   "diagram.menu.label": "캔버스",
   "diagram.menu.addAgent": "여기에 에이전트 추가",
   "diagram.menu.noAgents": "모든 에이전트가 캔버스에 있어요",

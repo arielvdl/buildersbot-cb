@@ -26,7 +26,7 @@ import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { DiagramBoard } from "./DiagramBoard";
 import { DiagramBoardEmpty } from "./DiagramBoardEmpty";
-import { DiagramChatPanel } from "./DiagramChatPanel";
+import { type DiagramChatDraftRequest, DiagramChatPanel } from "./DiagramChatPanel";
 import { DiagramInspector } from "./DiagramInspector";
 import type { DiagramModelChoice, DiagramNewAgentDraft } from "./DiagramNewAgentCard";
 import { DiagramStepIcon } from "./DiagramNodeCard";
@@ -136,6 +136,15 @@ export function DiagramView(props: DiagramViewProps) {
    * routine works, and nothing in it to inspect. Agents placed before a routine stay on the board.
    */
   const empty = () => props.diagram.nodes.every((node) => node.kind === "agent" && node.agentId === props.owner?.id);
+  /** The agents on the empty canvas: the owner first, then the others in the order of the list. */
+  const crew = () => {
+    const owner = props.owner;
+    return owner ? [owner, ...props.agents.filter((agent) => agent.id !== owner.id)] : props.agents;
+  };
+  /** A new id opens the chat over the canvas with this draft, as the link of the empty canvas asks. */
+  const [chatDraft, setChatDraft] = createSignal<DiagramChatDraftRequest | undefined>(undefined);
+  const askForRoutine = () =>
+    setChatDraft((last) => ({ id: (last?.id ?? 0) + 1, text: t("diagram.board.empty.askPrompt") }));
   /** The routines to highlight, after the choice to show them all. */
   const routineOptions = (): RoutineOption[] => [
     { id: ALL, name: t("diagram.routine.all"), color: undefined, status: undefined },
@@ -202,7 +211,16 @@ export function DiagramView(props: DiagramViewProps) {
 
       <div class="diagram-view-body" data-inspector={panels.inspector && !empty() ? "open" : undefined}>
         <div class="diagram-view-canvas">
-          <Show when={!empty()} fallback={<DiagramBoardEmpty onCreateRoutine={props.onCreateRoutine} />}>
+          <Show
+            when={!empty()}
+            fallback={
+              <DiagramBoardEmpty
+                agents={crew()}
+                onCreateRoutine={props.onCreateRoutine}
+                onAskAgent={props.assistant ? askForRoutine : undefined}
+              />
+            }
+          >
             <DiagramBoard
               diagram={props.diagram}
               agents={props.agents}
@@ -264,6 +282,7 @@ export function DiagramView(props: DiagramViewProps) {
                   messages={assistant().messages}
                   working={assistant().working}
                   open={panels.chat}
+                  draftRequest={chatDraft()}
                   onOpenChange={(open) =>
                     setPanels((state) => {
                       state.chat = open;

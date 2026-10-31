@@ -4,35 +4,16 @@ import type { messages as source } from "../en/diagram";
 export const messages = {
   "diagram.view.label": "Diagram: {name}",
   "diagram.board.label": "Kanwa: {name}",
-  "diagram.board.emptyLead": "Narysuj ją raz.",
-  "diagram.board.emptyTitle": "Potem patrz, jak {run}.",
-  "diagram.board.emptyRun": "działa",
-  "diagram.board.emptyStart": "Rutyna rozpoczyna pracę.",
-  "diagram.board.emptyHandoff": "Każdy agent przekazuje swoją odpowiedź następnemu.",
-  "diagram.board.sample.routine": "Poranny brief",
-  "diagram.board.sample.instruction":
-    "Zbierz, co zmieniło się od wczoraj na rynku i w lejku sprzedaży, i zamień to w priorytety na dziś.",
-  "diagram.board.sample.researchName": "Research",
-  "diagram.board.sample.researchTitle": "Partner do researchu",
-  "diagram.board.sample.researchTask":
-    "Zbierz wiadomości rynkowe i produktowe od wczoraj, ze źródłem dla każdego punktu.",
-  "diagram.board.sample.researchOutput":
-    "1. Northwind obniżył ceny API o 20%.\n2. Wytyczne UE dla modeli ogólnego przeznaczenia są ostateczne.\n3. Dwóch konkurentów wydało w tym tygodniu kanwy agentów.",
-  "diagram.board.sample.salesName": "Sprzedaż",
-  "diagram.board.sample.salesTitle": "Specjalista outbound",
-  "diagram.board.sample.salesTask": "Wypisz transakcje, które od wczoraj zmieniły etap, i następny krok dla każdej.",
-  "diagram.board.sample.salesOutput":
-    "- Contoso przeszło do negocjacji. Następny krok: wyślij przegląd bezpieczeństwa.\n- Fabrikam stoi od 9 dni. Następny krok: zadzwoń do sponsora.",
-  "diagram.board.sample.writerName": "Autor",
-  "diagram.board.sample.writerTitle": "Autor briefu",
-  "diagram.board.sample.writerTask": "Napisz jeden brief z researchu i lejka. Najwyżej 200 słów.",
-  "diagram.board.sample.writerOutput":
-    "Northwind obniżył ceny API, wytyczne UE są ostateczne, a Contoso jest blisko podpisania. Do Fabrikam trzeba dziś zadzwonić.",
-  "diagram.board.sample.chiefName": "Szef",
-  "diagram.board.sample.chiefTitle": "Szef sztabu",
-  "diagram.board.sample.chiefTask": "Przeczytaj brief, wybierz trzy priorytety na dziś i opublikuj je dla zespołu.",
-  "diagram.board.sample.chiefOutput":
-    "Priorytety na dziś:\n1. Wyślij przegląd bezpieczeństwa do Contoso.\n2. Odpowiedz na obniżkę cen Northwind.\n3. Zadzwoń do Fabrikam.",
+  "diagram.board.empty.ready": "Gotowi na pierwszą rutynę",
+  "diagram.board.empty.lead": "Zostaw rutynę",
+  "diagram.board.empty.title": "agentom.",
+  "diagram.board.empty.body":
+    "Powiedz, co i kiedy ma się dziać. Agenci tworzą rutynę i dbają o nią każdego dnia, a ty nie musisz o tym pamiętać.",
+  "diagram.board.empty.ask": "Poproś agenta o jej utworzenie",
+  "diagram.board.empty.askPrompt": "Utwórz dla mnie rutynę: ",
+  "diagram.board.empty.examplesLabel": "Na przykład:",
+  "diagram.board.empty.examples":
+    "poranne podsumowanie o 7:00 · raport sprzedaży w każdy poniedziałek · segregowanie e-maili o 18:00",
   "diagram.menu.label": "Kanwa",
   "diagram.menu.addAgent": "Dodaj tu agenta",
   "diagram.menu.noAgents": "Wszyscy agenci są na kanwie",

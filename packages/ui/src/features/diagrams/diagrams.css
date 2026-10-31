@@ -1422,149 +1422,82 @@
 }
 
 /*
- * The canvas before its first routine: a faint sample diagram builds itself behind the pitch, one
- * run passes through it, and it fades and starts again. The dots move into the backdrop, so they
- * clear behind the pitch with the cards.
+ * The canvas before its first routine: the agents stacked as avatars, a title in two lines, the
+ * actions, and a line of sample routines. The column sits in the middle of the canvas, and the
+ * canvas scrolls when it is too short for the column. The room below the column is for the chat
+ * over the canvas. Only `transform` moves, and nothing moves when the reader asks for less motion.
  */
 .diagram-empty {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 56px 40px 96px;
   container-type: inline-size;
 }
 
-.diagram-empty-viewport {
+.diagram-empty-stage {
   display: grid;
-  background-image: none;
-  cursor: default;
+  width: min(100%, 46rem);
+  margin: auto;
+  justify-items: start;
 }
 
-.diagram-empty-backdrop {
-  position: relative;
-  grid-area: 1 / 1;
-  overflow: hidden;
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.62;
-  mask-image:
-    radial-gradient(ellipse 30% 30% at 50% 50%, var(--openbot-transparent) 55%, var(--openbot-text-primary) 100%),
-    radial-gradient(ellipse 80% 85% at 50% 50%, var(--openbot-text-primary) 55%, var(--openbot-transparent) 100%);
-  mask-composite: intersect;
+/* Each cube covers the right face of the cube before it, so the eyes of all of them show. */
+.diagram-empty-crew {
+  display: flex;
+  align-items: center;
+  margin-bottom: 36px;
 }
 
-.diagram-empty-grid {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, var(--openbot-border-strong) 1px, var(--openbot-transparent) 0);
-  background-size: 24px 24px;
+.diagram-empty-cube {
+  width: 72px;
+  height: 72px;
+  flex: none;
+  margin-left: -34px;
 }
 
-.diagram-empty-world {
-  top: 50%;
-  left: 50%;
-  translate: -50% -50%;
-  transform-origin: center;
-  scale: var(--diagram-empty-scale);
-  transition:
-    opacity 900ms var(--openbot-ease-out),
-    filter 900ms var(--openbot-ease-out);
+/* The box of the mark is smaller than its square, so the first cube moves left to the title's edge. */
+.diagram-empty-cube:first-child {
+  margin-left: -14px;
 }
 
-.diagram-empty-backdrop[data-leaving] .diagram-empty-world {
-  opacity: 0;
-  filter: blur(4px);
+/* The agents are awake: their eyelids are higher than at rest, and a little different on each. */
+.diagram-empty-cube .agent-mark-eyelid {
+  --agent-mark-eyelid: var(--diagram-empty-eyelid, 0.2);
 }
 
-/* A card lands: it rises out of a blur. */
-.diagram-empty-node {
-  opacity: 0;
-  filter: blur(6px);
-  transform: translateY(12px) scale(0.96);
-  transition:
-    opacity 700ms var(--openbot-ease-out),
-    filter 700ms var(--openbot-ease-out),
-    transform 700ms var(--openbot-ease-out);
+.diagram-empty-cube:nth-child(1) {
+  --diagram-empty-eyelid: 0.15;
 }
 
-.diagram-empty-node[data-shown] {
-  opacity: 1;
-  filter: blur(0);
-  transform: none;
+.diagram-empty-cube:nth-child(2) {
+  --diagram-empty-eyelid: 0.3;
 }
 
-.diagram-empty-node .diagram-node {
-  cursor: default;
+.diagram-empty-cube:nth-child(3) {
+  --diagram-empty-eyelid: 0.1;
 }
 
-/* A connection draws from its output to its input, after the card it enters has landed. */
-.diagram-empty .diagram-empty-edge[data-state="idle"] .diagram-edge-line {
-  stroke-dasharray: 1600;
-  stroke-dashoffset: 1600;
-  transition: stroke-dashoffset 900ms var(--openbot-ease-in-out) 350ms;
+/* The laser of the mark runs along its edge with a dash, which is not a transform. The row has none. */
+.diagram-empty-cube .agent-mark-laser {
+  display: none;
 }
 
-.diagram-empty .diagram-empty-edge[data-drawn] .diagram-edge-line {
-  stroke-dashoffset: 0;
-}
-
-.diagram-empty .diagram-empty-edge[data-state] .diagram-edge-arrow {
-  opacity: 0;
-  transition: opacity 300ms var(--openbot-ease-out) 1100ms;
-}
-
-.diagram-empty .diagram-empty-edge[data-drawn] .diagram-edge-arrow {
-  opacity: 1;
-}
-
-/* The run pulse rides one connection, once, in the colour of the routine that fired. */
-.diagram-empty-pulse {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--openbot-radius-pill);
-  background: var(--diagram-routine-color, var(--openbot-accent));
-  outline: 4px solid var(--diagram-routine-soft, var(--openbot-accent-soft));
-  offset-rotate: 0deg;
-  animation: diagram-empty-pulse 900ms var(--openbot-ease-in-out) both;
-}
-
-@keyframes diagram-empty-pulse {
-  0% {
-    offset-distance: 0%;
-    opacity: 0;
-  }
-
-  15% {
-    opacity: 1;
-  }
-
-  85% {
-    opacity: 1;
-  }
-
-  100% {
-    offset-distance: 100%;
-    opacity: 0;
-  }
-}
-
-.diagram-empty-pitch {
-  z-index: 1;
-  display: grid;
-  grid-area: 1 / 1;
-  max-width: 34rem;
-  place-self: center;
-  justify-items: center;
-  gap: var(--openbot-space-4);
-  padding: var(--openbot-space-6);
-  text-align: center;
+.diagram-empty-ready {
+  margin-left: 2px;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
 }
 
 .diagram-empty-title {
+  --diagram-empty-title-size: calc(var(--openbot-text-display) * 2);
   margin: 0;
-  font-size: var(--openbot-text-display);
+  font-size: var(--diagram-empty-title-size);
   font-weight: var(--openbot-weight-semibold);
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
 }
 
 .diagram-empty-title > span {
@@ -1575,63 +1508,127 @@
   color: var(--openbot-text-muted);
 }
 
-/* The one handwritten word of the title. It writes itself once. The app has no hand font, so it
-   uses the system ones; their small x-height is brought up to the title's. */
-.diagram-empty-title .diagram-empty-hand {
-  display: inline;
-  color: var(--openbot-accent-text);
-  font-family: "Bradley Hand", "Noteworthy", "Segoe Print", cursive;
-  font-size-adjust: 0.62;
-  font-weight: var(--openbot-weight-semibold);
-  line-height: 1;
-  clip-path: inset(-0.4em 100% -0.4em -0.2em);
-  animation: diagram-empty-write 520ms linear 500ms forwards;
-}
-
-@keyframes diagram-empty-write {
-  to {
-    clip-path: inset(-0.4em -0.2em -0.4em -0.2em);
-  }
-}
-
-.diagram-empty-lines {
-  display: grid;
-  margin: 0;
+.diagram-empty-body {
+  max-width: 34rem;
+  margin: var(--openbot-space-6) 0 0;
   color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-xl);
+  font-size: var(--openbot-text-2xl);
   line-height: 1.5;
+  text-wrap: pretty;
 }
 
-.diagram-empty-action.ui-button {
-  width: 100%;
-  max-width: 22rem;
-  height: var(--openbot-control-lg);
-  margin-top: var(--openbot-space-2);
+.diagram-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-3) 20px;
+  margin-top: 36px;
 }
 
-/* A narrow pane: a smaller title, and a stronger fade so the cards stay behind the words. */
-@container (max-width: 720px) {
+.diagram-empty-create.ui-button {
+  min-width: 11rem;
+}
+
+/* The link: accent text on no fill. It moves left by its own padding, so its text lines up with the
+   button when the row wraps. */
+.diagram-empty-ask.ui-button {
+  height: var(--openbot-control-md);
+  gap: var(--openbot-space-2);
+  margin-left: calc(var(--openbot-space-1-5) * -1);
+  padding: 0 var(--openbot-space-1-5);
+  color: var(--openbot-accent-text);
+}
+
+.diagram-empty-arrow {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  stroke-width: calc(var(--openbot-icon-stroke) * 1.6);
+  transition: transform var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .diagram-empty-ask.ui-button:hover:not(:disabled) {
+    background: var(--openbot-accent-soft);
+    color: var(--openbot-accent-text);
+  }
+
+  .diagram-empty-ask:hover .diagram-empty-arrow {
+    transform: translateX(2px);
+  }
+}
+
+.diagram-empty-examples {
+  max-width: 40rem;
+  margin: 56px 0 0;
+  border-top: 1px solid var(--openbot-border-strong);
+  padding-top: var(--openbot-space-4);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+  line-height: 1.6;
+}
+
+.diagram-empty-examples-label {
+  color: var(--openbot-text-secondary);
+  font-weight: var(--openbot-weight-medium);
+}
+
+/* The canvas is narrower than the window, and more so with the sidebar open. */
+@container (max-width: 1000px) {
   .diagram-empty-title {
-    font-size: var(--openbot-text-3xl);
+    --diagram-empty-title-size: calc(var(--openbot-text-display) * 1.625);
   }
 
-  .diagram-empty-lines {
-    font-size: var(--openbot-text-lg);
-  }
-
-  .diagram-empty-backdrop {
-    opacity: 0.45;
+  .diagram-empty-body {
+    font-size: var(--openbot-text-xl);
   }
 }
 
-/* Less motion: a still frame with the finished run. */
-.diagram-empty[data-still] :is(.diagram-empty-world, .diagram-empty-node, .diagram-empty-hand),
-.diagram-empty[data-still] .diagram-empty-edge[data-state] path {
-  animation: none;
-  transition: none;
-  clip-path: none;
+@container (max-width: 640px) {
+  .diagram-empty-title {
+    --diagram-empty-title-size: calc(var(--openbot-text-display) * 1.25);
+  }
+
+  .diagram-empty-cube {
+    width: 60px;
+    height: 60px;
+    margin-left: -32px;
+  }
 }
 
-.diagram-empty[data-still] .diagram-empty-pulse {
-  display: none;
+/* A wave passes through the row: each cube rises a little after the one before it. The eyes look
+   around and blink by the rules of the mark (`logo.css`). */
+@media (prefers-reduced-motion: no-preference) {
+  .diagram-empty-cube {
+    animation: diagram-empty-wave 4.2s var(--openbot-ease-out) infinite;
+  }
+
+  .diagram-empty-cube:nth-child(2) {
+    animation-delay: 160ms;
+  }
+
+  .diagram-empty-cube:nth-child(3) {
+    animation-delay: 320ms;
+  }
+
+  .diagram-empty-cube:nth-child(4) {
+    animation-delay: 480ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagram-empty-arrow {
+    transition: none;
+  }
+}
+
+@keyframes diagram-empty-wave {
+  0%,
+  30%,
+  100% {
+    transform: translateY(0);
+  }
+
+  10% {
+    transform: translateY(-9px);
+  }
 }

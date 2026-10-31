@@ -4,38 +4,16 @@ import type { messages as source } from "../en/diagram";
 export const messages = {
   "diagram.view.label": "Diagram {name}",
   "diagram.board.label": "Canvas voor {name}",
-  "diagram.board.emptyLead": "Teken het één keer.",
-  "diagram.board.emptyTitle": "Zie het {run}.",
-  "diagram.board.emptyRun": "draaien",
-  "diagram.board.emptyStart": "Een routine start het werk.",
-  "diagram.board.emptyHandoff": "Elke agent geeft zijn antwoord door aan de volgende.",
-  "diagram.board.sample.routine": "Ochtendbriefing",
-  "diagram.board.sample.instruction":
-    "Verzamel wat er sinds gisteren is veranderd in de markt en in de salespijplijn, en maak daar de prioriteiten van vandaag van.",
-  "diagram.board.sample.researchName": "Onderzoek",
-  "diagram.board.sample.researchTitle": "Onderzoekspartner",
-  "diagram.board.sample.researchTask":
-    "Verzamel het markt- en productnieuws sinds gisteren, met een bron voor elk item.",
-  "diagram.board.sample.researchOutput":
-    "1. Northwind heeft de API-prijzen met 20% verlaagd.\n2. De EU-richtlijn voor modellen voor algemene doeleinden is definitief.\n3. Twee concurrenten brachten deze week agentcanvassen uit.",
-  "diagram.board.sample.salesName": "Sales",
-  "diagram.board.sample.salesTitle": "Outbound-specialist",
-  "diagram.board.sample.salesTask":
-    "Noem de deals die sinds gisteren van fase zijn veranderd en de volgende stap voor elke deal.",
-  "diagram.board.sample.salesOutput":
-    "- Contoso is naar Onderhandeling gegaan. Volgende stap: stuur de beveiligingsreview.\n- Fabrikam staat al 9 dagen stil. Volgende stap: bel de champion.",
-  "diagram.board.sample.writerName": "Schrijver",
-  "diagram.board.sample.writerTitle": "Briefingschrijver",
-  "diagram.board.sample.writerTask":
-    "Schrijf één briefing op basis van het onderzoek en de pijplijn. Houd het onder 200 woorden.",
-  "diagram.board.sample.writerOutput":
-    "Northwind heeft de API-prijzen verlaagd, de EU-richtlijn is definitief en Contoso staat dicht bij een deal. Fabrikam moet vandaag gebeld worden.",
-  "diagram.board.sample.chiefName": "Chef",
-  "diagram.board.sample.chiefTitle": "Stafchef",
-  "diagram.board.sample.chiefTask":
-    "Lees de briefing, bepaal de drie prioriteiten voor vandaag en deel ze met het team.",
-  "diagram.board.sample.chiefOutput":
-    "Prioriteiten voor vandaag:\n1. Stuur de beveiligingsreview naar Contoso.\n2. Reageer op de prijsverlaging van Northwind.\n3. Bel Fabrikam.",
+  "diagram.board.empty.ready": "Klaar voor de eerste routine",
+  "diagram.board.empty.lead": "Laat de routine",
+  "diagram.board.empty.title": "over aan de agents.",
+  "diagram.board.empty.body":
+    "Zeg wat er moet gebeuren en wanneer. De agents maken de routine en zorgen er elke dag voor, zonder dat je eraan hoeft te denken.",
+  "diagram.board.empty.ask": "Vraag een agent om hem te maken",
+  "diagram.board.empty.askPrompt": "Maak een routine voor me: ",
+  "diagram.board.empty.examplesLabel": "Bijvoorbeeld:",
+  "diagram.board.empty.examples":
+    "ochtendbriefing om 7.00 uur · verkooprapport elke maandag · e-mails sorteren om 18.00 uur",
   "diagram.menu.label": "Canvas",
   "diagram.menu.addAgent": "Agent hier toevoegen",
   "diagram.menu.noAgents": "Elke agent staat op het canvas",

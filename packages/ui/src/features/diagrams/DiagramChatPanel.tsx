@@ -7,7 +7,7 @@
  */
 
 import { ArrowUp, Bubble, BubbleContent, Button, Check, Minimize2, Spinner } from "@openbot/ui";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 import type { AvatarMood } from "../../bloub-avatar";
 import type { AgentProfile } from "../../data";
 import { useText } from "../../text";
@@ -19,12 +19,23 @@ import type { DiagramChatMessage } from "./diagram-model";
 /** A press that moves less than this is a click, so the button still opens the panel. */
 const DRAG_THRESHOLD_PX = 4;
 
+/** A request from outside the panel to open it with a draft. Each request has a new, larger id. */
+export interface DiagramChatDraftRequest {
+  id: number;
+  text: string;
+}
+
 export interface DiagramChatPanelProps {
   agent: AgentProfile;
   messages: DiagramChatMessage[];
   /** True while the agent works on the last message. */
   working: boolean;
   open: boolean;
+  /**
+   * Opens the panel and puts the focus in the editor. The draft gets `text` only when it is empty,
+   * so a draft that the user started stays.
+   */
+  draftRequest?: DiagramChatDraftRequest | undefined;
   onOpenChange: (open: boolean) => void;
   onSend: (text: string) => void;
   /** Opens a link in an agent's answer. Without it, links do nothing. */
@@ -83,6 +94,17 @@ export function DiagramChatPanel(props: DiagramChatPanelProps) {
     props.onOpenChange(open);
     requestAnimationFrame(() => (open ? setFocusRequest((count) => count + 1) : launcher?.focus()));
   };
+  /** Each draft request opens the panel once. The draft is read here, so typing does not run it again. */
+  let lastDraftRequest = 0;
+  createEffect(
+    () => ({ request: props.draftRequest, empty: untrack(draft).trim() === "" }),
+    ({ request, empty }) => {
+      if (!request || request.id <= lastDraftRequest) return;
+      lastDraftRequest = request.id;
+      if (empty) setDraft(request.text);
+      setOpen(true);
+    },
+  );
   const send = () => {
     const text = draft().trim();
     if (!text || props.working) return;
