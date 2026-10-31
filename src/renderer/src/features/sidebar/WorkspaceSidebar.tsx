@@ -29,6 +29,7 @@ import { useAgentThreads } from "../agent-threads/agent-threads-context";
 import { useAgentActions } from "../agents/agent-actions";
 import { attentionByAgent } from "../agents/agent-runtime-snapshot";
 import { agentThreadAttention } from "../agents/agent-thread-attention";
+import { createAgentWorkingTurns } from "../agents/agent-working-turns";
 import { useAgents } from "../agents/agents-context";
 import { readChannelLastTopics, saveChannelLastTopic } from "../channels/channel-tabs-model";
 import { useChannels } from "../channels/channels-context";
@@ -102,7 +103,6 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const hideAllowed = () =>
     activeServerSupportsCapability(AGENT_HIDDEN_CAPABILITY) && serverRoleCanAdminister(activeServer());
   const {
-    activeTurns,
     queues,
     failedTurns,
     usageLimits,
@@ -351,14 +351,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
 
   /* The turn events of a side thread reach only its thread list, so an agent that works in a side
    * thread is found there. */
-  const workingTurns = createMemo(() => {
-    const turns = { ...activeTurns() };
-    for (const agent of agentList()) {
-      const running = agentTasks.snapshot(agent.id)?.tasks.find((task) => task.state === "running");
-      if (running && !turns[agent.id]) turns[agent.id] = running.activeTurnId ?? running.id;
-    }
-    return turns;
-  });
+  const workingTurns = createAgentWorkingTurns();
 
   /* The agent conversation shows only the waits of the agent's own thread. A wait in a channel
    * thread stays out of "Needs you", because selecting the row cannot answer it. */
