@@ -312,6 +312,15 @@ The desktop startup splash (`StartupSplash`) shows the mark at 96 px, `working`,
 the build (`var(--openbot-logo-production)` and the dev and preview colors). The web client shows the
 crew of `AppLoadingScreen`. The window has no splash before the renderer loads.
 
+The animated avatar uses no filters. No part of the mark and no avatar box has `filter`, and an
+ancestor of an avatar that can move must not have `filter` or `backdrop-filter`. A glow is a second, wider stroke or shape in the tone at a low opacity: the
+laser is a wide glow path under a bright core (`AgentMarkLaser`), a point in orbit has a disc under
+it, and the lit lid and the sparks have a wide stroke under their fill. A photo's mood glow is a
+`box-shadow`. A filter on an animated part makes the compositor give it a layer of its own; in the
+transparent desktop window with vibrancy, such a layer can paint a rectangle of the app without the
+glass while a pointer is on the avatar. The motion only changes `opacity`, `transform` and
+`stroke-dashoffset` of SVG parts.
+
 All motion is CSS in `packages/brand/src/logo.css`, only for `data-animated="true"` and
 `prefers-reduced-motion: no-preference`. `AgentAvatar` sets `animated` for a busy mood
 (`working`, `live`, `connecting`), for `motion="always"`, and while a pointer or the keyboard focus is

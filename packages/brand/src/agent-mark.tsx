@@ -287,13 +287,14 @@ export function AgentMark(props: AgentMarkProps) {
             <circle class="agent-mark-orbit-trail" r={orbit().radius} />
             {Array.from({ length: orbit().dots }, (_, index) => {
               const angle = (index * 2 * Math.PI) / orbit().dots;
+              const x = round(orbit().radius * Math.cos(angle));
+              const y = round(orbit().radius * Math.sin(angle));
+              const radius = index === 0 ? 9 : 6.5;
               return (
-                <circle
-                  class="agent-mark-orbit-dot"
-                  cx={round(orbit().radius * Math.cos(angle))}
-                  cy={round(orbit().radius * Math.sin(angle))}
-                  r={index === 0 ? 9 : 6.5}
-                />
+                <>
+                  <circle class="agent-mark-orbit-glow" cx={x} cy={y} r={radius + 5} />
+                  <circle class="agent-mark-orbit-dot" cx={x} cy={y} r={radius} />
+                </>
               );
             })}
           </g>
@@ -364,9 +365,9 @@ export function AgentMark(props: AgentMarkProps) {
           </Show>
           {/* The laser is light that moves, so a mark that holds still does not draw it. */}
           <Show when={props.animated !== false}>
-            <path class="agent-mark-laser" d={OUTLINE} pathLength="100" />
+            <AgentMarkLaser class="agent-mark-laser" />
             <Show when={mood() === "live"}>
-              <path class="agent-mark-counter-laser" d={OUTLINE} pathLength="100" />
+              <AgentMarkLaser class="agent-mark-counter-laser" />
             </Show>
           </Show>
           <Show when={busy()}>
@@ -381,6 +382,19 @@ export function AgentMark(props: AgentMarkProps) {
         </g>
       </g>
     </svg>
+  );
+}
+
+/**
+ * A laser on the outline: a wide, faint glow under a bright core. The group carries the dash and its
+ * motion, and both paths take them from it. It is a glow without `filter` (see `logo.css`).
+ */
+function AgentMarkLaser(props: { class: string }) {
+  return (
+    <g class={props.class}>
+      <path class="agent-mark-laser-glow" d={OUTLINE} pathLength="100" />
+      <path class="agent-mark-laser-core" d={OUTLINE} pathLength="100" />
+    </g>
   );
 }
 

@@ -2663,13 +2663,18 @@ textarea {
 }
 
 /* The mood glow of a photo. It reads before the photo does at sidebar sizes. The
-   mark has no glow: its lid shows the mood. */
+   mark has no glow: its lid shows the mood. It is a shadow of the round box, not a
+   `filter`: an avatar and its ancestors use no filter (see `logo.css`). */
 .agent-avatar[data-avatar="image"][data-mood="waiting"] {
-  filter: drop-shadow(0 0 3px var(--openbot-accent));
+  box-shadow:
+    inset 0 0 0 1px var(--openbot-border),
+    0 0 3px var(--openbot-accent);
 }
 
 .agent-avatar[data-avatar="image"][data-mood="failed"] {
-  filter: drop-shadow(0 0 3px var(--openbot-danger));
+  box-shadow:
+    inset 0 0 0 1px var(--openbot-border),
+    0 0 3px var(--openbot-danger);
 }
 
 /* The glow would start outside the outline and leave a dark line round the face. A glowing face is

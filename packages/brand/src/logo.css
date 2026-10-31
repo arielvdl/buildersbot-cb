@@ -270,6 +270,11 @@
    `agent-mark.tsx` gives the faces, the edges and the symbols their colours in their `style`, so a
    copy of the SVG with no stylesheet still shows the box at rest, and an accent can be a CSS
    variable. These rules add the light and the motion.
+
+   No part of the mark uses `filter`. A glow is a second, wider stroke or shape in the tone at a low
+   opacity. A filter on an animated part makes the compositor give it a layer of its own, and in the
+   transparent desktop window with vibrancy such a layer can paint a rectangle without the glass. The
+   motion only changes `opacity`, `transform` and `stroke-dashoffset` of SVG parts.
    Nothing is drawn behind the box: no frame and no background.
 
    Each rule that moves something is in the `prefers-reduced-motion: no-preference` block at the end,
@@ -321,19 +326,13 @@
   transition: fill var(--openbot-duration-overlay) var(--openbot-ease-out);
 }
 
-/* The box breathes, bounces and shakes from its middle. */
+/* The box breathes, bounces and shakes from its middle. The orbit keeps the default origin of an
+   SVG part, the origin of its group, which is the middle of the box. `fill-box` would move that pivot
+   to a corner of the ring, so only the parts below that grow in place use it. */
 .agent-mark-shell,
 .agent-mark-body,
 .agent-mark-halo {
-  transform-box: view-box;
   transform-origin: 50% 50%;
-}
-
-/* The orbit turns round the origin of its group, which is the middle of the box. `fill-box` here
-   would move the pivot to a corner of the ring, so only the parts below that grow in place use it. */
-.agent-mark-orbit {
-  transform-box: view-box;
-  transform-origin: 0 0;
 }
 
 .agent-mark-spark,
@@ -387,13 +386,23 @@
   fill: var(--agent-mark-tone);
   stroke: #fff;
   stroke-width: 2.4;
-  filter: drop-shadow(0 0 5px var(--agent-mark-tone));
 }
 
-/* The light on the lid. At rest a working lid stays lit, and a waiting lid stays pale. */
+/* The glow of a point in orbit: a wider disc of the tone under it. */
+.agent-mark-orbit-glow {
+  fill: var(--agent-mark-tone);
+  opacity: 0.3;
+}
+
+/* The light on the lid. At rest a working lid stays lit, and a waiting lid stays pale. Its glow is
+   a wide stroke of the tone under the fill, so only the half outside the lid shows. */
 .agent-mark-flash {
   opacity: 0;
-  filter: drop-shadow(0 0 7px var(--agent-mark-tone));
+  stroke: var(--agent-mark-tone);
+  stroke-width: 10;
+  stroke-opacity: 0.5;
+  stroke-linejoin: round;
+  paint-order: stroke;
 }
 
 .agent-mark:is([data-mood="working"], [data-mood="live"]) .agent-mark-flash {
@@ -402,22 +411,21 @@
 
 .agent-mark[data-mood="waiting"] .agent-mark-flash {
   opacity: 0.45;
-  filter: none;
+  stroke: none;
 }
 
-/* The laser: a bright dot that runs the silhouette. `pathLength="100"` keeps the dash arithmetic
-   in percentages of the outline. A white-hot core over the coloured edge, so the spark is brighter
-   than what it runs along. */
+/* The laser: a bright dot that runs the silhouette. The group holds the dash and its motion, and
+   its two paths take them: a faint, wide glow of the tone, and a white-hot core over the coloured
+   edge, so the spark is brighter than what it runs along. `pathLength="100"` keeps the dash
+   arithmetic in percentages of the outline. */
 .agent-mark-laser,
 .agent-mark-counter-laser {
   fill: none;
-  stroke: color-mix(in srgb, var(--agent-mark-tone) 22%, #fff);
   stroke-width: 4;
   stroke-linecap: round;
   stroke-dasharray: 8 92;
   stroke-dashoffset: 100;
   opacity: 0;
-  filter: drop-shadow(0 0 5px var(--agent-mark-tone));
 }
 
 .agent-mark-counter-laser {
@@ -425,10 +433,29 @@
   stroke-dasharray: 5 45;
 }
 
+.agent-mark-laser-core {
+  stroke: color-mix(in srgb, var(--agent-mark-tone) 22%, #fff);
+}
+
+.agent-mark-laser-glow {
+  stroke: var(--agent-mark-tone);
+  stroke-width: 12;
+  stroke-opacity: 0.35;
+}
+
+.agent-mark-counter-laser .agent-mark-laser-glow {
+  stroke-width: 9;
+}
+
+/* A white star with a glow of the tone: a wide stroke under the fill. */
 .agent-mark-spark {
   fill: #fff;
+  stroke: var(--agent-mark-tone);
+  stroke-width: 6;
+  stroke-opacity: 0.5;
+  stroke-linejoin: round;
+  paint-order: stroke;
   opacity: 0;
-  filter: drop-shadow(0 0 4px var(--agent-mark-tone));
 }
 
 /* `working` flashes at four points, `live` at eight. */
@@ -461,6 +488,10 @@
 
   .agent-mark-laser {
     stroke-width: 12;
+  }
+
+  .agent-mark-laser-glow {
+    stroke-width: 22;
   }
 
   .agent-mark-halo {
