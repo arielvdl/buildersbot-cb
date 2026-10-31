@@ -18,13 +18,13 @@ import type { sourceTranslation as SourceTranslation } from "./source-catalogs";
  * the module it replaces, so the two builds cannot drift apart.
  */
 
-interface LocaleCatalogs {
+export interface LocaleCatalogs {
   app: NonNullable<ReturnType<typeof AppTranslation>>;
   source: NonNullable<ReturnType<typeof SourceTranslation>>;
   format: NonNullable<ReturnType<typeof FormatTranslation>>;
 }
 
-type LoadableLocale = Exclude<TranslatedLocale, "en">;
+export type LoadableLocale = Exclude<TranslatedLocale, "en">;
 
 const loaders: Record<LoadableLocale, () => Promise<LocaleCatalogs>> = {
   de: () =>
@@ -79,6 +79,14 @@ const loaders: Record<LoadableLocale, () => Promise<LocaleCatalogs>> = {
 
 const loaded = new Map<TranslatedLocale, LocaleCatalogs>([["en", { app: en, source: enSource, format: enFormat }]]);
 const loading = new Map<LoadableLocale, Promise<void>>();
+
+/**
+ * Marks `locale` as loaded with catalogs that are already part of the bundle. Only
+ * `desktop-catalogs.ts` calls it, when its module loads.
+ */
+export function addBundledLocale(locale: LoadableLocale, catalogs: LocaleCatalogs): void {
+  loaded.set(locale, catalogs);
+}
 
 export const appTranslation: typeof AppTranslation = (locale) => loaded.get(locale)?.app;
 export const sourceTranslation: typeof SourceTranslation = (locale) => loaded.get(locale)?.source;

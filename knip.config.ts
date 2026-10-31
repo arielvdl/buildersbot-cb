@@ -126,9 +126,10 @@ const config: KnipConfig = {
       project: ["src/**/*.ts"],
     },
     "packages/i18n": {
-      // apps/auth-api/vite.config.ts puts this file in place of the static catalog modules by path.
-      // Metro resolves mobile-catalogs.native.ts in place of mobile-catalogs.ts.
-      entry: ["src/lazy-catalogs.ts", "src/mobile-catalogs.native.ts"],
+      // packages/i18n/vite-plugin.ts puts lazy-catalogs.ts (public web build) and desktop-catalogs.ts
+      // (desktop renderer) in place of the static catalog modules by path. Metro resolves
+      // mobile-catalogs.native.ts in place of mobile-catalogs.ts.
+      entry: ["src/lazy-catalogs.ts", "src/desktop-catalogs.ts", "src/mobile-catalogs.native.ts"],
       project: ["src/**/*.{ts,tsx,css}"],
     },
     "packages/*": {
