@@ -51,10 +51,13 @@ interface HostReleaseOptions {
   releaseFeed?: ReleaseFeedDecision;
 }
 
-/** Reads only the install marker. No command or application file is executed. */
+/**
+ * Reads only the install marker. No command or application file is executed. The install folder keeps
+ * the upstream name, as in docker/Dockerfile and scripts/hosting.
+ */
 export const readInstallationMode = Effect.fn("HostRelease.readInstallationMode")(function* () {
   return yield* Effect.tryPromise({
-    try: (signal) => readFile("/opt/Builders Bot/hosted/mode", { encoding: "utf8", signal }),
+    try: (signal) => readFile("/opt/OpenBot/hosted/mode", { encoding: "utf8", signal }),
     catch: () => new ReleaseCheckFailed(),
   }).pipe(
     Effect.map((value) => value.trim()),

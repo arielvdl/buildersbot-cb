@@ -130,7 +130,7 @@ show_status() {
   server=$(value server)
   name=$(value server_name)
   message=$(value server_message)
-  echo "OpenBot $(value version)"
+  echo "Builders Bot $(value version)"
   case $account in
     signed_in) echo "Account: $(value email)" ;;
     signed_out) echo "Account: signed out. Sign in with: openbot login" ;;

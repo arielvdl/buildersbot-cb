@@ -932,7 +932,8 @@ jobs:
           set -euo pipefail
           (cd release-assets && sha256sum --check --strict "SHA256SUMS-$SUFFIX.txt")
           mkdir image
-          mv release-assets/*.AppImage image/Builders Bot.AppImage
+          # docker/Dockerfile copies this fixed name. The release name has a space.
+          mv release-assets/*.AppImage "image/OpenBot.AppImage"
         env:
           SUFFIX: ${{ matrix.suffix }}
 

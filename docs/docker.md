@@ -10,6 +10,22 @@ app or `openbot.run/app`. It is for `linux/amd64` and `linux/arm64`.
 > image and never pull one. Upgrades and updates from the app are not available in this version. The
 > image of the upstream OpenBot project is a different app: do not use it with Builders Bot data.
 
+## Build
+
+Build the AppImage as the `linux` job of `.github/workflows/release.yml` does, on Linux and on a
+machine of the target architecture: the voice runtime is for the machine that builds it. Then, in the
+repository:
+
+```sh
+mkdir image
+cp dist/*.AppImage "image/OpenBot.AppImage"
+docker build --file docker/Dockerfile --tag builders-bot:local image
+```
+
+The Dockerfile copies `OpenBot.AppImage` and unpacks it to `/opt/OpenBot/app`, and the image starts
+the executable `openbot`. These are the names of the upstream scripts in `scripts/hosting`.
+`linux.executableName` in `electron-builder.yml` keeps the executable name.
+
 ## Run
 
 With Docker Compose, copy `docker/compose.yaml` and `docker/seccomp.json` of this repository to one
@@ -109,8 +125,8 @@ that user and keep everything there:
 
 | Path | Contents |
 | --- | --- |
-| `/data/.config/OpenBot` | The database `openbot.db`, logs, the downloaded provider runtimes and the browser data. |
-| `/data/OpenBot` | The agent workspaces (`Agents`), `Shared` and `Downloads`. |
+| `/data/.config/Builders Bot` | The database `openbot.db`, logs, the downloaded provider runtimes and the browser data. |
+| `/data/Builders Bot` | The agent workspaces (`Agents`), `Shared` and `Downloads`. |
 | `/data/.local/share/keyrings`, `/data/.config/openbot-container` | The keyring and its password. The keyring has the key of the encrypted data in `/data`. |
 | Other files in `/data` | Provider sign-ins and the files of agent tools, for example `~/.codex` and `~/.claude`. |
 
