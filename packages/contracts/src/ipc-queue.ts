@@ -233,8 +233,9 @@ export interface ForceQueuedMessageInput {
 
 /**
  * What a force did. `interrupted`: the running turn was told to stop, and the message starts when it
- * ends. `started`: no turn ran, so the message starts now. `next`: a turn that the person did not see
- * runs, so the message waits at the head of the queue and starts after that turn.
+ * ends. `started`: no turn ran, so the message starts now. `next`: no turn was stopped, and the message
+ * waits at the head of the person's queue: a turn that the person did not see runs, other work of the
+ * agent (a channel or messaging turn) starts first, or the queue is held, for example by a compaction.
  */
 export const FORCE_QUEUED_MESSAGE_OUTCOMES = ["interrupted", "started", "next"] as const;
 export type ForceQueuedMessageOutcome = (typeof FORCE_QUEUED_MESSAGE_OUTCOMES)[number];

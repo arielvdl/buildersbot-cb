@@ -95,7 +95,9 @@ export class QueueControls {
       moveToHead: (agentId, deliveryId) => this.#mailbox.moveToQueueHead(agentId, deliveryId),
       restoreOrder: (agentId, previous) => this.#mailbox.restoreQueueOrder(agentId, previous),
       isQueued: (deliveryId) => this.#mailbox.getDelivery(deliveryId)?.delivery.status === "queued",
+      settleStarts: (agentId) => this.#settleStarts(agentId),
       laneTurn: (agentId) => this.#laneTurn(agentId),
+      holdAfterStop: (agentId, turn) => this.#drain.holdAfterStop(agentId, turn?.turnId ?? null),
       stop: (agentId, turn) =>
         this.#hooks.stopTurn(agentId, turn.turnId, turn.ownChat ? undefined : (turn.threadId ?? undefined)),
       startAlone: (deliveryId) => this.#drain.startAlone(deliveryId),
@@ -131,6 +133,19 @@ export class QueueControls {
     if (listed.editing) throw new QueueForceRefused(sourceText("error.backend.forceEditing"));
   }
 
+  /**
+   * The deliveries of the agent's own chat that start a turn with no turn id yet. A delivery on its way
+   * to a turn has no turn id, so this waits for the drain that starts it, as `interrupt_agent` does. A
+   * start that fails is the drain's to report; the force reads the lane again either way.
+   */
+  #settleStarts(agentId: string): Effect.Effect<readonly string[]> {
+    return Effect.suspend(() => {
+      const starting = this.#mailbox.startingDeliveriesForAgent(agentId, null).map(({ delivery }) => delivery.id);
+      const drain = starting.length > 0 ? this.#drain.taskFor(agentId) : undefined;
+      return (drain ? drain.pipe(Effect.ignore) : Effect.void).pipe(Effect.as(starting));
+    });
+  }
+
   /** The turn that holds the agent's own chat: of the chat itself, or of a channel or messaging thread. */
   #laneTurn(agentId: string): LaneTurn | null {
     const snapshot = this.#conversation.workingSnapshot(agentId);
@@ -140,6 +155,9 @@ export class QueueControls {
       turnId: snapshot.activeTurnId,
       threadId: snapshot.threadId,
       ownChat: snapshot.threadId === null || snapshot.threadId === ownThreadId,
+      deliveryIds: this.#mailbox
+        .findDeliveriesByTurn(agentId, snapshot.activeTurnId)
+        .map(({ delivery }) => delivery.id),
     };
   }
 

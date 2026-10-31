@@ -331,11 +331,15 @@ export class DrainScheduler {
     });
   }
 
-  /** The first clause of `mayDrain` that holds this lane, or null when none does. */
-  #heldBy(lane: Lane): string | null {
+  /**
+   * The first clause of `mayDrain` that holds this lane, or null when none does. With `besideTurn`,
+   * the clauses that the running turn `besideTurn.turnId` of the agent's own chat sets are left out:
+   * the lane is read as it will be when that turn has ended.
+   */
+  #heldBy(lane: Lane, besideTurn?: { turnId: string | null }): string | null {
     const { agentId, taskId } = lane;
     if (this.#settingsHolds.has(agentId)) return "session-settings";
-    if (this.#laneTurnActive(lane)) return "active-turn";
+    if (!besideTurn && this.#laneTurnActive(lane)) return "active-turn";
     // The provider has one turn of the agent at a time, so each lane waits for the turn of any other.
     if (
       this.#tasks.oneTurnAtATime(agentId) &&
@@ -361,7 +365,13 @@ export class DrainScheduler {
     // A hidden agent finishes the turn that runs. Its queued messages wait until the user restores it.
     if (agent?.hiddenAt !== undefined) return "hidden";
     // Channel work holds only the agent's own chat. Its tasks run beside a channel turn.
-    if (taskId === null && !(this.#channels?.mayDrain(agentId) ?? true)) return "channel";
+    if (
+      taskId === null &&
+      (besideTurn
+        ? (this.#channels?.reservesBeside(agentId, besideTurn.turnId) ?? false)
+        : !(this.#channels?.mayDrain(agentId) ?? true))
+    )
+      return "channel";
     if (!this.#profileSave.mayDrain(agentId)) return "profile-save";
     if (!this.#duplication.mayDrain(agentId)) return "duplication";
     if (this.#compactionHolds(lane)) return "compaction";
@@ -475,6 +485,20 @@ export class DrainScheduler {
   /** Undoes `startAlone`, for a force that did not go through. */
   forgetStartAlone(deliveryId: string): void {
     this.#startsAlone.delete(deliveryId);
+  }
+
+  /**
+   * Why the agent's own chat still waits for other work when its running turn `turnId` has ended, or
+   * null when its next queued message starts then. `turnId` is null when no turn runs. A force asks
+   * this before it stops the turn: a Stop that lets other work start first does not help the message.
+   */
+  holdAfterStop(agentId: string, turnId: string | null): string | null {
+    // Channel and messaging work that waits in the chat stays first in the queue: it reserved the agent.
+    if (this.#mailbox.queuedExecutionDeliveryIds(agentId).some((id) => this.#mailbox.taskIdForDelivery(id) === null))
+      return "execution-work";
+    // A start with no turn id yet, such as one whose `turn/start` timed out. Its turn can still run.
+    if (turnId === null && this.#mailbox.laneActive(agentId, null)) return "starting";
+    return this.#heldBy(mainLane(agentId), { turnId });
   }
 
   holdSessionSettings(agentId: string): () => void {

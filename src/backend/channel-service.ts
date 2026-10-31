@@ -1900,6 +1900,17 @@ export class ChannelService {
   }
 
   /**
+   * Whether channel work of this agent other than the turn `turnId` holds its own chat: an assignment
+   * that starts or waits, or one that runs another turn. `turnId` is null when no turn runs. A force
+   * of a queued message asks this before it stops `turnId`, because that work starts first after it.
+   */
+  reservesBeside(agentId: string, turnId: string | null): boolean {
+    if (this.store.hasAgentAssignmentInState(agentId, ["starting", "queued"])) return true;
+    const running = this.store.agentAssignment(agentId, ["running"]);
+    return running !== null && running.assignment.turnId !== turnId;
+  }
+
+  /**
    * Whether any channel has work in progress: an assignment still starting, running or queued, or
    * a task queued or running. An update waits for it. Paused, waiting and failed tasks do not count;
    * they resume from durable rows after a restart.

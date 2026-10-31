@@ -13,6 +13,8 @@ export interface LaneTurn {
   threadId: string | null;
   /** True for a turn of the agent's own chat. A channel or messaging turn shows there only as a hold. */
   ownChat: boolean;
+  /** The deliveries that the turn runs. */
+  deliveryIds: readonly string[];
 }
 
 /**
@@ -31,8 +33,19 @@ export interface QueueForcePort {
   restoreOrder(agentId: string, previous: ReadonlyMap<string, number>): Effect.Effect<void, Failure>;
   /** Whether the delivery still waits in the queue. */
   isQueued(deliveryId: string): boolean;
+  /**
+   * The deliveries of the agent's own chat lane that start a turn now and have no turn id yet. When
+   * there are some, it waits for the drain that starts them, so that their turn can be read. Empty
+   * when no start was on its way.
+   */
+  settleStarts(agentId: string): Effect.Effect<readonly string[]>;
   /** The turn that holds the agent's own chat lane now, or null when none runs. */
   laneTurn(agentId: string): LaneTurn | null;
+  /**
+   * Why the agent's own chat lane still waits for other work when `turn` has ended, or null when the
+   * head of its queue starts then. `turn` is null when no turn runs.
+   */
+  holdAfterStop(agentId: string, turn: LaneTurn | null): string | null;
   /** The Stop of that turn. False when no stop was sent, because the turn has ended already. */
   stop(agentId: string, turn: LaneTurn): Effect.Effect<boolean, Failure>;
   startAlone(deliveryId: string): void;
@@ -53,11 +66,16 @@ export class QueueForceFailed extends Schema.TaggedError<QueueForceFailed>()("Qu
  * Forces one queued message into the conversation: it stops the turn that holds the agent's own chat,
  * as the Stop button does, and starts the message next, alone, before the other queued messages.
  *
- * The order of the steps is the safety. The message goes to the head of the queue before the Stop is
- * sent, so the drain that the end of the stopped turn schedules starts it, whenever that end comes. A
- * turn that ended by itself before the Stop leaves the message at the head, and the drain starts it
- * once. A Stop that fails puts the queue back as it was. A second force of the same message waits for
- * the first one and gets its answer, so one click sends one Stop.
+ * The order of the steps is the safety. A start that is on its way ends first, so that the turn it
+ * starts can be read. The message goes to the head of the queue before the Stop is sent, so the drain
+ * that the end of the stopped turn schedules starts it, whenever that end comes. A turn that ended by
+ * itself before the Stop leaves the message at the head, and the drain starts it once. A Stop that
+ * fails puts the queue back as it was. A second force of the same message waits for the first one and
+ * gets its answer, so one click sends one Stop.
+ *
+ * No Stop is sent when the message cannot start after it: channel or messaging work waits first in the
+ * agent's chat, or the chat is held, for example by a compaction or by a task turn on a provider that
+ * runs one turn at a time. The message then waits at the head of the queue, and the answer is `next`.
  */
 export class QueueForce {
   readonly #port: QueueForcePort;
@@ -90,24 +108,29 @@ export class QueueForce {
   ): Effect.fn.Return<ForceQueuedMessageResult, QueueForceFailed> {
     for (const id of [...this.#stopped.keys()]) if (!this.#port.isQueued(id)) this.#stopped.delete(id);
     yield* forceStep(() => this.#port.requireForceable(agentId, deliveryId));
+    // The person saw the agent work on these deliveries, before their turn had an id.
+    const starting = yield* this.#port.settleStarts(agentId);
+    // The message can leave the queue, or another editor can take it, while that start ends.
+    if (starting.length > 0) yield* forceStep(() => this.#port.requireForceable(agentId, deliveryId));
     const previous = yield* this.#port.moveToHead(agentId, deliveryId).pipe(toForceFailed);
     this.#port.startAlone(deliveryId);
     this.#port.queueChanged(agentId);
     const turn = this.#port.laneTurn(agentId);
-    if (!turn) {
+    const held = this.#port.holdAfterStop(agentId, turn) !== null;
+    if (!turn || held || !mayStop(turn, expectedTurnId, starting)) {
       this.#port.scheduleDrain(agentId);
-      return { outcome: "started" };
-    }
-    if (!mayStop(turn, expectedTurnId)) {
-      this.#port.scheduleDrain(agentId);
-      return { outcome: "next" };
+      return { outcome: !turn && !held ? "started" : "next" };
     }
     // An earlier force of this message stopped this turn already, and the turn has not ended yet.
     if (this.#stopped.get(deliveryId) === turn.turnId) return { outcome: "interrupted" };
     const stopped = yield* Effect.result(this.#port.stop(agentId, turn));
     if (Result.isFailure(stopped)) {
-      // The turn can end by itself while the Stop is in flight. The drain has then started the message.
-      if (!this.#port.isQueued(deliveryId)) return { outcome: "started" };
+      // The turn can end by itself while the Stop is in flight, and a provider then refuses the Stop.
+      // The message is at the head, so it starts next, or the drain has started it already.
+      if (!this.#port.isQueued(deliveryId) || this.#port.laneTurn(agentId)?.turnId !== turn.turnId) {
+        this.#port.scheduleDrain(agentId);
+        return { outcome: "started" };
+      }
       this.#port.forgetStartAlone(deliveryId);
       // The order goes back on a best effort: the message stays queued either way.
       yield* this.#port.restoreOrder(agentId, previous).pipe(Effect.catch(() => Effect.void));
@@ -126,13 +149,15 @@ export class QueueForce {
 }
 
 /**
- * Whether a force may stop this turn. The person saw it run in the agent's chat. A channel or
- * messaging turn of the agent shows in the chat only as a hold, with no turn id, so it may stop that
- * one when the chat showed no turn. A chat turn that the person did not see is never stopped: it can
- * be the turn of the next queued message, which started in between.
+ * Whether a force may stop this turn. The person saw it run in the agent's chat, or saw its deliveries
+ * start before the turn had an id. A channel or messaging turn of the agent shows in the chat only as a
+ * hold, with no turn id, so it may stop that one when the chat showed no turn. A chat turn that the
+ * person did not see is never stopped: it can be the turn of the next queued message, which started in
+ * between.
  */
-function mayStop(turn: LaneTurn, expectedTurnId: string | null): boolean {
+function mayStop(turn: LaneTurn, expectedTurnId: string | null, starting: readonly string[]): boolean {
   if (turn.turnId === expectedTurnId) return true;
+  if (starting.some((deliveryId) => turn.deliveryIds.includes(deliveryId))) return true;
   return !turn.ownChat && expectedTurnId === null;
 }
 

@@ -582,19 +582,28 @@ message in a new one. `AgentService.forceQueuedMessage` calls `QueueControls.for
 3. `DrainScheduler.startAlone` marks the message, so its turn starts without the person's later queued
    messages. They stay queued and start after it, in queue order.
 4. It finds the turn that holds the agent's own chat: of the chat itself, or of a channel or messaging
-   thread of the same agent. It never stops a turn of another agent. With no turn, the drain starts
-   the message now (`started`). It stops the turn as the Stop button does, so the partial work stays in
-   the conversation, and the drain that the end of that turn schedules starts the message
-   (`interrupted`).
+   thread of the same agent. It never stops a turn of another agent. A delivery of the chat that starts
+   and has no turn id yet makes it wait first for that start, as `interrupt_agent` does
+   (`DrainScheduler.taskFor`). The turn that start makes can then be stopped: the person saw the agent
+   at work. With no turn, the drain starts the message now (`started`). It stops the turn as the Stop
+   button does, so the partial work stays in the conversation, and the drain that the end of that turn
+   schedules starts the message (`interrupted`).
+5. It sends no Stop when the message cannot start after it, and answers `next`
+   (`DrainScheduler.holdAfterStop`): channel or messaging work waits at the head of the chat, other
+   channel work reserves the agent (`ChannelService.reservesBeside`), the chat still starts a turn with
+   no id, or a clause of the drain other than that turn holds the chat, such as a compaction, a session
+   settings change, or a task turn on a provider that runs one turn of the agent at a time.
 
 The request names the chat turn that the person saw (`expectedTurnId`), or null. A chat turn that the
 person did not see, such as the turn of the next queued message that started in between, is not
 stopped: the message waits at the head (`next`). A channel or messaging turn shows in the chat only as
 a hold, with no turn id, so a request with null stops it; the channel task then pauses with
 `error.backend.channelTaskStopped`, and the load panel can resume it. When the turn ends between the
-click and the Stop, no stop is sent and the drain starts the message once. When the Stop fails, the
-queue gets its order back and the person sees `error.backend.forceStopFailed`; the message stays
-queued. A second force of the same message waits for the first one and gets its answer, and a later
+click and the Stop, no stop is sent and the drain starts the message once. A provider that refuses
+the Stop because the turn has just ended gives the same result. When the Stop fails and the turn
+still runs, the queue gets its order back and the person sees `error.backend.forceStopFailed`; the
+message stays queued. `scripts/queue-force-e2e.ts` checks these steps with the real agent service and
+a fake Codex app-server. A second force of the same message waits for the first one and gets its answer, and a later
 one sends no second Stop while the stopped turn ends. The start-alone mark is in memory only.
 
 The composer asks first, with "Don't ask me about this again". That choice is stored for each device
