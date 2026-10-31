@@ -277,14 +277,22 @@ export function pollCulturaBuilderToken(
   }).pipe(Effect.catch(() => Effect.succeed({ status: "pending" as const })));
 }
 
-/** Exchanges the refresh token for a new access token. */
+/**
+ * Exchanges the refresh token for a new access token.
+ *
+ * A session with no refresh token, and a refresh token that the Hub refuses (OAuth `invalid_grant`,
+ * or a 401), end the sign-in: the failure is a `ProviderSignInError`, so the row asks for a new
+ * sign-in and the start does not count as a failure. Other failures, such as a Hub that does not
+ * answer, stay plain errors.
+ */
 export function refreshCulturaBuilderSession(
   session: CulturaBuilderSession,
   fetcher: Fetcher = fetch,
 ): Effect.Effect<CulturaBuilderSession, ProviderClientOperationError> {
   return Effect.tryPromise({
     try: async () => {
-      if (session.refresh === "") throw new Error("A sessão Cultura Builder expirou. Entre de novo.");
+      const expired = () => new ProviderSignInError({ message: sourceText("error.provider.culturaSessionExpired") });
+      if (session.refresh === "") throw expired();
       const response = await fetcher(`${CULTURA_BUILDER_HUB}${TOKEN_PATH}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
@@ -293,6 +301,7 @@ export function refreshCulturaBuilderSession(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const value = await readJson(response, TokenGrant);
+      if (response.status === 401 || (response.status === 400 && value?.error === "invalid_grant")) throw expired();
       if (!response.ok || !value?.access_token) {
         throw new Error(`Cultura Builder token refresh failed (${response.status})`);
       }

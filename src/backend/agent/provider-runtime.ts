@@ -1873,7 +1873,7 @@ export class ProviderRuntime implements ProviderPort {
         if (Result.isSuccess(access) && !access.success.active) {
           this.#setProviderConnectionFailure(
             provider,
-            new ProviderSignInError({ message: "This Cultura Builder account has no access to the LLM." }),
+            new ProviderSignInError({ message: sourceText("error.provider.culturaNoAccess") }),
             this.#cli.get(provider)?.version ?? null,
           );
           return;
@@ -1890,7 +1890,7 @@ export class ProviderRuntime implements ProviderPort {
     yield* Deferred.succeed(pending.settled, false);
     this.#setProviderConnectionFailure(
       provider,
-      new ProviderSignInError({ message: "The Cultura Builder sign-in did not finish. Try again." }),
+      new ProviderSignInError({ message: sourceText("error.provider.culturaSignInUnfinished") }),
       this.#cli.get(provider)?.version ?? null,
     );
   });
