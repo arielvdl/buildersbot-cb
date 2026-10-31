@@ -323,6 +323,7 @@ function AgentMessageGroupMarker(
               <For each={agentIds().slice(0, 3)}>
                 {(agentId) => (
                   <AgentAvatar
+                    motion="still"
                     agent={props.agents.find((agent) => agent.id === agentId)}
                     mood={workingMood(workingIds().has(agentId))}
                     class="chat-action-agent-avatar"
@@ -761,6 +762,7 @@ function AgentTarget(props: {
               <For each={recipients().slice(0, 3)}>
                 {(delivery) => (
                   <AgentAvatar
+                    motion="still"
                     agent={props.agents.find((agent) => agent.id === delivery.agentId)}
                     mood={workingMood(deliveryIsRunning(delivery.status))}
                     class="chat-action-agent-avatar"
@@ -780,7 +782,7 @@ function AgentTarget(props: {
                     disabled={!agent()}
                     onSelect={() => props.onSelectAgent(delivery.agentId)}
                   >
-                    <AgentAvatar agent={agent()} class="chat-action-agent-avatar" />
+                    <AgentAvatar motion="still" agent={agent()} class="chat-action-agent-avatar" />
                     <span class="chat-action-agent-menu-name">
                       {agent()?.name ?? t("chat.marker.unavailableAgent")}
                     </span>
@@ -807,7 +809,7 @@ function AgentButton(props: {
       when={props.agent}
       fallback={
         <span class="chat-action-target chat-action-target-unavailable" title={props.fallbackId}>
-          <AgentAvatar class="chat-action-agent-avatar" />
+          <AgentAvatar motion="still" class="chat-action-agent-avatar" />
           <span>{t("chat.marker.unavailableAgent")}</span>
         </span>
       }
@@ -822,7 +824,7 @@ function AgentButton(props: {
           data-cuelume-tap="navigate"
           onClick={() => props.onSelectAgent(agent().id)}
         >
-          <AgentAvatar agent={agent()} class="chat-action-agent-avatar" />
+          <AgentAvatar motion="still" agent={agent()} class="chat-action-agent-avatar" />
           <span>{agent().name}</span>
         </Button>
       )}

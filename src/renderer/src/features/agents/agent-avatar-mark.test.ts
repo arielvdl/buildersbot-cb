@@ -3,6 +3,8 @@ import { avatarMarkRole } from "@openbot/brand/agent-mark-role";
 import { AGENT_MARK_DANGER, agentMarkShades } from "@openbot/brand/agent-mark-shades";
 import { avatarMoodIsBusy } from "@openbot/brand/bloub-avatar-motion";
 import {
+  type AvatarAnimationInput,
+  avatarAnimates,
   avatarMoodInChat,
   channelMemberMood,
   channelWorkingMembers,
@@ -64,6 +66,42 @@ describe("live mood", () => {
       expect(avatarMoodInChat(mood, true)).toBe(mood);
       expect(avatarMoodInChat(mood, false)).toBe(mood);
     }
+  });
+});
+
+describe("avatarAnimates", () => {
+  const resting: AvatarAnimationInput = {
+    motion: "hover",
+    mood: "idle",
+    followPointer: false,
+    pointerOn: null,
+    reducedMotion: false,
+  };
+
+  it("wakes a resting avatar for a pointer only when it is larger than a small face", () => {
+    expect(avatarAnimates(resting)).toBe(false);
+    expect(avatarAnimates({ ...resting, pointerOn: 36 })).toBe(true);
+    expect(avatarAnimates({ ...resting, motion: "idle", pointerOn: 96 })).toBe(true);
+    expect(avatarAnimates({ ...resting, pointerOn: 28 })).toBe(false);
+    expect(avatarAnimates({ ...resting, pointerOn: 18 })).toBe(false);
+  });
+
+  it("never wakes the faces of a group for a pointer, but moves them while they work", () => {
+    const face: AvatarAnimationInput = { ...resting, motion: "still", pointerOn: 96 };
+    expect(avatarAnimates(face)).toBe(false);
+    expect(avatarAnimates({ ...face, mood: "working" })).toBe(true);
+    expect(avatarAnimates({ ...face, mood: "live" })).toBe(true);
+    expect(avatarAnimates({ ...face, mood: "waiting" })).toBe(false);
+  });
+
+  it("moves an avatar that runs always or follows the pointer, at any size", () => {
+    expect(avatarAnimates({ ...resting, motion: "always" })).toBe(true);
+    expect(avatarAnimates({ ...resting, followPointer: true, pointerOn: 18 })).toBe(true);
+  });
+
+  it("stops everything for reduced motion", () => {
+    expect(avatarAnimates({ ...resting, mood: "live", reducedMotion: true })).toBe(false);
+    expect(avatarAnimates({ ...resting, motion: "always", followPointer: true, reducedMotion: true })).toBe(false);
   });
 });
 

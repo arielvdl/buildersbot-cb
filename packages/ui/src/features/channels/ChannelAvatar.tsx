@@ -9,7 +9,8 @@
  * as the agent rows around it, and it counts the members it cannot show.
  *
  * A member that works shows it: its face works, or works `live` in the open channel. The faces of
- * the other members stay still.
+ * the other members stay still, also under the pointer (`motion="still"`): a pointer on the group
+ * would start the motion of every face at once.
  */
 
 import type { ChannelMember } from "@openbot/contracts/ipc";
@@ -51,6 +52,7 @@ export function ChannelAvatar(props: {
             <AgentAvatar
               agent={agentFor(member)}
               seed={agentFor(member)?.avatarSeed ?? member.agentId}
+              motion="still"
               mood={channelMemberMood(member.agentId, props.working, props.open === true)}
             />
           )}

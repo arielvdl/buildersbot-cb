@@ -1,6 +1,7 @@
-import type { AvatarMood } from "@openbot/brand/bloub-avatar-motion";
+import { type AvatarMood, avatarMoodIsBusy } from "@openbot/brand/bloub-avatar-motion";
 import type { AgentApproval, ChannelSummary, QueueSnapshot } from "@openbot/contracts/ipc";
 import { isAgentWorking } from "@openbot/ui/features/sidebar/sidebar-agent-states";
+import type { AvatarMotion } from "../../bloub-avatar";
 
 export interface AgentAvatarMoodsInput {
   agentIds: readonly string[];
@@ -79,4 +80,33 @@ export function channelMemberMood(
 ): AvatarMood {
   const works = working === true || (typeof working === "object" && working.has(agentId));
   return works ? avatarMoodInChat("working", channelOpen) : "idle";
+}
+
+/** At this width in pixels or less, a pointer or the focus does not wake a resting avatar. */
+export const SMALL_AVATAR_SIZE = 28;
+
+export interface AvatarAnimationInput {
+  motion: AvatarMotion;
+  mood: AvatarMood;
+  /** The pupils follow the pointer, so the avatar moves all the time. */
+  followPointer: boolean;
+  /**
+   * The width of the avatar when a pointer or the keyboard focus reached it, or `null` when neither
+   * is on it now.
+   */
+  pointerOn: number | null;
+  reducedMotion: boolean;
+}
+
+/**
+ * Whether an avatar moves now. A busy mood moves on its own. A resting avatar moves for `always` and
+ * `followPointer`, and for `hover` and `idle` only while a pointer or the focus is on it. A pointer
+ * does not wake the faces of a group (`still`), nor an avatar of `SMALL_AVATAR_SIZE` or less: many
+ * small faces that start their motion at once under the pointer cost the most and show the least.
+ */
+export function avatarAnimates(input: AvatarAnimationInput): boolean {
+  if (input.reducedMotion) return false;
+  if (avatarMoodIsBusy(input.mood) || input.followPointer || input.motion === "always") return true;
+  if (input.motion === "still" || input.pointerOn === null) return false;
+  return input.pointerOn > SMALL_AVATAR_SIZE;
 }

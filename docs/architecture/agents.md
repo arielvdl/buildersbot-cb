@@ -322,10 +322,16 @@ glass while a pointer is on the avatar. The motion only changes `opacity`, `tran
 `stroke-dashoffset` of SVG parts.
 
 All motion is CSS in `packages/brand/src/logo.css`, only for `data-animated="true"` and
-`prefers-reduced-motion: no-preference`. `AgentAvatar` sets `animated` for a busy mood
-(`working`, `live`, `connecting`), for `motion="always"`, and while a pointer or the keyboard focus is
-on the avatar's control. So an idle row of the sidebar at rest does not move: its pupils look ahead
-and its eyelids stay at 0.4. With reduced motion, or `animated={false}`, nothing moves: the pupils look
+`prefers-reduced-motion: no-preference`. `avatarAnimates` (`agent-avatar-mood.ts`) decides
+`animated` for `AgentAvatar`: a busy mood (`working`, `live`, `connecting`), `motion="always"` and
+`followPointer` move all the time. `motion="hover"` and `motion="idle"` move while a pointer or the
+keyboard focus is on the avatar's control, but only for an avatar wider than 28 px
+(`SMALL_AVATAR_SIZE`, measured when the pointer arrives). `motion="still"` never wakes for a pointer:
+the faces of a group use it (`ChannelAvatar` in the sidebar rows, the pinned rows and the channel
+header, the face stacks and chips of the agent message markers, the stack of the Dynamic Island). A
+pointer on a group would otherwise start the motion of every face at once, and in the transparent
+window that is the case that showed a rectangle without the glass. So an idle row of the sidebar at
+rest does not move: its pupils look ahead and its eyelids stay at 0.4. With reduced motion, or `animated={false}`, nothing moves: the pupils look
 ahead, the eyelids stay where the mood puts them, a working lid stays lit with its orbit in place, and
 a waiting lid stays pale. A photo avatar does not show the mark. It keeps the breathing and the glow
 on its frame.

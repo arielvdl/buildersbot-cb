@@ -1,15 +1,12 @@
 import { AgentMark, type AgentMarkRole, avatarMarkAccent, avatarMarkRole } from "@openbot/brand/agent-mark";
-import { type AvatarMood, avatarMoodIsBusy, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
+import { type AvatarMood, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { prefersReducedMotion } from "@openbot/ui/utils";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 import type { AvatarMotion, SupportedAvatarSilhouetteId } from "../../bloub-avatar";
 import type { AgentProfile } from "../../data";
+import { avatarAnimates } from "./agent-avatar-mood";
 import { attachPointerGaze } from "./avatar-pointer-gaze";
-
-// Motions that rest until pointer/focus arrives. The sidebar is not virtualized, so every row would
-// otherwise run its laser; the light is a small animation but a long list of them is not free.
-const STATIC_MOTIONS: ReadonlySet<AvatarMotion> = new Set(["hover", "idle"]);
 
 // Hover group lookup: the first `[data-avatar-hover]`/control ancestor, since dialogs and
 // scroll regions with `[tabindex]` are too wide to count as one.
@@ -108,15 +105,20 @@ function GeneratedAvatar(props: {
   style?: Record<string, string> | undefined;
 }) {
   let element: HTMLSpanElement | undefined;
-  const [interacting, setInteracting] = createSignal(false);
+  // The width of the avatar when a pointer or the focus reached it. The sidebar is not virtualized,
+  // so a resting avatar waits for one before its light runs; `avatarAnimates` has the whole rule.
+  const [pointerOn, setPointerOn] = createSignal<number | null>(null);
   const [reducedMotion, setReducedMotion] = createSignal(prefersReducedMotion());
   const accent = createMemo(() => avatarMarkAccent(props.hue));
   const role = createMemo<AgentMarkRole | null>(() => avatarMarkRole(props.title));
-  // A busy mood runs on its own; a resting one waits for the pointer or the focus, and the light
-  // stops when neither is there.
   const animated = () =>
-    !reducedMotion() &&
-    (props.followPointer || avatarMoodIsBusy(props.mood) || !STATIC_MOTIONS.has(props.motion) || interacting());
+    avatarAnimates({
+      motion: props.motion,
+      mood: props.mood,
+      followPointer: props.followPointer,
+      pointerOn: pointerOn(),
+      reducedMotion: reducedMotion(),
+    });
 
   onSettled(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
@@ -130,8 +132,11 @@ function GeneratedAvatar(props: {
     const interactionTarget = group?.matches(HOVER_GROUP) ? group : element;
     // `logo.css` turns the pupils only without reduced motion, so the gaze can stay attached.
     const releaseGaze = element && untrack(() => props.followPointer) ? attachPointerGaze(element) : undefined;
-    const startInteraction = () => setInteracting(true);
-    const stopInteraction = () => setInteracting(false);
+    // A face that a pointer never wakes does not measure itself on each pointer that passes.
+    const startInteraction = () => {
+      if (untrack(() => props.motion) !== "still") setPointerOn(element?.getBoundingClientRect().width ?? null);
+    };
+    const stopInteraction = () => setPointerOn(null);
     // Only keyboard focus starts the avatar. A click leaves the focus on the button it lands on, such as
     // the sidebar row of the open channel, and the window gives that button `focusin` again each time it
     // comes back to the front. No pointer is there to leave, so the avatar moved until the next click.

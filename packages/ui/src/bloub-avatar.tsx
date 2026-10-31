@@ -5,10 +5,11 @@ import { flush } from "solid-js";
 
 /**
  * When an avatar animates, which is a performance decision and not a state one: `hover` and `idle`
- * rest until a pointer or focus reaches them, `always` runs. What the avatar *expresses* is its
- * `AvatarMood` - see `@openbot/brand/bloub-avatar-motion`.
+ * rest until a pointer or focus reaches them, `always` runs, and `still` never wakes for a pointer,
+ * for the faces of a group. A busy mood runs with every motion. What the avatar *expresses* is its
+ * `AvatarMood` - see `@openbot/brand/bloub-avatar-motion`, and `avatarAnimates` for the rule.
  */
-export type AvatarMotion = "hover" | "always" | "idle";
+export type AvatarMotion = "hover" | "always" | "idle" | "still";
 export {
   AVATAR_HUE_CHOICES,
   AVATAR_HUE_OPTIONS,
