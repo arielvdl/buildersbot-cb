@@ -65,9 +65,9 @@ export const messages = defineMessages("settings", {
   "settings.lidAwake.mode.battery": "Also on battery",
   "settings.lidAwake.unsupported": "This Mac has no lid, so this setting does not apply.",
   "settings.lidAwake.state.activePlugged":
-    "On. While the power adapter is connected, this Mac stays on with the lid closed. On battery, it sleeps.",
+    "On. On the power adapter, this Mac should stay on with the lid closed: confirm it with Test with the lid closed below. On battery, it sleeps.",
   "settings.lidAwake.state.activeBattery":
-    "On. This Mac stays on with the lid closed, also on battery. macOS then does not sleep for low battery or heat, so Builders Bot and its safety service stop the mode in these cases.",
+    "On. The safety service turned sleep off, so this Mac stays on with the lid closed, also on battery. macOS then does not sleep by itself for low battery or heat, so Builders Bot and the service stop the mode in these cases and ask macOS to sleep.",
   "settings.lidAwake.state.pausedOnBattery":
     "Paused: this Mac is on battery, so it sleeps when you close the lid. Connect the power adapter, or select Also on battery.",
   "settings.lidAwake.state.pausedBatteryLow":
@@ -83,18 +83,18 @@ export const messages = defineMessages("settings", {
     "The last test saw this Mac sleep with the lid closed. If it was on the power adapter, macOS does not obey this mode now.",
   "settings.lidAwake.state.failed": "The mode could not start. The app log shows the cause.",
   "settings.lidAwake.warning":
-    "Do not put this Mac in a bag or a case while the mode is on. It continues to run and can get hot.",
+    "While the mode is on, this Mac does not sleep when it is idle, also with the lid open, and Sleep in the Apple menu only turns off the display. Do not put this Mac in a bag or a case while the mode is on: it continues to run and can get hot.",
   "settings.lidAwake.batteryFloor.title": "Lowest battery level",
   "settings.lidAwake.batteryFloor.description":
-    "The battery discharges with the lid closed too. Below this level, the mode stops and this Mac sleeps.",
+    "The battery discharges with the lid closed too. Below this level, also on the power adapter while the battery does not charge, the mode stops and Builders Bot asks macOS to sleep.",
   "settings.lidAwake.timeLimit.title": "Time limit with the lid closed",
   "settings.lidAwake.timeLimit.description":
-    "After this time with the lid closed, the mode stops and this Mac sleeps. It starts again when you open the lid.",
+    "After this time with the lid closed, the mode stops and Builders Bot asks macOS to sleep. It starts again when you open the lid. On battery, Also on battery stops after 8 hours at most.",
   "settings.lidAwake.timeLimit.hours": { one: "{count} hour", other: "{count} hours" },
   "settings.lidAwake.timeLimit.none": "No limit",
   "settings.lidAwake.helper.title": "Safety service",
   "settings.lidAwake.helper.description":
-    "On battery, only an administrator can stop sleep on macOS. This small service runs as administrator. It keeps sleep off only while Builders Bot runs and asks for it, and it turns normal sleep on again in 90 seconds or less after Builders Bot quits or stops.",
+    "On battery, only an administrator can stop sleep on macOS, so this small service runs as administrator. It turns sleep off when it gets a recent request from your account, always within its own limits: the battery at the lowest level (never below 20%) or charging, no heat, and at most 8 hours on battery with the lid closed. Another app in your account can also make this request. After Builders Bot quits or stops, normal sleep comes back in about 2 minutes. Remove the service when you do not use this mode.",
   "settings.lidAwake.helper.installed": "Installed.",
   "settings.lidAwake.helper.missing": "Not installed. macOS asks for an administrator password.",
   "settings.lidAwake.helper.outdated": "A new version is necessary. macOS asks for an administrator password.",

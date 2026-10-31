@@ -63,9 +63,9 @@ export const messages = {
   "settings.lidAwake.mode.battery": "Também na bateria",
   "settings.lidAwake.unsupported": "Este Mac não tem tampa, então esta opção não se aplica.",
   "settings.lidAwake.state.activePlugged":
-    "Ativo. Enquanto estiver na tomada, este Mac fica ligado com a tampa fechada. Na bateria, ele dorme.",
+    "Ativo. Na tomada, este Mac deve continuar ligado com a tampa fechada: confirme abaixo com Testar com a tampa fechada. Na bateria, ele dorme.",
   "settings.lidAwake.state.activeBattery":
-    "Ativo. Este Mac fica ligado com a tampa fechada, também na bateria. O macOS então não dorme nem com bateria baixa ou calor, por isso o Builders Bot e o serviço de segurança desligam o modo nesses casos.",
+    "Ativo. O serviço de segurança desligou o repouso, então este Mac fica ligado com a tampa fechada, também na bateria. O macOS então não dorme sozinho com bateria baixa ou calor, por isso o Builders Bot e o serviço desligam o modo nesses casos e pedem ao macOS para dormir.",
   "settings.lidAwake.state.pausedOnBattery":
     "Pausado: este Mac está na bateria, então ele dorme quando você fecha a tampa. Ligue na tomada ou escolha Também na bateria.",
   "settings.lidAwake.state.pausedBatteryLow":
@@ -82,18 +82,18 @@ export const messages = {
     "O último teste viu este Mac dormir com a tampa fechada. Se ele estava na tomada, o macOS não está respeitando este modo agora.",
   "settings.lidAwake.state.failed": "O modo não conseguiu iniciar. O log do app mostra a causa.",
   "settings.lidAwake.warning":
-    "Não guarde este Mac numa mochila ou capa com o modo ligado. Ele continua funcionando e pode esquentar.",
+    "Com o modo ativo, este Mac não dorme parado, também com a tampa aberta, e Repousar no menu Apple só apaga a tela. Não guarde este Mac numa mochila ou capa com o modo ligado: ele continua funcionando e pode esquentar.",
   "settings.lidAwake.batteryFloor.title": "Nível mínimo da bateria",
   "settings.lidAwake.batteryFloor.description":
-    "A bateria descarrega mesmo com a tampa fechada. Abaixo deste nível, o modo desliga e este Mac dorme.",
+    "A bateria descarrega mesmo com a tampa fechada. Abaixo deste nível, também na tomada quando a bateria não carrega, o modo desliga e o Builders Bot pede ao macOS para dormir.",
   "settings.lidAwake.timeLimit.title": "Limite de tempo com a tampa fechada",
   "settings.lidAwake.timeLimit.description":
-    "Depois deste tempo com a tampa fechada, o modo desliga e este Mac dorme. Ele volta quando você abrir a tampa.",
+    "Depois deste tempo com a tampa fechada, o modo desliga e o Builders Bot pede ao macOS para dormir. Ele volta quando você abrir a tampa. Na bateria, o modo Também na bateria para em no máximo 8 horas.",
   "settings.lidAwake.timeLimit.hours": { one: "{count} hora", other: "{count} horas" },
   "settings.lidAwake.timeLimit.none": "Sem limite",
   "settings.lidAwake.helper.title": "Serviço de segurança",
   "settings.lidAwake.helper.description":
-    "Na bateria, só um administrador pode impedir o repouso no macOS. Este pequeno serviço roda como administrador. Ele mantém o repouso desligado só enquanto o Builders Bot está aberto e pede isso, e volta o repouso normal em até 90 segundos depois que o Builders Bot fecha ou trava.",
+    "Na bateria, só um administrador pode impedir o repouso no macOS, por isso este pequeno serviço roda como administrador. Ele desliga o repouso quando recebe um pedido recente da sua conta, sempre dentro de limites próprios: bateria no nível mínimo (nunca abaixo de 20%) ou carregando, sem calor e no máximo 8 horas na bateria com a tampa fechada. Outro programa da sua conta também pode fazer esse pedido. Depois que o Builders Bot fecha ou trava, o repouso normal volta em cerca de 2 minutos. Remova o serviço quando não usar mais este modo.",
   "settings.lidAwake.helper.installed": "Instalado.",
   "settings.lidAwake.helper.missing": "Não instalado. O macOS pede a senha de administrador.",
   "settings.lidAwake.helper.outdated": "Precisa de uma versão nova. O macOS pede a senha de administrador.",

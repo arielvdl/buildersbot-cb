@@ -5,7 +5,7 @@ Settings › General has two separate settings for sleep.
 | Setting | What it stops | What it does not stop |
 | --- | --- | --- |
 | **Keep this computer awake** (`keep-awake.ts`) | Idle sleep. It holds `powerSaveBlocker.start("prevent-app-suspension")`, which is `PreventUserIdleSystemSleep`. | Sleep when the lid closes, sleep from the Apple menu, and sleep at low battery. Apple documents this in `IOPMLib.h`. |
-| **With the lid closed** (`lid-awake-service.ts`) | Sleep when the lid closes, as the table below says. | Nothing in the `battery` mode, except the stops of the safety rules. |
+| **With the lid closed** (`lid-awake-service.ts`) | Sleep when the lid closes, as the table below says. While it is active, also idle sleep and sleep from the Apple menu (only the display turns off), with the lid open too. | Nothing in the `battery` mode, except the stops of the safety rules. |
 
 macOS decides the lid sleep in `IOPMrootDomain::shouldSleepOnClamshellClosed` (xnu). That function
 does not read power assertions. Only an assertion with a private Apple entitlement, an external
@@ -22,6 +22,12 @@ mini, does not show it. Windows, Linux, a server and the local server process do
 | `off` | Nothing. | | |
 | `plugged` | `/usr/bin/caffeinate -i -s -w <app pid>`. `-s` holds `PreventSystemSleep`. | No password. | macOS obeys `PreventSystemSleep` only on the power adapter. When the lid closes, macOS starts to sleep and stops in dark wake: the processor and the network stay on, the display and the GPU stay off. |
 | `battery` | The `plugged` assertion, and the root safety service runs `pmset -a disablesleep 1` while the app keeps a grant fresh. | The administrator password, one time, to install the service. | `disablesleep` also stops the sleep at low battery, the sleep for heat, and the lid sleep with the lid already closed. The safety rules below replace those stops. |
+
+The hold must be in place before the lid closes, because macOS decides the lid sleep when the lid
+closes. So an active mode holds with the lid open too: `-s` on the power adapter, and
+`disablesleep 1` in the `battery` mode, stop idle sleep and the sleep from the Apple menu. Settings
+says this in the warning of the mode. The effect of the Apple menu is an inference from xnu, not
+verified on a device.
 
 `caffeinate -w` ends when the app process ends, also after a crash. powerd also releases the
 assertions of a process that ended. So the `plugged` mode cannot stay on after the app.
