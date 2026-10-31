@@ -447,11 +447,11 @@ export interface AgentServiceOptions {
    */
   hostMemory?: HostMemory | null;
   /**
-   * The memory of a desktop computer, or `null`. It holds a new turn while memory is low, stops the
-   * provider processes that ran no turn for one idle check while memory is low, and closes the idle
-   * provider threads when it is critical, as `hostMemory` does on a server, but it makes this a
+   * The memory of a desktop computer, or `null`. It holds a new turn while memory is low and closes the
+   * idle provider threads when it is critical, as `hostMemory` does on a server, but it makes this a
    * desktop and not a server: the instructions of the agents do not change. The turn limit is the one
-   * that `MacMemory` gives (64).
+   * that `MacMemory` gives (64). Only this reading, not `hostMemory`, also stops the provider processes
+   * that ran no turn for two idle checks in a row while memory is low (`ProviderHooks.memoryLow`).
    */
   memoryPressure?: HostMemory | null;
   /**
@@ -867,8 +867,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         isProviderBusy: (provider) => this.#isProviderBusy(provider),
         isAgentBusy: (agentId) => this.#runsTurn(agentId),
         isProviderAssigned: (provider) => this.#store.list().some((agent) => providerForAgent(agent) === provider),
-        // The same reading that `MemoryHold` holds new turns on.
-        memoryLow: () => ((hostMemory ?? memoryPressure)?.level() ?? "ok") !== "ok",
+        // The desktop reading only. On a server, `ServerMemory` is low also because of turn reservations,
+        // so a full server in normal use would stop its idle processes, and it stops agent processes
+        // itself when memory is critical.
+        memoryLow: () => (memoryPressure?.level() ?? "ok") !== "ok",
         captureConfigRevision: () => this.#endpoints.committedRevision(),
         onProviderActivated: (provider, configRevision) =>
           Effect.gen({ self: this }, function* () {
