@@ -217,8 +217,8 @@ export interface ServerSettingsSearchContext {
 }
 
 /**
- * A search entry of the server settings: a section, or a row of General. A row has an anchor: its
- * markup sets `data-settings-row` to it, so a result can move to the row.
+ * A search entry of the server settings: a section, or a row of General or Network egress. A row has
+ * an anchor: its markup sets `data-settings-row` to it, so a result can move to the row.
  */
 export interface ServerSettingsSearchEntry extends SettingsSearchKeys {
   section: ServerSettingsSection;
@@ -305,14 +305,28 @@ const GENERAL_ROWS: ReadonlyArray<ServerSettingsSearchEntry> = [
 ];
 
 /**
+ * The rows of Network egress. The proxy form is one card, and its anchor is on the card, so the
+ * other switches of the form move with it. `ServerEgressPanel.tsx` has the markup.
+ */
+const NETWORK_ROWS: ReadonlyArray<ServerSettingsSearchEntry> = [
+  {
+    section: "network",
+    anchor: "server.egress.enabled",
+    titleKey: "server.egress.enabled",
+    descriptionKey: "server.egress.enabledDescription",
+    keywordsKey: "settings.search.keywords.networkEgress",
+  },
+];
+
+/**
  * The place of each entry of the server settings: "server" names it, so "cofre do servidor" finds the
  * Vault section and "servidor" finds each section, also in the user settings.
  */
 const SERVER_SCOPE: AppTextKey = "settings.search.keywords.server";
 
 /**
- * Each section in the order of the section list, then the rows of General. A query that names only
- * the server finds the sections before the rows.
+ * Each section in the order of the section list, then the rows of General and of Network egress. A
+ * query that names only the server finds the sections before the rows.
  */
 export const SERVER_SETTINGS_SEARCH: ReadonlyArray<ServerSettingsSearchEntry> = [
   ...SERVER_SETTINGS_SECTION_LIST.map(
@@ -326,6 +340,7 @@ export const SERVER_SETTINGS_SEARCH: ReadonlyArray<ServerSettingsSearchEntry> = 
     }),
   ),
   ...GENERAL_ROWS.map((row) => ({ ...row, scopeKey: SERVER_SCOPE })),
+  ...NETWORK_ROWS.map((row) => ({ ...row, scopeKey: SERVER_SCOPE })),
 ];
 
 /** Whether the settings of `server` show the entry: its section, and for a row of General, the row. */

@@ -309,9 +309,9 @@ export function ServerEgressPanel(
                 </Alert>
               )}
             </Show>
-            <ItemGroup class="settings-modal-card">
+            {/* The settings search moves to this card: the proxy switch is its first row. */}
+            <ItemGroup data-settings-row="server.egress.enabled" class="settings-modal-card">
               <SwitchField
-                data-settings-row="server.egress.enabled"
                 checked={form.enabled}
                 onChange={(checked) => edit("enabled", checked)}
                 label={t("server.egress.enabled")}
@@ -433,7 +433,7 @@ export function ServerEgressPanel(
               )}
             </Show>
             <ItemGroup class="settings-modal-card">
-              <Item>
+              <Item data-settings-row-skip="status of the proxy, with its test and save actions">
                 <ItemContent>
                   <ItemTitle>
                     {t("server.egress.state")} <Badge variant={stateBadge().variant}>{stateBadge().text}</Badge>
@@ -488,7 +488,7 @@ export function ServerEgressPanel(
               </Item>
               <Show when={defaultView()}>
                 {(saved) => (
-                  <Item>
+                  <Item data-settings-row-skip="summary of the saved default">
                     <ItemContent>
                       <ItemTitle>{t("server.egress.defaultTitle")}</ItemTitle>
                       <ItemDescription>
