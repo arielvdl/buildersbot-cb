@@ -148,6 +148,8 @@ export const messages = {
   "conversation.voice.offline": "服务器未连接。重新连接后，对话会继续。",
   "conversation.speech.label": "{name} 正在朗读回复",
   "conversation.speech.stop": "停止朗读",
+  "conversation.speech.voiceMissing": "这台电脑上没有用于朗读回复的语音。",
+  "conversation.speech.downloadVoice": "下载语音（{size}）",
   "conversation.panels.openWorkspaceFailed": "无法打开工作区文件夹",
   "conversation.panels.tryAgain": "请重试。",
   "conversation.view.label": "对话",

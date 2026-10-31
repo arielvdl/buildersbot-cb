@@ -155,6 +155,8 @@ export const messages = {
     "Der Server ist nicht verbunden. Das Gespräch geht weiter, sobald er wieder verbunden ist.",
   "conversation.speech.label": "{name} liest die Antwort vor",
   "conversation.speech.stop": "Vorlesen stoppen",
+  "conversation.speech.voiceMissing": "Die Stimme, die Antworten vorliest, ist nicht auf diesem Computer.",
+  "conversation.speech.downloadVoice": "Stimme laden ({size})",
   "conversation.panels.openWorkspaceFailed": "Der Arbeitsbereichsordner konnte nicht geöffnet werden",
   "conversation.panels.tryAgain": "Versuche es erneut.",
   "conversation.view.label": "Unterhaltung",

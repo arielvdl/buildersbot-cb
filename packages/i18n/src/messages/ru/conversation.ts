@@ -154,6 +154,8 @@ export const messages = {
   "conversation.voice.offline": "Сервер не подключён. Разговор продолжится, когда он снова подключится.",
   "conversation.speech.label": "{name} читает ответ вслух",
   "conversation.speech.stop": "Остановить чтение",
+  "conversation.speech.voiceMissing": "Голоса, который читает ответы вслух, нет на этом компьютере.",
+  "conversation.speech.downloadVoice": "Скачать голос ({size})",
   "conversation.panels.openWorkspaceFailed": "Не удалось открыть папку рабочего пространства",
   "conversation.panels.tryAgain": "Повторите попытку.",
   "conversation.view.label": "Диалог",

@@ -33,7 +33,7 @@ import { useShowAgentSteps } from "../../agent-steps-preference";
 import { planItems, planTitle } from "../../app-message-projection";
 import { currentDevicePlatform } from "../../send-shortcut-preference";
 import { remoteRoutineRecovery } from "../servers/server-capabilities";
-import { speechModelReady } from "../speech/speech-model";
+import { offerSpeechModelDownload, speechModelReady } from "../speech/speech-model";
 import { recordingGone, speechReading, spokenReply } from "../speech/speech-playback";
 import {
   recordingWaveform,
@@ -201,11 +201,14 @@ export function ConversationTimeline() {
     const waiting = providerSilentMinutes() !== null || providerOffline();
     return waiting ? agentProviderName() : undefined;
   };
-  /** An agent reply can be read aloud by this computer's speech model, in this chat's voice. */
+  /**
+   * An agent reply can be read aloud by this computer's speech model, in this chat's voice. Without
+   * the model, the item stays and offers its download, so the user learns why nothing is read.
+   */
   const readAloudAction = (message: AgentMessage) => {
     const agentId = props.agent?.id;
     if (props.runtime || !agentId || message.author !== "agent" || message.streaming || !message.body.trim()) return;
-    if (!speechModelReady()) return;
+    if (!speechModelReady()) return { reading: false, onToggle: offerSpeechModelDownload };
     return {
       reading: speechReading()?.messageId === message.id,
       onToggle: () =>
@@ -264,7 +267,8 @@ export function ConversationTimeline() {
       };
     }
     const agentId = props.agent?.id;
-    if (!agentId || !spokenReplyIds().has(message.id) || !readAloudAction(message)) return;
+    // The play control of a spoken reply needs the model. The menu offers the download instead.
+    if (!agentId || !spokenReplyIds().has(message.id) || !speechModelReady() || !readAloudAction(message)) return;
     const summary = spokenReply(message.id);
     return {
       kind: "reply" as const,
