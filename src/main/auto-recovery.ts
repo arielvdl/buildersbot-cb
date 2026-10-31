@@ -5,7 +5,8 @@
  * one that stops again is started again once more; then, if the person allows it, it goes to another agent of
  * the same channel, the same model first. After two of each it is left alone, and the panel says so. It
  * never loops: each task has a fixed number of tries, a look acts on a few tasks at most, and what it
- * learned about a task stays for hours, so a task that runs and fails again is not counted anew.
+ * learned about a task stays for hours, so a task that runs and fails again is not counted anew. The
+ * task reviewer (`task-watch.ts`) uses the same tries (`RecoveryLedger`), so the two cannot loop either.
  */
 
 /** Tries for one task before it is left alone. A reassignment is the try of the new owner. */
@@ -78,6 +79,52 @@ export interface RecoveryRecord {
   gaveUp: boolean;
 }
 
+/** One record of the ledger: the tries of a task, and when a look last saw it. */
+export interface LedgerRecord extends RecoveryRecord {
+  lastSeenAt: number;
+}
+
+/**
+ * The tries of each task, for the automatic recovery and the task reviewer together. A task gets
+ * `MAX_RESUMES` and `MAX_REASSIGNS` in all, not for each of them. A record that no look saw for
+ * `RECORD_RETENTION_MS` is forgotten, with its tries. The records are in memory only.
+ */
+export class RecoveryLedger {
+  readonly #records = new Map<string, LedgerRecord>();
+
+  /** The record of a task that a look sees now. The first look makes it. */
+  see(channelId: string, taskId: string, now: number): LedgerRecord {
+    const key = ledgerKey(channelId, taskId);
+    const record = this.#records.get(key) ?? {
+      seenAt: now,
+      lastActionAt: null,
+      resumes: 0,
+      reassigns: 0,
+      tried: [],
+      gaveUp: false,
+      lastSeenAt: now,
+    };
+    record.lastSeenAt = now;
+    this.#records.set(key, record);
+    return record;
+  }
+
+  /** The record of a task, or undefined when no look saw it in the retention time. */
+  peek(channelId: string, taskId: string): LedgerRecord | undefined {
+    return this.#records.get(ledgerKey(channelId, taskId));
+  }
+
+  /** Forgets each record that no look saw for the retention time. */
+  sweep(now: number): void {
+    for (const [key, record] of this.#records)
+      if (now - record.lastSeenAt > RECORD_RETENTION_MS) this.#records.delete(key);
+  }
+}
+
+function ledgerKey(channelId: string, taskId: string): string {
+  return `${channelId}\u0000${taskId}`;
+}
+
 export type RecoveryAction = { type: "resume" } | { type: "reassign"; agentId: string } | { type: "give-up" };
 
 /** What to do with one stopped task now, or null to wait. `pick` names the agent for a reassignment. */
@@ -125,21 +172,24 @@ export interface AutoRecoveryDeps {
   agentNameOf?(agentId: string): string | null;
   now(): number;
   onFailure(kind: "resume" | "reassign", channelId: string, taskId: string, cause: unknown): void;
+  /** The tries, shared with the task reviewer. Omitted, the recovery keeps its own. */
+  ledger?: RecoveryLedger;
 }
 
 export class AutoRecovery {
   readonly #deps: AutoRecoveryDeps;
-  readonly #records = new Map<string, RecoveryRecord & { lastStoppedAt: number }>();
+  readonly #ledger: RecoveryLedger;
   readonly #recent: RecoveryEvent[] = [];
   #ticking = false;
 
   constructor(deps: AutoRecoveryDeps) {
     this.#deps = deps;
+    this.#ledger = deps.ledger ?? new RecoveryLedger();
   }
 
   /** What the panel shows for one stopped task. */
   statusOf(channelId: string, taskId: string): "waiting" | "gave-up" | null {
-    const record = this.#records.get(`${channelId}\u0000${taskId}`);
+    const record = this.#ledger.peek(channelId, taskId);
     if (!record) return null;
     return record.gaveUp ? "gave-up" : "waiting";
   }
@@ -156,24 +206,10 @@ export class AutoRecovery {
     try {
       const now = this.#deps.now();
       const intervalMs = Math.max(1, preference.intervalMinutes) * 60_000;
-      const due: { ref: StoppedRef; record: RecoveryRecord & { lastStoppedAt: number } }[] = [];
-      for (const ref of this.#deps.stopped()) {
-        const key = `${ref.channelId}\u0000${ref.taskId}`;
-        const record = this.#records.get(key) ?? {
-          seenAt: now,
-          lastActionAt: null,
-          resumes: 0,
-          reassigns: 0,
-          tried: [],
-          gaveUp: false,
-          lastStoppedAt: now,
-        };
-        record.lastStoppedAt = now;
-        this.#records.set(key, record);
-        due.push({ ref, record });
-      }
-      for (const [key, record] of this.#records)
-        if (now - record.lastStoppedAt > RECORD_RETENTION_MS) this.#records.delete(key);
+      const due = this.#deps
+        .stopped()
+        .map((ref) => ({ ref, record: this.#ledger.see(ref.channelId, ref.taskId, now) }));
+      this.#ledger.sweep(now);
 
       let acted = 0;
       for (const { ref, record } of due) {
