@@ -14,6 +14,13 @@
 // archives the thread; an archived thread takes no message until it is restored.
 //
 // The title lives only here: the roster rewrites `projection_threads.title` to the agent name.
+//
+// `first_message` is the message that started the thread: the person's first message, or the brief of
+// a thread that the agent started. A rename does not change it. `preview` is the last message that the
+// person sent. Both are the text as written, cut to 2,000 characters, and empty when no message is
+// known. The tab of the thread shows them on hover and in its details. Migration 49 adds them with
+// ALTER TABLE, so they are the last columns here too: a new database and an upgraded one have the same
+// column order.
 export const AGENT_THREAD_SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS projection_agent_threads (
     thread_id TEXT PRIMARY KEY REFERENCES projection_threads(thread_id) ON DELETE CASCADE,
@@ -22,8 +29,29 @@ export const AGENT_THREAD_SCHEMA_SQL = `
     origin TEXT NOT NULL CHECK(origin IN ('user', 'agent')),
     title TEXT NOT NULL,
     title_source TEXT NOT NULL CHECK(title_source IN ('auto', 'agent', 'user')),
+    outcome TEXT CHECK(outcome IS NULL OR outcome IN ('completed', 'failed', 'interrupted')),
+    error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    last_event_sequence INTEGER NOT NULL,
     first_message TEXT NOT NULL DEFAULT '',
-    preview TEXT NOT NULL DEFAULT '',
+    preview TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS agent_threads_open ON projection_agent_threads(agent_id, updated_at DESC)
+    WHERE archived_at IS NULL;
+  CREATE INDEX IF NOT EXISTS agent_threads_agent ON projection_agent_threads(agent_id, created_at DESC);
+`;
+
+// The table as migration 47 shipped it, frozen: migration 49 adds the two preview columns.
+const V47_AGENT_THREAD_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS projection_agent_threads (
+    thread_id TEXT PRIMARY KEY REFERENCES projection_threads(thread_id) ON DELETE CASCADE,
+    agent_id TEXT NOT NULL,
+    legacy_task_id TEXT UNIQUE,
+    origin TEXT NOT NULL CHECK(origin IN ('user', 'agent')),
+    title TEXT NOT NULL,
+    title_source TEXT NOT NULL CHECK(title_source IN ('auto', 'agent', 'user')),
     outcome TEXT CHECK(outcome IS NULL OR outcome IN ('completed', 'failed', 'interrupted')),
     error TEXT,
     created_at TEXT NOT NULL,
@@ -42,7 +70,7 @@ export const AGENT_THREAD_SCHEMA_SQL = `
 // foreign keys were off) is not copied: it has no conversation, and copying it would fail the foreign
 // key check and stop the app at startup. The task table is a leaf, so it is dropped with no rebuild.
 export const AGENT_THREAD_MIGRATION_SQL = `
-  ${AGENT_THREAD_SCHEMA_SQL}
+  ${V47_AGENT_THREAD_SCHEMA_SQL}
   INSERT INTO projection_agent_threads
     (thread_id, agent_id, legacy_task_id, origin, title, title_source, outcome, error, created_at, updated_at,
      archived_at, last_event_sequence)
