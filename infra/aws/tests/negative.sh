@@ -672,16 +672,17 @@ if grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p tcp -m multiport --dports
 else
   bad "F3 firewall com proxy" "$rules_proxy"
 fi
-# O próprio encaminhador (OUTPUT do usuário bb-proxy): só o resolvedor do host, os clientes da ponte e a porta
-# do upstream NOS ENDEREÇOS dele. Um tinyproxy comprometido (ou que pule a linha Upstream) não vira proxy direto
-# com o IP da AWS, nem para outro host na mesma porta. Sem porta ou sem endereço válido, nada sai.
-fwd_expected=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
+# O próprio encaminhador (OUTPUT do usuário bb-proxy): só os clientes da ponte e a porta do upstream NOS ENDEREÇOS
+# dele; nada no loopback (nem o resolvedor do host: ele conecta por endereço). Um tinyproxy comprometido (ou que pule a
+# linha Upstream) não vira proxy direto com o IP da AWS, nem para outro host na mesma porta, nem túnel DNS pelo
+# resolvedor da VPC. Sem porta ou sem endereço válido, nada sai.
+fwd_expected=$'-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
 if [ "$(grep -- '^-A BB-SRV-PROXY-OUT ' <<<"$rules_proxy")" = "$fwd_expected" ] &&
   [ "$(bash "$TOOL" rules proxy - 198.51.100.20 -- 203.0.113.7 | grep -c -- '--dport [0-9]* -j RETURN$')" = 0 ] &&
   [ "$(bash "$TOOL" rules proxy '12321 -j ACCEPT' 198.51.100.20 -- 203.0.113.7 | grep -c 'PROXY-OUT.*dport')" = 0 ] &&
   [ "$(bash "$TOOL" rules proxy 12321 -- 203.0.113.7 | grep -c 'PROXY-OUT.*dport')" = 0 ] &&
   ! bash "$TOOL" rules proxy 12321 203.0.113.7 >/dev/null 2>&1; then
-  ok_case "F3 encaminhador confinado: lo, a ponte e a porta do upstream só nos endereços dele; REJECT no resto"
+  ok_case "F3 encaminhador confinado: a ponte e a porta do upstream só nos endereços dele; nada no loopback; REJECT no resto"
 else
   bad "F3 encaminhador confinado" "$rules_proxy"
 fi
@@ -936,9 +937,11 @@ for line in 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/pinne
   'Requires=bb-srv-egress-guard.service' 'Before=docker.service' 'User=bb-proxy' 'LimitCORE=0' \
   'iptables -I OUTPUT 1 -m owner --uid-owner "$uid" -j "$FWD_CHAIN"' \
   'iptables -I DOCKER-USER 1 -i "$BRIDGE" -m comment --comment "$HOLD" -j DROP' \
-  'ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP'; do
+  'ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP' 'ip6tables -I OUTPUT 1 -m owner --uid-owner "$uid" -j REJECT'; do
   check grep -qF -- "$line" templates/proxy.yaml
 done
+# O encaminhador não alcança o loopback (o resolvedor do host, nem nada mais), no IPv4 e no IPv6.
+check test "$(grep -c -- '-o lo' templates/proxy.yaml)" = 0
 check grep -qF 'result="fail no-upstream"' "$TOOL"
 check grep -qF 'result="fail firewall-hold"' "$TOOL"
 # A trava temporária do guard é só a marcada (nunca apaga a regra sem marca do openbot-firewall).
@@ -1095,7 +1098,7 @@ else
   fwd1=$(fwd_chain)
   g2=$(host_tool guard 2>&1)
   fwd2=$(fwd_chain)
-  fwd_pinned=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
+  fwd_pinned=$'-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
   if [ "$fwd1" = "$fwd_pinned" ] && grep -q 'guard applied (proxy)' <<<"$g1" && [ "$(head -n 1 "$HOST_T/ipt/OUTPUT")" = '-m owner --uid-owner 998 -j BB-SRV-PROXY-OUT' ] &&
     [ "$(pinned_upstream)" = 'Upstream http demo-user:demo-pass@198.51.100.20:12321' ] && [ "$(file_mode "$PINNED_T")" = 600 ] &&
     [ "$(grep -v '^Upstream ' "$PINNED_T")" = "$(grep -v '^Upstream ' "$HOST_T/etc/bb-proxy/upstream.conf")" ] &&

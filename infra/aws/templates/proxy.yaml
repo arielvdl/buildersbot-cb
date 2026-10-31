@@ -243,9 +243,10 @@ Resources:
 
               # INPUT (to the host): the DNS of the container, and the forwarder with the proxy; openbot-firewall drops the
               # rest. DOCKER-USER (leaving): with the proxy, only our Signal/TURN; nothing leaves when the proxy is down.
-              # OUTPUT of the forwarder (user bb-proxy): the resolver of the host, the bridge and the port of the upstream
-              # on its addresses only, so a compromised tinyproxy (or one that skips its Upstream line) is no direct proxy
-              # with the AWS address. No valid port or address of the upstream: no rule for it (fail closed).
+              # OUTPUT of the forwarder (user bb-proxy): the bridge and the port of the upstream on the given addresses only, no
+              # loopback (it connects by address, with no DNS): a compromised tinyproxy (or one that skips its Upstream line) is no
+              # direct proxy with the AWS address, and no DNS tunnel through the resolver of the host. No valid port or address of
+              # the upstream: no rule for it (fail closed).
               rules() {
                 local m=${1:-} port=${2:-} ip sig=0
                 case " $* " in *" -- "*) ;; *) m='' ;; esac
@@ -265,7 +266,6 @@ Resources:
                   fi
                 done
                 echo "-A $OUT_CHAIN -j DROP"
-                echo "-A $FWD_CHAIN -o lo -j RETURN"
                 echo "-A $FWD_CHAIN -d $SUBNET -j RETURN"
                 if [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ]; then
                   for ip in "$@"; do
@@ -401,8 +401,8 @@ Resources:
                   for chain in INPUT FORWARD; do
                     ip6tables -C "$chain" -i "$BRIDGE" -j DROP 2>/dev/null || ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP
                   done
-                  if [[ $uid =~ ^[0-9]+$ ]] && ! ip6tables -C OUTPUT -m owner --uid-owner "$uid" ! -o lo -j REJECT 2>/dev/null; then
-                    ip6tables -I OUTPUT 1 -m owner --uid-owner "$uid" ! -o lo -j REJECT
+                  if [[ $uid =~ ^[0-9]+$ ]] && ! ip6tables -C OUTPUT -m owner --uid-owner "$uid" -j REJECT 2>/dev/null; then
+                    ip6tables -I OUTPUT 1 -m owner --uid-owner "$uid" -j REJECT
                   fi
                 fi
                 # shellcheck disable=SC2086 # one address per word
