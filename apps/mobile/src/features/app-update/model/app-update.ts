@@ -18,15 +18,18 @@ import { isIOS } from "@/shared/lib/platform";
 /**
  * An update the app can offer. `ready` is an over-the-air bundle that `expo-updates` has already
  * downloaded: a restart installs it without the store. `store` is a newer native version, which only
- * the store can install.
+ * the store can install. Builders Bot has neither yet: app.json turns `expo-updates` off, and there is
+ * no store page.
  */
 export type AppUpdate = { kind: "ready"; id: string } | { kind: "store"; id: string; version: string };
 
-// The store pages of the app. The web pages are the fallback when the store app does not open.
-const IOS_STORE_URL = "itms-apps://apps.apple.com/app/id6807024266";
-const IOS_STORE_WEB_URL = "https://apps.apple.com/app/id6807024266";
-const ANDROID_STORE_URL = "market://details?id=run.openbot.mobile";
-const ANDROID_STORE_WEB_URL = "https://play.google.com/store/apps/details?id=run.openbot.mobile";
+/**
+ * The store page of the app on each platform: the link that opens the store app, and the web page
+ * for when the store app does not open. Builders Bot has no store page yet, so the list is empty, and
+ * the app offers no store version. Before, these were the pages of the upstream OpenBot app.
+ */
+const STORE_PAGES: Partial<Record<"ios" | "android", { readonly app: string; readonly web: string }>> = {};
+const storePage = () => STORE_PAGES[isIOS ? "ios" : "android"];
 
 /** The public changelog, for when the notes cannot load. */
 export const MOBILE_CHANGELOG_URL = "https://openbot.run/changelog?platform=mobile";
@@ -89,7 +92,7 @@ export function useAppUpdate(): AppUpdate | null {
   const update: AppUpdate | null =
     isUpdatePending && downloadedUpdate?.type === Updates.UpdateInfoType.NEW
       ? { kind: "ready", id: `ota:${downloadedUpdate.updateId}` }
-      : latest && current && isNewerMobileVersion(latest, current)
+      : storePage() && latest && current && isNewerMobileVersion(latest, current)
         ? { kind: "store", id: `store:${latest}`, version: latest }
         : null;
   return update && update.id !== dismissed ? update : null;
@@ -107,8 +110,9 @@ export async function installAppUpdate(update: AppUpdate, reloadColor: string): 
     });
     return;
   }
-  const [url, webUrl] = isIOS ? [IOS_STORE_URL, IOS_STORE_WEB_URL] : [ANDROID_STORE_URL, ANDROID_STORE_WEB_URL];
-  await Linking.openURL(url).catch(() => Linking.openURL(webUrl));
+  const page = storePage();
+  if (!page) throw new Error("Builders Bot has no store page yet.");
+  await Linking.openURL(page.app).catch(() => Linking.openURL(page.web));
 }
 
 async function fetchReleaseNotes(apiUrl: string, after: string | null, signal: AbortSignal) {

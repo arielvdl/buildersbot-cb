@@ -491,6 +491,26 @@ await check("the Nix package has no upstream release and fetches nothing", () =>
   return { assets: 0, runs };
 });
 
+await check("the mobile app reads no upstream update and opens no upstream store page", () => {
+  const app = JSON.parse(readText("apps/mobile/app.json"));
+  const expo = isDynamicRecord(app) && isDynamicRecord(app.expo) ? app.expo : null;
+  if (!expo || !isDynamicRecord(expo.updates)) fail("apps/mobile/app.json has no updates section.");
+  // With a URL, expo-updates reads it at each start (checkAutomatically is ON_LOAD by default).
+  if (expo.updates.enabled !== false || expo.updates.url !== undefined) {
+    fail(`expo-updates is on: ${JSON.stringify(expo.updates)}`);
+  }
+  // The EAS project and the store pages of the upstream OpenBot app.
+  const upstream = /u\.expo\.dev|eeec730f-c8f4-42c0-a750-64df8af14940|id6807024266|id=run\.openbot\.mobile/u;
+  const files = [
+    "apps/mobile/app.json",
+    "apps/mobile/app.config.js",
+    "apps/mobile/src/features/app-update/model/app-update.ts",
+  ];
+  const found = files.filter((file) => upstream.test(readText(file)));
+  if (found.length > 0) fail(`These files name the upstream updates or store pages: ${found.join(", ")}`);
+  return { updates: expo.updates, searchedFiles: files };
+});
+
 await check("the updater folders and the Windows installer use Builders Bot names", () => {
   const { productName, appId } = readBuilderIdentity();
   const packageJson = JSON.parse(readText("package.json"));
