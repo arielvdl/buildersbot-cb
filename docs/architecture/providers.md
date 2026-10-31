@@ -178,7 +178,7 @@ servers, filled the memory until macOS asked the person to close apps. `MacMemor
 
 | Level | When | What `MemoryHold` does |
 | --- | --- | --- |
-| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. |
+| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. A provider process, shared or a Workspace only agent's own, that ran no turn for one idle check (60 s) stops (`ProviderHooks.memoryLow`), with its MCP servers. The next turn starts it again and resumes its sessions. |
 | `critical` | Less than 8% free, or more than 9000 MB of swap with less than 15% free. | As `low`. Also, the provider threads with no turn close one time. They open again from their session. |
 | `ok` | Other times. | Turns start. The held agents start again. |
 
