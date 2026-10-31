@@ -1,4 +1,4 @@
-import { readdir, rm, stat } from "node:fs/promises";
+import { readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "@openbot/logging";
 import type { Session } from "electron";
@@ -77,10 +77,10 @@ export async function runStartupMaintenance(userDataPath: string, logger: Logger
 }
 
 /**
- * The most bytes of one site cache in a browser partition before a launch clears it. The CacheStorage
- * of service workers has no limit but the storage quota of Chromium, and it grew past 130 MB for one
- * site in under two days (#8 of the performance review). The HTTP cache has a limit of its own in
- * Chromium, so it is not cleared here.
+ * The most bytes of one site cache before a launch clears it: the CacheStorage of one origin, or the
+ * code cache of one browser partition. The CacheStorage of service workers has no limit but the storage
+ * quota of Chromium, and it grew past 130 MB for one site in under two days (#8 of the performance
+ * review). The HTTP cache has a limit of its own in Chromium, so it is not cleared here.
  */
 const SITE_CACHE_LIMIT_BYTES = 100 * 1024 * 1024;
 
@@ -88,9 +88,53 @@ const SITE_CACHE_LIMIT_BYTES = 100 * 1024 * 1024;
 export type SiteCacheSession = Pick<Session, "storagePath" | "clearStorageData" | "clearCodeCaches">;
 
 /**
- * Clears the site caches of each persistent browser session that went past the limit: the CacheStorage
- * with its service workers, and the V8 code cache. Cookies, local storage and IndexedDB stay, so no
- * sign-in goes. A page registers its service worker again on the next visit, and the first load of
+ * Reads the origin from the `index.txt` of one CacheStorage folder. Chromium writes that file as the
+ * protobuf `CacheStorageIndex`: field 1 holds each cache (its name can hold any URL), and field 2 holds
+ * the origin as text, as `https://x.com/`. Only the top level is read, so the name of a cache never
+ * gives the origin. Returns null for a file that is not that shape or for an origin that is not HTTP.
+ */
+export function cacheStorageIndexOrigin(bytes: Uint8Array): string | null {
+  let offset = 0;
+  const varint = (): number | null => {
+    let value = 0;
+    for (let shift = 0; shift < 64; shift += 7) {
+      const byte = bytes[offset];
+      if (byte === undefined) return null;
+      offset += 1;
+      value += (byte & 0x7f) * 2 ** shift;
+      if ((byte & 0x80) === 0) return value;
+    }
+    return null;
+  };
+  while (offset < bytes.length) {
+    const tag = varint();
+    if (tag === null) return null;
+    const wireType = tag % 8;
+    if (wireType === 0) {
+      if (varint() === null) return null;
+    } else if (wireType === 1) offset += 8;
+    else if (wireType === 5) offset += 4;
+    else if (wireType === 2) {
+      const length = varint();
+      if (length === null || offset + length > bytes.length) return null;
+      if (Math.floor(tag / 8) === 2) {
+        const text = new TextDecoder().decode(bytes.subarray(offset, offset + length));
+        if (!URL.canParse(text)) return null;
+        const url = new URL(text);
+        return url.protocol === "https:" || url.protocol === "http:" ? url.origin : null;
+      }
+      offset += length;
+    } else return null;
+  }
+  return null;
+}
+
+/**
+ * Clears the site caches that went past the limit in each persistent browser session. For each origin
+ * whose CacheStorage is past the limit, it clears the CacheStorage and the service workers of that
+ * origin only; the other origins keep theirs. When the code cache of the session is past the limit, it
+ * clears the code cache of all the sites of the session. Cookies, local storage and IndexedDB stay, so
+ * no sign-in goes. A page registers its service worker again on the next visit, and the first load of
  * such a site is slower once. It goes through the session, not the file system, because the session is
  * open. Runs after the window is up and never throws.
  */
@@ -103,13 +147,24 @@ export async function trimSiteCaches(
   for (const target of sessions) {
     const root = target.storagePath;
     if (!root) continue;
-    const cacheStorage = await sizeOf(join(root, "Service Worker", "CacheStorage"));
-    if (cacheStorage > limitBytes) {
+    const cacheStorage = join(root, "Service Worker", "CacheStorage");
+    const folders = await readdir(cacheStorage, { withFileTypes: true }).catch(() => []);
+    for (const folder of folders) {
+      if (!folder.isDirectory()) continue;
+      const path = join(cacheStorage, folder.name);
+      const bytes = await sizeOf(path);
+      if (bytes <= limitBytes) continue;
+      const origin = await readFile(join(path, "index.txt")).then(cacheStorageIndexOrigin, () => null);
+      // The origin is a visited site, so it does not go in the log.
+      if (!origin) {
+        logger.warn("A site cache of a browser session has no origin that can be read, so it stays.");
+        continue;
+      }
       try {
-        await target.clearStorageData({ storages: ["cachestorage", "serviceworkers"] });
-        freed += cacheStorage;
+        await target.clearStorageData({ origin, storages: ["cachestorage", "serviceworkers"] });
+        freed += bytes;
       } catch (error) {
-        logger.warn("The site cache of a browser session could not be cleared on launch.", { error: String(error) });
+        logger.warn("A site cache of a browser session could not be cleared on launch.", { error: String(error) });
       }
     }
     const codeCache = await sizeOf(join(root, "Code Cache"));
