@@ -2,7 +2,9 @@
 
 Infraestrutura como código (CloudFormation + AWS CLI) para rodar **um servidor Builders Bot por setor** (financeiro, marketing…) na conta AWS da Cultura Builder (perfil `cb`, conta `358748433479`, `us-east-1`). Cada pessoa conecta pelo app desktop; no servidor funciona o navegador dos agentes (busca, login em ferramentas, redes sociais).
 
-O desenho completo, com as fontes e as três revisões adversariais, está em `/Users/arielsilva/Projects/openbot-local/.openbot-build/remote-servers/DESIGN.md` (citado aqui como **DESIGN**). Este repositório implementa esse desenho, com os desvios listados na seção [Desvios do DESIGN](#desvios-do-design).
+O desenho completo, com as fontes e as três revisões adversariais, está em `.openbot-build/remote-servers/DESIGN.md` do checkout principal do Builders Bot (`/Users/arielsilva/Projects/openbot-local`; pasta ignorada pelo git, só no Mac do dono), citado aqui como **DESIGN**. Esta pasta implementa esse desenho, com os desvios listados na seção [Desvios do DESIGN](#14-desvios-do-design).
+
+> **Onde fica e de onde rodar:** esta pasta é `infra/aws/` do repositório do Builders Bot (até 31/10/2026 era o repositório local separado `buildersbot-infra`, que ficou como cópia de segurança; o trabalho novo é aqui). Todos os caminhos e comandos deste README (`scripts/…`, `templates/…`, `config/…`, `tests/…`) são relativos a esta pasta: rode `cd infra/aws` a partir da raiz do repositório antes. Os scripts acham a própria pasta e o checkout do Builders Bot sozinhos, então chamados de outro lugar (`infra/aws/scripts/status.sh`) também funcionam.
 
 > **Estado:** código pronto e validado só por leitura (`validate-template`, esquemas oficiais via `describe-type`, `shellcheck`, `bash -n`) e por testes negativos contra um `aws` falso que recusa qualquer escrita (`tests/negative.sh`). **Nada foi criado na AWS.** Os scripts que criam recursos pedem confirmação digitada, exigem sessão temporária com MFA e nunca rodaram.
 
