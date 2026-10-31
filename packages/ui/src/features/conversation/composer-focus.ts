@@ -1,4 +1,5 @@
-const OPEN_POPUP = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
+/** `data-popup` marks a popup that has no popup role, such as the tab list of a channel. */
+const OPEN_POPUP = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-popup]';
 const TEXT_ENTRY = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
 
 /**

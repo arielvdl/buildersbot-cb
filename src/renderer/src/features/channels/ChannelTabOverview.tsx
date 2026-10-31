@@ -19,8 +19,9 @@ import { useChannels } from "./channels-context";
  *
  * The list is a menu of the title, so Escape closes it and the arrow keys walk the cards. It is a
  * labelled group (a `fieldset`) that the title shows and hides (`aria-expanded` and `aria-controls` on the title), and
- * not a dialog: it takes no focus trap, and the tabs beside it stay reachable while it is open. Its
- * field and buttons are shared controls with their own drawing and no cue, as they had as plain
+ * not a dialog: it takes no focus trap, and the tabs beside it stay reachable while it is open. It has
+ * `data-popup`, so the composer does not take the focus back from it when the window becomes active.
+ * Its field and buttons are shared controls with their own drawing and no cue, as they had as plain
  * elements.
  */
 export function ChannelTabOverview(props: {
@@ -108,6 +109,7 @@ export function ChannelTabOverview(props: {
     <fieldset
       id={props.id}
       class="channel-tab-overview no-drag"
+      data-popup=""
       aria-label={t("channel.topic.list")}
       onKeyDown={onKeyDown}
     >
