@@ -2,7 +2,7 @@
 // rule (administrator, grant, revoked grant, bootstrap list, the "*" opt-in), each administrator route
 // for a request with no session (401) and for a person who is not an administrator (403), on the bearer
 // path and on the browser path, the request flow, the self-grant and request-ID refusals, the limits,
-// and the hosted server create that uses the rule. See docs/architecture/server-creation-permission.md.
+// the hosted server create that uses the rule, and what the join dialog shows for each access. See docs/architecture/server-creation-permission.md.
 //
 // Run: bun run test:server-creation-permission
 // It writes .openbot-build/server-creation-permission-e2e/report.json and exits non-zero on a failure.
@@ -11,7 +11,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { parseServerCreationAccess, parseServerCreationAdminState } from "@openbot/contracts/server-creation";
+import {
+  parseServerCreationAccess,
+  parseServerCreationAdminState,
+  type ServerCreationAccess,
+} from "@openbot/contracts/server-creation";
+import { serverCreateAccessState } from "@openbot/ui/features/servers/server-create-access";
 import { Effect } from "effect";
 import { type BrowserApiServices, handleBrowserApi } from "../src/server/browser-api";
 import { type HostedServerBilling, HostedServerService } from "../src/server/hosted-server-service";
@@ -384,7 +389,8 @@ async function requestFlow() {
   const grantedState = parseServerCreationAdminState(granted.body);
   check(
     "a grant by email gives the permission",
-    granted.status === 201 && grantedState?.grants.some((entry) => entry.userId === OTHER.id && entry.note === "Ops"),
+    granted.status === 201 &&
+      grantedState?.grants.some((entry) => entry.userId === OTHER.id && entry.note === "Ops") === true,
     granted,
   );
   const missing = await bearer(permission, ADMIN, "POST", "admin/grants", { email: "nobody@example.test" });
@@ -527,12 +533,54 @@ async function hostedCreate() {
   );
 }
 
+/** The rule of the join dialog of the desktop app and the web client (`ServerCreateAccess`). */
+function joinDialog() {
+  const access = (canCreate: boolean, request: ServerCreationAccess["request"]): ServerCreationAccess => ({
+    canCreate,
+    administrator: false,
+    request,
+  });
+  const request = (status: "pending" | "approved" | "denied") => ({
+    id: "request-1",
+    status,
+    createdAt: 1,
+    decidedAt: null,
+  });
+  check("the join dialog hides the section when the access is not known", serverCreateAccessState(null, true) === null);
+  check(
+    "a person with permission sees Create remote server when the plans can open",
+    serverCreateAccessState(access(true, null), true) === "allowed",
+  );
+  check(
+    "a person with permission sees no section when hosting is off",
+    serverCreateAccessState(access(true, null), false) === null,
+  );
+  check(
+    "a person without permission sees Ask for permission, also when hosting is on",
+    serverCreateAccessState(access(false, null), true) === "request" &&
+      serverCreateAccessState(access(false, null), false) === "request",
+  );
+  check(
+    "a pending request shows that it waits",
+    serverCreateAccessState(access(false, request("pending")), true) === "pending",
+  );
+  check(
+    "a denied request shows the denial and lets the person ask again",
+    serverCreateAccessState(access(false, request("denied")), true) === "denied",
+  );
+  check(
+    "an approval whose grant was removed lets the person ask again",
+    serverCreateAccessState(access(false, request("approved")), true) === "request",
+  );
+}
+
 let passed = false;
 try {
   await rules();
   await adminRoutes();
   await requestFlow();
   await hostedCreate();
+  joinDialog();
   passed = checks.length > 0 && checks.every((item) => item.passed);
 } finally {
   await mkdir(OUT, { recursive: true });

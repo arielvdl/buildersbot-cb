@@ -26,10 +26,15 @@ import { ACTION_SOUND_CHOICES, TASK_SOUND_CHOICES } from "@openbot/ui/features/s
 import { LanguageSelect } from "@openbot/ui/features/settings/LanguageSelect";
 import { NotificationMatrix, NotificationScopeTitle } from "@openbot/ui/features/settings/NotificationMatrix";
 import { SendShortcutSelect } from "@openbot/ui/features/settings/SendShortcutSelect";
+import { ServerCreationAdminSection } from "@openbot/ui/features/settings/ServerCreationAdminSection";
 import { SettingsDialogShell, type SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
 import { SettingsProfileTab } from "@openbot/ui/features/settings/SettingsProfileTab";
 import { SoundChoiceSelect } from "@openbot/ui/features/settings/SoundChoiceSelect";
 import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores/profile-store";
+import {
+  createServerCreationAdminStore,
+  type ServerCreationAdminCalls,
+} from "@openbot/ui/features/settings/stores/server-creation-admin-store";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, onCleanup, onSettled, Show } from "solid-js";
 import { readActionSoundChoice, setActionSoundChoice } from "../../action-sounds";
@@ -82,6 +87,8 @@ export interface WebAccountSettingsProps {
   notificationFocusRequest?: { serverId: string; nonce: number } | null | undefined;
   /** Opens a tab, for a result of the command palette. Each nonce opens once. */
   tabRequest?: { tab: WebAccountSettingsTab; nonce: number } | null | undefined;
+  /** The permission to create a remote server. Profile shows its administrator section to an administrator. */
+  serverCreationApi?: ServerCreationAdminCalls | undefined;
 }
 
 /**
@@ -146,6 +153,10 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
       onRevokeAccountSession: (sessionId) => props.calls.revokeSession(sessionId),
     },
     () => activeTab() === "profile",
+  );
+  const serverCreationAdmin = createServerCreationAdminStore(
+    () => props.serverCreationApi,
+    () => props.open && activeTab() === "profile",
   );
   const navItem = () => TAB_ITEMS[activeTab()];
   // A server menu or a settings link opens the notification levels, which are in Preferences.
@@ -251,6 +262,7 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
             canRevokeSession
             onSignOut={props.onSignOut}
           />
+          <ServerCreationAdminSection store={serverCreationAdmin} />
         </Tabs.Content>
 
         <Tabs.Content value="preferences" class="settings-modal-tab-panel" data-tab="preferences">

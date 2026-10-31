@@ -15,6 +15,15 @@ import {
   parseHostedServerSummary,
 } from "@openbot/contracts/hosted-servers";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
+import {
+  parseServerCreationAccess,
+  parseServerCreationAdminState,
+  type ServerCreationAccess,
+  type ServerCreationAccessRequest,
+  type ServerCreationAdminState,
+  type ServerCreationDecisionInput,
+  type ServerCreationGrantInput,
+} from "@openbot/contracts/server-creation";
 import { sourceText } from "@openbot/i18n/source";
 import {
   createHostedServerStatusCheck,
@@ -250,6 +259,77 @@ export class HostedServerDesktopService {
     (operation) => operation.pipe(Effect.provide(this.#platform)),
   );
 
+  /** The permission of the signed-in person to create a remote server, and their latest request. */
+  readonly creationAccess = Effect.fn("HostedServer.creationAccess")(
+    function* () {
+      const platform = yield* AccountServicePlatform;
+      return yield* platform.request("/v2/server-creation/access", { method: "GET" }, decodeAccess, 15_000);
+    },
+    (operation) => operation.pipe(Effect.provide(this.#platform)),
+  );
+
+  /** Asks the administrator for the permission. */
+  readonly requestCreationAccess = Effect.fn("HostedServer.requestCreationAccess")(
+    function* (input: ServerCreationAccessRequest) {
+      const platform = yield* AccountServicePlatform;
+      return yield* platform.request(
+        "/v2/server-creation/requests",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+        decodeAccess,
+        15_000,
+      );
+    },
+    (operation) => operation.pipe(Effect.provide(this.#platform)),
+  );
+
+  /** Administrators only: the requests that wait and the people with the permission. */
+  readonly creationAdmin = Effect.fn("HostedServer.creationAdmin")(
+    function* () {
+      const platform = yield* AccountServicePlatform;
+      return yield* platform.request("/v2/server-creation/admin", { method: "GET" }, decodeAdminState, 15_000);
+    },
+    (operation) => operation.pipe(Effect.provide(this.#platform)),
+  );
+
+  readonly grantCreation = Effect.fn("HostedServer.grantCreation")(
+    function* (input: ServerCreationGrantInput) {
+      const platform = yield* AccountServicePlatform;
+      return yield* platform.request(
+        "/v2/server-creation/admin/grants",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+        decodeAdminState,
+        15_000,
+      );
+    },
+    (operation) => operation.pipe(Effect.provide(this.#platform)),
+  );
+
+  readonly revokeCreation = Effect.fn("HostedServer.revokeCreation")(
+    function* (userId: string) {
+      const platform = yield* AccountServicePlatform;
+      return yield* platform.request(
+        `/v2/server-creation/admin/grants/${encodeURIComponent(userId)}`,
+        { method: "DELETE" },
+        decodeAdminState,
+        15_000,
+      );
+    },
+    (operation) => operation.pipe(Effect.provide(this.#platform)),
+  );
+
+  readonly decideCreationRequest = Effect.fn("HostedServer.decideCreationRequest")(
+    function* (input: ServerCreationDecisionInput) {
+      const platform = yield* AccountServicePlatform;
+      return yield* platform.request(
+        `/v2/server-creation/admin/requests/${encodeURIComponent(input.requestId)}/${input.decision}`,
+        { method: "POST" },
+        decodeAdminState,
+        15_000,
+      );
+    },
+    (operation) => operation.pipe(Effect.provide(this.#platform)),
+  );
+
   unavailableHost(serverId: string, wake: boolean): Effect.Effect<HostedServerAvailability> {
     return this.#statusCheck.unavailable(serverId, { wake });
   }
@@ -322,6 +402,18 @@ function decodeCheckout(value: unknown): HostedServerCheckout {
   const checkout = parseHostedServerCheckout(value);
   if (!checkout) throw new Error(sourceText("error.auth.invalidHostedServer"));
   return checkout;
+}
+
+function decodeAccess(value: unknown): ServerCreationAccess {
+  const access = parseServerCreationAccess(value);
+  if (!access) throw new Error(sourceText("error.auth.invalidHostedServer"));
+  return access;
+}
+
+function decodeAdminState(value: unknown): ServerCreationAdminState {
+  const state = parseServerCreationAdminState(value);
+  if (!state) throw new Error(sourceText("error.auth.invalidHostedServer"));
+  return state;
 }
 
 function decodeCatalog(value: unknown): HostedServerCatalog {

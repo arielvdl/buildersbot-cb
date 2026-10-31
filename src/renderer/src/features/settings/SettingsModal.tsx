@@ -30,6 +30,7 @@ import { createBillingStore } from "@openbot/ui/features/billing/billing-store";
 import { LicenseSection } from "@openbot/ui/features/billing/LicenseSection";
 import { createLicenseStore } from "@openbot/ui/features/billing/license-store";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
+import { ServerCreationAdminSection } from "@openbot/ui/features/settings/ServerCreationAdminSection";
 import { SettingsDialogShell, type SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
 import {
   type MobileConnectReach,
@@ -40,6 +41,7 @@ import { SettingsUpdatesTab } from "@openbot/ui/features/settings/SettingsUpdate
 import { createSettingsHostedServersStore } from "@openbot/ui/features/settings/stores/hosted-servers-store";
 import { createSettingsMobileConnectStore } from "@openbot/ui/features/settings/stores/mobile-connect-store";
 import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores/profile-store";
+import { createServerCreationAdminStore } from "@openbot/ui/features/settings/stores/server-creation-admin-store";
 import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores/updates-store";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { useI18n } from "../../i18n-context";
@@ -154,6 +156,11 @@ export function SettingsModal(props: SettingsModalProps) {
     trackLicenseEvent,
   );
   const hostedServers = createSettingsHostedServersStore(props, () => activeTab() === "billing");
+  // Only an administrator sees this section. The account server checks the administrator on each call.
+  const serverCreationAdmin = createServerCreationAdminStore(
+    () => props.hostedServersApi,
+    () => props.open && activeTab() === "profile",
+  );
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
   const guard = createSettingsGuardStore(() => props.open && activeTab() === "guard");
   const notificationLevels = createNotificationLevelsStore({
@@ -365,6 +372,7 @@ export function SettingsModal(props: SettingsModalProps) {
             canRevokeSession={Boolean(props.onRevokeAccountSession)}
             onSignOut={props.onSignOut}
           />
+          <ServerCreationAdminSection store={serverCreationAdmin} />
         </Tabs.Content>
 
         <Tabs.Content value="billing" class="settings-modal-tab-panel" data-tab="billing">

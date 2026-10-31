@@ -24,6 +24,7 @@ import { motionDuration, prefersReducedMotion } from "@openbot/ui/utils";
 import type { UserErrorDetails } from "@openbot/user-errors";
 import { createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { useText } from "../../text";
+import { ServerCreateAccess, type ServerCreateAccessProps } from "./ServerCreateAccess";
 
 interface JoinServerDialogProps {
   inviteUrl: string;
@@ -31,6 +32,11 @@ interface JoinServerDialogProps {
   onClose: () => void;
   onPreview: (input: JoinServerInput) => Promise<InvitePreview>;
   onJoin: (input: JoinServerInput) => Promise<void>;
+  /**
+   * The creation of a new remote server, below the invite. Joining needs no permission; creating
+   * does. Without it, the dialog shows the invite only.
+   */
+  createAccess?: Omit<ServerCreateAccessProps, "disabled"> | undefined;
 }
 
 type DialogPhase = "idle" | "previewing" | "joining";
@@ -356,6 +362,16 @@ export function JoinServerDialog(props: JoinServerDialogProps) {
                   </footer>
                 </form>
               </div>
+              <Show when={page() === "1" ? props.createAccess : undefined}>
+                {(access) => (
+                  <ServerCreateAccess
+                    access={access().access}
+                    onCreate={access().onCreate}
+                    onRequest={access().onRequest}
+                    disabled={busy()}
+                  />
+                )}
+              </Show>
             </div>
           </Dialog.Content>
         </Dialog.Overlay>

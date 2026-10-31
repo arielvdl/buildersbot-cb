@@ -42,6 +42,7 @@ import {
 import { mcpToolRuntimeNote } from "./features/servers/mcp-servers";
 import { useServerActions } from "./features/servers/server-actions";
 import { remoteMcpSignIn, serverCanAdminister, serverSupportsCapability } from "./features/servers/server-capabilities";
+import { createServerCreationAccess } from "./features/servers/server-creation-access";
 import { useServerSelection } from "./features/servers/server-selection";
 import { useServerSettings } from "./features/servers/server-settings";
 import { type ServerSettingsSection, serverSettingsSectionShown } from "./features/servers/server-settings-sections";
@@ -201,8 +202,9 @@ function SharedAgentInstall() {
 /** Joining a team server from an invite link. */
 function JoinServer(props: AccountProps) {
   const setup = useSetup();
-  const { joinServerOpen, setJoinServerOpen } = useServers();
+  const { joinServerOpen, setJoinServerOpen, hostedServersAvailable, setAddServerOpen } = useServers();
   const { joinServer } = useServerSelection();
+  const creation = createServerCreationAccess(joinServerOpen, () => appPort().hostedServers);
 
   return (
     <JoinServerOverlay
@@ -215,6 +217,17 @@ function JoinServer(props: AccountProps) {
       }}
       onPreview={setup.previewInvite}
       onJoin={joinServer}
+      createAccess={{
+        access: creation.access(),
+        // The plans create the server. Without hosting there is nothing to open here.
+        onCreate: hostedServersAvailable()
+          ? () => {
+              setJoinServerOpen(false);
+              setAddServerOpen(true, "server_rail");
+            }
+          : undefined,
+        onRequest: creation.request,
+      }}
     />
   );
 }
