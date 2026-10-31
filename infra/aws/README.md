@@ -222,7 +222,7 @@ Fórmula: N × custo por setor + 23,85. A ordem de grandeza é a mesma da estima
 - **Backups:** automáticos (DLM). Setores 24/7: 07:00 UTC com pre/post script (~1-2 min fora do ar entre 04:00 e 05:00 BRT) e semanal domingo 04:00 UTC. Setores em horário comercial: 02:00 UTC com a VM parada. Reboot de patches do SO às 09:30 UTC.
 - **Limpeza de snapshots:** nada apaga snapshot por prazo sozinho. A tag `ExpiresAt` (pre-remove e final: `--keep-days`, padrão 180; pre-upgrade: 30 dias) marca quando o `scripts/gc-snapshots.sh` pode apagar. Ele também pega os snapshots do DLM de setores removidos (sem stack `-compute` nem `-data`) com mais de 28 dias, porque o DLM guarda para sempre o último de cada agenda. `scripts/gc-snapshots.sh` só lista; `--delete` apaga depois da confirmação digitada `apagar <N>`. Rodar uma vez por mês.
 - **Logs:** `/bb-srv/<setor>` (container, saúde, bootstrap; 30 dias), `/bb-srv/<setor>/ssm-sessions` (90 dias), Flow Logs da VPC em `s3://bb-srv-logs-358748433479/flow/` (90 dias). CloudTrail da conta é o registro confiável.
-- **Alertas:** tudo no tópico `bb-srv-alerts`. O alarme de saúde conta as linhas `BB_HEALTH ok`; com a VM ligada, as outras linhas do log publicam 0 (`DefaultValue`), então um container caído alerta também nos setores em horário comercial. O alarme `bb-srv-<setor>-egress-proxy` faz o mesmo com as linhas `BB_PROXY_HEALTH ok BR` (seção 16). Memória e disco ficam no namespace próprio do setor (`bb-srv/<setor>/host`; o Signal em `bb-srv/signal/host`): a role de um host só publica no dele, e nenhum setor esconde os alarmes de outro.
+- **Alertas:** tudo no tópico `bb-srv-alerts`. O alarme de saúde conta as linhas `BB_HEALTH ok` do grupo próprio `/bb-srv/<setor>/health` (só o `health.log` do host vai para lá; o log do app, que agentes e páginas podem influenciar, fica no grupo principal e não conta); com a VM ligada, as outras linhas de saúde publicam 0 (`DefaultValue`), então um container caído alerta também nos setores em horário comercial. O alarme `bb-srv-<setor>-egress-proxy` faz o mesmo com as linhas `BB_PROXY_HEALTH ok BR` (seção 16). Memória e disco ficam no namespace próprio do setor (`bb-srv/<setor>/host`; o Signal em `bb-srv/signal/host`): a role de um host só publica no dele, e nenhum setor esconde os alarmes de outro.
 
 ## 11. Rollback e recuperação
 
@@ -333,7 +333,7 @@ Se o proxy residencial, a senha ou o encaminhador falharem, o contêiner fica **
 Dispara (tópico `bb-srv-alerts`) quando, em dois períodos seguidos de 5 minutos, não há linha `BB_PROXY_HEALTH ok BR` com a VM ligada. Num setor 24/7, a VM desligada também alerta; num setor em horário comercial, não (como o alarme de saúde). As últimas linhas:
 
 ```
-aws --profile cb --region us-east-1 logs filter-log-events --log-group-name /bb-srv/<setor> \
+aws --profile cb --region us-east-1 logs filter-log-events --log-group-name /bb-srv/<setor>/health \
   --filter-pattern '"BB_PROXY_HEALTH"' --start-time $(( ($(date +%s) - 3600) * 1000 )) --query 'events[].message' --output text
 ```
 

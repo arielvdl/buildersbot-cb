@@ -137,6 +137,7 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/${Sector}:*'
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/${Sector}/ssm-sessions:*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/${Sector}/health:*'
               - Sid: DescribeLogGroups
                 Effect: Allow
                 Action: logs:DescribeLogGroups
@@ -203,13 +204,23 @@ Resources:
       LogGroupName: !Sub /bb-srv/${Sector}/ssm-sessions
       RetentionInDays: 90
 
-  # DefaultValue 0: while the host is on, every other line of the log group (a "BB_HEALTH fail", the
-  # app log) publishes 0, so a failing sector alarms even with TreatMissingData=notBreaching. With the
+  # Only /var/log/bb-srv/health.log goes here (written by root timers on the host), and the health metric
+  # filters read ONLY this group. The app log is in the main group and carries text that agents and web
+  # pages can influence: a line like "BB_HEALTH ok" printed there must never count as a health signal
+  # (a metric filter cannot be limited to one stream, so it needs its own group).
+  HealthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /bb-srv/${Sector}/health
+      RetentionInDays: 30
+
+  # DefaultValue 0: while the host is on, every other line of the health log group (a "BB_HEALTH fail", a
+  # BB_PROXY_HEALTH line) publishes 0, so a failing sector alarms even with TreatMissingData=notBreaching. With the
   # VM stopped there is no line and no data point, so a business-hours sector stays quiet at night.
   HealthMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Ref LogGroup
+      LogGroupName: !Ref HealthLogGroup
       FilterName: bb-srv-health-ok
       FilterPattern: '"BB_HEALTH ok"'
       MetricTransformations:
@@ -240,7 +251,7 @@ Resources:
           },
           "logs": {"logs_collected": {"files": {"collect_list": [
             {"file_path": "/var/log/openbot/openbot-${Sector}.log", "log_group_name": "/bb-srv/${Sector}", "log_stream_name": "{instance_id}/openbot"},
-            {"file_path": "/var/log/bb-srv/health.log", "log_group_name": "/bb-srv/${Sector}", "log_stream_name": "{instance_id}/health"},
+            {"file_path": "/var/log/bb-srv/health.log", "log_group_name": "/bb-srv/${Sector}/health", "log_stream_name": "{instance_id}/health"},
             {"file_path": "/var/log/bb-srv-bootstrap.log", "log_group_name": "/bb-srv/${Sector}", "log_stream_name": "{instance_id}/bootstrap"}
           ]}}}
         }
@@ -259,12 +270,12 @@ Resources:
 
   # One line every 4 minutes from bb-srv-proxy health (installed by bb-srv-ProxySetup). Only "ok BR"
   # counts: a failure ("fail <reason>") or another country ("ok US") publishes 0 through DefaultValue,
-  # like every other line of the log group while the host is on.
+  # like every other line of the health log group while the host is on.
   ProxyHealthMetricFilter:
     Type: AWS::Logs::MetricFilter
     Condition: UseEgressProxy
     Properties:
-      LogGroupName: !Ref LogGroup
+      LogGroupName: !Ref HealthLogGroup
       FilterName: bb-srv-proxy-health-ok-br
       FilterPattern: '"BB_PROXY_HEALTH ok BR"'
       MetricTransformations:
@@ -611,7 +622,7 @@ Resources:
       AlarmName: !Sub bb-srv-${Sector}-egress-proxy
       AlarmDescription: >-
         The container of the sector is not leaving through the residential proxy in Brazil: read the
-        BB_PROXY_HEALTH lines of the log group (fail <reason> or ok <country>) and run
+        BB_PROXY_HEALTH lines of the log group /bb-srv/<sector>/health (fail <reason> or ok <country>) and run
         scripts/status.sh <sector> --deep. Nothing leaves directly meanwhile (fail closed).
       Namespace: !Sub bb-srv/${Sector}
       MetricName: ProxyHealthy
@@ -839,6 +850,8 @@ Outputs:
     Value: !Ref LogGroup
   SessionLogGroupName:
     Value: !Ref SessionLogGroup
+  HealthLogGroupName:
+    Value: !Ref HealthLogGroup
   ShellDocumentName:
     Value: !Ref ShellDocument
   LoginDocumentName:

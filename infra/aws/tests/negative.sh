@@ -773,5 +773,21 @@ else
   bad "F7 templates do proxy de saída" "$static_fail"
 fi
 
+# F8: os filtros de métrica de saúde leem SÓ o grupo de saúde (escrito pelo host). O log do app, no grupo
+# principal, tem texto que agentes e páginas influenciam: uma linha forjada ali não pode calar um alarme.
+health_fail=''
+check_health() { "$@" >/dev/null 2>&1 || health_fail="$health_fail [$*]"; }
+for filter in bb-srv-health-ok bb-srv-proxy-health-ok-br; do
+  check_health test "$(grep -B2 "FilterName: $filter" templates/sector-compute.yaml | grep -c 'LogGroupName: !Ref HealthLogGroup')" = 1
+done
+check_health test "$(grep -c 'LogGroupName: !Ref LogGroup$' templates/sector-compute.yaml)" = 0
+check_health grep -q '"log_group_name": "/bb-srv/${Sector}/health", "log_stream_name": "{instance_id}/health"' templates/sector-compute.yaml
+check_health grep -q "log-group:/bb-srv/\${Sector}/health:\*" templates/sector-compute.yaml
+if [ -z "$health_fail" ]; then
+  ok_case "F8 os filtros de saúde leem só o grupo de logs da saúde (o log do app não pode forjar BB_HEALTH ok)"
+else
+  bad "F8 filtros de saúde no grupo errado" "$health_fail"
+fi
+
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]
