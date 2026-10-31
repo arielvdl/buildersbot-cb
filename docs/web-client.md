@@ -214,11 +214,13 @@ Play link or QR code.
   directly, so the computer must stay on and awake.
 - The web client sends `X-OpenBot-Browser`, `X-OpenBot-Install` and `X-OpenBot-Install-Label`, and
   the host sends `X-OpenBot-WebRTC-Session` and the `OpenBot-*` Team API headers. These names keep the
-  upstream spelling: a header name cannot hold a space, and the rename of 28 October made
-  `X-Builders Bot-Browser`, which `fetch` refuses before it sends the request. That stopped the
-  sign-in on the phone and each phone request on the host. `scripts/builders-bot-rename.pl` keeps
-  these names, and the Biome rule `no-spaced-header-names` (`tools/biome/anti-slop/rules`) rejects
-  a header name with a space in a `headers` object, in `headers.get` and in a `*_HEADER` constant.
+  upstream spelling: a header name cannot hold a space. The rename of 28 October put the space of
+  "Builders Bot" into these names, and `fetch` refuses such a name before it sends the request. That
+  stopped the sign-in on the phone and each phone request on the host. `scripts/builders-bot-rename.pl`
+  keeps these names, and the Biome rule `no-spaced-header-names` (`tools/biome/anti-slop/rules`)
+  rejects a header name with a space in a `headers` object, in `headers.get` and in a `*_HEADER`
+  constant. `scripts/phone-web-app-flow.test.ts` checks each header name of the code with `Headers`,
+  and checks that no deployed account service returns the sign-in code in its answer.
 - Such a phone is an account session of the web client. The desktop shows it in **Settings >
   Profile > Account sessions**, not in the phone list of Mobile Connect, which lists the sessions of
   the earlier phone app.

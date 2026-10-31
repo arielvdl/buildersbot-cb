@@ -8,7 +8,7 @@
 # `Builders Bot`. Lowercase `openbot` and `OPENBOT_` stay as they are.
 #
 # HTTP header names keep `OpenBot`: a header name cannot hold a space, and `fetch`, `Headers`
-# and Node refuse `X-Builders Bot-Browser` before they send anything. Released hosts, phones
+# and Node refuse a name with a space before they send anything. Released hosts, phones
 # and the Worker also read the upstream names. A header name is `X-OpenBot-` anywhere, or
 # `OpenBot-` and a capital letter just after a quote or a backtick (`"OpenBot-Timestamp"`).
 # Prose such as `im OpenBot-Browser` has a space before it and is still renamed.

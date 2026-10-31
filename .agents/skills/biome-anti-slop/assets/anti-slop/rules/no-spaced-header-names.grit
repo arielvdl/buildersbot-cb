@@ -4,9 +4,9 @@ language js(typescript)
 
 // An HTTP header name is a token, so it cannot hold a space. `fetch`, `Headers` and the `http` and
 // `ws` modules of Node refuse a request with such a name before they send it, and `Headers.get`
-// throws on one: the request fails on the client, and the receiver never sees it. A blind rename of
-// a product name that has a space ("Acme Corp") once made `X-Acme Corp-Browser` of
-// `X-AcmeCorp-Browser` in every request of a web client.
+// throws on one: the request fails on the client, and the receiver never sees it. A blind rename to
+// a product name that has a space ("Acme Corp") once put that space into each header name of a web
+// client.
 //
 // The rule finds a header name in three syntax forms: a key of the object that a `headers` property
 // holds, the first argument of `get`, `has`, `set`, `append` or `delete` on a value named `headers`,

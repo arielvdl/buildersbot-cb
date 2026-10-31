@@ -16,3 +16,8 @@
 - The web app starts offline with its offline page. Before, the browser could show a network error.
 - The web app on a phone shows the name Builders Bot under its icon and in its notifications.
 - **Install this version on the computer that phones connect to.**
+
+### Security
+
+- The sign-in code of the web app comes only by email again. Before, a configuration error showed
+  the code in the sign-in form.
