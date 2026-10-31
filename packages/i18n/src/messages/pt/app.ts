@@ -193,7 +193,6 @@ export const messages = {
   "app.orbits.state.idle": "ocioso",
   "app.orbits.card.goChannel": "Ir ao canal",
   "app.orbits.card.goChat": "Abrir conversa",
-  "app.orbits.card.in": "Em {channel}",
   "app.orbits.card.running": { one: "Rodando há {count} min", other: "Rodando há {count} min" },
   "app.orbits.card.question": "Espera sua resposta",
   "app.orbits.card.approval": "Espera sua aprovação",

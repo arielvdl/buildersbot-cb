@@ -30,6 +30,8 @@ function RailButton(props: {
   /** Renders the card while it is open. */
   card?: () => JSX.Element;
   current?: boolean;
+  /** The button opens a dialog, and the dialog is open now. Only for a button that opens a dialog. */
+  dialogOpen?: boolean | undefined;
   class?: string;
   onClick: (button: HTMLElement) => void;
   children: JSX.Element;
@@ -41,6 +43,8 @@ function RailButton(props: {
       class={props.class ? `window-rail-button ${props.class}` : "window-rail-button"}
       aria-label={props.label}
       aria-current={props.current ? "page" : undefined}
+      aria-haspopup={props.dialogOpen === undefined ? undefined : "dialog"}
+      aria-expanded={props.dialogOpen === undefined ? undefined : props.dialogOpen ? "true" : "false"}
       onClick={(event) => props.onClick(event.currentTarget)}
     >
       {props.children}
@@ -209,6 +213,8 @@ export interface PageRailProps {
   onAgents: () => void;
   /** Opens the Team panel over the window. Absent where the window has no Team panel. */
   onTeam?: ((button: HTMLElement) => void) | undefined;
+  /** The Team panel is open. */
+  teamOpen?: boolean | undefined;
   /** Absent when the server has no routines. */
   onRoutines?: (() => void) | undefined;
   /** Absent when the server has no workflows. */
@@ -395,7 +401,11 @@ export function PageRail(props: PageRailProps) {
         </RailButton>
         <Show when={props.onTeam}>
           {(onTeam) => (
-            <RailButton label={t("app.rail.team")} onClick={(button) => onTeam()(button)}>
+            <RailButton
+              label={t("app.rail.team")}
+              dialogOpen={props.teamOpen ?? false}
+              onClick={(button) => onTeam()(button)}
+            >
               <Orbit aria-hidden="true" />
             </RailButton>
           )}

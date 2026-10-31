@@ -33,6 +33,9 @@
   --orbits-edge: color-mix(in srgb, var(--openbot-text-primary) 10%, transparent);
   --orbits-edge-strong: color-mix(in srgb, var(--openbot-text-primary) 16%, transparent);
   --orbits-track: color-mix(in srgb, var(--openbot-text-primary) 10%, transparent);
+  /* How much of its colour a system halo takes, in its middle and at its edge. */
+  --orbits-halo-core: 12.8%;
+  --orbits-halo-edge: 8%;
 
   position: fixed;
   inset-block: 0;
@@ -50,6 +53,12 @@
   container-type: inline-size;
   animation: orbits-panel-in var(--openbot-duration-overlay) var(--openbot-ease-out);
   -webkit-app-region: no-drag;
+}
+
+/* A light page shows a colour more strongly, so the halos take less of it. */
+:root[data-openbot-color-scheme="light"] .ui-dialog-content.orbits-panel {
+  --orbits-halo-core: 8%;
+  --orbits-halo-edge: 5%;
 }
 
 @keyframes orbits-panel-in {
@@ -230,8 +239,8 @@
   border-radius: var(--openbot-radius-pill);
   background: radial-gradient(
     closest-side,
-    color-mix(in srgb, var(--orbit-color) 12%, transparent) 0%,
-    color-mix(in srgb, var(--orbit-color) 7%, transparent) 55%,
+    color-mix(in srgb, var(--orbit-color) var(--orbits-halo-core), transparent) 0%,
+    color-mix(in srgb, var(--orbit-color) var(--orbits-halo-edge), transparent) 55%,
     transparent 100%
   );
   pointer-events: none;
@@ -650,8 +659,7 @@
 
 .orbit-card-task,
 .orbit-card-quote,
-.orbit-card-status,
-.orbit-card-place {
+.orbit-card-status {
   margin: var(--openbot-space-1) 0 0;
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-md);
@@ -677,8 +685,7 @@
   content: close-quote;
 }
 
-.orbit-card-status,
-.orbit-card-place {
+.orbit-card-status {
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-sm);
 }
@@ -694,6 +701,13 @@
 
 .orbit-card-go {
   margin-top: 10px;
+}
+
+.orbit-card-go-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (hover: hover) and (pointer: fine) {

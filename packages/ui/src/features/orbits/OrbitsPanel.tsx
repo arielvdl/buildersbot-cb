@@ -83,8 +83,18 @@ function OrbitsEmpty() {
   );
 }
 
-/** The colours a system takes when its data gives none, in the order of the systems. */
+/** The colours a system takes when its data gives none. */
 const ORBIT_TONES = ["teal", "red", "blue", "pink", "yellow", "green", "orange"] as const;
+
+/**
+ * The colour of a system from its key, so a system keeps its colour while other systems come and go,
+ * and the panel shows the same colour each time it opens.
+ */
+function orbitTone(key: string): string {
+  let hash = 0;
+  for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  return `var(--openbot-file-${ORBIT_TONES[hash % ORBIT_TONES.length]})`;
+}
 
 function OrbitsBody(props: OrbitsPanelProps) {
   const { t } = useText();
@@ -205,7 +215,7 @@ function OrbitsBody(props: OrbitsPanelProps) {
             )}
           </For>
         </fieldset>
-        <p class="orbits-count" aria-live="polite">
+        <p class="orbits-count">
           <span>{t("app.orbits.working", { count: counts().generating })}</span>
           <Show when={counts().needsYou > 0}>
             <Button
@@ -253,10 +263,10 @@ function OrbitsBody(props: OrbitsPanelProps) {
             </For>
           </svg>
           <For each={props.view.systems} keyed={(system) => system.key}>
-            {(system, index) => (
+            {(system) => (
               <OrbitSystemView
                 system={system()}
-                accent={system().color ?? `var(--openbot-file-${ORBIT_TONES[index() % ORBIT_TONES.length]})`}
+                accent={system().color ?? orbitTone(system().key)}
                 agents={props.view.agents}
                 width={width()}
                 bubbleIds={bubbleIds()}

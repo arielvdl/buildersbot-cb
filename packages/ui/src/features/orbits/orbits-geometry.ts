@@ -73,15 +73,24 @@ const TALK_ANGLE = (305 * Math.PI) / 180;
 const STILL_ANGLES = [160, 20, 200, 340, 125, 55].map((degrees) => (degrees * Math.PI) / 180);
 const PARK_GAP = 20;
 const BUBBLE_MAX_WIDTH = 236;
+/**
+ * The smallest half height of the ring of working agents. At the top and the bottom of that ring, a
+ * working planet passes over or under the sun, which can work too. The drawn working ring of the sun
+ * is 27 px from its middle, and that of a planet 21 px at its largest scale, so the two keep 4 px apart.
+ */
+const INNER_MIN_RY = 27 + 21 + 4;
+/** The space between the inner and the outer ring at their top and bottom. */
+const RING_GAP = 8;
 
 export function orbitGeometry(input: OrbitGeometryInput): OrbitGeometry {
   const width = Math.max(0, input.width);
   const rxMax = Math.max(96, Math.min(156, width / 2 - 42));
   const fast = input.movers.length > 0;
   const two = fast && input.still.length > 0;
-  const single = { rx: rxMax * 0.7, ry: Math.max(rxMax * 0.7 * RING_FLATNESS, fast ? 42 : 0) };
-  const outer = two ? { rx: rxMax, ry: rxMax * RING_FLATNESS } : single;
-  const inner = two ? { rx: rxMax * 0.54, ry: Math.max(40, rxMax * 0.54 * 0.48) } : outer;
+  const single = { rx: rxMax * 0.7, ry: Math.max(rxMax * 0.7 * RING_FLATNESS, fast ? INNER_MIN_RY : 0) };
+  const twoInner = { rx: rxMax * 0.54, ry: Math.max(INNER_MIN_RY, rxMax * 0.54 * 0.48) };
+  const inner = two ? twoInner : single;
+  const outer = two ? { rx: rxMax, ry: Math.max(rxMax * RING_FLATNESS, twoInner.ry + RING_GAP) } : single;
   const cx = width / 2 + 8;
   const talker = input.talker;
   // The bottom of the bubble stays above the agent that talks, so nothing passes under the bubble.

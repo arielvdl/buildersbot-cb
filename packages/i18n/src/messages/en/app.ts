@@ -195,7 +195,6 @@ export const messages = defineMessages("app", {
   "app.orbits.state.idle": "idle",
   "app.orbits.card.goChannel": "Go to channel",
   "app.orbits.card.goChat": "Open chat",
-  "app.orbits.card.in": "In {channel}",
   "app.orbits.card.running": { one: "Running for {count} min", other: "Running for {count} min" },
   "app.orbits.card.question": "Waits for your answer",
   "app.orbits.card.approval": "Waits for your approval",

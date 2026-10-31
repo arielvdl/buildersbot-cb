@@ -399,7 +399,7 @@ function OrbitAgentNode(props: OrbitAgentNodeProps) {
   );
 }
 
-/** The card of an agent: its name, one line of work, its time or its wait, and where to go. */
+/** The card of an agent: its name, one line of work, its time or its wait, and one button to its work. */
 function OrbitCard(props: OrbitAgentNodeProps & { familyName: string }) {
   const { t, format } = useText();
   const agent = () => props.agent;
@@ -468,9 +468,6 @@ function OrbitCard(props: OrbitAgentNodeProps & { familyName: string }) {
           </p>
         )}
       </Show>
-      <Show when={channel()}>
-        {(name) => <p class="orbit-card-place">{t("app.orbits.card.in", { channel: name() })}</p>}
-      </Show>
       <Button
         variant="secondary"
         size="sm"
@@ -479,7 +476,14 @@ function OrbitCard(props: OrbitAgentNodeProps & { familyName: string }) {
         data-cuelume-navigate=""
         onClick={() => props.onOpen(agent())}
       >
-        {agent().place ? t("app.orbits.card.goChannel") : t("app.orbits.card.goChat")}
+        {/* The button names the channel, so the card does not name it twice. */}
+        <span class="orbit-card-go-text">
+          {channel()
+            ? t("app.orbits.openChannel", { name: channel() ?? "" })
+            : agent().place
+              ? t("app.orbits.card.goChannel")
+              : t("app.orbits.card.goChat")}
+        </span>
         <ArrowRight aria-hidden="true" />
       </Button>
     </>

@@ -116,6 +116,7 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
         }
         onAgents={() => showSidebarView("agents")}
         onTeam={openTeam}
+        teamOpen={teamOpen()}
         onRoutines={() => showSidebarView("routines")}
         // A joined server without workflows shows its notice on the page.
         onWorkflows={() => windowPage.openWorkflows(null)}

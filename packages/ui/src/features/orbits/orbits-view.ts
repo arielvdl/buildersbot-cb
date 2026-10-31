@@ -40,12 +40,20 @@ export type OrbitWait = "question" | "approval" | "takeover" | "limit" | "turn";
 export type OrbitTier = "opus" | "sonnet" | "haiku" | "fable";
 
 /**
- * The model family of an agent: a Claude tier, the mark of a provider, or `other` for a provider that
- * this build does not know. `name` is a product name, so it is not translated; `other` has none.
+ * The makers of open models that run through a router, such as OpenCode, OpenRouter or Cultura
+ * Builder. No provider of this build has their logo, so each one has a plain shape of its own.
+ */
+export type OrbitMaker = "kimi" | "glm" | "qwen";
+
+/**
+ * The model family of an agent: a Claude tier, the mark of a provider, the shape of a maker, or
+ * `other` for a provider that this build does not know. `name` is a product name, so it is not
+ * translated; `other` has none.
  */
 export type OrbitFamily =
   | { id: OrbitTier; kind: "tier"; name: string }
   | { id: AgentProviderId; kind: "provider"; name: string }
+  | { id: OrbitMaker; kind: "maker"; name: string }
   | { id: "other"; kind: "other"; name: null };
 
 export interface OrbitAgent {
@@ -80,7 +88,11 @@ export interface OrbitSystem {
   /** The channel or the section to open. */
   targetId: string;
   name: string;
-  /** A colour from the data: the colour of the section, or the hue of the lead. Null: the panel picks one. */
+  /**
+   * A colour from the data. A channel takes the hue of its lead, so two channels of one section do
+   * not look the same. A section takes its own colour, else the hue of its first agent. Null: the
+   * panel picks one from the key, so it does not change while other systems come and go.
+   */
   color: string | null;
   /** The lead of a channel, or the first active agent of a section. */
   sunId: string | null;
@@ -162,16 +174,27 @@ const TIER_NAMES: Readonly<Record<OrbitTier, string>> = {
 };
 const TIER_ORDER: readonly OrbitTier[] = ["opus", "sonnet", "haiku", "fable"];
 const TIER_PATTERN = /(?:^|[^a-z])(opus|sonnet|haiku|fable)(?:[^a-z]|$)/u;
-/** Model ids that name the maker of the model when another provider, such as OpenRouter, runs it. */
+/**
+ * Model ids that name the maker of the model when another provider, such as OpenRouter, runs it. A
+ * maker with a provider in this build shows the logo of that provider (Gemini runs on Antigravity).
+ */
 const MODEL_MAKERS: readonly { pattern: RegExp; provider: AgentProviderId }[] = [
   { pattern: /(?:^|\/)(?:gpt|o\d)(?:-|$)/u, provider: "codex" },
   { pattern: /(?:^|\/)grok(?:-|$)/u, provider: "grok" },
   { pattern: /(?:^|\/)deepseek(?:-|$)/u, provider: "deepseek" },
+  { pattern: /(?:^|\/)gemini(?:-|$)/u, provider: "antigravity" },
+];
+/** Model ids of the makers that have no provider in this build. */
+const OPEN_MAKERS: readonly { pattern: RegExp; id: OrbitMaker; name: string }[] = [
+  { pattern: /(?:^|[/:_-])kimi(?:[-_.]|$)/u, id: "kimi", name: "Kimi" },
+  { pattern: /(?:^|[/:_-])(?:glm|chatglm)(?:[-_.]|\d|$)/u, id: "glm", name: "GLM" },
+  { pattern: /(?:^|[/:_-])(?:qwen|qwq)(?:[-_.]|\d|$)/u, id: "qwen", name: "Qwen" },
 ];
 
 /**
  * The family of a model. A Claude tier wins wherever it runs, then the maker that the model id
- * names, then the provider. A provider that this build does not know is `other`.
+ * names, then the provider. A provider that this build does not know is `other`. See the map in
+ * `docs/architecture/team-orbits.md`.
  */
 export function orbitFamily(provider: AgentProviderRef, model: string): OrbitFamily {
   const id = model.toLowerCase();
@@ -179,6 +202,8 @@ export function orbitFamily(provider: AgentProviderRef, model: string): OrbitFam
   if (isOrbitTier(tier)) return { id: tier, kind: "tier", name: TIER_NAMES[tier] };
   const maker = MODEL_MAKERS.find((entry) => entry.pattern.test(id))?.provider;
   if (maker) return { id: maker, kind: "provider", name: providerDisplayName(maker) };
+  const open = OPEN_MAKERS.find((entry) => entry.pattern.test(id));
+  if (open) return { id: open.id, kind: "maker", name: open.name };
   if (isKnownAgentProvider(provider)) return { id: provider, kind: "provider", name: providerDisplayName(provider) };
   return { id: "other", kind: "other", name: null };
 }
@@ -538,7 +563,7 @@ function placeAgents(
       kind: "channel",
       targetId: channel.id,
       name: channel.title.trim() || channel.name,
-      color: sectionColor(input, channel.id) ?? hueOf(agents[lead ?? placed[0] ?? ""]),
+      color: hueOf(agents[lead ?? placed[0] ?? ""]),
       sunId: lead ?? placed[0] ?? null,
       agentIds: lead ? [lead, ...placed.filter((agentId) => agentId !== lead)] : placed,
     });
@@ -572,11 +597,6 @@ function placeAgents(
     ...bySidebarOrder(systems, (system) => system.targetId, order),
     ...sectionSystems.sort((left, right) => sectionRank(left) - sectionRank(right)),
   ];
-}
-
-function sectionColor(input: OrbitsViewInput, chatId: string): string | null {
-  const sectionId = input.layout.agentAssignments[chatId];
-  return input.layout.sections.find((section) => section.id === sectionId)?.color ?? null;
 }
 
 /** The colour of the hue that the person picked for the agent. An agent with no hue gives none. */
