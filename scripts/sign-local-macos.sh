@@ -78,21 +78,49 @@ codesign --verify --strict "$APP"
 print "Signed. Designated requirement:"
 codesign -d --requirements - "$APP" 2>&1 | sed 's/^/  /'
 
+# Moves one item to the user's Trash, where it stays until the user empties it. The macOS `trash`
+# tool (macOS 15 and later) keeps "Put Back". On an older macOS the item is renamed into ~/.Trash.
+# BUILDERS_BOT_TRASH_COMMAND replaces the tool, for the install smoke test only.
+move_to_trash() {
+  local item="$1"
+  local tool="${BUILDERS_BOT_TRASH_COMMAND:-/usr/bin/trash}"
+  if [[ -x "$tool" ]]; then
+    "$tool" "$item"
+  else
+    mkdir -p "$HOME/.Trash"
+    mv "$item" "$HOME/.Trash/${item:t:r} $(date +%Y%m%d-%H%M%S).${item:e}"
+  fi
+  [[ ! -e "$item" ]] || { print -u2 "Could not move $item to the Trash."; exit 1; }
+}
+
 if (( INSTALL )); then
-  TARGET="/Applications/$(basename "$APP")"
+  # BUILDERS_BOT_INSTALL_ROOT replaces /Applications, for the install smoke test only.
+  TARGET="${BUILDERS_BOT_INSTALL_ROOT:-/Applications}/$(basename "$APP")"
+  if [[ "$TARGET" != *.app ]]; then
+    print -u2 "The install target $TARGET is not an app bundle."
+    exit 1
+  fi
   if [[ "$APP" != "$TARGET" ]]; then
     osascript -e 'tell application "Builders Bot" to quit' >/dev/null 2>&1 || true
-    sleep 3
-    if [[ -d "$TARGET" ]]; then
-      BACKUP="$TARGET.bak-$(date +%Y%m%d-%H%M%S)"
-      print "Backing up the installed copy to $BACKUP"
-      rm -rf "$BACKUP"
-      cp -a "$TARGET" "$BACKUP"
+    sleep "${BUILDERS_BOT_QUIT_WAIT_SECONDS:-3}"
+    # The previous copy goes to the Trash, not to a backup beside the new one: a backup in
+    # /Applications was a second full app (about 1 GB) after each install, and no step removed it.
+    # This step touches only the app bundle. The data folder (openbot.db, agents, settings) is
+    # outside it and stays as it is.
+    if [[ -e "$TARGET" ]]; then
+      print "Moving the installed copy to the Trash"
+      move_to_trash "$TARGET"
     fi
-    rm -rf "$TARGET"
-    cp -a "$APP" "$TARGET"
+    # `-c` clones the files on APFS (clonefile), so the installed copy shares its blocks with the
+    # build output and uses no new disk space while dist/ exists. On a volume without clones, cp
+    # makes a usual copy.
+    cp -c -a "$APP" "$TARGET"
     print "Installed to $TARGET"
   fi
+  # Earlier versions of this script left dated backups. They are listed, never removed here.
+  for old_backup in "$TARGET".bak-*(N); do
+    print "An older backup is still at $old_backup. Move it to the Trash when you do not need it."
+  done
   print "Open the app once, then grant Accessibility and Screen Recording to"
   print "\"Builders Bot\" in System Settings > Privacy & Security. The grant now"
   print "survives later builds signed with the same identity."
