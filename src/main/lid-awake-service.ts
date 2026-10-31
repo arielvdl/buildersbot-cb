@@ -47,6 +47,7 @@ import {
   lidTestResult,
   PMSET_BATTERY_ARGS,
   PMSET_PATH,
+  PMSET_SLEEP_NOW_ARGS,
   parsePowerSource,
   parseRootDomain,
   parseSleepWakeTimes,
@@ -78,6 +79,9 @@ const HOLD_RESTART_LIMIT = 3;
 const HOLD_RESTART_WINDOW_MS = 60_000;
 /** After the grant stops, the service turns sleep on again in its next 15-second check. */
 const GRANT_RELEASE_GRACE_MS = 60_000;
+/** After a safety stop with the lid closed, macOS must show sleep on in this time. */
+const SLEEP_REQUEST_TRIES = 15;
+const SLEEP_REQUEST_STEP_MS = 2_000;
 
 export interface LidAwakeServiceOptions {
   /** False on Windows and Linux, on a server, and in the local server process. */
@@ -173,6 +177,7 @@ export class LidAwakeService {
   #supported = false;
   #onPowerAdapter = true;
   #batteryPercent: number | null = null;
+  #charging = false;
   #lidClosed = false;
   #lidClosedSince: number | null = null;
   #sleepDisabled = false;
@@ -192,6 +197,8 @@ export class LidAwakeService {
   #lastTest: LidAwakeTestResult | null = null;
   #lastSent = "";
   #disposed = false;
+  /** A request to sleep after a safety stop runs. */
+  #sleepRequest = false;
 
   constructor(options: LidAwakeServiceOptions) {
     this.#options = options;
@@ -280,6 +287,7 @@ export class LidAwakeService {
     this.#onPowerAdapter = power?.onPowerAdapter ?? !this.#options.isOnBattery();
     // An unknown level fails closed: `decideLidAwake` stops the battery mode on battery.
     this.#batteryPercent = power?.batteryPercent ?? null;
+    this.#charging = power?.charging ?? false;
     if (Option.isSome(rootDomain)) {
       this.#lidClosed = rootDomain.value.lidClosed;
       this.#sleepDisabled = rootDomain.value.sleepDisabled;
@@ -383,6 +391,7 @@ export class LidAwakeService {
         preference,
         onPowerAdapter: this.#onPowerAdapter,
         batteryPercent: this.#batteryPercent,
+        charging: this.#charging,
         thermal: this.#options.thermalState(),
         lidClosedSince: this.#lidClosedSince,
         now,
@@ -402,9 +411,47 @@ export class LidAwakeService {
       logger.info(`Lid-closed hold: ${decision.state}.`);
       const stop = isActive(previous) ? safetyStop(decision.state) : null;
       if (stop) this.#options.notify(this.#stopNotice(stop));
+      if (stop && this.#lidClosed) this.#requestSleep();
     }
     this.#schedulePoll(preference.mode !== "off");
     this.#emit();
+  }
+
+  /**
+   * A safety stop with the lid closed must make the Mac sleep. With `pmset disablesleep 1`, macOS
+   * refused the lid sleep, and it does not ask again when sleep comes back on. So, when macOS shows
+   * sleep on again, this asks it to sleep. The safety service does the same when it turns sleep on.
+   */
+  #requestSleep(): void {
+    if (this.#sleepRequest) return;
+    this.#sleepRequest = true;
+    void Effect.runPromise(this.#sleepWhenAllowed())
+      .catch((error) => logger.warn("The lid-closed mode could not ask macOS to sleep.", toLogValue(error)))
+      .finally(() => {
+        this.#sleepRequest = false;
+      });
+  }
+
+  #sleepWhenAllowed(): Effect.Effect<void> {
+    return Effect.gen({ self: this }, function* () {
+      for (let attempt = 0; attempt < SLEEP_REQUEST_TRIES; attempt++) {
+        if (this.#disposed || isActive(this.#state)) return;
+        const read = yield* run(IOREG_PATH, IOREG_ROOT_DOMAIN_ARGS).pipe(Effect.map(parseRootDomain), Effect.option);
+        if (Option.isSome(read)) {
+          // An open lid or an external display keeps the Mac on as the user wants.
+          if (!read.value.lidClosed || !read.value.clamshellCausesSleep) return;
+          if (!read.value.sleepDisabled) {
+            logger.info("The lid-closed mode stopped with the lid closed. Asking macOS to sleep.");
+            yield* run(PMSET_PATH, PMSET_SLEEP_NOW_ARGS).pipe(
+              Effect.catch((error) => Effect.sync(() => logger.warn("pmset sleepnow failed.", toLogValue(error)))),
+            );
+            return;
+          }
+        }
+        yield* Effect.sleep(SLEEP_REQUEST_STEP_MS);
+      }
+      logger.warn("Sleep stayed off after the lid-closed mode stopped.");
+    });
   }
 
   #stopNotice(stop: "battery-low" | "too-hot" | "time-limit"): string {

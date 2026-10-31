@@ -21,7 +21,7 @@ mini, does not show it. Windows, Linux, a server and the local server process do
 | --- | --- | --- | --- |
 | `off` | Nothing. | | |
 | `plugged` | `/usr/bin/caffeinate -i -s -w <app pid>`. `-s` holds `PreventSystemSleep`. | No password. | macOS obeys `PreventSystemSleep` only on the power adapter. When the lid closes, macOS starts to sleep and stops in dark wake: the processor and the network stay on, the display and the GPU stay off. |
-| `battery` | The `plugged` assertion, and the root safety service runs `pmset -a disablesleep 1` while the app keeps a grant fresh. | The administrator password, one time, to install the service. | `disablesleep` also stops the sleep at low battery and the sleep for heat. The safety rules below replace those stops. |
+| `battery` | The `plugged` assertion, and the root safety service runs `pmset -a disablesleep 1` while the app keeps a grant fresh. | The administrator password, one time, to install the service. | `disablesleep` also stops the sleep at low battery, the sleep for heat, and the lid sleep with the lid already closed. The safety rules below replace those stops. |
 
 `caffeinate -w` ends when the app process ends, also after a crash. powerd also releases the
 assertions of a process that ended. So the `plugged` mode cannot stay on after the app.
@@ -34,13 +34,31 @@ macOS update can change this. The test with the lid closed (below) shows the cha
 `decideLidAwake` in `lid-awake-policy.ts` applies the rules in this order. Each rule fails closed.
 
 1. Thermal state `serious` or `critical` (Electron `powerMonitor`): stop.
-2. The time limit (1, 4 or 8 hours, or no limit) with the lid closed: stop.
+2. The time limit (1, 4 or 8 hours, or no limit) with the lid closed: stop. On battery, the
+   `battery` mode stops after 8 hours also with no limit, because the service stops then.
 3. `plugged`, or `battery` with no installed service: hold only on the power adapter.
-4. `battery` on battery: stop below the floor (20, 30 or 50 percent), and stop when the level is not
-   known.
+4. `battery`: stop below the floor (20, 30 or 50 percent), and stop when the level is not known.
+   This applies on the power adapter too, except while `pmset -g batt` shows `charging`, `charged`
+   or `finishing charge`. macOS can stop the charge (`AC attached; not charging`) for heat or with a
+   weak adapter, and `disablesleep 1` also stops the sleep at low battery.
 
 A stop from rule 1, 2 or 4 while the mode was active shows a desktop notification. The app reads
 `pmset -g batt` and `ioreg` each 30 seconds while the mode is on, and at each power or thermal event.
+
+### Sleep after a stop with the lid closed
+
+With `disablesleep 1`, macOS refuses the lid sleep: `IOPMrootDomain::privateSleepSystem` returns
+`kIOReturnNotPermitted` while `userDisabledAllSleep` is set (`checkSystemSleepAllowed`). When
+`disablesleep` goes back to 0, `kPowerEventUserDisabledSleep` only sets the flag again. Nothing asks
+for the lid sleep again, and the Mac stays on with the lid closed. So:
+
+- After a stop from rule 1, 2 or 4 with the lid closed, the app reads `ioreg` each 2 seconds, for
+  up to 30 seconds. When it shows `SleepDisabled = No`, `AppleClamshellState = Yes` and
+  `AppleClamshellCausesSleep = Yes`, the app runs `pmset sleepnow`, which needs no administrator.
+- The service does the same each time it turns sleep on (see below).
+
+`AppleClamshellCausesSleep = No` (an external display on the power adapter) and an open lid never
+cause a sleep request. This comes from the xnu source; it is not verified on a device.
 
 ## Root safety service
 
@@ -67,23 +85,40 @@ are true, and off in all other cases:
 - A file `grant/active-<floor>` is owned by the uid in `owner`, and its change time is less than 90
   seconds old. The app renews it each 30 seconds while the `battery` mode is active. The service
   reads only the owner and the change time, never the content.
-- `/Applications/Builders Bot.app/Contents/MacOS/Builders Bot` runs as that uid.
-- The Mac is on the power adapter, or the battery is at or above the floor in the file name. The
-  service never accepts a floor below 20.
-- `pmset -g therm` shows no thermal warning.
+- A process of that uid has the path `/Applications/Builders Bot.app/Contents/MacOS/Builders Bot`
+  (`ps -o comm`).
+- The battery charges or is full on the power adapter, or the battery is at or above the floor in
+  the file name. The service never accepts a floor below 20.
+- `notifyutil -g com.apple.system.thermalpressurelevel` shows exactly level 0 or 1. Apple silicon
+  reports heat only here: `pmset -g therm` shows no level on this hardware. `pmset -g therm` must
+  also show no thermal warning (Intel).
+- On battery, the lid is closed for less than 8 hours. The service keeps the time in the root file
+  `closed-since` and removes it when the lid is open.
+- `ioreg` answered. A failed read turns sleep on.
+
+When the service turns sleep on, it waits until `ioreg` shows `SleepDisabled = No`. Then, with the
+lid closed and `AppleClamshellCausesSleep = Yes`, it runs `pmset sleepnow` (see "Sleep after a stop
+with the lid closed"). It does not do this on `SIGTERM`, which comes at shut down, restart and
+removal.
 
 At its start the service turns `disablesleep` off, because `pmset` writes the setting to disk and
 keeps it after a restart. On `SIGTERM` it turns it off too. So after a crash of the app or a quit,
-normal sleep comes back in 90 to 105 seconds. After a restart, it comes back when launchd starts the
-service.
+normal sleep comes back in 90 to 105 seconds, about 2 minutes. After a restart, it comes back when
+launchd starts the service. The service touches the root file `alive` at each check. When the app
+is not in `/Applications` for 8 checks (2 minutes), the service turns sleep on, removes its files
+and runs `launchctl bootout` for itself.
 
 **Restore normal sleep** in Settings runs the remove script. It works also when the service is not
 installed: it stops the service, runs `pmset -a disablesleep 0`, and removes the files. Settings
 shows a red warning with this button when `ioreg` shows `SleepDisabled = Yes` and the app has no
 fresh grant.
 
-Any process of the same user can renew the grant while the app runs. The effect stays inside the
-rules of the service: the Mac stays on, within the battery floor and the thermal check.
+The service cannot prove that the request comes from the app. Any process of the same user can renew
+the grant, and any process can take the path of the app as its name (`exec -a`). The app bundle also
+belongs to the user. So the service does not trust the app: its own limits are the safety rules. With
+a grant that another process renews, the Mac stays on only within the battery floor (never below 20
+percent), the thermal check and 8 hours on battery with the lid closed. Remove the service when the
+mode is not in use.
 
 ## Routines in dark wake
 

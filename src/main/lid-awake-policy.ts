@@ -18,7 +18,11 @@ export const CAFFEINATE_PATH = "/usr/bin/caffeinate";
 export const PMSET_PATH = "/usr/bin/pmset";
 export const IOREG_PATH = "/usr/sbin/ioreg";
 export const PMSET_BATTERY_ARGS = ["-g", "batt"] as const;
+/** Asks macOS to sleep now. It needs no administrator. */
+export const PMSET_SLEEP_NOW_ARGS = ["sleepnow"] as const;
 export const IOREG_ROOT_DOMAIN_ARGS = ["-r", "-c", "IOPMrootDomain", "-d", "1"] as const;
+/** The safety service keeps sleep off on battery with the lid closed for this long at most. */
+export const SERVICE_MAX_CLOSED_HOURS = 8;
 
 /**
  * `-s` stops system sleep, which macOS obeys only on the power adapter. `-i` stops idle sleep, on
@@ -35,6 +39,8 @@ export interface LidAwakeInput {
   preference: LidAwakePreference;
   onPowerAdapter: boolean;
   batteryPercent: number | null;
+  /** On the power adapter, the battery charges or is full. */
+  charging: boolean;
   thermal: ThermalState;
   /** When the lid closed while the mode was on, or null while it is open. */
   lidClosedSince: number | null;
@@ -64,14 +70,27 @@ export function timeLimitReached(lidClosedSince: number | null, now: number, hou
 }
 
 /**
+ * The hours with the lid closed before the mode stops. On battery, the `battery` mode also has the
+ * limit of the safety service, so the app stops when the service stops.
+ */
+export function effectiveTimeLimitHours(preference: LidAwakePreference, onPowerAdapter: boolean): number {
+  if (preference.mode !== "battery" || onPowerAdapter) return preference.timeLimitHours;
+  return preference.timeLimitHours === 0
+    ? SERVICE_MAX_CLOSED_HOURS
+    : Math.min(preference.timeLimitHours, SERVICE_MAX_CLOSED_HOURS);
+}
+
+/**
  * The order is the order of the safety rules: heat first, then the time limit, then the power
- * source. An unknown battery level on battery stops the `battery` mode: the rule fails closed.
+ * source. An unknown battery level stops the `battery` mode: the rule fails closed. With the
+ * service, `pmset disablesleep 1` also stops the sleep for low battery, so the floor applies on the
+ * power adapter too, except while the battery charges.
  */
 export function decideLidAwake(input: LidAwakeInput): LidAwakeDecision {
   const { preference } = input;
   if (preference.mode === "off") return { state: "off", ...NONE };
   if (isTooHot(input.thermal)) return { state: "paused-too-hot", ...NONE };
-  if (timeLimitReached(input.lidClosedSince, input.now, preference.timeLimitHours))
+  if (timeLimitReached(input.lidClosedSince, input.now, effectiveTimeLimitHours(preference, input.onPowerAdapter)))
     return { state: "paused-time-limit", ...NONE };
   const helperReady = preference.mode === "battery" && input.helper === "installed";
   if (!helperReady) {
@@ -80,8 +99,8 @@ export function decideLidAwake(input: LidAwakeInput): LidAwakeDecision {
     if (input.holdFailed) return { state: "failed", ...NONE };
     return { state: "active-plugged", assertion: true, grant: false };
   }
-  if (!input.onPowerAdapter && (input.batteryPercent === null || input.batteryPercent < preference.batteryFloor))
-    return { state: "paused-battery-low", ...NONE };
+  const aboveFloor = input.batteryPercent !== null && input.batteryPercent >= preference.batteryFloor;
+  if (!aboveFloor && !(input.onPowerAdapter && input.charging)) return { state: "paused-battery-low", ...NONE };
   // The assertion also keeps App Nap off, so the grant stays fresh with the lid closed.
   return { state: "active-battery", assertion: !input.holdFailed, grant: true };
 }
@@ -101,7 +120,11 @@ export function isActive(state: LidAwakeState): boolean {
 export interface PowerSource {
   onPowerAdapter: boolean | null;
   batteryPercent: number | null;
+  /** The battery charges or is full. `AC attached; not charging` is false. */
+  charging: boolean;
 }
+
+const CHARGING_STATES = new Set(["charging", "charged", "finishing charge"]);
 
 /**
  * `pmset -g batt`, for example:
@@ -115,16 +138,19 @@ export function parsePowerSource(text: string): PowerSource {
   const lines = text.split("\n");
   const source = /^Now drawing from '([^']+)'$/.exec(lines[0]?.trim() ?? "")?.[1];
   let batteryPercent: number | null = null;
+  let charging = false;
   for (const line of lines.slice(1)) {
     if (!line.trimStart().startsWith("-InternalBattery")) continue;
-    const match = /\t(\d{1,3})%;/.exec(line);
+    const match = /\t(\d{1,3})%; ([^;]+);/.exec(line);
     const percent = match ? Number(match[1]) : Number.NaN;
     batteryPercent = Number.isInteger(percent) && percent <= 100 ? percent : null;
+    charging = batteryPercent !== null && CHARGING_STATES.has(match?.[2] ?? "");
     break;
   }
   return {
     onPowerAdapter: source === "AC Power" ? true : source === "Battery Power" ? false : null,
     batteryPercent,
+    charging,
   };
 }
 
@@ -132,6 +158,8 @@ export interface RootDomainState {
   /** A desktop Mac has no `AppleClamshellState`. */
   hasLid: boolean;
   lidClosed: boolean;
+  /** False with an external display on the power adapter: then the lid does not sleep the Mac. */
+  clamshellCausesSleep: boolean;
   /** `pmset disablesleep 1` is in effect. */
   sleepDisabled: boolean;
 }
@@ -140,7 +168,12 @@ export interface RootDomainState {
 export function parseRootDomain(text: string): RootDomainState {
   const value = (key: string) => new RegExp(`^\\s*"${key}" = (Yes|No)\\s*$`, "m").exec(text)?.[1] ?? null;
   const lid = value("AppleClamshellState");
-  return { hasLid: lid !== null, lidClosed: lid === "Yes", sleepDisabled: value("SleepDisabled") === "Yes" };
+  return {
+    hasLid: lid !== null,
+    lidClosed: lid === "Yes",
+    clamshellCausesSleep: value("AppleClamshellCausesSleep") === "Yes",
+    sleepDisabled: value("SleepDisabled") === "Yes",
+  };
 }
 
 /**

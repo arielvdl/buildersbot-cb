@@ -15,7 +15,7 @@
 // bun scripts/lid-awake-smoke.ts
 
 import { execFile, spawn } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -23,8 +23,6 @@ import { DEFAULT_LID_AWAKE_PREFERENCE, type LidAwakePreference } from "@openbot/
 import {
   adminScriptArgs,
   isUserCancel,
-  LID_AWAKE_APP_EXECUTABLE,
-  LID_AWAKE_BASE,
   LID_AWAKE_INSTALL_SCRIPT,
   LID_AWAKE_PLIST,
   LID_AWAKE_REMOVE_SCRIPT,
@@ -65,6 +63,7 @@ function decide(change: Partial<Omit<LidAwakeInput, "preference">> & { preferenc
   const input: LidAwakeInput = {
     onPowerAdapter: true,
     batteryPercent: 80,
+    charging: false,
     thermal: "nominal",
     lidClosedSince: null,
     now: 10 * HOUR,
@@ -155,8 +154,65 @@ equal(
   "paused-battery-low",
 );
 equal(
-  "battery mode on AC grants at any level",
-  decide({ preference: { mode: "battery" }, helper: "installed", onPowerAdapter: true, batteryPercent: 5 }).state,
+  "battery mode on AC above the floor grants",
+  decide({ preference: { mode: "battery" }, helper: "installed", onPowerAdapter: true, batteryPercent: 30 }).state,
+  "active-battery",
+);
+// "AC Power" with a battery that does not charge (heat, a weak adapter) still discharges, and
+// `disablesleep 1` also stops the sleep for low battery.
+equal(
+  "battery mode on AC below the floor stops while the battery does not charge",
+  decide({ preference: { mode: "battery" }, helper: "installed", onPowerAdapter: true, batteryPercent: 15 }),
+  { state: "paused-battery-low", assertion: false, grant: false },
+);
+equal(
+  "battery mode on AC below the floor grants while the battery charges",
+  decide({
+    preference: { mode: "battery" },
+    helper: "installed",
+    onPowerAdapter: true,
+    batteryPercent: 15,
+    charging: true,
+  }).state,
+  "active-battery",
+);
+equal(
+  "battery mode on AC with an unknown level stops while the battery does not charge",
+  decide({ preference: { mode: "battery" }, helper: "installed", onPowerAdapter: true, batteryPercent: null }).state,
+  "paused-battery-low",
+);
+equal(
+  "battery mode with no limit stops after 8 hours on battery, as the service does",
+  decide({
+    preference: { mode: "battery", timeLimitHours: 0 },
+    helper: "installed",
+    onPowerAdapter: false,
+    lidClosedSince: 2 * HOUR,
+    now: 10 * HOUR,
+  }).state,
+  "paused-time-limit",
+);
+equal(
+  "battery mode with a limit of 1 hour keeps it on battery",
+  decide({
+    preference: { mode: "battery", timeLimitHours: 1 },
+    helper: "installed",
+    onPowerAdapter: false,
+    lidClosedSince: 9 * HOUR,
+    now: 10 * HOUR,
+  }).state,
+  "paused-time-limit",
+);
+equal(
+  "battery mode with no limit on AC never stops",
+  decide({
+    preference: { mode: "battery", timeLimitHours: 0 },
+    helper: "installed",
+    onPowerAdapter: true,
+    charging: true,
+    lidClosedSince: 0,
+    now: 100 * HOUR,
+  }).state,
   "active-battery",
 );
 equal(
@@ -176,14 +232,14 @@ equal(
   parsePowerSource(
     "Now drawing from 'AC Power'\n -InternalBattery-0 (id=22085731)\t54%; charging; 1:30 remaining present: true\n",
   ),
-  { onPowerAdapter: true, batteryPercent: 54 },
+  { onPowerAdapter: true, batteryPercent: 54, charging: true },
 );
 equal(
   "pmset batt on battery",
   parsePowerSource(
     "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=22085731)\t7%; discharging; 0:10 remaining present: true\n",
   ),
-  { onPowerAdapter: false, batteryPercent: 7 },
+  { onPowerAdapter: false, batteryPercent: 7, charging: false },
 );
 equal(
   "pmset batt full",
@@ -193,11 +249,27 @@ equal(
   {
     onPowerAdapter: true,
     batteryPercent: 100,
+    charging: true,
   },
+);
+equal(
+  "pmset batt finishing charge",
+  parsePowerSource(
+    "Now drawing from 'AC Power'\n -InternalBattery-0 (id=22085731)\t99%; finishing charge; 0:10 remaining present: true\n",
+  ),
+  { onPowerAdapter: true, batteryPercent: 99, charging: true },
+);
+equal(
+  "pmset batt on AC with no charge",
+  parsePowerSource(
+    "Now drawing from 'AC Power'\n -InternalBattery-0 (id=22085731)\t18%; AC attached; not charging present: true\n",
+  ),
+  { onPowerAdapter: true, batteryPercent: 18, charging: false },
 );
 equal("pmset batt with no battery", parsePowerSource("Now drawing from 'AC Power'\n"), {
   onPowerAdapter: true,
   batteryPercent: null,
+  charging: false,
 });
 equal(
   "pmset batt over 100 is unknown",
@@ -205,23 +277,37 @@ equal(
   {
     onPowerAdapter: false,
     batteryPercent: null,
+    charging: false,
   },
 );
 equal("pmset batt in an unknown form", parsePowerSource("Drawing from UPS\nsomething"), {
   onPowerAdapter: null,
   batteryPercent: null,
+  charging: false,
 });
-const ioreg = (lid: string | null, disabled: string) =>
-  `+-o IOPMrootDomain\n    {\n      "AppleClamshellCausesSleep" = Yes\n${lid === null ? "" : `      "AppleClamshellState" = ${lid}\n`}      "SleepDisabled" = ${disabled}\n    }\n`;
-equal("ioreg lid open", parseRootDomain(ioreg("No", "No")), { hasLid: true, lidClosed: false, sleepDisabled: false });
+const ioreg = (lid: string | null, disabled: string, causesSleep = "Yes") =>
+  `+-o IOPMrootDomain\n    {\n      "AppleClamshellCausesSleep" = ${causesSleep}\n${lid === null ? "" : `      "AppleClamshellState" = ${lid}\n`}      "SleepDisabled" = ${disabled}\n    }\n`;
+equal("ioreg lid open", parseRootDomain(ioreg("No", "No")), {
+  hasLid: true,
+  lidClosed: false,
+  clamshellCausesSleep: true,
+  sleepDisabled: false,
+});
 equal("ioreg lid closed and sleep off", parseRootDomain(ioreg("Yes", "Yes")), {
   hasLid: true,
   lidClosed: true,
+  clamshellCausesSleep: true,
   sleepDisabled: true,
 });
+equal(
+  "ioreg lid closed with an external display",
+  parseRootDomain(ioreg("Yes", "No", "No")).clamshellCausesSleep,
+  false,
+);
 equal("ioreg of a Mac with no lid", parseRootDomain(ioreg(null, "No")), {
   hasLid: false,
   lidClosed: false,
+  clamshellCausesSleep: true,
   sleepDisabled: false,
 });
 
@@ -393,11 +479,16 @@ check(
 );
 check("the remove script turns sleep on", LID_AWAKE_REMOVE_SCRIPT.includes("/usr/bin/pmset -a disablesleep 0"));
 check(
-  "the tool script runs only the two fixed pmset changes",
-  [...LID_AWAKE_TOOL_SCRIPT.matchAll(/\/usr\/bin\/pmset -a [^\n]*/g)]
+  "the tool script changes pmset only with the two fixed disablesleep values and sleepnow",
+  [...LID_AWAKE_TOOL_SCRIPT.matchAll(/\/usr\/bin\/pmset (?!-g )[^\n]*/g)]
     .map((match) => match[0])
     .sort()
-    .join("|") === "/usr/bin/pmset -a disablesleep 0 >/dev/null 2>&1|/usr/bin/pmset -a disablesleep 1 >/dev/null 2>&1",
+    .join("|") ===
+    "/usr/bin/pmset -a disablesleep 0 >/dev/null 2>&1|/usr/bin/pmset -a disablesleep 1 >/dev/null 2>&1|/usr/bin/pmset sleepnow >/dev/null 2>&1",
+);
+check(
+  "the tool script does not ask to sleep when it stops (shut down, restart, removal)",
+  /^trap 'allow_sleep; exit 0' TERM INT HUP$/m.test(LID_AWAKE_TOOL_SCRIPT),
 );
 
 const root = await mkdtemp(join(tmpdir(), "openbot-lid-awake-smoke-"));
@@ -423,112 +514,257 @@ try {
     ),
   );
 
-  // 3. The safety service, one check, with stub commands.
+  // 3. The safety service, with stub commands. The stub `pmset -a disablesleep` changes what the
+  // stub `ioreg` shows, as macOS does.
 
   const stub = join(root, "stub");
   const base = join(root, "base");
+  const fakeApp = join(root, "Builders Bot.app", "Contents", "MacOS", "Builders Bot");
+  const fakeTool = join(root, "installed-tool.sh");
+  const fakePlist = join(root, "installed.plist");
   await mkdir(stub);
+  await mkdir(join(root, "Builders Bot.app", "Contents", "MacOS"), { recursive: true });
   const stubScript = (body: string) => `#!/bin/sh\n${body}\n`;
   await writeFile(
     join(stub, "pmset"),
-    stubScript(`if [ "$1" = -a ]; then echo "$2 $3" >> "${stub}/changes"; exit 0; fi
-if [ "$2" = batt ]; then cat "${stub}/batt"; exit 0; fi
+    stubScript(`if [ "$1" = -a ]; then
+  echo "$2 $3" >> "${stub}/changes"
+  if [ "$3" = 1 ]; then echo Yes > "${stub}/disabled"; else echo No > "${stub}/disabled"; fi
+  exit 0
+fi
+if [ "$1" = sleepnow ]; then echo sleepnow >> "${stub}/changes"; exit 0; fi
+if [ "$2" = batt ]; then
+  n=$(($(cat "${stub}/count") + 1)); echo "$n" > "${stub}/count"
+  if [ -f "${stub}/batt.$n" ]; then cat "${stub}/batt.$n"; else cat "${stub}/batt"; fi
+  exit 0
+fi
 if [ "$2" = therm ]; then cat "${stub}/therm"; exit 0; fi
 exit 1`),
   );
   await writeFile(
     join(stub, "ioreg"),
-    stubScript(`printf '      "SleepDisabled" = %s\\n' "$(cat "${stub}/disabled")"`),
+    stubScript(
+      `[ "$(cat "${stub}/ioreg-mode")" = fail ] && exit 1
+printf '      "AppleClamshellCausesSleep" = %s\\n      "AppleClamshellState" = %s\\n      "SleepDisabled" = %s\\n' "$(cat "${stub}/causes")" "$(cat "${stub}/lid")" "$(cat "${stub}/disabled")"`,
+    ),
   );
   await writeFile(join(stub, "ps"), stubScript(`cat "${stub}/ps.out"`));
-  for (const name of ["pmset", "ioreg", "ps"]) await chmod(join(stub, name), 0o755);
+  await writeFile(join(stub, "notifyutil"), stubScript(`cat "${stub}/pressure"`));
+  await writeFile(join(stub, "launchctl"), stubScript(`echo "launchctl $*" >> "${stub}/changes"`));
+  for (const name of ["pmset", "ioreg", "ps", "notifyutil", "launchctl"]) await chmod(join(stub, name), 0o755);
   const uid = process.getuid?.() ?? 501;
-  const testScript = LID_AWAKE_TOOL_SCRIPT.replaceAll("/usr/bin/pmset", `${stub}/pmset`)
-    .replaceAll("/usr/sbin/ioreg", `${stub}/ioreg`)
-    .replaceAll("/bin/ps", `${stub}/ps`)
-    .replace(`BASE='${LID_AWAKE_BASE}'`, `BASE='${base}'`)
-    .replace("TICK=15", "TICK=0")
-    .replace("while :; do", "for once in 1; do");
+  const serviceCopy = (checks: number, goneTicks: number) =>
+    LID_AWAKE_TOOL_SCRIPT.replaceAll("/usr/bin/pmset", `${stub}/pmset`)
+      .replaceAll("/usr/sbin/ioreg", `${stub}/ioreg`)
+      .replaceAll("/bin/ps", `${stub}/ps`)
+      .replaceAll("/usr/bin/notifyutil", `${stub}/notifyutil`)
+      .replaceAll("/bin/launchctl", `${stub}/launchctl`)
+      .replace(/^TOOL='.*'$/m, `TOOL='${fakeTool}'`)
+      .replace(/^PLIST='.*'$/m, `PLIST='${fakePlist}'`)
+      .replace(/^PARENT='.*'$/m, `PARENT='${join(root, "no-parent")}'`)
+      .replace(/^BASE='.*'$/m, `BASE='${base}'`)
+      .replace(/^APP='.*'$/m, `APP='${fakeApp}'`)
+      .replace("TICK=15", "TICK=0")
+      .replace("SETTLE=1", "SETTLE=0")
+      .replace("GONE_TICKS=8", `GONE_TICKS=${goneTicks}`)
+      .replace("while :; do", `for check in ${Array.from({ length: checks }, (_, index) => index + 1).join(" ")}; do`);
+  const sample = serviceCopy(1, 8);
   check(
-    "the test copy of the service has no real pmset and no /Library path",
-    !testScript.includes("/usr/bin/pmset") &&
-      !testScript.includes("/Library/") &&
-      testScript.includes("for once in 1; do"),
+    "the test copy of the service has no real pmset, launchctl or /Library path",
+    !sample.includes("/usr/bin/pmset") &&
+      !sample.includes("/bin/launchctl") &&
+      !sample.includes("/Library/") &&
+      sample.includes("for check in 1; do"),
   );
   const servicePath = join(root, "service-under-test.sh");
-  await writeFile(servicePath, testScript);
+  const exists = (path: string) =>
+    stat(path).then(
+      () => true,
+      () => false,
+    );
 
-  const AC = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1)\t54%; charging; 1:30 remaining present: true\n";
+  const batteryLine = (percent: number, state: string) =>
+    ` -InternalBattery-0 (id=1)\t${percent}%; ${state} present: true\n`;
+  const ac = (percent: number, state: string) => `Now drawing from 'AC Power'\n${batteryLine(percent, state)}`;
+  const AC = ac(54, "charging; 1:30 remaining");
   const battery = (percent: number) =>
-    `Now drawing from 'Battery Power'\n -InternalBattery-0 (id=1)\t${percent}%; discharging; 2:00 remaining present: true\n`;
-  const COOL =
+    `Now drawing from 'Battery Power'\n${batteryLine(percent, "discharging; 2:00 remaining")}`;
+  // `pmset -g therm` on Apple silicon (this Mac, macOS 26.4.1) never shows a level.
+  const NO_THERMAL_LEVEL =
     "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\n";
-  const appLine = `  ${uid} ${LID_AWAKE_APP_EXECUTABLE}\n  ${uid} /usr/bin/caffeinate\n`;
+  const pressure = (level: string) => `com.apple.system.thermalpressurelevel ${level}\n`;
+  const appLine = `  ${uid} ${fakeApp}\n  ${uid} /usr/bin/caffeinate\n`;
+  const BLOCK = ["disablesleep 0", "disablesleep 1"];
+  const ALLOW = ["disablesleep 0"];
+  const HOURS = 3_600;
 
   interface Case {
     name: string;
     owner?: string;
     grant?: { floor: number; ageSeconds: number } | "symlink" | null;
-    batt?: string;
+    /** A list gives the text of each check. */
+    batt?: string | string[];
     therm?: string;
+    pressure?: string;
     ps?: string;
-    disabled?: "Yes" | "No";
+    lid?: "Yes" | "No";
+    causesSleep?: "Yes" | "No";
+    /** The lid closed this many seconds ago, in the file of the service. */
+    closedSince?: number;
+    checks?: number;
+    goneTicks?: number;
+    noApp?: boolean;
+    ioregFails?: boolean;
     expected: string[];
+    after?: () => Promise<void>;
   }
   const cases: Case[] = [
-    { name: "fresh grant on AC blocks sleep", expected: ["disablesleep 0", "disablesleep 1"] },
-    { name: "fresh grant with sleep already off keeps it", disabled: "Yes", expected: ["disablesleep 0"] },
-    { name: "no grant allows sleep", grant: null, disabled: "Yes", expected: ["disablesleep 0", "disablesleep 0"] },
-    {
-      name: "a grant of 120 s allows sleep",
-      grant: { floor: 30, ageSeconds: 120 },
-      disabled: "Yes",
-      expected: ["disablesleep 0", "disablesleep 0"],
-    },
-    {
-      name: "a grant from the future allows sleep",
-      grant: { floor: 30, ageSeconds: -60 },
-      expected: ["disablesleep 0"],
-    },
-    { name: "a grant link allows sleep", grant: "symlink", expected: ["disablesleep 0"] },
-    { name: "another owner allows sleep", owner: "0", expected: ["disablesleep 0"] },
-    { name: "an owner file with text allows sleep", owner: "501; rm", expected: ["disablesleep 0"] },
+    { name: "fresh grant on AC blocks sleep", expected: BLOCK },
+    { name: "a second check keeps sleep off", checks: 2, expected: BLOCK },
+    { name: "no grant allows sleep", grant: null, expected: ALLOW },
+    { name: "a grant of 120 s allows sleep", grant: { floor: 30, ageSeconds: 120 }, expected: ALLOW },
+    { name: "a grant from the future allows sleep", grant: { floor: 30, ageSeconds: -60 }, expected: ALLOW },
+    { name: "a grant link allows sleep", grant: "symlink", expected: ALLOW },
+    { name: "another owner allows sleep", owner: "0", expected: ALLOW },
+    { name: "an owner file with text allows sleep", owner: "501; rm", expected: ALLOW },
     {
       name: "app not running allows sleep",
       ps: `  ${uid} /Applications/Other.app/Contents/MacOS/Other\n`,
-      expected: ["disablesleep 0"],
+      expected: ALLOW,
     },
-    { name: "app of another user allows sleep", ps: `  0 ${LID_AWAKE_APP_EXECUTABLE}\n`, expected: ["disablesleep 0"] },
-    { name: "battery above the floor blocks sleep", batt: battery(35), expected: ["disablesleep 0", "disablesleep 1"] },
-    { name: "battery at the floor blocks sleep", batt: battery(30), expected: ["disablesleep 0", "disablesleep 1"] },
-    { name: "battery below the floor allows sleep", batt: battery(29), expected: ["disablesleep 0"] },
+    { name: "app of another user allows sleep", ps: `  0 ${fakeApp}\n`, expected: ALLOW },
+    { name: "battery above the floor blocks sleep", batt: battery(35), expected: BLOCK },
+    { name: "battery at the floor blocks sleep", batt: battery(30), expected: BLOCK },
+    { name: "battery below the floor allows sleep", batt: battery(29), expected: ALLOW },
+    { name: "a 50 floor stops at 49", grant: { floor: 50, ageSeconds: 5 }, batt: battery(49), expected: ALLOW },
+    { name: "a 20 floor holds at 20", grant: { floor: 20, ageSeconds: 5 }, batt: battery(20), expected: BLOCK },
+    { name: "unknown battery text allows sleep", batt: "Now drawing from 'UPS Power'\n", expected: ALLOW },
+    // "AC Power" is not enough: the battery must charge, or be at or above the floor.
+    { name: "AC with 15% that discharges allows sleep", batt: ac(15, "discharging; 1:00 remaining"), expected: ALLOW },
+    { name: "AC with 15% that charges blocks sleep", batt: ac(15, "charging; 2:00 remaining"), expected: BLOCK },
     {
-      name: "a 50 floor stops at 49",
-      grant: { floor: 50, ageSeconds: 5 },
-      batt: battery(49),
-      expected: ["disablesleep 0"],
+      name: "AC with no charge above the floor blocks sleep",
+      batt: ac(80, "AC attached; not charging"),
+      expected: BLOCK,
     },
     {
-      name: "a 20 floor holds at 20",
-      grant: { floor: 20, ageSeconds: 5 },
-      batt: battery(20),
-      expected: ["disablesleep 0", "disablesleep 1"],
+      name: "AC with no charge below the floor allows sleep",
+      batt: ac(18, "AC attached; not charging"),
+      expected: ALLOW,
     },
-    { name: "unknown battery text allows sleep", batt: "Now drawing from 'UPS Power'\n", expected: ["disablesleep 0"] },
+    { name: "AC with a full battery blocks sleep", batt: ac(100, "charged; 0:00 remaining"), expected: BLOCK },
+    {
+      name: "AC that finishes the charge blocks sleep",
+      batt: ac(99, "finishing charge; 0:10 remaining"),
+      expected: BLOCK,
+    },
+    { name: "AC with no battery line allows sleep", batt: "Now drawing from 'AC Power'\n", expected: ALLOW },
+    // Heat: the thermal pressure, which Apple silicon reports, and the level of Intel Macs.
+    { name: "thermal pressure 1 blocks sleep", pressure: pressure("1"), expected: BLOCK },
+    { name: "thermal pressure 2 allows sleep", pressure: pressure("2"), expected: ALLOW },
+    { name: "an unknown thermal pressure allows sleep", pressure: pressure("x"), expected: ALLOW },
+    { name: "no thermal pressure allows sleep", pressure: "", expected: ALLOW },
     {
       name: "a thermal warning allows sleep",
       therm: "2026-10-31 14:00:00 +0000 Thermal Warning Level = 2\n",
-      expected: ["disablesleep 0"],
+      expected: ALLOW,
     },
     {
       name: "thermal level 0 blocks sleep",
       therm: "2026-10-31 14:00:00 +0000 Thermal Warning Level = 0\n",
-      expected: ["disablesleep 0", "disablesleep 1"],
+      expected: BLOCK,
     },
     {
       name: "a thermal error allows sleep",
       therm: "Error:Failed to get thermal warning level with error code 0x1\n",
-      expected: ["disablesleep 0"],
+      expected: ALLOW,
+    },
+    // The time limit of the service.
+    {
+      name: "the lid closed for 9 hours on battery allows sleep",
+      lid: "Yes",
+      closedSince: 9 * HOURS,
+      batt: battery(80),
+      expected: ALLOW,
+    },
+    {
+      name: "the lid closed for 7 hours on battery blocks sleep",
+      lid: "Yes",
+      closedSince: 7 * HOURS,
+      batt: battery(80),
+      expected: BLOCK,
+    },
+    {
+      name: "the lid closed for 9 hours on AC that charges blocks sleep",
+      lid: "Yes",
+      closedSince: 9 * HOURS,
+      expected: BLOCK,
+    },
+    {
+      name: "a closed lid starts the time of the service",
+      lid: "Yes",
+      batt: battery(80),
+      expected: BLOCK,
+      after: async () => check("service: the closed time is written", await exists(join(base, "closed-since"))),
+    },
+    {
+      name: "an open lid ends the time of the service",
+      lid: "No",
+      closedSince: 9 * HOURS,
+      batt: battery(80),
+      expected: BLOCK,
+      after: async () => check("service: the closed time is removed", !(await exists(join(base, "closed-since")))),
+    },
+    // When sleep comes back on with the lid closed, macOS does not sleep by itself.
+    {
+      name: "a stop with the lid closed asks macOS to sleep",
+      checks: 2,
+      lid: "Yes",
+      batt: [AC, battery(10)],
+      expected: [...BLOCK, "disablesleep 0", "sleepnow"],
+    },
+    {
+      name: "a stop with the lid open does not ask to sleep",
+      checks: 2,
+      batt: [AC, battery(10)],
+      expected: [...BLOCK, "disablesleep 0"],
+    },
+    {
+      name: "a stop with an external display does not ask to sleep",
+      checks: 2,
+      lid: "Yes",
+      causesSleep: "No",
+      batt: [AC, battery(10)],
+      expected: [...BLOCK, "disablesleep 0"],
+    },
+    {
+      name: "a failed read of ioreg turns sleep on and keeps the closed time",
+      ioregFails: true,
+      closedSince: 3 * HOURS,
+      expected: ["disablesleep 0", "disablesleep 0"],
+      after: async () => check("service: the closed time stays", await exists(join(base, "closed-since"))),
+    },
+    {
+      name: "each check touches alive",
+      expected: BLOCK,
+      after: async () => check("service: alive is written", await exists(join(base, "alive"))),
+    },
+    {
+      name: "the service stays while the app is gone for a short time",
+      noApp: true,
+      checks: 2,
+      expected: BLOCK,
+    },
+    {
+      name: "the service removes itself when the app is gone",
+      noApp: true,
+      goneTicks: 1,
+      expected: ["disablesleep 0", "disablesleep 0", "launchctl bootout system/app.buildersbot.lid-awake"],
+      after: async () =>
+        check(
+          "service: its files are removed",
+          !(await exists(fakeTool)) && !(await exists(fakePlist)) && !(await exists(join(base, "owner"))),
+        ),
     },
   ];
   for (const testCase of cases) {
@@ -545,14 +781,30 @@ exit 1`),
       const at = new Date(Date.now() - grant.ageSeconds * 1_000);
       await utimes(path, at, at);
     }
-    await writeFile(join(stub, "batt"), testCase.batt ?? AC);
-    await writeFile(join(stub, "therm"), testCase.therm ?? COOL);
+    if (testCase.closedSince !== undefined)
+      await writeFile(join(base, "closed-since"), `${Math.floor(Date.now() / 1_000) - testCase.closedSince}\n`);
+    const batts = Array.isArray(testCase.batt) ? testCase.batt : [testCase.batt ?? AC];
+    for (let index = 1; index <= 4; index++) await rm(join(stub, `batt.${index}`), { force: true });
+    for (const [index, text] of batts.entries()) await writeFile(join(stub, `batt.${index + 1}`), text);
+    await writeFile(join(stub, "batt"), batts.at(-1) ?? AC);
+    await writeFile(join(stub, "count"), "0");
+    await writeFile(join(stub, "therm"), testCase.therm ?? NO_THERMAL_LEVEL);
+    await writeFile(join(stub, "pressure"), testCase.pressure ?? pressure("0"));
     await writeFile(join(stub, "ps.out"), testCase.ps ?? appLine);
-    await writeFile(join(stub, "disabled"), testCase.disabled ?? "No");
+    await writeFile(join(stub, "lid"), testCase.lid ?? "No");
+    await writeFile(join(stub, "causes"), testCase.causesSleep ?? "Yes");
+    await writeFile(join(stub, "disabled"), "No");
+    await writeFile(join(stub, "ioreg-mode"), testCase.ioregFails ? "fail" : "ok");
     await writeFile(join(stub, "changes"), "");
-    await run("/bin/sh", [servicePath], { timeout: 10_000 });
+    await writeFile(fakeTool, "");
+    await writeFile(fakePlist, "");
+    if (testCase.noApp) await rm(fakeApp, { force: true });
+    else await writeFile(fakeApp, "");
+    await writeFile(servicePath, serviceCopy(testCase.checks ?? 1, testCase.goneTicks ?? 8));
+    await run("/bin/sh", [servicePath], { timeout: 20_000 });
     const changes = (await readFile(join(stub, "changes"), "utf8")).split("\n").filter(Boolean);
     equal(`service: ${testCase.name}`, changes, testCase.expected);
+    await testCase.after?.();
   }
 
   // 4. The real assertion, on the power adapter only.
