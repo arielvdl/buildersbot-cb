@@ -13,7 +13,7 @@ import { OnboardingComputerVisual } from "./OnboardingComputerVisual";
 import { createOnboardingAvatarVariant, createOnboardingTeam, onboardingSessionSeed } from "./onboarding-avatars";
 import type { OnboardingJourney } from "./onboarding-context";
 import { onboardingPort } from "./onboarding-port";
-import { FREE_PROVIDER } from "./onboarding-provider-rows";
+import { FEATURED_PROVIDER, FREE_PROVIDER } from "./onboarding-provider-rows";
 import { createSetupProviders, type SetupProviderProps } from "./SetupProviderPicker";
 import { createSetupNext } from "./setup-next";
 
@@ -218,8 +218,10 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
     });
   }
 
-  function usePlan(): void {
-    if (providers.selectedProvider() === FREE_PROVIDER && !providers.customSelected()) providers.clearChoice();
+  /** Opens the plan step. With `provider`, that row is the user's choice, else the step chooses. */
+  function usePlan(provider?: AgentProviderId): void {
+    if (provider) providers.chooseProvider(provider);
+    else if (providers.selectedProvider() === FREE_PROVIDER && !providers.customSelected()) providers.clearChoice();
     props.onAnalyticsChoice(state.analytics, state.analyticsTouched);
     trackStep("next", "plan");
     setState((current) => {
@@ -324,14 +326,18 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
   const freeDownloading = () => freeStatus()?.phase === "downloading";
   const freeProgress = () => freeStatus()?.progress ?? null;
   const mainLabel = () => {
-    if (lastStep()) return t("onboarding.action.open");
+    // Also on the last step: the button then connects the provider and does not open the app.
     if (state.step === "plan" && !providers.selectedProviderConnected()) {
       // The button then starts the download, so it says so.
-      const phase = option(providers.selectedProvider())?.runtimeStatus?.phase;
-      return phase === "not-downloaded" || phase === "download-error"
-        ? t("common.download")
+      const selected = option(providers.selectedProvider());
+      const phase = selected?.runtimeStatus?.phase;
+      if (phase === "not-downloaded" || phase === "download-error") return t("common.download");
+      // It names the provider it connects, such as "Connect Cultura Builder" for the first choice.
+      return selected && !providers.customSelected()
+        ? t("onboarding.action.connectProvider", { provider: selected.name })
         : t("onboarding.action.connect");
     }
+    if (lastStep()) return t("onboarding.action.open");
     return t("onboarding.action.next");
   };
   /**
@@ -387,7 +393,8 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
                   loading={busy()}
                   reason={blockedReason()}
                   onStartFree={startFree}
-                  onUsePlan={usePlan}
+                  onUsePlan={() => usePlan()}
+                  onUseCulturaBuilder={() => usePlan(FEATURED_PROVIDER)}
                   analytics={state.analytics}
                   onAnalyticsChange={(enabled) =>
                     setState((current) => {

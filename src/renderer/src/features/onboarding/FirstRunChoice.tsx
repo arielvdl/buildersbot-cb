@@ -17,6 +17,8 @@ export interface FirstRunChoiceProps {
   onStartFree: () => void;
   /** Opens the list of plan providers. */
   onUsePlan: () => void;
+  /** Opens the list of plan providers with Cultura Builder chosen, which the user then connects. */
+  onUseCulturaBuilder: () => void;
   /**
    * Starts ticked only in a region that allows analytics by default. A tick by the user thanks them.
    * An answer accepts the Terms of Service.
@@ -30,12 +32,14 @@ export interface FirstRunChoiceProps {
 const PLAN_LOGOS: readonly ProviderLogoVariant[] = ["codex", "claude", "grok"];
 
 /**
- * The first question of first run: start free now, or connect a subscription the user already has.
- * The two answers are rows of one grouped list, with the same weight.
+ * The first question of first run: connect Cultura Builder, start free now, or connect a
+ * subscription the user already has. The answers are rows of one grouped list, with the same
+ * weight. Cultura Builder is the official provider, so it is the first row.
  */
 export function FirstRunChoice(props: FirstRunChoiceProps) {
   const { t } = useText();
   const reasonId = createUniqueId();
+  const culturaDetailId = createUniqueId();
   const freeDetailId = createUniqueId();
   const planDetailId = createUniqueId();
   const freeDescribedBy = () => (props.reason ? `${freeDetailId} ${reasonId}` : freeDetailId);
@@ -62,6 +66,24 @@ export function FirstRunChoice(props: FirstRunChoiceProps) {
       <p class="onboarding-description">{t("onboarding.choice.description")}</p>
       <div class="first-run-choice-rows">
         {/* The name is the title alone; the detail line describes the answer. */}
+        <Button
+          type="button"
+          variant="ghost"
+          class="first-run-choice-row"
+          disabled={props.disabled}
+          aria-label={t("onboarding.choice.culturaBuilder")}
+          aria-describedby={culturaDetailId}
+          onClick={() => props.onUseCulturaBuilder()}
+        >
+          <span class="first-run-choice-row-text">
+            <strong>{t("onboarding.choice.culturaBuilder")}</strong>
+            <span id={culturaDetailId}>{t("onboarding.choice.culturaBuilderDetail")}</span>
+          </span>
+          <span class="first-run-choice-logos" aria-hidden="true">
+            <ProviderLogo provider="cultura-builder" class="first-run-choice-logo" />
+          </span>
+          <ChevronRight class="first-run-choice-row-chevron" aria-hidden="true" />
+        </Button>
         <Button
           type="button"
           variant="ghost"
