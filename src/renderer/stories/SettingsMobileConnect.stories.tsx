@@ -24,8 +24,7 @@ function mobileConnectStory(address: () => Promise<string>, reach: MobileConnect
       <SettingsMobileConnectTab
         store={store}
         accountEmail="person@example.com"
-        canCreateTicket
-        canManageLink={false}
+        canAddPhone
         canRevokeDevice={false}
         canSetRoute={false}
         reach={reach}

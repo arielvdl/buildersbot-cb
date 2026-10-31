@@ -924,11 +924,6 @@ function AppSettings(props: AccountProps) {
         account={props.account()}
         onUpdateAccountName={auth.updateAccountName}
         onUpdateAccountAvatar={auth.updateAccountAvatar}
-        onCreateMobileConnect={auth.createMobileConnect}
-        onCancelMobileConnect={auth.cancelMobileConnect}
-        onGetMobileConnectLink={auth.getMobileConnectLink}
-        onCreateMobileConnectLink={auth.createMobileConnectLink}
-        onRevokeMobileConnectLink={auth.revokeMobileConnectLink}
         onListMobileConnectedDevices={auth.listMobileConnectedDevices}
         onRevokeMobileConnectedDevice={auth.revokeMobileConnectedDevice}
         onGetRemoteNetworkRoute={() => settingsPort().getRemoteNetworkRoute()}

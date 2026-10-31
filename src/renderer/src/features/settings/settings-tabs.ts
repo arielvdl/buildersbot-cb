@@ -413,7 +413,6 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         descriptionKey: "settings.mobileConnect.reach.offline.where",
         keywordsKey: "settings.search.keywords.mobileConnectPublish",
       },
-      { anchor: "settings.mobileConnect.link.title", descriptionKey: "settings.mobileConnect.link.cardHint" },
       { anchor: "settings.mobileConnect.route.title", descriptionKey: "settings.mobileConnect.route.description" },
     ],
   },

@@ -8,8 +8,6 @@ import type {
   HostedServersDesktopApi,
   LicenseDesktopApi,
   MobileConnectedDevice,
-  MobileConnectLink,
-  MobileConnectTicket,
   RemoteNetworkRoute,
   RemoteNetworkRouteState,
   ServerNotificationLevel,
@@ -90,11 +88,6 @@ export interface SettingsModalProps {
   account: CentralAuthUser;
   onUpdateAccountName: (name: string) => Promise<void>;
   onUpdateAccountAvatar: (image: AvatarImageInput | null) => Promise<void>;
-  onCreateMobileConnect?: () => Promise<MobileConnectTicket>;
-  onCancelMobileConnect?: () => Promise<void>;
-  onGetMobileConnectLink?: () => Promise<MobileConnectLink | null>;
-  onCreateMobileConnectLink?: () => Promise<MobileConnectLink>;
-  onRevokeMobileConnectLink?: () => Promise<void>;
   onListMobileConnectedDevices?: () => Promise<MobileConnectedDevice[]>;
   onRevokeMobileConnectedDevice?: (sessionId: string) => Promise<void>;
   onGetRemoteNetworkRoute?: () => Promise<RemoteNetworkRouteState>;
@@ -394,8 +387,7 @@ export function SettingsModal(props: SettingsModalProps) {
           <SettingsMobileConnectTab
             store={mobileConnect}
             accountEmail={props.account.email}
-            canCreateTicket={Boolean(props.onCreateMobileConnect)}
-            canManageLink={Boolean(props.onCreateMobileConnectLink && props.onRevokeMobileConnectLink)}
+            canAddPhone={Boolean(props.onGetMobileWebAppUrl)}
             canRevokeDevice={Boolean(props.onRevokeMobileConnectedDevice)}
             canSetRoute={Boolean(props.onSetRemoteNetworkRoute)}
             reach={props.mobileConnectReach}

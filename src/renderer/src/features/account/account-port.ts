@@ -8,10 +8,6 @@ export interface AccountPort {
   agent: Pick<BuildersBotDesktopApi["agent"], "getUsage">;
   auth: Pick<
     BuildersBotDesktopApi["auth"],
-    | "cancelMobileConnect"
-    | "createMobileConnect"
-    | "createMobileConnectLink"
-    | "getMobileConnectLink"
     | "getMobileWebAppUrl"
     | "getState"
     | "listAccountSessions"
@@ -23,7 +19,6 @@ export interface AccountPort {
     | "retry"
     | "revokeAccountSession"
     | "revokeMobileConnectedDevice"
-    | "revokeMobileConnectLink"
     | "startDeviceSignIn"
     | "updateAvatar"
     | "updateName"

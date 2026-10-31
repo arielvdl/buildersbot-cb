@@ -416,10 +416,6 @@ const Auth = createSimpleContext({
       );
     }
 
-    function createMobileConnect() {
-      return trackMobileConnect("code_shown", () => accountPort().auth.createMobileConnect());
-    }
-
     async function listMobileConnectedDevices() {
       const devices = await accountPort().auth.listMobileConnectedDevices();
       const ids = new Set(devices.map((device) => device.sessionId));
@@ -466,14 +462,7 @@ const Auth = createSimpleContext({
       logoutCentralAccount,
       updateAccountName,
       updateAccountAvatar,
-      createMobileConnect,
-      cancelMobileConnect: () => trackMobileConnect("cancelled", () => accountPort().auth.cancelMobileConnect()),
-      getMobileConnectLink: () => accountPort().auth.getMobileConnectLink(),
       getMobileWebAppUrl: () => accountPort().auth.getMobileWebAppUrl(),
-      createMobileConnectLink: () =>
-        trackMobileConnect("link_created", () => accountPort().auth.createMobileConnectLink()),
-      revokeMobileConnectLink: () =>
-        trackMobileConnect("link_revoked", () => accountPort().auth.revokeMobileConnectLink()),
       listMobileConnectedDevices,
       revokeMobileConnectedDevice,
       listAccountSessions: () => accountPort().auth.listAccountSessions(),

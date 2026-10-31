@@ -4,25 +4,18 @@ import {
   ArrowLeft,
   ArrowRight,
   Button,
-  Check,
-  CircleCheck,
   CopyButton,
   Dialog,
-  Eye,
-  EyeOff,
   Globe2,
   IconButton,
-  Link2,
-  Lock,
   LogIn,
   QrCode,
-  ShieldCheck,
   SlidingTabs,
   Text,
   X,
 } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
+import { createSignal, For, Match, Show, Switch } from "solid-js";
 import { useText } from "../../text";
 import { MOBILE_WEB_APP_PLATFORMS } from "../mobile-app/mobile-web-app";
 import { type MobileConnectReach, MobileConnectReachNotice } from "./MobileConnectReach";
@@ -31,51 +24,14 @@ import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
 type Store = SettingsMobileConnectStore;
 
 const QR_SIZE = 176;
-/** How long a dialog shows the phone that connected before it closes. */
-const CONNECTED_CLOSE_MS = 1_400;
-/** The permanent code hides itself after this, so it does not stay on the screen. */
-const LINK_VISIBLE_SECONDS = 60;
 
-function countdown(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
-/** The tag under each code: what the code does, in words and with an icon. */
-function QrTag(props: { kind: "web" | "permanent" | "success" | "idle"; children: JSX.Element }) {
+/** The tag under the code: what the code opens, in words and with an icon. */
+function QrTag(props: { children: JSX.Element }) {
   return (
-    <span class="settings-mobile-qr-tag" data-kind={props.kind}>
-      <Switch>
-        <Match when={props.kind === "web"}>
-          <Globe2 aria-hidden="true" />
-        </Match>
-        <Match when={props.kind === "permanent"}>
-          <Lock aria-hidden="true" />
-        </Match>
-        <Match when={props.kind === "success"}>
-          <Check aria-hidden="true" />
-        </Match>
-      </Switch>
+    <span class="settings-mobile-qr-tag" data-kind="web">
+      <Globe2 aria-hidden="true" />
       {props.children}
     </span>
-  );
-}
-
-/** A code, the success mark over it when a phone connected, and its tag. */
-function CodeStage(props: { value: string; label: string; connected: boolean; tag: JSX.Element }) {
-  return (
-    <div class="settings-mobile-qr">
-      <div class="settings-mobile-connect-qr-stage" data-success={props.connected ? "" : undefined}>
-        <QrCode class="settings-mobile-qr-code" value={props.value} size={QR_SIZE} label={props.label}>
-          <AppLogo variant="production" class="settings-mobile-app-qr-logo" />
-        </QrCode>
-        <Show when={props.connected}>
-          <div class="settings-mobile-connect-success-mark" aria-hidden="true">
-            <CircleCheck />
-          </div>
-        </Show>
-      </div>
-      {props.tag}
-    </div>
   );
 }
 
@@ -118,32 +74,19 @@ function DialogFrame(props: { open: boolean; title: string; onClose: () => void;
   );
 }
 
-/** Captures the phone that connected, and closes the dialog a moment later. */
-function createConnectedClose(source: () => { name: string; value: string } | null, close: () => void) {
-  const [connected, setConnected] = createSignal<{ name: string; value: string } | null>(null);
-  createEffect(source, (found) => {
-    if (found) setConnected(found);
-  });
-  createEffect(connected, (found) => {
-    if (!found) return;
-    const timer = window.setTimeout(close, CONNECTED_CLOSE_MS);
-    return () => window.clearTimeout(timer);
-  });
-  return [connected, setConnected] as const;
-}
-
 type AddScreen = "ask" | "install" | "signin";
 
 /**
  * Adds a phone in steps. A phone uses the web app: the QR code opens its address in the browser of
- * the phone, the steps add it to the Home Screen, and the person signs in there with the email of
- * this account. No step offers a phone app from a store. The sign-in step also tells whether the
- * phone can reach this computer, because the web app lists only published servers.
+ * the phone, the steps add it to the Home Screen, and the person signs in there with Cultura Builder.
+ * The code carries only the address, never a sign-in secret. No step offers a phone app from a store.
+ * The sign-in step also tells whether the phone can reach this computer, because the web app lists
+ * only published servers.
  */
 export function MobileConnectAddPhoneDialog(props: {
   open: boolean;
   store: Store;
-  /** The email of this account, which the phone signs in with. */
+  /** The email of this account. The phone signs in with the Cultura Builder account of this email. */
   accountEmail: string;
   /** Whether a phone can reach the server of this computer. Null when this computer has no server. */
   reach?: MobileConnectReach | null | undefined;
@@ -183,7 +126,7 @@ export function MobileConnectAddPhoneDialog(props: {
                     <span class="settings-mobile-choice-text">
                       <span class="settings-mobile-choice-title">{t("settings.mobileConnect.add.signIn.title")}</span>
                       <span class="settings-mobile-choice-hint">
-                        {t("settings.mobileConnect.add.signIn.emailHint")}
+                        {t("settings.mobileConnect.add.signIn.culturaHint")}
                       </span>
                     </span>
                   </Button>
@@ -234,8 +177,8 @@ export function MobileConnectAddPhoneDialog(props: {
               <Match when={current === "signin"}>
                 <ol class="settings-mobile-steps">
                   <li>{t("settings.mobileConnect.webApp.signIn.open")}</li>
-                  <li>{t("settings.mobileConnect.webApp.signIn.email", { email: props.accountEmail })}</li>
-                  <li>{t("settings.mobileConnect.webApp.signIn.code")}</li>
+                  <li>{t("settings.mobileConnect.webApp.signIn.cultura", { email: props.accountEmail })}</li>
+                  <li>{t("settings.mobileConnect.webApp.signIn.hub")}</li>
                 </ol>
                 <Show when={props.reach}>
                   {(reach) => <MobileConnectReachNotice reach={reach()} onPublish={props.onPublishComputer} />}
@@ -298,7 +241,7 @@ function WebAppCode(props: { store: Store }) {
           >
             <AppLogo variant="production" class="settings-mobile-app-qr-logo" />
           </QrCode>
-          <QrTag kind="web">{t("settings.mobileConnect.qr.webApp", { address: mobileWebAppAddress(url()) })}</QrTag>
+          <QrTag>{t("settings.mobileConnect.qr.webApp", { address: mobileWebAppAddress(url()) })}</QrTag>
           <CopyButton
             variant="ghost"
             size="xs"
@@ -309,153 +252,5 @@ function WebAppCode(props: { store: Store }) {
         </div>
       )}
     </Show>
-  );
-}
-
-/**
- * The permanent link: what it is and a way to make one, or its code with a warning. The code shows
- * when the dialog opens, and hides when the dialog closes or after a minute.
- */
-export function MobileConnectLinkDialog(props: { open: boolean; store: Store; onClose: () => void }) {
-  const { t } = useText();
-  const link = () => props.store.state.link;
-  const hide = () => {
-    if (link().revealed) props.store.toggleLinkRevealed();
-  };
-  const close = () => {
-    hide();
-    setConnected(null);
-    props.onClose();
-  };
-  const [connected, setConnected] = createConnectedClose(() => {
-    const name = link().successDeviceName;
-    const url = link().link?.url;
-    return props.open && name && url ? { name, value: url } : null;
-  }, close);
-  createEffect(
-    () => props.open && Boolean(link().link),
-    (show) => {
-      if (show && !link().revealed) props.store.toggleLinkRevealed();
-    },
-  );
-
-  return (
-    <DialogFrame open={props.open} title={t("settings.mobileConnect.link.title")} onClose={close}>
-      <div class="settings-mobile-dialog-body">
-        <Show
-          when={link().link}
-          fallback={
-            <div class="settings-mobile-link-intro">
-              <span class="settings-mobile-phones-empty-icon" aria-hidden="true">
-                <Link2 />
-              </span>
-              <Text variant="body-sm" class="settings-mobile-phone-name">
-                {t("settings.mobileConnect.link.intro.title")}
-              </Text>
-              <Text variant="caption" tone="muted">
-                {t("settings.mobileConnect.link.intro.description")}
-              </Text>
-              <Button
-                type="button"
-                size="sm"
-                loading={link().busy === "create"}
-                loadingLabel={t("settings.mobileConnect.generating")}
-                disabled={!link().loaded || link().busy !== null}
-                onClick={() => void props.store.createLink()}
-              >
-                {t("settings.mobileConnect.link.create")}
-              </Button>
-            </div>
-          }
-        >
-          {(current) => (
-            <Show
-              when={connected() || link().revealed}
-              fallback={
-                <CodeSlot>
-                  <Text variant="caption" tone="muted">
-                    {t("settings.mobileConnect.link.hidden")}
-                  </Text>
-                  <Button type="button" size="xs" variant="outline" onClick={() => props.store.toggleLinkRevealed()}>
-                    <Eye aria-hidden="true" />
-                    {t("settings.mobileConnect.link.showCode")}
-                  </Button>
-                </CodeSlot>
-              }
-            >
-              <LinkCode url={current().url} connectedName={connected()?.name ?? null} onHide={hide} />
-            </Show>
-          )}
-        </Show>
-        <Show when={link().error}>
-          {(error) => (
-            <Text class="settings-modal-error" variant="caption" role="alert">
-              {error()}
-            </Text>
-          )}
-        </Show>
-      </div>
-    </DialogFrame>
-  );
-}
-
-/** The permanent code with its warning. It counts down from its first render and hides at zero. */
-function LinkCode(props: { url: string; connectedName: string | null; onHide: () => void }) {
-  const { t } = useText();
-  const shownAt = Date.now();
-  const [left, setLeft] = createSignal(LINK_VISIBLE_SECONDS);
-  const timer = window.setInterval(() => {
-    const next = Math.max(0, LINK_VISIBLE_SECONDS - Math.floor((Date.now() - shownAt) / 1_000));
-    setLeft(next);
-    if (next === 0) props.onHide();
-  }, 1_000);
-  onCleanup(() => window.clearInterval(timer));
-  return (
-    <div class="settings-mobile-link-code settings-mobile-enter" aria-live="polite">
-      <CodeStage
-        value={props.url}
-        label={t("settings.mobileConnect.link.qrLabel")}
-        connected={Boolean(props.connectedName)}
-        tag={
-          <Show
-            when={props.connectedName}
-            fallback={
-              <QrTag kind="permanent">
-                {t("settings.mobileConnect.qr.permanent")}
-                <span class="settings-mobile-qr-tag-time">{countdown(left())}</span>
-              </QrTag>
-            }
-          >
-            {(name) => (
-              <span role="status">
-                <QrTag kind="success">{t("settings.mobileConnect.qr.connected", { name: name() })}</QrTag>
-              </span>
-            )}
-          </Show>
-        }
-      />
-      <span class="settings-mobile-link-warning">
-        <ShieldCheck aria-hidden="true" />
-        <Text variant="body-sm" class="settings-mobile-link-warning-title">
-          {t("settings.mobileConnect.link.private.title")}
-        </Text>
-      </span>
-      <Text variant="caption" tone="muted">
-        {t("settings.mobileConnect.link.private.description", { time: countdown(left()) })}
-      </Text>
-      <div class="settings-mobile-dialog-actions">
-        <CopyButton
-          variant="outline"
-          size="sm"
-          value={props.url}
-          label={t("settings.mobileConnect.app.copyLink")}
-          copiedLabel={t("settings.mobileConnect.app.linkCopied")}
-        />
-        <Button type="button" size="sm" variant="ghost" onClick={() => props.onHide()}>
-          <EyeOff aria-hidden="true" />
-          {t("settings.mobileConnect.link.hideCode")}
-        </Button>
-      </div>
-    </div>
   );
 }

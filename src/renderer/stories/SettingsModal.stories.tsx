@@ -123,31 +123,6 @@ function SettingsModalStory(props: {
     setUpdateStatus({ ...storyUpdateStatus, phase: "up-to-date", checkedAt: new Date().toISOString() });
   }
 
-  /** A phone scans the code and signs in a few seconds after the code shows. */
-  let scanTimer: number | undefined;
-  onCleanup(() => window.clearTimeout(scanTimer));
-  async function createMobileConnect(): Promise<{ qrData: string; expiresAt: number }> {
-    window.clearTimeout(scanTimer);
-    scanTimer = window.setTimeout(() => {
-      setMobileDevices((current) => [
-        ...current,
-        {
-          sessionId: crypto.randomUUID(),
-          name: "Work iPhone",
-          platform: "ios",
-          connectedAt: Date.now(),
-          lastActiveAt: Date.now(),
-          via: "code",
-        },
-      ]);
-    }, 6_000);
-    return {
-      qrData:
-        "openbot://mobile-connect?api=https%3A%2F%2Fapi.openbot.run&ticket=storybook-mobile-ticket_1234567890abcdef",
-      expiresAt: Date.now() + 120_000,
-    };
-  }
-
   return (
     <>
       <SettingsPageStory
@@ -189,14 +164,6 @@ function SettingsModalStory(props: {
             account={account()}
             onUpdateAccountName={updateAccountName}
             onUpdateAccountAvatar={updateAccountAvatar}
-            onCreateMobileConnect={createMobileConnect}
-            onCancelMobileConnect={async () => {
-              window.clearTimeout(scanTimer);
-              await mock.api.auth.cancelMobileConnect();
-            }}
-            onGetMobileConnectLink={mock.api.auth.getMobileConnectLink}
-            onCreateMobileConnectLink={mock.api.auth.createMobileConnectLink}
-            onRevokeMobileConnectLink={mock.api.auth.revokeMobileConnectLink}
             onListMobileConnectedDevices={async () => mobileDevices()}
             onListAccountSessions={mock.api.auth.listAccountSessions}
             onRevokeAccountSession={mock.api.auth.revokeAccountSession}
@@ -231,11 +198,6 @@ const meta = {
     account: storyAccount,
     onUpdateAccountName: fn(async () => undefined),
     onUpdateAccountAvatar: fn(async () => undefined),
-    onCreateMobileConnect: fn(async () => ({
-      qrData:
-        "openbot://mobile-connect?api=https%3A%2F%2Fapi.openbot.run&ticket=storybook-mobile-ticket_1234567890abcdef",
-      expiresAt: Date.now() + 120_000,
-    })),
   },
   parameters: {
     layout: "fullscreen",
@@ -307,7 +269,7 @@ export const VoiceModelsDownloaded: Story = {
   ),
 };
 
-/** The install guide for each phone, the sign-in code and the connected phones. */
+/** The install guide for each phone, the Cultura Builder sign-in steps and the phones of the earlier app. */
 export const MobileConnect: Story = {
   render: () => <SettingsModalStory initialOpen initialTab="mobile-connect" />,
 };

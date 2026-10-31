@@ -303,7 +303,7 @@ export const messages = defineMessages("settings", {
   // A phone uses the web app: the person adds it to the Home Screen from the browser of the phone.
   "settings.mobileConnect.add.webApp.question": "Is Builders Bot on the Home Screen of the phone?",
   "settings.mobileConnect.add.signIn.title": "Yes, sign in",
-  "settings.mobileConnect.add.signIn.emailHint": "With the email of this account",
+  "settings.mobileConnect.add.signIn.culturaHint": "With your Cultura Builder account",
   "settings.mobileConnect.add.webApp.title": "No, install the web app",
   "settings.mobileConnect.add.install.hint": "iPhone or Android",
   "settings.mobileConnect.add.webApp.heading": "Install the web app",
@@ -312,8 +312,6 @@ export const messages = defineMessages("settings", {
   // The tags under the QR codes. Each tag says what its code does.
   // {address} is the address of the web app without "https://", such as "example.com/app".
   "settings.mobileConnect.qr.webApp": "Opens {address}",
-  "settings.mobileConnect.qr.permanent": "Permanent code",
-  "settings.mobileConnect.qr.connected": "{name} connected",
   // The names of the buttons are the ones that Safari and Chrome show.
   "settings.mobileConnect.webApp.ios.open": "On the iPhone, point the camera at the code and open the page in Safari.",
   "settings.mobileConnect.webApp.ios.add": "Tap Share, then Add to Home Screen.",
@@ -324,43 +322,12 @@ export const messages = defineMessages("settings", {
   "settings.mobileConnect.webApp.unavailable": "Could not load the address of the web app.",
   "settings.mobileConnect.webApp.signIn.open": "Open Builders Bot from its icon on the phone.",
   // {email} is the email address of the account. The button name is the one on the sign-in page.
-  "settings.mobileConnect.webApp.signIn.email": "Enter {email} and select Send sign-in code.",
-  "settings.mobileConnect.webApp.signIn.code": "Type the code from the email.",
+  "settings.mobileConnect.webApp.signIn.cultura": "Select Sign in with Cultura Builder, with the Cultura Builder account of {email}.",
+  "settings.mobileConnect.webApp.signIn.hub": "Approve the code on the Cultura Builder Hub, then go back to Builders Bot.",
   "settings.mobileConnect.install.platformLabel": "Phone",
   "settings.mobileConnect.app.copyLink": "Copy link",
   "settings.mobileConnect.app.linkCopied": "Link copied",
   "settings.mobileConnect.signIn.title": "Sign in on your phone",
-  "settings.mobileConnect.generating": "Generating…",
-  "settings.mobileConnect.link.title": "Permanent link",
-  "settings.mobileConnect.link.create": "Generate link",
-  "settings.mobileConnect.link.cardHint": "For a phone that you sign in often",
-  "settings.mobileConnect.link.usedBy": { one: "{count} phone uses it", other: "{count} phones use it" },
-  "settings.mobileConnect.link.unused": "No phone uses it yet",
-  "settings.mobileConnect.link.showCode": "Show code",
-  "settings.mobileConnect.link.hideCode": "Hide code",
-  "settings.mobileConnect.link.hidden": "Code hidden",
-  "settings.mobileConnect.link.actions": "Permanent link actions",
-  "settings.mobileConnect.link.revokeLink": "Revoke link",
-  "settings.mobileConnect.link.intro.title": "One code that keeps working",
-  "settings.mobileConnect.link.intro.description":
-    "Use it on a phone that you sign in again and again, such as a test phone. Anyone with the link can sign in to your account, so use a one-time code when you can.",
-  "settings.mobileConnect.link.private.title": "Keep this code private",
-  // {time} is a countdown such as 0:59.
-  "settings.mobileConnect.link.private.description":
-    "Anyone who scans it can sign in to your account until you revoke it. The code hides in {time}.",
-  "settings.mobileConnect.link.replace": "Generate new link",
-  "settings.mobileConnect.link.revoke": "Revoke",
-  "settings.mobileConnect.link.qrLabel": "Permanent Mobile Connect QR code",
-  "settings.mobileConnect.link.created": "Created {date}",
-  "settings.mobileConnect.link.replaceConfirm.title": "Replace the permanent link?",
-  "settings.mobileConnect.link.revokeConfirm.title": "Revoke the permanent link?",
-  "settings.mobileConnect.link.revokeConfirm.description":
-    "The link stops working, and the phones that signed in with a permanent link are disconnected.",
-  "settings.mobileConnect.link.confirm.description":
-    "The current link stops working. Phones that are already connected stay connected.",
-  "settings.mobileConnect.link.error.load": "Could not load the permanent link.",
-  "settings.mobileConnect.link.error.create": "Could not create a permanent link.",
-  "settings.mobileConnect.link.error.revoke": "Could not revoke the permanent link.",
   "settings.mobileConnect.devices.refreshing": "Refreshing…",
   "settings.mobileConnect.route.title": "How devices connect",
   "settings.mobileConnect.route.description":
@@ -383,9 +350,6 @@ export const messages = defineMessages("settings", {
   "settings.mobileConnect.devices.via.link": "Permanent link",
   "settings.mobileConnect.devices.disconnectLabel": "Disconnect {name}",
   "settings.mobileConnect.platform.mobile": "Mobile",
-  "settings.mobileConnect.error.loadBeforeGenerate": "Could not load connected devices before generating a code.",
-  "settings.mobileConnect.error.generate": "Could not generate a Mobile Connect code.",
-  "settings.mobileConnect.error.cancel": "Could not cancel the code.",
   "settings.mobileConnect.error.loadDevices": "Could not load connected devices.",
   "settings.mobileConnect.error.disconnect": "Could not disconnect this device.",
   "settings.mobileConnect.time.justNow": "Just now",
