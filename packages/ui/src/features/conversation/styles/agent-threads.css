@@ -783,6 +783,12 @@
   color: var(--openbot-text-primary);
 }
 
+/* The preview card of a tab says what its thread is for, so the first message has up to five lines.
+   The card of a sidebar row keeps two. */
+.sidebar-chat-preview-tooltip[data-variant="tab"] .sidebar-chat-preview-text {
+  -webkit-line-clamp: 5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .agent-threads-tab.ui-sliding-tabs-trigger {
     animation: none;

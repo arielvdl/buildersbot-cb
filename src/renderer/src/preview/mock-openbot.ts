@@ -2690,6 +2690,16 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
           snapshot.activeTurnId = turnId;
           snapshot.messages = [...snapshot.messages, userMessage];
         });
+        // As a host keeps them: the person's first message with text once, and the last one each time.
+        const text = input.text.trim();
+        if (text) {
+          agents = agents.map((agent) =>
+            agent.id === input.agentId
+              ? { ...agent, firstMessage: agent.firstMessage || text, lastUserMessage: text }
+              : agent,
+          );
+          emitAgentEvent({ type: "agents-changed", agents });
+        }
         queues.set(input.agentId, { agentId: input.agentId, deliveries: [delivery] });
         emitAgentEvent({
           type: "queue-changed",

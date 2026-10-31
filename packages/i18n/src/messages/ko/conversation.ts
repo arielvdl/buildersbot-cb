@@ -87,6 +87,7 @@ export const messages = {
   "conversation.threads.details.more": "더 보기",
   "conversation.threads.details.less": "접기",
   "conversation.threads.details.none": "아직 메시지가 없어요",
+  "conversation.threads.details.sameAsFirst": "첫 메시지와 같아요",
   "conversation.threads.details.copyFirst": "첫 메시지 복사",
   "conversation.threads.details.copyLast": "마지막으로 보낸 메시지 복사",
   "conversation.threads.deleteUndo.title": "{title}을(를) 삭제했어요",

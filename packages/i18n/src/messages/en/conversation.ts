@@ -86,6 +86,7 @@ export const messages = defineMessages("conversation", {
   "conversation.threads.details.more": "Show more",
   "conversation.threads.details.less": "Show less",
   "conversation.threads.details.none": "No message yet",
+  "conversation.threads.details.sameAsFirst": "Same as the first message",
   "conversation.threads.details.copyFirst": "Copy the first message",
   "conversation.threads.details.copyLast": "Copy your last message",
   "conversation.threads.deleteUndo.title": "{title} deleted",

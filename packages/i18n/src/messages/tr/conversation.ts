@@ -87,6 +87,7 @@ export const messages = {
   "conversation.threads.details.more": "Daha fazla göster",
   "conversation.threads.details.less": "Daha az göster",
   "conversation.threads.details.none": "Henüz mesaj yok",
+  "conversation.threads.details.sameAsFirst": "İlk mesajla aynı",
   "conversation.threads.details.copyFirst": "İlk mesajı kopyala",
   "conversation.threads.details.copyLast": "Son mesajını kopyala",
   "conversation.threads.deleteUndo.title": "{title} silindi",

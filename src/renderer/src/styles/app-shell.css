@@ -2620,9 +2620,9 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-/* The first message says what the chat is about. It stays quiet, and shows up to five lines. */
+/* The first message says what the chat is about, so it stays quiet and short. */
 .sidebar-chat-preview-text {
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 2;
   color: var(--openbot-text-muted);
 }
 

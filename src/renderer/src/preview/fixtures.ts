@@ -62,6 +62,7 @@ export const STORY_AGENT_SUMMARIES: ClientAgentSummary[] = [
     threadId: "thread-chief",
     workspacePath: "/mock/Builders Bot/Agents/chief",
     firstMessage: "Plan the Q4 launch and tell me what blocks it.",
+    lastUserMessage: "Also add the budget for the launch event.",
     preview: "I pulled together the latest project notes and next steps.",
     updatedAt: STORY_NOW,
     avatarSeed: "chief",
@@ -127,6 +128,8 @@ export const STORY_AGENTS: AgentProfile[] = STORY_AGENT_SUMMARIES.map((agent, in
   time: index === 0 ? "10:00" : index === 1 ? "Yesterday" : "Mon",
   preview: agent.preview,
   firstMessage: agent.firstMessage ?? "",
+  ...(agent.firstMessage === undefined ? {} : { firstMessageText: agent.firstMessage }),
+  ...(agent.lastUserMessage === undefined ? {} : { lastUserMessage: agent.lastUserMessage }),
 }));
 
 /** Returns a fixture item that a story reads by index. A missing item means a fixture edit broke the story. */

@@ -1,6 +1,7 @@
 import { expandAttachmentReferences } from "@openbot/contracts/attachment-references";
 import { expandChatTagReferences } from "@openbot/contracts/chat-tag-references";
 import { markdownPlainText, markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
+import type { ThreadItem } from "./thread-types";
 
 /**
  * A stored message as words: a mention, a skill, a quote and a file show by their names. The stored
@@ -24,4 +25,21 @@ export function chatPreviewLine(text: string): string {
  */
 export function chatPreviewBlock(text: string): string {
   return text.trim() ? markdownPlainText(readableText(text)) : "";
+}
+
+/**
+ * The two texts say the same, apart from spaces and line breaks. A thread that the person started
+ * has the same first and last message until the person writes again, and a preview shows it once.
+ */
+export function sameMessageText(first: string, last: string): boolean {
+  const words = (text: string) => text.replace(/\s+/gu, " ").trim();
+  return words(first) !== "" && words(first) === words(last);
+}
+
+/**
+ * A side thread with a message to show. A host older than the preview sends none, and a new thread
+ * has none yet: its tab then has no preview and no details.
+ */
+export function threadHasDetails(thread: ThreadItem | undefined): thread is ThreadItem {
+  return thread?.kind === "side" && (thread.firstMessage.trim() !== "" || thread.preview.trim() !== "");
 }

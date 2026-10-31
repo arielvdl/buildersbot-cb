@@ -87,6 +87,7 @@ export const messages = {
   "conversation.threads.details.more": "もっと見る",
   "conversation.threads.details.less": "折りたたむ",
   "conversation.threads.details.none": "まだメッセージはありません",
+  "conversation.threads.details.sameAsFirst": "最初のメッセージと同じです",
   "conversation.threads.details.copyFirst": "最初のメッセージをコピー",
   "conversation.threads.details.copyLast": "最後に送ったメッセージをコピー",
   "conversation.threads.deleteUndo.title": "{title} を削除しました",

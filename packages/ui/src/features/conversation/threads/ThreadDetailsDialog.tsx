@@ -3,12 +3,14 @@
  * started it and the last message that the person sent. The selected tab opens it with its info
  * button, so the person can see what the thread is for also after a rename. It only shows text: the
  * text is selectable, and each message has a copy button. Escape and the close buttons close it, and
- * the focus goes back to the control that opened it.
+ * the focus goes back to the control that opened it, or to `returnFocus` when that control is gone.
  */
 
 import { Button, CopyButton, Dialog, IconButton, X } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createSignal, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
+import { chatPreviewBlock, sameMessageText } from "./thread-preview-text";
+import type { ThreadItem } from "./thread-types";
 
 export interface ThreadDetails {
   title: string;
@@ -20,7 +22,27 @@ export interface ThreadDetails {
   lastMessage: string;
 }
 
-export function ThreadDetailsDialog(props: { details: ThreadDetails | null; onClose: () => void }) {
+/** The details of a thread for its dialog, as plain text that keeps its lines. */
+export function threadDetails(thread: ThreadItem): ThreadDetails {
+  return {
+    title: thread.title,
+    startedAt: thread.createdAt,
+    firstMessage: chatPreviewBlock(thread.firstMessage),
+    lastMessage: chatPreviewBlock(thread.preview),
+  };
+}
+
+export function ThreadDetailsDialog(props: {
+  details: ThreadDetails | null;
+  onClose: () => void;
+  /**
+   * The element that gets the focus when the dialog closes and the control that opened it is gone or
+   * had no focus, such as a menu item. Read when the dialog closes.
+   */
+  returnFocus?: (() => HTMLElement | null | undefined) | undefined;
+}) {
+  // A controlled dialog has no Kobalte trigger, so it keeps the element that opened it itself.
+  let opener: HTMLElement | undefined;
   return (
     <Dialog.Root
       open={props.details !== null}
@@ -30,7 +52,21 @@ export function ThreadDetailsDialog(props: { details: ThreadDetails | null; onCl
     >
       <Dialog.Portal>
         <Dialog.Overlay class="ui-confirm-dialog-overlay">
-          <Dialog.Content as="section" class="ui-dialog-content thread-details-dialog">
+          <Dialog.Content
+            as="section"
+            class="ui-dialog-content thread-details-dialog"
+            onOpenAutoFocus={() => {
+              const active = document.activeElement;
+              opener = active instanceof HTMLElement && active !== document.body ? active : undefined;
+            }}
+            onCloseAutoFocus={(event) => {
+              const target = opener?.isConnected ? opener : props.returnFocus?.();
+              opener = undefined;
+              if (!target?.isConnected) return;
+              event.preventDefault();
+              target.focus({ preventScroll: true });
+            }}
+          >
             <Show when={props.details}>
               {(details) => <ThreadDetailsBody details={details()} onClose={props.onClose} />}
             </Show>
@@ -47,6 +83,8 @@ function ThreadDetailsBody(props: { details: ThreadDetails; onClose: () => void 
     const at = props.details.startedAt ? new Date(props.details.startedAt) : null;
     return at && !Number.isNaN(at.getTime()) ? format.date(at, { dateStyle: "medium", timeStyle: "short" }) : null;
   };
+  // Until the person writes again, the last message is the first one: it shows once.
+  const lastIsFirst = () => sameMessageText(props.details.firstMessage, props.details.lastMessage);
   return (
     <div class="thread-details">
       <header class="thread-details-header">
@@ -73,6 +111,7 @@ function ThreadDetailsBody(props: { details: ThreadDetails; onClose: () => void 
         label={t("conversation.threads.details.last")}
         copyLabel={t("conversation.threads.details.copyLast")}
         text={props.details.lastMessage}
+        note={lastIsFirst() ? t("conversation.threads.details.sameAsFirst") : undefined}
       />
       <footer class="thread-details-footer">
         <Button type="button" variant="ghost" onClick={props.onClose}>
@@ -85,35 +124,43 @@ function ThreadDetailsBody(props: { details: ThreadDetails; onClose: () => void 
 
 /**
  * One message, cut to a few lines. "Show more" shows all of it, and the dialog scrolls. The button
- * shows only when the text is longer than the cut, or while the text shows in full.
+ * shows only when the text is longer than the cut, or while the text shows in full. A `note` shows in
+ * place of the text, such as when the text is the same as the one above it.
  */
-function ThreadDetailsMessage(props: { label: string; copyLabel: string; text: string }) {
+function ThreadDetailsMessage(props: { label: string; copyLabel: string; text: string; note?: string | undefined }) {
   const { t } = useText();
   const [expanded, setExpanded] = createSignal(false);
   const [cut, setCut] = createSignal(false);
-  let body: HTMLParagraphElement | undefined;
-  onSettled(() => {
-    const element = body;
-    if (!element) return;
-    // A collapsed text is cut when it is taller than its box. An expanded one is never measured.
-    const measure = () => {
-      if (element.dataset.expanded === undefined) setCut(element.scrollHeight > element.clientHeight + 1);
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    measure();
-    return () => observer.disconnect();
-  });
+  const [body, setBody] = createSignal<HTMLParagraphElement | undefined>(undefined, { ownedWrite: true });
+  const shown = () => (props.note ? "" : props.text);
+  // A collapsed text is cut when it is taller than its box. An expanded one is never measured. The text
+  // can show after the dialog opens, or change while it is open, so each new text is measured again.
+  createEffect(
+    () => ({ element: body(), text: shown() }),
+    ({ element }) => {
+      if (!element) return;
+      const measure = () => {
+        if (element.dataset.expanded === undefined) setCut(element.scrollHeight > element.clientHeight + 1);
+      };
+      const observer = new ResizeObserver(measure);
+      observer.observe(element);
+      measure();
+      return () => observer.disconnect();
+    },
+  );
   return (
     <section class="thread-details-message">
       <div class="thread-details-message-header">
         <h3 class="thread-details-label">{props.label}</h3>
-        <Show when={props.text}>
+        <Show when={shown()}>
           <CopyButton value={props.text} label={props.copyLabel} iconOnly size="icon-xs" />
         </Show>
       </div>
-      <Show when={props.text} fallback={<p class="thread-details-none">{t("conversation.threads.details.none")}</p>}>
-        <p ref={body} class="thread-details-text" data-expanded={expanded() ? "" : undefined}>
+      <Show
+        when={shown()}
+        fallback={<p class="thread-details-none">{props.note ?? t("conversation.threads.details.none")}</p>}
+      >
+        <p ref={setBody} class="thread-details-text" data-expanded={expanded() ? "" : undefined}>
           {props.text}
         </p>
         <Show when={cut() || expanded()}>

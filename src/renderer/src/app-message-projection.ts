@@ -69,8 +69,28 @@ export function toAgentProfile(stored: ClientAgentSummary): AgentProfile {
     time: stored.updatedAt ? formatTime(stored.updatedAt) : currentText().t("chat.day.now"),
     preview: cleanPreview(stored.preview),
     // Empty, not the "No messages" of the preview: a chat with no first message has no preview card.
-    firstMessage: chatPreviewLine(cleanAgentMessageText(stored.firstMessage ?? "")),
+    firstMessage: previewLine(cleanAgentMessageText(stored.firstMessage ?? "")),
+    ...(stored.firstMessage === undefined ? {} : { firstMessageText: cleanAgentMessageText(stored.firstMessage) }),
+    ...(stored.lastUserMessage === undefined ? {} : { lastUserMessage: cleanAgentMessageText(stored.lastUserMessage) }),
   };
+}
+
+/**
+ * The first message of each agent as one line, kept by its text. Each roster change projects every
+ * agent again, and the Markdown read for the line is the costly part, so a text is read only once.
+ * The cache forgets all lines when it grows past its size, so it holds about one line per agent.
+ */
+const PREVIEW_LINE_CACHE_SIZE = 256;
+const previewLines = new Map<string, string>();
+
+function previewLine(text: string): string {
+  if (!text) return "";
+  const known = previewLines.get(text);
+  if (known !== undefined) return known;
+  if (previewLines.size >= PREVIEW_LINE_CACHE_SIZE) previewLines.clear();
+  const line = chatPreviewLine(text);
+  previewLines.set(text, line);
+  return line;
 }
 
 export function toAgentMessage(message: ConversationMessage, ownerAgentId?: string): AgentMessage {
@@ -260,7 +280,9 @@ export function agentProfilesEqual(left: AgentProfile, right: AgentProfile): boo
     left.updatedAt === right.updatedAt &&
     left.time === right.time &&
     left.preview === right.preview &&
-    left.firstMessage === right.firstMessage
+    left.firstMessage === right.firstMessage &&
+    left.firstMessageText === right.firstMessageText &&
+    left.lastUserMessage === right.lastUserMessage
   );
 }
 

@@ -287,9 +287,17 @@ export interface AgentProfile {
   preview: string;
   /**
    * The first message of the agent's own chat as one line of plain text, for the hover preview of
-   * the row and of the chat's tab, and for the chat's details. Empty until there is one.
+   * the row and of the chat's tab. Empty until there is one.
    */
   firstMessage: string;
+  /** The same first message as written, for the chat's details, which keep its lines. */
+  firstMessageText?: string;
+  /**
+   * The last message with text that the person sent in the agent's own chat, as written, for the
+   * preview and the details of the chat's tab. Unlike `preview`, an answer or a routine does not
+   * change it. Empty or absent until there is one, and from a host older than the field.
+   */
+  lastUserMessage?: string;
 }
 
 /** The agent fields that the composer, the queue, rich text and the browser dock read. */

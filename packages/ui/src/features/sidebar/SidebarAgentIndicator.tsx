@@ -157,16 +157,22 @@ export function SidebarWaitTooltip(props: { wait: SidebarChannelWait; menuOpen: 
 /**
  * The card of a chat preview: the title when the caller has one, what the chat started with, then
  * its last message. The texts are plain text and are cut with an ellipsis: the first message after
- * five lines, the last one after three. An empty text does not show.
+ * two lines, or five on the card of a tab (`variant="tab"`), and the last one after three. An empty
+ * text does not show.
  */
-export function ChatPreviewCard(props: { title?: string | undefined; firstMessage: string; preview: string }) {
+export function ChatPreviewCard(props: {
+  title?: string | undefined;
+  firstMessage: string;
+  preview: string;
+  variant?: "tab" | undefined;
+}) {
   const { t } = useText();
   const title = () => props.title?.trim() ?? "";
   const first = () => props.firstMessage.trim();
   const last = () => props.preview.trim();
   return (
     <Tooltip.Portal>
-      <Tooltip.Content class="sidebar-chat-preview-tooltip">
+      <Tooltip.Content class="sidebar-chat-preview-tooltip" data-variant={props.variant}>
         <Show when={title()}>{(name) => <span class="sidebar-chat-preview-title">{name()}</span>}</Show>
         <Show when={first()}>
           {(start) => (
@@ -180,6 +186,27 @@ export function ChatPreviewCard(props: { title?: string | undefined; firstMessag
       </Tooltip.Content>
     </Tooltip.Portal>
   );
+}
+
+/**
+ * The open state of the chat preview of a tab. While `blocked` is true, such as while the tab's menu,
+ * a rename, a drag or a dialog is open, the preview stays closed and also forgets that it was open:
+ * with a controlled `open`, Kobalte does not say that the pointer left, so the card would come back
+ * by itself, with no pointer on the tab, when the block ends. After the block, the pointer opens it
+ * as usual.
+ */
+export function createChatPreviewOpen(blocked: () => boolean): {
+  open: () => boolean;
+  onOpenChange: (open: boolean) => void;
+} {
+  const [wanted, setWanted] = createSignal(false);
+  createEffect(blocked, (isBlocked) => {
+    if (isBlocked) setWanted(false);
+  });
+  return {
+    open: () => wanted() && !blocked(),
+    onOpenChange: (next) => setWanted(next && !blocked()),
+  };
 }
 
 /**

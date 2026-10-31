@@ -87,6 +87,7 @@ export const messages = {
   "conversation.threads.details.more": "展开",
   "conversation.threads.details.less": "收起",
   "conversation.threads.details.none": "还没有消息",
+  "conversation.threads.details.sameAsFirst": "与第一条消息相同",
   "conversation.threads.details.copyFirst": "复制第一条消息",
   "conversation.threads.details.copyLast": "复制你的最后一条消息",
   "conversation.threads.deleteUndo.title": "{title} 已删除",

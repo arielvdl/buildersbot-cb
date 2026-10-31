@@ -87,6 +87,7 @@ export const messages = {
   "conversation.threads.details.more": "Показать больше",
   "conversation.threads.details.less": "Показать меньше",
   "conversation.threads.details.none": "Сообщений пока нет",
+  "conversation.threads.details.sameAsFirst": "Совпадает с первым сообщением",
   "conversation.threads.details.copyFirst": "Скопировать первое сообщение",
   "conversation.threads.details.copyLast": "Скопировать ваше последнее сообщение",
   "conversation.threads.deleteUndo.title": "Удалено: {title}",

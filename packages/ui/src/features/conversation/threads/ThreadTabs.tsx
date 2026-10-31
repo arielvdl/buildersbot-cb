@@ -18,13 +18,14 @@ import {
   CHAT_PREVIEW_OPEN_DELAY,
   CHAT_PREVIEW_SKIP_DELAY,
   ChatPreviewCard,
+  createChatPreviewOpen,
 } from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, For, flush, onSettled, Show } from "solid-js";
-import { type ThreadDetails, ThreadDetailsDialog } from "./ThreadDetailsDialog";
+import { createEffect, createMemo, createSignal, For, flush, onSettled, Show } from "solid-js";
+import { ThreadDetailsDialog, threadDetails } from "./ThreadDetailsDialog";
 import { ThreadStatusText, ThreadTabIcon, threadAttention } from "./ThreadStatusMark";
 import { ThreadTabGhost } from "./ThreadTabGhost";
-import { chatPreviewBlock, chatPreviewLine } from "./thread-preview-text";
+import { chatPreviewLine, sameMessageText, threadHasDetails } from "./thread-preview-text";
 import { setCarriedThreadTab, sidePanelTabRow, swallowNextClick } from "./thread-tab-drag";
 import { MAIN_THREAD_ID, type ThreadHeaderProps, type ThreadItem, threadBusy } from "./thread-types";
 
@@ -73,24 +74,6 @@ function renamable(props: ThreadHeaderProps, thread: ThreadItem | undefined): bo
   return thread?.kind === "side" && props.onRename !== undefined;
 }
 
-/**
- * A side thread with a message to show. A host older than the preview sends none, and a new thread
- * has none yet: its tab then has no preview and no details.
- */
-function hasDetails(thread: ThreadItem | undefined): thread is ThreadItem {
-  return thread?.kind === "side" && (thread.firstMessage.trim() !== "" || thread.preview.trim() !== "");
-}
-
-/** The details of a thread for its dialog, as plain text that keeps its lines. */
-function threadDetails(thread: ThreadItem): ThreadDetails {
-  return {
-    title: thread.title,
-    startedAt: thread.createdAt,
-    firstMessage: chatPreviewBlock(thread.firstMessage),
-    lastMessage: chatPreviewBlock(thread.preview),
-  };
-}
-
 function ThreadTab(props: {
   thread: ThreadItem;
   /** This tab is the open one. Only it shows the details button. */
@@ -107,11 +90,15 @@ function ThreadTab(props: {
 }) {
   const { t } = useText();
   // The tab shows only its title, so the pointer over it previews what the thread started with and
-  // the person's last message, as plain text on few lines.
-  const [previewOpen, setPreviewOpen] = createSignal(false);
+  // the person's last message, as plain text on few lines. Until the person writes again, the last
+  // message is the first one, and the card shows it once.
+  const previewState = createChatPreviewOpen(() => props.hold || props.menuOpen || props.renaming);
   const firstLine = createMemo(() => chatPreviewLine(props.thread.firstMessage));
-  const lastLine = createMemo(() => chatPreviewLine(props.thread.preview));
-  const preview = () => hasDetails(props.thread);
+  const lastLine = createMemo(() => {
+    const line = chatPreviewLine(props.thread.preview);
+    return sameMessageText(firstLine(), line) ? "" : line;
+  });
+  const preview = () => threadHasDetails(props.thread);
   // The details button shows over the start of the selected tab, so that tab makes room for it.
   const detailsMark = () => (props.selected && preview() ? "" : undefined);
   // The close control and dragging are for the pointer. A keyboard user closes the focused tab with
@@ -131,8 +118,8 @@ function ThreadTab(props: {
   // moves and divides its tabs as direct children.
   return (
     <Tooltip.Root
-      open={previewOpen() && !props.hold && !props.menuOpen && !props.renaming}
-      onOpenChange={setPreviewOpen}
+      open={previewState.open()}
+      onOpenChange={previewState.onOpenChange}
       placement="bottom-start"
       gutter={10}
       openDelay={CHAT_PREVIEW_OPEN_DELAY}
@@ -196,7 +183,7 @@ function ThreadTab(props: {
         <span class="agent-threads-tab-title">{props.thread.title}</span>
         <ThreadStatusText status={props.thread.status} />
       </Tooltip.Trigger>
-      <ChatPreviewCard title={props.thread.title} firstMessage={firstLine()} preview={lastLine()} />
+      <ChatPreviewCard title={props.thread.title} firstMessage={firstLine()} preview={lastLine()} variant="tab" />
     </Tooltip.Root>
   );
 }
@@ -216,6 +203,8 @@ export function ThreadTabs(props: ThreadHeaderProps) {
   const [renaming, setRenaming] = createSignal<Rename | null>(null);
   /** The thread whose details show in a dialog. */
   const [detailsId, setDetailsId] = createSignal<string | null>(null);
+  /** The thread of the last details, whose tab gets the focus back when the control that opened them is gone. */
+  let detailsFrom: string | null = null;
   /** Where the details button of the selected tab starts in the tab area, or null when it does not show. */
   const [detailsAt, setDetailsAt] = createSignal<number | null>(null);
   /** When the field opened. The app can move focus to the composer just after a tab opens. */
@@ -658,19 +647,37 @@ export function ThreadTabs(props: ThreadHeaderProps) {
   const canRename = () => renamable(props, target());
   const canDelete = () => isSide() && props.onDelete !== undefined;
   const canMoveToSide = () => isSide() && props.onMoveToSide !== undefined;
-  const targetHasDetails = () => hasDetails(target());
+  const targetHasDetails = () => threadHasDetails(target());
   /** The selected tab, when it is a side thread with a message to show. */
   const selectedWithDetails = () => {
     const thread = threadOf(props.activeId);
-    return hasDetails(thread) ? thread : undefined;
+    return threadHasDetails(thread) ? thread : undefined;
   };
   const detailsButtonLeft = () => {
     const left = detailsAt();
     return left !== null && selectedWithDetails() && renaming() === null && dragged() === null ? left : null;
   };
-  const shownDetails = () => {
+  /** The thread whose details show. Undefined also when it left the tabs, such as by an archive elsewhere. */
+  const detailsThread = createMemo(() => {
     const thread = threadOf(detailsId());
-    return hasDetails(thread) ? threadDetails(thread) : null;
+    return threadHasDetails(thread) ? thread : undefined;
+  });
+  const shownDetails = createMemo(() => {
+    const thread = detailsThread();
+    return thread ? threadDetails(thread) : null;
+  });
+  // The dialog closes by its `open` prop when its thread leaves the tabs, and Kobalte then does not call
+  // `onOpenChange`. The id goes too, so the previews of the tabs open again and a later return of the
+  // thread does not open the dialog again by itself.
+  createEffect(
+    () => detailsId() !== null && detailsThread() === undefined,
+    (gone) => {
+      if (gone) setDetailsId(null);
+    },
+  );
+  const openDetails = (id: string) => {
+    detailsFrom = id;
+    setDetailsId(id);
   };
   const isMenuTarget = (id: string) => menuOpen() && menuTarget() === id;
   const openChosen = (id: string) => {
@@ -696,7 +703,7 @@ export function ThreadTabs(props: ThreadHeaderProps) {
           size="icon-xs"
           label={t("conversation.threads.details.open")}
           style={`left: ${detailsButtonLeft() ?? 0}px;`}
-          onClick={() => setDetailsId(props.activeId)}
+          onClick={() => openDetails(props.activeId)}
         >
           <Info aria-hidden="true" />
         </IconButton>
@@ -733,7 +740,7 @@ export function ThreadTabs(props: ThreadHeaderProps) {
                     thread={thread()}
                     selected={props.activeId === thread().id}
                     menuOpen={isMenuTarget(thread().id)}
-                    hold={detailsId() !== null || dragged() !== null}
+                    hold={detailsThread() !== undefined || dragged() !== null}
                     onClose={() => closeTab(thread().id)}
                     onMove={(step) => move(thread().id, step)}
                     onRename={() => startRename(thread().id)}
@@ -747,7 +754,7 @@ export function ThreadTabs(props: ThreadHeaderProps) {
         <ContextMenu.Portal>
           <ContextMenu.Content class="agent-threads-tab-menu" aria-label={t("conversation.threads.actions")}>
             <Show when={targetHasDetails()}>
-              <ContextMenu.Item onSelectAfterClose={() => setDetailsId(targetId())}>
+              <ContextMenu.Item onSelectAfterClose={() => openDetails(targetId())}>
                 <Info class="agent-context-icon size-4" aria-hidden="true" />
                 <span>{t("conversation.threads.details.open")}</span>
               </ContextMenu.Item>
@@ -805,7 +812,11 @@ export function ThreadTabs(props: ThreadHeaderProps) {
         </ContextMenu.Portal>
       </ContextMenu.Root>
       <ThreadTabGhost from="chat" />
-      <ThreadDetailsDialog details={shownDetails()} onClose={() => setDetailsId(null)} />
+      <ThreadDetailsDialog
+        details={shownDetails()}
+        onClose={() => setDetailsId(null)}
+        returnFocus={() => (detailsFrom === null ? undefined : tabOf(detailsFrom))}
+      />
       <Show when={renaming()}>
         {(edit) => (
           <Input

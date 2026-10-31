@@ -7,13 +7,19 @@ import { RemoteDesktopIcon } from "@openbot/ui/features/conversation/Conversatio
 import { SidePanelToggle, type SidePanelToggleProps } from "@openbot/ui/features/conversation/SidePanel";
 import { ThreadDetailsDialog } from "@openbot/ui/features/conversation/threads/ThreadDetailsDialog";
 import {
+  chatPreviewBlock,
+  chatPreviewLine,
+  sameMessageText,
+} from "@openbot/ui/features/conversation/threads/thread-preview-text";
+import {
   CHAT_PREVIEW_OPEN_DELAY,
   CHAT_PREVIEW_SKIP_DELAY,
   ChatPreviewCard,
+  createChatPreviewOpen,
 } from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
 import type { ComponentProps, JSX } from "@solidjs/web";
-import { createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
 
 export interface ConversationHeaderProps {
   agent: AgentProfile | null | undefined;
@@ -62,29 +68,51 @@ export function ConversationHeader(props: ConversationHeaderProps) {
   const mood = () => (props.working ? "live" : "idle");
   const titleTab = () => (props.titleSelected === undefined ? undefined : "");
   const titleSelected = () => (props.titleSelected ? "" : undefined);
-  // The agent's own chat as a tab: its first message and the person's last one, already plain text.
-  // Without a first message, such as on a host older than the preview, the tab has no preview.
+  let header: HTMLElement | undefined;
+  // The agent's own chat as a tab: its first message and the person's last one. The card shows each on
+  // one line of plain text, and shows the last one only when it is not the first one. Without a first
+  // message, such as on a host older than the preview, the tab has no preview.
   const mainFirst = () => (props.titleSelected === undefined ? "" : (props.agent?.firstMessage.trim() ?? ""));
-  const mainLast = () => (mainFirst() ? (props.agent?.preview.trim() ?? "") : "");
+  const mainLast = createMemo(() => {
+    const first = mainFirst();
+    if (!first) return "";
+    const line = chatPreviewLine(props.agent?.lastUserMessage ?? "");
+    return sameMessageText(first, line) ? "" : line;
+  });
   const mainDetailsShown = () => props.titleSelected === true && mainFirst() !== "";
-  const [previewOpen, setPreviewOpen] = createSignal(false);
-  const [detailsOpen, setDetailsOpen] = createSignal(false);
-  const mainDetails = () => {
+  /** The agent whose chat details show. They are for that agent only, while its chat tab is selected. */
+  const [detailsFor, setDetailsFor] = createSignal<string | null>(null);
+  const detailsOpen = () => detailsFor() !== null && detailsFor() === props.agent?.id && mainDetailsShown();
+  // The dialog closes by its `open` prop when the chat changes or loses its first message, and Kobalte
+  // then does not call `onOpenChange`. The state goes too, so the preview opens again and the dialog
+  // does not open again by itself for another agent.
+  createEffect(
+    () => detailsFor() !== null && !detailsOpen(),
+    (stale) => {
+      if (stale) setDetailsFor(null);
+    },
+  );
+  const previewState = createChatPreviewOpen(detailsOpen);
+  // The details keep the lines of each text. The roster has the text as written for them.
+  const mainDetails = createMemo(() => {
     const agent = props.agent;
-    return detailsOpen() && agent && mainFirst()
-      ? { title: agent.name, firstMessage: mainFirst(), lastMessage: mainLast() }
-      : null;
-  };
+    if (!detailsOpen() || !agent) return null;
+    return {
+      title: agent.name,
+      firstMessage: chatPreviewBlock(agent.firstMessageText ?? "") || mainFirst(),
+      lastMessage: chatPreviewBlock(agent.lastUserMessage ?? ""),
+    };
+  });
   return (
-    <header class="window-drag conversation-header">
+    <header ref={header} class="window-drag conversation-header">
       <div class="conversation-heading-group">
         <Show when={props.agent} fallback={props.title}>
           {(agent) => (
             <>
               {/* The name is the trigger of its preview itself, so the heading group keeps it as its first element. */}
               <Tooltip.Root
-                open={previewOpen() && !detailsOpen()}
-                onOpenChange={setPreviewOpen}
+                open={previewState.open()}
+                onOpenChange={previewState.onOpenChange}
                 placement="bottom-start"
                 gutter={10}
                 openDelay={CHAT_PREVIEW_OPEN_DELAY}
@@ -109,7 +137,7 @@ export function ConversationHeader(props: ConversationHeaderProps) {
                   <AgentAvatar agent={agent()} mood={mood()} />
                   <h1 class={props.working ? "conversation-title-working" : undefined}>{agent().name}</h1>
                 </Tooltip.Trigger>
-                <ChatPreviewCard firstMessage={mainFirst()} preview={mainLast()} />
+                <ChatPreviewCard firstMessage={mainFirst()} preview={mainLast()} variant="tab" />
               </Tooltip.Root>
               {/* After the name in the document, so the heading group keeps the name first; it shows over its start. */}
               <Show when={mainDetailsShown()}>
@@ -118,7 +146,7 @@ export function ConversationHeader(props: ConversationHeaderProps) {
                   variant="ghost"
                   size="icon-xs"
                   label={t("conversation.threads.details.openMain")}
-                  onClick={() => setDetailsOpen(true)}
+                  onClick={() => setDetailsFor(agent().id)}
                 >
                   <Info aria-hidden="true" />
                 </IconButton>
@@ -126,7 +154,11 @@ export function ConversationHeader(props: ConversationHeaderProps) {
             </>
           )}
         </Show>
-        <ThreadDetailsDialog details={mainDetails()} onClose={() => setDetailsOpen(false)} />
+        <ThreadDetailsDialog
+          details={mainDetails()}
+          onClose={() => setDetailsFor(null)}
+          returnFocus={() => header?.querySelector<HTMLElement>(".conversation-title")}
+        />
         <Show when={props.agent && agentAccessLockLabel(props.agent, t)}>
           {(label) => (
             <span class="conversation-access-lock" role="img" aria-label={label()} title={label()}>
