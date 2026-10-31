@@ -219,7 +219,7 @@ export function createMockHostedServers(billingPlans?: BillingServerPlan[]): Hos
   };
 }
 
-const access: ServerCreationAccess = { canCreate: true, administrator: true, request: null };
+const access: ServerCreationAccess = { canCreate: true, administrator: true, creationAvailable: true, request: null };
 
 const admin: ServerCreationAdminState = {
   requests: [

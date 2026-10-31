@@ -18,6 +18,34 @@ import type { AuthUser } from "./types";
 
 export const SERVER_CREATION_PATH = "v2/server-creation/";
 
+/** The account of a request, and the kind of its session. */
+export interface ServerCreationCaller {
+  user: AuthUser;
+  /**
+   * True when the session is an interactive Cultura Builder sign-in (`auth_sessions.sign_in_method =
+   * 'cultura'`, the rule of the web app). Only such a session can use the administrator routes. A session
+   * of an email code, of Mobile Connect or of a server claim cannot: the agents of a server that an
+   * administrator owns must not get the administrator power. Only the administrator routes read it.
+   */
+  culturaSession: () => Effect.Effect<boolean, unknown>;
+}
+
+/**
+ * The caller of a bearer request: the account of the token, or null with no valid session. The session
+ * kind uses `authenticateWeb`, the rule of the web app, and must find the same account.
+ */
+export function bearerServerCreationCaller<E>(
+  user: AuthUser | null,
+  token: string | null,
+  authenticateWeb: (token: string) => Effect.Effect<AuthUser | null, E>,
+): ServerCreationCaller | null {
+  if (!user || !token) return null;
+  return {
+    user,
+    culturaSession: () => authenticateWeb(token).pipe(Effect.map((account) => account?.id === user.id)),
+  };
+}
+
 function json(value: unknown, status = 200): Response {
   return Response.json(value, {
     status,
@@ -37,14 +65,21 @@ function notFound(): Response {
 
 /**
  * Answers one server creation request, or returns null for a path outside `v2/server-creation/`.
- * `path` has no leading slash. Each `admin` path checks the administrator before it reads the body,
- * the query or the database, so a person who is not an administrator learns nothing from it.
+ * `path` has no leading slash. Each `admin` path checks the administrator and the Cultura Builder
+ * session before it reads the body, the query or the database, so a person who is not an
+ * administrator learns nothing from it.
  */
 export const handleServerCreationApi = Effect.fn("ServerCreationApi.handle")(
-  function* (request: Request, path: string, user: AuthUser | null, permission: ServerCreationPermission) {
+  function* (
+    request: Request,
+    path: string,
+    caller: ServerCreationCaller | null,
+    permission: ServerCreationPermission,
+  ) {
     if (!path.startsWith(SERVER_CREATION_PATH)) return null;
     const route = path.slice(SERVER_CREATION_PATH.length).replace(/\/$/u, "");
-    if (!user) return failure(401, "unauthorized", "Sign in is required.");
+    if (!caller) return failure(401, "unauthorized", "Sign in is required.");
+    const user = caller.user;
     const method = request.method;
     if (route === "access") return method === "GET" ? json(yield* permission.access(user)) : notFound();
     if (route === "requests") {
@@ -62,6 +97,9 @@ export const handleServerCreationApi = Effect.fn("ServerCreationApi.handle")(
     if (route !== "admin" && !route.startsWith("admin/")) return notFound();
     if (!permission.isAdministrator(user)) {
       return failure(403, "admin_required", sourceText("error.remote.serverCreationAdminRequired"));
+    }
+    if (!(yield* caller.culturaSession())) {
+      return failure(403, "admin_session_required", sourceText("error.remote.serverCreationAdminSession"));
     }
     const query = new URL(request.url).searchParams;
     if (route === "admin") return method === "GET" ? json(yield* permission.adminState(user)) : notFound();

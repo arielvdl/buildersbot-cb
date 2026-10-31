@@ -202,8 +202,14 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
   }
   if (!token || !user) return failure(401, "sign_in_required", "Sign in is required.");
   if (path === "session" && request.method === "GET") return json({ user });
-  // The same routes as the bearer `/v2/server-creation/...`, behind the write checks above.
-  const serverCreation = yield* handleServerCreationApi(request, path, user, services.serverCreation());
+  // The same routes as the bearer `/v2/server-creation/...`, behind the write checks above. The web
+  // session is always a Cultura Builder sign-in (`authenticateWeb`), so it can use the administrator routes.
+  const serverCreation = yield* handleServerCreationApi(
+    request,
+    path,
+    { user, culturaSession: () => Effect.succeed(true) },
+    services.serverCreation(),
+  );
   if (serverCreation) return serverCreation;
   if (path === "v2/remote/hosts" && request.method === "GET")
     return json({ hosts: yield* services.remote.listHosts(user.id) });

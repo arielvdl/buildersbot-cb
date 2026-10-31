@@ -323,6 +323,11 @@ export class HostedServerService {
     });
   }
 
+  /** True when this deployment can create hosted servers: hosting is on and billing is configured. */
+  get creationConfigured(): boolean {
+    return this.#enabled && this.#billing !== null;
+  }
+
   /**
    * True when the person can create a hosted server: hosting is configured, and the server creation
    * permission allows the person. The developer key of the test Worker also allows it.
@@ -331,7 +336,7 @@ export class HostedServerService {
     this: HostedServerService,
     user: Pick<AuthUser, "id" | "email">,
   ) {
-    if (!this.#enabled || !this.#billing) return false;
+    if (!this.creationConfigured) return false;
     return this.#developerAccess || (yield* this.#permission.canCreate(user).pipe(Effect.mapError(hostedFailure)));
   }).bind(this);
 
@@ -364,7 +369,16 @@ export class HostedServerService {
           .all<HostedServerRow>(),
       );
       return {
-        available: yield* this.availableFor(user),
+        // A failed read of the permission (for example a Worker that runs before its migration) does not
+        // fail the list: the servers that exist still show, and only the create is off.
+        available: yield* this.availableFor(user).pipe(
+          Effect.catch((error) =>
+            Effect.sync(() => {
+              console.warn("Server creation permission read failed.", { error: safeErrorCode(error) });
+              return false;
+            }),
+          ),
+        ),
         lifecycleAvailable: true,
         servers: rows.results.map(summary),
         maxServers: MAX_SERVERS_PER_ACCOUNT,
@@ -525,6 +539,48 @@ export class HostedServerService {
         billing,
         resumed ? { ...returnTo, entryPoint: "checkout_resume" } : returnTo,
         resumed ? "previous" : undefined,
+      );
+    },
+    (operation) => operation.pipe(Effect.provide(this.#layer)),
+  ).bind(this);
+
+  /**
+   * Closes the open payment pages of the servers that the person has not paid for yet. The server
+   * creation permission calls it after a revoke, so a page from before the revoke cannot create a
+   * server. A page that was paid already keeps its server. A failure is logged with no account data;
+   * an open page then closes by itself when Stripe expires it.
+   */
+  readonly closeUnpaidCheckouts = Effect.fn("HostedServerService.closeUnpaidCheckouts")(
+    function* (this: HostedServerService, userId: string): Effect.fn.Return<void, never, HostedServerDependencies> {
+      const dependencies = yield* HostedServerDependencies;
+      yield* Effect.gen({ self: this }, function* () {
+        const rows = yield* hostedCall(() =>
+          dependencies.database
+            .prepare(
+              `SELECT server_id, checkout_session_id FROM hosted_servers
+               WHERE owner_user_id = ? AND observed_state = 'awaiting_payment' AND desired_state = 'running'
+                 AND checkout_session_id IS NOT NULL`,
+            )
+            .bind(userId)
+            .all<{ server_id: string; checkout_session_id: string }>(),
+        );
+        for (const row of rows.results) {
+          if ((yield* this.#closeCheckout(row.checkout_session_id)) !== "closed") continue;
+          yield* hostedCall(() =>
+            dependencies.database
+              .prepare(
+                `UPDATE hosted_servers SET checkout_session_id = NULL, updated_at = ?
+                 WHERE server_id = ? AND checkout_session_id = ?
+                   AND observed_state = 'awaiting_payment' AND desired_state = 'running'`,
+              )
+              .bind(dependencies.now(), row.server_id, row.checkout_session_id)
+              .run(),
+          );
+        }
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.sync(() => console.warn("Unpaid checkout close failed.", { error: safeErrorCode(error) })),
+        ),
       );
     },
     (operation) => operation.pipe(Effect.provide(this.#layer)),

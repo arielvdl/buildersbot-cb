@@ -155,6 +155,7 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     {
       canCreate: false,
       administrator: false,
+      creationAvailable: true,
       request: { id: "request-1", status: "denied", createdAt: 1, decidedAt: 2 },
     },
   ],
@@ -293,11 +294,17 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["a server creation access with no permission flag", decodeServerCreationAccess, { administrator: true }],
   [
+    "a server creation access with no availability flag",
+    decodeServerCreationAccess,
+    { canCreate: true, administrator: false, request: null },
+  ],
+  [
     "a server creation request with an unknown status",
     decodeServerCreationAccess,
     {
       canCreate: false,
       administrator: false,
+      creationAvailable: true,
       request: { id: "r", status: "cancelled", createdAt: 1, decidedAt: null },
     },
   ],

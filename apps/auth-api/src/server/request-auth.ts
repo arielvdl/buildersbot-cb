@@ -364,10 +364,18 @@ function requestHostedBilling(developerKey: string | null = null) {
   });
 }
 
-/** Who can create a remote server, and the requests and grants of that permission. */
+/**
+ * Who can create a remote server, and the requests and grants of that permission. The hosting service
+ * tells whether this deployment can create servers at all, and closes the open payment pages of a
+ * person after a revoke. The answer of the revoke does not wait for Stripe.
+ */
 export function requestServerCreationPermission(): ServerCreationPermission {
   const bindings = requireWorkerBindings(env);
-  return new ServerCreationPermission(bindings.DB, readServerCreationPolicy(bindings));
+  const hosting = requestHostedServerService();
+  return new ServerCreationPermission(bindings.DB, readServerCreationPolicy(bindings), Date.now, {
+    creationAvailable: hosting.creationConfigured,
+    onRevoke: (userId) => Effect.sync(() => schedule(hosting.closeUnpaidCheckouts(userId))),
+  });
 }
 
 export function hostedServerErrorResponse(error: unknown): Response {

@@ -173,15 +173,37 @@ function grant(row: GrantRow): ServerCreationGrant {
   return { userId: row.user_id, email: row.email, name: row.name, grantedAt: row.granted_at, note: row.note };
 }
 
+export interface ServerCreationPermissionOptions {
+  /**
+   * True when this deployment can create remote servers: hosting is on and billing is configured (see
+   * `HostedServerService.creationConfigured`). False by default, so the apps show nothing about creation.
+   */
+  creationAvailable?: boolean | undefined;
+  /**
+   * Runs after a revoke, with the account ID. The Worker closes the open payment pages of the servers
+   * that the person has not paid for yet (`HostedServerService.closeUnpaidCheckouts`).
+   */
+  onRevoke?: ((userId: string) => Effect.Effect<void>) | undefined;
+}
+
 export class ServerCreationPermission {
   readonly #database: D1Database;
   readonly #policy: ServerCreationPolicy;
   readonly #now: () => number;
+  readonly #creationAvailable: boolean;
+  readonly #onRevoke: (userId: string) => Effect.Effect<void>;
 
-  constructor(database: D1Database, policy: ServerCreationPolicy, now: () => number = Date.now) {
+  constructor(
+    database: D1Database,
+    policy: ServerCreationPolicy,
+    now: () => number = Date.now,
+    options: ServerCreationPermissionOptions = {},
+  ) {
     this.#database = database;
     this.#policy = policy;
     this.#now = now;
+    this.#creationAvailable = options.creationAvailable ?? false;
+    this.#onRevoke = options.onRevoke ?? (() => Effect.void);
   }
 
   isAdministrator(user: Pick<AuthUser, "id">): boolean {
@@ -204,7 +226,7 @@ export class ServerCreationPermission {
     return row !== null;
   }).bind(this);
 
-  /** What the person can do, and their latest request. */
+  /** What the person can do, whether this deployment can create servers, and their latest request. */
   readonly access = Effect.fn("ServerCreationPermission.access")(function* (
     this: ServerCreationPermission,
     user: AuthUser,
@@ -222,15 +244,30 @@ export class ServerCreationPermission {
     const request: ServerCreationOwnRequest | null = row
       ? { id: row.id, status: row.status, createdAt: row.created_at, decidedAt: row.decided_at }
       : null;
-    return { canCreate, administrator: this.isAdministrator(user), request } satisfies ServerCreationAccess;
+    return {
+      canCreate,
+      administrator: this.isAdministrator(user),
+      creationAvailable: this.#creationAvailable,
+      request,
+    } satisfies ServerCreationAccess;
   }).bind(this);
 
-  /** Adds a pending request. One request waits at a time, and a person who can create needs none. */
+  /**
+   * Adds a pending request. One request waits at a time, and a person who can create needs none. When
+   * this deployment cannot create servers, there is nothing to ask for.
+   */
   readonly requestAccess = Effect.fn("ServerCreationPermission.requestAccess")(function* (
     this: ServerCreationPermission,
     user: AuthUser,
     reason: string,
   ) {
+    if (!this.#creationAvailable) {
+      return yield* new ServerCreationError(
+        409,
+        "hosting_unavailable",
+        sourceText("error.remote.serverCreationUnavailable"),
+      );
+    }
     const text = reason.trim();
     if (text.length === 0 || text.length > SERVER_CREATION_REASON_MAX_LENGTH) {
       return yield* new ServerCreationError(
@@ -259,9 +296,7 @@ export class ServerCreationPermission {
              WHERE NOT EXISTS(SELECT 1 FROM server_creation_requests WHERE user_id = ? AND status = 'pending')`,
           )
           .bind(id, user.id, text, now, user.id),
-        this.#audit("request", user.id, user.id, id, null, now, "SELECT 1 FROM server_creation_requests WHERE id = ?", [
-          id,
-        ]),
+        this.#audit("request", user.id, user.id, id, now, "SELECT 1 FROM server_creation_requests WHERE id = ?", [id]),
       ]),
     );
     if (inserted?.meta.changes !== 1) return yield* requestPending();
@@ -316,7 +351,10 @@ export class ServerCreationPermission {
     return yield* this.#requests(status);
   }).bind(this);
 
-  /** Gives the permission to the account of the email or ID. A pending request of that person is approved. */
+  /**
+   * Gives the permission to the account of the email or ID. A pending request of that person is approved,
+   * with its own audit row. The note stays on the grant only: the audit keeps no free text.
+   */
   readonly grant = Effect.fn("ServerCreationPermission.grant")(function* (
     this: ServerCreationPermission,
     admin: AuthUser,
@@ -356,19 +394,30 @@ export class ServerCreationPermission {
     yield* this.#call(() =>
       this.#database.batch([
         this.#upsertGrant(account.id, admin.id, now, note),
+        // Before the update in the same batch, so it finds the request that the update approves.
+        this.#database
+          .prepare(
+            `INSERT INTO server_creation_audit(id, actor_user_id, action, target_user_id, request_id, note, created_at)
+             SELECT ?, ?, 'approve', user_id, id, NULL, ? FROM server_creation_requests
+             WHERE user_id = ? AND status = 'pending'`,
+          )
+          .bind(crypto.randomUUID(), admin.id, now, account.id),
         this.#database
           .prepare(
             `UPDATE server_creation_requests SET status = 'approved', decided_by = ?, decided_at = ?
              WHERE user_id = ? AND status = 'pending'`,
           )
           .bind(admin.id, now, account.id),
-        this.#audit("grant", admin.id, account.id, null, note, now),
+        this.#audit("grant", admin.id, account.id, null, now),
       ]),
     );
     return yield* this.#adminState();
   }).bind(this);
 
-  /** Removes the active grant. Servers that the person created stay as they are. */
+  /**
+   * Removes the active grant. Servers that the person created stay as they are. A payment page that the
+   * person opened before the revoke closes (`onRevoke`), so it cannot create a new server.
+   */
   readonly revoke = Effect.fn("ServerCreationPermission.revoke")(function* (
     this: ServerCreationPermission,
     admin: AuthUser,
@@ -397,7 +446,6 @@ export class ServerCreationPermission {
           admin.id,
           userId,
           null,
-          null,
           now,
           "SELECT 1 FROM server_creation_grants WHERE user_id = ? AND revoked_at = ? AND revoked_by = ?",
           [userId, now, admin.id],
@@ -405,6 +453,7 @@ export class ServerCreationPermission {
       ]),
     );
     if (revoked?.meta.changes !== 1) return yield* grantNotFound();
+    yield* this.#onRevoke(userId);
     return yield* this.#adminState();
   }).bind(this);
 
@@ -438,7 +487,7 @@ export class ServerCreationPermission {
            WHERE id = ? AND status = 'pending'`,
         )
         .bind(status, admin.id, now, requestId),
-      this.#audit(decision, admin.id, request.user_id, requestId, null, now, decided, decidedValues),
+      this.#audit(decision, admin.id, request.user_id, requestId, now, decided, decidedValues),
     ];
     if (decision === "approve")
       statements.push(this.#upsertGrant(request.user_id, admin.id, now, null, decided, decidedValues));
@@ -555,13 +604,15 @@ export class ServerCreationPermission {
       .bind(userId, grantedBy, now, note, ...values);
   }
 
-  /** One audit row, written only when `condition` finds a row in the same batch. */
+  /**
+   * One audit row, written only when `condition` finds a row in the same batch. It keeps only IDs, the
+   * action and the time: no note, reason or email (the `note` column stays NULL).
+   */
   #audit(
     action: "request" | "grant" | "revoke" | "approve" | "deny",
     actorUserId: string,
     targetUserId: string,
     requestId: string | null,
-    note: string | null,
     now: number,
     condition = "SELECT 1",
     values: (string | number)[] = [],
@@ -569,9 +620,9 @@ export class ServerCreationPermission {
     return this.#database
       .prepare(
         `INSERT INTO server_creation_audit(id, actor_user_id, action, target_user_id, request_id, note, created_at)
-         SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS(${condition})`,
+         SELECT ?, ?, ?, ?, ?, NULL, ? WHERE EXISTS(${condition})`,
       )
-      .bind(crypto.randomUUID(), actorUserId, action, targetUserId, requestId, note, now, ...values);
+      .bind(crypto.randomUUID(), actorUserId, action, targetUserId, requestId, now, ...values);
   }
 
   #call<A>(operation: () => Promise<A>): Effect.Effect<A, ServerCreationStoreError> {

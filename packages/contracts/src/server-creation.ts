@@ -19,10 +19,15 @@ export interface ServerCreationOwnRequest {
   decidedAt: number | null;
 }
 
-/** What the signed-in person can do. `canCreate` is the permission only: hosting can still be off. */
+/**
+ * What the signed-in person can do. `canCreate` is the permission only. `creationAvailable` is true when
+ * this deployment can create remote servers at all (hosting is on and billing is configured). When it is
+ * false, the apps show nothing about server creation: there is nothing to create or to ask for.
+ */
 export interface ServerCreationAccess {
   canCreate: boolean;
   administrator: boolean;
+  creationAvailable: boolean;
   request: ServerCreationOwnRequest | null;
 }
 
@@ -102,10 +107,21 @@ function parseOwnRequest(value: unknown): ServerCreationOwnRequest | null {
 
 /** Returns null for a value that is not an access answer. */
 export function parseServerCreationAccess(value: unknown): ServerCreationAccess | null {
-  if (!isDynamicRecord(value) || !isBoolean(value.canCreate) || !isBoolean(value.administrator)) return null;
+  if (
+    !isDynamicRecord(value) ||
+    !isBoolean(value.canCreate) ||
+    !isBoolean(value.administrator) ||
+    !isBoolean(value.creationAvailable)
+  )
+    return null;
   const request = value.request === null || value.request === undefined ? null : parseOwnRequest(value.request);
   if (value.request && !request) return null;
-  return { canCreate: value.canCreate, administrator: value.administrator, request };
+  return {
+    canCreate: value.canCreate,
+    administrator: value.administrator,
+    creationAvailable: value.creationAvailable,
+    request,
+  };
 }
 
 function parsePerson(value: DynamicRecord): ServerCreationPerson | null {

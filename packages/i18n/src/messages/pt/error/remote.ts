@@ -210,15 +210,18 @@ export const messages = {
   "error.remote.serverCreationNotAllowed":
     "Só pessoas autorizadas podem criar um servidor remoto. Peça autorização ao administrador.",
   "error.remote.serverCreationAdminRequired": "Só um administrador do Builders Bot pode fazer isso.",
+  "error.remote.serverCreationAdminSession":
+    "Para gerenciar a criação de servidores, entre com a Cultura Builder. Esta sessão não pode fazer isso.",
   "error.remote.serverCreationSelfGrant": "Você não pode dar a autorização para si mesmo.",
   "error.remote.serverCreationAlreadyAllowed": "Você já pode criar um servidor remoto.",
   "error.remote.serverCreationRequestPending": "Seu pedido de autorização aguarda o administrador.",
   "error.remote.serverCreationRequestDecided": "Este pedido já tem uma decisão.",
   "error.remote.serverCreationRequestNotFound": "O pedido de autorização não foi encontrado.",
   "error.remote.serverCreationAccountNotFound": "Nenhuma conta tem este e-mail.",
-  "error.remote.serverCreationGrantNotFound": "Esta pessoa não tem autorização para remover.",
+  "error.remote.serverCreationGrantNotFound": "Esta pessoa não tem uma autorização ativa para remover.",
   "error.remote.serverCreationInvalidReason": "Escreva um motivo de 1 a {max} caracteres.",
   "error.remote.serverCreationInvalidGrant":
     "Informe o e-mail de uma conta e uma observação de no máximo {max} caracteres.",
-  "error.remote.serverCreationRateLimited": "Pedidos de autorização demais. Tente de novo mais tarde.",
+  "error.remote.serverCreationUnavailable": "Não é possível criar servidores remotos agora.",
+  "error.remote.serverCreationRateLimited": "Muitos pedidos de autorização. Tente de novo mais tarde.",
 } as const satisfies PartialTranslation<typeof source>;
