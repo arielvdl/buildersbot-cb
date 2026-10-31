@@ -317,6 +317,27 @@ const WRAPPERS: ReadonlySet<string> = new Set([
   "xargs",
   "builtin",
 ]);
+/**
+ * The options of a wrapper that take the next word as their value, such as `sudo -u root`: the value
+ * is not the program. A value joined to its option (`-uroot`, `--user=root`) is one word already.
+ */
+const WRAPPER_VALUE_OPTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
+  sudo: new Set(
+    "-u -g -h -p -C -D -r -t -U -T --user --group --host --prompt --close-from --chdir --role --type --other-user --command-timeout".split(
+      " ",
+    ),
+  ),
+  doas: new Set(["-u", "-C"]),
+  env: new Set("-u -C -S -P --unset --chdir --split-string".split(" ")),
+  nice: new Set(["-n", "--adjustment"]),
+  timeout: new Set(["-s", "-k", "--signal", "--kill-after"]),
+  stdbuf: new Set(["-i", "-o", "-e"]),
+  xargs: new Set(
+    "-I -i -n -L -l -P -d -E -e -s -a --max-args --max-lines --max-procs --delimiter --eof --max-chars --arg-file --replace".split(
+      " ",
+    ),
+  ),
+};
 /** Words of the shell that come before a command, such as `if`, `!` or the `{` of a group. */
 const KEYWORDS: ReadonlySet<string> = new Set(["{", "!", "if", "then", "elif", "else", "do", "while", "until"]);
 /** A shell assignment before a command, such as `TOKEN=abc curl …`. */
@@ -344,9 +365,14 @@ export function commandIndex(words: readonly ShellWord[]): number {
     if (!WRAPPERS.has(name)) return index;
     const wrapper = index;
     index += 1;
-    // The flags of a wrapper, and the duration of `timeout`.
-    while (index < words.length && (words[index]?.value.startsWith("-") || ASSIGNMENT.test(words[index]?.value ?? "")))
-      index += 1;
+    // The flags of a wrapper with their values, and the duration of `timeout`.
+    const valued = WRAPPER_VALUE_OPTIONS[name];
+    while (
+      index < words.length &&
+      (words[index]?.value.startsWith("-") || ASSIGNMENT.test(words[index]?.value ?? ""))
+    ) {
+      index += valued?.has(words[index]?.value ?? "") ? 2 : 1;
+    }
     if (name === "timeout" && index < words.length) index += 1;
     // A wrapper with nothing to run is the program itself, such as `env` that prints the environment.
     if (index >= words.length) return wrapper;

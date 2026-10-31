@@ -5,7 +5,7 @@
 
 import { GUARD_JUDGE_EXCERPT_LIMIT } from "@openbot/contracts/ipc";
 import { redactText } from "@openbot/logging";
-import { type GuardHit, type GuardTriage, guardFindingNeedsReview } from "./guard-triage";
+import { type GuardHit, type GuardTriage, guardFindingBarsClearance, guardFindingNeedsReview } from "./guard-triage";
 
 /** A line of an environment file whose name says that its value is a secret. */
 const SECRET_ENV_LINE =
@@ -46,7 +46,8 @@ const BASE64_RUN = /(?<![A-Za-z0-9+/])(?=[A-Za-z0-9+/]{0,300}\+)(?=[A-Za-z0-9+/]
  */
 const KEY_LIKE_RUN =
   /(?<![A-Za-z0-9+_-])(?=[A-Za-z0-9+_-]{0,200}\d)(?=[A-Za-z0-9+_-]{0,200}[A-Za-z])[A-Za-z0-9+_-]{40,}={0,2}/gu;
-const INVISIBLE = /[\u{200B}-\u{200D}\u{2060}-\u{2064}\u{00AD}\u{180E}\u{FEFF}\u{E0000}-\u{E007F}]/gu;
+/** Every character that a reader does not see: default-ignorable code points and format characters. */
+const INVISIBLE = /[\p{Default_Ignorable_Code_Point}\p{Cf}]/gu;
 /** The characters of a credential. A cut inside such a run could leave half a secret at an edge. */
 const TOKEN_CHARACTER = /[A-Za-z0-9._~+/=-]/u;
 const WHITESPACE = /\s/u;
@@ -90,7 +91,8 @@ export interface GuardExcerpt {
   /**
    * False when a place that the local check marked is not in `text`: the item was read only in
    * part, a finding has no place or more places than were recorded, or the places did not fit the
-   * limit. The reviewer can then ask about the item, but it cannot clear it.
+   * limit, or the item holds a fake verdict. The reviewer can then ask about the item, but it cannot
+   * clear it.
    */
   readonly covered: boolean;
 }
@@ -168,10 +170,12 @@ export function judgeExcerpt(
 ): GuardExcerpt {
   const { text } = triage;
   const required = triage.hits.filter((hit) => guardFindingNeedsReview(hit.code));
-  // Every finding that the reviewer must see has a recorded place, and every place was recorded.
+  // Every finding that the reviewer must see has a recorded place, and every place was recorded. An
+  // item that holds a fake verdict is never covered: that text may be what fooled the reviewer.
   const placed =
     !triage.incomplete &&
     !triage.unplaced &&
+    !triage.findings.some((finding) => guardFindingBarsClearance(finding.code)) &&
     triage.findings
       .filter((finding) => guardFindingNeedsReview(finding.code))
       .every((finding) => required.some((hit) => hit.code === finding.code));
