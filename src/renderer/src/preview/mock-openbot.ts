@@ -226,6 +226,7 @@ import { clone, type Listener, type MockRuntime, matchesQuery } from "./mock-sup
 import { createMockTeam, type MockTeamOptions } from "./mock-team";
 import { createMockVault } from "./mock-vault";
 import { createMockVoice, type MockVoiceOptions } from "./mock-voice";
+import { createMockWhatsAppAccounts } from "./mock-whatsapp-accounts";
 import { type MockWorkflowSeed, mockWorkflows } from "./mock-workflows";
 
 export interface MockBuildersBotOptions
@@ -1314,6 +1315,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     macAutomation: {
       request: async (targets) => targets.map((target) => ({ target, status: "granted" })),
     },
+    whatsappAccounts: createMockWhatsAppAccounts(),
     lidAwake: {
       getStatus: async () => clone(lidAwakeStatus),
       // The preview has a Mac on its power adapter with the safety service installed.

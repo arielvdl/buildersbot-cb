@@ -9,6 +9,7 @@ import {
   agentQuickAcknowledgementEnabled,
   agentSecurityGuardEnabled,
   COMPUTER_USE_MCP_SERVER_ID,
+  isWazapServer,
   type McpServerConfig,
   workspaceAccessEnforced,
 } from "@openbot/contracts/ipc";
@@ -1131,6 +1132,7 @@ export class ThreadLifecycle {
       sectionTeammates: section,
       homeSkills,
       httpMcpServers: mcpServers.some((config) => config.transport === "http"),
+      whatsappAccounts: mcpServers.some((config) => config.enabled && isWazapServer(config)),
       instructionsFileName: instructionsFile.fileName,
       instructionsFile: instructionsFile.file,
     };

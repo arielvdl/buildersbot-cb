@@ -551,6 +551,14 @@ import type {
   VoiceTranscriptionResult,
 } from "./ipc-voice";
 import type {
+  WhatsAppAccountActionInput,
+  WhatsAppAccountAddInput,
+  WhatsAppAccountsResult,
+  WhatsAppAccountsSnapshot,
+  WhatsAppLinkInput,
+  WhatsAppLinkState,
+} from "./ipc-whatsapp-accounts";
+import type {
   CreateWorkflowInput,
   DecideWorkflowStepInput,
   RenameWorkflowInput,
@@ -1000,6 +1008,17 @@ export const IPC_ENDPOINTS = {
   macAutomation: {
     /** Sends one harmless Apple Event to each app, so macOS shows its Automation prompts now. */
     request: request<readonly MacAutomationTarget[], MacAutomationResult[]>()("mac-automation:request"),
+  },
+  // The accounts of the wazap server that the WhatsApp plugin starts, on this computer. Main runs the
+  // pinned wazap CLI; the page names an account and an action, never a command.
+  whatsappAccounts: {
+    list: request<undefined, WhatsAppAccountsSnapshot>()("whatsapp-accounts:list"),
+    add: request<WhatsAppAccountAddInput, WhatsAppAccountsResult>()("whatsapp-accounts:add"),
+    act: request<WhatsAppAccountActionInput, WhatsAppAccountsResult>()("whatsapp-accounts:act"),
+    startLink: request<WhatsAppLinkInput, WhatsAppLinkState>()("whatsapp-accounts:start-link"),
+    /** The pairing of one account id, or null when none runs or ran. */
+    linkState: request<string, WhatsAppLinkState | null>()("whatsapp-accounts:link-state"),
+    cancelLink: request<string, void>()("whatsapp-accounts:cancel-link"),
   },
   // Keep a Mac laptop on with its lid closed. `status` sends each change while the mode or its test
   // runs. `installHelper` and `restoreNormalSleep` make macOS ask for an administrator password.
@@ -2001,6 +2020,7 @@ export const IPC_GROUP_PATHS = {
   browserDock: "browserDock",
   computerUse: "computerUse",
   macAutomation: "macAutomation",
+  whatsappAccounts: "whatsappAccounts",
   backgroundProcesses: "backgroundProcesses",
   lidAwake: "lidAwake",
   skills: "skills",

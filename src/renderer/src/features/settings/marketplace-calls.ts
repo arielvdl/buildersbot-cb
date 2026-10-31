@@ -27,6 +27,8 @@ export interface MarketplaceCalls {
   signInRelay?: MarketplaceSignInRelay | undefined;
   /** Asks macOS on this computer for Automation access to Apple apps. Absent: this client cannot. */
   macAutomation?: SkillsPort["macAutomation"]["request"] | undefined;
+  /** The WhatsApp accounts of the wazap server on this computer. Absent: this client cannot run wazap. */
+  whatsappAccounts?: SkillsPort["whatsappAccounts"] | undefined;
 }
 
 /** The relayed sign-in of the app at `url` on the joined server `serverId`, while it waits. */
@@ -53,5 +55,6 @@ export function desktopMarketplaceCalls(): MarketplaceCalls {
       paste: (url, address, serverId) => port.agent.completeMcpSignInRelay({ url, address }, serverId),
     },
     macAutomation: (targets) => port.macAutomation.request(targets),
+    whatsappAccounts: port.whatsappAccounts,
   };
 }

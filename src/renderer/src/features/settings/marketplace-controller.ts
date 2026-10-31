@@ -65,6 +65,7 @@ import {
   removalHeld,
   removalWaits,
 } from "./marketplace-skill-removals";
+import { createWhatsAppAccountsModel } from "./whatsapp-accounts-controller";
 
 /** An agent of the server that the Marketplace is for. */
 export type MarketplaceAgentRow = Pick<
@@ -1101,6 +1102,12 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     setError(sentences.filter(Boolean).join(" "));
   }
 
+  /* Built once: it reads nothing until the WhatsApp page asks, and a pairing that waits ends with
+     the Marketplace. A joined server keeps its accounts on its own computer. */
+  const whatsappAccounts = createWhatsAppAccountsModel(() =>
+    props.pluginHostName ? undefined : calls().whatsappAccounts,
+  );
+
   const macAutomation: MarketplaceMacAutomation = {
     askOnInstall: askAccessOnInstall,
     setAskOnInstall: setAskAccessOnInstall,
@@ -1318,6 +1325,9 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     },
     get macAutomation() {
       return requestMacAutomation() ? macAutomation : undefined;
+    },
+    get whatsappAccounts() {
+      return calls().whatsappAccounts && !props.pluginHostName ? whatsappAccounts : undefined;
     },
     disconnectApp: (app) => setUninstalling(app.plugin),
     removeServer,

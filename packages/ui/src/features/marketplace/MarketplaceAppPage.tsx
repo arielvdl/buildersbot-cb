@@ -1,3 +1,4 @@
+import { isWazapServer } from "@openbot/contracts/ipc";
 import { mcpFlowFields } from "@openbot/contracts/mcp-connect-flows";
 import { pluginLinkText } from "@openbot/contracts/plugin-links";
 import type { AppTextKey } from "@openbot/i18n";
@@ -42,6 +43,7 @@ import {
 } from "./marketplace-model";
 import { type MarketplaceScope, serverAddress } from "./marketplace-view";
 import { PluginIcon } from "./PluginIcon";
+import { WhatsAppAccountsPanel } from "./WhatsAppAccountsPanel";
 
 type PluginApp = Extract<MarketplaceApp, { kind: "plugin" }>;
 type ConnectorApp = Extract<MarketplaceApp, { kind: "connector" }>;
@@ -67,6 +69,10 @@ function PluginAppPage(props: { scope: MarketplaceScope; app: PluginApp }) {
     ].flatMap((link) => (link.url ? [{ label: link.label, url: link.url, text: pluginLinkText(link.url) }] : []));
   /** The first app whose server refused its saved sign-in. */
   const refused = () => plugin().apps.find((app) => props.app.connections[app.id]?.signInNeeded);
+  /* A wazap app holds WhatsApp accounts. The panel shows once the app is installed. */
+  const wazap = () =>
+    props.app.status !== "idle" &&
+    plugin().apps.some((app) => app.server.transport === "stdio" && isWazapServer(app.server));
   const automation = () =>
     model().canConnectApps() && plugin().apps.some((app) => app.macAutomation?.length)
       ? model().macAutomation
@@ -172,6 +178,9 @@ function PluginAppPage(props: { scope: MarketplaceScope; app: PluginApp }) {
             </Show>
           </ItemGroup>
         </SettingsSection>
+      </Show>
+      <Show when={wazap()}>
+        <WhatsAppAccountsPanel model={model().whatsappAccounts} hostName={model().appHostName} />
       </Show>
       <Show when={plugin().skills.length > 0}>
         <SettingsSection title={t("plugin.section.skills")}>
