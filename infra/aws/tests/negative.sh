@@ -320,8 +320,6 @@ sector_env() {
 export EXTRA_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE bb-srv-piloto-data=CREATE_COMPLETE"
 expect_refusal "C15 setor existente sem --resume indica o --resume" "scripts/add-sector.sh piloto --resume" h_sector \
   sector_env bash scripts/add-sector.sh piloto
-expect_refusal "C15 --resume num setor instalado e protegido não faz nada" "nada a retomar" h_sector \
-  sector_env FAKE_IMAGE="x@$DIGEST_A" FAKE_PARAM_TerminationProtection=true bash scripts/add-sector.sh piloto --resume
 expect_refusal "C15 --resume não troca o tamanho" "não troca o tamanho" h_sector \
   sector_env bash scripts/add-sector.sh piloto medium --resume
 expect_refusal "C15 --resume não combina com --from-snapshot" "não combina" h_sector \
@@ -330,6 +328,48 @@ EXTRA_STACKS='' expect_refusal "C15 --resume sem a stack -compute pede o fluxo n
   sector_env bash scripts/add-sector.sh piloto --resume
 EXTRA_STACKS="bb-srv-piloto-compute=REVIEW_IN_PROGRESS" expect_refusal "C6 stack -compute vazia (REVIEW_IN_PROGRESS) conta como inexistente" "rode sem --resume" h_sector \
   sector_env bash scripts/add-sector.sh piloto --resume
+
+# --resume numa VM nova (troca de VM, restauração): /image existe, mas a marca é de outra VM (achado 4).
+h_resume() {
+  local name='' prev='' a
+  for a in "$@"; do
+    [ "$prev" != --name ] || name=$a
+    prev=$a
+  done
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "ssm get-parameter")
+      case $name in
+        */installed-instance) [ -n "${FAKE_INSTALLED:-}" ] && echo "$FAKE_INSTALLED" ;;
+        /bb-srv/sectors/*/image) echo "x@$DIGEST_A" ;;
+        /bb-srv/images/*) echo "$DIGEST_A $DIGEST_C" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    "s3 cp" | "ecr describe-images" | "ecr describe-image-scan-findings") h_image "$@" ;;
+    "ec2 describe-instances") echo running ;;
+    "ec2 describe-volumes") echo 40 ;;
+    "ssm describe-instance-information") echo Online ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_resume
+resume_env() {
+  sector_env FAKE_PARAM_TerminationProtection=false FAKE_OUTPUT_VolumeId=vol-0123456789abcdef0 \
+    FAKE_OUTPUT_BuildBucketName=bb-srv-build-358748433479 FAKE_OUTPUT_RepositoryUri=358748433479.dkr.ecr.us-east-1.amazonaws.com/bb-srv/server \
+    FAKE_PARAM_KEYS="Sector Size AmiId TerminationProtection ImageTag" "$@"
+}
+expect_refusal "C15 --resume num setor instalado (nesta VM) e protegido não faz nada" "nada a retomar" h_resume \
+  sector_env FAKE_INSTALLED=i-0123456789abcdef0 FAKE_PARAM_TerminationProtection=true bash scripts/add-sector.sh piloto --resume
+expect_calls "C15 --resume numa VM nova (marca de outra VM) roda o bb-srv-Install" \
+  'WRITE ssm send-command .*--document-name bb-srv-Install' 'create-change-set' h_resume \
+  resume_env FAKE_INSTALLED=i-0aaaaaaaaaaaaaaaa bash scripts/add-sector.sh piloto --resume --image-tag "$TAG"
+expect_calls "C15 --resume sem marca de instalação roda o bb-srv-Install" \
+  'WRITE ssm send-command .*--document-name bb-srv-Install' 'create-change-set' h_resume \
+  resume_env bash scripts/add-sector.sh piloto --resume --image-tag "$TAG"
+expect_calls "C15 --resume com a marca DESTA VM só liga a proteção" \
+  'WRITE cloudformation create-change-set .*TerminationProtection,ParameterValue=true' 'send-command' h_resume \
+  resume_env FAKE_INSTALLED=i-0123456789abcdef0 bash scripts/add-sector.sh piloto --resume
 
 # ---------------------------------------------------------------- C: nome do servidor no login (achado 23)
 expect_refusal "C23 login recusa nome com aspas" "nome do servidor inválido" h_sector \

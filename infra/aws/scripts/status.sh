@@ -94,7 +94,10 @@ for sector in $sectors; do
   ping=$(aws_cb ssm describe-instance-information --filters "Key=InstanceIds,Values=$instance" \
     --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || echo None)
   image=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" --query Parameter.Value --output text 2>/dev/null || echo "")
-  if [ -n "$image" ]; then
+  installed_on=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/installed-instance" --query Parameter.Value --output text 2>/dev/null || echo "")
+  if [ -n "$image" ] && [ "$installed_on" != "$instance" ]; then
+    image="(não instalada nesta VM; a última imagem registrada foi $image: scripts/add-sector.sh $sector --resume)"
+  elif [ -n "$image" ]; then
     case $type in t3a.* | t3.* | m7i.* | c7i.*) arch=amd64 ;; *) arch=arm64 ;; esac
     image="$(image_tag_of "${image##*@}" "$arch") ($image)"
   else

@@ -28,15 +28,16 @@
 #                             defeito ou AMI nova; apague a stack -compute antes). Sem a opção, rodar de
 #                             novo depois de uma falha da stack -compute faz o mesmo
 #   --resume                  termina um setor cuja stack -compute existe: repete o bb-srv-Install
-#                             (modo auto) se a instalação falhou ou não terminou, e liga a proteção
-#                             contra término se ainda estiver desligada
+#                             (modo auto) se ESTA VM não terminou a instalação (marca
+#                             /bb-srv/sectors/<setor>/installed-instance), e liga a proteção contra
+#                             término se ainda estiver desligada
 #   --yes                     não pergunta (para automação)
 set -euo pipefail
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,33p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,34p' "$0"; exit 1; }
 shift
 size=large
 size_given=0
@@ -106,7 +107,11 @@ if [ "$resume" = 1 ]; then
   [ "$size_given" = 0 ] || [ "$size" = "$stack_size" ] || die "o setor $sector foi criado como $stack_size; --resume não troca o tamanho."
   size=$stack_size
   info=$(size_info "$size") || exit 1
-  if aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" >/dev/null 2>&1; then install=0; fi
+  instance=$(sector_instance "$sector")
+  # Instalado = ESTA VM recebeu o bb-srv-Install. /bb-srv/sectors/<setor>/image sobrevive à VM (troca de
+  # VM, restauração, upgrade desfeito): sozinho ele não diz nada sobre a VM nova.
+  installed_on=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/installed-instance" --query Parameter.Value --output text 2>/dev/null || true)
+  if [ "$installed_on" = "$instance" ] && aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" >/dev/null 2>&1; then install=0; fi
   if [ "$install" = 0 ] && [ "$(stack_parameter "$compute_stack" TerminationProtection)" = true ]; then
     die "o setor $sector já está instalado e protegido: nada a retomar. Veja scripts/status.sh $sector --deep."
   fi
@@ -115,7 +120,6 @@ read -r instance_type vcpus mem cpus tmp arch size_budget <<<"$info"
 [ -n "$budget_usd" ] || budget_usd=$size_budget
 
 if [ "$resume" = 1 ]; then
-  instance=$(sector_instance "$sector")
   volume_gib=$(aws_cb ec2 describe-volumes --volume-ids "$(sector_volume "$sector")" --query 'Volumes[0].Size' --output text)
   say "== retomar o setor $sector ($instance_type, VM $instance): instalar: $([ "$install" = 1 ] && echo sim || echo não), proteção contra término: ligar"
   if [ "$install" = 1 ]; then
@@ -226,6 +230,9 @@ if [ "$install" = 1 ]; then
   [ "$running" = "$(repo_uri)@$IMAGE_DIGEST" ] || say "   o disco roda $running (não a imagem do relatório $IMAGE_TAG): é ela que fica registrada."
   aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/image" --type String --overwrite \
     --value "$running" --description "Imagem em uso no setor $sector (digest)" >/dev/null
+  # A marca de instalação é da VM, não do setor: o --resume compara com a VM da stack.
+  aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/installed-instance" --type String --overwrite \
+    --value "$instance" --description "VM do setor $sector em que o bb-srv-Install terminou" >/dev/null
 else
   running=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" --query Parameter.Value --output text)
 fi
