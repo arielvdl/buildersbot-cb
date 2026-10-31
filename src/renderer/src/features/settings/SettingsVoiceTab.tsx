@@ -42,6 +42,7 @@ import {
 } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, createStore, For, Show } from "solid-js";
+import { speechDownloadHelps } from "../speech/speech-model";
 import type { SettingsVoiceStore } from "./settings-voice-store";
 import { shortModel, VoiceServerDialog, voiceServerHost } from "./VoiceServerDialog";
 
@@ -255,8 +256,11 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
 
   const speech = () => props.store.state.speech;
   const speechPhase = () => speech().status?.phase;
-  /** Replies are read on this computer, and its voice is not downloaded: the row tells the size first. */
-  const speechVoiceMissing = () => !serverSpeaks() && (speechPhase() === "missing" || speechPhase() === "error");
+  /**
+   * Replies are read on this computer, and a download of its voice can help: the row tells the size
+   * first. A build with no speech runtime gets no hint, because a download does not repair it.
+   */
+  const speechVoiceMissing = () => !serverSpeaks() && speechDownloadHelps(speech().status);
   const voiceName = (voice: SpeechVoice) =>
     t(voice.startsWith("F") ? "settings.voice.speech.voice.female" : "settings.voice.speech.voice.male", {
       number: voice.slice(1),

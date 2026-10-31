@@ -33,7 +33,7 @@ import { useShowAgentSteps } from "../../agent-steps-preference";
 import { planItems, planTitle } from "../../app-message-projection";
 import { currentDevicePlatform } from "../../send-shortcut-preference";
 import { remoteRoutineRecovery } from "../servers/server-capabilities";
-import { offerSpeechModelDownload, speechModelReady } from "../speech/speech-model";
+import { offerSpeechModelDownload, speechModelOffersDownload, speechModelReady } from "../speech/speech-model";
 import { recordingGone, speechReading, spokenReply } from "../speech/speech-playback";
 import {
   recordingWaveform,
@@ -201,19 +201,30 @@ export function ConversationTimeline() {
     const waiting = providerSilentMinutes() !== null || providerOffline();
     return waiting ? agentProviderName() : undefined;
   };
-  /**
-   * An agent reply can be read aloud by this computer's speech model, in this chat's voice. Without
-   * the model, the item stays and offers its download, so the user learns why nothing is read.
-   */
-  const readAloudAction = (message: AgentMessage) => {
+  /** The agent of a finished agent reply with text, which "Read aloud" can read. */
+  const readableReplyAgent = (message: AgentMessage) => {
     const agentId = props.agent?.id;
     if (props.runtime || !agentId || message.author !== "agent" || message.streaming || !message.body.trim()) return;
-    if (!speechModelReady()) return { reading: false, onToggle: offerSpeechModelDownload };
+    return agentId;
+  };
+  /** An agent reply can be read aloud by this computer's speech model, in this chat's voice. */
+  const readAloudAction = (message: AgentMessage) => {
+    const agentId = readableReplyAgent(message);
+    if (!agentId || !speechModelReady()) return;
     return {
       reading: speechReading()?.messageId === message.id,
       onToggle: () =>
         toggleReadAloud({ serverId: props.server?.id ?? "local", agentId, messageId: message.id }, message.body),
     };
+  };
+  /**
+   * Without the voice, "Read aloud" stays in the menu of a reply and offers the download, so the user
+   * learns why nothing is read. The action bar keeps no button then, as before. Nothing shows until
+   * main tells the status, or when a download cannot help.
+   */
+  const readAloudOffer = (message: AgentMessage) => {
+    if (!readableReplyAgent(message) || !speechModelOffersDownload()) return;
+    return { reading: false, onToggle: offerSpeechModelDownload };
   };
   /** A message that counts as unread in an agent chat can be marked unread, with the messages after it. */
   const markUnreadAction = (message: AgentMessage) => {
@@ -267,8 +278,7 @@ export function ConversationTimeline() {
       };
     }
     const agentId = props.agent?.id;
-    // The play control of a spoken reply needs the model. The menu offers the download instead.
-    if (!agentId || !spokenReplyIds().has(message.id) || !speechModelReady() || !readAloudAction(message)) return;
+    if (!agentId || !spokenReplyIds().has(message.id) || !readAloudAction(message)) return;
     const summary = spokenReply(message.id);
     return {
       kind: "reply" as const,
@@ -1172,6 +1182,8 @@ export function ConversationTimeline() {
                   spokenReplyIds().has((message() ?? initialMessage).id)
                     ? undefined
                     : readAloudAction(message() ?? initialMessage);
+                // The menu also offers the voice download. A spoken reply has no player without it.
+                const menuReadAloud = () => messageReadAloud() ?? readAloudOffer(message() ?? initialMessage);
                 return (
                   <div
                     data-index={virtualRow.index}
@@ -1336,7 +1348,7 @@ export function ConversationTimeline() {
                                       reactions={!channel}
                                       authorName={channel ? author().name : undefined}
                                       {...messageActions}
-                                      readAloud={messageReadAloud()}
+                                      readAloud={menuReadAloud()}
                                       onMarkUnread={markUnreadAction(message() ?? initialMessage)}
                                       onBranch={branchAction(message() ?? initialMessage)}
                                       branchDisabled={Boolean(props.activeTurnId)}
