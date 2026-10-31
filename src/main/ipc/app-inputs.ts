@@ -354,7 +354,8 @@ export function parseExternalDestination(input: unknown): ExternalDestination {
     input !== "x" &&
     input !== "grok-bot-export" &&
     input !== "hosted-server-contact" &&
-    input !== "mac-screen-recording"
+    input !== "mac-screen-recording" &&
+    input !== "mac-microphone"
   ) {
     throw new Error("Unknown external destination.");
   }

@@ -56,6 +56,8 @@ export const messages = {
   "composer.voice.start": "Создать запрос голосом",
   "composer.voice.blocked":
     "Доступ к микрофону заблокирован. Разрешите Builders Bot использовать микрофон в системных настройках.",
+  "composer.voice.openMicrophoneSettings": "Открыть Системные настройки",
+  "composer.voice.openVoiceSettings": "Настройки голоса",
   "composer.voice.noMicrophone": "Микрофон недоступен.",
   "composer.voice.startFailed": "Builders Bot не удалось начать запись голоса.",
   "composer.voice.transcribeFailed": "Builders Bot не удалось расшифровать эту запись.",

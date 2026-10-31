@@ -22,6 +22,7 @@ import { sidebarAgentWaits } from "@openbot/ui/features/sidebar/sidebar-agent-st
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo } from "solid-js";
 import { desktopAnalytics } from "../../analytics";
+import { appPort } from "../../app-port";
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import { useNavigation } from "../../navigation";
 import { usePlatform } from "../../platform";
@@ -88,6 +89,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     agentAutoApproves,
     generalSettings,
     openNotificationLevels,
+    openAppSettings,
   } = useSettings();
   const {
     providerRuntimeStatuses,
@@ -525,6 +527,11 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         onManageProviders={manageProviders() ? openProviderSettings : undefined}
         onManageBrowserProfiles={manageBrowserProfiles() ? openBrowserProfileSettings : undefined}
         onOpenNotificationSettings={openNotificationLevels}
+        // Only macOS has a pane for this app's microphone that a URL opens.
+        onOpenMicrophoneSettings={
+          platform.appInfo()?.platform === "darwin" ? () => void appPort().openExternal("mac-microphone") : undefined
+        }
+        onOpenVoiceSettings={(trigger) => openAppSettings(trigger, "voice")}
         agent={conversationAgent()}
         agents={agentList()}
         mentionAgents={agentList().filter((agent) => !userHiddenAgentIds().has(agent.id))}

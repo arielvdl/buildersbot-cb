@@ -57,6 +57,8 @@ export const messages = {
   "composer.voice.start": "Criar instrução por voz",
   "composer.voice.blocked":
     "O acesso ao microfone está bloqueado. Permita que o Builders Bot use o microfone nas configurações do sistema.",
+  "composer.voice.openMicrophoneSettings": "Abrir Ajustes",
+  "composer.voice.openVoiceSettings": "Configurações de voz",
   "composer.voice.noMicrophone": "Nenhum microfone disponível.",
   "composer.voice.startFailed": "O Builders Bot não conseguiu iniciar a gravação de voz.",
   "composer.voice.transcribeFailed": "O Builders Bot não conseguiu transcrever esta gravação.",

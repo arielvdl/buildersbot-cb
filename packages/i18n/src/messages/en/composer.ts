@@ -54,6 +54,8 @@ export const messages = defineMessages("composer", {
   "composer.voice.start": "Create prompt with voice",
   "composer.voice.blocked":
     "Microphone access is blocked. Allow Builders Bot to use the microphone in system settings.",
+  "composer.voice.openMicrophoneSettings": "Open System Settings",
+  "composer.voice.openVoiceSettings": "Voice settings",
   "composer.voice.noMicrophone": "No microphone is available.",
   "composer.voice.startFailed": "Builders Bot could not start voice recording.",
   "composer.voice.transcribeFailed": "Builders Bot could not transcribe this recording.",

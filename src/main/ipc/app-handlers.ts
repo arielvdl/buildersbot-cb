@@ -100,6 +100,7 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "grok-bot-export": GROK_BOT_EXPORT_URL,
   "hosted-server-contact": HOSTED_SERVER_CONTACT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
+  "mac-microphone": MAC_PERMISSION_URLS.microphone,
 };
 
 import { runCauseEffect } from "../../backend/effect-boundary";

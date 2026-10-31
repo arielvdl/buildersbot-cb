@@ -54,6 +54,8 @@ export const messages = {
   "composer.voice.transcribing": "正在转写语音",
   "composer.voice.start": "用语音输入提示词",
   "composer.voice.blocked": "麦克风权限被拒绝。请在系统设置中允许 Builders Bot 使用麦克风。",
+  "composer.voice.openMicrophoneSettings": "打开系统设置",
+  "composer.voice.openVoiceSettings": "语音设置",
   "composer.voice.noMicrophone": "没有可用的麦克风。",
   "composer.voice.startFailed": "Builders Bot 无法开始录音。",
   "composer.voice.transcribeFailed": "Builders Bot 无法转写这段录音。",

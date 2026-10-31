@@ -56,6 +56,8 @@ export const messages = {
   "composer.voice.start": "音声でプロンプトを作成",
   "composer.voice.blocked":
     "マイクへのアクセスがブロックされています。システム設定で Builders Bot にマイクの使用を許可してください。",
+  "composer.voice.openMicrophoneSettings": "システム設定を開く",
+  "composer.voice.openVoiceSettings": "音声の設定",
   "composer.voice.noMicrophone": "使用できるマイクがありません。",
   "composer.voice.startFailed": "Builders Bot は音声の録音を開始できませんでした。",
   "composer.voice.transcribeFailed": "Builders Bot はこの録音を文字起こしできませんでした。",

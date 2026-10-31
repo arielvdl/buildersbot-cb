@@ -213,6 +213,25 @@ export function ConversationComposer() {
     const expired = localizeSourceText(sourceText("error.provider.opencodeKeyExpired"));
     return currentChatError() === expired ? props.onManageProviders : undefined;
   };
+  /**
+   * The action of a dictation that could not start. The banner holds the error in the reader's
+   * language, and these texts have no placeholder, so each one is compared whole. The system refused
+   * the microphone: its pane opens. The saved key of the cloud model is missing or cannot be read:
+   * Settings › Voice opens, where local dictation and the removal of the key are.
+   */
+  const voiceAction = (): { label: string; run: (trigger: HTMLElement) => void } | undefined => {
+    const error = currentChatError();
+    if (!error) return undefined;
+    const openMicrophone = props.onOpenMicrophoneSettings;
+    if (openMicrophone && error === t("composer.voice.blocked"))
+      return { label: t("composer.voice.openMicrophoneSettings"), run: () => openMicrophone() };
+    const openVoice = props.onOpenVoiceSettings;
+    const keyError =
+      error === localizeSourceText(sourceText("error.voice.cloud.keyUnreadable")) ||
+      error === localizeSourceText(sourceText("error.voice.cloud.keyRequired"));
+    if (openVoice && keyError) return { label: t("composer.voice.openVoiceSettings"), run: openVoice };
+    return undefined;
+  };
   /** An ACP provider has no steer request, so its queued messages wait for the turn to end (#3689). */
   const steers = () => !props.agent || providerSteersTurns(props.agent.provider);
   /** Tab sends the draft into the running turn, in place of Send and then Steer on its queue row. */
@@ -605,6 +624,15 @@ export function ConversationComposer() {
                       onClick={(event) => updateOpenCodeKey()?.(event.currentTarget)}
                     >
                       {t("composer.updateKey.action")}
+                    </Button>
+                  ) : voiceAction() ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={(event) => voiceAction()?.run(event.currentTarget)}
+                    >
+                      {voiceAction()?.label}
                     </Button>
                   ) : undefined
                 }

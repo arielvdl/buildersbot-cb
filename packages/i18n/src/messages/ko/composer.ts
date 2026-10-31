@@ -55,6 +55,8 @@ export const messages = {
   "composer.voice.start": "음성으로 프롬프트 만들기",
   "composer.voice.blocked":
     "마이크 접근이 차단되어 있어요. 시스템 설정에서 Builders Bot의 마이크 사용을 허용해 주세요.",
+  "composer.voice.openMicrophoneSettings": "시스템 설정 열기",
+  "composer.voice.openVoiceSettings": "음성 설정",
   "composer.voice.noMicrophone": "사용할 수 있는 마이크가 없어요.",
   "composer.voice.startFailed": "Builders Bot이 음성 녹음을 시작하지 못했어요.",
   "composer.voice.transcribeFailed": "Builders Bot이 이 녹음을 받아쓰지 못했어요.",

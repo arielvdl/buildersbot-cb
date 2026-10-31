@@ -463,4 +463,7 @@ export type ExternalDestination =
   | "hosted-server-contact"
   // Not a page: the macOS pane that grants Builders Bot screen recording. It is here rather than behind
   // its own endpoint because the destination is still a fixed address the renderer only names.
-  | "mac-screen-recording";
+  | "mac-screen-recording"
+  // Not a page: the macOS pane that grants Builders Bot the microphone, for dictation that the
+  // system refused. A fixed address, as for screen recording.
+  | "mac-microphone";
