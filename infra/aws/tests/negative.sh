@@ -428,6 +428,26 @@ expect_success "D8 aceita EIP com folga (5 de cota, 2 em uso)" "cota de Elastic 
 expect_refusal "D8 recusa o EIP que deixaria a conta sem reserva (5 de cota, 4 em uso)" "cota de Elastic IPs (L-0263D0A3)" h_eip \
   env FAKE_EIPS=4 bash -c 'source "$0/scripts/lib.sh"; check_eip_quota 1' "$ROOT"
 
+# ---------------------------------------------------------------- D: cota de vCPU com setores parados (achado 7)
+# Cota 64; ligadas 44 vCPU (2 x m5.4xlarge e 6 x t3.large); 3 setores t4g.large parados (6 vCPU).
+h_vcpu() {
+  case "$1 $2" in
+    "service-quotas get-service-quota") echo 64.0 ;;
+    "ec2 describe-instances")
+      case "$*" in
+        *stopped*) [ "${FAKE_PARKED:-1}" = 0 ] || printf 't4g.large\t2\t1\nt4g.large\t2\t1\nt4g.large\t2\t1\n' ;;
+        *) printf 'm5.4xlarge\t8\t2\nm5.4xlarge\t8\t2\n'; for _ in 1 2 3 4 5 6; do printf 't3.large\t1\t2\n'; done ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_vcpu
+expect_refusal "D7 cota de vCPU conta os setores parados (64 - 44 ligadas - 6 paradas - 2 = 12 < 16)" "setores parados (voltam a ligar): 6" h_vcpu \
+  bash -c 'source "$0/scripts/lib.sh"; check_vcpu_quota 2' "$ROOT"
+expect_success "D7 controle: sem setores parados sobra 18 e passa" "depois desta operação: 18 livres" h_vcpu \
+  env FAKE_PARKED=0 bash -c 'source "$0/scripts/lib.sh"; check_vcpu_quota 2' "$ROOT"
+
 # ---------------------------------------------------------------- D: sobras da base (achado 16)
 h_leftover() {
   case "$1 $2" in

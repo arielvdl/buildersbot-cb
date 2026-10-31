@@ -346,20 +346,25 @@ wait_ssm_online() { # <instância> <timeout-s>
   done
 }
 
-# vCPU on-demand das famílias padrão (A, C, D, H, I, M, R, T, Z) em uso na conta, na região.
-vcpus_in_use() {
-  aws_cb ec2 describe-instances --filters Name=instance-state-name,Values=pending,running \
+# vCPU on-demand das famílias padrão (A, C, D, H, I, M, R, T, Z) das instâncias da região que os
+# filtros pegam.
+vcpus_of() { # <filtros do describe-instances>...
+  aws_cb ec2 describe-instances --filters "$@" \
     --query 'Reservations[].Instances[].[InstanceType,CpuOptions.CoreCount,CpuOptions.ThreadsPerCore]' --output text |
     awk '$1 ~ /^(a|c|d|h|i|m|r|t|z)[0-9a-z-]*\./ && $1 !~ /^(inf|hpc|dl|trn)/ { s += $2 * $3 } END { print s + 0 }'
 }
 
+# Conta as VMs ligadas da conta e também os setores PARADOS: um setor em horário comercial fica parado
+# das 20:00 às 08:00 e no fim de semana, e às 08:00 todos ligam juntos (um StartInstances sem cota
+# falha, ou come a reserva do EKS/Karpenter).
 check_vcpu_quota() { # <vcpus-novos>
-  local need=$1 quota used free
+  local need=$1 quota used parked free
   quota=$(aws_cb service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A --query Quota.Value --output text)
   quota=${quota%.*}
-  used=$(vcpus_in_use)
-  free=$((quota - used - need))
-  say "   cota de vCPU on-demand: $quota; em uso: $used; depois desta operação: $free livres (reserva: $BB_VCPU_RESERVE)."
+  used=$(vcpus_of Name=instance-state-name,Values=pending,running)
+  parked=$(vcpus_of Name=instance-state-name,Values=stopped,stopping "Name=tag:Project,Values=$BB_PROJECT")
+  free=$((quota - used - parked - need))
+  say "   cota de vCPU on-demand: $quota; em uso: $used; setores parados (voltam a ligar): $parked; depois desta operação: $free livres (reserva: $BB_VCPU_RESERVE)."
   if [ "$free" -lt "$BB_VCPU_RESERVE" ] && [ "${BB_SRV_IGNORE_QUOTA:-0}" != 1 ]; then
     die "a folga de vCPU ficaria abaixo de $BB_VCPU_RESERVE (o EKS/Karpenter divide a cota L-1216C47A). Peça aumento da cota (README, ação do dono) ou use BB_SRV_IGNORE_QUOTA=1 conscientemente."
   fi
