@@ -151,10 +151,13 @@ execution thread has no handoff. The harness also compacts by itself; that only 
 fill.
 
 OpenCode compacts a session by itself near the `limit.context` of the model. Cultura Builder
-declares 262,144 tokens for each of its models (`CULTURA_BUILDER_CONTEXT_TOKENS` in
+declares 262,144 tokens for each of its models by default (`CULTURA_BUILDER_CONTEXT_TOKENS` in
 `src/backend/opencode-config.ts`), although the gateway accepts 1,048,576 tokens on `builder-auto`,
 `builder-code` and `builder-fast`. With the full window, a long-lived agent sent up to 1M tokens on
-each model step before its first compaction.
+each model step before its first compaction. The person can choose the full window again in
+Settings › General (`AppBehaviorPreference.culturaBuilderFullContext`). The process reads the windows
+only when it starts, so a change starts the Cultura Builder process again when no turn runs on it
+(`AgentService.notifyCulturaBuilderContextChanged`).
 
 Codex retains the 80% threshold based on its last reported token usage and context-window size.
 Cumulative account usage is not context occupancy. A missing report is not zero usage. No fixed
@@ -178,7 +181,7 @@ servers, filled the memory until macOS asked the person to close apps. `MacMemor
 
 | Level | When | What `MemoryHold` does |
 | --- | --- | --- |
-| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. A provider process, shared or a Workspace only agent's own, that ran no turn for one idle check (60 s) stops (`ProviderHooks.memoryLow`), with its MCP servers. The next turn starts it again and resumes its sessions. |
+| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. A provider process, shared or a Workspace only agent's own, stops with its MCP servers at the second idle check in a row (60 s apart) that finds no turn on it, and only when nothing used it in the last 60 s (`ProviderHooks.memoryLow`, `LOW_MEMORY_IDLE_CHECKS`). It stops 1 to 2 minutes after its last turn, not 10. The next turn starts it again and resumes its sessions. Work that lives only in that process after its turn stops too, such as Codex background terminals, programs that an OpenCode command left running, and MCP servers for each folder. Claude keeps its process while a background task runs (`canReleaseProcess`). |
 | `critical` | Less than 8% free, or more than 9000 MB of swap with less than 15% free. | As `low`. Also, the provider threads with no turn close one time. They open again from their session. |
 | `ok` | Other times. | Turns start. The held agents start again. |
 
@@ -187,6 +190,9 @@ threshold that it went past (`RECOVER_MARGIN_PERCENT`). The swap counts only tog
 free memory, because macOS keeps the used swap high after the pressure stops. These numbers are a
 first guess. They are not tuned on other machines.
 
+- Only this reading gives `ProviderHooks.memoryLow`. `ServerMemory` is `low` also because of its turn
+  reservations, so a full server in normal use would stop its idle processes. It stops agent
+  processes itself when memory is critical.
 - `AgentService` gets this reading as `memoryPressure`, not as `hostMemory`. `hostMemory` makes the
   app a server and changes the agent instructions (`serverHost`). `MacMemory` has
   `kind: "desktop"`, counts no memory for a new turn (`reserveTurn` does nothing), and gives a turn
