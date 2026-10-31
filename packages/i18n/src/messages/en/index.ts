@@ -17,6 +17,7 @@ import { messages as customProvider } from "./customProvider";
 import { messages as diagram } from "./diagram";
 import { messages as dialog } from "./dialog";
 import { messages as files } from "./files";
+import { messages as guard } from "./guard";
 import { messages as importAgent } from "./import";
 import { messages as island } from "./island";
 import { messages as marketplace } from "./marketplace";
@@ -71,6 +72,7 @@ export const en = {
   ...startup,
   ...window,
   ...settings,
+  ...guard,
   ...billing,
   ...provider,
   ...app,

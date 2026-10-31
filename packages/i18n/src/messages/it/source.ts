@@ -25,6 +25,7 @@ import { messages as errorVoice } from "./error/voice";
 import { messages as errorWorkflow } from "./error/workflow";
 import { messages as statusAgent } from "./status/agent";
 import { messages as statusComputerUse } from "./status/computerUse";
+import { messages as statusGuard } from "./status/guard";
 import { messages as statusHost } from "./status/host";
 import { messages as statusMessaging } from "./status/messaging";
 import { messages as statusProvider } from "./status/provider";
@@ -65,4 +66,5 @@ export const source = {
   ...statusProvider,
   ...statusComputerUse,
   ...statusUpdate,
+  ...statusGuard,
 } as const;

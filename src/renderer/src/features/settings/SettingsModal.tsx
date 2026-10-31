@@ -50,8 +50,10 @@ import { renderProfileShareImage } from "./profile-share-image";
 import { createSettingsAgentsSection } from "./SettingsAgentsSection";
 import { SettingsDynamicIslandTab } from "./SettingsDynamicIslandTab";
 import { SettingsGeneralTab } from "./SettingsGeneralTab";
+import { SettingsGuardTab } from "./SettingsGuardTab";
 import { SettingsNotificationsTab } from "./SettingsNotificationsTab";
 import { SettingsVoiceTab } from "./SettingsVoiceTab";
+import { createSettingsGuardStore } from "./settings-guard-store";
 import { dynamicIslandSettingsShown, navItem, navItems, type SettingsTab, settingsTabShown } from "./settings-tabs";
 import { createSettingsVoiceStore } from "./settings-voice-store";
 
@@ -153,6 +155,7 @@ export function SettingsModal(props: SettingsModalProps) {
   );
   const hostedServers = createSettingsHostedServersStore(props, () => activeTab() === "billing");
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
+  const guard = createSettingsGuardStore(() => props.open && activeTab() === "guard");
   const notificationLevels = createNotificationLevelsStore({
     visible: () => props.open && activeTab() === "notifications",
     servers: () => props.servers ?? [],
@@ -197,6 +200,7 @@ export function SettingsModal(props: SettingsModalProps) {
       if (
         value === "general" ||
         value === "agents" ||
+        value === "guard" ||
         value === "notifications" ||
         value === "voice" ||
         (value === "dynamic-island" && dynamicIslandShown()) ||
@@ -300,6 +304,10 @@ export function SettingsModal(props: SettingsModalProps) {
         <Tabs.Content value="agents" class="settings-modal-tab-panel" data-tab="agents">
           {preferencesLoadError()}
           <agents.Panel menuMount={modalElement} />
+        </Tabs.Content>
+
+        <Tabs.Content value="guard" class="settings-modal-tab-panel" data-tab="guard">
+          <SettingsGuardTab store={guard} selectMount={modalElement} />
         </Tabs.Content>
 
         <Tabs.Content value="notifications" class="settings-modal-tab-panel" data-tab="notifications">
