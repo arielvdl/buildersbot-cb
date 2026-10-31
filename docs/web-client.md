@@ -207,6 +207,13 @@ Play link or QR code.
 - The phone signs in with the email code of the account, as in a browser tab. Each installation has
   its own session, app lock and push subscription (`web-install-identity.ts`, `web-push.ts`). Web
   Push on an iPhone needs iOS 16.4 or later and the app on the Home Screen.
+- No notification comes to the web app while it is closed yet. The Worker sends Web Push to a session
+  only after the Apple or Android relay delivered a push to the native app of the same session
+  (`routes/v2/remote/hosts/$hostId/notification.ts`), and a web session has no native app. A host
+  route for web sessions is the open work. Until then, the switch **Notifications on this device**
+  says so, and gets the permission that the notifications of the open app use. The open app shows
+  them through the service worker (`web-notifications.ts`), because Chrome on Android refuses
+  `new Notification`.
 - The phone lists only published servers. Mobile Connect and the sign-in step of Add phone show
   whether the server of this computer is published (`MobileConnectReachNotice`), and **Publish this
   server** publishes it as the Members switch of Server settings does. Publishing waits for that

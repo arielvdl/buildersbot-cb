@@ -99,7 +99,7 @@ export const messages = defineMessages("webClient", {
   "webClient.app.lockFailed": "The device did not make a passkey.",
   "webClient.app.pushTitle": "Notifications on this device",
   "webClient.app.pushDescription":
-    "Tells this installation when a task waits for you, even with the app closed. The text of the conversation stays on the host.",
+    "Shows a notification when a task waits for you while the app is open. With the app closed, notifications do not come yet.",
   "webClient.app.pushDenied": "The browser did not allow notifications. Allow them in the site settings.",
   "webClient.app.pushUnavailable": "Notifications are not available for this app right now.",
   "webClient.lock.title": "Builders Bot is locked",

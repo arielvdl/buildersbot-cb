@@ -102,7 +102,7 @@ export const messages = {
   "webClient.app.lockFailed": "O aparelho não criou a passkey.",
   "webClient.app.pushTitle": "Notificações neste aparelho",
   "webClient.app.pushDescription":
-    "Avisa esta instalação quando uma tarefa espera por você, mesmo com o aplicativo fechado. O texto da conversa fica no host.",
+    "Mostra um aviso quando uma tarefa espera por você enquanto o app está aberto. Com o app fechado, os avisos ainda não chegam.",
   "webClient.app.pushDenied": "O navegador não liberou as notificações. Libere nas configurações do site.",
   "webClient.app.pushUnavailable": "As notificações não estão disponíveis para este aplicativo agora.",
   "webClient.lock.title": "O Builders Bot está bloqueado",
