@@ -682,6 +682,13 @@ Settings > General > Left column (`openbot:left-column`) shows the sections, the
 server rail. With the sections, the menu on the server name lists the servers, Add server and the
 server actions.
 
+A pinned tile (`SidebarPinnedGroup`) shows the avatar and the name in the middle of the tile, with the
+same space on each side (`--pinned-tile-pad-x` and `--pinned-tile-pad-y` in `app-shell.css`). The tile
+keeps its size in every state, so the highlight does not move the strip. It has no title chip: the
+full name, the title and what the chat waits for show in an app tooltip on hover and on keyboard
+focus, and the label of the tile reads the name and the title. Three tiles fit in a row of the default
+sidebar width.
+
 The activity filter (the button beside the search field, `sidebar-activity-filter.ts`) keeps one kind
 of chat: the channels with work in flight, the agents with work in flight, or the agents and channels
 that finished recently. The three choices exclude each other. "Finished recently" has a window of 24

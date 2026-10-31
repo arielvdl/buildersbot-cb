@@ -1970,10 +1970,21 @@ textarea {
   padding: 4px 0 2px;
 }
 
+/* A pinned tile: the avatar and the name, in the middle of the tile, with the same space on both
+   sides. The tile keeps its size in every state, so the highlight does not move the layout. The full
+   name and the title show in a tooltip. Three tiles fit in a row of the default sidebar. A tile that
+   is dragged leaves the list, so its preview and the drag card take the same sizes. */
+:is(.sidebar-pinned-list, .sidebar-pinned-drag-preview, .sidebar-agent-drag-card) {
+  --pinned-tile-pad-x: 12px;
+  --pinned-tile-pad-y: 12px;
+  --pinned-tile-avatar: 48px;
+  --pinned-tile-width: calc(var(--pinned-tile-avatar) + 4px + 2 * var(--pinned-tile-pad-x));
+}
+
 .sidebar-pinned-list {
   box-sizing: border-box;
   display: flex;
-  width: min(236px, 100%);
+  width: min(calc(3 * var(--pinned-tile-width) + 20px), 100%);
   flex-wrap: wrap;
   align-content: flex-start;
   justify-content: center;
@@ -1985,23 +1996,41 @@ textarea {
 
 .sidebar-pinned-item {
   position: relative;
-  width: 72px;
-  flex: 0 0 72px;
+  width: var(--pinned-tile-width);
+  flex: 0 0 var(--pinned-tile-width);
   opacity: 1;
   transform: translate3d(var(--sidebar-drag-x), var(--sidebar-drag-y), 0);
   transition: transform var(--openbot-duration-normal) var(--openbot-ease-out);
 }
 
 .agent-row.sidebar-pinned-row {
-  width: 72px;
+  box-sizing: border-box;
+  width: var(--pinned-tile-width);
   height: 94px;
   min-height: 94px;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 4px;
-  padding: 4px 2px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--pinned-tile-pad-y) var(--pinned-tile-pad-x);
   cursor: grab;
   text-align: center;
+}
+
+/* The tooltip wraps the tile, so its box is the tile's. */
+.sidebar-pinned-tooltip-trigger {
+  display: block;
+}
+
+.sidebar-pinned-tooltip {
+  display: grid;
+  max-width: 260px;
+  gap: 2px;
+  text-align: left;
+}
+
+.sidebar-pinned-tooltip-title {
+  color: var(--openbot-text-secondary);
 }
 
 .sidebar-pinned-row:active {
@@ -2009,26 +2038,24 @@ textarea {
 }
 
 .agent-row.sidebar-pinned-row .sidebar-pinned-avatar {
-  width: 48px;
-  height: 48px;
-  flex-basis: 48px;
+  width: var(--pinned-tile-avatar);
+  height: var(--pinned-tile-avatar);
+  flex: 0 0 var(--pinned-tile-avatar);
 }
 
 .agent-row.sidebar-pinned-row .agent-avatar,
 .agent-row.sidebar-pinned-row.person-row .person-avatar {
-  width: 48px;
-  height: 48px;
+  width: var(--pinned-tile-avatar);
+  height: var(--pinned-tile-avatar);
 }
 
 .sidebar-pinned-copy {
   display: flex;
   width: 100%;
-  min-height: 34px;
   min-width: 0;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 2px;
 }
 
 .sidebar-pinned-name {
@@ -2043,27 +2070,6 @@ textarea {
   text-align: center;
   text-overflow: ellipsis;
   text-wrap: pretty;
-  white-space: nowrap;
-}
-
-.sidebar-pinned-title {
-  box-sizing: border-box;
-  max-width: 100%;
-  height: 18px;
-  min-height: 18px;
-  flex: 0 0 16px;
-  border-color: var(--openbot-border);
-  border-radius: var(--openbot-radius-xs);
-  background: var(--openbot-hover);
-  padding: 0 var(--openbot-space-1);
-  color: var(--openbot-text-readable);
-  font-weight: 400;
-}
-
-.sidebar-pinned-title > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -3186,7 +3192,7 @@ textarea {
 }
 
 .sidebar:not(.sidebar-compact) .sidebar-pinned-row.agent-row {
-  width: 72px;
+  width: var(--pinned-tile-width);
   margin-inline: 0;
 }
 

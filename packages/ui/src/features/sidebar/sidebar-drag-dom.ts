@@ -135,21 +135,8 @@ export function createSidebarChatDragCard(source: HTMLElement): HTMLElement {
     source
       .querySelector(".sidebar-pinned-name, .agent-row-title strong, .agent-row-heading > strong")
       ?.textContent?.trim() ?? "Chat";
+  // A pinned tile shows the name alone: the title is in its tooltip, so the card does the same.
   copy.append(name);
-
-  const titleText = source.querySelector(".sidebar-pinned-title, .agent-role-badge")?.textContent?.trim();
-  if (titleText) {
-    const title = document.createElement("span");
-    title.className = "z-badge z-badge-variant-secondary sidebar-pinned-title";
-    title.dataset.slot = "badge";
-    title.dataset.variant = "secondary";
-    title.dataset.size = "sm";
-    const label = document.createElement("span");
-    label.textContent = titleText;
-    title.append(label);
-    copy.append(title);
-  }
-
   card.append(copy);
   return card;
 }
