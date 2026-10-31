@@ -297,11 +297,20 @@ it.
   in that channel, Run now, or a change of the mode removes the mark.
 - Run now (`runChannelNow`) starts one waiting channel beside the one that works, until it stops
   working. It is the way out when the channel that works waits for the user.
-- The load ring in the page rail shows the last memory sample, up to 60 s old
-  (`SAMPLE_INTERVAL_MS`), and the number of turns that run now (`#activeTurns`, "Active agents" in
-  the panel). The arc is the memory of the app and its provider processes, as a share of the memory
-  of the computer. Only the local host shows the ring. A click opens it, never hover. The window
-  reads the load every 15 s, and every 3 s while the panel is open.
+- The load ring in the page rail shows the number of agents that run now: distinct agents, so an
+  agent with turns in its chat and in a channel counts one time (`runningAgentCount`). The number can
+  be more than ten. The arc is that count of ten (`loadAgentArc`), and it stays full above ten. The
+  memory is the colour of the ring (`loadRingTone`): what macOS says when it is read, else the share
+  of the memory of the computer that the app and its provider processes use. The tooltip and the panel
+  give the memory, from the last sample, up to 60 s old (`SAMPLE_INTERVAL_MS`). Only the local host
+  shows the ring. A click opens it, never hover. The window reads the load every 15 s, and every 3 s
+  while the panel is open.
+- The count, the rows of "Running now" and the labels come from one read of
+  `AgentService.runningTurns()`, the running turns of `TurnLifecycle`. Do not count `turn-started`
+  events: `AgentService.#emit` gives a turn event to the channel, the side thread or the messaging
+  thread first, and does not pass it to the listeners when one of them takes it. A count of those
+  events read 0 while agents worked in channels. The record of the lifecycle also drops a turn that a
+  client stop ended, so no turn counts after it ends.
 
 The code:
 
@@ -314,7 +323,8 @@ The code:
   reads as off.
 - `packages/contracts/src/ipc-load.ts` and `ipc-endpoints.ts`: `getLoad`, `setLoadLane` and
   `runChannelNow`. `src/main/ipc/app-handlers.ts` answers them with `buildLoadSnapshot`
-  (`src/main/load-snapshot.ts`) and `ResourceMonitor.loadReading`.
+  (`src/main/load-snapshot.ts`), `ResourceMonitor.loadReading` for the memory, and
+  `WorkControl.overview` for the count and the work.
 - `packages/ui/src/features/window/LoadRing.tsx`, `load-view.ts` and `page-rail.css`: the ring and
   its panel. `src/renderer/src/features/load/load-controller.ts` reads the load, and
   `WorkspacePageRail.tsx` gives the ring only on the local host.
@@ -336,9 +346,8 @@ stopped work again, or give it to another agent. `WorkControl` (`src/main/work-c
 this. It reads the channels at each request and keeps no copy of them. Each list has at most 50 rows
 (`LOAD_WORK_LIST_LIMIT`).
 
-- Work that runs: each agent turn that runs now. `ActiveTurnTracker` (`src/main/work-overview.ts`)
-  follows the `turn-started` and `turn-completed` events of the agent service, in memory. A turn on
-  the execution thread of a channel shows the channel and the task of the active assignment
+- Work that runs: each agent turn that runs now, from `AgentService.runningTurns()` at each request.
+  A turn on the execution thread of a channel shows the channel and the task of the active assignment
   (`starting` or `running`) of that agent. A turn in the chat of an agent shows no channel.
 - Work that stopped: each channel task that is `paused` or `failed` and has an error, which is the
   reason. There is one row for each run: the root task when the root stopped, else the task that

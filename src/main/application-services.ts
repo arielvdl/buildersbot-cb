@@ -2726,12 +2726,12 @@ export async function createApplicationServices({
     trace,
     statementTimings,
     tabProcessIds: () => browser.tabProcessIds(),
+    runningTurnCount: () => service.runningTurns().length,
     memoryPressure: () => macMemory?.reading() ?? null,
   });
   teardown.push(TEARDOWN_ORDER.resourceMonitor, "the resource monitor", () =>
     Effect.runPromise(resourceMonitor.close()),
   );
-  service.on("event", (event) => resourceMonitor.observeAgentEvent(event));
   const resumeOffer = createLocalResumeOffer({
     started: startedAtBoot,
     service,
@@ -2748,7 +2748,6 @@ export async function createApplicationServices({
     preference: () => autoRecovery.get(),
     onFailure: (action, cause) => logger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
   });
-  service.on("event", (event) => workControl.observeAgentEvent(event));
   workControl.start();
   teardown.push(TEARDOWN_ORDER.workControl, "the recovery timer", () => {
     workControl.stop();

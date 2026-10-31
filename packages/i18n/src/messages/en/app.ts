@@ -60,9 +60,9 @@ export const messages = defineMessages("app", {
   "app.rail.workflows": "Workflows",
   "app.rail.usage": "Usage",
   "app.rail.load.title": "Load",
-  "app.rail.load.ring": "{agents} active agents. Memory {used} of {total}. Open the load panel.",
-  "app.rail.load.ringUnmeasured": "{agents} active agents. Memory not measured yet. Open the load panel.",
-  "app.rail.load.agents": "Active agents",
+  "app.rail.load.ring": "Agents running now: {agents}. Memory used {used} of {total}. Open the load panel.",
+  "app.rail.load.ringUnmeasured": "Agents running now: {agents}. Memory not measured yet. Open the load panel.",
+  "app.rail.load.agents": "Agents running now",
   "app.rail.load.memory": "Memory in use",
   "app.rail.load.memoryValue": "{used} of {total} ({percent}%)",
   "app.rail.load.agentsMemory": "Memory of the agents",
@@ -78,8 +78,8 @@ export const messages = defineMessages("app", {
   "app.rail.load.nowHint": "Starts this channel beside the one that works.",
   "app.rail.load.noneRunning": "No channel is running.",
   "app.rail.load.noneWaiting": "No channel is waiting.",
-  "app.rail.load.summary": "{agents} running · {stopped} stopped · memory {used} of {total}",
-  "app.rail.load.summaryQuiet": "{agents} running · memory {used} of {total}",
+  "app.rail.load.summary": "Agents running now: {agents} · {stopped} stopped · memory used {used} of {total}",
+  "app.rail.load.summaryQuiet": "Agents running now: {agents} · memory used {used} of {total}",
   "app.rail.load.pressureLow":
     "The computer is low on memory ({percent}% free). New messages wait in the queue and start by themselves when memory is free.",
   "app.rail.load.pressureCritical":

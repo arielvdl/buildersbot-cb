@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type {
-  AgentEvent,
   AgentSummary,
   AutoRecoveryPreference,
   AutoRecoveryState,
@@ -21,12 +20,13 @@ import {
   type ReassignCandidate,
   reassignCandidates,
 } from "./auto-recovery";
-import { ActiveTurnTracker, buildRunningWork, buildStoppedWork } from "./work-overview";
+import { buildRunningWork, buildStoppedWork, type RunningTurnRecord, runningAgentCount } from "./work-overview";
 
 const TICK_MS = 60_000;
 
 export interface WorkControlOptions {
-  service: Pick<AgentService, "listAgents" | "channels" | "interrupt">;
+  /** `runningTurns` is the one record of the turns that run, also the ones in a channel or a side thread. */
+  service: Pick<AgentService, "listAgents" | "channels" | "interrupt" | "runningTurns">;
   channelActor: () => { id: string; name: string };
   preference: () => AutoRecoveryPreference;
   onFailure: (action: string, cause: unknown) => void;
@@ -55,7 +55,6 @@ export function topActiveTask(tasks: readonly ChannelTask[], taskId: string): st
  */
 export class WorkControl {
   readonly #options: WorkControlOptions;
-  readonly #turns = new ActiveTurnTracker();
   readonly #recovery: AutoRecovery;
   #timer: NodeJS.Timeout | null = null;
 
@@ -88,15 +87,21 @@ export class WorkControl {
     this.#timer = null;
   }
 
-  observeAgentEvent(event: AgentEvent): void {
-    this.#turns.observe(event);
-  }
-
-  /** The three parts of the load snapshot that this class owns. */
-  overview(): { running: RunningWork[]; stopped: StoppedWork[]; recovery: AutoRecoveryState } {
+  /**
+   * The parts of the load snapshot that this class owns. The count and the list come from one read of
+   * the running turns, so the number of the ring and the rows of the panel cannot disagree.
+   */
+  overview(): {
+    running: RunningWork[];
+    activeAgents: number;
+    stopped: StoppedWork[];
+    recovery: AutoRecoveryState;
+  } {
     const preference = this.#options.preference();
+    const turns = this.#options.service.runningTurns();
     return {
-      running: this.#running(),
+      running: this.#running(turns),
+      activeAgents: runningAgentCount(turns),
       stopped: this.#stoppedRows(),
       recovery: { ...preference, recent: this.#recovery.recent() },
     };
@@ -176,10 +181,10 @@ export class WorkControl {
     return this.#agents().get(agentId)?.name ?? null;
   }
 
-  #running(): RunningWork[] {
+  #running(turns: readonly RunningTurnRecord[]): RunningWork[] {
     const { channels } = this.#options.service;
     const agents = this.#agents();
-    return buildRunningWork(this.#turns.list(), {
+    return buildRunningWork(turns, {
       agentName: (agentId) => agents.get(agentId)?.name ?? null,
       channelOfThread: (threadId) => {
         const channelId = channels.store.channelForThread(threadId);

@@ -60,9 +60,10 @@ export const messages = {
   "app.rail.workflows": "Fluxos de trabalho",
   "app.rail.usage": "Uso",
   "app.rail.load.title": "Carga",
-  "app.rail.load.ring": "{agents} agentes ativos. Memória {used} de {total}. Abrir o painel de carga.",
-  "app.rail.load.ringUnmeasured": "{agents} agentes ativos. Memória ainda não medida. Abrir o painel de carga.",
-  "app.rail.load.agents": "Agentes ativos",
+  "app.rail.load.ring": "Agentes executando agora: {agents}. Memória usada {used} de {total}. Abrir o painel de carga.",
+  "app.rail.load.ringUnmeasured":
+    "Agentes executando agora: {agents}. Memória ainda não medida. Abrir o painel de carga.",
+  "app.rail.load.agents": "Agentes executando agora",
   "app.rail.load.memory": "Memória em uso",
   "app.rail.load.memoryValue": "{used} de {total} ({percent}%)",
   "app.rail.load.agentsMemory": "Memória dos agentes",
@@ -78,8 +79,8 @@ export const messages = {
   "app.rail.load.nowHint": "Inicia este canal junto com o que está trabalhando.",
   "app.rail.load.noneRunning": "Nenhum canal está rodando.",
   "app.rail.load.noneWaiting": "Nenhum canal está esperando.",
-  "app.rail.load.summary": "{agents} rodando · {stopped} paradas · memória {used} de {total}",
-  "app.rail.load.summaryQuiet": "{agents} rodando · memória {used} de {total}",
+  "app.rail.load.summary": "Agentes executando agora: {agents} · {stopped} paradas · memória usada {used} de {total}",
+  "app.rail.load.summaryQuiet": "Agentes executando agora: {agents} · memória usada {used} de {total}",
   "app.rail.load.pressureLow":
     "O computador está com pouca memória ({percent}% livre). As mensagens novas esperam na fila e começam sozinhas quando a memória voltar.",
   "app.rail.load.pressureCritical":

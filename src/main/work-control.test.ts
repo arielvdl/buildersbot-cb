@@ -9,6 +9,7 @@ import { ChannelService } from "../backend/channel-service";
 import { MailboxStore } from "../backend/mailbox-store";
 import { BuildersBotDatabase } from "../backend/openbot-database";
 import { topActiveTask, WorkControl } from "./work-control";
+import type { RunningTurnRecord } from "./work-overview";
 
 const roots: string[] = [];
 const databases: BuildersBotDatabase[] = [];
@@ -105,16 +106,55 @@ async function setup(options: { preference?: { enabled: boolean; intervalMinutes
   const clock = { now: 1_000 };
   const failures: string[] = [];
   const preference = options.preference ?? { enabled: false, intervalMinutes: 30, reassign: false };
+  // What `AgentService.runningTurns` gives: the turns that run, in any thread.
+  const turns: RunningTurnRecord[] = [];
   const control = new WorkControl({
-    service: { listAgents: () => members, channels, interrupt: () => Effect.void },
+    service: { listAgents: () => members, channels, interrupt: () => Effect.void, runningTurns: () => turns },
     channelActor: () => actor,
     preference: () => preference,
     onFailure: (action) => failures.push(action),
     now: () => clock.now,
   });
   const taskId = channels.store.tasks("c1")[0]?.id ?? "";
-  return { control, channels, clock, failures, taskId, fail };
+  return { control, channels, clock, failures, taskId, fail, turns };
 }
+
+/** The thread of alpha in the channel, as the channel makes it when the agent starts there. */
+function alphaChannelThread(channels: ChannelService): string {
+  const topicId = channels.store.tasks("c1")[0]?.topicId ?? "";
+  return channels.store.context("c1", topicId, "alpha").threadId;
+}
+
+describe("the agents that run", () => {
+  it("counts a channel turn, which never reaches the listeners of the service", async () => {
+    const { control, channels, turns } = await setup();
+    const channelThread = alphaChannelThread(channels);
+    const started = { type: "turn-started" as const, agentId: "alpha", threadId: channelThread, turnId: "turn-1" };
+    // The cause of the ring that read 0: `AgentService.#emit` gives a turn event to the channel first and
+    // stops it there when the channel takes it, so a count fed by the `event` listeners never saw it.
+    expect(channels.event(started)).toBe(true);
+    turns.push({ turnId: "turn-1", agentId: "alpha", threadId: channelThread, startedAt: "2026-10-31T10:00:00.000Z" });
+    const overview = control.overview();
+    expect(overview.activeAgents).toBe(1);
+    expect(overview.running).toMatchObject([{ turnId: "turn-1", agentName: "ALPHA", channelName: "cadastro" }]);
+  });
+
+  it("counts each agent one time, and reads the turns again on each call, so an ended turn leaves at once", async () => {
+    const { control, channels, turns } = await setup();
+    const channelThread = alphaChannelThread(channels);
+    turns.push(
+      { turnId: "a1", agentId: "alpha", threadId: channelThread, startedAt: "2026-10-31T10:00:00.000Z" },
+      { turnId: "a2", agentId: "alpha", threadId: "alpha-chat", startedAt: "2026-10-31T10:01:00.000Z" },
+      { turnId: "b1", agentId: "beta", threadId: "beta-chat", startedAt: "2026-10-31T10:02:00.000Z" },
+    );
+    expect(control.overview().activeAgents).toBe(2);
+    expect(control.overview().running).toHaveLength(3);
+    // A turn that ends leaves the record of the service: no `turn-completed` event has to arrive here.
+    turns.splice(0, 3);
+    expect(control.overview().activeAgents).toBe(0);
+    expect(control.overview().running).toEqual([]);
+  });
+});
 
 describe("the stopped work", () => {
   it("lists a task that stopped with its channel, tab, request and reason, and the agents that can take it", async () => {

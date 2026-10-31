@@ -7,7 +7,6 @@ export interface LoadReading {
   usedMb: number | null;
   agentsMb: number | null;
   totalMb: number;
-  activeAgents: number;
   providerProcesses: number;
   /** How much of the memory macOS says is free, and whether agents are held for it. Null where nothing reads it. */
   pressure: { level: "ok" | "low" | "critical"; freePercent: number; swapUsedMb: number } | null;
@@ -16,6 +15,8 @@ export interface LoadReading {
 /** The snapshot the window shows. Channels that were deleted since the user chose an order drop out of it. */
 export interface LoadWork {
   running: RunningWork[];
+  /** The agents that run now, from the same turns as `running`. */
+  activeAgents: number;
   stopped: StoppedWork[];
   recovery: AutoRecoveryState;
 }
@@ -35,7 +36,7 @@ export function buildLoadSnapshot(
       totalMb: reading.totalMb,
       ...(reading.pressure ? { pressure: reading.pressure } : {}),
     },
-    activeAgents: reading.activeAgents,
+    activeAgents: work.activeAgents,
     providerProcesses: reading.providerProcesses,
     lane: {
       enabled: lane.enabled,

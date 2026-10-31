@@ -37,6 +37,7 @@ void app.whenReady().then(async () => {
     trace,
     statementTimings: new StatementTimings(),
     tabProcessIds: () => [],
+    runningTurnCount: () => 0,
   });
   monitor.start(() => undefined);
   const window = new BrowserWindow({ width: 480, height: 320, show: false });

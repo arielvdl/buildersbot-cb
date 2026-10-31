@@ -1,7 +1,7 @@
 // @vitest-environment node
-import type { AgentEvent, ChannelTask } from "@openbot/contracts/ipc";
+import type { ChannelTask } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
-import { ActiveTurnTracker, buildRunningWork, buildStoppedWork, clipText } from "./work-overview";
+import { buildRunningWork, buildStoppedWork, clipText, runningAgentCount } from "./work-overview";
 
 function task(id: string, overrides: Partial<ChannelTask> = {}): ChannelTask {
   return {
@@ -166,41 +166,18 @@ describe("the stopped work of the channels", () => {
   });
 });
 
-describe("the active turns", () => {
-  const started = (turnId: string, agentId = "writer", threadId = "th1"): AgentEvent => ({
-    type: "turn-started",
-    agentId,
-    threadId,
-    turnId,
-  });
-  const completed = (turnId: string, agentId = "writer", threadId = "th1"): AgentEvent => ({
-    type: "turn-completed",
-    agentId,
-    threadId,
-    turnId,
-    status: "completed",
+describe("the count of the agents that run", () => {
+  const turn = (turnId: string, agentId: string) => ({ turnId, agentId, threadId: `${agentId}-thread`, startedAt: "" });
+
+  it("counts each agent one time, also an agent with turns in its chat and in a channel", () => {
+    expect(runningAgentCount([])).toBe(0);
+    expect(runningAgentCount([turn("a", "writer")])).toBe(1);
+    expect(runningAgentCount([turn("a", "writer"), turn("b", "writer"), turn("c", "qa")])).toBe(2);
   });
 
-  it("follows the turns that start and end", () => {
-    const tracker = new ActiveTurnTracker(() => 1000);
-    tracker.observe(started("a"));
-    tracker.observe(started("b", "qa", "th2"));
-    expect(tracker.list().map((turn) => turn.turnId)).toEqual(["a", "b"]);
-    tracker.observe(completed("a"));
-    expect(tracker.list().map((turn) => turn.turnId)).toEqual(["b"]);
-  });
-
-  it("ignores every other event, and an end with no start", () => {
-    const tracker = new ActiveTurnTracker();
-    tracker.observe({ type: "turn-progress", agentId: "writer", threadId: "th1", turnId: "a", detail: "x" });
-    tracker.observe(completed("ghost"));
-    expect(tracker.list()).toEqual([]);
-  });
-
-  it("holds a bounded number of turns", () => {
-    const tracker = new ActiveTurnTracker();
-    for (let index = 0; index < 1_200; index += 1) tracker.observe(started(`t${index}`));
-    expect(tracker.list().length).toBeLessThanOrEqual(1_000);
+  it("goes past ten, with no cap", () => {
+    const turns = Array.from({ length: 12 }, (_, index) => turn(`t${index}`, `agent-${index}`));
+    expect(runningAgentCount(turns)).toBe(12);
   });
 });
 

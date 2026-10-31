@@ -1,10 +1,9 @@
-import type { AgentEvent, ChannelTask, RunningWork, StoppedWork, StoppedWorkCandidate } from "@openbot/contracts/ipc";
+import type { ChannelTask, RunningWork, StoppedWork, StoppedWorkCandidate } from "@openbot/contracts/ipc";
 import { LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
 
 /** The panel shows one line of the request, and the whole request when the person expands it. */
 const TITLE_LIMIT = 1_000;
 const REASON_LIMIT = 200;
-const MAX_TRACKED_TURNS = 1_000;
 
 /** One line of text: spaces collapsed, and cut with an ellipsis at `limit` characters. */
 export function clipText(text: string, limit: number): string {
@@ -12,32 +11,20 @@ export function clipText(text: string, limit: number): string {
   return line.length <= limit ? line : `${line.slice(0, limit - 1).trimEnd()}…`;
 }
 
-/** The agent turns that run now, from the events of the agent service. Bounded; a turn that ends leaves. */
-export class ActiveTurnTracker {
-  readonly #turns = new Map<string, { turnId: string; agentId: string; threadId: string; startedAt: string }>();
-  readonly #now: () => number;
+/** A turn that runs now, as `AgentService.runningTurns` gives it. */
+export interface RunningTurnRecord {
+  turnId: string;
+  agentId: string;
+  threadId: string;
+  startedAt: string;
+}
 
-  constructor(now: () => number = Date.now) {
-    this.#now = now;
-  }
-
-  observe(event: AgentEvent): void {
-    if (event.type === "turn-started") {
-      if (this.#turns.size >= MAX_TRACKED_TURNS && !this.#turns.has(event.turnId)) return;
-      this.#turns.set(event.turnId, {
-        turnId: event.turnId,
-        agentId: event.agentId,
-        threadId: event.threadId,
-        startedAt: new Date(this.#now()).toISOString(),
-      });
-    } else if (event.type === "turn-completed") {
-      this.#turns.delete(event.turnId);
-    }
-  }
-
-  list(): { turnId: string; agentId: string; threadId: string; startedAt: string }[] {
-    return [...this.#turns.values()];
-  }
+/**
+ * How many agents run now: the number of the load ring, of its panel and of its labels. An agent
+ * with two turns, for example in its chat and in a channel, is one agent.
+ */
+export function runningAgentCount(turns: readonly { agentId: string }[]): number {
+  return new Set(turns.map((turn) => turn.agentId)).size;
 }
 
 export interface RunningContext {
@@ -52,10 +39,7 @@ export interface RunningContext {
 }
 
 /** The work that runs now, each turn with where it runs. */
-export function buildRunningWork(
-  turns: readonly { turnId: string; agentId: string; threadId: string; startedAt: string }[],
-  context: RunningContext,
-): RunningWork[] {
+export function buildRunningWork(turns: readonly RunningTurnRecord[], context: RunningContext): RunningWork[] {
   return turns.slice(0, LOAD_WORK_LIST_LIMIT).map((turn): RunningWork => {
     const channel = context.channelOfThread(turn.threadId);
     const task = channel ? context.taskOf(channel.id, turn.agentId) : null;

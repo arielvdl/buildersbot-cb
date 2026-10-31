@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { cpus, totalmem } from "node:os";
 import { join } from "node:path";
 import { monitorEventLoopDelay } from "node:perf_hooks";
-import type { AgentEvent } from "@openbot/contracts/ipc";
 import { Effect, Exit, Option, Scope, Semaphore } from "effect";
 import {
   app,
@@ -51,7 +50,6 @@ const SAMPLES_FILE = "resources.ndjson";
 const MAX_SAMPLES_BYTES = 1024 * 1024;
 const PS_TIMEOUT_MS = 5_000;
 const PS_MAX_BUFFER = 8 * 1024 * 1024;
-const MAX_ACTIVE_TURNS = 1_000;
 const MAX_PENDING_GONE = 1_000;
 /** The histogram's timer interval. Each recorded delay includes it, so it is subtracted. */
 const LOOP_RESOLUTION_MS = 20;
@@ -69,6 +67,8 @@ export interface ResourceMonitorOptions {
   trace: TraceFile;
   statementTimings: StatementTimings;
   tabProcessIds: () => number[];
+  /** How many turns run now, from `AgentService.runningTurns`. */
+  runningTurnCount: () => number;
   /** The last reading of the memory of this computer, or null where nothing reads it. */
   memoryPressure?: () => { level: "ok" | "low" | "critical"; freePercent: number; swapUsedMb: number } | null;
 }
@@ -98,7 +98,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
   readonly #samplesFile: { directory: string; path: string; maxBytes: number };
   readonly #device: DeviceClass;
   readonly #loop = monitorEventLoopDelay({ resolution: LOOP_RESOLUTION_MS });
-  readonly #activeTurns = new Set<string>();
   readonly #writes = Semaphore.makeUnsafe(1);
   /** The load and the samples. `close` waits for them. */
   readonly #scope = Scope.makeUnsafe();
@@ -157,14 +156,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
     );
   }
 
-  observeAgentEvent(event: AgentEvent): void {
-    if (event.type === "turn-started") {
-      if (this.#activeTurns.size < MAX_ACTIVE_TURNS) this.#activeTurns.add(event.turnId);
-    } else if (event.type === "turn-completed") {
-      this.#activeTurns.delete(event.turnId);
-    }
-  }
-
   previousDay(): { day: string; properties: ReturnType<typeof resourceEventProperties> } | null {
     const previous = this.#previous;
     if (!previous || previous.samples === 0 || this.#previousHandled) return null;
@@ -180,8 +171,8 @@ export class ResourceMonitor implements AnalyticsResourceSource {
   }
 
   /**
-   * What the load ring shows: the last memory sample, which is up to a minute old, and the turns
-   * that run now. The agents' memory is that of the provider processes.
+   * The memory part of the load ring: the last sample, which is up to a minute old. The agents' memory
+   * is that of the provider processes. The count of the agents that run comes from `WorkControl`.
    */
   loadReading(): LoadReading {
     const sample = this.#lastSample;
@@ -191,7 +182,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
       usedMb: sample?.rssMb.total ?? null,
       agentsMb: sample ? sum(providers.map((provider) => provider.rssMb)) : null,
       totalMb: Math.round(totalmem() / (1024 * 1024)),
-      activeAgents: this.#activeTurns.size,
       providerProcesses: sum(providers.map((provider) => provider.processes)),
       pressure: this.#options.memoryPressure?.() ?? null,
     };
@@ -396,7 +386,8 @@ export class ResourceMonitor implements AnalyticsResourceSource {
     }
 
     const providerProcesses = sum(trees.map((tree) => tree.processCount));
-    recordPeak(day, METRIC.activeTurns, this.#activeTurns.size);
+    const activeTurns = this.#options.runningTurnCount();
+    recordPeak(day, METRIC.activeTurns, activeTurns);
     recordPeak(day, METRIC.browserTabs, tabPids.size);
     recordPeak(day, METRIC.providerProcesses, providerProcesses);
     day.samples += 1;
@@ -418,7 +409,7 @@ export class ResourceMonitor implements AnalyticsResourceSource {
       ),
       mainLoopMs: mainLoopMs && { p99: Math.round(mainLoopMs.p99), max: Math.round(mainLoopMs.max) },
       database: { statements: statements.length, maxMs: Math.round(Math.max(0, ...statements)) },
-      activeTurns: this.#activeTurns.size,
+      activeTurns,
       browserTabs: tabPids.size,
       providerTreeSupported,
     };

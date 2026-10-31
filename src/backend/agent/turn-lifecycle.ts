@@ -96,6 +96,15 @@ const FAILOVER_CAUSES: ReadonlySet<CauseCode> = new Set([
 ]);
 
 /** A provider error held until the end of its turn, which runs the turn again on a backup model or shows it. */
+/** A turn that runs now, as the load panel and the turn count read it. */
+export interface RunningTurn {
+  turnId: string;
+  agentId: string;
+  /** The thread that the person sees: the agent's chat, a side thread, a channel or a messaging thread. */
+  threadId: string;
+  startedAt: string;
+}
+
 interface HeldProviderError {
   message: string;
   context: FailureContext & { causeCode: CauseCode };
@@ -325,6 +334,20 @@ export class TurnLifecycle {
   /** When this running turn sent `turn/started`, in epoch milliseconds. Null for a turn that is not running. */
   turnStartedAt(turnId: string): number | null {
     return this.#runningTurns.get(turnId)?.startedAt ?? null;
+  }
+
+  /**
+   * The turns that run now, with the thread that the person sees. This map is the one record of a
+   * running turn: the events of a channel, a side thread or a messaging thread do not reach the
+   * listeners of the service, and a turn that a client stop ended leaves it here too.
+   */
+  runningTurns(): RunningTurn[] {
+    return [...this.#runningTurns].map(([turnId, turn]) => ({
+      turnId,
+      agentId: turn.agentId,
+      threadId: this.#conversation.publicThreadId(turn.agentId, turn.threadId),
+      startedAt: new Date(turn.startedAt).toISOString(),
+    }));
   }
 
   /**

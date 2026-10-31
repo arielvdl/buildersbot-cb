@@ -16,6 +16,30 @@ export function loadTone(percent: number | null): LoadTone {
   return percent < 80 ? "warning" : "critical";
 }
 
+/**
+ * The colour of the ring, from the memory: what macOS says when it is read, else the share in use.
+ * The arc is the agents (`loadAgentArc`), so the memory shows as the tone.
+ */
+export function loadRingTone(snapshot: LoadSnapshot): LoadTone {
+  const level = snapshot.memory.pressure?.level;
+  if (level === "critical") return "critical";
+  if (level === "low") return "warning";
+  return loadTone(loadMemoryPercent(snapshot));
+}
+
+/** With no limit, ten agents that run close the circle. More can run; the arc stays full. */
+export const LOAD_RING_FULL_AGENTS = 10;
+
+/**
+ * The arc of the ring, 0 to 100: the agents that run now, of ten, or of the limit when the person set
+ * one. The number inside the ring is the count itself, which can be more than ten.
+ */
+export function loadAgentArc(agents: number, limit: number | null = null): number {
+  const full = limit ?? LOAD_RING_FULL_AGENTS;
+  if (full <= 0 || agents <= 0) return 0;
+  return Math.round(Math.min(agents / full, 1) * 100);
+}
+
 /** Memory in GB with one decimal, or whole GB from ten up, so the label stays short. */
 export function formatGigabytes(megabytes: number): string {
   const gigabytes = megabytes / 1024;

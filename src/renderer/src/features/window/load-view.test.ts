@@ -4,8 +4,10 @@ import {
   clampRecoveryMinutes,
   elapsedMinutes,
   formatGigabytes,
+  loadAgentArc,
   loadLaneRows,
   loadMemoryPercent,
+  loadRingTone,
   loadTone,
   requestText,
   stoppedCount,
@@ -51,6 +53,32 @@ describe("the load ring", () => {
     expect(formatGigabytes(512)).toBe("0.5 GB");
     expect(formatGigabytes(7625)).toBe("7.4 GB");
     expect(formatGigabytes(32768)).toBe("32 GB");
+  });
+});
+
+describe("the arc and the colour of the ring", () => {
+  it("is the agents that run, of ten, and stays full above ten", () => {
+    expect(loadAgentArc(0)).toBe(0);
+    expect(loadAgentArc(3)).toBe(30);
+    expect(loadAgentArc(10)).toBe(100);
+    expect(loadAgentArc(12)).toBe(100);
+  });
+
+  it("is the agents of the limit when the person set one", () => {
+    expect(loadAgentArc(3, 4)).toBe(75);
+    expect(loadAgentArc(4, 4)).toBe(100);
+    expect(loadAgentArc(3, 10)).toBe(30);
+  });
+
+  it("takes its colour from the memory: what macOS says, else the share in use", () => {
+    expect(loadRingTone(snapshot())).toBe("ok");
+    expect(loadRingTone(snapshot({ memory: { usedMb: 28_000, agentsMb: 0, totalMb: 32_768 } }))).toBe("critical");
+    const pressure = (level: "ok" | "low" | "critical") =>
+      snapshot({
+        memory: { usedMb: 8192, agentsMb: 0, totalMb: 32_768, pressure: { level, freePercent: 9, swapUsedMb: 0 } },
+      });
+    expect(loadRingTone(pressure("low"))).toBe("warning");
+    expect(loadRingTone(pressure("critical"))).toBe("critical");
   });
 });
 

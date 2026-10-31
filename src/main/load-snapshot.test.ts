@@ -5,6 +5,7 @@ import { buildLoadSnapshot } from "./load-snapshot";
 
 const NO_WORK = {
   running: [],
+  activeAgents: 3,
   stopped: [],
   recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
 };
@@ -14,7 +15,6 @@ const reading = {
   usedMb: 7600,
   agentsMb: 6600,
   totalMb: 32768,
-  activeAgents: 3,
   providerProcesses: 90,
   pressure: null,
 };
@@ -30,6 +30,8 @@ describe("the load snapshot", () => {
     expect(isLoadSnapshot(snapshot)).toBe(true);
     expect(snapshot.lane).toEqual({ enabled: true, order: ["b"], running: ["a"], queued: ["b"] });
     expect(snapshot.memory).toEqual({ usedMb: 7600, agentsMb: 6600, totalMb: 32768 });
+    // The count comes with the running work, not with the memory sample.
+    expect(snapshot.activeAgents).toBe(3);
   });
 
   it("drops a channel that no longer exists from the order and the lists", () => {

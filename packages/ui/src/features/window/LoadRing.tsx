@@ -29,9 +29,10 @@ import {
   elapsedMinutes,
   formatGigabytes,
   type LoadTone,
+  loadAgentArc,
   loadLaneRows,
   loadMemoryPercent,
-  loadTone,
+  loadRingTone,
   requestText,
   stoppedCount,
   stoppedTone,
@@ -58,8 +59,9 @@ export interface LoadRailProps {
 }
 
 /**
- * The load of this computer as one ring in the rail: the share of memory in use is the arc, and the
- * number inside is how many agents run now. A red mark on the ring counts the work that stopped. The
+ * The load of this computer as one ring in the rail: the number inside is how many agents run now, and
+ * the arc is that count of ten (more can run, and the arc stays full). The memory is the colour of the
+ * ring, and the tooltip and the panel give it. A red mark on the ring counts the work that stopped. The
  * pointer over the ring gives a one-line summary; a click opens the panel, where the person can stop
  * what runs, start stopped work again or give it to another agent, and let the app do it by itself.
  *
@@ -68,9 +70,9 @@ export interface LoadRailProps {
  */
 export function LoadRing(props: LoadRailProps) {
   const { t } = useText();
-  const percent = () => (props.snapshot ? loadMemoryPercent(props.snapshot) : null);
-  const tone = (): LoadTone => loadTone(percent());
+  const tone = (): LoadTone => (props.snapshot ? loadRingTone(props.snapshot) : "ok");
   const agents = () => props.snapshot?.activeAgents ?? 0;
+  const arc = () => loadAgentArc(agents());
   const stopped = () => (props.snapshot ? stoppedCount(props.snapshot) : 0);
   const radius = (RING.size - RING.stroke) / 2;
   const memory = () => {
@@ -111,7 +113,7 @@ export function LoadRing(props: LoadRailProps) {
             r={radius}
             stroke-width={RING.stroke}
           />
-          <Show when={percent() !== null && (percent() ?? 0) > 0}>
+          <Show when={arc() > 0}>
             <circle
               class="window-rail-usage-arc"
               data-load-tone={tone()}
@@ -121,7 +123,7 @@ export function LoadRing(props: LoadRailProps) {
               stroke-width={RING.stroke}
               stroke-linecap="round"
               pathLength={100}
-              stroke-dasharray={`${percent()} 100`}
+              stroke-dasharray={`${arc()} 100`}
             />
           </Show>
         </svg>

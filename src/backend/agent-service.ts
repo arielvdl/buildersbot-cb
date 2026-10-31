@@ -222,7 +222,7 @@ import {
 } from "./agent/thread-items";
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
-import { type AgentBrowserHost, TurnLifecycle } from "./agent/turn-lifecycle";
+import { type AgentBrowserHost, type RunningTurn, TurnLifecycle } from "./agent/turn-lifecycle";
 import { memoryReviewUsageObserver, workflowUsageObserver } from "./agent/usage-collection";
 import { toUsageReadFailed, UsageLimitGate, type UsageLimitKey } from "./agent/usage-limit-gate";
 import { WarmGenerations } from "./agent/warm-generations";
@@ -2112,6 +2112,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   earliestRunningTurnStartedAt(): number | null {
     return this.#turn.earliestRunningTurnStartedAt();
+  }
+
+  /**
+   * Every turn that runs now, in any thread. Read this, not the `turn-started` events: the events of a
+   * channel, a side thread or a messaging thread stay inside the service and never reach its listeners.
+   */
+  runningTurns(): RunningTurn[] {
+    return this.#turn.runningTurns();
   }
 
   /**
