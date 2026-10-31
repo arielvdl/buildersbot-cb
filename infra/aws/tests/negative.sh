@@ -644,31 +644,36 @@ expect_direct "F2 saída direta: tempo esgotado depois de conectar é 'OPEN'" 28
 expect_direct "F2 saída direta: erro de DNS não vale como bloqueio" 6 0.000000 "unknown rc=6"
 expect_direct "F2 saída direta: curl ausente não vale como bloqueio" 127 '' "unknown rc=127"
 
-# rules: falha fechada. Com o proxy, o contêiner só sai para o Signal/TURN; o resto cai no DROP final.
-rules_proxy=$(bash "$TOOL" rules proxy 12321 203.0.113.7 10.0.0.1 2>&1)
+# rules: falha fechada. Com o proxy, o contêiner só sai para o Signal/TURN; o resto cai no DROP final. Os
+# endereços do upstream vêm antes de "--", os do Signal/TURN depois.
+rules_proxy=$(bash "$TOOL" rules proxy 12321 198.51.100.20 10.0.0.2 -- 203.0.113.7 10.0.0.1 2>&1)
 egress_rules=$(grep -- '^-A BB-SRV-EGRESS ' <<<"$rules_proxy")
 if grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p tcp -m multiport --dports 443,3478,5349 -j RETURN' <<<"$egress_rules" &&
   grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p udp -m multiport --dports 3478,49152:65535 -j RETURN' <<<"$egress_rules" &&
   grep -qxF -- '-A BB-SRV-INPUT -d 172.30.0.1/32 -p tcp -m tcp --dport 3128 -j ACCEPT' <<<"$rules_proxy" &&
   grep -qxF -- '-A BB-SRV-INPUT -d 172.30.0.1/32 -p udp -m udp --dport 53 -j ACCEPT' <<<"$rules_proxy" &&
-  [ "$(tail -n 1 <<<"$egress_rules")" = '-A BB-SRV-EGRESS -j DROP' ] && ! grep -q '10\.0\.0\.1' <<<"$rules_proxy" &&
-  [ "$(grep -c -- '-j RETURN$' <<<"$egress_rules")" = 2 ]; then
+  [ "$(tail -n 1 <<<"$egress_rules")" = '-A BB-SRV-EGRESS -j DROP' ] && ! grep -q '10\.0\.0\.[12]' <<<"$rules_proxy" &&
+  [ "$(grep -c -- '-j RETURN$' <<<"$egress_rules")" = 2 ] && ! grep -q '198\.51\.100\.20' <<<"$egress_rules"; then
   ok_case "F3 firewall com proxy: só o encaminhador, o DNS do host e o Signal/TURN; DROP no fim; IP privado ignorado"
 else
   bad "F3 firewall com proxy" "$rules_proxy"
 fi
 # O próprio encaminhador (OUTPUT do usuário bb-proxy): só o resolvedor do host, os clientes da ponte e a porta
-# do upstream. Um tinyproxy comprometido não vira proxy direto com o IP da AWS.
-fwd_expected=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
+# do upstream NOS ENDEREÇOS dele. Um tinyproxy comprometido (ou que pule a linha Upstream) não vira proxy direto
+# com o IP da AWS, nem para outro host na mesma porta. Sem porta ou sem endereço válido, nada sai.
+fwd_expected=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
 if [ "$(grep -- '^-A BB-SRV-PROXY-OUT ' <<<"$rules_proxy")" = "$fwd_expected" ] &&
-  [ "$(bash "$TOOL" rules proxy - 203.0.113.7 | grep -c -- '--dport [0-9]* -j RETURN$')" = 0 ] &&
-  [ "$(bash "$TOOL" rules proxy '12321 -j ACCEPT' 203.0.113.7 | grep -c 'PROXY-OUT.*dport')" = 0 ]; then
-  ok_case "F3 encaminhador confinado: lo, a ponte e a porta do upstream; REJECT no resto (sem porta válida, nada sai)"
+  [ "$(bash "$TOOL" rules proxy - 198.51.100.20 -- 203.0.113.7 | grep -c -- '--dport [0-9]* -j RETURN$')" = 0 ] &&
+  [ "$(bash "$TOOL" rules proxy '12321 -j ACCEPT' 198.51.100.20 -- 203.0.113.7 | grep -c 'PROXY-OUT.*dport')" = 0 ] &&
+  [ "$(bash "$TOOL" rules proxy 12321 -- 203.0.113.7 | grep -c 'PROXY-OUT.*dport')" = 0 ] &&
+  ! bash "$TOOL" rules proxy 12321 203.0.113.7 >/dev/null 2>&1; then
+  ok_case "F3 encaminhador confinado: lo, a ponte e a porta do upstream só nos endereços dele; REJECT no resto"
 else
   bad "F3 encaminhador confinado" "$rules_proxy"
 fi
-rules_direct=$(bash "$TOOL" rules direct - 203.0.113.7 2>&1)
-if ! grep -q 'BB-SRV-EGRESS\|BB-SRV-PROXY-OUT\|--dport 3128' <<<"$rules_direct" && grep -q -- '--dport 53 -j ACCEPT' <<<"$rules_direct"; then
+rules_direct=$(bash "$TOOL" rules direct - -- 203.0.113.7 2>&1)
+if ! grep -q 'BB-SRV-EGRESS\|BB-SRV-PROXY-OUT\|--dport 3128' <<<"$rules_direct" && grep -q -- '--dport 53 -j ACCEPT' <<<"$rules_direct" &&
+  [ "$(grep -c '^-A ' <<<"$rules_direct")" = 2 ]; then
   ok_case "F3 firewall sem proxy (decisão do dono): sem DROP próprio nem encaminhador, só o DNS do contêiner"
 else
   bad "F3 firewall sem proxy" "$rules_direct"
@@ -974,6 +979,102 @@ if [ -z "$health_fail" ]; then
   ok_case "F8 os filtros de saúde leem só o grupo de logs da saúde (o log do app não pode forjar BB_HEALTH ok)"
 else
   bad "F8 filtros de saúde no grupo errado" "$health_fail"
+fi
+
+# ---------------------------------------------------------------- F10: a ferramenta num host falso
+# O bb-srv-proxy e o bb-srv-Status rodam inteiros, com os caminhos do host (/etc/bb-srv, /var/lib/bb-srv...)
+# trocados por pastas de $HOST_T e os programas do host trocados pelos de tests/fake-host.sh (iptables com estado,
+# docker, nsenter, setpriv, dig, curl, getent...): o que se testa é o comportamento, não o texto do template.
+HOST_T=$WORK/host
+HOST_BIN=$WORK/host-bin
+HOST_TOOL=$WORK/host-bb-srv-proxy
+install -d "$HOST_BIN"
+for prog in iptables ip6tables flock timeout id jq free systemctl getent nsenter setpriv dig curl docker; do
+  ln -sf "$ROOT/tests/fake-host.sh" "$HOST_BIN/$prog"
+done
+# <script> <destino>: o script com os caminhos do host dentro de $HOST_T. Falha se sobrar um caminho do sistema
+# (/etc, /var, /run ou /srv do Mac): nesse caso nada roda.
+to_host() {
+  sed -e "s#/etc/bb-srv#$HOST_T/etc/bb-srv#g" -e "s#/etc/bb-proxy#$HOST_T/etc/bb-proxy#g" \
+    -e "s#/var/lib/bb-srv#$HOST_T/var/lib/bb-srv#g" -e "s#/var/log/bb-srv#$HOST_T/var/log/bb-srv#g" \
+    -e "s#/run/bb-srv-proxy.lock#$HOST_T/run/bb-srv-proxy.lock#g" -e "s#/srv/#$HOST_T/srv/#g" \
+    -e "s#/usr/local/sbin/bb-srv-proxy#$HOST_T/usr/local/sbin/bb-srv-proxy#g" -e "s#/snap/bin/aws#$HOST_T/snap/bin/aws#g" "$1" >"$2" &&
+    ! grep -nE '(^|[^A-Za-z0-9_./-])/(etc|var|run|srv)/' "$2"
+}
+host_tool() { FAKE_HOST="$HOST_T" PATH="$HOST_BIN:$PATH" bash "$HOST_TOOL" "$@"; }
+# O mapa do resolvedor do host: o Signal/TURN e o upstream (os endereços dados, ou nenhum).
+host_dns() { printf '%s\n' 'signal.bb-aws.example.com 203.0.113.7' 'turn.bb-aws.example.com 203.0.113.7' "proxy.example.net $*" >"$HOST_T/dns"; }
+# [host do upstream]: o setor piloto em proxy, upstream <host>:12321 (padrão proxy.example.net, que resolve para
+# dois IPv4 públicos e um privado), Signal 203.0.113.7, o iptables com o DROP do openbot-firewall e o RETURN do Docker.
+host_reset() {
+  local d
+  for d in etc/bb-srv etc/bb-proxy var/lib/bb-srv var/log/bb-srv run srv/openbot-docker/instances usr/local/sbin ipt; do
+    install -d "$HOST_T/$d"
+  done
+  rm -f "$HOST_T"/ipt/* "$HOST_T"/etc/bb-srv/* "$HOST_T"/var/lib/bb-srv/* "$HOST_T"/var/log/bb-srv/* "$HOST_T/calls" "$HOST_T/running"
+  printf 'piloto\n' >"$HOST_T/etc/bb-srv/sector"
+  printf 'us-east-1\n' >"$HOST_T/etc/bb-srv/region"
+  printf 'bb-aws.example.com\n' >"$HOST_T/etc/bb-srv/zone"
+  printf 'proxy\n' >"$HOST_T/etc/bb-srv/egress"
+  printf '%s' "${1:-proxy.example.net}:12321:demo-user:demo-pass" | bash "$TOOL" parse "$HOST_T/etc/bb-proxy/upstream.conf"
+  host_dns 198.51.100.21 198.51.100.20 10.0.0.9
+  printf '%s\n' '-i br-openbot -j DROP' >"$HOST_T/ipt/INPUT"
+  : >"$HOST_T/ipt/OUTPUT"
+  : >"$HOST_T/ipt/FORWARD"
+  printf '%s\n' '-j RETURN' >"$HOST_T/ipt/DOCKER-USER"
+  ln -sf "$ROOT/tests/fake-host.sh" "$HOST_T/srv/openbot-docker/instances/openbot-instance"
+  cp "$HOST_TOOL" "$HOST_T/usr/local/sbin/bb-srv-proxy"
+  chmod 0755 "$HOST_T/usr/local/sbin/bb-srv-proxy"
+}
+fwd_chain() { sed 's/^/-A BB-SRV-PROXY-OUT /' "$HOST_T/ipt/BB-SRV-PROXY-OUT" 2>/dev/null; }
+health_line() { tail -n 1 "$HOST_T/var/log/bb-srv/health.log" 2>/dev/null | cut -d ' ' -f 2-; }
+
+if ! to_host "$TOOL" "$HOST_TOOL"; then
+  bad "F10 a ferramenta não foi para o host falso (sobrou um caminho do sistema acima): F10 não rodou"
+else
+  # F10: o encaminhador sai só para os endereços do upstream, um por regra, na porta dele; o guard do timer de
+  # refresh segue uma troca de endereços e só reaplica quando as regras mudam.
+  host_reset
+  g1=$(host_tool guard 2>&1)
+  fwd1=$(fwd_chain)
+  g2=$(host_tool guard 2>&1)
+  fwd2=$(fwd_chain)
+  fwd_pinned=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.21/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
+  if [ "$fwd1" = "$fwd_pinned" ] && grep -q 'guard applied (proxy)' <<<"$g1" && [ "$(head -n 1 "$HOST_T/ipt/OUTPUT")" = '-m owner --uid-owner 998 -j BB-SRV-PROXY-OUT' ] &&
+    ! grep -q 'proxy.example.net\|demo-' <<<"$g1$g2"; then
+    ok_case "F10 guard: o encaminhador sai só para os IPv4 públicos do upstream (um por regra, na porta dele); REJECT no resto"
+  else
+    bad "F10 guard: encaminhador só para os endereços do upstream" "$g1"$'\n'"$fwd1"
+  fi
+  host_dns 198.51.100.30
+  g3=$(host_tool guard 2>&1)
+  fwd3=$(fwd_chain)
+  if [ "$fwd2" = "$fwd1" ] && ! grep -q 'guard applied' <<<"$g2" && grep -q 'guard applied (proxy)' <<<"$g3" &&
+    grep -qxF -- '-A BB-SRV-PROXY-OUT -d 198.51.100.30/32 -p tcp -m tcp --dport 12321 -j RETURN' <<<"$fwd3" &&
+    ! grep -q '198\.51\.100\.2[01]' <<<"$fwd3" &&
+    grep -A 1 'ExecStart=/usr/local/sbin/bb-srv-proxy guard' templates/proxy.yaml | grep -q '/bb-srv-egress-refresh.service$'; then
+    ok_case "F10 refresh (o guard do bb-srv-egress-refresh): segue uma troca de endereços do upstream; sem troca, não reaplica"
+  else
+    bad "F10 refresh dos endereços do upstream" "$g2"$'\n'"$g3"$'\n'"$fwd3"
+  fi
+  host_dns
+  g4=$(host_tool guard 2>&1)
+  fwd4=$(fwd_chain)
+  if ! grep -q 'dport 12321\|198\.51\.100' <<<"$fwd4" && [ "$(tail -n 1 <<<"$fwd4")" = '-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable' ] &&
+    grep -q 'BB_PROXY warning: no public IPv4 address for the upstream' <<<"$g4" && ! grep -q 'proxy.example.net' <<<"$g4"; then
+    ok_case "F10 upstream sem endereço público (DNS fora): nenhuma regra para ele, o encaminhador não sai (falha fechada)"
+  else
+    bad "F10 upstream sem endereço público" "$g4"$'\n'"$fwd4"
+  fi
+  host_reset 198.51.100.40
+  host_tool guard >/dev/null 2>&1
+  if grep -qxF -- '-A BB-SRV-PROXY-OUT -d 198.51.100.40/32 -p tcp -m tcp --dport 12321 -j RETURN' <<<"$(fwd_chain)" &&
+    [ "$(grep -c 'dport' <<<"$(fwd_chain)")" = 1 ] && ! grep -q 'getent ahostsv4 198.51.100.40' "$HOST_T/calls"; then
+    ok_case "F10 upstream por IPv4 literal: uma regra só para ele, sem consulta ao DNS"
+  else
+    bad "F10 upstream por IPv4 literal" "$(fwd_chain)"
+  fi
+
 fi
 
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"

@@ -199,20 +199,27 @@ Resources:
                 echo "BB_PROXY egress $(mode)"
               }
 
+              # The public IPv4 addresses of the names, one per line, sorted: an address stands for itself, a name is
+              # resolved now (getent).
+              public_ips() {
+                local name ip
+                for name in "$@"; do
+                  if public_ipv4 "$name"; then
+                    echo "$name"
+                  elif hostname_ok "$name"; then
+                    for ip in $(getent ahostsv4 "$name" 2>/dev/null | awk '{ print $1 }'); do
+                      if public_ipv4 "$ip"; then echo "$ip"; fi
+                    done
+                  fi
+                done | sort -u
+              }
+
               # The public addresses of signal.<zone> and turn.<zone>; the last ones known when DNS does not answer.
               signal_ips() {
-                local zone cache=/var/lib/bb-srv/signal-ips found='' name ip
+                local zone cache=/var/lib/bb-srv/signal-ips found='' ip
                 zone=$(cat "$ETC/zone" 2>/dev/null || true)
-                if hostname_ok "$zone"; then
-                  for name in "signal.$zone" "turn.$zone"; do
-                    for ip in $(getent ahostsv4 "$name" 2>/dev/null | awk '{ print $1 }' | sort -u); do
-                      if public_ipv4 "$ip"; then
-                        case " $found " in *" $ip "*) ;; *) found="$found $ip" ;; esac
-                      fi
-                    done
-                  done
-                fi
-                found=${found# }
+                if hostname_ok "$zone"; then found=$(public_ips "signal.$zone" "turn.$zone" | tr '\n' ' '); fi
+                found=${found% }
                 if [ -n "$found" ]; then
                   printf '%s\n' "$found" >"$cache.new" && mv -f "$cache.new" "$cache"
                 elif [ -s "$cache" ]; then
@@ -228,26 +235,35 @@ Resources:
 
               # INPUT (to the host): the DNS of the container, and the forwarder with the proxy; openbot-firewall drops the
               # rest. DOCKER-USER (leaving): with the proxy, only our Signal/TURN; nothing leaves when the proxy is down.
-              # OUTPUT of the forwarder (user bb-proxy): the resolver of the host, the bridge and the port of the upstream,
-              # so a compromised tinyproxy (or one that skips its Upstream line) is no direct proxy with the AWS address.
+              # OUTPUT of the forwarder (user bb-proxy): the resolver of the host, the bridge and the port of the upstream
+              # on its addresses only, so a compromised tinyproxy (or one that skips its Upstream line) is no direct proxy
+              # with the AWS address. No valid port or address of the upstream: no rule for it (fail closed).
               rules() {
-                local m=${1:-} port=${2:-} ip
-                [[ $m =~ ^(proxy|direct)$ ]] && [ "$#" -ge 2 ] || fail "usage: bb-srv-proxy rules <proxy|direct> <upstream port|-> [ip...]"
+                local m=${1:-} port=${2:-} ip sig=0
+                case " $* " in *" -- "*) ;; *) m='' ;; esac
+                [[ $m =~ ^(proxy|direct)$ ]] && [ "$#" -ge 3 ] ||
+                  fail "usage: bb-srv-proxy rules <proxy|direct> <upstream port|-> [upstream ip...] -- [signal ip...]"
                 shift 2
                 echo "-A $IN_CHAIN -d $GATEWAY/32 -p udp -m udp --dport 53 -j ACCEPT"
                 echo "-A $IN_CHAIN -d $GATEWAY/32 -p tcp -m tcp --dport 53 -j ACCEPT"
                 [ "$m" = proxy ] || return 0
                 echo "-A $IN_CHAIN -d $GATEWAY/32 -p tcp -m tcp --dport $PORT -j ACCEPT"
                 for ip in "$@"; do
-                  public_ipv4 "$ip" || continue
-                  echo "-A $OUT_CHAIN -d $ip/32 -p tcp -m multiport --dports 443,3478,5349 -j RETURN"
-                  echo "-A $OUT_CHAIN -d $ip/32 -p udp -m multiport --dports 3478,49152:65535 -j RETURN"
+                  if [ "$ip" = -- ]; then
+                    sig=1
+                  elif [ "$sig" = 1 ] && public_ipv4 "$ip"; then
+                    echo "-A $OUT_CHAIN -d $ip/32 -p tcp -m multiport --dports 443,3478,5349 -j RETURN"
+                    echo "-A $OUT_CHAIN -d $ip/32 -p udp -m multiport --dports 3478,49152:65535 -j RETURN"
+                  fi
                 done
                 echo "-A $OUT_CHAIN -j DROP"
                 echo "-A $FWD_CHAIN -o lo -j RETURN"
                 echo "-A $FWD_CHAIN -d $SUBNET -j RETURN"
                 if [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ]; then
-                  echo "-A $FWD_CHAIN -p tcp -m tcp --dport $port -j RETURN"
+                  for ip in "$@"; do
+                    [ "$ip" != -- ] || break
+                    if public_ipv4 "$ip"; then echo "-A $FWD_CHAIN -d $ip/32 -p tcp -m tcp --dport $port -j RETURN"; fi
+                  done
                 fi
                 echo "-A $FWD_CHAIN -j REJECT --reject-with icmp-port-unreachable"
               }
@@ -258,6 +274,15 @@ Resources:
                 line=$(grep -m 1 '^Upstream http ' "${1:-$UPSTREAM}" 2>/dev/null || true)
                 port=${line##*:}
                 if [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ]; then echo "$port"; else echo -; fi
+              }
+
+              # The public IPv4 addresses of the host of the Upstream line (root only), resolved now. Neither the host nor
+              # the rest of the line leaves this function.
+              upstream_ips() {
+                local host
+                host=$(grep -m 1 '^Upstream http ' "$UPSTREAM" 2>/dev/null || true)
+                host=${host##*@}
+                public_ips "${host%:*}"
               }
 
               # True when rule $2 of chain $1 comes before the first rule that matches the regex $3 (or none does).
@@ -285,17 +310,20 @@ Resources:
               held() { marked_hold || grep -qx -- "-A DOCKER-USER -i $BRIDGE -j DROP" <<<"$(iptables -S DOCKER-USER 2>/dev/null)"; }
 
               guard() {
-                local m ips port uid desired current line chain ok=1
+                local m ips port up uid desired current line chain ok=1
                 # One run at a time (the boot unit, the refresh timer, bb-srv-Install, bb-srv-ProxyReload).
                 exec 8>/run/bb-srv-proxy.lock
                 flock -w 120 8 || fail "another bb-srv-proxy guard holds /run/bb-srv-proxy.lock"
                 m=$(mode)
                 ips=$(signal_ips)
                 port=$(upstream_port)
+                up=$(upstream_ips)
+                [ "$m" = direct ] || [ -n "$up" ] ||
+                  echo "BB_PROXY warning: no public IPv4 address for the upstream now (DNS?): the forwarder reaches nothing until a later run (bb-srv-egress-refresh) finds one" >&2
                 uid=$(id -u "$PROXY_USER" 2>/dev/null || true)
                 [ "$m" = direct ] || [[ $uid =~ ^[0-9]+$ ]] || fail "the user $PROXY_USER of the forwarder does not exist (bb-srv-ProxySetup)"
                 # shellcheck disable=SC2086 # one address per word
-                desired=$(rules "$m" "$port" $ips)
+                desired=$(rules "$m" "$port" $up -- $ips)
                 iptables -N DOCKER-USER 2>/dev/null || true
                 for chain in "$IN_CHAIN" "$OUT_CHAIN" "$FWD_CHAIN"; do iptables -N "$chain" 2>/dev/null || true; done
                 current=$({ iptables -S "$IN_CHAIN"; iptables -S "$OUT_CHAIN"; iptables -S "$FWD_CHAIN"; } | grep '^-A ' || true)
@@ -685,7 +713,7 @@ Resources:
               esac
               BBSRVPROXY
               chmod 0755 "$P"
-              # The guard runs before Docker, which requires it. The refresh follows signal./turn.
+              # The guard runs before Docker, which requires it. The refresh follows signal./turn. and the upstream.
               cat >/etc/systemd/system/bb-srv-egress-guard.service <<'UNIT'
               [Unit]
               Description=Builders Bot - egress firewall of the container (proxy required, fail closed)
@@ -699,7 +727,7 @@ Resources:
               [Install]
               WantedBy=multi-user.target
               UNIT
-              printf '[Unit]\nDescription=Builders Bot - refresh the egress firewall (address of the Signal)\nAfter=docker.service\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-proxy guard\n' \
+              printf '[Unit]\nDescription=Builders Bot - refresh the egress firewall (addresses of the Signal and of the upstream)\nAfter=docker.service\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-proxy guard\n' \
                 >/etc/systemd/system/bb-srv-egress-refresh.service
               printf '[Unit]\nDescription=Builders Bot - refresh the egress firewall every 5 minutes\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=5min\n[Install]\nWantedBy=timers.target\n' \
                 >/etc/systemd/system/bb-srv-egress-refresh.timer
@@ -711,7 +739,7 @@ Resources:
               printf '[Unit]\nRequires=bb-srv-egress-guard.service\nAfter=bb-srv-egress-guard.service\nConditionPathExists=!/var/lib/bb-srv/egress-open\n' \
                 >/etc/systemd/system/bb-srv-sector-up.service.d/bb-srv-egress.conf
               # The credential, read from SSM at boot (and by bb-srv-ProxyReload), not at each restart of the forwarder;
-              # a failed read keeps the last file. The guard after it follows a new port of the upstream.
+              # a failed read keeps the last file. The guard after it follows a new host or port of the upstream.
               cat >/etc/systemd/system/bb-proxy-config.service <<'UNIT'
               [Unit]
               Description=Builders Bot - read the egress proxy credential (SSM) for the forwarder
