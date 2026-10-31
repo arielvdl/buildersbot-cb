@@ -24,6 +24,8 @@ export function createSetupNext(providers: SetupProviders) {
     if (providers.selectedProviderConnected()) return "";
     const option = selectedOption();
     if (!option) return t("onboarding.next.selectProvider");
+    // A provider that this window cannot connect: its row line says where to sign in.
+    if (providers.unreachable().has(option.id) && option.message) return option.message;
     const provider = option.name;
     switch (option.runtimeStatus?.phase) {
       case "downloading":
@@ -99,5 +101,19 @@ export function createSetupNext(providers: SetupProviders) {
     connect();
   }
 
-  return { blockedReason, connectSelected };
+  /**
+   * The label of the main button while the selected provider is not connected, the same on first
+   * run and on a server: Download when the button starts the download, else Connect with the name of
+   * the provider it connects.
+   */
+  function connectLabel(): string {
+    const option = selectedOption();
+    const phase = option?.runtimeStatus?.phase;
+    if (phase === "not-downloaded" || phase === "download-error") return t("common.download");
+    return option && !providers.customSelected()
+      ? t("onboarding.action.connectProvider", { provider: option.name })
+      : t("onboarding.action.connect");
+  }
+
+  return { blockedReason, connectSelected, connectLabel };
 }
