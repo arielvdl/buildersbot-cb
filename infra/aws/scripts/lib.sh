@@ -584,34 +584,45 @@ require_proxy_parameter() {
   type=$(proxy_parameter_type)
   case $type in
     SecureString) say "   proxy de saída: $BB_PROXY_PARAMETER existe (SecureString; o valor não é lido aqui)" ;;
-    None | '') die "falta o parâmetro $BB_PROXY_PARAMETER (proxy residencial de saída, obrigatório para todo setor). O dono grava host:porta:usuário:senha numa linha: aws --profile $BB_PROFILE --region $BB_REGION ssm put-parameter --name $BB_PROXY_PARAMETER --type SecureString --value '<host:porta:usuário:senha>' (README, seção 16). Sem proxy, só com --egress-direct, por decisão do dono." ;;
+    None | '') die "falta o parâmetro $BB_PROXY_PARAMETER (proxy residencial de saída, obrigatório para todo setor). O dono grava host:porta:usuário:senha numa linha, como SecureString, pela entrada padrão, sem a senha na linha de comando nem no histórico do shell: README, seção 16, 'Trocar a senha', passo 1. Sem proxy, só com --egress-direct, por decisão do dono." ;;
     erro) die "não consegui conferir $BB_PROXY_PARAMETER (ssm describe-parameters falhou): sem essa conferência nenhum setor é criado." ;;
     *) die "$BB_PROXY_PARAMETER existe como $type, não SecureString: a senha do proxy estaria em texto puro. O dono grava de novo como SecureString (README, seção 16)." ;;
   esac
 }
 
-# Lê as linhas BB_PROXY_* da saída do bb-srv-Status (saída que passa pelo contêiner: só valores no
-# formato esperado são mostrados) e diz em português o que o contêiner vê. Uso: <saída> <setor> <EgressProxy>
+# Lê as linhas BB_PROXY_* do bb-srv-Status e diz em português o que o contêiner vê. Só valem as linhas
+# depois do ÚLTIMO "egress proxy:", que o root imprime: o que vem do contêiner e do app sai antes, atrás de
+# "  | ", e não forja um veredito. Mesmo ali, só valores no formato esperado são mostrados.
+# Uso: <saída> <setor> <EgressProxy> [instância]
 proxy_verdict() {
-  local out=$1 sector=$2 egress=$3 exit_line ip country
+  local out sector=$2 egress=$3 instance=${4:-<instância>} exit_line ip country repair
+  out=$(awk '$0 == "egress proxy:" { buf = ""; on = 1; next } on { buf = buf $0 "\n" } END { printf "%s", buf }' <<<"$1")
+  repair="rode o reparo (README, seção 16, 'Reparar um setor instalado'): aws --profile $BB_PROFILE --region $BB_REGION ssm send-command --instance-ids $instance --document-name bb-srv-ProxySetup; depois, scripts/status.sh $sector --deep"
   if [ "$egress" = direct ]; then
     say "      proxy de saída: DESLIGADO neste setor (EgressProxy=direct, decisão do dono); a saída é o IP da AWS."
     return 0
   fi
+  if [ -z "$out" ]; then
+    say "      PROXY NÃO CONFERIDO: a saída do bb-srv-Status não tem a parte 'egress proxy:' (documento bb-srv-Status antigo? scripts/deploy-base.sh)."
+    return 0
+  fi
   if grep -qx 'BB_PROXY_MODE not-installed' <<<"$out"; then
-    say "      PROXY AUSENTE: o host não tem o proxy de saída instalado. Rode scripts/add-sector.sh $sector --resume (ou troque a VM, README, seção 11)."
+    say "      PROXY AUSENTE: o host não tem o proxy de saída instalado. Se o setor ainda não terminou a instalação: scripts/add-sector.sh $sector --resume. Se já está instalado e protegido, $repair."
     return 0
   fi
   if grep -qx 'BB_PROXY_MODE direct' <<<"$out"; then
     say "      PROXY AUSENTE: o host está em saída direta, mas a stack pede o proxy (EgressProxy=required). Troque a VM: README, seção 11."
     return 0
   fi
+  if grep -qx 'BB_PROXY_CONTAINED yes' <<<"$out"; then
+    say "      CONTÊINER PARADO POR VAZAMENTO: uma conferência achou saída fora do proxy e parou o contêiner (marca /var/lib/bb-srv/egress-open; ele não sobe no boot). Corrija a causa (linhas BB_PROXY_HEALTH acima) e $repair."
+  fi
   if grep -qx 'BB_PROXY_CONTAINER down' <<<"$out"; then
     say "      proxy de saída: o contêiner não está rodando; nada a conferir de dentro dele."
     return 0
   fi
   grep -qx 'BB_PROXY_ENV ok' <<<"$out" ||
-    say "      PROXY AUSENTE NO CONTÊINER: ele não tem HTTPS_PROXY/NODE_USE_ENV_PROXY do proxy.env (compose.yaml sem o env_file). Nada sai direto (falha fechada), mas o servidor fica sem internet: rode scripts/add-sector.sh $sector --resume."
+    say "      PROXY AUSENTE NO CONTÊINER: ele não tem HTTPS_PROXY/NODE_USE_ENV_PROXY do proxy.env (compose.yaml sem o env_file, ou contêiner criado antes dele). Nada sai direto (falha fechada), mas o servidor fica sem internet: $repair."
   exit_line=$(grep -E '^BB_PROXY_EXIT (ip=[0-9]{1,3}(\.[0-9]{1,3}){3} )?country=[A-Z]{2}$' <<<"$out" | tail -n 1 || true)
   if [ -n "$exit_line" ]; then
     country=${exit_line##*country=}
@@ -625,8 +636,25 @@ proxy_verdict() {
     say "      PROXY SEM RESPOSTA: o contêiner não saiu pelo proxy (encaminhador parado, senha errada ou proxy fora do ar). Veja as linhas BB_PROXY_HEALTH acima e o README, seção 16."
   fi
   if grep -qx 'BB_PROXY_DIRECT OPEN' <<<"$out"; then
-    say "      SAÍDA DIRETA ABERTA: o contêiner alcança a internet sem o proxy. O firewall de falha fechada não está ativo: rode o bb-srv-ProxyReload (README, seção 16) e investigue."
+    say "      SAÍDA DIRETA ABERTA: o contêiner alcança a internet sem o proxy (o firewall de falha fechada não faz efeito). A saúde do host para o contêiner na próxima rodada (até 4 min). Investigue o iptables e depois $repair."
   elif grep -qx 'BB_PROXY_DIRECT blocked' <<<"$out"; then
     say "      saída direta bloqueada: sem o proxy nada sai (falha fechada)"
+  else
+    say "      SAÍDA DIRETA NÃO CONFERIDA: o teste a partir da rede do contêiner não deu resposta clara (nsenter, setpriv ou curl do host). Repita; se persistir, sessão bb-srv-$sector-Shell e README, seção 16."
+  fi
+  if grep -qx 'BB_PROXY_DNS_FILTER OPEN' <<<"$out"; then
+    say "      DNS ABERTO: o contêiner resolve nomes fora de signal./turn. (consultas saem pelo resolvedor da VPC; túnel DNS possível). A saúde do host para o contêiner na próxima rodada. Confira o bb-srv-container-dns e o dns do /etc/docker/daemon.json; depois $repair."
+  elif grep -qx 'BB_PROXY_DNS_FILTER ok' <<<"$out"; then
+    say "      DNS do contêiner restrito: só signal./turn. da zona"
+  fi
+  if grep -qx 'BB_PROXY_DNS fail' <<<"$out"; then
+    say "      DNS DO CONTÊINER QUEBRADO: ele não resolve signal.<zona> (o host resolve) e ninguém conecta. Sessão bb-srv-$sector-Shell: sudo systemctl status bb-srv-container-dns; depois $repair."
+  fi
+  if grep -qx 'BB_PROXY_SIGNAL ok' <<<"$out"; then
+    say "      Signal/TURN alcançado de dentro do contêiner"
+  elif grep -qx 'BB_PROXY_SIGNAL fail' <<<"$out"; then
+    say "      SIGNAL BLOQUEADO: o host alcança o Signal e o contêiner não (regra RETURN da BB-SRV-EGRESS): ninguém conecta. Rode o bb-srv-ProxyReload (README, seção 16)."
+  elif grep -qx 'BB_PROXY_SIGNAL unreachable' <<<"$out"; then
+    say "      Signal fora de alcance também do host: portas ainda fechadas (scripts/deploy-signal.sh --approve-ingress) ou Signal fora do ar."
   fi
 }

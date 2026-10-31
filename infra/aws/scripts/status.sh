@@ -133,8 +133,8 @@ for sector in $sectors; do
   say "      último snapshot: $age | alarmes em ALARM: ${alarms:-nenhum}"
   if [ "$deep" = 1 ]; then
     [ "$ping" = Online ] || die "a instância não está Online no SSM."
-    ssm_run "$instance" bb-srv-Status '{}' 300
+    ssm_run "$instance" bb-srv-Status '{}' 360
     say "   $sector: proxy de saída visto de dentro do contêiner"
-    proxy_verdict "$SSM_OUTPUT" "$sector" "$egress"
+    proxy_verdict "$SSM_OUTPUT" "$sector" "$egress" "$instance"
   fi
 done

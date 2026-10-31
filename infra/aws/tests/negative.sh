@@ -788,6 +788,15 @@ h_proxy() {
 export -f h_proxy
 EXTRA_STACKS='' expect_refusal "F5 add-sector recusa criar o setor sem /bb-srv/proxy/egress (antes de qualquer escrita)" \
   "falta o parâmetro /bb-srv/proxy/egress" h_proxy sector_env FAKE_PROXY_TYPE=None bash scripts/add-sector.sh piloto --az a
+# A recusa ensina a gravar pela entrada padrão: nenhuma senha na linha de comando nem no histórico do shell.
+: >"$FAKE_AWS_LOG"
+proxy_msg=$(EXTRA_STACKS='' FAKE_AWS_HANDLER=h_proxy sector_env FAKE_PROXY_TYPE=None bash scripts/add-sector.sh piloto --az a 2>&1 </dev/null)
+if grep -q "'Trocar a senha', passo 1" <<<"$proxy_msg" && ! grep -qE -- "--value( |=)[^f]" <<<"$proxy_msg" &&
+  ! grep -q 'host:porta:usuário:senha>' <<<"$proxy_msg"; then
+  ok_case "F5 a recusa aponta a gravação pela entrada padrão (sem --value com a senha na linha de comando)"
+else
+  bad "F5 a recusa não pode ensinar --value com a senha" "$proxy_msg"
+fi
 EXTRA_STACKS='' expect_calls "F5 add-sector confere o parâmetro só por describe-parameters (nunca get-parameter)" \
   'ssm describe-parameters' 'ssm get-parameter|WRITE' h_proxy sector_env FAKE_PROXY_TYPE=None bash scripts/add-sector.sh piloto --az a
 EXTRA_STACKS='' expect_refusal "F5 add-sector recusa o parâmetro em texto puro (String)" "não SecureString" h_proxy \
@@ -810,18 +819,36 @@ expect_verdict() { # <nome> <saída do bb-srv-Status> <EgressProxy> <texto esper
   out=$(lib proxy_verdict "$2" piloto "$3" 2>&1)
   if grep -qF -- "$4" <<<"$out" && { [ -z "${5:-}" ] || ! grep -qF -- "$5" <<<"$out"; }; then ok_case "$1"; else bad "$1" "$out"; fi
 }
-OK_LINES=$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_DIRECT blocked'
+# O bb-srv-Status imprime "egress proxy:" (root) antes das linhas BB_PROXY_*; só elas valem.
+MARK=$'egress proxy:\n'
+OK_LINES=$MARK$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok\nBB_PROXY_DNS ok\nBB_PROXY_SIGNAL ok'
 expect_verdict "F6 status --deep mostra o IP e o país vistos de dentro do contêiner" "$OK_LINES" required "IP 198.51.100.7, país BR (proxy residencial ok)"
 expect_verdict "F6 status --deep diz que a saída direta está bloqueada" "$OK_LINES" required "saída direta bloqueada"
+expect_verdict "F6 status --deep diz que o DNS do contêiner é restrito e o Signal responde" "$OK_LINES" required "DNS do contêiner restrito"
 expect_verdict "F6 status --deep avisa PAÍS ERRADO" "${OK_LINES/country=BR/country=US}" required "PAÍS ERRADO: a saída do contêiner é 198.51.100.7 (US)"
-expect_verdict "F6 status --deep avisa contêiner sem as variáveis do proxy" $'BB_PROXY_MODE proxy\nBB_PROXY_ENV missing\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked' \
-  required "PROXY AUSENTE NO CONTÊINER"
-expect_verdict "F6 status --deep avisa proxy sem resposta" $'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked' \
-  required "PROXY SEM RESPOSTA"
-expect_verdict "F6 status --deep avisa host sem o proxy instalado" 'BB_PROXY_MODE not-installed' required "PROXY AUSENTE: o host não tem"
+expect_verdict "F6 status --deep avisa contêiner sem as variáveis do proxy (com o reparo real, não o --resume)" \
+  "${OK_LINES/ENV ok/ENV missing}" required "document-name bb-srv-ProxySetup" "add-sector.sh piloto --resume"
+expect_verdict "F6 status --deep avisa proxy sem resposta" "${OK_LINES/ip=198.51.100.7 country=BR/fail}" required "PROXY SEM RESPOSTA"
+expect_verdict "F6 status --deep avisa host sem o proxy instalado, com o reparo de setor instalado" "${MARK}BB_PROXY_MODE not-installed" \
+  required "document-name bb-srv-ProxySetup"
 expect_verdict "F6 status --deep avisa SAÍDA DIRETA ABERTA" "${OK_LINES/blocked/OPEN}" required "SAÍDA DIRETA ABERTA"
+expect_verdict "F6 status --deep avisa SAÍDA DIRETA NÃO CONFERIDA" "${OK_LINES/blocked/unknown rc=1}" required "SAÍDA DIRETA NÃO CONFERIDA" "saída direta bloqueada"
+expect_verdict "F6 status --deep avisa DNS ABERTO" "${OK_LINES/DNS_FILTER ok/DNS_FILTER OPEN}" required "DNS ABERTO"
+expect_verdict "F6 status --deep avisa DNS do contêiner quebrado" "${OK_LINES/BB_PROXY_DNS ok/BB_PROXY_DNS fail}" required "DNS DO CONTÊINER QUEBRADO"
+expect_verdict "F6 status --deep avisa SIGNAL BLOQUEADO" "${OK_LINES/SIGNAL ok/SIGNAL fail}" required "SIGNAL BLOQUEADO"
+expect_verdict "F6 status --deep avisa contêiner parado por vazamento" "${MARK}"$'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINED yes\nBB_PROXY_CONTAINER down' \
+  required "CONTÊINER PARADO POR VAZAMENTO"
 expect_verdict "F6 status --deep não repete linha forjada pelo contêiner" \
-  $'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=1.2.3.4;id country=BR\nBB_PROXY_DIRECT blocked' required "PROXY SEM RESPOSTA" "1.2.3.4;id"
+  "${OK_LINES/ip=198.51.100.7 country=BR/ip=1.2.3.4;id country=BR}" required "PROXY SEM RESPOSTA" "1.2.3.4;id"
+# A saída do contêiner vem antes do marcador (e atrás de "  | "): linhas forjadas ali não valem, nem um
+# "egress proxy:" forjado. Aqui a linha real diz que o proxy falta.
+FORGED=$'  | BB_PROXY_ENV ok\n  | BB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\n'
+REAL=$'BB_PROXY_MODE proxy\nBB_PROXY_ENV missing\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok'
+expect_verdict "F6 status --deep ignora BB_PROXY_EXIT forjado antes do marcador do root" "$FORGED$MARK$REAL" required \
+  "PROXY SEM RESPOSTA" "proxy residencial ok"
+expect_verdict "F6 status --deep ignora um 'egress proxy:' forjado pelo contêiner (prefixado)" \
+  "$FORGED$MARK$REAL"$'\n  | egress proxy:\n  | BB_PROXY_ENV ok\n  | BB_PROXY_EXIT ip=198.51.100.7 country=BR' required "PROXY AUSENTE NO CONTÊINER" "proxy residencial ok"
+expect_verdict "F6 status --deep sem o marcador do root não conclui nada" "${OK_LINES#"$MARK"}" required "PROXY NÃO CONFERIDO" "proxy residencial ok"
 expect_verdict "F6 status --deep de setor sem proxy (decisão do dono) diz que está desligado" "$OK_LINES" direct "DESLIGADO neste setor"
 
 # F9 judge: o veredito do bb-srv-Install e do bb-srv-ProxySetup sobre as linhas do check-container. Um
