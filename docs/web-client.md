@@ -73,33 +73,58 @@ mock. The separate web preview implements the browser runtime with that same moc
   app uses, through the bridge at `AUTH_BRIDGE_URL` (`server/device-bridge.ts`). There is no email
   code: `email/start` and `email/verify` answer 410 `email_sign_in_retired`.
   - `device/start` asks the bridge for a code. The page gets the user code, the Hub address
-    (`verificationUri`, and `verificationUriComplete` with the code in it), `expiresIn` and
-    `interval`. The bridge flow ID never goes to the page: it goes into the HttpOnly, Secure,
-    `SameSite=Strict` cookie `__Host-buildersbot-device`, for `expiresIn` seconds
-    (`server/web-device-flow.ts`). A Hub address must be HTTPS on `culturabuilder.com` or a
-    subdomain, or on the bridge origin; another address gives 502.
-  - `device/poll` reads the flow ID from that cookie only, never from the body, so a poll from
-    another browser cannot collect the approval of this one. Pending gives 202 with the interval.
-    The Hub `slow_down` gives 429 `slow_down` with `Retry-After`. Denied gives 403 `access_denied`
-    and expired gives 410 `expired_token`; both, and a poll with no cookie, end the flow cookie. The
-    approval finds or makes the account of the Hub email (`signInWithDeviceAccount`, surface `web`,
-    with the installation of the `X-OpenBot-Install` headers), sets the same session cookie as the
-    email code did (`web-session.ts`), ends the earlier session of this browser and its remote
-    sessions, and answers `{ user }`. No token goes to JavaScript.
-  - `device/cancel` ends the flow cookie. The Hub code then expires by itself.
+    (`verificationUri`, and `verificationUriComplete` with the code in it), `expiresIn`, `interval`
+    and `flow`, a random tag of the flow. The bridge flow ID never goes to the page: it goes into the
+    HttpOnly, Secure, `SameSite=Strict` cookie `__Host-buildersbot-device-<flow>`, for `expiresIn`
+    seconds (`server/web-device-flow.ts`). Each flow has its own cookie, so two tabs, or a tab and the
+    installed web app that share the cookies, each keep their own code. A Hub address must be HTTPS
+    on `culturabuilder.com` or a subdomain, or on the bridge origin; another address gives 502.
+  - `device/poll` sends `{ flow }` and reads the flow ID from the cookie of that tag only, never from
+    the body, so a poll from another browser cannot collect the approval of this one. Pending gives
+    202 with the interval. The Hub `slow_down` gives 429 `slow_down` with `Retry-After`. Denied gives
+    403 `access_denied`, expired (or a flow that the bridge does not know) gives 410
+    `expired_token`, and a flow whose approval an earlier poll took (bridge 409) gives 410
+    `flow_consumed`; each, and a poll with no cookie, ends the flow cookie. The approval finds or
+    makes the account of the Hub email (`signInWithDeviceAccount`, surface `web`, with the
+    installation of the `X-OpenBot-Install` headers), marks the session `sign_in_method = 'cultura'`,
+    sets the session cookie (`web-session.ts`), ends the earlier session of this browser and its
+    remote sessions, and answers `{ user }`. No token goes to JavaScript.
+  - The bridge also opens its own session with a Hub token. The Worker signs that session out at
+    once (`POST /v1/auth/logout` on the bridge), so the bridge revokes the Hub token and keeps no
+    unused one. The Worker session does not follow the Hub after the sign-in: a cancelled access or
+    a Hub sign-out does not end it. To end it, revoke it in **Settings > Profile > Account sessions**.
+    A check of the Hub after the sign-in is a decision for the owner (see the deploy notes).
+  - The web app cookie opens only a `cultura` session (`authenticateWeb`). A token of another
+    sign-in (an email code of the desktop, a Mobile Connect code or link) does not open it.
+  - `device/cancel` sends `{ flow }` and ends that flow cookie. The Hub code then expires by itself.
   - The routes have the Origin, `X-OpenBot-Browser` and JSON checks of every browser write, and D1
-    rate limits for each source address: 20 starts and 600 polls in 15 minutes, and the 30
-    sign-ins of `signInWithDeviceAccount`. A bridge failure gives 502 `sign_in_service_unavailable`
-    with no detail; no bridge gives 503 `device_sign_in_disabled`.
+    rate limits for each source address: 30 starts and 600 polls in 15 minutes, shared with the
+    desktop routes `/v1/auth/device/start` and `/poll`. Each sign-in needs a start, so the start
+    limit is the sign-in limit; there is no limit after the bridge took an approval, because the
+    bridge gives an approval to one poll only. A bridge failure gives 502
+    `sign_in_service_unavailable` with no detail; no bridge gives 503 `device_sign_in_disabled`. The
+    refusal texts are source keys (`error.auth.*`), so the page shows them in its language.
   - The page (`web-device-sign-in.ts`) shows the shared `DeviceSignInDialog` with the code, the
-    Hub address to type and a QR code. **Open the Hub** calls `window.open` in the click, so no
-    pop-up blocker stops it. It polls at the interval and never faster; each `slow_down` adds 5
-    seconds for the rest of the flow, and the wait is never shorter than `Retry-After`. When the page
-    is visible again, for example after the Hub tab, it polls as soon as the interval allows. Six
-    failures in a row stop the flow.
+    Hub address to type, a QR code and the warning to approve only the code of this screen (RFC 8628,
+    section 5.4). **Open the Hub** calls `window.open` in the click, so no pop-up blocker stops it.
+    It polls at the interval and never faster; each `slow_down` adds 5 seconds for the rest of the
+    flow, and the wait is never shorter than `Retry-After`. When the page is visible again, for
+    example after the Hub tab, it polls as soon as the interval allows. Six failures in a row stop
+    the flow, and each request stops after 20 seconds. An approval counts also when it arrives after
+    a new code was asked for. The code, the tag and the Hub address wait in the session storage of
+    the tab, so a page that a phone reloads while the person is on the Hub polls the same flow at
+    once. A sign-in in another tab, or `flow_consumed`, checks the session and closes the flow.
   - The approval does not record the first website visit (`firstTouch`) as the email verify did.
-- The production website accepts invitation links for `https://api.openbot.run`; the request still
-  goes to its own origin. Other services are refused. Host fingerprints are checked before use.
+  - The phone email code of the earlier phone app (`POST /v1/mobile-auth/email/verify`) answers 410
+    `email_sign_in_retired`. The desktop email code (`/v1/auth/email/*`) stays for `openbot login`
+    on a server with no screen; its sessions do not open the web app.
+- Invitation links that this build makes are `https://buildersbot.culturabuilder.com/join?...`
+  (`BUILDERSBOT_INVITE_ORIGIN`), for the Builders Bot service too, also by email. The app and the
+  web app read `/join` links of that site and of the upstream `openbot.run` site; a self-hosted
+  service keeps the `openbot://join` link, which only the desktop app opens. On a phone, the QR code
+  opens `/join`, and `/join` opens the invitation in `/app`. Host fingerprints are checked before use.
+- An agent share link is `https://buildersbot.culturabuilder.com/agents/<id>` for the Builders Bot
+  service, which stores the agent and serves that page and `/app?agent=<id>`.
 - One tab can connect to a given host with an account. Other accounts and hosts have separate
   locks. A second tab gets an explicit message instead of replacing the first tab's peer.
 - As on mobile, the server rail shows the real state of every host. Each host that no tab has open
@@ -285,7 +310,15 @@ Play link or QR code.
 
 `scripts/phone-web-app-flow.test.ts` fails when a store name or address is in the catalog text of the
 flow in any language, and checks the address builder. `apps/auth-api/test/phone-web-app-pages.test.ts`
-does the same for the phone pages of the website.
+does the same for the phone pages of the website. `scripts/builders-bot-phone-links.test.ts` fails
+when a server invitation, an agent share link, a desktop download or a page that the web app opens
+leads to an `openbot://` link or to the upstream site again.
+
+- Until Builders Bot publishes its desktop releases, `/download/<platform>/latest` answers 404 with a
+  text that says so. It never redirects to the upstream releases, which are another app.
+- After a Slack or Discord install, the return page on a phone opens no `openbot://` link. When it
+  does not find the web app tab that started the install, it asks to start again in the web app.
+- The web app opens no upstream changelog, guide, Discord or feedback page.
 
 ## Remote desktop
 
