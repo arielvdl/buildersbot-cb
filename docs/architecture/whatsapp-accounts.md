@@ -22,8 +22,9 @@ days. A second number must always get its own account.
    slug of the nickname. Builders Bot keeps no copy of the accounts, the numbers or the codes. The
    panel reads `wazap status --json` each time.
 3. **One number, one account.** Main refuses to link a number into an account that belonged to
-   another number (`owner` in `accounts.json`), and refuses a number that another account has or
-   had. The person adds a new account for a new number.
+   another number (`owner` in `accounts.json`), or that keeps the history of another number after
+   an unlink (the `owner` of the account database). It refuses a number that another account has,
+   had or keeps the history of. The person adds a new account for a new number.
 4. **The existing `default` account does not change.** The panel shows it as it is. Only a click of
    the person changes it, and each destructive action asks first.
 
@@ -47,13 +48,19 @@ days. A second number must always get its own account.
   `scripts/whatsapp-accounts-e2e.ts` fails when the two versions differ. The renderer never names a
   command, an argument or a path: it sends an account id, a nickname, a number and an action.
 - Main finds `npx` with `usableMcpServer` (`src/backend/mcp-provider-shapes.ts`), the same lookup
-  that a provider uses for the plugin's server. It uses `spawn` with an argument array and no
-  shell. The environment is the MCP SDK default environment, the resolved `PATH`, `NO_COLOR=1` and
-  `WAZAP_NO_UPDATE_CHECK=1`. No `WAZAP_*` value of the app passes through.
+  that a provider uses for the plugin's server. Main starts `npx` with `execFile` or `spawn`, an
+  argument array and no shell of its own. The environment is the MCP SDK default environment, the
+  resolved `PATH`, `NO_COLOR=1` and `WAZAP_NO_UPDATE_CHECK=1`. No `WAZAP_*` value of the app passes
+  through.
+- `npx` itself is not shell-free: `npm exec` runs the wazap bin with `sh -c` (`@npmcli/run-script`),
+  and npm's quoting (`@npmcli/promise-spawn`, `escape.js`) leaves `{`, `}`, `[` and `]` bare. On
+  macOS `sh` is bash, which expands braces: `Loja{1,2}` became `Loja2`. So the nickname refuses
+  these four characters (`cleanWhatsAppAccountName`). The `--name=` prefix stays on each word, so no
+  new flag can come in.
 - Every value that the person typed goes in one argument: `--name=<nickname>`, `--phone=+<digits>`,
   `--account=<id>`. The `=` form keeps a value that starts with `-` from being read as a flag. The
-  id must match wazap's own rule (`^[a-z0-9][a-z0-9-]{0,31}$`). A nickname with a control character
-  or more than 64 characters is refused.
+  id must match wazap's own rule (`^[a-z0-9][a-z0-9-]{0,31}$`). A nickname with a control character,
+  a brace, a square bracket or more than 64 characters is refused.
 - Calls are serial. Each call has a deadline (60 seconds, because the first `npx` run can download
   the package) and an output limit. Main never shows or logs the raw output: it maps it to an error
   code, and it masks phone numbers and pairing codes in each log line (`redactWazapText`).
@@ -62,9 +69,9 @@ days. A second number must always get its own account.
 
 | Action in the panel | wazap command |
 | --- | --- |
-| Read the list | `status --json`, and `accounts.json` (read only) for the per-account `writes` flag |
+| Read the list | `status --json`; `accounts.json` and `.env` (read only) for the per-account `writes` flag and the global `WAZAP_READ_ONLY`; the `owner` meta of an unlinked account's `wazap.sqlite` (read only) |
 | Add an account | `account add <id> --name=<nickname> --json` |
-| Turn on, turn off, set as default | `account enable|disable|default <id>` |
+| Turn on, turn off (asks first), set as default | `account enable|disable|default <id>` |
 | Read only on or off | `config writes off|on --account=<id>` |
 | Unlink | `logout --account=<id>` |
 | Remove (deletes the history) | `account remove <id> --yes` |
@@ -83,18 +90,45 @@ other accounts. So main picks the path from `status --json`:
 
 | Server of the data folder | Pairing code | QR code |
 | --- | --- | --- |
-| Running | MCP client to a new `npx -y wazap-mcp@1.6.0` over stdio. It joins the running server as a bridge, and main calls `link_account` with `account_id` and the number. | Not available. The panel says why and offers the code. |
+| Running | MCP client to a new `npx -y wazap-mcp@1.6.0` over stdio. It joins the running server as a bridge, and main calls `link_account` with `account_id` and the number. | Not available (`qr-needs-free-folder`). The panel says why and offers the code. |
 | Not running | `login --account=<id> --phone=+<digits> --code`. The CLI pairs, syncs the history and exits. | `login --account=<id> --qr`. Main reads each QR that the CLI draws and shows it in the panel. |
 
-If `login` finds a server that started after the status read, main tries the MCP path once. A code
+If `login` finds a server that started after the status read (`server-busy`), main tries the MCP
+path once. A code
 lasts two minutes. The panel shows the code in large type, a countdown, the steps on the phone
 (WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead) and
 "Generate another code". While a session runs, the panel asks main for its state every two
 seconds. On the MCP path, main asks the server with `get_status` (`account_id`) every three seconds
 over the open client, which starts no process, and reads `status --json` only when the client
-cannot answer, until the account has the number or the code expires. The CLI path ends when
-`wazap login` exits. Cancel ends the CLI process (SIGTERM, so wazap frees the lock) or closes the
-MCP client.
+cannot answer, until the account has a number or the code expires. Any number ends the wait. Main
+then compares it with the typed number with `sameWhatsAppNumber`: the WhatsApp id of many Brazilian
+mobile numbers has no ninth digit (`55 DD XXXXXXXX` for `+55 DD 9 XXXXXXXX`). A number that is not
+the same one shows as a warning, not as an expired code. The CLI path ends when `wazap login`
+exits. Cancel ends the CLI process (SIGTERM, so wazap frees the lock) or closes the MCP client.
+
+On the MCP path, `link_account` gives the pairing that runs, so a second request before the code
+expires gives the same code, and closing the bridge does not stop the pairing in the server. The
+panel keeps "Generate another code" off until the code expires, and says under the code that it can
+still work after Cancel and that the person can ignore it on the phone.
+
+## After an unlink
+
+`wazap logout` deletes the credentials and sets `owner` to null in `accounts.json`, but keeps the
+account database (`accounts/<id>/wazap.sqlite`), whose `owner` meta still names the number. When
+another number links into that account, wazap renames the database to
+`wazap.<time>.previous-owner.sqlite` and deletes it after seven days, unless that number is linked to
+an enabled account. `status --json` does not give the database owner, so main reads it:
+
+- Only for an account with no number and no `owner` in `accounts.json`, and a database.
+- With `node:sqlite`, read only. Without a write-ahead log the file opens immutable, as wazap's own
+  readers do, so no `-wal` or `-shm` file appears beside a closed database. A busy or unreadable
+  file gives no owner.
+
+`linkRefusal` then refuses (`has-history`) a number that is not that owner, and a QR code, which
+cannot say which number links. When main cannot read the owner, a database that holds messages is
+enough to refuse. The same number links again. The row says "Was linked to •••• 0100", or "Keeps the
+history of an unlinked number" without a readable owner. The unlink confirmation says that, after
+it, only the same number can link to that account again.
 
 Risk: when no server ran at the status read and the CLI pairs, an agent session that starts during
 the pairing cannot start its WhatsApp server until the CLI exits (at most about 3.5 minutes).
@@ -124,10 +158,12 @@ places:
 
 The rules: call `get_status` first; pick the account by the nickname that the person says and pass
 `account_id`; with two or more accounts and no clear nickname, ask; never invent, assume or reuse a
-phone number; to add an account, send the person to the plugin page, or, with a number that the
-person typed in the chat, normalize it to E.164, create the account with its nickname, then call
-`link_account`; never link a number into an account of another number; every send stays draft and
-then confirm.
+phone number. No wazap tool creates an account, so to add one the agent sends the person to the
+plugin page; only an agent that runs commands on the computer of the server runs
+`npx -y wazap-mcp@1.6.0 account add <id> '--name=<nickname>'`. The agent calls `link_account` always
+with `account_id`, and only for an account that it created for that number in the same
+conversation, never for an account that existed before, linked or not: `get_status` does not show
+whose history an unlinked account keeps. Every send stays draft and then confirm.
 
 ## Safety
 
@@ -135,20 +171,34 @@ then confirm.
   WhatsApp can restrict a number that sends in bulk. The add dialog says this.
 - No number, code or nickname goes to analytics or to a log line without masking.
 - The IPC handlers are bound with `payloadHandler`, so the trusted-sender check runs before
-  decoding. Unlink and remove need `confirm` equal to the account id in the payload, which only the
-  confirmation dialog sets.
+  decoding. Unlink, remove and turn off need `confirm` equal to the account id in the payload, which
+  only the confirmation dialog sets. Turning off takes the number away from every agent at once,
+  over the control line, so it asks first too.
+- The panel shows "Read only (global)" and a notice when `WAZAP_READ_ONLY` is on in the data
+  folder's `.env`: then no account can send, whatever its own flag. The confirmation to remove the
+  default account names the account that becomes the default (wazap takes the first one left).
 
 ## Tests
 
-- `src/main/ipc/whatsapp-accounts-handlers.test.ts`: sender check, payload decoding, and the
-  confirmation of destructive actions.
+The repository default is E2E tests only. The review of this change asked for the pure parts to run
+in CI, so they have Vitest files (a default set aside, not a protected area):
+
+- `src/main/ipc/whatsapp-accounts-handlers.test.ts`: sender check, payload decoding, the nickname
+  characters that the shell of `npx` would change, and the confirmation of unlink, remove and turn
+  off.
 - `src/preload/whatsapp-accounts-decoding.test.ts`: what main sends is decoded before the page
   reads it.
-- `src/main/wazap-cli.test.ts`: masking of numbers and codes in log text.
+- `src/main/wazap-cli.test.ts`: masking in log text, the pinned version of the listing, slugs, E.164
+  by country, `sameWhatsAppNumber`, the argument builders with injection attempts, the readers of
+  wazap's output against fixtures, the state of each row, and `linkRefusal`, with the status after
+  a logout and a Brazilian id without the ninth digit.
+- `src/main/whatsapp-accounts.test.ts`: the service with fake `execute`, `startLogin` and
+  `openServerClient`: a running server takes a code over MCP, no server takes `wazap login`, a QR
+  with a server is refused, cancel stops the child, an unused code expires, dispose closes every
+  pairing, and the database owner is read read-only from a real SQLite file.
 - `scripts/whatsapp-accounts-e2e.ts`: drives the real pinned wazap CLI in a temporary data folder
-  (only commands that do not contact WhatsApp), and checks slugs, E.164 by country, the argument
-  builders with injection attempts, the parsers against fixtures and real output, and the state
-  mapping. It writes `.openbot-build/whatsapp-accounts-e2e/report.json`. Run it with
+  (only commands that do not contact WhatsApp), including the refusal after an unlink with a fake
+  account database. It writes `.openbot-build/whatsapp-accounts-e2e/report.json`. Run it with
   `bun scripts/whatsapp-accounts-e2e.ts`. It never runs `login` and never asks for a code.
 
 ## Next steps
@@ -161,4 +211,6 @@ then confirm.
   allow list per session.
 - **Joined servers.** A Team API capability (`whatsapp-accounts-v1`) with the same five actions,
   run by the host with this service.
-- **Windows.** Resolve the package's own `node` entry point, so `spawn` needs no `.cmd`.
+- **No shell at all, and Windows.** Resolve the pinned package's own `node` entry point
+  (`dist/index.js`) and run it with `node`, so neither `npx`'s `sh -c` nor a `.cmd` file is in the
+  path. Then the nickname can take braces and square brackets again.
