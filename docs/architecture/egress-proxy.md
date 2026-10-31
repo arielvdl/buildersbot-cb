@@ -26,7 +26,8 @@ password can hold `:` only in the URL form (percent-encoded).
 The default bypass list keeps local and control-plane traffic direct: `localhost`, `127.0.0.0/8`,
 `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `fc00::/7`, `fe80::/10`,
 `*.local`, `culturabuilder.com` and `*.culturabuilder.com`, `openbot.run` and `*.openbot.run`. Sign-in,
-the account service and Signal never go through the proxy.
+the account service and Signal never go through the proxy. Loopback is always direct, also when an
+admin removes it from the list: the gateway and the agents' own local servers are there.
 
 `src/main/egress-proxy-store.ts` keeps the setting in `openbot-egress-proxy-v1.json` in the user
 data of the server. The password is encrypted with `safeStorage`, as `ProviderCredentialStore`
@@ -114,14 +115,14 @@ over loopback, so the desktop reaches its setting through the same routes.
 
 ## Default for new servers
 
-Settings of the desktop app keep one default (`EgressDefaultStore`,
+The desktop app keeps one default (`EgressProxyDefault` in `src/main/egress-proxy-default.ts`, file
 `openbot-egress-default-v1.json`, password encrypted with `safeStorage`). An admin sets it in the
 Network egress section with **Use as default for new servers**, or removes it there.
 
 | How the server is made | What happens |
 | --- | --- |
 | A server on this computer (`LocalServers.create`) | The desktop gives the default to the child in `OPENBOT_LOCAL_SERVER_EGRESS` at its first start. The child removes the variable at once, before any agent starts, and saves it as its own setting when it has none. |
-| A hosted server | The desktop keeps the new server id as pending. When the server is online, supports `egress-proxy-v1` and the user is its owner or admin, the desktop sends the default with the update route and removes the id. |
+| A hosted server | The desktop keeps the new server id as pending. When the server is online, supports `egress-proxy-v1` and the user is its owner or admin, the desktop sends the default with the update route and removes the id. An id waits until a send succeeds or the default is removed (at most 64 ids). |
 | A server that the user joins | Nothing: the user did not make it, and its admin decides. |
 | This computer's own server | Nothing: it exists before the default. Set it in its own section. |
 
@@ -147,8 +148,25 @@ A server that exists keeps its setting when the default changes.
 
 The agents keep their loopback address, so no agent restarts.
 
+## Tests
+
+- `scripts/egress-proxy-e2e.ts` (`bun scripts/egress-proxy-e2e.ts`, needs `curl`) runs the real
+  store, gateway, check and service against a fake upstream proxy, a fake location service and a
+  fake host on loopback, with `curl` as the agent tool. It checks the parser, the bypass rules, the
+  option builders, plain HTTP and `CONNECT` through the gateway, a bypass host that goes direct, the
+  three fail-closed cases, a password rotation, the store, the redaction, and the default of a new
+  server. It writes `.openbot-build/egress-proxy-e2e/report.json`.
+- `src/main/ipc/host-admin-egress.test.ts` checks the trust boundary: the sender check, the decoding
+  of malformed settings, and that no view carries the password.
+- `packages/logging/src/redaction.test.ts` checks the proxy URL and line shapes.
+
 ## Not verified
 
 - The `@playwright/mcp` configuration file shape (`browser.launchOptions.proxy`,
   `browser.userDataDir`) was read from its documentation, not run here: no network was used.
 - A real residential proxy. The tests use a fake proxy and a fake location service on loopback.
+- The Electron parts in a running app: `session.setProxy`, the request gate, the `login` event and
+  the WebRTC policy. The service drives them through `BrowserEgressSession`, which the end-to-end
+  check replaces with a fake.
+- The TLS step of the check (`ipinfo.io` over HTTPS). The end-to-end check uses plain HTTP to a fake
+  service through the same tunnel code.
