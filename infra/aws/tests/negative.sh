@@ -941,9 +941,11 @@ done
 check grep -qF 'body=$(in_net "$pid" curl' templates/proxy.yaml
 # O SSM lê {{ ... }} como parâmetro do documento: nada disso nos scripts dos documentos.
 check test "$(grep -c '{{' templates/proxy.yaml)" = 0
-# O bootstrap: tinyproxy mascarado antes do apt (o pacote não sobe sozinho) e DNS do contêiner só no host.
+# O bootstrap: tinyproxy mascarado antes do apt (o pacote não sobe sozinho), DNS do contêiner só no host e o dig
+# (bind9-dnsutils) com que o host confere esse DNS; o bb-srv-ProxySetup para sem ele.
 mask_line=$(grep -n 'systemctl mask tinyproxy.service' templates/sector-compute.yaml | cut -d: -f1)
-apt_line=$(grep -n 'ca-certificates tinyproxy dnsmasq-base$' templates/sector-compute.yaml | cut -d: -f1)
+apt_line=$(grep -n 'ca-certificates tinyproxy dnsmasq-base bind9-dnsutils$' templates/sector-compute.yaml | cut -d: -f1)
+check grep -qF '[ -x /usr/bin/dig ]' templates/proxy.yaml
 check test "${mask_line:-0}" -gt 0
 check test "${apt_line:-0}" -gt "${mask_line:-0}"
 check grep -q '"dns": \["172.30.0.1"\]' templates/sector-compute.yaml
@@ -1075,7 +1077,9 @@ else
     bad "F10 upstream por IPv4 literal" "$(fwd_chain)"
   fi
 
-  # F11: a saúde no host falso. Um filtro de DNS que não deu para conferir nunca vira um resultado verde.
+  # F11: a saúde e o check-container perguntam o DNS do contêiner pelo dig DO HOST, como nobody, da rede dele
+  # (nsenter): o contêiner não responde pelo próprio monitor. Só NXDOMAIN ou REFUSED dos dois (o DNS embutido do
+  # Docker e o dnsmasq de 172.30.0.1) é ok; qualquer resposta é OPEN; sem resposta clara, a saúde falha.
   host_reset
   host_tool guard >/dev/null 2>&1
   : >"$HOST_T/running"
@@ -1092,6 +1096,56 @@ else
     ok_case "F11 saúde: filtro de DNS que não deu para conferir é 'fail dns-unknown', nunca ok (o contêiner segue)"
   else
     bad "F11 saúde com o filtro de DNS não conferido" "$(health_line)"
+  fi
+  FAKE_DIG_172_30_0_1=servfail host_tool health >/dev/null 2>&1
+  if [ "$(health_line)" = 'BB_PROXY_HEALTH fail dns-unknown' ] && [ -e "$HOST_T/running" ]; then
+    ok_case "F11 saúde: SERVFAIL do DNS do contêiner, visto pelo dig do host, também é 'fail dns-unknown'"
+  else
+    bad "F11 saúde com SERVFAIL do DNS do contêiner" "$(health_line)"
+  fi
+  # O contêiner diz que example.com não existe (getent trocado: FAKE_CONTAINER_GETENT=2), o DNS dele responde.
+  FAKE_DIG_127_0_0_11=answer host_tool health >/dev/null 2>&1
+  if [ "$(health_line)" = 'BB_PROXY_HEALTH fail dns-open' ] && [ -e "$HOST_T/var/lib/bb-srv/egress-open" ] && [ ! -e "$HOST_T/running" ]; then
+    ok_case "F11 saúde: o DNS do contêiner resolve example.com, mesmo com o contêiner dizendo que não: 'fail dns-open', contêiner parado"
+  else
+    bad "F11 saúde com DNS aberto e contêiner mentindo" "$(health_line)"
+  fi
+  dig_calls=$(grep -E '^(nsenter|setpriv|dig) ' "$HOST_T/calls")
+  if grep -q '^nsenter --net=/proc/4242/ns/net -- setpriv --reuid=65534 .* -- dig .*@127.0.0.11 example.com A$' <<<"$dig_calls" &&
+    grep -q '^dig .*@172.30.0.1 example.com A$' <<<"$dig_calls" && ! grep -q 'docker exec openbot-piloto getent hosts example.com' "$HOST_T/calls"; then
+    ok_case "F11 o filtro de DNS é o dig do host, como nobody, na rede do contêiner, aos dois DNS dele (nunca docker exec)"
+  else
+    bad "F11 quem pergunta o filtro de DNS" "$(cat "$HOST_T/calls")"
+  fi
+  expect_dns_filter() { # <nome> <linha esperada> [VAR=valor...]: a linha BB_PROXY_DNS_FILTER do check-container
+    local name=$1 want=$2 out
+    shift 2
+    rm -f "$HOST_T/var/lib/bb-srv/egress-open"
+    : >"$HOST_T/running"
+    out=$(env "$@" FAKE_HOST="$HOST_T" PATH="$HOST_BIN:$PATH" bash "$HOST_TOOL" check-container --no-ip 2>&1 | grep '^BB_PROXY_DNS_FILTER')
+    if [ "$out" = "BB_PROXY_DNS_FILTER $want" ]; then ok_case "$name"; else bad "$name" "$out"; fi
+  }
+  expect_dns_filter "F11 filtro de DNS: NXDOMAIN dos dois DNS do contêiner é ok" ok
+  expect_dns_filter "F11 filtro de DNS: REFUSED é ok" ok FAKE_DIG=refused
+  expect_dns_filter "F11 filtro de DNS: resposta com endereço do DNS embutido é OPEN" OPEN FAKE_DIG_127_0_0_11=answer
+  expect_dns_filter "F11 filtro de DNS: NOERROR sem endereço do dnsmasq (perguntado direto) é OPEN" OPEN FAKE_DIG_172_30_0_1=noerror
+  expect_dns_filter "F11 filtro de DNS: SERVFAIL não é ok" "unknown status=SERVFAIL @127.0.0.11" FAKE_DIG_127_0_0_11=servfail
+  expect_dns_filter "F11 filtro de DNS: sem resposta (dig sai com 9) não é ok" "unknown rc=9 @127.0.0.11" FAKE_DIG=timeout
+  # Saídas montadas: NXDOMAIN com um endereço na resposta, e um status fora do formato (nada dele vai para a linha).
+  printf ';; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 1\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n' >"$WORK/dig-nx-answer.txt"
+  printf ';; ->>HEADER<<- opcode: QUERY, status: $(id), id: 1\n;; flags: qr; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0\n' >"$WORK/dig-odd.txt"
+  expect_dns_filter "F11 filtro de DNS: NXDOMAIN com um endereço na resposta é OPEN" OPEN FAKE_DIG_172_30_0_1="file:$WORK/dig-nx-answer.txt"
+  expect_dns_filter "F11 filtro de DNS: status fora do formato não é ok e não vai para a linha" "unknown rc=0 @127.0.0.11" \
+    FAKE_DIG_127_0_0_11="file:$WORK/dig-odd.txt"
+  host_reset
+  host_tool guard >/dev/null 2>&1
+  : >"$HOST_T/running"
+  verify_out=$(FAKE_DIG_172_30_0_1=answer host_tool verify 2>&1)
+  verify_rc=$?
+  if [ "$verify_rc" != 0 ] && grep -q 'BB_PROXY_DNS_FILTER OPEN' <<<"$verify_out" && [ -e "$HOST_T/var/lib/bb-srv/egress-open" ]; then
+    ok_case "F11 verify (Install e ProxySetup): DNS aberto visto do host para o contêiner e falha"
+  else
+    bad "F11 verify com DNS aberto" "$verify_out"
   fi
 
 fi

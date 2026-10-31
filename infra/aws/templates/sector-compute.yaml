@@ -417,10 +417,11 @@ Resources:
             # tinyproxy is the local forwarder of the egress proxy, configured and started by
             # bb-srv-ProxySetup (bb-proxy.service). Masked first, so the package never starts its own
             # instance (port 8888 on every address of the host). dnsmasq-base (no service of its own) is
-            # the DNS of the container, bb-srv-container-dns.service of bb-srv-ProxySetup.
+            # the DNS of the container, bb-srv-container-dns.service of bb-srv-ProxySetup; bind9-dnsutils
+            # is the dig with which the host asks that DNS from the network of the container (bb-srv-proxy).
             systemctl mask tinyproxy.service
             apt_get install -y -q --no-install-recommends docker.io docker-compose-v2 amazon-ecr-credential-helper \
-              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates tinyproxy dnsmasq-base
+              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates tinyproxy dnsmasq-base bind9-dnsutils
             printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' \
               >/etc/apt/apt.conf.d/52bb-srv-reboot
             # The AWS CLI that bb-srv-Install and bb-srv-proxy use to read their parameters and the

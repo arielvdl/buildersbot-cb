@@ -37,7 +37,8 @@ Resources:
               [ -s /etc/bb-srv/sector ] && [ -s /etc/bb-srv/region ] && [ -s /etc/bb-srv/zone ] && [ -x /snap/bin/aws ] ||
                 fail "this is not a bb-srv sector host with the bootstrap of the egress proxy (sector-compute.yaml)"
               dpkg -s tinyproxy >/dev/null 2>&1 || fail "tinyproxy is not installed (bootstrap of sector-compute.yaml)"
-              [ -x /usr/sbin/dnsmasq ] || fail "dnsmasq-base is not installed (bootstrap of sector-compute.yaml): replace the VM (README, section 11)"
+              [ -x /usr/sbin/dnsmasq ] && [ -x /usr/bin/dig ] ||
+                fail "dnsmasq-base or bind9-dnsutils is not installed (bootstrap of sector-compute.yaml): replace the VM (README, section 11)"
               S=$(cat /etc/bb-srv/sector)
               P=/usr/local/sbin/bb-srv-proxy
               # ss <options> <address> <port>: up to 30 s for the socket (ss may print address%device:port).
@@ -199,8 +200,7 @@ Resources:
                 echo "BB_PROXY egress $(mode)"
               }
 
-              # The public IPv4 addresses of the names, one per line, sorted: an address stands for itself, a name is
-              # resolved now (getent).
+              # The public IPv4 addresses of the names, sorted: an address stands for itself, a name is resolved now.
               public_ips() {
                 local name ip
                 for name in "$@"; do
@@ -276,8 +276,7 @@ Resources:
                 if [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ]; then echo "$port"; else echo -; fi
               }
 
-              # The public IPv4 addresses of the host of the Upstream line (root only), resolved now. Neither the host nor
-              # the rest of the line leaves this function.
+              # The public IPv4 addresses of the host of the Upstream line (root only); the line itself never leaves.
               upstream_ips() {
                 local host
                 host=$(grep -m 1 '^Upstream http ' "$UPSTREAM" 2>/dev/null || true)
@@ -319,7 +318,7 @@ Resources:
                 port=$(upstream_port)
                 up=$(upstream_ips)
                 [ "$m" = direct ] || [ -n "$up" ] ||
-                  echo "BB_PROXY warning: no public IPv4 address for the upstream now (DNS?): the forwarder reaches nothing until a later run (bb-srv-egress-refresh) finds one" >&2
+                  echo "BB_PROXY warning: no public IPv4 address for the upstream (DNS?): the forwarder reaches nothing until a refresh finds one" >&2
                 uid=$(id -u "$PROXY_USER" 2>/dev/null || true)
                 [ "$m" = direct ] || [[ $uid =~ ^[0-9]+$ ]] || fail "the user $PROXY_USER of the forwarder does not exist (bb-srv-ProxySetup)"
                 # shellcheck disable=SC2086 # one address per word
@@ -500,11 +499,29 @@ Resources:
                 classify_direct "$rc" "$tc"
               }
 
-              # A name outside the zone resolves in the container only when its DNS leaks (getent: 2 = not found).
+              # dig output (standard input) and exit code: ok (NXDOMAIN or REFUSED), OPEN (NOERROR or an answer) or unknown.
+              classify_dns() {
+                awk -v rc="$1" '!h && / ->>HEADER<<- / { h = 1; for (i = 1; i < NF; i++) if ($i == "status:") s = $(i + 1) }
+                  !f && /^;; flags: / { f = 1; for (i = 1; i < NF; i++) if ($i == "ANSWER:") a = $(i + 1) + 0 }
+                  END { sub(/,$/, "", s); if (s == "NOERROR" || a > 0) print "OPEN"
+                    else if (rc == "0" && (s == "NXDOMAIN" || s == "REFUSED")) print "ok"
+                    else if (s ~ /^[A-Z]+$/) print "unknown status=" s
+                    else print "unknown rc=" (rc ~ /^[0-9]+$/ ? rc : "?") }'
+              }
+
+              # A name outside the zone must not resolve for the container: dig of the host, as nobody, in its network, asks
+              # the embedded DNS of Docker (127.0.0.11, on to the "dns" of daemon.json) and the dnsmasq on 172.30.0.1 (asked
+              # directly). Nothing of the check comes from the container. ok when both refuse the name; OPEN if one answers.
               dns_filter() {
-                local rc=0
-                timeout 20 docker exec "$1" getent hosts "$OUTSIDE" >/dev/null 2>&1 || rc=$?
-                case $rc in 0) echo OPEN ;; 2) echo ok ;; *) echo "unknown rc=$rc" ;; esac
+                local server out rc verdict result=ok
+                for server in 127.0.0.11 "$GATEWAY"; do
+                  rc=0
+                  out=$(in_net "$1" dig +time=3 +tries=1 "@$server" "$OUTSIDE" A 2>&1) || rc=$?
+                  verdict=$(classify_dns "$rc" <<<"$out")
+                  if [ "$verdict" = OPEN ]; then echo OPEN; return 0; fi
+                  [ "$verdict" = ok ] || [ "$result" != ok ] || result="$verdict @$server"
+                done
+                echo "$result"
               }
 
               # signal.<zone> when the host resolves it (the Signal exists); nothing otherwise.
@@ -546,7 +563,7 @@ Resources:
                   result="fail no-signal-rule"
                 elif [ -n "$pid" ]; then
                   direct=$(direct_probe "$pid")
-                  dns=$(dns_filter "$c")
+                  dns=$(dns_filter "$pid")
                   if [ "$direct" = OPEN ]; then
                     contain
                     result="fail direct-open"
@@ -605,7 +622,7 @@ Resources:
                   echo "BB_PROXY_EXIT fail"
                 fi
                 echo "BB_PROXY_DIRECT $(direct_probe "$pid")"
-                echo "BB_PROXY_DNS_FILTER $(dns_filter "$c")"
+                echo "BB_PROXY_DNS_FILTER $(dns_filter "$pid")"
                 # The two direct paths of the design: the DNS of signal./turn. and the Signal itself. Without a
                 # record of the Signal (no stack yet) there is nothing to test.
                 sig=$(signal_name)
@@ -729,7 +746,7 @@ Resources:
               [Install]
               WantedBy=multi-user.target
               UNIT
-              printf '[Unit]\nDescription=Builders Bot - refresh the egress firewall (addresses of the Signal and of the upstream)\nAfter=docker.service\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-proxy guard\n' \
+              printf '[Unit]\nDescription=Builders Bot - refresh the egress firewall (Signal and upstream addresses)\nAfter=docker.service\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-proxy guard\n' \
                 >/etc/systemd/system/bb-srv-egress-refresh.service
               printf '[Unit]\nDescription=Builders Bot - refresh the egress firewall every 5 minutes\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=5min\n[Install]\nWantedBy=timers.target\n' \
                 >/etc/systemd/system/bb-srv-egress-refresh.timer
