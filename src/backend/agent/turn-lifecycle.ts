@@ -1583,6 +1583,7 @@ export class TurnLifecycle {
     const snapshot = this.#conversation.ensureSnapshot(agentId, threadId);
     const id = `${turnId}:plan`;
     let message = snapshot.messages.find((candidate) => candidate.id === id);
+    const placed = message !== undefined;
     if (!message) {
       message = newAssistantMessage(id, turnId);
       snapshot.messages.push(message);
@@ -1592,7 +1593,10 @@ export class TurnLifecycle {
     message.plan = plan;
     message.status = "streaming";
     this.#itemTurns.set(id, turnId);
-    this.#conversation.emitConversation(snapshot);
+    // A later update replaces the last one in the event log, as a subagent step does, so a long plan
+    // does not keep a copy of the whole list for each step. The first update keeps its own event.
+    if (placed) this.#conversation.emitReplacedMessage(snapshot, id, "turn.plan-updated");
+    else this.#conversation.emitConversation(snapshot);
   }
 
   /**
