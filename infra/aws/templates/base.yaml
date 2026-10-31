@@ -766,9 +766,12 @@ Resources:
                 Effect: Allow
                 Action: ssm:GetParameter
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/images/*'
-              # The credential of the egress proxy is for the sector hosts alone (README section 16), and
-              # a sector leaves the proxy only through the stack parameter EgressProxy, which an
-              # administrator session sets: the operator neither reads the one nor writes the other.
+              # The egress proxy credential (README section 16) is meant for the sector hosts. These denies
+              # only close the direct API path: the operator can still open the -Shell session or run a
+              # document as root on a sector host, and root there can read the credential (it is on the
+              # host, because the forwarder needs it). Treat every operator as able to read it; the
+              # mitigation is logged sessions and rotating the password. A sector leaves the proxy only
+              # through the stack parameter EgressProxy, which an administrator session sets.
               - Sid: DenyProxyCredential
                 Effect: Deny
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory, ssm:PutParameter, ssm:DeleteParameter]
