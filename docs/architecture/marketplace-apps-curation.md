@@ -273,7 +273,8 @@ bun scripts/marketplace-apps-curation-e2e.ts --storybook=http://localhost:6006
 
 It checks 39 decoder cases (types, limits, markup, control and bidi characters, unknown ids and
 categories, `null` fields, a missing version, the size limit after decoding, oversize text), the
-default list and its categories, the WhatsApp mark on the row and the page, the search of a hidden
+default list and its categories, the WhatsApp mark on the row, the page and the chat card
+(`WhatsAppInChat` in `MarketplaceSuggestionCard.stories.tsx`), the search of a hidden
 app, the switch and the saved choice after a new page load, a profile, a malformed profile, a
 profile near the size limit and one over it, the kept profile (it waits for an answer that names
 its account, and applies after a new page load), an installed hidden app, a link to a hidden app,

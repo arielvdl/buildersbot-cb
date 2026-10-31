@@ -431,6 +431,28 @@ try {
   );
   await keptContext.close();
 
+  // The card that an agent's suggestion of WhatsApp puts in the chat draws the WhatsApp mark.
+  const chatContext = await browser.newContext({ viewport: { width: 720, height: 400 }, reducedMotion: "reduce" });
+  const chatPage = await chatContext.newPage();
+  await chatPage.goto(
+    `${storybook}/iframe.html?id=conversation-marketplace-suggestion--whats-app-in-chat&viewMode=story&globals=locale:en;colorScheme:dark`,
+    { waitUntil: "domcontentloaded", timeout: 300_000 },
+  );
+  await chatPage.locator(".marketplace-suggestion").waitFor({ timeout: 240_000 });
+  assert.equal(
+    await chatPage.locator('.marketplace-suggestion-header svg path[d^="M17.472 14.382"]').count(),
+    1,
+    "The chat card for WhatsApp has no WhatsApp mark.",
+  );
+  assert.equal(
+    await chatPage.locator(".marketplace-suggestion img").count(),
+    0,
+    "The chat card loads the vendor icon.",
+  );
+  await shot(chatPage, "whatsapp-chat-card-en-dark");
+  steps.push("the chat card for a WhatsApp suggestion draws the WhatsApp mark");
+  await chatContext.close();
+
   // The screenshots: each language, scheme and size, with Show all apps off and on.
   const sizes = [
     { name: "1280", width: 1280, height: 880 },
