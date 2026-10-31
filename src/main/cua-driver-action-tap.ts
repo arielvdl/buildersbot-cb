@@ -27,7 +27,7 @@ import { chmod } from "node:fs/promises";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { Transform, type TransformCallback } from "node:stream";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
-import { createBuildersBotLogger, type Logger } from "@openbot/logging";
+import { createBuildersBotLogger, type Logger, toLogValue } from "@openbot/logging";
 import { Effect, Result } from "effect";
 import { CuaDriverFailure, cuaIO } from "./cua-driver-effects";
 import { rewriteCallAnswer } from "./cua-driver-structured-text";
@@ -316,9 +316,9 @@ export class CuaDriverActionTap {
   }
 
   /**
-   * Calls `listener` each time an agent asks for an action or aims the pointer, in the turn that
-   * reads the request. The rim waits for this rather than reading the driver many times a second.
-   * Returns the function that removes the listener.
+   * Calls `listener` once for each chunk of a request stream that asks for an action or aims the
+   * pointer, in the turn that reads the chunk. The rim waits for this rather than reading the driver
+   * many times a second. Returns the function that removes the listener.
    */
   onAction(listener: () => void): () => void {
     this.#actionListeners.add(listener);
@@ -402,6 +402,7 @@ export class CuaDriverActionTap {
       daemon.write(chunk);
       pending += chunk.toString("utf8");
       let newline = pending.indexOf("\n");
+      let acted = false;
       while (newline >= 0) {
         const line = pending.slice(0, newline);
         pending = pending.slice(newline + 1);
@@ -414,7 +415,7 @@ export class CuaDriverActionTap {
           answers.expect(tool === null ? null : { tool, at });
           if (action) this.#action = action;
           if (pointer) this.#pointer = pointer;
-          if (action || pointer) for (const listener of this.#actionListeners) listener();
+          if (action || pointer) acted = true;
         }
         skipping = false;
         newline = pending.indexOf("\n");
@@ -423,7 +424,21 @@ export class CuaDriverActionTap {
         pending = "";
         skipping = true;
       }
+      // After every line of the chunk is told to `answers`, so a listener cannot put the answers out
+      // of order.
+      if (acted) this.#notifyAction();
     });
+  }
+
+  /** A listener that fails is logged. It does not stop the other listeners or the pipe. */
+  #notifyAction(): void {
+    for (const listener of this.#actionListeners) {
+      try {
+        listener();
+      } catch (error) {
+        this.#logger.warn("Computer Use action listener failed", { error: toLogValue(error) });
+      }
+    }
   }
 
   /** The tool name and the time only: the arguments are the user's work and are never logged. */
