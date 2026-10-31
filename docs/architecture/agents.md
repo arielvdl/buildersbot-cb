@@ -412,6 +412,35 @@ at once and shows an Undo toast; when the toast ends, `AgentService.deleteTask` 
 messages and deletes the thread with its conversation, attachments, event history and provider
 session. It refuses a thread with a running turn. The main thread has no archive, rename or delete.
 
+### Thread preview and details
+
+So that the person does not lose what a thread is for, also after a rename, each side thread keeps
+two texts in `projection_agent_threads`: `first_message`, the message that started it (the person's
+first message, or the brief of a `start_task` thread), and `preview`, the last message that the person
+sent. Both are the text as written, cut to 2,000 characters. `AgentThreadStore.create` writes the
+first one, `AgentTasks.setPreview` (from `AgentService.sendMessage`) moves the second one and fills an
+empty first one, and a rename changes neither. Migration 49 adds the two columns and fills them from
+the stored messages of each thread, in ranges of 500 rowids: only `user` rows (and the `agent` brief
+of an agent thread), not a routine instruction, not a row with no text, and not a row whose JSON is
+not valid. The agent's own chat keeps its first message in `agent_json` (`AgentStore.firstMessage`,
+up to 2,000 characters); `AgentStore.initialize` fills it once from the chat's stored messages
+(`readFirstPersonMessageText`) before any message can arrive, so a later message is not taken as the
+first one. `AgentTask.firstMessage`, `AgentTask.preview` and `AgentSummary.firstMessage` are optional
+on IPC, so a host without them gives tabs with no preview.
+
+The pointer over a tab (the agent's name for the main thread) opens a preview card after the chat
+preview delay: the title, the first message on up to five lines and the last one on up to three, as
+plain text. It stays closed while the tab menu, a rename, a drag or the details are open, and a tab
+with no text has none. The selected tab shows an info button before its title, and its icon slot
+(state and close) moves to its end. The button, or "Thread details" in the tab menu, opens
+`ThreadDetailsDialog`: the title, the start time, and the two messages, each cut to six lines with
+"Show more", selectable and with a copy button. The button sits outside the tab list, over the start
+of the tab, because a tab list can hold only tabs.
+
+The Team API does not carry the two texts: `agent-tasks-v1` is frozen and its decoder drops them, so
+a joined desktop and the web show no preview and no details for a side thread. Sending them needs a
+new optional capability.
+
 The agent starts a side thread with the `start_task` Builders Bot tool, up to 8 open tasks. On desktop and
 the web, it opens as a tab of the agent and does not take focus. An agent has at most 50
 open tasks (`INPUT_LIMITS.agentTasks`, the size of the task list), so each open task stays visible. A message to a
