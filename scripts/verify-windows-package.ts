@@ -9,6 +9,7 @@ import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { parse as parseYaml } from "yaml";
 import { isMissingFileError } from "../src/backend/file-errors";
+import { assertAllowedUpdateFeed } from "./builders-bot-package";
 
 const logger = createBuildersBotLogger("verify-windows-package");
 
@@ -133,9 +134,9 @@ try {
 } catch (error) {
   if (requireUpdateMetadata) throw error;
 }
-if (updateMetadata !== null && !updateMetadata.includes("provider: github")) {
-  throw new Error("The packaged update provider is not GitHub.");
-}
+// Builders Bot allows no update feed yet: a package must have no app-update.yml, or one that the
+// update feed policy allows. The upstream GitHub feed is never allowed.
+assertAllowedUpdateFeed(updateMetadata);
 
 const ownExecutables = [
   executablePath,

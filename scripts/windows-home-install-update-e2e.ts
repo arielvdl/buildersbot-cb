@@ -20,7 +20,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger } from "@openbot/logging";
-import { parse as parseYaml } from "yaml";
+import { readBuilderIdentity } from "./builders-bot-package";
 
 const logger = createBuildersBotLogger("windows-home-install-update-e2e");
 
@@ -43,11 +43,7 @@ if (!localAppData) throw new Error("LOCALAPPDATA is not set.");
 
 // The installer and the app name these folders after the product: `${PRODUCT_NAME}` and
 // `${APP_FILENAME}` in build/installer.nsh, `app.setName` and `agent-store.ts` in the app.
-const builderConfig = parseYaml(await readFile(resolve(import.meta.dirname, "../electron-builder.yml"), "utf8"));
-if (!isDynamicRecord(builderConfig) || !isString(builderConfig.productName) || !isString(builderConfig.appId)) {
-  throw new Error("electron-builder.yml has no productName or appId.");
-}
-const productName = builderConfig.productName;
+const { productName, appId } = readBuilderIdentity();
 // electron-builder uses the product name as the folder name only when it has these characters.
 if (!/^[-_+0-9a-zA-Z .]+$/u.test(productName)) throw new Error(`The product name is not a folder name: ${productName}`);
 const executable = `${productName}.exe`;
@@ -57,7 +53,7 @@ const defaultFolder = join(localAppData, "Programs", productName);
 // Missing on a computer where no program was installed for this user.
 const uninstallKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
 const runKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-const loginItemName = builderConfig.appId;
+const loginItemName = appId;
 const reportPath = resolve(".openbot-build/windows-home-install-update-e2e.json");
 // An installer that waits for a dialog in a silent run does not exit. This limit makes that a failure.
 const installerLimitMs = 5 * 60_000;

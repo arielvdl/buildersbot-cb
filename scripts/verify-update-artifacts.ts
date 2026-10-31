@@ -5,6 +5,7 @@ import { basename, join, resolve } from "node:path";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { parse } from "yaml";
+import { readBuilderIdentity } from "./builders-bot-package";
 
 const logger = createBuildersBotLogger("verify-update-artifacts");
 
@@ -54,7 +55,13 @@ if (platform === "linux" || platform === "linux-arm64") {
 // Each macOS job builds its own architecture, and electron-builder writes x64 to `dist/mac`.
 const resourcesRoot =
   platform === "macos"
-    ? join(distRoot, process.arch === "arm64" ? "mac-arm64" : "mac", "OpenBot.app", "Contents", "Resources")
+    ? join(
+        distRoot,
+        process.arch === "arm64" ? "mac-arm64" : "mac",
+        `${readBuilderIdentity().productName}.app`,
+        "Contents",
+        "Resources",
+      )
     : join(distRoot, platform === "windows" ? "win-unpacked" : `${platform}-unpacked`, "resources");
 // Every platform ships the voice runtime and downloads the model on first use.
 if (!existsSync(join(resourcesRoot, "voice", "runtime", "sherpa-onnx.node"))) {

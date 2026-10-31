@@ -8,6 +8,7 @@ import { FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
+import { assertAllowedUpdateFeed } from "./builders-bot-package";
 import { elfSearchPaths, ORIGIN_SEARCH_PATH } from "./elf-search-paths";
 
 const logger = createBuildersBotLogger("verify-linux-package");
@@ -187,9 +188,9 @@ try {
 } catch (error) {
   if (requireUpdateMetadata) throw error;
 }
-if (updateMetadata !== null && !updateMetadata.includes("provider: github")) {
-  throw new Error("The packaged update provider is not GitHub.");
-}
+// Builders Bot allows no update feed yet: a package must have no app-update.yml, or one that the
+// update feed policy allows. The upstream GitHub feed is never allowed.
+assertAllowedUpdateFeed(updateMetadata);
 
 const fuses = await getCurrentFuseWire(executablePath);
 const expectedFuses: Array<[FuseV1Options, number]> = [

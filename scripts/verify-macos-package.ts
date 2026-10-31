@@ -8,6 +8,7 @@ import { FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
+import { assertAllowedUpdateFeed, readBuilderIdentity } from "./builders-bot-package";
 
 const logger = createBuildersBotLogger("verify-macos-package");
 
@@ -36,11 +37,13 @@ const EXPECTED_MACOS_ICON_FILES = [
 const architecture = process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "x64" : null;
 if (!architecture) throw new Error(`OpenBot does not ship for macOS ${process.arch}.`);
 const machOArchitecture = architecture === "arm64" ? "arm64" : "x86_64";
+// electron-builder names the app, its executable and its bundle id from electron-builder.yml.
+const { productName, appId } = readBuilderIdentity();
 const appPath = resolve(
-  process.argv[2] ?? (architecture === "arm64" ? "dist/mac-arm64/OpenBot.app" : "dist/mac/OpenBot.app"),
+  process.argv[2] ?? (architecture === "arm64" ? `dist/mac-arm64/${productName}.app` : `dist/mac/${productName}.app`),
 );
 const contentsPath = resolve(appPath, "Contents");
-const executablePath = resolve(contentsPath, "MacOS/OpenBot");
+const executablePath = resolve(contentsPath, "MacOS", productName);
 const resourcesPath = resolve(contentsPath, "Resources");
 const packagedIconPath = resolve(resourcesPath, "icon.icns");
 const sourceIconPath = resolve("build/icon-production.icns");
@@ -115,9 +118,9 @@ await assertAbsent(
 
 const plist = JSON.parse(run("plutil", ["-convert", "json", "-o", "-", plistPath]));
 if (!isDynamicRecord(plist)) throw new Error("Info.plist is not a JSON object.");
-expectEqual(plist.CFBundleDisplayName, "OpenBot", "display name");
-expectEqual(plist.CFBundleExecutable, "OpenBot", "executable name");
-expectEqual(plist.CFBundleIdentifier, "app.openbot.desktop", "bundle identifier");
+expectEqual(plist.CFBundleDisplayName, productName, "display name");
+expectEqual(plist.CFBundleExecutable, productName, "executable name");
+expectEqual(plist.CFBundleIdentifier, appId, "bundle identifier");
 expectEqual(plist.CFBundleIconFile, "icon.icns", "application icon");
 expectEqual(plist.CFBundleIconName, "Icon", "macOS 26 application icon");
 expectEqual(plist.LSMinimumSystemVersion, "13.0", "minimum macOS version");
@@ -126,6 +129,9 @@ if (!Array.isArray(plist.NSUserActivityTypes) || !plist.NSUserActivityTypes.incl
   throw new Error("The Universal Links activity type is missing.");
 }
 if (!plist.ElectronAsarIntegrity) throw new Error("ASAR integrity metadata is missing.");
+// Builders Bot allows no update feed yet: the app must have no app-update.yml, or one that the
+// update feed policy allows. The upstream GitHub feed is never allowed.
+assertAllowedUpdateFeed(await readOptionalText(resolve(resourcesPath, "app-update.yml")));
 expectEqual(
   plist.NSMicrophoneUsageDescription,
   "OpenBot uses the microphone to transcribe voice prompts locally on this Mac.",
@@ -378,6 +384,16 @@ async function rendererCalledMain(userDataPath: string): Promise<boolean> {
     return (await readFile(join(userDataPath, "logs", "trace.ndjson"), "utf8")).includes('"kind":"ipc"');
   } catch (error) {
     if (isMissingFileError(error)) return false;
+    throw error;
+  }
+}
+
+/** The text of a file, or null when it is not there. */
+async function readOptionalText(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissingFileError(error)) return null;
     throw error;
   }
 }
