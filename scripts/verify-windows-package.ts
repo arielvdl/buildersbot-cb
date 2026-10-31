@@ -10,6 +10,7 @@ import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { parse as parseYaml } from "yaml";
 import { isMissingFileError } from "../src/backend/file-errors";
 import { assertAllowedUpdateFeed } from "./builders-bot-package";
+import { assertNoBlockedStringsInPackage } from "./telemetry-destinations";
 
 const logger = createBuildersBotLogger("verify-windows-package");
 
@@ -137,6 +138,9 @@ try {
 // Builders Bot allows no update feed yet: a package must have no app-update.yml, or one that the
 // update feed policy allows. The upstream GitHub feed is never allowed.
 assertAllowedUpdateFeed(updateMetadata);
+// No build may send analytics to the upstream OpenBot project: the packaged files must not name
+// its analytics service or an OpenPanel client (phase 0 of the bug report design).
+await assertNoBlockedStringsInPackage(resourcesPath);
 
 const ownExecutables = [
   executablePath,

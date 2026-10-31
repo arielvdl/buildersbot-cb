@@ -2,9 +2,12 @@
 
 > **Builders Bot sends none of these events.** The upstream OpenBot app sent them, with the account ID
 > and email, to the OpenPanel service of the upstream project (`analytics.openbot.run`), which Builders
-> Bot does not control. Phase 0 of the bug report design removed every client and transport, and
-> `bun run test:telemetry-guard` stops a merge that brings them back. This document keeps the upstream
-> event contract for reference until Builders Bot has a diagnostics service of its own.
+> Bot does not control. Phase 0 of the bug report design removed every client and transport. The
+> telemetry destination guard (`bun run test:telemetry-guard`) fails when a change brings one back: the
+> `Telemetry destination guard` workflow runs it on each pull request and each push to `builders-bot`
+> and `main`, the package scripts run it on `out/` and on the packaged app, and the package checks scan
+> `app.asar`. This document keeps the upstream event contract for reference until Builders Bot has a
+> diagnostics service of its own.
 
 The upstream app used an OpenPanel project for production product analytics. This document is the
 contract for event meaning, attribution, privacy, and reporting. Changes to an event name, property,
@@ -210,9 +213,10 @@ rather than passed through. Paths are followed by the allowlisted campaign tags 
 `[a-z0-9._-]`; a value outside that shape is dropped, not shortened, and no other query parameter or
 hash is ever included. Session replay and automatic interaction capture remain disabled.
 
-Builders Bot has no send path to check: `bun run test:telemetry-guard` checks that no source file
-names an upstream analytics destination or an OpenPanel client, and `check:desktop:static` checks the
-built app too. The voice pane E2E checks that no window sends a request to an upstream analytics host.
+Builders Bot has no send path to check: `bun run test:telemetry-guard` checks that no file names an
+upstream analytics destination or an OpenPanel client, and the package scripts and package checks
+check the built and the packaged app too. The voice pane E2E checks that no window sends a request to
+an upstream analytics host.
 
 ## Required dashboards
 

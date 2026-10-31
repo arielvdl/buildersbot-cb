@@ -9,6 +9,7 @@ import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
 import { assertAllowedUpdateFeed, readBuilderIdentity } from "./builders-bot-package";
+import { assertNoBlockedStringsInPackage } from "./telemetry-destinations";
 
 const logger = createBuildersBotLogger("verify-macos-package");
 
@@ -132,6 +133,9 @@ if (!plist.ElectronAsarIntegrity) throw new Error("ASAR integrity metadata is mi
 // Builders Bot allows no update feed yet: the app must have no app-update.yml, or one that the
 // update feed policy allows. The upstream GitHub feed is never allowed.
 assertAllowedUpdateFeed(await readOptionalText(resolve(resourcesPath, "app-update.yml")));
+// No build may send analytics to the upstream OpenBot project: the packaged files must not name
+// its analytics service or an OpenPanel client (phase 0 of the bug report design).
+await assertNoBlockedStringsInPackage(resourcesPath);
 expectEqual(
   plist.NSMicrophoneUsageDescription,
   "OpenBot uses the microphone to transcribe voice prompts locally on this Mac.",

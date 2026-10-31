@@ -197,6 +197,14 @@ xvfb on Ubuntu rather than on a macOS runner, and reads nothing the build writes
 between the halves is free. `release.yml` keeps the whole of `check:desktop` on one macOS runner,
 where it checks the machine that builds the release.
 
+`ci.yml` runs only for `main`. The telemetry destination guard also has its own workflow,
+`telemetry-destination-guard.yml`, which runs on each pull request and each push to `builders-bot` and
+`main`, as `update-feed-guard.yml` does for the update feed guard. It needs no build and no network.
+The `package`, `package:*` and `dist:*` scripts run the guard with `--build-output` right after
+`bun run build`, and the macOS `package`, `dist:mac` and `dist:release` scripts also run it with
+`--package` on the app that electron-builder made. `verify:package`, `verify:package:win` and
+`verify:package:linux` scan `app.asar` and `app.asar.unpacked` for the same strings.
+
 `bun run knip:check` fails on unused files, unused exports and exported types, unused or unlisted
 dependencies, unresolved imports and unlisted binaries in every workspace. It takes about 6 seconds. `knip.config.ts` names the entry
 points that knip cannot find by itself: the Metro shims and stylesheet, and every command in

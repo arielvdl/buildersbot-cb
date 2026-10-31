@@ -1,0 +1,45 @@
+name: Telemetry destination guard
+
+# No build of Builders Bot may send analytics or telemetry to a host of the upstream OpenBot project
+# (phase 0 of the bug report design). `scripts/telemetry-destination-guard.ts` needs no build and no
+# network, so it runs on each pull request and on each push to the Builders Bot branches. `ci.yml`
+# runs only for `main`, and an upstream merge on `builders-bot` must not bring a client back.
+on:
+  pull_request:
+  push:
+    branches: [builders-bot, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telemetry-destination-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Telemetry destination guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: ./.github/actions/setup-bun
+        with:
+          install: ignore-scripts
+
+      - name: Check that no file names an upstream analytics destination
+        run: bun scripts/telemetry-destination-guard.ts
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: telemetry-destination-guard
+          path: .openbot-build/telemetry-destination-guard/report.json
+          if-no-files-found: warn
