@@ -2413,7 +2413,7 @@ export class BrowserHost {
         // Capture the persisted tab list before removing native views.
         const persistence = yield* Effect.forkIn(this.#persistState(), this.#scope, { startImmediately: true });
         const drains = [...this.#closingTabDrains.values()].map(Fiber.join);
-        for (const target of this.#persistentSessions()) target.flushStorageData();
+        for (const target of this.persistentSessions()) target.flushStorageData();
         for (const tab of this.#tabs.values()) {
           tab.closing = true;
           tab.engine.releaseDialogs();
@@ -2436,7 +2436,7 @@ export class BrowserHost {
         this.#siteVisitListeners.clear();
         const results = yield* Effect.all(
           [
-            browserCall(() => Promise.all(this.#persistentSessions().map((target) => target.cookies.flushStore()))),
+            browserCall(() => Promise.all(this.persistentSessions().map((target) => target.cookies.flushStore()))),
             Fiber.join(persistence),
             Effect.all(drains.map(Effect.exit), { concurrency: "unbounded" }).pipe(
               Effect.flatMap((results) =>
@@ -2454,7 +2454,7 @@ export class BrowserHost {
           { concurrency: "unbounded" },
         );
         this.#closingTabDrains.clear();
-        for (const target of this.#persistentSessions()) target.flushStorageData();
+        for (const target of this.persistentSessions()) target.flushStorageData();
         yield* this.#persistLock.withPermit(Effect.void);
         yield* Scope.close(this.#scope, Exit.void);
         const failure = results.find(Exit.isFailure);
@@ -2468,7 +2468,7 @@ export class BrowserHost {
   readonly flushPersistentStorage = Effect.fn("BrowserHost.flushPersistentStorage")(function* (
     this: BrowserHost,
   ): Effect.fn.Return<void, BrowserOperationError> {
-    const sessions = this.#persistentSessions();
+    const sessions = this.persistentSessions();
     for (const target of sessions) target.flushStorageData();
     yield* browserCall(() => Promise.all(sessions.map((target) => target.cookies.flushStore())));
     yield* this.#persistState();
@@ -2533,7 +2533,8 @@ export class BrowserHost {
     return { kind: "profile", profileId: profile.profileId };
   }).bind(this);
 
-  #persistentSessions(): Session[] {
+  /** The sessions that keep site data on disk: the shared one, and each agent or profile session open now. */
+  persistentSessions(): Session[] {
     return [this.#session, ...this.#tabSessions.values()];
   }
 

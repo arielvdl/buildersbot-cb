@@ -262,6 +262,16 @@ whose profile no longer exists fails with `browserProfileMissing`; it never fall
 `#configureSession` applies the same user agent, headers, permissions and download policy to every
 partition. Shutdown and `flushPersistentStorage` flush every persistent partition.
 
+The CacheStorage of service workers has no limit but the storage quota of Chromium: the shared
+partition had 138 MB of it, from two sites, after 1.6 days. After the first window load,
+`trimSiteCaches` (`src/main/startup-maintenance.ts`) measures each partition that
+`BrowserHost.persistentSessions()` gives (the shared one, and each agent or profile session that is
+open). Past 100 MB, it calls `clearStorageData({ storages: ["cachestorage", "serviceworkers"] })`
+for the CacheStorage and `clearCodeCaches({})` for the `Code Cache`. Cookies, local storage and
+IndexedDB stay, so the sign-ins stay. A site registers its service worker again on the next visit,
+and its first load after a trim is slower. The HTTP cache keeps the limit of Chromium. A partition
+of an agent or profile that no tab opened in this launch is not measured.
+
 `src/main/browser-profile-service.ts` owns the operations: list, create (name of 1 to 60
 characters, unique, at most 100 profiles), update (name or color), clear data, delete, and assign.
 Clear and delete close the tabs in the partition before they clear its storage and cache. Delete also
