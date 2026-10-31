@@ -13,6 +13,21 @@ import { analyticsOnByDefault, type FailureProperties } from "@openbot/telemetry
  * a later service, but no value starts a send.
  */
 
+/** The IndexedDB queue where earlier versions of the desktop app kept failure reports, with the account ID. */
+const STALE_DESKTOP_REPORT_QUEUE = "openbot-desktop-error-reports-v1";
+
+/**
+ * Deletes the failure report queue of earlier versions. Nothing in this version reads it, and an
+ * earlier version that opens the same profile would send it to the upstream analytics service.
+ */
+export function removeStaleReportQueue(): void {
+  try {
+    indexedDB.deleteDatabase(STALE_DESKTOP_REPORT_QUEUE);
+  } catch {
+    // A window without IndexedDB has no queue to delete.
+  }
+}
+
 /** The web analytics preference. The key keeps its first name, so stored choices stay. */
 export const WEB_PREFERENCE = "openbot:web:error-reports-enabled";
 /** A choice of this browser that the account has not saved yet, "true" or "false". */

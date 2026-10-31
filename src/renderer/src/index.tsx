@@ -5,6 +5,7 @@ import "katex/contrib/copy-tex";
 import { App } from "./App";
 import { startActionSounds } from "./action-sounds";
 import { syncAppearance } from "./appearance-choice";
+import { removeStaleReportQueue } from "./error-reports";
 import { readChatWindowTarget } from "./features/window/chat-window";
 import { syncLogoColor } from "./logo-color";
 import "./styles.css";
@@ -21,6 +22,7 @@ installPointerFocusGuard();
 syncAppearance({ windowGlass: true });
 syncLogoColor();
 startActionSounds();
+removeStaleReportQueue();
 
 // `App` must stay a static import. Main sends the first runtime snapshot on `did-finish-load`,
 // which does not wait for a dynamic import, and `App` would subscribe after it. The helper windows

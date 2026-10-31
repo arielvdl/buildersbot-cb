@@ -173,7 +173,9 @@ and incomplete billing inputs remain marked as unavailable or partial.
 Builders Bot sends no product analytics and no error reports from the desktop app, the browser client,
 the mobile app or the website. First run and the web sign-in ask no analytics question, and Settings shows
 a note in place of the switch. The saved analytics answer stays on the device and on the account, and no
-value starts a send.
+value starts a send. On start, the desktop app deletes the failure report queue and the inventory day file
+that earlier versions kept for the upstream analytics service, so an earlier version that opens the same
+profile cannot send them.
 
 The rest of this section describes what earlier versions of the app sent. They sent these events, the
 error reports, and the account ID and normalized email of a signed-in user to the analytics service of the
