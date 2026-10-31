@@ -559,13 +559,15 @@ Resources:
                 classify_direct "$rc" "$tc"
               }
 
-              # dig output (standard input) and exit code: ok (NXDOMAIN or REFUSED), OPEN (NOERROR or an answer) or unknown.
+              # dig output (standard input) and exit code: OPEN when any reply is NOERROR or has an answer; ok only when dig
+              # ended well and every reply is NXDOMAIN or REFUSED, each with its flags line; unknown otherwise.
               classify_dns() {
-                awk -v rc="$1" '!h && / ->>HEADER<<- / { h = 1; for (i = 1; i < NF; i++) if ($i == "status:") s = $(i + 1) }
-                  !f && /^;; flags: / { f = 1; for (i = 1; i < NF; i++) if ($i == "ANSWER:") a = $(i + 1) + 0 }
-                  END { sub(/,$/, "", s); if (s == "NOERROR" || a > 0) print "OPEN"
-                    else if (rc == "0" && (s == "NXDOMAIN" || s == "REFUSED")) print "ok"
-                    else if (s ~ /^[A-Z]+$/) print "unknown status=" s
+                awk -v rc="$1" '/ ->>HEADER<<- / { h++; s = ""; for (i = 1; i < NF; i++) if ($i == "status:") s = $(i + 1); sub(/,$/, "", s)
+                    if (s == "NOERROR") o = 1; else if (s == "NXDOMAIN" || s == "REFUSED") n++; else if (b == "") b = s }
+                  /^;; flags: / { f++; for (i = 1; i < NF; i++) if ($i == "ANSWER:" && $(i + 1) + 0 > 0) o = 1 }
+                  END { if (o) print "OPEN"
+                    else if (rc == "0" && h && n == h && f == h) print "ok"
+                    else if (b ~ /^[A-Z]+$/) print "unknown status=" b
                     else print "unknown rc=" (rc ~ /^[0-9]+$/ ? rc : "?") }'
               }
 

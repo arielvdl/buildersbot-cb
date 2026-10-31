@@ -1229,6 +1229,17 @@ else
   expect_dns_filter "F11 filtro de DNS: NXDOMAIN com um endereço na resposta é OPEN" OPEN FAKE_DIG_172_30_0_1="file:$WORK/dig-nx-answer.txt"
   expect_dns_filter "F11 filtro de DNS: status fora do formato não é ok e não vai para a linha" "unknown rc=0 @127.0.0.11" \
     FAKE_DIG_127_0_0_11="file:$WORK/dig-odd.txt"
+  # Toda resposta conta, não só a primeira: NXDOMAIN e depois NOERROR com endereço é OPEN; um cabeçalho sem a linha de
+  # flags não prova nada; duas respostas NXDOMAIN completas são ok.
+  nx_reply=$';; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 1\n;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0\n'
+  printf '%s;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 2\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n' "$nx_reply" >"$WORK/dig-nx-then-answer.txt"
+  printf ';; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 1\n' >"$WORK/dig-nx-no-flags.txt"
+  printf '%s%s' "$nx_reply" "$nx_reply" >"$WORK/dig-nx-twice.txt"
+  expect_dns_filter "F11 filtro de DNS: NXDOMAIN e depois NOERROR com endereço (duas respostas) é OPEN" OPEN \
+    FAKE_DIG_127_0_0_11="file:$WORK/dig-nx-then-answer.txt"
+  expect_dns_filter "F11 filtro de DNS: NXDOMAIN sem a linha de flags não é ok" "unknown rc=0 @172.30.0.1" \
+    FAKE_DIG_172_30_0_1="file:$WORK/dig-nx-no-flags.txt"
+  expect_dns_filter "F11 filtro de DNS: duas respostas NXDOMAIN completas são ok" ok FAKE_DIG="file:$WORK/dig-nx-twice.txt"
   host_reset
   host_tool guard >/dev/null 2>&1
   : >"$HOST_T/running"
