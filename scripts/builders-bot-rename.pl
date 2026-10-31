@@ -20,6 +20,11 @@
 # overrides that `native-runtime.lock.json` lists. A renamed patch no longer matches its sha256 and
 # the package step fails. `scripts/native-runtime-lock-files.test.ts` fails when that happens.
 #
+# The Linux server and its Docker image also keep the upstream names in `@kept_paths`: the
+# install folder and the AppImage file that docker/Dockerfile copies. Unquoted shell, systemd
+# units, AppArmor profiles and Dockerfile lines use them, and a space breaks each of these.
+# scripts/check-linux-image-names.ts reads this list.
+#
 # Usage: perl scripts/builders-bot-rename.pl < file
 local $/;
 my $s = <>;
@@ -28,10 +33,16 @@ my @published = qw(
   Protocol-Version App-Version Capabilities Timestamp Signature Logo-Version
   Hosting-Developer-Key Host-Id Host-Token
 );
+my @kept_paths = ("/opt/OpenBot", "OpenBot.AppImage");
 my $published = join "|", map { quotemeta } @published;
+for my $index (0 .. $#kept_paths) {
+  my $path = quotemeta $kept_paths[$index];
+  $s =~ s/(?<![A-Za-z0-9])$path(?![A-Za-z0-9])/\x{1}OPENBOT_PATH_$index\x{1}/g;
+}
 $s =~ s/(?<=X-)OpenBot(?=-[A-Z])/$header/g;
 $s =~ s/(?<![A-Za-z0-9-])OpenBot(?=-(?:$published)\b)/$header/g;
 $s =~ s/OpenBot(?=[A-Z])/BuildersBot/g;
 $s =~ s/\bOpenBot\b/Builders Bot/g;
 $s =~ s/\Q$header\E/OpenBot/g;
+$s =~ s/\x{1}OPENBOT_PATH_(\d+)\x{1}/$kept_paths[$1]/g;
 print $s;

@@ -8,7 +8,7 @@ import { FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
-import { assertAllowedUpdateFeed } from "./builders-bot-package";
+import { assertAllowedUpdateFeed, readBuilderIdentity } from "./builders-bot-package";
 import { elfSearchPaths, ORIGIN_SEARCH_PATH } from "./elf-search-paths";
 import { assertNoBlockedStringsInPackage } from "./telemetry-destinations";
 
@@ -60,7 +60,8 @@ const appPathArgument = process.argv.slice(2).find((argument) => !argument.start
 const appPath = resolve(
   appPathArgument ?? (architecture === "x64" ? "dist/linux-unpacked" : "dist/linux-arm64-unpacked"),
 );
-// electron-builder names the Linux binary after `name` in package.json, not `productName`.
+// `linux.executableName` in electron-builder.yml. The server scripts and the Docker image start this name
+// (`bun run check:linux-image-names`).
 const executablePath = resolve(appPath, "openbot");
 const resourcesPath = resolve(appPath, "resources");
 const asarPath = resolve(resourcesPath, "app.asar");
@@ -169,16 +170,20 @@ if (!isString(packageJson.version)) throw new Error("package.json version is mis
 // was built. It is the same file the running app reports through `app.getVersion()`.
 const packagedManifest = JSON.parse(await readAsarFile(asarPath, "package.json"));
 if (!isDynamicRecord(packagedManifest)) throw new Error("The packaged package.json is not a JSON object.");
-expectEqual(packagedManifest.name, "openbot", "packaged name");
-expectEqual(packagedManifest.productName, "OpenBot", "packaged product name");
+// The names come from the configuration, so this check follows the Builders Bot rename.
+const { productName } = readBuilderIdentity();
+expectEqual(packagedManifest.name, packageJson.name, "packaged name");
+expectEqual(packagedManifest.productName, productName, "packaged product name");
 expectEqual(packagedManifest.version, packageJson.version, "packaged version");
 
 await assertElfMachine(executablePath);
 
 const appImages = existsSync("dist") ? await findAppImages() : [];
 for (const appImage of appImages) {
-  if (!appImage.startsWith(`OpenBot-${packageJson.version}-`)) {
-    throw new Error(`Unexpected AppImage name: ${appImage} (expected OpenBot-${packageJson.version}-<arch>.AppImage)`);
+  if (!appImage.startsWith(`${productName}-${packageJson.version}-`)) {
+    throw new Error(
+      `Unexpected AppImage name: ${appImage} (expected ${productName}-${packageJson.version}-<arch>.AppImage)`,
+    );
   }
 }
 

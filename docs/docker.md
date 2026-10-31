@@ -10,6 +10,30 @@ app or `openbot.run/app`. It is for `linux/amd64` and `linux/arm64`.
 > image and never pull one. Upgrades and updates from the app are not available in this version. The
 > image of the upstream OpenBot project is a different app: do not use it with Builders Bot data.
 
+## Build
+
+Build the AppImage on Linux, on a machine of the target architecture: the voice runtime is for the
+machine that builds it. In the repository, run `bun install --frozen-lockfile`, then
+`bun run dist:linux:arm64` on arm64 or `bun run dist:linux` on x64. Check the build with
+`xvfb-run -a bun run verify:package:linux`, without `--require-update-metadata`: Builders Bot has no
+release feed (`publish: null` in `electron-builder.yml`), so the build writes no
+`resources/app-update.yml` and no `latest-linux.yml`. That flag fails without the first, and the
+`linux` job of `.github/workflows/release.yml` without both.
+
+`dist/` can also hold the AppImage of an earlier version or of the other architecture, so copy the
+one of this build by its full name:
+
+```sh
+mkdir image
+cp "dist/Builders Bot-<version>-<arch>.AppImage" "image/OpenBot.AppImage"
+docker build --file docker/Dockerfile --tag builders-bot:local image
+```
+
+The Dockerfile copies `OpenBot.AppImage` and unpacks it to `/opt/OpenBot/app`, and the image starts
+the executable `openbot`. These are the names of the upstream scripts in `scripts/hosting`.
+`linux.executableName` in `electron-builder.yml` keeps the executable name, and
+`bun run check:linux-image-names` fails when one of these names changes.
+
 ## Run
 
 With Docker Compose, copy `docker/compose.yaml` and `docker/seccomp.json` of this repository to one
@@ -109,8 +133,8 @@ that user and keep everything there:
 
 | Path | Contents |
 | --- | --- |
-| `/data/.config/OpenBot` | The database `openbot.db`, logs, the downloaded provider runtimes and the browser data. |
-| `/data/OpenBot` | The agent workspaces (`Agents`), `Shared` and `Downloads`. |
+| `/data/.config/Builders Bot` | The database `openbot.db`, logs, the downloaded provider runtimes and the browser data. |
+| `/data/Builders Bot` | The agent workspaces (`Agents`), `Shared` and `Downloads`. |
 | `/data/.local/share/keyrings`, `/data/.config/openbot-container` | The keyring and its password. The keyring has the key of the encrypted data in `/data`. |
 | Other files in `/data` | Provider sign-ins and the files of agent tools, for example `~/.codex` and `~/.claude`. |
 

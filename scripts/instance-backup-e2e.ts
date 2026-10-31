@@ -13,7 +13,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { migrateBuildersBotDatabase } from "../src/backend/openbot-database-schema";
 
@@ -22,6 +22,23 @@ const dind = `openbot-backup-e2e-${randomBytes(4).toString("hex")}`;
 const script = "/opt/openbot-docker/instances/openbot-instance";
 const data = "/srv/openbot/main/data";
 const agentId = "agent-e2e-1";
+// The paths of `REQUIRED_FILES` and `SHARED_DATABASE` in docker/instances/openbot-instance, in /data.
+// The folder names have a space, so the shell commands quote them.
+const APP_DATABASE = ".config/Builders Bot/openbot.db";
+const SHARED_DATABASE = "Builders Bot/Shared/Data/agent-data.db";
+const AGENT_FOLDER = "Builders Bot/Agents/E2E";
+const HASHED_FILES = [
+  APP_DATABASE,
+  SHARED_DATABASE,
+  `${AGENT_FOLDER}/notes.md`,
+  `${AGENT_FOLDER}/attachment.bin`,
+  ".local/share/keyrings/login.keyring",
+  ".config/openbot-container/keyring-password",
+  ".e2e-starts",
+  ".e2e-clean-stop",
+]
+  .map((path) => `'${path}'`)
+  .join(" ");
 const results: Array<{ name: string; ok: boolean; detail: string }> = [];
 
 interface Run {
@@ -71,13 +88,13 @@ function summary(result: Run): string {
 
 /** The data of one instance: the database, shared tables, keyring, a workspace and an attachment. */
 async function writeFixture(root: string): Promise<void> {
-  const config = join(root, ".config/OpenBot");
-  const shared = join(root, "OpenBot/Shared/Data");
+  const config = join(root, dirname(APP_DATABASE));
+  const shared = join(root, dirname(SHARED_DATABASE));
   await mkdir(config, { recursive: true });
   await mkdir(shared, { recursive: true });
   await mkdir(join(root, ".local/share/keyrings"), { recursive: true });
   await mkdir(join(root, ".config/openbot-container"), { recursive: true });
-  await mkdir(join(root, "OpenBot/Agents/E2E"), { recursive: true });
+  await mkdir(join(root, AGENT_FOLDER), { recursive: true });
 
   const now = new Date().toISOString();
   const db = new DatabaseSync(join(config, "openbot.db"));
@@ -118,8 +135,8 @@ async function writeFixture(root: string): Promise<void> {
   await writeFile(join(root, ".config/openbot-container/keyring-password"), randomBytes(32).toString("hex"), {
     mode: 0o600,
   });
-  await writeFile(join(root, "OpenBot/Agents/E2E/notes.md"), "Saved before the backup.\n");
-  await writeFile(join(root, "OpenBot/Agents/E2E/attachment.bin"), randomBytes(256 * 1024));
+  await writeFile(join(root, AGENT_FOLDER, "notes.md"), "Saved before the backup.\n");
+  await writeFile(join(root, AGENT_FOLDER, "attachment.bin"), randomBytes(256 * 1024));
 }
 
 // The stand-in for the OpenBot image: it has the release label, runs as UID 1000, and writes a file
@@ -180,7 +197,7 @@ async function main(): Promise<void> {
       cp -a /fixture/. ${data}/ && chown -R 1000:1000 ${data} && chmod 0700 ${data}
       printf 'BUILDERSBOT_IMAGE=builders-bot:e2e\\nOPENBOT_NAME=main\\nOPENBOT_CPUS=1\\nOPENBOT_MEM=1g\\nOPENBOT_DISK=256M\\nOPENBOT_BACKUP_DIR=/backups\\nOPENBOT_BACKUP_KEEP=2\\nOPENBOT_BACKUP_MAX_AGE=24\\n' >/opt/openbot-docker/instances/main.env
       docker run --detach --name openbot-main --stop-timeout 20 -v ${data}:/data builders-bot:e2e >/dev/null`);
-    const dataHash = must(`sha256sum ${data}/.config/OpenBot/openbot.db | cut -d ' ' -f 1`);
+    const dataHash = must(`sha256sum '${data}/${APP_DATABASE}' | cut -d ' ' -f 1`);
 
     let result = instance("backups", "main");
     check(
@@ -243,12 +260,12 @@ async function main(): Promise<void> {
     const invalidSources = [
       {
         name: "main database",
-        path: ".config/OpenBot/openbot.db",
+        path: APP_DATABASE,
         error: /OpenBot cannot open openbot\.db|openbot\.db is damaged/,
       },
       {
         name: "shared database",
-        path: "OpenBot/Shared/Data/agent-data.db",
+        path: SHARED_DATABASE,
         error: /shared tables cannot open|shared tables are damaged/,
       },
     ];
@@ -256,10 +273,10 @@ async function main(): Promise<void> {
       const beforeInvalid = completeBackups();
       const successHash = must("sha256sum /srv/openbot/main/backup-status/verify-success.json | cut -d ' ' -f 1");
       must(
-        `cp -a ${data}/${source.path} /root/e2e-healthy-database && printf 'not a SQLite database\n' > ${data}/${source.path}`,
+        `cp -a '${data}/${source.path}' /root/e2e-healthy-database && printf 'not a SQLite database\n' > '${data}/${source.path}'`,
       );
       const invalidResult = instance("backup", "main");
-      must(`mv /root/e2e-healthy-database ${data}/${source.path}`);
+      must(`mv /root/e2e-healthy-database '${data}/${source.path}'`);
       const invalidBackup = completeBackups().find((name) => !beforeInvalid.includes(name)) ?? "";
       if (!invalidBackup) throw new Error(`The invalid ${source.name} backup was not created.`);
       check(
@@ -271,9 +288,7 @@ async function main(): Promise<void> {
           ).status === 0,
         summary(invalidResult),
       );
-      const targetHashes = must(
-        `cd ${data} && sha256sum .config/OpenBot/openbot.db OpenBot/Shared/Data/agent-data.db OpenBot/Agents/E2E/notes.md OpenBot/Agents/E2E/attachment.bin .local/share/keyrings/login.keyring .config/openbot-container/keyring-password .e2e-starts .e2e-clean-stop`,
-      );
+      const targetHashes = must(`cd ${data} && sha256sum ${HASHED_FILES}`);
       const targetRunningBefore = running();
       const refused = instance("restore", "main", invalidBackup, "--replace");
       check(
@@ -282,9 +297,7 @@ async function main(): Promise<void> {
         summary(refused),
       );
       const targetRunningAfter = running();
-      const afterHashes = must(
-        `cd ${data} && sha256sum .config/OpenBot/openbot.db OpenBot/Shared/Data/agent-data.db OpenBot/Agents/E2E/notes.md OpenBot/Agents/E2E/attachment.bin .local/share/keyrings/login.keyring .config/openbot-container/keyring-password .e2e-starts .e2e-clean-stop`,
-      );
+      const afterHashes = must(`cd ${data} && sha256sum ${HASHED_FILES}`);
       check(
         `a refused ${source.name} restore keeps target bytes and running state`,
         targetRunningBefore && targetRunningAfter && targetHashes === afterHashes,
@@ -454,7 +467,7 @@ async function main(): Promise<void> {
     check("down waits for the lock of the instance", waited === "124" && running(), `timeout exit ${waited}`);
 
     // Restore: the data changes after the backup, and the restore gives back the backup.
-    must(`echo changed > ${data}/OpenBot/Agents/E2E/after-backup.md && rm ${data}/OpenBot/Agents/E2E/notes.md`);
+    must(`echo changed > '${data}/${AGENT_FOLDER}/after-backup.md' && rm '${data}/${AGENT_FOLDER}/notes.md'`);
     // An agent can leave links with the names of the restore folders. Root must not follow them.
     must(
       `mkdir -p /trap && ln -s /trap ${data}/.openbot-replaced && ln -s /trap ${data}/.openbot-restore && ln -s /trap ${data}/.openbot-replaced.x && chown -h 1000:1000 ${data}/.openbot-*`,
@@ -488,7 +501,7 @@ async function main(): Promise<void> {
     check("restore with --replace", result.status === 0, summary(result));
     check("instance stays stopped after a restore", !running(), `running=${running()}`);
     const restored = must(
-      `cd ${data} && test -f OpenBot/Agents/E2E/notes.md && test ! -e OpenBot/Agents/E2E/after-backup.md && test -z "$(find . -maxdepth 1 -name '.openbot-*')" && sha256sum .config/OpenBot/openbot.db | cut -d ' ' -f 1`,
+      `cd ${data} && test -f '${AGENT_FOLDER}/notes.md' && test ! -e '${AGENT_FOLDER}/after-backup.md' && test -z "$(find . -maxdepth 1 -name '.openbot-*')" && sha256sum '${APP_DATABASE}' | cut -d ' ' -f 1`,
     );
     check("restored data is the backup", restored === dataHash, `openbot.db ${restored.slice(0, 12)}`);
     check(

@@ -40,8 +40,11 @@ LXCFS=/var/lib/lxcfs
 LXCFS_FILES=(proc/cpuinfo proc/stat proc/meminfo proc/swaps)
 LXCFS_DROP_IN=/etc/systemd/system/lxcfs.service.d/openbot.conf
 # The files without which a backup cannot open: the database and the keyring with its password.
-REQUIRED_FILES=(.config/OpenBot/openbot.db .local/share/keyrings/login.keyring .config/openbot-container/keyring-password)
-SHARED_DATABASE=OpenBot/Shared/Data/agent-data.db
+# The user data folder is `.config/<app name>` (`app.setName` in src/main/index.ts), and the folder of
+# the agents is `~/Builders Bot` (src/backend/agent-store.ts). The names have a space, so keep the
+# quotes. `bun run check:linux-image-names` checks these paths.
+REQUIRED_FILES=(".config/Builders Bot/openbot.db" .local/share/keyrings/login.keyring .config/openbot-container/keyring-password)
+SHARED_DATABASE="Builders Bot/Shared/Data/agent-data.db"
 
 fail() {
   echo "$*" >&2

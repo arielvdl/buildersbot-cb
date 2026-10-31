@@ -128,7 +128,7 @@ async function main(): Promise<void> {
         "systemctl is-enabled --quiet openbot-update-apply.service",
         "systemctl is-enabled --quiet openbot-update-request.path",
         "! systemctl is-active --quiet openbot-update.timer",
-        'test ! -e "$HOME/.config/OpenBot"',
+        'test ! -e "$HOME/.config/Builders Bot"',
         'test ! -e "$HOME/.config/openbot-hosted"',
         'test -z "$(ls -A /srv/openbot-hosted)"',
         `rm -rf ${REMOTE_DIRECTORY}`,

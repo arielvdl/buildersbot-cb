@@ -86,7 +86,7 @@ when a server is idle or boat stops a sandbox; and `error` and `deleted`. The Wo
    lowercase, and each group of characters that are not letters or digits becomes one `-`. The name is only a label; a plan change
    renames the sandbox.
 3. **Env handoff.** boat puts the sandbox env in the setup script, not in systemd. The Worker sends
-   `setupScript: exec /opt/Builders Bot/hosted/openbot-hosted-env`. That helper writes the two values to
+   `setupScript: exec /opt/OpenBot/hosted/openbot-hosted-env`. That helper writes the two values to
    `~/.config/openbot-hosted/env` (mode 0600). `openbot.service` waits for this file.
 4. **First boot.** Builders Bot starts with `OPENBOT_HOSTED_SERVER=1`. It redeems the claim at
    `POST /v2/hosting/claims/redeem`, signs in as the owner, keeps the host ID, and publishes the
@@ -493,7 +493,7 @@ named snapshot access. The script:
 1. creates a builder sandbox with `noEnv`;
 2. uploads `scripts/hosting/` and runs `provision.sh` with `sudo`. It installs the packages in
    `packages.txt` (Xvfb, D-Bus, gnome-keyring, the Electron libraries and the remote desktop runtime
-   libraries), checks the AppImage SHA-256, unpacks the AppImage to `/opt/Builders Bot/app`, adds an
+   libraries), checks the AppImage SHA-256, unpacks the AppImage to `/opt/OpenBot/app`, adds an
    AppArmor profile that lets Chromium make user namespaces, and enables `openbot.service` and the
    [update](#updates) units;
 3. checks the installed version, that Builders Bot did not start, and that no profile or claim exists;
@@ -546,7 +546,7 @@ On a server, root runs `openbot-hosted-update`:
    latest GitHub release, the manifest that the Linux desktop updater reads. When that version is newer than the installed one, it downloads the
    AppImage, checks its SHA-512 against the manifest, unpacks it in `/var/tmp`, checks that it has
    all hosting files, installs the packages in the `packages.txt` of that release, and copies it
-   to `/opt/Builders Bot/staged`.
+   to `/opt/OpenBot/staged`.
    `staged.ready` comes after the last file. Builders Bot keeps running. The download and unpack use
    idle CPU and disk priority.
 2. `apply` copies `staged` to `app`, and then installs the scripts, AppArmor profile and units of
