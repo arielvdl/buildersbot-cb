@@ -67,6 +67,49 @@ describe("release checks with no allowed feed", () => {
     expect(urls).toEqual([]);
   });
 
+  it("the Servers panel shows the manual path for each kind of installation", () => {
+    const unsupported = { phase: "unsupported" } as const;
+    const installations = [
+      { platform: "linux", environment: { OPENBOT_HOSTED_SERVER: "1" }, mode: null, status: unsupported },
+      { platform: "linux", environment: {}, mode: "self", status: unsupported },
+      { platform: "linux", environment: {}, mode: "container", status: unsupported },
+      { platform: "darwin", environment: {}, mode: null, status: { phase: "unsupported", managedByHost: true } },
+      { platform: "darwin", environment: {}, mode: null, status: { phase: "idle" } },
+    ] as const;
+
+    const methods = installations.map((installation) => {
+      const release = new HostReleaseService({
+        currentVersion: "0.56.0",
+        packaged: true,
+        platform: installation.platform,
+        arch: "arm64",
+        environment: installation.environment,
+        installationMode: installation.mode,
+        updateStatus: () => installation.status,
+        fetch: recordingFetch().request,
+      });
+      return release.snapshot().method;
+    });
+
+    expect(methods).toEqual(["manual", "manual", "manual", "manual", "manual"]);
+  });
+
+  it("the Servers panel keeps the path of the host when a release feed is allowed", () => {
+    const release = new HostReleaseService({
+      currentVersion: "0.56.0",
+      packaged: true,
+      platform: "linux",
+      arch: "x64",
+      environment: { OPENBOT_HOSTED_SERVER: "1" },
+      installationMode: null,
+      updateStatus: () => ({ phase: "unsupported" }),
+      fetch: recordingFetch().request,
+      releaseFeed: TEST_FEED,
+    });
+
+    expect(release.snapshot().method).toBe("hosted");
+  });
+
   it("the hosted installer finds no update, with no request", async () => {
     const { request, urls } = recordingFetch();
     const adapter = new HostedUpdateAdapter({ currentVersion: "0.56.0", arch: "x64", fetch: request });

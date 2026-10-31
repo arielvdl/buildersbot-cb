@@ -326,6 +326,8 @@ await check("the hosted installer and the Servers panel send no request", async 
   if (requests.length > 0) fail(`Requests were sent: ${requests.join(", ")}`);
   if (hostedResult === "found a release" || linuxResult === "found a release") fail("A release was found.");
   if (panelStatus.phase !== "unavailable") fail(`The Servers panel phase is ${panelStatus.phase}.`);
+  // The texts of the hosted, system and container paths say that the host installs updates.
+  if (panelStatus.method !== "manual") fail(`The Servers panel path is ${panelStatus.method}.`);
   return { decision: decideReleaseFeed(), hostedResult, linuxResult, panelStatus };
 });
 

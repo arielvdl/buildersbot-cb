@@ -94,6 +94,10 @@ export class HostReleaseService {
 
   #method(): HostReleaseStatus["method"] {
     if (!this.#options.packaged) return "unavailable";
+    // With no allowed release feed, nothing on the host can install a release: the hosted service,
+    // `sudo openbot update`, a new container image and the Host Manager all need one. Their texts
+    // say that they install updates, so the panel shows the manual path.
+    if (this.#feedBaseUrl === null) return "manual";
     if (this.#options.updateStatus().managedByHost) return "host-manager";
     if (this.#options.platform === "linux") {
       // A hosted or self-installed server, or a container of openbot-instance, whose host installs
