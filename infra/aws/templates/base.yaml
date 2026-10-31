@@ -27,12 +27,8 @@ Parameters:
   SubnetBCidr:
     Type: String
     Default: 10.60.0.64/26
-  ZoneA:
-    Type: AWS::EC2::AvailabilityZone::Name
-    Default: us-east-1a
-  ZoneB:
-    Type: AWS::EC2::AvailabilityZone::Name
-    Default: us-east-1b
+  # The zones are fixed (us-east-1a and us-east-1b, both offer t4g, m7g and t3a): the sector templates
+  # take the zone of the data volume from the same two names and pick the subnet from it.
   ImageKeepCount:
     Type: Number
     Default: 20
@@ -88,7 +84,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       CidrBlock: !Ref SubnetACidr
-      AvailabilityZone: !Ref ZoneA
+      AvailabilityZone: us-east-1a
       MapPublicIpOnLaunch: true
       Tags: [{Key: Name, Value: bb-srv-public-a}]
 
@@ -97,7 +93,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       CidrBlock: !Ref SubnetBCidr
-      AvailabilityZone: !Ref ZoneB
+      AvailabilityZone: us-east-1b
       MapPublicIpOnLaunch: true
       Tags: [{Key: Name, Value: bb-srv-public-b}]
 
@@ -678,9 +674,19 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Sid: SessionsAndCommandsOnSectorHosts
+              # The document check goes with the instance statement (AWS example for Session Manager):
+              # a session without --document-name then needs SSM-SessionManagerRunShell, which this
+              # role does not have, so it is denied instead of opening the default shell.
+              - Sid: SessionsOnSectorHosts
                 Effect: Allow
-                Action: [ssm:StartSession, ssm:SendCommand]
+                Action: ssm:StartSession
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition:
+                  StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}
+                  BoolIfExists: {'ssm:SessionDocumentAccessCheck': 'true'}
+              - Sid: CommandsOnSectorHosts
+                Effect: Allow
+                Action: ssm:SendCommand
                 Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
                 Condition: {StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}}
               - Sid: OnlyBbSrvDocuments
@@ -796,10 +802,10 @@ Outputs:
     Value: !Ref SubnetB
     Export: {Name: bb-srv-base-SubnetBId}
   ZoneA:
-    Value: !Ref ZoneA
+    Value: us-east-1a
     Export: {Name: bb-srv-base-ZoneA}
   ZoneB:
-    Value: !Ref ZoneB
+    Value: us-east-1b
     Export: {Name: bb-srv-base-ZoneB}
   SectorSecurityGroupId:
     Value: !Ref SectorSecurityGroup

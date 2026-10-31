@@ -46,7 +46,8 @@ if [ "$(stack_status bb-srv-signal)" != NONE ]; then
 fi
 
 sectors=$(aws_cb cloudformation list-stacks \
-  --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE CREATE_IN_PROGRESS UPDATE_IN_PROGRESS ROLLBACK_COMPLETE DELETE_FAILED \
+  --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE CREATE_IN_PROGRESS UPDATE_IN_PROGRESS \
+  ROLLBACK_IN_PROGRESS ROLLBACK_COMPLETE ROLLBACK_FAILED UPDATE_ROLLBACK_FAILED DELETE_FAILED \
   --query "StackSummaries[?starts_with(StackName,'bb-srv-') && ends_with(StackName,'-compute')].StackName" --output text |
   tr '\t' '\n' | sed -e 's/^bb-srv-//' -e 's/-compute$//' | sort)
 [ -z "$only" ] || sectors=$only
@@ -61,17 +62,39 @@ for sector in $sectors; do
     say "   $sector: sem stack $stack"
     continue
   fi
-  instance=$(stack_output "$stack" InstanceId)
+  instance=$(stack_output "$stack" InstanceId 2>/dev/null || echo None)
+  case $status in
+    *_FAILED | ROLLBACK_COMPLETE)
+      # Uma stack em falha não tem saídas: mostra o caminho de recuperação, com os comandos.
+      say "   $sector [$status]"
+      printf '%s\n' "$(stack_recovery_help "$stack" "$status")" | sed 's/^/      /'
+      continue
+      ;;
+    *_IN_PROGRESS)
+      say "   $sector [$status]: operação em andamento"
+      continue
+      ;;
+  esac
+  if [ -z "$instance" ] || [ "$instance" = None ]; then
+    say "   $sector [$status]: sem VM na stack"
+    continue
+  fi
   read -r state type zone ip <<<"$(aws_cb ec2 describe-instances --instance-ids "$instance" \
     --query 'Reservations[0].Instances[0].[State.Name,InstanceType,Placement.AvailabilityZone,PublicIpAddress]' --output text)"
   ping=$(aws_cb ssm describe-instance-information --filters "Key=InstanceIds,Values=$instance" \
     --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || echo None)
-  image=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" --query Parameter.Value --output text 2>/dev/null || echo "(não instalada)")
-  tag=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image-tag" --query Parameter.Value --output text 2>/dev/null || echo "-")
+  image=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" --query Parameter.Value --output text 2>/dev/null || echo "")
+  if [ -n "$image" ]; then
+    case $type in t3a.* | t3.* | m7i.* | c7i.*) arch=amd64 ;; *) arch=arm64 ;; esac
+    image="$(image_tag_of "${image##*@}" "$arch") ($image)"
+  else
+    image="(não instalada: scripts/add-sector.sh $sector --resume)"
+  fi
+  protection=$(stack_parameter "$stack" TerminationProtection 2>/dev/null || echo None)
   last=$(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=tag:Sector,Values=$sector" \
     --query 'sort_by(Snapshots,&StartTime)[-1].StartTime' --output text 2>/dev/null || echo None)
   if [ "$last" != None ] && [ -n "$last" ]; then
-    epoch=$(date -u -j -f '%Y-%m-%dT%H:%M:%S' "${last%%.*}" +%s 2>/dev/null || date -u -d "$last" +%s)
+    epoch=$(date -u -j -f '%Y-%m-%dT%H:%M:%S' "${last:0:19}" +%s 2>/dev/null || date -u -d "$last" +%s)
     age="$(((now - epoch) / 3600)) h"
     [ $(((now - epoch) / 3600)) -le 26 ] || age="$age (ATRASADO: mais de 26 h)"
   else
@@ -79,8 +102,8 @@ for sector in $sectors; do
   fi
   alarms=$(aws_cb cloudwatch describe-alarms --alarm-name-prefix "bb-srv-$sector-" --state-value ALARM --query 'MetricAlarms[].AlarmName' --output text)
   say "   $sector [$status]"
-  say "      VM $instance $state $type $zone IP ${ip:-sem IP} | SSM $ping"
-  say "      imagem: $image (tag desejada: $tag)"
+  say "      VM $instance $state $type $zone IP ${ip:-sem IP} | SSM $ping | proteção contra término: $protection"
+  say "      imagem em uso: $image"
   say "      último snapshot: $age | alarmes em ALARM: ${alarms:-nenhum}"
   if [ "$deep" = 1 ]; then
     [ "$ping" = Online ] || die "a instância não está Online no SSM."

@@ -93,24 +93,60 @@ stack_failures() {
     --output table >&2 || true
 }
 
+# O que fazer com uma stack num estado de falha, com os comandos exatos (impresso pelo die).
+stack_recovery_help() { # <stack> <status>
+  local stack=$1 status=$2 instances id cli="aws --profile $BB_PROFILE --region $BB_REGION"
+  case $status in
+    ROLLBACK_COMPLETE)
+      printf 'a stack %s está em ROLLBACK_COMPLETE (a criação falhou e foi desfeita; os eventos estão acima). Apague-a e rode de novo:\n  %s cloudformation delete-stack --stack-name %s\n  %s cloudformation wait stack-delete-complete --stack-name %s' \
+        "$stack" "$cli" "$stack" "$cli" "$stack"
+      ;;
+    ROLLBACK_FAILED | DELETE_FAILED)
+      # O caso típico: uma VM com proteção contra término que a CloudFormation não consegue apagar.
+      instances=$(aws_cb cloudformation describe-stack-resources --stack-name "$stack" \
+        --query "StackResources[?ResourceType=='AWS::EC2::Instance' && PhysicalResourceId!=null].PhysicalResourceId" \
+        --output text 2>/dev/null || true)
+      printf 'a stack %s está em %s: a CloudFormation não conseguiu apagar um recurso (eventos acima). Passos:\n' "$stack" "$status"
+      for id in $instances; do
+        case $id in i-*) printf '  %s ec2 modify-instance-attribute --instance-id %s --no-disable-api-termination\n' "$cli" "$id" ;; esac
+      done
+      printf '  %s cloudformation delete-stack --stack-name %s\n  %s cloudformation wait stack-delete-complete --stack-name %s\n' \
+        "$cli" "$stack" "$cli" "$stack"
+      printf 'Se o delete falhar de novo num recurso que deve ficar, repita com --retain-resources <LogicalResourceId> e resolva esse recurso à mão.'
+      case $stack in bb-srv-*-compute) printf '\nDepois: scripts/add-sector.sh %s (reaproveita o volume de dados da stack -data).' "$(sed -e 's/^bb-srv-//' -e 's/-compute$//' <<<"$stack")" ;; esac
+      ;;
+    UPDATE_ROLLBACK_FAILED)
+      printf 'a stack %s está em UPDATE_ROLLBACK_FAILED: o rollback de uma atualização parou (eventos acima). Corrija a causa e continue:\n  %s cloudformation continue-update-rollback --stack-name %s\n  %s cloudformation wait stack-rollback-complete --stack-name %s\n(um recurso que não volta pode ir em --resources-to-skip <LogicalResourceId>, e fica fora de sincronia)' \
+        "$stack" "$cli" "$stack" "$cli" "$stack"
+      ;;
+    *)
+      printf 'a stack %s está em %s. Leia os eventos (%s cloudformation describe-stack-events --stack-name %s) antes de qualquer ação.' \
+        "$stack" "$status" "$cli" "$stack"
+      ;;
+  esac
+}
+
 # Cria um change set, mostra, recusa substituição ou remoção de instância, volume ou anexo numa
-# atualização (DESIGN R2-1), pede confirmação e executa. Parâmetros: ParameterKey=K,ParameterValue=V.
-deploy_stack() { # <stack> <template> <setor-para-tags> [parâmetros...]
-  local stack=$1 template=$2 sector=$3 status type name reason risky
+# atualização (DESIGN R2-1), pede confirmação e executa. Parâmetros: ParameterKey=K,ParameterValue=V
+# ou ParameterKey=K,UsePreviousValue=true. Template @previous = o template já implantado (só troca
+# parâmetros; o arquivo local não entra).
+deploy_stack() { # <stack> <template|@previous> <setor-para-tags> [parâmetros...]
+  local stack=$1 template=$2 sector=$3 status type name reason risky after
   shift 3
   status=$(stack_status "$stack")
   case $status in
     NONE | REVIEW_IN_PROGRESS) type=CREATE ;;
-    ROLLBACK_COMPLETE) die "a stack $stack está em ROLLBACK_COMPLETE. Leia os eventos e apague-a antes de tentar de novo." ;;
     *_IN_PROGRESS) die "a stack $stack está em $status. Espere terminar." ;;
+    ROLLBACK_COMPLETE | *_FAILED) stack_failures "$stack"; die "$(stack_recovery_help "$stack" "$status")" ;;
     *) type=UPDATE ;;
   esac
+  [ "$template" != @previous ] || [ "$type" = UPDATE ] || die "a stack $stack não existe: não há template anterior."
   name="bb-srv-$(date -u +%Y%m%d%H%M%S)"
   say "== $stack: change set $name ($type)"
-  local -a args=(--stack-name "$stack" --change-set-name "$name" --change-set-type "$type"
-    --template-body "file://$template" --capabilities CAPABILITY_NAMED_IAM
+  local -a args=(--stack-name "$stack" --change-set-name "$name" --change-set-type "$type" --capabilities CAPABILITY_NAMED_IAM
     --tags "Key=Project,Value=$BB_PROJECT" "Key=Owner,Value=$BB_OWNER" "Key=ManagedBy,Value=cloudformation"
     "Key=Sector,Value=$sector" "Key=CostCenter,Value=$sector")
+  if [ "$template" = @previous ]; then args+=(--use-previous-template); else args+=(--template-body "file://$template"); fi
   if [ "$#" -gt 0 ]; then args+=(--parameters "$@"); fi
   aws_cb cloudformation create-change-set "${args[@]}" >/dev/null
   if ! aws_cb cloudformation wait change-set-create-complete --stack-name "$stack" --change-set-name "$name" 2>/dev/null; then
@@ -137,11 +173,44 @@ deploy_stack() { # <stack> <template> <setor-para-tags> [parâmetros...]
   confirm "Executar o change set $name em $stack? Digite 'sim':" sim
   aws_cb cloudformation execute-change-set --stack-name "$stack" --change-set-name "$name"
   if [ "$type" = CREATE ]; then
-    aws_cb cloudformation wait stack-create-complete --stack-name "$stack" || { stack_failures "$stack"; die "a criação de $stack falhou."; }
+    if ! aws_cb cloudformation wait stack-create-complete --stack-name "$stack"; then
+      stack_failures "$stack"
+      after=$(stack_status "$stack")
+      die "a criação de $stack falhou. $(stack_recovery_help "$stack" "$after")"
+    fi
   else
-    aws_cb cloudformation wait stack-update-complete --stack-name "$stack" || { stack_failures "$stack"; die "a atualização de $stack falhou."; }
+    if ! aws_cb cloudformation wait stack-update-complete --stack-name "$stack"; then
+      stack_failures "$stack"
+      after=$(stack_status "$stack")
+      case $after in
+        UPDATE_ROLLBACK_COMPLETE) die "a atualização de $stack falhou e foi desfeita (UPDATE_ROLLBACK_COMPLETE): nada mudou. Leia os eventos acima." ;;
+        *) die "a atualização de $stack falhou. $(stack_recovery_help "$stack" "$after")" ;;
+      esac
+    fi
   fi
   say "   $stack: $(stack_status "$stack")"
+}
+
+# Tag <versão>-<sha7>-<arch> de um digest de bb-srv/server no ECR, ou none.
+image_tag_of() { # <sha256:...> <arm64|amd64>
+  local tag
+  for tag in $(aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageDigest=$1" \
+    --query 'imageDetails[0].imageTags' --output text 2>/dev/null || true); do
+    case $tag in *-"$2") printf '%s\n' "$tag"; return 0 ;; esac
+  done
+  echo none
+}
+
+# Liga a proteção contra término da VM de um setor e grava a tag da imagem em uso, sem mexer em mais
+# nada: change set sobre o template já implantado, com os outros parâmetros como estão.
+protect_sector() { # <setor> <tag da imagem em uso ou none>
+  local stack="bb-srv-$1-compute" key
+  local -a stack_params=()
+  for key in $(aws_cb cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].Parameters[].ParameterKey' --output text); do
+    case $key in TerminationProtection | ImageTag) ;; *) stack_params+=("ParameterKey=$key,UsePreviousValue=true") ;; esac
+  done
+  stack_params+=("ParameterKey=TerminationProtection,ParameterValue=true" "ParameterKey=ImageTag,ParameterValue=$2")
+  deploy_stack "$stack" @previous "$1" "${stack_params[@]}"
 }
 
 # Roda um documento SSM numa instância e espera o fim. Mostra a saída (as últimas 60 linhas) e a

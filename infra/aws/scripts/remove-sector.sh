@@ -38,7 +38,14 @@ compute_stack="bb-srv-$sector-compute"
 data_stack="bb-srv-$sector-data"
 volume=$(sector_volume "$sector")
 instance=''
-if [ "$(stack_status "$compute_stack")" != NONE ]; then instance=$(sector_instance "$sector"); fi
+compute_status=$(stack_status "$compute_stack")
+case $compute_status in
+  NONE) ;;
+  ROLLBACK_COMPLETE) say "   $compute_stack está em ROLLBACK_COMPLETE (a criação falhou; não há VM): ela também sai." ;;
+  *_IN_PROGRESS) die "a stack $compute_stack está em $compute_status. Espere terminar." ;;
+  *_FAILED) stack_failures "$compute_stack"; die "$(stack_recovery_help "$compute_stack" "$compute_status")" ;;
+  *) instance=$(sector_instance "$sector") ;;
+esac
 
 say "== remover o setor $sector: instância ${instance:-nenhuma}, volume $volume"
 say "   O snapshot fica $keep_days dias (tag ExpiresAt). Os alarmes, logs e o budget do setor saem com a stack."
@@ -92,15 +99,21 @@ aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/final-snapshot" --type 
   --value "$snapshot" --description "Snapshot final do setor $sector (removido em $(date -u +%F))" >/dev/null
 say "   snapshot $snapshot completo e gravado em /bb-srv/sectors/$sector/final-snapshot."
 
-if [ -n "$instance" ]; then
-  aws_cb ec2 modify-instance-attribute --instance-id "$instance" --no-disable-api-termination
+if [ "$compute_status" != NONE ]; then
+  [ -z "$instance" ] || aws_cb ec2 modify-instance-attribute --instance-id "$instance" --no-disable-api-termination
   say "== apagando $compute_stack"
   aws_cb cloudformation delete-stack --stack-name "$compute_stack"
-  aws_cb cloudformation wait stack-delete-complete --stack-name "$compute_stack" || { stack_failures "$compute_stack"; die "a remoção de $compute_stack falhou. O snapshot $snapshot está seguro."; }
+  if ! aws_cb cloudformation wait stack-delete-complete --stack-name "$compute_stack"; then
+    stack_failures "$compute_stack"
+    die "a remoção de $compute_stack falhou. O snapshot $snapshot está seguro. $(stack_recovery_help "$compute_stack" "$(stack_status "$compute_stack")")"
+  fi
 fi
 say "== apagando $data_stack (a DeletionPolicy ainda faz um snapshot final)"
 aws_cb cloudformation delete-stack --stack-name "$data_stack"
-aws_cb cloudformation wait stack-delete-complete --stack-name "$data_stack" || { stack_failures "$data_stack"; die "a remoção de $data_stack falhou. O snapshot $snapshot está seguro."; }
+if ! aws_cb cloudformation wait stack-delete-complete --stack-name "$data_stack"; then
+  stack_failures "$data_stack"
+  die "a remoção de $data_stack falhou. O snapshot $snapshot está seguro. $(stack_recovery_help "$data_stack" "$(stack_status "$data_stack")")"
+fi
 
 # Marca o snapshot da DeletionPolicy com o setor e o prazo, para a regra de restauração e a limpeza.
 for extra in $(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=volume-id,Values=$volume" \

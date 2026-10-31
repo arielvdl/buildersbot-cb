@@ -19,7 +19,9 @@ email=$2
 name=$3
 valid_sector "$sector"
 valid_email "$email"
-[[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ ]{5,31}$ ]] || die "nome do servidor inválido: 6 a 32 letras, dígitos e espaços (ex.: \"CB Financeiro\")."
+# O mesmo padrão do documento bb-srv-<setor>-Login: 3 a 32 letras, dígitos, espaços e "-", começando por
+# letra ou dígito, sem aspas (o valor fica entre aspas simples no comando do documento).
+[[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ -]{2,31}$ ]] || die "nome do servidor inválido: 3 a 32 letras, dígitos, espaços e -, começando por letra ou dígito (ex.: \"CB Financeiro\", \"CB rh-juridico\")."
 case $email in
   bb-*@*) ;;
   *) warn "o e-mail não segue o padrão bb-<setor>@... das contas donas. Confirme que NÃO é uma conta pessoal."

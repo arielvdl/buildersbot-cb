@@ -195,5 +195,65 @@ expect_calls "B13 fechar as portas não resolve AMI nem cota, e mantém a AMI" \
   'WRITE cloudformation create-change-set .*ParameterKey=AmiId,UsePreviousValue=true.*IngressApproved,ParameterValue=false' \
   'ssm get-parameters|service-quotas|s3api head-object|route53' h_signal signal_env bash scripts/deploy-signal.sh
 
+# ---------------------------------------------------------------- C: stacks em falha (achado 14)
+h_failed() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "cloudformation describe-stack-events") echo "Instance DELETE_FAILED OperationNotPermitted" ;;
+    "cloudformation describe-stack-resources") echo i-0123456789abcdef0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_failed
+expect_refusal "C14 ROLLBACK_FAILED mostra como tirar a proteção e apagar" \
+  "modify-instance-attribute --instance-id i-0123456789abcdef0 --no-disable-api-termination" h_failed \
+  env FAKE_STACKS="bb-srv-piloto-compute=ROLLBACK_FAILED" bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-compute "$0/templates/sector-compute.yaml" piloto' "$ROOT"
+expect_refusal "C14 UPDATE_ROLLBACK_FAILED mostra o continue-update-rollback" "continue-update-rollback --stack-name bb-srv-piloto-compute" h_failed \
+  env FAKE_STACKS="bb-srv-piloto-compute=UPDATE_ROLLBACK_FAILED" bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-compute "$0/templates/sector-compute.yaml" piloto' "$ROOT"
+expect_refusal "C14 @previous recusa stack que não existe" "não há template anterior" h_failed \
+  bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-compute @previous piloto' "$ROOT"
+
+expect_calls "C14 proteção liga só TerminationProtection e ImageTag, sobre o template já implantado" \
+  'WRITE cloudformation create-change-set .*--use-previous-template.*Sector,UsePreviousValue=true.*AmiId,UsePreviousValue=true.*TerminationProtection,ParameterValue=true ParameterKey=ImageTag,ParameterValue=0.41.0-abc1234-arm64' \
+  'template-body|AmiId,ParameterValue' h_failed \
+  env FAKE_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE" FAKE_PARAM_KEYS="Sector Size AmiId TerminationProtection ImageTag" \
+  bash -c 'source "$0/scripts/lib.sh"; protect_sector piloto "$1"' "$ROOT" "$TAG"
+
+# ---------------------------------------------------------------- C: retomar o add-sector (achado 15)
+h_sector() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "ssm get-parameter") [ -n "${FAKE_IMAGE:-}" ] && echo "$FAKE_IMAGE" ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_sector
+sector_env() {
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE bb-srv-ops=CREATE_COMPLETE bb-srv-signal=CREATE_COMPLETE ${EXTRA_STACKS:-}" \
+    FAKE_PARAM_Size=large FAKE_OUTPUT_InstanceId=i-0123456789abcdef0 "$@"
+}
+export EXTRA_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE bb-srv-piloto-data=CREATE_COMPLETE"
+expect_refusal "C15 setor existente sem --resume indica o --resume" "scripts/add-sector.sh piloto --resume" h_sector \
+  sector_env bash scripts/add-sector.sh piloto
+expect_refusal "C15 --resume num setor instalado e protegido não faz nada" "nada a retomar" h_sector \
+  sector_env FAKE_IMAGE="x@$DIGEST_A" FAKE_PARAM_TerminationProtection=true bash scripts/add-sector.sh piloto --resume
+expect_refusal "C15 --resume não troca o tamanho" "não troca o tamanho" h_sector \
+  sector_env bash scripts/add-sector.sh piloto medium --resume
+expect_refusal "C15 --resume não combina com --from-snapshot" "não combina" h_sector \
+  sector_env bash scripts/add-sector.sh piloto --resume --from-snapshot snap-0123456789abcdef0
+EXTRA_STACKS='' expect_refusal "C15 --resume sem a stack -compute pede o fluxo normal" "rode sem --resume" h_sector \
+  sector_env bash scripts/add-sector.sh piloto --resume
+
+# ---------------------------------------------------------------- C: nome do servidor no login (achado 23)
+expect_refusal "C23 login recusa nome com aspas" "nome do servidor inválido" h_sector \
+  sector_env bash scripts/login-sector.sh piloto bb-piloto@example.com "CB x'y"
+expect_refusal "C23 login recusa nome começando com hífen" "nome do servidor inválido" h_sector \
+  sector_env bash scripts/login-sector.sh piloto bb-piloto@example.com "-CB piloto"
+EXTRA_STACKS="bb-srv-rh-compute=CREATE_COMPLETE" expect_calls "C23 login aceita 'CB rh' (chega na sessão, que o aws falso recusa)" \
+  'WRITE ssm start-session .*bb-srv-rh-Login' 'NADA' h_sector sector_env bash scripts/login-sector.sh rh bb-rh@example.com "CB rh"
+EXTRA_STACKS="bb-srv-rh-juridico-compute=CREATE_COMPLETE" expect_calls "C23 login aceita 'CB rh-juridico'" \
+  'WRITE ssm start-session .*bb-srv-rh-juridico-Login' 'NADA' h_sector \
+  sector_env bash scripts/login-sector.sh rh-juridico bb-rh-juridico@example.com "CB rh-juridico"
+
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]
