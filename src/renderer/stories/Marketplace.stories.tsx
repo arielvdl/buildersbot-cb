@@ -23,7 +23,9 @@ import { currentText } from "@openbot/ui/text";
 import { createSignal, createStore, onSettled, Show, untrack } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { marketplaceAppCuration, receiveAppProfile } from "../src/features/settings/marketplace-app-curation";
 import { MARKETPLACE_PLUGINS } from "../src/features/settings/marketplace-plugin-catalog";
+import { localizedPlugin } from "../src/features/settings/marketplace-plugin-text";
 import {
   STORY_AGENT_SUMMARIES,
   STORY_MARKETPLACE_AGENT_DETAILS,
@@ -244,6 +246,10 @@ interface StoryProps {
   noSkills?: boolean;
   /** The agents dialog of this skill is open over the window. */
   dialogSkill?: string;
+  /** The apps of the real catalog, in the language of the story, with no plugin held unless `held` names one. */
+  realCatalog?: boolean;
+  /** The Apps list is curated as in the app: "Show all apps" and the organization profile of this page. */
+  curated?: boolean;
 }
 
 /** The Apple apps listing, which only a Mac asks macOS about. */
@@ -262,13 +268,21 @@ function MarketplaceStory(props: StoryProps) {
     member,
     empty,
     start,
-    held = FIRST_HELD,
+    held: heldProp,
     connected,
     macOS,
     manyAgents,
     noSkills,
     dialogSkill,
+    realCatalog,
+    curated,
   } = untrack(() => ({ ...props }));
+  const held = heldProp ?? (realCatalog ? {} : FIRST_HELD);
+  const plugins = untrack(() =>
+    realCatalog
+      ? MARKETPLACE_PLUGINS.map((plugin) => localizedPlugin(plugin, currentText().t))
+      : [...STORY_MARKETPLACE_PLUGINS, ...(macOS ? APPLE_APPS : [])],
+  );
   const details = connected ? CONNECTED_CONNECTOR_DETAILS : STORY_CONNECTOR_DETAILS;
   const agents = empty ? [] : STORY_MARKETPLACE_AGENTS;
   const skills = empty ? [] : CATALOG;
@@ -300,7 +314,7 @@ function MarketplaceStory(props: StoryProps) {
     installed: noSkills ? {} : startSkills(userAgents),
     apps: [
       ...connectorApps,
-      ...[...STORY_MARKETPLACE_PLUGINS, ...(macOS ? APPLE_APPS : [])].map((plugin): MarketplaceApp => {
+      ...plugins.map((plugin): MarketplaceApp => {
         const state = held[plugin.slug];
         return {
           kind: "plugin",
@@ -450,6 +464,7 @@ function MarketplaceStory(props: StoryProps) {
     trySkill: fn(),
 
     apps: () => state.apps,
+    curation: curated ? marketplaceAppCuration : undefined,
     canConnectApps: () => !member,
     appBusy: (id) => Boolean(state.busy[id]),
     connectApp: async (app) => {
@@ -674,3 +689,80 @@ export const TelegramConnected = connector("telegram");
 export const OnePasswordConnected = connector("onepassword");
 
 export const BitwardenConnected = connector("bitwarden");
+
+/** The organization profile of the curated stories: a design agency. */
+const STORY_APP_PROFILE = {
+  version: 1,
+  tag: "Agência de design",
+  apps: { show: ["slack", "notion", "whatsapp", "trello"], hide: ["paper"] },
+  categories: ["design"],
+  updatedAt: "2026-10-31T12:00:00.000Z",
+};
+
+const STORY_ACCOUNT = "story-account";
+
+/** The Apps list as the app shows it: the real catalog, curated. */
+const curatedApps = (props: Omit<StoryProps, "start"> = {}) => ({ realCatalog: true, curated: true, ...props });
+
+/**
+ * The default list, with no organization profile. "Show all apps" keeps the choice of this browser,
+ * so a reload shows the choice again.
+ */
+export const AppsCurated: Story = {
+  args: curatedApps(),
+  beforeEach: () => receiveAppProfile({ kind: "signed-out" }),
+};
+
+export const AppsCuratedNarrow: Story = {
+  ...AppsCurated,
+  parameters: { viewport: { defaultViewport: "marketplaceNarrow" } },
+};
+
+/** "Show all apps" is on: every app of the catalog. */
+export const AppsShowAll: Story = {
+  args: curatedApps(),
+  beforeEach: () => {
+    receiveAppProfile({ kind: "signed-out" });
+    marketplaceAppCuration.setShowAll(true);
+  },
+};
+
+/** The Hub gave a profile: its apps and categories replace the default list, and its tag shows. */
+export const AppsOrganizationProfile: Story = {
+  args: curatedApps(),
+  beforeEach: () => {
+    receiveAppProfile({ kind: "answer", account: STORY_ACCOUNT, value: STORY_APP_PROFILE });
+    marketplaceAppCuration.setShowAll(false);
+  },
+};
+
+/** The Hub gave a profile with markup in its tag: the client refuses it and shows the default list. */
+export const AppsMalformedProfile: Story = {
+  args: curatedApps(),
+  beforeEach: () => {
+    receiveAppProfile({
+      kind: "answer",
+      account: STORY_ACCOUNT,
+      value: { ...STORY_APP_PROFILE, tag: "<b>Design</b>" },
+    });
+    marketplaceAppCuration.setShowAll(false);
+  },
+};
+
+/** Stripe is not in the default list, but it is installed, so the list shows it. */
+export const AppsInstalledHidden: Story = {
+  args: curatedApps({ held: { stripe: "connected" } }),
+  beforeEach: () => {
+    receiveAppProfile({ kind: "signed-out" });
+    marketplaceAppCuration.setShowAll(false);
+  },
+};
+
+/** A link to an app that the list does not show still opens its page. */
+export const AppsHiddenLink: Story = {
+  ...at(plugin("stripe"), curatedApps()),
+  beforeEach: () => {
+    receiveAppProfile({ kind: "signed-out" });
+    marketplaceAppCuration.setShowAll(false);
+  },
+};
