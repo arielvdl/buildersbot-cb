@@ -95,7 +95,8 @@ export const messages = defineMessages("plugin", {
   "plugin.whatsapp.unlinkTitle": "Unlink {name}?",
   "plugin.whatsapp.unlinkDescription":
     "WhatsApp removes this computer from the linked devices of the number. The history stays here, and you can link the same number again.",
-  "plugin.whatsapp.notice.restartNeeded": "Saved. It applies when the WhatsApp tools start again, in a new chat.",
+  "plugin.whatsapp.notice.restartNeeded":
+    "Saved. It applies when the WhatsApp server starts again, for example after Builders Bot restarts.",
   "plugin.whatsapp.notice.keptRunning":
     "Saved. The running WhatsApp server keeps this account on until it stops, because it has no other account on.",
   "plugin.whatsapp.error.unsupportedPlatform":

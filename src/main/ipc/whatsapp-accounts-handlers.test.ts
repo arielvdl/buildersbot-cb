@@ -4,6 +4,7 @@ import type {
   WhatsAppAccountActionInput,
   WhatsAppAccountAddInput,
   WhatsAppAccountsResult,
+  WhatsAppAccountsSnapshot,
   WhatsAppLinkInput,
 } from "@openbot/contracts/ipc";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,11 +24,8 @@ vi.mock("electron", () => ({
 }));
 
 const TRUSTED = "openbot-app://app/index.html";
-const OK: WhatsAppAccountsResult = {
-  ok: true,
-  snapshot: { status: "ready", accounts: [], serverRunning: false },
-  notice: null,
-};
+const SNAPSHOT: WhatsAppAccountsSnapshot = { status: "ready", accounts: [], serverRunning: false };
+const OK: WhatsAppAccountsResult = { ok: true, snapshot: SNAPSHOT, notice: null };
 
 function register() {
   const added: WhatsAppAccountAddInput[] = [];
@@ -35,7 +33,7 @@ function register() {
   const links: WhatsAppLinkInput[] = [];
   const { whatsappAccounts } = whatsAppAccountsIpcHandlers({
     accounts: {
-      list: async () => OK.snapshot,
+      list: async () => SNAPSHOT,
       add: async (input) => {
         added.push(input);
         return OK;

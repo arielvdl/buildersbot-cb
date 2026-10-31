@@ -130,6 +130,20 @@ function failure(
   return { ok: false, error, snapshot };
 }
 
+/** Whether `get_status` of the account shows the number; null when the server did not answer. */
+async function linkedThroughClient(client: Client, id: string, phoneDigits: string): Promise<boolean | null> {
+  try {
+    const result = await client.callTool({ name: "get_status", arguments: { account_id: id } }, undefined, {
+      timeout: LINK_POLL_MS * 5,
+    });
+    const structured = isDynamicRecord(result.structuredContent) ? result.structuredContent : null;
+    const account = structured && isDynamicRecord(structured.account) ? structured.account : null;
+    return account?.number === phoneDigits;
+  } catch {
+    return null;
+  }
+}
+
 /** The code and expiry that `link_account` returns, from its structured content. */
 function pairingFromTool(result: unknown, now: number): WhatsAppLinkState {
   if (!isDynamicRecord(result)) return { phase: "failed", error: "failed" };
@@ -337,22 +351,27 @@ export function createWhatsAppAccounts(options: WhatsAppAccountsOptions): WhatsA
     session.state = state;
   }
 
+  /** Whether `status --json` shows the account linked to the number; null when it cannot be read. */
+  async function linkedInStatus(id: string, phoneDigits: string): Promise<boolean | null> {
+    const status = await readStatus();
+    if (typeof status === "string") return null;
+    return status.accounts.find((account) => account.id === id)?.number === phoneDigits;
+  }
+
   /**
-   * Reads `status --json` until the account has a number, or the code expired. The pairing itself
-   * runs in the server that holds the data folder.
+   * Asks until the account has the number, or the code expired. The pairing itself runs in the
+   * server that holds the data folder. `probe` asks that server over the open client, which starts no
+   * process; when it cannot answer, `status --json` does.
    */
-  function watchLink(id: string, session: LinkSession, phoneDigits: string | null) {
+  function watchLink(id: string, session: LinkSession, phoneDigits: string, probe: () => Promise<boolean | null>) {
     const tick = async () => {
       if (session.ended || sessions.get(id) !== session) return;
-      const status = await readStatus();
+      const linked = (await probe()) ?? (await linkedInStatus(id, phoneDigits));
       if (session.ended || sessions.get(id) !== session) return;
-      if (typeof status !== "string") {
-        const row = status.accounts.find((account) => account.id === id);
-        if (row?.number && (phoneDigits === null || row.number === phoneDigits)) {
-          finish(session, { phase: "linked" });
-          await session.stop();
-          return;
-        }
+      if (linked) {
+        finish(session, { phase: "linked" });
+        await session.stop();
+        return;
       }
       const expiresAt = session.state.phase === "code" ? session.state.expiresAt : now() + PAIRING_MS;
       if (now() > expiresAt + EXPIRY_GRACE_MS) {
@@ -395,7 +414,8 @@ export function createWhatsAppAccounts(options: WhatsAppAccountsOptions): WhatsA
       session.state = state;
       // The client stays open until the link ends: if this process became the server that holds
       // the folder, closing it would stop the pairing.
-      watchLink(id, session, phone.slice(1));
+      const digits = phone.slice(1);
+      watchLink(id, session, digits, () => linkedThroughClient(client, id, digits));
     } catch {
       logger.warn("WhatsApp pairing through the running server failed.");
       finish(session, { phase: "failed", error: "failed" });

@@ -92,7 +92,7 @@ export const messages = {
   "plugin.whatsapp.unlinkDescription":
     "O WhatsApp tira este computador dos aparelhos conectados do número. O histórico fica aqui, e você pode vincular o mesmo número de novo.",
   "plugin.whatsapp.notice.restartNeeded":
-    "Salvo. Vale quando as ferramentas do WhatsApp iniciarem de novo, em uma nova conversa.",
+    "Salvo. Vale quando o servidor do WhatsApp iniciar de novo, por exemplo depois de reiniciar o Builders Bot.",
   "plugin.whatsapp.notice.keptRunning":
     "Salvo. O servidor do WhatsApp em execução mantém esta conta ligada até parar, porque não tem outra conta ligada.",
   "plugin.whatsapp.error.unsupportedPlatform":

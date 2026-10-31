@@ -19,7 +19,10 @@ const LINK_POLL_MS = 2_000;
 
 interface WhatsAppAccountsState {
   snapshot: WhatsAppAccountsSnapshot | null;
-  busy: boolean;
+  /** A read of the list runs. */
+  loading: boolean;
+  /** A change runs. Changes run one at a time. */
+  changing: boolean;
   error: WhatsAppAccountsError | null;
   notice: WhatsAppAccountNotice | null;
   link: { id: string; state: WhatsAppLinkState } | null;
@@ -37,7 +40,8 @@ function waiting(state: WhatsAppLinkState): boolean {
 export function createWhatsAppAccountsModel(calls: () => WhatsAppAccountsCalls | undefined): WhatsAppAccountsModel {
   const [state, setState] = createStore<WhatsAppAccountsState>({
     snapshot: null,
-    busy: false,
+    loading: false,
+    changing: false,
     error: null,
     notice: null,
     link: null,
@@ -55,7 +59,7 @@ export function createWhatsAppAccountsModel(calls: () => WhatsAppAccountsCalls |
     const api = calls();
     if (!api) return;
     setState((draft) => {
-      draft.busy = true;
+      draft.loading = true;
     });
     let snapshot: WhatsAppAccountsSnapshot;
     try {
@@ -65,15 +69,15 @@ export function createWhatsAppAccountsModel(calls: () => WhatsAppAccountsCalls |
     }
     setState((draft) => {
       draft.snapshot = snapshot;
-      draft.busy = false;
+      draft.loading = false;
     });
   }
 
   async function change(run: (api: WhatsAppAccountsCalls) => Promise<WhatsAppAccountsResult>): Promise<boolean> {
     const api = calls();
-    if (!api || state.busy) return false;
+    if (!api || state.changing) return false;
     setState((draft) => {
-      draft.busy = true;
+      draft.changing = true;
       draft.error = null;
       draft.notice = null;
     });
@@ -84,7 +88,7 @@ export function createWhatsAppAccountsModel(calls: () => WhatsAppAccountsCalls |
       result = { ok: false, error: "failed", snapshot: null };
     }
     setState((draft) => {
-      draft.busy = false;
+      draft.changing = false;
       if (result.snapshot) draft.snapshot = result.snapshot;
       if (result.ok) draft.notice = result.notice;
       else draft.error = result.error;
@@ -161,7 +165,7 @@ export function createWhatsAppAccountsModel(calls: () => WhatsAppAccountsCalls |
 
   return {
     snapshot: () => state.snapshot,
-    busy: () => state.busy,
+    busy: () => state.loading || state.changing,
     error: () => state.error,
     notice: () => state.notice,
     clearMessages: () =>

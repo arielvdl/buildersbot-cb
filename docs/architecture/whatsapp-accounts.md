@@ -90,8 +90,11 @@ If `login` finds a server that started after the status read, main tries the MCP
 lasts two minutes. The panel shows the code in large type, a countdown, the steps on the phone
 (WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead) and
 "Generate another code". While a session runs, the panel asks main for its state every two
-seconds. Main reads `status --json` every three seconds until the account is linked or the code
-expires. Cancel ends the CLI process (SIGTERM, so wazap frees the lock) or closes the MCP client.
+seconds. On the MCP path, main asks the server with `get_status` (`account_id`) every three seconds
+over the open client, which starts no process, and reads `status --json` only when the client
+cannot answer, until the account has the number or the code expires. The CLI path ends when
+`wazap login` exits. Cancel ends the CLI process (SIGTERM, so wazap frees the lock) or closes the
+MCP client.
 
 Risk: when no server ran at the status read and the CLI pairs, an agent session that starts during
 the pairing cannot start its WhatsApp server until the CLI exits (at most about 3.5 minutes).
