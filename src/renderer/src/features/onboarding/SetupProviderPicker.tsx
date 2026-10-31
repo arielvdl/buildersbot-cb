@@ -32,7 +32,7 @@ import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import type { ProviderConnectionApi } from "../../components/provider-connection-api";
 import { createCustomProviderHostState } from "../custom-providers/custom-provider-host-state";
-import { FREE_PROVIDER, onboardingProviderRows } from "./onboarding-provider-rows";
+import { automaticProviderChoice, FREE_PROVIDER, onboardingProviderRows } from "./onboarding-provider-rows";
 import { fallbackProviderState } from "./onboarding-provider-state";
 
 /** The providers of this computer, and the actions on them, as both setup screens take them. */
@@ -379,13 +379,7 @@ export function createSetupProviders(
       // A step without the free row does not choose the free provider by itself.
       const options = withFree ? allOptions : allOptions.filter((provider) => provider.id !== FREE_PROVIDER);
       if (selected && options.some((provider) => provider.id === selected && providerReady(provider))) return;
-      // A signed-in provider comes first, then one whose CLI is on the computer. Free models are the
-      // way in when the user has neither.
-      const ready =
-        options.find((provider) => provider.state === "available") ??
-        options.find((provider) => provider.state === "sign-in-required" && !provider.freeModels) ??
-        options.find((provider) => providerReady(provider));
-      setSelectedProvider(ready?.id ?? null);
+      setSelectedProvider(automaticProviderChoice(options, providerReady));
     },
   );
 
