@@ -65,7 +65,9 @@ Linux server image uses do not agree: the executable (`linux.executableName` in
 `electron-builder.yml`), the install folder `/opt/OpenBot`, the AppImage file that
 `docker/Dockerfile` copies, the user data and agent folders in the backups of `docker/instances`, and
 the product name that the start check of the image reads. A merge from upstream Open Bot, or
-`scripts/builders-bot-rename.pl`, can change one of them. `check:desktop:static` runs it.
+`scripts/builders-bot-rename.pl`, can change one of them. `check:desktop:static` runs it, and
+`.github/workflows/linux-image-names.yml` runs it on each pull request and on each push to
+`builders-bot` and `main`, because `ci.yml` runs only for `main`.
 
 The pre-commit hook in `.githooks/pre-commit` runs `check:staged`, then `check:ui` and
 `scripts/staged-typecheck.ts`. The last two run only when the commit stages code, style, GritQL,
@@ -206,7 +208,8 @@ where it checks the machine that builds the release.
 
 `ci.yml` runs only for `main`. The telemetry destination guard also has its own workflow,
 `telemetry-destination-guard.yml`, which runs on each pull request and each push to `builders-bot` and
-`main`, as `update-feed-guard.yml` does for the update feed guard. It needs no build and no network.
+`main`, as `update-feed-guard.yml` does for the update feed guard and `linux-image-names.yml` for the
+Linux image names check. It needs no build and no network.
 The `package`, `package:*` and `dist:*` scripts run the guard with `--build-output` right after
 `bun run build`, and the macOS `package`, `dist:mac` and `dist:release` scripts also run it with
 `--package` on the app that electron-builder made. `verify:package`, `verify:package:win` and

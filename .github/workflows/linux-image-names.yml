@@ -1,0 +1,38 @@
+name: Linux image names
+
+# The Linux server image starts the names that the upstream server scripts use (docs/docker.md#build).
+# A merge from upstream Open Bot, or scripts/builders-bot-rename.pl, can change one side only, and then
+# the image does not start or a backup does not find the database. `scripts/check-linux-image-names.ts`
+# reads files only and needs no install, no build and no network, so it runs on each pull request and
+# on each push to the Builders Bot branches. `ci.yml` runs only for `main`.
+on:
+  pull_request:
+  push:
+    branches: [builders-bot, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-image-names-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Linux image names
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: ./.github/actions/setup-bun
+        with:
+          install: none
+
+      - name: Check the names of the Linux server image
+        run: bun scripts/check-linux-image-names.ts
