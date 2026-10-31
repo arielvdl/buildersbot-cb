@@ -42,6 +42,8 @@ export const messages = defineMessages("channel", {
   "channel.members.makeLead": "Make channel lead",
   "channel.members.remove": "Remove {name}",
   "channel.members.removeUnavailable": "Remove unavailable member {id}",
+  "channel.members.removeFromChannel": "Remove from channel",
+  "channel.members.model": "{model} · {reasoning} reasoning",
   "channel.members.add": "Add member",
   "channel.members.edit": "Edit agent",
   "channel.members.editLabel": "Edit {name}",

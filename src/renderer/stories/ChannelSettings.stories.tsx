@@ -1,4 +1,4 @@
-import { Button, buttonVariants, Input, ItemActions, ItemGroup, Plus, Textarea } from "@openbot/ui";
+import { buttonVariants, IconButton, Input, ItemActions, ItemGroup, Plus, Textarea, X } from "@openbot/ui";
 import {
   SettingsField,
   SettingsLinkGroup,
@@ -58,11 +58,21 @@ function ChannelPanelBody() {
                 agent={agent}
                 fallbackName={agent.name}
                 onActivate={fn()}
+                model={{
+                  provider: agent.provider === "codex" ? "codex" : "claude",
+                  model: agent.provider === "codex" ? "GPT-5.5" : "Claude Sonnet 5.5",
+                  reasoning: "high",
+                }}
                 actions={
                   <ItemActions>
-                    <Button size="xs" variant="destructive" class="channel-member-remove">
-                      Remove
-                    </Button>
+                    <IconButton
+                      label="Remove from channel"
+                      variant="destructive-ghost"
+                      class="channel-member-remove"
+                      onClick={fn()}
+                    >
+                      <X aria-hidden="true" />
+                    </IconButton>
                   </ItemActions>
                 }
               />

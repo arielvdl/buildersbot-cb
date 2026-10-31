@@ -222,6 +222,36 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* The provider mark of the member's model stands right after the name, so the list shows at a
+   glance which models the channel has. A long name ends with an ellipsis before the mark. */
+.channel-member-name-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+.channel-member-name-line > .channel-member-open:is(.ui-button) {
+  flex: 0 1 auto;
+}
+.channel-member-model {
+  display: inline-flex;
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+.channel-member-model-mark {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  overflow: visible;
+  fill: var(--openbot-provider-current);
+}
+/* The row actions are icons with a hit area of 28px. They keep their place while hidden. */
+.channel-member-list :is(.channel-member-edit, .channel-lead-toggle, .channel-member-remove):is(.ui-button) {
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+}
 /* Creating an agent belongs under the list of the ones that already exist: the picker offers both,
    and this row closes it. */
 .channel-member-new:is(.ui-button) {
@@ -360,7 +390,8 @@ body:has(.channel-member-dialog) .ui-select-content {
   background: var(--openbot-bg-surface);
 }
 /* A row action reads as state until it is asked for: the crown stays on the lead, and Remove waits
-   for the pointer or the keyboard. Hover is the condition, so a touch screen keeps both visible. */
+   for the pointer or the keyboard. Hover is the condition, so a touch screen keeps both visible.
+   Opacity, not display, hides them, so the row does not move when they show. */
 @media (hover: hover) and (pointer: fine) {
   .channel-member-remove,
   .channel-member-edit,

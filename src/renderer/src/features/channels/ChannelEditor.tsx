@@ -14,6 +14,7 @@ import {
   Search,
   Textarea,
   Tooltip,
+  X,
 } from "@openbot/ui";
 import { createScrollFades } from "@openbot/ui/components/createScrollFades";
 import { SettingsField, SettingsLinkGroup, SettingsLinkRow } from "@openbot/ui/components/SettingsPanel";
@@ -23,7 +24,9 @@ import { ChannelMemberRow } from "@openbot/ui/features/channels/ChannelMemberRow
 import { ContentExitMotion } from "@openbot/ui/menu-motion";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, createStore, For, onSettled, Show } from "solid-js";
+import { useAgents } from "../agents/agents-context";
 import { ChannelMemberDialog } from "./ChannelMemberDialog";
+import { channelMemberModel } from "./channel-member-model";
 import { useChannels } from "./channels-context";
 import { matchesAgentSearch, toggleChannelMember } from "./channels-draft";
 
@@ -51,6 +54,7 @@ export function ChannelEditor(props: ChannelEditorProps) {
   const channels = useChannels();
   const { t } = useText();
   const agentList = channels.agents;
+  const agents = useAgents();
   const channel = () => channels.state.page?.channel;
   const [fields, setFields] = createStore({ name: "", title: "", instructions: "" });
   const [dirty, setDirty] = createStore({ name: false, title: false, instructions: false });
@@ -362,6 +366,7 @@ export function ChannelEditor(props: ChannelEditorProps) {
                 agent={entry.agent}
                 fallbackName={t("channel.members.unavailable", { id: entry.agentId })}
                 onActivate={entry.agent ? () => openMemberForm(entry.agentId) : undefined}
+                model={entry.agent ? channelMemberModel(entry.agent, agents.modelOptions()) : undefined}
                 actions={
                   <ItemActions>
                     <Show when={entry.agent}>
@@ -422,19 +427,27 @@ export function ChannelEditor(props: ChannelEditorProps) {
                         </Tooltip.Root>
                       )}
                     </Show>
-                    <Button
-                      size="xs"
-                      variant="destructive"
-                      class="channel-member-remove"
-                      aria-label={
-                        entry.agent
-                          ? t("channel.members.remove", { name: entry.agent.name })
-                          : t("channel.members.removeUnavailable", { id: entry.agentId })
-                      }
-                      onClick={() => void commit((draft) => toggleChannelMember(draft, entry.agentId, false))}
-                    >
-                      {t("common.remove")}
-                    </Button>
+                    <Tooltip.Root openDelay={250} closeDelay={75} placement="top" gutter={8}>
+                      <Tooltip.Trigger
+                        type="button"
+                        class={buttonVariants({
+                          variant: "destructive-ghost",
+                          size: "icon-xs",
+                          class: "ui-icon-button channel-member-remove",
+                        })}
+                        aria-label={
+                          entry.agent
+                            ? t("channel.members.remove", { name: entry.agent.name })
+                            : t("channel.members.removeUnavailable", { id: entry.agentId })
+                        }
+                        onClick={() => void commit((draft) => toggleChannelMember(draft, entry.agentId, false))}
+                      >
+                        <X aria-hidden="true" />
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Content class="ui-tooltip">{t("channel.members.removeFromChannel")}</Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
                   </ItemActions>
                 }
               />

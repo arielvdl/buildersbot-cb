@@ -43,6 +43,8 @@ export const messages = {
   "channel.members.makeLead": "Tornar líder do canal",
   "channel.members.remove": "Remover {name}",
   "channel.members.removeUnavailable": "Remover membro indisponível {id}",
+  "channel.members.removeFromChannel": "Remover do canal",
+  "channel.members.model": "{model} · raciocínio {reasoning}",
   "channel.members.add": "Adicionar membro",
   "channel.members.edit": "Editar agente",
   "channel.members.editLabel": "Editar {name}",
