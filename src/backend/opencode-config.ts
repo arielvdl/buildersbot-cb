@@ -300,10 +300,19 @@ export function openCodeSignInMessage(customProviderCount: number): string {
  * sign-in, so the token arrives per spawn and the process lists only these models.
  *
  * `builder-auto` takes images because the gateway reads them natively; `builder-plan` and
- * `builder-review` think longer and are marked as reasoning models. The limits are the gateway's.
+ * `builder-review` think longer and are marked as reasoning models. The output limit is the gateway's.
  */
-const CULTURA_BUILDER_CONTEXT_TOKENS = 1_048_576;
 const CULTURA_BUILDER_OUTPUT_TOKENS = 32_768;
+/**
+ * The context window that Builders Bot declares for each model, and the size that the context meter
+ * shows. The gateway accepts up to 1,048,576 tokens on `builder-auto`, `builder-code` and
+ * `builder-fast`, but OpenCode compacts a session only near the declared window, and Builders Bot
+ * does not compact an ACP session itself. With the full window, an agent that keeps one session for
+ * its whole life sent up to 1M tokens again on each model step, which made each step slower and more
+ * expensive. With this window, OpenCode compacts near 262K, as it already did on `builder-plan` and
+ * `builder-review`.
+ */
+const CULTURA_BUILDER_CONTEXT_TOKENS = 262_144;
 
 const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
   "builder-auto": {
@@ -320,7 +329,7 @@ const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
     reasoning: true,
     tool_call: true,
     modalities: { input: ["text", "image"], output: ["text"] },
-    limit: { context: 262_144, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+    limit: { context: CULTURA_BUILDER_CONTEXT_TOKENS, output: CULTURA_BUILDER_OUTPUT_TOKENS },
   },
   "builder-code": {
     name: "Builder Code",
@@ -337,7 +346,7 @@ const CULTURA_BUILDER_MODELS: Readonly<Record<string, OpenCodeModelEntry>> = {
     name: "Builder Review",
     reasoning: true,
     tool_call: true,
-    limit: { context: 262_144, output: CULTURA_BUILDER_OUTPUT_TOKENS },
+    limit: { context: CULTURA_BUILDER_CONTEXT_TOKENS, output: CULTURA_BUILDER_OUTPUT_TOKENS },
   },
 };
 

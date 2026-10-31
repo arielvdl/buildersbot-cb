@@ -150,6 +150,12 @@ switch. The agent, thread, workspace and messages stay. Only the agent's own cha
 execution thread has no handoff. The harness also compacts by itself; that only lowers the reported
 fill.
 
+OpenCode compacts a session by itself near the `limit.context` of the model. Cultura Builder
+declares 262,144 tokens for each of its models (`CULTURA_BUILDER_CONTEXT_TOKENS` in
+`src/backend/opencode-config.ts`), although the gateway accepts 1,048,576 tokens on `builder-auto`,
+`builder-code` and `builder-fast`. With the full window, a long-lived agent sent up to 1M tokens on
+each model step before its first compaction.
+
 Codex retains the 80% threshold based on its last reported token usage and context-window size.
 Cumulative account usage is not context occupancy. A missing report is not zero usage. No fixed
 200,000-token context window, per-turn model summary, or new automatic model call is added.

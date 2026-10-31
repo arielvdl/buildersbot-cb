@@ -63,3 +63,13 @@ describe("the Playwright that OpenCode starts by itself", () => {
     expect(JSON.stringify(config.provider)).toContain("token-value");
   });
 });
+
+describe("the Cultura Builder models", () => {
+  it("declare a window that OpenCode compacts in, not the 1M that the gateway accepts", () => {
+    const provider = overlay(culturaBuilderConfigEnv("https://hub.example/v1", null)).provider;
+    const models = JSON.parse(JSON.stringify(provider))["cultura-builder"].models;
+    for (const id of ["builder-auto", "builder-plan", "builder-code", "builder-fast", "builder-review"]) {
+      expect(models[id].limit).toEqual({ context: 262_144, output: 32_768 });
+    }
+  });
+});
