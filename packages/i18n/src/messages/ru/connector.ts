@@ -142,14 +142,16 @@ export const messages = {
   "connector.slack.orchestratorDoesAnswer": "Публикует ответ в ветке Slack",
   "connector.slack.orchestratorModel": "Модель",
   "connector.slack.doneTitle": "Builders Bot теперь в {workspace}",
-  "connector.slack.doneDescription": "Упомяните @Builders Bot в любом публичном канале или напишите ему личным сообщением.",
+  "connector.slack.doneDescription":
+    "Упомяните @Builders Bot в любом публичном канале или напишите ему личным сообщением.",
   "connector.slack.done": "Готово",
   "connector.slack.disconnectTitle": "Отключить {workspace}?",
   "connector.slack.disconnectDescription":
     "Builders Bot перестанет отвечать в {workspace} и удалит свой токен Slack с этого компьютера.",
   "connector.slack.disconnectDescriptionHost":
     "Builders Bot перестанет отвечать в {workspace} и удалит свой токен Slack с {host}.",
-  "connector.slack.disconnectEffect": "Люди из {workspace} больше не смогут обращаться к вашим агентам через @Builders Bot.",
+  "connector.slack.disconnectEffect":
+    "Люди из {workspace} больше не смогут обращаться к вашим агентам через @Builders Bot.",
   "connector.slack.removeEffectKept": "Диалоги и Оркестратор Slack останутся в Builders Bot.",
   "connector.slack.removeEffectDeleted": "Оркестратор Slack и его диалоги будут удалены из Builders Bot.",
   "connector.slack.keep": "Оставить подключённым",
@@ -186,7 +188,8 @@ export const messages = {
   "connector.discord.addAgent": "Добавить агента",
   "connector.discord.actionFailed": "Discord не принял изменение",
   "connector.discord.workspaceTitle": "Серверы Discord",
-  "connector.discord.workspaceDescription": "Упомяните @Builders Bot в канале. Ответьте Builders Bot, чтобы продолжить.",
+  "connector.discord.workspaceDescription":
+    "Упомяните @Builders Bot в канале. Ответьте Builders Bot, чтобы продолжить.",
   "connector.discord.disconnectWorkspace": "Отключить",
   "connector.discord.disconnectAllTitle": "Отключить Discord",
   "connector.discord.disconnectAllSummary":
@@ -209,7 +212,8 @@ export const messages = {
   "connector.discord.stepWorkspace": "Сервер Discord",
   "connector.discord.stepAgent": "Агент",
   "connector.discord.connectTitle": "Подключение сервера Discord",
-  "connector.discord.connectDescription": "Builders Bot добавляет на сервер Discord одного бота с названием Builders Bot.",
+  "connector.discord.connectDescription":
+    "Builders Bot добавляет на сервер Discord одного бота с названием Builders Bot.",
   "connector.discord.connectStepBrowser": "Discord откроется в браузере",
   "connector.discord.connectStepAllow": "Выберите сервер, затем нажмите «Авторизовать»",
   "connector.discord.connectStepReturn": "Это окно продолжит работу, когда Discord закончит",
@@ -296,12 +300,14 @@ export const messages = {
   "connector.telegram.chatsTitle": "Чаты",
   "connector.telegram.groupDescription": "Люди упоминают бота или отвечают на его сообщения.",
   "connector.telegram.directDescription": "Каждое сообщение в этом чате получает Оркестратор Telegram.",
-  "connector.telegram.helpRemoved": "Бота Builders Bot больше нет в этом чате. Отключите чат, затем снова добавьте бота.",
+  "connector.telegram.helpRemoved":
+    "Бота Builders Bot больше нет в этом чате. Отключите чат, затем снова добавьте бота.",
   "connector.telegram.helpRelayUnavailable":
     "Builders Bot не может получать сообщения Telegram на этом компьютере. Войдите в аккаунт, задайте компьютеру имя в настройках сервера и не закрывайте Builders Bot.",
   "connector.telegram.helpRelayUnavailableHost":
     "Builders Bot на {host} не может получать сообщения Telegram. На {host} войдите в аккаунт, задайте серверу имя в настройках сервера и не закрывайте Builders Bot.",
-  "connector.telegram.helpError": "Builders Bot не может связаться с этим чатом. Подключите его заново или отключите чат.",
+  "connector.telegram.helpError":
+    "Builders Bot не может связаться с этим чатом. Подключите его заново или отключите чат.",
   "connector.telegram.retryAt": "Telegram попросил Builders Bot подождать. Следующая попытка в {time}.",
   "connector.telegram.pause": "Приостановить",
   "connector.telegram.resume": "Возобновить",

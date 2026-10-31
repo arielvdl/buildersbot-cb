@@ -139,7 +139,8 @@ export const messages = {
   "browser.signIn.reopen": "Abrir a janela de login",
   "browser.signIn.sending": "Enviando para {server}…",
   "browser.signIn.sent": "Conectado a {site} em {server}",
-  "browser.signIn.notFound": "O Builders Bot não encontrou um login para {site}. Entre na janela e selecione Concluído.",
+  "browser.signIn.notFound":
+    "O Builders Bot não encontrou um login para {site}. Entre na janela e selecione Concluído.",
   "browser.signIn.stillSignedOut": "{server} ainda mostra uma página de login de {site}. Termine o login na janela.",
   "browser.signIn.failed": "O Builders Bot não conseguiu enviar o login.",
   "browser.profiles.title": "Perfis do navegador",

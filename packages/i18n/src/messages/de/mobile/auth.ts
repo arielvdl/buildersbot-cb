@@ -21,7 +21,8 @@ export const messages = {
   "mobile.auth.camera.title": "Kamerazugriff erforderlich",
   "mobile.auth.camera.pairingReason":
     "Builders Bot verwendet die Kamera nur, um den einmaligen QR-Code aus der Desktop-App zu scannen.",
-  "mobile.auth.camera.invitationReason": "Builders Bot verwendet die Kamera nur, um den QR-Code der Einladung zu scannen.",
+  "mobile.auth.camera.invitationReason":
+    "Builders Bot verwendet die Kamera nur, um den QR-Code der Einladung zu scannen.",
   "mobile.auth.camera.blocked":
     "Der Kamerazugriff ist blockiert. Aktiviere ihn für Builders Bot in den Geräteeinstellungen und kehre dann hierher zurück, um den Code zu scannen.",
   "mobile.auth.camera.allow": "Kamerazugriff erlauben",

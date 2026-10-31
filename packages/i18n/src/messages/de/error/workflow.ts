@@ -29,7 +29,8 @@ export const messages = {
   "error.workflow.outputConnectionOff":
     "Die Messaging-Verbindung dieser Ausgabe ist aus oder entfernt. Wähle erneut einen Ort.",
   "error.workflow.outputNotRunning": "Die Messaging-Verbindung läuft gerade nicht. Versuche es erneut, wenn sie läuft.",
-  "error.workflow.outputRefused": "Der Ort hat den Beitrag abgelehnt. Stelle sicher, dass Builders Bot dort posten kann.",
+  "error.workflow.outputRefused":
+    "Der Ort hat den Beitrag abgelehnt. Stelle sicher, dass Builders Bot dort posten kann.",
   "error.workflow.outputUncertain":
     "Der Beitrag wurde unterwegs unterbrochen. Ein Teil kann schon am Ort sein. Sieh dort nach, bevor du es erneut versuchst.",
   "error.workflow.tooLarge":

@@ -5,7 +5,8 @@ export const messages = {
   "status.messaging.working": "Wird bearbeitet…",
   "status.messaging.queued": "Wartet: Builders Bot bearbeitet eine andere Anfrage. Die Antwort erscheint hier.",
   "status.messaging.busy": "Zu viele Anfragen warten. Versuche es später erneut.",
-  "status.messaging.failed": "Builders Bot konnte diese Anfrage nicht abschließen. Der Builders Bot-Host hat die Details.",
+  "status.messaging.failed":
+    "Builders Bot konnte diese Anfrage nicht abschließen. Der Builders Bot-Host hat die Details.",
   "status.messaging.noAnswer": "Builders Bot wurde ohne schriftliche Antwort fertig.",
   "status.messaging.noAgent": "Hier kann noch kein Agent antworten. Füge den Slack Orchestrator in Builders Bot hinzu.",
   "status.messaging.delegated": "Ein Teamkollege arbeitet daran. Die Antwort erscheint hier.",
@@ -31,7 +32,8 @@ export const messages = {
   "status.messaging.discordOrchestratorName": "Discord Orchestrator",
   "status.messaging.discordOrchestratorTitle": "Antwortet in Discord und fragt das Team",
   "status.messaging.integrationsSection": "Integrationen",
-  "status.messaging.signInReceived": "Builders Bot hat die Slack-Installation empfangen. Du kannst diesen Tab schließen.",
+  "status.messaging.signInReceived":
+    "Builders Bot hat die Slack-Installation empfangen. Du kannst diesen Tab schließen.",
   "status.messaging.signInUnknown":
     "Builders Bot hat diese Slack-Installation nicht gestartet. Starte sie erneut in Builders Bot.",
   "status.messaging.telegramNoAgent":

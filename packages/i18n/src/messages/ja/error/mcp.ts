@@ -15,7 +15,8 @@ export const messages = {
   "error.mcp.signInOnHost": "MCP サーバーへのサインインは、ホストコンピューターの Builders Bot でのみ行えます。",
   "error.mcp.signInAppUnsupported":
     "このサーバーはサインインアプリに対応していません。ホストの Builders Bot をアップデートしてください。",
-  "error.mcp.redirectRelayed": "Builders Bot がサインインをサーバーに送信しました。このウィンドウは閉じてかまいません。",
+  "error.mcp.redirectRelayed":
+    "Builders Bot がサインインをサーバーに送信しました。このウィンドウは閉じてかまいません。",
   "error.mcp.relayEnded": "このサインインは終了しました。もう一度開始してください。",
   "error.mcp.relayNoState":
     "サーバーのサインインページは戻り先アドレスを保護していないため、Builders Bot はこのコンピューターでは開きません。",

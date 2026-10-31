@@ -35,7 +35,8 @@ export const messages = {
   "mobile.link.template.skill.marketplace": "Habilidad de Marketplace, versión {version}",
   "mobile.link.template.server.title": "Añadir al servidor",
   "mobile.link.template.server.footer": "Solo se muestran los servidores en los que eres propietario o administrador.",
-  "mobile.link.template.server.updateRequired": "Actualiza Builders Bot en este servidor para añadir agentes compartidos.",
+  "mobile.link.template.server.updateRequired":
+    "Actualiza Builders Bot en este servidor para añadir agentes compartidos.",
   "mobile.link.template.server.none":
     "Debes ser propietario o administrador de un servidor para añadir un agente compartido.",
   "mobile.link.template.install.action": "Añadir agente",

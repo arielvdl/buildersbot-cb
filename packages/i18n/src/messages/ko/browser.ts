@@ -130,7 +130,8 @@ export const messages = {
   "browser.signIn.reopen": "로그인 창 열기",
   "browser.signIn.sending": "{server}(으)로 보내는 중…",
   "browser.signIn.sent": "{server}에서 {site}에 로그인했어요",
-  "browser.signIn.notFound": "Builders Bot이 {site}의 로그인 정보를 찾지 못했어요. 창에서 로그인한 후 완료를 선택해 주세요.",
+  "browser.signIn.notFound":
+    "Builders Bot이 {site}의 로그인 정보를 찾지 못했어요. 창에서 로그인한 후 완료를 선택해 주세요.",
   "browser.signIn.stillSignedOut": "{server}에서 {site}의 로그인 페이지가 계속 표시돼요. 창에서 로그인을 마쳐 주세요.",
   "browser.signIn.failed": "Builders Bot이 로그인 정보를 보내지 못했어요.",
   "browser.profiles.title": "브라우저 프로필",

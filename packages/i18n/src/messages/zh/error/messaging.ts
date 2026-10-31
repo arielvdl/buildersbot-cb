@@ -15,7 +15,8 @@ export const messages = {
   // Errors of a Telegram chat connection, which the host sends.
   "error.messaging.telegramNotConnected": "该 Telegram 聊天未连接。",
   "error.messaging.telegramUnsupported": "这台电脑无法连接 Telegram。",
-  "error.messaging.telegramRelayUnavailable": "Builders Bot 无法在这台电脑上连接 Telegram。请登录，为这台电脑命名后重试。",
+  "error.messaging.telegramRelayUnavailable":
+    "Builders Bot 无法在这台电脑上连接 Telegram。请登录，为这台电脑命名后重试。",
   "error.messaging.telegramServiceUnavailable": "Builders Bot 当前无法连接 Telegram，请稍后重试。",
   // The agent gets this when a connected workspace has too many saved facts.
   "error.messaging.memoryLimit": "一个已连接的工作区最多可有 {limit} 条记忆，请先删除一条。",

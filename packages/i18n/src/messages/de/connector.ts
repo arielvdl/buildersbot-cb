@@ -148,7 +148,8 @@ export const messages = {
   "connector.slack.disconnectEffect":
     "Personen in {workspace} können deine Agenten nicht mehr über @Builders Bot erreichen.",
   "connector.slack.removeEffectKept": "Die Unterhaltungen und der Slack Orchestrator bleiben in Builders Bot erhalten.",
-  "connector.slack.removeEffectDeleted": "Der Slack Orchestrator und seine Unterhaltungen werden aus Builders Bot gelöscht.",
+  "connector.slack.removeEffectDeleted":
+    "Der Slack Orchestrator und seine Unterhaltungen werden aus Builders Bot gelöscht.",
   "connector.slack.keep": "Verbunden lassen",
   "connector.slack.close": "Schließen",
   "connector.slack.addWorkspace": "Arbeitsbereich hinzufügen",
@@ -176,7 +177,8 @@ export const messages = {
   "connector.discord.addAgent": "Agenten hinzufügen",
   "connector.discord.actionFailed": "Discord hat die Änderung nicht angenommen",
   "connector.discord.workspaceTitle": "Discord-Server",
-  "connector.discord.workspaceDescription": "Erwähne @Builders Bot in einem Kanal. Antworte Builders Bot, um fortzufahren.",
+  "connector.discord.workspaceDescription":
+    "Erwähne @Builders Bot in einem Kanal. Antworte Builders Bot, um fortzufahren.",
   "connector.discord.disconnectWorkspace": "Trennen",
   "connector.discord.disconnectAllTitle": "Discord trennen",
   "connector.discord.disconnectAllSummary":
@@ -225,7 +227,8 @@ export const messages = {
     "Builders Bot antwortet nicht mehr in {workspace} und entfernt die Discord-Verbindung von {host}.",
   "connector.discord.disconnectEffect":
     "Personen in {workspace} können deine Agenten nicht mehr über @Builders Bot erreichen.",
-  "connector.discord.removeEffectKept": "Die Unterhaltungen und der Discord Orchestrator bleiben in Builders Bot erhalten.",
+  "connector.discord.removeEffectKept":
+    "Die Unterhaltungen und der Discord Orchestrator bleiben in Builders Bot erhalten.",
   "connector.discord.removeEffectDeleted":
     "Der Discord Orchestrator und seine Unterhaltungen werden aus Builders Bot gelöscht.",
   "connector.discord.keep": "Verbunden lassen",
@@ -240,7 +243,8 @@ export const messages = {
     other: "{count} Discord-Server · Discord Orchestrator antwortet",
   },
   "connector.discord.accessTitle": "Wer Builders Bot nutzen kann",
-  "connector.discord.accessDescription": "Builders Bot antwortet nur diesen Personen. Erwähnungen von anderen ignoriert es.",
+  "connector.discord.accessDescription":
+    "Builders Bot antwortet nur diesen Personen. Erwähnungen von anderen ignoriert es.",
   "connector.discord.accessEveryone": "Alle auf dem Server",
   "connector.discord.accessEveryoneDescription":
     "Jeder, der in einem Kanal schreiben kann, den Builders Bot sieht, kann es erwähnen.",
@@ -284,7 +288,8 @@ export const messages = {
     "Builders Bot kann auf diesem Computer keine Telegram-Nachrichten empfangen. Melde dich an, gib diesem Computer in den Servereinstellungen einen Namen und lass Builders Bot geöffnet.",
   "connector.telegram.helpRelayUnavailableHost":
     "Builders Bot auf {host} kann keine Telegram-Nachrichten empfangen. Melde dich auf {host} an, gib dem Server in den Servereinstellungen einen Namen und lass Builders Bot geöffnet.",
-  "connector.telegram.helpError": "Builders Bot kann diesen Chat nicht erreichen. Verbinde ihn erneut oder trenne den Chat.",
+  "connector.telegram.helpError":
+    "Builders Bot kann diesen Chat nicht erreichen. Verbinde ihn erneut oder trenne den Chat.",
   "connector.telegram.retryAt": "Telegram hat Builders Bot gebeten zu warten. Neuer Versuch um {time}.",
   "connector.telegram.pause": "Pausieren",
   "connector.telegram.resume": "Fortsetzen",
@@ -328,7 +333,8 @@ export const messages = {
   "connector.telegram.doneTitle": "Builders Bot ist in {chat}",
   "connector.telegram.done": "Fertig",
   "connector.telegram.disconnectTitle": "{chat} trennen?",
-  "connector.telegram.leaveDescription": "Der Builders Bot-Bot verlässt {chat}, und Builders Bot antwortet dort nicht mehr.",
+  "connector.telegram.leaveDescription":
+    "Der Builders Bot-Bot verlässt {chat}, und Builders Bot antwortet dort nicht mehr.",
   "connector.telegram.disconnectEffect":
     "Personen in {chat} können deine Agenten nicht mehr über den Builders Bot-Bot erreichen.",
   "connector.telegram.removeEffectKept": "Die Unterhaltungen und der Telegram-Orchestrator bleiben in Builders Bot.",

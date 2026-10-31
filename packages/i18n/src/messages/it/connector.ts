@@ -137,7 +137,8 @@ export const messages = {
   "connector.slack.disconnectEffect":
     "Le persone in {workspace} non possono più raggiungere i tuoi agenti tramite @Builders Bot.",
   "connector.slack.removeEffectKept": "Le conversazioni e lo Slack Orchestrator restano in Builders Bot.",
-  "connector.slack.removeEffectDeleted": "Lo Slack Orchestrator e le sue conversazioni vengono eliminati da Builders Bot.",
+  "connector.slack.removeEffectDeleted":
+    "Lo Slack Orchestrator e le sue conversazioni vengono eliminati da Builders Bot.",
   "connector.slack.keep": "Resta connesso",
   "connector.slack.close": "Chiudi",
   "connector.slack.addWorkspace": "Aggiungi workspace",
@@ -166,7 +167,8 @@ export const messages = {
   "connector.discord.addAgent": "Aggiungi agente",
   "connector.discord.actionFailed": "Discord non ha accettato la modifica",
   "connector.discord.workspaceTitle": "Server Discord",
-  "connector.discord.workspaceDescription": "Menziona @Builders Bot in un canale. Rispondi a Builders Bot per continuare.",
+  "connector.discord.workspaceDescription":
+    "Menziona @Builders Bot in un canale. Rispondi a Builders Bot per continuare.",
   "connector.discord.disconnectWorkspace": "Disconnetti",
   "connector.discord.disconnectAllTitle": "Disconnetti Discord",
   "connector.discord.disconnectAllSummary":

@@ -2,7 +2,8 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "Обновите Builders Bot на этом сервере, чтобы работать с рабочими процессами на телефоне.",
+  "mobile.workflow.unsupported":
+    "Обновите Builders Bot на этом сервере, чтобы работать с рабочими процессами на телефоне.",
   "mobile.workflow.offline": "Сервер не в сети. Рабочие процессы появятся после подключения.",
   "mobile.workflow.list.loading": "Загрузка…",
   "mobile.workflow.list.loadFailed": "Не удалось загрузить рабочие процессы.",

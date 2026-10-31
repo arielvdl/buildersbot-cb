@@ -6,7 +6,10 @@ import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
  */
 export interface AgentTemplatesPort {
   agent: Pick<BuildersBotDesktopApi["agent"], "addTemplateAgent">;
-  agentTemplates: Pick<BuildersBotDesktopApi["agentTemplates"], "get" | "install" | "preview" | "publish" | "unpublish">;
+  agentTemplates: Pick<
+    BuildersBotDesktopApi["agentTemplates"],
+    "get" | "install" | "preview" | "publish" | "unpublish"
+  >;
 }
 
 /** What the publish dialog reaches. The web client passes the host's. */

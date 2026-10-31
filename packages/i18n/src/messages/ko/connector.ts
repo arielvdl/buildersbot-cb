@@ -125,7 +125,8 @@ export const messages = {
     "Builders Bot이 {workspace}에서 더 이상 답하지 않고, 이 컴퓨터에서 Slack 토큰을 삭제해요.",
   "connector.slack.disconnectDescriptionHost":
     "Builders Bot이 {workspace}에서 더 이상 답하지 않고, {host}에서 Slack 토큰을 삭제해요.",
-  "connector.slack.disconnectEffect": "{workspace}의 사람들이 더 이상 @Builders Bot으로 내 에이전트에게 연락할 수 없어요.",
+  "connector.slack.disconnectEffect":
+    "{workspace}의 사람들이 더 이상 @Builders Bot으로 내 에이전트에게 연락할 수 없어요.",
   "connector.slack.removeEffectKept": "대화와 Slack 오케스트레이터는 Builders Bot에 그대로 남아요.",
   "connector.slack.removeEffectDeleted": "Slack 오케스트레이터와 대화가 Builders Bot에서 삭제돼요.",
   "connector.slack.keep": "연결 유지",
@@ -179,7 +180,8 @@ export const messages = {
   "connector.discord.connectInDiscord": "Discord에서 연결",
   "connector.discord.connectWaiting": "Discord 대기 중이에요. 브라우저에서 승인을 마쳐 주세요.",
   "connector.discord.agentStepTitle": "Discord 오케스트레이터 추가",
-  "connector.discord.agentStepDescription": "이 새 에이전트가 {workspace}에서 @Builders Bot에 보내는 모든 요청에 답해요.",
+  "connector.discord.agentStepDescription":
+    "이 새 에이전트가 {workspace}에서 @Builders Bot에 보내는 모든 요청에 답해요.",
   "connector.discord.orchestratorName": "Discord 오케스트레이터",
   "connector.discord.orchestratorRole": "Discord에서 답하고 팀에 물어봐요",
   "connector.discord.orchestratorDoesReceive": "모든 Discord 요청을 가장 먼저 받아요",
@@ -195,7 +197,8 @@ export const messages = {
     "Builders Bot이 {workspace}에서 더 이상 답하지 않고, 이 컴퓨터에서 Discord 연결을 삭제해요.",
   "connector.discord.disconnectDescriptionHost":
     "Builders Bot이 {workspace}에서 더 이상 답하지 않고, {host}에서 Discord 연결을 삭제해요.",
-  "connector.discord.disconnectEffect": "{workspace}의 사람들이 더 이상 @Builders Bot으로 내 에이전트에게 연락할 수 없어요.",
+  "connector.discord.disconnectEffect":
+    "{workspace}의 사람들이 더 이상 @Builders Bot으로 내 에이전트에게 연락할 수 없어요.",
   "connector.discord.removeEffectKept": "대화와 Discord 오케스트레이터는 Builders Bot에 그대로 남아요.",
   "connector.discord.removeEffectDeleted": "Discord 오케스트레이터와 대화가 Builders Bot에서 삭제돼요.",
   "connector.discord.keep": "연결 유지",
@@ -240,7 +243,8 @@ export const messages = {
     "Builders Bot이 이 컴퓨터에서 Telegram 메시지를 받을 수 없어요. 로그인하고, 서버 설정에서 이 컴퓨터에 이름을 지정한 뒤 Builders Bot을 열어 두세요.",
   "connector.telegram.helpRelayUnavailableHost":
     "{host}의 Builders Bot이 Telegram 메시지를 받을 수 없어요. {host}에서 로그인하고, 서버 설정에서 서버에 이름을 지정한 뒤 Builders Bot을 열어 두세요.",
-  "connector.telegram.helpError": "Builders Bot이 이 채팅에 접근할 수 없어요. 다시 연결하거나 채팅 연결을 해제해 주세요.",
+  "connector.telegram.helpError":
+    "Builders Bot이 이 채팅에 접근할 수 없어요. 다시 연결하거나 채팅 연결을 해제해 주세요.",
   "connector.telegram.retryAt": "Telegram이 Builders Bot에 기다리라고 요청했어요. {time}에 다시 시도해요.",
   "connector.telegram.pause": "일시 정지",
   "connector.telegram.resume": "재개",
@@ -284,10 +288,13 @@ export const messages = {
   "connector.telegram.doneTitle": "Builders Bot이 {chat}에 들어왔어요",
   "connector.telegram.done": "완료",
   "connector.telegram.disconnectTitle": "{chat} 연결을 해제할까요?",
-  "connector.telegram.leaveDescription": "Builders Bot 봇이 {chat}에서 나가고, Builders Bot이 그곳에서 더 이상 답하지 않아요.",
-  "connector.telegram.disconnectEffect": "{chat}의 사람들이 더 이상 Builders Bot 봇으로 내 에이전트에게 연락할 수 없어요.",
+  "connector.telegram.leaveDescription":
+    "Builders Bot 봇이 {chat}에서 나가고, Builders Bot이 그곳에서 더 이상 답하지 않아요.",
+  "connector.telegram.disconnectEffect":
+    "{chat}의 사람들이 더 이상 Builders Bot 봇으로 내 에이전트에게 연락할 수 없어요.",
   "connector.telegram.removeEffectKept": "대화와 Telegram 오케스트레이터는 Builders Bot에 그대로 남아요.",
-  "connector.telegram.removeEffectDeleted": "마지막 채팅이라서 Telegram 오케스트레이터와 대화가 Builders Bot에서 삭제돼요.",
+  "connector.telegram.removeEffectDeleted":
+    "마지막 채팅이라서 Telegram 오케스트레이터와 대화가 Builders Bot에서 삭제돼요.",
   "connector.telegram.keep": "연결 유지",
   "connector.telegram.close": "닫기",
   "connector.onePassword.title": "1Password",

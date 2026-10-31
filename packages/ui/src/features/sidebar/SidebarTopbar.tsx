@@ -11,9 +11,9 @@ import {
   CircleFadingArrowUp,
   DropdownMenu,
   FolderPlus,
-  Minus,
   Hash,
   IconButton,
+  Minus,
   Puzzle,
 } from "@openbot/ui";
 import { Show } from "solid-js";

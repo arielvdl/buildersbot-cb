@@ -2,7 +2,8 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/workflow";
 
 export const messages = {
-  "mobile.workflow.unsupported": "Aktualisiere Builders Bot auf diesem Server, um Workflows auf deinem Telefon zu nutzen.",
+  "mobile.workflow.unsupported":
+    "Aktualisiere Builders Bot auf diesem Server, um Workflows auf deinem Telefon zu nutzen.",
   "mobile.workflow.offline": "Der Server ist offline. Workflows erscheinen, wenn er sich verbindet.",
   "mobile.workflow.list.loading": "Wird geladen…",
   "mobile.workflow.list.loadFailed": "Die Workflows konnten nicht geladen werden.",
@@ -122,7 +123,8 @@ export const messages = {
     "Der Lauf wartet, bis du genehmigst oder ablehnst. Du erhältst eine Benachrichtigung.",
   "mobile.workflow.step.text": "Text",
   "mobile.workflow.step.sendTo": "Senden an",
-  "mobile.workflow.step.channelHint": "Ein Inhaber oder Admin wählt den Nachrichtenort in Builders Bot auf dem Computer.",
+  "mobile.workflow.step.channelHint":
+    "Ein Inhaber oder Admin wählt den Nachrichtenort in Builders Bot auf dem Computer.",
   "mobile.workflow.problem.noTitle": "Gib einen Namen ein.",
   "mobile.workflow.problem.noAgent": "Agent wählen",
   "mobile.workflow.problem.agentGone": "Der Agent ist nicht verfügbar. Agent wählen",

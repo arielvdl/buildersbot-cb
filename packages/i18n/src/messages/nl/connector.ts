@@ -164,7 +164,8 @@ export const messages = {
   "connector.discord.addAgent": "Agent toevoegen",
   "connector.discord.actionFailed": "Discord heeft de wijziging niet geaccepteerd",
   "connector.discord.workspaceTitle": "Discord-servers",
-  "connector.discord.workspaceDescription": "Noem @Builders Bot in een kanaal. Antwoord op Builders Bot om verder te gaan.",
+  "connector.discord.workspaceDescription":
+    "Noem @Builders Bot in een kanaal. Antwoord op Builders Bot om verder te gaan.",
   "connector.discord.disconnectWorkspace": "Verbreken",
   "connector.discord.disconnectAllTitle": "Discord loskoppelen",
   "connector.discord.disconnectAllSummary":
@@ -188,7 +189,8 @@ export const messages = {
   "connector.discord.stepWorkspace": "Discord-server",
   "connector.discord.stepAgent": "Agent",
   "connector.discord.connectTitle": "Verbind een Discord-server",
-  "connector.discord.connectDescription": "Builders Bot voegt één bot, met de naam Builders Bot, toe aan de Discord-server.",
+  "connector.discord.connectDescription":
+    "Builders Bot voegt één bot, met de naam Builders Bot, toe aan de Discord-server.",
   "connector.discord.connectStepBrowser": "Discord opent in je browser",
   "connector.discord.connectStepAllow": "Kies de server en daarna Autoriseren",
   "connector.discord.connectStepReturn": "Dit venster gaat verder als Discord klaar is",
@@ -213,7 +215,8 @@ export const messages = {
     "Builders Bot antwoordt niet meer in {workspace} en verwijdert de Discord-verbinding van {host}.",
   "connector.discord.disconnectEffect": "Mensen in {workspace} kunnen je agents niet meer bereiken via @Builders Bot.",
   "connector.discord.removeEffectKept": "De gesprekken en de Discord Orchestrator blijven in Builders Bot.",
-  "connector.discord.removeEffectDeleted": "De Discord Orchestrator en zijn gesprekken worden uit Builders Bot verwijderd.",
+  "connector.discord.removeEffectDeleted":
+    "De Discord Orchestrator en zijn gesprekken worden uit Builders Bot verwijderd.",
   "connector.discord.keep": "Verbonden houden",
   "connector.discord.close": "Sluiten",
   "connector.discord.addWorkspace": "Discord-server toevoegen",
@@ -226,7 +229,8 @@ export const messages = {
     other: "{count} Discord-servers · Discord Orchestrator antwoordt",
   },
   "connector.discord.accessTitle": "Wie Builders Bot kan gebruiken",
-  "connector.discord.accessDescription": "Builders Bot antwoordt alleen deze mensen. Het negeert vermeldingen van anderen.",
+  "connector.discord.accessDescription":
+    "Builders Bot antwoordt alleen deze mensen. Het negeert vermeldingen van anderen.",
   "connector.discord.accessEveryone": "Iedereen op de server",
   "connector.discord.accessEveryoneDescription":
     "Iedereen die kan posten in een kanaal dat Builders Bot ziet, kan het noemen.",
@@ -315,8 +319,10 @@ export const messages = {
   "connector.telegram.doneTitle": "Builders Bot zit in {chat}",
   "connector.telegram.done": "Klaar",
   "connector.telegram.disconnectTitle": "{chat} loskoppelen?",
-  "connector.telegram.leaveDescription": "De Builders Bot-bot verlaat {chat}, en Builders Bot antwoordt daar niet meer.",
-  "connector.telegram.disconnectEffect": "Mensen in {chat} kunnen je agents niet meer bereiken via de Builders Bot-bot.",
+  "connector.telegram.leaveDescription":
+    "De Builders Bot-bot verlaat {chat}, en Builders Bot antwoordt daar niet meer.",
+  "connector.telegram.disconnectEffect":
+    "Mensen in {chat} kunnen je agents niet meer bereiken via de Builders Bot-bot.",
   "connector.telegram.removeEffectKept": "De gesprekken en de Telegram Orchestrator blijven in Builders Bot.",
   "connector.telegram.removeEffectDeleted":
     "Dit is de laatste chat, dus de Telegram Orchestrator en zijn gesprekken worden uit Builders Bot verwijderd.",

@@ -8,7 +8,8 @@ export const messages = {
   "status.messaging.busy": "В очереди слишком много запросов. Повторите попытку позже.",
   "status.messaging.failed": "Builders Bot не смог завершить этот запрос. Подробности — на хосте Builders Bot.",
   "status.messaging.noAnswer": "Builders Bot завершил работу без письменного ответа.",
-  "status.messaging.noAgent": "Пока нет агента, который мог бы здесь ответить. Добавьте Оркестратора Slack в Builders Bot.",
+  "status.messaging.noAgent":
+    "Пока нет агента, который мог бы здесь ответить. Добавьте Оркестратора Slack в Builders Bot.",
   "status.messaging.delegated": "Над этим работает один из агентов. Ответ придёт сюда.",
   "status.messaging.stopped": "Остановлено.",
   "status.messaging.stop": "Остановить",

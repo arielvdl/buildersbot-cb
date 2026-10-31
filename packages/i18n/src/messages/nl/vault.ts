@@ -92,5 +92,6 @@ export const messages = {
     "Het kluisbestand staat op deze computer, maar Builders Bot kan het niet ontsleutelen. Dit kan gebeuren als de sleutelhanger van het systeem verandert. Reset de kluis om opnieuw te beginnen zonder items.",
   "vault.reset": "Kluis resetten",
   "vault.resetTitle": "De kluis resetten?",
-  "vault.resetDescription": "Builders Bot verwijdert het kluisbestand en alle items erin. Je kunt dit niet ongedaan maken.",
+  "vault.resetDescription":
+    "Builders Bot verwijdert het kluisbestand en alle items erin. Je kunt dit niet ongedaan maken.",
 } as const satisfies PartialTranslation<typeof source>;

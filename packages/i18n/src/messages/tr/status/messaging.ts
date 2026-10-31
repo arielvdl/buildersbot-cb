@@ -9,7 +9,8 @@ export const messages = {
   "status.messaging.busy": "Çok fazla istek bekliyor. Daha sonra tekrar deneyin.",
   "status.messaging.failed": "Builders Bot bu isteği tamamlayamadı. Ayrıntılar Builders Bot ana makinesinde mevcuttur.",
   "status.messaging.noAnswer": "Builders Bot yazılı bir yanıt olmadan tamamlandı.",
-  "status.messaging.noAgent": "Henüz burada yanıt verebilecek bir ajan yok. Builders Bot'ta Slack Düzenleyicisini ekleyin.",
+  "status.messaging.noAgent":
+    "Henüz burada yanıt verebilecek bir ajan yok. Builders Bot'ta Slack Düzenleyicisini ekleyin.",
   "status.messaging.delegated": "Bir ekip arkadaşı üzerinde çalışıyor. Yanıt buraya gelecek.",
   "status.messaging.stopped": "Durduruldu.",
   "status.messaging.stop": "Durdur",

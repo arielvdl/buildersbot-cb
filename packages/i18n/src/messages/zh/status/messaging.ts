@@ -41,7 +41,8 @@ export const messages = {
   // Text that Builders Bot posts in a Telegram chat, and the Telegram Orchestrator agent. Telegram users
   // read the posts. The user can rename the agent.
   "status.messaging.telegramNoAgent": "这里还没有助手能回答。请在 Builders Bot 中添加 Telegram 调度助手。",
-  "status.messaging.telegramLinked": "Builders Bot 已连接到该聊天。提及 {bot} 或回复 Builders Bot 的消息即可向助手提问。",
+  "status.messaging.telegramLinked":
+    "Builders Bot 已连接到该聊天。提及 {bot} 或回复 Builders Bot 的消息即可向助手提问。",
   "status.messaging.telegramOrchestratorName": "Telegram 调度助手",
   "status.messaging.telegramOrchestratorTitle": "在 Telegram 中回答并调度团队",
 } as const satisfies PartialTranslation<typeof source>;

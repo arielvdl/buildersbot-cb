@@ -237,7 +237,8 @@ export const messages = defineMessages("connector", {
     "Builders Bot stops answering in {workspace} and removes the Discord connection from {host}.",
   "connector.discord.disconnectEffect": "People in {workspace} can no longer reach your agents through @Builders Bot.",
   "connector.discord.removeEffectKept": "The conversations and the Discord Orchestrator stay in Builders Bot.",
-  "connector.discord.removeEffectDeleted": "The Discord Orchestrator and its conversations are deleted from Builders Bot.",
+  "connector.discord.removeEffectDeleted":
+    "The Discord Orchestrator and its conversations are deleted from Builders Bot.",
   "connector.discord.keep": "Keep connected",
   "connector.discord.close": "Close",
   "connector.discord.addWorkspace": "Add Discord server",
@@ -254,7 +255,8 @@ export const messages = defineMessages("connector", {
   "connector.discord.accessTitle": "Who can use Builders Bot",
   "connector.discord.accessDescription": "Builders Bot answers only these people. It ignores mentions from others.",
   "connector.discord.accessEveryone": "Everyone in the server",
-  "connector.discord.accessEveryoneDescription": "Anyone who can post in a channel that Builders Bot sees can mention it.",
+  "connector.discord.accessEveryoneDescription":
+    "Anyone who can post in a channel that Builders Bot sees can mention it.",
   // {roles} is a list of Discord role names, such as "Admin and Moderator".
   "connector.discord.accessRoles": "Members with {roles}",
   "connector.discord.accessChoose": "Choose roles",
@@ -350,7 +352,8 @@ export const messages = defineMessages("connector", {
   "connector.telegram.done": "Done",
   "connector.telegram.disconnectTitle": "Disconnect {chat}?",
   "connector.telegram.leaveDescription": "The Builders Bot bot leaves {chat}, and Builders Bot stops answering there.",
-  "connector.telegram.disconnectEffect": "People in {chat} can no longer reach your agents through the Builders Bot bot.",
+  "connector.telegram.disconnectEffect":
+    "People in {chat} can no longer reach your agents through the Builders Bot bot.",
   "connector.telegram.removeEffectKept": "The conversations and the Telegram Orchestrator stay in Builders Bot.",
   "connector.telegram.removeEffectDeleted":
     "This is the last chat, so the Telegram Orchestrator and its conversations are deleted from Builders Bot.",

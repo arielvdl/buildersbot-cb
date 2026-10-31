@@ -21,7 +21,8 @@ export const messages = {
   "mobile.auth.camera.title": "Serve l'accesso alla fotocamera",
   "mobile.auth.camera.pairingReason":
     "Builders Bot usa la fotocamera solo per scansionare il codice QR monouso mostrato nell'app desktop.",
-  "mobile.auth.camera.invitationReason": "Builders Bot usa la fotocamera solo per scansionare il codice QR dell'invito.",
+  "mobile.auth.camera.invitationReason":
+    "Builders Bot usa la fotocamera solo per scansionare il codice QR dell'invito.",
   "mobile.auth.camera.blocked":
     "L'accesso alla fotocamera è bloccato. Attivalo per Builders Bot nelle impostazioni del dispositivo, poi torna qui per scansionare il codice.",
   "mobile.auth.camera.allow": "Consenti l'accesso alla fotocamera",

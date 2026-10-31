@@ -47,7 +47,8 @@ export const messages = {
   "error.import.transferRemoteTooLarge":
     "Файл переноса для присоединённого сервера должен быть меньше 100 МБ. Выключите файлы рабочих пространств или экспортируйте меньше агентов.",
   "error.import.transferNotFile": "Это не файл переноса Builders Bot.",
-  "error.import.transferNewer": "Этот файл создан более новой версией Builders Bot. Обновите Builders Bot и повторите попытку.",
+  "error.import.transferNewer":
+    "Этот файл создан более новой версией Builders Bot. Обновите Builders Bot и повторите попытку.",
   "error.import.transferEmpty": "В файле нет ни агентов, ни настроек.",
   "error.import.transferTooLarge":
     "Файл переноса должен быть меньше 2 ГБ и содержать меньше 50 000 файлов. Выключите файлы рабочих пространств или экспортируйте меньше агентов.",

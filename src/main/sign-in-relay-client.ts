@@ -248,7 +248,10 @@ export class SignInRelayClient {
         return { status: 200, message: "error.mcp.redirectRelayed" };
       },
     }).catch((error: unknown) => {
-      logger.warn("Builders Bot could not listen for a relayed sign-in, so only a pasted address works:", toLogValue(error));
+      logger.warn(
+        "Builders Bot could not listen for a relayed sign-in, so only a pasted address works:",
+        toLogValue(error),
+      );
       return null;
     });
   }

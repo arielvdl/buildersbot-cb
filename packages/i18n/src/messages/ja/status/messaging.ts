@@ -5,7 +5,8 @@ export const messages = {
   "status.messaging.working": "対応しています…",
   "status.messaging.queued": "待機中: Builders Bot は別のリクエストを処理しています。回答はここに届きます。",
   "status.messaging.busy": "待機中のリクエストが多すぎます。しばらくしてからもう一度お試しください。",
-  "status.messaging.failed": "Builders Bot はこのリクエストを完了できませんでした。詳細は Builders Bot のホストにあります。",
+  "status.messaging.failed":
+    "Builders Bot はこのリクエストを完了できませんでした。詳細は Builders Bot のホストにあります。",
   "status.messaging.noAnswer": "Builders Bot はテキストの回答を返さずに終了しました。",
   "status.messaging.noAgent":
     "ここで回答できるエージェントはまだいません。Builders Bot で Slack Orchestrator を追加してください。",
@@ -32,7 +33,8 @@ export const messages = {
   "status.messaging.discordOrchestratorName": "Discord Orchestrator",
   "status.messaging.discordOrchestratorTitle": "Discord で回答し、チームに依頼します",
   "status.messaging.integrationsSection": "連携",
-  "status.messaging.signInReceived": "Builders Bot は Slack のインストールを受け取りました。このタブは閉じてかまいません。",
+  "status.messaging.signInReceived":
+    "Builders Bot は Slack のインストールを受け取りました。このタブは閉じてかまいません。",
   "status.messaging.signInUnknown":
     "この Slack のインストールは Builders Bot が開始したものではありません。Builders Bot でもう一度開始してください。",
   "status.messaging.telegramNoAgent":

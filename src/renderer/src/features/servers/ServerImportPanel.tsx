@@ -2,8 +2,8 @@ import type {
   AgentImportPreview,
   AgentImportResult,
   AgentImportSkillSource,
-  HermesImportPreview,
   BuildersBotDesktopApi,
+  HermesImportPreview,
 } from "@openbot/contracts/ipc";
 import { classifyFailure } from "@openbot/telemetry";
 import { AgentImportSources } from "@openbot/ui/features/import/AgentImportSources";

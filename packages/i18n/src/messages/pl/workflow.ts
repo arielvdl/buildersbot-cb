@@ -341,6 +341,7 @@ export const messages = {
   "workflow.canvas.deleteUndo.action": "Cofnij",
   "workflow.page.failed": "Builders Bot nie mógł tego zrobić. Spróbuj ponownie.",
   "workflow.page.conflict": "Zmieniono na innym urządzeniu. Cofnij, aby odzyskać swoje zmiany.",
-  "workflow.page.needsNewerApp": "Ten przepływ ma kroki z nowszej wersji Builders Bot. Zaktualizuj Builders Bot, aby go zmienić.",
+  "workflow.page.needsNewerApp":
+    "Ten przepływ ma kroki z nowszej wersji Builders Bot. Zaktualizuj Builders Bot, aby go zmienić.",
   "workflow.page.manageOnly": "Aby zmienić ten przepływ, potrzebujesz dostępu do zarządzania każdym z jego agentów.",
 } as const satisfies PartialTranslation<typeof source>;

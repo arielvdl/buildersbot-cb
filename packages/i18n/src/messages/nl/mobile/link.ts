@@ -36,7 +36,8 @@ export const messages = {
   "mobile.link.template.skill.marketplace": "Vaardigheid uit marktplaats, versie {version}",
   "mobile.link.template.server.title": "Voeg toe aan server",
   "mobile.link.template.server.footer": "Alleen servers waar je eigenaar of beheerder bent, staan hier.",
-  "mobile.link.template.server.updateRequired": "Werk Builders Bot bij op deze server om gedeelde agents toe te voegen.",
+  "mobile.link.template.server.updateRequired":
+    "Werk Builders Bot bij op deze server om gedeelde agents toe te voegen.",
   "mobile.link.template.server.none":
     "Je moet eigenaar of beheerder van een server zijn om een gedeelde agent toe te voegen.",
   "mobile.link.template.install.action": "Voeg agent toe",

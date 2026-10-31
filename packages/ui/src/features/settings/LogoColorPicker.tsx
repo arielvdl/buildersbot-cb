@@ -1,9 +1,4 @@
-import {
-  APP_LOGO_COLOR_HEX,
-  APP_LOGO_COLORS,
-  APP_LOGO_EYE_HEX,
-  type AppLogoColor,
-} from "@openbot/contracts/ipc";
+import { APP_LOGO_COLOR_HEX, APP_LOGO_COLORS, APP_LOGO_EYE_HEX, type AppLogoColor } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { Button } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";

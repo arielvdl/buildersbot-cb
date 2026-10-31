@@ -10,7 +10,8 @@ export const messages = {
   "mobile.appLock.methods.title": "Kilit açma yöntemi",
   "mobile.appLock.methods.footer":
     "PIN'i, {method} yöntemini veya ikisini birden açın. Builders Bot, ayrıldığınızda kilitlenir ve döndüğünüzde bunlardan birini ister.",
-  "mobile.appLock.methods.footerPinOnly": "PIN'i açın. Builders Bot, ayrıldığınızda kilitlenir ve döndüğünüzde PIN'i ister.",
+  "mobile.appLock.methods.footerPinOnly":
+    "PIN'i açın. Builders Bot, ayrıldığınızda kilitlenir ve döndüğünüzde PIN'i ister.",
   "mobile.appLock.changePin": "PIN'i değiştir",
   "mobile.appLock.lockAfter.title": "Builders Bot'u kilitle",
   "mobile.appLock.lockAfter.immediately": "Hemen",

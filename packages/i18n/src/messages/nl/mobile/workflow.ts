@@ -121,7 +121,8 @@ export const messages = {
   "mobile.workflow.step.questionHint": "De run wacht tot je goedkeurt of afwijst. Je krijgt een melding.",
   "mobile.workflow.step.text": "Tekst",
   "mobile.workflow.step.sendTo": "Sturen naar",
-  "mobile.workflow.step.channelHint": "Een eigenaar of beheerder kiest de berichtenplek in Builders Bot op de computer.",
+  "mobile.workflow.step.channelHint":
+    "Een eigenaar of beheerder kiest de berichtenplek in Builders Bot op de computer.",
   "mobile.workflow.problem.noTitle": "Schrijf een naam.",
   "mobile.workflow.problem.noAgent": "Kies een agent",
   "mobile.workflow.problem.agentGone": "De agent is niet beschikbaar. Kies een agent",

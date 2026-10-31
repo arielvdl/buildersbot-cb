@@ -46,7 +46,8 @@ export const messages = {
     "{name}：SOUL.md 超过 {limit} 个字符，因此指令只保留开头部分。完整文件在 imported/hermes/SOUL.md。",
   "error.import.hermesSkillSkipped": "{name}：已跳过技能“{skill}”。{reason}",
   "error.import.hermesSkillCodeAdded": "它含有读取这些配置时还没有的代码。请重新读取以允许它。",
-  "error.import.hermesLinkNotSaved": "{name}：Builders Bot 无法保存哪个助手来自该配置，因此下次导入会把它作为新助手添加。",
+  "error.import.hermesLinkNotSaved":
+    "{name}：Builders Bot 无法保存哪个助手来自该配置，因此下次导入会把它作为新助手添加。",
   // Instance transfer between two Builders Bot computers.
   "error.import.transferRemoteTooLarge":
     "已加入服务器的迁移文件必须小于 100 MB。请关闭工作区文件，或减少导出的助手数量。",

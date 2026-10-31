@@ -134,7 +134,8 @@ export const messages = {
   "import.hermes.item.gateway": "Bezorging naar {names}",
   "import.hermes.item.secrets": { one: "{count} geheim", other: "{count} geheimen" },
   "import.hermes.item.history": "Eerdere sessies",
-  "import.hermes.reason.defaultSoul": "Dit is de begintekst van Hermes, dus de agent houdt de instructies van Builders Bot.",
+  "import.hermes.reason.defaultSoul":
+    "Dit is de begintekst van Hermes, dus de agent houdt de instructies van Builders Bot.",
   "import.hermes.reason.scripts": "Het voert eigen scripts uit. Sta het alleen toe als je de code vertrouwt.",
   "import.hermes.reason.unsafeFile":
     "Het bevat een geheim bestand, een privésleutel of een archief. Builders Bot kopieert die nooit.",

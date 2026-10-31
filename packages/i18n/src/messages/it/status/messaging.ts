@@ -8,7 +8,8 @@ export const messages = {
   "status.messaging.failed":
     "Builders Bot non è riuscito a completare questa richiesta. I dettagli sono sull'host di Builders Bot.",
   "status.messaging.noAnswer": "Builders Bot ha finito senza una risposta scritta.",
-  "status.messaging.noAgent": "Nessun agente può ancora rispondere qui. Aggiungi lo Slack Orchestrator in Builders Bot.",
+  "status.messaging.noAgent":
+    "Nessun agente può ancora rispondere qui. Aggiungi lo Slack Orchestrator in Builders Bot.",
   "status.messaging.delegated": "Un collega ci sta lavorando. La risposta arriva qui.",
   "status.messaging.stopped": "Interrotto.",
   "status.messaging.stop": "Interrompi",
@@ -33,7 +34,8 @@ export const messages = {
   "status.messaging.discordOrchestratorTitle": "Risponde su Discord e consulta il team",
   "status.messaging.integrationsSection": "Integrazioni",
   "status.messaging.signInReceived": "Builders Bot ha ricevuto l'installazione di Slack. Puoi chiudere questa scheda.",
-  "status.messaging.signInUnknown": "Builders Bot non ha avviato questa installazione di Slack. Riavviala in Builders Bot.",
+  "status.messaging.signInUnknown":
+    "Builders Bot non ha avviato questa installazione di Slack. Riavviala in Builders Bot.",
   "status.messaging.telegramNoAgent":
     "Nessun agente può ancora rispondere qui. Aggiungi il Telegram Orchestrator in Builders Bot.",
   "status.messaging.telegramLinked":

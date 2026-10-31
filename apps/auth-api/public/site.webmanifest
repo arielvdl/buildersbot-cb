@@ -6,10 +6,7 @@
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "lang": "pt-BR",
   "dir": "ltr",
@@ -19,11 +16,7 @@
   "prefer_related_applications": false,
   "background_color": "#1a1a1a",
   "theme_color": "#1a1a1a",
-  "categories": [
-    "productivity",
-    "developer",
-    "utilities"
-  ],
+  "categories": ["productivity", "developer", "utilities"],
   "icons": [
     {
       "src": "/icon-192x192.png",

@@ -31,9 +31,7 @@
         "name": "playwright",
         "transport": "stdio",
         "command": "node",
-        "args": [
-          "/Users/arielsilva/Builders Bot/Shared/redteam/stress/browser-gate/playwright-mcp-gated.mjs"
-        ]
+        "args": ["/Users/arielsilva/Builders Bot/Shared/redteam/stress/browser-gate/playwright-mcp-gated.mjs"]
       }
     }
   ],

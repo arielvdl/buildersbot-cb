@@ -10,12 +10,14 @@ export const messages = {
   "error.messaging.discordUnsupported": "Ten komputer nie może połączyć się z Discordem.",
   "error.messaging.discordRelayUnavailable":
     "Builders Bot nie może odbierać zdarzeń Discord na tym komputerze. Zaloguj się, nadaj temu komputerowi nazwę i spróbuj ponownie.",
-  "error.messaging.discordRolesUnsupported": "Builders Bot nie może jeszcze pokazać ról Discorda. Spróbuj ponownie później.",
+  "error.messaging.discordRolesUnsupported":
+    "Builders Bot nie może jeszcze pokazać ról Discorda. Spróbuj ponownie później.",
   "error.messaging.telegramNotConnected": "Ten czat Telegram nie jest połączony.",
   "error.messaging.telegramUnsupported": "Ten komputer nie może połączyć się z Telegramem.",
   "error.messaging.telegramRelayUnavailable":
     "Builders Bot nie może połączyć się z Telegramem na tym komputerze. Zaloguj się, nadaj temu komputerowi nazwę i spróbuj ponownie.",
-  "error.messaging.telegramServiceUnavailable": "Builders Bot nie może teraz połączyć Telegrama. Spróbuj ponownie później.",
+  "error.messaging.telegramServiceUnavailable":
+    "Builders Bot nie może teraz połączyć Telegrama. Spróbuj ponownie później.",
   "error.messaging.memoryLimit":
     "Połączony obszar roboczy może mieć maksymalnie {limit} wspomnień. Najpierw usuń jedno.",
 } as const satisfies PartialTranslation<typeof source>;

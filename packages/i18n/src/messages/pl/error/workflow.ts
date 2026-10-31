@@ -11,7 +11,8 @@ export const messages = {
   "error.workflow.duplicateEdge": "Te dwa kroki mają już to połączenie.",
   "error.workflow.serverTooOld":
     "Ten serwer nie obsługuje przepływów pracy. Zaktualizuj Builders Bot na komputerze, na którym działa.",
-  "error.workflow.nodeUnsupported": "Ta wersja Builders Bot nie może jeszcze uruchamiać kroków obrazu, pliku i wiadomości.",
+  "error.workflow.nodeUnsupported":
+    "Ta wersja Builders Bot nie może jeszcze uruchamiać kroków obrazu, pliku i wiadomości.",
   "error.workflow.interrupted": "Builders Bot zatrzymał się podczas tego kroku. Uruchom go ponownie.",
   "error.workflow.agentMissing": "Wybierz agenta dla tego kroku.",
   "error.workflow.handoffFailed": "Builders Bot nie mógł wysłać tego kroku do jego agenta.",

@@ -10,7 +10,8 @@ export const messages = {
   "mobile.link.pairing.title": "이 휴대폰 연결",
   "mobile.link.pairing.alreadySignedIn": "이미 로그인되어 있어요. 다른 계정을 연결하려면 설정에서 로그아웃하세요.",
   "mobile.link.pairing.description": "데스크톱에서 이 모바일 연결 링크를 요청한 경우에만 계속하세요.",
-  "mobile.link.pairing.accountService": "이 링크는 Builders Bot 계정 서비스가 아니라 {origin}의 계정 서비스에 연결돼요.",
+  "mobile.link.pairing.accountService":
+    "이 링크는 Builders Bot 계정 서비스가 아니라 {origin}의 계정 서비스에 연결돼요.",
   "mobile.link.pairing.connect": "연결",
   "mobile.link.plugin.title": "플러그인 페이지 열기",
   "mobile.link.plugin.description": "Builders Bot 웹사이트에서 이 플러그인을 확인하세요.",
@@ -33,7 +34,8 @@ export const messages = {
   "mobile.link.template.skill.marketplace": "마켓플레이스 스킬, 버전 {version}",
   "mobile.link.template.server.title": "서버에 추가",
   "mobile.link.template.server.footer": "소유자나 관리자인 서버만 표시돼요.",
-  "mobile.link.template.server.updateRequired": "공유된 에이전트를 추가하려면 이 서버의 Builders Bot을 업데이트해 주세요.",
+  "mobile.link.template.server.updateRequired":
+    "공유된 에이전트를 추가하려면 이 서버의 Builders Bot을 업데이트해 주세요.",
   "mobile.link.template.server.none": "공유된 에이전트를 추가하려면 서버의 소유자나 관리자여야 해요.",
   "mobile.link.template.install.action": "에이전트 추가",
   "mobile.link.template.install.pending": "추가 중…",

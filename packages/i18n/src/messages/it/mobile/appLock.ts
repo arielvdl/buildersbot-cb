@@ -18,7 +18,8 @@ export const messages = {
   "mobile.appLock.lockAfter.minutes": { one: "Dopo {count} minuto", other: "Dopo {count} minuti" },
   "mobile.appLock.lockAfter.hours": { one: "Dopo {count} ora", other: "Dopo {count} ore" },
   "mobile.appLock.lockWithPhone": "Quando il telefono si blocca",
-  "mobile.appLock.lockAfter.footer": "Il tempo parte quando lasci Builders Bot. Builders Bot si blocca sempre quando si riavvia.",
+  "mobile.appLock.lockAfter.footer":
+    "Il tempo parte quando lasci Builders Bot. Builders Bot si blocca sempre quando si riavvia.",
   "mobile.appLock.device.turnOnPrompt": "Attiva {method} per Builders Bot",
   "mobile.appLock.device.failed": "{method} non ha confermato. Riprova.",
   "mobile.appLock.device.unavailable": "Imposta prima un codice sul telefono.",
@@ -47,7 +48,8 @@ export const messages = {
     other: "Troppi tentativi. Riprova tra {count} minuti.",
   },
   "mobile.appLock.lock.checkFailed": "Impossibile verificare il PIN. Riprova.",
-  "mobile.appLock.lock.pinMissing": "Questo telefono non ha un PIN per Builders Bot. Esci per reimpostare il blocco app.",
+  "mobile.appLock.lock.pinMissing":
+    "Questo telefono non ha un PIN per Builders Bot. Esci per reimpostare il blocco app.",
   "mobile.appLock.lock.loadFailed": "Impossibile leggere le impostazioni del blocco app.",
   "mobile.appLock.lock.retry": "Riprova",
   "mobile.appLock.lock.forgotPin": "PIN dimenticato?",

@@ -128,7 +128,8 @@ export const messages = defineMessages("import", {
   "import.hermes.item.history": "Past sessions",
   "import.hermes.reason.defaultSoul": "This is Hermes's starting text, so the agent keeps Builders Bot's instructions.",
   "import.hermes.reason.scripts": "It runs its own scripts. Allow it only if you trust the code.",
-  "import.hermes.reason.unsafeFile": "It has a secret file, a private key, or an archive. Builders Bot never copies these.",
+  "import.hermes.reason.unsafeFile":
+    "It has a secret file, a private key, or an archive. Builders Bot never copies these.",
   "import.hermes.reason.invalidSkill": "Its SKILL.md has no valid name and description.",
   "import.hermes.reason.duplicateSkill": "Another skill in this profile has the same name.",
   "import.hermes.reason.builtIn": "They come with Hermes. Builders Bot has its own skills.",
@@ -136,7 +137,8 @@ export const messages = defineMessages("import", {
   "import.hermes.reason.mcpNameTaken": "A server with this name is already here.",
   "import.hermes.reason.routineSchedule": "Builders Bot cannot run its schedule, or its time has passed.",
   "import.hermes.reason.routineScript": "It runs a script, not the agent.",
-  "import.hermes.reason.terminalBackend": "Builders Bot runs commands on this computer, so the agent uses its terminal.",
+  "import.hermes.reason.terminalBackend":
+    "Builders Bot runs commands on this computer, so the agent uses its terminal.",
   "import.hermes.reason.gateway": "Connect these again in Builders Bot. The routines keep their text.",
   "import.hermes.reason.secrets": "Not copied. Enter each key again in Builders Bot when a tool needs it.",
   "import.hermes.reason.history": "Chat history stays in Hermes. The memories keep what it learned.",

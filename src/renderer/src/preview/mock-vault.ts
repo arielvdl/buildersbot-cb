@@ -1,6 +1,6 @@
 import {
-  EMPTY_VAULT,
   type BuildersBotDesktopApi,
+  EMPTY_VAULT,
   type VaultItemSummary,
   type VaultSaveInput,
   type VaultSecretField,

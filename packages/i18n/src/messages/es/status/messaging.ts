@@ -5,9 +5,11 @@ export const messages = {
   "status.messaging.working": "Trabajando en ello…",
   "status.messaging.queued": "En espera: Builders Bot está trabajando en otra solicitud. La respuesta llegará aquí.",
   "status.messaging.busy": "Hay demasiadas solicitudes en espera. Inténtalo más tarde.",
-  "status.messaging.failed": "Builders Bot no pudo completar esta solicitud. El host de Builders Bot tiene los detalles.",
+  "status.messaging.failed":
+    "Builders Bot no pudo completar esta solicitud. El host de Builders Bot tiene los detalles.",
   "status.messaging.noAnswer": "Builders Bot terminó sin una respuesta escrita.",
-  "status.messaging.noAgent": "Aún no puede responder ningún agente aquí. Añade el Orquestador de Slack en Builders Bot.",
+  "status.messaging.noAgent":
+    "Aún no puede responder ningún agente aquí. Añade el Orquestador de Slack en Builders Bot.",
   "status.messaging.delegated": "Un compañero está trabajando en ello. La respuesta llegará aquí.",
   "status.messaging.stopped": "Detenido.",
   "status.messaging.stop": "Detener",
@@ -32,7 +34,8 @@ export const messages = {
   "status.messaging.discordOrchestratorTitle": "Responde en Discord y consulta al equipo",
   "status.messaging.integrationsSection": "Integraciones",
   "status.messaging.signInReceived": "Builders Bot recibió la instalación de Slack. Puedes cerrar esta pestaña.",
-  "status.messaging.signInUnknown": "Builders Bot no inició esta instalación de Slack. Iníciala de nuevo en Builders Bot.",
+  "status.messaging.signInUnknown":
+    "Builders Bot no inició esta instalación de Slack. Iníciala de nuevo en Builders Bot.",
   "status.messaging.telegramNoAgent":
     "Aún no hay ningún agente que pueda responder aquí. Añade el Orquestador de Telegram en Builders Bot.",
   "status.messaging.telegramLinked":

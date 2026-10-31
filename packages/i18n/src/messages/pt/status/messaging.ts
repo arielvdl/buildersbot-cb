@@ -8,7 +8,8 @@ export const messages = {
   "status.messaging.failed":
     "O Builders Bot não conseguiu concluir esta solicitação. Os detalhes estão no computador anfitrião do Builders Bot.",
   "status.messaging.noAnswer": "O Builders Bot terminou sem uma resposta por escrito.",
-  "status.messaging.noAgent": "Nenhum agente pode responder aqui ainda. Adicione o Orquestrador do Slack no Builders Bot.",
+  "status.messaging.noAgent":
+    "Nenhum agente pode responder aqui ainda. Adicione o Orquestrador do Slack no Builders Bot.",
   "status.messaging.delegated": "Um colega está trabalhando nisso. A resposta chegará aqui.",
   "status.messaging.stopped": "Interrompido.",
   "status.messaging.stop": "Parar",

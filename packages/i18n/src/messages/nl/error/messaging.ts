@@ -10,12 +10,14 @@ export const messages = {
   "error.messaging.discordUnsupported": "Deze computer kan geen verbinding maken met Discord.",
   "error.messaging.discordRelayUnavailable":
     "Builders Bot kan op deze computer geen Discord-events ontvangen. Log in, geef deze computer een naam en probeer het opnieuw.",
-  "error.messaging.discordRolesUnsupported": "Builders Bot kan nog geen Discord-rollen tonen. Probeer het later opnieuw.",
+  "error.messaging.discordRolesUnsupported":
+    "Builders Bot kan nog geen Discord-rollen tonen. Probeer het later opnieuw.",
   "error.messaging.telegramNotConnected": "Deze Telegram-chat is niet verbonden.",
   "error.messaging.telegramUnsupported": "Deze computer kan geen verbinding maken met Telegram.",
   "error.messaging.telegramRelayUnavailable":
     "Builders Bot kan Telegram niet bereiken op deze computer. Log in, geef deze computer een naam en probeer het opnieuw.",
-  "error.messaging.telegramServiceUnavailable": "Builders Bot kan Telegram nu niet verbinden. Probeer het later opnieuw.",
+  "error.messaging.telegramServiceUnavailable":
+    "Builders Bot kan Telegram nu niet verbinden. Probeer het later opnieuw.",
   "error.messaging.memoryLimit":
     "Een verbonden werkruimte kan maximaal {limit} herinneringen hebben. Verwijder er eerst een.",
 } as const satisfies PartialTranslation<typeof source>;

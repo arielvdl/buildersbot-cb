@@ -47,7 +47,8 @@ export const messages = {
   "error.import.transferRemoteTooLarge":
     "Plik przeniesienia dla dołączonego serwera musi mieć mniej niż 100 MB. Wyłącz pliki obszaru roboczego albo wyeksportuj mniej agentów.",
   "error.import.transferNotFile": "To nie jest plik przeniesienia Builders Bot.",
-  "error.import.transferNewer": "Ten plik utworzyła nowsza wersja Builders Bot. Zaktualizuj Builders Bot i spróbuj ponownie.",
+  "error.import.transferNewer":
+    "Ten plik utworzyła nowsza wersja Builders Bot. Zaktualizuj Builders Bot i spróbuj ponownie.",
   "error.import.transferEmpty": "Plik nie zawiera agentów ani ustawień.",
   "error.import.transferTooLarge":
     "Plik przeniesienia musi mieć mniej niż 2 GB i 50 000 plików. Wyłącz pliki obszaru roboczego albo wyeksportuj mniej agentów.",

@@ -7,16 +7,7 @@
  * a renamed identifier reads back as the default on the next launch. The order is the Settings
  * order: it follows `pages/cubo.html`, the eight colorways of the cube mark.
  */
-export const APP_LOGO_COLORS = [
-  "noite",
-  "dia",
-  "signal",
-  "traco",
-  "papel",
-  "grafite",
-  "lima",
-  "vidro",
-] as const;
+export const APP_LOGO_COLORS = ["noite", "dia", "signal", "traco", "papel", "grafite", "lima", "vidro"] as const;
 
 export type AppLogoColor = (typeof APP_LOGO_COLORS)[number];
 

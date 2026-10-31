@@ -143,7 +143,8 @@ export const messages = {
   "connector.slack.connectWaiting": "Slack bekleniyor. Kurulumu tarayıcınızda tamamlayın.",
   "connector.slack.agentStepTitle": "Slack Düzenleyicisini ekleyin",
   // {workspace} Slack çalışma alanı adıdır.
-  "connector.slack.agentStepDescription": "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
+  "connector.slack.agentStepDescription":
+    "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
   "connector.slack.orchestratorName": "Slack Düzenleyicisi",
   "connector.slack.orchestratorRole": "Slack'te yanıt verir ve ekibe sorar",
   "connector.slack.orchestratorDoesReceive": "Her Slack isteğini ilk olarak alır",
@@ -151,14 +152,16 @@ export const messages = {
   "connector.slack.orchestratorDoesAnswer": "Yanıtı Slack ileti dizisinde paylaşır",
   "connector.slack.orchestratorModel": "Model",
   "connector.slack.doneTitle": "Builders Bot {workspace} içinde",
-  "connector.slack.doneDescription": "Herhangi bir genel kanalda @Builders Bot'tan bahsedin veya doğrudan mesaj gönderin.",
+  "connector.slack.doneDescription":
+    "Herhangi bir genel kanalda @Builders Bot'tan bahsedin veya doğrudan mesaj gönderin.",
   "connector.slack.done": "Bitti",
   "connector.slack.disconnectTitle": "{workspace} bağlantısı kesilsin mi?",
   "connector.slack.disconnectDescription":
     "Builders Bot {workspace} içinde yanıt vermeyi durdurur ve Slack belirtecini bu bilgisayardan kaldırır.",
   "connector.slack.disconnectDescriptionHost":
     "Builders Bot {workspace} içinde yanıt vermeyi durdurur ve Slack belirtecini {host} sunucusundan kaldırır.",
-  "connector.slack.disconnectEffect": "{workspace} içindeki kişiler artık @Builders Bot aracılığıyla ajanlarınıza ulaşamaz.",
+  "connector.slack.disconnectEffect":
+    "{workspace} içindeki kişiler artık @Builders Bot aracılığıyla ajanlarınıza ulaşamaz.",
   "connector.slack.removeEffectKept": "Konuşmalar ve Slack Düzenleyicisi Builders Bot'ta kalır.",
   "connector.slack.removeEffectDeleted": "Slack Düzenleyicisi ve konuşmaları Builders Bot'tan silinir.",
   "connector.slack.keep": "Bağlı tut",
@@ -227,7 +230,8 @@ export const messages = {
   "connector.discord.connectWaiting": "Discord bekleniyor. Yetkilendirmeyi tarayıcınızda tamamlayın.",
   "connector.discord.agentStepTitle": "Discord Düzenleyicisini ekleyin",
   // {workspace} Discord sunucusunun adıdır.
-  "connector.discord.agentStepDescription": "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
+  "connector.discord.agentStepDescription":
+    "Bu yeni ajan, {workspace} içinde @Builders Bot'a gönderilen her şeyi yanıtlar.",
   "connector.discord.orchestratorName": "Discord Düzenleyicisi",
   "connector.discord.orchestratorRole": "Discord'da yanıt verir ve ekibe sorar",
   "connector.discord.orchestratorDoesReceive": "Her Discord isteğini ilk olarak alır",
@@ -235,7 +239,8 @@ export const messages = {
   "connector.discord.orchestratorDoesAnswer": "Yanıtı Discord kanalında verir",
   "connector.discord.orchestratorModel": "Model",
   "connector.discord.doneTitle": "Builders Bot {workspace} içinde",
-  "connector.discord.doneDescription": "Bir kanalda @Builders Bot'tan bahsedin. Devam etmek için Builders Bot'a yanıt verin.",
+  "connector.discord.doneDescription":
+    "Bir kanalda @Builders Bot'tan bahsedin. Devam etmek için Builders Bot'a yanıt verin.",
   "connector.discord.done": "Bitti",
   "connector.discord.disconnectTitle": "{workspace} bağlantısı kesilsin mi?",
   "connector.discord.disconnectDescription":
@@ -261,7 +266,8 @@ export const messages = {
   "connector.discord.accessDescription":
     "Builders Bot yalnızca bu kişilere yanıt verir. Diğerlerinin bahsetmelerini yok sayar.",
   "connector.discord.accessEveryone": "Sunucudaki herkes",
-  "connector.discord.accessEveryoneDescription": "Builders Bot'un gördüğü bir kanala yazabilen herkes ondan bahsedebilir.",
+  "connector.discord.accessEveryoneDescription":
+    "Builders Bot'un gördüğü bir kanala yazabilen herkes ondan bahsedebilir.",
   "connector.discord.accessRoles": "{roles} rolüne sahip üyeler",
   "connector.discord.accessChoose": "Rolleri seç",
   "connector.discord.accessDialogTitle": "{workspace} içinde Builders Bot'u kimler kullanabilir?",
@@ -305,7 +311,8 @@ export const messages = {
     "Builders Bot bu bilgisayarda Telegram mesajlarını alamıyor. Oturum açın, Sunucu ayarlarında bu bilgisayara bir ad verin ve Builders Bot'u açık tutun.",
   "connector.telegram.helpRelayUnavailableHost":
     "{host} üzerindeki Builders Bot Telegram mesajlarını alamıyor. {host} üzerinde oturum açın, Sunucu ayarlarında sunucuya bir ad verin ve Builders Bot'u açık tutun.",
-  "connector.telegram.helpError": "Builders Bot bu sohbete ulaşamıyor. Yeniden bağlanın veya sohbetin bağlantısını kesin.",
+  "connector.telegram.helpError":
+    "Builders Bot bu sohbete ulaşamıyor. Yeniden bağlanın veya sohbetin bağlantısını kesin.",
   "connector.telegram.retryAt": "Telegram Builders Bot'tan beklemesini istedi. {time} saatinde tekrar deneyecek.",
   "connector.telegram.pause": "Duraklat",
   "connector.telegram.resume": "Sürdür",

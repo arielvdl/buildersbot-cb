@@ -10,14 +10,16 @@ export const messages = {
   "mobile.appLock.methods.title": "잠금 해제 방법",
   "mobile.appLock.methods.footer":
     "PIN, {method} 또는 둘 다 켤 수 있어요. 켜면 Builders Bot을 벗어날 때 잠기고, 돌아오면 둘 중 하나를 요청해요.",
-  "mobile.appLock.methods.footerPinOnly": "PIN을 켜 보세요. 켜면 Builders Bot을 벗어날 때 잠기고, 돌아오면 PIN을 요청해요.",
+  "mobile.appLock.methods.footerPinOnly":
+    "PIN을 켜 보세요. 켜면 Builders Bot을 벗어날 때 잠기고, 돌아오면 PIN을 요청해요.",
   "mobile.appLock.changePin": "PIN 변경",
   "mobile.appLock.lockAfter.title": "Builders Bot 잠금",
   "mobile.appLock.lockAfter.immediately": "즉시",
   "mobile.appLock.lockAfter.minutes": { other: "{count}분 후" },
   "mobile.appLock.lockAfter.hours": { other: "{count}시간 후" },
   "mobile.appLock.lockWithPhone": "휴대폰이 잠길 때",
-  "mobile.appLock.lockAfter.footer": "Builders Bot을 벗어난 시점부터 시간이 계산돼요. Builders Bot을 다시 시작하면 항상 잠겨요.",
+  "mobile.appLock.lockAfter.footer":
+    "Builders Bot을 벗어난 시점부터 시간이 계산돼요. Builders Bot을 다시 시작하면 항상 잠겨요.",
   "mobile.appLock.device.turnOnPrompt": "Builders Bot에 {method} 켜기",
   "mobile.appLock.device.failed": "{method} 확인에 실패했어요. 다시 시도해 주세요.",
   "mobile.appLock.device.unavailable": "먼저 휴대폰에 암호를 설정해 주세요.",

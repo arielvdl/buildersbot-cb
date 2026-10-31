@@ -91,7 +91,8 @@ export const messages = {
   "browser.secret.saveHintRemote":
     "Het wordt bewaard op {server}. De agents daar kunnen dan inloggen zonder het je te vragen.",
   "browser.secret.saveBlockedRole": "Alleen de eigenaar of een beheerder van {server} kan opslaan in de kluis daarvan.",
-  "browser.secret.saveBlockedVersion": "Werk Builders Bot bij op {server} om wachtwoorden in de kluis daarvan op te slaan.",
+  "browser.secret.saveBlockedVersion":
+    "Werk Builders Bot bij op {server} om wachtwoorden in de kluis daarvan op te slaan.",
   "browser.secret.signInPage": "Inlogpagina",
   "browser.secret.openSignInPage": "Inlogpagina openen in browser",
   "browser.secret.openInBrowser": "Openen in browser",

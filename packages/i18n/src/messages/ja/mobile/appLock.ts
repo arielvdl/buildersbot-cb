@@ -54,7 +54,8 @@ export const messages = {
   "mobile.appLock.lock.signOutTitle": "Builders Bot からサインアウトしますか？",
   "mobile.appLock.lock.signOutBody":
     "アプリロックを解除し、このスマートフォンからサインアウトします。デスクトップの Builders Bot で新しいコードをスキャンして再接続してください。",
-  "mobile.appLock.lock.signedOut": "PIN の誤りが多すぎたため、Builders Bot はこのスマートフォンからサインアウトしました。",
+  "mobile.appLock.lock.signedOut":
+    "PIN の誤りが多すぎたため、Builders Bot はこのスマートフォンからサインアウトしました。",
   "mobile.appLock.lock.delete": "1 桁削除",
   "mobile.appLock.lock.progress": { other: "4 桁中 {count} 桁を入力済み" },
 } as const satisfies PartialTranslation<typeof source>;

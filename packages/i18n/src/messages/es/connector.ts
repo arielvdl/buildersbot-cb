@@ -20,7 +20,8 @@ export const messages = {
   "connector.github.chooseRepositories": "Elegir repositorios",
   "connector.github.repositoriesLoading": "Leyendo los repositorios de GitHub",
   "connector.github.repositoriesFailed": "Builders Bot no pudo leer los repositorios de GitHub.",
-  "connector.github.noRepositories": "La aplicación de GitHub de Builders Bot aún no está instalada en ningún repositorio.",
+  "connector.github.noRepositories":
+    "La aplicación de GitHub de Builders Bot aún no está instalada en ningún repositorio.",
   "connector.github.moreRepositories": {
     one: "Y {count} repositorio más",
     other: "Y {count} repositorios más",
@@ -138,7 +139,8 @@ export const messages = {
   "connector.slack.orchestratorDoesAnswer": "Publica la respuesta en el hilo de Slack",
   "connector.slack.orchestratorModel": "Modelo",
   "connector.slack.doneTitle": "Builders Bot está en {workspace}",
-  "connector.slack.doneDescription": "Menciona a @Builders Bot en cualquier canal público o envíale un mensaje directo.",
+  "connector.slack.doneDescription":
+    "Menciona a @Builders Bot en cualquier canal público o envíale un mensaje directo.",
   "connector.slack.done": "Listo",
   "connector.slack.disconnectTitle": "¿Desconectar {workspace}?",
   "connector.slack.disconnectDescription":
@@ -176,7 +178,8 @@ export const messages = {
   "connector.discord.addAgent": "Añadir agente",
   "connector.discord.actionFailed": "Discord no aceptó el cambio",
   "connector.discord.workspaceTitle": "Servidores de Discord",
-  "connector.discord.workspaceDescription": "Menciona a @Builders Bot en un canal. Responde a Builders Bot para continuar.",
+  "connector.discord.workspaceDescription":
+    "Menciona a @Builders Bot en un canal. Responde a Builders Bot para continuar.",
   "connector.discord.disconnectWorkspace": "Desconectar",
   "connector.discord.disconnectAllTitle": "Desconectar Discord",
   "connector.discord.disconnectAllSummary":
@@ -225,7 +228,8 @@ export const messages = {
   "connector.discord.disconnectEffect":
     "Las personas de {workspace} ya no podrán contactar con tus agentes a través de @Builders Bot.",
   "connector.discord.removeEffectKept": "Las conversaciones y el Orquestador de Discord permanecen en Builders Bot.",
-  "connector.discord.removeEffectDeleted": "El Orquestador de Discord y sus conversaciones se eliminan de Builders Bot.",
+  "connector.discord.removeEffectDeleted":
+    "El Orquestador de Discord y sus conversaciones se eliminan de Builders Bot.",
   "connector.discord.keep": "Mantener la conexión",
   "connector.discord.close": "Cerrar",
   "connector.discord.addWorkspace": "Añadir servidor de Discord",
@@ -238,7 +242,8 @@ export const messages = {
     other: "{count} servidores de Discord · Responde el Orquestador de Discord",
   },
   "connector.discord.accessTitle": "Quién puede usar Builders Bot",
-  "connector.discord.accessDescription": "Builders Bot solo responde a estas personas. Ignora las menciones de los demás.",
+  "connector.discord.accessDescription":
+    "Builders Bot solo responde a estas personas. Ignora las menciones de los demás.",
   "connector.discord.accessEveryone": "Todos en el servidor",
   "connector.discord.accessEveryoneDescription":
     "Cualquiera que pueda publicar en un canal que Builders Bot ve puede mencionarlo.",

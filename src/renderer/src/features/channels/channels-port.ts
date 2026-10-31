@@ -1,4 +1,4 @@
-import type { AttachmentSummary, FilePreview, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
+import type { AttachmentSummary, BuildersBotDesktopApi, FilePreview } from "@openbot/contracts/ipc";
 import type { AttachmentMediaSource } from "@openbot/ui/features/conversation/AttachmentCards";
 import type { ChannelMemoriesApi } from "../conversation/memories-port";
 import type { EventRoutinesApi } from "../conversation/routine-webhooks-api";

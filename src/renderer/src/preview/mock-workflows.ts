@@ -4,9 +4,9 @@
 // waits for `decide`, and a node with the field `mockFail` fails.
 
 import {
+  type BuildersBotDesktopApi,
   isWorkflowStepKind,
   nodeAgentId,
-  type BuildersBotDesktopApi,
   WORKFLOW_AUTO_VERSION_INTERVAL_MS,
   WORKFLOW_MAX_VERSIONS,
   type WorkflowDetail,

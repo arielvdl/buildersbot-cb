@@ -12,7 +12,8 @@ export const messages = {
   "error.mcp.signInFileTooLarge": "El archivo de inicio de sesión de MCP es demasiado grande.",
   "error.mcp.unsupported": "Este servidor no admite servidores MCP.",
   "error.mcp.signInOnHost": "Solo puedes iniciar sesión en un servidor MCP desde Builders Bot en el equipo host.",
-  "error.mcp.signInAppUnsupported": "Este servidor no admite apps de inicio de sesión. Actualiza Builders Bot en el host.",
+  "error.mcp.signInAppUnsupported":
+    "Este servidor no admite apps de inicio de sesión. Actualiza Builders Bot en el host.",
   "error.mcp.redirectRelayed": "Builders Bot envió el inicio de sesión al servidor. Puedes cerrar esta ventana.",
   "error.mcp.relayEnded": "Este inicio de sesión terminó. Vuelve a iniciarlo.",
   "error.mcp.relayNoState":

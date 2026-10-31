@@ -142,7 +142,8 @@ export const messages = {
   "connector.slack.orchestratorDoesAnswer": "Publikuje odpowiedź w wątku Slacka",
   "connector.slack.orchestratorModel": "Model",
   "connector.slack.doneTitle": "Builders Bot jest w obszarze roboczym {workspace}",
-  "connector.slack.doneDescription": "Oznacz @Builders Bot w dowolnym publicznym kanale lub wyślij mu wiadomość prywatną.",
+  "connector.slack.doneDescription":
+    "Oznacz @Builders Bot w dowolnym publicznym kanale lub wyślij mu wiadomość prywatną.",
   "connector.slack.done": "Gotowe",
   "connector.slack.disconnectTitle": "Odłączyć {workspace}?",
   "connector.slack.disconnectDescription":
@@ -228,7 +229,8 @@ export const messages = {
   "connector.discord.orchestratorDoesAnswer": "Odpowiada na kanale Discord",
   "connector.discord.orchestratorModel": "Model",
   "connector.discord.doneTitle": "Builders Bot jest na serwerze {workspace}",
-  "connector.discord.doneDescription": "Oznacz @Builders Bot na kanale. Odpowiedz na wiadomość Builders Bot, aby kontynuować.",
+  "connector.discord.doneDescription":
+    "Oznacz @Builders Bot na kanale. Odpowiedz na wiadomość Builders Bot, aby kontynuować.",
   "connector.discord.done": "Gotowe",
   "connector.discord.disconnectTitle": "Odłączyć {workspace}?",
   "connector.discord.disconnectDescription":
@@ -300,7 +302,8 @@ export const messages = {
   "connector.telegram.chatsTitle": "Czaty",
   "connector.telegram.groupDescription": "Ludzie oznaczają bota lub odpowiadają na jego wiadomości.",
   "connector.telegram.directDescription": "Każda wiadomość w tym czacie trafia do Telegram Orchestrator.",
-  "connector.telegram.helpRemoved": "Bota Builders Bot nie ma już w tym czacie. Odłącz czat, a potem dodaj bota ponownie.",
+  "connector.telegram.helpRemoved":
+    "Bota Builders Bot nie ma już w tym czacie. Odłącz czat, a potem dodaj bota ponownie.",
   "connector.telegram.helpRelayUnavailable":
     "Builders Bot nie może odbierać wiadomości z Telegram na tym komputerze. Zaloguj się, nadaj temu komputerowi nazwę w ustawieniach serwera i nie zamykaj Builders Bot.",
   "connector.telegram.helpRelayUnavailableHost":
@@ -349,7 +352,8 @@ export const messages = {
   "connector.telegram.doneTitle": "Builders Bot jest w czacie {chat}",
   "connector.telegram.done": "Gotowe",
   "connector.telegram.disconnectTitle": "Odłączyć {chat}?",
-  "connector.telegram.leaveDescription": "Bot Builders Bot opuści czat {chat}, a Builders Bot przestanie tam odpowiadać.",
+  "connector.telegram.leaveDescription":
+    "Bot Builders Bot opuści czat {chat}, a Builders Bot przestanie tam odpowiadać.",
   "connector.telegram.disconnectEffect":
     "Ludzie w czacie {chat} nie będą już mogli kontaktować się z twoimi agentami przez bota Builders Bot.",
   "connector.telegram.removeEffectKept": "Rozmowy i Telegram Orchestrator zostają w Builders Bot.",

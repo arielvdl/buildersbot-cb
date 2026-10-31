@@ -1,4 +1,4 @@
-import type { GitHubConnectorStatus, BuildersBotDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, GitHubConnectorStatus } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 
 /** What the GitHub app page reaches: one GitHub connection, of this computer or of a joined server. */

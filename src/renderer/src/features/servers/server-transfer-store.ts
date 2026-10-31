@@ -1,8 +1,8 @@
 import type {
+  BuildersBotDesktopApi,
   InstanceTransferPreview,
   InstanceTransferResult,
   InstanceTransferSummary,
-  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { toast } from "@openbot/ui";
 import type {

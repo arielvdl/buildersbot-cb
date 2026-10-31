@@ -200,7 +200,12 @@ export function createSidebarLayoutActions(deps: {
   /** A dragged marker moves as a chat does, with the marker action. */
   function markerMove(action: Extract<SidebarLayoutAction, { type: "move-agent" }>): SidebarLayoutAction {
     if (!isSidebarMarkerId(action.agentId)) return action;
-    return { type: "move-marker", markerId: action.agentId, sectionId: action.sectionId, beforeId: action.beforeAgentId };
+    return {
+      type: "move-marker",
+      markerId: action.agentId,
+      sectionId: action.sectionId,
+      beforeId: action.beforeAgentId,
+    };
   }
 
   /** The pin a dragged tile stands for, found by the key the tile carries. */

@@ -19,7 +19,8 @@ export const messages = {
   "status.remote.stageCompatibility": "Compatibiliteit van de desktop controleren: {reason}",
   "status.remote.stageAgents": "Agents laden: {reason}",
   "status.remote.stageReads": "Leesstatus laden: {reason}",
-  "status.remote.suspendedDetail": "Werk Builders Bot Mobile of de desktop-app bij voordat je verbinding maakt.\n{detail}",
+  "status.remote.suspendedDetail":
+    "Werk Builders Bot Mobile of de desktop-app bij voordat je verbinding maakt.\n{detail}",
   "status.remote.cooldownDetail":
     "Verbinding mislukt na {limit} pogingen. Opnieuw proberen over {minutes}:{seconds}.\n{detail}",
   "status.remote.cooldown": "Verbinding mislukt na {limit} pogingen. Opnieuw proberen over {minutes}:{seconds}.",

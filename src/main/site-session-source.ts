@@ -1,5 +1,5 @@
-import { dirname } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { BrowserSignInCookie } from "@openbot/contracts/team-protocol/browser-sign-in-v1";
 
 export type SiteSessionAnswer = "always" | "once" | "deny";

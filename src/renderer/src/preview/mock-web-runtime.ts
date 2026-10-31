@@ -103,8 +103,16 @@ export function mockWebRuntimeFor(mock: MockBuildersBotControls, events: WebRunt
     cancelUpload: async () => {},
     discard: (id) => agent.discardDraftAttachment(id),
     download: async () => ({ name: "preview.txt", mimeType: "text/plain", base64: btoa("Builders Bot file preview") }),
-    sharedFile: async () => ({ name: "preview.txt", mimeType: "text/plain", base64: btoa("Builders Bot file preview") }),
-    workspaceFile: async () => ({ name: "preview.txt", mimeType: "text/plain", base64: btoa("Builders Bot file preview") }),
+    sharedFile: async () => ({
+      name: "preview.txt",
+      mimeType: "text/plain",
+      base64: btoa("Builders Bot file preview"),
+    }),
+    workspaceFile: async () => ({
+      name: "preview.txt",
+      mimeType: "text/plain",
+      base64: btoa("Builders Bot file preview"),
+    }),
     workspaceDirectory: (agentId, path) => agent.listWorkspaceDirectory({ agentId, path }),
     routineFlows: mock.api.routineFlows,
     updateRoutine: (input) => agent.updateRoutine(input),

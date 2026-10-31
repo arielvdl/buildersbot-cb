@@ -122,7 +122,8 @@ export const messages = {
   "mobile.workflow.step.questionHint": "A execução espera até você aprovar ou recusar. Você recebe uma notificação.",
   "mobile.workflow.step.text": "Texto",
   "mobile.workflow.step.sendTo": "Enviar para",
-  "mobile.workflow.step.channelHint": "Um proprietário ou admin escolhe o local de mensagens no Builders Bot do computador.",
+  "mobile.workflow.step.channelHint":
+    "Um proprietário ou admin escolhe o local de mensagens no Builders Bot do computador.",
   "mobile.workflow.problem.noTitle": "Escreva um nome.",
   "mobile.workflow.problem.noAgent": "Escolha um agente",
   "mobile.workflow.problem.agentGone": "O agente não está disponível. Escolha um agente",

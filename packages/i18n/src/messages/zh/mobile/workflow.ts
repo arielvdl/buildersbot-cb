@@ -31,7 +31,8 @@ export const messages = {
   "mobile.workflow.detail.stepsTitle": "步骤",
   "mobile.workflow.detail.loadFailed": "无法加载工作流。",
   "mobile.workflow.detail.starting": "正在启动…",
-  "mobile.workflow.detail.newerApp": "该工作流包含来自较新版本 Builders Bot 的步骤。在手机上更新 Builders Bot 后才能修改它。",
+  "mobile.workflow.detail.newerApp":
+    "该工作流包含来自较新版本 Builders Bot 的步骤。在手机上更新 Builders Bot 后才能修改它。",
   "mobile.workflow.detail.waits": "第 {number} 次运行正在等你。查看",
   "mobile.workflow.detail.canvasOrder": "步骤按画布上的顺序从左到右显示。",
   "mobile.workflow.detail.trigger": "触发器",

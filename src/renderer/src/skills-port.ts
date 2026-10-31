@@ -1,7 +1,7 @@
 import type {
+  BuildersBotDesktopApi,
   InstalledSkill,
   InstallSkillInput,
-  BuildersBotDesktopApi,
   SetEnabledSkillInput,
   UninstallSkillInput,
 } from "@openbot/contracts/ipc";

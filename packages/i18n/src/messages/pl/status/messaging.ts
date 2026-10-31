@@ -32,7 +32,8 @@ export const messages = {
   "status.messaging.discordOrchestratorTitle": "Odpowiada na Discordzie i pyta zespół",
   "status.messaging.integrationsSection": "Integracje",
   "status.messaging.signInReceived": "Builders Bot otrzymał instalację Slack. Możesz zamknąć tę kartę.",
-  "status.messaging.signInUnknown": "Builders Bot nie rozpoczął tej instalacji Slack. Rozpocznij ją ponownie w Builders Bot.",
+  "status.messaging.signInUnknown":
+    "Builders Bot nie rozpoczął tej instalacji Slack. Rozpocznij ją ponownie w Builders Bot.",
   "status.messaging.telegramNoAgent":
     "Żaden agent nie może tu jeszcze odpowiadać. Dodaj Telegram Orchestrator w Builders Bot.",
   "status.messaging.telegramLinked":

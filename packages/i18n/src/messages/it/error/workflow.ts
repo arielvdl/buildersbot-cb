@@ -9,7 +9,8 @@ export const messages = {
   "error.workflow.branch": "Solo una condizione può avere connessioni sì e no.",
   "error.workflow.conditionBranch": "Ogni connessione da una condizione deve essere sì o no.",
   "error.workflow.duplicateEdge": "Questi due passaggi hanno già questa connessione.",
-  "error.workflow.serverTooOld": "Questo server non supporta i workflow. Aggiorna Builders Bot sul computer che lo esegue.",
+  "error.workflow.serverTooOld":
+    "Questo server non supporta i workflow. Aggiorna Builders Bot sul computer che lo esegue.",
   "error.workflow.nodeUnsupported":
     "Questa versione di Builders Bot non può ancora eseguire passaggi di immagine, file e messaggio.",
   "error.workflow.interrupted": "Builders Bot si è fermato durante questo passaggio. Eseguilo di nuovo.",

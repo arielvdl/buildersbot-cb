@@ -195,7 +195,8 @@ export const messages = {
   "connector.discord.stepWorkspace": "Discord サーバー",
   "connector.discord.stepAgent": "エージェント",
   "connector.discord.connectTitle": "Discord サーバーを接続",
-  "connector.discord.connectDescription": "Builders Bot は Discord サーバーに Builders Bot という名前のボットを 1 つ追加します。",
+  "connector.discord.connectDescription":
+    "Builders Bot は Discord サーバーに Builders Bot という名前のボットを 1 つ追加します。",
   "connector.discord.connectStepBrowser": "ブラウザーで Discord が開きます",
   "connector.discord.connectStepAllow": "サーバーを選び、「認証」を押します",
   "connector.discord.connectStepReturn": "Discord での操作が終わると、このダイアログが続行します",
@@ -233,7 +234,8 @@ export const messages = {
     other: "Discord サーバー {count} 件 · Discord Orchestrator が回答します",
   },
   "connector.discord.accessTitle": "Builders Bot を使える人",
-  "connector.discord.accessDescription": "Builders Bot はこれらの人にだけ回答します。ほかの人からのメンションは無視します。",
+  "connector.discord.accessDescription":
+    "Builders Bot はこれらの人にだけ回答します。ほかの人からのメンションは無視します。",
   "connector.discord.accessEveryone": "サーバーの全員",
   "connector.discord.accessEveryoneDescription":
     "Builders Bot が見えるチャンネルに投稿できる人なら、誰でもメンションできます。",
@@ -276,7 +278,8 @@ export const messages = {
     "このコンピューターでは Builders Bot が Telegram のメッセージを受信できません。サインインし、サーバー設定でこのコンピューターに名前を付けて、Builders Bot を開いたままにしてください。",
   "connector.telegram.helpRelayUnavailableHost":
     "{host} の Builders Bot は Telegram のメッセージを受信できません。{host} でサインインし、サーバー設定でサーバーに名前を付けて、Builders Bot を開いたままにしてください。",
-  "connector.telegram.helpError": "Builders Bot はこのチャットに接続できません。再接続するか、チャットを切断してください。",
+  "connector.telegram.helpError":
+    "Builders Bot はこのチャットに接続できません。再接続するか、チャットを切断してください。",
   "connector.telegram.retryAt": "Telegram から待機するよう求められました。{time} に再試行します。",
   "connector.telegram.pause": "一時停止",
   "connector.telegram.resume": "再開",
@@ -320,7 +323,8 @@ export const messages = {
   "connector.telegram.doneTitle": "Builders Bot が {chat} に参加しました",
   "connector.telegram.done": "完了",
   "connector.telegram.disconnectTitle": "{chat} を切断しますか？",
-  "connector.telegram.leaveDescription": "Builders Bot ボットは {chat} から退出し、Builders Bot はそこでの回答を停止します。",
+  "connector.telegram.leaveDescription":
+    "Builders Bot ボットは {chat} から退出し、Builders Bot はそこでの回答を停止します。",
   "connector.telegram.disconnectEffect":
     "{chat} のメンバーは、Builders Bot ボットからあなたのエージェントに連絡できなくなります。",
   "connector.telegram.removeEffectKept": "会話と Telegram Orchestrator は Builders Bot に残ります。",

@@ -56,7 +56,8 @@ export const messages = {
   "mobile.marketplace.permission.admin": "Tylko właściciele i administratorzy mogą instalować z Marketplace.",
   "mobile.marketplace.permission.unavailable":
     "Ten serwer jest offline lub jego Builders Bot jest na to za stary. Zaktualizuj Builders Bot na komputerze, na którym działa.",
-  "mobile.marketplace.error.agentUnsupported": "Zaktualizuj Builders Bot na serwerze, aby dodawać agentów z Marketplace.",
+  "mobile.marketplace.error.agentUnsupported":
+    "Zaktualizuj Builders Bot na serwerze, aby dodawać agentów z Marketplace.",
   "mobile.marketplace.error.agentUpdateUnsupported":
     "Zaktualizuj Builders Bot na serwerze, aby aktualizować agentów z Marketplace.",
   "mobile.marketplace.error.signInUnsupported":

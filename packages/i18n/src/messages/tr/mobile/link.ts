@@ -34,7 +34,8 @@ export const messages = {
   "mobile.link.template.skill.marketplace": "Pazaryeri becerisi, sürüm {version}",
   "mobile.link.template.server.title": "Sunucuya ekle",
   "mobile.link.template.server.footer": "Yalnızca sahip veya yönetici olduğunuz sunucular listelenir.",
-  "mobile.link.template.server.updateRequired": "Paylaşılan ajanları eklemek için bu sunucudaki Builders Bot'u güncelleyin.",
+  "mobile.link.template.server.updateRequired":
+    "Paylaşılan ajanları eklemek için bu sunucudaki Builders Bot'u güncelleyin.",
   "mobile.link.template.server.none":
     "Paylaşılan bir ajan eklemek için bir sunucunun sahibi veya yöneticisi olmalısınız.",
   "mobile.link.template.install.action": "Ajan ekle",

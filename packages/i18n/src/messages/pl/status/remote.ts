@@ -18,7 +18,8 @@ export const messages = {
   "status.remote.stageCompatibility": "Sprawdzanie zgodności z komputerem: {reason}",
   "status.remote.stageAgents": "Wczytywanie agentów: {reason}",
   "status.remote.stageReads": "Wczytywanie stanu przeczytania: {reason}",
-  "status.remote.suspendedDetail": "Zaktualizuj Builders Bot Mobile lub aplikację desktopową przed połączeniem.\n{detail}",
+  "status.remote.suspendedDetail":
+    "Zaktualizuj Builders Bot Mobile lub aplikację desktopową przed połączeniem.\n{detail}",
   "status.remote.cooldownDetail":
     "Połączenie nie powiodło się po {limit} próbach. Ponowna próba za {minutes}:{seconds}.\n{detail}",
   "status.remote.cooldown": "Połączenie nie powiodło się po {limit} próbach. Ponowna próba za {minutes}:{seconds}.",

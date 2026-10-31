@@ -59,7 +59,8 @@ export const messages = {
   "mobile.marketplace.error.agentUnsupported": "Обновите Builders Bot на сервере, чтобы добавлять агентов из каталога.",
   "mobile.marketplace.error.agentUpdateUnsupported":
     "Обновите Builders Bot на сервере, чтобы обновлять агентов из каталога.",
-  "mobile.marketplace.error.signInUnsupported": "Обновите Builders Bot на сервере, чтобы входить в приложения с телефона.",
+  "mobile.marketplace.error.signInUnsupported":
+    "Обновите Builders Bot на сервере, чтобы входить в приложения с телефона.",
   "mobile.marketplace.agent.add": "Добавить агента",
   "mobile.marketplace.agent.adding": "Добавление агента",
   "mobile.marketplace.agent.update": "Обновить агента",
@@ -102,7 +103,8 @@ export const messages = {
   "mobile.marketplace.app.connectFailed": "Не удалось подключить приложение.",
   "mobile.marketplace.app.linkInvalid": "Используйте ссылку https на {hostname}.",
   "mobile.marketplace.app.docs": "Получить ключ",
-  "mobile.marketplace.app.local": "Это приложение работает на компьютере с Builders Bot. Настройте его на этом компьютере.",
+  "mobile.marketplace.app.local":
+    "Это приложение работает на компьютере с Builders Bot. Настройте его на этом компьютере.",
   "mobile.marketplace.app.relayUnsupported":
     "Этому приложению нужен вход в браузере. Обновите Builders Bot на сервере или подключите приложение на компьютере.",
   "mobile.marketplace.app.waiting": "Ожидание страницы входа…",

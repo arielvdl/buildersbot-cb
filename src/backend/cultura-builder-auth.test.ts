@@ -37,7 +37,12 @@ const DEVICE = {
 describe("readCulturaBuilderSession", () => {
   it("reads a stored session and a legacy plain key", () => {
     const stored = serializeCulturaBuilderSession({ access: "cbmcp_1", refresh: "r", expires: 10, empresa: "ariel" });
-    expect(readCulturaBuilderSession(stored)).toEqual({ access: "cbmcp_1", refresh: "r", expires: 10, empresa: "ariel" });
+    expect(readCulturaBuilderSession(stored)).toEqual({
+      access: "cbmcp_1",
+      refresh: "r",
+      expires: 10,
+      empresa: "ariel",
+    });
     expect(readCulturaBuilderSession("cbk_legacy")).toEqual({
       access: "cbk_legacy",
       refresh: "",
@@ -84,7 +89,10 @@ describe("pollCulturaBuilderToken", () => {
   const flow = { clientId: "client-1", deviceCode: "device-1" };
 
   it("treats pending and slow_down as part of the flow", async () => {
-    const { fetcher } = hub([{ status: 400, body: { error: "authorization_pending" } }, { status: 400, body: { error: "slow_down" } }]);
+    const { fetcher } = hub([
+      { status: 400, body: { error: "authorization_pending" } },
+      { status: 400, body: { error: "slow_down" } },
+    ]);
     expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("pending");
     expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("slow_down");
   });
@@ -104,7 +112,10 @@ describe("pollCulturaBuilderToken", () => {
   });
 
   it("stops on a refused or expired grant", async () => {
-    const { fetcher } = hub([{ status: 400, body: { error: "access_denied" } }, { status: 400, body: { error: "expired_token" } }]);
+    const { fetcher } = hub([
+      { status: 400, body: { error: "access_denied" } },
+      { status: 400, body: { error: "expired_token" } },
+    ]);
     expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("stop");
     expect((await Effect.runPromise(pollCulturaBuilderToken(flow, fetcher))).status).toBe("stop");
   });
@@ -179,9 +190,7 @@ describe("ensureCulturaBuilderToken", () => {
   });
 
   it("asks for a sign-in when nothing is stored", async () => {
-    const result = await Effect.runPromise(
-      Effect.result(ensureCulturaBuilderToken(null, () => Effect.void, fetch)),
-    );
+    const result = await Effect.runPromise(Effect.result(ensureCulturaBuilderToken(null, () => Effect.void, fetch)));
     expect(result._tag).toBe("Failure");
   });
 });

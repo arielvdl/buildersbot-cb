@@ -11,9 +11,12 @@ export const messages = {
   "error.mcp.signInFileUnreadable": "Die MCP-Anmeldedatei ist nicht lesbar.",
   "error.mcp.signInFileTooLarge": "Die MCP-Anmeldedatei ist zu groß.",
   "error.mcp.unsupported": "Dieser Server unterstützt keine MCP-Server.",
-  "error.mcp.signInOnHost": "Die Anmeldung bei einem MCP-Server funktioniert nur in Builders Bot auf dem Host-Computer.",
-  "error.mcp.signInAppUnsupported": "Dieser Server unterstützt keine Anmelde-Apps. Aktualisiere Builders Bot auf dem Host.",
-  "error.mcp.redirectRelayed": "Builders Bot hat die Anmeldung an den Server gesendet. Du kannst dieses Fenster schließen.",
+  "error.mcp.signInOnHost":
+    "Die Anmeldung bei einem MCP-Server funktioniert nur in Builders Bot auf dem Host-Computer.",
+  "error.mcp.signInAppUnsupported":
+    "Dieser Server unterstützt keine Anmelde-Apps. Aktualisiere Builders Bot auf dem Host.",
+  "error.mcp.redirectRelayed":
+    "Builders Bot hat die Anmeldung an den Server gesendet. Du kannst dieses Fenster schließen.",
   "error.mcp.relayEnded": "Diese Anmeldung ist beendet. Starte sie erneut.",
   "error.mcp.relayNoState":
     "Die Anmeldeseite des Servers schützt ihre Rückkehradresse nicht, darum öffnet Builders Bot sie nicht auf diesem Computer.",

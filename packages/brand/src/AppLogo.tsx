@@ -167,12 +167,7 @@ export function AppLogo(props: AppLogoProps) {
         <g class="app-logo-eye-motion">
           <polyline class="app-logo-eye app-logo-eye-right" points={APP_LOGO_CUBE.eyes.right} />
         </g>
-        <circle
-          class="app-logo-dot"
-          cx={APP_LOGO_CUBE.dot.cx}
-          cy={APP_LOGO_CUBE.dot.cy}
-          r={APP_LOGO_CUBE.dot.r}
-        />
+        <circle class="app-logo-dot" cx={APP_LOGO_CUBE.dot.cx} cy={APP_LOGO_CUBE.dot.cy} r={APP_LOGO_CUBE.dot.r} />
       </g>
     </svg>
   );

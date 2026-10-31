@@ -3,7 +3,8 @@ import type { messages as source } from "../en/computerUse";
 
 export const messages = {
   "computerUse.permission.screenRecording.title": "Grabación de pantalla",
-  "computerUse.permission.screenRecording.description": "Permite que Builders Bot vea las ventanas de las aplicaciones.",
+  "computerUse.permission.screenRecording.description":
+    "Permite que Builders Bot vea las ventanas de las aplicaciones.",
   "computerUse.permission.screenRecording.pane": "Grabación de pantalla y audio del sistema",
   "computerUse.permission.accessibility.title": "Accesibilidad",
   "computerUse.permission.accessibility.description": "Permite que Builders Bot haga clic y escriba.",
@@ -21,7 +22,8 @@ export const messages = {
     "Builders Bot puede ver las aplicaciones de este equipo e interactuar con ellas. Este sistema no solicita permisos adicionales.",
   "computerUse.openSettingsFailed.title": "No se pudieron abrir los Ajustes del Sistema",
   "computerUse.compact.title": "Activar el uso del equipo",
-  "computerUse.compact.description": "Permite que Builders Bot vea las aplicaciones de este equipo e interactúe con ellas.",
+  "computerUse.compact.description":
+    "Permite que Builders Bot vea las aplicaciones de este equipo e interactúe con ellas.",
   "computerUse.granted": "Concedido",
   "computerUse.opening": "Abriendo…",
   "computerUse.manage": "Gestionar",

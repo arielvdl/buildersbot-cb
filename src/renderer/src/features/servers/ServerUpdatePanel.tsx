@@ -1,8 +1,8 @@
 import type {
+  BuildersBotDesktopApi,
   HostReleaseStatus,
   HostUpdateSettingsChange,
   HostUpdateStatus,
-  BuildersBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { classifyFailure } from "@openbot/telemetry";
 import {

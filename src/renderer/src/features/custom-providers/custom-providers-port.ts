@@ -1,4 +1,4 @@
-import type { CustomProvidersDesktopApi, BuildersBotDesktopApi, ProviderAdminDesktopApi } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, CustomProvidersDesktopApi, ProviderAdminDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the custom providers context reaches in main: the endpoints the user named.

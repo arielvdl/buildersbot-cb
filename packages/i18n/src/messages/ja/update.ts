@@ -35,7 +35,8 @@ export const messages = {
   "update.scheduled.cancel": "アップデートをキャンセル",
   "update.scheduled.cancelFailed": "アップデートをキャンセルできませんでした。",
   "update.idleRestart.relaunchTitle": "エージェントがアイドル状態になると Builders Bot が再起動します",
-  "update.idleRestart.updateTitle": "エージェントがアイドル状態になると Builders Bot がアップデートをインストールします",
+  "update.idleRestart.updateTitle":
+    "エージェントがアイドル状態になると Builders Bot がアップデートをインストールします",
   "update.idleRestart.description": "新しいルーティンの実行は再起動まで待機します。",
   "update.idleRestart.waitingFor": "{reasons} を待っています。",
   "update.idleRestart.cancel": "再起動をキャンセル",

@@ -1,7 +1,7 @@
 import {
   type BitwardenConnectorStatus,
-  DISCONNECTED_BITWARDEN_CONNECTOR,
   type BuildersBotDesktopApi,
+  DISCONNECTED_BITWARDEN_CONNECTOR,
 } from "@openbot/contracts/ipc";
 
 /** This computer's connection and one joined server's, which connects at once with any input. */

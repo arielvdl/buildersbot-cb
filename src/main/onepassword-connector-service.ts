@@ -193,7 +193,11 @@ const runOnePasswordCli: OnePasswordCliRunner = async (executable, args, signal)
 
 async function createSdkClient(token: string, appVersion: string): Promise<OnePasswordClient> {
   const sdk = await import("@1password/sdk");
-  const client = await sdk.createClient({ auth: token, integrationName: "Builders Bot", integrationVersion: appVersion });
+  const client = await sdk.createClient({
+    auth: token,
+    integrationName: "Builders Bot",
+    integrationVersion: appVersion,
+  });
   return {
     vaults: { list: () => client.vaults.list() },
     items: {

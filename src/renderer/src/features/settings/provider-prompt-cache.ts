@@ -4,7 +4,10 @@ import { useText } from "@openbot/ui/text";
 import { createEffect, createStore, untrack } from "solid-js";
 
 /** The prompt cache calls of one server's host. The desktop reaches them through main. */
-export type HostPromptCacheTtlCalls = Pick<BuildersBotDesktopApi["hostAdmin"], "getPromptCacheTtl" | "setPromptCacheTtl">;
+export type HostPromptCacheTtlCalls = Pick<
+  BuildersBotDesktopApi["hostAdmin"],
+  "getPromptCacheTtl" | "setPromptCacheTtl"
+>;
 
 export interface HostPromptCacheTtlOptions {
   /** The calls of a client with no `window.openbot`, such as the web client. */

@@ -81,7 +81,8 @@ export const messages = {
   // Marketplace > Apps > Slack: a workspace installs the one Builders Bot app, and the Slack
   // Orchestrator agent receives each request, asks the team and answers.
   "connector.slack.title": "Slack",
-  "connector.slack.description": "人们在 Slack 中提及 @Builders Bot 或给它发私信，Slack 调度助手会找到合适的助手来回答。",
+  "connector.slack.description":
+    "人们在 Slack 中提及 @Builders Bot 或给它发私信，Slack 调度助手会找到合适的助手来回答。",
   "connector.slack.statusConnected": "已连接",
   "connector.slack.statusAttention": "需要关注",
   // {workspace} is the Slack workspace name.
@@ -100,7 +101,8 @@ export const messages = {
   "connector.slack.disconnectWorkspace": "断开连接",
   "connector.slack.disconnectAllTitle": "断开 Slack",
   "connector.slack.disconnectAllSummary": "所有工作区都将断开，其他人无法再通过 @Builders Bot 联系你的助手。",
-  "connector.slack.disconnectAllSummaryOrchestrator": "所有工作区都将断开，Slack 调度助手及其对话将从 Builders Bot 中删除。",
+  "connector.slack.disconnectAllSummaryOrchestrator":
+    "所有工作区都将断开，Slack 调度助手及其对话将从 Builders Bot 中删除。",
   "connector.slack.missingScopes": "Builders Bot 在 Slack 中缺少这些权限：{scopes}。请断开该工作区后重新连接。",
   "connector.slack.retryAt": "Slack 要求 Builders Bot 等待，将于 {time} 重试。",
   "connector.slack.reconnect": "重新连接",
@@ -119,7 +121,8 @@ export const messages = {
   "connector.slack.stepWorkspace": "工作区",
   "connector.slack.stepAgent": "助手",
   "connector.slack.connectTitle": "连接 Slack 工作区",
-  "connector.slack.connectDescription": "Builders Bot 会在该工作区安装一个名为 Builders Bot 的应用，并加入所有公开频道。",
+  "connector.slack.connectDescription":
+    "Builders Bot 会在该工作区安装一个名为 Builders Bot 的应用，并加入所有公开频道。",
   "connector.slack.connectStepBrowser": "Slack 会在浏览器中打开",
   "connector.slack.connectStepAllow": "在右上角选择工作区，然后点“允许”",
   "connector.slack.connectStepReturn": "Slack 完成后该对话框会继续",
@@ -139,7 +142,8 @@ export const messages = {
   "connector.slack.done": "完成",
   "connector.slack.disconnectTitle": "断开 {workspace}？",
   "connector.slack.disconnectDescription": "Builders Bot 将停止在 {workspace} 中回答，并从这台电脑删除其 Slack 令牌。",
-  "connector.slack.disconnectDescriptionHost": "Builders Bot 将停止在 {workspace} 中回答，并从 {host} 删除其 Slack 令牌。",
+  "connector.slack.disconnectDescriptionHost":
+    "Builders Bot 将停止在 {workspace} 中回答，并从 {host} 删除其 Slack 令牌。",
   "connector.slack.disconnectEffect": "{workspace} 中的人将无法再通过 @Builders Bot 联系你的助手。",
   "connector.slack.removeEffectKept": "对话和 Slack 调度助手会保留在 Builders Bot 中。",
   "connector.slack.removeEffectDeleted": "Slack 调度助手及其对话将从 Builders Bot 中删除。",
@@ -177,7 +181,8 @@ export const messages = {
   "connector.discord.disconnectAllSummary": "所有服务器都将断开，其他人无法再通过 @Builders Bot 联系你的助手。",
   "connector.discord.disconnectAllSummaryOrchestrator":
     "所有服务器都将断开，Discord 调度助手及其对话将从 Builders Bot 中删除。",
-  "connector.discord.missingScopes": "Builders Bot 在 Discord 中缺少这些权限：{scopes}。请断开该 Discord 服务器后重新连接。",
+  "connector.discord.missingScopes":
+    "Builders Bot 在 Discord 中缺少这些权限：{scopes}。请断开该 Discord 服务器后重新连接。",
   "connector.discord.retryAt": "Discord 要求 Builders Bot 等待，将于 {time} 重试。",
   "connector.discord.reconnect": "重新连接",
   "connector.discord.pause": "暂停",
@@ -213,8 +218,10 @@ export const messages = {
   "connector.discord.doneDescription": "在频道中提及 @Builders Bot，回复 Builders Bot 可继续对话。",
   "connector.discord.done": "完成",
   "connector.discord.disconnectTitle": "断开 {workspace}？",
-  "connector.discord.disconnectDescription": "Builders Bot 将停止在 {workspace} 中回答，并从这台电脑移除 Discord 连接。",
-  "connector.discord.disconnectDescriptionHost": "Builders Bot 将停止在 {workspace} 中回答，并从 {host} 移除 Discord 连接。",
+  "connector.discord.disconnectDescription":
+    "Builders Bot 将停止在 {workspace} 中回答，并从这台电脑移除 Discord 连接。",
+  "connector.discord.disconnectDescriptionHost":
+    "Builders Bot 将停止在 {workspace} 中回答，并从 {host} 移除 Discord 连接。",
   "connector.discord.disconnectEffect": "{workspace} 中的人将无法再通过 @Builders Bot 联系你的助手。",
   "connector.discord.removeEffectKept": "对话和 Discord 调度助手会保留在 Builders Bot 中。",
   "connector.discord.removeEffectDeleted": "Discord 调度助手及其对话将从 Builders Bot 中删除。",
@@ -323,7 +330,8 @@ export const messages = {
   "connector.telegram.leaveDescription": "Builders Bot 机器人会退出 {chat}，Builders Bot 将停止在那里回答。",
   "connector.telegram.disconnectEffect": "{chat} 中的人将无法再通过 Builders Bot 机器人联系你的助手。",
   "connector.telegram.removeEffectKept": "对话和 Telegram 调度助手会保留在 Builders Bot 中。",
-  "connector.telegram.removeEffectDeleted": "这是最后一个聊天，因此 Telegram 调度助手及其对话将从 Builders Bot 中删除。",
+  "connector.telegram.removeEffectDeleted":
+    "这是最后一个聊天，因此 Telegram 调度助手及其对话将从 Builders Bot 中删除。",
   "connector.telegram.keep": "保持连接",
   "connector.telegram.close": "关闭",
   // Marketplace > 1Password: a vault that the user shares with Builders Bot through a service account.

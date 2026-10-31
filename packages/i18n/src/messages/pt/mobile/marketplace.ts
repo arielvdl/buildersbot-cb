@@ -57,7 +57,8 @@ export const messages = {
   "mobile.marketplace.permission.unavailable":
     "Este servidor está offline, ou o Builders Bot dele é antigo demais para isso. Atualize o Builders Bot no computador que o executa.",
   "mobile.marketplace.error.agentUnsupported": "Atualize o Builders Bot no servidor para adicionar agentes da loja.",
-  "mobile.marketplace.error.agentUpdateUnsupported": "Atualize o Builders Bot no servidor para atualizar agentes da loja.",
+  "mobile.marketplace.error.agentUpdateUnsupported":
+    "Atualize o Builders Bot no servidor para atualizar agentes da loja.",
   "mobile.marketplace.error.signInUnsupported": "Atualize o Builders Bot no servidor para entrar em apps pelo celular.",
   "mobile.marketplace.agent.add": "Adicionar agente",
   "mobile.marketplace.agent.adding": "Adicionando agente",

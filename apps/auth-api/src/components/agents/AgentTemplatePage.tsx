@@ -1,4 +1,7 @@
-import { createBuildersBotAgentTemplateUrl, createWebAppAgentTemplatePath } from "@openbot/contracts/agent-template-links";
+import {
+  createBuildersBotAgentTemplateUrl,
+  createWebAppAgentTemplatePath,
+} from "@openbot/contracts/agent-template-links";
 import type { AgentTemplateDetail } from "@openbot/contracts/ipc";
 import { markdownPlainText, markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import { Link } from "@tanstack/solid-router";

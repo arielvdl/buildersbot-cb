@@ -20,7 +20,8 @@ export const messages = {
   "connector.github.chooseRepositories": "Escolher repositórios",
   "connector.github.repositoriesLoading": "Lendo os repositórios do GitHub",
   "connector.github.repositoriesFailed": "O Builders Bot não conseguiu ler os repositórios do GitHub.",
-  "connector.github.noRepositories": "O aplicativo Builders Bot para GitHub ainda não está instalado em nenhum repositório.",
+  "connector.github.noRepositories":
+    "O aplicativo Builders Bot para GitHub ainda não está instalado em nenhum repositório.",
   "connector.github.moreRepositories": { one: "E mais {count} repositório", other: "E mais {count} repositórios" },
   "connector.github.private": "Privado",
   "connector.github.disconnect": "Desconectar",
@@ -166,7 +167,8 @@ export const messages = {
   "connector.discord.addAgent": "Adicionar agente",
   "connector.discord.actionFailed": "O Discord não aceitou a alteração",
   "connector.discord.workspaceTitle": "Servidores do Discord",
-  "connector.discord.workspaceDescription": "Mencione @Builders Bot em um canal. Responda ao Builders Bot para continuar.",
+  "connector.discord.workspaceDescription":
+    "Mencione @Builders Bot em um canal. Responda ao Builders Bot para continuar.",
   "connector.discord.disconnectWorkspace": "Desconectar",
   "connector.discord.disconnectAllTitle": "Desconectar Discord",
   "connector.discord.disconnectAllSummary":
@@ -216,7 +218,8 @@ export const messages = {
   "connector.discord.disconnectEffect":
     "As pessoas em {workspace} não poderão mais acessar seus agentes por meio de @Builders Bot.",
   "connector.discord.removeEffectKept": "As conversas e o Orquestrador do Discord continuam no Builders Bot.",
-  "connector.discord.removeEffectDeleted": "O Orquestrador do Discord e as conversas dele são excluídos do Builders Bot.",
+  "connector.discord.removeEffectDeleted":
+    "O Orquestrador do Discord e as conversas dele são excluídos do Builders Bot.",
   "connector.discord.keep": "Manter conectado",
   "connector.discord.close": "Fechar",
   "connector.discord.addWorkspace": "Adicionar servidor do Discord",
@@ -229,7 +232,8 @@ export const messages = {
     other: "{count} servidores do Discord · O Orquestrador do Discord responde",
   },
   "connector.discord.accessTitle": "Quem pode usar o Builders Bot",
-  "connector.discord.accessDescription": "O Builders Bot responde só a essas pessoas. Ele ignora menções de outras pessoas.",
+  "connector.discord.accessDescription":
+    "O Builders Bot responde só a essas pessoas. Ele ignora menções de outras pessoas.",
   "connector.discord.accessEveryone": "Todos no servidor",
   "connector.discord.accessEveryoneDescription":
     "Qualquer pessoa que pode postar em um canal que o Builders Bot vê pode mencioná-lo.",
@@ -360,7 +364,8 @@ export const messages = {
   "connector.onePassword.approveInApp": "Aprove o pedido no app do 1Password",
   "connector.onePassword.cancel": "Cancelar",
   "connector.onePassword.chooseAccountTitle": "Escolha uma conta",
-  "connector.onePassword.chooseAccountDescription": "O Builders Bot cria o cofre compartilhado na conta que você escolher.",
+  "connector.onePassword.chooseAccountDescription":
+    "O Builders Bot cria o cofre compartilhado na conta que você escolher.",
   "connector.onePassword.useAccount": "Usar esta conta",
   "connector.onePassword.vaultTitle": "Cofre compartilhado",
   "connector.onePassword.vaultDescription":
