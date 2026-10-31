@@ -11,6 +11,8 @@ apps/
   slack-app/         Slack CLI projects with the Builders Bot Slack app manifests (production, development)
   status/            Public status page on GitHub Pages, and the check and webhook scripts of its workflow
   telegram-app/      BotFather settings of the Builders Bot Telegram bot (no code)
+infra/
+  aws/               CloudFormation templates, Bash scripts and tests of the per-sector servers on AWS (bb-srv)
 packages/
   ui/                Shared SolidJS controls and primitive styles for desktop, web, and Storybook
   brand/             Shared logos, avatars, and design tokens
