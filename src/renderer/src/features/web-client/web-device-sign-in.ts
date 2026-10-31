@@ -154,7 +154,12 @@ export function createWebDeviceSignIn(options: WebDeviceSignInOptions) {
       if (current !== generation) return;
       stop();
       setView(null);
-      await options.onAuthorized(body);
+      try {
+        await options.onAuthorized(body);
+      } catch {
+        // The session cookie is set, so a new check of the session can still find the account.
+        options.onFailed({ code: "device_sign_in_failed", message: currentText().t("account.login.deviceFailed") });
+      }
       return;
     }
     const body = await readJson(response);
