@@ -4,18 +4,27 @@ import {
   ArrowRightToLine,
   CircleX,
   ContextMenu,
+  IconButton,
+  Info,
   Input,
   PanelRight,
   PencilLine,
   SlidingTabs,
+  Tooltip,
   Trash2,
   X,
 } from "@openbot/ui";
-import { SidebarChatPreviewTooltip } from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
+import {
+  CHAT_PREVIEW_OPEN_DELAY,
+  CHAT_PREVIEW_SKIP_DELAY,
+  ChatPreviewCard,
+} from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
-import { createSignal, For, flush, onSettled, Show } from "solid-js";
+import { createMemo, createSignal, For, flush, onSettled, Show } from "solid-js";
+import { type ThreadDetails, ThreadDetailsDialog } from "./ThreadDetailsDialog";
 import { ThreadStatusText, ThreadTabIcon, threadAttention } from "./ThreadStatusMark";
 import { ThreadTabGhost } from "./ThreadTabGhost";
+import { chatPreviewBlock, chatPreviewLine } from "./thread-preview-text";
 import { setCarriedThreadTab, sidePanelTabRow, swallowNextClick } from "./thread-tab-drag";
 import { MAIN_THREAD_ID, type ThreadHeaderProps, type ThreadItem, threadBusy } from "./thread-types";
 
@@ -64,10 +73,32 @@ function renamable(props: ThreadHeaderProps, thread: ThreadItem | undefined): bo
   return thread?.kind === "side" && props.onRename !== undefined;
 }
 
+/**
+ * A side thread with a message to show. A host older than the preview sends none, and a new thread
+ * has none yet: its tab then has no preview and no details.
+ */
+function hasDetails(thread: ThreadItem | undefined): thread is ThreadItem {
+  return thread?.kind === "side" && (thread.firstMessage.trim() !== "" || thread.preview.trim() !== "");
+}
+
+/** The details of a thread for its dialog, as plain text that keeps its lines. */
+function threadDetails(thread: ThreadItem): ThreadDetails {
+  return {
+    title: thread.title,
+    startedAt: thread.createdAt,
+    firstMessage: chatPreviewBlock(thread.firstMessage),
+    lastMessage: chatPreviewBlock(thread.preview),
+  };
+}
+
 function ThreadTab(props: {
   thread: ThreadItem;
+  /** This tab is the open one. Only it shows the details button. */
+  selected: boolean;
   /** The right-click menu of this tab is open. */
   menuOpen: boolean;
+  /** The preview stays closed: a tab moves, or the details of a thread show. */
+  hold: boolean;
   onClose: () => void;
   onMove: (step: -1 | 1) => void;
   onRename: () => void;
@@ -75,6 +106,14 @@ function ThreadTab(props: {
   renaming: boolean;
 }) {
   const { t } = useText();
+  // The tab shows only its title, so the pointer over it previews what the thread started with and
+  // the person's last message, as plain text on few lines.
+  const [previewOpen, setPreviewOpen] = createSignal(false);
+  const firstLine = createMemo(() => chatPreviewLine(props.thread.firstMessage));
+  const lastLine = createMemo(() => chatPreviewLine(props.thread.preview));
+  const preview = () => hasDetails(props.thread);
+  // The details button shows over the start of the selected tab, so that tab makes room for it.
+  const detailsMark = () => (props.selected && preview() ? "" : undefined);
   // The close control and dragging are for the pointer. A keyboard user closes the focused tab with
   // Delete, moves it with Alt+Shift+Left or Right, and renames it with F2, because a tab list can
   // hold only tabs. Shift+F10 opens the tab menu.
@@ -88,72 +127,77 @@ function ThreadTab(props: {
   // rename can end on the slot, because the slot takes the pointer again when the rename ends.
   let closePressed = false;
   const closeLabel = () => t("conversation.threads.closeTab");
-  const tab = () => (
-    <SlidingTabs.Trigger
-      value={props.thread.id}
-      class="agent-threads-tab no-drag"
-      data-thread-id={props.thread.id}
-      data-attention={threadAttention(props.thread.status)}
-      data-menu-open={menuMark()}
-      data-renaming={renameMark()}
-      title={props.thread.title}
-      onDblClick={(event: MouseEvent) => {
-        if (event.target instanceof Element && event.target.closest(".agent-threads-tab-close")) return;
-        props.onRename();
-      }}
-      onAuxClick={(event: MouseEvent) => {
-        if (event.button === 1) props.onClose();
-      }}
-      onKeyDown={(event: KeyboardEvent) => {
-        if (event.key === "Delete" || event.key === "Backspace") {
-          event.preventDefault();
-          props.onClose();
-        } else if (event.key === "F2") {
-          event.preventDefault();
-          props.onRename();
-        } else if (event.altKey && event.shiftKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
-          // The tab list must not also move the selection.
-          stop(event);
-          props.onMove(event.key === "ArrowLeft" ? -1 : 1);
-        }
-      }}
+  // The tab is the trigger of its preview itself, with no element around it: the tab row measures,
+  // moves and divides its tabs as direct children.
+  return (
+    <Tooltip.Root
+      open={previewOpen() && !props.hold && !props.menuOpen && !props.renaming}
+      onOpenChange={setPreviewOpen}
+      placement="bottom-start"
+      gutter={10}
+      openDelay={CHAT_PREVIEW_OPEN_DELAY}
+      closeDelay={0}
+      skipDelayDuration={CHAT_PREVIEW_SKIP_DELAY}
+      disabled={!preview()}
     >
-      {/* As in a side panel tab, the icon slot shows the thread's state and is also the close control. */}
-      <span
-        class="agent-threads-tab-close"
-        aria-hidden="true"
-        title={closeLabel()}
-        onPointerDown={(event) => {
-          stop(event);
-          closePressed = !props.renaming;
+      <Tooltip.Trigger
+        as={SlidingTabs.Trigger}
+        value={props.thread.id}
+        class="agent-threads-tab no-drag"
+        data-thread-id={props.thread.id}
+        data-attention={threadAttention(props.thread.status)}
+        data-menu-open={menuMark()}
+        data-renaming={renameMark()}
+        data-details={detailsMark()}
+        // The preview names the thread. Without one, the title shows on hover in full.
+        title={preview() ? undefined : props.thread.title}
+        onDblClick={(event: MouseEvent) => {
+          if (event.target instanceof Element && event.target.closest(".agent-threads-tab-close")) return;
+          props.onRename();
         }}
-        onMouseDown={stop}
-        onClick={(event) => {
-          stop(event);
-          if (closePressed) props.onClose();
-          closePressed = false;
+        onAuxClick={(event: MouseEvent) => {
+          if (event.button === 1) props.onClose();
+        }}
+        onKeyDown={(event: KeyboardEvent) => {
+          if (event.key === "Delete" || event.key === "Backspace") {
+            event.preventDefault();
+            props.onClose();
+          } else if (event.key === "F2") {
+            event.preventDefault();
+            props.onRename();
+          } else if (event.altKey && event.shiftKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+            // The tab list must not also move the selection.
+            stop(event);
+            props.onMove(event.key === "ArrowLeft" ? -1 : 1);
+          }
         }}
       >
-        <span class="agent-threads-tab-icon">
-          <ThreadTabIcon status={props.thread.status} />
+        {/* As in a side panel tab, the icon slot shows the thread's state and is also the close control. */}
+        <span
+          class="agent-threads-tab-close"
+          aria-hidden="true"
+          title={closeLabel()}
+          onPointerDown={(event) => {
+            stop(event);
+            closePressed = !props.renaming;
+          }}
+          onMouseDown={stop}
+          onClick={(event) => {
+            stop(event);
+            if (closePressed) props.onClose();
+            closePressed = false;
+          }}
+        >
+          <span class="agent-threads-tab-icon">
+            <ThreadTabIcon status={props.thread.status} />
+          </span>
+          <X class="agent-threads-tab-x" />
         </span>
-        <X class="agent-threads-tab-x" />
-      </span>
-      <span class="agent-threads-tab-title">{props.thread.title}</span>
-      <ThreadStatusText status={props.thread.status} />
-    </SlidingTabs.Trigger>
-  );
-  // The tab shows only its title, so the preview says what the thread started with and where it is.
-  return (
-    <SidebarChatPreviewTooltip
-      title={props.thread.title}
-      firstMessage={props.thread.firstMessage}
-      preview={props.thread.preview}
-      menuOpen={props.menuOpen}
-      placement="bottom-start"
-    >
-      {tab()}
-    </SidebarChatPreviewTooltip>
+        <span class="agent-threads-tab-title">{props.thread.title}</span>
+        <ThreadStatusText status={props.thread.status} />
+      </Tooltip.Trigger>
+      <ChatPreviewCard title={props.thread.title} firstMessage={firstLine()} preview={lastLine()} />
+    </Tooltip.Root>
   );
 }
 
@@ -170,6 +214,10 @@ export function ThreadTabs(props: ThreadHeaderProps) {
   const [menuTarget, setMenuTarget] = createSignal<string | null>(null);
   const [menuOpen, setMenuOpen] = createSignal(false);
   const [renaming, setRenaming] = createSignal<Rename | null>(null);
+  /** The thread whose details show in a dialog. */
+  const [detailsId, setDetailsId] = createSignal<string | null>(null);
+  /** Where the details button of the selected tab starts in the tab area, or null when it does not show. */
+  const [detailsAt, setDetailsAt] = createSignal<number | null>(null);
   /** When the field opened. The app can move focus to the composer just after a tab opens. */
   let renameAt = Number.NEGATIVE_INFINITY;
   const [fill, setFill] = createSignal({ x: 0, width: 0 });
@@ -194,10 +242,26 @@ export function ThreadTabs(props: ThreadHeaderProps) {
     const element = list;
     if (!element) return;
     let drag: TabDrag | null = null;
+    // The details button sits over the start of the selected tab, outside the tab list, because a tab
+    // list can hold only tabs. It hides while that start is out of view or under a soft edge.
+    const placeDetails = () => {
+      const tab = element.querySelector<HTMLElement>('.agent-threads-tab[aria-selected="true"][data-details]');
+      if (!tab || !area) {
+        setDetailsAt(null);
+        return;
+      }
+      const box = element.getBoundingClientRect();
+      const left = box.left + element.clientLeft + tab.offsetLeft - element.scrollLeft;
+      const room = Number.parseFloat(getComputedStyle(tab).paddingLeft) || 0;
+      const start = box.left + (element.hasAttribute("data-more-before") ? FADE : 0);
+      const end = box.right - (element.hasAttribute("data-more-after") ? FADE : 0);
+      setDetailsAt(left >= start - 1 && left + room <= end + 1 ? left - area.getBoundingClientRect().left : null);
+    };
     const edges = () => {
       const max = element.scrollWidth - element.clientWidth;
       element.toggleAttribute("data-more-before", element.scrollLeft > 1);
       element.toggleAttribute("data-more-after", element.scrollLeft < max - 1);
+      placeDetails();
     };
     const header = element.closest<HTMLElement>(".conversation-header");
     // When the tabs do not fit, the model picker in the header gets smaller first: without the effort,
@@ -258,6 +322,7 @@ export function ThreadTabs(props: ThreadHeaderProps) {
       // The agent's own chat has no tab: while it is open, no tab is selected and the fill hides.
       if (!tab) {
         setFill((current) => ({ x: current.x, width: 0 }));
+        setDetailsAt(null);
         return;
       }
       setFill({ x: tab.offsetLeft, width: tab.offsetWidth });
@@ -285,7 +350,12 @@ export function ThreadTabs(props: ThreadHeaderProps) {
       // Delete removes the focused tab. Focus goes to the tab that opens in its place.
       if (document.activeElement === document.body && performance.now() - keyAt < 500) focusSelected();
     });
-    changes.observe(element, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-selected"] });
+    changes.observe(element, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["aria-selected", "data-details"],
+    });
     observeTabs();
     measure();
     const frame = requestAnimationFrame(() => setReady(true));
@@ -535,7 +605,13 @@ export function ThreadTabs(props: ThreadHeaderProps) {
     tab.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
     const box = tab.getBoundingClientRect();
     const start = title.getBoundingClientRect().left;
-    const end = box.right - (Number.parseFloat(getComputedStyle(tab).paddingRight) || 0);
+    // A selected tab with details has its icon slot after the title. The field then ends before it.
+    const slot = tab.querySelector(".agent-threads-tab-close")?.getBoundingClientRect();
+    const gap = Number.parseFloat(getComputedStyle(tab).columnGap) || 0;
+    const end =
+      slot && slot.left > start
+        ? slot.left - gap
+        : box.right - (Number.parseFloat(getComputedStyle(tab).paddingRight) || 0);
     renameAt = performance.now();
     setRenaming({ id, title: thread.title, width: end - start, left: start - area.getBoundingClientRect().left });
   };
@@ -582,6 +658,20 @@ export function ThreadTabs(props: ThreadHeaderProps) {
   const canRename = () => renamable(props, target());
   const canDelete = () => isSide() && props.onDelete !== undefined;
   const canMoveToSide = () => isSide() && props.onMoveToSide !== undefined;
+  const targetHasDetails = () => hasDetails(target());
+  /** The selected tab, when it is a side thread with a message to show. */
+  const selectedWithDetails = () => {
+    const thread = threadOf(props.activeId);
+    return hasDetails(thread) ? thread : undefined;
+  };
+  const detailsButtonLeft = () => {
+    const left = detailsAt();
+    return left !== null && selectedWithDetails() && renaming() === null && dragged() === null ? left : null;
+  };
+  const shownDetails = () => {
+    const thread = threadOf(detailsId());
+    return hasDetails(thread) ? threadDetails(thread) : null;
+  };
   const isMenuTarget = (id: string) => menuOpen() && menuTarget() === id;
   const openChosen = (id: string) => {
     if (choosing) props.onOpen(id);
@@ -598,6 +688,19 @@ export function ThreadTabs(props: ThreadHeaderProps) {
 
   return (
     <div ref={area} class="agent-threads-tabs-area">
+      {/* Before the tabs, so Tab reaches it just before the selected tab that it shows over. */}
+      <Show when={detailsButtonLeft() !== null}>
+        <IconButton
+          class="agent-threads-details no-drag"
+          variant="ghost"
+          size="icon-xs"
+          label={t("conversation.threads.details.open")}
+          style={`left: ${detailsButtonLeft() ?? 0}px;`}
+          onClick={() => setDetailsId(props.activeId)}
+        >
+          <Info aria-hidden="true" />
+        </IconButton>
+      </Show>
       <ContextMenu.Root onOpenChange={setMenuOpen}>
         <ContextMenu.Trigger
           class="agent-threads-tabs-trigger"
@@ -628,7 +731,9 @@ export function ThreadTabs(props: ThreadHeaderProps) {
                 {(thread) => (
                   <ThreadTab
                     thread={thread()}
+                    selected={props.activeId === thread().id}
                     menuOpen={isMenuTarget(thread().id)}
+                    hold={detailsId() !== null || dragged() !== null}
                     onClose={() => closeTab(thread().id)}
                     onMove={(step) => move(thread().id, step)}
                     onRename={() => startRename(thread().id)}
@@ -641,6 +746,13 @@ export function ThreadTabs(props: ThreadHeaderProps) {
         </ContextMenu.Trigger>
         <ContextMenu.Portal>
           <ContextMenu.Content class="agent-threads-tab-menu" aria-label={t("conversation.threads.actions")}>
+            <Show when={targetHasDetails()}>
+              <ContextMenu.Item onSelectAfterClose={() => setDetailsId(targetId())}>
+                <Info class="agent-context-icon size-4" aria-hidden="true" />
+                <span>{t("conversation.threads.details.open")}</span>
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </Show>
             <Show when={canRename()}>
               <ContextMenu.Item onSelectAfterClose={() => startRename(targetId())}>
                 <PencilLine class="agent-context-icon size-4" aria-hidden="true" />
@@ -693,6 +805,7 @@ export function ThreadTabs(props: ThreadHeaderProps) {
         </ContextMenu.Portal>
       </ContextMenu.Root>
       <ThreadTabGhost from="chat" />
+      <ThreadDetailsDialog details={shownDetails()} onClose={() => setDetailsId(null)} />
       <Show when={renaming()}>
         {(edit) => (
           <Input

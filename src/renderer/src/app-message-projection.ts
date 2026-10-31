@@ -28,6 +28,7 @@ import type {
 } from "@openbot/ui/data";
 import { formatChatTimestamp } from "@openbot/ui/features/conversation/chat-timestamp";
 import type { TaskListItem } from "@openbot/ui/features/conversation/TaskList";
+import { chatPreviewLine } from "@openbot/ui/features/conversation/threads/thread-preview-text";
 import { currentText } from "@openbot/ui/text";
 import { isRoutineEventItem } from "./features/conversation/conversation-read-state";
 
@@ -67,7 +68,8 @@ export function toAgentProfile(stored: ClientAgentSummary): AgentProfile {
     updatedAt: stored.updatedAt,
     time: stored.updatedAt ? formatTime(stored.updatedAt) : currentText().t("chat.day.now"),
     preview: cleanPreview(stored.preview),
-    firstMessage: cleanPreview(stored.firstMessage ?? ""),
+    // Empty, not the "No messages" of the preview: a chat with no first message has no preview card.
+    firstMessage: chatPreviewLine(cleanAgentMessageText(stored.firstMessage ?? "")),
   };
 }
 

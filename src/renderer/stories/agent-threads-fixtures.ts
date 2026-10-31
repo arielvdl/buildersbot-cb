@@ -16,6 +16,9 @@ function thread(id: string, title: string, updatedAt: string, fields: Partial<Ag
     threadId: `thread-${id}`,
     origin: "user",
     title,
+    // The tab previews these on hover, and its info button shows them in full.
+    firstMessage: `Please do the ${title.toLowerCase()}. Keep it short and send me a draft first.`,
+    preview: "Looks good. Now add a short summary at the top.",
     state: "idle",
     outcome: "completed",
     hold: null,

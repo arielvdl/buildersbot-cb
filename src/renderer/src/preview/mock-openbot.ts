@@ -891,6 +891,10 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       threadId: `mock-task-thread-${messageCounter++}`,
       origin: "user",
       title,
+      // As the host keeps them: the message that starts the task, which a rename does not change,
+      // and the last message of the person.
+      firstMessage: text.trim(),
+      preview: text.trim(),
       state: "idle",
       outcome: null,
       hold: null,
@@ -930,6 +934,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       state: "running",
       activeTurnId: turnId,
       progress: "Reviewing the task…",
+      preview: text.trim() || task.preview,
       updatedAt: new Date().toISOString(),
     });
     emitAgentEvent({ type: "agent-task-conversation", taskId: task.id, snapshot: clone(conversation) });

@@ -22,6 +22,7 @@ function item(id: string, title: string, minutesAgo: number, status: ThreadStatu
     title,
     firstMessage: `Start of ${title.toLowerCase()}`,
     preview: `Last message of ${title.toLowerCase()}`,
+    createdAt: updatedAt,
     updatedAt,
     status,
   };
@@ -83,6 +84,7 @@ function ThreadHeaderStory(props: HeaderFixture) {
             title: "New thread",
             firstMessage: "",
             preview: "",
+            createdAt: MAIN_UPDATED_AT,
             updatedAt: MAIN_UPDATED_AT,
             status: IDLE,
           },
@@ -129,6 +131,8 @@ function ThreadHeaderStory(props: HeaderFixture) {
         onSettingsIntent={fn()}
         onOpenSettings={fn()}
         onOpenChat={state.active === MAIN_THREAD_ID ? undefined : () => open(MAIN_THREAD_ID)}
+        // As in the app: with threads, the agent's name is the tab of its own chat.
+        titleSelected={state.threads.length > 0 ? state.active === MAIN_THREAD_ID : undefined}
         modelPicker={{
           provider: storyRuntimeSettings(STORY_AGENT).provider,
           value: STORY_AGENT.model,
@@ -208,6 +212,36 @@ export const OwnChatOnly: Story = { render: () => <ThreadHeaderStory threads={[]
 /** One tab for each state: done, working, waiting for an approval, queued and failed. Hovering a tab previews how the thread started and its last message. */
 export const States: Story = {
   render: () => <ThreadHeaderStory threads={STATES} open={STATES.map((thread) => thread.id)} active="pricing" />,
+};
+
+/** A long first message in Markdown, and a thread that a host older than the preview sent. */
+const DETAILS: ThreadItem[] = [
+  {
+    ...item("launch-plan", "Renamed by the person", 5),
+    firstMessage: [
+      "Plan the **Q4 launch** with the design team:",
+      "",
+      "1. List what blocks it.",
+      "2. Read the notes in the attached file and say what changed.",
+      "3. Propose dates for each step.",
+      "4. Keep a short list of open questions.",
+      "5. Tell me who owns each step.",
+      "6. Draft the message to the team.",
+      "7. Check the budget.",
+    ].join("\n"),
+    preview: "Good. Now move the review to Friday and keep the rest.",
+  },
+  { ...item("older-host", "From an older host", 9), firstMessage: "", preview: "" },
+];
+
+/**
+ * The selected tab has an info button before its title, and its icon slot moves to its end. The button
+ * opens the details: the first message, cut to six lines with "Show more", and the person's last
+ * message. The agent's name, as the tab of the agent's own chat, previews that chat on hover. A tab
+ * with no message to show has no preview and no button.
+ */
+export const Details: Story = {
+  render: () => <ThreadHeaderStory threads={DETAILS} open={DETAILS.map((thread) => thread.id)} active="launch-plan" />,
 };
 
 /** More tabs than the header has space for: the tabs scroll, and the open tab stays in view. */

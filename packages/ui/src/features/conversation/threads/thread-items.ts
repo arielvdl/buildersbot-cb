@@ -49,6 +49,7 @@ export function threadLists(input: ThreadListsInput): ThreadLists {
       title: task.title,
       firstMessage: task.firstMessage ?? "",
       preview: task.preview ?? "",
+      createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       status: agentTaskThreadStatus(task, input.waitsFor(task)),
     };
@@ -72,6 +73,7 @@ export function threadLists(input: ThreadListsInput): ThreadLists {
       title: input.draftTitle,
       firstMessage: "",
       preview: "",
+      createdAt: input.mainUpdatedAt,
       updatedAt: input.mainUpdatedAt,
       status: { kind: "idle" },
     });

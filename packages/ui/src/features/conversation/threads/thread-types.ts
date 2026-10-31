@@ -17,10 +17,15 @@ export interface ThreadItem {
   id: string;
   kind: "side" | "draft";
   title: string;
-  /** The message that started the thread, for the tab's hover preview. Empty when unknown. */
+  /**
+   * The message that started the thread, as stored, for the tab's preview and details. A rename does
+   * not change it. Empty when unknown, such as from a host older than the preview.
+   */
   firstMessage: string;
-  /** The last message the person sent, for the tab's hover preview. Empty when unknown. */
+  /** The last message that the person sent, as stored, for the tab's preview and details. Empty when unknown. */
   preview: string;
+  /** When the thread started. */
+  createdAt: string;
   updatedAt: string;
   status: ThreadStatus;
 }

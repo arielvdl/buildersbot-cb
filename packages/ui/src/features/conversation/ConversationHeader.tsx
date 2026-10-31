@@ -1,13 +1,19 @@
-import { Badge, Button, Clock3, Lock } from "@openbot/ui";
+import { Badge, Button, Clock3, IconButton, Info, Lock, Tooltip } from "@openbot/ui";
 import { ProviderModelPicker } from "@openbot/ui/components/ProviderModelPicker";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { agentAccessLockLabel } from "@openbot/ui/features/agents/agent-access";
 import { RemoteDesktopIcon } from "@openbot/ui/features/conversation/ConversationIcons";
 import { SidePanelToggle, type SidePanelToggleProps } from "@openbot/ui/features/conversation/SidePanel";
+import { ThreadDetailsDialog } from "@openbot/ui/features/conversation/threads/ThreadDetailsDialog";
+import {
+  CHAT_PREVIEW_OPEN_DELAY,
+  CHAT_PREVIEW_SKIP_DELAY,
+  ChatPreviewCard,
+} from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
 import type { ComponentProps, JSX } from "@solidjs/web";
-import { Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 
 export interface ConversationHeaderProps {
   agent: AgentProfile | null | undefined;
@@ -29,7 +35,8 @@ export interface ConversationHeaderProps {
   threads?: JSX.Element | undefined;
   /**
    * Set when the agent has thread tabs: the agent's name is then the first tab, for the agent's own
-   * chat, and is selected while that chat is open.
+   * chat, and is selected while that chat is open. As a tab, it previews the chat on hover, and while
+   * it is selected, a button before the avatar shows the details of the chat.
    */
   titleSelected?: boolean | undefined;
 }
@@ -55,28 +62,71 @@ export function ConversationHeader(props: ConversationHeaderProps) {
   const mood = () => (props.working ? "live" : "idle");
   const titleTab = () => (props.titleSelected === undefined ? undefined : "");
   const titleSelected = () => (props.titleSelected ? "" : undefined);
+  // The agent's own chat as a tab: its first message and the person's last one, already plain text.
+  // Without a first message, such as on a host older than the preview, the tab has no preview.
+  const mainFirst = () => (props.titleSelected === undefined ? "" : (props.agent?.firstMessage.trim() ?? ""));
+  const mainLast = () => (mainFirst() ? (props.agent?.preview.trim() ?? "") : "");
+  const mainDetailsShown = () => props.titleSelected === true && mainFirst() !== "";
+  const [previewOpen, setPreviewOpen] = createSignal(false);
+  const [detailsOpen, setDetailsOpen] = createSignal(false);
+  const mainDetails = () => {
+    const agent = props.agent;
+    return detailsOpen() && agent && mainFirst()
+      ? { title: agent.name, firstMessage: mainFirst(), lastMessage: mainLast() }
+      : null;
+  };
   return (
     <header class="window-drag conversation-header">
       <div class="conversation-heading-group">
         <Show when={props.agent} fallback={props.title}>
           {(agent) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              class="conversation-title no-drag"
-              data-tab={titleTab()}
-              data-selected={titleSelected()}
-              aria-label={props.onOpenChat ? t("conversation.header.mainChat") : t("conversation.header.settings")}
-              onPointerEnter={() => props.onOpenChat || props.onSettingsIntent()}
-              onFocus={() => props.onOpenChat || props.onSettingsIntent()}
-              onClick={() => (props.onOpenChat ?? props.onOpenSettings)()}
-            >
-              <AgentAvatar agent={agent()} mood={mood()} />
-              <h1 class={props.working ? "conversation-title-working" : undefined}>{agent().name}</h1>
-            </Button>
+            <>
+              {/* The name is the trigger of its preview itself, so the heading group keeps it as its first element. */}
+              <Tooltip.Root
+                open={previewOpen() && !detailsOpen()}
+                onOpenChange={setPreviewOpen}
+                placement="bottom-start"
+                gutter={10}
+                openDelay={CHAT_PREVIEW_OPEN_DELAY}
+                closeDelay={0}
+                skipDelayDuration={CHAT_PREVIEW_SKIP_DELAY}
+                disabled={mainFirst() === ""}
+              >
+                <Tooltip.Trigger
+                  as={Button}
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  class="conversation-title no-drag"
+                  data-tab={titleTab()}
+                  data-selected={titleSelected()}
+                  data-details={mainDetailsShown() ? "" : undefined}
+                  aria-label={props.onOpenChat ? t("conversation.header.mainChat") : t("conversation.header.settings")}
+                  onPointerEnter={() => props.onOpenChat || props.onSettingsIntent()}
+                  onFocus={() => props.onOpenChat || props.onSettingsIntent()}
+                  onClick={() => (props.onOpenChat ?? props.onOpenSettings)()}
+                >
+                  <AgentAvatar agent={agent()} mood={mood()} />
+                  <h1 class={props.working ? "conversation-title-working" : undefined}>{agent().name}</h1>
+                </Tooltip.Trigger>
+                <ChatPreviewCard firstMessage={mainFirst()} preview={mainLast()} />
+              </Tooltip.Root>
+              {/* After the name in the document, so the heading group keeps the name first; it shows over its start. */}
+              <Show when={mainDetailsShown()}>
+                <IconButton
+                  class="conversation-title-details no-drag"
+                  variant="ghost"
+                  size="icon-xs"
+                  label={t("conversation.threads.details.openMain")}
+                  onClick={() => setDetailsOpen(true)}
+                >
+                  <Info aria-hidden="true" />
+                </IconButton>
+              </Show>
+            </>
           )}
         </Show>
+        <ThreadDetailsDialog details={mainDetails()} onClose={() => setDetailsOpen(false)} />
         <Show when={props.agent && agentAccessLockLabel(props.agent, t)}>
           {(label) => (
             <span class="conversation-access-lock" role="img" aria-label={label()} title={label()}>

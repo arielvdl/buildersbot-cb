@@ -92,7 +92,8 @@
 }
 
 .agent-threads-header:is([data-fold="list"], [data-fold="all"]),
-.conversation-heading-group:has(.agent-threads-header[data-fold="all"]) .conversation-title {
+.conversation-heading-group:has(.agent-threads-header[data-fold="all"])
+  :is(.conversation-title, .conversation-title-details) {
   visibility: hidden;
 }
 
@@ -163,13 +164,6 @@
 /* The trigger that keeps the agent's own chat selected in the tabs. It never shows. */
 .agent-threads-tabs .agent-threads-main-key {
   display: none;
-}
-
-/* The hover preview anchors to a wrapper, which takes the tab's place in the list. */
-.agent-threads-tabs > .sidebar-agent-tooltip-trigger {
-  display: flex;
-  flex: 0 0 auto;
-  min-width: 0;
 }
 
 /* A tab has the shape of a side panel tab: the icon slot, then the title. All tabs have the same width,
@@ -589,6 +583,99 @@
   color: var(--openbot-danger-text);
 }
 
+/* The details of a thread: its title and start, then the first and the last message. */
+.ui-dialog-content.thread-details-dialog {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  overflow: auto;
+  outline: 0;
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-sidebar);
+  box-shadow: none;
+  padding: var(--openbot-space-4) var(--openbot-space-6) var(--openbot-space-6);
+  color: var(--openbot-text-primary);
+}
+
+.thread-details {
+  display: grid;
+  gap: var(--openbot-space-4);
+}
+
+.thread-details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
+.thread-details-heading {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-1);
+}
+
+.thread-details-title {
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.thread-details-started,
+.thread-details-none {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.thread-details-message {
+  display: grid;
+  justify-items: start;
+  gap: var(--openbot-space-1-5);
+}
+
+.thread-details-message-header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.thread-details-label {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+/* The text as the person wrote it, with its lines, on six lines until "Show more". It can be selected. */
+.thread-details-text {
+  display: -webkit-box;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
+  cursor: text;
+}
+
+.thread-details-text[data-expanded] {
+  display: block;
+  -webkit-line-clamp: none;
+}
+
+.thread-details-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .agent-thread-origin {
   margin: 0;
   padding-top: var(--openbot-chat-entry-gap);
@@ -619,6 +706,81 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The selected tab of a thread with details: the details button shows over its start, then the title,
+   then the icon slot at its end. So the info is on one side and the close control on the other. */
+.agent-threads-tab.ui-sliding-tabs-trigger[aria-selected="true"][data-details] {
+  padding-right: var(--openbot-space-1-5);
+  padding-left: calc(var(--openbot-space-1-5) + var(--openbot-icon-md) + var(--openbot-space-1-5));
+}
+
+.agent-threads-tab[aria-selected="true"][data-details] .agent-threads-tab-title {
+  flex: 1 1 auto;
+}
+
+.agent-threads-tab[aria-selected="true"][data-details] .agent-threads-tab-close {
+  order: 1;
+}
+
+/* The details button of the selected tab. It is outside the tab list, over the start of the tab, at
+   the place that the tabs measure. It has the size and the round fill of the icon slot. */
+.agent-threads-details.ui-button {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: var(--openbot-icon-md);
+  min-width: 0;
+  height: var(--openbot-icon-md);
+  margin-left: var(--openbot-space-1-5);
+  padding: 0;
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-secondary);
+  transform: translateY(-50%);
+}
+
+.agent-threads-details.ui-button > svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.agent-threads-details.ui-button:hover {
+  background: var(--openbot-bg-control-hover);
+  color: var(--openbot-text-primary);
+}
+
+/* The name tab of the agent's own chat, while it is selected and the chat has a first message: the
+   details button shows over its start, before the avatar, as on a selected thread tab. */
+.conversation-heading-group:has(> .conversation-title-details) {
+  position: relative;
+}
+
+.conversation-title.ui-button[data-tab][data-details] .agent-avatar {
+  margin-left: calc(var(--openbot-icon-md) + var(--openbot-space-1-5));
+}
+
+.conversation-title-details.ui-button {
+  position: absolute;
+  top: 50%;
+  left: var(--openbot-space-1-5);
+  z-index: 2;
+  width: var(--openbot-icon-md);
+  min-width: 0;
+  height: var(--openbot-icon-md);
+  padding: 0;
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-secondary);
+  transform: translateY(-50%);
+}
+
+.conversation-title-details.ui-button > svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.conversation-title-details.ui-button:hover {
+  background: var(--openbot-bg-control-hover);
+  color: var(--openbot-text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

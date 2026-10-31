@@ -285,7 +285,10 @@ export interface AgentProfile {
   updatedAt?: string | null;
   time: string;
   preview: string;
-  /** The first message of the agent's own chat, for the row's hover preview. Empty until there is one. */
+  /**
+   * The first message of the agent's own chat as one line of plain text, for the hover preview of
+   * the row and of the chat's tab, and for the chat's details. Empty until there is one.
+   */
   firstMessage: string;
 }
 
