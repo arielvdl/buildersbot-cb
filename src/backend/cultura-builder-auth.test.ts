@@ -2,16 +2,19 @@
 
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+import { providerFailureStatus } from "./agent/provider-status";
 import {
   ensureCulturaBuilderToken,
   pollCulturaBuilderToken,
   readCulturaBuilderAccess,
   readCulturaBuilderSession,
   refreshCulturaBuilderSession,
+  requireCulturaBuilderSession,
   serializeCulturaBuilderSession,
   sessionIsFresh,
   startCulturaBuilderSignIn,
 } from "./cultura-builder-auth";
+import { ProviderSignInError } from "./provider-client-effects";
 
 /** A fetch for a test: the answer comes from `answer`, and nothing goes over the network. */
 function fakeFetch(answer: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>): typeof fetch {
@@ -161,6 +164,27 @@ describe("refreshCulturaBuilderSession", () => {
     expect(refreshed.access).toBe("cbmcp_2");
     expect(refreshed.refresh).toBe("r");
     expect(refreshed.empresa).toBe("ariel");
+  });
+});
+
+describe("requireCulturaBuilderSession", () => {
+  // The report: a host with no Cultura Builder sign-in showed "Unavailable" and "Cultura Builder
+  // login required." because the missing session was a plain error, which reads as a broken provider.
+  it("reads a missing session as a sign-in to do, so the row says Not connected", async () => {
+    const result = await Effect.runPromise(Effect.result(requireCulturaBuilderSession(null)));
+    expect(result._tag).toBe("Failure");
+    const failure = result._tag === "Failure" ? result.failure : null;
+    expect(failure).toBeInstanceOf(ProviderSignInError);
+    expect(providerFailureStatus("cultura-builder", failure, "1.18.27")).toMatchObject({
+      state: "sign-in-required",
+      message: "Cultura Builder login required.",
+    });
+  });
+
+  it("gives the stored session", async () => {
+    const stored = serializeCulturaBuilderSession({ access: "cbmcp_1", refresh: "r", expires: 0, empresa: null });
+    const session = await Effect.runPromise(requireCulturaBuilderSession(stored));
+    expect(session.access).toBe("cbmcp_1");
   });
 });
 

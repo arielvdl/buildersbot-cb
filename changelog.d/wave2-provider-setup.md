@@ -15,3 +15,5 @@
   Settings. Its Connect is the Cultura Builder sign-in. On a joined server, whose host has its own
   Cultura Builder sign-in, the row is in "More providers" and says to sign in on the computer that
   runs the server.
+- A Cultura Builder with no sign-in now shows "Not connected" and Connect, not "Unavailable". The
+  missing sign-in no longer counts as a failed start.

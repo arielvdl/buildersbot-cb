@@ -126,6 +126,22 @@ export function readCulturaBuilderSession(raw: string | null): CulturaBuilderSes
   };
 }
 
+/**
+ * The stored session, or a sign-in error when there is none.
+ *
+ * A missing session is a signed-out provider, not a broken one. As a `ProviderSignInError` the
+ * provider status says "sign-in required", and the start is not counted as a failure. A plain error
+ * made the row read "Unavailable" and counted toward the starts that stop the provider.
+ */
+export function requireCulturaBuilderSession(
+  raw: string | null,
+): Effect.Effect<CulturaBuilderSession, ProviderSignInError> {
+  const session = readCulturaBuilderSession(raw);
+  return session
+    ? Effect.succeed(session)
+    : Effect.fail(new ProviderSignInError({ message: "Cultura Builder login required." }));
+}
+
 export function serializeCulturaBuilderSession(session: CulturaBuilderSession): string {
   return JSON.stringify(session);
 }
@@ -345,14 +361,14 @@ export function ensureCulturaBuilderToken(
   save: (value: string) => Effect.Effect<void>,
   fetcher: Fetcher = fetch,
 ): Effect.Effect<string, ProviderClientOperationError | ProviderSignInError> {
-  const session = readCulturaBuilderSession(raw);
-  if (!session) {
-    return Effect.fail(new ProviderSignInError({ message: "Cultura Builder login required." }));
-  }
-  if (sessionIsFresh(session)) return Effect.succeed(session.access);
-  if (session.refresh === "") return Effect.succeed(session.access);
-  return refreshCulturaBuilderSession(session, fetcher).pipe(
-    Effect.tap((refreshed) => save(serializeCulturaBuilderSession(refreshed))),
-    Effect.map((refreshed) => refreshed.access),
+  return requireCulturaBuilderSession(raw).pipe(
+    Effect.flatMap((session): Effect.Effect<string, ProviderClientOperationError> => {
+      if (sessionIsFresh(session)) return Effect.succeed(session.access);
+      if (session.refresh === "") return Effect.succeed(session.access);
+      return refreshCulturaBuilderSession(session, fetcher).pipe(
+        Effect.tap((refreshed) => save(serializeCulturaBuilderSession(refreshed))),
+        Effect.map((refreshed) => refreshed.access),
+      );
+    }),
   );
 }
