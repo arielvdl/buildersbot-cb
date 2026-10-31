@@ -3,7 +3,11 @@
 # docs/docker.md#several-instances-on-one-host.
 services:
   openbot:
-    image: ghcr.io/nightly-labs/openbot:${OPENBOT_TAG:-latest}
+    # Builders Bot has no published container image yet. `openbot-instance create` writes the image
+    # that the owner built from docker/Dockerfile to the env file of the instance. Docker never pulls
+    # it from a registry.
+    image: ${BUILDERSBOT_IMAGE:?Builders Bot has no published container image yet. Set BUILDERSBOT_IMAGE to an image built from docker/Dockerfile.}
+    pull_policy: never
     container_name: openbot-${OPENBOT_NAME:?}
     restart: unless-stopped
     security_opt:

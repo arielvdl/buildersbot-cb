@@ -1,13 +1,16 @@
-# OpenBot as a self-hosted server in Docker. See docs/docker.md.
+# Builders Bot as a self-hosted server in Docker. See docs/docker.md.
 #
-#   curl -fsSLO https://raw.githubusercontent.com/nightly-labs/openbot/main/docker/compose.yaml
-#   curl -fsSLO https://raw.githubusercontent.com/nightly-labs/openbot/main/docker/seccomp.json
+# Builders Bot has no published container image yet. Build one from docker/Dockerfile, and write its
+# name to the file .env next to this file and seccomp.json (BUILDERSBOT_IMAGE=<image>). Then:
+#
 #   docker compose up -d
 #   docker compose exec openbot openbot login
 services:
   openbot:
-    # Use a version tag to choose when to upgrade. OpenBot never goes back to an older version.
-    image: ghcr.io/nightly-labs/openbot:latest
+    # The image that you built. Docker never pulls it from a registry. Builders Bot never goes back to
+    # an older version.
+    image: ${BUILDERSBOT_IMAGE:?Builders Bot has no published container image yet. Set BUILDERSBOT_IMAGE to an image built from docker/Dockerfile.}
+    pull_policy: never
     restart: unless-stopped
     security_opt:
       # The Docker default profile, with user namespaces for the Electron sandbox.

@@ -65,6 +65,11 @@ const ALLOWED_MENTIONS: ReadonlyArray<{ file: string; line: RegExp; reason: stri
     reason: "documentation link",
   },
   {
+    file: "docker/instances/openbot-instance",
+    line: /^\s*\[\[ \$image != \*nightly-labs\* \]\] \|\| fail /u,
+    reason: "refuses the upstream image",
+  },
+  {
     // A list of provider CLI versions to avoid, not an app release. Section 7.5 of the design moves it.
     file: "src/main/provider-runtime-releases.ts",
     line: /"https:\/\/raw\.githubusercontent\.com\/nightly-labs\/openbot\/main\/provider-runtime-blocklist\.json";$/u,
@@ -218,6 +223,7 @@ await check("nightly-labs appears only in documentation links and comments", () 
     ...readdirSync(ROOT).filter((name) => /^electron-builder.*\.ya?ml$/u.test(name)),
     ...filesUnder("src/main").filter((file) => !/\.test\.tsx?$/u.test(file)),
     ...filesUnder("scripts/hosting"),
+    ...filesUnder("docker"),
     "scripts/install-server.sh",
     "scripts/host-manager.ts",
     "scripts/host-manager-macos.ts",
@@ -382,6 +388,64 @@ await check("the root update script and the server install download nothing", ()
     if (stage.status !== 0 || !stage.stderr.includes("not available")) fail(`stage: ${JSON.stringify(result.stage)}`);
     if (install.status === 0 || !install.stderr.includes("not available"))
       fail(`install: ${JSON.stringify(result.install)}`);
+    return result;
+  } finally {
+    rmSync(fake, { recursive: true, force: true });
+  }
+});
+
+await check("the container instances pull no image and offer no update", () => {
+  if (process.platform === "win32") return "skipped: needs bash";
+  const images = ["docker/compose.yaml", "docker/instances/compose.yaml"].map((file) => {
+    const compose = parseYaml(readText(file));
+    const service = isDynamicRecord(compose) && isDynamicRecord(compose.services) ? compose.services.openbot : null;
+    if (!isDynamicRecord(service) || !isString(service.image)) fail(`${file} has no image.`);
+    // No default image: the owner names an image built from docker/Dockerfile, which Docker never pulls.
+    if (!service.image.startsWith("${BUILDERSBOT_IMAGE:?") || service.pull_policy !== "never") {
+      fail(`${file} can pull an image: ${service.image}, pull_policy ${String(service.pull_policy)}`);
+    }
+    return { file, image: service.image, pullPolicy: service.pull_policy };
+  });
+  const script = readText("docker/instances/openbot-instance");
+  if (/touch "\$folder\/update-status\/enabled"/u.test(script)) fail("openbot-instance turns on updates in the app.");
+  const fake = mkdtempSync(join(tmpdir(), "update-feed-guard-docker-"));
+  try {
+    const log = join(fake, "docker.log");
+    writeFileSync(log, "");
+    for (const tool of ["docker", "systemctl", "curl", "wget"]) {
+      writeFileSync(join(fake, tool), `#!/bin/sh\necho "${tool} $*" >>"${log}"\nexit 1\n`);
+      chmodSync(join(fake, tool), 0o755);
+    }
+    const environment = { ...process.env, PATH: `${fake}:${process.env.PATH ?? ""}`, BUILDERSBOT_IMAGE: "" };
+    const instance = (args: string[], extra: NodeJS.ProcessEnv = {}) => {
+      const result = spawnSync("bash", ["docker/instances/openbot-instance", ...args], {
+        cwd: ROOT,
+        env: { ...environment, ...extra },
+        encoding: "utf8",
+      });
+      return { args: args.join(" "), status: result.status, stderr: result.stderr.trim() };
+    };
+    const stage = spawnSync(
+      "bash",
+      ["-c", 'source "$1"; DATA="$2"; stage guard', "guard", "docker/instances/openbot-instance", fake],
+      { cwd: ROOT, env: environment, encoding: "utf8" },
+    );
+    const runs = [
+      instance(["upgrade", "--all"]),
+      instance(["upgrade", "guard"]),
+      instance(["create", "guard", "--cpus", "1", "--mem", "1g", "--disk", "1G"]),
+      instance(["create", "guard", "--cpus", "1", "--mem", "1g", "--disk", "1G"], {
+        BUILDERSBOT_IMAGE: "ghcr.io/nightly-labs/openbot:latest",
+      }),
+    ];
+    const network = readFileSync(log, "utf8").trim();
+    const result = { images, stage: { status: stage.status, stderr: stage.stderr.trim() }, runs, network };
+    if (network !== "") fail(`A tool ran: ${network}`);
+    if (stage.status !== 0 || !stage.stderr.includes("not available")) fail(`stage: ${JSON.stringify(result.stage)}`);
+    const expected = ["not available", "not available", "no published container image", "upstream OpenBot app"];
+    runs.forEach((run, index) => {
+      if (run.status === 0 || !run.stderr.includes(expected[index] ?? "")) fail(`${run.args}: ${JSON.stringify(run)}`);
+    });
     return result;
   } finally {
     rmSync(fake, { recursive: true, force: true });

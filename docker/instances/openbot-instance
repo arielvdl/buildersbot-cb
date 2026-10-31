@@ -10,11 +10,13 @@
 # All instances use the Docker network `openbot`, on which they cannot reach each other.
 # openbot-firewall.service lets them reach only the internet. `setup` installs both once per host.
 #
-# The owner can update an instance from the app. OpenBot writes an empty request file to
-# /srv/openbot/<name>/update-requests, which the container can write, and
-# openbot-instance-update@<name>.path runs `update-request <name>` as root. That pulls the image, and
-# for an install makes the container again. Root reports in /srv/openbot/<name>/update-status, which
-# the container can only read. The container never gets the Docker socket.
+# The image is BUILDERSBOT_IMAGE in the env file of the instance, an image that the owner built from
+# docker/Dockerfile. Builders Bot has no published container image and no release feed yet, so
+# `upgrade` and `update-request` pull no image, and the app offers no update. The update folders stay:
+# the app writes an empty request file to /srv/openbot/<name>/update-requests, which the container
+# can write, and openbot-instance-update@<name>.path runs `update-request <name>` as root. Root
+# reports in /srv/openbot/<name>/update-status, which the container can only read. The container
+# never gets the Docker socket.
 #
 # `backup` stops an instance, copies all of /data into one archive in OPENBOT_BACKUP_DIR, and starts
 # it again. `verify` unpacks a backup into a folder that no container mounts and checks it. `restore`
@@ -58,7 +60,7 @@ Usage: openbot-instance <command>
   list                        Show the instances, their state and disk use.
   up | down | restart <name>  Start, stop or restart an instance. The data stays.
   logs <name> [-f]            Show the log of an instance.
-  upgrade <name> | --all      Pull the image and make the container again.
+  upgrade <name> | --all      Not available in this version of Builders Bot.
   update-request <name>       Run by openbot-instance-update@<name>.service when the app asks
                               for an update.
   run <name> <command>        Run `openbot <command>` in the instance, for example
@@ -235,13 +237,9 @@ update_folders() {
   fi
   mountpoint -q "$requests" || mount "$requests" || return
   systemctl enable --now --quiet "$UPDATE_UNIT@$1.path" || return
-  # OpenBot offers updates only when this file is there. An instance with a fixed OPENBOT_TAG keeps
-  # the version that the administrator chose.
-  if grep -q '^OPENBOT_TAG=' "$(env_file "$1")"; then
-    rm -f "$folder/update-status/enabled"
-  else
-    touch "$folder/update-status/enabled"
-  fi
+  # The app offers updates only when the file `enabled` is there. This version of Builders Bot has no
+  # image to update to, so the file is never there.
+  rm -f "$folder/update-status/enabled"
 }
 
 set_state() {
@@ -256,20 +254,11 @@ release_version() {
   if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "$version"; fi
 }
 
-# Pulls the image of instance $1. Writes its version to staged.ready only when it is newer than the
-# container: an older OpenBot cannot open a database that a newer one migrated.
+# Builders Bot has no published container image and no release feed yet, so this pulls no image
+# and stages no version. Before, it pulled the image of the upstream OpenBot app.
 stage() {
-  local name=$1 status=$DATA/$1/update-status running pulled image
-  rm -f "$status/staged.ready"
-  running=$(release_version "openbot-$name")
-  [ -n "$running" ] || fail "The container openbot-$name has no release version."
-  compose "$name" pull --quiet || fail "The image of $name did not download."
-  image=$(compose "$name" config --images | head -n 1)
-  pulled=$(release_version "$image")
-  [ -n "$pulled" ] || fail "The image $image has no release version."
-  if [ "$pulled" != "$running" ] && [ "$(printf '%s\n%s\n' "$running" "$pulled" | sort -V | tail -n 1)" = "$pulled" ]; then
-    set_state "$status/staged.ready" "$pulled"
-  fi
+  rm -f "$DATA/$1/update-status/staged.ready"
+  echo "Updates are not available in this version of Builders Bot." >&2
 }
 
 # The container owns the request folder, so root only tests a request and removes it. It never reads
@@ -331,6 +320,11 @@ create() {
   [[ $cpus =~ ^[0-9]+(\.[0-9]+)?$ ]] || fail "Give the CPU limit, for example --cpus 8."
   [[ $mem =~ ^[0-9]+[mg]$ ]] || fail "Give the memory limit, for example --mem 32g."
   [[ $disk =~ ^[0-9]+[MGT]$ ]] || fail "Give the disk limit, for example --disk 200G."
+  # Builders Bot has no published container image yet. The owner builds one from docker/Dockerfile.
+  local image=${BUILDERSBOT_IMAGE:-}
+  [[ $image =~ ^[A-Za-z0-9][A-Za-z0-9._/:@-]*$ ]] ||
+    fail "Builders Bot has no published container image yet. Build one from docker/Dockerfile, then run create with BUILDERSBOT_IMAGE=<image>."
+  [[ $image != *nightly-labs* ]] || fail "$image is the image of the upstream OpenBot app, not Builders Bot."
   local env folder=$DATA/$name
   env=$(env_file "$name")
   [ ! -e "$env" ] || fail "The instance $name exists."
@@ -356,8 +350,8 @@ create() {
   printf '%s %s ext4 loop,nofail,x-systemd.before=docker.service,X-fstrim.notrim 0 2\n' "$folder/data.img" "$folder/data" >>/etc/fstab
   trap - ERR
   systemctl daemon-reload
-  printf '# OPENBOT_DISK is the size of data.img, for information. See docs/docker.md to change it.\nOPENBOT_NAME=%s\nOPENBOT_CPUS=%s\nOPENBOT_MEM=%s\nOPENBOT_DISK=%s\n' \
-    "$name" "$cpus" "$mem" "$disk" >"$env"
+  printf '# OPENBOT_DISK is the size of data.img, for information. See docs/docker.md to change it.\nBUILDERSBOT_IMAGE=%s\nOPENBOT_NAME=%s\nOPENBOT_CPUS=%s\nOPENBOT_MEM=%s\nOPENBOT_DISK=%s\n' \
+    "$image" "$name" "$cpus" "$mem" "$disk" >"$env"
   start "$name"
   echo "Sign in the instance: openbot-instance run $name login"
 }
@@ -954,19 +948,8 @@ case $command in
   restart) lock_instance "${1:-}"; compose "$1" restart ;;
   logs) compose "${1:-}" logs "${@:2}" ;;
   upgrade)
-    if [ "${1:-}" = --all ]; then
-      for env in "$HERE"/*.env; do
-        [ -e "$env" ] || continue
-        name=$(basename "$env" .env)
-        lock_instance "$name"
-        compose "$name" pull
-        start "$name"
-      done
-    else
-      lock_instance "${1:-}"
-      compose "$1" pull
-      start "$1"
-    fi
+    # Builders Bot has no published container image yet. Before, this pulled the upstream image.
+    fail "Updates are not available in this version of Builders Bot. To use an image that you built, set BUILDERSBOT_IMAGE in the env file of the instance, then run: openbot-instance up <name>"
     ;;
   update-request) update_request "${1:-}" ;;
   backup) backup "$@" ;;

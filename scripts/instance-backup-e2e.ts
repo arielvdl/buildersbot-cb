@@ -170,7 +170,7 @@ async function main(): Promise<void> {
     const fixtureCopied = run("docker", ["cp", `${fixture}/.`, `${dind}:/fixture`]);
     if (fixtureCopied.status !== 0) throw new Error(`The instance fixture did not copy: ${fixtureCopied.stderr}`);
     must(`mkdir -p /stand-in && cat >/stand-in/Dockerfile <<'EOF'\n${standIn}EOF`);
-    must("docker build --quiet --tag ghcr.io/nightly-labs/openbot:latest /stand-in >/dev/null");
+    must("docker build --quiet --tag builders-bot:e2e /stand-in >/dev/null");
 
     // The layout of `openbot-instance create`, without systemd: an ext4 image mounted as /data.
     must(`mkdir -p /srv/openbot/main/data /backups
@@ -178,8 +178,8 @@ async function main(): Promise<void> {
       mkfs.ext4 -q -m 0 /srv/openbot/main/data.img
       mount -o loop /srv/openbot/main/data.img ${data}
       cp -a /fixture/. ${data}/ && chown -R 1000:1000 ${data} && chmod 0700 ${data}
-      printf 'OPENBOT_NAME=main\\nOPENBOT_CPUS=1\\nOPENBOT_MEM=1g\\nOPENBOT_DISK=256M\\nOPENBOT_BACKUP_DIR=/backups\\nOPENBOT_BACKUP_KEEP=2\\nOPENBOT_BACKUP_MAX_AGE=24\\n' >/opt/openbot-docker/instances/main.env
-      docker run --detach --name openbot-main --stop-timeout 20 -v ${data}:/data ghcr.io/nightly-labs/openbot:latest >/dev/null`);
+      printf 'BUILDERSBOT_IMAGE=builders-bot:e2e\\nOPENBOT_NAME=main\\nOPENBOT_CPUS=1\\nOPENBOT_MEM=1g\\nOPENBOT_DISK=256M\\nOPENBOT_BACKUP_DIR=/backups\\nOPENBOT_BACKUP_KEEP=2\\nOPENBOT_BACKUP_MAX_AGE=24\\n' >/opt/openbot-docker/instances/main.env
+      docker run --detach --name openbot-main --stop-timeout 20 -v ${data}:/data builders-bot:e2e >/dev/null`);
     const dataHash = must(`sha256sum ${data}/.config/OpenBot/openbot.db | cut -d ' ' -f 1`);
 
     let result = instance("backups", "main");
@@ -438,9 +438,7 @@ async function main(): Promise<void> {
     const removedVersion = must(
       `sed -n 's/^  "openbotVersion": "\\(.*\\)",$/\\1/p' /backups/main/${removedBackup}/manifest.json`,
     );
-    must(
-      `docker run --detach --name openbot-main --stop-timeout 20 -v ${data}:/data ghcr.io/nightly-labs/openbot:latest >/dev/null`,
-    );
+    must(`docker run --detach --name openbot-main --stop-timeout 20 -v ${data}:/data builders-bot:e2e >/dev/null`);
     check(
       "a backup without a container has the version of the image",
       result.status === 0 && removedVersion === "0.40.0",
