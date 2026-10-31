@@ -144,7 +144,10 @@ export const messages = defineMessages("sidebar", {
   "sidebar.sectionIcon.type": "Choose a PNG, JPEG, GIF, WebP or SVG image.",
   "sidebar.sectionIcon.svgSize": "Choose an SVG file smaller than 512 KB.",
   "sidebar.sectionIcon.svgInvalid": "This file is not an SVG image.",
-  "sidebar.sectionIcon.svgUnsafe": "This SVG file has a script or a link to a web address. Choose another image.",
+  "sidebar.sectionIcon.svgScript": "This SVG file has a script. Choose another image.",
+  "sidebar.sectionIcon.svgLink": "This SVG file links to a web address. Choose another image.",
+  "sidebar.sectionIcon.corrupt": "Builders Bot could not read this image. The file may be damaged.",
+  "sidebar.sectionIcon.errorDetail": "Details: {detail}",
   "sidebar.sectionIcon.reduced":
     "The image was too large, so Builders Bot made it smaller. Select Save again to keep it.",
   "sidebar.sectionIcon.cropLabel": "Image crop. Drag to move. Use the arrow keys to move, + and - to zoom, 0 to fit.",

@@ -14,6 +14,7 @@ import {
   type SidebarSectionGlyph,
   type SidebarSectionIcon,
 } from "@openbot/contracts/ipc";
+import type { AppTextKey } from "@openbot/i18n";
 import {
   Button,
   ContextMenu,
@@ -38,6 +39,8 @@ import {
   loadSectionIconSource,
   renderSectionIconImage,
   type SectionIconBackground,
+  SectionIconImageError,
+  type SectionIconImageProblem,
   type SectionIconSource,
   SIDEBAR_SECTION_ICON_SOURCE_TYPES,
   sidebarSectionIconPick,
@@ -65,6 +68,19 @@ interface IconDraft {
 function isIconMode(value: string): value is IconMode {
   return MODES.some((mode) => mode === value);
 }
+
+/** The message of each reason that an image is refused or cannot be made. */
+const IMAGE_PROBLEM_TEXT = {
+  type: "sidebar.sectionIcon.type",
+  size: "app.avatar.size",
+  svgSize: "sidebar.sectionIcon.svgSize",
+  svgInvalid: "sidebar.sectionIcon.svgInvalid",
+  svgScript: "sidebar.sectionIcon.svgScript",
+  svgLink: "sidebar.sectionIcon.svgLink",
+  corrupt: "sidebar.sectionIcon.corrupt",
+  unavailable: "app.avatar.processingUnavailable",
+  tooLarge: "app.avatar.tooLarge",
+} as const satisfies Record<SectionIconImageProblem, AppTextKey>;
 
 /** The item of a section menu that opens the icon editor. It shows only where the icon can change. */
 export function SidebarSectionIconMenuItem(itemProps: { sectionId: string }) {
@@ -132,6 +148,8 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
   const [background, setBackgroundSignal] = createSignal<SectionIconBackground>("transparent");
   const [notice, setNotice] = createSignal<string | null>(null);
   const [dropActive, setDropActive] = createSignal(false);
+  /** The browser error under an image error, such as "EncodingError: …", for a diagnosis. */
+  const [errorDetail, setErrorDetail] = createSignal<string | null>(null);
   /** The image that the last Save made smaller to fit the limit. The next Save keeps it. */
   let reducedImage: string | null = null;
   onCleanup(() => source()?.release());
@@ -172,6 +190,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
       state.reading = true;
       state.error = null;
     });
+    setErrorDetail(null);
     setNotice(ignored > 0 ? t("sidebar.sectionIcon.dropOnlyFirst") : null);
     try {
       const next = await loadSectionIconSource(file);
@@ -181,7 +200,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
       setCropSignal(sectionIconFitCrop());
     } catch (cause) {
       setDraft((state) => {
-        state.error = errorMessage(cause, t("app.avatar.processFailed"));
+        state.error = imageErrorText(cause);
       });
     } finally {
       setDraft((state) => {
@@ -232,12 +251,22 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
       } catch (cause) {
         setDraft((state) => {
           state.saving = false;
-          state.error = errorMessage(cause, t("app.avatar.processFailed"));
+          state.error = imageErrorText(cause);
         });
         return;
       }
     }
     await save({ kind: "image", dataUrl });
+  }
+
+  /** The message of an image failure. Its browser error, when there is one, shows below it. */
+  function imageErrorText(cause: unknown): string {
+    if (cause instanceof SectionIconImageError) {
+      setErrorDetail(cause.detail);
+      return t(IMAGE_PROBLEM_TEXT[cause.reason]);
+    }
+    setErrorDetail(cause instanceof Error ? `${cause.name}: ${cause.message}` : null);
+    return errorMessage(cause, t("app.avatar.processFailed"));
   }
 
   async function save(icon: SidebarSectionIcon | null): Promise<void> {
@@ -432,6 +461,13 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
         {(message) => (
           <Text role="alert" class="section-icon-error">
             {message()}
+          </Text>
+        )}
+      </Show>
+      <Show when={draft.error ? errorDetail() : null}>
+        {(detail) => (
+          <Text class="section-icon-hint section-icon-error-detail">
+            {t("sidebar.sectionIcon.errorDetail", { detail: detail() })}
           </Text>
         )}
       </Show>

@@ -706,10 +706,14 @@ only). It reads a PNG, JPEG, GIF or WebP file of at most 10 MB, or an SVG file o
 this computer. The crop editor (`SidebarSectionIconCrop.tsx`, geometry in `section-icon-crop.ts`) moves
 and zooms the image in a 200 px frame, from Fit to 4× (more for a long image, to Fill), with an
 optional light or dark fill. Save draws the frame on a canvas of 96 px, as WebP or PNG; when the result
-is larger than 40 KB, it tries 80, 64 and 48 px and asks for a second Save. An SVG file is only an
-input: the editor refuses it when it is not an SVG document or has a script, a `foreignObject`, a
-`javascript:` address or a link to a web address, and loads it in an `<img>` from an object URL of a
-new `image/svg+xml` blob (no markup goes into the page). The stored icon is never an SVG, and no icon
+is larger than 40 KB, it tries 80, 64 and 48 px and asks for a second Save. The app's Content Security
+Policy allows `data:` images and refuses `blob:` images, so the editor makes no object URL for an
+image: it decodes a PNG, JPEG, GIF or WebP file with `createImageBitmap` and shows a copy of at most
+1,024 px as a `data:` URL (without `createImageBitmap`, it reads the file as a `data:` URL). An SVG
+file is only an input: the editor refuses it when it is not an SVG document, has a script, a
+`foreignObject` or a `javascript:` address, or links to a web address, and loads it in an `<img>` from
+a `data:image/svg+xml` URL (no markup goes into the page). Each failure has its own message (format,
+size, damaged file, SVG with a script, SVG with a link), with the browser error below it. The stored icon is never an SVG, and no icon
 is a URL to fetch. The parser, the store and `isSidebarLayoutSnapshot` check the kind, the characters,
 the image type (PNG or WebP only), the bytes and the pixel size. An icon in the file that is not
 valid is dropped, and the section stays. Duplicate copies the

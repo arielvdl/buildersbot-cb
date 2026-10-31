@@ -13,6 +13,7 @@ import {
 } from "../../../../../packages/ui/src/features/sidebar/section-icon-crop";
 import {
   SIDEBAR_SECTION_SVG_SOURCE_BYTES,
+  sectionIconSvgDataUrl,
   sidebarSectionIconPick,
   sidebarSectionIconSourceProblem,
   sidebarSectionSvgProblem,
@@ -131,17 +132,29 @@ describe("the text of an SVG file", () => {
     expect(sidebarSectionSvgProblem("<svgx></svgx>")).toBe("invalid");
   });
 
-  it("is refused when it has a script, a foreign object, a javascript: address or a web link", () => {
-    const unsafe = [
+  it("is refused for a script when it has a script, a foreign object or a javascript: address", () => {
+    const scripts = [
       svg.replace("<circle", "<script>alert(1)</script><circle"),
       svg.replace("<circle", "<SCRIPT>alert(1)</SCRIPT><circle"),
       svg.replace("<circle", "<foreignObject><div>x</div></foreignObject><circle"),
       svg.replace("<circle", '<a href="javascript:alert(1)"><circle'),
+    ];
+    for (const text of scripts) expect(sidebarSectionSvgProblem(text)).toBe("script");
+  });
+
+  it("is refused for a link when it links to a web address", () => {
+    const links = [
       svg.replace("<circle", '<image href="https://example.com/a.png"/><circle'),
       svg.replace("<circle", "<image xlink:href='http://example.com/a.png'/><circle"),
       svg.replace("<circle", "<image href = https://example.com/a.png /><circle"),
     ];
-    for (const text of unsafe) expect(sidebarSectionSvgProblem(text)).toBe("unsafe");
+    for (const text of links) expect(sidebarSectionSvgProblem(text)).toBe("link");
+  });
+
+  it("loads as a data: URL that keeps the text", () => {
+    const url = sectionIconSvgDataUrl(svg);
+    expect(url.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
+    expect(decodeURIComponent(url.slice(url.indexOf(",") + 1))).toBe(svg);
   });
 });
 

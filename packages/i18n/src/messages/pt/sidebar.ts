@@ -143,8 +143,10 @@ export const messages = {
   "sidebar.sectionIcon.type": "Escolha uma imagem PNG, JPEG, GIF, WebP ou SVG.",
   "sidebar.sectionIcon.svgSize": "Escolha um arquivo SVG menor que 512 KB.",
   "sidebar.sectionIcon.svgInvalid": "Este arquivo não é uma imagem SVG.",
-  "sidebar.sectionIcon.svgUnsafe":
-    "Este arquivo SVG tem um script ou um link para um endereço da web. Escolha outra imagem.",
+  "sidebar.sectionIcon.svgScript": "Este arquivo SVG tem um script. Escolha outra imagem.",
+  "sidebar.sectionIcon.svgLink": "Este arquivo SVG tem um link para um endereço da web. Escolha outra imagem.",
+  "sidebar.sectionIcon.corrupt": "O Builders Bot não conseguiu ler esta imagem. O arquivo pode estar corrompido.",
+  "sidebar.sectionIcon.errorDetail": "Detalhes: {detail}",
   "sidebar.sectionIcon.reduced":
     "A imagem era grande demais, então o Builders Bot a reduziu. Clique em Salvar de novo para manter.",
   "sidebar.sectionIcon.cropLabel":
