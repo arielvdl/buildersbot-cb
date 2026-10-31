@@ -9,10 +9,11 @@
   section or below the end of the sidebar. A collapsed section also stops the shimmer, the dots and
   the breathing of its rows.
 - A browser preview card captures a page that does not change less often: the wait grows from 3 to
-  12 seconds, and goes back to 3 seconds when the page changes.
+  12 seconds, and goes back to 3 seconds when the page changes. While the agent works, and after a
+  new page title, the card asks every 3 seconds, as before.
 - While a reply streams in a channel that is not open, Builders Bot reads only the channel list, not
   the open channel's page again.
 - Each window of Builders Bot loads only English and Portuguese at start. Another language loads the
   first time that a window shows it. Each window uses less memory.
-- A conversation keeps fewer inline images of agent messages in memory. A chat that you open again
-  can read its older images again.
+- Builders Bot keeps the inline images of agent messages in memory only for the open conversation.
+  A chat that you open again reads its images again.
