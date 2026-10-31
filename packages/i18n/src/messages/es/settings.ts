@@ -498,7 +498,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Pega la clave",
   "settings.voice.apiKey.save": "Guardar clave",
   "settings.voice.apiKey.remove": "Quitar clave",
-  "settings.voice.apiKey.useLocal": "Usar {name} (local)",
+  "settings.voice.apiKey.useLocal": "Usar Parakeet (local)",
   "settings.voice.apiKey.removeUnreadable": "Quitar clave ilegible",
   "settings.voice.apiKey.saveFailed": "No se pudo guardar la clave de API. Inténtalo de nuevo.",
   "settings.voice.apiKey.removeFailed": "No se pudo quitar la clave de API. Inténtalo de nuevo.",

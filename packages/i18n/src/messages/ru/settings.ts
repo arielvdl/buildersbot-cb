@@ -517,7 +517,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Вставьте ключ",
   "settings.voice.apiKey.save": "Сохранить ключ",
   "settings.voice.apiKey.remove": "Удалить ключ",
-  "settings.voice.apiKey.useLocal": "Использовать {name} (локально)",
+  "settings.voice.apiKey.useLocal": "Использовать Parakeet (локально)",
   "settings.voice.apiKey.removeUnreadable": "Удалить нечитаемый ключ",
   "settings.voice.apiKey.saveFailed": "Не удалось сохранить API-ключ. Повторите попытку.",
   "settings.voice.apiKey.removeFailed": "Не удалось удалить API-ключ. Повторите попытку.",

@@ -495,7 +495,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "粘贴密钥",
   "settings.voice.apiKey.save": "保存密钥",
   "settings.voice.apiKey.remove": "移除密钥",
-  "settings.voice.apiKey.useLocal": "使用 {name}（本地）",
+  "settings.voice.apiKey.useLocal": "使用 Parakeet（本地）",
   "settings.voice.apiKey.removeUnreadable": "移除无法读取的密钥",
   "settings.voice.apiKey.saveFailed": "无法保存 API 密钥，请重试。",
   "settings.voice.apiKey.removeFailed": "无法移除 API 密钥，请重试。",

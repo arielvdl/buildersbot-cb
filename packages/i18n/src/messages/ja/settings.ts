@@ -484,7 +484,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "キーを貼り付け",
   "settings.voice.apiKey.save": "キーを保存",
   "settings.voice.apiKey.remove": "キーを削除",
-  "settings.voice.apiKey.useLocal": "{name} を使う（ローカル）",
+  "settings.voice.apiKey.useLocal": "Parakeet を使う（ローカル）",
   "settings.voice.apiKey.removeUnreadable": "読み取れないキーを削除",
   "settings.voice.apiKey.saveFailed": "API キーを保存できませんでした。もう一度お試しください。",
   "settings.voice.apiKey.removeFailed": "API キーを削除できませんでした。もう一度お試しください。",

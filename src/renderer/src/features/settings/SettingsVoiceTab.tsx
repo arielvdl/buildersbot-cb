@@ -61,7 +61,8 @@ const FIXED_LANGUAGE: Partial<Record<VoiceModelInfo["id"], { language: VoiceLang
 
 /**
  * The model that "Use Parakeet (local)" selects when the saved ElevenLabs key cannot be read. It is
- * the default model: it runs on this computer and needs no key.
+ * the default model: it runs on this computer and needs no key. The text of the button names
+ * Parakeet in each catalog, so a change of the default model also changes that text.
  */
 const LOCAL_FALLBACK_MODEL = VOICE_MODELS.find((model) => model.id === DEFAULT_VOICE_MODEL_ID);
 
@@ -360,7 +361,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                             type="button"
                             onClick={() => props.store.useModel(local().id)}
                           >
-                            {t("settings.voice.apiKey.useLocal", { name: local().name })}
+                            {t("settings.voice.apiKey.useLocal")}
                           </Button>
                         )}
                       </Show>

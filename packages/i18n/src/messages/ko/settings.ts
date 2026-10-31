@@ -493,7 +493,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "키를 붙여넣으세요",
   "settings.voice.apiKey.save": "키 저장",
   "settings.voice.apiKey.remove": "키 삭제",
-  "settings.voice.apiKey.useLocal": "{name} 사용(로컬)",
+  "settings.voice.apiKey.useLocal": "Parakeet 사용(로컬)",
   "settings.voice.apiKey.removeUnreadable": "읽을 수 없는 키 삭제",
   "settings.voice.apiKey.saveFailed": "API 키를 저장할 수 없어요. 다시 시도해 주세요.",
   "settings.voice.apiKey.removeFailed": "API 키를 삭제할 수 없어요. 다시 시도해 주세요.",

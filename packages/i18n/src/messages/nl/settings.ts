@@ -501,7 +501,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Plak de sleutel",
   "settings.voice.apiKey.save": "Sleutel opslaan",
   "settings.voice.apiKey.remove": "Sleutel verwijderen",
-  "settings.voice.apiKey.useLocal": "{name} gebruiken (lokaal)",
+  "settings.voice.apiKey.useLocal": "Parakeet gebruiken (lokaal)",
   "settings.voice.apiKey.removeUnreadable": "Onleesbare sleutel verwijderen",
   "settings.voice.apiKey.saveFailed": "Kan de API-sleutel niet opslaan. Probeer het opnieuw.",
   "settings.voice.apiKey.removeFailed": "Kan de API-sleutel niet verwijderen. Probeer het opnieuw.",

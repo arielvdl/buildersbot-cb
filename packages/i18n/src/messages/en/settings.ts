@@ -642,7 +642,7 @@ export const messages = defineMessages("settings", {
   "settings.voice.apiKey.placeholder": "Paste the key",
   "settings.voice.apiKey.save": "Save key",
   "settings.voice.apiKey.remove": "Remove key",
-  "settings.voice.apiKey.useLocal": "Use {name} (local)",
+  "settings.voice.apiKey.useLocal": "Use Parakeet (local)",
   "settings.voice.apiKey.removeUnreadable": "Remove unreadable key",
   "settings.voice.apiKey.saveFailed": "Could not save the API key. Try again.",
   "settings.voice.apiKey.removeFailed": "Could not remove the API key. Try again.",

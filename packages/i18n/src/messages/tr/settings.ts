@@ -494,7 +494,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Anahtarı yapıştırın",
   "settings.voice.apiKey.save": "Anahtarı kaydet",
   "settings.voice.apiKey.remove": "Anahtarı kaldır",
-  "settings.voice.apiKey.useLocal": "{name} kullan (yerel)",
+  "settings.voice.apiKey.useLocal": "Parakeet kullan (yerel)",
   "settings.voice.apiKey.removeUnreadable": "Okunamayan anahtarı kaldır",
   "settings.voice.apiKey.saveFailed": "API anahtarı kaydedilemedi. Tekrar deneyin.",
   "settings.voice.apiKey.removeFailed": "API anahtarı kaldırılamadı. Tekrar deneyin.",

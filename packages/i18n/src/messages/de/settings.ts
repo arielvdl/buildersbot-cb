@@ -507,7 +507,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Schlüssel einfügen",
   "settings.voice.apiKey.save": "Schlüssel speichern",
   "settings.voice.apiKey.remove": "Schlüssel entfernen",
-  "settings.voice.apiKey.useLocal": "{name} verwenden (lokal)",
+  "settings.voice.apiKey.useLocal": "Parakeet verwenden (lokal)",
   "settings.voice.apiKey.removeUnreadable": "Unlesbaren Schlüssel entfernen",
   "settings.voice.apiKey.saveFailed": "Der API-Schlüssel konnte nicht gespeichert werden. Versuche es erneut.",
   "settings.voice.apiKey.removeFailed": "Der API-Schlüssel konnte nicht entfernt werden. Versuche es erneut.",

@@ -604,7 +604,7 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Cole a chave",
   "settings.voice.apiKey.save": "Salvar chave",
   "settings.voice.apiKey.remove": "Remover chave",
-  "settings.voice.apiKey.useLocal": "Usar o {name} (local)",
+  "settings.voice.apiKey.useLocal": "Usar o Parakeet (local)",
   "settings.voice.apiKey.removeUnreadable": "Remover a chave ilegível",
   "settings.voice.apiKey.saveFailed": "Não foi possível salvar a chave de API. Tente novamente.",
   "settings.voice.apiKey.removeFailed": "Não foi possível remover a chave de API. Tente novamente.",
