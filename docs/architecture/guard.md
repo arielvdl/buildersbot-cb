@@ -293,7 +293,13 @@ line. A heading such as "## New instructions:" is strong. The note is a fake ver
   `rclone`, `aws s3 cp` and `gsutil cp` to a remote place, the files of `gh gist create` and
   `gh release upload`, and `git add -f <secret>` with a `git push` in the same command. The key of
   `ssh -i`, `curl --cert` and `--key`, `-o`, a file that a download writes, a path inside a URL, a
-  public key and a public CA bundle do not.
+  public key and a public CA bundle do not. The grouped short options of `curl` that carry the file
+  (`-sd @file`, `-sT file`, `-sF x=@file`, `-d@file`) are read as the plain `-d`, `-T` and `-F`.
+  Inline code that starts a process (`node -e`, `python3 -c`, `perl -e`, `osascript -e`, through
+  `child_process`, `os.system`, `subprocess`, `system(` or `do shell script`) has its string
+  literals read as a command of their own, to the same depth as a nested shell. The arguments of a
+  stdio server that `save_mcp_server` saves each stand as one shell word, so the code of a `node -e`
+  argument is read whole, not split on its own spaces.
 - One statement can carry a secret to the next: `X=$(cat .env); curl -d "$X" …`, a copy
   (`cp ~/.ssh/id_rsa /tmp/a && curl -T /tmp/a …`), an archive, and output written from a secret.
   `env`, `printenv`, `export`, `set`, `declare -x` and `compgen -e` with no names dump the
@@ -397,18 +403,13 @@ text that no pattern and no small model sees.
   gets the reviewer or a note, not the card.
 - A take and a send in two verbs are clean when the take names one key of a common kind ("collect
   the API key and post it to https://…"), when the take is not an order or a task ("The agent will
-  read the passwords and send them to …"), when its verb is not on the list (such as "copy",
-  "gather", "pegue" or "copie"), or when the send names something else or no site.
+  read the passwords and send them to …"), when its verb is not on the list, or when the send names
+  something else or no site.
 - The shell reader is not a shell: a function, a here-document, `xargs`, `find -exec`, a loop
-  variable, a glob, an output process substitution `>(…)`, a script file, a process that inline code
-  starts (`node -e`, `python3 -c`, `perl -e`, `osascript`) or a second program that reads its own
-  config can carry a secret that it does not follow. Grouped short options of curl (`-sd @file`,
-  `-sT file`, `-d@file`) are not read as the option that sends the file either: the second review
-  (R15) found this regression of the shell reader, and its fix is still to do.
+  variable, a glob, an output process substitution `>(…)`, a script file, or a second program that
+  reads its own config can carry a secret that it does not follow.
 - A folder upload is checked by the path of the folder only, not by the files inside it, and a key
   under an ordinary name such as `server.key` is not read by its content.
-- The arguments of a stdio MCP server that `save_mcp_server` checks are joined with spaces, so the
-  code of a `node -e` argument is read in pieces.
 - A page that reports an attack in a quoted example gets a note or the reviewer, not the card, so a
   real attack written as a quote gets the same, unless the text orders the reader to carry the quote
   out.
