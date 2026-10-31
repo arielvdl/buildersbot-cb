@@ -1,7 +1,8 @@
 # Web client delivery
 
 The browser client is available to all accounts. The MVP includes shared chat UI,
-email sign-in, host connection, files, supported agent actions, and remote browser viewing.
+the Cultura Builder sign-in, host connection, files, supported agent actions, and remote browser
+viewing.
 The user deferred the cross-browser matrix on 2026-09-21. CI remains required before merge.
 No deployment or pull request is made by these source changes.
 
@@ -41,7 +42,8 @@ mock. The separate web preview implements the browser runtime with that same moc
 
 ## Behavior and limits
 
-- `/api/browser/*` exposes only email start/verify, session read/logout, checkout attribution
+- `/api/browser/*` exposes only the Cultura Builder sign-in (`device/start`, `device/poll`,
+  `device/cancel`), session read/logout, checkout attribution
   (`checkout-attribution`), host list, owned host removal, host logo read,
   session start/ticket/end, invitation preview/accept and email, host member and invite
   administration, and the account's display name, avatar, and session list/revoke
@@ -67,6 +69,35 @@ mock. The separate web preview implements the browser runtime with that same moc
   desktop only.
 - Sign-in credentials are cookie-only. The browser receives a short connection ticket for the
   existing Signal handshake. Session creation, ticket issue and end are bound to its credential.
+- The web app signs in only with Cultura Builder: the Hub device grant (RFC 8628) that the desktop
+  app uses, through the bridge at `AUTH_BRIDGE_URL` (`server/device-bridge.ts`). There is no email
+  code: `email/start` and `email/verify` answer 410 `email_sign_in_retired`.
+  - `device/start` asks the bridge for a code. The page gets the user code, the Hub address
+    (`verificationUri`, and `verificationUriComplete` with the code in it), `expiresIn` and
+    `interval`. The bridge flow ID never goes to the page: it goes into the HttpOnly, Secure,
+    `SameSite=Strict` cookie `__Host-buildersbot-device`, for `expiresIn` seconds
+    (`server/web-device-flow.ts`). A Hub address must be HTTPS on `culturabuilder.com` or a
+    subdomain, or on the bridge origin; another address gives 502.
+  - `device/poll` reads the flow ID from that cookie only, never from the body, so a poll from
+    another browser cannot collect the approval of this one. Pending gives 202 with the interval.
+    The Hub `slow_down` gives 429 `slow_down` with `Retry-After`. Denied gives 403 `access_denied`
+    and expired gives 410 `expired_token`; both, and a poll with no cookie, end the flow cookie. The
+    approval finds or makes the account of the Hub email (`signInWithDeviceAccount`, surface `web`,
+    with the installation of the `X-OpenBot-Install` headers), sets the same session cookie as the
+    email code did (`web-session.ts`), ends the earlier session of this browser and its remote
+    sessions, and answers `{ user }`. No token goes to JavaScript.
+  - `device/cancel` ends the flow cookie. The Hub code then expires by itself.
+  - The routes have the Origin, `X-OpenBot-Browser` and JSON checks of every browser write, and D1
+    rate limits for each source address: 20 starts and 600 polls in 15 minutes, and the 30
+    sign-ins of `signInWithDeviceAccount`. A bridge failure gives 502 `sign_in_service_unavailable`
+    with no detail; no bridge gives 503 `device_sign_in_disabled`.
+  - The page (`web-device-sign-in.ts`) shows the shared `DeviceSignInDialog` with the code, the
+    Hub address to type and a QR code. **Open the Hub** calls `window.open` in the click, so no
+    pop-up blocker stops it. It polls at the interval and never faster; each `slow_down` adds 5
+    seconds for the rest of the flow, and the wait is never shorter than `Retry-After`. When the page
+    is visible again, for example after the Hub tab, it polls as soon as the interval allows. Six
+    failures in a row stop the flow.
+  - The approval does not record the first website visit (`firstTouch`) as the email verify did.
 - The production website accepts invitation links for `https://api.openbot.run`; the request still
   goes to its own origin. Other services are refused. Host fingerprints are checked before use.
 - One tab can connect to a given host with an account. Other accounts and hosts have separate
@@ -195,7 +226,9 @@ A phone uses this web client, installed from its browser to the Home Screen. Bui
 phone app from a store: the desktop app, the sidebar card and the website show no App Store or Google
 Play link or QR code.
 
-- Desktop **Settings > Mobile Connect > Add phone** shows a QR code of `<account service>/app`. Main
+- Desktop **Settings > Mobile Connect > Add phone** shows a QR code of `<account service>/app`,
+  in production `https://buildersbot.culturabuilder.com/app`. The code and the copied link hold only
+  this address: no sign-in secret, no `openbot://` link and no `openbot.run` page. Main
   makes the address from the origin of the Mobile Connect code (`mobileConnectApiUrl`,
   `createMobileWebAppUrl` in `packages/contracts/src/mobile-connect.ts`), and gives it through
   `auth:get-mobile-web-app-url`. The preload accepts only that `/app` address
@@ -204,7 +237,8 @@ Play link or QR code.
 - iPhone: open the address in Safari, then **Share > Add to Home Screen**. Android: open it in
   Chrome, then **Install app** in the Chrome menu; some versions show **Add to Home screen**. The
   steps are `MOBILE_WEB_APP_PLATFORMS` in `packages/ui/src/features/mobile-app/mobile-web-app.ts`.
-- The phone signs in with the email code of the account, as in a browser tab. Each installation has
+- The phone signs in with Cultura Builder, as in a browser tab: **Sign in with Cultura Builder**,
+  then the person approves the code on the Hub and goes back to the app. Each installation has
   its own session, app lock and push subscription (`web-install-identity.ts`, `web-push.ts`). Web
   Push on an iPhone needs iOS 16.4 or later and the app on the Home Screen.
 - No notification comes to the web app while it is closed yet. The Worker sends Web Push to a session
@@ -238,9 +272,14 @@ Play link or QR code.
 - Such a phone is an account session of the web client. The desktop shows it in **Settings >
   Profile > Account sessions**, not in the phone list of Mobile Connect, which lists the sessions of
   the earlier phone app.
-- Add phone does not show the one-time Mobile Connect code: only the earlier phone app reads it. The
-  permanent link, the `/v1/mobile-auth/*` routes and the `openbot mobile-connect` command stay, so a
-  phone app that is already installed keeps its sign-in.
+- The one-time Mobile Connect code and the permanent link are retired. They put an
+  `openbot://mobile-connect` link with a sign-in secret in a QR code, for the earlier phone app. The
+  desktop shows neither, and the settings search has no entry for the link. The account service
+  answers 410 `mobile_connect_retired` to `POST /v1/mobile-auth/ticket`, `/link` and `/redeem`
+  (`server/mobile-connect-retired.ts`). Cancel and revoke (`DELETE`) stay, and the tables and the
+  sessions that a code or a link made stay until they are revoked. `openbot mobile-connect` on a
+  server with no screen shows the web app address and its QR code. The main-process code and IPC
+  of the code and the link stay, with no caller in the renderer; a later change can remove them.
 - The website pages `/download/ios` and `/download/android` keep their addresses and give the same
   steps. On a phone, `/join` opens the invitation in this client and shows no `openbot://` button.
 
@@ -271,10 +310,12 @@ to one remote-screen session. On 2026-09-23 the user decided not to add this ori
 
 Run `bun install --frozen-lockfile` in a fresh worktree. Start the API with
 `bun run dev:api`. The supervisor chooses and prints the port.
-For synthetic local email checks, `AUTH_EXPOSE_DEVELOPMENT_CODE=true` returns development codes;
-do not enable it in production or print codes and cookies in logs. Keep the cookie's security
-attributes in development. A browser that refuses secure loopback cookies needs a local HTTPS
-origin.
+The web sign-in needs a Cultura Builder bridge at `AUTH_BRIDGE_URL`; without one, `device/start`
+answers 503. `apps/auth-api/test/browser-device-sign-in.test.ts` checks the routes with a fake
+bridge. For synthetic local email checks of the desktop app, `AUTH_EXPOSE_DEVELOPMENT_CODE=true`
+returns development codes; do not enable it in production or print codes and cookies in logs.
+Keep the cookie's security attributes in development. A browser that refuses secure loopback
+cookies needs a local HTTPS origin.
 
 Use `bun run storybook --no-open` for **Web/Workspace/Connected**. It uses the same desktop mock
 for messages, models, settings and events. File previews use a small synthetic text fixture;
