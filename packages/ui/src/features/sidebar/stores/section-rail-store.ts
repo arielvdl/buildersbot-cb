@@ -112,5 +112,3 @@ export function createSidebarSectionRailStore(props: SidebarProps) {
     selectWhenCreated,
   };
 }
-
-export type SidebarSectionRailStore = ReturnType<typeof createSidebarSectionRailStore>;

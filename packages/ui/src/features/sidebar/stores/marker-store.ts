@@ -69,5 +69,3 @@ export function createSidebarMarkerStore(deps: {
 
   return { createMarker, openMarkerId, removeMarker, saveMarker, setOpenMarkerId, supported };
 }
-
-export type SidebarMarkerStore = ReturnType<typeof createSidebarMarkerStore>;

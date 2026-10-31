@@ -11,7 +11,7 @@ import { useText } from "../../text";
 import { useSidebarScope } from "./sidebar-scope";
 import type { SidebarActivityFilter } from "./sidebar-types";
 
-export const SIDEBAR_ACTIVITY_FILTER_LABELS = {
+const SIDEBAR_ACTIVITY_FILTER_LABELS = {
   channels: "sidebar.activity.channels",
   agents: "sidebar.activity.agents",
   finished: "sidebar.activity.finished",

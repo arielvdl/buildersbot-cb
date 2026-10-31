@@ -12,7 +12,7 @@ import type { SidebarActivityFilter, SidebarAgentState, SidebarChannelWait } fro
 export const SIDEBAR_RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** An agent with work in flight: it thinks, waits, waits on its plan limit, or runs a routine. */
-export function sidebarAgentIsActive(state: SidebarAgentState | undefined): boolean {
+function sidebarAgentIsActive(state: SidebarAgentState | undefined): boolean {
   if (!state) return false;
   return (
     state.kind === "working" ||
@@ -25,12 +25,12 @@ export function sidebarAgentIsActive(state: SidebarAgentState | undefined): bool
 type ActivityChannel = Pick<ChannelSummary, "activeTasks" | "openTasks" | "lastMessage">;
 
 /** A channel with a running or open task, or a wait for the user. */
-export function sidebarChannelIsActive(channel: ActivityChannel, wait: SidebarChannelWait | undefined): boolean {
+function sidebarChannelIsActive(channel: ActivityChannel, wait: SidebarChannelWait | undefined): boolean {
   return channel.activeTasks > 0 || (channel.openTasks ?? 0) > 0 || wait !== undefined;
 }
 
 /** True for a time in the last 24 hours. A time a little in the future (a clock skew) counts too. */
-export function sidebarIsRecent(at: string | null | undefined, now: number): boolean {
+function sidebarIsRecent(at: string | null | undefined, now: number): boolean {
   if (!at) return false;
   const time = Date.parse(at);
   return !Number.isNaN(time) && now - time <= SIDEBAR_RECENT_WINDOW_MS && time - now <= SIDEBAR_RECENT_WINDOW_MS;
