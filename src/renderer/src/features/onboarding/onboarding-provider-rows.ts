@@ -1,3 +1,4 @@
+import { isKeyOnlyProvider } from "@openbot/contracts/agent-providers";
 import type { AgentProviderId } from "@openbot/contracts/ipc";
 import type { ProviderPickerOption } from "@openbot/ui/components/ProviderPicker";
 
@@ -55,12 +56,25 @@ function usable(option: ProviderPickerOption, unreachable: ReadonlySet<AgentProv
 }
 
 /**
+ * Whether a provider that waits for a sign-in is one that the user has: its CLI is on the computer,
+ * and only the sign-in is missing.
+ *
+ * That is not true for Pi and the key providers that run in it. The Pi CLI is shared, so when Pi is
+ * up to date, Pi and each key provider wait for a sign-in although the user has no key. They become
+ * rows when they are connected, or when the user chooses them in "More providers".
+ */
+function owned(option: ProviderPickerOption): boolean {
+  return option.state === "sign-in-required" && option.id !== "pi" && !isKeyOnlyProvider(option.id);
+}
+
+/**
  * The provider rows of setup.
  *
  * What works comes first. With the free row, Builders is the first row, then the connected accounts,
  * then the featured provider, then the providers whose CLI is on the computer and only the sign-in
- * is missing. Popular providers fill the plan rows up to `PLAN_ROWS`. Without the free row, the
- * featured provider is the first row, because the user chose to connect a plan.
+ * is missing (not Pi and the key providers, see `owned`). Popular providers fill the plan rows up to
+ * `PLAN_ROWS`. Without the free row, the featured provider is the first row, because the user chose
+ * to connect a plan.
  *
  * A provider whose CLI is too old, or that this window cannot connect, is not a row: it is in "More
  * providers", so no provider goes away. `kept` holds the rows that must stay in the list in their
@@ -79,17 +93,17 @@ export function onboardingProviderRows(
   const featured = plans.filter((option) => option.id === FEATURED_PROVIDER && usable(option, unreachable));
   const others = plans.filter((option) => option.id !== FEATURED_PROVIDER && usable(option, unreachable));
   const connected = others.filter((option) => option.state === "available");
-  const owned = others.filter((option) => option.state === "sign-in-required");
+  const signInOnly = others.filter(owned);
   const popular = POPULAR_PROVIDERS.flatMap((id) => {
     const option = others.find((candidate) => candidate.id === id);
-    return option && option.state !== "available" && option.state !== "sign-in-required" ? [option] : [];
+    return option && option.state !== "available" && !owned(option) ? [option] : [];
   });
-  const filled = popular.slice(0, Math.max(0, PLAN_ROWS - connected.length - owned.length));
+  const filled = popular.slice(0, Math.max(0, PLAN_ROWS - connected.length - signInOnly.length));
   const featuredConnected = featured.filter((option) => option.state === "available");
   const featuredOpen = featured.filter((option) => option.state !== "available");
   const ruled = includeFree
-    ? [...featuredConnected, ...connected, ...featuredOpen, ...owned, ...filled]
-    : [...featured, ...connected, ...owned, ...filled];
+    ? [...featuredConnected, ...connected, ...featuredOpen, ...signInOnly, ...filled]
+    : [...featured, ...connected, ...signInOnly, ...filled];
   const keptRows = kept.flatMap((id) => plans.filter((option) => option.id === id));
   const listedPlans = [...keptRows, ...ruled.filter((option) => !kept.includes(option.id))];
   const listedIds = new Set(listedPlans.map((option) => option.id));
@@ -130,7 +144,7 @@ export function automaticProviderChoice(
   const featured = choices.find((option) => option.id === FEATURED_PROVIDER && option.state !== "outdated");
   const connected = choices.find((option) => option.state === "available" && option.id !== FREE_PROVIDER);
   const free = choices.find((option) => option.id === FREE_PROVIDER);
-  const installed = choices.find((option) => option.state === "sign-in-required" && !option.freeModels);
+  const installed = choices.find((option) => owned(option) && !option.freeModels);
   const choice = rule.recommendFree
     ? ((featured?.state === "available" ? featured : undefined) ??
       connected ??

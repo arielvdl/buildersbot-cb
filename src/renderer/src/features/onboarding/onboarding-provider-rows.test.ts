@@ -108,6 +108,48 @@ describe("the provider rows of setup", () => {
     }
   });
 
+  it("does not list Pi and the key providers that only wait for a key, when Pi is up to date", () => {
+    // The joined server of the report after a Pi update: the shared Pi CLI makes Pi and each key
+    // provider wait for a sign-in, although the user has no key.
+    const updated = OWNER_HOST.map((candidate) =>
+      candidate.id === "pi" ||
+      candidate.id === "inception" ||
+      candidate.id === "deepseek" ||
+      candidate.id === "openrouter"
+        ? { ...candidate, state: "sign-in-required" as const }
+        : candidate,
+    );
+    const rows = onboardingProviderRows(updated, { unreachable: ON_HOST });
+    expect(ids(rows.listed)).toEqual(["opencode", "codex", "claude"]);
+    expect(ids(rows.hidden)).toEqual(["pi", "inception", "deepseek", "openrouter", "cultura-builder", "grok"]);
+    // A key provider that is connected is a row, as each connected account is.
+    const keyed = updated.map((candidate) =>
+      candidate.id === "deepseek" ? { ...candidate, state: "available" as const } : candidate,
+    );
+    expect(ids(onboardingProviderRows(keyed, { unreachable: ON_HOST }).listed)).toEqual([
+      "opencode",
+      "codex",
+      "claude",
+      "deepseek",
+    ]);
+    // The popular rows still fill the list where no account is connected.
+    const waiting = setupOptions({
+      pi: "sign-in-required",
+      inception: "sign-in-required",
+      openrouter: "sign-in-required",
+    });
+    expect(ids(onboardingProviderRows(waiting).listed)).toEqual([
+      "opencode",
+      "cultura-builder",
+      "codex",
+      "claude",
+      "grok",
+    ]);
+    // And the step never chooses one of them by itself.
+    const plan = waiting.filter((candidate) => candidate.id !== FEATURED_PROVIDER && candidate.id !== FREE_PROVIDER);
+    expect(automaticProviderChoice(plan, neverReady)).toBeNull();
+  });
+
   it("keeps the popular rule on a joined server without Cultura Builder", () => {
     const options = setupOptions({ cursor: "sign-in-required" }).filter(
       (candidate) => candidate.id !== FEATURED_PROVIDER,
