@@ -16,6 +16,7 @@ import {
   sidebarSectionRailMove,
   sidebarSectionRailNeighbor,
   sidebarSectionRailOrder,
+  sidebarSectionRailRunning,
 } from "../../../../../packages/ui/src/features/sidebar/sidebar-section-rail";
 
 const NAIA = "11111111-1111-4111-8111-111111111111";
@@ -100,6 +101,29 @@ describe("the section rail items", () => {
     expect(sidebarSectionRailBadgeKind({ waiting: 0, working: 3, unread: 9 })).toBe("unread");
     expect(sidebarSectionRailBadgeKind({ waiting: 0, working: 3, unread: 0 })).toBe("working");
     expect(sidebarSectionRailBadgeKind({ waiting: 0, working: 0, unread: 0 })).toBeNull();
+  });
+
+  it("runs the laser of each section with work in flight, whatever badge it shows", () => {
+    const running = (id: string) => sidebarSectionRailRunning(items.find((item) => item.id === id)?.badge);
+    // NAIA shows the wait badge, and its channel still works.
+    expect(running(NAIA)).toBe(true);
+    expect(running(RED_TEAM)).toBe(true);
+    expect(running("unassigned")).toBe(true);
+    expect(running(CLAUDE_BOTS)).toBe(false);
+    expect(sidebarSectionRailRunning({ waiting: 0, working: 0, unread: 3 })).toBe(false);
+    // "All" has no badge.
+    expect(sidebarSectionRailRunning(undefined)).toBe(false);
+  });
+
+  it("stops the laser when the work ends or the routine fails", () => {
+    const badgeOf = (states: Parameters<typeof sidebarSectionRailItems>[0]["agentStates"]) =>
+      sidebarSectionRailItems({ layout, agents: [{ id: "hacker" }], channels: [], agentStates: states }).find(
+        (item) => item.id === RED_TEAM,
+      )?.badge;
+    expect(sidebarSectionRailRunning(badgeOf({ hacker: { kind: "working" } }))).toBe(true);
+    expect(sidebarSectionRailRunning(badgeOf({}))).toBe(false);
+    expect(sidebarSectionRailRunning(badgeOf({ hacker: { kind: "routine", phase: "failed", count: 1 } }))).toBe(false);
+    expect(sidebarSectionRailRunning(badgeOf({ hacker: { kind: "routine", phase: "running", count: 1 } }))).toBe(true);
   });
 });
 
