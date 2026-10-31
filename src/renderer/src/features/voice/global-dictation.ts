@@ -1,9 +1,15 @@
-import { DICTATION_IDLE, type DictationState } from "@openbot/contracts/ipc";
+import {
+  DICTATION_IDLE,
+  type DictationState,
+  VOICE_MODELS,
+  VOICE_STREAM_LIMITS,
+  type VoiceTranscriptionResult,
+} from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { currentText } from "@openbot/ui/text";
 import { createSignal, onCleanup } from "solid-js";
 import { appPort } from "../../app-port";
-import { recordingToWav } from "../../voice-recording";
+import { encodePcm16, recordingToSamples, recordingToWav } from "../../voice-recording";
 
 /**
  * The dictation of the global combination.
@@ -67,19 +73,56 @@ async function stop(): Promise<void> {
     await report({ failure: "error.dictation.empty" });
     return;
   }
+  let streamed: boolean;
+  try {
+    streamed = await takesStream();
+  } catch (error) {
+    await report({ failure: failureKey(error) });
+    return;
+  }
+  const recorded = new Blob(current.chunks, { type: current.recorder.mimeType });
   let audio: Uint8Array;
   try {
-    audio = await recordingToWav(new Blob(current.chunks, { type: current.recorder.mimeType }));
+    // A stream takes 16-bit samples with no header. A whole recording goes as a WAV file.
+    audio = streamed ? encodePcm16(await recordingToSamples(recorded)) : await recordingToWav(recorded);
   } catch {
     await report({ failure: "error.dictation.tooLong" });
     return;
   }
   try {
-    const result = await appPort().voice.transcribe({ audio });
+    const result = streamed ? await transcribeStream(audio) : await appPort().voice.transcribe({ audio });
     await report({ text: result.text });
   } catch (error) {
     await report({ failure: failureKey(error) });
   }
+}
+
+/**
+ * True when the model in the voice settings is in the cloud. ElevenLabs takes a stream and refuses
+ * a whole recording, as in the composer. The user's own server takes the whole recording for every
+ * model.
+ */
+async function takesStream(): Promise<boolean> {
+  const voice = appPort().voice;
+  const [settings, server] = await Promise.all([voice.getSettings(), voice.getServer()]);
+  if (server?.routes.dictation) return false;
+  return VOICE_MODELS.find((model) => model.id === settings.modelId)?.kind === "cloud";
+}
+
+/** Sends the whole recording through a stream, in parts that IPC accepts, then ends the stream. */
+async function transcribeStream(pcm: Uint8Array): Promise<VoiceTranscriptionResult> {
+  const voice = appPort().voice;
+  const { streamId } = await voice.startStream();
+  try {
+    for (let offset = 0; offset < pcm.byteLength; offset += VOICE_STREAM_LIMITS.maximumChunkBytes)
+      await voice.appendStream({ streamId, pcm: pcm.slice(offset, offset + VOICE_STREAM_LIMITS.maximumChunkBytes) });
+  } catch (error) {
+    // An open stream would take the audio of the next dictation.
+    void voice.cancelStream({ streamId }).catch(() => {});
+    throw error;
+  }
+  // Main ends the stream when it finishes, also when it fails.
+  return voice.finishStream({ streamId });
 }
 
 async function report(result: { text: string } | { failure: string }): Promise<void> {
