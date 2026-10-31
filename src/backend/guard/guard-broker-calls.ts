@@ -4,6 +4,7 @@
 // The broker cannot tell which agent and turn a call serves, so it cannot show the approval card: a
 // call that would ask the person does not run, and the agent reads why.
 
+import { isAbsolute } from "node:path";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { Effect } from "effect";
 import { type GuardPaths, resolveGuardPaths } from "./guard-paths";
@@ -28,7 +29,7 @@ function stringList(record: unknown, key: string): string[] {
  * The part of a shared browser call that leaves the computer, or null when the call sends nothing
  * that an agent chose: a click, a key, a snapshot. Every tool of `@playwright/mcp` that sends a URL,
  * a script, a text, a value or a file has a case here. Code that `browser_run_code_unsafe` loads
- * from a file is not read: `guardBrokerCall` refuses that call.
+ * from a file is not read: `guardBrokerCall` refuses every call that names a file.
  */
 export function playwrightOutboundItem(name: string, args: unknown): GuardOutboundItem | null {
   const tool = `${PLAYWRIGHT}.${name}`;
@@ -99,6 +100,14 @@ export type BrokerCallDecision =
 export const BROKER_CODE_FILE_REFUSAL =
   "Builders Bot Guard cannot read code from a file in the shared browser, so the call did not run. Give the code in the `code` argument instead.";
 
+/**
+ * What the agent reads when it uploads a file by a relative path. The shared browser resolves such a
+ * path against a folder that the call chooses, so the Guard cannot know the file. The agent reads it,
+ * so it is English.
+ */
+export const BROKER_RELATIVE_PATH_REFUSAL =
+  "Builders Bot Guard needs an absolute path for each file of a shared browser upload, so the call did not run. Give the absolute path of each file.";
+
 /** What the agent reads when the Guard held back a call. The agent reads it, so it is English. */
 export function brokerRefusal(reason: string | null): string {
   return `Builders Bot Guard held back this browser call.${reason ? ` ${reason}` : ""} The shared browser cannot ask the person, so the call did not run. Tell the person what you wanted to do and why; do not try it another way.`;
@@ -120,9 +129,17 @@ export async function guardBrokerCall(
   check: BrokerCallCheck,
   resolve: (paths: readonly string[]) => Promise<GuardPaths> = resolveForBrowser,
 ): Promise<BrokerCallDecision> {
-  // Code from a file runs in the Playwright process, with the person's browser; the Guard cannot read it.
-  if (name === "browser_run_code_unsafe" && !stringField(args, "code") && stringField(args, "filename"))
+  // Code from a file runs in the Playwright process, with the person's browser; the Guard cannot read
+  // it. With both fields, Playwright runs the file and ignores the code, so a file always refuses.
+  if (name === "browser_run_code_unsafe" && stringField(args, "filename"))
     return { proceed: false, text: BROKER_CODE_FILE_REFUSAL };
+  // A relative path opens a file in a folder that the call chooses (`_meta.cwd`), not the one that the
+  // Guard would check.
+  if (
+    (name === "browser_file_upload" || name === "browser_drop") &&
+    stringList(args, "paths").some((path) => !isAbsolute(path.trim()))
+  )
+    return { proceed: false, text: BROKER_RELATIVE_PATH_REFUSAL };
   const given = playwrightOutboundItem(name, args);
   if (!given) return { proceed: true };
   let item = given;

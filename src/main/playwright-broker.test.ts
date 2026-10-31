@@ -888,12 +888,31 @@ describe("the Guard on browser calls", () => {
     expect(forwarded[0]).toContain(JSON.stringify(join(folder, "photo.png")));
   });
 
-  it("asks for the code itself when an agent runs code from a file", async () => {
+  it("asks for the code itself when an agent runs code from a file, also with code beside the file", async () => {
     const s = await setup({ guardCall: realGuard });
     const session = await open(s);
-    const reply = await post(s, call(2, "browser_run_code_unsafe", { filename: "/tmp/steps.js" }), session);
+    // Playwright runs the file and ignores the code when both are given.
+    for (const [id, args] of [
+      [2, { filename: "/tmp/steps.js" }],
+      [3, { code: "async (page) => page.title()", filename: "/tmp/steps.js" }],
+    ] as const) {
+      const reply = await post(s, call(id, "browser_run_code_unsafe", args), session);
+      const message: RpcReply = JSON.parse(reply.text);
+      expect(message.result?.content[0]?.text).toMatch(/Give the code in the `code` argument instead\.$/u);
+    }
+    expect(toolCalls(s)).toEqual([]);
+  });
+
+  it("asks for an absolute path when an agent uploads a file by a relative path", async () => {
+    const s = await setup({ guardCall: realGuard });
+    const session = await open(s);
+    const reply = await post(
+      s,
+      call(2, "browser_file_upload", { paths: ["notes.txt"], _meta: { cwd: "/tmp" } }),
+      session,
+    );
     const message: RpcReply = JSON.parse(reply.text);
-    expect(message.result?.content[0]?.text).toMatch(/Give the code in the `code` argument instead\.$/u);
+    expect(message.result?.content[0]?.text).toMatch(/Give the absolute path of each file\.$/u);
     expect(toolCalls(s)).toEqual([]);
   });
 
