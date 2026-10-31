@@ -24,7 +24,9 @@ export class DictationPreferenceStore {
       decode: (parsed) => {
         if (!isDynamicRecord(parsed)) return null;
         const { version: _version, ...rest } = parsed;
-        return isDictationPreference(rest) ? rest : null;
+        // The engine arrived after the first release: a file without one keeps its other choices.
+        const value = { ...rest, engine: rest.engine ?? "auto" };
+        return isDictationPreference(value) ? value : null;
       },
     });
   }
@@ -46,6 +48,7 @@ export class DictationPreferenceStore {
       enabled: change.enabled ?? current.enabled,
       accelerator: change.accelerator ?? current.accelerator,
       mode: change.mode ?? current.mode,
+      engine: change.engine ?? current.engine,
     });
   }).bind(this);
 }

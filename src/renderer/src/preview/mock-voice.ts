@@ -225,6 +225,10 @@ export function createMockVoice(options: MockVoiceOptions, { emit, schedule }: M
     },
     // The preview has no global key, so a dictation only follows the calls of its own window.
     getDictationPreference: async () => dictation,
+    dictationEngineStatus: async () => ({
+      resolved: dictation.engine === "system" ? "system" : "voice",
+      system: { available: dictation.engine !== "voice", reason: null },
+    }),
     setDictationPreference: async (change) => {
       dictation = { ...dictation, ...change };
       return dictation;

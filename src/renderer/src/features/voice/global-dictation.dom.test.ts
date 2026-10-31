@@ -53,7 +53,11 @@ class FakeRecorder extends EventTarget {
  * The voice calls of main. `transcribe` refuses a cloud model as main does: ElevenLabs takes a
  * stream, not a recording. The user's own server takes the recording for every model.
  */
-function installVoice(settings: VoiceSettings, server: VoiceServerSettings | null = null) {
+function installVoice(
+  settings: VoiceSettings,
+  server: VoiceServerSettings | null = null,
+  engine: "auto" | "system" | "voice" = "voice",
+) {
   let listener: ((state: DictationState) => void) | undefined;
   const cloud = VOICE_MODELS.find((model) => model.id === settings.modelId)?.kind === "cloud";
   const voice = {
@@ -71,6 +75,12 @@ function installVoice(settings: VoiceSettings, server: VoiceServerSettings | nul
     }),
     getSettings: vi.fn(async () => settings),
     getServer: vi.fn(async () => server),
+    getDictationPreference: vi.fn(async () => ({
+      enabled: true,
+      accelerator: "CommandOrControl+Shift+Space",
+      mode: "paste" as const,
+      engine,
+    })),
     startStream: vi.fn(async (): Promise<VoiceStream> => ({ streamId: "stream-1" })),
     appendStream: vi.fn(async (_audio: VoiceStreamAudio) => undefined),
     finishStream: vi.fn(async (_stream: VoiceStream) => ({ text: "Text from ElevenLabs" })),
@@ -143,6 +153,17 @@ describe("the dictation of the global combination", () => {
     expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
     // A WAV file: a 44-byte header, then the second of audio as 16-bit samples.
     expect(voice.transcribe.mock.calls.map(([input]) => input.audio.byteLength)).toEqual([44 + 32_000]);
+    expect(voice.startStream).not.toHaveBeenCalled();
+  });
+
+  it("sends a whole recording to the system recognition, without a stream", async () => {
+    const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" }, null, "system");
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.transcribe.mock.calls.map(([input]) => input.engine)).toEqual(["system"]);
     expect(voice.startStream).not.toHaveBeenCalled();
   });
 

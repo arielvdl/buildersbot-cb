@@ -8,7 +8,7 @@ export const messages = defineMessages("settings", {
   // The global dictation combination, General tab.
   "settings.dictation.title": "Dictate with a key combination",
   "settings.dictation.description":
-    "Press the combination anywhere to record, and again to stop. The transcript uses the voice model of the Voice settings.",
+    "Press the combination anywhere to record, and again to stop. The transcript is read by the engine you choose below.",
   "settings.dictation.key": "Combination",
   "settings.dictation.keyDescription": "Click the field and press the keys. A modifier is required.",
   "settings.dictation.press": "Press the keys…",
@@ -16,6 +16,15 @@ export const messages = defineMessages("settings", {
   "settings.dictation.modeDescription": "Paste into the app that had the focus, or leave the text on the clipboard.",
   "settings.dictation.mode.paste": "Paste the text",
   "settings.dictation.mode.copy": "Copy the text",
+  "settings.dictation.engine": "What transcribes",
+  "settings.dictation.engineDescription":
+    "The speech recognition of the system needs no download. The voice model of the Voice settings can show the text while you speak.",
+  "settings.dictation.engine.auto": "Automatic",
+  "settings.dictation.engine.system": "System speech recognition",
+  "settings.dictation.engine.voice": "Voice model",
+  "settings.dictation.engine.autoSystem": "Using the speech recognition of this system.",
+  "settings.dictation.engine.autoVoice": "This system cannot transcribe, so the voice model is used.",
+  "settings.dictation.engine.systemReady": "Ready on this system.",
   // The logo color setting, General tab.
   "settings.appearance.title": "Appearance",
   "settings.appearance.theme.title": "Theme",
@@ -740,6 +749,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.dictation": "dictation, microphone, voice typing, speech to text, push to talk",
   "settings.search.keywords.dictationKey": "shortcut, hotkey, key combination, keyboard",
   "settings.search.keywords.dictationMode": "paste, clipboard, after the recording",
+  "settings.search.keywords.dictationEngine": "speech recognition, system, dictation, voice model, offline",
   "settings.search.keywords.dynamicIsland": "dynamic island, notch, top of the screen, menu bar",
   "settings.search.keywords.email": "email, address, account, login",
   "settings.search.keywords.externalLinks": "links, browser, Chrome, Safari, open links",

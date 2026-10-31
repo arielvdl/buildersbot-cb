@@ -10,11 +10,24 @@ import { isDynamicRecord } from "./runtime-values";
 export const DICTATION_MODES = ["paste", "copy"] as const;
 export type DictationMode = (typeof DICTATION_MODES)[number];
 
+/**
+ * What reads the recording.
+ *
+ * `auto` is the choice a person should keep: it takes the speech recognition of the operating
+ * system when there is one, and falls back to the voice model in the voice settings. `system` is
+ * the recognition of macOS and Windows: nothing to download, nothing leaves the computer, and the
+ * language is the one the system is set to. `voice` always uses the voice model, which is the only
+ * way to get a live transcript while speaking.
+ */
+export const DICTATION_ENGINES = ["auto", "system", "voice"] as const;
+export type DictationEngine = (typeof DICTATION_ENGINES)[number];
+
 export interface DictationPreference {
   enabled: boolean;
   /** An Electron accelerator. It always holds a modifier, so it can be a global shortcut. */
   accelerator: string;
   mode: DictationMode;
+  engine: DictationEngine;
 }
 
 /** The choices to change. A choice that is not given keeps its value. */
@@ -22,6 +35,7 @@ export interface DictationPreferenceChange {
   enabled?: boolean;
   accelerator?: string;
   mode?: DictationMode;
+  engine?: DictationEngine;
 }
 
 /**
@@ -32,7 +46,31 @@ export const DEFAULT_DICTATION_PREFERENCE: DictationPreference = {
   enabled: false,
   accelerator: "CommandOrControl+Shift+Space",
   mode: "paste",
+  engine: "auto",
 };
+
+/**
+ * Why the system recognition cannot be used. It is a catalog key, so main sends no prose, and the
+ * settings row and the overlay read the same text.
+ */
+export const DICTATION_SYSTEM_REASONS = [
+  "error.dictation.system.platform",
+  "error.dictation.system.missing",
+  "error.dictation.system.language",
+  "error.dictation.system.permission",
+] as const;
+export type DictationSystemReason = (typeof DICTATION_SYSTEM_REASONS)[number];
+
+/** What the system recognition of this computer can do, and which engine `auto` resolves to. */
+export interface DictationEngineStatus {
+  /** The engine the saved preference actually uses. `auto` is already resolved here. */
+  resolved: "system" | "voice";
+  system: {
+    available: boolean;
+    /** Why it is not available, when it is not. */
+    reason: DictationSystemReason | null;
+  };
+}
 
 /** The longest accelerator that is still readable in the settings row. */
 export const DICTATION_ACCELERATOR_LIMIT = 64;
@@ -124,7 +162,8 @@ export function isDictationPreference(value: unknown): value is DictationPrefere
     isDynamicRecord(value) &&
     typeof value.enabled === "boolean" &&
     isDictationAccelerator(value.accelerator) &&
-    oneOf(DICTATION_MODES, value.mode)
+    oneOf(DICTATION_MODES, value.mode) &&
+    oneOf(DICTATION_ENGINES, value.engine)
   );
 }
 
@@ -146,6 +185,10 @@ export function parseDictationPreferenceChange(input: unknown): DictationPrefere
     if (!oneOf(DICTATION_MODES, input.mode)) throw new Error("The dictation mode is invalid.");
     change.mode = input.mode;
   }
+  if ("engine" in input) {
+    if (!oneOf(DICTATION_ENGINES, input.engine)) throw new Error("The dictation engine is invalid.");
+    change.engine = input.engine;
+  }
   if (Object.keys(change).length === 0) throw new Error("The dictation change is required.");
   return change;
 }
@@ -164,6 +207,16 @@ export interface DictationState {
 }
 
 export const DICTATION_IDLE: DictationState = { phase: "idle", failure: null };
+
+export function isDictationEngineStatus(value: unknown): value is DictationEngineStatus {
+  if (!isDynamicRecord(value) || !isDynamicRecord(value.system)) return false;
+  const { resolved, system } = value;
+  return (
+    oneOf(["system", "voice"], resolved) &&
+    typeof system.available === "boolean" &&
+    (system.reason === null || oneOf(DICTATION_SYSTEM_REASONS, system.reason))
+  );
+}
 
 export function isDictationState(value: unknown): value is DictationState {
   return (

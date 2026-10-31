@@ -51,6 +51,8 @@ export interface AppPort {
     | "transcribe"
     | "finishDictation"
     | "cancelDictation"
+    | "dictationEngineStatus"
+    | "getDictationPreference"
     | "onDictationState"
     | "getSettings"
     | "getServer"

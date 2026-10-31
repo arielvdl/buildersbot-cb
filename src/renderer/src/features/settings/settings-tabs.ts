@@ -178,6 +178,12 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         shown: (state) => state.general.dictationEnabled,
       },
       {
+        anchor: "settings.dictation.engine",
+        descriptionKey: "settings.dictation.engineDescription",
+        keywordsKey: "settings.search.keywords.dictationEngine",
+        shown: (state) => state.general.dictationEnabled,
+      },
+      {
         anchor: "settings.externalLinks.title",
         descriptionKey: "settings.externalLinks.description",
         keywordsKey: "settings.search.keywords.externalLinks",

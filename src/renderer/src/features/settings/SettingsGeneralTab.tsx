@@ -1,4 +1,9 @@
-import { APP_INTERFACE_SIZES, type AppInterfaceSize, type AppVariant } from "@openbot/contracts/ipc";
+import {
+  APP_INTERFACE_SIZES,
+  type AppInterfaceSize,
+  type AppVariant,
+  type DictationEngineStatus,
+} from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
   Item,
@@ -21,13 +26,15 @@ import { LanguageSelect } from "@openbot/ui/features/settings/LanguageSelect";
 import { LogoColorPicker } from "@openbot/ui/features/settings/LogoColorPicker";
 import { SendShortcutSelect } from "@openbot/ui/features/settings/SendShortcutSelect";
 import { useText } from "@openbot/ui/text";
-import { Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
+import { appPort } from "../../app-port";
 import { useAppearanceChoice } from "../../appearance-choice";
 import { useI18n } from "../../i18n-context";
 import { useInterfaceSizeChoice } from "../../interface-size";
 import { useLayout } from "../../layout";
 import type { LeftColumnView } from "../../left-column";
 import { useLogoColorChoice } from "../../logo-color";
+import { DictationEngineSelect } from "./DictationEngineSelect";
 import { DictationKeyField } from "./DictationKeyField";
 import { DictationModeSelect } from "./DictationModeSelect";
 import { ExternalLinkSelect } from "./ExternalLinkSelect";
@@ -64,6 +71,33 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
   const { format } = useText();
   const interfaceSizeLabel = (value: AppInterfaceSize | undefined) =>
     value === undefined ? "" : format.percent(value / 100);
+  // The engine is a preference of this computer, so the row says what it can do here, in the same
+  // place where it is chosen. A change of engine asks again.
+  const [engineStatus, setEngineStatus] = createSignal<DictationEngineStatus | null>(null);
+  createEffect(
+    () => props.value.dictationEngine,
+    (engine) => {
+      void appPort()
+        .voice.dictationEngineStatus()
+        .then(setEngineStatus)
+        .catch(() => {
+          setEngineStatus(
+            engine === "voice" ? null : { resolved: "voice", system: { available: false, reason: null } },
+          );
+        });
+    },
+  );
+  const engineHint = () => {
+    const status = engineStatus();
+    if (!status) return "";
+    if (props.value.dictationEngine === "auto") {
+      return i18n.t(
+        status.resolved === "system" ? "settings.dictation.engine.autoSystem" : "settings.dictation.engine.autoVoice",
+      );
+    }
+    if (status.system.available) return i18n.t("settings.dictation.engine.systemReady");
+    return status.system.reason ? i18n.t(status.system.reason) : "";
+  };
   return (
     <>
       <SettingsSection title={i18n.t("settings.appearance.title")}>
@@ -217,6 +251,22 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
                 <DictationModeSelect
                   value={props.value.dictationMode}
                   onChange={(mode) => props.onUpdateSetting("dictationMode", mode)}
+                  mount={props.selectMount}
+                />
+              </ItemActions>
+            </Item>
+            <Item data-settings-row="settings.dictation.engine" class="settings-modal-row">
+              <ItemContent>
+                <ItemTitle>{i18n.t("settings.dictation.engine")}</ItemTitle>
+                <ItemDescription>{i18n.t("settings.dictation.engineDescription")}</ItemDescription>
+                <Show when={props.value.dictationEngine !== "voice"}>
+                  <ItemDescription aria-live="polite">{engineHint()}</ItemDescription>
+                </Show>
+              </ItemContent>
+              <ItemActions>
+                <DictationEngineSelect
+                  value={props.value.dictationEngine}
+                  onChange={(engine) => props.onUpdateSetting("dictationEngine", engine)}
                   mount={props.selectMount}
                 />
               </ItemActions>

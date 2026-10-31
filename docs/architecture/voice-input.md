@@ -1,0 +1,94 @@
+# Voice input
+
+Dictation turns a recording into text at the caret of another app, or on the clipboard. It has two
+parts that are easy to confuse:
+
+- **The recording** is the window's, through `MediaRecorder`. Main never holds a microphone.
+- **The engine** reads the finished recording. It is a preference of this computer.
+
+The global combination (`DictationService`, `voice:dictation-*`) owns the second press, the overlay
+phase and the paste. `global-dictation.ts` records and asks for a transcript. The composer's mic is a
+different path: it keeps the voice model because it shows text while you speak.
+
+## The engines
+
+`DictationPreference.engine` is `auto`, `system` or `voice`.
+
+| Engine   | What reads it                        | Needs                            | Live text |
+| -------- | ------------------------------------ | -------------------------------- | --------- |
+| `system` | macOS Speech / Windows `System.Speech` | a language pack and permission   | no        |
+| `voice`  | the model of the Voice settings      | a download or an API key         | yes       |
+| `auto`   | `system` when it can run, else `voice` | as above                       | only with `voice` |
+
+`auto` is the default. A person who wants the private, zero-download path chooses `system`; one who
+wants the preview while speaking chooses `voice`.
+
+### Why the system engine first
+
+- Nothing to download, and the audio does not leave the computer on device.
+- The same key works in every app, which is the point of a global combination.
+- It is the only engine that is already installed on both target systems.
+
+The costs are real and are why it is not the only engine: macOS needs **Dictation** on in
+System Settings → Keyboard, the first use asks for Speech Recognition, and Windows needs the language
+pack of the language. `OsDictationService.status()` reports each of those, the settings row shows it,
+and `auto` moves to the model when the system cannot work.
+
+### macOS
+
+`resources/os-speech/darwin/os-speech.swift` is compiled by `scripts/build-os-speech.ts` into
+`.openbot-build/voice/os-speech/darwin/os-speech`, carried by `extraResources` and run with the WAV
+path and the language. It requests `SFSpeechRecognizer` authorization, recognizes **on device** when
+the language has its asset, and retries on the system server when the on-device pass fails. It exits
+with a category (`permission`, `language`, `empty`, `recognize`) that main maps to a catalog key.
+
+The app's `Info.plist` carries `NSSpeechRecognitionUsageDescription`; the helper carries its own copy
+in an embedded plist, so the permission still resolves if macOS attributes it to the binary. The app
+is the responsible process, so the prompt names Builders Bot.
+
+### Windows
+
+`os-dictation-windows-script.ts` is a PowerShell text that main passes with `-Command`, after the
+`$File` and `$Language` assignments. It lists `SpeechRecognitionEngine.InstalledRecognizers()`, picks
+the exact culture, then the two-letter one, and reads the WAV with a `DictationGrammar`. No build step
+and no file to package.
+
+Windows has no per-app speech permission. The recognizers come from the installed language packs, so
+a language with no pack answers `language`; `-Check` counts them for the status row.
+
+### Linux
+
+No system engine. The status says `error.dictation.system.platform` and `auto` uses the model.
+
+## The provider of the selected model
+
+The Cultura Builder gateway is OpenAI-compatible for chat, but it has **no audio route**: a POST to
+`/api/builder-ai/gateway/v1/audio/transcriptions` answers 404, and the chat models do not accept
+`input_audio` (the gateway forwards it and the model refuses it). So "transcribe with the selected
+model" cannot be the default yet.
+
+When the gateway ships `POST /audio/transcriptions` (multipart `file`, `model`), the provider engine
+is a small addition: resolve the preferred provider and model from the setup store, call the
+gateway with the same bearer token the Guard already uses, and add `cultura-builder` to the
+supported set. Until then the engine choice is about the system and the voice model, and the
+provider path belongs beside them rather than in front of them.
+
+## The clipboard and the paste
+
+`DictationService.finish` writes the transcript to the clipboard and, in `paste` mode, sends the
+paste keystroke of the platform (AppleScript, `WScript.Shell`, `xdotool`). The previous clipboard
+comes back after 600 ms, and only while the text is still ours. `copy` mode stops at the clipboard,
+which is the reliable choice when the focused app refuses a synthetic keystroke.
+
+## Rules that are easy to break
+
+- `auto` must never fail a dictation: a system failure falls back to the model. An explicit `system`
+  reports the reason.
+- The recording stays in the renderer. Main gets a 16 kHz mono PCM WAV.
+- The engine is read when the recording starts, so a settings change applies to the next press.
+- A model that streams (ElevenLabs) is only used with `engine: "voice"`; `system` and `auto` always
+  send a whole recording.
+- `DictationPreference` files written before the engine existed must read with `engine: "auto"`,
+  not fall back to the default and turn the feature off.
+- `bun scripts/build-os-speech.ts` is part of `voice:prepare-runtime`; a package built without it has
+  no macOS system engine, and the status says `missing`.

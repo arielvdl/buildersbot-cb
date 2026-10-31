@@ -646,6 +646,7 @@ function registerIpcHandlers({
   voice,
   speech,
   dictation,
+  osDictation,
   voiceServer,
   dynamicIsland,
   lidAwake,
@@ -720,7 +721,7 @@ function registerIpcHandlers({
     ...lidAwakeIpcHandlers({ lidAwake }),
     ...backgroundProcessIpcHandlers({ platform: process.platform, agents: () => service.listAgents() }),
     ...providerIpcHandlers({ service, providerRuntimes, credentials: providerCredentials, openLink }),
-    ...voiceIpcHandlers({ voice, speech, service, dictation, server: voiceServer }),
+    ...voiceIpcHandlers({ voice, speech, service, dictation, os: osDictation, server: voiceServer }),
     ...accountIpcHandlers({ centralAuth, host }),
     ...skillIpcHandlers({ skills, getMainWindow: getDialogParent, translate: language.translate }),
     ...agentFolderIpcHandlers({

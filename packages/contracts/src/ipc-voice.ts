@@ -1,4 +1,5 @@
 import { isBoundedString } from "./ipc-bounded-values";
+import type { DictationEngine } from "./ipc-dictation";
 import { isBoolean, isDynamicRecord, isOneOf } from "./runtime-values";
 
 export const VOICE_AUDIO_LIMITS = {
@@ -13,6 +14,11 @@ export const VOICE_AUDIO_LIMITS = {
 
 export interface VoiceTranscriptionInput {
   audio: Uint8Array;
+  /**
+   * Where the recording is read. The composer leaves it out and uses the voice model. The global
+   * dictation sends its engine, so that `system` and `auto` can reach the system recognition.
+   */
+  engine?: DictationEngine;
 }
 
 export interface VoiceTranscriptionResult {

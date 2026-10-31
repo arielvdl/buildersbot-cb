@@ -1,5 +1,6 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  DICTATION_ENGINES,
   type DictationResult,
   isSpeechLanguage,
   isSpeechVoice,
@@ -50,7 +51,14 @@ export function parseVoiceTranscription(input: unknown): VoiceTranscriptionInput
   ) {
     throw new Error("Voice audio must be a 16 kHz mono PCM WAV file.");
   }
-  return { audio };
+  if (input.engine !== undefined && !isDictationEngine(input.engine)) {
+    throw new Error("The dictation engine is invalid.");
+  }
+  return input.engine === undefined ? { audio } : { audio, engine: input.engine };
+}
+
+function isDictationEngine(value: unknown): value is (typeof DICTATION_ENGINES)[number] {
+  return typeof value === "string" && DICTATION_ENGINES.some((engine) => engine === value);
 }
 
 /** The first bytes of an EBML file, such as WebM. */

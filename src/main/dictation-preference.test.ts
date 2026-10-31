@@ -49,12 +49,24 @@ describe("dictation accelerator", () => {
 });
 
 describe("dictation change", () => {
-  it("reads the three choices", () => {
-    expect(parseDictationPreferenceChange({ enabled: true, accelerator: "Control + Alt + D", mode: "copy" })).toEqual({
+  it("reads the four choices", () => {
+    expect(
+      parseDictationPreferenceChange({
+        enabled: true,
+        accelerator: "Control + Alt + D",
+        mode: "copy",
+        engine: "system",
+      }),
+    ).toEqual({
       enabled: true,
       accelerator: "Control+Alt+D",
       mode: "copy",
+      engine: "system",
     });
+  });
+
+  it("refuses an engine it does not know", () => {
+    expect(() => parseDictationPreferenceChange({ engine: "cloud" })).toThrow();
   });
 
   it("refuses a combination another app would take from every app", () => {
@@ -75,8 +87,23 @@ describe("dictation preference store", () => {
 
   it("keeps what it saves", async () => {
     const store = await storeWith();
-    await Effect.runPromise(store.set({ enabled: true, accelerator: "Control+Alt+D", mode: "copy" }));
-    expect(store.get()).toEqual({ enabled: true, accelerator: "Control+Alt+D", mode: "copy" });
+    await Effect.runPromise(store.set({ enabled: true, accelerator: "Control+Alt+D", mode: "copy", engine: "system" }));
+    expect(store.get()).toEqual({
+      enabled: true,
+      accelerator: "Control+Alt+D",
+      mode: "copy",
+      engine: "system",
+    });
+  });
+
+  it("reads a file written before the engine existed, with automatic as the engine", async () => {
+    const store = await storeWith({ enabled: true, accelerator: "Control+Alt+D", mode: "copy" });
+    expect(store.get()).toEqual({
+      enabled: true,
+      accelerator: "Control+Alt+D",
+      mode: "copy",
+      engine: "auto",
+    });
   });
 
   it("changes one choice and leaves the others", async () => {

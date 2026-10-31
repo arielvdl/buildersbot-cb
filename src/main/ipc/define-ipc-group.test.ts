@@ -4,6 +4,7 @@ import {
   DEFAULT_DICTATION_PREFERENCE,
   DEFAULT_SPEECH_SETTINGS,
   DICTATION_IDLE,
+  type DictationEngineStatus,
   type DraftAttachment,
   parseDictationPreferenceChange,
   type SpeechModelStatus,
@@ -103,6 +104,9 @@ function registerVoice(
       ...DEFAULT_DICTATION_PREFERENCE,
       ...change,
     })),
+    dictationEngineStatus: handler(
+      (): DictationEngineStatus => ({ resolved: "voice", system: { available: false, reason: null } }),
+    ),
     finishDictation: payloadHandler(parseDictationResult, () => DICTATION_IDLE),
     cancelDictation: handler(() => DICTATION_IDLE),
     getServer: handler(() => null),

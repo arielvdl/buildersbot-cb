@@ -111,6 +111,9 @@ mac:
     # The sherpa-onnx addon and its libraries. The dictation and speech models are downloaded on demand.
     - from: .openbot-build/voice/runtime
       to: voice/runtime
+    # The binary of the system dictation of macOS. Windows runs PowerShell and needs no file.
+    - from: .openbot-build/voice/os-speech
+      to: voice/os-speech
     - from: build/remote-desktop-runtime
       to: remote-desktop-runtime
     - from: build/cua-driver/darwin/${arch}
@@ -128,6 +131,7 @@ mac:
     CFBundleIconName: Icon
     ElectronTeamID: ZTRDTUL87R
     NSMicrophoneUsageDescription: Builders Bot uses the microphone to transcribe voice prompts locally on this Mac.
+    NSSpeechRecognitionUsageDescription: Builders Bot uses the speech recognition of macOS to turn your dictation into text on this Mac.
     # Computer Use runs the driver as a child process, so macOS asks for both grants in Builders Bot's
     # name and shows these sentences. Under the hardened runtime, macOS shows the Automation prompt
     # only when the app has `com.apple.security.automation.apple-events` in its entitlements.

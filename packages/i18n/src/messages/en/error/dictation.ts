@@ -11,4 +11,13 @@ export const messages = defineMessages("error.dictation", {
   "error.dictation.pastePermission":
     "The transcript is on the clipboard. Allow Builders Bot in System Settings → Privacy → Accessibility to paste it, or press the paste key.",
   "error.dictation.shortcutTaken": "Another app already uses that combination.",
+  // The speech recognition of the operating system.
+  "error.dictation.system.platform":
+    "This system has no speech recognition. The dictation uses the voice model instead.",
+  "error.dictation.system.missing":
+    "The system speech recognition is not installed. On macOS, turn on Dictation in System Settings → Keyboard; on Windows, add the language pack of the language.",
+  "error.dictation.system.language":
+    "The system does not recognize this language. Add it in the system settings, or choose another language in Voice.",
+  "error.dictation.system.permission":
+    "Builders Bot may not use speech recognition. Allow it in System Settings → Privacy → Speech Recognition, or use the voice model.",
 });

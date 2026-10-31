@@ -1,5 +1,6 @@
 import {
   DICTATION_IDLE,
+  type DictationEngine,
   type DictationState,
   VOICE_MODELS,
   VOICE_STREAM_LIMITS,
@@ -32,10 +33,26 @@ interface Recording {
 let recording: Recording | null = null;
 /** A stop that arrives before the microphone opened must not be lost. */
 let stopping = false;
+/**
+ * The engine the saved preference names, read when the recording starts. `auto` is resolved in
+ * main; here it only decides whether the recording can stream, which a model on this computer and
+ * ElevenLabs need.
+ */
+let engine: DictationEngine = "voice";
+
+async function readEngine(): Promise<void> {
+  try {
+    engine = (await appPort().voice.getDictationPreference()).engine;
+  } catch {
+    // A preference that cannot be read keeps the model: it is the path that always existed.
+    engine = "voice";
+  }
+}
 
 async function start(): Promise<void> {
   stopping = false;
   if (recording) return;
+  await readEngine();
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -73,12 +90,15 @@ async function stop(): Promise<void> {
     await report({ failure: "error.dictation.empty" });
     return;
   }
-  let streamed: boolean;
-  try {
-    streamed = await takesStream();
-  } catch (error) {
-    await report({ failure: failureKey(error) });
-    return;
+  // The system recognition and `auto` read a whole recording; only the voice model can stream.
+  let streamed = false;
+  if (engine === "voice") {
+    try {
+      streamed = await takesStream();
+    } catch (error) {
+      await report({ failure: failureKey(error) });
+      return;
+    }
   }
   const recorded = new Blob(current.chunks, { type: current.recorder.mimeType });
   let audio: Uint8Array;
@@ -90,7 +110,9 @@ async function stop(): Promise<void> {
     return;
   }
   try {
-    const result = streamed ? await transcribeStream(audio) : await appPort().voice.transcribe({ audio });
+    const result = streamed
+      ? await transcribeStream(audio)
+      : await appPort().voice.transcribe(engine === "voice" ? { audio } : { audio, engine });
     await report({ text: result.text });
   } catch (error) {
     await report({ failure: failureKey(error) });

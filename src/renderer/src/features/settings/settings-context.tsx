@@ -304,15 +304,17 @@ const Settings = createSimpleContext({
       if (
         previous.dictationEnabled !== value.dictationEnabled ||
         previous.dictationAccelerator !== value.dictationAccelerator ||
-        previous.dictationMode !== value.dictationMode
+        previous.dictationMode !== value.dictationMode ||
+        previous.dictationEngine !== value.dictationEngine
       ) {
         dictationChanged = true;
-        // Three fields answer together: a refused combination must put all of them back, not one.
+        // The fields answer together: a refused combination must put all of them back, not one.
         void settingsPort()
           .voice.setDictationPreference({
             enabled: value.dictationEnabled,
             accelerator: value.dictationAccelerator,
             mode: value.dictationMode,
+            engine: value.dictationEngine,
           })
           .then((preference) =>
             setGeneralSettings((current) => ({
@@ -320,6 +322,7 @@ const Settings = createSimpleContext({
               dictationEnabled: preference.enabled,
               dictationAccelerator: preference.accelerator,
               dictationMode: preference.mode,
+              dictationEngine: preference.engine,
             })),
           )
           .catch((error: unknown) => {
@@ -328,6 +331,7 @@ const Settings = createSimpleContext({
               dictationEnabled: previous.dictationEnabled,
               dictationAccelerator: previous.dictationAccelerator,
               dictationMode: previous.dictationMode,
+              dictationEngine: previous.dictationEngine,
             }));
             showSaveFailure(error);
           });
@@ -600,6 +604,7 @@ const Settings = createSimpleContext({
               dictationEnabled: preference.enabled,
               dictationAccelerator: preference.accelerator,
               dictationMode: preference.mode,
+              dictationEngine: preference.engine,
             }));
           }),
         settingsPort()

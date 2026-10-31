@@ -48,6 +48,7 @@ import {
   DEFAULT_AGENT_DEFAULTS,
   type DetectedAcpAgent,
   type DetectedModelServer,
+  type DictationEngineStatus,
   type DictationPreference,
   type DictationState,
   type DiscoverModelsResult,
@@ -83,6 +84,7 @@ import {
   isCustomProviderSummary,
   isDetectedAcpAgent,
   isDetectedModelServer,
+  isDictationEngineStatus,
   isDictationPreference,
   isDictationState,
   isDiscoverModelsResult,
@@ -451,6 +453,11 @@ export function decodeSecurityGuardPreference(value: unknown): SecurityGuardPref
 
 export function decodeDictationPreference(value: unknown): DictationPreference {
   if (!isDictationPreference(value)) throw new Error("Invalid dictation preference.");
+  return value;
+}
+
+export function decodeDictationEngineStatus(value: unknown): DictationEngineStatus {
+  if (!isDictationEngineStatus(value)) throw new Error("Invalid dictation engine status.");
   return value;
 }
 

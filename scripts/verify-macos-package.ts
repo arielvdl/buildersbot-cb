@@ -138,8 +138,13 @@ assertAllowedUpdateFeed(await readOptionalText(resolve(resourcesPath, "app-updat
 await assertNoBlockedStringsInPackage(resourcesPath);
 expectEqual(
   plist.NSMicrophoneUsageDescription,
-  "OpenBot uses the microphone to transcribe voice prompts locally on this Mac.",
+  "Builders Bot uses the microphone to transcribe voice prompts locally on this Mac.",
   "microphone usage description",
+);
+expectEqual(
+  plist.NSSpeechRecognitionUsageDescription,
+  "Builders Bot uses the speech recognition of macOS to turn your dictation into text on this Mac.",
+  "speech recognition usage description",
 );
 
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));

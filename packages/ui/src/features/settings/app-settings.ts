@@ -6,6 +6,7 @@ import {
   DEFAULT_AGENT_MEMORY_LIMIT,
   DEFAULT_DICTATION_PREFERENCE,
   DEFAULT_EXTERNAL_LINK_PREFERENCE,
+  type DictationEngine,
   type DictationMode,
   type ExternalLinkTarget,
 } from "@openbot/contracts/ipc";
@@ -64,6 +65,8 @@ export interface GeneralSettingsValue {
   dictationAccelerator: string;
   /** Whether a transcript is pasted into the focused app, or only put on the clipboard. */
   dictationMode: DictationMode;
+  /** What reads the recording: the system recognition, the voice model, or whichever works. */
+  dictationEngine: DictationEngine;
   /** What a message sent to a busy agent does, unless the agent or the message sets its own. */
   busyMessageMode: BusyMessageMode;
   /** What an agent of this computer does when it has no value of its own for the setting. */
@@ -108,6 +111,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   dictationEnabled: false,
   dictationAccelerator: DEFAULT_DICTATION_PREFERENCE.accelerator,
   dictationMode: DEFAULT_DICTATION_PREFERENCE.mode,
+  dictationEngine: DEFAULT_DICTATION_PREFERENCE.engine,
   busyMessageMode: "queue",
   agentDefaults: DEFAULT_AGENT_DEFAULTS,
   agentMemoryLimit: DEFAULT_AGENT_MEMORY_LIMIT,

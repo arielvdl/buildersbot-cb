@@ -267,7 +267,13 @@ import type {
   SaveCustomProviderInput,
   UpdateCustomProviderInput,
 } from "./ipc-custom-providers";
-import type { DictationPreference, DictationPreferenceChange, DictationResult, DictationState } from "./ipc-dictation";
+import type {
+  DictationEngineStatus,
+  DictationPreference,
+  DictationPreferenceChange,
+  DictationResult,
+  DictationState,
+} from "./ipc-dictation";
 import type {
   DynamicIslandAction,
   DynamicIslandGeometry,
@@ -909,6 +915,8 @@ export const IPC_ENDPOINTS = {
      */
     getDictationPreference: request<undefined, DictationPreference>()("voice:get-dictation-preference"),
     setDictationPreference: request<DictationPreferenceChange, DictationPreference>()("voice:set-dictation-preference"),
+    /** Which engine the saved preference uses here, and why the system one is out when it is. */
+    dictationEngineStatus: request<undefined, DictationEngineStatus>()("voice:dictation-engine-status"),
     /**
      * Where the dictation is, for the overlay. Main sends it when the combination starts a
      * recording, when the recording is read and when it ends.

@@ -263,6 +263,7 @@ import { MessagingCredentialStore } from "./messaging-credential-store";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
+import { OsDictationService } from "./os-dictation-service";
 import { PlaywrightBroker } from "./playwright-broker";
 import { installGuard } from "./playwright-broker-guard";
 import {
@@ -669,6 +670,7 @@ export interface ApplicationServices {
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
   dictation: DictationService;
+  osDictation: OsDictationService;
   voiceServer: VoiceServerService;
   lidAwake: LidAwakeService;
   dynamicIsland: DynamicIslandWindowController;
@@ -3019,6 +3021,12 @@ export async function createApplicationServices({
   await runCauseEffect(dictationPreferences.load());
   const dictation = new DictationService(dictationPreferences, forwardDictationState);
   teardown.push(TEARDOWN_ORDER.dictation, "dictation", async () => dictation.dispose());
+  // The speech recognition of this computer. The language is read from the voice settings at each
+  // call, so a change applies to the next dictation.
+  const osDictation = new OsDictationService({
+    resourcesRoot: app.isPackaged ? join(process.resourcesPath, "voice") : resolve(".openbot-build/voice"),
+    language: () => voicePreferences.get().language,
+  });
   speech.on("modelStatus", forwardSpeechModelStatus);
   // The user's own server for either route. Its key is a file of its own, apart from the ElevenLabs key.
   const voiceServerPreferences = createVoiceServerPreferenceStore(join(app.getPath("userData"), "voice-server.json"));
@@ -3440,6 +3448,7 @@ export async function createApplicationServices({
     voice,
     speech,
     dictation,
+    osDictation,
     voiceServer,
     lidAwake,
     dynamicIsland,

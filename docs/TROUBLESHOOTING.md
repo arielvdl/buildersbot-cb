@@ -72,6 +72,14 @@ The voice runtime of the x64 AppImage needs glibc 2.32 or later, such as Ubuntu 
 On Ubuntu 20.04 or Debian 11, the dictation model downloads, but the runtime does not load, and
 voice prompts show an error. Use a newer distribution. The arm64 AppImage needs glibc 2.17 or later.
 
+## The dictation says the system speech recognition is not installed
+
+The global dictation uses the speech recognition of the system when it can. On macOS, turn on
+**Dictation** in System Settings → Keyboard and allow Builders Bot in System Settings → Privacy →
+Speech Recognition. On Windows, add the language pack of the dictation language in Settings → Time
+and language. A Mac without Dictation still dictates with the voice model; choose **Voice model** as
+the engine in Settings → General to stop asking the system, or download a model in Settings → Voice.
+
 ## Builders Bot is slow or stops because of the GPU on Linux
 
 On Linux, Builders Bot uses the GPU until the GPU fails on your computer. If the GPU process crashes, or a

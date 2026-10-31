@@ -15,12 +15,14 @@ import {
   type VoiceServerSettings,
   type VoiceSettings,
   type VoiceStream,
+  type VoiceTranscriptionInput,
   type VoiceTranscriptionResult,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { AgentService } from "../../backend/agent-service";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { DictationService } from "../dictation-service";
+import { dictationFailureKey, type OsDictationService } from "../os-dictation-service";
 import type { VoiceServerService } from "../voice-server-service";
 import type { VoiceSpeechService } from "../voice-speech-service";
 import type { VoiceTranscriptionService } from "../voice-transcription-service";
@@ -40,6 +42,34 @@ import {
   parseVoiceTranscription,
 } from "./voice-inputs";
 
+/** What one transcription needs. Narrow, so a test needs no whole service. */
+interface TranscriptionEngines {
+  os: Pick<OsDictationService, "status" | "transcribe">;
+  voice: Pick<VoiceTranscriptionService, "transcribe" | "getSettings">;
+  server: Pick<VoiceServerService, "dictates" | "transcribe">;
+}
+
+/**
+ * Reads one recording with the engine it names. The composer names none and keeps the model. The
+ * global dictation names its own: `system` reports why it could not, and `auto` falls back to the
+ * model, so a Mac without Dictation still dictates.
+ */
+export async function transcribeWithEngine(
+  { audio, engine }: VoiceTranscriptionInput,
+  { os, voice, server }: TranscriptionEngines,
+): Promise<VoiceTranscriptionResult> {
+  if (engine === "system" || (engine === "auto" && (await os.status()).available)) {
+    try {
+      return { text: await os.transcribe(audio) };
+    } catch (error) {
+      if (engine === "system") throw new Error(dictationFailureKey(error));
+    }
+  }
+  return runCauseEffect(
+    server.dictates() ? server.transcribe(audio, voice.getSettings().language) : voice.transcribe(audio),
+  );
+}
+
 export interface VoiceIpcDependencies {
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
@@ -49,6 +79,8 @@ export interface VoiceIpcDependencies {
   service: Pick<AgentService, "prepareVoiceRecording">;
   /** The global dictation combination. Its recording runs in the window, not here. */
   dictation: DictationService;
+  /** The speech recognition of the operating system, for the global dictation. */
+  os: OsDictationService;
 }
 
 export function voiceIpcHandlers({
@@ -57,6 +89,7 @@ export function voiceIpcHandlers({
   service,
   dictation,
   server,
+  os,
 }: VoiceIpcDependencies): Pick<IpcGroupHandlers, "voice"> {
   return {
     voice: {
@@ -86,12 +119,8 @@ export function voiceIpcHandlers({
         parseVoiceSettings,
         (settings): Promise<VoiceSettings> => runCauseEffect(voice.setSettings(settings)),
       ),
-      transcribe: payloadHandler(
-        parseVoiceTranscription,
-        ({ audio }): Promise<VoiceTranscriptionResult> =>
-          runCauseEffect(
-            server.dictates() ? server.transcribe(audio, voice.getSettings().language) : voice.transcribe(audio),
-          ),
+      transcribe: payloadHandler(parseVoiceTranscription, (input) =>
+        transcribeWithEngine(input, { os, voice, server }),
       ),
       setApiKey: payloadHandler(
         parseVoiceApiKey,
@@ -134,6 +163,7 @@ export function voiceIpcHandlers({
       setDictationPreference: payloadHandler(parseDictationPreferenceChange, (change) =>
         dictation.setPreference(change),
       ),
+      dictationEngineStatus: handler(() => os.engineStatus(dictation.preference.engine)),
       finishDictation: payloadHandler(
         parseDictationResult,
         (result): Promise<DictationState> => dictation.finish(result),
