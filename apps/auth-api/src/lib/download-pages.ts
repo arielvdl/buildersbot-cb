@@ -4,6 +4,7 @@
 // Keep it to what the released app does, because these pages are what a search engine shows for
 // "OpenBot for Linux".
 
+import { BUILDERSBOT_CONTROL_PLANE_ORIGIN } from "@openbot/contracts/invite-links";
 import { DOWNLOAD_PLATFORM_ORDER, type DownloadPlatform } from "./download-platforms";
 import { LANDING_FAQ, type LandingQuestion } from "./landing-faq";
 import { OPENBOT_ALTERNATE_DOWNLOAD_LINKS, OPENBOT_DOWNLOAD_LINKS, OPENBOT_DOWNLOAD_PAGE_LINKS } from "./landing-links";
@@ -18,7 +19,7 @@ import {
 import { OPENBOT_SOFTWARE_APPLICATION } from "./software-application";
 
 /** The sitemap date of the pages. Change it when their text changes. */
-export const DOWNLOAD_PAGES_UPDATED_AT = "2026-10-30";
+export const DOWNLOAD_PAGES_UPDATED_AT = "2026-10-31";
 
 /** A system with its own page: a desktop installer or a phone app. */
 export type DownloadPagePlatform = DownloadPlatform | MobilePlatform;
@@ -85,19 +86,19 @@ const NETWORK_NOTE = "The AI provider you choose needs an internet connection. A
 const UPDATES_SPEC: DownloadSpec = { label: "Updates", value: "Automatic" };
 
 const COMPUTER_STEP: DownloadStep = {
-  text: "Install OpenBot on the Mac, Windows or Linux computer that runs your agents, and sign in to your OpenBot account.",
+  text: "Install OpenBot on the Mac, Windows or Linux computer that runs your agents, and sign in with your Cultura Builder account.",
 };
-// A phone uses the web client at `/app`, installed from its browser. There is no phone app to get
-// from a store.
+// A phone uses the web client at `/app` of the Builders Bot account service, installed from its
+// browser. There is no phone app to get from a store, and no openbot.run address.
 const WEB_APP_PATH = "/app";
-const WEB_APP_ADDRESS = `${new URL(OPENBOT_SITE_URL).host}${WEB_APP_PATH}`;
+const WEB_APP_ADDRESS = `${new URL(BUILDERSBOT_CONTROL_PLANE_ORIGIN).host}${WEB_APP_PATH}`;
 const PHONE_SIGN_IN_STEP: DownloadStep = {
-  text: "Open OpenBot from its new icon, enter the email of your OpenBot account and type the code from the email.",
+  text: "Open the web app from its new icon, select Sign in with Cultura Builder, and approve the code on the Cultura Builder Hub.",
 };
 const WEB_APP_UPDATES_SPEC: DownloadSpec = { label: "Updates", value: "When the app opens again" };
 const PHONE_NOTES = [
   "Your chats and files stay on the computer that runs your agents. The phone connects to it over an encrypted connection, directly between your devices when it can, and no cloud stores your chats or files.",
-  "You set up no VPN or tunnel. Remote access needs an OpenBot account.",
+  "You set up no VPN or tunnel. Remote access needs a Cultura Builder account.",
   "The computer must be on and running OpenBot for the phone to reach your agents.",
   "To remove a phone, sign out in the web app, or end its session in Settings, then Profile, then Account sessions, on the computer.",
 ];
@@ -285,8 +286,8 @@ export const DOWNLOAD_PAGES: Record<DownloadPagePlatform, DownloadPageContent> =
         title: "A server with no screen",
         steps: [
           {
-            text: "On Ubuntu 24.04 or 26.04 with systemd, install OpenBot as an always-on server of your account, then sign in with an email code:",
-            code: "curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash\nsudo openbot login",
+            // The upstream install script installs the upstream release, so this page names none.
+            text: "The install as an always-on server is not available for this build yet. Until it is, run the AppImage on a computer that stays on.",
           },
           { text: `Then use it from the desktop app, or from ${WEB_APP_ADDRESS} in a browser or on a phone.` },
         ],

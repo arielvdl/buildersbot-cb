@@ -26,6 +26,22 @@ describe("phone pages of the website", () => {
     expect(steps("android")).toMatch(/Chrome.*Install app/u);
   });
 
+  it("names the web app of the Builders Bot account service and its Cultura Builder sign-in", () => {
+    const pages = JSON.stringify(DOWNLOAD_PAGES);
+    expect(pages).toContain("buildersbot.culturabuilder.com/app");
+    expect(pages).not.toMatch(/openbot\.run\/app/u);
+    for (const platform of MOBILE_APP_ORDER) {
+      expect(JSON.stringify(DOWNLOAD_PAGES[platform])).not.toMatch(/openbot\.run|openbot:\/\//u);
+    }
+    // The upstream install script installs the upstream release as root.
+    expect(pages).not.toMatch(/nightly-labs|install-server\.sh/u);
+    expect(pages).not.toMatch(/code from the email|email code/iu);
+    for (const platform of MOBILE_APP_ORDER) {
+      const steps = DOWNLOAD_PAGES[platform].installSteps.map((step) => step.text).join(" ");
+      expect(steps).toMatch(/Sign in with Cultura Builder/u);
+    }
+  });
+
   it("names no store on the download hub", () => {
     expect(JSON.stringify(DOWNLOAD_HUB)).not.toMatch(STORE_TEXT);
     expect(JSON.stringify(DOWNLOAD_PAGES.linux)).not.toMatch(/mobile app/iu);
