@@ -41,6 +41,7 @@ import { SIGN_IN_RELAY_CAPABILITY } from "@openbot/contracts/team-protocol/sign-
 import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import { VAULT_V2_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v2";
 import { WEBHOOK_TESTS_CAPABILITY } from "@openbot/contracts/team-protocol/webhook-tests-v1";
+import { type AppTextKey, translateFor } from "@openbot/i18n";
 import { runTeamEffect } from "@openbot/team-client";
 import { channelForThread } from "@openbot/team-client/channel-notifications";
 import {
@@ -72,6 +73,7 @@ import {
 import { clearAgentContext, type TeamApiRequest } from "@openbot/team-client/team-api-requests";
 import { classifyFailure } from "@openbot/telemetry";
 import { hasVisibleToasts, toast } from "@openbot/ui";
+import type { GlobalSearchAction } from "@openbot/ui/components/GlobalSearch";
 import { accountUsageProviderRows } from "@openbot/ui/features/account/account-usage-view";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { createFirstAgentDraft, type FirstAgentDraft } from "@openbot/ui/features/agents/FirstAgentSetup";
@@ -111,6 +113,7 @@ import {
   createMemo,
   createRoot,
   createSignal,
+  flush,
   Loading,
   lazy,
   Match,
@@ -188,6 +191,8 @@ import {
   serverRoleCanAdminister,
 } from "../servers/server-capabilities";
 import { createServerConnectionToast } from "../servers/server-connection-toast";
+import { serverSettingsPaletteActions } from "../servers/server-settings-palette";
+import { type ServerSettingsSearchEntry, serverSettingsSectionShown } from "../servers/server-settings-sections";
 import {
   offerServerUpdate,
   ServerUpdateDialogHost,
@@ -202,7 +207,9 @@ import type { ServerVaultOptions } from "../vault/ServerVaultPanel";
 import { createVaultStore } from "../vault/stores/vault-store";
 import { RailHelpMenu } from "../window/RailHelpMenu";
 import { ServerSettingsPageTitle, SettingsPageFrame } from "../window/SettingsPageFrame";
+import { revealSettingsRow } from "../window/settings-row-reveal";
 import type { SettingsKind, WindowPage } from "../window/window-page-context";
+import type { WebAccountSettingsTab } from "./WebAccountSettings";
 import { WebAgentSettings } from "./WebAgentSettings";
 import { WebConnectComputer } from "./WebConnectComputer";
 import { WebMobileNavigation, type WebMobilePane } from "./WebMobileNavigation";
@@ -232,6 +239,7 @@ import { createWebProviderSettings, openWebDestination } from "./web-provider-ad
 import { webRoutineFlowsHost } from "./web-routine-flows";
 import { webScheduleSource } from "./web-schedule";
 import { createWebServerSettings } from "./web-server-settings";
+import { webAccountSettingsPaletteActions } from "./web-settings-palette";
 import { webTasksSource } from "./web-tasks";
 import { createWebUsagePort } from "./web-usage-port";
 import { webVaultCalls } from "./web-vault";
@@ -640,9 +648,17 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     nonce: number;
   } | null>(null);
   let notificationFocusNonce = 0;
+  /** The tab that a palette result opens in the account settings. Each nonce opens once. */
+  const [accountTabRequest, setAccountTabRequest] = createSignal<{
+    tab: WebAccountSettingsTab;
+    nonce: number;
+  } | null>(null);
+  let accountTabNonce = 0;
   // A request moves the settings once. A later opening shows them from the top.
   createEffect(accountSettingsOpen, (open) => {
-    if (!open) setNotificationFocusRequest(null);
+    if (open) return;
+    setNotificationFocusRequest(null);
+    setAccountTabRequest(null);
   });
   /** Opens the notification levels, the one place where the user changes them, at one host. */
   function openNotificationSettings(serverId: string): void {
@@ -1436,6 +1452,80 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     const current = server();
     if (current) void openServerSettings(current.id, trigger, "browser-profiles");
   };
+  /** Whether the server settings below show the section: the conditions of the props that they get. */
+  function webServerSettingsSectionShown(section: ServerSettingsSection, target: ServerSummary): boolean {
+    switch (section) {
+      case "general":
+      case "members":
+      case "mcp":
+      case "storage":
+      case "updates":
+        return true;
+      case "vault":
+        return vaultSettings() !== undefined;
+      case "roles":
+        return serverSettingsSectionShown("roles", target, undefined);
+      case "providers":
+        return providerSettings() !== undefined;
+      case "sites":
+        return workspace.state.capabilities.includes(HOSTED_SITES_CAPABILITY);
+      case "import":
+        return workspace.state.capabilities.includes(AGENT_IMPORT_CAPABILITY);
+      case "browser-profiles":
+        return browserProfileSettings() !== undefined;
+      case "desktop":
+      case "transfer":
+      case "routines":
+        return false;
+    }
+  }
+  /** The browser client gets no Leave, Remove or server key row: it stays on one host that runs elsewhere. */
+  const webServerSettingsEntryShown = (entry: ServerSettingsSearchEntry, target: ServerSummary) =>
+    webServerSettingsSectionShown(entry.section, target) &&
+    (entry.shown?.(target, { platform: undefined, host: null, hostedServerIds: null, canLeave: false }) ?? true);
+  /**
+   * The palette results of the settings, as on desktop: the tabs of the account settings, and the
+   * sections of the settings of this host that the overlay below shows.
+   */
+  const settingsActions = createMemo(
+    (): GlobalSearchAction[] => {
+      const english = translateFor("en");
+      const translators =
+        text.locale() === "en"
+          ? [(key: AppTextKey) => t(key)]
+          : [(key: AppTextKey) => t(key), (key: AppTextKey) => english(key)];
+      const actions = webAccountSettingsPaletteActions({
+        translators,
+        t,
+        open: (tab) => {
+          setAccountTabRequest({ tab, nonce: ++accountTabNonce });
+          openAccountSettings();
+        },
+      });
+      const target = server();
+      if (!target) return actions;
+      return [
+        ...actions,
+        ...serverSettingsPaletteActions({
+          server: target,
+          shown: (entry) => webServerSettingsEntryShown(entry, target),
+          translators,
+          t,
+          open: (section, anchor) => {
+            // The overlay applies a section when the requested section changes, so the same one opens again.
+            if (serverSettingsSection() === section) {
+              setServerSettingsSection(null);
+              flush();
+            }
+            void openServerSettings(target.id, null, section).then(() => {
+              if (anchor) void revealSettingsRow(section, anchor);
+            });
+          },
+        }),
+      ];
+    },
+    { lazy: true },
+  );
   /** A new agent on the canvas starts on the model the agent form would pick. */
   const newAgentModels = createMemo((): DiagramModelChoice | undefined => {
     if (!workspace.state.capabilities.includes(TEAM_AGENT_CREATE_MODEL_CAPABILITY)) return undefined;
@@ -2281,6 +2371,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       onSignOut={signOut}
                       notifications={notificationSettings}
                       notificationFocusRequest={notificationFocusRequest()}
+                      tabRequest={accountTabRequest()}
                     />
                   </Loading>
                 </Show>
@@ -2453,6 +2544,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                 <GlobalSearchOverlay
                   open={searchOpen()}
                   agents={workspace.profiles()}
+                  actions={settingsActions()}
                   channels={channels.supported() ? globalSearchChannels(channels.state.channels) : undefined}
                   onSearchMessages={searchAllMessages}
                   onOpenChange={setSearchOpen}

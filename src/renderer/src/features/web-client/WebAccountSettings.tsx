@@ -46,7 +46,7 @@ import { disablePush, enablePush, pushSubscribed, pushSupported } from "./web-pu
 import { useWebAppInstall } from "./web-pwa";
 
 const TABS = ["profile", "preferences"] as const;
-type WebAccountSettingsTab = (typeof TABS)[number];
+export type WebAccountSettingsTab = (typeof TABS)[number];
 
 const TAB_ITEMS = {
   profile: {
@@ -82,6 +82,8 @@ export interface WebAccountSettingsProps {
   notifications: WebNotificationSettings;
   /** Opens Preferences at the notification row of one host. Each nonce opens once. */
   notificationFocusRequest?: { serverId: string; nonce: number } | null | undefined;
+  /** Opens a tab, for a result of the command palette. Each nonce opens once. */
+  tabRequest?: { tab: WebAccountSettingsTab; nonce: number } | null | undefined;
 }
 
 /**
@@ -154,6 +156,12 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
     () => (props.open ? props.notificationFocusRequest : null),
     (request) => {
       if (request) setActiveTab("preferences");
+    },
+  );
+  createEffect(
+    () => (props.open ? props.tabRequest : null),
+    (request) => {
+      if (request) setActiveTab(request.tab);
     },
   );
 
