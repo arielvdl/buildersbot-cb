@@ -553,9 +553,20 @@ Resources:
                 nsenter --net="/proc/$pid/ns/net" -- setpriv --reuid=65534 --regid=65534 --clear-groups --no-new-privs -- "$@"
               }
 
+              # The network namespace of PID $1, when it is not the one of the host. The container may leave between docker
+              # inspect and nsenter, and its PID go to a host process: a probe would then run in the network of the host,
+              # which leaves directly. The probes read it before and after: "unknown netns" when it is the host's or moved.
+              net_of() {
+                local ns host
+                ns=$(readlink "/proc/$1/ns/net" 2>/dev/null) && host=$(readlink /proc/1/ns/net 2>/dev/null) &&
+                  [[ $ns == net:* ]] && [ "$ns" != "$host" ] && echo "$ns"
+              }
+
               direct_probe() {
-                local tc rc=0
+                local tc rc=0 ns
+                ns=$(net_of "$1") || { echo "unknown netns"; return 0; }
                 tc=$(in_net "$1" curl -sS --noproxy '*' --connect-timeout 5 -m 10 -o /dev/null -w '%{time_connect}' "$DIRECT" 2>/dev/null) || rc=$?
+                [ "$(net_of "$1")" = "$ns" ] || { echo "unknown netns"; return 0; }
                 classify_direct "$rc" "$tc"
               }
 
@@ -575,11 +586,13 @@ Resources:
               # the embedded DNS of Docker (127.0.0.11, on to the "dns" of daemon.json) and the dnsmasq on 172.30.0.1 (asked
               # directly). Nothing of the check comes from the container. ok when both refuse the name; OPEN if one answers.
               dns_filter() {
-                local server out rc verdict result=ok
+                local server out rc verdict result=ok ns
+                ns=$(net_of "$1") || { echo "unknown netns"; return 0; }
                 for server in 127.0.0.11 "$GATEWAY"; do
                   rc=0
                   out=$(in_net "$1" dig +time=3 +tries=1 "@$server" "$OUTSIDE" A 2>&1) || rc=$?
                   verdict=$(classify_dns "$rc" <<<"$out")
+                  [ "$(net_of "$1")" = "$ns" ] || { echo "unknown netns"; return 0; }
                   if [ "$verdict" = OPEN ]; then echo OPEN; return 0; fi
                   [ "$verdict" = ok ] || [ "$result" != ok ] || result="$verdict @$server"
                 done

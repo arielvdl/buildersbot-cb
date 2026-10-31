@@ -658,7 +658,7 @@ proxy_verdict() {
   elif grep -qx 'BB_PROXY_DIRECT blocked' <<<"$out"; then
     say "      saída direta bloqueada: sem o proxy nada sai (falha fechada)"
   else
-    say "      SAÍDA DIRETA NÃO CONFERIDA: o teste a partir da rede do contêiner não deu resposta clara (nsenter, setpriv ou curl do host). Repita; se persistir, sessão bb-srv-$sector-Shell e README, seção 16."
+    say "      SAÍDA DIRETA NÃO CONFERIDA: o teste a partir da rede do contêiner não deu resposta clara (nsenter, setpriv ou curl do host, ou o contêiner saiu no meio: unknown netns). Repita; se persistir, sessão bb-srv-$sector-Shell e README, seção 16."
   fi
   if grep -qx 'BB_PROXY_DNS_FILTER OPEN' <<<"$out"; then
     say "      DNS ABERTO: o contêiner resolve nomes fora de signal./turn. (consultas saem pelo resolvedor da VPC; túnel DNS possível). A saúde do host para o contêiner na próxima rodada. Confira o bb-srv-container-dns e o dns do /etc/docker/daemon.json; depois $repair."

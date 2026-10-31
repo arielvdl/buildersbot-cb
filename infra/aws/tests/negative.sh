@@ -1036,7 +1036,7 @@ HOST_BIN=$WORK/host-bin
 HOST_TOOL=$WORK/host-bb-srv-proxy
 install -d "$HOST_BIN"
 rm -f "$HOST_BIN/jq"
-for prog in iptables ip6tables flock timeout id free systemctl getent nsenter setpriv dig curl docker; do
+for prog in iptables ip6tables flock timeout id free systemctl getent readlink nsenter setpriv dig curl docker; do
   ln -sf "$ROOT/tests/fake-host.sh" "$HOST_BIN/$prog"
 done
 # <script> <destino>: o script com os caminhos do host dentro de $HOST_T. Falha se sobrar um caminho do sistema
@@ -1059,7 +1059,7 @@ host_reset() {
     install -d "$HOST_T/$d"
   done
   rm -f "$HOST_T"/ipt/* "$HOST_T"/etc/bb-srv/* "$HOST_T"/etc/bb-proxy/* "$HOST_T"/var/lib/bb-srv/* "$HOST_T"/var/log/bb-srv/* \
-    "$HOST_T/calls" "$HOST_T/running"
+    "$HOST_T/calls" "$HOST_T/running" "$HOST_T/netns-read"
   printf 'piloto\n' >"$HOST_T/etc/bb-srv/sector"
   printf 'us-east-1\n' >"$HOST_T/etc/bb-srv/region"
   printf 'bb-aws.example.com\n' >"$HOST_T/etc/bb-srv/zone"
@@ -1278,6 +1278,28 @@ else
     ok_case "F11 docker inspect: contêiner que não existe ou parado é 'down'; o dockerd sem resposta é 'unknown'"
   else
     bad "F11 estados do docker inspect" "$(FAKE_INSPECT=daemon host_tool check-container --no-ip 2>&1)"
+  fi
+  # O contêiner para entre o docker inspect e o nsenter e o pid vai para um processo do host: os testes rodariam na rede
+  # do host, que sai direto. O namespace de rede do pid é conferido antes e depois: 'unknown netns', nunca OPEN.
+  host_reset
+  host_tool guard >/dev/null 2>&1
+  : >"$HOST_T/running"
+  FAKE_PID_REUSED=yes FAKE_DIRECT=open FAKE_DIG=answer host_tool health >/dev/null 2>&1
+  chk_reused=$(FAKE_PID_REUSED=yes FAKE_DIRECT=open FAKE_DIG=answer host_tool check-container --no-ip 2>&1)
+  if [ "$(health_line)" = 'BB_PROXY_HEALTH fail direct-unknown' ] && [ -e "$HOST_T/running" ] &&
+    [ ! -e "$HOST_T/var/lib/bb-srv/egress-open" ] && grep -qx 'BB_PROXY_DIRECT unknown netns' <<<"$chk_reused" &&
+    grep -qx 'BB_PROXY_DNS_FILTER unknown netns' <<<"$chk_reused"; then
+    ok_case "F11 pid do contêiner já de um processo do host: saída direta e DNS 'unknown netns', nunca OPEN; a saúde não para nada"
+  else
+    bad "F11 pid reusado pelo host" "$(health_line)"$'\n'"$chk_reused"
+  fi
+  rm -f "$HOST_T/netns-read" "$HOST_T/var/lib/bb-srv/egress-open"
+  : >"$HOST_T/running"
+  chk_later=$(FAKE_PID_REUSED=later FAKE_DIRECT=open FAKE_DIG=answer host_tool check-container --no-ip 2>&1)
+  if grep -qx 'BB_PROXY_DIRECT unknown netns' <<<"$chk_later" && grep -qx 'BB_PROXY_DNS_FILTER unknown netns' <<<"$chk_later"; then
+    ok_case "F11 pid que muda de rede durante o teste (o contêiner saiu no meio): 'unknown netns', nunca OPEN"
+  else
+    bad "F11 pid que muda de rede durante o teste" "$chk_later"
   fi
   # O contêiner quebra o próprio docker exec (apaga o true, o printenv...): os testes do host rodam mesmo assim.
   host_reset

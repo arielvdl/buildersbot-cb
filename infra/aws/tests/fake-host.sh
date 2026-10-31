@@ -16,6 +16,8 @@
 #   FAKE_INSPECT           o docker inspect: normal (padrão, pelo arquivo running), timeout (sai com 124, como o timeout
 #                          de 20 s), missing (o contêiner não existe) ou daemon (o dockerd não responde)
 #   FAKE_EXEC              broken: todo docker exec falha com 126 (o contêiner quebrou o próprio exec)
+#   FAKE_PID_REUSED        o pid 4242 já é de um processo do host (yes: o namespace de rede dele é o do host), ou passa
+#                          a ser depois da primeira leitura (later); o readlink de /proc/<pid>/ns/net mostra isso
 #   FAKE_APP_LINES         blocos de linhas que o app imprime (openbot status, openbot-instance list; padrão 1)
 set -uo pipefail
 state=${FAKE_HOST:?FAKE_HOST não definido}
@@ -115,6 +117,21 @@ case $me in
     [ -n "$pid" ] && [ -e "$state/running" ] || { echo "nsenter: cannot open /proc/$pid/ns/net" >&2; exit 1; }
     export FAKE_NETNS=$pid
     exec "$@"
+    ;;
+  readlink)
+    case ${1:-} in
+      /proc/1/ns/net) echo 'net:[4026531840]' ;;
+      /proc/4242/ns/net)
+        [ -e "$state/running" ] || exit 1
+        case ${FAKE_PID_REUSED:-no} in
+          yes) echo 'net:[4026531840]' ;;
+          later) if [ -e "$state/netns-read" ]; then echo 'net:[4026531840]'; else : >"$state/netns-read"; echo 'net:[4026532200]'; fi ;;
+          *) echo 'net:[4026532200]' ;;
+        esac
+        ;;
+      /proc/*) exit 1 ;;
+      *) exec /usr/bin/readlink "$@" ;;
+    esac
     ;;
   setpriv)
     while [ "$#" -gt 0 ] && [ "$1" != -- ]; do shift; done
