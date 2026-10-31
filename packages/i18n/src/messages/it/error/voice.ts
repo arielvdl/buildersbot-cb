@@ -22,6 +22,8 @@ export const messages = {
   "error.voice.cloud.streamEnded": "Lo stream della dettatura è terminato. Registra di nuovo.",
   "error.voice.cloud.tooLong": "La registrazione è troppo lunga.",
   "error.voice.cloud.keySaveFailed": "Impossibile salvare la chiave API di ElevenLabs.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot non riesce a leggere la chiave API salvata. Usa la dettatura locale o rimuovi la chiave.",
   "error.voice.speech.runtimeUnavailable": "La sintesi vocale locale non è disponibile su questa piattaforma.",
   "error.voice.speech.modelRequired": "Scarica il modello di sintesi vocale in Impostazioni → Voce.",
   "error.voice.speech.timedOut": "La lettura ad alta voce della risposta è scaduta.",

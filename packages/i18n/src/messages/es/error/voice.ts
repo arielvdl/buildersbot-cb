@@ -22,6 +22,8 @@ export const messages = {
   "error.voice.cloud.streamEnded": "La transmisión del dictado terminó. Graba de nuevo.",
   "error.voice.cloud.tooLong": "La grabación es demasiado larga.",
   "error.voice.cloud.keySaveFailed": "No se pudo guardar la clave de API de ElevenLabs.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot no puede leer la clave de API guardada. Usa el dictado local o quita la clave.",
   "error.voice.speech.runtimeUnavailable": "La voz local no está disponible en esta plataforma.",
   "error.voice.speech.modelRequired": "Descarga el modelo de voz en Ajustes → Voz.",
   "error.voice.speech.timedOut": "Se agotó el tiempo al leer la respuesta en voz alta.",

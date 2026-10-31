@@ -21,6 +21,7 @@ export const messages = {
   "error.voice.cloud.streamEnded": "听写流已结束，请重新录制。",
   "error.voice.cloud.tooLong": "录音过长。",
   "error.voice.cloud.keySaveFailed": "无法保存 ElevenLabs API 密钥。",
+  "error.voice.cloud.keyUnreadable": "Builders Bot 无法读取已保存的 API 密钥。请使用本地听写，或移除该密钥。",
   "error.voice.speech.runtimeUnavailable": "该平台不支持本地语音。",
   "error.voice.speech.modelRequired": "请在“设置 → 语音”中下载语音模型。",
   "error.voice.speech.timedOut": "朗读回复超时。",

@@ -23,6 +23,8 @@ export const messages = {
   "error.voice.cloud.streamEnded": "De dicteerstream is beëindigd. Neem opnieuw op.",
   "error.voice.cloud.tooLong": "De opname is te lang.",
   "error.voice.cloud.keySaveFailed": "Kan de ElevenLabs-API-sleutel niet opslaan.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot kan de opgeslagen API-sleutel niet lezen. Gebruik lokaal dicteren of verwijder de sleutel.",
   "error.voice.speech.runtimeUnavailable": "Lokale spraakuitvoer is niet beschikbaar op dit platform.",
   "error.voice.speech.modelRequired": "Download het spraakuitvoermodel in Instellingen → Spraak.",
   "error.voice.speech.timedOut": "Het voorlezen van het antwoord duurde te lang.",

@@ -1,5 +1,6 @@
 import {
   AUTOMATIC_VOICE_LANGUAGE,
+  DEFAULT_VOICE_MODEL_ID,
   ELEVENLABS_VOICE_MODEL_ID,
   SPEECH_MODEL,
   SPEECH_VOICES,
@@ -53,6 +54,12 @@ const FIXED_LANGUAGE: Partial<Record<VoiceModelInfo["id"], { language: VoiceLang
   "parakeet-tdt-0.6b-v3": { language: AUTOMATIC_VOICE_LANGUAGE, description: "settings.voice.language.modelDetects" },
   "bark-3.0-plus": { language: "en", description: "settings.voice.language.englishOnly" },
 };
+
+/**
+ * The model that "Use Parakeet (local)" selects when the saved ElevenLabs key cannot be read. It is
+ * the default model: it runs on this computer and needs no key.
+ */
+const LOCAL_FALLBACK_MODEL = VOICE_MODELS.find((model) => model.id === DEFAULT_VOICE_MODEL_ID);
 
 /** `jw` is Whisper's code for Javanese, whose catalog name is under `jv`. */
 const LANGUAGE_NAME = {
@@ -201,8 +208,12 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
     return t("settings.voice.model.size", { size: format.fileSize(bytes) });
   };
   const statusText = (model: VoiceModelInfo, status: VoiceModelStatus | null) => {
-    if (model.kind === "cloud")
-      return status?.phase === "ready" ? t("settings.voice.model.keySaved") : t("settings.voice.model.keyMissing");
+    if (model.kind === "cloud") {
+      if (status?.phase === "ready") return t("settings.voice.model.keySaved");
+      // Main sends why the key cannot be used, for example a saved key that it cannot decrypt.
+      if (status?.phase === "error") return errorMessage(status.message, t("settings.voice.model.keyMissing"));
+      return t("settings.voice.model.keyMissing");
+    }
     return downloadText(model.bytes, status);
   };
 
@@ -210,6 +221,8 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
 
   const speech = () => props.store.state.speech;
   const speechPhase = () => speech().status?.phase;
+  /** Replies are read on this computer, and its voice is not downloaded: the row tells the size first. */
+  const speechVoiceMissing = () => !serverSpeaks() && (speechPhase() === "missing" || speechPhase() === "error");
   const voiceName = (voice: SpeechVoice) =>
     t(voice.startsWith("F") ? "settings.voice.speech.voice.female" : "settings.voice.speech.voice.male", {
       number: voice.slice(1),
@@ -288,6 +301,25 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                         {t("settings.voice.apiKey.remove")}
                       </Button>
                     </Show>
+                    {/* A saved key that this computer cannot decrypt. The key of a provider is not asked
+                        for again here: local dictation needs no key, and the user can remove the file. */}
+                    <Show when={model.kind === "cloud" && phase() === "error"}>
+                      <Show when={inUse() && LOCAL_FALLBACK_MODEL}>
+                        {(local) => (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => props.store.useModel(local().id)}
+                          >
+                            {t("settings.voice.apiKey.useLocal", { name: local().name })}
+                          </Button>
+                        )}
+                      </Show>
+                      <Button variant="ghost" size="sm" type="button" onClick={() => void props.store.removeApiKey()}>
+                        {t("settings.voice.apiKey.removeUnreadable")}
+                      </Button>
+                    </Show>
                     <Show when={model.kind === "local" && phase() === "missing"}>
                       <Button
                         variant="outline"
@@ -311,7 +343,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                         {t("common.cancel")}
                       </Button>
                     </Show>
-                    <Show when={phase() === "error"}>
+                    <Show when={model.kind === "local" && phase() === "error"}>
                       <Button
                         variant="outline"
                         size="sm"
@@ -457,7 +489,17 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
             disabled={!speech().settings}
             onChange={(checked) => props.store.setReadReplies(checked)}
             label={t("settings.voice.speech.readReplies.title")}
-            description={t("settings.voice.speech.readReplies.description")}
+            description={
+              <>
+                {t("settings.voice.speech.readReplies.description")}
+                <Show when={speechVoiceMissing()}>
+                  {" "}
+                  {t("settings.voice.speech.readReplies.downloadHint", {
+                    size: format.fileSize(SPEECH_MODEL.bytes),
+                  })}
+                </Show>
+              </>
+            }
           />
           <Show when={!serverSpeaks()}>
             <Item data-settings-row="settings.voice.speech.voice.title" class="settings-modal-row">

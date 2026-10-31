@@ -21,6 +21,8 @@ export const messages = {
   "error.voice.cloud.streamEnded": "받아쓰기 스트림이 종료되었어요. 다시 녹음해 주세요.",
   "error.voice.cloud.tooLong": "녹음이 너무 길어요.",
   "error.voice.cloud.keySaveFailed": "ElevenLabs API 키를 저장할 수 없어요.",
+  "error.voice.cloud.keyUnreadable":
+    "저장된 API 키를 Builders Bot에서 읽을 수 없어요. 로컬 받아쓰기를 사용하거나 키를 삭제해 주세요.",
   "error.voice.speech.runtimeUnavailable": "이 플랫폼에서는 로컬 음성 읽기를 사용할 수 없어요.",
   "error.voice.speech.modelRequired": "설정 → 음성에서 음성 읽기 모델을 다운로드해 주세요.",
   "error.voice.speech.timedOut": "답변을 소리 내어 읽는 시간이 초과되었어요.",
