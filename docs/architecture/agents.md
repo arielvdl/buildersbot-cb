@@ -814,6 +814,36 @@ waits and channel counts that the rows read. The rail keeps its item list while 
 section changes (`sameSidebarSectionRailItems`), so a change of an agent state does not run the rail
 or the list filters again.
 
+While agents of a section work (`badge.working > 0`, `sidebarSectionRailRunning`), a laser goes
+round the border of its tile: a short bright arc with a faint trail does one turn in 2.4 s over a
+quiet ring, and the tile has a soft halo. "Unassigned" shows it too; "All" has no badge, so it shows
+no laser. The color is the section color, or the app accent for a section without a color; the head
+of the arc is lighter on the dark theme and darker on the light theme. The laser shows also when the
+badge shows a wait or unread messages. The work dot of the badge no longer pulses: the laser is the
+motion of a section that works. It is decorative (`aria-hidden`): the label and the tooltip of the
+item keep the working count, and the tile keeps its size, its hit area, its badge, its selection
+bar, its focus ring and its drag preview (the laser scales with the lifted tile).
+
+The laser is pure CSS (`sidebar-section-rail.css`). A masked 2 px ring of the tile shape holds a
+conic gradient larger than the tile, and only that layer turns, with `transform`. No custom
+property, gradient, filter or shadow changes during the turn. The elements exist only while the
+section works, so `will-change` applies only then. The rail sets `--section-rail-laser-play` from
+the document visibility (`createTaskListPlayState`), so the laser stops while the document is
+hidden; the dragged item stops too. With reduced motion, the ring stays still and lit.
+`sidebar-section-rail-laser.test.ts` fails when a laser rule animates something other than
+`transform`, `rotate` or `opacity`, uses a filter, or has no reduced-motion rule.
+
+Cost, measured in headless Chromium over 3 s at 60 Hz with the real CSS: 1, 4 or 10 running tiles
+cause no style recalculation, no layout and no paint on the main thread, and about 2 ms of main
+thread tasks in total (1 ms with no laser). The compositor makes a frame for each display refresh
+while at least one laser turns (180 frames in 3 s), for one tile or for ten. Each more tile adds the
+draw of one small masked layer (40 × 40 px, 80 × 80 device px at 2×) to each frame; this GPU part is
+not measured, because headless Chromium draws in software.
+The same 10 tiles with a sweep of a registered custom property (as the workflow node ring does)
+cause 180 style recalculations, 1,980 paints and 145 ms of main thread work in the same 3 s. There is
+no limit on the number of running tiles: each section in the rail can show its laser at the same
+time.
+
 On the local server (as for the color and the icon), a section item of the rail drags up or down to
 reorder the sections: the native drag starts after the pointer moves, so a click still selects. The
 dragged item shows as a lifted copy, the items between slide by one place, a rail that scrolls
