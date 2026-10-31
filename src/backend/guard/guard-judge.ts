@@ -96,8 +96,11 @@ const JudgeReply = Schema.Struct({
 });
 const decodeJudgeReply = Schema.decodeUnknownOption(JudgeReply, { onExcessProperty: "error" });
 
-/** The JSON text of a reply: the whole reply, or the inside of one fenced block that is the whole reply. */
-function replyJson(reply: string): string {
+/**
+ * The JSON text of a reply: the whole reply, or the inside of one fenced block that is the whole reply.
+ * The task reviewer reads the replies of the same model with it.
+ */
+export function judgeReplyJson(reply: string): string {
   const text = reply.trim();
   const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n?```$/u.exec(text);
   return fenced?.[1]?.trim() ?? text;
@@ -111,7 +114,7 @@ function replyJson(reply: string): string {
 export function decodeGuardJudgeReply(reply: string): GuardJudgeVerdict | null {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(replyJson(reply));
+    parsed = JSON.parse(judgeReplyJson(reply));
   } catch {
     return null;
   }

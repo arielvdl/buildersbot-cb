@@ -208,6 +208,8 @@ export class ChannelService {
   readonly #laneForced = new Set<string>();
   /** By channel: when its pump ran and started nothing, so it cannot hold the lane back. */
   readonly #laneStalled = new Map<string, number>();
+  /** What `observeCommands` calls with each command. */
+  readonly #commandObservers = new Set<(command: ChannelCommand, actor: { id: string; name: string }) => void>();
   readonly #assignmentTerminalWaiters = new Map<string, Set<() => void>>();
   /** The active assignments last seen per channel, so turn traffic reports no new hold. */
   readonly #activeAssignments = new Map<string, string>();
@@ -241,6 +243,19 @@ export class ChannelService {
   }
 
   /**
+   * Calls `observer` with each command that `command` receives, before it waits in the queue. The main
+   * process uses it to tell a stop by a person from a stop by the app (`src/main/task-watch.ts`). An
+   * observer that throws does not stop the command; its error goes to the error hook. Returns the
+   * function that removes the observer.
+   */
+  observeCommands(observer: (command: ChannelCommand, actor: { id: string; name: string }) => void): () => void {
+    this.#commandObservers.add(observer);
+    return () => {
+      this.#commandObservers.delete(observer);
+    };
+  }
+
+  /**
    * `beforeApply` changes the command when its turn in the queue comes, immediately before it is
    * applied, or returns null to drop it. A caller that completes a command from the stored channel must do it there: the
    * channel it reads before the call can be older than the commands that still wait in the queue.
@@ -252,6 +267,13 @@ export class ChannelService {
       beforeApply: (command: ChannelCommand) => ChannelCommand | null = (queued) => queued,
     ) => {
       this.#laneStalled.delete(command.channelId);
+      for (const observer of this.#commandObservers) {
+        try {
+          observer(command, actor);
+        } catch (cause) {
+          this.hooks.error(cause);
+        }
+      }
       const operation = Effect.suspend(() => {
         const next = beforeApply(command);
         return next ? this.apply(next, actor) : channelSync(() => this.store.get(command.channelId));
