@@ -28,6 +28,7 @@ export const Gallery: Story = {
           <Button variant="destructive">Destructive</Button>
           <Button variant="destructive-ghost">Destructive ghost</Button>
           <Button variant="link">Link action</Button>
+          <Button variant="unstyled">Unstyled</Button>
         </div>
       </section>
 

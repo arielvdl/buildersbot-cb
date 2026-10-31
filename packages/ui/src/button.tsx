@@ -19,6 +19,8 @@ export const buttonVariants = cva("ui-button", {
       destructive: "ui-button-variant-destructive",
       "destructive-ghost": "ui-button-variant-destructive-ghost",
       link: "ui-button-variant-link",
+      /** A control with its own drawing, such as a tab or a card: the class of the caller draws it. */
+      unstyled: "ui-button-variant-unstyled",
     },
     size: {
       default: "ui-button-size-default",
@@ -61,7 +63,7 @@ export type ButtonProps<T extends ValidComponent = "button"> = PolymorphicProps<
   Partial<Pick<ComponentProps<T>, "class">>;
 
 /** Variants for minor actions. With sound feedback on, they play a softer tap than a main action. */
-const quietVariants = new Set<string>(["outline", "secondary", "ghost", "destructive-ghost", "link"]);
+const quietVariants = new Set<string>(["outline", "secondary", "ghost", "destructive-ghost", "link", "unstyled"]);
 
 /** Keys that activate a focused button. */
 const ACTIVATION_KEYS = new Set(["Enter", " "]);

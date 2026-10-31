@@ -123,7 +123,8 @@
     opacity var(--openbot-duration-hover) ease;
 }
 
-.ui-button {
+/* `:not(:where())` adds no specificity, so a feature class still overrides this rule by order. */
+.ui-button:not(:where(.ui-button-variant-unstyled)) {
   font-family: var(--openbot-font-sans);
   font-size: var(--openbot-text-lg);
   font-weight: var(--openbot-weight-medium);
@@ -204,6 +205,30 @@
   text-underline-offset: 4px;
 }
 
+/* A control with its own drawing, such as a tab, a card or a strip: it keeps the behavior of `Button`
+ * and the look of a plain `<button>`. Each property goes back to the base layer and the browser, and
+ * the font is inherited, as `base.css` gives a `<button>`. The rule has no specificity, so the class of
+ * the caller draws the control. It has no hover, focus ring or disabled look of its own. */
+:where(.ui-button-variant-unstyled) {
+  min-width: revert-layer;
+  height: revert-layer;
+  display: revert-layer;
+  flex: revert-layer;
+  align-items: revert-layer;
+  justify-content: revert-layer;
+  gap: revert-layer;
+  border: revert-layer;
+  border-radius: 0;
+  padding: revert-layer;
+  background: revert-layer;
+  color: revert-layer;
+  font: inherit;
+  text-decoration: revert-layer;
+  user-select: revert-layer;
+  white-space: revert-layer;
+  transition: revert-layer;
+}
+
 @media (hover: hover) and (pointer: fine) and (min-width: 601px) {
   :where(.ui-button-variant-default):hover:not(:disabled):not([data-disabled]) {
     background: color-mix(in srgb, var(--openbot-surface-light) 82%, transparent);
@@ -239,7 +264,7 @@
   color: var(--openbot-text-primary);
 }
 
-:where(.ui-button):focus-visible {
+:where(.ui-button:not(.ui-button-variant-unstyled)):focus-visible {
   outline: 0;
   box-shadow: var(--openbot-focus-ring);
 }
@@ -253,8 +278,8 @@
   box-shadow: 0 0 0 3px var(--openbot-danger-focus);
 }
 
-:where(.ui-button):disabled,
-:where(.ui-button)[data-disabled] {
+:where(.ui-button:not(.ui-button-variant-unstyled)):disabled,
+:where(.ui-button:not(.ui-button-variant-unstyled))[data-disabled] {
   cursor: default;
   opacity: 0.42;
   pointer-events: none;
