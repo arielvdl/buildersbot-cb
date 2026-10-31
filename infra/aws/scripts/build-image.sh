@@ -106,6 +106,12 @@ reject() {
 }
 
 # ------------------------------------------------------------------ launch (Mac do operador)
+# O que vem da máquina de build é não confiável: o build roda código de pacotes de terceiros e pode
+# imprimir sequências de escape (título da janela, área de transferência, apagar a tela). Só letras,
+# números, pontuação, símbolos e espaços chegam ao terminal do operador; todo o resto vira "?".
+# O filtro do builder (ship_log) é só conforto: quem protege o terminal é este.
+printable() { jq -R -r 'gsub("[^\\p{L}\\p{N}\\p{P}\\p{S}\\p{Zs}]"; "?") | .[0:1000]'; }
+
 # Fim do log do builder. A EC2 termina sozinha e o log local some com ela: o user data o envia ao
 # CloudWatch (/bb-srv/builder) antes de desligar. Dá alguns segundos para o envio terminar.
 show_builder_log() { # <tag>
@@ -123,7 +129,7 @@ show_builder_log() { # <tag>
   fi
   say "== fim do log do builder (/bb-srv/builder, $stream):"
   aws_cb logs get-log-events --log-group-name /bb-srv/builder --log-stream-name "$stream" --no-start-from-head --limit 80 \
-    --output json | jq -r '.events[].message' || true
+    --output json | jq -r '.events[].message' | printable || true
 }
 
 launch() {
@@ -185,10 +191,11 @@ ship_log() {
 import json, re, sys, time
 now = int(time.time() * 1000)
 ansi = re.compile(chr(27) + r"\[[0-9;?]*[A-Za-z]")
+ctrl = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 events = []
 size = 0
 for line in reversed(sys.stdin.read().splitlines()):
-    line = ansi.sub("", line.split(chr(13))[-1]).strip()[:4000]
+    line = ctrl.sub("", ansi.sub("", line.split(chr(13))[-1])).strip()[:4000]
     if not line:
         continue
     size += len(line.encode()) + 26
@@ -228,7 +235,7 @@ EOF
     case $state in
       shutting-down | terminated | stopped)
         show_builder_log "$tag"
-        aws_cb ec2 get-console-output --instance-id "$instance" --latest --query Output --output text 2>/dev/null | tail -n 40 || true
+        aws_cb ec2 get-console-output --instance-id "$instance" --latest --query Output --output text 2>/dev/null | tail -n 40 | printable || true
         die "o builder terminou sem relatório: o build falhou."
         ;;
     esac
@@ -373,8 +380,15 @@ on_host() {
   local path="$tools/node/bin:/usr/local/bin:/usr/bin:/bin"
 
   # Build do AppImage como o usuário builder, como o job linux do release (.github/workflows/release.yml).
+  # O tarball vem de `git archive`: só os arquivos versionados e nenhuma pasta .git. A trava de telemetria
+  # (scripts/telemetry-destination-guard.ts, parte do dist:linux:arm64) lista os arquivos com `git ls-files`
+  # e fecha sem lista. Um repositório novo, com o que o tarball trouxe no índice (add -f entra até o que o
+  # .gitignore ignora, e nesta hora só há arquivos versionados), dá a mesma lista de um checkout:
+  # versionados + novos não ignorados. Sem commit e sem remoto; roda antes do bun install.
   runuser -u builder -- env -i HOME=/home/builder PATH="$path" CI=true bash -euo pipefail -c "
     cd '$src'
+    git init -q
+    git add -A -f
     bun install --frozen-lockfile
     for runtime in codex claude grok; do
       if [ -f scripts/install-\$runtime-runtime.ts ]; then bun scripts/install-\$runtime-runtime.ts linux arm64; fi
