@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
+import { memoryIsLow } from "../backend/host-memory";
 import { classifyMacMemory, MacMemory, parseFreePercent, parseSwapUsedMb } from "./mac-memory";
 
 describe("reading the numbers of macOS", () => {
@@ -117,6 +118,20 @@ describe("the memory of the Mac as the agents see it", () => {
     set({ freePercent: 31, swapUsedMb: 1200 });
     await memory.sample();
     expect(memory.reading()).toEqual({ level: "ok", freePercent: 31, swapUsedMb: 1200 });
+  });
+
+  it("tells the in-app browser that the memory is low, as it tells the broker", async () => {
+    const { memory, set } = setup();
+    await memory.sample();
+    expect(memoryIsLow(memory)).toBe(false);
+    set({ freePercent: 10, swapUsedMb: 0 });
+    await memory.sample();
+    expect(memoryIsLow(memory)).toBe(true);
+    set({ freePercent: 5, swapUsedMb: 0 });
+    await memory.sample();
+    expect(memoryIsLow(memory)).toBe(true);
+    // No reading at all: a Linux or Windows desktop.
+    expect(memoryIsLow(null)).toBe(false);
   });
 
   it("does not limit the turns that run together: only the level holds a new one", () => {

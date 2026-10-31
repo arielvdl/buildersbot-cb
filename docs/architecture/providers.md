@@ -187,6 +187,10 @@ first guess. They are not tuned on other machines.
   limit of 64 (`DESKTOP_TURN_LIMIT`), so only the level holds a turn.
 - The browser broker reads the same level (`memoryLevel`): no new tab while the level is `low`, and
   no new session while it is `critical`. See [browser.md](browser.md#one-playwright-server-for-all-agents).
+- The Builders Bot browser reads it too (`BrowserHost` option `memoryLow`, `memoryIsLow(hostMemory ??
+  macMemory)`). While the level is not `ok`, an idle agent tab unloads its page after 5 min instead
+  of 30, and a new tab gets `error.backend.browserLowMemory`. Before, the desktop gave this option no
+  reading, so these rules worked only on a server.
 - The load panel shows a line with the free percentage while the level is not `ok`
   (`memory.pressure` of `LoadSnapshot`, from `MacMemory.reading()`).
 

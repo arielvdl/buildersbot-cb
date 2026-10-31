@@ -25,3 +25,11 @@ export interface HostMemory {
    */
   readonly kind?: "server" | "desktop";
 }
+
+/**
+ * Whether the memory is too low for one more browser tab. The caller gives the reading it has: the
+ * reading of a server, else the reading of the Mac. No reading reads as `ok`.
+ */
+export function memoryIsLow(reading: Pick<HostMemory, "level"> | null): boolean {
+  return (reading?.level() ?? "ok") !== "ok";
+}

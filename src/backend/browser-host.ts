@@ -389,7 +389,7 @@ export class BrowserHost {
   #persistLock = Semaphore.makeUnsafe(1);
   readonly #scope = Scope.makeUnsafe();
   #destroying: Deferred.Deferred<void, BrowserOperationError> | null = null;
-  /** Whether the machine is too low on memory for one more tab. Only a server has a reading. */
+  /** Whether the machine is too low on memory for one more tab: the reading of a server or of the Mac. */
   readonly #memoryLow: () => boolean;
   readonly #siteSession: BrowserSiteSession;
   readonly #idleTabSweep: NodeJS.Timeout;

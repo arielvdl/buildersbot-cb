@@ -121,6 +121,7 @@ import { AgentStore } from "../backend/agent-store";
 import { BrowserHost } from "../backend/browser-host";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
+import { memoryIsLow } from "../backend/host-memory";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
 import { discordDriver } from "../backend/messaging/discord/discord-driver";
@@ -1210,7 +1211,9 @@ export async function createApplicationServices({
     onError: (error) => logger.warn("The Chrome sign-in of a site could not be read.", toLogValue(error)),
   });
   const browser = new BrowserHost(mainWindow, store.downloadsRoot, join(app.getPath("userData"), BROWSER_STATE_FILE), {
-    memoryLow: () => (hostMemory?.level() ?? "ok") !== "ok",
+    // The reading of a server, else the reading of the Mac, as the broker reads it: an idle agent tab
+    // unloads after 5 min instead of 30, and no new tab opens while the memory is low.
+    memoryLow: () => memoryIsLow(hostMemory ?? macMemory),
     browserProfile: (agentId) => {
       const agent = store.list().find((candidate) => candidate.id === agentId);
       return agent ? agentBrowserProfile(agent) : { kind: "shared" };
