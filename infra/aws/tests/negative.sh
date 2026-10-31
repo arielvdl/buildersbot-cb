@@ -630,22 +630,41 @@ expect_classify "F2 saúde: tempo esgotado vira 'fail timeout'" 28 000 '' "fail 
 expect_classify "F2 saúde: resposta sem país vira 'fail no-country'" 0 200 'ip=198.51.100.7\n' "fail no-country"
 
 # rules: falha fechada. Com o proxy, o contêiner só sai para o Signal/TURN; o resto cai no DROP final.
-rules_proxy=$(bash "$TOOL" rules proxy 203.0.113.7 10.0.0.1 2>&1)
-if grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p tcp -m multiport --dports 443,3478,5349 -j RETURN' <<<"$rules_proxy" &&
-  grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p udp -m multiport --dports 3478,49152:65535 -j RETURN' <<<"$rules_proxy" &&
+rules_proxy=$(bash "$TOOL" rules proxy 12321 203.0.113.7 10.0.0.1 2>&1)
+egress_rules=$(grep -- '^-A BB-SRV-EGRESS ' <<<"$rules_proxy")
+if grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p tcp -m multiport --dports 443,3478,5349 -j RETURN' <<<"$egress_rules" &&
+  grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p udp -m multiport --dports 3478,49152:65535 -j RETURN' <<<"$egress_rules" &&
   grep -qxF -- '-A BB-SRV-INPUT -d 172.30.0.1/32 -p tcp -m tcp --dport 3128 -j ACCEPT' <<<"$rules_proxy" &&
   grep -qxF -- '-A BB-SRV-INPUT -d 172.30.0.1/32 -p udp -m udp --dport 53 -j ACCEPT' <<<"$rules_proxy" &&
-  [ "$(tail -n 1 <<<"$rules_proxy")" = '-A BB-SRV-EGRESS -j DROP' ] && ! grep -q '10\.0\.0\.1' <<<"$rules_proxy" &&
-  [ "$(grep -c -- '-j RETURN$' <<<"$rules_proxy")" = 2 ]; then
+  [ "$(tail -n 1 <<<"$egress_rules")" = '-A BB-SRV-EGRESS -j DROP' ] && ! grep -q '10\.0\.0\.1' <<<"$rules_proxy" &&
+  [ "$(grep -c -- '-j RETURN$' <<<"$egress_rules")" = 2 ]; then
   ok_case "F3 firewall com proxy: só o encaminhador, o DNS do host e o Signal/TURN; DROP no fim; IP privado ignorado"
 else
   bad "F3 firewall com proxy" "$rules_proxy"
 fi
-rules_direct=$(bash "$TOOL" rules direct 203.0.113.7 2>&1)
-if ! grep -q 'BB-SRV-EGRESS\|--dport 3128' <<<"$rules_direct" && grep -q -- '--dport 53 -j ACCEPT' <<<"$rules_direct"; then
-  ok_case "F3 firewall sem proxy (decisão do dono): sem DROP próprio nem encaminhador, só o DNS do host"
+# O próprio encaminhador (OUTPUT do usuário bb-proxy): só o resolvedor do host, os clientes da ponte e a porta
+# do upstream. Um tinyproxy comprometido não vira proxy direto com o IP da AWS.
+fwd_expected=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
+if [ "$(grep -- '^-A BB-SRV-PROXY-OUT ' <<<"$rules_proxy")" = "$fwd_expected" ] &&
+  [ "$(bash "$TOOL" rules proxy - 203.0.113.7 | grep -c -- '--dport [0-9]* -j RETURN$')" = 0 ] &&
+  [ "$(bash "$TOOL" rules proxy '12321 -j ACCEPT' 203.0.113.7 | grep -c 'PROXY-OUT.*dport')" = 0 ]; then
+  ok_case "F3 encaminhador confinado: lo, a ponte e a porta do upstream; REJECT no resto (sem porta válida, nada sai)"
+else
+  bad "F3 encaminhador confinado" "$rules_proxy"
+fi
+rules_direct=$(bash "$TOOL" rules direct - 203.0.113.7 2>&1)
+if ! grep -q 'BB-SRV-EGRESS\|BB-SRV-PROXY-OUT\|--dport 3128' <<<"$rules_direct" && grep -q -- '--dport 53 -j ACCEPT' <<<"$rules_direct"; then
+  ok_case "F3 firewall sem proxy (decisão do dono): sem DROP próprio nem encaminhador, só o DNS do contêiner"
 else
   bad "F3 firewall sem proxy" "$rules_direct"
+fi
+# A porta do upstream sai da configuração do tinyproxy sem nada do resto da linha (usuário e senha).
+printf '%s' 'proxy.example.net:12321:demo-user:pa:ss:wo:rd' | bash "$TOOL" parse "$UPSTREAM_T" 2>/dev/null
+port_out=$(bash "$TOOL" upstream-port "$UPSTREAM_T" 2>&1)
+if [ "$port_out" = 12321 ] && [ "$(bash "$TOOL" upstream-port "$WORK/nao-existe.conf" 2>&1)" = - ]; then
+  ok_case "F3 porta do upstream lida da configuração (12321), sem usuário nem senha; sem arquivo, nenhuma porta"
+else
+  bad "F3 porta do upstream" "$port_out"
 fi
 
 # env: o que o contêiner recebe (env_file do compose.yaml). Sem usuário nem senha.
@@ -771,9 +790,18 @@ check test "$(grep -c '^ *Environment=' templates/proxy.yaml)" = 0
 for line in 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' \
   'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf' 'Restart=always' 'NoNewPrivileges=yes' 'ProtectSystem=strict' \
   'PrivateTmp=yes' 'CapabilityBoundingSet=' 'IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16' \
-  'Requires=bb-srv-egress-guard.service' 'Before=docker.service'; do
-  check grep -qF "$line" templates/proxy.yaml
+  'Requires=bb-srv-egress-guard.service' 'Before=docker.service' 'User=bb-proxy' 'LimitCORE=0' \
+  'iptables -I OUTPUT 1 -m owner --uid-owner "$uid" -j "$FWD_CHAIN"' \
+  'iptables -I DOCKER-USER 1 -i "$BRIDGE" -m comment --comment "$HOLD" -j DROP' \
+  'ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP' 'result="fail no-upstream"' 'result="fail firewall-hold"'; do
+  check grep -qF -- "$line" templates/proxy.yaml
 done
+# A trava temporária do guard é só a marcada (nunca apaga a regra sem marca do openbot-firewall).
+check test "$(grep -c 'iptables -D DOCKER-USER -i "$BRIDGE" -j DROP' templates/proxy.yaml)" = 0
+# O SSM é lido no boot e no ProxyReload, não a cada reinício do encaminhador (sem laço de GetParameter).
+check test "$(grep -c 'Wants=bb-proxy-config.service' templates/proxy.yaml)" = 0
+check grep -qF -- '--cli-connect-timeout 10 --cli-read-timeout 20' templates/proxy.yaml
+check test "$(awk '/bb-proxy-config.service <</ {on = 1} on && /^ *UNIT$/ {exit} on' templates/proxy.yaml | grep -c 'RemainAfterExit=yes\|TimeoutStartSec=')" = 2
 check grep -q "install -d -m 0700 -o root -g root \"\${UPSTREAM%/\*}\"" templates/proxy.yaml
 # bb-srv-Install: o proxy entra depois do setup do docker/instances e antes de qualquer contêiner.
 setup_line=$(grep -nF '"$I" setup' templates/ops.yaml | head -n 1 | cut -d: -f1)
