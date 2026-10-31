@@ -37,7 +37,11 @@ export const messages = defineMessages("plugin", {
   "plugin.whatsapp.unavailable": "The WhatsApp accounts could not be read",
   "plugin.whatsapp.default": "Default",
   "plugin.whatsapp.readOnly": "Read only",
+  "plugin.whatsapp.readOnlyGlobal": "Read only (global)",
+  "plugin.whatsapp.globalReadOnly":
+    'Sending is off for every account: WAZAP_READ_ONLY is on in the wazap folder. Agents can only read, and "Allow sending" on an account has no effect until that setting is off.',
   "plugin.whatsapp.formerNumber": "Was linked to {number}",
+  "plugin.whatsapp.unlinkedHistory": "Keeps the history of an unlinked number",
   "plugin.whatsapp.messages": { one: "{count} message", other: "{count} messages" },
   "plugin.whatsapp.state.linked": "Linked",
   "plugin.whatsapp.state.notLinked": "Not linked",
@@ -87,14 +91,21 @@ export const messages = defineMessages("plugin", {
   "plugin.whatsapp.qrLabel": "QR code to link {name}",
   "plugin.whatsapp.newCode": "Generate another code",
   "plugin.whatsapp.newQr": "Show another QR code",
+  "plugin.whatsapp.cancelHint":
+    "If you cancel, this code can still work until the countdown ends. Ignore it on the phone.",
   "plugin.whatsapp.expired": "The code expired before the phone used it.",
   "plugin.whatsapp.linked": "{name} is linked. WhatsApp sends the recent chats in the next minutes.",
+  "plugin.whatsapp.linkedOtherNumber":
+    "{name} is linked, but to a number that is not the one you typed. Check the number in the list.",
   "plugin.whatsapp.removeTitle": "Remove {name}?",
   "plugin.whatsapp.removeDescription":
     "This unlinks {name} and deletes its history, media and notes on this computer. You cannot undo this.",
+  "plugin.whatsapp.removeDefaultNext": "{next} becomes the default account.",
   "plugin.whatsapp.unlinkTitle": "Unlink {name}?",
   "plugin.whatsapp.unlinkDescription":
-    "WhatsApp removes this computer from the linked devices of the number. The history stays here, and you can link the same number again.",
+    "WhatsApp removes this computer from the linked devices of the number. The history stays here. After this, only the same number can link to this account again; for another number, add a new account.",
+  "plugin.whatsapp.disableTitle": "Turn off {name}?",
+  "plugin.whatsapp.disableDescription": "Agents stop using {name} until you turn it on again. The history stays.",
   "plugin.whatsapp.notice.restartNeeded":
     "Saved. It applies when the WhatsApp server starts again, for example after Builders Bot restarts.",
   "plugin.whatsapp.notice.keptRunning":
@@ -104,18 +115,23 @@ export const messages = defineMessages("plugin", {
   "plugin.whatsapp.error.commandNotFound": "npx was not found. Install Node.js 22.16 or later, then try again.",
   "plugin.whatsapp.error.timeout": "wazap did not answer in time. Try again.",
   "plugin.whatsapp.error.failed": "wazap could not do this. Try again.",
-  "plugin.whatsapp.error.serverRunning":
+  "plugin.whatsapp.error.qrNeedsFreeFolder":
     "A QR code needs WhatsApp to be closed in every agent chat. Use the pairing code instead.",
+  "plugin.whatsapp.error.serverBusy":
+    "Another wazap process uses the wazap folder and does not answer. Close the agent chats that use WhatsApp, or restart Builders Bot, then try again.",
   "plugin.whatsapp.error.invalidPhone": "WhatsApp did not accept this number. Check the country and the area code.",
   "plugin.whatsapp.error.invalidId": "The account id is not valid. Change the nickname.",
   "plugin.whatsapp.error.idTaken": "An account with this id exists. Change the nickname.",
   "plugin.whatsapp.error.alreadyLinked": "This account is already linked.",
   "plugin.whatsapp.error.ownerMismatch":
     "This account belonged to another number. Add a new account for this number, so that the history of the other number stays.",
+  "plugin.whatsapp.error.hasHistory":
+    "This account keeps the history of an unlinked number. For another number, add a new account.",
   "plugin.whatsapp.error.numberInUse": "Another account has this number. One number is one account.",
   "plugin.whatsapp.error.accountNotFound": "This account no longer exists. Refresh the list.",
   "plugin.whatsapp.error.accountDisabled": "This account is off. Turn it on first.",
   "plugin.whatsapp.error.lastAccount": "wazap needs at least one account. Add another account first.",
+  "plugin.whatsapp.error.onlyServed": "Turn on another account before you remove this one.",
   "plugin.whatsapp.error.rateLimited": "WhatsApp asked to wait. Try again in a minute.",
   "plugin.whatsapp.error.restricted": "WhatsApp restricts this number now. Try again later.",
 });

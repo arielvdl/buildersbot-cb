@@ -24,7 +24,12 @@ vi.mock("electron", () => ({
 }));
 
 const TRUSTED = "openbot-app://app/index.html";
-const SNAPSHOT: WhatsAppAccountsSnapshot = { status: "ready", accounts: [], serverRunning: false };
+const SNAPSHOT: WhatsAppAccountsSnapshot = {
+  status: "ready",
+  accounts: [],
+  serverRunning: false,
+  globalReadOnly: false,
+};
 const OK: WhatsAppAccountsResult = { ok: true, snapshot: SNAPSHOT, notice: null };
 
 function register() {
@@ -82,7 +87,7 @@ describe("WhatsApp accounts handlers", () => {
 
   it("refuses a nickname with a control character, an empty one and a long one", () => {
     const { added, call } = register();
-    for (const name of ["", "   ", "Sofia\nRaquel", "Sofia\u0000", "a".repeat(65), 12]) {
+    for (const name of ["", "   ", "Sofia\nRaquel", "Sofia\u0000", "a".repeat(65), 12, "Loja{1,2}", "Loja[12]"]) {
       expect(() => call("add", { id: "sofia", name, phone: null })).toThrow("name is invalid");
     }
     expect(added).toEqual([]);
@@ -102,18 +107,22 @@ describe("WhatsApp accounts handlers", () => {
     expect(added).toEqual([]);
   });
 
-  it("refuses an unlink or a remove without the confirmation of the same account", async () => {
+  it("refuses an unlink, a remove or a turn off without the confirmation of the same account", async () => {
     const { actions, call } = register();
     expect(() => call("act", { action: "remove", id: "default" })).toThrow("needs a confirmation");
     expect(() => call("act", { action: "remove", id: "default", confirm: "sofia" })).toThrow("needs a confirmation");
     expect(() => call("act", { action: "unlink", id: "default", confirm: true })).toThrow("needs a confirmation");
+    expect(() => call("act", { action: "disable", id: "default" })).toThrow("needs a confirmation");
+    expect(() => call("act", { action: "disable", id: "default", confirm: "ignored" })).toThrow("needs a confirmation");
     expect(() => call("act", { action: "format", id: "default" })).toThrow("action is invalid");
     expect(actions).toEqual([]);
     await call("act", { action: "remove", id: "default", confirm: "default" });
-    await call("act", { action: "disable", id: "default", confirm: "ignored" });
+    await call("act", { action: "disable", id: "default", confirm: "default" });
+    await call("act", { action: "enable", id: "default", confirm: "ignored" });
     expect(actions).toEqual([
       { action: "remove", id: "default", confirm: "default" },
-      { action: "disable", id: "default" },
+      { action: "disable", id: "default", confirm: "default" },
+      { action: "enable", id: "default" },
     ]);
   });
 

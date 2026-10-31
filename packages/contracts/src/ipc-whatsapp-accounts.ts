@@ -22,8 +22,16 @@ export interface WhatsAppAccount {
   name: string;
   /** The linked number with only its last digits, such as "•••• 0100". */
   number: string | null;
-  /** The number that the account had before, when it is not linked now. Masked as `number`. */
+  /**
+   * The number that the account had before, when it is not linked now: the `owner` of
+   * `accounts.json`, or the `owner` of the account database after an unlink. Masked as `number`.
+   */
   formerNumber: string | null;
+  /**
+   * The account is not linked and keeps the history of a number that was unlinked. Only that number
+   * can link to it again: another number would make wazap set the history aside and delete it.
+   */
+  unlinkedHistory: boolean;
   state: WhatsAppAccountState;
   isDefault: boolean;
   /** `writes: false` in accounts.json: agents can only read this account. */
@@ -37,24 +45,37 @@ export const WHATSAPP_ACCOUNTS_ERRORS = [
   "command-not-found",
   "timeout",
   "failed",
-  "server-running",
+  /** A QR code needs a data folder that no server holds. */
+  "qr-needs-free-folder",
+  /** A wazap process holds the data folder and does not answer on its control line. */
+  "server-busy",
   "invalid-phone",
   "invalid-name",
   "invalid-id",
   "id-taken",
   "already-linked",
   "owner-mismatch",
+  /** The account keeps the history of an unlinked number, and the number to link is not that one. */
+  "has-history",
   "number-in-use",
   "account-not-found",
   "account-disabled",
   "last-account",
+  /** A running server serves only this account, so wazap does not remove it. */
+  "only-served",
   "rate-limited",
   "restricted",
 ] as const;
 export type WhatsAppAccountsError = (typeof WHATSAPP_ACCOUNTS_ERRORS)[number];
 
 export type WhatsAppAccountsSnapshot =
-  | { status: "ready"; accounts: WhatsAppAccount[]; serverRunning: boolean }
+  | {
+      status: "ready";
+      accounts: WhatsAppAccount[];
+      serverRunning: boolean;
+      /** `WAZAP_READ_ONLY` in the data folder's `.env`: no account can send, whatever its own flag. */
+      globalReadOnly: boolean;
+    }
   | { status: "unavailable"; error: WhatsAppAccountsError };
 
 export const WHATSAPP_ACCOUNT_ACTIONS = [
@@ -68,8 +89,15 @@ export const WHATSAPP_ACCOUNT_ACTIONS = [
 ] as const;
 export type WhatsAppAccountAction = (typeof WHATSAPP_ACCOUNT_ACTIONS)[number];
 
-/** Actions that delete something. Main refuses them unless `confirm` repeats the account id. */
-export const WHATSAPP_DESTRUCTIVE_ACTIONS = ["unlink", "remove"] as const satisfies readonly WhatsAppAccountAction[];
+/**
+ * Actions that delete something or take an account away from every agent. Main refuses them unless
+ * `confirm` repeats the account id.
+ */
+export const WHATSAPP_DESTRUCTIVE_ACTIONS = [
+  "unlink",
+  "remove",
+  "disable",
+] as const satisfies readonly WhatsAppAccountAction[];
 
 export function isDestructiveWhatsAppAction(
   action: WhatsAppAccountAction,
@@ -115,12 +143,13 @@ export const WHATSAPP_QR_MAX_MODULES = 200;
 /**
  * Where one pairing is. `code` is the 8-character code as `XXXX-XXXX`. `qr` is the QR code as rows of
  * `1` (dark) and `0` (light), without the quiet zone. `expiresAt` is a time in milliseconds.
+ * `otherNumber` on `linked`: the account linked to a number that is not the one that the person typed.
  */
 export type WhatsAppLinkState =
   | { phase: "starting" }
   | { phase: "code"; code: string; expiresAt: number }
   | { phase: "qr"; rows: string[]; expiresAt: number }
-  | { phase: "linked" }
+  | { phase: "linked"; otherNumber: boolean }
   | { phase: "expired" }
   | { phase: "failed"; error: WhatsAppAccountsError };
 
@@ -184,17 +213,38 @@ export function normalizeWhatsAppPhone(input: string, region: string): string | 
   return E164_PATTERN.test(international) ? international : null;
 }
 
+/** Digits of a Brazilian mobile number without its ninth digit: `55 DD 9 XXXXXXXX` becomes `55 DD XXXXXXXX`. */
+function withoutBrazilianNinthDigit(digits: string): string {
+  return /^55\d{2}9\d{8}$/.test(digits) ? `${digits.slice(0, 4)}${digits.slice(5)}` : digits;
+}
+
+/**
+ * Whether two numbers are the same WhatsApp number. Only the digits count, so E.164 and the digits
+ * of a WhatsApp id compare. The WhatsApp id of many Brazilian mobile numbers has no ninth digit:
+ * `+55 47 9 9999 0100` and `55 47 9999 0100` are the same number.
+ */
+export function sameWhatsAppNumber(a: string, b: string): boolean {
+  const left = a.replace(/\D/g, "");
+  const right = b.replace(/\D/g, "");
+  if (left.length === 0 || right.length === 0) return false;
+  return left === right || withoutBrazilianNinthDigit(left) === withoutBrazilianNinthDigit(right);
+}
+
 /** The digits of a number with only the last four shown: "•••• 0100". */
 export function maskWhatsAppNumber(digits: string): string {
   const clean = digits.replace(/\D/g, "");
   return clean.length < 4 ? "••••" : `•••• ${clean.slice(-4)}`;
 }
 
-/** A nickname that wazap can keep: trimmed, 1 to 64 characters, with no control character. */
+/**
+ * A nickname that wazap can keep: trimmed, 1 to 64 characters, with no control character and no
+ * brace or square bracket. `npx` runs the wazap command through `sh`, and its quoting leaves `{`, `}`,
+ * `[` and `]` bare, so the shell would expand `Loja{1,2}` to `Loja2`.
+ */
 export function cleanWhatsAppAccountName(input: string): string | null {
   const name = input.trim();
   if (name.length === 0 || [...name].length > WHATSAPP_ACCOUNT_NAME_MAX) return null;
-  if (/\p{Cc}|\p{Zl}|\p{Zp}/u.test(name)) return null;
+  if (/\p{Cc}|\p{Zl}|\p{Zp}|[{}[\]]/u.test(name)) return null;
   return name;
 }
 

@@ -15,6 +15,7 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
       name: "default",
       number: maskWhatsAppNumber("15550100"),
       formerNumber: null,
+      unlinkedHistory: false,
       state: "linked",
       isDefault: true,
       readOnly: false,
@@ -25,6 +26,7 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
       name: "Empresa",
       number: null,
       formerNumber: null,
+      unlinkedHistory: false,
       state: "not-linked",
       isDefault: false,
       readOnly: true,
@@ -35,6 +37,7 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
   const snapshot = (): WhatsAppAccountsSnapshot => ({
     status: "ready",
     serverRunning: true,
+    globalReadOnly: false,
     accounts: accounts.map((account) => ({ ...account })),
   });
   const change = (id: string, update: (account: WhatsAppAccount) => WhatsAppAccount) => {
@@ -53,6 +56,7 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
           name: input.name,
           number: null,
           formerNumber: null,
+          unlinkedHistory: false,
           state: "not-linked",
           isDefault: false,
           readOnly: false,
@@ -84,12 +88,16 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
             ...account,
             number: null,
             formerNumber: account.number,
+            unlinkedHistory: account.number !== null,
             state: "not-linked",
           }));
           break;
         case "remove":
           if (accounts.length === 1) return { ok: false, error: "last-account", snapshot: snapshot() };
           accounts = accounts.filter((account) => account.id !== input.id);
+          // As wazap does: the first account left becomes the default.
+          if (!accounts.some((account) => account.isDefault))
+            accounts = accounts.map((account, index) => ({ ...account, isDefault: index === 0 }));
           break;
       }
       return { ok: true, snapshot: snapshot(), notice: null };
@@ -97,7 +105,7 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
     startLink: async (input) => {
       const state: WhatsAppLinkState =
         input.method === "qr"
-          ? { phase: "failed", error: "server-running" }
+          ? { phase: "failed", error: "qr-needs-free-folder" }
           : { phase: "code", code: "ABCD-EFGH", expiresAt: Date.now() + 120_000 };
       links.set(input.id, { state, reads: 0 });
       change(input.id, (account) => (state.phase === "code" ? { ...account, state: "linking" } : account));
@@ -108,7 +116,7 @@ export function createMockWhatsAppAccounts(): BuildersBotDesktopApi["whatsappAcc
       if (!link) return null;
       link.reads += 1;
       if (link.state.phase === "code" && link.reads >= 3) {
-        link.state = { phase: "linked" };
+        link.state = { phase: "linked", otherNumber: false };
         change(id, (account) => ({ ...account, state: "linked", number: maskWhatsAppNumber("15550199"), messages: 0 }));
       }
       return link.state;

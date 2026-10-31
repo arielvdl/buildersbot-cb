@@ -5,6 +5,7 @@ import {
   cleanWhatsAppAccountName,
   E164_PATTERN,
   maskWhatsAppNumber,
+  sameWhatsAppNumber,
   WAZAP_PACKAGE,
   WHATSAPP_ACCOUNT_ID_PATTERN,
   WHATSAPP_PAIRING_CODE_PATTERN,
@@ -116,8 +117,14 @@ export interface WazapStatusAccount {
   isDefault: boolean;
   /** Digits of the linked number. */
   number: string | null;
-  /** Digits of the number that the account belonged to, from `owner`. */
+  /** Digits of the number that the account belonged to, from `owner` in `accounts.json`. */
   ownerNumber: string | null;
+  /**
+   * Digits of the `owner` of the account database. An unlink clears `owner` in `accounts.json` and
+   * keeps the database, which still names its number. Main reads it; the status report has no such
+   * field, so the parser gives null.
+   */
+  databaseOwner: string | null;
 }
 
 export interface WazapStorage {
@@ -174,6 +181,7 @@ export function parseWazapStatus(stdout: string): WazapStatus | null {
       isDefault: row.default === true,
       number: linked ? digitsOf(linked.number) : null,
       ownerNumber: typeof row.owner === "string" ? ownerDigits(row.owner) : null,
+      databaseOwner: null,
     });
   }
   const storage = new Map<string, WazapStorage>();
@@ -314,7 +322,8 @@ export function parseWazapLogin(text: string): WazapLoginProgress {
 /** The error code of a wazap failure, from its output. The output itself never leaves main. */
 export function wazapErrorCode(text: string): WhatsAppAccountsError {
   const output = stripAnsi(text);
-  if (/is running \(pid \d+\)/.test(output)) return "server-running";
+  if (/is running \(pid \d+\)/.test(output)) return "server-busy";
+  if (/only account being served/.test(output)) return "only-served";
   if (/INVALID_PHONE|not a phone number in international format/.test(output)) return "invalid-phone";
   if (/Cannot remove the last account/.test(output)) return "last-account";
   if (/already exists/.test(output)) return "id-taken";
@@ -333,6 +342,20 @@ export function wazapNotice(text: string): WhatsAppAccountNotice | null {
   if (/keeps serving/.test(output)) return "kept-running";
   if (/restart it for this to apply/.test(output)) return "restart-needed";
   return null;
+}
+
+/**
+ * Whether the data folder's `.env` turns writes off for every account (`WAZAP_READ_ONLY`), as wazap
+ * reads it: `1`, `true`, `yes` and `on` turn writes off. Main runs wazap with no `WAZAP_*` value of its
+ * own, so this file is the only source of the global setting.
+ */
+export function parseGlobalReadOnly(text: string): boolean {
+  let value: string | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s*(?:export\s+)?WAZAP_READ_ONLY\s*=\s*(.*?)\s*$/.exec(line);
+    if (match) value = (match[1] ?? "").replace(/\s+#.*$/, "").replace(/^(['"])(.*)\1$/, "$2");
+  }
+  return value !== null && ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
 }
 
 /** The `writes` flag of each account in `accounts.json`. Unreadable text gives no flags. */
@@ -366,17 +389,28 @@ export function accountState(
   return storage?.state === "error" ? "error" : "not-linked";
 }
 
+/**
+ * Whether an account that has no `owner` in `accounts.json` keeps the history of a number: its
+ * database names a number, or it holds messages (a database that main could not read).
+ */
+export function keepsHistory(row: WazapStatusAccount, storage: WazapStorage | undefined): boolean {
+  return row.databaseOwner !== null || (storage?.messages ?? 0) > 0;
+}
+
 export function toWhatsAppAccount(
   row: WazapStatusAccount,
   storage: WazapStorage | undefined,
   writes: boolean | undefined,
   linking: boolean,
 ): WhatsAppAccount {
+  const unlinked = row.number === null;
+  const former = unlinked ? (row.ownerNumber ?? row.databaseOwner) : null;
   return {
     id: row.id,
     name: row.name,
     number: row.number === null ? null : maskWhatsAppNumber(row.number),
-    formerNumber: row.number === null && row.ownerNumber !== null ? maskWhatsAppNumber(row.ownerNumber) : null,
+    formerNumber: former === null ? null : maskWhatsAppNumber(former),
+    unlinkedHistory: unlinked && row.ownerNumber === null && keepsHistory(row, storage),
     state: accountState(row, storage, linking),
     isDefault: row.isDefault,
     readOnly: writes === false,
@@ -384,23 +418,43 @@ export function toWhatsAppAccount(
   };
 }
 
+/** Whether an account other than `id` has, had, or keeps the history of this number. */
+export function numberInUse(accounts: readonly WazapStatusAccount[], id: string | null, phoneDigits: string): boolean {
+  return accounts.some(
+    (row) =>
+      row.id !== id &&
+      [row.number, row.ownerNumber, row.databaseOwner].some(
+        (number) => number !== null && sameWhatsAppNumber(number, phoneDigits),
+      ),
+  );
+}
+
 /**
- * Why a number cannot be linked into an account, or null when it can. One number is one account: a
- * number that another account has or had is refused, and so is a number other than the one that
- * this account belonged to. Linking one would set the earlier owner's history aside for deletion.
+ * Why a number cannot be linked into an account, or null when it can. `phoneDigits` is null for a QR
+ * code, which cannot say which number links.
+ *
+ * One number is one account. A number that another account has, had or keeps the history of is
+ * refused. So is a number other than the one that this account belonged to (`owner-mismatch`), or
+ * other than the one whose history the account keeps after an unlink (`has-history`). Linking one
+ * would make wazap set the earlier history aside and delete it after seven days.
  */
 export function linkRefusal(
   accounts: readonly WazapStatusAccount[],
+  storage: ReadonlyMap<string, WazapStorage>,
   id: string,
-  phoneDigits: string,
+  phoneDigits: string | null,
 ): WhatsAppAccountsError | null {
   const target = accounts.find((row) => row.id === id);
   if (!target) return "account-not-found";
   if (!target.enabled) return "account-disabled";
   if (target.number !== null) return "already-linked";
-  if (target.ownerNumber !== null && target.ownerNumber !== phoneDigits) return "owner-mismatch";
-  const elsewhere = accounts.some(
-    (row) => row.id !== id && (row.number === phoneDigits || row.ownerNumber === phoneDigits),
-  );
-  return elsewhere ? "number-in-use" : null;
+  const same = (number: string | null) =>
+    number !== null && phoneDigits !== null && sameWhatsAppNumber(number, phoneDigits);
+  if (target.ownerNumber !== null) {
+    if (!same(target.ownerNumber)) return "owner-mismatch";
+  } else if (keepsHistory(target, storage.get(id)) && !same(target.databaseOwner)) {
+    return "has-history";
+  }
+  if (phoneDigits === null) return null;
+  return numberInUse(accounts, id, phoneDigits) ? "number-in-use" : null;
 }

@@ -33,7 +33,11 @@ export const messages = {
   "plugin.whatsapp.unavailable": "Não foi possível ler as contas do WhatsApp",
   "plugin.whatsapp.default": "Padrão",
   "plugin.whatsapp.readOnly": "Somente leitura",
+  "plugin.whatsapp.readOnlyGlobal": "Somente leitura (global)",
+  "plugin.whatsapp.globalReadOnly":
+    'Os envios estão desligados para todas as contas: WAZAP_READ_ONLY está ligado na pasta do wazap. Os agentes só leem, e "Permitir envios" numa conta não tem efeito enquanto essa configuração estiver ligada.',
   "plugin.whatsapp.formerNumber": "Era vinculada a {number}",
+  "plugin.whatsapp.unlinkedHistory": "Histórico de um número desvinculado",
   "plugin.whatsapp.messages": { one: "{count} mensagem", other: "{count} mensagens" },
   "plugin.whatsapp.state.linked": "Vinculada",
   "plugin.whatsapp.state.notLinked": "Não vinculada",
@@ -83,14 +87,21 @@ export const messages = {
   "plugin.whatsapp.qrLabel": "QR code para vincular {name}",
   "plugin.whatsapp.newCode": "Gerar outro código",
   "plugin.whatsapp.newQr": "Mostrar outro QR code",
+  "plugin.whatsapp.cancelHint":
+    "Se cancelar, este código ainda pode funcionar até o fim da contagem. Ignore-o no celular.",
   "plugin.whatsapp.expired": "O código expirou antes de o celular usá-lo.",
   "plugin.whatsapp.linked": "{name} está vinculada. O WhatsApp envia as conversas recentes nos próximos minutos.",
+  "plugin.whatsapp.linkedOtherNumber":
+    "{name} está vinculada, mas a um número diferente do que você digitou. Confira o número na lista.",
   "plugin.whatsapp.removeTitle": "Remover {name}?",
   "plugin.whatsapp.removeDescription":
     "Isto desvincula {name} e apaga o histórico, as mídias e as notas dessa conta neste computador. Não é possível desfazer.",
+  "plugin.whatsapp.removeDefaultNext": "A conta {next} vira a padrão.",
   "plugin.whatsapp.unlinkTitle": "Desvincular {name}?",
   "plugin.whatsapp.unlinkDescription":
-    "O WhatsApp tira este computador dos aparelhos conectados do número. O histórico fica aqui, e você pode vincular o mesmo número de novo.",
+    "O WhatsApp tira este computador dos aparelhos conectados do número. O histórico fica aqui. Depois disso, só o mesmo número pode voltar a esta conta; para outro número, adicione uma conta nova.",
+  "plugin.whatsapp.disableTitle": "Desativar {name}?",
+  "plugin.whatsapp.disableDescription": "Os agentes deixam de usar {name} até você ativar de novo. O histórico fica.",
   "plugin.whatsapp.notice.restartNeeded":
     "Salvo. Vale quando o servidor do WhatsApp iniciar de novo, por exemplo depois de reiniciar o Builders Bot.",
   "plugin.whatsapp.notice.keptRunning":
@@ -101,18 +112,23 @@ export const messages = {
     "O npx não foi encontrado. Instale o Node.js 22.16 ou mais recente e tente de novo.",
   "plugin.whatsapp.error.timeout": "O wazap não respondeu a tempo. Tente de novo.",
   "plugin.whatsapp.error.failed": "O wazap não conseguiu fazer isso. Tente de novo.",
-  "plugin.whatsapp.error.serverRunning":
+  "plugin.whatsapp.error.qrNeedsFreeFolder":
     "O QR code precisa que o WhatsApp esteja fechado em todas as conversas de agentes. Use o código de pareamento.",
+  "plugin.whatsapp.error.serverBusy":
+    "Outro processo do wazap está usando a pasta do wazap e não responde. Feche as conversas de agentes que usam o WhatsApp, ou reinicie o Builders Bot, e tente de novo.",
   "plugin.whatsapp.error.invalidPhone": "O WhatsApp não aceitou este número. Confira o país e o DDD.",
   "plugin.whatsapp.error.invalidId": "O ID da conta não é válido. Mude o apelido.",
   "plugin.whatsapp.error.idTaken": "Já existe uma conta com este ID. Mude o apelido.",
   "plugin.whatsapp.error.alreadyLinked": "Esta conta já está vinculada.",
   "plugin.whatsapp.error.ownerMismatch":
     "Esta conta pertencia a outro número. Adicione uma conta nova para este número, para manter o histórico do outro número.",
+  "plugin.whatsapp.error.hasHistory":
+    "Esta conta guarda o histórico de um número desvinculado. Para outro número, adicione uma conta nova.",
   "plugin.whatsapp.error.numberInUse": "Outra conta já tem este número. Cada número é uma conta.",
   "plugin.whatsapp.error.accountNotFound": "Esta conta não existe mais. Atualize a lista.",
   "plugin.whatsapp.error.accountDisabled": "Esta conta está desativada. Ative-a primeiro.",
   "plugin.whatsapp.error.lastAccount": "O wazap precisa de pelo menos uma conta. Adicione outra antes.",
+  "plugin.whatsapp.error.onlyServed": "Ative outra conta antes de remover esta.",
   "plugin.whatsapp.error.rateLimited": "O WhatsApp pediu para esperar. Tente de novo em um minuto.",
   "plugin.whatsapp.error.restricted": "O WhatsApp está restringindo este número agora. Tente mais tarde.",
 } as const satisfies PartialTranslation<typeof source>;

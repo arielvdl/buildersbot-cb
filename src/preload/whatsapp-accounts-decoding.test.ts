@@ -13,6 +13,7 @@ const ACCOUNT = {
   name: "default",
   number: "•••• 0100",
   formerNumber: null,
+  unlinkedHistory: false,
   state: "linked",
   isDefault: true,
   readOnly: false,
@@ -23,8 +24,23 @@ const QR = Array.from({ length: 21 }, (_, row) => (row % 2 === 0 ? "10".repeat(1
 
 describe("WhatsApp accounts decoding", () => {
   it("passes a snapshot that main sends", () => {
-    const snapshot = { status: "ready", serverRunning: true, accounts: [ACCOUNT] };
+    const snapshot = { status: "ready", serverRunning: true, globalReadOnly: false, accounts: [ACCOUNT] };
     expect(decodeWhatsAppAccountsSnapshot(snapshot)).toEqual(snapshot);
+    const unlinked = {
+      ...ACCOUNT,
+      number: null,
+      formerNumber: "•••• 0100",
+      unlinkedHistory: true,
+      state: "not-linked",
+    };
+    expect(
+      decodeWhatsAppAccountsSnapshot({
+        status: "ready",
+        serverRunning: false,
+        globalReadOnly: true,
+        accounts: [unlinked],
+      }),
+    ).toEqual({ status: "ready", serverRunning: false, globalReadOnly: true, accounts: [unlinked] });
     expect(decodeWhatsAppAccountsSnapshot({ status: "unavailable", error: "timeout" })).toEqual({
       status: "unavailable",
       error: "timeout",
@@ -34,13 +50,19 @@ describe("WhatsApp accounts decoding", () => {
   it("refuses a whole number, so a page never reads one", () => {
     for (const number of ["+15550100", "15550100", "•••• 15550100", "+1 •••• 0100"]) {
       expect(() =>
-        decodeWhatsAppAccountsSnapshot({ status: "ready", serverRunning: false, accounts: [{ ...ACCOUNT, number }] }),
+        decodeWhatsAppAccountsSnapshot({
+          status: "ready",
+          serverRunning: false,
+          globalReadOnly: false,
+          accounts: [{ ...ACCOUNT, number }],
+        }),
       ).toThrow("Invalid WhatsApp accounts answer.");
     }
     expect(() =>
       decodeWhatsAppAccountsSnapshot({
         status: "ready",
         serverRunning: false,
+        globalReadOnly: false,
         accounts: [{ ...ACCOUNT, formerNumber: "+15550100" }],
       }),
     ).toThrow("Invalid WhatsApp accounts answer.");
@@ -53,19 +75,28 @@ describe("WhatsApp accounts decoding", () => {
       { ...ACCOUNT, messages: -1 },
       { ...ACCOUNT, messages: 1.5 },
       { ...ACCOUNT, name: "" },
+      { ...ACCOUNT, unlinkedHistory: "yes" },
     ];
     for (const account of bad) {
       expect(() =>
-        decodeWhatsAppAccountsSnapshot({ status: "ready", serverRunning: false, accounts: [account] }),
+        decodeWhatsAppAccountsSnapshot({
+          status: "ready",
+          serverRunning: false,
+          globalReadOnly: false,
+          accounts: [account],
+        }),
       ).toThrow("Invalid WhatsApp accounts answer.");
     }
+    expect(() =>
+      decodeWhatsAppAccountsSnapshot({ status: "ready", serverRunning: false, accounts: [ACCOUNT] }),
+    ).toThrow("Invalid WhatsApp accounts answer.");
     expect(() => decodeWhatsAppAccountsSnapshot({ status: "unavailable", error: "wazap said no" })).toThrow(
       "Invalid WhatsApp accounts answer.",
     );
   });
 
   it("decodes a result with its notice or its error code, never free text", () => {
-    const snapshot = { status: "ready", serverRunning: false, accounts: [ACCOUNT] };
+    const snapshot = { status: "ready", serverRunning: false, globalReadOnly: false, accounts: [ACCOUNT] };
     expect(decodeWhatsAppAccountsResult({ ok: true, snapshot, notice: "restart-needed" })).toEqual({
       ok: true,
       snapshot,
@@ -99,6 +130,15 @@ describe("WhatsApp accounts decoding", () => {
       decodeWhatsAppLinkState({ phase: "qr", rows: [...QR.slice(1), "2".repeat(21)], expiresAt: 1 }),
     ).toThrow();
     expect(() => decodeWhatsAppLinkState({ phase: "failed", error: "boom" })).toThrow();
+    expect(decodeWhatsAppLinkState({ phase: "linked", otherNumber: true })).toEqual({
+      phase: "linked",
+      otherNumber: true,
+    });
+    expect(() => decodeWhatsAppLinkState({ phase: "linked" })).toThrow();
+    expect(decodeWhatsAppLinkState({ phase: "failed", error: "has-history" })).toEqual({
+      phase: "failed",
+      error: "has-history",
+    });
     expect(decodeOptionalWhatsAppLinkState(null)).toBeNull();
   });
 });

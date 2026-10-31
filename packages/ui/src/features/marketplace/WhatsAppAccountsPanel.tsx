@@ -61,10 +61,11 @@ import {
   type WhatsAppAccountsModel,
 } from "./whatsapp-accounts-model";
 
-/** What the destructive confirmation is about. */
+/** What the confirmation is about. `next` is the account that becomes the default after a remove. */
 interface PendingConfirm {
-  action: "unlink" | "remove";
+  action: "unlink" | "remove" | "disable";
   account: WhatsAppAccount;
+  next: WhatsAppAccount | undefined;
 }
 
 /** The account that the link dialog is for, and the number that the add dialog took, if any. */
@@ -109,6 +110,35 @@ export function WhatsAppAccountsPanel(props: {
 
 function AccountsSection(props: { model: WhatsAppAccountsModel }) {
   const { t } = useText();
+  /** The title, the text and the button of a confirmation. */
+  const confirmText = (pending: PendingConfirm) => {
+    const name = pending.account.name;
+    switch (pending.action) {
+      case "unlink":
+        return {
+          title: t("plugin.whatsapp.unlinkTitle", { name }),
+          description: t("plugin.whatsapp.unlinkDescription"),
+          label: t("plugin.whatsapp.action.unlink"),
+        };
+      case "disable":
+        return {
+          title: t("plugin.whatsapp.disableTitle", { name }),
+          description: t("plugin.whatsapp.disableDescription", { name }),
+          label: t("plugin.whatsapp.action.disable"),
+        };
+      case "remove":
+        return {
+          title: t("plugin.whatsapp.removeTitle", { name }),
+          description: [
+            t("plugin.whatsapp.removeDescription", { name }),
+            pending.next ? t("plugin.whatsapp.removeDefaultNext", { next: pending.next.name }) : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          label: t("plugin.whatsapp.action.remove"),
+        };
+    }
+  };
   const model = () => props.model;
   const [adding, setAdding] = createSignal(false);
   const [linking, setLinking] = createSignal<LinkTarget | null>(null);
@@ -189,21 +219,43 @@ function AccountsSection(props: { model: WhatsAppAccountsModel }) {
         </Match>
         <Match when={ready()}>
           {(snapshot) => (
-            <ItemGroup class="settings-modal-card">
-              <For each={snapshot().accounts}>
-                {(account) => (
-                  <AccountRow
-                    model={model()}
-                    account={account}
-                    onLink={() => {
-                      model().clearMessages();
-                      setLinking({ account, phone: null });
-                    }}
-                    onConfirm={(action) => setConfirm({ action, account })}
-                  />
-                )}
-              </For>
-            </ItemGroup>
+            <>
+              <Show when={snapshot().globalReadOnly}>
+                <Alert tone="neutral">
+                  <AlertIcon>
+                    <Lock />
+                  </AlertIcon>
+                  <AlertContent>
+                    <AlertDescription>{t("plugin.whatsapp.globalReadOnly")}</AlertDescription>
+                  </AlertContent>
+                </Alert>
+              </Show>
+              <ItemGroup class="settings-modal-card">
+                <For each={snapshot().accounts}>
+                  {(account) => (
+                    <AccountRow
+                      model={model()}
+                      account={account}
+                      globalReadOnly={snapshot().globalReadOnly}
+                      onLink={() => {
+                        model().clearMessages();
+                        setLinking({ account, phone: null });
+                      }}
+                      onConfirm={(action) =>
+                        setConfirm({
+                          action,
+                          account,
+                          // wazap makes the first account left the default.
+                          next: account.isDefault
+                            ? snapshot().accounts.find((other) => other.id !== account.id)
+                            : undefined,
+                        })
+                      }
+                    />
+                  )}
+                </For>
+              </ItemGroup>
+            </>
           )}
         </Match>
       </Switch>
@@ -245,16 +297,9 @@ function AccountsSection(props: { model: WhatsAppAccountsModel }) {
             open={true}
             initialFocus="cancel"
             tone="destructive"
-            title={t(pending.action === "remove" ? "plugin.whatsapp.removeTitle" : "plugin.whatsapp.unlinkTitle", {
-              name: pending.account.name,
-            })}
-            description={t(
-              pending.action === "remove" ? "plugin.whatsapp.removeDescription" : "plugin.whatsapp.unlinkDescription",
-              { name: pending.account.name },
-            )}
-            confirmLabel={t(
-              pending.action === "remove" ? "plugin.whatsapp.action.remove" : "plugin.whatsapp.action.unlink",
-            )}
+            title={confirmText(pending).title}
+            description={confirmText(pending).description}
+            confirmLabel={confirmText(pending).label}
             onCancel={() => setConfirm(null)}
             onConfirm={async () => {
               await model().act({ action: pending.action, id: pending.account.id, confirm: pending.account.id });
@@ -270,6 +315,7 @@ function AccountsSection(props: { model: WhatsAppAccountsModel }) {
 function AccountRow(props: {
   model: WhatsAppAccountsModel;
   account: WhatsAppAccount;
+  globalReadOnly: boolean;
   onLink: () => void;
   onConfirm: (action: PendingConfirm["action"]) => void;
 }) {
@@ -280,13 +326,15 @@ function AccountRow(props: {
       account().number ??
         (account().formerNumber
           ? t("plugin.whatsapp.formerNumber", { number: account().formerNumber ?? "" })
-          : t("plugin.whatsapp.state.notLinked")),
+          : account().unlinkedHistory
+            ? t("plugin.whatsapp.unlinkedHistory")
+            : t("plugin.whatsapp.state.notLinked")),
       account().messages === null ? "" : t("plugin.whatsapp.messages", { count: account().messages ?? 0 }),
       t("plugin.whatsapp.accountId", { id: account().id }),
     ]
       .filter(Boolean)
       .join(" · ");
-  const act = (action: "enable" | "disable" | "default" | "read-only" | "writable") =>
+  const act = (action: "enable" | "default" | "read-only" | "writable") =>
     void props.model.act({ action, id: account().id });
   return (
     <Item class="settings-modal-row whatsapp-account-row">
@@ -296,8 +344,15 @@ function AccountRow(props: {
           <Show when={account().isDefault}>
             <Badge variant="secondary">{t("plugin.whatsapp.default")}</Badge>
           </Show>
-          <Show when={account().readOnly}>
-            <Badge variant="outline">{t("plugin.whatsapp.readOnly")}</Badge>
+          <Show
+            when={props.globalReadOnly}
+            fallback={
+              <Show when={account().readOnly}>
+                <Badge variant="outline">{t("plugin.whatsapp.readOnly")}</Badge>
+              </Show>
+            }
+          >
+            <Badge variant="outline">{t("plugin.whatsapp.readOnlyGlobal")}</Badge>
           </Show>
         </ItemTitle>
         <ItemDescription>{details()}</ItemDescription>
@@ -335,7 +390,7 @@ function AccountRow(props: {
               <Show
                 when={account().state === "disabled"}
                 fallback={
-                  <DropdownMenu.Item onSelect={() => act("disable")}>
+                  <DropdownMenu.Item onSelect={() => props.onConfirm("disable")}>
                     <Pause aria-hidden="true" />
                     {t("plugin.whatsapp.action.disable")}
                   </DropdownMenu.Item>
@@ -537,7 +592,16 @@ function LinkDialog(props: { model: WhatsAppAccountsModel; target: LinkTarget; o
     void props.model.closeLink();
     props.onClose();
   };
-  const linked = () => link()?.phase === "linked";
+  const linkedState = () => {
+    const state = link();
+    return state?.phase === "linked" ? state : undefined;
+  };
+  const linked = () => linkedState() !== undefined;
+  /** A code or a QR that still works: asking for another one before it expires gives no new one. */
+  const stillValid = () => {
+    const state = link();
+    return (state?.phase === "code" || state?.phase === "qr") && now() < state.expiresAt;
+  };
   const codeState = () => {
     const state = link();
     return state?.phase === "code" ? state : undefined;
@@ -587,7 +651,7 @@ function LinkDialog(props: { model: WhatsAppAccountsModel; target: LinkTarget; o
                   {t("common.cancel")}
                 </Button>
                 <Show when={state().phase !== "starting"}>
-                  <Button type="button" variant="outline" onClick={start}>
+                  <Button type="button" variant="outline" disabled={stillValid()} onClick={start}>
                     {t(method() === "code" ? "plugin.whatsapp.newCode" : "plugin.whatsapp.newQr")}
                   </Button>
                 </Show>
@@ -647,6 +711,9 @@ function LinkDialog(props: { model: WhatsAppAccountsModel; target: LinkTarget; o
               <Text as="p" variant="caption" tone="muted" role="timer">
                 {t("plugin.whatsapp.expiresIn", { time: countdown(state().expiresAt, now()) })}
               </Text>
+              <Text as="p" variant="caption" tone="muted">
+                {t("plugin.whatsapp.cancelHint")}
+              </Text>
             </div>
           )}
         </Match>
@@ -668,10 +735,14 @@ function LinkDialog(props: { model: WhatsAppAccountsModel; target: LinkTarget; o
             </div>
           )}
         </Match>
-        <Match when={linked()}>
-          <Text as="p" variant="body-sm" role="status">
-            {t("plugin.whatsapp.linked", { name: props.target.account.name })}
-          </Text>
+        <Match when={linkedState()}>
+          {(state) => (
+            <Text as="p" variant="body-sm" role="status">
+              {t(state().otherNumber ? "plugin.whatsapp.linkedOtherNumber" : "plugin.whatsapp.linked", {
+                name: props.target.account.name,
+              })}
+            </Text>
+          )}
         </Match>
         <Match when={link()?.phase === "expired"}>
           <Text as="p" variant="body-sm" role="status">

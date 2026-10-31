@@ -39,6 +39,7 @@ function decodeAccount(value: unknown): WhatsAppAccount {
     !isOneOf(WHATSAPP_ACCOUNT_STATES, value.state) ||
     !isBoolean(value.isDefault) ||
     !isBoolean(value.readOnly) ||
+    !isBoolean(value.unlinkedHistory) ||
     !(
       value.messages === null ||
       (typeof value.messages === "number" && Number.isSafeInteger(value.messages) && value.messages >= 0)
@@ -51,6 +52,7 @@ function decodeAccount(value: unknown): WhatsAppAccount {
     name: value.name,
     number: maskedOrNull(value.number),
     formerNumber: maskedOrNull(value.formerNumber),
+    unlinkedHistory: value.unlinkedHistory,
     state: value.state,
     isDefault: value.isDefault,
     readOnly: value.readOnly,
@@ -66,12 +68,18 @@ export function decodeWhatsAppAccountsSnapshot(value: unknown): WhatsAppAccounts
   if (
     value.status !== "ready" ||
     !isBoolean(value.serverRunning) ||
+    !isBoolean(value.globalReadOnly) ||
     !Array.isArray(value.accounts) ||
     value.accounts.length > MAX_ACCOUNTS
   ) {
     return invalid();
   }
-  return { status: "ready", serverRunning: value.serverRunning, accounts: value.accounts.map(decodeAccount) };
+  return {
+    status: "ready",
+    serverRunning: value.serverRunning,
+    globalReadOnly: value.globalReadOnly,
+    accounts: value.accounts.map(decodeAccount),
+  };
 }
 
 export function decodeWhatsAppAccountsResult(value: unknown): WhatsAppAccountsResult {
@@ -102,9 +110,10 @@ export function decodeWhatsAppLinkState(value: unknown): WhatsAppLinkState {
   if (!isDynamicRecord(value)) return invalid();
   switch (value.phase) {
     case "starting":
-    case "linked":
     case "expired":
       return { phase: value.phase };
+    case "linked":
+      return isBoolean(value.otherNumber) ? { phase: "linked", otherNumber: value.otherNumber } : invalid();
     case "code":
       return isString(value.code) && WHATSAPP_PAIRING_CODE_PATTERN.test(value.code)
         ? { phase: "code", code: value.code, expiresAt: expiry(value.expiresAt) }
