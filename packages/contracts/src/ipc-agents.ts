@@ -1,4 +1,5 @@
 import { type AgentProviderRef, isAgentProviderRef } from "./agent-providers";
+import { isHubConnectionId } from "./hub-connections";
 import { INPUT_LIMITS } from "./input-limits";
 import { isAgentAdditionalFolders } from "./ipc-agent-folders";
 import {
@@ -44,6 +45,19 @@ export function isAgentAccess(value: unknown): value is AgentAccess {
 /** Whether the agent may use Computer Use. Absent means on, as for every agent before the setting existed. */
 export function agentComputerUseEnabled(agent: { computerUse?: boolean | undefined }): boolean {
   return agent.computerUse !== false;
+}
+
+/** The most connection ids that an agent's `connectionsOff` holds: one per Hub connection. */
+export const AGENT_CONNECTIONS_OFF_LIMIT = 100;
+
+/** A list of distinct Hub connection ids, for `connectionsOff`. */
+export function isAgentConnectionsOff(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= AGENT_CONNECTIONS_OFF_LIMIT &&
+    value.every(isHubConnectionId) &&
+    new Set(value).size === value.length
+  );
 }
 
 /** The agent settings that have an account default. An agent with no value of its own follows it. */
@@ -270,6 +284,12 @@ export interface AgentSummary {
    */
   securityGuard?: boolean;
   /**
+   * The Hub connections that this agent may not use, by connection id, such as `tool-catalog`.
+   * Local-only, like `access`. Absent or empty means the default: the agent has every connection that
+   * Cultura Builder gives this computer (docs/architecture/hub-connections.md).
+   */
+  connectionsOff?: string[];
+  /**
    * Whether the browser tabs of the agent use a session of their own, with their own cookies and
    * sign-ins. Local-only, like `access`. Absent means off: the tabs use the shared session. When
    * `browserProfileId` is also set, the named profile applies; see `agentBrowserProfile`.
@@ -380,6 +400,7 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.allowNewChat === undefined || isBoolean(value.allowNewChat)) &&
     (value.quickAcknowledgement === undefined || isBoolean(value.quickAcknowledgement)) &&
     (value.securityGuard === undefined || isBoolean(value.securityGuard)) &&
+    (value.connectionsOff === undefined || isAgentConnectionsOff(value.connectionsOff)) &&
     (value.ownBrowserSession === undefined || isBoolean(value.ownBrowserSession)) &&
     (value.browserProfileId === undefined || isBrowserProfileId(value.browserProfileId)) &&
     (value.fastMode === undefined || isBoolean(value.fastMode)) &&
@@ -437,6 +458,8 @@ export interface UpdateAgentInput {
   quickAcknowledgement?: boolean | null;
   /** `null` returns the agent to the account default, which is on. */
   securityGuard?: boolean | null;
+  /** `null` or an empty list returns the agent to the default: every connection. */
+  connectionsOff?: string[] | null;
   fastMode?: boolean;
   /** `null` returns the agent to the app default. */
   busyMessageMode?: BusyMessageMode | null;
