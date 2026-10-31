@@ -561,8 +561,8 @@ React Native requires a Client Secret according to OpenPanel's native SDK guide.
 native integration it is an **embedded write credential**, not a confidential server secret.
 Expo's `EXPO_PUBLIC_` values are visible in the shipped bundle. Use only a dedicated write client;
 never embed a key for Export, Insights, Manage, or an OpenBot account/session. EAS visibility can hide
-values in its UI but does not hide them in the app. See [OpenPanel client access levels](https://openpanel.dev/docs/api/authentication)
-and [Expo environment variables](https://docs.expo.dev/guides/environment-variables/).
+values in its UI but does not hide them in the app. See
+[Expo environment variables](https://docs.expo.dev/guides/environment-variables/).
 
 For a local production configuration, put the same variables in the ignored
 `apps/mobile/.env.local`. Ordinary development mode still disables analytics. A missing Client ID,

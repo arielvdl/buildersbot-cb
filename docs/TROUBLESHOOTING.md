@@ -231,10 +231,11 @@ Ask the network administrator to allow these hosts over HTTPS (TCP 443) and WebS
 | `api.openbot.run` | Accounts, sign-in, teams, and hosted servers |
 | `signal.openbot.run` | Connection setup for teams and remote servers |
 | `openbot.run` | Public site and images in invitation emails |
-| `*.openbot.run` | Hosted servers and sites, and `analytics.openbot.run` |
+| `*.openbot.run` | Hosted servers and sites |
 | `github.com`, `*.githubusercontent.com` | Provider CLI releases and the list of blocked provider versions |
 
-This version of Builders Bot does not check for app updates, so it needs no host for them. Settings →
+Builders Bot sends no usage analytics and no error reports, so it needs no host for them. This version
+of Builders Bot does not check for app updates either, so it needs no host for them. Settings →
 Updates says "Updates are not available in this version of Builders Bot yet."
 
 Teams and remote servers also send WebRTC traffic to the other device or to the TURN relay that
