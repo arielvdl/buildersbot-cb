@@ -201,9 +201,10 @@ Electron and checks that `window.openbot` has exactly one function for each endp
 second.
 
 `bun run check:desktop` still runs everything: it is `check:desktop:static`, which holds the Linux
-image names check, the UI check, the lint, the desktop typecheck, the build, `verify:preload`, `test:update-feed-guard` and the
-telemetry destination guard with `--build-output`, followed by the browser smoke test. CI is
-the only caller that splits them. The smoke test starts the real Electron binary, so it runs under
+image names check, the UI check, the lint, the desktop typecheck, the build, `verify:preload`,
+`test:update-feed-guard`, the telemetry destination guard with `--build-output`,
+`scripts/build-output-check.ts` and `scripts/desktop-language-catalogs-smoke.ts`, followed by the
+browser smoke test. CI is the only caller that splits them. The smoke test starts the real Electron binary, so it runs under
 xvfb on Ubuntu rather than on a macOS runner, and reads nothing the build writes, so the order
 between the halves is free. `release.yml` keeps the whole of `check:desktop` on one macOS runner,
 where it checks the machine that builds the release.
@@ -216,6 +217,13 @@ The `package`, `package:*` and `dist:*` scripts run the guard with `--build-outp
 `bun run build`, and the macOS `package`, `dist:mac` and `dist:release` scripts also run it with
 `--package` on the app that electron-builder made. `verify:package`, `verify:package:win` and
 `verify:package:linux` scan `app.asar` and `app.asar.unpacked` for the same strings.
+
+The same scripts run `scripts/build-output-check.ts` right after `bun run build`. electron-builder.yml
+leaves the packages that only the renderer uses out of `app.asar`, and the check fails when the main,
+preload or host bundles import one of them, or a package that depends on one: the dev app would work
+and the packaged app would not start. It also checks that each renderer page loads only English and
+Portuguese with it, and that the renderer is minified. It needs no network and writes
+`.openbot-build/build-output/report.json`.
 
 `bun run knip:check` fails on unused files, unused exports and exported types, unused or unlisted
 dependencies, unresolved imports and unlisted binaries in every workspace. It takes about 6 seconds. `knip.config.ts` names the entry

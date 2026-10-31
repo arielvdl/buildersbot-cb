@@ -8,14 +8,17 @@ import { source as ptSource } from "./messages/pt/source";
 
 /**
  * The catalogs of the desktop renderer: `app-catalogs.ts`, `source-catalogs.ts`,
- * `format-catalogs.ts` and `locale-loading.ts` in one module, which `electron.vite.config.ts` puts
- * in their place. The main process keeps every language.
+ * `format-catalogs.ts` and `locale-loading.ts` in one module, which `packages/i18n/vite-plugin.ts`
+ * puts in their place for `electron.vite.config.ts`. The main process keeps every language.
  *
  * Each window is its own renderer process: the main window, a Dynamic Island for each display, the
- * browser dock and the Computer Use overlays. With all thirteen languages each of them held about
- * 8 MB of catalog source and the strings made from it, of which it shows one language. English and
- * Portuguese are part of the bundle, so a window in either language shows it from the first frame.
- * Each other language is a chunk that loads on first use, and a window shows English until it loads.
+ * browser dock, picture in picture, the chat windows and the Computer Use overlays. With all
+ * thirteen languages each of them held about 8 MB of catalog source and the strings made from it,
+ * of which it shows one language. A window cannot wait for a language before it renders: main sends
+ * the first state when the page finishes loading, and a window that subscribes later misses it. So
+ * English and Portuguese, the two languages of the interface text, are part of the bundle and draw
+ * from the first frame. Each other language is a chunk that loads on first use, and a window shows
+ * English until it loads.
  */
 const catalogs = createCatalogs({
   en: { app: en, source: enSource, format: enFormat },

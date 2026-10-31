@@ -11,7 +11,7 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { CHAT_VISUAL_PAGE_LIMIT, isChatVisualMimeType } from "@openbot/contracts/chat-visual";
 import { LOCAL_SERVER_ID } from "@openbot/contracts/ipc";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
@@ -249,7 +249,7 @@ export function configureApplicationProtocol(): void {
       return new Response(await readFile(filePath), {
         headers: {
           "Content-Type": applicationContentType(filePath),
-          "Cache-Control": "no-store",
+          "Cache-Control": applicationCacheControl(candidate),
           "X-Content-Type-Options": "nosniff",
         },
       });
@@ -257,6 +257,17 @@ export function configureApplicationProtocol(): void {
       return new Response("Not found", { status: 404 });
     }
   });
+}
+
+/**
+ * The Vite build names each file under `assets/` from a hash of its content, so a name never gets
+ * other content and the renderer can keep the file (a reload of the window then reads it from
+ * memory). The HTML pages and every other file keep `no-store`: their names do not change between
+ * builds. `relativePath` is the path under the renderer root, already checked to stay inside it.
+ */
+export function applicationCacheControl(relativePath: string): "public, max-age=31536000, immutable" | "no-store" {
+  const [directory, ...rest] = relativePath.split(sep);
+  return directory === "assets" && rest.length > 0 ? "public, max-age=31536000, immutable" : "no-store";
 }
 
 function applicationContentType(

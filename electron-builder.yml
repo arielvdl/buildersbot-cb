@@ -31,6 +31,18 @@ files:
   - "!node_modules/@anthropic-ai/claude-agent-sdk-darwin-*/**/*"
   - "!node_modules/@anthropic-ai/claude-agent-sdk-linux-*/**/*"
   - "!node_modules/@anthropic-ai/claude-agent-sdk-win32-*/**/*"
+  # Packages that only the renderer uses. Vite puts them in out/renderer, and the main, preload and
+  # host bundles import none of them, at run time or through a dependency (about 230 MB). The
+  # @openbot workspace packages are TypeScript sources that the main bundle already contains.
+  # `scripts/build-output-check.ts` fails when a bundle needs one of these.
+  - "!node_modules/mermaid/**/*"
+  - "!node_modules/@mermaid-js/**/*"
+  - "!node_modules/lucide-solid/**/*"
+  - "!node_modules/cytoscape/**/*"
+  - "!node_modules/cytoscape-*/**/*"
+  - "!node_modules/elkjs/**/*"
+  - "!node_modules/katex/**/*"
+  - "!node_modules/@openbot/**/*"
 asarUnpack:
   # The database host is loaded by path as a separate process, not required into the main bundle.
   - out/main/agent-database-host.js

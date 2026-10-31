@@ -1108,9 +1108,14 @@ export async function createApplicationServices({
     undefined,
     DATA_SKILL_SLUG,
   );
-  await Effect.runPromise(managedSkills.syncAll(store.list()));
-  await Effect.runPromise(skillCreator.syncAll(store.list()));
-  await Effect.runPromise(dataSkill.syncAll(store.list()));
+  // Each skill writes only to its own folder in each workspace, so the three run at the same time.
+  const skillAgents = store.list();
+  await Effect.runPromise(
+    Effect.all(
+      [managedSkills.syncAll(skillAgents), skillCreator.syncAll(skillAgents), dataSkill.syncAll(skillAgents)],
+      { concurrency: "unbounded", discard: true },
+    ),
+  );
   performance.mark("openbot:services.skills");
   const hostedSites = new HostedSiteDesktopService(centralAuth, () => {
     // Read at request time: the team store is created later, and the server can register after launch.

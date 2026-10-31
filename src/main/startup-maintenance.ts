@@ -10,7 +10,14 @@ import type { Logger } from "@openbot/logging";
  * The Storage settings page clears `caches` and `logs` by hand; this is the part that can happen
  * without asking, and it covers the directories that page does not reach.
  */
-const REBUILDABLE_DIRECTORIES = ["GPUCache", "Code Cache", "DawnGraphiteCache", "DawnWebGPUCache", "ShaderCache"];
+const REBUILDABLE_DIRECTORIES = ["GPUCache", "DawnGraphiteCache", "DawnWebGPUCache", "ShaderCache"];
+
+/**
+ * `Code Cache` holds the V8 code cache of the app's own bundle (`openbot-app` sets `codeCache`), which
+ * saves the compile work of each window from the second launch on, so it stays while it is below this
+ * size. Old builds leave entries that nothing reads again, and the limit removes them.
+ */
+const CODE_CACHE_LIMIT_BYTES = 64 * 1024 * 1024;
 
 /** Old rotated logs. The live file of each is kept: only the `.1` a rotation left behind goes. */
 const LOG_DIRECTORIES = ["logs/main", "logs/providers", "logs/agents", "logs/remote", "logs/update"];
@@ -34,12 +41,20 @@ async function sizeOf(path: string): Promise<number> {
  * Runs after the window is up, so nothing here is on the first paint. Never throws: a cache that
  * cannot be removed is worth a log line, not a failed launch.
  */
-export async function runStartupMaintenance(userDataPath: string, logger: Logger): Promise<void> {
+export async function runStartupMaintenance(
+  userDataPath: string,
+  logger: Logger,
+  codeCacheLimitBytes = CODE_CACHE_LIMIT_BYTES,
+): Promise<void> {
   let freed = 0;
-  for (const name of REBUILDABLE_DIRECTORIES) {
+  const removable = [
+    ...REBUILDABLE_DIRECTORIES.map((name) => ({ name, limitBytes: 0 })),
+    { name: "Code Cache", limitBytes: codeCacheLimitBytes },
+  ];
+  for (const { name, limitBytes } of removable) {
     const path = join(userDataPath, name);
     const bytes = await sizeOf(path);
-    if (bytes === 0) continue;
+    if (bytes <= limitBytes) continue;
     try {
       await rm(path, { recursive: true, force: true });
       freed += bytes;

@@ -279,9 +279,11 @@ const appIconPath = resolveAppIconPath({
   sourceRoot: resolve(__dirname, "../.."),
 });
 protocol.registerSchemesAsPrivileged([
+  // `codeCache` keeps the V8 code cache of the bundle (in `Code Cache/js`), so a window that opens
+  // again does not compile the same scripts from the start. It needs `standard`.
   {
     scheme: "openbot-app",
-    privileges: { standard: true, secure: true, supportFetchAPI: true },
+    privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true },
   },
   // `stream` lets an <audio> or <video> element play a file from the scheme: without it the
   // element cannot make the range requests that playback needs.
@@ -1460,12 +1462,16 @@ if (!hasSingleInstanceLock) {
       // `sendToRenderer` dropped the server changes made while the window loaded: the host list and
       // the connection of the selected server. The renderer can have read the list before them.
       forwardServers(remoteServers.list());
-      // After the load: `sendToRenderer` drops events aimed at a window that is still loading.
-      await Effect.runPromise(remoteServers.startEventConnections());
       const reconcileDynamicIsland = () =>
         void Effect.runPromise(dynamicIsland.reconcileWindow()).catch((error) =>
           logger.error("Unable to reconcile Dynamic Island displays:", toLogValue(error)),
         );
+      // The Dynamic Island windows open now, after the main window has its content, and nothing
+      // waits for them. Before, the reload of the main window waited for the load of each display's
+      // window.
+      reconcileDynamicIsland();
+      // After the load: `sendToRenderer` drops events aimed at a window that is still loading.
+      await Effect.runPromise(remoteServers.startEventConnections());
       screen.on("display-added", reconcileDynamicIsland);
       screen.on("display-removed", reconcileDynamicIsland);
       screen.on("display-metrics-changed", reconcileDynamicIsland);

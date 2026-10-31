@@ -30,9 +30,9 @@ export interface I18nValue {
 
 /**
  * `requested` once its catalogs are loaded. The desktop renderer holds English and Portuguese, so
- * for these this is `requested` at once. The desktop renderer and the public web build load every
- * other language on first use and keep the previous one on the screen until then; if the load
- * fails, the screen stays in that language.
+ * for these two this is `requested` at once. The desktop renderer and the public web build load each
+ * other language on first use and keep the previous one on the screen until then; if the load fails,
+ * the screen stays in that language.
  */
 function createLoadedLocale(requested: () => TranslatedLocale): () => TranslatedLocale {
   const [loads, setLoads] = createSignal(0);

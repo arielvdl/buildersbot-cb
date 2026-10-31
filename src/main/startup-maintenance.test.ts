@@ -71,6 +71,21 @@ describe("runStartupMaintenance", () => {
     expect(await exists(join(root, "logs", "providers", "providers.log.1"))).toBe(true);
   });
 
+  it("keeps the code cache below its limit and removes it above", async () => {
+    const root = await profile();
+    await mkdir(join(root, "Code Cache", "js"), { recursive: true });
+    await writeFile(join(root, "Code Cache", "js", "entry"), "x".repeat(4096));
+
+    await runStartupMaintenance(root, logger());
+    expect(await exists(join(root, "Code Cache", "js", "entry"))).toBe(true);
+    await runStartupMaintenance(root, logger(), 8192);
+    expect(await exists(join(root, "Code Cache", "js", "entry"))).toBe(true);
+
+    await writeFile(join(root, "Code Cache", "js", "other"), "x".repeat(8192));
+    await runStartupMaintenance(root, logger(), 8192);
+    expect(await exists(join(root, "Code Cache"))).toBe(false);
+  });
+
   it("survives a profile with no cache and no log directory", async () => {
     const root = await profile();
     await expect(runStartupMaintenance(root, logger())).resolves.toBeUndefined();
