@@ -96,16 +96,21 @@ export interface AvatarAnimationInput {
    */
   pointerOn: number | null;
   reducedMotion: boolean;
+  /**
+   * Whether any part of the avatar is in sight. The sidebar is not virtualized and a collapsed
+   * section keeps its rows, so a busy avatar out of sight would otherwise draw frames nobody sees.
+   */
+  onScreen: boolean;
 }
 
 /**
- * Whether an avatar moves now. A busy mood moves on its own. A resting avatar moves for `always` and
+ * Whether an avatar moves now. Nothing moves out of sight. A busy mood moves on its own. A resting avatar moves for `always` and
  * `followPointer`, and for `hover` and `idle` only while a pointer or the focus is on it. A pointer
  * does not wake the faces of a group (`still`), nor an avatar of `SMALL_AVATAR_SIZE` or less: many
  * small faces that start their motion at once under the pointer cost the most and show the least.
  */
 export function avatarAnimates(input: AvatarAnimationInput): boolean {
-  if (input.reducedMotion) return false;
+  if (input.reducedMotion || !input.onScreen) return false;
   if (avatarMoodIsBusy(input.mood) || input.followPointer || input.motion === "always") return true;
   if (input.motion === "still" || input.pointerOn === null) return false;
   return input.pointerOn > SMALL_AVATAR_SIZE;

@@ -3134,6 +3134,14 @@ textarea {
   animation: title-shimmer 2s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
 }
 
+/* A collapsed section keeps its rows, so a working row's shimmer, dots and breathing photo would
+   repaint out of sight. A generated avatar stops on its own when it is out of sight. */
+.sidebar-section-collapse[data-collapsed] .agent-row-name-working strong,
+.sidebar-section-collapse[data-collapsed] .agent-row-thinking-dots i,
+.sidebar-section-collapse[data-collapsed] .agent-avatar[data-breathe] {
+  animation-play-state: paused;
+}
+
 @keyframes title-shimmer {
   0%,
   18% {
