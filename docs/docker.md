@@ -12,13 +12,20 @@ app or `openbot.run/app`. It is for `linux/amd64` and `linux/arm64`.
 
 ## Build
 
-Build the AppImage as the `linux` job of `.github/workflows/release.yml` does, on Linux and on a
-machine of the target architecture: the voice runtime is for the machine that builds it. Then, in the
-repository:
+Build the AppImage on Linux, on a machine of the target architecture: the voice runtime is for the
+machine that builds it. In the repository, run `bun install --frozen-lockfile`, then
+`bun run dist:linux:arm64` on arm64 or `bun run dist:linux` on x64. Check the build with
+`xvfb-run -a bun run verify:package:linux`, without `--require-update-metadata`: Builders Bot has no
+release feed (`publish: null` in `electron-builder.yml`), so the build writes no
+`resources/app-update.yml` and no `latest-linux.yml`. That flag fails without the first, and the
+`linux` job of `.github/workflows/release.yml` without both.
+
+`dist/` can also hold the AppImage of an earlier version or of the other architecture, so copy the
+one of this build by its full name:
 
 ```sh
 mkdir image
-cp dist/*.AppImage "image/OpenBot.AppImage"
+cp "dist/Builders Bot-<version>-<arch>.AppImage" "image/OpenBot.AppImage"
 docker build --file docker/Dockerfile --tag builders-bot:local image
 ```
 
