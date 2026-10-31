@@ -443,7 +443,7 @@ function processGroup(metric: ProcessMetric, tabPids: ReadonlySet<number>): Proc
 }
 
 /** One recorded delay of the histogram, in ms, less the timer interval that each record includes. */
-export function loopDelayMs(nanoseconds: number): number {
+function loopDelayMs(nanoseconds: number): number {
   return Math.max(0, nanoseconds / 1e6 - LOOP_RESOLUTION_MS);
 }
 

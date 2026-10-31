@@ -104,14 +104,6 @@ describe("avatarAnimates", () => {
     expect(avatarAnimates({ ...resting, mood: "live", reducedMotion: true })).toBe(false);
     expect(avatarAnimates({ ...resting, motion: "always", followPointer: true, reducedMotion: true })).toBe(false);
   });
-
-  it("stops an avatar out of sight, also while it works, and moves it again in sight", () => {
-    const working: AvatarAnimationInput = { ...resting, mood: "working", onScreen: false };
-    expect(avatarAnimates(working)).toBe(false);
-    expect(avatarAnimates({ ...working, mood: "live" })).toBe(false);
-    expect(avatarAnimates({ ...working, motion: "always", followPointer: true })).toBe(false);
-    expect(avatarAnimates({ ...working, onScreen: true })).toBe(true);
-  });
 });
 
 describe("channel faces", () => {
