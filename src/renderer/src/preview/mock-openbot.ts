@@ -1345,6 +1345,8 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       onHighlightPlacement: () => () => undefined,
     },
     openExternal: async () => undefined,
+    // The preview has no keychain, so every saved secret reads.
+    getUnreadableSecrets: async () => [],
     connectProvider: async () => clone(agentStatus),
     updateProviderCli: async () => clone(agentStatus),
     refreshAgentProviders: async () => clone(agentStatus),

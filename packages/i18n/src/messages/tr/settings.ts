@@ -166,6 +166,21 @@ export const messages = {
   "settings.sections.label": "Ayar bölümleri",
   "settings.panel.resize": "Sağ paneli yeniden boyutlandır",
   "settings.preferences.loadFailed": "Ayarlarınız yüklenemedi.",
+  "settings.secretHealth.title": "Okunamayan şifreli veriler",
+  "settings.secretHealth.description":
+    "Builders Bot bu bilgisayarda kayıtlı bazı verilerin şifresini çözemiyor. Bu, anahtar zinciri değiştiğinde veya bir profil başka bir uygulamadan kopyalandığında olur. Her dosya, verilerini yeniden girene veya kaldırana kadar kalır.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API anahtarı ({file}): Ayarlar → Ses bölümünde Parakeet'i (yerel) kullanın veya anahtarı kaldırın.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Ses sunucunuzun anahtarı ({file}): Ayarlar → Ses bölümünde anahtarı yeniden yazın veya kaldırın.",
+  "settings.secretHealth.store.customAgents":
+    "Özel ajanların değerleri ({file}): değerleri her ajanın düzenleyicisinde yeniden yazın.",
+  "settings.secretHealth.store.customProviders":
+    "Özel sağlayıcıların kimlik bilgileri ({file}): bunları bu bilgisayarın sağlayıcı ayarlarında yeniden yazın.",
+  "settings.secretHealth.store.providerCredentials":
+    "Sağlayıcı API anahtarları ({file}): her anahtarı bu bilgisayarın sağlayıcı ayarlarında yeniden kaydedin.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Mesajlaşma bağlantılarının belirteçleri ({file}): her çalışma alanını yeniden bağlayın.",
   "settings.preferences.saveFailed": "Bu ayar kaydedilemedi. Tekrar deneyin.",
   "settings.agentSelect.placeholder": "Bir ajan seçin",
   "settings.agentSelect.empty": "Yerel ajan yok",

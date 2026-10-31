@@ -20,6 +20,8 @@ export interface SettingsPort {
   getRemoteNetworkRoute: BuildersBotDesktopApi["getRemoteNetworkRoute"];
   getRemoteSessionReusePreference: BuildersBotDesktopApi["getRemoteSessionReusePreference"];
   getGuardPreference: BuildersBotDesktopApi["getGuardPreference"];
+  /** The encrypted files of this computer that cannot be decrypted now, for the notice of the General tab. */
+  getUnreadableSecrets: BuildersBotDesktopApi["getUnreadableSecrets"];
   onAgentMemoryLimitPreference: BuildersBotDesktopApi["onAgentMemoryLimitPreference"];
   onAnalyticsPreference: BuildersBotDesktopApi["onAnalyticsPreference"];
   onApprovalAutomation: BuildersBotDesktopApi["onApprovalAutomation"];

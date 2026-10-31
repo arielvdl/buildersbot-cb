@@ -85,6 +85,11 @@ export class ProviderCredentialStore {
     return this.#keys.get(provider) ?? null;
   }
 
+  /** True while the file on disk could not be read, until the user saves or removes a key. */
+  unreadable(): boolean {
+    return this.#loadError !== null;
+  }
+
   /** Whether a key is stored. This is the only fact that may cross the IPC boundary. */
   status(provider: AgentProviderId): ProviderApiKeyStatus {
     if (this.get(provider) !== null) return "saved";

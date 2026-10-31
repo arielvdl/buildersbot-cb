@@ -181,6 +181,21 @@ export const messages = {
   "settings.sections.label": "Sections des réglages",
   "settings.panel.resize": "Redimensionner le panneau de droite",
   "settings.preferences.loadFailed": "Impossible de charger vos réglages.",
+  "settings.secretHealth.title": "Données chiffrées illisibles",
+  "settings.secretHealth.description":
+    "Builders Bot ne peut pas déchiffrer certaines données enregistrées sur cet ordinateur. Cela arrive quand le trousseau change ou quand un profil est copié depuis une autre app. Chaque fichier reste jusqu’à ce que vous saisissiez de nouveau ses données ou que vous le supprimiez.",
+  "settings.secretHealth.store.voiceApiKey":
+    "Clé API ElevenLabs ({file}) : dans Réglages → Voix, utilisez Parakeet (local) ou supprimez la clé.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Clé de votre serveur vocal ({file}) : dans Réglages → Voix, saisissez de nouveau la clé ou supprimez-la.",
+  "settings.secretHealth.store.customAgents":
+    "Valeurs des agents personnalisés ({file}) : saisissez de nouveau les valeurs dans l’éditeur de chaque agent.",
+  "settings.secretHealth.store.customProviders":
+    "Identifiants des fournisseurs personnalisés ({file}) : saisissez-les de nouveau dans les réglages des fournisseurs de cet ordinateur.",
+  "settings.secretHealth.store.providerCredentials":
+    "Clés API des fournisseurs ({file}) : enregistrez de nouveau chaque clé dans les réglages des fournisseurs de cet ordinateur.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Jetons des connexions de messagerie ({file}) : reconnectez chaque espace de travail.",
   "settings.preferences.saveFailed": "Impossible d’enregistrer ce réglage. Réessayez.",
   "settings.agentSelect.placeholder": "Choisir un agent",
   "settings.agentSelect.empty": "Aucun agent local",

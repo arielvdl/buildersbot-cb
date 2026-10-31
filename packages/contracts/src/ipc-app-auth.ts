@@ -2,7 +2,7 @@ import type { ManagedProviderId, ManagedToolRuntimeId } from "./agent-providers"
 import type { AgentModelId } from "./ipc-agent-identity";
 import type { AgentProviderId } from "./ipc-agent-status";
 import { integerInRange, isFiniteNumber, isIdentifier } from "./ipc-bounded-values";
-import { isDynamicRecord, isString } from "./runtime-values";
+import { isDynamicRecord, isOneOf, isString } from "./runtime-values";
 
 export type DesktopPlatform = "darwin" | "win32" | "linux";
 export type AppVariant = "production" | "dev" | "preview";
@@ -276,6 +276,42 @@ export type CentralAuthDevicePoll =
   | { status: "rate_limited"; retryAfterSeconds: number };
 
 export type MacPermissionId = "screen-recording" | "accessibility";
+
+/**
+ * The stores of this computer that keep a secret encrypted by the system cipher and can tell that
+ * they cannot decrypt it. A change of the keychain item, or a profile copied from another app, makes
+ * their files unreadable together.
+ */
+export const SECRET_HEALTH_STORES = [
+  "voice-api-key",
+  "voice-server-key",
+  "custom-agents",
+  "custom-providers",
+  "provider-credentials",
+  "messaging-credentials",
+] as const;
+export type SecretHealthStore = (typeof SECRET_HEALTH_STORES)[number];
+
+/** A store whose saved file this computer cannot decrypt now. Only the store and the file name, never a value. */
+export interface UnreadableSecret {
+  store: SecretHealthStore;
+  /** The file name in the application data folder, with no folder. */
+  file: string;
+}
+
+export function isUnreadableSecrets(value: unknown): value is UnreadableSecret[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= SECRET_HEALTH_STORES.length &&
+    value.every(
+      (entry) =>
+        isDynamicRecord(entry) &&
+        isOneOf(SECRET_HEALTH_STORES, entry.store) &&
+        isString(entry.file) &&
+        /^[\w.-]{1,128}$/u.test(entry.file),
+    )
+  );
+}
 
 /**
  * The Apple apps an MCP server may drive through AppleScript. macOS asks once for each, under

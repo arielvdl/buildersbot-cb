@@ -262,6 +262,21 @@ export const messages = {
   "settings.sections.label": "Seções das configurações",
   "settings.panel.resize": "Redimensionar painel direito",
   "settings.preferences.loadFailed": "Não foi possível carregar suas configurações.",
+  "settings.secretHealth.title": "Dados cifrados que não podem ser lidos",
+  "settings.secretHealth.description":
+    "O Builders Bot não consegue decifrar alguns dados salvos neste computador. Isso acontece quando o Keychain muda ou quando um perfil é copiado de outro app. Cada arquivo fica até você digitar os dados de novo ou removê-los.",
+  "settings.secretHealth.store.voiceApiKey":
+    "Chave de API da ElevenLabs ({file}): em Configurações → Voz, use o Parakeet (local) ou remova a chave.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Chave do seu servidor de voz ({file}): em Configurações → Voz, digite a chave de novo ou remova-a.",
+  "settings.secretHealth.store.customAgents":
+    "Valores de agentes personalizados ({file}): digite os valores de novo no editor de cada agente.",
+  "settings.secretHealth.store.customProviders":
+    "Credenciais de provedores personalizados ({file}): digite-as de novo nas configurações de provedores deste computador.",
+  "settings.secretHealth.store.providerCredentials":
+    "Chaves de API de provedores ({file}): salve cada chave de novo nas configurações de provedores deste computador.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokens de conexões de mensagens ({file}): conecte cada espaço de trabalho de novo.",
   "settings.preferences.saveFailed": "Não foi possível salvar esta configuração. Tente de novo.",
   "settings.agentSelect.placeholder": "Escolha um agente",
   "settings.agentSelect.empty": "Nenhum agente local",

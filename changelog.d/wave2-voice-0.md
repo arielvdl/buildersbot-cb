@@ -25,6 +25,11 @@
   Open Windows Settings) and Restart Builders Bot, and says that commands that agents run can also
   use the microphone.
 
+- Settings > General warns when Builders Bot cannot decrypt saved data on this computer, which
+  happens when the keychain changes or a profile is copied from another app. It lists the ElevenLabs
+  key, the voice server key, custom agent values, custom provider credentials, provider API keys and
+  messaging tokens that cannot be read, with the file name and what to do for each.
+
 ### Changed
 
 - The text of Settings > Voice > Read replies aloud says that only the reply to a dictated message is

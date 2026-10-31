@@ -172,6 +172,21 @@ export const messages = {
   "settings.sections.label": "Einstellungsbereiche",
   "settings.panel.resize": "Größe des rechten Bereichs ändern",
   "settings.preferences.loadFailed": "Deine Einstellungen konnten nicht geladen werden.",
+  "settings.secretHealth.title": "Verschlüsselte Daten, die sich nicht lesen lassen",
+  "settings.secretHealth.description":
+    "Builders Bot kann einige gespeicherte Daten auf diesem Computer nicht entschlüsseln. Das passiert, wenn sich der Schlüsselbund ändert oder ein Profil aus einer anderen App kopiert wird. Jede Datei bleibt, bis du ihre Daten erneut eingibst oder sie entfernst.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs-API-Schlüssel ({file}): Nutze unter Einstellungen → Diktat Parakeet (lokal) oder entferne den Schlüssel.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Schlüssel deines Sprachservers ({file}): Gib den Schlüssel unter Einstellungen → Diktat erneut ein oder entferne ihn.",
+  "settings.secretHealth.store.customAgents":
+    "Werte eigener Agenten ({file}): Gib die Werte im Editor jedes Agenten erneut ein.",
+  "settings.secretHealth.store.customProviders":
+    "Zugangsdaten eigener Anbieter ({file}): Gib sie in den Anbieter-Einstellungen dieses Computers erneut ein.",
+  "settings.secretHealth.store.providerCredentials":
+    "API-Schlüssel der Anbieter ({file}): Speichere jeden Schlüssel in den Anbieter-Einstellungen dieses Computers erneut.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokens von Nachrichtenverbindungen ({file}): Verbinde jeden Arbeitsbereich erneut.",
   "settings.preferences.saveFailed": "Diese Einstellung konnte nicht gespeichert werden. Versuche es erneut.",
   "settings.agentSelect.placeholder": "Agenten auswählen",
   "settings.agentSelect.empty": "Keine lokalen Agenten",

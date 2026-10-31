@@ -75,6 +75,11 @@ export class MessagingCredentialStore implements MessagingCredentials {
     return [...this.#values.keys()];
   }
 
+  /** True while the file on disk could not be read, until the user saves or removes a token. */
+  unreadable(): boolean {
+    return this.#loadError !== null;
+  }
+
   status(connectionId: string): MessagingCredentialState {
     if (this.get(connectionId) !== null) return "saved";
     return this.#loadError ? "unreadable" : "missing";

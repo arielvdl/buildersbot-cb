@@ -173,6 +173,21 @@ export const messages = {
   "settings.sections.label": "Sekcje ustawień",
   "settings.panel.resize": "Zmień rozmiar prawego panelu",
   "settings.preferences.loadFailed": "Nie udało się wczytać ustawień.",
+  "settings.secretHealth.title": "Zaszyfrowane dane, których nie można odczytać",
+  "settings.secretHealth.description":
+    "Builders Bot nie może odszyfrować części zapisanych danych na tym komputerze. Dzieje się tak, gdy zmienia się pęk kluczy albo gdy profil zostaje skopiowany z innej aplikacji. Każdy plik zostaje, dopóki nie wpiszesz jego danych ponownie albo go nie usuniesz.",
+  "settings.secretHealth.store.voiceApiKey":
+    "Klucz API ElevenLabs ({file}): w Ustawienia → Głos użyj Parakeet (lokalnie) albo usuń klucz.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Klucz twojego serwera głosu ({file}): w Ustawienia → Głos wpisz klucz ponownie albo go usuń.",
+  "settings.secretHealth.store.customAgents":
+    "Wartości agentów własnych ({file}): wpisz wartości ponownie w edytorze każdego agenta.",
+  "settings.secretHealth.store.customProviders":
+    "Dane logowania dostawców własnych ({file}): wpisz je ponownie w ustawieniach dostawców tego komputera.",
+  "settings.secretHealth.store.providerCredentials":
+    "Klucze API dostawców ({file}): zapisz każdy klucz ponownie w ustawieniach dostawców tego komputera.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokeny połączeń komunikatorów ({file}): połącz ponownie każdy obszar roboczy.",
   "settings.preferences.saveFailed": "Nie udało się zapisać tego ustawienia. Spróbuj ponownie.",
   "settings.agentSelect.placeholder": "Wybierz agenta",
   "settings.agentSelect.empty": "Brak lokalnych agentów",

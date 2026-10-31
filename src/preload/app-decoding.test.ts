@@ -39,6 +39,7 @@ import {
   decodeProviderDetectionSettings,
   decodeResumeInterruptedWorkResult,
   decodeResumeOffer,
+  decodeUnreadableSecrets,
   decodeUpdatePreference,
   decodeUpdateStatus,
   decodeVoiceServerProbe,
@@ -145,6 +146,15 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   ],
   ["no voice server", decodeVoiceServerSettings, null],
   ["a refused microphone", decodeMicrophoneAccess, "denied"],
+  ["no unreadable secret", decodeUnreadableSecrets, []],
+  [
+    "two unreadable secrets",
+    decodeUnreadableSecrets,
+    [
+      { store: "voice-api-key", file: "voice-api-key.json" },
+      { store: "custom-agents", file: "custom-agents.json" },
+    ],
+  ],
   ["a microphone grant that the system does not tell", decodeMicrophoneAccess, "unknown"],
   [
     "a voice server test that found models",
@@ -313,6 +323,12 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ],
   ["a voice server test with an unknown field", decodeVoiceServerProbe, { ok: false, field: "model", message: "" }],
   ["an unknown microphone grant", decodeMicrophoneAccess, "blocked"],
+  ["an unreadable secret of an unknown store", decodeUnreadableSecrets, [{ store: "keychain", file: "x.json" }]],
+  [
+    "an unreadable secret with a path in its file name",
+    decodeUnreadableSecrets,
+    [{ store: "voice-api-key", file: "../voice-api-key.json" }],
+  ],
   ["a microphone grant that is not text", decodeMicrophoneAccess, true],
   [
     "a voice server test with an empty model",

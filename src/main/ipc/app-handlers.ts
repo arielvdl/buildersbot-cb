@@ -15,6 +15,7 @@ import {
   externalLinkAppName,
   GROK_BOT_EXPORT_URL,
   parseSecurityGuardPreferenceChange,
+  type UnreadableSecret,
 } from "@openbot/contracts/ipc";
 import { analyticsOnByDefault } from "@openbot/telemetry";
 import { app, type BrowserWindow, dialog, type OpenDialogOptions } from "electron";
@@ -44,6 +45,7 @@ import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-
 import type { RemoteSessionCache } from "../remote-session-cache";
 import type { RemoteSessionReusePreferenceStore } from "../remote-session-reuse-preference-store";
 import type { ResumeOffer } from "../resume-offer";
+import { unreadableSecrets } from "../secret-health";
 import type { SecurityGuardService } from "../security-guard-service";
 import { readSetupState, writeSetupState } from "../setup-store";
 import type { UpdateService } from "../update-service";
@@ -342,6 +344,7 @@ export function appIpcHandlers({
       }),
       openExternal: payloadHandler(parseExternalDestination, (parsed) => openLink(EXTERNAL_DESTINATIONS[parsed])),
       openUrl: payloadHandler(stringPayload("URL", INPUT_LIMITS.browserUrl), (url) => openHttpLink(url, openLink)),
+      getUnreadableSecrets: handler((): UnreadableSecret[] => unreadableSecrets()),
       getExternalLinkPreference: handler(() => externalLinkPreference.get()),
       setExternalLinkPreference: payloadHandler(parseExternalLinkPreference, (parsed) =>
         runCauseEffect(externalLinkPreference.set(parsed)),

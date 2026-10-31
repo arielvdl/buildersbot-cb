@@ -174,6 +174,21 @@ export const messages = {
   "settings.sections.label": "Разделы настроек",
   "settings.panel.resize": "Изменить размер правой панели",
   "settings.preferences.loadFailed": "Не удалось загрузить настройки.",
+  "settings.secretHealth.title": "Зашифрованные данные, которые нельзя прочитать",
+  "settings.secretHealth.description":
+    "Builders Bot не может расшифровать часть сохранённых данных на этом компьютере. Так бывает, когда меняется связка ключей или когда профиль скопирован из другого приложения. Каждый файл остаётся, пока вы не введёте его данные снова или не удалите его.",
+  "settings.secretHealth.store.voiceApiKey":
+    "API-ключ ElevenLabs ({file}): в разделе «Настройки» → «Голос» используйте Parakeet (локально) или удалите ключ.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Ключ вашего голосового сервера ({file}): в разделе «Настройки» → «Голос» введите ключ снова или удалите его.",
+  "settings.secretHealth.store.customAgents":
+    "Значения пользовательских агентов ({file}): введите значения снова в редакторе каждого агента.",
+  "settings.secretHealth.store.customProviders":
+    "Учётные данные пользовательских провайдеров ({file}): введите их снова в настройках провайдеров этого компьютера.",
+  "settings.secretHealth.store.providerCredentials":
+    "API-ключи провайдеров ({file}): сохраните каждый ключ снова в настройках провайдеров этого компьютера.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Токены подключений мессенджеров ({file}): подключите каждое рабочее пространство снова.",
   "settings.preferences.saveFailed": "Не удалось сохранить эту настройку. Повторите попытку.",
   "settings.agentSelect.placeholder": "Выберите агента",
   "settings.agentSelect.empty": "Нет локальных агентов",

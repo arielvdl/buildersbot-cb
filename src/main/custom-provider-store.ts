@@ -143,6 +143,14 @@ export class CustomProviderStore {
   }
 
   /**
+   * How many saved endpoints have credentials that this computer cannot decrypt. Those endpoints run
+   * with no credentials until the user enters them again.
+   */
+  unreadableSecretCount(): number {
+    return this.#entries.filter(({ stored, secret }) => Boolean(stored.secret) && secret === null).length;
+  }
+
+  /**
    * What the renderer is allowed to know. None of the fields can hold a credential: the header names
    * are shown so that Edit can keep their values, which stay here.
    */

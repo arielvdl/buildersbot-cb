@@ -14,6 +14,9 @@
 //      `apiKeyUnreadable` is true. A save with no typed key keeps the file. A server that refuses
 //      the request says that the saved key cannot be read; a server that needs no key still answers.
 //      A new key clears the state.
+//   5. The secret health registry (Fase 0b): a custom agent whose values cannot be decrypted is
+//      counted, and the registry lists only the stores that cannot read their file now, with the
+//      file name and no value. A key that is saved again leaves the list at once.
 //
 // Run: bun scripts/voice-key-unreadable-smoke.ts
 // It writes .openbot-build/voice-anywhere/f0a-key-unreadable.json and exits non-zero on a failure.
@@ -27,6 +30,8 @@ import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger, teeLogLines } from "@openbot/logging";
 import { Effect, Result } from "effect";
+import { CUSTOM_AGENTS_FILE, CustomAgentStore } from "../src/main/custom-agent-store";
+import { registerSecretHealthSource, unreadableSecrets } from "../src/main/secret-health";
 import { type VoiceApiKeyCipher, VoiceApiKeyStore } from "../src/main/voice-api-key-store";
 import { VoicePreferenceStore } from "../src/main/voice-preference-store";
 import { createVoiceServerPreferenceStore, VoiceServerService } from "../src/main/voice-server-service";
@@ -216,6 +221,46 @@ try {
     "a new key clears the unreadable state",
     renewed?.hasApiKey === true && renewed.apiKeyUnreadable === undefined && serverKeys.status() === "saved",
     renewed,
+  );
+  // 5. The secret health registry, with a custom agent whose values were sealed by the old cipher.
+  const agentsPath = join(directory, CUSTOM_AGENTS_FILE);
+  const resolveCommand = () => Effect.succeed("/usr/bin/true");
+  const sealedAgents = new CustomAgentStore({ path: agentsPath, cipher: aesCipher(), resolve: resolveCommand });
+  await Effect.runPromise(sealedAgents.load());
+  await Effect.runPromise(
+    sealedAgents.save({
+      id: "smoke-agent",
+      name: "Smoke agent",
+      command: "/usr/bin/true",
+      args: [],
+      env: [{ name: "SMOKE_TOKEN", value: KEY }],
+      usagePrompt: null,
+    }),
+  );
+  const agents = new CustomAgentStore({ path: agentsPath, cipher: aesCipher(), resolve: resolveCommand });
+  await Effect.runPromise(agents.load());
+  check("a custom agent whose values cannot be decrypted is counted", agents.unreadableSecretCount() === 1, {
+    count: agents.unreadableSecretCount(),
+  });
+  const unreadableKeys = new VoiceApiKeyStore({ path: keyPath, cipher: aesCipher() });
+  await Effect.runPromise(unreadableKeys.load());
+  registerSecretHealthSource("voice-api-key", "voice-api-key.json", () => unreadableKeys.status() === "unreadable");
+  registerSecretHealthSource("voice-server-key", "voice-server-key.json", () => serverKeys.status() === "unreadable");
+  registerSecretHealthSource("custom-agents", CUSTOM_AGENTS_FILE, () => agents.unreadableSecretCount() > 0);
+  const listed = unreadableSecrets();
+  check(
+    "the registry lists the unreadable stores with their file names only",
+    listed.length === 2 &&
+      listed.some((entry) => entry.store === "voice-api-key" && entry.file === "voice-api-key.json") &&
+      listed.some((entry) => entry.store === "custom-agents" && entry.file === CUSTOM_AGENTS_FILE) &&
+      !JSON.stringify(listed).includes(KEY),
+    listed,
+  );
+  await Effect.runPromise(unreadableKeys.set(NEW_KEY));
+  check(
+    "a key that is saved again leaves the list at once",
+    unreadableSecrets().every((entry) => entry.store !== "voice-api-key"),
+    unreadableSecrets(),
   );
 } finally {
   stopTee();

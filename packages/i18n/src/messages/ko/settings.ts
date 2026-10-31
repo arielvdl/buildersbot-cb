@@ -183,6 +183,20 @@ export const messages = {
   "settings.sections.label": "설정 섹션",
   "settings.panel.resize": "오른쪽 패널 크기 조절",
   "settings.preferences.loadFailed": "설정을 불러올 수 없어요.",
+  "settings.secretHealth.title": "읽을 수 없는 암호화 데이터",
+  "settings.secretHealth.description":
+    "Builders Bot이 이 컴퓨터에 저장된 일부 데이터를 복호화할 수 없어요. 키체인이 바뀌거나 다른 앱에서 프로필을 복사하면 이런 일이 생겨요. 각 파일은 데이터를 다시 입력하거나 삭제할 때까지 남아 있어요.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API 키({file}): 설정 → 음성에서 Parakeet(로컬)을 사용하거나 키를 삭제해 주세요.",
+  "settings.secretHealth.store.voiceServerKey":
+    "음성 서버 키({file}): 설정 → 음성에서 키를 다시 입력하거나 삭제해 주세요.",
+  "settings.secretHealth.store.customAgents":
+    "사용자 지정 에이전트의 값({file}): 각 에이전트 편집기에서 값을 다시 입력해 주세요.",
+  "settings.secretHealth.store.customProviders":
+    "사용자 지정 제공자의 자격 증명({file}): 이 컴퓨터의 제공자 설정에서 다시 입력해 주세요.",
+  "settings.secretHealth.store.providerCredentials":
+    "제공자 API 키({file}): 이 컴퓨터의 제공자 설정에서 각 키를 다시 저장해 주세요.",
+  "settings.secretHealth.store.messagingCredentials": "메시지 연결 토큰({file}): 각 워크스페이스를 다시 연결해 주세요.",
   "settings.preferences.saveFailed": "이 설정을 저장할 수 없어요. 다시 시도해 주세요.",
   "settings.agentSelect.placeholder": "에이전트 선택",
   "settings.agentSelect.empty": "로컬 에이전트 없음",

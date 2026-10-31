@@ -96,6 +96,7 @@ import {
   isResumeInterruptedWorkResult,
   isSecurityGuardPreference,
   isSpeechVoice,
+  isUnreadableSecrets,
   isVoiceLanguage,
   isVoiceModelId,
   isVoiceServerProbe,
@@ -122,6 +123,7 @@ import {
   type SpeechAudio,
   type SpeechModelStatus,
   type SpeechSettings,
+  type UnreadableSecret,
   UPDATE_PHASES,
   type UpdatePreference,
   type UpdateStatus,
@@ -593,6 +595,11 @@ export function decodeVoiceServerSettings(value: unknown): VoiceServerSettings |
     ...(apiKeyUnreadable === undefined ? {} : { apiKeyUnreadable }),
     routes: { dictation, speech, transcriptionModel, speechModel, voice },
   };
+}
+
+export function decodeUnreadableSecrets(value: unknown): UnreadableSecret[] {
+  if (!isUnreadableSecrets(value)) throw new Error("Invalid unreadable secrets.");
+  return value.map(({ store, file }) => ({ store, file }));
 }
 
 export function decodeMicrophoneAccess(value: unknown): MicrophoneAccess {

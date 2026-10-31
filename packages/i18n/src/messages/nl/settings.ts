@@ -188,6 +188,21 @@ export const messages = {
   "settings.sections.label": "Onderdelen van instellingen",
   "settings.panel.resize": "Grootte rechterpaneel wijzigen",
   "settings.preferences.loadFailed": "Kan je instellingen niet laden.",
+  "settings.secretHealth.title": "Versleutelde gegevens die niet te lezen zijn",
+  "settings.secretHealth.description":
+    "Builders Bot kan sommige opgeslagen gegevens op deze computer niet ontsleutelen. Dit gebeurt als de sleutelhanger verandert of als een profiel uit een andere app is gekopieerd. Elk bestand blijft tot je de gegevens opnieuw invoert of verwijdert.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs-API-sleutel ({file}): gebruik in Instellingen → Spraak Parakeet (lokaal) of verwijder de sleutel.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Sleutel van je spraakserver ({file}): typ de sleutel opnieuw in Instellingen → Spraak of verwijder hem.",
+  "settings.secretHealth.store.customAgents":
+    "Waarden van eigen agents ({file}): typ de waarden opnieuw in de editor van elke agent.",
+  "settings.secretHealth.store.customProviders":
+    "Inloggegevens van eigen aanbieders ({file}): typ ze opnieuw in de aanbiederinstellingen van deze computer.",
+  "settings.secretHealth.store.providerCredentials":
+    "API-sleutels van aanbieders ({file}): sla elke sleutel opnieuw op in de aanbiederinstellingen van deze computer.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokens van berichtenkoppelingen ({file}): koppel elke werkruimte opnieuw.",
   "settings.preferences.saveFailed": "Kan deze instelling niet opslaan. Probeer het opnieuw.",
   "settings.agentSelect.placeholder": "Kies een agent",
   "settings.agentSelect.empty": "Geen lokale agents",

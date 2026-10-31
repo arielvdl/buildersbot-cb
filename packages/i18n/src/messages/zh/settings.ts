@@ -184,6 +184,18 @@ export const messages = {
   "settings.panel.resize": "调整右侧面板宽度",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
   "settings.preferences.loadFailed": "无法加载你的设置。",
+  "settings.secretHealth.title": "无法读取的加密数据",
+  "settings.secretHealth.description":
+    "Builders Bot 无法解密这台电脑上保存的部分数据。钥匙串变更或从其他应用复制配置文件时会发生这种情况。每个文件都会保留，直到你重新输入其数据或将其移除。",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API 密钥（{file}）：在“设置 → 语音”中使用 Parakeet（本地），或移除该密钥。",
+  "settings.secretHealth.store.voiceServerKey":
+    "你的语音服务器的密钥（{file}）：在“设置 → 语音”中重新输入密钥，或将其移除。",
+  "settings.secretHealth.store.customAgents": "自定义助手的值（{file}）：请在每个助手的编辑器中重新输入这些值。",
+  "settings.secretHealth.store.customProviders": "自定义服务商的凭据（{file}）：请在这台电脑的服务商设置中重新输入。",
+  "settings.secretHealth.store.providerCredentials":
+    "服务商 API 密钥（{file}）：请在这台电脑的服务商设置中重新保存每个密钥。",
+  "settings.secretHealth.store.messagingCredentials": "消息连接的令牌（{file}）：请重新连接每个工作区。",
   "settings.preferences.saveFailed": "无法保存该设置，请重试。",
   // The agent picker on the skill and plugin install pages.
   "settings.agentSelect.placeholder": "选择助手",

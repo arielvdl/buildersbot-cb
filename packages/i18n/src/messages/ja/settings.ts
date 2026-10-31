@@ -165,6 +165,21 @@ export const messages = {
   "settings.sections.label": "設定のセクション",
   "settings.panel.resize": "右パネルのサイズを変更",
   "settings.preferences.loadFailed": "設定を読み込めませんでした。",
+  "settings.secretHealth.title": "読み取れない暗号化データ",
+  "settings.secretHealth.description":
+    "Builders Bot は、このコンピューターに保存された一部のデータを復号できません。キーチェーンが変わったときや、別のアプリからプロファイルをコピーしたときに起こります。各ファイルは、データを入力し直すか削除するまで残ります。",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs の API キー（{file}）：設定 → 音声 で Parakeet（ローカル）を使うか、キーを削除してください。",
+  "settings.secretHealth.store.voiceServerKey":
+    "音声サーバーのキー（{file}）：設定 → 音声 でキーを入力し直すか、削除してください。",
+  "settings.secretHealth.store.customAgents":
+    "カスタムエージェントの値（{file}）：各エージェントのエディターで値を入力し直してください。",
+  "settings.secretHealth.store.customProviders":
+    "カスタムプロバイダーの認証情報（{file}）：このコンピューターのプロバイダー設定で入力し直してください。",
+  "settings.secretHealth.store.providerCredentials":
+    "プロバイダーの API キー（{file}）：このコンピューターのプロバイダー設定で各キーを保存し直してください。",
+  "settings.secretHealth.store.messagingCredentials":
+    "メッセージ接続のトークン（{file}）：各ワークスペースをもう一度接続してください。",
   "settings.preferences.saveFailed": "この設定を保存できませんでした。もう一度お試しください。",
   "settings.agentSelect.placeholder": "エージェントを選択",
   "settings.agentSelect.empty": "ローカルのエージェントがありません",

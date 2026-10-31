@@ -161,6 +161,7 @@ import type {
   ProviderRuntimeSnapshot,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
+  UnreadableSecret,
   UpdatePreference,
   UpdatePreferenceChange,
   UpdateRestartMode,
@@ -753,6 +754,11 @@ export const IPC_ENDPOINTS = {
     openUpdateSettings: event<undefined>()("app:open-update-settings"),
     openExternal: request<ExternalDestination, void>()("app:open-external"),
     openUrl: request<string, void>()("app:open-url"),
+    /**
+     * The stores of this computer whose encrypted file cannot be decrypted now, with only the store
+     * and the file name. Read-only.
+     */
+    getUnreadableSecrets: request<undefined, UnreadableSecret[]>()("app:secret-health"),
     getExternalLinkPreference: request<undefined, ExternalLinkPreference>()("app:get-external-link-preference"),
     setExternalLinkPreference: request<ExternalLinkPreference, ExternalLinkPreference>()(
       "app:set-external-link-preference",

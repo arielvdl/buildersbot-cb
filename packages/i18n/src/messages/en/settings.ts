@@ -281,6 +281,21 @@ export const messages = defineMessages("settings", {
   "settings.panel.resize": "Resize right panel",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
   "settings.preferences.loadFailed": "Could not load your settings.",
+  "settings.secretHealth.title": "Encrypted data that cannot be read",
+  "settings.secretHealth.description":
+    "Builders Bot cannot decrypt some saved data on this computer. This happens when the keychain changes or when a profile is copied from another app. Each file stays until you enter its data again or remove it.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API key ({file}): in Settings → Voice, use Parakeet (local) or remove the key.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Key of your voice server ({file}): in Settings → Voice, type the key again or remove it.",
+  "settings.secretHealth.store.customAgents":
+    "Values of custom agents ({file}): type the values again in the editor of each agent.",
+  "settings.secretHealth.store.customProviders":
+    "Credentials of custom providers ({file}): type them again in the Providers settings of this computer.",
+  "settings.secretHealth.store.providerCredentials":
+    "Provider API keys ({file}): save each key again in the Providers settings of this computer.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokens of messaging connections ({file}): connect each workspace again.",
   "settings.preferences.saveFailed": "Could not save this setting. Try again.",
   // The agent picker on the skill and plugin install pages.
   "settings.agentSelect.placeholder": "Choose an agent",
