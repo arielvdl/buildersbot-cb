@@ -392,6 +392,29 @@ ubuntu_ami() { # <arm64|amd64>
 build_bucket() { stack_output bb-srv-base BuildBucketName; }
 repo_uri() { stack_output bb-srv-base RepositoryUri; }
 
+# A imagem que o bb-srv-Install diz rodar, lida da saída do SSM. Essa saída mistura passos que não
+# são de confiança, então "a última linha ganha" deixaria uma linha forjada decidir o que fica no
+# parâmetro do setor. Vale uma única linha "BB_IMAGE <repositório>@sha256:<64 hex>" e só do nosso
+# repositório ECR ($2): duas linhas, outro registro ou outro formato recusam. Uso: <saída> <repo>
+parse_running_image() {
+  local output=$1 repo=$2 lines count
+  lines=$(sed -n 's/^BB_IMAGE //p' <<<"$output")
+  count=$(grep -c . <<<"$lines" || true)
+  if [ "$count" != 1 ]; then
+    printf 'esperava uma única linha BB_IMAGE na saída do bb-srv-Install e achei %s\n' "$count" >&2
+    return 1
+  fi
+  if [[ $lines != "$repo"@sha256:* ]]; then
+    printf 'a linha BB_IMAGE não é do repositório ECR do projeto\n' >&2
+    return 1
+  fi
+  if ! [[ $lines =~ ^[A-Za-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+    printf 'a linha BB_IMAGE não tem um digest sha256 válido\n' >&2
+    return 1
+  fi
+  printf '%s\n' "$lines"
+}
+
 # Lê o relatório do builder (reports/<tag>.json) e confere o que não depende da aprovação: a tag
 # (<versão>-<sha7>-<arch>), a arquitetura, a marca de rejeição, o teste de fumaça, o bundle -ops, o
 # commit (40 hex, o sha7 da tag, existe no fork) e a versão (a do package.json desse commit e a da

@@ -493,5 +493,42 @@ fi
 expect_refusal "D19 gc --delete exige a confirmação digitada (sem terminal, para antes de apagar)" "a confirmação precisa de um terminal" h_gc \
   gc_env bash scripts/gc-snapshots.sh --delete
 
+# ---------------------------------------------------------------- E: imagem em uso e acesso do operador (revisão de segurança automática)
+# A saída do SSM mistura passos que não são de confiança: vale uma única linha BB_IMAGE e só do nosso ECR.
+REPO_T=358748433479.dkr.ecr.us-east-1.amazonaws.com/bb-srv/server
+IMG_T=$REPO_T@$DIGEST_A
+expect_parse() { # <nome> <ok | texto esperado do erro> <saída do SSM> <repositório>
+  local name=$1 expect=$2 out status
+  out=$(lib parse_running_image "$3" "$4" 2>&1)
+  status=$?
+  if [ "$expect" = ok ]; then
+    if [ "$status" = 0 ] && [ "$out" = "$IMG_T" ]; then
+      passed=$((passed + 1)); printf 'ok     %s\n' "$name"
+    else
+      bad "$name: esperava devolver a imagem" "$out"
+    fi
+  elif [ "$status" != 0 ] && grep -qF -- "$expect" <<<"$out"; then
+    passed=$((passed + 1)); printf 'ok     %s\n' "$name"
+  else
+    bad "$name: esperava recusa com '$expect' (status $status)" "$out"
+  fi
+}
+expect_parse "E1 aceita uma única linha BB_IMAGE do nosso ECR" ok $'passo 1\nBB_IMAGE '"$IMG_T"$'\nfim' "$REPO_T"
+expect_parse "E1 recusa saída sem BB_IMAGE" "achei 0" $'passo 1\nfim' "$REPO_T"
+expect_parse "E1 recusa duas linhas BB_IMAGE (a última não ganha)" "achei 2" $'BB_IMAGE '"$IMG_T"$'\nBB_IMAGE '"$REPO_T@$DIGEST_B" "$REPO_T"
+expect_parse "E1 recusa linha forjada antes da verdadeira" "achei 2" $'BB_IMAGE evil.example.com/x@'"$DIGEST_B"$'\nBB_IMAGE '"$IMG_T" "$REPO_T"
+expect_parse "E1 recusa registro de outro dono" "não é do repositório ECR do projeto" $'BB_IMAGE evil.example.com/bb-srv/server@'"$DIGEST_A" "$REPO_T"
+expect_parse "E1 recusa repositório vizinho de nome parecido" "não é do repositório ECR do projeto" $'BB_IMAGE '"$REPO_T"'-evil@'"$DIGEST_A" "$REPO_T"
+expect_parse "E1 recusa digest malformado" "digest sha256 válido" $'BB_IMAGE '"$REPO_T"'@sha256:abc' "$REPO_T"
+
+# O operador só alcança VMs de setor (Role=sector-host): a VM do Signal (4 segredos) e o builder ficam para o administrador.
+role_conditions=$(grep -c "'ssm:resourceTag/Role': sector-host" templates/base.yaml)
+if [ "$role_conditions" = 2 ] && grep -q "{Key: Role, Value: sector-host}" templates/sector-compute.yaml &&
+  grep -q "{Key: Role, Value: signal}" templates/signal.yaml; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "E2 o operador só abre sessão e comando em VM com Role=sector-host (Signal fora)"
+else
+  bad "E2 o operador só abre sessão e comando em VM com Role=sector-host" "condições no base.yaml: $role_conditions (esperava 2)"
+fi
+
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]

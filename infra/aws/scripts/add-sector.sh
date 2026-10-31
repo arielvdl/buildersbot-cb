@@ -226,9 +226,8 @@ if [ "$install" = 1 ]; then
     die "a instalação falhou. Leia a saída acima e o log /bb-srv/$sector. Corrigida a causa: scripts/add-sector.sh $sector --resume."
 
   # A imagem que o host roda de fato: no attach é a do .env do disco, não a do relatório mais novo.
-  running=$(sed -n 's/^BB_IMAGE //p' <<<"$SSM_OUTPUT" | tail -n 1)
-  [[ $running =~ ^[A-Za-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]] ||
-    die "o bb-srv-Install não informou a imagem em uso (linha BB_IMAGE). Confira com scripts/status.sh $sector --deep antes de gravar /bb-srv/sectors/$sector/image."
+  running=$(parse_running_image "$SSM_OUTPUT" "$(repo_uri)") ||
+    die "o bb-srv-Install não informou a imagem em uso numa única linha BB_IMAGE do repositório ECR do projeto. Confira com scripts/status.sh $sector --deep antes de gravar /bb-srv/sectors/$sector/image."
   [ "$running" = "$(repo_uri)@$IMAGE_DIGEST" ] || say "   o disco roda $running (não a imagem do relatório $IMAGE_TAG): é ela que fica registrada."
   aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/image" --type String --overwrite \
     --value "$running" --description "Imagem em uso no setor $sector (digest)" >/dev/null

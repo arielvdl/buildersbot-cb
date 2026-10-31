@@ -715,13 +715,15 @@ Resources:
                 Action: ssm:StartSession
                 Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
                 Condition:
-                  StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}
+                  # Only sector hosts (tag Role=sector-host): the Signal VM, which keeps four secrets, and the
+                  # builder are for the administrator role alone.
+                  StringEquals: {'ssm:resourceTag/Project': buildersbot-servers, 'ssm:resourceTag/Role': sector-host}
                   BoolIfExists: {'ssm:SessionDocumentAccessCheck': 'true'}
               - Sid: CommandsOnSectorHosts
                 Effect: Allow
                 Action: ssm:SendCommand
                 Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
-                Condition: {StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}}
+                Condition: {StringEquals: {'ssm:resourceTag/Project': buildersbot-servers, 'ssm:resourceTag/Role': sector-host}}
               - Sid: OnlyBbSrvDocuments
                 Effect: Allow
                 Action: [ssm:StartSession, ssm:SendCommand]
