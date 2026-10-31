@@ -32,6 +32,7 @@ export class AppBehaviorService {
   #keepAwake = false;
   #keepAwakeOnBattery = false;
   #browserInApp = false;
+  #culturaBuilderFullContext = false;
   #writes = Semaphore.makeUnsafe(1);
   readonly #listeners = new Set<() => void>();
 
@@ -57,6 +58,7 @@ export class AppBehaviorService {
                 keepAwake: parsed.keepAwake === true,
                 keepAwakeOnBattery: parsed.keepAwakeOnBattery === true,
                 browserInApp: parsed.browserInApp === true,
+                culturaBuilderFullContext: parsed.culturaBuilderFullContext === true,
               }
             : null,
         ),
@@ -67,6 +69,7 @@ export class AppBehaviorService {
           this.#keepAwake = loaded.success.keepAwake;
           this.#keepAwakeOnBattery = loaded.success.keepAwakeOnBattery;
           this.#browserInApp = loaded.success.browserInApp;
+          this.#culturaBuilderFullContext = loaded.success.culturaBuilderFullContext;
         }
       } else if (!isMissingFileError(loaded.failure.cause) && !(loaded.failure.cause instanceof SyntaxError))
         return yield* loaded.failure;
@@ -93,6 +96,11 @@ export class AppBehaviorService {
     return this.#browserInApp;
   }
 
+  /** Read at each spawn of a Cultura Builder process, which reads its model windows only then. */
+  get culturaBuilderFullContext(): boolean {
+    return this.#culturaBuilderFullContext;
+  }
+
   readonly get = Effect.fn("AppBehavior.get")(function* (this: AppBehaviorService) {
     const preference: AppBehaviorPreference = {
       launchAtLogin: yield* this.#readLoginItem(),
@@ -100,6 +108,7 @@ export class AppBehaviorService {
       keepAwake: this.#offersKeepAwake ? this.#keepAwake : null,
       keepAwakeOnBattery: this.#offersKeepAwake ? this.#keepAwakeOnBattery : null,
       browserInApp: this.#browserInApp,
+      culturaBuilderFullContext: this.#culturaBuilderFullContext,
     };
     return preference;
   });
@@ -132,11 +141,13 @@ export class AppBehaviorService {
     const keepAwake = this.#offersKeepAwake ? change.keepAwake : undefined;
     const keepAwakeOnBattery = this.#offersKeepAwake ? change.keepAwakeOnBattery : undefined;
     const browserInApp = change.browserInApp;
+    const culturaBuilderFullContext = change.culturaBuilderFullContext;
     if (
       keepRunningInBackground !== undefined ||
       keepAwake !== undefined ||
       keepAwakeOnBattery !== undefined ||
-      browserInApp !== undefined
+      browserInApp !== undefined ||
+      culturaBuilderFullContext !== undefined
     ) {
       yield* this.#writes.withPermit(
         Effect.uninterruptible(
@@ -146,6 +157,7 @@ export class AppBehaviorService {
               keepAwake: keepAwake ?? this.#keepAwake,
               keepAwakeOnBattery: keepAwakeOnBattery ?? this.#keepAwakeOnBattery,
               browserInApp: browserInApp ?? this.#browserInApp,
+              culturaBuilderFullContext: culturaBuilderFullContext ?? this.#culturaBuilderFullContext,
             };
             return writePreferenceFile(this.#path, { version: 1, ...next }).pipe(
               Effect.tap(() =>
@@ -154,6 +166,7 @@ export class AppBehaviorService {
                   this.#keepAwake = next.keepAwake;
                   this.#keepAwakeOnBattery = next.keepAwakeOnBattery;
                   this.#browserInApp = next.browserInApp;
+                  this.#culturaBuilderFullContext = next.culturaBuilderFullContext;
                 }),
               ),
             );
@@ -170,7 +183,7 @@ export class AppBehaviorService {
     return this.#loginItem ? this.#writes.withPermit(Effect.uninterruptible(this.#loginItem.refresh())) : Effect.void;
   }
 
-  /** Called when the keep-running or a keep-awake choice is saved. */
+  /** Called when a choice that this file stores is saved. */
   subscribe(listener: () => void): () => void {
     this.#listeners.add(listener);
     return () => {

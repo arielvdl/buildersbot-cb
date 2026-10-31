@@ -153,6 +153,14 @@ const PROVIDER_IDLE_RELEASE_MS = 10 * 60_000;
  */
 const PROVIDER_UNASSIGNED_RELEASE_MS = 60_000;
 const PROVIDER_IDLE_CHECK_MS = 60_000;
+/**
+ * While memory is low (`ProviderHooks.memoryLow`), a process stops at this many idle checks in a row
+ * that found no turn on it, and only when nothing used it for one check interval. A check that finds a
+ * turn starts the count again. Thus the process stays for one full interval (60 s) or more after its
+ * last turn ends, and a workflow, a review or a side question that uses it again in that interval
+ * keeps it.
+ */
+const LOW_MEMORY_IDLE_CHECKS = 2;
 /** How often the host reads a signed-out provider's sign-in file. A read is one `stat`. */
 const SIGN_IN_FILE_POLL_MS = 2_000;
 
@@ -265,6 +273,8 @@ interface ConfinedClient {
   /** The provider account it signed in to, or null for the provider's own sign-in. */
   readonly accountId: string | null;
   lastUsed: number;
+  /** Idle checks in a row that found no turn of this agent (`LOW_MEMORY_IDLE_CHECKS`). */
+  idleChecks: number;
 }
 
 /** What the provider domain needs from the rest of the service. Four calls, no state. */
@@ -294,6 +304,13 @@ export interface ProviderHooks {
   isAgentBusy(agentId: string): boolean;
   /** True while an agent is set to this provider, so a turn on it can come at any time. */
   isProviderAssigned(provider: AgentProvider): boolean;
+  /**
+   * True while the desktop computer is low on memory (`MemoryHold` holds new turns then). A provider
+   * process, shared or a Workspace only agent's own, stops then at the second idle check in a row with
+   * no turn (`LOW_MEMORY_IDLE_CHECKS`): no new turn can start at that level, so it only holds memory.
+   * Absent: never low.
+   */
+  memoryLow?(): boolean;
   /**
    * Runs when the own process of a Workspace only agent exits by itself. The provider's shared
    * process still runs, so nothing restarts: the next turn of this agent starts a new process.
@@ -443,6 +460,8 @@ export class ProviderRuntime implements ProviderPort {
    */
   readonly #environmentReloadPending = new Set<AgentProvider>();
   readonly #lastUsed = new Map<AgentProvider, number>();
+  /** Idle checks in a row that found no turn on each provider's process (`LOW_MEMORY_IDLE_CHECKS`). */
+  readonly #idleChecks = new Map<AgentProvider, number>();
   /**
    * The last failure of each provider: a start, an exit, a model list or a diagnostic shown to the
    * user. The provider row keeps it after the toast is gone, until a model list that started after
@@ -474,6 +493,10 @@ export class ProviderRuntime implements ProviderPort {
   /** One usage read at a time, so that a second request does not send the prompts again. */
   readonly #customAgentUsageLock = Semaphore.makeUnsafe(1);
   #idleCheck: NodeJS.Timeout | null = null;
+  /** How often the idle check runs (`PROVIDER_IDLE_CHECK_MS`). Tests make it short. */
+  readonly #idleCheckMs: number;
+  /** How long a provider that no agent is set to stays idle (`PROVIDER_UNASSIGNED_RELEASE_MS`). */
+  readonly #unassignedReleaseMs: number;
   /** Each provider's sign-in file, and the version of it that the last account check saw. */
   readonly #signInFiles = new Map<AgentProvider, { path: string; seen: string }>();
   #signInCheck: NodeJS.Timeout | null = null;
@@ -527,6 +550,10 @@ export class ProviderRuntime implements ProviderPort {
     emitError: (code: string, error: unknown, agentId?: string) => void;
     requestTimeoutMs: number;
     longStartTimeoutMs?: number;
+    /** How often the idle check runs. Tests make it short. */
+    idleCheckMs?: number;
+    /** How long a provider that no agent is set to stays idle. Tests make it short. */
+    unassignedReleaseMs?: number;
     preferredProvider: AgentProvider;
     preferredModel?: AgentModelId | null;
     clientFactory: AgentClientFactory | null;
@@ -544,6 +571,8 @@ export class ProviderRuntime implements ProviderPort {
     this.#emitError = options.emitError;
     this.#requestTimeoutMs = options.requestTimeoutMs;
     this.#longStartTimeoutMs = options.longStartTimeoutMs ?? LONG_START_TIMEOUT_MS;
+    this.#idleCheckMs = options.idleCheckMs ?? PROVIDER_IDLE_CHECK_MS;
+    this.#unassignedReleaseMs = options.unassignedReleaseMs ?? PROVIDER_UNASSIGNED_RELEASE_MS;
     this.#preferredProvider = options.preferredProvider;
     this.#preferredModel = options.preferredModel ?? null;
     this.#clientFactory = options.clientFactory;
@@ -844,9 +873,11 @@ export class ProviderRuntime implements ProviderPort {
 
   /**
    * Stops each provider process that ran no turn for `PROVIDER_IDLE_RELEASE_MS`, or for
-   * `PROVIDER_UNASSIGNED_RELEASE_MS` when no agent is set to it. An idle CLI holds
-   * hundreds of megabytes, and every signed-in provider starts at launch whether an agent uses it
-   * or not. Its threads are unloaded, so the next turn resumes them on the process that replaces it.
+   * `PROVIDER_UNASSIGNED_RELEASE_MS` when no agent is set to it. While memory is low
+   * (`ProviderHooks.memoryLow`), it stops at the second idle check in a row with no turn
+   * (`LOW_MEMORY_IDLE_CHECKS`). An idle CLI holds hundreds of megabytes, and every signed-in provider
+   * starts at launch whether an agent uses it or not. Its threads are unloaded, so the next turn
+   * resumes them on the process that replaces it.
    */
 
   readonly #releaseIdleProviders = Effect.fn("ProviderRuntime.releaseIdleProviders")(function* (this: ProviderRuntime) {
@@ -856,11 +887,17 @@ export class ProviderRuntime implements ProviderPort {
       if (!this.#hooks.isProviderBusy(provider)) yield* this.#reloadAgentEnvironment(provider);
     }
     const now = Date.now();
+    // While memory is low, no new turn starts, so an idle process only holds memory.
+    const memoryLow = this.#hooks.memoryLow?.() ?? false;
+    /** The low memory stop: the second idle check in a row, and no use for one check interval. */
+    const lowMemoryRelease = (idleChecks: number, lastUsed: number) =>
+      memoryLow && idleChecks >= LOW_MEMORY_IDLE_CHECKS && now - lastUsed >= this.#idleCheckMs;
     for (const [provider, client] of this.#clients) {
       // ACP can hold sessions that exist only in a live process. Its client vetoes stopping while
       // one of those sessions is held; a later turn must not start a new provider context.
       if (client.canReleaseProcess?.() === false) {
         this.#lastUsed.set(provider, now);
+        this.#idleChecks.delete(provider);
         continue;
       }
       if (
@@ -872,34 +909,48 @@ export class ProviderRuntime implements ProviderPort {
         (provider === "codex" && this.#codexLogin.pending)
       ) {
         this.#lastUsed.set(provider, now);
+        this.#idleChecks.delete(provider);
         continue;
       }
-      const lastUsed = this.#lastUsed.get(provider);
+      const idleChecks = (this.#idleChecks.get(provider) ?? 0) + 1;
+      this.#idleChecks.set(provider, idleChecks);
+      // A provider that started at launch and was never used counts from its start. The first check
+      // used to start its clock instead, so a provider no agent uses stayed for two or three checks,
+      // not for `PROVIDER_UNASSIGNED_RELEASE_MS`.
+      const lastUsed = this.#lastUsed.get(provider) ?? this.#activatedAt.get(provider);
       if (lastUsed === undefined) {
         this.#lastUsed.set(provider, now);
         continue;
       }
-      const limit = this.#hooks.isProviderAssigned(provider)
-        ? PROVIDER_IDLE_RELEASE_MS
-        : PROVIDER_UNASSIGNED_RELEASE_MS;
-      if (now - lastUsed < limit) continue;
+      const limit = this.#hooks.isProviderAssigned(provider) ? PROVIDER_IDLE_RELEASE_MS : this.#unassignedReleaseMs;
+      if (now - lastUsed < limit && !lowMemoryRelease(idleChecks, lastUsed)) continue;
       // Out of the map before it stops, so #handleExit reads the exit as expected, not as a crash.
       this.#clients.delete(provider);
+      this.#idleChecks.delete(provider);
       this.#released.add(provider);
       this.#startFailures.delete(provider);
       this.#conversation.unloadClientThreads(client);
-      logger.info("Stopped an idle provider CLI.", { provider });
+      logger.info("Stopped an idle provider CLI.", { provider, lowMemory: memoryLow });
       yield* client.stop().pipe(toProviderOperationFailed).pipe(Effect.ignore);
       yield* this.#hooks.onClientStopped(client);
     }
     for (const [agentId, confined] of this.#confined) {
-      if (confined.client.canReleaseProcess?.() === false) {
+      if (confined.client.canReleaseProcess?.() === false || this.#hooks.isAgentBusy(agentId)) {
         confined.lastUsed = now;
+        confined.idleChecks = 0;
         continue;
       }
-      if (this.#hooks.isAgentBusy(agentId)) confined.lastUsed = now;
-      if (now - confined.lastUsed < PROVIDER_IDLE_RELEASE_MS) continue;
-      logger.info("Stopped an idle Workspace only provider process.", { provider: confined.client.provider, agentId });
+      confined.idleChecks += 1;
+      if (
+        now - confined.lastUsed < PROVIDER_IDLE_RELEASE_MS &&
+        !lowMemoryRelease(confined.idleChecks, confined.lastUsed)
+      )
+        continue;
+      logger.info("Stopped an idle Workspace only provider process.", {
+        provider: confined.client.provider,
+        agentId,
+        lowMemory: memoryLow,
+      });
       yield* this.#stopConfined(agentId, confined);
     }
   }, Effect.uninterruptible);
@@ -912,6 +963,14 @@ export class ProviderRuntime implements ProviderPort {
 
   listModels(): AgentModelOption[] {
     return this.#modelCatalog.list().filter((model) => !this.#off.has(model.provider));
+  }
+
+  /**
+   * True when `accountId` names a provider account after the first. Only a process of its own signs in
+   * to it, so a generation for it cannot run on the warm client of the provider's own sign-in.
+   */
+  signsInToAccount(provider: AgentProvider, accountId?: string): boolean {
+    return (this.#providerAccounts?.account(provider, accountId) ?? null) !== null;
   }
 
   /**
@@ -1303,7 +1362,7 @@ export class ProviderRuntime implements ProviderPort {
     if (this.#scope.state._tag === "Closed") this.#scope = Scope.makeUnsafe();
     this.#idleCheck ??= setInterval(
       () => Effect.runFork(this.#releaseIdleProviders().pipe(Effect.forkIn(this.#scope))),
-      PROVIDER_IDLE_CHECK_MS,
+      this.#idleCheckMs,
     );
     this.#idleCheck.unref?.();
     this.#watchSignInFiles();
@@ -2043,6 +2102,17 @@ export class ProviderRuntime implements ProviderPort {
     });
   }).bind(this);
 
+  /**
+   * The same for one provider whose spawn configuration changed, such as the context window of
+   * Cultura Builder. A provider that does not run reads the new one at its next start.
+   */
+  readonly reloadProviderEnvironment = Effect.fn("ProviderRuntime.reloadProviderEnvironment")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+  ) {
+    yield* this.#reloadAgentEnvironment(provider);
+  }).bind(this);
+
   readonly #reloadAgentEnvironment = Effect.fn("ProviderRuntime.reloadEnvironmentForProvider")(function* (
     this: ProviderRuntime,
     provider: AgentProvider,
@@ -2528,7 +2598,13 @@ export class ProviderRuntime implements ProviderPort {
         cause: new Error(sourceText("error.provider.stoppedBeforeAgentProcess", { provider: providerLabel(provider) })),
       });
     }
-    this.#confined.set(agentId, { client, key, accountId: own.account?.id ?? null, lastUsed: Date.now() });
+    this.#confined.set(agentId, {
+      client,
+      key,
+      accountId: own.account?.id ?? null,
+      lastUsed: Date.now(),
+      idleChecks: 0,
+    });
     logger.info("Started an agent's own provider process.", {
       provider,
       agentId,

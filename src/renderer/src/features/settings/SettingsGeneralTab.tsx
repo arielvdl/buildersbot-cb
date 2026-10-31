@@ -351,6 +351,13 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             label={i18n.t("settings.browserInApp.title")}
             description={i18n.t("settings.browserInApp.description")}
           />
+          <SwitchField
+            data-settings-row="settings.culturaBuilderFullContext.title"
+            checked={props.value.culturaBuilderFullContext}
+            onChange={(checked) => props.onUpdateSetting("culturaBuilderFullContext", checked)}
+            label={i18n.t("settings.culturaBuilderFullContext.title")}
+            description={i18n.t("settings.culturaBuilderFullContext.description")}
+          />
         </ItemGroup>
       </SettingsSection>
 

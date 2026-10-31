@@ -412,6 +412,12 @@ export interface ProviderClientContext {
    * same reason as `reportMcpDrops`: without it the CLI uses its own cache time.
    */
   readonly promptCacheTtl?: () => PromptCacheTtl;
+  /**
+   * True when the person chose the full context window of the Cultura Builder gateway, read at each
+   * Cultura Builder spawn. Optional for the same reason as `reportMcpDrops`: without it each model
+   * declares the smaller window (`culturaBuilderConfigEnv`).
+   */
+  readonly culturaBuilderFullContext?: () => boolean;
 }
 
 /** The agent environment with the account's home folder after it, so the account folder wins. */
@@ -886,6 +892,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
           ...culturaBuilderConfigEnv(
             CULTURA_BUILDER_GATEWAY,
             readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
+            context.culturaBuilderFullContext?.() ?? false,
           ),
         }),
         authenticate: () =>
@@ -925,6 +932,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
           ...culturaBuilderConfigEnv(
             CULTURA_BUILDER_GATEWAY,
             readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
+            context.culturaBuilderFullContext?.() ?? false,
           ),
         }),
         authenticate: () =>

@@ -474,6 +474,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     keepAwake: false,
     keepAwakeOnBattery: false,
     browserInApp: false,
+    culturaBuilderFullContext: false,
   };
   let languagePreference = clone<AppLanguagePreference>(options.languagePreference ?? { language: "system" });
   const languageListeners = new Set<(preference: AppLanguagePreference) => void>();

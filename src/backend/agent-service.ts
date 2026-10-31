@@ -450,7 +450,8 @@ export interface AgentServiceOptions {
    * The memory of a desktop computer, or `null`. It holds a new turn while memory is low and closes the
    * idle provider threads when it is critical, as `hostMemory` does on a server, but it makes this a
    * desktop and not a server: the instructions of the agents do not change. The turn limit is the one
-   * that `MacMemory` gives (64).
+   * that `MacMemory` gives (64). Only this reading, not `hostMemory`, also stops the provider processes
+   * that ran no turn for two idle checks in a row while memory is low (`ProviderHooks.memoryLow`).
    */
   memoryPressure?: HostMemory | null;
   /**
@@ -866,6 +867,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         isProviderBusy: (provider) => this.#isProviderBusy(provider),
         isAgentBusy: (agentId) => this.#runsTurn(agentId),
         isProviderAssigned: (provider) => this.#store.list().some((agent) => providerForAgent(agent) === provider),
+        // The desktop reading only. On a server, `ServerMemory` is low also because of turn reservations,
+        // so a full server in normal use would stop its idle processes, and it stops agent processes
+        // itself when memory is critical.
+        memoryLow: () => (memoryPressure?.level() ?? "ok") !== "ok",
         captureConfigRevision: () => this.#endpoints.committedRevision(),
         onProviderActivated: (provider, configRevision) =>
           Effect.gen({ self: this }, function* () {
@@ -1153,28 +1158,22 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             return yield* new ProfileGenerationFailed({
               cause: new Error(sourceText("error.backend.channelLeadModelUnavailable")),
             });
-          const client = this.#providers.createProfileClient(lead.provider, lead.providerAccountId);
-          return yield* this.#profileClients
-            .run(client, (cancelled) =>
-              generateTextWithoutTools(
-                client,
-                { ...model, defaultReasoningEffort: lead.reasoningEffort },
-                prompt,
-                cancelled,
-              ),
-            )
-            .pipe(
-              // A routing turn can be the first one a spent plan refuses: in its completion, or as the
-              // error of the `turn/start` request. It holds the lead's model the way a refused member turn
-              // does, and the channel keeps the task queued for the reset.
-              Effect.tapError((failure) =>
-                failure instanceof GenerationUsageLimitError
-                  ? this.#usageLimits.reached(lead.id, failure.resetsAt, lead.model)
-                  : failure.cause instanceof Error && isPlanLimitDiagnostic(failure.cause.message)
-                    ? this.#usageLimits.reached(lead.id, null, lead.model)
-                    : Effect.void,
-              ),
-            );
+          return yield* this.#generateForAgent(
+            lead,
+            { ...model, defaultReasoningEffort: lead.reasoningEffort },
+            prompt,
+          ).pipe(
+            // A routing turn can be the first one a spent plan refuses: in its completion, or as the
+            // error of the `turn/start` request. It holds the lead's model the way a refused member turn
+            // does, and the channel keeps the task queued for the reset.
+            Effect.tapError((failure) =>
+              failure instanceof GenerationUsageLimitError
+                ? this.#usageLimits.reached(lead.id, failure.resetsAt, lead.model)
+                : failure.cause instanceof Error && isPlanLimitDiagnostic(failure.cause.message)
+                  ? this.#usageLimits.reached(lead.id, null, lead.model)
+                  : Effect.void,
+            ),
+          );
         }).pipe(toChannelOperationError),
       schedule: (agentId) => this.#drain.scheduleDrain(agentId),
       awaitDrain: (agentId) => this.#drain.taskFor(agentId)?.pipe(toChannelOperationError),
@@ -1343,8 +1342,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       config: securityGuard,
       models: () => this.#endpoints.available(),
       ensureProvider: (provider) => this.#providers.ensureProvider(provider),
-      createClient: (provider) => this.#providers.createProfileClient(provider),
-      clients: this.#profileClients,
+      generate: (provider, model, prompt, options) =>
+        this.#warmGenerations.generate(provider, model, prompt, undefined, options),
       emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
     });
     this.#drain = new DrainScheduler({
@@ -2258,6 +2257,16 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }).bind(this);
 
   /**
+   * The context window of Cultura Builder changed. Its process reads the model windows only when it
+   * starts, so it starts again when no turn runs on it, and resumes its sessions.
+   */
+  readonly notifyCulturaBuilderContextChanged = Effect.fn("AgentService.notifyCulturaBuilderContextChanged")(function* (
+    this: AgentService,
+  ) {
+    yield* this.#providers.reloadProviderEnvironment("cultura-builder");
+  }).bind(this);
+
+  /**
    * A setting that lives outside the agent store changed, such as an agent's auto-approve grant.
    * Clients of this host read those settings again when the agent list changes. A grant given now
    * also answers the requests that already wait for it.
@@ -2341,6 +2350,27 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   ).bind(this);
 
   /**
+   * One generation without tools for an agent, on a new ephemeral thread. On the provider's own sign-in
+   * it runs on the warm client of the provider (`WarmGenerations`), so that each channel routing and
+   * each side question does not start a provider process. An agent on a provider account after the
+   * first needs a process signed in to that account, so it gets a one-time client.
+   */
+  #generateForAgent(
+    agent: Pick<AgentSummary, "provider" | "providerAccountId">,
+    model: AgentModelOption,
+    prompt: string,
+  ): Effect.Effect<string, ProfileGenerationFailed | GenerationUsageLimitError> {
+    if (!this.#providers.signsInToAccount(agent.provider, agent.providerAccountId))
+      return this.#warmGenerations.generate(agent.provider, model, prompt);
+    return Effect.suspend(() => {
+      const client = this.#providers.createProfileClient(agent.provider, agent.providerAccountId);
+      return this.#profileClients.run(client, (cancelled) =>
+        generateTextWithoutTools(client, model, prompt, cancelled),
+      );
+    });
+  }
+
+  /**
    * Answers a question about an agent's chat with the agent's own model. Nothing is kept: the
    * generation has no tools, no session and no thread, and the answer goes back to the caller only.
    */
@@ -2366,31 +2396,25 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           { type: "latest" },
           SIDE_QUESTION_CHAT_MESSAGES,
         ).messages;
-      const client = this.#providers.createProfileClient(agent.provider, agent.providerAccountId);
-      return yield* this.#profileClients
-        .run(client, (cancelled) =>
-          generateTextWithoutTools(
-            client,
-            { ...model, defaultReasoningEffort: agent.reasoningEffort },
-            sideQuestionPrompt(agent, messages, input),
-            cancelled,
+      return yield* this.#generateForAgent(
+        agent,
+        { ...model, defaultReasoningEffort: agent.reasoningEffort },
+        sideQuestionPrompt(agent, messages, input),
+      ).pipe(
+        Effect.tapError((failure) =>
+          Effect.sync(() =>
+            logger.warn("Could not answer a side question.", { provider: agent.provider, error: failure.cause }),
           ),
-        )
-        .pipe(
-          Effect.tapError((failure) =>
-            Effect.sync(() =>
-              logger.warn("Could not answer a side question.", { provider: agent.provider, error: failure.cause }),
-            ),
+        ),
+        // The generation's own messages name a profile.
+        Effect.mapError((failure) =>
+          failed(
+            failure instanceof GenerationUsageLimitError
+              ? sourceText("error.provider.usageLimitReached")
+              : sourceText("error.agent.sideQuestionFailed"),
           ),
-          // The generation's own messages name a profile.
-          Effect.mapError((failure) =>
-            failed(
-              failure instanceof GenerationUsageLimitError
-                ? sourceText("error.provider.usageLimitReached")
-                : sourceText("error.agent.sideQuestionFailed"),
-            ),
-          ),
-        );
+        ),
+      );
     },
     Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "ask side question", cause: failure.cause })),
   ).bind(this);

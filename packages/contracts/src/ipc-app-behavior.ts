@@ -22,6 +22,12 @@ export interface AppBehaviorPreference {
    * Off by default: Playwright attaches to the browser that is already open, so no second Chrome starts.
    */
   browserInApp: boolean;
+  /**
+   * Builder Auto, Builder Code and Builder Fast declare the full window of the Cultura Builder gateway
+   * (1,048,576 tokens). Off by default: every Cultura Builder model declares 262,144 tokens, so
+   * OpenCode compacts a long session sooner and each step sends less.
+   */
+  culturaBuilderFullContext: boolean;
 }
 
 /** The choices to change. A choice that is not given keeps its value. */
@@ -31,4 +37,5 @@ export interface AppBehaviorPreferenceChange {
   keepAwake?: boolean;
   keepAwakeOnBattery?: boolean;
   browserInApp?: boolean;
+  culturaBuilderFullContext?: boolean;
 }

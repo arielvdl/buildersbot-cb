@@ -1898,6 +1898,8 @@ export async function createApplicationServices({
         ),
       // Read at each Claude spawn, so a change from Server settings applies to the next process.
       promptCacheTtl: () => promptCacheTtl.get().ttl,
+      // Read at each Cultura Builder spawn. A change starts its process again (below).
+      culturaBuilderFullContext: () => appBehavior.culturaBuilderFullContext,
       // `configs()`, not `list()`: this is the one path the API keys travel, and it ends at the
       // spawned provider process. The IPC handlers are given `list()`.
       customProviders: () => customProviders.configs(),
@@ -2132,6 +2134,15 @@ export async function createApplicationServices({
   githubConnector.onAgentAccessChanged(() => {
     void runCauseEffect(service.notifyGitHubConnectorChanged()).catch((error) =>
       logger.warn("Provider tools did not refresh.", toLogValue(error)),
+    );
+  });
+  // The Cultura Builder process reads its model windows at spawn, so a new context window starts it again.
+  let culturaBuilderFullContext = appBehavior.culturaBuilderFullContext;
+  appBehavior.subscribe(() => {
+    if (appBehavior.culturaBuilderFullContext === culturaBuilderFullContext) return;
+    culturaBuilderFullContext = appBehavior.culturaBuilderFullContext;
+    void runCauseEffect(service.notifyCulturaBuilderContextChanged()).catch((error) =>
+      logger.warn("Cultura Builder did not restart with the new context window.", toLogValue(error)),
     );
   });
   // The capability and the tool list both follow the daemon, and nothing else can tell them: no
