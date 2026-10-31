@@ -921,6 +921,14 @@ check grep -qF 'if [ "${1:-}" != --from-install ] && [ -f /var/lib/bb-srv/instal
 check grep -qxF '            Requires=docker.service bb-srv-egress-guard.service' templates/sector-compute.yaml
 check grep -qxF '            ConditionPathExists=/var/lib/bb-srv/installed' templates/sector-compute.yaml
 check grep -qF 'ConditionPathExists=!/var/lib/bb-srv/egress-open' templates/proxy.yaml
+# Depois de um vazamento, só uma conferência sobe o contêiner: nem o snapshot (pós-script e auto-thaw), nem o
+# upgrade, nem o logout do bb-srv-Down. Os três "$I" up diretos do ops.yaml: dois no Install (o verify vem
+# depois) e o do Upgrade, depois da recusa com a marca.
+check grep -qF 'up() { [ -e "$OPEN" ] || "$I" up "$S"; }' templates/ops.yaml
+check grep -qF '[ -e $OPEN ] || $I up $S; true' templates/ops.yaml
+check grep -qF '[ ! -e /var/lib/bb-srv/egress-open ] || fail' templates/ops.yaml
+check grep -qF '|| [ -e /var/lib/bb-srv/egress-open ] || "$I" up "$S" || true' templates/ops.yaml
+check test "$(grep -cE '^ +"\$I" up "\$S"' templates/ops.yaml)" = 3
 # A saúde testa de dentro da rede do contêiner e para o contêiner num vazamento provado.
 for reason in contained no-signal-rule direct-open dns-open direct-unknown container-dns; do
   check grep -qF "result=\"fail $reason\"" templates/proxy.yaml

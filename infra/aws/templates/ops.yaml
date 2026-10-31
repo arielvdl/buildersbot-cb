@@ -227,6 +227,8 @@ Resources:
                   fi
                   STEP='{{ step }}'
                   if [ "$STEP" = pull ]; then echo "BB_UPGRADE pulled $S $vcur -> $vnew"; exit 0; fi
+                  # A container stopped by a leak of the egress proxy starts only through a check (README section 16).
+                  [ ! -e /var/lib/bb-srv/egress-open ] || fail "the container was stopped by an egress leak: repair it with bb-srv-ProxySetup first (README section 16)"
                   sed -i "s#^BUILDERSBOT_IMAGE=.*#BUILDERSBOT_IMAGE=$NEW#" "$ENVF"
                   "$I" up "$S"
                   st=''
@@ -276,7 +278,8 @@ Resources:
                   # remove-sector.sh needs "BB_LOGOUT ok" (or none) to trust that the session of the owner
                   # account is not left in the snapshot. The logout needs the app, so start it if needed.
                   if [ "$LOGOUT" = true ]; then
-                    docker exec "openbot-$S" true 2>/dev/null || "$I" up "$S" || true
+                    # Not a container stopped by an egress leak (/var/lib/bb-srv/egress-open): no logout then.
+                    docker exec "openbot-$S" true 2>/dev/null || [ -e /var/lib/bb-srv/egress-open ] || "$I" up "$S" || true
                     st=''
                     for _ in $(seq 1 90); do
                       st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
@@ -376,6 +379,9 @@ Resources:
                   I=/srv/openbot-docker/instances/openbot-instance
                   D=/srv/openbot/$S/data
                   thaw() { fsfreeze -u /srv 2>/dev/null || true; fsfreeze -u "$D" 2>/dev/null || true; }
+                  # A container stopped by an egress leak (bb-srv-proxy contain) starts only through a check: not here.
+                  OPEN=/var/lib/bb-srv/egress-open
+                  up() { [ -e "$OPEN" ] || "$I" up "$S"; }
                   case "$OPERATION" in
                     pre-script)
                       [ -x "$I" ] && [ -f "/srv/openbot-docker/instances/$S.env" ] || { echo "the instance is not installed"; exit 206; }
@@ -383,16 +389,16 @@ Resources:
                       sync
                       # Auto-thaw: when the post-script does not come, thaw and start after 110 s.
                       systemd-run --quiet --unit "bb-srv-autothaw-$(date +%s)" --on-active=110s \
-                        /bin/sh -c "fsfreeze -u /srv; fsfreeze -u $D; $I up $S; true"
+                        /bin/sh -c "fsfreeze -u /srv; fsfreeze -u $D; [ -e $OPEN ] || $I up $S; true"
                       # Inner ext4 image first, then the XFS that holds it.
-                      fsfreeze -f "$D" || { thaw; "$I" up "$S"; exit 201; }
-                      fsfreeze -f /srv || { thaw; "$I" up "$S"; exit 201; }
+                      fsfreeze -f "$D" || { thaw; up; exit 201; }
+                      fsfreeze -f /srv || { thaw; up; exit 201; }
                       echo "pre-script ok"
                       ;;
                     post-script)
                       # Outer XFS first: thawing the ext4 image writes to the XFS.
                       thaw
-                      "$I" up "$S" || exit 202
+                      up || exit 202
                       echo "post-script ok"
                       ;;
                     dry-run)
