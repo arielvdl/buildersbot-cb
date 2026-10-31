@@ -208,13 +208,15 @@ Resources:
       Tags: [{Key: Name, Value: bb-srv-flow}]
 
   # Source tarballs (src/), the build script (tools/) and the build reports with the image digests
-  # (reports/, never expire: add-sector.sh checks a digest against them).
+  # (reports/, never expire: add-sector.sh checks a digest against them). Versioning keeps every
+  # overwritten report (and its author in CloudTrail), so a rewrite leaves a trail and can be undone.
   BuildBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub bb-srv-build-${AWS::AccountId}
+      VersioningConfiguration: {Status: Enabled}
       OwnershipControls:
         Rules: [{ObjectOwnership: BucketOwnerEnforced}]
       PublicAccessBlockConfiguration:
@@ -232,10 +234,13 @@ Resources:
             Status: Enabled
             Prefix: src/
             ExpirationInDays: 30
+            NoncurrentVersionExpiration: {NoncurrentDays: 7}
           - Id: expire-tools
             Status: Enabled
             Prefix: tools/
             ExpirationInDays: 30
+            NoncurrentVersionExpiration: {NoncurrentDays: 7}
+          # No rule for reports/: their old versions stay as the audit trail.
           - Id: abort-multipart
             Status: Enabled
             AbortIncompleteMultipartUpload: {DaysAfterInitiation: 3}
@@ -555,6 +560,13 @@ Resources:
               - Effect: Allow
                 Action: s3:PutObject
                 Resource: !Sub '${BuildBucket.Arn}/reports/*'
+              - Sid: SessionLog
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/builder:*'
+              - Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
               - Effect: Allow
                 Action: ecr:GetAuthorizationToken
                 Resource: '*'
@@ -618,6 +630,26 @@ Resources:
     Properties:
       LogGroupName: /bb-srv/builder
       RetentionInDays: 30
+
+  # A logged shell on the builder (instead of a session without a document, as ssm-user with sudo).
+  BuilderShellDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-builder-Shell
+      DocumentType: Session
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '1.0'
+        description: Builders Bot - shell of the ephemeral image builder, logged to CloudWatch.
+        sessionType: Standard_Stream
+        inputs:
+          cloudWatchLogGroupName: !Ref BuilderLogGroup
+          cloudWatchEncryptionEnabled: false
+          cloudWatchStreamingEnabled: true
+          s3EncryptionEnabled: false
+          runAsEnabled: false
+          idleSessionTimeout: '20'
+          maxSessionDuration: '60'
 
   SignalLogGroup:
     Type: AWS::Logs::LogGroup

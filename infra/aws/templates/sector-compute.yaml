@@ -325,7 +325,9 @@ Resources:
             printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' \
               >/etc/apt/apt.conf.d/52bb-srv-reboot
 
-            # 3. CloudWatch agent: official package, signature and key fingerprint checked.
+            # 3. CloudWatch agent: official package. The signature counts only when it was made by the
+            #    known key (VALIDSIG names the signing key and its primary key): any other key that the
+            #    downloaded .gpg file may carry is refused.
             arch=$(dpkg --print-architecture)
             cwa=https://amazoncloudwatch-agent-${AWS::Region}.s3.${AWS::Region}.amazonaws.com
             work=$(mktemp -d)
@@ -335,9 +337,11 @@ Resources:
             export GNUPGHOME="$work/gnupg"
             install -d -m 0700 "$GNUPGHOME"
             gpg --batch --quiet --import "$work/cwa.gpg"
-            fpr=$(gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print $10; exit }')
-            [ "$fpr" = 937616F3450B7D806CBD9725D58167303B789C72 ] || { echo "BB_BOOTSTRAP fail cwagent-key $fpr"; exit 1; }
-            gpg --batch --verify "$work/cwa.deb.sig" "$work/cwa.deb"
+            gpg --batch --status-fd 1 --verify "$work/cwa.deb.sig" "$work/cwa.deb" >"$work/verify.status" 2>/dev/null ||
+              { echo "BB_BOOTSTRAP fail cwagent-signature"; exit 1; }
+            awk -v want=937616F3450B7D806CBD9725D58167303B789C72 \
+              '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && ($3 == want || $NF == want) { ok = 1 } END { exit !ok }' "$work/verify.status" ||
+              { echo "BB_BOOTSTRAP fail cwagent-key"; exit 1; }
             dpkg -i "$work/cwa.deb"
             unset GNUPGHOME
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \

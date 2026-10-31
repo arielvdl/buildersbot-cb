@@ -80,6 +80,18 @@ Resources:
                   MODE='{{ mode }}'
                   IMG="$REPO@{{ imageDigest }}"
                   OPS="$REPO@{{ opsDigest }}"
+                  if [ "$MODE" = create ]; then
+                    [ ! -e "$ENVF" ] || fail "$S already exists on this data disk: use mode=attach"
+                  else
+                    [ -f "$ENVF" ] || fail "there is no $ENVF on this data disk: use mode=create"
+                    # attach runs the image of the disk. Only bb-srv/server by digest: an image from
+                    # elsewhere would skip the build report and the scan.
+                    IMG=$(sed -n 's/^BUILDERSBOT_IMAGE=//p' "$ENVF" | tail -n 1)
+                    [ "${IMG%@sha256:*}" = "$REPO" ] && [[ ${IMG#"$REPO"@sha256:} =~ ^[0-9a-f]{64}$ ]] ||
+                      fail "BUILDERSBOT_IMAGE in $ENVF is not $REPO pinned by digest"
+                  fi
+                  # The image that this host runs. add-sector.sh records it in /bb-srv/sectors/<sector>/image.
+                  echo "BB_IMAGE $IMG"
                   # 1. The operation bundle (the docker/ folder of the same commit) to /srv/openbot-docker.
                   #    It has no *.env file, so the env file of the instance stays.
                   docker pull --quiet "$OPS" >/dev/null
@@ -91,17 +103,13 @@ Resources:
                   # 2. Firewall, network, rsyslog, logrotate and LXCFS of the instances.
                   "$I" setup
                   if [ "$MODE" = create ]; then
-                    [ ! -e "$ENVF" ] || fail "$S already exists on this data disk: use mode=attach"
                     # compose.yaml has pull_policy: never, so the image is pulled here, by digest.
                     docker pull --quiet "$IMG" >/dev/null
                     BUILDERSBOT_IMAGE="$IMG" "$I" create "$S" --cpus '{{ cpus }}' --mem '{{ mem }}' --disk '{{ disk }}'
                     # The agents use the browser of the app, not Playwright on a computer (DESIGN 5).
                     docker exec "openbot-$S" sh -c 'install -d -m 0700 "$HOME/.config/Builders Bot" && printf "%s\n" "{\"version\":1,\"browserInApp\":true}" >"$HOME/.config/Builders Bot/openbot-app-behavior-preference-v1.json"'
                   else
-                    [ -f "$ENVF" ] || fail "there is no $ENVF on this data disk: use mode=create"
-                    img=$(sed -n 's/^BUILDERSBOT_IMAGE=//p' "$ENVF" | tail -n 1)
-                    [[ $img =~ ^[A-Za-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]] || fail "BUILDERSBOT_IMAGE in $ENVF is not pinned by digest"
-                    docker pull --quiet "$img" >/dev/null
+                    docker pull --quiet "$IMG" >/dev/null
                     data=/srv/openbot/$S/data
                     # The line that openbot-instance create writes (docker/instances/openbot-instance).
                     grep -qF "/srv/openbot/$S/data.img " /etc/fstab ||
@@ -216,17 +224,34 @@ Resources:
             name: down
             precondition: {StringEquals: [platformType, Linux]}
             inputs:
-              timeoutSeconds: '300'
+              timeoutSeconds: '480'
               runCommand:
                 - |
                   #!/bin/bash
                   set -euo pipefail
                   S=$(cat /etc/bb-srv/sector)
                   I=/srv/openbot-docker/instances/openbot-instance
-                  if [ ! -f "/srv/openbot-docker/instances/$S.env" ]; then echo "BB_DOWN ok $S (not installed)"; exit 0; fi
                   LOGOUT='{{ logout }}'
-                  if [ "$LOGOUT" = true ] && docker exec "openbot-$S" true 2>/dev/null; then
-                    docker exec "openbot-$S" openbot logout || echo "logout failed; continuing with the stop"
+                  if [ ! -f "/srv/openbot-docker/instances/$S.env" ]; then
+                    [ "$LOGOUT" != true ] || echo "BB_LOGOUT none (not installed)"
+                    echo "BB_DOWN ok $S (not installed)"; exit 0
+                  fi
+                  # remove-sector.sh needs "BB_LOGOUT ok" (or none) to trust that the session of the owner
+                  # account is not left in the snapshot. The logout needs the app, so start it if needed.
+                  if [ "$LOGOUT" = true ]; then
+                    docker exec "openbot-$S" true 2>/dev/null || "$I" up "$S" || true
+                    st=''
+                    for _ in $(seq 1 90); do
+                      st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
+                      case "$st" in *"Account: loading"* | '') sleep 2 ;; *) break ;; esac
+                    done
+                    if grep -q '^Account: signed out' <<<"$st"; then
+                      echo "BB_LOGOUT none (signed out)"
+                    elif docker exec "openbot-$S" openbot logout; then
+                      echo "BB_LOGOUT ok"
+                    else
+                      echo "BB_LOGOUT fail (the app did not answer or the logout failed); continuing with the stop"
+                    fi
                   fi
                   "$I" down "$S"
                   sync

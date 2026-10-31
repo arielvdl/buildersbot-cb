@@ -61,7 +61,8 @@ for name in remote-session-secret remote-auth-webhook-secret remote-metrics-toke
   say "   /bb-srv/signal/$name criado (valor não exibido)."
 done
 
-sha=$(upload_source "$commit")
+source=$(upload_source "$commit") || exit 1
+read -r sha source_hash <<<"$source"
 ami=$(ubuntu_ami arm64)
 [[ $ami =~ ^ami-[0-9a-f]+$ ]] || die "não consegui resolver a AMI do Ubuntu 24.04 arm64."
 say "   commit $sha, AMI $ami, portas de entrada abertas: $ingress"
@@ -74,8 +75,19 @@ deploy_stack bb-srv-signal "$BB_ROOT/templates/signal.yaml" shared \
   "ParameterKey=AmiId,ParameterValue=$ami" \
   "ParameterKey=InstanceType,ParameterValue=$instance_type" \
   "ParameterKey=SourceCommit,ParameterValue=$sha" \
+  "ParameterKey=SourceSha256,ParameterValue=$source_hash" \
   "ParameterKey=IngressApproved,ParameterValue=$ingress" \
   "ParameterKey=AcmeEmail,ParameterValue=$acme_email"
+
+# O wrangler da versão fixada no próprio fork (catálogo do package.json), rodado de apps/auth-api,
+# onde está o wrangler.jsonc do Worker. Nunca a versão mais nova da rede.
+wrangler=$(git -C "$BB_FORK" show "$sha:package.json" 2>/dev/null | jq -r '.workspaces.catalog.wrangler // .catalog.wrangler // empty' || true)
+if [[ $wrangler =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  wrangler_cmd="bunx wrangler@$wrangler"
+else
+  warn "não achei a versão exata do wrangler no catálogo do package.json de $sha: use o wrangler que o lockfile instalou (bun install no fork)."
+  wrangler_cmd="$BB_FORK/node_modules/.bin/wrangler"
+fi
 
 cat <<EOF
 
@@ -86,8 +98,8 @@ cat <<EOF
 2. Só depois, no Worker de contas (apps/auth-api, com wrangler login, pelo dev com o OK do dono):
      REMOTE_SIGNAL_URL        = $(stack_output bb-srv-signal SignalUrl)
      REMOTE_AUTH_WEBHOOK_URL  = $(stack_output bb-srv-signal AuthWebhookUrl)
-     REMOTE_AUTH_WEBHOOK_SECRET (segredo do Worker), sem exibir o valor:
+     REMOTE_AUTH_WEBHOOK_SECRET (segredo do Worker), sem exibir o valor, com o wrangler fixado no fork:
        aws --profile cb --region us-east-1 ssm get-parameter --with-decryption \\
          --name /bb-srv/signal/remote-auth-webhook-secret --query Parameter.Value --output text \\
-         | bunx wrangler secret put REMOTE_AUTH_WEBHOOK_SECRET
+         | (cd "$BB_FORK/apps/auth-api" && $wrangler_cmd secret put REMOTE_AUTH_WEBHOOK_SECRET)
 EOF

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Remove um setor sem perder dados (DESIGN 8.2):
 #   1. confirma que a conta dona já removeu o servidor no app (só isso tira o host do D1);
-#   2. encerra a sessão da conta dona no servidor e para o container (bb-srv-Down, logout=true);
+#   2. encerra a sessão da conta dona no servidor e para o container (bb-srv-Down, logout=true). Com a
+#      VM parada (setor em horário comercial), liga a VM para isso; sem logout confirmado, só segue
+#      com uma confirmação digitada (a sessão fica no snapshot e volta numa restauração);
 #   3. para a VM e TIRA UM SNAPSHOT do volume de dados (espera ficar completo);
 #   4. apaga a stack -compute e depois a -data (que ainda deixa o snapshot final da DeletionPolicy);
 #   5. grava /bb-srv/sectors/<setor>/final-snapshot e mostra como recriar.
@@ -14,7 +16,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,12p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,14p' "$0"; exit 1; }
 shift
 keep_days=180
 app_removed=0
@@ -47,12 +49,37 @@ if [ "$app_removed" != 1 ]; then
 fi
 confirm "Remover o setor '$sector'? Digite o nome do setor:" "$sector"
 
+without_logout() { # <motivo>
+  warn "$1"
+  BB_SRV_YES=0 confirm "Seguir SEM o logout? A sessão da conta dona fica no snapshot e volta se ele for restaurado. Digite 'sessao-no-snapshot':" sessao-no-snapshot
+}
+
 if [ -n "$instance" ]; then
   state=$(aws_cb ec2 describe-instances --instance-ids "$instance" --query 'Reservations[0].Instances[0].State.Name' --output text)
+  case $state in
+    pending) aws_cb ec2 wait instance-running --instance-ids "$instance"; state=running ;;
+    stopping) aws_cb ec2 wait instance-stopped --instance-ids "$instance"; state=stopped ;;
+  esac
+  if [ "$state" = stopped ] && [ "$logout" = true ]; then
+    # O logout precisa do container no ar: sem ele, a sessão da conta dona fica no /data do snapshot.
+    say "== a VM está parada: ligando para encerrar a sessão da conta dona antes do snapshot"
+    if aws_cb ec2 start-instances --instance-ids "$instance" >/dev/null &&
+      aws_cb ec2 wait instance-running --instance-ids "$instance" && wait_ssm_online "$instance" 900; then
+      state=running
+    else
+      without_logout "não consegui ligar a VM $instance ou ela não ficou Online no SSM."
+    fi
+  fi
   if [ "$state" = running ]; then
     say "== parando o container (logout da conta dona: $logout)"
-    ssm_run "$instance" bb-srv-Down "{\"logout\":[\"$logout\"]}" 400 "/bb-srv/$sector" ||
+    if ssm_run "$instance" bb-srv-Down "{\"logout\":[\"$logout\"]}" 600 "/bb-srv/$sector"; then
+      if [ "$logout" = true ] && ! grep -Eq '^BB_LOGOUT (ok|none)' <<<"$SSM_OUTPUT"; then
+        without_logout "o bb-srv-Down não confirmou o logout da conta dona (veja a saída acima)."
+      fi
+    else
+      [ "$logout" != true ] || without_logout "bb-srv-Down falhou: o logout não foi confirmado."
       warn "bb-srv-Down falhou; a parada da VM ainda deixa o disco consistente (o OpenBot tem 60 s para fechar os bancos)."
+    fi
     aws_cb ec2 stop-instances --instance-ids "$instance" >/dev/null
   fi
   aws_cb ec2 wait instance-stopped --instance-ids "$instance"

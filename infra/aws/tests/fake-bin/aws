@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# `aws` falso dos testes (tests/negative.sh). Nunca chama a AWS:
+#   - anota cada chamada em $FAKE_AWS_LOG;
+#   - RECUSA toda escrita (anota "WRITE ..." e sai com 97): um teste de recusa que chegue a escrever falha;
+#   - responde às leituras pela função do cenário ($FAKE_AWS_HANDLER, exportada pelo teste com export -f),
+#     que recebe "<serviço> <operação> <argumentos...>" e volta 1 quando não tem resposta.
+set -uo pipefail
+log=${FAKE_AWS_LOG:?FAKE_AWS_LOG não definido}
+
+# Os scripts sempre passam --profile e --region antes do serviço.
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    --profile | --region) shift 2 ;;
+    *) break ;;
+  esac
+done
+service=${1:-}
+op=${2:-}
+printf '%s %s\n' "$service" "$op" >>"$log"
+
+case "$service $op" in
+  "configure list-profiles")
+    echo cb
+    exit 0
+    ;;
+  "configure export-credentials")
+    # Nenhum segredo real: só o formato que check-access.sh lê (o prefixo da chave).
+    printf '{"Version": 1, "AccessKeyId": "%s", "SecretAccessKey": "fake"}\n' "${FAKE_KEY_ID:-ASIAFAKEFAKEFAKEFAKE}"
+    exit 0
+    ;;
+  "sts get-caller-identity")
+    printf '%s\t%s\n' 358748433479 "${FAKE_ARN:-arn:aws:sts::358748433479:assumed-role/culturabuilder-admin/teste}"
+    exit 0
+    ;;
+esac
+
+readonly_call=0
+case $op in describe-* | list-* | get-* | head-* | validate-template | wait) readonly_call=1 ;; esac
+# s3 cp de s3:// para a saída padrão é leitura (o relatório do builder).
+if [ "$service" = s3 ] && [ "$op" = cp ] && [[ ${3:-} == s3://* ]] && [ "${4:-}" = - ]; then readonly_call=1; fi
+if [ "$readonly_call" != 1 ]; then
+  printf 'WRITE %s %s\n' "$service" "$op" >>"$log"
+  echo "aws falso: escrita recusada ($service $op)" >&2
+  exit 97
+fi
+
+if [ -n "${FAKE_AWS_HANDLER:-}" ] && "$FAKE_AWS_HANDLER" "$@"; then exit 0; fi
+echo "aws falso: sem resposta para $service $op" >&2
+exit 254

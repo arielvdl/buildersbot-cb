@@ -3,7 +3,8 @@
 #   1. aws cloudformation validate-template em cada template (leitura);
 #   2. tools/cfn-schema-check.py contra os esquemas oficiais (describe-type, leitura; cache em .cache/);
 #   3. cfn-lint, se estiver instalado;
-#   4. shellcheck nos scripts, se estiver instalado.
+#   4. shellcheck nos scripts e nos testes, se estiver instalado, e bash -n em todos;
+#   5. tests/negative.sh: os caminhos de recusa contra um `aws` falso que recusa qualquer escrita.
 #
 # Uso: scripts/validate.sh
 set -euo pipefail
@@ -49,9 +50,14 @@ else
   say "== cfn-lint não instalado (pulado)"
 fi
 
+say "== bash -n (scripts e testes)"
+for script in "$BB_ROOT"/scripts/*.sh "$BB_ROOT"/tests/*.sh "$BB_ROOT"/tests/fake-bin/*; do
+  bash -n "$script" || { say "   FAIL ${script#"$BB_ROOT"/}"; failed=1; }
+done
+
 if command -v shellcheck >/dev/null; then
-  say "== shellcheck (scripts)"
-  if shellcheck -x -P "$BB_ROOT" "$BB_ROOT"/scripts/*.sh; then say "   ok"; else failed=1; fi
+  say "== shellcheck (scripts e testes)"
+  if shellcheck -x -P "$BB_ROOT" "$BB_ROOT"/scripts/*.sh "$BB_ROOT"/tests/*.sh "$BB_ROOT"/tests/fake-bin/*; then say "   ok"; else failed=1; fi
   if [ -n "$python" ]; then
     say "== shellcheck (user data e documentos SSM dos templates)"
     embedded=$BB_ROOT/.cache/embedded
@@ -63,6 +69,9 @@ if command -v shellcheck >/dev/null; then
 else
   say "== shellcheck não instalado (pulado)"
 fi
+
+say "== testes negativos (aws falso, nenhuma escrita)"
+if "$BB_ROOT/tests/negative.sh" | sed 's/^/   /'; then :; else failed=1; fi
 
 [ "$failed" = 0 ] || die "a validação falhou."
 say "validação ok"

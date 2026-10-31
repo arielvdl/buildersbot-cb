@@ -13,7 +13,9 @@
 #   --static-ip               IP fixo (Elastic IP) para logins em redes sociais
 #   --budget-usd N            budget mensal do setor (padrão 80)
 #   --budget-email E          e-mail extra dos avisos do budget
-#   --image-tag T             tag de um relatório do builder (padrão: o mais novo da arquitetura)
+#   --image-tag T             tag de um relatório do builder (padrão: o mais novo da arquitetura). Num
+#                             disco já instalado (attach) a imagem é a do .env do disco, e a tag só
+#                             escolhe o bundle de operação
 #   --from-snapshot snap-...  restaura um setor removido (mesma identidade; novo login)
 #   --i-know-cross-sector     aceita um snapshot de OUTRO setor (pede confirmação digitada)
 #   --reattach                recria só a VM (stack -compute) sobre o volume de dados que já existe
@@ -24,7 +26,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,20p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,22p' "$0"; exit 1; }
 shift
 size=large
 if [ "$#" -gt 0 ] && [[ $1 != -* ]]; then size=$1; shift; fi
@@ -148,8 +150,13 @@ params=$(jq -cn --arg mode "$mode" --arg image "$IMAGE_DIGEST" --arg ops "$OPS_D
 say "== instalando ($mode) com bb-srv-Install (bootstrap, pull ~1,5 GB e setup: ~10 min)"
 ssm_run "$instance" bb-srv-Install "$params" 2700 "/bb-srv/$sector" || die "a instalação falhou. Leia a saída acima e o log /bb-srv/$sector."
 
+# A imagem que o host roda de fato: no attach é a do .env do disco, não a do relatório mais novo.
+running=$(sed -n 's/^BB_IMAGE //p' <<<"$SSM_OUTPUT" | tail -n 1)
+[[ $running =~ ^[A-Za-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]] ||
+  die "o bb-srv-Install não informou a imagem em uso (linha BB_IMAGE). Confira com scripts/status.sh $sector --deep antes de gravar /bb-srv/sectors/$sector/image."
+[ "$running" = "$(repo_uri)@$IMAGE_DIGEST" ] || say "   o disco roda $running (não a imagem do relatório $IMAGE_TAG): é ela que fica registrada."
 aws_cb ssm put-parameter --name "/bb-srv/sectors/$sector/image" --type String --overwrite \
-  --value "$(repo_uri)@$IMAGE_DIGEST" --description "Imagem em uso no setor $sector (digest)" >/dev/null
+  --value "$running" --description "Imagem em uso no setor $sector (digest)" >/dev/null
 
 cat <<EOF
 

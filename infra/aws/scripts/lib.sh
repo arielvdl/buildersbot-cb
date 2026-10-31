@@ -139,7 +139,9 @@ deploy_stack() { # <stack> <template> <setor-para-tags> [parâmetros...]
   say "   $stack: $(stack_status "$stack")"
 }
 
-# Roda um documento SSM numa instância e espera o fim. Mostra a saída. Volta 0 só com Success.
+# Roda um documento SSM numa instância e espera o fim. Mostra a saída (as últimas 60 linhas) e a
+# deixa inteira em SSM_OUTPUT (primeiros 24.000 caracteres, limite da API). Volta 0 só com Success.
+SSM_OUTPUT=''
 ssm_run() { # <instância> <documento> <parâmetros-json> <timeout-s> [log group]
   local instance=$1 document=$2 parameters=$3 timeout=$4 group=${5:-} id status waited=0
   local -a args=(--instance-ids "$instance" --document-name "$document" --parameters "$parameters"
@@ -162,8 +164,9 @@ ssm_run() { # <instância> <documento> <parâmetros-json> <timeout-s> [log group
       return 1
     }
   done
-  aws_cb ssm get-command-invocation --command-id "$id" --instance-id "$instance" \
-    --query '[StandardOutputContent,StandardErrorContent]' --output text | tail -n 60
+  SSM_OUTPUT=$(aws_cb ssm get-command-invocation --command-id "$id" --instance-id "$instance" \
+    --query '[StandardOutputContent,StandardErrorContent]' --output text)
+  printf '%s\n' "$SSM_OUTPUT" | tail -n 60
   [ "$status" = Success ] || {
     warn "$document terminou com $status."
     return 1
@@ -211,9 +214,11 @@ repo_uri() { stack_output bb-srv-base RepositoryUri; }
 
 # Lê o relatório do builder (reports/<tag>.json) e exporta IMAGE_TAG, IMAGE_DIGEST, OPS_DIGEST e
 # IMAGE_VERSION. Sem tag, usa o relatório mais novo da arquitetura. Recusa imagem rejeitada, sem
-# teste de fumaça, ausente do ECR ou com achado CRITICAL no scan da base (DESIGN 7.4).
+# teste de fumaça, com achado CRITICAL no scan da base (DESIGN 7.4), ou cujo relatório não bate com o
+# ECR: a tag (imutável; o delete é negado) tem de apontar no ECR para o digest do relatório. Assim um
+# relatório reescrito não troca a imagem de uma tag já aprovada.
 resolve_image() { # <tag ou vazio> <arm64|amd64>
-  local tag=$1 arch=$2 bucket report key critical
+  local tag=$1 arch=$2 bucket report key critical ops_tag ecr_image ecr_ops
   bucket=$(build_bucket)
   if [ -z "$tag" ]; then
     key=$(aws_cb s3api list-objects-v2 --bucket "$bucket" --prefix reports/ \
@@ -223,16 +228,24 @@ resolve_image() { # <tag ou vazio> <arm64|amd64>
   fi
   [[ $tag =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,127}$ ]] || die "tag inválida: $tag"
   report=$(aws_cb s3 cp "s3://$bucket/reports/$tag.json" - 2>/dev/null) || die "não há relatório s3://$bucket/reports/$tag.json: só imagens do builder são aceitas."
+  [ "$(jq -r '.tag' <<<"$report")" = "$tag" ] || die "o relatório reports/$tag.json diz outra tag ($(jq -r '.tag' <<<"$report")). Recusado."
   [ "$(jq -r '.arch' <<<"$report")" = "$arch" ] || die "a imagem $tag não é $arch."
   [ "$(jq -r '.rejected // false' <<<"$report")" = false ] || die "a imagem $tag está marcada como rejeitada no relatório."
   [ "$(jq -r '.smokeTest' <<<"$report")" = passed ] || die "a imagem $tag não passou no teste de fumaça."
+  ops_tag=$(jq -r '.opsTag' <<<"$report")
+  [ "$ops_tag" = "${tag%-"$arch"}-ops" ] || die "o relatório $tag aponta para o bundle $ops_tag, que não é ${tag%-"$arch"}-ops. Recusado."
   IMAGE_TAG=$tag
   IMAGE_DIGEST=$(jq -r '.imageDigest' <<<"$report")
   OPS_DIGEST=$(jq -r '.opsDigest' <<<"$report")
   IMAGE_VERSION=$(jq -r '.version' <<<"$report")
   [[ $IMAGE_DIGEST =~ ^sha256:[0-9a-f]{64}$ ]] && [[ $OPS_DIGEST =~ ^sha256:[0-9a-f]{64}$ ]] || die "digests inválidos no relatório $tag."
-  aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageDigest=$IMAGE_DIGEST" "imageDigest=$OPS_DIGEST" >/dev/null ||
-    die "os digests do relatório $tag não estão no ECR."
+  ecr_image=$(aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageTag=$tag" \
+    --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true)
+  ecr_ops=$(aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageTag=$ops_tag" \
+    --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true)
+  if [ "$ecr_image" != "$IMAGE_DIGEST" ] || [ "$ecr_ops" != "$OPS_DIGEST" ]; then
+    die "o relatório $tag não bate com o ECR (tag $tag -> ${ecr_image:-ausente}, relatório $IMAGE_DIGEST; tag $ops_tag -> ${ecr_ops:-ausente}, relatório $OPS_DIGEST): relatório adulterado, errado ou imagem expirada. Recusado."
+  fi
   critical=$(aws_cb ecr describe-image-scan-findings --repository-name "$BB_REPO_NAME" --image-id "imageDigest=$IMAGE_DIGEST" \
     --query 'imageScanFindings.findingSeverityCounts.CRITICAL' --output text 2>/dev/null || echo None)
   if [ "$critical" != None ] && [ "$critical" != 0 ] && [ "${BB_SRV_ACCEPT_CRITICAL:-0}" != 1 ]; then
@@ -242,23 +255,26 @@ resolve_image() { # <tag ou vazio> <arm64|amd64>
   say "   imagem $IMAGE_TAG (versão $IMAGE_VERSION) $IMAGE_DIGEST"
 }
 
-# Envia o código de um commit do fork para s3://<build>/src/<sha>.tar.gz (se ainda não existe).
-upload_source() { # <commit> -> imprime o sha completo
-  local commit=$1 sha bucket work
+# Envia o código de um commit do fork para s3://<build>/src/<sha>.tar.gz com o sha256 na metadata.
+# O hash é sempre o do arquivo gerado aqui, de um commit; quem extrai (builder, Signal) confere com ele.
+# Reaproveita o objeto só quando a metadata bate; senão envia de novo (o bucket tem versionamento).
+upload_source() { # <commit> -> imprime "<sha do commit> <sha256 do tarball>"
+  local commit=$1 sha bucket work hash remote
   git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1 || die "o fork não está em $BB_FORK (defina BB_SRV_FORK)."
   sha=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork: $commit"
   bucket=$(build_bucket)
-  if aws_cb s3api head-object --bucket "$bucket" --key "src/$sha.tar.gz" >/dev/null 2>&1; then
-    printf '%s\n' "$sha"
-    return 0
-  fi
   work=$(mktemp -d "${TMPDIR:-/tmp}/bb-srv-src.XXXXXX")
   # De um commit, nunca da árvore de trabalho (que pode estar no meio de um merge).
   git -C "$BB_FORK" archive --format=tar.gz -o "$work/$sha.tar.gz" "$sha"
-  aws_cb s3 cp --only-show-errors --sse AES256 "$work/$sha.tar.gz" "s3://$bucket/src/$sha.tar.gz" >&2
+  hash=$(shasum -a 256 "$work/$sha.tar.gz" | cut -d ' ' -f 1)
+  remote=$(aws_cb s3api head-object --bucket "$bucket" --key "src/$sha.tar.gz" --query 'Metadata.sha256' --output text 2>/dev/null || true)
+  if [ "$remote" != "$hash" ]; then
+    case $remote in '' | None) ;; *) warn "s3://$bucket/src/$sha.tar.gz tinha outro sha256 ($remote); enviando de novo." ;; esac
+    aws_cb s3 cp --only-show-errors --sse AES256 --metadata "sha256=$hash" "$work/$sha.tar.gz" "s3://$bucket/src/$sha.tar.gz" >&2
+  fi
   rm -f "$work/$sha.tar.gz"
   rmdir "$work"
-  printf '%s\n' "$sha"
+  printf '%s %s\n' "$sha" "$hash"
 }
 
 sector_instance() { # <setor>

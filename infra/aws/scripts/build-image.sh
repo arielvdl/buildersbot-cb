@@ -10,21 +10,29 @@
 #     Linux arm64 nativo: o runtime de voz é preparado para a plataforma e a arquitetura do host
 #     (scripts/prepare-voice.ts). Não rode `on-host` no Mac.
 #
+# CONFIANÇA: tudo o que o usuário `builder` produz ou pode alterar (node_modules, dist/, o AppImage,
+# a árvore do código extraída) é não confiável. O root nunca executa nada disso. O que vai para os
+# hosts de setor como root (a pasta docker/, o Dockerfile, o seccomp) e o que define as ferramentas
+# (package.json, .nvmrc) saem de uma cópia que o root extrai do tarball ANTES de qualquer código do
+# builder rodar, e o tarball é conferido pelo sha256 que o Mac calculou.
+#
 # Uso:
 #   scripts/build-image.sh launch <commit> [--yes]
 #   scripts/build-image.sh on-host --commit <sha> --bucket <bucket> --repo-uri <uri> --version <x.y.z>
+#                                  --source-sha256 <hash do tarball>
 #
 # Resultado: tags <versão>-<sha7>-arm64 e <versão>-<sha7>-ops no ECR (imutáveis) e o relatório
 # s3://<bucket>/reports/<versão>-<sha7>-arm64.json com os digests, que add-sector.sh exige.
 set -euo pipefail
 
-usage() { sed -n '2,19p' "$0"; }
+usage() { sed -n '2,26p' "$0"; }
 
 # ------------------------------------------------------------------ launch (Mac do operador)
 launch() {
   # shellcheck source=scripts/lib.sh
   source "$(dirname "$0")/lib.sh"
   local commit='' sha version short tag bucket repo script_key script_hash work template_ok instance key state waited=0
+  local source source_hash
   while [ "$#" -gt 0 ]; do
     case $1 in
       --yes) BB_SRV_YES=1 ; shift ;;
@@ -52,7 +60,10 @@ launch() {
   check_vcpu_quota 4
   confirm "Ligar uma EC2 t4g.xlarge efêmera (~US\$ 0,13/h, termina sozinha) para construir $tag? Digite 'sim':" sim
 
-  upload_source "$sha" >/dev/null
+  # O hash do tarball vai no user data: o builder confere o código antes de extrair.
+  source=$(upload_source "$sha") || exit 1
+  read -r _ source_hash <<<"$source"
+  [[ $source_hash =~ ^[0-9a-f]{64}$ ]] || die "hash inválido do tarball do código: $source_hash"
   script_hash=$(shasum -a 256 "$0" | cut -d ' ' -f 1)
   script_key="tools/build-image-$script_hash.sh"
   aws_cb s3 cp --only-show-errors --sse AES256 "$0" "s3://$bucket/$script_key"
@@ -67,7 +78,7 @@ shutdown -h +180
 snap install aws-cli --classic
 /snap/bin/aws s3 cp --only-show-errors --region $BB_REGION "s3://$bucket/$script_key" /root/build-image.sh
 echo "$script_hash  /root/build-image.sh" | sha256sum -c - || { shutdown -h now; exit 1; }
-bash /root/build-image.sh on-host --commit $sha --bucket $bucket --repo-uri $repo --version $version
+bash /root/build-image.sh on-host --commit $sha --bucket $bucket --repo-uri $repo --version $version --source-sha256 $source_hash
 shutdown -h now
 EOF
   instance=$(aws_cb ec2 run-instances --launch-template "LaunchTemplateName=bb-srv-builder,Version=\$Latest" \
@@ -99,18 +110,19 @@ EOF
 
 # ------------------------------------------------------------------ on-host (EC2 efêmera, root)
 on_host() {
-  local commit='' bucket='' repo='' version='' short tag ops_tag src image_dir node_version bun_version electron arch
+  local commit='' bucket='' repo='' version='' source_sha='' short tag ops_tag src image_dir node_version bun_version electron arch
   while [ "$#" -gt 0 ]; do
     case $1 in
       --commit) commit=${2:-} ; shift 2 ;;
       --bucket) bucket=${2:-} ; shift 2 ;;
       --repo-uri) repo=${2:-} ; shift 2 ;;
       --version) version=${2:-} ; shift 2 ;;
+      --source-sha256) source_sha=${2:-} ; shift 2 ;;
       *) echo "opção desconhecida: $1" >&2 ; exit 1 ;;
     esac
   done
-  [[ $commit =~ ^[0-9a-f]{40}$ ]] && [ -n "$bucket" ] && [ -n "$repo" ] && [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
-    { echo "parâmetros inválidos" >&2; exit 1; }
+  [[ $commit =~ ^[0-9a-f]{40}$ ]] && [ -n "$bucket" ] && [ -n "$repo" ] && [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+    [[ $source_sha =~ ^[0-9a-f]{64}$ ]] || { echo "parâmetros inválidos" >&2; exit 1; }
   [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = aarch64 ] || { echo "on-host roda só em Linux arm64." >&2; exit 1; }
   [ "$(id -u)" = 0 ] || { echo "on-host roda como root." >&2; exit 1; }
   arch=arm64
@@ -123,9 +135,10 @@ on_host() {
   region=${region%%.amazonaws.com*}
   echo "BB_BUILD start $tag $(date -u +%FT%TZ)"
 
-  apt-get update -q
-  apt-get install -y -q --no-install-recommends docker.io amazon-ecr-credential-helper ca-certificates curl jq unzip xz-utils \
-    git build-essential python3 xvfb file
+  # O apt-daily do primeiro boot pode estar com o lock do dpkg: espera em vez de falhar.
+  apt-get -o DPkg::Lock::Timeout=600 update -q
+  apt-get -o DPkg::Lock::Timeout=600 install -y -q --no-install-recommends docker.io amazon-ecr-credential-helper \
+    ca-certificates curl jq unzip xz-utils git build-essential python3 xvfb file
   # A cada ECR por credential helper: nenhuma senha fica em disco.
   install -d -m 0700 /root/.docker
   printf '{"credHelpers": {"%s": "ecr-login"}}\n' "${repo%%/*}" >/root/.docker/config.json
@@ -134,15 +147,25 @@ on_host() {
   id builder >/dev/null 2>&1 || useradd --create-home --shell /bin/bash builder
   iptables -C OUTPUT -m owner --uid-owner builder -d 169.254.169.254 -j REJECT 2>/dev/null ||
     iptables -I OUTPUT 1 -m owner --uid-owner builder -d 169.254.169.254 -j REJECT
+  # O tarball fica com o root (0600) e só é usado se bater com o sha256 que o Mac calculou. O root
+  # extrai dele, antes de qualquer código do builder, a cópia intocada (pristine) do que vai para os
+  # hosts como root (docker/) e do que define as ferramentas (package.json, .nvmrc). O builder
+  # recebe só uma cópia do tarball, que o root não lê de novo.
+  local tarball=/root/src.tar.gz pristine=/root/pristine
+  "$aws" s3 cp --only-show-errors --region "$region" "s3://$bucket/src/$commit.tar.gz" "$tarball"
+  chmod 0600 "$tarball"
+  echo "$source_sha  $tarball" | sha256sum -c - ||
+    { echo "BB_BUILD fail: o tarball do código não bate com o sha256 enviado pelo operador" >&2; exit 1; }
+  install -d -m 0700 "$pristine"
+  tar -xzf "$tarball" --no-same-owner -C "$pristine" docker package.json .nvmrc
   src=/home/builder/src
   install -d -o builder -g builder -m 0755 "$src"
-  "$aws" s3 cp --only-show-errors --region "$region" "s3://$bucket/src/$commit.tar.gz" /home/builder/src.tar.gz
-  chown builder:builder /home/builder/src.tar.gz
+  install -m 0644 "$tarball" /home/builder/src.tar.gz
   runuser -u builder -- tar -xzf /home/builder/src.tar.gz -C "$src"
 
   # Node da versão do .nvmrc e Bun do packageManager, com o checksum publicado na mesma origem.
-  node_version=$(tr -d '[:space:]v' <"$src/.nvmrc")
-  bun_version=$(jq -r '.packageManager' "$src/package.json" | sed -n 's/^bun@//p')
+  node_version=$(tr -d '[:space:]v' <"$pristine/.nvmrc")
+  bun_version=$(jq -r '.packageManager' "$pristine/package.json" | sed -n 's/^bun@//p')
   [[ $node_version =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] && [[ $bun_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
     { echo "versões inesperadas: node=$node_version bun=$bun_version" >&2; exit 1; }
   local tools=/opt/bb-srv-tools
@@ -175,33 +198,57 @@ on_host() {
     done
     xvfb-run -a bun run dist:linux:arm64
   "
-  # O fim do build: nenhum processo do builder sobrevive antes de qualquer credencial ser usada.
-  pkill -KILL -u builder || true
+  # O AppImage é saída do builder: o runtime dele (o código do --appimage-extract) é não confiável.
+  # A extração roda como builder, numa pasta dele e sem IMDS; o root só confere o resultado.
+  local appimage extract
+  appimage=$(find "$src/dist" -maxdepth 1 -type f -name '*.AppImage')
+  [ -n "$appimage" ] && [ "$(grep -c . <<<"$appimage")" = 1 ] ||
+    { echo "BB_BUILD fail: esperava 1 AppImage em dist/, achei: ${appimage:-nenhum}" >&2; exit 1; }
+  extract=$(runuser -u builder -- mktemp -d /home/builder/extract.XXXXXX)
+  # Os caminhos vão como argumentos ($1, $2 do bash do builder), não dentro do texto do comando.
+  # shellcheck disable=SC2016
+  runuser -u builder -- env -i HOME=/home/builder PATH="$path" bash -euo pipefail -c \
+    'install -m 0755 "$2" "$1/OpenBot.AppImage" && cd "$1" && ./OpenBot.AppImage --appimage-extract >/dev/null' \
+    bb-extract "$extract" "$appimage"
 
-  local appimages
-  appimages=$(find "$src/dist" -maxdepth 1 -name '*.AppImage' | wc -l)
-  [ "$appimages" = 1 ] || { echo "esperava 1 AppImage em dist/, achei $appimages" >&2; exit 1; }
+  # Fim do código do builder: nada dele roda depois daqui (crontab, sessão, processo solto) e ele não
+  # consegue mais entrar (conta travada e vencida, o que também barra o cron).
+  crontab -r -u builder 2>/dev/null || true
+  usermod --lock --expiredate 1 builder
+  loginctl terminate-user builder 2>/dev/null || true
+  for _ in $(seq 1 10); do
+    pkill -KILL -u builder || true
+    pgrep -u builder >/dev/null || break
+    sleep 1
+  done
+  if pgrep -u builder >/dev/null; then echo "BB_BUILD fail: ainda há processos do builder" >&2; exit 1; fi
+
+  # O entrypoint chama /opt/OpenBot/app/openbot (scripts/hosting/openbot-container). O fork pode
+  # gerar o executável com outro nome (DESIGN 7.1): pare aqui com a causa. (test só lê metadados.)
+  [ -x "$extract/squashfs-root/openbot" ] ||
+    { echo "BB_BUILD fail: o AppImage não tem o executável 'openbot' (veja DESIGN 7.1: linux.executableName)." >&2; exit 1; }
+  [ -x "$extract/squashfs-root/resources/hosting/openbot-container" ] ||
+    { echo "BB_BUILD fail: falta resources/hosting/openbot-container." >&2; exit 1; }
+
+  # Nenhum processo do builder vive mais: a lista de dist/ não muda entre a conferência e a cópia.
+  [ ! -L "$src" ] && [ ! -L "$src/dist" ] || { echo "BB_BUILD fail: src/ ou dist/ virou link" >&2; exit 1; }
+  appimage=$(find "$src/dist" -maxdepth 1 -type f -name '*.AppImage')
+  [ -n "$appimage" ] && [ "$(grep -c . <<<"$appimage")" = 1 ] || { echo "BB_BUILD fail: dist/ mudou" >&2; exit 1; }
   image_dir=/root/image
   install -d -m 0700 "$image_dir"
-  cp "$src"/dist/*.AppImage "$image_dir/OpenBot.AppImage"
+  cp -- "$appimage" "$image_dir/OpenBot.AppImage"
   chmod 0755 "$image_dir/OpenBot.AppImage"
-  # O entrypoint chama /opt/OpenBot/app/openbot (scripts/hosting/openbot-container). O fork pode
-  # gerar o executável com outro nome (DESIGN 7.1): pare aqui com a causa.
-  (
-    cd "$(mktemp -d)"
-    "$image_dir/OpenBot.AppImage" --appimage-extract >/dev/null
-    [ -x squashfs-root/openbot ] || { echo "BB_BUILD fail: o AppImage não tem o executável 'openbot' (veja DESIGN 7.1: linux.executableName)." >&2; exit 1; }
-    [ -x squashfs-root/resources/hosting/openbot-container ] || { echo "BB_BUILD fail: falta resources/hosting/openbot-container." >&2; exit 1; }
-  )
-  electron=$(jq -r '.devDependencies.electron // .dependencies.electron // "unknown"' "$src/package.json")
+  electron=$(jq -r '.devDependencies.electron // .dependencies.electron // "unknown"' "$pristine/package.json")
 
-  docker build --file "$src/docker/Dockerfile" --build-arg "VERSION=$version" --build-arg "REVISION=$commit" \
+  # O Dockerfile vem da cópia intocada; o contexto só tem o AppImage (os RUN ficam na bridge, onde o
+  # hop limit 1 já bloqueia o IMDS).
+  docker build --file "$pristine/docker/Dockerfile" --build-arg "VERSION=$version" --build-arg "REVISION=$commit" \
     --label "org.opencontainers.image.electron-version=$electron" --tag "$repo:$tag" "$image_dir"
 
   # Teste de fumaça igual ao do release: sobe com o sandbox ligado, responde e para com código 0.
   local status=''
   docker rm -f bb-srv-smoke >/dev/null 2>&1 || true
-  docker run --detach --name bb-srv-smoke --shm-size 1g --security-opt "seccomp=$src/docker/seccomp.json" \
+  docker run --detach --name bb-srv-smoke --shm-size 1g --security-opt "seccomp=$pristine/docker/seccomp.json" \
     --security-opt no-new-privileges:true "$repo:$tag" >/dev/null
   for _ in $(seq 1 120); do
     if docker exec bb-srv-smoke test -S /run/openbot/control.sock 2>/dev/null; then
@@ -220,10 +267,11 @@ on_host() {
   [ "$(docker inspect bb-srv-smoke | jq -r '.[0].State.ExitCode')" = 0 ] || { echo "BB_BUILD fail: o stop não saiu com 0" >&2; exit 1; }
   docker rm bb-srv-smoke >/dev/null
 
-  # Bundle de operação: a pasta docker/ do mesmo commit, numa imagem FROM scratch com um comando.
+  # Bundle de operação: a pasta docker/ do mesmo commit (da cópia intocada: o bb-srv-Install roda
+  # docker/instances/openbot-instance como root em todo setor), numa imagem FROM scratch com um comando.
   local ops_dir=/root/ops
   install -d -m 0700 "$ops_dir"
-  cp -a "$src/docker" "$ops_dir/docker"
+  cp -a "$pristine/docker" "$ops_dir/docker"
   printf 'FROM scratch\nCOPY docker /docker\nCMD ["/noop"]\n' >"$ops_dir/Dockerfile"
   docker build --label "org.opencontainers.image.revision=$commit" --label "org.opencontainers.image.version=$version" \
     --tag "$repo:$ops_tag" "$ops_dir"
@@ -242,9 +290,10 @@ on_host() {
   ops_digest=$("$aws" ecr describe-images --region "$region" --repository-name "$repo_name" --image-ids "imageTag=$ops_tag" --query 'imageDetails[0].imageDigest' --output text)
   jq -n --arg tag "$tag" --arg opsTag "$ops_tag" --arg imageDigest "$image_digest" --arg opsDigest "$ops_digest" \
     --arg version "$version" --arg commit "$commit" --arg arch "$arch" --arg electron "$electron" \
-    --arg builtAt "$(date -u +%FT%TZ)" \
+    --arg sourceSha256 "$source_sha" --arg builtAt "$(date -u +%FT%TZ)" \
     '{tag: $tag, opsTag: $opsTag, imageDigest: $imageDigest, opsDigest: $opsDigest, version: $version,
-      commit: $commit, arch: $arch, electronVersion: $electron, smokeTest: "passed", rejected: false, builtAt: $builtAt}' \
+      commit: $commit, sourceSha256: $sourceSha256, arch: $arch, electronVersion: $electron, smokeTest: "passed",
+      rejected: false, builtAt: $builtAt}' \
     >/root/report.json
   "$aws" s3 cp --only-show-errors --sse AES256 --region "$region" /root/report.json "s3://$bucket/reports/$tag.json"
   echo "BB_BUILD ok $tag $image_digest"

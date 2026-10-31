@@ -18,6 +18,10 @@ Parameters:
     Type: String
     Description: Commit of the fork whose remote/ runs here (the same commit as the published account Worker).
     AllowedPattern: '^[0-9a-f]{40}$'
+  SourceSha256:
+    Type: String
+    Description: SHA-256 of src/<SourceCommit>.tar.gz, computed by deploy-signal.sh from the commit. The VM refuses another tarball.
+    AllowedPattern: '^[0-9a-f]{64}$'
   IngressApproved:
     Type: String
     Default: 'false'
@@ -258,7 +262,8 @@ Resources:
             snap install aws-cli --classic
             systemctl disable --now ssh.socket ssh.service 2>/dev/null || true
 
-            # CloudWatch agent: official package, signature and key fingerprint checked.
+            # CloudWatch agent: official package. The signature counts only when it was made by the known
+            # key (VALIDSIG names the signing key and its primary key), not by any key of the .gpg file.
             arch=$(dpkg --print-architecture)
             cwa=https://amazoncloudwatch-agent-${AWS::Region}.s3.${AWS::Region}.amazonaws.com
             work=$(mktemp -d)
@@ -268,15 +273,19 @@ Resources:
             export GNUPGHOME="$work/gnupg"
             install -d -m 0700 "$GNUPGHOME"
             gpg --batch --quiet --import "$work/cwa.gpg"
-            fpr=$(gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print $10; exit }')
-            [ "$fpr" = 937616F3450B7D806CBD9725D58167303B789C72 ] || { echo "BB_BOOTSTRAP fail cwagent-key $fpr"; exit 1; }
-            gpg --batch --verify "$work/cwa.deb.sig" "$work/cwa.deb"
+            gpg --batch --status-fd 1 --verify "$work/cwa.deb.sig" "$work/cwa.deb" >"$work/verify.status" 2>/dev/null ||
+              { echo "BB_BOOTSTRAP fail cwagent-signature"; exit 1; }
+            awk -v want=937616F3450B7D806CBD9725D58167303B789C72 \
+              '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && ($3 == want || $NF == want) { ok = 1 } END { exit !ok }' "$work/verify.status" ||
+              { echo "BB_BOOTSTRAP fail cwagent-key"; exit 1; }
             dpkg -i "$work/cwa.deb"
             unset GNUPGHOME
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:/bb-srv/signal/cwagent
 
-            # Source of remote/ from the same commit as the account Worker.
+            # Source of remote/ from the same commit as the account Worker, checked against the hash that
+            # the operator computed from the commit (anyone with s3:PutObject on src/ could swap it).
             /snap/bin/aws s3 cp --only-show-errors "s3://${Bucket}/src/${SourceCommit}.tar.gz" /opt/bb-srv-signal/src.tar.gz --region ${AWS::Region}
+            echo "${SourceSha256}  /opt/bb-srv-signal/src.tar.gz" | sha256sum -c - || { echo "BB_BOOTSTRAP fail source-sha256"; exit 1; }
             install -d -m 0755 /opt/bb-srv-signal/src
             tar -xzf /opt/bb-srv-signal/src.tar.gz -C /opt/bb-srv-signal/src
             test -f /opt/bb-srv-signal/src/remote/compose.yaml
