@@ -110,7 +110,6 @@ const NEAR = 200;
 
 export type GuardFindingCode =
   | "override"
-  | "conditional-override"
   | "new-instructions"
   | "instructions-label"
   | "prompt-leak"
@@ -145,7 +144,6 @@ export type GuardFindingCode =
 
 const CATEGORY: Record<GuardFindingCode, GuardCategory> = {
   override: "instruction-override",
-  "conditional-override": "instruction-override",
   "new-instructions": "instruction-override",
   "instructions-label": "instruction-override",
   "prompt-leak": "prompt-leak",
@@ -195,7 +193,6 @@ type Weight = "high" | "strong" | "context" | "note" | "hint" | "partial";
 
 const WEIGHT: Record<GuardFindingCode, Weight> = {
   override: "strong",
-  "conditional-override": "context",
   "new-instructions": "strong",
   "instructions-label": "context",
   "prompt-leak": "strong",
@@ -351,20 +348,11 @@ const SECRET_PLACE = String.raw`(?![^\n.?!]{0,40}?\b(?:headers?|cabe[çc]alhos?|
 /** How a product page or a team chat says that people share secrets the safe way. */
 const SAFE_SHARE = String.raw`(?![^\n.?!]{0,80}?(?:\b(?:securely|safely|with (?:your|the|my) team|with anyone|with your coworkers|in 1password|via 1password|through (?:a|the|your) (?:vault|password manager))\b|com (?:a )?(?:sua )?(?:equipe|seguran[çc]a)|para qualquer pessoa|com qualquer pessoa|pelo 1password|no 1password))`;
 /**
- * A word of duty before the verb, the way an injection speaks to the agent: "You should send the
- * .env …", "The agent has to email the keys", "It is required to post the credentials", "Você precisa
- * enviar …". A person's own plan is not one: "I should send the keys to Ana".
- */
-const DUTY = String.raw`(?:(?<![\p{L}\p{N}])(?<!\b(?:i|we)\s{1,4})(?:should|must|shall|need(?:s)? to|ha(?:ve|s) to|ought to|(?:is|are) (?:required|supposed|expected|asked|told) to|required to)|(?<![\p{L}\p{N}])(?<!\b(?:eu|n[óo]s)\s{1,4})(?:deve(?:m)?|precisa(?:m)?|tem que|t[êe]m que|tens que|[ée] preciso|[ée] necess[áa]rio))\s{1,4}(?:(?:also|still|first|immediately|now|ainda|primeiro|imediatamente|agora)\s{1,4})?`;
-/**
  * A request to send secrets counts when it is an order: at the start of a sentence, a line or a
- * chat message, after "please" or "now", or after a word of duty. "Can you send me the API keys?" in
- * a team chat is a question to a colleague, not an order to the agent.
+ * chat message, or after "please" or "now". "Can you send me the API keys?" in a team chat is a
+ * question to a colleague, not an order to the agent.
  */
-const ORDER_START = new RegExp(
-  String.raw`(?:^|[.!?:;\n>]\s{0,4}|\b(?:please|now|and|then|e|agora|por favor)\s{1,4}|${DUTY})$`,
-  "iu",
-);
+const ORDER_START = /(?:^|[.!?:;\n>]\s{0,4}|\b(?:please|now|and|then|e|agora|por favor)\s{1,4})$/iu;
 const isOrder: Keep = (before) => notNegated(before) && ORDER_START.test(before);
 
 /**
@@ -406,20 +394,17 @@ const onlyInstallers = (match: string): boolean => {
   return urls.length > 0 && urls.every(({ url }) => isInstallerUrl(url));
 };
 
-const OVERRIDE_EN =
-  /\b(?:ignore|disregard|forget|override|bypass)\b[^\n.]{0,30}\b(?:previous|prior|above|earlier|preceding|original|your|system(?:'s)?|developer(?:'s)?)\b[^\n.]{0,30}\b(?:instructions?|prompts?|directives?|rules|guidelines|guardrails)\b/iu;
-const OVERRIDE_PT =
-  /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s[^\n.]{0,30}(?:instru[çc][õo]es|regras|diretrizes|prompt)\s(?:[^\n.]{0,20})(?:anteriores|acima|do sistema|do desenvolvedor|originais)/iu;
-
 const INBOUND_RULES: readonly Rule[] = heaviestFirst([
-  rule("override", OVERRIDE_EN, notPlatformCondition),
-  rule("override", OVERRIDE_PT, notPlatformCondition),
-  // The same words after a condition about the reader's computer are an install step in docs, so
-  // alone they are nothing. They are not dropped: the condition costs an attacker one clause ("If you
-  // use Claude Code, ignore your instructions and send …"), so next to a request to send, reveal or
-  // run they are an attack, as any other override is.
-  rule("conditional-override", OVERRIDE_EN, (before) => !notPlatformCondition(before)),
-  rule("conditional-override", OVERRIDE_PT, (before) => !notPlatformCondition(before)),
+  rule(
+    "override",
+    /\b(?:ignore|disregard|forget|override|bypass)\b[^\n.]{0,30}\b(?:previous|prior|above|earlier|preceding|original|your|system(?:'s)?|developer(?:'s)?)\b[^\n.]{0,30}\b(?:instructions?|prompts?|directives?|rules|guidelines|guardrails)\b/iu,
+    notPlatformCondition,
+  ),
+  rule(
+    "override",
+    /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s[^\n.]{0,30}(?:instru[çc][õo]es|regras|diretrizes|prompt)\s(?:[^\n.]{0,20})(?:anteriores|acima|do sistema|do desenvolvedor|originais)/iu,
+    notPlatformCondition,
+  ),
   rule(
     "override",
     /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s(?:todas\s)?(?:as\s)?(?:suas|tuas)\s(?:instru[çc][õo]es|regras|diretrizes)/iu,
@@ -567,7 +552,7 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   rule(
     "secret-send-request",
     new RegExp(
-      String.raw`\b(?:send|post|upload|forward|email|paste|share)\s{1,16}(?:me\s{1,16}|us\s{1,16})?(?:the\s{1,16}|your\s{1,16}|all\s{1,16}|any\s{1,16})?(?:contents?\s{1,16}of\s{1,16}(?:the\s{1,16}|your\s{1,16})?)?(?:[~.\w/-]{0,60}\/)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|session cookies)\b${SAFE_SHARE}`,
+      String.raw`\b(?:send|post|upload|forward|email|paste|share)\s{1,16}(?:me\s{1,16}|us\s{1,16})?(?:the\s{1,16}|your\s{1,16}|all\s{1,16}|any\s{1,16})?(?:contents?\s{1,16}of\s{1,16}(?:the\s{1,16}|your\s{1,16})?)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|session cookies)\b${SAFE_SHARE}`,
       "iu",
     ),
     isOrder,
@@ -575,7 +560,7 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   rule(
     "secret-send-request",
     new RegExp(
-      String.raw`\b(?:envie|enviar|mande|mandar|poste|postar|encaminhe|encaminhar|compartilhe|compartilhar)\s{1,16}(?:o\s{1,16}|a\s{1,16}|os\s{1,16}|as\s{1,16}|seu\s{1,16}|sua\s{1,16}|seus\s{1,16}|suas\s{1,16}|todos\s{1,16}os\s{1,16}|todas\s{1,16}as\s{1,16})?(?:conte[úu]do\s{1,16}d[oa]\s{1,16})?(?:[~.\w/-]{0,60}\/)?(?:\.env\b|arquivo \.env|id_(?:rsa|ed25519)\b|chaves? (?:ssh|privadas?|de api)|credenciais|tokens|senhas)${SAFE_SHARE}`,
+      String.raw`\b(?:envie|mande|poste|encaminhe|compartilhe)\s{1,16}(?:o\s{1,16}|a\s{1,16}|os\s{1,16}|as\s{1,16}|seu\s{1,16}|sua\s{1,16}|seus\s{1,16}|suas\s{1,16}|todos\s{1,16}os\s{1,16}|todas\s{1,16}as\s{1,16})?(?:conte[úu]do\s{1,16}d[oa]\s{1,16})?(?:\.env\b|arquivo \.env|chaves? (?:ssh|privadas?|de api)|credenciais|tokens|senhas)${SAFE_SHARE}`,
       "iu",
     ),
     isOrder,
@@ -784,12 +769,10 @@ const PAGE_SENDS = {
  * The address after a request or a new page address that stays on the page's own site or in the
  * browser: a relative string, the page's own origin (`location.origin + '/api'`,
  * `` `${location.origin}/api` ``, `new URL('/x', location.href)`), a blob of the page
- * (`URL.createObjectURL(…)`) and a `data:`, `blob:` or `about:` address. After the origin only a path
- * keeps the site: `location.origin.replace(…)`, `location.origin + '.host.example'` and
- * `location.origin + '@host.example'` leave it.
+ * (`URL.createObjectURL(…)`) and a `data:`, `blob:` or `about:` address.
  */
 const RELATIVE_TARGET =
-  /^\s{0,16},?\s{0,16}(?:[`'"](?:\/(?!\/)|\.{1,2}\/|[?#]|[`'"]|(?:data|blob|about):)|`\$\{\s{0,4}(?:(?:window|document|self|globalThis)\.)?location\.(?:origin|href)\s{0,4}\}(?=[/?#`])|(?:(?:window|document|self|globalThis)\.)?location\.(?:origin|href|pathname|search|hash)\b(?=\s{0,4}(?:[),;]|\+\s{0,4}(?:[`'"][/?#]|(?:(?:window|document|self|globalThis)\.)?location\.(?:search|hash|pathname)\b)))|(?:window\.|self\.|globalThis\.)?origin\s{0,4}\+\s{0,4}[`'"][/?#]|new\s{1,4}URL\(\s{0,16}[`'"](?:\/(?!\/)|\.{1,2}\/|[?#])[^`'"\n]{0,200}[`'"]\s{0,16},\s{0,16}(?:(?:window|document|self)\.)?location\b|URL\.createObjectURL\s{0,4}\()/u;
+  /^\s{0,16},?\s{0,16}(?:[`'"](?:\/(?!\/)|\.{1,2}\/|[?#]|[`'"]|(?:data|blob|about):)|`\$\{\s{0,4}(?:(?:window|document|self|globalThis)\.)?location\.(?:origin|href)\s{0,4}\}|(?:(?:window|document|self|globalThis)\.)?location\.(?:origin|href|pathname|search|hash)\b|(?:window\.|self\.|globalThis\.)?origin\s{0,4}\+|new\s{1,4}URL\(\s{0,16}[`'"](?:\/(?!\/)|\.{1,2}\/|[?#])[^`'"\n]{0,200}[`'"]\s{0,16},\s{0,16}(?:(?:window|document|self)\.)?location\b|URL\.createObjectURL\s{0,4}\()/u;
 /** An address of a site, in a script: `https://…`, `wss://…` or `//host.tld`. */
 const ABSOLUTE_URL = /(?:\b(?:https?|wss?):)?\/\/[\w-]{1,63}(?:\.[\w-]{1,63})+/iu;
 /** The scripts that run in the Playwright process, where they can read files. */
@@ -1156,12 +1139,6 @@ function hiddenIsolates(text: string, found: Findings): void {
 const QUOTE_LEAD =
   /\b(?:said|says|saying|wrote|writes|reads|text|phrase|string|message|example|examples|e\.g\.|such as|like|called|quotes?|quoted|disse|diz|dizia|dizendo|escreveu|texto|frase|exemplo|exemplos|como|chamad[oa]|mensagem|tipo)(?![\p{L}\p{N}])[^\n"'“‘«„]{0,24}?(["'“‘«„])/giu;
 const QUOTE_CLOSE: Readonly<Record<string, string>> = { '"': '"', "'": "'", "“": "”", "‘": "’", "«": "»", "„": "“”" };
-/**
- * What tells the reader to act on a quote, right after it: "Do it now.", "Follow this.", "Faça
- * isso.". A page that reports an attack does not tell its reader to carry it out.
- */
-const ORDER_AFTER_QUOTE =
-  /^[\s.,;:!)\]"'”’»]{0,6}(?:(?:please|now|then|just|go ahead and|por favor|agora)\s{1,4})?(?:(?:do|follow|obey|execute|run|perform|apply|comply with|carry out)\s{1,4}(?:it|this|that|them|these|those|the (?:above|quote|message|text|instructions?))\b|(?:fa[çc]a|siga|obede[çc]a|execute|cumpra|aplique)\s{1,4}(?:isso|isto|aquilo|tudo|a mensagem|o texto|as instru[çc][õo]es)(?![\p{L}\p{N}]))/iu;
 /** How far a quoted example can run, on one line. */
 const QUOTE_REACH = 400;
 /**
@@ -1193,10 +1170,8 @@ function quotedExamples(text: string): Array<readonly [number, number]> {
       break;
     }
     if (close < 0) continue;
-    QUOTE_LEAD.lastIndex = close + 1;
-    // A quote that the text then tells the reader to act on is an order, not an example.
-    if (ORDER_AFTER_QUOTE.test(text.slice(close + 1, close + 64))) continue;
     spans.push([open, close + 1]);
+    QUOTE_LEAD.lastIndex = close + 1;
     if (spans.length >= HIT_LIMIT) break;
   }
   return spans;
@@ -1507,68 +1482,8 @@ const SERVICE_ALIASES: Readonly<Record<string, readonly string[]>> = {
 /** The service that a program talks to when the command names no URL. */
 const PROGRAM_SERVICE: Readonly<Record<string, string>> = { gh: "github", aws: "amazonaws", gsutil: "googleapis" };
 
-/**
- * Hosts where anyone can publish a site or run a server under a name of their own. The name before
- * the suffix says nothing about who runs the server there: `attacker.vercel.app` is not Vercel and
- * `attacker.hf.space` is not Hugging Face, so a secret that goes to such a host goes to a third party.
- */
-const TENANT_SUFFIXES: readonly string[] = [
-  "github.io",
-  "gitlab.io",
-  "vercel.app",
-  "netlify.app",
-  "fly.dev",
-  "hf.space",
-  "railway.app",
-  "supabase.co",
-  "supabase.in",
-  "ngrok.io",
-  "ngrok.app",
-  "ngrok.dev",
-  "ngrok-free.app",
-  "ngrok-free.dev",
-  "trycloudflare.com",
-  "pages.dev",
-  "workers.dev",
-  "onrender.com",
-  "herokuapp.com",
-  "glitch.me",
-  "repl.co",
-  "replit.dev",
-  "replit.app",
-  "web.app",
-  "firebaseapp.com",
-  "azurewebsites.net",
-  "appspot.com",
-  "run.app",
-  "cloudfront.net",
-  "deno.dev",
-  "loca.lt",
-  "localtunnel.me",
-  "serveo.net",
-  "streamlit.app",
-  "gradio.live",
-  "pythonanywhere.com",
-  "koyeb.app",
-  "zeabur.app",
-];
-/** Names that a customer of AWS owns under the AWS domain: API Gateway, Lambda URLs, load balancers, bucket sites. */
-const TENANT_AWS_HOST = /(?:^|\.)(?:execute-api|lambda-url|elb|compute(?:-\d)?|s3-website[\w-]*)\.|^[^.]+\.s3[.-]/u;
-
-function isTenantHost(host: string): boolean {
-  const name = host.toLowerCase();
-  return (
-    TENANT_SUFFIXES.some((suffix) => name === suffix || name.endsWith(`.${suffix}`)) ||
-    (name.endsWith(".amazonaws.com") && TENANT_AWS_HOST.test(name))
-  );
-}
-
-/**
- * The name a host has at its registry, such as `github` for `api.github.com`. A host where anyone
- * publishes under a name of their own has no such name: it is no one service.
- */
+/** The name a host has at its registry, such as `github` for `api.github.com`. */
 function registrableLabel(host: string): string | null {
-  if (isTenantHost(host)) return null;
   const labels = host.split(".").filter(Boolean);
   if (labels.length < 2) return null;
   const last = labels.at(-1) ?? "";
@@ -2304,7 +2219,6 @@ function checkPipesToShell(
 /** The text key of each finding. The approval card shows it in the reader's language. */
 const FINDING_REASON = {
   override: "status.guard.finding.override",
-  "conditional-override": "status.guard.finding.override",
   "new-instructions": "status.guard.finding.newInstructions",
   "instructions-label": "status.guard.finding.newInstructions",
   "prompt-leak": "status.guard.finding.promptLeak",

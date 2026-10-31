@@ -5,7 +5,11 @@
  *   read -rs STRIPE_SECRET_KEY && read -rs BOAT_API_KEY && export STRIPE_SECRET_KEY BOAT_API_KEY
  *   bun run hosting:setup --target=production
  *
- *   bun run hosting:setup --target=test
+ *   bun run hosting:setup --target=test --api=<address of your test account Worker>
+ *
+ * The production webhooks go to the Builders Bot account service. Builders Bot has no test account
+ * Worker of its own yet, so `--target=test` needs `--api`: the test Worker of the upstream OpenBot
+ * project must not get the Stripe and boat events of this account.
  *
  * - Stripe: the catalog, the Customer Portal and the webhook endpoint (`scripts/stripe-bootstrap.ts`).
  * - boat: the webhook to `<api>/v2/hosting/boat/webhook` with each event that the Worker reads.
@@ -27,6 +31,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { set as dotenvSet } from "@dotenvx/dotenvx";
+import { BUILDERSBOT_CONTROL_PLANE_ORIGIN } from "@openbot/contracts/invite-links";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { z } from "zod";
 import { loadSharedDevelopmentEnvironment } from "../development-environment";
@@ -38,9 +43,10 @@ const BOAT_API_URL = "https://boat.dev/api/v1";
 /** The events that `HostedServerService` reads from a boat webhook delivery. */
 const BOAT_EVENTS = ["sandbox.ready", "sandbox.error", "sandbox.archived", "sandbox.hydrated"];
 const GITHUB_ENVIRONMENT = "cloudflare-production";
+/** The account service that gets the webhooks of each target. The test target has no default. */
 const TARGETS = {
-  production: { api: "https://api.openbot.run" },
-  test: { api: "https://openbot-auth-api-test.internal9671.workers.dev" },
+  production: { api: BUILDERSBOT_CONTROL_PLANE_ORIGIN },
+  test: { api: null },
 } as const;
 
 interface SecretStore {
@@ -193,7 +199,9 @@ async function main(args: string[]): Promise<void> {
   const target = values.target;
   if (target !== "production" && target !== "test") throw new Error("Add --target=production or --target=test.");
   const live = target === "production";
-  const api = new URL(values.api ?? TARGETS[target].api).origin;
+  const address = values.api ?? TARGETS[target].api;
+  if (!address) throw new Error("Add --api=<address of your test account Worker>. There is no default test Worker.");
+  const api = new URL(address).origin;
   const replace = values["replace-webhooks"];
   const store = live ? githubStore() : envFileStore("apps/auth-api/.env.dev");
   if (!live) {
@@ -249,11 +257,6 @@ async function main(args: string[]): Promise<void> {
   );
   if (live) {
     next.push("The desktop release workflow selects HOSTED_SERVER_TEMPLATE directly on the production Worker.");
-    if (!(await store.has("OPENPANEL_CLIENT_ID")) || !(await store.has("OPENPANEL_CLIENT_SECRET"))) {
-      next.push(
-        "Required before production deployment: set OPENPANEL_CLIENT_ID and OPENPANEL_CLIENT_SECRET with gh secret set --env cloudflare-production.",
-      );
-    }
   }
   for (const line of next) logger.info(line);
 }

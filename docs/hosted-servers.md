@@ -386,9 +386,12 @@ temporary 0600 dotenvx key file containing the matching development key, remove 
 and run:
 
 ```bash
-bun run hosting:setup --target=test
+bun run hosting:setup --target=test --api=<address of your test account Worker>
 bun run api:deploy:test
 ```
+
+Builders Bot has no test account Worker of its own yet. `--target=test` has no default address, so
+the Stripe and boat events of this account never go to the test Worker of the upstream OpenBot project.
 
 `HOSTED_SERVERS_TEST_ALLOW_LIST` has the account IDs of
 `bun scripts/stripe-flows-e2e.ts --print-user-ids`, so the e2e scenarios, which send no key, can
@@ -421,7 +424,7 @@ servers, their webhooks and the cron continue.
    ```
 
    It makes the six Prices, the Customer Portal settings, the Stripe webhook endpoint and the boat
-   webhook. It writes the two keys and the two webhook signing secrets to the `cloudflare-production` GitHub Environment. Run it again at any time: it keeps
+   webhook, all to the Builders Bot account service (`https://buildersbot.culturabuilder.com`). It writes the two keys and the two webhook signing secrets to the `cloudflare-production` GitHub Environment. Run it again at any time: it keeps
    a secret that the Environment has. `--replace-webhooks` makes new signing secrets.
    Run it again after a deploy that adds an event to `BILLING_WEBHOOK_EVENTS`
    (`scripts/stripe-bootstrap.ts`), not before: an older Worker records an event that it does not
