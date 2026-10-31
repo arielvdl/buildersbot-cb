@@ -157,10 +157,47 @@ export const GRANT_FILE_NAMES = LID_AWAKE_BATTERY_FLOORS.map(grantFileName);
 export const GRANT_RENEW_MS = 30_000;
 export const GRANT_MAX_AGE_SECONDS = 90;
 
-/** One record of the test: the wall clock, a clock that stops while the computer sleeps, and the lid. */
+export const SYSCTL_PATH = "/usr/sbin/sysctl";
+export const SLEEP_WAKE_TIME_ARGS = ["-n", "kern.sleeptime", "kern.waketime"] as const;
+
+/** When macOS last went to sleep and last woke, on the wall clock. An unknown value is null. */
+export interface SleepWakeTimes {
+  lastSleepMs: number | null;
+  lastWakeMs: number | null;
+}
+
+/**
+ * `sysctl -n kern.sleeptime kern.waketime`, for example:
+ *
+ *     { sec = 1793415051, usec = 999147 } Sat Oct 31 02:50:51 2026
+ *     { sec = 1793415052, usec = 547433 } Sat Oct 31 02:50:52 2026
+ *
+ * The kernel writes `kern.sleeptime` each time the Mac goes to sleep, also from a maintenance wake.
+ * `process.hrtime` cannot show sleep: on macOS, libuv reads `mach_continuous_time`, which also counts
+ * the time in sleep.
+ */
+export function parseSleepWakeTimes(text: string): SleepWakeTimes {
+  const lines = text.split("\n");
+  const time = (line: string | undefined) => {
+    const match = /^\{ sec = (\d{1,12}), usec = (\d{1,6}) \}/.exec(line?.trim() ?? "");
+    return match ? Number(match[1]) * 1_000 + Math.floor(Number(match[2]) / 1_000) : null;
+  };
+  return { lastSleepMs: time(lines[0]), lastWakeMs: time(lines[1]) };
+}
+
+/** `kern.sleeptime` and `Date.now()` read the same clock. This covers their rounding. */
+const SLEEP_CLOCK_SKEW_MS = 1_000;
+
+/** The kernel recorded a sleep at or after this time on the wall clock. An unknown time is no proof. */
+export function sleptSince(lastSleepMs: number | null, wallMs: number): boolean {
+  return lastSleepMs !== null && lastSleepMs >= wallMs - SLEEP_CLOCK_SKEW_MS;
+}
+
+/** One record of the test: the wall clock, the last sleep that the kernel recorded, and the lid. */
 export interface LidTestSample {
   wallMs: number;
-  monoMs: number;
+  /** `kern.sleeptime`, or null when it could not be read. */
+  lastSleepMs: number | null;
   lidClosed: boolean;
 }
 
@@ -172,28 +209,29 @@ export interface LidTestProgress {
   longestGapMs: number;
 }
 
-/** A gap between two records that is longer than this, on the wall clock only, is sleep. */
-const SLEEP_NOISE_MS = 2_000;
 /** The lid must be closed this long while the Mac is on, for a test to pass. */
 export const LID_TEST_MIN_CLOSED_MS = 120_000;
 export const LID_TEST_MAX_MS = 10 * 60_000;
 export const LID_TEST_BEAT_MS = 5_000;
-/** Less sleep than this is clock noise. */
-const SLEPT_VERDICT_MS = 5_000;
+/**
+ * A gap between two records that is longer than this shows that the app did not run: the Mac slept,
+ * or the app stopped. Either way, the Mac was not proven on in that time.
+ */
+export const LID_TEST_GAP_LIMIT_MS = 3 * LID_TEST_BEAT_MS;
 
 export function startLidTest(sample: LidTestSample): LidTestProgress {
   return { startedAtMs: sample.wallMs, last: sample, closedMs: 0, sleptMs: 0, longestGapMs: 0 };
 }
 
 /**
- * The wall clock moves while the computer sleeps, and the monotonic clock does not. A short wake
- * for maintenance can run one record with the lid closed, so a record does not prove that the Mac
- * stayed on: only the sum of the sleep does.
+ * The time between two records counts as sleep when the kernel recorded a sleep after the first
+ * record, or when the gap is longer than `LID_TEST_GAP_LIMIT_MS`. A short wake for maintenance can
+ * run one record with the lid closed, so a record does not prove that the Mac stayed on: only
+ * records with no sleep between them do.
  */
 export function recordLidTestSample(progress: LidTestProgress, sample: LidTestSample): LidTestProgress {
   const wall = Math.max(0, sample.wallMs - progress.last.wallMs);
-  const mono = Math.max(0, sample.monoMs - progress.last.monoMs);
-  const slept = wall - mono > SLEEP_NOISE_MS ? wall - mono : 0;
+  const slept = sleptSince(sample.lastSleepMs, progress.last.wallMs) || wall > LID_TEST_GAP_LIMIT_MS ? wall : 0;
   const awake = wall - slept;
   const closed =
     progress.last.lidClosed && sample.lidClosed ? awake : progress.last.lidClosed || sample.lidClosed ? awake / 2 : 0;
@@ -209,15 +247,13 @@ export function recordLidTestSample(progress: LidTestProgress, sample: LidTestSa
 /** The test can stop by itself: the lid opened after it was closed long enough, or time is up. */
 export function lidTestDone(progress: LidTestProgress): boolean {
   if (progress.last.wallMs - progress.startedAtMs >= LID_TEST_MAX_MS) return true;
-  return (
-    !progress.last.lidClosed && (progress.closedMs >= LID_TEST_MIN_CLOSED_MS || progress.sleptMs >= SLEPT_VERDICT_MS)
-  );
+  return !progress.last.lidClosed && (progress.closedMs >= LID_TEST_MIN_CLOSED_MS || progress.sleptMs > 0);
 }
 
 /** Any sleep fails the test, also a short one: a record in a maintenance wake is not a pass. */
 export function lidTestVerdict(progress: LidTestProgress, finished: boolean): LidAwakeTestVerdict {
   if (!finished) return "running";
-  if (progress.sleptMs >= SLEPT_VERDICT_MS) return "slept";
+  if (progress.sleptMs > 0) return "slept";
   return progress.closedMs >= LID_TEST_MIN_CLOSED_MS ? "stayed-awake" : "lid-not-closed";
 }
 

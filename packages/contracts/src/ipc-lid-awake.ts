@@ -64,7 +64,10 @@ export interface LidAwakeTestResult {
   endedAt: string | null;
   /** The time with the lid closed while the Mac was on. */
   closedSeconds: number;
-  /** The time that the Mac slept, from the wall clock less the clock that stops in sleep. */
+  /**
+   * The time between records in which the Mac slept (the kernel recorded a sleep) or the app did not
+   * run (a gap of more than 15 seconds).
+   */
   sleptSeconds: number;
   /** The longest time between two records of the test. */
   longestGapSeconds: number;

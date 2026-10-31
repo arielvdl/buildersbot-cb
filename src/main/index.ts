@@ -107,6 +107,7 @@ import { voiceIpcHandlers } from "./ipc/voice-handlers";
 import { workflowIpcHandlers } from "./ipc/workflow-handlers";
 import { KeepAwake } from "./keep-awake";
 import { LidAwakeRoutines } from "./lid-awake-routines";
+import { readSleepWakeTimes } from "./lid-awake-service";
 import { stopAppImageCrashpadHandlerAtExit } from "./linux-appimage-crashpad";
 import { installLinuxDesktopEntry } from "./linux-desktop-entry";
 import { configureLinuxGpu } from "./linux-gpu-mode";
@@ -1476,6 +1477,8 @@ if (!hasSingleInstanceLock) {
       const lidAwakeRoutines = new LidAwakeRoutines({
         routineWake,
         holds: () => built.lidAwake.holdsThroughLidClose,
+        confirmHolds: () => runCauseEffect(built.lidAwake.refresh()).then(() => built.lidAwake.holdsThroughLidClose),
+        lastSleep: () => Effect.runPromise(readSleepWakeTimes()).then((times) => times.lastSleepMs),
         log: (message) => logger.info(message),
       });
       const lidAwakeChanged = () => built.lidAwake.changed();

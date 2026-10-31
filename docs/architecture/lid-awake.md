@@ -91,10 +91,19 @@ When the lid closes, macOS tells apps that the system "will sleep" at the change
 dark wake (`IOPMrootDomain.cpp`, "Legacy apps were already told in the full->dark transition").
 Chromium sends this as the `suspend` event. `LidAwakeRoutines` (`lid-awake-routines.ts`) holds the
 routines on `suspend`, as for every sleep. While `LidAwakeService.holdsThroughLidClose` is true, it
-compares the wall clock with the monotonic clock 30 seconds later. If the Mac did not sleep, it
-starts the routines again (they wait for the network first, as after a wake). A real sleep freezes
-that timer, and `resume` starts the routines as before. The local server process does not do this:
-its routines stay held until the lid opens.
+starts the routines again 30 seconds later (they wait for the network first, as after a wake) only
+when all of these are true:
+
+- A chain of 5-second timers came on time, so the app ran all the time.
+- `sysctl -n kern.sleeptime` shows no sleep after `suspend`. The kernel writes this time each time
+  the Mac goes to sleep (`IOPMrootDomain::powerChangeDone`, `SLEEP_STATE`).
+- A new read of the computer (`LidAwakeService.refresh`) shows that the mode keeps the Mac on.
+
+Node timers and `process.hrtime` count the time in sleep: on macOS, libuv reads
+`mach_continuous_time`. So a timer can come in a short maintenance wake after a real sleep, and a
+clock difference cannot show the sleep. The first two checks find that case. At a real wake,
+`resume` starts the routines as before. The local server process does not do this: its routines
+stay held until the lid opens.
 
 When the hold ends while the lid stays closed, for example because the power adapter is removed in
 the `plugged` mode, macOS goes from dark wake to sleep and sends no new `suspend` event.
@@ -108,12 +117,13 @@ screen, such as screen sharing, can stop with the lid closed. This is not verifi
 
 ## Test with the lid closed
 
-**Test with the lid closed** in Settings records the wall clock, the monotonic clock
-(`process.hrtime`, which stops while macOS sleeps) and the lid state each 5 seconds, for up to 10
-minutes. The difference of the two clocks is the time that the Mac slept. The result is "stayed on"
-only when the lid was closed for 2 minutes or more and the Mac slept less than 5 seconds. A short
-maintenance wake can record one sample with the lid closed, so a sample alone is not a pass. The
-last result is in `userData/lid-awake-test.json`, and `logs/main/main.log` has one line for it.
+**Test with the lid closed** in Settings records the wall clock, `kern.sleeptime` and the lid state
+each 5 seconds, for up to 10 minutes. The time between two records counts as sleep when the kernel
+recorded a sleep after the first record, or when the gap is longer than 15 seconds (the app did not
+run). The result is "stayed on" only when the lid was closed for 2 minutes or more and no time
+counts as sleep. A short maintenance wake can record one sample with the lid closed, so a sample
+alone is not a pass. The last result is in `userData/lid-awake-test.json`, and `logs/main/main.log`
+has one line for it.
 
 To check by hand: `pmset -g log | grep -E "Clamshell|DarkWake|Wake from" | tail`.
 

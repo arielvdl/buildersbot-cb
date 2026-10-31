@@ -7,6 +7,7 @@
 // 4. On the power adapter only: the real `caffeinate` assertion for a test process. It must show in
 //    `pmset -g assertions`, and it must go when the test process ends.
 // 5. `LidAwakeRoutines`: routines run again in dark wake, and are held again when the hold ends.
+//    A sleep that the kernel recorded, a late timer or an unconfirmed hold keeps them held.
 //
 // It never runs `pmset -a`, never asks for a password and never makes the Mac sleep.
 // It writes `.openbot-build/lid-awake-smoke.json`.
@@ -39,6 +40,7 @@ import {
   lidTestResult,
   parsePowerSource,
   parseRootDomain,
+  parseSleepWakeTimes,
   recordLidTestSample,
   startLidTest,
 } from "../src/main/lid-awake-policy";
@@ -223,20 +225,68 @@ equal("ioreg of a Mac with no lid", parseRootDomain(ioreg(null, "No")), {
   sleepDisabled: false,
 });
 
-// The test arithmetic. The monotonic clock stops while the Mac sleeps.
+equal(
+  "sysctl sleep and wake times",
+  parseSleepWakeTimes(
+    "{ sec = 1793415051, usec = 999147 } Sat Oct 31 02:50:51 2026\n{ sec = 1793415052, usec = 547433 } Sat Oct 31 02:50:52 2026\n",
+  ),
+  { lastSleepMs: 1_793_415_051_999, lastWakeMs: 1_793_415_052_547 },
+);
+equal("sysctl in an unknown form", parseSleepWakeTimes("kern.sleeptime: unknown\n"), {
+  lastSleepMs: null,
+  lastWakeMs: null,
+});
+const realTimes = parseSleepWakeTimes(
+  (await run("/usr/sbin/sysctl", ["-n", "kern.sleeptime", "kern.waketime"])).stdout,
+);
+check(
+  "this Mac gives kern.sleeptime and kern.waketime",
+  realTimes.lastSleepMs !== null && realTimes.lastWakeMs !== null && realTimes.lastSleepMs <= Date.now(),
+  realTimes,
+);
+// The premise of the first version was wrong: `process.hrtime` counts the time in sleep on macOS.
+// This shows it on each run, so no code comes back to it. It needs a Mac that slept since it started.
+const boot = /sec = (\d+)/.exec((await run("/usr/sbin/sysctl", ["-n", "kern.boottime"])).stdout)?.[1];
+// `CLOCK_UPTIME_RAW` stops in sleep. Python gives it; with no Python, the check is skipped.
+const uptime = await run("/usr/bin/python3", ["-c", "import time; print(time.clock_gettime(time.CLOCK_UPTIME_RAW))"])
+  .then(({ stdout }) => Number(stdout))
+  .catch(() => Number.NaN);
+const sinceBootSeconds = Date.now() / 1_000 - Number(boot);
+// The app runs in Electron, so the clock comes from Electron as Node. Bun starts its own clock at 0.
+const electron = resolve("node_modules/electron/dist/Electron.app/Contents/MacOS/Electron");
+const hrtimeSeconds = await run(electron, ["-e", "console.log(Number(process.hrtime.bigint() / 1000000n) / 1000)"], {
+  env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+})
+  .then(({ stdout }) => Number(stdout))
+  .catch(() => Number.NaN);
+const awakeSeconds = uptime;
+if (sinceBootSeconds - awakeSeconds > 60 && Number.isFinite(hrtimeSeconds))
+  check(
+    "process.hrtime counts sleep, so the lid-closed code does not use it",
+    Math.abs(hrtimeSeconds - sinceBootSeconds) < Math.abs(hrtimeSeconds - awakeSeconds),
+    { hrtimeSeconds, sinceBootSeconds, awakeSeconds },
+  );
+else report.push({ check: "process.hrtime and sleep (skipped: this Mac did not sleep since it started)", ok: true });
 
-function simulate(beats: { gap: number; slept?: number; lid: boolean }[]): {
+// The test arithmetic. The wall clock counts the time in sleep, and so does `process.hrtime`. Only
+// `kern.sleeptime` and a late record show a sleep.
+
+function simulate(
+  beats: { gap: number; sleptAt?: number; lid: boolean }[],
+  knownSleep = true,
+): {
   progress: LidTestProgress;
   done: boolean;
 } {
   let wall = 1_000_000;
-  let mono = 50_000;
-  let progress = startLidTest({ wallMs: wall, monoMs: mono, lidClosed: false });
+  let lastSleepMs: number | null = knownSleep ? 400_000 : null;
+  let progress = startLidTest({ wallMs: wall, lastSleepMs, lidClosed: false });
   let done = false;
   for (const beat of beats) {
+    // `sleptAt` is the time after the last record when the Mac went to sleep.
+    if (beat.sleptAt !== undefined && knownSleep) lastSleepMs = wall + beat.sleptAt;
     wall += beat.gap;
-    mono += beat.gap - (beat.slept ?? 0);
-    progress = recordLidTestSample(progress, { wallMs: wall, monoMs: mono, lidClosed: beat.lid });
+    progress = recordLidTestSample(progress, { wallMs: wall, lastSleepMs, lidClosed: beat.lid });
     if (lidTestDone(progress)) {
       done = true;
       break;
@@ -258,14 +308,42 @@ equal(
 check("the closed time counts about 150 s", Math.abs(lidTestResult(stayed.progress, true).closedSeconds - 150) <= 5);
 const slept = simulate([
   { gap: 5_000, lid: true },
-  { gap: 300_000, slept: 295_000, lid: true },
+  { gap: 300_000, sleptAt: 2_000, lid: true },
   { gap: 5_000, lid: false },
 ]);
-equal("a sleep of 295 s fails", lidTestResult(slept.progress, true).verdict, "slept");
-equal("the sleep is measured", lidTestResult(slept.progress, true).sleptSeconds, 295);
+equal("a sleep of 300 s fails", lidTestResult(slept.progress, true).verdict, "slept");
+equal("the time of the sleep counts as slept", lidTestResult(slept.progress, true).sleptSeconds, 300);
 equal("the test stops when the lid opens after a sleep", slept.done, true);
-const maintenance = simulate([...closedBeats(2), { gap: 600_000, slept: 590_000, lid: true }, ...closedBeats(30)]);
+const maintenance = simulate([...closedBeats(2), { gap: 600_000, sleptAt: 1_000, lid: true }, ...closedBeats(30)]);
 equal("a record in a maintenance wake does not pass", lidTestResult(maintenance.progress, true).verdict, "slept");
+// The reviewer's case: the Mac slept 300 s and a record came in the dark wake that follows.
+const darkWakeRecord = simulate([
+  { gap: 5_000, lid: false },
+  ...closedBeats(2),
+  { gap: 300_000, sleptAt: 3_000, lid: true },
+  ...closedBeats(26),
+  { gap: 5_000, lid: false },
+]);
+equal(
+  "a sleep with records after it in dark wake fails",
+  lidTestResult(darkWakeRecord.progress, true).verdict,
+  "slept",
+);
+const shortSleep = simulate([...closedBeats(10), { gap: 5_000, sleptAt: 1_000, lid: true }, ...closedBeats(30)]);
+equal(
+  "a sleep that the kernel recorded fails also when the gap is short",
+  lidTestResult(shortSleep.progress, true).verdict,
+  "slept",
+);
+const unknownSleep = simulate([...closedBeats(2), { gap: 300_000, lid: true }, ...closedBeats(30)], false);
+equal("with no kern.sleeptime, a long gap fails the test", lidTestResult(unknownSleep.progress, true).verdict, "slept");
+const lateBeat = simulate([
+  ...closedBeats(10),
+  { gap: 16_000, lid: true },
+  ...closedBeats(30),
+  { gap: 5_000, lid: false },
+]);
+equal("a record 16 s late fails the test", lidTestResult(lateBeat.progress, true).verdict, "slept");
 const open = simulate([
   { gap: 5_000, lid: false },
   { gap: 5_000, lid: false },
@@ -534,15 +612,29 @@ async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<boo
 }
 const calls: string[] = [];
 let holding = true;
+let confirmed = true;
+let confirmations = 0;
+let kernelSleep: number | null = 1_000;
+let clockJump = 0;
 const routines = new LidAwakeRoutines({
   routineWake: { suspend: () => calls.push("suspend"), resume: () => calls.push("resume") },
   holds: () => holding,
+  confirmHolds: async () => {
+    confirmations += 1;
+    return confirmed;
+  },
+  lastSleep: async () => kernelSleep,
   log: () => undefined,
-  checkMs: 50,
+  checkMs: 100,
+  tickMs: 20,
+  now: () => Date.now() + clockJump,
 });
+// Long enough for the check (100 ms) and its reads to end.
+const checkEnded = () => new Promise((done) => setTimeout(done, 400));
 routines.suspend();
 check("dark wake: routines run again when the Mac did not sleep", await waitFor(() => calls.length === 2));
 equal("dark wake: hold first, then run", calls, ["suspend", "resume"]);
+equal("dark wake: the computer is read again before the routines run", confirmations, 1);
 holding = false;
 routines.holdMayEnd();
 equal("the end of the hold in dark wake holds the routines again", calls, ["suspend", "resume", "suspend"]);
@@ -552,6 +644,41 @@ routines.resume();
 routines.suspend();
 check("with no hold, a suspend keeps the routines held", !(await waitFor(() => calls.length > 5, 300)));
 equal("with no hold: resume, then suspend only", calls.slice(3), ["resume", "suspend"]);
+
+// The clock of Node counts the time in sleep, so a timer can come in a maintenance wake after a
+// real sleep. Each of these cases must keep the routines held.
+const heldAfter = async (name: string, setup: () => void) => {
+  holding = true;
+  confirmed = true;
+  kernelSleep = 1_000;
+  clockJump = 0;
+  calls.length = 0;
+  setup();
+  routines.suspend();
+  await checkEnded();
+  equal(name, calls, ["suspend"]);
+};
+await heldAfter("the kernel recorded a sleep after suspend: routines stay held", () => {
+  kernelSleep = Date.now() + 10;
+});
+await heldAfter("kern.sleeptime cannot be read: routines stay held", () => {
+  kernelSleep = null;
+});
+await heldAfter("a new read shows no hold: routines stay held", () => {
+  confirmed = false;
+});
+holding = true;
+confirmed = true;
+kernelSleep = 1_000;
+clockJump = 0;
+calls.length = 0;
+routines.suspend();
+// The clock jumps 300 s, as it does when the Mac sleeps and the timer then comes in a dark wake.
+setTimeout(() => {
+  clockJump = 300_000;
+}, 30);
+await checkEnded();
+equal("a timer that comes late after a jump of the clock keeps the routines held", calls, ["suspend"]);
 routines.dispose();
 
 const failed = report.filter((item) => !item.ok);

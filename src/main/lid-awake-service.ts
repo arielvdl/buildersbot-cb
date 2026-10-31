@@ -49,7 +49,11 @@ import {
   PMSET_PATH,
   parsePowerSource,
   parseRootDomain,
+  parseSleepWakeTimes,
   recordLidTestSample,
+  SLEEP_WAKE_TIME_ARGS,
+  type SleepWakeTimes,
+  SYSCTL_PATH,
   safetyStop,
   startLidTest,
   type ThermalState,
@@ -140,9 +144,12 @@ async function removeGrantFile(name: string): Promise<void> {
   });
 }
 
-/** The clock that stops while the computer sleeps. Node reads it from `mach_absolute_time` on macOS. */
-function monotonicMs(): number {
-  return Number(process.hrtime.bigint() / 1_000_000n);
+/** When macOS last went to sleep and woke (`kern.sleeptime`, `kern.waketime`). A failure reads as unknown. */
+export function readSleepWakeTimes(): Effect.Effect<SleepWakeTimes> {
+  return run(SYSCTL_PATH, SLEEP_WAKE_TIME_ARGS).pipe(
+    Effect.map(parseSleepWakeTimes),
+    Effect.orElseSucceed(() => ({ lastSleepMs: null, lastWakeMs: null })),
+  );
 }
 
 /**
@@ -326,8 +333,9 @@ export class LidAwakeService {
   });
 
   /**
-   * Starts the test with the lid closed. It records the clocks and the lid each 5 seconds, and it
-   * stops by itself when the lid opens after the test has its result, or after 10 minutes.
+   * Starts the test with the lid closed. It records the wall clock, the last sleep of the kernel and
+   * the lid each 5 seconds, and it stops by itself when the lid opens after the test has its result,
+   * or after 10 minutes.
    */
   readonly startTest = Effect.fn("LidAwake.startTest")(function* (this: LidAwakeService) {
     if (!this.#supported) return this.status();
@@ -537,12 +545,19 @@ export class LidAwakeService {
   }
 
   #sample(): Effect.Effect<LidTestSample> {
-    return run(IOREG_PATH, IOREG_ROOT_DOMAIN_ARGS).pipe(
-      Effect.map((text) => parseRootDomain(text).lidClosed),
-      Effect.orElseSucceed(() => this.#lidClosed),
-      Effect.map((lidClosed) => {
+    return Effect.all(
+      [
+        run(IOREG_PATH, IOREG_ROOT_DOMAIN_ARGS).pipe(
+          Effect.map((text) => parseRootDomain(text).lidClosed),
+          Effect.orElseSucceed(() => this.#lidClosed),
+        ),
+        readSleepWakeTimes(),
+      ],
+      { concurrency: "unbounded" },
+    ).pipe(
+      Effect.map(([lidClosed, times]) => {
         this.#lidClosed = lidClosed;
-        return { wallMs: Date.now(), monoMs: monotonicMs(), lidClosed };
+        return { wallMs: Date.now(), lastSleepMs: times.lastSleepMs, lidClosed };
       }),
     );
   }
