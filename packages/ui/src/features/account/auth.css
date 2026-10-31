@@ -1252,7 +1252,9 @@ button {
   cursor: pointer;
 }
 
-button:not(.ui-button):focus-visible,
+/* The ring of a plain control. An unstyled `Button` has the look of a plain `<button>`, so it gets this
+   ring too. `:is()` keeps the specificity at 0,2,1. */
+button:is(:not(.ui-button), .ui-button-variant-unstyled):focus-visible,
 input:not(.ui-input):focus-visible,
 textarea:not(.ui-textarea):focus-visible {
   outline: 2px solid var(--openbot-border-focus);

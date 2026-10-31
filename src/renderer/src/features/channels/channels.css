@@ -753,6 +753,13 @@ body:has(.channel-member-dialog) .ui-select-content {
   transition: none;
 }
 
+/* The ring of a plain field in `auth.css` skips an `Input`. This rule sets it back with the same
+   specificity, so it is above `outline: none` on the field. */
+input.channel-tab-input:focus-visible {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: 2px;
+}
+
 .channel-tab-close {
   padding: 0 5px 0 2px;
   border: 0;
@@ -897,6 +904,13 @@ body:has(.channel-member-dialog) .ui-select-content {
 .channel-tab-overview-search:focus {
   border-color: var(--openbot-accent);
   outline: none;
+}
+
+/* The ring of a plain field in `auth.css` skips an `Input`. This rule sets it back with the same
+   specificity, so it is above `outline: none` of the focus rule. */
+input.channel-tab-overview-search:focus-visible {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: 2px;
 }
 
 .channel-tab-overview-sort {

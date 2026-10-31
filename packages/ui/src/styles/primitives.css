@@ -208,7 +208,8 @@
 /* A control with its own drawing, such as a tab, a card or a strip: it keeps the behavior of `Button`
  * and the look of a plain `<button>`. Each property goes back to the base layer and the browser, and
  * the font is inherited, as `base.css` gives a `<button>`. The rule has no specificity, so the class of
- * the caller draws the control. It has no hover, focus ring or disabled look of its own. */
+ * the caller draws the control. It has no hover, focus ring or disabled look of its own: when it has
+ * the keyboard focus, it gets the ring that `auth.css` gives a plain `<button>`. */
 :where(.ui-button-variant-unstyled) {
   min-width: revert-layer;
   height: revert-layer;

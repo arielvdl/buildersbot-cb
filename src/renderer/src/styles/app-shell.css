@@ -3878,13 +3878,12 @@ textarea {
 }
 
 /* The combination field of the dictation row: it reads as a key cap, and shows it listens. It is an
-   `Input`, so it sets back the height, the focus ring and the instant border of a plain field. */
+   `Input`, so it sets back the height and the instant border of a plain field. */
 .dictation-key {
   width: 10.5rem;
   min-width: auto;
   height: auto;
   padding: 4px 10px;
-  outline: revert;
   transition: none;
   border: 1px solid var(--openbot-border);
   border-radius: var(--openbot-radius-sm);
@@ -3901,7 +3900,16 @@ textarea {
   color: var(--openbot-text-muted);
 }
 
-.dictation-key:focus-visible {
-  outline: 2px solid var(--openbot-accent);
-  outline-offset: 1px;
+/* `.settings-modal :where(.ui-input)` comes later and sets a larger text. This rule has a higher
+   specificity, so the field keeps the text size and the line height of a plain field. */
+.dictation-key.ui-input {
+  font-size: var(--openbot-text-sm);
+  line-height: inherit;
+}
+
+/* The ring of a plain field in `auth.css` skips an `Input`. This rule sets it back with the same
+   specificity. */
+input.dictation-key:focus-visible {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: 2px;
 }

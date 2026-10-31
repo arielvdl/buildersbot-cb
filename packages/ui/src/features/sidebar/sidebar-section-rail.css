@@ -86,7 +86,7 @@
 }
 
 .section-icon-preview-tile .section-rail-emoji {
-  font-size: var(--openbot-text-display);
+  font-size: var(--openbot-glyph-emoji-lg);
 }
 
 /* "No section" holds the chats outside every section, so its mark is an open box. */
@@ -558,7 +558,7 @@
 .section-picker-emoji {
   display: inline-block;
   font-family: var(--section-emoji-font);
-  font-size: var(--openbot-text-3xl);
+  font-size: var(--openbot-glyph-emoji-md);
   line-height: 1;
   transition: transform var(--openbot-duration-hover) var(--openbot-ease-out);
 }

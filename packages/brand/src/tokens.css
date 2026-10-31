@@ -283,11 +283,15 @@
   --openbot-leading-display: 38px;
   --openbot-text-hero: clamp(3rem, 8vw, 6.5rem);
 
-  /* Glyphs, not copy: a file-extension string inside a fixed 16-24px chip. Below the
-   * scale's floor because the container is fixed, not because the text is small. Outside
-   * the text-* namespace so text-* means exactly the six steps above. */
+  /* Glyphs, not copy: a file-extension string inside a fixed 16-24px chip, the count in
+   * a fixed 15px badge, and an emoji on a fixed tile or picker cell. Off the scale because
+   * the container is fixed, not because the text is small or large. Outside the text-*
+   * namespace so text-* means exactly the six steps above. */
   --openbot-glyph-xs: 7px;
   --openbot-glyph-sm: 8px;
+  --openbot-glyph-badge: 10px;
+  --openbot-glyph-emoji-md: 26px;
+  --openbot-glyph-emoji-lg: 34px;
 
   --openbot-weight-regular: 400;
   --openbot-weight-medium: 500;
