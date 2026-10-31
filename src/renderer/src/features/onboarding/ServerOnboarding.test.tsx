@@ -1,5 +1,4 @@
 import type { AgentProviderId, AgentProviderStatus, AgentStatus, ProviderRuntimeStatus } from "@openbot/contracts/ipc";
-import { toast } from "@openbot/ui";
 import type { ProviderKeyApi } from "@openbot/ui/features/settings/OpenCodeKeyDialog";
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
@@ -11,7 +10,7 @@ import { ServerOnboarding } from "./ServerOnboarding";
 import { createSetupProviders, SetupProviderPicker, type SetupProviderProps } from "./SetupProviderPicker";
 
 const PI_TOO_OLD = "Pi 0.84.1 is too old. Install Pi 1.1.0 or later for native RPC and MCP support.";
-const ON_HOST_LINE = "Sign in to Cultura Builder on the computer that runs this server.";
+const REMOTE_LINE = "Cultura Builder does not connect through a remote server yet. Use Builders or another provider.";
 
 const ready = (version: string): ProviderRuntimeStatus => ({ phase: "ready", progress: 100, message: null, version });
 const notDownloaded: ProviderRuntimeStatus = { phase: "not-downloaded", progress: null, message: null, version: null };
@@ -123,11 +122,13 @@ function connection(
  */
 function host(
   all: Spies,
-  agentStatus: AgentStatus = OWNER_HOST,
+  agentStatus: AgentStatus | (() => AgentStatus) = OWNER_HOST,
   runtimes: () => Partial<Record<AgentProviderId, ProviderRuntimeStatus>> = () => OWNER_RUNTIMES,
 ): HostProviderSettings {
   return {
-    agentStatus,
+    get agentStatus() {
+      return typeof agentStatus === "function" ? agentStatus() : agentStatus;
+    },
     get providerRuntimeStatuses() {
       return runtimes();
     },
@@ -147,16 +148,14 @@ function renderServer(settings: HostProviderSettings) {
   ));
 }
 
-/**
- * Clicks each button that names `provider`, and expects each click to reach one of the spies, or
- * one of `feedback`, such as the toast that says what to do.
- */
-function expectNoDeadButton(all: Spies, provider: string, feedback: readonly Mock[] = []): void {
-  const count = () => calls(all) + feedback.reduce((total, spy) => total + spy.mock.calls.length, 0);
+/** Clicks each button that names `provider`, and expects each click to reach one of the spies. */
+function expectNoDeadButton(all: Spies, provider: string): void {
   for (const button of screen.queryAllByRole("button", { name: new RegExp(provider, "u") })) {
-    const before = count();
+    const before = calls(all);
     fireEvent.click(button);
-    expect(count(), `“${button.getAttribute("aria-label") ?? button.textContent}” did nothing`).toBeGreaterThan(before);
+    expect(calls(all), `“${button.getAttribute("aria-label") ?? button.textContent}” did nothing`).toBeGreaterThan(
+      before,
+    );
   }
 }
 
@@ -170,26 +169,61 @@ async function chooseInMore(provider: string): Promise<void> {
 
 const radioValues = () => screen.getAllByRole("radio").map((radio) => radio.getAttribute("value"));
 
-describe("the Cultura Builder row of setup", () => {
-  it("offers no button that does nothing on a joined server, whose host has no Cultura Builder sign-in", async () => {
-    const all = spies();
-    renderServer(host(all));
-    await screen.findByRole("radiogroup", { name: "Choose the AI provider of this server" });
-    expectNoDeadButton(all, "Cultura Builder");
-  });
+/** A host of this release with no Cultura Builder sign-in: it reports "sign-in required". */
+const SIGNED_OUT_HOST = status([
+  { id: "cultura-builder", state: "sign-in-required", version: "1.18.27", message: "Cultura Builder login required." },
+  { id: "codex", state: "available", version: "0.156.0", message: null, email: "owner@example.com" },
+  { id: "opencode", state: "available", version: "1.18.27", message: null },
+]);
 
-  it("says on the row where to sign in when the user chooses it on a joined server", async () => {
+describe("the Cultura Builder row of setup", () => {
+  it("offers no button that does nothing on a joined server, and keeps Cultura Builder in More providers", async () => {
     const all = spies();
     renderServer(host(all));
     await screen.findByRole("radiogroup", { name: "Choose the AI provider of this server" });
     expect(radioValues()).not.toContain("cultura-builder");
+    expectNoDeadButton(all, "Cultura Builder");
+    fireEvent.click(screen.getByRole("button", { name: /More providers/u }));
+    const dialog = await screen.findByRole("dialog", { name: "More providers" });
+    expect(within(dialog).getByRole("button", { name: /^Cultura Builder/u })).toBeInTheDocument();
+  });
+
+  for (const [name, settings] of [
+    ["an older host, which reports an error", OWNER_HOST],
+    ["a host of this release, which reports sign-in required", SIGNED_OUT_HOST],
+  ] as const) {
+    it(`says on the row that it does not connect through the server, for ${name}`, async () => {
+      const all = spies();
+      renderServer(host(all, settings));
+      expect(await screen.findByRole("radio", { checked: true })).toHaveAttribute("value", "codex");
+      await chooseInMore("Cultura Builder");
+      expect(await screen.findAllByText(REMOTE_LINE)).not.toHaveLength(0);
+      expect(screen.queryByText("Cultura Builder login required.")).toBeNull();
+      expectNoDeadButton(all, "Cultura Builder");
+      // The main button promises no connection: it gives the choice back, and the step selects the
+      // connected account again.
+      expect(screen.queryByRole("button", { name: "Connect Cultura Builder" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Use another provider" }));
+      await vi.waitFor(() => expect(screen.getByRole("radio", { checked: true })).toHaveAttribute("value", "codex"));
+      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    });
+  }
+
+  it("keeps the message of a host whose Cultura Builder fails for another reason", async () => {
+    const failing = status([
+      {
+        id: "cultura-builder",
+        state: "error",
+        version: "1.18.27",
+        message: "Cultura Builder access check failed (502)",
+      },
+      { id: "opencode", state: "available", version: "1.18.27", message: null },
+    ]);
+    renderServer(host(spies(), failing));
+    await screen.findByRole("radiogroup", { name: "Choose the AI provider of this server" });
     await chooseInMore("Cultura Builder");
-    expect(await screen.findAllByText(ON_HOST_LINE)).not.toHaveLength(0);
-    expect(screen.queryByText("Cultura Builder login required.")).toBeNull();
-    // The main button cannot connect it from here either, so it says where to sign in.
-    const info = vi.spyOn(toast, "info").mockImplementation(() => "toast");
-    expectNoDeadButton(all, "Cultura Builder", [info]);
-    expect(info).toHaveBeenCalledWith(ON_HOST_LINE);
+    expect(await screen.findAllByText("Cultura Builder access check failed (502)")).not.toHaveLength(0);
+    expect(screen.queryByText(REMOTE_LINE)).toBeNull();
   });
 
   it("offers no button that does nothing on this computer, where Connect is the sign-in", async () => {
@@ -242,6 +276,48 @@ describe("the provider list of a joined server", () => {
     expect(screen.queryByText(PI_TOO_OLD)).toBeNull();
   });
 
+  it("moves the choice from Builders to an account that connects after the first render", async () => {
+    const checking = status([
+      { id: "codex", state: "checking", version: "0.156.0", message: null },
+      { id: "claude", state: "sign-in-required", version: "2.1.263", message: null },
+      { id: "opencode", state: "checking", version: "1.18.27", message: null },
+    ]);
+    const [current, setCurrent] = createSignal<AgentStatus>({ ...checking, phase: "starting" });
+    renderServer(host(spies(), current));
+    expect(await screen.findByRole("radio", { checked: true })).toHaveAttribute("value", "opencode");
+    setCurrent(
+      status([
+        { id: "codex", state: "available", version: "0.156.0", message: null, email: "owner@example.com" },
+        { id: "claude", state: "sign-in-required", version: "2.1.263", message: null },
+        { id: "opencode", state: "available", version: "1.18.27", message: null },
+      ]),
+    );
+    await vi.waitFor(() => expect(screen.getByRole("radio", { checked: true })).toHaveAttribute("value", "codex"));
+  });
+
+  it("never replaces the choice of the user when an account connects", async () => {
+    const [current, setCurrent] = createSignal<AgentStatus>(
+      status([
+        { id: "codex", state: "checking", version: "0.156.0", message: null },
+        { id: "claude", state: "sign-in-required", version: "2.1.263", message: null },
+        { id: "opencode", state: "available", version: "1.18.27", message: null },
+      ]),
+    );
+    renderServer(host(spies(), current));
+    fireEvent.click(await screen.findByRole("radio", { name: /^Claude/u }));
+    expect(await screen.findByRole("radio", { checked: true })).toHaveAttribute("value", "claude");
+    setCurrent(
+      status([
+        { id: "codex", state: "available", version: "0.156.0", message: null, email: "owner@example.com" },
+        { id: "claude", state: "sign-in-required", version: "2.1.263", message: null },
+        { id: "opencode", state: "available", version: "1.18.27", message: null },
+      ]),
+    );
+    // The ChatGPT row shows its account once the new status is on the screen.
+    expect(await screen.findByText("owner@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { checked: true })).toHaveAttribute("value", "claude");
+  });
+
   it("selects Builders when no other provider is connected", async () => {
     const nothing = status([
       { id: "codex", state: "sign-in-required", version: "0.156.0", message: null },
@@ -275,10 +351,38 @@ describe("the provider list of a joined server", () => {
     await vi.waitFor(() => expect(all.download).toHaveBeenCalledWith("grok"));
   });
 
-  it("suggests installing Builders, shows its progress, and retries a failed install", async () => {
+  it("keeps the version that an old CLI needs when the row cannot replace it", async () => {
+    const cursorTooOld = "Cursor Agent 2025.1.0 is too old. Builders Bot requires 2026.1.0 or newer.";
+    const settings = status([
+      ...(OWNER_HOST.providers ?? []),
+      { id: "cursor", state: "outdated", version: "2025.1.0", message: cursorTooOld },
+    ]);
+    renderServer(host(spies(), settings));
+    await screen.findByRole("radiogroup", { name: "Choose the AI provider of this server" });
+    await chooseInMore("Cursor");
+    expect(await screen.findByText(cursorTooOld)).toBeInTheDocument();
+    expect(screen.queryByText("Version 2025.1.0 is too old.")).toBeNull();
+  });
+
+  it("downloads Builders from the main button when it is selected, with no third control", async () => {
     const all = spies();
     const missing = status([
       { id: "codex", state: "sign-in-required", version: "0.156.0", message: null },
+      { id: "opencode", state: "not-installed", version: null, message: null },
+    ]);
+    renderServer(host(all, missing, () => ({ codex: ready("0.156.0"), opencode: notDownloaded })));
+    expect(await screen.findByRole("radio", { checked: true })).toHaveAttribute("value", "opencode");
+    expect(screen.queryByText("Install Builders to use free models")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Install Builders" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await vi.waitFor(() => expect(all.download).toHaveBeenCalledWith("opencode"));
+  });
+
+  it("suggests installing Builders, shows its progress, and retries a failed install", async () => {
+    const all = spies();
+    // Another account is connected and selected, so the notice suggests Builders beside it.
+    const missing = status([
+      { id: "codex", state: "available", version: "0.156.0", message: null, email: "owner@example.com" },
       { id: "opencode", state: "not-installed", version: null, message: null },
     ]);
     const [runtimes, setRuntimes] = createSignal<Partial<Record<AgentProviderId, ProviderRuntimeStatus>>>({
@@ -287,8 +391,7 @@ describe("the provider list of a joined server", () => {
     });
     renderServer(host(all, missing, runtimes));
     expect(await screen.findByText("Install Builders to use free models")).toBeInTheDocument();
-    expect(await screen.findByRole("radio", { checked: true })).toHaveAttribute("value", "opencode");
-    expect(screen.getByRole("button", { name: "Download" })).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { checked: true })).toHaveAttribute("value", "codex");
     fireEvent.click(screen.getByRole("button", { name: "Install Builders" }));
     await vi.waitFor(() => expect(all.download).toHaveBeenCalledWith("opencode"));
 

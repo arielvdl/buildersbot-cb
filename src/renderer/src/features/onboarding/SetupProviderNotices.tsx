@@ -26,8 +26,9 @@ export interface SetupProviderNoticesProps {
  * The notices below the provider rows of setup.
  *
  * - The install suggestion of Builders, while its runtime is not on the computer that runs the
- *   providers: one action that downloads it, its progress, and a retry with the reason when it fails.
- *   It reuses the runtime download of the row, so the row and the notice show the same progress.
+ *   providers and another row is selected: one action that downloads it, its progress, and a retry
+ *   with the reason when it fails. It reuses the runtime download of the row, so the row and the
+ *   notice show the same progress.
  * - One notice for the key providers among the rows that wait for a newer Pi, with one action,
  *   instead of the same long Pi message on each row.
  */
@@ -36,7 +37,12 @@ export function SetupProviderNotices(props: SetupProviderNoticesProps) {
   const source = () => props.providers.props;
   const free = () => props.providers.rows().listed.find((option) => option.id === FREE_PROVIDER);
   const freeName = () => free()?.name ?? "";
-  const install = () => freeInstallStep(free(), Boolean(source().onDownloadProvider));
+  // With Builders selected, the main button of the step already downloads it and says why it waits,
+  // so a notice would be a third control for the same download.
+  const install = () =>
+    props.providers.selectedProvider() === FREE_PROVIDER
+      ? null
+      : freeInstallStep(free(), Boolean(source().onDownloadProvider));
   const freeProgress = () => free()?.runtimeStatus?.progress ?? null;
   const freeFailure = () => free()?.runtimeStatus?.message ?? null;
 

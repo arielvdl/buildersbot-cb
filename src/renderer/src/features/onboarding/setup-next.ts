@@ -24,7 +24,7 @@ export function createSetupNext(providers: SetupProviders) {
     if (providers.selectedProviderConnected()) return "";
     const option = selectedOption();
     if (!option) return t("onboarding.next.selectProvider");
-    // A provider that this window cannot connect: its row line says where to sign in.
+    // A provider that this window cannot connect: its row line says why, and what to use instead.
     if (providers.unreachable().has(option.id) && option.message) return option.message;
     const provider = option.name;
     switch (option.runtimeStatus?.phase) {
@@ -77,6 +77,12 @@ export function createSetupNext(providers: SetupProviders) {
    */
   function connectSelected(): void {
     const option = selectedOption();
+    // This window cannot connect it, so the button gives the choice back to the step, which selects
+    // Builders or a connected account. The row stays where the user saw it.
+    if (option && providers.unreachable().has(option.id)) {
+      providers.clearChoice();
+      return;
+    }
     const runtimePhase = option?.runtimeStatus?.phase ?? "ready";
     // The step the button asks for is the download, so the button starts it. The row shows progress.
     if (
@@ -104,10 +110,12 @@ export function createSetupNext(providers: SetupProviders) {
   /**
    * The label of the main button while the selected provider is not connected, the same on first
    * run and on a server: Download when the button starts the download, else Connect with the name of
-   * the provider it connects.
+   * the provider it connects. For a provider that this window cannot connect, the button promises no
+   * connection: it chooses another provider.
    */
   function connectLabel(): string {
     const option = selectedOption();
+    if (option && providers.unreachable().has(option.id)) return t("onboarding.action.useAnother");
     const phase = option?.runtimeStatus?.phase;
     if (phase === "not-downloaded" || phase === "download-error") return t("common.download");
     return option && !providers.customSelected()

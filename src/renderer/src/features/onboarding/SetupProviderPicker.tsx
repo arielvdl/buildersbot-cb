@@ -3,6 +3,7 @@ import {
   AGENT_PROVIDER_DESCRIPTORS,
   type AgentModelId,
   type AgentProviderId,
+  type AgentProviderStatus,
   type AgentStatus,
   type CustomProviderRestart,
   type CustomProviderSummary,
@@ -11,6 +12,7 @@ import {
   type SaveCustomProviderInput,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
+import { sourceText } from "@openbot/i18n/source";
 import {
   type ProviderConnection,
   ProviderPicker,
@@ -21,6 +23,7 @@ import { CustomProviderDialog } from "@openbot/ui/features/custom-providers/Cust
 import { CustomProviderListDialog } from "@openbot/ui/features/custom-providers/CustomProviderListDialog";
 import { DetectedProviders } from "@openbot/ui/features/custom-providers/DetectedProviders";
 import type { DetectedProviderApi, ProviderDetection } from "@openbot/ui/features/custom-providers/detected-providers";
+import { providerUpdateAvailable } from "@openbot/ui/features/provider-updates/provider-update";
 import {
   isKeyDialogProvider,
   type KeyDialogProvider,
@@ -139,6 +142,9 @@ const PROVIDER_DESCRIPTION_KEYS: Readonly<Record<string, AppTextKey>> = {
 
 const NO_PROVIDERS: ReadonlySet<AgentProviderId> = new Set();
 
+/** What a host with no Cultura Builder sign-in sends, in English as every host sends it. */
+const CULTURA_LOGIN_REQUIRED = sourceText("error.provider.culturaLoginRequired");
+
 /**
  * Whether setup can continue with this provider. A signed-in provider can; so can a downloaded
  * provider that runs free models, because it has no sign-in to wait for.
@@ -217,6 +223,11 @@ export function createSetupProviders(
    * and no released Team API route carries that sign-in to a joined server's host. A host with no
    * Cultura Builder sign-in of its own reports it as "login required", and the row could then only
    * offer a button that does nothing. The desktop account of this window is not the host's sign-in.
+   *
+   * A server with no screen, such as a sector server in a container, has no place to sign in at all.
+   * What makes Cultura Builder work there is an optional Team API route that starts the
+   * `cultura-device` sign-in on the host, behind a new capability. Until a host has it, the row says
+   * that Cultura Builder does not connect through a remote server yet.
    */
   const unreachable = createMemo<ReadonlySet<AgentProviderId>>(() => {
     if (!props.hostProviders) return NO_PROVIDERS;
@@ -228,12 +239,41 @@ export function createSetupProviders(
   });
 
   /**
-   * One short line for a CLI that is too old. The key providers run in Pi, so they would each repeat
-   * Pi's message: the step shows one notice for them instead, and their rows say nothing.
+   * The line of a row that this window cannot connect. A host that has no Cultura Builder sign-in
+   * reports "sign-in required", or, before this release, an error with the login text. The row then
+   * says that this window cannot sign it in, and what to use instead. Any other problem of the host,
+   * such as a gateway that does not answer, keeps the host's own message, which is true.
    */
-  function outdatedLine(provider: AgentProviderId, version: string | null): string | null {
+  function unreachableLine(status: AgentProviderStatus | undefined): string | null | undefined {
+    return status?.state === "sign-in-required" || status?.message === CULTURA_LOGIN_REQUIRED
+      ? t("onboarding.provider.culturaBuilderRemote")
+      : status?.message;
+  }
+
+  /**
+   * The line of a CLI that is too old.
+   *
+   * The key providers run in Pi, so they would each repeat Pi's message: the step shows one notice
+   * for them instead, and their rows say nothing. A row that offers the download or the update that
+   * replaces the CLI says it in one short line beside that action. A row with no such action, such as
+   * a Cursor that the user installed, keeps the message of the provider, which names the version it
+   * needs.
+   */
+  function outdatedLine(
+    provider: AgentProviderId,
+    status: AgentProviderStatus,
+    runtime: ProviderRuntimeStatus | undefined,
+    availableVersion: string | null,
+  ): string | null {
     if (isKeyOnlyProvider(provider)) return null;
-    return version ? t("onboarding.provider.outdated", { version }) : t("onboarding.provider.outdatedUnknown");
+    const download =
+      Boolean(props.onDownloadProvider) && (runtime?.phase === "not-downloaded" || runtime?.phase === "download-error");
+    const update =
+      Boolean(props.onUpdateProvider) && runtime !== undefined && providerUpdateAvailable(runtime, availableVersion);
+    if (!download && !update) return status.message;
+    return status.version
+      ? t("onboarding.provider.outdated", { version: status.version })
+      : t("onboarding.provider.outdatedUnknown");
   }
 
   const providerOptions = createMemo<ProviderPickerOption[]>(() =>
@@ -248,21 +288,22 @@ export function createSetupProviders(
       const descriptionKey = provider.description ? PROVIDER_DESCRIPTION_KEYS[provider.description] : undefined;
       const elsewhere = unreachable().has(provider.id);
       const outdated = status?.state === "outdated";
+      const availableVersion = props.providerAvailableVersions?.[provider.id] ?? null;
       return {
         ...provider,
         description: descriptionKey ? t(descriptionKey) : provider.description,
         state: status?.state ?? fallbackProviderState(props.agentStatus),
         // The row says why it cannot be used here and what to do, in one short line.
         message: elsewhere
-          ? t("onboarding.provider.culturaBuilderOnHost")
+          ? unreachableLine(status)
           : outdated
-            ? outdatedLine(provider.id, status.version)
+            ? outdatedLine(provider.id, status, runtime, availableVersion)
             : status?.message,
         email: status?.email,
         connectionState: status?.connectionState,
         signInPending: status?.signInPending,
         checkError: elsewhere || outdated ? null : status?.checkError,
-        availableVersion: props.providerAvailableVersions?.[provider.id] ?? null,
+        availableVersion,
         freeModels: provider.id === "opencode",
         recommended: provider.id === FREE_PROVIDER,
         // For a user with no account anywhere, this row is the way forward, and among four rows it
@@ -424,10 +465,15 @@ export function createSetupProviders(
       if (selectedByUser && selected && allOptions.some((provider) => provider.id === selected)) return;
       // A step without the free row does not choose the free provider by itself.
       const options = withFree ? allOptions : allOptions.filter((provider) => provider.id !== FREE_PROVIDER);
-      if (selected && options.some((provider) => provider.id === selected && providerReady(provider))) return;
-      setSelectedProvider(
-        automaticProviderChoice(options, providerReady, { recommendFree: withFree, unreachable: blocked }),
-      );
+      const choice = automaticProviderChoice(options, providerReady, { recommendFree: withFree, unreachable: blocked });
+      // A ready choice stays, so the selection does not move while a check runs. Builders is the
+      // exception: it is the choice only while no account is connected. Its runtime is ready before
+      // the host's check ends, so an account that connects after the first render takes its place.
+      // The choice of the user never changes here: the first line returns for it.
+      const freeGivesWay = withFree && selected === FREE_PROVIDER && choice !== null && choice !== FREE_PROVIDER;
+      if (!freeGivesWay && selected && options.some((provider) => provider.id === selected && providerReady(provider)))
+        return;
+      setSelectedProvider(choice);
     },
   );
 

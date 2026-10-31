@@ -60,10 +60,13 @@ const reportedHostStatus: AgentStatus = {
   ],
 };
 
-/** A host without Builders: the step suggests installing it. */
+/**
+ * A host without Builders, signed in to Claude: Claude is selected, and the step suggests installing
+ * Builders. With Builders selected, the main button downloads it and the step shows no notice.
+ */
 const missingBuildersStatus: AgentStatus = {
-  ...newHostStatus,
-  providers: (newHostStatus.providers ?? []).map((provider) =>
+  ...connectedHostStatus,
+  providers: (connectedHostStatus.providers ?? []).map((provider) =>
     provider.id === "opencode" ? { ...provider, state: "not-installed", version: null } : provider,
   ),
 };
@@ -146,7 +149,7 @@ export const ReportedHost: StoryEntry = {
   },
 };
 
-/** The host has no Builders: the step suggests installing it, and Builders is the choice. */
+/** The host has no Builders: the step suggests installing it beside the selected Claude. */
 export const BuildersMissing: StoryEntry = {
   args: { agentStatus: missingBuildersStatus, runtimes: { ...RUNTIMES, opencode: notDownloaded } },
 };

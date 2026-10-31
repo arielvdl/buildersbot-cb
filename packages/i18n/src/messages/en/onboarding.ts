@@ -47,7 +47,8 @@ export const messages = defineMessages("onboarding", {
   "onboarding.provider.culturaBuilder": "Private LLM through the Cultura Builder proxy",
   "onboarding.provider.tryFree": "Try it free",
   "onboarding.provider.noSignIn": "No sign-in needed",
-  "onboarding.provider.culturaBuilderOnHost": "Sign in to Cultura Builder on the computer that runs this server.",
+  "onboarding.provider.culturaBuilderRemote":
+    "Cultura Builder does not connect through a remote server yet. Use Builders or another provider.",
   "onboarding.provider.outdated": "Version {version} is too old.",
   "onboarding.provider.outdatedUnknown": "This version is too old.",
   "onboarding.provider.more": "More providers",
@@ -103,6 +104,7 @@ export const messages = defineMessages("onboarding", {
   "onboarding.launch.downloading": "Downloading the free models…",
   "onboarding.action.connect": "Connect",
   "onboarding.action.connectProvider": "Connect {provider}",
+  "onboarding.action.useAnother": "Use another provider",
   "onboarding.action.open": "Open Builders Bot",
   "onboarding.action.next": "Next",
   "onboarding.server.title": "Set up {server}",

@@ -50,7 +50,8 @@ export const messages = {
   "onboarding.provider.culturaBuilder": "LLM privada pelo proxy da Cultura Builder",
   "onboarding.provider.tryFree": "Experimente grátis",
   "onboarding.provider.noSignIn": "Não precisa entrar em uma conta",
-  "onboarding.provider.culturaBuilderOnHost": "Entre na Cultura Builder no computador que roda este servidor.",
+  "onboarding.provider.culturaBuilderRemote":
+    "A Cultura Builder ainda não conecta por um servidor remoto. Use o Builders ou outro provedor.",
   "onboarding.provider.outdated": "A versão {version} é antiga demais.",
   "onboarding.provider.outdatedUnknown": "Esta versão é antiga demais.",
   "onboarding.provider.more": "Mais provedores",
@@ -106,6 +107,7 @@ export const messages = {
   "onboarding.launch.downloading": "Baixando os modelos gratuitos…",
   "onboarding.action.connect": "Conectar",
   "onboarding.action.connectProvider": "Conectar {provider}",
+  "onboarding.action.useAnother": "Usar outro provedor",
   "onboarding.action.open": "Abrir Builders Bot",
   "onboarding.action.next": "Avançar",
   "onboarding.server.title": "Configurar {server}",
