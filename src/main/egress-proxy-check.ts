@@ -29,6 +29,14 @@ export type EgressCheckResult =
 const MAX_ANSWER_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 12_000;
 
+/**
+ * The time limit of a Team API request to the update or test route of a server. Each one waits for a
+ * check: a tunnel and an answer, each up to `DEFAULT_TIMEOUT_MS`, through a slow residential proxy.
+ * With the default limit of a request, a save that the host did keep showed a failure, and the time
+ * limit could mark the server offline.
+ */
+export const EGRESS_PROXY_REMOTE_TIMEOUT_MS = 45_000;
+
 function place(value: unknown): string | null {
   if (!isString(value)) return null;
   const text = value.trim();

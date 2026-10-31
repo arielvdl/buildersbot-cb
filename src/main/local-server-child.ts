@@ -26,8 +26,6 @@ export const LOCAL_SERVER_ENVIRONMENT = {
   name: "OPENBOT_LOCAL_SERVER_NAME",
   secret: "OPENBOT_LOCAL_SERVER_SECRET",
   runtimeRoot: "OPENBOT_LOCAL_SERVER_RUNTIMES",
-  /** The app default egress proxy, with its password, at the first start only. */
-  egressDefault: "OPENBOT_LOCAL_SERVER_EGRESS",
 } as const;
 
 export interface LocalServerChildEnvironment {
@@ -38,12 +36,6 @@ export interface LocalServerChildEnvironment {
   ownerSecret: string;
   /** The provider CLI store of the desktop app. The servers of one computer share one copy of each CLI. */
   runtimeRoot: string | null;
-  /**
-   * The app default egress proxy as JSON, at the first start of a new server only. The server saves
-   * it as its own setting before any agent starts. It holds a password, so it leaves the environment
-   * here with the others.
-   */
-  egressDefault: string | null;
 }
 
 export interface LocalServerReady {
@@ -68,16 +60,9 @@ export function takeLocalServerChildEnvironment(
   const serverName = environment[LOCAL_SERVER_ENVIRONMENT.name]?.trim() ?? "";
   const ownerSecret = environment[LOCAL_SERVER_ENVIRONMENT.secret] ?? "";
   const runtimeRoot = environment[LOCAL_SERVER_ENVIRONMENT.runtimeRoot]?.trim() ?? "";
-  const egressDefault = environment[LOCAL_SERVER_ENVIRONMENT.egressDefault]?.trim() || null;
   for (const name of Object.values(LOCAL_SERVER_ENVIRONMENT)) delete environment[name];
   if (flag !== "1" || !userDataDirectory || !isAbsolute(agentRoot) || !serverName || !ownerSecret) return null;
-  return {
-    agentRoot,
-    serverName,
-    ownerSecret,
-    runtimeRoot: isAbsolute(runtimeRoot) ? runtimeRoot : null,
-    egressDefault,
-  };
+  return { agentRoot, serverName, ownerSecret, runtimeRoot: isAbsolute(runtimeRoot) ? runtimeRoot : null };
 }
 
 /** The ready line holds no secret: the parent knows the password, and the session is made later. */

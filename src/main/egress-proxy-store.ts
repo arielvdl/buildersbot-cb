@@ -167,8 +167,17 @@ export class EgressProxyStore {
     );
   }
 
-  setPending(serverIds: readonly string[]): Effect.Effect<void, EgressProxyStoreFailure> {
-    return this.#edit((current) => ({ ...current, pending: [...new Set(serverIds)].slice(-MAX_PENDING_SERVERS) }));
+  /**
+   * Changes the list of pending servers from the list of now, inside the write lock, so two sends
+   * that end at the same time do not put back an id that the other removed.
+   */
+  editPending(
+    change: (serverIds: readonly string[]) => readonly string[],
+  ): Effect.Effect<void, EgressProxyStoreFailure> {
+    return this.#edit((current) => ({
+      ...current,
+      pending: [...new Set(change(current.pending))].slice(-MAX_PENDING_SERVERS),
+    }));
   }
 
   #edit(change: (current: Snapshot) => Snapshot): Effect.Effect<void, EgressProxyStoreFailure> {

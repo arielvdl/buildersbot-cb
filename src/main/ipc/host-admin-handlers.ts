@@ -62,6 +62,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import { type AgentAccessStore, agentAccessSnapshot } from "../agent-access-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
+import { EGRESS_PROXY_REMOTE_TIMEOUT_MS } from "../egress-proxy-check";
 import type { EgressProxyDefault } from "../egress-proxy-default";
 import type { EgressProxyService } from "../egress-proxy-service";
 import type { HostService } from "../host-service";
@@ -169,7 +170,15 @@ export function hostAdminIpcHandlers({
   function remoteEgress(serverId: string, route: string, body: EgressProxyUpdate | Record<string, never>) {
     if (!remoteServers.supportsCapability(serverId, EGRESS_PROXY_CAPABILITY))
       throw new Error(sourceText("error.team.egressProxyUnsupported"));
-    return runCauseEffect(remoteServers.request(serverId, route, decodeEgressProxyView, { method: "POST", body }));
+    // The update and test routes wait for a check through the proxy, which can be slow.
+    const slow = route !== EGRESS_PROXY_ROUTES.settings;
+    return runCauseEffect(
+      remoteServers.request(serverId, route, decodeEgressProxyView, {
+        method: "POST",
+        body,
+        ...(slow ? { timeoutMs: EGRESS_PROXY_REMOTE_TIMEOUT_MS } : {}),
+      }),
+    );
   }
   function localAccessServerId(): string {
     const serverId = localServerId();

@@ -94,7 +94,6 @@ import {
   isUpdateBusyPhase,
   LOCAL_SERVER_ID,
   latestTurnAnswer,
-  parseEgressProxyUpdate,
 } from "@openbot/contracts/ipc";
 import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
 import { EGRESS_PROXY_CAPABILITY, EGRESS_PROXY_ROUTES } from "@openbot/contracts/team-protocol/egress-proxy-v1";
@@ -202,6 +201,7 @@ import { DictationService } from "./dictation-service";
 import { performDynamicIslandCriticalAction } from "./dynamic-island-actions";
 import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFailed } from "./dynamic-island-window";
 import { EgressGateway } from "./egress-gateway";
+import { EGRESS_PROXY_REMOTE_TIMEOUT_MS } from "./egress-proxy-check";
 import { EgressProxyDefault } from "./egress-proxy-default";
 import { EgressProxyService, writePlaywrightEgressConfig } from "./egress-proxy-service";
 import { EGRESS_DEFAULT_FILE, EGRESS_PROXY_FILE, EgressProxyStore } from "./egress-proxy-store";
@@ -1199,20 +1199,13 @@ export async function createApplicationServices({
   }
   const browserProfileStore = new BrowserProfileStore(store.database);
   // The egress proxy of this server, before the browser restores its tabs and before any agent
-  // starts. A server on this computer that has no setting yet takes the app default that its parent
-  // gave it at the first start. See docs/architecture/egress-proxy.md.
+  // starts. A new server on this computer finds the app default here already: its parent wrote the
+  // file before the first start. See docs/architecture/egress-proxy.md.
   const egressStore = new EgressProxyStore(
     join(app.getPath("userData"), EGRESS_PROXY_FILE),
     safeStorageCipher("error.app.secretStorageUnavailable"),
   );
   await runCauseEffect(egressStore.load());
-  if (localServerChild?.egressDefault && !egressStore.exists()) {
-    try {
-      await runCauseEffect(egressStore.save(parseEgressProxyUpdate(JSON.parse(localServerChild.egressDefault))));
-    } catch (error) {
-      logger.warn("The default egress proxy of this new server was not saved.", toLogValue(error));
-    }
-  }
   const egressGateway = new EgressGateway({
     route: () => egressProxy.gatewayRoute(),
     onResult: (result) => egressProxy.onTraffic(result),
@@ -1229,8 +1222,11 @@ export async function createApplicationServices({
     safeStorageCipher("error.app.secretStorageUnavailable"),
   );
   await runCauseEffect(egressDefaultStore.load());
-  const egressDefault = new EgressProxyDefault(egressDefaultStore, {
-    warn: (message, detail) => logger.warn(message, toLogValue(detail)),
+  const egressDefault = new EgressProxyDefault({
+    store: egressDefaultStore,
+    log: { warn: (message, detail) => logger.warn(message, toLogValue(detail)) },
+    serverStore: (userData) =>
+      new EgressProxyStore(join(userData, EGRESS_PROXY_FILE), safeStorageCipher("error.app.secretStorageUnavailable")),
   });
   const siteSessionGrants = new SiteSessionGrants(join(app.getPath("userData"), SITE_SESSION_GRANTS_FILE));
   await siteSessionGrants.load();
@@ -2972,7 +2968,7 @@ export async function createApplicationServices({
             warn: (message, detail) => logger.warn(message, detail === undefined ? "" : toLogValue(detail)),
           },
           platform: process.platform,
-          egressDefault: () => egressDefault.childEnvironmentValue(),
+          writeEgressDefault: (userData) => egressDefault.writeToNewServer(userData),
         });
   if (localServers) {
     teardown.push(TEARDOWN_ORDER.localServers, "the servers on this computer", () =>
@@ -2982,13 +2978,20 @@ export async function createApplicationServices({
     // servers on this computer that it knows.
     await Effect.runPromise(localServers.load());
   }
-  // A hosted server that this app made takes the default egress proxy when it is first online.
+  // A hosted server that this app made takes the default egress proxy when it is first online. The
+  // update route waits for the check through the proxy, so it gets the longer time limit.
   const egressDefaultRemote = {
     supportsCapability: (serverId: string) => remoteServers.supportsCapability(serverId, EGRESS_PROXY_CAPABILITY),
+    readView: (serverId: string) =>
+      remoteServers.request(serverId, EGRESS_PROXY_ROUTES.settings, decodeEgressProxyView, {
+        method: "POST",
+        body: {},
+      }),
     sendUpdate: (serverId: string, update: EgressProxyUpdate) =>
       remoteServers.request(serverId, EGRESS_PROXY_ROUTES.update, decodeEgressProxyView, {
         method: "POST",
         body: update,
+        timeoutMs: EGRESS_PROXY_REMOTE_TIMEOUT_MS,
       }),
   };
   remoteServers.on("changed", (servers) => void egressDefault.reconcile(servers, egressDefaultRemote));
