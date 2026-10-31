@@ -3,7 +3,9 @@
 #   1. bb-srv-dns  (a zona Route 53 delegada; fica de pé quando as outras são apagadas ou refeitas,
 #                   então os 4 NS do Cloudflare não mudam);
 #   2. bb-srv-base (rede, ECR, buckets, alertas, IAM, orçamento do projeto);
-#   3. bb-srv-ops  (documentos SSM e backups DLM).
+#   3. bb-srv-ops  (documentos SSM e backups DLM);
+#   4. bb-srv-proxy (documentos SSM do proxy de saída residencial: bb-srv-ProxySetup, que o
+#                    bb-srv-Install roda, e bb-srv-ProxyReload; README, seção 16).
 # Mostra cada change set e pede confirmação. No fim, mostra os 4 registros NS que o dono cria no
 # Cloudflare (a única ação de DNS).
 #
@@ -25,7 +27,7 @@ while [ "$#" -gt 0 ]; do
     --zone) zone=${2:-} ; shift 2 ;;
     --project-budget-usd) budget=${2:-} ; shift 2 ;;
     --yes) BB_SRV_YES=1 ; shift ;;
-    -h | --help) sed -n '2,15p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,17p' "$0"; exit 0 ;;
     *) die "opção desconhecida: $1" ;;
   esac
 done
@@ -79,6 +81,9 @@ deploy_stack bb-srv-base "$BB_ROOT/templates/base.yaml" shared ${base_params[@]+
 
 # 3. Documentos SSM e backups.
 deploy_stack bb-srv-ops "$BB_ROOT/templates/ops.yaml" shared
+
+# 4. O proxy de saída: os documentos que instalam o encaminhador e o firewall de falha fechada nos setores.
+deploy_stack bb-srv-proxy "$BB_ROOT/templates/proxy.yaml" shared
 
 # Verificações do passo 2 do roteiro (DESIGN 12): SG sem entrada, nenhum NAT na VPC nova.
 vpc=$(stack_output bb-srv-base VpcId)

@@ -76,9 +76,13 @@ Resources:
                   S=$(cat /etc/bb-srv/sector); REPO=$(cat /etc/bb-srv/repo)
                   I=/srv/openbot-docker/instances/openbot-instance
                   ENVF=/srv/openbot-docker/instances/$S.env
+                  P=/usr/local/sbin/bb-srv-proxy
                   for _ in $(seq 1 120); do [ -f /var/lib/bb-srv/bootstrap.done ] && break; sleep 10; done
                   [ -f /var/lib/bb-srv/bootstrap.done ] || fail "the bootstrap did not finish: read /var/log/bb-srv-bootstrap.log"
                   mountpoint -q /srv || fail "/srv (the data volume) is not mounted"
+                  # The egress proxy (step 3) needs what the bootstrap of sector-compute.yaml writes for it.
+                  [ -s /etc/bb-srv/region ] && [ -s /etc/bb-srv/zone ] && [ -x /snap/bin/aws ] ||
+                    fail "the bootstrap of this VM predates the egress proxy (no region, zone or AWS CLI): replace the VM (README, section 11)"
                   MODE='{{ mode }}'
                   IMG="$REPO@{{ imageDigest }}"
                   OPS="$REPO@{{ opsDigest }}"
@@ -111,6 +115,21 @@ Resources:
                   [ -x "$I" ] || fail "the bundle has no instances/openbot-instance"
                   # 2. Firewall, network, rsyslog, logrotate and LXCFS of the instances.
                   "$I" setup
+                  # 3. The egress proxy (README section 16), before any container starts: the script of the
+                  #    document bb-srv-ProxySetup (stack bb-srv-proxy, too large to live here) runs now, after
+                  #    the bundle and the firewall of the instances. With it, the container reaches only the
+                  #    local forwarder, the DNS of the host and our Signal/TURN; the rest is dropped.
+                  setup=$(mktemp /run/bb-srv-proxy-setup.XXXXXX)
+                  if ! /snap/bin/aws ssm get-document --region "$(cat /etc/bb-srv/region)" --name bb-srv-ProxySetup \
+                    --document-format JSON --query Content --output text | jq -er '.mainSteps[0].inputs.runCommand[0]' >"$setup"; then
+                    rm -f "$setup"
+                    fail "could not read the document bb-srv-ProxySetup (stack bb-srv-proxy: scripts/deploy-base.sh)"
+                  fi
+                  rc=0; bash "$setup" || rc=$?
+                  rm -f "$setup"
+                  [ "$rc" = 0 ] || fail "bb-srv-ProxySetup failed (message above)"
+                  grep -qxF '    env_file: [/etc/bb-srv/proxy.env]' /srv/openbot-docker/instances/compose.yaml ||
+                    fail "compose.yaml of the bundle did not get the env_file of the egress proxy"
                   if [ "$MODE" = create ]; then
                     # compose.yaml has pull_policy: never, so the image is pulled here, by digest.
                     docker pull --quiet "$IMG" >/dev/null
@@ -146,6 +165,22 @@ Resources:
                   done
                   printf '%s\n' "$st"
                   [ -n "$st" ] || fail "openbot status did not answer: openbot-instance logs $S"
+                  # The proxy seen from inside the container. The output goes to CloudWatch: the country, no address.
+                  if [ "$("$P" mode)" = proxy ]; then
+                    chk=$("$P" check-container --no-ip)
+                    printf '%s\n' "$chk"
+                    ! grep -qx 'BB_PROXY_CONTAINER down' <<<"$chk" || fail "the container is not running: openbot-instance logs $S"
+                    if grep -qx 'BB_PROXY_DIRECT OPEN' <<<"$chk"; then
+                      # Never leave running a container that leaves with the address of the VM.
+                      "$I" down "$S" || true
+                      fail "the container reached the internet without the proxy (egress firewall open): it was stopped"
+                    fi
+                    grep -qx 'BB_PROXY_DIRECT blocked' <<<"$chk" || fail "the direct-egress check of the container did not run"
+                    grep -qx 'BB_PROXY_ENV ok' <<<"$chk" || fail "the container did not get the proxy variables (env_file of compose.yaml)"
+                    grep -qx 'BB_PROXY_EXIT country=BR' <<<"$chk" ||
+                      fail "the container does not leave through the residential proxy in Brazil (BB_PROXY_EXIT above; tail /var/log/bb-srv/health.log)"
+                    "$P" health
+                  fi
                   systemctl enable --now bb-srv-health.timer
                   touch /var/lib/bb-srv/installed
                   echo "BB_INSTALL ok $S"
@@ -282,7 +317,7 @@ Resources:
             name: status
             precondition: {StringEquals: [platformType, Linux]}
             inputs:
-              timeoutSeconds: '120'
+              timeoutSeconds: '240'
               runCommand:
                 - |
                   #!/bin/bash
@@ -297,6 +332,17 @@ Resources:
                   echo "host memory:"; free -m | sed -n '1,2p'
                   echo "disks:"; df -h /srv "/srv/openbot/$S/data" 2>/dev/null || true
                   echo "firewall:"; iptables -S OPENBOT-EGRESS 2>/dev/null | head -n 3 || true
+                  # The egress proxy (README section 16). Exit IP and country as the container sees them;
+                  # scripts/status.sh reads the BB_PROXY_* lines. This output stays in SSM (no log group).
+                  echo "egress proxy:"
+                  if [ -x /usr/local/sbin/bb-srv-proxy ]; then
+                    echo "  forwarder: $(systemctl is-active bb-proxy.service 2>/dev/null || true)"
+                    echo "  firewall: $(iptables -S BB-SRV-EGRESS 2>/dev/null | tail -n 1)"
+                    grep 'BB_PROXY_HEALTH' /var/log/bb-srv/health.log 2>/dev/null | tail -n 2 || true
+                    timeout 120 /usr/local/sbin/bb-srv-proxy check-container || echo "BB_PROXY_EXIT fail"
+                  else
+                    echo "BB_PROXY_MODE not-installed"
+                  fi
 
   # The tag DLMScriptsAccess=true follows the DLM convention; the role bb-srv-dlm (below) may send
   # only this document, and only to Builders Bot instances.

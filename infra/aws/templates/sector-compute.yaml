@@ -73,6 +73,15 @@ Parameters:
     Description: >-
       DisableApiTermination of the VM. false at creation, so that a failed creation rolls back cleanly
       (no ROLLBACK_FAILED); add-sector.sh sets true after bb-srv-Install succeeds (No interruption).
+  EgressProxy:
+    Type: String
+    Default: required
+    AllowedValues: [required, direct]
+    Description: >-
+      required = every connection of the container leaves through the residential proxy of
+      /bb-srv/proxy/egress, and nothing leaves when it is down (README section 16). direct = the
+      owner's explicit decision to opt this sector out (add-sector.sh --egress-direct, typed
+      confirmation). Changed only with a new VM (add-sector.sh --reattach).
 
 Mappings:
   Sizes:
@@ -89,6 +98,7 @@ Conditions:
   IsBusinessHours: !Equals [!Ref Schedule, business-hours]
   UseStaticIp: !Equals [!Ref StaticIp, 'true']
   HasBudgetEmail: !Not [!Equals [!Ref BudgetEmail, '']]
+  UseEgressProxy: !Equals [!Ref EgressProxy, required]
 
 Resources:
   # ---------------------------------------------------------------- identity of the host
@@ -235,6 +245,35 @@ Resources:
           ]}}}
         }
 
+  # The egress of the container (README section 16), read on the host by bb-srv-ProxySetup (inside
+  # bb-srv-Install): "direct" (EgressProxy=direct) opts out of the proxy; any other value, or no answer,
+  # keeps the proxy. bb-srv-operator cannot write it.
+  EgressParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /bb-srv/sectors/${Sector}/egress
+      Type: String
+      Tier: Standard
+      Description: !Sub Egress of sector ${Sector} - required (residential proxy, fail closed) or direct (owner opt-out)
+      Value: !Ref EgressProxy
+
+  # One line every 4 minutes from bb-srv-proxy health (installed by bb-srv-ProxySetup). Only "ok BR"
+  # counts: a failure ("fail <reason>") or another country ("ok US") publishes 0 through DefaultValue,
+  # like every other line of the log group while the host is on.
+  ProxyHealthMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: UseEgressProxy
+    Properties:
+      LogGroupName: !Ref LogGroup
+      FilterName: bb-srv-proxy-health-ok-br
+      FilterPattern: '"BB_PROXY_HEALTH ok BR"'
+      MetricTransformations:
+        - MetricNamespace: !Sub bb-srv/${Sector}
+          MetricName: ProxyHealthy
+          MetricValue: '1'
+          DefaultValue: 0
+          Unit: Count
+
   ImageTagParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -295,7 +334,7 @@ Resources:
   Instance:
     Type: AWS::EC2::Instance
     # The user data runs once: its agent configuration and log groups must exist before the first boot.
-    DependsOn: [AgentConfigParameter, LogGroup, SessionLogGroup]
+    DependsOn: [AgentConfigParameter, EgressParameter, LogGroup, SessionLogGroup]
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !FindInMap [Sizes, !Ref Size, InstanceType]
@@ -324,8 +363,9 @@ Resources:
         - {Key: ManagedBy, Value: cloudformation}
         - {Key: Role, Value: sector-host}
         - {Key: BackupPlan, Value: !If [IsAlwaysOn, bb-srv-daily, bb-srv-stopped]}
-      # Fn::Sub: only ${Sector}, ${VolNoDash}, ${RepoUri}, ${RepoHost} and ${AWS::Region} come from
-      # CloudFormation. The shell variables are written without braces. No image and no secret here.
+      # Fn::Sub: only ${Sector}, ${VolNoDash}, ${RepoUri}, ${RepoHost}, ${ZoneName} and ${AWS::Region}
+      # come from CloudFormation. The shell variables are written without braces. No image and no secret
+      # here: the credential of the egress proxy is read by bb-srv-Install with the instance role.
       UserData:
         Fn::Base64: !Sub
           - |
@@ -337,6 +377,9 @@ Resources:
             install -d -m 0755 /etc/bb-srv /var/lib/bb-srv /var/log/bb-srv
             printf '%s\n' "$SECTOR" >/etc/bb-srv/sector
             printf '%s\n' '${RepoUri}' >/etc/bb-srv/repo
+            # For bb-srv-proxy (README section 16): the region of SSM and the zone of signal./turn.
+            printf '%s\n' '${AWS::Region}' >/etc/bb-srv/region
+            printf '%s\n' '${ZoneName}' >/etc/bb-srv/zone
 
             # 1. The data volume on /srv (XFS). mkfs only when the low-level probe finds nothing (exit 2).
             dev=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${VolNoDash}
@@ -360,10 +403,21 @@ Resources:
               return 1
             }
             apt_get update -q
+            # tinyproxy is the local forwarder of the egress proxy, configured and started by
+            # bb-srv-ProxySetup (bb-proxy.service). Masked first, so the package never starts its own
+            # instance (port 8888 on every address of the host).
+            systemctl mask tinyproxy.service
             apt_get install -y -q --no-install-recommends docker.io docker-compose-v2 amazon-ecr-credential-helper \
-              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates
+              rsyslog lxcfs sqlite3 zstd jq unattended-upgrades xfsprogs gnupg curl ca-certificates tinyproxy
             printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' \
               >/etc/apt/apt.conf.d/52bb-srv-reboot
+            # The AWS CLI that bb-srv-Install and bb-srv-proxy use to read their parameters and the
+            # document bb-srv-ProxySetup with the instance role.
+            for attempt in 1 2 3; do
+              snap install aws-cli --classic && break
+              [ "$attempt" -lt 3 ] || { echo "BB_BOOTSTRAP fail aws-cli"; exit 1; }
+              sleep 20
+            done
 
             # 3. CloudWatch agent: official package. The signature counts only when it was made by the
             #    known key (VALIDSIG names the signing key and its primary key): any other key that the
@@ -392,11 +446,18 @@ Resources:
             done
 
             # 4. Docker hardened before any container (DESIGN 4.6). The VPC resolver is in a range that the
-            #    firewall of the instances blocks, so the containers use public resolvers.
+            #    firewall of the instances blocks, and no packet of a container may go to a resolver on the
+            #    internet (README section 16): the containers ask systemd-resolved of the host on the
+            #    gateway of the openbot bridge (172.30.0.1, the subnet of docker/instances), which the
+            #    egress firewall of bb-srv-proxy opens on port 53 only. FREEBIND: it listens before the
+            #    bridge exists.
+            install -d -m 0755 /etc/systemd/resolved.conf.d
+            printf '[Resolve]\nDNSStubListenerExtra=172.30.0.1\n' >/etc/systemd/resolved.conf.d/bb-srv-containers.conf
+            systemctl restart systemd-resolved
             install -d -m 0755 /etc/docker
             cat >/etc/docker/daemon.json <<'JSON'
             {"userns-remap": "default", "live-restore": true, "no-new-privileges": true, "icc": false,
-             "dns": ["1.1.1.1", "9.9.9.9"]}
+             "dns": ["172.30.0.1"]}
             JSON
             systemctl restart docker
             install -d -m 0700 /root/.docker
@@ -461,6 +522,7 @@ Resources:
           - VolNoDash: !Join ['', !Split ['-', !Ref DataVolumeId]]
             RepoUri: !ImportValue bb-srv-base-RepositoryUri
             RepoHost: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
+            ZoneName: !ImportValue bb-srv-dns-HostedZoneName
 
   DataAttachment:
     Type: AWS::EC2::VolumeAttachment
@@ -533,6 +595,29 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: !If [IsAlwaysOn, breaching, notBreaching]
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  # The residential proxy (README section 16): no "BB_PROXY_HEALTH ok BR" line in two 5-minute periods
+  # while the host logs (forwarder down, upstream refused or unreachable, the egress firewall open, or
+  # an exit outside Brazil). Missing data as in the health alarm: the host off alarms on an always-on
+  # sector only.
+  ProxyHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UseEgressProxy
+    Properties:
+      AlarmName: !Sub bb-srv-${Sector}-egress-proxy
+      AlarmDescription: >-
+        The container of the sector is not leaving through the residential proxy in Brazil: read the
+        BB_PROXY_HEALTH lines of the log group (fail <reason> or ok <country>) and run
+        scripts/status.sh <sector> --deep. Nothing leaves directly meanwhile (fail closed).
+      Namespace: !Sub bb-srv/${Sector}
+      MetricName: ProxyHealthy
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
       Threshold: 1
       ComparisonOperator: LessThanThreshold
       TreatMissingData: !If [IsAlwaysOn, breaching, notBreaching]
@@ -661,6 +746,8 @@ Resources:
                   - bb-srv-Upgrade
                   - bb-srv-Down
                   - bb-srv-Status
+                  - bb-srv-ProxySetup
+                  - bb-srv-ProxyReload
                   - bb-srv-SnapshotHooks
                   - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/bb-srv-SnapshotHooks'
       Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
@@ -758,6 +845,8 @@ Outputs:
     Value: !Ref LoginDocument
   InstanceType:
     Value: !FindInMap [Sizes, !Ref Size, InstanceType]
+  EgressProxy:
+    Value: !Ref EgressProxy
   StaticIp:
     Condition: UseStaticIp
     Value: !Ref StaticAddress
