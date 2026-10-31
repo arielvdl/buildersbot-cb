@@ -4,7 +4,7 @@ This guide tells you how a sign-in reaches Builders Bot, how a joined server sig
 computer of its user, and how to add a provider, an application or a connector. Each section has a
 working example with real file paths.
 
-- [How a sign-in reaches Builders Bot](#how-a-sign-in-reaches-openbot)
+- [How a sign-in reaches Builders Bot](#how-a-sign-in-reaches-builders-bot)
 - [Remote sign-in: the callback relay](#remote-sign-in-the-callback-relay)
 - [Add a provider](#add-a-provider)
 - [Add an application](#add-an-application)
