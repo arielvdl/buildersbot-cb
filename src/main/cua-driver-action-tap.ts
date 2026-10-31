@@ -275,6 +275,7 @@ export class CuaDriverActionTap {
   #sockets = new Set<Socket>();
   #action: ObservedAction | null = null;
   #pointer: ObservedPointer | null = null;
+  readonly #actionListeners = new Set<() => void>();
   #address: string | null = null;
   #now: () => number;
   #logger: Logger;
@@ -312,6 +313,16 @@ export class CuaDriverActionTap {
     const pointer = this.#pointer;
     if (!pointer) return null;
     return this.#now() - pointer.at <= maxAgeMs ? pointer : null;
+  }
+
+  /**
+   * Calls `listener` each time an agent asks for an action or aims the pointer, in the turn that
+   * reads the request. The rim waits for this rather than reading the driver many times a second.
+   * Returns the function that removes the listener.
+   */
+  onAction(listener: () => void): () => void {
+    this.#actionListeners.add(listener);
+    return () => this.#actionListeners.delete(listener);
   }
 
   listen = Effect.fn("CuaDriverActionTap.listen")(function* (
@@ -403,6 +414,7 @@ export class CuaDriverActionTap {
           answers.expect(tool === null ? null : { tool, at });
           if (action) this.#action = action;
           if (pointer) this.#pointer = pointer;
+          if (action || pointer) for (const listener of this.#actionListeners) listener();
         }
         skipping = false;
         newline = pending.indexOf("\n");

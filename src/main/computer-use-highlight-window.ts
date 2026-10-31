@@ -12,7 +12,7 @@ import type { CuaDriverFailure } from "./cua-driver-effects";
 const logger = createBuildersBotLogger("computer-use-highlight");
 
 /**
- * How often the driver is asked where the agent is working.
+ * How often the driver is asked where the agent is working, while the rim is up.
  *
  * An overlay covers its whole display and never moves, so a placement is a message and a repaint.
  * What one tick costs is the two reads, and those go over a connection that stays open: about a
@@ -20,6 +20,20 @@ const logger = createBuildersBotLogger("computer-use-highlight");
  * spending a measurable part of a core on answering.
  */
 const DEFAULT_POLL_INTERVAL_MS = 33;
+/**
+ * How often the driver is asked while no rim is up and no agent asked the driver to act a moment ago.
+ *
+ * The daemon runs for the whole session, and an agent holds the desktop only now and then. Thirty
+ * reads a second for the rest of the day were thirty wakeups of the main process a second, and
+ * during any turn of any agent thirty socket reads a second, also for a turn that never touches the
+ * desktop. An action wakes the controller at once (see `wake`), so the rim does not wait for this.
+ */
+const DEFAULT_IDLE_POLL_INTERVAL_MS = 1_000;
+/**
+ * How long after an agent action the fast interval holds, also while no rim is up. The first action
+ * of a session can reach the tap before the daemon shows the session as live.
+ */
+const ACTION_FAST_POLL_MS = 3_000;
 /**
  * How long the overlays stay after the rim goes down. Each overlay is a renderer process, and the
  * daemon runs for the whole session while an agent holds the desktop only now and then. The next
@@ -83,7 +97,10 @@ export interface ComputerUseHighlightControllerOptions<W extends HighlightOverla
    */
   displays: () => readonly HighlightDisplay[];
   cornerRadius?: number;
+  /** The interval while the rim is up, or an agent acted a moment ago. */
   pollIntervalMs?: number;
+  /** The interval at all other times. */
+  idlePollIntervalMs?: number;
   logger?: Logger;
 }
 
@@ -115,6 +132,10 @@ export class ComputerUseHighlightController<W extends HighlightOverlayWindow = B
   #target: ComputerUseHighlightTarget | null = null;
   #loggedWindowId: number | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
+  /** The interval of `#timer`. */
+  #interval = 0;
+  /** When an agent last asked the driver to act, or `null` when none did in this run. */
+  #actionAt: number | null = null;
   /** The tick in progress, which a refresh that arrives meanwhile waits for instead of starting another. */
   #tick: Deferred.Deferred<void> | null = null;
   #destroyed = false;
@@ -141,12 +162,22 @@ export class ComputerUseHighlightController<W extends HighlightOverlayWindow = B
     return false;
   }
 
+  /** Starts at the idle interval. The first tick sets the interval that its answer calls for. */
   start(): void {
     if (this.#destroyed || this.#timer) return;
-    const interval = this.#options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-    this.#timer = setInterval(() => Effect.runFork(this.refresh()), interval);
-    // A timer that keeps the process alive would hold a quit open for a whole interval.
-    this.#timer.unref?.();
+    this.#schedule(this.#idleInterval());
+    Effect.runFork(this.refresh());
+  }
+
+  /**
+   * An agent asked the driver to act or to aim the pointer. The rim is placed at once, and the fast
+   * interval holds for `ACTION_FAST_POLL_MS`, so a window the agent works in is marked from its first
+   * action and not up to an idle interval later. Nothing happens while the controller is stopped.
+   */
+  wake(): void {
+    if (this.#destroyed || !this.#timer) return;
+    this.#actionAt = Date.now();
+    this.#schedule(this.#fastInterval());
     Effect.runFork(this.refresh());
   }
 
@@ -156,8 +187,37 @@ export class ComputerUseHighlightController<W extends HighlightOverlayWindow = B
       clearInterval(this.#timer);
       this.#timer = null;
     }
+    this.#actionAt = null;
     this.#hide();
     this.#retireAll();
+  }
+
+  #fastInterval(): number {
+    return this.#options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+  }
+
+  #idleInterval(): number {
+    return this.#options.idlePollIntervalMs ?? DEFAULT_IDLE_POLL_INTERVAL_MS;
+  }
+
+  /** Runs the ticks at `interval`. A timer that already runs at it is kept, so its phase holds. */
+  #schedule(interval: number): void {
+    if (this.#timer && this.#interval === interval) return;
+    if (this.#timer) clearInterval(this.#timer);
+    this.#interval = interval;
+    this.#timer = setInterval(() => Effect.runFork(this.refresh()), interval);
+    // A timer that keeps the process alive would hold a quit open for a whole interval.
+    this.#timer.unref?.();
+  }
+
+  /**
+   * The fast interval while the rim is up, which follows a window the user drags, and for a moment
+   * after an agent action. The idle interval at all other times. A stopped controller stays stopped.
+   */
+  #pace(): void {
+    if (this.#destroyed || !this.#timer) return;
+    const acted = this.#actionAt !== null && Date.now() - this.#actionAt < ACTION_FAST_POLL_MS;
+    this.#schedule(this.#target !== null || acted ? this.#fastInterval() : this.#idleInterval());
   }
 
   /**
@@ -181,6 +241,7 @@ export class ComputerUseHighlightController<W extends HighlightOverlayWindow = B
         Effect.ensuring(
           Effect.suspend(() => {
             this.#tick = null;
+            this.#pace();
             return Deferred.done(tick, Exit.void);
           }),
         ),

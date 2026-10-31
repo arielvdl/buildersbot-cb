@@ -1775,9 +1775,13 @@ export async function createApplicationServices({
         });
       }),
   });
+  // The rim reads the driver once a second while it is down, and an agent action brings it up at
+  // once rather than up to a second later.
+  const stopComputerUseActionWake = cuaDriver.onAction(() => computerUseHighlight.wake());
   // Before the daemon stops, so the rim is gone rather than left over a window nothing drives, and
   // so the read connection lets its lease go while there is still a daemon to tell.
   teardown.push(TEARDOWN_ORDER.computerUseHighlight, "the Computer Use highlight", async () => {
+    stopComputerUseActionWake();
     computerUseHighlight.destroy();
     await Effect.runPromise(computerUseReads.close());
   });
