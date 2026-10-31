@@ -416,30 +416,48 @@ session. It refuses a thread with a running turn. The main thread has no archive
 
 So that the person does not lose what a thread is for, also after a rename, each side thread keeps
 two texts in `projection_agent_threads`: `first_message`, the message that started it (the person's
-first message, or the brief of a `start_task` thread), and `preview`, the last message that the person
-sent. Both are the text as written, cut to 2,000 characters. `AgentThreadStore.create` writes the
-first one, `AgentTasks.setPreview` (from `AgentService.sendMessage`) moves the second one and fills an
-empty first one, and a rename changes neither. Migration 49 adds the two columns and fills them from
-the stored messages of each thread, in ranges of 500 rowids: only `user` rows (and the `agent` brief
-of an agent thread), not a routine instruction, not a row with no text, and not a row whose JSON is
-not valid. The agent's own chat keeps its first message in `agent_json` (`AgentStore.firstMessage`,
-up to 2,000 characters); `AgentStore.initialize` fills it once from the chat's stored messages
-(`readFirstPersonMessageText`) before any message can arrive, so a later message is not taken as the
-first one. `AgentTask.firstMessage`, `AgentTask.preview` and `AgentSummary.firstMessage` are optional
-on IPC, so a host without them gives tabs with no preview.
+first message with text, or the brief of a `start_task` thread), and `preview`, the last message with
+text that the person sent. Both are the text as written, with its markers, which the UI shows by
+name. `messageExcerpt` cuts a text longer than 2,000 characters to 1,999 and adds "…", so the
+details show that it continues. `AgentThreadStore.create` writes the first one,
+`AgentTasks.setPreview` (from `AgentService.sendMessage`) moves the second one and fills an empty
+first one, and a rename changes neither. A message with no text, such as one with only files, changes
+neither. Migration 49 adds the two columns and fills them from the stored messages of each thread, in
+ranges of 500 rowids, with the same rules: only `user` rows (and the `agent` brief of an agent
+thread), not a routine instruction, not a row with no text, not a row whose JSON is not valid, and
+the same cut.
 
-The pointer over a tab (the agent's name for the main thread) opens a preview card after the chat
-preview delay: the title, the first message on up to five lines and the last one on up to three, as
-plain text. It stays closed while the tab menu, a rename, a drag or the details are open, and a tab
-with no text has none. The selected tab shows an info button before its title, and its icon slot
-(state and close) moves to its end. The button, or "Thread details" in the tab menu, opens
-`ThreadDetailsDialog`: the title, the start time, and the two messages, each cut to six lines with
-"Show more", selectable and with a copy button. The button sits outside the tab list, over the start
-of the tab, because a tab list can hold only tabs.
+The agent's own chat keeps the same two texts in `agent_json`: `AgentStore.firstMessage`, set once,
+and `AgentStore.lastUserMessage`. `AgentStore.preview` is a different text: the row's last line,
+which an answer or a routine also moves. `AgentStore.updatePreview` takes the person's text from
+`AgentService.sendMessage` and writes all three in one roster write. For a chat from before these
+fields, `AgentStore.initialize` reads the first and the last message of the person
+(`readPersonMessageText`, with the rules of migration 49) before any message can arrive, so a later
+message is not taken as the first one. It reads each chat only once: the read sets
+`lastUserMessage`, to "" for a chat in which the person sent no text, such as a chat with only
+routines. A failed read or roster write does not stop the start; the log has only a count. The
+roster carries both texts on each roster change, so the renderer keeps the one-line form of each first
+message by its text and reads the Markdown once. `AgentTask.firstMessage`, `AgentTask.preview`,
+`AgentSummary.firstMessage` and `AgentSummary.lastUserMessage` are optional on IPC, so a host without
+them gives tabs with no preview.
 
-The Team API does not carry the two texts: `agent-tasks-v1` is frozen and its decoder drops them, so
-a joined desktop and the web show no preview and no details for a side thread. Sending them needs a
-new optional capability.
+The pointer over a tab (the agent's name for the main thread, and a thread tab of the side panel)
+opens a preview card after the chat preview delay: the title, the first message on up to five lines
+and the last one on up to three, as plain text. The last one shows only when it is not the same as
+the first one. A sidebar row keeps its card of two lines and three. The card stays closed while the
+tab menu, a rename, a drag or the details are open, and it opens again only when the pointer comes
+back. A tab with no text has none. The selected tab shows an info button before its title, and its
+icon slot (state and close) moves to its end. The button, "Thread details" in the tab menu, or in a
+narrow header "Thread details" in the thread menu, opens `ThreadDetailsDialog`: the title, the start
+time, and the two messages with their lines, each cut to six lines with "Show more", selectable and
+with a copy button. A last message that is the same as the first one shows as a note. The focus goes
+back to the control that opened the dialog, or to the tab when that control is gone. The button sits
+outside the tab list, over the start of the tab, because a tab list can hold only tabs.
+
+The Team API does not carry the texts: `agent-tasks-v1` is frozen and its decoder drops the two texts
+of a side thread, and the agent projection of the Team API (`V1_BOT_KEYS`) has no `firstMessage` or
+`lastUserMessage`. So a joined desktop and the web show no preview and no details, also for the tab
+of the agent's own chat. Sending them needs a new optional capability.
 
 The agent starts a side thread with the `start_task` Builders Bot tool, up to 8 open tasks. On desktop and
 the web, it opens as a tab of the agent and does not take focus. An agent has at most 50
