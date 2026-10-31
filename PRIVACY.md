@@ -103,6 +103,19 @@ Channel history keeps its existing membership and task checks. Messaging history
 current link. The full conversation stays in local SQLite storage. No history text is sent to the
 account service or analytics by these tools.
 
+## The Guard
+
+The Guard checks tool calls and tool results of agents on this computer. It is on by default at the
+Light level, and the person can turn it off in Settings, Guard. It first checks each item on this
+computer, with no network. Only when that check finds an item suspicious does it send a short part
+of the item to the review model that the person chose; the default is Builder Fast of Cultura
+Builder, with the person's own Cultura Builder sign-in. It sends the direction of the item, the tool
+name, the host of a page, the codes of the local findings, and an excerpt of at most 2,000
+characters, with secrets and email addresses masked before the excerpt leaves this computer. It
+never sends the conversation. With no sign-in, or with "Local check only", nothing leaves this
+computer. The Guard's log records verdicts, categories and times, never the content. The Guard sends
+nothing to the account service or analytics.
+
 ## Local scripts
 
 Local scripts is off by default for each agent. When enabled, scripts that run as the same OS user

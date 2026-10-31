@@ -31,7 +31,7 @@ export const messages = {
   "guard.notice.localOnly": "O Guarda usa só a verificação local. Nada vai pela rede.",
   "guard.coverage.title": "O que o Guarda confere agora",
   "guard.coverage.description":
-    "As páginas que o navegador interno lê; as URLs, o texto e os scripts de página que ele envia; os posts em chats; e os comandos que um agente pede para você aprovar. As ferramentas que um provedor roda dentro do próprio processo ainda não são conferidas.",
+    "As páginas que o navegador interno e o navegador Playwright compartilhado leem; as URLs, o texto, os scripts e os arquivos que o navegador envia; posts em chats, anexos, sites e novos servidores MCP; e os comandos que um agente pede para você aprovar. As ferramentas que um provedor roda no próprio processo, e os servidores MCP que ele acessa direto, ainda não são conferidos.",
   "guard.loadFailed": "A configuração do Guarda não carregou.",
   "guard.saveFailed": "A configuração do Guarda não foi salva.",
 } as const satisfies PartialTranslation<typeof source>;

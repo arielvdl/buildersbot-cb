@@ -31,7 +31,7 @@ export const messages = defineMessages("guard", {
   "guard.notice.localOnly": "The Guard uses only the local check. Nothing goes over the network.",
   "guard.coverage.title": "What the Guard checks now",
   "guard.coverage.description":
-    "Pages that the built-in browser reads; the URLs, text and page scripts that it sends; chat posts; and the commands that an agent asks you to approve. Tools that a provider runs inside its own process are not checked yet.",
+    "Pages that the built-in browser and the shared Playwright browser read; the URLs, text, scripts and files that the browser sends; chat posts, attachments, sites and new MCP servers; and the commands that an agent asks you to approve. Tools that a provider runs in its own process, and MCP servers that it reaches directly, are not checked yet.",
   "guard.loadFailed": "The Guard setting did not load.",
   "guard.saveFailed": "The Guard setting was not saved.",
 });
