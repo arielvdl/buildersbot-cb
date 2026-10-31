@@ -30,6 +30,7 @@ export interface AppPort {
   resumeStoppedWork: BuildersBotDesktopApi["resumeStoppedWork"];
   reassignStoppedWork: BuildersBotDesktopApi["reassignStoppedWork"];
   setAutoRecovery: BuildersBotDesktopApi["setAutoRecovery"];
+  setTaskWatch: BuildersBotDesktopApi["setTaskWatch"];
   setAgentLimit: BuildersBotDesktopApi["setAgentLimit"];
   getResumeOffer: BuildersBotDesktopApi["getResumeOffer"];
   resumeInterruptedWork: BuildersBotDesktopApi["resumeInterruptedWork"];

@@ -10,6 +10,7 @@ import type {
   NotificationOpenedEvent,
   RunningWork,
   StoppedWork,
+  TaskWatchEvent,
   UpdateStatus,
 } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
@@ -112,6 +113,24 @@ const loadSnapshot = {
   stopped: [stoppedWork],
   recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
   agentLimit: { enabled: true, max: 10 },
+  taskWatch: { enabled: false, quietMinutes: 15, active: false, modelReady: false, recent: [] },
+} satisfies LoadSnapshot;
+
+const taskWatchEvent = {
+  at: "2026-10-30T20:40:00.000Z",
+  channelName: "cadastro",
+  action: "reassigned",
+  agentName: "QA",
+  reason: "no-sign",
+  minutes: 32,
+  by: "model",
+} satisfies TaskWatchEvent;
+
+/** The snapshot while the task reviewer looks: a run that gave no sign, and what the reviewer did. */
+const watchedLoadSnapshot = {
+  ...loadSnapshot,
+  running: [{ ...runningWork, quiet: { state: "stalled", minutes: 32 } }],
+  taskWatch: { enabled: true, quietMinutes: 15, active: true, modelReady: true, recent: [taskWatchEvent] },
 } satisfies LoadSnapshot;
 
 const codeSent = {
@@ -256,6 +275,20 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   ["a resume result with work left", decodeResumeInterruptedWorkResult, { offer: resumeOffer, failed: 1 }],
   ["a resume result with nothing left", decodeResumeInterruptedWorkResult, { offer: null, failed: 0 }],
   ["a load snapshot with the tab of each work, or no tab", decodeLoadSnapshot, loadSnapshot],
+  ["a load snapshot while the task reviewer looks", decodeLoadSnapshot, watchedLoadSnapshot],
+  [
+    "a load snapshot with a failed start that the task reviewer left",
+    decodeLoadSnapshot,
+    {
+      ...watchedLoadSnapshot,
+      taskWatch: {
+        ...watchedLoadSnapshot.taskWatch,
+        recent: [
+          { ...taskWatchEvent, action: "gave-up", agentName: null, reason: "start-failed", minutes: null, by: "local" },
+        ],
+      },
+    },
+  ],
   ["an agent limit at the low end", decodeAgentLimitPreference, { enabled: true, max: 1 }],
   ["an agent limit that is off", decodeAgentLimitPreference, { enabled: false, max: 64 }],
 ];
@@ -266,6 +299,51 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["an agent limit above 64", decodeAgentLimitPreference, { enabled: true, max: 65 }],
   ["an agent limit that is not whole", decodeAgentLimitPreference, { enabled: true, max: 2.5 }],
   ["a load snapshot with no agent limit", decodeLoadSnapshot, { ...loadSnapshot, agentLimit: undefined }],
+  ["a load snapshot with no task reviewer", decodeLoadSnapshot, { ...loadSnapshot, taskWatch: undefined }],
+  [
+    "a task reviewer threshold below 5 minutes",
+    decodeLoadSnapshot,
+    { ...loadSnapshot, taskWatch: { ...loadSnapshot.taskWatch, quietMinutes: 4 } },
+  ],
+  [
+    "a task reviewer threshold above 120 minutes",
+    decodeLoadSnapshot,
+    { ...loadSnapshot, taskWatch: { ...loadSnapshot.taskWatch, quietMinutes: 121 } },
+  ],
+  [
+    "a task reviewer action that does not exist",
+    decodeLoadSnapshot,
+    {
+      ...watchedLoadSnapshot,
+      taskWatch: { ...watchedLoadSnapshot.taskWatch, recent: [{ ...taskWatchEvent, action: "deleted" }] },
+    },
+  ],
+  [
+    "a task reviewer decision by an unknown judge",
+    decodeLoadSnapshot,
+    {
+      ...watchedLoadSnapshot,
+      taskWatch: { ...watchedLoadSnapshot.taskWatch, recent: [{ ...taskWatchEvent, by: "agent" }] },
+    },
+  ],
+  [
+    "more task reviewer actions than the panel lists",
+    decodeLoadSnapshot,
+    {
+      ...watchedLoadSnapshot,
+      taskWatch: { ...watchedLoadSnapshot.taskWatch, recent: Array.from({ length: 6 }, () => taskWatchEvent) },
+    },
+  ],
+  [
+    "a quiet run with minutes that are not whole",
+    decodeLoadSnapshot,
+    { ...loadSnapshot, running: [{ ...runningWork, quiet: { state: "stalled", minutes: 2.5 } }] },
+  ],
+  [
+    "a quiet run in a state that does not exist",
+    decodeLoadSnapshot,
+    { ...loadSnapshot, running: [{ ...runningWork, quiet: { state: "dead", minutes: 40 } }] },
+  ],
   [
     "a resume offer with no stopped task",
     decodeResumeOffer,

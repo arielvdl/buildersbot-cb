@@ -324,6 +324,8 @@ import { SkillMarketplaceService } from "./skill-marketplace-service";
 import { SLACK_DEV_CALLBACK_PATH, startSlackDevCallbackServer } from "./slack-dev-callback-server";
 import { SpeechPreferenceStore } from "./speech-preference-store";
 import { removeStaleTelemetryQueues } from "./stale-telemetry-queues";
+import { TASK_WATCH_JUDGE_TIMEOUT_MS, taskWatchJudge } from "./task-watch-judge";
+import { TASK_WATCH_PREFERENCE_FILE, TaskWatchPreferenceStore } from "./task-watch-preference-store";
 import { TeamStore } from "./team-store";
 import { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcClientTransport } from "./team-webrtc-client-transport";
@@ -614,6 +616,8 @@ export interface ApplicationServices {
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
+  /** The task reviewer of the load panel. Experimental and off until the person turns it on. */
+  taskWatch: TaskWatchPreferenceStore;
   /** The cap on the agents that run at the same time. Off until the person turns it on. */
   agentLimit: AgentLimitPreferenceStore;
   /** What runs and what stopped, and the automatic recovery of the stopped work. */
@@ -1287,6 +1291,7 @@ export async function createApplicationServices({
   );
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
+  const taskWatch = new TaskWatchPreferenceStore(join(app.getPath("userData"), TASK_WATCH_PREFERENCE_FILE));
   const agentLimit = new AgentLimitPreferenceStore(join(app.getPath("userData"), AGENT_LIMIT_PREFERENCE_FILE));
   // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
   // only when an agent first asks for the browser. `service` is read at that time, not now. Without its
@@ -1377,6 +1382,7 @@ export async function createApplicationServices({
       runCauseEffect(autoRecovery.load()),
       runCauseEffect(agentLimit.load()),
       runCauseEffect(guardPreference.load()),
+      runCauseEffect(taskWatch.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -2800,6 +2806,16 @@ export async function createApplicationServices({
     preference: () => autoRecovery.get(),
     agentLimit: () => agentLimit.get(),
     onFailure: (action, cause) => logger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
+    // The task reviewer: experimental, off by default, and it asks the model that the Guard uses.
+    taskWatch: {
+      preference: () => taskWatch.get(),
+      signals: (agentId) => service.taskWatchSignals(agentId),
+      memoryLevel: () => macMemory?.level() ?? "ok",
+      judge: taskWatchJudge({
+        ready: () => service.guardJudgeReady(),
+        complete: (request) => Effect.runPromise(service.askGuardModel(request, TASK_WATCH_JUDGE_TIMEOUT_MS)),
+      }),
+    },
   });
   workControl.start();
   teardown.push(TEARDOWN_ORDER.workControl, "the recovery timer", () => {
@@ -3388,6 +3404,7 @@ export async function createApplicationServices({
     busyMessageMode,
     channelLane,
     autoRecovery,
+    taskWatch,
     agentLimit,
     workControl,
     agentDefaults,

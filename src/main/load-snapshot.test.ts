@@ -10,6 +10,7 @@ const NO_WORK = {
   agentLimit: { enabled: false, max: 10 },
   stopped: [],
   recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
+  taskWatch: { enabled: false, quietMinutes: 15, active: false, modelReady: false, recent: [] },
 };
 
 const reading = {

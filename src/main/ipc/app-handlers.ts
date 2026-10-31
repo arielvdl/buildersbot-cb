@@ -46,6 +46,7 @@ import type { RemoteSessionReusePreferenceStore } from "../remote-session-reuse-
 import type { ResumeOffer } from "../resume-offer";
 import type { SecurityGuardService } from "../security-guard-service";
 import { readSetupState, writeSetupState } from "../setup-store";
+import type { TaskWatchPreferenceStore } from "../task-watch-preference-store";
 import type { UpdateService } from "../update-service";
 import type { WorkControl } from "../work-control";
 import {
@@ -71,6 +72,7 @@ import {
   parseRunChannelNowInput,
   parseSetup,
   parseStopWorkInput,
+  parseTaskWatchPreference,
 } from "./app-inputs";
 import { stringPayload } from "./validation";
 
@@ -119,6 +121,8 @@ export interface AppIpcDependencies {
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
+  /** The task reviewer. Experimental and off until the person turns it on. */
+  taskWatch: TaskWatchPreferenceStore;
   agentLimit: AgentLimitPreferenceStore;
   workControl: WorkControl;
   agentDefaults: AgentDefaultsPreferenceStore;
@@ -159,6 +163,7 @@ export function appIpcHandlers({
   busyMessageMode,
   channelLane,
   autoRecovery,
+  taskWatch,
   agentLimit,
   workControl,
   agentDefaults,
@@ -257,6 +262,12 @@ export function appIpcHandlers({
       // Off until the person turns it on. The timer of `workControl` reads the stored value at each look.
       setAutoRecovery: payloadHandler(parseAutoRecoveryPreference, async (parsed) => {
         await runCauseEffect(autoRecovery.set(parsed));
+        return loadSnapshot();
+      }),
+      // Off until the person turns it on, and it looks only while "Resume by itself" is on too. The timer
+      // of `workControl` reads the stored value at each look. The parser refuses a threshold out of 5 to 120.
+      setTaskWatch: payloadHandler(parseTaskWatchPreference, async (parsed) => {
+        await runCauseEffect(taskWatch.set(parsed));
         return loadSnapshot();
       }),
       getAgentLimit: handler(() => agentLimit.get()),

@@ -1,5 +1,14 @@
 import { attachmentReferences, expandAttachmentReferences } from "@openbot/contracts/attachment-references";
-import type { LoadLanePreference, LoadSnapshot, StoppedWork } from "@openbot/contracts/ipc";
+import {
+  DEFAULT_TASK_WATCH_PREFERENCE,
+  type LoadLanePreference,
+  type LoadSnapshot,
+  type RecoveryEvent,
+  type StoppedWork,
+  TASK_WATCH_MAX_MINUTES,
+  TASK_WATCH_MIN_MINUTES,
+  type TaskWatchEvent,
+} from "@openbot/contracts/ipc";
 
 export type LoadTone = "ok" | "warning" | "critical";
 
@@ -83,6 +92,29 @@ export function activeAgentLimit(snapshot: LoadSnapshot): number | null {
 export function clampRecoveryMinutes(value: number): number {
   if (!Number.isFinite(value)) return 30;
   return Math.min(1440, Math.max(5, Math.round(value)));
+}
+
+/** The threshold of the task reviewer in minutes: whole, from 5 to 120, and 15 for anything that is not a number. */
+export function clampWatchMinutes(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TASK_WATCH_PREFERENCE.quietMinutes;
+  return Math.min(TASK_WATCH_MAX_MINUTES, Math.max(TASK_WATCH_MIN_MINUTES, Math.round(value)));
+}
+
+/** The most lines of "Lately": the actions of the automatic recovery and of the task reviewer together. */
+export const LOAD_RECENT_LIMIT = 6;
+
+/** One line of "Lately": an action of the automatic recovery, or of the task reviewer. */
+export type LoadRecentEvent = { by: "recovery"; event: RecoveryEvent } | { by: "reviewer"; event: TaskWatchEvent };
+
+/** The actions of the automatic recovery and of the task reviewer in one list, the newest first. */
+export function loadRecentEvents(snapshot: LoadSnapshot): LoadRecentEvent[] {
+  const events: LoadRecentEvent[] = [
+    ...snapshot.recovery.recent.map((event): LoadRecentEvent => ({ by: "recovery", event })),
+    ...snapshot.taskWatch.recent.map((event): LoadRecentEvent => ({ by: "reviewer", event })),
+  ];
+  return events
+    .sort((left, right) => (Date.parse(right.event.at) || 0) - (Date.parse(left.event.at) || 0))
+    .slice(0, LOAD_RECENT_LIMIT);
 }
 
 /** Whole minutes since `startedAt`, never below zero, and zero for a date that does not parse. */

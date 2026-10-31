@@ -11,6 +11,7 @@ import type {
   McpSignInApp,
   McpSignInAppState,
   ServerNotificationLevel,
+  TaskWatchPreference,
 } from "@openbot/contracts/ipc";
 import {
   type AccountUsage,
@@ -94,6 +95,7 @@ import {
   DEFAULT_REMOTE_NETWORK_ROUTE,
   DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE,
   DEFAULT_SECURITY_GUARD_PREFERENCE,
+  DEFAULT_TASK_WATCH_PREFERENCE,
   DEFAULT_TRANSPARENT_WINDOW,
   type DirectConversationSnapshot,
   type DirectMessageRealtimeEvent,
@@ -488,6 +490,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let previewLoadLane: LoadLanePreference = { enabled: false, order: [] };
   let previewRecovery: AutoRecoveryPreference = { enabled: false, intervalMinutes: 30, reassign: false };
   let previewAgentLimit: AgentLimitPreference = { ...DEFAULT_AGENT_LIMIT_PREFERENCE };
+  let previewTaskWatch: TaskWatchPreference = { ...DEFAULT_TASK_WATCH_PREFERENCE };
   const previewLoad = (): LoadSnapshot => ({
     sampledAt: new Date().toISOString(),
     memory: { usedMb: 7625, agentsMb: 6611, totalMb: 32768 },
@@ -499,6 +502,13 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     stopped: [],
     recovery: { ...previewRecovery, recent: [] },
     agentLimit: { ...previewAgentLimit },
+    // The preview has no Guard model, so the task reviewer decides with its local rules only.
+    taskWatch: {
+      ...previewTaskWatch,
+      active: previewTaskWatch.enabled && previewRecovery.enabled,
+      modelReady: false,
+      recent: [],
+    },
   });
   const interfaceSizeListeners = new Set<(preference: AppInterfaceSizePreference) => void>();
   const approvalAutomationListeners = new Set<(preference: ApprovalAutomationPreference) => void>();
@@ -1238,6 +1248,10 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     reassignStoppedWork: async () => previewLoad(),
     setAutoRecovery: async (preference) => {
       previewRecovery = { ...preference };
+      return previewLoad();
+    },
+    setTaskWatch: async (preference) => {
+      previewTaskWatch = { ...preference };
       return previewLoad();
     },
     getAgentLimit: async () => ({ ...previewAgentLimit }),

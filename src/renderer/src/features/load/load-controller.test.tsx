@@ -4,6 +4,7 @@ import type {
   LoadSnapshot,
   RunningWork,
   StoppedWork,
+  TaskWatchPreference,
 } from "@openbot/contracts/ipc";
 import { render } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
@@ -21,6 +22,7 @@ function snapshot(overrides: Partial<LoadSnapshot["lane"]> = {}, activeAgents = 
     stopped: [],
     recovery: { enabled: false, intervalMinutes: 30, reassign: false, recent: [] },
     agentLimit: { enabled: false, max: 10 },
+    taskWatch: { enabled: false, quietMinutes: 15, active: false, modelReady: false, recent: [] },
   };
 }
 
@@ -37,6 +39,7 @@ function fullPort(overrides: Partial<Port> = {}): Port {
     resumeStoppedWork: idle,
     reassignStoppedWork: idle,
     setAutoRecovery: idle,
+    setTaskWatch: idle,
     setAgentLimit: idle,
     ...overrides,
   };
@@ -234,5 +237,32 @@ describe("the actions on work", () => {
 
     expect(getLoad).toHaveBeenCalled();
     expect(controller.snapshot()?.recovery.enabled).toBe(false);
+  });
+
+  it("shows the task reviewer switch at once, and the answer of the host after it", async () => {
+    const setTaskWatch = vi.fn(async (preference: TaskWatchPreference) => ({
+      ...snapshot(),
+      taskWatch: { ...preference, active: false, modelReady: true, recent: [] },
+    }));
+    const controller = mount(() => fullPort({ setTaskWatch }));
+    await vi.waitFor(() => expect(controller.snapshot()).not.toBeNull());
+
+    await controller.setTaskWatch({ enabled: true, quietMinutes: 20 });
+
+    expect(setTaskWatch).toHaveBeenCalledWith({ enabled: true, quietMinutes: 20 });
+    expect(controller.snapshot()?.taskWatch).toMatchObject({ enabled: true, quietMinutes: 20, modelReady: true });
+  });
+
+  it("reads again when the host refuses the task reviewer change", async () => {
+    const getLoad = vi.fn(async () => snapshot());
+    const setTaskWatch = vi.fn(async () => snapshot());
+    const controller = mount(() => fullPort({ getLoad, setTaskWatch }));
+    await vi.waitFor(() => expect(controller.snapshot()).not.toBeNull());
+    getLoad.mockClear();
+
+    await controller.setTaskWatch({ enabled: true, quietMinutes: 15 });
+
+    expect(getLoad).toHaveBeenCalled();
+    expect(controller.snapshot()?.taskWatch.enabled).toBe(false);
   });
 });

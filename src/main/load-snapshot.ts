@@ -4,6 +4,7 @@ import type {
   LoadSnapshot,
   RunningWork,
   StoppedWork,
+  TaskWatchState,
   WaitingWork,
 } from "@openbot/contracts/ipc";
 import type { ChannelLaneSnapshot } from "../backend/channel-service";
@@ -28,6 +29,7 @@ export interface LoadWork {
   stopped: StoppedWork[];
   recovery: AutoRecoveryState;
   agentLimit: AgentLimitPreference;
+  taskWatch: TaskWatchState;
 }
 
 export function buildLoadSnapshot(
@@ -58,6 +60,7 @@ export function buildLoadSnapshot(
     stopped: work.stopped,
     recovery: work.recovery,
     agentLimit: work.agentLimit,
+    taskWatch: work.taskWatch,
   };
   return snapshot;
 }

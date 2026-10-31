@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ChannelService } from "../backend/channel-service";
 import { MailboxStore } from "../backend/mailbox-store";
 import { BuildersBotDatabase } from "../backend/openbot-database";
+import { CHANNEL_START_FAILED } from "./task-watch";
 import { topActiveTask, WorkControl } from "./work-control";
 import type { RunningTurnRecord } from "./work-overview";
 
@@ -37,7 +38,13 @@ const agent = (id: string, provider: AgentSummary["provider"], model: string): A
   avatarUrl: null,
 });
 
-async function setup(options: { preference?: { enabled: boolean; intervalMinutes: number; reassign: boolean } } = {}) {
+async function setup(
+  options: {
+    preference?: { enabled: boolean; intervalMinutes: number; reassign: boolean };
+    /** The task reviewer, with no provider events, nobody who waits for the person, and no model. */
+    taskWatch?: { enabled: boolean; quietMinutes: number };
+  } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), "work-control-"));
   roots.push(root);
   const database = new BuildersBotDatabase(root);
@@ -124,6 +131,16 @@ async function setup(options: { preference?: { enabled: boolean; intervalMinutes
     preference: () => preference,
     onFailure: (action) => failures.push(action),
     now: () => clock.now,
+    ...(options.taskWatch
+      ? {
+          taskWatch: {
+            preference: () => options.taskWatch ?? { enabled: false, quietMinutes: 15 },
+            signals: () => ({ lastEventAt: null, waitsOnPerson: false }),
+            memoryLevel: () => "ok" as const,
+            judge: null,
+          },
+        }
+      : {}),
   });
   const taskId = channels.store.tasks("c1")[0]?.id ?? "";
   return { control, channels, clock, failures, taskId, fail, turns, slotWaiting, agentLimit };
@@ -292,5 +309,90 @@ describe("the automatic recovery in the app", () => {
     const { control } = await setup({ preference: { enabled: true, intervalMinutes: 30, reassign: false } });
     await control.tick();
     expect(control.overview().stopped[0]?.auto).toBe("waiting");
+  });
+});
+
+describe("the task reviewer in the app", () => {
+  const MIN = 60_000;
+  const task = (channels: ChannelService, taskId: string) =>
+    channels.store.tasks("c1").find((entry) => entry.id === taskId);
+
+  it("takes the failed starts from the automatic recovery, and gives one that fails again to another agent", async () => {
+    const { control, clock, channels, taskId, fail } = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: true },
+      taskWatch: { enabled: true, quietMinutes: 15 },
+    });
+    fail(CHANNEL_START_FAILED);
+    await control.tick();
+    clock.now += 30 * MIN;
+    await control.tick();
+    expect(task(channels, taskId)?.state).not.toBe("failed");
+    expect(control.overview().taskWatch.recent[0]).toMatchObject({ action: "resumed", reason: "start-failed" });
+    expect(control.overview().recovery.recent).toEqual([]);
+    // The provider fails to start it again: the next try goes to beta, which has the same model.
+    fail(CHANNEL_START_FAILED);
+    clock.now += 30 * MIN;
+    await control.tick();
+    expect(task(channels, taskId)?.ownerAgentId).toBe("beta");
+    expect(control.overview().taskWatch.recent[0]).toMatchObject({ action: "reassigned", agentName: "BETA" });
+  });
+
+  it("leaves the failed starts to the automatic recovery while it is off", async () => {
+    const { control, clock, channels, taskId, fail } = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: true },
+      taskWatch: { enabled: false, quietMinutes: 15 },
+    });
+    fail(CHANNEL_START_FAILED);
+    await control.tick();
+    clock.now += 30 * MIN;
+    await control.tick();
+    expect(task(channels, taskId)?.state).not.toBe("failed");
+    expect(control.overview().recovery.recent[0]).toMatchObject({ action: "resumed" });
+    expect(control.overview().taskWatch).toMatchObject({ active: false, recent: [] });
+  });
+
+  it("puts a request that waits too long with a free place in the queue again", async () => {
+    const { control, clock, channels, taskId } = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: false },
+      taskWatch: { enabled: true, quietMinutes: 5 },
+    });
+    await Effect.runPromise(
+      channels.command(
+        { type: "resume", operationId: "continue:1", channelId: "c1", taskId, recipientAgentId: null },
+        actor,
+      ),
+    );
+    const revision = task(channels, taskId)?.revision ?? 0;
+    await control.tick();
+    clock.now += 10 * MIN;
+    await control.tick();
+    expect(task(channels, taskId)?.revision).toBeGreaterThan(revision);
+    expect(control.overview().taskWatch.recent[0]).toMatchObject({ action: "resumed", minutes: 10 });
+  });
+
+  it("never touches a task that the person stopped, also after the automatic recovery started it again", async () => {
+    const { control, clock, channels, taskId } = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: false },
+      taskWatch: { enabled: true, quietMinutes: 5 },
+    });
+    const command = (type: "resume" | "stop", operationId: string) =>
+      Effect.runPromise(
+        channels.command({ type, operationId, channelId: "c1", taskId, recipientAgentId: null }, actor),
+      );
+    await command("resume", "continue:1");
+    await command("stop", "stop:1");
+    expect(task(channels, taskId)?.state).toBe("paused");
+    await control.tick();
+    clock.now += 30 * MIN;
+    await control.tick();
+    // The automatic recovery started it again; the reviewer still knows that the person stopped it.
+    expect(control.overview().recovery.recent[0]).toMatchObject({ action: "resumed" });
+    const revision = task(channels, taskId)?.revision;
+    for (let look = 0; look < 12; look += 1) {
+      clock.now += 15 * MIN;
+      await control.tick();
+    }
+    expect(task(channels, taskId)?.revision).toBe(revision);
+    expect(control.overview().taskWatch.recent).toEqual([]);
   });
 });
