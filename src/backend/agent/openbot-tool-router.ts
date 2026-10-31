@@ -41,7 +41,7 @@ import type { AgentWaits } from "../agent-waits/agent-waits";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import type { ChannelService } from "../channel-service";
 import type { ProviderSession } from "../database/provider-sessions";
-import { type GuardBefore, type GuardGate, guardOutboundItem } from "../guard/guard-gate";
+import { type GuardApprovalMark, type GuardBefore, type GuardGate, guardOutboundItem } from "../guard/guard-gate";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -309,9 +309,9 @@ export class BuildersBotToolRouter {
     });
   }
 
-  /** The Guard reason of a provider's command approval, or null when the Guard lets it pass or is off. */
-  #guardCommand(request: AppServerRequest): Effect.Effect<string | null> {
-    return this.#guardGate ? this.#guardGate.commandReason(commandText(request.params)) : Effect.succeed(null);
+  /** The Guard mark of a provider's command approval, or null when the Guard lets it pass or is off. */
+  #guardCommand(request: AppServerRequest): Effect.Effect<GuardApprovalMark | null> {
+    return this.#guardGate ? this.#guardGate.commandMark(commandText(request.params)) : Effect.succeed(null);
   }
 
   /** The Guard check before a tool call, or a pass when no Guard runs. */
@@ -503,6 +503,30 @@ export class BuildersBotToolRouter {
             return;
           }
           if (toolRequest.params.namespace === "openbot") {
+            // The Guard checks what the call sends out before any branch below runs it: a chat post,
+            // an attachment, a site, an HTML page or an MCP server.
+            if (
+              this.#guardGate &&
+              guardOutboundItem(toolRequest.params.namespace, toolRequest.params.tool, toolRequest.params.arguments)
+            ) {
+              const agentId = this.#conversation.agentForThread(toolRequest.params.threadId);
+              if (agentId) {
+                const before = yield* this.#guardBefore(
+                  client,
+                  toolRequest,
+                  {
+                    ...toolRequest.params,
+                    threadId: this.#conversation.publicThreadId(agentId, toolRequest.params.threadId),
+                  },
+                  agentId,
+                );
+                if (!before.proceed) {
+                  if (before.result && !toolRequest.signal?.aborted && client.running)
+                    client.respond(toolRequest.id, before.result);
+                  return;
+                }
+              }
+            }
             if (toolRequest.params.tool === "ask_user") {
               this.#attention.surfaceDynamicPrompt(client, toolRequest);
               return;
@@ -539,28 +563,6 @@ export class BuildersBotToolRouter {
               const result = yield* this.#mcpServerTool(client, toolRequest, toolRequest.params);
               if (!toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, result);
               return;
-            }
-            if (
-              this.#guardGate &&
-              guardOutboundItem(toolRequest.params.namespace, toolRequest.params.tool, toolRequest.params.arguments)
-            ) {
-              const agentId = this.#conversation.agentForThread(toolRequest.params.threadId);
-              if (agentId) {
-                const before = yield* this.#guardBefore(
-                  client,
-                  toolRequest,
-                  {
-                    ...toolRequest.params,
-                    threadId: this.#conversation.publicThreadId(agentId, toolRequest.params.threadId),
-                  },
-                  agentId,
-                );
-                if (!before.proceed) {
-                  if (before.result && !toolRequest.signal?.aborted && client.running)
-                    client.respond(toolRequest.id, before.result);
-                  return;
-                }
-              }
             }
             const tool = toolRequest.params.tool;
             // The calling agent can correct a profile request or an attachment path, so it gets the reason as a

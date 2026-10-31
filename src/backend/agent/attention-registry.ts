@@ -43,6 +43,7 @@ import type { PreparedBrowserSecret } from "../browser-host";
 import type { BrowserCardVault } from "../browser-tool-actions";
 import { type BrowserToolArguments, parseBrowserToolCall } from "../browser-tools";
 import { causeHelpers } from "../effect-boundary";
+import type { GuardApprovalMark } from "../guard/guard-gate";
 import type { PasswordVault, PasswordVaultError } from "../password-vault";
 import {
   type AppServerRequest,
@@ -155,6 +156,12 @@ interface PendingApproval {
 }
 
 type ToolApprovalDecision = "accept" | "decline" | "cancel";
+
+/** The fields that a Guard mark puts on a pending approval: it always asks, and maybe only the owner. */
+function guardMarkFields(guard: GuardApprovalMark | null): Pick<PendingApproval, "alwaysAsk" | "ownerOnly"> {
+  if (!guard) return {};
+  return guard.ownerOnly ? { alwaysAsk: true, ownerOnly: true } : { alwaysAsk: true };
+}
 
 const TOOL_APPROVAL_METHOD = "openbot/tool-approval";
 /** The agent reads this, not the user: it says how to ask in a Slack, Discord or Telegram turn. */
@@ -737,14 +744,15 @@ export class AttentionRegistry {
   }
 
   /**
-   * `guardReason` is set when the Guard found a risk in the command. The card then shows the Guard's
-   * reason and asks also when the agent has Full access, and a later grant does not answer it.
+   * `guard` is set when the Guard found a risk in the command. The card then shows the Guard's reason
+   * and asks also when the agent has Full access, and a later grant does not answer it. With
+   * `ownerOnly`, only the owner can answer, as for a built-in tool that may send a secret out.
    */
   surfaceApproval(
     client: AgentClient,
     request: AppServerRequest,
     kind: AgentApprovalKind,
-    guardReason: string | null = null,
+    guard: GuardApprovalMark | null = null,
   ): void {
     const threadId = getString(request.params, "threadId");
     const turnId = getString(request.params, "turnId") ?? (kind === "file-change" ? String(request.id) : null);
@@ -762,18 +770,18 @@ export class AttentionRegistry {
       kind,
       command: commandText(request.params),
       cwd: getString(request.params, "cwd"),
-      reason: guardReason ?? getString(request.params, "reason"),
+      reason: guard?.reason ?? getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
       permissions: kind === "permissions" ? approvalPermissions(request.params) : null,
     };
-    if (!guardReason && this.#answerWithoutAsking(client, request, approval)) return;
+    if (!guard && this.#answerWithoutAsking(client, request, approval)) return;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
       approval,
-      ...(guardReason ? { alwaysAsk: true } : {}),
+      ...guardMarkFields(guard),
     });
     this.#routines.markNeedsAttention(turnId);
     this.#emit({ type: "approval", approval });
@@ -840,8 +848,8 @@ export class AttentionRegistry {
     this.#emit({ type: "approval", approval: prepared.approval });
   }, Effect.uninterruptible).bind(this);
 
-  /** `guardReason` works as it does for `surfaceApproval`. */
-  surfaceLegacyApproval(client: AgentClient, request: AppServerRequest, guardReason: string | null = null): void {
+  /** `guard` works as it does for `surfaceApproval`. */
+  surfaceLegacyApproval(client: AgentClient, request: AppServerRequest, guard: GuardApprovalMark | null = null): void {
     const threadId = getString(request.params, "conversationId");
     const agentId = threadId ? this.#conversation.agentForThread(threadId) : undefined;
     if (!threadId || !agentId) {
@@ -858,18 +866,18 @@ export class AttentionRegistry {
       kind,
       command: commandText(request.params),
       cwd: getString(request.params, "cwd"),
-      reason: guardReason ?? getString(request.params, "reason"),
+      reason: guard?.reason ?? getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
       permissions: null,
     };
-    if (!guardReason && this.#answerWithoutAsking(client, request, approval)) return;
+    if (!guard && this.#answerWithoutAsking(client, request, approval)) return;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
       approval,
-      ...(guardReason ? { alwaysAsk: true } : {}),
+      ...guardMarkFields(guard),
     });
     this.#routines.markNeedsAttention(approval.turnId);
     this.#emit({ type: "approval", approval });
