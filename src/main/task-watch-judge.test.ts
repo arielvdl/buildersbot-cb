@@ -24,6 +24,7 @@ const input = (overrides: Partial<TaskWatchJudgeInput> = {}): TaskWatchJudgeInpu
   activeAgents: 4,
   agentLimit: 10,
   provider: "codex",
+  stepOpen: false,
   request: "Fix the payment form",
   lastWords: "Running the whole test suite now.",
   ...overrides,
@@ -75,6 +76,14 @@ describe("the summary that the task reviewer sends", () => {
     expect(prompt).toContain("Minutes since it started: 75");
     expect(prompt).toContain("Minutes in the queue: 22");
     expect(prompt).toContain("Agents running now: 4.");
+    expect(prompt).not.toContain("A work step");
+  });
+
+  it("says whether a run has a work step that started and did not end", () => {
+    expect(taskWatchPrompt(input({ stepOpen: true })).prompt).toContain(
+      "A work step, such as a command, started and did not end: yes.",
+    );
+    expect(taskWatchPrompt(input()).prompt).toContain("A work step, such as a command, started and did not end: no.");
   });
 });
 

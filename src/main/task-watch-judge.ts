@@ -28,6 +28,8 @@ export interface TaskWatchJudgeInput {
   /** The cap on agents, or null when it is off. */
   agentLimit: number | null;
   provider: string | null;
+  /** For a run: a work step, such as a command, started and did not end. */
+  stepOpen: boolean;
   request: string;
   lastWords: string;
 }
@@ -42,7 +44,7 @@ export const TASK_WATCH_JUDGE_SYSTEM = [
   "Return one JSON object and no other text, with exactly this key:",
   '{"decision":"wait|act"}',
   "- wait: the task can still be working, such as a long build, a test run, an install or a download that writes no output.",
-  "- act: the task looks stuck, such as no sign of life for a long time and nothing that explains it.",
+  "- act: the task looks stuck, such as no sign of life for a long time and nothing that explains it. The app then starts the task again.",
   "- When you are not sure, answer wait.",
 ].join("\n");
 
@@ -71,6 +73,9 @@ export function taskWatchPrompt(input: TaskWatchJudgeInput): GuardJudgeRequest {
     input.kind === "running"
       ? `Minutes with no event from the provider: ${whole(input.minutesQuiet)}`
       : `Minutes in the queue: ${whole(input.minutesQuiet)}`,
+    ...(input.kind === "running"
+      ? [`A work step, such as a command, started and did not end: ${input.stepOpen ? "yes" : "no"}.`]
+      : []),
     `Restarts so far: ${whole(input.resumes)} of ${input.maxResumes}. Handovers so far: ${whole(input.reassigns)} of ${input.maxReassigns}.`,
     `Agents running now: ${whole(input.activeAgents)}${input.agentLimit === null ? "" : ` of at most ${input.agentLimit}`}.`,
     `Provider: ${JSON.stringify((input.provider ?? "unknown").slice(0, 40))}`,

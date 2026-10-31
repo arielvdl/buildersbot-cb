@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ChannelService } from "../backend/channel-service";
 import { MailboxStore } from "../backend/mailbox-store";
 import { BuildersBotDatabase } from "../backend/openbot-database";
-import { CHANNEL_START_FAILED } from "./task-watch";
+import { AUTO_OPERATION_PREFIX, CHANNEL_START_FAILED } from "./task-watch";
 import { topActiveTask, WorkControl } from "./work-control";
 import type { RunningTurnRecord } from "./work-overview";
 
@@ -58,12 +58,18 @@ async function setup(
     agent("gamma", "codex", "m2"),
     agent("delta", "claude", "m9"),
   ];
+  // What the channels ask the agent service: who has a turn or a queue, who has a spent plan, the lane.
+  const busyAgents = new Set<string>();
+  const limited = new Set<string>();
+  const lane: { enabled: boolean; order: string[] } = { enabled: false, order: [] };
   const channels = new ChannelService(database, mailbox, {
     agents: () => members,
     generate: () => Effect.succeed("{}"),
     schedule: () => {},
     interrupt: () => Effect.void,
-    busy: () => false,
+    busy: (agentId) => busyAgents.has(agentId),
+    usageLimited: (agentId) => limited.has(agentId),
+    lane: () => lane,
     awaitDrain: () => Effect.void,
     changed: () => {},
     error: () => {},
@@ -118,6 +124,9 @@ async function setup(
   // What `AgentService.slotWaitingAgents` gives: the agents whose turn waits for a free place.
   const slotWaiting: string[] = [];
   const agentLimit = { enabled: false, max: 10 };
+  // What `AgentService.taskWatchSignals` and the memory of the Mac give the task reviewer.
+  const signals = { events: new Map<string, number>(), attention: new Set<string>(), steps: new Set<string>() };
+  const memory: { level: "ok" | "low" | "critical" } = { level: "ok" };
   const control = new WorkControl({
     service: {
       listAgents: () => members,
@@ -135,15 +144,34 @@ async function setup(
       ? {
           taskWatch: {
             preference: () => options.taskWatch ?? { enabled: false, quietMinutes: 15 },
-            signals: () => ({ lastEventAt: null, waitsOnPerson: false }),
-            memoryLevel: () => "ok" as const,
+            signals: (agentId: string) => ({
+              lastEventAt: signals.events.get(agentId) ?? null,
+              waitsOnPerson: signals.attention.has(agentId),
+              stepOpen: signals.steps.has(agentId),
+            }),
+            memoryLevel: () => memory.level,
             judge: null,
           },
         }
       : {}),
   });
   const taskId = channels.store.tasks("c1")[0]?.id ?? "";
-  return { control, channels, clock, failures, taskId, fail, turns, slotWaiting, agentLimit };
+  return {
+    control,
+    channels,
+    clock,
+    failures,
+    taskId,
+    fail,
+    turns,
+    slotWaiting,
+    agentLimit,
+    busyAgents,
+    limited,
+    lane,
+    signals,
+    memory,
+  };
 }
 
 /** The thread of alpha in the channel, as the channel makes it when the agent starts there. */
@@ -370,29 +398,436 @@ describe("the task reviewer in the app", () => {
     expect(control.overview().taskWatch.recent[0]).toMatchObject({ action: "resumed", minutes: 10 });
   });
 
-  it("never touches a task that the person stopped, also after the automatic recovery started it again", async () => {
-    const { control, clock, channels, taskId } = await setup({
-      preference: { enabled: true, intervalMinutes: 30, reassign: false },
-      taskWatch: { enabled: true, quietMinutes: 5 },
-    });
-    const command = (type: "resume" | "stop", operationId: string) =>
-      Effect.runPromise(
-        channels.command({ type, operationId, channelId: "c1", taskId, recipientAgentId: null }, actor),
-      );
-    await command("resume", "continue:1");
-    await command("stop", "stop:1");
-    expect(task(channels, taskId)?.state).toBe("paused");
-    await control.tick();
-    clock.now += 30 * MIN;
-    await control.tick();
-    // The automatic recovery started it again; the reviewer still knows that the person stopped it.
-    expect(control.overview().recovery.recent[0]).toMatchObject({ action: "resumed" });
-    const revision = task(channels, taskId)?.revision;
-    for (let look = 0; look < 12; look += 1) {
-      clock.now += 15 * MIN;
+  it.each([
+    ["the Stop of the channel", "stop:1"],
+    ["a client that names its stop like a stop of the app", `${AUTO_OPERATION_PREFIX}forged`],
+  ])(
+    "never touches a task that the person stopped with %s, also after the automatic recovery started it again",
+    async (_name, stopId) => {
+      const { control, clock, channels, taskId } = await setup({
+        preference: { enabled: true, intervalMinutes: 30, reassign: false },
+        taskWatch: { enabled: true, quietMinutes: 5 },
+      });
+      const command = (type: "resume" | "stop", operationId: string) =>
+        Effect.runPromise(
+          channels.command({ type, operationId, channelId: "c1", taskId, recipientAgentId: null }, actor),
+        );
+      await command("resume", "continue:1");
+      await command("stop", stopId);
+      expect(task(channels, taskId)?.state).toBe("paused");
       await control.tick();
-    }
-    expect(task(channels, taskId)?.revision).toBe(revision);
-    expect(control.overview().taskWatch.recent).toEqual([]);
+      clock.now += 30 * MIN;
+      await control.tick();
+      // The automatic recovery started it again; the reviewer still knows that the person stopped it.
+      expect(control.overview().recovery.recent[0]).toMatchObject({ action: "resumed" });
+      const revision = task(channels, taskId)?.revision;
+      for (let look = 0; look < 12; look += 1) {
+        clock.now += 15 * MIN;
+        await control.tick();
+      }
+      expect(task(channels, taskId)?.revision).toBe(revision);
+      expect(control.overview().taskWatch.recent).toEqual([]);
+    },
+  );
+});
+
+describe("the holds of the task reviewer, read from the real channels", () => {
+  const MIN = 60_000;
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 60));
+  type Context = Awaited<ReturnType<typeof setup>>;
+  const watched = () =>
+    setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: false },
+      taskWatch: { enabled: true, quietMinutes: 15 },
+    });
+  const taskOf = (context: Context, taskId: string, channelId = "c1") =>
+    context.channels.store.tasks(channelId).find((entry) => entry.id === taskId);
+  const send = async (context: Context, recipientAgentId: string, text: string, channelId = "c1") => {
+    const before = new Set(context.channels.store.tasks(channelId).map((task) => task.id));
+    await Effect.runPromise(
+      context.channels.command(
+        {
+          type: "send",
+          operationId: `send:${channelId}:${recipientAgentId}:${text}`,
+          channelId,
+          text,
+          recipientAgentId,
+          replyToMessageId: null,
+          attachmentDraftIds: [],
+        },
+        actor,
+      ),
+    );
+    await settle();
+    const task = context.channels.store.tasks(channelId).find((entry) => !before.has(entry.id));
+    if (!task) throw new Error("The channel made no task.");
+    return task;
+  };
+  /** Puts the stopped task of alpha in the queue with no assignment: the drain would start it now, but no pass runs. */
+  const park = async (context: Context) => {
+    context.busyAgents.add("alpha");
+    await Effect.runPromise(
+      context.channels.command(
+        {
+          type: "resume",
+          operationId: "continue:park",
+          channelId: "c1",
+          taskId: context.taskId,
+          recipientAgentId: null,
+        },
+        actor,
+      ),
+    );
+    await settle();
+    context.busyAgents.delete("alpha");
+    expect(taskOf(context, context.taskId)?.state).toBe("queued");
+    const active = ["queued", "starting", "running"];
+    expect(
+      context.channels.store
+        .assignments("c1")
+        .some((entry) => entry.taskId === context.taskId && active.includes(entry.state)),
+    ).toBe(false);
+  };
+  /** Sets a task and its assignment to running, as the turn of its owner does. */
+  const runTask = (context: Context, taskId: string, resources: string[] = [], channelId = "c1") => {
+    const { store } = context.channels;
+    const task = store.tasks(channelId).find((entry) => entry.id === taskId);
+    if (!task) throw new Error("The task is missing.");
+    store.update(store.get(channelId), {
+      tasks: [{ ...task, state: "running" as const, resources }],
+      assignments: store
+        .assignments(channelId)
+        .filter((entry) => entry.taskId === taskId)
+        .map((entry) => ({ ...entry, state: "running" as const, turnId: `turn-${taskId}`, resources })),
+    });
+  };
+  const finish = (context: Context, taskId: string, channelId = "c1") => {
+    const { store } = context.channels;
+    const task = store.tasks(channelId).find((entry) => entry.id === taskId);
+    if (!task) throw new Error("The task is missing.");
+    store.update(store.get(channelId), {
+      tasks: [{ ...task, state: "completed" as const }],
+      assignments: store
+        .assignments(channelId)
+        .filter((entry) => entry.taskId === taskId)
+        .map((entry) => ({ ...entry, state: "completed" as const })),
+    });
+  };
+  /** One look `minutes` after the last one. The healthy agents send an event just before it. */
+  const look = async (context: Context, minutes: number, healthy: readonly string[] = []) => {
+    context.clock.now += minutes * MIN;
+    for (const agentId of healthy) context.signals.events.set(agentId, context.clock.now);
+    await context.control.tick();
+  };
+  /**
+   * The request waits for an hour and a half while `hold` holds it, and the reviewer does nothing.
+   * Freed, it is a parked request: the clock counts from the last look that found the hold, so the
+   * reviewer starts it again two thresholds later, and not before.
+   */
+  const heldThenFreed = async (
+    context: Context,
+    hold: () => void,
+    free: () => void,
+    taskId = context.taskId,
+    healthy: readonly string[] = [],
+  ) => {
+    hold();
+    const revision = taskOf(context, taskId)?.revision;
+    for (let index = 0; index < 6; index += 1) await look(context, 15, healthy);
+    expect(taskOf(context, taskId)?.revision).toBe(revision);
+    expect(context.control.overview().taskWatch.recent).toEqual([]);
+    free();
+    await look(context, 15, healthy);
+    expect(taskOf(context, taskId)?.revision).toBe(revision);
+    expect(context.control.overview().taskWatch.recent.map((event) => event.action)).toEqual(["waited"]);
+    await look(context, 15, healthy);
+    expect(taskOf(context, taskId)?.revision).toBeGreaterThan(revision ?? 0);
+    expect(context.control.overview().taskWatch.recent[0]).toMatchObject({
+      action: "resumed",
+      reason: "queued",
+      minutes: 30,
+    });
+  };
+
+  it("starts a parked request again, which the drain would start now", async () => {
+    const context = await watched();
+    await park(context);
+    expect(context.channels.queuedHolds().get(context.taskId)).toBeNull();
+    const revision = taskOf(context, context.taskId)?.revision ?? 0;
+    await context.control.tick();
+    await look(context, 15);
+    expect(context.control.overview().taskWatch.recent.map((event) => event.action)).toEqual(["waited"]);
+    await look(context, 15);
+    expect(taskOf(context, context.taskId)?.revision).toBeGreaterThan(revision);
+    expect(context.control.overview().taskWatch.recent[0]).toMatchObject({ action: "resumed", minutes: 30 });
+  });
+
+  it("leaves a request alone while the cap on agents is reached", async () => {
+    const context = await watched();
+    await park(context);
+    await heldThenFreed(
+      context,
+      () => {
+        context.agentLimit.enabled = true;
+        context.agentLimit.max = 1;
+        context.turns.push({
+          turnId: "g1",
+          agentId: "gamma",
+          threadId: "gamma-chat",
+          startedAt: "2026-10-31T10:00:00.000Z",
+        });
+      },
+      () => {
+        context.turns.length = 0;
+      },
+    );
+  });
+
+  it("leaves a request alone while its agent waits for a free place", async () => {
+    const context = await watched();
+    await park(context);
+    await heldThenFreed(
+      context,
+      () => context.slotWaiting.push("alpha"),
+      () => {
+        context.slotWaiting.length = 0;
+      },
+    );
+  });
+
+  it("leaves a request alone while its agent waits for the person", async () => {
+    const context = await watched();
+    await park(context);
+    await heldThenFreed(
+      context,
+      () => context.signals.attention.add("alpha"),
+      () => context.signals.attention.clear(),
+    );
+  });
+
+  it("leaves a request alone while memory is low, and a run while it is critical", async () => {
+    const context = await watched();
+    await park(context);
+    await heldThenFreed(
+      context,
+      () => {
+        context.memory.level = "low";
+      },
+      () => {
+        context.memory.level = "ok";
+      },
+    );
+    const run = await send(context, "beta", "Check the logs");
+    runTask(context, run.id);
+    context.memory.level = "critical";
+    const before = context.control.overview().taskWatch.recent.length;
+    // The run of beta sends no event for an hour and a half.
+    for (let index = 0; index < 6; index += 1) await look(context, 15);
+    expect(taskOf(context, run.id)?.state).toBe("running");
+    expect(context.control.overview().taskWatch.recent).toHaveLength(before);
+  });
+
+  it("leaves a request alone while a task below it works", async () => {
+    const context = await watched();
+    await park(context);
+    const request = taskOf(context, context.taskId);
+    if (!request) throw new Error("The request is missing.");
+    const { store } = context.channels;
+    const child = { ...request, id: "child-1", parentTaskId: request.id, state: "running" as const };
+    await heldThenFreed(
+      context,
+      () => store.update(store.get("c1"), { tasks: [child] }),
+      () => store.update(store.get("c1"), { tasks: [{ ...child, state: "completed" as const }] }),
+    );
+  });
+
+  it("leaves a request alone while its agent has a spent plan", async () => {
+    const context = await watched();
+    await park(context);
+    await heldThenFreed(
+      context,
+      () => context.limited.add("alpha"),
+      () => context.limited.clear(),
+    );
+  });
+
+  it("leaves a request alone while its agent runs another turn or has a queue", async () => {
+    const context = await watched();
+    await park(context);
+    await heldThenFreed(
+      context,
+      () =>
+        context.turns.push({
+          turnId: "a1",
+          agentId: "alpha",
+          threadId: "alpha-chat",
+          startedAt: "2026-10-31T10:00:00.000Z",
+        }),
+      () => {
+        context.turns.length = 0;
+      },
+    );
+    const second = await watched();
+    await park(second);
+    await heldThenFreed(
+      second,
+      () => second.busyAgents.add("alpha"),
+      () => second.busyAgents.clear(),
+    );
+  });
+
+  it("leaves a request alone while the lane runs another channel, not when its channel is next", async () => {
+    const context = await watched();
+    await Effect.runPromise(
+      context.channels.command(
+        {
+          type: "save",
+          operationId: "save:c2",
+          channelId: "c2",
+          update: false,
+          draft: { name: "vendas", title: "", instructions: "", members: [{ agentId: "beta" }], leadAgentId: null },
+        },
+        actor,
+      ),
+    );
+    const other = await send(context, "beta", "Count the sales", "c2");
+    runTask(context, other.id, [], "c2");
+    await park(context);
+    await heldThenFreed(
+      context,
+      () => {
+        context.lane.enabled = true;
+      },
+      () => finish(context, other.id, "c2"),
+      context.taskId,
+      ["beta"],
+    );
+  });
+
+  it("leaves a request alone while its dependency runs well, and never gives it to the agent that runs it", async () => {
+    const context = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: true },
+      taskWatch: { enabled: true, quietMinutes: 15 },
+    });
+    const build = await send(context, "alpha", "Build the release");
+    runTask(context, build.id);
+    context.busyAgents.add("beta");
+    const notes = await send(context, "beta", "Write the notes after the build");
+    context.busyAgents.delete("beta");
+    const { store } = context.channels;
+    store.update(store.get("c1"), { tasks: [{ ...notes, dependencies: [build.id] }] });
+    expect(context.channels.queuedHolds().get(notes.id)).toBe("waits");
+    for (let index = 0; index < 8; index += 1) await look(context, 31, ["alpha"]);
+    expect(context.control.overview().taskWatch.recent).toEqual([]);
+    expect(taskOf(context, notes.id)?.ownerAgentId).toBe("beta");
+    expect(taskOf(context, notes.id)?.revision).toBe(notes.revision);
+  });
+
+  it("leaves a request alone while two runs fill its tab", async () => {
+    const context = await watched();
+    const first = await send(context, "beta", "Fix the header");
+    const second = await send(context, "gamma", "Fix the footer");
+    runTask(context, first.id);
+    runTask(context, second.id);
+    await park(context);
+    expect(context.channels.queuedHolds().get(context.taskId)).toBe("waits");
+    await heldThenFreed(
+      context,
+      () => {},
+      () => finish(context, first.id),
+      context.taskId,
+      ["beta", "gamma"],
+    );
+  });
+
+  it("leaves a request alone while another run holds its browser", async () => {
+    const context = await watched();
+    const browsing = await send(context, "beta", "Read the dashboard");
+    runTask(context, browsing.id, ["browser"]);
+    await park(context);
+    const { store } = context.channels;
+    const request = taskOf(context, context.taskId);
+    if (!request) throw new Error("The request is missing.");
+    store.update(store.get("c1"), { tasks: [{ ...request, resources: ["browser"] }] });
+    expect(context.channels.queuedHolds().get(context.taskId)).toBe("waits");
+    await heldThenFreed(
+      context,
+      () => {},
+      () => finish(context, browsing.id),
+      context.taskId,
+      ["beta"],
+    );
+  });
+
+  it("does not start a request again the moment the cap lets its turn start", async () => {
+    const context = await watched();
+    // The drain gave the request its assignment; the turn waits for a free place.
+    await Effect.runPromise(
+      context.channels.command(
+        {
+          type: "resume",
+          operationId: "continue:slot",
+          channelId: "c1",
+          taskId: context.taskId,
+          recipientAgentId: null,
+        },
+        actor,
+      ),
+    );
+    await settle();
+    expect(context.channels.queuedHolds().get(context.taskId)).toBe("starting");
+    context.slotWaiting.push("alpha");
+    for (let index = 0; index < 6; index += 1) await look(context, 10);
+    context.slotWaiting.length = 0;
+    await look(context, 10);
+    await look(context, 10);
+    expect(context.control.overview().taskWatch.recent).toEqual([]);
+    // A start that stays under way for two thresholds is stalled, with no slow band before.
+    await look(context, 10);
+    expect(context.control.overview().taskWatch.recent[0]).toMatchObject({ action: "resumed", minutes: 30 });
+  });
+
+  it("gives a failed start only to a free agent, and else tries the same agent again", async () => {
+    const context = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: true },
+      taskWatch: { enabled: true, quietMinutes: 15 },
+    });
+    context.fail(CHANNEL_START_FAILED);
+    await context.control.tick();
+    await look(context, 30);
+    expect(context.control.overview().taskWatch.recent[0]).toMatchObject({ action: "resumed" });
+    // Beta, of the same model, runs a long build: gamma, of the same provider, takes the task.
+    context.fail(CHANNEL_START_FAILED);
+    context.turns.push({ turnId: "b1", agentId: "beta", threadId: "beta-chat", startedAt: "2026-10-31T10:00:00.000Z" });
+    await look(context, 30);
+    expect(taskOf(context, context.taskId)?.ownerAgentId).toBe("gamma");
+    expect(context.control.overview().taskWatch.recent[0]).toMatchObject({ action: "reassigned", agentName: "GAMMA" });
+  });
+
+  it("tries a failed start again on its agent when no free agent of the same provider can take it", async () => {
+    const context = await setup({
+      preference: { enabled: true, intervalMinutes: 30, reassign: true },
+      taskWatch: { enabled: true, quietMinutes: 15 },
+    });
+    context.fail(CHANNEL_START_FAILED);
+    await context.control.tick();
+    await look(context, 30);
+    context.fail(CHANNEL_START_FAILED);
+    context.busyAgents.add("beta");
+    context.busyAgents.add("gamma");
+    await look(context, 30);
+    expect(taskOf(context, context.taskId)?.ownerAgentId).toBe("alpha");
+    expect(context.control.overview().taskWatch.recent.map((event) => event.action)).toEqual(["resumed", "resumed"]);
+  });
+
+  it("forgets the tries of a task that completed", async () => {
+    const context = await watched();
+    context.fail(CHANNEL_START_FAILED);
+    await context.control.tick();
+    expect(context.control.overview().stopped[0]?.auto).toBe("waiting");
+    finish(context, context.taskId);
+    await look(context, 1);
+    context.fail("The provider stopped.");
+    expect(context.control.overview().stopped[0]?.auto).toBeNull();
   });
 });

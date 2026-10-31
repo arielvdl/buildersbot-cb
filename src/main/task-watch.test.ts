@@ -1,11 +1,12 @@
 // @vitest-environment node
 import type { AutoRecoveryPreference, ChannelCommand, TaskWatchPreference } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
-import { type LedgerRecord, MAX_REASSIGNS, MAX_RESUMES, RecoveryLedger } from "./auto-recovery";
+import { decideRecovery, type LedgerRecord, MAX_REASSIGNS, MAX_RESUMES, RecoveryLedger } from "./auto-recovery";
 import {
   AUTO_OPERATION_PREFIX,
   classifyQuiet,
   DeliberateStops,
+  OPEN_STEP_STALL_FACTOR,
   runningQuiet,
   TASK_WATCH_MODEL_CALLS_PER_HOUR,
   TaskWatch,
@@ -14,6 +15,7 @@ import {
   type WatchObservation,
   watchAction,
   watchCandidates,
+  watchClass,
 } from "./task-watch";
 import type { TaskWatchDecision, TaskWatchJudge, TaskWatchJudgeInput } from "./task-watch-judge";
 
@@ -33,6 +35,8 @@ function run(overrides: Partial<WatchObservation> = {}): WatchObservation {
     provider: "codex",
     turnStartedAt: NOW - 180 * MIN,
     lastEventAt: NOW - MIN,
+    stepOpen: false,
+    startingAssignmentId: null,
     hold: null,
     ...overrides,
   };
@@ -72,10 +76,11 @@ function setup(
     reassign?: boolean;
     candidate?: string | null;
     failCommand?: boolean;
+    ledger?: RecoveryLedger;
   } = {},
 ): Setup {
   const clock = { now: NOW };
-  const ledger = new RecoveryLedger();
+  const ledger = options.ledger ?? new RecoveryLedger();
   const tasks = options.tasks ?? [];
   const commands: string[] = [];
   const questions: TaskWatchJudgeInput[] = [];
@@ -129,6 +134,21 @@ describe("the classes of a task", () => {
     expect(classifyQuiet(15 * MIN, 15 * MIN)).toBe("slow");
     expect(classifyQuiet(29 * MIN, 15 * MIN)).toBe("slow");
     expect(classifyQuiet(30 * MIN, 15 * MIN)).toBe("stalled");
+  });
+
+  it(`keeps a run with an open work step slow up to ${OPEN_STEP_STALL_FACTOR} times the threshold`, () => {
+    const step = { kind: "running" as const, stepOpen: true, startingAssignmentId: null };
+    expect(watchClass(step, 30 * MIN, 15 * MIN)).toBe("slow");
+    expect(watchClass(step, 59 * MIN, 15 * MIN)).toBe("slow");
+    expect(watchClass(step, 60 * MIN, 15 * MIN)).toBe("stalled");
+    expect(runningQuiet(NOW - 300 * MIN, NOW - 40 * MIN, NOW, 15 * MIN, true)).toEqual({ state: "slow", minutes: 40 });
+  });
+
+  it("gives a request whose start is under way no slow band: it is stalled only at twice the threshold", () => {
+    const starting = { kind: "queued" as const, stepOpen: false, startingAssignmentId: "a1" };
+    expect(watchClass(starting, 20 * MIN, 15 * MIN)).toBe("healthy");
+    expect(watchClass(starting, 30 * MIN, 15 * MIN)).toBe("stalled");
+    expect(watchClass({ ...starting, startingAssignmentId: null }, 20 * MIN, 15 * MIN)).toBe("slow");
   });
 
   it("marks a running row by its last sign, not by its start", () => {
@@ -227,7 +247,7 @@ describe("what the reviewer does with a task", () => {
     });
   });
 
-  it("gives a failed start one resume only, because the same agent failed to start it already", () => {
+  it("gives a failed start one resume only when another agent can take it, because the same agent failed to start it already", () => {
     expect(watchAction("start-failed", { resumes: 0, reassigns: 0 }, true, pick)).toEqual({ type: "resume" });
     expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, true, pick)).toEqual({
       type: "reassign",
@@ -235,8 +255,18 @@ describe("what the reviewer does with a task", () => {
     });
   });
 
+  it(`gives a failed start ${MAX_RESUMES} resumes, as "Resume by itself" does, when no other agent can take it`, () => {
+    expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, false, pick)).toEqual({ type: "resume" });
+    expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, true, () => null)).toEqual({ type: "resume" });
+    expect(watchAction("start-failed", { resumes: 1, reassigns: MAX_REASSIGNS }, true, pick)).toEqual({
+      type: "resume",
+    });
+  });
+
   it("never reassigns when the person did not allow it, or when no agent can take the task", () => {
-    expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, false, pick)).toEqual({ type: "give-up" });
+    expect(watchAction("start-failed", { resumes: MAX_RESUMES, reassigns: 0 }, false, pick)).toEqual({
+      type: "give-up",
+    });
     expect(watchAction("running", { resumes: MAX_RESUMES, reassigns: 0 }, true, () => null)).toEqual({
       type: "stop",
     });
@@ -305,9 +335,9 @@ describe("the task reviewer", () => {
     });
   });
 
-  it("leaves a start that fails again, and says so, when reassigning is off", async () => {
+  it("leaves a start that fails again after its resumes, and says so, when reassigning is off", async () => {
     const { watch, commands, clock, ledger } = setup({ tasks: [failedStart()], reassign: false });
-    ledger.see("c1", "f1", NOW - 60 * MIN).resumes = 1;
+    ledger.see("c1", "f1", NOW - 60 * MIN).resumes = MAX_RESUMES;
     await watch.tick();
     expect(commands).toEqual([]);
     expect(ledger.peek("c1", "f1")?.gaveUp).toBe(true);
@@ -332,6 +362,98 @@ describe("the task reviewer", () => {
     clock.now = NOW + 300 * MIN;
     await watch.tick();
     expect(commands).toEqual([]);
+  });
+
+  it("stops the clock while a hold lasts, so a request is not stalled the moment its place frees", async () => {
+    const { watch, commands, clock, tasks } = setup({ tasks: [request({ hold: "slot" })] });
+    for (let look = 0; look <= 6; look += 1) {
+      clock.now = NOW + look * 10 * MIN;
+      await watch.tick();
+    }
+    // The cap held it for an hour. The place frees, and the drain starts the turn now.
+    tasks[0] = request();
+    clock.now = NOW + 61 * MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    expect(watch.recent()).toEqual([]);
+    // Two thresholds after the last look that found the hold, it is stalled.
+    clock.now = NOW + 90 * MIN;
+    await watch.tick();
+    expect(commands).toEqual(["resume q1"]);
+    expect(watch.recent()[0]).toMatchObject({ action: "resumed", minutes: 30 });
+  });
+
+  it("starts the clock of a request again when the drain gives it a new assignment", async () => {
+    const { watch, commands, clock, tasks } = setup({ tasks: [request({ startingAssignmentId: "a1" })] });
+    await watch.tick();
+    clock.now = NOW + 20 * MIN;
+    tasks[0] = request({ startingAssignmentId: "a2" });
+    await watch.tick();
+    clock.now = NOW + 40 * MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    clock.now = NOW + 50 * MIN;
+    await watch.tick();
+    expect(commands).toEqual(["resume q1"]);
+  });
+
+  it(`never touches a run with an open work step and no events at twice the threshold, only at ${OPEN_STEP_STALL_FACTOR} times`, async () => {
+    const { watch, commands, clock, tasks } = setup({
+      tasks: [run({ lastEventAt: NOW - 30 * MIN, stepOpen: true })],
+    });
+    await watch.tick();
+    expect(commands).toEqual([]);
+    expect(watch.recent()[0]).toMatchObject({ action: "waited", by: "local", minutes: 30 });
+    clock.now = NOW + 29 * MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    tasks[0] = run({ lastEventAt: NOW - 30 * MIN, stepOpen: true });
+    clock.now = NOW + 30 * MIN;
+    await watch.tick();
+    expect(commands).toEqual(["resume t1"]);
+  });
+
+  it('gives up on a request with its own mark, so the shared tries still let "Resume by itself" act later', async () => {
+    const ledger = new RecoveryLedger();
+    Object.assign(ledger.see("c1", "q1", NOW - 120 * MIN), { resumes: MAX_RESUMES, lastActionAt: NOW - 60 * MIN });
+    // No free agent can take it now: every agent of the same model runs.
+    const { watch, commands, clock, tasks } = setup({
+      tasks: [request({ turnStartedAt: null })],
+      candidate: null,
+      ledger,
+    });
+    await watch.tick();
+    clock.now = NOW + 31 * MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    expect(watch.recent()[0]).toMatchObject({ action: "gave-up", reason: "queued" });
+    const record = ledger.peek("c1", "q1");
+    expect(record?.gaveUp).toBe(false);
+    // It leaves this revision alone…
+    clock.now = NOW + 120 * MIN;
+    await watch.tick();
+    expect(watch.recent()).toHaveLength(1);
+    // …and the task that stops later is still the automatic recovery's: it gives it to a free agent.
+    tasks.length = 0;
+    if (!record) throw new Error("The record is missing.");
+    expect(decideRecovery(record, NOW + 240 * MIN, { intervalMs: 30 * MIN, reassign: true }, () => "gamma")).toEqual({
+      type: "reassign",
+      agentId: "gamma",
+    });
+  });
+
+  it("does not renew the tries of a task that works well, so they are forgotten after the retention time", async () => {
+    const ledger = new RecoveryLedger();
+    Object.assign(ledger.see("c1", "t1", NOW - 60 * MIN), { resumes: MAX_RESUMES, lastActionAt: NOW - 60 * MIN });
+    const { watch, clock, tasks } = setup({ tasks: [run({ lastEventAt: NOW })], ledger });
+    for (let look = 0; look < 6; look += 1) {
+      clock.now = NOW + look * 60 * MIN;
+      tasks[0] = run({ lastEventAt: clock.now });
+      await watch.tick();
+    }
+    expect(ledger.peek("c1", "t1")?.lastSeenAt).toBe(NOW - 60 * MIN);
+    ledger.sweep(NOW + 301 * MIN);
+    expect(ledger.peek("c1", "t1")).toBeUndefined();
   });
 
   it("uses the tries of the automatic recovery: a run it already resumed twice goes to another agent", async () => {
@@ -426,6 +548,15 @@ describe("the model of the Guard for a slow task", () => {
     expect(commands).toEqual([]);
   });
 
+  it("never lets the model reassign or stop a slow task: with no resume left, it waits and asks nothing", async () => {
+    const { watch, commands, questions, ledger } = setup({ tasks: [slowRun()], judge: answering("act") });
+    Object.assign(ledger.see("c1", "t1", NOW - 120 * MIN), { resumes: MAX_RESUMES, lastActionAt: NOW - 60 * MIN });
+    await watch.tick();
+    expect(questions).toEqual([]);
+    expect(commands).toEqual([]);
+    expect(watch.recent()[0]).toMatchObject({ action: "waited", by: "local" });
+  });
+
   it("acts at once when the model says the task is stuck", async () => {
     const { watch, commands, questions } = setup({ tasks: [slowRun()], judge: answering("act") });
     await watch.tick();
@@ -491,7 +622,7 @@ describe("a stop by the person", () => {
 
   it("is a stop that the app did not send, and covers the tasks below it", () => {
     const stops = new DeliberateStops();
-    stops.note(stop("stop:click"));
+    stops.note(stop("stop:click"), false);
     expect(stops.covers("c1", "t1", parentOf)).toBe(true);
     expect(stops.covers("c1", "grandchild", parentOf)).toBe(true);
     expect(stops.covers("c1", "other", parentOf)).toBe(false);
@@ -500,20 +631,26 @@ describe("a stop by the person", () => {
 
   it("is not a stop of the automatic recovery or of the reviewer, and not a resume by the app", () => {
     const stops = new DeliberateStops();
-    stops.note(stop(`${AUTO_OPERATION_PREFIX}1`));
+    stops.note(stop(`${AUTO_OPERATION_PREFIX}1`), true);
     expect(stops.covers("c1", "t1", parentOf)).toBe(false);
-    stops.note(stop("work:panel-click"));
-    stops.note(command("resume", `${AUTO_OPERATION_PREFIX}2`));
+    stops.note(stop("work:panel-click"), false);
+    stops.note(command("resume", `${AUTO_OPERATION_PREFIX}2`), true);
+    expect(stops.covers("c1", "t1", parentOf)).toBe(true);
+  });
+
+  it("trusts the sender, not the text of the operation id: a forged app id is still a person's stop", () => {
+    const stops = new DeliberateStops();
+    stops.note(stop(`${AUTO_OPERATION_PREFIX}forged`), false);
     expect(stops.covers("c1", "t1", parentOf)).toBe(true);
   });
 
   it("ends when the person continues or reassigns the task", () => {
     const stops = new DeliberateStops();
-    stops.note(stop("stop:click"));
-    stops.note(command("resume", "continue:click"));
+    stops.note(stop("stop:click"), false);
+    stops.note(command("resume", "continue:click"), false);
     expect(stops.covers("c1", "t1", parentOf)).toBe(false);
-    stops.note(stop("stop:again"));
-    stops.note(command("reassign", "reassign:click", "beta"));
+    stops.note(stop("stop:again"), false);
+    stops.note(command("reassign", "reassign:click", "beta"), false);
     expect(stops.covers("c1", "t1", parentOf)).toBe(false);
   });
 });

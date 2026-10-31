@@ -18,6 +18,7 @@ import type {
 import { DEFAULT_TASK_WATCH_PREFERENCE, LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentService } from "../backend/agent-service";
+import type { ChannelQueueHold } from "../backend/channel-service";
 import {
   AutoRecovery,
   autoReassignee,
@@ -42,12 +43,17 @@ import { buildRunningWork, buildStoppedWork, type RunningTurnRecord, runningAgen
 const TICK_MS = 60_000;
 /** The messages of a tab that the task reviewer reads back to find the agent's last words. */
 const LAST_WORDS_MESSAGES = 40;
+/** The states of a channel assignment that hold its agent. */
+const ACTIVE_ASSIGNMENT_STATES: ReadonlySet<string> = new Set(["queued", "starting", "running"]);
 
 /** What the task reviewer needs besides the channels. */
 export interface WorkControlTaskWatchOptions {
   preference: () => TaskWatchPreference;
-  /** When the provider last sent an event for an agent, and whether the agent waits for the person. */
-  signals: (agentId: string) => { lastEventAt: number | null; waitsOnPerson: boolean };
+  /**
+   * When the provider last sent an event for an agent, whether the agent waits for the person, and
+   * whether a running turn of the agent has a work step that started and did not end.
+   */
+  signals: (agentId: string) => { lastEventAt: number | null; waitsOnPerson: boolean; stepOpen: boolean };
   /** What macOS says about the memory. */
   memoryLevel: () => "ok" | "low" | "critical";
   /** The model of the Guard, or null for the local rules only. */
@@ -101,6 +107,8 @@ export class WorkControl {
   readonly #recovery: AutoRecovery;
   readonly #watch: TaskWatch | null;
   readonly #stops = new DeliberateStops();
+  /** The operation ids of the commands that the app sends by itself now, until each one applies. */
+  readonly #ownOperations = new Set<string>();
   #timer: NodeJS.Timeout | null = null;
 
   constructor(options: WorkControlOptions) {
@@ -133,8 +141,13 @@ export class WorkControl {
           recovery: options.preference,
           observe: () => this.#observe(watch),
           ledger: this.#ledger,
-          candidate: (channelId, taskId, tried) =>
-            autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried))),
+          // Only a free agent: a task given to an agent that runs or waits would wait again behind it.
+          candidate: (channelId, taskId, tried) => {
+            const free = this.#freeAgents();
+            return autoReassignee(
+              this.#candidatesFor(channelId, taskId, new Set(tried)).filter((entry) => free(entry.agentId)),
+            );
+          },
           command: (type, task, recipientAgentId) =>
             this.#command({ type, channelId: task.channelId, taskId: task.taskId, recipientAgentId }, "auto", () =>
               this.#unchanged(task, watch),
@@ -154,8 +167,11 @@ export class WorkControl {
             options.onFailure(`task reviewer ${kind} ${channelId}/${taskId}`, cause),
         })
       : null;
-    // A stop that the app did not send is a person's: the task reviewer never touches that task.
-    options.service.channels.observeCommands((command) => this.#stops.note(command));
+    // A stop that the app did not send is a person's: the task reviewer never touches that task. The
+    // ids that the app sent tell it, not the text of the id, which a client of the Team API chooses.
+    options.service.channels.observeCommands((command) =>
+      this.#stops.note(command, this.#ownOperations.has(command.operationId)),
+    );
   }
 
   start(): void {
@@ -262,9 +278,9 @@ export class WorkControl {
   }
 
   /**
-   * Sends one command to a channel. The operation id tells a person's command from the app's own
-   * (`AUTO_OPERATION_PREFIX`). `stillDue` runs when the command's turn in the channel queue comes:
-   * false drops it. Answers whether it applied.
+   * Sends one command to a channel. A command of the app keeps its operation id in `#ownOperations`
+   * until it applies, so the observer of the commands tells it from a person's. `stillDue` runs when
+   * the command's turn in the channel queue comes: false drops it. Answers whether it applied.
    */
   async #command(
     command: WorkCommand,
@@ -274,12 +290,17 @@ export class WorkControl {
     const { channels } = this.#options.service;
     let applied = false;
     const operationId = `${origin === "auto" ? AUTO_OPERATION_PREFIX : "work:"}${randomUUID()}`;
-    await Effect.runPromise(
-      channels.command({ ...command, operationId }, this.#options.channelActor(), (queued: ChannelCommand) => {
-        applied = stillDue();
-        return applied ? queued : null;
-      }),
-    );
+    if (origin === "auto") this.#ownOperations.add(operationId);
+    try {
+      await Effect.runPromise(
+        channels.command({ ...command, operationId }, this.#options.channelActor(), (queued: ChannelCommand) => {
+          applied = stillDue();
+          return applied ? queued : null;
+        }),
+      );
+    } finally {
+      this.#ownOperations.delete(operationId);
+    }
     return applied;
   }
 
@@ -307,14 +328,16 @@ export class WorkControl {
       if (row.channelId === null || row.taskId === null) return row;
       const signals = watch.signals(row.agentId);
       if (signals.waitsOnPerson) return row;
-      const quiet = runningQuiet(Date.parse(row.startedAt), signals.lastEventAt, now, thresholdMs);
+      const quiet = runningQuiet(Date.parse(row.startedAt), signals.lastEventAt, now, thresholdMs, signals.stepOpen);
       return quiet ? { ...row, quiet } : row;
     });
   }
 
   /**
    * The channel tasks that the task reviewer watches: runs and requests of channels that are not
-   * archived, and the stopped rows with a failed start, each with the reason to leave it alone.
+   * archived, and the stopped rows with a failed start, each with the reason to leave it alone. A
+   * request counts only when the drain would start it now (`ChannelService.queuedHolds`). It also
+   * forgets the tries of each task that completed.
    */
   #observe(watch: WorkControlTaskWatchOptions): WatchObservation[] {
     const { service } = this.#options;
@@ -322,6 +345,7 @@ export class WorkControl {
     const turns = service.runningTurns();
     const agents = this.#agents();
     const runningAgents = new Set(turns.map((turn) => turn.agentId));
+    const queueHolds = channels.queuedHolds();
     // The start of the turn of each agent in each channel.
     const turnStarts = new Map<string, number>();
     for (const turn of turns) {
@@ -333,7 +357,11 @@ export class WorkControl {
     }
     const slotWaiting = new Set(service.slotWaitingAgents());
     const lane = channels.laneSnapshot();
-    const laneHeld = new Set(lane.enabled ? lane.queued : []);
+    // The lane holds a waiting channel while another one works, or while another one is next. The
+    // first of the waiting channels is next (`nextLaneChannel`): it is not held when none works.
+    const laneHeld = new Set(
+      lane.enabled ? lane.queued.filter((_id, index) => lane.running.length > 0 || index > 0) : [],
+    );
     const memory = watch.memoryLevel();
     const limit = this.#options.agentLimit();
     const limitReached = limit.enabled && runningAgentCount(turns) >= limit.max;
@@ -356,11 +384,16 @@ export class WorkControl {
     for (const { id: channelId, name: channelName, tasks } of open) {
       const byId = new Map(tasks.map((task) => [task.id, task]));
       const parentOf = (taskId: string) => byId.get(taskId)?.parentTaskId ?? null;
+      const assignments = channels.store.assignments(channelId);
       const working = new Map(
-        channels.store
-          .assignments(channelId)
+        assignments
           .filter((assignment) => assignment.state === "starting" || assignment.state === "running")
           .map((assignment) => [assignment.taskId, assignment.agentId]),
+      );
+      const ownAssignment = new Map(
+        assignments
+          .filter((assignment) => ACTIVE_ASSIGNMENT_STATES.has(assignment.state))
+          .map((assignment) => [assignment.taskId, assignment.id]),
       );
       // The tasks with a task below them that is not done: a resume of one would start that work again.
       const busyAbove = new Set<string>();
@@ -373,6 +406,7 @@ export class WorkControl {
         }
       }
       for (const task of tasks) {
+        if (task.state === "completed") this.#ledger.forget(channelId, task.id);
         const kind =
           task.state === "running"
             ? "running"
@@ -386,7 +420,9 @@ export class WorkControl {
         // A run with no active assignment has no agent to watch.
         if (kind === "running" && agentId === null) continue;
         const agent = agentId ? agents.get(agentId) : undefined;
-        const signals = agentId ? watch.signals(agentId) : { lastEventAt: null, waitsOnPerson: false };
+        const signals = agentId ? watch.signals(agentId) : { lastEventAt: null, waitsOnPerson: false, stepOpen: false };
+        // A request that the map does not list belongs to a channel that the drain does not serve now.
+        const queue = kind !== "queued" ? null : queueHolds.has(task.id) ? (queueHolds.get(task.id) ?? null) : "waits";
         const hold = this.#hold({
           kind,
           person: this.#stops.covers(channelId, task.id, parentOf),
@@ -397,6 +433,7 @@ export class WorkControl {
           lane: laneHeld.has(channelId),
           slot: limitReached || (agentId !== null && slotWaiting.has(agentId)),
           agentBusy: agentId !== null && runningAgents.has(agentId),
+          queue,
         });
         observations.push({
           channelId,
@@ -410,6 +447,8 @@ export class WorkControl {
           turnStartedAt:
             kind === "running" && agentId ? (turnStarts.get(`${channelId}\u0000${agentId}`) ?? null) : null,
           lastEventAt: kind === "running" ? signals.lastEventAt : null,
+          stepOpen: kind === "running" && signals.stepOpen,
+          startingAssignmentId: queue === "starting" ? (ownAssignment.get(task.id) ?? null) : null,
           hold,
         });
       }
@@ -428,6 +467,8 @@ export class WorkControl {
     lane: boolean;
     slot: boolean;
     agentBusy: boolean;
+    /** For a request: why the drain would not start it now (`ChannelService.queuedHolds`). */
+    queue: ChannelQueueHold | null;
   }): WatchHold | null {
     if (state.person) return "person";
     // New turns wait while memory is low, so a request waits too. A run is left alone only when it is critical.
@@ -438,7 +479,10 @@ export class WorkControl {
     if (state.kind !== "queued") return null;
     if (state.lane) return "lane";
     if (state.slot) return "slot";
-    return state.agentBusy ? "agent-busy" : null;
+    // A start under way waits for its agent's queue, which `owner-busy` cannot tell from other work.
+    // So it is held only while its agent runs a turn; else it has its own clock (`watchClass`).
+    if (state.agentBusy || state.queue === "owner-busy") return "agent-busy";
+    return state.queue === "waits" ? "waits-for-work" : null;
   }
 
   /** Whether a task is still what the task reviewer judged: the same state and revision, and no new sign of a run. */
@@ -463,6 +507,21 @@ export class WorkControl {
       .messages(task.channelId, topicId, Number.MAX_SAFE_INTEGER, LAST_WORDS_MESSAGES)
       .findLast((message) => message.taskId === task.taskId && message.author.kind === "agent");
     return { request: current.instruction, lastWords: last?.message.text ?? "" };
+  }
+
+  /**
+   * Whether an agent can take a task now: it runs no turn, waits for no place under the cap, holds no
+   * channel assignment, and the channels find it free (no turn of its chat, no queue, no spent plan).
+   * One read of the turns and the assignments serves every agent of a look.
+   */
+  #freeAgents(): (agentId: string) => boolean {
+    const { service } = this.#options;
+    const { channels } = service;
+    const busy = new Set([...service.runningTurns().map((turn) => turn.agentId), ...service.slotWaitingAgents()]);
+    for (const id of channels.store.ids())
+      for (const assignment of channels.store.assignments(id))
+        if (ACTIVE_ASSIGNMENT_STATES.has(assignment.state)) busy.add(assignment.agentId);
+    return (agentId) => !busy.has(agentId) && !channels.hooks.busy(agentId);
   }
 
   #agents(): Map<string, AgentSummary> {

@@ -86,8 +86,10 @@ export interface LedgerRecord extends RecoveryRecord {
 
 /**
  * The tries of each task, for the automatic recovery and the task reviewer together. A task gets
- * `MAX_RESUMES` and `MAX_REASSIGNS` in all, not for each of them. A record that no look saw for
- * `RECORD_RETENTION_MS` is forgotten, with its tries. The records are in memory only.
+ * `MAX_RESUMES` and `MAX_REASSIGNS` in all, not for each of them. A look of the automatic recovery
+ * sees each stopped task; the task reviewer sees a task when it acts on it, and each failed start. A
+ * record that was not seen for `RECORD_RETENTION_MS` is forgotten, with its tries, and so is the
+ * record of a task that completed. The records are in memory only.
  */
 export class RecoveryLedger {
   readonly #records = new Map<string, LedgerRecord>();
@@ -112,6 +114,11 @@ export class RecoveryLedger {
   /** The record of a task, or undefined when no look saw it in the retention time. */
   peek(channelId: string, taskId: string): LedgerRecord | undefined {
     return this.#records.get(ledgerKey(channelId, taskId));
+  }
+
+  /** Forgets the record of a task, with its tries: the task completed. */
+  forget(channelId: string, taskId: string): void {
+    this.#records.delete(ledgerKey(channelId, taskId));
   }
 
   /** Forgets each record that no look saw for the retention time. */
