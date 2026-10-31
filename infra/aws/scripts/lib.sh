@@ -73,6 +73,11 @@ stack_output() { # <stack> <OutputKey>
     --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue | [0]" --output text
 }
 
+stack_parameter() { # <stack> <ParameterKey> -> valor atual do parâmetro (None se não existe)
+  aws_cb cloudformation describe-stacks --stack-name "$1" \
+    --query "Stacks[0].Parameters[?ParameterKey=='$2'].ParameterValue | [0]" --output text
+}
+
 require_stack() {
   local status
   status=$(stack_status "$1")

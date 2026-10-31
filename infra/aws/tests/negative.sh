@@ -119,5 +119,81 @@ expect_refusal "A1 recusa opsTag de outro build" "não é 0.41.0-abc1234-ops" h_
 expect_refusal "A9 on-host recusa rodar sem o sha256 do tarball" "parâmetros inválidos" "" \
   bash scripts/build-image.sh on-host --commit "$(hex64 1 | cut -c 1-40)" --bucket b --repo-uri r --version 1.2.3
 
+# ---------------------------------------------------------------- respostas genéricas de stacks
+# FAKE_STACKS="stack=STATUS ...", FAKE_PARAM_<Key>, FAKE_OUTPUT_<Key>. Stack fora da lista = não existe.
+fake_cfn() {
+  local stack='' query='' prev='' a pair key var
+  for a in "$@"; do
+    case $prev in --stack-name) stack=$a ;; --query) query=$a ;; esac
+    prev=$a
+  done
+  for pair in ${FAKE_STACKS:-}; do
+    [ "${pair%%=*}" = "$stack" ] || continue
+    case $query in
+      *StackStatus*) echo "${pair#*=}"; return 0 ;;
+      *ParameterKey==*)
+        key=$(sed -n "s/.*ParameterKey=='\([A-Za-z0-9]*\)'.*/\1/p" <<<"$query"); var=FAKE_PARAM_$key
+        echo "${!var:-None}"; return 0 ;;
+      *OutputKey==*)
+        key=$(sed -n "s/.*OutputKey=='\([A-Za-z0-9]*\)'.*/\1/p" <<<"$query"); var=FAKE_OUTPUT_$key
+        echo "${!var:-None}"; return 0 ;;
+      *Parameters\[\].ParameterKey*) echo "${FAKE_PARAM_KEYS:-}"; return 0 ;;
+    esac
+  done
+  return 1
+}
+export -f fake_cfn
+
+# <nome> <regex que o log TEM de ter> <regex que o log NÃO pode ter> <handler> <comando...>
+# Para os casos em que o script deve chegar até a primeira escrita (que o aws falso recusa).
+expect_calls() {
+  local name=$1 must=$2 mustnt=$3 handler=$4 out
+  shift 4
+  : >"$FAKE_AWS_LOG"
+  out=$(FAKE_AWS_HANDLER=$handler "$@" 2>&1 </dev/null)
+  if ! grep -Eq -- "$must" "$FAKE_AWS_LOG"; then
+    bad "$name: o log não tem /$must/" "$out"$'\n'"$(cat "$FAKE_AWS_LOG")"
+  elif grep -Eq -- "$mustnt" "$FAKE_AWS_LOG"; then
+    bad "$name: o log tem /$mustnt/" "$(cat "$FAKE_AWS_LOG")"
+  else
+    passed=$((passed + 1))
+    printf 'ok     %s\n' "$name"
+  fi
+}
+
+# Um "fork" de teste com dois commits (fica em .cache, ignorado pelo git do repositório).
+FORK=$WORK/fork
+if [ ! -d "$FORK/.git" ]; then
+  git init -q "$FORK"
+  printf '{"workspaces": {"catalog": {"wrangler": "4.152.0"}}}\n' >"$FORK/package.json"
+  git -C "$FORK" add package.json
+  git -C "$FORK" -c user.name=teste -c user.email=teste@example.com commit -q -m um
+  git -C "$FORK" -c user.name=teste -c user.email=teste@example.com commit -q --allow-empty -m dois
+fi
+FIRST=$(git -C "$FORK" rev-parse HEAD~1)
+SECOND=$(git -C "$FORK" rev-parse HEAD)
+export BB_SRV_FORK=$FORK
+
+# ---------------------------------------------------------------- B: Signal (achado 13)
+h_signal() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "ssm describe-parameters") echo 1 ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_signal
+signal_env() {
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE bb-srv-signal=UPDATE_COMPLETE" FAKE_OUTPUT_HostedZoneName=bb-aws.example.com \
+    FAKE_OUTPUT_HostedZoneId=Z123 FAKE_PARAM_SourceCommit="$FIRST" FAKE_PARAM_AcmeEmail=acme@example.com "$@"
+}
+expect_refusal "B13 atualização recusa outro commit (exige recriar a VM)" "Trocar o commit exige recriar" h_signal \
+  signal_env bash scripts/deploy-signal.sh --commit "$SECOND"
+expect_refusal "B13 atualização recusa outro e-mail ACME" "Trocar exige recriar" h_signal \
+  signal_env bash scripts/deploy-signal.sh --acme-email outro@example.com
+expect_calls "B13 fechar as portas não resolve AMI nem cota, e mantém a AMI" \
+  'WRITE cloudformation create-change-set .*ParameterKey=AmiId,UsePreviousValue=true.*IngressApproved,ParameterValue=false' \
+  'ssm get-parameters|service-quotas|s3api head-object|route53' h_signal signal_env bash scripts/deploy-signal.sh
+
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]

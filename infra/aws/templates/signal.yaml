@@ -133,19 +133,23 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Sid: OwnLogGroup
+              - Sid: OwnLogGroups
                 Effect: Allow
                 Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/signal:*'
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/signal:*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/signal/ssm-sessions:*'
               - Sid: DescribeLogGroups
                 Effect: Allow
                 Action: logs:DescribeLogGroups
                 Resource: '*'
+              # Its own namespace: a sector host cannot publish here, and this host cannot publish
+              # into the namespace of a sector.
               - Sid: AgentMetrics
                 Effect: Allow
                 Action: cloudwatch:PutMetricData
                 Resource: '*'
-                Condition: {StringEquals: {'cloudwatch:namespace': CWAgent}}
+                Condition: {StringEquals: {'cloudwatch:namespace': bb-srv/signal/host}}
               - Sid: OwnParameters
                 Effect: Allow
                 Action: [ssm:GetParameter, ssm:GetParameters]
@@ -157,9 +161,23 @@ Resources:
                 Condition:
                   StringEquals: {'kms:ViaService': !Sub 'ssm.${AWS::Region}.amazonaws.com'}
                   StringLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/signal/*'}
+              # Only the two TXT records of the DNS-01 challenge: even with these credentials, nobody
+              # repoints signal./turn. or issues a certificate for another name of the zone.
               - Sid: AcmeDnsChallenge
                 Effect: Allow
-                Action: [route53:ChangeResourceRecordSets, route53:ListResourceRecordSets]
+                Action: route53:ChangeResourceRecordSets
+                Resource: !Sub
+                  - 'arn:aws:route53:::hostedzone/${ZoneId}'
+                  - ZoneId: !ImportValue bb-srv-base-HostedZoneId
+                Condition:
+                  'ForAllValues:StringEquals':
+                    'route53:ChangeResourceRecordSetsNormalizedRecordNames':
+                      - !Sub ['_acme-challenge.signal.${ZoneName}', {ZoneName: !ImportValue bb-srv-base-HostedZoneName}]
+                      - !Sub ['_acme-challenge.turn.${ZoneName}', {ZoneName: !ImportValue bb-srv-base-HostedZoneName}]
+                    'route53:ChangeResourceRecordSetsRecordTypes': [TXT]
+              - Sid: AcmeDnsRead
+                Effect: Allow
+                Action: route53:ListResourceRecordSets
                 Resource: !Sub
                   - 'arn:aws:route53:::hostedzone/${ZoneId}'
                   - ZoneId: !ImportValue bb-srv-base-HostedZoneId
@@ -197,13 +215,70 @@ Resources:
       Value: |
         {
           "agent": {"metrics_collection_interval": 60, "run_as_user": "root", "omit_hostname": true},
-          "metrics": {"namespace": "CWAgent", "metrics_collected": {
+          "metrics": {"namespace": "bb-srv/signal/host", "metrics_collected": {
             "mem": {"measurement": ["mem_used_percent"], "append_dimensions": {"Sector": "signal"}}}},
           "logs": {"logs_collected": {"files": {"collect_list": [
             {"file_path": "/var/log/bb-srv/signal-health.log", "log_group_name": "/bb-srv/signal", "log_stream_name": "{instance_id}/health"},
             {"file_path": "/var/log/bb-srv-bootstrap.log", "log_group_name": "/bb-srv/signal", "log_stream_name": "{instance_id}/bootstrap"}
           ]}}}
         }
+
+  # The root of this VM reads the 4 secrets: a shell only through this logged document, and an alert
+  # for any session without it.
+  SessionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /bb-srv/signal/ssm-sessions
+      RetentionInDays: 90
+
+  ShellDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-signal-Shell
+      DocumentType: Session
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '1.0'
+        description: Builders Bot - administration shell of the Signal and TURN VM, logged to CloudWatch.
+        sessionType: Standard_Stream
+        inputs:
+          cloudWatchLogGroupName: !Ref SessionLogGroup
+          cloudWatchEncryptionEnabled: false
+          cloudWatchStreamingEnabled: true
+          s3EncryptionEnabled: false
+          runAsEnabled: false
+          idleSessionTimeout: '20'
+          maxSessionDuration: '60'
+
+  SessionWithoutDocumentRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-signal-session-no-doc
+      Description: An SSM session to the Signal VM without a document.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [StartSession]
+          requestParameters:
+            target: [!Ref SignalInstance]
+            documentName: [{exists: false}]
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
+
+  SessionOtherDocumentRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-signal-session-other-doc
+      Description: An SSM session to the Signal VM with a document other than bb-srv-signal-Shell.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [StartSession]
+          requestParameters:
+            target: [!Ref SignalInstance]
+            documentName: [{anything-but: [bb-srv-signal-Shell]}]
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
 
   HealthMetricFilter:
     Type: AWS::Logs::MetricFilter
@@ -219,6 +294,8 @@ Resources:
 
   SignalInstance:
     Type: AWS::EC2::Instance
+    # The user data runs once and fetches this parameter: it must exist before the first boot.
+    DependsOn: [AgentConfigParameter]
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
@@ -256,9 +333,35 @@ Resources:
             install -d -m 0755 /var/log/bb-srv /var/lib/bb-srv
             install -d -m 0700 /opt/bb-srv-signal
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update -q
-            apt-get install -y -q --no-install-recommends docker.io docker-compose-v2 docker-buildx jq curl gnupg ca-certificates unattended-upgrades
+            # The user data runs once: wait for the dpkg lock of the first-boot apt-daily, and retry.
+            apt_get() {
+              for attempt in 1 2 3 4 5; do
+                apt-get -o DPkg::Lock::Timeout=600 "$@" && return 0
+                echo "apt-get $1 failed (attempt $attempt)"; sleep 20
+              done
+              return 1
+            }
+            apt_get update -q
+            apt_get install -y -q --no-install-recommends docker.io docker-compose-v2 docker-buildx iptables jq curl gnupg \
+              ca-certificates unattended-upgrades
             printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' >/etc/apt/apt.conf.d/52bb-srv-reboot
+
+            # Only root reaches the instance metadata (the role credentials). coturn and acme use the host
+            # network, where the hop limit of 1 does not apply; coturn runs as an unprivileged user, acme
+            # (lego) as root because it needs the role for the DNS-01 challenge. Before Docker at every boot.
+            cat >/etc/systemd/system/bb-srv-imds-guard.service <<'UNIT'
+            [Unit]
+            Description=Only root reaches the EC2 instance metadata service
+            Before=docker.service
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/bin/sh -c 'iptables -C OUTPUT -d 169.254.169.254 -m owner ! --uid-owner 0 -j REJECT 2>/dev/null || iptables -I OUTPUT 1 -d 169.254.169.254 -m owner ! --uid-owner 0 -j REJECT'
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+            systemctl daemon-reload
+            systemctl enable --now bb-srv-imds-guard.service
             snap install aws-cli --classic
             systemctl disable --now ssh.socket ssh.service 2>/dev/null || true
 
@@ -280,7 +383,11 @@ Resources:
               { echo "BB_BOOTSTRAP fail cwagent-key"; exit 1; }
             dpkg -i "$work/cwa.deb"
             unset GNUPGHOME
-            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:/bb-srv/signal/cwagent
+            for attempt in 1 2 3; do
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:/bb-srv/signal/cwagent && break
+              [ "$attempt" -lt 3 ] || { echo "BB_BOOTSTRAP fail cwagent-config"; exit 1; }
+              sleep 20
+            done
 
             # Source of remote/ from the same commit as the account Worker, checked against the hash that
             # the operator computed from the commit (anyone with s3:PutObject on src/ could swap it).

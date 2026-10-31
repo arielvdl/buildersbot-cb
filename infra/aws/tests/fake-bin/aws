@@ -39,7 +39,7 @@ case $op in describe-* | list-* | get-* | head-* | validate-template | wait) rea
 # s3 cp de s3:// para a saída padrão é leitura (o relatório do builder).
 if [ "$service" = s3 ] && [ "$op" = cp ] && [[ ${3:-} == s3://* ]] && [ "${4:-}" = - ]; then readonly_call=1; fi
 if [ "$readonly_call" != 1 ]; then
-  printf 'WRITE %s %s\n' "$service" "$op" >>"$log"
+  printf 'WRITE %s\n' "$*" >>"$log"
   echo "aws falso: escrita recusada ($service $op)" >&2
   exit 97
 fi

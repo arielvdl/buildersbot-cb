@@ -2,14 +2,24 @@
 # Cria ou atualiza a stack bb-srv-signal: o Signal (WSS) e o TURN próprios do Builders Bot, a partir
 # de remote/ do fork no commit do Worker publicado (DESIGN 2.7). Sem eles nenhum setor conecta.
 #
-#   1. confere a delegação DNS (dig) da zona da stack bb-srv-base;
+# CRIAÇÃO (a stack não existe):
+#   1. confere a delegação DNS (dig) da zona;
 #   2. cria os 4 segredos em /bb-srv/signal/* (SSM SecureString) se ainda não existem. Os valores
 #      vêm do openssl pela entrada padrão do AWS CLI: nunca aparecem na tela, em argumento ou em disco;
-#   3. envia o código do commit para o bucket de build;
-#   4. cria a stack. As portas de entrada só abrem com --approve-ingress (exceção que o dono aprova).
+#   3. envia o código do commit para o bucket de build (com o sha256, que a VM confere);
+#   4. resolve a AMI do Ubuntu uma vez, confere a cota de vCPU e cria a stack.
+# ATUALIZAÇÃO (a stack existe): só abre ou fecha as portas (--approve-ingress) e, se pedido, troca o
+#   tamanho. AMI, commit, hash do código e e-mail ACME ficam os da criação (UsePreviousValue): mudar
+#   qualquer um deles mexe no ImageId ou no user data, que só se trocam recriando a VM (README, seção
+#   11). Por isso a atualização não resolve AMI, não confere cota nem DNS: fechar as portas sempre funciona.
 #
-# Uso: scripts/deploy-signal.sh --commit <sha do Worker publicado> --acme-email <e-mail>
-#                               [--approve-ingress] [--instance-type t4g.small] [--skip-dns-check] [--yes]
+# As portas de entrada só abrem com --approve-ingress (exceção que o dono aprova). Toda execução SEM
+# --approve-ingress deixa as portas FECHADAS.
+#
+# Uso (criação):    scripts/deploy-signal.sh --commit <sha do Worker publicado> --acme-email <e-mail>
+#                                            [--instance-type t4g.small] [--skip-dns-check] [--yes]
+# Uso (atualização): scripts/deploy-signal.sh [--approve-ingress] [--instance-type t4g.medium] [--yes]
+#                   (--commit e --acme-email, se vierem, têm de ser os da criação)
 set -euo pipefail
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/lib.sh"
@@ -17,7 +27,7 @@ source "$(dirname "$0")/lib.sh"
 commit=''
 acme_email=''
 ingress=false
-instance_type=t4g.small
+instance_type=''
 dns_check=1
 while [ "$#" -gt 0 ]; do
   case $1 in
@@ -27,57 +37,90 @@ while [ "$#" -gt 0 ]; do
     --instance-type) instance_type=${2:-} ; shift 2 ;;
     --skip-dns-check) dns_check=0 ; shift ;;
     --yes) BB_SRV_YES=1 ; shift ;;
-    -h | --help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,23p' "$0"; exit 0 ;;
     *) die "opção desconhecida: $1" ;;
   esac
 done
-[ -n "$commit" ] || die "informe --commit (o mesmo commit do Worker de contas publicado)."
-[ -n "$acme_email" ] || die "informe --acme-email."
-valid_email "$acme_email"
+[ -z "$acme_email" ] || valid_email "$acme_email"
+case $instance_type in '' | t4g.small | t4g.medium) ;; *) die "--instance-type precisa ser t4g.small ou t4g.medium." ;; esac
 
 bb_check_access
 require_stack bb-srv-base "Rode scripts/deploy-base.sh antes."
-
 zone=$(stack_output bb-srv-base HostedZoneName)
 zone_id=$(stack_output bb-srv-base HostedZoneId)
-if [ "$dns_check" = 1 ]; then
-  command -v dig >/dev/null || die "dig não está instalado (ou use --skip-dns-check)."
-  expected=$(aws_cb route53 get-hosted-zone --id "$zone_id" --query 'DelegationSet.NameServers' --output text | tr '\t' '\n' | sort)
-  actual=$(dig +short NS "$zone" @1.1.1.1 | sed 's/\.$//' | sort)
-  [ -n "$actual" ] && [ "$actual" = "$expected" ] ||
-    die "a zona $zone ainda não está delegada ao Route 53 (dig NS mostra: ${actual:-nada}). Sem isso o certificado não sai. Faça a ação do dono no Cloudflare (README)."
-  say "   delegação DNS de $zone ok."
+status=$(stack_status bb-srv-signal)
+secrets="remote-session-secret remote-auth-webhook-secret remote-metrics-token turn-shared-secret"
+secret_exists() { aws_cb ssm describe-parameters --parameter-filters "Key=Name,Values=/bb-srv/signal/$1" --query 'length(Parameters)' --output text | grep -qx 1; }
+
+if [ "$status" = NONE ] || [ "$status" = REVIEW_IN_PROGRESS ]; then
+  [ -n "$commit" ] || die "informe --commit (o mesmo commit do Worker de contas publicado)."
+  [ -n "$acme_email" ] || die "informe --acme-email."
+  instance_type=${instance_type:-t4g.small}
+  if [ "$dns_check" = 1 ]; then
+    command -v dig >/dev/null || die "dig não está instalado (ou use --skip-dns-check)."
+    expected=$(aws_cb route53 get-hosted-zone --id "$zone_id" --query 'DelegationSet.NameServers' --output text | tr '\t' '\n' | sort)
+    actual=$(dig +short NS "$zone" @1.1.1.1 | sed 's/\.$//' | sort)
+    [ -n "$actual" ] && [ "$actual" = "$expected" ] ||
+      die "a zona $zone ainda não está delegada ao Route 53 (dig NS mostra: ${actual:-nada}). Sem isso o certificado não sai. Faça a ação do dono no Cloudflare (README)."
+    say "   delegação DNS de $zone ok."
+  fi
+
+  # Segredos novos (32 bytes em hexadecimal). Um valor existente nunca é trocado aqui.
+  for name in $secrets; do
+    if secret_exists "$name"; then
+      say "   /bb-srv/signal/$name já existe."
+      continue
+    fi
+    openssl rand -hex 32 | tr -d '\n' | aws_cb ssm put-parameter --name "/bb-srv/signal/$name" --type SecureString \
+      --value file:///dev/stdin --description "Builders Bot Signal: $name" \
+      --tags "Key=Project,Value=$BB_PROJECT" "Key=Sector,Value=shared" "Key=CostCenter,Value=shared" "Key=Owner,Value=$BB_OWNER" >/dev/null
+    say "   /bb-srv/signal/$name criado (valor não exibido)."
+  done
+
+  source=$(upload_source "$commit") || exit 1
+  read -r sha source_hash <<<"$source"
+  ami=$(ubuntu_ami arm64)
+  [[ $ami =~ ^ami-[0-9a-f]+$ ]] || die "não consegui resolver a AMI do Ubuntu 24.04 arm64."
+  say "   criação: commit $sha, AMI $ami (fixada até recriar a VM), portas de entrada abertas: $ingress"
+  check_vcpu_quota 2
+  params=("ParameterKey=AmiId,ParameterValue=$ami"
+    "ParameterKey=InstanceType,ParameterValue=$instance_type"
+    "ParameterKey=SourceCommit,ParameterValue=$sha"
+    "ParameterKey=SourceSha256,ParameterValue=$source_hash"
+    "ParameterKey=IngressApproved,ParameterValue=$ingress"
+    "ParameterKey=AcmeEmail,ParameterValue=$acme_email")
+else
+  sha=$(stack_parameter bb-srv-signal SourceCommit)
+  if [ -n "$commit" ]; then
+    wanted=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork $BB_FORK: $commit"
+    [ "$wanted" = "$sha" ] ||
+      die "a VM do Signal roda o commit $sha. Trocar o commit exige recriar a VM (o user data só roda no primeiro boot): README, seção 11 (delete-stack bb-srv-signal e deploy-signal.sh de novo)."
+  fi
+  previous_email=$(stack_parameter bb-srv-signal AcmeEmail)
+  [ -z "$acme_email" ] || [ "$acme_email" = "$previous_email" ] ||
+    die "a VM do Signal usa o e-mail ACME $previous_email. Trocar exige recriar a VM (README, seção 11)."
+  for name in $secrets; do
+    secret_exists "$name" || warn "/bb-srv/signal/$name não existe: a VM do Signal não sobe no próximo restart. Recrie a stack (README, seção 11)."
+  done
+  say "   atualização: commit $sha e AMI mantidos; portas de entrada abertas: $ingress"
+  params=("ParameterKey=AmiId,UsePreviousValue=true"
+    "ParameterKey=SourceCommit,UsePreviousValue=true"
+    "ParameterKey=SourceSha256,UsePreviousValue=true"
+    "ParameterKey=AcmeEmail,UsePreviousValue=true"
+    "ParameterKey=IngressApproved,ParameterValue=$ingress")
+  if [ -n "$instance_type" ]; then
+    warn "trocar o tamanho desliga e religa a VM do Signal (conexões novas param por alguns minutos)."
+    params+=("ParameterKey=InstanceType,ParameterValue=$instance_type")
+  else
+    params+=("ParameterKey=InstanceType,UsePreviousValue=true")
+  fi
 fi
 
-# Segredos novos (32 bytes em hexadecimal). Um valor existente nunca é trocado aqui.
-for name in remote-session-secret remote-auth-webhook-secret remote-metrics-token turn-shared-secret; do
-  if aws_cb ssm describe-parameters --parameter-filters "Key=Name,Values=/bb-srv/signal/$name" --query 'length(Parameters)' --output text | grep -qx 1; then
-    say "   /bb-srv/signal/$name já existe."
-    continue
-  fi
-  openssl rand -hex 32 | tr -d '\n' | aws_cb ssm put-parameter --name "/bb-srv/signal/$name" --type SecureString \
-    --value file:///dev/stdin --description "Builders Bot Signal: $name" \
-    --tags "Key=Project,Value=$BB_PROJECT" "Key=Sector,Value=shared" "Key=CostCenter,Value=shared" "Key=Owner,Value=$BB_OWNER" >/dev/null
-  say "   /bb-srv/signal/$name criado (valor não exibido)."
-done
-
-source=$(upload_source "$commit") || exit 1
-read -r sha source_hash <<<"$source"
-ami=$(ubuntu_ami arm64)
-[[ $ami =~ ^ami-[0-9a-f]+$ ]] || die "não consegui resolver a AMI do Ubuntu 24.04 arm64."
-say "   commit $sha, AMI $ami, portas de entrada abertas: $ingress"
 if [ "$ingress" = true ]; then
   confirm "Abrir TCP 443, TCP/UDP 3478, TCP 5349 e UDP 49152-65535 da internet na VM do Signal (exceção aprovada pelo dono)? Digite 'aprovado':" aprovado
 fi
-check_vcpu_quota 2
 
-deploy_stack bb-srv-signal "$BB_ROOT/templates/signal.yaml" shared \
-  "ParameterKey=AmiId,ParameterValue=$ami" \
-  "ParameterKey=InstanceType,ParameterValue=$instance_type" \
-  "ParameterKey=SourceCommit,ParameterValue=$sha" \
-  "ParameterKey=SourceSha256,ParameterValue=$source_hash" \
-  "ParameterKey=IngressApproved,ParameterValue=$ingress" \
-  "ParameterKey=AcmeEmail,ParameterValue=$acme_email"
+deploy_stack bb-srv-signal "$BB_ROOT/templates/signal.yaml" shared "${params[@]}"
 
 # O wrangler da versão fixada no próprio fork (catálogo do package.json), rodado de apps/auth-api,
 # onde está o wrangler.jsonc do Worker. Nunca a versão mais nova da rede.
