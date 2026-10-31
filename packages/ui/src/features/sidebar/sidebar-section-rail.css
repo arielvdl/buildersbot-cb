@@ -298,3 +298,132 @@
 .section-icon-reset {
   margin-right: auto;
 }
+
+/* The drop zone of the image tab. It lights while a file is over the dialog. */
+.section-icon-drop {
+  display: grid;
+  justify-self: stretch;
+  min-height: 112px;
+  place-items: center;
+  align-content: center;
+  gap: var(--openbot-space-2);
+  border: 1px dashed var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-lg);
+  padding: var(--openbot-space-4);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-align: center;
+  transition:
+    background-color var(--openbot-duration-hover) var(--openbot-ease-out),
+    border-color var(--openbot-duration-hover) var(--openbot-ease-out);
+}
+
+.section-icon-drop[data-active] {
+  border-color: var(--openbot-accent);
+  background: var(--openbot-accent-soft);
+  color: var(--openbot-text-primary);
+}
+
+.section-icon-drop-glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.section-icon-drop-current {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--openbot-radius-lg);
+  object-fit: cover;
+  outline: 1px solid var(--openbot-image-outline);
+  outline-offset: -1px;
+}
+
+/* The crop editor: the frame, the zoom, the place buttons and the background. */
+.section-icon-crop {
+  display: grid;
+  justify-self: stretch;
+  justify-items: center;
+  gap: var(--openbot-space-3);
+}
+
+/* The line is an outline, not a border, so the frame keeps all of its 200 px for the crop. */
+.section-icon-crop-frame {
+  overflow: hidden;
+  border-radius: var(--openbot-radius-lg);
+  outline: 1px solid var(--openbot-border-strong);
+  outline-offset: -1px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.section-icon-crop-frame:active {
+  cursor: grabbing;
+}
+
+.section-icon-crop-frame:focus-visible {
+  box-shadow: var(--openbot-focus-ring);
+}
+
+.section-icon-crop-zoom {
+  justify-self: stretch;
+}
+
+/* The canvas of the crop. It fills the frame, or the tile of the preview. */
+.section-icon-crop-canvas {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* A transparent background shows as a check pattern. Light and dark are the fixed fills of the saved
+   image (`SECTION_ICON_FILLS` in `section-icon-image.ts`), so the preview shows the same colors. */
+.section-icon-crop-canvas[data-background="transparent"] {
+  background: repeating-conic-gradient(var(--openbot-bg-control-active) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
+
+.section-icon-crop-canvas[data-background="light"] {
+  background: #f4f4f5;
+}
+
+.section-icon-crop-canvas[data-background="dark"] {
+  background: #18181b;
+}
+
+.section-icon-crop-image {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.section-icon-crop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--openbot-space-1);
+}
+
+.section-icon-crop-backgrounds {
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.section-icon-crop-legend {
+  margin-bottom: var(--openbot-space-1);
+  padding: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-icon-drop {
+    transition: none;
+  }
+}

@@ -1,10 +1,6 @@
 import type { SidebarLayoutSnapshot } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
 import {
-  sidebarSectionIconSide,
-  sidebarSectionIconSourceProblem,
-} from "../../../../../packages/ui/src/features/sidebar/section-icon-image";
-import {
   resolveSidebarSectionRailSelection,
   sameSidebarSectionRailItems,
   sidebarChatSectionId,
@@ -156,26 +152,6 @@ describe("the mark of a section", () => {
       glyph: "shield",
     });
     expect(sidebarSectionMark({ name: "videos" })).toEqual({ kind: "letter", text: "V" });
-  });
-});
-
-describe("a picked icon image", () => {
-  it("is refused before it is read when it is not a raster image or is too large", () => {
-    expect(sidebarSectionIconSourceProblem({ type: "image/svg+xml", size: 900 })).toBe("type");
-    expect(sidebarSectionIconSourceProblem({ type: "application/pdf", size: 900 })).toBe("type");
-    expect(sidebarSectionIconSourceProblem({ type: "", size: 900 })).toBe("type");
-    expect(sidebarSectionIconSourceProblem({ type: "image/png", size: 11 * 1024 * 1024 })).toBe("size");
-    expect(sidebarSectionIconSourceProblem({ type: "image/png", size: 0 })).toBe("size");
-    for (const type of ["image/png", "image/jpeg", "image/webp", "image/gif"]) {
-      expect(sidebarSectionIconSourceProblem({ type, size: 2 * 1024 * 1024 })).toBeNull();
-    }
-  });
-
-  it("becomes a square of at most 96 pixels, and a small picture is not enlarged", () => {
-    expect(sidebarSectionIconSide(1000, 500)).toBe(96);
-    expect(sidebarSectionIconSide(40, 80)).toBe(40);
-    expect(sidebarSectionIconSide(96, 96)).toBe(96);
-    expect(sidebarSectionIconSide(0.5, 10)).toBe(1);
   });
 });
 

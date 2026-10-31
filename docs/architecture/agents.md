@@ -677,10 +677,18 @@ A custom section can also have a rail icon: `SidebarSection.icon` is one or two 
 glyphs (`SIDEBAR_SECTION_GLYPHS`), or a PNG or WebP `data:` URL of at most 40 KB and 96 × 96 pixels
 (`ipc-sidebar-section-icon.ts`). No field means the first letter of the name. The section menu and the
 menu of the rail item open the icon editor, which saves the `set-section-icon` action. The editor
-reads a PNG, JPEG, GIF or WebP file of at most 10 MB on this computer, crops the center square and
-encodes it again. It refuses SVG, and no icon is a URL to fetch. The parser, the store and
-`isSidebarLayoutSnapshot` check the kind, the characters, the image type, the bytes and the pixel
-size. An icon in the file that is not valid is dropped, and the section stays. Duplicate copies the
+takes a file from "Choose image…", a file dropped on the dialog, or a pasted image (the first image
+only). It reads a PNG, JPEG, GIF or WebP file of at most 10 MB, or an SVG file of at most 512 KB, from
+this computer. The crop editor (`SidebarSectionIconCrop.tsx`, geometry in `section-icon-crop.ts`) moves
+and zooms the image in a 200 px frame, from Fit to 4× (more for a long image, to Fill), with an
+optional light or dark fill. Save draws the frame on a canvas of 96 px, as WebP or PNG; when the result
+is larger than 40 KB, it tries 80, 64 and 48 px and asks for a second Save. An SVG file is only an
+input: the editor refuses it when it is not an SVG document or has a script, a `foreignObject`, a
+`javascript:` address or a link to a web address, and loads it in an `<img>` from an object URL of a
+new `image/svg+xml` blob (no markup goes into the page). The stored icon is never an SVG, and no icon
+is a URL to fetch. The parser, the store and `isSidebarLayoutSnapshot` check the kind, the characters,
+the image type (PNG or WebP only), the bytes and the pixel size. An icon in the file that is not
+valid is dropped, and the section stays. Duplicate copies the
 icon. As the color, the icon is local only: the frozen Team API codecs drop it and refuse the action,
 so a remote peer shows the letter.
 
