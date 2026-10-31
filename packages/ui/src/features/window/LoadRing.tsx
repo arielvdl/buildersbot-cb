@@ -15,6 +15,7 @@ import {
   Clock3,
   DropdownMenu,
   IconButton,
+  Input,
   MessageSquare,
   PanelTop,
   Play,
@@ -555,8 +556,9 @@ function AgentLimitSettings(props: {
       <Show when={props.limit.enabled}>
         <label class="window-rail-load-interval">
           <span>{t("app.rail.load.limitMax")}</span>
-          <input
+          <Input
             class="window-rail-load-number"
+            data-cuelume-type={undefined}
             type="number"
             min="1"
             max="64"
@@ -603,8 +605,9 @@ function RecoverySettings(props: {
       <Show when={props.recovery.enabled}>
         <label class="window-rail-load-interval">
           <span>{t("app.rail.load.recoveryEvery")}</span>
-          <input
+          <Input
             class="window-rail-load-number"
+            data-cuelume-type={undefined}
             type="number"
             min="5"
             max="1440"

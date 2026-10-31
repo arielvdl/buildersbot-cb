@@ -189,7 +189,7 @@
   -webkit-app-region: no-drag;
 }
 
-/* The count of stopped work: a red mark at the corner of the ring. */
+/* The count of stopped work: a mark in the danger colour at the corner of the ring. */
 .window-rail-load-alert {
   position: absolute;
   top: -2px;
@@ -201,8 +201,8 @@
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-danger);
   padding: 0 3px;
-  color: #fff;
-  font-size: 10px;
+  color: var(--openbot-text-on-accent);
+  font-size: var(--openbot-text-sm);
   font-weight: var(--openbot-weight-semibold);
   line-height: 1;
 }
@@ -317,7 +317,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The reason is the tooltip of this icon. A failed task is a quiet red, a paused one amber. */
+/* The reason is the tooltip of this icon. A failed task is in a quiet danger colour, a paused one in amber. */
 .window-rail-load-panel .window-rail-load-state {
   flex: 0 0 auto;
   margin-right: calc(var(--openbot-space-1) * -1);
@@ -466,9 +466,14 @@
   color: var(--openbot-danger-text);
 }
 
+/* An `Input` with no keystroke cue. It sets back the auto height, the focus ring and no transition of a
+   plain field. */
 .window-rail-load-number {
   width: 64px;
   min-width: 0;
+  height: auto;
+  outline: revert;
+  transition: none;
   border: 1px solid var(--openbot-border-strong);
   border-radius: var(--openbot-radius-sm);
   background: var(--openbot-bg-surface);
