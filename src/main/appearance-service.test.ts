@@ -23,23 +23,25 @@ const load = async (file: string, supportsTransparentWindow = true) => {
 };
 
 describe("the default appearance", () => {
-  it("is dark with a transparent window when nothing was saved", async () => {
-    expect(await load(await path())).toEqual({ appearance: "dark", transparentWindow: true });
+  it("is dark with an opaque window when nothing was saved", async () => {
+    expect(await load(await path())).toEqual({ appearance: "dark", transparentWindow: false });
   });
 
   it("is the default for a file saved before the transparent window existed", async () => {
     const file = await path();
     await writeFile(file, JSON.stringify({ version: 1, appearance: "light" }));
-    expect(await load(file)).toEqual({ appearance: "light", transparentWindow: true });
+    expect(await load(file)).toEqual({ appearance: "light", transparentWindow: false });
   });
 
-  it("keeps an opaque window that the person chose", async () => {
+  it("keeps a transparent window that the person chose", async () => {
     const file = await path();
-    await writeFile(file, JSON.stringify({ version: 1, appearance: "dark", transparentWindow: false }));
-    expect(await load(file)).toEqual({ appearance: "dark", transparentWindow: false });
+    await writeFile(file, JSON.stringify({ version: 1, appearance: "dark", transparentWindow: true }));
+    expect(await load(file)).toEqual({ appearance: "dark", transparentWindow: true });
   });
 
   it("reads as opaque where the window cannot blur the desktop", async () => {
-    expect((await load(await path(), false)).transparentWindow).toBe(false);
+    const file = await path();
+    await writeFile(file, JSON.stringify({ version: 1, appearance: "dark", transparentWindow: true }));
+    expect((await load(file, false)).transparentWindow).toBe(false);
   });
 });

@@ -13,11 +13,8 @@ export type AppAppearance = (typeof APP_APPEARANCES)[number];
 /** Dark: Builders Bot was dark only before this choice existed, so an update does not change the look. */
 export const DEFAULT_APP_APPEARANCE: AppAppearance = "dark";
 
-/**
- * On: the dark window shows the blurred desktop behind it. A person who wants an opaque window turns it
- * off in Settings. Only macOS can blur what is behind the window, so main reports it as off elsewhere.
- */
-export const DEFAULT_TRANSPARENT_WINDOW = true;
+/** Off: a see-through window is a choice, and only macOS can blur what is behind it. */
+export const DEFAULT_TRANSPARENT_WINDOW = false;
 
 /** The preference as it is stored and as it crosses IPC. */
 export interface AppAppearancePreference {
