@@ -585,6 +585,8 @@ export const messages = {
     "Ainda não pedido. O Builders Bot pede quando você ditar pela primeira vez.",
   "settings.voice.microphone.denied":
     "Não permitido. Permita o Builders Bot nos ajustes do sistema e reinicie o Builders Bot.",
+  "settings.voice.microphone.deniedWindows":
+    "Não permitido. Nas Configurações do Windows, permita que os aplicativos da área de trabalho usem o microfone.",
   "settings.voice.microphone.restricted": "Bloqueado pela administração deste computador.",
   "settings.voice.microphone.agentCommands":
     "Os comandos que os agentes executam pelo Builders Bot também podem usar o microfone que você permitir.",

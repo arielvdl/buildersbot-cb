@@ -235,11 +235,21 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
 
   const [editingServer, setEditingServer] = createSignal(false);
 
-  /** The grant of the system, when the system tells it: macOS and Windows. */
+  /** macOS asks with its own prompt, and reads a changed grant only after a restart. */
+  const onMac = () => (props.platform ?? "darwin") === "darwin";
+  /**
+   * The grant of the system, when the system tells it: macOS and Windows. Windows has no prompt for a
+   * desktop app, so its "not decided" state gets no row: there is nothing to ask for.
+   */
   const microphone = () => {
     const access = props.store.state.microphone;
-    return access === null || access === "unknown" ? undefined : access;
+    if (access === null || access === "unknown") return undefined;
+    return access === "not-determined" && !onMac() ? undefined : access;
   };
+  const microphoneStatusText = (access: Exclude<MicrophoneAccess, "unknown">) =>
+    access === "denied" && props.platform === "win32"
+      ? t("settings.voice.microphone.deniedWindows")
+      : t(MICROPHONE_STATUS[access]);
   const [restarting, setRestarting] = createSignal(false);
   const restart = async (onRestart: () => Promise<void>) => {
     setRestarting(true);
@@ -430,12 +440,12 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
               <Item data-settings-row="settings.voice.microphone.title" class="settings-modal-row">
                 <ItemContent>
                   <ItemTitle>{t("settings.voice.microphone.title")}</ItemTitle>
-                  <ItemDescription aria-live="polite">{t(MICROPHONE_STATUS[access()])}</ItemDescription>
+                  <ItemDescription aria-live="polite">{microphoneStatusText(access())}</ItemDescription>
                   {/* The app's grant also covers the commands that its agents run (design, section 7.10). */}
                   <ItemDescription>{t("settings.voice.microphone.agentCommands")}</ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Show when={access() === "not-determined"}>
+                  <Show when={access() === "not-determined" && onMac()}>
                     <Button variant="outline" size="sm" type="button" onClick={() => props.store.askMicrophone()}>
                       {t("settings.voice.microphone.ask")}
                     </Button>
@@ -453,7 +463,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                           : "settings.voice.microphone.openMac",
                       )}
                     </Button>
-                    <Show when={props.onRestart}>
+                    <Show when={onMac() && props.onRestart}>
                       {(onRestart) => (
                         <Button
                           variant="ghost"

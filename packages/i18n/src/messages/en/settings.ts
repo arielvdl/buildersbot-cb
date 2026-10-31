@@ -623,6 +623,8 @@ export const messages = defineMessages("settings", {
   "settings.voice.microphone.notDetermined": "Not asked yet. Builders Bot asks when you dictate for the first time.",
   "settings.voice.microphone.denied":
     "Not allowed. Allow Builders Bot in the system settings, then restart Builders Bot.",
+  "settings.voice.microphone.deniedWindows":
+    "Not allowed. In Windows Settings, allow desktop apps to use the microphone.",
   "settings.voice.microphone.restricted": "Blocked by the administrator of this computer.",
   "settings.voice.microphone.agentCommands":
     "Commands that agents run from Builders Bot can also use the microphone that you allow.",

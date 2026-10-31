@@ -112,7 +112,13 @@ function mount(): void {
   );
 }
 
+/** The system of the page, as the Electron renderer tells it in `navigator.platform`. */
+function setPlatform(platform: "MacIntel" | "Win32"): void {
+  Object.defineProperty(navigator, "platform", { configurable: true, value: platform });
+}
+
 beforeEach(() => {
+  setPlatform("MacIntel");
   vi.stubGlobal("MediaRecorder", FakeRecorder);
   vi.stubGlobal("AudioContext", FakeAudioContext);
   Object.defineProperty(navigator, "mediaDevices", {
@@ -126,6 +132,7 @@ afterEach(() => {
   recorders.length = 0;
   vi.unstubAllGlobals();
   Reflect.deleteProperty(navigator, "mediaDevices");
+  Reflect.deleteProperty(navigator, "platform");
   Reflect.deleteProperty(window, "openbot");
 });
 
@@ -190,7 +197,9 @@ describe("the dictation of the global combination", () => {
 
   it("reports the real reason when main sends the English text of a catalog key", async () => {
     const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
-    voice.startStream.mockRejectedValueOnce(fromMain("voice:start-stream", sourceText("error.voice.cloud.keyRequired")));
+    voice.startStream.mockRejectedValueOnce(
+      fromMain("voice:start-stream", sourceText("error.voice.cloud.keyRequired")),
+    );
     mount();
 
     await dictate(publish);
@@ -247,6 +256,32 @@ describe("the dictation of the global combination", () => {
     expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.microphoneDenied" });
     expect(getUserMedia).not.toHaveBeenCalled();
     expect(voice.requestMicrophoneAccess).not.toHaveBeenCalled();
+  });
+
+  it("opens the microphone on Windows also when the status of the system says denied", async () => {
+    setPlatform("Win32");
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("denied");
+    mount();
+
+    // The status on Windows is a setting of the whole system. Only `getUserMedia` refuses there.
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
+  });
+
+  it("does not show a prompt on Windows, where a desktop app has none", async () => {
+    setPlatform("Win32");
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("not-determined");
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.requestMicrophoneAccess).not.toHaveBeenCalled();
+    expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
   });
 
   it("asks the system for the microphone first when the grant is not decided", async () => {
