@@ -10,6 +10,7 @@ import {
   agentQuickAcknowledgementEnabled,
   COMPUTER_USE_MCP_SERVER_NAME,
   DEFAULT_AGENT_MEMORY_LIMIT,
+  WAZAP_PACKAGE,
   workspaceAccessEnforced,
 } from "@openbot/contracts/ipc";
 import { redactText } from "@openbot/logging";
@@ -239,8 +240,7 @@ export function isTurnContextBlock(text: string): boolean {
  * The rules of `marketplace/plugin-catalog/plugins/whatsapp/skills/whatsapp-accounts/SKILL.md`, in
  * one line, for an agent that has the WhatsApp plugin. The catalog takes no plugin skills yet.
  */
-const WHATSAPP_ACCOUNTS_RULE =
-  "WhatsApp (the wazap tools) can hold several accounts, each one number with a nickname. Call get_status first. Pick the account by the nickname the user says, such as 'WhatsApp of Ana' or 'the company', and pass its account_id; with two or more accounts and no clear nickname, ask which one. Never invent, assume or reuse a phone number: ask for it. To add an account, send the user to Marketplace, Apps tab, WhatsApp, where the accounts panel adds and links one; if the user types the number in this chat, normalize it to E.164, create a new account with its nickname, then call link_account with its account_id. Never link a number into an account of another number. Every send stays a draft until the user approves it.";
+const WHATSAPP_ACCOUNTS_RULE = `WhatsApp (the wazap tools) can hold several accounts, each one number with a nickname. Call get_status first. Pick the account by the nickname the user says, such as 'WhatsApp of Ana' or 'the company', and pass its account_id; with two or more accounts and no clear nickname, ask which one. Never invent, assume or reuse a phone number: ask for it, and normalize it to E.164. No wazap tool creates an account. To add one, send the user to Marketplace, Apps tab, WhatsApp, where the accounts panel adds and links it; only if you run commands on the computer of this server, run npx -y ${WAZAP_PACKAGE} account add <id> '--name=<nickname>' (no braces or square brackets in the nickname). Call link_account always with account_id, and only for an account that you created for that number in this conversation, never for an account that existed before, linked or not. Every send stays a draft until the user approves it.`;
 
 export function developerInstructions(
   agent: AgentSummary,

@@ -26,18 +26,26 @@ wazap can hold several WhatsApp accounts. Each account is one phone number, with
 
 ## Add or link an account
 
+- No wazap tool creates an account. `get_status`, `link_account` and the chat tools only use the
+  accounts that exist.
 - Prefer the plugin page: Marketplace › Apps › WhatsApp. Its accounts panel adds an account with a
-  nickname and links it with a pairing code or a QR code.
-- When the user types a number in the chat and asks you to connect it:
+  nickname and links it with a pairing code or a QR code. Send the user there.
+- Only when you run commands on the computer of this server, and the user types a number in the
+  chat and asks you to connect it:
   1. Normalize the number to E.164, and read it back to the user.
-  2. Create a new account for it, with the nickname that the user gives (`wazap account add <id>
-     --name <nickname>`, or ask the user to add it in the panel). One number is one account.
+  2. Create a new account for it, with the nickname that the user gives:
+     `npx -y wazap-mcp@1.6.0 account add <id> '--name=<nickname>'`. The id is lowercase letters,
+     digits and dashes. Do not use braces or square brackets in the nickname. One number is one
+     account.
   3. Call `link_account` with that `account_id` and the number. Show the 8-character code and the
      steps: WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead.
      The code lasts two minutes.
   4. Call `get_status` every 10 seconds until the account is connected.
-- Never link a number into an account that belongs to another number. wazap then sets the history
-  of the earlier number aside and deletes it after seven days.
+- Always pass `account_id` to `link_account`. Without it, wazap picks the default account.
+- Call `link_account` only for an account that you created for that number in this conversation.
+  Never call it for an account that existed before, linked or not: after an unlink, the account
+  keeps the history of its number, and `get_status` does not show whose history it is. A different
+  number makes wazap set that history aside and delete it after seven days.
 - Connect only numbers that the user owns, or whose owner agrees.
 
 ## Send
