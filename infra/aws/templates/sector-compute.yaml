@@ -37,8 +37,9 @@ Parameters:
     Type: String
     Default: none
     Description: >-
-      Desired image tag (for people and scripts). The host runs the digest that the install or upgrade
-      document wrote; a change of this value changes only the SSM parameter, never the VM.
+      Image tag at installation (add-sector.sh). upgrade-sector.sh does not update it (bb-srv-operator
+      cannot update stacks): the image in use is /bb-srv/sectors/<sector>/image (digest). A change of
+      this value changes only the SSM parameter, never the VM.
     AllowedPattern: '^(none|[0-9A-Za-z][0-9A-Za-z._-]{0,127})$'
   Schedule:
     Type: String
@@ -229,7 +230,7 @@ Resources:
       Name: !Sub /bb-srv/sectors/${Sector}/image-tag
       Type: String
       Tier: Standard
-      Description: Desired image tag of the sector. The running digest is in /bb-srv/sectors/<sector>/image.
+      Description: Image tag at installation (not updated by upgrades). The image in use is /bb-srv/sectors/<sector>/image.
       Value: !Ref ImageTag
 
   # ---------------------------------------------------------------- session documents of this sector
@@ -457,6 +458,8 @@ Resources:
       VolumeId: !Ref DataVolumeId
       Device: /dev/sdf
 
+  # Lives and dies with this stack: replacing the VM (delete this stack, add-sector.sh --reattach) or a
+  # restore releases the address and the new stack gets another one (README, section 11).
   StaticAddress:
     Type: AWS::EC2::EIP
     Condition: UseStaticIp

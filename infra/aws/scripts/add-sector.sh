@@ -156,6 +156,7 @@ else
       BB_SRV_YES=0 confirm "Snapshot de '$snap_sector' em '$sector': os membros de '$sector' verão os dados e logins de '$snap_sector'. Digite '$snap_sector-para-$sector':" "$snap_sector-para-$sector"
     fi
     [ "$volume_gib" -ge "$snap_size" ] || volume_gib=$snap_size
+    [ "$static_ip" != true ] || warn "--static-ip aloca um Elastic IP NOVO: o endereço que o setor tinha antes de ser removido foi liberado; logins presos a ele podem pedir nova verificação."
     mode=attach
   elif [ "$data_status" != NONE ]; then
     # O volume do setor existe sem a VM: troca de VM (--reattach) ou nova tentativa depois de uma falha
@@ -166,6 +167,7 @@ else
     [ -z "$az" ] || [ "us-east-1$az" = "$volume_zone" ] || die "o volume de $sector está em $volume_zone; a VM tem de ir para a mesma zona (sem --az)."
     az=${volume_zone#us-east-1}
     say "   $data_stack já existe: a VM nova usa esse volume (bb-srv-Install em modo auto)."
+    warn "o IP público muda com a VM nova. Se o setor tinha --static-ip, aquele Elastic IP saiu com a stack -compute antiga: $([ "$static_ip" = true ] && echo "este --static-ip aloca OUTRO endereço" || echo "passe --static-ip de novo para ter um IP fixo (outro endereço)"); logins presos ao IP antigo podem pedir nova verificação."
     mode=auto
   else
     mode=create
