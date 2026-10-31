@@ -1,15 +1,16 @@
-// Drives the real Windows installers on a Windows computer that has no OpenBot, such as a CI
-// runner. It removes every OpenBot installation, %USERPROFILE%\OpenBot and the OpenBot registry
-// entries of this user, so do not run it on a computer that you use.
+// Drives the real Windows installers on a Windows computer that has no Builders Bot, such as a CI
+// runner. It removes every Builders Bot installation, %USERPROFILE%\Builders Bot and the Builders Bot
+// registry entries of this user, so do not run it on a computer that you use. The product name and
+// the app id come from electron-builder.yml, as the installer gets them.
 //
-// An installation in %USERPROFILE%\OpenBot shares its folder with the agent workspaces. An update
+// An installation in %USERPROFILE%\Builders Bot shares its folder with the agent workspaces. An update
 // runs the earlier uninstaller, which moves each file of the folder to a temporary folder and
 // deletes it. The cases:
 //   1. A normal update from the default folder keeps working, and it does not touch the workspaces.
 //   2. The earlier uninstaller, run as an update runs it, stops with exit code 2 when a workspace
 //      file has a path that fits in the folder but not in the temporary folder.
 //   3. Without such a file, the same uninstaller deletes the workspaces.
-//   4. The new installer updates the installation in %USERPROFILE%\OpenBot: it installs in the
+//   4. The new installer updates the installation in %USERPROFILE%\Builders Bot: it installs in the
 //      default folder, keeps the workspaces, and removes only the earlier app.
 // Usage: bun scripts/windows-home-install-update-e2e.ts <earlier installer> <new installer>
 import { execFileSync, spawn } from "node:child_process";
@@ -19,13 +20,16 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger } from "@openbot/logging";
+import { parse as parseYaml } from "yaml";
 
 const logger = createBuildersBotLogger("windows-home-install-update-e2e");
 
 if (process.platform !== "win32") throw new Error("This test drives the Windows installers and must run on Windows.");
-// It deletes %USERPROFILE%\OpenBot, so it runs only on a GitHub Actions runner.
+// It deletes the workspace folder in %USERPROFILE%, so it runs only on a GitHub Actions runner.
 if (process.env.GITHUB_ACTIONS !== "true") {
-  throw new Error("This test deletes %USERPROFILE%\\OpenBot and runs only on a GitHub Actions runner.");
+  throw new Error(
+    "This test deletes the Builders Bot folder in %USERPROFILE% and runs only on a GitHub Actions runner.",
+  );
 }
 
 const [earlierInstallerArgument, newInstallerArgument] = process.argv.slice(2);
@@ -37,12 +41,23 @@ const newInstaller = resolve(newInstallerArgument);
 const localAppData = process.env.LOCALAPPDATA;
 if (!localAppData) throw new Error("LOCALAPPDATA is not set.");
 
-const homeFolder = join(homedir(), "OpenBot");
-const defaultFolder = join(localAppData, "Programs", "OpenBot");
+// The installer and the app name these folders after the product: `${PRODUCT_NAME}` and
+// `${APP_FILENAME}` in build/installer.nsh, `app.setName` and `agent-store.ts` in the app.
+const builderConfig = parseYaml(await readFile(resolve(import.meta.dirname, "../electron-builder.yml"), "utf8"));
+if (!isDynamicRecord(builderConfig) || !isString(builderConfig.productName) || !isString(builderConfig.appId)) {
+  throw new Error("electron-builder.yml has no productName or appId.");
+}
+const productName = builderConfig.productName;
+// electron-builder uses the product name as the folder name only when it has these characters.
+if (!/^[-_+0-9a-zA-Z .]+$/u.test(productName)) throw new Error(`The product name is not a folder name: ${productName}`);
+const executable = `${productName}.exe`;
+const uninstaller = `Uninstall ${productName}.exe`;
+const homeFolder = join(homedir(), productName);
+const defaultFolder = join(localAppData, "Programs", productName);
 // Missing on a computer where no program was installed for this user.
 const uninstallKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
 const runKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-const loginItemName = "app.openbot.desktop";
+const loginItemName = builderConfig.appId;
 const reportPath = resolve(".openbot-build/windows-home-install-update-e2e.json");
 // An installer that waits for a dialog in a silent run does not exit. This limit makes that a failure.
 const installerLimitMs = 5 * 60_000;
@@ -56,7 +71,7 @@ const workspaceFiles = [
   join("Shared", "report.txt"),
   join("Downloads", "picture.txt"),
 ];
-const appFiles = ["OpenBot.exe", "Uninstall OpenBot.exe", "resources", "locales", "ffmpeg.dll", "resources.pak"];
+const appFiles = [executable, uninstaller, "resources", "locales", "ffmpeg.dll", "resources.pak"];
 
 interface Registration {
   displayName: string | null;
@@ -102,7 +117,8 @@ function powershell(script: string): string {
 }
 
 // NSIS reads /D= and _?= only as the last argument and only without quotes, so the arguments are
-// written as they are. The paths of a CI runner have no spaces.
+// written as they are. The value runs to the end of the command line, so a space in the product name
+// is part of the path.
 function runInstaller(file: string, args: string): Promise<number> {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(file, [args], { windowsVerbatimArguments: true, stdio: "ignore" });
@@ -126,7 +142,7 @@ function registration(): Registration {
     $entry = $null
     if (Test-Path ${uninstallKey}) {
       $entry = Get-ChildItem ${uninstallKey} | Get-ItemProperty |
-        Where-Object { $_.DisplayName -like 'OpenBot*' } | Select-Object -First 1
+        Where-Object { $_.DisplayName -like '${productName}*' } | Select-Object -First 1
     }
     $location = $null
     if ($entry) { $location = (Get-ItemProperty -LiteralPath "HKCU:\\Software\\$($entry.PSChildName)" -ErrorAction SilentlyContinue).InstallLocation }
@@ -159,7 +175,7 @@ async function removeEverything(): Promise<void> {
   const keys = powershell(`
     if (Test-Path ${uninstallKey}) {
       Get-ChildItem ${uninstallKey} | Get-ItemProperty |
-        Where-Object { $_.DisplayName -like 'OpenBot*' } | ForEach-Object { $_.PSChildName }
+        Where-Object { $_.DisplayName -like '${productName}*' } | ForEach-Object { $_.PSChildName }
     }`);
   // A key or value that is already gone still makes `$?` false, so each cleanup ends with exit 0.
   for (const key of keys.split(/\r?\n/u).filter(Boolean)) {
@@ -209,7 +225,7 @@ function presentAppFiles(folder: string): string[] {
 async function runEarlierUninstallerAsUpdate(): Promise<number> {
   const copyFolder = await mkdtemp(join(tmpdir(), "openbot-old-uninstaller-"));
   const copy = join(copyFolder, "old-uninstaller.exe");
-  await copyFile(join(homeFolder, "Uninstall OpenBot.exe"), copy);
+  await copyFile(join(homeFolder, uninstaller), copy);
   try {
     return await runInstaller(copy, `/S /KEEP_APP_DATA /currentuser --updated _?=${homeFolder}`);
   } finally {
@@ -220,13 +236,13 @@ async function runEarlierUninstallerAsUpdate(): Promise<number> {
 async function installEarlierInHomeFolder(): Promise<void> {
   await removeEverything();
   check((await runInstaller(earlierInstaller, `/S /D=${homeFolder}`)) === 0, "The earlier installer failed.");
-  check(existsSync(join(homeFolder, "OpenBot.exe")), "The earlier installer did not install in the home folder.");
+  check(existsSync(join(homeFolder, executable)), "The earlier installer did not install in the home folder.");
 }
 
 async function normalUpdate(): Promise<void> {
   await removeEverything();
   check((await runInstaller(earlierInstaller, "/S")) === 0, "The earlier installer failed.");
-  check(existsSync(join(defaultFolder, "OpenBot.exe")), "The earlier installer did not use the default folder.");
+  check(existsSync(join(defaultFolder, executable)), "The earlier installer did not use the default folder.");
   await makeWorkspaces({ longPath: false });
   const exitCode = await runInstaller(newInstaller, "--updated /S");
   const result = {
@@ -238,7 +254,7 @@ async function normalUpdate(): Promise<void> {
   cases.normalUpdate = result;
   check(exitCode === 0, `The normal update exited with ${exitCode}.`);
   check(result.registration.installLocation === defaultFolder, "The normal update moved the installation.");
-  check(result.appFilesInDefaultFolder.includes("OpenBot.exe"), "The normal update did not install OpenBot.exe.");
+  check(result.appFilesInDefaultFolder.includes(executable), `The normal update did not install ${executable}.`);
   check(result.missingWorkspaceFiles.length === 0, "The normal update changed the workspaces.");
 }
 
@@ -271,7 +287,7 @@ async function earlierUninstallerDeletesWorkspaces(): Promise<void> {
 async function newInstallerMovesTheInstallation(): Promise<void> {
   await installEarlierInHomeFolder();
   const longPathFile = await makeWorkspaces({ longPath: true });
-  setLoginItem(join(homeFolder, "OpenBot.exe"));
+  setLoginItem(join(homeFolder, executable));
   const exitCode = await runInstaller(newInstaller, "--updated /S");
   const result = {
     exitCode,
@@ -284,14 +300,14 @@ async function newInstallerMovesTheInstallation(): Promise<void> {
   cases.newInstallerMovesTheInstallation = result;
   check(exitCode === 0, `The new installer exited with ${exitCode}.`);
   check(result.missingWorkspaceFiles.length === 0, `Workspace files are missing: ${result.missingWorkspaceFiles}`);
-  check(result.appFilesInDefaultFolder.includes("OpenBot.exe"), "The new installer did not use the default folder.");
+  check(result.appFilesInDefaultFolder.includes(executable), "The new installer did not use the default folder.");
   check(result.appFilesInHomeFolder.length === 0, `App files stay in the home folder: ${result.appFilesInHomeFolder}`);
   check(result.registration.installLocation === defaultFolder, "The registry does not name the default folder.");
   check(
     result.registration.uninstallString?.includes(defaultFolder) === true,
     "The uninstall entry does not name the default folder.",
   );
-  check(result.loginItem === `"${join(defaultFolder, "OpenBot.exe")}"`, "The login item does not name the new copy.");
+  check(result.loginItem === `"${join(defaultFolder, executable)}"`, "The login item does not name the new copy.");
 }
 
 let failure: unknown = null;
