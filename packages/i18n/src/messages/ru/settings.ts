@@ -478,6 +478,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Не удалось начать загрузку. Повторите попытку.",
   "settings.voice.cancelFailed": "Не удалось остановить загрузку.",
   "settings.voice.removeFailed": "Не удалось удалить модель. Повторите попытку.",
+  "settings.voice.microphone.section": "Микрофон",
+  "settings.voice.microphone.title": "Доступ к микрофону",
+  "settings.voice.microphone.granted": "Разрешён.",
+  "settings.voice.microphone.notDetermined":
+    "Ещё не запрашивался. Builders Bot спросит, когда вы начнёте диктовать в первый раз.",
+  "settings.voice.microphone.denied":
+    "Не разрешён. Разрешите Builders Bot в системных настройках, затем перезапустите Builders Bot.",
+  "settings.voice.microphone.restricted": "Заблокирован администратором этого компьютера.",
+  "settings.voice.microphone.agentCommands":
+    "Команды, которые агенты запускают из Builders Bot, тоже могут использовать разрешённый вами микрофон.",
+  "settings.voice.microphone.ask": "Запросить доступ",
+  "settings.voice.microphone.openMac": "Открыть Системные настройки",
+  "settings.voice.microphone.openWindows": "Открыть параметры Windows",
+  "settings.voice.microphone.restart": "Перезапустить Builders Bot",
+  "settings.voice.microphone.restartFailed": "Не удалось перезапустить Builders Bot.",
+  "settings.voice.microphone.openFailed": "Не удалось открыть системные настройки.",
   "settings.voice.model.elevenlabs.description":
     "Передаёт ваш голос в ElevenLabs. Текст появляется во время речи и не меняется. Использует ваш API-ключ, а ElevenLabs списывает плату за каждое использование.",
   "settings.voice.model.keySaved": "API-ключ сохранён",

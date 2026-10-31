@@ -7,6 +7,7 @@ import {
   type DictationPreference,
   type DictationState,
   ELEVENLABS_VOICE_MODEL_ID,
+  type MicrophoneAccess,
   SPEECH_MODEL_ID,
   type SpeechModelStatus,
   type SpeechSettings,
@@ -30,6 +31,8 @@ export interface MockVoiceOptions {
   speechSettings?: SpeechSettings;
   /** The user's own voice server. None when not given. */
   voiceServer?: VoiceServerSettings | null;
+  /** The grant of the system for the microphone. "granted" when not given. */
+  microphoneAccess?: MicrophoneAccess;
 }
 
 /** A Speaches server: Whisper for dictation and Kokoro for replies. */
@@ -83,6 +86,7 @@ export function createMockVoice(options: MockVoiceOptions, { emit, schedule }: M
   const speechListeners = new Set<Listener<SpeechModelStatus>>();
   let speechTransfer: { settle: (status: SpeechModelStatus) => void } | null = null;
   let server: VoiceServerSettings | null = clone(options.voiceServer ?? null);
+  let microphone: MicrophoneAccess = options.microphoneAccess ?? "granted";
   const serverListeners = new Set<Listener<VoiceServerSettings | null>>();
   const setSpeechStatus = (next: SpeechModelStatus) => {
     speechStatus = next;
@@ -250,6 +254,12 @@ export function createMockVoice(options: MockVoiceOptions, { emit, schedule }: M
     onServerSettings: (listener) => {
       serverListeners.add(listener);
       return () => serverListeners.delete(listener);
+    },
+    getMicrophoneAccess: async () => microphone,
+    // The preview has no system prompt: a grant that is not decided becomes "granted", as after "Allow".
+    requestMicrophoneAccess: async () => {
+      if (microphone === "not-determined") microphone = "granted";
+      return microphone;
     },
   };
   return { voice };

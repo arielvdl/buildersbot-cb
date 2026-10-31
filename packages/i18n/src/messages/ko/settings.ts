@@ -456,6 +456,21 @@ export const messages = {
   "settings.voice.downloadFailed": "다운로드를 시작할 수 없어요. 다시 시도해 주세요.",
   "settings.voice.cancelFailed": "다운로드를 중지할 수 없어요.",
   "settings.voice.removeFailed": "모델을 삭제할 수 없어요. 다시 시도해 주세요.",
+  "settings.voice.microphone.section": "마이크",
+  "settings.voice.microphone.title": "마이크 접근",
+  "settings.voice.microphone.granted": "허용됨.",
+  "settings.voice.microphone.notDetermined": "아직 묻지 않았어요. 처음 받아쓰기를 할 때 Builders Bot이 물어봐요.",
+  "settings.voice.microphone.denied":
+    "허용되지 않았어요. 시스템 설정에서 Builders Bot을 허용한 다음 Builders Bot을 다시 시작해 주세요.",
+  "settings.voice.microphone.restricted": "이 컴퓨터의 관리자가 차단했어요.",
+  "settings.voice.microphone.agentCommands":
+    "Builders Bot에서 에이전트가 실행하는 명령도 허용한 마이크를 사용할 수 있어요.",
+  "settings.voice.microphone.ask": "접근 요청",
+  "settings.voice.microphone.openMac": "시스템 설정 열기",
+  "settings.voice.microphone.openWindows": "Windows 설정 열기",
+  "settings.voice.microphone.restart": "Builders Bot 다시 시작",
+  "settings.voice.microphone.restartFailed": "Builders Bot을 다시 시작할 수 없어요.",
+  "settings.voice.microphone.openFailed": "시스템 설정을 열 수 없어요.",
   "settings.voice.model.elevenlabs.description":
     "음성을 ElevenLabs로 스트리밍해요. 말하는 동안 텍스트가 표시되고 바뀌지 않아요. 내 API 키를 사용하며, 사용할 때마다 ElevenLabs에서 요금이 청구돼요.",
   "settings.voice.model.keySaved": "API 키 저장됨",

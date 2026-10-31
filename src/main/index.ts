@@ -27,6 +27,7 @@ import {
   protocol,
   screen,
   shell,
+  systemPreferences,
 } from "electron";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { OWNER_NOTIFICATION_KEY } from "./agent-notification-level-store";
@@ -720,7 +721,18 @@ function registerIpcHandlers({
     ...lidAwakeIpcHandlers({ lidAwake }),
     ...backgroundProcessIpcHandlers({ platform: process.platform, agents: () => service.listAgents() }),
     ...providerIpcHandlers({ service, providerRuntimes, credentials: providerCredentials, openLink }),
-    ...voiceIpcHandlers({ voice, speech, service, dictation, server: voiceServer }),
+    ...voiceIpcHandlers({
+      voice,
+      speech,
+      service,
+      dictation,
+      server: voiceServer,
+      microphone: {
+        platform: process.platform,
+        getMediaAccessStatus: (mediaType) => systemPreferences.getMediaAccessStatus(mediaType),
+        askForMediaAccess: (mediaType) => systemPreferences.askForMediaAccess(mediaType),
+      },
+    }),
     ...accountIpcHandlers({ centralAuth, host }),
     ...skillIpcHandlers({ skills, getMainWindow: getDialogParent, translate: language.translate }),
     ...agentFolderIpcHandlers({

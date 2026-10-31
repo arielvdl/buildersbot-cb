@@ -28,4 +28,6 @@ export const messages = {
   "error.voice.speech.timedOut": "Время чтения ответа вслух истекло.",
   "error.voice.speech.failed": "Builders Bot не смог прочитать ответ вслух.",
   "error.voice.recordingNotKept": "Builders Bot не смог сохранить голосовую запись.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot не может прочитать сохранённый ключ вашего голосового сервера. Введите ключ снова или удалите его.",
 } as const satisfies PartialTranslation<typeof source>;

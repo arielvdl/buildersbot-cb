@@ -30,6 +30,7 @@ import {
   decodeDetectedModelServers,
   decodeDiscoverModelsResult,
   decodeLoadSnapshot,
+  decodeMicrophoneAccess,
   decodeMobileConnectedDevices,
   decodeMobileConnectTicket,
   decodeMobileWebAppUrl,
@@ -137,7 +138,14 @@ const voiceServer = {
 
 const valid: [string, (value: unknown) => unknown, unknown][] = [
   ["a voice server", decodeVoiceServerSettings, voiceServer],
+  [
+    "a voice server whose saved key cannot be read",
+    decodeVoiceServerSettings,
+    { ...voiceServer, hasApiKey: false, apiKeyUnreadable: true },
+  ],
   ["no voice server", decodeVoiceServerSettings, null],
+  ["a refused microphone", decodeMicrophoneAccess, "denied"],
+  ["a microphone grant that the system does not tell", decodeMicrophoneAccess, "unknown"],
   [
     "a voice server test that found models",
     decodeVoiceServerProbe,
@@ -289,6 +297,11 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   // The key never comes back to the renderer, so a record that carries one fails closed.
   ["a voice server with its key", decodeVoiceServerSettings, { ...voiceServer, apiKey: "sk-secret" }],
   [
+    "a voice server with a key state that is not a boolean",
+    decodeVoiceServerSettings,
+    { ...voiceServer, apiKeyUnreadable: "yes" },
+  ],
+  [
     "a voice server that dictates with no model",
     decodeVoiceServerSettings,
     { ...voiceServer, routes: { ...voiceServer.routes, transcriptionModel: null } },
@@ -299,6 +312,8 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
     { ...voiceServer, routes: { ...voiceServer.routes, speech: true, speechModel: "kokoro", voice: null } },
   ],
   ["a voice server test with an unknown field", decodeVoiceServerProbe, { ok: false, field: "model", message: "" }],
+  ["an unknown microphone grant", decodeMicrophoneAccess, "blocked"],
+  ["a microphone grant that is not text", decodeMicrophoneAccess, true],
   [
     "a voice server test with an empty model",
     decodeVoiceServerProbe,

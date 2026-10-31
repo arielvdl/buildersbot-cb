@@ -1,7 +1,9 @@
 import {
+  type AppInfo,
   AUTOMATIC_VOICE_LANGUAGE,
   DEFAULT_VOICE_MODEL_ID,
   ELEVENLABS_VOICE_MODEL_ID,
+  type MicrophoneAccess,
   SPEECH_MODEL,
   SPEECH_VOICES,
   type SpeechModelStatus,
@@ -36,6 +38,7 @@ import {
   SettingsSection,
   Square,
   SwitchField,
+  toast,
 } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, createStore, For, Show } from "solid-js";
@@ -152,9 +155,21 @@ function flagFor(language: VoiceLanguage): string {
   return "🌐";
 }
 
+/** What the microphone row says for each grant that it shows. "unknown" has no row. */
+const MICROPHONE_STATUS = {
+  "not-determined": "settings.voice.microphone.notDetermined",
+  granted: "settings.voice.microphone.granted",
+  denied: "settings.voice.microphone.denied",
+  restricted: "settings.voice.microphone.restricted",
+} as const satisfies Record<Exclude<MicrophoneAccess, "unknown">, AppTextKey>;
+
 interface SettingsVoiceTabProps {
   store: SettingsVoiceStore;
   selectMount: HTMLElement | undefined;
+  /** The system of this computer: it names the page that grants the microphone. */
+  platform?: AppInfo["platform"] | undefined;
+  /** Starts Builders Bot again when no work runs. macOS reads a changed microphone grant only after it. */
+  onRestart?: (() => Promise<void>) | undefined;
 }
 
 export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
@@ -218,6 +233,25 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
   };
 
   const [editingServer, setEditingServer] = createSignal(false);
+
+  /** The grant of the system, when the system tells it: macOS and Windows. */
+  const microphone = () => {
+    const access = props.store.state.microphone;
+    return access === null || access === "unknown" ? undefined : access;
+  };
+  const [restarting, setRestarting] = createSignal(false);
+  const restart = async (onRestart: () => Promise<void>) => {
+    setRestarting(true);
+    try {
+      await onRestart();
+    } catch (error) {
+      toast.error(errorMessage(error, t("settings.voice.microphone.restartFailed")), {
+        report: { operation: "settings", source: "action", cause_code: "unknown" },
+      });
+    } finally {
+      setRestarting(false);
+    }
+  };
 
   const speech = () => props.store.state.speech;
   const speechPhase = () => speech().status?.phase;
@@ -384,6 +418,57 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
           </For>
         </ItemGroup>
       </SettingsSection>
+
+      <Show when={microphone()}>
+        {(access) => (
+          <SettingsSection title={t("settings.voice.microphone.section")}>
+            <ItemGroup class="settings-modal-card">
+              <Item data-settings-row="settings.voice.microphone.title" class="settings-modal-row">
+                <ItemContent>
+                  <ItemTitle>{t("settings.voice.microphone.title")}</ItemTitle>
+                  <ItemDescription aria-live="polite">{t(MICROPHONE_STATUS[access()])}</ItemDescription>
+                  {/* The app's grant also covers the commands that its agents run (design, section 7.10). */}
+                  <ItemDescription>{t("settings.voice.microphone.agentCommands")}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Show when={access() === "not-determined"}>
+                    <Button variant="outline" size="sm" type="button" onClick={() => props.store.askMicrophone()}>
+                      {t("settings.voice.microphone.ask")}
+                    </Button>
+                  </Show>
+                  <Show when={access() === "denied"}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() => props.store.openMicrophoneSettings(props.platform ?? "darwin")}
+                    >
+                      {t(
+                        props.platform === "win32"
+                          ? "settings.voice.microphone.openWindows"
+                          : "settings.voice.microphone.openMac",
+                      )}
+                    </Button>
+                    <Show when={props.onRestart}>
+                      {(onRestart) => (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          disabled={restarting()}
+                          onClick={() => void restart(onRestart())}
+                        >
+                          {t("settings.voice.microphone.restart")}
+                        </Button>
+                      )}
+                    </Show>
+                  </Show>
+                </ItemActions>
+              </Item>
+            </ItemGroup>
+          </SettingsSection>
+        )}
+      </Show>
 
       <SettingsSection title={t("settings.voice.language.section")}>
         <ItemGroup class="settings-modal-card">
@@ -568,6 +653,9 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
               <Item class="settings-modal-row">
                 <ItemContent>
                   <ItemTitle>{voiceServerHost(saved().address)}</ItemTitle>
+                  <Show when={saved().apiKeyUnreadable}>
+                    <ItemDescription>{t("error.voice.server.keyUnreadable")}</ItemDescription>
+                  </Show>
                   <Show when={!serverDictates() && !serverSpeaks()}>
                     <ItemDescription>{t("settings.voice.server.notInUse")}</ItemDescription>
                   </Show>

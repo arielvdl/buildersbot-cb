@@ -223,8 +223,14 @@ export function ConversationComposer() {
     const error = currentChatError();
     if (!error) return undefined;
     const openMicrophone = props.onOpenMicrophoneSettings;
-    if (openMicrophone && error === t("composer.voice.blocked"))
-      return { label: t("composer.voice.openMicrophoneSettings"), run: () => openMicrophone() };
+    if (openMicrophone && error === t("composer.voice.blocked")) {
+      const label = t(
+        props.platform === "win32"
+          ? "composer.voice.openWindowsMicrophoneSettings"
+          : "composer.voice.openMicrophoneSettings",
+      );
+      return { label, run: () => openMicrophone() };
+    }
     const openVoice = props.onOpenVoiceSettings;
     const keyError =
       error === localizeSourceText(sourceText("error.voice.cloud.keyUnreadable")) ||

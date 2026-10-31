@@ -462,6 +462,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Kan de download niet starten. Probeer het opnieuw.",
   "settings.voice.cancelFailed": "Kan de download niet stoppen.",
   "settings.voice.removeFailed": "Kan het model niet verwijderen. Probeer het opnieuw.",
+  "settings.voice.microphone.section": "Microfoon",
+  "settings.voice.microphone.title": "Toegang tot de microfoon",
+  "settings.voice.microphone.granted": "Toegestaan.",
+  "settings.voice.microphone.notDetermined":
+    "Nog niet gevraagd. Builders Bot vraagt het als je voor het eerst dicteert.",
+  "settings.voice.microphone.denied":
+    "Niet toegestaan. Sta Builders Bot toe in de systeeminstellingen en start Builders Bot daarna opnieuw.",
+  "settings.voice.microphone.restricted": "Geblokkeerd door de beheerder van deze computer.",
+  "settings.voice.microphone.agentCommands":
+    "Opdrachten die agents vanuit Builders Bot uitvoeren, kunnen de microfoon die je toestaat ook gebruiken.",
+  "settings.voice.microphone.ask": "Toegang vragen",
+  "settings.voice.microphone.openMac": "Systeeminstellingen openen",
+  "settings.voice.microphone.openWindows": "Windows-instellingen openen",
+  "settings.voice.microphone.restart": "Builders Bot herstarten",
+  "settings.voice.microphone.restartFailed": "Kan Builders Bot niet herstarten.",
+  "settings.voice.microphone.openFailed": "Kan de systeeminstellingen niet openen.",
   "settings.voice.model.elevenlabs.description":
     "Streamt je stem naar ElevenLabs. Tekst verschijnt terwijl je spreekt en blijft staan. Gebruikt je eigen API-sleutel, en ElevenLabs rekent elk gebruik af.",
   "settings.voice.model.keySaved": "API-sleutel opgeslagen",

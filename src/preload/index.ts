@@ -166,6 +166,7 @@ import {
   decodeHostedSiteList,
   decodeLicenseState,
   decodeLoadSnapshot,
+  decodeMicrophoneAccess,
   decodeMobileConnectedDevices,
   decodeMobileConnectLink,
   decodeMobileConnectTicket,
@@ -848,6 +849,8 @@ const openbotApi: BuildersBotDesktopApi = {
     probeServer: decodeVoiceServerProbe,
     setServer: decodeVoiceServerSettings,
     serverSettings: decodeVoiceServerSettings,
+    getMicrophoneAccess: decodeMicrophoneAccess,
+    requestMicrophoneAccess: decodeMicrophoneAccess,
   }),
   auth: bridgeGroup(IPC_ENDPOINTS.auth, {
     getState: decodeCentralAuthState,

@@ -477,6 +477,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Nie udało się rozpocząć pobierania. Spróbuj ponownie.",
   "settings.voice.cancelFailed": "Nie udało się zatrzymać pobierania.",
   "settings.voice.removeFailed": "Nie udało się usunąć modelu. Spróbuj ponownie.",
+  "settings.voice.microphone.section": "Mikrofon",
+  "settings.voice.microphone.title": "Dostęp do mikrofonu",
+  "settings.voice.microphone.granted": "Dozwolony.",
+  "settings.voice.microphone.notDetermined":
+    "Jeszcze nie zapytano. Builders Bot zapyta, gdy zaczniesz dyktować po raz pierwszy.",
+  "settings.voice.microphone.denied":
+    "Niedozwolony. Pozwól Builders Bot w ustawieniach systemowych, a potem uruchom ponownie Builders Bot.",
+  "settings.voice.microphone.restricted": "Zablokowany przez administratora tego komputera.",
+  "settings.voice.microphone.agentCommands":
+    "Polecenia, które agenci uruchamiają z Builders Bot, też mogą używać mikrofonu, na który pozwolisz.",
+  "settings.voice.microphone.ask": "Poproś o dostęp",
+  "settings.voice.microphone.openMac": "Otwórz Ustawienia systemowe",
+  "settings.voice.microphone.openWindows": "Otwórz Ustawienia systemu Windows",
+  "settings.voice.microphone.restart": "Uruchom ponownie Builders Bot",
+  "settings.voice.microphone.restartFailed": "Nie udało się ponownie uruchomić Builders Bot.",
+  "settings.voice.microphone.openFailed": "Nie udało się otworzyć ustawień systemowych.",
   "settings.voice.model.elevenlabs.description":
     "Przesyła twój głos do ElevenLabs. Tekst pojawia się w trakcie mówienia i się nie zmienia. Używa twojego klucza API, a ElevenLabs nalicza opłatę za każde użycie.",
   "settings.voice.model.keySaved": "Klucz API zapisany",

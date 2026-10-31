@@ -34,4 +34,6 @@ export const messages = defineMessages("error.voice", {
   "error.voice.server.invalidAnswer": "{host} did not send an OpenAI-compatible answer.",
   "error.voice.server.invalidAudio": "{host} sent audio that Builders Bot cannot play. Use a server that sends WAV.",
   "error.voice.server.tooLarge": "The answer from {host} is too large.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot cannot read the saved key of your voice server. Type the key again or remove it.",
 });

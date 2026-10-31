@@ -12,6 +12,7 @@ import {
   noteDictatedMessage,
   onDictatedReplyEnd,
 } from "../../speech/speech-replies";
+import { ensureMicrophoneAccess, microphoneBlockText } from "../../voice/microphone-access";
 import { EMPTY_DRAFT } from "../composer-draft";
 import type { ConversationRuntime } from "../conversation-runtime";
 import type { ComposerDraft, ConversationTarget } from "../conversation-types";
@@ -192,6 +193,10 @@ export function createVoiceConversation(deps: VoiceConversationDeps) {
     const analytics = desktopAnalytics.scope();
     const startingAt = performance.now();
     try {
+      // The grant of the system first: macOS asks before a model download, and a refusal says so.
+      const blocked = microphoneBlockText(await ensureMicrophoneAccess());
+      if (own !== generation || disposed) return;
+      if (blocked) throw new Error(currentText().t(blocked));
       const speech = speechPort().voice;
       const server = await speech.getServer();
       // The user's own server reads the replies, so the speech model is not necessary.

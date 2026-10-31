@@ -30,4 +30,6 @@ export const messages = {
   "error.voice.speech.timedOut": "Yanıtı sesli okuma zaman aşımına uğradı.",
   "error.voice.speech.failed": "Builders Bot yanıtı sesli okuyamadı.",
   "error.voice.recordingNotKept": "Builders Bot ses kaydını saklayamadı.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot ses sunucunuzun kayıtlı anahtarını okuyamıyor. Anahtarı yeniden yazın veya kaldırın.",
 } as const satisfies PartialTranslation<typeof source>;

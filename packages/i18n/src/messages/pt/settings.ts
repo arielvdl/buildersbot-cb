@@ -563,6 +563,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Não foi possível iniciar o download. Tente de novo.",
   "settings.voice.cancelFailed": "Não foi possível parar o download.",
   "settings.voice.removeFailed": "Não foi possível remover o modelo. Tente novamente.",
+  "settings.voice.microphone.section": "Microfone",
+  "settings.voice.microphone.title": "Acesso ao microfone",
+  "settings.voice.microphone.granted": "Permitido.",
+  "settings.voice.microphone.notDetermined":
+    "Ainda não pedido. O Builders Bot pede quando você ditar pela primeira vez.",
+  "settings.voice.microphone.denied":
+    "Não permitido. Permita o Builders Bot nos ajustes do sistema e reinicie o Builders Bot.",
+  "settings.voice.microphone.restricted": "Bloqueado pela administração deste computador.",
+  "settings.voice.microphone.agentCommands":
+    "Os comandos que os agentes executam pelo Builders Bot também podem usar o microfone que você permitir.",
+  "settings.voice.microphone.ask": "Pedir acesso",
+  "settings.voice.microphone.openMac": "Abrir Ajustes",
+  "settings.voice.microphone.openWindows": "Abrir as Configurações do Windows",
+  "settings.voice.microphone.restart": "Reiniciar o Builders Bot",
+  "settings.voice.microphone.restartFailed": "Não foi possível reiniciar o Builders Bot.",
+  "settings.voice.microphone.openFailed": "Não foi possível abrir os ajustes do sistema.",
   "settings.voice.model.elevenlabs.description":
     "Envia sua voz para a ElevenLabs. O texto aparece enquanto você fala e não muda. Usa sua própria chave de API, e a ElevenLabs cobra cada uso.",
   "settings.voice.model.keySaved": "Chave de API salva",

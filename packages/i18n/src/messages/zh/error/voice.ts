@@ -27,4 +27,5 @@ export const messages = {
   "error.voice.speech.timedOut": "朗读回复超时。",
   "error.voice.speech.failed": "Builders Bot 无法朗读该回复。",
   "error.voice.recordingNotKept": "Builders Bot 无法保留该录音。",
+  "error.voice.server.keyUnreadable": "Builders Bot 无法读取你的语音服务器已保存的密钥。请重新输入密钥，或将其移除。",
 } as const satisfies PartialTranslation<typeof source>;

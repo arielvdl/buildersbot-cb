@@ -30,4 +30,6 @@ export const messages = {
   "error.voice.speech.timedOut": "Das Vorlesen der Antwort hat zu lange gedauert.",
   "error.voice.speech.failed": "Builders Bot konnte die Antwort nicht vorlesen.",
   "error.voice.recordingNotKept": "Builders Bot konnte die Sprachaufnahme nicht speichern.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot kann den gespeicherten Schlüssel deines Sprachservers nicht lesen. Gib den Schlüssel erneut ein oder entferne ihn.",
 } as const satisfies PartialTranslation<typeof source>;

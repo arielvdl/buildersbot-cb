@@ -191,8 +191,8 @@ export interface ConversationProps {
   /** Opens the notification settings at a server, where the user changes the level of its agents. */
   onOpenNotificationSettings?: ((serverId: string, trigger: HTMLElement) => void) | undefined;
   /**
-   * Opens the pane of the operating system that grants this app the microphone. Absent where the app
-   * cannot open that pane, such as the web client and a computer that is not a Mac.
+   * Opens the page of the operating system that grants this app the microphone: System Settings on
+   * macOS, Windows Settings on Windows. Absent in the web client and on Linux.
    */
   onOpenMicrophoneSettings?: (() => void) | undefined;
   /** Opens Settings › Voice of this app, where the dictation model and its key are. Absent in the web client. */

@@ -108,7 +108,12 @@ export class VoiceServerService extends EventEmitter<VoiceServerEvents> {
   get(): VoiceServerSettings | null {
     const { server } = this.#preferences.get();
     if (!server) return null;
-    return { address: server.address, hasApiKey: this.#apiKeys.get() !== null, routes: { ...server.routes } };
+    return {
+      address: server.address,
+      hasApiKey: this.#apiKeys.get() !== null,
+      ...(this.#apiKeys.status() === "unreadable" ? { apiKeyUnreadable: true } : {}),
+      routes: { ...server.routes },
+    };
   }
 
   /** True while the server takes dictation in place of the model on this computer. */
@@ -128,6 +133,7 @@ export class VoiceServerService extends EventEmitter<VoiceServerEvents> {
   ) {
     const target = { address: connection.address, apiKey: this.#keyFor(connection) };
     return yield* listModels(this.#fetch, target).pipe(
+      Effect.mapError((failure) => this.#explainRefusal(failure, connection)),
       Effect.map((models): VoiceServerProbe => ({ ok: true, models })),
       Effect.catch((failure) =>
         Effect.succeed<VoiceServerProbe>({ ok: false, field: failure.field, message: failure.message }),
@@ -137,15 +143,21 @@ export class VoiceServerService extends EventEmitter<VoiceServerEvents> {
 
   /** Saves the server, or removes it with its key. Dictation and replies use it from the next request. */
   readonly set = Effect.fn("VoiceServer.set")(function* (this: VoiceServerService, input: VoiceServerInput | null) {
+    // A saved key that cannot be decrypted stays on the disk while the server keeps its origin and no
+    // key is typed: only a new key or the removal of the server replaces the file.
+    const keepUnreadableKey = input !== null && this.#unreadableKeyFor(input);
     const apiKey = input ? this.#keyFor(input) : null;
     const previousKey = this.#apiKeys.get();
-    yield* this.#apiKeys.set(apiKey).pipe(Effect.mapError(({ cause }) => new VoiceOperationError({ cause })));
+    if (!keepUnreadableKey)
+      yield* this.#apiKeys.set(apiKey).pipe(Effect.mapError(({ cause }) => new VoiceOperationError({ cause })));
     // The key belongs to the new address. When that address is not saved, the old key goes back, or
     // no key stays, so the old origin never receives a key that was given for another server.
-    const restoreKey = this.#apiKeys.set(previousKey).pipe(
-      Effect.catch(() => this.#apiKeys.set(null)),
-      Effect.ignore,
-    );
+    const restoreKey = keepUnreadableKey
+      ? Effect.void
+      : this.#apiKeys.set(previousKey).pipe(
+          Effect.catch(() => this.#apiKeys.set(null)),
+          Effect.ignore,
+        );
     yield* this.#preferences.set({ server: input ? { address: input.address, routes: input.routes } : null }).pipe(
       Effect.tapError(() => restoreKey),
       Effect.mapError(({ cause }) => new VoiceOperationError({ cause })),
@@ -185,7 +197,7 @@ export class VoiceServerService extends EventEmitter<VoiceServerEvents> {
       ),
       Effect.mapError((failure) => {
         logger.warn(`Voice server transcription failed after ${Date.now() - startedAt}ms.`);
-        return new VoiceOperationError({ cause: new Error(failure.message) });
+        return new VoiceOperationError({ cause: new Error(this.#explainRefusal(failure, server).message) });
       }),
     );
     return { text: text.trim() } satisfies VoiceTranscriptionResult;
@@ -215,8 +227,32 @@ export class VoiceServerService extends EventEmitter<VoiceServerEvents> {
             return audio ? Effect.succeed(audio) : Effect.fail(invalidAudio(host));
           }),
         ),
-    ).pipe(Effect.mapError((failure) => new VoiceOperationError({ cause: new Error(failure.message) })));
+    ).pipe(
+      Effect.mapError(
+        (failure) => new VoiceOperationError({ cause: new Error(this.#explainRefusal(failure, server).message) }),
+      ),
+    );
   }).bind(this);
+
+  /**
+   * True when no key is typed, the address keeps the saved origin, and the saved key cannot be
+   * decrypted. The request then goes with no key, as it did before.
+   */
+  #unreadableKeyFor(connection: { address: string; apiKey?: string | null }): boolean {
+    if (connection.apiKey || this.#apiKeys.status() !== "unreadable") return false;
+    const saved = this.#preferences.get().server;
+    return saved !== null && sameCustomProviderOrigin(saved.address, connection.address);
+  }
+
+  /**
+   * A refused key, when the request went with no key because the saved one cannot be decrypted, says
+   * that: "the server refused the key" would send the user to check a key that is not the problem.
+   * A server that needs no key still answers, so the request is not stopped before it goes.
+   */
+  #explainRefusal(failure: VoiceServerFailure, connection: { address: string; apiKey?: string | null }) {
+    if (failure.field !== "apiKey" || !this.#unreadableKeyFor(connection)) return failure;
+    return new VoiceServerFailure({ field: "apiKey", message: sourceText("error.voice.server.keyUnreadable") });
+  }
 
   /** The key that the form gave, or the saved key while the address keeps the saved origin. */
   #keyFor(connection: VoiceServerConnection): string | null {

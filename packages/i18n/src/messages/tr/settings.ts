@@ -456,6 +456,21 @@ export const messages = {
   "settings.voice.downloadFailed": "İndirme başlatılamadı. Tekrar deneyin.",
   "settings.voice.cancelFailed": "İndirme durdurulamadı.",
   "settings.voice.removeFailed": "Model kaldırılamadı. Tekrar deneyin.",
+  "settings.voice.microphone.section": "Mikrofon",
+  "settings.voice.microphone.title": "Mikrofon erişimi",
+  "settings.voice.microphone.granted": "İzin verildi.",
+  "settings.voice.microphone.notDetermined": "Henüz sorulmadı. Builders Bot ilk kez dikte ettiğinizde sorar.",
+  "settings.voice.microphone.denied":
+    "İzin verilmedi. Sistem ayarlarından Builders Bot'a izin verin, ardından Builders Bot'u yeniden başlatın.",
+  "settings.voice.microphone.restricted": "Bu bilgisayarın yöneticisi tarafından engellendi.",
+  "settings.voice.microphone.agentCommands":
+    "Ajanların Builders Bot'tan çalıştırdığı komutlar da izin verdiğiniz mikrofonu kullanabilir.",
+  "settings.voice.microphone.ask": "Erişim iste",
+  "settings.voice.microphone.openMac": "Sistem Ayarları'nı aç",
+  "settings.voice.microphone.openWindows": "Windows Ayarları'nı aç",
+  "settings.voice.microphone.restart": "Builders Bot'u yeniden başlat",
+  "settings.voice.microphone.restartFailed": "Builders Bot yeniden başlatılamadı.",
+  "settings.voice.microphone.openFailed": "Sistem ayarları açılamadı.",
   "settings.voice.model.elevenlabs.description":
     "Sesinizi ElevenLabs'e gönderir. Metin siz konuşurken görünür ve değişmez. Kendi API anahtarınızı kullanır ve ElevenLabs her kullanımı ücretlendirir.",
   "settings.voice.model.keySaved": "API anahtarı kaydedildi",

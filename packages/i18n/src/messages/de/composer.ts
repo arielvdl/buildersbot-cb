@@ -57,7 +57,9 @@ export const messages = {
   "composer.voice.start": "Anweisung per Sprache erstellen",
   "composer.voice.blocked":
     "Der Mikrofonzugriff ist gesperrt. Erlaube Builders Bot in den Systemeinstellungen den Zugriff auf das Mikrofon.",
+  "composer.voice.restricted": "Der Administrator dieses Computers sperrt das Mikrofon.",
   "composer.voice.openMicrophoneSettings": "Systemeinstellungen öffnen",
+  "composer.voice.openWindowsMicrophoneSettings": "Windows-Einstellungen öffnen",
   "composer.voice.openVoiceSettings": "Diktat-Einstellungen",
   "composer.voice.noMicrophone": "Kein Mikrofon verfügbar.",
   "composer.voice.startFailed": "Builders Bot konnte die Sprachaufnahme nicht starten.",

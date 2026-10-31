@@ -602,6 +602,21 @@ export const messages = defineMessages("settings", {
   "settings.voice.downloadFailed": "Could not start the download. Try again.",
   "settings.voice.cancelFailed": "Could not stop the download.",
   "settings.voice.removeFailed": "Could not remove the model. Try again.",
+  "settings.voice.microphone.section": "Microphone",
+  "settings.voice.microphone.title": "Microphone access",
+  "settings.voice.microphone.granted": "Allowed.",
+  "settings.voice.microphone.notDetermined": "Not asked yet. Builders Bot asks when you dictate for the first time.",
+  "settings.voice.microphone.denied":
+    "Not allowed. Allow Builders Bot in the system settings, then restart Builders Bot.",
+  "settings.voice.microphone.restricted": "Blocked by the administrator of this computer.",
+  "settings.voice.microphone.agentCommands":
+    "Commands that agents run from Builders Bot can also use the microphone that you allow.",
+  "settings.voice.microphone.ask": "Ask for access",
+  "settings.voice.microphone.openMac": "Open System Settings",
+  "settings.voice.microphone.openWindows": "Open Windows Settings",
+  "settings.voice.microphone.restart": "Restart Builders Bot",
+  "settings.voice.microphone.restartFailed": "Could not restart Builders Bot.",
+  "settings.voice.microphone.openFailed": "Could not open the system settings.",
   "settings.voice.model.elevenlabs.description":
     "Streams your voice to ElevenLabs. Text shows while you speak and stays fixed. Uses your own API key, and ElevenLabs bills each use.",
   "settings.voice.model.keySaved": "API key saved",

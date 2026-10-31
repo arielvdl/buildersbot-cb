@@ -11,6 +11,7 @@ import { currentText } from "@openbot/ui/text";
 import { createSignal, onCleanup } from "solid-js";
 import { appPort } from "../../app-port";
 import { encodePcm16, recordingToSamples, recordingToWav } from "../../voice-recording";
+import { ensureMicrophoneAccess } from "./microphone-access";
 
 /**
  * The dictation of the global combination.
@@ -36,6 +37,16 @@ let stopping = false;
 
 async function start(): Promise<void> {
   stopping = false;
+  if (recording) return;
+  // The window can be hidden, so a refusal goes to the overlay with its own text. A grant that is
+  // not decided shows the macOS prompt here, before the recording.
+  const access = await ensureMicrophoneAccess();
+  if (access === "denied" || access === "restricted") {
+    await report({
+      failure: access === "denied" ? "error.dictation.microphoneDenied" : "error.dictation.microphoneRestricted",
+    });
+    return;
+  }
   if (recording) return;
   let stream: MediaStream;
   try {

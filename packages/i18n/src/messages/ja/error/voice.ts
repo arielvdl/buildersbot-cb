@@ -29,4 +29,6 @@ export const messages = {
   "error.voice.speech.timedOut": "返信の読み上げがタイムアウトしました。",
   "error.voice.speech.failed": "Builders Bot は返信を読み上げられませんでした。",
   "error.voice.recordingNotKept": "Builders Bot は音声録音を保存できませんでした。",
+  "error.voice.server.keyUnreadable":
+    "音声サーバーの保存済みキーを Builders Bot で読み取れません。キーを入力し直すか、削除してください。",
 } as const satisfies PartialTranslation<typeof source>;

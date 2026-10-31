@@ -334,6 +334,13 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     const server = activeServer();
     if (server) openServerSettings(server.id, trigger, "providers");
   };
+  /** The system page that grants this app the microphone. Linux has none that a URL opens. */
+  const microphoneSettings = () => {
+    const system = platform.appInfo()?.platform;
+    if (system !== "darwin" && system !== "win32") return undefined;
+    const destination = system === "win32" ? "windows-microphone" : "mac-microphone";
+    return () => void appPort().openExternal(destination);
+  };
   /** The named browser profiles live on the computer that runs the agents: this one, or a host an admin manages. */
   const manageBrowserProfiles = createMemo(() => serverCanAdminister(activeServer(), BROWSER_PROFILES_CAPABILITY));
   const openBrowserProfileSettings = (trigger: HTMLElement) => {
@@ -527,10 +534,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         onManageProviders={manageProviders() ? openProviderSettings : undefined}
         onManageBrowserProfiles={manageBrowserProfiles() ? openBrowserProfileSettings : undefined}
         onOpenNotificationSettings={openNotificationLevels}
-        // Only macOS has a pane for this app's microphone that a URL opens.
-        onOpenMicrophoneSettings={
-          platform.appInfo()?.platform === "darwin" ? () => void appPort().openExternal("mac-microphone") : undefined
-        }
+        onOpenMicrophoneSettings={microphoneSettings()}
         onOpenVoiceSettings={(trigger) => openAppSettings(trigger, "voice")}
         agent={conversationAgent()}
         agents={agentList()}

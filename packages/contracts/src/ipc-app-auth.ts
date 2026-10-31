@@ -466,4 +466,6 @@ export type ExternalDestination =
   | "mac-screen-recording"
   // Not a page: the macOS pane that grants Builders Bot the microphone, for dictation that the
   // system refused. A fixed address, as for screen recording.
-  | "mac-microphone";
+  | "mac-microphone"
+  // Not a page: the Windows privacy page for the microphone, for the same case on Windows.
+  | "windows-microphone";

@@ -28,4 +28,6 @@ export const messages = {
   "error.voice.speech.timedOut": "답변을 소리 내어 읽는 시간이 초과되었어요.",
   "error.voice.speech.failed": "Builders Bot이 답변을 소리 내어 읽지 못했어요.",
   "error.voice.recordingNotKept": "Builders Bot이 음성 녹음을 보관하지 못했어요.",
+  "error.voice.server.keyUnreadable":
+    "음성 서버의 저장된 키를 Builders Bot에서 읽을 수 없어요. 키를 다시 입력하거나 삭제해 주세요.",
 } as const satisfies PartialTranslation<typeof source>;

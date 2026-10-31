@@ -58,7 +58,9 @@ export const messages = {
   "composer.voice.start": "Prompt inspreken",
   "composer.voice.blocked":
     "Toegang tot de microfoon is geblokkeerd. Geef Builders Bot toegang tot de microfoon in de systeeminstellingen.",
+  "composer.voice.restricted": "De beheerder van deze computer blokkeert de microfoon.",
   "composer.voice.openMicrophoneSettings": "Systeeminstellingen openen",
+  "composer.voice.openWindowsMicrophoneSettings": "Windows-instellingen openen",
   "composer.voice.openVoiceSettings": "Spraakinstellingen",
   "composer.voice.noMicrophone": "Er is geen microfoon beschikbaar.",
   "composer.voice.startFailed": "Builders Bot kan de spraakopname niet starten.",

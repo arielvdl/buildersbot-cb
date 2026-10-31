@@ -1,6 +1,8 @@
 import {
+  type AppInfo,
   ELEVENLABS_VOICE_MODEL_ID,
   isSpeechLanguage,
+  type MicrophoneAccess,
   type SpeechModelStatus,
   type SpeechSettings,
   type SpeechVoice,
@@ -16,7 +18,9 @@ import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore } from "solid-js";
 import { desktopAnalytics } from "../../analytics";
+import { appPort } from "../../app-port";
 import { readAloud, stopSpeech } from "../speech/speech-playback";
+import { askForMicrophoneAccess, readMicrophoneAccess } from "../voice/microphone-access";
 import { voicePort } from "./voice-port";
 
 interface SettingsVoiceState {
@@ -27,6 +31,8 @@ interface SettingsVoiceState {
   speech: { status: SpeechModelStatus | null; settings: SpeechSettings | null; listening: boolean };
   /** The user's own voice server, or null when none is set up or before main answers. */
   server: VoiceServerSettings | null;
+  /** The grant of the system for the microphone, or null before main answers. */
+  microphone: MicrophoneAccess | null;
 }
 
 const EMPTY_STATUSES: SettingsVoiceState["statuses"] = {
@@ -46,7 +52,8 @@ type FailureKey =
   | "settings.voice.apiKey.removeFailed"
   | "settings.voice.speech.listenFailed"
   | "settings.voice.server.saveFailed"
-  | "settings.voice.server.removeFailed";
+  | "settings.voice.server.removeFailed"
+  | "settings.voice.microphone.openFailed";
 
 /**
  * The Voice tab's view of the dictation models and settings. It is created by the settings page,
@@ -58,7 +65,14 @@ export function createSettingsVoiceStore(active: () => boolean) {
     settings: null,
     speech: { status: null, settings: null, listening: false },
     server: null,
+    microphone: null,
   });
+  const setMicrophone = (microphone: MicrophoneAccess) =>
+    setState((draft) => {
+      draft.microphone = microphone;
+    });
+  /** The grant can change in System Settings while the tab is open, so it is read again on focus. */
+  const refreshMicrophone = () => void readMicrophoneAccess().then(setMicrophone);
   const setServer = (server: VoiceServerSettings | null) =>
     setState((draft) => {
       draft.server = server;
@@ -97,10 +111,13 @@ export function createSettingsVoiceStore(active: () => boolean) {
         });
       })
       .catch((error: unknown) => fail(error, "settings.voice.loadFailed"));
+    refreshMicrophone();
+    window.addEventListener("focus", refreshMicrophone);
     return () => {
       stopModel();
       stopSpeechModel();
       stopServer();
+      window.removeEventListener("focus", refreshMicrophone);
     };
   });
 
@@ -294,8 +311,22 @@ export function createSettingsVoiceStore(active: () => boolean) {
     }
   }
 
+  /** Shows the system prompt while the grant is not decided. */
+  function askMicrophone(): void {
+    void askForMicrophoneAccess().then(setMicrophone);
+  }
+
+  /** Opens the page of the system that grants the microphone: System Settings or Windows Settings. */
+  function openMicrophoneSettings(platform: AppInfo["platform"]): void {
+    void appPort()
+      .openExternal(platform === "win32" ? "windows-microphone" : "mac-microphone")
+      .catch((error: unknown) => fail(error, "settings.voice.microphone.openFailed"));
+  }
+
   return {
     state,
+    askMicrophone,
+    openMicrophoneSettings,
     download,
     cancel,
     remove,

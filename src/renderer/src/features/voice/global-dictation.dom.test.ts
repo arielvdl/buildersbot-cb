@@ -4,6 +4,7 @@ import {
   type DictationResult,
   type DictationState,
   ELEVENLABS_VOICE_MODEL_ID,
+  type MicrophoneAccess,
   VOICE_MODELS,
   type VoiceServerSettings,
   type VoiceSettings,
@@ -76,6 +77,8 @@ function installVoice(settings: VoiceSettings, server: VoiceServerSettings | nul
     appendStream: vi.fn(async (_audio: VoiceStreamAudio) => undefined),
     finishStream: vi.fn(async (_stream: VoiceStream) => ({ text: "Text from ElevenLabs" })),
     cancelStream: vi.fn(async (_stream: VoiceStream) => undefined),
+    getMicrophoneAccess: vi.fn(async (): Promise<MicrophoneAccess> => "granted"),
+    requestMicrophoneAccess: vi.fn(async (): Promise<MicrophoneAccess> => "granted"),
   };
   Object.defineProperty(window, "openbot", { configurable: true, value: { voice } });
   return { voice, publish: (state: DictationState) => listener?.(state) };
@@ -200,6 +203,33 @@ describe("the dictation of the global combination", () => {
     expect(dictationText({ phase: "failed", failure: "error.voice.cloud.keyUnreadable" })).toBe(
       sourceText("error.voice.cloud.keyUnreadable"),
     );
+  });
+
+  it("does not open the microphone that the system refused, and says why", async () => {
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("denied");
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: () => undefined }] }));
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
+    mount();
+
+    publish({ phase: "recording", failure: null });
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.microphoneDenied" });
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(voice.requestMicrophoneAccess).not.toHaveBeenCalled();
+  });
+
+  it("asks the system for the microphone first when the grant is not decided", async () => {
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("not-determined");
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.requestMicrophoneAccess).toHaveBeenCalledTimes(1);
+    expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
   });
 
   it("reports the generic failure for text with a value in it, so the overlay shows no placeholder", async () => {

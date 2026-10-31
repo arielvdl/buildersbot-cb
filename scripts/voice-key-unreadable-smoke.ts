@@ -10,6 +10,10 @@
 //      "missing"; `prepareModel` and `startStream` give the same text.
 //   3. Reverse: removing the key deletes the file and the status is "missing"; a new key is "saved"
 //      and the model is "ready".
+//   4. The user's own voice server (Fase 0b): `hasApiKey` stays false as before and the additive
+//      `apiKeyUnreadable` is true. A save with no typed key keeps the file. A server that refuses
+//      the request says that the saved key cannot be read; a server that needs no key still answers.
+//      A new key clears the state.
 //
 // Run: bun scripts/voice-key-unreadable-smoke.ts
 // It writes .openbot-build/voice-anywhere/f0a-key-unreadable.json and exits non-zero on a failure.
@@ -25,6 +29,7 @@ import { createBuildersBotLogger, teeLogLines } from "@openbot/logging";
 import { Effect, Result } from "effect";
 import { type VoiceApiKeyCipher, VoiceApiKeyStore } from "../src/main/voice-api-key-store";
 import { VoicePreferenceStore } from "../src/main/voice-preference-store";
+import { createVoiceServerPreferenceStore, VoiceServerService } from "../src/main/voice-server-service";
 import type { VoiceTranscriptionHostProcess } from "../src/main/voice-transcription-protocol";
 import { VoiceTranscriptionService } from "../src/main/voice-transcription-service";
 
@@ -156,6 +161,62 @@ try {
     model: saved,
   });
   await Effect.runPromise(voice.shutdown());
+
+  // 4. The user's own voice server, with its own key file.
+  const serverKeyPath = join(directory, "voice-server-key.json");
+  const address = "http://studio.local:8000/v1";
+  const routes = { dictation: true, speech: false, transcriptionModel: "whisper-1", speechModel: null, voice: null };
+  const serverPreferences = createVoiceServerPreferenceStore(join(directory, "voice-server.json"));
+  await Effect.runPromise(serverPreferences.load());
+  const sealedServer = new VoiceApiKeyStore({ path: serverKeyPath, cipher: aesCipher() });
+  await Effect.runPromise(sealedServer.load());
+  await Effect.runPromise(sealedServer.set(KEY));
+  await Effect.runPromise(serverPreferences.set({ server: { address, routes } }));
+  const serverKeys = new VoiceApiKeyStore({ path: serverKeyPath, cipher: aesCipher() });
+  await Effect.runPromise(serverKeys.load());
+  /** The fake server: it refuses a request with no key until `open` is set. */
+  const fake: { open: boolean; authorized: boolean[] } = { open: false, authorized: [] };
+  const fakeFetch = async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const authorized = new Headers(init?.headers).has("Authorization");
+    fake.authorized.push(authorized);
+    if (!authorized && !fake.open) return new Response("{}", { status: 401 });
+    return new Response(JSON.stringify({ text: "Server transcript" }), { status: 200 });
+  };
+  const server = new VoiceServerService({
+    preferences: serverPreferences,
+    apiKeys: serverKeys,
+    fetch: Object.assign(fakeFetch, { preconnect: fetch.preconnect }),
+  });
+  const settings = server.get();
+  check(
+    "the server settings say the key cannot be read, and hasApiKey is false as before",
+    settings?.hasApiKey === false && settings.apiKeyUnreadable === true,
+    settings,
+  );
+  await Effect.runPromise(server.set({ address, apiKey: null, routes }));
+  check("a save with no typed key keeps the unreadable file", existsSync(serverKeyPath), serverKeyPath);
+  // A tenth of a second of silence after the 44-byte header. The fake server reads no audio.
+  const wav = new Uint8Array(44 + 3_200);
+  const refused = await failureMessage(server.transcribe(wav, "pt"));
+  check(
+    "a refused request says that the saved key cannot be read",
+    refused === sourceText("error.voice.server.keyUnreadable"),
+    refused,
+  );
+  fake.open = true;
+  const open = await Effect.runPromise(server.transcribe(wav, "pt"));
+  check("a server that needs no key still answers", open.text === "Server transcript", open);
+  check(
+    "no request carried a key while the saved key could not be read",
+    fake.authorized.every((sent) => !sent),
+    fake.authorized,
+  );
+  const renewed = await Effect.runPromise(server.set({ address, apiKey: NEW_KEY, routes }));
+  check(
+    "a new key clears the unreadable state",
+    renewed?.hasApiKey === true && renewed.apiKeyUnreadable === undefined && serverKeys.status() === "saved",
+    renewed,
+  );
 } finally {
   stopTee();
   await rm(directory, { recursive: true, force: true });

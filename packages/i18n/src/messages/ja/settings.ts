@@ -445,6 +445,22 @@ export const messages = {
   "settings.voice.downloadFailed": "ダウンロードを開始できませんでした。もう一度お試しください。",
   "settings.voice.cancelFailed": "ダウンロードを停止できませんでした。",
   "settings.voice.removeFailed": "モデルを削除できませんでした。もう一度お試しください。",
+  "settings.voice.microphone.section": "マイク",
+  "settings.voice.microphone.title": "マイクへのアクセス",
+  "settings.voice.microphone.granted": "許可されています。",
+  "settings.voice.microphone.notDetermined":
+    "まだ確認していません。初めて音声入力するときに Builders Bot が確認します。",
+  "settings.voice.microphone.denied":
+    "許可されていません。システム設定で Builders Bot を許可してから、Builders Bot を再起動してください。",
+  "settings.voice.microphone.restricted": "このコンピューターの管理者によってブロックされています。",
+  "settings.voice.microphone.agentCommands":
+    "Builders Bot からエージェントが実行するコマンドも、許可したマイクを使えます。",
+  "settings.voice.microphone.ask": "アクセスを求める",
+  "settings.voice.microphone.openMac": "システム設定を開く",
+  "settings.voice.microphone.openWindows": "Windows の設定を開く",
+  "settings.voice.microphone.restart": "Builders Bot を再起動",
+  "settings.voice.microphone.restartFailed": "Builders Bot を再起動できませんでした。",
+  "settings.voice.microphone.openFailed": "システムの設定を開けませんでした。",
   "settings.voice.model.elevenlabs.description":
     "音声を ElevenLabs に送信します。話している間に文字が表示され、途中で変わりません。ご自身の API キーを使い、利用ごとに ElevenLabs から請求されます。",
   "settings.voice.model.keySaved": "API キーを保存済み",

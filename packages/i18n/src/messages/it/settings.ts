@@ -453,6 +453,21 @@ export const messages = {
   "settings.voice.downloadFailed": "Impossibile avviare il download. Riprova.",
   "settings.voice.cancelFailed": "Impossibile interrompere il download.",
   "settings.voice.removeFailed": "Impossibile rimuovere il modello. Riprova.",
+  "settings.voice.microphone.section": "Microfono",
+  "settings.voice.microphone.title": "Accesso al microfono",
+  "settings.voice.microphone.granted": "Consentito.",
+  "settings.voice.microphone.notDetermined": "Non ancora richiesto. Builders Bot lo chiede la prima volta che detti.",
+  "settings.voice.microphone.denied":
+    "Non consentito. Consenti Builders Bot nelle impostazioni di sistema, poi riavvia Builders Bot.",
+  "settings.voice.microphone.restricted": "Bloccato dall'amministratore di questo computer.",
+  "settings.voice.microphone.agentCommands":
+    "Anche i comandi che gli agenti eseguono da Builders Bot possono usare il microfono che consenti.",
+  "settings.voice.microphone.ask": "Chiedi accesso",
+  "settings.voice.microphone.openMac": "Apri Impostazioni di Sistema",
+  "settings.voice.microphone.openWindows": "Apri Impostazioni di Windows",
+  "settings.voice.microphone.restart": "Riavvia Builders Bot",
+  "settings.voice.microphone.restartFailed": "Impossibile riavviare Builders Bot.",
+  "settings.voice.microphone.openFailed": "Impossibile aprire le impostazioni di sistema.",
   "settings.voice.model.elevenlabs.description":
     "Invia la tua voce in streaming a ElevenLabs. Il testo compare mentre parli e non cambia più. Usa la tua chiave API, ed ElevenLabs addebita ogni utilizzo.",
   "settings.voice.model.keySaved": "Chiave API salvata",

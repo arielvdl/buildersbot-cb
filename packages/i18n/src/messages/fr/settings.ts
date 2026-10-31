@@ -466,6 +466,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Impossible de lancer le téléchargement. Réessayez.",
   "settings.voice.cancelFailed": "Impossible d’arrêter le téléchargement.",
   "settings.voice.removeFailed": "Impossible de retirer le modèle. Réessayez.",
+  "settings.voice.microphone.section": "Microphone",
+  "settings.voice.microphone.title": "Accès au microphone",
+  "settings.voice.microphone.granted": "Autorisé.",
+  "settings.voice.microphone.notDetermined":
+    "Pas encore demandé. Builders Bot le demande la première fois que vous dictez.",
+  "settings.voice.microphone.denied":
+    "Non autorisé. Autorisez Builders Bot dans les réglages du système, puis redémarrez Builders Bot.",
+  "settings.voice.microphone.restricted": "Bloqué par l’administrateur de cet ordinateur.",
+  "settings.voice.microphone.agentCommands":
+    "Les commandes que les agents exécutent depuis Builders Bot peuvent aussi utiliser le microphone que vous autorisez.",
+  "settings.voice.microphone.ask": "Demander l’accès",
+  "settings.voice.microphone.openMac": "Ouvrir Réglages Système",
+  "settings.voice.microphone.openWindows": "Ouvrir les Paramètres Windows",
+  "settings.voice.microphone.restart": "Redémarrer Builders Bot",
+  "settings.voice.microphone.restartFailed": "Impossible de redémarrer Builders Bot.",
+  "settings.voice.microphone.openFailed": "Impossible d’ouvrir les réglages du système.",
   "settings.voice.model.elevenlabs.description":
     "Envoie votre voix à ElevenLabs. Le texte s’affiche pendant que vous parlez et reste stable. Utilise votre propre clé API, et ElevenLabs facture chaque utilisation.",
   "settings.voice.model.keySaved": "Clé API enregistrée",

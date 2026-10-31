@@ -88,6 +88,7 @@ import {
   isDiscoverModelsResult,
   isInterruptedWorkOffer,
   isLoadSnapshot,
+  isMicrophoneAccess,
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
   isRemoteDesktopTestStatus,
@@ -100,6 +101,7 @@ import {
   isVoiceServerProbe,
   isVoiceServerSettings,
   type LoadSnapshot,
+  type MicrophoneAccess,
   type MobileConnectedDevice,
   type MobileConnectLink,
   type MobileConnectTicket,
@@ -583,9 +585,19 @@ export function decodeSpeechAudio(value: unknown): SpeechAudio {
 export function decodeVoiceServerSettings(value: unknown): VoiceServerSettings | null {
   if (value === null) return null;
   if (!isVoiceServerSettings(value)) throw new Error("Invalid voice server settings.");
-  const { address, hasApiKey, routes } = value;
+  const { address, hasApiKey, apiKeyUnreadable, routes } = value;
   const { dictation, speech, transcriptionModel, speechModel, voice } = routes;
-  return { address, hasApiKey, routes: { dictation, speech, transcriptionModel, speechModel, voice } };
+  return {
+    address,
+    hasApiKey,
+    ...(apiKeyUnreadable === undefined ? {} : { apiKeyUnreadable }),
+    routes: { dictation, speech, transcriptionModel, speechModel, voice },
+  };
+}
+
+export function decodeMicrophoneAccess(value: unknown): MicrophoneAccess {
+  if (!isMicrophoneAccess(value)) throw new Error("Invalid microphone access.");
+  return value;
 }
 
 export function decodeVoiceServerProbe(value: unknown): VoiceServerProbe {

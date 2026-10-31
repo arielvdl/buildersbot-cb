@@ -460,6 +460,21 @@ export const messages = {
   "settings.voice.downloadFailed": "No se pudo iniciar la descarga. Inténtalo de nuevo.",
   "settings.voice.cancelFailed": "No se pudo detener la descarga.",
   "settings.voice.removeFailed": "No se pudo quitar el modelo. Inténtalo de nuevo.",
+  "settings.voice.microphone.section": "Micrófono",
+  "settings.voice.microphone.title": "Acceso al micrófono",
+  "settings.voice.microphone.granted": "Permitido.",
+  "settings.voice.microphone.notDetermined": "Aún no se ha pedido. Builders Bot lo pide la primera vez que dictas.",
+  "settings.voice.microphone.denied":
+    "No permitido. Permite Builders Bot en los ajustes del sistema y luego reinicia Builders Bot.",
+  "settings.voice.microphone.restricted": "Bloqueado por el administrador de este ordenador.",
+  "settings.voice.microphone.agentCommands":
+    "Los comandos que los agentes ejecutan desde Builders Bot también pueden usar el micrófono que permitas.",
+  "settings.voice.microphone.ask": "Pedir acceso",
+  "settings.voice.microphone.openMac": "Abrir Ajustes del Sistema",
+  "settings.voice.microphone.openWindows": "Abrir Configuración de Windows",
+  "settings.voice.microphone.restart": "Reiniciar Builders Bot",
+  "settings.voice.microphone.restartFailed": "No se pudo reiniciar Builders Bot.",
+  "settings.voice.microphone.openFailed": "No se pudieron abrir los ajustes del sistema.",
   "settings.voice.model.elevenlabs.description":
     "Envía tu voz a ElevenLabs. El texto aparece mientras hablas y no cambia. Usa tu propia clave de API, y ElevenLabs cobra cada uso.",
   "settings.voice.model.keySaved": "Clave de API guardada",

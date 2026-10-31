@@ -82,7 +82,8 @@ import { stringPayload } from "./validation";
  *
  * `mac-screen-recording` is not a web page. macOS opens a settings pane from a URL, and the table is
  * what keeps that address out of the renderer. It is the same pane the Computer Use panel opens, so
- * it is read from `mac-permission-urls.ts` rather than written twice. `hosted-server-contact` is a
+ * it is read from `mac-permission-urls.ts` rather than written twice. `mac-microphone` and
+ * `windows-microphone` are the system pages for the microphone grant. `hosted-server-contact` is a
  * `mailto:` address, which `openUrl` refuses; the web client opens the same constant.
  */
 const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
@@ -101,6 +102,7 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "hosted-server-contact": HOSTED_SERVER_CONTACT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
   "mac-microphone": MAC_PERMISSION_URLS.microphone,
+  "windows-microphone": "ms-settings:privacy-microphone",
 };
 
 import { runCauseEffect } from "../../backend/effect-boundary";
