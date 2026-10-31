@@ -6,8 +6,5 @@
   deny the requests in Settings > Profile. Servers that exist do not change. When this deployment
   cannot create remote servers, the apps show nothing about it. The administrator section needs a
   Cultura Builder sign-in. A revoke closes the payment pages that the person opened before it.
-
-### Known issues
-
-- The mobile app does not show "Ask for permission" yet. A person without the permission does not
-  see the plans on the phone; they can ask from the desktop app or the web client.
+  The mobile app does not show "Ask for permission" yet: a person without the permission asks from
+  the desktop app or the web client.
