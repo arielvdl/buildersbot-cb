@@ -113,8 +113,9 @@ services:
       retries: 3
 
   # Sends the TURN and Signal counts to OpenPanel every 5 minutes (see ANALYTICS.md, `signal_capacity`).
-  # It uses the host network to read the coturn metrics on 127.0.0.1:9641. Without the OpenPanel server
-  # client it exits at start and stays stopped.
+  # It uses the host network to read the coturn metrics on 127.0.0.1:9641. It has no default address:
+  # without OPENPANEL_TRACK_URL (a service that the owner controls) and the OpenPanel server client it
+  # exits at start and stays stopped.
   capacity-report:
     build:
       context: ..
@@ -128,6 +129,7 @@ services:
       - remote-api
       - coturn
     environment:
+      OPENPANEL_TRACK_URL: ${OPENPANEL_TRACK_URL:-}
       OPENPANEL_CLIENT_ID: ${OPENPANEL_CLIENT_ID:-}
       OPENPANEL_CLIENT_SECRET: ${OPENPANEL_CLIENT_SECRET:-}
       REMOTE_METRICS_TOKEN: ${REMOTE_METRICS_TOKEN:?REMOTE_METRICS_TOKEN is required}

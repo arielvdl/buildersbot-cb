@@ -5,6 +5,10 @@ import { Effect, Schedule, Schema } from "effect";
 // address or session. It runs on the host network beside coturn, whose metrics listen on the host
 // loopback address only. On 2026-10-30 coturn refused every allocation at its total quota, and nothing
 // showed how near the quota it was. Without the OpenPanel server client it sends nothing.
+//
+// There is no default address. The default was the analytics service of the upstream OpenBot project,
+// which Builders Bot does not control (phase 0 of .openbot-build/bug-reports/DESIGN.md). Without
+// OPENPANEL_TRACK_URL, an address of a service that the owner controls, the report is off.
 
 const SCHEMA_VERSION = 1;
 const SAMPLE_INTERVAL = "5 minutes";
@@ -70,10 +74,11 @@ function readConfig(environment: Record<string, string | undefined>): ReporterCo
   const clientSecret = environment.OPENPANEL_CLIENT_SECRET?.trim();
   const signalMetricsToken = environment.REMOTE_METRICS_TOKEN?.trim();
   const turnHost = environment.TURN_DOMAIN?.trim();
-  if (!clientId || !clientSecret || !signalMetricsToken || !turnHost) return null;
+  // `scripts/signal-capacity-report-smoke.ts` points it at a local capture server.
+  const trackUrl = environment.OPENPANEL_TRACK_URL?.trim();
+  if (!trackUrl || !clientId || !clientSecret || !signalMetricsToken || !turnHost) return null;
   return {
-    // `scripts/signal-capacity-report-smoke.ts` points it at a local capture server.
-    trackUrl: environment.OPENPANEL_TRACK_URL ?? "https://analytics.openbot.run/api/track",
+    trackUrl,
     clientId,
     clientSecret,
     turnMetricsUrl: environment.TURN_METRICS_URL ?? "http://127.0.0.1:9641/metrics",
@@ -123,7 +128,7 @@ const main = Effect.gen(function* () {
   const config = readConfig(process.env);
   if (!config) {
     console.info(
-      "Capacity report off: OPENPANEL_CLIENT_ID, OPENPANEL_CLIENT_SECRET, REMOTE_METRICS_TOKEN or TURN_DOMAIN is missing.",
+      "Capacity report off: OPENPANEL_TRACK_URL, OPENPANEL_CLIENT_ID, OPENPANEL_CLIENT_SECRET, REMOTE_METRICS_TOKEN or TURN_DOMAIN is missing.",
     );
     return;
   }

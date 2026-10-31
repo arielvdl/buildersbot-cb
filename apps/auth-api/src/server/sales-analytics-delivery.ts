@@ -10,7 +10,6 @@ import {
   readAccountEmail,
 } from "./account-analytics";
 
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
 const SEND_TIMEOUT_MS = 5_000;
 const CLAIM_TIMEOUT_MS = 5 * 60_000;
 const MAX_BATCH_SIZE = 50;
@@ -144,6 +143,13 @@ export class SalesAnalyticsDeliveryError extends Schema.TaggedError<SalesAnalyti
 
 export interface SalesAnalyticsDeliveryOptions {
   database: D1Database;
+  /**
+   * The OpenPanel API of a service that the owner of Builders Bot controls. There is no default: the
+   * default was the analytics service of the upstream OpenBot project (phase 0 of
+   * .openbot-build/bug-reports/DESIGN.md). The Worker sets none, so the ledger keeps its events and
+   * sends none. E2E scripts set a fake one.
+   */
+  apiUrl?: string;
   clientId: string | undefined;
   clientSecret: string | undefined;
   fetch: (input: string, init: RequestInit) => Promise<Response>;
@@ -175,6 +181,7 @@ interface DeliveryOutcome {
  */
 export class SalesAnalyticsDelivery {
   readonly #database: D1Database;
+  readonly #apiUrl: string | undefined;
   readonly #clientId: string | undefined;
   readonly #clientSecret: string | undefined;
   readonly #fetch: (input: string, init: RequestInit) => Promise<Response>;
@@ -182,6 +189,7 @@ export class SalesAnalyticsDelivery {
 
   constructor(options: SalesAnalyticsDeliveryOptions) {
     this.#database = options.database;
+    this.#apiUrl = options.apiUrl?.trim() || undefined;
     this.#clientId = options.clientId?.trim() || undefined;
     this.#clientSecret = options.clientSecret?.trim() || undefined;
     this.#fetch = options.fetch;
@@ -227,7 +235,7 @@ export class SalesAnalyticsDelivery {
           uncertain: 0,
           pending: rows.length,
         };
-        if (!this.#clientId || !this.#clientSecret) return summary;
+        if (!this.#apiUrl || !this.#clientId || !this.#clientSecret) return summary;
 
         const identified = new Set<string>();
         for (const row of rows) {
@@ -254,13 +262,14 @@ export class SalesAnalyticsDelivery {
    * ledger: a failure logs one line with no address, and the event is still sent.
    */
   async #identify(profileId: string): Promise<void> {
+    const apiUrl = this.#apiUrl;
     const clientId = this.#clientId;
     const clientSecret = this.#clientSecret;
-    if (!clientId || !clientSecret) return;
+    if (!apiUrl || !clientId || !clientSecret) return;
     try {
       const email = await readAccountEmail(this.#database, profileId);
       if (!email) return;
-      const response = await this.#fetch(`${OPENPANEL_API_URL}/track`, {
+      const response = await this.#fetch(`${apiUrl}/track`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -303,12 +312,13 @@ export class SalesAnalyticsDelivery {
 
     let response: Response;
     try {
+      const apiUrl = this.#apiUrl;
       const clientId = this.#clientId;
       const clientSecret = this.#clientSecret;
-      if (!clientId || !clientSecret) {
+      if (!apiUrl || !clientId || !clientSecret) {
         return { status: "uncertain", httpStatus: null, retryAt: null, error: "credentials_unavailable" };
       }
-      response = await this.#fetch(`${OPENPANEL_API_URL}/track`, {
+      response = await this.#fetch(`${apiUrl}/track`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

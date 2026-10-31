@@ -18,12 +18,9 @@ const cloudflareEnvironment = readCloudflareEnvironment(process.argv.slice(2));
 const environmentArgs = cloudflareEnvironment ? ["--env", cloudflareEnvironment] : [];
 
 async function main(): Promise<void> {
-  // Check both values before any remote change. Test Workers do not send account analytics.
-  if (!cloudflareEnvironment) {
-    requiredSecret("OPENPANEL_CLIENT_ID");
-    requiredSecret("OPENPANEL_CLIENT_SECRET");
-    assertLandingBeam();
-  }
+  // No OpenPanel secrets: the account Worker sends no account events to the analytics service of the
+  // upstream project (phase 0 of .openbot-build/bug-reports/DESIGN.md).
+  if (!cloudflareEnvironment) assertLandingBeam();
   assertFcmServiceAccount();
   await putRequiredSecret("EMAIL_SMTP_PASSWORD");
   await putRequiredSecret("SKILLS_ADMIN_TOKEN");
@@ -54,11 +51,6 @@ async function main(): Promise<void> {
     await putTestAllowList();
     // The key is in the encrypted .env.dev file. Each developer who can decrypt it can create servers.
     await putOptionalSecret("HOSTED_SERVERS_DEVELOPER_KEY");
-  }
-  // Only production sends account events, so a test Worker does not add events to the production project.
-  if (!cloudflareEnvironment) {
-    await putRequiredSecret("OPENPANEL_CLIENT_ID");
-    await putRequiredSecret("OPENPANEL_CLIENT_SECRET");
   }
   // The Live Activity relay stays off until the Apple key is in the environment.
   await putOptionalSecretSet("APNS_PRIVATE_KEY", "APNS_KEY_ID");

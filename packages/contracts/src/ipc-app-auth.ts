@@ -12,8 +12,6 @@ export interface AppInfo {
   version: string;
   platform: DesktopPlatform;
   variant: AppVariant;
-  /** Set only in an unpackaged build that a local analytics capture server reads. */
-  analyticsCaptureUrl?: string;
 }
 
 /** The phase list is the source of truth: `UpdatePhase` is derived from it. */

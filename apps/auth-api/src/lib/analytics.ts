@@ -8,7 +8,6 @@ import {
   rememberFirstTouch,
 } from "@openbot/contracts/first-touch";
 import { isBoolean, isOneOf } from "@openbot/contracts/runtime-values";
-import { OpenPanel, OpenPanelBase, type OpenPanelOptions, type TrackProperties } from "@openpanel/web";
 import { BRAND_ROUTE } from "./brand-page";
 import { COMMERCIAL_LICENSE_ROUTE } from "./commercial-license";
 import { CONTACT_TOPICS } from "./contact";
@@ -28,8 +27,6 @@ import { PRIVACY_POLICY_ROUTE } from "./privacy-policy";
 import { TEAMS_ROUTE } from "./teams-page";
 import { TERMS_ROUTE } from "./terms";
 
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
-const OPENPANEL_CLIENT_ID = "6c989975-87ef-4f0c-857e-ab449a65b5c2";
 /** Generation 10 adds `billing_return_viewed` and `contact_form_submitted`. */
 const ANALYTICS_SCHEMA_VERSION = 10;
 
@@ -194,27 +191,24 @@ const PUBLISHED_SLUGS = new Set(
   CONTENT_COLLECTIONS.flatMap((collection) => collection.articles.map((article) => article.slug)),
 );
 
-type OpenPanelClient = Pick<OpenPanel, "setGlobalProperties"> & {
-  track: (name: string, properties: TrackProperties, path: string) => ReturnType<OpenPanelBase["track"]>;
-  trackScreenView: (path: string) => ReturnType<OpenPanelBase["track"]>;
-};
+/** The fixed values of an event: allowlisted labels, counts and flags. */
+type TrackProperties = Record<string, string | number | boolean | undefined>;
 
-type ClientFactory = (options: OpenPanelOptions) => OpenPanelClient;
+/** A client of an analytics service, with the reported path of each event. */
+interface LandingAnalyticsClient {
+  setGlobalProperties(properties: TrackProperties): void;
+  track(name: string, properties: TrackProperties, path: string): unknown;
+  trackScreenView(path: string): unknown;
+}
+
+type ClientFactory = () => LandingAnalyticsClient | null;
 
 /**
- * `OpenPanel.track` replaces `__path` with its own `lastPath`, which stays empty because screen
- * tracking is disabled here. The base method only merges the given properties, so both calls use it
- * and pass the reported path explicitly.
+ * There is no client. The site sent its events to the analytics service of the upstream OpenBot
+ * project, which Builders Bot does not control (phase 0 of .openbot-build/bug-reports/DESIGN.md).
+ * Builders Bot has no analytics service yet, so the site sends no event.
  */
-function createOpenPanelClient(options: OpenPanelOptions): OpenPanelClient {
-  const client = new OpenPanel(options);
-  return {
-    setGlobalProperties: (properties) => client.setGlobalProperties(properties),
-    track: (name, properties, path) =>
-      OpenPanelBase.prototype.track.call(client, name, { ...properties, __path: path }),
-    trackScreenView: (path) => OpenPanelBase.prototype.track.call(client, "screen_view", { __path: path }),
-  };
-}
+const noClient: ClientFactory = () => null;
 
 /** The download routes of each platform, reversed so a click can name the platform it asked for. */
 const DOWNLOAD_PLATFORMS_BY_HREF = new Map<string, LandingDownloadPlatform>([
@@ -280,14 +274,14 @@ function shouldEnableLandingAnalytics(hostname: string, productionBuild: boolean
 class LandingAnalytics {
   readonly #createClient: ClientFactory;
   readonly #productionBuild: boolean;
-  #client: OpenPanelClient | null = null;
+  #client: LandingAnalyticsClient | null = null;
   #lastScreenPath: LandingScreenPath | null = null;
   #campaignPath = "/";
   #pageStarted = false;
   readonly #pending: { name: LandingEventName; properties: TrackProperties }[] = [];
   readonly #clickCleanup = new WeakMap<Document, (replacement: boolean) => void>();
 
-  constructor(createClient: ClientFactory = createOpenPanelClient, productionBuild = import.meta.env.PROD) {
+  constructor(createClient: ClientFactory = noClient, productionBuild = import.meta.env.PROD) {
     this.#createClient = createClient;
     this.#productionBuild = productionBuild;
   }
@@ -413,14 +407,8 @@ class LandingAnalytics {
     if (!shouldEnableLandingAnalytics(hostname, this.#productionBuild)) return false;
     if (this.#client) return true;
     try {
-      const client = this.#createClient({
-        apiUrl: OPENPANEL_API_URL,
-        clientId: OPENPANEL_CLIENT_ID,
-        trackScreenViews: false,
-        trackOutgoingLinks: false,
-        trackAttributes: false,
-        sessionReplay: { enabled: false },
-      });
+      const client = this.#createClient();
+      if (!client) return false;
       client.setGlobalProperties({
         __referrer: "",
         surface: "landing",

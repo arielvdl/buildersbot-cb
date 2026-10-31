@@ -108,6 +108,7 @@ async function run() {
   const events: { name: string; properties: { action?: string; reason?: string } }[] = [];
   const work: Promise<void>[] = [];
   const analytics = createAccountAnalytics({
+    apiUrl: "https://analytics.example.test/api",
     clientId: "client",
     clientSecret: "secret",
     fetch: async (_input, init) => {

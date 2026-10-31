@@ -15,7 +15,7 @@ const outcome = {
 const seconds = (value: unknown) => isNumber(value) && Number.isFinite(value) && value >= 0 && value <= 86_400;
 const voice = { server_kind: ["remote"], transcription: ["local", "cloud"] } as const;
 
-export const MOBILE_EVENTS = {
+const MOBILE_EVENTS = {
   mobile_app_opened: { kind: ["cold_start", "foreground"], signed_in: isBoolean },
   mobile_pairing_action: {
     action: ["scanner_opened", "camera_permission", "redeem", "cancel"],

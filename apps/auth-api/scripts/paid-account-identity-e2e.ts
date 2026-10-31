@@ -2,7 +2,8 @@
 // API that records each request. A paid billing event of a server plan or a license must set the
 // normalized account email on the profile (OpenPanel `identify`) and send the event with no email. An
 // event that is not a payment must not identify. A failed identify or a failed email read must not
-// stop the event. The ledger identifies an account once in each drain.
+// stop the event. The ledger identifies an account once in each drain. Without an API address, as in
+// the Worker, which sets none, the account analytics and the ledger send nothing, also with a client.
 //
 // Run: bun apps/auth-api/scripts/paid-account-identity-e2e.ts
 // It writes .openbot-build/paid-account-identity-e2e/report.json and exits non-zero on a failure.
@@ -65,6 +66,7 @@ async function accountAnalytics() {
   const api = openPanel();
   const work: Promise<void>[] = [];
   const analytics = createAccountAnalytics({
+    apiUrl: "https://analytics.example.test/api",
     clientId: "client",
     clientSecret: "secret",
     fetch: api.fetch,
@@ -135,6 +137,7 @@ async function salesLedger() {
   const api = openPanel();
   const ledger = new SalesAnalyticsDelivery({
     database: sqliteD1(database),
+    apiUrl: "https://analytics.example.test/api",
     clientId: "client",
     clientSecret: "secret",
     fetch: api.fetch,
@@ -169,6 +172,7 @@ async function salesLedger() {
   const unpaidApi = openPanel();
   const unpaid = new SalesAnalyticsDelivery({
     database: sqliteD1(failedOnly),
+    apiUrl: "https://analytics.example.test/api",
     clientId: "client",
     clientSecret: "secret",
     fetch: unpaidApi.fetch,
@@ -188,6 +192,7 @@ async function salesLedger() {
   refusedApi.state.refuseIdentify = true;
   const refused = new SalesAnalyticsDelivery({
     database: sqliteD1(refusedDatabase),
+    apiUrl: "https://analytics.example.test/api",
     clientId: "client",
     clientSecret: "secret",
     fetch: refusedApi.fetch,
@@ -199,10 +204,45 @@ async function salesLedger() {
   check("a refused identify does not change the ledger outcome", refusedSummary.sent === 1, refusedSummary);
 }
 
+/** The Worker sets no API address, so nothing goes to an analytics service, also with a client and a secret. */
+async function noAddress() {
+  const database = migratedDatabase();
+  const api = openPanel();
+  const work: Promise<void>[] = [];
+  const analytics = createAccountAnalytics({
+    clientId: "client",
+    clientSecret: "secret",
+    fetch: api.fetch,
+    schedule: (send) => work.push(Effect.runPromise(send)),
+    database: sqliteD1(database),
+  });
+  analytics.track(PAYER.id, { name: "billing_action", action: "payment_succeeded", product: "license" });
+  await Promise.all(work.splice(0));
+  check("account analytics with no API address sends nothing", api.requests.length === 0, api.requests);
+
+  const ledger = new SalesAnalyticsDelivery({
+    database: sqliteD1(database),
+    clientId: "client",
+    clientSecret: "secret",
+    fetch: api.fetch,
+  });
+  const at = Date.UTC(2026, 9, 31, 11);
+  await Effect.runPromise(
+    ledger.enqueue("billing:paid", PAYER.id, "billing_action", { action: "payment_succeeded", product: "license" }, at),
+  );
+  const summary = await Effect.runPromise(ledger.drain());
+  check(
+    "the ledger with no API address keeps its event and sends nothing",
+    api.requests.length === 0 && summary.sent === 0 && summary.claimed === 0,
+    { summary, requests: api.requests },
+  );
+}
+
 let passed = false;
 try {
   await accountAnalytics();
   await salesLedger();
+  await noAddress();
   passed = checks.every((item) => item.passed);
 } finally {
   await mkdir(OUT, { recursive: true });

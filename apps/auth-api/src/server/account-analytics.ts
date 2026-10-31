@@ -20,8 +20,6 @@ import { isOneOf } from "@openbot/contracts/runtime-values";
 import { normalizeEmailAddress } from "@openbot/contracts/validation";
 import { Effect, Schema } from "effect";
 
-/** The same OpenPanel project as the desktop app and the website. ANALYTICS.md is the contract. */
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
 /**
  * The current generation. Generation 10 adds the account events, first-touch properties, and
  * `reactivated` and `end_reason` on plan events. Generation 11 adds the license to the billing events
@@ -156,6 +154,13 @@ export const NO_ACCOUNT_ANALYTICS: AccountAnalytics = { track: () => undefined }
 
 export interface AccountAnalyticsOptions {
   /**
+   * The OpenPanel API of a service that the owner of Builders Bot controls. There is no default: the
+   * default was the analytics service of the upstream OpenBot project (phase 0 of
+   * .openbot-build/bug-reports/DESIGN.md). The Worker sets none, so it sends no account event, whatever
+   * OPENPANEL_CLIENT_ID and OPENPANEL_CLIENT_SECRET hold. E2E scripts set a fake one.
+   */
+  apiUrl?: string;
+  /**
    * A server client of the OpenPanel project and its write-only secret. The desktop and website
    * client has no secret. Without both, no event is sent.
    */
@@ -190,11 +195,12 @@ export async function readAccountEmail(database: D1Database, accountId: string):
 export function createAccountAnalytics(options: AccountAnalyticsOptions): AccountAnalytics {
   const clientId = options.clientId?.trim();
   const clientSecret = options.clientSecret?.trim();
-  if (!clientId || !clientSecret) return NO_ACCOUNT_ANALYTICS;
+  const apiUrl = options.apiUrl?.trim();
+  if (!apiUrl || !clientId || !clientSecret) return NO_ACCOUNT_ANALYTICS;
   const post = Effect.fn("AccountAnalytics.post")(function* (body: OpenPanelBody) {
     const response = yield* Effect.tryPromise({
       try: (signal) =>
-        options.fetch(`${OPENPANEL_API_URL}/track`, {
+        options.fetch(`${apiUrl}/track`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
