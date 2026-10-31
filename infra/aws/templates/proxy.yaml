@@ -484,11 +484,20 @@ Resources:
                 fi
               }
 
-              # The PID of the running container; nothing when it does not run.
+              # The container by docker inspect alone: its PID when it runs, "down" when it does not exist or does not run,
+              # "unknown" when docker gives no clear answer (dockerd restarting under live-restore, the timeout): never taken
+              # for stopped, since it may run. Nothing the container does changes this answer.
               container_pid() {
-                local pid
-                pid=$(timeout 20 docker inspect "$1" 2>/dev/null | jq -r '.[0].State.Pid // 0' 2>/dev/null || true)
-                if [[ $pid =~ ^[1-9][0-9]*$ ]]; then echo "$pid"; fi
+                local out err rc=0
+                err=$(mktemp)
+                out=$(timeout 20 docker inspect --type container "$1" 2>"$err") || rc=$?
+                if [ "$rc" != 0 ]; then
+                  if grep -qE 'No such (container|object)' "$err"; then out=down; else out=unknown; fi
+                else
+                  out=$(jq -r '.[0].State | if .Running == true and .Pid > 0 then .Pid elif .Running == false then "down" else "?" end' <<<"$out" 2>/dev/null || true)
+                fi
+                rm -f "$err"
+                if [[ $out =~ ^([1-9][0-9]*|down)$ ]]; then echo "$out"; else echo unknown; fi
               }
 
               # A program of the host, as nobody, in the network of the container: the answer depends on the

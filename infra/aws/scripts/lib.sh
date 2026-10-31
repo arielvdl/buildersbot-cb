@@ -635,6 +635,10 @@ proxy_verdict() {
     say "      proxy de saída: o contêiner não está rodando; nada a conferir de dentro dele."
     return 0
   fi
+  if grep -qx 'BB_PROXY_CONTAINER unknown' <<<"$out"; then
+    say "      CONTÊINER NÃO CONFERIDO: o docker do host não respondeu sobre o contêiner (docker inspect), então nada foi testado; a saúde grava fail container-unknown. Repita o status --deep; se persistir, sessão bb-srv-$sector-Shell: sudo systemctl status docker."
+    return 0
+  fi
   grep -qx 'BB_PROXY_ENV ok' <<<"$out" ||
     say "      PROXY AUSENTE NO CONTÊINER: ele não tem HTTPS_PROXY/NODE_USE_ENV_PROXY do proxy.env (compose.yaml sem o env_file, ou contêiner criado antes dele). Nada sai direto (falha fechada), mas o servidor fica sem internet: $repair."
   exit_line=$(grep -E '^BB_PROXY_EXIT (ip=[0-9]{1,3}(\.[0-9]{1,3}){3} )?country=[A-Z]{2}$' <<<"$out" | tail -n 1 || true)

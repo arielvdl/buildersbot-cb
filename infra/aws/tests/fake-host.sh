@@ -13,6 +13,9 @@
 #                          e FAKE_DIG_172_30_0_1 valem para um só: nxdomain, refused, answer, noerror, servfail,
 #                          timeout ou file:<arquivo com a saída inteira do dig>
 #   FAKE_CONTAINER_GETENT  o código do getent DENTRO do contêiner para um nome fora do mapa (padrão 2, "não existe")
+#   FAKE_INSPECT           o docker inspect: normal (padrão, pelo arquivo running), timeout (sai com 124, como o timeout
+#                          de 20 s), missing (o contêiner não existe) ou daemon (o dockerd não responde)
+#   FAKE_EXEC              broken: todo docker exec falha com 126 (o contêiner quebrou o próprio exec)
 #   FAKE_APP_LINES         blocos de linhas que o app imprime (openbot status, openbot-instance list; padrão 1)
 set -uo pipefail
 state=${FAKE_HOST:?FAKE_HOST não definido}
@@ -87,7 +90,6 @@ case $me in
     exec "$@"
     ;;
   id) if [ "$*" = '-u bb-proxy' ]; then echo 998; else exec /usr/bin/id "$@"; fi ;;
-  jq) sed -n 's/.*"Pid": *\([0-9][0-9]*\).*/\1/p' ;;
   free) printf '               total        used        free\nMem:            7800        2100        5700\n' ;;
   systemctl)
     case "$*" in
@@ -141,11 +143,23 @@ case $me in
     ;;
   docker)
     case ${1:-} in
-      inspect) if [ -e "$state/running" ]; then echo '[{"State": {"Pid": 4242}}]'; else echo '[{"State": {"Pid": 0}}]'; fi ;;
+      inspect)
+        case ${FAKE_INSPECT:-normal} in
+          timeout) exit 124 ;;
+          missing) echo '[]'; echo "Error: No such container: ${*: -1}" >&2; exit 1 ;;
+          daemon) echo 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?' >&2; exit 1 ;;
+        esac
+        if [ -e "$state/running" ]; then
+          echo '[{"Id": "f00d", "State": {"Status": "running", "Running": true, "Pid": 4242}}]'
+        else
+          echo '[{"Id": "f00d", "State": {"Status": "exited", "Running": false, "Pid": 0}}]'
+        fi
+        ;;
       stop) rm -f "$state/running" ;;
       exec)
         shift 2
         [ -e "$state/running" ] || exit 1
+        [ "${FAKE_EXEC:-}" != broken ] || { echo 'OCI runtime exec failed: exec failed: unable to start container process' >&2; exit 126; }
         case ${1:-} in
           true) ;;
           printenv) case ${2:-} in HTTPS_PROXY) echo http://172.30.0.1:3128 ;; NODE_USE_ENV_PROXY) echo 1 ;; esac ;;

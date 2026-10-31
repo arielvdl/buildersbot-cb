@@ -417,7 +417,8 @@ Resources:
                   # It uses the constants and functions of the tool (mode, container_pid, direct_probe, dns_filter, classify...).
 
                   # One line per run, with the country and never an address. With the container running, from its network:
-                  # the proxy (through INPUT and the bridge), its direct path and its DNS. A proven leak stops it (contain).
+                  # the proxy (through INPUT and the bridge), its direct path and its DNS. A proven leak stops it (contain). A
+                  # container that docker gives no clear answer about is no "ok": it may run, and nothing could be tested.
                   health() {
                     local log=/var/log/bb-srv/health.log result='' body rc=0 code c pid sig direct dns
                     [ "$(mode)" = proxy ] || return 0
@@ -439,7 +440,9 @@ Resources:
                       result="fail firewall-open"
                     elif [ -n "$sig" ] && ! grep -q -- ' -j RETURN$' <<<"$(iptables -S "$OUT_CHAIN")"; then
                       result="fail no-signal-rule"
-                    elif [ -n "$pid" ]; then
+                    elif [ "$pid" = unknown ]; then
+                      result="fail container-unknown"
+                    elif [ "$pid" != down ]; then
                       direct=$(direct_probe "$pid")
                       dns=$(dns_filter "$pid")
                       if [ "$direct" = OPEN ]; then
@@ -457,7 +460,7 @@ Resources:
                       fi
                     fi
                     if [ -z "$result" ]; then
-                      if [ -n "$pid" ]; then
+                      if [ "$pid" != down ]; then
                         body=$(in_net "$pid" curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
                       else
                         body=$(curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
@@ -475,11 +478,12 @@ Resources:
                     echo "BB_PROXY_MODE $(mode)"
                     [ "$(mode)" = proxy ] || return 0
                     [ ! -e "$CONTAINED" ] || echo "BB_PROXY_CONTAINED yes"
+                    # Running or not by docker inspect alone, and the probes of the host first: a container that breaks
+                    # docker exec only loses the lines that need it (ENV missing, EXIT fail), never these two.
                     pid=$(container_pid "$c")
-                    if [ -z "$pid" ] || ! timeout 20 docker exec "$c" true 2>/dev/null; then
-                      echo "BB_PROXY_CONTAINER down"
-                      return 0
-                    fi
+                    case $pid in down | unknown) echo "BB_PROXY_CONTAINER $pid"; return 0 ;; esac
+                    echo "BB_PROXY_DIRECT $(direct_probe "$pid")"
+                    echo "BB_PROXY_DNS_FILTER $(dns_filter "$pid")"
                     if [ "$(timeout 20 docker exec "$c" printenv HTTPS_PROXY 2>/dev/null || true)" = "http://$GATEWAY:$PORT" ] &&
                       [ "$(timeout 20 docker exec "$c" printenv NODE_USE_ENV_PROXY 2>/dev/null || true)" = 1 ]; then
                       echo "BB_PROXY_ENV ok"
@@ -499,8 +503,6 @@ Resources:
                     else
                       echo "BB_PROXY_EXIT fail"
                     fi
-                    echo "BB_PROXY_DIRECT $(direct_probe "$pid")"
-                    echo "BB_PROXY_DNS_FILTER $(dns_filter "$pid")"
                     # The two direct paths of the design: the DNS of signal./turn. and the Signal itself. Without a
                     # record of the Signal (no stack yet) there is nothing to test.
                     sig=$(signal_name)
@@ -520,12 +522,14 @@ Resources:
 
                   line_in() { grep -qx -- "$1" <<<"$2"; }
 
-                  # The lines of check-container -> ok, direct, down, leak <what> (stop the container) or fail <what>.
+                  # The lines of check-container -> ok, direct, down, unknown (docker gave no clear answer: nothing tested), leak
+                  # <what> (stop the container) or fail <what>.
                   judge() {
                     local out
                     out=$(cat)
                     if line_in 'BB_PROXY_MODE direct' "$out"; then echo direct
                     elif line_in 'BB_PROXY_CONTAINER down' "$out"; then echo down
+                    elif line_in 'BB_PROXY_CONTAINER unknown' "$out"; then echo unknown
                     elif ! line_in 'BB_PROXY_DIRECT blocked' "$out"; then echo "leak direct"
                     elif ! line_in 'BB_PROXY_DNS_FILTER ok' "$out"; then echo "leak dns"
                     elif ! line_in 'BB_PROXY_ENV ok' "$out"; then echo "fail env"
@@ -566,6 +570,7 @@ Resources:
                         fail "the container had a way out besides the proxy (${verdict#leak }, lines above): it was stopped, and stays stopped at boot until bb-srv-ProxySetup or bb-srv-Install passes this check (README section 16)"
                         ;;
                       down) fail "the container is not running: openbot-instance logs $(cat "$ETC/sector")" ;;
+                      unknown) fail "docker inspect gave no clear answer about the container, so nothing was checked: repeat (systemctl status docker)" ;;
                       "fail env") fail "the container did not get the proxy variables (env_file of compose.yaml)" ;;
                       "fail dns") fail "the container does not resolve the Signal (bb-srv-container-dns, port 53 of $IN_CHAIN)" ;;
                       "fail signal") fail "the host reaches the Signal and the container does not (no RETURN for it in $OUT_CHAIN?)" ;;

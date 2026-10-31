@@ -859,6 +859,8 @@ expect_verdict "F6 status --deep avisa DNS do contêiner quebrado" "${OK_LINES/B
 expect_verdict "F6 status --deep avisa SIGNAL BLOQUEADO" "${OK_LINES/SIGNAL ok/SIGNAL fail}" required "SIGNAL BLOQUEADO"
 expect_verdict "F6 status --deep avisa contêiner parado por vazamento" "${MARK}"$'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINED yes\nBB_PROXY_CONTAINER down'"$END" \
   required "CONTÊINER PARADO POR VAZAMENTO"
+expect_verdict "F6 status --deep com o docker sem resposta sobre o contêiner diz que não conferiu" \
+  "${MARK}"$'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINER unknown'"$END" required "CONTÊINER NÃO CONFERIDO: o docker do host não respondeu" "PROXY AUSENTE"
 expect_verdict "F6 status --deep não repete linha forjada pelo contêiner" \
   "${OK_LINES/ip=198.51.100.7 country=BR/ip=1.2.3.4;id country=BR}" required "PROXY SEM RESPOSTA" "1.2.3.4;id"
 # A saída do contêiner vem antes do marcador (e atrás de "  | "): linhas forjadas ali não valem, nem um
@@ -909,6 +911,7 @@ expect_judge "F9 host alcança o Signal e o contêiner não: falha" "${CHK_OK/SI
 expect_judge "F9 contêiner sem as variáveis: falha" "${CHK_OK/ENV ok/ENV missing}" "fail env"
 expect_judge "F9 saída fora do Brasil: falha" "${CHK_OK/country=BR/country=US}" "fail exit"
 expect_judge "F9 contêiner parado" $'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINER down' down
+expect_judge "F9 docker sem resposta sobre o contêiner: não conferido" $'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINER unknown' unknown
 expect_judge "F9 setor sem proxy (decisão do dono)" 'BB_PROXY_MODE direct' direct
 
 # Leituras estáticas dos templates: quem lê a credencial, o que o host liga e a ordem das coisas.
@@ -1023,12 +1026,14 @@ fi
 # ---------------------------------------------------------------- F10 a F12: a ferramenta num host falso
 # O bb-srv-proxy e o bb-srv-Status rodam inteiros, com os caminhos do host (/etc/bb-srv, /var/lib/bb-srv...)
 # trocados por pastas de $HOST_T e os programas do host trocados pelos de tests/fake-host.sh (iptables com estado,
-# docker, nsenter, setpriv, dig, curl, getent...): o que se testa é o comportamento, não o texto do template.
+# docker, nsenter, setpriv, dig, curl, getent...): o que se testa é o comportamento, não o texto do template. O jq é
+# o de verdade (o filtro do docker inspect também é testado).
 HOST_T=$WORK/host
 HOST_BIN=$WORK/host-bin
 HOST_TOOL=$WORK/host-bb-srv-proxy
 install -d "$HOST_BIN"
-for prog in iptables ip6tables flock timeout id jq free systemctl getent nsenter setpriv dig curl docker; do
+rm -f "$HOST_BIN/jq"
+for prog in iptables ip6tables flock timeout id free systemctl getent nsenter setpriv dig curl docker; do
   ln -sf "$ROOT/tests/fake-host.sh" "$HOST_BIN/$prog"
 done
 # <script> <destino>: o script com os caminhos do host dentro de $HOST_T. Falha se sobrar um caminho do sistema
@@ -1183,6 +1188,50 @@ else
     ok_case "F11 verify (Install e ProxySetup): DNS aberto visto do host para o contêiner e falha"
   else
     bad "F11 verify com DNS aberto" "$verify_out"
+  fi
+
+  # Se o contêiner roda ou não, só pelo docker inspect. Um inspect sem resposta clara (o dockerd reiniciando com
+  # live-restore, o timeout de 20 s) não é "parado": a saúde não fica verde e o check-container diz "unknown".
+  host_reset
+  host_tool guard >/dev/null 2>&1
+  : >"$HOST_T/running"
+  FAKE_INSPECT=timeout FAKE_DIRECT=open FAKE_DIG=answer host_tool health >/dev/null 2>&1
+  if [ "$(health_line)" = 'BB_PROXY_HEALTH fail container-unknown' ] && [ -e "$HOST_T/running" ]; then
+    ok_case "F11 saúde: docker inspect sem resposta (124) com o contêiner rodando e saída aberta: 'fail container-unknown', nunca ok"
+  else
+    bad "F11 saúde com o docker inspect sem resposta" "$(health_line)"
+  fi
+  chk_unknown=$(FAKE_INSPECT=timeout host_tool check-container --no-ip 2>&1)
+  verify_out=$(FAKE_INSPECT=timeout host_tool verify 2>&1)
+  verify_rc=$?
+  if grep -qx 'BB_PROXY_CONTAINER unknown' <<<"$chk_unknown" && ! grep -q 'CONTAINER down' <<<"$chk_unknown" &&
+    [ "$(printf '%s\n' "$chk_unknown" | host_tool judge 2>&1)" = unknown ] && [ "$verify_rc" != 0 ] &&
+    grep -q 'nothing was checked' <<<"$verify_out" && [ -e "$HOST_T/running" ]; then
+    ok_case "F11 check-container: docker inspect sem resposta é 'BB_PROXY_CONTAINER unknown'; o verify falha (não conferido)"
+  else
+    bad "F11 check-container com o docker inspect sem resposta" "$chk_unknown"$'\n'"$verify_out"
+  fi
+  if [ "$(FAKE_INSPECT=missing host_tool check-container --no-ip 2>&1 | grep '^BB_PROXY_CONTAINER')" = 'BB_PROXY_CONTAINER down' ] &&
+    [ "$(FAKE_INSPECT=daemon host_tool check-container --no-ip 2>&1 | grep '^BB_PROXY_CONTAINER')" = 'BB_PROXY_CONTAINER unknown' ] &&
+    rm -f "$HOST_T/running" && [ "$(host_tool check-container --no-ip 2>&1 | grep '^BB_PROXY_CONTAINER')" = 'BB_PROXY_CONTAINER down' ]; then
+    ok_case "F11 docker inspect: contêiner que não existe ou parado é 'down'; o dockerd sem resposta é 'unknown'"
+  else
+    bad "F11 estados do docker inspect" "$(FAKE_INSPECT=daemon host_tool check-container --no-ip 2>&1)"
+  fi
+  # O contêiner quebra o próprio docker exec (apaga o true, o printenv...): os testes do host rodam mesmo assim.
+  host_reset
+  host_tool guard >/dev/null 2>&1
+  : >"$HOST_T/running"
+  chk_broken=$(FAKE_EXEC=broken FAKE_DIRECT=open host_tool check-container --no-ip 2>&1)
+  verify_out=$(FAKE_EXEC=broken FAKE_DIRECT=open host_tool verify 2>&1)
+  verify_rc=$?
+  if grep -qx 'BB_PROXY_DIRECT OPEN' <<<"$chk_broken" && grep -qx 'BB_PROXY_ENV missing' <<<"$chk_broken" &&
+    grep -qx 'BB_PROXY_EXIT fail' <<<"$chk_broken" && ! grep -q 'CONTAINER down' <<<"$chk_broken" &&
+    [ "$(printf '%s\n' "$chk_broken" | host_tool judge 2>&1)" = 'leak direct' ] && [ "$verify_rc" != 0 ] &&
+    [ ! -e "$HOST_T/running" ] && [ -e "$HOST_T/var/lib/bb-srv/egress-open" ]; then
+    ok_case "F11 contêiner com o docker exec quebrado (126) e saída aberta: BB_PROXY_DIRECT OPEN, 'leak direct', verify o para"
+  else
+    bad "F11 contêiner com o docker exec quebrado" "$chk_broken"$'\n'"$verify_out"
   fi
 
   # F12: o bb-srv-Status inteiro, com o app imprimindo muito (e linhas que imitam as do root). O SSM guarda só os
