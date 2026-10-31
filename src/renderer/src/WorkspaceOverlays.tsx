@@ -202,7 +202,7 @@ function SharedAgentInstall() {
 /** Joining a team server from an invite link. */
 function JoinServer(props: AccountProps) {
   const setup = useSetup();
-  const { joinServerOpen, setJoinServerOpen, hostedServersAvailable, setAddServerOpen } = useServers();
+  const { joinServerOpen, setJoinServerOpen, refreshHostedServersAvailable, setAddServerOpen } = useServers();
   const { joinServer } = useServerSelection();
   const creation = createServerCreationAccess(joinServerOpen, () => appPort().hostedServers);
 
@@ -219,13 +219,14 @@ function JoinServer(props: AccountProps) {
       onJoin={joinServer}
       createAccess={{
         access: creation.access(),
-        // The plans create the server. Without hosting there is nothing to open here.
-        onCreate: hostedServersAvailable()
-          ? () => {
-              setJoinServerOpen(false);
-              setAddServerOpen(true, "server_rail");
-            }
-          : undefined,
+        // The plans create the server. The section shows only when the account server says that this
+        // deployment can create servers. The last hosted server list can be older than an approval, so
+        // the plans open directly and the list is read again for the plus button.
+        onCreate: () => {
+          setJoinServerOpen(false);
+          setAddServerOpen(true, "server_rail");
+          void refreshHostedServersAvailable();
+        },
         onRequest: creation.request,
       }}
     />

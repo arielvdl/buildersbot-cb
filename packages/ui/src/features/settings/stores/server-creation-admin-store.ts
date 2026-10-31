@@ -48,6 +48,15 @@ export function createServerCreationAdminStore(
   });
   let loadRevision = 0;
 
+  function hide(draft: ServerCreationAdminPanel): void {
+    draft.administrator = false;
+    draft.loaded = false;
+    draft.error = null;
+    draft.actionError = null;
+    draft.requests = [];
+    draft.grants = [];
+  }
+
   function apply(state: ServerCreationAdminState): void {
     setPanel((draft) => {
       draft.requests = state.requests;
@@ -61,10 +70,13 @@ export function createServerCreationAdminStore(
     const api = calls();
     if (!api) return;
     const revision = ++loadRevision;
+    let accessKnown = false;
     try {
       const access = await api.creationAccess();
       if (revision !== loadRevision) return;
+      accessKnown = true;
       setPanel((draft) => {
+        if (!access.administrator) hide(draft);
         draft.administrator = access.administrator;
       });
       if (!access.administrator) return;
@@ -72,12 +84,15 @@ export function createServerCreationAdminStore(
       if (revision === loadRevision) apply(state);
     } catch (error) {
       if (revision !== loadRevision) return;
-      // Before the access is known, a failure hides the section: it shows only to an administrator.
       setPanel((draft) => {
+        // Before the access is known, a failure hides the section and drops its rows: they can belong to
+        // the account of an earlier session. Only a new answer with `administrator: true` shows them again.
+        if (!accessKnown) {
+          hide(draft);
+          return;
+        }
         const text = currentText();
-        draft.error = draft.administrator
-          ? text.errorMessage(error, text.t("settings.serverCreation.loadFailed"))
-          : null;
+        draft.error = text.errorMessage(error, text.t("settings.serverCreation.loadFailed"));
       });
     }
   }

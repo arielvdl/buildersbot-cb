@@ -2358,12 +2358,12 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   onJoin={({ inviteUrl }) => workspace.joinInvite(inviteUrl)}
                   createAccess={{
                     access: serverCreation.access(),
-                    onCreate: hostedServers.available()
-                      ? () => {
-                          setJoinOpen(false);
-                          hostedServers.openAddServer("server_rail");
-                        }
-                      : undefined,
+                    // The section shows only when the account server says that this deployment can create
+                    // servers, so the plans open also before the hosted server list knows of an approval.
+                    onCreate: () => {
+                      setJoinOpen(false);
+                      hostedServers.openPlans("server_rail");
+                    },
                     onRequest: serverCreation.request,
                   }}
                 />
