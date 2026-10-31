@@ -902,9 +902,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
             empresa = access.empresa;
             if (!access.active) {
               return yield* Effect.fail(
-                providerFailure(
-                  new ProviderSignInError({ message: "Cultura Builder login required: no access to the LLM." }),
-                ),
+                providerFailure(new ProviderSignInError({ message: sourceText("error.provider.culturaNoAccess") })),
               );
             }
           }),

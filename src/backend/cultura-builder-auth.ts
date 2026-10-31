@@ -9,6 +9,7 @@
 // Everything here is data, so it runs under a unit test: the fetch is injected, and no module-level
 // state survives a sign-in.
 
+import { sourceText } from "@openbot/i18n/source";
 import { Effect, Option, Schema } from "effect";
 import { type ProviderClientOperationError, ProviderSignInError, providerFailure } from "./provider-client-effects";
 
@@ -139,7 +140,7 @@ export function requireCulturaBuilderSession(
   const session = readCulturaBuilderSession(raw);
   return session
     ? Effect.succeed(session)
-    : Effect.fail(new ProviderSignInError({ message: "Cultura Builder login required." }));
+    : Effect.fail(new ProviderSignInError({ message: sourceText("error.provider.culturaLoginRequired") }));
 }
 
 export function serializeCulturaBuilderSession(session: CulturaBuilderSession): string {
@@ -342,7 +343,7 @@ export function readCulturaBuilderAccess(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (response.status === 401 || response.status === 403) {
-        throw new ProviderSignInError({ message: "Cultura Builder login required." });
+        throw new ProviderSignInError({ message: sourceText("error.provider.culturaLoginRequired") });
       }
       const value = await readJson(response, GatewaySession);
       if (!response.ok) throw new Error(`Cultura Builder access check failed (${response.status})`);

@@ -331,6 +331,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.sessionSettingInvalid": "This value is not available for the setting.",
   "error.provider.sessionSettingsBusy": "Wait for the current turn to finish before changing a session setting.",
   "error.provider.piOutdated": "Pi {version} is too old. Install Pi 1.1.0 or later for native RPC and MCP support.",
+  "error.provider.culturaLoginRequired": "Cultura Builder login required.",
+  "error.provider.culturaNoAccess": "Cultura Builder login required: no access to the LLM.",
   "error.provider.nativeMissing": "The {provider} CLI is not installed. Download it in Settings.",
   "error.provider.nativeNotStarted": "The {provider} CLI could not start.",
   "error.provider.nativeVersionUnreadable": "The {provider} CLI version could not be read.",

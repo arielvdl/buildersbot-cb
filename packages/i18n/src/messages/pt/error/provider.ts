@@ -349,6 +349,8 @@ export const messages = {
   "error.provider.sessionSettingsBusy": "Aguarde o turno atual terminar antes de mudar uma configuração de sessão.",
   "error.provider.piOutdated":
     "O Pi {version} é antigo demais. Instale o Pi 1.1.0 ou mais recente para suporte a RPC e MCP nativos.",
+  "error.provider.culturaLoginRequired": "É preciso entrar na Cultura Builder.",
+  "error.provider.culturaNoAccess": "É preciso entrar na Cultura Builder: esta conta não tem acesso à LLM.",
   "error.provider.nativeMissing": "A CLI do {provider} não está instalada. Baixe-a em Configurações.",
   "error.provider.nativeNotStarted": "A CLI do {provider} não conseguiu iniciar.",
   "error.provider.nativeVersionUnreadable": "A versão da CLI do {provider} não pôde ser lida.",
