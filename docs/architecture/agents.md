@@ -750,7 +750,13 @@ and the list keep one order. With reduced motion, the items do not slide.
 The rail shows only on the Agents page (Agents and Routines), Workflows and Schedule
 (`sectionRailShowsOn`); another page has no rail column. The selection is the same on the four pages.
 A selected section filters the pinned strip, Needs you, the sections and Hidden to the chats of that
-section; global search still finds every chat. The selected section is always open, also when the user
+section. Global search shows a switch at the top while a section is selected on a page with the rail:
+"This section", the default at each open, keeps the agents, channels, routines (by the agent that runs
+them), messages and files of that section; "All sections" finds every chat. Messages and files come in
+pages for every agent, so the search filters each page in the client, counts only the results that
+show (not the total of the source), and loads more pages while too few results show
+(`global-search-scope.ts`). ⌘S (Ctrl+S) in the search field moves focus to the switch. From the
+Routines view, search opens on its Routines tab. The selected section is always open, also when the user
 collapsed it under "All", and its header does not collapse it; "All" shows the saved collapse state
 again. Routines lists the agents of the section. Schedule keeps the routines whose owner, the agent or
 the channel, is in the section. A workflow has no owner, so Workflows keeps the workflows with an agent
@@ -780,6 +786,19 @@ the button has a dot, and a notice sticks to the bottom of the list: the filter,
 hides in the selected section, and "Show all", which turns the filter off. The notice is a polite live
 region. The search field opens the global search and does not filter the list, so "Show all" has no
 search to clear.
+
+In the Routines view, the same button shows the routine filter (`sidebar-routine-filter.ts`) in place
+of the activity filter: Active routines, Paused routines, Created recently and Edited recently. The
+choices exclude each other. "Recently" is 7 days (`SIDEBAR_ROUTINE_RECENT_WINDOW_MS`); "Edited
+recently" needs an `updatedAt` after `createdAt`, so a new routine counts only as created. The list
+keeps the agents of the selected section with at least one routine that matches, and the open agent.
+There is no "Finished recently" choice: a routine has no time of its last run, and the client has no
+cheap source for it. Each view keeps its own filter, and the sidebar applies only the filter of the
+view that it shows (`sidebarActivityMenu`), so a filter cannot stay on where its menu cannot turn it
+off. The routine lists come from the turns domain (`routinesByConversation`): the filter loads every
+agent once when it turns on or when the Routines view opens with it on, then only the agents that join
+the list; a `routines-changed` event keeps each list current. A client that does not set the routine
+filter (the web client) keeps the activity filter in the Routines view.
 
 A marker is a thin line with a short text in a section of the list (`SidebarMarker`,
 `SidebarMarkerRow.tsx`). "+" > New marker adds one at the top of the section that the rail selects;

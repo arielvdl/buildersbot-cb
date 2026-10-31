@@ -179,14 +179,48 @@
   flex: 0 0 auto;
 }
 
-.global-search-filters [role="tablist"] {
+/* The scope switch: the section that the sidebar selects, or every section. It uses the filter style. */
+.global-search-scope {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+  border-bottom: 1px solid var(--openbot-border);
+  padding: var(--openbot-space-1-5) var(--openbot-space-4) var(--openbot-space-1-5) var(--openbot-space-3);
+  color: var(--openbot-text-muted);
+}
+
+.global-search-scope-tabs {
+  min-width: 0;
+}
+
+.global-search-scope-hint {
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+:is(.global-search-filters, .global-search-scope-tabs) [role="tablist"] {
   position: relative;
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: var(--openbot-space-0-5);
 }
 
-.global-search-filters [role="tab"] {
+/* A long section name ends with an ellipsis, so "All sections" (the last tab) stays in view. */
+.global-search-scope-tabs [role="tab"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-search-scope-tabs [role="tab"]:last-child {
+  flex-shrink: 0;
+}
+
+:is(.global-search-filters, .global-search-scope-tabs) [role="tab"] {
   position: relative;
   z-index: 1;
   height: var(--openbot-control-xs);
@@ -203,12 +237,12 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .global-search-filters [role="tab"]:hover {
+  :is(.global-search-filters, .global-search-scope-tabs) [role="tab"]:hover {
     color: var(--openbot-text-secondary);
   }
 }
 
-.global-search-filters [role="tab"][data-selected] {
+:is(.global-search-filters, .global-search-scope-tabs) [role="tab"][data-selected] {
   color: var(--openbot-text-primary);
 }
 
@@ -230,7 +264,7 @@
   transition: none;
 }
 
-.global-search-filters [role="tab"]:focus-visible {
+:is(.global-search-filters, .global-search-scope-tabs) [role="tab"]:focus-visible {
   outline: 0;
   box-shadow: var(--openbot-focus-ring);
 }
@@ -478,12 +512,14 @@
 /* Key glyphs such as ↑ and ⌘ render small in most fonts, so keys show icons and the text keys use
    the interface font. Both then have the same visual size. */
 .global-search-footer .ui-kbd,
+.global-search-scope-hint .ui-kbd,
 .global-search-result .global-search-result-enter {
   font-family: var(--openbot-font-sans);
   font-weight: var(--openbot-weight-medium);
 }
 
 .global-search-footer .ui-kbd > svg,
+.global-search-scope-hint .ui-kbd > svg,
 .global-search-result .global-search-result-enter > svg {
   width: var(--openbot-icon-xs);
   height: var(--openbot-icon-xs);
@@ -521,6 +557,7 @@
   }
 
   .global-search-footer,
+  .global-search-scope-hint,
   .global-search-result .global-search-result-enter {
     display: none;
   }

@@ -1,9 +1,12 @@
+import { SIDEBAR_UNASSIGNED_SECTION_ID } from "@openbot/contracts/ipc";
 import { BookMarked, Bot, CalendarClock, Hash, Server, Sparkles, Store, UsersRound } from "@openbot/ui";
 import type {
   GlobalSearchAction,
   GlobalSearchFile,
   GlobalSearchPage,
   GlobalSearchRoutine,
+  GlobalSearchSectionScope,
+  GlobalSearchTab,
 } from "@openbot/ui/components/GlobalSearch";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal } from "solid-js";
@@ -17,7 +20,12 @@ import { useServerSettings } from "./features/servers/server-settings";
 import { useServers } from "./features/servers/servers-context";
 import { useSettings } from "./features/settings/settings-context";
 import { dynamicIslandSettingsShown, navItems } from "./features/settings/settings-tabs";
+import { useSectionRailFocus } from "./features/sidebar/section-rail-focus";
+import { useSidebar } from "./features/sidebar/sidebar-context";
 import { useUsage } from "./features/usage/usage-context";
+import { useWindowPage } from "./features/window/window-page-context";
+import { useLayout } from "./layout";
+import { sectionRailShowsOn } from "./left-column";
 import { useNavigation } from "./navigation";
 import { usePlatform } from "./platform";
 
@@ -26,7 +34,8 @@ const FILE_SEARCH_LIMIT = 50;
 /**
  * What global search finds besides agents and messages: channels, routines, files, commands and
  * settings pages. Routines load each time the search opens, as no store keeps every agent's list.
- * Files come from this computer's database, so a joined server shows no Files filter.
+ * Files come from this computer's database, so a joined server shows no Files filter. It also gives
+ * the tab that the search opens on, and the section of the rail that the search can keep.
  */
 export function useGlobalSearchSources(open: () => boolean) {
   const { t } = useText();
@@ -42,11 +51,38 @@ export function useGlobalSearchSources(open: () => boolean) {
   const [routinesLoading, setRoutinesLoading] = createSignal(false);
   let routineRequest = 0;
 
+  const layout = useLayout();
+  const windowPage = useWindowPage();
+  const { sidebarLayout } = useSidebar();
+  const sectionRail = useSectionRailFocus();
+
   const local = () => activeServer()?.kind === "local";
 
   // Lazy: the overlay reads these only while the search is open.
   const searchChannels = createMemo(
     () => (channels.supported() ? globalSearchChannels(channels.state.channels) : undefined),
+    { lazy: true },
+  );
+
+  /** The Routines view opens the search on its Routines tab; every other view opens it on All. */
+  const initialTab = (): GlobalSearchTab | undefined =>
+    windowPage.page() === "agents" && layout.sidebarView() === "routines" ? "routines" : undefined;
+
+  /**
+   * The section that the rail selects, while the page shows the rail. The search then offers to keep
+   * only the results of that section. "All", and a page without the rail, give no scope.
+   */
+  const sectionScope = createMemo(
+    (): GlobalSearchSectionScope | undefined => {
+      if (!sectionRailShowsOn(windowPage.page())) return undefined;
+      const sectionId = sectionRail.focus();
+      if (sectionId === null) return undefined;
+      const name =
+        sectionId === SIDEBAR_UNASSIGNED_SECTION_ID
+          ? t("sidebar.section.unassigned")
+          : sidebarLayout().sections.find((section) => section.id === sectionId)?.name;
+      return name === undefined ? undefined : { name, includes: sectionRail.inSection };
+    },
     { lazy: true },
   );
 
@@ -220,6 +256,8 @@ export function useGlobalSearchSources(open: () => boolean) {
   );
 
   return {
+    initialTab,
+    sectionScope,
     channels: searchChannels,
     routines,
     routinesLoading,

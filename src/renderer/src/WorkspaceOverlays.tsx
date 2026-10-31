@@ -951,6 +951,8 @@ function GlobalMessageSearch() {
   return (
     <GlobalSearchOverlay
       open={globalSearchOpen()}
+      initialTab={sources.initialTab()}
+      sectionScope={sources.sectionScope()}
       agents={agentList()}
       channels={sources.channels()}
       routines={sources.routines()}

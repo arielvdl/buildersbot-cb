@@ -36,11 +36,27 @@ import {
 } from "solid-js";
 import { createScrollFades } from "./createScrollFades";
 import { playDialogExit, trackResultHighlight, trackResultsHeight } from "./global-search-motion";
+import {
+  GLOBAL_SEARCH_START_SCOPE,
+  type GlobalSearchScope,
+  globalSearchNeedsScopedPage,
+  globalSearchRemoteCount,
+  globalSearchStartTab,
+} from "./global-search-scope";
 import { matchParts, normalizedSearchText, snippetAround } from "./global-search-text";
 import { VirtualListbox, type VirtualRowProps } from "./VirtualListbox";
 
 const SEARCH_TABS = ["all", "agents", "channels", "messages", "files", "routines"] as const;
 type SearchTab = (typeof SEARCH_TABS)[number];
+export type GlobalSearchTab = SearchTab;
+
+/** The section that the sidebar selects, for the scope switch of the search. */
+export interface GlobalSearchSectionScope {
+  /** The section name, as the rail shows it. */
+  name: string;
+  /** Whether an agent or a channel is in the section. */
+  includes: (chatId: string) => boolean;
+}
 
 export interface GlobalSearchChannel {
   id: string;
@@ -116,6 +132,14 @@ type MessageHit = { agentId: string; message: AgentMessage };
 
 interface GlobalSearchProps {
   open: boolean;
+  /** The tab that shows when the search opens. A tab that is not visible reads as All. */
+  initialTab?: GlobalSearchTab | undefined;
+  /**
+   * The section that the sidebar selects. With it, a switch at the top keeps only the results of the
+   * agents and channels in the section, and each open starts with the switch on that section. Without
+   * it, the search shows every result and no switch.
+   */
+  sectionScope?: GlobalSearchSectionScope | undefined;
   agents: AgentProfile[];
   /** Omit to hide the Channels filter, for a client or server without channels. */
   channels?: GlobalSearchChannel[] | undefined;
@@ -138,6 +162,9 @@ interface GlobalSearchProps {
 
 // All shows a preview of each kind; a filter shows the full list.
 const ALL_SECTION_LIMIT = 5;
+// The most pages that All loads to fill the preview of a section scope. A filter tab has no limit:
+// it loads more as the list scrolls, as without a scope.
+const SCOPED_PREVIEW_PAGE_LIMIT = 5;
 const SEARCH_DEBOUNCE_MS = 150;
 // First guesses for the virtual list, from the CSS: a row is control-lg high, and a section header
 // is control-sm high, with space-1-5 above it when a row comes before it.
@@ -166,6 +193,10 @@ const SECTION_LABEL = {
 
 function isSearchTab(value: string): value is SearchTab {
   return SEARCH_TABS.some((tab) => tab === value);
+}
+
+function isSearchScope(value: string): value is GlobalSearchScope {
+  return value === "section" || value === "all";
 }
 
 function messagePreview(message: AgentMessage): string {
@@ -207,6 +238,22 @@ function resultLabel(result: ResultData): string {
       return result.routine.name;
     case "action":
       return result.action.label;
+  }
+}
+
+/** The agent or channel that a result belongs to, for the section scope. A channel routine has none. */
+function resultChatId(result: Exclude<ResultData, ActionResult>): string | undefined {
+  switch (result.kind) {
+    case "agent":
+      return result.agent.id;
+    case "channel":
+      return result.channel.id;
+    case "message":
+      return result.agent.id;
+    case "file":
+      return result.file.agentId;
+    case "routine":
+      return result.routine.agentId;
   }
 }
 
@@ -272,6 +319,8 @@ interface RemoteSearch<T> {
   items: Accessor<T[]>;
   total: Accessor<number | undefined>;
   hasMore: Accessor<boolean>;
+  /** The pages that the list holds, the first one included. */
+  pages: Accessor<number>;
   pending: Accessor<boolean>;
   /** A page failed. The list holds only the pages before it. */
   failed: Accessor<boolean>;
@@ -290,8 +339,8 @@ function createRemoteSearch<T>(
   request: () => { search: PagedSearch<T>; query: string } | null,
   key: (item: T) => string,
 ): RemoteSearch<T> {
-  type Loaded = { items: T[]; total?: number | undefined; cursor: string | null };
-  const empty: Loaded = { items: [], cursor: null };
+  type Loaded = { items: T[]; total?: number | undefined; cursor: string | null; pages: number };
+  const empty: Loaded = { items: [], cursor: null, pages: 0 };
   const [loaded, setLoaded] = createSignal<Loaded>(empty);
   const [pending, setPending] = createSignal(false);
   const [failed, setFailed] = createSignal(false);
@@ -315,7 +364,7 @@ function createRemoteSearch<T>(
     setPending(true);
     next.search(next.query).then(
       (page) => {
-        if (current === latest) show({ items: page.results, total: page.total, cursor: page.nextCursor });
+        if (current === latest) show({ items: page.results, total: page.total, cursor: page.nextCursor, pages: 1 });
       },
       () => {
         if (current !== latest) return;
@@ -359,6 +408,7 @@ function createRemoteSearch<T>(
             items: [...previous.items, ...page.results.filter((item) => !seen.has(key(item)))],
             total: page.total ?? previous.total,
             cursor: page.nextCursor,
+            pages: previous.pages + 1,
           };
         });
       },
@@ -391,6 +441,7 @@ function createRemoteSearch<T>(
     items: () => loaded().items,
     total: () => loaded().total,
     hasMore: () => loaded().cursor !== null,
+    pages: () => loaded().pages,
     pending,
     failed,
     retry,
@@ -574,9 +625,24 @@ function ResultRow(props: { result: GlobalSearchResult; query: string }) {
 
 export function GlobalSearch(props: GlobalSearchProps) {
   const { t } = useText();
-  const [tab, setTab] = createSignal<SearchTab>("all");
+  const visibleTabs = createMemo(() =>
+    SEARCH_TABS.filter(
+      (candidate) =>
+        (candidate !== "channels" || props.channels !== undefined) &&
+        (candidate !== "messages" || props.onSearchMessages !== undefined) &&
+        (candidate !== "files" || props.onSearchFiles !== undefined) &&
+        (candidate !== "routines" || props.routines !== undefined),
+    ),
+  );
+  const startTab = () => globalSearchStartTab<SearchTab>(props.initialTab, visibleTabs(), "all");
+  // The overlay mounts the search when it opens, so the first tab is the start tab and does not slide in.
+  const [tab, setTab] = createSignal<SearchTab>(untrack(startTab));
   const [query, setQuery] = createSignal("");
+  const [scope, setScope] = createSignal<GlobalSearchScope>(GLOBAL_SEARCH_START_SCOPE);
+  /** The results keep only the selected section: a section is selected, and the switch is on it. */
+  const scoped = () => props.sectionScope !== undefined && scope() === "section";
   let input: HTMLInputElement | undefined;
+  let scopeSwitch: HTMLDivElement | undefined;
   let retryButton: HTMLButtonElement | undefined;
   let dialog: HTMLDivElement | undefined;
   let results: HTMLElement | undefined;
@@ -597,15 +663,6 @@ export function GlobalSearch(props: GlobalSearchProps) {
   const scrollFades = createScrollFades();
   onCleanup(scrollFades.stop);
 
-  const visibleTabs = createMemo(() =>
-    SEARCH_TABS.filter(
-      (candidate) =>
-        (candidate !== "channels" || props.channels !== undefined) &&
-        (candidate !== "messages" || props.onSearchMessages !== undefined) &&
-        (candidate !== "files" || props.onSearchFiles !== undefined) &&
-        (candidate !== "routines" || props.routines !== undefined),
-    ),
-  );
   const agentsById = createMemo(() => new Map(props.agents.map((agent) => [agent.id, agent])));
   const normalizedQuery = createMemo(() => normalizedSearchText(query()));
 
@@ -669,34 +726,90 @@ export function GlobalSearch(props: GlobalSearchProps) {
     ),
   );
 
+  /**
+   * The results of the selected section only, while the scope is on. A list is filtered once per change
+   * of the list or the scope, not on each key press. A routine follows the agent that runs it.
+   */
+  function inScope<T extends GlobalSearchResult & Exclude<ResultData, ActionResult>>(items: T[]): T[] {
+    const sectionScope = props.sectionScope;
+    if (!sectionScope || scope() !== "section") return items;
+    return items.filter((item) => {
+      const chatId = resultChatId(item);
+      return chatId !== undefined && sectionScope.includes(chatId);
+    });
+  }
+  const scopedAgentItems = createMemo(() => inScope(agentItems()));
+  const scopedChannelItems = createMemo(() => inScope(channelItems()));
+  const scopedRoutineItems = createMemo(() => inScope(routineItems()));
+  const scopedMessageItems = createMemo(() => inScope(messageItems()));
+  const scopedFileItems = createMemo(() => inScope(fileItems()));
+
+  /**
+   * Whether the scope waits for the next page of a paged source: the pages so far bring too few
+   * results of the section. All needs a full preview; a filter tab needs one row, and then loads more
+   * as the list scrolls.
+   */
+  function scopedPageNeeded(search: RemoteSearch<unknown>, shown: () => number): Accessor<boolean> {
+    return createMemo(() => {
+      const preview = tab() === "all";
+      return globalSearchNeedsScopedPage({
+        scoped: scoped(),
+        shown: shown(),
+        wanted: preview ? ALL_SECTION_LIMIT : 1,
+        hasMore: search.hasMore(),
+        failed: search.failed(),
+        pages: search.pages(),
+        pageLimit: preview ? SCOPED_PREVIEW_PAGE_LIMIT : Number.POSITIVE_INFINITY,
+      });
+    });
+  }
+  const messagePageNeeded = scopedPageNeeded(
+    messageSearch,
+    () => matching(scopedMessageItems(), normalizedQuery()).length,
+  );
+  const filePageNeeded = scopedPageNeeded(fileSearch, () => matching(scopedFileItems(), normalizedQuery()).length);
+  // The loaded list is the source: each page, and the first page of a new query, is a new list, so the
+  // next page loads after each page that is still too short.
+  createEffect(
+    () => (messagePageNeeded() ? messageSearch.items() : null),
+    (loaded) => {
+      if (loaded) messageSearch.loadMore();
+    },
+  );
+  createEffect(
+    () => (filePageNeeded() ? fileSearch.items() : null),
+    (loaded) => {
+      if (loaded) fileSearch.loadMore();
+    },
+  );
+
   const sections = createMemo<GlobalSearchSection[]>(() => {
     const value = normalizedQuery();
     const category = tab();
     const list = (key: SectionKey, items: GlobalSearchResult[]) => [section(key, items)];
-    // A remote section counts the results that are not loaded yet.
+    // A remote section counts the results that are not loaded yet. A scope counts only what shows.
     const remote = (search: RemoteSearch<unknown>, limit?: number) => ({
       limit,
-      total: search.total(),
-      more: search.hasMore() && search.total() === undefined,
+      ...globalSearchRemoteCount({ scoped: scoped(), total: search.total(), hasMore: search.hasMore() }),
     });
     let groups: GlobalSearchSection[];
-    if (category === "agents") groups = list("agents", matching(agentItems(), value));
-    else if (category === "channels") groups = list("channels", matching(channelItems(), value));
+    if (category === "agents") groups = list("agents", matching(scopedAgentItems(), value));
+    else if (category === "channels") groups = list("channels", matching(scopedChannelItems(), value));
     else if (category === "messages")
-      groups = [section("messages", value ? matching(messageItems(), value) : [], remote(messageSearch))];
-    else if (category === "files") groups = [section("files", matching(fileItems(), value), remote(fileSearch))];
-    else if (category === "routines") groups = list("routines", matching(routineItems(), value));
+      groups = [section("messages", value ? matching(scopedMessageItems(), value) : [], remote(messageSearch))];
+    else if (category === "files") groups = [section("files", matching(scopedFileItems(), value), remote(fileSearch))];
+    else if (category === "routines") groups = list("routines", matching(scopedRoutineItems(), value));
     else if (!value) {
-      groups = [...list("agents", agentItems()), ...list("channels", channelItems())];
+      groups = [...list("agents", scopedAgentItems()), ...list("channels", scopedChannelItems())];
     } else {
       const actions = matching(actionItems(), value);
       const preview = { limit: ALL_SECTION_LIMIT };
       groups = [
-        section("agents", matching(agentItems(), value), preview),
-        section("channels", matching(channelItems(), value), preview),
-        section("messages", matching(messageItems(), value), remote(messageSearch, ALL_SECTION_LIMIT)),
-        section("files", matching(fileItems(), value), remote(fileSearch, ALL_SECTION_LIMIT)),
-        section("routines", matching(routineItems(), value), preview),
+        section("agents", matching(scopedAgentItems(), value), preview),
+        section("channels", matching(scopedChannelItems(), value), preview),
+        section("messages", matching(scopedMessageItems(), value), remote(messageSearch, ALL_SECTION_LIMIT)),
+        section("files", matching(scopedFileItems(), value), remote(fileSearch, ALL_SECTION_LIMIT)),
+        section("routines", matching(scopedRoutineItems(), value), preview),
         // Actions and settings have no filter tab, so they show every match.
         section(
           "actions",
@@ -715,7 +828,10 @@ export function GlobalSearch(props: GlobalSearchProps) {
   const firstKey = createMemo(() => flatResults()[0]?.key);
   const routinesPending = () =>
     props.routinesLoading === true && (tab() === "routines" || (tab() === "all" && normalizedQuery() !== ""));
-  const pending = () => messageSearch.pending() || fileSearch.pending() || routinesPending();
+  // A source still loads while its first page is on the way, or while the scope waits for a next page.
+  const messagesPending = () => messageSearch.pending() || messagePageNeeded();
+  const filesPending = () => fileSearch.pending() || filePageNeeded();
+  const pending = () => messagesPending() || filesPending() || routinesPending();
   // A failed search is not an empty one: the user can retry it instead of reading "No results".
   const failed = () => messageSearch.failed() || fileSearch.failed();
   const retry = () => {
@@ -726,24 +842,27 @@ export function GlobalSearch(props: GlobalSearchProps) {
   const searching = () => {
     const shown = new Set(sections().map((group) => group.key));
     return (
-      (messageSearch.pending() && !shown.has("messages")) ||
-      (fileSearch.pending() && !shown.has("files")) ||
+      (messagesPending() && !shown.has("messages")) ||
+      (filesPending() && !shown.has("files")) ||
       (routinesPending() && !shown.has("routines"))
     );
   };
 
+  // Each open starts on the start tab, with the scope on the selected section. A later change of the
+  // start tab does not move the user off the tab they chose.
   createEffect(
-    () => props.open,
-    (open) => {
-      if (!open) return;
-      setTab("all");
+    () => (props.open ? untrack(startTab) : null),
+    (opened) => {
+      if (!opened) return;
+      setTab(opened);
+      setScope(GLOBAL_SEARCH_START_SCOPE);
       setQuery("");
       requestAnimationFrame(() => input?.focus());
     },
   );
   // A new list starts at its top. The scroll of the old list can hide the new first rows.
   createEffect(
-    () => `${tab()} ${normalizedQuery()}`,
+    () => `${tab()} ${scope()} ${normalizedQuery()}`,
     () => {
       if (results) results.scrollTop = 0;
     },
@@ -812,6 +931,12 @@ export function GlobalSearch(props: GlobalSearchProps) {
       return;
     }
     if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+    // Tab cycles the filters, so ⌘S moves focus to the scope switch. The arrows then change the scope.
+    if (event.code === "KeyS" && props.sectionScope) {
+      event.preventDefault();
+      scopeSwitch?.querySelector<HTMLElement>('[role="tab"][data-selected]')?.focus();
+      return;
+    }
     const index = Number(event.key) - 1;
     if (!Number.isInteger(index) || index < 0 || index > 8) return;
     // With no such result, the key still stops here: the server rail uses the same shortcut.
@@ -833,6 +958,35 @@ export function GlobalSearch(props: GlobalSearchProps) {
         >
           <DialogExitMotion dialog={() => dialog} />
           <Dialog.Title class="sr-only">{t("conversation.globalSearch.title")}</Dialog.Title>
+          <Show when={props.sectionScope}>
+            {(sectionScope) => (
+              <div ref={(element) => (scopeSwitch = element)} class="global-search-scope">
+                <Tabs.Root
+                  value={scope()}
+                  onChange={(value) => {
+                    if (isSearchScope(value)) setScope(value);
+                  }}
+                  class="global-search-scope-tabs"
+                >
+                  <Tabs.List aria-label={t("conversation.globalSearch.scope.label")}>
+                    <FilterPill />
+                    <Tabs.Trigger value="section" aria-keyshortcuts="Meta+S Control+S">
+                      {t("conversation.globalSearch.scope.section", { name: sectionScope().name })}
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="all" aria-keyshortcuts="Meta+S Control+S">
+                      {t("conversation.globalSearch.scope.all")}
+                    </Tabs.Trigger>
+                  </Tabs.List>
+                </Tabs.Root>
+                <span class="global-search-hint global-search-scope-hint" aria-hidden="true">
+                  <Kbd>
+                    <Command />
+                  </Kbd>
+                  <Kbd>{t("conversation.globalSearch.hint.scopeKey")}</Kbd>
+                </span>
+              </div>
+            )}
+          </Show>
           <Combobox.Root<GlobalSearchResult, GlobalSearchSection>
             options={sections()}
             optionGroupChildren="items"
@@ -901,7 +1055,7 @@ export function GlobalSearch(props: GlobalSearchProps) {
                 <Combobox.Listbox
                   aria-label={t("conversation.globalSearch.results")}
                   scrollToItem={(key) => scrollToKey?.(key)}
-                  data-list={`${tab()} ${normalizedQuery()}`}
+                  data-list={`${tab()} ${scope()} ${normalizedQuery()}`}
                 >
                   {(collection) => (
                     <VirtualListbox
