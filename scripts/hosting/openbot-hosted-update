@@ -27,7 +27,9 @@ export LC_ALL=C DEBIAN_FRONTEND=noninteractive
 umask 022
 
 INSTALL=/opt/OpenBot
-RELEASES=https://github.com/nightly-labs/openbot/releases
+# The release feed. Builders Bot has no release feed yet, so it is empty and `stage` downloads
+# nothing. Never set it to the upstream OpenBot releases: they would replace Builders Bot.
+RELEASES=""
 LOCK=/run/openbot-update.lock
 # Not in a directory that boat saves, so a download that a stop interrupts does not stay.
 SCRATCH=/var/tmp
@@ -262,6 +264,10 @@ install_pre_stop() {
 
 stage() {
   local architecture manifest version path sha512 size current
+  if [ -z "$RELEASES" ]; then
+    echo "Updates are not available in this version of Builders Bot. Nothing was downloaded." >&2
+    return 0
+  fi
   case $(uname -m) in
     x86_64) architecture=x86_64 manifest=latest-linux.yml ;;
     aarch64) architecture=arm64 manifest=latest-linux-arm64.yml ;;

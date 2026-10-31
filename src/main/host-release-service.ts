@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import type { HostReleaseStatus, UpdateStatus } from "@openbot/contracts/ipc";
 import { Deferred, Effect, Exit, Schema } from "effect";
 import { parse } from "yaml";
+import { decideReleaseFeed, type ReleaseFeedDecision } from "./update-feed-policy";
 import { isValidSemver } from "./update-service";
 
 class ReleaseCheckFailed extends Schema.TaggedError<ReleaseCheckFailed>()("ReleaseCheckFailed", {}) {}
@@ -43,6 +44,8 @@ interface HostReleaseOptions {
   updateStatus: () => Pick<UpdateStatus, "phase" | "managedByHost">;
   installationMode: string | null;
   fetch?: typeof fetch;
+  /** The release feed that the feed policy allows. Default: `decideReleaseFeed()`, which allows none yet. */
+  releaseFeed?: ReleaseFeedDecision;
 }
 
 /** Reads only the install marker. No command or application file is executed. */
@@ -59,6 +62,7 @@ export const readInstallationMode = Effect.fn("HostRelease.readInstallationMode"
 /** Read-only release discovery. Installation stays with the existing updater or administrator. */
 export class HostReleaseService {
   readonly #options: HostReleaseOptions;
+  readonly #feedBaseUrl: string | null;
   readonly #target: ReleaseTarget | null;
   #phase: HostReleaseStatus["phase"] = "idle";
   #latestVersion: string | null = null;
@@ -66,8 +70,14 @@ export class HostReleaseService {
 
   constructor(options: HostReleaseOptions) {
     this.#options = options;
+    const feed = options.releaseFeed ?? decideReleaseFeed();
+    this.#feedBaseUrl = feed.allowed ? feed.baseUrl : null;
+    // With no allowed feed there is no target: the panel shows that release checks are not available,
+    // and `check` sends no request.
     this.#target =
-      options.packaged && isValidSemver(options.currentVersion) ? releaseTarget(options.platform, options.arch) : null;
+      this.#feedBaseUrl !== null && options.packaged && isValidSemver(options.currentVersion)
+        ? releaseTarget(options.platform, options.arch)
+        : null;
   }
 
   snapshot(): HostReleaseStatus {
@@ -94,7 +104,8 @@ export class HostReleaseService {
   }
 
   readonly check = Effect.fn("HostRelease.check")(function* (this: HostReleaseService) {
-    if (!this.#target) return this.snapshot();
+    const baseUrl = this.#feedBaseUrl;
+    if (!this.#target || baseUrl === null) return this.snapshot();
     if (this.#pending) return yield* Deferred.await(this.#pending);
     const pending = Deferred.makeUnsafe<HostReleaseStatus>();
     this.#pending = pending;
@@ -103,7 +114,7 @@ export class HostReleaseService {
     const target = this.#target;
     return yield* Effect.gen({ self: this }, function* () {
       const version = yield* Effect.tryPromise({
-        try: (signal) => fetchLatestRelease(target, this.#options.fetch ?? fetch, signal),
+        try: (signal) => fetchLatestRelease(baseUrl, target, this.#options.fetch ?? fetch, signal),
         catch: () => new ReleaseCheckFailed(),
       });
       this.#latestVersion = version;
@@ -127,8 +138,13 @@ export class HostReleaseService {
 }
 
 /** The version of the latest published release for `target`. Rejects on any fault of the feed. */
-async function fetchLatestRelease(target: ReleaseTarget, request: typeof fetch, signal: AbortSignal): Promise<string> {
-  const response = await request(`https://github.com/nightly-labs/openbot/releases/latest/download/${target.feed}`, {
+async function fetchLatestRelease(
+  baseUrl: string,
+  target: ReleaseTarget,
+  request: typeof fetch,
+  signal: AbortSignal,
+): Promise<string> {
+  const response = await request(`${baseUrl}/${target.feed}`, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
   });
   if (!response.ok || !response.body) {
@@ -160,20 +176,28 @@ async function fetchLatestRelease(target: ReleaseTarget, request: typeof fetch, 
 }
 
 /**
- * The feed is the upstream release of the same version, and upstream names its files after the
- * product it builds, `Builders Bot-<version>-…`. A Builders Bot build asks for `Builders Bot-<version>-…`,
- * so both names are accepted; the suffix that carries the platform and the architecture must match.
+ * The feed names its files after the product, `Builders Bot-<version>-…`. The suffix that carries the
+ * platform and the architecture must match.
  */
 function acceptsAsset(target: ReleaseTarget, url: string, version: string): boolean {
   const asset = target.asset(version);
   return url === asset || url === asset.replace(/^Builders Bot-/u, "Builders Bot-");
 }
 
-/** The latest Linux release for `arch`, for the hosted installer. */
-export function fetchLatestLinuxRelease(arch: string, request: typeof fetch, signal: AbortSignal): Promise<string> {
+/**
+ * The latest Linux release for `arch`, for the hosted installer. With no allowed feed it rejects and
+ * sends no request.
+ */
+export function fetchLatestLinuxRelease(
+  arch: string,
+  request: typeof fetch,
+  signal: AbortSignal,
+  feed: ReleaseFeedDecision = decideReleaseFeed(),
+): Promise<string> {
+  if (!feed.allowed) return Promise.reject(new Error("No release feed is available in this version"));
   const target = releaseTarget("linux", arch);
   if (!target) return Promise.reject(new Error("No release for this machine"));
-  return fetchLatestRelease(target, request, signal);
+  return fetchLatestRelease(feed.baseUrl, target, request, signal);
 }
 
 export function newerRelease(candidate: string, current: string): boolean {

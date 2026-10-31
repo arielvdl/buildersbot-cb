@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ProgressInfo, UpdateInfo } from "electron-updater";
 import { fetchLatestLinuxRelease, newerRelease } from "./host-release-service";
+import { decideReleaseFeed, type ReleaseFeedDecision } from "./update-feed-policy";
 import {
   isValidSemver,
   type UpdateAdapter,
@@ -48,6 +49,8 @@ interface HostedUpdateOptions {
   currentVersion: string;
   arch: string;
   fetch?: typeof fetch;
+  /** The release feed that the feed policy allows. Default: `decideReleaseFeed()`, which allows none yet. */
+  releaseFeed?: ReleaseFeedDecision;
   paths?: HostedUpdatePaths;
   pollIntervalMs?: number;
 }
@@ -99,10 +102,12 @@ export class HostedUpdateAdapter implements UpdateAdapter {
   }
 
   async checkForUpdates(): Promise<UpdateCheckOutcome> {
+    // With no allowed feed this rejects before it sends a request.
     const version = await fetchLatestLinuxRelease(
       this.#options.arch,
       this.#options.fetch ?? fetch,
       AbortSignal.timeout(15_000),
+      this.#options.releaseFeed ?? decideReleaseFeed(),
     );
     if (!newerRelease(version, this.#options.currentVersion))
       return { isUpdateAvailable: false, updateInfo: { version } };

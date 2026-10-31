@@ -257,6 +257,11 @@ update_command() {
   require_host "pull the new image on the host, then make the container again"
   require_root update
   local before after reply
+  # openbot-hosted-update has no release feed to read yet (RELEASES is empty).
+  if [ -z "$RELEASES" ]; then
+    echo "Updates are not available in this version of Builders Bot."
+    return 0
+  fi
   before=$(version_of "$INSTALL/app")
   "$INSTALL/hosted/openbot-hosted-update" stage
   after=$(staged_version)

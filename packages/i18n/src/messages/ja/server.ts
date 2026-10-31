@@ -482,7 +482,7 @@ export const messages = {
   "server.update.path.container":
     "Docker ホストで新しい Builders Bot イメージを pull し、同じデータボリュームでコンテナーを再作成してください。先に実行中の作業が終わるのを待ってください。データを保持するため、既存のボリュームはそのまま残してください。",
   "server.update.path.manual":
-    "このインストールは自分自身を置き換えられません。github.com/nightly-labs/openbot/releases から互換性のあるリリースをインストールするよう、ホストの管理者に依頼してください。既存の Builders Bot のデータは残してください。",
+    "このインストールは自分自身を置き換えられません。互換性のある Builders Bot のリリースをインストールするよう、ホストの管理者に依頼してください。既存の Builders Bot のデータは残してください。",
   "server.update.path.unavailable":
     "これは開発ビルドです。アップデートを確認するには、インストール済みの Builders Bot リリースを使用してください。",
   "server.update.check": "アップデートを確認",

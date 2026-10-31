@@ -284,11 +284,9 @@ export const DOWNLOAD_PAGES: Record<DownloadPagePlatform, DownloadPageContent> =
       {
         title: "A server with no screen",
         steps: [
-          {
-            text: "On Ubuntu 24.04 or 26.04 with systemd, install OpenBot as an always-on server of your account, then sign in with an email code:",
-            code: "curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash\nsudo openbot login",
-          },
-          { text: `Then use it from the desktop app, or from ${WEB_APP_ADDRESS} in a browser or on a phone.` },
+          // There is no Builders Bot release feed yet, and the earlier command installed the upstream
+          // release as root. The install command comes back with the Builders Bot release feed.
+          { text: "The server install is not available in this version." },
         ],
       },
     ],

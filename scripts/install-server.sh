@@ -1,7 +1,7 @@
 #!/bin/bash
-# Installs OpenBot as a self-hosted server on a Linux computer with no screen:
+# Installs Builders Bot as a self-hosted server on a Linux computer with no screen:
 #
-#   curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
+#   sudo bash scripts/install-server.sh
 #
 # Options (after `sudo bash -s --`):
 #   --user <name>             The user that runs OpenBot and its agents. Default: the user of the
@@ -19,7 +19,9 @@
 set -euo pipefail
 export LC_ALL=C DEBIAN_FRONTEND=noninteractive
 
-RELEASES=https://github.com/nightly-labs/openbot/releases
+# The release feed. Builders Bot has no release feed yet, so the install stops before it downloads
+# anything. Never set it to the upstream OpenBot releases: they would install OpenBot as root.
+RELEASES=""
 service_user=""
 auth_api_url=""
 display_size=""
@@ -57,6 +59,8 @@ while [ "$#" -gt 0 ]; do
     *) fail "Unknown option: $1" ;;
   esac
 done
+
+[ -n "$RELEASES" ] || fail "The Builders Bot server install is not available in this version. Nothing was downloaded."
 
 [ "$(uname -s)" = Linux ] || fail "This install is for Linux. Download the desktop app at https://openbot.run."
 [ "$(id -u)" -eq 0 ] || fail "Run this with sudo."

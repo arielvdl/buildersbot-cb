@@ -1,28 +1,77 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { fetchLatestLinuxRelease } from "./host-release-service";
+import { fetchLatestLinuxRelease, HostReleaseService } from "./host-release-service";
+import { HostedUpdateAdapter } from "./hosted-update-adapter";
+import type { ReleaseFeedDecision } from "./update-feed-policy";
 
-function feed(body: string): typeof fetch {
-  return (() => Promise.resolve(new Response(body))) as unknown as typeof fetch;
+/** A fetch that records each address. With no body, a request fails the test. */
+function recordingFetch(body?: string) {
+  const urls: string[] = [];
+  const request: typeof fetch = async (input) => {
+    urls.push(input instanceof Request ? input.url : input.toString());
+    if (body === undefined) throw new Error("A request was sent.");
+    return new Response(body);
+  };
+  return { request, urls };
 }
 
 const signal = new AbortController().signal;
+// A feed that a later version can allow. The default policy allows none.
+const TEST_FEED: ReleaseFeedDecision = { allowed: true, baseUrl: "https://updates.example.test/feeds" };
 
 describe("fetchLatestLinuxRelease", () => {
-  it("accepts the upstream Builders Bot asset name", async () => {
-    const manifest = ["version: 0.54.0", "files:", "  - url: Builders Bot-0.54.0-arm64.AppImage"].join("\n");
+  it("sends no request while no release feed is allowed", async () => {
+    const { request, urls } = recordingFetch();
 
-    await expect(fetchLatestLinuxRelease("arm64", feed(manifest), signal)).resolves.toBe("0.54.0");
+    await expect(fetchLatestLinuxRelease("arm64", request, signal)).rejects.toThrow(
+      "No release feed is available in this version",
+    );
+    expect(urls).toEqual([]);
   });
 
-  it("accepts the Builders Bot asset name", async () => {
+  it("asks the allowed feed for the manifest of the architecture", async () => {
     const manifest = ["version: 0.54.0", "files:", "  - url: Builders Bot-0.54.0-arm64.AppImage"].join("\n");
+    const { request, urls } = recordingFetch(manifest);
 
-    await expect(fetchLatestLinuxRelease("arm64", feed(manifest), signal)).resolves.toBe("0.54.0");
+    await expect(fetchLatestLinuxRelease("arm64", request, signal, TEST_FEED)).resolves.toBe("0.54.0");
+    expect(urls).toEqual(["https://updates.example.test/feeds/latest-linux-arm64.yml"]);
   });
 
   it("refuses a release for another architecture", async () => {
     const manifest = ["version: 0.54.0", "files:", "  - url: Builders Bot-0.54.0-x86_64.AppImage"].join("\n");
 
-    await expect(fetchLatestLinuxRelease("arm64", feed(manifest), signal)).rejects.toThrow("No compatible release");
+    await expect(fetchLatestLinuxRelease("arm64", recordingFetch(manifest).request, signal, TEST_FEED)).rejects.toThrow(
+      "No compatible release",
+    );
+  });
+});
+
+describe("release checks with no allowed feed", () => {
+  it("the Servers panel reports that release checks are not available, with no request", async () => {
+    const { request, urls } = recordingFetch();
+    const release = new HostReleaseService({
+      currentVersion: "0.56.0",
+      packaged: true,
+      platform: "linux",
+      arch: "x64",
+      environment: { OPENBOT_HOSTED_SERVER: "1" },
+      installationMode: null,
+      updateStatus: () => ({ phase: "unsupported" }),
+      fetch: request,
+    });
+
+    const status = await Effect.runPromise(release.check());
+
+    expect(status.phase).toBe("unavailable");
+    expect(status.latestVersion).toBeNull();
+    expect(urls).toEqual([]);
+  });
+
+  it("the hosted installer finds no update, with no request", async () => {
+    const { request, urls } = recordingFetch();
+    const adapter = new HostedUpdateAdapter({ currentVersion: "0.56.0", arch: "x64", fetch: request });
+
+    await expect(adapter.checkForUpdates()).rejects.toThrow("No release feed is available in this version");
+    expect(urls).toEqual([]);
   });
 });

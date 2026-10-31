@@ -871,7 +871,7 @@ export const messages = {
   "mobile.server.update.path.container":
     "Sur l’hôte Docker, récupérez la nouvelle image Builders Bot et recréez le conteneur avec les mêmes volumes de données. Attendez d’abord la fin du travail en cours. Conservez les volumes existants pour préserver vos données.",
   "mobile.server.update.path.manual":
-    "Cette installation ne peut pas se remplacer elle-même. Demandez à l’administrateur de l’hôte d’installer la version compatible depuis github.com/nightly-labs/openbot/releases. Conservez les données Builders Bot existantes.",
+    "Cette installation ne peut pas se remplacer elle-même. Demandez à l’administrateur de l’hôte d’installer une version compatible de Builders Bot. Conservez les données Builders Bot existantes.",
   "mobile.server.update.path.unavailable":
     "Ceci est un build de développement. Utilisez une version installée d’Builders Bot pour rechercher des mises à jour.",
   "mobile.server.update.check": "Rechercher des mises à jour",

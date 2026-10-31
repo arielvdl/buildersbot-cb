@@ -822,7 +822,7 @@ export const messages = {
   "mobile.server.update.path.container":
     "Docker 호스트에서 새 Builders Bot 이미지를 가져오고 같은 데이터 볼륨으로 컨테이너를 다시 만드세요. 먼저 진행 중인 작업이 끝나기를 기다리세요. 데이터를 보존하려면 기존 볼륨을 유지하세요.",
   "mobile.server.update.path.manual":
-    "이 설치본은 스스로 교체할 수 없어요. 호스트 관리자에게 github.com/nightly-labs/openbot/releases에서 호환되는 릴리스를 설치해 달라고 요청하세요. 기존 Builders Bot 데이터는 유지하세요.",
+    "이 설치본은 스스로 교체할 수 없어요. 호스트 관리자에게 호환되는 Builders Bot 릴리스를 설치해 달라고 요청하세요. 기존 Builders Bot 데이터는 유지하세요.",
   "mobile.server.update.path.unavailable":
     "개발 빌드예요. 업데이트를 확인하려면 설치된 Builders Bot 릴리스를 사용하세요.",
   "mobile.server.update.check": "업데이트 확인",

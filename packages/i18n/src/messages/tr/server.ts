@@ -504,7 +504,7 @@ export const messages = {
   "server.update.path.container":
     "Docker ana makinesinde yeni Builders Bot görüntüsünü çekin ve kapsayıcıyı aynı veri birimleriyle yeniden oluşturun. Önce etkin çalışmanın bitmesini bekleyin. Verilerinizi korumak için mevcut birimleri saklayın.",
   "server.update.path.manual":
-    "Bu kurulum kendini değiştiremez. Ana makine yöneticisinden uyumlu sürümü github.com/nightly-labs/openbot/releases adresinden yüklemesini isteyin. Mevcut Builders Bot verilerini saklayın.",
+    "Bu kurulum kendini değiştiremez. Ana makine yöneticisinden uyumlu bir Builders Bot sürümü yüklemesini isteyin. Mevcut Builders Bot verilerini saklayın.",
   "server.update.path.unavailable":
     "Bu bir geliştirme derlemesidir. Güncellemeleri denetlemek için yüklü bir Builders Bot sürümü kullanın.",
   "server.update.check": "Güncellemeleri denetle",
