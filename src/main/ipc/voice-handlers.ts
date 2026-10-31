@@ -6,6 +6,7 @@ import {
   type DictationPreference,
   type DictationState,
   type DraftAttachment,
+  type MicrophoneAccess,
   parseDictationPreferenceChange,
   type SpeechAudio,
   type SpeechModelStatus,
@@ -22,6 +23,7 @@ import { sourceText } from "@openbot/i18n/source";
 import type { AgentService } from "../../backend/agent-service";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { DictationService } from "../dictation-service";
+import { type MicrophoneSystem, readMicrophoneAccess, requestMicrophoneAccess } from "../microphone-access";
 import { dictationFailureKey, type OsDictationService } from "../os-dictation-service";
 import type { VoiceServerService } from "../voice-server-service";
 import type { VoiceSpeechService } from "../voice-speech-service";
@@ -81,6 +83,8 @@ export interface VoiceIpcDependencies {
   dictation: DictationService;
   /** The speech recognition of the operating system, for the global dictation. */
   os: OsDictationService;
+  /** The grant of the operating system for the microphone. */
+  microphone: MicrophoneSystem;
 }
 
 export function voiceIpcHandlers({
@@ -90,6 +94,7 @@ export function voiceIpcHandlers({
   dictation,
   server,
   os,
+  microphone,
 }: VoiceIpcDependencies): Pick<IpcGroupHandlers, "voice"> {
   return {
     voice: {
@@ -178,6 +183,8 @@ export function voiceIpcHandlers({
         parseVoiceServerSave,
         (save): Promise<VoiceServerSettings | null> => runCauseEffect(server.set(save.server)),
       ),
+      getMicrophoneAccess: handler((): MicrophoneAccess => readMicrophoneAccess(microphone)),
+      requestMicrophoneAccess: handler((): Promise<MicrophoneAccess> => requestMicrophoneAccess(microphone)),
     },
   };
 }

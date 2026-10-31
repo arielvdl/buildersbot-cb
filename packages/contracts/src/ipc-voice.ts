@@ -379,11 +379,28 @@ export interface VoiceServerRoutes {
   voice: string | null;
 }
 
+/**
+ * The grant of the operating system for this app's microphone, as Electron reads it. "unknown" where
+ * the system does not tell, as on Linux: dictation then asks the browser layer, as before.
+ */
+export const MICROPHONE_ACCESS_STATES = ["not-determined", "granted", "denied", "restricted", "unknown"] as const;
+export type MicrophoneAccess = (typeof MICROPHONE_ACCESS_STATES)[number];
+
+export function isMicrophoneAccess(value: unknown): value is MicrophoneAccess {
+  return isOneOf(MICROPHONE_ACCESS_STATES, value);
+}
+
 /** Main to renderer. The key never comes back; `hasApiKey` is all the renderer may know about it. */
 export interface VoiceServerSettings {
   /** The base address of the API, such as `http://studio.local:8000/v1`. */
   address: string;
   hasApiKey: boolean;
+  /**
+   * True when a key is saved but this computer cannot decrypt it, for example after the keychain
+   * changed. `hasApiKey` is then false, as before this field. Optional: a build that does not know
+   * the field reads the settings as it did before.
+   */
+  apiKeyUnreadable?: boolean;
   routes: VoiceServerRoutes;
 }
 
@@ -452,6 +469,7 @@ export function isVoiceServerSettings(value: unknown): value is VoiceServerSetti
     !("apiKey" in value) &&
     isBoundedString(value.address, VOICE_SERVER_LIMITS.address) &&
     isBoolean(value.hasApiKey) &&
+    (value.apiKeyUnreadable === undefined || isBoolean(value.apiKeyUnreadable)) &&
     isVoiceServerRoutes(value.routes)
   );
 }

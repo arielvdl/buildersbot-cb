@@ -22,7 +22,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Exit, Fiber, Scope } from "effect";
-import type { VoiceApiKeyStore } from "./voice-api-key-store";
+import type { VoiceApiKeyStatus, VoiceApiKeyStore } from "./voice-api-key-store";
 import {
   type OpenVoiceStreamSocket,
   ScribeRealtimeSession,
@@ -281,7 +281,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
     const { modelId, language } = this.#preferences.get();
     const apiKey = this.#apiKeys.get();
     if (modelId !== ELEVENLABS_VOICE_MODEL_ID || !apiKey)
-      return yield* new VoiceOperationError({ cause: new Error(sourceText("error.voice.cloud.keyRequired")) });
+      return yield* new VoiceOperationError({ cause: new Error(cloudKeyMessage(this.#apiKeys.status())) });
     const id = randomUUID();
     const session = new ScribeRealtimeSession({
       url: scribeRealtimeUrl(language),
@@ -344,16 +344,21 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
     return missing ? Effect.succeed(missing) : this.#models[modelId].getStatus();
   }
 
-  /** The ElevenLabs model is ready when its key is saved. */
+  /**
+   * The ElevenLabs model is ready when its key is saved. A saved key that this computer cannot
+   * decrypt is an error with its own text, not a missing key: the user must not be asked to type
+   * the key again without being told why.
+   */
   #cloudStatus(): VoiceModelStatus {
-    return this.#apiKeys.get()
-      ? { modelId: ELEVENLABS_VOICE_MODEL_ID, phase: "ready", progress: null, message: null }
-      : {
-          modelId: ELEVENLABS_VOICE_MODEL_ID,
-          phase: "missing",
-          progress: null,
-          message: sourceText("error.voice.cloud.keyRequired"),
-        };
+    const status = this.#apiKeys.status();
+    if (status === "saved")
+      return { modelId: ELEVENLABS_VOICE_MODEL_ID, phase: "ready", progress: null, message: null };
+    return {
+      modelId: ELEVENLABS_VOICE_MODEL_ID,
+      phase: status === "unreadable" ? "error" : "missing",
+      progress: null,
+      message: cloudKeyMessage(status),
+    };
   }
 
   #activeStream(streamId: string): Effect.Effect<ActiveStream, VoiceOperationError> {
@@ -485,6 +490,11 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
 function responseResult(response: VoiceTranscriptionResponse): Effect.Effect<string, VoiceOperationError> {
   if ("text" in response) return Effect.succeed(response.text);
   return Effect.fail(new VoiceOperationError({ cause: new HostFailure(response.error) }));
+}
+
+/** Why the ElevenLabs model cannot start: no key, or a saved key that this computer cannot decrypt. */
+function cloudKeyMessage(status: VoiceApiKeyStatus): string {
+  return sourceText(status === "unreadable" ? "error.voice.cloud.keyUnreadable" : "error.voice.cloud.keyRequired");
 }
 
 /** A stream failure carries localized text; anything else is reported as a failed transcription. */

@@ -40,6 +40,7 @@ import { MAC_PERMISSION_URLS } from "./mac-permission-urls";
 import { PushNotificationStore } from "./push-notification-store";
 import { DESKTOP_USE_MS } from "./push-notifications";
 import { RemoteWorkflowError, toRemoteWorkflowError } from "./remote-service-effects";
+import { logUnreadableSecrets, registerSecretHealthSource } from "./secret-health";
 /**
  * The composition root. Every long-lived service the desktop app owns is built here, in one
  * function, in dependency order, and handed back as a single record.
@@ -756,6 +757,9 @@ async function createMessagingServices({
     secretCipher,
   );
   const messagingCredentialLoadError = await Effect.runPromise(messagingCredentials.load());
+  registerSecretHealthSource("messaging-credentials", MESSAGING_CREDENTIAL_FILE, () =>
+    messagingCredentials.unreadable(),
+  );
   if (messagingCredentialLoadError)
     logger.warn(
       `Builders Bot could not read the messaging token file (${messagingCredentialLoadError.name}). It was left unchanged.`,
@@ -1488,6 +1492,11 @@ export async function createApplicationServices({
   // Before the service, which reads the endpoints at its first provider spawn. A file this build
   // cannot read leaves the list empty and every write refused; it does not stop the app.
   await runCauseEffect(customProviders.load());
+  registerSecretHealthSource(
+    "custom-providers",
+    CUSTOM_PROVIDERS_FILE,
+    () => customProviders.unreadableSecretCount() > 0,
+  );
   // The same reasons as the endpoints: before the service, and a file this build cannot read only
   // refuses the writes.
   const customAgents = new CustomAgentStore({
@@ -1495,6 +1504,7 @@ export async function createApplicationServices({
     cipher: secretCipher,
   });
   await runCauseEffect(customAgents.load());
+  registerSecretHealthSource("custom-agents", CUSTOM_AGENTS_FILE, () => customAgents.unreadableSecretCount() > 0);
   const providerDetectionSettings = new ProviderDetectionSettingsStore(
     join(app.getPath("userData"), PROVIDER_DETECTION_SETTINGS_FILE),
   );
@@ -1524,6 +1534,7 @@ export async function createApplicationServices({
   // parse message quotes the file.
   performance.mark("openbot:services.provider-detection");
   const credentialLoadError = await Effect.runPromise(providerCredentials.load());
+  registerSecretHealthSource("provider-credentials", PROVIDER_CREDENTIAL_FILE, () => providerCredentials.unreadable());
   if (credentialLoadError) {
     logger.warn(
       `Builders Bot could not read the provider key file (${credentialLoadError.name}). It was left unchanged.`,
@@ -3005,6 +3016,7 @@ export async function createApplicationServices({
     cipher: secretCipher,
   });
   await runCauseEffect(voiceApiKeys.load());
+  registerSecretHealthSource("voice-api-key", "voice-api-key.json", () => voiceApiKeys.status() === "unreadable");
   const voice = new VoiceTranscriptionService({
     resourcesRoot: app.isPackaged ? join(process.resourcesPath, "voice") : resolve(".openbot-build/voice"),
     // `voice:prepare` puts Parakeet in `.openbot-build/voice/model` for development. In development
@@ -3064,6 +3076,13 @@ export async function createApplicationServices({
     cipher: secretCipher,
   });
   await runCauseEffect(voiceServerKeys.load());
+  registerSecretHealthSource(
+    "voice-server-key",
+    "voice-server-key.json",
+    () => voiceServerKeys.status() === "unreadable",
+  );
+  // Every store of a secret has loaded: one line names the files that this keychain item cannot open.
+  logUnreadableSecrets(logger);
   const voiceServer = new VoiceServerService({ preferences: voiceServerPreferences, apiKeys: voiceServerKeys });
   voiceServer.on("settings", forwardVoiceServerSettings);
   const lidAwake = new LidAwakeService({

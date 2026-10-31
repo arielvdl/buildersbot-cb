@@ -58,6 +58,10 @@ export const messages = {
   "composer.voice.start": "Créer une demande à la voix",
   "composer.voice.blocked":
     "L’accès au microphone est bloqué. Autorisez Builders Bot à utiliser le microphone dans les réglages du système.",
+  "composer.voice.restricted": "L’administrateur de cet ordinateur bloque le microphone.",
+  "composer.voice.openMicrophoneSettings": "Ouvrir Réglages Système",
+  "composer.voice.openWindowsMicrophoneSettings": "Ouvrir les Paramètres Windows",
+  "composer.voice.openVoiceSettings": "Réglages Voix",
   "composer.voice.noMicrophone": "Aucun microphone n’est disponible.",
   "composer.voice.startFailed": "Builders Bot n’a pas pu démarrer l’enregistrement vocal.",
   "composer.voice.transcribeFailed": "Builders Bot n’a pas pu transcrire cet enregistrement.",

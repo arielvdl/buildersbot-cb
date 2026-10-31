@@ -21,6 +21,8 @@ export const messages = defineMessages("error.voice", {
   "error.voice.cloud.streamEnded": "The dictation stream ended. Record again.",
   "error.voice.cloud.tooLong": "The recording is too long.",
   "error.voice.cloud.keySaveFailed": "Could not save the ElevenLabs API key.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot cannot read the saved API key. Use local dictation or remove the key.",
   "error.voice.speech.runtimeUnavailable": "Local speech is not available on this platform.",
   "error.voice.speech.modelRequired": "Download the speech model in Settings → Voice.",
   "error.voice.speech.timedOut": "Reading the reply aloud timed out.",
@@ -32,4 +34,6 @@ export const messages = defineMessages("error.voice", {
   "error.voice.server.invalidAnswer": "{host} did not send an OpenAI-compatible answer.",
   "error.voice.server.invalidAudio": "{host} sent audio that Builders Bot cannot play. Use a server that sends WAV.",
   "error.voice.server.tooLarge": "The answer from {host} is too large.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot cannot read the saved key of your voice server. Type the key again or remove it.",
 });

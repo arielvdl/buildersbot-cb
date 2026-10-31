@@ -7,10 +7,13 @@ import {
   type VoiceTranscriptionResult,
 } from "@openbot/contracts/ipc";
 import { type AppTextKey, en } from "@openbot/i18n";
+import { isFixedSourceText, matchingSourceKeys } from "@openbot/i18n/source";
 import { currentText } from "@openbot/ui/text";
+import { normalizeMessage } from "@openbot/user-errors/reference";
 import { createSignal, onCleanup } from "solid-js";
 import { appPort } from "../../app-port";
 import { encodePcm16, recordingToSamples, recordingToWav } from "../../voice-recording";
+import { blockingMicrophoneAccess, ensureMicrophoneAccess } from "./microphone-access";
 
 /**
  * The dictation of the global combination.
@@ -53,6 +56,16 @@ async function start(): Promise<void> {
   stopping = false;
   if (recording) return;
   await readEngine();
+  // The window can be hidden, so a refusal goes to the overlay with its own text. A grant that is
+  // not decided shows the macOS prompt here, before the recording.
+  const blocked = blockingMicrophoneAccess(await ensureMicrophoneAccess());
+  if (blocked) {
+    await report({
+      failure: blocked === "denied" ? "error.dictation.microphoneDenied" : "error.dictation.microphoneRestricted",
+    });
+    return;
+  }
+  if (recording) return;
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -154,12 +167,21 @@ async function report(result: { text: string } | { failure: string }): Promise<v
 }
 
 /**
- * The IPC failure of a transcription is a catalog key, because main sends no prose. Anything else
- * is a bug here, and reads as the generic failure.
+ * The catalog key of a failure, because the dictation state carries a key and not prose. Main sends
+ * the English text of a source key, such as the text that asks for an API key; that text maps back
+ * to its one `error.*` key. A key itself is kept. Text with a value in it, such as a host name, reads
+ * as the generic failure: the state has no place for the value, and the overlay must not show a
+ * placeholder.
+ *
+ * Electron puts `Error invoking remote method '…': Error: ` (or `Error[ref:…]: `) in front of the
+ * text of a failure from main. `normalizeMessage` removes that prefix before the text is compared.
  */
 function failureKey(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.startsWith("error.") ? message : "error.dictation.failed";
+  const message = normalizeMessage(error);
+  if (message.startsWith("error.")) return message;
+  if (!isFixedSourceText(message)) return "error.dictation.failed";
+  const keys = matchingSourceKeys(message).filter((key) => key.startsWith("error."));
+  return keys.length === 1 && keys[0] !== undefined ? keys[0] : "error.dictation.failed";
 }
 
 function cancel(): void {

@@ -184,6 +184,18 @@ export const messages = {
   "settings.panel.resize": "调整右侧面板宽度",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
   "settings.preferences.loadFailed": "无法加载你的设置。",
+  "settings.secretHealth.title": "无法读取的加密数据",
+  "settings.secretHealth.description":
+    "Builders Bot 无法解密这台电脑上保存的部分数据。钥匙串变更或从其他应用复制配置文件时会发生这种情况。每个文件都会保留，直到你重新输入其数据或将其移除。",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API 密钥（{file}）：在“设置 → 语音”中使用 Parakeet（本地），或移除该密钥。",
+  "settings.secretHealth.store.voiceServerKey":
+    "你的语音服务器的密钥（{file}）：在“设置 → 语音”中重新输入密钥，或将其移除。",
+  "settings.secretHealth.store.customAgents": "自定义助手的值（{file}）：请在每个助手的编辑器中重新输入这些值。",
+  "settings.secretHealth.store.customProviders": "自定义服务商的凭据（{file}）：请在这台电脑的服务商设置中重新输入。",
+  "settings.secretHealth.store.providerCredentials":
+    "服务商 API 密钥（{file}）：请在这台电脑的服务商设置中重新保存每个密钥。",
+  "settings.secretHealth.store.messagingCredentials": "消息连接的令牌（{file}）：请重新连接每个工作区。",
   "settings.preferences.saveFailed": "无法保存该设置，请重试。",
   // The agent picker on the skill and plugin install pages.
   "settings.agentSelect.placeholder": "选择助手",
@@ -462,6 +474,19 @@ export const messages = {
   "settings.voice.downloadFailed": "无法开始下载，请重试。",
   "settings.voice.cancelFailed": "无法停止下载。",
   "settings.voice.removeFailed": "无法移除该模型，请重试。",
+  "settings.voice.microphone.section": "麦克风",
+  "settings.voice.microphone.title": "麦克风权限",
+  "settings.voice.microphone.granted": "已允许。",
+  "settings.voice.microphone.notDetermined": "尚未请求。你第一次听写时，Builders Bot 会请求权限。",
+  "settings.voice.microphone.denied": "未允许。请在系统设置中允许 Builders Bot，然后重新启动 Builders Bot。",
+  "settings.voice.microphone.restricted": "已被这台电脑的管理员阻止。",
+  "settings.voice.microphone.agentCommands": "助手从 Builders Bot 运行的命令也可以使用你允许的麦克风。",
+  "settings.voice.microphone.ask": "请求权限",
+  "settings.voice.microphone.openMac": "打开系统设置",
+  "settings.voice.microphone.openWindows": "打开 Windows 设置",
+  "settings.voice.microphone.restart": "重新启动 Builders Bot",
+  "settings.voice.microphone.restartFailed": "无法重新启动 Builders Bot。",
+  "settings.voice.microphone.openFailed": "无法打开系统设置。",
   "settings.voice.model.elevenlabs.description":
     "将你的语音实时传给 ElevenLabs。说话时文字会同步显示并保持固定。使用你自己的 API 密钥，ElevenLabs 会按次计费。",
   "settings.voice.model.keySaved": "API 密钥已保存",
@@ -470,12 +495,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "粘贴密钥",
   "settings.voice.apiKey.save": "保存密钥",
   "settings.voice.apiKey.remove": "移除密钥",
+  "settings.voice.apiKey.useLocal": "使用 Parakeet（本地）",
+  "settings.voice.apiKey.removeUnreadable": "移除无法读取的密钥",
   "settings.voice.apiKey.saveFailed": "无法保存 API 密钥，请重试。",
   "settings.voice.apiKey.removeFailed": "无法移除 API 密钥，请重试。",
   "settings.voice.speech.section": "语音回复",
   "settings.voice.speech.model.description": "在这台电脑上朗读回复，支持 31 种语言。",
   "settings.voice.speech.readReplies.title": "朗读回复",
-  "settings.voice.speech.readReplies.description": "你用听写发送消息时，会朗读回复。再次听写即可停止朗读。",
+  "settings.voice.speech.readReplies.description":
+    "朗读你用听写发送的消息的回复。键入的消息不会自动朗读：请使用回复菜单中的“朗读”。选择“停止朗读”即可停止。",
+  "settings.voice.speech.readReplies.downloadHint": "下载语音（{size}）即可收听回复。",
   "settings.voice.speech.voice.title": "声音",
   "settings.voice.speech.voice.female": "女声 {number}",
   "settings.voice.speech.voice.male": "男声 {number}",

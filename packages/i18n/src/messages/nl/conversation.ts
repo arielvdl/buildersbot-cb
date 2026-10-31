@@ -152,6 +152,8 @@ export const messages = {
   "conversation.voice.offline": "De server is niet verbonden. Het gesprek gaat verder zodra hij weer verbonden is.",
   "conversation.speech.label": "{name} leest het antwoord voor",
   "conversation.speech.stop": "Stoppen met voorlezen",
+  "conversation.speech.voiceMissing": "De stem die antwoorden voorleest, staat niet op deze computer.",
+  "conversation.speech.downloadVoice": "Stem downloaden ({size})",
   "conversation.panels.openWorkspaceFailed": "Kan de werkruimtemap niet openen",
   "conversation.panels.tryAgain": "Probeer het opnieuw.",
   "conversation.view.label": "Gesprek",

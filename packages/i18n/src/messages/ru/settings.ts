@@ -174,6 +174,21 @@ export const messages = {
   "settings.sections.label": "Разделы настроек",
   "settings.panel.resize": "Изменить размер правой панели",
   "settings.preferences.loadFailed": "Не удалось загрузить настройки.",
+  "settings.secretHealth.title": "Зашифрованные данные, которые нельзя прочитать",
+  "settings.secretHealth.description":
+    "Builders Bot не может расшифровать часть сохранённых данных на этом компьютере. Так бывает, когда меняется связка ключей или когда профиль скопирован из другого приложения. Каждый файл остаётся, пока вы не введёте его данные снова или не удалите его.",
+  "settings.secretHealth.store.voiceApiKey":
+    "API-ключ ElevenLabs ({file}): в разделе «Настройки» → «Голос» используйте Parakeet (локально) или удалите ключ.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Ключ вашего голосового сервера ({file}): в разделе «Настройки» → «Голос» введите ключ снова или удалите его.",
+  "settings.secretHealth.store.customAgents":
+    "Значения пользовательских агентов ({file}): введите значения снова в редакторе каждого агента.",
+  "settings.secretHealth.store.customProviders":
+    "Учётные данные пользовательских провайдеров ({file}): введите их снова в настройках провайдеров этого компьютера.",
+  "settings.secretHealth.store.providerCredentials":
+    "API-ключи провайдеров ({file}): сохраните каждый ключ снова в настройках провайдеров этого компьютера.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Токены подключений мессенджеров ({file}): подключите каждое рабочее пространство снова.",
   "settings.preferences.saveFailed": "Не удалось сохранить эту настройку. Повторите попытку.",
   "settings.agentSelect.placeholder": "Выберите агента",
   "settings.agentSelect.empty": "Нет локальных агентов",
@@ -478,6 +493,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Не удалось начать загрузку. Повторите попытку.",
   "settings.voice.cancelFailed": "Не удалось остановить загрузку.",
   "settings.voice.removeFailed": "Не удалось удалить модель. Повторите попытку.",
+  "settings.voice.microphone.section": "Микрофон",
+  "settings.voice.microphone.title": "Доступ к микрофону",
+  "settings.voice.microphone.granted": "Разрешён.",
+  "settings.voice.microphone.notDetermined":
+    "Ещё не запрашивался. Builders Bot спросит, когда вы начнёте диктовать в первый раз.",
+  "settings.voice.microphone.denied":
+    "Не разрешён. Разрешите Builders Bot в системных настройках, затем перезапустите Builders Bot.",
+  "settings.voice.microphone.restricted": "Заблокирован администратором этого компьютера.",
+  "settings.voice.microphone.agentCommands":
+    "Команды, которые агенты запускают из Builders Bot, тоже могут использовать разрешённый вами микрофон.",
+  "settings.voice.microphone.ask": "Запросить доступ",
+  "settings.voice.microphone.openMac": "Открыть Системные настройки",
+  "settings.voice.microphone.openWindows": "Открыть параметры Windows",
+  "settings.voice.microphone.restart": "Перезапустить Builders Bot",
+  "settings.voice.microphone.restartFailed": "Не удалось перезапустить Builders Bot.",
+  "settings.voice.microphone.openFailed": "Не удалось открыть системные настройки.",
   "settings.voice.model.elevenlabs.description":
     "Передаёт ваш голос в ElevenLabs. Текст появляется во время речи и не меняется. Использует ваш API-ключ, а ElevenLabs списывает плату за каждое использование.",
   "settings.voice.model.keySaved": "API-ключ сохранён",
@@ -486,13 +517,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Вставьте ключ",
   "settings.voice.apiKey.save": "Сохранить ключ",
   "settings.voice.apiKey.remove": "Удалить ключ",
+  "settings.voice.apiKey.useLocal": "Использовать Parakeet (локально)",
+  "settings.voice.apiKey.removeUnreadable": "Удалить нечитаемый ключ",
   "settings.voice.apiKey.saveFailed": "Не удалось сохранить API-ключ. Повторите попытку.",
   "settings.voice.apiKey.removeFailed": "Не удалось удалить API-ключ. Повторите попытку.",
   "settings.voice.speech.section": "Озвучивание ответов",
   "settings.voice.speech.model.description": "Читает ответы вслух на этом компьютере, на 31 языке.",
   "settings.voice.speech.readReplies.title": "Читать ответы вслух",
   "settings.voice.speech.readReplies.description":
-    "Когда вы диктуете сообщение, ответ читается вслух. Чтобы остановить его, начните диктовать снова.",
+    "Читает вслух ответ на сообщение, которое вы диктуете. Набранное сообщение само не читается: используйте «Прочитать вслух» в меню ответа. Чтобы остановить, выберите «Остановить чтение».",
+  "settings.voice.speech.readReplies.downloadHint": "Скачайте голос ({size}), чтобы слышать ответы.",
   "settings.voice.speech.voice.title": "Голос",
   "settings.voice.speech.voice.female": "Женский голос {number}",
   "settings.voice.speech.voice.male": "Мужской голос {number}",

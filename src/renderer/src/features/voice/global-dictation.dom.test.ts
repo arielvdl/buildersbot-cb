@@ -4,6 +4,7 @@ import {
   type DictationResult,
   type DictationState,
   ELEVENLABS_VOICE_MODEL_ID,
+  type MicrophoneAccess,
   VOICE_MODELS,
   type VoiceServerSettings,
   type VoiceSettings,
@@ -11,9 +12,10 @@ import {
   type VoiceStreamAudio,
   type VoiceTranscriptionInput,
 } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
 import { createRoot } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGlobalDictation } from "./global-dictation";
+import { createGlobalDictation, dictationText } from "./global-dictation";
 
 /** jsdom has no Web Audio. This decodes each recording as one second of mono audio at 16 kHz. */
 class FakeAudioContext {
@@ -85,9 +87,20 @@ function installVoice(
     appendStream: vi.fn(async (_audio: VoiceStreamAudio) => undefined),
     finishStream: vi.fn(async (_stream: VoiceStream) => ({ text: "Text from ElevenLabs" })),
     cancelStream: vi.fn(async (_stream: VoiceStream) => undefined),
+    getMicrophoneAccess: vi.fn(async (): Promise<MicrophoneAccess> => "granted"),
+    requestMicrophoneAccess: vi.fn(async (): Promise<MicrophoneAccess> => "granted"),
   };
   Object.defineProperty(window, "openbot", { configurable: true, value: { voice } });
   return { voice, publish: (state: DictationState) => listener?.(state) };
+}
+
+/**
+ * A failure as the renderer gets it from main. Electron puts the channel and the error name in front
+ * of the text; an error that has a reference crosses IPC with the name `Error[ref:…]`.
+ */
+function fromMain(channel: string, text: string, reference?: string): Error {
+  const name = reference === undefined ? "Error" : `Error[ref:${reference}]`;
+  return new Error(`Error invoking remote method '${channel}': ${name}: ${text}`);
 }
 
 /** Presses the combination two times: the first press records, the second press stops. */
@@ -109,7 +122,13 @@ function mount(): void {
   );
 }
 
+/** The system of the page, as the Electron renderer tells it in `navigator.platform`. */
+function setPlatform(platform: "MacIntel" | "Win32"): void {
+  Object.defineProperty(navigator, "platform", { configurable: true, value: platform });
+}
+
 beforeEach(() => {
+  setPlatform("MacIntel");
   vi.stubGlobal("MediaRecorder", FakeRecorder);
   vi.stubGlobal("AudioContext", FakeAudioContext);
   Object.defineProperty(navigator, "mediaDevices", {
@@ -123,6 +142,7 @@ afterEach(() => {
   recorders.length = 0;
   vi.unstubAllGlobals();
   Reflect.deleteProperty(navigator, "mediaDevices");
+  Reflect.deleteProperty(navigator, "platform");
   Reflect.deleteProperty(window, "openbot");
 });
 
@@ -194,5 +214,124 @@ describe("the dictation of the global combination", () => {
     expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.failed" });
     expect(voice.cancelStream).toHaveBeenCalledWith({ streamId: "stream-1" });
     expect(voice.finishStream).not.toHaveBeenCalled();
+  });
+
+  it("reports the real reason when main sends the English text of a catalog key", async () => {
+    const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
+    voice.startStream.mockRejectedValueOnce(
+      fromMain("voice:start-stream", sourceText("error.voice.cloud.keyRequired")),
+    );
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.voice.cloud.keyRequired" });
+    expect(voice.appendStream).not.toHaveBeenCalled();
+  });
+
+  it("says that the saved key cannot be read, not that a key is missing", async () => {
+    const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
+    voice.startStream.mockRejectedValueOnce(
+      fromMain("voice:start-stream", sourceText("error.voice.cloud.keyUnreadable")),
+    );
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.voice.cloud.keyUnreadable" });
+    expect(dictationText({ phase: "failed", failure: "error.voice.cloud.keyUnreadable" })).toBe(
+      sourceText("error.voice.cloud.keyUnreadable"),
+    );
+  });
+
+  it("reads the real reason also when the failure from main carries a reference", async () => {
+    const server: VoiceServerSettings = {
+      address: "http://studio.local:8000/v1",
+      hasApiKey: false,
+      routes: { dictation: true, speech: false, transcriptionModel: "whisper-1", speechModel: null, voice: null },
+    };
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: "pt" }, server);
+    voice.transcribe.mockRejectedValueOnce(
+      fromMain("voice:transcribe", sourceText("error.voice.server.keyUnreadable"), "http/401"),
+    );
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.voice.server.keyUnreadable" });
+  });
+
+  it("does not open the microphone that the system refused, and says why", async () => {
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("denied");
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: () => undefined }] }));
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
+    mount();
+
+    publish({ phase: "recording", failure: null });
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.microphoneDenied" });
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(voice.requestMicrophoneAccess).not.toHaveBeenCalled();
+  });
+
+  it("opens the microphone on Windows also when the status of the system says denied", async () => {
+    setPlatform("Win32");
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("denied");
+    mount();
+
+    // The status on Windows is a setting of the whole system. Only `getUserMedia` refuses there.
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
+  });
+
+  it("does not show a prompt on Windows, where a desktop app has none", async () => {
+    setPlatform("Win32");
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("not-determined");
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.requestMicrophoneAccess).not.toHaveBeenCalled();
+    expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
+  });
+
+  it("asks the system for the microphone first when the grant is not decided", async () => {
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: AUTOMATIC_VOICE_LANGUAGE });
+    voice.getMicrophoneAccess.mockResolvedValue("not-determined");
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.requestMicrophoneAccess).toHaveBeenCalledTimes(1);
+    expect(voice.finishDictation).toHaveBeenCalledWith({ text: "Text from the recording" });
+  });
+
+  it("reports the generic failure for text with a value in it, so the overlay shows no placeholder", async () => {
+    const server: VoiceServerSettings = {
+      address: "http://studio.local:8000/v1",
+      hasApiKey: true,
+      routes: { dictation: true, speech: false, transcriptionModel: "whisper-1", speechModel: null, voice: null },
+    };
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: "pt" }, server);
+    voice.transcribe.mockRejectedValueOnce(
+      fromMain("voice:transcribe", sourceText("error.voice.server.keyRefused", { host: "studio.local" })),
+    );
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.failed" });
   });
 });

@@ -7,6 +7,7 @@ import { unlockCompletionSound } from "../../../completion-sound";
 import { playVoiceLimitStop, playVoiceLimitWarning } from "../../../voice-limit-sound";
 import { appendVoiceTranscript, encodePcm16, recordingToSamples, recordingToWav } from "../../../voice-recording";
 import { forgetDictatedMessage, noteDictatedMessage, stopSpokenReply } from "../../speech/speech-replies";
+import { ensureMicrophoneAccess, microphoneBlockText } from "../../voice/microphone-access";
 import { EMPTY_DRAFT } from "../composer-draft";
 import { composerDraftKey } from "../conversation-keys";
 import { conversationRuntime } from "../conversation-runtime";
@@ -163,6 +164,20 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
     let cloud: VoiceCloudStream | undefined;
     try {
       const voice = conversationRuntime(deps.props).voice;
+      // The desktop app reads the grant of the system first: macOS asks before a model download, and
+      // a refusal says so with its own text. The web client asks its browser at `getUserMedia`.
+      if (!deps.props.runtime) {
+        const access = await ensureMicrophoneAccess(() => deps.setVoicePhase("requesting"));
+        if (resources.voiceDisposed || resources.voiceRequestGeneration !== generation) return;
+        const blocked = microphoneBlockText(access);
+        if (blocked) {
+          deps.setVoicePhase("idle");
+          deps.setVoiceModelProgress(null);
+          fail(currentText().t(blocked));
+          return;
+        }
+        deps.setVoicePhase("preparing");
+      }
       let livePreview = true;
       let streamed = false;
       // The settings answer at once; a download reports progress only after that.

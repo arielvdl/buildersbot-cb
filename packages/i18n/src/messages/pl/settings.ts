@@ -173,6 +173,21 @@ export const messages = {
   "settings.sections.label": "Sekcje ustawień",
   "settings.panel.resize": "Zmień rozmiar prawego panelu",
   "settings.preferences.loadFailed": "Nie udało się wczytać ustawień.",
+  "settings.secretHealth.title": "Zaszyfrowane dane, których nie można odczytać",
+  "settings.secretHealth.description":
+    "Builders Bot nie może odszyfrować części zapisanych danych na tym komputerze. Dzieje się tak, gdy zmienia się pęk kluczy albo gdy profil zostaje skopiowany z innej aplikacji. Każdy plik zostaje, dopóki nie wpiszesz jego danych ponownie albo go nie usuniesz.",
+  "settings.secretHealth.store.voiceApiKey":
+    "Klucz API ElevenLabs ({file}): w Ustawienia → Głos użyj Parakeet (lokalnie) albo usuń klucz.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Klucz twojego serwera głosu ({file}): w Ustawienia → Głos wpisz klucz ponownie albo go usuń.",
+  "settings.secretHealth.store.customAgents":
+    "Wartości agentów własnych ({file}): wpisz wartości ponownie w edytorze każdego agenta.",
+  "settings.secretHealth.store.customProviders":
+    "Dane logowania dostawców własnych ({file}): wpisz je ponownie w ustawieniach dostawców tego komputera.",
+  "settings.secretHealth.store.providerCredentials":
+    "Klucze API dostawców ({file}): zapisz każdy klucz ponownie w ustawieniach dostawców tego komputera.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokeny połączeń komunikatorów ({file}): połącz ponownie każdy obszar roboczy.",
   "settings.preferences.saveFailed": "Nie udało się zapisać tego ustawienia. Spróbuj ponownie.",
   "settings.agentSelect.placeholder": "Wybierz agenta",
   "settings.agentSelect.empty": "Brak lokalnych agentów",
@@ -477,6 +492,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Nie udało się rozpocząć pobierania. Spróbuj ponownie.",
   "settings.voice.cancelFailed": "Nie udało się zatrzymać pobierania.",
   "settings.voice.removeFailed": "Nie udało się usunąć modelu. Spróbuj ponownie.",
+  "settings.voice.microphone.section": "Mikrofon",
+  "settings.voice.microphone.title": "Dostęp do mikrofonu",
+  "settings.voice.microphone.granted": "Dozwolony.",
+  "settings.voice.microphone.notDetermined":
+    "Jeszcze nie zapytano. Builders Bot zapyta, gdy zaczniesz dyktować po raz pierwszy.",
+  "settings.voice.microphone.denied":
+    "Niedozwolony. Pozwól Builders Bot w ustawieniach systemowych, a potem uruchom ponownie Builders Bot.",
+  "settings.voice.microphone.restricted": "Zablokowany przez administratora tego komputera.",
+  "settings.voice.microphone.agentCommands":
+    "Polecenia, które agenci uruchamiają z Builders Bot, też mogą używać mikrofonu, na który pozwolisz.",
+  "settings.voice.microphone.ask": "Poproś o dostęp",
+  "settings.voice.microphone.openMac": "Otwórz Ustawienia systemowe",
+  "settings.voice.microphone.openWindows": "Otwórz Ustawienia systemu Windows",
+  "settings.voice.microphone.restart": "Uruchom ponownie Builders Bot",
+  "settings.voice.microphone.restartFailed": "Nie udało się ponownie uruchomić Builders Bot.",
+  "settings.voice.microphone.openFailed": "Nie udało się otworzyć ustawień systemowych.",
   "settings.voice.model.elevenlabs.description":
     "Przesyła twój głos do ElevenLabs. Tekst pojawia się w trakcie mówienia i się nie zmienia. Używa twojego klucza API, a ElevenLabs nalicza opłatę za każde użycie.",
   "settings.voice.model.keySaved": "Klucz API zapisany",
@@ -485,13 +516,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Wklej klucz",
   "settings.voice.apiKey.save": "Zapisz klucz",
   "settings.voice.apiKey.remove": "Usuń klucz",
+  "settings.voice.apiKey.useLocal": "Użyj Parakeet (lokalnie)",
+  "settings.voice.apiKey.removeUnreadable": "Usuń nieczytelny klucz",
   "settings.voice.apiKey.saveFailed": "Nie udało się zapisać klucza API. Spróbuj ponownie.",
   "settings.voice.apiKey.removeFailed": "Nie udało się usunąć klucza API. Spróbuj ponownie.",
   "settings.voice.speech.section": "Odpowiedzi czytane na głos",
   "settings.voice.speech.model.description": "Czyta odpowiedzi na głos na tym komputerze, w 31 językach.",
   "settings.voice.speech.readReplies.title": "Czytaj odpowiedzi na głos",
   "settings.voice.speech.readReplies.description":
-    "Gdy dyktujesz wiadomość, odpowiedź jest czytana na głos. Aby ją zatrzymać, zacznij dyktować ponownie.",
+    "Czyta na głos odpowiedź na wiadomość, którą dyktujesz. Wpisana wiadomość nie jest czytana sama: użyj opcji Przeczytaj na głos w menu odpowiedzi. Wybierz Zatrzymaj czytanie, aby przestać.",
+  "settings.voice.speech.readReplies.downloadHint": "Pobierz głos ({size}), aby słyszeć odpowiedzi.",
   "settings.voice.speech.voice.title": "Głos",
   "settings.voice.speech.voice.female": "Głos żeński {number}",
   "settings.voice.speech.voice.male": "Głos męski {number}",

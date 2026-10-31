@@ -354,6 +354,12 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
     icon: Mic,
     rows: [
       { anchor: "settings.voice.models.title", keywordsKey: "settings.search.keywords.voiceModels" },
+      // The grant of the system: only macOS and Windows tell it.
+      {
+        anchor: "settings.voice.microphone.title",
+        descriptionKey: "settings.voice.microphone.agentCommands",
+        shown: (state) => state.platform === "darwin" || state.platform === "win32",
+      },
       {
         anchor: "settings.voice.language.title",
         descriptionKey: "settings.voice.language.description",

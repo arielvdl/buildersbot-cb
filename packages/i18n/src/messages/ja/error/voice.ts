@@ -22,9 +22,13 @@ export const messages = {
   "error.voice.cloud.streamEnded": "音声入力の送信が終了しました。もう一度録音してください。",
   "error.voice.cloud.tooLong": "録音が長すぎます。",
   "error.voice.cloud.keySaveFailed": "ElevenLabs の API キーを保存できませんでした。",
+  "error.voice.cloud.keyUnreadable":
+    "保存された API キーを Builders Bot で読み取れません。ローカルの音声入力を使うか、キーを削除してください。",
   "error.voice.speech.runtimeUnavailable": "このプラットフォームではローカル音声合成を利用できません。",
   "error.voice.speech.modelRequired": "設定 → 音声 で音声合成モデルをダウンロードしてください。",
   "error.voice.speech.timedOut": "返信の読み上げがタイムアウトしました。",
   "error.voice.speech.failed": "Builders Bot は返信を読み上げられませんでした。",
   "error.voice.recordingNotKept": "Builders Bot は音声録音を保存できませんでした。",
+  "error.voice.server.keyUnreadable":
+    "音声サーバーの保存済みキーを Builders Bot で読み取れません。キーを入力し直すか、削除してください。",
 } as const satisfies PartialTranslation<typeof source>;

@@ -152,6 +152,8 @@ export const messages = {
   "conversation.voice.offline": "Sunucu bağlı değil. Yeniden bağlandığında konuşma devam eder.",
   "conversation.speech.label": "{name} yanıtı sesli okuyor",
   "conversation.speech.stop": "Okumayı durdur",
+  "conversation.speech.voiceMissing": "Yanıtları sesli okuyan ses bu bilgisayarda yok.",
+  "conversation.speech.downloadVoice": "Sesi indir ({size})",
   "conversation.panels.openWorkspaceFailed": "Çalışma alanı klasörü açılamadı",
   "conversation.panels.tryAgain": "Tekrar deneyin.",
   "conversation.view.label": "Konuşma",

@@ -142,7 +142,9 @@ mac:
   extendInfo:
     CFBundleIconName: Icon
     ElectronTeamID: ZTRDTUL87R
-    NSMicrophoneUsageDescription: Builders Bot uses the microphone to transcribe voice prompts locally on this Mac.
+    # Agent commands are child processes, and macOS gives them the grant of the app. Say so until
+    # they ask for the microphone in their own name (voice-anywhere design, section 7.10).
+    NSMicrophoneUsageDescription: Builders Bot uses the microphone for dictation and voice conversations. Commands that agents run from Builders Bot can also use it. The audio stays on this Mac unless you choose a cloud voice model or your own voice server in Settings.
     NSSpeechRecognitionUsageDescription: Builders Bot uses the speech recognition of macOS to turn your dictation into text on this Mac.
     # Computer Use runs the driver as a child process, so macOS asks for both grants in Builders Bot's
     # name and shows these sentences. Under the hardened runtime, macOS shows the Automation prompt

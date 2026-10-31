@@ -327,6 +327,13 @@ export function VoiceServerDialog(props: VoiceServerDialogProps) {
   // Main sends the saved key only to the saved origin, so another address shows no saved key.
   const keySaved = () => saved?.hasApiKey === true && sameCustomProviderOrigin(saved.address, server.form.address);
   const keyPlaceholder = () => (keySaved() ? t("settings.voice.server.apiKeySaved") : undefined);
+  /** A saved key that main cannot decrypt is told under the key field until the user types a key. */
+  const keyUnreadable = () =>
+    saved?.apiKeyUnreadable === true &&
+    sameCustomProviderOrigin(saved.address, server.form.address) &&
+    !server.form.apiKey.trim();
+  const keyError = () =>
+    server.error("apiKey") ?? (keyUnreadable() ? t("error.voice.server.keyUnreadable") : undefined);
   const busy = () => server.testing() || server.form.saving;
   const ariaBusy = () => (busy() ? "true" : undefined);
   const routesLocked = () => !server.connected() || server.form.saving;
@@ -390,7 +397,7 @@ export function VoiceServerDialog(props: VoiceServerDialogProps) {
                     spellcheck={false}
                   />
                 </Field>
-                <Field label={t("settings.voice.server.apiKey")} error={server.error("apiKey")}>
+                <Field label={t("settings.voice.server.apiKey")} error={keyError()}>
                   <Input
                     type="password"
                     value={server.form.apiKey}

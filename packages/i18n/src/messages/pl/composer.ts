@@ -55,6 +55,10 @@ export const messages = {
   "composer.voice.start": "Utwórz prompt głosem",
   "composer.voice.blocked":
     "Dostęp do mikrofonu jest zablokowany. Pozwól Builders Bot używać mikrofonu w ustawieniach systemowych.",
+  "composer.voice.restricted": "Administrator tego komputera blokuje mikrofon.",
+  "composer.voice.openMicrophoneSettings": "Otwórz Ustawienia systemowe",
+  "composer.voice.openWindowsMicrophoneSettings": "Otwórz Ustawienia systemu Windows",
+  "composer.voice.openVoiceSettings": "Ustawienia głosu",
   "composer.voice.noMicrophone": "Brak dostępnego mikrofonu.",
   "composer.voice.startFailed": "Builders Bot nie mógł rozpocząć nagrywania głosu.",
   "composer.voice.transcribeFailed": "Builders Bot nie mógł przetranskrybować tego nagrania.",

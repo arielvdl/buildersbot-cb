@@ -153,6 +153,8 @@ export const messages = {
   "conversation.voice.offline": "Serwer nie jest połączony. Rozmowa będzie kontynuowana po ponownym połączeniu.",
   "conversation.speech.label": "{name} czyta odpowiedź na głos",
   "conversation.speech.stop": "Zatrzymaj czytanie",
+  "conversation.speech.voiceMissing": "Głosu, który czyta odpowiedzi na głos, nie ma na tym komputerze.",
+  "conversation.speech.downloadVoice": "Pobierz głos ({size})",
   "conversation.panels.openWorkspaceFailed": "Nie udało się otworzyć folderu obszaru roboczego",
   "conversation.panels.tryAgain": "Spróbuj ponownie.",
   "conversation.view.label": "Rozmowa",

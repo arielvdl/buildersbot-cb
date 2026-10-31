@@ -15,6 +15,7 @@ import {
   externalLinkAppName,
   GROK_BOT_EXPORT_URL,
   parseSecurityGuardPreferenceChange,
+  type UnreadableSecret,
 } from "@openbot/contracts/ipc";
 import { analyticsOnByDefault } from "@openbot/telemetry";
 import { app, type BrowserWindow, dialog, type OpenDialogOptions } from "electron";
@@ -44,6 +45,7 @@ import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-
 import type { RemoteSessionCache } from "../remote-session-cache";
 import type { RemoteSessionReusePreferenceStore } from "../remote-session-reuse-preference-store";
 import type { ResumeOffer } from "../resume-offer";
+import { unreadableSecrets } from "../secret-health";
 import type { SecurityGuardService } from "../security-guard-service";
 import { readSetupState, writeSetupState } from "../setup-store";
 import type { UpdateService } from "../update-service";
@@ -82,7 +84,8 @@ import { stringPayload } from "./validation";
  *
  * `mac-screen-recording` is not a web page. macOS opens a settings pane from a URL, and the table is
  * what keeps that address out of the renderer. It is the same pane the Computer Use panel opens, so
- * it is read from `mac-permission-urls.ts` rather than written twice. `hosted-server-contact` is a
+ * it is read from `mac-permission-urls.ts` rather than written twice. `mac-microphone` and
+ * `windows-microphone` are the system pages for the microphone grant. `hosted-server-contact` is a
  * `mailto:` address, which `openUrl` refuses; the web client opens the same constant.
  */
 const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
@@ -100,6 +103,8 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "grok-bot-export": GROK_BOT_EXPORT_URL,
   "hosted-server-contact": HOSTED_SERVER_CONTACT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
+  "mac-microphone": MAC_PERMISSION_URLS.microphone,
+  "windows-microphone": "ms-settings:privacy-microphone",
 };
 
 import { runCauseEffect } from "../../backend/effect-boundary";
@@ -339,6 +344,7 @@ export function appIpcHandlers({
       }),
       openExternal: payloadHandler(parseExternalDestination, (parsed) => openLink(EXTERNAL_DESTINATIONS[parsed])),
       openUrl: payloadHandler(stringPayload("URL", INPUT_LIMITS.browserUrl), (url) => openHttpLink(url, openLink)),
+      getUnreadableSecrets: handler((): UnreadableSecret[] => unreadableSecrets()),
       getExternalLinkPreference: handler(() => externalLinkPreference.get()),
       setExternalLinkPreference: payloadHandler(parseExternalLinkPreference, (parsed) =>
         runCauseEffect(externalLinkPreference.set(parsed)),

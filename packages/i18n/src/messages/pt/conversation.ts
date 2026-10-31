@@ -151,6 +151,8 @@ export const messages = {
   "conversation.voice.offline": "O servidor não está conectado. A conversa continua quando ele se conectar de novo.",
   "conversation.speech.label": "{name} lê a resposta em voz alta",
   "conversation.speech.stop": "Parar leitura",
+  "conversation.speech.voiceMissing": "A voz que lê as respostas em voz alta não está neste computador.",
+  "conversation.speech.downloadVoice": "Baixar voz ({size})",
   "conversation.panels.openWorkspaceFailed": "Não foi possível abrir a pasta do espaço de trabalho",
   "conversation.panels.tryAgain": "Tente novamente.",
   "conversation.view.label": "Conversa",

@@ -335,7 +335,12 @@ export function SettingsModal(props: SettingsModalProps) {
         </Tabs.Content>
 
         <Tabs.Content value="voice" class="settings-modal-tab-panel" data-tab="voice">
-          <SettingsVoiceTab store={voice} selectMount={modalElement} />
+          <SettingsVoiceTab
+            store={voice}
+            selectMount={modalElement}
+            platform={props.appInfo?.platform}
+            onRestart={props.onRestartWhenIdle}
+          />
         </Tabs.Content>
 
         <Show when={dynamicIslandShown()}>

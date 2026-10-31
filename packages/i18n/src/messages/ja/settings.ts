@@ -165,6 +165,21 @@ export const messages = {
   "settings.sections.label": "設定のセクション",
   "settings.panel.resize": "右パネルのサイズを変更",
   "settings.preferences.loadFailed": "設定を読み込めませんでした。",
+  "settings.secretHealth.title": "読み取れない暗号化データ",
+  "settings.secretHealth.description":
+    "Builders Bot は、このコンピューターに保存された一部のデータを復号できません。キーチェーンが変わったときや、別のアプリからプロファイルをコピーしたときに起こります。各ファイルは、データを入力し直すか削除するまで残ります。",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs の API キー（{file}）：設定 → 音声 で Parakeet（ローカル）を使うか、キーを削除してください。",
+  "settings.secretHealth.store.voiceServerKey":
+    "音声サーバーのキー（{file}）：設定 → 音声 でキーを入力し直すか、削除してください。",
+  "settings.secretHealth.store.customAgents":
+    "カスタムエージェントの値（{file}）：各エージェントのエディターで値を入力し直してください。",
+  "settings.secretHealth.store.customProviders":
+    "カスタムプロバイダーの認証情報（{file}）：このコンピューターのプロバイダー設定で入力し直してください。",
+  "settings.secretHealth.store.providerCredentials":
+    "プロバイダーの API キー（{file}）：このコンピューターのプロバイダー設定で各キーを保存し直してください。",
+  "settings.secretHealth.store.messagingCredentials":
+    "メッセージ接続のトークン（{file}）：各ワークスペースをもう一度接続してください。",
   "settings.preferences.saveFailed": "この設定を保存できませんでした。もう一度お試しください。",
   "settings.agentSelect.placeholder": "エージェントを選択",
   "settings.agentSelect.empty": "ローカルのエージェントがありません",
@@ -445,6 +460,22 @@ export const messages = {
   "settings.voice.downloadFailed": "ダウンロードを開始できませんでした。もう一度お試しください。",
   "settings.voice.cancelFailed": "ダウンロードを停止できませんでした。",
   "settings.voice.removeFailed": "モデルを削除できませんでした。もう一度お試しください。",
+  "settings.voice.microphone.section": "マイク",
+  "settings.voice.microphone.title": "マイクへのアクセス",
+  "settings.voice.microphone.granted": "許可されています。",
+  "settings.voice.microphone.notDetermined":
+    "まだ確認していません。初めて音声入力するときに Builders Bot が確認します。",
+  "settings.voice.microphone.denied":
+    "許可されていません。システム設定で Builders Bot を許可してから、Builders Bot を再起動してください。",
+  "settings.voice.microphone.restricted": "このコンピューターの管理者によってブロックされています。",
+  "settings.voice.microphone.agentCommands":
+    "Builders Bot からエージェントが実行するコマンドも、許可したマイクを使えます。",
+  "settings.voice.microphone.ask": "アクセスを求める",
+  "settings.voice.microphone.openMac": "システム設定を開く",
+  "settings.voice.microphone.openWindows": "Windows の設定を開く",
+  "settings.voice.microphone.restart": "Builders Bot を再起動",
+  "settings.voice.microphone.restartFailed": "Builders Bot を再起動できませんでした。",
+  "settings.voice.microphone.openFailed": "システムの設定を開けませんでした。",
   "settings.voice.model.elevenlabs.description":
     "音声を ElevenLabs に送信します。話している間に文字が表示され、途中で変わりません。ご自身の API キーを使い、利用ごとに ElevenLabs から請求されます。",
   "settings.voice.model.keySaved": "API キーを保存済み",
@@ -453,13 +484,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "キーを貼り付け",
   "settings.voice.apiKey.save": "キーを保存",
   "settings.voice.apiKey.remove": "キーを削除",
+  "settings.voice.apiKey.useLocal": "Parakeet を使う（ローカル）",
+  "settings.voice.apiKey.removeUnreadable": "読み取れないキーを削除",
   "settings.voice.apiKey.saveFailed": "API キーを保存できませんでした。もう一度お試しください。",
   "settings.voice.apiKey.removeFailed": "API キーを削除できませんでした。もう一度お試しください。",
   "settings.voice.speech.section": "音声での返信",
   "settings.voice.speech.model.description": "このコンピューター上で返信を読み上げます。31 言語に対応しています。",
   "settings.voice.speech.readReplies.title": "返信を読み上げる",
   "settings.voice.speech.readReplies.description":
-    "メッセージを音声入力すると、返信が読み上げられます。止めるには、もう一度音声入力してください。",
+    "音声入力したメッセージへの返信を読み上げます。入力したメッセージは自動では読み上げられません。返信のメニューの「読み上げ」を使ってください。止めるには「読み上げを停止」を選びます。",
+  "settings.voice.speech.readReplies.downloadHint": "返信を聞くには、音声（{size}）をダウンロードしてください。",
   "settings.voice.speech.voice.title": "声",
   "settings.voice.speech.voice.female": "女性の声 {number}",
   "settings.voice.speech.voice.male": "男性の声 {number}",

@@ -166,6 +166,21 @@ export const messages = {
   "settings.sections.label": "Ayar bölümleri",
   "settings.panel.resize": "Sağ paneli yeniden boyutlandır",
   "settings.preferences.loadFailed": "Ayarlarınız yüklenemedi.",
+  "settings.secretHealth.title": "Okunamayan şifreli veriler",
+  "settings.secretHealth.description":
+    "Builders Bot bu bilgisayarda kayıtlı bazı verilerin şifresini çözemiyor. Bu, anahtar zinciri değiştiğinde veya bir profil başka bir uygulamadan kopyalandığında olur. Her dosya, verilerini yeniden girene veya kaldırana kadar kalır.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API anahtarı ({file}): Ayarlar → Ses bölümünde Parakeet'i (yerel) kullanın veya anahtarı kaldırın.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Ses sunucunuzun anahtarı ({file}): Ayarlar → Ses bölümünde anahtarı yeniden yazın veya kaldırın.",
+  "settings.secretHealth.store.customAgents":
+    "Özel ajanların değerleri ({file}): değerleri her ajanın düzenleyicisinde yeniden yazın.",
+  "settings.secretHealth.store.customProviders":
+    "Özel sağlayıcıların kimlik bilgileri ({file}): bunları bu bilgisayarın sağlayıcı ayarlarında yeniden yazın.",
+  "settings.secretHealth.store.providerCredentials":
+    "Sağlayıcı API anahtarları ({file}): her anahtarı bu bilgisayarın sağlayıcı ayarlarında yeniden kaydedin.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Mesajlaşma bağlantılarının belirteçleri ({file}): her çalışma alanını yeniden bağlayın.",
   "settings.preferences.saveFailed": "Bu ayar kaydedilemedi. Tekrar deneyin.",
   "settings.agentSelect.placeholder": "Bir ajan seçin",
   "settings.agentSelect.empty": "Yerel ajan yok",
@@ -456,6 +471,21 @@ export const messages = {
   "settings.voice.downloadFailed": "İndirme başlatılamadı. Tekrar deneyin.",
   "settings.voice.cancelFailed": "İndirme durdurulamadı.",
   "settings.voice.removeFailed": "Model kaldırılamadı. Tekrar deneyin.",
+  "settings.voice.microphone.section": "Mikrofon",
+  "settings.voice.microphone.title": "Mikrofon erişimi",
+  "settings.voice.microphone.granted": "İzin verildi.",
+  "settings.voice.microphone.notDetermined": "Henüz sorulmadı. Builders Bot ilk kez dikte ettiğinizde sorar.",
+  "settings.voice.microphone.denied":
+    "İzin verilmedi. Sistem ayarlarından Builders Bot'a izin verin, ardından Builders Bot'u yeniden başlatın.",
+  "settings.voice.microphone.restricted": "Bu bilgisayarın yöneticisi tarafından engellendi.",
+  "settings.voice.microphone.agentCommands":
+    "Ajanların Builders Bot'tan çalıştırdığı komutlar da izin verdiğiniz mikrofonu kullanabilir.",
+  "settings.voice.microphone.ask": "Erişim iste",
+  "settings.voice.microphone.openMac": "Sistem Ayarları'nı aç",
+  "settings.voice.microphone.openWindows": "Windows Ayarları'nı aç",
+  "settings.voice.microphone.restart": "Builders Bot'u yeniden başlat",
+  "settings.voice.microphone.restartFailed": "Builders Bot yeniden başlatılamadı.",
+  "settings.voice.microphone.openFailed": "Sistem ayarları açılamadı.",
   "settings.voice.model.elevenlabs.description":
     "Sesinizi ElevenLabs'e gönderir. Metin siz konuşurken görünür ve değişmez. Kendi API anahtarınızı kullanır ve ElevenLabs her kullanımı ücretlendirir.",
   "settings.voice.model.keySaved": "API anahtarı kaydedildi",
@@ -464,13 +494,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Anahtarı yapıştırın",
   "settings.voice.apiKey.save": "Anahtarı kaydet",
   "settings.voice.apiKey.remove": "Anahtarı kaldır",
+  "settings.voice.apiKey.useLocal": "Parakeet kullan (yerel)",
+  "settings.voice.apiKey.removeUnreadable": "Okunamayan anahtarı kaldır",
   "settings.voice.apiKey.saveFailed": "API anahtarı kaydedilemedi. Tekrar deneyin.",
   "settings.voice.apiKey.removeFailed": "API anahtarı kaldırılamadı. Tekrar deneyin.",
   "settings.voice.speech.section": "Sesli yanıtlar",
   "settings.voice.speech.model.description": "Yanıtları bu bilgisayarda 31 dilde sesli okur.",
   "settings.voice.speech.readReplies.title": "Yanıtları sesli oku",
   "settings.voice.speech.readReplies.description":
-    "Bir mesajı dikte ettiğinizde yanıt sesli okunur. Durdurmak için yeniden dikte edin.",
+    "Dikte ettiğiniz bir mesajın yanıtını sesli okur. Yazılan bir mesaj kendiliğinden okunmaz: yanıtın menüsündeki Sesli oku seçeneğini kullanın. Durdurmak için Okumayı durdur'u seçin.",
+  "settings.voice.speech.readReplies.downloadHint": "Yanıtları duymak için sesi ({size}) indirin.",
   "settings.voice.speech.voice.title": "Ses",
   "settings.voice.speech.voice.female": "Kadın sesi {number}",
   "settings.voice.speech.voice.male": "Erkek sesi {number}",

@@ -293,6 +293,21 @@ export const messages = defineMessages("settings", {
   "settings.panel.resize": "Resize right panel",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
   "settings.preferences.loadFailed": "Could not load your settings.",
+  "settings.secretHealth.title": "Encrypted data that cannot be read",
+  "settings.secretHealth.description":
+    "Builders Bot cannot decrypt some saved data on this computer. This happens when the keychain changes or when a profile is copied from another app. Each file stays until you enter its data again or remove it.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API key ({file}): in Settings → Voice, use Parakeet (local) or remove the key.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Key of your voice server ({file}): in Settings → Voice, type the key again or remove it.",
+  "settings.secretHealth.store.customAgents":
+    "Values of custom agents ({file}): type the values again in the editor of each agent.",
+  "settings.secretHealth.store.customProviders":
+    "Credentials of custom providers ({file}): type them again in the Providers settings of this computer.",
+  "settings.secretHealth.store.providerCredentials":
+    "Provider API keys ({file}): save each key again in the Providers settings of this computer.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokens of messaging connections ({file}): connect each workspace again.",
   "settings.preferences.saveFailed": "Could not save this setting. Try again.",
   // The agent picker on the skill and plugin install pages.
   "settings.agentSelect.placeholder": "Choose an agent",
@@ -614,6 +629,23 @@ export const messages = defineMessages("settings", {
   "settings.voice.downloadFailed": "Could not start the download. Try again.",
   "settings.voice.cancelFailed": "Could not stop the download.",
   "settings.voice.removeFailed": "Could not remove the model. Try again.",
+  "settings.voice.microphone.section": "Microphone",
+  "settings.voice.microphone.title": "Microphone access",
+  "settings.voice.microphone.granted": "Allowed.",
+  "settings.voice.microphone.notDetermined": "Not asked yet. Builders Bot asks when you dictate for the first time.",
+  "settings.voice.microphone.denied":
+    "Not allowed. Allow Builders Bot in the system settings, then restart Builders Bot.",
+  "settings.voice.microphone.deniedWindows":
+    "Not allowed. In Windows Settings, allow desktop apps to use the microphone.",
+  "settings.voice.microphone.restricted": "Blocked by the administrator of this computer.",
+  "settings.voice.microphone.agentCommands":
+    "Commands that agents run from Builders Bot can also use the microphone that you allow.",
+  "settings.voice.microphone.ask": "Ask for access",
+  "settings.voice.microphone.openMac": "Open System Settings",
+  "settings.voice.microphone.openWindows": "Open Windows Settings",
+  "settings.voice.microphone.restart": "Restart Builders Bot",
+  "settings.voice.microphone.restartFailed": "Could not restart Builders Bot.",
+  "settings.voice.microphone.openFailed": "Could not open the system settings.",
   "settings.voice.model.elevenlabs.description":
     "Streams your voice to ElevenLabs. Text shows while you speak and stays fixed. Uses your own API key, and ElevenLabs bills each use.",
   "settings.voice.model.keySaved": "API key saved",
@@ -622,13 +654,16 @@ export const messages = defineMessages("settings", {
   "settings.voice.apiKey.placeholder": "Paste the key",
   "settings.voice.apiKey.save": "Save key",
   "settings.voice.apiKey.remove": "Remove key",
+  "settings.voice.apiKey.useLocal": "Use Parakeet (local)",
+  "settings.voice.apiKey.removeUnreadable": "Remove unreadable key",
   "settings.voice.apiKey.saveFailed": "Could not save the API key. Try again.",
   "settings.voice.apiKey.removeFailed": "Could not remove the API key. Try again.",
   "settings.voice.speech.section": "Spoken replies",
   "settings.voice.speech.model.description": "Reads replies aloud on this computer, in 31 languages.",
   "settings.voice.speech.readReplies.title": "Read replies aloud",
   "settings.voice.speech.readReplies.description":
-    "When you dictate a message, the reply is read aloud. Dictate again to stop it.",
+    "Reads aloud the reply to a message that you dictate. A typed message is not read by itself: use Read aloud in the menu of the reply. Select Stop reading to stop.",
+  "settings.voice.speech.readReplies.downloadHint": "Download the voice ({size}) to hear replies.",
   "settings.voice.speech.voice.title": "Voice",
   "settings.voice.speech.voice.female": "Female voice {number}",
   "settings.voice.speech.voice.male": "Male voice {number}",

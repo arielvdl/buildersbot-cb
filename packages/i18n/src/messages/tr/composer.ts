@@ -57,6 +57,10 @@ export const messages = {
   "composer.voice.start": "Sesle istem oluştur",
   "composer.voice.blocked":
     "Mikrofon erişimi engellendi. Sistem ayarlarından Builders Bot'un mikrofonu kullanmasına izin verin.",
+  "composer.voice.restricted": "Bu bilgisayarın yöneticisi mikrofonu engelliyor.",
+  "composer.voice.openMicrophoneSettings": "Sistem Ayarları'nı aç",
+  "composer.voice.openWindowsMicrophoneSettings": "Windows Ayarları'nı aç",
+  "composer.voice.openVoiceSettings": "Ses ayarları",
   "composer.voice.noMicrophone": "Kullanılabilir mikrofon yok.",
   "composer.voice.startFailed": "Builders Bot ses kaydını başlatamadı.",
   "composer.voice.transcribeFailed": "Builders Bot bu kaydı metne dönüştüremedi.",

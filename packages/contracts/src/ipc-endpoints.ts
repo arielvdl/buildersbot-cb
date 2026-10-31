@@ -161,6 +161,7 @@ import type {
   ProviderRuntimeSnapshot,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
+  UnreadableSecret,
   UpdatePreference,
   UpdatePreferenceChange,
   UpdateRestartMode,
@@ -527,6 +528,7 @@ import type {
 } from "./ipc-team-host";
 import type { VaultImportResult, VaultSaveInput, VaultSecretRequest, VaultState } from "./ipc-vault";
 import type {
+  MicrophoneAccess,
   SpeechAudio,
   SpeechInput,
   SpeechModelStatus,
@@ -758,6 +760,11 @@ export const IPC_ENDPOINTS = {
     openUpdateSettings: event<undefined>()("app:open-update-settings"),
     openExternal: request<ExternalDestination, void>()("app:open-external"),
     openUrl: request<string, void>()("app:open-url"),
+    /**
+     * The stores of this computer whose encrypted file cannot be decrypted now, with only the store
+     * and the file name. Read-only.
+     */
+    getUnreadableSecrets: request<undefined, UnreadableSecret[]>()("app:secret-health"),
     getExternalLinkPreference: request<undefined, ExternalLinkPreference>()("app:get-external-link-preference"),
     setExternalLinkPreference: request<ExternalLinkPreference, ExternalLinkPreference>()(
       "app:set-external-link-preference",
@@ -935,6 +942,14 @@ export const IPC_ENDPOINTS = {
     probeServer: request<VoiceServerConnection, VoiceServerProbe>()("voice:probe-server"),
     setServer: request<VoiceServerSave, VoiceServerSettings | null>()("voice:set-server"),
     serverSettings: event<VoiceServerSettings | null>()("voice:server-settings"),
+    /** The grant of the operating system for the microphone: macOS and Windows. Elsewhere "unknown". */
+    getMicrophoneAccess: request<undefined, MicrophoneAccess>()("voice:microphone-status"),
+    /**
+     * Shows the macOS prompt for the microphone while the grant is not decided, and answers the grant
+     * after it. macOS shows the prompt only once: after a refusal, only System Settings changes it.
+     * On other systems it only reads the grant.
+     */
+    requestMicrophoneAccess: request<undefined, MicrophoneAccess>()("voice:request-microphone"),
   },
   dynamicIsland: {
     getPreference: request<undefined, DynamicIslandPreference>()("dynamic-island:get-preference"),

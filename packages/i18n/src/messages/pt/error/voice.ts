@@ -21,9 +21,12 @@ export const messages = {
   "error.voice.cloud.streamEnded": "A transmissão do ditado terminou. Grave de novo.",
   "error.voice.cloud.tooLong": "A gravação é longa demais.",
   "error.voice.cloud.keySaveFailed": "Não foi possível salvar a chave de API da ElevenLabs.",
+  "error.voice.cloud.keyUnreadable": "Não foi possível ler a chave salva. Use o ditado local ou remova a chave.",
   "error.voice.speech.runtimeUnavailable": "A voz local não está disponível nesta plataforma.",
   "error.voice.speech.modelRequired": "Baixe o modelo de voz em Configurações → Voz.",
   "error.voice.speech.timedOut": "A leitura da resposta em voz alta expirou.",
   "error.voice.speech.failed": "O Builders Bot não conseguiu ler a resposta em voz alta.",
   "error.voice.recordingNotKept": "O Builders Bot não conseguiu guardar a gravação de voz.",
+  "error.voice.server.keyUnreadable":
+    "Não foi possível ler a chave salva do seu servidor de voz. Digite a chave de novo ou remova-a.",
 } as const satisfies PartialTranslation<typeof source>;

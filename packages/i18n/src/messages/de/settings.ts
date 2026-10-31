@@ -172,6 +172,21 @@ export const messages = {
   "settings.sections.label": "Einstellungsbereiche",
   "settings.panel.resize": "Größe des rechten Bereichs ändern",
   "settings.preferences.loadFailed": "Deine Einstellungen konnten nicht geladen werden.",
+  "settings.secretHealth.title": "Verschlüsselte Daten, die sich nicht lesen lassen",
+  "settings.secretHealth.description":
+    "Builders Bot kann einige gespeicherte Daten auf diesem Computer nicht entschlüsseln. Das passiert, wenn sich der Schlüsselbund ändert oder ein Profil aus einer anderen App kopiert wird. Jede Datei bleibt, bis du ihre Daten erneut eingibst oder sie entfernst.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs-API-Schlüssel ({file}): Nutze unter Einstellungen → Diktat Parakeet (lokal) oder entferne den Schlüssel.",
+  "settings.secretHealth.store.voiceServerKey":
+    "Schlüssel deines Sprachservers ({file}): Gib den Schlüssel unter Einstellungen → Diktat erneut ein oder entferne ihn.",
+  "settings.secretHealth.store.customAgents":
+    "Werte eigener Agenten ({file}): Gib die Werte im Editor jedes Agenten erneut ein.",
+  "settings.secretHealth.store.customProviders":
+    "Zugangsdaten eigener Anbieter ({file}): Gib sie in den Anbieter-Einstellungen dieses Computers erneut ein.",
+  "settings.secretHealth.store.providerCredentials":
+    "API-Schlüssel der Anbieter ({file}): Speichere jeden Schlüssel in den Anbieter-Einstellungen dieses Computers erneut.",
+  "settings.secretHealth.store.messagingCredentials":
+    "Tokens von Nachrichtenverbindungen ({file}): Verbinde jeden Arbeitsbereich erneut.",
   "settings.preferences.saveFailed": "Diese Einstellung konnte nicht gespeichert werden. Versuche es erneut.",
   "settings.agentSelect.placeholder": "Agenten auswählen",
   "settings.agentSelect.empty": "Keine lokalen Agenten",
@@ -468,6 +483,22 @@ export const messages = {
   "settings.voice.downloadFailed": "Der Download konnte nicht starten. Versuche es erneut.",
   "settings.voice.cancelFailed": "Der Download konnte nicht gestoppt werden.",
   "settings.voice.removeFailed": "Das Modell konnte nicht entfernt werden. Versuche es erneut.",
+  "settings.voice.microphone.section": "Mikrofon",
+  "settings.voice.microphone.title": "Mikrofonzugriff",
+  "settings.voice.microphone.granted": "Erlaubt.",
+  "settings.voice.microphone.notDetermined":
+    "Noch nicht gefragt. Builders Bot fragt, wenn du zum ersten Mal diktierst.",
+  "settings.voice.microphone.denied":
+    "Nicht erlaubt. Erlaube Builders Bot in den Systemeinstellungen und starte Builders Bot dann neu.",
+  "settings.voice.microphone.restricted": "Vom Administrator dieses Computers gesperrt.",
+  "settings.voice.microphone.agentCommands":
+    "Befehle, die Agenten aus Builders Bot ausführen, können das erlaubte Mikrofon ebenfalls nutzen.",
+  "settings.voice.microphone.ask": "Zugriff anfragen",
+  "settings.voice.microphone.openMac": "Systemeinstellungen öffnen",
+  "settings.voice.microphone.openWindows": "Windows-Einstellungen öffnen",
+  "settings.voice.microphone.restart": "Builders Bot neu starten",
+  "settings.voice.microphone.restartFailed": "Builders Bot konnte nicht neu gestartet werden.",
+  "settings.voice.microphone.openFailed": "Die Systemeinstellungen konnten nicht geöffnet werden.",
   "settings.voice.model.elevenlabs.description":
     "Überträgt deine Stimme an ElevenLabs. Der Text erscheint beim Sprechen und bleibt stabil. Nutzt deinen eigenen API-Schlüssel, und ElevenLabs berechnet jede Nutzung.",
   "settings.voice.model.keySaved": "API-Schlüssel gespeichert",
@@ -476,13 +507,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "Schlüssel einfügen",
   "settings.voice.apiKey.save": "Schlüssel speichern",
   "settings.voice.apiKey.remove": "Schlüssel entfernen",
+  "settings.voice.apiKey.useLocal": "Parakeet verwenden (lokal)",
+  "settings.voice.apiKey.removeUnreadable": "Unlesbaren Schlüssel entfernen",
   "settings.voice.apiKey.saveFailed": "Der API-Schlüssel konnte nicht gespeichert werden. Versuche es erneut.",
   "settings.voice.apiKey.removeFailed": "Der API-Schlüssel konnte nicht entfernt werden. Versuche es erneut.",
   "settings.voice.speech.section": "Gesprochene Antworten",
   "settings.voice.speech.model.description": "Liest Antworten auf diesem Computer vor, in 31 Sprachen.",
   "settings.voice.speech.readReplies.title": "Antworten vorlesen",
   "settings.voice.speech.readReplies.description":
-    "Wenn du eine Nachricht diktierst, wird die Antwort vorgelesen. Diktiere erneut, um sie zu stoppen.",
+    "Liest die Antwort auf eine diktierte Nachricht vor. Eine getippte Nachricht wird nicht von selbst vorgelesen: Nutze „Vorlesen“ im Menü der Antwort. Wähle „Vorlesen stoppen“, um es zu beenden.",
+  "settings.voice.speech.readReplies.downloadHint": "Lade die Stimme herunter ({size}), um Antworten zu hören.",
   "settings.voice.speech.voice.title": "Stimme",
   "settings.voice.speech.voice.female": "Weibliche Stimme {number}",
   "settings.voice.speech.voice.male": "Männliche Stimme {number}",

@@ -21,9 +21,13 @@ export const messages = {
   "error.voice.cloud.streamEnded": "Przesyłanie dyktowania zostało przerwane. Nagraj ponownie.",
   "error.voice.cloud.tooLong": "Nagranie jest za długie.",
   "error.voice.cloud.keySaveFailed": "Nie udało się zapisać klucza API ElevenLabs.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot nie może odczytać zapisanego klucza API. Użyj lokalnego dyktowania albo usuń klucz.",
   "error.voice.speech.runtimeUnavailable": "Lokalna synteza mowy nie jest dostępna na tej platformie.",
   "error.voice.speech.modelRequired": "Pobierz model syntezy mowy w Ustawienia → Głos.",
   "error.voice.speech.timedOut": "Czytanie odpowiedzi na głos trwało zbyt długo.",
   "error.voice.speech.failed": "Builders Bot nie mógł przeczytać odpowiedzi na głos.",
   "error.voice.recordingNotKept": "Builders Bot nie mógł zachować nagrania głosowego.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot nie może odczytać zapisanego klucza twojego serwera głosu. Wpisz klucz ponownie albo go usuń.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -190,6 +190,13 @@ export interface ConversationProps {
   onManageBrowserProfiles?: ((trigger: HTMLElement) => void) | undefined;
   /** Opens the notification settings at a server, where the user changes the level of its agents. */
   onOpenNotificationSettings?: ((serverId: string, trigger: HTMLElement) => void) | undefined;
+  /**
+   * Opens the page of the operating system that grants this app the microphone: System Settings on
+   * macOS, Windows Settings on Windows. Absent in the web client and on Linux.
+   */
+  onOpenMicrophoneSettings?: (() => void) | undefined;
+  /** Opens Settings › Voice of this app, where the dictation model and its key are. Absent in the web client. */
+  onOpenVoiceSettings?: ((trigger: HTMLElement) => void) | undefined;
   agent: AgentProfile | undefined;
   agents: AgentProfile[];
   /**

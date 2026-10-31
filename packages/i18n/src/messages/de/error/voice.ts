@@ -23,9 +23,13 @@ export const messages = {
   "error.voice.cloud.streamEnded": "Die Diktat-Übertragung wurde beendet. Nimm erneut auf.",
   "error.voice.cloud.tooLong": "Die Aufnahme ist zu lang.",
   "error.voice.cloud.keySaveFailed": "Der ElevenLabs-API-Schlüssel konnte nicht gespeichert werden.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot kann den gespeicherten API-Schlüssel nicht lesen. Nutze das lokale Diktat oder entferne den Schlüssel.",
   "error.voice.speech.runtimeUnavailable": "Lokale Sprachausgabe ist auf dieser Plattform nicht verfügbar.",
   "error.voice.speech.modelRequired": "Lade das Sprachausgabemodell unter Einstellungen → Diktat herunter.",
   "error.voice.speech.timedOut": "Das Vorlesen der Antwort hat zu lange gedauert.",
   "error.voice.speech.failed": "Builders Bot konnte die Antwort nicht vorlesen.",
   "error.voice.recordingNotKept": "Builders Bot konnte die Sprachaufnahme nicht speichern.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot kann den gespeicherten Schlüssel deines Sprachservers nicht lesen. Gib den Schlüssel erneut ein oder entferne ihn.",
 } as const satisfies PartialTranslation<typeof source>;

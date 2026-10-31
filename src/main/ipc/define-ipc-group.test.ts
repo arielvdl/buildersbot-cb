@@ -6,6 +6,7 @@ import {
   DICTATION_IDLE,
   type DictationEngineStatus,
   type DraftAttachment,
+  type MicrophoneAccess,
   parseDictationPreferenceChange,
   type SpeechModelStatus,
   type VoiceModelStatus,
@@ -99,6 +100,8 @@ function registerVoice(
     speak: payloadHandler(parseSpeechInput, () => ({ pcm: new Uint8Array(2), sampleRate: 44_100 })),
     warmSpeech: handler(() => undefined),
     keepRecording: payloadHandler(decodeNote, () => RECORDING),
+    getMicrophoneAccess: handler((): MicrophoneAccess => "granted"),
+    requestMicrophoneAccess: handler((): MicrophoneAccess => "granted"),
     getDictationPreference: handler(() => DEFAULT_DICTATION_PREFERENCE),
     setDictationPreference: payloadHandler(parseDictationPreferenceChange, (change) => ({
       ...DEFAULT_DICTATION_PREFERENCE,

@@ -23,9 +23,13 @@ export const messages = {
   "error.voice.cloud.streamEnded": "Dikte aktarımı sona erdi. Yeniden kaydedin.",
   "error.voice.cloud.tooLong": "Kayıt çok uzun.",
   "error.voice.cloud.keySaveFailed": "ElevenLabs API anahtarı kaydedilemedi.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot kayıtlı API anahtarını okuyamıyor. Yerel dikteyi kullanın veya anahtarı kaldırın.",
   "error.voice.speech.runtimeUnavailable": "Yerel konuşma sentezi bu platformda kullanılamıyor.",
   "error.voice.speech.modelRequired": "Konuşma modelini Ayarlar → Ses bölümünden indirin.",
   "error.voice.speech.timedOut": "Yanıtı sesli okuma zaman aşımına uğradı.",
   "error.voice.speech.failed": "Builders Bot yanıtı sesli okuyamadı.",
   "error.voice.recordingNotKept": "Builders Bot ses kaydını saklayamadı.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot ses sunucunuzun kayıtlı anahtarını okuyamıyor. Anahtarı yeniden yazın veya kaldırın.",
 } as const satisfies PartialTranslation<typeof source>;

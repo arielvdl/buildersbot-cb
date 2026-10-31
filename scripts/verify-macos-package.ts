@@ -138,7 +138,7 @@ assertAllowedUpdateFeed(await readOptionalText(resolve(resourcesPath, "app-updat
 await assertNoBlockedStringsInPackage(resourcesPath);
 expectEqual(
   plist.NSMicrophoneUsageDescription,
-  "Builders Bot uses the microphone to transcribe voice prompts locally on this Mac.",
+  "Builders Bot uses the microphone for dictation and voice conversations. Commands that agents run from Builders Bot can also use it. The audio stays on this Mac unless you choose a cloud voice model or your own voice server in Settings.",
   "microphone usage description",
 );
 expectEqual(

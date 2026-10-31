@@ -183,6 +183,20 @@ export const messages = {
   "settings.sections.label": "설정 섹션",
   "settings.panel.resize": "오른쪽 패널 크기 조절",
   "settings.preferences.loadFailed": "설정을 불러올 수 없어요.",
+  "settings.secretHealth.title": "읽을 수 없는 암호화 데이터",
+  "settings.secretHealth.description":
+    "Builders Bot이 이 컴퓨터에 저장된 일부 데이터를 복호화할 수 없어요. 키체인이 바뀌거나 다른 앱에서 프로필을 복사하면 이런 일이 생겨요. 각 파일은 데이터를 다시 입력하거나 삭제할 때까지 남아 있어요.",
+  "settings.secretHealth.store.voiceApiKey":
+    "ElevenLabs API 키({file}): 설정 → 음성에서 Parakeet(로컬)을 사용하거나 키를 삭제해 주세요.",
+  "settings.secretHealth.store.voiceServerKey":
+    "음성 서버 키({file}): 설정 → 음성에서 키를 다시 입력하거나 삭제해 주세요.",
+  "settings.secretHealth.store.customAgents":
+    "사용자 지정 에이전트의 값({file}): 각 에이전트 편집기에서 값을 다시 입력해 주세요.",
+  "settings.secretHealth.store.customProviders":
+    "사용자 지정 제공자의 자격 증명({file}): 이 컴퓨터의 제공자 설정에서 다시 입력해 주세요.",
+  "settings.secretHealth.store.providerCredentials":
+    "제공자 API 키({file}): 이 컴퓨터의 제공자 설정에서 각 키를 다시 저장해 주세요.",
+  "settings.secretHealth.store.messagingCredentials": "메시지 연결 토큰({file}): 각 워크스페이스를 다시 연결해 주세요.",
   "settings.preferences.saveFailed": "이 설정을 저장할 수 없어요. 다시 시도해 주세요.",
   "settings.agentSelect.placeholder": "에이전트 선택",
   "settings.agentSelect.empty": "로컬 에이전트 없음",
@@ -456,6 +470,21 @@ export const messages = {
   "settings.voice.downloadFailed": "다운로드를 시작할 수 없어요. 다시 시도해 주세요.",
   "settings.voice.cancelFailed": "다운로드를 중지할 수 없어요.",
   "settings.voice.removeFailed": "모델을 삭제할 수 없어요. 다시 시도해 주세요.",
+  "settings.voice.microphone.section": "마이크",
+  "settings.voice.microphone.title": "마이크 접근",
+  "settings.voice.microphone.granted": "허용됨.",
+  "settings.voice.microphone.notDetermined": "아직 묻지 않았어요. 처음 받아쓰기를 할 때 Builders Bot이 물어봐요.",
+  "settings.voice.microphone.denied":
+    "허용되지 않았어요. 시스템 설정에서 Builders Bot을 허용한 다음 Builders Bot을 다시 시작해 주세요.",
+  "settings.voice.microphone.restricted": "이 컴퓨터의 관리자가 차단했어요.",
+  "settings.voice.microphone.agentCommands":
+    "Builders Bot에서 에이전트가 실행하는 명령도 허용한 마이크를 사용할 수 있어요.",
+  "settings.voice.microphone.ask": "접근 요청",
+  "settings.voice.microphone.openMac": "시스템 설정 열기",
+  "settings.voice.microphone.openWindows": "Windows 설정 열기",
+  "settings.voice.microphone.restart": "Builders Bot 다시 시작",
+  "settings.voice.microphone.restartFailed": "Builders Bot을 다시 시작할 수 없어요.",
+  "settings.voice.microphone.openFailed": "시스템 설정을 열 수 없어요.",
   "settings.voice.model.elevenlabs.description":
     "음성을 ElevenLabs로 스트리밍해요. 말하는 동안 텍스트가 표시되고 바뀌지 않아요. 내 API 키를 사용하며, 사용할 때마다 ElevenLabs에서 요금이 청구돼요.",
   "settings.voice.model.keySaved": "API 키 저장됨",
@@ -464,13 +493,16 @@ export const messages = {
   "settings.voice.apiKey.placeholder": "키를 붙여넣으세요",
   "settings.voice.apiKey.save": "키 저장",
   "settings.voice.apiKey.remove": "키 삭제",
+  "settings.voice.apiKey.useLocal": "Parakeet 사용(로컬)",
+  "settings.voice.apiKey.removeUnreadable": "읽을 수 없는 키 삭제",
   "settings.voice.apiKey.saveFailed": "API 키를 저장할 수 없어요. 다시 시도해 주세요.",
   "settings.voice.apiKey.removeFailed": "API 키를 삭제할 수 없어요. 다시 시도해 주세요.",
   "settings.voice.speech.section": "음성 답변",
   "settings.voice.speech.model.description": "이 컴퓨터에서 답변을 31개 언어로 소리 내어 읽어줘요.",
   "settings.voice.speech.readReplies.title": "답변 소리 내어 읽기",
   "settings.voice.speech.readReplies.description":
-    "음성으로 메시지를 입력하면 답변을 소리 내어 읽어줘요. 다시 음성 입력을 하면 멈춰요.",
+    "음성으로 입력한 메시지의 답변을 소리 내어 읽어줘요. 직접 입력한 메시지는 자동으로 읽지 않아요. 답변 메뉴의 소리 내어 읽기를 사용하세요. 멈추려면 읽기 중지를 선택하세요.",
+  "settings.voice.speech.readReplies.downloadHint": "답변을 들으려면 음성({size})을 다운로드하세요.",
   "settings.voice.speech.voice.title": "음성",
   "settings.voice.speech.voice.female": "여성 음성 {number}",
   "settings.voice.speech.voice.male": "남성 음성 {number}",

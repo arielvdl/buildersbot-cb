@@ -149,6 +149,8 @@ export const messages = {
   "conversation.voice.offline": "サーバーに接続していません。再接続すると会話を続けます。",
   "conversation.speech.label": "{name} が返信を読み上げています",
   "conversation.speech.stop": "読み上げを停止",
+  "conversation.speech.voiceMissing": "返信を読み上げる音声がこのコンピューターにありません。",
+  "conversation.speech.downloadVoice": "音声をダウンロード（{size}）",
   "conversation.panels.openWorkspaceFailed": "ワークスペースのフォルダーを開けませんでした",
   "conversation.panels.tryAgain": "もう一度お試しください。",
   "conversation.view.label": "会話",

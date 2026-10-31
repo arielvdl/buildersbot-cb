@@ -111,6 +111,14 @@ export class CustomAgentStore {
     });
   }
 
+  /**
+   * How many saved agents have values that this computer cannot decrypt. Those agents start without
+   * their values until the user enters them again.
+   */
+  unreadableSecretCount(): number {
+    return this.#entries.filter(({ stored, values }) => Boolean(stored.secret) && values === null).length;
+  }
+
   /** What the renderer may know: the variable names, and never a value. */
   list(): Effect.Effect<CustomAgentSummary[]> {
     return Effect.suspend(() =>

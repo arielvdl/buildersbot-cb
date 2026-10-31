@@ -151,6 +151,8 @@ export const messages = {
   "conversation.voice.offline": "서버에 연결되지 않았어요. 다시 연결되면 대화를 이어갈게요.",
   "conversation.speech.label": "{name}이(가) 답변을 소리 내어 읽어요",
   "conversation.speech.stop": "읽기 중지",
+  "conversation.speech.voiceMissing": "답변을 소리 내어 읽는 음성이 이 컴퓨터에 없어요.",
+  "conversation.speech.downloadVoice": "음성 다운로드({size})",
   "conversation.panels.openWorkspaceFailed": "워크스페이스 폴더를 열 수 없어요",
   "conversation.panels.tryAgain": "다시 시도해 주세요.",
   "conversation.view.label": "대화",

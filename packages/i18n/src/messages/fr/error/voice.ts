@@ -22,9 +22,13 @@ export const messages = {
   "error.voice.cloud.streamEnded": "Le flux de dictée s’est arrêté. Enregistrez à nouveau.",
   "error.voice.cloud.tooLong": "L’enregistrement est trop long.",
   "error.voice.cloud.keySaveFailed": "Impossible d’enregistrer la clé API ElevenLabs.",
+  "error.voice.cloud.keyUnreadable":
+    "Builders Bot ne peut pas lire la clé API enregistrée. Utilisez la dictée locale ou supprimez la clé.",
   "error.voice.speech.runtimeUnavailable": "La synthèse vocale locale n’est pas disponible sur cette plateforme.",
   "error.voice.speech.modelRequired": "Téléchargez le modèle de synthèse vocale dans Réglages → Voix.",
   "error.voice.speech.timedOut": "La lecture à voix haute de la réponse a expiré.",
   "error.voice.speech.failed": "Builders Bot n’a pas pu lire la réponse à voix haute.",
   "error.voice.recordingNotKept": "Builders Bot n’a pas pu conserver l’enregistrement vocal.",
+  "error.voice.server.keyUnreadable":
+    "Builders Bot ne peut pas lire la clé enregistrée de votre serveur vocal. Saisissez à nouveau la clé ou supprimez-la.",
 } as const satisfies PartialTranslation<typeof source>;

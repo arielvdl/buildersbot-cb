@@ -39,6 +39,7 @@ import { DictationKeyField } from "./DictationKeyField";
 import { DictationModeSelect } from "./DictationModeSelect";
 import { ExternalLinkSelect } from "./ExternalLinkSelect";
 import { LidAwakeSettings } from "./LidAwakeSettings";
+import { SecretHealthNotice } from "./SecretHealthNotice";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
 
@@ -100,6 +101,7 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
   };
   return (
     <>
+      <SecretHealthNotice />
       <SettingsSection title={i18n.t("settings.appearance.title")}>
         <ItemGroup class="settings-modal-card">
           <Item data-settings-row="settings.appearance.theme.title" class="settings-modal-row">

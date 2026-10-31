@@ -1,6 +1,9 @@
 import {
+  type AppInfo,
   AUTOMATIC_VOICE_LANGUAGE,
+  DEFAULT_VOICE_MODEL_ID,
   ELEVENLABS_VOICE_MODEL_ID,
+  type MicrophoneAccess,
   SPEECH_MODEL,
   SPEECH_VOICES,
   type SpeechModelStatus,
@@ -35,9 +38,11 @@ import {
   SettingsSection,
   Square,
   SwitchField,
+  toast,
 } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, createStore, For, Show } from "solid-js";
+import { speechDownloadHelps } from "../speech/speech-model";
 import type { SettingsVoiceStore } from "./settings-voice-store";
 import { shortModel, VoiceServerDialog, voiceServerHost } from "./VoiceServerDialog";
 
@@ -53,6 +58,13 @@ const FIXED_LANGUAGE: Partial<Record<VoiceModelInfo["id"], { language: VoiceLang
   "parakeet-tdt-0.6b-v3": { language: AUTOMATIC_VOICE_LANGUAGE, description: "settings.voice.language.modelDetects" },
   "bark-3.0-plus": { language: "en", description: "settings.voice.language.englishOnly" },
 };
+
+/**
+ * The model that "Use Parakeet (local)" selects when the saved ElevenLabs key cannot be read. It is
+ * the default model: it runs on this computer and needs no key. The text of the button names
+ * Parakeet in each catalog, so a change of the default model also changes that text.
+ */
+const LOCAL_FALLBACK_MODEL = VOICE_MODELS.find((model) => model.id === DEFAULT_VOICE_MODEL_ID);
 
 /** `jw` is Whisper's code for Javanese, whose catalog name is under `jv`. */
 const LANGUAGE_NAME = {
@@ -145,9 +157,21 @@ function flagFor(language: VoiceLanguage): string {
   return "🌐";
 }
 
+/** What the microphone row says for each grant that it shows. "unknown" has no row. */
+const MICROPHONE_STATUS = {
+  "not-determined": "settings.voice.microphone.notDetermined",
+  granted: "settings.voice.microphone.granted",
+  denied: "settings.voice.microphone.denied",
+  restricted: "settings.voice.microphone.restricted",
+} as const satisfies Record<Exclude<MicrophoneAccess, "unknown">, AppTextKey>;
+
 interface SettingsVoiceTabProps {
   store: SettingsVoiceStore;
   selectMount: HTMLElement | undefined;
+  /** The system of this computer: it names the page that grants the microphone. */
+  platform?: AppInfo["platform"] | undefined;
+  /** Starts Builders Bot again when no work runs. macOS reads a changed microphone grant only after it. */
+  onRestart?: (() => Promise<void>) | undefined;
 }
 
 export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
@@ -201,15 +225,53 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
     return t("settings.voice.model.size", { size: format.fileSize(bytes) });
   };
   const statusText = (model: VoiceModelInfo, status: VoiceModelStatus | null) => {
-    if (model.kind === "cloud")
-      return status?.phase === "ready" ? t("settings.voice.model.keySaved") : t("settings.voice.model.keyMissing");
+    if (model.kind === "cloud") {
+      if (status?.phase === "ready") return t("settings.voice.model.keySaved");
+      // Main sends why the key cannot be used, for example a saved key that it cannot decrypt.
+      if (status?.phase === "error") return errorMessage(status.message, t("settings.voice.model.keyMissing"));
+      return t("settings.voice.model.keyMissing");
+    }
     return downloadText(model.bytes, status);
   };
 
   const [editingServer, setEditingServer] = createSignal(false);
 
+  /** macOS asks with its own prompt, and reads a changed grant only after a restart. */
+  const onMac = () => (props.platform ?? "darwin") === "darwin";
+  /**
+   * The grant of the system, when the system tells it: macOS and Windows. Windows has no prompt for a
+   * desktop app, so its "not decided" state gets no row: there is nothing to ask for.
+   */
+  const microphone = () => {
+    const access = props.store.state.microphone;
+    if (access === null || access === "unknown") return undefined;
+    return access === "not-determined" && !onMac() ? undefined : access;
+  };
+  const microphoneStatusText = (access: Exclude<MicrophoneAccess, "unknown">) =>
+    access === "denied" && props.platform === "win32"
+      ? t("settings.voice.microphone.deniedWindows")
+      : t(MICROPHONE_STATUS[access]);
+  const [restarting, setRestarting] = createSignal(false);
+  const restart = async (onRestart: () => Promise<void>) => {
+    setRestarting(true);
+    try {
+      await onRestart();
+    } catch (error) {
+      toast.error(errorMessage(error, t("settings.voice.microphone.restartFailed")), {
+        report: { operation: "settings", source: "action", cause_code: "unknown" },
+      });
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   const speech = () => props.store.state.speech;
   const speechPhase = () => speech().status?.phase;
+  /**
+   * Replies are read on this computer, and a download of its voice can help: the row tells the size
+   * first. A build with no speech runtime gets no hint, because a download does not repair it.
+   */
+  const speechVoiceMissing = () => !serverSpeaks() && speechDownloadHelps(speech().status);
   const voiceName = (voice: SpeechVoice) =>
     t(voice.startsWith("F") ? "settings.voice.speech.voice.female" : "settings.voice.speech.voice.male", {
       number: voice.slice(1),
@@ -288,6 +350,25 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                         {t("settings.voice.apiKey.remove")}
                       </Button>
                     </Show>
+                    {/* A saved key that this computer cannot decrypt. The key of a provider is not asked
+                        for again here: local dictation needs no key, and the user can remove the file. */}
+                    <Show when={model.kind === "cloud" && phase() === "error"}>
+                      <Show when={inUse() && LOCAL_FALLBACK_MODEL}>
+                        {(local) => (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => props.store.useModel(local().id)}
+                          >
+                            {t("settings.voice.apiKey.useLocal")}
+                          </Button>
+                        )}
+                      </Show>
+                      <Button variant="ghost" size="sm" type="button" onClick={() => void props.store.removeApiKey()}>
+                        {t("settings.voice.apiKey.removeUnreadable")}
+                      </Button>
+                    </Show>
                     <Show when={model.kind === "local" && phase() === "missing"}>
                       <Button
                         variant="outline"
@@ -311,7 +392,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                         {t("common.cancel")}
                       </Button>
                     </Show>
-                    <Show when={phase() === "error"}>
+                    <Show when={model.kind === "local" && phase() === "error"}>
                       <Button
                         variant="outline"
                         size="sm"
@@ -352,6 +433,57 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
           </For>
         </ItemGroup>
       </SettingsSection>
+
+      <Show when={microphone()}>
+        {(access) => (
+          <SettingsSection title={t("settings.voice.microphone.section")}>
+            <ItemGroup class="settings-modal-card">
+              <Item data-settings-row="settings.voice.microphone.title" class="settings-modal-row">
+                <ItemContent>
+                  <ItemTitle>{t("settings.voice.microphone.title")}</ItemTitle>
+                  <ItemDescription aria-live="polite">{microphoneStatusText(access())}</ItemDescription>
+                  {/* The app's grant also covers the commands that its agents run (design, section 7.10). */}
+                  <ItemDescription>{t("settings.voice.microphone.agentCommands")}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Show when={access() === "not-determined" && onMac()}>
+                    <Button variant="outline" size="sm" type="button" onClick={() => props.store.askMicrophone()}>
+                      {t("settings.voice.microphone.ask")}
+                    </Button>
+                  </Show>
+                  <Show when={access() === "denied"}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() => props.store.openMicrophoneSettings(props.platform ?? "darwin")}
+                    >
+                      {t(
+                        props.platform === "win32"
+                          ? "settings.voice.microphone.openWindows"
+                          : "settings.voice.microphone.openMac",
+                      )}
+                    </Button>
+                    <Show when={onMac() && props.onRestart}>
+                      {(onRestart) => (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          disabled={restarting()}
+                          onClick={() => void restart(onRestart())}
+                        >
+                          {t("settings.voice.microphone.restart")}
+                        </Button>
+                      )}
+                    </Show>
+                  </Show>
+                </ItemActions>
+              </Item>
+            </ItemGroup>
+          </SettingsSection>
+        )}
+      </Show>
 
       <SettingsSection title={t("settings.voice.language.section")}>
         <ItemGroup class="settings-modal-card">
@@ -457,7 +589,17 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
             disabled={!speech().settings}
             onChange={(checked) => props.store.setReadReplies(checked)}
             label={t("settings.voice.speech.readReplies.title")}
-            description={t("settings.voice.speech.readReplies.description")}
+            description={
+              <>
+                {t("settings.voice.speech.readReplies.description")}
+                <Show when={speechVoiceMissing()}>
+                  {" "}
+                  {t("settings.voice.speech.readReplies.downloadHint", {
+                    size: format.fileSize(SPEECH_MODEL.bytes),
+                  })}
+                </Show>
+              </>
+            }
           />
           <Show when={!serverSpeaks()}>
             <Item data-settings-row="settings.voice.speech.voice.title" class="settings-modal-row">
@@ -526,6 +668,9 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
               <Item class="settings-modal-row">
                 <ItemContent>
                   <ItemTitle>{voiceServerHost(saved().address)}</ItemTitle>
+                  <Show when={saved().apiKeyUnreadable}>
+                    <ItemDescription>{t("error.voice.server.keyUnreadable")}</ItemDescription>
+                  </Show>
                   <Show when={!serverDictates() && !serverSpeaks()}>
                     <ItemDescription>{t("settings.voice.server.notInUse")}</ItemDescription>
                   </Show>
