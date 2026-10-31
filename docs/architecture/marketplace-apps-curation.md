@@ -9,7 +9,7 @@ and nothing changes the tools of an agent.
 
 | Kind | Defined in | Id |
 | --- | --- | --- |
-| Connector (GitHub, Slack, Discord, Telegram, 1Password, Bitwarden) | `CONNECTOR_IDS` (`packages/contracts/src/ipc.ts`), names and marks in `packages/ui/src/features/connectors/connector-catalog.tsx` | the `ConnectorId` |
+| Connector (GitHub, Slack, Discord, Telegram, 1Password, Bitwarden) | `CONNECTOR_IDS` (`packages/contracts/src/marketplace-suggestion-events.ts`), names and marks in `packages/ui/src/features/connectors/connector-catalog.tsx` | the `ConnectorId` |
 | Catalog plugin | `marketplace/plugin-catalog/plugins/<slug>/plugin.json`, generated into `src/renderer/src/features/settings/marketplace-plugin-catalog.ts` | the slug |
 | Custom MCP server | a row that the host holds and no catalog app claims | `custom:<row id>` |
 
@@ -58,7 +58,8 @@ A new catalog app is hidden by default until someone adds its id to the list or 
 
 A small switch beside the search, on the Apps tab only. It shows while the list hides an app, or
 while it is on. Below 560 pixels of list width it moves to its own line under the search
-(a container query on `.marketplace-browse-head`), so nothing scrolls sideways.
+(a container query on `.marketplace-browse-head`), so nothing scrolls sideways. Only a toolbar that
+holds the switch can wrap, so the toolbar of the Agents tab stays on one line.
 
 The renderer keeps the choice in `localStorage` (`openbot:marketplace-show-all-apps`), as
 `agent-steps-preference.ts` keeps its choice: per user of this computer, or per browser in the web
@@ -83,14 +84,19 @@ the `storage` event.
 
 | Field | Rule | When the rule fails |
 | --- | --- | --- |
-| `version` | the number `1` | the profile is refused |
+| `version` | optional; the number `1`. Absent or `null` reads as `1` | the profile is refused |
 | `tag` | plain text, 1 to 48 visible characters after trim, at most 256 UTF-16 units before; no `<`, `>`, control or bidi characters | refused |
-| `apps.show` | list of at most 128 slugs (`^[a-z0-9][a-z0-9-]{0,62}$`), duplicates kept once | refused |
-| `apps.hide` | optional, the same rule | refused |
-| `categories` | optional, at most 16 texts of at most 32 units; a category that this version does not know is dropped | refused |
+| `apps.show` | list of at most 128 slugs (`^[a-z0-9][a-z0-9-]{0,62}$`), duplicates kept once; can be empty when `categories` is not. Not optional: `null` is refused | refused |
+| `apps.hide` | optional, the same rule. Absent or `null` reads as an empty list | refused |
+| `categories` | optional, at most 16 texts of at most 32 units; a category that this version does not know is dropped. Absent or `null` reads as an empty list | refused |
 | `updatedAt` | ISO 8601 date and time, at most 40 units | refused |
-| the whole JSON text | at most 8 KB (`decodeAppProfileText`) | refused |
+| the profile after decoding, as JSON | at most 8,192 UTF-16 units (`decodeAppProfile`), so the client can keep each profile that it accepts | refused |
+| the JSON text | at most 8,192 UTF-16 units (`decodeAppProfileText`) | refused |
 | `show` and `categories` both empty | the profile would empty the list | refused |
+
+The limits on each field keep the profile after decoding under about 17,000 units, so the size
+check costs little. 128 ids of 62 characters in `show` and 128 in `hide` pass the field rules but
+not the size rule.
 
 A well-formed id that the catalog does not have is kept, for a newer catalog, and `curateApps`
 ignores it. Fields that version 1 does not name are ignored, so the Hub can add an optional field. A
@@ -114,27 +120,56 @@ What the Hub team adds, in the same way as the `branding` block of the white-lab
 2. In the answer of `GET /api/builder-ai/gateway/v1/session`, an optional `appProfile` field with
    that JSON for an account of a company with a profile. No field, or `null`, for a company without
    one. The answer stays under 8 KB, and `empresa` keeps its meaning.
+3. In the same answer, a `userId` field: an opaque id of the Hub account that does not change, as
+   text. The client binds the kept profile to it. `empresa` is not a good key: it is a display name,
+   it changes when the company gets a new name, and two companies can have the same name.
+
+Rules for the profile JSON: leave out an optional field, or send `null`; both read as absent.
+`version` is optional and is `1`. `apps.show` is always a list.
 
 ### Adapter point
 
 `receiveAppProfile(answer)` in `src/renderer/src/features/settings/marketplace-app-curation.ts` is
-the one way in. Nothing calls it today, because the Hub does not send `appProfile`. The client that
-reads `/session` calls it after each read, sign-in and sign-out. The planned place is the Hub read
-of the white-label branding work (read `/session` once per app start, in main, and hand the result
-to the renderer); the profile travels next to the branding block. Until then, the default list
-applies.
+the one way in. Nothing calls it today, because the Hub does not send `appProfile`. Until then, the
+default list applies.
+
+The desktop backend reads `/session` (`readCulturaBuilderAccess` in
+`src/backend/cultura-builder-auth.ts`, which `provider-drivers.ts` and `provider-runtime.ts` call),
+not the renderer. So the profile must cross the renderer-to-main trust boundary, which `AGENTS.md`
+protects. The planned place is the Hub read of
+the white-label branding work, and the profile travels next to the branding block. The connection
+needs these parts, in one change, as `src/main/ipc/AGENTS.md` and `src/preload/AGENTS.md` say:
+
+1. `src/backend/cultura-builder-auth.ts`: add `userId` (optional text) and `appProfile` (any JSON
+   value, not decoded) to the `GatewaySession` schema, and give both to the caller. The read keeps
+   its size limit (`RESPONSE_LIMIT_BYTES`, 8 KB for the whole answer), so a profile in `/session`
+   has a little less room than `APP_PROFILE_LIMITS.text`.
+2. `packages/contracts/src/ipc-endpoints.ts`: an event that sends an `AppProfileAnswer` from main to
+   each window after each read, sign-in and sign-out, and a request that gives the last answer to a
+   window that opens later.
+3. The handler in `src/main/ipc`, and the method in `src/renderer/src/preview/mock-openbot.ts`.
+4. A preload decoder in a `src/preload/*-decoding.ts` file: it checks the `kind` and the `account`,
+   and decodes the profile with `decodeAppProfile`. Preload payload decoding is a protected area, so
+   it needs a vitest file there. Run `src/main/ipc-channel-coverage.test.ts` too.
+5. The renderer subscribes to the event and calls `receiveAppProfile` with each answer.
 
 | Answer | Effect |
 | --- | --- |
 | `{ kind: "answer", account, value }` with a valid profile | the profile applies and is kept for `account` |
 | `{ kind: "answer", account, value }` with no, `null` or a malformed `value` | the kept profile goes; the default list applies |
-| `{ kind: "unreachable", account }` (no network, a 5xx, a body over the limit, an older Hub) | the kept profile of the same `account` stays; a profile of another account goes |
+| `{ kind: "unreachable", account }` (no network, a 5xx, a body over the limit) | the kept profile of the same `account` stays; a profile of another account goes |
 | `{ kind: "signed-out" }` | the kept profile goes |
 
-`account` is an opaque key of the signed-in Cultura Builder account (such as its Hub user id), 1 to
-128 printable ASCII characters. It is never shown. The kept profile is in `localStorage`
-(`openbot:marketplace-app-profile`) and is decoded again at each read, because local storage is not
-a trusted source.
+`account` is a stable key of the signed-in Cultura Builder account: the `userId` of `/session`
+when the Hub sends it. Any text of 1 to 256 UTF-16 units that is not only spaces is accepted, also
+`empresa`; other values read as signed out. It is never shown, and storage keeps only its SHA-256
+hash. The kept profile is in `localStorage` (`openbot:marketplace-app-profile`) and is decoded again
+at each read, because local storage is not a trusted source. Each profile that the decoder accepts
+fits the read limit of the cache, so a kept profile is still there at the next start.
+
+The kept profile applies only after an answer to the page names its account. When the app starts,
+the default list shows until the first answer comes; an `unreachable` answer for the same account
+then gives the kept profile back. A profile never applies to another account.
 
 ## WhatsApp logo
 
@@ -151,7 +186,8 @@ The app now draws the WhatsApp mark itself, as it does for Slack, Discord and Te
 - `WhatsAppMark` in `packages/ui/src/features/settings/brand-marks.tsx`, in `currentColor`, so one
   mark serves the dark and the light theme.
 - `LISTING_MARKS` in `MarketplaceParts.tsx`: a listing with a mark draws it on its row, its page
-  header, its example chips and its app row, and the app sends no request to whatsapp.com.
+  header, its example chips, its app row and the suggestion card in a chat
+  (`MarketplaceSuggestionChatCard.tsx`), and the app sends no request to whatsapp.com.
 
 The catalog entry is unchanged. The mobile app and the public plugin page load the icon through the
 account Worker (`/plugins/icon/<slug>`), which is not a browser.
@@ -161,9 +197,10 @@ account Worker (`/plugins/icon/<slug>`), which is not a browser.
 ### What the research says
 
 - Tool definitions cost context before any work starts. Anthropic measured 58 tools of five MCP
-  servers at about 55,000 tokens, and GitHub alone at about 26,000; with deferred loading the same
-  setup used about 8,700 tokens, 85% less. Tool selection on its MCP evaluations went from 49% to
-  74% (Opus 4) and from 79.5% to 88.1% (Opus 4.5). The advice: use tool search above about 10
+  servers at about 55,000 tokens, and GitHub alone at about 26,000. In its Tool Search example, a
+  context that used about 77,000 tokens before any work used about 8,700 tokens with deferred
+  loading, 85% less. Tool selection on its MCP evaluations went from 49% to 74% (Opus 4) and from
+  79.5% to 88.1% (Opus 4.5). The advice: use tool search above about 10
   tools or 10,000 tokens of definitions, and keep the three to five most used tools loaded.
   ([Anthropic, Introducing advanced tool use, 2025-11-24](https://www.anthropic.com/engineering/advanced-tool-use))
 - "More tools don't always lead to better outcomes"; group related tools under a common prefix.
@@ -210,6 +247,11 @@ machine-scoped", in the same file).
    to install for a new account, so a company gets its tools without a long list per agent.
 4. Measure: log the number of MCP tools and their definition size at each spawn (no names or
    arguments), to know when an agent passes the limits above.
+5. Agent prompt: `suggest_marketplace_app` in `src/backend/agent/tool-guidance.ts` tells the agent
+   to say "Install the <service> plugin in Marketplace, on the Apps tab". A hidden app (Stripe,
+   Linear, Figma) is not in that list until the user searches or turns on "Show all apps". The
+   card in the chat still opens the app. A clearer text: "Search for <service> in Marketplace, on
+   the Apps tab". This change does not touch the agent prompts.
 
 ### "Trag"
 
@@ -221,21 +263,37 @@ this change comes from it.
 ## Tests
 
 `scripts/marketplace-apps-curation-e2e.ts` runs against Storybook, with the curated stories of
-`src/renderer/stories/Marketplace.stories.tsx` (real catalog, real curation store, real CSS) in a
-headless browser with a new profile:
+`src/renderer/stories/Marketplace.stories.tsx` (real catalog, real curation store with
+`receiveAppProfile` and local storage, real CSS) in a headless browser with a new profile:
 
 ```sh
 bun run storybook --no-open   # note the URL it prints
 bun scripts/marketplace-apps-curation-e2e.ts --storybook=http://localhost:6006
 ```
 
-It checks 34 decoder cases (types, limits, markup, control and bidi characters, unknown ids and
-categories, oversize text), the default list and its categories, the WhatsApp mark on the row and
-the page, the search of a hidden app, the switch and its value after a reload, a profile, a
-malformed profile, an installed hidden app, a link to a hidden app, and that nothing scrolls
-sideways at 1280, 720 and 390 pixels. It writes
-`.openbot-build/marketplace-apps-curation-e2e/report.json` and a screenshot of each state in en and
-pt, dark and light.
+It checks 39 decoder cases (types, limits, markup, control and bidi characters, unknown ids and
+categories, `null` fields, a missing version, the size limit after decoding, oversize text), the
+default list and its categories, the WhatsApp mark on the row and the page, the search of a hidden
+app, the switch and the saved choice after a new page load, a profile, a malformed profile, a
+profile near the size limit and one over it, the kept profile (it waits for an answer that names
+its account, and applies after a new page load), an installed hidden app, a link to a hidden app,
+the subtitles in en and pt, and that nothing scrolls sideways at 1280, 720 and 390 pixels, on the
+Apps and the Agents tab. It writes `.openbot-build/marketplace-apps-curation-e2e/report.json` and a
+screenshot of each state in en and pt, dark and light.
+
+Each curated story sets the profile answer and the switch before it renders, so the order of the
+stories in one browser changes nothing. `AppsSavedChoice` and `AppsBeforeAnswer` read what the
+browser kept, by design.
+
+Not covered here:
+
+- The decoder cases call `decodeAppProfile` directly, in Node. `AGENTS.md` permits E2E tests only,
+  outside the protected areas. When the profile crosses IPC, these cases belong in the vitest file
+  of the preload decoder, which is a protected area. Until then the owner decides if they stay here.
+- The Storybook run does not start the app. The line `curation: marketplaceAppCuration` in
+  `marketplace-controller.ts`, links through `MarketplaceModal`, and an installed app that shows
+  after the read of the host's MCP servers need a run of the dev app, for example an extension of
+  `scripts/marketplace-page-e2e.ts` with `bun run dev`.
 
 ## Limits
 
