@@ -12,17 +12,26 @@ button and a click on the dimmed window close it. The approved design is the moc
   sidebar section, while it is active. The name of such a system selects the section in the section
   rail and opens the chat of its sun.
 - **An agent** shows its mark (`AgentAvatar`) and, at its lower right, the mark of its model family.
-  A click or Enter opens a card: the name, one line of work, the time or the wait, the channel, and
-  one button that opens the channel of the work (or the chat of the agent).
-- **The model marks** at the top filter the panel: a tap keeps the agents of that family at full
-  strength and dims the others in their place, and a second tap clears the filter. Each mark counts
-  the agents of its family that generate now.
+  A click or Enter opens a card: the name, the model, one line of work, the time or the wait, and
+  one button that names the channel of the work and opens it (or opens the chat of the agent). The
+  card closes when its agent leaves the panel, and it does not open again when the agent comes back.
+- **The model marks** at the top show the families that generate now, in a fixed order: Opus,
+  Sonnet, Haiku, Fable, then the other families by name. Each mark counts the agents of its family
+  that generate now. A tap keeps the agents of that family at full strength and dims the others in
+  their place, and a second tap clears the filter. The mark of the filter stays while the filter is
+  on, also at 0. When no agent of that family shows any more, the filter clears.
 - **The top line** counts the agents that generate now. "Needs you" and "Stopped" show only when
-  their count is not zero; a click scrolls to the first such agent and opens its card.
+  their count is not zero; a click scrolls to the first such agent and opens its card. The marks and
+  the top line share one line at 440 px; a narrower panel or a longer language wraps the count.
 - **Bubbles** show only for the two agents that need attention most and have text: the question
-  that an agent asks, then the message that an agent writes now.
+  that an agent asks, then the message that an agent writes now. A system has one bubble at most,
+  because the bubble takes the top of the system: the next bubble goes to an agent of another system.
 - **Links** are faint lines between two agents when a message from one waits in the queue of the
   other. A pointer or the focus on one end shows the line.
+- **Colours.** A channel takes the hue of its lead, so the channels of one coloured section look
+  different. A section takes its own colour, else the hue of its first agent. A system with no
+  colour takes a tone from its key, so it keeps its colour while other systems come and go. The
+  halos mix less of the colour on the light theme.
 
 ## Where the data comes from
 
@@ -35,7 +44,7 @@ capability, so a joined server sends the data on the path that it uses for the s
 | Running turns | `createAgentWorkingTurns()` (shared with `WorkspaceSidebar`) | working |
 | Queues | `useTurns().queues` | working (`isAgentWorking`), starting turns, the channel of channel work (`hold`), links |
 | Waits | `sidebarAgentWaits` over every thread of an agent | waiting for the person, plan limit |
-| Failed turns | `useTurns().failedTurns` | stopped |
+| Failed turns | `useTurns().failedTurns` | failed |
 | Recent and unread replies | `useConversation()` | done |
 | Steps | `useTurns().turnProgress` | the line of work when the load has no request |
 | Channels | `useChannels()` | systems, leads, members, the message that is written now |
@@ -58,22 +67,43 @@ first rule that matches wins.
 | speaking | the last message of a channel streams, and the agent writes it | a soft pulse, the text in a bubble |
 | thinking | a turn starts now and nothing of it runs yet, or the lead routes a request (the channel runs a task and no member works) | the mark breathes |
 | working | `isAgentWorking`, or the load lists running work | a fast orbit on the inner ring, a racing arc, sparks and two trail dots |
-| stalled | the last turn failed, or the load lists a stopped channel task of the agent | a red ring that flickers, the danger face |
+| stalled | the load lists a stopped channel task of the agent | a red ring that flickers, the danger face |
 | waiting | a plan limit, a place under the agent cap, or a queued routine run | dim, a slow swing on the outer ring |
+| failed | the last turn failed | a still dot in the danger colour at the right edge (a still red ring for a sun) |
 | done | a recent or unread reply | a small dot with a check at the right edge |
 | idle | none of these | a small dot at the right edge |
 
-The model family is a Claude tier when the model id names one (Opus, Sonnet, Haiku, Fable), wherever
-it runs. Else it is the maker that the model id names (`gpt-`, `grok-`, `deepseek`), else the
-provider. A provider that this build does not know shows a plain ring.
+A failed turn is not a stall. The host keeps the mark of a failed turn until the next turn of the
+agent or until the person sees it in the Dynamic Island, so the mark can be old. So a failed agent
+holds still, is not in the motion budget, is not in the "Stopped" count, and shows only beside the
+active agents of its system: a workspace where nothing runs shows the empty panel, also with old
+failures. This is the same as the sidebar, which shows a failed turn only for a routine.
+
+The model family, the first rule that matches:
+
+| Model id or provider | Family | Mark |
+| --- | --- | --- |
+| names `opus`, `sonnet`, `haiku` or `fable`, wherever it runs | the Claude tier | a diamond, a ring with a dot, a triangle, a spark |
+| starts with `gpt-` or `o<digit>`, or has it after a `/` | ChatGPT (`codex`) | the provider logo |
+| `grok-`, `deepseek` | Grok, DeepSeek | the provider logo |
+| `gemini-` | Gemini (`antigravity`) | the provider logo |
+| `kimi` | Kimi | a moon |
+| `glm`, `chatglm` | GLM | a hexagon |
+| `qwen`, `qwq` | Qwen | a pentagon |
+| none of these, a provider that this build knows | the provider | the provider logo |
+| none of these, a provider that this build does not know | other | a plain ring |
+
+So a model that a router (OpenCode, OpenRouter, Cultura Builder) runs shows its maker, and the
+filter can tell it from the router.
 
 ## Limits of the data on this base
 
 - **No progress percent.** No signal gives the progress of a turn, so the working ring has a racing
   arc and no fill. The card shows the running time instead, where the load reports it.
-- **No minutes for a stalled agent.** A stall is a failed turn or a stopped channel task. Neither
-  has a time. The quiet minutes of the task reviewer (branch `wave2/task-reviewer`) are not on this
-  base. When they are, `orbitsView` can read them from `RunningWork`.
+- **No minutes for a stalled or failed agent.** `StoppedWork` and the failed turns have no time.
+  The host has the time of the last event of a turn (`TurnLifecycle.lastEventAt`); a new, additive
+  field of the local load can carry it later. The quiet minutes of the task reviewer (branch
+  `wave2/task-reviewer`) are not on this base either.
 - **No dotted tether to what an agent waits on.** No signal names the agent that another agent waits
   for. The task dependencies of a channel load only for the open channel. The links of queued
   messages show who asked whom.
@@ -84,17 +114,27 @@ provider. A provider that this build does not know shows a plain ring.
 
 A continuous animation costs CPU on each frame; the performance review measured it. So:
 
-- Solid draws the structure once. `orbits-engine.ts` writes only `transform` and `z-index` on each
-  frame, in one `requestAnimationFrame` loop for the whole panel. CSS loops animate only `transform`
-  and `opacity`.
+- Solid draws the structure once. `orbits-engine.ts` owns one `requestAnimationFrame` loop for the
+  whole panel. Only a node on an orbit or a drift moves on each frame; a still node is placed once.
+  A frame writes a `transform`, a `z-index` or the path of a link only when it changed. It reads no
+  layout: the place of each system is read once, at the start of the first frame after a layout,
+  before the frame writes.
+- The loop asks for the next frame only while a node orbits, drifts or glides. A layout, a new node
+  or a closed card wakes it. So a panel where nothing orbits or drifts runs no frames.
+- The racing arc of a working agent turns the whole progress SVG, which gets its own layer, so the
+  turn does not repaint on each frame. CSS loops animate only `transform` and `opacity`.
+- A bubble starts a layout only when its height changes (a `ResizeObserver` on the bubble), not on
+  each streamed word.
 - The panel is mounted only while it is open. When it closes, the loop and every CSS animation stop.
 - The loop stops and the CSS loops pause while the window is hidden (`createTaskListPlayState`, the
   visibility hook that the task list uses), and with reduced motion. Reduced motion also removes the
   CSS loops.
 - `orbitMotionIds` gives at most 60 animated elements to the agents that need attention most. A
-  working agent costs five (its node, two trail dots, the sparks, the racing arc). Other agents keep
-  their place and their colours.
+  working agent costs five (its node, two trail dots, the sparks, the racing arc). A failed, done or
+  idle agent costs none. Other agents keep their place and their colours.
 - A change of state glides a node to its new place in 0.7 seconds.
+- The ring of working agents is at least 52 px high from its middle, so a working planet passes over
+  and under a working sun without touching it.
 
 ## Where the code is
 
@@ -116,8 +156,16 @@ The web client does not pass `onTeam` to the page rail, so it has no Team button
 ## Checks
 
 `bun scripts/team-orbits-smoke.ts` serves the real panel with the app stylesheet on `127.0.0.1`,
-feeds it the story fixtures through `orbitsView`, and drives it in a headless Chromium. It checks the
-states and families of the agents, the grouping, the counts, the bubbles, the filter, the card, the
-jumps, the motion budget, the pause in a hidden window, reduced motion, a joined server, the empty
-panel, and the Portuguese text. It writes `.openbot-build/team-orbits/report.json` and screenshots
-of the panel at 440 and 360 pixels wide, dark and light.
+feeds it the story fixtures through `orbitsView`, and drives it in a headless Chromium. The page holds
+the signals in a Solid signal, so the smoke changes them while the panel is open. It checks the
+states and families of the agents, the grouping, the colours, the counts, the bubbles (one in each
+system), the model marks and the filter, the card, the jumps, an agent that finishes, a system that
+leaves with its card open, a filter on a family that leaves, the rings on a full lap, the motion
+budget, the frame loop that stops, the pause in a hidden window, reduced motion, a joined server,
+the empty panel with old failures, and the Portuguese text. It writes
+`.openbot-build/team-orbits/report.json` and screenshots of the panel at 440 and 360 pixels wide,
+dark and light.
+
+The smoke does not drive the desktop app: the page rail, `WorkspaceOrbits` and the jumps of the
+desktop container (open a channel on the tab of the work, select a section, the focus after a jump)
+need a check in the running app (`bun run dev:automation`).
