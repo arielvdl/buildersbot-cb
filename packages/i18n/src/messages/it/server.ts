@@ -415,7 +415,8 @@ export const messages = {
     other: "Questo server ha il massimo di {count} membri. Rimuovi un membro per invitare una nuova persona.",
   },
   "server.invite.qrLabel": "Codice QR dell'invito",
-  "server.invite.qrDescription": "Inquadra questo codice in Builders Bot Mobile per unirti a questo server.",
+  "server.invite.qrDescription":
+    "Inquadra questo codice con la fotocamera del telefono per unirti a questo server nell'app web di Builders Bot.",
   "server.invite.accepted": "Invito accettato",
   "server.invite.expired": "Invito scaduto",
   "server.invite.sent": "Invito inviato",

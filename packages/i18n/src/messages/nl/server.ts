@@ -456,7 +456,8 @@ export const messages = {
     other: "Deze server heeft het maximum van {count} leden. Verwijder een lid om een nieuwe persoon uit te nodigen.",
   },
   "server.invite.qrLabel": "QR-code van uitnodiging",
-  "server.invite.qrDescription": "Scan deze code in Builders Bot Mobile om lid te worden van deze server.",
+  "server.invite.qrDescription":
+    "Scan deze code met de camera van je telefoon om lid te worden van deze server in de web-app van Builders Bot.",
   "server.invite.accepted": "Uitnodiging geaccepteerd",
   "server.invite.expired": "Uitnodiging verlopen",
   "server.invite.sent": "Uitnodiging verstuurd",

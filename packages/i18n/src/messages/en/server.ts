@@ -481,7 +481,7 @@ export const messages = defineMessages("server", {
     other: "This server has the maximum of {count} members. Remove a member to invite a new person.",
   },
   "server.invite.qrLabel": "Invitation QR code",
-  "server.invite.qrDescription": "Scan this code in Builders Bot Mobile to join this server.",
+  "server.invite.qrDescription": "Scan this code with a phone camera to join this server in the Builders Bot web app.",
   "server.invite.accepted": "Invitation accepted",
   "server.invite.expired": "Invitation expired",
   "server.invite.sent": "Invitation sent",

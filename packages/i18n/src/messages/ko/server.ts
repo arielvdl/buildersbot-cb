@@ -455,7 +455,8 @@ export const messages = {
     other: "이 서버의 멤버는 최대 {count}명이에요. 새 사람을 초대하려면 멤버를 제거하세요.",
   },
   "server.invite.qrLabel": "초대 QR 코드",
-  "server.invite.qrDescription": "Builders Bot 모바일에서 이 코드를 스캔하면 이 서버에 참여할 수 있어요.",
+  "server.invite.qrDescription":
+    "휴대폰 카메라로 이 코드를 스캔하면 Builders Bot 웹 앱에서 이 서버에 참여할 수 있어요.",
   "server.invite.accepted": "초대를 수락했어요",
   "server.invite.expired": "초대가 만료되었어요",
   "server.invite.sent": "초대를 보냈어요",

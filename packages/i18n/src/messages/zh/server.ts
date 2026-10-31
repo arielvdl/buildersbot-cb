@@ -447,7 +447,7 @@ export const messages = {
     other: "该服务器成员已达上限 {count} 人，请先移除成员再邀请新成员。",
   },
   "server.invite.qrLabel": "邀请二维码",
-  "server.invite.qrDescription": "在 Builders Bot 手机版中扫描该二维码即可加入该服务器。",
+  "server.invite.qrDescription": "用手机相机扫描该二维码，即可在 Builders Bot 网页版中加入该服务器。",
   "server.invite.accepted": "邀请已被接受",
   "server.invite.expired": "邀请已过期",
   "server.invite.sent": "邀请已发送",

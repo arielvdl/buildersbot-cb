@@ -408,7 +408,8 @@ export const messages = {
     other: "このサーバーのメンバーは上限の {count} 人です。新しい人を招待するには、メンバーを削除してください。",
   },
   "server.invite.qrLabel": "招待の QR コード",
-  "server.invite.qrDescription": "Builders Bot Mobile でこのコードをスキャンすると、このサーバーに参加できます。",
+  "server.invite.qrDescription":
+    "スマートフォンのカメラでこのコードをスキャンすると、Builders Bot のウェブアプリでこのサーバーに参加できます。",
   "server.invite.accepted": "招待が承諾されました",
   "server.invite.expired": "招待の期限が切れました",
   "server.invite.sent": "招待を送信しました",

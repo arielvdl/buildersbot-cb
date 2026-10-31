@@ -1,5 +1,9 @@
 import { AppLogo } from "@openbot/brand";
-import { createWebAppInvitePath, OPENBOT_INVITE_ORIGIN, toBuildersBotInviteUrl } from "@openbot/contracts/invite-links";
+import {
+  BUILDERSBOT_INVITE_ORIGIN,
+  createWebAppInvitePath,
+  toBuildersBotInviteUrl,
+} from "@openbot/contracts/invite-links";
 import { createSignal, onSettled, Show } from "solid-js";
 import { landingAnalytics } from "../../lib/analytics";
 import { detectDownloadPlatform } from "../../lib/download-platforms";
@@ -25,7 +29,8 @@ export function JoinPage(props: { lang: string; text: JoinPageText }) {
     let validInvite = true;
     try {
       const pageUrl = new URL(window.location.href);
-      const canonicalUrl = new URL(`${pageUrl.pathname}${pageUrl.search}`, OPENBOT_INVITE_ORIGIN);
+      // The canonical link on our site, whatever address serves this page (a development one too).
+      const canonicalUrl = new URL(`${pageUrl.pathname}${pageUrl.search}`, BUILDERSBOT_INVITE_ORIGIN);
       setOpenUrl(toBuildersBotInviteUrl(canonicalUrl.toString()));
       setBrowserUrl(createWebAppInvitePath(canonicalUrl.toString()));
     } catch {

@@ -11,6 +11,14 @@ export const BUILDERSBOT_CONTROL_PLANE_ORIGIN = "https://buildersbot.culturabuil
  */
 export const BUILDERSBOT_CONTROL_PLANE_FALLBACK_ORIGIN = "https://auth-buildersbot.culturabuilder.com";
 
+/**
+ * The site of the invitation links that this build makes: the `/join` page and the web app of the
+ * Builders Bot account service. A phone camera opens the link there, and the page opens the web app.
+ */
+export const BUILDERSBOT_INVITE_ORIGIN = BUILDERSBOT_CONTROL_PLANE_ORIGIN;
+/** The sites whose `/join` links this build reads: ours, and the upstream site of links made before. */
+const INVITE_SITE_ORIGINS: ReadonlySet<string> = new Set([BUILDERSBOT_INVITE_ORIGIN, OPENBOT_INVITE_ORIGIN]);
+
 const CONTROL_PLANE_ORIGINS = new Set([OPENBOT_CONTROL_PLANE_ORIGIN, BUILDERSBOT_CONTROL_PLANE_ORIGIN]);
 
 /** Whether an origin is an account service that this build may talk to, whichever address it uses. */
@@ -77,7 +85,8 @@ export interface InviteLinkOptions {
 
 /**
  * The origin of a self-hosted account service, or undefined for a service that invitations already
- * accept (ours, a tunnel, a team host), for a local development one, and for a value that is not a URL.
+ * accept (the Builders Bot service, the upstream one, a tunnel, a team host), for a local development
+ * one, and for a value that is not a URL.
  */
 export function selfHostedApiOrigin(apiUrl: string | undefined): string | undefined {
   if (!apiUrl) return undefined;
@@ -95,7 +104,7 @@ export function createInviteUrl(payload: InviteLinkPayload, options: InviteLinkO
   validatePayload(payload, options);
   // Our website does not open a self-hosted invitation, and must not receive its token.
   if (isSelfHostedApiUrl(new URL(payload.apiUrl), options)) return createBuildersBotInviteUrl(payload, options);
-  const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_INVITE_ORIGIN);
+  const url = new URL(OPENBOT_INVITE_PATH, BUILDERSBOT_INVITE_ORIGIN);
   writePayload(url, payload);
   return url.toString();
 }
@@ -116,7 +125,7 @@ export function toBuildersBotInviteUrl(value: string, options: InviteLinkOptions
  * same origin. The client removes them after it reads them and still asks before it joins.
  */
 export function createWebAppInvitePath(value: string, options: InviteLinkOptions = {}): string {
-  const url = new URL("/app", OPENBOT_INVITE_ORIGIN);
+  const url = new URL("/app", BUILDERSBOT_INVITE_ORIGIN);
   writePayload(url, parseInviteUrl(value, options));
   return `${url.pathname}${url.search}`;
 }
@@ -131,7 +140,7 @@ export const WEB_APP_INVITE_FIELDS: readonly string[] = INVITE_FIELDS;
 export function inviteUrlFromWebAppSearch(search: string, options: InviteLinkOptions = {}): string | null {
   const params = new URLSearchParams(search);
   if (!INVITE_FIELDS.some((field) => params.has(field))) return null;
-  const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_INVITE_ORIGIN);
+  const url = new URL(OPENBOT_INVITE_PATH, BUILDERSBOT_INVITE_ORIGIN);
   for (const field of INVITE_FIELDS) for (const value of params.getAll(field)) url.searchParams.append(field, value);
   try {
     return createInviteUrl(parseInviteUrl(url.toString(), options), options);
@@ -144,7 +153,7 @@ export function isCanonicalInviteUrl(value: string, options: InviteLinkOptions =
   try {
     parseInviteUrl(value, options);
     const url = new URL(value);
-    return url.origin === OPENBOT_INVITE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
+    return INVITE_SITE_ORIGINS.has(url.origin) && url.pathname === OPENBOT_INVITE_PATH;
   } catch {
     return false;
   }
@@ -159,7 +168,7 @@ export function parseInviteUrl(value: string, options: InviteLinkOptions = {}): 
   }
 
   const canonical =
-    url.protocol === "https:" && url.origin === OPENBOT_INVITE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
+    url.protocol === "https:" && INVITE_SITE_ORIGINS.has(url.origin) && url.pathname === OPENBOT_INVITE_PATH;
   const customScheme =
     url.protocol === "openbot:" && url.hostname === "join" && (url.pathname === "" || url.pathname === "/");
   if (
@@ -202,6 +211,7 @@ export function isValidRemoteApiUrl(value: string, options: InviteLinkOptions = 
         (url.protocol === "https:" &&
           url.port === "" &&
           (url.origin === OPENBOT_CONTROL_PLANE_ORIGIN ||
+            url.origin === BUILDERSBOT_CONTROL_PLANE_ORIGIN ||
             TRY_CLOUDFLARE_HOST_PATTERN.test(url.hostname) ||
             isBuildersBotTeamApiHostname(url.hostname))))
     );

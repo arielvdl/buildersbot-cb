@@ -440,7 +440,8 @@ export const messages = {
       "На этом сервере максимальное число участников: {count}. Удалите участника, чтобы пригласить нового человека.",
   },
   "server.invite.qrLabel": "QR-код приглашения",
-  "server.invite.qrDescription": "Отсканируйте этот код в Builders Bot Mobile, чтобы присоединиться к серверу.",
+  "server.invite.qrDescription":
+    "Отсканируйте этот код камерой телефона, чтобы присоединиться к серверу в веб-приложении Builders Bot.",
   "server.invite.accepted": "Приглашение принято",
   "server.invite.expired": "Приглашение истекло",
   "server.invite.sent": "Приглашение отправлено",

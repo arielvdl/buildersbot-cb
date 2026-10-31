@@ -427,7 +427,8 @@ export const messages = {
     other: "Bu sunucu {count} üye sınırına ulaştı. Yeni bir kişiyi davet etmek için bir üyeyi kaldırın.",
   },
   "server.invite.qrLabel": "Davet QR kodu",
-  "server.invite.qrDescription": "Bu sunucuya katılmak için bu kodu Builders Bot Mobile uygulamasında tarayın.",
+  "server.invite.qrDescription":
+    "Bu sunucuya Builders Bot web uygulamasında katılmak için bu kodu telefon kamerasıyla tarayın.",
   "server.invite.accepted": "Davet kabul edildi",
   "server.invite.expired": "Davetin süresi doldu",
   "server.invite.sent": "Davet gönderildi",
