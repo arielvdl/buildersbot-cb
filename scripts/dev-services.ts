@@ -33,8 +33,6 @@ import {
   developmentChildEnvironment,
   developmentSettingsForService,
   loadDevelopmentEnvironment,
-  loadSharedDevelopmentEnvironment,
-  requireDevelopmentValues,
 } from "./development-environment";
 import { resolveDevelopmentAppDataRoot } from "./development-state-paths";
 import { withoutElectronRuntimeFlags } from "./electron-spawn-env";
@@ -230,8 +228,6 @@ function seedDevelopmentProfile(profile: string, environment: NodeJS.ProcessEnv)
 }
 
 const DEVELOPMENT_OPTIONS = ["--dry-run", "--force", "--shared", "--isolated", "--hosting=test", "--slack"] as const;
-/** The deployed `test` account Worker. It creates real hosted server VMs for the accounts on its allow list. */
-const TEST_ACCOUNT_API_URL = "https://openbot-auth-api-test.internal9671.workers.dev";
 
 export interface DevelopmentInvocation {
   target: DevelopmentTarget;
@@ -246,10 +242,6 @@ export interface DevelopmentInvocation {
   // default, is still accepted and does nothing. Either way the profile is
   // seeded on the start that creates it.
   shared: boolean;
-  // Sign the app in to the `test` account Worker instead of the local one, so that a hosted server
-  // is a real boat VM that can reach its Worker and Signal. The app gets one profile for this that
-  // all worktrees share: its account session belongs to the test Worker, not the local one.
-  hostingTest: boolean;
   // Open a public HTTPS tunnel to Signal and to the account API, so that Slack can reach a managed
   // Slack app's host. See `dev-slack-tunnels.ts`.
   slack: boolean;
@@ -267,44 +259,30 @@ export function parseDevelopmentTarget(args: string[]): DevelopmentInvocation {
   if (args.includes("--shared") && args.includes("--isolated")) {
     throw new Error("Use --shared or --isolated, not both.");
   }
+  // The option signed the app in to the test account Worker of the upstream OpenBot project, which
+  // Builders Bot does not control: the session and the sign-in went to the upstream project.
+  if (args.includes("--hosting=test")) {
+    throw new Error(
+      "--hosting=test is not available: it used the test account Worker of the upstream project. Builders Bot has no test account Worker yet.",
+    );
+  }
   return {
     target,
     dryRun: args.includes("--dry-run"),
     force: args.includes("--force"),
     shared: args.includes("--shared"),
-    hostingTest: args.includes("--hosting=test"),
     slack: args.includes("--slack"),
   };
 }
 
-/**
- * The test Worker lets an account create servers when the app sends this key. It is in the encrypted
- * `.env.dev`, so only a developer with `DOTENV_PRIVATE_KEY_DEV` can read it. Never log it.
- */
-async function readHostingDeveloperKey(): Promise<string> {
-  const shared = await loadSharedDevelopmentEnvironment(projectRoot);
-  const environment = { ...shared, ...process.env };
-  requireDevelopmentValues(environment, ["HOSTED_SERVERS_DEVELOPER_KEY"]);
-  return environment.HOSTED_SERVERS_DEVELOPER_KEY ?? "";
-}
-
 async function main(): Promise<void> {
-  const { target, dryRun, force, shared, hostingTest, slack } = parseDevelopmentTarget(process.argv.slice(2));
+  const { target, dryRun, force, shared, slack } = parseDevelopmentTarget(process.argv.slice(2));
   if (!dryRun && prepareDevelopmentEnvironment() === "created") {
     logger.info("Prepared local development state.");
   }
   const services = servicesForTarget(target);
   const developmentEnvironment = dryRun ? {} : await loadDevelopmentEnvironment(projectRoot);
   const sharedEnvironment = developmentEnvironmentForTarget(target);
-  if (hostingTest) {
-    sharedEnvironment.OPENBOT_AUTH_API_URL = TEST_ACCOUNT_API_URL;
-    sharedEnvironment.OPENBOT_MOBILE_AUTH_API_URL = TEST_ACCOUNT_API_URL;
-    sharedEnvironment.OPENBOT_DEV_INSTANCE_ID ??= developmentInstanceIdForWorktree("openbot:hosting-test");
-    sharedEnvironment.OPENBOT_HOSTING_DEVELOPER_KEY = await readHostingDeveloperKey();
-    // A dev role signs a throwaway account in with a code that only the local Worker returns.
-    sharedEnvironment.OPENBOT_DEV_REMOTE_ROLE = "none";
-    logger.info(`The app signs in to the test account Worker: ${TEST_ACCOUNT_API_URL}.`);
-  }
   // The host and the test client of this stack find each other through a file named after it.
   sharedEnvironment.OPENBOT_DEV_STACK_ID = String(process.pid);
 

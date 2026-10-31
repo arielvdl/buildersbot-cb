@@ -33,7 +33,7 @@ export interface GitHubBotToken {
 }
 
 export interface GitHubBotTokensOptions {
-  /** The origin of the Builders Bot API, such as `https://api.openbot.run`. */
+  /** The origin of the Builders Bot API, such as `https://buildersbot.culturabuilder.com`. */
   apiUrl: string;
   fetch: GitHubFetch;
   now: () => number;
