@@ -104,6 +104,8 @@ interface ProviderModelPickerProps {
   foreignProvider?: ForeignProviderId | undefined;
   /** `accountId` is passed only with `accountChoice`, for a provider with more than one account: null for its own sign-in. */
   onChange: (model: AgentModelId, provider: AgentProviderId, accountId?: string | null) => void;
+  /** The person opened or closed the picker, for a form that scrolls the picker into view. */
+  onOpenChange?: ((open: boolean) => void) | undefined;
 }
 
 /** Extra "custom" rail tab; widening the contract id would cost a migration. */
@@ -383,6 +385,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
       setSearch("");
     }
     setOpen(next);
+    props.onOpenChange?.(next);
   }
 
   function selectModel(option: PickerModel, accountId: string | null): void {

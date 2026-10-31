@@ -263,6 +263,17 @@ body:has(.channel-member-dialog) .ui-select-content {
   overflow-y: auto;
   scrollbar-width: thin;
 }
+/* The form scrolls as one. A part that could shrink to fit the window, such as the model section,
+   was cut to a strip instead, and its reasoning row went out of view. */
+.channel-member-form > * {
+  flex-shrink: 0;
+}
+/* The instructions scroll inside a box of their own height, so they do not push the form down. */
+.channel-member-form .settings-instructions-input {
+  height: 120px;
+  max-height: min(240px, 32dvh);
+  overflow-y: auto;
+}
 .channel-member-form-note {
   margin: var(--channel-dialog-inset) var(--channel-dialog-inset) 0;
   color: var(--openbot-text-muted);
@@ -336,7 +347,8 @@ body:has(.channel-member-dialog) .ui-select-content {
   border: 1px solid var(--openbot-border);
   border-radius: var(--openbot-radius-md);
   padding-block: var(--openbot-space-1);
-  overflow: hidden;
+  overflow: clip;
+  scroll-margin-block: var(--openbot-space-4);
 }
 .channel-member-form > .channel-editor-footer {
   position: sticky;
