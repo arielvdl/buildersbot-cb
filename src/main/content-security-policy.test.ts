@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { buildContentSecurityPolicy, readSelfHostedSignalOrigin } from "./content-security-policy";
 
 describe("buildContentSecurityPolicy", () => {
-  it("allows the production analytics endpoint", () => {
+  it("allows no analytics host and no loopback HTTP in a packaged app", () => {
     const policy = buildContentSecurityPolicy(true);
 
-    expect(policy).toContain(
-      "connect-src 'self' openbot-attachment: openbot-remote-attachment: https://analytics.openbot.run ws://127.0.0.1:* wss://*.openbot.run",
+    // The exact list: a host that an upstream merge adds, such as an analytics service, fails it.
+    expect(policy.split("; ").find((directive) => directive.startsWith("connect-src "))).toBe(
+      "connect-src 'self' openbot-attachment: openbot-remote-attachment: ws://127.0.0.1:* wss://*.openbot.run wss://*.culturabuilder.com",
     );
-    expect(policy.split("; ").find((directive) => directive.startsWith("connect-src "))).not.toContain("localhost");
   });
 
   it.each([true, false])("allows loopback viewer frames when packaged=%s", (packaged) => {

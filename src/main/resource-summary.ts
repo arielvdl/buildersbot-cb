@@ -33,19 +33,11 @@ const CPU_CLASSES = ["le4", "le8", "le12", "le16", "gt16"] as const;
 const ARCHITECTURES = ["arm64", "x64", "other"] as const;
 const HOST_KINDS = ["desktop", "server"] as const;
 
-/** Closed-set values of the enum properties. The analytics sanitizer checks them again. */
-export const RESOURCE_ENUMS = {
-  ram_class: RAM_CLASSES,
-  cpu_class: CPU_CLASSES,
-  arch: ARCHITECTURES,
-  host_kind: HOST_KINDS,
-} as const;
-
 type GroupPropertyName = `${ProcessGroup}_rss_mb_p95` | `${ProcessGroup}_cpu_pct_p95`;
 type ProviderPropertyName = `provider_${ResourceProvider}_rss_mb_p95` | `provider_${ResourceProvider}_cpu_pct_p95`;
 type GonePropertyName = `gone_${GoneReason}_count`;
 
-export const RESOURCE_PROPERTY_NAMES = [
+const RESOURCE_PROPERTY_NAMES = [
   "total_rss_mb_p95",
   "total_rss_mb_max",
   "total_cpu_pct_p95",

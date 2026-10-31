@@ -140,7 +140,6 @@ export interface AppIpcDependencies {
   interfaceSize: InterfaceSizeService;
   initializeAgent: () => Promise<void>;
   appVariant: AppVariant;
-  analyticsCaptureUrl: string | null;
   getMainWindow: () => BrowserWindow | null;
   openChatWindow: (target: ChatWindowTarget) => void;
   chatWindowTargets: () => ChatWindowTarget[];
@@ -179,7 +178,6 @@ export function appIpcHandlers({
   interfaceSize,
   initializeAgent,
   appVariant,
-  analyticsCaptureUrl,
   getMainWindow,
   openChatWindow,
   chatWindowTargets,
@@ -208,7 +206,6 @@ export function appIpcHandlers({
           version,
           platform,
           variant: appVariant,
-          ...(analyticsCaptureUrl ? { analyticsCaptureUrl } : {}),
         };
       }),
       getSetupState: handler(() => runCauseEffect(readSetupState(setupFile))),

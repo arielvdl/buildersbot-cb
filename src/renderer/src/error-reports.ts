@@ -1,76 +1,24 @@
-import type { AppInfo, CentralAuthUser } from "@openbot/contracts/ipc";
+import type { CentralAuthUser } from "@openbot/contracts/ipc";
 import { isBoolean, isDynamicRecord, isNumber } from "@openbot/contracts/runtime-values";
-import {
-  ANALYTICS_GENERATIONS,
-  analyticsOnByDefault,
-  classifyFailure,
-  type FailureProperties,
-  openPanelTransport,
-  ReportQueue,
-  safeProperties,
-} from "@openbot/telemetry";
-import { indexedReportStorage } from "@openbot/telemetry/browser";
-import { Effect } from "effect";
-import { version } from "../../../package.json";
+import { analyticsOnByDefault, type FailureProperties } from "@openbot/telemetry";
 
-/** The desktop schema generation. Product events and failure reports send the same value. */
-export const ANALYTICS_SCHEMA_VERSION = ANALYTICS_GENERATIONS.desktop;
+/*
+ * Failure reports of the desktop app and of the web client. They are off in every build.
+ *
+ * The upstream OpenBot app sent them, with the account ID, to an analytics service of the upstream
+ * project. Builders Bot does not control that service, so phase 0 of
+ * `.openbot-build/bug-reports/DESIGN.md` removed the queue and its transport. Builders Bot has no
+ * diagnostics service of its own yet. `reportNotification` and `reportErrorBanner` keep their
+ * signatures and do nothing. The web preference below stays readable, so a saved answer is kept for
+ * a later service, but no value starts a send.
+ */
 
-let queue: ReportQueue | undefined;
-let enabled = false;
-let configured = false;
-const startup: { properties: FailureProperties; timestamp: number }[] = [];
-let profileId: string | null = null;
 /** The web analytics preference. The key keeps its first name, so stored choices stay. */
 export const WEB_PREFERENCE = "openbot:web:error-reports-enabled";
 /** A choice of this browser that the account has not saved yet, "true" or "false". */
 const WEB_ACCOUNT_PENDING = "openbot:web:analytics-account-pending";
 /** "true" or "false". Missing: an app from before the account kept answers saved the choice. */
 const WEB_KEEP_OFF = "openbot:web:analytics-keep-off";
-
-export function configureDesktopReports(
-  info: AppInfo,
-  tracking: boolean,
-  user: Pick<CentralAuthUser, "id" | "email"> | null,
-): void {
-  const capture = info.analyticsCaptureUrl;
-  if (capture === undefined && (!import.meta.env.PROD || info.variant !== "production")) return;
-  queue ??= new ReportQueue(
-    indexedReportStorage("openbot-desktop-error-reports-v1"),
-    openPanelTransport({
-      clientId: "6c989975-87ef-4f0c-857e-ab449a65b5c2",
-      ...(capture === undefined ? {} : { endpoint: `${capture}/track` }),
-    }),
-    {
-      surface: "desktop",
-      platform: info.platform,
-      app_version: info.version,
-      event_schema_version: ANALYTICS_SCHEMA_VERSION,
-    },
-  );
-  configureErrorReports(tracking, user?.id ?? null);
-}
-
-export function configureErrorReports(tracking: boolean, accountId: string | null = profileId): void {
-  enabled = tracking;
-  profileId = accountId;
-  if (queue) {
-    const initial = !configured;
-    configured = true;
-    Effect.runFork(
-      queue.configure(enabled, profileId).pipe(
-        Effect.andThen(() => {
-          const pending = startup.splice(0);
-          return initial && enabled && profileId === null
-            ? Effect.forEach(pending, (entry) =>
-                queue ? queue.record("notification_shown", entry.properties, entry.timestamp) : Effect.void,
-              )
-            : Effect.void;
-        }),
-      ),
-    );
-  }
-}
 
 /** True while this browser has a signed-in account. `configureWebReports` sets it. */
 let webSignedIn = false;
@@ -111,15 +59,9 @@ function webAnalyticsDefault(): boolean {
   }
 }
 
+/** Records whether this browser has a signed-in account, for the default of the web preference. */
 export function configureWebReports(user: Pick<CentralAuthUser, "id" | "email"> | null): void {
   webSignedIn = user !== null;
-  if (!import.meta.env.PROD || window.location.origin !== "https://openbot.run") return;
-  queue ??= new ReportQueue(
-    indexedReportStorage("openbot-web-error-reports-v1"),
-    openPanelTransport({ clientId: "6c989975-87ef-4f0c-857e-ab449a65b5c2" }),
-    { surface: "web", platform: "web", app_version: version, event_schema_version: ANALYTICS_GENERATIONS.web },
-  );
-  configureErrorReports(webReportsEnabled(), user?.id ?? null);
 }
 
 /**
@@ -135,9 +77,8 @@ export function webKeepsOff(): boolean {
   }
 }
 
+/** Saves the web preference. Returns the saved value: false when this browser cannot save it. */
 export function setWebReportsEnabled(value: boolean): boolean {
-  // Disable first. A failed write must never permit a pending send.
-  if (!value) configureErrorReports(false);
   webChoice = value;
   try {
     // A kept "off" stays kept until this browser turns analytics on. The value goes first: when the
@@ -145,11 +86,10 @@ export function setWebReportsEnabled(value: boolean): boolean {
     const keepOff = !value && webKeepsOff();
     localStorage.setItem(WEB_PREFERENCE, String(value));
     localStorage.setItem(WEB_KEEP_OFF, String(keepOff));
-    configureErrorReports(value);
+    return value;
   } catch {
-    configureErrorReports(false);
+    return false;
   }
-  return enabled;
 }
 
 /** A choice of the user that the account does not have yet, and its time (ms). */
@@ -180,30 +120,12 @@ export function setWebAccountPending(value: boolean | null): void {
   }
 }
 
-export function reportNotification(properties: FailureProperties): void {
-  if (queue) Effect.runFork(queue.record("notification_shown", properties));
-  else if (!configured) {
-    const safe = safeProperties(properties);
-    if (safe) startup.push({ properties: safe, timestamp: Date.now() });
-    if (startup.length > 1_000) startup.shift();
-  }
+/** A toast or banner that shows a failure. No sink: nothing is kept or sent. */
+export function reportNotification(_properties: FailureProperties): void {
+  // No sink: see the module comment.
 }
 
-export function reportErrorBanner(error: unknown, operation: FailureProperties["operation"] = "other"): void {
-  reportNotification({
-    operation,
-    source: "system",
-    severity: "error",
-    presentation: "banner",
-    cause_code: classifyFailure(error),
-  });
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("online", () => {
-    if (queue) Effect.runFork(queue.flush());
-  });
-  window.addEventListener("storage", (event) => {
-    if (event.key === WEB_PREFERENCE) configureErrorReports(webReportsEnabled());
-  });
+/** An error banner. No sink: nothing is kept or sent. */
+export function reportErrorBanner(_error: unknown, _operation: FailureProperties["operation"] = "other"): void {
+  // No sink: see the module comment.
 }

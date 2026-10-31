@@ -19,17 +19,6 @@ export function readDevelopmentRemoteDebuggingPort(value: string | undefined): s
   return Number.isInteger(port) && port >= 1_024 && port <= 65_535 ? String(port) : null;
 }
 
-// `scripts/analytics-redaction-e2e.ts` reads analytics on a local capture server. The caller reads
-// this only in an unpackaged build, and only a loopback HTTP origin is accepted, so the setting
-// cannot send events off this computer.
-export function readAnalyticsCaptureUrl(value: string | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed || !URL.canParse(trimmed)) return null;
-  const url = new URL(trimmed);
-  const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost";
-  return url.protocol === "http:" && loopback && url.pathname === "/" ? url.origin : null;
-}
-
 // Keep isolated profiles stable across port changes. The prefix separates them
 // from existing numeric instance ids; the full digest avoids the old five-digit collisions.
 export function developmentInstanceIdForWorktree(projectRoot: string): string {

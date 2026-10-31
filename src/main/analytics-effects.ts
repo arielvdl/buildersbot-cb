@@ -8,8 +8,4 @@ export class AnalyticsOperationFailure extends Schema.TaggedError<AnalyticsOpera
   },
 ) {}
 
-export const {
-  io: analyticsIO,
-  sync: analyticsSync,
-  rewrap: toAnalyticsOperationFailure,
-} = causeHelpers(AnalyticsOperationFailure);
+export const { io: analyticsIO, rewrap: toAnalyticsOperationFailure } = causeHelpers(AnalyticsOperationFailure);
