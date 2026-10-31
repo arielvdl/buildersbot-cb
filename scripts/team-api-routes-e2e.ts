@@ -73,6 +73,7 @@ import {
   CUSTOM_PROVIDER_HARNESS_CODECS,
   CUSTOM_PROVIDER_HARNESS_ROUTES,
 } from "@openbot/contracts/team-protocol/custom-provider-harness-v1";
+import { EGRESS_PROXY_CAPABILITY, EGRESS_PROXY_ROUTES } from "@openbot/contracts/team-protocol/egress-proxy-v1";
 import {
   HOST_KEY_ROTATION_CAPABILITY,
   HOST_KEY_ROTATION_ROUTES,
@@ -128,6 +129,9 @@ import { AgentNotificationLevelStore } from "../src/main/agent-notification-leve
 import { type BitwardenCliRunner, BitwardenConnectorService } from "../src/main/bitwarden-connector-service";
 import { BitwardenConnectorStore } from "../src/main/bitwarden-connector-store";
 import { createBrowserProfileService } from "../src/main/browser-profile-service";
+import { EgressGateway } from "../src/main/egress-gateway";
+import { EgressProxyService } from "../src/main/egress-proxy-service";
+import { EgressProxyStore } from "../src/main/egress-proxy-store";
 import { MachineAlertMonitor, MachineAlertPreferenceStore } from "../src/main/machine-alerts";
 import { MemoryReviewPreferenceStore } from "../src/main/memory-review-preference-store";
 import { RemoteWorkflowError } from "../src/main/remote-service-effects";
@@ -627,6 +631,25 @@ const ROTATED_HOST_KEY = "-----BEGIN PUBLIC KEY-----\nrotated-e2e\n-----END PUBL
 /** The account service refuses the next handover, as when it holds another key for the host. */
 let refuseHostKeyRotation = false;
 const memoryReview = new MemoryReviewPreferenceStore(memoryReviewFile);
+// The real egress proxy service on a temporary file, over a stand-in cipher and a check that reads a
+// fixed place: no network. A save that turns it on starts the real loopback gateway.
+const egressFile = join(root, "egress-proxy.json");
+const EGRESS_PASSWORD = "demo-pass-e2e-0451";
+const egressStore = new EgressProxyStore(egressFile, {
+  encrypt: (value) => Buffer.from(`e2e:${value}`, "utf8"),
+  decrypt: (value) => value.toString("utf8").slice(4),
+});
+const egressProxy: EgressProxyService = new EgressProxyService({
+  store: egressStore,
+  gateway: new EgressGateway({ route: () => egressProxy.gatewayRoute() }),
+  check: async () => ({
+    ok: true,
+    ip: "198.51.100.24",
+    city: "Rio de Janeiro",
+    region: "Rio de Janeiro",
+    country: "BR",
+  }),
+});
 // The real store of the levels that each member chose for each agent, on a temporary file.
 const agentLevelsFile = join(root, "agent-notification-levels.json");
 const agentLevels = new AgentNotificationLevelStore(agentLevelsFile);
@@ -663,6 +686,7 @@ try {
   const OWNER_PASSWORD = "owner-password-e2e";
   await runCauseEffect(store.configure("E2E Server", "owner", OWNER_PASSWORD));
   await runCauseEffect(database.initialize());
+  await runCauseEffect(egressStore.load());
   const owner = await runCauseEffect(store.login("owner", OWNER_PASSWORD));
   const serverId = store.getIdentity()?.serverId;
   assert.ok(serverId, "The team store has no identity after configure.");
@@ -756,6 +780,7 @@ try {
         agentDefaults: { get: () => DEFAULT_AGENT_DEFAULTS },
       }),
       memoryReview,
+      egressProxy,
       // A stand-in for `HostService.rotateIdentityKey`; `host-key-rotation-e2e.ts` checks the real
       // signing. This checks the gate and that a refused request never reaches the host.
       hostKey: {
@@ -2142,6 +2167,82 @@ try {
         errorIs(hiddenSet, 404, sourceText("error.team.agentNotFound")) &&
         callsOf("updateAgent").length === writes + 2,
       [summary(hiddenRead), summary(hiddenSet)],
+    );
+  }
+
+  // ---- Network egress (egress-proxy-v1) ----
+  {
+    const v9 = { capabilities: [EGRESS_PROXY_CAPABILITY], protocol: TEAM_PROTOCOL_V9 };
+    const compatibility = await call("GET", TEAM_API_ROUTES.compatibility, { protocol: TEAM_PROTOCOL_V9 });
+    const older = await call("GET", TEAM_API_ROUTES.compatibility, { protocol: 8 });
+    check(
+      "the host advertises egress-proxy-v1 to a protocol 9 peer only",
+      list(field(compatibility.body, "capabilities")).includes(EGRESS_PROXY_CAPABILITY) &&
+        !list(field(older.body, "capabilities")).includes(EGRESS_PROXY_CAPABILITY),
+      [summary(compatibility), list(field(older.body, "capabilities")).length],
+    );
+    const setting = {
+      enabled: true,
+      host: "proxy.egress-test.invalid",
+      port: 8080,
+      username: "demo-user",
+      bypass: ["localhost", "*.culturabuilder.com"],
+      expectedCountry: "BR",
+      blockOtherCountry: true,
+    };
+    const unsupported = await call("POST", EGRESS_PROXY_ROUTES.settings, {
+      token: adaToken,
+      json: {},
+      protocol: TEAM_PROTOCOL_V9,
+    });
+    const memberRead = await call("POST", EGRESS_PROXY_ROUTES.settings, { token: bobToken, json: {}, ...v9 });
+    const memberSave = await call("POST", EGRESS_PROXY_ROUTES.update, {
+      token: bobToken,
+      json: { ...setting, password: EGRESS_PASSWORD },
+      ...v9,
+    });
+    const memberTest = await call("POST", EGRESS_PROXY_ROUTES.test, { token: bobToken, json: {}, ...v9 });
+    check(
+      "a member cannot read, save or test the network egress, and nothing is saved",
+      errorIs(unsupported, 400, sourceText("error.team.egressProxyUnsupported")) &&
+        errorIs(memberRead, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberSave, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberTest, 403, sourceText("error.team.adminRequired")) &&
+        !existsSync(egressFile),
+      [summary(unsupported), summary(memberRead), summary(memberSave), summary(memberTest)],
+    );
+    const adminSave = await call("POST", EGRESS_PROXY_ROUTES.update, {
+      token: adaToken,
+      json: { ...setting, password: EGRESS_PASSWORD },
+      ...v9,
+    });
+    const adminRead = await call("POST", EGRESS_PROXY_ROUTES.settings, { token: adaToken, json: {}, ...v9 });
+    check(
+      "an admin saves and reads the network egress; no answer has the password",
+      adminSave.status === 200 &&
+        field(adminSave.body, "state") === "active" &&
+        field(adminSave.body, "passwordSaved") === true &&
+        field(adminSave.body, "lastCheck", "country") === "BR" &&
+        adminRead.status === 200 &&
+        field(adminRead.body, "host") === setting.host &&
+        !adminSave.text.includes(EGRESS_PASSWORD) &&
+        !adminRead.text.includes(EGRESS_PASSWORD),
+      [summary(adminSave), summary(adminRead)],
+    );
+    const moved = await call("POST", EGRESS_PROXY_ROUTES.update, {
+      token: adaToken,
+      json: { ...setting, host: "other.egress-test.invalid" },
+      ...v9,
+    });
+    const adminTest = await call("POST", EGRESS_PROXY_ROUTES.test, { token: adaToken, json: {}, ...v9 });
+    check(
+      "a save that moves the proxy to another host without the password is refused, and the saved password stays with its host",
+      errorIs(moved, 409, sourceText("error.host.egressIncomplete")) &&
+        egressStore.settings().host === setting.host &&
+        egressStore.password() === EGRESS_PASSWORD &&
+        adminTest.status === 200 &&
+        field(adminTest.body, "state") === "active",
+      [summary(moved), summary(adminTest)],
     );
   }
 
@@ -4132,6 +4233,7 @@ try {
   );
 } finally {
   if (server) await Effect.runPromise(server.stop());
+  await egressProxy.close();
   database.close();
   rmSync(root, { recursive: true, force: true });
 }
