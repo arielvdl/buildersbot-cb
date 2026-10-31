@@ -9,5 +9,5 @@
 
 ### Fixed
 
-- WhatsApp shows its logo in the Marketplace. Before, it showed a puzzle piece, because whatsapp.com
-  refuses its icon to the app.
+- WhatsApp shows its logo in the Marketplace and on the app card that an agent shows in a chat.
+  Before, it showed a puzzle piece, because whatsapp.com refuses its icon to the app.

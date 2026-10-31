@@ -6,6 +6,7 @@ import {
   MarketplaceSuggestionCard,
   type MarketplaceSuggestionState,
 } from "@openbot/ui/features/conversation/MarketplaceSuggestionCard";
+import { hasListingMark, ListingMark } from "@openbot/ui/features/marketplace/MarketplaceParts";
 import { isPluginAppConfig } from "@openbot/ui/features/settings/marketplace-plugins";
 import { useText } from "@openbot/ui/text";
 import { createMemo } from "solid-js";
@@ -83,7 +84,7 @@ export function MarketplaceSuggestionChatCard(props: MarketplaceSuggestionChatCa
       name={name()}
       description={description()}
       iconUrl={plugin()?.iconUrl ?? null}
-      mark={listing()?.Mark()}
+      mark={listing()?.Mark() ?? (hasListingMark(props.appId) ? <ListingMark slug={props.appId} /> : undefined)}
       state={state()}
       unavailableText={
         connector()?.access === "local-only"
