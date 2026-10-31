@@ -373,7 +373,7 @@ const isOrder: Keep = (before) => notNegated(before) && ORDER_START.test(before)
 const TASK_FRAME =
   /(?:\byour (?:task|job|goal|mission|objective|next step) is to|\bi (?:want|need) you to|\bsua (?:tarefa|miss[ãa]o|meta|pr[óo]xima etapa) [ée]|\b(?:quero|preciso) que voc[êe])\s{1,4}$/iu;
 /** An order, or a task given to the reader. */
-const isTaskOrder: Keep = (before) => isOrder(before) || (notNegated(before) && TASK_FRAME.test(before));
+const isTaskOrder: Keep = (before, match) => isOrder(before, match) || (notNegated(before) && TASK_FRAME.test(before));
 
 /**
  * The verbs that take a secret before a second verb sends it: "collect the API keys and post them
