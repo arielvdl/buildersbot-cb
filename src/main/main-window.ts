@@ -57,7 +57,7 @@ import type { RemoteWorkflowError } from "./remote-service-effects";
 import { sendToRenderer } from "./renderer-ipc";
 import { isTrustedRendererUrl } from "./trusted-renderer";
 import type { UpdateService } from "./update-service";
-import { followAppearance, followWindowGlass, windowBackgroundColor } from "./window-appearance";
+import { followAppearance, followWindowGlass, GLASS_WINDOW_OPTIONS, windowBackgroundColor } from "./window-appearance";
 
 /** The dark background of the main and setup windows, under the page's own canvas. */
 const MAIN_WINDOW_DARK_BACKGROUND = "#0b0d0e";
@@ -173,6 +173,7 @@ export function createMainWindowController({
       ...(process.platform === "darwin"
         ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 12, y: 13 } }
         : {}),
+      ...GLASS_WINDOW_OPTIONS,
       webPreferences: {
         preload: join(__dirname, "../preload/index.cjs"),
         contextIsolation: true,
@@ -276,6 +277,7 @@ export function createMainWindowController({
       ...(process.platform === "darwin"
         ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 12, y: 13 } }
         : {}),
+      ...GLASS_WINDOW_OPTIONS,
       webPreferences: {
         preload: join(__dirname, "../preload/index.cjs"),
         contextIsolation: true,

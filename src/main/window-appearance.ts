@@ -3,13 +3,23 @@ import {
   DEFAULT_APP_APPEARANCE,
   DEFAULT_TRANSPARENT_WINDOW,
 } from "@openbot/contracts/app-appearance";
-import { type BrowserWindow, nativeTheme } from "electron";
+import { type BrowserWindow, type BrowserWindowConstructorOptions, nativeTheme } from "electron";
 
 /** The light canvas, `--openbot-bg-canvas` in `tokens-light.css`, so a light window opens without a dark frame. */
 const LIGHT_WINDOW_BACKGROUND = "#f5f5f6";
 
 /** The macOS material behind a transparent main window. The page paints its own tint over it. */
 const GLASS_VIBRANCY = "under-window";
+
+/**
+ * The options of each window that `followWindowGlass` keeps. With Electron's default
+ * `visualEffectState`, `followWindow`, macOS replaces the blur with its flat inactive material each
+ * time the window stops being active, and the clear frame and rail then show near black. `active`
+ * keeps the blur. Electron reads this option only when it makes the window, not in `setVibrancy`.
+ */
+export const GLASS_WINDOW_OPTIONS = {
+  visualEffectState: "active",
+} as const satisfies BrowserWindowConstructorOptions;
 
 let current: AppAppearancePreference = {
   appearance: DEFAULT_APP_APPEARANCE,
@@ -47,8 +57,8 @@ export function followAppearance(window: BrowserWindow, darkColor: string): void
 /**
  * Keeps the main window opaque or transparent, as the preference says, until the window closes. A
  * transparent window shows the macOS blur; the page then paints a translucent tint over it. The
- * blur keeps Electron's default `visualEffectState`, `followWindow`, so an inactive window stops the
- * live blur. Main applies the saved preference before the window shows.
+ * window must be made with `GLASS_WINDOW_OPTIONS`, so the blur stays on while the window is not
+ * active. Main applies the saved preference before the window shows.
  */
 export function followWindowGlass(window: BrowserWindow, darkColor: string): void {
   // The window is built opaque. A window opened again while the preference is on takes the blur here.
