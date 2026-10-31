@@ -390,6 +390,30 @@ const Turns = createSimpleContext({
         });
     }
 
+    /**
+     * Stops the turn the agent runs and starts this queued message next, alone. It names the turn the
+     * person saw, so a turn that started since is not stopped. It answers false when the force did
+     * not go through: the message stays in the queue, and the error shows in the chat.
+     */
+    async function forceQueuedMessage(deliveryId: string): Promise<boolean> {
+      const agent = activeAgent();
+      if (!agent) return false;
+      const serverId = activeServerId();
+      const analytics = desktopAnalytics.scope();
+      try {
+        await turnsPort().agent.forceQueuedMessage(
+          { agentId: agent.id, deliveryId, expectedTurnId: activeTurns()[agent.id] ?? null },
+          serverId,
+        );
+        analytics.track("queue_action", { action: "force", result: "succeeded" });
+        return true;
+      } catch (error) {
+        analytics.track("queue_action", { action: "force", result: "failed", failure_code: "force_failed" });
+        appendUiError(agent.id, error, currentText().t("app.errorStatus.force"), serverId);
+        return false;
+      }
+    }
+
     async function updateQueuedMessage(
       deliveryId: string,
       text: string,
@@ -526,6 +550,7 @@ const Turns = createSimpleContext({
       cancelQueuedMessage,
       cancelWait,
       steerQueuedMessage,
+      forceQueuedMessage,
       updateQueuedMessage,
       reorderQueue,
       stopActiveTurn,

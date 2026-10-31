@@ -27,6 +27,7 @@ import type {
 import { canAdministerServer } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { FOCUS_USE_CAPABILITY } from "@openbot/contracts/team-protocol/focus-use-v1";
+import { QUEUE_FORCE_CAPABILITY } from "@openbot/contracts/team-protocol/queue-force-v1";
 import { cleanAgentMessageText } from "@openbot/team-client/agent-message-text";
 import { createFocusUsePing } from "@openbot/team-client/focus-use";
 import { WAKE_RECONNECT_DELAY_MS } from "@openbot/team-client/hosted-server-wake";
@@ -1585,6 +1586,25 @@ export function createWebWorkspace(
           throw error;
         }),
       );
+    },
+    /** Whether the connected host can force a queued message: it serves `queue-force-v1`. */
+    canForceQueued: () => state.status === "online" && state.capabilities.includes(QUEUE_FORCE_CAPABILITY),
+    /**
+     * Stops the selected agent's running turn and starts this queued message next. It answers false
+     * when the force did not go through; the error shows in the workspace.
+     */
+    async forceQueued(deliveryId: string): Promise<boolean> {
+      const agentId = selectedId;
+      const current = generation;
+      if (!agentId || state.status !== "online" || !state.capabilities.includes(QUEUE_FORCE_CAPABILITY)) return false;
+      const expectedTurnId = conversation()?.page?.activeTurnId ?? null;
+      try {
+        await runtime.forceQueued({ agentId, deliveryId, expectedTurnId });
+        return true;
+      } catch (error) {
+        if (current === generation) report(error);
+        return false;
+      }
     },
     reorderQueue: (deliveryIds: string[]) => changeQueue((agentId) => runtime.reorderQueue({ agentId, deliveryIds })),
     async updateQueued(

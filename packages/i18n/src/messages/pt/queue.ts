@@ -18,6 +18,9 @@ export const messages = {
   "queue.item.steerFallback.providerUnsupported":
     "Este provedor não pode orientar um turno em andamento, então a mensagem espera na fila.",
   "queue.item.steerFallback.steerFailed": "A orientação falhou, então a mensagem espera na fila.",
+  "queue.item.forceLabel": "Forçar agora a mensagem na fila {position}",
+  "queue.item.forceTooltip": "Forçar agora",
+  "queue.item.forceUnsupported": "Atualize este servidor para forçar uma mensagem",
   "queue.item.runAsTask": "Executar em novo tópico",
   "queue.item.runAsTaskLabel": "Executar a mensagem na fila {position} em um novo tópico",
   "queue.item.deleteLabel": "Excluir mensagem na fila {position}",
@@ -27,4 +30,9 @@ export const messages = {
   "queue.deleteHeld.title": "Excluir mensagem na fila?",
   "queue.deleteHeld.body": "Outro dispositivo está editando esta mensagem. O agente não vai recebê-la.",
   "queue.deleteHeld.keep": "Manter",
+  "queue.force.title": "Forçar o envio?",
+  "queue.force.body":
+    "Isso para o agente que está trabalhando agora, coloca a sua mensagem na conversa e reinicia o mesmo agente com ela. Outros agentes que dependem do que ele estava fazendo podem ficar dessincronizados.",
+  "queue.force.confirm": "Forçar mesmo assim",
+  "queue.force.stopAsking": "Não me pergunte mais sobre isso",
 } as const satisfies PartialTranslation<typeof source>;

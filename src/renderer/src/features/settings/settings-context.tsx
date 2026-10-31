@@ -13,6 +13,7 @@ import { actionToast } from "../../action-toast";
 import { readShowAgentSteps, setShowAgentSteps, useShowAgentSteps } from "../../agent-steps-preference";
 import { desktopAnalytics } from "../../analytics";
 import { playSoundChoice, readTaskSound, setTaskSound } from "../../completion-sound";
+import { readAskBeforeForce, setAskBeforeForce, useAskBeforeForce } from "../../force-send-preference";
 import { usePlatform } from "../../platform";
 import { readSendShortcutMode, setSendShortcutMode, useSendShortcutMode } from "../../send-shortcut-preference";
 import { createSimpleContext } from "../../simple-context";
@@ -113,6 +114,7 @@ const Settings = createSimpleContext({
       taskSound: readTaskSound(),
       sendShortcut: readSendShortcutMode(),
       showAgentSteps: readShowAgentSteps(),
+      askBeforeForce: readAskBeforeForce(),
       soundFeedback: isActionSoundEnabled(),
       soundTheme: readActionSoundTheme(),
     });
@@ -132,6 +134,16 @@ const Settings = createSimpleContext({
       (show) => {
         setGeneralSettings((current) =>
           current.showAgentSteps === show ? current : { ...current, showAgentSteps: show },
+        );
+      },
+    );
+    // "Do not ask me again" in the force dialog changes it outside this dialog too.
+    const askBeforeForce = useAskBeforeForce();
+    createEffect(
+      () => askBeforeForce(),
+      (ask) => {
+        setGeneralSettings((current) =>
+          current.askBeforeForce === ask ? current : { ...current, askBeforeForce: ask },
         );
       },
     );
@@ -226,6 +238,9 @@ const Settings = createSimpleContext({
       }
       if (previous.showAgentSteps !== value.showAgentSteps) {
         setShowAgentSteps(value.showAgentSteps);
+      }
+      if (previous.askBeforeForce !== value.askBeforeForce) {
+        setAskBeforeForce(value.askBeforeForce);
       }
       if (previous.soundFeedback !== value.soundFeedback || previous.soundTheme !== value.soundTheme) {
         setActionSoundChoice(value.soundFeedback ? value.soundTheme : "off");

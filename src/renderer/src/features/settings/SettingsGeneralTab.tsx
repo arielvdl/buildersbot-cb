@@ -182,6 +182,13 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             description={i18n.t("settings.showAgentSteps.description")}
           />
           <SwitchField
+            data-settings-row="settings.askBeforeForce.title"
+            checked={props.value.askBeforeForce}
+            onChange={(checked) => props.onUpdateSetting("askBeforeForce", checked)}
+            label={i18n.t("settings.askBeforeForce.title")}
+            description={i18n.t("settings.askBeforeForce.description")}
+          />
+          <SwitchField
             data-settings-row="settings.promptGuard.title"
             checked={props.value.promptInjectionGuard}
             onChange={(checked) => props.onUpdateSetting("promptInjectionGuard", checked)}

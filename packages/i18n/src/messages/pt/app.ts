@@ -17,6 +17,7 @@ export const messages = {
   "app.errorStatus.cancel": "Não foi possível cancelar a mensagem na fila",
   "app.errorStatus.waitCancel": "Não foi possível cancelar a espera",
   "app.errorStatus.steer": "Não foi possível orientar o agente",
+  "app.errorStatus.force": "Não foi possível forçar a mensagem",
   "app.errorStatus.edit": "Não foi possível editar a mensagem na fila",
   "app.errorStatus.reorder": "Não foi possível reordenar a fila",
   "app.errorStatus.stop": "Não foi possível parar o agente",

@@ -249,6 +249,24 @@
   opacity: 1;
 }
 
+/* A host too old to force keeps the button focusable, so that its tooltip can say why. */
+.agent-queue-icon-button.agent-queue-force[aria-disabled="true"],
+.agent-queue-icon-button.agent-queue-force[aria-disabled="true"]:hover {
+  background: transparent;
+  color: inherit;
+  cursor: default;
+  opacity: 0.45;
+}
+
+.agent-queue-force-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  cursor: pointer;
+}
+
 @media (max-width: 620px) {
   .agent-queue-steer {
     width: 26px;

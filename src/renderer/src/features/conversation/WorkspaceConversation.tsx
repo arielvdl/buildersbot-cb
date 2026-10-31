@@ -145,6 +145,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     cancelQueuedMessage,
     cancelWait,
     steerQueuedMessage,
+    forceQueuedMessage,
     updateQueuedMessage,
     reorderQueue,
     stopActiveTurn,
@@ -647,6 +648,8 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         threads={threads()}
         onCancelWait={cancelWait}
         onSteerQueuedMessage={steerQueuedMessage}
+        onForceQueuedMessage={forceQueuedMessage}
+        forceQueuedMessageUnsupported={!serverSupportsCapability(activeServer(), "queue-force-v1")}
         onUpdateQueuedMessage={updateQueuedMessage}
         onReorderQueue={reorderQueue}
         onActivateBrowserTab={activateBrowserTab}

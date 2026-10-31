@@ -93,6 +93,7 @@ export function mockWebRuntimeFor(mock: MockBuildersBotControls, events: WebRunt
     editQueue: (input) => agent.editQueuedMessage(input),
     cancelQueued: (input) => agent.cancelQueuedMessage(input),
     steerQueued: (input) => agent.steerQueuedMessage(input),
+    forceQueued: (input) => agent.forceQueuedMessage(input),
     updateQueued: (input) => agent.updateQueuedMessage(input),
     reorderQueue: (input) => agent.reorderQueue(input),
     approve: (input) => agent.respondToApproval(input),

@@ -156,6 +156,11 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         keywordsKey: "settings.search.keywords.showAgentSteps",
       },
       {
+        anchor: "settings.askBeforeForce.title",
+        descriptionKey: "settings.askBeforeForce.description",
+        keywordsKey: "settings.search.keywords.askBeforeForce",
+      },
+      {
         anchor: "settings.promptGuard.title",
         descriptionKey: "settings.promptGuard.description",
         keywordsKey: "settings.search.keywords.promptGuard",
