@@ -44,6 +44,7 @@ import {
 } from "./boat-client";
 import { constantTimeEqual, deriveSecret, hmacSha256, randomToken, sha256 } from "./crypto";
 import type { RemoteFailure } from "./remote-control-plane";
+import { readServerCreationPolicy, ServerCreationPermission } from "./server-creation-permission";
 import { PERSISTENT_SESSION_EXPIRES_AT } from "./session-policy";
 import type { AuthUser, WorkerBindings } from "./types";
 
@@ -137,6 +138,7 @@ export type HostedServerBindings = Pick<
   | "DB"
   | "HOSTED_SERVERS_ENABLED"
   | "HOSTED_SERVERS_ALLOWED_USER_IDS"
+  | "ADMIN_USER_IDS"
   | "HOSTED_SERVERS_DEVELOPER_KEY"
   | "HOSTED_SERVER_TEMPLATE"
   | "BOAT_API_KEY"
@@ -285,8 +287,8 @@ export class HostedServerService {
   readonly #webhookSecret: string | null;
   #claimSecret: string | null = null;
   readonly #enabled: boolean;
-  /** Account IDs and emails (lowercase) that can create servers. `*` allows each account. */
-  readonly #allowed: ReadonlySet<string>;
+  /** Who can create a new server (docs/architecture/server-creation-permission.md). */
+  readonly #permission: ServerCreationPermission;
   readonly #developerAccess: boolean;
   readonly #now: () => number;
   readonly #billing: HostedServerBilling | null;
@@ -304,14 +306,9 @@ export class HostedServerService {
       this.#boat !== null &&
       this.#template !== null &&
       this.#ticketKey !== null;
-    this.#allowed = new Set(
-      (bindings.HOSTED_SERVERS_ALLOWED_USER_IDS ?? "")
-        .split(",")
-        .map((value) => (value.includes("@") ? value.trim().toLowerCase() : value.trim()))
-        .filter(Boolean),
-    );
     this.#developerAccess = isDeveloperKey(bindings.HOSTED_SERVERS_DEVELOPER_KEY, options.developerKey);
     this.#now = options.now ?? Date.now;
+    this.#permission = new ServerCreationPermission(database, readServerCreationPolicy(bindings), this.#now);
     const removeHost = options.removeHost ?? null;
     this.#billing = options.billing ?? null;
     this.#analytics = options.analytics ?? NO_ACCOUNT_ANALYTICS;
@@ -326,14 +323,17 @@ export class HostedServerService {
     });
   }
 
-  isAvailableFor(user: Pick<AuthUser, "id" | "email">): boolean {
-    const allowed =
-      this.#developerAccess ||
-      this.#allowed.has("*") ||
-      this.#allowed.has(user.id) ||
-      this.#allowed.has(user.email.toLowerCase());
-    return this.#enabled && this.#billing !== null && allowed;
-  }
+  /**
+   * True when the person can create a hosted server: hosting is configured, and the server creation
+   * permission allows the person. The developer key of the test Worker also allows it.
+   */
+  readonly availableFor = Effect.fn("HostedServerService.availableFor")(function* (
+    this: HostedServerService,
+    user: Pick<AuthUser, "id" | "email">,
+  ) {
+    if (!this.#enabled || !this.#billing) return false;
+    return this.#developerAccess || (yield* this.#permission.canCreate(user).pipe(Effect.mapError(hostedFailure)));
+  }).bind(this);
 
   /** The plans and prices that the create dialog shows. */
 
@@ -342,7 +342,7 @@ export class HostedServerService {
       this: HostedServerService,
       user: AuthUser,
     ): Effect.fn.Return<HostedServerCatalog, HostedFailure, HostedServerDependencies> {
-      const { billing } = yield* hostedValidate(() => this.#requireAvailable(user));
+      const { billing } = yield* this.#requireCreate(user);
       return yield* billing.catalog().pipe(Effect.mapError(hostedFailure));
     },
     (operation) => operation.pipe(Effect.provide(this.#layer)),
@@ -364,7 +364,7 @@ export class HostedServerService {
           .all<HostedServerRow>(),
       );
       return {
-        available: this.isAvailableFor(user),
+        available: yield* this.availableFor(user),
         lifecycleAvailable: true,
         servers: rows.results.map(summary),
         maxServers: MAX_SERVERS_PER_ACCOUNT,
@@ -399,7 +399,7 @@ export class HostedServerService {
       const returnTo: CheckoutReturn = isOneOf(HOSTED_SERVER_ENTRY_POINTS, input.entryPoint)
         ? { ...checkoutReturn, entryPoint: input.entryPoint }
         : checkoutReturn;
-      const { billing } = yield* hostedValidate(() => this.#requireAvailable(user));
+      const { billing } = yield* this.#requireCreate(user);
       const idempotencyKey = idempotencyKeyHeader?.trim() ?? "";
       if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/u.test(idempotencyKey)) {
         return yield* new HostedServerServiceError(
@@ -503,7 +503,7 @@ export class HostedServerService {
       returnTo: CheckoutReturn,
     ): Effect.fn.Return<HostedServerCheckout, HostedFailure, HostedServerDependencies> {
       const dependencies = yield* HostedServerDependencies;
-      const { billing } = yield* hostedValidate(() => this.#requireAvailable(user));
+      const billing = yield* hostedValidate(() => this.#requireConfigured());
       const row = yield* hostedCall(() =>
         dependencies.database
           .prepare(
@@ -516,6 +516,9 @@ export class HostedServerService {
       // A second page for a server that still waits for its first payment continues the same purchase,
       // with the license of the page that it closes.
       const resumed = row.observed_state === "awaiting_payment" && row.desired_state === "running";
+      // That server is not created yet, so its payment needs the permission. The renewal of a server
+      // whose plan ended does not: a server that exists keeps working.
+      if (resumed) yield* this.#requireCreate(user);
       return yield* this.#checkout(
         row,
         user,
@@ -2456,16 +2459,33 @@ export class HostedServerService {
     this.#analytics.track(row.owner_user_id, event);
   }
 
-  #requireAvailable(user: AuthUser): { billing: HostedServerBilling } {
-    if (!this.isAvailableFor(user) || !this.#billing) {
+  /** The billing of a configured deployment. Throws `hosting_unavailable` when hosting is off. */
+  #requireConfigured(): HostedServerBilling {
+    if (!this.#enabled || !this.#billing) {
       throw new HostedServerServiceError(
         403,
         "hosting_unavailable",
         "Hosted servers are not available for this account.",
       );
     }
-    return { billing: this.#billing };
+    return this.#billing;
   }
+
+  /** Hosting is configured, and the person can create a new server. */
+  readonly #requireCreate = Effect.fn("HostedServerService.requireCreate")(function* (
+    this: HostedServerService,
+    user: AuthUser,
+  ) {
+    const billing = yield* hostedValidate(() => this.#requireConfigured());
+    if (!this.#developerAccess && !(yield* this.#permission.canCreate(user).pipe(Effect.mapError(hostedFailure)))) {
+      return yield* new HostedServerServiceError(
+        403,
+        "server_creation_not_allowed",
+        sourceText("error.remote.serverCreationNotAllowed"),
+      );
+    }
+    return { billing };
+  }).bind(this);
 
   /**
    * A server that is not deleted, of which the user is the owner or an active member. With `admins`, the

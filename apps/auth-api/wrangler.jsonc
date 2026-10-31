@@ -64,8 +64,12 @@
     // Creates stay off until the boat and Stripe secrets and the template are set. "false" stops new
     // servers only.
     "HOSTED_SERVERS_ENABLED": "false",
-    // Each account can buy a server in production. Put account IDs here to limit creates to them.
-    "HOSTED_SERVERS_ALLOWED_USER_IDS": "*",
+    // The bootstrap list of server creation: account IDs or emails. Empty = nobody. Administrators
+    // (the secret ADMIN_USER_IDS) and the people they give the permission to can also create. "*" lets
+    // each account create; it is an explicit opt-in only, and the Worker logs it. ADMIN_USER_IDS is not
+    // a var here: a deploy with --keep-vars would overwrite the dashboard value. See
+    // docs/architecture/server-creation-permission.md.
+    "HOSTED_SERVERS_ALLOWED_USER_IDS": "",
     // A license bought before this time is free until then: Stripe charges its first payment at this time.
     // Local development reads it too; set LICENSE_TRIAL_END= in the shell to sell licenses with no trial.
     "LICENSE_TRIAL_END": "2026-12-01T00:00:00Z",

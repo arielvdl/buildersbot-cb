@@ -95,6 +95,7 @@ import { Route as V2DiscordCallbackRouteImport } from './routes/v2/discord/callb
 import { Route as V2HostingPlansRouteImport } from './routes/v2/hosting/plans'
 import { Route as V2RemoteRouteWakeRouteImport } from './routes/v2/remote/route-wake'
 import { Route as V2ServerClaimsRedeemRouteImport } from './routes/v2/server-claims/redeem'
+import { Route as V2ServerCreationSplatRouteImport } from './routes/v2/server-creation/$'
 import { Route as V2SlackAuthorizeRouteImport } from './routes/v2/slack/authorize'
 import { Route as V2SlackCallbackRouteImport } from './routes/v2/slack/callback'
 import { Route as V1AgentTemplatesTemplateIdAvatarRouteImport } from './routes/v1/agent-templates/$templateId/avatar'
@@ -610,6 +611,11 @@ const V2RemoteRouteWakeRoute = V2RemoteRouteWakeRouteImport.update({
 const V2ServerClaimsRedeemRoute = V2ServerClaimsRedeemRouteImport.update({
   id: '/v2/server-claims/redeem',
   path: '/v2/server-claims/redeem',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const V2ServerCreationSplatRoute = V2ServerCreationSplatRouteImport.update({
+  id: '/v2/server-creation/$',
+  path: '/v2/server-creation/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const V2SlackAuthorizeRoute = V2SlackAuthorizeRouteImport.update({
@@ -1159,6 +1165,7 @@ export interface FileRoutesByFullPath {
   '/v2/hosting/plans': typeof V2HostingPlansRoute
   '/v2/remote/route-wake': typeof V2RemoteRouteWakeRoute
   '/v2/server-claims/redeem': typeof V2ServerClaimsRedeemRoute
+  '/v2/server-creation/$': typeof V2ServerCreationSplatRoute
   '/v2/slack/authorize': typeof V2SlackAuthorizeRoute
   '/v2/slack/callback': typeof V2SlackCallbackRoute
   '/v1/agent-templates/': typeof V1AgentTemplatesIndexRoute
@@ -1329,6 +1336,7 @@ export interface FileRoutesByTo {
   '/v2/hosting/plans': typeof V2HostingPlansRoute
   '/v2/remote/route-wake': typeof V2RemoteRouteWakeRoute
   '/v2/server-claims/redeem': typeof V2ServerClaimsRedeemRoute
+  '/v2/server-creation/$': typeof V2ServerCreationSplatRoute
   '/v2/slack/authorize': typeof V2SlackAuthorizeRoute
   '/v2/slack/callback': typeof V2SlackCallbackRoute
   '/v1/agent-templates': typeof V1AgentTemplatesIndexRoute
@@ -1500,6 +1508,7 @@ export interface FileRoutesById {
   '/v2/hosting/plans': typeof V2HostingPlansRoute
   '/v2/remote/route-wake': typeof V2RemoteRouteWakeRoute
   '/v2/server-claims/redeem': typeof V2ServerClaimsRedeemRoute
+  '/v2/server-creation/$': typeof V2ServerCreationSplatRoute
   '/v2/slack/authorize': typeof V2SlackAuthorizeRoute
   '/v2/slack/callback': typeof V2SlackCallbackRoute
   '/v1/agent-templates/': typeof V1AgentTemplatesIndexRoute
@@ -1672,6 +1681,7 @@ export interface FileRouteTypes {
     | '/v2/hosting/plans'
     | '/v2/remote/route-wake'
     | '/v2/server-claims/redeem'
+    | '/v2/server-creation/$'
     | '/v2/slack/authorize'
     | '/v2/slack/callback'
     | '/v1/agent-templates/'
@@ -1842,6 +1852,7 @@ export interface FileRouteTypes {
     | '/v2/hosting/plans'
     | '/v2/remote/route-wake'
     | '/v2/server-claims/redeem'
+    | '/v2/server-creation/$'
     | '/v2/slack/authorize'
     | '/v2/slack/callback'
     | '/v1/agent-templates'
@@ -2012,6 +2023,7 @@ export interface FileRouteTypes {
     | '/v2/hosting/plans'
     | '/v2/remote/route-wake'
     | '/v2/server-claims/redeem'
+    | '/v2/server-creation/$'
     | '/v2/slack/authorize'
     | '/v2/slack/callback'
     | '/v1/agent-templates/'
@@ -2180,6 +2192,7 @@ export interface RootRouteChildren {
   V2HostingPlansRoute: typeof V2HostingPlansRoute
   V2RemoteRouteWakeRoute: typeof V2RemoteRouteWakeRoute
   V2ServerClaimsRedeemRoute: typeof V2ServerClaimsRedeemRoute
+  V2ServerCreationSplatRoute: typeof V2ServerCreationSplatRoute
   V2SlackAuthorizeRoute: typeof V2SlackAuthorizeRoute
   V2SlackCallbackRoute: typeof V2SlackCallbackRoute
   V1AgentTemplatesIndexRoute: typeof V1AgentTemplatesIndexRoute
@@ -2850,6 +2863,13 @@ declare module '@tanstack/solid-router' {
       path: '/v2/server-claims/redeem'
       fullPath: '/v2/server-claims/redeem'
       preLoaderRoute: typeof V2ServerClaimsRedeemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/v2/server-creation/$': {
+      id: '/v2/server-creation/$'
+      path: '/v2/server-creation/$'
+      fullPath: '/v2/server-creation/$'
+      preLoaderRoute: typeof V2ServerCreationSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/v2/slack/authorize': {
@@ -3649,6 +3669,7 @@ const rootRouteChildren: RootRouteChildren = {
   V2HostingPlansRoute: V2HostingPlansRoute,
   V2RemoteRouteWakeRoute: V2RemoteRouteWakeRoute,
   V2ServerClaimsRedeemRoute: V2ServerClaimsRedeemRoute,
+  V2ServerCreationSplatRoute: V2ServerCreationSplatRoute,
   V2SlackAuthorizeRoute: V2SlackAuthorizeRoute,
   V2SlackCallbackRoute: V2SlackCallbackRoute,
   V1AgentTemplatesIndexRoute: V1AgentTemplatesIndexRoute,

@@ -38,6 +38,7 @@ import {
   RemoteControlPlaneError,
   verifyRemoteServiceSignature,
 } from "./remote-control-plane";
+import { readServerCreationPolicy, ServerCreationError, ServerCreationPermission } from "./server-creation-permission";
 import { SkillMarketplace, SkillMarketplaceError } from "./skill-marketplace";
 import { SlackAppError, SlackAppService } from "./slack-app";
 import { requireWorkerBindings, type TeamInviteEmailDelivery, type WorkerBindings } from "./types";
@@ -363,8 +364,19 @@ function requestHostedBilling(developerKey: string | null = null) {
   });
 }
 
+/** Who can create a remote server, and the requests and grants of that permission. */
+export function requestServerCreationPermission(): ServerCreationPermission {
+  const bindings = requireWorkerBindings(env);
+  return new ServerCreationPermission(bindings.DB, readServerCreationPolicy(bindings));
+}
+
 export function hostedServerErrorResponse(error: unknown): Response {
   if (error instanceof HostedServerServiceError) return apiError(error.status, error.code, error.message);
+  if (error instanceof ServerCreationError) {
+    const response = apiError(error.status, error.code, error.message);
+    if (error.retryAfterSeconds !== undefined) response.headers.set("Retry-After", String(error.retryAfterSeconds));
+    return response;
+  }
   if (error instanceof BillingError) return apiError(error.status, error.code, error.message);
   if (error instanceof HostedSiteInputError) return apiError(error.status, error.code, error.message);
   return remoteControlPlaneErrorResponse(error);

@@ -24,6 +24,8 @@ import { HostedSiteInputError, requireIdempotencyKey } from "./hosted-site-contr
 import type { HostedSiteService } from "./hosted-site-service";
 import { readJsonObject } from "./json-body";
 import { type RemoteControlPlane, RemoteControlPlaneError } from "./remote-control-plane";
+import { handleServerCreationApi } from "./server-creation-api";
+import type { ServerCreationPermission } from "./server-creation-permission";
 import { sendTeamInviteEmail } from "./team-invite-email";
 import type { AuthUser, TeamInviteEmailDelivery } from "./types";
 import {
@@ -87,6 +89,8 @@ export interface BrowserApiServices {
   webPush: () => { sender: WebPushSender; store: WebPushStore } | null;
   /** The Cultura Builder sign-in service, or null when this deployment has no `AUTH_BRIDGE_URL`. */
   deviceBridge: () => DeviceSignInBridge | null;
+  /** Who can create a remote server: the access of the account and the administrator routes. */
+  serverCreation: () => ServerCreationPermission;
   sourceIp: (request: Request) => string;
   errorResponse: (error: unknown) => Response;
 }
@@ -198,6 +202,9 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
   }
   if (!token || !user) return failure(401, "sign_in_required", "Sign in is required.");
   if (path === "session" && request.method === "GET") return json({ user });
+  // The same routes as the bearer `/v2/server-creation/...`, behind the write checks above.
+  const serverCreation = yield* handleServerCreationApi(request, path, user, services.serverCreation());
+  if (serverCreation) return serverCreation;
   if (path === "v2/remote/hosts" && request.method === "GET")
     return json({ hosts: yield* services.remote.listHosts(user.id) });
   if (path === "v1/push" && request.method === "GET") {

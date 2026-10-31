@@ -136,6 +136,9 @@ function services(
     },
     webPush: () => null,
     deviceBridge: () => (options.bridge === false ? null : bridge),
+    serverCreation: () => {
+      throw new Error("unused");
+    },
     sourceIp: () => "203.0.113.7",
     errorResponse: (error) => {
       if (!(error instanceof AuthServiceError))
