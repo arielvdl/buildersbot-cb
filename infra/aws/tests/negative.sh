@@ -783,6 +783,7 @@ done
 check_health test "$(grep -c 'LogGroupName: !Ref LogGroup$' templates/sector-compute.yaml)" = 0
 check_health grep -q '"log_group_name": "/bb-srv/${Sector}/health", "log_stream_name": "{instance_id}/health"' templates/sector-compute.yaml
 check_health grep -q "log-group:/bb-srv/\${Sector}/health:\*" templates/sector-compute.yaml
+check_health grep -q 'DependsOn: \[AgentConfigParameter, EgressParameter, LogGroup, SessionLogGroup, HealthLogGroup\]' templates/sector-compute.yaml
 if [ -z "$health_fail" ]; then
   ok_case "F8 os filtros de saúde leem só o grupo de logs da saúde (o log do app não pode forjar BB_HEALTH ok)"
 else

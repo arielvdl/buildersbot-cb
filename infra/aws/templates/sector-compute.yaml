@@ -345,7 +345,7 @@ Resources:
   Instance:
     Type: AWS::EC2::Instance
     # The user data runs once: its agent configuration and log groups must exist before the first boot.
-    DependsOn: [AgentConfigParameter, EgressParameter, LogGroup, SessionLogGroup]
+    DependsOn: [AgentConfigParameter, EgressParameter, LogGroup, SessionLogGroup, HealthLogGroup]
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !FindInMap [Sizes, !Ref Size, InstanceType]
