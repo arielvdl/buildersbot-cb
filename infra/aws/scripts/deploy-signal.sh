@@ -9,9 +9,12 @@
 #   3. envia o código do commit para o bucket de build (com o sha256, que a VM confere);
 #   4. resolve a AMI do Ubuntu uma vez, confere as cotas de vCPU e de Elastic IP e cria a stack.
 # ATUALIZAÇÃO (a stack existe): só abre ou fecha as portas (--approve-ingress) e, se pedido, troca o
-#   tamanho. AMI, commit, hash do código e e-mail ACME ficam os da criação (UsePreviousValue): mudar
-#   qualquer um deles mexe no ImageId ou no user data, que só se trocam recriando a VM (README, seção
-#   11). Por isso a atualização não resolve AMI, não confere cota nem DNS: fechar as portas sempre funciona.
+#   tamanho, SOBRE O TEMPLATE JÁ IMPLANTADO (--use-previous-template): o templates/signal.yaml local não
+#   entra, e todos os outros parâmetros ficam como estão (UsePreviousValue). AMI, commit, hash do código
+#   e e-mail ACME mexem no ImageId ou no user data, que só se trocam recriando a VM (README, seção 11);
+#   uma mudança no signal.yaml do repositório também só chega à VM recriando a stack. Por isso a
+#   atualização não resolve AMI, não confere cota nem DNS e só mexe nas regras de entrada (e no tamanho,
+#   se pedido): fechar as portas sempre funciona.
 #
 # As portas de entrada só abrem com --approve-ingress (exceção que o dono aprova). Toda execução SEM
 # --approve-ingress deixa as portas FECHADAS.
@@ -104,17 +107,11 @@ else
   for name in $secrets; do
     secret_exists "$name" || warn "/bb-srv/signal/$name não existe: a VM do Signal não sobe no próximo restart. Recrie a stack (README, seção 11)."
   done
-  say "   atualização: commit $sha e AMI mantidos; portas de entrada abertas: $ingress"
-  params=("ParameterKey=AmiId,UsePreviousValue=true"
-    "ParameterKey=SourceCommit,UsePreviousValue=true"
-    "ParameterKey=SourceSha256,UsePreviousValue=true"
-    "ParameterKey=AcmeEmail,UsePreviousValue=true"
-    "ParameterKey=IngressApproved,ParameterValue=$ingress")
+  say "   atualização sobre o template já implantado: commit $sha, AMI e user data mantidos; portas de entrada abertas: $ingress"
+  changes=("IngressApproved=$ingress")
   if [ -n "$instance_type" ]; then
     warn "trocar o tamanho desliga e religa a VM do Signal (conexões novas param por alguns minutos)."
-    params+=("ParameterKey=InstanceType,ParameterValue=$instance_type")
-  else
-    params+=("ParameterKey=InstanceType,UsePreviousValue=true")
+    changes+=("InstanceType=$instance_type")
   fi
 fi
 
@@ -122,7 +119,13 @@ if [ "$ingress" = true ]; then
   confirm "Abrir TCP 443, TCP/UDP 3478, TCP 5349 e UDP 49152-65535 da internet na VM do Signal (exceção aprovada pelo dono)? Digite 'aprovado':" aprovado
 fi
 
-deploy_stack bb-srv-signal "$BB_ROOT/templates/signal.yaml" shared "${params[@]}"
+if [ "$status" = NONE ] || [ "$status" = REVIEW_IN_PROGRESS ]; then
+  deploy_stack bb-srv-signal "$BB_ROOT/templates/signal.yaml" shared "${params[@]}"
+else
+  # Só os parâmetros dados mudam, sobre o template implantado: o change set mexe só nas regras de
+  # entrada do SG (e na VM, só com --instance-type).
+  update_parameters bb-srv-signal shared "${changes[@]}"
+fi
 
 # O wrangler da versão fixada no próprio fork (catálogo do package.json), rodado de apps/auth-api,
 # onde está o wrangler.jsonc do Worker. Nunca a versão mais nova da rede.

@@ -227,15 +227,19 @@ h_signal() {
 export -f h_signal
 signal_env() {
   env FAKE_STACKS="bb-srv-dns=CREATE_COMPLETE bb-srv-base=CREATE_COMPLETE bb-srv-signal=UPDATE_COMPLETE" FAKE_OUTPUT_HostedZoneName=bb-aws.example.com \
-    FAKE_OUTPUT_HostedZoneId=Z123 FAKE_PARAM_SourceCommit="$FIRST" FAKE_PARAM_AcmeEmail=acme@example.com "$@"
+    FAKE_OUTPUT_HostedZoneId=Z123 FAKE_PARAM_SourceCommit="$FIRST" FAKE_PARAM_AcmeEmail=acme@example.com \
+    FAKE_PARAM_KEYS="AmiId InstanceType SourceCommit SourceSha256 IngressApproved AcmeEmail" "$@"
 }
 expect_refusal "B13 atualização recusa outro commit (exige recriar a VM)" "Trocar o commit exige recriar" h_signal \
   signal_env bash scripts/deploy-signal.sh --commit "$SECOND"
 expect_refusal "B13 atualização recusa outro e-mail ACME" "Trocar exige recriar" h_signal \
   signal_env bash scripts/deploy-signal.sh --acme-email outro@example.com
-expect_calls "B13 fechar as portas não resolve AMI nem cota, e mantém a AMI" \
-  'WRITE cloudformation create-change-set .*ParameterKey=AmiId,UsePreviousValue=true.*IngressApproved,ParameterValue=false' \
-  'ssm get-parameters|service-quotas|s3api head-object|route53' h_signal signal_env bash scripts/deploy-signal.sh
+expect_calls "B13 fechar as portas usa o template implantado, não resolve AMI nem cota, e mantém a AMI" \
+  'WRITE cloudformation create-change-set .*--use-previous-template.*ParameterKey=AmiId,UsePreviousValue=true.*InstanceType,UsePreviousValue=true.*IngressApproved,ParameterValue=false' \
+  'ssm get-parameters|service-quotas|s3api head-object|route53|template-body' h_signal signal_env bash scripts/deploy-signal.sh
+expect_calls "B13 --instance-type troca só o tamanho e as portas, sobre o template implantado" \
+  'WRITE cloudformation create-change-set .*--use-previous-template.*SourceSha256,UsePreviousValue=true.*IngressApproved,ParameterValue=false ParameterKey=InstanceType,ParameterValue=t4g.medium' \
+  'template-body|InstanceType,UsePreviousValue' h_signal signal_env bash scripts/deploy-signal.sh --instance-type t4g.medium
 
 # ---------------------------------------------------------------- C: stacks em falha (achado 14)
 h_failed() {
