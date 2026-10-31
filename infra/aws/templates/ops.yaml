@@ -322,16 +322,20 @@ Resources:
                   echo "bootstrap: $(test -f /var/lib/bb-srv/bootstrap.done && echo 'done' || echo pending)"
                   echo "installed: $(test -f /var/lib/bb-srv/installed && echo yes || echo no)"
                   # What comes from the container and the app goes behind "  | ", so it never forms a line that
-                  # scripts/status.sh reads (it reads only after the last "egress proxy:", printed below by root).
-                  /srv/openbot-docker/instances/openbot-instance list 2>&1 | sed 's/^/  | /'
-                  { timeout 30 docker exec "openbot-$S" openbot status 2>&1 || echo "openbot status: no answer"; } | sed 's/^/  | /'
+                  # scripts/status.sh reads (only from the last "egress proxy:" to BB_PROXY_END, printed below by
+                  # root), and is capped at 20 lines of 200 characters per command, so it never pushes that part out
+                  # of the first 24,000 characters of the output, all that SSM keeps.
+                  /srv/openbot-docker/instances/openbot-instance list 2>&1 | sed 's/^/  | /' | cut -c 1-200 | head -n 20
+                  { timeout 30 docker exec "openbot-$S" openbot status 2>&1 || echo "openbot status: no answer"; } |
+                    sed 's/^/  | /' | cut -c 1-200 | head -n 20
                   echo "image: $(sed -n 's/^BUILDERSBOT_IMAGE=//p' "/srv/openbot-docker/instances/$S.env" 2>/dev/null | tail -n 1)"
                   echo "last health lines:"; tail -n 3 /var/log/bb-srv/health.log 2>/dev/null || true
                   echo "host memory:"; free -m | sed -n '1,2p'
                   echo "disks:"; df -h /srv "/srv/openbot/$S/data" 2>/dev/null || true
                   echo "firewall:"; iptables -S OPENBOT-EGRESS 2>/dev/null | head -n 3 || true
                   # The egress proxy (README section 16). Exit IP and country as the container sees them;
-                  # scripts/status.sh reads the BB_PROXY_* lines. This output stays in SSM (no log group).
+                  # scripts/status.sh reads the BB_PROXY_* lines. This output stays in SSM (no log group). The last
+                  # line, BB_PROXY_END, proves that the part arrived whole: without it, status.sh concludes nothing.
                   echo "egress proxy:"
                   if [ -x /usr/local/sbin/bb-srv-proxy ]; then
                     echo "  forwarder: $(systemctl is-active bb-proxy.service 2>/dev/null || true)"
@@ -341,6 +345,7 @@ Resources:
                   else
                     echo "BB_PROXY_MODE not-installed"
                   fi
+                  echo "BB_PROXY_END"
 
   # After a rotation of /bb-srv/proxy/egress (README section 16): the credential again, the firewall, the
   # forwarder and one health line that must be "ok BR". The container keeps running. It runs the tool that

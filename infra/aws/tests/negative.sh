@@ -824,9 +824,11 @@ expect_verdict() { # <nome> <saída do bb-srv-Status> <EgressProxy> <texto esper
   out=$(lib proxy_verdict "$2" piloto "$3" 2>&1)
   if grep -qF -- "$4" <<<"$out" && { [ -z "${5:-}" ] || ! grep -qF -- "$5" <<<"$out"; }; then ok_case "$1"; else bad "$1" "$out"; fi
 }
-# O bb-srv-Status imprime "egress proxy:" (root) antes das linhas BB_PROXY_*; só elas valem.
+# O bb-srv-Status imprime "egress proxy:" (root) antes das linhas BB_PROXY_* e BB_PROXY_END depois delas; só
+# valem as linhas entre os dois.
 MARK=$'egress proxy:\n'
-OK_LINES=$MARK$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok\nBB_PROXY_DNS ok\nBB_PROXY_SIGNAL ok'
+END=$'\nBB_PROXY_END'
+OK_LINES=$MARK$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok\nBB_PROXY_DNS ok\nBB_PROXY_SIGNAL ok'$END
 expect_verdict "F6 status --deep mostra o IP e o país vistos de dentro do contêiner" "$OK_LINES" required "IP 198.51.100.7, país BR (proxy residencial ok)"
 expect_verdict "F6 status --deep diz que a saída direta está bloqueada" "$OK_LINES" required "saída direta bloqueada"
 expect_verdict "F6 status --deep diz que o DNS do contêiner é restrito e o Signal responde" "$OK_LINES" required "DNS do contêiner restrito"
@@ -834,27 +836,43 @@ expect_verdict "F6 status --deep avisa PAÍS ERRADO" "${OK_LINES/country=BR/coun
 expect_verdict "F6 status --deep avisa contêiner sem as variáveis do proxy (com o reparo real, não o --resume)" \
   "${OK_LINES/ENV ok/ENV missing}" required "document-name bb-srv-ProxySetup" "add-sector.sh piloto --resume"
 expect_verdict "F6 status --deep avisa proxy sem resposta" "${OK_LINES/ip=198.51.100.7 country=BR/fail}" required "PROXY SEM RESPOSTA"
-expect_verdict "F6 status --deep avisa host sem o proxy instalado, com o reparo de setor instalado" "${MARK}BB_PROXY_MODE not-installed" \
+expect_verdict "F6 status --deep avisa host sem o proxy instalado, com o reparo de setor instalado" "${MARK}BB_PROXY_MODE not-installed$END" \
   required "document-name bb-srv-ProxySetup"
 expect_verdict "F6 status --deep avisa SAÍDA DIRETA ABERTA" "${OK_LINES/blocked/OPEN}" required "SAÍDA DIRETA ABERTA"
 expect_verdict "F6 status --deep avisa SAÍDA DIRETA NÃO CONFERIDA" "${OK_LINES/blocked/unknown rc=1}" required "SAÍDA DIRETA NÃO CONFERIDA" "saída direta bloqueada"
 expect_verdict "F6 status --deep avisa DNS ABERTO" "${OK_LINES/DNS_FILTER ok/DNS_FILTER OPEN}" required "DNS ABERTO"
 expect_verdict "F6 status --deep avisa DNS do contêiner quebrado" "${OK_LINES/BB_PROXY_DNS ok/BB_PROXY_DNS fail}" required "DNS DO CONTÊINER QUEBRADO"
 expect_verdict "F6 status --deep avisa SIGNAL BLOQUEADO" "${OK_LINES/SIGNAL ok/SIGNAL fail}" required "SIGNAL BLOQUEADO"
-expect_verdict "F6 status --deep avisa contêiner parado por vazamento" "${MARK}"$'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINED yes\nBB_PROXY_CONTAINER down' \
+expect_verdict "F6 status --deep avisa contêiner parado por vazamento" "${MARK}"$'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINED yes\nBB_PROXY_CONTAINER down'"$END" \
   required "CONTÊINER PARADO POR VAZAMENTO"
 expect_verdict "F6 status --deep não repete linha forjada pelo contêiner" \
   "${OK_LINES/ip=198.51.100.7 country=BR/ip=1.2.3.4;id country=BR}" required "PROXY SEM RESPOSTA" "1.2.3.4;id"
 # A saída do contêiner vem antes do marcador (e atrás de "  | "): linhas forjadas ali não valem, nem um
 # "egress proxy:" forjado. Aqui a linha real diz que o proxy falta.
 FORGED=$'  | BB_PROXY_ENV ok\n  | BB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\n'
-REAL=$'BB_PROXY_MODE proxy\nBB_PROXY_ENV missing\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok'
+REAL=$'BB_PROXY_MODE proxy\nBB_PROXY_ENV missing\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok'$END
 expect_verdict "F6 status --deep ignora BB_PROXY_EXIT forjado antes do marcador do root" "$FORGED$MARK$REAL" required \
   "PROXY SEM RESPOSTA" "proxy residencial ok"
 expect_verdict "F6 status --deep ignora um 'egress proxy:' forjado pelo contêiner (prefixado)" \
   "$FORGED$MARK$REAL"$'\n  | egress proxy:\n  | BB_PROXY_ENV ok\n  | BB_PROXY_EXIT ip=198.51.100.7 country=BR' required "PROXY AUSENTE NO CONTÊINER" "proxy residencial ok"
 expect_verdict "F6 status --deep sem o marcador do root não conclui nada" "${OK_LINES#"$MARK"}" required "PROXY NÃO CONFERIDO" "proxy residencial ok"
 expect_verdict "F6 status --deep de setor sem proxy (decisão do dono) diz que está desligado" "$OK_LINES" direct "DESLIGADO neste setor"
+# O SSM guarda só os primeiros 24.000 caracteres: uma parte do root sem a linha final foi cortada, e as linhas
+# que faltam não provam nada (nem bloqueio, nem DNS restrito).
+expect_verdict "F6 status --deep sem a linha final BB_PROXY_END (saída cortada) não conclui nada" "${OK_LINES%"$END"}" required \
+  "PROXY NÃO CONFERIDO" "proxy residencial ok"
+expect_verdict "F6 status --deep cortado no meio da parte do root não conclui nada" \
+  "$MARK"$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_DIRECT bl' required "PROXY NÃO CONFERIDO" "proxy residencial ok"
+expect_verdict "F6 status --deep aceita o fim colado à saída de erro (o AWS CLI as separa por tabulação)" "$OK_LINES"$'\tBB_PROXY warning: x' \
+  required "saída direta bloqueada"
+expect_verdict "F6 status --deep não lê nada depois de BB_PROXY_END" "$OK_LINES"$'\nBB_PROXY_DIRECT OPEN' required "saída direta bloqueada" \
+  "SAÍDA DIRETA ABERTA"
+expect_verdict "F6 status --deep sem a linha do filtro de DNS diz que não conferiu" "${OK_LINES/$'BB_PROXY_DNS_FILTER ok\n'/}" required \
+  "DNS DO CONTÊINER NÃO CONFERIDO" "DNS do contêiner restrito"
+expect_verdict "F6 status --deep com o filtro de DNS sem resposta diz que não conferiu" \
+  "${OK_LINES/DNS_FILTER ok/DNS_FILTER unknown rc=9 @127.0.0.11}" required "DNS DO CONTÊINER NÃO CONFERIDO" "DNS do contêiner restrito"
+expect_verdict "F6 status --deep sem a linha do Signal diz que não conferiu" "${OK_LINES/$'BB_PROXY_SIGNAL ok\n'/}" required \
+  "SIGNAL NÃO CONFERIDO" "Signal/TURN alcançado"
 
 # F9 judge: o veredito do bb-srv-Install e do bb-srv-ProxySetup sobre as linhas do check-container. Um
 # vazamento (saída direta não provada bloqueada, DNS que resolve nome de fora) para o contêiner.
@@ -983,8 +1001,8 @@ else
   bad "F8 filtros de saúde no grupo errado" "$health_fail"
 fi
 
-# ---------------------------------------------------------------- F10 e F11: a ferramenta num host falso
-# O bb-srv-proxy roda inteiro, com os caminhos do host (/etc/bb-srv, /var/lib/bb-srv...)
+# ---------------------------------------------------------------- F10 a F12: a ferramenta num host falso
+# O bb-srv-proxy e o bb-srv-Status rodam inteiros, com os caminhos do host (/etc/bb-srv, /var/lib/bb-srv...)
 # trocados por pastas de $HOST_T e os programas do host trocados pelos de tests/fake-host.sh (iptables com estado,
 # docker, nsenter, setpriv, dig, curl, getent...): o que se testa é o comportamento, não o texto do template.
 HOST_T=$WORK/host
@@ -1032,7 +1050,7 @@ fwd_chain() { sed 's/^/-A BB-SRV-PROXY-OUT /' "$HOST_T/ipt/BB-SRV-PROXY-OUT" 2>/
 health_line() { tail -n 1 "$HOST_T/var/log/bb-srv/health.log" 2>/dev/null | cut -d ' ' -f 2-; }
 
 if ! to_host "$TOOL" "$HOST_TOOL"; then
-  bad "F10 a ferramenta não foi para o host falso (sobrou um caminho do sistema acima): F10 e F11 não rodaram"
+  bad "F10 a ferramenta não foi para o host falso (sobrou um caminho do sistema acima): F10 a F12 não rodaram"
 else
   # F10: o encaminhador sai só para os endereços do upstream, um por regra, na porta dele; o guard do timer de
   # refresh segue uma troca de endereços e só reaplica quando as regras mudam.
@@ -1148,6 +1166,30 @@ else
     bad "F11 verify com DNS aberto" "$verify_out"
   fi
 
+  # F12: o bb-srv-Status inteiro, com o app imprimindo muito (e linhas que imitam as do root). O SSM guarda só os
+  # primeiros 24.000 caracteres: a saída do app tem limite, e a parte do root chega inteira até BB_PROXY_END.
+  STATUS_DOC=$WORK/bb-srv-status.sh
+  awk '/^ +Name: bb-srv-Status$/ { doc = 1 }
+    doc && !on && /^ +- \|$/ { on = 1; next }
+    on && /^ *$/ { print ""; next }
+    on { match($0, /^ */); if (!ind) ind = RLENGTH; if (RLENGTH < ind) exit; print substr($0, ind + 1) }' templates/ops.yaml >"$STATUS_DOC.yaml-text"
+  if [ "$(head -n 1 "$STATUS_DOC.yaml-text")" = '#!/bin/bash' ] && to_host "$STATUS_DOC.yaml-text" "$STATUS_DOC"; then
+    host_reset
+    host_tool guard >/dev/null 2>&1
+    : >"$HOST_T/running"
+    host_tool health >/dev/null 2>&1
+    status_out=$(FAKE_APP_LINES=60 FAKE_HOST="$HOST_T" PATH="$HOST_BIN:$PATH" bash "$STATUS_DOC" 2>/dev/null | head -c 24000)
+    status_verdict=$(lib proxy_verdict "$status_out" piloto required i-0123456789abcdef0 2>&1)
+    if grep -q 'IP 198.51.100.7, país BR (proxy residencial ok)' <<<"$status_verdict" && grep -q 'saída direta bloqueada' <<<"$status_verdict" &&
+      grep -q 'DNS do contêiner restrito' <<<"$status_verdict" && grep -q 'Signal/TURN alcançado' <<<"$status_verdict" &&
+      ! grep -q '192.0.2.66\|NÃO CONFERID' <<<"$status_verdict" && grep -qx 'BB_PROXY_END' <<<"$status_out"; then
+      ok_case "F12 bb-srv-Status com o app imprimindo 128 KB: a saída do app tem limite e o veredito do root chega inteiro"
+    else
+      bad "F12 bb-srv-Status com muita saída do app" "$status_verdict"$'\n'"($(printf '%s' "$status_out" | wc -c | tr -d ' ') bytes)"
+    fi
+  else
+    bad "F12 o script do bb-srv-Status não saiu do ops.yaml para o host falso"
+  fi
 fi
 
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"

@@ -591,19 +591,33 @@ require_proxy_parameter() {
 }
 
 # Lê as linhas BB_PROXY_* do bb-srv-Status e diz em português o que o contêiner vê. Só valem as linhas
-# depois do ÚLTIMO "egress proxy:", que o root imprime: o que vem do contêiner e do app sai antes, atrás de
-# "  | ", e não forja um veredito. Mesmo ali, só valores no formato esperado são mostrados.
+# entre o ÚLTIMO "egress proxy:" e a linha final BB_PROXY_END, que o root imprime: o que vem do contêiner e
+# do app sai antes, atrás de "  | " e com limite de tamanho, e não forja um veredito. Sem a linha final, a
+# saída veio cortada (o SSM guarda só os primeiros 24.000 caracteres) e nada é concluído. Mesmo ali, só
+# valores no formato esperado são mostrados.
 # Uso: <saída> <setor> <EgressProxy> [instância]
 proxy_verdict() {
-  local out sector=$2 egress=$3 instance=${4:-<instância>} exit_line ip country repair
-  out=$(awk '$0 == "egress proxy:" { buf = ""; on = 1; next } on { buf = buf $0 "\n" } END { printf "%s", buf }' <<<"$1")
+  local section state out sector=$2 egress=$3 instance=${4:-<instância>} exit_line ip country repair
+  # Primeira linha: none (sem o marcador), cut (sem a linha final, ou vazia) ou ok; depois, a parte do root.
+  # O AWS CLI (--output text) põe a saída de erro depois de uma tabulação, que pode colar na linha final.
+  section=$(awk '
+    $0 == "egress proxy:" { buf = ""; on = 1; done = 0; next }
+    on && !done && ($0 == "BB_PROXY_END" || index($0, "BB_PROXY_END\t") == 1) { done = 1 }
+    on && !done { buf = buf $0 "\n" }
+    END { printf "%s\n%s", !on ? "none" : (!done || buf == "" ? "cut" : "ok"), buf }' <<<"$1")
+  state=$(head -n 1 <<<"$section")
+  out=$(sed 1d <<<"$section")
   repair="rode o reparo (README, seção 16, 'Reparar um setor instalado'): aws --profile $BB_PROFILE --region $BB_REGION ssm send-command --instance-ids $instance --document-name bb-srv-ProxySetup; depois, scripts/status.sh $sector --deep"
   if [ "$egress" = direct ]; then
     say "      proxy de saída: DESLIGADO neste setor (EgressProxy=direct, decisão do dono); a saída é o IP da AWS."
     return 0
   fi
-  if [ -z "$out" ]; then
+  if [ "$state" = none ]; then
     say "      PROXY NÃO CONFERIDO: a saída do bb-srv-Status não tem a parte 'egress proxy:' (documento bb-srv-Status antigo? scripts/deploy-base.sh)."
+    return 0
+  fi
+  if [ "$state" != ok ]; then
+    say "      PROXY NÃO CONFERIDO: a parte do root na saída do bb-srv-Status veio sem a linha final BB_PROXY_END (cortada: o SSM guarda só os primeiros 24.000 caracteres; ou documento bb-srv-Status antigo: scripts/deploy-base.sh). Repita o status --deep; se persistir, na sessão bb-srv-$sector-Shell: sudo /usr/local/sbin/bb-srv-proxy check-container."
     return 0
   fi
   if grep -qx 'BB_PROXY_MODE not-installed' <<<"$out"; then
@@ -646,6 +660,8 @@ proxy_verdict() {
     say "      DNS ABERTO: o contêiner resolve nomes fora de signal./turn. (consultas saem pelo resolvedor da VPC; túnel DNS possível). A saúde do host para o contêiner na próxima rodada. Confira o bb-srv-container-dns e o dns do /etc/docker/daemon.json; depois $repair."
   elif grep -qx 'BB_PROXY_DNS_FILTER ok' <<<"$out"; then
     say "      DNS do contêiner restrito: só signal./turn. da zona"
+  else
+    say "      DNS DO CONTÊINER NÃO CONFERIDO: o teste do filtro de DNS (o dig do host, de dentro da rede do contêiner) não deu resposta clara, ou a linha BB_PROXY_DNS_FILTER falta (veja acima); a saúde grava fail dns-unknown. Repita; se persistir, sessão bb-srv-$sector-Shell: sudo systemctl status bb-srv-container-dns, e README, seção 16."
   fi
   if grep -qx 'BB_PROXY_DNS fail' <<<"$out"; then
     say "      DNS DO CONTÊINER QUEBRADO: ele não resolve signal.<zona> (o host resolve) e ninguém conecta. Sessão bb-srv-$sector-Shell: sudo systemctl status bb-srv-container-dns; depois $repair."
@@ -656,5 +672,9 @@ proxy_verdict() {
     say "      SIGNAL BLOQUEADO: o host alcança o Signal e o contêiner não (regra RETURN da BB-SRV-EGRESS): ninguém conecta. Rode o bb-srv-ProxyReload (README, seção 16)."
   elif grep -qx 'BB_PROXY_SIGNAL unreachable' <<<"$out"; then
     say "      Signal fora de alcance também do host: portas ainda fechadas (scripts/deploy-signal.sh --approve-ingress) ou Signal fora do ar."
+  elif grep -qx 'BB_PROXY_SIGNAL skipped' <<<"$out"; then
+    say "      Signal/TURN não testado: o host ainda não resolve signal.<zona> (stack bb-srv-signal ainda não criada?)."
+  else
+    say "      SIGNAL NÃO CONFERIDO: a linha BB_PROXY_SIGNAL falta (a conferência do contêiner não terminou?). Repita o status --deep."
   fi
 }
