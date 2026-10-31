@@ -336,6 +336,39 @@ ahead, the eyelids stay where the mood puts them, a working lid stays lit with i
 a waiting lid stays pale. A photo avatar does not show the mark. It keeps the breathing and the glow
 on its frame.
 
+## Turn steps in the chat
+
+The steps of a turn are its thoughts, the progress lines of the host and its memory changes
+(`createTurnSteps`, `src/renderer/src/features/conversation/turn-steps.ts`). While the turn runs,
+they show under the activity line (`AgentActivityBody`). After the turn, a row above the answer
+holds them (`AgentStepsDisclosure`, `packages/ui/src/features/conversation/AgentSteps.tsx`): the
+count of steps, the failed steps and the time of the turn. That row shows the same facts when it is
+closed.
+
+The "Show agent steps" setting (`openbot:show-agent-steps` in local storage, per device and browser)
+opens the steps only while the turn runs. The rule is in `agent-steps-open.ts`:
+
+- `stepsOpenAtStart`: steps that show for a turn that runs open with the setting. Steps of a finished
+  turn start closed, also with the setting: a chat that loads its history, scrolls back or changes
+  agent shows each finished turn as one row above its answer.
+- `stepsOpenedBy`: a click of the person wins over the setting. The steps are open by the setting
+  only when the person did not choose.
+- `shouldAutoCollapse`: when a turn changes from running to finished, the steps that the setting
+  opened close. Steps that the person opened, also while the turn ran, stay open. Steps that the
+  person opens after the end stay open, because only that change closes them.
+
+The timeline keeps the choice of the person per turn (`rememberStepChoice`, at most 200 turns), so
+the choice on the activity line goes to the row above the answer, and a row that the list draws
+again keeps it. In the agent chat, the row above the answer shows only when the turn ends, so it
+starts closed. A channel runs several turns, and the row of a turn that writes its answer can show
+while the turn runs; it closes when the turn ends.
+
+The close takes a short transition (`data-closing` on `.agent-steps-panel`), and none with reduced
+motion. When the list starts above the visible part of the chat, it closes at once and the chat
+scrolls by its height, so the answer stays in place. The virtualizer of the chat already keeps a
+row that is all above the view in place. With a trace, a closed row opens the trace; a step picked
+in the trace opens the list.
+
 ## Browser profile
 
 Agent settings > Advanced selects the browser profile of an agent: Shared or a named profile

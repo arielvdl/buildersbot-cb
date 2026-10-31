@@ -8,6 +8,7 @@ import { AgentActivityIndicator } from "@openbot/ui/features/conversation/AgentA
 import { AgentChatEmptyState } from "@openbot/ui/features/conversation/AgentChatEmptyState";
 import { AgentStepsDisclosure, type AgentStepsTrace } from "@openbot/ui/features/conversation/AgentSteps";
 import { AttachmentCards } from "@openbot/ui/features/conversation/AttachmentCards";
+import { rememberStepChoice } from "@openbot/ui/features/conversation/agent-steps-open";
 import { UsageLimitAskCard } from "@openbot/ui/features/conversation/BackupModels";
 import { ChatActionMarker } from "@openbot/ui/features/conversation/ChatActionMarker";
 import { type ChatMessageAuthor, ChatMessageRow } from "@openbot/ui/features/conversation/ChatMessageRow";
@@ -474,6 +475,15 @@ export function ConversationTimeline() {
     activeTurnId: () => props.activeTurnId,
   });
   const showAgentSteps = useShowAgentSteps();
+  // What the person chose for the steps of each turn: on the activity line while the turn runs, then
+  // on the row above its answer. A row that the list draws again keeps it.
+  const [stepChoices, setStepChoices] = createSignal<ReadonlyMap<string, boolean>>(new Map());
+  const chooseSteps = (turnIds: readonly string[], open: boolean) =>
+    setStepChoices((current) => rememberStepChoice(current, turnIds, open));
+  const stepChoice = (turnId: string | undefined) => (turnId ? stepChoices().get(turnId) : undefined);
+  /** Whether a turn still runs: the turn of the agent chat, or a turn of the channel. */
+  const turnRuns = (turnId: string | undefined) =>
+    turnId !== undefined && (turnId === props.activeTurnId || (channel?.workingTurns().includes(turnId) ?? false));
   const traceKeyboard = currentDevicePlatform() === "darwin" ? "mac" : "pc";
   /** The trace that the steps row above an answer opens. */
   const traceAbove = (messageId: string | undefined): AgentStepsTrace => ({
@@ -1020,6 +1030,12 @@ export function ConversationTimeline() {
                           <AgentStepsDisclosure
                             steps={turnSteps.stepsOfTurn((message() ?? initialMessage).turnId)}
                             defaultOpen={showAgentSteps()}
+                            running={turnRuns((message() ?? initialMessage).turnId)}
+                            choice={stepChoice((message() ?? initialMessage).turnId)}
+                            onChoice={(open) => {
+                              const turnId = (message() ?? initialMessage).turnId;
+                              if (turnId) chooseSteps([turnId], open);
+                            }}
                           />
                         </article>
                       </ChatRowBoundary>
@@ -1167,6 +1183,12 @@ export function ConversationTimeline() {
                           <AgentStepsDisclosure
                             steps={steps()}
                             defaultOpen={showAgentSteps()}
+                            running={turnRuns(message()?.turnId)}
+                            choice={stepChoice(message()?.turnId)}
+                            onChoice={(open) => {
+                              const turnId = message()?.turnId;
+                              if (turnId) chooseSteps([turnId], open);
+                            }}
                             trace={traceAbove(message()?.id)}
                             facts={turnSteps.factsAbove(message()?.id)}
                           />
@@ -1364,6 +1386,7 @@ export function ConversationTimeline() {
                       workers={channel?.workers() ?? []}
                       steps={channelWorkingSteps()}
                       stepsOpenByDefault={showAgentSteps()}
+                      onStepsChoice={(open) => chooseSteps(channel?.workingTurns() ?? [], open)}
                     />
                   </Show>
                 }
@@ -1378,6 +1401,10 @@ export function ConversationTimeline() {
                       since={activity().since}
                       steps={turnSteps.activeSteps()}
                       stepsOpenByDefault={showAgentSteps()}
+                      stepsChoice={stepChoice(props.activeTurnId ?? undefined)}
+                      onStepsChoice={(open) => {
+                        if (props.activeTurnId) chooseSteps([props.activeTurnId], open);
+                      }}
                       waitingFor={waitingProviderName()}
                     />
                   )}

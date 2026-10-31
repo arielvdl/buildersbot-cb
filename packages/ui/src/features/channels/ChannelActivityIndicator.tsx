@@ -77,6 +77,8 @@ export function ChannelActivityIndicator(props: {
   steps?: readonly AgentStep[] | undefined;
   /** The "Show agent steps" setting: the steps are open when the work starts. */
   stepsOpenByDefault?: boolean | undefined;
+  /** The person opened or closed the steps. The steps above each answer keep that choice. */
+  onStepsChoice?: ((open: boolean) => void) | undefined;
 }) {
   const { t, format } = useText();
   const key = createMemo(() =>
@@ -111,6 +113,7 @@ export function ChannelActivityIndicator(props: {
         class="channel-activity-content"
         steps={props.steps}
         stepsOpenByDefault={props.stepsOpenByDefault}
+        onStepsChoice={props.onStepsChoice}
         live
       >
         <div class="channel-activity-faces">

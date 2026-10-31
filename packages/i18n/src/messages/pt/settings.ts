@@ -82,7 +82,7 @@ export const messages = {
     "Um revisor separado lê cada mensagem e imagem que você envia antes do agente e aponta prompt injection. Ele usa o modelo do agente e nunca altera o seu texto.",
   "settings.showAgentSteps.title": "Mostrar etapas do agente",
   "settings.showAgentSteps.description":
-    "Abre por padrão o raciocínio, as etapas de ferramentas e as mudanças de memória de cada turno neste dispositivo e navegador.",
+    "Abre o raciocínio, as etapas de ferramentas e as mudanças de memória enquanto o turno roda, neste dispositivo e navegador. Elas se fecham quando o turno termina.",
   "settings.busyMessage.title": "Orientar agentes enquanto trabalham",
   "settings.busyMessage.description":
     "Novas mensagens entram no trabalho atual do agente, não na fila. Funciona com ChatGPT e Claude.",

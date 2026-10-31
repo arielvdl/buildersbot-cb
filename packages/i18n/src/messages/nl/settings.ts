@@ -60,7 +60,7 @@ export const messages = {
   "settings.sendShortcut.modEnterWin": "Ctrl+Enter verstuurt",
   "settings.showAgentSteps.title": "Toon stappen van agents",
   "settings.showAgentSteps.description":
-    "Open standaard het denkwerk, de toolstappen en de geheugenwijzigingen van elke beurt op dit apparaat en in deze browser.",
+    "Open het denkwerk, de toolstappen en de geheugenwijzigingen terwijl een beurt loopt, op dit apparaat en in deze browser. Ze sluiten wanneer de beurt eindigt.",
   "settings.busyMessage.title": "Stuur agents bij terwijl ze werken",
   "settings.busyMessage.description":
     "Nieuwe berichten gaan naar het huidige werk van de agent, niet naar de wachtrij. Werkt met ChatGPT en Claude.",

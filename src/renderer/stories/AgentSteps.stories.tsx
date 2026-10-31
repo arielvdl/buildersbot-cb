@@ -1,13 +1,15 @@
+import { Button } from "@openbot/ui";
 import { AgentActivityIndicator } from "@openbot/ui/features/conversation/AgentActivity";
 import { type AgentStep, AgentStepsDisclosure } from "@openbot/ui/features/conversation/AgentSteps";
-import { createSignal, onSettled } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { STORY_AGENTS } from "./fixtures";
 
 /*
  * The steps of an agent's turn (#2537, #2884): its thoughts, the host's progress lines and the
  * memory changes it committed. While the turn runs, a chevron on the activity line opens them;
- * after it, a closed row above the answer holds them.
+ * after it, a closed row above the answer holds them. "Show agent steps" opens them only while the
+ * turn runs.
  */
 
 const STEPS: AgentStep[] = [
@@ -114,13 +116,71 @@ export const Finished: Story = {
   ),
 };
 
-/** A finished turn with "Show agent steps" on. */
+/** A finished turn that the person opened. */
 export const FinishedOpen: Story = {
   render: () => (
     <div style={{ width: "640px" }}>
-      <AgentStepsDisclosure steps={[...STEPS, ...MEMORY]} defaultOpen />
+      <AgentStepsDisclosure steps={[...STEPS, ...MEMORY]} defaultOpen={false} choice />
     </div>
   ),
+};
+
+/** Turns from the history with "Show agent steps" on: a finished turn starts closed. */
+export const FromHistory: Story = {
+  render: () => (
+    <div style={{ width: "640px", display: "grid", gap: "12px" }}>
+      <AgentStepsDisclosure steps={STEPS} defaultOpen facts={{ durationMs: 1_930_000, failed: 1 }} />
+      <p style={{ margin: 0 }}>The plan for the week is ready. Friday morning is free for the deep-work block.</p>
+      <AgentStepsDisclosure steps={[...STEPS, ...MEMORY]} defaultOpen facts={{ durationMs: 74_000, failed: 0 }} />
+      <p style={{ margin: 0 }}>I saved your writing hours and moved the work tasks to the new project.</p>
+    </div>
+  ),
+};
+
+/**
+ * "Show agent steps" is on. The list is open while the turn runs and steps arrive. When the turn
+ * ends, the list closes by itself with a short transition, and the answer under it shows. Click the
+ * row while the turn runs: a list that you open stays open after the end.
+ */
+export const TurnEnds: Story = {
+  render: () => {
+    const [shown, setShown] = createSignal(1);
+    const [running, setRunning] = createSignal(true);
+    const [round, setRound] = createSignal(0);
+    onSettled(() => {
+      const timer = window.setInterval(() => {
+        if (!running()) return;
+        if (shown() < STEPS.length) setShown((count) => count + 1);
+        else setRunning(false);
+      }, 700);
+      return () => window.clearInterval(timer);
+    });
+    const restart = () => {
+      setShown(1);
+      setRunning(true);
+      setRound((value) => value + 1);
+    };
+    return (
+      <div style={{ width: "640px", display: "grid", gap: "12px", "justify-items": "start" }}>
+        <Button variant="secondary" size="sm" onClick={restart}>
+          {running() ? "The turn runs" : "Run the turn again"}
+        </Button>
+        <Show when={round() + 1} keyed>
+          <AgentStepsDisclosure
+            steps={STEPS.slice(0, shown())}
+            defaultOpen
+            running={running()}
+            facts={{ durationMs: shown() * 700, failed: 1 }}
+          />
+        </Show>
+        <p style={{ margin: 0 }}>
+          {running()
+            ? "Writing the answer…"
+            : "The plan for the week is ready. Friday morning is free for the deep-work block."}
+        </p>
+      </div>
+    );
+  },
 };
 
 /** A turn from a Team API host: the host sends the memory count only. */

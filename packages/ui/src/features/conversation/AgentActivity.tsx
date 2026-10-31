@@ -7,6 +7,7 @@ import { ChevronDown } from "../../icons";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { type AgentStep, AgentStepList } from "./AgentSteps";
+import { stepsOpenAtStart } from "./agent-steps-open";
 
 /**
  * The English source of each label. A label is an identifier here: render it with
@@ -83,6 +84,10 @@ export function AgentActivityIndicator(props: {
   steps?: readonly AgentStep[] | undefined;
   /** The "Show agent steps" setting: the steps are open when the turn starts. */
   stepsOpenByDefault?: boolean | undefined;
+  /** What the person chose for the steps of this turn, which the chat keeps. */
+  stepsChoice?: boolean | undefined;
+  /** The person opened or closed the steps. The steps above the answer keep that choice. */
+  onStepsChoice?: ((open: boolean) => void) | undefined;
   /**
    * The provider name, when nothing has come from the provider for a while or the computer has no
    * network. The line then says that it waits, with no shine, because a silent provider is not visible work.
@@ -123,6 +128,8 @@ export function AgentActivityIndicator(props: {
       <AgentActivityBody
         steps={props.steps}
         stepsOpenByDefault={props.stepsOpenByDefault}
+        stepsChoice={props.stepsChoice}
+        onStepsChoice={props.onStepsChoice}
         live={props.phase !== "exiting"}
       >
         <AgentAvatar agent={props.agent} mood={mood()} class="agent-activity-avatar" />
@@ -143,6 +150,10 @@ export function AgentActivityBody(props: {
   steps?: readonly AgentStep[] | undefined;
   /** The "Show agent steps" setting: the steps are open when the work starts. */
   stepsOpenByDefault?: boolean | undefined;
+  /** What the person chose for the steps of this work, which the chat keeps. */
+  stepsChoice?: boolean | undefined;
+  /** The person opened or closed the steps. */
+  onStepsChoice?: ((open: boolean) => void) | undefined;
   live: boolean;
   children: JSX.Element;
 }) {
@@ -150,7 +161,9 @@ export function AgentActivityBody(props: {
   const stepsId = createUniqueId();
   const [stepsChoice, setStepsChoice] = createSignal<boolean>();
   const hasSteps = () => (props.steps?.length ?? 0) > 0;
-  const stepsOpen = () => hasSteps() && (stepsChoice() ?? props.stepsOpenByDefault === true);
+  const stepsOpen = () =>
+    hasSteps() &&
+    (stepsChoice() ?? props.stepsChoice ?? stepsOpenAtStart("running", props.stepsOpenByDefault === true));
   // A new turn starts with no steps, and with the setting again.
   createEffect(hasSteps, (has) => {
     if (!has) setStepsChoice(undefined);
@@ -171,7 +184,11 @@ export function AgentActivityBody(props: {
             aria-expanded={stepsOpen() ? "true" : "false"}
             aria-controls={stepsOpen() ? stepsId : undefined}
             aria-label={stepsOpen() ? t("chat.steps.hide") : t("chat.steps.show")}
-            onClick={() => setStepsChoice(!stepsOpen())}
+            onClick={() => {
+              const next = !stepsOpen();
+              setStepsChoice(next);
+              props.onStepsChoice?.(next);
+            }}
           >
             <ChevronDown class="agent-steps-chevron" aria-hidden="true" />
           </Button>

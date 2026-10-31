@@ -1,12 +1,13 @@
 import type { ConversationMemoryChange } from "@openbot/contracts/ipc";
 import { countConversationMemoryChanges } from "@openbot/contracts/ipc";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
 import { Badge } from "../../badge";
 import { Button } from "../../button";
 import { Brain, ChevronRight, Puzzle, Sparkles } from "../../icons";
 import { type TextValue, useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
+import { shouldAutoCollapse, stepsOpenAtStart, stepsOpenedBy, type TurnPhase } from "./agent-steps-open";
 import { useDuration } from "./Subagents";
 import { type TraceKeyboard, type TraceSpan, TraceWaterfallDialog } from "./TraceWaterfall";
 
@@ -166,15 +167,35 @@ export interface AgentStepsFacts {
   failed: number;
 }
 
+/** The longest wait for the end of the closing transition, in case the browser sends no end. */
+const CLOSE_FALLBACK_MS = 600;
+
+/** The nearest ancestor that scrolls vertically, such as the chat. */
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+    const overflow = getComputedStyle(parent).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && parent.scrollHeight > parent.clientHeight) return parent;
+  }
+  return null;
+}
+
 /**
- * The steps of a finished turn, above its answer: a closed summary row that opens the list, or the
- * trace when the turn has one. The row looks like the header of the subagents above it. The "Show
- * agent steps" setting opens the list at first. An open list, also one that a step picked in the
- * trace opened, closes from the row.
+ * The steps of a turn, above its answer: a closed summary row that opens the list, or the trace when
+ * the turn has one. The row looks like the header of the subagents above it. While the turn runs,
+ * the "Show agent steps" setting opens the list. When the turn ends, the list that the setting
+ * opened closes with a short transition, so the answer is not under the steps. A finished turn, such
+ * as one from the history, starts closed. A choice of the person wins: a list that they opened stays
+ * open. An open list, also one that a step picked in the trace opened, closes from the row.
  */
 export function AgentStepsDisclosure(props: {
   steps: readonly AgentStep[];
+  /** The "Show agent steps" setting. */
   defaultOpen: boolean;
+  /** The turn of these steps still runs. */
+  running?: boolean | undefined;
+  /** What the person chose for this turn, which the chat keeps when the row is drawn again. */
+  choice?: boolean | undefined;
+  onChoice?: ((open: boolean) => void) | undefined;
   trace?: AgentStepsTrace | undefined;
   facts?: AgentStepsFacts | undefined;
 }) {
@@ -183,12 +204,81 @@ export function AgentStepsDisclosure(props: {
   /** Whole seconds, rounded as the trace rounds the turn, so that the row and the trace agree. */
   const turnTime = (ms: number) => duration(Math.round(ms / 1_000) * 1_000);
   const panelId = createUniqueId();
-  const [choice, setChoice] = createSignal<boolean>();
+  const [localChoice, setLocalChoice] = createSignal<boolean>();
+  const choice = () => localChoice() ?? props.choice;
+  const phase = (running: boolean | undefined): TurnPhase => (running ? "running" : "finished");
+  const [openBySetting, setOpenBySetting] = createSignal(
+    untrack(() => stepsOpenAtStart(phase(props.running), props.defaultOpen)),
+  );
+  // The list that the end of the turn closes stays on the page for its closing transition.
+  const [closing, setClosing] = createSignal(false);
   // The time the trace opened: a finished turn does not move, so its "now" stays at that time.
   const [traceOpenedAt, setTraceOpenedAt] = createSignal<number | null>(null);
   // A long chat has a row for each turn, so a row builds its trace dialog when it first opens.
   const [traceUsed, setTraceUsed] = createSignal(false);
-  const open = () => choice() ?? props.defaultOpen;
+  const open = () => choice() ?? openBySetting();
+  let root: HTMLDivElement | undefined;
+  let panel: HTMLDivElement | undefined;
+  let closeTimer: number | undefined;
+  let anchorFrame: number | undefined;
+  onSettled(() => () => {
+    window.clearTimeout(closeTimer);
+    if (anchorFrame !== undefined) window.cancelAnimationFrame(anchorFrame);
+  });
+  const choose = (next: boolean) => {
+    setClosing(false);
+    setLocalChoice(next);
+    props.onChoice?.(next);
+  };
+  /**
+   * Closes the list that the setting opened. A list in view closes with a short transition. A list
+   * that starts above the view closes at once, and the chat scrolls by its height, so the answer
+   * under it stays where the person reads it.
+   */
+  const collapse = () => {
+    const element = panel;
+    const scroller = element ? scrollParent(element) : null;
+    const above =
+      element !== undefined &&
+      scroller !== null &&
+      element.getBoundingClientRect().top < scroller.getBoundingClientRect().top;
+    if (above && scroller && root) {
+      const block = root;
+      const before = block.getBoundingClientRect().bottom;
+      setOpenBySetting(false);
+      anchorFrame = window.requestAnimationFrame(() => {
+        anchorFrame = undefined;
+        // The chat's virtualizer keeps a row that is all above the view in place by itself.
+        const row = block.parentElement?.getBoundingClientRect();
+        if (!row || row.bottom <= scroller.getBoundingClientRect().top) return;
+        const shift = before - block.getBoundingClientRect().bottom;
+        if (shift > 0) scroller.scrollTop -= shift;
+      });
+      return;
+    }
+    if (!prefersReducedMotion() && element) {
+      setClosing(true);
+      window.clearTimeout(closeTimer);
+      closeTimer = window.setTimeout(() => setClosing(false), CLOSE_FALLBACK_MS);
+    }
+    setOpenBySetting(false);
+  };
+  createEffect(
+    () => ({
+      running: props.running === true,
+      showSteps: props.defaultOpen,
+      // What kept the list open before this change. It is read here, not in the callback, which
+      // must not read props.
+      openedBy: untrack(() => stepsOpenedBy(choice(), openBySetting())),
+    }),
+    (next, previous) => {
+      if (previous && shouldAutoCollapse(phase(previous.running), phase(next.running), next.openedBy)) {
+        collapse();
+        return;
+      }
+      setOpenBySetting(stepsOpenAtStart(phase(next.running), next.showSteps));
+    },
+  );
   // The step that the user picked in the trace. A new object each time scrolls to it again.
   const [focus, setFocus] = createSignal<{ id: string } | null>(null);
   const isStep = (id: string) => props.steps.some((step) => step.id === id);
@@ -200,7 +290,7 @@ export function AgentStepsDisclosure(props: {
       props.trace?.onSelectSpan?.(id);
       return;
     }
-    setChoice(true);
+    choose(true);
     setFocus({ id });
   };
   /** The row opens the trace, unless it has none or its list is open. */
@@ -224,10 +314,16 @@ export function AgentStepsDisclosure(props: {
       return;
     }
     setFocus(null);
-    setChoice(!open());
+    choose(!open());
   };
   return (
-    <div class="agent-steps" data-open={open() ? "" : undefined}>
+    <div
+      ref={(element) => {
+        root = element;
+      }}
+      class="agent-steps"
+      data-open={open() ? "" : undefined}
+    >
       <Button
         type="button"
         variant="ghost"
@@ -270,8 +366,18 @@ export function AgentStepsDisclosure(props: {
         }}
       </Show>
       {/* A long chat has a row for each turn, so a closed row builds no list. */}
-      <Show when={open()}>
-        <div class="agent-steps-panel">
+      <Show when={open() || closing()}>
+        <div
+          ref={(element) => {
+            panel = element;
+          }}
+          class="agent-steps-panel"
+          data-closing={open() ? undefined : ""}
+          onTransitionEnd={(event) => {
+            if (event.target === event.currentTarget && event.propertyName === "grid-template-rows" && !open())
+              setClosing(false);
+          }}
+        >
           <AgentStepList id={panelId} steps={props.steps} live={false} focus={focus()} />
         </div>
       </Show>

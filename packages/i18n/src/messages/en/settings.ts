@@ -85,7 +85,7 @@ export const messages = defineMessages("settings", {
     "A separate reviewer reads every message and image you send before the agent does, and reports prompt injection. It uses the model of the agent and never changes your text.",
   "settings.showAgentSteps.title": "Show agent steps",
   "settings.showAgentSteps.description":
-    "Open the thinking, tool steps and memory changes of each turn by default on this device and browser.",
+    "Open the thinking, tool steps and memory changes of a turn while it runs, on this device and browser. They close when the turn ends.",
   "settings.busyMessage.title": "Steer agents while they work",
   "settings.busyMessage.description":
     "New messages join the agent’s current work, not the queue. Works with ChatGPT and Claude.",

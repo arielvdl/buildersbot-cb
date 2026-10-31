@@ -60,7 +60,7 @@ export const messages = {
   "settings.sendShortcut.modEnterWin": "Göndermek için Ctrl+Enter",
   "settings.showAgentSteps.title": "Ajan adımlarını göster",
   "settings.showAgentSteps.description":
-    "Bu cihazda ve tarayıcıda her turun düşünme sürecini, araç adımlarını ve bellek değişikliklerini varsayılan olarak açar.",
+    "Bu cihazda ve tarayıcıda, tur sürerken düşünme sürecini, araç adımlarını ve bellek değişikliklerini açar. Tur bitince kapanırlar.",
   "settings.busyMessage.title": "Ajanları çalışırken yönlendir",
   "settings.busyMessage.description":
     "Yeni mesajlar kuyruğa değil, ajanın mevcut işine eklenir. ChatGPT ve Claude ile çalışır.",

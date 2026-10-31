@@ -59,7 +59,7 @@ export const messages = {
   "settings.sendShortcut.modEnterWin": "Ctrl+Enter で送信",
   "settings.showAgentSteps.title": "エージェントのステップを表示",
   "settings.showAgentSteps.description":
-    "このデバイスとこのブラウザーで、各ターンの思考、ツールのステップ、メモリーの変更を既定で開きます。",
+    "このデバイスとこのブラウザーで、ターンの実行中は思考、ツールのステップ、メモリーの変更を開きます。ターンが終わると閉じます。",
   "settings.busyMessage.title": "作業中のエージェントの方向を修正",
   "settings.busyMessage.description":
     "新しいメッセージはキューに入らず、エージェントの現在の作業に加わります。ChatGPT と Claude で使えます。",

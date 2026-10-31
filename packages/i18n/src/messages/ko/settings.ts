@@ -59,7 +59,7 @@ export const messages = {
   "settings.sendShortcut.modEnterWin": "Ctrl+Enter로 전송",
   "settings.showAgentSteps.title": "에이전트 단계 표시",
   "settings.showAgentSteps.description":
-    "이 기기와 브라우저에서 각 턴의 생각, 도구 단계, 메모리 변경을 기본으로 펼쳐서 보여줘요.",
+    "이 기기와 브라우저에서 턴이 진행되는 동안 생각, 도구 단계, 메모리 변경을 펼쳐서 보여줘요. 턴이 끝나면 접혀요.",
   "settings.busyMessage.title": "작업 중인 에이전트에 방향 지시",
   "settings.busyMessage.description":
     "새 메시지가 대기열이 아니라 에이전트의 현재 작업에 반영돼요. ChatGPT와 Claude에서 사용할 수 있어요.",

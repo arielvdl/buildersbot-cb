@@ -68,7 +68,7 @@ export const messages = {
   "settings.sendShortcut.modEnterWin": "Ctrl+Entrée pour envoyer",
   "settings.showAgentSteps.title": "Afficher les étapes de l’agent",
   "settings.showAgentSteps.description":
-    "Ouvre par défaut la réflexion, les étapes d’outils et les changements de souvenirs de chaque tour sur cet appareil et ce navigateur.",
+    "Ouvre la réflexion, les étapes d’outils et les changements de souvenirs pendant le tour, sur cet appareil et ce navigateur. Ils se referment à la fin du tour.",
   "settings.busyMessage.title": "Orienter les agents pendant leur travail",
   "settings.busyMessage.description":
     "Les nouveaux messages rejoignent le travail en cours de l’agent, pas la file. Fonctionne avec ChatGPT et Claude.",
