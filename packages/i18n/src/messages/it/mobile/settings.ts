@@ -157,10 +157,9 @@ export const messages = {
   "mobile.settings.notifications.channel": "Notifiche degli agenti ({sound})",
   "mobile.settings.notifications.channelSilent": "Notifiche degli agenti (senza suono)",
   "mobile.settings.privacy.title": "Privacy",
-  "mobile.settings.privacy.footer":
-    "Condividi l'uso delle funzioni e i risultati delle connessioni di questo telefono. Il contenuto dei messaggi e i file non vengono inviati.",
-  "mobile.settings.privacy.analytics": "Condividi i dati di analisi del prodotto",
-  "mobile.settings.privacy.retry": "Riprova a salvare l'impostazione della privacy",
+  "mobile.settings.privacy.analyticsTitle": "Analisi di utilizzo",
+  "mobile.settings.privacy.analyticsDescription":
+    "Disattivato. Builders Bot non invia analisi di utilizzo né segnalazioni di errore da questo telefono.",
   "mobile.settings.conversations.title": "Conversazioni",
   "mobile.settings.conversations.hiddenChats": "Chat nascoste",
   "mobile.settings.profile.nameUnsafe": "Rimuovi dal nome gli a capo e i caratteri di controllo.",

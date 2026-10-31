@@ -156,10 +156,9 @@ export const messages = {
   "mobile.settings.notifications.channel": "Ajan bildirimleri ({sound})",
   "mobile.settings.notifications.channelSilent": "Ajan bildirimleri (sessiz)",
   "mobile.settings.privacy.title": "Gizlilik",
-  "mobile.settings.privacy.footer":
-    "Bu telefondan özellik kullanımını ve bağlantı sonuçlarını paylaşın. Mesaj içerikleri ve dosyalar gönderilmez.",
-  "mobile.settings.privacy.analytics": "Ürün analizlerini paylaş",
-  "mobile.settings.privacy.retry": "Gizlilik ayarını kaydetmeyi tekrar dene",
+  "mobile.settings.privacy.analyticsTitle": "Kullanım analizi",
+  "mobile.settings.privacy.analyticsDescription":
+    "Kapalı. Builders Bot bu telefondan kullanım analizi ve hata raporu göndermez.",
   "mobile.settings.conversations.title": "Konuşmalar",
   "mobile.settings.conversations.hiddenChats": "Gizli sohbetler",
   "mobile.settings.profile.nameUnsafe": "Adınızdaki satır sonlarını ve kontrol karakterlerini kaldırın.",

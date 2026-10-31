@@ -373,12 +373,11 @@ export async function revokeMobileAccountSession(session: MobileSession, target:
   });
 }
 
-type MobileProfileFieldChange = { name: string } | { avatar: { bytes: Uint8Array; mimeType: AvatarMimeType } | null };
 /**
- * `analyticsEnabled` saves the user's analytics answer on the account, so their other devices follow
- * it. `ageMs` is the age of the choice; the account keeps a newer answer from another device.
+ * A change to the account profile. The app sends no analytics answer to the account: it sends no
+ * analytics (phase 0 of `.openbot-build/bug-reports/DESIGN.md`).
  */
-export type MobileProfileChange = MobileProfileFieldChange | { analyticsEnabled: boolean; ageMs: number };
+export type MobileProfileChange = { name: string } | { avatar: { bytes: Uint8Array; mimeType: AvatarMimeType } | null };
 
 export function updateMobileProfile(
   session: MobileSession,
@@ -386,38 +385,13 @@ export function updateMobileProfile(
   onUpdated?: (updated: MobileSession) => void,
 ): Promise<MobileSession> {
   return serializeMobileProfile(async () => {
-    const updated =
-      "analyticsEnabled" in change
-        ? await writeMobileAnalytics(session, change.analyticsEnabled, change.ageMs)
-        : await writeMobileProfile(session, change);
+    const updated = await writeMobileProfile(session, change);
     onUpdated?.(updated);
     return updated;
   });
 }
 
-async function writeMobileAnalytics(session: MobileSession, enabled: boolean, ageMs: number): Promise<MobileSession> {
-  const { response, body } = await withMobileAuthRequestTimeout(async (signal) => {
-    const request = await fetch(new URL("/v1/me/analytics", session.apiUrl).toString(), {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${session.sessionToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled, ageMs }),
-      signal,
-    });
-    return { response: request, body: await readResponseBody(request, signal) };
-  });
-  await checkMobileAuthorization(response, session);
-  if (!response.ok) {
-    if (response.status === 429) throw new Error(currentText().t("mobile.auth.error.tooManyChanges"));
-    throw new Error(currentText().t("mobile.auth.error.profileSaveFailed"));
-  }
-  const user = decodeUser(body);
-  if (user.id !== session.user.id) throw new Error("The account service returned an invalid user.");
-  const updated = { ...session, user };
-  await saveMobileSessionIfCurrent(updated);
-  return updated;
-}
-
-async function writeMobileProfile(session: MobileSession, change: MobileProfileFieldChange): Promise<MobileSession> {
+async function writeMobileProfile(session: MobileSession, change: MobileProfileChange): Promise<MobileSession> {
   if ("name" in change && validateProfileName(change.name).error) {
     throw new Error(currentText().t("mobile.auth.error.nameLength"));
   }

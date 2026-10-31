@@ -156,10 +156,9 @@ export const messages = {
   "mobile.settings.notifications.channel": "Agentmeldingen ({sound})",
   "mobile.settings.notifications.channelSilent": "Agentmeldingen (geen geluid)",
   "mobile.settings.privacy.title": "Privacy",
-  "mobile.settings.privacy.footer":
-    "Deel functiegebruik en verbindingsresultaten van deze telefoon. Berichtinhoud en bestanden worden niet verstuurd.",
-  "mobile.settings.privacy.analytics": "Productanalyses delen",
-  "mobile.settings.privacy.retry": "Opslaan van privacyinstelling opnieuw proberen",
+  "mobile.settings.privacy.analyticsTitle": "Gebruiksanalyses",
+  "mobile.settings.privacy.analyticsDescription":
+    "Uit. Builders Bot verstuurt vanaf deze telefoon geen gebruiksanalyses en geen foutrapporten.",
   "mobile.settings.conversations.title": "Gesprekken",
   "mobile.settings.conversations.hiddenChats": "Verborgen chats",
   "mobile.settings.profile.nameUnsafe": "Verwijder regeleinden en stuurtekens uit je naam.",

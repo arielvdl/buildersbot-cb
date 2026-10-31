@@ -163,10 +163,9 @@ export const messages = {
   "mobile.settings.notifications.channel": "Agenten-Benachrichtigungen ({sound})",
   "mobile.settings.notifications.channelSilent": "Agenten-Benachrichtigungen (ohne Ton)",
   "mobile.settings.privacy.title": "Datenschutz",
-  "mobile.settings.privacy.footer":
-    "Teile die Nutzung von Funktionen und Verbindungsergebnisse dieses Telefons. Nachrichteninhalte und Dateien werden nicht gesendet.",
-  "mobile.settings.privacy.analytics": "Nutzungsdaten teilen",
-  "mobile.settings.privacy.retry": "Datenschutzeinstellung erneut speichern",
+  "mobile.settings.privacy.analyticsTitle": "Nutzungsanalysen",
+  "mobile.settings.privacy.analyticsDescription":
+    "Aus. Builders Bot sendet von diesem Telefon keine Nutzungsanalysen und keine Fehlerberichte.",
   "mobile.settings.conversations.title": "Unterhaltungen",
   "mobile.settings.conversations.hiddenChats": "Ausgeblendete Chats",
   "mobile.settings.profile.nameUnsafe": "Entferne Zeilenumbrüche und Steuerzeichen aus deinem Namen.",
