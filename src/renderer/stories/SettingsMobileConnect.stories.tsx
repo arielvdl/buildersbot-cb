@@ -39,8 +39,13 @@ const WithAddress = mobileConnectStory(() => Promise.resolve(WEB_APP_URL));
 const WithoutAddress = mobileConnectStory(() =>
   Promise.reject(new Error("Could not load the address of the web app.")),
 );
-const NotPublished = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), "offline");
-const Published = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), "online");
+const NotPublished = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), { state: "offline", message: null });
+const Published = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), { state: "online", message: null });
+const Starting = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), { state: "starting", message: null });
+const Disconnected = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), {
+  state: "disconnected",
+  message: "Signal did not answer.",
+});
 
 const meta = {
   title: "Settings/Mobile Connect",
@@ -62,3 +67,9 @@ export const ComputerNotPublished: Story = { render: () => <NotPublished /> };
 
 /** The server of this computer is published: a phone lists it while the computer is on and awake. */
 export const ComputerPublished: Story = { render: () => <Published /> };
+
+/** The server of this computer is being published or connected. */
+export const ComputerStarting: Story = { render: () => <Starting /> };
+
+/** The server is published, but not connected now, with the cause from the host. Try again fails here. */
+export const ComputerDisconnected: Story = { render: () => <Disconnected /> };

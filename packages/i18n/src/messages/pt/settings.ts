@@ -728,10 +728,13 @@ export const messages = {
   "settings.search.keywords.leftColumn": "barra lateral, coluna da esquerda, servidores, seções",
   "settings.search.keywords.logoColor": "logotipo, ícone, dock, cor",
   "settings.search.keywords.mcp": "MCP, ferramentas, conectores, integrações",
-  "settings.search.keywords.members": "membros, pessoas, convidar, convite, equipe, usuários",
+  "settings.search.keywords.members":
+    "membros, pessoas, convidar, convite, equipe, usuários, publicar, publicado, acesso remoto",
   "settings.search.keywords.memory": "memória, memórias, limite, revisão, lembrar",
   "settings.search.keywords.mobileConnect":
-    "celular, telefone, iPhone, Android, código QR, parear, app web, PWA, instalar no celular, tela inicial",
+    "celular, telefone, iPhone, Android, código QR, parear, app web, PWA, instalar no celular, tela inicial, publicar, acesso remoto",
+  "settings.search.keywords.mobileConnectPublish":
+    "publicar, publicado, publicar servidor, acesso remoto, alcançar este computador, conectar pelo celular, não publicado",
   "settings.search.keywords.notifications": "notificações, alertas, avisos, sons, banners",
   "settings.search.keywords.profile": "perfil, conta, nome, foto, avatar, sair",
   "settings.search.keywords.promptGuard": "injeção de prompt, segurança, verificar mensagens, proteção",
@@ -776,7 +779,14 @@ export const messages = {
     "Publique o servidor deste computador para alcançá-lo pelo web app no celular.",
   "settings.mobileConnect.reach.online.title": "Este servidor está publicado",
   "settings.mobileConnect.reach.online.description":
-    "O web app no celular lista este servidor, e os membros dele podem se conectar.",
+    "O web app no celular lista este servidor, e os membros dele podem se conectar. O celular só alcança este computador enquanto ele estiver ligado e acordado: veja Geral > Manter o computador ativo e Com a tampa fechada.",
+  "settings.mobileConnect.reach.starting.title": "Conectando este servidor…",
+  "settings.mobileConnect.reach.starting.description":
+    "O servidor deste computador está entrando no ar. O web app no celular o lista quando ele estiver conectado.",
+  "settings.mobileConnect.reach.disconnected.title": "Publicado, mas sem conexão agora",
+  "settings.mobileConnect.reach.disconnected.description":
+    "O Builders Bot conecta o servidor de novo quando a rede voltar. Até lá, o celular não o alcança.",
+  "settings.mobileConnect.reach.retry": "Tentar de novo",
   "settings.mobileConnect.reach.publish": "Publicar este servidor",
   "settings.mobileConnect.reach.publishing": "Publicando…",
 } as const satisfies PartialTranslation<typeof source>;

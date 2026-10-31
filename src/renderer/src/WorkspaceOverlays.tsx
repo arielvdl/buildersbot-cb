@@ -866,12 +866,18 @@ function AppSettings(props: AccountProps) {
   const whatsNew = useWhatsNew();
   const { servers, hostStatus, setAddServerOpen, setServerMuted, setServerNotificationLevel } = useServers();
   const { publishLocalServer } = useServerSettings();
-  /** The web app on a phone lists this computer only while its server is published. */
+  /**
+   * The web app on a phone lists this computer only while its server is published. A published server
+   * (`enabledOnLaunch`) that is not online, such as after a Signal failure at wake, is published again
+   * by the launch publish retry, so it is disconnected and not "not published".
+   */
   const mobileConnectReach = (): MobileConnectReach | null => {
     if (!servers().some((server) => server.kind === "local")) return null;
-    const phase = hostStatus().phase;
-    if (phase === "online" || phase === "starting") return phase;
-    return "offline";
+    const status = hostStatus();
+    if (status.phase === "online" || status.phase === "starting") return { state: status.phase, message: null };
+    // Only a failure keeps its cause; other phases hold a status line, such as "stopping".
+    const message = status.phase === "error" ? status.message : null;
+    return { state: status.enabledOnLaunch ? "disconnected" : "offline", message };
   };
   const {
     appSettingsOpen,

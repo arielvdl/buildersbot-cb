@@ -791,10 +791,12 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.leftColumn": "sidebar, rail, left column, servers, sections",
   "settings.search.keywords.logoColor": "logo, icon, dock, color",
   "settings.search.keywords.mcp": "MCP, tools, connectors, integrations",
-  "settings.search.keywords.members": "members, people, invite, team, users",
+  "settings.search.keywords.members": "members, people, invite, team, users, publish, published, remote access",
   "settings.search.keywords.memory": "memory, memories, limit, review, remember",
   "settings.search.keywords.mobileConnect":
-    "phone, mobile, iPhone, Android, QR code, pair, web app, PWA, install on the phone, home screen",
+    "phone, mobile, iPhone, Android, QR code, pair, web app, PWA, install on the phone, home screen, publish, remote access",
+  "settings.search.keywords.mobileConnectPublish":
+    "publish, published, publish server, remote access, reach this computer, connect from the phone, not published",
   "settings.search.keywords.notifications": "notifications, alerts, sounds, banners",
   "settings.search.keywords.profile": "profile, account, name, photo, avatar, sign out",
   "settings.search.keywords.promptGuard": "prompt injection, security, scan messages, safety",
@@ -837,7 +839,14 @@ export const messages = defineMessages("settings", {
     "Publish the server of this computer to reach it from the web app on a phone.",
   "settings.mobileConnect.reach.online.title": "This server is published",
   "settings.mobileConnect.reach.online.description":
-    "The web app on a phone lists this server, and its members can connect to it.",
+    "The web app on a phone lists this server, and its members can connect to it. A phone reaches this computer only while it is on and awake: see General > Keep this computer awake and With the lid closed.",
+  "settings.mobileConnect.reach.starting.title": "Connecting this server…",
+  "settings.mobileConnect.reach.starting.description":
+    "The server of this computer comes online. The web app on a phone lists it when it is connected.",
+  "settings.mobileConnect.reach.disconnected.title": "Published, but not connected now",
+  "settings.mobileConnect.reach.disconnected.description":
+    "Builders Bot connects the server again when the network comes back. Until then, a phone cannot reach it.",
+  "settings.mobileConnect.reach.retry": "Try again",
   "settings.mobileConnect.reach.publish": "Publish this server",
   "settings.mobileConnect.reach.publishing": "Publishing…",
 });

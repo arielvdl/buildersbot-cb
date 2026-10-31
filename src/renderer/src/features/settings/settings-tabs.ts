@@ -407,6 +407,12 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
     rows: [
       { anchor: "settings.mobileConnect.phones.title", descriptionKey: "settings.mobileConnect.phones.description" },
       { anchor: "settings.mobileConnect.phones.add", descriptionKey: "settings.mobileConnect.add.webApp.question" },
+      // The tab shows it while this computer has a server. Without one, the search says that it does not show now.
+      {
+        anchor: "settings.mobileConnect.reach.publish",
+        descriptionKey: "settings.mobileConnect.reach.offline.where",
+        keywordsKey: "settings.search.keywords.mobileConnectPublish",
+      },
       { anchor: "settings.mobileConnect.link.title", descriptionKey: "settings.mobileConnect.link.cardHint" },
       { anchor: "settings.mobileConnect.route.title", descriptionKey: "settings.mobileConnect.route.description" },
     ],
