@@ -11,9 +11,10 @@ import {
   type VoiceStreamAudio,
   type VoiceTranscriptionInput,
 } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
 import { createRoot } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGlobalDictation } from "./global-dictation";
+import { createGlobalDictation, dictationText } from "./global-dictation";
 
 /** jsdom has no Web Audio. This decodes each recording as one second of mono audio at 16 kHz. */
 class FakeAudioContext {
@@ -173,5 +174,49 @@ describe("the dictation of the global combination", () => {
     expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.failed" });
     expect(voice.cancelStream).toHaveBeenCalledWith({ streamId: "stream-1" });
     expect(voice.finishStream).not.toHaveBeenCalled();
+  });
+
+  it("reports the real reason when main sends the English text of a catalog key", async () => {
+    const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
+    voice.startStream.mockRejectedValueOnce(new Error(sourceText("error.voice.cloud.keyRequired")));
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.voice.cloud.keyRequired" });
+    expect(voice.appendStream).not.toHaveBeenCalled();
+  });
+
+  it("says that the saved key cannot be read, not that a key is missing", async () => {
+    const { voice, publish } = installVoice({ modelId: ELEVENLABS_VOICE_MODEL_ID, language: "pt" });
+    voice.startStream.mockRejectedValueOnce(new Error(sourceText("error.voice.cloud.keyUnreadable")));
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.voice.cloud.keyUnreadable" });
+    expect(dictationText({ phase: "failed", failure: "error.voice.cloud.keyUnreadable" })).toBe(
+      sourceText("error.voice.cloud.keyUnreadable"),
+    );
+  });
+
+  it("reports the generic failure for text with a value in it, so the overlay shows no placeholder", async () => {
+    const server: VoiceServerSettings = {
+      address: "http://studio.local:8000/v1",
+      hasApiKey: true,
+      routes: { dictation: true, speech: false, transcriptionModel: "whisper-1", speechModel: null, voice: null },
+    };
+    const { voice, publish } = installVoice({ modelId: "parakeet-tdt-0.6b-v3", language: "pt" }, server);
+    voice.transcribe.mockRejectedValueOnce(
+      new Error(sourceText("error.voice.server.keyRefused", { host: "studio.local" })),
+    );
+    mount();
+
+    await dictate(publish);
+
+    await vi.waitFor(() => expect(voice.finishDictation).toHaveBeenCalled());
+    expect(voice.finishDictation).toHaveBeenCalledWith({ failure: "error.dictation.failed" });
   });
 });

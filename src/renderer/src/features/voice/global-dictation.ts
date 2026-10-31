@@ -6,6 +6,7 @@ import {
   type VoiceTranscriptionResult,
 } from "@openbot/contracts/ipc";
 import { type AppTextKey, en } from "@openbot/i18n";
+import { isFixedSourceText, matchingSourceKeys } from "@openbot/i18n/source";
 import { currentText } from "@openbot/ui/text";
 import { createSignal, onCleanup } from "solid-js";
 import { appPort } from "../../app-port";
@@ -132,12 +133,18 @@ async function report(result: { text: string } | { failure: string }): Promise<v
 }
 
 /**
- * The IPC failure of a transcription is a catalog key, because main sends no prose. Anything else
- * is a bug here, and reads as the generic failure.
+ * The catalog key of a failure, because the dictation state carries a key and not prose. Main sends
+ * the English text of a source key, such as the text that asks for an API key; that text maps back
+ * to its one `error.*` key. A key itself is kept. Text with a value in it, such as a host name, reads
+ * as the generic failure: the state has no place for the value, and the overlay must not show a
+ * placeholder.
  */
 function failureKey(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message.startsWith("error.") ? message : "error.dictation.failed";
+  if (message.startsWith("error.")) return message;
+  if (!isFixedSourceText(message)) return "error.dictation.failed";
+  const keys = matchingSourceKeys(message).filter((key) => key.startsWith("error."));
+  return keys.length === 1 && keys[0] !== undefined ? keys[0] : "error.dictation.failed";
 }
 
 function cancel(): void {
