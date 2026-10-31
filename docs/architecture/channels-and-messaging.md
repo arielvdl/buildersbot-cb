@@ -493,7 +493,9 @@ automatic recovery in the same look, only while both switches are on. It watches
 of life, requests that wait too long and failed starts. It shares the tries of each task with the
 automatic recovery (`RecoveryLedger`), and while it is on, the automatic recovery leaves the failed
 starts to it. Its commands carry `work-auto:` operation ids, as the commands of the automatic
-recovery do.
+recovery do. That start only makes the logs easy to read: `WorkControl` tells its own commands from
+a person's by the ids that it sent, because a client can send any operation id. A request counts
+for the reviewer only when the drain would start it now (`ChannelService.queuedHolds`).
 
 Rules that are easy to break:
 

@@ -12,9 +12,10 @@ stopped tasks again. The task reviewer covers the work that "Resume by itself" d
 - **A run that gives no sign of life.** The task says Working (`running`), but the provider sent no
   event (no text, no tool step, no usage update) for a long time. The run holds one of the limited
   places for agents, so other tasks wait behind it.
-- **A request that waits too long.** The task says Requested (`queued`), but it did not start, and
-  nothing that the person set holds it: the one-channel-at-a-time lane, the cap on agents, the
-  memory hold, a spent plan, or its own agent that works on something else.
+- **A request that waits too long.** The task says Requested (`queued`), the drain of its channel
+  would start it now, but it did not start. A request that waits for a reason is not parked: see
+  the list of holds below. `ChannelService.queuedHolds` gives the reason of the drain for each
+  request, with the same checks as the drain.
 - **A start that fails again.** The task failed with "The provider could not start this
   assignment" (`error.backend.channelStartFailed`), it was started again, and it failed again. A
   second try on the same agent does not help, so the reviewer goes to another agent, or stops.
@@ -34,7 +35,11 @@ The local rules use no network. For each watched task they find the last sign of
   the same agent also counts as a sign. When the task has no turn yet, the time when the reviewer
   first saw it in that state counts.
 - A request: the time when the reviewer first saw it queued at its current revision. A resume gives
-  the task a new revision, so the wait starts again.
+  the task a new revision, so the wait starts again. When the drain gives the request an
+  assignment, the clock of that assignment starts.
+- A hold stops the clock. A look that finds a hold counts as a sign, so the time with no sign counts
+  from the last look that found a hold. A request that a full cap held for an hour is not stalled
+  when the place frees and the drain starts its turn.
 
 With `N` the threshold that the person sets ("consider it stopped after N minutes with no sign"):
 
@@ -43,6 +48,17 @@ With `N` the threshold that the person sets ("consider it stopped after N minute
 | Less than `N` | healthy | Nothing. A long run that gives signs is never touched. |
 | `N` to `2 × N` | slow | The model can decide. With no model, the reviewer waits. |
 | `2 × N` or more | stalled | The reviewer acts. |
+
+Two cases change the table:
+
+- A run whose agent has a work step that started and did not end (`TurnLifecycle.hasOpenWorkStep`,
+  `src/backend/agent/open-work-steps.ts`): a command, a tool call, a file change or a compaction. A
+  long build or test run sends no event while it runs. Such a run is slow from `N` to `4 × N`
+  (`OPEN_STEP_STALL_FACTOR`), and stalled only from `4 × N`. Text (a message or a reasoning) is not
+  a work step: a stream of text that stops is a stall.
+- A request whose start is under way: the drain gave it its own assignment, and the turn did not
+  start yet (`ChannelQueueHold` `starting`). It has no slow band: it is stalled only from `2 × N` on
+  the clock of that assignment. A turn that waits for a place under the cap is held (`slot`).
 
 `N` is 15 minutes by default, from 5 to 120. A provider sends events every few seconds while a
 turn works. A long command with no output, such as an install, a build or a test run, is the usual
@@ -60,9 +76,15 @@ A task is never touched when:
   low would stop the reviewer;
 - a task below it works (`queued`, `running` or `waiting`): a resume would start that work again;
 - its agent has a spent plan;
-- for a request: the lane holds its channel, its agent waits for a free place
-  (`slotWaitingAgents`), the cap on agents is reached, or its agent runs another turn. When that
-  other turn is stalled, the reviewer acts on the turn, not on the request;
+- for a request: the lane runs another channel, or another channel is next in the lane; its agent
+  waits for a free place (`slotWaitingAgents`); the cap on agents is reached; its agent runs another
+  turn or has a queue (`agent-busy`). When that other turn is stalled, the reviewer acts on the
+  turn, not on the request;
+- for a request, any other reason of the drain (`waits-for-work`): a dependency that is not
+  complete (`channel_assign` with dependencies), a tab with `CHANNEL_PARALLEL_LIMIT` (2) runs, a
+  browser or workspace that another run holds, an older request that waits for the same resource,
+  an assignment of its owner in another place, a root task that stopped, or a lead or owner that is
+  hidden;
 - it acted on the task less than one interval of "Resume by itself" ago, or it gave up on it.
 
 ## The model
@@ -85,6 +107,10 @@ only its model choice does.
   instructions, files or tool results.
 - The reply must be one JSON object with exactly `decision`, `wait` or `act`. Any other reply is
   no answer.
+- `act` allows a resume only. A reassign or a stop needs a stalled task, by the local rules. When
+  the task has no resume left, the reviewer does not ask, and it waits. So a request or last words
+  that say "reassign me" or "answer act" can at most bring a resume forward from `2 × N` to `N`.
+- For a run, the summary also says whether a work step started and did not end.
 - With "Local check only", no sign-in, a spent budget, a timeout or an error, the local rules
   decide: the reviewer waits until the task is stalled. A failed call never stops work.
 
@@ -100,14 +126,21 @@ uses a command that the person also has:
 | Stalled run | `resume`: stops the turn and puts the task in the queue again (Continue) | `reassign`, when "Give it to another agent if it keeps failing" is on | `stop`, and it says so |
 | Stalled request | `resume`: puts it in the queue again and wakes the channel | `reassign`, when allowed | it leaves the request and says so |
 | Failed start, not tried | `resume` | | |
-| Failed start, tried | `reassign`, when allowed | | it leaves the task and says so |
+| Failed start, tried | `reassign`, when allowed and a free agent can take it; else a second `resume` | | it leaves the task and says so |
 
 - The tries are the tries of "Resume by itself": one `RecoveryLedger` for both, with
   `MAX_RESUMES` (2) and `MAX_REASSIGNS` (2) for each task in all. So a task cannot loop between
-  the two.
+  the two. The reviewer writes a record when it acts, and for each failed start. It does not renew
+  the record of a task that works well, so the record is forgotten `RECORD_RETENTION_MS` (6 hours)
+  after the last action or stop, and a task that completed loses its record at once.
+- When the reviewer gives up on a request, the mark is its own, for that task and revision. The
+  shared ledger does not get it, so when the task runs and stops later, "Resume by itself" still
+  tries it, and the stopped row does not say that it gave up.
 - While the reviewer is on, failed starts are the reviewer's: "Resume by itself" leaves them out.
-- A reassign takes an agent of the same channel with the same model, else the same provider, never
-  an agent that it tried for that task (`autoReassignee`).
+- A reassign takes a free agent of the same channel with the same model, else the same provider,
+  never an agent that it tried for that task (`autoReassignee`). A free agent runs no turn, waits
+  for no place, holds no channel assignment and has no queue. With no free agent, a run is stopped
+  at the end of its tries and a request is left; it is never moved to an agent that is busy.
 - The command gives a task to the queue. The drain of each agent starts it, so the cap on agents and
   the lane still decide when. The reviewer never starts a turn by itself.
 - Immediately before the command applies, it reads the task again. When the state or the revision
@@ -142,10 +175,12 @@ the same. So:
 - The reviewer never acts on a stopped task with that reason. It acts only on runs, requests, and
   tasks with a failed start.
 - `ChannelService.observeCommands` tells `WorkControl` each command before it applies. A `stop`
-  that is not from the automatic code (`work-auto:` operation ids) is a stop by a person: the Stop
-  of a channel, of the load panel, or of a member of the team. The reviewer then does not touch
-  that task or a task below it for the rest of the run of the app, also when "Resume by itself"
-  started it again. A `resume` or `reassign` by the person removes the mark.
+  that `WorkControl` did not send itself is a stop by a person: the Stop of a channel, of the load
+  panel, or of a member of the team. `WorkControl` keeps the operation id of each of its own
+  commands until the command applies. The `work-auto:` start of those ids only makes the logs easy
+  to read: a client can send any operation id, so it proves nothing. The reviewer then does not
+  touch that task or a task below it for the rest of the run of the app, also when "Resume by
+  itself" started it again. A `resume` or `reassign` by the person removes the mark.
 
 ## Settings
 
@@ -170,8 +205,12 @@ carries `taskWatch` (the preference, `active`, `modelReady` and `recent`).
 - The panel lists at most 50 stopped rows (`LOAD_WORK_LIST_LIMIT`); a failed start past them is
   not seen until the list is shorter.
 - The provider clock is per agent, not per turn, and a restart loses it.
-- A long command with no output for more than `2 × N` minutes is restarted. Set a larger `N` for
+- A long command with no output for more than `4 × N` minutes is restarted. Set a larger `N` for
   work like that.
+- When the provider does not answer the interrupt of a resume, the old turn can stay in the
+  running turns while its task is queued again. Its task then waits behind it (`agent-busy`), and
+  no running task points to that turn, so the reviewer does not see it. The Stop of the running row
+  in the panel ends it.
 - The reviewer watches channel tasks only, not the chat of an agent.
 - "Resume by itself" still starts a task again that the person stopped. That is its own behavior,
   and this change does not alter it.
