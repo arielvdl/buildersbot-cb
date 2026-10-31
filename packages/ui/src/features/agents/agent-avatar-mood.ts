@@ -1,6 +1,6 @@
 import { type AvatarMood, avatarMoodIsBusy } from "@openbot/brand/bloub-avatar-motion";
 import type { AgentApproval, ChannelSummary, QueueSnapshot } from "@openbot/contracts/ipc";
-import { isAgentWorking } from "@openbot/ui/features/sidebar/sidebar-agent-states";
+import { isAgentWorking } from "@openbot/ui/features/sidebar/agent-working";
 import type { AvatarMotion } from "../../bloub-avatar";
 
 export interface AgentAvatarMoodsInput {

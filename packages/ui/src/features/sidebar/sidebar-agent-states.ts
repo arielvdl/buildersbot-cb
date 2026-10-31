@@ -1,4 +1,5 @@
 import type { ChannelSummary, QueueSnapshot } from "@openbot/contracts/ipc";
+import { isAgentWorking } from "./agent-working";
 import type { SidebarAgentState, SidebarChannelWait, SidebarRoutinePhase } from "./sidebar-types";
 
 /** A question or a browser takeover that an agent is blocked on. */
@@ -29,27 +30,7 @@ export interface SidebarAgentStatesInput {
   usageLimits?: Record<string, number | null>;
 }
 
-/**
- * Whether an agent is running work right now.
- *
- * A channel turn belongs to another thread, so it reports no active turn and no running delivery
- * here. The queue's hold is the only signal that the agent doing that work is busy.
- *
- * Shared with the avatar's mood so a row's badge and its face can never disagree about who is
- * working - see `features/agents/agent-avatar-mood.ts`.
- */
-export function isAgentWorking(
-  agentId: string,
-  activeTurns: Record<string, string | null>,
-  queues: Record<string, QueueSnapshot>,
-): boolean {
-  const queue = queues[agentId];
-  return (
-    Boolean(activeTurns[agentId]) ||
-    queue?.hold?.agentId === agentId ||
-    Boolean(queue?.deliveries.some((delivery) => delivery.status === "starting" || delivery.status === "running"))
-  );
-}
+export { isAgentWorking };
 
 /**
  * The badge each agent shows in the sidebar.
