@@ -1688,17 +1688,25 @@ export class AgentStore {
   /**
    * Gives each agent whose own chat has messages but no first message the first one that the person
    * sent. It runs at startup, so it reads each chat once, and it writes the roster only when an agent
-   * changed. The text is not logged.
+   * changed. The preview is not needed to start: a chat that cannot be read keeps no first message,
+   * and the app starts. The text is not logged.
    */
   #fillFirstMessages(): void {
     let filled = 0;
+    let unread = 0;
     for (const agent of this.#state.agents) {
       if (agent.firstMessage || !agent.threadId) continue;
-      const first = firstMessageText(this.#database.readFirstPersonMessageText(agent.id, agent.threadId) ?? "");
+      let first = "";
+      try {
+        first = firstMessageText(this.#database.readFirstPersonMessageText(agent.id, agent.threadId) ?? "");
+      } catch {
+        unread += 1;
+      }
       if (!first) continue;
       agent.firstMessage = first;
       filled += 1;
     }
+    if (unread > 0) logger.warn("The first message of some chats could not be read.", unread);
     if (filled > 0) this.#persist("agents.first-message-filled");
   }
 
