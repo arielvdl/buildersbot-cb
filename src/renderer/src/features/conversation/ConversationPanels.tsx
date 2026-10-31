@@ -443,6 +443,8 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
           }
           onWidthChange={setBrowserPanelWidth}
           capturePreview={props.runtime?.browser.capturePreview}
+          // The tabs are the active agent's, and a side thread of the agent can drive them too.
+          busy={agentActivity() === "Working" || (props.threads?.running ?? 0) > 0}
           onOpenTab={(tabId, trigger) => {
             browserPreviewTrigger = trigger;
             if (activeBrowserTab()?.id !== tabId) activateBrowserTab(tabId);
