@@ -2,7 +2,7 @@
  * The section rail (`SidebarSectionRail.tsx`). It has the server rail classes, so `app-shell.css`
  * gives it the column, the padding, the drag region and the selection bar, and the web and window
  * styles place and hide it as they do the server rail. These rules draw the section marks, the
- * badges and the icon editor.
+ * badges, the laser of a section that works, and the icon editor.
  *
  * A section with a color has `--sidebar-section-color` (a stored #rrggbb) and `data-section-color`.
  * Its mark shows a light tint and a ring of that color. A section without a color stays neutral.
@@ -160,20 +160,111 @@
   background: var(--openbot-warning);
 }
 
+/* The work dot does not pulse: the laser on the border is the motion of a section that works. */
 .section-rail-badge[data-kind="working"] {
   background: var(--openbot-accent);
-  animation: section-rail-working 1.6s var(--openbot-ease-in-out) infinite;
 }
 
-@keyframes section-rail-working {
-  50% {
-    opacity: 0.45;
+/*
+ * The laser of a section with work in flight (`data-running`): a short bright arc with a faint trail
+ * goes round the border of the mark once in 2.4 s, over a quiet ring, and the mark has a soft halo.
+ * It has the section color, or the app accent when the section has no color. The section color keeps
+ * its hue and chroma, but its lightness stays in a range that shows on the sidebar: at least 0.55 on
+ * the dark theme and at most 0.72 on the light theme (OKLCH). Thus a custom color near the sidebar
+ * color (a very dark color on the dark theme, a very light color on the light theme) does not go out
+ * of view. The preset colors keep their lightness, except the two lightest presets, which are darker
+ * on the light theme. The head mixes the color with the primary text color: lighter on the dark
+ * theme, darker on the light theme.
+ *
+ * Cost: only one compositor layer turns. `.section-rail-laser-ring` is a 2 px ring of the mark shape
+ * (a mask), and its `::before` is a conic gradient, larger than the mark, that turns with `transform`.
+ * No custom property, gradient, filter or shadow changes during the turn, so the main thread does not
+ * style or paint for it. The elements exist only while the section works, so `will-change` applies
+ * only then. The rail sets `--section-rail-laser-play` to `paused` while the document is hidden; the
+ * dragged item pauses too. With reduced motion, the ring stays still and lit.
+ * `scripts/sidebar-section-rail-laser-smoke.ts` checks these rules in a headless browser.
+ */
+.section-rail-button[data-running] {
+  --section-rail-laser: var(--openbot-accent);
+  --section-rail-laser-head: color-mix(in srgb, var(--section-rail-laser) 35%, var(--openbot-text-primary));
+}
+
+.section-rail-button[data-running][data-section-color] {
+  --section-rail-laser: oklch(from var(--sidebar-section-color) max(l, 0.55) c h);
+}
+
+:root[data-openbot-color-scheme="light"] .section-rail-button[data-running] {
+  --section-rail-laser-head: color-mix(in srgb, var(--section-rail-laser) 60%, var(--openbot-text-primary));
+}
+
+:root[data-openbot-color-scheme="light"] .section-rail-button[data-running][data-section-color] {
+  --section-rail-laser: oklch(from var(--sidebar-section-color) min(l, 0.72) c h);
+}
+
+/* On the mark: 40 px, centered in the 46 px button, under the badge. The halo does not change. */
+.section-rail-laser {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 40px;
+  height: 40px;
+  margin: auto;
+  border-radius: var(--openbot-radius-lg);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--section-rail-laser) 50%, transparent);
+  pointer-events: none;
+}
+
+.section-rail-laser-ring {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  border-radius: inherit;
+  padding: 2px;
+  background: color-mix(in srgb, var(--section-rail-laser) 24%, transparent);
+  contain: strict;
+  mask:
+    linear-gradient(var(--openbot-text-primary) 0 0) content-box,
+    linear-gradient(var(--openbot-text-primary) 0 0);
+  mask-composite: exclude;
+}
+
+/* The arc goes clockwise: the head is at the end of the turn, and the trail fades behind it. */
+.section-rail-laser-ring::before {
+  position: absolute;
+  inset: -25%;
+  background: conic-gradient(
+    transparent 0turn 0.45turn,
+    color-mix(in srgb, var(--section-rail-laser) 18%, transparent) 0.68turn,
+    color-mix(in srgb, var(--section-rail-laser) 72%, transparent) 0.86turn,
+    var(--section-rail-laser) 0.94turn,
+    var(--section-rail-laser-head) 0.98turn 0.994turn,
+    transparent 1turn
+  );
+  content: "";
+  animation: section-rail-laser 2.4s linear infinite;
+  animation-play-state: var(--section-rail-laser-play, running);
+  will-change: transform;
+}
+
+.section-rail-button[data-dragging] .section-rail-laser-ring::before {
+  animation-play-state: paused;
+}
+
+@keyframes section-rail-laser {
+  to {
+    transform: rotate(1turn);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .section-rail-badge[data-kind="working"] {
+  .section-rail-laser-ring {
+    background: color-mix(in srgb, var(--section-rail-laser) 85%, transparent);
+  }
+
+  .section-rail-laser-ring::before {
+    content: none;
     animation: none;
+    will-change: auto;
   }
 }
 
@@ -221,6 +312,16 @@
 .section-rail-button.section-rail-drag-preview[data-section-rail-id] .section-rail-mark-tile {
   box-shadow: var(--openbot-shadow-raised);
   transform: scale(1.08);
+}
+
+/*
+ * The laser stays on the border of the lifted mark. The copy has paint containment
+ * (`createVerticalDragPreview`), which would cut the halo at the edge of the button, and the lifted
+ * mark has its own shadow, so the copy shows no halo.
+ */
+.section-rail-button.section-rail-drag-preview .section-rail-laser {
+  transform: scale(1.08);
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

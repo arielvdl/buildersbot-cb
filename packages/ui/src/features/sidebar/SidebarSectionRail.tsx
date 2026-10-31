@@ -1,7 +1,8 @@
 /**
  * The section rail: the narrow column at the left of the list, in the place of the server rail.
  * "All" lists every section; a section lists only its chats. Each item shows the section mark and one
- * badge for what asks for the user there: a wait, unread messages, or work in flight. The plus button
+ * badge for what asks for the user there: a wait, unread messages, or work in flight. While agents of a
+ * section work, a laser goes round the border of its mark (`sidebar-section-rail.css`). The plus button
  * opens the new section field of the list.
  *
  * The rail uses the server rail classes, so the frame gives it the same column on desktop and on the
@@ -30,6 +31,7 @@ import { createEffect, createSignal, createStore, For, Match, onCleanup, Show, S
 import { createScrollFades } from "../../components/createScrollFades";
 import { createVerticalDragPreview } from "../../components/createVerticalDragPreview";
 import { useText } from "../../text";
+import { createTaskListPlayState } from "../conversation/TaskList";
 import { SidebarSectionColorSubmenu } from "./SidebarSectionColorMenu";
 import { SidebarSectionMark } from "./SidebarSectionMark";
 import { sidebarSectionColorStyle } from "./section-color";
@@ -42,6 +44,7 @@ import {
   sidebarSectionRailMenuItems,
   sidebarSectionRailMove,
   sidebarSectionRailNeighbor,
+  sidebarSectionRailRunning,
 } from "./sidebar-section-rail";
 
 /** What a rail item needs to drag. Only a custom section has it. */
@@ -59,6 +62,8 @@ export function SidebarSectionRail() {
   const { t } = useText();
   const scrollFades = createScrollFades();
   const dragPreview = createVerticalDragPreview();
+  // The laser of a section that works stops while the document is hidden.
+  const laserPlayState = createTaskListPlayState();
   const [drag, setDrag] = createStore<{ sourceId: string | null; overId: string | null }>({
     sourceId: null,
     overId: null,
@@ -191,6 +196,7 @@ export function SidebarSectionRail() {
   return (
     <nav
       class="server-rail section-rail"
+      style={{ "--section-rail-laser-play": laserPlayState() }}
       aria-label={t("sidebar.sectionRail.label")}
       data-dragging={drag.sourceId ? "" : undefined}
       onDragOver={(event) => {
@@ -362,6 +368,7 @@ function SectionRailButton(props: {
   const { t } = useText();
   const [menuOpen, setMenuOpen] = createSignal(false);
   const badgeKind = () => (props.badge ? sidebarSectionRailBadgeKind(props.badge) : null);
+  const running = () => sidebarSectionRailRunning(props.badge);
   const status = () => props.status ?? [];
   return (
     <MotionTooltip
@@ -399,6 +406,7 @@ function SectionRailButton(props: {
           onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => props.reorder?.onDragStart(event)}
           onDragEnd={() => props.reorder?.onDragEnd()}
           data-section-color={props.colorStyle ? "" : undefined}
+          data-running={running() ? "" : undefined}
           data-unassigned={props.unassigned ? "" : undefined}
           data-cuelume-navigate=""
           onClick={() => props.onSelect()}
@@ -424,6 +432,12 @@ function SectionRailButton(props: {
         >
           <span class="server-rail-mark" aria-hidden="true" />
           {props.mark}
+          {/* Decorative: the label of the button already says how many agents work. */}
+          <Show when={running()}>
+            <span class="section-rail-laser" aria-hidden="true">
+              <span class="section-rail-laser-ring" />
+            </span>
+          </Show>
           <Show when={badgeKind()}>
             {(kind) => (
               <span class="section-rail-badge" data-kind={kind()} aria-hidden="true">

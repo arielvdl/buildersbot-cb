@@ -212,6 +212,14 @@ export function sidebarSectionRailBadgeKind(badge: SidebarSectionRailBadge): "wa
 }
 
 /**
+ * True while agents of the section work. The rail item then shows the laser on its border, also when
+ * its badge shows a wait or unread messages. "All" has no badge, so it shows no laser.
+ */
+export function sidebarSectionRailRunning(badge: SidebarSectionRailBadge | undefined): boolean {
+  return (badge?.working ?? 0) > 0;
+}
+
+/**
  * The default mark of a section: the first letter or digit of its name in upper case, or the first
  * character when the name has neither, such as an emoji.
  */
