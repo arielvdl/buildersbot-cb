@@ -11,13 +11,17 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarEmptyState() {
-  const { props } = useSidebarScope();
+  const { listFilter, props } = useSidebarScope();
   const { t } = useText();
   const emptyLabel = () => {
     if (props.agentsConnecting) return t("common.connecting");
-    if (props.activityFilter === "finished") return t("sidebar.activity.finishedEmpty");
+    if (listFilter.routine()) {
+      return props.agentRoutinesLoading ? t("common.loading") : t("sidebar.activity.routine.empty");
+    }
+    const activity = listFilter.activity();
+    if (activity === "finished") return t("sidebar.activity.finishedEmpty");
     // The notice under the list names the filter and turns it off.
-    if (props.activityFilter) return t("sidebar.activity.empty");
+    if (activity) return t("sidebar.activity.empty");
     return t("sidebar.empty.noAgents");
   };
   return (

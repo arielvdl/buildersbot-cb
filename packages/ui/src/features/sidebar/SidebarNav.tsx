@@ -24,6 +24,7 @@ export function SidebarNav() {
     orderedPeople,
     handleListDragLeave,
     layoutMutable,
+    listFilter,
     pending,
     props,
     reorderAnnouncement,
@@ -55,7 +56,7 @@ export function SidebarNav() {
             waitingChats().length === 0 &&
             filteredChats().length === 0 &&
             userHiddenAgentList().length === 0 &&
-            (props.showPeople === false || props.activityFilter || orderedPeople().length === 0) &&
+            (props.showPeople === false || listFilter.on() || orderedPeople().length === 0) &&
             pending.sectionEditor?.target.kind !== "create" &&
             sectionRail.focus() === null
           }

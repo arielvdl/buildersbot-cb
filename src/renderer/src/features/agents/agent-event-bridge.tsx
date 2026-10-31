@@ -202,7 +202,7 @@ export function AgentEventBridge() {
         agentTasks.applyEvent(event);
         return;
       case "routines-changed":
-        refreshRoutineIds(event.agentId, activeServerId());
+        void refreshRoutineIds(event.agentId, activeServerId());
         return;
       case "browser-changed":
         if (platform.landingPreview) return;

@@ -31,6 +31,7 @@ export function createSidebarScope(props: SidebarProps) {
   let dragActive = () => false;
   const {
     activityHiddenCount,
+    listFilter,
     assignedSectionId,
     chatKind,
     chatName,
@@ -170,6 +171,7 @@ export function createSidebarScope(props: SidebarProps) {
    */
   return {
     activityHiddenCount,
+    listFilter,
     assignChatSection,
     cancelSectionEditor,
     closeDelete,

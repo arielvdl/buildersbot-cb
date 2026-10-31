@@ -1,4 +1,4 @@
-import { type ChatWindowTarget, canAdministerServer } from "@openbot/contracts/ipc";
+import { type ChatWindowTarget, canAdministerServer, type RoutineFields } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { DRAFT_THREAD_ID, MAIN_THREAD_ID } from "@openbot/ui/features/conversation/threads/thread-types";
@@ -7,7 +7,11 @@ import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineC
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates, sidebarChannelWaits } from "@openbot/ui/features/sidebar/sidebar-agent-states";
-import type { SidebarActivityFilter, SidebarChatTabs } from "@openbot/ui/features/sidebar/sidebar-types";
+import type {
+  SidebarActivityFilter,
+  SidebarChatTabs,
+  SidebarRoutineFilter,
+} from "@openbot/ui/features/sidebar/sidebar-types";
 import { sidebarChatTabsKey } from "@openbot/ui/features/sidebar/sidebar-types";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
@@ -29,6 +33,7 @@ import { useAgents } from "../agents/agents-context";
 import { readChannelLastTopics, saveChannelLastTopic } from "../channels/channel-tabs-model";
 import { useChannels } from "../channels/channels-context";
 import { useConversation } from "../conversation/conversation-context";
+import { agentConversationKey } from "../conversation/conversation-keys";
 import { useDirectMessages } from "../conversation/direct-messages-context";
 import { useServerActions } from "../servers/server-actions";
 import { serverRoleCanAdminister } from "../servers/server-capabilities";
@@ -96,7 +101,17 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   // The host refuses a member: a hidden agent stops for every member, as a deleted one does.
   const hideAllowed = () =>
     activeServerSupportsCapability(AGENT_HIDDEN_CAPABILITY) && serverRoleCanAdminister(activeServer());
-  const { activeTurns, queues, failedTurns, usageLimits, pendingPrompts, pendingApprovals, approvals } = useTurns();
+  const {
+    activeTurns,
+    queues,
+    failedTurns,
+    usageLimits,
+    pendingPrompts,
+    pendingApprovals,
+    approvals,
+    routinesByConversation,
+    refreshRoutineIds,
+  } = useTurns();
   const { unreadReplies, recentReplies, markAllAgentMessagesRead } = useConversation();
   const { directPeople, teamPresence } = usePresence();
   const { activeDirectMember, activeDirectMemberId, directThreads } = useDirectMessages();
@@ -237,6 +252,57 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   );
   /** The list filter: only active channels, only active agents, or the layout as it is when null. */
   const [activityFilter, setActivityFilter] = createSignal<SidebarActivityFilter | null>(null);
+  /**
+   * The list filter of the Routines view. It is a value of its own, so the filter of one view never
+   * applies in the other; the sidebar applies only the filter of the view that it shows.
+   */
+  const [routineFilter, setRoutineFilter] = createSignal<SidebarRoutineFilter | null>(null);
+  const routineFilterOn = () => layout.sidebarView() === "routines" && routineFilter() !== null;
+  const [agentRoutinesLoading, setAgentRoutinesLoading] = createSignal(false);
+  let agentRoutinesLoad = 0;
+  /*
+   * The routine filter reads the routine lists of the turns domain. A `routines-changed` event keeps
+   * each list current, so the filter loads every agent once when it turns on (or when the Routines view
+   * opens with it on), and then only the agents that join the list. A change of agent profile, such as
+   * a new message, does not load again.
+   */
+  createEffect(
+    () =>
+      routineFilterOn()
+        ? {
+            serverId: activeServerId(),
+            agentIds: agentList()
+              .map((agent) => agent.id)
+              .join("\n"),
+          }
+        : null,
+    (next, previous) => {
+      if (!next) {
+        ++agentRoutinesLoad;
+        setAgentRoutinesLoading(false);
+        return;
+      }
+      const known = new Set(previous?.serverId === next.serverId ? previous.agentIds.split("\n") : []);
+      const missing = next.agentIds ? next.agentIds.split("\n").filter((agentId) => !known.has(agentId)) : [];
+      if (missing.length === 0) return;
+      const request = ++agentRoutinesLoad;
+      setAgentRoutinesLoading(true);
+      void Promise.all(missing.map((agentId) => refreshRoutineIds(agentId, next.serverId))).then(() => {
+        if (request === agentRoutinesLoad) setAgentRoutinesLoading(false);
+      });
+    },
+  );
+  /** The routines of each listed agent, while the routine filter is on. */
+  const agentRoutines = createMemo(() => {
+    if (!routineFilterOn()) return undefined;
+    const snapshots = routinesByConversation();
+    const serverId = activeServerId();
+    const routines: Record<string, RoutineFields[] | undefined> = {};
+    for (const agent of agentList()) {
+      routines[agent.id] = snapshots[agentConversationKey(serverId, agent.id)]?.routines;
+    }
+    return routines;
+  });
   const storageCard = createStorageCard(activeServer);
   const machineCard = createMachineCard(activeServer);
   // A clear in Server settings frees space and can change an alert level, so both cards read
@@ -360,6 +426,10 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       view={layout.sidebarView()}
       activityFilter={activityFilter()}
       onActivityFilterChange={setActivityFilter}
+      routineFilter={routineFilter()}
+      onRoutineFilterChange={setRoutineFilter}
+      agentRoutines={agentRoutines()}
+      agentRoutinesLoading={agentRoutinesLoading()}
       serverName={activeServer()?.name ?? t("sidebar.topbar.localServer")}
       onOpenServerSettings={(trigger) => {
         const server = activeServer();

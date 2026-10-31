@@ -20,7 +20,18 @@ import {
   sidebarChannelPassesActivityFilter,
 } from "../sidebar-activity-filter";
 import { sidebarPinnedItemKey } from "../sidebar-pins";
-import type { ResolvedPinnedItem, SidebarChatItem, SidebarProps } from "../sidebar-types";
+import {
+  sidebarActivityMenu,
+  sidebarAgentPassesRoutineFilter,
+  sidebarRoutineHiddenCount,
+} from "../sidebar-routine-filter";
+import type {
+  ResolvedPinnedItem,
+  SidebarActivityFilter,
+  SidebarChatItem,
+  SidebarProps,
+  SidebarRoutineFilter,
+} from "../sidebar-types";
 import { createSidebarSectionRailStore } from "./section-rail-store";
 
 type PinnedItemSource = SidebarProps["agents"][number] | NonNullable<SidebarProps["channels"]>[number];
@@ -50,13 +61,36 @@ export function createSidebarDataStore(deps: {
   /** The section rail. While it has a section selected, every group below lists only that section's chats. */
   const sectionRail = createSidebarSectionRailStore(props);
   /**
-   * The activity filter, when the user turned one on: active channels, active agents, or the chats
-   * that finished recently (`sidebar-activity-filter.ts`). "Finished recently" reads the clock, so it
-   * reads it again when the filter or the chats change.
+   * The filter button opens the activity filters, or in the Routines view the routine filters
+   * (`sidebar-routine-filter.ts`). Only the filter of the menu that shows applies, so a filter of the
+   * other view cannot stay on where its menu cannot turn it off.
    */
-  const activityFilter = () => props.activityFilter ?? null;
+  const listFilter = {
+    menu: () => sidebarActivityMenu(props.view, props.onRoutineFilterChange !== undefined),
+    /**
+     * The activity filter, when the user turned one on: active channels, active agents, or the chats
+     * that finished recently (`sidebar-activity-filter.ts`). "Finished recently" reads the clock, so it
+     * reads it again when the filter or the chats change.
+     */
+    activity: (): SidebarActivityFilter | null =>
+      listFilter.menu() === "chats" ? (props.activityFilter ?? null) : null,
+    routine: (): SidebarRoutineFilter | null =>
+      listFilter.menu() === "routines" ? (props.routineFilter ?? null) : null,
+    /** A filter is on, so the list shows chats only: no markers, no people, no empty sections. */
+    on: () => listFilter.activity() !== null || listFilter.routine() !== null,
+  };
+  const activityFilter = listFilter.activity;
   const agentShown = (agent: AgentProfile): boolean => {
     if (!sectionRail.chatInFocus(agent.id)) return false;
+    const routineFilter = listFilter.routine();
+    if (routineFilter) {
+      return sidebarAgentPassesRoutineFilter(
+        routineFilter,
+        props.agentRoutines?.[agent.id],
+        props.activeAgentId === agent.id,
+        Date.now(),
+      );
+    }
     return sidebarAgentPassesActivityFilter(
       activityFilter(),
       agent,
@@ -66,7 +100,8 @@ export function createSidebarDataStore(deps: {
     );
   };
   const channelShown = (channel: ChannelSummary): boolean => {
-    if (!sectionRail.chatInFocus(channel.id)) return false;
+    // A routine filter keeps agents only.
+    if (!sectionRail.chatInFocus(channel.id) || listFilter.routine()) return false;
     return sidebarChannelPassesActivityFilter(
       activityFilter(),
       channel,
@@ -75,21 +110,33 @@ export function createSidebarDataStore(deps: {
       Date.now(),
     );
   };
-  /** How many chats of the selected section the activity filter hides. The notice under the list says it. */
-  const activityHiddenCount = createMemo(() =>
-    activityFilter()
-      ? sidebarActivityHiddenCount({
-          filter: activityFilter(),
-          agents: props.agents.filter((agent) => !agentIsUserHidden(agent.id) && sectionRail.chatInFocus(agent.id)),
-          channels: channels().filter((channel) => sectionRail.chatInFocus(channel.id)),
-          agentStates: props.agentStates,
-          channelWaits: props.channelWaits,
-          activeAgentId: props.activeAgentId,
-          activeChannelId: props.activeChannelId,
-          now: Date.now(),
-        })
-      : 0,
-  );
+  /** How many chats of the selected section the filter hides. The notice under the list says it. */
+  const activityHiddenCount = createMemo(() => {
+    if (!listFilter.on()) return 0;
+    const agents = props.agents.filter((agent) => !agentIsUserHidden(agent.id) && sectionRail.chatInFocus(agent.id));
+    const sectionChannels = channels().filter((channel) => sectionRail.chatInFocus(channel.id));
+    const routineFilter = listFilter.routine();
+    if (routineFilter) {
+      return sidebarRoutineHiddenCount({
+        filter: routineFilter,
+        agents,
+        channelCount: sectionChannels.length,
+        agentRoutines: props.agentRoutines ?? {},
+        activeAgentId: props.activeAgentId,
+        now: Date.now(),
+      });
+    }
+    return sidebarActivityHiddenCount({
+      filter: activityFilter(),
+      agents,
+      channels: sectionChannels,
+      agentStates: props.agentStates,
+      channelWaits: props.channelWaits,
+      activeAgentId: props.activeAgentId,
+      activeChannelId: props.activeChannelId,
+      now: Date.now(),
+    });
+  });
   const channelById = createMemo(() => new Map(channels().map((channel) => [channel.id, channel])));
   let pinnedItemCache = new Map<string, { source: PinnedItemSource; item: ResolvedPinnedItem }>();
   /** Both kinds of pinned chat, resolved against the chats the sidebar has: a pin that names none is
@@ -217,7 +264,7 @@ export function createSidebarDataStore(deps: {
    * keeps the markers of its section.
    */
   const listedMarkers = createMemo(() =>
-    activityFilter()
+    listFilter.on()
       ? []
       : (props.layout.markers ?? []).filter((marker) => {
           const section = sectionRail.focus();
@@ -278,9 +325,9 @@ export function createSidebarDataStore(deps: {
     sectionRail.order().filter((sectionId) => {
       // The filter lists chats only, so the people section and the sections it leaves empty give way.
       if (sectionId === SIDEBAR_PEOPLE_SECTION_ID)
-        return !activityFilter() && props.showPeople !== false && orderedPeople().length > 0;
+        return !listFilter.on() && props.showPeople !== false && orderedPeople().length > 0;
       if (customSectionById().has(sectionId))
-        return !activityFilter() || (filteredChatsBySection().get(sectionId)?.length ?? 0) > 0;
+        return !listFilter.on() || (filteredChatsBySection().get(sectionId)?.length ?? 0) > 0;
       if (sectionId !== SIDEBAR_UNASSIGNED_SECTION_ID) return false;
       return (filteredChatsBySection().get(sectionId)?.length ?? 0) > 0;
     }),
@@ -346,6 +393,7 @@ export function createSidebarDataStore(deps: {
 
   return {
     activityHiddenCount,
+    listFilter,
     assignedSectionId,
     agentById,
     channelById,

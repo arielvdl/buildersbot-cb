@@ -36,6 +36,20 @@ export type SidebarView = "agents" | "routines";
 export type SidebarActivityFilter = "channels" | "agents" | "finished";
 
 /**
+ * The filter of the Routines view, in the place of the activity filter. It keeps the agents that have
+ * at least one routine that is active, that is paused, that was created recently, or that was edited
+ * recently. The choices exclude each other. Like the activity filter, it is not saved.
+ */
+export type SidebarRoutineFilter = "active" | "inactive" | "created" | "edited";
+
+/** The fields of a routine that the routine filter reads. */
+export interface SidebarRoutineSummary {
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * The "Hidden" group is not a section of the layout, and it is collapsed by default. Its id in
  * `collapsedSectionIds` therefore records that the user opened it, not that the user collapsed it.
  * The colon keeps it apart from the section ids that the layout makes.
@@ -80,6 +94,18 @@ export interface SidebarProps {
   activityFilter?: SidebarActivityFilter | null | undefined;
   /** Sets `activityFilter`. Without it, the search row shows no filter button. */
   onActivityFilterChange?: ((filter: SidebarActivityFilter | null) => void) | undefined;
+  /**
+   * Lists only the agents with a routine that the filter keeps, plus the open one. It applies only in
+   * the Routines view, and only with `onRoutineFilterChange`. In that view, it replaces the activity
+   * filter. Null or absent lists every agent.
+   */
+  routineFilter?: SidebarRoutineFilter | null | undefined;
+  /** Sets `routineFilter`. Without it, the Routines view shows the activity filter. */
+  onRoutineFilterChange?: ((filter: SidebarRoutineFilter | null) => void) | undefined;
+  /** The routines of each agent, by agent id, for `routineFilter`. A missing agent has no routine. */
+  agentRoutines?: Readonly<Record<string, readonly SidebarRoutineSummary[] | undefined>> | undefined;
+  /** The routines for `routineFilter` are still on their way, so an empty list says that it loads. */
+  agentRoutinesLoading?: boolean | undefined;
   deleteSupported?: boolean | undefined;
   marketplaceSupported?: boolean | undefined;
   channels?: ChannelSummary[] | undefined;

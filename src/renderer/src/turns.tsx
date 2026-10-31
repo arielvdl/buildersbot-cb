@@ -140,7 +140,8 @@ const Turns = createSimpleContext({
     const waitSnapshotRequests = new Map<string, number>();
     const routineSnapshotRequests = new Map<string, number>();
 
-    function refreshRoutineIds(agentId: string, serverId: string): void {
+    /** Loads the routines of an agent again. The promise settles when the load ends; it never rejects. */
+    function refreshRoutineIds(agentId: string, serverId: string): Promise<void> {
       const key = agentConversationKey(serverId, agentId);
       const request = (routineSnapshotRequests.get(key) ?? 0) + 1;
       routineSnapshotRequests.set(key, request);
@@ -148,7 +149,7 @@ const Turns = createSimpleContext({
         const snapshot = current[key];
         return snapshot ? { ...current, [key]: { ...snapshot, current: false } } : current;
       });
-      void turnsPort()
+      return turnsPort()
         .agent.listRoutines(agentId)
         .then((routines) => {
           if (routineSnapshotRequests.get(key) !== request) return;
@@ -160,7 +161,7 @@ const Turns = createSimpleContext({
     createEffect(
       () => ({ agentId: activeAgentId(), agentPhase: agentStatus().phase, serverId: activeServerId() }),
       ({ agentId, serverId }) => {
-        if (agentId) refreshRoutineIds(agentId, serverId);
+        if (agentId) void refreshRoutineIds(agentId, serverId);
       },
     );
 
