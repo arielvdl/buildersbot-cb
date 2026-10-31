@@ -11,7 +11,7 @@
  */
 
 /** A new cache name on every release; `activate` drops the other names. */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `openbot-shell-${VERSION}`;
 const ASSET_CACHE = `openbot-assets-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
@@ -208,7 +208,9 @@ self.addEventListener("notificationclick", (event) => {
       for (const client of windows) {
         if (new URL(client.url).pathname !== "/app") continue;
         await client.focus();
-        client.postMessage({ type: "NOTIFICATION_CLICK", url: target });
+        // The page that showed the notification runs its click action, such as opening the agent.
+        const action = typeof data?.action === "string" ? data.action : undefined;
+        client.postMessage({ type: "NOTIFICATION_CLICK", url: target, action });
         return;
       }
       await self.clients.openWindow(target);

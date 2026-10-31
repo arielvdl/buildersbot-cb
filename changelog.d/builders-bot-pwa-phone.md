@@ -15,6 +15,9 @@
   access", which is not the name of a setting.
 - The web app starts offline with its offline page. Before, the browser could show a network error.
 - The web app on a phone shows the name Builders Bot under its icon and in its notifications.
+- The web app shows its notifications in Chrome on Android and as an installed app on a phone, while
+  the app is open in the background. Before, the browser refused them and nothing showed. A click
+  on such a notification opens the agent or the channel.
 - **Install this version on the computer that phones connect to.**
 
 ### Security

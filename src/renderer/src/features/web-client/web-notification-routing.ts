@@ -26,6 +26,7 @@ import {
   requestWebNotificationPermission,
   showWebAgentNotification,
   showWebChannelNotifications,
+  watchWebNotificationClicks,
   watchWebTabFocus,
   withdrawWebAgentNotification,
 } from "./web-notifications";
@@ -153,6 +154,7 @@ export function createWebNotificationRouting(options: {
     );
   });
   onCleanup(watchWebTabFocus());
+  onCleanup(watchWebNotificationClicks());
   onCleanup(workspace.onHostNotice(notify));
   onCleanup(
     workspace.onHostEvent((event) => {
