@@ -851,6 +851,15 @@ Network traffic can also occur when:
   sends this check when an admin saves or presses **Test proxy**, and when the server starts. The
   proxy password stays encrypted on the server and is never put in a process environment. See
   `docs/architecture/egress-proxy.md`;
+- an agent uses a Cultura Builder connection (`openbot_connections`, such as the tool catalog).
+  Builders Bot sends the person's Cultura Builder refresh token to `hub.culturabuilder.com` for a
+  short proxy token, then sends the call input (endpoint id, query and body), the organization that
+  pays and the origin of the turn (`owner_ui`, `routine` or `agent`) to the Hub. For a call, the Hub
+  sends the input to the tool catalog vendor (treg.to, by Superdesign, in the USA) and to the
+  provider of the chosen endpoint, with random organization and person tags, never an email. The Hub
+  keeps the cost on its ledger, without the input or the result. `search` and `describe` read the
+  Hub's own copy of the catalog, so their text goes only to the Hub. Builders Bot keeps no input,
+  result or token of a connection on disk. See `docs/architecture/hub-connections.md`;
 - the local Codex App Server connects to OpenAI;
 - the local Claude Agent SDK connects to Anthropic through Claude CLI;
 - a user or an agent visits a page in the embedded browser;
