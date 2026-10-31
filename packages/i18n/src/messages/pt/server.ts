@@ -656,6 +656,8 @@ export const messages = {
   "server.egress.errorBypass": "Uma linha da lista de exceções não é host, endereço nem faixa.",
   "server.egress.errorCountry": "O país deve ter duas letras, como BR.",
   "server.egress.errorDefaultPassword": "Digite a senha para salvar este proxy como padrão.",
+  "server.egress.errorPasswordAgain":
+    "O host, a porta ou o usuário mudou. Digite a senha de novo: a senha salva não vai para outro proxy.",
   "server.egress.state": "Estado",
   "server.egress.stateActive": "Ativo",
   "server.egress.stateError": "Com erro",

@@ -98,7 +98,10 @@ export interface EgressProxyDefaultView extends EgressProxySettings {
   passwordSaved: boolean;
 }
 
-/** A change. With `password` absent the saved password stays; an empty string removes it. */
+/**
+ * A change. With `password` absent the saved password stays, but only for the same host, port and
+ * user (`egressUpstreamChanged`); an empty string removes it.
+ */
 export interface EgressProxyUpdate extends EgressProxySettings {
   password?: string;
 }
@@ -332,6 +335,21 @@ export function egressBypassMatches(host: string, rules: readonly string[]): boo
 /** Whether the settings name a whole upstream: a host and a port, and a password when a user is set. */
 export function egressSettingsComplete(settings: EgressProxySettings, passwordSaved: boolean): boolean {
   return settings.host.length > 0 && settings.port !== null && (settings.username.length === 0 || passwordSaved);
+}
+
+type EgressUpstreamFields = Pick<EgressProxySettings, "host" | "port" | "username">;
+
+/**
+ * Whether `next` names another upstream than `saved`: another host, port or user. The saved password
+ * then does not go with the change. An absent password counts as none, so an admin cannot send the
+ * saved password to a host of their choice, and a typo in the host does not send it there either.
+ */
+export function egressUpstreamChanged(saved: EgressUpstreamFields, next: EgressUpstreamFields): boolean {
+  return (
+    (normalizeEgressHost(saved.host) ?? saved.host) !== (normalizeEgressHost(next.host) ?? next.host) ||
+    saved.port !== next.port ||
+    saved.username !== next.username
+  );
 }
 
 function decodeCheck(value: unknown): EgressProxyCheck {

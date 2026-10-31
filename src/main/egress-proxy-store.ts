@@ -8,6 +8,7 @@ import {
   EGRESS_DEFAULT_COUNTRY,
   type EgressProxySettings,
   type EgressProxyUpdate,
+  egressUpstreamChanged,
   parseEgressProxyUpdate,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
@@ -130,13 +131,27 @@ export class EgressProxyStore {
     return this.#snapshot.pending;
   }
 
-  /** Saves a change. A `password` that is absent keeps the saved one; an empty one removes it. */
+  /**
+   * Saves a change. A `password` that is absent keeps the saved one only when the host, the port and
+   * the user stay the same (`egressUpstreamChanged`): the saved password never goes to another
+   * upstream. An empty one removes it.
+   */
   save(update: EgressProxyUpdate): Effect.Effect<void, EgressProxyStoreFailure> {
     return this.#edit((current) => {
       const { password, ...settings } = update;
-      const next = password === undefined ? current.password : password || null;
+      const kept = egressUpstreamChanged(current.settings, settings) ? null : current.password;
+      const next = password === undefined ? kept : password || null;
       return { settings, password: next, pending: current.pending };
     });
+  }
+
+  /**
+   * Whether a save of `update` leaves a password for its upstream: the password it carries, or the
+   * saved one for the same host, port and user. The service checks a whole setting with it first.
+   */
+  passwordAfter(update: EgressProxyUpdate): boolean {
+    if (update.password !== undefined) return update.password.length > 0;
+    return !this.unreadable() && this.passwordSaved() && !egressUpstreamChanged(this.settings(), update);
   }
 
   /** Removes the setting and the file. */

@@ -698,6 +698,8 @@ export const messages = defineMessages("server", {
   "server.egress.errorBypass": "A line of the bypass list is not a host, an address or a range.",
   "server.egress.errorCountry": "The country must be two letters, such as BR.",
   "server.egress.errorDefaultPassword": "Type the password to save this proxy as the default.",
+  "server.egress.errorPasswordAgain":
+    "The host, the port or the user changed. Type the password again: the saved password does not go to another proxy.",
   "server.egress.state": "State",
   "server.egress.stateActive": "Active",
   "server.egress.stateError": "Error",

@@ -6,6 +6,7 @@ import {
   type EgressProxyLineError,
   type EgressProxyUpdate,
   type EgressProxyView,
+  egressUpstreamChanged,
   normalizeEgressBypassRule,
   normalizeEgressHost,
   parseEgressProxyLine,
@@ -88,7 +89,8 @@ type FormError =
   | "server.egress.errorPort"
   | "server.egress.errorBypass"
   | "server.egress.errorCountry"
-  | "server.egress.errorDefaultPassword";
+  | "server.egress.errorDefaultPassword"
+  | "server.egress.errorPasswordAgain";
 
 function formOf(view: EgressProxyView): EgressForm {
   return {
@@ -150,6 +152,8 @@ export function ServerEgressPanel(
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [pasteError, setPasteError] = createSignal<EgressProxyLineError | null>(null);
   const [formError, setFormError] = createSignal<FormError | null>(null);
+  // The pasted line holds the password, so it leaves the field once it fills the others.
+  const [pasteText, setPasteText] = createSignal("");
   const [form, setForm] = createStore<EgressForm>({
     enabled: false,
     host: "",
@@ -185,6 +189,7 @@ export function ServerEgressPanel(
     });
 
   function paste(text: string): void {
+    setPasteText(text);
     if (!text.trim()) {
       setPasteError(null);
       return;
@@ -195,6 +200,7 @@ export function ServerEgressPanel(
       return;
     }
     setPasteError(null);
+    setPasteText("");
     setForm((current) => {
       current.host = result.value.host;
       current.port = String(result.value.port);
@@ -203,14 +209,33 @@ export function ServerEgressPanel(
     });
   }
 
+  /**
+   * Whether the form names another host, port or user than the saved setting. The host then does not
+   * keep the saved password, so the form does not say that one is saved.
+   */
+  const upstreamEdited = (): boolean => {
+    const saved = view();
+    if (!saved) return false;
+    const port = form.port.trim() === "" ? null : Number(form.port.trim());
+    return egressUpstreamChanged(saved, { host: form.host, port, username: form.username.trim() });
+  };
+  const passwordKept = () => Boolean(view()?.passwordSaved) && !upstreamEdited();
+
   function save(): void {
     const update = updateOf(form);
     if (typeof update === "string") {
       setFormError(update);
       return;
     }
+    // The saved password stays only for the same host, port and user.
+    if (update.username && update.password === undefined && upstreamEdited()) {
+      setFormError("server.egress.errorPasswordAgain");
+      return;
+    }
     // The host never gives the password back, so a default with a user needs it typed here.
-    if (form.useAsDefault && update.username && update.password === undefined) {
+    // Read before the first await: `show` puts the form back to the saved values.
+    const saveAsDefault = form.useAsDefault;
+    if (saveAsDefault && update.username && update.password === undefined) {
       setFormError("server.egress.errorDefaultPassword");
       return;
     }
@@ -219,7 +244,7 @@ export function ServerEgressPanel(
     const defaults = props.defaults;
     void props.run("egress-save", async () => {
       show(await calls().setEgressProxy(update, serverId));
-      if (form.useAsDefault && defaults) setDefaultView(await defaults.setEgressDefault({ ...update, enabled: true }));
+      if (saveAsDefault && defaults) setDefaultView(await defaults.setEgressDefault({ ...update, enabled: true }));
     });
   }
 
@@ -304,6 +329,7 @@ export function ServerEgressPanel(
                       autocomplete="off"
                       spellcheck={false}
                       placeholder={t("server.egress.pastePlaceholder")}
+                      value={pasteText()}
                       onValueChange={paste}
                     />
                   </Field>
@@ -336,13 +362,13 @@ export function ServerEgressPanel(
                   </Field>
                   <Field
                     label={t("server.egress.password")}
-                    description={current().passwordSaved ? t("server.egress.passwordSaved") : undefined}
+                    description={passwordKept() ? t("server.egress.passwordSaved") : undefined}
                   >
                     <Input
                       size="md"
                       type="password"
                       autocomplete="new-password"
-                      placeholder={current().passwordSaved ? t("server.egress.passwordSavedPlaceholder") : undefined}
+                      placeholder={passwordKept() ? t("server.egress.passwordSavedPlaceholder") : undefined}
                       value={form.password}
                       onInput={(event) => edit("password", event.currentTarget.value)}
                     />

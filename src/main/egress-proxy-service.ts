@@ -151,9 +151,9 @@ export class EgressProxyService implements BrowserEgress {
    * a check runs before the answer, so the admin sees the address and the country at once.
    */
   async update(input: EgressProxyUpdate): Promise<EgressProxyView> {
-    const savedPassword = this.#store.unreadable() ? false : this.#store.passwordSaved();
-    const passwordSaved = input.password === undefined ? savedPassword : input.password.length > 0;
-    if (input.enabled && !egressSettingsComplete(input, passwordSaved))
+    // The saved password stays only for the same host, port and user. Another upstream with a user
+    // needs the password typed again, so the saved one never goes to a host that an admin chose.
+    if (input.enabled && !egressSettingsComplete(input, this.#store.passwordAfter(input)))
       throw new Error(sourceText("error.host.egressIncomplete"));
     await runCauseEffect(this.#store.save(input));
     this.#generation += 1;
