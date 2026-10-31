@@ -17,16 +17,13 @@ import type { DesktopAnalyticsProperties } from "../../analytics";
 import {
   configureWebReports,
   reportNotification,
-  setWebAccountPending,
   setWebReportsEnabled,
   webAccountPending,
   webKeepsOff,
-  webReportsAgreed,
   webReportsEnabled,
 } from "../../error-reports";
 import { StaticI18nProvider } from "../../i18n-context";
-import { AnalyticsConsentRow, ConsentNotice } from "../onboarding/AnalyticsConsent";
-import { createOnboardingTeam, onboardingSessionSeed } from "../onboarding/onboarding-avatars";
+import { ConsentNotice } from "../onboarding/ConsentNotice";
 import { WebAppLock } from "./WebAppLock";
 import type { WebWorkspace } from "./WebWorkspace";
 import { createWebAccountCalls } from "./web-account";
@@ -160,18 +157,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     },
   );
   // Kept here, not in the workspace, so each link waits through sign-in.
-  // Before a session check, so a signed-out browser gets the saved answer or its regional default.
-  // A browser that agreed once keeps its answer: the sign-in screen does not show the box again.
-  const [analyticsAgreed, setAnalyticsAgreed] = createSignal(webReportsAgreed());
-  const [analyticsChoice, setAnalyticsChoice] = createSignal(webReportsEnabled());
-  // Only a box that the user changed is a choice for the account; a regional default is not.
-  let analyticsTouched = false;
-  // After a sign-out, the sign-in screen starts again from the saved answer of this browser.
-  function resetAnalyticsBox() {
-    setAnalyticsAgreed(webReportsAgreed());
-    setAnalyticsChoice(webReportsEnabled());
-    analyticsTouched = false;
-  }
   const [agentTemplateId, setAgentTemplateId] = createSignal(takeAgentTemplateLink());
   const [inviteUrl, setInviteUrl] = createSignal(takeInviteLink());
   const [pluginSlug, setPluginSlug] = createSignal(takePluginLink());
@@ -208,7 +193,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       draft.account = null;
       draft.login = { status: "signed_out" };
     });
-    resetAnalyticsBox();
   }
   const accountFetch: typeof fetch = async (input, init) => {
     const generation = sessionGeneration;
@@ -350,12 +334,8 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   }
   async function start(email: string) {
     if (Date.now() < state.resendAt) throw new Error(text.t("webClient.login.wait"));
-    // A request for a code answers the analytics box and accepts the Terms of Service.
-    if (!analyticsAgreed()) {
-      setWebReportsEnabled(analyticsChoice());
-      if (analyticsTouched) setWebAccountPending(analyticsChoice());
-      import("./web-analytics").then((module) => module.followWebReportsPreference()).catch(() => undefined);
-    }
+    // A request for a code accepts the Terms of Service. The sign-in screen asks no analytics
+    // question: the web app sends no analytics.
     const value = await signInRequest("email/start", { email });
     if (value === null) return;
     if (!isDynamicRecord(value) || !isString(value.challengeId) || typeof value.resendAt !== "number")
@@ -439,7 +419,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     },
   );
   const variant: AppVariant = import.meta.env.DEV ? "dev" : "production";
-  const consentAgents = createOnboardingTeam(onboardingSessionSeed(), 3);
   const languagePreference = createWebLanguagePreference();
   const appearancePreference = createWebAppearancePreference();
   return (
@@ -467,19 +446,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                       draft.resendAt = 0;
                     });
                   }}
-                  consent={
-                    <Show when={!analyticsAgreed()}>
-                      <AnalyticsConsentRow
-                        class="web-consent-row"
-                        checked={analyticsChoice()}
-                        agents={consentAgents}
-                        onChange={(checked) => {
-                          analyticsTouched = true;
-                          setAnalyticsChoice(checked);
-                        }}
-                      />
-                    </Show>
-                  }
                   notice={
                     <ConsentNotice
                       onOpenTerms={() => window.open("/terms", "_blank", "noopener")}

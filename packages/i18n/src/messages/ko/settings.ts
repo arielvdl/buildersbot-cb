@@ -153,11 +153,8 @@ export const messages = {
   "settings.notch.size.height": "높이",
   "settings.notch.size.previewNotch": "내장 디스플레이",
   "settings.notch.size.previewIsland": "외부 디스플레이",
-  "settings.analytics.title": "제품 분석 공유",
-  "settings.analytics.description":
-    "계정 ID와 이메일이 포함된 사용 및 안정성 메타데이터를 Builders Bot의 자체 호스팅 분석 서비스로 보내요.",
-  "settings.analytics.webDescription":
-    "계정 ID와 이메일이 포함된 사용 및 안정성 메타데이터를 Builders Bot의 자체 호스팅 분석 서비스로 보내요. 이 설정은 이 브라우저에 적용돼요.",
+  "settings.analytics.title": "사용 분석",
+  "settings.analytics.description": "꺼져 있어요. Builders Bot은 이 앱에서 사용 분석과 오류 보고서를 보내지 않아요.",
   "settings.tab.general.title": "일반",
   "settings.tab.general.description": "이 컴퓨터에서 Builders Bot이 동작하는 방식을 설정해요.",
   "settings.tab.agents.title": "에이전트",

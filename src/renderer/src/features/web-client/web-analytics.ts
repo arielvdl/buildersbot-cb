@@ -24,19 +24,6 @@ export function trackBillingReturn(event: DesktopAnalyticsProperties<"billing_re
   desktopAnalytics.track("billing_return_viewed", event);
 }
 
-/**
- * Sets the one web preference for failure reports and product analytics, and marks it for the
- * account. Returns the stored value.
- */
-export function setWebAnalyticsEnabled(value: boolean): boolean {
-  // Product analytics stops first, so its opt-out event goes before the reports stop too.
-  if (!value) desktopAnalytics.setTrackingEnabled(false, { recordOptOut: true });
-  const enabled = setWebReportsEnabled(value);
-  desktopAnalytics.setTrackingEnabled(enabled);
-  setWebAccountPending(value);
-  return enabled;
-}
-
 let sending = false;
 
 /**

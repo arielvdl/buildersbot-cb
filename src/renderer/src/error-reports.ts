@@ -40,15 +40,6 @@ export function webReportsEnabled(): boolean {
   return webChoice ?? (webSignedIn || webAnalyticsDefault());
 }
 
-/** True when this browser saved "on". The sign-in screen then keeps it and does not ask again. */
-export function webReportsAgreed(): boolean {
-  try {
-    return localStorage.getItem(WEB_PREFERENCE) === "true";
-  } catch {
-    return false;
-  }
-}
-
 /** On only when the region of the browser language and the time zone are in a default-on country. */
 function webAnalyticsDefault(): boolean {
   try {

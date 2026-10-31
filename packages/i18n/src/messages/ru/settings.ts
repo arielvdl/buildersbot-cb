@@ -145,11 +145,9 @@ export const messages = {
   "settings.notch.size.height": "Высота",
   "settings.notch.size.previewNotch": "Встроенный дисплей",
   "settings.notch.size.previewIsland": "Внешний дисплей",
-  "settings.analytics.title": "Делиться аналитикой продукта",
+  "settings.analytics.title": "Аналитика использования",
   "settings.analytics.description":
-    "Отправлять метаданные об использовании и надёжности вместе с ID аккаунта и почтой в собственную аналитику Builders Bot.",
-  "settings.analytics.webDescription":
-    "Отправлять метаданные об использовании и надёжности вместе с ID аккаунта и почтой в собственную аналитику Builders Bot. Настройка действует для этого браузера.",
+    "Выключено. Builders Bot не отправляет из этого приложения аналитику использования и отчёты об ошибках.",
   "settings.tab.general.title": "Основные",
   "settings.tab.general.description": "Как Builders Bot ведёт себя на этом компьютере.",
   "settings.tab.notifications.title": "Уведомления",

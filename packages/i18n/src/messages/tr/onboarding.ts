@@ -85,12 +85,6 @@ export const messages = {
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude veya Grok",
   "onboarding.choice.startFreeInstead": "Bunun yerine ücretsiz başla",
   "onboarding.consent.notice": "Devam ederek {terms}’nı kabul etmiş ve {privacy}’nı okumuş olursunuz.",
-  "onboarding.consent.analyticsTitle": "Builders Bot'u geliştirmemize yardım edin",
-  "onboarding.consent.analyticsDetail":
-    "Hangi özellikleri kullandığınızı paylaşın. Sohbetleriniz, dosyalarınız ve istemleriniz asla paylaşılmaz.",
-  "onboarding.consent.thanksTitle": "Teşekkürler! Ekip size bir iyilik borçlu.",
-  "onboarding.consent.thanksToast": "Builders Bot'u geliştirmemize yardım ettiğiniz için teşekkürler 💜",
-  "onboarding.consent.thanksToastDetail": "Bunu istediğiniz zaman Ayarlar'dan değiştirebilirsiniz.",
   "onboarding.consent.termsLink": "Hizmet Şartları",
   "onboarding.consent.privacyLink": "Gizlilik Politikası",
   "onboarding.plan.title": "Planınızı bağlayın",

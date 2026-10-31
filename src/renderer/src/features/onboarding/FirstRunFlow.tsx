@@ -25,12 +25,6 @@ export interface FirstRunFlowProps extends SetupProviderProps {
    * names the endpoint the user just described when they chose their own.
    */
   onSave: (provider: AgentProviderId, model: AgentModelId | null, journey: OnboardingJourney) => Promise<void>;
-  /**
-   * Records the product analytics choice when the user answers the first question. The box starts
-   * ticked only in a region that allows it; a setup that never records a choice saves "off".
-   * `chosen` is true when the user changed the box, so the account keeps only a real answer.
-   */
-  onAnalyticsChoice: (enabled: boolean, chosen: boolean) => void;
   /** Runs when the provider step is shown. First run scans once, so the host ignores a repeat. */
   onProviderStepShown?: () => void;
   /** The logo colour of this build, for the splash that shows while the app opens. */
@@ -53,10 +47,6 @@ interface FirstRunState {
   finishWhenReady: boolean;
   /** The user left the plan step with "Start free instead". */
   skipped: boolean;
-  /** Clear until main says that the region of this computer allows analytics by default. */
-  analytics: boolean;
-  /** The user changed the box, so a late regional default does not replace their choice. */
-  analyticsTouched: boolean;
 }
 
 /**
@@ -72,18 +62,9 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
     saving: false,
     finishWhenReady: false,
     skipped: false,
-    analytics: false,
-    analyticsTouched: false,
   });
-  // A failed read keeps the box clear, which is the consent answer.
-  void onboardingPort()
-    .getAnalyticsDefault()
-    .then(({ enabled }) =>
-      setState((current) => {
-        if (!current.analyticsTouched) current.analytics = enabled;
-      }),
-    )
-    .catch(() => undefined);
+  // First run asks no analytics question: the app sends no analytics. Setup saves the "off" default
+  // before it completes (`saveAnalyticsDefault` in main).
   /**
    * The first-run screen sits on the dialog layer, so a row menu portalled to `body` would paint
    * behind it. Menus mount here instead.
@@ -196,7 +177,6 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
   // A write shows in reads only after the next flush, so this reads no state that it writes.
   function startFree(): void {
     const fromPlan = state.step === "plan";
-    if (!fromPlan) props.onAnalyticsChoice(state.analytics, state.analyticsTouched);
     trackStep(fromPlan ? "skipped" : "next", "free");
     providers.chooseProvider(FREE_PROVIDER);
     setState((current) => {
@@ -222,7 +202,6 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
   function usePlan(provider?: AgentProviderId): void {
     if (provider) providers.chooseProvider(provider);
     else if (providers.selectedProvider() === FREE_PROVIDER && !providers.customSelected()) providers.clearChoice();
-    props.onAnalyticsChoice(state.analytics, state.analyticsTouched);
     trackStep("next", "plan");
     setState((current) => {
       current.path = "plan";
@@ -395,13 +374,6 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
                   onStartFree={startFree}
                   onUsePlan={() => usePlan()}
                   onUseCulturaBuilder={() => usePlan(FEATURED_PROVIDER)}
-                  analytics={state.analytics}
-                  onAnalyticsChange={(enabled) =>
-                    setState((current) => {
-                      current.analytics = enabled;
-                      current.analyticsTouched = true;
-                    })
-                  }
                   onOpenTerms={() => void onboardingPort().openUrl(TERMS_URL)}
                   onOpenPrivacy={() => void onboardingPort().openUrl(PRIVACY_URL)}
                 />

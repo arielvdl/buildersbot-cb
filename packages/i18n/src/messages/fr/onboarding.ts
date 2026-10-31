@@ -84,12 +84,6 @@ export const messages = {
   "onboarding.choice.subscriptionDetail": "ChatGPT, Claude ou Grok",
   "onboarding.choice.startFreeInstead": "Plutôt l’option gratuite",
   "onboarding.consent.notice": "En continuant, vous acceptez les {terms} et prenez connaissance de la {privacy}.",
-  "onboarding.consent.analyticsTitle": "Aidez-nous à améliorer Builders Bot",
-  "onboarding.consent.analyticsDetail":
-    "Partagez les fonctionnalités que vous utilisez. Jamais vos conversations, fichiers ou prompts.",
-  "onboarding.consent.thanksTitle": "Merci ! L’équipe vous en doit une.",
-  "onboarding.consent.thanksToast": "Merci de nous aider à améliorer Builders Bot 💜",
-  "onboarding.consent.thanksToastDetail": "Vous pouvez modifier ce choix à tout moment dans les Réglages.",
   "onboarding.consent.termsLink": "Conditions d’utilisation",
   "onboarding.consent.privacyLink": "Politique de confidentialité",
   "onboarding.plan.title": "Connectez votre forfait",

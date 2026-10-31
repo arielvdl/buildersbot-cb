@@ -154,11 +154,8 @@ export const messages = {
   "settings.notch.size.height": "高度",
   "settings.notch.size.previewNotch": "内置显示器",
   "settings.notch.size.previewIsland": "外接显示器",
-  "settings.analytics.title": "分享产品分析数据",
-  "settings.analytics.description":
-    "将使用情况和稳定性元数据，连同你的账号 ID 和邮箱发送到 Builders Bot 自建的分析服务。",
-  "settings.analytics.webDescription":
-    "将使用情况和可靠性元数据连同你的账号 ID 和邮箱发送到 Builders Bot 自托管的分析服务。该设置仅对该浏览器生效。",
+  "settings.analytics.title": "使用情况分析",
+  "settings.analytics.description": "已关闭。Builders Bot 不会从此应用发送使用情况分析或错误报告。",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "通用",
   "settings.tab.general.description": "控制 Builders Bot 在这台电脑上的行为。",

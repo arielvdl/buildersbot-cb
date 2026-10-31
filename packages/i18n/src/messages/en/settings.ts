@@ -243,11 +243,8 @@ export const messages = defineMessages("settings", {
   "settings.notch.size.height": "Height",
   "settings.notch.size.previewNotch": "Built-in display",
   "settings.notch.size.previewIsland": "External display",
-  "settings.analytics.title": "Share product analytics",
-  "settings.analytics.description":
-    "Send usage and reliability metadata with your account ID and email to Builders Bot’s self-hosted analytics.",
-  "settings.analytics.webDescription":
-    "Send usage and reliability metadata with your account ID and email to Builders Bot’s self-hosted analytics. This setting applies to this browser.",
+  "settings.analytics.title": "Usage analytics",
+  "settings.analytics.description": "Off. Builders Bot sends no usage analytics and no error reports from this app.",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "General",
   "settings.tab.general.description": "Control how Builders Bot behaves on this computer.",

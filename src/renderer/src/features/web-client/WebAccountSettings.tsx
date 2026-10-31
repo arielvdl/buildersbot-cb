@@ -35,10 +35,8 @@ import { createEffect, createSignal, onCleanup, onSettled, Show } from "solid-js
 import { readActionSoundChoice, setActionSoundChoice } from "../../action-sounds";
 import { setShowAgentSteps, useShowAgentSteps } from "../../agent-steps-preference";
 import { playSoundChoice, readTaskSound, setTaskSound } from "../../completion-sound";
-import { webReportsEnabled } from "../../error-reports";
 import { currentDevicePlatform, setSendShortcutMode, useSendShortcutMode } from "../../send-shortcut-preference";
 import type { WebAccountCalls } from "./web-account";
-import { sendWebAnalyticsChoice, setWebAnalyticsEnabled } from "./web-analytics";
 import { appLockSupported, webAppLock } from "./web-app-lock";
 import { isInstalledWebApp, webInstallIdentity } from "./web-install-identity";
 import type { WebNotificationSettings } from "./web-notification-settings";
@@ -92,7 +90,6 @@ export interface WebAccountSettingsProps {
  * of their server.
  */
 export default function WebAccountSettings(props: WebAccountSettingsProps) {
-  const [reportsEnabled, setReportsEnabled] = createSignal(webReportsEnabled());
   const { t } = useText();
   const install = useWebAppInstall();
   const [installed] = createSignal(isInstalledWebApp());
@@ -374,17 +371,12 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
           </SettingsSection>
           <SettingsSection title={t("settings.analytics.title")}>
             <ItemGroup class="settings-modal-card">
-              <SwitchField
-                checked={reportsEnabled()}
-                onChange={(value) => {
-                  setReportsEnabled(setWebAnalyticsEnabled(value));
-                  sendWebAnalyticsChoice(props.calls)
-                    .then(() => setReportsEnabled(webReportsEnabled()))
-                    .catch(() => undefined);
-                }}
-                label={t("settings.analytics.title")}
-                description={t("settings.analytics.webDescription")}
-              />
+              {/* A note, not a switch: the web app sends no analytics, so there is nothing to turn on. */}
+              <Item class="settings-modal-row">
+                <ItemContent>
+                  <ItemDescription>{t("settings.analytics.description")}</ItemDescription>
+                </ItemContent>
+              </Item>
             </ItemGroup>
           </SettingsSection>
           <SettingsSection

@@ -142,11 +142,9 @@ export const messages = {
   "settings.notch.size.height": "Altezza",
   "settings.notch.size.previewNotch": "Schermo integrato",
   "settings.notch.size.previewIsland": "Schermo esterno",
-  "settings.analytics.title": "Condividi le analisi del prodotto",
+  "settings.analytics.title": "Analisi di utilizzo",
   "settings.analytics.description":
-    "Invia metadati di utilizzo e affidabilità, con l'ID del tuo account e l'email, alle analisi self-hosted di Builders Bot.",
-  "settings.analytics.webDescription":
-    "Invia metadati di utilizzo e affidabilità, con l'ID del tuo account e l'email, alle analisi self-hosted di Builders Bot. Questa impostazione vale per questo browser.",
+    "Disattivato. Builders Bot non invia analisi di utilizzo né segnalazioni di errore da questa app.",
   "settings.tab.general.title": "Generali",
   "settings.tab.general.description": "Controlla come si comporta Builders Bot su questo computer.",
   "settings.tab.notifications.title": "Notifiche",

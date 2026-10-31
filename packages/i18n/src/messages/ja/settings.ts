@@ -137,11 +137,8 @@ export const messages = {
   "settings.notch.size.height": "高さ",
   "settings.notch.size.previewNotch": "内蔵ディスプレイ",
   "settings.notch.size.previewIsland": "外部ディスプレイ",
-  "settings.analytics.title": "製品分析データを共有する",
-  "settings.analytics.description":
-    "利用状況と安定性のメタデータを、アカウント ID とメールアドレスとともに Builders Bot の自社運用の分析基盤に送信します。",
-  "settings.analytics.webDescription":
-    "利用状況と安定性のメタデータを、アカウント ID とメールアドレスとともに Builders Bot の自社運用の分析基盤に送信します。この設定はこのブラウザーに適用されます。",
+  "settings.analytics.title": "利用状況の分析",
+  "settings.analytics.description": "オフ。Builders Bot はこのアプリから利用状況の分析もエラーレポートも送信しません。",
   "settings.tab.general.title": "一般",
   "settings.tab.general.description": "このコンピューターでの Builders Bot の動作を設定します。",
   "settings.tab.notifications.title": "通知",

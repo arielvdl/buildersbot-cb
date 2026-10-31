@@ -151,11 +151,9 @@ export const messages = {
   "settings.notch.size.height": "Hauteur",
   "settings.notch.size.previewNotch": "Écran intégré",
   "settings.notch.size.previewIsland": "Écran externe",
-  "settings.analytics.title": "Partager les données analytiques du produit",
+  "settings.analytics.title": "Statistiques d’utilisation",
   "settings.analytics.description":
-    "Envoyer des métadonnées d’utilisation et de fiabilité, avec l’identifiant et l’e-mail de votre compte, aux services analytiques auto-hébergés d’Builders Bot.",
-  "settings.analytics.webDescription":
-    "Envoyer des métadonnées d’utilisation et de fiabilité, avec l’identifiant et l’e-mail de votre compte, aux services analytiques auto-hébergés d’Builders Bot. Ce réglage s’applique à ce navigateur.",
+    "Désactivé. Builders Bot n’envoie aucune statistique d’utilisation ni aucun rapport d’erreur depuis cette app.",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "Général",
   "settings.tab.general.description": "Contrôler le comportement d’Builders Bot sur cet ordinateur.",

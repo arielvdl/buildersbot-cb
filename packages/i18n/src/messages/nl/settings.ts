@@ -157,11 +157,9 @@ export const messages = {
   "settings.notch.size.height": "Hoogte",
   "settings.notch.size.previewNotch": "Ingebouwd scherm",
   "settings.notch.size.previewIsland": "Extern scherm",
-  "settings.analytics.title": "Deel productanalyse",
+  "settings.analytics.title": "Gebruiksanalyses",
   "settings.analytics.description":
-    "Stuur metadata over gebruik en betrouwbaarheid met je account-ID en e-mailadres naar de zelfgehoste analyse van Builders Bot.",
-  "settings.analytics.webDescription":
-    "Stuur metadata over gebruik en betrouwbaarheid met je account-ID en e-mailadres naar de zelfgehoste analyse van Builders Bot. Deze instelling geldt voor deze browser.",
+    "Uit. Builders Bot verstuurt vanuit deze app geen gebruiksanalyses en geen foutrapporten.",
   "settings.tab.general.title": "Algemeen",
   "settings.tab.general.description": "Bepaal hoe Builders Bot zich op deze computer gedraagt.",
   "settings.tab.agents.title": "Agents",

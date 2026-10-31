@@ -139,11 +139,8 @@ export const messages = {
   "settings.notch.size.height": "Yükseklik",
   "settings.notch.size.previewNotch": "Yerleşik ekran",
   "settings.notch.size.previewIsland": "Harici ekran",
-  "settings.analytics.title": "Ürün analizlerini paylaş",
-  "settings.analytics.description":
-    "Hesap kimliğiniz ve e-postanız ile birlikte kullanım ve güvenilirlik meta verilerini Builders Bot'un kendi barındırdığı analizlerine gönderin.",
-  "settings.analytics.webDescription":
-    "Hesap kimliğiniz ve e-postanız ile birlikte kullanım ve güvenilirlik meta verilerini Builders Bot'un kendi barındırdığı analizlerine gönderin. Bu ayar bu tarayıcı için geçerlidir.",
+  "settings.analytics.title": "Kullanım analizi",
+  "settings.analytics.description": "Kapalı. Builders Bot bu uygulamadan kullanım analizi ve hata raporu göndermez.",
   "settings.tab.general.title": "Genel",
   "settings.tab.general.description": "Builders Bot'un bu bilgisayarda nasıl davranacağını kontrol edin.",
   "settings.tab.notifications.title": "Bildirimler",

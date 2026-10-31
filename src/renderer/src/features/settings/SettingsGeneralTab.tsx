@@ -306,13 +306,13 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
 
       <SettingsSection title={i18n.t("settings.permissions.title")}>
         <ItemGroup class="settings-modal-card">
-          <SwitchField
-            data-settings-row="settings.analytics.title"
-            checked={props.value.productAnalytics}
-            onChange={(checked) => props.onUpdateSetting("productAnalytics", checked)}
-            label={i18n.t("settings.analytics.title")}
-            description={i18n.t("settings.analytics.description")}
-          />
+          {/* A note, not a switch: the app sends no analytics, so there is nothing to turn on. */}
+          <Item data-settings-row="settings.analytics.title" class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("settings.analytics.title")}</ItemTitle>
+              <ItemDescription>{i18n.t("settings.analytics.description")}</ItemDescription>
+            </ItemContent>
+          </Item>
         </ItemGroup>
       </SettingsSection>
     </>
