@@ -12,6 +12,7 @@ import { AuthOperationError, AuthService, AuthServiceError } from "./auth-servic
 import { BillingError, type BillingService } from "./billing-service";
 import type { ContactMessageServices } from "./contact-message";
 import { D1AuthRepository } from "./d1-auth-repository";
+import { exposesDevelopmentCode } from "./development-code";
 import { DiscordAppError, DiscordAppService } from "./discord-app";
 import { runApiEffect } from "./effect-runtime";
 import { createContactMessageDelivery, createEmailCodeDelivery, createTeamInviteEmailDelivery } from "./email-delivery";
@@ -58,14 +59,20 @@ export function requestAccountAttribution(): AccountAttribution {
   return new AccountAttribution({ database: bindings.DB, analytics: accountAnalytics(bindings) });
 }
 
-export function requestAuthService(): AuthService {
+/**
+ * The account service. Give `request` to the routes that start an email sign-in or report readiness:
+ * the sign-in code comes back in the answer only for a request to a local development address
+ * (see `exposesDevelopmentCode`).
+ */
+export function requestAuthService(request?: Request): AuthService {
   const bindings = requireWorkerBindings(env);
-  const exposeDevelopmentCode = bindings.AUTH_EXPOSE_DEVELOPMENT_CODE === "true";
+  // With the development setting, the Worker sends no email, also for a public host.
+  const developmentWorker = bindings.AUTH_EXPOSE_DEVELOPMENT_CODE === "true";
   const analytics = accountAnalytics(bindings);
   return new AuthService({
     repository: new D1AuthRepository(bindings.DB),
-    delivery: exposeDevelopmentCode ? null : createEmailCodeDelivery(bindings, analytics),
-    exposeDevelopmentCode,
+    delivery: developmentWorker ? null : createEmailCodeDelivery(bindings, analytics),
+    exposeDevelopmentCode: exposesDevelopmentCode(bindings.AUTH_EXPOSE_DEVELOPMENT_CODE, request?.url),
     // The revocation is already written and the cron redelivers it, so the answer does not wait.
     flushSessionRevocations: () => Effect.sync(() => schedule(deliverPendingRemoteAuthEvents(bindings, Date.now()))),
     profileChanged: (userId) => notifyAccountProfileChanged(bindings, userId, schedule),

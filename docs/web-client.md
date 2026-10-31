@@ -283,7 +283,8 @@ sign-in, host discovery, the WebRTC connection, teammate/history loading, a live
 provider reply, and a JSON file transfer into the shared preview panel passed. The sent message
 also appeared in the desktop app. This is a focused local check, not the complete release gate.
 When the local account service returns a development code, the web sign-in form displays it,
-as the desktop form does. Production must not enable `AUTH_EXPOSE_DEVELOPMENT_CODE`.
+as the desktop form does. Production must not enable `AUTH_EXPOSE_DEVELOPMENT_CODE`. Also with the
+setting, the Worker returns the code only for a request to a loopback or private network address.
 
 Before enabling the deployed flag:
 

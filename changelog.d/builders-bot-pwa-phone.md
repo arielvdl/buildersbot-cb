@@ -21,3 +21,5 @@
 
 - The sign-in code of the web app comes only by email again. Before, a configuration error showed
   the code in the sign-in form.
+- The account service no longer returns a sign-in code on its public address, also when that
+  configuration error comes back. Only a local development address gets the code.

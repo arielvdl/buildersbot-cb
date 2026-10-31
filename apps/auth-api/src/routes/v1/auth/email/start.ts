@@ -18,7 +18,7 @@ export const Route = createFileRoute("/v1/auth/email/start")({
             }
             const idempotencyKey = request.headers.get("Idempotency-Key") ?? undefined;
             return json(
-              yield* requestAuthService().startEmailSignIn(body.email, requestSourceIp(request), idempotencyKey),
+              yield* requestAuthService(request).startEmailSignIn(body.email, requestSourceIp(request), idempotencyKey),
             );
           }),
           (error) => {

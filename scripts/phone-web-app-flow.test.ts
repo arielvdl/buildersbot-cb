@@ -4,7 +4,8 @@
 //
 // It also fails when the sign-in of the phone can break or leak again: when the code has a header
 // name with a space, which `fetch` and Node refuse before they send the request, or when a deployed
-// account service returns the sign-in code in its answer instead of sending it by email.
+// account service returns the sign-in code in its answer instead of sending it by email, either by
+// its setting or for a request to a public host.
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -13,6 +14,7 @@ import { createMobileWebAppUrl, mobileWebAppAddress, parseMobileWebAppUrl } from
 import { type Message, TRANSLATED_LOCALES } from "@openbot/i18n";
 import { MOBILE_WEB_APP_PLATFORMS } from "@openbot/ui/features/mobile-app/mobile-web-app";
 import { describe, expect, it } from "vitest";
+import { exposesDevelopmentCode } from "../apps/auth-api/src/server/development-code";
 
 const STORE_TEXT =
   /app\s?store|google\s?play|play\s?store|testflight|apps\.apple\.com|play\.google\.com|\.apk\b|baixe o app|get the app/iu;
@@ -174,5 +176,41 @@ describe("phone web app flow", () => {
     }));
     expect(settings.filter((setting) => setting.production).map((setting) => setting.value)).toEqual(["false"]);
     expect(settings.map((setting) => setting.value)).toEqual(settings.map(() => "false"));
+  });
+
+  it("returns the sign-in code only for a request to a local development address", () => {
+    // A wrong Worker setting must not give the code to a request on a public host.
+    const localAddresses = [
+      "http://127.0.0.1:3100/v1/auth/email/start",
+      "http://localhost:3100/api/browser/email/start",
+      "http://openbot.localhost:3100/v1/auth/email/start",
+      "http://192.168.1.20:3100/api/browser/email/start",
+      "http://10.0.0.2:3100/x",
+      "http://172.20.1.1:3100/x",
+      "http://100.102.206.17:3100/x",
+      "http://[::1]:3100/x",
+      "http://[fd12:3456::1]:3100/x",
+      "http://[fe80::1]:3100/x",
+    ];
+    const publicAddresses = [
+      "https://buildersbot.culturabuilder.com/v1/auth/email/start",
+      "https://buildersbot.culturabuilder.com/api/browser/email/start",
+      "https://buildersbot-auth.example.workers.dev/x",
+      "https://example.trycloudflare.com/x",
+      "https://localhost.example.com/x",
+      "https://127.0.0.1.nip.io/x",
+      "http://172.32.0.1/x",
+      "http://100.128.0.1/x",
+      "http://8.8.8.8/x",
+      "http://[2001:db8::1]/x",
+      "http://[fc::1]/x",
+      "not a url",
+    ];
+    expect(localAddresses.filter((url) => !exposesDevelopmentCode("true", url))).toEqual([]);
+    expect(publicAddresses.filter((url) => exposesDevelopmentCode("true", url))).toEqual([]);
+    for (const flag of [undefined, "", "false", "1", "TRUE"]) {
+      expect(exposesDevelopmentCode(flag, "http://127.0.0.1:3100/x")).toBe(false);
+    }
+    expect(exposesDevelopmentCode("true", undefined)).toBe(false);
   });
 });

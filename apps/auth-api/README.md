@@ -203,7 +203,9 @@ sends this JSON:
 ```
 
 If `EMAIL_DELIVERY_WEBHOOK_SECRET` is set, the request includes a Bearer token.
-Do not enable `AUTH_EXPOSE_DEVELOPMENT_CODE` in production.
+Do not enable `AUTH_EXPOSE_DEVELOPMENT_CODE` in production. The Worker returns the code only for a
+request to a loopback or private network address (`src/server/development-code.ts`). On a public
+host with the setting, email sign-in answers `503 email_delivery_not_configured` and returns no code.
 
 When the provider itself refuses a message with a sender limit, the Worker
 answers 429 `email_delivery_rate_limited` instead of 502, for a sign-in code and

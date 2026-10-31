@@ -8,12 +8,12 @@ import { requireWorkerBindings } from "../../server/types";
 export const Route = createFileRoute("/health/ready")({
   server: {
     handlers: {
-      GET: () =>
+      GET: ({ request }) =>
         runApiResponse(
           Effect.gen(function* () {
             const bindings = requireWorkerBindings(env);
             yield* Effect.promise(() => bindings.DB.prepare("SELECT 1 AS ready").first());
-            if (!requestAuthService().configured) {
+            if (!requestAuthService(request).configured) {
               return apiError(503, "email_delivery_not_configured", "Email sign-in delivery is not configured.");
             }
             return json({ service: "openbot-auth-api", status: "ready" });
