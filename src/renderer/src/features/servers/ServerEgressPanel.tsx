@@ -7,6 +7,7 @@ import {
   type EgressProxyUpdate,
   type EgressProxyView,
   normalizeEgressBypassRule,
+  normalizeEgressHost,
   parseEgressProxyLine,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
@@ -105,7 +106,9 @@ function formOf(view: EgressProxyView): EgressForm {
 
 /** The update that the form names, or the key of its first error. The host checks it again. */
 function updateOf(form: EgressForm): EgressProxyUpdate | FormError {
-  const host = form.host.trim().toLowerCase();
+  // An IPv6 address can come with brackets; the stored form has none.
+  const host = form.host.trim() ? normalizeEgressHost(form.host) : "";
+  if (host === null) return "server.egress.errorHost";
   const port = form.port.trim() === "" ? null : Number(form.port.trim());
   if (port !== null && (!Number.isInteger(port) || port < 1 || port > 65_535)) return "server.egress.errorPort";
   const rules = form.bypass
@@ -120,7 +123,6 @@ function updateOf(form: EgressForm): EgressProxyUpdate | FormError {
   }
   const expectedCountry = form.expectedCountry.trim().toUpperCase();
   if (!/^[A-Z]{2}$/u.test(expectedCountry)) return "server.egress.errorCountry";
-  if (host && parseEgressProxyLine(`${host}:${port ?? 1}`).ok === false) return "server.egress.errorHost";
   return {
     enabled: form.enabled,
     host,
