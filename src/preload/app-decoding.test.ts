@@ -38,6 +38,8 @@ import {
   decodeProviderDetectionSettings,
   decodeResumeInterruptedWorkResult,
   decodeResumeOffer,
+  decodeServerCreationAccess,
+  decodeServerCreationAdminState,
   decodeUpdatePreference,
   decodeUpdateStatus,
   decodeVoiceServerProbe,
@@ -135,7 +137,35 @@ const voiceServer = {
   },
 };
 
+const serverCreationRequest = {
+  id: "5d6e7f80-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
+  userId: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  email: "person@example.com",
+  name: null,
+  reason: "The sales team needs a server.",
+  status: "pending",
+  createdAt: 1,
+  decidedAt: null,
+};
+
 const valid: [string, (value: unknown) => unknown, unknown][] = [
+  [
+    "a server creation access with a denied request",
+    decodeServerCreationAccess,
+    {
+      canCreate: false,
+      administrator: false,
+      request: { id: "request-1", status: "denied", createdAt: 1, decidedAt: 2 },
+    },
+  ],
+  [
+    "the server creation administrator state",
+    decodeServerCreationAdminState,
+    {
+      requests: [serverCreationRequest],
+      grants: [{ userId: "user-2", email: "other@example.com", name: "Other", grantedAt: 3, note: "Ops" }],
+    },
+  ],
   ["a voice server", decodeVoiceServerSettings, voiceServer],
   ["no voice server", decodeVoiceServerSettings, null],
   [
@@ -261,6 +291,21 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
 ];
 
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
+  ["a server creation access with no permission flag", decodeServerCreationAccess, { administrator: true }],
+  [
+    "a server creation request with an unknown status",
+    decodeServerCreationAccess,
+    {
+      canCreate: false,
+      administrator: false,
+      request: { id: "r", status: "cancelled", createdAt: 1, decidedAt: null },
+    },
+  ],
+  [
+    "an administrator state with one malformed request",
+    decodeServerCreationAdminState,
+    { requests: [serverCreationRequest, { ...serverCreationRequest, userId: "" }], grants: [] },
+  ],
   ["a resume offer with no agent list", decodeResumeOffer, { channels: [] }],
   ["an agent limit of zero", decodeAgentLimitPreference, { enabled: true, max: 0 }],
   ["an agent limit above 64", decodeAgentLimitPreference, { enabled: true, max: 65 }],
