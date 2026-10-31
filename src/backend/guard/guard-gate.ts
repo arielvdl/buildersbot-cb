@@ -48,10 +48,11 @@ export interface GuardApprovalMark {
 
 /**
  * Whether only the owner may answer a Guard question. A secret that may leave the computer is the
- * owner's alone: a team member or a chat app user who could answer would decide about it.
+ * owner's alone: a team member or a chat app user who could answer would decide about it. The local
+ * findings decide it, so a reviewer that names another category cannot take the question from the owner.
  */
-export function guardOwnerOnly(checked: Pick<GuardResult, "category">): boolean {
-  return checked.category === "secret-leak";
+export function guardOwnerOnly(checked: Pick<GuardResult, "ownerOnly">): boolean {
+  return checked.ownerOnly;
 }
 
 /**
@@ -341,7 +342,8 @@ export const GUARD_TOOL_INBOUND: Readonly<Record<string, GuardToolInbound>> = {
   "openbot.connect_routine_agents": OWN_STATE,
   "openbot.disconnect_routine_agents": OWN_STATE,
   "openbot.list_mcp_servers": OWN_STATE,
-  "openbot.save_mcp_server": OWN_STATE,
+  // Both return the report of the remote server: its tool names and its error text.
+  "openbot.save_mcp_server": CONTENT_CHECKED,
   "openbot.test_mcp_server": CONTENT_CHECKED,
   "openbot.set_mcp_server_enabled": OWN_STATE,
   "openbot.remove_mcp_server": OWN_STATE,
@@ -447,11 +449,12 @@ export const GUARD_INBOUND_PATHS = {
   "builders-bot-tools": {
     covered: true,
     where:
-      "BuildersBotToolRouter calls GuardGate.afterTool for messaging_history, messaging_list_places and test_mcp_server.",
+      "BuildersBotToolRouter calls GuardGate.afterTool for messaging_history, messaging_list_places, save_mcp_server and test_mcp_server.",
   },
   "playwright-shared-browser": {
     covered: true,
-    where: "PlaywrightBroker reads each tools/call result with McpResultGuard and puts the Guard's note in front.",
+    where:
+      "PlaywrightBroker checks each tools/call with the Guard before it runs, and reads each result with McpResultGuard.",
   },
   "chat-app-messages": {
     covered: true,
@@ -594,11 +597,16 @@ function declined(reason: string | null): DynamicToolResult {
   );
 }
 
+/**
+ * The approval card of a Guard question. `guard` tells each window that a Full access grant does not
+ * answer it, so the card offers no "Always allow". A question about content has no command: the
+ * reason names the tool and the page, in the reader's language.
+ */
 function approvalFor(
   request: AppServerRequest,
   params: DynamicToolCallParams,
   agentId: string,
-  command: string,
+  command: string | null,
   reason: string,
 ): AgentApproval {
   return {
@@ -612,6 +620,7 @@ function approvalFor(
     reason,
     grantRoot: null,
     permissions: null,
+    guard: true,
   };
 }
 
@@ -656,7 +665,7 @@ export class GuardGate<Client = AgentClient> {
     const answer = yield* this.#options.ask(
       client,
       request,
-      approvalFor(request, params, agentId, actionSummary(item), askReason("action", checked)),
+      approvalFor(request, params, agentId, actionSummary(item), actionReason(checked)),
       { ownerOnly: guardOwnerOnly(checked) },
     );
     if (answer !== "accept")
@@ -710,11 +719,10 @@ export class GuardGate<Client = AgentClient> {
       case "block":
         return withheld(checked.reason);
       case "ask": {
-        const subject = sourceText("status.guard.contentSubject", { tool, origin: host ?? "?" });
         const answer = yield* this.#options.ask(
           client,
           request,
-          approvalFor(request, params, agentId, subject, askReason("content", checked)),
+          approvalFor(request, params, agentId, null, contentReason(checked, tool, host)),
           { ownerOnly: guardOwnerOnly(checked) },
         );
         if (answer === "cancel") return null;
@@ -740,13 +748,31 @@ export class GuardGate<Client = AgentClient> {
       action: { tool: "command", command },
     });
     if (checked.action !== "ask" && checked.action !== "block") return null;
-    return { reason: askReason("action", checked), ownerOnly: guardOwnerOnly(checked) } satisfies GuardApprovalMark;
+    return { reason: actionReason(checked), ownerOnly: guardOwnerOnly(checked) } satisfies GuardApprovalMark;
   });
 }
 
-function askReason(kind: "action" | "content", checked: GuardResult): string {
+/** The reason on the card of an action, with the reviewer's own words when the reviewer asked. */
+function actionReason(checked: GuardResult): string {
   const reason = checked.reason ?? "";
-  return kind === "action"
-    ? sourceText("status.guard.askAction", { reason })
-    : sourceText("status.guard.askContent", { reason });
+  return checked.modelReason
+    ? sourceText("status.guard.askActionReviewed", { reason, detail: checked.modelReason })
+    : sourceText("status.guard.askAction", { reason });
+}
+
+/**
+ * The reason on the card of content: the tool, the page when it is known, the finding, and the
+ * reviewer's own words when the reviewer asked. Each part is a text key, so the card shows it in the
+ * reader's language.
+ */
+function contentReason(checked: GuardResult, tool: string, origin: string | null): string {
+  const reason = checked.reason ?? "";
+  const detail = checked.modelReason;
+  if (origin)
+    return detail
+      ? sourceText("status.guard.askContentFromReviewed", { tool, origin, reason, detail })
+      : sourceText("status.guard.askContentFrom", { tool, origin, reason });
+  return detail
+    ? sourceText("status.guard.askContentToolReviewed", { tool, reason, detail })
+    : sourceText("status.guard.askContentTool", { tool, reason });
 }

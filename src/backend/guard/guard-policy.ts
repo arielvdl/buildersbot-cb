@@ -3,7 +3,13 @@
 
 import type { GuardAvailableLevel, GuardCategory } from "@openbot/contracts/ipc";
 import type { GuardDirection, GuardJudgeVerdict } from "./guard-judge";
-import { type GuardTriage, guardFindingNeedsReview, triageReason } from "./guard-triage";
+import {
+  type GuardTriage,
+  guardFindingNeedsReview,
+  strongerCategory,
+  triageNamesSecretLeak,
+  triageReason,
+} from "./guard-triage";
 
 /**
  * What happens to the item:
@@ -21,6 +27,10 @@ export type GuardDecider = "off" | "local" | "model" | "fallback";
 export type GuardJudgeOutcome =
   | { readonly kind: "not-needed" }
   | { readonly kind: "unavailable" }
+  /**
+   * `busy`: every review slot stayed taken until the deadline. An agent can cause that on purpose,
+   * with many calls at once, so an action that ends busy goes to the person.
+   */
   | { readonly kind: "failed"; readonly failure: "timeout" | "error" | "invalid" | "busy" }
   /**
    * `covered` is false when the excerpt did not show every place that the local check marked. The
@@ -31,9 +41,21 @@ export type GuardJudgeOutcome =
 export interface GuardDecision {
   readonly action: GuardAction;
   readonly category: GuardCategory;
-  /** A short English sentence for the person and the agent. Null when the item passes with no finding. */
+  /**
+   * A short English sentence of the local check, for the person and the agent. Null when the item
+   * passes with no finding. It never holds text of the reviewer: the agent reads it, and text that
+   * the item chose must not reach the agent in the voice of the Guard.
+   */
   readonly reason: string | null;
   readonly by: GuardDecider;
+  /**
+   * Only the owner may answer. It comes from the local findings: a secret that the local check sees
+   * leaving stays the owner's question whatever category the reviewer gives. The reviewer can make a
+   * question the owner's, never take it from the owner.
+   */
+  readonly ownerOnly: boolean;
+  /** The reviewer's own reason, for the approval card only. Null when the reviewer did not ask. */
+  readonly modelReason: string | null;
 }
 
 /**
@@ -49,7 +71,14 @@ export function guardNeedsJudge(level: GuardAvailableLevel, direction: GuardDire
   return triage.hits.some((hit) => guardFindingNeedsReview(hit.code));
 }
 
-export const GUARD_ALLOW: GuardDecision = { action: "allow", category: "none", reason: null, by: "local" };
+export const GUARD_ALLOW: GuardDecision = {
+  action: "allow",
+  category: "none",
+  reason: null,
+  by: "local",
+  ownerOnly: false,
+  modelReason: null,
+};
 
 /**
  * The Light level. Its concern is prompt injection, and it must not stop the work:
@@ -63,7 +92,7 @@ export const GUARD_ALLOW: GuardDecision = { action: "allow", category: "none", r
  *   did not show everything does not clear the item: content passes with a note to the agent, and an
  *   action goes to the person. With no verdict (no sign-in, a timeout, an error, a reply outside the
  *   schema), the local check decides: content passes with a note to the agent, and an action passes.
- *   The event is logged.
+ *   An action whose review found every slot taken goes to the person. The event is logged.
  */
 export function decideGuard(input: {
   level: GuardAvailableLevel;
@@ -72,29 +101,37 @@ export function decideGuard(input: {
   judge: GuardJudgeOutcome;
 }): GuardDecision {
   const { triage, judge } = input;
-  if (input.level === "off") return { action: "allow", category: "none", reason: null, by: "off" };
+  if (input.level === "off") return { ...GUARD_ALLOW, by: "off" };
   if (triage.level === "clean") return GUARD_ALLOW;
-  const localReason = triageReason(triage);
-  if (triage.level === "high") return { action: "ask", category: triage.category, reason: localReason, by: "local" };
+  const reason = triageReason(triage);
+  const ownerOnly = triageNamesSecretLeak(triage);
+  const local = { category: triage.category, reason, ownerOnly, modelReason: null } as const;
+  if (triage.level === "high") return { action: "ask", ...local, by: "local" };
   const outbound = input.direction === "outbound";
-  if (outbound && triage.incomplete)
-    return { action: "ask", category: triage.category, reason: localReason, by: "local" };
+  if (outbound && triage.incomplete) return { action: "ask", ...local, by: "local" };
   if (judge.kind === "verdict") {
     const { verdict } = judge;
-    if (verdict.verdict !== "allow")
+    if (verdict.verdict !== "allow") {
+      // The reviewer can raise the category, never lower it below what the local check found.
+      const category =
+        verdict.category === "none" ? triage.category : strongerCategory(verdict.category, triage.category);
       return {
         action: "ask",
-        category: verdict.category === "none" ? triage.category : verdict.category,
-        reason: verdict.reason,
+        category,
+        reason,
         by: "model",
+        ownerOnly: ownerOnly || category === "secret-leak",
+        modelReason: verdict.reason,
       };
-    if (judge.covered) return { action: "allow", category: "none", reason: null, by: "model" };
-    if (outbound) return { action: "ask", category: triage.category, reason: localReason, by: "model" };
+    }
+    if (judge.covered) return { ...GUARD_ALLOW, by: "model" };
+    if (outbound) return { action: "ask", ...local, by: "model" };
   }
+  if (outbound && judge.kind === "failed" && judge.failure === "busy")
+    return { action: "ask", ...local, by: "fallback" };
   return {
     action: input.direction === "inbound" ? "annotate" : "allow",
-    category: triage.category,
-    reason: localReason,
+    ...local,
     by: judge.kind === "not-needed" ? "local" : "fallback",
   };
 }

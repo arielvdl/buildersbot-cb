@@ -253,7 +253,8 @@ import { GuardGate, guardResultNotice } from "./guard/guard-gate";
 import { culturaBuilderGuardModel } from "./guard/guard-judge";
 import { resolveGuardPaths } from "./guard/guard-paths";
 import { providerGuardModel } from "./guard/provider-guard-model";
-import { ToolGuard } from "./guard/tool-guard";
+import type { GuardOutboundItem } from "./guard/guard-triage";
+import { type GuardResult, ToolGuard } from "./guard/tool-guard";
 import type { HostMemory } from "./host-memory";
 import type { MailboxStore } from "./mailbox-store";
 import { toMcpOperationError } from "./mcp-effects";
@@ -5216,6 +5217,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#toolGuard
       .check({ direction: "inbound", tool: source, subject: source, content: text })
       .pipe(Effect.map(guardResultNotice));
+  }
+
+  /**
+   * The Guard's decision on an action that a proxy of this app sends out, such as a call to the shared
+   * Playwright browser. It never fails.
+   */
+  guardAction(item: GuardOutboundItem): Effect.Effect<GuardResult> {
+    return this.#toolGuard.check({ direction: "outbound", subject: item.tool, action: item });
   }
 
   /** `responder` is absent for the person at this computer; the Team API gives the member who answers. */

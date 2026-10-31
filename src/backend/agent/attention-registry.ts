@@ -164,6 +164,12 @@ function guardMarkFields(guard: GuardApprovalMark | null): Pick<PendingApproval,
 }
 
 const TOOL_APPROVAL_METHOD = "openbot/tool-approval";
+/** How many ended turns the registry keeps, to drop a Guard approval that comes after its turn. */
+const ENDED_TURN_LIMIT = 512;
+
+function endedTurnKey(threadId: string, turnId: string): string {
+  return `${threadId}\u0000${turnId}`;
+}
 /** The agent reads this, not the user: it says how to ask in a Slack, Discord or Telegram turn. */
 const MESSAGING_QUESTION_REFUSED =
   "This conversation is in Slack, Discord or Telegram, where nobody can answer a question card. Ask the question in your answer: the person replies in the conversation.";
@@ -365,6 +371,12 @@ export class AttentionRegistry {
   readonly #apiKeys: AgentApiKeys | null;
   readonly #prompts = new Map<RequestId, PendingPrompt>();
   readonly #approvals = new Map<RequestId, PendingApproval>();
+  /**
+   * The turns that ended lately, by provider thread and turn. A command approval with a Guard mark
+   * waits for the Guard before it reaches the card; when its turn ended in that time, nobody waits for
+   * the answer, so the card must not open.
+   */
+  readonly #endedTurns = new Set<string>();
   readonly #takeovers = new Map<RequestId, PendingBrowserTakeover>();
 
   constructor(options: AttentionRegistryOptions) {
@@ -746,7 +758,8 @@ export class AttentionRegistry {
   /**
    * `guard` is set when the Guard found a risk in the command. The card then shows the Guard's reason
    * and asks also when the agent has Full access, and a later grant does not answer it. With
-   * `ownerOnly`, only the owner can answer, as for a built-in tool that may send a secret out.
+   * `ownerOnly`, only the owner can answer, as for a built-in tool that may send a secret out. When
+   * the turn ended while the Guard checked the command, such as after Stop, the card does not open.
    */
   surfaceApproval(
     client: AgentClient,
@@ -775,16 +788,18 @@ export class AttentionRegistry {
       permissions: kind === "permissions" ? approvalPermissions(request.params) : null,
     };
     if (!guard && this.#answerWithoutAsking(client, request, approval)) return;
+    if (guard && this.#turnEnded(threadId, turnId)) return;
+    const shown: AgentApproval = guard ? { ...approval, guard: true } : approval;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
-      approval,
+      approval: shown,
       ...guardMarkFields(guard),
     });
     this.#routines.markNeedsAttention(turnId);
-    this.#emit({ type: "approval", approval });
+    this.#emit({ type: "approval", approval: shown });
   }
 
   /**
@@ -871,16 +886,19 @@ export class AttentionRegistry {
       permissions: null,
     };
     if (!guard && this.#answerWithoutAsking(client, request, approval)) return;
+    const turnId = getString(request.params, "turnId");
+    if (guard && turnId && this.#turnEnded(threadId, turnId)) return;
+    const shown: AgentApproval = guard ? { ...approval, guard: true } : approval;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
-      approval,
+      approval: shown,
       ...guardMarkFields(guard),
     });
-    this.#routines.markNeedsAttention(approval.turnId);
-    this.#emit({ type: "approval", approval });
+    this.#routines.markNeedsAttention(shown.turnId);
+    this.#emit({ type: "approval", approval: shown });
   }
 
   readonly surfaceBrowserTakeover = Effect.fn("AttentionRegistry.surfaceBrowserTakeover")(function* (
@@ -1438,6 +1456,12 @@ export class AttentionRegistry {
    * the removal only from that event.
    */
   clearForTurn(threadId: string, turnId: string): void {
+    this.#endedTurns.add(endedTurnKey(threadId, turnId));
+    // Only the last turns matter: a Guard check waits a few seconds at most.
+    for (const key of this.#endedTurns) {
+      if (this.#endedTurns.size <= ENDED_TURN_LIMIT) break;
+      this.#endedTurns.delete(key);
+    }
     for (const [requestId, pending] of this.#prompts) {
       const pendingThreadId = getString(pending.params, "threadId");
       const pendingTurnId = getString(pending.params, "turnId");
@@ -1465,6 +1489,10 @@ export class AttentionRegistry {
       if (client && pending.client !== client) continue;
       this.#expirePrompt(requestId, pending);
     }
+  }
+
+  #turnEnded(threadId: string, turnId: string): boolean {
+    return this.#endedTurns.has(endedTurnKey(threadId, turnId));
   }
 
   /**

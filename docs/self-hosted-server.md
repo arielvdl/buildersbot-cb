@@ -9,12 +9,14 @@ To run it in a container, see [Docker](docker.md).
 
 ## Install
 
-On Ubuntu 24.04 or 26.04 (x86_64 or arm64) with systemd:
+> [!IMPORTANT]
+> The server install is not available in this version of Builders Bot. Builders Bot has no release
+> feed yet, so `scripts/install-server.sh` stops before it downloads anything, and
+> `sudo openbot update` installs nothing. Do not run the install script of the upstream OpenBot
+> project: it installs the OpenBot app as root.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
-sudo openbot login
-```
+When the server install is available, it works on Ubuntu 24.04 or 26.04 (x86_64 or arm64) with
+systemd. You run `scripts/install-server.sh` as root, then `sudo openbot login`.
 
 `openbot login` asks for your email and the code that OpenBot sends to it. After the sign-in, the
 server shows in the server list of that account. Its name is "OpenBot"; give another one with
@@ -77,7 +79,7 @@ open a database that a newer one migrated. It also refuses a computer that is a 
 | `openbot name <name>` | Change the server name. |
 | `openbot logs [-f]` | Show the journal of `openbot.service`. |
 | `sudo openbot start\|stop\|restart` | Control `openbot.service`. |
-| `sudo openbot update` | Download, check and install the newest release now. |
+| `sudo openbot update` | Download, check and install the newest release now. Not available in this version: it says that there is no update. |
 | `sudo openbot uninstall` | Sign out and remove OpenBot. The data stays (see [Remove](#remove)). |
 | `openbot version` | Show the installed version. |
 
@@ -225,8 +227,9 @@ The server stays in the server list of the account, offline. Remove it there.
 ## How it works
 
 `install-server.sh` only downloads the release. It reads `latest-linux.yml`
-(`latest-linux-arm64.yml` on arm64) of the latest GitHub release, checks the SHA-512 of the
-AppImage, unpacks it and runs `resources/hosting/openbot-server-setup` from that release. So the
+(`latest-linux-arm64.yml` on arm64) of the latest release, checks the SHA-512 of the
+AppImage, unpacks it and runs `resources/hosting/openbot-server-setup` from that release. This
+version of Builders Bot has no release feed, so the script stops before this step. So the
 install steps always match the build that they install. A release before this feature has no setup
 file, and the install stops with a message.
 
@@ -247,7 +250,8 @@ its windows on, at 1280x800. Main gives that display to Computer Use, to remote 
 processes, so an agent's screenshot and remote desktop do not show the OpenBot window. See
 [Computer Use and remote desktop](architecture/computer-use.md#agent-display-on-a-server).
 
-Updates work as on a hosted server (see [Updates](hosted-servers.md#updates)): the timer stages a
+Updates work as on a hosted server (see [Updates](hosted-servers.md#updates)). This version of
+Builders Bot has no release feed, so no update is staged. With a release feed, the timer stages a
 new release, and it starts at the next boot, or when an owner, an admin or a permitted member
 installs it in Server Settings > Updates. `sudo openbot update` stages, stops the service, applies
 and starts the service again. When a step fails or a signal stops it, the command completes an

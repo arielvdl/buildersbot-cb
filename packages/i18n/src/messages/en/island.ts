@@ -53,6 +53,7 @@ export const messages = defineMessages("island", {
   "island.approval.title.command": "Command needs review",
   "island.approval.title.fileChange": "File changes need review",
   "island.approval.title.permissions": "Permissions need review",
+  "island.approval.title.guard": "The Guard asks you to confirm",
   "island.permission.readFiles": "read files",
   "island.permission.writeFiles": "write files",
   "island.permission.network": "use network",

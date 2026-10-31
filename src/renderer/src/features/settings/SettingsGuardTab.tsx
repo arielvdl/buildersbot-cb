@@ -155,6 +155,17 @@ export function SettingsGuardTab(props: { store: SettingsGuardStore; selectMount
                 </AlertContent>
               </Alert>
             </Match>
+            <Match when={judge() !== null && guard()?.judgeReady === false}>
+              <Alert tone="warning" role="status" report={false}>
+                <AlertIcon>
+                  <TriangleAlert aria-hidden="true" />
+                </AlertIcon>
+                <AlertContent>
+                  <AlertTitle>{t("guard.notice.unavailable.title")}</AlertTitle>
+                  <AlertDescription>{t("guard.notice.unavailable.description")}</AlertDescription>
+                </AlertContent>
+              </Alert>
+            </Match>
             <Match when={judge() !== null && judge()?.provider !== "cultura-builder"}>
               <Alert tone="neutral" role="status">
                 <AlertIcon>

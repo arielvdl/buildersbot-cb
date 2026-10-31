@@ -40,19 +40,25 @@ visited pages use the network, and installed plugins may connect to their own se
 Builders Bot supports macOS 13 or newer on Apple silicon or Intel, Windows 10 or newer on x64 systems, and x64
 or arm64 Linux as an AppImage.
 
+> [!IMPORTANT]
+> Builders Bot has no public release yet: no download, release feed, server install, container image
+> or Nix package. Build a package from this repository with the `dist:*` commands in
+> [Commands](#commands). This version does not check for app updates. The releases of the upstream
+> OpenBot project are a different app: do not install them over Builders Bot.
+
 ### macOS
 
-1. Download the latest `Builders Bot-*-arm64.dmg` (or `Builders Bot-*-x64.dmg` on an Intel Mac) from [GitHub Releases](https://github.com/nightly-labs/openbot/releases).
+1. Build `Builders Bot-*-arm64.dmg` (or `Builders Bot-*-x64.dmg` on an Intel Mac) with `bun run dist:mac`.
 2. Drag Builders Bot to Applications and open it.
 
 ### Windows
 
-1. Download the latest `Builders Bot-*-x64.exe` from [GitHub Releases](https://github.com/nightly-labs/openbot/releases).
+1. Build `Builders Bot-*-x64.exe` with `bun run dist:win` on Windows.
 2. Run the installer and open Builders Bot.
 
 ### Linux
 
-1. Download the latest `Builders Bot-*-x86_64.AppImage` (or `Builders Bot-*-arm64.AppImage` on arm64) from [GitHub Releases](https://github.com/nightly-labs/openbot/releases).
+1. Build `Builders Bot-*-x86_64.AppImage` with `bun run dist:linux` on Linux.
 2. Make it executable with `chmod +x Builders Bot-*.AppImage`, then run it.
 
 The AppImage does not need libfuse2, so it also runs on Arch Linux and Omarchy. It mounts itself
@@ -84,28 +90,21 @@ desktop session on the same host or VM. Google sends the callback to that host t
 
 #### Linux server with no screen
 
-To run Builders Bot as an always-on server of your account on a VPS or home server (Ubuntu 24.04 or
-26.04 with systemd), install it from a terminal and sign in with an email code:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
-sudo openbot login
-```
-
-Then use it from the desktop app, or from `openbot.run/app` in a browser or as the web app on a phone. See
-[self-hosted servers](docs/self-hosted-server.md) for the options and the `openbot` commands.
+The server install (`scripts/install-server.sh`) is not available in this version: Builders Bot has
+no release feed yet, so the script stops before it downloads anything. See
+[self-hosted servers](docs/self-hosted-server.md) for the `openbot` commands.
 
 #### Docker
 
-The same server runs as a container (`linux/amd64` and `linux/arm64`). The seccomp profile lets the
-Electron sandbox stay on:
+The same server runs as a container (`linux/amd64` and `linux/arm64`). Builders Bot has no published
+container image yet: build one from `docker/Dockerfile`, and use its name as `<image>`. The seccomp
+profile (`docker/seccomp.json`) lets the Electron sandbox stay on:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/nightly-labs/openbot/main/docker/seccomp.json
 docker run -d --name openbot --restart unless-stopped \
-  --security-opt seccomp=seccomp.json --security-opt no-new-privileges:true \
+  --security-opt seccomp=docker/seccomp.json --security-opt no-new-privileges:true \
   --shm-size 1g --stop-timeout 60 -v openbot-data:/data \
-  ghcr.io/nightly-labs/openbot:latest
+  <image>
 docker exec -it openbot openbot login
 ```
 
@@ -114,12 +113,9 @@ see [AWS ECS](docs/aws-ecs.md).
 
 ### Nix
 
-The flake installs the desktop app from the latest release on x64 or arm64 Linux and on Apple silicon:
-
-```bash
-nix run github:nightly-labs/openbot
-nix profile install github:nightly-labs/openbot
-```
+The Nix package is not available in this version: Builders Bot has no release feed yet, so the
+flake stops with a message and downloads nothing. When it is available, it installs the desktop app
+from the latest release on x64 or arm64 Linux and on Apple silicon.
 
 `overlays.default` adds `pkgs.openbot`. Builders Bot is not free software, so your nixpkgs must allow it,
 for example with `nixpkgs.config.allowUnfreePredicate = pkg: lib.getName pkg == "openbot";`.
@@ -232,8 +228,8 @@ iex "& {$(irm https://bun.com/install.ps1)} -Version 1.4.2"
 ```
 
 ```bash
-git clone https://github.com/nightly-labs/openbot.git
-cd openbot
+git clone https://github.com/Hub-Next-Level/buildersbot-cb.git
+cd buildersbot-cb
 bun install --frozen-lockfile
 bun run codex:doctor
 bun run dev
@@ -591,10 +587,8 @@ described above.
 Releases are tag-driven. `bun run release:patch`, `release:minor`, or `release:major` prepares the
 version and changelog. After review, commit, preflight, and tag the release; pushing the tag builds a
 signed and notarized macOS ARM64 and x64 release, a signed Windows x64 release, and unsigned Linux x64
-and arm64 AppImages in GitHub Actions. After the release is published, the workflow pushes the Docker
-image to `ghcr.io/nightly-labs/openbot`.
-Installed builds check GitHub Releases for updates and expose download/restart controls in the account
-popover. Release signing secrets and the complete procedure are documented in
+and arm64 AppImages in GitHub Actions. This release workflow comes from the upstream OpenBot project.
+Builders Bot has no release feed yet, so installed builds do not check for updates. Release signing secrets and the complete procedure are documented in
 [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Contributing

@@ -123,6 +123,13 @@ describe("decodeScopedAgentEvent", () => {
     ["a hidden agents change", hiddenAgents],
     ["an empty hidden agents change", { serverId: "local", event: { type: "hidden-agents-changed", agents: [] } }],
     ["the memory changes of a turn", memoryChanges],
+    [
+      "a question of the Guard",
+      {
+        ...largeApproval,
+        event: { ...largeApproval.event, approval: { ...largeApproval.event.approval, guard: true } },
+      },
+    ],
   ] satisfies [string, ScopedAgentEvent][])("keeps %s", (_name, value) => {
     expect(decodeScopedAgentEvent(value)).toEqual(value);
   });
@@ -136,6 +143,13 @@ describe("decodeScopedAgentEvent", () => {
     ["no server", { event: delta.event }],
     ["an unknown event type", { serverId: "local", event: { type: "made-up" } }],
     ["an event with a missing field", { serverId: "local", event: { ...delta.event, delta: undefined } }],
+    [
+      "a Guard mark that is not a boolean",
+      {
+        serverId: "local",
+        event: { ...largeApproval.event, approval: { ...largeApproval.event.approval, guard: "yes" } },
+      },
+    ],
     [
       "an approval of an unknown kind",
       {

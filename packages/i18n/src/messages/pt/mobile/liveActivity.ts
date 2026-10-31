@@ -46,4 +46,5 @@ export const messages = {
   "mobile.liveActivity.island.approvalCommand": "Comando precisa de revisão",
   "mobile.liveActivity.island.approvalFileChange": "Alterações nos arquivos precisam de revisão",
   "mobile.liveActivity.island.approvalPermissions": "Permissões precisam de revisão",
+  "mobile.liveActivity.island.approvalGuard": "O Guarda pede sua confirmação",
 } as const satisfies PartialTranslation<typeof source>;

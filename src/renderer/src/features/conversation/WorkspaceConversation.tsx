@@ -277,6 +277,8 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     const approval = activeApproval();
     const autoApprove = activeAgentAutoApproves();
     if (!agent || !approval || !permissionsEditable() || autoApprove === undefined) return undefined;
+    // Full access does not answer a Guard question, so the grant would change nothing it asks.
+    if (approval.guard) return undefined;
     const access = agent.access ?? DEFAULT_AGENT_ACCESS;
     if (agentPermissionLevel({ access, autoApprove }) !== "ask") return undefined;
     // This card is answered first: the grant answers every card that still waits, so an answer sent

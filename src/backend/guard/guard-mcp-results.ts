@@ -9,11 +9,14 @@ import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 export type GuardResultCheck = (text: string) => Promise<string | null>;
 
 /**
- * The most characters of one message that the reader holds. A longer message is not read in full:
- * it gets the strong note in front, unread, and the rest passes on as it arrives; or, when no note
- * can go in, it does not pass at all.
+ * The most characters of one message that the reader holds, not counted the base64 data of images,
+ * audio and blobs, which the Guard does not read. A longer message is not read in full: it gets the
+ * strong note in front, unread, and the rest passes on as it arrives; or, when no note can go in, it
+ * does not pass at all. A full-page screenshot is long only in its image data, so it is read as usual.
  */
 const MESSAGE_LIMIT = 8 * 1024 * 1024;
+/** The most characters of one message with its binary data, as a multiple of the limit, to bound memory. */
+const BINARY_FACTOR = 8;
 
 /** What the reader does with a message that is too long to read in full. */
 export interface McpResultGuardOptions {
@@ -28,23 +31,124 @@ export interface McpResultGuardOptions {
   readonly onUncovered?: (noted: boolean) => void;
 }
 
-/** Where the content list of a tool result starts in the first part of a message. */
-const RESULT_START = /"result"\s{0,16}:\s{0,16}\{/u;
-const CONTENT_START = /"content"\s{0,16}:\s{0,16}\[(\s{0,16})/u;
+/** One object or list that the cursor is in, and the key that it is the value of (`[]` in a list). */
+interface JsonFrame {
+  readonly list: boolean;
+  readonly key: string | null;
+}
+
+/** How many characters of a key the cursor keeps. A longer key is none of the keys it looks for. */
+const KEY_LIMIT = 16;
+
+/**
+ * Reads one JSON message part by part, as it streams, and keeps only its place: the objects and lists
+ * that it is in, the key of the value that comes next, and whether it is in a string. With that it
+ * finds where the content list of the result starts, only as `result.content` of the message itself
+ * and not as text inside a page, and it counts the characters of base64 data (`content[].data` and
+ * `content[].resource.blob`). Text before the first `{` or `[`, such as `data:` of an event, is skipped.
+ */
+export class JsonCursor {
+  readonly #stack: JsonFrame[] = [];
+  #read = 0;
+  #started = false;
+  #inString = false;
+  #escape = false;
+  #binaryString = false;
+  #stringIsKey = false;
+  #buffer = "";
+  #expectKey = false;
+  #key: string | null = null;
+  /** The characters of base64 data so far. */
+  binary = 0;
+  /** The index after the `[` of `result.content`, from the first character read, or null. */
+  contentAt: number | null = null;
+
+  feed(text: string): void {
+    for (let index = 0; index < text.length; index += 1) {
+      const code = text.charCodeAt(index);
+      if (this.#inString) {
+        if (this.#escape) this.#escape = false;
+        else if (code === 0x5c) this.#escape = true;
+        else if (code === 0x22) {
+          this.#endString();
+          continue;
+        }
+        if (this.#binaryString) this.binary += 1;
+        else if (this.#buffer.length <= KEY_LIMIT) this.#buffer += text.charAt(index);
+        continue;
+      }
+      if (!this.#started) {
+        if (code !== 0x7b && code !== 0x5b) continue;
+        this.#started = true;
+      }
+      if (code === 0x22) {
+        this.#inString = true;
+        this.#buffer = "";
+        this.#stringIsKey = this.#expectKey;
+        this.#binaryString = !this.#stringIsKey && this.#binaryPlace();
+      } else if (code === 0x7b || code === 0x5b) {
+        const parent = this.#stack.at(-1);
+        const key = parent === undefined ? null : parent.list ? "[]" : this.#key;
+        const list = code === 0x5b;
+        if (
+          list &&
+          key === "content" &&
+          this.#stack.length === 2 &&
+          this.#stack[1]?.key === "result" &&
+          !this.#stack[0]?.list
+        )
+          this.contentAt ??= this.#read + index + 1;
+        this.#stack.push({ list, key });
+        this.#expectKey = !list;
+        this.#key = null;
+      } else if (code === 0x7d || code === 0x5d) {
+        this.#stack.pop();
+        this.#expectKey = false;
+        this.#key = null;
+      } else if (code === 0x2c) {
+        this.#expectKey = this.#stack.at(-1)?.list === false;
+        this.#key = null;
+      }
+    }
+    this.#read += text.length;
+  }
+
+  #endString(): void {
+    this.#inString = false;
+    if (this.#stringIsKey) {
+      this.#key = this.#buffer.length <= KEY_LIMIT ? this.#buffer : null;
+      this.#expectKey = false;
+    }
+    this.#binaryString = false;
+    this.#stringIsKey = false;
+  }
+
+  /** Whether a string that starts now is base64 data: `content[].data` or `content[].resource.blob` of the result. */
+  #binaryPlace(): boolean {
+    const stack = this.#stack;
+    const inResult = stack[1]?.key === "result" && stack[2]?.key === "content" && stack[3]?.key === "[]";
+    if (!inResult) return false;
+    return (
+      (stack.length === 4 && this.#key === "data") ||
+      (stack.length === 5 && stack[4]?.key === "resource" && this.#key === "blob")
+    );
+  }
+}
 
 /**
  * The first part of a message with the note put first in its content list, or null when the part has
- * no content list of a result. The list is found by its text, because the rest of the message has
- * not arrived.
+ * no content list of a result. The list is found by the structure of the message, because the rest
+ * of it has not arrived: `"result"` inside the text of a page is not the result.
  */
-export function withLeadingNote(prefix: string, notice: string): string | null {
-  const result = RESULT_START.exec(prefix);
-  if (!result) return null;
-  const after = result.index + result[0].length;
-  const content = CONTENT_START.exec(prefix.slice(after));
-  if (!content) return null;
-  const at = after + content.index + content[0].length;
-  const empty = prefix.charAt(at) === "]";
+export function withLeadingNote(prefix: string, notice: string, cursor?: JsonCursor): string | null {
+  let reader = cursor;
+  if (!reader) {
+    reader = new JsonCursor();
+    reader.feed(prefix);
+  }
+  const at = reader.contentAt;
+  if (at === null) return null;
+  const empty = prefix.slice(at).trimStart().startsWith("]");
   const item = JSON.stringify({ type: "text", text: notice });
   return `${prefix.slice(0, at)}${item}${empty ? "" : ","}${prefix.slice(at)}`;
 }
@@ -136,6 +240,10 @@ export class McpResultGuard {
   readonly #limit: number;
   readonly #decoder = new TextDecoder();
   #pending = "";
+  /** Reads `#pending` as it grows, to measure it and to find its content list. */
+  #cursor = new JsonCursor();
+  /** How much of `#pending` the cursor has read, in an event stream. */
+  #fed = 0;
   #mode: Mode = "read";
   /** The last characters seen in pass or drop mode, to find the end of an event across parts. */
   #carry = "";
@@ -166,20 +274,39 @@ export class McpResultGuard {
         continue;
       }
       this.#pending += text;
-      text = "";
       if (!this.#stream) {
-        if (this.#pending.length > this.#limit) output += this.#uncovered();
+        this.#cursor.feed(text);
+        text = "";
+        if (this.#tooLong()) output += this.#uncovered();
         return output;
       }
+      text = "";
+      let taken = false;
       for (let match = EVENT_END.exec(this.#pending); match !== null; match = EVENT_END.exec(this.#pending)) {
         const event = this.#pending.slice(0, match.index);
         this.#pending = this.#pending.slice(match.index + match[0].length);
         output += await guardedEvent(event, match[0], this.#check);
+        taken = true;
       }
-      // Every whole event is out; what is left is one event that is not whole yet.
-      if (this.#pending.length > this.#limit) output += this.#uncovered();
+      // Every whole event is out; what is left is one event that is not whole yet. The cursor reads it
+      // from its start; with no event taken, it has read all but the new part already.
+      if (taken) {
+        this.#cursor = new JsonCursor();
+        this.#cursor.feed(this.#pending);
+      } else this.#cursor.feed(this.#pending.slice(this.#fed));
+      this.#fed = this.#pending.length;
+      if (this.#tooLong()) output += this.#uncovered();
     }
     return output;
+  }
+
+  /**
+   * Whether the message held now is too long to read: its text past the limit, not counting base64
+   * data, or the whole of it past a bound that keeps memory in check.
+   */
+  #tooLong(): boolean {
+    const length = this.#pending.length;
+    return length - this.#cursor.binary > this.#limit || length > this.#limit * BINARY_FACTOR;
   }
 
   /**
@@ -188,8 +315,9 @@ export class McpResultGuard {
    * rest is dropped, and a result that holds only the note answers its id. The caller hears of each.
    */
   #uncovered(): string {
+    const cursor = this.#cursor;
     const prefix = this.#take();
-    const noted = withLeadingNote(prefix, this.#options.uncoveredNotice);
+    const noted = withLeadingNote(prefix, this.#options.uncoveredNotice, cursor);
     this.#options.onUncovered?.(noted !== null);
     this.#carry = prefix.slice(-3);
     if (noted !== null) {
@@ -248,6 +376,8 @@ export class McpResultGuard {
   #take(): string {
     const text = this.#pending;
     this.#pending = "";
+    this.#cursor = new JsonCursor();
+    this.#fed = 0;
     return text;
   }
 }

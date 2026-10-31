@@ -3,9 +3,16 @@ import { defineMessages } from "../../../message";
 /** Text that the Guard sends from the backend: the reason on an approval card, and each local finding. */
 export const messages = defineMessages("status.guard", {
   "status.guard.askAction": "The Guard asks you to check this step. {reason}",
-  "status.guard.askContent":
-    "The Guard found possible prompt injection in what the agent is about to read. {reason} Approve to let the agent read it as data. Decline to hold it back.",
-  "status.guard.contentSubject": "Read the result of {tool} from {origin}",
+  "status.guard.askActionReviewed":
+    "The Guard and its review model ask you to check this step. {reason} The model says: {detail}",
+  "status.guard.askContentFrom":
+    "The Guard found possible prompt injection in what {tool} read from {origin}. {reason} Allow lets the agent read it as data. Deny holds it back.",
+  "status.guard.askContentTool":
+    "The Guard found possible prompt injection in what {tool} gave back. {reason} Allow lets the agent read it as data. Deny holds it back.",
+  "status.guard.askContentFromReviewed":
+    "The Guard and its review model found possible prompt injection in what {tool} read from {origin}. {reason} The model says: {detail} Allow lets the agent read it as data. Deny holds it back.",
+  "status.guard.askContentToolReviewed":
+    "The Guard and its review model found possible prompt injection in what {tool} gave back. {reason} The model says: {detail} Allow lets the agent read it as data. Deny holds it back.",
   "status.guard.finding.override": "The content tells the agent to ignore its instructions.",
   "status.guard.finding.newInstructions": "The content gives the agent new instructions.",
   "status.guard.finding.promptLeak": "The content asks the agent to reveal its instructions.",

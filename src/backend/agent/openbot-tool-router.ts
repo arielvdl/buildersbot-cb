@@ -607,7 +607,9 @@ export class BuildersBotToolRouter {
             }
             if (isMcpServerTool(toolRequest.params.tool)) {
               const result = yield* this.#mcpServerTool(client, toolRequest, toolRequest.params);
-              if (!toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, result);
+              // The report of a saved or tested server holds its tool names and error text: outside content.
+              const guarded = yield* this.#guardAfterBuildersBotTool(client, toolRequest, result);
+              if (guarded && !toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, guarded);
               return;
             }
             const tool = toolRequest.params.tool;

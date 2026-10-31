@@ -215,7 +215,8 @@ export function ApprovalCard(props: {
         >
           {submitting() ? t("common.sending") : t("prompt.approval.allow")}
         </Button>
-        <Show when={props.onAlwaysAllow}>
+        {/* A Full access grant does not answer a Guard question, so its card offers no "Always allow". */}
+        <Show when={props.onAlwaysAllow && !props.approval.guard}>
           <Button
             ref={alwaysAllowButton}
             variant="secondary"
@@ -510,6 +511,7 @@ function browserPageDetails(tab: BrowserTab | undefined, t: TextValue["t"]): { t
 }
 
 function approvalTitle(approval: AgentApproval | undefined) {
+  if (approval?.guard) return "prompt.approval.title.guard";
   if (approval?.kind === "command") return "prompt.approval.title.command";
   if (approval?.kind === "file-change") return "prompt.approval.title.fileChange";
   return "prompt.approval.title.permissions";

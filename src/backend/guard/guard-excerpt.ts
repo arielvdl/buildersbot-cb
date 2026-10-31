@@ -10,8 +10,36 @@ import { type GuardHit, type GuardTriage, guardFindingNeedsReview } from "./guar
 /** A line of an environment file whose name says that its value is a secret. */
 const SECRET_ENV_LINE =
   /^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]{0,80}(?:KEY|SECRET|TOKEN|PASS|PASSWORD|PASSWD|PWD|DSN|DATABASE_URL|PRIVATE|CREDENTIALS?|AUTH)[A-Za-z0-9_]{0,40}\s*[=:]\s*)\S.*$/gimu;
-/** A user name and a password inside a URL. */
-const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]{1,20}:\/\/)[^\s/@:]{1,256}:[^\s/@]{1,256}@/giu;
+/**
+ * A user name and a password inside a URL, up to the last `@` before the host. It runs before the
+ * email rule of the log mask: that rule would take `P4ssw0rd@api.example.com` for an email and leave
+ * the start of the password.
+ */
+const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]{1,20}:\/\/)[^\s/?#]{1,512}@(?=[^\s/?#@]{1,253}(?:[/?#\s:]|$))/giu;
+/** The value of a command line flag that carries a secret, such as `--password hunter2` or `--token=…`. */
+const SECRET_FLAG =
+  /((?:^|[\s"'])--?(?:password|passwd|pass|pwd|token|secret|api[-_]?key|apikey|access[-_]?token|auth[-_]?token|client[-_]?secret|private[-_]?key|bearer)(?:=|\s{1,4})["']?)(?!\$|\[redacted)[^\s"']{1,512}/giu;
+/** `curl -u user:password`, and the attached password of `mysql -pSECRET`. */
+const USER_PASSWORD_FLAG = /((?:^|\s)(?:-u|--user|--proxy-user|-U)\s{1,4}["']?[^\s"':]{1,128}:)(?!\$)[^\s"']{1,256}/gu;
+const MYSQL_PASSWORD = /(\b(?:mysql|mysqldump|mariadb|mysqladmin)\b[^\n]{0,200}?\s-p)(?!\s)[^\s"']{1,256}/gu;
+/** A key in a connection string: Azure storage and service bus, and `Password=` of a database. */
+const CONNECTION_KEY =
+  /\b((?:AccountKey|SharedAccessKey|SharedAccessSignature|AccessKey|Password|Pwd)\s{0,4}=\s{0,4})[^;"'\s]{1,1024}/giu;
+/** The secret part of a chat webhook or a bot address: whoever has it can post as the bot. */
+const CHAT_WEBHOOK =
+  /(https:\/\/(?:hooks\.slack\.com\/(?:services|workflows|triggers)\/|(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d{1,30}\/|[\w-]{1,63}\.webhook\.office\.com\/webhookb2\/|api\.telegram\.org\/(?:file\/)?bot))[^\s"'<>)]{1,512}/giu;
+/** A Telegram bot token, and a Discord bot token. */
+const BOT_TOKEN = /\b\d{6,12}:AA[A-Za-z0-9_-]{30,}|\b[MNO][A-Za-z\d_-]{23,27}\.[\w-]{6,7}\.[\w-]{27,40}\b/gu;
+/** Key shapes that the log mask does not know: Google OAuth client secrets and Stripe test keys. */
+const OTHER_KEY_PREFIX = /\b(?:GOCSPX-|rk_test_|sk_test_|pk_live_)[A-Za-z0-9_-]{8,}/gu;
+/** The value of a session cookie written as JSON, as a browser tool lists cookies. */
+const COOKIE_JSON =
+  /("name"\s{0,4}:\s{0,4}"[^"]{0,40}(?:sess|sid|auth|token|login|jwt)[^"]{0,40}"\s{0,4},\s{0,4}"value"\s{0,4}:\s{0,4}")[^"]{1,4096}"/giu;
+/** A private key of PGP, with its body. */
+const PGP_PRIVATE_KEY =
+  /-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]{0,65536}?(?:-----END PGP PRIVATE KEY BLOCK-----|$)/gu;
+/** A long base64 run with a `+` and a digit, such as an Azure key: a `/` in it does not end it. */
+const BASE64_RUN = /(?<![A-Za-z0-9+/])(?=[A-Za-z0-9+/]{0,300}\+)(?=[A-Za-z0-9+/]{0,300}\d)[A-Za-z0-9+/]{40,}={0,2}/gu;
 /**
  * A long run of key-like characters with letters and digits, such as an unknown token or a key. A
  * `/` ends the run, so the path of a URL stays readable.
@@ -31,14 +59,28 @@ const WORD_REACH = 64;
 const CONTEXTS = [300, 150, 60, 0] as const;
 
 /**
- * Masks the secrets in a text: the rules that keep secrets out of the logs (known key shapes,
- * tokens, private keys, credential assignments, emails and every secret this app saved), secret
- * lines of an environment file, credentials in a URL, and any long key-like run.
+ * Masks the secrets in a text: credentials in a URL first, then the secrets that the log mask does
+ * not know (command line flags, connection string keys, chat webhooks, bot tokens, more key shapes,
+ * session cookies as JSON and PGP keys), then the rules that keep secrets out of the logs (known key
+ * shapes, tokens, private keys, credential assignments, emails and every secret this app saved),
+ * secret lines of an environment file, and any long key-like run.
  */
 export function maskSecrets(text: string): string {
-  return redactText(text)
+  const early = text
+    .replace(URL_CREDENTIALS, "$1[redacted]@")
+    .replace(PGP_PRIVATE_KEY, "[redacted]")
+    .replace(CHAT_WEBHOOK, "$1[redacted]")
+    .replace(BOT_TOKEN, "[redacted]")
+    .replace(SECRET_FLAG, "$1[redacted]")
+    .replace(USER_PASSWORD_FLAG, "$1[redacted]")
+    .replace(MYSQL_PASSWORD, "$1[redacted]")
+    .replace(CONNECTION_KEY, "$1[redacted]")
+    .replace(OTHER_KEY_PREFIX, "[redacted]")
+    .replace(COOKIE_JSON, '$1[redacted]"');
+  return redactText(early)
     .replace(SECRET_ENV_LINE, "$1[redacted]")
     .replace(URL_CREDENTIALS, "$1[redacted]@")
+    .replace(BASE64_RUN, "[redacted]")
     .replace(KEY_LIKE_RUN, "[redacted]");
 }
 

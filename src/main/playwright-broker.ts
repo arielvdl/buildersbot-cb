@@ -10,6 +10,7 @@ import {
 } from "node:http";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
+import { type BrokerCallCheck, type BrokerCallDecision, guardBrokerCall } from "../backend/guard/guard-broker-calls";
 import { GUARD_UNREAD_REASON, guardStrongNotice } from "../backend/guard/guard-gate";
 import { type GuardResultCheck, McpResultGuard } from "../backend/guard/guard-mcp-results";
 import { listenLoopback } from "./listen-loopback";
@@ -98,6 +99,11 @@ export interface PlaywrightBrokerOptions {
    * while the Guard is off or not ready; results then pass as they are.
    */
   guardResult?: () => GuardResultCheck | null;
+  /**
+   * The Guard's check of a tool call before the browser runs it, read at each call: the URL, script,
+   * text or files that the call sends out. Null while the Guard is off; calls then run as they are.
+   */
+  guardCall?: () => BrokerCallCheck | null;
 }
 
 export interface BrokerEndpoint {
@@ -277,11 +283,45 @@ export class PlaywrightBroker {
           );
       }
     }
+    // A tool call sends what the agent chose out of the computer, as the person: the Guard checks it first.
+    const message = Array.isArray(body) ? body[0] : body;
+    const toolCall = isDynamicRecord(message) && message.method === "tools/call";
+    let forwarded = raw;
+    if (toolCall && isDynamicRecord(message.params) && typeof message.params.name === "string") {
+      const decision = await this.#guardCall(message.params.name, message.params.arguments);
+      if (!decision.proceed) {
+        logger.info("The Guard held back a browser call.", { tool: message.params.name });
+        return reply(
+          response,
+          200,
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: message.id ?? null,
+            result: { isError: true, content: [{ type: "text", text: decision.text }] },
+          }),
+        );
+      }
+      // An upload opens the real paths that the Guard checked, not a link that changed since.
+      if (decision.paths && isDynamicRecord(message.params.arguments)) {
+        const args = { ...message.params.arguments, paths: decision.paths };
+        const changed = { ...message, params: { ...message.params, arguments: args } };
+        forwarded = Buffer.from(JSON.stringify(Array.isArray(body) ? [changed] : changed));
+      }
+    }
     // A tool result can hold a page: the Guard reads it on its way to the agent.
-    const toolCall = (Array.isArray(body) ? body : [body]).some(
-      (message) => isDynamicRecord(message) && message.method === "tools/call",
-    );
-    await this.#forward(request, response, session, raw, entries, toolCall ? this.#guardCheck() : null);
+    await this.#forward(request, response, session, forwarded, entries, toolCall ? this.#guardCheck() : null);
+  }
+
+  /** The Guard's decision on one call, made safe: a check that fails lets the call run, and the broker logs it. */
+  async #guardCall(name: string, args: unknown): Promise<BrokerCallDecision> {
+    const check = this.#options.guardCall?.() ?? null;
+    if (!check) return { proceed: true };
+    try {
+      return await guardBrokerCall(name, args, check);
+    } catch (error) {
+      logger.warn("The Guard did not check a browser call.", { tool: name, cause: toLogValue(error) });
+      return { proceed: true };
+    }
   }
 
   /** The Guard's check for one response, made safe: a check that fails lets the result pass as it is. */

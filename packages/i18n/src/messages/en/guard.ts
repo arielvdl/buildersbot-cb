@@ -29,6 +29,9 @@ export const messages = defineMessages("guard", {
   "guard.notice.signedOut.description":
     "The Guard uses only the local check and sends nothing over the network. Sign in to Cultura Builder in the provider settings to add the model review.",
   "guard.notice.localOnly": "The Guard uses only the local check. Nothing goes over the network.",
+  "guard.notice.unavailable.title": "The review model is not available",
+  "guard.notice.unavailable.description":
+    "The Guard uses only the local check now: suspicious content gets a note, and a suspicious action passes. Choose another model, or connect its provider again.",
   "guard.coverage.title": "What the Guard checks now",
   "guard.coverage.description":
     "Pages that the built-in browser and the shared Playwright browser read; the URLs, text, scripts and files that the browser sends; chat posts, attachments, sites and new MCP servers; and the commands that an agent asks you to approve. Tools that a provider runs in its own process, and MCP servers that it reaches directly, are not checked yet.",

@@ -37,6 +37,7 @@ export const messages = {
   "prompt.approval.title.command": "Executar um comando",
   "prompt.approval.title.fileChange": "Alterar arquivos",
   "prompt.approval.title.permissions": "Conceder permissões",
+  "prompt.approval.title.guard": "O Guarda pede sua confirmação",
   "prompt.approval.permissions": "Permissões solicitadas",
   "prompt.approval.network": "Acesso à rede",
   "prompt.approval.read": "Ler {path}",

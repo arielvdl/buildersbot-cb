@@ -3,9 +3,16 @@ import type { messages as source } from "../../en/status/guard";
 
 export const messages = {
   "status.guard.askAction": "O Guarda pede que você confira esta etapa. {reason}",
-  "status.guard.askContent":
-    "O Guarda encontrou uma possível injeção de prompt no que o agente vai ler. {reason} Aprove para o agente ler como dado. Recuse para segurar o conteúdo.",
-  "status.guard.contentSubject": "Ler o resultado de {tool} de {origin}",
+  "status.guard.askActionReviewed":
+    "O Guarda e o modelo revisor pedem que você confira esta etapa. {reason} O modelo diz: {detail}",
+  "status.guard.askContentFrom":
+    "O Guarda encontrou uma possível injeção de prompt no que {tool} leu de {origin}. {reason} Permitir deixa o agente ler isso como dado. Negar segura o conteúdo.",
+  "status.guard.askContentTool":
+    "O Guarda encontrou uma possível injeção de prompt no que {tool} devolveu. {reason} Permitir deixa o agente ler isso como dado. Negar segura o conteúdo.",
+  "status.guard.askContentFromReviewed":
+    "O Guarda e o modelo revisor encontraram uma possível injeção de prompt no que {tool} leu de {origin}. {reason} O modelo diz: {detail} Permitir deixa o agente ler isso como dado. Negar segura o conteúdo.",
+  "status.guard.askContentToolReviewed":
+    "O Guarda e o modelo revisor encontraram uma possível injeção de prompt no que {tool} devolveu. {reason} O modelo diz: {detail} Permitir deixa o agente ler isso como dado. Negar segura o conteúdo.",
   "status.guard.finding.override": "O conteúdo manda o agente ignorar as instruções dele.",
   "status.guard.finding.newInstructions": "O conteúdo dá novas instruções ao agente.",
   "status.guard.finding.promptLeak": "O conteúdo pede que o agente revele as instruções dele.",

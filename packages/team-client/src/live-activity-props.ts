@@ -461,6 +461,7 @@ export function liveActivityIslandText(
     approvalCommand: t("mobile.liveActivity.island.approvalCommand"),
     approvalFileChange: t("mobile.liveActivity.island.approvalFileChange"),
     approvalPermissions: t("mobile.liveActivity.island.approvalPermissions"),
+    approvalGuard: t("mobile.liveActivity.island.approvalGuard"),
     errorMessage,
   };
 }

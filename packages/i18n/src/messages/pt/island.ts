@@ -54,6 +54,7 @@ export const messages = {
   "island.approval.title.command": "O comando precisa de revisão",
   "island.approval.title.fileChange": "As alterações de arquivos precisam de revisão",
   "island.approval.title.permissions": "As permissões precisam de revisão",
+  "island.approval.title.guard": "O Guarda pede sua confirmação",
   "island.permission.readFiles": "ler arquivos",
   "island.permission.writeFiles": "gravar arquivos",
   "island.permission.network": "usar a rede",

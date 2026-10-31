@@ -36,10 +36,13 @@ function agentEvent(value: unknown): AgentEvent {
 
 function approval(value: unknown): AgentApproval {
   const approval = decodeRecord(value, "agent approval");
-  const { requestId, kind, permissions } = approval;
+  const { requestId, kind, permissions, guard } = approval;
   if (!isString(requestId) && !isNumber(requestId)) throw new Error("Invalid requestId.");
   if (!isOneOf(APPROVAL_KINDS, kind)) throw new Error("Invalid kind.");
+  if (guard !== undefined && !isBoolean(guard)) throw new Error("Invalid guard.");
   return {
+    // A Guard question: the card offers no "Always allow".
+    ...(guard === true ? { guard } : {}),
     requestId,
     agentId: requiredString(approval, "agentId"),
     threadId: requiredString(approval, "threadId"),

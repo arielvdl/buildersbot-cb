@@ -47,7 +47,7 @@ export function createWebConversationView(options: {
     const agent = workspace.selected();
     const item = approval();
     const settings = remoteAgentAdmin.settings();
-    if (!agent || !item || !settings || agentPermissionLevel(settings) !== "ask") return undefined;
+    if (!agent || !item || item.guard || !settings || agentPermissionLevel(settings) !== "ask") return undefined;
     return async () => {
       await workspace.approve({ requestId: item.requestId, decision: "accept" });
       await remoteAgentAdmin.update(agentPermissionUpdate(agent.id, "full"));

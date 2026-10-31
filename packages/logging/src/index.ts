@@ -165,18 +165,54 @@ export function isSecretName(name: string): boolean {
   return SECRET_KEY.test(name);
 }
 
+// A registered value that a check of what leaves the computer can tell from ordinary text. Masking
+// a log keeps every registered value, short ones too: hiding `admin` there costs a word. A check
+// that asks the owner before an action runs must not stop `/admin` or a pull request number because
+// the Vault holds the password `admin` or a one-time code `482913`. So that check counts a registered
+// value only when it is long enough, is more than one plain word or number, and stands as a whole
+// token: no letter or digit right before or after it.
+const PLAIN_WORD_OR_NUMBER = /^(?:[a-z]+|[A-Z]+|[A-Z]?[a-z]+|\d+)$/u;
+const PLAIN_VALUE_LIMIT = 12;
+const ALPHANUMERIC = /[A-Za-z0-9]/u;
+
+function isDistinctiveSecret(value: string): boolean {
+  if (value.length < MIN_REGISTERED_SECRET_LENGTH) return false;
+  return value.length >= PLAIN_VALUE_LIMIT || !PLAIN_WORD_OR_NUMBER.test(value);
+}
+
+/** The first registered value in `value` that a check of an action counts, as `isDistinctiveSecret` says. */
+function findRegisteredValue(value: string): { index: number; length: number } | null {
+  const pattern = registeredSecretPattern;
+  if (!pattern) return null;
+  pattern.lastIndex = 0;
+  for (let match = pattern.exec(value); match !== null; match = pattern.exec(value)) {
+    const start = match.index;
+    const end = start + match[0].length;
+    const whole = !ALPHANUMERIC.test(value.charAt(start - 1)) && !ALPHANUMERIC.test(value.charAt(end));
+    if (whole && isDistinctiveSecret(match[0])) {
+      pattern.lastIndex = 0;
+      return { index: start, length: match[0].length };
+    }
+    // A shorter value can still start at the next character, inside the one that did not count.
+    pattern.lastIndex = start + 1;
+  }
+  pattern.lastIndex = 0;
+  return null;
+}
+
 /**
  * Where `value` holds a secret by the shape of the value alone: a secret that this app registered, a
  * key with a known prefix, a JSON Web Token, or a PEM private key. Null when it holds none.
  *
  * The label rules of `redactText` are left out, so `password: $PASS` or `Authorization: Bearer
- * $TOKEN` is not a secret here: a check of what an action sends must not flag a variable name. It
- * reads the whole text with a few linear scans, so it suits a long payload.
+ * $TOKEN` is not a secret here: a check of what an action sends must not flag a variable name. A
+ * registered value counts only as `isDistinctiveSecret` says, so a short password or a one-time
+ * code does not make every action that holds the same letters a leak. It reads the whole text with
+ * a few linear scans, so it suits a long payload.
  */
 export function findSecretValue(value: string): { index: number; length: number } | null {
-  let found: { index: number; length: number } | null = null;
-  for (const pattern of [registeredSecretPattern, PEM_PRIVATE_KEY, KNOWN_SECRET_PREFIXES, JSON_WEB_TOKEN]) {
-    if (!pattern) continue;
+  let found = findRegisteredValue(value);
+  for (const pattern of [PEM_PRIVATE_KEY, KNOWN_SECRET_PREFIXES, JSON_WEB_TOKEN]) {
     pattern.lastIndex = 0;
     const match = pattern.exec(value);
     pattern.lastIndex = 0;

@@ -10,7 +10,7 @@ import {
   guardEffectiveLevel,
 } from "@openbot/contracts/ipc";
 import { createBuildersBotLogger } from "@openbot/logging";
-import { Effect } from "effect";
+import { Effect, Semaphore } from "effect";
 import { judgeExcerpt, judgeSubject } from "./guard-excerpt";
 import {
   decodeGuardJudgeReply,
@@ -49,7 +49,10 @@ export interface ToolGuardOptions {
   now?: () => number;
 }
 
-/** How many reviews may run at once. A check past the limit decides with the local check. */
+/**
+ * How many reviews may run at once. A check past the limit waits for a free slot within the same
+ * deadline as the review itself; when none comes free, the review counts as `busy`.
+ */
 const MAX_REVIEWS_IN_FLIGHT = 4;
 /** How long a verdict is kept for the same item, so a repeated item costs no second review. */
 const VERDICT_TTL_MS = 10 * 60_000;
@@ -62,7 +65,7 @@ export class ToolGuard {
   readonly #log: GuardLog;
   readonly #now: () => number;
   readonly #verdicts = new Map<string, { verdict: GuardJudgeVerdict; at: number }>();
-  #inFlight = 0;
+  readonly #slots = Semaphore.makeUnsafe(MAX_REVIEWS_IN_FLIGHT);
 
   constructor(options: ToolGuardOptions) {
     this.#options = options;
@@ -139,29 +142,30 @@ export class ToolGuard {
       .digest("hex");
     const cached = this.#cached(key);
     if (cached) return { kind: "verdict", verdict: cached, covered: excerpt.covered } satisfies GuardJudgeOutcome;
-    if (this.#inFlight >= MAX_REVIEWS_IN_FLIGHT) return { kind: "failed", failure: "busy" } satisfies GuardJudgeOutcome;
-    this.#inFlight += 1;
     const prompt = guardJudgePrompt({
       direction: item.direction,
       subject,
       findings: triage.findings.map((finding) => finding.code),
       excerpt: excerpt.text,
     });
-    const reply = yield* port.complete(choice, { system: GUARD_JUDGE_SYSTEM, prompt }).pipe(
-      Effect.map((text) => ({ text })),
-      // A reviewer that hangs must not hold the tool call: the local check decides.
-      Effect.timeoutOrElse({
-        duration: this.#options.timeoutMs ?? port.timeoutMs ?? GUARD_JUDGE_TIMEOUT_MS,
-        orElse: () => Effect.succeed("timeout" as const),
-      }),
-      Effect.catch(() => Effect.succeed("error" as const)),
-      Effect.catchDefect(() => Effect.succeed("error" as const)),
-      Effect.ensuring(
-        Effect.sync(() => {
-          this.#inFlight -= 1;
+    // The wait for a slot counts in the deadline: a check never waits longer than one review.
+    let started = false;
+    const review = Effect.suspend(() => {
+      started = true;
+      return port.complete(choice, { system: GUARD_JUDGE_SYSTEM, prompt });
+    }).pipe(Effect.map((text) => ({ text })));
+    const reply = yield* this.#slots
+      .withPermits(1)(review)
+      .pipe(
+        // A reviewer that hangs must not hold the tool call: the local check decides.
+        Effect.timeoutOrElse({
+          duration: this.#options.timeoutMs ?? port.timeoutMs ?? GUARD_JUDGE_TIMEOUT_MS,
+          orElse: () => Effect.succeed(started ? ("timeout" as const) : ("busy" as const)),
         }),
-      ),
-    );
+        Effect.catch(() => Effect.succeed("error" as const)),
+        Effect.catchDefect(() => Effect.succeed("error" as const)),
+      );
+    if (reply === "busy") return { kind: "failed", failure: "busy" } satisfies GuardJudgeOutcome;
     if (reply === "timeout" || reply === "error") return { kind: "failed", failure: reply } satisfies GuardJudgeOutcome;
     const verdict = decodeGuardJudgeReply(reply.text);
     if (!verdict) return { kind: "failed", failure: "invalid" } satisfies GuardJudgeOutcome;

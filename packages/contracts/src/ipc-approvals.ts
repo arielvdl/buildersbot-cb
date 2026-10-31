@@ -42,6 +42,11 @@ export interface AgentApproval {
   reason: string | null;
   grantRoot: string | null;
   permissions: AgentApprovalPermissions | null;
+  /**
+   * True for a question of the Guard. A Full access grant does not answer it, so a window offers no
+   * "Always allow" on its card. Absent on every other approval. The Team API does not carry it.
+   */
+  guard?: boolean;
 }
 
 export function isAgentApproval(value: unknown): value is AgentApproval {
@@ -56,7 +61,8 @@ export function isAgentApproval(value: unknown): value is AgentApproval {
     isNullableBoundedString(value.cwd, INPUT_LIMITS.path) &&
     isNullableBoundedString(value.reason, INPUT_LIMITS.messageText) &&
     isNullableBoundedString(value.grantRoot, INPUT_LIMITS.path) &&
-    (value.permissions === null || isAgentApprovalPermissions(value.permissions))
+    (value.permissions === null || isAgentApprovalPermissions(value.permissions)) &&
+    (value.guard === undefined || isBoolean(value.guard))
   );
 }
 

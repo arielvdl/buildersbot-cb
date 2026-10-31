@@ -45,4 +45,5 @@ export const messages = defineMessages("mobile.liveActivity", {
   "mobile.liveActivity.island.approvalCommand": "Command needs review",
   "mobile.liveActivity.island.approvalFileChange": "File changes need review",
   "mobile.liveActivity.island.approvalPermissions": "Permissions need review",
+  "mobile.liveActivity.island.approvalGuard": "The Guard asks you to confirm",
 });

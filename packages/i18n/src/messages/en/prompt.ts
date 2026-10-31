@@ -36,6 +36,7 @@ export const messages = defineMessages("prompt", {
   "prompt.approval.title.command": "Run a command",
   "prompt.approval.title.fileChange": "Change files",
   "prompt.approval.title.permissions": "Grant permissions",
+  "prompt.approval.title.guard": "The Guard asks you to confirm",
   "prompt.approval.permissions": "Requested permissions",
   "prompt.approval.network": "Network access",
   "prompt.approval.read": "Read {path}",

@@ -280,6 +280,22 @@ describe("findSecretValue", () => {
   it("does not take a label, a variable or an email for a secret", () => {
     expect(findSecretValue('Authorization: Bearer $GITHUB_TOKEN password: "$PASS" ana@example.com')).toBeNull();
   });
+
+  // A Vault password `admin` or a one-time code must not make `/admin` or a pull request number a leak.
+  it("counts a registered value only when it is long, not a plain word or number, and a whole token", () => {
+    registerSecretValue("admin", { allowShort: true });
+    registerSecretValue("482913", { allowShort: true });
+    registerSecretValue("sunshine", { allowShort: true });
+    registerSecretValue("Tr0ub4dor&3x", { allowShort: true });
+    expect(findSecretValue("open http://localhost:3000/admin/users")).toBeNull();
+    expect(findSecretValue("https://github.com/o/r/pull/482913")).toBeNull();
+    expect(findSecretValue("The weather is sunshine today")).toBeNull();
+    expect(findSecretValue("xTr0ub4dor&3xy")).toBeNull();
+    expect(findSecretValue("login with Tr0ub4dor&3x now")).toEqual({ index: 11, length: 12 });
+    expect(findSecretValue("https://x.example/?p=Tr0ub4dor%263x")).not.toBeNull();
+    // The log still hides every one of them.
+    expect(redactText("admin 482913")).toBe("[redacted] [redacted]");
+  });
 });
 
 describe("registerSecretValue", () => {

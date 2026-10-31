@@ -1,30 +1,33 @@
 # Docker
 
-The OpenBot image is the Linux release, run as a [self-hosted server](self-hosted-server.md) in a
-container. It is a normal Remote host of your account. You use it from the desktop app, the iPhone
-app or `openbot.run/app`. The image is `ghcr.io/nightly-labs/openbot`, for `linux/amd64` and
-`linux/arm64`.
+The Builders Bot image is the Linux release, run as a [self-hosted server](self-hosted-server.md) in
+a container. It is a normal Remote host of your account. You use it from the desktop app, the iPhone
+app or `openbot.run/app`. It is for `linux/amd64` and `linux/arm64`.
+
+> [!IMPORTANT]
+> Builders Bot has no published image and no release feed yet. Build an image from
+> `docker/Dockerfile` and give its name in `BUILDERSBOT_IMAGE`. The compose files have no default
+> image and never pull one. Upgrades and updates from the app are not available in this version. The
+> image of the upstream OpenBot project is a different app: do not use it with Builders Bot data.
 
 ## Run
 
-With Docker Compose:
+With Docker Compose, copy `docker/compose.yaml` and `docker/seccomp.json` of this repository to one
+folder. Write `BUILDERSBOT_IMAGE=<image>` to the file `.env` in that folder, then:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/nightly-labs/openbot/main/docker/compose.yaml
-curl -fsSLO https://raw.githubusercontent.com/nightly-labs/openbot/main/docker/seccomp.json
 docker compose up -d
 docker compose exec openbot openbot login
 ```
 
-With `docker run`:
+With `docker run`, in the folder of `seccomp.json`:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/nightly-labs/openbot/main/docker/seccomp.json
 docker run -d --name openbot --restart unless-stopped \
   --security-opt seccomp=seccomp.json --security-opt no-new-privileges:true \
   --shm-size 1g --stop-timeout 60 \
   -v openbot-data:/data \
-  ghcr.io/nightly-labs/openbot:latest
+  <image>
 docker exec -it openbot openbot login
 ```
 
@@ -84,6 +87,9 @@ Use it only on a host where you trust the other programs and users. Do not use i
 
 ## Tags
 
+Builders Bot has no published image yet, so these tags do not exist for Builders Bot. They are the
+tags that the release workflow makes.
+
 | Tag | Image |
 | --- | --- |
 | `latest` | The newest release. |
@@ -130,7 +136,7 @@ In the container, `openbot status`, `login`, `mobile-connect`, `logout`, `name` 
 | --- | --- |
 | Read the log | `docker logs openbot` |
 | Stop, start, restart | `docker stop openbot`, `docker start openbot`, `docker restart openbot` |
-| Upgrade | `docker compose pull && docker compose up -d`, or pull the image and make the container again with the same volume |
+| Upgrade | Not available in this version. To use a newer image that you built, change `BUILDERSBOT_IMAGE`, then run `docker compose up -d` |
 | Remove | `docker exec openbot openbot logout`, then `docker stop openbot && docker rm openbot`. The data stays in the volume. `docker volume rm openbot-data` deletes it. |
 
 ## Several instances on one host
@@ -141,13 +147,13 @@ folder of the repository to the host, for example to `/opt/openbot-docker`, and 
 
 ```sh
 /opt/openbot-docker/instances/openbot-instance setup
-/opt/openbot-docker/instances/openbot-instance create main --cpus 8 --mem 32g --disk 200G
+BUILDERSBOT_IMAGE=<image> /opt/openbot-docker/instances/openbot-instance create main --cpus 8 --mem 32g --disk 200G
 /opt/openbot-docker/instances/openbot-instance run main login
 ```
 
 | Path | Contents |
 | --- | --- |
-| `instances/<name>.env` | The name and the limits of the instance. Change `OPENBOT_CPUS` or `OPENBOT_MEM`, then run `openbot-instance up <name>`. `OPENBOT_DISK` is for information only: a change to it does nothing. |
+| `instances/<name>.env` | The image (`BUILDERSBOT_IMAGE`), the name and the limits of the instance. Change `OPENBOT_CPUS` or `OPENBOT_MEM`, then run `openbot-instance up <name>`. `OPENBOT_DISK` is for information only: a change to it does nothing. |
 | `/srv/openbot/<name>/data.img` | An ext4 image. Its size is the disk limit. `create` reserves all of it on the disk of the host, so the images can never need more space than the host has. |
 | `/srv/openbot/<name>/data` | The mount of the image, which is `/data` in the container. `/etc/fstab` mounts it before Docker starts. `X-fstrim.notrim` stops `fstrim.timer` from freeing the reserved space. |
 | `/srv/openbot/<name>/update-requests` | The update requests of the app. The container writes empty files here. It is a tmpfs of 64 KiB and 16 files, which `/etc/fstab` mounts. |
@@ -237,7 +243,7 @@ Agents have full access in their container, so the host limits what a container 
 | Show the instances | `openbot-instance list` |
 | Stop, start, restart | `openbot-instance down <name>`, `up <name>`, `restart <name>` |
 | Read the log | `openbot-instance logs <name> -f` (recent lines), or `/var/log/openbot/openbot-<name>.log*` (30 days) |
-| Upgrade | In the app (see [Updates from the app](#updates-from-the-app)), or `openbot-instance upgrade <name>` or `upgrade --all` |
+| Upgrade | Not available in this version: `openbot-instance upgrade` says so and pulls nothing. To use a newer image that you built, change `BUILDERSBOT_IMAGE` in `instances/<name>.env`, then run `openbot-instance up <name>` |
 | `openbot` commands | `openbot-instance run <name> status`, `login`, `mobile-connect`, `name <name>` |
 | Make the disk larger | `down <name>`, `umount /srv/openbot/<name>/data`, `fallocate --length <new size> data.img`, `e2fsck -f data.img`, `resize2fs data.img`, `mount /srv/openbot/<name>/data`, `up <name>` |
 
@@ -247,6 +253,9 @@ There is no command to remove an instance. To remove one and delete its data: `r
 `/etc/fstab`, then delete `/srv/openbot/<name>` and `instances/<name>.env`.
 
 ### Updates from the app
+
+Not available in this version of Builders Bot: `update-request` pulls no image, and the app offers
+no update. The rest of this section describes how they work with a release feed.
 
 The owner or an admin updates an instance in Server settings › Updates, or in the update dialog, as on a
 hosted server. The container never gets the Docker socket. OpenBot writes an empty request file to
@@ -258,9 +267,9 @@ with the same data. It writes the state of the request to `update-status`, which
 read-only.
 
 `setup` installs the units. `create`, `up` and `upgrade` make the folders, add the tmpfs of the
-requests to `/etc/fstab` and enable the path unit of the instance. An instance with `OPENBOT_TAG` in
-its env file keeps that tag and offers no update in the app. An instance made before this release gets them with `setup`, then
-`openbot-instance upgrade <name>` once. A container started with `docker/compose.yaml` or
+requests to `/etc/fstab` and enable the path unit of the instance. In this version, no instance offers
+an update in the app. An instance made before this release gets them with `setup`, then
+`openbot-instance up <name>` once. A container started with `docker/compose.yaml` or
 `docker run` has no request folders, so it offers no update in the app.
 
 ### Backups
@@ -363,6 +372,10 @@ the backup. When it has less, copy the old data to another disk, delete it from
 
 ## Upgrades
 
+Upgrades are not available in this version of Builders Bot: there is no published image and no
+release feed. The rest of this section describes the release process of the upstream project, for
+when Builders Bot has its own.
+
 OpenBot does not update itself in a container. A new image replaces it. An instance of
 `docker/instances` can ask the host for that from the app, see
 [Updates from the app](#updates-from-the-app). Do not go back to an older tag: an older OpenBot cannot
@@ -372,14 +385,14 @@ open a database that a newer one migrated, so it does not start.
 
 `latest` follows the newest published release. The release workflow does not publish a floating
 minor tag such as `0.39`, or a separate `stable` tag. For a controlled upgrade, keep an exact
-version in your Compose file or `OPENBOT_TAG` in the instance env file.
+version in your Compose file or `BUILDERSBOT_IMAGE` in the instance env file.
 
 The [GitHub latest-release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
 is the machine-readable source for the newest full release. For example, this read-only command
 prints its tag:
 
 ```sh
-gh api repos/nightly-labs/openbot/releases/latest --jq '.tag_name'
+gh api repos/<owner>/<repository>/releases/latest --jq '.tag_name'
 ```
 
 Automation can poll that metadata and download an image. Installation needs these checks:
@@ -400,8 +413,8 @@ Automation can poll that metadata and download an image. Installation needs thes
    container, confirm that it stopped, and copy the volume, see [Data](#data). Keep the previous
    complete backup.
 5. Replace the container with the chosen image and the same volume and runtime options. For an
-   instance of `docker/instances`, set `OPENBOT_TAG` in its env file and run
-   `openbot-instance upgrade <name>`. This command takes the lock of the instance, so no backup,
+   instance of `docker/instances`, set `BUILDERSBOT_IMAGE` in its env file and run
+   `openbot-instance up <name>`. This command takes the lock of the instance, so no backup,
    restore or update from the app runs at the same time. A manual replacement does not take the
    lock. Check `openbot status` and the container log before the upgrade is reported as complete.
 
@@ -456,11 +469,8 @@ environment of OpenBot, so they can read these values.
 - **Agents have full access in the container.** They run commands, change all of `/data` and use the
   network. The container is the boundary. Do not mount the Docker socket, your home folder or another
   host folder that agents must not change.
-- **Check the image.** Each release image has a build provenance attestation:
-
-  ```sh
-  gh attestation verify oci://ghcr.io/nightly-labs/openbot:<version> --repo nightly-labs/openbot
-  ```
+- **Check the image.** Builders Bot has no published image yet, so there is no build provenance
+  attestation. Build the image yourself from `docker/Dockerfile`.
 
 ## How it works
 

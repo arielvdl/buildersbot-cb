@@ -119,9 +119,12 @@ export function decodeGuardJudgeReply(reply: string): GuardJudgeVerdict | null {
   if (!decoded) return null;
   // `none` names no risk, so it cannot go with a verdict that stops the work.
   if (decoded.category === "none" && decoded.verdict !== "allow") return null;
+  // The reason shows only on the approval card, never to the agent. Angle brackets go, so it cannot
+  // look like markup of the Guard, such as a closing `</guard_notice>`.
   const reason = maskSecrets(
     decoded.reason
       .replace(/[\p{Cc}\p{Cf}]+/gu, " ")
+      .replace(/[<>]/gu, "")
       .replace(/\s+/gu, " ")
       .trim(),
   ).slice(0, REASON_LIMIT);

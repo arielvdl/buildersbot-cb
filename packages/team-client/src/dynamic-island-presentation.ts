@@ -37,6 +37,8 @@ export interface DynamicIslandText {
   approvalCommand: string;
   approvalFileChange: string;
   approvalPermissions: string;
+  /** The title of a question of the Guard. */
+  approvalGuard: string;
   /** `userErrorMessage` in the interface language. `fallback` is already translated. */
   errorMessage: (error: unknown, fallback: string) => string;
 }
@@ -325,6 +327,7 @@ function truncateNullable(value: string | null | undefined): string | null {
 }
 
 function approvalTitle(approval: AgentApproval, text: DynamicIslandText) {
+  if (approval.guard) return text.approvalGuard;
   if (approval.kind === "command") return text.approvalCommand;
   if (approval.kind === "file-change") return text.approvalFileChange;
   return text.approvalPermissions;

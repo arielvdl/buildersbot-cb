@@ -1301,6 +1301,8 @@ export async function createApplicationServices({
         // The Guard reads each page that the browser gives an agent. `service` is read at that time.
         guardResult: () =>
           service.guardEnabled() ? (text) => runCauseEffect(service.guardResultNotice("playwright", text)) : null,
+        // And each call before it runs: the URL, script, text or files that the call sends out.
+        guardCall: () => (service.guardEnabled() ? (item) => runCauseEffect(service.guardAction(item)) : null),
         identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
         upstream: () => {
           const directories = [
