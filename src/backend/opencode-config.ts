@@ -82,17 +82,33 @@ interface OpenCodeKeyEntry {
 /** One rule per tool pattern, which is all Builders Bot sends under `permission`. */
 type OpenCodePermissionLayer = Readonly<Record<string, "allow" | "ask" | "deny">>;
 
+/** A local MCP server entry that OpenCode keeps off. Its command never runs. */
+interface OpenCodeDisabledMcpEntry {
+  readonly type: "local";
+  readonly command: readonly [string, ...string[]];
+  readonly enabled: false;
+}
+
 /**
  * OpenCode starts every MCP server in the global config file of the person, for each agent. The
  * Playwright of that file starts a Chrome and a server for each agent; Builders Bot hands every agent one
  * shared Playwright of its own, so this layer turns the one in the file off. Only the name `playwright`
  * is overridden: the other servers of the person keep running. The file itself is untouched.
+ *
+ * The entry is complete: it has a `type` and a `command`. OpenCode 2 drops an entry that has only
+ * `enabled` ("omitted enabled-only legacy MCP entry"), and then the server of the file started in each
+ * `opencode serve` of the app. Checked in OpenCode 2.2.5 with `opencode debug config`: the layer read
+ * as `{}` before, and as `servers.playwright.disabled: true` with this entry. A later layer replaces a
+ * server of the same name, so the command of the person does not run.
+ * `scripts/opencode-own-playwright-e2e.ts` checks this against the real binary.
  */
-const OWN_PLAYWRIGHT_OFF = { playwright: { enabled: false } } as const;
+const OWN_PLAYWRIGHT_OFF: { readonly playwright: OpenCodeDisabledMcpEntry } = {
+  playwright: { type: "local", command: ["true"], enabled: false },
+};
 
 /** The config layer Builders Bot owns on `OPENCODE_CONFIG_CONTENT`. The user's own file is untouched. */
 interface OpenCodeConfig {
-  readonly mcp?: { readonly playwright: { readonly enabled: boolean } };
+  readonly mcp?: { readonly playwright: OpenCodeDisabledMcpEntry };
   readonly agent?: { readonly title: { readonly disable: true } };
   readonly permission?: OpenCodePermissionLayer;
   readonly provider?: Readonly<Record<string, OpenCodeProviderEntry | OpenCodeKeyEntry>>;

@@ -461,11 +461,14 @@ Two more rules keep the memory low:
   list or close tabs always work, so an agent can give memory back.
 - OpenCode starts each MCP server of the person's own `opencode.json` for each agent, so its
   Playwright started one server and one Chrome for each agent. Each OpenCode and Cultura Builder
-  spawn now gets `mcp.playwright.enabled=false` on `OPENCODE_CONFIG_CONTENT` (`OWN_PLAYWRIGHT_OFF`
-  in `src/backend/opencode-config.ts`). Only the name `playwright` is overridden: the other servers
-  of the person still run, and the file does not change. The shared broker reaches the agent
-  through ACP `mcpServers`. This was checked by hand with the real OpenCode `debug config`;
-  `opencode-config.test.ts` checks only the JSON that Builders Bot sends.
+  spawn now gets a complete `mcp.playwright` entry that is off (`type: "local"`, a `command`,
+  `enabled: false`) on `OPENCODE_CONFIG_CONTENT` (`OWN_PLAYWRIGHT_OFF` in
+  `src/backend/opencode-config.ts`). OpenCode 2 drops an entry that has only `enabled` ("omitted
+  enabled-only legacy MCP entry"), and a later layer replaces a server of the same name. Only the
+  name `playwright` is overridden: the other servers of the person still run, and the file does not
+  change. The shared broker reaches the agent through ACP `mcpServers`.
+  `bun run test:opencode-own-playwright` checks this with the real OpenCode binary: a server of the
+  global file named `playwright` must not start, and another one must start.
 
 ### Rules that are easy to break
 
