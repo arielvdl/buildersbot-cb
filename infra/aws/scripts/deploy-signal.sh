@@ -59,6 +59,7 @@ secret_exists() { aws_cb ssm describe-parameters --parameter-filters "Key=Name,V
 if [ "$status" = NONE ] || [ "$status" = REVIEW_IN_PROGRESS ]; then
   [ -n "$commit" ] || die "informe --commit (o mesmo commit do Worker de contas publicado)."
   [ -n "$acme_email" ] || die "informe --acme-email."
+  require_fork
   instance_type=${instance_type:-t4g.small}
   if [ "$dns_check" = 1 ]; then
     command -v dig >/dev/null || die "dig não está instalado (ou use --skip-dns-check)."
@@ -97,6 +98,7 @@ if [ "$status" = NONE ] || [ "$status" = REVIEW_IN_PROGRESS ]; then
 else
   sha=$(stack_parameter bb-srv-signal SourceCommit)
   if [ -n "$commit" ]; then
+    require_fork
     wanted=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork $BB_FORK: $commit"
     [ "$wanted" = "$sha" ] ||
       die "a VM do Signal roda o commit $sha. Trocar o commit exige recriar a VM (o user data só roda no primeiro boot): README, seção 11 (delete-stack bb-srv-signal e deploy-signal.sh de novo)."
@@ -129,12 +131,15 @@ fi
 
 # O wrangler da versão fixada no próprio fork (catálogo do package.json), rodado de apps/auth-api,
 # onde está o wrangler.jsonc do Worker. Nunca a versão mais nova da rede.
-wrangler=$(git -C "$BB_FORK" show "$sha:package.json" 2>/dev/null | jq -r '.workspaces.catalog.wrangler // .catalog.wrangler // empty' || true)
+wrangler=''
+# A atualização (fechar as portas) roda mesmo sem o fork: aí só o texto dos próximos passos fica genérico.
+fork_shown=${BB_FORK:-<checkout do Builders Bot>}
+[ -z "$BB_FORK" ] || wrangler=$(git -C "$BB_FORK" show "$sha:package.json" 2>/dev/null | jq -r '.workspaces.catalog.wrangler // .catalog.wrangler // empty' || true)
 if [[ $wrangler =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   wrangler_cmd="bunx wrangler@$wrangler"
 else
   warn "não achei a versão exata do wrangler no catálogo do package.json de $sha: use o wrangler que o lockfile instalou (bun install no fork)."
-  wrangler_cmd="$BB_FORK/node_modules/.bin/wrangler"
+  wrangler_cmd="$fork_shown/node_modules/.bin/wrangler"
 fi
 
 cat <<EOF
@@ -149,5 +154,5 @@ cat <<EOF
      REMOTE_AUTH_WEBHOOK_SECRET (segredo do Worker), sem exibir o valor, com o wrangler fixado no fork:
        aws --profile cb --region us-east-1 ssm get-parameter --with-decryption \\
          --name /bb-srv/signal/remote-auth-webhook-secret --query Parameter.Value --output text \\
-         | (cd "$BB_FORK/apps/auth-api" && $wrangler_cmd secret put REMOTE_AUTH_WEBHOOK_SECRET)
+         | (cd "$fork_shown/apps/auth-api" && $wrangler_cmd secret put REMOTE_AUTH_WEBHOOK_SECRET)
 EOF

@@ -152,6 +152,7 @@ launch() {
   template_ok=$(aws_cb ec2 describe-launch-templates --launch-template-names bb-srv-builder --query 'length(LaunchTemplates)' --output text 2>/dev/null || echo 0)
   [ "$template_ok" = 1 ] || die "o launch template bb-srv-builder não existe."
 
+  require_fork
   sha=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork $BB_FORK: $commit"
   version=$(git -C "$BB_FORK" show "$sha:package.json" | jq -r .version)
   [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "versão inválida no package.json de $sha: $version"

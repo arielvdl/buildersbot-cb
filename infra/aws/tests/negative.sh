@@ -1402,5 +1402,24 @@ expect_refusal "G1 check-access recusa um IP de saída fora da lista" "não est�
   env FAKE_EGRESS_IP=198.51.100.99 bash scripts/check-access.sh
 expect_success "G1 check-access aceita o IP de saída da lista" "acesso ok" h_sector bash scripts/check-access.sh
 
+# O fork padrão é o checkout que contém esta pasta; BB_SRV_FORK ainda manda; fora de um checkout, para.
+fork_default=$(env -u BB_SRV_FORK bash -c 'source "$0/scripts/lib.sh"; printf "%s" "$BB_FORK"' "$ROOT" 2>&1)
+toplevel=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$toplevel" ] && [ "$fork_default" = "$toplevel" ]; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "G2 sem BB_SRV_FORK, o fork é o checkout que contém infra/aws"
+else
+  bad "G2 sem BB_SRV_FORK, o fork é o checkout que contém infra/aws" "BB_FORK=$fork_default, checkout=${toplevel:-nenhum}"
+fi
+fork_override=$(bash -c 'source "$0/scripts/lib.sh"; printf "%s" "$BB_FORK"' "$ROOT" 2>&1)
+if [ "$fork_override" = "$FORK" ]; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "G2 BB_SRV_FORK troca o fork"
+else
+  bad "G2 BB_SRV_FORK troca o fork" "BB_FORK=$fork_override, esperado $FORK"
+fi
+# GIT_CEILING_DIRECTORIES impede o git de subir da pasta: é como rodar uma cópia fora de qualquer checkout.
+expect_refusal "G2 fora de um checkout git, quem precisa do fork para (nunca usa a pasta atual)" \
+  "não achei o repositório do Builders Bot" h_sector \
+  env -u BB_SRV_FORK GIT_CEILING_DIRECTORIES="$(dirname "$ROOT")" bash -c 'source "$0/scripts/lib.sh"; require_fork' "$ROOT"
+
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]

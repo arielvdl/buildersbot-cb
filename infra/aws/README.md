@@ -101,7 +101,7 @@ Nomes: tudo começa com `bb-srv-` (stacks, roles, SGs, documentos, alarmes, budg
   ```
   (os scripts usam o nome `cb`; para usar essa role, aponte o perfil `cb` para ela.)
 - **Role de serviço do CloudFormation (`bb-cfn-exec`):** não criada (opcional, decisão do dono). As stacks rodam com a sessão MFA de quem as aplica; ver [Desvios](#14-desvios-do-design).
-- O fork em `/Users/arielsilva/Projects/openbot-local` (ou `BB_SRV_FORK=<caminho>`). Os scripts só **leem** o fork (`git archive` de um commit).
+- O fork: por padrão, o checkout do Builders Bot que contém esta pasta (`git rev-parse --show-toplevel`); `BB_SRV_FORK=<caminho>` aponta para outro checkout. Os scripts só **leem** o fork (`git archive` e `git show` de um commit), então qualquer worktree do repositório serve, desde que tenha o commit. Uma cópia desta pasta fora de um checkout git para nos comandos que precisam do fork.
 - **Credencial do proxy de saída** (ação do dono, **já feita**: conferido por `describe-parameters` em 31/10/2026, sem ler o valor): o parâmetro SecureString `/bb-srv/proxy/egress` em `us-east-1` (chave `alias/aws/ssm`), uma linha `host:porta:usuário:senha`. Sem ele o `add-sector.sh` não cria setor (seção 16).
 
 ## 4. Bloqueios antes do primeiro setor (DESIGN 0.9, atualizados em 31/10/2026)

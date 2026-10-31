@@ -11,7 +11,10 @@ BB_PROFILE=cb
 BB_PROJECT=buildersbot-servers
 BB_OWNER=cultura-builder
 BB_REPO_NAME=bb-srv/server
-BB_FORK=${BB_SRV_FORK:-/Users/arielsilva/Projects/openbot-local}
+# O fork é o checkout do Builders Bot que contém esta pasta (infra/aws); os scripts só leem commits
+# dele (git archive, git show). BB_SRV_FORK aponta para outro checkout. Fora de um checkout git fica
+# vazio, e quem precisa do fork para em require_fork (git -C "" usaria a pasta atual).
+BB_FORK=${BB_SRV_FORK:-$(git -C "$BB_ROOT" rev-parse --show-toplevel 2>/dev/null || true)}
 # Nomes que não podem ser setor: colidem com recursos compartilhados bb-srv-*.
 BB_RESERVED=" base ops signal builder shared operator breakglass sectors alerts project host dlm scheduler "
 # Folga de vCPU que fica para o Karpenter/EKS da conta (DESIGN 9.2).
@@ -29,6 +32,13 @@ die() {
 
 # Todo comando AWS passa por aqui: perfil e região fixos.
 aws_cb() { aws --profile "$BB_PROFILE" --region "$BB_REGION" "$@"; }
+
+# Para se o fork (BB_FORK) não é um repositório git. Chame antes de todo git -C "$BB_FORK".
+require_fork() {
+  if [ -z "$BB_FORK" ] || ! git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1; then
+    die "não achei o repositório do Builders Bot (${BB_FORK:-esta pasta não está num checkout git}). Rode os scripts do checkout que contém infra/aws, ou defina BB_SRV_FORK=<caminho do checkout>."
+  fi
+}
 
 valid_sector() {
   [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,23}$ ]] || die "nome de setor inválido: '$1'. Use 1 a 24 caracteres a-z, 0-9 e -, começando por letra ou dígito."
@@ -445,7 +455,7 @@ verify_report() { # <tag> <arm64|amd64>
   [ "$IMAGE_VERSION" = "${prefix%-*}" ] || die "o relatório $tag diz a versão $IMAGE_VERSION, que não é a da tag (${prefix%-*}). Recusado."
   [[ $IMAGE_COMMIT =~ ^[0-9a-f]{40}$ ]] && [ "${IMAGE_COMMIT:0:7}" = "${prefix##*-}" ] ||
     die "o relatório $tag aponta para o commit $IMAGE_COMMIT, que não é o da tag (${prefix##*-}). Recusado."
-  git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1 || die "o fork não está em $BB_FORK (defina BB_SRV_FORK): ele confere o commit do relatório."
+  require_fork # ele confere o commit do relatório
   git -C "$BB_FORK" cat-file -e "$IMAGE_COMMIT^{commit}" 2>/dev/null ||
     die "o commit $IMAGE_COMMIT do relatório $tag não existe no fork $BB_FORK (falta um git fetch?). Recusado."
   fork_version=$(git -C "$BB_FORK" show "$IMAGE_COMMIT:package.json" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)
@@ -501,7 +511,7 @@ resolve_image() { # <tag ou vazio> <arm64|amd64>
 # sha256 do `git archive` (tar.gz) de um commit do fork: o mesmo arquivo que o upload_source envia.
 source_hash() { # <commit>
   local commit=$1 sha work hash
-  git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1 || die "o fork não está em $BB_FORK (defina BB_SRV_FORK)."
+  require_fork
   sha=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork: $commit"
   work=$(mktemp -d "${TMPDIR:-/tmp}/bb-srv-src.XXXXXX")
   # De um commit, nunca da árvore de trabalho (que pode estar no meio de um merge).
@@ -517,7 +527,7 @@ source_hash() { # <commit>
 # Reaproveita o objeto só quando a metadata bate; senão envia de novo (o bucket tem versionamento).
 upload_source() { # <commit> -> imprime "<sha do commit> <sha256 do tarball>"
   local commit=$1 sha bucket work hash remote
-  git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1 || die "o fork não está em $BB_FORK (defina BB_SRV_FORK)."
+  require_fork
   sha=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork: $commit"
   bucket=$(build_bucket)
   work=$(mktemp -d "${TMPDIR:-/tmp}/bb-srv-src.XXXXXX")
