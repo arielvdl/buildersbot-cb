@@ -71,6 +71,15 @@
   padding-inline: var(--openbot-space-3);
 }
 
+/* A marker with a color: the text and the line draw with it. The editor swatch uses the same variable. */
+.sidebar-marker[data-marker-color] .sidebar-marker-label {
+  color: var(--sidebar-marker-color);
+}
+
+.sidebar-marker[data-marker-color] .sidebar-marker-line {
+  background: color-mix(in srgb, var(--sidebar-marker-color) 75%, transparent);
+}
+
 /* The row draws no box, so the rows keep their places and the space between them. */
 .sidebar-marked-row {
   display: contents;

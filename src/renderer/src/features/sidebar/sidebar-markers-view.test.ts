@@ -2,6 +2,7 @@ import type { SidebarLayoutSnapshot, SidebarMarker } from "@openbot/contracts/ip
 import { describe, expect, it } from "vitest";
 import {
   sidebarCreatedMarkerId,
+  sidebarMarkerAccent,
   sidebarMarkerCreateSection,
   sidebarMarkerOfChats,
 } from "../../../../../packages/ui/src/features/sidebar/sidebar-markers-view";
@@ -67,5 +68,27 @@ describe("the section of a new marker", () => {
     expect(
       sidebarCreatedMarkerId(new Set(["marker:one", "marker:two"]), { ...layout, markers: [one, two] }),
     ).toBeNull();
+  });
+});
+
+describe("the color of a marker line", () => {
+  const tinted = (color: string | undefined): SidebarMarker => ({
+    id: "marker:done",
+    sectionId: NAIA,
+    label: "Done",
+    style: "tint",
+    ...(color === undefined ? {} : { color }),
+  });
+
+  it("is the picked color of a marker with the tint style", () => {
+    expect(sidebarMarkerAccent(tinted("#84cc16"))).toBe("#84cc16");
+    expect(sidebarMarkerAccent(tinted("#84CC16"))).toBe("#84cc16");
+  });
+
+  it("is none for another style, for no color and for a value that is not a hex color", () => {
+    expect(sidebarMarkerAccent({ ...tinted("#84cc16"), style: "dim" })).toBeNull();
+    expect(sidebarMarkerAccent(tinted(undefined))).toBeNull();
+    expect(sidebarMarkerAccent(tinted("red; background: url(x)"))).toBeNull();
+    expect(sidebarMarkerAccent(tinted("#fff"))).toBeNull();
   });
 });

@@ -14,6 +14,7 @@ import { Button, Input, Popover, Text } from "@openbot/ui";
 import { createStore, For, Show, untrack } from "solid-js";
 import { useText } from "../../text";
 import { SIDEBAR_SECTION_COLOR_PRESETS } from "./section-color";
+import { sidebarMarkerAccent } from "./sidebar-markers-view";
 import { useSidebarScope } from "./sidebar-scope";
 
 const STYLE_LABELS = {
@@ -38,6 +39,8 @@ export function SidebarMarkerRow(rowProps: { marker: SidebarMarker }) {
   const { t } = useText();
   const name = () => rowProps.marker.label || t("sidebar.marker.unnamed");
   const editable = () => markers.supported() && layoutMutable();
+  // The line and the text take the color that was picked, so the marker shows it as the rows below do.
+  const accent = () => sidebarMarkerAccent(rowProps.marker);
   return (
     <div
       class={[
@@ -47,8 +50,9 @@ export function SidebarMarkerRow(rowProps: { marker: SidebarMarker }) {
           "sidebar-drag-shifting": dragOffset(rowProps.marker.id).y !== 0,
         },
       ]}
-      style={`--sidebar-drag-y: ${dragOffset(rowProps.marker.id).y}px;`}
+      style={`--sidebar-drag-y: ${dragOffset(rowProps.marker.id).y}px;${accent() ? ` --sidebar-marker-color: ${accent()};` : ""}`}
       data-marker-style={rowProps.marker.style}
+      data-marker-color={accent() ? "" : undefined}
     >
       {/* The separator that a screen reader reads, with the text as its name. The line on screen is in the button. */}
       <hr class="sr-only" aria-label={t("sidebar.marker.rowLabel", { label: name() })} />

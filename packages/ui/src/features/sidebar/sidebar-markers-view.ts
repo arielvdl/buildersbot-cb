@@ -19,6 +19,17 @@ export function sidebarMarkerOfChats(items: readonly SidebarChatItem[]): Map<str
   return styles;
 }
 
+const MARKER_ACCENT = /^#[0-9a-f]{6}$/;
+
+/**
+ * The color that the marker line draws with: the color of a marker with the tint style. A marker of
+ * another style, and a value that is not a six-digit hex color, have none, so the line keeps the theme colors.
+ */
+export function sidebarMarkerAccent(marker: Pick<SidebarMarker, "style" | "color">): string | null {
+  const color = marker.color?.toLowerCase();
+  return marker.style === "tint" && color !== undefined && MARKER_ACCENT.test(color) ? color : null;
+}
+
 /**
  * The section of a new marker: the section that the rail selects, or, with "All", the first custom
  * section of the list, or the chats with no section when there is no custom section.
