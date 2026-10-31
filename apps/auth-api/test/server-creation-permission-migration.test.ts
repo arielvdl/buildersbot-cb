@@ -59,6 +59,41 @@ describe("server creation permission migration", () => {
     expect(database.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
   });
 
+  it("can run again with no change: a second run, or a run after a partial apply", () => {
+    const database = migratedTo("0046");
+    seed(database);
+    database.exec(migration);
+    database.exec(`
+      INSERT INTO server_creation_grants(user_id, granted_by, granted_at, note) VALUES ('person', 'admin', 5, 'Sales');
+      INSERT INTO server_creation_requests(id, user_id, reason, status, created_at)
+        VALUES ('request-1', 'person', 'For the sales team', 'pending', 3);
+      INSERT INTO server_creation_audit(id, actor_user_id, action, target_user_id, created_at)
+        VALUES ('audit-1', 'admin', 'grant', 'person', 5);
+    `);
+    const schema = () =>
+      database
+        .prepare("SELECT type, name, sql FROM sqlite_schema WHERE name LIKE 'server_creation%' ORDER BY name")
+        .all();
+    const rows = () => ({
+      ...snapshot(database),
+      grants: database.prepare("SELECT * FROM server_creation_grants").all(),
+      requests: database.prepare("SELECT * FROM server_creation_requests").all(),
+      audit: database.prepare("SELECT * FROM server_creation_audit").all(),
+    });
+    const before = { schema: schema(), rows: rows() };
+    expect(before.schema).toHaveLength(7);
+    database.exec(migration);
+    expect({ schema: schema(), rows: rows() }).toEqual(before);
+
+    // A partial apply: the first table exists and the others do not.
+    const partial = migratedTo("0046");
+    partial.exec(migration.slice(0, migration.indexOf("CREATE TABLE IF NOT EXISTS server_creation_requests")));
+    partial.exec(migration);
+    expect(
+      partial.prepare("SELECT name FROM sqlite_schema WHERE name LIKE 'server_creation%' ORDER BY name").all(),
+    ).toEqual(before.schema.map(({ name }) => ({ name })));
+  });
+
   it("allows one pending request for each person, and only the known statuses and actions", () => {
     const database = migratedTo("0046");
     seed(database);
