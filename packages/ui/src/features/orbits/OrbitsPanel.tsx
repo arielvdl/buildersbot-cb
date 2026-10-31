@@ -97,7 +97,7 @@ function OrbitsBody(props: OrbitsPanelProps) {
   /** The loops run only while the window shows and motion is allowed. The panel is open: this body exists. */
   const running = () => !reduced() && playState() === "running";
   const agents = createMemo(() => Object.values(props.view.agents));
-  const bubbleIds = createMemo(() => orbitBubbleIds(agents(), family()));
+  const bubbleIds = createMemo(() => orbitBubbleIds(agents(), props.view.systems, family()));
   const motionIds = createMemo(() => orbitMotionIds(agents()));
   const counts = createMemo(() => orbitCounts(agents(), family()));
   let scroller: HTMLDivElement | undefined;

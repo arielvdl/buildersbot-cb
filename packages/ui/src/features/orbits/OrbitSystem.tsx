@@ -47,7 +47,7 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
   const { t } = useText();
   let box: HTMLElement | undefined;
   let nameEl: HTMLElement | undefined;
-  const bubbleEls = new Map<string, HTMLElement>();
+  let bubbleEl: HTMLElement | undefined;
   const [geometry, setGeometry] = createSignal<OrbitGeometry | null>(null);
 
   const members = createMemo(() =>
@@ -69,7 +69,8 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
       parked: others.filter((agent) => agent.state === "done" || agent.state === "idle").map((agent) => agent.id),
     };
   });
-  const talkers = createMemo(() => props.bubbleIds.filter((agentId) => props.system.agentIds.includes(agentId)));
+  /** The one agent of this system with a bubble, if any. */
+  const talkerId = createMemo(() => props.bubbleIds.find((agentId) => props.system.agentIds.includes(agentId)) ?? null);
   const kindOf = (agent: OrbitAgent) =>
     agent.id === props.system.sunId ? "sun" : agent.state === "done" || agent.state === "idle" ? "tiny" : "planet";
 
@@ -79,11 +80,34 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
     dropSystem?.();
     dropSystem = untrack(() => props.engine.system(props.system.key, element));
   };
-  onSettled(() => () => dropSystem?.());
+
+  /**
+   * The bubble grows while its agent writes. Its text does not start a layout: only a new height does,
+   * which the observer reports. A new width only moves the bubble.
+   */
+  const [bubbleResized, setBubbleResized] = createSignal(0);
+  let bubbleHeight = 0;
+  let nameRight = 0;
+  let lastShape: OrbitGeometry | null = null;
+  const bubbleObserver = new ResizeObserver((entries) => {
+    const size = entries.find((entry) => entry.target === bubbleEl)?.borderBoxSize[0];
+    if (!size || !lastShape) return;
+    if (Math.round(size.blockSize) !== bubbleHeight) setBubbleResized((count) => count + 1);
+    else placeBubble(lastShape, size.inlineSize, size.blockSize);
+  });
+  const mountBubble = (element: HTMLElement) => {
+    if (bubbleEl) bubbleObserver.unobserve(bubbleEl);
+    bubbleEl = element;
+    bubbleObserver.observe(element);
+  };
+  onSettled(() => () => {
+    dropSystem?.();
+    bubbleObserver.disconnect();
+  });
 
   /**
    * What the layout depends on. Each update of the view makes new objects, so the memo compares a key
-   * and the layout runs only when a place, a bubble or the width changes.
+   * and the layout runs only when a place, the bubble's agent or height, or the width changes.
    */
   const layoutInput = createMemo(
     () => {
@@ -91,7 +115,8 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
         key: props.system.key,
         width: props.width,
         groups: groups(),
-        talkers: talkers().map((agentId) => ({ id: agentId, says: props.agents[agentId]?.says ?? "" })),
+        talker: talkerId(),
+        resized: bubbleResized(),
         moving: props.system.agentIds.filter((agentId) => props.motionIds.has(agentId)),
       };
       return { ...input, engine: props.engine, signature: JSON.stringify(input) };
@@ -99,39 +124,40 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
     { equals: (left, right) => left.signature === right.signature },
   );
 
-  /** Measures the name and the bubbles, then gives every agent its place. */
+  /** Measures the name and the bubble, then gives every agent its place. */
   createEffect(layoutInput, (input) => {
     if (!box || input.width <= 0) return;
     const width = box.clientWidth;
-    const nameRight = nameEl ? nameEl.offsetLeft + nameEl.offsetWidth + NAME_GAP : 0;
-    const bubbleWidth = Math.max(120, Math.min(236, width - nameRight));
-    const measured = input.talkers.map((talker) => {
-      const el = bubbleEls.get(talker.id);
-      if (el) el.style.maxWidth = `${bubbleWidth}px`;
-      return { id: talker.id, height: el?.offsetHeight ?? 46 };
-    });
-    const next = orbitGeometry({ width, nameRight, ...input.groups, talkers: measured });
+    nameRight = nameEl ? nameEl.offsetLeft + nameEl.offsetWidth + NAME_GAP : 0;
+    if (!input.talker && bubbleEl) {
+      bubbleObserver.unobserve(bubbleEl);
+      bubbleEl = undefined;
+    }
+    const bubble = bubbleEl;
+    if (bubble) bubble.style.maxWidth = `${Math.max(120, Math.min(236, width - nameRight))}px`;
+    bubbleHeight = bubble ? bubble.offsetHeight : 0;
+    const talker = input.talker ? { id: input.talker, height: bubble ? bubbleHeight : 46 } : null;
+    const next = orbitGeometry({ width, nameRight, ...input.groups, talker });
     const moving = new Set(input.moving);
     const slots: Record<string, { slot: OrbitSlot; moving: boolean }> = {};
     for (const [agentId, slot] of Object.entries(next.slots)) {
       slots[agentId] = { slot, moving: moving.has(agentId) && slot.kind !== "park" && slot.kind !== "sun" };
     }
+    lastShape = next;
     setGeometry(next);
     input.engine.layout(input.key, next, slots);
-    for (const talker of measured) placeBubble(talker.id, next);
+    if (bubble) placeBubble(next, bubble.offsetWidth, bubbleHeight);
   });
 
-  function placeBubble(agentId: string, shape: OrbitGeometry) {
-    const el = bubbleEls.get(agentId);
-    const slot = shape.slots[agentId];
-    if (!el || !slot) return;
-    const point = orbitPoint(shape, slot, 0);
-    const width = el.offsetWidth;
-    const nameRight = nameEl ? nameEl.offsetLeft + nameEl.offsetWidth + NAME_GAP : 0;
-    const left = Math.max(nameRight, Math.min(shape.width - width, point.x - 6));
-    const top = Math.max(4, shape.cy - (shape.bubbleClear[agentId] ?? 30) - el.offsetHeight);
-    el.style.transform = `translate(${left.toFixed(1)}px, ${top.toFixed(1)}px)`;
-    el.dataset.tail = point.x > left + width * 0.6 ? "end" : "start";
+  function placeBubble(next: OrbitGeometry, width: number, height: number) {
+    const talker = untrack(talkerId);
+    const slot = talker ? next.slots[talker] : undefined;
+    if (!bubbleEl || !slot) return;
+    const point = orbitPoint(next, slot, 0);
+    const left = Math.max(nameRight, Math.min(next.width - width, point.x - 6));
+    const top = Math.max(4, next.cy - next.bubbleClear - height);
+    bubbleEl.style.transform = `translate(${left.toFixed(1)}px, ${top.toFixed(1)}px)`;
+    bubbleEl.dataset.tail = point.x > left + width * 0.6 ? "end" : "start";
   }
 
   return (
@@ -202,20 +228,18 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
           />
         )}
       </For>
-      <For each={talkers()} keyed={(agentId) => agentId}>
+      <Show when={talkerId()} keyed>
         {(agentId) => (
           <div
-            ref={(element: HTMLDivElement) => {
-              bubbleEls.set(agentId(), element);
-            }}
+            ref={mountBubble}
             class="orbit-bubble"
             data-hidden={props.selectedId !== null ? "" : undefined}
             aria-hidden="true"
           >
-            <span>{props.agents[agentId()]?.says}</span>
+            <span>{props.agents[agentId]?.says}</span>
           </div>
         )}
-      </For>
+      </Show>
     </section>
   );
 }

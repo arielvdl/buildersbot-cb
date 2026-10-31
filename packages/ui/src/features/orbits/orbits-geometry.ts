@@ -33,8 +33,8 @@ export interface OrbitGeometryInput {
   still: readonly { id: string; drift: boolean }[];
   /** Done and idle agents. */
   parked: readonly string[];
-  /** The agents with a bubble in this system, with the measured height of each bubble. */
-  talkers: readonly { id: string; height: number }[];
+  /** The agent with a bubble in this system, with the measured height of its bubble. A system has one at most. */
+  talker: { id: string; height: number } | null;
 }
 
 export interface OrbitGeometry {
@@ -49,8 +49,8 @@ export interface OrbitGeometry {
   /** The inner ring has moving agents. */
   fast: boolean;
   slots: Record<string, OrbitSlot>;
-  /** For each talker, the space between the middle of the system and the bottom of its bubble. */
-  bubbleClear: Record<string, number>;
+  /** The space between the middle of the system and the bottom of the bubble. 0 without a talker. */
+  bubbleClear: number;
   /** The widest a bubble can be. */
   bubbleWidth: number;
 }
@@ -83,16 +83,13 @@ export function orbitGeometry(input: OrbitGeometryInput): OrbitGeometry {
   const outer = two ? { rx: rxMax, ry: rxMax * RING_FLATNESS } : single;
   const inner = two ? { rx: rxMax * 0.54, ry: Math.max(40, rxMax * 0.54 * 0.48) } : outer;
   const cx = width / 2 + 8;
-  const talking = new Set(input.talkers.map((talker) => talker.id));
-  // The bottom of a bubble stays above the agent that talks, so nothing passes under a bubble.
-  const clearOf = (id: string) =>
-    id === input.sunId ? (fast ? inner.ry + 18 : 30) : -Math.sin(TALK_ANGLE) * outer.ry + 18;
+  const talker = input.talker;
+  // The bottom of the bubble stays above the agent that talks, so nothing passes under the bubble.
+  let bubbleClear = 0;
+  if (talker)
+    bubbleClear = talker.id === input.sunId ? (fast ? inner.ry + 18 : 30) : -Math.sin(TALK_ANGLE) * outer.ry + 18;
   let cy = (two ? 20 : 24) + outer.ry;
-  const bubbleClear: Record<string, number> = {};
-  for (const talker of input.talkers) {
-    bubbleClear[talker.id] = clearOf(talker.id);
-    cy = Math.max(cy, 6 + talker.height + clearOf(talker.id));
-  }
+  if (talker) cy = Math.max(cy, 6 + talker.height + bubbleClear);
   const parkRows = Math.max(1, Math.floor((outer.ry * 2 + PARK_GAP) / PARK_GAP));
   const parkHeight = Math.min(input.parked.length, parkRows) * PARK_GAP;
   const height = Math.round(Math.max(cy + outer.ry + 20, cy + parkHeight / 2 + 14));
@@ -104,9 +101,8 @@ export function orbitGeometry(input: OrbitGeometryInput): OrbitGeometry {
   });
   let stillIndex = 0;
   for (const agent of input.still) {
-    const angle = talking.has(agent.id)
-      ? TALK_ANGLE
-      : (STILL_ANGLES[stillIndex++ % STILL_ANGLES.length] ?? STILL_ANGLES[0] ?? 0);
+    const angle =
+      agent.id === talker?.id ? TALK_ANGLE : (STILL_ANGLES[stillIndex++ % STILL_ANGLES.length] ?? STILL_ANGLES[0] ?? 0);
     slots[agent.id] = agent.drift ? { kind: "drift", angle } : { kind: "still", angle };
   }
   input.parked.forEach((id, index) => {

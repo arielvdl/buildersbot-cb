@@ -230,16 +230,28 @@ export function orbitAttentionOrder<T extends Pick<OrbitAgent, "state" | "wait">
 
 /**
  * The agents that show a bubble: the first ones in attention order that have something to say and
- * match the model filter. A done or idle agent has no bubble.
+ * match the model filter. Each system has one bubble at most, because its bubble takes the top of the
+ * system: the next bubble goes to an agent of another system. A done or idle agent has no bubble.
  */
 export function orbitBubbleIds(
   agents: readonly OrbitAgent[],
+  systems: readonly Pick<OrbitSystem, "key" | "agentIds">[],
   family: string | null,
   limit = ORBIT_BUBBLE_LIMIT,
 ): string[] {
-  return orbitAttentionOrder(agents.filter((agent) => agent.says && active(agent.state) && orbitMatches(agent, family)))
-    .slice(0, limit)
-    .map((agent) => agent.id);
+  const systemOf = new Map<string, string>();
+  for (const system of systems) for (const agentId of system.agentIds) systemOf.set(agentId, system.key);
+  const bubbles: string[] = [];
+  const used = new Set<string>();
+  const candidates = agents.filter((agent) => agent.says && active(agent.state) && orbitMatches(agent, family));
+  for (const agent of orbitAttentionOrder(candidates)) {
+    const key = systemOf.get(agent.id);
+    if (key === undefined || used.has(key)) continue;
+    used.add(key);
+    bubbles.push(agent.id);
+    if (bubbles.length >= limit) break;
+  }
+  return bubbles;
 }
 
 /** Whether an agent matches the model filter. No filter matches every agent. */
