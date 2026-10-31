@@ -1,7 +1,7 @@
 import { Button, Dialog, IconButton, Orbit, X } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { prefersReducedMotion } from "@openbot/ui/utils";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 import { createTaskListPlayState } from "../conversation/TaskList";
 import { OrbitFamilyGlyph } from "./OrbitFamilyGlyph";
 import { OrbitSystemView } from "./OrbitSystem";
@@ -107,33 +107,35 @@ function OrbitsBody(props: OrbitsPanelProps) {
   const playState = createTaskListPlayState();
   /** The loops run only while the window shows and motion is allowed. The panel is open: this body exists. */
   const running = () => !reduced() && playState() === "running";
+  /**
+   * The model filter, while its family is in the panel. A filter on a family that left would dim every
+   * agent and leave no mark to clear it.
+   */
+  const filter = createMemo(() => {
+    const current = family();
+    return current !== null && props.view.families.some((entry) => entry.family.id === current) ? current : null;
+  });
+  /** The agent of the open card, while it is in the panel. */
+  const openId = createMemo(() => {
+    const current = selectedId();
+    return current !== null && props.view.agents[current] !== undefined ? current : null;
+  });
+  // A filter or a card that lost its family or its agent stays off: it does not come back with them.
+  createEffect(
+    () => ({ families: props.view.families, agents: props.view.agents }),
+    (view) => {
+      const current = untrack(family);
+      if (current !== null && !view.families.some((entry) => entry.family.id === current)) setFamily(null);
+      const open = untrack(selectedId);
+      if (open !== null && view.agents[open] === undefined) setSelectedId(null);
+    },
+  );
   const agents = createMemo(() => Object.values(props.view.agents));
-  const bubbleIds = createMemo(() => orbitBubbleIds(agents(), props.view.systems, family()));
+  const bubbleIds = createMemo(() => orbitBubbleIds(agents(), props.view.systems, filter()));
   const motionIds = createMemo(() => orbitMotionIds(agents()));
-  const counts = createMemo(() => orbitCounts(agents(), family()));
-  const chips = createMemo(() => orbitFamilyChips(props.view.families, family()));
+  const counts = createMemo(() => orbitCounts(agents(), filter()));
+  const chips = createMemo(() => orbitFamilyChips(props.view.families, filter()));
   let scroller: HTMLDivElement | undefined;
-
-  // A filter on a family that left the panel would dim every agent and leave no mark to clear it.
-  createEffect(
-    () => {
-      const current = family();
-      return current !== null && !props.view.families.some((entry) => entry.family.id === current);
-    },
-    (stale) => {
-      if (stale) setFamily(null);
-    },
-  );
-  // The card of an agent that left the panel closes, so that it does not open again when the agent comes back.
-  createEffect(
-    () => {
-      const current = selectedId();
-      return current !== null && props.view.agents[current] === undefined;
-    },
-    (gone) => {
-      if (gone) setSelectedId(null);
-    },
-  );
   let systemsEl: HTMLDivElement | undefined;
   const linkPaths: SVGPathElement[] = [];
 
@@ -203,11 +205,11 @@ function OrbitsBody(props: OrbitsPanelProps) {
               <Button
                 variant="unstyled"
                 class="orbits-chip"
-                aria-pressed={family() === entry().family.id ? "true" : "false"}
+                aria-pressed={filter() === entry().family.id ? "true" : "false"}
                 aria-label={t("app.orbits.familyChip", { name: familyName(entry()), count: entry().generating })}
                 title={familyName(entry())}
                 data-cuelume-toggle=""
-                onClick={() => setFamily((current) => toggledOrbitFamily(current, entry().family.id))}
+                onClick={() => setFamily(toggledOrbitFamily(filter(), entry().family.id))}
               >
                 <OrbitFamilyGlyph family={entry().family} />
                 <span class="orbits-chip-count">{entry().generating}</span>
@@ -253,8 +255,8 @@ function OrbitsBody(props: OrbitsPanelProps) {
                   data-hot={
                     hotId() === link().from ||
                     hotId() === link().to ||
-                    selectedId() === link().from ||
-                    selectedId() === link().to
+                    openId() === link().from ||
+                    openId() === link().to
                       ? ""
                       : undefined
                   }
@@ -271,8 +273,8 @@ function OrbitsBody(props: OrbitsPanelProps) {
                 width={width()}
                 bubbleIds={bubbleIds()}
                 motionIds={motionIds()}
-                family={family()}
-                selectedId={selectedId()}
+                family={filter()}
+                selectedId={openId()}
                 running={running()}
                 engine={engine}
                 now={props.now}

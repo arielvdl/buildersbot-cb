@@ -83,11 +83,12 @@
   letter-spacing: var(--openbot-tracking-tight);
 }
 
+/* The model marks and the count share one line at 440 px; a narrow panel or long text wraps the count. */
 .orbits-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--openbot-space-2) var(--openbot-space-3);
+  gap: var(--openbot-space-2);
   border-bottom: 1px solid var(--orbits-edge);
   padding: 10px 18px;
 }
@@ -99,20 +100,20 @@
   border: 0;
   padding: 0;
   flex-wrap: wrap;
-  gap: var(--openbot-space-1-5);
+  gap: var(--openbot-space-1);
 }
 
 .orbits-chip {
   height: var(--openbot-control-sm);
-  min-width: 40px;
+  min-width: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: var(--openbot-space-1);
   border: 1px solid var(--orbits-edge);
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-bg-control);
-  padding: 0 9px;
+  padding: 0 7px;
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
   font-variant-numeric: tabular-nums;
@@ -145,7 +146,7 @@
 .orbits-count {
   display: flex;
   align-items: center;
-  gap: var(--openbot-space-1-5);
+  gap: var(--openbot-space-1);
   margin: 0 0 0 auto;
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-sm);
@@ -156,7 +157,7 @@
 .orbits-count-alert {
   height: 20px;
   border-radius: var(--openbot-radius-sm);
-  padding: 0 5px;
+  padding: 0 4px;
   color: var(--openbot-danger-text);
   font-size: var(--openbot-text-sm);
   cursor: pointer;
@@ -736,13 +737,6 @@
   .orbit-agent[data-state="waiting"]:not([data-attention]):hover,
   .orbit-agent[data-filtered]:hover {
     opacity: 1;
-  }
-}
-
-@container (max-width: 420px) {
-  .orbits-chip {
-    min-width: 36px;
-    padding: 0 7px;
   }
 }
 
