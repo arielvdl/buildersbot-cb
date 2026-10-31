@@ -140,7 +140,7 @@ export const ServiceUnavailable: Story = {
       status: "error",
       issue: {
         code: "auth_api_unavailable",
-        message: "OpenBot could not reach the account service. Check your connection and try again.",
+        message: "Builders Bot could not reach the account service. Check your connection and try again.",
       },
     },
   },

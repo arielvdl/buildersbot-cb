@@ -78,19 +78,19 @@ export const AGENT_IMPORT_WARNINGS = [
 /** The start of the export skill, as `agentImport.readSkill` answers it. */
 export const AGENT_IMPORT_SKILL = `---
 name: openbot-export
-description: Export the user's Grok Bot agents into one .zip file that OpenBot imports.
+description: Export the user's Grok Bot agents into one .zip file that Builders Bot imports.
 ---
 
-# Export agents for OpenBot
+# Export agents for Builders Bot
 `;
 
 /** The start of the Hermes export skill, as `agentImport.readSkill("hermes-agent")` answers it. */
 export const HERMES_EXPORT_SKILL = `---
 name: openbot-export
-description: Export the user's Hermes Agent profiles into one .zip file that OpenBot imports.
+description: Export the user's Hermes Agent profiles into one .zip file that Builders Bot imports.
 ---
 
-# Export Hermes profiles for OpenBot
+# Export Hermes profiles for Builders Bot
 `;
 
 /** Three Hermes profiles, as `agentImport.readHermes` answers them. */

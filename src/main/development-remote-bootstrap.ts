@@ -61,7 +61,9 @@ export const applyDevelopmentRemoteAccount = Effect.fn("DevelopmentRemote.applyA
     yield* teamStore.configureWithAccount("Builders Bot Local Dev Host", user);
   }
   if (role === "client" && !setupCompleted) {
-    yield* writeSetupState(setupFile, { preferredProvider: "cultura-builder", preferredModel: null }).pipe(toRemoteWorkflowError);
+    yield* writeSetupState(setupFile, { preferredProvider: "cultura-builder", preferredModel: null }).pipe(
+      toRemoteWorkflowError,
+    );
   }
   if (role === "host" && !testClientEnabled) {
     const technicalMember = teamStore
@@ -89,7 +91,7 @@ export const startDevelopmentRemoteRole = Effect.fn("DevelopmentRemote.startRole
   if (role === "host") {
     yield* remoteCall(() => rm(developmentRemoteConnectionPath(), { force: true }));
     const status = yield* host.start();
-    if (status.phase !== "online") yield* host.startDevelopmentLocal();
+    if (status.phase !== "online") yield* host.startLoopbackOnly();
     if (testClientEnabled) yield* writeDevelopmentRemoteConnection(yield* host.createDevelopmentConnection());
     return;
   }

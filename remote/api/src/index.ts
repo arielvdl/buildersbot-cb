@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { type IngressRoute, ROUTE_HOST_STATES } from "@openbot/contracts/signal-protocol/ingress-queue";
-import { Context, Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Context, Effect, Layer, ManagedRuntime, Schema, Semaphore } from "effect";
 import { createRemoteApiApp, prometheusMetrics } from "./app";
 import { readRemoteApiConfig } from "./config";
 import { DiscordGateway } from "./discord-gateway";
@@ -21,6 +21,16 @@ const config = readRemoteApiConfig();
 class ControlPlaneError extends Schema.TaggedError<ControlPlaneError>()("ControlPlaneError", {
   message: Schema.String,
 }) {}
+
+// A restart empties the resume cache, and every peer connects again in the same second. Each hello then
+// asks the account service, and one D1 database answers its queries one at a time. On 2026-10-30 one
+// restart gave 9443 resumes that the account service did not confirm, and each of those peers tried again.
+// The limit keeps the 5-second request timeout for the request only, not for its wait in a queue. A
+// check that waits longer than the deadline fails as unavailable (close 1013), and the peer tries again
+// after its backoff. A request that started can end up to 5 s after the deadline. Two checks (a stale
+// resume token) then still end before the 30-second connect deadline of a new client (`remote-peer.ts`).
+const RESUME_CHECK_CONCURRENCY = 64;
+const RESUME_CHECK_DEADLINE = "7 seconds";
 
 const ResumeValidation = Schema.Struct({ valid: Schema.Boolean });
 const SlackValidation = Schema.Struct({ teams: Schema.Array(Schema.String) });
@@ -82,8 +92,8 @@ class ControlPlane extends Context.Service<
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "OpenBot-Timestamp": timestamp,
-              "OpenBot-Signature": signServiceRequest(body, timestamp, config.authWebhookSecret),
+              "Builders Bot-Timestamp": timestamp,
+              "Builders Bot-Signature": signServiceRequest(body, timestamp, config.authWebhookSecret),
             },
             body,
             signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMilliseconds)]),
@@ -103,24 +113,31 @@ class ControlPlane extends Context.Service<
         ? Effect.tryPromise({ try: () => body.cancel(), catch: () => undefined }).pipe(Effect.catch(() => Effect.void))
         : Effect.void;
     };
+    const resumeChecks = Semaphore.makeUnsafe(RESUME_CHECK_CONCURRENCY);
     return ControlPlane.of({
-      validateResume: Effect.fn("ControlPlane.validateResume")((claims) =>
-        Effect.acquireUseRelease(
-          ask("/v2/remote/resume/validate", claims),
-          (response) =>
-            Effect.gen(function* () {
-              // A failed service is not an inactive session: the session can still be active.
-              if (response.status >= 500 || response.status === 429)
-                return yield* new ControlPlaneError({ message: "The account service is unavailable." });
-              if (!response.ok) return false;
-              const result = yield* readJson(response).pipe(
-                Effect.flatMap(Schema.decodeUnknownEffect(ResumeValidation)),
-                Effect.mapError(() => new ControlPlaneError({ message: "The account service response is invalid." })),
-              );
-              return result.valid;
-            }),
-          releaseResponse,
-        ),
+      validateResume: Effect.fn("ControlPlane.validateResume")(
+        (claims) =>
+          Effect.acquireUseRelease(
+            ask("/v2/remote/resume/validate", claims),
+            (response) =>
+              Effect.gen(function* () {
+                // A failed service is not an inactive session: the session can still be active.
+                if (response.status >= 500 || response.status === 429)
+                  return yield* new ControlPlaneError({ message: "The account service is unavailable." });
+                if (!response.ok) return false;
+                const result = yield* readJson(response).pipe(
+                  Effect.flatMap(Schema.decodeUnknownEffect(ResumeValidation)),
+                  Effect.mapError(() => new ControlPlaneError({ message: "The account service response is invalid." })),
+                );
+                return result.valid;
+              }),
+            releaseResponse,
+          ),
+        resumeChecks.withPermit,
+        Effect.timeoutOrElse({
+          duration: RESUME_CHECK_DEADLINE,
+          orElse: () => Effect.fail(new ControlPlaneError({ message: "The account service is unavailable." })),
+        }),
       ),
       validateSlackRoute: Effect.fn("ControlPlane.validateSlackRoute")((hostId, teams) =>
         Effect.acquireUseRelease(
@@ -344,7 +361,7 @@ const discordRuntime = config.discord
   : null;
 const discord = discordRuntime ? await discordRuntime.runPromise(DiscordGateway) : null;
 if (!discord) {
-  console.log("OpenBot Discord is off: DISCORD_BOT_TOKEN and DISCORD_APPLICATION_ID are not both set and valid.");
+  console.log("Builders Bot Discord is off: DISCORD_BOT_TOKEN and DISCORD_APPLICATION_ID are not both set and valid.");
 }
 const app = createRemoteApiApp(config, signal, signalRuntime, discord?.api ?? null);
 const listen = () =>
@@ -364,7 +381,7 @@ listen();
 // Telegram posts to this Signal only after the listener is up. A failure is logged and Signal runs on.
 if (signal.telegram) void signalRuntime.runPromise(signal.telegram.bot.setWebhooks());
 const healthServer = Bun.serve({
-  hostname: "127.0.0.1",
+  hostname: config.healthHost,
   port: config.healthPort,
   routes: {
     "/health/live": () => Response.json({ service: "openbot-remote-api", status: "live", commit: config.sourceCommit }),
@@ -380,7 +397,7 @@ const healthServer = Bun.serve({
 });
 
 const protocol = tlsPaths ? "https" : "http";
-console.log(`OpenBot Remote API is ready at ${protocol}://${config.host}:${config.port}`);
+console.log(`Builders Bot Remote API is ready at ${protocol}://${config.host}:${config.port}`);
 
 const readCertificateFile = (path: string) =>
   Effect.tryPromise({
@@ -399,7 +416,7 @@ function reloadTlsWhenChanged(): Promise<void> {
     .runPromise(reloadTlsEffect())
     .catch(() => {
       // TLS paths and provider causes must not enter diagnostics.
-      console.error("OpenBot Remote API could not reload its TLS certificate.");
+      console.error("Builders Bot Remote API could not reload its TLS certificate.");
     })
     .finally(() => {
       pendingReload = null;
@@ -420,7 +437,7 @@ const reloadTlsEffect = Effect.fn("Signal.reloadTls")(function* () {
     catch: () => new ControlPlaneError({ message: "The Signal listener could not be restarted." }),
   });
   certificateHash = nextHash;
-  console.log("OpenBot Remote API reloaded its TLS certificate.");
+  console.log("Builders Bot Remote API reloaded its TLS certificate.");
 });
 
 function tlsCertificateHash(): Effect.Effect<string | null> {

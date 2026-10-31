@@ -5,7 +5,8 @@ export const messages = {
   "error.site.absolutePath": "Escolha um caminho absoluto para o diretório do site.",
   "error.site.rootSymlink": "Links simbólicos não são permitidos em sites hospedados.",
   "error.site.notDirectory": "A origem do site deve ser um diretório.",
-  "error.site.outsideWorkspace": "O site deve estar dentro do espaço de trabalho deste agente ou do Builders Bot Shared.",
+  "error.site.outsideWorkspace":
+    "O site deve estar dentro do espaço de trabalho deste agente ou do Builders Bot Shared.",
   "error.site.packageJsonInvalid": "O package.json do site é inválido.",
   "error.site.astroServerOutput": "O Astro deve usar saída estática.",
   "error.site.astroAdapter": "Adaptadores de servidor do Astro e integração com React não são permitidos.",
@@ -26,4 +27,14 @@ export const messages = {
   "error.site.fileType": "Este tipo de arquivo não é permitido: {path}",
   "error.site.fileOutsideRoot": "Os arquivos do site devem permanecer dentro da raiz de origem: {path}",
   "error.site.fileTooLarge": "Um arquivo excede o limite de 1 MB: {path}",
+  "error.site.serverLimit": {
+    one: "Este servidor atingiu o limite de {count} site ativo. Para publicar outro site, exclua um site ou use um servidor na nuvem com um plano que tenha mais sites.",
+    other:
+      "Este servidor atingiu o limite de {count} sites ativos. Para publicar outro site, exclua um site ou use um servidor na nuvem com um plano que tenha mais sites.",
+  },
+  "error.site.unlinkedLimit": {
+    one: "Este computador não é um servidor, e a conta dele atingiu o limite de {count} site ativo. Para publicar outro site, exclua um site ou use um servidor na nuvem com um plano que tenha mais sites.",
+    other:
+      "Este computador não é um servidor, e a conta dele atingiu o limite de {count} sites ativos. Para publicar outro site, exclua um site ou use um servidor na nuvem com um plano que tenha mais sites.",
+  },
 } as const satisfies PartialTranslation<typeof source>;

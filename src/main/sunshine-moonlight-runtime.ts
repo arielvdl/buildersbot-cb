@@ -662,6 +662,10 @@ export class SunshineMoonlightRuntime {
       // The Linux runtime is built with X11 capture and no hardware encoder, so Sunshine does not
       // probe the others.
       ...(this.#options.platform === "linux" ? ["capture = x11", "encoder = software"] : []),
+      // The macOS tray changes its status item from the pairing and stream threads, and macOS 27 stops
+      // a process that changes AppKit off the main thread. Builders Bot runs its own main loop and pairing
+      // UI, so the tray has no use.
+      ...(this.#options.platform === "darwin" ? ["system_tray = disabled"] : []),
     ];
     yield* desktopCall(() =>
       Promise.all([
@@ -1119,7 +1123,10 @@ export class SunshineMoonlightRuntime {
       // A stop clears the field before it waits. A start in progress fails its own readiness wait.
       if ((source === "sunshine" ? this.#sunshine : this.#moonlight) !== child || !this.#state) return;
       this.#state = null;
-      this.#options.onDiagnostic?.(source, `Builders Bot: ${source} exited unexpectedly (${signal ?? `code ${code}`}).\n`);
+      this.#options.onDiagnostic?.(
+        source,
+        `Builders Bot: ${source} exited unexpectedly (${signal ?? `code ${code}`}).\n`,
+      );
       this.#options.onExit?.(source);
     });
   }

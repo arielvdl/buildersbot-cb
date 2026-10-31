@@ -85,7 +85,7 @@ export const messages = defineMessages("webClient", {
   "webClient.app.title": "App",
   "webClient.app.installTitle": "Install the app",
   "webClient.app.installDescription":
-    "Install OpenBot on this device. It opens without the browser chrome and keeps the shell for an offline start.",
+    "Install Builders Bot on this device. It opens without the browser chrome and keeps the shell for an offline start.",
   "webClient.app.installHint": "On iPhone and iPad, open Share and choose Add to Home Screen.",
   "webClient.app.install": "Install",
   "webClient.app.installedTitle": "Installed on this device",
@@ -101,7 +101,7 @@ export const messages = defineMessages("webClient", {
     "Tells this installation when a task waits for you, even with the app closed. The text of the conversation stays on the host.",
   "webClient.app.pushDenied": "The browser did not allow notifications. Allow them in the site settings.",
   "webClient.app.pushUnavailable": "Notifications are not available for this app right now.",
-  "webClient.lock.title": "OpenBot is locked",
+  "webClient.lock.title": "Builders Bot is locked",
   "webClient.lock.description": "Unlock with the passkey of this device to see the agents.",
   "webClient.lock.unlock": "Unlock",
   "webClient.lock.failed": "The device did not check the passkey. Try again.",

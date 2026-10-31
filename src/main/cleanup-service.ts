@@ -18,7 +18,7 @@ const PROFILE_STALE_DAYS = 7;
 const SCAN_DEPTH = 5;
 const SIZE_CONCURRENCY = 3;
 const GIT_TIMEOUT_MS = 15_000;
-const DEV_PROFILE = /^(Builders Bot|OpenBot) Dev wt-[0-9a-f]{64}$/u;
+const DEV_PROFILE = /^(Builders Bot|Builders Bot) Dev wt-[0-9a-f]{64}$/u;
 const SKIPPED_FOLDERS = new Set([
   "node_modules",
   ".git",

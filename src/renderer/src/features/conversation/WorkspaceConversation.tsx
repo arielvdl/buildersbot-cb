@@ -87,6 +87,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     setPendingPluginConnect,
     agentAutoApproves,
     generalSettings,
+    openNotificationLevels,
   } = useSettings();
   const {
     providerRuntimeStatuses,
@@ -158,6 +159,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     conversations,
     sendMessage,
     markAgentMessagesRead,
+    markAgentMessagesUnread,
     loadOlderAgentMessages,
     loadLatestAgentMessages,
     searchAgentMessages,
@@ -236,6 +238,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     const agent = activeAgent();
     const settings = remoteAgentSettings();
     const automation = remoteAgentAdmin.automation();
+    const busyMessageMode = remoteAgentAdmin.busyMessageMode();
     const backupModels = remoteAgentAdmin.backupModels();
     const usageLimitReturn = remoteAgentAdmin.usageLimitReturn();
     const taskLimit = remoteAgentAdmin.taskLimit();
@@ -244,6 +247,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
           ...agent,
           ...(settings ? { access: settings.access } : {}),
           ...(activeServer()?.kind === "remote" && automation !== undefined ? { allowAutomation: automation } : {}),
+          ...(activeServer()?.kind === "remote" && busyMessageMode ? { busyMessageMode } : {}),
           ...(activeServer()?.kind === "remote" && backupModels ? { backupModels } : {}),
           ...(activeServer()?.kind === "remote" && usageLimitReturn ? { usageLimitReturn } : {}),
           ...(activeServer()?.kind === "remote" && typeof taskLimit === "number" ? { taskLimit } : {}),
@@ -463,13 +467,12 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
   createEffect(
     () => {
       const ask = usageLimitAsk();
-      return ask ? `${activeAgent()?.id ?? ""}:${ask.resetsAt ?? ""}` : null;
+      return ask ? { key: `${activeAgent()?.id ?? ""}:${ask.resetsAt ?? ""}`, provider: ask.provider } : null;
     },
-    (key) => {
-      const ask = usageLimitAsk();
-      if (!key || !ask || shownUsageLimits.has(key)) return;
-      shownUsageLimits.add(key);
-      desktopAnalytics.track("usage_limit_action", { action: "shown", from_provider: ask.provider });
+    (shown) => {
+      if (!shown || shownUsageLimits.has(shown.key)) return;
+      shownUsageLimits.add(shown.key);
+      desktopAnalytics.track("usage_limit_action", { action: "shown", from_provider: shown.provider });
     },
   );
 
@@ -516,6 +519,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         onSignInWithCodeProvider={composerCodeSignIn() ? signInWithCode : undefined}
         onManageProviders={manageProviders() ? openProviderSettings : undefined}
         onManageBrowserProfiles={manageBrowserProfiles() ? openBrowserProfileSettings : undefined}
+        onOpenNotificationSettings={openNotificationLevels}
         agent={conversationAgent()}
         agents={agentList()}
         mentionAgents={agentList().filter((agent) => !userHiddenAgentIds().has(agent.id))}
@@ -593,6 +597,15 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         onSetAgentAvatar={setAgentAvatar}
         onSendMessage={sendMessage}
         onMarkRead={() => markAgentMessagesRead()}
+        // The Team API unread route marks a whole chat, so only an agent on this computer has the item.
+        onMarkUnread={
+          activeServer()?.kind === "local"
+            ? (messageId) => {
+                const agentId = activeAgent()?.id;
+                return agentId ? markAgentMessagesUnread(agentId, messageId) : Promise.resolve();
+              }
+            : undefined
+        }
         onLoadOlder={() => void loadOlderAgentMessages()}
         onLoadLatest={() => (activeAgent() ? loadLatestAgentMessages(activeAgent()?.id ?? "") : Promise.resolve())}
         onSearchMessages={(query) =>
@@ -611,8 +624,13 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         agentAutoApproves={activeAgentAutoApproves()}
         remoteBackupModelsLoaded={remoteAgentAdmin.backupModels() !== undefined}
         remoteTaskLimitLoaded={remoteAgentAdmin.taskLimit() !== undefined}
+        remoteBusyMessageModeLoaded={remoteAgentAdmin.busyMessageMode() !== undefined}
         onUpdateAgentPermissions={permissionsEditable() ? writeAgentPermissions : undefined}
-        defaultBusyMessageMode={generalSettings().busyMessageMode}
+        defaultBusyMessageMode={
+          activeServer()?.kind === "remote"
+            ? remoteAgentAdmin.defaultBusyMessageMode()
+            : generalSettings().busyMessageMode
+        }
         agentDefaults={generalSettings().agentDefaults}
         agentMemoryLimit={generalSettings().agentMemoryLimit}
         onClearAgentContext={clearActiveAgentContext()}

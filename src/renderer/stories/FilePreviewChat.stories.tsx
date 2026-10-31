@@ -12,7 +12,7 @@ import { STORY_AGENTS } from "./fixtures";
 // The chat opens the file preview as a conversation does: a file link in the text of a
 // message calls `onOpenWorkspaceFile`, and the panel shows the file on the right side.
 // An attachment card is a different flow: it opens the media lightbox, not this panel.
-const WORKSPACE = "/Users/test/OpenBot/Agents/agent-4f2c";
+const WORKSPACE = "/Users/test/Builders Bot/Agents/agent-4f2c";
 
 const MESSAGES: AgentMessage[] = [
   {

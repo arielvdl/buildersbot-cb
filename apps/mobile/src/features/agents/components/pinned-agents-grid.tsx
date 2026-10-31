@@ -38,10 +38,17 @@ const PINNED_EXIT = FadeOut.duration(140).easing(EASE_OUT).reduceMotion(ReduceMo
 const PINNED_COLUMNS = 4;
 const PINNED_PADDING_X = 12;
 
-/** The pinned agents, then `children`: the pinned channels. */
-export function PinnedAgentsGrid({ agents, children }: PropsWithChildren<{ agents: MobileAgent[] }>) {
+/**
+ * The pinned agents, then `children`: the pinned channels. `animateLayout` false stops the grid from
+ * animating to a new place, while something above it changes height on every frame.
+ */
+export function PinnedAgentsGrid({
+  agents,
+  animateLayout = true,
+  children,
+}: PropsWithChildren<{ agents: MobileAgent[]; animateLayout?: boolean }>) {
   return (
-    <Animated.View layout={PINNED_LAYOUT}>
+    <Animated.View layout={animateLayout ? PINNED_LAYOUT : undefined}>
       {agents.length > 0 || children ? (
         <Animated.View exiting={PINNED_EXIT} style={{ width: "100%" }}>
           <View

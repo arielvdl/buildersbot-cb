@@ -1,7 +1,7 @@
 /**
  * Signing in to ChatGPT with a code, one screen per phase.
  *
- * The flow leaves the app: the code is typed on a phone or another browser, and OpenBot only hears
+ * The flow leaves the app: the code is typed on a phone or another browser, and Builders Bot only hears
  * how it ended. The dialog covers the waiting; how it ended is a notification the providers store
  * raises, so the endings are not screens here at all.
  *
@@ -121,7 +121,7 @@ export const Link: Story = {
   },
 };
 
-/** The code was accepted elsewhere. OpenBot is trading it for the session. */
+/** The code was accepted elsewhere. Builders Bot is trading it for the session. */
 export const Verifying: Story = {
   args: { state: { phase: "verifying" } },
 };

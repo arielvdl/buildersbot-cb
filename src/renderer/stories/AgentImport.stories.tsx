@@ -169,7 +169,7 @@ const hermesArgs = (overrides: Partial<HermesArgs> = {}): HermesArgs => ({
   ...overrides,
 });
 
-/** The first screen: Hermes, Grok Bot, or another OpenBot computer. */
+/** The first screen: Hermes, Grok Bot, or another Builders Bot computer. */
 export const Sources: Story = {
   name: "Import: Sources",
   render: () => (

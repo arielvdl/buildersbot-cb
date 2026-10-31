@@ -1,5 +1,5 @@
 /**
- * Connect in a browser tab, for a provider whose sign-in only the OpenBot app can finish.
+ * Connect in a browser tab, for a provider whose sign-in only the Builders Bot app can finish.
  *
  * The provider's page returns to the computer that opened it, and a tab cannot receive it. Its row's
  * Connect opens this dialog in place of a sign-in that would end on a dead page.

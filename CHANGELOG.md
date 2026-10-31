@@ -1,10 +1,338 @@
 # Changelog
 
-All notable changes to OpenBot will be documented here. The project follows
+All notable changes to Builders Bot will be documented here. The project follows
 [Semantic Versioning](https://semver.org/). Notes for the next release are in
 [`changelog.d/`](changelog.d/README.md).
 
 ## [Unreleased]
+
+## [0.56.0] - 2026-10-30
+
+### Added
+
+- Server settings > Storage now counts the CLI copies of providers that are off in the Provider runtimes row, with the old CLI versions. Clear removes all of them in one step. A provider that is off downloads its CLI again when you turn it on.
+- Right-click an agent message in a chat on this computer and select Mark unread. That message and
+  the messages after it are unread again, the NEW line moves above it, and the agent shows an
+  unread count in the sidebar until you open the chat again.
+- When you have another server, you can hide the Local server. Open its menu and select
+  **Hide server**. To show it again, select **Show Local** in the menu where you add a server. Its
+  agents, chats and files stay on your computer.
+- Agents can do many browser actions in one step, such as typing a search, pressing Enter, and waiting for results, or paging through a list until they find an item. This uses fewer tokens, because the agent does them in one call and reads the page once at the end. You can still take control of the tab at any time.
+- The server plans show how many hosted sites each plan has: Starter 3, Standard 10 and Pro 50.
+- Server settings > Sites shows See plans when a server on your computer is at its site limit.
+
+### Changed
+
+- The website now says that the source code of Builders Bot is open on GitHub, not that Builders Bot is
+  open source.
+- A provider uses the CLI that you installed when it is the same version as Builders Bot's copy or newer. Before, Builders Bot's copy always ran once it was downloaded. Update still downloads a newer version for you. Server settings > Storage can then remove the copy that no agent uses.
+- Agents find and use Builders Bot tools in fewer steps, so browser tasks finish sooner and use fewer tokens.
+- When the connection service restarts, each app waits a random 0.5 to 4 seconds before it connects again. Before, all apps connected again in the same half second, and many of them had to try again. Open chats and connections to your servers stay up while the app waits.
+- The Instructions field in agent settings and channel settings has a grip in its bottom-right corner. Drag it, or use the arrow keys, to make the field taller. Double-click the grip to go back to the start height.
+- Settings search finds Providers and Import, and opens them in Server settings. The command palette
+  has a Providers entry.
+- First run says that you accept the Terms of Service when you continue, with links to the Terms of Service and the Privacy Policy.
+- First run has a "Help make Builders Bot better" box. In the United States, Mexico, Japan, Australia and New Zealand it starts ticked; everywhere else it starts clear, and Builders Bot sends no analytics until you tick it or turn it on in Settings. Builders Bot reads the region and time zone of your computer to choose. If you use Builders Bot now, your analytics setting does not change.
+- When you tick the box, three agents pop up to say thank you, and a toast thanks you once.
+- The web sign-in has the same box, directly under the send button, and the Terms of Service notice at the bottom. The web app reads the region of the browser language and the time zone to choose. Your answer is saved when you ask for a sign-in code. After you agree once, the sign-in screen does not ask again. If you are signed in to the web app now, your analytics setting does not change.
+- Toasts have no drop shadow.
+- Your analytics answer follows your account. When you tick or clear the box, or change the setting in Settings on desktop, web or mobile, the account keeps your answer, and your other devices use it after sign-in. A box that you did not change is not sent. An older choice from a device that was offline does not replace a newer one.
+- The icon buttons at the top of the file preview panel, such as Copy, Download and Close, now show
+  their name in a tooltip when you point to them or move to them with the keyboard.
+- Choose the sound that plays when a task finishes: Off, Classic, Warm, Mechanical, Bubbly or
+  Clicky. Classic is the sound from before. The task sound plays also when action sounds are off.
+  In Settings > Notifications, both sound settings are now menus. Select the play icon before a
+  sound name, or move to it with the arrow keys, to hear it before you choose it.
+- If you turned analytics off before this version, an analytics answer from another device does not turn it on again on that device. Only a change on that device turns it on.
+
+### Fixed
+
+- A channel lead now routes a request in a channel with many members that have long descriptions.
+  Before, routing stopped with "This request exceeds the routing context limit", also for a short
+  request.
+- A Workspace only Claude agent on a computer where Claude cannot start its sandbox, such as Windows, now says that the sandbox is not available and tells you to choose Full access or another provider. Before, it showed Claude's message about a `sandbox.failIfUnavailable` setting that Builders Bot does not have.
+- In the sidebar, a chat that you drag now lands in the section that is below the pointer. Before, a drop near the edge of a long section could go to the next section, and a chat dragged into another section could go back to its own section.
+- Builders Bot keeps one version of each provider CLI that it downloads. Before, it kept the version before the last update too, so each CLI used about two times its size on disk. The old version is removed a few hours after an update.
+- Cloudflare checks now pass in the built-in browser. Before, the check stayed on "Performing
+  security verification" or asked again after you completed it.
+- Agents that work in a busy web page compact their conversation less often. Before, each click sent the full page details and the same page log again, and an agent could compact its context every minute.
+- A click, key press or other browser input now returns a short status (address, title, focus and new errors), not the full page. The element references from the last page read stay valid, so an agent reads the page again only when it needs to.
+- An agent can take a screenshot of one element of a web page. The image is much smaller than a screenshot of the full page.
+- Selecting an option in a list that the web page replaces after each change now selects the correct option. Before, the agent selected the wrong option, for example on a shop's sort list.
+- A page read is approximately one third smaller: each element is one line of text, and successful network requests and actions are not in it.
+- Browser instructions that an agent gets when it finds a tool are approximately four times shorter. Sign-in and payment rules come only with the tools for these steps.
+- A page read does not attach a second image of the page when the agent got one just before and nothing changed the page since.
+- A web request that the page cancels, for example a live price stream on a trading site, is not shown to the agent as an error.
+- In a channel, a turn that the provider starts by itself, as when a Claude or ACP background job ends, no longer takes the member's next task. Before, that turn ran as the next task, its text showed as the task's reply, the task's own request did not start, and the channel showed "The provider could not start this assignment."
+- After an agent publishes, replaces or deletes a site, the chat shows one row with the latest
+  status. Before, a "Deploying site" row with a spinner stayed next to the "Published site" row.
+- Show only the providers that you connected in the model list of a workflow LLM or agent step, as
+  the agent model list does. Before, the list showed ChatGPT and its models when ChatGPT was not
+  connected, and a new LLM step took a ChatGPT model. A step keeps the provider that it has.
+- Show a neutral mark for a provider that this Builders Bot does not know in a workflow step. Before, it
+  showed the ChatGPT mark.
+- The Gemini sign-in hint names the correct place: Server settings > Providers.
+- A site that a computer published before it became a server now shows in the server's Sites list and counts against the server. Before, the list was empty and showed 0 sites. The site moves to the server the next time the server connects to your account.
+- An upload that stopped before it finished no longer takes a site slot, so a publish no longer fails when Sites shows a free slot.
+- When the site limit stops a publish, the agent and the app now say what the limit is and how to publish more sites.
+- A message that you send to an agent at a usage limit now tries the provider again at once. Before,
+  it waited for the reset time, also after you signed in to another account or got more usage.
+
+## [0.55.0] - 2026-10-30
+
+### Added
+
+- In Workspace only, you can now exclude folders on an agent's Folders page. The agent cannot change files in an excluded folder, also when it is in the workspace, the shared folder or an added folder. Claude and the sandboxed providers block these writes. Codex gets the exclusions as instructions only.
+- The Marketplace Skills tab shows "Your skills" first: each skill that your agents have, with the
+  agents that have it, and an Update button when a new version is available.
+- Choose the agents of a skill in one dialog. Search 50 or more agents, select a range with a drag
+  or with Shift+click, and save all the changes with one button.
+- Show only verified skills or only public skills with the All, Verified and Public switch.
+- Each skill group has its own page with three featured skills, a sort by use, date or name, and
+  Load more.
+- A skill page lists each agent that has the skill, with a switch to turn it on or off, Update and
+  Remove. A skill that you made on this computer has the same page.
+- Remove a skill from one agent or from all its agents. Undo in the notice takes the change back
+  before the skill is removed.
+- While an agent works, press Tab in the message box to send the message into its running turn. Before, you sent the message and then selected Steer on its queue row.
+- You can dictate a message in a side thread, as in the agent's own chat. Click the microphone, speak, and the words appear in the thread's message box.
+- A side thread's message box has the same "+" menu as the agent's own chat: attach an image, use a skill, add context, or ask a side question.
+- Settings → Voice has a Voice server section. Connect an OpenAI-compatible server, such as Speaches
+  or Kokoro-FastAPI on your network, with its address and an optional API key. Then use it for
+  dictation, for spoken replies, or for both, with the model and voice that you choose. Nothing has
+  to be downloaded for a part that the server does.
+- You can open a thread beside the agent's chat. Drag its tab from the chat header to the side panel, or right-click the tab and choose Open beside the chat. Drag it back to the chat header to open it there again. The side panel keeps its thread tabs after a restart.
+- You can create more servers on this computer. Each server is a separate workspace with its own agents, chats, files and settings. To add one, click the plus button on the server rail, then click "Other options" > "New server on this computer". You can have up to 5 of these servers.
+- Settings > Providers has **Disconnect** in the ⋯ menu of the Claude and Codex sign-in, on this
+  computer and in Server settings of a server. It signs the provider out and removes the stored
+  sign-in. On this computer, the `claude` or `codex` CLI in the terminal signs out too (#3487).
+- Log in to ChatGPT with an OpenAI API key. On this computer, open Settings > Providers > ChatGPT and select Add key under API key. Codex saves the key, and OpenAI bills each request to it instead of your ChatGPT plan. Change key replaces it, and Disconnect removes it.
+- Settings › Agents now lists the background processes that agents left running on your Mac or Linux computer, such as a dev server that an agent started with `nohup`. Each row shows the command, the agent, the start time and the ports, and Stop ends the process and its child processes. Before, such a process kept running after the chat ended and after you quit Builders Bot, and only a terminal could find and stop it.
+- A custom endpoint can now run on Pi. Open Settings › Providers › Custom endpoints, edit the endpoint, and set "Runs on" to Pi. Its models then show in Pi's model list. Endpoints that you saved before keep running on OpenCode. When Pi is not downloaded, choose it in "Runs on" to download it. On a joined server, the model picker also knows which endpoints run on Pi, when the host has this version.
+- Settings › Notifications is now the one place for notifications: one table shows each server and its agents, with All activity, Only when it needs me, or Nothing, and a mute for each server. The level of a server and of each agent is yours only and applies on your computer, in the web client and on your phones, and a change on one device shows at once on the others. The server menu and the agent settings show the level and open this table; Server settings no longer have a Notifications section. A mute still applies to the device where you set it. The agent settings no longer have their own Notifications switch; an agent that was switched off for everyone shows "Turn on" in the table.
+
+### Changed
+
+- In a channel, more than one agent can now answer. When you ask for the view of each agent, speak to the whole group, or need the work of several agents, the lead gives the request to each of them, and each one answers in its own reply. A message that starts with more than one mention, such as "@Writer @Editor what do you think?", goes to each mentioned agent, and a message that starts with `@everyone` goes to every agent in the channel. The mention picker shows an "Everyone" option in channels. "continue" after a stop continues the work of each agent that the request went to. Before, only one agent answered.
+- The Skills tab shows 6 skills for each group, with "See all" for the full group. It replaces the
+  install menu and the Installed filter.
+- Pages in the Marketplace window move with a short transition. When reduced motion is on, the
+  page changes at once.
+- The Tasks page is back on desktop and the web, pinned to the page rail. It lists the side threads of all agents in Needs you, Working, Waiting and Archived, and starts a new task. A task opens beside the list in the same thread view as the chat, with its steps, Archive and Restore, and Open in chat. A task that waits for your approval or answer moves to Needs you. A task that you read there shows as read in the chat header and on the phone.
+- In a side thread, Stop replaces Send while the agent works and the message box is empty, as in the agent's own chat.
+- While an agent asks you a question, a message that you send from the chat box is your answer to that question. Before, the message went into the running turn and the question stayed open. A channel message, a message with files, or a reply to a message still goes as a message, and a private answer still uses its own field.
+- An agent that ends a turn with open steps in its plan now continues by itself, up to 3 times for
+  one request. It stops when the plan does not change, when it waits or asks you, or when you stop
+  it or send a new message. Steps that were already open before your request do not count. A short
+  line in the chat shows each automatic continuation.
+- Agents now finish the whole request before they end a turn. They do not stop only to report
+  progress or to ask whether to continue.
+- The thread tabs in the chat header now look and work like the side panel tabs. The agent's name is the first tab, for the agent's own chat. All thread tabs have the same width. When the tabs need more room, the model picker shows less first: without the effort, then only its icon. Then the tabs get narrower together, and after that they scroll. Thread tabs in the side panel have the same width.
+- In a narrow chat header, the open thread shows as one button with the look of a selected tab, and the model picker shows only its icon. When the header gets narrower again, the agent's name, then "+", then the thread list button hide, so no control covers another.
+- You rename a thread tab in the tab itself. The thread icon stays, and the field does not cover the next tab.
+- "Join a server" is now in the "Other options" menu at the top of the server plans.
+- The sidebar shows larger avatars: 46px in the agent, channel and people rows, and 56px in the pinned row.
+- Group chats show larger author faces beside messages: 32px instead of 24px.
+- MCP servers that Builders Bot signed in to, such as Notion, now see Builders Bot as the client, with the name of the agent that connects, for example "Research Bot (Builders Bot)". Notion shows "with MCP" until it adds Builders Bot to the clients it names.
+- Code blocks in chat now wrap long lines, so you can read an email draft or a long command without scrolling sideways. Line breaks and Copy do not change.
+- A notification with a preview, on the computer, in the web client and on the phone, now shows the first sentences of the agent's message, not all of it. It leaves out code blocks, tables, headings and mail headers such as "In-Reply-To", shows tool names such as "openbot.revise_skill" as words, and shows a hidden email address or secret as "•••" in place of "[redacted-email]". The iPhone Live Activity that the computer updates shows the same short text.
+
+### Fixed
+
+- On a joined server, a second ChatGPT account now connects after its sign-in in the browser of your computer. Before, the sign-in screen stayed open after the browser page closed, and after 10 minutes the server removed the account.
+- When you ask, agents run your own browser scripts, such as Selenium. Without your request, they still use the Builders Bot browser.
+- An owner or admin of a joined server can now choose Queue or Steer for each agent of that server, in the agent's settings › Advanced › While working. Before, the row was hidden for these agents, so a message sent while they worked always waited in the queue. The default choice shows the server's own default.
+- Gemini with a saved API key no longer stays on "Connecting" when Gemini does not answer its key sign-in. After the start time limit, the provider shows an error. Before, it waited with no end, and Cancel waited too.
+- The provider settings and the model picker show "Finish the sign-in if a browser page opens" and Cancel only while a sign-in waits for you. Before, they also showed when Builders Bot checked a provider again after a key change, a restart or an update, when no browser page opens.
+- A right-click on the message box and on other text fields now shows Undo, Redo, Cut, Copy, Paste, Delete
+  and Select All on Windows, Linux and macOS, and Paste and Match Style on macOS. Each item is available
+  only when it can act, the labels use the app language, and a misspelled word shows its spelling
+  suggestions. Before, the menu showed only Select All, or Copy and Select All with selected text.
+- Side threads now use your send shortcut setting.
+- A message sent while an agent works now goes straight to the queue. Before, it showed in the chat for a moment and then moved to the queue.
+- A message sent to an idle agent now stays in the chat. Before, it left the chat for a moment and the queue panel opened.
+- You can now sign in to the Make MCP server. Before, sign-in stopped with "The server answered 400."
+- The plan usage that windows, browser tabs and phones show is now read at most once every four minutes for each provider sign-in, however many of them are open. Before, each of them read it again, so a provider such as Claude could refuse more reads for a long time.
+- When a usage read fails, for example because the provider limits requests, Builders Bot keeps the last reading and waits longer before it tries again: 5 minutes, then 10, 20 and 40, up to one hour. Before, the reading disappeared and Builders Bot tried again every 5 minutes.
+- A server that you host yourself, such as on a VPS, now takes as many members as your license has users. Before, it stopped at 3.
+- Gemini no longer fills the memory of a computer or server over hours of use. Before, each Gemini chat and each model list refresh kept a helper process of about 100 MB until Gemini stopped, so a 4 GB server often held new messages for low memory. Now a model list refresh uses no more memory. On macOS and Linux, each Gemini chat also runs in a process of its own, and Builders Bot ends that process when the chat has been idle for 10 minutes, when more than two chats are idle, or when memory is low. The next message continues the same chat.
+- An agent from the ACP registry, such as Mistral Vibe, now installs on Linux when its runtime archive puts `./` before each file name. Before, the install stopped with "The runtime archive contains an unsafe path."
+- A channel lead can now route a very long request. Before, a Grok lead got only part of a request of about 100,000 bytes or more, and the channel showed "The channel lead could not route this message". The lead now reads the first 20,000 bytes of the request.
+- Show all your agents when you go back to the mobile app. Before, agents that use DeepSeek,
+  OpenRouter or Inception could go out of the list and lose their pin.
+- Server Settings > General > Timezone saves the zone that you choose. Before, only "Automatic" and "UTC" stayed selected, and a zone such as "Europe/Warsaw" did nothing.
+- The Builders Bot Telegram bot now answers a mention such as "@meetOpenBot hello" in a group where it is not an admin. Before, only replies to the bot worked there, and a mention got no answer.
+- **In a Telegram group that you connected before this fix, remove Builders Bot from the group and connect the group again from Builders Bot, or make Builders Bot a group admin.**
+- Settings now show Pi, Muse, Inception, DeepSeek and OpenRouter as off when you turned them off. Before, after a restart their switch showed on, and saving a key failed with "OpenRouter is off in Builders Bot".
+- Put the cursor in the chat box when you click Reply. Before, after you went between an agent chat
+  and a channel, Reply could leave the focus on the button, and you had to click the chat box before
+  you typed.
+- The agent's browser can now click, hover, drag and upload files on a part of a page that it must scroll to. Before, these actions failed with "No node found at given location", for example when an agent attached a file to a GitHub comment.
+- Remote Desktop and device connections to a server connect through the relay when the server has
+  more than one network, or many devices are connected. Before, the relay refused new connections
+  after the first few.
+- A routine or provider handoff no longer cuts an emoji in half when it shortens long chat history. Before, the cut could make Codex reject the request.
+- Usage now shows the OpenCode Go quota when the OpenCode CLI has its own key: an OpenCode Console
+  connection, a key from `opencode auth login`, or `OPENCODE_API_KEY` in the environment. Before,
+  the quota showed only for a key saved in Builders Bot.
+- **Log in with code** for Codex works when the stored ChatGPT sign-in can no longer refresh. Before,
+  it failed with "Your access token could not be refreshed", or the code dialog closed after a second
+  with "Connect ChatGPT to continue".
+- On a long page, a browser snapshot now shows the controls in view first. Before, controls earlier on the page could fill the snapshot, and the agent could not see the controls that you scrolled to.
+- When a member of a group chat fails because of a provider error, such as a rate limit or a spent quota, the group now shows the reason from the provider. Before, it showed only "The agent could not complete this task."
+- A transfer export keeps all the skills of a skill pack, such as pstack, as one skill. Before, it
+  counted each skill of the pack, so an agent such as Dr. Eggbot lost skills at the limit of 32.
+- On a server that you joined, the secure card for a password or a code sends your answer to the
+  agent again. Before, Submit, Take over and Cancel failed with `http/400/team_api_error`.
+- The mouse wheel and trackpad scroll in the remote desktop of a Mac. Before, the Mac did not scroll for most wheel steps and trackpad gestures. The Mac that you connect to must have this version.
+- A thread that you open in place of another thread now shows its latest message, not its first message.
+- Add account for Gemini on a joined server now opens the Google sign-in in the browser of your computer, as the first Gemini account does. Before, the page opened in the browser of the server, and Google refused it with "Your browser is not supported any more" (#4004). The server and the app must both have this version.
+- ChatGPT agents now run when Codex signs in with an OpenAI API key, also with `codex login --with-api-key` in a terminal. Before, Builders Bot showed "Codex requires a ChatGPT subscription login" and did not start Codex. Connect now uses that login too, and does not open a ChatGPT sign-in.
+- DeepSeek models now work when an MCP server, such as Webflow, has a tool with a `[` in a regex character class. Before, DeepSeek refused each request with a 400 error.
+- Agents find your 1Password and Bitwarden logins when you ask them to sign in with your password manager. Before, an agent did not find a tool for 1Password and looked only in the Builders Bot Vault.
+- The `$` list of a side question shows the agent's skills. It said "This agent has no skills."
+- The Local scripts guide now tells how to answer a question that lets the person pick several
+  choices. The pending list shows these choices in the question text, and a script sends each picked
+  label as one answer.
+- Codex agents now get the tools of a STDIO MCP server that has a working directory. Before, Builders Bot left such a server out of Codex sessions, although its connection test passed.
+- Gemini agents in Full access can now read and change files in the folders that you add to them. Before, Gemini refused all files outside the agent's workspace and the shared folder, and Full access showed no way to add a folder.
+- A folder that you add to or remove from an agent now applies at the next message in an open chat. Before, Gemini and other ACP agents used the old folders until a new thread started.
+- Agents' browser typing no longer goes into a different field when the page moves focus. Before, the text or the Enter key could reach another field, and the agent was told that typing worked. Now the agent gets an error that says whether the text is already in the field.
+- A sign-in code email is sent again when the mail server does not answer. Before, Builders Bot showed a "confirming delivery" countdown and then waited for a code that was never sent.
+- A channel task that you stop now shows Continue and Reassign. Before, it stayed stopped with no
+  button. Tasks of an archived channel get the same buttons when you restore it.
+- "continue" in a channel now continues the work that you stopped last, also when older work is
+  still open. The members get their original request again, not only the word "continue".
+- A channel message that starts with a typed "@Name" now goes to that member directly.
+- When the lead cannot read its own routing answer, the channel now says so and offers Reassign.
+- The lead no longer posts "Assigned to" itself when it answers a message alone.
+- In the remote desktop, Cmd+A or Ctrl+A and the zoom keys (Cmd or Ctrl with =, - and 0) now go to the remote computer when the viewer has focus. Before, Builders Bot kept these keys: select all did nothing and the zoom keys changed the Builders Bot interface size.
+- A Cursor agent can use Builders Bot's tools and message its teammates when `openbot` is in Cursor's list of disabled MCP servers for the project. Before, Cursor started the agent without Builders Bot's tools and showed no error, so messages to teammates were not sent.
+- When Cursor does not load Builders Bot's tools for another reason, such as a Cursor team policy, the chat shows an error. Before, the turn ended and the model reported tool errors that did not occur.
+- Keep text from later browser frames in snapshots after the control limit is reached.
+- Agents no longer load a tool schema again when the tool search already returned it.
+- A channel no longer shows old replies again as new messages after Builders Bot starts again.
+- A channel turn that you stop no longer leaves an empty reply.
+- When a request goes to several members, each member now gives its own view. Before, a member could
+  copy the reply of a member that answered first.
+- Members no longer get notes such as "Result submitted to the shared chat." from other members, and a
+  member now ends its turn when it posts its result.
+- Channel tasks that you stopped in an earlier version now show Continue and Reassign after the update.
+- Agents now call a tool directly when tool search already returns its schema. Before, the agent instructions told them to describe each tool before its first call, which was in conflict with the search results.
+- Agents can now open a page that goes to its next page while it loads, as sign-in pages often do. Before, the agent got an `ERR_ABORTED` error, and the `open` tool closed the new tab.
+- Cursor and other ACP agents no longer ask you to sign in again after a timeout, a network failure or a server error during start while you are still signed in. Only a real sign-out, such as an "Authentication required" answer or `401 Unauthorized`, asks for sign-in. The log now keeps the text of the agent's answer.
+- The agent's avatar in the sidebar now shows that the agent works when it works in a side thread. Before, the avatar stayed still until the agent worked in its own chat.
+- When a browser action timed out after its click or key press reached the page, the agent got only "timed out" and could repeat the action. The error now says that the input reached the page and tells the agent to check the page first.
+- You can now drag the window by the empty top row of the settings page.
+- A custom endpoint on a llama-swap server no longer unloads the agent's model at the start of a new chat. OpenCode asked its `small_model` for a chat title, and llama-swap loaded that model, then loaded the agent's model again. Builders Bot does not use these titles, so it now turns them off.
+- Computers, the web client and phones now use Team API protocol 9, which has room for more features. A server on an older version and an app on an older version keep working with this version: they do not get the features that need protocol 9, such as notification levels that apply on all devices.
+- The iPhone Live Activity that the computer updates now hides secrets and email addresses, as notifications do. It also no longer offers Approve for a command whose secret it hides, so you approve such a command in the app.
+- Your phone now gets the notification of an agent event that came just after you left the Builders Bot app. Before, the computer did not send it when the app went to the background before it told the computer, and the notification was lost.
+- An iPhone Live Activity now takes the place of a notification only when it shows that event. Before, a reply or a failure did not notify while the activity showed another agent at work or a request of another agent.
+- An iPhone Live Activity that does not get its updates no longer stops notifications. The computer also sends a notification again when Apple or Google do not take it the first time.
+- An iPhone Live Activity now takes the first update from the computer after you leave the app, and ends also when the phone was without network at that time. Before, it could stay out of date.
+- A desktop notification for an agent on another server now shows also when the list of its agents cannot be read at that moment.
+- Picture in Picture now shows the page of a joined server's browser. Before, the floating window stayed empty and dark.
+- Picture in Picture now follows the tab that the agent changes to on a joined server.
+- Keep the web app on screen when openbot.run gets an update. Before, the page could go blank and
+  load again after an update.
+- Connect the web app to your server again within about 30 seconds after the server comes back.
+  Before, the web app could wait up to 2 minutes, and you had to reconnect from Settings.
+- The web app now connects again at once when you go back to its tab or window. Before, after some failed attempts it could wait up to two minutes, also when the server was already back, and you had to reconnect from Settings.
+
+## [0.54.0] - 2026-10-29
+
+### Added
+
+- A Workspace only agent can now change files in folders that you add. Open the agent's settings, then Folders, or drop a folder on the chat. The agent knows which folders it can change.
+- You can set the context window of each model of a custom provider on this computer. OpenCode then compacts the conversation at the correct size, and does not use its 200K-token default.
+- Ctrl+F (⌘F on macOS) now searches the open side thread. Before, the shortcut did nothing in a side thread.
+- The website has a Pricing page. It shows the hosted servers at their Stripe prices, the Starter
+  license (1 member) and the Team license (2 to 10 members), monthly or yearly, in EUR, USD or PLN.
+  Choose a server, a license or both. The summary shows the total. Visitors in the EU see that the
+  prices do not include VAT. A license bought with a server costs 10% less (bundle discount), and yearly
+  billing takes 20% off a license. When the Stripe prices do not load, the page shows the list prices.
+- The header and the footer of the website have a Pricing link.
+- The Pricing page has one button. It opens the web app at the add server dialog, or at Billing
+  when you choose only a license.
+
+### Changed
+
+- An agent's post to Slack, Discord or Telegram now gives the agent the ID of the post, and for
+  Discord a link to it, so the agent can link to the post.
+- A new server has fewer members: Starter 1, Standard 5 and Pro 10. Servers that already exist keep
+  their limits (Starter 3, Standard 10, Pro 25).
+- Sell the commercial license in two plans. Starter is €10 a month for 1 user. Team is €25 a month
+  for 2 users and €15 for each extra user, up to 10. For more than 10 users, contact us. Yearly
+  billing takes 20% off. An account that pays for a hosted server (any plan) then pays 10% less for
+  the license. Each user can use up to 3 devices.
+- On the Pricing page, set more than 10 members for the Team license to see the custom price and a
+  Contact us button.
+- Add server lets an account with no license choose personal or work use. For work, set the people
+  at work, and buy the server and its license at the bundle price with one payment.
+  The license cannot have fewer users than the people who use your servers now, and the order uses
+  the currency of your other plans.
+- Buy a license alone from Billing: set the people with a slider and see the price at once.
+- Change a Starter license to Team, or a monthly Team license to yearly, from Billing. When an
+  invite needs more than 1 user, the members section offers the change to Team.
+- Make a new commercial license free until 1 December 2026. Billing, Add server and the pricing page
+  show "Free until 1 December 2026". Stripe takes the first payment on that day. Cancel before then
+  to pay nothing.
+- The pricing page sends its order to the web app. After sign-in, the app goes straight to Stripe
+  Checkout with the same server, license, users, billing period and currency, so you do not choose
+  again. When the order does not fit the account, such as another currency than your other plans,
+  the app shows the order filled in and you confirm it.
+- Update the Privacy Policy, Terms & Conditions and Commercial License Agreement on openbot.run.
+  Add the Data Processing Addendum at openbot.run/dpa. openbot.run/privacy shows the Privacy Policy too.
+  openbot.run/commerciallicense and openbot.run/branding open the existing pages.
+- The site footer links to the Terms, the Commercial License Agreement and the DPA.
+- When you add a server for work, the dialog now tells you why it does not let you choose fewer people: everyone who uses your servers now needs a seat on the license.
+- Prices in PLN are 4 times the EUR price, so they are round amounts. The Starter license costs 40 zł a month, and the Team license costs 100 zł a month for 2 users and 60 zł for each extra user. A new hosted server costs 80 zł (Starter), 200 zł (Standard) or 400 zł (Pro) a month, not 90, 220 or 440 zł.
+
+### Fixed
+
+- Builders Bot starts on a Mac where `/Library/Application Support` or `/Library/Application Support/Builders Bot`
+  has a non-root owner or group write permission, and no host manager is installed. Before, Builders Bot
+  stopped at each start with an empty error. A start error from the host manager check now shows its
+  cause.
+- Remote desktop pairing on macOS 27 works again. Before, the host stopped at each pairing attempt and every setup check showed as not checked.
+- When an agent cannot open a secure password or code card for a sign-in, it now gets the reason,
+  such as which field or button target is wrong, and can correct the request. Before, it got only
+  "Secure authentication is unavailable".
+- Routine agents now check saved Vault logins before they report a sign-in requirement. They can use saved passwords and authenticator codes through secure browser input.
+- Quit Builders Bot without the error "Builders Bot database is not initialized." when an agent reports its
+  context use during the quit.
+- Keep a self-hosted or hosted server responsive after an error in the main process, and let it
+  finish a quit. Before, an error box that nobody could close on the server display stopped the
+  process, and the service manager did not start it again. On desktop, an error during a quit also
+  shows no error box.
+- Builders Bot keeps working when a page in the browser requests an address that it cannot read, such as a host that starts with an escaped space. Before, Builders Bot stopped and did not answer until a restart.
+- Show the reason of a group chat task that stopped because its member was removed or is not
+  available in your language. Before, the reason was always in English.
+- Show only Reassign on a stopped group chat task whose member left the group chat. Before,
+  Continue stopped the task again.
+- Provider settings in agent settings show in one card, as the other groups do. Before, each switch showed under its name and each choice was a full-width field outside a card.
+- Keep a new provider account, such as another Gemini account, when its sign-in works but its first
+  usage reading fails. Before, Builders Bot removed the account after the Google sign-in, so it looked as
+  if Builders Bot did not add the account. A Reconnect with the same failure now shows the account as
+  connected, not as an error.
+- Keep the chat steady when you switch between agents that have queued messages. Before, the queue
+  animated the other agent's messages out and this agent's messages in, and the chat jumped while
+  the queue changed height. When the agent that you open has no queued messages, the queue of the
+  other agent now closes at once.
+- Let Gemini continue when one MCP server that Builders Bot gives it does not start, such as a server that asks for a sign-in. Before, each Gemini turn failed with "The MCP server '<name>' failed to initialize". Now Builders Bot leaves the server out, tells you which server it left out, and sends the message again.
+- Cancel and × now stop a browser sign-in in the Apps connect dialog. Before, both stayed off while the dialog waited for the browser, for up to 5 minutes.
+- Show the agent's steps in a side thread, as in the agent's own chat: the thinking while the agent
+  works, and the steps row above each answer. Before, a side thread showed only the answer.
+- On macOS, **Builders Bot → Check for Updates…** opens Settings on the Updates tab, where the check and its
+  result show. Before, nothing changed on screen when Builders Bot was up to date or the check failed.
+- Check the remote desktop permissions when you open Server settings → Remote desktop on a Mac.
+  Hide the Grant button of a permission that is already allowed. Before, all rows showed
+  "Not checked" and Grant until you selected Check again.
+- Cursor turns fail less often with "Invalid model value". Cursor asks its server for the model
+  list each time the model is set, and reports a failed request as an invalid model. Builders Bot now
+  sets the Cursor model only when it changes, not before every turn (#3800).
+- An agent that a ChatGPT (Codex) usage limit moved to a backup model now goes back to its model within 15 minutes when Codex ends the limit early, for example after you spend a reset credit in the Codex app. Before, Builders Bot kept the agent on the backup model until the old reset time, also when you selected the model again.
 
 ## [0.53.2] - 2026-10-28
 
@@ -32,16 +360,16 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- On Windows, OpenBot updates again when it was installed in `%USERPROFILE%\OpenBot`, the folder that
+- On Windows, Builders Bot updates again when it was installed in `%USERPROFILE%\Builders Bot`, the folder that
   also holds your agent folders. Before, each update stopped with "Failed to uninstall old application
   files. Please try running the installer again.: 2", also after a restart. The update now installs
-  OpenBot in `%LOCALAPPDATA%\Programs\OpenBot` and removes only the app files from the earlier folder.
+  Builders Bot in `%LOCALAPPDATA%\Programs\Builders Bot` and removes only the app files from the earlier folder.
   Your agents, `Shared` and `Downloads` stay where they are. **A taskbar pin of the earlier copy stops
-  working: pin OpenBot again from the Start menu.** The Start menu and desktop shortcuts, the
-  openbot:// links and the open-at-login setting move to the new copy. **Do not uninstall OpenBot from Windows
+  working: pin Builders Bot again from the Start menu.** The Start menu and desktop shortcuts, the
+  openbot:// links and the open-at-login setting move to the new copy. **Do not uninstall Builders Bot from Windows
   Settings to repair this: in that folder, the uninstaller of 0.53.1 or earlier also deletes your
   agent folders.**
-- The Windows installer no longer accepts `%USERPROFILE%\OpenBot`, `%APPDATA%\OpenBot`, or a folder
+- The Windows installer no longer accepts `%USERPROFILE%\Builders Bot`, `%APPDATA%\Builders Bot`, or a folder
   that holds one of them, as the install folder. It uses the default folder instead.
 
 ## [0.53.1] - 2026-10-28
@@ -49,7 +377,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Changed
 
 - Server settings › Storage no longer shows the disk, memory and CPU use of the machine or its alert
-  levels. OpenBot no longer sends machine alerts and does not show the machine card in the sidebar.
+  levels. Builders Bot no longer sends machine alerts and does not show the machine card in the sidebar.
 
 ### Fixed
 
@@ -63,11 +391,11 @@ All notable changes to OpenBot will be documented here. The project follows
 - Queued messages no longer show Steer for Gemini, OpenCode, Cursor, Cline and custom agents. These
   providers cannot take a message into a running turn, so Steer always failed. The message still
   starts when the turn ends.
-- On macOS, the blue Computer Use rim no longer shows on top of the OpenBot window when that window is in front of the agent's window. Before, OpenBot read the windows in the wrong front-to-back order on some macOS versions, and did not cut the rim where the OpenBot window covers it.
+- On macOS, the blue Computer Use rim no longer shows on top of the Builders Bot window when that window is in front of the agent's window. Before, Builders Bot read the windows in the wrong front-to-back order on some macOS versions, and did not cut the rim where the Builders Bot window covers it.
 - A failed update check, download or install now writes its reason, error code and HTTP status in
   `logs/main/main.log`. Before, the logs showed only `check_failed`, with no reason.
 - The activity log in `openbot.db` now records the turn of each `turn.completed` event and keeps the
-  turn of each activity when OpenBot rebuilds a thread. Before, these rows had no turn.
+  turn of each activity when Builders Bot rebuilds a thread. Before, these rows had no turn.
 - In a workflow Agent or LLM step, a long model name now stays inside the field and ends with "…".
   Before, the model button went past the right edge of the field. A long agent name next to it
   stays full until the model button has only room for a few letters.
@@ -89,27 +417,27 @@ All notable changes to OpenBot will be documented here. The project follows
   and who gets the alert. It opens Server settings › Storage.
 - A side thread shows how full its context is next to the send button, as the agent's own chat does.
   Open it to see the details, and select Compact to compact the thread's context now. Compact shows
-  for providers that OpenBot can ask to compact, on this computer only.
+  for providers that Builders Bot can ask to compact, on this computer only.
 - A thread that you read on this computer is read on your phone too. The server keeps your read place in each thread for all your devices.
-- You can send files in a thread of a joined server and in the web app. The server must have this version of OpenBot.
-- Add guides for importing Grok Bot agents and Hermes Agent profiles into OpenBot, with screenshots and instructions for each import method.
+- You can send files in a thread of a joined server and in the web app. The server must have this version of Builders Bot.
+- Add guides for importing Grok Bot agents and Hermes Agent profiles into Builders Bot, with screenshots and instructions for each import method.
 
 ### Changed
 
 - The Timezone list in Server Settings has a search field. Type part of a zone, such as "new_york", or its name, such as "Eastern", then use the arrow keys and Enter to choose it.
-- When an agent answer names an output file by its full path and does not attach it, OpenBot now attaches the file to the answer. This applies to images, audio, video, ZIP, PDF, office documents, CSV, text and Markdown files of 25 MB or smaller in the agent's workspace or the Shared folder. Before, the iPhone app and other devices showed only the path, and you could not open the file. Code, configuration, log and SVG files, and folders, stay as paths.
+- When an agent answer names an output file by its full path and does not attach it, Builders Bot now attaches the file to the answer. This applies to images, audio, video, ZIP, PDF, office documents, CSV, text and Markdown files of 25 MB or smaller in the agent's workspace or the Shared folder. Before, the iPhone app and other devices showed only the path, and you could not open the file. Code, configuration, log and SVG files, and folders, stay as paths.
 - The "Add backup model" list in agent settings has a search field. Type part of a model name, a provider name or a model id, such as "glm" or "openrouter/qwen", then use the arrow keys and Enter to add the model.
 - On a sidebar of 300 px or less, the wait chip of a "Needs you" row shows only its icon, so that a long agent name has more space.
 - Agent avatars and photo avatars have a thin outline in the colour of the row behind them. In a
   group avatar, the faces are larger and overlap, a photo has the size of the other faces, and each
   outline cuts the face below it. The count of more members is a round disc that overlaps the last
   face. A count of two digits goes under two faces.
-- The OpenBot server offer opens as a window only one time: after your first routine on this
+- The Builders Bot server offer opens as a window only one time: after your first routine on this
   computer. Before, it opened after a new routine on this computer, a remote computer or the web
   app, up to three times. The note above the routine list and the line in the offline notice do
   not change.
 - Settings › Mobile Connect shows your phones as cards. "Add phone" opens a short dialog that asks if
-  OpenBot is on the phone, then shows only one QR code: the App Store or Google Play code, or the
+  Builders Bot is on the phone, then shows only one QR code: the App Store or Google Play code, or the
   sign-in code. A tag under each code says what it does. Before, the tab showed the download code
   and the sign-in code together, and a phone camera could scan the wrong one.
 - The permanent link is a card among your phones. Its code opens in a dialog with a warning, and
@@ -120,9 +448,9 @@ All notable changes to OpenBot will be documented here. The project follows
 
 - Sliders, such as the Dynamic Island width and height in Settings, move again with the pointer and
   the arrow keys. Before, they did not move.
-- OpenBot starts after an upgrade when its database has broken links between rows from an earlier
-  version. Before, the upgrade stopped at each start with "OpenBot database migration to version 47
-  failed", and the app did not open. OpenBot keeps these rows as they are, and an upgrade step stops
+- Builders Bot starts after an upgrade when its database has broken links between rows from an earlier
+  version. Before, the upgrade stopped at each start with "Builders Bot database migration to version 47
+  failed", and the app did not open. Builders Bot keeps these rows as they are, and an upgrade step stops
   only when it breaks a link itself.
 - A custom provider on an Azure OpenAI or Azure AI Foundry v1 endpoint
   (`https://<resource>.openai.azure.com/openai/v1`) runs agent turns in OpenCode. Before, each turn
@@ -138,17 +466,17 @@ All notable changes to OpenBot will be documented here. The project follows
 - When a side thread's agent asks you to take over the browser, the thread and its tab now show that the thread waits for you. Before, they showed that the agent worked.
 - When your answer or approval in a side thread fails, the error now shows where you answered. Before, it showed in the agent's own chat.
 - In the web app, and on a computer joined to a server, a side thread now shows the API key card and the other question forms. Before, it showed only a plain question. The server must also run this version.
-- On Windows and macOS, OpenBot now opens the Google sign-in page for Gemini, as it does on Linux.
+- On Windows and macOS, Builders Bot now opens the Google sign-in page for Gemini, as it does on Linux.
   Before, the Gemini server opened it itself, and when no page opened, Connect showed no error and
   waited ten minutes.
-- When the Gemini process stops answering, OpenBot now ends it and starts a new one. Before, a turn
+- When the Gemini process stops answering, Builders Bot now ends it and starts a new one. Before, a turn
   could wait with no end, and Gemini worked again only after you restarted it.
 - The channel header shows the face of each member. Before, the faces were almost on top of each
   other, so the header showed only one face.
 - When an MCP server that you added in Server settings needs a sign-in, the agent now shows the Sign in card in the conversation. Before, the card showed only for a server that the agent added.
-- In Discord, the agent now gets the text and files of a forwarded message, when you reply to the forward or mention OpenBot after it. Before, the agent got only your mention and said that it saw no report. When Discord does not give the forwarded content, the agent is told so.
+- In Discord, the agent now gets the text and files of a forwarded message, when you reply to the forward or mention Builders Bot after it. Before, the agent got only your mention and said that it saw no report. When Discord does not give the forwarded content, the agent is told so.
 - The activity line of an agent that uses the built-in browser now says what the step does, such as opening, reading, clicking or typing on a web page. Before, each browser step showed "Searching for current information…" and "Reviewing the sources and information I found…".
-- About 30 seconds after iOS puts the OpenBot app to sleep, a server now updates the iPhone Live Activity
+- About 30 seconds after iOS puts the Builders Bot app to sleep, a server now updates the iPhone Live Activity
   and Dynamic Island, and sends notifications. Before, when the app went to sleep before it told the
   server, the activity could show "Working" for more than two minutes after the agent finished, and
   notifications for that time did not come.
@@ -158,37 +486,37 @@ All notable changes to OpenBot will be documented here. The project follows
   second account stopped with a usage limit notice, and the usage limit card did not offer its model.
 - A chat with unread messages now keeps the "NEW" divider in view while its images and previews load. Before, content that loaded after the chat opened moved the divider down, and the chat showed older messages.
 - On Windows, Remote Desktop starts again. The remote desktop runtime did not include the Sunshine
-  DirectX shaders, so Sunshine did not start and OpenBot showed "Sunshine did not start on the host".
+  DirectX shaders, so Sunshine did not start and Builders Bot showed "Sunshine did not start on the host".
 - On macOS, the name of the image in the image viewer no longer shows under the window controls. Before, the first letters of the name were behind the close, minimize and zoom buttons.
-- On macOS, OpenBot can now ask for Automation access, so the Apple apps and Messages tools work in
+- On macOS, Builders Bot can now ask for Automation access, so the Apple apps and Messages tools work in
   the released app. Before, macOS refused the request without a prompt, and a Messages lookup
   stopped with `bootstrapTimedOut`.
-- When Gemini starts slowly after its first download, as on an Intel Mac, OpenBot now keeps the
-  download and tries again, and waits twice as long at each try. Before, OpenBot deleted Gemini
+- When Gemini starts slowly after its first download, as on an Intel Mac, Builders Bot now keeps the
+  download and tries again, and waits twice as long at each try. Before, Builders Bot deleted Gemini
   after 3 minutes, and each Retry downloaded it again and failed the same way.
-- After you clicked a channel in the sidebar and then went back to the OpenBot window, the avatars on that row moved without stop, also when the agents were idle. Now they move only while the pointer or the keyboard focus is on the row.
+- After you clicked a channel in the sidebar and then went back to the Builders Bot window, the avatars on that row moved without stop, also when the agents were idle. Now they move only while the pointer or the keyboard focus is on the row.
 - On a computer joined to a server, the chat of the server's agent now shows the context window meter beside the microphone. Before, the meter was missing. The server must also run this version.
-- Start OpenBot when a saved MCP server has headers or other values that it cannot read. Before, the
+- Start Builders Bot when a saved MCP server has headers or other values that it cannot read. Before, the
   app did not open until the server was deleted from the database. Now Server settings shows that
   server turned off, and you can correct it or remove it there.
 - When an agent started a new ChatGPT session, for example after it moved to a backup model, the chat
   could show a red `paginated_threads is not supported yet` error. ChatGPT cannot read a session
-  before it saves the first turn, and OpenBot now does not show this as an error.
+  before it saves the first turn, and Builders Bot now does not show this as an error.
 - Show the Download button for an image attached in a side thread, under the image and in the image
   viewer. Before, only the agent's main chat had it.
 - Show the Download button for an image file that an agent message names by its path, under the
   message and in the image viewer. Before, only an attached image had it.
 - Usage now shows an estimated cost for Codex turns that use GPT-6.1 Terra. Before, these turns had token counts but no cost. Turns from before the upgrade stay without a cost.
-- An MCP server that refuses to register OpenBot, such as Dropbox, now shows **Refused** and says
-  that the server does not accept OpenBot as an app. Before, it showed **Failed** with the
+- An MCP server that refuses to register Builders Bot, such as Dropbox, now shows **Refused** and says
+  that the server does not accept Builders Bot as an app. Before, it showed **Failed** with the
   server's own text.
 - An agent can attach files in the built-in browser when the page opens its file chooser from a
   button, such as the "Paste, drop, or click to add files" button in a GitHub comment. Before,
   `upload_files` worked only on a file input, and on these pages it stopped with "Node is not a file
   input element".
-- A channel no longer stops all work when a member repeats its result as its last reply. Before, that reply could stay "still arriving" after the turn ended, and every later assignment in the channel failed with "The provider could not start this assignment". A channel that this blocked works again when OpenBot starts after the upgrade.
-- A second Gemini account stays after its Google sign-in when Gemini starts slowly, as it can on Windows. Before, OpenBot stopped the check after the sign-in at 30 seconds, and the new account disappeared.
-- When a new provider account cannot sign in, OpenBot now shows an error with the reason. Before, the account disappeared with no message.
+- A channel no longer stops all work when a member repeats its result as its last reply. Before, that reply could stay "still arriving" after the turn ended, and every later assignment in the channel failed with "The provider could not start this assignment". A channel that this blocked works again when Builders Bot starts after the upgrade.
+- A second Gemini account stays after its Google sign-in when Gemini starts slowly, as it can on Windows. Before, Builders Bot stopped the check after the sign-in at 30 seconds, and the new account disappeared.
+- When a new provider account cannot sign in, Builders Bot now shows an error with the reason. Before, the account disappeared with no message.
 - Cancel on a provider account that is still connecting no longer waits until the provider finishes starting.
 
 ## [0.52.1] - 2026-10-27
@@ -197,7 +525,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 - Remove the downloaded CLI of a provider that is off. Open the provider in Settings > Providers and
   select Remove download. It shows the space it frees. Accounts, sign-ins and agents stay. When you
-  turn the provider on again, OpenBot downloads the CLI again (#3321).
+  turn the provider on again, Builders Bot downloads the CLI again (#3321).
 - An owner or admin can import a CSV password export into a server's Vault from the iPhone app.
   The server answers only how many logins it added and skipped.
 - An owner or admin can set the default provider of a server from the phone. The server starts new
@@ -219,13 +547,13 @@ All notable changes to OpenBot will be documented here. The project follows
 - Show Mermaid diagrams that have a line break in a label. Before, the chat showed a broken image.
 - The secure password card now always shows "Save to Vault" and names the Vault: this computer or the joined server. An owner or admin of a joined server can save the password to that server's Vault; the box starts unchecked. A member, or a server that needs an update, sees why the box is off. Before, the option did not show on a joined server or in the web app, and the password was not saved.
 - While an agent writes, the activity line shows its text without Markdown marks such as `**` and `- `.
-- Start Claude agents as new sessions when a Claude Code session opens OpenBot, for example with
-  `open -a OpenBot`. Before, the agents got the session ID, entry point and messaging token of that
+- Start Claude agents as new sessions when a Claude Code session opens Builders Bot, for example with
+  `open -a Builders Bot`. Before, the agents got the session ID, entry point and messaging token of that
   session, and each new chat wrote its prompt cache again.
-- Let Gemini start MCP servers whose command, such as `node`, is on the login shell PATH. Before, OpenBot opened from the Dock or a login item could not find the command.
-- OpenBot now quits when a file operation never finishes, for example when macOS waits for a privacy
+- Let Gemini start MCP servers whose command, such as `node`, is on the login shell PATH. Before, Builders Bot opened from the Dock or a login item could not find the command.
+- Builders Bot now quits when a file operation never finishes, for example when macOS waits for a privacy
   approval that nobody answers. It stops itself at most 10 seconds after its shutdown, which can take
-  up to 30 seconds. Before, OpenBot stopped responding after you quit it, and it did not open again
+  up to 30 seconds. Before, Builders Bot stopped responding after you quit it, and it did not open again
   until you forced it to quit on macOS or ended it on Linux.
 - Agents now follow a confirmation rule in any `CLAUDE.md` or `AGENTS.md` file, also when a request
   names the action. Before, an agent could make a change that cannot be undone, such as a Stripe
@@ -234,23 +562,23 @@ All notable changes to OpenBot will be documented here. The project follows
 - An OpenCode agent's answer after a background subagent ends now shows in the chat. Before, OpenCode saved the answer, but the chat never showed it, because no message had started that turn.
 - An OpenCode answer that the agent writes in two steps now shows as two paragraphs. Before, the text of the two steps showed as one line.
 - Text that you type in a side thread and do not send now stays in the message box of that thread. It stays when a turn in another thread of the agent ends, when you open another thread or chat and come back, and after a restart. Before, the text was removed when a turn of the agent ended.
-- Connect Railway works again. OpenBot now registers as a public client when the sign-in server
+- Connect Railway works again. Builders Bot now registers as a public client when the sign-in server
   supports it. Before, Railway refused the client secret that it gave, and the sign-in stopped with
   "Existing OAuth client information is required when exchanging an authorization code".
-- Show a clear message when a sign-in server refuses OpenBot at the end of an MCP sign-in. Before,
+- Show a clear message when a sign-in server refuses Builders Bot at the end of an MCP sign-in. Before,
   the message did not say what went wrong.
-- When this computer's server was published, OpenBot publishes it again after a start, also when the
+- When this computer's server was published, Builders Bot publishes it again after a start, also when the
   account service or Signal does not answer at first, for example at login before the network is
   ready. It also publishes the server again when Signal disconnects it later. It tries again after
   1 minute, and then less frequently. Before, the server stayed private after one failed try, and
   you had to publish it again, for example after an update.
-- A long context compaction with Codex or Pi now runs to its end. Before, OpenBot stopped each
-  compaction after 2 minutes, so the compaction of a long thread did not complete. OpenBot now stops
+- A long context compaction with Codex or Pi now runs to its end. Before, Builders Bot stopped each
+  compaction after 2 minutes, so the compaction of a long thread did not complete. Builders Bot now stops
   a compaction only when the provider does not start it in 2 minutes, or when it runs for 20 minutes.
 - When Gemini or another ACP agent crashes, the error now shows the first line of the crash report,
   such as `F… Check failed: …` or `*** SIGABRT received …`. Before, it showed only the last line,
   `RAW: Raising signal 6`, which does not say why the agent stopped.
-- End a Remote Control session when its stream fails and you go back to OpenBot. Before, the session stayed open, and the Remote Control button showed a green dot on every agent of that server.
+- End a Remote Control session when its stream fails and you go back to Builders Bot. Before, the session stayed open, and the Remote Control button showed a green dot on every agent of that server.
 
 ## [0.52.0] - 2026-10-27
 
@@ -260,7 +588,7 @@ All notable changes to OpenBot will be documented here. The project follows
   so the vault can be their memory. Install the Local REST API plugin in Obsidian, turn on its HTTP
   server, and type its API key in the connect dialog.
 - Add Neon, Prisma, Netlify, Railway, Atlassian (Jira and Confluence), Todoist and Hugging Face to the Apps catalog. Sign in in the browser to connect each of them, except Hugging Face: it reads public Hub data and needs no account. Neon, Prisma, Netlify, Railway, Atlassian and Todoist give agents write access, so agents can change or delete data there. Each listing says what agents can change.
-- The website has the OpenBot Commercial License Agreement at openbot.run/commercial-license. The
+- The website has the Builders Bot Commercial License Agreement at openbot.run/commercial-license. The
   Terms & Conditions link to it.
 - Give an agent more than one conversation. Click + in the chat header to start a new thread. Each thread has its own tab
   and runs at the same time as the other threads of the agent. The agent keeps its main chat.
@@ -273,7 +601,7 @@ All notable changes to OpenBot will be documented here. The project follows
   shows as a preview under the answer. Click it to open it at full size.
 - Right-click an agent in the sidebar and choose "New thread" to open its chat with a new thread.
 - Attach MP4 videos in chat. The chat plays them, and the agent gets the original file. A remote host
-  must run this version of OpenBot to accept MP4 files.
+  must run this version of Builders Bot to accept MP4 files.
 - Add Render to the Apps catalog. Connect it with a Render API key. Agents can list workspaces and services, read
   logs, events and metrics, find why a deploy failed, trigger deploys, and run read-only SQL on Render Postgres. The
   key reaches every workspace of the account, so agents can also create services and databases and replace the
@@ -302,7 +630,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - All app pages now use one layout: the header, then alerts, then sections with a heading and one card each, and last the danger zone. Text, forms and notes now show inside the cards, and all buttons in a card have the same small size. A plugin that is not completely installed shows a warning above its sections. An app that is not connected now shows "Not connected" at the top of its page. Before, some pages showed "Not set up".
 - Slack, Discord and Telegram pages now have a danger zone that disconnects every workspace, server or chat at once, after you confirm. Each row still has its own Disconnect.
 - The page that opens after a Slack or Discord sign-in in the browser now tells you to open Marketplace › Apps to try again.
-- The connect dialogs of Marketplace apps that you sign in to, give a key to, or turn on in their desktop app now look and work as the GitHub and Slack connect dialogs do. They show OpenBot and the app with a line that moves while they connect, and Cancel and the main button at the bottom right. When a connection fails, the line breaks. Connect in the Marketplace now starts the connection at once: a sign-in opens the browser, and an app on this computer connects if its server is on. An app that needs a key opens with the cursor in the key field.
+- The connect dialogs of Marketplace apps that you sign in to, give a key to, or turn on in their desktop app now look and work as the GitHub and Slack connect dialogs do. They show Builders Bot and the app with a line that moves while they connect, and Cancel and the main button at the bottom right. When a connection fails, the line breaks. Connect in the Marketplace now starts the connection at once: a sign-in opens the browser, and an app on this computer connects if its server is on. An app that needs a key opens with the cursor in the key field.
 - To disconnect Bitwarden, use the button in the new danger zone at the bottom of its page.
 - The Cloudflare, Airtable and Paper icons in the Marketplace are now centered and clear on a dark background.
 - A plugin page now has a Connection section. It shows how each app connects: you are signed in, an API key is saved, it uses a desktop app on this computer, or it needs nothing. Use "Sign in again", "Change key" or "Connect again" there.
@@ -319,7 +647,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - "Tasks at once" in the agent settings is now "Parallel threads". "Run as task" on a queued message is now "Run in
   new thread".
 - Deleting a thread also deletes its messages and their files from the agent's inbox.
-- After this upgrade, an earlier version of OpenBot cannot open your data.
+- After this upgrade, an earlier version of Builders Bot cannot open your data.
 - A message from another agent now steers the running turn when the agent that gets it is set to
   steer busy messages. Before, it always waited in the queue until the turn ended.
 - You can steer a teammate's answer into the running turn with Steer in the "Waiting for replies"
@@ -354,19 +682,19 @@ All notable changes to OpenBot will be documented here. The project follows
 - A Cursor reply no longer ends with "Error: RetriableError: WritableIterable is closed" after a turn that succeeded.
 - When an agent asks another agent from a side thread, the answer now comes back to that side thread. Before, it arrived in the agent's own chat. The request still arrives in the other agent's own chat.
 - A side thread now names the other agent as the author of its answer. Before, screen readers read the answer as a message from the thread's own agent.
-- A chat with queued messages no longer slows down OpenBot. Before, each queue change wrote the
+- A chat with queued messages no longer slows down Builders Bot. Before, each queue change wrote the
   queued messages to the database again and sent the whole chat to each connected device, and the
   queued messages went out of the chat and came back.
 - Text that you select in a code block of a message shows the selection actions (Quote, Explain,
   Improve). Before, a double-click or a selection in a code block showed no actions.
-- OpenBot starts again when an update for a provider CLI is available. Before, the app stopped at start and showed no update notification.
+- Builders Bot starts again when an update for a provider CLI is available. Before, the app stopped at start and showed no update notification.
 - Muse agents on Windows can start a turn again. Before, each turn failed at once with no reply,
-  because OpenBot sent the workspace folders in a form that Muse does not accept.
-- A Pi agent keeps its OpenBot tools after OpenBot restarts. Before, a chat that was opened after a restart lost every OpenBot tool, and each restart gave the tools new names, so the agent could call old names and get "Tool ... not found". A Pi chat that already shows this error gets its tools again at its next turn.
+  because Builders Bot sent the workspace folders in a form that Muse does not accept.
+- A Pi agent keeps its Builders Bot tools after Builders Bot restarts. Before, a chat that was opened after a restart lost every Builders Bot tool, and each restart gave the tools new names, so the agent could call old names and get "Tool ... not found". A Pi chat that already shows this error gets its tools again at its next turn.
 - A Pi agent whose session file was moved or deleted starts a new session. Before, each turn stopped with "The Pi session file is not available on this computer."
 - A Pi, DeepSeek, Inception or OpenRouter agent with Workspace only access on macOS replies again. Before, each message stopped with "Credential store read failed" and "EPERM", or Pi stopped at the start.
 - Edit of a custom provider now shows the names of its saved headers. An empty value keeps the saved value, and you can change or remove one header. Before, the header rows opened empty, so the saved headers looked lost.
-- OpenBot no longer offers a CLI update for a provider that is turned off. When you turn the provider on again, the update is offered.
+- Builders Bot no longer offers a CLI update for a provider that is turned off. When you turn the provider on again, the update is offered.
 - An answer through OpenCode stays whole when the model streams its reasoning between the words of the answer. Before, the answer was cut at each thought, so the start of a word moved to the steps and words showed in pieces, such as "B aca" for "Baca".
 - An SVG path in an agent answer was plain text. It is now a file link that opens the file.
 - An agent that tried to attach an SVG file got a general "not supported" error. It now gets told
@@ -379,21 +707,21 @@ All notable changes to OpenBot will be documented here. The project follows
 - Close the side panel after you close its last tab. Before, the app stopped responding and the panel stayed open.
 - Keep the provider session of a thread when its delete fails and you restore it. Before, the restored thread started a
   new session and lost its thread instructions.
-- A message steered into a Claude turn just as the turn ends now shows its answer one time. Before, the answer showed again in the chat after OpenBot started again.
+- A message steered into a Claude turn just as the turn ends now shows its answer one time. Before, the answer showed again in the chat after Builders Bot started again.
 - The browser client at openbot.run/app now shows the custom images of agents. Before, it showed the
   generated avatar for each agent with a custom image.
 - An agent with Full access no longer asks before each Computer Use action. Workspace only and Ask
   first agents still ask.
 - The usage limit notice in the composer now reads the ChatGPT account that the agent uses. An agent
   on a second account with quota left no longer shows the limit of the first account.
-- When you connect or resume Slack, Discord or Telegram on this computer, OpenBot now publishes this computer's server first. Before, the connection failed until you published the server or gave it a name in the server settings.
+- When you connect or resume Slack, Discord or Telegram on this computer, Builders Bot now publishes this computer's server first. Before, the connection failed until you published the server or gave it a name in the server settings.
 - A Codex agent no longer says that it could not get an image after it generated the image. Before, the image showed in the chat, but the agent reported a failure and asked the user to try again. Each existing Codex chat starts a new Codex session one time after this update. To edit an image from before the update, attach it again.
 
 ## [0.51.1] - 2026-10-26
 
 ### Fixed
 
-- On Linux, closing the OpenBot AppImage no longer shows a crash report for `chrome_crashpad_handler`. Before, its crash helper stopped with `SIGBUS` after each quit.
+- On Linux, closing the Builders Bot AppImage no longer shows a crash report for `chrome_crashpad_handler`. Before, its crash helper stopped with `SIGBUS` after each quit.
 - An agent on a shared server no longer tells you to open the chat on another device to use that device. The agent now says that it works only on the computer that runs the server. Settings › Computer Use also says that agents on another server use that server's computer.
 - On a Docker server of `docker/instances` with LXCFS, Gemini works again. Before, it stopped with
   SIGILL when it started, because the container listed only the CPUs of its limit as online.
@@ -413,7 +741,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Settings › General › "Open external links in" now lists each browser on your Mac, and "Other app…"
   lets you choose an app that is not in the list. On Linux and Windows, "Command…" takes a program
   path or command. Links in chats, sign-in pages, billing pages and connector pages open there. When
-  that browser does not start, the page opens in the default browser and OpenBot shows a short
+  that browser does not start, the page opens in the default browser and Builders Bot shows a short
   notice.
 - Pin pages to the page rail. The new More button under the rail pages lists Routines, Workflows,
   Tasks, Schedule and Usage. Click a page to open it, or click the pin at the end of its row to show
@@ -421,16 +749,16 @@ All notable changes to OpenBot will be documented here. The project follows
   saved on this computer, and on the web app in this browser.
 - You can change the provider, account or custom agent while a turn or a task runs on this computer. The running work keeps its sessions. The new provider starts before the next turn after the running turn and its tasks end. The header shows the same "After this turn" badge that a model change already uses. On a remote server, a provider change still waits until the work ends.
 - Add DeepSeek as a provider. Connect it with a DeepSeek API key, then choose DeepSeek V4 Pro or
-  DeepSeek V4.1 Flash for an agent. The agents run in the Pi CLI that OpenBot downloads, and the key
+  DeepSeek V4.1 Flash for an agent. The agents run in the Pi CLI that Builders Bot downloads, and the key
   stays encrypted on this computer.
 - A pasted image goes into the message box at the cursor, as a reference with a small preview, its
   name and its size. Thanks to @sebapaszynski.
 - When you copy or cut a draft that has attachments and paste it into another agent's message box, the
   files come with the text as new copies. The Copy action on a message also keeps its attachments.
   Other apps get the text with the file names. The clipboard holds no file paths and no file bytes.
-- The website has a Brand page at `/brand`. It has the OpenBot logo in each shape and color, with
+- The website has a Brand page at `/brand`. It has the Builders Bot logo in each shape and color, with
   and without the name, as SVG and PNG files. "Download all" saves all of them in one zip file.
-- Right-click the OpenBot logo in the website header to copy the logo as SVG, download the brand
+- Right-click the Builders Bot logo in the website header to copy the logo as SVG, download the brand
   files, or open the Brand page.
 - Agents use the skills in your `~/.agents/skills` folder with every provider. Claude gets them as `agents:<name>`, and a skill that Claude already reads from `~/.claude/skills` is not added again. Antigravity, Muse and custom ACP agents get a list of these skills in their instructions and read a skill's `SKILL.md` when a task needs it. The other providers already read the folder.
 - Type `$` in the message field to tag a skill from `~/.agents/skills`. The agent gets the path of the skill's `SKILL.md`, so every provider can open it.
@@ -440,7 +768,7 @@ All notable changes to OpenBot will be documented here. The project follows
   first time an agent uses each app.
 - Add OpenRouter as a provider. Connect it with an OpenRouter API key, then choose one of the
   models that OpenRouter serves for an agent. The model picker groups the models by lab and marks
-  the free models. The agents run in the Pi CLI that OpenBot downloads, and the key stays encrypted
+  the free models. The agents run in the Pi CLI that Builders Bot downloads, and the key stays encrypted
   on this computer.
 - Add Supabase to the Apps catalog. After you sign in to Supabase in the browser, agents can list projects, run SQL,
   read table schemas and logs, check advisors, manage edge functions and branches, and search the Supabase docs.
@@ -449,21 +777,21 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Changed
 
 - Claude agents use Claude Code's own prompt cache time again by default: 5 minutes with an Anthropic
-  API key, and 1 hour for the main chat of a Claude plan within its usage limits. In 0.50.0, OpenBot
+  API key, and 1 hour for the main chat of a Claude plan within its usage limits. In 0.50.0, Builders Bot
   asked for 1 hour for all agents, and a 1-hour cache write costs more. The "Prompt cache" setting on
   the Claude page in Server settings › Providers now has "Claude Code default" and "1 hour". If you
   chose "1 hour", it stays.
-- The website FAQ answer to "Is OpenBot open source?" now uses simpler words. It says that all of the source code is public, links to it on GitHub, and says that it is free for noncommercial use. The launch news post now calls OpenBot source-available, not open-source.
+- The website FAQ answer to "Is Builders Bot open source?" now uses simpler words. It says that all of the source code is public, links to it on GitHub, and says that it is free for noncommercial use. The launch news post now calls Builders Bot source-available, not open-source.
 - The website header has a Resources menu with Download, Changelog, Community, Documentation, Brand
   and Status. Changelog and the Community button moved into it.
-- When OpenBot updates to a new version, it also updates the provider CLIs that it installed, such
+- When Builders Bot updates to a new version, it also updates the provider CLIs that it installed, such
   as Claude, OpenCode and Grok, with no update notification. A notification shows only when an
   update fails, with a Retry. A CLI that you installed yourself is not changed.
 
 ### Fixed
 
 - A server with a saved Anthropic API key no longer starts a Claude sign-in on the API key account, or
-  removes that account, when an older OpenBot version asks for it. That version shows the key as a
+  removes that account, when an older Builders Bot version asks for it. That version shows the key as a
   signed-out account. Now it gets a message that tells you to change the key in Server settings ›
   Providers.
 - Open and create agent routines in the web app. Before, Create routine and a routine in Schedule
@@ -472,31 +800,31 @@ All notable changes to OpenBot will be documented here. The project follows
   each message failed with no error, and only the agent's face changed.
 - Pi agents no longer stop with "Pi returned an invalid RPC record." when a tool call has a value
   such as `true` that is also the value of an MCP server setting or of the GitHub connection. Before,
-  OpenBot stopped Pi and started it again, and the turn failed.
+  Builders Bot stopped Pi and started it again, and the turn failed.
 - The Cursor usage ring no longer shows an "Other models" window for a Cursor plan that includes no other models, such as an X subscription. It shows the plan's total usage only. Before, it showed an "Other models" window that the plan does not have.
 - Escape in the model picker of the create-an-agent form now closes only the picker. Before, it also
   closed the form and the draft was lost.
 - In the web app, browser Back and Forward, including the side buttons of a mouse, now open the chats
   that you opened before, also on another server. Before, Back left the app and opened the page that
   you came from.
-- On macOS 26 with the Dark icon style, the OpenBot app icon is a black tile with white eyes. Before,
+- On macOS 26 with the Dark icon style, the Builders Bot app icon is a black tile with white eyes. Before,
   macOS made a black tile with black eyes, and the eyes were almost invisible. The Light style still
   shows the lavender icon.
 - The "Open external links in" setting had no effect, and it went back to "Default browser" after a
-  restart. Now OpenBot keeps it, and "OpenBot" opens links in chats in the built-in browser.
+  restart. Now Builders Bot keeps it, and "Builders Bot" opens links in chats in the built-in browser.
 - The Linux AppImage starts on Arch Linux, Omarchy and other systems with no libfuse2. It mounts
   itself with `fusermount3` from the `fuse3` package. Before, it stopped with an error about
   `libfuse.so.2`.
 - In a wide window, the agent's working row and its pending questions, approvals and other cards now show in the centered chat column. Before, they showed at the left edge of the pane until the turn finished. (#3146)
 - Give MCP server tools to Codex agents on GPT-6 and other code-mode models after an update to Codex
-  0.164. Before, a chat that started before OpenBot 0.50.0 had no MCP tools. Each Codex agent starts
+  0.164. Before, a chat that started before Builders Bot 0.50.0 had no MCP tools. Each Codex agent starts
   one new Codex session to get the tools.
-- On Windows, OpenBot now tries again when another program, such as antivirus, has a settings file
-  open while OpenBot saves it. Before, a save at sign-in could fail, and then Slack, Discord and
+- On Windows, Builders Bot now tries again when another program, such as antivirus, has a settings file
+  open while Builders Bot saves it. Before, a save at sign-in could fail, and then Slack, Discord and
   Telegram connections failed with "Sign in, give this computer a name, and try again."
 - On Windows, Claude starts when the Claude Code CLI comes from npm (`claude.cmd`). Before, every Claude session, model list and usage read failed with "spawn EINVAL", and sign-in and sign-out through such a CLI failed too. Stopping a session now also stops the Claude process that the `.cmd` file started.
 - Keep the web client connected while a server sends many events. Before, it disconnected and connected again every few seconds during a turn.
-- OpenBot no longer shows "OpenBot database is not initialized." when you quit it. The windows now
+- Builders Bot no longer shows "Builders Bot database is not initialized." when you quit it. The windows now
   hide when the quit starts, and the database waits a short time for a slow agent stop before it
   closes.
 - A sleeping cloud server keeps its data when the hosting provider refuses its keep-alive start or
@@ -505,7 +833,7 @@ All notable changes to OpenBot will be documented here. The project follows
   last stop.
 - Continue unfinished agent work after a provider reaches its usage limit and switches to a backup.
   Keep completed work, tool results and attachments with the request, including across backup models.
-- Deleting an agent that runs on its own provider process, such as an agent with "Workspace only" access or a second provider account, now stops that process first. Before, on Windows the delete could fail and the agent came back until you restarted OpenBot.
+- Deleting an agent that runs on its own provider process, such as an agent with "Workspace only" access or a second provider account, now stops that process first. Before, on Windows the delete could fail and the agent came back until you restarted Builders Bot.
 - When a delete fails after the agent is already gone, the agent no longer comes back in the list until a restart.
 - In a channel, an agent that posts its task result no longer shows a second short reply, such as "Yes.", under it. Before, the text that the agent wrote after the result showed as a separate message. Now it shows in the steps of the turn.
 - The agent's browser `evaluate` tool no longer times out on pages with an ad frame that does not run its timers, such as Amazon product pages.
@@ -513,15 +841,15 @@ All notable changes to OpenBot will be documented here. The project follows
   a build such as `next build` started one worker for each CPU of the host, not of the server's
   limit, the server stopped answering, and the apps reconnected every few minutes. Agent processes
   now run at a lower CPU priority, and Node programs of agents see the server's CPU limit.
-- When a server is almost out of memory, OpenBot now stops leftover agent processes first, such as
+- When a server is almost out of memory, Builders Bot now stops leftover agent processes first, such as
   preview servers and build workers that stayed after their job ended. Before, they kept their memory
   until the kernel stopped a process or the server restarted.
 - Routine wake-up commands now run also when the long command fails, so an agent learns that its job
   stopped.
-- OpenBot now starts the Codex app server again when it stops answering. Before, a hung Codex process stayed in use, and every agent turn and routine run failed until you stopped codex.exe yourself.
-- When Codex does not answer, a message now fails with that reason. Before, it failed with "OpenBot could not register MCP servers in the Codex configuration", although `config.toml` was correct.
+- Builders Bot now starts the Codex app server again when it stops answering. Before, a hung Codex process stayed in use, and every agent turn and routine run failed until you stopped codex.exe yourself.
+- When Codex does not answer, a message now fails with that reason. Before, it failed with "Builders Bot could not register MCP servers in the Codex configuration", although `config.toml` was correct.
 - Usage now shows the token cost of OpenCode turns, including OpenCode Go. Before, the OpenCode cost was always "Unavailable". The cost is the session cost that OpenCode reports, at API-equivalent rates, not the subscription charge. When earlier turns of a session have no cost, as in a session that started before this release, the first turn with a cost has no cost.
-- Two reads of the history of one Claude session at the same time no longer fail with "database is locked". Before, this error could show when an agent continued on its backup model while OpenBot read the session history after a start.
+- Two reads of the history of one Claude session at the same time no longer fail with "database is locked". Before, this error could show when an agent continued on its backup model while Builders Bot read the session history after a start.
 - Connecting Firecrawl, or another plugin that starts with `npx`, no longer fails with "The server did
   not answer in 10 seconds" on its first start. A local server now has 60 seconds to download its
   package and answer. A server at a web address still has 10 seconds.
@@ -561,7 +889,7 @@ All notable changes to OpenBot will be documented here. The project follows
   An owner or admin can set it for this computer and for a joined server.
 - Korean interface. Choose 한국어 in Settings > General > Language, or keep System default on a
   computer that uses Korean. The web client uses it too.
-- A custom ACP agent can have a usage command, such as `/usage`. OpenBot sends it at most every 5 minutes, and the agent's logo in the rail shows the last answer when you hover it. Use a command that the agent answers itself: other text starts a model turn each time.
+- A custom ACP agent can have a usage command, such as `/usage`. Builders Bot sends it at most every 5 minutes, and the agent's logo in the rail shows the last answer when you hover it. Use a command that the agent answers itself: other text starts a model turn each time.
 - Server settings has a Vault page, after General. Save logins, payment cards and contact info on
   this computer, encrypted by the operating system. Agents sign in with the saved logins, fill a
   saved card on a checkout page, also in the card frames of payment providers, and type the saved
@@ -603,11 +931,11 @@ All notable changes to OpenBot will be documented here. The project follows
 - Members of a joined server can open and run the workflows whose agents they can use. To change, delete or restore a workflow, a member needs “Can manage” on each of its agents; otherwise the canvas is read-only.
 - Usage shows the tokens of workflow model and condition steps in one Workflows row. Steps that use an agent count under that agent.
 - Consecutive model and condition steps reuse one started provider for 5 minutes, so they start faster. Each step still starts with no earlier text.
-- When analytics is on, OpenBot counts workflow actions and runs: the kind of action, the outcome, the duration and the step counts. It never sends a workflow name, step text or graph.
+- When analytics is on, Builders Bot counts workflow actions and runs: the kind of action, the outcome, the duration and the step counts. It never sends a workflow name, step text or graph.
 
 ### Changed
 
-- The Linux docs and the Linux download page on openbot.run now name Ubuntu 26.04 LTS. OpenBot
+- The Linux docs and the Linux download page on openbot.run now name Ubuntu 26.04 LTS. Builders Bot
   0.48.1 runs on Ubuntu 26.04 with the Electron sandbox on.
 - When nothing comes from the provider for a minute during a turn, the activity line says "Waiting for {provider}…" and stops its shine. A notice above the message box says how long the provider has sent no update. Before, the line looked busy the whole time, also with no internet.
 - When the computer has no network during a turn and nothing comes from the provider for 5 seconds, a "No internet connection" notice shows above the message box, and the activity line says that it waits.
@@ -628,12 +956,12 @@ All notable changes to OpenBot will be documented here. The project follows
   text and in the colour of the agent's messages. Before, it showed only their faces.
 - Agents now follow your user-level `CLAUDE.md` or `AGENTS.md`, and the one at the root of the agent
   workspace, when these files set the persona, reply length and format, delegation, or group-chat
-  behavior. Before, OpenBot's built-in style guidance and your files gave the agent two rule sets for
+  behavior. Before, Builders Bot's built-in style guidance and your files gave the agent two rule sets for
   the same decision. Files in cloned repositories do not get this priority. The rules for tools,
   memory, approvals, secrets, private details, safety checks and the browser do not change.
 - A focused field shows a grey border, and a focused button shows a thin grey ring. They no longer
   show a blue glow.
-- The comparison pages on openbot.run now list all the providers that OpenBot runs, including Muse
+- The comparison pages on openbot.run now list all the providers that Builders Bot runs, including Muse
   Code, Pi, Inception and ACP agents, and 11 app languages. New rows compare backup models and
   logins and payments, and most pages also compare voice and Slack, Discord and Telegram.
 - The home page and `llms.txt` on openbot.run now name the new providers and backup models.
@@ -653,7 +981,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - An app that an agent suggests in a chat, such as Linear, now shows a green Connected button with a check after you connect it. Before, the card kept its Connect button.
 - When an agent asks another agent for help, the "Waiting for replies" list now shows when that agent waits for your approval, your answer, the browser, or a usage limit. A button opens its chat, where you can answer. Before, the list showed "Working" until the wait ended.
 - The agent usage page now counts all Gemini tokens. Antigravity 1.4.3 sends the tokens of each
-  turn, but OpenBot added them as a session total, so a turn smaller than an earlier turn in the
+  turn, but Builders Bot added them as a session total, so a turn smaller than an earlier turn in the
   same session counted as 0. Gemini thinking tokens now also count as output. Usage that was
   recorded before this fix does not change.
 - The app demo on the home page no longer shows a time zone prompt, an update card or a helper agent from another server. Its dates now show today.
@@ -670,7 +998,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Claude, ChatGPT and Muse channel members use less of their plan. A member's next assignment in
   the same conversation gives only the channel messages that it has not read. Before, each
   assignment sent the recent channel history again, up to 60,000 characters. The first assignment
-  after a start of OpenBot, a new conversation, a provider change, or a compaction still sends the
+  after a start of Builders Bot, a new conversation, a provider change, or a compaction still sends the
   complete history.
 - A provider account that you add now shows its usage rings in the page rail when its sign-in ends. Before, the rings showed only after a reload or the next usage refresh, up to 5 minutes later.
 - On a joined server, the usage rings no longer go away when the host resets the usage of a provider account.
@@ -682,21 +1010,21 @@ All notable changes to OpenBot will be documented here. The project follows
   between them.
 - An agent can click a choice, such as a payment method, when a decorative layer of its label covers
   the radio button.
-- The first Claude turn after OpenBot starts again now has a cost in Analytics and in the turn trace.
-  OpenBot estimates it from Anthropic's list prices, because Claude does not report the cost of that
+- The first Claude turn after Builders Bot starts again now has a cost in Analytics and in the turn trace.
+  Builders Bot estimates it from Anthropic's list prices, because Claude does not report the cost of that
   turn.
-- The Live Activity updates that OpenBot sends to your iPhone cut a long code span with emoji at the
+- The Live Activity updates that Builders Bot sends to your iPhone cut a long code span with emoji at the
   correct length. Before, the cut could split an emoji into half a character, and an emoji counted
   as two characters, so the text stopped too early.
-- The Live Activity updates that OpenBot sends to your iPhone show a reply that starts with inline
+- The Live Activity updates that Builders Bot sends to your iPhone show a reply that starts with inline
   code in three backticks, such as ```` ```npm install``` first ````. Before, the update read that
   line as the start of a code block: the line disappeared and the next lines showed as code.
 - Gemini usage now follows the limit of the model that an agent uses. Google can give a model, such
-  as Gemini 4 Argon, a weekly limit of its own. Before, OpenBot put all Gemini limits together, so a
+  as Gemini 4 Argon, a weekly limit of its own. Before, Builders Bot put all Gemini limits together, so a
   spent Argon limit could show for Gemini 3.8 Flash, or Argon could show room that it did not have.
 - Stop showing a "Provider error" when Codex completes a credential storage fallback. Keep the redacted diagnostic in the provider log. Authentication and storage failures still report errors.
 - A sign-in to a Google MCP server, such as Gmail, Calendar or Drive, now keeps working after the
-  first hour. OpenBot asks Google for a refresh token. **Sign in to these servers again after you
+  first hour. Builders Bot asks Google for a refresh token. **Sign in to these servers again after you
   upgrade.**
 - A custom provider with a base URL on `api.anthropic.com` now uses Anthropic's Messages API, so
   OpenCode adds prompt cache breakpoints. Before, it used Anthropic's OpenAI-compatible endpoint, which
@@ -707,15 +1035,15 @@ All notable changes to OpenBot will be documented here. The project follows
   checksum. Before, each failure was recorded as `unknown`.
 - When you save or remove a provider API key, agents that a usage limit held now continue at once.
   Before, they waited for the old plan's limit to reset, which could take days.
-- Sign in to an MCP server again when OpenBot cannot read the saved sign-in file. Before, Connect
+- Sign in to an MCP server again when Builders Bot cannot read the saved sign-in file. Before, Connect
   stopped with "The MCP sign-in file is unreadable" until the file was deleted, which dropped every
   saved MCP session.
 - Restart now closes turn rows that stayed `running` although no thread names them as its active turn. Before, such rows stayed `running` for good, as the follow-up data on #2214 showed.
-- An OpenCode agent with more than one chat keeps its OpenBot tools. Before, about 10 minutes after
-  its other chat went idle, every OpenBot tool call failed with `{"error":"unauthorized"}`, including
+- An OpenCode agent with more than one chat keeps its Builders Bot tools. Before, about 10 minutes after
+  its other chat went idle, every Builders Bot tool call failed with `{"error":"unauthorized"}`, including
   routines, teammates and the browser, until OpenCode restarted. Each tool call also runs in the chat
   that made it, when two chats of the agent work at the same time.
-- A long channel keeps working when its history summary comes back too long. OpenBot now asks the lead for a
+- A long channel keeps working when its history summary comes back too long. Builders Bot now asks the lead for a
   shorter summary, and asks once more when the result is still too long. Before, every new assignment in that
   channel failed with "The history summary is invalid" and "The provider could not start this assignment".
 
@@ -723,12 +1051,12 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- You can change the key of the server on this computer in Server settings › General › Server key. Computers with this version or later, the web client and webhook routes stay connected. Before, a new key showed "Server identity changed" on each device, and each phone had to scan a new code. Older versions of OpenBot and the current phone app still show "Server identity changed". Do this if the key file was copied or exposed.
-- The website compares OpenBot with Viktor at /compare/viktor: models and price, where agents work, what each one reads, who holds your data, teams, approvals and integrations.
-- Connect Bitwarden or a self-hosted Vaultwarden on a joined server. In Server settings › Connectors, an owner or admin enters the server address, the personal API key and the master password. The server signs in with its own Bitwarden CLI, downloads it when it has none, and unlocks again by itself after a restart. Agents on that server can then sign in to sites with the logins in the folder Shared with OpenBot. This works from the desktop app and the browser client.
-- The website compares OpenBot with Paperclip at /compare/paperclip: setup, phones and remote access, how you work with agents, price, and license.
-- When a task needs an API key or a token, the agent now shows a secure form in the chat, as it does for passwords. The key is saved for that agent on the computer or server that runs OpenBot, outside its workspace, and the agent reads it from a file. It does not go into the chat, the logs or a tool argument, and you do not need to connect to the server to give it. Only the server owner or an admin can enter a key. To remove a key, ask the agent to remove it. Deleting the agent deletes its keys.
-- Mobile Connect settings can keep chats and files on a private network. Choose "Private network", and phones, other computers and team members connect to this computer only over Tailscale or the same Wi-Fi. They still sign in with OpenBot, but chats and files never go through OpenBot servers. Settings shows when Tailscale is connected.
+- You can change the key of the server on this computer in Server settings › General › Server key. Computers with this version or later, the web client and webhook routes stay connected. Before, a new key showed "Server identity changed" on each device, and each phone had to scan a new code. Older versions of Builders Bot and the current phone app still show "Server identity changed". Do this if the key file was copied or exposed.
+- The website compares Builders Bot with Viktor at /compare/viktor: models and price, where agents work, what each one reads, who holds your data, teams, approvals and integrations.
+- Connect Bitwarden or a self-hosted Vaultwarden on a joined server. In Server settings › Connectors, an owner or admin enters the server address, the personal API key and the master password. The server signs in with its own Bitwarden CLI, downloads it when it has none, and unlocks again by itself after a restart. Agents on that server can then sign in to sites with the logins in the folder Shared with Builders Bot. This works from the desktop app and the browser client.
+- The website compares Builders Bot with Paperclip at /compare/paperclip: setup, phones and remote access, how you work with agents, price, and license.
+- When a task needs an API key or a token, the agent now shows a secure form in the chat, as it does for passwords. The key is saved for that agent on the computer or server that runs Builders Bot, outside its workspace, and the agent reads it from a file. It does not go into the chat, the logs or a tool argument, and you do not need to connect to the server to give it. Only the server owner or an admin can enter a key. To remove a key, ask the agent to remove it. Deleting the agent deletes its keys.
+- Mobile Connect settings can keep chats and files on a private network. Choose "Private network", and phones, other computers and team members connect to this computer only over Tailscale or the same Wi-Fi. They still sign in with Builders Bot, but chats and files never go through Builders Bot servers. Settings shows when Tailscale is connected.
 - Let an owner or admin of a connected server, self-hosted servers included, change "Tasks at once"
   for each agent of that server in the agent's Advanced settings. The server saves and applies the
   limit. Before, only agents on this computer had the setting.
@@ -754,11 +1082,11 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Changed
 
-- Each plugin page on openbot.run now shows what an agent can do with the plugin, how to connect it to OpenBot, common questions, and the sources for each statement.
-- The guides "OpenBot 101" and "WTF Is OpenBot?" now have the titles "How to Use OpenBot: Set Up Your First AI Agent" and "What Is OpenBot? Models, Providers and Agents Explained". Their addresses did not change.
+- Each plugin page on openbot.run now shows what an agent can do with the plugin, how to connect it to Builders Bot, common questions, and the sources for each statement.
+- The guides "Builders Bot 101" and "WTF Is Builders Bot?" now have the titles "How to Use Builders Bot: Set Up Your First AI Agent" and "What Is Builders Bot? Models, Providers and Agents Explained". Their addresses did not change.
 - A message that you send no longer shows "Sending…" or turns grey. Only a failed send shows: "Not sent" and its reason beside the time, with Retry, Edit and Dismiss buttons.
 - Product analytics on turns sends how the turn is paid for: a plan, an API key, a free model, or your own endpoint. It does not send keys or accounts. The privacy policy lists the new data.
-- The web client and the desktop app on Windows and Linux show the OpenBot logo in the top-left corner of the window. Before, this corner was empty, because only macOS shows window buttons there. In the web client, the logo opens the OpenBot site.
+- The web client and the desktop app on Windows and Linux show the Builders Bot logo in the top-left corner of the window. Before, this corner was empty, because only macOS shows window buttons there. In the web client, the logo opens the Builders Bot site.
 - On these windows, the server menu starts at the same left edge as the search field and the sidebar rows.
 - A schedule with no routines now shows a faint month where sample runs land and write a short note of what they did, with "Set it once. Wake up to it done." The "Create Routine" button asks which agent to use when the server has more than one, and opens that agent's routine settings on a new routine.
 - An agent or a channel with no memories now shows a faint memory list that fills in by itself: each sample memory writes itself in handwriting, then becomes a normal row. The title says "Tell it once. It will remember.", and an "Add memory" button opens the editor.
@@ -779,7 +1107,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Keep a failed Codex tool call, such as an image generation that fails, out of the ChatGPT
   provider error notice. Before, the notice stayed on screen in each chat that you opened, also in
   chats of other providers. The agent still gets the error as the tool's result.
-- After an in-app update installs, OpenBot deletes the downloaded update file when the new version starts. Before, a copy of the full update stayed in the updater cache on macOS and Windows. A downloaded update that is newer than the running version stays until you restart.
+- After an in-app update installs, Builders Bot deletes the downloaded update file when the new version starts. Before, a copy of the full update stayed in the updater cache on macOS and Windows. A downloaded update that is newer than the running version stays until you restart.
 - A long preview in an agent's confirm card now has a "Show all" button that opens the full text, and "Show less" closes it again. Before, the preview stopped at a fixed height with no visible sign that more text was there.
 - **On macOS, sign in to Gemini again after you upgrade.**
 - On macOS, a Gemini agent with Workspace only access now uses the Google sign-in. Before, it stopped with "Gemini did not return an authenticated account" while Settings showed Gemini as connected.
@@ -795,7 +1123,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Voice prompts and read-aloud replies work on Linux (x64 and arm64), as on macOS and Windows.
   Before, the Linux app showed no microphone and no Voice settings.
 - You can now duplicate a whole sidebar section from its menu, in the desktop app and the web
-  client. OpenBot makes a "copy" section right after the first one and copies every agent in it.
+  client. Builders Bot makes a "copy" section right after the first one and copies every agent in it.
   Each copy keeps its settings and files, and starts with no messages. If one agent cannot be
   copied, for example because it is busy, the copy stops and keeps the agents it already made.
 - "Send test event" signs an event that matches the routine and receives it as a real request. The
@@ -813,7 +1141,7 @@ All notable changes to OpenBot will be documented here. The project follows
   credentials.
 - When an agent's backup models are set to Automatic, a provider error now moves the agent to the next backup model too. This covers a spent balance, an unavailable provider, a rate limit, a sign-in error and a network error. The message runs again on the backup when the agent had not started to write, and the agent goes back to its own model after 10 minutes. Before, only a usage limit moved the agent.
 - `read_agent` now says when a provider error, not a usage limit, keeps an agent on a backup model.
-- Show the Cursor plan usage next to the other providers' usage. The Cursor ring shows the usage of Cursor's own models and of all other models for the billing cycle. OpenBot reads the Cursor CLI's sign-in to ask Cursor for this usage.
+- Show the Cursor plan usage next to the other providers' usage. The Cursor ring shows the usage of Cursor's own models and of all other models for the billing cycle. Builders Bot reads the Cursor CLI's sign-in to ask Cursor for this usage.
 - Right-click a message to reply to it, copy it, react to it or read it aloud. React opens all
   reactions in a submenu. Shift+F10 opens the menu from the keyboard. Over selected text or a link,
   right-click still opens the menu that copies them.
@@ -821,17 +1149,17 @@ All notable changes to OpenBot will be documented here. The project follows
   a server it checks is down. The run history shows the run as failed, with the reason. The answer
   still shows in the chat and still goes to the routine's result destination. In a routine flow, the
   agents after a failed step are skipped.
-- On Windows, the installer lets you choose the disk and folder for OpenBot. Before, it always
-  installed to `%LOCALAPPDATA%\Programs\OpenBot`. Updates keep the folder that you chose.
+- On Windows, the installer lets you choose the disk and folder for Builders Bot. Before, it always
+  installed to `%LOCALAPPDATA%\Programs\Builders Bot`. Updates keep the folder that you chose.
 - A channel member can now change its channel when a person asks for it in the channel: add or
   remove a member, change the channel instructions, and make, change or delete the channel's
   routines. Each change shows in the channel with the agent and the person who asked. A routine run
   or an agent's own request cannot make these changes.
 - Agent settings have a new switch, "Own browser session". When it is on, the agent's browser tabs keep their own cookies, sign-ins and site data, apart from other agents. Two agents can then use different accounts on the same site, such as WhatsApp Web or Gmail. The switch is off by default, so agents keep the shared session and its sign-ins. A change closes the agent's open tabs. Deleting an agent deletes its own browser session.
-- Reset the usage limits of a Codex account from Settings > Providers. When Codex gave the account a usage reset credit, the account's ⋯ menu shows **Reset usage**. OpenBot asks for confirmation, spends one credit, shows the result, and starts the agents that the limit held. This works for each Codex account, also on a joined server where you are an owner or admin.
+- Reset the usage limits of a Codex account from Settings > Providers. When Codex gave the account a usage reset credit, the account's ⋯ menu shows **Reset usage**. Builders Bot asks for confirmation, spends one credit, shows the result, and starts the agents that the limit held. This works for each Codex account, also on a joined server where you are an owner or admin.
 - Sign in to a site for a server's browser on this computer. In the browser's page menu, select
   "Sign in on this computer" and sign in in the window that opens. When the sign-in is complete,
-  OpenBot sends only that site's sign-in to the server, the tab loads again signed in, and the window
+  Builders Bot sends only that site's sign-in to the server, the tab loads again signed in, and the window
   closes. If the window stays open, select Done. This helps with sites such as X
   that refuse a sign-in from a server address. The server must run this version.
 - When a site refuses a sign-in from the server, the agent shows a card that says so. In the desktop
@@ -858,9 +1186,9 @@ All notable changes to OpenBot will be documented here. The project follows
 - The agent and channel settings panel opens wider, so routine settings have more room.
 - Save now tells you what is missing, under the name, the instruction or the filter, instead of
   staying unavailable.
-- On Windows, Restart and install updates OpenBot with no installer window, then opens it again.
+- On Windows, Restart and install updates Builders Bot with no installer window, then opens it again.
   **The update from 0.48.1 or older still shows the installer window once. Select Finish to open
-  OpenBot again.** Your settings, agents and chats stay.
+  Builders Bot again.** Your settings, agents and chats stay.
 - The Starter plan of hosted servers is sold out. The add-server dialog shows it as sold out, and a new server must use the Standard or Pro plan. Servers that have the Starter plan keep it.
 - A server with 5 GiB of memory or less, such as the Starter plan, now runs at most 2 turns at the same time. Other messages wait in the queue for a free slot. Before, 4 turns could start together and show a low-memory notice on a server that still had memory.
 - Voice recording warns you before its 2-minute limit. The last 15 seconds count down in the recording bar, two short pips play at 10 seconds left, and a chime plays when it stops. Before, the recording stopped without a sound and you could keep speaking without knowing. A notice above the message box now says why the recording stopped.
@@ -884,14 +1212,14 @@ All notable changes to OpenBot will be documented here. The project follows
 - A long message in a card that asks if the agent can send it now scrolls, so you can read all of
   the message before you answer. Before, the card showed only the first lines.
 - A Codex chat now starts when `~/.codex/config.toml` has an MCP server with the same name as an
-  OpenBot MCP server of the other type, such as a local `github` server and the GitHub connection.
+  Builders Bot MCP server of the other type, such as a local `github` server and the GitHub connection.
   Before, Codex showed "url is not supported for stdio" and did not load its configuration. The
-  OpenBot server now goes to Codex as `openbot_<name>`, and your own server stays as you wrote it.
+  Builders Bot server now goes to Codex as `openbot_<name>`, and your own server stays as you wrote it.
 - An OpenCode 2.1 turn that failed in OpenCode's local service now says so and tells you to try again or reconnect OpenCode. Before, the chat showed only "Internal error: Internal service failure".
 - A provider error that is not tied to a chat, such as a provider that did not start, now names the provider in its title, for example "OpenCode error". Before, the title was "Provider error", so you could not tell which provider failed.
 - An OpenCode turn that stops sending anything now ends after 5 minutes with an error that says so. Before, the chat could show "Working on it…" for an hour, and each message you sent again waited behind it. This also applies to Cursor, Cline, Grok and custom ACP agents. A running tool call or a question that waits for you does not count.
 - Stop now ends an OpenCode turn also when OpenCode does not stop it. Before, the turn could stay active after you pressed Stop.
-- An MCP server with a space or another special character in its name no longer stops Gemini and other ACP agents. Before, each task failed with `invalid params`. OpenBot now changes these characters to `_` when it gives the server to the agent.
+- An MCP server with a space or another special character in its name no longer stops Gemini and other ACP agents. Before, each task failed with `invalid params`. Builders Bot now changes these characters to `_` when it gives the server to the agent.
 - A reminder routine now sends its message in the chat when it runs. Before, the agent could decide
   that the reminder had nothing new to report, and the run completed with no message.
 - Show why channel routing failed, for example when the lead's model is unavailable, the lead did not
@@ -905,14 +1233,14 @@ All notable changes to OpenBot will be documented here. The project follows
   Before, the server test found the tools, but the model did not see them and asked for another
   message. Existing conversations get the fix on their next message and keep their history.
 - Pi now shows as connected soon after you sign in with `/login` in Pi on the host computer, also
-  over SSH on a server. Before, it stayed signed out until OpenBot restarted.
+  over SSH on a server. Before, it stayed signed out until Builders Bot restarted.
 - A hosted server that nobody uses for 10 days now starts for a short time and then goes back to sleep. This keeps its data: the hosting provider deletes the disk of a server that stays stopped for 14 days.
-- OpenBot no longer quits on macOS when an agent opens a page that redirects to another page while it loads, such as a sign-in or consent page.
+- Builders Bot no longer quits on macOS when an agent opens a page that redirects to another page while it loads, such as a sign-in or consent page.
 
 ### Security
 
-- MCP servers that OpenBot starts with its own Bun now use Bun 1.4.4. It has security fixes for
-  TLS, HTTP, WebSocket and `fetch`. OpenBot downloads it when an MCP server needs it.
+- MCP servers that Builders Bot starts with its own Bun now use Bun 1.4.4. It has security fixes for
+  TLS, HTTP, WebSocket and `fetch`. Builders Bot downloads it when an MCP server needs it.
 
 ## [0.48.1] - 2026-10-22
 
@@ -936,11 +1264,11 @@ All notable changes to OpenBot will be documented here. The project follows
   that you use downloads again at the next dictation. Replies are not read aloud until you download
   the speech model again.
 - Settings → General → Appearance has an Interface size control, from 67% to 200%. It changes the
-  size of text and controls in OpenBot, and OpenBot keeps it after a restart. ⌘ + and ⌘ − (Ctrl on
+  size of text and controls in Builders Bot, and Builders Bot keeps it after a restart. ⌘ + and ⌘ − (Ctrl on
   Windows and Linux) also change it, and ⌘ 0 sets it back to 100%. The View menu has Actual Size,
   Zoom In and Zoom Out.
 - You can choose a GIF as an agent picture, a profile picture or a server logo. An animated GIF
-  stays animated. OpenBot stores it as an animated WebP.
+  stays animated. Builders Bot stores it as an animated WebP.
 - The home page of openbot.run has the LaserFlow light beam from React Bits again. It falls onto the
   app preview and spreads along the top of the preview, in a soft violet haze. The light moves toward
   the pointer. The app preview has no shadow or glow around it.
@@ -971,7 +1299,7 @@ All notable changes to OpenBot will be documented here. The project follows
   in the sidebar.
 - Restore a deleted channel from its row menu in Deleted channels, on desktop and web. This also
   brings back the channels that the earlier release archived.
-- When OpenBot closes by itself, it now leaves a local record of the reason: a `Quitting` line in
+- When Builders Bot closes by itself, it now leaves a local record of the reason: a `Quitting` line in
   `logs/main/main.log`, an `exit` line and immediate process exit lines in `logs/trace.ndjson`, and
   a crash dump in the `Crashpad` folder when a process crashes. Nothing is uploaded. Do not attach a
   crash dump publicly: it can hold secrets.
@@ -985,11 +1313,11 @@ All notable changes to OpenBot will be documented here. The project follows
 - Owners and admins of a joined server can now set an agent's backup models from the desktop app
   and the web client. Before, only the computer that runs the agent showed the setting, so a hosted
   server had no way to set it. Members do not see it. The server must also run this version.
-- You can install OpenBot with Nix on x64 or arm64 Linux and on Apple silicon:
-  `nix run github:nightly-labs/openbot`. Nix installs OpenBot updates. A copy that Nix installed does
+- You can install Builders Bot with Nix on x64 or arm64 Linux and on Apple silicon:
+  `nix run github:nightly-labs/openbot`. Nix installs Builders Bot updates. A copy that Nix installed does
   not update itself; Settings shows that Nix installs its updates.
 - Gemini agents now show how full their context is, next to the send button. When the context is
-  80% full, OpenBot compacts it: the agent continues in a new session that starts from the recent
+  80% full, Builders Bot compacts it: the agent continues in a new session that starts from the recent
   conversation. The agent, its chat and its files stay.
 - The context popover has a "Compact now" action for Gemini and Codex agents. It compacts the
   context at once, below 80% too.
@@ -999,7 +1327,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - When a saved Gemini API key runs your Gemini agents, the Gemini provider page says so. A saved key
   always comes before your Google sign-in, so the work uses the key's project and not your Google AI
   plan, and the Usage panel shows no Gemini limit.
-- When your device's time zone changes, OpenBot asks if you want to move your routines to the new zone. It asks for this computer and for each joined server where you are an owner or admin, in the desktop app and the browser client. The routines keep their clock times, IDs and run history. Before, a routine always kept the zone it was made in, so after a trip it ran at the wrong local time.
+- When your device's time zone changes, Builders Bot asks if you want to move your routines to the new zone. It asks for this computer and for each joined server where you are an owner or admin, in the desktop app and the browser client. The routines keep their clock times, IDs and run history. Before, a routine always kept the zone it was made in, so after a trip it ran at the wrong local time.
 - A joined server now lets its owners and admins choose, from the mobile app, where an agent
   routine sends its answers: Slack, Discord or Telegram. The server must run this version.
 - You can ask an agent in chat to make a webhook routine, for example "start when my CI sends a
@@ -1015,10 +1343,10 @@ All notable changes to OpenBot will be documented here. The project follows
 - **Check agent** for a custom ACP agent now also shows the agent's models, so you can see what the
   agent offers before you save it. An agent that lists its models only after sign-in still passes
   the check.
-- A joined server can now show you agents on providers that your OpenBot does not know yet. The
+- A joined server can now show you agents on providers that your Builders Bot does not know yet. The
   agent stays in your list and you can chat with it. Its provider and model choices are disabled
-  and show "Update OpenBot to use" and the provider name.
-- New providers no longer need a new Team API version. Older OpenBot versions do not see agents
+  and show "Update Builders Bot to use" and the provider name.
+- New providers no longer need a new Team API version. Older Builders Bot versions do not see agents
   on providers that they do not know.
 - Tasks opens in the main pane, as Routines does, and the server menu stays at the top. The agent list is hidden until you click the panel button in the Tasks header. A click on an agent opens it, and a click on Tasks goes back to the tasks.
 - Channel work holds only the agent that does it. Other agents and their tasks keep working, and an
@@ -1036,7 +1364,7 @@ All notable changes to OpenBot will be documented here. The project follows
   remote server, the token chart shows one total line instead of one line for each provider.
 - Agents on ACP providers (such as OpenCode, Grok and custom agents) and on Muse now get their
   instructions once per session, not with each message. The instructions are 20,000 to 30,000
-  characters, so each message used thousands of extra input tokens. OpenBot sends the instructions
+  characters, so each message used thousands of extra input tokens. Builders Bot sends the instructions
   again when they change, such as after a new memory, after the agent compacts its context, after a
   failed message and after a restart. An agent that does not report its context size gets them
   again every 10 messages.
@@ -1055,12 +1383,12 @@ All notable changes to OpenBot will be documented here. The project follows
   sometimes did not show. A tile now shows a spinner while its image loads.
 - An agent now says that Marketplace has no app for a service, such as Whoop. Before, the agent said
   that it left a card to connect the app, but the chat showed no card.
-- Find and start a Codex CLI that npm, Volta, Bun or pnpm installed when you open OpenBot from
-  Finder, the Dock, or a login item. Before, OpenBot reported that Codex was not found or could not
-  start, because the CLI did not get your shell `PATH`. OpenBot now reads the `PATH` of the shell in
+- Find and start a Codex CLI that npm, Volta, Bun or pnpm installed when you open Builders Bot from
+  Finder, the Dock, or a login item. Before, Builders Bot reported that Codex was not found or could not
+  start, because the CLI did not get your shell `PATH`. Builders Bot now reads the `PATH` of the shell in
   `$SHELL`, such as bash or fish, not only zsh.
 - Say whether the downloaded copy or your own copy of Codex or Claude could not start, instead of
-  always asking you to reinstall OpenBot.
+  always asking you to reinstall Builders Bot.
 - On Windows, pick a runnable file when `where` finds a Claude, Codex or other CLI with more than
   one extension.
 - Usage analytics now count the tokens and the estimated cost of task turns. Before, a turn in a
@@ -1096,14 +1424,14 @@ All notable changes to OpenBot will be documented here. The project follows
 - When ChatGPT refuses requests because they come too fast, the agent now shows "Too many requests.
   Wait a moment, then try again." The raw Codex text "exceeded retry limit, last status: 429 Too
   Many Requests" no longer shows.
-- On Windows and Linux, Ctrl+W in the main window no longer closes OpenBot when no browser tab is
-  open. With "Keep OpenBot running in the background" off, it quit the app with no question.
+- On Windows and Linux, Ctrl+W in the main window no longer closes Builders Bot when no browser tab is
+  open. With "Keep Builders Bot running in the background" off, it quit the app with no question.
 - Answer the approval cards that already wait for an agent when you give it Full access, press
   Always allow, or an admin changes its permission from another computer. Before, those cards stayed
   open until you answered each one.
 - Run a Codex MCP tool without a card when the agent has Full access, also when the tool is set to ask
   every time in Codex. Computer Use still asks.
-- Stop showing `thread not loaded` in a Codex chat at each start. OpenBot now reads the history of an
+- Stop showing `thread not loaded` in a Codex chat at each start. Builders Bot now reads the history of an
   agent on a second Codex account through that account, and ignores a session that Codex has no saved
   history for.
 - Start a new Codex session when Codex has no saved history for the old one. Before, each message to
@@ -1112,12 +1440,12 @@ All notable changes to OpenBot will be documented here. The project follows
   a long paste dropped the rest of the text with no warning. Now the field keeps all the text, shows
   a character count near the limit, and shows an error when the text is too long. The instructions
   are not saved until you shorten them.
-- Claude usage now counts each turn once. Before, the first turn after OpenBot resumed a Claude
+- Claude usage now counts each turn once. Before, the first turn after Builders Bot resumed a Claude
   session, such as after a restart or 10 minutes of idle time, counted all the earlier turns of the
   session again. The Usage view and its estimated cost showed too many tokens for Claude agents.
   Usage that was recorded before this version stays as it is. The first turn after a resume has no
   estimated cost.
-- When Google reports that a Gemini usage limit is reached, OpenBot no longer calls it a rate limit
+- When Google reports that a Gemini usage limit is reached, Builders Bot no longer calls it a rate limit
   and no longer tells you to wait a few minutes. The message now says that the limit can be for one
   model, so the usage page of your plan can still show room, and it keeps the reset time from Google.
 - The menu that changes a routine's trigger now fits the space in the window and scrolls. Before, on
@@ -1131,15 +1459,15 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Added
 
 - Settings > Voice has a new local dictation model: **Underdog Bark 3.0 Plus**. It is fast and
-  recognizes English only. It writes mostly lowercase text, with little punctuation. OpenBot
+  recognizes English only. It writes mostly lowercase text, with little punctuation. Builders Bot
   downloads it (about 685 MB) only when you select it.
 - Roles in Server settings let an owner or admin choose the agents that members can use. Each role gives each agent one level: No access, Can view, Can chat or Can manage. A member gets the highest level of Everyone and of their roles. Owners and admins can use all agents. The role menu of each member on the Members page gives the roles and the server role.
 - Import your Hermes Agent profiles in Server settings › Import. Each profile becomes an agent with its persona, memories, skills and scheduled jobs. There are three ways, as for Grok Bot:
-  - **Read this computer:** OpenBot reads the Hermes folder and shows every item, and why an item stays in Hermes, before anything changes. Skills with scripts and MCP servers import only when you allow them, and MCP servers are added turned off. When you import a profile again, its agent is updated, and no second agent is added.
+  - **Read this computer:** Builders Bot reads the Hermes folder and shows every item, and why an item stays in Hermes, before anything changes. Skills with scripts and MCP servers import only when you allow them, and MCP servers are added turned off. When you import a profile again, its agent is updated, and no second agent is added.
   - **Install with a command:** type the `/skills install` command in a Hermes chat, send `/openbot-export`, and choose the `.zip` file that Hermes saves.
   - **Set it up yourself:** add the export skill file to Hermes by hand, then do the same steps.
 - Keys in `.env` and `auth.json` are never copied.
-- Server settings › Import now starts with where your agents are now: Hermes Agent, Grok Bot, or another OpenBot computer.
+- Server settings › Import now starts with where your agents are now: Hermes Agent, Grok Bot, or another Builders Bot computer.
 - Select text in a file that the side panel shows, then quote it or ask the agent to change it. The quote names the file and, in a text file, the lines. Click the quote to open the file at the quoted passage.
 - Oh My Pi (`omp acp`) is now in the list of known agents when you add a custom agent, and the
   agent scan finds an installed `omp` command.
@@ -1160,13 +1488,13 @@ All notable changes to OpenBot will be documented here. The project follows
 - The Tasks page keeps the agent that you chose last on each server. Before, it went back to the first agent each time you opened the page.
 - The agent menu on the Tasks page scrolls when a server has many agents. Before, agents below the bottom of the window could not be chosen.
 - Icons in buttons with text are now the size of the text, not larger.
-- OpenBot now offers new Pi releases. Before, the update check could not read Pi's release tags, so
-  Pi stayed on the version that came with OpenBot.
+- Builders Bot now offers new Pi releases. Before, the update check could not read Pi's release tags, so
+  Pi stayed on the version that came with Builders Bot.
 - In Discord, the agent now gets the images and files of earlier messages. A new conversation also
-  gets the channel's messages from the 15 minutes before it. Before, "@OpenBot make an issue" after
+  gets the channel's messages from the 15 minutes before it. Before, "@Builders Bot make an issue" after
   an image that another person posted without a mention did not see that image, and the agent could
   act on an older request.
-- Keep each agent's provider session when OpenBot stops through a signal, as a terminal, `systemd` or Docker sends it. The Computer Use driver stopped from the same signal and made every agent start a new provider session at the next launch, which lost the provider's own context.
+- Keep each agent's provider session when Builders Bot stops through a signal, as a terminal, `systemd` or Docker sends it. The Computer Use driver stopped from the same signal and made every agent start a new provider session at the next launch, which lost the provider's own context.
 - The Composio listing now connects with a Composio Connect link (`https://connect.composio.dev/mcp`) and its API key. Before, the key went in a header that Composio Connect does not read, and the connection failed with "This server asks for a sign-in".
 - A server that refuses a pasted key now says to check the key. Before, it said to sign in.
 
@@ -1178,10 +1506,10 @@ All notable changes to OpenBot will be documented here. The project follows
   on, the agent asks Codex for the fast tier and the picker shows "Fast" next to the model.
 - Attach ZIP archives in chat. The agent gets the archive unchanged and can extract it. An agent can
   also send a ZIP archive back, and you can download it from the chat. A remote host must run this
-  version of OpenBot to accept ZIP archives.
+  version of Builders Bot to accept ZIP archives.
 - Add Inception as a provider, with the Mercury 3, 2.5 and 2 models. Select Connect on the Inception
-  row and save an Inception API key. Inception runs in the Pi CLI that OpenBot downloads, so download
-  Pi first. OpenBot keeps the key encrypted on this computer and does not change Pi's own settings.
+  row and save an Inception API key. Inception runs in the Pi CLI that Builders Bot downloads, so download
+  Pi first. Builders Bot keeps the key encrypted on this computer and does not change Pi's own settings.
   Inception agents stay on this computer and are not shown to team members.
 - The desktop app and the web app show a notification when an agent needs you to finish a step in the browser, such as a sign-in or a code. Before, only the phone and the MacBook notch showed it, and the phone stayed quiet while you used the desktop app.
 - A message or a routine run that cannot start now shows a notification on desktop, web and phone, as a turn that stopped with an error does.
@@ -1192,7 +1520,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Changed
 
-- OpenBot now installs OpenCode 2 (2.1.1) as its own OpenCode CLI. Your threads keep their OpenCode
+- Builders Bot now installs OpenCode 2 (2.1.1) as its own OpenCode CLI. Your threads keep their OpenCode
   sessions.
 - When you mute this computer's server, or set its notifications to Nothing or Only when it needs me, your phone now gets the events that the desktop does not show. Before, these events reached no device while you used the computer.
 - Mute and the notification level of a server now also stop the agent sounds on desktop, as they do on web.
@@ -1203,7 +1531,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Server settings: **Publish this server** is now in **Members**, above the invitations. General
   keeps the server name, logo, and preferences. The server address row is removed: people join with
   an invitation, not an address.
-- You can publish a server before you name it. OpenBot gives it a name from your account, such as
+- You can publish a server before you name it. Builders Bot gives it a name from your account, such as
   "Ann’s server". You can change the name in General.
 - When product analytics is on, a completed agent turn now also sends the token counts that the
   provider reported for that turn: uncached input, cached input, cache write, output, and total.
@@ -1228,9 +1556,9 @@ All notable changes to OpenBot will be documented here. The project follows
   the same size as the other page titles, so it shows on one line on a wide screen.
 - A remote session stays connected when Signal restarts and the account service is slow to answer.
   Before, the session closed and the device showed it as offline.
-- After a Signal restart, OpenBot computers and devices no longer all connect again at the same time.
+- After a Signal restart, Builders Bot computers and devices no longer all connect again at the same time.
 - OpenCode setup no longer fails with "could not activate the managed CLI" on a computer where
-  OpenCode 2 is already installed. When OpenBot uses an older OpenCode CLI that cannot open the
+  OpenCode 2 is already installed. When Builders Bot uses an older OpenCode CLI that cannot open the
   database of OpenCode 2, setup now tells you to update OpenCode to version 2 or later.
 - With OpenCode 2, an OpenCode thread opens again after a restart, also while OpenCode is still
   starting.
@@ -1251,26 +1579,26 @@ All notable changes to OpenBot will be documented here. The project follows
 - Center the agent avatars in the connectors list of Server settings and on the Slack, Discord and
   Telegram connector pages. Before, each avatar stood about 3 pixels lower than the row text and
   the arrow.
-- OpenBot now keeps your sign-in, API keys and other secrets on Linux desktops such as Hyprland,
+- Builders Bot now keeps your sign-in, API keys and other secrets on Linux desktops such as Hyprland,
   Sway, i3 and LXQt when a Secret Service (such as GNOME Keyring) runs. Before, it asked you to sign
   in on every start, and it could not save a pasted API key.
-- Keep your Codex and ChatGPT thread lists clean. When OpenBot starts a new Codex session for an
+- Keep your Codex and ChatGPT thread lists clean. When Builders Bot starts a new Codex session for an
   agent, for example after you change its tools or reset its context, it now archives the session
   that the new one replaces. Before, each replaced session stayed in your Codex history as a row
-  that starts with "Continue this OpenBot conversation." The agent's conversation in OpenBot does not
+  that starts with "Continue this Builders Bot conversation." The agent's conversation in Builders Bot does not
   change.
-- Pi agents keep their OpenBot tools, browser included, in new conversations. Pi also shows the
-  OpenBot tools with their real names, so a model can find them.
+- Pi agents keep their Builders Bot tools, browser included, in new conversations. Pi also shows the
+  Builders Bot tools with their real names, so a model can find them.
 - A routine run in the chat now animates once. Before, its row and its steps, such as "Invoked" and
   "Started", could animate again when the run changed state, when two runs overlapped, or after a
   reload.
-- When an OpenCode model cannot read a file or image in the chat, OpenBot now tells you to choose a
+- When an OpenCode model cannot read a file or image in the chat, Builders Bot now tells you to choose a
   model that can read files, in a yellow notice. Before, a red error said that the provider failed
   and that you must try again later, but each new message failed again until you changed the model.
 - A task that needs your approval no longer looks stuck in "Making the requested changes…". The task panel
   on desktop and on the web shows the approval with Allow and Deny, and the task says "Waiting for your
   approval". An approval of a task no longer hides an approval of the agent's chat.
-- On Discord, OpenBot reads the images and files of the message that you reply to. Before, it read
+- On Discord, Builders Bot reads the images and files of the message that you reply to. Before, it read
   only the text of that message, and a message with only an image gave no context.
 - A notification for a question, an approval or a browser step now goes away when the request is answered or cancelled, also from another device. Before, it stayed in the Notification Center.
 - When the ChatGPT sign-in of a server had expired, a sign-in with a code from the web client or the phone stopped a few seconds after the code appeared. The code now stays valid until you enter it.
@@ -1282,7 +1610,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- OpenBot can read replies aloud on this computer. Turn on Read replies aloud in Settings › Voice ›
+- Builders Bot can read replies aloud on this computer. Turn on Read replies aloud in Settings › Voice ›
   Spoken replies. When you dictate a message, its reply is read aloud in the language of the reply,
   in 31 languages. Dictate again, or send a new message, to stop it. Choose one of ten voices and
   press Listen to hear a sample. The Supertonic 3 voice model downloads once, about 145 MB, and no
@@ -1298,7 +1626,7 @@ All notable changes to OpenBot will be documented here. The project follows
   and length of your recording. Play, pause, or click the waveform to go to a different part. The
   agent gets only the text, and the recording stays on this computer. The reply to a spoken message
   has a player too: it reads the reply aloud with a timer, and you can pause and resume it. After
-  one full reading, the reply keeps its audio until you close OpenBot: its player shows the waveform
+  one full reading, the reply keeps its audio until you close Builders Bot: its player shows the waveform
   and length, plays again at once, and you can click the waveform to go to a different part.
 - The Voice pane works with an agent on a remote server. The spoken reply runs on this computer,
   speech recognition uses the voice model you chose in Settings › Voice, and only the text goes to the
@@ -1312,8 +1640,8 @@ All notable changes to OpenBot will be documented here. The project follows
 - The production desktop app sends OpenPanel events for the Voice pane, spoken replies, the voice
   model download and the spoken reply settings: counts, times, lengths and results only. It never
   sends what you said, the reply, or audio.
-- Invite users to the OpenBot community from a card at the bottom of the sidebar, in the desktop app
-  and the web client. "Join the Discord" opens the Discord server, and the X button opens the OpenBot
+- Invite users to the Builders Bot community from a card at the bottom of the sidebar, in the desktop app
+  and the web client. "Join the Discord" opens the Discord server, and the X button opens the Builders Bot
   account on X. The card stays closed after you dismiss it. On desktop, it shows after you dismiss
   the mobile app card.
 
@@ -1325,21 +1653,21 @@ All notable changes to OpenBot will be documented here. The project follows
   a higher limit. Global search also finds "Memories per agent".
 - The top of the openbot.run home page no longer shows a grid behind the title.
 - In the web app, an account with no server now sees Create a hosted server as the first action.
-  Download OpenBot and Join with invitation are still there.
+  Download Builders Bot and Join with invitation are still there.
 - Show the License section in Billing also when licenses are not for sale. A purchase then shows a
   message with the address to contact: licenses@openbot.run.
 
 ### Fixed
 
-- Keep the saved account sign-in when OpenBot cannot read or save it at one start. Before, OpenBot
+- Keep the saved account sign-in when Builders Bot cannot read or save it at one start. Before, Builders Bot
   deleted it, and you had to sign in with an email code again after the next restart or update.
-  OpenBot now writes the reason to `logs/account/account.log` in its data folder.
+  Builders Bot now writes the reason to `logs/account/account.log` in its data folder.
 - Keep a question from a ChatGPT agent open until you answer it. Before, with GPT-6 models the
   question often expired after about 20 seconds.
-- On Windows and Linux, "Keep OpenBot running in the background" now works. When it is on, closing
-  the window hides OpenBot, and an icon in the system tray opens it again or quits it. Before, the
-  window closed OpenBot, and the switch was off again after a restart.
-- "Launch OpenBot at login" now opens OpenBot when you sign in to your computer. Before, the switch
+- On Windows and Linux, "Keep Builders Bot running in the background" now works. When it is on, closing
+  the window hides Builders Bot, and an icon in the system tray opens it again or quits it. Before, the
+  window closed Builders Bot, and the switch was off again after a restart.
+- "Launch Builders Bot at login" now opens Builders Bot when you sign in to your computer. Before, the switch
   did nothing and was on again after a restart.
 - OpenCode agents no longer fail on each message with "OpenCode service failure" when OpenCode
   cannot read the agent's session, for example a session that another OpenCode version wrote. The
@@ -1349,15 +1677,15 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- One OpenBot server can connect more than one Slack workspace or Discord server. Settings › Connectors shows "Add workspace" or "Add Discord server" after the first one is set up. One Slack Orchestrator answers every Slack workspace, and one Discord Orchestrator answers every Discord server, as one Telegram Orchestrator already answers every Telegram chat.
-- You can choose which Discord roles can use OpenBot in each Discord server. OpenBot ignores a mention from a member who has none of the roles. With no role chosen, everyone can mention OpenBot, as before.
+- One Builders Bot server can connect more than one Slack workspace or Discord server. Settings › Connectors shows "Add workspace" or "Add Discord server" after the first one is set up. One Slack Orchestrator answers every Slack workspace, and one Discord Orchestrator answers every Discord server, as one Telegram Orchestrator already answers every Telegram chat.
+- You can choose which Discord roles can use Builders Bot in each Discord server. Builders Bot ignores a mention from a member who has none of the roles. With no role chosen, everyone can mention Builders Bot, as before.
 - The context meter in the composer has a New chat button. The earlier messages stay visible, and
   each new message sends less context.
 - An agent can start a new chat for itself with the `start_new_chat` tool, for example from a
   routine. It saves notes first. Turn on "Agent starts new chats" in the agent's settings to allow
   it. It is off by default.
 - Ask side questions in the web client and on joined servers. Before, side questions worked only on
-  the computer that runs the agent. The server must have this version of OpenBot.
+  the computer that runs the agent. The server must have this version of Builders Bot.
 - An agent can show its plan before a long task. Turn on "Show the plan before long tasks" in the
   agent's settings. The agent then posts a short card with its plan and Start, Cancel, and sometimes
   a smaller option. The agent starts after 10 s if nobody answers. It does not show the card for
@@ -1365,7 +1693,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - The chat shows the subagents that a Claude or Codex agent starts. One card for each turn shows how
   many subagents finished, what each one does now, and how long it took. Click a subagent to see its
   task and all of its steps in the side panel.
-- When you make a routine on this computer or on your own remote computer, OpenBot offers an OpenBot
+- When you make a routine on this computer or on your own remote computer, Builders Bot offers an Builders Bot
   server, which runs routines 24/7. The offer shows after an agent's turn ends, at most once in 30
   days. The routine list and the offline notice of a remote computer also show the offer. "Not now"
   hides it for longer each time.
@@ -1378,7 +1706,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- On Windows, OpenBot now finds an OpenCode that you installed with the OpenCode installer or WinGet. Before, it said that OpenCode was not downloaded.
+- On Windows, Builders Bot now finds an OpenCode that you installed with the OpenCode installer or WinGet. Before, it said that OpenCode was not downloaded.
 - On Windows, the Download button of a provider works again after a shutdown or sign-out that was cancelled. Before, each click failed and showed nothing.
 - In Settings, a provider download that fails now shows why. Before, the Download button did nothing.
 - The Cline model picker shows Cline's free models, such as MiniMax M3.1 Flash, MiMo V2.6 Flash and Muse Spark 1.3 Contributor. Before, only the Cline CLI showed them.
@@ -1386,21 +1714,21 @@ All notable changes to OpenBot will be documented here. The project follows
 - Steer on a remote server now shows why it did not steer when the provider, such as OpenCode or
   Grok, cannot steer a running turn. Before, it showed only "Request failed". The message still
   stays in the queue.
-- When you mention OpenBot in a Discord reply to someone else's message, OpenBot now reads the message you replied to. Before, OpenBot said that it could not see what "this" was.
+- When you mention Builders Bot in a Discord reply to someone else's message, Builders Bot now reads the message you replied to. Before, Builders Bot said that it could not see what "this" was.
 - The delete server dialog keeps its height and position when you change between "At period end"
   and "Immediately". Before, it moved because the description and details have different lengths.
-- A Claude agent now makes a routine in OpenBot when you ask for one. Before, it sometimes used
-  Claude's own `schedule` skill and made a claude.ai cloud routine that OpenBot did not show.
-  Claude's own scheduling tools are now off in OpenBot.
+- A Claude agent now makes a routine in Builders Bot when you ask for one. Before, it sometimes used
+  Claude's own `schedule` skill and made a claude.ai cloud routine that Builders Bot did not show.
+  Claude's own scheduling tools are now off in Builders Bot.
 - A chat with unread messages now opens at the "NEW" divider, with the last read message above it.
   The divider stays while you read and goes when you leave the chat. Before, the chat opened at the
   newest message and the divider went away at once, because the open chat marked the messages read.
-- An OpenCode agent now uses the OpenCode Go key that you paste into OpenBot. Before, an old key that `opencode auth login` saved took its place, so a turn failed with "This API key has expired" again after you replaced the key.
+- An OpenCode agent now uses the OpenCode Go key that you paste into Builders Bot. Before, an old key that `opencode auth login` saved took its place, so a turn failed with "This API key has expired" again after you replaced the key.
 - An expired OpenCode key now shows "Your OpenCode API key expired" with an Update key button that opens the provider settings. Before, the chat showed "Internal error".
 - A Workspace-only agent now uses a new provider key on its next turn. Before, it could keep the old key until it was idle for 10 minutes.
 - A cloud server that started again soon after it stopped sometimes stayed at "Starting Cloud
-  server" with `signal/host_unavailable`. The machine continued from memory, and OpenBot did not
-  start on it. The account server now starts OpenBot after such a start.
+  server" with `signal/host_unavailable`. The machine continued from memory, and Builders Bot did not
+  start on it. The account server now starts Builders Bot after such a start.
 - The update banner now shows the full button label in every language. Before, a long label such
   as "Uruchom ponownie" (Restart) in Polish went past the button and the banner cut it off. In
   Polish, the button now says "Restart". In Turkish, the "managed by host" button now says "Ana
@@ -1427,7 +1755,7 @@ All notable changes to OpenBot will be documented here. The project follows
   a long list.
 - "Side question" in the composer "+" menu now opens the side question pane. Before, a click with
   the mouse closed the menu and did nothing.
-- An agent template that contains the OpenBot skills `openbot-data`, `openbot-site-hosting` or
+- An agent template that contains the Builders Bot skills `openbot-data`, `openbot-site-hosting` or
   `openbot-skill-creator` installs again. Before, the install stopped with an error, because the new
   agent already has these skills. A new publish no longer adds these skills to the template.
 
@@ -1456,18 +1784,18 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- Start OpenBot when a power loss left the joined server list or the team server settings file
+- Start Builders Bot when a power loss left the joined server list or the team server settings file
   empty. Before, the start stopped with the error "Unexpected token '". The damaged file stays
-  beside the new one with a `.corrupt-<time>` name. OpenBot also flushes each settings file to the
+  beside the new one with a `.corrupt-<time>` name. Builders Bot also flushes each settings file to the
   disk before it replaces the old one, so a power loss cannot empty the file.
 - Name the damaged file when a settings file stops the start. Before, the error quoted the start
   of the file and did not say which file it was.
 - Open the file panel for a local file link over 100 MB. Before, a click on the link showed the
   error "The file exceeds the 100 MB limit." and no panel opened, so you could not open the file,
   show it in the folder or save it. Now the panel shows that no preview is available and gives
-  these actions. OpenBot does not read the file to show the panel.
+  these actions. Builders Bot does not read the file to show the panel.
 - Let Claude agents run tools from Homebrew, `~/.local/bin` and other folders of your shell `PATH`
-  when you open OpenBot from Finder, the Dock, or a login item. Before, the Bash tool and hooks
+  when you open Builders Bot from Finder, the Dock, or a login item. Before, the Bash tool and hooks
   reported `command not found`. An `env.PATH` in your Claude settings still wins.
 - Keep the server and its members connected when an owner or admin changes the role of a member.
   Before, each change to Admin or Member disconnected the host and every connected member, and the
@@ -1478,7 +1806,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Run a message again to its end after the provider refused its first turn. Before, the second run
   of the message showed as interrupted while a Claude, ACP or Pi agent still worked on it. A Claude
   agent then refused each new message with "The Claude thread already has an active turn." until
-  OpenBot restarted.
+  Builders Bot restarted.
 - Move the window by dragging the top row of the Tasks page. Before, only a thin strip beside the
   "Tasks" title moved the window.
 - Open Settings again. In 0.44.0, Settings showed an empty page and the app stopped responding
@@ -1494,13 +1822,13 @@ All notable changes to OpenBot will be documented here. The project follows
 - A provider account that is signing in now says to finish the sign-in in the browser, and its menu has Cancel sign-in. Before, the account showed "Connecting" with only Rename and Remove until the sign-in timed out.
 - A new account sign-in on a joined server's host now stops the earlier one. Before, the earlier account could stay "Connecting" for up to 10 minutes, and Cancel could not stop it.
 - Show the answer of a scheduled, script or webhook routine run one time in the chat of a Claude
-  agent. Before, after OpenBot restarted, the chat showed the same answer two times in the run.
+  agent. Before, after Builders Bot restarted, the chat showed the same answer two times in the run.
 
 ## [0.44.0] - 2026-10-18
 
 ### Added
 
-- Agents can ask with interactive blocks: a confirmation with buttons, reply chips, a list to choose from, or a short form. The agent waits for your answer, as it does for a question. Every provider can use them, Claude too. The blocks show as cards in the desktop app and the web app, and you can skip one as you skip a question. Only the server owner or an admin can press a dangerous button, or answer a block that has one in words. A form can ask for a password or a key: the agent gets it, but OpenBot does not keep it on the card or in your answer. The agent can still repeat it in its reply or its thinking. If you cannot hold a button, press it and confirm in a second step. An app or a mobile app that does not show the blocks yet shows them as an ordinary question that you can answer.
+- Agents can ask with interactive blocks: a confirmation with buttons, reply chips, a list to choose from, or a short form. The agent waits for your answer, as it does for a question. Every provider can use them, Claude too. The blocks show as cards in the desktop app and the web app, and you can skip one as you skip a question. Only the server owner or an admin can press a dangerous button, or answer a block that has one in words. A form can ask for a password or a key: the agent gets it, but Builders Bot does not keep it on the card or in your answer. The agent can still repeat it in its reply or its thinking. If you cannot hold a button, press it and confirm in a second step. An app or a mobile app that does not show the blocks yet shows them as an ordinary question that you can answer.
 - Settings > Profile shows the activity of this computer in the past year: a calendar of active days, the tokens, the messages, the peak day, the streaks, the providers, the models and the teammates that you use most.
 - Share in Settings > Profile makes an image of your last six months. You can copy the image or save it as a file. The image stays on your computer until you send it.
 - Add a Tasks page to the page rail, on desktop and on the web. Write a task, choose the agent, and send it; you can undo the send for 6 seconds. The page groups the tasks of all agents by what they need: Needs you, Working, Waiting and Closed. Click a task to open its conversation beside the list. On desktop, you can also dictate a task. A joined server shows the page when it supports tasks.
@@ -1517,8 +1845,8 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Changed
 
 - Signing out of an MCP server, or removing it, now asks the server's authorization service to revoke the tokens.
-- Agents no longer get the OAuth token of an MCP server that you signed in to. They reach the server through a local address in OpenBot, which adds the token to each call.
-- Save on a new HTTP MCP server now tests it first. When the server asks for a sign-in, OpenBot signs in and then saves. When the server refuses the typed credentials, OpenBot does not save and goes to Headers.
+- Agents no longer get the OAuth token of an MCP server that you signed in to. They reach the server through a local address in Builders Bot, which adds the token to each call.
+- Save on a new HTTP MCP server now tests it first. When the server asks for a sign-in, Builders Bot signs in and then saves. When the server refuses the typed credentials, Builders Bot does not save and goes to Headers.
 - A web address pasted or typed into "Command to launch" now moves to Server URL and selects Streamable HTTP.
 - Profile is now the second tab in Settings, after General.
 - You change your photo and your display name in one Edit profile dialog, in the desktop app and in the web client.
@@ -1553,7 +1881,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - A background token renewal no longer registers a new OAuth client with the MCP server.
 - Agents no longer get an MCP token that the server has already refused.
 - An MCP token that expires during a long agent session is now renewed. Before, the agent kept the old token until its session restarted.
-- After you sign out of an MCP server, or the server ends the sign-in, an agent that calls one of its tools now gets a message that tells it to sign in again in OpenBot.
+- After you sign out of an MCP server, or the server ends the sign-in, an agent that calls one of its tools now gets a message that tells it to sign in again in Builders Bot.
 - After you cancel a checkout from the desktop app, the billing page now says that the checkout was
   cancelled and that nothing was charged. Before, it said "Billing updated".
 - The form to report a hosted site now has the site style and shows a clear result or error. Before,
@@ -1570,7 +1898,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Complete the installation of a marketplace agent when the install receipt request fails after the agent is saved.
 - When a setting does not save, a message now tells you why the switch went back. When settings do
   not load, the settings page says so and has a Retry button. Before, it showed default values.
-- When OpenBot cannot read your saved setup at start, it now shows Retry. Before, it opened first-run
+- When Builders Bot cannot read your saved setup at start, it now shows Retry. Before, it opened first-run
   setup.
 - 1Password, Bitwarden, Slack, Discord and Telegram now show "Unknown" and Retry when their status
   does not load. Before, they showed "Not set up". A failed "Open app" for 1Password now shows an
@@ -1584,7 +1912,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - The join, Slack, Discord, billing, site report and error pages on the website now have the same
   header, card and footer. The page-not-found page has its own title.
 - The Slack and Discord connect pages now say what went wrong for each error and offer "Try again"
-  and help when OpenBot does not open.
+  and help when Builders Bot does not open.
 - The join page now says "server", explains how invitation links work, and has link previews.
 - Download links on the website now open the download page. The footer now links to Teams and
   Contact.
@@ -1592,7 +1920,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Hosted sites now show a branded error page in the browser, and their report link uses the correct
   account service address.
 - The web app can now create a hosted server when you have no server to connect to.
-- Stop the provider processes when OpenBot quits while it changes a provider key, updates a provider CLI or reconnects a provider. Before, the new process, or the process that it replaced, could continue to run after OpenBot stopped.
+- Stop the provider processes when Builders Bot quits while it changes a provider key, updates a provider CLI or reconnects a provider. Before, the new process, or the process that it replaced, could continue to run after Builders Bot stopped.
 - The app and the web app now use "server" for a computer that you connect to or join. Before, they
   also said "host" or "computer".
 - Error labels in a conversation now say what failed, for example "Could not send your answer".
@@ -1620,14 +1948,14 @@ All notable changes to OpenBot will be documented here. The project follows
   compaction of the stopped process shows as failed instead of staying hidden.
 - Signing out, or ending a session from a phone or the web, now also closes the live browser view
   of that session.
-- The Live Activity updates that OpenBot sends to your iPhone show a link that an agent reply writes
+- The Live Activity updates that Builders Bot sends to your iPhone show a link that an agent reply writes
   in angle brackets, such as `<https://example.com>`. Before, the update removed the link.
 
 ### Security
 
 - An MCP sign-in now stops an OAuth answer that is larger than 1 MiB or slower than 20 seconds.
 - A public MCP server can no longer send its sign-in to an OAuth endpoint on a private network.
-- A member that the owner or an admin removed could rejoin a server with an invitation or a team link from before the removal. Now that member needs a new invitation or a reactivation. A member who left by their own choice can still rejoin with an earlier invitation. A member who left before 18 October 2026 needs a new invitation, because OpenBot did not record before then who ended a membership.
+- A member that the owner or an admin removed could rejoin a server with an invitation or a team link from before the removal. Now that member needs a new invitation or a reactivation. A member who left by their own choice can still rejoin with an earlier invitation. A member who left before 18 October 2026 needs a new invitation, because Builders Bot did not record before then who ended a membership.
 - An invitation from an admin stayed valid after the admin left, was removed or was demoted. Now it closes, and it no longer counts against the invitation limits.
 - If the public ticket key set had a private key by mistake, `/.well-known/jwks.json` published the private key. Now it publishes only the public members.
 - A checkout return address that starts with `//` or `/\` could send the browser to another site. The account server never made such an address, but now it refuses one.
@@ -1641,7 +1969,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Added
 
 - Add "Join the Discord" to the Help menu of the page rail, on desktop and in the web app. It opens
-  the OpenBot Discord community in the browser.
+  the Builders Bot Discord community in the browser.
 - You can hide an agent that you do not use now, and keep it. Select "Hide agent" in the agent menu. The agent moves to the "Hidden" section at the end of the agent list. Its thread, files, memories, settings, section and pin stay. A hidden agent does not run its routines and does not get new messages. Messages that are already in its queue wait. Select "Restore" to put the agent back in its section. Routine runs that it missed while it was hidden do not run. The hidden state is the same on each device that shows the server. On a joined server, only an owner or an admin can hide or restore an agent.
 - Add a Month view to the Schedule page. It shows the runs of each day of a month in whole weeks,
   with three runs on each day and a count of the other runs. Select a day or the count to open
@@ -1654,7 +1982,7 @@ All notable changes to OpenBot will be documented here. The project follows
   still show only the total. (#1635)
 - On the website, when the agent network fills the frame, click an agent to grow a new network
   from it.
-- On the website, click the OpenBot logo in the agent network to send a signal to the agents.
+- On the website, click the Builders Bot logo in the agent network to send a signal to the agents.
   Each click shows one of three signals at random.
 - On the website, the agent network has easter eggs. Type "hello", "party", "sudo" or the Konami
   code, click the hub quickly many times, or leave the page alone until the agents fall asleep.
@@ -1662,7 +1990,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - On the website, agents in the network chat about their work when you click the hub, and when a
   network that you regrow is complete.
 - Set the size of the virtual display that computer use reads on a self-hosted server, with
-  `--display-size` at the install or `OPENBOT_DISPLAY_SIZE` in `/opt/OpenBot/hosted/openbot.env`,
+  `--display-size` at the install or `OPENBOT_DISPLAY_SIZE` in `/opt/Builders Bot/hosted/openbot.env`,
   and in Docker with the `OPENBOT_DISPLAY_SIZE` variable. The default stays 1280x800.
 - Ask the agent a side question from the composer "+" menu. The agent reads the chat and answers in the side panel. The question and the answer do not go into the chat, and closing the tab deletes them. Side questions work only on the computer that runs the agent.
 - Add a public status page at status.openbot.run. It shows the state of sign-in, connections,
@@ -1676,9 +2004,9 @@ All notable changes to OpenBot will be documented here. The project follows
   caret, and one message can have more than one quote. Click a quote to go to the quoted text, which
   shows highlighted. The agent gets each quote as a Markdown block quote.
 - The status page sends signed webhooks for new incidents, updates, maintenance and service check
-  changes to the tools of the OpenBot team, with retries for 11 hours. Slack and Discord formats
+  changes to the tools of the Builders Bot team, with retries for 11 hours. Slack and Discord formats
   are available. The feed stays the public way to follow the page. (#2335)
-- `openbot-cli` runs a task on an agent from a terminal or a script and can wait for the answer. It also changes an agent's model, reasoning effort or provider account, and starts a new chat with an agent. It uses the Local scripts API, so only agents with **Local scripts** on can be used. When OpenBot restarts during a wait, the command continues the wait. See `docs/automation.md`. Thanks to @NatanPimentel.
+- `openbot-cli` runs a task on an agent from a terminal or a script and can wait for the answer. It also changes an agent's model, reasoning effort or provider account, and starts a new chat with an agent. It uses the Local scripts API, so only agents with **Local scripts** on can be used. When Builders Bot restarts during a wait, the command continues the wait. See `docs/automation.md`. Thanks to @NatanPimentel.
 - The Local scripts API has three new routes: `GET /v1/agents/:agentId/deliveries/:deliveryId` gives the state of a sent message and the turn's answer, `POST /v1/agents/:agentId/settings` changes the model, reasoning effort, provider or provider account, and `POST /v1/agents/:agentId/context/clear` starts a new chat, the same as **New chat** in the agent's settings. A change that the agent's state or the listed models refuse answers `409` with the reason.
 
 ### Changed
@@ -1719,18 +2047,18 @@ All notable changes to OpenBot will be documented here. The project follows
   shortcuts work as before, and the Alt key shows the menu bar.
 - Set what an agent may do with one Permissions setting in its agent settings: Workspace only, Ask
   first or Full access. Ask first gives the agent full reach, and it asks you before it uses an
-  OpenBot tool or publishes a site, and when its provider asks for approval. A new Claude agent
+  Builders Bot tool or publishes a site, and when its provider asks for approval. A new Claude agent
   shows Workspace only and Full access, because Claude does not ask for approval with full reach.
   On a joined server, an owner or admin can change the Permissions of its agents.
 - Full access agents now publish, update and delete public sites and use built-in tools without
   asking, as Turbo mode did before. Before, only Turbo mode let an agent do this without asking.
-- A Claude agent with Auto approve off shows Ask first. It asks before it uses an OpenBot tool or
+- A Claude agent with Auto approve off shows Ask first. It asks before it uses an Builders Bot tool or
   publishes a site, as before, but Claude's own tools run without asking. Select Full access or
   Workspace only to change it.
 - "Always allow" on an approval card shows only at Ask first, and moves the agent to Full access.
 - Make agent avatars do less rendering work when the pointer is outside the window. They no longer
   force a page layout on every animation frame.
-- Open the app about 1 to 2 seconds faster. At start, OpenBot no longer reads and checks every
+- Open the app about 1 to 2 seconds faster. At start, Builders Bot no longer reads and checks every
   installed provider CLI again when no file of it changed since the last check passed. A changed,
   added or removed file still gets the full check.
 - Make long chats scroll and open with less work. A message that is not streaming no longer makes
@@ -1754,34 +2082,34 @@ All notable changes to OpenBot will be documented here. The project follows
   canceled subscription, and one subscription with bad data stopped all snapshots. Now the snapshot
   counts such a subscription in `skipped_subscriptions` and leaves it out.
 - A chat update finds the attachments of each changed message from an index. Before, each changed
-  message read every attachment in the database, so a large mailbox sync or a long chat slowed OpenBot.
+  message read every attachment in the database, so a large mailbox sync or a long chat slowed Builders Bot.
 - Long chats stream replies more smoothly. Before, a closed chat search read the full chat again for each streamed part of a reply.
 - Keep the browser client fast while an agent writes a reply. Before, each part of the reply made
   every message in the chat again, so long chats became slow.
 - Send each sign-out and account change to connected apps once. Before, the account service could
   send the same change two times, and a slow connection service could stop the cloud server check
   for minutes.
-- Read Claude session history faster at start and after a provider reconnect. Before, OpenBot wrote
+- Read Claude session history faster at start and after a provider reconnect. Before, Builders Bot wrote
   each message of the selected conversation to its history index in a separate transaction, so a
   long session took seconds to read.
 - The Y axis of the daily usage chart shows each amount at its grid line. Before, the top amount was below its line and the zero amount did not show.
 - A provider with no known cost shows its tokens only. Before, its row said "Unavailable of known cost".
 - Start faster when agents have a long chat history. Before, each start and each provider
-  reconnect imported the full provider history of all agent sessions again. Now OpenBot imports
+  reconnect imported the full provider history of all agent sessions again. Now Builders Bot imports
   only new or changed turns, and does not read a replaced session again after one complete import.
 - Stop the database growth from agent list writes. Before, each message and each turn end added a
   full copy of the agent list to `openbot.db`, and the old copies stayed. The first write after the
   update removes them. Model changes that one agent made to another agent stay recorded.
 - The routine flow check after each turn and queue change reads only the runs it can move. Before, it
   read every routine run and flow step of the last 7 days each time, so a routine that runs often
-  slowed OpenBot.
+  slowed Builders Bot.
 - The home page title, text and buttons no longer move down when the font loads on a slow connection.
 - A reply that streams finds the earlier parts of its message from an index. Before, each update of a
   streaming reply read every earlier event of the chat, so a long chat streamed more slowly over time.
 - The server menu no longer shows Usage and Schedule for each server. The page rail opens them, as the 0.42.0 notes say.
 - The global search command for the routine calendar is now named Open schedule, the same as the Schedule page.
-- Keep only the provider CLI version in use and one older version that works. Before, OpenBot kept
-  a copy of each update for 30 days, and this could use more than 5 GB. OpenBot now removes old
+- Keep only the provider CLI version in use and one older version that works. Before, Builders Bot kept
+  a copy of each update for 30 days, and this could use more than 5 GB. Builders Bot now removes old
   versions within a few hours while it runs, not only when it starts.
 - Show provider runtimes as a separate part of the Storage bar. Before, they were part of
   "App data", which was then almost all of the storage.
@@ -1800,8 +2128,8 @@ All notable changes to OpenBot will be documented here. The project follows
 - The log now records a message that did not start because the provider refused the session or
   the turn.
 - Gemini connects on Windows when its server takes longer than 30 s to start. After a sign-in, a
-  key change, or a start that did not finish in time, OpenBot waits up to 3 minutes for the next
-  start. Before, OpenBot stopped the server while it unpacked, and each try failed with "ACP
+  key change, or a start that did not finish in time, Builders Bot waits up to 3 minutes for the next
+  start. Before, Builders Bot stopped the server while it unpacked, and each try failed with "ACP
   initialization timed out." The error now says which step did not finish: the start or the model
   list. The log records when each provider process starts, first answers, and ends.
 - On the website, the agent network fades out at the bottom of its section. Before, the agents
@@ -1812,9 +2140,9 @@ All notable changes to OpenBot will be documented here. The project follows
   edge with no mark. Tab labels no longer go onto a second line.
 - Keep the side panel tabs when you go back to a chat from another page. Before, the open pane showed with no tabs.
 - Show what the agent works on in Computer Use screenshots and remote desktop on hosted and
-  self-hosted servers and in the Docker image. Before, they showed the OpenBot window. Agents now
-  get their own screen, and OpenBot moves to a hidden one.
-- Use the GPU again on Linux. Before, OpenBot always rendered on the CPU on Linux, so dialogs and
+  self-hosted servers and in the Docker image. Before, they showed the Builders Bot window. Agents now
+  get their own screen, and Builders Bot moves to a hidden one.
+- Use the GPU again on Linux. Before, Builders Bot always rendered on the CPU on Linux, so dialogs and
   panels with a blurred background were slow on computers whose GPU works. If the GPU process
   crashes, or a start stops before it is complete, later starts use software rendering, as before,
   until an update with a new Chromium version. A server (`OPENBOT_SERVER=1` or a hosted server)
@@ -1822,7 +2150,7 @@ All notable changes to OpenBot will be documented here. The project follows
   `OPENBOT_DISABLE_GPU=0` to try the GPU again.
 - An agent now sees why a browser file upload failed, for example a selector that matches two file
   inputs or a file that does not exist, and can try again with a better target. Before, a Codex
-  agent saw only "dynamic tool request failed", and OpenBot showed a "Provider error" message.
+  agent saw only "dynamic tool request failed", and Builders Bot showed a "Provider error" message.
 - When the server reads its member list, it now disconnects a member that was removed or got
   another role. Before, the open session could continue with the old role until it ended.
 - Update the Claude plan limits while an agent works. Before, the limits changed only on the next
@@ -1832,7 +2160,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Keep a record when an agent delete fails. Before, a host on Windows kept no record of the step that
   failed. Now `logs/agents/agents.log` shows the step and its error code, with no file paths.
 - Muse turns no longer fail when the workspace appears more than once in the writable roots.
-- Keep MCP servers such as Vercel signed in after their access token expires. Before, OpenBot did not
+- Keep MCP servers such as Vercel signed in after their access token expires. Before, Builders Bot did not
   ask for a refresh token, so the server refused agents one hour after each sign-in.
 - Show "Sign-in needed" for an MCP server whose access token expired and cannot be refreshed. Before,
   the row also showed "Signed in".
@@ -1842,12 +2170,12 @@ All notable changes to OpenBot will be documented here. The project follows
   update of the agent closed the routine and went back to the agent settings, and the edit in
   progress was lost. Memories, Skills, Tables and Files in agent settings also stay open now.
 - Fix spreadsheet previews for January and February 1900. Keep Excel's February 29, 1900 compatibility date and the correct time in date-and-time cells.
-- An OpenCode agent no longer fails each message and routine run with "The request contains invalid parameters" after a model change or in a long chat. OpenBot now starts a new OpenCode session with the chat history and sends the message again.
-- A Muse agent no longer fails each message with "MCP startup audit failed; MCP is disabled for this runtime" after an MCP server, such as Computer Use, did not start once. OpenBot now starts a new Muse session with the chat history and sends the message again.
+- An OpenCode agent no longer fails each message and routine run with "The request contains invalid parameters" after a model change or in a long chat. Builders Bot now starts a new OpenCode session with the chat history and sends the message again.
+- A Muse agent no longer fails each message with "MCP startup audit failed; MCP is disabled for this runtime" after an MCP server, such as Computer Use, did not start once. Builders Bot now starts a new Muse session with the chat history and sends the message again.
 - GIF and AVIF attachments keep their image format when sent through ACP, Muse and Pi.
 - Keep quoted currency and text prefixes in spreadsheet number previews.
 - The Antigravity model picker shows each Gemini model one time, with its efforts in the Effort menu. The model and effort that you select now apply to the session. An agent saved on a Gemini model with an effort in its name keeps that model and effort.
-- A message that you send while Codex compacts the context now waits in the queue and runs after the compaction. Before, Codex refused it and the message failed. When a compaction takes too long, OpenBot now asks Codex to stop it before the queue continues. Thanks to @Johnny-xuan for the report and the first fix (#1766).
+- A message that you send while Codex compacts the context now waits in the queue and runs after the compaction. Before, Codex refused it and the message failed. When a compaction takes too long, Builders Bot now asks Codex to stop it before the queue continues. Thanks to @Johnny-xuan for the report and the first fix (#1766).
 
 ### Security
 
@@ -1856,7 +2184,7 @@ All notable changes to OpenBot will be documented here. The project follows
   macros, show in the file manager.
   Before, Open on a file from a remote server or from a team member could run it.
 - Remove characters that are not permitted in a file name from the name of a file that a remote
-  server sends, before OpenBot keeps a copy to open it.
+  server sends, before Builders Bot keeps a copy to open it.
 - Limit the downloads of a page in the browser to 4 at one time and to 2 GB each. Before, a page
   could download files until the disk was full.
 - Make the remote connection service safer. It now closes a connection that does not sign in within
@@ -1869,7 +2197,7 @@ All notable changes to OpenBot will be documented here. The project follows
   every cookie in a cookie header, credential values in web addresses, and Google, GitLab, npm,
   Hugging Face, Groq, AWS session and Stripe keys. Before, a secret of these types from a provider
   message could stay in a log.
-- Disable and remove members correctly when an admin uses a team app on a server with an OpenBot
+- Disable and remove members correctly when an admin uses a team app on a server with an Builders Bot
   account. Before, the change was only in the team file of the server: the account kept the
   membership, and the member stayed connected. Now the account changes, and the server closes each
   session of that member. This also applies to a change from the desktop app.
@@ -1878,9 +2206,9 @@ All notable changes to OpenBot will be documented here. The project follows
   all other members.
 - Count sign-in attempts for a user name with spaces around it as attempts for that user name.
 - Send a server invitation email only for an open invitation that an owner or admin of that server
-  made for that address. Before, any signed-in account could send an OpenBot invitation email to
+  made for that address. Before, any signed-in account could send an Builders Bot invitation email to
   any address.
-- Show "OpenBot user" in the skill and agent marketplaces for a creator with no display name, and
+- Show "Builders Bot user" in the skill and agent marketplaces for a creator with no display name, and
   do not search creators by email. Before, the marketplaces showed the email address of such a
   creator.
 
@@ -1889,7 +2217,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Added
 
 - The website has a new section, "Your agents talk to each other". In an animation, Ada, Linus and
-  Grace pass a task through OpenBot. Then a network that is different at each visit grows until it
+  Grace pass a task through Builders Bot. Then a network that is different at each visit grows until it
   fills the screen. With reduced motion, the section shows the complete network.
 - A Help button in the page rail opens a menu with the newest release notes, the full changelog, the guides and Send feedback.
 
@@ -1917,8 +2245,8 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Added
 
 - Add a contact form at `openbot.run/contact`. The Contact buttons on the website open it, and the
-  message goes to the OpenBot team by email.
-- A new customer now gets a "Welcome to OpenBot!" email when the plan of their first cloud server
+  message goes to the Builders Bot team by email.
+- A new customer now gets a "Welcome to Builders Bot!" email when the plan of their first cloud server
   starts. The email shows the plan, the server name, and a link to the web app.
 - An agent can work on tasks at the same time as its chat. Start a task with "New task" in the chat menu, or move a queued message to a task with "Run as task". The agent can also start a task itself.
 - Each task has its own conversation, progress, stop button and result. Open a task from its chip below the chat, or from the chat menu. Closed tasks stay under "Earlier tasks", where you can open them again.
@@ -1928,7 +2256,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Tasks run without Computer Use, so that only the agent's chat controls the screen. Each task has its own browser tabs.
 - You cannot change an agent's provider while its tasks run. After the change, the tasks continue on the new provider.
 - The transfer file keeps the "Tasks at once" setting of each agent.
-- Add an "OpenBot for Teams" section to the website. It shows managed servers, team environments,
+- Add an "Builders Bot for Teams" section to the website. It shows managed servers, team environments,
   custom integrations and launch support, and its Contact us button opens the contact form.
 - Add a For Teams page to the website, at `/teams`. It shows the three setups (local, managed server
   and custom deployment), what a server adds, the steps of a custom deployment, and who it is for. The header
@@ -1946,9 +2274,9 @@ All notable changes to OpenBot will be documented here. The project follows
 - Show why a Telegram connect failed on a joined server. Before, the error said only "Request
   failed.".
 - Stop the Telegram connect dialog from waiting for Telegram after a connect fails.
-- A hosted server could start with "OpenBot database failed its integrity check." after it stopped.
-  The host saved the disk while OpenBot wrote its database, and kept a damaged copy. A hosted server
-  now stops OpenBot and closes the database before the host saves the disk. A server gets this
+- A hosted server could start with "Builders Bot database failed its integrity check." after it stopped.
+  The host saved the disk while Builders Bot wrote its database, and kept a damaged copy. A hosted server
+  now stops Builders Bot and closes the database before the host saves the disk. A server gets this
   change when it updates and starts again.
 - A server that got the stop signal (for example, from `systemctl stop` or `docker stop`) ended at
   once. It now stops its services and closes the database, as the desktop app does when it quits.
@@ -1962,9 +2290,9 @@ All notable changes to OpenBot will be documented here. The project follows
   closed the connection.
 - Keep the numbers in a Markdown list in order when you add an item between existing items in the
   message box. Before, the new item and the item below it had the same number.
-- A server signs in to OpenBot at start when a slow database check holds the start. Before, the
+- A server signs in to Builders Bot at start when a slow database check holds the start. Before, the
   sign-in failed and the server went online about one minute later.
-- Start OpenBot faster after a clean stop when the database is large. Before, each start read the
+- Start Builders Bot faster after a clean stop when the database is large. Before, each start read the
   full database file to check it, which took minutes on a large file. The check now runs only after
   a stop that did not close the database, or after a database upgrade.
 - Stop the database from growing each time a conversation is read. Before, each read wrote the
@@ -1974,7 +2302,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - A hosted server no longer stops soon after it starts while you read it in a focused window or tab. Before, it stopped about 15 minutes after a wake when you did not type or click, and showed as asleep. An app that has focus now keeps it on for at most 30 minutes after your last message, change or typing, or after you return to the app.
 - The desktop app and the web client wait while a hosted server starts. Before, they
   stopped waiting after 5 minutes and showed "did not start in time", also when the server came online
-  a minute later. They now stop only when the machine runs and OpenBot on it does not connect in 15
+  a minute later. They now stop only when the machine runs and Builders Bot on it does not connect in 15
   minutes.
 - The desktop app and the web client show the start step and its time while a hosted server starts.
   Restart is not available while the machine starts.
@@ -1982,7 +2310,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - When the cloud provider limits new starts, the account server tries the start again after a delay,
   and the desktop app and the web client say so. Before, they showed "Could not start".
 - A conversation and its unread count load from an index of the message order. Before, each load sorted
-  the whole chat several times, so a client that opened many agents could stall OpenBot for seconds.
+  the whole chat several times, so a client that opened many agents could stall Builders Bot for seconds.
 
 ## [0.40.0] - 2026-10-15
 
@@ -1992,20 +2320,20 @@ All notable changes to OpenBot will be documented here. The project follows
 - Set a server timezone in Server settings → General. Agents use it for a new routine when the message does not give the sender's timezone. Before, a message that waited across a server restart created its routine in the timezone of the server's computer, often UTC.
 - Connect 1Password on a joined server, such as a server with no screen. In Settings › Connectors, an owner or admin of the server pastes a 1Password service account token. The server checks the token, keeps it in its own encrypted store, and keeps the connection after a restart. The page shows the vault names and the login count of that server. Disconnect acts on that server only. Both sides need this release; on an older server, 1Password does not show.
 - An agent routine on this computer can send each answer to a Slack, Discord or Telegram place. Choose the place in "Send answers to" in the routine editor.
-- The run history shows where each answer went. A delivery has its own status: a run that succeeded stays succeeded when its answer is not sent. A connection that does not run gets more attempts for one day. Use "Send again" for an answer that was not sent, or that OpenBot stopped during the send.
-- Agents can set what a routine does with runs that came due while OpenBot was off, and what it does at the account usage limit. An update that changes one of these settings keeps the other.
-- On a joined server, an owner or admin can see and change what a routine does with missed runs, and see the missed runs in the run history. The server must have this version of OpenBot.
-- Routines can run one time, at a local date and time. After the run, the routine stays as a paused record. You can cancel it before it runs. A run missed while OpenBot was closed runs one time at start, unless you set it to skip. A restart does not run it again. Agents use this schedule for reminders, not a yearly schedule. Only the desktop app on the computer that runs OpenBot shows one-time routines for now.
+- The run history shows where each answer went. A delivery has its own status: a run that succeeded stays succeeded when its answer is not sent. A connection that does not run gets more attempts for one day. Use "Send again" for an answer that was not sent, or that Builders Bot stopped during the send.
+- Agents can set what a routine does with runs that came due while Builders Bot was off, and what it does at the account usage limit. An update that changes one of these settings keeps the other.
+- On a joined server, an owner or admin can see and change what a routine does with missed runs, and see the missed runs in the run history. The server must have this version of Builders Bot.
+- Routines can run one time, at a local date and time. After the run, the routine stays as a paused record. You can cancel it before it runs. A run missed while Builders Bot was closed runs one time at start, unless you set it to skip. A restart does not run it again. Agents use this schedule for reminders, not a yearly schedule. Only the desktop app on the computer that runs Builders Bot shows one-time routines for now.
 - Several instances on one Docker host: `openbot-instance backup`, `verify`, `restore` and `backups` back up all data of an instance, check the backup in a temporary folder, and restore it with the same agents and conversations. To back up an instance each day, turn on its timer with `systemctl enable --now openbot-instance-backup@<name>.timer`.
 - Settings → Dynamic Island has a Servers list. Turn off a server to hide its agent activity and requests from the island. The server stays connected and its desktop notifications continue. A switch sets whether servers that you add later show in the island.
-- Add links to the OpenBot Discord community on openbot.run: a "Discord" item in the Resources
+- Add links to the Builders Bot Discord community on openbot.run: a "Discord" item in the Resources
   column of the footer, and a Discord icon next to the GitHub and X icons.
-- Add discord.openbot.run, a short address that opens the OpenBot Discord community.
+- Add discord.openbot.run, a short address that opens the Builders Bot Discord community.
 - Agents fill forms in the built-in browser faster. They can fill up to 16 text fields in one step. They do not use this step for password, verification code, or card fields.
-- Send agent notifications to the OpenBot app on Android phones. The phone gets the same events as
+- Send agent notifications to the Builders Bot app on Android phones. The phone gets the same events as
   an iPhone: a finished task, an error, a question, an approval, or a step in the browser. The
-  agent name and the text are sealed, so Google and the OpenBot account service cannot read them.
-- The website compares OpenBot with Instinct at /compare/instinct: where agents work, who holds your data, who approves actions, price, and where you can use each.
+  agent name and the text are sealed, so Google and the Builders Bot account service cannot read them.
+- The website compares Builders Bot with Instinct at /compare/instinct: where agents work, who holds your data, who approves actions, price, and where you can use each.
 
 ### Changed
 
@@ -2018,9 +2346,9 @@ All notable changes to OpenBot will be documented here. The project follows
 - Admins of a hosted server can now restart it from the server menu. Before, only the owner could restart it.
 - The model picker in a conversation shows only the providers that are ready to use. Select + to connect another provider in Settings.
 - A disputed payment for a hosted server ends its plan at once. The server stops and keeps its disk. A refund keeps the plan and the server running.
-- After you delete an agent, a notice with an Undo button shows for 8 seconds. Press Undo to get the agent back in the same place. OpenBot deletes the agent only when the time ends. The time stops while the pointer is on the notice.
-- The "Contact" button in the openbot.run header is now "Community". It opens the OpenBot Discord
-  community instead of the OpenBot account on X.
+- After you delete an agent, a notice with an Undo button shows for 8 seconds. Press Undo to get the agent back in the same place. Builders Bot deletes the agent only when the time ends. The time stops while the pointer is on the notice.
+- The "Contact" button in the openbot.run header is now "Community". It opens the Builders Bot Discord
+  community instead of the Builders Bot account on X.
 - Docker and hosted servers now include bubblewrap. Codex recommends the system copy instead of its bundled copy.
 - Docker documentation explains browser access and how to check a new release before upgrading a self-hosted server. It includes the release metadata source, deployment-file review and cold backup steps.
 - The add server dialog now asks "Need more power or a custom solution?" in its footer, in all languages.
@@ -2030,7 +2358,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- An agent that sent many messages to teammates made each chat open and each finished turn slower, because OpenBot searched all saved message keys again for each message. It now reads them once.
+- An agent that sent many messages to teammates made each chat open and each finished turn slower, because Builders Bot searched all saved message keys again for each message. It now reads them once.
 - File, agent, skill and MCP chips in a message are centred on their line again. Before, their icons sat low, the file type badge went out of its box, the agent face was clipped on the right, and a file chip could cut a short name such as `provider-session.log` with an ellipsis.
 - Skill and MCP chips in a message and in the message box have icons of the same size and line weight as file chips. Before, their icons were larger and heavier.
 - Telegram messages and captions now preserve repeated spaces and tabs. Previously, code indentation and tab-separated text lost their spacing.
@@ -2044,44 +2372,44 @@ All notable changes to OpenBot will be documented here. The project follows
 - Slack author and channel names now recover after a temporary lookup failure. Before, the names stayed as IDs until the connection restarted.
 - Gemini no longer fills the disk on Windows. Each start of the Gemini server unpacks about 310 MB
   into the temporary folder, and a start that was stopped or timed out left that copy behind. Now
-  each Gemini process on Windows uses its own folder in the OpenBot data folder, and OpenBot removes
+  each Gemini process on Windows uses its own folder in the Builders Bot data folder, and Builders Bot removes
   it when the process ends and at each launch.
 - On Windows, Gemini does not start when the disk has less than 1 GB free, and says so.
-- After 3 failed starts in a row, OpenBot stops starting a provider by itself and shows why on the
+- After 3 failed starts in a row, Builders Bot stops starting a provider by itself and shows why on the
   provider row. Refresh the providers to try again.
-- On Windows, to get back the disk space that Gemini used in earlier versions, quit OpenBot and delete the `_MEI` folders in `%TEMP%`.
-- On Linux, the invitation page now offers the Linux installer. Before, Download OpenBot gave the macOS installer.
+- On Windows, to get back the disk space that Gemini used in earlier versions, quit Builders Bot and delete the `_MEI` folders in `%TEMP%`.
+- On Linux, the invitation page now offers the Linux installer. Before, Download Builders Bot gave the macOS installer.
 - A self-hosted server now starts again when `sudo openbot update` fails or is stopped. Before, the
   server stayed stopped until an operator started it.
 - A browser live view that moves to a new connection now stops the previous view. Before, the previous view kept the screencast and the page size active.
-- Many large chats no longer stop the app for a second or more when their history gets too large to keep in memory. Before, OpenBot measured all chats again for each old message that it removed.
+- Many large chats no longer stop the app for a second or more when their history gets too large to keep in memory. Before, Builders Bot measured all chats again for each old message that it removed.
 - A published site now sends a folder address without a final `/`, such as `/guide`, to `/guide/`. Before, the page opened at `/guide`, and its relative styles, images, scripts and links did not load.
-- Slack, Discord, Telegram and webhook connectors no longer stay at Connecting when Signal accepts the connection but does not answer. After 15 seconds, OpenBot closes that connection and tries again.
-- After a Codex protocol error, OpenBot now stops the old Codex process with SIGKILL when it does not stop within 2 seconds. Before, the old process could continue to run next to its replacement.
+- Slack, Discord, Telegram and webhook connectors no longer stay at Connecting when Signal accepts the connection but does not answer. After 15 seconds, Builders Bot closes that connection and tries again.
+- After a Codex protocol error, Builders Bot now stops the old Codex process with SIGKILL when it does not stop within 2 seconds. Before, the old process could continue to run next to its replacement.
 - In a narrow settings column, the ACP registry actions move under the agent and wrap. Before, long translated labels hid the agent name, covered its version, and cut off Remove runtime.
 - Stopping Pi or Muse while a chat opens now also stops that chat's provider process. Before, the process could stay open after the provider stopped.
 - Record the correct owner when two agents create shared tables at the same time. Before, both
   tables could go to the first agent, and the other agent could not remove its own table. A table
-  that the user makes outside OpenBot also stays without an owner now.
+  that the user makes outside Builders Bot also stays without an owner now.
 - A transfer to another computer keeps executable workspace and shared files executable. Before, an imported script failed to run by its path.
 - ACP registry settings now keep a gap between the search and agent ID fields and their buttons, and between Install and Cancel. Before, these controls touched.
 - A transfer export stops with an error when it cannot read a workspace, skill or shared folder. Before, it left out the folder's files and reported a complete export.
 - Agents can now write, search, and delete full-text (FTS5) and R*Tree tables in the shared database. Before, SQLite refused every use of these tables after `CREATE`, refused to create an R*Tree table, and the table could not be removed. While such a table existed, the shared tables list also showed no row counts.
 - An agent can read the result page after it submits a form in the browser. Before, the click failed and the tab showed an empty page.
-- An agent that answers in Slack, Discord or Telegram no longer stops answering after a provider error. Before, a failed Muse turn start, a provider that exited, a turn that ended before its start was confirmed, or a turn start with no confirmation could hold every later message with "OpenBot is working on another request" until OpenBot restarted.
+- An agent that answers in Slack, Discord or Telegram no longer stops answering after a provider error. Before, a failed Muse turn start, a provider that exited, a turn that ended before its start was confirmed, or a turn start with no confirmation could hold every later message with "Builders Bot is working on another request" until Builders Bot restarted.
 - An agent in a Slack, Discord or Telegram conversation no longer waits for an answer to a question card that nobody there can see. It asks the question in its answer instead.
 - An approval request that did not reach Slack, Discord or Telegram is posted again when the conversation is connected. Before, the turn waited with no notice in the conversation.
-- The "Working" and "Waiting" posts in Slack, Discord and Telegram now end after a restart, a provider crash or a lost connection. Before, they stayed with a Stop button that did nothing. When an answer cannot be posted, the conversation now says that OpenBot could not finish the request.
+- The "Working" and "Waiting" posts in Slack, Discord and Telegram now end after a restart, a provider crash or a lost connection. Before, they stayed with a Stop button that did nothing. When an answer cannot be posted, the conversation now says that Builders Bot could not finish the request.
 - Slack and Discord messages no longer wait minutes to start when a channel or user name lookup is slow.
 - A hosted server that wakes now handles the kept Slack, Discord and Telegram events of each workspace or chat separately. Before, one connection that could not start held back the events of all other connections, and each of its events waited 60 seconds.
-- A Telegram chat that you link while OpenBot connects to Signal again now shows in OpenBot. Before, the link could be lost, and you had to link the chat again.
-- An agent that answers in Discord, Slack or Telegram no longer stops answering after a restart. Before, a restart could make one of its conversations the agent's own chat. Then, after a routine ran there, every new message waited with "OpenBot is working on another request" until OpenBot restarted. A restart no longer does this. An agent that is already in this state keeps its chat and its history, and answers again.
+- A Telegram chat that you link while Builders Bot connects to Signal again now shows in Builders Bot. Before, the link could be lost, and you had to link the chat again.
+- An agent that answers in Discord, Slack or Telegram no longer stops answering after a restart. Before, a restart could make one of its conversations the agent's own chat. Then, after a routine ran there, every new message waited with "Builders Bot is working on another request" until Builders Bot restarted. A restart no longer does this. An agent that is already in this state keeps its chat and its history, and answers again.
 - The chat of such an agent shows its new messages in the app again.
-- Stop the Windows download page and the OpenBot 101 guide from saying that the installer is not
+- Stop the Windows download page and the Builders Bot 101 guide from saying that the installer is not
   code-signed. They now say that SYNTHETIFY LABS signs it, and tell you how to continue when
   SmartScreen still warns about a new release.
 - You can name a sidebar section with a Japanese, Chinese or Korean input method. Before, the Enter that confirms a conversion saved the section, and Escape closed the editor and lost the name.
-- Start custom agents that need Node or another tool from your shell when you open OpenBot from
+- Start custom agents that need Node or another tool from your shell when you open Builders Bot from
   Finder, the Dock, or a login item. Before, they stopped with exit code 127. Check agent now uses
   the same `PATH`, and a `PATH` that you saved on the agent still wins.
 - The Model field in agent settings, first-agent setup and the Slack and Telegram agent forms uses the full width of its row in narrow windows. Before, in windows 720 pixels wide or less, the field stayed at 148 pixels and cut the model name.
@@ -2094,7 +2422,7 @@ All notable changes to OpenBot will be documented here. The project follows
   it needed a new sign-in, but the old CLI was still installed and signed in.
 - Do not show a "Provider error" when Codex uses its bundled bubblewrap. Before, Codex showed this error on each connect on Linux servers, but it worked.
 - Keep the Create agent button visible and clickable when the agent description is long or the window is small. Before, the suggestion cards covered the button.
-- A scheduled routine no longer starts after you pause, delete or reschedule it while another routine is starting. Before, OpenBot could still start the old occurrence. A routine that you edit at that time now uses your new instruction and settings.
+- A scheduled routine no longer starts after you pause, delete or reschedule it while another routine is starting. Before, Builders Bot could still start the old occurrence. A routine that you edit at that time now uses your new instruction and settings.
 - Docker instance restore now verifies the backup before it stops the target or replaces its data.
   A backup with valid checksums but a damaged database could previously replace healthy data.
 - Auto approve and Turbo now accept Codex's request to run an MCP tool. Before, a new tool still asked each time. A Workspace only agent, a Computer Use tool, a tool set to ask every time, forms and sign-in requests still ask.
@@ -2105,7 +2433,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 - Add Vercel to the Apps catalog. Agents can list projects and deployments, read build and runtime
   logs, and find why a build failed after you sign in to your Vercel account.
-- Agents can capture the screen of the computer that runs them: one display, one window, or an area of a display. You approve each capture first, or Turbo approves it when it has a standing approval for the agent, and the image shows in the conversation. Computer Use in the agent settings turns screen capture on or off for each agent. On macOS, OpenBot asks for the Screen Recording permission and tells you how to turn it on.
+- Agents can capture the screen of the computer that runs them: one display, one window, or an area of a display. You approve each capture first, or Turbo approves it when it has a standing approval for the agent, and the image shows in the conversation. Computer Use in the agent settings turns screen capture on or off for each agent. On macOS, Builders Bot asks for the Screen Recording permission and tells you how to turn it on.
 - Codex, Claude and Grok can have more than one account. In Settings › Providers, select Add account under a provider to sign in to one more account. Each account keeps its own sign-in and its own usage limits, and you can rename or remove an account there.
 - Each agent can use a different account of its provider. Select the account in the model picker. The agent keeps its account after a restart.
 - The Usage menu shows the limits of each account.
@@ -2126,8 +2454,8 @@ All notable changes to OpenBot will be documented here. The project follows
 
 - The server connection notice has a Details button. It shows why the server is away (an update, a start, or a lost connection), each step until the workspace is back, and how long it has taken.
 - Slack, Discord and Telegram now show in Marketplace › Apps, next to GitHub, 1Password and Bitwarden.
-- Run several OpenBot Docker containers on one host, each with its own CPU, memory and disk limit, with `docker/instances/openbot-instance`. The containers cannot reach each other, the host or private networks, only the internet. See "Several instances on one host" in `docs/docker.md`.
-- Server settings > Transfer moves the agents of a server to another server, also between computers. Export one file from the old server and import it into the new one. The file holds the instructions, avatar, model, skills, routines and memories of each agent and, if you want, its workspace files, plus the MCP servers, custom model providers and sidebar sections of the server. It also works with a joined server when you are its owner or an admin, for files up to 100 MB. API keys, sign-ins and chat history are not in the file. After the import, OpenBot shows which providers to sign in to again.
+- Run several Builders Bot Docker containers on one host, each with its own CPU, memory and disk limit, with `docker/instances/openbot-instance`. The containers cannot reach each other, the host or private networks, only the internet. See "Several instances on one host" in `docs/docker.md`.
+- Server settings > Transfer moves the agents of a server to another server, also between computers. Export one file from the old server and import it into the new one. The file holds the instructions, avatar, model, skills, routines and memories of each agent and, if you want, its workspace files, plus the MCP servers, custom model providers and sidebar sections of the server. It also works with a joined server when you are its owner or an admin, for files up to 100 MB. API keys, sign-ins and chat history are not in the file. After the import, Builders Bot shows which providers to sign in to again.
 - An operator can sign a self-hosted server or Docker container in for somebody else with no email code: `openbot login --claim`, which reads the claim from standard input. The account service makes the one-time claim for the owner's email with the new `SERVER_CLAIMS_ADMIN_TOKEN`. The claim works once, for 15 minutes. See "Sign in with a server claim" in `docs/self-hosted-server.md`.
 
 ### Changed
@@ -2137,24 +2465,24 @@ All notable changes to OpenBot will be documented here. The project follows
 - On an iPhone or an Android phone, the main download button of the home page now opens the phone app's store page. Before, it offered the Mac or Linux installer, which a phone cannot open.
 - When you restart a hosted server, the dialog stays open and shows the restart: the server stops, starts, and is back online. You can hide the dialog; a notification then tells you when the server is back or did not start. If the server does not start, "Try again" restarts it from the dialog.
 - Connect on a provider row now uses the easiest sign-in for the place you are in. On this computer, it opens your browser. On a server, from the app, it opens the sign-in page in your browser and sends the result to the server. In a browser tab, it shows a code. The other way to sign in is in the row's ⋯ menu.
-- In a browser tab, a provider that only the OpenBot app can sign in now tells you to connect it in the app, with a link to get the app.
+- In a browser tab, a provider that only the Builders Bot app can sign in now tells you to connect it in the app, with a link to get the app.
 - In a browser tab, Gemini's ⋯ menu now has "Paste the address", so you can connect it without the app.
 - The Mobile tab of the changelog page shows the stores that have each version of the mobile app:
   iOS, Android, or both. A store that does not have the version yet shows "In review". When the two
   stores released the version on different days, each store shows its own date.
 - On the routine canvas, each connection now ends in an arrow where it goes into the next card, so you can see the order in which a run goes from one agent to the next. The step number in the corner of each agent card is removed; the routine details panel still shows it.
 - On a joined server, 1Password and Bitwarden now show in Server settings › Connectors as "Your computer only". Before, they did not show.
-- When a joined server has a new OpenBot version, a dialog now shows the update steps: download, restart, and back online. One click starts the update. An admin can let the restart wait until agents are idle, restart at once, or cancel the restart. You can hide the dialog while the server updates; a notice keeps the status and opens the dialog again.
+- When a joined server has a new Builders Bot version, a dialog now shows the update steps: download, restart, and back online. One click starts the update. An admin can let the restart wait until agents are idle, restart at once, or cancel the restart. You can hide the dialog while the server updates; a notice keeps the status and opens the dialog again.
 - In Server settings > Updates, "Update when idle" and "Restart now" open the same dialog.
 - The update dialog opens each time you enter a server that has a new version. An update button next to the server name in the sidebar opens it again.
-- The openbot.run website now keeps the first visit of your browser (source, first page, day and campaign tags) in the browser. When you sign in on the web, or open the page after a desktop checkout, OpenBot saves it on your account for product analytics. It contains no referrer, IP address or identifier. [PRIVACY.md](https://github.com/nightly-labs/openbot/blob/main/PRIVACY.md) describes it.
+- The openbot.run website now keeps the first visit of your browser (source, first page, day and campaign tags) in the browser. When you sign in on the web, or open the page after a desktop checkout, Builders Bot saves it on your account for product analytics. It contains no referrer, IP address or identifier. [PRIVACY.md](https://github.com/nightly-labs/openbot/blob/main/PRIVACY.md) describes it.
 
 ### Fixed
 
 - In an MCP form, the `›` in the Server settings header had more space on its left than on its right. Now the space is the same on both sides.
-- When your ChatGPT sign-in expired, creating an agent showed "workspace routing discovery unauthorized (401)". Now OpenBot tells you to sign in again, and the model picker shows the sign-in action.
+- When your ChatGPT sign-in expired, creating an agent showed "workspace routing discovery unauthorized (401)". Now Builders Bot tells you to sign in again, and the model picker shows the sign-in action.
 - When an OpenCode model ends a turn with no answer, the chat now says so, and says when the model stopped after its reasoning. Before, it told you to check sign-in and billing, also for free models where neither is the cause.
-- When you select a server on another computer, OpenBot now connects to it at once. Before, if the connection to that computer stopped recently, the server could show "Connecting" for up to 5 minutes.
+- When you select a server on another computer, Builders Bot now connects to it at once. Before, if the connection to that computer stopped recently, the server could show "Connecting" for up to 5 minutes.
 - Keep a phone or another computer connected when it is slow to read updates, such as a phone in
   the background while an agent works. Before, it could disconnect with "The host event stream has
   a gap.", because this computer sent updates out of order or skipped one that it could not send.
@@ -2171,7 +2499,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - A GitHub sign-in that waits for the code now shows "Connecting". Before, it showed as not connected.
 - In Marketplace › Apps, Connect on the GitHub card now shows on a joined server that can run connectors. Before, it showed only when the server could manage MCP servers.
 - The Bitwarden card in Marketplace › Apps now shows the same lock mark as Server settings › Connectors.
-- On a joined server, the Routines view no longer says that the server does not support routine flows while OpenBot connects, reconnects or waits for the server to wake. The view stays empty until the server answers, as it does while routines load.
+- On a joined server, the Routines view no longer says that the server does not support routine flows while Builders Bot connects, reconnects or waits for the server to wake. The view stays empty until the server answers, as it does while routines load.
 
 ## [0.38.2] - 2026-10-13
 
@@ -2184,7 +2512,7 @@ All notable changes to OpenBot will be documented here. The project follows
   uses a desktop app at that time. While the phone shows the Live Activity, the Live Activity shows
   the event in place of a notification, and lights up the screen and plays the sound when the phone
   chose that. It uses the choices of each phone, and seals the agent name and the text
-  so that Apple and the OpenBot account service cannot read them. The server keeps the phones that
+  so that Apple and the Builders Bot account service cannot read them. The server keeps the phones that
   get notifications, so they continue after a restart.
 - You can cancel a Gemini (or other browser) sign-in that waits for the browser. Before, the only way out was Restart, which opened another sign-in page.
 - While a provider connects, its row tells you to finish the sign-in in your browser.
@@ -2198,7 +2526,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 - When a queued message waits and no turn runs, the server log now names what holds the queue, so a
   queue that does not start can be diagnosed.
-- The sign-in code email leaves about one second sooner. Before, OpenBot waited for 10 replies from the mail server, one after another, before it showed the code field. Now it waits for 5.
+- The sign-in code email leaves about one second sooner. Before, Builders Bot waited for 10 replies from the mail server, one after another, before it showed the code field. Now it waits for 5.
 - Agents show a draft before they send a message for you, and they send it only after you approve it. A routine whose instruction asks for a send still sends. Before a payment, an agent reads back the item, price and total and asks you to confirm.
 - Agents give the answer first and do not invent facts or sources. An agent says done only after it checks the result.
 - When you say stop, an agent also stops each teammate that it gave work to, and tells you which teammates stopped.
@@ -2209,17 +2537,17 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- Open OpenBot from an invitation link on Windows. Before, Open OpenBot on the invitation page did
+- Open Builders Bot from an invitation link on Windows. Before, Open Builders Bot on the invitation page did
   nothing, because Windows had no handler for `openbot://` links.
-- Show help on the invitation page after Open OpenBot is pressed, in case OpenBot does not open.
+- Show help on the invitation page after Open Builders Bot is pressed, in case Builders Bot does not open.
 - Agents now show in their sections when a server starts or reconnects. Before, the sidebar sometimes showed them ungrouped until you refreshed the app.
 - Opening or writing to a chat no longer shows "Read state failed" when the read mark names a message
   that is not saved yet or was removed, such as a queued message on a hosted server. Before, every
   open and every send showed the error again.
-- The Google sign-in for Gemini no longer stops when you return to OpenBot before you finish it in the browser on the first-run screen.
-- A failed Gemini sign-in now shows the reason, such as a timeout or Google's own message. Before, every failure showed "OpenBot could not connect Gemini. Try again."
-- When Google refuses a saved Gemini API key, OpenBot says so. Before, it asked you to sign in with Google, which could not help while the key was saved.
-- OpenBot no longer opens a Google sign-in page by itself when it checks Gemini with an expired sign-in. It shows "Sign in with Google to use Gemini." at once, without a long wait.
+- The Google sign-in for Gemini no longer stops when you return to Builders Bot before you finish it in the browser on the first-run screen.
+- A failed Gemini sign-in now shows the reason, such as a timeout or Google's own message. Before, every failure showed "Builders Bot could not connect Gemini. Try again."
+- When Google refuses a saved Gemini API key, Builders Bot says so. Before, it asked you to sign in with Google, which could not help while the key was saved.
+- Builders Bot no longer opens a Google sign-in page by itself when it checks Gemini with an expired sign-in. It shows "Sign in with Google to use Gemini." at once, without a long wait.
 - A Gemini chat whose session was lost now starts a new session. Before, every next message in that chat failed.
 - When the Gemini plan's quota is reached, the turn fails with a clear message. Before, the quota notice was saved as Gemini's answer.
 - Gemini no longer asks for approval of a tool after you press Stop.
@@ -2241,7 +2569,7 @@ All notable changes to OpenBot will be documented here. The project follows
   a hosted server that sleeps. Signal keeps that message, encrypted for the server, for up to
   10 minutes, and the server answers it when it starts.
 - Dictation can use ElevenLabs Scribe v2 Realtime with your own API key. Select it in **Settings → Voice** and save the key. The text shows while you speak, and a finished sentence stays fixed. The audio goes to ElevenLabs only when you select this model.
-- The Routines canvas is now in the web app and on joined servers. Switch the sidebar to Routines to see an agent's routines, connect agents, edit their tasks, run a routine and ask the agent to edit the canvas. A member who can see an agent can change its canvas; only an owner or admin sees and changes webhook settings. The server must run this version of OpenBot.
+- The Routines canvas is now in the web app and on joined servers. Switch the sidebar to Routines to see an agent's routines, connect agents, edit their tasks, run a routine and ask the agent to edit the canvas. A member who can see an agent can change its canvas; only an owner or admin sees and changes webhook settings. The server must run this version of Builders Bot.
 - Visual replies and HTML files show as pages in the web app, as on desktop. The page runs in a sandboxed frame and cannot read the web app.
 - Image attachments show as thumbnails in the web app, and audio and video attachments of 10 MB or less play in the chat after you select Play.
 - The iPhone app can search the files in the chats of this computer.
@@ -2270,7 +2598,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - An account can now have 50 hosted servers. Before, the limit was 3.
 - A hosted server with a Slack, Discord or Telegram connection now sleeps after 15 minutes with no use,
   as other hosted servers do. Before, a live connection kept it on all the time.
-- Long chats in the web app and on joined servers show the "Earlier" part of the day rail for messages that are not loaded yet, as on this computer. The server must run this version of OpenBot.
+- Long chats in the web app and on joined servers show the "Earlier" part of the day rail for messages that are not loaded yet, as on this computer. The server must run this version of Builders Bot.
 - Agents in one sidebar section now know their section teammates and send work to them first. To make agents work together, put them in one section.
 - When you open an agent whose history is not loaded yet, the loading crew covers the chat until the
   history is ready. Before, a banner showed a Retry button that you could not use. A failed load
@@ -2283,20 +2611,20 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Deprecated
 
-- **Put agents that work together in one sidebar section.** Channels are no longer supported. OpenBot archives every channel when it starts and hides channels on the desktop, the web and the iPhone app. Agents in one section know each other and send work to each other first. Your channel history stays on your computer for now. The next release removes channels and their data.
+- **Put agents that work together in one sidebar section.** Channels are no longer supported. Builders Bot archives every channel when it starts and hides channels on the desktop, the web and the iPhone app. Agents in one section know each other and send work to each other first. Your channel history stays on your computer for now. The next release removes channels and their data.
 
 ### Fixed
 
 - Keep a link in your own message readable when you put the pointer on it. Before, the link text
   almost disappeared into the bubble. A link that shows its full address no longer opens a tooltip
   with the same address.
-- A remote connection that Signal refuses for a reason other than a rate limit, such as an invalid ticket, reconnects at once. Before, OpenBot waited 60 seconds as if Signal had limited its rate.
+- A remote connection that Signal refuses for a reason other than a rate limit, such as an invalid ticket, reconnects at once. Before, Builders Bot waited 60 seconds as if Signal had limited its rate.
 - An image you paste or drop in an agent chat sends again after you had a channel open. Before, the closed channel deleted the attachment as it arrived, and sending failed with "Attachment draft no longer exists".
-- Claude background subagents keep running after the agent's turn ends. Before, OpenBot stopped the idle Claude process after 10 minutes and ended every subagent with "Stream closed", so long research had to start again.
+- Claude background subagents keep running after the agent's turn ends. Before, Builders Bot stopped the idle Claude process after 10 minutes and ended every subagent with "Stream closed", so long research had to start again.
 - The live view of a remote server's browser now stops when you hide the browser, change the tab, or close a sign-in page. Before, the server kept sending the old view.
 - A browser password request now shows the preview of its own page. Before, a slow preview of an earlier request could replace it.
-- When a server connection was lost while OpenBot checked it, for example when you came back to the app, the status showed a short countdown before it connected again. Now it connects again at once.
-- A Claude agent's answer after a background subagent or command ends now shows in the chat. Before, Claude wrote that answer, but OpenBot did not show it, because no message of yours had started the turn.
+- When a server connection was lost while Builders Bot checked it, for example when you came back to the app, the status showed a short countdown before it connected again. Now it connects again at once.
+- A Claude agent's answer after a background subagent or command ends now shows in the chat. Before, Claude wrote that answer, but Builders Bot did not show it, because no message of yours had started the turn.
 - The chat over the Routines canvas shows the agent's answer once, not twice.
 - Start the channel task that has waited longest for the host first. Before, a busy channel could
   start its newer tasks again and again while an older task of another channel stayed queued.
@@ -2305,10 +2633,10 @@ All notable changes to OpenBot will be documented here. The project follows
 - The web client connects to a hosted server that starts within about 5 seconds after the server is ready. Before, it could wait up to 2 minutes between attempts.
 - While a hosted server starts, the web client shows why the last connection attempt failed, with its error code.
 - An owner or admin of a server sees its Slack, Discord and Telegram connectors in the web client's Server settings, as in the desktop app. Before, the web client showed only GitHub. A Slack or Discord install that the web client starts returns to the web client tab.
-- OpenBot uses Electron 44.7.0. This update has V8 engine fixes that can stop rare crashes of the
+- Builders Bot uses Electron 44.7.0. This update has V8 engine fixes that can stop rare crashes of the
   app while it is idle on macOS.
 - A routine run that a local script or a webhook starts can now end quietly, as a scheduled run does.
-  Before, OpenBot sent it as a Test run, so the agent always wrote a report. The run history now
+  Before, Builders Bot sent it as a Test run, so the agent always wrote a report. The run history now
   shows "Script" or "Webhook" for these runs, not "Manual".
 - A client now connects again when it asks to start a hosted server that is stopping. Before, it
   stopped the reconnects and showed the server as offline until the next status check.
@@ -2320,13 +2648,13 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- URL MCP servers have a "Sign-in app" section. Enter the client ID, an optional client secret and optional scopes of an OAuth app that you registered with the server's provider. OpenBot uses this app when the server cannot register OpenBot by itself. The section shows the exact callback URL with a copy button. On a joined server, the host keeps the app and signs in with its own browser.
-- On a joined server that supports it, you can now connect Codex, Claude, Gemini and Muse from your own computer. The sign-in page opens in your browser, and OpenBot sends the callback to the provider's CLI on the host.
+- URL MCP servers have a "Sign-in app" section. Enter the client ID, an optional client secret and optional scopes of an OAuth app that you registered with the server's provider. Builders Bot uses this app when the server cannot register Builders Bot by itself. The section shows the exact callback URL with a copy button. On a joined server, the host keeps the app and signs in with its own browser.
+- On a joined server that supports it, you can now connect Codex, Claude, Gemini and Muse from your own computer. The sign-in page opens in your browser, and Builders Bot sends the callback to the provider's CLI on the host.
 - On a joined server that supports it, Server settings > Connectors now shows the host's GitHub, Slack, Discord and Telegram connections. You can connect, disconnect and reconnect them from your computer. The pages open in your browser, and the host keeps every token.
 - When an agent on a joined server shows a sign-in link, for example for an MCP server of its CLI, the link opens in your browser and the sign-in finishes on the host.
 - The Marketplace can now install an app that signs in with a browser on a joined server that supports this relay. The browser client can also connect providers and install these apps on a joined server.
-- On a joined server that supports it, the sign-in page of a URL MCP server now opens in the browser of your own computer, not in a tab on the host. Your passwords, passkeys and existing sessions work. OpenBot takes the callback on your computer and sends it to the host, and the host keeps the grant.
-- When your computer cannot take the callback of a relayed sign-in, OpenBot asks you to paste the address that the browser shows at the end of the sign-in. The browser client always uses this step.
+- On a joined server that supports it, the sign-in page of a URL MCP server now opens in the browser of your own computer, not in a tab on the host. Your passwords, passkeys and existing sessions work. Builders Bot takes the callback on your computer and sends it to the host, and the host keeps the grant.
+- When your computer cannot take the callback of a relayed sign-in, Builders Bot asks you to paste the address that the browser shows at the end of the sign-in. The browser client always uses this step.
 
 ### Changed
 
@@ -2334,34 +2662,34 @@ All notable changes to OpenBot will be documented here. The project follows
 - Show the words you dictate at the end of your draft, where they will go. Before, they showed as a
   separate grey paragraph under the draft and moved into it when the recording finished.
 - Make the voice recording bar shorter, so the message box has more space for text.
-- MCP sign-in now tries the same local callback port each time (28417), so the callback URL of a sign-in app stays the same. When the port is busy, OpenBot uses a random port.
+- MCP sign-in now tries the same local callback port each time (28417), so the callback URL of a sign-in app stays the same. When the port is busy, Builders Bot uses a random port.
 
 ### Fixed
 
 - Show a moving bar and no percent while a server prepares an update or stages it. Before, the update
   notice showed "Downloading · 0%" for minutes while a cloud server waited for its disk after a resume.
 - A hosted server that had a new release ready took more than 3 minutes to wake. It now wakes in about 20 seconds, as it does without a release.
-- When an agent opened more websites in the built-in browser, or when you came back to the OpenBot window, the browser went back to the first website. It now keeps the website that you chose.
+- When an agent opened more websites in the built-in browser, or when you came back to the Builders Bot window, the browser went back to the first website. It now keeps the website that you chose.
 - A paste into the live view of a remote host's browser now goes to the page. Before, the paste
   went to the last text selection in the window, such as the chat input, or it was lost.
-- A connection to a remote server that stayed open for 45 minutes asked the signalling service for new relay credentials many times a second, until the service closed the socket for a minute. The service could then also close the server owner's own host connection. OpenBot now asks once every 45 minutes, and restarts the network path only when it goes through a relay.
+- A connection to a remote server that stayed open for 45 minutes asked the signalling service for new relay credentials many times a second, until the service closed the socket for a minute. The service could then also close the server owner's own host connection. Builders Bot now asks once every 45 minutes, and restarts the network path only when it goes through a relay.
 - When you refuse a relayed sign-in on a joined server, the command-line tool on the server now gets
   the refusal and stops at once. Before, it waited until its own time limit.
 - The paste step of a relayed sign-in no longer says "this browser" in the desktop app.
 
 ### Security
 
-- OpenBot keeps the client secret of a sign-in app in the encrypted sign-in store, shows only "Secret saved" after you save it, and removes it when you remove the server. Only an owner or admin can change a sign-in app on a joined server. A sign-in app is bound to the first sign-in server that accepts it, and OpenBot never sends it to a different one.
-- The host relays an agent's sign-in link only when the link is an https page with a `state` that returns to a loopback address, and only when a message of that agent holds that exact link. A Slack or Discord grant goes only to the server whose install your computer opened, and only once. No connector route carries a token, and OpenBot does not log sign-in codes or grants.
-- Only an owner or admin can start a relayed sign-in. Each relay completes once, only for the member who started it, and ends after 10 minutes. Your computer sends only the query of the callback. The host checks its `state` and never lets a client choose a host port or address. The page opens only when you click "Open sign-in page" in the dialog that shows its host name, and your computer refuses a page that has no `state`, so a host cannot use your browser for a grant you did not ask for. OpenBot does not log the sign-in code.
+- Builders Bot keeps the client secret of a sign-in app in the encrypted sign-in store, shows only "Secret saved" after you save it, and removes it when you remove the server. Only an owner or admin can change a sign-in app on a joined server. A sign-in app is bound to the first sign-in server that accepts it, and Builders Bot never sends it to a different one.
+- The host relays an agent's sign-in link only when the link is an https page with a `state` that returns to a loopback address, and only when a message of that agent holds that exact link. A Slack or Discord grant goes only to the server whose install your computer opened, and only once. No connector route carries a token, and Builders Bot does not log sign-in codes or grants.
+- Only an owner or admin can start a relayed sign-in. Each relay completes once, only for the member who started it, and ends after 10 minutes. Your computer sends only the query of the callback. The host checks its `state` and never lets a client choose a host port or address. The page opens only when you click "Open sign-in page" in the dialog that shows its host name, and your computer refuses a page that has no `state`, so a host cannot use your browser for a grant you did not ask for. Builders Bot does not log the sign-in code.
 
 ## [0.37.0] - 2026-10-11
 
 ### Added
 
-- A scheduled routine has the setting "If OpenBot was closed at the scheduled time". "Skip this run"
-  is the default. "Run once when OpenBot opens" starts one run for the most recent missed time.
-- The run history shows the runs that OpenBot skipped while it was closed, as one row for each
+- A scheduled routine has the setting "If Builders Bot was closed at the scheduled time". "Skip this run"
+  is the default. "Run once when Builders Bot opens" starts one run for the most recent missed time.
+- The run history shows the runs that Builders Bot skipped while it was closed, as one row for each
   group, and marks a run that started more than one minute late.
 - Connect the phone app to a self-hosted or Docker server. Run `openbot mobile-connect` on the server
   (`docker exec -it <container> openbot mobile-connect` in Docker) and scan the QR code with the
@@ -2427,13 +2755,13 @@ All notable changes to OpenBot will be documented here. The project follows
 
 - Polish interface. Choose Polski in Settings > General > Language, or keep System default on a
   computer that uses Polish. The web client uses it too.
-- A computer that has not signed in to OpenBot now opens on a language wheel, before sign-in. Turn it with the arrow
+- A computer that has not signed in to Builders Bot now opens on a language wheel, before sign-in. Turn it with the arrow
   keys, the scroll wheel, a drag or the arrow buttons; the screen changes to each language as you
   turn it. Continue saves the language. The wheel shows one time on each computer.
-- The diagnostics export now has the memory and CPU use of OpenBot and of each provider's
+- The diagnostics export now has the memory and CPU use of Builders Bot and of each provider's
   processes, the app's responsiveness, database statement times and crash counts, for today and
   the previous day.
-- With analytics on, OpenBot sends one daily summary of its memory and CPU use, by computer class
+- With analytics on, Builders Bot sends one daily summary of its memory and CPU use, by computer class
   and provider. It does not send process names, command lines or paths.
 - Added a guide to run the Docker image as an AWS ECS service on EC2, with the seccomp profile, the
   data volume, ECS Exec sign-in and CloudWatch logs. AWS Fargate is not supported: it cannot keep
@@ -2483,7 +2811,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- An owner or admin can turn Computer Use and Local scripts on or off for an agent, and select what a message does while the agent works, from the OpenBot iPhone app.
+- An owner or admin can turn Computer Use and Local scripts on or off for an agent, and select what a message does while the agent works, from the Builders Bot iPhone app.
 - On macOS, you can reply to an agent, answer its question and stop its work from the Dynamic Island. The main window stays where it is. "Open chat" still opens the conversation.
 - Add native Pi RPC and Muse MSP providers, managed runtime downloads, and host sign-in.
 - Add ACP provider settings with saved overrides, deferred changes, and reset.
@@ -2511,13 +2839,13 @@ All notable changes to OpenBot will be documented here. The project follows
 - Voice input now uses NVIDIA Parakeet TDT 0.6B v3 in place of Whisper. The words show in the
   message box while you speak, and the full text replaces them when you stop. Parakeet supports
   25 European languages. Japanese, Chinese and Korean dictation is no longer available.
-- The first voice recording downloads a new model of approximately 670 MB. OpenBot deletes the
+- The first voice recording downloads a new model of approximately 670 MB. Builders Bot deletes the
   old Whisper files.
 - While you speak, the microphone button changes into a recording bar with a live waveform.
   The waveform shows small dots in silence and taller bars when you speak.
   ✓ puts the text in the message box, × discards the recording, and the send arrow sends it.
   The message box no longer gets a yellow outline during a recording.
-- Local scripts can send messages, read pending questions and approvals, and submit responses. Agents with Local scripts already enabled get these operations after upgrade without a new opt-in. Browser takeovers and secret questions direct the user to OpenBot.
+- Local scripts can send messages, read pending questions and approvals, and submit responses. Agents with Local scripts already enabled get these operations after upgrade without a new opt-in. Browser takeovers and secret questions direct the user to Builders Bot.
 - Owners and administrators can turn Local scripts on or off from a connected desktop or web client. Scripts run on the host, so a headless server needs no local screen.
 - Existing memories stay saved. During upgrade, recent manual memories receive priority for the essential prompt budget.
 - Remote memory selection uses bounded pages. Older hosts keep memory text editing without the new controls.
@@ -2533,7 +2861,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Fixed
 
 - A paste into a remote desktop now pastes your own clipboard on the host. Before, Cmd+V or Ctrl+V pasted the host's clipboard.
-- The embedded browser now removes the OpenBot and Electron user-agent tokens for sites such as X and LinkedIn, and sends basic client hints for its Chromium version and platform. Google account requests keep the compatibility token needed for sign-in.
+- The embedded browser now removes the Builders Bot and Electron user-agent tokens for sites such as X and LinkedIn, and sends basic client hints for its Chromium version and platform. Google account requests keep the compatibility token needed for sign-in.
 - The owner of a server can now remove it from the account with Remove server, in the server menu or in server settings, also when its computer is offline or gone. Before, an owner could not remove such a server, and it came back on each computer and after each reinstall. The removal applies to all members and all devices. Members lose access, and connected Slack, Discord, Telegram and webhook routes stop. If you add the server again, invite its members again and set up its connections again. Old webhook URLs do not work again. Files and chats on the server's computer stay.
 - Keep chat input focused while another agent uses the browser. Background browser actions could interrupt typing.
 - Keep chats at the latest message when switching agents. Measurements of routine cards and other messages could move the chat away from the bottom.
@@ -2542,12 +2870,12 @@ All notable changes to OpenBot will be documented here. The project follows
 - An agent whose provider says "You've reached your weekly usage limit" now waits for the limit to
   reset, as it does for "You've hit your weekly limit". Before, each queued message and routine run
   started a turn that failed.
-- Switch chats while OpenBot changes which queued message you edit, and each chat now keeps its own draft. Before, the first chat could get the other chat's draft and lose its own.
+- Switch chats while Builders Bot changes which queued message you edit, and each chat now keeps its own draft. Before, the first chat could get the other chat's draft and lose its own.
 - A voice message sent to one chat while you read another no longer scrolls the chat you read to its latest message.
 - Close the chat search or clear the query while a search is running, and a late result no longer opens an old match, possibly in another chat.
-- If a voice recording fails to start after the microphone opened, OpenBot now releases the microphone. Before, the microphone stayed in use.
+- If a voice recording fails to start after the microphone opened, Builders Bot now releases the microphone. Before, the microphone stayed in use.
 - A Stop that arrives after its turn ended no longer stops the next turn of the same agent.
-- A file or site folder whose name starts with two dots, such as `..notes.md`, now opens or publishes from the workspace. Before, OpenBot refused it as outside the workspace.
+- A file or site folder whose name starts with two dots, such as `..notes.md`, now opens or publishes from the workspace. Before, Builders Bot refused it as outside the workspace.
 - If saving the preview of a sent message fails, the message is still delivered. Before, it stayed in the queue until the next restart or queue event.
 - A routine set to repeat every 58 or 59 minutes is now refused when you save it, like every other schedule under the 3-minute minimum. Before, it ran twice within 1 or 2 minutes around each hour. Routines already saved this way keep running and can still be edited.
 - The sidebar section name field keeps focus after you choose New section or Rename. Before, the field could lose focus and the name was lost.
@@ -2563,33 +2891,33 @@ All notable changes to OpenBot will be documented here. The project follows
 - Two attachments whose names differ only in case, such as `Report.txt` and `report.txt`, now both arrive. Before, on macOS and Windows the second file overwrote the first, and the first attachment could not be opened.
 - A Claude turn that ends on an API error, such as an expired sign-in, a low credit balance or an overloaded service, now fails and shows the error. Before, the error text was saved as the agent's answer and the message counted as delivered.
 - When an agent cannot attach a file to its answer, it now gets the reason, for example a file outside its workspace and the shared directory, and can correct the call. Before, Codex agents got only `dynamic tool request failed` and retried the same call.
-- A Codex agent on a Plus or Pro plan now waits for its usage limit to reset. Before, the limit message offered more credits, so OpenBot took it for a spent balance and started each queued message and routine run, and each one failed.
-- Grok agents answer again after their Grok CLI restarts. Before, every message to the agent failed with `Invalid params` after an idle stop, an OpenBot restart or an update.
+- A Codex agent on a Plus or Pro plan now waits for its usage limit to reset. Before, the limit message offered more credits, so Builders Bot took it for a spent balance and started each queued message and routine run, and each one failed.
+- Grok agents answer again after their Grok CLI restarts. Before, every message to the agent failed with `Invalid params` after an idle stop, an Builders Bot restart or an update.
 - Fix remote reconnects that report too many active connections when an old client socket waits for its host. Concurrent reconnects and failed authentication no longer hold extra account slots. Other device sessions stay connected.
 - Wait before reconnecting when Signal limits connection traffic. Before, repeated retries could keep all devices on an account disconnected.
 - Gemini shows its sign-in and start errors. Before, it could show Ready when it could not run.
 - Restart works while a Gemini sign-in waits. Before, the old sign-in could stop the next attempt.
-- On Linux, Gemini sign-in opens in the desktop browser. When no browser opens, OpenBot shows the setup steps. Before, it waited until the sign-in expired.
+- On Linux, Gemini sign-in opens in the desktop browser. When no browser opens, Builders Bot shows the setup steps. Before, it waited until the sign-in expired.
 - Remote provider settings explain that Gemini sign-in opens a browser on the server's computer.
 - The message box and its queue stay below an approval request or a browser takeover. A message that you send while an agent waits for your approval now shows in the queue. Before, the message box went away, and a queued message was not visible until the approval was done.
-- When an agent refuses a request, OpenBot now shows the reason that the agent sends. Before, a Grok agent showed only `Invalid params`, for example when Grok refused a session resume after its CLI restarted.
+- When an agent refuses a request, Builders Bot now shows the reason that the agent sends. Before, a Grok agent showed only `Invalid params`, for example when Grok refused a session resume after its CLI restarted.
 - Messages stay in the queue when you try to steer a provider that does not support it. Custom ACP agents no longer receive a second prompt that can interrupt the running task or lose the queued message.
 - Recover the affected remote peer when a host data channel closes. Other connected clients stay connected.
 - Report failed Live View connections and invalid frames as failures. Close failed views so they can be opened again.
-- A queued channel task now starts when the agent or normal work that held it becomes free, also when that work ended without a turn, for example when a message failed to start or was cancelled. Before, the task could stay queued until the next channel command or a restart of OpenBot.
+- A queued channel task now starts when the agent or normal work that held it becomes free, also when that work ended without a turn, for example when a message failed to start or was cancelled. Before, the task could stay queued until the next channel command or a restart of Builders Bot.
 - A message from an agent with an empty reply id no longer stops the sender's and the recipient's
   conversations from loading or stalls the recipient's queue. Conversations that an earlier version
   saved with such a message load again.
 
 ### Security
 
-- The Bun runtime that OpenBot downloads to start MCP servers is now version 1.4.3, which has security fixes.
+- The Bun runtime that Builders Bot downloads to start MCP servers is now version 1.4.3, which has security fixes.
 
 ## [0.34.1] - 2026-10-09
 
 ### Changed
 
-- The mobile app card at the bottom of the sidebar now says "OpenBot for mobile", because the app
+- The mobile app card at the bottom of the sidebar now says "Builders Bot for mobile", because the app
   is on iPhone and Android. "How to install" opens Settings > Mobile Connect, which shows the steps
   for both phones. If you closed the old iPhone card, the new card shows one more time.
 
@@ -2609,7 +2937,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Right-click the routine canvas to add an agent at that spot: one you already have, or a new one with its name, what it does, and its model.
 - Webhook routines show on the routine canvas. Their details set the webhook: copy the endpoint, regenerate the signing secret, and choose the event type and filters that start a run. Run now tests them.
 - All signed-in server members can check for releases and request an idle update on supported installations. Administrators keep control of cancellation, forced restarts, and automatic-update settings.
-- Turn built-in providers off or on in this computer's provider settings. OpenBot saves the choice, stops unused provider processes, skips their CLI checks, and removes their models from the picker. Change an agent's model before you turn its provider off.
+- Turn built-in providers off or on in this computer's provider settings. Builders Bot saves the choice, stops unused provider processes, skips their CLI checks, and removes their models from the picker. Change an agent's model before you turn its provider off.
 - Russian interface. Choose Русский in Settings > General > Language, or keep System default on a
   computer that uses Russian. The web client uses it too.
 - Add Spanish and German to the language settings. Translate desktop and web-client screens,
@@ -2634,11 +2962,11 @@ All notable changes to OpenBot will be documented here. The project follows
   The button shows on this computer, and on a host where you are an owner or admin.
 - The iPhone and Android apps have their own download pages, `/download/ios` and `/download/android`,
   with the system requirements, the install steps and how to connect the phone to your computer.
-- Telegram: add the OpenBot bot to a Telegram group or start a direct chat with it from **Server settings → Connectors → Telegram**. People mention the bot or reply to it, and the Telegram Orchestrator asks the right agent and posts the answer in the same reply chain, with approvals, stop and files as in Slack.
-- OpenBot sends the page's mouse cursor to the mobile app, which shows it on the live browser view.
+- Telegram: add the Builders Bot bot to a Telegram group or start a direct chat with it from **Server settings → Connectors → Telegram**. People mention the bot or reply to it, and the Telegram Orchestrator asks the right agent and posts the answer in the same reply chain, with approvals, stop and files as in Slack.
+- Builders Bot sends the page's mouse cursor to the mobile app, which shows it on the live browser view.
 - A right-click from the mobile app opens the page's menu on the phone, not on the screen of the
   server. While the phone shows a tab, the page keeps one size, so it does not change shape when
-  the OpenBot window changes size. A tab that an agent gave its own size keeps that size.
+  the Builders Bot window changes size. A tab that an agent gave its own size keeps that size.
 - Choose how many memories each agent can keep, from 64 to 512, in Settings > General. A lower limit keeps all saved memories.
 
 ### Changed
@@ -2662,22 +2990,22 @@ All notable changes to OpenBot will be documented here. The project follows
   General is shorter: Language is first, and the settings are in four groups with shorter text.
 - Consecutive completed runs of one routine show as one row in the chat, with the number of runs and the time of the first and the newest run. Open the row to see each run. A run that fails, stops or needs attention keeps its own row.
 - Set the default provider for new local agents in Server settings → Providers. Computer permissions remain in Settings → Computer Use.
-- Open a joined server faster when OpenBot starts. The window no longer waits for the account's
+- Open a joined server faster when Builders Bot starts. The window no longer waits for the account's
   server list, the selected server connects while the window loads, and the hidden connection window
   loads while the session is made. A server that has no saved key still waits for the server list.
 - Write the time of each step of a connection to a joined server to the local trace file, for
   diagnostics. The trace does not name the server.
-- Connect to a joined server faster when OpenBot starts again. The app keeps the server's remote
+- Connect to a joined server faster when Builders Bot starts again. The app keeps the server's remote
   session between runs, so the start asks only for a new ticket. It opens the Signal connection while
   it waits for that ticket. The kept session is encrypted, and the app forgets it at sign-out or when
   it starts with no account signed in.
 - Add Settings → General → Fast connection to servers, on by default. Turn it off to end each remote
-  session when OpenBot quits and to keep nothing between runs, as before.
+  session when Builders Bot quits and to keep nothing between runs, as before.
 - Write the time when the Signal connection opens to the local trace file
   (`remote-connect:signal-socket`).
-- When you turn on Settings → General → Fast connection to servers, OpenBot also keeps the remote
+- When you turn on Settings → General → Fast connection to servers, Builders Bot also keeps the remote
   sessions that are open at that time.
-- When a remote connect fails before it gets its ticket, OpenBot closes the Signal connection that
+- When a remote connect fails before it gets its ticket, Builders Bot closes the Signal connection that
   it opened early.
 - Moved Publish from the chat header to the agent side panel. Click the agent name to find it.
 - The search field in the sidebar now opens the global search, the same as Cmd+K (Ctrl+K). It no longer filters the sidebar list.
@@ -2692,7 +3020,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Group the models of a custom ACP agent by the provider that serves each one. An agent that lists
   `<provider>/<model>` names now shows one section per provider in the model picker, instead of a
   single undifferentiated list.
-- The changelog page names the mobile app "OpenBot Mobile", because the app is now also on Android.
+- The changelog page names the mobile app "Builders Bot Mobile", because the app is now also on Android.
   Next to the TestFlight link, a button opens the Android app on Google Play.
 - The download section of the home page and the `/download` page have iPhone and Android tiles,
   in the same style as the desktop tiles. The links to the requirements pages show iPhone and
@@ -2705,8 +3033,8 @@ All notable changes to OpenBot will be documented here. The project follows
   QR code and the steps for that phone: the Google Play listing for Android, or the TestFlight beta
   for iPhone. The two cards are numbered, so you install the app first and then sign in. The list
   of connected phones shows the logo of each platform.
-- Show the platform logo, a link and the OpenBot logo in the middle of the install QR codes.
-- Show what a hosted server gives at the top of the add-server dialog: it runs OpenBot 24/7 on an
+- Show the platform logo, a link and the Builders Bot logo in the middle of the install QR codes.
+- Show what a hosted server gives at the top of the add-server dialog: it runs Builders Bot 24/7 on an
   external server, keeps agents and routines running when the computer is off, and needs no
   technical setup.
 - Telegram: code blocks in answers keep their language, such as `python`, so Telegram colors the code.
@@ -2719,15 +3047,15 @@ All notable changes to OpenBot will be documented here. The project follows
 - First run changes steps calmly: the old step blurs and fades out, and the next one comes into
   focus. When setup is done, the setup screen blurs away into the app. With reduced motion, the steps
   change at once.
-- When you open OpenBot from first run before the free models are ready, a splash shows: the agents
+- When you open Builders Bot from first run before the free models are ready, a splash shows: the agents
   from the first screen jump in a slow wave, and a line under them fills with the download. The app
   then opens from the splash. Before, a small spinner showed in a button.
 - The agents on the first screen and on the splash follow the pointer with their eyes. An agent
   grows a little under the pointer, and nods when you click it. With reduced motion, they stay still.
 - In the setup provider list, ChatGPT, Claude and Grok show their version under the name, not
-  "Included with OpenBot". Before, an "Update available" badge cut that line off.
+  "Included with Builders Bot". Before, an "Update available" badge cut that line off.
 - The sign-in screen says that the email address also creates an account, and that your chats and
-  files stay on the computer that runs OpenBot.
+  files stay on the computer that runs Builders Bot.
 
 ### Removed
 
@@ -2739,15 +3067,15 @@ All notable changes to OpenBot will be documented here. The project follows
 - Open Settings on the Hosted servers tab at once from "Manage servers". Before, the dialog showed
   another tab first and then jumped when the server list loaded. A slow list now shows a loading
   indicator, and a list that fails to load shows its error on the tab.
-- OpenCode models with no reasoning setting, such as Big Pickle, Kimi, MiMo and Nemotron, now show "Set by OpenCode" in agent settings. Before, the Reasoning control showed "Medium" as the only level, but OpenBot sent no level and OpenCode used the model's own default. Other ACP agents, such as Cursor, show the same "Set by" text for a model that has no reasoning setting.
+- OpenCode models with no reasoning setting, such as Big Pickle, Kimi, MiMo and Nemotron, now show "Set by OpenCode" in agent settings. Before, the Reasoning control showed "Medium" as the only level, but Builders Bot sent no level and OpenCode used the model's own default. Other ACP agents, such as Cursor, show the same "Set by" text for a model that has no reasoning setting.
 - OpenCode MiniMax M3 now offers Low (thinking off) and High (thinking on). Before, it offered only Low, so thinking could not be turned on.
-- Remote hosts can check for compatible OpenBot releases even when they cannot update themselves. Server Settings shows the installed and latest versions, explains the correct update path for hosted servers, system services, containers, and Host Manager installations, and hides installation controls that cannot work.
+- Remote hosts can check for compatible Builders Bot releases even when they cannot update themselves. Server Settings shows the installed and latest versions, explains the correct update path for hosted servers, system services, containers, and Host Manager installations, and hides installation controls that cannot work.
 - Server update status refreshes after a lost connection and does not show a reply from a previously selected host.
 - Show the latest message of a chat or channel in the sidebar as plain text. Before, the preview
   showed raw Markdown, such as `**2 new emails**` with its asterisks, while the chat itself showed
   the same text in bold.
 - Show "Connecting…" in the sidebar and the message box while a joined server connects after you
-  open OpenBot. Before, the app showed "Create your first agent" and asked you to complete agent CLI
+  open Builders Bot. Before, the app showed "Create your first agent" and asked you to complete agent CLI
   setup for some seconds, until the server sent its agents.
 - Grok chats keep their message order after a reload and when you load older messages. Before, a message that you sent while Grok worked could show above Grok's answer to the message before it.
 - A message that you send to a running turn now shows after what the agent did before it. Before, it moved up to the turn's first message.
@@ -2757,7 +3085,7 @@ All notable changes to OpenBot will be documented here. The project follows
   the message failed with "The idempotency key is too long."
 - Cancelling a browser task no longer shows the raw Codex tool cancellation error. Pending browser work stops, incomplete new tabs close, and existing tabs remain available for the next request.
 - Reduce idle animation work for active tasks and pending replies. Pause their repeated animations when the window is hidden or the rows are closed.
-- File chips can now find files outside the workspace from recent ACP and Claude file tool calls. Previously, a chip with only a file name could report a missing file. This lookup is local to the desktop and requires Full access. The last 200 paths per thread stay in memory until OpenBot closes.
+- File chips can now find files outside the workspace from recent ACP and Claude file tool calls. Previously, a chip with only a file name could report a missing file. This lookup is local to the desktop and requires Full access. The last 200 paths per thread stay in memory until Builders Bot closes.
 - Return keyboard focus to the server control after a confirmation closes.
 - Prevent a server connection from closing with “Signal message is invalid” when the browser sends an empty ICE completion marker.
 - The web app now opens the last server you selected in that browser. Each account keeps its own selection.
@@ -2774,13 +3102,13 @@ All notable changes to OpenBot will be documented here. The project follows
   agents.
 - Keep a deleted agent deleted when another device reacts to its message, stops its turn, or steers a
   queued message into its turn. Before, these actions created the agent again.
-- OpenBot starts when an unsent message with a skill or MCP server tag is saved in the message box.
+- Builders Bot starts when an unsent message with a skill or MCP server tag is saved in the message box.
   Before, the app stayed on the startup logo at each launch until you removed the saved draft.
 - Copy, cut, paste and select all now work in the browser of a remote server, with Ctrl or Cmd and
   C, X, V and A. Before, the shortcuts did nothing: the page used the clipboard of the server, not
   your clipboard. The server must also have this update; an older server shows a message that tells
   you to update it.
-- Keep the conversation usable when Cursor reports a missing provider session as "Invalid params". OpenBot now uses its saved conversation to continue in a new provider session.
+- Keep the conversation usable when Cursor reports a missing provider session as "Invalid params". Builders Bot now uses its saved conversation to continue in a new provider session.
 - When you close the global search with Escape, focus goes back to the control that had it before.
 - On the web, a hosted server that sleeps or wakes no longer shows a connection error.
 - A custom MCP server that asks for an OAuth sign-in no longer shows "The server answered 401. Check
@@ -2803,12 +3131,12 @@ All notable changes to OpenBot will be documented here. The project follows
   the action at once.
 - Disconnecting 1Password, or an app from the Marketplace, now asks for confirmation first.
   Before, one click forgot the 1Password token or removed the app and its skills.
-- The Computer Use rim no longer shows over the OpenBot window. When the window that an agent works
-  in is behind OpenBot, OpenBot now covers that part of the rim, as other windows do. When OpenBot
+- The Computer Use rim no longer shows over the Builders Bot window. When the window that an agent works
+  in is behind Builders Bot, Builders Bot now covers that part of the rim, as other windows do. When Builders Bot
   covers all of that window, no rim shows.
 - Center the agent avatar with the name in the profile card of the agent settings panel, and center the
   avatar on the profile page.
-- Antigravity no longer shows "Provider error" notifications for a failed MCP tool call or a timed-out OpenBot browser call. The agent gets the failure as the tool result and can try again.
+- Antigravity no longer shows "Provider error" notifications for a failed MCP tool call or a timed-out Builders Bot browser call. The agent gets the failure as the tool result and can try again.
 - When an agent calls a memory tool with missing text, text that is too long, or a memory ID that it cannot use, the agent now gets a failed tool result that it can correct. The user no longer sees a "Provider error" notification.
 - Keep the connection to a server when a desktop client that is connected to it reconnects to the
   signal server while the connection still works. Before, each such reconnect restarted the
@@ -2819,22 +3147,22 @@ All notable changes to OpenBot will be documented here. The project follows
   showed it as connected. Each stop then failed with "The WebRTC channel is not open." Now the
   client connects again when the server closes the connection. When a request could not go out on
   the closed connection, the client sends it again on the new connection.
-- An OpenCode CLI update no longer stops with only "fetch failed" after the download completes. OpenBot now gets the OpenCode license from npm, the same place as the CLI, so the update needs no GitHub connection.
+- An OpenCode CLI update no longer stops with only "fetch failed" after the download completes. Builders Bot now gets the OpenCode license from npm, the same place as the CLI, so the update needs no GitHub connection.
 - When a runtime download request fails, the error now shows the address and the network reason.
 - A Retry after a failed runtime install now uses the download it already has when that download passes its check, and does not download it again.
 - Read the history of a custom ACP agent from its process. Before, startup could stop with "Cannot
   read properties of undefined (reading 'options')" and the local agent backend did not start, and a
   read of the agent's conversation history could fail with the same error.
-- OpenBot reads your joined servers again when it opens before your account finishes loading.
-  Before, the first read could stop with "Sign in to OpenBot first.", and the server list did not
-  update until a later check. In 0.33.0, OpenBot could fail to start with this error.
-- The installed OpenBot web app now opens the app at `/app`. Before, it opened the landing page.
+- Builders Bot reads your joined servers again when it opens before your account finishes loading.
+  Before, the first read could stop with "Sign in to Builders Bot first.", and the server list did not
+  update until a later check. In 0.33.0, Builders Bot could fail to start with this error.
+- The installed Builders Bot web app now opens the app at `/app`. Before, it opened the landing page.
 - Connect Figma, or another MCP server on this computer, no longer stops with only "fetch failed".
   When nothing answers at the local address, the dialog tells you to turn the server on in its app
   and try again. A connection that this computer blocks, or an address that answers but is not an
   MCP server over Streamable HTTP, now has its own message.
 - In an attachment card, the download and open icons now have the same size and alignment.
-- OpenBot stays open when a Browser tab opens the Chrome Web Store. Before, the app could close a
+- Builders Bot stays open when a Browser tab opens the Chrome Web Store. Before, the app could close a
   few seconds after the page loaded, and again at each start while the tab was saved.
 - Keep the message cursor in place when you add or end lists, insert blank lines, or update attachments. Line breaks and multiline paste now work with undo and redo.
 - Keep text selection and arrow-key movement stable when you use inline tags or leave a suggestion list.
@@ -2859,7 +3187,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - An agent with a full memory now gets an error when it tries to save one more memory, and it can
   merge or forget a memory in the same turn. Before, the new memory was lost when the turn ended.
 - Show a Gemini rate limit or spent quota as an error that says to wait or choose another model.
-  Before, the turn failed with no message, because OpenBot waited for a usage reading that Gemini
+  Before, the turn failed with no message, because Builders Bot waited for a usage reading that Gemini
   does not send. A model that Gemini cannot use and a Google service failure also get their own
   message.
 - Say "Not reported" for Gemini, Cursor, Cline and custom ACP agents in the usage menu. These
@@ -2887,8 +3215,8 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- Show a yellow update notice with an Update button when the selected provider needs a newer runtime. Keep the draft and block sending until the required update is complete, instead of asking the user to reinstall OpenBot.
-- Hide the failed-send error while the required update notice is shown. Keep Edit and Dismiss available, and restore Retry after the update. Show manual update instructions when OpenBot cannot offer an update.
+- Show a yellow update notice with an Update button when the selected provider needs a newer runtime. Keep the draft and block sending until the required update is complete, instead of asking the user to reinstall Builders Bot.
+- Hide the failed-send error while the required update notice is shown. Keep Edit and Dismiss available, and restore Retry after the update. Show manual update instructions when Builders Bot cannot offer an update.
 - Pause webhook requests when you sign out. Sign in again to resume the saved routes without changing their URLs or secrets.
 - Protect saved MCP sign-in credentials from a changed authorization server. Older credentials refresh only when their original authorization server is known.
 
@@ -2937,9 +3265,9 @@ All notable changes to OpenBot will be documented here. The project follows
 - Each agent has a "While working" setting in its settings panel. It uses the app default, or it always queues or always steers for that agent.
 - A message that cannot steer waits in the queue with a "Not steered" label and the reason. Grok, OpenCode, Gemini, Cursor, Cline and custom agents cannot steer a running turn. The message starts when the current turn ends.
 - A message that could not be sent stays in the chat with Retry, Edit and Dismiss. Retry does not send the message two times, also when the first attempt reached the server and only its answer was lost. A server on an older version cannot detect a repeated message, so for it the chat offers only Edit and Dismiss. If you quit or restart before such a message is sent, its text is back in the composer when you return; nothing sends it again on its own.
-- openbot.run has a new /providers section with one page for each coding agent that OpenBot runs:
+- openbot.run has a new /providers section with one page for each coding agent that Builders Bot runs:
   Claude Code, Codex, Gemini, Grok, Cursor, OpenCode, Cline, and local models from Ollama or
-  LM Studio. Each page shows how to set the agent up in OpenBot, what OpenBot adds to it, the
+  LM Studio. Each page shows how to set the agent up in Builders Bot, what Builders Bot adds to it, the
   vendor's own apps and where they run, and answers to common questions. The footer, the provider
   tile on the home page and the matchup comparisons link to these pages.
 - openbot.run has a Markdown copy of each guide, news post, comparison and provider page, at the page URL with `.md` added. `/llms-full.txt` holds all of them in one file for AI assistants.
@@ -2947,11 +3275,11 @@ All notable changes to OpenBot will be documented here. The project follows
 - A folder chip, such as `research/eyeliner/`, now opens a folder view in the file panel. The view shows the files with their size and date. Select a file to open it, and select **Back** to go back to the folder.
 - The file panel can show the source of a Markdown file. It also has **Download file** for each file, and **Show file in Finder** on the desktop.
 - Add a calendar feed for routines in Server Settings > Routines. Apple Calendar (On My Mac) and other calendar apps that read the feed on this computer can subscribe to the next 30 days of runs of active routines, for all agents or for one agent. The private URL works only on this computer, and **New URL** stops the old one.
-- Connect a Discord server in **Server settings → Connectors → Discord**. People mention @OpenBot in a
+- Connect a Discord server in **Server settings → Connectors → Discord**. People mention @Builders Bot in a
   channel, and the Discord Orchestrator agent asks the right agent and answers in the reply chain.
-  Replies to OpenBot continue the conversation. Approvals, **Stop**, reactions and files work as in
+  Replies to Builders Bot continue the conversation. Approvals, **Stop**, reactions and files work as in
   Slack.
-- Connect Bitwarden in Marketplace or Server settings to fill browser passwords and authenticator codes. Share logins through a folder named `Shared with OpenBot`. The CLI session lasts until disconnect, eight idle hours, or app exit.
+- Connect Bitwarden in Marketplace or Server settings to fill browser passwords and authenticator codes. Share logins through a folder named `Shared with Builders Bot`. The CLI session lasts until disconnect, eight idle hours, or app exit.
 
 ### Changed
 
@@ -2970,7 +3298,7 @@ All notable changes to OpenBot will be documented here. The project follows
   each new part read and colored the full reply again.
 - A message you send shows in the chat at once, marked as sending, and the composer stays free for the next one. Before, the composer waited until the server accepted the message. Several messages sent quickly reach the agent in the order you sent them.
 - In the web client, a send that fails no longer blocks the composer until you check the conversation. The message stays in the chat with its failure.
-- Use less CPU and memory while channel agents write replies. Before, OpenBot read the whole
+- Use less CPU and memory while channel agents write replies. Before, Builders Bot read the whole
   conversation and the whole channel history again about ten times each second for each agent.
 - Close the Computer Use highlight windows one minute after no agent controls the computer. Before,
   they used memory for as long as Computer Use was on.
@@ -2984,21 +3312,21 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Fixed
 
 - Failed Antigravity MCP tool calls no longer show a separate provider error notification.
-- Remove claims from the website and documentation that OpenBot does not need an account.
+- Remove claims from the website and documentation that Builders Bot does not need an account.
 - Explain an OpenCode model whose provider rejects its API key, such as a Google Gemma model, and
-  tell how to fix the key. Before, OpenBot showed only "Internal error: API key not valid".
+  tell how to fix the key. Before, Builders Bot showed only "Internal error: API key not valid".
 - The **Add member** menu in channel settings has a search field, and its list scrolls. Before, the menu had no search and did not scroll, so agents above or below the window edge could not be added.
-- Sign in and connect to teams on a company network that inspects TLS, such as Fortinet. OpenBot
+- Sign in and connect to teams on a company network that inspects TLS, such as Fortinet. Builders Bot
   now trusts the root certificates of the operating system, as a browser does.
 - Show which host a company firewall or proxy blocked when sign-in cannot reach the account service.
-  Before, OpenBot asked you to check that the API was running, and a proxy's block page could sign
+  Before, Builders Bot asked you to check that the API was running, and a proxy's block page could sign
   you out.
 - Move the window by its title bar when the browser fills the window. Before, only the area under
   the window buttons moved it. You can also move the window by the header of the browser sidebar.
 - Long text in chat tables now wraps inside its cell. Before, a table could become wider than the
   message, and you had to scroll sideways to read it. Long links and code also break inside the
   cell.
-- Put the cursor back in the message box when you come back to the OpenBot window. Before, you had
+- Put the cursor back in the message box when you come back to the Builders Bot window. Before, you had
   to click the message box again before you could type.
 - A queued message that you steered just as the agent finished its turn no longer shows as done when the agent never read it. It stays in the queue and starts next.
 - The request that an agent sends to another agent, and the result that comes back, no longer add to
@@ -3006,8 +3334,8 @@ All notable changes to OpenBot will be documented here. The project follows
   had no new message for you.
 - The skill list now says when the agent has no skills, when no skill matches, or when the skills did not load. Before, the list did not open.
 - Keep the message you did not send when you go to a different chat. Each agent chat and each
-  channel keeps its own draft. The draft text also stays after you restart OpenBot, for example to
-  install an update. Attached files stay only until you close OpenBot.
+  channel keeps its own draft. The draft text also stays after you restart Builders Bot, for example to
+  install an update. Attached files stay only until you close Builders Bot.
 - The Mobile tab of the changelog shows a new version only when you can install it from the store.
   Before, it showed the version while the store still reviewed the build.
 - **Attach image** now shows PDFs, documents, and all other supported files. Before, on Windows, the file picker showed only images until you selected **All files**.
@@ -3019,15 +3347,15 @@ All notable changes to OpenBot will be documented here. The project follows
 - Type the phrase that an input method picks with Shift and a digit, such as an OpenVanilla
   associated phrase. Before, the message box typed the punctuation of the key, such as "!".
 - A host that clients reconnect to many times no longer runs out of network sockets and becomes unreachable until a restart. After 10 ICE restarts, a remote connection is replaced with a new one.
-- Connect again to a joined server after the computer wakes from sleep. Before, the server could stay unavailable until you restarted OpenBot.
+- Connect again to a joined server after the computer wakes from sleep. Before, the server could stay unavailable until you restarted Builders Bot.
 - Sign in to Framer in the embedded browser. Before, Framer refused every sign-in with "Cannot log
-  you in" or "Verification failed", because the browser identity included the OpenBot name.
+  you in" or "Verification failed", because the browser identity included the Builders Bot name.
 
 ### Security
 
 - The Windows installer and app are now signed by SYNTHETIFY LABS SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ. Windows no longer shows "Unknown publisher" for them, and later updates install only when they have the same signature. Before, the Windows release was not signed.
 - The account service now checks the skills and agent marketplace admin token in constant time. Before, the check time could show how much of a guessed token was correct.
-- Bitwarden fills require an exact HTTPS origin and a current item in the shared folder. Session keys and login values are not saved by OpenBot, and short authenticator codes are redacted from logs.
+- Bitwarden fills require an exact HTTPS origin and a current item in the shared folder. Session keys and login values are not saved by Builders Bot, and short authenticator codes are redacted from logs.
 
 ## [0.30.0] - 2026-10-05
 
@@ -3037,9 +3365,9 @@ All notable changes to OpenBot will be documented here. The project follows
   Connect. Connect opens the app in Marketplace and starts its sign-in there. You can dismiss the
   card and undo.
 - When an agent needs GitHub and it is not connected, the agent shows a GitHub card in the chat.
-- The openbot.run home page shows what OpenBot does, answers common questions, and links to each comparison.
+- The openbot.run home page shows what Builders Bot does, answers common questions, and links to each comparison.
 - An official Docker image, `ghcr.io/nightly-labs/openbot`, for `linux/amd64` and `linux/arm64`. It
-  runs OpenBot as a self-hosted server with the Electron sandbox on. Sign it in with
+  runs Builders Bot as a self-hosted server with the Electron sandbox on. Sign it in with
   `docker exec -it openbot openbot login`. See `docs/docker.md`.
 - openbot.run has a download page for each system: `/download/macos`, `/download/windows` and
   `/download/linux`. Each page gives the system requirements, the install steps and the known limits,
@@ -3047,22 +3375,22 @@ All notable changes to OpenBot will be documented here. The project follows
 - openbot.run has a download for Linux on arm64.
 - openbot.run has four new pages in /compare: Codex vs Claude Code, Claude Code vs Antigravity,
   Cursor vs Claude Code, and the best AI agent apps of 2026. Each pair page compares the two apps
-  from their official sources, and shows how OpenBot runs both as one team. The roundup lists 13
+  from their official sources, and shows how Builders Bot runs both as one team. The roundup lists 13
   apps and links each one to its comparisons. The Codex, Antigravity and roundup pages show a
   chart of scores, cost per task and time per task from the Artificial Analysis Coding Agent Index.
 - Connect 1Password in the Marketplace or in Server settings > Connectors. The page shows three
   steps: **Install** puts the 1Password CLI in place for you, with no administrator password; then
   turn on the CLI integration in the 1Password app, which the page sees when you come back; then
-  **Connect 1Password** creates a "Shared with OpenBot" vault and a service account that can read only
+  **Connect 1Password** creates a "Shared with Builders Bot" vault and a service account that can read only
   that vault. You can paste a service account token instead. Agents then sign in to sites in the
-  OpenBot browser with the logins you move into that vault. The browser fills the password or
+  Builders Bot browser with the logins you move into that vault. The browser fills the password or
   authenticator code; agents never see it.
-- Full Turkish language localization across OpenBot, covering 100% of messages including new features, connectors, Marketplace v3, schedule calendar, and all error catalogs.
+- Full Turkish language localization across Builders Bot, covering 100% of messages including new features, connectors, Marketplace v3, schedule calendar, and all error catalogs.
 - Choose the message send shortcut in Settings > General > App behavior (desktop) or
   Account > Preferences > App behavior (web): Enter to send, or ⌘Enter on macOS /
   Ctrl+Enter on Windows and Linux to send with Enter adding a new line. The choice
   stays on the device and browser. An Enter that confirms IME text never sends.
-- When a Claude or Codex account reaches its usage limit, OpenBot shows one desktop notification for
+- When a Claude or Codex account reaches its usage limit, Builders Bot shows one desktop notification for
   the account, with the number of agents that wait and the reset time when the provider gives it.
   Each agent on that account shows "Waits for limit" and the reset time in the sidebar.
 - A routine has a new setting, "If the account is at its limit", on this computer: wait and run
@@ -3089,7 +3417,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Fixed
 
-- The openbot.run home page title reads "Meet OpenBot" to search engines, and its text shows when JavaScript is off.
+- The openbot.run home page title reads "Meet Builders Bot" to search engines, and its text shows when JavaScript is off.
 - The openbot.run home page title shows sooner: it no longer waits for the page script.
 - `www.openbot.run` and `http://openbot.run` now go to `https://openbot.run`.
 - Page addresses that end in `/` now redirect permanently to the address without it.
@@ -3107,10 +3435,10 @@ All notable changes to OpenBot will be documented here. The project follows
   cannot be written, for example when the profile directory is read-only or the disk is full. The new
   name still appears in the app, and the next write of the list saves it.
 - A plugin listing with a server argument that is not text now stops the plugin catalog build. Before, the build dropped the whole argument list, so the listing shipped a server that started with no arguments.
-- The app no longer freezes when an agent declares a very long task resource list. OpenBot now
+- The app no longer freezes when an agent declares a very long task resource list. Builders Bot now
   refuses an oversized list at once, instead of resolving every path in the list first.
 - Signing out, disconnecting or quitting now ends a file download that is still waiting. Before, the
-  download waited for its full 60 s timeout and its timer kept OpenBot from closing.
+  download waited for its full 60 s timeout and its timer kept Builders Bot from closing.
 - Closing a remote connection while Signal checks its ticket no longer uses one of the account's
   remote connection slots. Before, the closed connection kept its slot, and the desktop was told
   that a phone was ready. A later device was then refused because the account was full.
@@ -3127,10 +3455,10 @@ All notable changes to OpenBot will be documented here. The project follows
   v1. That cursor held only a timestamp. The catalog order also leads with the featured flag, so the
   timestamp could not say where the last page stopped. The page now comes again and the rest of the
   catalog follows.
-- On macOS, the message that blocks an update while another OpenBot session runs now tells you when the other session runs in your own user account. Before, it always told you to stop OpenBot in every other macOS user account, even when the blocking process ran in your own account.
+- On macOS, the message that blocks an update while another Builders Bot session runs now tells you when the other session runs in your own user account. Before, it always told you to stop Builders Bot in every other macOS user account, even when the blocking process ran in your own account.
 - Open Desktop now shows why a remote desktop did not start: Sunshine did not start, Moonlight Web
   did not start, or pairing failed. Before, it showed only "request failed".
-- When Sunshine stops on the host, OpenBot ends its remote desktop sessions and starts Sunshine again
+- When Sunshine stops on the host, Builders Bot ends its remote desktop sessions and starts Sunshine again
   for the next session. Before, each new session stayed at "Connecting".
 - Open Desktop shows an error when the host does not start the stream in 60 seconds. Before, it
   stayed at "Connecting" until you closed it.
@@ -3138,28 +3466,28 @@ All notable changes to OpenBot will be documented here. The project follows
   account has several computers and devices. The account limit is now 32 Signal connections, not 8.
   A phone that reconnects after a network change no longer loses its own place to its old connection.
 - After a restart, a Claude agent chat no longer shows the context summary, "[Request interrupted by user]", or the output of a command such as `/compact` as a message from you, and no longer repeats an answer it already showed. The next restart also removes these messages from chats that already show them. An answer that was already repeated stays.
-- You can install the OpenBot website as an app from Chrome, Edge and Android. Before, the site
+- You can install the Builders Bot website as an app from Chrome, Edge and Android. Before, the site
   manifest told the browser to keep the site in a normal tab, so the browser did not offer to
   install it.
 - On a phone, the email sign-in code now fills from the keyboard suggestion or from autofill, also
   with its hyphen. Each character typed on an Android keyboard now goes into the next box. Before,
   each character replaced the first box.
 - Canva opens in the embedded browser. Before, Canva showed an "Update your browser" page and did
-  not let you edit a presentation, because its server refused the OpenBot token in the user agent.
-- Gemini agents no longer fail every turn with "Invalid value at 'tools[0].function_declarations[…]…enum[0]' (TYPE_STRING)". Two OpenBot tools sent numbers in a list of allowed values, which Gemini accepts only as text.
+  not let you edit a presentation, because its server refused the Builders Bot token in the user agent.
+- Gemini agents no longer fail every turn with "Invalid value at 'tools[0].function_declarations[…]…enum[0]' (TYPE_STRING)". Two Builders Bot tools sent numbers in a list of allowed values, which Gemini accepts only as text.
 - When you change an agent's provider, the new provider now gets the work the previous one did: the commands it ran with their results, the files it changed, and its progress notes. Before, it got only the chat messages, so it did not know much of the earlier work.
 - When you ask an agent on a connected server to create a routine, the routine now runs in your
   timezone. Before, it ran in the server's timezone, so a routine for 8:00 could run hours early or
   late. This works from the desktop app and the web client when both the app and the server are
   updated.
-- When you change an agent's provider, OpenBot now saves the earlier provider's work log at the moment of the switch. Before, if that provider stopped soon after the switch, as an unused provider does after a minute, the new provider could get the chat without the earlier work.
+- When you change an agent's provider, Builders Bot now saves the earlier provider's work log at the moment of the switch. Before, if that provider stopped soon after the switch, as an unused provider does after a minute, the new provider could get the chat without the earlier work.
 - A custom agent that serves one folder for each process, such as Command Code (`cmd acp`), lists its
   models while a bot uses it, and runs bots in more than one folder. Before, the model list failed
-  with "This cmd acp process serves ...; start another for ...", because OpenBot used one process
+  with "This cmd acp process serves ...; start another for ...", because Builders Bot used one process
   of the agent for all folders.
 - A steered message to a custom ACP agent that accepts one prompt at a time is not lost. Before, the
-  agent refused it with "A prompt is already running for this session", OpenBot showed a provider
-  error, and the message was not sent. Now OpenBot sends the message when the running reply ends.
+  agent refused it with "A prompt is already running for this session", Builders Bot showed a provider
+  error, and the message was not sent. Now Builders Bot sends the message when the running reply ends.
 - On the website, the page keeps its scroll bar and does not move when you hover over or focus
   "App" in the header. Before, the scroll bar went away, the page moved sideways and stopped
   scrolling.
@@ -3172,7 +3500,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - A chat message that cannot be shown now shows "This message could not be shown". The rest of the
   chat stays usable.
 - A message, a routine run or a local script run that reached an account at its usage limit failed
-  with "Internal error: You've hit your session limit", and OpenBot did not run it again. Now it
+  with "Internal error: You've hit your session limit", and Builders Bot did not run it again. Now it
   waits in the queue and starts after the reset. A turn that had already run a command still fails,
   so the command does not run twice.
 
@@ -3180,23 +3508,23 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- Compare OpenBot with ChatGPT dots on openbot.run/compare.
+- Compare Builders Bot with ChatGPT dots on openbot.run/compare.
 - Each comparison on openbot.run/compare has a "Where you can use it" row. It shows the countries
-  and languages of each product, and that OpenBot has no region lock.
+  and languages of each product, and that Builders Bot has no region lock.
 - A script on your computer can now run an agent's routine and give it a payload, for example to wake the agent when a long build ends. Turn on Local scripts in the agent's settings, then use Copy run command on a routine. The setting is off by default.
 - The openbot.run header menu has a Compare section, and each comparison links to the other comparisons.
-- Install OpenBot as a server on a Linux computer with no screen, such as a VPS, from a terminal:
+- Install Builders Bot as a server on a Linux computer with no screen, such as a VPS, from a terminal:
   `curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash`.
   Sign it in with `sudo openbot login`, and use it from the desktop app, the iPhone app or
   openbot.run/app. The `openbot` command also shows the status and the log, changes the server name,
-  installs updates, and removes OpenBot with `sudo openbot uninstall`. The install also works on Debian
+  installs updates, and removes Builders Bot with `sudo openbot uninstall`. The install also works on Debian
   12, Debian 13 and Ubuntu 26.04. See docs/self-hosted-server.md.
-- OpenBot writes provider diagnostics to `logs/providers/providers.log` in its data folder: state changes, CLI checks, start times, model list results and provider errors. OpenBot removes credentials from each line, and does not write environment values, tool output or conversation text to the file.
+- Builders Bot writes provider diagnostics to `logs/providers/providers.log` in its data folder: state changes, CLI checks, start times, model list results and provider errors. Builders Bot removes credentials from each line, and does not write environment values, tool output or conversation text to the file.
 - The provider settings show the last error of each provider until the provider lists its models again, with a "Copy diagnostics" action.
 
 ### Changed
 
-- The comparisons on openbot.run/compare include Cursor CLI and hosted OpenBot servers in the EU,
+- The comparisons on openbot.run/compare include Cursor CLI and hosted Builders Bot servers in the EU,
   Claude Cowork's move to cloud-only tasks on 6 October 2026, and Manus 2.0.
 - News, guide and comparison pages on openbot.run load faster: their artwork is WebP and about 3% of its old size.
 - Search results show fuller descriptions of the plugin pages and shorter descriptions of the comparison pages on openbot.run.
@@ -3207,23 +3535,23 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Added
 
 - Your agents can answer in Slack. Open **Server settings → Connectors → Slack**, select **Connect
-  Slack** one time and install OpenBot in your workspace. People mention @OpenBot in a channel or
-  send it a direct message. OpenBot joins every public channel by itself; a private channel needs
-  `/invite @OpenBot`. The connect dialog also
+  Slack** one time and install Builders Bot in your workspace. People mention @Builders Bot in a channel or
+  send it a direct message. Builders Bot joins every public channel by itself; a private channel needs
+  `/invite @Builders Bot`. The connect dialog also
   adds the Slack Orchestrator, an agent on the model you pick, in a collapsed **Integrations** section of
   the sidebar: it receives each request, gives the
   work to the agent that fits best, and posts the answer in the thread. The answer comes in the same thread, can include
   files, and asks the person who wrote for approval with buttons. Reply `stop` to stop a request.
-  Slack's events reach this computer through OpenBot's Signal service, which checks them and passes
-  them on without storing them, so this needs an OpenBot account and a name for this computer. A
+  Slack's events reach this computer through Builders Bot's Signal service, which checks them and passes
+  them on without storing them, so this needs an Builders Bot account and a name for this computer. A
   hosted server stays awake while Slack is connected.
 - Brazilian Portuguese for the desktop app and web client. Select Português (Brasil) in Settings, or use your system language.
 - More of the desktop app and the web client is in Turkish, including server settings, providers, marketplace, routines, usage and remote desktop.
 - Cline is a provider. Its free models have a limit for each model, and the provider of a free model can use your prompts to train models. Select Download on the Cline row in More providers, then sign in with your Cline account in the browser, or set `CLINE_API_KEY`. Cline agents stay on this computer: team members do not see them.
 - You can run your own account service, Signal and TURN for remote access. Start the app with `OPENBOT_AUTH_API_URL` and `OPENBOT_REMOTE_SIGNAL_URL`. Invitations for your service are `openbot://join` links. See [Self-hosted remote access](https://github.com/nightly-labs/openbot/blob/main/docs/self-hosting.md). ([#1263](https://github.com/nightly-labs/openbot/issues/1263))
 - A Schedule view shows the routines of all agents and channels on a server in a day or week calendar, with past results and planned runs. Open it from the server menu or the command palette.
-- Restart a provider from its menu in Settings, and restart all custom agents from the Custom agents section. OpenBot waits until no agent of that provider works, then starts the provider again and reads its version, sign-in state and models again. Agents of other providers continue to work, and messages sent during the wait run after the restart.
-- Restart OpenBot when no agent works, from Settings > Updates. New routine runs wait until the restart and run after it. When an update is downloaded, the same action installs it.
+- Restart a provider from its menu in Settings, and restart all custom agents from the Custom agents section. Builders Bot waits until no agent of that provider works, then starts the provider again and reads its version, sign-in state and models again. Agents of other providers continue to work, and messages sent during the wait run after the restart.
+- Restart Builders Bot when no agent works, from Settings > Updates. New routine runs wait until the restart and run after it. When an update is downloaded, the same action installs it.
 - Add sound feedback. When you turn it on, short sounds play across the app: for buttons, switches,
   tabs and menu choices, for dialogs and menus that open and close, for moves between agents,
   channels and servers, and for typing. Other sounds tell you that an action worked or failed,
@@ -3251,7 +3579,7 @@ All notable changes to OpenBot will be documented here. The project follows
   On a built-in display with no notch, the smallest idle island is now 84px, with a 16px gap between
   the logo and the greeting. It was 120px. The same percent can give a different width than before.
   Beside a physical notch, the width does not change.
-- The notice about different OpenBot versions on a server now says which side to update: OpenBot on the server, or this app. It offers the host update only when the server is the older side.
+- The notice about different Builders Bot versions on a server now says which side to update: Builders Bot on the server, or this app. It offers the host update only when the server is the older side.
 - A hosted server now stops about 15 to 30 minutes after your last message, change or typing, also
   when an app is open. Before, an open app that nobody used kept the server running for 1 hour or
   more. While the server is asleep, you can still look at it: a moon beside the server name shows that
@@ -3260,7 +3588,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Fixed
 
 - A custom ACP agent that is slow to start now shows its models. Model discovery waited only 5 seconds for it. ([#1230](https://github.com/nightly-labs/openbot/issues/1230))
-- The **Open OpenBot** button on the page that Slack returns to after you install OpenBot is now in the
+- The **Open Builders Bot** button on the page that Slack returns to after you install Builders Bot is now in the
   middle of the card.
 - A link to a file that an agent edited now opens the file. Before, a link to a file outside the agent's workspace, a link with a line number such as `page.tsx:12`, a `~/` path or a `file://` link showed "not found" or an error. A file outside the workspace opens only for an agent with Full access, and "Open file externally" shows it in the file manager. ([#1240](https://github.com/nightly-labs/openbot/issues/1240))
 - A link to a file that was moved or deleted now says so. Before, it told you to ask the agent to create the file.
@@ -3276,16 +3604,16 @@ All notable changes to OpenBot will be documented here. The project follows
   higher one larger corners. On an external display the island stays a capsule at every height. At
   100% height nothing changes.
 - With the Cursor provider connected, the model picker showed no models for any provider. Now the
-  Cursor models load and you can select them. A model with an id that OpenBot cannot use no longer
+  Cursor models load and you can select them. A model with an id that Builders Bot cannot use no longer
   removes the models of all providers.
-- When a custom ACP agent is slow to list its models, OpenBot now closes the session that it opened
-  to read the list. Before, each slow model list kept one idle agent process open until OpenBot quit.
-- When OpenBot stops an ACP agent (because it is idle, to restart it, or at quit), the errors that
-  the agent writes while it stops go to the log. Before, OpenBot showed each of them as a "Provider
-  error" message. When an agent stops on its own, OpenBot still shows its errors.
-- A provider CLI download no longer fails with "another instance is replacing it" when no other OpenBot runs. When another program holds the new files open, OpenBot now waits for a moment, and then tells you to close that program. ([#1264](https://github.com/nightly-labs/openbot/issues/1264))
+- When a custom ACP agent is slow to list its models, Builders Bot now closes the session that it opened
+  to read the list. Before, each slow model list kept one idle agent process open until Builders Bot quit.
+- When Builders Bot stops an ACP agent (because it is idle, to restart it, or at quit), the errors that
+  the agent writes while it stops go to the log. Before, Builders Bot showed each of them as a "Provider
+  error" message. When an agent stops on its own, Builders Bot still shows its errors.
+- A provider CLI download no longer fails with "another instance is replacing it" when no other Builders Bot runs. When another program holds the new files open, Builders Bot now waits for a moment, and then tells you to close that program. ([#1264](https://github.com/nightly-labs/openbot/issues/1264))
 - A failed update notification now closes when the CLI is updated later. Retry on a provider row now removes the old error text, and the custom provider row no longer shows a second Retry next to Add. ([#1264](https://github.com/nightly-labs/openbot/issues/1264))
-- On a busy computer, a provider CLI that answers slowly no longer shows as broken. OpenBot now waits 10 seconds for its version, says that it did not answer in time, keeps the last known version, and tries again by itself. ([#1258](https://github.com/nightly-labs/openbot/issues/1258))
+- On a busy computer, a provider CLI that answers slowly no longer shows as broken. Builders Bot now waits 10 seconds for its version, says that it did not answer in time, keeps the last known version, and tries again by itself. ([#1258](https://github.com/nightly-labs/openbot/issues/1258))
 - A provider refresh no longer marks a connected provider as failed while its models stay in the model list. ([#1258](https://github.com/nightly-labs/openbot/issues/1258))
 - A desktop chat no longer shows an empty bubble when an agent ends its turn without an answer, for
   example after it reads a teammate update that needs no reply. The phone app and channels already
@@ -3294,25 +3622,25 @@ All notable changes to OpenBot will be documented here. The project follows
 - On Windows, an agent that starts from a `.cmd` or `.bat` file now gets each argument as written.
   Before, the command processor split or changed an argument with a space, a quote, `&` or `%`.
 - An agent request that failed no longer shows an `Error handling request {` toast, and the lines under it no longer show as more toasts. The failure shows in the chat with the reason that the agent gave, and the full text goes to the log.
-- Gemini no longer fails with "Download failed" when its first start after the download is slow. OpenBot now waits up to 3 minutes for a CLI that it just installed to start, and onboarding shows why a download or that first start failed.
+- Gemini no longer fails with "Download failed" when its first start after the download is slow. Builders Bot now waits up to 3 minutes for a CLI that it just installed to start, and onboarding shows why a download or that first start failed.
 - When more than one provider updated at the same time, the update notifications jumped and
   overlapped. Now they stay in place while the downloads continue.
-- On Windows, a provider CLI install (for example OpenCode or Gemini) no longer fails with "another program has its files open" while Windows Defender scans the new files. OpenBot now waits up to 60 seconds for the scan to end.
+- On Windows, a provider CLI install (for example OpenCode or Gemini) no longer fails with "another program has its files open" while Windows Defender scans the new files. Builders Bot now waits up to 60 seconds for the scan to end.
 - A custom agent kept its saved model after a restart. Before, a custom agent that started slowly could move its agents to its default model.
 - The Usage panel shows the remaining Grok usage. Before, a Grok account with no use in the current period showed a dash in place of a percentage.
 - A provider row in the Usage panel shows "Loading…" while usage loads, and "Unavailable" with "No limit reported" when the provider reports no limit. Before, both showed a dash.
 - A Claude Code agent no longer shows a `<task-notification>` block as a message from you after
-  OpenBot restarts. These blocks are notices about background tasks. Notices that earlier versions
-  added are removed the next time OpenBot starts.
+  Builders Bot restarts. These blocks are notices about background tasks. Notices that earlier versions
+  added are removed the next time Builders Bot starts.
 
 ## [0.27.0] - 2026-10-01
 
 ### Added
 
 - Turkish (`tr`) language support across desktop, web, and shared packages.
-- Cursor is a provider. Select Download on the Cursor row in More providers, then sign in with your Cursor account in the browser, or set `CURSOR_API_KEY`. OpenBot uses a `cursor-agent` that you installed yourself until a download exists. Cursor agents stay on this computer: team members do not see them.
+- Cursor is a provider. Select Download on the Cursor row in More providers, then sign in with your Cursor account in the browser, or set `CURSOR_API_KEY`. Builders Bot uses a `cursor-agent` that you installed yourself until a download exists. Cursor agents stay on this computer: team members do not see them.
 - Settings → General → Appearance has a Logo color setting with 10 colors. The chosen color shows on
-  the Dock or taskbar icon, on the Dynamic Island and on the logos in the app. When OpenBot is
+  the Dock or taskbar icon, on the Dynamic Island and on the logos in the app. When Builders Bot is
   closed, the Dock shows the lavender icon, because macOS has no alternate app icon for desktop apps.
   A dev or preview build keeps the color of its build.
 - Global search (⌘K) finds channels, files, routines, commands and settings pages. New filters show Channels, Files and Routines. Select a file to show the message that has it. Select a routine to open its settings. Commands such as New agent and New channel, and each settings page, show in All when the query matches. Files come only from this computer, so a joined server and the web client do not show the Files filter.
@@ -3370,7 +3698,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Added
 
 - In an agent chat on a team, each message from another person stands on the right, with your messages, and shows their name. Their bubble has their own color, so it does not look like yours. Agent messages look the same as before. Messages sent before this update show as yours.
-- A hosted server updates itself. It downloads a new OpenBot release in the background and starts it at its next start, so an open session does not stop.
+- A hosted server updates itself. It downloads a new Builders Bot release in the background and starts it at its next start, so an open session does not stop.
   A server that was set up before this release has no updater, so it stays on its current version.
   **Upgrade such a server one time by hand, as `docs/hosted-servers.md` says.** The data in its home
   folder and in `/srv` stays.
@@ -3393,20 +3721,20 @@ All notable changes to OpenBot will be documented here. The project follows
 - With OpenCode, a Computer Use window read adds much less text to the conversation, so long
   Computer Use sessions stay faster and compact less often. Before, each read of a large window
   added a list of element tokens about three quarters of the size of the window tree.
-- The Computer Use driver stops when OpenBot stops, also after a crash or an out-of-memory kill. Before, the driver kept running and used memory until you logged out. At the next start, OpenBot also stops the driver that the last crashed run left running.
-- OpenBot uses less memory in long sessions. It no longer keeps a second copy of each conversation, and it releases the data of each finished turn.
+- The Computer Use driver stops when Builders Bot stops, also after a crash or an out-of-memory kill. Before, the driver kept running and used memory until you logged out. At the next start, Builders Bot also stops the driver that the last crashed run left running.
+- Builders Bot uses less memory in long sessions. It no longer keeps a second copy of each conversation, and it releases the data of each finished turn.
 - The picture-in-picture browser controls release their memory when the system closes the window.
 - Antigravity and custom ACP agents stay stopped when they are idle. Before, the usage display started them again every five minutes, and a custom agent router then started the process of each custom agent.
-- On a new hosted server, OpenBot keeps running when the server is out of memory. Before, the system could stop OpenBot, or stop all of OpenBot when one agent process used too much memory. Now an agent process stops first.
-- The Dynamic Island shows new messages again when you have more than 10,000 unread replies. Before, it stopped updating, and OpenBot logged an error each time the island changed.
+- On a new hosted server, Builders Bot keeps running when the server is out of memory. Before, the system could stop Builders Bot, or stop all of Builders Bot when one agent process used too much memory. Now an agent process stops first.
+- The Dynamic Island shows new messages again when you have more than 10,000 unread replies. Before, it stopped updating, and Builders Bot logged an error each time the island changed.
 - Each Dynamic Island window uses about half the memory. Before, each window loaded the full app. There is one window for each display.
-- OpenBot keeps at most 16 chats in memory that you only read. Before, each chat that you marked read stayed in memory until you quit, about 1 MB for a long chat.
-- On a hosted server that is out of memory, the kernel now stops an agent process before the processes that OpenBot uses to open browser tabs.
+- Builders Bot keeps at most 16 chats in memory that you only read. Before, each chat that you marked read stayed in memory until you quit, about 1 MB for a long chat.
+- On a hosted server that is out of memory, the kernel now stops an agent process before the processes that Builders Bot uses to open browser tabs.
 - Sending a message, or a change to a queued message, no longer writes all message history to the
   database again. Before, each change wrote every message and delivery, so on a server that ran for
   weeks each change became slower and used more disk.
-- OpenBot stops Codex, OpenCode, Grok or a custom agent when it sends one message larger than 128 MB, and shows the reason. Before, OpenBot kept all of the message in memory with no limit, and the system could stop OpenBot on a hosted server.
-- OpenBot uses less memory when it runs for a long time with many agents. When an agent chat is not used for 10 minutes, OpenBot removes its copy from memory and reads it again from the database when you or the agent use the chat. The chat does not change.
+- Builders Bot stops Codex, OpenCode, Grok or a custom agent when it sends one message larger than 128 MB, and shows the reason. Before, Builders Bot kept all of the message in memory with no limit, and the system could stop Builders Bot on a hosted server.
+- Builders Bot uses less memory when it runs for a long time with many agents. When an agent chat is not used for 10 minutes, Builders Bot removes its copy from memory and reads it again from the database when you or the agent use the chat. The chat does not change.
 - A hosted server uses much less memory when a teammate or a remote device downloads or uploads a file. Before, one 100 MB file could use about 200 MB of memory for the full transfer. Now the server sends and receives files from disk. A server receives two attachment uploads at the same time. Other uploads wait for their turn; they do not fail.
 - With Codex (GPT models), an agent now gets the tools of an MCP server whose name has a space or
   another character that is not a letter, a digit, `_` or `-`, such as "Home Assistant". Before, the
@@ -3417,8 +3745,8 @@ All notable changes to OpenBot will be documented here. The project follows
   left the memory in place.
 - When the live view of a remote host's page ends or fails, the panel now shows the message in the
   language you selected. Before, it always showed the message in English.
-- With automatic downloads on, one restart now installs the newest OpenBot version. Before, OpenBot stopped checking for updates
-  after a download finished. If a newer version shipped before the restart, OpenBot installed the
+- With automatic downloads on, one restart now installs the newest Builders Bot version. Before, Builders Bot stopped checking for updates
+  after a download finished. If a newer version shipped before the restart, Builders Bot installed the
   older download and offered one more update after the restart.
 
 ## [0.25.2] - 2026-09-29
@@ -3429,31 +3757,31 @@ All notable changes to OpenBot will be documented here. The project follows
   Open **Server settings → Import** on a joined server in the desktop app or the browser client. The
   export must be a .zip under 100 MB. When the server already has a skill of the export, the agent of a
   member uses that skill and the import says so.
-- The host keeps the Lock Screen activity of a joined iPhone current while iOS stops the OpenBot app
-  in the background. It encrypts each update for that phone before it goes through the OpenBot
+- The host keeps the Lock Screen activity of a joined iPhone current while iOS stops the Builders Bot app
+  in the background. It encrypts each update for that phone before it goes through the Builders Bot
   account service and Apple, so neither can read it. The host keeps the phone's push token in memory
   only, for the session that gave it.
 - Enter a promotion code on the payment page when you start a plan for a hosted server.
 - Connect an AI provider before you make the first agent on a server that you own or manage. Before,
   a new server opened on the agent form with no provider connected.
 - Sign a server in to Claude and Grok from your own device, when the server has no browser that you
-  can see, such as a hosted server. Claude shows a code on its page that you paste into OpenBot.
+  can see, such as a hosted server. Claude shows a code on its page that you paste into Builders Bot.
 - Connect GitHub in Server settings > Connectors. Every agent on this computer then gets the GitHub
-  tools, and `gh` and `git` sign in as you, in the repositories where you install the OpenBot GitHub
+  tools, and `gh` and `git` sign in as you, in the repositories where you install the Builders Bot GitHub
   App. The panel lists these repositories. You do not need a personal access token.
 - In the repositories where you can push, GitHub shows the issues, pull requests and comments that
-  an agent makes with the GitHub tools as `openbotgit[bot]`, not as you. OpenBot gets short-lived tokens for this from
-  the OpenBot account service, which keeps no token. `gh` still acts as you.
+  an agent makes with the GitHub tools as `openbotgit[bot]`, not as you. Builders Bot gets short-lived tokens for this from
+  the Builders Bot account service, which keeps no token. `gh` still acts as you.
 - Use remote desktop on a Linux x64 host in an X11 session, including a hosted server. Wayland is not supported.
 - On a hosted server, remote desktop shows the full server desktop with its window manager, so a click moves between windows.
 
 ### Changed
 
-- In a dev or preview build, the OpenBot logo on the Dynamic Island has the color of that build, as
-  the Dock icon does. Two OpenBot apps that are open at the same time are easier to tell apart.
-- Show a new loading screen in the browser app: a small crew of agents hops while OpenBot loads,
+- In a dev or preview build, the Builders Bot logo on the Dynamic Island has the color of that build, as
+  the Dock icon does. Two Builders Bot apps that are open at the same time are easier to tell apart.
+- Show a new loading screen in the browser app: a small crew of agents hops while Builders Bot loads,
   and jumps out when it is ready.
-- Show the OpenBot logo while the desktop app starts, and fade it out when the app is ready.
+- Show the Builders Bot logo while the desktop app starts, and fade it out when the app is ready.
 - Show how long the agent's activity line has stayed the same when it stays for more than 5 seconds,
   so a slow step no longer looks like a stopped agent.
 - Show "Using an app on this computer…" while a Computer Use action runs, and "Deciding the next
@@ -3469,7 +3797,7 @@ All notable changes to OpenBot will be documented here. The project follows
   orange or bright green, and the app icon was gold or soft green.
 - A Grok agent answers again after you sign in to Grok with a different account or change the xAI
   API key. Before, each message in an earlier chat failed with "reasoning `encrypted_content` was
-  not issued to this caller". Now OpenBot starts a new Grok session that keeps the chat history, and
+  not issued to this caller". Now Builders Bot starts a new Grok session that keeps the chat history, and
   sends your message again.
 - On Windows at a display scale other than 100%, the Computer Use border goes around the full
   window. Before, only the top and left edges were on the screen.
@@ -3499,7 +3827,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- Update OpenBot on a joined server from Server settings > Updates. Owners and admins can check for
+- Update Builders Bot on a joined server from Server settings > Updates. Owners and admins can check for
   an update, download it, and restart the host when its agents are idle, or restart it at once.
   The version notice for a server has an "Update host" button.
 - Turn off updates from server admins in Settings > Updates on the computer that runs the server.
@@ -3508,7 +3836,7 @@ All notable changes to OpenBot will be documented here. The project follows
   settings > Updates.
 - A notice shows the download percentage while a server updates, and tells admins when a server
   has a new version.
-- All members of a server see a notice before and while it restarts into an update. OpenBot
+- All members of a server see a notice before and while it restarts into an update. Builders Bot
   connects again when the server is back.
 - Chat messages show LaTeX math as typeset formulas. Write inline math as `$...$` or `\(...\)`, and
   display math as `$$...$$`, `\[...\]` or a `math` code block. A formula that does not parse shows
@@ -3524,19 +3852,19 @@ All notable changes to OpenBot will be documented here. The project follows
   and does not have focus.
 - Mute a server and set its notification level in the web app, from the server menu or Server
   settings. This browser keeps the choice.
-- Explain how to use the OpenBot Marketplace to install agents, plugins, and skills, and submit an agent for review.
+- Explain how to use the Builders Bot Marketplace to install agents, plugins, and skills, and submit an agent for review.
 - Add "New agent" and "Mark all as read" to the sidebar menu that opens when you right-click an empty
   part of the sidebar, on the desktop app and in the browser client. "Mark all as read" marks all
   agent chats and channels as read.
 - Add a hosted server with the plus button in the server rail. Choose a plan and pay on the Stripe
-  page. OpenBot sets up the server when Stripe confirms the payment, and connects to it. Each hosted
+  page. Builders Bot sets up the server when Stripe confirms the payment, and connects to it. Each hosted
   server is a Linux machine.
 - Manage the plans of your servers. Desktop Settings has a Billing tab, and the web app has Billing in
   the account menu. It shows the plan, the storage, the price and the renewal date of each server
   that your account pays for, and a warning when a payment failed.
 - Each server has a menu to change or cancel its plan, or to renew a plan that ends. Payment method
   and invoices opens the Stripe Customer Portal. You enter card details on the Stripe page, not in
-  OpenBot.
+  Builders Bot.
 - The plan of a server sets its member limit: Starter 3, Standard 10 and Pro 25 active members,
   owner included. A server with no plan keeps 3. When a plan goes down or ends, no member is
   removed, but no new member can join until there is a free seat.
@@ -3547,7 +3875,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Changed
 
 - Product analytics records which tools, catalog plugins, websites and routines the agents use, so we
-  can learn which tasks OpenBot is used for. A website is sent only as its registrable domain, such
+  can learn which tasks Builders Bot is used for. A website is sent only as its registrable domain, such
   as `linkedin.com`, never as a URL, path or page title. IP addresses and names with no public
   suffix, such as `.local` hosts, are not sent. The name, address and command of a server that you
   added are not sent. Once a day, the app also sends counts of your agents, routines, skills and
@@ -3578,12 +3906,12 @@ All notable changes to OpenBot will be documented here. The project follows
   position came from the screen layout, so it could point at a different row. The arrows of
   "Try it free" and "Not in the list?" now point at the middle of their targets on both setup
   screens.
-- Install updates on Linux again. Before, OpenBot always refused the install with "Another OpenBot
+- Install updates on Linux again. Before, Builders Bot always refused the install with "Another Builders Bot
   session is still running from this application", also when only one session was open.
 - OpenCode agents no longer stop with "Internal error: OpenCode service failure" after a reconnect
-  or a restart. OpenCode sends this error when it cannot find a stored session. OpenBot now reads
-  OpenCode's session list. If the list does not hold the session, OpenBot starts a new OpenCode
-  session with the conversation history. In all other cases OpenBot keeps the session, tries one
+  or a restart. OpenCode sends this error when it cannot find a stored session. Builders Bot now reads
+  OpenCode's session list. If the list does not hold the session, Builders Bot starts a new OpenCode
+  session with the conversation history. In all other cases Builders Bot keeps the session, tries one
   more time, and then tells you to try again or reconnect OpenCode.
 - Start the server list at the top of the web app. Before, the web app kept the empty space that
   the desktop app keeps for the window controls.
@@ -3605,7 +3933,7 @@ All notable changes to OpenBot will be documented here. The project follows
   or change MCP servers. A new agent gets the access limits of the agent that creates it.
 - Ask an agent to change the provider, model or reasoning effort of another agent, as it can
   change a name. The agent gets an error that names the available models when a model is not
-  available. OpenBot records which agent made the change, and the previous and new model.
+  available. Builders Bot records which agent made the change, and the previous and new model.
 - Find local model servers, such as Ollama and LM Studio, and known ACP agents on your computer.
   Settings shows them under "Found on this computer", where you can add or hide each one. First run
   shows the same list. The scan sends no key and does not start a program that it finds. You can
@@ -3615,7 +3943,7 @@ All notable changes to OpenBot will be documented here. The project follows
   are stored encrypted on your computer.
 - Edit a saved custom endpoint. An empty key field keeps the saved key. "Find again" loads the
   model list from the server.
-- Leave a joined server from its Server settings. OpenBot asks you to confirm, then removes the
+- Leave a joined server from its Server settings. Builders Bot asks you to confirm, then removes the
   server from your server list. The server and its other members stay. To join again, you need a
   new invitation.
 - The iPhone app is in public beta on TestFlight. A card at the bottom of the sidebar shows the
@@ -3625,10 +3953,10 @@ All notable changes to OpenBot will be documented here. The project follows
   Install Paper Desktop, open it once, and open a file. Paper needs no key. The command of a local
   MCP server can now start with `~/`, which is your home folder.
 - Search is available on mobile. It finds agents and the messages in their chats on the connected computer.
-- Resize the sidebar in OpenBot web, and drag it narrow to make it compact. A narrow browser window
+- Resize the sidebar in Builders Bot web, and drag it narrow to make it compact. A narrow browser window
   makes the sidebar compact by itself, as in the desktop app.
-- Open the usage report of a host from its menu in the OpenBot web server rail.
-- Press Cmd+K or Ctrl+K in OpenBot web to search all conversations on the host.
+- Open the usage report of a host from its menu in the Builders Bot web server rail.
+- Press Cmd+K or Ctrl+K in Builders Bot web to search all conversations on the host.
 - The "Waiting for replies" block now has a close button when every teammate has replied or failed. Before, a failed request kept the block above the message box until you sent a new message.
 - Open the server menu from the server name in the web client. The menu switches and adds servers,
   opens server settings and the marketplace, and sets the rail or menu layout, as in the desktop app.
@@ -3637,12 +3965,12 @@ All notable changes to OpenBot will be documented here. The project follows
   **Profile** from the account menu; it opens in the right panel of the agent on screen.
 - The web account menu now has usage, Settings (the host's settings), Marketplace, Send feedback, and
   Message, as in the desktop app. Before, it had only Sign out.
-- Open an invitation link in OpenBot web. The invitation page has an Open in browser button, and the
+- Open an invitation link in Builders Bot web. The invitation page has an Open in browser button, and the
   web client opens the join dialog with the link filled in.
-- Open a plugin listing in OpenBot web. The plugin page has an Open in browser button, and the web
+- Open a plugin listing in Builders Bot web. The plugin page has an Open in browser button, and the web
   client opens the marketplace on that listing.
 - "New chat" in the agent settings starts a new chat with the agent. The agent forgets the earlier chat. The earlier messages stay visible above a divider. The instructions, model, tools, memories, workspace, and browser do not change. It is available on desktop and in the web client, also for an agent on a joined server that is on this version or later.
-- OpenBot now has a macOS build for Intel Macs: download `OpenBot-<version>-x64.dmg` from the release. It includes the provider runtimes, Computer Use, voice input and remote desktop hosting. Intel Macs get updates for the Intel build, and Apple silicon Macs continue to get the ARM64 build. The Host package (PKG) is still for Apple silicon only.
+- Builders Bot now has a macOS build for Intel Macs: download `Builders Bot-<version>-x64.dmg` from the release. It includes the provider runtimes, Computer Use, voice input and remote desktop hosting. Intel Macs get updates for the Intel build, and Apple silicon Macs continue to get the ARM64 build. The Host package (PKG) is still for Apple silicon only.
 - The web client sidebar has channels, as in the desktop app. You can create, edit and delete a
   channel, open deleted channels, and use channel memories and routines. The "+" menu and the
   sidebar context menu have New channel.
@@ -3674,8 +4002,8 @@ All notable changes to OpenBot will be documented here. The project follows
 - The web model picker shows the host's download progress, the Download and Cancel buttons, and
   the host's custom endpoints on the Custom tab, for an owner or admin.
   Your draft stays when you reconnect.
-- Show the OpenBot logo and an animated loading bar on the sign-in background while the web app
-  loads. Before, the page showed only the text "Loading OpenBot…".
+- Show the Builders Bot logo and an animated loading bar on the sign-in background while the web app
+  loads. Before, the page showed only the text "Loading Builders Bot…".
 - Ask before an import adds an agent whose name is already on the server, for example when you
   import the same export again. The dialog names the agents and says that each copy is a separate
   agent. Before, only an info icon next to the name showed this.
@@ -3688,7 +4016,7 @@ All notable changes to OpenBot will be documented here. The project follows
   browser instead of stopping. When a teammate helps, the answer starts with its name. When nothing
   works, the agent says what it tried and what you can do to unblock it, such as installing a plugin.
 - You can make the Dynamic Island as narrow as 20% of its default width. Before, the smallest width was 70%.
-- The OpenBot logo and the greeting in the idle Dynamic Island keep a 16px inset from the edges. Only
+- The Builders Bot logo and the greeting in the idle Dynamic Island keep a 16px inset from the edges. Only
   the space between them changes with the width.
 - The web client now opens the first-agent form when a computer has no agents, with the same text
   as the desktop app and no Cancel button. The model of a new agent is the same default that the
@@ -3734,16 +4062,16 @@ All notable changes to OpenBot will be documented here. The project follows
   `name (2).ext`, and shows a warning. A file that it cannot write is skipped with a warning. Before,
   the agent was not imported.
 - Connect the Figma plugin to the MCP server in the Figma desktop app on your computer. Before, the
-  connect step always failed, because Figma does not accept a browser sign-in from OpenBot. The
+  connect step always failed, because Figma does not accept a browser sign-in from Builders Bot. The
   connect dialog shows the steps that turn on the server in Figma. The server can only read designs
   for now.
 - If you installed the Figma plugin before this version, Plugins shows it as not installed.
   **Remove the old `figma` server from the MCP servers of the agent, then install Figma again from
   Plugins.**
-- On Linux, the window no longer closes a short time after it opens on some GPU drivers. OpenBot now uses software rendering on Linux.
+- On Linux, the window no longer closes a short time after it opens on some GPU drivers. Builders Bot now uses software rendering on Linux.
 - A finished agent reply no longer shows the text of another message after the chat scrolls or loads more messages.
 - Phones and other devices connect to your computer again when its network comes back. Before, the
-  computer stayed offline for them after Wi‑Fi was off, until you restarted OpenBot.
+  computer stayed offline for them after Wi‑Fi was off, until you restarted Builders Bot.
 - Show an error and a Retry button on the web sign-in screen when the session check fails. Before,
   the screen showed the email form with no error.
 - Stop the web sign-out from staying on "Signing out…" when sign-out fails. The account menu now
@@ -3755,9 +4083,9 @@ All notable changes to OpenBot will be documented here. The project follows
 - Mobile chat previews and search results show message text without Markdown marks such as `**`.
 - A tap anywhere on the mobile search field opens the keyboard. Before, a tap near the edge did nothing.
 - A chat opened from mobile search closes with the same zoom into its row as a chat opened from the list.
-- Show the full compatibility screen in OpenBot web when a host cannot talk to this version. Before,
+- Show the full compatibility screen in Builders Bot web when a host cannot talk to this version. Before,
   the web showed "Your computer is disconnected".
-- Keep the server rail of OpenBot web as wide as in the desktop app. Before, it was 8 px narrower, so
+- Keep the server rail of Builders Bot web as wide as in the desktop app. Before, it was 8 px narrower, so
   the sidebar and the chat moved.
 - Keep the message that you pick in global search on screen. Before, a conversation that loaded at
   the same time could scroll to the latest message.
@@ -3778,7 +4106,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - On a MacBook with no notch, the Dynamic Island gets narrower when you make its width smaller. Before,
   it kept an empty space for a notch that was not there, and the width setting had almost no effect.
 - A narrow Dynamic Island no longer cuts off the greeting at its right edge.
-- Pause the browser view in OpenBot web while the marketplace or a notification covers it, as the
+- Pause the browser view in Builders Bot web while the marketplace or a notification covers it, as the
   desktop app does.
 - The web client now shows the queued messages of an agent. You can steer, cancel, reorder, and edit them, as on desktop. The "Waiting for replies" count on the web now agrees with desktop.
 - Keep the server order that you drag in the web client's server rail. Before, the rail said the
@@ -3794,13 +4122,13 @@ All notable changes to OpenBot will be documented here. The project follows
   the viewport first, and the snapshot says when it left text or elements out. Each snapshot also
   shows fewer and shorter console and action entries. Before, each browser action could add up to
   1 MB of page text and log entries to the agent's context.
-- On Linux and macOS, OpenBot finds a provider CLI that you installed yourself, such as OpenCode under
+- On Linux and macOS, Builders Bot finds a provider CLI that you installed yourself, such as OpenCode under
   nvm, when your shell profile prints text at start. Before, a greeting or a tool such as `fastfetch`
-  in `.bashrc` or `.zshrc` made OpenBot show the provider as not downloaded. MCP server commands had
+  in `.bashrc` or `.zshrc` made Builders Bot show the provider as not downloaded. MCP server commands had
   the same fault.
 - The web client now sets the page language to the language of its text. Before, the page always
   said English, and a screen reader could read other languages with an English voice.
-- While the web client loads, it shows the OpenBot loading screen from the first frame. Before, the
+- While the web client loads, it shows the Builders Bot loading screen from the first frame. Before, the
   first frame was an empty page.
 - The web client no longer uses the smooth scroll and the minimum page width of the site pages.
 - A left-click now closes a sidebar context menu. Before, the menu stayed open when you clicked the
@@ -3851,7 +4179,7 @@ All notable changes to OpenBot will be documented here. The project follows
   download the image.
 - Read the changelog on openbot.run/changelog. It shows the changes of each release, and the steps
   to do after an upgrade. The Releases link in the footer now opens this page.
-- Compare OpenBot with Grok Bot, Muse, Hermes Agent, OpenClaw, Manus, Claude Cowork and Devin on
+- Compare Builders Bot with Grok Bot, Muse, Hermes Agent, OpenClaw, Manus, Claude Cowork and Devin on
   openbot.run/compare. The Grok Bot article moved from News to this section. The old link opens the
   new page.
 - Open News, Guides and Plugins on openbot.run from a navigation menu that shows the latest
@@ -3912,7 +4240,7 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ### Added
 
-- Use Gemini with a Google AI Pro or Ultra plan. OpenBot downloads Google's Antigravity server to
+- Use Gemini with a Google AI Pro or Ultra plan. Builders Bot downloads Google's Antigravity server to
   this computer and signs in through your browser. Members of a joined server do not see Gemini
   agents.
 - Select More providers on the onboarding screen to add Gemini or a custom provider.
@@ -3926,7 +4254,7 @@ All notable changes to OpenBot will be documented here. The project follows
   from the web client or from a joined desktop.
 - Show the OpenCode Go quota in Usage when you save a Go key.
 - Show the servers in a menu instead of the server rail. Select the layout in the server name menu.
-  OpenBot keeps the layout for each device.
+  Builders Bot keeps the layout for each device.
 - Select the interface language on mobile.
 
 ### Changed
@@ -3937,7 +4265,7 @@ All notable changes to OpenBot will be documented here. The project follows
   Agents with Full access, which is the default, do not change.**
 - Show more of the interface in French and Japanese.
 - Install the latest provider CLI on a first download. If the release check is slow or fails,
-  OpenBot installs the pinned version.
+  Builders Bot installs the pinned version.
 - Fade streamed text as a trail, and keep the fade across Markdown blocks.
 - Show the server rail and the top row on one surface.
 - Hide saved secret values in all logs, and write a local trace line when the main process fails.
@@ -3945,7 +4273,7 @@ All notable changes to OpenBot will be documented here. The project follows
 ### Fixed
 
 - End the turns of a provider client that stopped. Before, these turns stayed in progress until
-  OpenBot restarted.
+  Builders Bot restarted.
 - Keep queued messages when a file delete fails.
 - Show a request timeout from any provider as a timeout.
 - Sign out and revoke sessions correctly while remote sessions are open. Before, this failed with
@@ -3971,7 +4299,7 @@ contains all changes of 0.21.1.
 ### Changed
 
 - Retry an offline remote host every 5 minutes while the app has focus, and every 15 minutes without
-  focus. Before, OpenBot retried every minute.
+  focus. Before, Builders Bot retried every minute.
 - Send sign-in and invitation emails as HTML with a plain-text part. Out-of-office replies no longer
   answer these emails.
 - Show a new design for the mobile server list and the agent appearance picker.
@@ -3985,24 +4313,24 @@ contains all changes of 0.21.1.
   its last frame.
 - Stop an error in the sidebar when you switch servers.
 - Send desktop host analytics events with the app origin. Before, the analytics server refused all
-  of them. When you turn analytics off, OpenBot does not send these events.
+  of them. When you turn analytics off, Builders Bot does not send these events.
 
 ## [0.21.1] - 2026-09-25
 
 ### Added
 
 - Publish an agent as a template that other people can add. Press Publish in the agent chat header.
-  OpenBot sends the instructions, the routines and the skills to openbot.run. Files and memories are
+  Builders Bot sends the instructions, the routines and the skills to openbot.run. Files and memories are
   not sent, and a field that looks like a secret stops the publish. The link opens a page at
-  `openbot.run/agents/<id>`. Add to OpenBot shows the template in the app, and OpenBot adds the agent
+  `openbot.run/agents/<id>`. Add to Builders Bot shows the template in the app, and Builders Bot adds the agent
   only when you click Add agent. Unpublish removes the template. A new publish keeps the same link.
 - Edit a routine schedule with chips in the routine panel and in the routine card in the chat.
 
 ### Changed
 
 - Show the account profile name and avatar in the browser client.
-- Show that a sign-in server does not accept OpenBot when it refuses the registration, for example
-  Figma. Before, OpenBot showed a credentials error. The Figma listing tells you to use the local MCP
+- Show that a sign-in server does not accept Builders Bot when it refuses the registration, for example
+  Figma. Before, Builders Bot showed a credentials error. The Figma listing tells you to use the local MCP
   server of the Figma desktop app.
 - Get faster answers from the account server.
 
@@ -4011,8 +4339,8 @@ contains all changes of 0.21.1.
 - Delete an agent on Windows. Before, deletion failed with EBUSY because a provider session kept the
   agent workspace open.
 - Remove a deleted agent from its channels. Before, the channel showed an Unavailable member.
-  OpenBot also removes these members at startup.
-- Start OpenBot on Linux from a terminal. Before, the window could freeze at startup.
+  Builders Bot also removes these members at startup.
+- Start Builders Bot on Linux from a terminal. Before, the window could freeze at startup.
 - Send a steer message with the same framing as a new turn.
 - Redact each line of remote diagnostic logs.
 - Show an error when the copy of a channel message or a plugin link fails.
@@ -4022,8 +4350,8 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Import agents from Grok Bot in Server settings, Import. Add the OpenBot export agent to Grok Bot,
-  send it one message, and choose the `.zip` file it saves. OpenBot imports each agent you select
+- Import agents from Grok Bot in Server settings, Import. Add the Builders Bot export agent to Grok Bot,
+  send it one message, and choose the `.zip` file it saves. Builders Bot imports each agent you select
   with its instructions, avatar, skills, routines and memories, and optional workspace files. The
   file is read on this computer and is not uploaded. Chat history is not copied.
 - Dictate a message on mobile. With an empty message field, press the microphone. The text shows in
@@ -4034,7 +4362,7 @@ contains all changes of 0.21.1.
 
 ### Changed
 
-- Use less memory and CPU. OpenBot stops a provider CLI that no agent uses after 60 seconds, keeps
+- Use less memory and CPU. Builders Bot stops a provider CLI that no agent uses after 60 seconds, keeps
   fewer idle Claude, OpenCode and Grok sessions open, and streams attachments from disk. The first
   message to an agent after a long idle time can take a little longer.
 - Scroll and type with fewer frame drops in the mobile chat and agent list.
@@ -4056,16 +4384,16 @@ contains all changes of 0.21.1.
 
 ### Fixed
 
-- Keep an animated WebP avatar animated after upload. Before, OpenBot kept only the first frame.
-- Hide the secret code input while OpenBot sends the code. The input shows again if the code fails.
+- Keep an animated WebP avatar animated after upload. Before, Builders Bot kept only the first frame.
+- Hide the secret code input while Builders Bot sends the code. The input shows again if the code fails.
 - Wrap long text in the avatar upload control.
 
 ## [0.20.0] - 2026-09-23
 
 ### Added
 
-- Show the skills in an agent's workspace skill folders that OpenBot did not install, such as
-  `.agents/skills`. OpenBot does not change these folders. A skill shows a problem when its
+- Show the skills in an agent's workspace skill folders that Builders Bot did not install, such as
+  `.agents/skills`. Builders Bot does not change these folders. A skill shows a problem when its
   `SKILL.md` is not valid, or when the agent's provider does not read its folder.
 - Show disk use and files in a Storage tab in Server Settings, a Files view in agent settings, and a
   Files panel in the chat. An owner or an admin can delete a file and clear caches and logs.
@@ -4073,8 +4401,8 @@ contains all changes of 0.21.1.
   activity, only when it needs you, or nothing.
 - Send a test notification and open the system notification settings from Settings.
 - Mark an agent as Workspace only in the agent settings. The setting is not enforced yet.
-- Check for provider CLI updates from a provider's actions menu. OpenBot offers the latest upstream
-  release of Codex, Claude, OpenCode, and Grok without a new OpenBot version.
+- Check for provider CLI updates from a provider's actions menu. Builders Bot offers the latest upstream
+  release of Codex, Claude, OpenCode, and Grok without a new Builders Bot version.
 - Add Linux arm64 builds.
 - Add a Composio listing that takes your own MCP link.
 - Show file type, size, previews, and upload progress for attachments on mobile, and show images
@@ -4096,7 +4424,7 @@ contains all changes of 0.21.1.
 ### Fixed
 
 - Make Apple and Google sign-in work in the embedded browser.
-- Open OpenBot on a second launch after a quit that did not finish on Windows.
+- Open Builders Bot on a second launch after a quit that did not finish on Windows.
 - Show new chat replies when reduced motion is on.
 - Center the idle emoji in the Dynamic Island.
 
@@ -4104,7 +4432,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Use OpenBot in a web browser at openbot.run/app with your account and your connected hosts.
+- Use Builders Bot in a web browser at openbot.run/app with your account and your connected hosts.
 - Set the Dynamic Island width and height in the new Dynamic Island settings tab on macOS.
 
 ### Changed
@@ -4123,7 +4451,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Use OpenBot in French.
+- Use Builders Bot in French.
 - Open invitation (including permanent links), pairing, and plugin links directly in the mobile app.
 - See a running, waiting, blocked, or failed routine as a mark on the agent row.
 - Update a provider, or sign in with a code, from the new "More actions" menu on each provider row.
@@ -4152,7 +4480,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Use Computer Use with Codex, Claude, Grok, and OpenCode. OpenBot now includes the
+- Use Computer Use with Codex, Claude, Grok, and OpenCode. Builders Bot now includes the
   Computer Use driver on macOS, Windows, and Linux.
 - Set up remote desktop access from Server Settings. Check Sunshine permissions,
   display availability, and the macOS user session; open a helper to grant access.
@@ -4163,7 +4491,7 @@ contains all changes of 0.21.1.
 
 ### Changed
 
-- **On macOS, grant Screen Recording and Accessibility to OpenBot for Computer Use.
+- **On macOS, grant Screen Recording and Accessibility to Builders Bot for Computer Use.
   Grants for the old Codex helper do not carry over. Remote desktop uses separate
   Sunshine grants in the macOS account that runs it.**
 - Enable ordinary auto-approval by default for new agents. Existing saved agent choices
@@ -4192,7 +4520,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Sign in to ChatGPT with a code typed on another device. OpenBot shows the code, opens the
+- Sign in to ChatGPT with a code typed on another device. Builders Bot shows the code, opens the
   verification page, and reports when the sign-in finishes.
 - Set standing approval for one agent or enable Turbo mode for all local agents. Turbo keeps each
   agent's individual approval when it is turned off.
@@ -4201,7 +4529,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Start an MCP server on a computer that has no Node. OpenBot downloads Bun 1.4.2, a JavaScript
+- Start an MCP server on a computer that has no Node. Builders Bot downloads Bun 1.4.2, a JavaScript
   runtime it owns and checks, and starts a STDIO server with it. A computer with its own Node keeps
   using that one: the managed runtime is the floor, not a replacement.
 - Say why an MCP server did not reach an agent. A command this computer does not have, and a
@@ -4215,26 +4543,26 @@ contains all changes of 0.21.1.
   keeps at most five, each one is revoked from the same tab, and a permanent link cannot be bound
   to an email address. Single-use invitations are unchanged. A server that speaks an older Team API
   does not offer the tab, because that protocol carries no permanent link.
-- Update OpenBot for every account on a shared Mac from one place, with the new Host package.
+- Update Builders Bot for every account on a shared Mac from one place, with the new Host package.
   An administrator installs it, and the Mac then downloads a release once, waits until every
-  signed-in account is idle, installs it one time, and starts OpenBot again for each account. A
+  signed-in account is idle, installs it one time, and starts Builders Bot again for each account. A
   managed account shows the host's progress and never installs on its own. The package is signed
   and notarized on its own, and it installs managed-host infrastructure only: the DMG is still the
   application. The installer also creates Standard accounts for tenants.
 
 ### Changed
 
-- **A server declared outside OpenBot no longer reaches a Claude or Codex agent. Add it in
+- **A server declared outside Builders Bot no longer reaches a Claude or Codex agent. Add it in
   Settings, MCP to keep it.** This covers `~/.claude/settings.json`, a project `.mcp.json`, a
   plugin, agent frontmatter and `~/.codex/config.toml`. Nothing is deleted: the declaration stays
-  in its own file and OpenBot does not read it. A notice says this once. OpenCode and Grok document
+  in its own file and Builders Bot does not read it. A notice says this once. OpenCode and Grok document
   no equivalent setting, so their agents can still start servers from their own files, which the
   panel now states.
 - **Sign in again once after upgrading to reach Canva, Figma, Linear, Notion, Sentry or Stripe.**
-  The six listings now connect over HTTP and OpenBot holds the OAuth client itself: it opens the
+  The six listings now connect over HTTP and Builders Bot holds the OAuth client itself: it opens the
   browser, keeps the tokens in the operating system's secret storage, and adds the header when it
   hands the server to a provider. No third-party bridge program is downloaded or started. A bridge
-  that already holds a token keeps it in its own folder, which OpenBot does not read, so the sign-in
+  that already holds a token keeps it in its own folder, which Builders Bot does not read, so the sign-in
   does not carry over. Removing the server forgets its sign-in, and the tokens are redacted on every
   log and export path like every other secret.
 - Replace a Codex thread that started before this release once, keeping its conversation and its
@@ -4298,7 +4626,7 @@ contains all changes of 0.21.1.
 
 - Install an app and its skills together from the new Marketplace **Plugins** tab. Each plugin adds
   its MCP server record and the pinned skill versions its instructions need.
-- Let agents keep records in one shared database at `~/OpenBot/Shared/Data/agent-data.db`. An agent
+- Let agents keep records in one shared database at `~/Builders Bot/Shared/Data/agent-data.db`. An agent
   creates, reads and writes its own tables, and the **Shared tables** view lists every table with its
   owner and lets you delete any of them.
 - Let an agent tell a teammate something without asking for an answer. The message names that no
@@ -4377,7 +4705,7 @@ contains all changes of 0.21.1.
 - Download all files from a message with three or more attachments as one ZIP file.
 - Enter an OpenCode key for paid OpenCode models, with refresh and status in the provider row.
 - Choose provider, model, and reasoning effort when you create an agent, where the host supports it.
-- Read the WTF Is OpenBot guide under `/guides`.
+- Read the WTF Is Builders Bot guide under `/guides`.
 - Open Settings from the application menu with a keyboard shortcut.
 
 ### Changed
@@ -4403,7 +4731,7 @@ contains all changes of 0.21.1.
 - Add custom agent photos to the mobile avatar experience.
 - Queue a message to a busy agent and show why it waits.
 - Add an OpenCode download action to the custom provider row.
-- Add an Introducing OpenBot article under `/news`.
+- Add an Introducing Builders Bot article under `/news`.
 
 ### Changed
 
@@ -4422,7 +4750,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Run OpenBot on Linux x64. The release publishes an AppImage, the one Linux format that updates
+- Run Builders Bot on Linux x64. The release publishes an AppImage, the one Linux format that updates
   itself in place, and the in-app provider download covers Codex, Claude, Grok, and OpenCode there.
   Voice prompts and remote desktop are absent on Linux and report themselves as unavailable, and the
   AppImage is unsigned, as the Windows installer is. `docs/TROUBLESHOOTING.md` covers the AppArmor
@@ -4437,7 +4765,7 @@ contains all changes of 0.21.1.
   and video keep `previewKind: "none"` on the wire, so no released Team API adapter changes meaning.
 - Read `/news` and `/guides` on openbot.run: article pages, an RSS feed, a sitemap, and structured
   data, with article artwork drawn from the title.
-- Say what OpenBot costs on the landing page.
+- Say what Builders Bot costs on the landing page.
 
 ### Changed
 
@@ -4452,7 +4780,7 @@ contains all changes of 0.21.1.
   stays inside the new range.
 - Keep one provider CLI store for each computer, under `provider-runtimes` beside the application
   data. The packaged application already used that path, so nothing moves for an installed user.
-  Several OpenBot instances can now install a provider at the same time without taking a running
+  Several Builders Bot instances can now install a provider at the same time without taking a running
   CLI away from each other. Development profiles no longer offer the same update after every
   restart.
 - Move switches and camera panels with their own motion, and animate an article background
@@ -4487,7 +4815,7 @@ contains all changes of 0.21.1.
   the sidebar the way an agent does. Channels travel over the Team API as `channel-chats-v1`, so a
   phone or a joined server on an older build keeps working without them.
 - Describe your own OpenAI-compatible endpoint and pick its models anywhere a model is chosen.
-  OpenBot encrypts the API key on this computer and gives it only to the local OpenCode process,
+  Builders Bot encrypts the API key on this computer and gives it only to the local OpenCode process,
   and keeps it out of every export, log, and diagnostics report. Every saved endpoint sits under
   one Custom provider row, because which endpoint an agent uses is a model choice rather than a
   provider choice.
@@ -4500,13 +4828,13 @@ contains all changes of 0.21.1.
   you to the OpenCode website is gone.
 - Use OpenCode's free models with no account and no sign-in. A new OpenCode agent answers as soon
   as the CLI is downloaded.
-- Add an optional OpenCode Zen key in Settings for the paid OpenCode Zen models. OpenBot encrypts
+- Add an optional OpenCode Zen key in Settings for the paid OpenCode Zen models. Builders Bot encrypts
   the key on this computer, gives it only to the local OpenCode CLI, and keeps it out of every
   export, log, and diagnostics report.
 - On mobile: open an agent's information and edit it in a sheet, reply to a message and use the
   message actions, send attachments from files or the camera, and pin an agent with a full swipe
   that a screen reader can also do.
-- **On mobile, OpenBot now sends product analytics, and the setting starts on.** Turn it off in
+- **On mobile, Builders Bot now sends product analytics, and the setting starts on.** Turn it off in
   Settings at any time; events wait until you sign in and are dropped if you refuse. Nothing on the
   desktop app changed, and chats, files, and commands are never sent. `PRIVACY.md` describes what
   an event carries.
@@ -4514,7 +4842,7 @@ contains all changes of 0.21.1.
 
 ### Changed
 
-- Keep an OpenCode CLI you installed yourself. OpenBot reports its version, offers an update, and
+- Keep an OpenCode CLI you installed yourself. Builders Bot reports its version, offers an update, and
   never forces the download.
 - Leave the OpenCode Go models out of the model picker when a Zen key is what lists them. OpenCode
   reports Zen and Go as one catalog, but a Zen key does not buy Go, so those models answered every
@@ -4550,7 +4878,7 @@ contains all changes of 0.21.1.
 
 ### Added
 
-- Add OpenCode as a fourth provider. OpenBot drives your own installed OpenCode CLI over ACP, so it
+- Add OpenCode as a fourth provider. Builders Bot drives your own installed OpenCode CLI over ACP, so it
   is not downloaded or pinned like the other runtimes: install OpenCode and run
   `opencode auth login`, then pick it when you create or edit an agent.
 - Add Team API v4, which carries the new provider and agent duplication. Version 1 to 3 stay
@@ -4571,13 +4899,13 @@ contains all changes of 0.21.1.
 - **A paired phone can no longer disconnect a desktop session.** Sign out or revoke a desktop
   session from Settings on the computer that runs it. Phones and other sessions are unaffected, and
   no session is ended by this update.
-- Install and activate OpenBot's pinned provider CLI update instead of asking the CLI to update
+- Install and activate Builders Bot's pinned provider CLI update instead of asking the CLI to update
   itself. A CLI update waits while a provider sign-in is pending.
 - Start the mobile app on the connected route, and block interaction while it loads.
 
 ### Fixed
 
-- Report a provider CLI update that OpenBot refuses to start, instead of leaving the offer on screen.
+- Report a provider CLI update that Builders Bot refuses to start, instead of leaving the offer on screen.
 - Keep an agent whose stored profile holds a value this release cannot read, instead of refusing to
   start. The startup error now names the field it cannot read.
 - Keep an empty sidebar section visible when it holds no agents.
@@ -4606,18 +4934,18 @@ contains all changes of 0.21.1.
 - Add agent and host-wide usage reports with model, provider and daily cost details.
 - Add mobile server settings, member management and invite QR flows.
 - Add marketplace presentation controls for agent categories and creator avatars.
-- Show all integrated provider models and let users update a provider CLI from OpenBot.
+- Show all integrated provider models and let users update a provider CLI from Builders Bot.
 
 ### Changed
 
-- Check for desktop updates every four minutes while OpenBot is running.
+- Check for desktop updates every four minutes while Builders Bot is running.
 - Preserve mobile sign-out when offline by deferring account revocation.
 
 ## [0.5.0] - 2026-09-07
 
 ### Added
 
-- Connect a phone to OpenBot. Pair a device from the desktop app, then read and answer agent chats
+- Connect a phone to Builders Bot. Pair a device from the desktop app, then read and answer agent chats
   from the mobile app, with connection status on every server surface and profile changes synced to
   each connected device.
 - Review and revoke account sessions and paired devices from Settings. A revoked credential ends the
@@ -4636,7 +4964,7 @@ contains all changes of 0.21.1.
 - Retheme the desktop app onto one colour, type and icon system.
 - Rename an agent's **Description** to **Instructions**, and grow the field with its contents.
 - Remove the limit on sidebar agent pins.
-- Isolate the local team server per OpenBot account. The single-host file the previous build wrote is
+- Isolate the local team server per Builders Bot account. The single-host file the previous build wrote is
   imported on first launch and left in place; nothing is deleted.
 - Update the bundled provider runtimes: Codex to `0.153.4`, Claude Code to `2.1.263`
   (`@anthropic-ai/claude-agent-sdk` `0.3.263`) and Grok to `1.0.22`. The runtimes are downloaded on
@@ -4644,8 +4972,8 @@ contains all changes of 0.21.1.
   stays on disk, and a system-installed CLI of your own is not touched.
 - Finish naming the product concept **agent** everywhere: identifiers, IPC channels, CSS, copy, the
   mobile app, and the instructions and tool parameters the models read. Existing agent identifiers are
-  rewritten from `bot-<uuid>` to `agent-<uuid>` and every workspace moves from `~/OpenBot/Bots` to
-  `~/OpenBot/Agents` on first launch. The Team API wire protocol is unchanged — versions 1 to 3 still
+  rewritten from `bot-<uuid>` to `agent-<uuid>` and every workspace moves from `~/Builders Bot/Bots` to
+  `~/Builders Bot/Agents` on first launch. The Team API wire protocol is unchanged — versions 1 to 3 still
   spell the agent `botId`, and a translation layer converts.
 - **Paired phones must be unpaired and paired again after this update.** A phone stores the agent
   identifiers it was given, and those identifiers have changed, so its pins and unread markers point at
@@ -4658,7 +4986,7 @@ contains all changes of 0.21.1.
 - Report weekly usage for the model that is actually active.
 - Recover a provider session the CLI no longer knows, instead of losing the conversation.
 - Keep chat table layout, message spacing and composer alignment consistent.
-- Restore the main window when you activate OpenBot on macOS.
+- Restore the main window when you activate Builders Bot on macOS.
 - Stop the Dynamic Island from clipping as it collapses, and idle avatars nobody is watching.
 - Fix sidebar search focus highlighting and drag overlap, and the mobile sidebar swipe over agent rows.
 
@@ -4722,7 +5050,7 @@ contains all changes of 0.21.1.
 
 ### Fixed
 
-- Support embedded Google sign-in with the current Chromium identity while keeping the OpenBot browser session.
+- Support embedded Google sign-in with the current Chromium identity while keeping the Builders Bot browser session.
 - Clear Bot unread state reliably when a chat opens or refreshes.
 - Preserve agent names before title badges truncate in the sidebar.
 
@@ -4859,7 +5187,7 @@ contains all changes of 0.21.1.
 
 ### Fixed
 
-- Exit a second desktop app process immediately when another OpenBot instance already holds the profile lock.
+- Exit a second desktop app process immediately when another Builders Bot instance already holds the profile lock.
 - Keep the agent activity avatar visible for 500 ms after streaming ends and preserve its layout space when it exits.
 - Show the message queue only while a delivery is starting or running, so the first message does not flash in Queue.
 
@@ -4941,7 +5269,7 @@ contains all changes of 0.21.1.
 ### Changed
 
 - Changed the project license from Apache-2.0 to PolyForm Noncommercial 1.0.0.
-- Publish the OpenBot application for macOS only in this release while Windows application packaging is
+- Publish the Builders Bot application for macOS only in this release while Windows application packaging is
   paused.
 - Start Remote Control only from the server header and keep a hidden session active until the user
   disconnects or changes servers.
@@ -5064,7 +5392,7 @@ contains all changes of 0.21.1.
 ### Changed
 
 - Simplified provider selection to show clear availability without decorative provider cards.
-- Development state reset now deletes `OpenBot Dev` state without creating a backup.
+- Development state reset now deletes `Builders Bot Dev` state without creating a backup.
 
 ### Fixed
 
@@ -5088,5 +5416,5 @@ contains all changes of 0.21.1.
 
 ### Changed
 
-- Standardized the product name and all user-facing branding as `OpenBot`.
-- Replaced the remaining third-party-inspired avatar SVG with an original OpenBot placeholder mark.
+- Standardized the product name and all user-facing branding as `Builders Bot`.
+- Replaced the remaining third-party-inspired avatar SVG with an original Builders Bot placeholder mark.

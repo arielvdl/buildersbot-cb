@@ -207,8 +207,8 @@ export const WorkspaceFileLinks: Story = {
       body: [
         "Pliki:",
         "",
-        "- [page.tsx](/Users/test/OpenBot/Agents/builder/app/page.tsx)",
-        "- [globals.css](/Users/test/OpenBot/Agents/builder/app/globals.css)",
+        "- [page.tsx](/Users/test/Builders Bot/Agents/builder/app/page.tsx)",
+        "- [globals.css](/Users/test/Builders Bot/Agents/builder/app/globals.css)",
         "",
         "Gotowe: [otwórz tablicę Lutra w HTML](< lutra-brand-board.html >)",
       ].join("\n"),
@@ -414,8 +414,8 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
 const BANNER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200"><rect width="480" height="200" fill="#f6a62f"/><circle cx="100" cy="100" r="60" fill="#12141a"/><rect x="190" y="80" width="240" height="40" rx="8" fill="#12141a"/></svg>`;
 const svgDataUrl = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
 const NAMED_IMAGES: Record<string, string> = {
-  "/data/OpenBot/Shared/demo/maczeciarz/logo.svg": svgDataUrl(LOGO_SVG),
-  "/data/OpenBot/Shared/demo/maczeciarz/banner.svg": svgDataUrl(BANNER_SVG),
+  "/data/Builders Bot/Shared/demo/maczeciarz/logo.svg": svgDataUrl(LOGO_SVG),
+  "/data/Builders Bot/Shared/demo/maczeciarz/banner.svg": svgDataUrl(BANNER_SVG),
 };
 const loadNamedImage: Parameters<typeof MessageBody>[0]["loadImageFile"] = (file) =>
   Promise.resolve(NAMED_IMAGES[file.path] ?? null);
@@ -426,7 +426,7 @@ export const NamedImageFile: Story = {
     message: {
       ...message,
       id: "named-image-file",
-      body: "Done. Logo delivered to Boss:\n\n- `/data/OpenBot/Shared/demo/maczeciarz/logo.svg` — machete icon and wordmark.",
+      body: "Done. Logo delivered to Boss:\n\n- `/data/Builders Bot/Shared/demo/maczeciarz/logo.svg` — machete icon and wordmark.",
       attachments: [],
     },
     onOpenSharedFile: fn(),
@@ -441,7 +441,7 @@ export const NamedImageFiles: Story = {
     message: {
       ...message,
       id: "named-image-files",
-      body: "Status: done\nResult: logo and banner are in the shared folder.\nEvidence: `/data/OpenBot/Shared/demo/maczeciarz/logo.svg`, `/data/OpenBot/Shared/demo/maczeciarz/banner.svg`, `/data/OpenBot/Shared/demo/maczeciarz/missing.png`",
+      body: "Status: done\nResult: logo and banner are in the shared folder.\nEvidence: `/data/Builders Bot/Shared/demo/maczeciarz/logo.svg`, `/data/Builders Bot/Shared/demo/maczeciarz/banner.svg`, `/data/Builders Bot/Shared/demo/maczeciarz/missing.png`",
       attachments: [],
     },
     onOpenSharedFile: fn(),

@@ -306,6 +306,13 @@ export function createWebWorkspace(
     recovery.offline();
     recovery.setActive(!document.hidden);
   }
+  /** The user is back on the page. `offline` keeps the wait after failed attempts, up to two minutes; this ends it. */
+  function recoverNow() {
+    if (disposed || !hostId || recoveryBlocked) return;
+    if (state.recovery?.phase !== "waiting" && state.recovery?.phase !== "cooldown") return recover();
+    recovery.refresh();
+    recovery.setActive(!document.hidden);
+  }
   const hostLifecycle = createWebHostLifecycle({
     accountFetch: props.accountFetch,
     hostId: () => hostId,
@@ -1487,7 +1494,7 @@ export function createWebWorkspace(
           // While the host stays online, its events keep the workspace current. A focus soon after a
           // full read, such as a switch between windows, does not read the host again.
           if (state.status === "online") return Date.now() - syncedAt < FOCUS_RESYNC_MS ? undefined : resync();
-          if (state.recovery?.phase !== "suspended") recover();
+          if (state.recovery?.phase !== "suspended") recoverNow();
         })
         .catch(report);
     };
@@ -1499,7 +1506,7 @@ export function createWebWorkspace(
         recovery.setActive(false);
       } else {
         hostLifecycle.resume();
-        if (state.status !== "online" && state.recovery?.phase !== "suspended") recover();
+        if (state.status !== "online" && state.recovery?.phase !== "suspended") recoverNow();
       }
     };
     const network = () => {
@@ -1568,7 +1575,16 @@ export function createWebWorkspace(
     cancelQueued: (deliveryId: string) => changeQueue((agentId) => runtime.cancelQueued({ agentId, deliveryId })),
     steerQueued(deliveryId: string) {
       const expectedTurnId = conversation()?.page?.activeTurnId;
-      if (expectedTurnId) changeQueue((agentId) => runtime.steerQueued({ agentId, deliveryId, expectedTurnId }));
+      if (!expectedTurnId) return;
+      changeQueue((agentId) =>
+        runtime.steerQueued({ agentId, deliveryId, expectedTurnId }).catch((error: unknown) => {
+          // A message that left the queue is in the turn already: an agent that steers each message
+          // sent while it works can take it first.
+          const delivery = state.queues[agentId]?.deliveries.find((item) => item.id === deliveryId);
+          if (delivery && delivery.status !== "queued") return;
+          throw error;
+        }),
+      );
     },
     reorderQueue: (deliveryIds: string[]) => changeQueue((agentId) => runtime.reorderQueue({ agentId, deliveryIds })),
     async updateQueued(

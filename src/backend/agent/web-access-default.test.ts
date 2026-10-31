@@ -77,11 +77,11 @@ describe("web access in the developer instructions", () => {
 
 describe("web access in the tool guidance", () => {
   it("says Playwright is the default in the browser guidance", () => {
-    expect(toolGuidance("openbot_browser", "snapshot")).toContain("Web access is Playwright");
+    expect(toolGuidance("openbot_browser", "snapshot").join("\n")).toContain("Web access is Playwright");
   });
 
   it("keeps a web-access service out of the Marketplace suggestions", () => {
-    const guidance = toolGuidance("openbot", "suggest_marketplace_app");
+    const guidance = toolGuidance("openbot", "suggest_marketplace_app").join("\n");
     expect(guidance).toContain("Web access is not a Marketplace case");
     expect(guidance).toContain("do not suggest firecrawl");
   });

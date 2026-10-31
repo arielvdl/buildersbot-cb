@@ -1,7 +1,7 @@
 /**
  * The "More providers" dialog of the provider picker. The rows use the names of the provider
  * registry and the same description keys as the setup picker. A provider that is included with
- * OpenBot has no description.
+ * Builders Bot has no description.
  */
 
 import { agentProviderName, PICKER_PROVIDERS } from "@openbot/contracts/agent-providers";

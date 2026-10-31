@@ -2,15 +2,15 @@
 
 ## Computer Use
 
-Computer Use is `cua-driver`, a third-party MIT binary, and OpenBot owns how it runs.
+Computer Use is `cua-driver`, a third-party MIT binary, and Builders Bot owns how it runs.
 `cua-driver-runtime.ts` in the main process starts one long-lived `serve` daemon and holds it; each
 provider CLI spawns its own short-lived `cua-driver mcp --socket` proxy against that daemon. All
 screen capture, accessibility reads, and input posting happen inside the daemon, so the proxy's own
 identity does not matter.
 
 The daemon is spawned directly, and never through `open(1)` or `NSWorkspace`. macOS finds the
-responsible process by walking up the launch chain, so a direct spawn puts OpenBot at the top of it
-and the user grants Screen Recording and Accessibility to OpenBot rather than to somebody else's
+responsible process by walking up the launch chain, so a direct spawn puts Builders Bot at the top of it
+and the user grants Screen Recording and Accessibility to Builders Bot rather than to somebody else's
 helper. `CUA_DRIVER_EMBEDDED=1` tells the driver to stay on that path instead of relaunching itself
 as its own application. Anything that launches the daemon another way breaks the attribution, which
 is the reason the earlier Codex helper was replaced.
@@ -37,13 +37,13 @@ One MCP entry reaches every provider. `CuaDriverRuntime.mcpServerConfig()` retur
 while the daemon runs, and `AgentService.enabledMcpServers()` appends it, which is the one function
 Codex, Claude, and ACP all read. Two properties keep it there: the name is not in
 `RESERVED_MCP_SERVER_NAMES`, which is a drop filter rather than a marker, and `workingDirectory`
-stays empty, because ACP has no field for one and Codex accepts none, so an entry with one would
-vanish for two providers with no error. Codex staleness needs no separate signal, because
+stays empty, because ACP has no field for one, so an entry with one would vanish for ACP providers
+with no error. Codex staleness needs no separate signal, because
 `toolFingerprint` already folds the MCP entries and a changed fingerprint forces a replacement
 session. `onMcpServerChanged` is what refreshes the agent runtimes, which deactivates every
 stored provider session: the next turn starts a new one, which keeps the public thread and loses
 what the provider held privately. So it reports two moments only — the entry appearing on a start a
-user asked for, and the daemon dying under OpenBot. It is quiet for a grant given while the daemon
+user asked for, and the daemon dying under Builders Bot. It is quiet for a grant given while the daemon
 serves, which changes the state and not the tool set; for the startup warm-up, which settles the
 entry the stored sessions already had; and for the stop at teardown, which happens at order 55,
 before the agent service at 110, and would otherwise deactivate on every quit the sessions the next
@@ -58,48 +58,48 @@ the other native runtimes rather than managed like a provider CLI. The pinned fi
 allowlist: `scripts/install-cua-driver.ts` copies only the named paths and checks each digest, so an
 upstream layout change fails the build instead of shipping a surprise file. Each installer carries
 only its own target. On macOS `mac.signIgnore` keeps the vendor's Developer ID signature, because
-re-signing under OpenBot's inherited entitlements would drop the Automation entitlement the driver
+re-signing under Builders Bot's inherited entitlements would drop the Automation entitlement the driver
 needs. A packaged build reads the copy under `resources/cua-driver` and nothing else, because the release
 is pinned and signed against that build and an environment variable must not decide which program
 drives the user's desktop; a release without the binary reports no driver. In a checkout
 `resolveCuaDriver` also reads an override, an install directory and `PATH`, so a developer can point
 `OPENBOT_CUA_DRIVER_PATH` at another build.
 
-OpenBot draws the agent cursor in its own per-display overlays for every display layout. The
+Builders Bot draws the agent cursor in its own per-display overlays for every display layout. The
 runtime starts `serve` with `--no-overlay`. The driver's overlay covers only the main display and
-cannot follow a display connected after startup. Keeping cursor ownership in OpenBot lets the
+cannot follow a display connected after startup. Keeping cursor ownership in Builders Bot lets the
 highlight controller add, resize, and remove display overlays without restarting the daemon or
 changing provider sessions.
 
 ### Agent display on a server
 
 A self-hosted server and the container start two Xvfb displays, and name the agent display in
-`OPENBOT_AGENT_DISPLAY`. A boat hosted server names its desktop `:0`, and OpenBot runs on an Xvfb
+`OPENBOT_AGENT_DISPLAY`. A boat hosted server names its desktop `:0`, and Builders Bot runs on an Xvfb
 display. Electron keeps its own `DISPLAY`: the built-in browser draws its tabs in
-the OpenBot window, and under Xvfb a hidden view gives no capture and no clicks, so OpenBot cannot
+the Builders Bot window, and under Xvfb a hidden view gives no capture and no clicks, so Builders Bot cannot
 only hide its window. On Linux, `agent-display.ts` sets `DISPLAY` to the agent display for the
 driver daemon, for Sunshine, and in `agentEnvironment` for every agent process. The driver and
 Sunshine open the display that `DISPLAY` names, so a screenshot, an input event and the remote
 desktop stream all use the agent display, and a program that an agent starts opens there. The
-per-display overlays are OpenBot windows, so with an agent display they are not started: nothing
+per-display overlays are Builders Bot windows, so with an agent display they are not started: nothing
 draws the agent cursor or the rim there. `capture_screen` and `list_capture_sources` use Electron's
-`desktopCapturer`, which sees only the OpenBot display, so with an agent display they are not
+`desktopCapturer`, which sees only the Builders Bot display, so with an agent display they are not
 available, and agents take screenshots with the driver.
 
 `openbot.service` holds the Xvfb displays too, and a stop signals each process of the unit at the
-same time. An Xvfb that stops first ends OpenBot before it closes its database. So the unit's
-`ExecStop` runs `openbot-hosted-server --stop`: it sends `SIGTERM` to OpenBot only, whose PID the
+same time. An Xvfb that stops first ends Builders Bot before it closes its database. So the unit's
+`ExecStop` runs `openbot-hosted-server --stop`: it sends `SIGTERM` to Builders Bot only, whose PID the
 script writes to `$XDG_RUNTIME_DIR/openbot.pid`, and waits for it. The container does not need this:
-tini signals only OpenBot.
+tini signals only Builders Bot.
 
 Because the driver draws no cursor, its motion styles do not apply. The renderer plays the driver's
 `adaptive` style itself (`agent-cursor-motion.ts`, a port of the driver's `trajectory.rs`): a Fitts
 min-jerk glide, or a wide swoop for a move over 900 points. The tap does not delay a request, so the
 cursor shows where an action went, from 180 ms to about 1.1 s after the driver acts.
 
-Every copy OpenBot starts gets `CUA_DRIVER_RS_TELEMETRY_ENABLED=0` and
-`CUA_DRIVER_RS_UPDATE_CHECK=0`. OpenBot ships the driver, so its vendor analytics are not something
-a user chose, and OpenBot pins the version, so a release check could only offer an update OpenBot
+Every copy Builders Bot starts gets `CUA_DRIVER_RS_TELEMETRY_ENABLED=0` and
+`CUA_DRIVER_RS_UPDATE_CHECK=0`. Builders Bot ships the driver, so its vendor analytics are not something
+a user chose, and Builders Bot pins the version, so a release check could only offer an update Builders Bot
 would refuse.
 
 ## Remote desktop permission checks and live tests
@@ -144,16 +144,16 @@ capability. On a server with an agent display, Sunshine runs on that display (se
 
 Codex saves an “Always allow” tool decision only when the MCP server is in a file-backed
 configuration layer. A thread configuration alone does not satisfy this check. Before starting or
-resuming a thread with Computer Use, OpenBot registers `computer_use` in the Codex user
+resuming a thread with Computer Use, Builders Bot registers `computer_use` in the Codex user
 configuration through `config/batchWrite`. The new entry contains only a placeholder command
 (`openbot-mcp`) and `enabled = false`. The write uses the user layer's version, and an existing entry is left unchanged.
-OpenBot does not save the driver socket, environment, or credentials in that entry.
+Builders Bot does not save the driver socket, environment, or credentials in that entry.
 
 The thread configuration enables the running driver and supplies its current command, arguments,
 and environment. It also carries the saved per-tool settings, including `set_value.approval_mode`.
 Saved tool settings are also in the session fingerprint. When an approval changes, the next turn
 replaces a loaded provider session that holds the old policy.
-An agent with Full access does not ask: OpenBot accepts each Computer Use tool consent once and
+An agent with Full access does not ask: Builders Bot accepts each Computer Use tool consent once and
 saves nothing, as it does for other MCP tools. A Workspace only or Ask first agent shows the card,
 and Codex keeps "Always allow" per tool and per provider account.
 When Computer Use is off for the agent or the driver is unavailable, the thread keeps the saved

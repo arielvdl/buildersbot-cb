@@ -64,6 +64,7 @@ export function serverSupportsCapability(
       capability === "providers-v3" ||
       capability === "providers-v4" ||
       capability === "providers-v5" ||
+      capability === "custom-provider-harness-v1" ||
       capability === "agent-session-settings-v1" ||
       capability === "acp-registry-v1" ||
       capability === "host-admin-v1" ||
@@ -88,7 +89,8 @@ export function serverSupportsCapability(
       capability === "agent-tasks-v1" ||
       capability === "agent-threads-v1" ||
       capability === "agent-thread-reads-v1" ||
-      capability === "side-question-v1") &&
+      capability === "side-question-v1" ||
+      capability === "agent-notification-levels-v1") &&
     server?.kind === "remote"
   ) {
     return server.compatibility?.capabilities.includes(capability) === true;
@@ -205,6 +207,14 @@ export function remoteAdminServer(
   capability: TeamCurrentCapability,
 ): ServerSummary | undefined {
   return server?.kind === "remote" && serverCanAdminister(server, capability) ? server : undefined;
+}
+
+/**
+ * Whether the settings of the active server show Providers: this computer, or a joined host that the
+ * account administers with `providers-v1`. `providerSettings` in `WorkspaceOverlays.tsx` has the same rule.
+ */
+export function activeServerHasProviderSettings(server: ServerSummary): boolean {
+  return server.kind === "local" || remoteAdminServer(server, "providers-v1") !== undefined;
 }
 
 /**

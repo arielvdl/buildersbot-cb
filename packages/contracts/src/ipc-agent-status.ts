@@ -46,6 +46,12 @@ export interface AgentProviderStatus {
   message: string | null;
   email?: string | null;
   connectionState?: "connecting";
+  /**
+   * Sent with `connectionState`: true while a sign-in waits for the user, false while Builders Bot checks
+   * the provider again after a key change, a restart or an update, when no browser page opens. A
+   * status without it, such as a joined server's, does not say.
+   */
+  signInPending?: boolean;
   checkError?: string | null;
   /**
    * Who owns the CLI binary in use. `system` is an install the user made and can update themselves,
@@ -58,8 +64,8 @@ export interface AgentProviderStatus {
   restartPending?: boolean;
   /**
    * A saved API key serves the provider's turns in place of the plan sign-in, so the plan's usage
-   * does not apply. Gemini only: its saved key comes before the Google account. Local only:
-   * released Team API adapters omit it.
+   * does not apply. Gemini: its saved key comes before the Google account. Codex: its own login is
+   * an OpenAI API key. Local only: released Team API adapters omit it.
    */
   apiKeyInUse?: boolean;
   /**
@@ -128,6 +134,7 @@ function isAgentProviderStatus(value: unknown): value is AgentProviderStatus {
     isNullableBoundedString(value.message, INPUT_LIMITS.messageText) &&
     (value.email === undefined || isNullableBoundedString(value.email, INPUT_LIMITS.email)) &&
     (value.connectionState === undefined || isBoundedString(value.connectionState, INPUT_LIMITS.identifier)) &&
+    (value.signInPending === undefined || typeof value.signInPending === "boolean") &&
     (value.checkError === undefined || isNullableBoundedString(value.checkError, INPUT_LIMITS.messageText)) &&
     (value.cliSource === undefined || isBoundedString(value.cliSource, INPUT_LIMITS.identifier)) &&
     (value.off === undefined || typeof value.off === "boolean") &&

@@ -8,6 +8,8 @@ export const messages = {
     "Builders Bot kon Computerbesturing niet registreren in de configuratie van Codex. Controleer of je Codex-config.toml geldig en beschrijfbaar is en start Builders Bot opnieuw. Je kunt Computerbesturing uitzetten in de instellingen van de teamgenoot om zonder door te gaan.",
   "error.provider.codexUnresponsive": "Codex reageerde niet meer, dus Builders Bot heeft het proces beëindigd.",
   "error.provider.acpUnresponsive": "{provider} reageerde niet op tijd, dus Builders Bot heeft het proces beëindigd.",
+  "error.provider.acpMcpNotLoaded":
+    "{provider} heeft de tools van Builders Bot niet geladen, dus deze agent kan ze niet gebruiken en zijn teamgenoten niet bereiken. Een teambeleid van {provider} kan lokale MCP-servers blokkeren. Vraag je teambeheerder om ze toe te staan en probeer het opnieuw.",
   "error.provider.endpointsReadOnly":
     "De opgeslagen endpoints zijn geschreven door een nieuwere versie van Builders Bot, of het bestand kan niet worden gelezen. Werk Builders Bot bij om ze te wijzigen.",
   "error.provider.endpointNoSecureStorage":
@@ -97,6 +99,8 @@ export const messages = {
   "error.provider.modelsTooMany": "Er zijn te veel modellen.",
   "error.provider.modelIdCharacter": "Een model-ID bevat een onbruikbaar teken.",
   "error.provider.modelIdDuplicate": "Twee modellen hebben dezelfde ID.",
+  "error.provider.contextWindowInvalid":
+    "Het contextvenster van een model moet een geheel aantal tokens zijn van {min} tot {max}.",
   "error.provider.headersTooMany": "Er zijn te veel headers.",
   "error.provider.headerNameCharacter": "Een headernaam bevat een teken dat HTTP niet toestaat.",
   "error.provider.headerNameTooLong": "Een headernaam is te lang.",
@@ -183,6 +187,8 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot kon de beheerde CLI niet activeren.",
   "error.provider.cliBusyReconnect":
     "De {provider} CLI werkt aan een beurt. Wacht tot die klaar is en verbind dan opnieuw.",
+  "error.provider.cliBusySignOut":
+    "De {provider}-CLI verwerkt een beurt. Wacht tot die klaar is en verbreek dan de verbinding.",
   "error.provider.opencodeCredentialsRejected":
     "De modelaanbieder heeft de API-sleutel geweigerd. Corrigeer de OpenCode-sleutel in Instellingen, of de sleutel van de aanbieder met `opencode auth login`. Probeer het daarna opnieuw of kies een ander model.\n{detail}",
   "error.provider.opencodeAuthRequired":
@@ -321,6 +327,7 @@ export const messages = {
   "error.provider.accountsUnsupported": "{provider} kan maar één account hebben.",
   "error.provider.accountNeedsConnection": "Verbind {provider} voordat je nog een account toevoegt.",
   "error.provider.usageResetUnsupported": "{provider} kan gebruikslimieten niet resetten.",
+  "error.provider.signOutUnsupported": "Builders Bot kan de {provider}-aanmelding niet verbreken.",
   "error.provider.usageResetNotConnected": "Log opnieuw in bij dit {provider}-account voordat je het gebruik reset.",
   "error.provider.accountLimit": "{provider} kan maximaal {limit} accounts hebben.",
   "error.provider.accountNotFound":

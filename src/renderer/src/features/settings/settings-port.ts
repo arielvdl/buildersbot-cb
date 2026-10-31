@@ -2,7 +2,9 @@ import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 
 /**
  * What the settings context reaches in main: the app-wide preferences, the switches for updates,
- * notifications and the Dynamic Island, and the local agents of the Agents tab.
+ * notifications and the Dynamic Island, the local agents and their background processes of the
+ * Agents tab, and the agents and the user's own notification levels of each server for the
+ * Notifications tab.
  */
 export interface SettingsPort {
   getAgentDefaults: BuildersBotDesktopApi["getAgentDefaults"];
@@ -19,8 +21,10 @@ export interface SettingsPort {
   getRemoteSessionReusePreference: BuildersBotDesktopApi["getRemoteSessionReusePreference"];
   getGuardPreference: BuildersBotDesktopApi["getGuardPreference"];
   onAgentMemoryLimitPreference: BuildersBotDesktopApi["onAgentMemoryLimitPreference"];
+  onAnalyticsPreference: BuildersBotDesktopApi["onAnalyticsPreference"];
   onApprovalAutomation: BuildersBotDesktopApi["onApprovalAutomation"];
   onOpenSettings: BuildersBotDesktopApi["onOpenSettings"];
+  onOpenUpdateSettings: BuildersBotDesktopApi["onOpenUpdateSettings"];
   setAgentDefaults: BuildersBotDesktopApi["setAgentDefaults"];
   setAnalyticsPreference: BuildersBotDesktopApi["setAnalyticsPreference"];
   setAppBehaviorPreference: BuildersBotDesktopApi["setAppBehaviorPreference"];
@@ -30,7 +34,11 @@ export interface SettingsPort {
   setRemoteSessionReusePreference: BuildersBotDesktopApi["setRemoteSessionReusePreference"];
   setGuardPreference: BuildersBotDesktopApi["setGuardPreference"];
   voice: Pick<BuildersBotDesktopApi["voice"], "getDictationPreference" | "setDictationPreference">;
-  agent: Pick<BuildersBotDesktopApi["agent"], "listAgents" | "updateAgent">;
+  agent: Pick<
+    BuildersBotDesktopApi["agent"],
+    "listAgents" | "updateAgent" | "listAgentNotificationLevels" | "setAgentNotificationLevel" | "onScopedEvent"
+  >;
+  backgroundProcesses: BuildersBotDesktopApi["backgroundProcesses"];
   dynamicIsland: Pick<
     BuildersBotDesktopApi["dynamicIsland"],
     "getBuiltInDisplayGeometry" | "getPreference" | "setPreference"

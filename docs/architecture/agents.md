@@ -32,7 +32,7 @@ Messages use `AgentService.sendMessage` and its persisted retry keys. The attent
 each pending object an opaque local handle. Responses match that handle and agent together; an
 expired handle cannot answer a later provider request. Pending details are not trimmed to the UI
 snapshot budget. The HTTP boundary redacts outgoing values. Browser takeovers and secret questions
-are notices only and direct the person to OpenBot. Messages and routine runs share the rate limit.
+are notices only and direct the person to Builders Bot. Messages and routine runs share the rate limit.
 
 ## Scheduled routine changes
 
@@ -412,7 +412,7 @@ at once and shows an Undo toast; when the toast ends, `AgentService.deleteTask` 
 messages and deletes the thread with its conversation, attachments, event history and provider
 session. It refuses a thread with a running turn. The main thread has no archive, rename or delete.
 
-The agent starts a side thread with the `start_task` OpenBot tool, up to 8 open tasks. On desktop and
+The agent starts a side thread with the `start_task` Builders Bot tool, up to 8 open tasks. On desktop and
 the web, it opens as a tab of the agent and does not take focus. An agent has at most 50
 open tasks (`INPUT_LIMITS.agentTasks`, the size of the task list), so each open task stays visible. A message to a
 running task waits in the task, or steers the turn when the agent's busy-message mode is "steer"
@@ -456,7 +456,13 @@ approval of a side thread turn also shows in that thread. A provider
 error of a task turn goes to the task: `AgentTasks` stores the redacted text in the task's `error`
 column, and the next turn of the task clears it. The thread shows it after a restart too.
 
-On desktop and the web, a task opens as a thread in the chat header. The phone uses the section and title rules in `@openbot/team-client/agent-tasks`.
+On desktop and the web, a task opens as a thread in the chat header. The Tasks rail page
+(`packages/ui/src/features/tasks/TasksPage.tsx`, `src/renderer/src/features/tasks/`) lists the tasks of all
+agents of the active server and opens a task beside the list in `AgentThreadView`, the view of a thread tab.
+The panel archives, restores and opens the task in the chat. A read there marks the thread read. A running
+task that waits for an approval, a question or a browser takeover goes to Needs you; the chat answers a
+question or takeover, so the panel links there. The Tasks page and the phone share the section and title
+rules in `@openbot/team-client/agent-tasks`.
 On the phone, the server drawer opens the Tasks screen (`apps/mobile/src/app/(app)/server-tasks.tsx`) when
 the host serves the capability. A task opens as a full screen (`apps/mobile/src/app/(app)/task/[taskId].tsx`)
 with the message list and header of the agent's chat, the task actions in place of the browser
@@ -469,9 +475,9 @@ instead, as on desktop: a finished task stays with its result until the person c
 opens the task.
 
 Shared writes: each task thread owns its own browser tabs and tab queue. Computer Use is an MCP
-server that the provider starts, so OpenBot cannot queue its calls; `ThreadLifecycle` starts a task
+server that the provider starts, so Builders Bot cannot queue its calls; `ThreadLifecycle` starts a task
 session without it, and the instructions send desktop work to the agent's own chat. Tasks share the
-workspace, and OpenBot does not lock files; the `start_task` guidance warns the agent about this.
+workspace, and Builders Bot does not lock files; the `start_task` guidance warns the agent about this.
 
 A provider, account or custom-agent change that a user or an agent asks for while a turn, a task or
 a queued message waits is stored on the agent as `pendingRuntime`. The running work keeps its
@@ -546,7 +552,7 @@ description to 300 characters (`read_agent` returns all of it), its
 `status` (a starting delivery and a context compaction count as `working`), `queuedMessages`
 (channel work excluded), `turnStartedAt`, and `lastActivityAt`. The last two come from the provider
 notifications that `TurnLifecycle` sees; they are in memory only, so after a restart
-`lastActivityAt` falls back to the newest message for the agent. OpenBot does not record which
+`lastActivityAt` falls back to the newest message for the agent. Builders Bot does not record which
 files a turn changed. `openbot.interrupt_agent` (`src/backend/agent/agent-interrupt-tool.ts`)
 refuses the caller itself, a channel turn, and a turn that any delivery other than the caller's
 started, so an agent cannot stop work from the user, a routine, or another agent. It cancels the
@@ -608,7 +614,7 @@ conversation. `openbot.create_agent` creates a persistent teammate with instruct
 task; `openbot.update_profile` changes an existing agent's name, title, instructions, generated
 or custom avatar, provider, model, reasoning effort, account, backup models, access, Computer Use, or notifications. `avatarPath` accepts a local PNG, JPEG, or WebP file up to 512 KB, with relative
 paths resolved from the calling agent’s workspace. The agent uses its available tools to resize or
-compress a copy when needed. OpenBot validates the prepared file before profile changes and copies
+compress a copy when needed. Builders Bot validates the prepared file before profile changes and copies
 it into managed avatar storage. Generated avatar settings remove the custom image. Both run through
 the existing agent service and validate arguments before changing state.
 `openbot.create_agent` also accepts an optional `provider`, `model` and `reasoningEffort`. The
@@ -623,12 +629,12 @@ that can hold more than one account also lists its accounts, with the provider's
 (`default`) first: the id, the name the user gave it (or null), and the state. It never lists the
 account email, credentials or account folders. `update_profile` takes the
 agent's `providerAccountId` and its `backupModels` (`automatic` and an `order` of provider, model
-and account), the same choices that the settings page offers. OpenBot checks each backup model and
+and account), the same choices that the settings page offers. Builders Bot checks each backup model and
 account against the lists before it writes, and the agent service checks the primary account; an
 account change, like a provider change, waits until the agent is idle. These changes apply at once,
 as the other profile fields do. `read_agent` and the `update_profile` result return the account,
 the backup models and `usageLimitReturn`, the model that the agent left for a usage limit or a provider error (`cause: "provider-error"`). An unknown
-model or an unsupported effort is an error that names the valid values; OpenBot checks them before
+model or an unsupported effort is an error that names the valid values; Builders Bot checks them before
 it creates the agent. Without a provider and a model, the new agent starts on the calling agent's
 provider, model and reasoning effort, so a team that one agent creates runs where that agent runs.
 When the caller's provider no longer lists its model, the new agent starts on the user's default.
@@ -854,7 +860,7 @@ Unchanged fingerprints resume the existing session. Pending history handoffs are
 the replacement is bound, reloaded after restart, and removed after a turn accepts the handoff.
 
 The same handoff carries a chat to another provider after a provider switch. It holds the user and
-assistant messages after the last context-reset marker, with attachment names only. OpenBot stores
+assistant messages after the last context-reset marker, with attachment names only. Builders Bot stores
 no tool steps, so the work log comes from the providers. At the switch, before the old sessions are
 retired, `ThreadLifecycle.readWorkSteps` reads each active session with the provider history read
 through the client that holds it, with a 10-second limit. The switch then checks again that no turn started.
@@ -911,7 +917,7 @@ memory step fails is deleted. Step 1 offers two ways to add the export agent: it
 
 ## Instance transfer
 
-Server settings > Transfer moves a server's agents and server settings to another OpenBot server with
+Server settings > Transfer moves a server's agents and server settings to another Builders Bot server with
 one `.zip` file. It is a separate format from the Grok Bot agent import. The first screen offers "Export
 from this server" and "Import into this server". The section shows for this computer's server, and for a
 joined server with `instance-transfer-v1` when the user is an owner or admin (see
@@ -920,7 +926,7 @@ client and mobile do not show it. App preferences, the default model and the pro
 belong to the app, not to a server, so they are not in the file.
 
 The file has `openbot-transfer.json` at its root, `agents/<key>/` folders (`avatar.<ext>`,
-`skills/<slug>/` and `workspace/`), and `shared/` for `~/OpenBot/Shared`. The manifest is
+`skills/<slug>/` and `workspace/`), and `shared/` for `~/Builders Bot/Shared`. The manifest is
 `{ format: "openbot-instance-transfer", version: 1, source, agents, settings, shared, signedIn }`.
 `src/main/instance-transfer-manifest.ts` writes and reads it with Effect `Schema`; it is a contract
 between app versions, so add only optional fields and raise `version` for a change of meaning. A file
@@ -931,11 +937,12 @@ Each agent carries its profile (name, title, instructions, avatar seed and image
 and reasoning effort, notifications and busy-message mode, its routines (schedule, limit and missed
 policies; one-time routines are in the optional `oneTimeRoutines` field, so an older app skips them and
 keeps the agent), its memories (with the essential or searchable choice the user made) and the skill folders
-in `.agents/skills` and `.claude/skills` that OpenBot does not manage. Workspace files are optional
+in `.agents/skills` and `.claude/skills` that Builders Bot does not manage. Workspace files are optional
 and leave out `.openbot/`, the skill folders, links, and every path `isUnsafeArchivePath` refuses
 (`.git`, `node_modules`, `.env*`, private keys, nested archives). Server settings are optional: MCP servers,
 custom model providers, custom ACP agents (as a warning, see below), sidebar sections and routine flows
-between exported agents.
+between exported agents. A custom provider model keeps its optional `contextWindow`; an app that
+does not know the field ignores it.
 
 No secret is in the file: MCP variable and header values are empty, custom providers have no key or
 headers, custom agents keep only the names of their variables, and `signedIn` lists provider ids,

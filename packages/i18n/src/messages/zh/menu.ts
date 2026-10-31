@@ -14,4 +14,12 @@ export const messages = {
   "menu.trayOpen": "打开 Builders Bot",
   "menu.trayQuit": "退出 Builders Bot",
   "menu.trayTooltip": "Builders Bot",
+  "menu.undo": "撤销",
+  "menu.redo": "重做",
+  "menu.cut": "剪切",
+  "menu.copy": "复制",
+  "menu.paste": "粘贴",
+  "menu.pasteAndMatchStyle": "粘贴并匹配样式",
+  "menu.delete": "删除",
+  "menu.selectAll": "全选",
 } as const satisfies PartialTranslation<typeof source>;

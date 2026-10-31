@@ -88,7 +88,7 @@ export const messages = {
   "webClient.app.title": "Aplicativo",
   "webClient.app.installTitle": "Instalar o aplicativo",
   "webClient.app.installDescription":
-    "Instale o OpenBot neste aparelho. Ele abre sem a barra do navegador e guarda a tela inicial para abrir sem rede.",
+    "Instale o Builders Bot neste aparelho. Ele abre sem a barra do navegador e guarda a tela inicial para abrir sem rede.",
   "webClient.app.installHint": "No iPhone e no iPad, abra Compartilhar e escolha Adicionar à Tela de Início.",
   "webClient.app.install": "Instalar",
   "webClient.app.installedTitle": "Instalado neste aparelho",
@@ -104,7 +104,7 @@ export const messages = {
     "Avisa esta instalação quando uma tarefa espera por você, mesmo com o aplicativo fechado. O texto da conversa fica no host.",
   "webClient.app.pushDenied": "O navegador não liberou as notificações. Libere nas configurações do site.",
   "webClient.app.pushUnavailable": "As notificações não estão disponíveis para este aplicativo agora.",
-  "webClient.lock.title": "O OpenBot está bloqueado",
+  "webClient.lock.title": "O Builders Bot está bloqueado",
   "webClient.lock.description": "Desbloqueie com a passkey deste aparelho para ver os agentes.",
   "webClient.lock.unlock": "Desbloquear",
   "webClient.lock.failed": "O aparelho não conferiu a passkey. Tente de novo.",

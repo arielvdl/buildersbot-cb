@@ -30,6 +30,7 @@ const args: FirstRunFlowProps = {
   agentStatus: lazyProviderAgentStatus,
   platform: "darwin",
   onSave: fn(async (_provider: AgentProviderId) => undefined),
+  onAnalyticsChoice: fn(),
   onAddCustomProvider: fn(async () => "restarted" as const),
   customProviders: [],
 };
@@ -79,7 +80,7 @@ export const SubscriptionPath: Story = {
 };
 
 /**
- * OpenCode downloads slowly. Press "Start free", then "Open OpenBot" at once: the button waits,
+ * OpenCode downloads slowly. Press "Start free", then "Open Builders Bot" at once: the button waits,
  * says why, and opens the app when OpenCode is ready.
  */
 export const FreeStillDownloading: Story = {

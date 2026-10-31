@@ -19,6 +19,8 @@ export interface FilesPort {
         | "getMachineMetrics"
         | "getCleanupCandidates"
         | "removeCleanupCandidate"
+        | "getRemovableRuntimes"
+        | "removeRemovableRuntimes"
       >
     >;
   /** The machine alert settings, beside `storage.getMachineMetrics`. */

@@ -22,7 +22,8 @@ export const messages = {
   "customProvider.error.providerIdPattern":
     "Bir harf veya rakamla başlayan küçük harfler, rakamlar, kısa çizgiler veya alt çizgiler kullanın.",
   "customProvider.error.providerIdLength": "Sağlayıcı kimliğini en fazla {max} karakter tutun.",
-  "customProvider.error.providerIdBuiltIn": "Builders Bot'ta zaten {id} adında bir sağlayıcı var. Başka bir kimlik seçin.",
+  "customProvider.error.providerIdBuiltIn":
+    "Builders Bot'ta zaten {id} adında bir sağlayıcı var. Başka bir kimlik seçin.",
   "customProvider.error.providerIdSaved":
     "{id} adlı bir uç nokta zaten kayıtlı. Önce onu kaldırın veya başka bir kimlik seçin.",
   "customProvider.error.displayNameRequired": "Bir görünen ad girin.",
@@ -34,6 +35,7 @@ export const messages = {
   "customProvider.error.modelIdDuplicate": "Bu sağlayıcıda zaten {id} listeleniyor.",
   "customProvider.error.modelIdInvalid":
     "Bu model kimliği kullanılamaz. Boşlukları, tırnak işaretlerini ve diğer noktalama işaretlerini kaldırın.",
+  "customProvider.error.contextWindowInvalid": "{min} ile {max} arasında tam sayı bir token sayısı girin.",
   "customProvider.error.headerNameRequired": "Bir başlık adı girin.",
   "customProvider.error.headerNameInvalid": "Geçerli bir HTTP başlık adı kullanın.",
   "customProvider.error.headerDuplicate": "Bu sağlayıcıda zaten {name} ayarlanmış.",
@@ -47,11 +49,11 @@ export const messages = {
 
   // Kaydetme veya kaldırma işleminden sonraki not. Builders'un yeni listeyi ne zaman okuduğunu belirtir.
   "customProvider.saved.restarted": "Kaydedildi. Builders Bot modelleri yüklüyor.",
-  "customProvider.saved.skippedBusy": "Kaydedildi. Builders listeyi geçerli görev durduktan sonra okur.",
-  "customProvider.saved.notRunning": "Kaydedildi. Builders bir sonraki başlatılışında listeyi okur.",
+  "customProvider.saved.skippedBusy": "Kaydedildi. Sağlayıcı listeyi geçerli görev durduktan sonra okur.",
+  "customProvider.saved.notRunning": "Kaydedildi. Sağlayıcı bir sonraki başlatılışında listeyi okur.",
   "customProvider.removed.restarted": "Kaldırıldı. Builders Bot modelleri yüklüyor.",
-  "customProvider.removed.skippedBusy": "Kaldırıldı. Builders listeyi geçerli görev durduktan sonra okur.",
-  "customProvider.removed.notRunning": "Kaldırıldı. Builders bir sonraki başlatılışında listeyi okur.",
+  "customProvider.removed.skippedBusy": "Kaldırıldı. Sağlayıcı listeyi geçerli görev durduktan sonra okur.",
+  "customProvider.removed.notRunning": "Kaldırıldı. Sağlayıcı bir sonraki başlatılışında listeyi okur.",
   "customProvider.saveFailed": "Builders Bot bu uç noktayı kaydedemedi.",
   "customProvider.removeFailed": "Builders Bot {name} öğesini kaldıramadı.",
   "customProvider.saveUnavailable": "Bu derleme bir uç noktayı kaydedemez.",
@@ -68,6 +70,8 @@ export const messages = {
   "customProvider.field.displayName": "Görünen ad",
   "customProvider.field.displayNamePlaceholder": "Sağlayıcım",
   "customProvider.field.baseUrl": "Temel URL",
+  "customProvider.field.harness": "Çalıştığı yer",
+  "customProvider.field.harnessHint": "Bu uç noktaya istekleri gönderen sağlayıcı.",
   "customProvider.field.apiKey": "API anahtarı",
   "customProvider.field.apiKeyHint": "İsteğe bağlı. Kimlik doğrulamasını başlıklarla yönetiyorsanız boş bırakın.",
   "customProvider.field.apiKeyKeptHint": "Bir anahtar kayıtlı. Korumak için burayı boş bırakın.",
@@ -75,6 +79,8 @@ export const messages = {
   "customProvider.model.id": "{number}. model kimliği",
   "customProvider.model.name": "{number}. model görünen adı",
   "customProvider.model.namePlaceholder": "Görünen Ad",
+  "customProvider.model.contextWindow": "Model {number} bağlam penceresi",
+  "customProvider.model.contextWindowPlaceholder": "Token'lar",
   "customProvider.model.remove": "{number}. modeli kaldır",
   "customProvider.model.add": "Model ekle",
   "customProvider.headers": "Başlıklar",
@@ -101,7 +107,7 @@ export const messages = {
   "customProvider.preset.title": "Sağlayıcı veya ajan ekle",
   "customProvider.preset.description": "Yerel bir model sunucusu, bir uç nokta veya bir ACP ajanı seçin.",
   "customProvider.preset.heading": "Özel ekle",
-  "customProvider.preset.subtitle": "Builders için modeller veya kendine ait bir ajan.",
+  "customProvider.preset.subtitle": "OpenCode veya Pi için modeller ya da kendine ait bir ajan.",
   "customProvider.preset.models": "Modeller",
   "customProvider.preset.agents": "Ajanlar",
   "customProvider.preset.ollama": "Ollama",
@@ -141,7 +147,8 @@ export const messages = {
   // Taramanın baktığı yer. Varsayılan adresler ve PATH her zaman bunun bir parçasıdır.
   "customProvider.detection.title": "Yerel algılama",
   "customProvider.detection.saveFailed": "Algılama ayarları kaydedilemedi.",
-  "customProvider.detection.description": "Builders Bot'un yerel model sunucularını ve ACP ajanlarını arayacağı yerler.",
+  "customProvider.detection.description":
+    "Builders Bot'un yerel model sunucularını ve ACP ajanlarını arayacağı yerler.",
   "customProvider.detection.enabled": "Yerel modelleri ve ajanları ara",
   "customProvider.detection.enabledDescription":
     "Builders Bot, Ollama ve LM Studio'nun varsayılan adreslerini kontrol eder ve PATH'inizde bilinen ACP ajanlarını arar.",
@@ -239,6 +246,7 @@ export const messages = {
   "customProvider.list.empty": "Henüz özel uç nokta yok.",
   "customProvider.list.label": "Özel uç noktalar",
   "customProvider.list.apiKeySaved": "API anahtarı kaydedildi",
+  "customProvider.list.runsOn": "{name} üzerinde çalışır",
   "customProvider.list.editLabel": "{name} sağlayıcısını düzenle",
   "customProvider.list.deleteLabel": "{name} sağlayıcısını sil",
   "customProvider.list.confirmTitle": "{name} kaldırılsın mı?",

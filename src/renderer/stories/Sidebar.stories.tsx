@@ -399,7 +399,7 @@ export const ChatTabs: Story = {
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
 };
 
-/** A joined server has a new OpenBot version. The header button opens its update. */
+/** A joined server has a new Builders Bot version. The header button opens its update. */
 export const ServerUpdate: Story = {
   args: { serverName: "Research server", serverUpdate: { version: "0.24.0", running: false, onOpen: fn() } },
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
@@ -748,7 +748,7 @@ const serverMenu = {
   onSelect: fn(),
   onAdd: fn(),
   onSetMuted: fn(),
-  onSetNotificationLevel: fn(),
+  onOpenNotificationSettings: fn(),
   onOpenSettings: fn(),
 };
 

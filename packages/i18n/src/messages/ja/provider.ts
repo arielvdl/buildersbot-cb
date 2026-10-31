@@ -33,7 +33,7 @@ export const messages = {
   "provider.status.checking": "確認中",
   "provider.status.off": "オフ",
   "provider.gemini.hostSignIn":
-    "Gemini を接続するには、ホストで Builders Bot を開き、「設定」>「プロバイダー」で「接続」を選択してください。Google へのサインインには、そのホストのブラウザーが必要です。リモートでのサインインには対応していません。",
+    "Gemini を接続するには、ホストで Builders Bot を開き、「サーバーの設定」>「プロバイダー」で「接続」を選択してください。Google へのサインインには、そのホストのブラウザーが必要です。リモートでのサインインには対応していません。",
 
   "provider.key.free": "無料",
 
@@ -75,7 +75,8 @@ export const messages = {
   },
 
   "provider.codeLogin.title": "コードで {name} にログイン",
-  "provider.codeLogin.description": "スマートフォンか別のブラウザーで完了してください。Builders Bot はここで待機します。",
+  "provider.codeLogin.description":
+    "スマートフォンか別のブラウザーで完了してください。Builders Bot はここで待機します。",
   "provider.codeLogin.starting": "{name} からコードを取得しています…",
   "provider.codeLogin.qrLabel": "{name} のログインページの QR コード",
   "provider.codeLogin.open": "開く",
@@ -186,6 +187,7 @@ export const messages = {
   "provider.account.cancelSignIn": "サインインをキャンセル",
   "provider.account.finishSignIn": "ブラウザーでサインインを完了してください。",
   "provider.account.remove": "アカウントを削除",
+  "provider.account.disconnect": "切断",
   "provider.account.actionFailed": "{name} のアカウントを変更できませんでした。",
   "provider.account.resetUsage": "使用量をリセット",
   "provider.account.resetUsageTitle": "{name} の使用量をリセットしますか？",
@@ -199,6 +201,11 @@ export const messages = {
   "provider.account.resetUsageNoCredit": "{name} には使用量リセットのクレジットが残っていません。",
   "provider.account.resetUsageAlreadyRedeemed": "{name} のこのリセットのクレジットはすでに使われています。",
   "provider.account.resetUsageFailed": "{name} の使用量をリセットできませんでした。",
+  "provider.settings.disconnectTitle": "{name} を切断しますか？",
+  "provider.settings.disconnectOthers": "{provider} を再接続するまで、ほかの {provider} アカウントは待機します。",
+  "provider.settings.disconnectLocal":
+    "Builders Bot はこのコンピュータで {provider} からサインアウトします。ターミナルの {provider} CLI もサインアウトします。",
+  "provider.settings.disconnectHost": "Builders Bot はサーバーで {provider} からサインアウトします。",
   "provider.settings.cache": "キャッシュ",
   "provider.settings.promptCache": "プロンプトキャッシュ",
   "provider.settings.promptCacheDescription":

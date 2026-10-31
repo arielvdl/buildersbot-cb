@@ -149,7 +149,12 @@ export const CONNECTED_CONNECTOR_DETAILS: readonly ConnectorDetail[] = STORY_CON
         ...detail,
         props: {
           ...detail.props,
-          status: { ...detail.props.status, state: "connected", vaultNames: ["Shared with OpenBot"], loginCount: 3 },
+          status: {
+            ...detail.props.status,
+            state: "connected",
+            vaultNames: ["Shared with Builders Bot"],
+            loginCount: 3,
+          },
         },
       };
     case "bitwarden":

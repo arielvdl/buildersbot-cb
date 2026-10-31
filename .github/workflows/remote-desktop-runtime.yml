@@ -218,7 +218,12 @@ jobs:
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS' && steps.runtime-cache.outputs.cache-hit != 'true'
-        run: brew install cmake ninja node pkgconf icu4c@78 miniupnpc openssl@3 opus
+        # Sunshine does not build with OpenSSL 4. Runner images since 2026-10-28 link openssl@4 into the
+        # Homebrew prefix, where CMake finds it before the keg-only openssl@3.
+        run: |
+          brew install cmake ninja node pkgconf icu4c@78 miniupnpc openssl@3 opus
+          if brew list openssl@4 >/dev/null 2>&1; then brew unlink openssl@4; fi
+          brew link --force --overwrite openssl@3
 
       - name: Set up Windows build dependencies
         if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
@@ -448,7 +453,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "Remote desktop runtime ${{ needs.prepare.outputs.input_digest }}" \
-              --notes "Pinned Sunshine and Moonlight Web runtime for OpenBot. This prerelease is not an OpenBot application update." \
+              --notes "Pinned Sunshine and Moonlight Web runtime for Builders Bot. This prerelease is not an Builders Bot application update." \
               --prerelease \
               --latest=false
           fi
@@ -458,7 +463,7 @@ jobs:
             exit 1
           fi
 
-      - name: Confirm stable OpenBot release did not change
+      - name: Confirm stable Builders Bot release did not change
         shell: bash
         env:
           BEFORE: ${{ needs.prepare.outputs.stable_release }}
@@ -551,7 +556,7 @@ jobs:
             libx11-6 libxcb-shm0 libxcb-xfixes0 libxcb1 libxfixes3 libxrandr2 libxtst6
           xvfb-run -a bun run test:remote-desktop-runtime
 
-      - name: Package OpenBot from the downloaded runtime
+      - name: Package Builders Bot from the downloaded runtime
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ${{ matrix.platform == 'win32' && 'bun run package:win:verify' || matrix.platform == 'linux' && 'bun run package:linux' || 'bun run package:verify' }}

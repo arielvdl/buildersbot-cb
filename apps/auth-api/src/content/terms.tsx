@@ -4,8 +4,7 @@
 import { Link } from "@tanstack/solid-router";
 
 const CONTACT_EMAIL = "hello@openbot.run";
-const PRICING_URL = "https://openbot.run/pricing";
-const PRICING_LABEL = "openbot.run/pricing";
+const PRICING_LABEL = "http://openbot.run/pricing";
 
 export function Terms() {
   return (
@@ -14,9 +13,9 @@ export function Terms() {
 
       <h2>Acceptance of the Terms &amp; Conditions</h2>
       <p>
-        These Terms &amp; Conditions ("Terms") govern the use of OpenBot and form a legally binding agreement between
-        you and OpenBot. By accessing or using the Services, you agree to these Terms. If you are acting on behalf of an
-        organization, you represent that you have the authority to accept these Terms on its behalf.
+        These Terms &amp; Conditions ("Terms") govern the use of Builders Bot and form a legally binding agreement
+        between you and Builders Bot. By accessing or using the Services, you agree to these Terms. If you are acting on
+        behalf of an organization, you represent that you have the authority to accept these Terms on its behalf.
       </p>
 
       <h2>Accounts and Eligibility</h2>
@@ -26,14 +25,15 @@ export function Terms() {
       </p>
       <p>
         You are responsible for maintaining the confidentiality and security of your account credentials and for all
-        activities conducted through your account. You agree to notify OpenBot without undue delay if you become aware
-        of any unauthorised access to or use of your account or any other security incident affecting your account.
+        activities conducted through your account. You agree to notify Builders Bot without undue delay if you become
+        aware of any unauthorised access to or use of your account or any other security incident affecting your
+        account.
       </p>
 
-      <h2>Services Description</h2>
+      <h2>Services description</h2>
       <p>
-        OpenBot is a source-available platform that enables users to create, configure, manage, and collaborate with
-        artificial intelligence agents ("AI Agents").
+        Builders Bot is a source-available platform that enables users to create, configure, manage, and collaborate
+        with artificial intelligence agents ("AI Agents").
       </p>
       <p>Depending on the selected functionality, users can:</p>
       <ul>
@@ -46,9 +46,9 @@ export function Terms() {
         <li>access supported browser automation and computer interaction features;</li>
         <li>discover, install, and share agents, plugins, and skills through the Marketplace;</li>
         <li>collaborate with other authorised users; and</li>
-        <li>operate OpenBot on their own devices or servers or through optional hosted server services.</li>
+        <li>operate Builders Bot on their own devices or servers or through optional hosted server services.</li>
       </ul>
-      <p>OpenBot acts as a software environment for accessing and coordinating AI technologies.</p>
+      <p>Builders Bot acts as a software environment for accessing and coordinating AI technologies.</p>
       <p>
         The availability of individual features may depend on the user's device, operating system, selected AI provider,
         connected services, account configuration, and subscription plan.
@@ -56,19 +56,20 @@ export function Terms() {
 
       <h2>Non-Commercial Use</h2>
       <p>
-        OpenBot is available free of charge for personal and non-commercial use, subject to the software licence
+        Builders Bot is available free of charge for personal and non-commercial use, subject to the software licence
         applicable to the relevant version.
       </p>
       <p>
-        Users may operate OpenBot on their own computers without purchasing a Hosted Server or a Commercial License.
+        Users may operate Builders Bot on their own computers without purchasing a Hosted Server or a Commercial
+        License.
       </p>
 
       <h2>Commercial Use</h2>
       <p>
-        Commercial Use of OpenBot requires a valid Commercial License, unless otherwise permitted under the applicable
-        software licence.
+        Commercial Use of Builders Bot requires a valid Commercial License, unless otherwise permitted under the
+        applicable software licence.
       </p>
-      <p>OpenBot offers two Commercial License plans:</p>
+      <p>Builders Bot offers two Commercial License plans:</p>
       <ul>
         <li>Starter License – intended for one individual user (one Seat).</li>
         <li>
@@ -81,18 +82,18 @@ export function Terms() {
       </p>
       <p>
         Commercial License subscriptions are available with monthly or annual billing periods. Current pricing and plan
-        details are available on the <a href={PRICING_URL}>{PRICING_LABEL}</a> page.
+        details are available on the <Link to="/pricing">{PRICING_LABEL}</Link> page.
       </p>
       <p>
         The detailed rules governing Commercial Licenses, including Seat assignments, additional Seats, renewals,
         cancellations, and commercial usage rights, are set out in the separate{" "}
-        <Link to="/commercial-license">OpenBot Commercial License Agreement</Link>.
+        <Link to="/commercial-license">Builders Bot Commercial License Agreement</Link>.
       </p>
 
       <h2>Hosted Server Services</h2>
       <p>
-        OpenBot offers optional Hosted Server Services, allowing users to operate OpenBot on hosted infrastructure
-        instead of their own computers or independently managed servers.
+        Builders Bot offers optional Hosted Server Services, allowing users to operate Builders Bot on hosted
+        infrastructure instead of their own computers or independently managed servers.
       </p>
       <p>
         The available Hosted Server plans include Starter, Standard, and Pro, which differ in their intended use,
@@ -104,7 +105,7 @@ export function Terms() {
       </p>
       <p>
         Hosted Server subscriptions are available with monthly or annual billing periods. Current pricing, available
-        plans, and their technical specifications are presented on the <a href={PRICING_URL}>{PRICING_LABEL}</a> page.
+        plans, and their technical specifications are presented on the <Link to="/pricing">{PRICING_LABEL}</Link> page.
       </p>
 
       <h2>Pricing and Plan Selection</h2>
@@ -125,13 +126,13 @@ export function Terms() {
 
       <h2>Conclusion and Duration of the Agreement</h2>
       <p>
-        An agreement for the use of the OpenBot Platform is concluded when the User completes the registration process
-        and accepts these Terms.
+        An agreement for the use of the Builders Bot Platform is concluded when the User completes the registration
+        process and accepts these Terms.
       </p>
       <p>
-        The use of OpenBot software is subject to the licence applicable to the relevant software version. Commercial
-        Use is governed by the separate OpenBot Commercial License Agreement, which sets out the conditions for
-        obtaining, renewing, and terminating Commercial Licenses.
+        The use of Builders Bot software is subject to the licence applicable to the relevant software version.
+        Commercial Use is governed by the separate Builders Bot Commercial License Agreement, which sets out the
+        conditions for obtaining, renewing, and terminating Commercial Licenses.
       </p>
       <p>
         An agreement for paid Hosted Server Services is concluded upon completion of the applicable purchasing process.
@@ -146,7 +147,7 @@ export function Terms() {
 
       <h2>Technical Requirements</h2>
       <p>
-        Access to and use of OpenBot requires a compatible device, an operating system supported by the relevant
+        Access to and use of Builders Bot requires a compatible device, an operating system supported by the relevant
         software version, and any additional technical components necessary for the selected functionalities.
       </p>
       <p>
@@ -156,13 +157,13 @@ export function Terms() {
         external services.
       </p>
       <p>
-        Users operating OpenBot on their own devices or independently managed infrastructure are responsible for
+        Users operating Builders Bot on their own devices or independently managed infrastructure are responsible for
         ensuring that their operating environment meets the applicable technical requirements and is appropriately
         configured and maintained.
       </p>
       <p>
         Information about supported operating systems, compatibility, installation procedures, and other technical
-        requirements is available through the official OpenBot website and documentation.
+        requirements is available through the official Builders Bot website and documentation.
       </p>
 
       <h2>Acceptable Use and Prohibited Activities</h2>
@@ -201,26 +202,26 @@ export function Terms() {
         interactions with external systems, remain within the scope of your legal rights and authorisations.
       </p>
       <p>
-        OpenBot may take appropriate and proportionate measures in response to violations of these Terms, subject to
-        applicable law.
+        Builders Bot may take appropriate and proportionate measures in response to violations of these Terms, subject
+        to applicable law.
       </p>
 
       <h2>Software Licence and Intellectual Property</h2>
       <p>
         The Software is made available under the licence applicable to the relevant version. The applicable software
-        licences are available through the official OpenBot source code repository.
+        licences are available through the official Builders Bot source code repository.
       </p>
       <p>
-        Commercial Use of OpenBot requires a valid Commercial License, unless otherwise permitted under the applicable
-        software licence. The relevant rights and conditions are governed by the separate OpenBot Commercial License
-        Agreement.
+        Commercial Use of Builders Bot requires a valid Commercial License, unless otherwise permitted under the
+        applicable software licence. The relevant rights and conditions are governed by the separate Builders Bot
+        Commercial License Agreement.
       </p>
       <p>
-        OpenBot and its associated intellectual property rights belong to Synthetify Labs sp. z o.o., except for
+        Builders Bot and its associated intellectual property rights belong to Synthetify Labs sp. z o.o., except for
         third-party components, which remain subject to their respective licences.
       </p>
       <p>
-        The OpenBot name, logos, trademarks, and other branding elements are protected by applicable intellectual
+        The Builders Bot name, logos, trademarks, and other branding elements are protected by applicable intellectual
         property laws. Users may not use these materials without authorisation, except as permitted under applicable law
         or the relevant licence.
       </p>
@@ -240,19 +241,19 @@ export function Terms() {
         applicable laws.
       </p>
       <p>
-        Where you choose to publish or share User Content through OpenBot's public sharing functionalities, you grant
-        OpenBot a non-exclusive, worldwide, royalty-free licence to host, reproduce, display, distribute, and
+        Where you choose to publish or share User Content through Builders Bot's public sharing functionalities, you
+        grant Builders Bot a non-exclusive, worldwide, royalty-free licence to host, reproduce, display, distribute, and
         technically adapt that content solely to the extent necessary to provide the relevant publication or sharing
         functionality.
       </p>
       <p>
-        This licence does not transfer ownership of User Content to OpenBot. It applies for the period during which the
-        relevant content is made available through the Services, together with any additional period reasonably
+        This licence does not transfer ownership of User Content to Builders Bot. It applies for the period during which
+        the relevant content is made available through the Services, together with any additional period reasonably
         necessary to complete its removal, subject to applicable law.
       </p>
       <p>
-        OpenBot does not acquire ownership of User Content solely because it is created, stored, or processed using the
-        Platform.
+        Builders Bot does not acquire ownership of User Content solely because it is created, stored, or processed using
+        the Platform.
       </p>
 
       <h2>AI-Generated Outputs</h2>
@@ -265,7 +266,7 @@ export function Terms() {
         relevant, the terms of the selected AI provider.
       </p>
       <p>
-        OpenBot does not independently guarantee that AI Outputs qualify for intellectual property protection, are
+        Builders Bot does not independently guarantee that AI Outputs qualify for intellectual property protection, are
         original, or do not resemble content generated for other users.
       </p>
       <p>
@@ -275,8 +276,8 @@ export function Terms() {
 
       <h2>AI Agents and Automated Activities</h2>
       <p>
-        OpenBot enables users to create and configure AI Agents capable of carrying out tasks, executing instructions,
-        interacting with applications, and performing automated activities.
+        Builders Bot enables users to create and configure AI Agents capable of carrying out tasks, executing
+        instructions, interacting with applications, and performing automated activities.
       </p>
       <p>
         Depending on the enabled functionalities, operating environment, and permissions available to the application,
@@ -318,7 +319,7 @@ export function Terms() {
         or otherwise unsuitable results.
       </p>
       <p>
-        OpenBot does not guarantee that AI Agents will correctly interpret every instruction, successfully complete
+        Builders Bot does not guarantee that AI Agents will correctly interpret every instruction, successfully complete
         every task, or produce results suitable for a particular purpose.
       </p>
       <p>You should independently verify important AI Outputs and decisions before relying on them.</p>
@@ -327,13 +328,14 @@ export function Terms() {
         Platform. Where appropriate, users should obtain advice from a qualified professional.
       </p>
       <p>
-        Nothing in this section excludes any responsibility that OpenBot is required to assume under applicable law.
+        Nothing in this section excludes any responsibility that Builders Bot is required to assume under applicable
+        law.
       </p>
 
       <h2>Third-Party AI Providers and Integrations</h2>
       <p>
-        OpenBot allows users to connect AI providers, external applications, APIs, tools, and other services of their
-        choice.
+        Builders Bot allows users to connect AI providers, external applications, APIs, tools, and other services of
+        their choice.
       </p>
       <p>Certain integrations may require separate accounts, subscriptions, API keys, credentials, or permissions.</p>
       <p>
@@ -349,21 +351,21 @@ export function Terms() {
         their respective providers.
       </p>
       <p>
-        Fees charged by external AI providers or connected services are separate from fees payable to OpenBot, unless
-        expressly stated otherwise.
+        Fees charged by external AI providers or connected services are separate from fees payable to Builders Bot,
+        unless expressly stated otherwise.
       </p>
       <p>
-        OpenBot does not control the independent operation, commercial conditions, or availability of third-party
+        Builders Bot does not control the independent operation, commercial conditions, or availability of third-party
         services.
       </p>
       <p>
-        OpenBot shall not be responsible for failures, interruptions, restrictions, or changes attributable exclusively
-        to independently selected third-party services, except to the extent that such responsibility arises under
-        applicable law.
+        Builders Bot shall not be responsible for failures, interruptions, restrictions, or changes attributable
+        exclusively to independently selected third-party services, except to the extent that such responsibility arises
+        under applicable law.
       </p>
 
       <h2>Teams and Shared Environments</h2>
-      <p>OpenBot enables users to collaborate within shared environments and to organise AI Agents into teams.</p>
+      <p>Builders Bot enables users to collaborate within shared environments and to organise AI Agents into teams.</p>
       <p>
         Depending on the relevant configuration, authorised users may be able to access shared workspaces, manage
         agents, assign tasks, exchange information, and interact with resources made available to the team.
@@ -387,10 +389,10 @@ export function Terms() {
 
       <h2>Marketplace and Shared Materials</h2>
       <p>
-        The OpenBot Marketplace allows users to discover, install, and, where supported, publish or share AI Agents,
-        plugins, skills, and related configurations.
+        The Builders Bot Marketplace allows users to discover, install, and, where supported, publish or share AI
+        Agents, plugins, skills, and related configurations.
       </p>
-      <p>Marketplace materials may be provided by OpenBot or by independent contributors.</p>
+      <p>Marketplace materials may be provided by Builders Bot or by independent contributors.</p>
       <p>
         Users are responsible for reviewing the description, instructions, included functionalities, and relevant
         permissions of Marketplace materials before installing or enabling them.
@@ -418,8 +420,8 @@ export function Terms() {
         publication.
       </p>
       <p>
-        OpenBot may reject, restrict, or remove materials that violate these Terms, infringe third-party rights, or are
-        unlawful, subject to applicable legal requirements.
+        Builders Bot may reject, restrict, or remove materials that violate these Terms, infringe third-party rights, or
+        are unlawful, subject to applicable legal requirements.
       </p>
       <p>
         Where required by applicable law, affected users will be informed of the reasons for restrictions imposed on
@@ -428,11 +430,11 @@ export function Terms() {
 
       <h3>Reporting Unlawful Content</h3>
       <p>
-        Users and third parties may report publicly available materials in the OpenBot Marketplace that they consider
-        unlawful, including materials that allegedly infringe intellectual property rights or other legally protected
-        rights.
+        Users and third parties may report publicly available materials in the Builders Bot Marketplace that they
+        consider unlawful, including materials that allegedly infringe intellectual property rights or other legally
+        protected rights.
       </p>
-      <p>Reports may be submitted through the electronic reporting mechanism designated by OpenBot.</p>
+      <p>Reports may be submitted through the electronic reporting mechanism designated by Builders Bot.</p>
       <p>
         A report should contain sufficient information to identify and assess the allegedly unlawful material,
         including:
@@ -450,39 +452,39 @@ export function Terms() {
         </li>
       </ul>
       <p>
-        OpenBot will assess reports in a timely, diligent, objective, and non-arbitrary manner, taking into account the
-        information provided and the applicable legal requirements.
+        Builders Bot will assess reports in a timely, diligent, objective, and non-arbitrary manner, taking into account
+        the information provided and the applicable legal requirements.
       </p>
       <p>Submission of a report does not automatically result in the removal of the reported material.</p>
       <p>
-        Where appropriate, OpenBot may remove or restrict access to unlawful materials or materials that violate these
-        Terms.
+        Where appropriate, Builders Bot may remove or restrict access to unlawful materials or materials that violate
+        these Terms.
       </p>
       <p>
-        Where electronic contact details have been provided, OpenBot will acknowledge receipt of the report and inform
-        the reporting person or entity of the decision without undue delay, including information about available means
-        of redress, as required by applicable law.
+        Where electronic contact details have been provided, Builders Bot will acknowledge receipt of the report and
+        inform the reporting person or entity of the decision without undue delay, including information about available
+        means of redress, as required by applicable law.
       </p>
       <p>
-        Where OpenBot removes or restricts materials, affected Users will receive information about the reasons for the
-        decision and available means of challenging it, where required by applicable law.
+        Where Builders Bot removes or restricts materials, affected Users will receive information about the reasons for
+        the decision and available means of challenging it, where required by applicable law.
       </p>
       <p>
-        OpenBot will comply with the applicable requirements of Regulation (EU) 2022/2065 (Digital Services Act),
+        Builders Bot will comply with the applicable requirements of Regulation (EU) 2022/2065 (Digital Services Act),
         including those concerning notice-and-action mechanisms, content moderation, statements of reasons, and
         available remedies.
       </p>
 
       <h2>Local Use, Self-Hosting and Hosted Servers</h2>
       <p>
-        OpenBot can operate on users' own devices, independently managed servers, or optional server environments
-        provided by OpenBot.
+        Builders Bot can operate on users' own devices, independently managed servers, or optional server environments
+        provided by Builders Bot.
       </p>
 
       <h3>Local and Self-Hosted Environments</h3>
       <p>
-        Where users operate OpenBot on their own devices or infrastructure, they are responsible for ensuring that the
-        relevant environment is appropriately configured and maintained.
+        Where users operate Builders Bot on their own devices or infrastructure, they are responsible for ensuring that
+        the relevant environment is appropriately configured and maintained.
       </p>
       <p>
         This includes maintaining compatible hardware, software, network connectivity, access permissions, and other
@@ -493,14 +495,14 @@ export function Terms() {
         configuration.
       </p>
 
-      <h3>OpenBot Hosted Servers</h3>
+      <h3>Builders Bot Hosted Servers</h3>
       <p>
-        OpenBot offers optional hosted server services that provide an environment in which users may operate AI Agents
-        and collaborate with authorised team members.
+        Builders Bot offers optional hosted server services that provide an environment in which users may operate AI
+        Agents and collaborate with authorised team members.
       </p>
       <p>
-        Hosted Server Services are intended exclusively for hosting and operating the OpenBot application and do not
-        provide general-purpose server hosting.
+        Hosted Server Services are intended exclusively for hosting and operating the Builders Bot application and do
+        not provide general-purpose server hosting.
       </p>
       <p>
         Hosted server plans may differ in processing resources, storage capacity, permitted team size, and other
@@ -527,23 +529,23 @@ export function Terms() {
         legal limitations described in the <Link to="/privacy-policy">Privacy Policy</Link>.
       </p>
       <p>
-        Where OpenBot provides individually agreed hosting arrangements or other business services, additional
+        Where Builders Bot provides individually agreed hosting arrangements or other business services, additional
         contractual terms may apply.
       </p>
 
       <h2>Fees, Subscriptions and Payments</h2>
       <p>
-        Certain OpenBot Services, including Commercial Licenses and Hosted Server Services, are available on a paid
+        Certain Builders Bot Services, including Commercial Licenses and Hosted Server Services, are available on a paid
         subscription basis.
       </p>
       <p>
-        The applicable fees, billing periods, plan characteristics, and any additional charges are presented on the
-        OpenBot Pricing page and during the purchasing process.
+        The applicable fees, billing periods, plan characteristics, and any additional charges are presented on the{" "}
+        <Link to="/pricing">Builders Bot Pricing</Link> page and during the purchasing process.
       </p>
       <p>
         Commercial Licenses are billed according to the number of Seats purchased and the applicable billing period, in
-        accordance with the OpenBot Commercial License Agreement. Hosted Server Services are billed separately according
-        to the selected hosting plan.
+        accordance with the Builders Bot Commercial License Agreement. Hosted Server Services are billed separately
+        according to the selected hosting plan.
       </p>
       <p>
         Subscriptions may be purchased on a monthly or annual basis. Unless cancelled in accordance with the applicable
@@ -588,15 +590,15 @@ export function Terms() {
         paid billing period. The User will be informed of the payment issue and the available options for resolving it.
       </p>
       <p>
-        In the event of a change to subscription prices, OpenBot will inform the User sufficiently in advance of the
-        next billing period, allowing the User to accept the new pricing terms or cancel the subscription. Any price
+        In the event of a change to subscription prices, Builders Bot will inform the User sufficiently in advance of
+        the next billing period, allowing the User to accept the new pricing terms or cancel the subscription. Any price
         change will not affect a subscription period that has already been paid for. If the User does not accept the new
         price, the subscription will terminate at the end of the paid billing period.
       </p>
       <p>
         In the event of an incorrectly charged fee, the User may submit a refund request using the contact details
         provided in these Terms, including the email address associated with their account, the payment date, and a
-        brief description of the issue. OpenBot will respond to the request within 14 days of receipt.
+        brief description of the issue. Builders Bot will respond to the request within 14 days of receipt.
       </p>
 
       <h3>Hosted Server Subscription Termination</h3>
@@ -629,34 +631,35 @@ export function Terms() {
         Users are responsible for saving or exporting any content they wish to retain before deleting a Hosted Server.
       </p>
       <p>
-        The termination of a Hosted Server subscription does not automatically terminate the User's OpenBot account or
-        any separate agreements with third-party service providers.
+        The termination of a Hosted Server subscription does not automatically terminate the User's Builders Bot account
+        or any separate agreements with third-party service providers.
       </p>
 
       <h2>Consumer Right of Withdrawal</h2>
       <p>Nothing in these Terms limits or excludes any mandatory rights concerning withdrawal from a contract.</p>
       <p>
         If you submit a refund request by email to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> within 2
-        hours of completing your purchase, OpenBot offers a refund of 90% of the amount paid, retaining the remaining
-        10% as an administrative handling fee, provided that this does not limit your mandatory statutory rights.
+        hours of completing your purchase, Builders Bot offers a refund of 90% of the amount paid, retaining the
+        remaining 10% as an administrative handling fee, provided that this does not limit your mandatory statutory
+        rights.
       </p>
       <p>
         If you are a consumer residing in the European Union, the United Kingdom, or Turkey and exercise your statutory
         right of withdrawal within 14 days of entering into a subscription agreement, you are entitled to a refund in
         accordance with applicable law. Where the provision of Services has begun at your express request during the
-        withdrawal period, OpenBot may deduct an amount proportionate to the Services already provided, subject to
+        withdrawal period, Builders Bot may deduct an amount proportionate to the Services already provided, subject to
         applicable legal requirements.
       </p>
       <p>
-        To exercise the right of withdrawal, the eligible User must inform OpenBot of their decision by an unequivocal
-        statement sent to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        To exercise the right of withdrawal, the eligible User must inform Builders Bot of their decision by an
+        unequivocal statement sent to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
       <p>
         The statement should identify the agreement concerned and include sufficient information to identify the User
         and the relevant purchase.
       </p>
       <p>
-        Where a valid withdrawal is exercised, OpenBot will reimburse the payments due under applicable law without
+        Where a valid withdrawal is exercised, Builders Bot will reimburse the payments due under applicable law without
         undue delay and, where the 14-day statutory reimbursement deadline applies, no later than 14 days after
         receiving the withdrawal statement.
       </p>
@@ -671,7 +674,7 @@ export function Terms() {
         A complaint should, where possible, include information sufficient to identify the relevant Service or account,
         a description of the issue, and the remedy requested.
       </p>
-      <p>OpenBot will review complaints and provide a response in accordance with applicable law.</p>
+      <p>Builders Bot will review complaints and provide a response in accordance with applicable law.</p>
       <p>
         Complaints submitted by consumers will be answered within 14 days of receipt, unless a different period is
         prescribed by applicable law.
@@ -681,7 +684,7 @@ export function Terms() {
 
       <h2>Suspension and Termination of Access</h2>
       <p>
-        OpenBot may suspend, restrict, or terminate access to the Platform or particular Services where reasonably
+        Builders Bot may suspend, restrict, or terminate access to the Platform or particular Services where reasonably
         necessary in connection with:
       </p>
       <ul>
@@ -699,7 +702,7 @@ export function Terms() {
       </ul>
       <p>Any measures taken will be appropriate and proportionate to the circumstances, subject to applicable law.</p>
       <p>
-        Where required by law, OpenBot will provide the affected user with information about the reasons for the
+        Where required by law, Builders Bot will provide the affected user with information about the reasons for the
         restriction and any available remedies.
       </p>
       <p>
@@ -718,13 +721,13 @@ export function Terms() {
 
       <h2>Service Availability and Limitations of Liability</h2>
       <p>
-        OpenBot aims to provide functional and reliable Services. However, the availability and performance of the
+        Builders Bot aims to provide functional and reliable Services. However, the availability and performance of the
         Platform may depend on technical conditions, software configurations, network connectivity, third-party
         services, and other factors.
       </p>
       <p>
-        OpenBot does not guarantee that every functionality will operate without interruption or that AI Agents will
-        successfully complete every requested task.
+        Builders Bot does not guarantee that every functionality will operate without interruption or that AI Agents
+        will successfully complete every requested task.
       </p>
       <p>
         AI-generated outputs and automated activities may contain errors or produce unintended results. Users should
@@ -736,13 +739,13 @@ export function Terms() {
         performance and availability remain subject to the conditions governing those services.
       </p>
       <p>
-        OpenBot's liability for the performance of its own contractual obligations is determined in accordance with
+        Builders Bot's liability for the performance of its own contractual obligations is determined in accordance with
         applicable law.
       </p>
       <p>
-        To the extent permitted by applicable law, OpenBot is not responsible for losses resulting exclusively from
+        To the extent permitted by applicable law, Builders Bot is not responsible for losses resulting exclusively from
         unlawful or unauthorised user instructions, independently managed infrastructure, or circumstances attributable
-        solely to external services outside OpenBot's reasonable control.
+        solely to external services outside Builders Bot's reasonable control.
       </p>
       <p>Nothing in these Terms excludes or limits liability that cannot lawfully be excluded or restricted.</p>
       <p>
@@ -753,11 +756,12 @@ export function Terms() {
       <h2>Privacy and Data Protection</h2>
       <p>
         Personal data processed in connection with the Services is handled in accordance with the{" "}
-        <Link to="/privacy-policy">OpenBot Privacy Policy</Link>, available through the official OpenBot website.
+        <Link to="/privacy-policy">Builders Bot Privacy Policy</Link>, available through the official Builders Bot
+        website.
       </p>
       <p>
-        Where required, the processing of personal data on behalf of a customer is additionally governed by a separate
-        Data Processing Agreement.
+        Where required, the processing of personal data on behalf of a customer is additionally governed by a separate{" "}
+        <Link to="/dpa">Data Processing Agreement</Link>.
       </p>
       <p>
         These Terms regulate the contractual use of the Platform, while the Privacy Policy provides information about
@@ -782,8 +786,9 @@ export function Terms() {
         compliance laws.
       </p>
       <p>
-        OpenBot may suspend, restrict, or terminate access to the Platform or the Services where it reasonably believes
-        that continued access or use may violate applicable export control, sanctions, or trade compliance laws.
+        Builders Bot may suspend, restrict, or terminate access to the Platform or the Services where it reasonably
+        believes that continued access or use may violate applicable export control, sanctions, or trade compliance
+        laws.
       </p>
 
       <h2>Governing Law</h2>
@@ -803,9 +808,9 @@ export function Terms() {
       </p>
 
       <h2>Changes to the Terms</h2>
-      <p>OpenBot may introduce improvements, updates, and new functionalities to the Platform and Services.</p>
+      <p>Builders Bot may introduce improvements, updates, and new functionalities to the Platform and Services.</p>
       <p>
-        OpenBot may amend these Terms to reflect changes in applicable laws, security requirements, operational
+        Builders Bot may amend these Terms to reflect changes in applicable laws, security requirements, operational
         practices, or the introduction and development of functionalities.
       </p>
       <p>
@@ -815,22 +820,22 @@ export function Terms() {
       </p>
       <p>
         If you do not agree with the amended Terms, you may discontinue using the Platform and Services. If you hold a
-        Commercial License, you may terminate your licence agreement in accordance with the OpenBot Commercial License
-        Agreement and applicable law.
+        Commercial License, you may terminate your licence agreement in accordance with the Builders Bot Commercial
+        License Agreement and applicable law.
       </p>
       <p>
         Changes to Commercial Licenses, including licence fees, billing arrangements, and licensing conditions, are
-        governed by the separate OpenBot Commercial License Agreement.
+        governed by the separate Builders Bot Commercial License Agreement.
       </p>
 
       <h2>Miscellaneous</h2>
-      <p>These Terms govern access to and use of the OpenBot Platform and the Services provided under them.</p>
+      <p>These Terms govern access to and use of the Builders Bot Platform and the Services provided under them.</p>
       <p>
         The rights to use, modify, or distribute the Software are governed by the software licence applicable to the
-        relevant version and, where applicable, the separate OpenBot Commercial License Agreement.
+        relevant version and, where applicable, the separate Builders Bot Commercial License Agreement.
       </p>
       <p>
-        Commercial Licenses are governed by the OpenBot Commercial License Agreement and the relevant Order. Hosted
+        Commercial Licenses are governed by the Builders Bot Commercial License Agreement and the relevant Order. Hosted
         Server Services are governed by the applicable provisions of these Terms, unless separately agreed terms apply.
       </p>
       <p>
@@ -843,8 +848,8 @@ export function Terms() {
         Agreement shall prevail.
       </p>
       <p>
-        These Terms do not replace or override any applicable software licence, Commercial License Agreement, Data
-        Processing Agreement, or individually negotiated agreement.
+        These Terms do not replace or override any applicable software licence, Commercial License Agreement,{" "}
+        <Link to="/dpa">Data Processing Agreement</Link>, or individually negotiated agreement.
       </p>
       <p>
         If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions shall remain
@@ -852,15 +857,17 @@ export function Terms() {
       </p>
 
       <h2>Your Comments and Concerns</h2>
-      <p>The Platform is operated by OpenBot:</p>
+      <p>The Platform is operated by Builders Bot:</p>
       <p>
         Synthetify Labs sp. z o.o.
         <br />
-        KRS: 0000895882
+        KRS 0000895882
         <br />
-        NIP: 6812085952
+        NIP 6812085952.
         <br />
         Trzebunia 513, 32-438 Trzebunia, Poland
+        <br />
+        +48 515901078
       </p>
       <p>
         All inquiries, feedback, comments, requests for technical support, and other communications concerning the

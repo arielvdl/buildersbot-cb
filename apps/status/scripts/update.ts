@@ -113,7 +113,8 @@ const PROBES: Record<ServiceId, Probe> = {
   accounts: { origin: "api", paths: ["/health/ready"], healthy: (b) => jsonBody(b, isReady) },
   connections: {
     origin: "signal",
-    paths: ["/health/ready"],
+    // `/health/turn` allocates a relay: Signal stays ready while coturn refuses every allocation.
+    paths: ["/health/ready", "/health/turn"],
     healthy: (b) => jsonBody(b, isReady),
   },
   hosted: { origin: "api", paths: ["/health/hosting"], healthy: (b) => jsonBody(b, isHostingOk) },
@@ -597,12 +598,12 @@ function atomFeed(incidents: readonly Incident[]): string {
   const lines = [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom">',
-    "  <title>OpenBot status</title>",
+    "  <title>Builders Bot status</title>",
     `  <id>${SITE_URL}/</id>`,
     `  <link href="${SITE_URL}/"/>`,
     `  <link rel="self" href="${SITE_URL}/feed.xml"/>`,
     `  <updated>${updated}</updated>`,
-    "  <author><name>OpenBot</name></author>",
+    "  <author><name>Builders Bot</name></author>",
   ];
   for (const { incident, update } of entries) {
     const stage = update.stage.charAt(0).toUpperCase() + update.stage.slice(1);

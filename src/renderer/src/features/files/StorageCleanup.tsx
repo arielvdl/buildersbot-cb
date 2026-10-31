@@ -1,8 +1,16 @@
-import type { CleanupCandidate } from "@openbot/contracts/ipc";
+import type { CleanupBlocker, CleanupCandidate } from "@openbot/contracts/ipc";
+import type { AppTextKey } from "@openbot/i18n";
 import { Button, Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle, Spinner } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, Show } from "solid-js";
 import { type FilesPort, filesPort } from "./files-port";
+
+/** The reason a candidate cannot be removed from here, in the reader's language. */
+const BLOCKER_LABELS: Record<CleanupBlocker, AppTextKey> = {
+  dirty: "files.tidy.dirty",
+  unpushed: "files.tidy.unpushed",
+  locked: "files.tidy.locked",
+};
 
 function size(bytes: number): string {
   return bytes >= 1_073_741_824
@@ -85,7 +93,7 @@ export function StorageCleanup(props: { calls?: FilesPort }) {
                         <ItemDescription>
                           {row.kind === "worktree" ? t("files.tidy.worktree") : t("files.tidy.devProfile")}
                           {row.detail ? ` · ${row.detail}` : ""} · {reason(row)}
-                          <Show when={row.blocker}>{(blocker) => <> · {t(`files.tidy.${blocker()}`)}</>}</Show>
+                          <Show when={row.blocker}>{(blocker) => <> · {t(BLOCKER_LABELS[blocker()])}</>}</Show>
                         </ItemDescription>
                       </ItemContent>
                       <Show when={row.blocker === null}>

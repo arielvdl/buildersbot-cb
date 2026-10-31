@@ -306,7 +306,7 @@ export const WaitsForTurn: Story = {
  * and with an address that has no place to break.
  */
 const LONG_FAILURE =
-  "OpenBot could not update the Claude CLI. The registry at https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.250.tgz answered with a checksum that does not match the published package, so the download stopped before it replaced the version you have.";
+  "Builders Bot could not update the Claude CLI. The registry at https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.250.tgz answered with a checksum that does not match the published package, so the download stopped before it replaced the version you have.";
 
 /**
  * Press Update: the download fails with a long reason. The reason stops after three lines, and

@@ -1,9 +1,9 @@
-import { licenseAmount } from "@openbot/contracts/license";
+import { licensePeriodAmount, licensePlanFromPrice } from "@openbot/contracts/license";
 import { Effect, Schema } from "effect";
 import { readBillingCohortCounts } from "./billing-cohorts";
 import { BillingUsd } from "./billing-usd";
 import { SalesAnalyticsDelivery, SalesAnalyticsDeliveryError } from "./sales-analytics-delivery";
-import { STRIPE_API_VERSION } from "./stripe-client";
+import { isLicensePrice, STRIPE_API_VERSION } from "./stripe-client";
 
 const STRIPE_API_ORIGIN = "https://api.stripe.com";
 const STRIPE_TIMEOUT_MS = 10_000;
@@ -33,6 +33,8 @@ const StripeDiscount = Schema.Struct({
   currency: Schema.optional(Schema.NullOr(Schema.String)),
 });
 const StripePrice = Schema.Struct({
+  lookup_key: Schema.optional(Schema.NullOr(Schema.String)),
+  metadata: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, Schema.String))),
   currency: Schema.String,
   unit_amount: Schema.NullOr(Schema.Int),
   currency_options: Schema.optional(
@@ -147,7 +149,7 @@ interface StripeSubscriptionSample {
  *
  * The source key is retained by SalesAnalyticsDelivery, so a five-minute cron can call this safely:
  * one `billing_snapshot:YYYY-MM-DD` event is accepted for each UTC day. Stripe remains the source of
- * the current subscription state; the D1 rows only provide the bounded list of known OpenBot IDs and
+ * the current subscription state; the D1 rows only provide the bounded list of known Builders Bot IDs and
  * their account/server owners. Rows whose stored status is terminal in Stripe are not read again.
  */
 export const captureBillingSnapshot = Effect.fn("captureBillingSnapshot")(function* (
@@ -337,7 +339,8 @@ function subscriptionSample(
     if (!isBillingUsdCurrency(subscription.currency)) return yield* new BillingSnapshotError({ code: "currency" });
     const amount = yield* subscriptionAmountAfterDiscount(subscription, subscription.currency, row.product, timestamp);
     const quantity = yield* Effect.try({
-      try: () => subscription.items.reduce((total, item) => addSafe(total, item.quantity), 0),
+      try: () =>
+        productItems(subscription.items, row.product).reduce((total, item) => addSafe(total, item.quantity), 0),
       catch: () => snapshotError("invalid_subscription"),
     });
     return {
@@ -480,10 +483,10 @@ function subscriptionAmountAfterDiscount(
     try: () => {
       let subtotal = 0;
       const appliedDiscounts = new Set<string>();
-      for (const item of subscription.items) {
+      for (const item of productItems(subscription.items, product)) {
         const amount =
           product === "license"
-            ? licensePriceAmount(item.quantity, currency)
+            ? licensePriceAmount(item.price, item.quantity, currency)
             : priceAmount(item.price, subscription.currency, item.quantity);
         const discounted = applyDiscounts(amount, item.discounts, subscription.currency, timestamp, appliedDiscounts);
         subtotal = addSafe(subtotal, discounted);
@@ -503,12 +506,32 @@ function subscriptionAmountAfterDiscount(
 }
 
 /**
- * The license price is graduated tiers, so Stripe sends no `unit_amount` for it, and a subscription cannot
- * expand the tiers of another currency. The license service uses the same list price.
+ * The items of one product. A server order has a server item and a license item until its split moves the
+ * license to its own subscription, so the server row does not count the license.
  */
-function licensePriceAmount(quantity: number, currency: "eur" | "usd" | "pln"): number {
+function productItems(
+  items: readonly StripeSubscriptionItem[],
+  product: StoredSubscription["product"],
+): StripeSubscriptionItem[] {
+  return items.filter(
+    (item) =>
+      isLicensePrice({ lookup_key: item.price.lookup_key ?? null, metadata: item.price.metadata ?? {} }) ===
+      (product === "license"),
+  );
+}
+
+/**
+ * The Team license price is graduated tiers, so Stripe sends no `unit_amount` for it, and a subscription
+ * cannot expand the tiers of another currency. The license service uses the same list price of the plan.
+ * The amount is for the period of the Price; the caller divides a year.
+ */
+function licensePriceAmount(price: StripePrice, quantity: number, currency: "eur" | "usd" | "pln"): number {
   if (!Number.isSafeInteger(quantity) || quantity < 0) throw new BillingSnapshotError({ code: "invalid_subscription" });
-  return licenseAmount(quantity, currency);
+  return licensePeriodAmount(
+    licensePlanFromPrice({ lookup_key: price.lookup_key ?? null, metadata: price.metadata ?? {} }),
+    quantity,
+    currency,
+  );
 }
 
 function priceAmount(price: StripePrice, currency: string, quantity: number): number {

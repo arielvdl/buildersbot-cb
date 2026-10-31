@@ -12,6 +12,7 @@ import { AgentPinAvatar } from "@/features/agents/components/agent-pin-avatar";
 import { AgentPinSwipeRow } from "@/features/agents/components/agent-pin-swipe-row";
 import { useAgentPinTransition } from "@/features/agents/components/agent-pin-transition";
 import { ChatLinkPressable } from "@/features/agents/components/chat-link-pressable";
+import { useChatRowBackground } from "@/features/agents/components/chat-list-pane-context";
 import { ChatZoomSource } from "@/features/agents/components/chat-zoom-source";
 import { PinnedChatItem } from "@/features/agents/components/pinned-agents-grid";
 import { useChatSectionMenu } from "@/features/agents/components/use-chat-section-menu";
@@ -249,6 +250,7 @@ export const ChannelListRow = memo(function ChannelListRow({
 }) {
   const { t, format } = useText();
   const [background, accent] = useThemeColor(["background", "accent"]);
+  const rowBackground = useChatRowBackground(channel.id);
   const { toggleChannelPinAnimated } = useAgentPinTransition();
   const isPinned = useMobileWorkspaceSelector(({ pinnedChannelIds }) => pinnedChannelIds.includes(channel.id));
   const pinBlocked = useMobileWorkspaceSelector(
@@ -337,7 +339,7 @@ export const ChannelListRow = memo(function ChannelListRow({
           <View
             className="min-h-20 w-full flex-row items-center gap-3 py-1"
             style={{
-              backgroundColor: background,
+              backgroundColor: rowBackground,
               opacity: pressed ? 0.58 : 1,
               paddingLeft: leftInset,
               paddingRight: rightInset,

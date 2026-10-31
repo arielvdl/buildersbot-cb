@@ -18,6 +18,7 @@ export interface ProvidersPort {
   cancelProviderAccountSignIn: BuildersBotDesktopApi["cancelProviderAccountSignIn"];
   renameProviderAccount: BuildersBotDesktopApi["renameProviderAccount"];
   removeProviderAccount: BuildersBotDesktopApi["removeProviderAccount"];
+  signOutProvider: BuildersBotDesktopApi["signOutProvider"];
   providerUsageResets: BuildersBotDesktopApi["providerUsageResets"];
   resetProviderUsage: BuildersBotDesktopApi["resetProviderUsage"];
   /** The same, for the host of a joined server the account administers. */

@@ -68,7 +68,7 @@ export const Speaking: Story = {
 };
 
 export const MicrophoneBlocked: Story = {
-  args: { muted: true, error: "OpenBot cannot use the microphone. Allow it in System Settings." },
+  args: { muted: true, error: "Builders Bot cannot use the microphone. Allow it in System Settings." },
 };
 
 export const ServerOffline: Story = {

@@ -1,4 +1,4 @@
-import type { DeleteSharedTableInput, BuildersBotDesktopApi, SharedTable } from "@openbot/contracts/ipc";
+import type { BuildersBotDesktopApi, DeleteSharedTableInput, SharedTable } from "@openbot/contracts/ipc";
 
 /**
  * What the conversation domain reaches in main: agent and direct message pages, sends, reads,
@@ -8,6 +8,7 @@ export interface ConversationPort {
   agent: Pick<
     BuildersBotDesktopApi["agent"],
     | "readAgentSessionSettings"
+    | "listAgentNotificationLevels"
     | "askSideQuestion"
     | "setAgentSessionSetting"
     | "resetAgentSessionSetting"
@@ -17,6 +18,7 @@ export interface ConversationPort {
     | "listRoutines"
     | "listTables"
     | "markConversationRead"
+    | "markConversationUnread"
     | "readConversationPage"
     | "releaseFilePreview"
     | "searchConversationMessages"

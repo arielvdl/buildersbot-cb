@@ -328,7 +328,7 @@ export const SharedQuota: Story = {
   args: { usageRows: sharedQuotaRows },
 };
 
-/** The web client: no macOS window buttons, so the logo in the top row links to the OpenBot site. */
+/** The web client: no macOS window buttons, so the logo in the top row links to the Builders Bot site. */
 export const WebLogo: Story = {
   args: { logo: { variant: "production", href: "/" } },
 };

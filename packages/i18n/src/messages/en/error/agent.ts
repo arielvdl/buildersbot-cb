@@ -116,6 +116,8 @@ export const messages = defineMessages("error.agent", {
     "This computer is low on memory. Your message waits in the queue and starts by itself when memory is free again. Closing apps that you do not use helps.",
   "error.agent.workspaceOnlyToolMissing":
     "Workspace only needs {tool}, which Builders Bot did not find. Install it, or choose Full access in the agent settings.",
+  "error.agent.claudeSandboxUnavailable":
+    "Workspace only needs the Claude sandbox, which Claude cannot start on this computer: {reason}. Choose Full access or another provider in the agent settings.",
   "error.agent.screenCaptureOff":
     "Screen capture is off for this agent. The user can turn on Computer Use in the agent settings.",
   "error.agent.screenCaptureUnavailable": "Screen capture is not available on this computer.",

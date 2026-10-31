@@ -9,14 +9,19 @@ import type {
   LoadSnapshot,
   McpSignInApp,
   McpSignInAppState,
+  ServerNotificationLevel,
 } from "@openbot/contracts/ipc";
 import {
   type AccountUsage,
   AGENT_DEFAULT_KEYS,
+  AGENT_FOLDER_LIMIT,
   type AgentAccessChange,
   type AgentBrowserProfile,
   type AgentDefaults,
   type AgentEvent,
+  type AgentExclusionChange,
+  type AgentFolderChange,
+  type AgentFolderList,
   type AgentMemory,
   type AgentMemoryLimitPreference,
   type AgentMemorySelection,
@@ -43,7 +48,10 @@ import {
   agentAutomationAllowed,
   agentBrowserProfile,
   agentComputerUseEnabled,
+  agentExclusionCoverage,
+  agentFolderCoverage,
   agentTaskLimit,
+  type BackgroundProcess,
   type BrowserProfileSummary,
   type BuildersBotDesktopApi,
   type BusyMessageModePreference,
@@ -70,6 +78,7 @@ import {
   DEFAULT_APP_LOGO_COLOR,
   DEFAULT_APPROVAL_AUTOMATION_PREFERENCE,
   DEFAULT_BUSY_MESSAGE_MODE,
+  DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
   DEFAULT_EXTERNAL_LINK_PREFERENCE,
   DEFAULT_MACHINE_ALERT_SETTINGS,
@@ -91,6 +100,7 @@ import {
   type ExternalLinkBrowsers,
   type ExternalLinkPreference,
   type FilePreview,
+  folderInside,
   type HostedSiteSummary,
   type HostStatus,
   hostAgentMemoryLimit,
@@ -100,6 +110,7 @@ import {
   isMemoryReviewInterval,
   isPromptCacheTtl,
   isReleasedRoutineSchedule,
+  LOCAL_SERVER_ID,
   type MachineAlertSettings,
   type MacPermissionId,
   type MemoryReviewPreference,
@@ -108,6 +119,7 @@ import {
   type OpenAttachmentInput,
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
+  PLAN_CONTINUATION_ITEM_TYPE,
   type PromptCacheTtlSetting,
   type ProviderAccountStatus,
   type ProviderDetectionSettings,
@@ -218,6 +230,8 @@ export interface MockBuildersBotOptions
     MockRoutineResultsOptions {
   appInfo?: AppInfo;
   analyticsPreference?: AnalyticsPreference;
+  /** The first value of the first-run analytics box. Clear, as in a region that asks for consent. */
+  analyticsDefault?: boolean;
   languagePreference?: AppLanguagePreference;
   setupState?: AppSetupState;
   agentStatus?: AgentStatus;
@@ -305,7 +319,7 @@ function mockTurnTrace(turnId: string, endedAt: Date): ConversationTurnTrace {
 /** Custom models compose as `<provider>/<model>`; preview builds `listModels()` from these. */
 function mockCustomProviderModels(provider: CustomProviderSummary): ClientAgentModelOption[] {
   return provider.models.map((model) => ({
-    provider: "opencode",
+    provider: provider.harness ?? DEFAULT_CUSTOM_PROVIDER_HARNESS,
     id: composedCustomModelId(provider.id, model.id),
     name: `${provider.name}/${model.name}`,
     description: `Served by ${provider.baseUrl}.`,
@@ -400,6 +414,25 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     options.setupState ?? { completed: true, preferredProvider: "codex", preferredModel: null },
   );
   const grantedComputerUsePermissions = new Set<MacPermissionId>();
+  // A dev server that an agent left running two hours ago, and one with no owner. Stop removes it.
+  let backgroundProcesses: BackgroundProcess[] = [
+    {
+      id: "48210:1",
+      pid: 48210,
+      command: "node /mock/Builders Bot/Agents/research/site/node_modules/.bin/vite --port 5173",
+      startedAt: Date.now() - 2 * 60 * 60_000,
+      ports: [5173],
+      agentId: "research",
+    },
+    {
+      id: "51377:1",
+      pid: 51377,
+      command: "python3 -m http.server 8000",
+      startedAt: Date.now() - 3 * 24 * 60 * 60_000,
+      ports: [8000],
+      agentId: null,
+    },
+  ];
   const computerUseState = (): ComputerUseState => {
     const permissions = (["screen-recording", "accessibility"] as const).map((id) => ({
       id,
@@ -484,6 +517,18 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     return agentStatus;
   };
   let agents = clone(options.agents ?? STORY_AGENT_SUMMARIES);
+  /** The levels of the preview user on each server, kept for the session as each host keeps them. */
+  const agentNotificationLevels = new Map<string, Map<string, ServerNotificationLevel>>();
+  const notificationLevelsOf = (serverId: string | undefined) => {
+    const key = serverId ?? LOCAL_SERVER_ID;
+    const levels = agentNotificationLevels.get(key) ?? new Map<string, ServerNotificationLevel>();
+    agentNotificationLevels.set(key, levels);
+    return levels;
+  };
+  const notificationLevelsSnapshot = (levels: ReadonlyMap<string, ServerNotificationLevel>) => ({
+    server: null,
+    agents: [...levels].map(([agentId, level]) => ({ agentId, level })),
+  });
   // Two profiles, so the agent select and the manage dialog show a list. "Client B" has no agents.
   let browserProfiles: { id: string; name: string; hue: AvatarHue }[] = [
     { id: "0a1b2c3d4e5f60718293a4b5c6d7e8f9", name: "Client A", hue: 215 },
@@ -703,6 +748,71 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let tables: SharedTable[] = clone(options.tables ?? STORY_SHARED_TABLES);
   const routines = new Map<string, Routine[]>(Object.entries(clone(options.routines ?? {})));
   const routineRuns = new Map<string, RoutineRun[]>(Object.entries(clone(options.routineRuns ?? {})));
+
+  function requireMockAgent(agentId: string): ClientAgentSummary {
+    const agent = agents.find((candidate) => candidate.id === agentId);
+    if (!agent) throw new Error("Agent not found");
+    return agent;
+  }
+
+  /** The preview has no disk: a folder whose path ends in "(missing)" is not found. */
+  function mockAgentFolders(agentId: string): AgentFolderList {
+    const agent = requireMockAgent(agentId);
+    return {
+      workspace: agent.workspacePath,
+      shared: "/mock/Builders Bot/Shared",
+      folders: (agent.additionalFolders ?? []).map((path) => ({ path, found: !path.endsWith("(missing)") })),
+      excluded: agent.excludedFolders ?? [],
+    };
+  }
+
+  function setMockAgentExclusions(agent: ClientAgentSummary, excluded: string[]): void {
+    const updated: ClientAgentSummary = { ...agent, excludedFolders: excluded };
+    if (excluded.length === 0) delete updated.excludedFolders;
+    agents = agents.map((candidate) => (candidate.id === agent.id ? updated : candidate));
+    emitAgentEvent({ type: "agents-changed", agents });
+  }
+
+  function addMockAgentExclusion(agentId: string, path: string): AgentExclusionChange {
+    const agent = requireMockAgent(agentId);
+    const list = mockAgentFolders(agentId);
+    const roots = [list.workspace, list.shared, ...list.folders.map((folder) => folder.path)];
+    if (roots.includes(path)) return { outcome: "refused", path, refusal: "root", list };
+    if (!roots.some((root) => folderInside(root, path))) return { outcome: "refused", path, refusal: "outside", list };
+    const folder = agentExclusionCoverage(path, list.excluded);
+    if (folder) return { outcome: "covered", path, folder, list };
+    const kept = list.excluded.filter((excluded) => !folderInside(path, excluded));
+    if (kept.length >= AGENT_FOLDER_LIMIT) return { outcome: "refused", path, refusal: "limit", list };
+    setMockAgentExclusions(agent, [...kept, path]);
+    const replaced = list.excluded.filter((excluded) => !kept.includes(excluded));
+    return { outcome: "excluded", path, replaced, list: mockAgentFolders(agentId) };
+  }
+
+  function setMockAgentFolders(agent: ClientAgentSummary, folders: string[]): void {
+    const updated: ClientAgentSummary = { ...agent, additionalFolders: folders };
+    if (folders.length === 0) delete updated.additionalFolders;
+    agents = agents.map((candidate) => (candidate.id === agent.id ? updated : candidate));
+    emitAgentEvent({ type: "agents-changed", agents });
+  }
+
+  function addMockAgentFolder(agentId: string, path: string, replace?: string): AgentFolderChange {
+    const agent = requireMockAgent(agentId);
+    const current = agent.additionalFolders ?? [];
+    const others = current.filter((folder) => folder !== replace);
+    const list = mockAgentFolders(agentId);
+    const coverage = agentFolderCoverage(path, { workspace: list.workspace, shared: list.shared, folders: others });
+    if (coverage) return { outcome: "covered", path, coverage, list };
+    const kept = others.filter((folder) => !folderInside(path, folder));
+    if (kept.length >= AGENT_FOLDER_LIMIT) return { outcome: "refused", path, refusal: "limit", list };
+    const replacing = replace !== undefined && current.includes(replace);
+    setMockAgentFolders(
+      agent,
+      replacing ? current.map((folder) => (folder === replace ? path : folder)) : [...kept, path],
+    );
+    if (replacing) return { outcome: "replaced", path, list: mockAgentFolders(agentId) };
+    const replaced = others.filter((folder) => !kept.includes(folder));
+    return { outcome: "added", path, replaced, list: mockAgentFolders(agentId) };
+  }
 
   function emitAgentEvent(event: AgentEvent): void {
     emit(agentListeners, event);
@@ -992,10 +1102,12 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     // Only a joined admin changes the setup from outside the window, and the preview has none.
     onSetupState: () => () => undefined,
     getAnalyticsPreference: async () => clone(analyticsPreference),
+    getAnalyticsDefault: async () => ({ enabled: options.analyticsDefault ?? false }),
     setAnalyticsPreference: async ({ enabled }) => {
       analyticsPreference = { enabled };
       return clone(analyticsPreference);
     },
+    onAnalyticsPreference: () => () => undefined,
     getApprovalAutomation: async () => clone(approvalAutomation),
     onApprovalAutomation: (listener) => {
       approvalAutomationListeners.add(listener);
@@ -1113,6 +1225,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       return () => interfaceSizeListeners.delete(listener);
     },
     onOpenSettings: () => () => undefined,
+    onOpenUpdateSettings: () => () => undefined,
     // The preview is one page, so a chat cannot open in a window of its own.
     openChatWindow: async () => undefined,
     getChatWindows: async () => [],
@@ -1149,6 +1262,12 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     // The preview has no Apple apps to ask, so every app answers as allowed.
     macAutomation: {
       request: async (targets) => targets.map((target) => ({ target, status: "granted" })),
+    },
+    backgroundProcesses: {
+      list: async () => clone(backgroundProcesses),
+      stop: async (id) => {
+        backgroundProcesses = backgroundProcesses.filter((process) => process.id !== id);
+      },
     },
     computerUse: {
       getState: async () => computerUseState(),
@@ -1214,6 +1333,17 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     cancelProviderSignIn: async () => clone(agentStatus),
     setProviderApiKey: async ({ provider, key }) => {
       if (!key.trim()) throw new Error("A provider key is required.");
+      // Codex keeps its key in its own login: the row says that the key is in use, and no key is stored.
+      if (provider === "codex") {
+        agentStatus = {
+          ...agentStatus,
+          providers: agentStatus.providers?.map((row) =>
+            row.id === "codex" ? { ...row, state: "available", apiKeyInUse: true } : row,
+          ),
+        };
+        emitAgentEvent({ type: "status", status: clone(agentStatus) });
+        return clone(agentStatus);
+      }
       providerApiKeys.add(provider);
       return clone(agentStatus);
     },
@@ -1258,6 +1388,22 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       emitAgentEvent({ type: "agents-changed", agents });
       return clone(
         changeProviderAccounts(provider, (accounts) => accounts.filter((account) => account.id !== accountId)),
+      );
+    },
+    signOutProvider: async (provider) => {
+      agentStatus = {
+        ...agentStatus,
+        providers: agentStatus.providers?.map((row) =>
+          row.id === provider ? { ...row, state: "sign-in-required", email: null, message: null } : row,
+        ),
+      };
+      // The other accounts stay, as on the backend.
+      return clone(
+        changeProviderAccounts(provider, (accounts) =>
+          accounts.map((account) =>
+            account.id === DEFAULT_PROVIDER_ACCOUNT_ID ? { ...account, email: null, state: "signed-out" } : account,
+          ),
+        ),
       );
     },
     // Codex gives the preview's own sign-in two usage resets; each other connected Codex account has none.
@@ -1369,7 +1515,8 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
             baseUrl: input.baseUrl,
             hasApiKey: input.apiKey !== null,
             headerNames: input.headers.map((header) => header.name),
-            models: input.models.map((model) => ({ id: model.id, name: model.name })),
+            models: input.models.map((model) => ({ ...model })),
+            harness: input.harness ?? DEFAULT_CUSTOM_PROVIDER_HARNESS,
           },
         ];
         emitAgentEvent({ type: "status", status: clone(agentStatus) });
@@ -1406,7 +1553,8 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
                 baseUrl: input.baseUrl,
                 hasApiKey: input.apiKey !== undefined || keepsKey,
                 headerNames,
-                models: input.models.map((model) => ({ id: model.id, name: model.name })),
+                models: input.models.map((model) => ({ ...model })),
+                harness: input.harness ?? stored.harness ?? DEFAULT_CUSTOM_PROVIDER_HARNESS,
               }
             : provider,
         );
@@ -1530,6 +1678,9 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       },
       usageResets: (provider) => api.providerUsageResets(provider),
       resetUsage: (input) => api.resetProviderUsage(input),
+      signOut: async (provider) => {
+        await api.signOutProvider(provider);
+      },
       startRelaySignIn: async () => undefined,
       startAccountRelaySignIn: async () => undefined,
       relaySignInStatus: async () => ({ page: null, result: null }),
@@ -1779,6 +1930,16 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         emitAgentEvent({ type: "agents-changed", agents });
         return snapshot;
       },
+      listAgentNotificationLevels: async (serverId) => notificationLevelsSnapshot(notificationLevelsOf(serverId)),
+      setAgentNotificationLevel: async ({ agentId, level }, serverId) => {
+        const known = serverId === storyForeignServerId ? [...agents, STORY_FOREIGN_AGENT] : agents;
+        if (!known.some((agent) => agent.id === agentId))
+          throw new Error(sourceText("error.agent.unknown", { id: agentId }));
+        const levels = notificationLevelsOf(serverId);
+        if (level === null) levels.delete(agentId);
+        else levels.set(agentId, level);
+        return notificationLevelsSnapshot(levels);
+      },
       readAgentSessionSettings: async (agentId) => clone(previewSessionSettings(agentId)),
       setAgentSessionSetting: async ({ agentId, settingId, value }) => {
         const settings = previewSessionSettings(agentId);
@@ -1838,6 +1999,31 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       updateAgentBackupModels: async (input) => {
         await api.agent.updateAgent(input);
         return api.agent.getAgentBackupModels(input.agentId);
+      },
+      listAgentFolders: async (agentId) => mockAgentFolders(agentId),
+      chooseAgentFolder: async ({ agentId, replace }) =>
+        addMockAgentFolder(agentId, replace ? `${replace} (found)` : "/mock/Projects/Leads", replace),
+      addAgentFolder: async ({ agentId, path }) => addMockAgentFolder(agentId, path),
+      addDroppedAgentFolder: async (agentId, folder) => addMockAgentFolder(agentId, `/mock/Dropped/${folder.name}`),
+      removeAgentFolder: async ({ agentId, path }) => {
+        const agent = requireMockAgent(agentId);
+        setMockAgentFolders(
+          agent,
+          (agent.additionalFolders ?? []).filter((folder) => folder !== path),
+        );
+        return { outcome: "removed", path, list: mockAgentFolders(agentId) };
+      },
+      // The preview has no picker: it excludes a folder in the workspace.
+      chooseAgentExclusion: async (agentId) =>
+        addMockAgentExclusion(agentId, `${requireMockAgent(agentId).workspacePath}/archive`),
+      addAgentExclusion: async ({ agentId, path }) => addMockAgentExclusion(agentId, path),
+      removeAgentExclusion: async ({ agentId, path }) => {
+        const agent = requireMockAgent(agentId);
+        setMockAgentExclusions(
+          agent,
+          (agent.excludedFolders ?? []).filter((folder) => folder !== path),
+        );
+        return { outcome: "included", path, list: mockAgentFolders(agentId) };
       },
       getAgentTaskLimit: async (agentId) => {
         const agent = agents.find((candidate) => candidate.id === agentId);
@@ -2406,6 +2592,15 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         if (conversationReads.has(input.agentId)) conversationReads.set(input.agentId, state);
         return clone(state);
       },
+      markConversationUnread: async (input) => {
+        const { messages, revision } = getSnapshot(input.agentId);
+        const index = messages.findIndex((message) => message.id === input.fromMessageId);
+        if (index < 0) throw new Error(sourceText("error.backend.readBoundaryUnavailable"));
+        const throughMessageId = messages[index - 1]?.id ?? null;
+        conversationReads.set(input.agentId, { unreadCount: 0, firstUnreadMessageId: null, throughMessageId });
+        emitAgentEvent({ type: "conversation-invalidated", agentId: input.agentId, revision });
+        return clone(conversationReadState(input.agentId));
+      },
       chooseAttachments: async (_input) => [],
       importAttachmentData: async (data) =>
         data.map((file) => ({
@@ -2537,9 +2732,23 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
                 },
               ]
             : [];
+          // A message that asks for a plan ends with open steps, so the agent continues by itself.
+          const planContinuation: ConversationMessage[] = /\bplan\b/iu.test(input.text)
+            ? [
+                {
+                  id: `${turnId}:plan-continuation`,
+                  author: "system",
+                  source: "system",
+                  text: sourceText("status.agent.planContinues", { current: 1, limit: 3 }),
+                  createdAt: new Date().toISOString(),
+                  status: "completed",
+                  itemType: PLAN_CONTINUATION_ITEM_TYPE,
+                },
+              ]
+            : [];
           updateSnapshot(input.agentId, (snapshot) => {
             snapshot.activeTurnId = null;
-            snapshot.messages = [...snapshot.messages, assistantMessage, ...memoryMessage];
+            snapshot.messages = [...snapshot.messages, assistantMessage, ...memoryMessage, ...planContinuation];
           });
           queues.set(input.agentId, {
             agentId: input.agentId,
@@ -2840,6 +3049,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       exportDiagnostics: async () => ({ saved: true }),
     },
     servers: mockTeam.servers,
+    localServers: mockTeam.localServers,
     plugins: {
       // The preview is never opened by a link, so there is nothing pending and nothing to push.
       takePendingListing: async () => null,

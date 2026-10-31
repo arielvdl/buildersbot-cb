@@ -1,5 +1,6 @@
 // The speech recognition models (Parakeet and Whisper turbo on this computer, ElevenLabs Scribe in
-// the cloud), their settings, and dictation. Also the speech model that reads replies aloud.
+// the cloud), their settings, and dictation. Also the speech model that reads replies aloud, and the
+// user's own OpenAI-compatible voice server, which can take either route.
 
 import {
   type DictationPreference,
@@ -10,6 +11,8 @@ import {
   type SpeechModelStatus,
   type SpeechSettings,
   type VoiceModelStatus,
+  type VoiceServerProbe,
+  type VoiceServerSettings,
   type VoiceSettings,
   type VoiceStream,
   type VoiceTranscriptionResult,
@@ -18,6 +21,7 @@ import { sourceText } from "@openbot/i18n/source";
 import type { AgentService } from "../../backend/agent-service";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { DictationService } from "../dictation-service";
+import type { VoiceServerService } from "../voice-server-service";
 import type { VoiceSpeechService } from "../voice-speech-service";
 import type { VoiceTranscriptionService } from "../voice-transcription-service";
 import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
@@ -28,6 +32,8 @@ import {
   parseVoiceApiKey,
   parseVoiceModelRequest,
   parseVoiceRecording,
+  parseVoiceServerConnection,
+  parseVoiceServerSave,
   parseVoiceSettings,
   parseVoiceStream,
   parseVoiceStreamAudio,
@@ -37,6 +43,8 @@ import {
 export interface VoiceIpcDependencies {
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
+  /** The user's own server. While one of its routes is on, it replaces the model on this computer. */
+  server: VoiceServerService;
   /** Keeps a voice turn's recording as an attachment draft. Voice turns go to this computer's host only. */
   service: Pick<AgentService, "prepareVoiceRecording">;
   /** The global dictation combination. Its recording runs in the window, not here. */
@@ -48,12 +56,19 @@ export function voiceIpcHandlers({
   speech,
   service,
   dictation,
+  server,
 }: VoiceIpcDependencies): Pick<IpcGroupHandlers, "voice"> {
   return {
     voice: {
       getModelStatus: handler((): Promise<VoiceModelStatus> => runCauseEffect(voice.getModelStatus())),
       getModelStatuses: handler((): Promise<VoiceModelStatus[]> => runCauseEffect(voice.getModelStatuses())),
-      prepareModel: handler((): Promise<VoiceModelStatus> => runCauseEffect(voice.prepareModel())),
+      // The server's model is ready on the server: nothing on this computer is downloaded for it.
+      prepareModel: handler(
+        (): Promise<VoiceModelStatus> =>
+          server.dictates()
+            ? Promise.resolve({ modelId: voice.getSettings().modelId, phase: "ready", progress: 100, message: null })
+            : runCauseEffect(voice.prepareModel()),
+      ),
       downloadModel: payloadHandler(
         parseVoiceModelRequest,
         ({ modelId }): Promise<VoiceModelStatus> => runCauseEffect(voice.downloadModel(modelId)),
@@ -73,7 +88,10 @@ export function voiceIpcHandlers({
       ),
       transcribe: payloadHandler(
         parseVoiceTranscription,
-        (transcription): Promise<VoiceTranscriptionResult> => runCauseEffect(voice.transcribe(transcription.audio)),
+        ({ audio }): Promise<VoiceTranscriptionResult> =>
+          runCauseEffect(
+            server.dictates() ? server.transcribe(audio, voice.getSettings().language) : voice.transcribe(audio),
+          ),
       ),
       setApiKey: payloadHandler(
         parseVoiceApiKey,
@@ -100,8 +118,13 @@ export function voiceIpcHandlers({
         (): Promise<SpeechModelStatus> => runCauseEffect(speech.cancelModelDownload()),
       ),
       removeSpeechModel: handler((): Promise<SpeechModelStatus> => runCauseEffect(speech.removeModel())),
-      speak: payloadHandler(parseSpeechInput, (input): Promise<SpeechAudio> => runCauseEffect(speech.speak(input))),
-      warmSpeech: handler((): Promise<void> => runCauseEffect(speech.warm())),
+      speak: payloadHandler(
+        parseSpeechInput,
+        (input): Promise<SpeechAudio> =>
+          runCauseEffect(server.speaks() ? server.speak(input.text) : speech.speak(input)),
+      ),
+      // A server has nothing to load on this computer.
+      warmSpeech: handler((): Promise<void> => (server.speaks() ? Promise.resolve() : runCauseEffect(speech.warm()))),
       keepRecording: payloadHandler(parseVoiceRecording, async ({ audio }): Promise<DraftAttachment> => {
         const [draft] = await runCauseEffect(service.prepareVoiceRecording(audio));
         if (!draft) throw new Error(sourceText("error.voice.recordingNotKept"));
@@ -116,6 +139,15 @@ export function voiceIpcHandlers({
         (result): Promise<DictationState> => dictation.finish(result),
       ),
       cancelDictation: handler((): DictationState => dictation.cancel()),
+      getServer: handler((): VoiceServerSettings | null => server.get()),
+      probeServer: payloadHandler(
+        parseVoiceServerConnection,
+        (connection): Promise<VoiceServerProbe> => runCauseEffect(server.probe(connection)),
+      ),
+      setServer: payloadHandler(
+        parseVoiceServerSave,
+        (save): Promise<VoiceServerSettings | null> => runCauseEffect(server.set(save.server)),
+      ),
     },
   };
 }

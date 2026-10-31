@@ -1,18 +1,62 @@
 # Changelog
 
-All notable changes to the OpenBot iPhone app will be documented here. The project follows
+All notable changes to the Builders Bot iPhone app will be documented here. The project follows
 [Semantic Versioning](https://semver.org/). Notes for the next release are in
 [`changelog.d/`](changelog.d/README.md). The changes of the desktop app and the web client are in
 the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
-## [1.4.3] - In review
+## [1.4.4] - In review
+
+### Added
+
+- Tap the activity row of a working agent to open a sheet with each thought of the turn in full and the progress lines between them. The sheet updates live and keeps the newest text in view until you scroll up; "Latest" goes back to it.
+- A finished turn shows a row above its answer with how long the agent thought and its step count. Tap it to open the same sheet for that turn.
+- iPad support. The app fills the iPad screen in portrait and landscape.
+- On a wide screen, such as iPad, an open iPhone Duo or an open Android foldable, the chat list stays beside the open chat.
+- On a wide screen, you can drag the edge of the chat list to make it wider or narrower. Drag it to the left to show only avatars.
+- iPhone Duo support. When you open iPhone Duo, the chat list and the chat show on each side of the fold. When you fold it, the open chat stays open.
+- When a new version of the app is available, home shows a header with the Builders Bot eyes. Tap Update to open the store page, or Later to hide it until the next version.
+- An update that does not need the store installs in the app: Update restarts Builders Bot with the new version.
+- Tap What's new under the update buttons to read the release notes of each new version. The notes slide down from under the header, over the chat list.
+- Settings › Notifications is now the one place for notifications: choose a server, then All, Needs me, or Off for the whole server and for each of its agents. These choices apply on all your devices, and a change shows at once on the others; a mute applies to this phone only. The agent screen shows the level and opens Settings › Notifications; the server settings no longer have a Notifications row. The agent screen no longer has its own Notifications switch, and "Notify me about" opens the Notifications view inside the agent sheet. An agent that was switched off for everyone shows "Turn on". The server needs the latest Builders Bot.
+
+### Changed
+
+- "Waiting for replies" shows when a teammate waits for your approval, your answer or you in the browser, with the command or the question. Review, Answer or Take over opens the teammate's chat.
+- Code blocks in chat now wrap long lines, so you can read an email draft or a long command without scrolling sideways. Line breaks and Copy do not change.
+- The MCP server screen now says that Claude and Codex agents get a server that has a working directory.
+- The Live Activity shows the first sentences of a reply, without code blocks, headings or mail headers, and hides secrets and email addresses as "•••". Approve shows only for a command that it shows in full.
+
+### Fixed
+
+- Show the reason of a group chat task that stopped because its member was removed or is not
+  available in your language. Before, the reason was always in English.
+- Show all of an iPhone message that starts a line with an agent name, code or a link. Before, the
+  lines had too much space between them, and the end of the message was cut with "…".
+- Buttons and text no longer go under the side bar of iPhone Duo or the screen edges in landscape.
+- On iPhone Duo with the side bar, the chat buttons now go into the side bar, as on the home screen.
+- On iPhone Duo with the side bar, page titles no longer go under the blur at the top.
+- Open a server that is online when the app starts and the first server of the list does not connect
+  in 4 seconds. Before, the app stayed on that server for 30 seconds or more, for example when the
+  computer of that server was asleep. The order of the servers does not change.
+- Open the iPhone app on iPhone Duo. Before, the app could stop on a black screen at start.
+- Open the mobile app in Expo Go. Before, it showed an error that the `ReservedRegionsView` native component is not registered.
+- A sign-in code request waits up to 35 seconds for the account server, as on desktop. Before, the app showed that the account service was not reachable after 10 seconds while the server still sent the code.
+- The Live Activity in the Apple Watch Smart Stack fits its card: the agent photo, the name, two lines of text and the unread count, with a margin at each edge. Before, the watch showed the Lock Screen layout made smaller, with the content at the edges and the unread count outside the card.
+- The Live Activity starts again when you open the app after iOS or the computer ended it. Before, it could stay frozen on the Lock Screen and in the Dynamic Island for hours. An activity that is almost 8 hours old also starts again, so iOS does not stop it while you are away.
+- Notifications show the agent name and the text also after the app starts without network. Before, they showed only "Builders Bot", and a tap opened nothing.
+- Notifications start to work when Apple or Google gave no push token at the first try. Before, the phone got no notifications until you opened the app again.
+- Notifications and Live Activity updates reach an iPhone app that is not from the App Store, such as a build that Xcode installs or an ad hoc build. Before, the app could name the wrong Apple push environment, and Apple refused every notification and update for it.
+- Show the full names in the chat + menu. Before, a long name, such as "Use skill or app" in Polish, was cut off.
+
+## [1.4.3] - 2026-10-29 (iOS)
 
 ### Added
 
 - The Marketplace now lists Neon, Prisma, Netlify, Railway, Atlassian (Jira and Confluence), Todoist and Hugging Face.
-- Attach MP4 videos in chat when the host runs a version of OpenBot that accepts them.
+- Attach MP4 videos in chat when the host runs a version of Builders Bot that accepts them.
 - The sidebar has Workflows. See the workflows of a server, the status of each last run, and the runs that wait for you.
 - Pin a workflow to the sidebar. A pinned workflow shows its last run, and its button runs it or opens the run that waits for you.
 - Open a run to see the status and output of each step. Approve or decline a step that waits, retry a step that failed, or stop the run.
@@ -31,13 +75,13 @@ the [root changelog](../../CHANGELOG.md).
 - Server settings > Providers shows the mark of each provider, and a Default provider choice for
   the new agents of the server. The choice needs an updated server.
 - An owner or admin can add, change and delete the API keys in a server's Vault from the iPhone app,
-  when the server has the OpenBot version that keeps API keys. The phone sends a new key once and
+  when the server has the Builders Bot version that keeps API keys. The phone sends a new key once and
   cannot show a saved key.
 - An agent's chat has threads, as on desktop. Tap the agent's name in the chat header to open the thread menu: switch to the main chat or to an open thread, start a new thread, see all threads, or open the agent's info. A dot in the agent's color on the name, and beside each thread in the menu, shows a thread with messages that you have not read, on the phone or on desktop.
 - Start a new thread from the thread menu, or with + on an agent's Threads page. Your first message starts it, and the main chat does not change. The + on the Threads page of the server asks which agent starts the thread.
-- Send files in a thread, as in the agent's chat: tap + in the thread composer. The server must have the newest version of OpenBot.
+- Send files in a thread, as in the agent's chat: tap + in the thread composer. The server must have the newest version of Builders Bot.
 - Rename, archive, restore or delete a thread from its ⋯ menu, or touch and hold a row on the Threads page. A thread that runs cannot be deleted until you stop it.
-- On iPhone, you can send a share to an agent without opening the app. Tap Share in another app, tap OpenBot, choose the agent and tap Send. The iOS share sheet also shows the agents that you send messages to, so you can tap one of them directly. When the share cannot be sent, such as with the app lock on, OpenBot opens with the share as before.
+- On iPhone, you can send a share to an agent without opening the app. Tap Share in another app, tap Builders Bot, choose the agent and tap Send. The iOS share sheet also shows the agents that you send messages to, so you can tap one of them directly. When the share cannot be sent, such as with the app lock on, Builders Bot opens with the share as before.
 - You can now talk with an agent by voice, as on the desktop. In an agent chat or a channel, tap the microphone in the message field. The message field turns into a call bar with the agent's glow, and the chat stays in view. The agent listens until you stop speaking, sends what you said, and reads its answer aloud while it writes it. Then it listens again. In a channel, the call bar shows the leader. When the leader gives the task to a member, the bar changes to that member, and it reads the first agent that answers. The call bar mutes the microphone, interrupts the answer, and ends the conversation.
 - A new Voice page in Settings, with a Listening tab and a Speaking tab. Choose the voice that reads replies: Supertonic 3, the same voice as on the desktop, which you download once and which runs on your phone, or ElevenLabs with your own API key. You can choose a voice, listen to a sample, and remove the model or the key.
 - Speech recognition in more languages, as on the desktop. In Settings > Voice, choose what recognizes your speech: the phone recognizer, which hears one language; Parakeet v3, which you download once (670 MB), runs on your phone and finds the language you speak in 25 European languages; or ElevenLabs Scribe with your own API key, which finds more than 90 languages. The choice applies to voice conversations and to dictation. Parakeet needs a phone with 6 GB of memory or more.
@@ -133,7 +177,7 @@ the [root changelog](../../CHANGELOG.md).
 - A Markdown file in a chat opens in a preview that shows the formatted text. The menu shows the source, copies it, or shares the file. Before, you could only download it.
 - Tap any image in a chat to open it, then swipe left or right to see all the other images of the loaded conversation, in chat order. The top bar shows the position, such as "3 of 8". ([#2426](https://github.com/nightly-labs/openbot/issues/2426))
 - When an agent sends two or more images in one reply, the chat shows them together in a compact grid, as on desktop. Before, each image took the full width of the chat.
-- Channels are back in the mobile app, on a computer whose OpenBot has channels again. A channel
+- Channels are back in the mobile app, on a computer whose Builders Bot has channels again. A channel
   shows in the home list beside your agents, and you can pin it, hide it, put it in a section, and
   search it. It opens in the same chat as an agent, with the author of each message, plan cards,
   questions, approvals and browser steps of its work. To make one, open the menu at the top of the
@@ -196,18 +240,18 @@ the [root changelog](../../CHANGELOG.md).
   how it ended. A finished task stays until you close it with its close button. Tap a task to open
   it. A task opens as a chat, with the agent's messages, voice input and a text composer. In a
   task, you can answer the agent's questions and see what it does now.
-- Attach ZIP archives in chat when the host runs a version of OpenBot that accepts them.
-- Server settings has a General section for owners and admins: Timezone sets the zone of new routines when the message does not give one, and Memories per agent sets how many memories each agent can keep. The server must have an OpenBot version that supports these settings.
-- Server settings has a Storage page, as on desktop. A ring chart shows how much space OpenBot uses on the server by type, with the size and share of each type. Tap a type to highlight it in the chart. The page also shows the agents and the largest chats, and the free disk space. Tap All files to open, share or delete a stored file. Owners and admins can clear cached server files and logs. The server must have an OpenBot version that supports storage.
-- Server settings has a Sites page, as on desktop. It shows the sites that agents on the server published to openbot.site, the number of sites and the limit of your plan, and when each site expires. Tap a site to open it. Owners and admins can also delete a site. The server must have an OpenBot version that supports sites.
-- Server settings has an Updates page, as on the desktop. It shows the OpenBot version of the server and the update status. You can check for updates and start an update. Owners and admins can also restart the server now, cancel a scheduled restart, and turn automatic downloads and automatic installs on or off. Members can start an update that waits until the agents are idle, when the server permits it.
-- Server settings has Providers for owners and admins, as in OpenBot on the computer. It shows each AI provider of the computer that runs the server and its status. Tap a provider to connect it, download it, check for updates and update it, or save its API key. The server must have an OpenBot version that supports provider management.
-- Server settings has Connectors for owners and admins, as on the desktop. Connect Slack, Discord, Telegram, GitHub and 1Password on the server, see the status of each connection, pause or resume it, reconnect or disconnect it, and add the orchestrator agent that answers. GitHub shows the repositories that agents can use. Bitwarden shows as a desktop-only connector. The server must have an OpenBot version that supports connectors.
-- Server settings has MCP servers for owners and admins. Add an MCP server that runs a command or connects to a URL, change it, turn it on or off for the agents, test the connection, sign out, or remove it. Each argument, environment variable and header has its own field, as on desktop. The server must have an OpenBot version that supports MCP servers. To sign in to an MCP server, use OpenBot on a computer.
-- App lock: in Settings > App lock, turn on a 4-digit PIN, Face ID, Touch ID or the phone's unlock, or a PIN and one of the others. OpenBot then locks when you leave it for the time that you choose, from immediately to 1 hour, when the phone locks, and each time the app starts. A notification or a link that you open while the app is locked opens after you unlock it.
-- While the app lock is on, the app switcher shows the OpenBot logo instead of your chats. On Android this needs Android 13 or later.
-- After 4 incorrect PINs, each new attempt waits longer. After 10 incorrect PINs, OpenBot signs you out on the phone. If you forget the PIN, sign out from the lock screen and scan a new code from OpenBot on your desktop.
-- Server settings has Roles, below Members. An owner or admin creates roles, sets the access of Everyone and of each role to each agent (no access, view, chat or manage), and gives roles to members on the member page. The members list shows the roles of each member. The server must run an OpenBot version with roles.
+- Attach ZIP archives in chat when the host runs a version of Builders Bot that accepts them.
+- Server settings has a General section for owners and admins: Timezone sets the zone of new routines when the message does not give one, and Memories per agent sets how many memories each agent can keep. The server must have an Builders Bot version that supports these settings.
+- Server settings has a Storage page, as on desktop. A ring chart shows how much space Builders Bot uses on the server by type, with the size and share of each type. Tap a type to highlight it in the chart. The page also shows the agents and the largest chats, and the free disk space. Tap All files to open, share or delete a stored file. Owners and admins can clear cached server files and logs. The server must have an Builders Bot version that supports storage.
+- Server settings has a Sites page, as on desktop. It shows the sites that agents on the server published to openbot.site, the number of sites and the limit of your plan, and when each site expires. Tap a site to open it. Owners and admins can also delete a site. The server must have an Builders Bot version that supports sites.
+- Server settings has an Updates page, as on the desktop. It shows the Builders Bot version of the server and the update status. You can check for updates and start an update. Owners and admins can also restart the server now, cancel a scheduled restart, and turn automatic downloads and automatic installs on or off. Members can start an update that waits until the agents are idle, when the server permits it.
+- Server settings has Providers for owners and admins, as in Builders Bot on the computer. It shows each AI provider of the computer that runs the server and its status. Tap a provider to connect it, download it, check for updates and update it, or save its API key. The server must have an Builders Bot version that supports provider management.
+- Server settings has Connectors for owners and admins, as on the desktop. Connect Slack, Discord, Telegram, GitHub and 1Password on the server, see the status of each connection, pause or resume it, reconnect or disconnect it, and add the orchestrator agent that answers. GitHub shows the repositories that agents can use. Bitwarden shows as a desktop-only connector. The server must have an Builders Bot version that supports connectors.
+- Server settings has MCP servers for owners and admins. Add an MCP server that runs a command or connects to a URL, change it, turn it on or off for the agents, test the connection, sign out, or remove it. Each argument, environment variable and header has its own field, as on desktop. The server must have an Builders Bot version that supports MCP servers. To sign in to an MCP server, use Builders Bot on a computer.
+- App lock: in Settings > App lock, turn on a 4-digit PIN, Face ID, Touch ID or the phone's unlock, or a PIN and one of the others. Builders Bot then locks when you leave it for the time that you choose, from immediately to 1 hour, when the phone locks, and each time the app starts. A notification or a link that you open while the app is locked opens after you unlock it.
+- While the app lock is on, the app switcher shows the Builders Bot logo instead of your chats. On Android this needs Android 13 or later.
+- After 4 incorrect PINs, each new attempt waits longer. After 10 incorrect PINs, Builders Bot signs you out on the phone. If you forget the PIN, sign out from the lock screen and scan a new code from Builders Bot on your desktop.
+- Server settings has Roles, below Members. An owner or admin creates roles, sets the access of Everyone and of each role to each agent (no access, view, chat or manage), and gives roles to members on the member page. The members list shows the roles of each member. The server must run an Builders Bot version with roles.
 
 ### Changed
 
@@ -260,7 +304,7 @@ the [root changelog](../../CHANGELOG.md).
 - The Live Activity now follows the notification choices of each server. Before, it showed the
   agents of a server that you muted or set to Nothing. Now it stops showing that server at once when
   you mute it or turn its notifications off, and it shows the server again when the mute ends.
-- The app can now read the queue of an agent with a long history. Before, after some weeks of use, the queue answer was too large for the connection, and the chat showed a "response too large" error. The server must also run the version of OpenBot with this fix (#2368).
+- The app can now read the queue of an agent with a long history. Before, after some weeks of use, the queue answer was too large for the connection, and the chat showed a "response too large" error. The server must also run the version of Builders Bot with this fix (#2368).
 - Live Activities show a link that an agent reply writes in angle brackets, such as
   `<https://example.com>`. Before, the Live Activity removed the link.
 - Agents and sections stay in the home list when you go back from a chat. Before, some or all
@@ -286,7 +330,7 @@ the [root changelog](../../CHANGELOG.md).
 - An open chat no longer renders again when another agent or server changes.
 - The server drawer, the chat header and the chat list no longer render again for workspace changes that they do not show, so the phone does less work while you use any screen.
 - The model list of an agent loads when the server has a provider that the app does not know. An
-  agent on that provider shows "Update OpenBot to use" and the provider name, and its provider
+  agent on that provider shows "Update Builders Bot to use" and the provider name, and its provider
   and model choices are disabled.
 - The phone screen stays on while voice mode listens, so the screen lock no longer stops the voice input when you do not touch the phone.
 - A task that has no messages yet, for example a task that waits for the provider usage limit to reset, now shows why it waits and its queued messages. Before, the task screen was empty. A new chat with no messages shows its starter card again.
@@ -294,7 +338,7 @@ the [root changelog](../../CHANGELOG.md).
 ### Security
 
 - Show the account service address on the Mobile Connect screen when a link uses a service that is
-  not the OpenBot account service. Before, the screen did not show where the phone connects.
+  not the Builders Bot account service. Before, the screen did not show where the phone connects.
 
 ## [1.3.2] - 2026-10-17
 
@@ -310,15 +354,15 @@ the [root changelog](../../CHANGELOG.md).
 - Hold the app icon to open a recent agent, Routines or Search. The recent agents are the chats that
   you opened last on this phone. Hidden chats do not show. The actions go away when you sign out, and
   a shortcut that you pinned on Android then opens only the sign-in screen.
-- Share a link, text, a photo or a file from another app to an agent. Choose OpenBot in the share
+- Share a link, text, a photo or a file from another app to an agent. Choose Builders Bot in the share
   sheet, then choose the agent. The agent that got your last share is selected first. The chat opens
   with the shared content in the message field, so you can add a message before you send it. This
-  works when OpenBot is closed and when it is open. A file that is too large or of a type that agents
+  works when Builders Bot is closed and when it is open. A file that is too large or of a type that agents
   cannot read shows an error with its name. An image that you share from a web page comes as an
   image, not as its link. iPhone photos in HEIC format are sent as JPEG.
 - Get agent notifications on Android: when an agent finishes, stops with an error, or needs your
   input, an approval, or a step in the browser. Choose them in Settings > Notifications, with a
-  sound and the events of each server. The server must run the newest OpenBot desktop app.
+  sound and the events of each server. The server must run the newest Builders Bot desktop app.
 - When you create an agent, you can select its provider, model and reasoning level. The choice shows when the server supports it. "Host default" keeps the provider that the server selects for new agents.
 
 ### Changed
@@ -326,7 +370,7 @@ the [root changelog](../../CHANGELOG.md).
 - Copy, React, Reply and the time are now in a row under each message. Before, they were in a sheet that opened only when you touched and held a message.
 - On iPhone, touch and hold a word in a message to select it, as in other apps. The formatting of the message stays while you select. Before, the text opened in a separate sheet as plain text. On Android, tap Select text under the message.
 - The home of a server with no agents now has the layout of the welcome: its group of characters, the text under it, and the Add agent button at the bottom. Before, smaller characters stood in a ring around the text and the button.
-- After you sign in, the OpenBot logo moves to the middle of the screen and turns into the loading animation, and your agents come in while it leaves. Before, the screen faded, the loader grew from a dot, and the list waited until the loader was gone.
+- After you sign in, the Builders Bot logo moves to the middle of the screen and turns into the loading animation, and your agents come in while it leaves. Before, the screen faded, the loader grew from a dot, and the list waited until the loader was gone.
 - When you open the app while signed in, the splash logo turns into the loading animation. Before, the loader showed on top of the splash logo.
 - Signing out now fades to the sign-in screen. Before, the sign-in screen slid in from the side.
 - While the app connects to a server, the home screen no longer shows the server, search and options buttons. They come in with your agents.
@@ -349,7 +393,7 @@ the [root changelog](../../CHANGELOG.md).
 - A long reply streams more smoothly. Before, the app read the full reply again for each new part of it.
 - While a server reconnects, the app does less work each second. Before, the countdown made all of the open screens draw again.
 - When the server supports it and you are an owner or an admin, an agent that you hide on the phone is hidden on each device that shows the server, and an agent that you hide on the computer is hidden on the phone. The server does not run the routines of a hidden agent and does not send new messages to it. Restore removes the hide on the phone and on the server. A member hides an agent on the phone only.
-- On Android, popup menus have the OpenBot design: rounded corners, app colors, and icons. Before, they used the default Android menu with the colors of the device wallpaper.
+- On Android, popup menus have the Builders Bot design: rounded corners, app colors, and icons. Before, they used the default Android menu with the colors of the device wallpaper.
 - The Android app is a smaller download.
 
 ### Fixed
@@ -366,12 +410,12 @@ the [root changelog](../../CHANGELOG.md).
 - On iPhone, agent avatars get their colors back when the server connects again. Before, some avatars stayed gray.
 - A hosted server no longer stops soon after it starts while you read it with the app in the foreground. Before, it stopped about 15 minutes after a wake when you did not type. The app in the foreground now keeps it on for at most 30 minutes after your last message, change or typing, or after you open the app again.
 - The app keeps starting a hosted server while the server starts. Before, it stopped after 5 minutes.
-  It now stops only when the machine runs and OpenBot on it does not connect in 15 minutes.
+  It now stops only when the machine runs and Builders Bot on it does not connect in 15 minutes.
 - On iPhone, a long agent reply shows word by word for one second. Then, if the full reply is available, all its text shows at once, with a strong, a light and a strong knock. Before, the words continued to show one by one for a long time after desktop showed the full reply.
 - On Android, a message that waits for the server stays at the right edge of the chat. Before, it moved to the left.
 - On Android, file names and code in a reply paragraph align with the text. Before, they were too high, and a long file path was cut at the edge of the message.
 - On Android, screens with animations scroll more smoothly. Before, scrolling could stutter after an animated item closed.
-- On Android, a share from another app that starts OpenBot shows the share sheet with its Close and Share buttons. Before, the sheet filled the screen and the status bar covered the buttons.
+- On Android, a share from another app that starts Builders Bot shows the share sheet with its Close and Share buttons. Before, the sheet filled the screen and the status bar covered the buttons.
 - When you swipe to close the server list, the agent list behind it does not respond. Before, the swipe could pin an agent, open a chat or press the server list button.
 
 ## [1.3.1] - 2026-10-14 (Android), 2026-10-15 (iOS)
@@ -383,15 +427,15 @@ the [root changelog](../../CHANGELOG.md).
 - Italian interface. Choose Italiano in Settings > App language, or keep System default on an
   iPhone that uses Italian.
 - Get a notification when an agent finishes, stops with an error, or needs your input, an approval,
-  or a step in the browser while OpenBot is not on screen. It shows the agent name and the start of
-  the reply, the question, or the action to approve, and a tap opens the chat. Apple and the OpenBot
+  or a step in the browser while Builders Bot is not on screen. It shows the agent name and the start of
+  the reply, the question, or the action to approve, and a tap opens the chat. Apple and the Builders Bot
   account service cannot read the text. An answer or an error does not come while you use the
   desktop app. While the Live Activity shows, no notification comes: the Live Activity shows the
   event, and with Play sound on it lights up the screen and plays the sound, also with notifications
-  off. The server must run an OpenBot version with this change.
+  off. The server must run an Builders Bot version with this change.
 - Settings > Notifications now has the notification and Live Activity settings on one screen. It
   turns notifications on or off, hides the reply preview, and sets the one sound of notifications
-  and the Live Activity: Play sound on or off, and the OpenBot sound of the desktop app, one of the
+  and the Live Activity: Play sound on or off, and the Builders Bot sound of the desktop app, one of the
   four sounds of the desktop sound themes, or the iOS sound. The app plays a sound when you choose
   it. For each server you can choose all activity, only the events that need you, or nothing, and
   mute the server for a time, as in the desktop app. Server settings have the same choices.
@@ -407,7 +451,7 @@ the [root changelog](../../CHANGELOG.md).
 
 ### Removed
 
-- The app no longer shows channels, with any version of OpenBot on your computer. You cannot make a new channel, and Settings no longer has Deleted channels. Search and the routine calendar show only agents. To make agents work together, put them in one sidebar section.
+- The app no longer shows channels, with any version of Builders Bot on your computer. You cannot make a new channel, and Settings no longer has Deleted channels. Search and the routine calendar show only agents. To make agents work together, put them in one sidebar section.
 
 ### Fixed
 
@@ -444,26 +488,26 @@ the [root changelog](../../CHANGELOG.md).
 - The arrows in the bottom bar of the browser go to the previous and the next page. Reload page is
   in the ··· menu. The tabs button shows the agent's tabs: select a tab to show it, or open a new
   tab or close the tab on screen.
-- The page in the browser keeps the same size on your phone when the window of OpenBot on the
-  server changes size. The server needs this version of OpenBot.
+- The page in the browser keeps the same size on your phone when the window of Builders Bot on the
+  server changes size. The server needs this version of Builders Bot.
 - When an agent asks you to take over its browser, the request has an Open browser button. In the
   browser, choose I'm done in the ··· menu to give control back to the agent.
 - You can allow or deny an agent's approval request in the chat. The card shows the command, files or permissions, and says what each answer does on the computer. Before, the chat only showed "Waiting for your input on desktop".
-- When a request is too long to show on the phone, the card lets you deny it and tells you to open OpenBot on the computer to allow it.
+- When a request is too long to show on the phone, the card lets you deny it and tells you to open Builders Bot on the computer to allow it.
 - Mark agents that wait for you in the agent list, with an icon for a question, an approval, or a browser takeover. A "Needs you" group shows them above the sections.
 - When an agent waits for you, the compact Dynamic Island shows an amber mark on the agent's photo, and the agent's name has the agent color.
 - Mark all agent chats and channels on a server as read from the home screen chat options menu. If a chat cannot be marked read, it stays unread and the app tells you.
 - Agent info groups the agent settings as the desktop app does: **Brain**, **Knows**, **Does**, and **Rules**. **Rules** has **Permissions**, **Notifications**, and **Advanced**.
 - **Advanced** shows the workspace folder of the agent and can start a **New chat**. A new chat shows a "New chat started" divider in the chat.
-- Owners and admins can turn **Computer Use** and **Local scripts** on or off for an agent, and select what a message does while the agent works (**Queue** or **Steer**). A change made on the computer or on another device shows at once. The computer that runs the agent must have the newest OpenBot desktop version.
-- Owners and admins can see and delete the **Tables** that the agents share, and **Publish** an agent as a link template. The link preview of a template that you publish from the phone shows the general OpenBot image, not an agent card.
+- Owners and admins can turn **Computer Use** and **Local scripts** on or off for an agent, and select what a message does while the agent works (**Queue** or **Steer**). A change made on the computer or on another device shows at once. The computer that runs the agent must have the newest Builders Bot desktop version.
+- Owners and admins can see and delete the **Tables** that the agents share, and **Publish** an agent as a link template. The link preview of a template that you publish from the phone shows the general Builders Bot image, not an agent card.
 - Support Pi and Muse agents on hosts with Team API v7.
 - Add provider session settings and reset on hosts that support this feature.
 - Choose which agent memories enter every prompt on updated hosts. Keep other memories saved for search, and let the agent manage the selection when needed.
 - Polish interface. Choose Polski in Settings > App language, or keep System default on an iPhone
   that uses Polish.
 - Write and send messages while your server is offline. Waiting messages are drawn lighter, one line under them says they send when the server is online, and you touch and hold a message to edit it or not send it. They send on their own when the server is back. The phone keeps waiting messages and their files when you close the app.
-- Search finds the same kinds of results as the desktop search: agents, channels, messages, files and routines. It also finds the settings pages of the app and of the server. The filter button next to the search field shows one kind of result. Files show when the computer has the latest OpenBot.
+- Search finds the same kinds of results as the desktop search: agents, channels, messages, files and routines. It also finds the settings pages of the app and of the server. The filter button next to the search field shows one kind of result. Files show when the computer has the latest Builders Bot.
 - A search result opens what it names. A message or a file opens the chat at its message. A channel opens the channel, a routine opens its settings, and a settings result opens its page.
 - Settings > Animations has "Animate search results". It turns off the blur when search results change.
 
@@ -473,7 +517,7 @@ the [root changelog](../../CHANGELOG.md).
 - The screen that creates an agent now has a soft glow in the color of the agent. When you select a different color, the glow and the avatar change to the new color smoothly.
 - Settings has no General page. Appearance, Animations, Language, Haptics, Live Activities and
   Privacy each have their own page. Hidden chats and deleted channels are on the Settings page.
-- Show what a hosted server gives at the top of the plans sheet: it runs OpenBot 24/7 on an external
+- Show what a hosted server gives at the top of the plans sheet: it runs Builders Bot 24/7 on an external
   server, keeps agents and routines running when the computer is off, and needs no technical setup.
 - Like on desktop, consecutive messages between agents show as one line in the chat, such as "3 messages with 2 agents". Tap it to see each message.
 - A message to several agents shows their avatars and the number of agents. Tap it to see their names.
@@ -507,7 +551,7 @@ the [root changelog](../../CHANGELOG.md).
 - The agent's browser follows the light or dark appearance of the app.
 - Live Activity answer buttons show as one capsule each and share the full width.
 - The owner of a server can now remove it from the account in server settings, also when its computer is offline or gone. Before, an owner could not remove such a server. The removal applies to all members and all devices. Members lose access, and connected Slack, Discord, Telegram and webhook routes stop. If you add the server again, invite its members again and set up its connections again. Old webhook URLs do not work again.
-- Open a chat of an agent on a connected server that is not the active one, for example from a Live Activity, and OpenBot now loads the messages, loads older messages and marks them read on the agent's own server. Before, it asked the active server.
+- Open a chat of an agent on a connected server that is not the active one, for example from a Live Activity, and Builders Bot now loads the messages, loads older messages and marks them read on the agent's own server. Before, it asked the active server.
 - Report failed browser Live View connections and input as failures instead of normal view termination. Release failed sessions so the view can be opened again.
 - Tasks card. The step in progress shows all its lines at each text size. Before, a larger text
   size cut off the bottom of the step, and the next step touched it.
@@ -519,7 +563,7 @@ the [root changelog](../../CHANGELOG.md).
 - A browser request in a chat stays visible, with the typed value, while Notification Center or another system overlay is open.
 - In Settings > Support, the recent log scrolls in its own box, so a long log does not make the page very long.
 - After 45 minutes on one server connection, and on each return to the app after that, the app asked the signalling service for new relay credentials many times a second, until the service closed the socket for a minute. A lost connection could not recover in that minute. The app now asks once every 45 minutes.
-- A remote connection that Signal refuses for a reason other than a rate limit, such as an invalid ticket, reconnects at once. Before, OpenBot waited 60 seconds as if Signal had limited its rate.
+- A remote connection that Signal refuses for a reason other than a rate limit, such as an invalid ticket, reconnects at once. Before, Builders Bot waited 60 seconds as if Signal had limited its rate.
 - A server is usable sooner after you return to the app. Before, "Reconnecting" stayed until every chat that you had opened before had loaded again, one after another. Now it ends when the agents and the unread counts load, and the chats load after it, the open chat first.
 - After more than 30 seconds away, the app waited 3 seconds for a dead connection before it connected again. Now it repairs the connection at once, or replaces it at once when the server has already dropped it. After more than about 3 minutes away, it shows at once that it connects, instead of a server that looked online but did not answer.
 - On a return to the app, the selected server connects first, and your other servers follow when it is online.
@@ -536,7 +580,7 @@ the [root changelog](../../CHANGELOG.md).
 - Routines for a server. Touch and hold a server in the server list, then select Routines. The week view shows the runs of each day with the agents that do them. Swipe the days to change the week. Select Day in the header to see one day; today also shows the next runs. Select a run to open its routine.
 - Buy a cloud server from the iPhone app. Tap + in the server list, choose a plan, and pay on a secure Stripe page. The app shows the setup until the server is ready, and the server shows on your computer too.
 - Usage for a server. Touch and hold a server in the server list, then select Usage. The report shows the processed tokens and the estimated cost of all agents on the server, with the share of each agent. Select an agent in the list, or in the Agent row at the top, to see the usage of one agent.
-- Settings → Support. It shows how to get help: report a problem on GitHub or message us on X. It also shows a support log of recent app events, connection steps, requests and errors. Select Save log file to save the log or attach it to a message. The log stays on your phone and OpenBot never sends it. It does not record messages or files, and it masks passwords and tokens. Select Clear log to remove it.
+- Settings → Support. It shows how to get help: report a problem on GitHub or message us on X. It also shows a support log of recent app events, connection steps, requests and errors. Select Save log file to save the log or attach it to a message. The log stays on your phone and Builders Bot never sends it. It does not record messages or files, and it masks passwords and tokens. Select Clear log to remove it.
 - Cursor and Cline agents on a server now show in the app. Before, the server kept them hidden.
 - HTML pages and Mermaid diagrams in a reply. A code block marked `html` or `mermaid` shows as a
   card with a header and a small picture of the page or the diagram. Tap the card to open it on its
@@ -551,7 +595,7 @@ the [root changelog](../../CHANGELOG.md).
 - A routine run in a chat shows as one short line with the routine name and its state. The chat no
   longer shows the routine instruction as your message.
 - The routine schedule is easier to set. Select how often it repeats (hourly, daily, weekly, monthly or yearly), then the days and the time, as on desktop. A cron expression is now the last choice, for advanced schedules only.
-- The OpenBot logo no longer turns when you turn your phone, and the app no longer uses motion access.
+- The Builders Bot logo no longer turns when you turn your phone, and the app no longer uses motion access.
 - Settings → About shows the build number after the version, such as "1.1.0 (17)".
 - The agent Usage page has a clearer period control. Select 7 days, 30 days, 90 days, 1 year or Custom. For Custom, set the start and end dates with the date pickers. The report changes at once. The daily chart is now the chart of the desktop app: one area for each provider, in its color, with the values on a grid. Touch or drag across the chart to see a day, with the value of each provider under it. When you change the period or the agent, the report stays on screen and its numbers and chart move to the new values.
 - On Android, the app no longer asks for access to all photos and videos. You still choose photos and files with the system picker, and you can still save images from a chat.
@@ -647,10 +691,10 @@ the [root changelog](../../CHANGELOG.md).
 - When you open a hosted server that stopped after it was not in use, the app starts it again and connects when it is ready.
 - The Lock Screen and the Dynamic Island show what your agents do, as the desktop Dynamic Island
   does: work, new replies, questions, approvals, browser steps, and failed tasks. You can answer an
-  approval or a short question from the Lock Screen. OpenBot asks again before it approves a command.
+  approval or a short question from the Lock Screen. Builders Bot asks again before it approves a command.
   When several agents have new replies, the activity lists them. Settings > General > Live Activities
-  turns this off. When iOS stops OpenBot in the background, the host keeps the activity current
-  through Apple. The update is encrypted for your phone, so Apple and OpenBot cannot read it.
+  turns this off. When iOS stops Builders Bot in the background, the host keeps the activity current
+  through Apple. The update is encrypted for your phone, so Apple and Builders Bot cannot read it.
 
 ### Changed
 

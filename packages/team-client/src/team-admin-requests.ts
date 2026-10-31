@@ -1,6 +1,7 @@
 import {
   type AgentAccessChange,
   type AgentAccessSnapshot,
+  type AgentNotificationLevelsSnapshot,
   type AgentSessionSettings,
   type DiscordAccess,
   type DiscordRoleList,
@@ -8,18 +9,23 @@ import {
   type HiddenAgentsSnapshot,
   type HostDiscordAccessInput,
   type HostSetDiscordAccessInput,
+  isAgentNotificationLevelsSnapshot,
   isAgentSessionSettings,
   isDiscordAccess,
   isDiscordRoleList,
   isHiddenAgentsSnapshot,
   type ResetAgentSessionSettingInput,
   type SetAgentHiddenInput,
+  type SetAgentNotificationLevelInput,
   type SetAgentSessionSettingInput,
+  type SetOwnServerNotificationLevelInput,
 } from "@openbot/contracts/ipc";
 import { AGENT_ACCESS_ROUTES } from "@openbot/contracts/team-protocol/agent-access-v1";
 import { AGENT_HIDDEN_ROUTES } from "@openbot/contracts/team-protocol/agent-hidden-v1";
 import { AGENT_MEMORY_LIMIT_ROUTES } from "@openbot/contracts/team-protocol/agent-memory-limit-v1";
+import { AGENT_NOTIFICATION_LEVELS_ROUTES } from "@openbot/contracts/team-protocol/agent-notification-levels-v1";
 import { AGENT_SESSION_SETTINGS_ROUTES } from "@openbot/contracts/team-protocol/agent-session-settings-v1";
+import type { CUSTOM_PROVIDER_HARNESS_ROUTES } from "@openbot/contracts/team-protocol/custom-provider-harness-v1";
 import { DISCORD_ACCESS_ROUTES } from "@openbot/contracts/team-protocol/discord-access-v1";
 import { HOST_MEMBER_UPDATE_ROUTES } from "@openbot/contracts/team-protocol/host-member-update-v1";
 import { HOST_RELEASE_ROUTES } from "@openbot/contracts/team-protocol/host-release-v1";
@@ -30,7 +36,7 @@ import { PROVIDER_DEFAULT_ROUTES } from "@openbot/contracts/team-protocol/provid
 import type { PROVIDERS_V5_ROUTES } from "@openbot/contracts/team-protocol/providers-v5";
 import { PROVIDERS_V8_ROUTES } from "@openbot/contracts/team-protocol/providers-v8";
 // Admin requests to one host: agent settings and skills, shared tables, agent share links, the server name and logo,
-// the server timezone, the agent memory limit, the memory review, the prompt cache time, the default provider, the Discord roles that can use OpenBot, the app update, MCP servers, storage, hosted sites and providers.
+// the server timezone, the agent memory limit, the memory review, the prompt cache time, the default provider, the Discord roles that can use Builders Bot, the app update, MCP servers, storage, hosted sites and providers.
 //
 // The desktop sends the same routes from the main process. The web client and the mobile app send
 // them through their own transport, so the path, body and decoding of each request are here once.
@@ -203,12 +209,13 @@ import { MCP_SIGN_IN_APP_ROUTES } from "@openbot/contracts/team-protocol/mcp-sig
 import { MCP_SIGN_IN_ROUTES } from "@openbot/contracts/team-protocol/mcp-sign-in-v1";
 import { MCP_ROUTES } from "@openbot/contracts/team-protocol/mcp-v1";
 import { ONEPASSWORD_CONNECTOR_ROUTES } from "@openbot/contracts/team-protocol/onepassword-connector-v1";
-import {
-  type PROVIDER_ACCOUNT_RELAY_PROVIDERS,
-  PROVIDER_ACCOUNT_RELAY_ROUTES,
-} from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import type {
+  ProviderAccountRelay,
+  ProviderAccountRelayProvider,
+} from "@openbot/contracts/team-protocol/provider-account-relays";
 import { PROVIDER_ACCOUNTS_ROUTES } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_ROUTES } from "@openbot/contracts/team-protocol/provider-host-sign-in-v1";
+import { PROVIDER_SIGN_OUT_ROUTES } from "@openbot/contracts/team-protocol/provider-sign-out-v1";
 import { PROVIDER_USAGE_RESET_ROUTES } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { PROVIDERS_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/providers-v1";
 import type { PROVIDERS_RUNTIMES_V2_ROUTES } from "@openbot/contracts/team-protocol/providers-v2";
@@ -740,12 +747,13 @@ export function startProviderSignInRelay(
   return adminCall(() => request("POST", SIGN_IN_RELAY_ROUTES.providerStart, decodeSignInRelayFlow, { provider }));
 }
 
-/** A relayed sign-in of an account after the first (`provider-account-relay-v1`). */
+/** A relayed sign-in of an account after the first, on the route of the host's account relay. */
 export function startProviderAccountSignInRelay(
   request: TeamApiRequest,
-  input: { provider: (typeof PROVIDER_ACCOUNT_RELAY_PROVIDERS)[number]; accountId: string | null },
+  relay: ProviderAccountRelay,
+  input: { provider: ProviderAccountRelayProvider; accountId: string | null },
 ): Effect.Effect<{ flowId: string }, TeamAdminRequestError> {
-  return adminCall(() => request("POST", PROVIDER_ACCOUNT_RELAY_ROUTES.start, decodeSignInRelayFlow, { ...input }));
+  return adminCall(() => request("POST", relay.start, decodeSignInRelayFlow, { ...input }));
 }
 
 /** A relayed sign-in of a link that an agent of the host printed (`sign-in-relay-v1`). */
@@ -1019,6 +1027,14 @@ export function resetProviderUsage(
   );
 }
 
+/** `provider-sign-out-v1`: signs the host's own sign-in of a provider out. */
+export function signOutProvider(
+  request: TeamApiRequest,
+  provider: AgentProviderId,
+): Effect.Effect<void, TeamAdminRequestError> {
+  return adminCall(() => request("POST", PROVIDER_SIGN_OUT_ROUTES.signOut, ignoreResponse, { provider }));
+}
+
 /** Moves the agent to an account of its provider; null is the provider's own sign-in. */
 export function setAgentProviderAccount(
   request: TeamApiRequest,
@@ -1108,18 +1124,26 @@ export function checkProviderRuntimeUpdates(
   return adminCall(() => request("POST", routes.runtimesCheck, runtimeDecoder(routes), {}));
 }
 
+/**
+ * The custom endpoint routes of a host: `custom-provider-harness-v1` names the harness of each
+ * endpoint, and `providers-v1` does not. The caller picks by the host's capabilities.
+ */
+export type CustomProviderRoutes = typeof CUSTOM_PROVIDER_HARNESS_ROUTES | typeof PROVIDERS_ADMIN_ROUTES;
+
 export function listCustomProviders(
   request: TeamApiRequest,
+  routes: CustomProviderRoutes = PROVIDERS_ADMIN_ROUTES,
 ): Effect.Effect<CustomProviderSummary[], TeamAdminRequestError> {
-  return adminCall(() => request("POST", PROVIDERS_ADMIN_ROUTES.customList, decodeCustomProviderSummaries, {}));
+  return adminCall(() => request("POST", routes.customList, decodeCustomProviderSummaries, {}));
 }
 
 export function saveCustomProvider(
   request: TeamApiRequest,
   input: SaveCustomProviderInput,
+  routes: CustomProviderRoutes = PROVIDERS_ADMIN_ROUTES,
 ): Effect.Effect<CustomProviderResult, TeamAdminRequestError> {
   return adminCall(() =>
-    request("POST", PROVIDERS_ADMIN_ROUTES.customSave, decodeCustomProviderResult, {
+    request("POST", routes.customSave, decodeCustomProviderResult, {
       ...input,
       models: input.models.map(({ id, name }) => ({ id, name })),
       headers: input.headers.map(({ name, value }) => ({ name, value })),
@@ -1130,10 +1154,9 @@ export function saveCustomProvider(
 export function deleteCustomProvider(
   request: TeamApiRequest,
   input: DeleteCustomProviderInput,
+  routes: CustomProviderRoutes = PROVIDERS_ADMIN_ROUTES,
 ): Effect.Effect<CustomProviderResult, TeamAdminRequestError> {
-  return adminCall(() =>
-    request("POST", PROVIDERS_ADMIN_ROUTES.customDelete, decodeCustomProviderResult, { id: input.id }),
-  );
+  return adminCall(() => request("POST", routes.customDelete, decodeCustomProviderResult, { id: input.id }));
 }
 
 export function getHostReleaseStatus(request: TeamApiRequest): Effect.Effect<HostReleaseStatus, TeamAdminRequestError> {
@@ -1181,6 +1204,38 @@ export function setAgentHidden(
 ): Effect.Effect<HiddenAgentsSnapshot, TeamAdminRequestError> {
   return adminCall(() =>
     request("POST", AGENT_HIDDEN_ROUTES.set, decodeHiddenAgents, { agentId: input.agentId, hidden: input.hidden }),
+  );
+}
+
+function decodeAgentNotificationLevels(value: unknown): AgentNotificationLevelsSnapshot {
+  if (!isAgentNotificationLevelsSnapshot(value)) throw new Error("Invalid agent notification levels response.");
+  return value;
+}
+/** The member's own level for each agent, on a host that advertises `agent-notification-levels-v1`. */
+export function listAgentNotificationLevels(
+  request: TeamApiRequest,
+): Effect.Effect<AgentNotificationLevelsSnapshot, TeamAdminRequestError> {
+  return adminCall(() => request("POST", AGENT_NOTIFICATION_LEVELS_ROUTES.read, decodeAgentNotificationLevels, {}));
+}
+export function setAgentNotificationLevel(
+  request: TeamApiRequest,
+  input: SetAgentNotificationLevelInput,
+): Effect.Effect<AgentNotificationLevelsSnapshot, TeamAdminRequestError> {
+  return adminCall(() =>
+    request("POST", AGENT_NOTIFICATION_LEVELS_ROUTES.set, decodeAgentNotificationLevels, {
+      agentId: input.agentId,
+      level: input.level,
+    }),
+  );
+}
+
+/** The member's own level of the whole server, for all of their devices. `null` gives each device its own level. */
+export function setOwnServerNotificationLevel(
+  request: TeamApiRequest,
+  level: SetOwnServerNotificationLevelInput["level"],
+): Effect.Effect<AgentNotificationLevelsSnapshot, TeamAdminRequestError> {
+  return adminCall(() =>
+    request("POST", AGENT_NOTIFICATION_LEVELS_ROUTES.server, decodeAgentNotificationLevels, { level }),
   );
 }
 
@@ -1358,7 +1413,7 @@ function decodeDiscordAccess(value: unknown): DiscordAccess {
   return value;
 }
 
-/** Which roles can use OpenBot in one Discord server of the host (`discord-access-v1`). */
+/** Which roles can use Builders Bot in one Discord server of the host (`discord-access-v1`). */
 export function discordAccess(
   request: TeamApiRequest,
   input: HostDiscordAccessInput,

@@ -57,6 +57,7 @@ export const messages = {
   "app.rail.website": "Site do Builders Bot",
   "app.rail.agents": "Agentes",
   "app.rail.schedule": "Agenda",
+  "app.rail.tasks": "Tarefas",
   "app.rail.workflows": "Fluxos de trabalho",
   "app.rail.usage": "Uso",
   "app.rail.load.title": "Carga",

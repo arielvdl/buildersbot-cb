@@ -72,7 +72,8 @@ export const messages = {
   "onboarding.error.download": "Builders Bot は {provider} をダウンロードできませんでした。もう一度お試しください。",
   "onboarding.error.cancelDownload":
     "Builders Bot は {provider} のダウンロードをキャンセルできませんでした。もう一度お試しください。",
-  "onboarding.error.refresh": "Builders Bot はローカルの AI プロバイダーを更新できませんでした。もう一度お試しください。",
+  "onboarding.error.refresh":
+    "Builders Bot はローカルの AI プロバイダーを更新できませんでした。もう一度お試しください。",
   "onboarding.error.finish": "Builders Bot は設定を完了できませんでした。",
   "onboarding.toast.connecting":
     "{provider} に接続しています。ブラウザーのウィンドウが開いたら、サインインを完了してください。",
@@ -84,6 +85,14 @@ export const messages = {
   "onboarding.choice.subscription": "サブスクリプションがあります",
   "onboarding.choice.subscriptionDetail": "ChatGPT、Claude、Grok",
   "onboarding.choice.startFreeInstead": "代わりに無料で始める",
+  "onboarding.consent.notice": "続行すると、{terms}に同意し、{privacy}を確認したものとみなされます。",
+  "onboarding.consent.analyticsTitle": "Builders Bot の改善に協力する",
+  "onboarding.consent.analyticsDetail": "使用している機能を共有します。チャット、ファイル、プロンプトは共有しません。",
+  "onboarding.consent.thanksTitle": "ありがとうございます！チーム一同、感謝しています。",
+  "onboarding.consent.thanksToast": "Builders Bot の改善にご協力いただきありがとうございます 💜",
+  "onboarding.consent.thanksToastDetail": "この設定は「設定」からいつでも変更できます。",
+  "onboarding.consent.termsLink": "利用規約",
+  "onboarding.consent.privacyLink": "プライバシーポリシー",
   "onboarding.plan.title": "プランを接続",
   "onboarding.plan.description": "一度サインインするだけ。エージェントがあなたのプランを使います。",
   "onboarding.computer.title": "Builders Bot がコンピューターを操作する場合があります",

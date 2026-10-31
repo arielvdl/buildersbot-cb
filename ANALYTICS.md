@@ -1,6 +1,6 @@
 # Product analytics
 
-OpenBot uses a self-hosted OpenPanel project for production product analytics. This document is the
+Builders Bot uses a self-hosted OpenPanel project for production product analytics. This document is the
 contract for event meaning, attribution, privacy, and reporting. Changes to an event name, property,
 or success definition require an analytics schema version bump and corresponding test updates.
 
@@ -16,10 +16,11 @@ of activated accounts that return for another successful turn within one and fou
 
 Every event has these low-cardinality properties:
 
-- `surface`: `desktop`, `desktop_host`, `landing`, `web`, `mobile`, or `account_api`;
+- `surface`: `desktop`, `desktop_host`, `landing`, `web`, `mobile`, `account_api`, or `signal`;
 - `environment`: currently `production` only;
 - `event_schema_version`: the integer schema generation of that surface: currently `12` on `desktop`,
-  `11` on `desktop_host`, `10` on `landing`, `12` on `account_api`, `4` on `mobile`, and `2` on `web`;
+  `11` on `desktop_host`, `10` on `landing`, `12` on `account_api`, `4` on `mobile`, `2` on `web`, and `1` on
+  `signal`;
 - `app_version` and `platform` on desktop surfaces;
 - `acquisition_source` on landing surfaces: `direct`, `search`, `social`, `github`, or `other`;
 - `source_platform` on landing surfaces: an allowlisted platform name, or `unknown`.
@@ -71,6 +72,8 @@ be mixed into current conversion or reliability metrics.
   analytics preference does not apply to these events: the account service records a payment or a
   server change, not a UI action on the computer. `email_sent` has no account, so it has no
   `profileId`, as `billing_snapshot`.
+- The Signal host (`signal`) sends `signal_capacity` from its capacity reporter, with the same server
+  client and no `profileId`. It has counts only: no account, address, session or room.
 - OpenPanel receives the central account ID as `profileId` and the normalized account email as the
   profile email. Email is not copied into individual event properties.
 - Existing profiles are repaired by the controlled identity backfill when their `profileId` matches
@@ -99,7 +102,7 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 
 | Event | Product question | Success definition |
 |---|---|---|
-| `desktop_app_opened` | How many accounts/devices open OpenBot? | App state and identity have loaded |
+| `desktop_app_opened` | How many accounts/devices open Builders Bot? | App state and identity have loaded |
 | `app_updated` | Did an update actually take effect? | A new version is observed on the next launch |
 | `account_sign_in_started` | Can visitors start authentication? | A code was sent. Mobile from generation 3 adds `method: email`, `duration_ms` and `cause_code`; a resend sends it again |
 | `account_sign_in_completed` | Can visitors become verified accounts? | Verified signed-in state returned. Mobile from generation 3 adds `method: email` |
@@ -121,7 +124,7 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `system_routine_run` | Do routine runs succeed, and which schedules are used? | A routine run that this host saw running reached `succeeded`, `failed`, `needs-attention`, `interrupted`, or `cancelled` |
 | `system_workflow_run` | Do workflow runs succeed, how do they start, and which steps do they use? | From host generation 11, a workflow run that started after this host process started ended. `status` is `done`, `failed` or `stopped`; `source` is `manual`, `schedule` or `webhook`; `duration_ms` (at most 30 days, else not sent); `step_count` of the nodes that ran, and `agent_step_count`, `model_step_count` (model and condition steps), `approval_step_count` and `output_step_count`. A retry can end a run again: each outcome of a run is sent once. Titles, texts, node IDs, agents, addresses and places are never sent |
 | `system_inventory` | What have accounts set up? | At most once per local day: counts of agents, enabled routines, workflows (from host generation 11, `workflow_count`), custom MCP servers, local and community skills, and the slugs of catalog plugins, curated skills and curated agents |
-| `system_resources` | How much CPU and memory does OpenBot use, by computer class and provider? | At most once per local day, the summary of the last closed local day that has samples. A sample is taken once a minute while the computer is awake. Memory in MB rounded to 50 and CPU percent as integers, as the 95th percentile of the samples (`_p95`) or the largest sample (`_max`), for all processes (`total_`), each process group (`main`, `window`, `browser_tab`, `gpu`, `database_host`, `voice_host`, `utility_other`) and the process tree of each provider id (`provider_<id>_`, `provider_other_` for any other child process). `main_loop_delay_ms_p95` is the 95th percentile of each minute's p99 main event-loop delay; `_max` is the longest delay. `db_request_ms_*`, `db_request_count` and `db_slow_request_count` (over 100 ms) time agent database statements. `renderer_gone_count`, `child_gone_count` and `gone_<reason>_count` count processes that ended for a reason other than a clean exit, except in the minute before a quit; A utility process that OpenBot stops itself, such as the voice host after idle time or a database host at a statement deadline, is not counted. The peak active turns, browser tabs and provider processes; `ram_class`, `cpu_class`, `arch`, `host_kind` (`desktop` or `server`), `provider_tree_supported` (false on Windows, or when `ps` failed), and `sample_count`. A day that closes while analytics is off is dropped, never sent later |
+| `system_resources` | How much CPU and memory does Builders Bot use, by computer class and provider? | At most once per local day, the summary of the last closed local day that has samples. A sample is taken once a minute while the computer is awake. Memory in MB rounded to 50 and CPU percent as integers, as the 95th percentile of the samples (`_p95`) or the largest sample (`_max`), for all processes (`total_`), each process group (`main`, `window`, `browser_tab`, `gpu`, `database_host`, `voice_host`, `utility_other`) and the process tree of each provider id (`provider_<id>_`, `provider_other_` for any other child process). `main_loop_delay_ms_p95` is the 95th percentile of each minute's p99 main event-loop delay; `_max` is the longest delay. `db_request_ms_*`, `db_request_count` and `db_slow_request_count` (over 100 ms) time agent database statements. `renderer_gone_count`, `child_gone_count` and `gone_<reason>_count` count processes that ended for a reason other than a clean exit, except in the minute before a quit; A utility process that Builders Bot stops itself, such as the voice host after idle time or a database host at a statement deadline, is not counted. The peak active turns, browser tabs and provider processes; `ram_class`, `cpu_class`, `arch`, `host_kind` (`desktop` or `server`), `provider_tree_supported` (false on Windows, or when `ps` failed), and `sample_count`. A day that closes while analytics is off is dropped, never sent later |
 | `agent_input_action` | Can users resolve prompts and approvals? | Response IPC completed |
 | `queue_action` | Can users control queued work? | Queue operation completed |
 | `routine_action` | Are routines adopted and reliable? | Routine operation completed; `duration_ms` measures execution time |
@@ -142,9 +145,9 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `reaction_action` | Are reactions used? | Reaction operation completed |
 | `hosted_site_action` | Can accounts publish, replace, and delete Hosted Sites? | A terminal Hosted Site operation result; site metadata is never sent |
 | `hosted_server_upsell` | Does the hosted server offer lead to the plans without too many dismissals? | The offer shows, or the user selects "See plans" or dismisses it. `entry_point` is `routine_created`, `routines_list`, or `server_offline`; routine and server names are never sent. From web generation 2 the web app sends it too. "See plans" opens the plans with `entry_point: upsell` |
-| `hosted_server_plans_action` | Do users who open the plans pick a plan, and where did they come from? | Desktop, web and mobile. `action`: `viewed`, `currency_changed`, `interval_changed`, `plan_selected`, `create_failed`, `payment_open_failed`, `retried`, `closed`, `join_opened`, or (mobile) `setup_opened`. `entry_point`: `server_rail`, `settings_billing`, `upsell`, `empty_state`, `checkout_resume`, `drawer`, or `onboarding`. Optional `plan`, `interval`, `currency`, `failure_code`. The checkout itself is the account service `checkout_started` with the same `entry_point` |
+| `hosted_server_plans_action` | Do users who open the plans pick a plan, and where did they come from? | Desktop, web and mobile. `action`: `viewed`, `currency_changed`, `interval_changed`, `plan_selected`, `create_failed`, `payment_open_failed`, `retried`, `closed`, `join_opened`, or (mobile) `setup_opened`. `entry_point`: `server_rail`, `settings_billing`, `upsell`, `empty_state`, `checkout_resume`, `drawer`, `onboarding`, or (web, from the pricing page) `pricing_page`. Optional `plan`, `interval`, `currency`, `failure_code`. The checkout itself is the account service `checkout_started` with the same `entry_point` |
 | `limit_reached` | How often does a limit stop a user, and what do they do next? | `kind` is `servers`, `members` or `license_users`; `action` is `shown`, `manage_clicked`, `confirmed`, `dismissed`, or `contact_clicked`. Optional `role` of the invited member |
-| `license_action` | Do accounts buy and change licenses from the app? | UI steps only; the account service sends the billing result. `action`: `buy_opened`, `checkout_opened`, `users_change_requested`, `cancel_requested`, `cancel_kept`, `renewal_resumed`, or `over_limit_shown`. Optional `result`, `direction` (`up` or `down` for a users change) and `failure_code` |
+| `license_action` | Do accounts buy and change licenses from the app? | UI steps only; the account service sends the billing result. `action`: `buy_opened`, `checkout_opened`, `users_change_requested`, `plan_change_requested`, `cancel_requested`, `cancel_kept`, `renewal_resumed`, or `over_limit_shown`. Optional `result`, `direction` (`up` or `down` for a users change) and `failure_code` |
 | `sales_contact_clicked` | Where do users ask to talk to sales? | A contact sales link was opened. `entry_point` is `add_server`, `license`, or `members` |
 | `billing_return_viewed` | Do users come back from Stripe with a completed payment? | The web app or the website showed the page after Stripe. `outcome` is `completed` or `cancelled`; `kind` is `plan`, `license` or `portal`. The website reads `kind` from the return address, which the account service sets from generation 11; an older return address has no `kind`. Its `screen_view` path is `/billing/return` with no query, so the Checkout Session ID is not sent. The page sends no `landing_viewed` and saves no first visit |
 | `contact_form_submitted` | Does the website contact form reach us? | Website. `topic` is `setup`, `partnership`, `press` or `other` (an unknown topic is left out); `result` is `succeeded`, `failed` or `rate_limited`. The message, name and email are not sent |
@@ -160,10 +163,10 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `live_activity_action` | Are iPhone Live Activities used? | Mobile. `action` is `started` or `ended`. A Live Activity left from an earlier launch that the app ends also sends `ended` |
 | `usage_viewed` | Is the Usage view used? | Desktop and mobile. `scope` is `agent` or `server`. Desktop adds `range` (`7d`, `30d`, `90d`, `1y`) and `filtered` (an agent filter that the user selected); each change of these sends again |
 | `analytics_preference_changed` | How many users turn product analytics off? | Desktop, web and mobile. `enabled: false`, sent once before tracking stops. Turning analytics on sends nothing |
-| `screen_view` | Which public website routes and articles are viewed in a session? | One safe view for `/`, `/join`, `/contact`, `/teams`, `/download`, a `/download/<os>` page, a collection index, or a published article path, with allowlisted campaign tags and no hash |
+| `screen_view` | Which public website routes and articles are viewed in a session? | One safe view for `/`, `/join`, `/contact`, `/teams`, `/pricing`, `/download`, a `/download/<os>` page, a collection index, or a published article path, with allowlisted campaign tags and no hash |
 | `landing_viewed` | How much qualified landing traffic arrives? | Non-automation production page view |
 | `landing_download_clicked` | Which safe channel/placement drives downloads? | Allowlisted download link clicked |
-| `landing_link_clicked` | Which public resources are useful? | Allowlisted public link clicked. From the release with the download pages, the Download link in the content-page header reports `destination: download_page`, not `download_section`. From the release with the contact form, `destination: contact` is a Contact link to `/contact`, and the X link reports `destination: x`. Before, both reported `contact` and opened X. From the release with the OpenBot for Teams section, its Contact us button reports `placement: teams_section`. From the release with the For Teams page, a link to `/teams` reports `destination: teams`, and a link inside that page reports `placement: teams_page` |
+| `landing_link_clicked` | Which public resources are useful? | Allowlisted public link clicked. From the release with the download pages, the Download link in the content-page header reports `destination: download_page`, not `download_section`. From the release with the contact form, `destination: contact` is a Contact link to `/contact`, and the X link reports `destination: x`. Before, both reported `contact` and opened X. From the release with the Builders Bot for Teams section, its Contact us button reports `placement: teams_section`. From the release with the For Teams page, a link to `/teams` reports `destination: teams`, and a link inside that page reports `placement: teams_page`. From the release with the pricing page, a link to `/pricing` reports `destination: pricing`, and a link inside that page reports `placement: pricing_page` |
 | `landing_download_selected` | Does the offered platform match the one taken? | The hero reports its detected platform once, then each manual change; `detected` separates the two |
 | `content_article_opened` | Which news article or guide does a reader choose, and from where? | A link to a published article was clicked; `placement` separates an index card from the related row |
 | `content_article_read` | Is an article read or abandoned? | The body reached `start`, `half`, or `end` in the viewport, at most once each per view. It measures position, not attention, and never elapsed time |
@@ -175,6 +178,7 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `billing_snapshot` | What is recurring revenue at the sample time? | Daily aggregate without a profile. `snapshot_date`, `as_of`, `reported_at`, `currency`, `mrr`, `arr`, `overdue_mrr`, `paying_accounts`, `paid_servers`, `cancellations_scheduled`, `checkout_mature_accounts`, `checkout_converted_accounts`, `checkout_pending_accounts`, `skipped_subscriptions` (subscriptions left out because Stripe has no valid data for them). From account service generation 11, `mrr`, `arr`, `overdue_mrr` and `paying_accounts` count servers only; `license_mrr`, `license_accounts` and `licensed_users` count licenses; `total_mrr` and `total_arr` count both. `skipped_subscriptions` counts both. Money is USD cents. Never sum snapshots across days. |
 | `hosted_server_action` | Do paid hosted servers start, stay in use and come back? | `action`: `provisioned`, `setup_failed`, `idle_stopped`, `woken`, `resized`, `plan_stopped`, `renewed`, or `deleted`, when the account service changes the server. Optional `plan`, `size`, `reason` (`message`, `restart`, `schedule` or `retention`) and `error` (an allowlisted hosted server error code) |
 | `email_sent` | How much of the hourly quota of the SMTP mailbox (500 messages) does the account service use? | One event for each message that the account service tries to send by SMTP from `hello@openbot.run`, after its retries. The webhook delivery does not use the mailbox and sends none. `kind`: `sign_in_code`, `team_invite`, `contact`, or `welcome`. `result`: `accepted`; `rate_limited` (the mail server refused it for its sender limit); `unknown` (the send stopped after the server may have taken the message); or `failed` (also a message that a check stopped before the connection). Count `accepted` and `unknown` against the quota. No `profileId`, address, name or content |
+| `signal_capacity` | How near is the TURN relay to its allocation quota (`total-quota` in `remote/coturn/turnserver.conf`)? | One event every 5 minutes from each Signal host. `turn_host` (`turn.openbot.run`, or `turn2.openbot.run` on the standby); `turn_allocations`, and `turn_allocations_udp`, `_tcp` and `_tls` for the client transports (0 when a transport has none); `signal_sockets` and `signal_peer_connections`. Generation 1 |
 
 ## Privacy and runtime validation
 
@@ -240,6 +244,10 @@ and only a loopback `http:` origin is accepted.
 10. Dev: `email_sent` with `result` `accepted` or `unknown` per hour by `kind`, against the
     500-message hourly limit of the mailbox, and all results per hour by `result`. OpenPanel counts clock hours, but the mail server counts
     the last 60 minutes, so two hours below the limit can still go above it together.
+11. Dev: `signal_capacity` (`surface = signal`) per hour: the largest `turn_allocations` by
+    `turn_host` against the `total-quota`, the largest per transport, and the largest
+    `signal_sockets` and `signal_peer_connections`. coturn adds relayed bytes to its metrics only
+    when an allocation closes, so the event has no live traffic value.
 
 Every dashboard must filter by the intended `surface` and that surface's current
 `event_schema_version`. Website bounce
@@ -298,7 +306,7 @@ Limits:
 
 The reporting team asked for these metrics. The events keep their released names; this table gives
 the OpenPanel event and filter for each one. `user_id` is always the OpenPanel `profileId`, which is
-the OpenBot account ID. Filter each row by its `surface` and that surface's current
+the Builders Bot account ID. Filter each row by its `surface` and that surface's current
 `event_schema_version`.
 
 | Metric | OpenPanel event and filter | Notes |
@@ -311,7 +319,7 @@ the OpenBot account ID. Filter each row by its `surface` and that surface's curr
 | First value action | First `system_turn_completed` with `origin = user` and `status = completed` for a `profileId` | The product metric |
 | Engagement work | `system_turn_completed`, `origin = user` | `status` gives success or failure |
 | `agent_action` | `agent_action` | `result` is `succeeded` or `failed`; `failure_code` on failure |
-| Trial started | None | OpenBot has no trial period |
+| Trial started | None | Builders Bot has no trial period |
 | Checkout started | `billing_action`, `action = checkout_started` | `product` is `server` or `license`; `entry_point` names where the plans were opened |
 | `subscription_started` | `billing_action`, `action = plan_started` | `reactivated = true` is a return after churn |
 | `subscription_canceled` | `billing_action`, `action = cancel_scheduled` | The plan stays open to the end of the period. `cancel_withdrawn` reverses it |

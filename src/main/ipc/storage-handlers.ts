@@ -58,7 +58,10 @@ export interface StorageIpcDependencies extends Omit<OpenAttachmentDependencies,
   storage: Pick<StorageUsageService, "usage" | "deleteFile" | "clear" | "disk">;
   cleanup: Pick<CleanupService, "scan" | "find" | "remove">;
   machine: Pick<MachineAlertMonitor, "metrics">;
-  providerRuntimes: Pick<ProviderRuntimeManager, "oldVersions" | "removeOldVersions">;
+  providerRuntimes: Pick<
+    ProviderRuntimeManager,
+    "oldVersions" | "removeOldVersions" | "removableRuntimes" | "removeRemovableRuntimes"
+  >;
   remoteServers: StorageRemoteServers;
   agents: () => StorageAgent[];
   openPath: (path: string) => Promise<string>;
@@ -177,6 +180,8 @@ export function storageIpcHandlers({
             : await dialog.showMessageBox(options);
         return { removed: response === 0 && (await cleanup.remove(id)) };
       }),
+      getRemovableRuntimes: handler(() => runCauseEffect(providerRuntimes.removableRuntimes())),
+      removeRemovableRuntimes: handler(() => runCauseEffect(providerRuntimes.removeRemovableRuntimes())),
     },
   };
 }

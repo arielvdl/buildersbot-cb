@@ -1,10 +1,10 @@
 {
-  "version": "0.53.2",
+  "version": "0.56.0",
   "highlights": [
-    "On Windows, do not uninstall OpenBot from Windows Settings to fix a failed update, because that can delete your agent folders. Install this version instead.",
-    "On Windows, updates work again when OpenBot was installed in the folder that holds your agents. Your agents, Shared and Downloads stay where they are.",
-    "Agents now save lasting preferences and facts from your chats and side threads in the background. Server settings › General › Memory review sets how often, or turns it off.",
-    "Agents search their saved memories before they say that they do not know something about you.",
-    "If the taskbar pin no longer opens OpenBot after this update, pin it again from the Start menu."
+    "Agents do many browser actions in one step, so browser tasks finish sooner and use fewer tokens, and Cloudflare checks pass in the built-in browser.",
+    "Right-click an agent message and select Mark unread to come back to it later.",
+    "Hide the Local server when you have another server; its agents, chats and files stay on your computer.",
+    "Choose the sound that plays when a task finishes, in Settings › Notifications.",
+    "Each provider CLI now uses about half the disk space, and Builders Bot uses the CLI you installed when it is as new as its own copy."
   ]
 }

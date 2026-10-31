@@ -73,6 +73,8 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Dit verzoek overschrijdt de contextlimiet voor routering. Kies een lid of stuur een korter verzoek.",
   "error.backend.channelTaskMemberRequired": "Kies een lid voor deze taak.",
+  "error.backend.channelTaskStopped": "Gestopt. Ga verder of wijs deze taak opnieuw toe.",
+  "error.backend.channelRoutingUnreadable": "De leider kon dit bericht niet toewijzen. Wijs het toe aan een lid.",
   "error.backend.channelRoutingFailed": "Routering is mislukt. Kies een lid of probeer het opnieuw.",
   "error.backend.channelLeadTimedOut": "De kanaalleider reageerde niet op tijd. Kies een lid of probeer het opnieuw.",
   "error.backend.channelLeadFailed":
@@ -81,6 +83,8 @@ export const messages = {
   "error.backend.channelDeliveryNotCreated": "De bezorging in het kanaal is niet gemaakt.",
   "error.backend.channelAssignmentStopped": "Deze kanaalopdracht is gestopt of vervangen.",
   "error.backend.channelAssigneeUnavailable": "De toegewezen agent is niet beschikbaar.",
+  "error.backend.channelAssigneeRemoved": "Het toegewezen lid is verwijderd.",
+  "error.backend.channelAssigneeReassign": "Het toegewezen lid is niet beschikbaar. Wijs deze taak opnieuw toe.",
   "error.backend.channelAssignmentChanged": "Deze kanaalopdracht is gewijzigd.",
   "error.backend.channelMemberRequired": "Kies een beschikbaar lid van dit kanaal.",
   "error.backend.memoryEssentialBudget":
@@ -196,6 +200,8 @@ export const messages = {
   "error.backend.agentWaitNoRoutine":
     "Alleen een run van een van je routines wekt een wachtpunt, en je hebt geen routine. Maak er een met openbot.create_routine en open dan het wachtpunt.",
   "error.backend.agentWaitRemoteUnsupported": "Open wachtpunten zijn alleen beschikbaar voor agents op deze computer.",
+  "error.backend.markUnreadRemoteUnsupported":
+    "Een bericht als ongelezen markeren is alleen beschikbaar voor agents op deze computer.",
   "error.backend.routineFlowHandoffFailed": "De routine kon het werk niet aan deze agent doorgeven.",
   "error.backend.mcpServerLimit": "Builders Bot bewaart maximaal {limit} MCP-servers.",
   "error.backend.mcpServerNameTaken": "Er bestaat al een MCP-server met de naam {name}.",
@@ -224,6 +230,7 @@ export const messages = {
     "Builders Bot kon de inloggegevens van deze server niet lezen. Controleer het serveradres en probeer het opnieuw.",
   "error.backend.mcpServerExited":
     "De server is gestopt voordat hij antwoordde. Voer de opdracht uit in een terminal om de fout te zien.",
+  "error.backend.mcpServerFailedToStart": "De server is niet gestart: {reason}",
   "error.backend.mcpOAuthProxyUnavailable":
     "Builders Bot kon de lokale inlogverbinding voor deze server niet starten. Start Builders Bot opnieuw en probeer het nog eens.",
   "error.backend.mcpOAuthSignInNeeded":

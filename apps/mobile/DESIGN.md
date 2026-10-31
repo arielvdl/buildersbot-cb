@@ -1,12 +1,12 @@
-# OpenBot Mobile Design Guidelines
+# Builders Bot Mobile Design Guidelines
 
 These rules apply to design, implementation, review, and AI-generated mobile UI. They define which layer owns each part of the interface and prevent the app from drifting into multiple visual systems.
 
 ## Core rule
 
-HeroUI Native is the foundation for application content. It is already installed, its provider is mounted in `src/app/_layout.tsx`, and its theme aliases are mapped to OpenBot tokens in `global.css`.
+HeroUI Native is the foundation for application content. It is already installed, its provider is mounted in `src/app/_layout.tsx`, and its theme aliases are mapped to Builders Bot tokens in `global.css`.
 
-Use HeroUI Native for product UI such as buttons, cards, fields, alerts, chips, accordions, and other content rendered inside a screen. Reuse an existing OpenBot component first, then a HeroUI Native component. Do not recreate a component that either layer already provides.
+Use HeroUI Native for product UI such as buttons, cards, fields, alerts, chips, accordions, and other content rendered inside a screen. Reuse an existing Builders Bot component first, then a HeroUI Native component. Do not recreate a component that either layer already provides.
 
 HeroUI Native is a component source, not a requirement to decorate every screen. Start with the lightest useful composition. A focused screen may need only layout, `Typography`, and one `Button`; add `Card`, `Chip`, `Surface`, or `Alert` only when it expresses real grouping, state, interaction, or actionable information.
 
@@ -109,6 +109,56 @@ installs. A skill opens the agent choice as the next page, and an app that asks 
 sign-in opens its connect page; each page has its own `SheetSaveAction`. The arrow on an example request is the desktop Try: it puts the request
 (a skill keeps its `@[name](skill:id)` marker) in an agent's message field and the chat replaces the
 sheet, as Agent info > Skills does for a new skill. Several agents that can use it are a native menu.
+
+## Wide windows and iPhone Duo
+
+The app supports iPad and iPhone Duo. Apple and Expo ask for one design that widens, not a design
+for each device or pose: a folded iPhone Duo is a compact window, and an open one is a wide window.
+
+- `AdaptiveSplit` (`src/shared/components/adaptive-split.tsx`) decides the layout from the window.
+  A window 700 pt or wider (iPad in both orientations, the open iPhone Duo, an open Android foldable)
+  shows the chat list as a pane beside the stack. Narrower windows (phones, the folded iPhone Duo, a
+  half of Split View) show the stack alone, as before.
+- A vertical fold, from `react-native-reserved-regions`, ends the pane, so neither column lies across
+  it. Without a fold the pane takes about a third of the window, from 320 to 400 pt.
+- The pane has two modes, kept across starts (`split-pane-preference.ts`): the full list, or a rail
+  of avatars (`ChatListRail`, 76 pt and the side inset). Only a drag on the divider changes it, with
+  no button: it resizes the list (320 pt to 520 pt, and the detail keeps 380 pt), and a drag or
+  flick past the middle collapses it to the rail, or opens the rail again. The pane width follows
+  the finger on the UI thread. The list never lays out narrower than 320 pt: the pane clips it,
+  and below that the list fades out as the rail fades in (`SplitPaneLayers`), so nothing snaps. With a fold, the
+  list keeps the fold width; the rail gives the detail the rest of the window. The divider is an
+  `adjustable` element for screen readers.
+- The bar of the pane fits 320 pt: the connection state takes the room that the buttons leave. On
+  iOS its 48 pt buttons, and the chat header's beside it, are centred in the native bar height
+  (`NATIVE_BAR_HEIGHT`: 50 pt on iPad, 44 pt on iPhone), so they line up with the native bar buttons
+  of the other screens (Threads, Marketplace and others). A phone keeps the chat header 8 pt down.
+- On a wide window, bottom search fields (home, Marketplace) take the resting height and bottom gap
+  of the chat composer (`useBottomFieldMetrics`, from `shared/lib/composer-metrics.ts`), so they line
+  up with the composer beside them. The phone keeps the large field. Use the hook for a new one.
+- The stack stays mounted when the layout changes. A chat that is open when the device folds stays
+  open, with its state. Home then shows the list again under it.
+- On a wide window, `connected` shows the empty detail, the pane draws its own bar (the native bar
+  belongs to the stack), a chat opens in place of the chat before it, and a chat beside the pane has
+  no Back and no edge swipe (`useSplitDetailRoot`).
+- Each column has its own `SafeAreaProvider`. Use `useSafeAreaInsets()` for the column insets, and
+  `useColumnWidth()` in place of the window width for a view that sizes itself.
+- Pad content by `insets.left` and `insets.right`, not only top and bottom. The iPhone Duo rail
+  takes 84 pt on the left or the right, and landscape has side insets too. Keep backgrounds edge to
+  edge, pad the content, and give absolute buttons `left: insets.left + N`. Put the insets outside a
+  scroll view with `contentInsetAdjustmentBehavior="always"` (a margin on the scroll view), because
+  iOS would also inset its content by them.
+- Native headers, toolbars and sheets place themselves, rail included. Do not move them by hand.
+- While iOS shows the vertical bar (`useVerticalBarShown`), it moves native bar buttons (Back, icon
+  buttons, menus) into it; custom views (`Stack.Toolbar.View`) stay at the top. A JS header cannot
+  move, so `ChatHeader` then shows the native bar with its Back, browser and actions as toolbar items
+  and its title pill as a custom view. Give a new screen native bar items, not JS buttons.
+- With the vertical bar, the top inset has no status bar and iOS makes the top bar shorter than the
+  stack reports. The bars start at `useBarTop()` (at least 20 pt from the top edge), and the
+  large-title screens pad their content themselves (`scroll.ownsInset`, as on Android), so the
+  caption stays below the scroll edge effect. Without the vertical bar nothing changes.
+- Check folded, open, partially open, Split View and rotation on iPhone Duo, iPad in both
+  orientations, and a standard iPhone, which must not change.
 
 ## Sheets
 
@@ -289,7 +339,7 @@ saved name. Reserve a compact Cancel area so editing does not shift the page.
 Group the identity, action area and Profile photo section together instead of applying the
 standard section gap on both sides of the reserved area. Keep the email close to the name.
 
-About ends with a centered, interactive `AppLogo`, the OpenBot name and the app version, including
+About ends with a centered, interactive `AppLogo`, the Builders Bot name and the app version, including
 the build number when available. Reuse the logo's existing tap animation; do not create another
 mascot animation or add a marketing subtitle. Read version metadata from the app rather than
 hardcoding it.
@@ -316,9 +366,9 @@ The text colors must retain at least 4.5:1 contrast on the surfaces that use the
 Fixed colors in camera overlays, QR codes, SVG alpha masks and agent artwork serve their
 respective media or identity roles. Do not replace these with foreground/background theme colors.
 
-- `packages/brand/src/tokens.css` is the single source of truth for OpenBot color, typography, radius, shadow, and motion tokens, shared with the desktop and web apps; `tokens-native.css` beside it carries the light and dark values for the tokens mobile themes. `global.css` imports both and declares none of its own — it maps them to Tailwind utilities and HeroUI semantic aliases.
+- `packages/brand/src/tokens.css` is the single source of truth for Builders Bot color, typography, radius, shadow, and motion tokens, shared with the desktop and web apps; `tokens-native.css` beside it carries the light and dark values for the tokens mobile themes. `global.css` imports both and declares none of its own — it maps them to Tailwind utilities and HeroUI semantic aliases.
 - Use HeroUI semantic variants and existing utility classes. Do not add raw colors, arbitrary radii, or one-off shadows to a screen when a token or component variant can express the intent.
-- Extend OpenBot tokens only for a new semantic role that will be reused. Keep HeroUI aliases mapped to OpenBot tokens rather than creating a second palette.
+- Extend Builders Bot tokens only for a new semantic role that will be reused. Keep HeroUI aliases mapped to Builders Bot tokens rather than creating a second palette.
 - Support light and dark appearance, dynamic type, reduced motion, reduced transparency, and sufficient contrast.
 - Favor composition and shared variants over copying styled JSX between screens.
 - Keep status and instructional copy evidence-based. Do not introduce badges, alerts, or lifecycle requirements that cannot be derived from the actual session, connectivity, or persistence implementation.

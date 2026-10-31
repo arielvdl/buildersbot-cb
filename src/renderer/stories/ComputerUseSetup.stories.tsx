@@ -72,7 +72,7 @@ export const DriverMissing: Story = {
       state={{
         status: "driver-missing",
         permissions: permissions([]),
-        message: "This build of OpenBot carries no Computer Use driver.",
+        message: "This build of Builders Bot carries no Computer Use driver.",
       }}
     />
   ),
@@ -84,5 +84,5 @@ export const ReadyWithoutPermissions: Story = {
 };
 
 export const Failure: Story = {
-  render: () => <MockedSetup error={new Error("OpenBot could not check Computer Use.")} />,
+  render: () => <MockedSetup error={new Error("Builders Bot could not check Computer Use.")} />,
 };

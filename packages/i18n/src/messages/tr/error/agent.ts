@@ -56,7 +56,8 @@ export const messages = {
   "error.agent.hostLimit": "Bir ana makinede en fazla {limit} ajan bulunabilir.",
   "error.agent.changedWhileDuplicating": "Ajan kopyalanırken değişti. Tekrar deneyin.",
   "error.agent.duplicatedAgentGone": "Kopyalanan ajan artık mevcut değil.",
-  "error.agent.stateCorrupt": "Ajan durumu bozuk veya daha yeni bir Builders Bot sürümünden; üzerine yazılması reddedildi.",
+  "error.agent.stateCorrupt":
+    "Ajan durumu bozuk veya daha yeni bir Builders Bot sürümünden; üzerine yazılması reddedildi.",
   "error.agent.oldRoleField":
     "Kayıtlı ajan profilleri eski rol alanını kullanıyor; Builders Bot'u başlatmadan önce verileri güncelleyin.",
   "error.agent.duplicateIds": "Ajan durumu yinelenen ajan kimlikleri içeriyor; üzerine yazılması reddedildi.",
@@ -114,6 +115,8 @@ export const messages = {
     "Bu sunucunun belleği azaldı. Mesajınız kuyrukta bekler ve bellek boşaldığında başlar.",
   "error.agent.workspaceOnlyToolMissing":
     "“Yalnızca çalışma alanı” seçeneği, Builders Bot'un bulamadığı {tool} aracına ihtiyaç duyar. Aracı yükleyin veya ajan ayarlarından Tam erişim'i seçin.",
+  "error.agent.claudeSandboxUnavailable":
+    "“Yalnızca çalışma alanı” Claude korumalı alanına ihtiyaç duyar, ancak Claude bu bilgisayarda onu başlatamıyor: {reason}. Ajan ayarlarından Tam erişim'i veya başka bir sağlayıcıyı seçin.",
   "error.agent.screenCaptureOff":
     "Bu ajan için ekran yakalama kapalı. Kullanıcı, ajan ayarlarında Bilgisayar Kullanımı'nı açabilir.",
   "error.agent.screenCaptureUnavailable": "Ekran yakalama bu bilgisayarda kullanılamıyor.",

@@ -20,7 +20,7 @@ import { createHostedBilling } from "./hosted-billing";
 import { type HostedServerService, HostedServerServiceError } from "./hosted-server-service";
 import { HostedSiteInputError } from "./hosted-site-contract";
 import { enforceHostedSiteReportRateLimit as enforceReportRateLimit } from "./hosted-site-request-policy";
-import { resolveHostedSiteScope } from "./hosted-site-server";
+import { adoptUnlinkedHostedSites, resolveHostedSiteScope } from "./hosted-site-server";
 import { HostedSiteService } from "./hosted-site-service";
 import { JsonBodyError } from "./json-body";
 import { type ApnsRelaySender, sharedApnsSender } from "./live-activity-relay";
@@ -101,6 +101,11 @@ export function requestHostedSiteScope(request: Request, userId: string) {
   return resolveHostedSiteScope(requireWorkerBindings(env).DB, userId, request);
 }
 
+/** Moves the account's sites from before a self-hosted server registered into it. See `adoptUnlinkedHostedSites`. */
+export function requestAdoptUnlinkedHostedSites(userId: string, serverId: string) {
+  return adoptUnlinkedHostedSites(requireWorkerBindings(env).DB, userId, serverId, Date.now());
+}
+
 export function requestHostedSiteService(): HostedSiteService {
   const bindings = requireWorkerBindings(env);
   return new HostedSiteService(
@@ -152,7 +157,11 @@ export function requestGitHubInstallationTokens(): GitHubInstallationTokens {
   const clientId = bindings.GITHUB_APP_CLIENT_ID?.trim();
   const privateKey = bindings.GITHUB_APP_PRIVATE_KEY?.trim();
   if (!clientId || !privateKey) {
-    throw new GitHubInstallationTokensError(503, "github_app_unavailable", "The OpenBot GitHub App is not configured.");
+    throw new GitHubInstallationTokensError(
+      503,
+      "github_app_unavailable",
+      "The Builders Bot GitHub App is not configured.",
+    );
   }
   const key = `${clientId}\u0000${privateKey}`;
   if (githubInstallationTokens?.key !== key) {
@@ -168,7 +177,7 @@ export const enforceGitHubTokenRateLimit = Effect.fn("GitHub.enforceTokenRateLim
   const result = yield* Effect.tryPromise({
     try: () => requireWorkerBindings(env).GITHUB_TOKEN_RATE_LIMITER.limit({ key: `ip:${sourceIp}` }),
     catch: () =>
-      new GitHubInstallationTokensError(503, "github_app_unavailable", "The OpenBot GitHub App is unavailable."),
+      new GitHubInstallationTokensError(503, "github_app_unavailable", "The Builders Bot GitHub App is unavailable."),
   });
   if (!result.success) {
     return yield* new GitHubInstallationTokensError(
@@ -341,6 +350,7 @@ function requestHostedBilling(developerKey: string | null = null) {
     removeHost: (ownerUserId, hostId) => remote.deleteHost(ownerUserId, hostId),
     developerKey,
     planChanged: (hostId) => remote.planChanged(hostId),
+    licenseChanged: (userId) => remote.licenseChanged(userId),
     schedule,
   });
 }
@@ -358,8 +368,8 @@ export function verifyRemoteServiceRequest(request: Request, body: string) {
   return verifyRemoteServiceSignature(
     secret,
     body,
-    request.headers.get("OpenBot-Timestamp") ?? "",
-    request.headers.get("OpenBot-Signature") ?? "",
+    request.headers.get("Builders Bot-Timestamp") ?? "",
+    request.headers.get("Builders Bot-Signature") ?? "",
   );
 }
 

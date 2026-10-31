@@ -27,6 +27,11 @@ export interface ConversationHeaderProps {
   sidePanel?: SidePanelToggleProps | undefined;
   /** The thread tabs of the agent, after its name. */
   threads?: JSX.Element | undefined;
+  /**
+   * Set when the agent has thread tabs: the agent's name is then the first tab, for the agent's own
+   * chat, and is selected while that chat is open.
+   */
+  titleSelected?: boolean | undefined;
 }
 
 export interface ConversationHeaderPendingModel {
@@ -48,6 +53,8 @@ export function ConversationHeader(props: ConversationHeaderProps) {
   // The chat is open, so its agent works `live`. A function, not a ternary in the prop: the compiler
   // wraps a ternary prop in a memo, and the avatar reads its mood in a tracked effect.
   const mood = () => (props.working ? "live" : "idle");
+  const titleTab = () => (props.titleSelected === undefined ? undefined : "");
+  const titleSelected = () => (props.titleSelected ? "" : undefined);
   return (
     <header class="window-drag conversation-header">
       <div class="conversation-heading-group">
@@ -58,6 +65,8 @@ export function ConversationHeader(props: ConversationHeaderProps) {
               size="sm"
               type="button"
               class="conversation-title no-drag"
+              data-tab={titleTab()}
+              data-selected={titleSelected()}
               aria-label={props.onOpenChat ? t("conversation.header.mainChat") : t("conversation.header.settings")}
               onPointerEnter={() => props.onOpenChat || props.onSettingsIntent()}
               onFocus={() => props.onOpenChat || props.onSettingsIntent()}

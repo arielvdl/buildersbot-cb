@@ -12,4 +12,12 @@ export const messages = {
   "menu.trayOpen": "Builders Bot を開く",
   "menu.trayQuit": "Builders Bot を終了",
   "menu.trayTooltip": "Builders Bot",
+  "menu.undo": "取り消す",
+  "menu.redo": "やり直す",
+  "menu.cut": "カット",
+  "menu.copy": "コピー",
+  "menu.paste": "ペースト",
+  "menu.pasteAndMatchStyle": "ペーストしてスタイルを合わせる",
+  "menu.delete": "削除",
+  "menu.selectAll": "すべてを選択",
 } as const satisfies PartialTranslation<typeof source>;

@@ -100,7 +100,7 @@ export async function createAppLock(label: string): Promise<void> {
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
-      rp: { id: window.location.hostname, name: "OpenBot" },
+      rp: { id: window.location.hostname, name: "Builders Bot" },
       user: { id: crypto.getRandomValues(new Uint8Array(16)), name: label, displayName: label },
       pubKeyCredParams: [
         { type: "public-key", alg: -7 },

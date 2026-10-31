@@ -1939,7 +1939,7 @@ textarea {
 .sidebar-pinned-empty-drop {
   display: flex;
   width: 100%;
-  height: 104px;
+  height: 112px;
   align-items: center;
   justify-content: center;
   border: 1px dashed var(--openbot-border-strong);
@@ -2005,9 +2005,11 @@ textarea {
 
 .agent-row.sidebar-pinned-row {
   box-sizing: border-box;
-  width: var(--pinned-tile-width);
-  height: 94px;
-  min-height: 94px;
+  --sidebar-pinned-avatar-size: 56px;
+
+  width: 72px;
+  height: 102px;
+  min-height: 102px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -2038,15 +2040,15 @@ textarea {
 }
 
 .agent-row.sidebar-pinned-row .sidebar-pinned-avatar {
-  width: var(--pinned-tile-avatar);
-  height: var(--pinned-tile-avatar);
-  flex: 0 0 var(--pinned-tile-avatar);
+  width: var(--sidebar-pinned-avatar-size);
+  height: var(--sidebar-pinned-avatar-size);
+  flex-basis: var(--sidebar-pinned-avatar-size);
 }
 
 .agent-row.sidebar-pinned-row .agent-avatar,
 .agent-row.sidebar-pinned-row.person-row .person-avatar {
-  width: var(--pinned-tile-avatar);
-  height: var(--pinned-tile-avatar);
+  width: var(--sidebar-pinned-avatar-size);
+  height: var(--sidebar-pinned-avatar-size);
 }
 
 .sidebar-pinned-copy {
@@ -2156,10 +2158,12 @@ textarea {
 }
 
 .agent-row {
+  --agent-row-avatar-size: 46px;
+
   display: flex;
   width: 100%;
-  height: 54px;
-  min-height: 54px;
+  height: 62px;
+  min-height: 62px;
   align-items: center;
   gap: 8px;
   border: 0;
@@ -2340,9 +2344,9 @@ textarea {
 .agent-row-avatar {
   position: relative;
   display: grid;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
+  width: var(--agent-row-avatar-size);
+  height: var(--agent-row-avatar-size);
+  flex: 0 0 var(--agent-row-avatar-size);
   place-items: center;
   transform: translateX(0);
   transition: transform var(--panel-resize-duration, var(--openbot-duration-overlay)) cubic-bezier(0.32, 0.72, 0, 1);
@@ -2768,15 +2772,15 @@ textarea {
 }
 
 .agent-row .agent-avatar {
-  --agent-avatar-optical-offset: -4px;
+  --agent-avatar-optical-offset: -5px;
 
-  width: 36px;
-  height: 36px;
+  width: var(--agent-row-avatar-size);
+  height: var(--agent-row-avatar-size);
 }
 
 .person-row .person-avatar {
-  width: 36px;
-  height: 36px;
+  width: var(--agent-row-avatar-size);
+  height: var(--agent-row-avatar-size);
 }
 
 .avatar-editor {
@@ -3226,7 +3230,7 @@ textarea {
 }
 
 /* The reference list extends agent tiles beyond the chat-list inset while the
-   shared row anatomy supplies its 54px row and 36px avatar proportions. */
+   shared row anatomy supplies its 62px row and 46px avatar proportions. */
 .sidebar:not(.sidebar-compact) .agent-row {
   width: calc(100% + var(--openbot-space-2));
   margin-inline: calc(var(--openbot-space-1) * -1);
@@ -3573,11 +3577,15 @@ textarea {
   padding-inline: 8px;
 }
 
+/* The avatar and the gap after it are wider than the 48px inside a compact row, so the centred
+   content starts 3px early. The offset puts the 46px avatar in the middle of the 64px row. */
 .sidebar-compact .agent-row-avatar {
-  transform: translateX(6px);
+  transform: translateX(4px);
 }
 
 .sidebar-compact .agent-row.sidebar-pinned-row {
+  --sidebar-pinned-avatar-size: 48px;
+
   width: 60px;
   height: 60px;
   min-height: 60px;

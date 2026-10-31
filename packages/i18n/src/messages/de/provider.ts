@@ -40,7 +40,7 @@ export const messages = {
   "provider.status.checking": "Wird geprüft",
   "provider.status.off": "Aus",
   "provider.gemini.hostSignIn":
-    "Um Gemini zu verbinden, öffne Builders Bot auf dem Host und wähle „Verbinden“ unter Einstellungen > Anbieter. Die Google-Anmeldung benötigt einen Browser auf diesem Host. Eine Remote-Anmeldung wird nicht unterstützt.",
+    "Um Gemini zu verbinden, öffne Builders Bot auf dem Host und wähle „Verbinden“ unter Servereinstellungen > Anbieter. Die Google-Anmeldung benötigt einen Browser auf diesem Host. Eine Remote-Anmeldung wird nicht unterstützt.",
   "provider.key.free": "Kostenlos",
   "provider.action.connect": "Verbinden",
   "provider.action.reconnect": "Neu verbinden",
@@ -65,7 +65,8 @@ export const messages = {
   "provider.aria.cancelSignIn": "Anmeldung bei {name} abbrechen",
   "provider.aria.apiKey": "API-Schlüssel für {name}",
   "provider.connecting.browserHint": "Schließe die Anmeldung ab, wenn sich eine Browserseite öffnet.",
-  "provider.connecting.cancelFailed": "Builders Bot konnte die Anmeldung bei {name} nicht abbrechen. Versuche es erneut.",
+  "provider.connecting.cancelFailed":
+    "Builders Bot konnte die Anmeldung bei {name} nicht abbrechen. Versuche es erneut.",
   "provider.aria.install": "{name} installieren",
   "provider.aria.signIn": "Bei {name} anmelden",
   "provider.aria.codeFallback": "Mit Code bei {name} anmelden",
@@ -189,6 +190,7 @@ export const messages = {
   "provider.account.cancelSignIn": "Anmeldung abbrechen",
   "provider.account.finishSignIn": "Schließen Sie die Anmeldung im Browser ab.",
   "provider.account.remove": "Konto entfernen",
+  "provider.account.disconnect": "Trennen",
   "provider.account.actionFailed": "Das {name}-Konto konnte nicht geändert werden.",
   "provider.account.resetUsage": "Nutzung zurücksetzen",
   "provider.account.resetUsageTitle": "Nutzung von {name} zurücksetzen?",
@@ -204,6 +206,11 @@ export const messages = {
   "provider.account.resetUsageNoCredit": "{name} hat kein Guthaben zum Zurücksetzen der Nutzung mehr.",
   "provider.account.resetUsageAlreadyRedeemed": "Dieses Guthaben von {name} wurde bereits verwendet.",
   "provider.account.resetUsageFailed": "Die Nutzung von {name} konnte nicht zurückgesetzt werden.",
+  "provider.settings.disconnectTitle": "{name} trennen?",
+  "provider.settings.disconnectOthers": "Die anderen {provider}-Konten warten, bis du {provider} wieder verbindest.",
+  "provider.settings.disconnectLocal":
+    "Builders Bot meldet {provider} auf diesem Computer ab. Die {provider}-CLI in deinem Terminal wird auch abgemeldet.",
+  "provider.settings.disconnectHost": "Builders Bot meldet {provider} auf dem Server ab.",
   "provider.settings.cache": "Cache",
   "provider.settings.promptCache": "Prompt-Cache",
   "provider.settings.promptCacheDescription":

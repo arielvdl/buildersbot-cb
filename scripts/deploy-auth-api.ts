@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   await putOptionalSecretSet("BOAT_API_KEY", "BOAT_WEBHOOK_SECRET");
   // Production releases own the template. Test deployments keep their separate setting.
   if (cloudflareEnvironment === "test") await putOptionalSecret("HOSTED_SERVER_TEMPLATE");
-  // Without the key, agents act on GitHub as the signed-in user and not as the OpenBot GitHub App.
+  // Without the key, agents act on GitHub as the signed-in user and not as the Builders Bot GitHub App.
   await putOptionalSecret("GITHUB_APP_PRIVATE_KEY");
   // Without the token, no one can make a server claim.
   await putOptionalSecret("SERVER_CLAIMS_ADMIN_TOKEN");
@@ -75,6 +75,12 @@ async function main(): Promise<void> {
     label: "Auth API build",
     env: cloudflareEnvironment ? { CLOUDFLARE_ENV: cloudflareEnvironment } : undefined,
   });
+  // A deploy replaces every file under /assets/. Open tabs keep loading the files of their build.
+  if (!cloudflareEnvironment) {
+    await run(bunExecutable, [join(apiRoot, "scripts", "keep-previous-assets.ts")], {
+      label: "Earlier code files",
+    });
+  }
   await run(wranglerExecutable, ["deploy", "--keep-vars", ...environmentArgs], {
     label: "Auth API deployment",
   });

@@ -41,6 +41,12 @@ export function isImageGenerationInfo(value: unknown): value is ImageGenerationI
   );
 }
 
+/**
+ * The id of the question that asks the user to allow or block an MCP plugin request. The plugin
+ * takes only one of its options; a typed answer cancels the request.
+ */
+export const MCP_ELICITATION_DECISION_QUESTION_ID = "mcp-elicitation-decision";
+
 export interface AgentPromptQuestion {
   id: string;
   header: string;

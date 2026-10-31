@@ -90,7 +90,7 @@ async function drawConsentPage(name: string): Promise<Uint8Array> {
     context.fillText(name, WIDTH / 2, 210);
     context.font = "20px sans-serif";
     context.fillStyle = "#55554f";
-    context.fillText("OpenBot wants to use your account.", WIDTH / 2, 268);
+    context.fillText("Builders Bot wants to use your account.", WIDTH / 2, 268);
     context.fillText("Signed in as ada@example.com", WIDTH / 2, 300);
     context.strokeStyle = "#e2e2de";
     context.beginPath();

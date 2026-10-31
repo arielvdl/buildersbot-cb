@@ -79,4 +79,12 @@ export const messages = {
   "sitePage.report.sentTitle": "Signalement envoyé",
   "sitePage.report.sentBody": "Merci. Nous avons reçu votre signalement.",
   "sitePage.report.home": "Aller à la page d’accueil",
+  "sitePage.pricing.title": "Tarifs d’Builders Bot",
+  "sitePage.pricing.description":
+    "Des serveurs hébergés et une licence pour les équipes. Builders Bot est gratuit pour un usage personnel sur votre propre ordinateur.",
+  "sitePage.pricing.heading": "Tarifs",
+  "sitePage.pricing.enterprise.title": "Entreprise",
+  "sitePage.pricing.enterprise.body":
+    "Des serveurs plus grands, plus de {count} membres ou tout autre besoin. Avec un support entreprise.",
+  "sitePage.pricing.enterprise.contact": "Contacter les ventes",
 } as const satisfies PartialTranslation<typeof source>;

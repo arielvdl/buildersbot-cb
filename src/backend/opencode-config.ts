@@ -8,7 +8,7 @@
 // This lives beside `provider-drivers.ts` rather than inside it because the driver table is a table:
 // the shape of one CLI's config is a concern of its own, and it is the half worth unit testing.
 
-import type { CustomProviderHeader, CustomProviderModel } from "@openbot/contracts/ipc";
+import type { CustomProviderHarness, CustomProviderHeader, CustomProviderModel } from "@openbot/contracts/ipc";
 
 /** One endpoint, as the main process stores it. Carries the secrets, so it never crosses IPC. */
 export interface CustomProviderConfig {
@@ -18,6 +18,8 @@ export interface CustomProviderConfig {
   readonly apiKey: string | null;
   readonly models: readonly CustomProviderModel[];
   readonly headers: readonly CustomProviderHeader[];
+  /** The provider that runs the endpoint. Absent: OpenCode, as before the choice existed. */
+  readonly harness?: CustomProviderHarness;
 }
 
 /**
@@ -29,6 +31,11 @@ export interface CustomProviderConfig {
  */
 export type CustomProviderSource = () => readonly CustomProviderConfig[];
 
+/** The endpoints that one harness runs, read at each call like the source. */
+export function customProvidersOn(source: CustomProviderSource, harness: CustomProviderHarness): CustomProviderSource {
+  return () => source().filter((provider) => (provider.harness ?? "opencode") === harness);
+}
+
 /** The options block OpenCode hands to its bundled OpenAI-compatible, OpenAI or Anthropic adapter. */
 interface OpenCodeProviderOptions {
   readonly baseURL: string;
@@ -36,14 +43,20 @@ interface OpenCodeProviderOptions {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
-/** What OpenCode knows about one model beyond its name. Absent keys keep OpenCode's own defaults. */
+/**
+ * One model of an endpoint. OpenCode refuses a `limit` without `output`, and then lists none of the
+ * endpoint's models. `output: 0` keeps OpenCode's own output budget, which it also cuts to the room
+ * the context leaves. Checked in OpenCode 2.1.4: a model with no `limit` reports 200K context, and
+ * `{ context: 32768, output: 0 }` sent `max_completion_tokens: 21071`.
+ */
 interface OpenCodeModelEntry {
   readonly name: string;
+  /** What OpenCode knows about the model beyond its name. Absent keys keep OpenCode's own defaults. */
   readonly attachment?: boolean;
   readonly reasoning?: boolean;
   readonly tool_call?: boolean;
   readonly modalities?: Readonly<{ input: readonly string[]; output: readonly string[] }>;
-  readonly limit?: Readonly<{ context: number; output: number }>;
+  readonly limit?: { readonly context: number; readonly output: number };
 }
 
 /** One entry under OpenCode's own `provider` key, keyed there by the endpoint's id. */
@@ -80,14 +93,24 @@ const OWN_PLAYWRIGHT_OFF = { playwright: { enabled: false } } as const;
 /** The config layer Builders Bot owns on `OPENCODE_CONFIG_CONTENT`. The user's own file is untouched. */
 interface OpenCodeConfig {
   readonly mcp?: { readonly playwright: { readonly enabled: boolean } };
+  readonly agent?: { readonly title: { readonly disable: true } };
   readonly permission?: OpenCodePermissionLayer;
   readonly provider?: Readonly<Record<string, OpenCodeProviderEntry | OpenCodeKeyEntry>>;
   /** The providers this process lists at all. Absent leaves every provider the user has. */
   readonly enabled_providers?: readonly string[];
 }
 
-/** What a caller starts from: every layer except the providers this module adds. */
-export type OpenCodeConfigBase = Omit<OpenCodeConfig, "provider">;
+/** What a caller starts from: every layer except the ones this module adds. */
+export type OpenCodeConfigBase = Omit<OpenCodeConfig, "agent" | "provider">;
+
+/**
+ * Builders Bot names its own chats and never reads OpenCode's titles. OpenCode asks its `small_model` for
+ * a title on the first turn of each session, and a llama-swap server loads each model that a request
+ * names: a `small_model` on the same server unloaded the agent's model and loaded it again for the
+ * next turn. Checked in OpenCode 2.2.3 with `scripts/opencode-custom-model-e2e.ts`. OpenCode merges
+ * `agent` by key, so the user's own agents stay: `opencode debug agents` lost only "Title".
+ */
+const OPENCODE_TITLE_OFF = { title: { disable: true } } as const;
 
 /**
  * Profile generation runs a throwaway OpenCode session for a one-shot prompt, so it must not be able
@@ -165,8 +188,14 @@ function providerEntry(provider: CustomProviderConfig): OpenCodeProviderEntry {
         ? { headers: Object.fromEntries(provider.headers.map((header) => [header.name, header.value])) }
         : {}),
     },
-    models: Object.fromEntries(provider.models.map((model) => [model.id, { name: model.name }])),
+    models: Object.fromEntries(provider.models.map((model) => [model.id, modelEntry(model)])),
   };
+}
+
+function modelEntry(model: CustomProviderModel): OpenCodeModelEntry {
+  return model.contextWindow === undefined
+    ? { name: model.name }
+    : { name: model.name, limit: { context: model.contextWindow, output: 0 } };
 }
 
 /**
@@ -193,18 +222,18 @@ function mergeOpenCodeConfig(
   base: OpenCodeConfigBase,
   providers: readonly CustomProviderConfig[],
   apiKey: string | null,
-): OpenCodeConfig | null {
+): OpenCodeConfig {
   const entries = {
     ...(apiKey ? Object.fromEntries(OPENCODE_KEY_PROVIDERS.map((id) => [id, { options: { apiKey } }])) : {}),
     ...customProviderEntries(providers),
   };
-  if (Object.keys(entries).length === 0) return Object.keys(base).length > 0 ? { ...base } : null;
-  return { ...base, provider: entries };
+  return { ...base, agent: OPENCODE_TITLE_OFF, ...(Object.keys(entries).length > 0 ? { provider: entries } : {}) };
 }
 
 /**
  * The spawn environment for one OpenCode client. It always carries the layer that turns the Playwright of
- * the person's own file off. With no stored key, the user's own `opencode auth login` keys stay in use.
+ * the person's own file off, and OpenCode applies it after the user's own config, so the title setting is
+ * always off. With no stored key, the user's own `opencode auth login` keys stay in use.
  */
 export function openCodeConfigEnv(
   base: OpenCodeConfigBase,
@@ -212,7 +241,7 @@ export function openCodeConfigEnv(
   apiKey: string | null,
 ): Record<string, string> {
   const config = mergeOpenCodeConfig({ ...base, mcp: OWN_PLAYWRIGHT_OFF }, source(), apiKey);
-  return config ? { [OPENCODE_CONFIG_ENV]: JSON.stringify(config) } : {};
+  return { [OPENCODE_CONFIG_ENV]: JSON.stringify(config) };
 }
 
 /** OpenCode's own providers, by the names that OpenCode 1 showed (models.dev). */

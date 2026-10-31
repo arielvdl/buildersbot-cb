@@ -23,7 +23,7 @@ import { createAgentThreadTabs } from "../agent-threads/agent-thread-tabs";
 import type { WebWorkspace } from "./web-client-context";
 
 /** The host names attachment previews with the desktop `openbot-attachment:` scheme, which a browser cannot load. */
-function withoutPreviewUrls(snapshot: ConversationSnapshot): ConversationSnapshot {
+export function withoutPreviewUrls(snapshot: ConversationSnapshot): ConversationSnapshot {
   return {
     ...snapshot,
     messages: snapshot.messages.map((message) =>

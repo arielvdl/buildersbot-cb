@@ -23,6 +23,7 @@ import { DrainScheduler, type TaskLanes } from "./drain-scheduler";
 import type { DuplicationGate } from "./duplication-gate";
 import type { MailboxSync } from "./mailbox-sync";
 import type { MemoryHold } from "./memory-hold";
+import { PlanContinuation } from "./plan-continuation";
 import type { ProfileSave } from "./profile-save";
 import type { ProviderRuntime } from "./provider-runtime";
 import type { RoutineScheduler } from "./routine-scheduler";
@@ -222,6 +223,7 @@ async function startChannelTurn(options: { review: string | null }): Promise<Run
     usageLimits: stub<UsageLimitGate>({}),
     tasks: stub<TaskLanes>({}),
     security: { review: () => Effect.succeed(options.review) },
+    planContinuation: new PlanContinuation({ limit: 3 }),
     channels: stub<ChannelService>({
       store: stub<ChannelStore>({
         assignmentForDelivery: (id: string) =>

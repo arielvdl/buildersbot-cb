@@ -52,7 +52,7 @@ const RELEASE_0_22: WhatsNewRelease = {
     {
       type: "added",
       items: [
-        "Use Gemini with a Google AI Pro or Ultra plan. OpenBot signs in through your browser.",
+        "Use Gemini with a Google AI Pro or Ultra plan. Builders Bot signs in through your browser.",
         "Turn Computer Use off for one agent in its settings.",
         "Select the interface language on mobile.",
       ],
@@ -64,7 +64,7 @@ const RELEASE_0_22: WhatsNewRelease = {
     {
       type: "fixed",
       items: [
-        "End the turns of a provider client that stopped. Before, these turns stayed in progress until OpenBot restarted.",
+        "End the turns of a provider client that stopped. Before, these turns stayed in progress until Builders Bot restarted.",
         "Keep queued messages when a file delete fails.",
       ],
     },

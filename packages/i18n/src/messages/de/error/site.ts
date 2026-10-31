@@ -5,7 +5,8 @@ export const messages = {
   "error.site.absolutePath": "Wähle einen absoluten Pfad zum Website-Verzeichnis.",
   "error.site.rootSymlink": "In gehosteten Websites sind keine symbolischen Links erlaubt.",
   "error.site.notDirectory": "Die Website-Quelle muss ein Verzeichnis sein.",
-  "error.site.outsideWorkspace": "Die Website muss im Arbeitsbereich dieses Agenten oder in Builders Bot Shared liegen.",
+  "error.site.outsideWorkspace":
+    "Die Website muss im Arbeitsbereich dieses Agenten oder in Builders Bot Shared liegen.",
   "error.site.packageJsonInvalid": "Die package.json der Website ist ungültig.",
   "error.site.astroServerOutput": "Astro muss statische Ausgabe verwenden.",
   "error.site.astroAdapter": "Astro-Serveradapter und die React-Integration sind nicht erlaubt.",
@@ -27,4 +28,14 @@ export const messages = {
   "error.site.fileType": "Dieser Dateityp ist nicht erlaubt: {path}",
   "error.site.fileOutsideRoot": "Website-Dateien müssen innerhalb des Quellverzeichnisses bleiben: {path}",
   "error.site.fileTooLarge": "Eine Datei überschreitet die Grenze von 1 MB: {path}",
+  "error.site.serverLimit": {
+    one: "Dieser Server hat sein Limit von {count} aktiven Website erreicht. Um eine weitere Website zu veröffentlichen, lösche eine Website oder nutze einen Cloud-Server mit einem Tarif mit mehr Websites.",
+    other:
+      "Dieser Server hat sein Limit von {count} aktiven Websites erreicht. Um eine weitere Website zu veröffentlichen, lösche eine Website oder nutze einen Cloud-Server mit einem Tarif mit mehr Websites.",
+  },
+  "error.site.unlinkedLimit": {
+    one: "Dieser Computer ist kein Server, und sein Konto hat das Limit von {count} aktiven Website erreicht. Um eine weitere Website zu veröffentlichen, lösche eine Website oder nutze einen Cloud-Server mit einem Tarif mit mehr Websites.",
+    other:
+      "Dieser Computer ist kein Server, und sein Konto hat das Limit von {count} aktiven Websites erreicht. Um eine weitere Website zu veröffentlichen, lösche eine Website oder nutze einen Cloud-Server mit einem Tarif mit mehr Websites.",
+  },
 } as const satisfies PartialTranslation<typeof source>;

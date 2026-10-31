@@ -17,8 +17,12 @@ one `query` string, because models often send one string. Up to three strong res
 queries that contain each word of the tool name without its namespace, include the original schema and guidance, so the agent can call them
 without a describe step. Each model step sends the full context again, so one step less saves more
 input than the added schema costs. A query word that is only in the namespace, or one shared verb
-such as "read", does not make a result strong. The other results have a short description only. `tool_describe`
-returns the original schemas for up to ten qualified names, plus guidance from
+such as "read", does not make a result strong. The other results have a short description only. When a
+strong result is an `openbot_browser` tool, the results also include `openbot_browser.run_script` with its
+schema. Agents search for the single actions that they know, such as click, and otherwise do not find the
+multi-step tool (see [Browser](browser.md)). The instructions
+tell the agent to describe a tool only when no search result gave its schema. `tool_describe` accepts `names`, or
+one `name` string, and returns the original schemas for up to ten qualified names, plus guidance from
 `agent/tool-guidance.ts`. Identical guidance appears once per response. The initial catalog lists
 names without schemas.
 
@@ -136,7 +140,7 @@ While a turn of that conversation runs, the line waits for the turn to end. Agen
 
 Codex and Muse complete explicit compaction through turn events. Pi completes it through the request
 response. Claude manages compaction natively. ACP and custom ACP expose no explicit compaction
-operation to the OpenBot scheduler. Unsupported or native-managed clients cannot reserve its queue
+operation to the Builders Bot scheduler. Unsupported or native-managed clients cannot reserve its queue
 for a no-op request. Request completion clears the hold and keeps the minimum-growth guard.
 
 Antigravity reports its context fill but has no compact operation, so its flavor sets the `handoff`
@@ -151,7 +155,7 @@ Cumulative account usage is not context occupancy. A missing report is not zero 
 200,000-token context window, per-turn model summary, or new automatic model call is added.
 
 The design uses Hermes's on-demand discovery, stable instruction ordering, and bounded local
-history recall as references. OpenBot retains each native provider's session and compaction rules.
+history recall as references. Builders Bot retains each native provider's session and compaction rules.
 
 ## Memory of the computer
 
@@ -213,7 +217,7 @@ file it installed, and every start verifies that record and the binary's `--vers
 install is used. The newest version in the store that verifies is the one that runs.
 
 `provider-runtime-blocklist.json` on `main` names versions no installation may offer. It stops a
-broken upstream release without an OpenBot release. It suppresses an offer only: it does not remove
+broken upstream release without an Builders Bot release. It suppresses an offer only: it does not remove
 a version a user already installed. A list that cannot be read blocks nothing.
 
 The `Provider CLI canary` workflow (`.github/workflows/provider-cli-canary.yml`) finds a broken
@@ -234,21 +238,25 @@ artifact and preserves the old runtime, so a release that does not start leaves 
 in use. Download status stays `finishing` until activation succeeds.
 
 CLI resolution prefers an explicit `OPENBOT_*_PATH`, then the installed managed copy, then an
-automatically discovered system CLI. Updates never run the system CLI's updater. An explicit path
+automatically discovered system CLI. When the managed copy wins, `resolveInstalledFirst` in
+`src/backend/cli.ts` also resolves with no managed copy, at the same time, and a system CLI of the same or a newer
+version runs instead: the user's CLI on `PATH` replaces a copy that is not newer. A version that
+cannot be compared, such as two Cursor builds of one date, keeps the managed copy. Antigravity has
+no `PATH` discovery, so it always runs the managed copy. Updates never run the system CLI's updater. An explicit path
 suppresses managed update offers. Startup uses the same selection and reads the executable's version.
 On macOS and Linux, discovery looks in the folders of the login-shell `PATH` (`loginSearchPath` in
 `src/backend/cli.ts`, shared with ACP and custom agents and cached for 60 s), then in fixed user
 folders: `~/.local/bin`, `~/.npm-global/bin`, `~/.volta/bin`, `~/.bun/bin`, the pnpm home, Homebrew
 and the system folders. nvm folders are not searched, because only nvm's shell setup selects a
 version. The login shell is `$SHELL` when it is a known POSIX shell or fish; otherwise macOS uses
-`/bin/zsh`. The version probe and each process that OpenBot starts for the CLI (app server, ACP,
+`/bin/zsh`. The version probe and each process that Builders Bot starts for the CLI (app server, ACP,
 Claude sessions, sign-in and sign-out) start with the resolved `launchPath`: the login-shell
-folders, then OpenBot's own, then the CLI's folder for a system copy. An app that Finder starts can
+folders, then Builders Bot's own, then the CLI's folder for a system copy. An app that Finder starts can
 then run a `#!/usr/bin/env node` CLI. A CLI that exists but does not start reports whether the
 managed copy or the user's copy failed.
 
-Installed runtimes live in one store per computer, `appData/OpenBot/provider-runtimes`, which is the
-path the packaged app always used: its `userData` is `appData/OpenBot`. Development profiles differ
+Installed runtimes live in one store per computer, `appData/Builders Bot/provider-runtimes`, which is the
+path the packaged app always used: its `userData` is `appData/Builders Bot`. Development profiles differ
 per renderer port and per worktree, so a store inside `userData` started empty in each
 one, fell back to the user's own CLI, and offered and downloaded the managed copy again. An explicit
 `--user-data-dir` still keeps its own store, so automation and packaged smoke checks stay
@@ -297,7 +305,10 @@ agent service has to be given the executable either way. Staging directories car
 random suffix and are swept by age, never by name, so a sibling's install is not collected while it
 runs. The manager stamps each version it takes into use -- the pinned one it verified, and the older
 one it falls back to until the pinned one arrives -- and collection keeps anything stamped within two
-days. When the computer has been awake for one check interval (one hour), the update check keeps
+days. Once the version it runs is `ready`, the manager keeps no older version to fall back on and stops
+stamping the one it replaced, so that version goes when its last stamp leaves the window. Before
+this, the store kept the last working older version of each CLI for good, and every update left two
+copies on disk. When the computer has been awake for one check interval (one hour), the update check keeps
 only what was stamped within three hours. So a version another instance or another
 worktree's pin still runs is not removed; a collection that fails, as it does on Windows for an open
 binary, never stops startup.
@@ -317,6 +328,15 @@ stamps the version it activates, so an install it made in the same session is it
 provider that is off is not stamped, a sibling can collect its version; turning the provider on
 reads the store again when that version is gone. Turning the provider on later downloads the CLI as
 on first use.
+
+Server settings > Storage shows the same downloads in its "Provider runtimes" cleanup row, for this
+computer only. `removableRuntimes` answers the old versions and the download of each provider that is
+off, counts a directory that is both once, and names those providers; a provider whose download runs
+is left out. A provider that is on keeps its copy unless main reported a system version for it
+(`setSystemVersion`): it then runs the user's CLI, so its copy runs nothing and counts as removable.
+The row never moves a running provider to another CLI. `removeRemovableRuntimes` collects the old versions, then calls `removeDownload`
+for each named provider at once, so each follows the rules above. A failure does not stop the
+others; the error names the providers that failed, and the page measures again.
 
 ### Managed provider updates
 
@@ -352,8 +372,10 @@ Each provider status row reports `cliSource`, and main passes the version of a `
 it compares a managed installation. The row and the notification therefore use the one update offer,
 the one Update button, and one entry point in the runtime store, `startProviderUpdate`. One path
 runs behind it, whoever owns the CLI: the download installs the managed copy and
-`updateProviderCli` activates it, and CLI resolution then prefers that copy to the system install,
-which is left where it is. OpenBot never runs the CLI's own updater, so no version it offers depends
+`updateProviderCli` activates it with `preferInstalled: false`, so it starts the copy it downloaded.
+Later resolutions keep that copy while it is newer than the system install, which is left where it
+is; when the user's CLI catches up, the user's CLI runs again. When the user's CLI goes away, main calls
+`providerUseChanged`, which stamps the copy again, or reads the store when a sibling collected it. Builders Bot never runs the CLI's own updater, so no version it offers depends
 on another release channel. An explicit `OPENBOT_*_PATH` suppresses the offer, because that path
 names the binary to run and the managed copy is not it. The owner comes from the last resolution of
 the binary, not from the client that runs it, so a provider that is signed out still reports its own
@@ -392,7 +414,7 @@ failure as well as after a success.
 `src/backend/acp-connection.ts` owns ACP process transport. `acp-configuration.ts` owns
 configuration and model discovery. `src/backend/acp-client.ts` owns session start/load,
 streamed messages, permissions, tool bridging, and cancellation. `grok-client.ts` supplies xAI
-login and billing hooks. The OpenCode driver starts `opencode acp` on the runtime OpenBot pins and
+login and billing hooks. The OpenCode driver starts `opencode acp` on the runtime Builders Bot pins and
 downloads, or on a CLI the user installed. Profile clients deny tool permissions.
 
 The pinned runtime is OpenCode 2 (`@opencode/cli`). Its platform tarballs carry no licence file, so
@@ -402,7 +424,7 @@ the stage step copies `LICENSE` from the `opencode-ai` tarball that `licensePack
 `session_v2` and keeps `session`, so OpenCode 1 can still open it. A database that OpenCode 2
 creates has no `session` table, and OpenCode 1 then refuses to start with "Database is not empty and
 has no session table" (OpenCode issue #53221); `ProviderRuntime` replaces that exit text with
-`error.provider.opencodeDatabaseNewer`. OpenBot does
+`error.provider.opencodeDatabaseNewer`. Builders Bot does
 not move OpenCode to a separate database, because the threads would lose their sessions. OpenCode 2
 differs from OpenCode 1 on the wire in three places that `acp-client.ts` handles: a missing session
 is `-32602` "session not found: <id>" instead of an `-32603` service failure; `session/resume` can
@@ -410,7 +432,7 @@ fail with `ServiceUnavailableError` while the CLI starts (OpenCode issue #57204)
 more after two seconds; and a model name starts with the provider id, not its name, so
 `openCodeModelName` restores the group name.
 
-OpenCode has no login step OpenBot can drive, because the account is one environment variable: a
+OpenCode has no login step Builders Bot can drive, because the account is one environment variable: a
 spawn without `OPENCODE_API_KEY` lists the free OpenCode Go models, and a spawn with one lists the
 paid catalog. So `AcpAgentClient` derives `#signedIn` from the models `session/new` returns, not
 from a credential, and a keyless OpenCode reports `available`. `AcpProviderOptions.extraEnv` is read
@@ -426,18 +448,29 @@ the provider's serialized connection command. It refuses a provider that is runn
 deliveries while it writes, and reports success only after a new process runs with the new key.
 
 That one variable turns on two products: OpenCode reports OpenCode Zen and OpenCode Go as a single
-catalog, on the separate endpoints `opencode.ai/zen/v1` and `opencode.ai/zen/go/v1`, and OpenBot
+catalog, on the separate endpoints `opencode.ai/zen/v1` and `opencode.ai/zen/go/v1`, and Builders Bot
 supports only Go. So `isOpencodeModelUnusableWithStoredKey` in `src/backend/agent/provider-models.ts`
 drops the paid Zen models from `ModelCatalog.refresh` (through the OpenCode driver's
-`catalog.usableWithStoredKey`) while OpenBot is the one supplying the key;
+`catalog.usableWithStoredKey`) while Builders Bot is the one supplying the key;
 with no key stored those models can only come from the user's own OpenCode sign-in, which does
 buy them. Neither `/models` endpoint authenticates, so entitlement cannot be read back and the
 split is a product rule rather than a check.
 
+The CLI reports no Go quota over ACP. `readOpenCodeGoUsage` (`src/backend/opencode-usage.ts`)
+sends `opencode.ai/zen/go/v1/usage` the key the CLI uses. A saved key is the only key: the CLI
+applies config `options.apiKey` last. With no saved key, it reads the CLI's own keys in the order
+T3 Code uses: the active OpenCode Console row (`integration_id = 'opencode'`, `type: "key"`, no
+self-hosted `metadata.server`) in the `credential` table of `$XDG_DATA_HOME/opencode/opencode.db`
+(or `OPENCODE_DB`), then the Go key: the `opencode-go` key of `auth.json` (or `OPENCODE_AUTH_CONTENT`,
+which also skips the database), or `OPENCODE_API_KEY` when that has none (#3548). A 401 or 403 on the
+Console key tries the Go key. The
+database is opened read-only with a 100 ms busy timeout, because Effect cannot interrupt a blocked
+SQLite call. `scripts/opencode-go-usage-e2e.ts` covers it.
+
 `PREFERRED_MODEL_ORDER` (in the same file) reorders that catalog, because a provider with no
 `defaultProviderModel` runs the first model of its list and OpenCode reports the third-party
 services the user signed in to before its own — so the fallback used to pick a model behind a token
-OpenBot can neither see nor refresh. `opencodeModelRank` sorts free models first with Muse ahead of
+Builders Bot can neither see nor refresh. `opencodeModelRank` sorts free models first with Muse ahead of
 the rest, then OpenCode's own paid models, then everything behind a separate sign-in. Inside one
 tier the newest version comes first. The sort is stable, so the CLI's order stays between models of
 one version.
@@ -461,9 +494,9 @@ background subagent ends, OpenCode answers its result in a turn of its own (a `s
 `unsentBackgroundTurns` of `OPENCODE_ACP_FLAVOR` turns on the recovery in `acp-client.ts`:
 
 - A tool call that ends with `rawOutput.metadata.status` "running" and a `sessionID` started a
-  background task. OpenBot then watches the session for 30 minutes, and longer while it changes.
+  background task. Builders Bot then watches the session for 30 minutes, and longer while it changes.
   The idle pool does not close a watched session, because a closed one never reports the result.
-- Every 2 seconds, when no prompt runs or opens, OpenBot reads `session/list`. When the session's
+- Every 2 seconds, when no prompt runs or opens, Builders Bot reads `session/list`. When the session's
   `updatedAt` changes, it sends `session/load` with the session's own MCP servers, and collects the
   replay apart from live updates until the load answers, also after the request time limit. A
   prompt waits for the load meanwhile. A failed load is tried again at the next poll.
@@ -474,13 +507,13 @@ background subagent ends, OpenCode answers its result in a turn of its own (a `s
   its text when the step ends, so a replay can find it empty first. As for Claude
   (#1904), no delivery attaches to that turn, and a message sent meanwhile fails with
   `ProviderTurnActiveError` and waits in the queue.
-- OpenBot ends that turn when the session sends nothing new for 15 seconds and no tool call is open,
+- Builders Bot ends that turn when the session sends nothing new for 15 seconds and no tool call is open,
   or after the stall limit while one is. A step that writes for longer can split one turn in two;
   nothing is lost. A stop cancels the turn and marks its open tool calls as stopped. For 30 seconds
   after any turn that does not complete, a replay marks new entries as shown and does not show
   them, because OpenCode can go on with a stopped turn (#2858).
 
-The watch is in memory. A background task that ends while OpenBot is closed, or after OpenBot
+The watch is in memory. A background task that ends while Builders Bot is closed, or after Builders Bot
 loaded the session again, shows only in OpenCode's own store.
 
 #### Text of two steps
@@ -503,28 +536,28 @@ The Gemini provider (id `antigravity`) starts Google's Antigravity ACP server
 downloads the zip on the user's computer. `extractZipFiles` in `src/main/provider-runtime-archive.ts`
 accepts only the server and `localharness_external`, which the server starts from its own folder.
 The server has no `--version`, so staging writes `antigravity-package.json` and
-`verifyInstalledRuntime` reads the version from that file (`versionFile`). OpenBot never searches
+`verifyInstalledRuntime` reads the version from that file (`versionFile`). Builders Bot never searches
 `PATH`, because the Antigravity editor installs an `antigravity` command that is not this server.
 
 The server offers its Claude and GPT models only to a client whose `initialize` `clientInfo.name` is
 `zed`, `xcode`, `jetbrains.*` or `android studio*` (`supports_third_party_models` in 1.4.3). Other
 clients get only the Gemini models. So `ANTIGRAVITY_ACP_FLAVOR.clientInfo` sends the name `zed` and
-the title `OpenBot`. The server also sends the name and version to Google in its User-Agent
-(`_surface`), so Google sees OpenBot's requests as `zed/0.1.0`.
+the title `Builders Bot`. The server also sends the name and version to Google in its User-Agent
+(`_surface`), so Google sees Builders Bot's requests as `zed/0.1.0`.
 
 Sign in is an ACP `authenticate` call with `oauth-personal`, in a separate process
-(`src/backend/acp-sign-in.ts`). On Linux, OpenBot reads the Google sign-in link from the
+(`src/backend/acp-sign-in.ts`). On Linux, Builders Bot reads the Google sign-in link from the
 server and opens it with the desktop browser. The server browser launch is disabled for this
 process so the page opens once. A failed browser launch gives an actionable error; the OAuth
 link and browser error details are not logged. Other platforms let the server open the browser.
 A valid saved Google token answers `authenticate` with no browser page. So a Reconnect of a
 connected Google sign-in, with no saved key, first calls ACP `logout` when `initialize` advertises
 `agentCapabilities.auth.logout` (runtime 1.4.1 and later). The Google page then opens. The token is
-shared by every OpenBot profile on the computer, so they all sign out. A Reconnect is refused while
-a Gemini turn runs. When the sign-in stops after the logout answered, OpenBot stops the old client
+shared by every Builders Bot profile on the computer, so they all sign out. A Reconnect is refused while
+a Gemini turn runs. When the sign-in stops after the logout answered, Builders Bot stops the old client
 and reports Gemini signed out; a failure keeps its own reason. A status probe must never call `authenticate`. The serving client does not call it.
-OpenBot checks authentication through model discovery (`session/new`), not the auth methods
-advertised by `initialize`. The runtime can answer "Authentication required", which OpenBot
+Builders Bot checks authentication through model discovery (`session/new`), not the auth methods
+advertised by `initialize`. The runtime can answer "Authentication required", which Builders Bot
 reports as sign-in required. In runtime 1.3.0, a saved OAuth method with no valid token can also
 start interactive authentication during `session/new`; this can leave the probe waiting until
 its existing deadline. Runtime installation alone does not confirm authentication.
@@ -533,7 +566,7 @@ callback uses `127.0.0.1` on the host, so complete sign-in in a desktop session 
 VM. A browser on another computer cannot complete this loopback callback. A server with no
 desktop can install and start Gemini, but cannot complete the interactive Google sign-in.
 
-The local Settings > Providers screen offers Connect for both a managed runtime and an
+The local Server settings > Providers screen offers Connect for both a managed runtime and an
 external runtime. Gemini has no device-code flow, so a remote host signs it in on a page in its
 own browser. A Linux host advertises `provider-host-sign-in-v1` (Team API v7 only). Connect sends
 `start` to the host. The host runs the same sign-in as its own Connect, and opens the Google link
@@ -541,7 +574,7 @@ from the CLI in a private tab of its browser. The client polls `status`, shows t
 the live view (`browser-view`), and closes the dialog on the `result`. The Google callback goes to
 `127.0.0.1` on the host, so the host's browser completes it. No route carries the link or a
 credential, and every route requires an owner or admin. A host on another platform does not
-advertise the capability; open OpenBot in the host's desktop session to connect it there. A runtime status of "Runtime installed" means only that the files are
+advertise the capability; open Builders Bot in the host's desktop session to connect it there. A runtime status of "Runtime installed" means only that the files are
 available; "Connected" requires a successful provider check. A known authentication or launch
 error takes priority over runtime readiness.
 
@@ -550,7 +583,7 @@ error takes priority over runtime readiness.
 Issue #1776 reports an HTTP 404 for the official 1.3.0 Linux archive from an OVH IPv6 pool,
 and HTTP 200 over IPv4. This cause is not confirmed: checks from another host on 2026-10-10
 returned HTTP 200 over both families. An HTTP failure occurs before archive extraction or
-ACP startup; it is separate from browser sign-in and missing runtime files. OpenBot keeps
+ACP startup; it is separate from browser sign-in and missing runtime files. Builders Bot keeps
 the download error and Retry action and does not change the host's network settings.
 
 For an affected host, an operator can compare bounded requests to the exact failing URL
@@ -571,11 +604,11 @@ An external installation must preserve this layout (1.3.0 is an example):
     localharness_external
 ```
 
-Both programs must be executable by the OpenBot host user. Set
+Both programs must be executable by the Builders Bot host user. Set
 `OPENBOT_ANTIGRAVITY_PATH=/var/lib/openbot/antigravity-acp-1.3.0/bin/agy_acp_server.par`
-in that process's environment and restart OpenBot. The variable names the executable, not
-the directory. OpenBot requires the version manifest two levels above it; extraction alone
-does not create that manifest. An invalid override remains an error: OpenBot does not replace
+in that process's environment and restart Builders Bot. The variable names the executable, not
+the directory. Builders Bot requires the version manifest two levels above it; extraction alone
+does not create that manifest. An invalid override remains an error: Builders Bot does not replace
 it with the managed runtime. Managed updates do not change the explicit override.
 
 The server runs confined; `antigravityStatePaths` gives it `~/.gemini/antigravity-acp` and
@@ -593,13 +626,14 @@ Gemini can hold more than one account: each account after the first gets `GEMINI
 own folder (`antigravityReadsGeminiHome` gates the rows, the sign-in, the checks, the usage reads and
 the agent start), and `antigravityStatePaths` confines its process to that folder. Each new session
 leaves a conversation database in that folder, so a usage read of an account with no agent process
-starts no process: the account shows its reading from the sign-in check. The sandbox cannot create folders in a new account's home, so OpenBot makes them.
+starts no process: the account shows its reading from the sign-in check. The sandbox cannot create folders in a new account's home, so Builders Bot makes them.
 The account sign-in is the same ACP `authenticate` call as the first account's; a Reconnect calls
 `logout` first. So a Reconnect refuses while an agent on the account runs a turn, and it stops the
 account's idle agent processes, which keep the old token. A saved Gemini API key belongs to the
-first account: an account process never gets `GEMINI_API_KEY`. The server reports no email and the token file holds none, so OpenBot cannot see
-that two accounts are the same Google account. A joined server signs the account in through the
-live view, because `provider-account-relay-v1` names Codex and Claude only.
+first account: an account process never gets `GEMINI_API_KEY`. The server reports no email and the token file holds none, so Builders Bot cannot see
+that two accounts are the same Google account. A joined server relays the account's sign-in to the
+client's browser with `provider-account-relay-v2`. A host with only `provider-account-relay-v1`, which
+names Codex and Claude only, signs the account in through the live view.
 
 From 1.4.1 the server answers a prompt that starts with `/usage` itself, without a model turn: it
 reads the Google account's quota summary and sends one Markdown answer. The driver's
@@ -633,7 +667,7 @@ limit can be for one model and that the plan's usage page can still show room.
 
 Antigravity 1.3.0 and later send ACP `usage_update` after each model step: `used` is the size of
 the last model call, and `size` is the model's context window. The adapter turns it into
-`thread/tokenUsage/updated`, also after a turn that OpenBot already ended. 1.2.1, the pinned
+`thread/tokenUsage/updated`, also after a turn that Builders Bot already ended. 1.2.1, the pinned
 first-install version, sends none, so the ring stays hidden until the runtime updates. The update
 has no category breakdown.
 
@@ -717,7 +751,7 @@ npm packages have no license file, so staging downloads `LICENSE` from the `cli-
 checks the pinned hash. `resolveClineCli` refuses a CLI older than 3.0.68.
 
 By default the CLI runs its sessions in a hub process that it detaches and that other Cline
-processes share. That process outlives OpenBot and is outside a Workspace only sandbox, so every
+processes share. That process outlives Builders Bot and is outside a Workspace only sandbox, so every
 Cline process, the sign-in included, gets `CLINE_SESSION_BACKEND_MODE=local` and
 `CLINE_NO_AUTO_UPDATE=1` (`CLINE_ENV` in `provider-drivers.ts`). Sign in is an ACP `authenticate`
 call with `cline`, as for Gemini. `CLINE_API_KEY` in the environment also signs the CLI in.
@@ -770,7 +804,7 @@ is ready. The `providers-v5` and `providers-v1` key routes refuse its key.
 
 A v8 client keeps the agents of a provider that its build does not know (`ForeignProviderId`,
 `AgentProviderRef`). The agent stays in the list and chat works, because the host runs it. The
-provider and model pickers show the agent disabled, with "Update OpenBot to use {name}" and the
+provider and model pickers show the agent disabled, with "Update Builders Bot to use {name}" and the
 neutral `unknown` logo. They do not reset the agent. The model picker and the backup models leave
 out the models of that provider. Host types (`AgentProviderId`, the database, the drivers) stay
 closed.
@@ -801,7 +835,7 @@ failed `session/new` (an agent that needs sign-in first) gives no models and doe
 check. The registry install check (`acp-registry-install.ts`) sends `initialize` only. The scan (`src/backend/acp-agent-scan.ts`) looks up the preset names on the
 login-shell `PATH` and in the user's folders, and never starts a file. An agent and its check start
 with the `PATH` that its command was looked up in (`agentLaunchPath`): the absolute folders of the
-login-shell `PATH`, then those of OpenBot's own, so an app that Finder starts can still run a
+login-shell `PATH`, then those of Builders Bot's own, so an app that Finder starts can still run a
 `#!/usr/bin/env node` agent. A `PATH` saved on the agent wins. Claude agent sessions start with the
 same `PATH`, so their Bash tool and hooks find the user's tools; an `env.PATH` in the Claude settings
 wins. The agents run confined with no state paths. Migration 23 adds `acp` to
@@ -812,7 +846,7 @@ A custom agent can have a usage prompt (`usagePrompt`, "Usage command" in the fo
 as `/usage`. `customAgents.usage` asks each agent that has one: `ProviderRuntime.customAgentUsage`
 sends it through `readUsageText` on the agent's model list process, in the session that no thread
 owns (`privatePrompt`). The answer is redacted and kept to `CUSTOM_AGENT_LIMITS.usageAnswer`
-characters. OpenBot does not read a percent from it, so `acp` keeps `reportsUsage: false`: the rail
+characters. Builders Bot does not read a percent from it, so `acp` keeps `reportsUsage: false`: the rail
 shows the agent's logo with no ring, and its hover card shows the text. The renderer polls with the
 plan usage interval, only while the local server is active. One read runs at a time, and a read from
 the last minute answers the next request. While `acp` is released, the read returns the last answers
@@ -875,6 +909,34 @@ a refused `turn/start`, and a provider that fails to start do not fail over. A m
 most once for each model that failed it, so a move that cannot happen shows the error on the next
 failure; the check for a ready backup runs again when the turn ends.
 
+### Usage read pacing
+
+Each desktop window, web tab and phone polls the plan usage every five minutes, and each poll reaches
+the host. A usage endpoint allows few requests an hour for each login: Claude's is shared with Claude
+Code and answers HTTP 429 for an hour or more when a client asks too often. So `UsageReadGate`
+(`src/backend/agent/usage-read-gate.ts`) paces the reads of each provider's own sign-in in
+`ProviderRuntime.usage`, and of each account after the first in `ProviderAccounts.usage`. One read runs
+at a time; a request that comes during it waits and takes its reading. A reading answers for four
+minutes, a little less than the poll, so one view still gets a new reading at each poll. After a failed
+read, the next one waits 5 minutes, then 10, 20 and 40, up to an hour. Between reads and during the wait,
+the last reading stays on the rail, also when one of its windows has reset.
+A window that resets after the last read starts a read before the four minutes end, but not during the
+wait after a failure; a window that had already reset when the provider sent the reading does not.
+
+A read outside the poll of the provider's own sign-in, with the dock's model, also counts: when Codex
+starts, its reading replaces the kept one and the next poll does not read again. The read after a usage
+limit has no model, so for a provider whose limits depend on the model it resets the gate, and the next
+poll reads. These reads, and the reads of a usage reset, are not paced. A credential change, another
+login, a sign-out, turning the provider off or a new key resets the gate and forgets the kept reading and
+reset credits, so the next poll reads at once and no view shows the old login's reading; a read that
+started before the reset does not set the next read time. An account check or a usage reset of an
+account after the first also counts as a read.
+
+The values follow t3code (one refresh in five minutes for each host, one at a time) and openusage (5
+minutes, doubling up to an hour). CodexBar and openusage first wait for `Retry-After`; the Claude Agent
+SDK and the Codex app-server do not give Builders Bot that header, so the gate uses only the doubling.
+`scripts/usage-read-pacing-e2e.ts` checks the gate with a fake Codex.
+
 ### Usage reset credits
 
 Codex can give an account usage reset credits: one restores the spent usage limits of the account at
@@ -882,8 +944,8 @@ once (issue #2859). `account/rateLimits/read` counts them in `rateLimitResetCred
 and `account/rateLimitResetCredit/consume` spends one; both are stable Codex app-server methods since
 0.156.0. `ProviderRuntime.#refreshUsage` keeps the count of each client with its usage reading.
 `usageResets` reads the provider's own sign-in again while its process runs, and keeps the last count
-while it is released; an account after the first uses the reading that the dock keeps for five
-minutes. An account whose reading has no count is left out. `resetUsage` sends the consume with a new
+while it is released; an account after the first uses the reading that the dock keeps (see
+[Usage read pacing](#usage-read-pacing)). An account whose reading has no count is left out. `resetUsage` sends the consume with a new
 `idempotencyKey` for each reset the user asks for, through the running client, an agent's process or a
 short one in the account's folder. Then it reads the account's usage again and sends `usage-changed`.
 After the answer `reset`, or `nothingToReset` (no limit of the account is spent), `AgentService` calls
@@ -893,12 +955,25 @@ Settings > Providers shows **Reset usage** in the ⋯ menu of a connected accoun
 The confirmation names the credits left, and the answer shows under the accounts. A joined server
 uses the optional `provider-usage-reset-v1` routes (see [Admin capabilities](servers.md#admin-capabilities)).
 
+### Disconnect the own sign-in
+
+Settings > Providers shows **Disconnect** in the ⋯ menu of the connected own sign-in of Claude and
+Codex (issue #3487). These drivers have an `accounts.signOut` command (`claude auth logout`,
+`codex logout`). `ProviderRuntime.signOutProvider` refuses while the provider runs a turn, cancels a
+sign-in, and runs that command with no home variable, so it signs out the user's own home folder.
+On this computer a terminal CLI shares that folder and the macOS keychain item, so it signs out too;
+the confirmation says so. Then Builders Bot stops the client and reports the provider signed out, as a
+Gemini Reconnect does. A failed sign-out keeps the client and shows its reason. Agents keep the own
+sign-in and wait for a Reconnect. The accounts after the first and their folders stay, but they
+need the connected CLI, so they wait too. A joined server uses the optional `provider-sign-out-v1`
+route.
+
 ## Provider settings and the ACP registry
 
 `AgentClient` remains the provider boundary. ACP session ownership, history replay, and turn
 completion stay together. Boolean and select settings can include grouped choices. The client
 processes configuration notifications while idle. Model and reasoning continue to use their
-existing fields. Permission, access, and approval settings remain under OpenBot controls: the agent's
+existing fields. Permission, access, and approval settings remain under Builders Bot controls: the agent's
 Permissions level decides them, not an ACP setting.
 
 Additional overrides are stored in validated agent JSON, by provider identity. A custom ACP
@@ -921,11 +996,11 @@ Pi uses its native `--mode rpc` interface. It does not use an ACP wrapper. Reque
 `agent_settled` completes a turn. A successful `prompt` response only accepts the prompt. Cancellation
 clears queued work before abort. Session paths and the active conversation branch are preserved.
 Models come from the running CLI. A small extension uses Pi's `registerMcpServer` interface to
-register configured MCP servers and OpenBot tools. Secrets are supplied through process state,
+register configured MCP servers and Builders Bot tools. Secrets are supplied through process state,
 not copied into the extension source.
 
 Managed Pi archives come from official GitHub releases and use the published SHA-256 digest.
-Sign-in opens Pi in a host terminal. Close Pi after sign-in to refresh models in OpenBot.
+Sign-in opens Pi in a host terminal. Close Pi after sign-in to refresh models in Builders Bot.
 Remote clients must complete sign-in on the host. There is no separate Pi account screen.
 
 ## Inception
@@ -948,7 +1023,7 @@ with a key as its only sign-in (`KEY_ONLY_PROVIDERS` in contracts). The key is s
 `deepseek` API key. Pi has a built-in `deepseek` provider, so the extension from
 `pi-key-providers.ts` calls `pi.registerProvider("deepseek", ...)` with the key and no models. A
 registration with only the key keeps Pi's DeepSeek models, endpoint and thinking levels (checked in
-Pi 1.4.0), so OpenBot keeps no DeepSeek model list. Pi prefers a `deepseek` key in its own
+Pi 1.4.0), so Builders Bot keeps no DeepSeek model list. Pi prefers a `deepseek` key in its own
 `auth.json` to the registered `apiKey`, so the extension also sets the `Authorization` header,
 which replaces either key. A 401 or a 402 from a key provider shows a text about the saved key or
 the account balance (`#failureText` in `pi-client.ts`). The DeepSeek client lists only the `deepseek`
@@ -961,10 +1036,10 @@ Peers see DeepSeek from v8, as Inception.
 OpenRouter works as DeepSeek does: a key-only provider on Pi's managed CLI. The key is stored as the
 `openrouter` API key. Pi has a built-in `openrouter` provider with OpenRouter's model list (401 models
 in Pi 1.1.0 and 1.4.0), so the extension registers only the key and the `Authorization` header, and
-OpenBot keeps no OpenRouter model list. Pi sends some models to OpenRouter's Anthropic Messages
+Builders Bot keeps no OpenRouter model list. Pi sends some models to OpenRouter's Anthropic Messages
 endpoint and the others to its chat completions endpoint; both read the header. On the Anthropic
 Messages endpoint Pi also sends the key from its own `auth.json` as `x-api-key`, so the extension sets
-that header to the OpenBot key too (checked in Pi 1.4.0 with a local server). Pi's own
+that header to the Builders Bot key too (checked in Pi 1.4.0 with a local server). Pi's own
 `/api/models/user` request still uses a key from `auth.json` when the user saved one there; it reads
 the model list and sends no turn content. Model ids keep
 OpenRouter's `<lab>/<model>` form, such as `anthropic/claude-opus-5.5`, and the client passes them to
@@ -981,7 +1056,7 @@ newer SDK versions must meet the three-day dependency rule before adoption. The 
 supplies `sessionMcp`, preserves native session identity, and reads durable items to recover missed
 events before completion. A cached model list does not prove authentication. Connect starts the
 `muse serve` device sign-in and opens its page, because `muse login` with no terminal never opens
-it; an explicit Meta API key uses OpenBot's encrypted credential store. The account check asks a
+it; an explicit Meta API key uses Builders Bot's encrypted credential store. The account check asks a
 short-lived `muse serve` host, which gets the same key, for the experimental `account/read`. The
 session host does not opt in to experimental MSP, so its strict event decoders see no experimental
 variants. A Muse CLI without `account/read` stays "not verified" and keeps running.
@@ -994,7 +1069,7 @@ then select Muse for the agent. The local echo test and synthetic MCP marker rec
 authentication test.
 
 Managed Muse downloads use the official stable-channel manifest and artifact SHA-256 values.
-The CLI remains an optional download, outside the OpenBot package. OpenBot does not overwrite
+The CLI remains an optional download, outside the Builders Bot package. Builders Bot does not overwrite
 provider account files or run upstream self-updaters against managed installations. Both Pi and
 Muse use the existing process confinement boundary. Workspace-only mode fails closed on hosts
 without confinement support.
@@ -1045,7 +1120,7 @@ The latest marker and timing are runtime state, not new saved conversation messa
 summary is not copied into this state.
 
 `agent:compact-context` asks for a compaction now, below the threshold too. The popover offers it
-when `autoCompactAt` is set, which means that OpenBot compacts the thread (`events`, `request` or
+when `autoCompactAt` is set, which means that Builders Bot compacts the thread (`events`, `request` or
 `handoff`). It refuses while a turn, a queued message or a session start needs the session. It is
 local only: the Team API has no route, and a joined server's agent shows no ring.
 `agent:tasks:compact-context` does the same for one open side thread. It refuses while the thread

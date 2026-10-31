@@ -13,6 +13,7 @@ import { HEADER_COLLECTIONS } from "./content";
 import type { CollectionArticle, ContentCollection } from "./content-collection";
 import { OPENBOT_LINKS } from "./landing-links";
 import { PLUGIN_INDEX_ROUTE, SITE_PLUGINS, type SitePlugin } from "./plugins";
+import { PRICING_ROUTE } from "./pricing-page";
 import { TEAMS_ROUTE } from "./teams-page";
 
 /** How many articles a panel lists: one featured, and the rest under it. */
@@ -50,7 +51,7 @@ export interface PluginNavigationSection {
 export type ResourceLink = {
   label: string;
   description: string;
-  /** "logo" draws the OpenBot mark. */
+  /** "logo" draws the Builders Bot mark. */
   icon: LandingIconName | "logo";
 } & ({ to: typeof CHANGELOG_ROUTE | typeof BRAND_ROUTE | "/download" } | { href: string });
 
@@ -69,8 +70,8 @@ export type SiteNavigationSection = ArticleNavigationSection | PluginNavigationS
 
 const COLLECTION_COPY: Record<HeaderCollectionId, { summary: string; indexLabel: string }> = {
   news: { summary: "What shipped, and why it matters.", indexLabel: "All news" },
-  guides: { summary: "Learn OpenBot one step at a time.", indexLabel: "All guides" },
-  compare: { summary: "How OpenBot differs from other agent apps.", indexLabel: "All comparisons" },
+  guides: { summary: "Learn Builders Bot one step at a time.", indexLabel: "All guides" },
+  compare: { summary: "How Builders Bot differs from other agent apps.", indexLabel: "All comparisons" },
 };
 
 export const SITE_NAVIGATION_SECTIONS: readonly SiteNavigationSection[] = [
@@ -103,7 +104,7 @@ export const SITE_NAVIGATION_SECTIONS: readonly SiteNavigationSection[] = [
     kind: "resources",
     id: "resources",
     label: "Resources",
-    summary: "OpenBot is open source.",
+    summary: "The source code of Builders Bot is open.",
     footer: { label: "Source code", href: OPENBOT_LINKS.repository },
     links: [
       { label: "Download", description: "macOS, Windows and Linux", icon: "download", to: "/download" },
@@ -111,7 +112,7 @@ export const SITE_NAVIGATION_SECTIONS: readonly SiteNavigationSection[] = [
       { label: "Community", description: "Talk with us on Discord", icon: "contact", href: OPENBOT_LINKS.discord },
       {
         label: "Documentation",
-        description: "Set up and use OpenBot",
+        description: "Set up and use Builders Bot",
         icon: "folder",
         href: OPENBOT_LINKS.documentation,
       },
@@ -124,8 +125,11 @@ export const SITE_NAVIGATION_SECTIONS: readonly SiteNavigationSection[] = [
 /** A header entry with no panel: one page, reached in one press. */
 export interface SiteNavigationLink {
   label: string;
-  to: typeof TEAMS_ROUTE;
+  to: typeof TEAMS_ROUTE | typeof PRICING_ROUTE;
 }
 
 /** After the sections, in both the desktop menu and the mobile sheet. */
-export const SITE_NAVIGATION_LINKS: readonly SiteNavigationLink[] = [{ label: "For Teams", to: TEAMS_ROUTE }];
+export const SITE_NAVIGATION_LINKS: readonly SiteNavigationLink[] = [
+  { label: "For Teams", to: TEAMS_ROUTE },
+  { label: "Pricing", to: PRICING_ROUTE },
+];

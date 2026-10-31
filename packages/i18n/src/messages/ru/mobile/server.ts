@@ -76,6 +76,12 @@ export const messages = {
     many: "Хранилище: {count} ГБ",
     other: "Хранилище: {count} ГБ",
   },
+  "mobile.server.hosted.sites": {
+    one: "До {count} размещённого сайта",
+    few: "До {count} размещённых сайтов",
+    many: "До {count} размещённых сайтов",
+    other: "До {count} размещённого сайта",
+  },
   "mobile.server.hosted.speedBase": "Базовая скорость",
   "mobile.server.hosted.speedFaster": "{factor}× быстрее",
   "mobile.server.hosted.joinHint": "Используйте приглашение от владельца сервера.",
@@ -83,7 +89,7 @@ export const messages = {
   "mobile.server.hosted.intro.title": "Ваши агенты всегда на связи",
   "mobile.server.hosted.intro.description":
     "Облачный сервер выполняет ваших агентов и регулярные задачи, когда компьютер выключен. Builders Bot настраивает его и поддерживает в рабочем состоянии.",
-  "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
+  "mobile.server.hosted.planFacts": "{members} · {storage} · {sites} · {speed}",
   "mobile.server.hosted.computer.title": "На компьютере",
   "mobile.server.hosted.computer.add": "Добавить облачный сервер",
   "mobile.server.hosted.computer.addHint":
@@ -841,7 +847,7 @@ export const messages = {
   "mobile.server.mcp.http": "URL (HTTP)",
   "mobile.server.mcp.stdioDescription": "Сервер запускает эту команду на своём компьютере.",
   "mobile.server.mcp.httpDescription": "Любой провайдер может использовать HTTP-сервер MCP.",
-  "mobile.server.mcp.providerLimit": "Только Claude: другие провайдеры не получают сервер с рабочей папкой.",
+  "mobile.server.mcp.providerLimit": "Только Claude и Codex: другие провайдеры не получают сервер с рабочей папкой.",
   "mobile.server.mcp.command": "Команда",
   "mobile.server.mcp.commandHint": "Только программа. Каждое следующее слово укажите в аргументах.",
   "mobile.server.mcp.arguments": "Аргументы",

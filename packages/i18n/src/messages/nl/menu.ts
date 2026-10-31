@@ -12,4 +12,12 @@ export const messages = {
   "menu.trayOpen": "Open Builders Bot",
   "menu.trayQuit": "Stop Builders Bot",
   "menu.trayTooltip": "Builders Bot",
+  "menu.undo": "Herstel",
+  "menu.redo": "Opnieuw",
+  "menu.cut": "Knip",
+  "menu.copy": "Kopieer",
+  "menu.paste": "Plak",
+  "menu.pasteAndMatchStyle": "Plak en pas stijl aan",
+  "menu.delete": "Verwijder",
+  "menu.selectAll": "Selecteer alles",
 } as const satisfies PartialTranslation<typeof source>;

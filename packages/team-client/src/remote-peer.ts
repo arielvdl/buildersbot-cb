@@ -14,7 +14,7 @@ import {
   decodeTeamProtocolV2Json,
   decodeTeamProtocolV2RpcFrame,
   decodeTeamProtocolV8CurrentEvent,
-  decodeTeamProtocolV8WebRtcHttpResponse,
+  decodeTeamProtocolV9WebRtcHttpResponse,
   encodeTeamProtocolV2Frame,
   encodeTeamProtocolV8WebRtcHttpRequest,
   TEAM_PROTOCOL_V2_CHANNELS,
@@ -29,7 +29,7 @@ import {
   type TeamProtocolV1CurrentEventControl,
   toWireTeamProtocolV1ClientEvent,
 } from "@openbot/contracts/team-protocol/v1-adapter";
-import { decodeTeamProtocolSupportV7Base } from "@openbot/contracts/team-protocol/v7-base";
+import { decodeTeamProtocolSupportV9 } from "@openbot/contracts/team-protocol/v9";
 import { sourceText } from "@openbot/i18n/source";
 import { errorReference, referenceFrom } from "@openbot/user-errors/reference";
 import { Context, Deferred, Effect, Exit, Layer, ManagedRuntime, Result, Schema, Scope, Semaphore } from "effect";
@@ -341,7 +341,9 @@ interface PeerState {
   answeredRequest: boolean;
   /** The close code of the last Signal socket, so a connection timeout can name it. */
   lastSignalClose: number | null;
-  hostProtocol?: number;
+  hostProtocol: number | undefined;
+  /** The compatibility read in flight. A request waits for it when the host protocol is not known. */
+  hostProtocolRead?: Deferred.Deferred<void>;
 }
 
 const CHANNELS: ChannelKind[] = ["rpc", "events", "files", "desktop"];
@@ -354,6 +356,14 @@ const SIGNAL_RENEW_DELAY_MS = 8_000;
 /** A socket that waits for the host is renewed with its resume token, so a dead socket does not wait forever. */
 const HOST_WAIT_RENEW_MS = 60_000;
 const REQUEST_TIMEOUT_MS = 10 * 60_000 + 30_000;
+/**
+ * A Signal restart disconnects all peers at the same time, and each resume asks the account service.
+ * The first retry is spread over 0.5–4 s (before: 0.25–0.5 s). Later retries double up to 30 s.
+ */
+function signalRetryDelay(attempt: number): number {
+  if (attempt === 0) return 500 + Math.random() * 3_500;
+  return Math.min(30_000, 500 * 2 ** attempt) * (0.5 + Math.random() / 2);
+}
 /**
  * The host gets no answer to its ICE consent checks while the phone is suspended, and stops using a
  * path that did not answer for 30 s (RFC 7675). A longer absence needs an ICE restart.
@@ -444,6 +454,9 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
   // A failed attempt keeps its session for the next attempt on the same host. Ending it each time
   // made every recovery attempt a create, a ticket and an end on the account Worker.
   let retainedSession: { hostId: string; sessionId: string } | null = null;
+  // A new peer of a known host sends the capabilities of its last protocol. With the bootstrap
+  // capabilities, the host would hide the agents of the providers that protocol 7 does not know.
+  const hostProtocols = new Map<string, number>();
 
   return {
     async sendHostStreamData(data: string | ArrayBuffer) {
@@ -826,6 +839,7 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
         signalReady: false,
         answeredRequest: false,
         lastSignalClose: null,
+        hostProtocol: hostProtocols.get(hostId),
       };
       peer = state;
       const connected = Deferred.makeUnsafe<void, RemotePeerError>();
@@ -1273,7 +1287,8 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
           const status = frame.result.status;
           const body = frame.result.body;
           if (pending.method === "GET" && pending.path === TEAM_API_ROUTES.compatibility && status === 200) {
-            state.hostProtocol = (yield* peerDecode(() => decodeTeamProtocolSupportV7Base(body))).protocol.maximum;
+            state.hostProtocol = (yield* peerDecode(() => decodeTeamProtocolSupportV9(body))).protocol.maximum;
+            hostProtocols.set(state.hostId, state.hostProtocol);
           }
           pending.resolve({
             status: frame.result.status,
@@ -1286,7 +1301,7 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
                   }),
                 )
               : yield* peerDecode(() =>
-                  decodeTeamProtocolV8WebRtcHttpResponse(pending.method, pending.path, status, body),
+                  decodeTeamProtocolV9WebRtcHttpResponse(pending.method, pending.path, status, body),
                 ),
           });
         }
@@ -1404,6 +1419,12 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
         if (state && (method === "GET" || method === "HEAD")) state.needsResync = true;
         return yield* new RemotePeerError({ message: sourceText("error.remote.selectedServerOffline") });
       }
+      const checksConnection = method === "GET" && path === TEAM_API_ROUTES.compatibility;
+      const protocolRead = checksConnection ? Deferred.makeUnsafe<void>() : null;
+      if (protocolRead) state.hostProtocolRead = protocolRead;
+      // A read sent with the compatibility read must not go out with the bootstrap capabilities.
+      else if (state.hostProtocol === undefined && state.hostProtocolRead)
+        yield* Deferred.await(state.hostProtocolRead);
       const delivery = upload && onUploadProgress ? trackUploadDelivery(state, onUploadProgress) : null;
       return yield* Effect.gen(function* () {
         const bodyTransferId = upload ? yield* files.upload(upload, delivery?.queued) : null;
@@ -1425,7 +1446,6 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
                 }),
               );
         const requestId = createTeamRequestId((size) => crypto.getRandomValues(new Uint8Array(size)));
-        const checksConnection = method === "GET" && path === TEAM_API_ROUTES.compatibility;
         const payload = yield* peerDecode(() =>
           encodeTeamProtocolV2Frame({
             version: 2,
@@ -1523,7 +1543,14 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
         // A response confirms that the host has every uploaded byte.
         delivery?.complete();
         return response;
-      }).pipe(Effect.ensuring(Effect.sync(() => delivery?.stop())));
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            delivery?.stop();
+            if (protocolRead) Deferred.doneUnsafe(protocolRead, Effect.void);
+          }),
+        ),
+      );
     })();
   }
 
@@ -1686,8 +1713,7 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
     const delay = Math.max(
       signalRetryAt - Date.now(),
       isPeerOnline(state) || canRecoverPeer(state) || state.waitingForHost
-        ? // The jitter spreads the clients that a Signal restart disconnects at the same time.
-          Math.min(30_000, 500 * 2 ** state.reconnectAttempt++) * (0.5 + Math.random() / 2)
+        ? signalRetryDelay(state.reconnectAttempt++)
         : 60_000,
     );
     diagnose(state, "signal-retry", `in ${delay} ms`);

@@ -217,6 +217,7 @@ export function createSetupProviders(
         message: status?.message,
         email: status?.email,
         connectionState: status?.connectionState,
+        signInPending: status?.signInPending,
         checkError: status?.checkError,
         availableVersion: props.providerAvailableVersions?.[provider.id] ?? null,
         freeModels: provider.id === "opencode",
@@ -477,10 +478,11 @@ export function createSetupProviders(
 
   /**
    * OpenCode, Muse and Gemini sign in with a pasted key, so their rows open the key dialog; the rest
-   * open a guide. Claude's key is an option on its Providers page, so its Sign in stays the guide.
+   * open a guide. Claude's and Codex's keys are an option on their Providers page, so their Sign in
+   * stays the guide.
    */
   function signInProvider(provider: AgentProviderId): void {
-    if (isKeyDialogProvider(provider) && provider !== "claude" && props.providerKeys) {
+    if (isKeyDialogProvider(provider) && provider !== "claude" && provider !== "codex" && props.providerKeys) {
       setKeyProvider(provider);
       return;
     }
@@ -721,6 +723,7 @@ export function SetupProviderPicker(props: SetupProviderPickerProps) {
       <Show when={source().onAddCustomProvider}>
         <CustomProviderDialog
           open={props.providers.host.state.open}
+          contextWindows={!source().hostProviders}
           busy={props.providers.host.state.saving}
           submitError={props.providers.host.state.submitError}
           takenProviderIds={(source().customProviders ?? []).map((provider) => provider.id)}

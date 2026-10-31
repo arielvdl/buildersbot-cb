@@ -35,7 +35,8 @@ export const messages = {
     "Als je deze vaardigheid bijwerkt, worden de lokale bestanden vervangen door het nieuwste vaardigheidspakket. Je wijzigingen in deze vaardigheidsmap gaan verloren.",
   "skill.confirm.removeModifiedBody":
     "Deze vaardigheid heeft lokale wijzigingen in de agentwerkruimte. Verwijderen wist die bestanden. De oorspronkelijke chatberichten blijven staan.",
-  "skill.confirm.removeBody": "Builders Bot verwijdert deze vaardigheid van de agent. De chatgeschiedenis blijft staan.",
+  "skill.confirm.removeBody":
+    "Builders Bot verwijdert deze vaardigheid van de agent. De chatgeschiedenis blijft staan.",
   "skill.confirm.replace": "Vaardigheid vervangen",
   "skill.confirm.remove": "Vaardigheid verwijderen",
   "skill.unavailable.readOnly": "Externe vaardigheden zijn alleen-lezen.",
@@ -63,4 +64,18 @@ export const messages = {
   "skill.preview.examplePrompt": "Help me deze vaardigheid te gebruiken.",
   "skill.preview.try": "Vaardigheid proberen",
   "skill.preview.linkFailed": "Kan de link niet openen.",
+
+  "skill.marketplace.changed": {
+    one: "{name} gewijzigd bij {count} agent.",
+    other: "{name} gewijzigd bij {count} agents.",
+  },
+  "skill.marketplace.updated": {
+    one: "{name} bijgewerkt bij {count} agent.",
+    other: "{name} bijgewerkt bij {count} agents.",
+  },
+  "skill.marketplace.undone": "De wijziging van {name} is ongedaan gemaakt.",
+  "skill.marketplace.confirmAgents": "Agents: {agents}.",
+  "skill.marketplace.limitReason": "Een agent kan tot {limit} vaardigheden hebben.",
+  "skill.marketplace.cannotRemove":
+    "Builders Bot kan geen ingebouwde vaardigheid verwijderen, en ook geen vaardigheid die het niet heeft geïnstalleerd.",
 } as const satisfies PartialTranslation<typeof source>;

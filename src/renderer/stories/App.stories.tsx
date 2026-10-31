@@ -136,7 +136,7 @@ export const IncompatibleRemoteHost: Story = {
             },
             issue: {
               code: "host_update_required",
-              message: "Update OpenBot on the host.",
+              message: "Update Builders Bot on the host.",
               retryable: true,
             },
           },
@@ -178,7 +178,7 @@ export const DifferentRemoteVersions: Story = {
   ),
 };
 
-/** A joined server has a new OpenBot version. Entering it opens the update dialog each time. */
+/** A joined server has a new Builders Bot version. Entering it opens the update dialog each time. */
 export const RemoteHostUpdate: Story = {
   render: () => (
     <BuildersBotPlayground

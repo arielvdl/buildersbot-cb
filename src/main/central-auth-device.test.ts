@@ -41,7 +41,7 @@ const START = {
   interval: 5,
 };
 
-const USER = { id: "user-1", email: "pessoa@exemplo.com", name: "Pessoa", avatarUrl: null };
+const USER = { id: "user-1", email: "pessoa@exemplo.com", name: "Pessoa", avatarUrl: null, analyticsEnabled: null };
 
 const SESSION = {
   status: "authorized",
@@ -123,7 +123,7 @@ describe("CentralAuthManager device grant", () => {
     expect(poll).toEqual({ status: "authorized" });
     expect(centralAuth.getState()).toEqual({
       status: "signed_in",
-      user: { id: "user-1", email: "pessoa@exemplo.com", name: "Pessoa", avatarUrl: null },
+      user: { id: "user-1", email: "pessoa@exemplo.com", name: "Pessoa", avatarUrl: null, analyticsEnabled: null },
     });
     // The file is the encrypted payload in base64; the test cipher is identity.
     const stored = JSON.parse(Buffer.from(await readFile(storagePath, "utf8"), "base64").toString("utf8"));

@@ -1,12 +1,14 @@
 import { router, useGlobalSearchParams, useSegments } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { useThemeColor } from "heroui-native/hooks";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
 import { TextInput } from "react-native";
 import { useCSSVariable } from "uniwind";
 import { AgentPinTransitionProvider } from "@/features/agents/components/agent-pin-transition";
 import { ChatNavigationGateContext } from "@/features/agents/components/chat-link-pressable";
+import { ChatListPaneProvider } from "@/features/agents/components/chat-list-pane-context";
 import { createChatNavigationGate } from "@/features/agents/model/chat-navigation-gate";
+import { ConnectedScreen } from "@/features/agents/screens/connected-screen";
 import { whenUnlocked } from "@/features/app-lock/model/app-lock";
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
 import { AudioWaveformHost } from "@/features/chat/components/audio-waveform-host";
@@ -14,6 +16,7 @@ import { MermaidRendererHost } from "@/features/chat/components/mermaid-renderer
 import { OutboxProvider } from "@/features/chat/context/outbox-context";
 import { QueuedMessagesProvider } from "@/features/chat/context/queued-messages-context";
 import { setLiveActivityNavigator } from "@/features/live-activity/model/live-activity-link";
+import { HomeOnboardingProvider, useHomeOnboarding } from "@/features/onboarding/context/home-onboarding-context";
 import type { NotificationTarget } from "@/features/push-notifications/push-notifications-native.types";
 import { useNotificationTaps } from "@/features/push-notifications/use-notification-taps";
 import type { QuickActionTarget } from "@/features/quick-actions/model/quick-action-items";
@@ -25,6 +28,7 @@ import {
   MobileWorkspaceProvider,
   useMobileWorkspaceReader,
 } from "@/features/workspace/context/mobile-workspace-context";
+import { AdaptiveSplit, useSplitLayout } from "@/shared/components/adaptive-split";
 import { androidBackOptions } from "@/shared/components/android-header-button";
 import { headerFontOptions } from "@/shared/lib/app-font";
 import { useReducedMotion } from "@/shared/lib/motion";
@@ -58,6 +62,8 @@ function AuthenticatedStack() {
   const segments = useSegments();
   // Reduced motion, from the device or from Settings, replaces the full-screen slide with a cross-fade.
   const pushAnimation = useReducedMotion() ? "fade" : "slide_from_right";
+  // Beside the chat list pane, a chat takes the place of the chat before it, so it fades in place.
+  const chatAnimation = useSplitLayout() ? "fade" : pushAnimation;
   const { t } = useText();
   const background = useThemeColor("background");
   const sheetBackground = String(useCSSVariable("--openbot-bg-sheet") ?? background);
@@ -191,7 +197,7 @@ function AuthenticatedStack() {
         <Stack.Screen
           name="chat/[agentId]"
           options={{
-            animation: pushAnimation,
+            animation: chatAnimation,
             contentStyle: { backgroundColor: background },
             fullScreenGestureEnabled: false,
             gestureEnabled: true,
@@ -202,7 +208,7 @@ function AuthenticatedStack() {
           name="task/[taskId]"
           // A task is a chat of its own, so it opens as the agent's chat does.
           options={{
-            animation: pushAnimation,
+            animation: chatAnimation,
             contentStyle: { backgroundColor: background },
             fullScreenGestureEnabled: false,
             gestureEnabled: true,
@@ -260,7 +266,7 @@ function AuthenticatedStack() {
         <Stack.Screen
           name="channel/[channelId]"
           options={{
-            animation: pushAnimation,
+            animation: chatAnimation,
             contentStyle: { backgroundColor: background },
             fullScreenGestureEnabled: false,
             gestureEnabled: true,
@@ -528,6 +534,17 @@ function AuthenticatedStack() {
           }}
         />
         <Stack.Screen
+          name="turn-thinking"
+          options={{
+            contentStyle: { backgroundColor: sheetBackground },
+            headerShown: false,
+            scrollEdgeEffects: { top: "hidden", bottom: "soft" },
+            presentation: "formSheet",
+            sheetAllowedDetents: [0.85],
+            sheetGrabberVisible: true,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             contentStyle: { backgroundColor: sheetBackground },
@@ -543,23 +560,49 @@ function AuthenticatedStack() {
   );
 }
 
+/**
+ * On a wide window, such as iPad or the open iPhone Duo, the chat list stays in a pane beside the stack,
+ * and the chats open beside it. The first-run flow keeps the whole window.
+ */
+function AuthenticatedSplit({ children }: PropsWithChildren) {
+  const onboarding = useHomeOnboarding();
+  const { t } = useText();
+  return (
+    <AdaptiveSplit
+      enabled={!onboarding.active}
+      resizeLabel={t("mobile.agent.home.chatListWidth")}
+      pane={
+        <ChatListPaneProvider>
+          <ConnectedScreen variant="pane" />
+        </ChatListPaneProvider>
+      }
+    >
+      {children}
+    </AdaptiveSplit>
+  );
+}
+
 export default function AuthenticatedLayout() {
   const { session } = useMobileSession();
   const workspaceKey = session ? `${session.apiUrl}:${session.user.id}` : "signed-out";
 
   return (
     <MobileWorkspaceProvider key={workspaceKey}>
-      <OutboxProvider>
-        <AgentPinTransitionProvider>
-          <AppDrawerShell>
-            <QueuedMessagesProvider>
-              <AuthenticatedStack />
-              <MermaidRendererHost />
-              <AudioWaveformHost />
-            </QueuedMessagesProvider>
-          </AppDrawerShell>
-        </AgentPinTransitionProvider>
-      </OutboxProvider>
+      <HomeOnboardingProvider>
+        <OutboxProvider>
+          <AgentPinTransitionProvider>
+            <AppDrawerShell>
+              <QueuedMessagesProvider>
+                <AuthenticatedSplit>
+                  <AuthenticatedStack />
+                </AuthenticatedSplit>
+                <MermaidRendererHost />
+                <AudioWaveformHost />
+              </QueuedMessagesProvider>
+            </AppDrawerShell>
+          </AgentPinTransitionProvider>
+        </OutboxProvider>
+      </HomeOnboardingProvider>
     </MobileWorkspaceProvider>
   );
 }

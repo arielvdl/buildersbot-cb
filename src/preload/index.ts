@@ -7,6 +7,9 @@ import {
   decodeAgentAdminSettings,
   decodeAgentBackupModelSettings,
   decodeAgentBrowserProfile,
+  decodeAgentExclusionChangeFromMain,
+  decodeAgentFolderChangeFromMain,
+  decodeAgentFolderListFromMain,
   decodeAgentImportPreview,
   decodeAgentImportResult,
   decodeAgentProfileDraft,
@@ -54,6 +57,7 @@ import {
   decodeRegistryInstallations,
   decodeRegistryInstallResult,
   decodeRegistryOperations,
+  decodeRemovableRuntimes,
   decodeSaveAgentProfileResult,
   decodeWorkspaceDirectory,
   type EventEndpoint,
@@ -84,6 +88,7 @@ import {
   decodeAgentAnalyticsFromMain,
   decodeAgentHostSettingsFromMain,
   decodeAgentModels,
+  decodeAgentNotificationLevelsFromMain,
   decodeAgentRuntimeSnapshot,
   decodeAgentSessionSettingsFromMain,
   decodeAgentStatusFromMain,
@@ -184,12 +189,15 @@ import {
   decodeUpdateStatus,
   decodeVoiceModelStatus,
   decodeVoiceModelStatuses,
+  decodeVoiceServerProbe,
+  decodeVoiceServerSettings,
   decodeVoiceSettings,
   decodeVoiceStream,
   decodeVoiceStreamTranscript,
   decodeVoiceTranscriptionResult,
   decodeVoid,
 } from "./app-decoding";
+import { decodeBackgroundProcesses } from "./background-process-decoding";
 import {
   decodeBrowserBounds,
   decodeBrowserControlState,
@@ -511,6 +519,8 @@ const agentGroup = bridgeGroup(IPC_ENDPOINTS.agent, {
   resetAgentSessionSetting: decodeAgentSessionSettingsFromMain,
   listHiddenAgents: decodeHiddenAgentsFromMain,
   setAgentHidden: decodeHiddenAgentsFromMain,
+  listAgentNotificationLevels: decodeAgentNotificationLevelsFromMain,
+  setAgentNotificationLevel: decodeAgentNotificationLevelsFromMain,
   listInstalledSkills: decodeInstalledSkillsFromMain,
   listChannels: decodeChannelSummaries,
   readChannel: decodeChannelPage,
@@ -535,6 +545,7 @@ const agentGroup = bridgeGroup(IPC_ENDPOINTS.agent, {
   searchConversationFiles: decodeConversationFileSearchPage,
   listConversationReads: decodeReadStates,
   markConversationRead: decodeReadState,
+  markConversationUnread: decodeReadState,
   sendMessage: decodeReceipt,
   setMessageReaction: decodeVoid,
   listQueue: decodeQueue,
@@ -565,6 +576,17 @@ const agentGroup = bridgeGroup(IPC_ENDPOINTS.agent, {
   respondToBrowserSecret: decodeVoid,
   respondToBrowserTakeover: decodeVoid,
   scopedEvent: decodeScopedAgentEvent,
+});
+
+// Bridged apart from the API object, because a dropped folder with no path reads the list.
+const agentFoldersGroup = bridgeGroup(IPC_ENDPOINTS.agentFolders, {
+  listAgentFolders: decodeAgentFolderListFromMain,
+  chooseAgentFolder: decodeAgentFolderChangeFromMain,
+  addAgentFolder: decodeAgentFolderChangeFromMain,
+  removeAgentFolder: decodeAgentFolderChangeFromMain,
+  chooseAgentExclusion: decodeAgentExclusionChangeFromMain,
+  addAgentExclusion: decodeAgentExclusionChangeFromMain,
+  removeAgentExclusion: decodeAgentExclusionChangeFromMain,
 });
 
 // Bridged apart from the API object, because the server list calls record the selected server and
@@ -616,6 +638,8 @@ const openbotApi: BuildersBotDesktopApi = {
     saveSetup: decodeAppSetupState,
     setupState: decodeAppSetupState,
     getAnalyticsPreference: decodeAnalyticsPreference,
+    getAnalyticsDefault: decodeAnalyticsPreference,
+    analyticsPreference: decodeAnalyticsPreference,
     setAnalyticsPreference: decodeAnalyticsPreference,
     getApprovalAutomation: decodeApprovalAutomationPreference,
     approvalAutomation: decodeApprovalAutomationPreference,
@@ -658,6 +682,7 @@ const openbotApi: BuildersBotDesktopApi = {
     setAppInterfaceSizePreference: decodeAppInterfaceSizePreference,
     appInterfaceSizePreference: decodeAppInterfaceSizePreference,
     openSettings: decodeVoid,
+    openUpdateSettings: decodeVoid,
     openExternal: decodeVoid,
     openUrl: decodeVoid,
     getExternalLinkPreference: decodeExternalLinkPreference,
@@ -686,6 +711,7 @@ const openbotApi: BuildersBotDesktopApi = {
     cancelProviderAccountSignIn: decodeAgentStatusFromMain,
     renameProviderAccount: decodeAgentStatusFromMain,
     removeProviderAccount: decodeAgentStatusFromMain,
+    signOutProvider: decodeAgentStatusFromMain,
     providerUsageResets: decodeProviderUsageResetsFromMain,
     resetProviderUsage: decodeProviderUsageResetOutcomeFromMain,
   }),
@@ -723,6 +749,10 @@ const openbotApi: BuildersBotDesktopApi = {
   }),
   macAutomation: bridgeGroup(IPC_ENDPOINTS.macAutomation, {
     request: decodeMacAutomationResults,
+  }),
+  backgroundProcesses: bridgeGroup(IPC_ENDPOINTS.backgroundProcesses, {
+    list: decodeBackgroundProcesses,
+    stop: decodeVoid,
   }),
   providerRuntimes: bridgeGroup(IPC_ENDPOINTS.providerRuntimes, {
     getStatus: decodeProviderRuntimeSnapshot,
@@ -800,6 +830,10 @@ const openbotApi: BuildersBotDesktopApi = {
     dictationState: decodeDictationState,
     finishDictation: decodeDictationState,
     cancelDictation: decodeDictationState,
+    getServer: decodeVoiceServerSettings,
+    probeServer: decodeVoiceServerProbe,
+    setServer: decodeVoiceServerSettings,
+    serverSettings: decodeVoiceServerSettings,
   }),
   auth: bridgeGroup(IPC_ENDPOINTS.auth, {
     getState: decodeCentralAuthState,
@@ -915,6 +949,7 @@ const openbotApi: BuildersBotDesktopApi = {
     getState: decodeLicenseState,
     openCheckout: decodeVoid,
     setUsers: decodeLicenseState,
+    changePlan: decodeLicenseState,
     setRenewal: decodeLicenseState,
   }),
   hostedServers: bridgeGroup(IPC_ENDPOINTS.hostedServers, {
@@ -926,6 +961,11 @@ const openbotApi: BuildersBotDesktopApi = {
     delete: decodeVoid,
     wake: decodeHostedServer,
     restart: decodeHostedServer,
+  }),
+  localServers: bridgeGroup(IPC_ENDPOINTS.localServers, {
+    create: decodeServer,
+    restart: decodeVoid,
+    delete: decodeVoid,
   }),
   customProviders: bridgeGroup(IPC_ENDPOINTS.customProviders, {
     list: decodeCustomProviders,
@@ -971,6 +1011,7 @@ const openbotApi: BuildersBotDesktopApi = {
     removeAccount: decodeVoid,
     usageResets: decodeProviderUsageResetsFromMain,
     resetUsage: decodeProviderUsageResetOutcomeFromMain,
+    signOut: decodeVoid,
     startRelaySignIn: decodeVoid,
     startAccountRelaySignIn: decodeVoid,
     relaySignInStatus: decodeProviderRelaySignInStatus,
@@ -1174,6 +1215,20 @@ const openbotApi: BuildersBotDesktopApi = {
       releaseFilePreview: decodeVoid,
       listWorkspaceDirectory: decodeWorkspaceDirectory,
     }),
+    ...agentFoldersGroup,
+    // The page gets the folder, not its path, as for a dropped attachment.
+    addDroppedAgentFolder: async (agentId, folder) => {
+      const path = webUtils.getPathForFile(folder);
+      // An item from another app, with no path here: the page says that it is not a folder on this computer.
+      if (!path)
+        return {
+          outcome: "refused",
+          path: folder.name,
+          refusal: "missing",
+          list: await agentFoldersGroup.listAgentFolders(agentId),
+        };
+      return agentFoldersGroup.addAgentFolder({ agentId, path });
+    },
     onAttachmentImport: (listener) => {
       attachmentImportListeners.add(listener);
       return () => attachmentImportListeners.delete(listener);
@@ -1311,6 +1366,8 @@ const openbotApi: BuildersBotDesktopApi = {
     removeOldRuntimeVersions: decodeOldRuntimeVersions,
     getCleanupCandidates: decodeCleanupCandidates,
     removeCleanupCandidate: decodeCleanupRemoval,
+    getRemovableRuntimes: decodeRemovableRuntimes,
+    removeRemovableRuntimes: decodeRemovableRuntimes,
   }),
   remoteDesktop: bridgeGroup(IPC_ENDPOINTS.remoteDesktop, {
     checkSetup: decodeRemoteDesktopSetupFromMain,

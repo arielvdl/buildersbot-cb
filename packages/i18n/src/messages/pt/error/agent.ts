@@ -119,6 +119,8 @@ export const messages = {
     "O computador está com pouca memória. Sua mensagem aguarda na fila e começa sozinha quando a memória voltar. Fechar apps que você não usa ajuda.",
   "error.agent.workspaceOnlyToolMissing":
     "O acesso Somente o espaço de trabalho exige {tool}, que o Builders Bot não encontrou. Instale a ferramenta ou escolha Acesso completo nas configurações do agente.",
+  "error.agent.claudeSandboxUnavailable":
+    "O acesso Somente o espaço de trabalho precisa do sandbox do Claude, que o Claude não consegue iniciar neste computador: {reason}. Escolha Acesso completo ou outro provedor nas configurações do agente.",
   "error.agent.screenCaptureOff":
     "A captura de tela está desativada para este agente. O usuário pode ativar o Uso do computador nas configurações do agente.",
   "error.agent.screenCaptureUnavailable": "A captura de tela não está disponível neste computador.",

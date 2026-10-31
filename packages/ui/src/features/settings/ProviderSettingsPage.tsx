@@ -7,7 +7,9 @@
 import { ProviderLogo } from "@openbot/brand";
 import {
   type AgentProviderId,
+  agentProviderName,
   type CustomProviderSummary,
+  DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   MAX_PROVIDER_ACCOUNTS,
   PROMPT_CACHE_TTLS,
@@ -40,6 +42,7 @@ import {
   KeyRound,
   Link,
   LogIn,
+  LogOut,
   Pencil,
   Plus,
   Popover,
@@ -130,6 +133,11 @@ export interface ProviderSettingsPageProps extends ProviderRowHost {
    * joined server's rows have no Edit.
    */
   onEditCustomProvider?: ((provider: CustomProviderSummary) => void) | undefined;
+  /**
+   * This computer runs an endpoint on OpenCode or Pi, and each row names its provider. A joined
+   * server's host runs every endpoint on OpenCode.
+   */
+  customProviderHarnesses?: boolean | undefined;
   /** Runs after the user accepts the removal question. */
   onRemoveCustomProvider?: ((provider: CustomProviderSummary) => void) | undefined;
   removingCustomProvider?: string | null | undefined;
@@ -394,14 +402,13 @@ interface DefaultChoice {
 /** The default provider as one select, so the rows need no radio. */
 function DefaultProviderRow(props: ProviderSettingsPageProps) {
   const { t } = useText();
-  const openCode = () => props.options.find((option) => option.id === "opencode");
   const choices = (): DefaultChoice[] => {
     const value = props.defaultProvider?.value ?? null;
     const providers = props.options
       .filter((option) => (option.state === "available" && !option.off) || option.id === value)
       .map((option) => ({ id: option.id, name: option.name }));
     const custom =
-      (props.customProviders?.length ?? 0) > 0 && servesCustomProvider(openCode()) && props.onAddCustomProvider;
+      (props.customProviders?.length ?? 0) > 0 && servesCustomEndpoints(props) && props.onAddCustomProvider;
     return custom || value === "custom" ? [...providers, { id: "custom", name: t("provider.custom.name") }] : providers;
   };
   const selected = () => choices().find((choice) => choice.id === props.defaultProvider?.value) ?? null;
@@ -559,11 +566,15 @@ function AlternativeItem(props: { row: ProviderRow }) {
 
 /* ---------------------------------------------- Accounts */
 
+/** The providers whose CLI signs its own sign-in out (`signOut` in `src/backend/provider-drivers.ts`). */
+const SIGN_OUT_PROVIDERS: ReadonlySet<AgentProviderId> = new Set(["claude", "codex"]);
+
 function AccountsSection(props: SectionProps) {
   const { t, format, errorMessage, sourceText } = useText();
   const accounts = () => props.option.accounts ?? [];
   const [removing, setRemoving] = createSignal<ProviderPickerAccount | null>(null);
   const [resetting, setResetting] = createSignal<ProviderPickerAccount | null>(null);
+  const [disconnecting, setDisconnecting] = createSignal<ProviderPickerAccount | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   /** How the last usage reset ended, when it did not fail. */
   const [notice, setNotice] = createSignal<string | null>(null);
@@ -632,6 +643,22 @@ function AccountsSection(props: SectionProps) {
         : t("provider.settings.removeUnused");
     return `${move} ${t("provider.settings.removeCredentials")}`;
   };
+  const disconnectDescription = (account: ProviderPickerAccount | null) => {
+    if (!account) return "";
+    const provider = props.option.name;
+    const agents = account.usedBy ?? [];
+    return [
+      props.accountActions?.local
+        ? t("provider.settings.disconnectLocal", { provider })
+        : t("provider.settings.disconnectHost", { provider }),
+      agents.length > 0
+        ? t("provider.settings.accountBlocked", { agents: format.list(agents) })
+        : t("provider.settings.removeUnused"),
+      accounts().length > 1 ? t("provider.settings.disconnectOthers", { provider }) : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  };
   return (
     <SettingsSection
       title={t("provider.settings.accounts")}
@@ -664,6 +691,11 @@ function AccountsSection(props: SectionProps) {
               accounts={accounts()}
               run={run}
               onRemove={() => setRemoving({ ...account() })}
+              onDisconnect={
+                props.accountActions?.signOut && SIGN_OUT_PROVIDERS.has(props.option.id)
+                  ? () => setDisconnecting({ ...account() })
+                  : undefined
+              }
               resetsLeft={props.accountActions?.resetUsage ? resetsLeft(account().id) : 0}
               onResetUsage={() => setResetting({ ...account() })}
             />
@@ -709,6 +741,23 @@ function AccountsSection(props: SectionProps) {
         }}
       />
       <ConfirmDialog
+        open={disconnecting() !== null}
+        tone="destructive"
+        title={t("provider.settings.disconnectTitle", {
+          name: disconnecting() ? providerAccountName(t, accounts(), disconnecting()?.id ?? "") : "",
+        })}
+        description={disconnectDescription(disconnecting())}
+        confirmLabel={t("provider.account.disconnect")}
+        onCancel={() => setDisconnecting(null)}
+        onConfirm={() => {
+          const target = disconnecting();
+          setDisconnecting(null);
+          if (target) {
+            run(providerAccountName(t, accounts(), target.id), () => props.accountActions?.signOut?.(props.option.id));
+          }
+        }}
+      />
+      <ConfirmDialog
         open={resetting() !== null}
         tone="default"
         icon={<Gauge aria-hidden="true" />}
@@ -745,6 +794,8 @@ function AccountRow(
     accounts: readonly ProviderPickerAccount[];
     run: (name: string, action: () => Promise<void> | undefined) => void;
     onRemove: () => void;
+    /** Absent where the provider's own sign-in cannot be signed out here. */
+    onDisconnect: (() => void) | undefined;
     /** The usage reset credits the provider gave this account; the menu offers a reset only when there is one. */
     resetsLeft: number;
     onResetUsage: () => void;
@@ -887,6 +938,17 @@ function AccountRow(
                   <Trash2 aria-hidden="true" />
                   {t("provider.account.remove")}
                 </DropdownMenu.Item>
+              </Show>
+              <Show when={own() && state() === "connected" && props.onDisconnect}>
+                {(disconnect) => (
+                  <>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item onSelect={() => disconnect()()}>
+                      <LogOut aria-hidden="true" />
+                      {t("provider.account.disconnect")}
+                    </DropdownMenu.Item>
+                  </>
+                )}
               </Show>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
@@ -1111,7 +1173,11 @@ function ApiKeySection(props: SectionProps) {
                   ? t("provider.settings.geminiKeyInUse")
                   : props.option.id === "claude" && saved()
                     ? t("provider.settings.claudeKeyInUse")
-                    : t("provider.settings.keyAlternative", { name: props.option.name })}
+                    : props.option.id === "codex"
+                      ? saved()
+                        ? t("provider.settings.codexKeyInUse")
+                        : t("provider.settings.codexKeyAlternative")
+                      : t("provider.settings.keyAlternative", { name: props.option.name })}
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -1621,11 +1687,24 @@ function DownloadSection(props: SectionProps) {
 
 /* ------------------------------------------------------------------ Custom endpoints */
 
+/** OpenCode can run a custom endpoint, or Pi can where this computer offers it. */
+function servesCustomEndpoints(props: ProviderSettingsPageProps): boolean {
+  const option = (id: AgentProviderId) => props.options.find((candidate) => candidate.id === id);
+  return (
+    servesCustomProvider(option("opencode")) ||
+    Boolean(props.customProviderHarnesses && servesCustomProvider(option("pi")))
+  );
+}
+
 function CustomEndpointsPage(props: ProviderSettingsPageProps) {
   const { t, format } = useText();
   const endpoints = () => props.customProviders ?? [];
   const engine = () => props.options.find((option) => option.id === "opencode");
-  const ready = () => servesCustomProvider(engine());
+  const ready = () => servesCustomEndpoints(props);
+  const runsOn = (endpoint: CustomProviderSummary) =>
+    t("customProvider.list.runsOn", {
+      name: agentProviderName(endpoint.harness ?? DEFAULT_CUSTOM_PROVIDER_HARNESS),
+    });
   const [confirming, setConfirming] = createSignal<CustomProviderSummary | null>(null);
   return (
     <>
@@ -1682,6 +1761,7 @@ function CustomEndpointsPage(props: ProviderSettingsPageProps) {
                         count: endpoint().models.length,
                       })}
                       {endpoint().hasApiKey ? ` · ${t("customProvider.list.apiKeySaved")}` : ""}
+                      {props.customProviderHarnesses ? ` · ${runsOn(endpoint())}` : ""}
                     </ItemDescription>
                   </ItemContent>
                   <Show when={props.onEditCustomProvider || props.onRemoveCustomProvider}>

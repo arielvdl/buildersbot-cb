@@ -66,7 +66,7 @@ export type BillingProduct = (typeof BILLING_PRODUCTS)[number];
 export const PLAN_CHANGE_DIRECTIONS = ["up", "down"] as const;
 export type PlanChangeDirection = (typeof PLAN_CHANGE_DIRECTIONS)[number];
 /**
- * The largest license user count that analytics accepts. The app sells up to 25 users; a license
+ * The largest license user count that analytics accepts. The app sells up to 10 users; a license
  * from the Stripe Dashboard can have more, so the bound only stops a value that is not a count.
  */
 const ANALYTICS_MAX_LICENSE_USERS = 10_000;

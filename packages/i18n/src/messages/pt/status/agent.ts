@@ -42,5 +42,5 @@ export const messages = {
   "status.agent.memoryChanges": "Memórias: {saved} salvas, {updated} atualizadas, {forgotten} esquecidas.",
   "status.agent.memoryChangesWithConflicts":
     "Memórias: {saved} salvas, {updated} atualizadas, {forgotten} esquecidas, {notChanged} não alteradas porque outro tópico as alterou antes.",
-  "status.agent.securityScan": "Verificação de injeção de prompt: {finding}",
+  "status.agent.planContinues": "O plano tem etapas abertas. O agente continua ({current} de {limit}).",
 } as const satisfies PartialTranslation<typeof source>;

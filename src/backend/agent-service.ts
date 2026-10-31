@@ -46,6 +46,7 @@ import type {
   CreateChannelMemoryInput,
   CreateChannelRoutineInput,
   CreateRoutineInput,
+  CustomProviderHarness,
   CustomProviderRestart,
   DeleteAgentMemoryInput,
   DeleteChannelMemoryInput,
@@ -116,9 +117,11 @@ import {
   type BusyMessageMode,
   CONTEXT_RESET_ITEM_TYPE,
   DEFAULT_BUSY_MESSAGE_MODE,
+  DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   DEFAULT_SECURITY_GUARD_PREFERENCE,
   isContextResetMarker,
+  isCustomProviderHarness,
   MODEL_SWITCH_ITEM_TYPES,
   type ModelSwitchReason,
   type QueueSteerFallback,
@@ -177,6 +180,7 @@ import {
   startingModel,
 } from "./agent/model-choice";
 import { BuildersBotToolRouter } from "./agent/openbot-tool-router";
+import { PlanContinuation } from "./agent/plan-continuation";
 import { ProfileClients } from "./agent/profile-clients";
 import {
   GenerationUsageLimitError,
@@ -449,7 +453,14 @@ const MAX_SECTION_TEAMMATES = 32;
 const TASK_STOP_WAIT_MS = 15_000;
 
 /** The user's update, and the browser profile choice that the profile operations set after their checks. */
-export type AgentUpdate = UpdateAgentInput & { ownBrowserSession?: boolean; browserProfileId?: string | null };
+export type AgentUpdate = UpdateAgentInput & {
+  ownBrowserSession?: boolean;
+  browserProfileId?: string | null;
+  /** Only the local `agentFolders` handler sets it. The IPC and Team API parsers drop it. */
+  additionalFolders?: string[];
+  /** Only the local `agentFolders` handler sets it, like `additionalFolders`. */
+  excludedFolders?: string[];
+};
 
 export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly channels: ChannelService;
@@ -512,8 +523,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #security: PromptInjectionGuard;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
   readonly #stoppedTurns = new Map<string, string>();
+
   /** The agents that asked for a new chat with `start_new_chat`. A restart forgets the request. */
   readonly #requestedNewChats = new Set<string>();
+  /** A turn that ends with open plan steps runs again, at most 3 times for one request. */
+  readonly #planContinuation = new PlanContinuation({ limit: 3 });
   #initialized = false;
   #stopping = false;
 
@@ -560,6 +574,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       browserInApp,
       browserBroker,
       githubConnector,
+      agents: () => store.list(),
       logger,
       hooks: {
         emitError: (code, error) => this.#emitError(code, error),
@@ -836,8 +851,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         captureConfigRevision: () => this.#endpoints.committedRevision(),
         onProviderActivated: (provider, configRevision) =>
           Effect.gen({ self: this }, function* () {
-            if (provider === "opencode") this.#endpoints.clearReleased(configRevision);
-            yield* this.#endpoints.runExclusive(() => this.#endpoints.moveAgentsOffUnlistedModels(provider));
+            if (isCustomProviderHarness(provider)) this.#endpoints.clearReleased(provider, configRevision);
+            yield* this.#endpoints.runExclusive(() =>
+              Effect.gen({ self: this }, function* () {
+                if (isCustomProviderHarness(provider)) yield* this.#endpoints.moveAgentsToHarness(provider);
+                yield* this.#endpoints.moveAgentsOffUnlistedModels(provider);
+              }),
+            );
           }),
         onProviderResumed: (provider) => {
           for (const agent of this.#store.list()) {
@@ -882,13 +902,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
               }
             : history;
         },
-        servesModel: (modelId) => this.#endpoints.serves(modelId),
+        // Of the clients that read this, only OpenCode runs custom endpoints.
+        servesModel: (modelId) => this.#endpoints.serves(modelId, "opencode"),
         // Every MCP set that leaves for a provider is remembered, so its secrets stay redactable
         // after the user edits them. This is the second of the two ways one leaves; the other is
         // `enabledMcpServers`, which the Codex thread configuration reads.
         mcpServers: () => this.#mcp.record(credentials.mcpServers()),
         reportMcpDrops: (provider, drops) => this.#mcp.reportDrops(provider, drops),
-        mcpEndpoint: (config) => this.#mcp.endpoint(config).pipe(toMcpOperationError),
+        mcpEndpoint: (config, agentId) => this.#mcp.endpoint(config, agentId).pipe(toMcpOperationError),
       },
       mcpHandoff: this.#mcp.handoffLog(),
       redactMcp: (text) => this.#mcp.redact(text),
@@ -900,11 +921,21 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       providers: this.#providers,
       hooks: {
         applyAgentUpdate: (input) => this.#applyAgentUpdate(input).pipe(toEndpointChangeFailed),
+        queueAgentUpdate: (input) => this.#applyAgentUpdate(input, undefined, null, true).pipe(toEndpointChangeFailed),
+        endpointHarness: (endpointId) => {
+          const endpoint = credentials.customProviders().find((provider) => provider.id === endpointId);
+          return endpoint ? (endpoint.harness ?? DEFAULT_CUSTOM_PROVIDER_HARNESS) : null;
+        },
         // The model list reaches the renderer by pull, refreshed on a status event, and an exclusion
         // changes what that pull answers while no provider state moves.
         modelsChanged: () => this.#emit({ type: "status", status: this.getStatus() }),
         stopProfileClients: () =>
-          this.#profileClients.stopOpenCode().pipe(Effect.andThen(this.#warmGenerations.stopIdle("opencode"))),
+          this.#profileClients
+            .stopEndpointClients()
+            .pipe(
+              Effect.andThen(this.#warmGenerations.stopIdle("opencode")),
+              Effect.andThen(this.#warmGenerations.stopIdle("pi")),
+            ),
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
         providerAvailable: (provider) => this.#providerAvailable(provider),
         preference: () => this.#preference(),
@@ -919,6 +950,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       scheduleDrain: (agentId) => this.#drain.scheduleDrain(agentId),
       rotateSession: (agentId, client, threadId) => this.#threads.rotateProviderSession(agentId, client, threadId),
       rotatesSession: (agentId, threadId) => this.#threads.rotatesSession(agentId, threadId),
+      isStopping: () => this.#stopping,
       compacted: (threadId) => {
         this.channels.contextCompacted(threadId);
         this.messaging.contextCompacted(threadId);
@@ -1044,7 +1076,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       compaction: this.#compaction,
       mcpServers: () => this.#mcp.enabled(),
       mcpToolRuntimes: () => this.#mcp.toolRuntimes(),
-      mcpEndpoint: (config) => this.#mcp.endpoint(config).pipe(toMcpOperationError),
+      mcpEndpoint: (config, agentId) => this.#mcp.endpoint(config, agentId).pipe(toMcpOperationError),
       mcpProxyFingerprint: (configs) => this.#mcp.proxyFingerprint(configs).pipe(toMcpOperationError),
       ...(credentials.agentEnvironment ? { agentEnvironment: credentials.agentEnvironment } : {}),
       passwordVaultConnected: () => options.passwordVault?.connected() ?? false,
@@ -1312,13 +1344,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       memory: this.#memoryHold,
       ...(options.agentLimit ? { agentLimit: options.agentLimit } : {}),
       usageLimits: this.#usageLimits,
+      planContinuation: this.#planContinuation,
       tasks: this.#tasks,
       security: this.#security,
       hooks: {
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
         redactMcp: (text) => this.#mcp.redact(text),
         isStopping: () => this.#stopping,
-        servesModel: (model) => this.#endpoints.serves(model),
+        servesModel: (model, provider) => this.#endpoints.serves(model, provider),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
         scanPrompt: (agentId, input) => this.scanPrompt(agentId, input),
@@ -1419,6 +1452,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       images: this.#images,
       deltas: this.#deltas,
       usageLimits: this.#usageLimits,
+      planContinuation: this.#planContinuation,
       hooks: {
         emitFailure: (failure) => this.emit("failure", failure),
         emit: (event) => this.#emit(event),
@@ -1439,6 +1473,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         closeRoutineSession: (externalThreadId) => this.#threads.closeRoutineThread(externalThreadId),
         conversationTurnEnded: (agentId, sideThreadId, counts, memoryCommitted) =>
           this.#memoryReview.turnEnded(agentId, sideThreadId, counts, memoryCommitted),
+        turnStopped: (agentId, taskId, turnId) =>
+          this.#stoppedTurn(agentId, taskId) === turnId || (taskId === null && this.#requestedNewChats.has(agentId)),
+        hasOpenWait: (agentId, deliveryIds) =>
+          this.#waits.list(agentId).waits.some((wait) => deliveryIds.includes(wait.requestMessageId)),
         routineAnswered: (agentId, deliveryId, answer) => {
           const agent = this.#store.list().find((item) => item.id === agentId);
           const run = this.#routines.runForDelivery(deliveryId);
@@ -1621,6 +1659,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   listAgents(): AgentSummary[] {
     return this.#duplication.visibleAgents(this.#store.list());
+  }
+
+  /** The folder that every local agent can change, beside its own workspace. */
+  get sharedRoot(): string {
+    return this.#store.sharedRoot;
   }
 
   /**
@@ -3349,6 +3392,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this: AgentService,
     agentId: string,
   ) {
+    // A new chat ends the automatic plan continuation of the agent's own chat.
+    yield* this.#drain.endPlanContinuation(agentId, null);
     const threadId = yield* lifecycleStep("clear agent context", () => {
       const agent = this.#conversation.requireKnownAgent(agentId);
       const activeTurn =
@@ -3559,9 +3604,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }
 
   deleteAgent(agentId: string): Effect.Effect<void, AgentLifecycleFailed> {
-    return this.#removal
-      .delete(agentId)
-      .pipe(Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "deleteAgent", cause: failure.cause })));
+    return Effect.sync(() => this.#planContinuation.cancel(agentId)).pipe(
+      Effect.andThen(this.#removal.delete(agentId)),
+      Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "deleteAgent", cause: failure.cause })),
+    );
   }
 
   deleteChannel(channelId: string): Effect.Effect<void, AgentLifecycleFailed> {
@@ -3827,6 +3873,15 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
   }
 
+  /** Signs the provider's own sign-in out. Its agents keep it and wait until it connects again. */
+  signOutProvider(provider: AgentProvider): Effect.Effect<AgentStatus, AgentLifecycleFailed> {
+    return this.#providers
+      .signOutProvider(provider)
+      .pipe(
+        Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "signOutProvider", cause: failure.cause })),
+      );
+  }
+
   /** See `ProviderRuntime.signInProviderOnHost`. */
   signInProviderOnHost(
     provider: AgentProvider,
@@ -3859,6 +3914,19 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           (failure) => new AgentLifecycleFailed({ operation: "startProviderCodeLogin", cause: failure.cause }),
         ),
       );
+  }
+
+  /** Saves an OpenAI API key as Codex's login and restarts Codex on it, as a changed key does. */
+  signInCodexWithApiKey(apiKey: string): Effect.Effect<AgentStatus, AgentLifecycleFailed> {
+    return this.changeProviderCredential("codex", () =>
+      this.#providers
+        .saveCodexApiKey(apiKey)
+        .pipe(
+          Effect.mapError(
+            (failure) => new AgentLifecycleFailed({ operation: "signInCodexWithApiKey", cause: failure.cause }),
+          ),
+        ),
+    );
   }
 
   submitProviderCodeLogin(provider: AgentProvider, code: string): AgentStatus {
@@ -3957,9 +4025,33 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
   }
 
-  /** Restarts OpenCode so a saved or removed endpoint reaches it. Reports why, if it did not. */
-  reloadOpenCodeConfig(): Effect.Effect<CustomProviderRestart, AgentLifecycleFailed> {
-    return this.#providers.reloadOpenCodeConfig();
+  /** Restarts OpenCode or Pi so a saved or removed endpoint reaches it. Reports why, if it did not. */
+  reloadCustomProviderConfig(
+    harness: CustomProviderHarness,
+  ): Effect.Effect<CustomProviderRestart, AgentLifecycleFailed> {
+    return this.#providers.reloadCustomProviderConfig(harness);
+  }
+
+  /**
+   * Starts the harness that an endpoint moved to, when agents wait for it. They move when it
+   * activates, and until then they stay on a harness that no longer lists the endpoint. The start is
+   * not awaited: a save does not wait for model discovery. A start that fails is reported, and the
+   * agents then move to a model that their harness lists.
+   */
+  startHarnessForMovedAgents(harness: CustomProviderHarness): Effect.Effect<void> {
+    return Effect.suspend(() =>
+      this.#endpoints.waitsForHarness(harness)
+        ? this.#providers.ensureProvider(harness).pipe(
+            Effect.catch((failure) =>
+              Effect.sync(() => this.#emitError("agent_model_fallback_failed", failure.cause)).pipe(
+                Effect.andThen(this.#endpoints.abandonMovesTo(harness)),
+              ),
+            ),
+            Effect.forkIn(this.#scope),
+            Effect.asVoid,
+          )
+        : Effect.void,
+    );
   }
 
   /** Replaces the custom agents' router so a saved or removed agent reaches it. Reports why, if it did not. */
@@ -4017,10 +4109,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   /** See `CustomEndpoints.save`: the exclusion of the id being saved and the caller's file write. */
   saveCustomProvider<T>(
     providerId: string,
+    harness: CustomProviderHarness,
     persist: () => Effect.Effect<T, AgentLifecycleFailed>,
   ): Effect.Effect<T, AgentLifecycleFailed> {
     return this.#endpoints
-      .save(providerId, () => persist().pipe(toEndpointChangeFailed))
+      .save(providerId, harness, () => persist().pipe(toEndpointChangeFailed))
       .pipe(
         Effect.mapError(
           (failure) => new AgentLifecycleFailed({ operation: "saveCustomProvider", cause: failure.cause }),
@@ -4031,11 +4124,12 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   /** See `CustomEndpoints.update`: the agents on removed models, the exclusion, and the file write. */
   updateCustomProvider<T>(
     providerId: string,
+    harness: CustomProviderHarness,
     removedModelIds: readonly string[],
     persist: () => Effect.Effect<T, AgentLifecycleFailed>,
   ): Effect.Effect<T, AgentLifecycleFailed> {
     return this.#endpoints
-      .update(providerId, removedModelIds, () => persist().pipe(toEndpointChangeFailed))
+      .update(providerId, harness, removedModelIds, () => persist().pipe(toEndpointChangeFailed))
       .pipe(
         Effect.mapError(
           (failure) => new AgentLifecycleFailed({ operation: "updateCustomProvider", cause: failure.cause }),
@@ -4120,6 +4214,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     yield* this.#turn.dispose();
     yield* this.#usageLimits.dispose();
     this.#drain.dispose();
+    this.#planContinuation.dispose();
     this.#browser.clearControls();
     yield* Effect.forEach(clients, (client) => client.stop().pipe(Effect.catch(() => Effect.void)), {
       concurrency: "unbounded",
@@ -4226,9 +4321,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   markConversationUnread(
     agentId: string,
     memberId: string,
+    fromMessageId: string | null = null,
   ): Effect.Effect<ConversationReadState, AgentLifecycleFailed> {
     return this.#reader
-      .markUnread(agentId, memberId)
+      .markUnread(agentId, memberId, fromMessageId)
       .pipe(
         Effect.mapError(
           (failure) => new AgentLifecycleFailed({ operation: "markConversationUnread", cause: failure.cause }),
@@ -4399,6 +4495,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     input: AgentTaskInput,
   ): Effect.fn.Return<void, AgentLifecycleFailed> {
     const task = yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    yield* this.#drain.endPlanContinuation(task.agentId, task.taskId);
     // A teammate's answer stays in the open thread, so it runs with the other answers to the same request.
     for (const message of this.#mailbox.queuedTaskMessages(task.agentId, task.taskId, { teammateAnswers: false }))
       yield* this.cancelQueuedMessage(task.agentId, message.deliveryId);
@@ -4776,9 +4873,15 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       this.#conversation.emitConversation(snapshot);
     }
     this.#mailboxSync.emitQueue(agent.id);
+    this.#usageLimits.retry(agent.id);
     this.#drain.scheduleDrain(agent.id);
     return receipt;
   }, Effect.uninterruptible).bind(this);
+
+  /** The turn that the user stopped last in a lane: the agent's own chat, or one task. */
+  #stoppedTurn(agentId: string, taskId: string | null): string | null {
+    return taskId === null ? (this.#stoppedTurns.get(agentId) ?? null) : this.#tasks.stoppedTurn(taskId);
+  }
 
   /**
    * Takes a message that arrives while the agent works into the running turn, when the agent's
@@ -4794,7 +4897,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     explain: boolean,
   ) {
     // A turn the user stopped is ending, and a message steered into it would end with it.
-    const stoppedTurnId = task ? this.#tasks.stoppedTurn(task.taskId) : this.#stoppedTurns.get(agent.id);
+    const stoppedTurnId = this.#stoppedTurn(agent.id, task?.taskId ?? null);
     const steerTurnId =
       snapshot.activeTurnId &&
       snapshot.activeTurnId !== stoppedTurnId &&
@@ -4925,7 +5028,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   interrupt(agentId: string, turnId: string, executionThreadId?: string): Effect.Effect<void, AgentLifecycleFailed> {
     return Effect.suspend(() => {
       if (!executionThreadId) this.#stoppedTurns.set(agentId, turnId);
-      return this.#interruptTurn(agentId, turnId, executionThreadId);
+      const taskId = executionThreadId ? this.#tasks.taskForThread(executionThreadId) : null;
+      // A Stop also ends the automatic plan continuation of its lane. A channel turn has none.
+      const endContinuation =
+        executionThreadId && taskId === null ? Effect.void : this.#drain.endPlanContinuation(agentId, taskId);
+      return endContinuation.pipe(Effect.andThen(this.#interruptTurn(agentId, turnId, executionThreadId)));
     }).pipe(Effect.asVoid);
   }
 

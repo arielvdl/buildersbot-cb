@@ -90,7 +90,7 @@ function StoryMenuBar(): JSX.Element {
     <div class="dynamic-island-story-menubar" aria-hidden="true">
       <span class="dynamic-island-story-menu-left">
         <Bot />
-        <strong>OpenBot</strong>
+        <strong>Builders Bot</strong>
         <span>File</span>
         <span>Edit</span>
         <span>View</span>

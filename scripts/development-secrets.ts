@@ -1,5 +1,5 @@
-import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import {
   chmodSync,
   closeSync,
@@ -71,7 +71,7 @@ export function createDevelopmentWebPushKeys(): Record<string, string> {
   const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
   const privateJwk = privateKey.export({ format: "jwk" });
   const { x, y } = publicKey.export({ format: "jwk" });
-  const point = Buffer.concat([Buffer.from([4]), Buffer.from(x, "base64url"), Buffer.from(y, "base64url")]);
+  const point = Buffer.concat([Buffer.from([4]), Buffer.from(x ?? "", "base64url"), Buffer.from(y ?? "", "base64url")]);
   return {
     WEB_PUSH_PUBLIC_KEY: point.toString("base64url"),
     WEB_PUSH_PRIVATE_KEY: JSON.stringify(privateJwk),

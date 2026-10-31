@@ -7,6 +7,7 @@
  * a row without a second shape. Rows never carry a path: the host resolves a file from its id.
  */
 
+import { MANAGED_RUNTIME_PROVIDERS, type ManagedProviderId } from "./agent-providers";
 import { type AttachmentSummary, isAttachmentSummary } from "./ipc-attachments";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import { isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
@@ -147,6 +148,16 @@ export interface OldRuntimeVersions {
   bytes: number;
 }
 
+/**
+ * The provider CLI downloads on this computer that Builders Bot can remove now: the versions that no
+ * Builders Bot app uses any more, and the whole download of each provider in `providers`.
+ */
+export interface RemovableRuntimes {
+  bytes: number;
+  /** The providers that are off, or that run the CLI the user installed. No agent runs their download. */
+  providers: ManagedProviderId[];
+}
+
 export const CLEANUP_KINDS = ["worktree", "dev-profile"] as const;
 /** A git worktree that was merged or went idle, or the data folder of an old development run. */
 export type CleanupKind = (typeof CLEANUP_KINDS)[number];
@@ -265,6 +276,14 @@ export function parseOpenStoredFileInput(value: unknown): OpenStoredFileInput {
 
 export function parseOpenStorageLocationInput(value: unknown): OpenStorageLocationInput {
   return { agentId: identifier(record(value, "location request").agentId, "agent") };
+}
+
+export function decodeRemovableRuntimes(value: unknown): RemovableRuntimes {
+  const runtimes = record(value, "removable runtimes");
+  const providers = runtimes.providers ?? [];
+  if (!Array.isArray(providers) || !providers.every((provider) => isOneOf(MANAGED_RUNTIME_PROVIDERS, provider)))
+    invalid("removable runtimes");
+  return { bytes: byteCount(runtimes.bytes, "removable runtimes"), providers };
 }
 
 export function decodeOldRuntimeVersions(value: unknown): OldRuntimeVersions {

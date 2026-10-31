@@ -9,6 +9,8 @@ export const messages = {
   "error.provider.codexUnresponsive": "Codex が応答しなくなったため、Builders Bot がそのプロセスを終了しました。",
   "error.provider.acpUnresponsive":
     "{provider} が時間内に応答しなかったため、Builders Bot がそのプロセスを終了しました。",
+  "error.provider.acpMcpNotLoaded":
+    "{provider} が Builders Bot のツールを読み込まなかったため、このエージェントはツールを使えず、チームメイトにも連絡できません。{provider} のチームポリシーがローカル MCP サーバーをブロックしている可能性があります。チーム管理者に許可を依頼してから、もう一度お試しください。",
   "error.provider.endpointsReadOnly":
     "保存されたエンドポイントは新しいバージョンの Builders Bot で書き込まれたか、ファイルを読み取れません。変更するには Builders Bot を更新してください。",
   "error.provider.endpointNoSecureStorage":
@@ -64,6 +66,7 @@ export const messages = {
   "error.provider.removeWhileDownloading": "ダウンロードが終わってから削除してください。",
   "error.provider.removeIncomplete":
     "この CLI のファイルを別のプログラムが使用しています。閉じてから、もう一度お試しください。",
+  "error.provider.removeDownloadsFailed": "{providers} の CLI のダウンロードを削除できませんでした。",
   "error.provider.cliOverride": "Builders Bot で更新する前に、明示的な CLI パスの指定を削除してください。",
   "error.provider.runtimeUpdateIncomplete": "ランタイムの更新が完了しませんでした。",
   "error.provider.downloadHttp": "ランタイムのダウンロードが HTTP {status} で失敗しました。",
@@ -102,6 +105,8 @@ export const messages = {
   "error.provider.modelsTooMany": "モデルが多すぎます。",
   "error.provider.modelIdCharacter": "モデル ID に使用できない文字が含まれています。",
   "error.provider.modelIdDuplicate": "2 つのモデルの ID が同じです。",
+  "error.provider.contextWindowInvalid":
+    "モデルのコンテキストウィンドウは {min} から {max} までの整数のトークン数にしてください。",
   "error.provider.headersTooMany": "ヘッダーが多すぎます。",
   "error.provider.headerNameCharacter": "ヘッダー名に HTTP で使用できない文字が含まれています。",
   "error.provider.headerNameTooLong": "ヘッダー名が長すぎます。",
@@ -189,6 +194,7 @@ export const messages = {
     "{provider} のサインインの有効期限が切れました。続けるには、もう一度サインインしてください。",
   "error.provider.cliActivateFailed": "Builders Bot は管理対象 CLI を有効にできませんでした。",
   "error.provider.cliBusyReconnect": "{provider} CLI はターンを処理中です。終わるまで待ってから再接続してください。",
+  "error.provider.cliBusySignOut": "{provider} CLI はターンを処理中です。終わるまで待ってから切断してください。",
   "error.provider.opencodeCredentialsRejected":
     "モデルプロバイダーが API キーを拒否しました。設定で OpenCode のキーを修正するか、`opencode auth login` でプロバイダーのキーを修正してください。その後、もう一度お試しいただくか、別のモデルを選択してください。\n{detail}",
   "error.provider.opencodeAuthRequired":
@@ -330,6 +336,7 @@ export const messages = {
   "error.provider.accountsUnsupported": "{provider} で使えるアカウントは 1 つだけです。",
   "error.provider.accountNeedsConnection": "別のアカウントを追加する前に {provider} に接続してください。",
   "error.provider.usageResetUnsupported": "{provider} は使用量の上限をリセットできません。",
+  "error.provider.signOutUnsupported": "Builders Bot は {provider} のサインインを切断できません。",
   "error.provider.usageResetNotConnected":
     "使用量をリセットする前に、この {provider} アカウントにもう一度サインインしてください。",
   "error.provider.accountLimit": "{provider} で使えるアカウントは最大 {limit} 個です。",

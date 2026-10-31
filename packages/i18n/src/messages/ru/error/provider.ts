@@ -8,6 +8,8 @@ export const messages = {
     "Builders Bot не смог зарегистрировать управление компьютером в конфигурации Codex. Убедитесь, что ваш config.toml для Codex корректен и доступен для записи, затем перезапустите Builders Bot. Чтобы продолжить без него, отключите управление компьютером в настройках агента.",
   "error.provider.codexUnresponsive": "Codex перестал отвечать, поэтому Builders Bot завершил его процесс.",
   "error.provider.acpUnresponsive": "{provider} не ответил вовремя, поэтому Builders Bot завершил его процесс.",
+  "error.provider.acpMcpNotLoaded":
+    "{provider} не загрузил инструменты Builders Bot, поэтому этот агент не может ими пользоваться и связываться с коллегами. Политика команды {provider} может блокировать локальные MCP-серверы. Попросите администратора команды разрешить их и повторите попытку.",
   "error.provider.endpointsReadOnly":
     "Сохранённые эндпоинты записаны более новой версией Builders Bot, либо файл не читается. Чтобы изменить их, обновите Builders Bot.",
   "error.provider.endpointNoSecureStorage":
@@ -61,6 +63,7 @@ export const messages = {
   "error.provider.removeWhileOn": "Выключите провайдера, прежде чем удалять его загрузку.",
   "error.provider.removeWhileDownloading": "Дождитесь окончания загрузки, затем удалите её.",
   "error.provider.removeIncomplete": "Программа использует файлы этого CLI. Закройте её и повторите попытку.",
+  "error.provider.removeDownloadsFailed": "Не удалось удалить загруженные CLI: {providers}.",
   "error.provider.cliOverride": "Удалите явно заданный путь к CLI, прежде чем обновлять в Builders Bot.",
   "error.provider.runtimeUpdateIncomplete": "Обновление среды выполнения не завершено.",
   "error.provider.downloadHttp": "Загрузка среды выполнения не удалась: HTTP {status}.",
@@ -98,6 +101,7 @@ export const messages = {
   "error.provider.modelsTooMany": "Слишком много моделей.",
   "error.provider.modelIdCharacter": "В ID модели есть недопустимый символ.",
   "error.provider.modelIdDuplicate": "У двух моделей одинаковый ID.",
+  "error.provider.contextWindowInvalid": "Контекстное окно модели должно быть целым числом токенов от {min} до {max}.",
   "error.provider.headersTooMany": "Слишком много заголовков.",
   "error.provider.headerNameCharacter": "В имени заголовка есть символ, недопустимый в HTTP.",
   "error.provider.headerNameTooLong": "Имя заголовка слишком длинное.",
@@ -184,6 +188,7 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot не смог активировать управляемый CLI.",
   "error.provider.cliBusyReconnect":
     "{provider} CLI обрабатывает ход. Дождитесь его завершения, затем подключитесь заново.",
+  "error.provider.cliBusySignOut": "CLI {provider} обрабатывает ход. Дождитесь окончания, затем отключите.",
   "error.provider.opencodeCredentialsRejected":
     "Провайдер моделей отклонил API-ключ. Исправьте ключ OpenCode в настройках или ключ провайдера командой `opencode auth login`. Затем повторите попытку или выберите другую модель.\n{detail}",
   "error.provider.opencodeAuthRequired":
@@ -320,6 +325,7 @@ export const messages = {
   "error.provider.accountsUnsupported": "{provider} поддерживает только один аккаунт.",
   "error.provider.accountNeedsConnection": "Подключите {provider}, прежде чем добавлять ещё один аккаунт.",
   "error.provider.usageResetUnsupported": "{provider} не может сбрасывать лимиты использования.",
+  "error.provider.signOutUnsupported": "Builders Bot не может отключить вход в {provider}.",
   "error.provider.usageResetNotConnected":
     "Снова войдите в этот аккаунт {provider}, прежде чем сбрасывать его использование.",
   "error.provider.accountLimit": "Максимум аккаунтов {provider}: {limit}.",

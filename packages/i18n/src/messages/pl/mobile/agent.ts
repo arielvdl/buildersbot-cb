@@ -139,7 +139,8 @@ export const messages = {
   "mobile.agent.info.skillsManaged": "Umiejętnościami tego agenta zarządza się na hoście.",
   "mobile.agent.info.skillsAddOnComputer":
     "Użyj +, aby utworzyć umiejętność z tym agentem. Umiejętności z Marketplace dodasz w Builders Bot na komputerze lub w aplikacji webowej.",
-  "mobile.agent.info.filesUnsupported": "Ten host nie obsługuje zarządzania plikami. Zaktualizuj Builders Bot na hoście.",
+  "mobile.agent.info.filesUnsupported":
+    "Ten host nie obsługuje zarządzania plikami. Zaktualizuj Builders Bot na hoście.",
   "mobile.agent.info.memoryGone": "To wspomnienie nie jest już dostępne.",
   "mobile.agent.info.routineGone": "Ta rutyna nie jest już dostępna.",
   "mobile.agent.skill.workspaceFolder": "Folder obszaru roboczego",
@@ -158,7 +159,8 @@ export const messages = {
   "mobile.agent.skill.uninstallFailed": "Nie udało się odinstalować: {name}.",
   "mobile.agent.skill.enableFailed": "Nie udało się włączyć: {name}.",
   "mobile.agent.skill.disableFailed": "Nie udało się wyłączyć: {name}.",
-  "mobile.agent.skill.manageUnsupported": "Ten host nie może zmieniać umiejętności. Zaktualizuj Builders Bot na hoście.",
+  "mobile.agent.skill.manageUnsupported":
+    "Ten host nie może zmieniać umiejętności. Zaktualizuj Builders Bot na hoście.",
   "mobile.agent.discard.title": "Odrzucić zmiany?",
   "mobile.agent.discard.body": "Zmiany nie zostały zapisane.",
   "mobile.agent.discard.keepEditing": "Edytuj dalej",
@@ -353,10 +355,15 @@ export const messages = {
     "{provider} nie może kierować trwającą turą. Wiadomości wysłane w trakcie pracy czekają w kolejce.",
   "mobile.agent.workspace.title": "Folder obszaru roboczego",
   "mobile.agent.workspace.footer": "Folder tego agenta na komputerze hosta.",
-  "mobile.agent.notifications.title": "Powiadomienia",
-  "mobile.agent.notifications.footer": "Powiadomienia są takie same dla każdego członka tego serwera.",
   "mobile.agent.notifications.failed": "Nie udało się zmienić powiadomień",
   "mobile.agent.notifications.failedBody": "Host nie mógł zapisać tej zmiany.",
+  "mobile.agent.notificationLevel.title": "Powiadamiaj mnie o",
+  "mobile.agent.notificationLevel.server": "Ustawienie serwera",
+  "mobile.agent.notificationLevel.serverValue": "Ustawienie serwera ({level})",
+  "mobile.agent.notificationLevel.footer":
+    "„Powiadamiaj mnie o” dotyczy tylko ciebie, na wszystkich twoich urządzeniach.",
+  "mobile.agent.notificationLevel.unsupported":
+    "Ten serwer nie może zapisać twojego poziomu powiadomień dla agenta. Zaktualizuj Builders Bot na komputerze, na którym działa.",
   "mobile.agent.newChat.title": "Nowy czat",
   "mobile.agent.newChat.starting": "Rozpoczynanie nowego czatu…",
   "mobile.agent.newChat.footer": "Agent zapomni ten czat. Jego konfiguracja zostanie.",
@@ -544,6 +551,9 @@ export const messages = {
   "mobile.agent.home.noServersBody": "Połącz ponownie aplikację na komputer lub dołącz do zdalnego serwera.",
   "mobile.agent.home.chooseServer": "Wybierz serwer",
   "mobile.agent.home.openServers": "Otwórz serwery",
+  "mobile.agent.home.noChatOpen": "Brak otwartego czatu",
+  "mobile.agent.home.noChatOpenBody": "Wybierz czat z listy.",
+  "mobile.agent.home.chatListWidth": "Szerokość listy czatów",
   "mobile.agent.home.serverTitle": "{name}, otwórz serwery",
   "mobile.agent.home.waiting": "Oczekiwanie na połączenie",
   "mobile.agent.home.waitingBody": "Lista agentów wczyta się po połączeniu z tym serwerem.",

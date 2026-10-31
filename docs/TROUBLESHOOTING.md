@@ -1,6 +1,6 @@
-# Troubleshooting OpenBot
+# Troubleshooting Builders Bot
 
-## OpenBot says agent CLI setup is required
+## Builders Bot says agent CLI setup is required
 
 Open Terminal and verify the CLI:
 
@@ -14,7 +14,9 @@ If the command is missing, install Codex using the official installer:
 curl -fsSL https://chatgpt.com/codex/install.sh | sh
 ```
 
-Then run `codex login`, sign in with ChatGPT, fully quit OpenBot, and open it again.
+Then run `codex login`, sign in with ChatGPT, fully quit Builders Bot, and open it again. To use OpenAI
+API credits instead of a ChatGPT plan, select Add key under API key in Settings > Providers > ChatGPT,
+or run `printenv OPENAI_API_KEY | codex login --with-api-key`.
 
 You can use Claude instead. Verify and install Claude CLI:
 
@@ -24,7 +26,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 claude auth login
 ```
 
-If Codex is installed in a non-standard location, launch OpenBot with `OPENBOT_CODEX_PATH` set to the
+If Codex is installed in a non-standard location, launch Builders Bot with `OPENBOT_CODEX_PATH` set to the
 absolute Codex executable path.
 
 For a non-standard Claude location, set `OPENBOT_CLAUDE_PATH` to the absolute Claude executable path.
@@ -32,10 +34,10 @@ For a non-standard Claude location, set `OPENBOT_CLAUDE_PATH` to the absolute Cl
 ## The Linux AppImage exits immediately
 
 On Ubuntu 23.10 or newer and on Debian 13, unprivileged user namespaces are restricted by AppArmor.
-The Electron sandbox is built on one, so OpenBot exits during launch and writes a message about the
+The Electron sandbox is built on one, so Builders Bot exits during launch and writes a message about the
 SUID sandbox or a user namespace to the terminal.
 
-Install the AppArmor profile that ships with OpenBot, then reload AppArmor:
+Install the AppArmor profile that ships with Builders Bot, then reload AppArmor:
 
 ```bash
 sudo install -m 0644 build/linux/openbot.apparmor /etc/apparmor.d/openbot
@@ -46,8 +48,8 @@ The same file is inside the AppImage at `resources/linux/openbot.apparmor`. The 
 the usual places to keep an AppImage; if yours is somewhere else, edit the path in the profile before
 you install it.
 
-Do not start OpenBot with `--no-sandbox`. It is not a supported workaround. The sandbox is the
-boundary between a web renderer and the rest of your computer, and OpenBot gives its agents full
+Do not start Builders Bot with `--no-sandbox`. It is not a supported workaround. The sandbox is the
+boundary between a web renderer and the rest of your computer, and Builders Bot gives its agents full
 local access on the other side of it.
 
 ## The Linux AppImage says that no fusermount binary was found
@@ -61,7 +63,7 @@ as in a container, start it with `--appimage-extract-and-run`.
 
 Remote desktop on Linux needs the x64 AppImage and an X11 session. Sunshine captures the X11 screen
 and sends mouse and keyboard input through the XTest extension. Under Wayland, or with no `DISPLAY`,
-remote desktop reports that it needs an X11 session. Log in with an Xorg session, or start OpenBot
+remote desktop reports that it needs an X11 session. Log in with an Xorg session, or start Builders Bot
 under `xvfb-run` on a server. The arm64 AppImage does not include the runtime.
 
 ## Voice prompts fail on an older Linux
@@ -70,47 +72,47 @@ The voice runtime of the x64 AppImage needs glibc 2.32 or later, such as Ubuntu 
 On Ubuntu 20.04 or Debian 11, the dictation model downloads, but the runtime does not load, and
 voice prompts show an error. Use a newer distribution. The arm64 AppImage needs glibc 2.17 or later.
 
-## OpenBot is slow or stops because of the GPU on Linux
+## Builders Bot is slow or stops because of the GPU on Linux
 
-On Linux, OpenBot uses the GPU until the GPU fails on your computer. If the GPU process crashes, or a
-start stops in its first 30 seconds, OpenBot writes `gpu-crash.json` or `gpu-start.json` in
-`~/.config/OpenBot`. While one of these files is there, OpenBot renders on the CPU. Dialogs and
+On Linux, Builders Bot uses the GPU until the GPU fails on your computer. If the GPU process crashes, or a
+start stops in its first 30 seconds, Builders Bot writes `gpu-crash.json` or `gpu-start.json` in
+`~/.config/Builders Bot`. While one of these files is there, Builders Bot renders on the CPU. Dialogs and
 panels with a blurred background are then slower. An update with a new Chromium version tries the
 GPU again. A GPU process restart after a lost GPU context, for example after suspend, does not
 count. A server (`OPENBOT_SERVER=1` or a hosted server) always renders on the CPU.
 
 - To try the GPU again, for example after a driver update, remove the file. The log names it.
-- To always use the GPU, start OpenBot with `OPENBOT_DISABLE_GPU=0`.
-- If OpenBot stops at each start, start it with `OPENBOT_DISABLE_GPU=1` to always render on the CPU.
+- To always use the GPU, start Builders Bot with `OPENBOT_DISABLE_GPU=0`.
+- If Builders Bot stops at each start, start it with `OPENBOT_DISABLE_GPU=1` to always render on the CPU.
 
 ## Computer Use is unavailable
 
 Computer Use needs the `cua-driver` binary. An installed release carries it, so the panel reporting
 a missing driver means a development build, or a file that was removed. On macOS it also needs the
 Screen Recording and Accessibility permissions; Windows and Linux ask for no permission, so there a
-driver that answers is ready. OpenBot starts the driver itself; it does not bypass the macOS prompts.
+driver that answers is ready. Builders Bot starts the driver itself; it does not bypass the macOS prompts.
 
-If an installed release reports that the driver is missing, reinstall a complete OpenBot package,
-then start OpenBot again. Keep your OpenBot data folder. A separate driver installation cannot
+If an installed release reports that the driver is missing, reinstall a complete Builders Bot package,
+then start Builders Bot again. Keep your Builders Bot data folder. A separate driver installation cannot
 repair an installed release, because the application uses only its bundled driver.
 
 In a development checkout, run `bun run prepare:cua-driver`, then press **Try again** in the panel.
 This command writes the same pinned build the release ships.
-`bun run cua-driver:doctor` reports which binary OpenBot would use, and `OPENBOT_CUA_DRIVER_PATH`
+`bun run cua-driver:doctor` reports which binary Builders Bot would use, and `OPENBOT_CUA_DRIVER_PATH`
 selects a different one. The installed application ignores that variable: it runs only the driver it
 was released with.
 
 On Linux the driver reads the desktop through AT-SPI, so it needs the session bus of the desktop it
 is to drive. A daemon started from a container, from `runuser`, or as root against another user's
 session finds an empty accessibility tree, and `get_window_state` reports `degraded`. X11 is the
-driver's fully supported Linux session. On Wayland OpenBot starts the driver with
+driver's fully supported Linux session. On Wayland Builders Bot starts the driver with
 `CUA_DRIVER_RS_ENABLE_WAYLAND=1`; set that variable yourself to `0` if your compositor works better
 through XWayland. Window rectangles under GNOME also need the driver's own `winrects@cua` shell
 extension, which its installer refreshes but does not enable for you.
 
 If the panel reports that permissions are needed, open **System Settings → Privacy & Security** and
 grant both **Screen & System Audio Recording** and **Accessibility**, then press **Check again**. A
-development build asks for the grants as **Electron**, not as OpenBot, because the development binary
+development build asks for the grants as **Electron**, not as Builders Bot, because the development binary
 is the responsible process. For the same reason a development grant does not carry over to an
 installed release, and each build must be granted once.
 
@@ -122,7 +124,7 @@ app on this computer…**. While the model works, it shows **Deciding the next s
 When the agent writes its own progress note, the line shows that note instead. When the line stays
 the same for 5 seconds, the time since it changed shows next to the text.
 
-A driver call usually takes a few seconds or less. To see the time of each call, start OpenBot from
+A driver call usually takes a few seconds or less. To see the time of each call, start Builders Bot from
 a terminal. Each driver call that takes 5 seconds or more shows in its output as `Computer Use
 driver answered`, with the tool name and the milliseconds. A call that gets no answer before the
 agent closes the connection shows as `Computer Use driver did not answer`. Set
@@ -138,7 +140,7 @@ A step also gets slower as the conversation gets longer. The model reads the ful
 before each action, and each window read stays in it. When the conversation fills the model's
 context, the provider compacts it: it writes a summary, which can take minutes, and the chat
 shows no action in that time. A new conversation for a new GUI task does not have this cost, and the
-agent keeps its workspace. With OpenCode, OpenBot adds a JSON copy of each driver result
+agent keeps its workspace. With OpenCode, Builders Bot adds a JSON copy of each driver result
 to the result text, because OpenCode shows the model only the text. The copy leaves out the element
 list, because the tree in the text already names each element by its index.
 
@@ -147,14 +149,14 @@ list, because the tree in the text already names each element by its index.
 Do not follow the reset steps below. Your messages are stored in one SQLite file, nothing copies it
 before an upgrade, and moving that folder puts the only copy out of reach.
 
-Quit OpenBot and start it again first. On launch OpenBot gives a chat back to the agent it belongs to
+Quit Builders Bot and start it again first. On launch Builders Bot gives a chat back to the agent it belongs to
 when an agent and its chat lose track of each other, so a restart recovers most cases on its own.
 
-If the chat is still missing, quit OpenBot and read the file directly. This reports chats that no
+If the chat is still missing, quit Builders Bot and read the file directly. This reports chats that no
 agent currently claims, and the number of messages waiting in each:
 
 ```sh
-sqlite3 "$HOME/Library/Application Support/OpenBot/openbot.db" \
+sqlite3 "$HOME/Library/Application Support/Builders Bot/openbot.db" \
   "SELECT t.thread_id, t.agent_id, (SELECT count(*) FROM projection_thread_messages m
      WHERE m.thread_id = t.thread_id) AS messages
    FROM projection_threads t
@@ -165,35 +167,35 @@ sqlite3 "$HOME/Library/Application Support/OpenBot/openbot.db" \
 Any row means the messages are still on disk and are recoverable. Report the output with the details
 below, and keep the folder where it is until then.
 
-## OpenBot will not start and names a stored agent profile
+## Builders Bot will not start and names a stored agent profile
 
 The message reads `Stored agent profile <id> has an unreadable "<field>" value`. Your data is intact:
-OpenBot stops before it writes anything, which is what keeps the profile as it is.
+Builders Bot stops before it writes anything, which is what keeps the profile as it is.
 
 Do not follow the reset steps below, and do not move the folder. Install the current version first:
-OpenBot now repairs a stored profile field it cannot read and keeps the agent, its chat and its
+Builders Bot now repairs a stored profile field it cannot read and keeps the agent, its chat and its
 workspace, while a release from before that repair refuses to start over the same profile.
 
-If the current version still stops, quit OpenBot and read the profile it names. On macOS:
+If the current version still stops, quit Builders Bot and read the profile it names. On macOS:
 
 ```sh
-sqlite3 "$HOME/Library/Application Support/OpenBot/openbot.db" \
+sqlite3 "$HOME/Library/Application Support/Builders Bot/openbot.db" \
   "SELECT agent_json FROM projection_agents WHERE agent_id = '<id>';"
 ```
 
-On Windows, the same file is at `%APPDATA%\OpenBot\openbot.db`.
+On Windows, the same file is at `%APPDATA%\Builders Bot\openbot.db`.
 
 Report the field the message names, together with the details below. The output holds your own file
 paths, so review it before you publish it.
 
 ## Routines do not run while the computer sleeps
 
-A routine runs only while the computer is awake and OpenBot is open.
+A routine runs only while the computer is awake and Builders Bot is open.
 
-- After a sleep, each overdue routine runs one time, when the network is back. OpenBot does not run
+- After a sleep, each overdue routine runs one time, when the network is back. Builders Bot does not run
   each occurrence that it missed.
-- After OpenBot was closed, the routine setting "If OpenBot was closed at the scheduled time"
-  decides: skip the run, or run it one time when OpenBot opens.
+- After Builders Bot was closed, the routine setting "If Builders Bot was closed at the scheduled time"
+  decides: skip the run, or run it one time when Builders Bot opens.
 
 On macOS and Windows, turn on Settings → General → **Keep this computer awake**. While the computer
 is connected to power, it then does not sleep when idle. The display can still turn off. A closed
@@ -201,25 +203,25 @@ laptop lid, or a sleep that you select, still sleeps the computer, unless macOS 
 display (closed-display mode). On battery power, the computer sleeps as usual, unless you also turn
 on **Also on battery**.
 
-`pmset -g assertions` can show an OpenBot entry named `WebRTC has active PeerConnections`. It
+`pmset -g assertions` can show an Builders Bot entry named `WebRTC has active PeerConnections`. It
 exists only while another device is connected to this computer, so the computer can sleep after that
 device disconnects. With the setting on, the entry is named `Electron`.
 
 To see when a Mac slept, run `pmset -g log | grep -E " Sleep | Wake "`. `logs/main/main.log` (see
-[Report a problem](#report-a-problem)) has a `Keeping this computer awake.` line when OpenBot
+[Report a problem](#report-a-problem)) has a `Keeping this computer awake.` line when Builders Bot
 starts to keep it awake. For routines that run when no computer of yours is on, use a
 [hosted server](hosted-servers.md) or a [self-hosted server](self-hosted-server.md).
 
-## A company firewall or proxy blocks OpenBot
+## A company firewall or proxy blocks Builders Bot
 
-Sign-in shows "A firewall or proxy on this network blocked OpenBot from reaching `<host>`" when a
-network filter, such as Fortinet, answers in place of the OpenBot service. This occurs when the
+Sign-in shows "A firewall or proxy on this network blocked Builders Bot from reaching `<host>`" when a
+network filter, such as Fortinet, answers in place of the Builders Bot service. This occurs when the
 filter shows a block page, or when it inspects TLS with a root certificate that the computer does
 not trust.
 
-OpenBot trusts the root certificates in the operating system store, as a browser does. If the
-company installs its inspection certificate on the computer, OpenBot accepts it. Agent CLIs that
-OpenBot starts, such as Codex and Claude, check certificates by their own rules. Do not turn off
+Builders Bot trusts the root certificates in the operating system store, as a browser does. If the
+company installs its inspection certificate on the computer, Builders Bot accepts it. Agent CLIs that
+Builders Bot starts, such as Codex and Claude, check certificates by their own rules. Do not turn off
 certificate checks to work around a block.
 
 Ask the network administrator to allow these hosts over HTTPS (TCP 443) and WebSocket:
@@ -240,36 +242,36 @@ host receives.
 If the filter puts `openbot.run` in a blocked category, the administrator can ask the vendor to
 review it. For Fortinet, use the FortiGuard web filter lookup.
 
-## Reset OpenBot
+## Reset Builders Bot
 
-Quit OpenBot before moving data. To reset application state and the shared browser profile while
+Quit Builders Bot before moving data. To reset application state and the shared browser profile while
 keeping agent workspaces, move this folder somewhere safe:
 
 ```text
-~/Library/Application Support/OpenBot
+~/Library/Application Support/Builders Bot
 ```
 
 To also reset agent workspaces, managed transfers, and downloads, move this folder as well:
 
 ```text
-~/OpenBot
+~/Builders Bot
 ```
 
-OpenBot creates fresh folders on the next launch. Review and back up their contents first. Do not
+Builders Bot creates fresh folders on the next launch. Review and back up their contents first. Do not
 remove `~/.codex` or `~/.claude` unless you intentionally want to manage CLI login and history.
 
 ## Uninstall
 
-Quit OpenBot. On macOS remove `OpenBot.app` from Applications; on Windows use the installer's
+Quit Builders Bot. On macOS remove `Builders Bot.app` from Applications; on Windows use the installer's
 uninstaller; on Linux delete the AppImage, `~/.local/share/applications/openbot.desktop`,
 `~/.local/share/icons/openbot.png`, and `/etc/apparmor.d/openbot` if you installed the profile. If
-you also want to remove local OpenBot data, follow the reset steps above. Agent CLIs and their data
-are independent and are not removed with OpenBot.
+you also want to remove local Builders Bot data, follow the reset steps above. Agent CLIs and their data
+are independent and are not removed with Builders Bot.
 
 ## Report a problem
 
 Use the [bug report form](https://github.com/nightly-labs/openbot/issues/new?template=bug_report.yml)
-for reproducible bugs. It asks for the platform, the OpenBot version (Settings → Updates on the
+for reproducible bugs. It asks for the platform, the Builders Bot version (Settings → Updates on the
 desktop, Settings → About on the phone), the operating system and hardware, the provider and its CLI
 version, the steps, and the expected and actual results. When a provider row shows an error, select
 **Copy diagnostics** in its menu and paste the result into the form. On the phone, Settings →
@@ -277,13 +279,13 @@ Support → **Save log file** makes a log that you can attach. Never publish tok
 `~/.claude`, conversations, private files, Electron user data, or full unreviewed diagnostics.
 
 When the desktop app closes by itself, look in the `logs` folder of its user data
-(`%APPDATA%\OpenBot\logs` on Windows, `~/Library/Application Support/OpenBot/logs` on macOS,
-`~/.config/OpenBot/logs` on Linux):
+(`%APPDATA%\Builders Bot\logs` on Windows, `~/Library/Application Support/Builders Bot/logs` on macOS,
+`~/.config/Builders Bot/logs` on Linux):
 
-- `main/main.log` has a `Quitting: <reason>.` line when OpenBot quit by itself or was closed.
+- `main/main.log` has a `Quitting: <reason>.` line when Builders Bot quit by itself or was closed.
 - `trace.ndjson` has an `exit` line with the same reason, and a `crash` line for each renderer or
   helper process that stopped.
 
 A dump in the `Crashpad` folder next to `logs` means a process crashed. Tell us that a dump exists,
 but do not attach it publicly: it can hold secrets. When neither file has a reason and there is no
-dump, something outside OpenBot stopped it.
+dump, something outside Builders Bot stopped it.

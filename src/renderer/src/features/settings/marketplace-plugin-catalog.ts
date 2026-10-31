@@ -477,7 +477,7 @@ const PAPER: MarketplacePluginDetail = {
   name: "Paper",
   tagline: "Design canvas built on HTML and CSS",
   description:
-    "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. OpenBot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
+    "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. Builders Bot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
   category: "design",
   creatorName: "Paper",
   iconUrl: "https://paper.design/apple-touch-icon.png",
@@ -513,7 +513,7 @@ const APPLE_APPS: MarketplacePluginDetail = {
   name: "Apple apps",
   tagline: "Mail, Calendar and more on your Mac",
   description:
-    "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. OpenBot starts mcp-icloud, a community server that is not made by Apple or OpenBot. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, OpenBot can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
+    "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. Builders Bot starts mcp-icloud, a community server that is not made by Apple or Builders Bot. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, Builders Bot can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
   category: "productivity",
   creatorName: "MrGo2",
   iconUrl: "https://www.apple.com/favicon.ico",
@@ -1421,7 +1421,7 @@ const WHATSAPP: MarketplacePluginDetail = {
   name: "WhatsApp",
   tagline: "Your own chats, as a linked device",
   description:
-    "WhatsApp lets agents read, search and send messages on your own number. It links the way WhatsApp Web does, as a linked device with a pairing code, so it needs no business account, no Meta app and no API key. OpenBot starts wazap, a community MCP server that is not made by WhatsApp or OpenBot. The account, its history and the media it keeps stay on this computer, in the wazap data folder. Pairing is a one-time step: the agent shows an 8-character code and you type it in WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead. Agents can send, edit and delete messages and change groups, and a draft is only sent after you approve it. What the tools read, such as message text, goes to the model provider of the agent.",
+    "WhatsApp lets agents read, search and send messages on your own number. It links the way WhatsApp Web does, as a linked device with a pairing code, so it needs no business account, no Meta app and no API key. Builders Bot starts wazap, a community MCP server that is not made by WhatsApp or Builders Bot. The account, its history and the media it keeps stay on this computer, in the wazap data folder. Pairing is a one-time step: the agent shows an 8-character code and you type it in WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead. Agents can send, edit and delete messages and change groups, and a draft is only sent after you approve it. What the tools read, such as message text, goes to the model provider of the agent.",
   category: "productivity",
   creatorName: "razvangirgiz",
   iconUrl: "https://www.whatsapp.com/favicon.ico",

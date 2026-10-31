@@ -22,7 +22,8 @@ export const messages = {
   "customProvider.error.providerIdPattern":
     "Verwende Kleinbuchstaben, Zahlen, Bindestriche oder Unterstriche. Beginne mit einem Buchstaben oder einer Zahl.",
   "customProvider.error.providerIdLength": "Die Anbieter-ID muss kürzer als {max} Zeichen sein.",
-  "customProvider.error.providerIdBuiltIn": "Builders Bot hat bereits einen Anbieter namens {id}. Wähle eine andere ID.",
+  "customProvider.error.providerIdBuiltIn":
+    "Builders Bot hat bereits einen Anbieter namens {id}. Wähle eine andere ID.",
   "customProvider.error.providerIdSaved":
     "Ein Endpunkt namens {id} ist bereits gespeichert. Entferne ihn zuerst oder wähle eine andere ID.",
   "customProvider.error.displayNameRequired": "Gib einen Anzeigenamen ein.",
@@ -34,6 +35,7 @@ export const messages = {
   "customProvider.error.modelIdDuplicate": "Dieser Anbieter führt {id} bereits auf.",
   "customProvider.error.modelIdInvalid":
     "Diese Modell-ID kann nicht verwendet werden. Entferne Leerzeichen, Anführungszeichen und andere Satzzeichen.",
+  "customProvider.error.contextWindowInvalid": "Gib eine ganze Zahl von Tokens zwischen {min} und {max} ein.",
   "customProvider.error.headerNameRequired": "Gib einen Header-Namen ein.",
   "customProvider.error.headerNameInvalid": "Verwende einen gültigen HTTP-Header-Namen.",
   "customProvider.error.headerDuplicate": "Dieser Anbieter legt {name} bereits fest.",
@@ -45,11 +47,13 @@ export const messages = {
   "customProvider.error.baseUrlProtocol": "Verwende eine http://- oder https://-URL.",
   "customProvider.error.baseUrlCredential": "Trage die Zugangsdaten in einen Header ein, nicht in die URL.",
   "customProvider.saved.restarted": "Gespeichert. Builders Bot lädt die Modelle.",
-  "customProvider.saved.skippedBusy": "Gespeichert. Builders liest die Liste, sobald die aktuelle Aufgabe beendet ist.",
-  "customProvider.saved.notRunning": "Gespeichert. Builders liest die Liste beim nächsten Start.",
+  "customProvider.saved.skippedBusy":
+    "Gespeichert. Der Anbieter liest die Liste, sobald die aktuelle Aufgabe beendet ist.",
+  "customProvider.saved.notRunning": "Gespeichert. Der Anbieter liest die Liste beim nächsten Start.",
   "customProvider.removed.restarted": "Entfernt. Builders Bot lädt die Modelle.",
-  "customProvider.removed.skippedBusy": "Entfernt. Builders liest die Liste, sobald die aktuelle Aufgabe beendet ist.",
-  "customProvider.removed.notRunning": "Entfernt. Builders liest die Liste beim nächsten Start.",
+  "customProvider.removed.skippedBusy":
+    "Entfernt. Der Anbieter liest die Liste, sobald die aktuelle Aufgabe beendet ist.",
+  "customProvider.removed.notRunning": "Entfernt. Der Anbieter liest die Liste beim nächsten Start.",
   "customProvider.saveFailed": "Builders Bot konnte diesen Endpunkt nicht speichern.",
   "customProvider.removeFailed": "Builders Bot konnte {name} nicht entfernen.",
   "customProvider.saveUnavailable": "Diese Version kann keinen Endpunkt speichern.",
@@ -65,6 +69,8 @@ export const messages = {
   "customProvider.field.displayName": "Anzeigename",
   "customProvider.field.displayNamePlaceholder": "Mein Anbieter",
   "customProvider.field.baseUrl": "Basis-URL",
+  "customProvider.field.harness": "Läuft mit",
+  "customProvider.field.harnessHint": "Der Anbieter, der die Anfragen an diesen Endpunkt sendet.",
   "customProvider.field.apiKey": "API-Schlüssel",
   "customProvider.field.apiKeyHint":
     "Optional. Lass das Feld leer, wenn du die Authentifizierung über Header verwaltest.",
@@ -73,6 +79,8 @@ export const messages = {
   "customProvider.model.id": "ID von Modell {number}",
   "customProvider.model.name": "Anzeigename von Modell {number}",
   "customProvider.model.namePlaceholder": "Anzeigename",
+  "customProvider.model.contextWindow": "Kontextfenster von Modell {number}",
+  "customProvider.model.contextWindowPlaceholder": "Tokens",
   "customProvider.model.remove": "Modell {number} entfernen",
   "customProvider.model.add": "Modell hinzufügen",
   "customProvider.headers": "Header",
@@ -95,7 +103,7 @@ export const messages = {
   "customProvider.preset.title": "Anbieter oder Agenten hinzufügen",
   "customProvider.preset.description": "Wähle einen lokalen Modellserver, einen Endpunkt oder einen ACP-Agenten.",
   "customProvider.preset.heading": "Eigenen hinzufügen",
-  "customProvider.preset.subtitle": "Modelle für Builders oder ein eigenständiger Agent.",
+  "customProvider.preset.subtitle": "Modelle für OpenCode oder Pi oder ein eigenständiger Agent.",
   "customProvider.preset.models": "Modelle",
   "customProvider.preset.agents": "Agenten",
   "customProvider.preset.ollama": "Ollama",
@@ -226,6 +234,7 @@ export const messages = {
   "customProvider.list.empty": "Noch keine eigenen Endpunkte.",
   "customProvider.list.label": "Eigene Endpunkte",
   "customProvider.list.apiKeySaved": "API-Schlüssel gespeichert",
+  "customProvider.list.runsOn": "Läuft mit {name}",
   "customProvider.list.editLabel": "{name} bearbeiten",
   "customProvider.list.deleteLabel": "{name} löschen",
   "customProvider.list.confirmTitle": "{name} entfernen?",

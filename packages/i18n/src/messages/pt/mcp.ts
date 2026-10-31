@@ -41,7 +41,7 @@ export const messages = {
   "mcp.status.didNotStart": "Não iniciou",
   "mcp.status.unreachable": "Inacessível",
   "mcp.server.providerLimitNote":
-    "Somente Claude: um servidor com diretório de trabalho não é fornecido aos outros provedores.",
+    "Somente Claude e Codex: um servidor com diretório de trabalho não é fornecido aos outros provedores.",
   "mcp.server.runtimeDownloading":
     "Baixando o ambiente de execução usado para iniciar servidores STDIO. Eles podem não iniciar até o download terminar.",
   "mcp.server.runtimeDownloadingProgress":
@@ -83,7 +83,7 @@ export const messages = {
   "mcp.panel.removePassthroughVariable": "Remover variável repassada {position}",
   "mcp.panel.workingDirectory": "Diretório de trabalho",
   "mcp.panel.workingDirectoryDescription":
-    "Os agentes Claude e o teste de conexão iniciam o servidor aqui. Deixe em branco para fornecer este servidor a todos os provedores: os demais não podem definir um diretório e ignoram os servidores que especificam um.",
+    "Os agentes Claude e Codex e o teste de conexão iniciam o servidor aqui. Deixe em branco para fornecer este servidor a todos os provedores: os demais não podem definir um diretório e ignoram os servidores que especificam um.",
   "mcp.panel.endpointTitle": "Endpoint",
   "mcp.panel.endpointDescription": "Todos os provedores podem usar um servidor MCP HTTP.",
   "mcp.panel.serverUrl": "URL do servidor",
@@ -149,7 +149,8 @@ export const messages = {
   "mcp.signIn.relayDeviceDescription":
     "Confirme que a página de login está em {page}, abra-a no seu navegador e termine lá. {host} detecta o login sozinho.",
   "mcp.signIn.relayOpen": "Abrir página de login",
-  "mcp.signIn.relayPasteHint": "Se o navegador não voltar ao Builders Bot, copie o endereço que ele mostra e cole aqui.",
+  "mcp.signIn.relayPasteHint":
+    "Se o navegador não voltar ao Builders Bot, copie o endereço que ele mostra e cole aqui.",
   "mcp.signIn.relayPasteRequired":
     "O Builders Bot não consegue receber o login do navegador sozinho. Quando terminar, copie o endereço que o navegador mostra e cole aqui.",
   "mcp.signIn.relayAddress": "Endereço do navegador",

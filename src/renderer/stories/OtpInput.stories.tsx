@@ -10,7 +10,7 @@ const meta = {
     status: "idle",
     hint: "Enter all 8 characters to continue.",
     errorMessage: null,
-    successMessage: "Verified. Opening OpenBot…",
+    successMessage: "Verified. Opening Builders Bot…",
     onChange: fn(),
     onComplete: fn(),
   },

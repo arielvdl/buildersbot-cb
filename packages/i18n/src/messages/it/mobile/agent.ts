@@ -125,7 +125,8 @@ export const messages = {
   "mobile.agent.info.skillsManaged": "Le skill di questo agente sono gestite dall'host.",
   "mobile.agent.info.skillsAddOnComputer":
     "Usa + per creare una skill con questo agente. Aggiungi le skill del Marketplace in Builders Bot su un computer o nell'app web.",
-  "mobile.agent.info.filesUnsupported": "Questo host non supporta la gestione dei file. Aggiorna Builders Bot sull'host.",
+  "mobile.agent.info.filesUnsupported":
+    "Questo host non supporta la gestione dei file. Aggiorna Builders Bot sull'host.",
   "mobile.agent.info.memoryGone": "Questa memoria non è più disponibile.",
   "mobile.agent.info.routineGone": "Questa routine non è più disponibile.",
   "mobile.agent.skill.workspaceFolder": "Cartella del workspace",
@@ -137,7 +138,8 @@ export const messages = {
   "mobile.agent.skill.uninstall": "Disinstalla",
   "mobile.agent.skill.uninstallNamed": "Disinstalla {name}",
   "mobile.agent.skill.uninstallTitle": "Disinstallare {name}?",
-  "mobile.agent.skill.uninstallBody": "Builders Bot rimuoverà questa skill dall'agente. La cronologia delle chat resta.",
+  "mobile.agent.skill.uninstallBody":
+    "Builders Bot rimuoverà questa skill dall'agente. La cronologia delle chat resta.",
   "mobile.agent.skill.uninstallModifiedBody":
     "Questa skill ha modifiche locali nel workspace dell'agente. Disinstallando si eliminano quei file. La cronologia delle chat resta.",
   "mobile.agent.skill.uninstalling": "Disinstallazione…",
@@ -182,7 +184,8 @@ export const messages = {
   "mobile.agent.record.eventFilterValueHint": "Metti il testo tra virgolette se sembra un numero, true, false o null.",
   "mobile.agent.record.addEventFilter": "Aggiungi filtro",
   "mobile.agent.record.removeEventFilter": "Rimuovi filtro",
-  "mobile.agent.record.eventsUnsupported": "Questo host non supporta le routine a eventi. Aggiorna Builders Bot sull'host.",
+  "mobile.agent.record.eventsUnsupported":
+    "Questo host non supporta le routine a eventi. Aggiorna Builders Bot sull'host.",
   "mobile.agent.webhook.url": "Endpoint",
   "mobile.agent.webhook.urlNew": "Salva la routine per ottenere il suo endpoint e il segreto di firma.",
   "mobile.agent.webhook.urlPending": "L'host non ha ancora creato l'endpoint. Riapri questa routine più tardi.",
@@ -330,10 +333,14 @@ export const messages = {
     "{provider} non può indirizzare un turno in corso. I messaggi inviati mentre lavora restano in coda.",
   "mobile.agent.workspace.title": "Cartella del workspace",
   "mobile.agent.workspace.footer": "La cartella di questo agente sul computer host.",
-  "mobile.agent.notifications.title": "Notifiche",
-  "mobile.agent.notifications.footer": "Le notifiche sono le stesse per ogni membro di questo server.",
   "mobile.agent.notifications.failed": "Impossibile modificare le notifiche",
   "mobile.agent.notifications.failedBody": "L'host non ha potuto salvare questa modifica.",
+  "mobile.agent.notificationLevel.title": "Avvisami per",
+  "mobile.agent.notificationLevel.server": "Impostazione del server",
+  "mobile.agent.notificationLevel.serverValue": "Impostazione del server ({level})",
+  "mobile.agent.notificationLevel.footer": "«Avvisami per» vale solo per te, su tutti i tuoi dispositivi.",
+  "mobile.agent.notificationLevel.unsupported":
+    "Questo server non può salvare il tuo livello di notifiche per un agente. Aggiorna Builders Bot sul computer che lo esegue.",
   "mobile.agent.newChat.title": "Nuova chat",
   "mobile.agent.newChat.starting": "Avvio della nuova chat…",
   "mobile.agent.newChat.footer": "L'agente dimentica questa chat. La sua configurazione resta.",
@@ -513,6 +520,9 @@ export const messages = {
   "mobile.agent.home.noServersBody": "Collega di nuovo l'app desktop o unisciti a un server remoto.",
   "mobile.agent.home.chooseServer": "Scegli un server",
   "mobile.agent.home.openServers": "Apri i server",
+  "mobile.agent.home.noChatOpen": "Nessuna chat aperta",
+  "mobile.agent.home.noChatOpenBody": "Scegli una chat nell'elenco.",
+  "mobile.agent.home.chatListWidth": "Larghezza elenco chat",
   "mobile.agent.home.serverTitle": "{name}, apri i server",
   "mobile.agent.home.waiting": "In attesa della connessione",
   "mobile.agent.home.waitingBody": "L'elenco degli agenti si caricherà quando questo server sarà connesso.",

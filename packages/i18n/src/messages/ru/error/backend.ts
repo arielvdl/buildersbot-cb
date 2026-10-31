@@ -70,6 +70,8 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Этот запрос превышает лимит контекста маршрутизации. Выберите участника или отправьте запрос короче.",
   "error.backend.channelTaskMemberRequired": "Выберите участника для этой задачи.",
+  "error.backend.channelTaskStopped": "Остановлено. Продолжите или переназначьте эту задачу.",
+  "error.backend.channelRoutingUnreadable": "Ведущий не смог распределить это сообщение. Назначьте его участнику.",
   "error.backend.channelRoutingFailed": "Не удалось выполнить маршрутизацию. Выберите участника или повторите попытку.",
   "error.backend.channelLeadTimedOut": "Ведущий канала не ответил вовремя. Выберите участника или повторите попытку.",
   "error.backend.channelLeadFailed":
@@ -78,6 +80,8 @@ export const messages = {
   "error.backend.channelDeliveryNotCreated": "Доставка в канал не создана.",
   "error.backend.channelAssignmentStopped": "Это назначение в канале остановлено или заменено.",
   "error.backend.channelAssigneeUnavailable": "Назначенный агент недоступен.",
+  "error.backend.channelAssigneeRemoved": "Назначенный участник удалён.",
+  "error.backend.channelAssigneeReassign": "Назначенный участник недоступен. Переназначьте эту задачу.",
   "error.backend.channelAssignmentChanged": "Это назначение в канале изменилось.",
   "error.backend.channelMemberRequired": "Выберите доступного участника этого канала.",
   "error.backend.memoryEssentialBudget":
@@ -187,6 +191,8 @@ export const messages = {
   "error.backend.agentWaitNoRoutine":
     "Ожидание пробуждает только запуск одной из ваших регулярных задач, а у вас их нет. Создайте регулярную задачу с помощью openbot.create_routine, затем откройте ожидание.",
   "error.backend.agentWaitRemoteUnsupported": "Открытые ожидания доступны только для агентов на этом компьютере.",
+  "error.backend.markUnreadRemoteUnsupported":
+    "Отметить сообщение непрочитанным можно только для агентов на этом компьютере.",
   "error.backend.routineFlowHandoffFailed": "Регулярной задаче не удалось передать работу этому агенту.",
   "error.backend.mcpServerLimit": "Builders Bot хранит не более {limit} серверов MCP.",
   "error.backend.mcpServerNameTaken": "Сервер MCP с именем {name} уже существует.",
@@ -214,6 +220,7 @@ export const messages = {
     "Builders Bot не удалось прочитать сведения о входе для этого сервера. Проверьте адрес сервера и повторите попытку.",
   "error.backend.mcpServerExited":
     "Сервер остановился, не ответив. Запустите команду в терминале, чтобы увидеть ошибку.",
+  "error.backend.mcpServerFailedToStart": "Сервер не запустился: {reason}",
   "error.backend.mcpOAuthProxyUnavailable":
     "Builders Bot не смог запустить локальное подключение для входа на этот сервер. Перезапустите Builders Bot и повторите попытку.",
   "error.backend.mcpOAuthSignInNeeded":

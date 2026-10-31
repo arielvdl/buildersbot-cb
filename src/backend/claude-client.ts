@@ -66,10 +66,12 @@ import { claudeContextCategories } from "./claude-context-categories";
 import { type ClaudeHistoryOptions, claudeHistoryFromMessages, claudeHistoryReader } from "./claude-history";
 import {
   CLAUDE_WORKSPACE_MANAGED_SETTINGS,
+  claudeExcludedWriteMessage,
   claudeHomeSkillPlugin,
   claudeWorkspaceHooks,
   claudeWorkspaceSandbox,
   claudeWorkspaceSkillPlugin,
+  claudeWriteInExcluded,
   claudeWriteOutsideRoots,
 } from "./claude-workspace-sandbox";
 import {
@@ -95,6 +97,7 @@ import {
   type McpEndpointSource,
   type McpServerSource,
   type McpToolRuntimeSource,
+  mcpAgentParam,
   usableMcpServers,
 } from "./mcp-provider-shapes";
 import { PendingServerRequests } from "./pending-server-requests";
@@ -167,6 +170,10 @@ interface ThreadConfig {
    * the project settings do not load. See `claude-workspace-sandbox.ts`.
    */
   workspaceOnly: boolean;
+  /** Folders in the roots where Workspace only denies all writes. */
+  excludedFolders: string[];
+  /** The agent, so the MCP sign-in proxy can name it to a server. See `mcpAgentParam`. */
+  agentId: string | null;
 }
 
 interface ActiveTurn {
@@ -799,6 +806,8 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
         Effect.gen({ self: this }, function* () {
           if (config.profileGeneration) return { behavior: "deny", message: "Profile generation has no tools." };
           if (config.workspaceOnly) {
+            const excluded = yield* claudeWriteInExcluded(toolName, toolInput, config.cwd, config.excludedFolders);
+            if (excluded) return { behavior: "deny", message: claudeExcludedWriteMessage(excluded) };
             const outside = yield* claudeWriteOutsideRoots(
               toolName,
               toolInput,
@@ -831,6 +840,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
             agentMcpServers(this.#mcpServers(), config.computerUse),
             this.#mcpToolRuntimes?.(),
             this.#mcpEndpoint,
+            config.agentId,
           ).pipe(toProviderClientOperationError),
         );
     const stateDirectory = this.#stateDirectory;
@@ -905,8 +915,8 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
           ...(nodeOptions ? { settings: { env: { NODE_OPTIONS: nodeOptions } } } : {}),
           ...(config.workspaceOnly
             ? {
-                sandbox: claudeWorkspaceSandbox(config.additionalDirectories),
-                hooks: claudeWorkspaceHooks(config.cwd, config.additionalDirectories),
+                sandbox: claudeWorkspaceSandbox(config.additionalDirectories, config.excludedFolders),
+                hooks: claudeWorkspaceHooks(config.cwd, config.additionalDirectories, config.excludedFolders),
                 managedSettings: CLAUDE_WORKSPACE_MANAGED_SETTINGS,
               }
             : {}),
@@ -1686,7 +1696,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     if (status === "failed" && error) {
       this.emit("notification", {
         method: "error",
-        params: { threadId: runtime.id, turnId: turn.id, message: String(error) },
+        params: { threadId: runtime.id, turnId: turn.id, message: claudeTurnError(error) },
       });
     }
     this.#emitSubagents(runtime, endClaudeSubagentTurn(runtime.subagents, turn.id, new Date().toISOString()));
@@ -1954,6 +1964,20 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
 type ClaudeSdkLaunch = Pick<Options, "pathToClaudeCodeExecutable" | "spawnClaudeCodeProcess">;
 
 /**
+ * The error of a Workspace only query when the CLI cannot make its sandbox (`failIfUnavailable`).
+ * It tells the user to set `sandbox.failIfUnavailable=false`, which Builders Bot does not show and which
+ * would let commands run with no sandbox. Windows gets it on every turn: the Windows sandbox of
+ * Claude Code 2.1.309 is behind a feature gate (#4094).
+ */
+const CLAUDE_SANDBOX_UNAVAILABLE = /Sandbox required but unavailable: (.+?)\.? Set sandbox\.failIfUnavailable=false/s;
+
+function claudeTurnError(error: unknown): string {
+  const text = String(error);
+  const reason = CLAUDE_SANDBOX_UNAVAILABLE.exec(text)?.[1];
+  return reason ? sourceText("error.agent.claudeSandboxUnavailable", { reason }) : text;
+}
+
+/**
  * The npm wrapper for Claude Code ends with the real program, `"%dp0%\node_modules\…\claude.exe" %*`,
  * or with `cli.js` after `"%_prog%"`.
  */
@@ -2152,6 +2176,11 @@ function readThreadConfig(params: unknown): ThreadConfig {
     profileGeneration: isRecord(params) && params.profileGeneration === true,
     computerUse: computerUseParam(params),
     workspaceOnly: isRecord(params) && params.workspaceOnly === true,
+    excludedFolders:
+      isRecord(params) && Array.isArray(params.excludedFolders)
+        ? params.excludedFolders.filter((value): value is string => isString(value))
+        : [],
+    agentId: mcpAgentParam(params),
   };
 }
 

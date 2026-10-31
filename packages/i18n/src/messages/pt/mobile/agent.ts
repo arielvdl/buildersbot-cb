@@ -118,7 +118,8 @@ export const messages = {
   "mobile.agent.info.routinePaused": "Pausada",
   "mobile.agent.info.noRoutines": "Ainda não há rotinas.",
   "mobile.agent.info.addRoutine": "Adicionar rotina",
-  "mobile.agent.info.skillsUnsupported": "Este computador anfitrião não aceita habilidades. Atualize o Builders Bot nele.",
+  "mobile.agent.info.skillsUnsupported":
+    "Este computador anfitrião não aceita habilidades. Atualize o Builders Bot nele.",
   "mobile.agent.info.noSkills": "Ainda não há habilidades.",
   "mobile.agent.info.skillsManaged": "As habilidades deste agente são gerenciadas no computador anfitrião.",
   "mobile.agent.info.skillsAddOnComputer":
@@ -136,7 +137,8 @@ export const messages = {
   "mobile.agent.skill.uninstall": "Desinstalar",
   "mobile.agent.skill.uninstallNamed": "Desinstalar {name}",
   "mobile.agent.skill.uninstallTitle": "Desinstalar {name}?",
-  "mobile.agent.skill.uninstallBody": "O Builders Bot removerá esta habilidade do agente. O histórico do chat permanece.",
+  "mobile.agent.skill.uninstallBody":
+    "O Builders Bot removerá esta habilidade do agente. O histórico do chat permanece.",
   "mobile.agent.skill.uninstallModifiedBody":
     "Esta habilidade tem alterações locais no espaço de trabalho do agente. A desinstalação exclui esses arquivos. O histórico do chat permanece.",
   "mobile.agent.skill.uninstalling": "Desinstalando…",
@@ -336,10 +338,14 @@ export const messages = {
     "{provider} não pode orientar um turno em andamento. Mensagens enviadas enquanto ele trabalha esperam na fila.",
   "mobile.agent.workspace.title": "Pasta do espaço de trabalho",
   "mobile.agent.workspace.footer": "A pasta deste agente no computador anfitrião.",
-  "mobile.agent.notifications.title": "Notificações",
-  "mobile.agent.notifications.footer": "As notificações são as mesmas para todos os membros deste servidor.",
   "mobile.agent.notifications.failed": "Não foi possível alterar as notificações",
   "mobile.agent.notifications.failedBody": "O computador anfitrião não conseguiu salvar esta alteração.",
+  "mobile.agent.notificationLevel.title": "Notificar sobre",
+  "mobile.agent.notificationLevel.server": "Configuração do servidor",
+  "mobile.agent.notificationLevel.serverValue": "Configuração do servidor ({level})",
+  "mobile.agent.notificationLevel.footer": "“Notificar sobre” é só para você e vale em todos os seus dispositivos.",
+  "mobile.agent.notificationLevel.unsupported":
+    "Este servidor não consegue guardar seu próprio nível de notificações para um agente. Atualize o Builders Bot no computador que o executa.",
   "mobile.agent.newChat.title": "Novo chat",
   "mobile.agent.newChat.starting": "Iniciando novo chat…",
   "mobile.agent.newChat.footer": "O agente esquece este chat. Sua configuração é mantida.",
@@ -520,6 +526,9 @@ export const messages = {
   "mobile.agent.home.noServersBody": "Conecte o app para computador novamente ou entre em um servidor remoto.",
   "mobile.agent.home.chooseServer": "Escolha um servidor",
   "mobile.agent.home.openServers": "Abrir servidores",
+  "mobile.agent.home.noChatOpen": "Nenhum chat aberto",
+  "mobile.agent.home.noChatOpenBody": "Escolha um chat na lista.",
+  "mobile.agent.home.chatListWidth": "Largura da lista de chats",
   "mobile.agent.home.serverTitle": "{name}, abrir servidores",
   "mobile.agent.home.waiting": "Aguardando conexão",
   "mobile.agent.home.waitingBody": "A lista de agentes será carregada quando este servidor estiver conectado.",

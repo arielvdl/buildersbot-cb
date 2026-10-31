@@ -22,23 +22,26 @@ import {
   UserRound,
 } from "@openbot/ui";
 import { AppearanceSelect } from "@openbot/ui/features/settings/AppearanceSelect";
+import { ACTION_SOUND_CHOICES, TASK_SOUND_CHOICES } from "@openbot/ui/features/settings/app-settings";
 import { LanguageSelect } from "@openbot/ui/features/settings/LanguageSelect";
+import { NotificationMatrix, NotificationScopeTitle } from "@openbot/ui/features/settings/NotificationMatrix";
 import { SendShortcutSelect } from "@openbot/ui/features/settings/SendShortcutSelect";
 import { SettingsDialogShell, type SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
 import { SettingsProfileTab } from "@openbot/ui/features/settings/SettingsProfileTab";
-import { SoundThemePicker } from "@openbot/ui/features/settings/SoundThemePicker";
+import { SoundChoiceSelect } from "@openbot/ui/features/settings/SoundChoiceSelect";
 import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores/profile-store";
 import { useText } from "@openbot/ui/text";
-import { createSignal, onCleanup, onSettled, Show } from "solid-js";
-import { readActionSoundChoice, replayActionSoundChoice, setActionSoundChoice } from "../../action-sounds";
+import { createEffect, createSignal, onCleanup, onSettled, Show } from "solid-js";
+import { readActionSoundChoice, setActionSoundChoice } from "../../action-sounds";
 import { setShowAgentSteps, useShowAgentSteps } from "../../agent-steps-preference";
-import { isCompletionSoundEnabled, setCompletionSoundEnabled } from "../../completion-sound";
+import { playSoundChoice, readTaskSound, setTaskSound } from "../../completion-sound";
 import { webReportsEnabled } from "../../error-reports";
 import { currentDevicePlatform, setSendShortcutMode, useSendShortcutMode } from "../../send-shortcut-preference";
 import type { WebAccountCalls } from "./web-account";
-import { setWebAnalyticsEnabled } from "./web-analytics";
+import { sendWebAnalyticsChoice, setWebAnalyticsEnabled } from "./web-analytics";
 import { appLockSupported, webAppLock } from "./web-app-lock";
 import { isInstalledWebApp, webInstallIdentity } from "./web-install-identity";
+import type { WebNotificationSettings } from "./web-notification-settings";
 import { disablePush, enablePush, pushSubscribed, pushSupported } from "./web-push";
 import { useWebAppInstall } from "./web-pwa";
 
@@ -75,6 +78,10 @@ export interface WebAccountSettingsProps {
   /** Closes these settings and opens the plans and servers of the account. */
   onOpenBilling: () => void;
   onSignOut: () => Promise<void>;
+  /** The levels of each host and its agents, which apply on all devices of the user. */
+  notifications: WebNotificationSettings;
+  /** Opens Preferences at the notification row of one host. Each nonce opens once. */
+  notificationFocusRequest?: { serverId: string; nonce: number } | null | undefined;
 }
 
 /**
@@ -92,13 +99,13 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
   const [lockBusy, setLockBusy] = createSignal(false);
   const [pushOn, setPushOn] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<WebAccountSettingsTab>("profile");
-  const [completionSound, setCompletionSound] = createSignal(isCompletionSoundEnabled());
+  const [taskSound, setTaskSoundChoice] = createSignal(readTaskSound());
   const sendShortcutMode = useSendShortcutMode();
   const showAgentSteps = useShowAgentSteps();
-  // Playback reads the stored value on each event, so the switch follows a change from another tab.
+  // Playback reads the stored value on each event, so the menus follow a change from another tab.
   const [soundChoice, setSoundChoice] = createSignal(readActionSoundChoice());
   const readSoundSettings = () => {
-    setCompletionSound(isCompletionSoundEnabled());
+    setTaskSoundChoice(readTaskSound());
     setSoundChoice(readActionSoundChoice());
   };
   window.addEventListener("storage", readSoundSettings);
@@ -142,6 +149,13 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
     () => activeTab() === "profile",
   );
   const navItem = () => TAB_ITEMS[activeTab()];
+  // A server menu or a settings link opens the notification levels, which are in Preferences.
+  createEffect(
+    () => (props.open ? props.notificationFocusRequest : null),
+    (request) => {
+      if (request) setActiveTab("preferences");
+    },
+  );
 
   /**
    * The lock is a passkey of the device, so it is made only after the device says it has one. A
@@ -356,36 +370,75 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
                 checked={reportsEnabled()}
                 onChange={(value) => {
                   setReportsEnabled(setWebAnalyticsEnabled(value));
+                  sendWebAnalyticsChoice(props.calls)
+                    .then(() => setReportsEnabled(webReportsEnabled()))
+                    .catch(() => undefined);
                 }}
                 label={t("settings.analytics.title")}
                 description={t("settings.analytics.webDescription")}
               />
             </ItemGroup>
           </SettingsSection>
-          <SettingsSection title={t("settings.notifications.title")}>
-            <ItemGroup class="settings-modal-card">
-              <SwitchField
-                checked={completionSound()}
-                onChange={(checked) => {
-                  setCompletionSound(checked);
-                  setCompletionSoundEnabled(checked);
-                }}
-                label={t("settings.taskSound.title")}
-                description={t("settings.taskSound.description")}
+          <SettingsSection
+            title={
+              <NotificationScopeTitle
+                title={t("settings.notifications.whatYouHear")}
+                scope="settings.notifications.allDevices"
               />
-              <Item class="settings-modal-row settings-sound-theme-row">
+            }
+          >
+            <NotificationMatrix
+              servers={props.notifications.matrixServers()}
+              device="browser"
+              onSetServerLevel={props.notifications.setServerLevel}
+              onSetAgentLevel={props.notifications.setAgentLevel}
+              onMute={props.notifications.mute}
+              onUnmute={props.notifications.unmute}
+              onRetry={props.notifications.retry}
+              focusRequest={props.open ? props.notificationFocusRequest : null}
+              menuMount={modalElement}
+            />
+          </SettingsSection>
+          <SettingsSection title={t("settings.notifications.thisBrowser")}>
+            <ItemGroup class="settings-modal-card">
+              <Item class="settings-modal-row">
+                <ItemContent>
+                  <ItemTitle>{t("settings.taskSound.title")}</ItemTitle>
+                  <ItemDescription>{t("settings.taskSound.description")}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <SoundChoiceSelect
+                    label={t("settings.taskSound.title")}
+                    choices={TASK_SOUND_CHOICES}
+                    value={taskSound()}
+                    onChange={(value) => {
+                      setTaskSoundChoice(value);
+                      setTaskSound(value);
+                      playSoundChoice(value);
+                    }}
+                    onPreview={playSoundChoice}
+                    mount={modalElement}
+                  />
+                </ItemActions>
+              </Item>
+              <Item class="settings-modal-row">
                 <ItemContent>
                   <ItemTitle>{t("settings.soundFeedback.title")}</ItemTitle>
                   <ItemDescription>{t("settings.soundFeedback.description")}</ItemDescription>
                 </ItemContent>
-                <SoundThemePicker
-                  value={soundChoice()}
-                  onChange={(value) => {
-                    setSoundChoice(value);
-                    setActionSoundChoice(value);
-                  }}
-                  onReplay={replayActionSoundChoice}
-                />
+                <ItemActions>
+                  <SoundChoiceSelect
+                    label={t("settings.soundFeedback.title")}
+                    choices={ACTION_SOUND_CHOICES}
+                    value={soundChoice()}
+                    onChange={(value) => {
+                      setSoundChoice(value);
+                      setActionSoundChoice(value);
+                    }}
+                    onPreview={playSoundChoice}
+                    mount={modalElement}
+                  />
+                </ItemActions>
               </Item>
             </ItemGroup>
           </SettingsSection>

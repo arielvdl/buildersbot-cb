@@ -41,7 +41,7 @@ import { SIGN_IN_RELAY_CAPABILITY } from "@openbot/contracts/team-protocol/sign-
 import { SKILLS_ADMIN_CAPABILITY } from "@openbot/contracts/team-protocol/skills-admin-v1";
 import type { TeamProtocolV2Json } from "@openbot/contracts/team-protocol/v2";
 import { TEAM_PROTOCOL_V3 } from "@openbot/contracts/team-protocol/v3";
-import { decodeTeamProtocolSupportV7Base } from "@openbot/contracts/team-protocol/v7-base";
+import { decodeTeamProtocolSupportV9 } from "@openbot/contracts/team-protocol/v9";
 import { VAULT_IMPORT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-import-v1";
 import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import { VAULT_V2_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v2";
@@ -88,7 +88,9 @@ import { decodeMobileBrowserTabs } from "@/features/browser/model/browser-tabs";
 import { MobileChannelStore } from "@/features/channels/model/channel-store";
 import { useLiveActivity } from "@/features/live-activity/use-live-activity";
 import { usePushNotifications } from "@/features/push-notifications/use-push-notifications";
+import { useSyncedNotificationLevelsLoader } from "@/features/push-notifications/use-synced-notification-levels";
 import { QuickActionsSync } from "@/features/quick-actions/quick-actions-sync";
+import { setSyncedNotificationLevels } from "@/features/settings/model/notification-levels";
 import { ShareExtensionSync } from "@/features/share/share-extension-sync";
 import { fetch } from "@/features/support/model/logged-fetch";
 import { supportLog } from "@/features/support/model/support-log";
@@ -154,6 +156,7 @@ import { withoutTaskTurns } from "@/features/workspace/model/task-cache";
 import { applyBrowserEvent, syncEventQueries } from "@/features/workspace/model/team-events";
 import { runTeamRequest } from "@/features/workspace/model/team-request";
 import { trustedHostKeys } from "@/features/workspace/model/trusted-host-keys";
+import { appendTurnStepLine, latestThoughtId } from "@/features/workspace/model/turn-step-lines";
 import {
   decodeAgent,
   decodeAgentSummaries,
@@ -197,9 +200,11 @@ const NO_IDS: string[] = [];
 const NO_AGENTS: MobileAgent[] = [];
 /** The longest that the servers which are not selected wait for the selected one on a return to the app. */
 const OTHER_SERVERS_RETURN_DELAY_MS = 3_000;
+/** How long the app waits at start for the first server before it opens a server that is online. */
+const STARTUP_SERVER_WAIT_MS = 4_000;
 const EMPTY_SERVER: MobileServer = {
   id: "unavailable",
-  name: "OpenBot",
+  name: "Builders Bot",
   logoKey: null,
   kind: "local",
   state: "connecting",
@@ -419,6 +424,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       liveState.update("unreadAgentIds", (current) => current.filter((id) => !removedAgentIds.has(id)));
       liveState.update("unreadCounts", (current) => withoutKeys(current, removedAgentIds));
       liveState.update("activityByServer", (current) => withoutKeys(current, serverIds));
+      liveState.update("turnLinesByServer", (current) => withoutKeys(current, serverIds));
       liveState.update("approvalRequests", (current) => withoutKeys(current, serverIds));
       liveState.update("browserRequests", (current) => withoutKeys(current, serverIds));
       liveState.update("browserTabs", (current) => withoutKeys(current, serverIds));
@@ -547,6 +553,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
   );
   usePushNotifications({
     servers,
+    serversReady: serverDirectoryState === "ready",
     foreground,
     post: postLiveActivityAction,
     supportsPush: supportsPushNotifications,
@@ -729,7 +736,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       await client.connect(serverId, publicKey);
       if (!context.isCurrent()) return;
       context.stage = "compatibility";
-      const compatibilityRead = client.request("GET", TEAM_API_ROUTES.compatibility, decodeTeamProtocolSupportV7Base);
+      const compatibilityRead = client.request("GET", TEAM_API_ROUTES.compatibility, decodeTeamProtocolSupportV9);
       // On a reconnect the capabilities of the last connection are known, so the workspace reads go
       // out with the compatibility read and do not wait one more round trip. Their results apply only
       // after the check. The read state applies when it arrives: it does not depend on the protocol,
@@ -756,7 +763,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       supportLog.add(
         "info",
         "connection",
-        `${serverId} host OpenBot ${compatibility.appVersion}, protocol ${compatibility.protocol.minimum}-${compatibility.protocol.maximum}, capabilities: ${compatibility.capabilities.join(" ")}`,
+        `${serverId} host Builders Bot ${compatibility.appVersion}, protocol ${compatibility.protocol.minimum}-${compatibility.protocol.maximum}, capabilities: ${compatibility.capabilities.join(" ")}`,
       );
       if (compatibility.protocol.minimum > TEAM_PROTOCOL_V3 || compatibility.protocol.maximum < TEAM_PROTOCOL_V3) {
         throw new Error(sourceText("error.remote.mobileUpdateRequired"));
@@ -956,7 +963,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
     },
     [recoveryCountdowns, wakeSelectedServer, connectionWaits],
   );
-  // The next retry of an offline server can be two minutes away, so a server starts when it is selected.
+  // The next retry of an offline server can be 30 seconds away, so a server starts when it is selected.
   useEffect(() => {
     if (!foreground || !activeServerId) return;
     if (serversRef.current.find((server) => server.id === activeServerId)?.state === "offline") {
@@ -1009,6 +1016,36 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
     if (hold && hold.serverId !== activeServerId) setHold(null);
   }, [hold, activeServerId]);
 
+  // The app starts on the first server of the list. When that server does not connect soon, such as
+  // a computer that sleeps, the first server that is online opens instead. The saved order stays.
+  // A selection by the user, or the start server online, ends this. A hosted server stays selected:
+  // it starts only while it is selected, and a start takes longer than this wait.
+  const startupFallback = useRef(true);
+  const [startupWaitOver, setStartupWaitOver] = useState(false);
+  // The wait starts when the list of servers arrives, because the connections start then.
+  const startServerListed = servers.some((server) => server.id === activeServerId);
+  useEffect(() => {
+    if (!startServerListed) return;
+    const timer = setTimeout(() => setStartupWaitOver(true), STARTUP_SERVER_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [startServerListed]);
+  useEffect(() => {
+    if (!startupFallback.current) return;
+    const active = servers.find((server) => server.id === activeServerId);
+    if (showsOnline(active) || active?.hosted === true) {
+      startupFallback.current = false;
+      return;
+    }
+    const activeFailed = active?.state === "offline" || active?.state === "error";
+    if (!startupWaitOver && !activeFailed) return;
+    const online = sortByPreference(servers).find((server) => server.state === "online");
+    if (!online) return;
+    startupFallback.current = false;
+    loadGeneration.current += 1;
+    conversationStore.cancelRequests();
+    setActiveServerId(online.id);
+  }, [servers, activeServerId, startupWaitOver, sortByPreference, conversationStore]);
+
   const handleTeamEvent = useCallback(
     (serverId: string, event: AgentEvent | TeamRealtimeEvent) => {
       if (removedServers.current.has(serverId)) return;
@@ -1025,6 +1062,11 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       }
       if (event.type === "hidden-agents-changed") {
         applyHostHidden(serverId, event.agents);
+        return;
+      }
+      // The user changed their levels on another device. A read that started before it is older.
+      if (event.type === "agent-notification-levels-changed") {
+        setSyncedNotificationLevels(serverId, { server: event.server, agents: event.agents });
         return;
       }
       syncEventQueries(queryClient, queryScope, serverId, event);
@@ -1060,6 +1102,15 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         liveState.update("activityByServer", (current) => {
           const previous = current[serverId] ?? {};
           const next = reduceAgentActivity(previous, chatEvent);
+          return next === previous ? current : { ...current, [serverId]: next };
+        });
+      }
+      if (chatEvent?.type === "turn-progress") {
+        const { agentId, turnId, detail } = chatEvent;
+        const after = latestThoughtId(conversationStore.get(agentId)?.messages ?? [], turnId);
+        liveState.update("turnLinesByServer", (current) => {
+          const previous = current[serverId] ?? {};
+          const next = appendTurnStepLine(previous, turnId, detail, after);
           return next === previous ? current : { ...current, [serverId]: next };
         });
       }
@@ -1215,6 +1266,12 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       }),
     [request, teamApi, queryClient, queryScope],
   );
+  useSyncedNotificationLevelsLoader({
+    servers,
+    foreground,
+    supports: hostRequests.checks.canSetAgentNotificationLevel,
+    load: hostRequests.actions.loadAgentNotificationLevels,
+  });
   const workflows = useMemo(
     () => createWorkflowActions({ request, capabilities: serverCapabilities.current }),
     [request],
@@ -1273,6 +1330,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       respondToBrowserTakeover: (serverId, input) => runTeamRequest(respondToBrowserTakeover(teamApi(serverId), input)),
       respondToBrowserSecret: (serverId, input) => runTeamRequest(respondToBrowserSecret(teamApi(serverId), input)),
       selectServer: (id) => {
+        startupFallback.current = false;
         loadGeneration.current += 1;
         conversationStore.cancelRequests();
         setActiveServerId(id);
@@ -1330,6 +1388,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           ...current.filter((server) => server.id !== host.hostId),
           serverFromHost(host, "remote"),
         ]);
+        startupFallback.current = false;
         setActiveServerId(host.hostId);
         // Membership is already committed. Directory failure must not reuse the consumed invite.
         void refreshHosts().catch(() => undefined);

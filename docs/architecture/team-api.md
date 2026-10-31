@@ -2,11 +2,11 @@
 
 ## Team API compatibility boundary
 
-Current remote connections use Team API protocol v8 over three ordered WebRTC DataChannels: `rpc`,
+Current remote connections use Team API protocol v9 over three ordered WebRTC DataChannels: `rpc`,
 `events`, and `files`. A sandboxed hidden Chromium page owns each `RTCPeerConnection`. Electron main
 uses a `MessagePort` and transfers binary data as `ArrayBuffer`. Signal carries SDP and ICE only,
 except the Slack requests of an agent's Slack app (see [Messaging connections](channels-and-messaging.md#messaging-connections)).
-OpenBot Mobile uses the same ticket, authentication transcript, framing, RPC codec, and event stream.
+Builders Bot Mobile uses the same ticket, authentication transcript, framing, RPC codec, and event stream.
 In Expo Go, an Expo DOM component owns the browser `RTCPeerConnection` inside a hidden WebView and
 passes only serializable, validated commands and events to the native React UI; no native WebRTC
 module or development build is required.
@@ -263,7 +263,7 @@ Tunnel transport is retired. The old public endpoints return `host_update_requir
 
 The desktop client starts each remote connection with `GET /v1/compatibility`. The response contains the host application version, the minimum and maximum Team API protocol versions, and host capabilities. The client selects the highest protocol in the shared range. Application SemVer does not select or reject a protocol.
 
-The first released Team API protocol is `1`. All later HTTP requests include `OpenBot-Protocol-Version` and `OpenBot-App-Version`. The event socket uses the `openbot-team-v1` WebSocket subprotocol. A host without the compatibility endpoint is treated as an old host and is blocked. A request without the required protocol headers is treated as an old client and is blocked.
+The first released Team API protocol is `1`. All later HTTP requests include `Builders Bot-Protocol-Version` and `Builders Bot-App-Version`. The event socket uses the `openbot-team-v1` WebSocket subprotocol. A host without the compatibility endpoint is treated as an old host and is blocked. A request without the required protocol headers is treated as an old client and is blocked.
 
 Each protocol has a frozen codec and adapter in `packages/contracts/src/team-protocol`. The v1 HTTP codec owns the fixed route registry and validates JSON requests and responses before the adapter converts current values. Uploads, downloads, and other binary routes use the same negotiated headers and error envelope. The host does not write current service or IPC values directly to the network. Breaking or semantic changes add a new protocol directory and registry entry. A released adapter keeps its original meaning.
 
@@ -271,6 +271,13 @@ From protocol 8, provider ids and auth kinds are open values. A new provider is 
 new protocol. A client keeps an agent of a provider that it does not know, and shows it disabled
 with an update prompt. See [Providers](providers.md) for the frozen lists that hide new providers
 from peers below 8.
+
+Protocol 9 is the protocol 8 wire with capability lists of up to 256 names (`v9.ts`). Protocols 7
+and 8 read at most 128 capabilities, and their lists are full. A capability added after them is in
+`TEAM_PROTOCOL_V9_ONLY_CAPABILITIES` (`current.ts`): a host leaves it out of the compatibility list
+of a peer below 9, and a client sends it only to a host that negotiated 9. On WebRTC, where no
+protocol header is sent, the marker `long-capability-lists-v1` says that a peer reads 256. It is in
+the bootstrap list, so the first compatibility read of a protocol 9 host is already complete.
 
 Capabilities describe additive behavior. The client sends its capability list when it sets the event scope. The host sends optional events only when the client declared the related capability. A missing capability disables only that feature. An unknown optional event is ignored. A malformed known event closes the connection as `protocol_error` because the client cannot safely apply it.
 

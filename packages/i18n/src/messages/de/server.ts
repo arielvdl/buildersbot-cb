@@ -89,6 +89,17 @@ export const messages = {
   "server.add.billing.monthly": "Monatlich",
   "server.add.billing.yearly": "Jährlich",
   "server.add.billing.save": "{percent} % sparen",
+  "server.add.use.label": "Nutzung",
+  "server.add.use.personal": "Privat",
+  "server.add.use.work": "Beruflich",
+  "server.add.license.people": "Personen bei der Arbeit",
+  "server.add.license.minimum": {
+    one: "{count} Person nutzt deine Server bereits, daher kannst du nicht weniger wählen.",
+    other: "{count} Personen nutzen deine Server bereits, daher kannst du nicht weniger wählen.",
+  },
+  "server.add.license.bundle": "Paket −{percent}%",
+  "server.add.license.included": "Inklusive {license}",
+  "server.add.license.includedTrial": "Inklusive {license}, kostenlos bis {date}",
   "server.add.billedMonthly": "Monatliche Abrechnung",
   "server.add.billedYearly": "{price} bei jährlicher Abrechnung",
   "server.add.yearlySaving": "{amount} sparen",
@@ -98,8 +109,21 @@ export const messages = {
   "server.add.custom.description":
     "Erhalte eigene Infrastruktur, zusätzlichen Speicher oder Funktionen, die auf deine Arbeitsweise zugeschnitten sind.",
   "server.add.custom.action": "Kontaktiere uns",
-  "server.add.join.title": "Hast du eine Einladung?",
   "server.add.join.action": "Server beitreten",
+  "server.add.otherOptions": "Weitere Optionen",
+  "server.local.createTitle": "Neuer Server auf diesem Computer",
+  "server.local.createDescription": "Der Server hat eigene Agenten, Chats und Dateien. Er läuft auf diesem Computer.",
+  "server.local.nameLabel": "Servername",
+  "server.local.create": "Server erstellen",
+  "server.local.creating": "Server wird erstellt…",
+  "server.local.createFailed": "Der Server konnte nicht erstellt werden.",
+  "server.local.limitReached":
+    "Auf diesem Computer sind höchstens {limit} Server möglich. Löschen Sie einen, um einen neuen zu erstellen.",
+  "server.local.deleteConfirmTitle": "{name} löschen?",
+  "server.local.deleteConfirmDescription":
+    "Builders Bot stoppt den Server und verschiebt seine Agenten, Chats und Dateien in den Papierkorb.",
+  "server.local.deleting": "Server wird gelöscht…",
+  "server.local.deletedTitle": "{name} gelöscht",
   "server.add.limit.title": "Dieses Konto hat die maximale Anzahl von Servern",
   "server.add.limit.description": {
     one: "Ein Konto kann {count} kostenpflichtigen Server haben. Lösche zuerst einen Server, um einen weiteren hinzuzufügen.",
@@ -168,6 +192,7 @@ export const messages = {
   "server.rail.addRemote": "Remote-Server hinzufügen",
   "server.rail.add": "Server hinzufügen",
   "server.rail.buttonLabel": "Server {name}",
+  "server.rail.thisComputer": "auf diesem Computer",
   "server.rail.notificationsMuted": "Benachrichtigungen stummgeschaltet",
   "server.rail.actions": "Serveraktionen",
   "server.rail.unmute": "Stummschaltung aufheben",
@@ -178,6 +203,8 @@ export const messages = {
   "server.rail.restart": "Server neu starten",
   "server.rail.leave": "Server verlassen",
   "server.rail.delete": "Server löschen",
+  "server.rail.hide": "Server ausblenden",
+  "server.rail.showLocal": "{name} anzeigen",
   "server.select.failedTitle": "Server konnte nicht ausgewählt werden",
   "server.select.failedDescription": "Der Server konnte nicht gewechselt werden. Versuche es erneut.",
   "server.select.openAgentFailed": "{name} konnte nicht geöffnet werden. Suche ihn in der Seitenleiste.",
@@ -281,13 +308,6 @@ export const messages = {
   "server.settings.setUpDesktopDescription": "Sieh und steuere diesen Mac von einem anderen Computer aus.",
   "server.settings.later": "Später",
   "server.settings.setUp": "Einrichten",
-  "server.settings.notifications": "Benachrichtigungen",
-  "server.settings.muteNotifications": "Benachrichtigungen stummschalten",
-  "server.settings.muteDescription":
-    "Deaktiviere Desktop-Benachrichtigungen, Töne und MacBook-Notch-Aktualisierungen von diesem Server.",
-  "server.settings.mutedUntilDescription": "{until}. Deaktiviere diese Option, um die Stummschaltung jetzt aufzuheben.",
-  "server.settings.notifyAbout": "Benachrichtige mich über",
-  "server.settings.notifyAboutDescription": "Welche Agentenereignisse eine Desktop-Benachrichtigung anzeigen.",
   "server.settings.agents": "Agenten",
   "server.settings.timezone": "Zeitzone",
   "server.settings.timezoneDescription":
@@ -400,8 +420,11 @@ export const messages = {
   "server.invite.showQr": "Einladungs-QR-Code anzeigen",
   "server.invite.permaHint":
     "Läuft nie ab und kann mehrfach verwendet werden. Jeder mit diesem Link kann beitreten. Widerrufe ihn, um ihn zu deaktivieren.",
-  "server.invite.full":
-    "Dieser Server hat die maximale Anzahl von {limit} Mitgliedern. Entferne ein Mitglied, um eine neue Person einzuladen.",
+  "server.invite.full": {
+    one: "Dieser Server hat die maximale Anzahl von {count} Mitglied. Entferne ein Mitglied, um eine neue Person einzuladen.",
+    other:
+      "Dieser Server hat die maximale Anzahl von {count} Mitgliedern. Entferne ein Mitglied, um eine neue Person einzuladen.",
+  },
   "server.invite.qrLabel": "Einladungs-QR-Code",
   "server.invite.qrDescription": "Scanne diesen Code in Builders Bot Mobile, um diesem Server beizutreten.",
   "server.invite.accepted": "Einladung angenommen",

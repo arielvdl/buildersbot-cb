@@ -1,4 +1,4 @@
-// The name in the OpenBot logo as plain outlines, so a logo file looks the same on a computer that
+// The name in the Builders Bot logo as plain outlines, so a logo file looks the same on a computer that
 // does not have Inter. Use it with the mark in `app-logo-shape.ts`, as the brand page does.
 //
 // The outlines are "Open" in Inter Light (300) and "BOT" in Inter Medium (500), as in the Figma "Logo"

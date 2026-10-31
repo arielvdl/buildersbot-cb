@@ -14,7 +14,7 @@ import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
 import { TEAM_MESSAGE_CLIENT_ID_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import type { TeamProtocolV2Json } from "@openbot/contracts/team-protocol/v2";
 import { TEAM_PROTOCOL_V3 } from "@openbot/contracts/team-protocol/v3";
-import { decodeTeamProtocolSupportV7Base } from "@openbot/contracts/team-protocol/v7-base";
+import { decodeTeamProtocolSupportV9 } from "@openbot/contracts/team-protocol/v9";
 import { runTeamEffect } from "@openbot/team-client";
 import { verifyEd25519Base64Url } from "@openbot/team-client/ed25519";
 import { RemoteTeamDirectoryClient } from "@openbot/team-client/remote-directory";
@@ -230,12 +230,12 @@ async function send(request: ShareSendRequest): Promise<void> {
           if (!connected.ok) {
             throw new ShareStageError("connect", connected.error ?? "No connection.", connected.reference ?? null);
           }
-          const compatibility = decodeTeamProtocolSupportV7Base(
+          const compatibility = decodeTeamProtocolSupportV9(
             await teamRequest("compatibility", { method: "GET", path: TEAM_API_ROUTES.compatibility }),
           );
           const { minimum, maximum } = compatibility.protocol;
           if (minimum > TEAM_PROTOCOL_V3 || maximum < TEAM_PROTOCOL_V3) {
-            throw new ShareStageError("compatibility", "The server needs another OpenBot version.");
+            throw new ShareStageError("compatibility", "The server needs another Builders Bot version.");
           }
           for (const [index, file] of request.files.entries()) {
             const query = new URLSearchParams({ name: file.name, mime: file.mimeType });

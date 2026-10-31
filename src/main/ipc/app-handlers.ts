@@ -1,10 +1,11 @@
-import { Effect, Semaphore } from "effect";
+import { Effect } from "effect";
 // App identity, first-run setup, the analytics preference, external links and the data and
 // diagnostics exports.
 
 import { HOSTED_SERVER_CONTACT_URL } from "@openbot/contracts/hosted-servers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  type AnalyticsPreference,
   type AppInfo,
   type AppSetupState,
   type AppVariant,
@@ -15,6 +16,7 @@ import {
   GROK_BOT_EXPORT_URL,
   parseSecurityGuardPreferenceChange,
 } from "@openbot/contracts/ipc";
+import { analyticsOnByDefault } from "@openbot/telemetry";
 import { app, type BrowserWindow, dialog, type OpenDialogOptions } from "electron";
 import { version as developmentVersion } from "../../../package.json";
 import type { AgentService } from "../../backend/agent-service";
@@ -23,7 +25,7 @@ import type { MailboxStore } from "../../backend/mailbox-store";
 import type { AgentDefaultsPreferenceStore } from "../agent-defaults-preference-store";
 import type { AgentLimitPreferenceStore } from "../agent-limit-preference-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
-import { readAnalyticsPreference, writeAnalyticsPreference } from "../analytics-preference-store";
+import type { AnalyticsPreferenceService } from "../analytics-preference-service";
 import type { AppBehaviorService } from "../app-behavior-service";
 import type { AppearanceService } from "../appearance-service";
 import type { ApprovalAutomation } from "../approval-automation-store";
@@ -94,7 +96,7 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   guides: "https://openbot.run/guides",
   // A Redirect Rule in the openbot.run Cloudflare zone sends this to the current Discord invite.
   discord: "https://discord.openbot.run",
-  x: "https://x.com/BuildersBot_",
+  x: "https://x.com/OpenBot_",
   "grok-bot-export": GROK_BOT_EXPORT_URL,
   "hosted-server-contact": HOSTED_SERVER_CONTACT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
@@ -112,7 +114,7 @@ export interface AppIpcDependencies {
   browser: BrowserHost;
   updater: UpdateService;
   setupFile: string;
-  analyticsPreferenceFile: string;
+  analyticsPreferences: AnalyticsPreferenceService;
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
@@ -142,7 +144,6 @@ export interface AppIpcDependencies {
   getMainWindow: () => BrowserWindow | null;
   openChatWindow: (target: ChatWindowTarget) => void;
   chatWindowTargets: () => ChatWindowTarget[];
-  setAnalyticsTrackingEnabled: (enabled: boolean) => void;
   trace: TraceFile;
   resources: ResourceMonitor;
   resumeOffer: ResumeOffer;
@@ -154,7 +155,7 @@ export function appIpcHandlers({
   browser,
   updater,
   setupFile,
-  analyticsPreferenceFile,
+  analyticsPreferences,
   approvalAutomation,
   busyMessageMode,
   channelLane,
@@ -182,13 +183,10 @@ export function appIpcHandlers({
   getMainWindow,
   openChatWindow,
   chatWindowTargets,
-  setAnalyticsTrackingEnabled,
   trace,
   resources,
   resumeOffer,
 }: AppIpcDependencies): Pick<IpcGroupHandlers, "app" | "maintenance"> {
-  // One write at a time, so two quick toggles leave the file and the tracker at the last choice.
-  const analyticsPreferenceWrites = Semaphore.makeUnsafe(1);
   const loadSnapshot = () =>
     buildLoadSnapshot(
       resources.loadReading(),
@@ -214,17 +212,22 @@ export function appIpcHandlers({
         };
       }),
       getSetupState: handler(() => runCauseEffect(readSetupState(setupFile))),
-      getAnalyticsPreference: handler(() => Effect.runPromise(readAnalyticsPreference(analyticsPreferenceFile))),
-      setAnalyticsPreference: payloadHandler(parseAnalyticsPreference, (parsed) => {
-        return runCauseEffect(
-          analyticsPreferenceWrites.withPermit(
-            writeAnalyticsPreference(analyticsPreferenceFile, parsed.enabled).pipe(
-              Effect.tap((preference) => Effect.sync(() => setAnalyticsTrackingEnabled(preference.enabled))),
-              Effect.uninterruptible,
-            ),
-          ),
-        );
-      }),
+      getAnalyticsPreference: handler(() =>
+        runCauseEffect(
+          readSetupState(setupFile).pipe(Effect.flatMap((setup) => analyticsPreferences.read(setup.completed))),
+        ),
+      ),
+      // An answer the user gave on another device comes before the regional default.
+      getAnalyticsDefault: handler(
+        (): AnalyticsPreference => ({
+          enabled:
+            analyticsPreferences.accountAnswer() ??
+            analyticsOnByDefault(app.getLocaleCountryCode(), Intl.DateTimeFormat().resolvedOptions().timeZone),
+        }),
+      ),
+      setAnalyticsPreference: payloadHandler(parseAnalyticsPreference, (parsed) =>
+        runCauseEffect(analyticsPreferences.set(parsed.enabled, parsed.chosen === true)),
+      ),
       getApprovalAutomation: handler(() => approvalAutomation.current()),
       getBusyMessageModePreference: handler(() => busyMessageMode.get()),
       setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
@@ -329,6 +332,9 @@ export function appIpcHandlers({
         runCauseEffect(interfaceSize.set(parsed)),
       ),
       saveSetup: payloadHandler(parseSetup, async (input): Promise<AppSetupState> => {
+        // Before the setup file: once setup is complete, a missing choice reads as an older user's "on".
+        const before = await runCauseEffect(readSetupState(setupFile));
+        await runCauseEffect(analyticsPreferences.saveDefault(before.completed));
         const state = await runCauseEffect(writeSetupState(setupFile, input));
         await runCauseEffect(service.setPreferredProvider(input.preferredProvider, input.preferredModel));
         await initializeAgent();

@@ -1,6 +1,6 @@
 // Runs the real account server hosted-server service on a migrated SQLite database, with a boat API
 // that answers a start in each of its ways. boat can keep a stopped machine in memory and continue it
-// with no boot (`"status": "running"`). Then the flag of the pre-stop hook stays in /run and OpenBot
+// with no boot (`"status": "running"`). Then the flag of the pre-stop hook stays in /run and Builders Bot
 // does not start, so the Worker must run the command that removes the flag. A start with a boot
 // (`"status": "resuming"`) and a refused start must not run a command, and a failed command must not
 // fail the wake. The command runs after the wake reply.
@@ -22,7 +22,7 @@ const OUT = join(ROOT, ".openbot-build", "hosted-held-resume-e2e");
 const MIGRATIONS = join(ROOT, "apps", "auth-api", "migrations");
 const SERVER_ID = "server-1";
 const SANDBOX_ID = "bx_1";
-const OWNER = { id: "owner", email: "owner@example.test", name: null, avatarUrl: null };
+const OWNER = { id: "owner", email: "owner@example.test", name: null, avatarUrl: null, analyticsEnabled: null };
 const FLAG = "/run/openbot-pre-stop";
 
 type ResumeAnswer = "running" | "resuming" | "conflict";

@@ -16,7 +16,7 @@ const chief = requireFixture(STORY_AGENTS[0], "Story agent 0");
 
 const tab: BrowserTab = {
   id: "tab-docs",
-  title: "OpenBot documentation",
+  title: "Builders Bot documentation",
   url: "https://openbot.run/docs",
   loading: false,
   ownerThreadId: "thread-chief",
@@ -58,8 +58,8 @@ const meta = {
     tabs,
     activeTab: tab,
     history: [
-      { url: "https://openbot.run/docs", title: "OpenBot documentation", visits: 3 },
-      { url: "https://openbot.run/docs/browser", title: "Browser · OpenBot documentation", visits: 1 },
+      { url: "https://openbot.run/docs", title: "Builders Bot documentation", visits: 3 },
+      { url: "https://openbot.run/docs/browser", title: "Browser · Builders Bot documentation", visits: 1 },
     ],
     canReopen: true,
     controlForTab: () => undefined,
@@ -203,7 +203,7 @@ export const AgentNeedsApproval: Story = {
             turnId: "turn-1",
             kind: "command",
             command: "curl -s https://trattoria-roma.example/api/slots > slots.json",
-            cwd: "~/OpenBot/Agents/chief",
+            cwd: "~/Builders Bot/Agents/chief",
             reason: "Save the free tables to a file in the workspace.",
             grantRoot: null,
             permissions: null,

@@ -17,7 +17,7 @@ import { CentralAuthManager } from "./central-auth-manager";
 
 const PRIMARY = "https://buildersbot.culturabuilder.com";
 const FALLBACK = "https://auth-buildersbot.culturabuilder.com";
-const USER = { id: "user-1", email: "pessoa@exemplo.com", name: "Pessoa", avatarUrl: null };
+const USER = { id: "user-1", email: "pessoa@exemplo.com", name: "Pessoa", avatarUrl: null, analyticsEnabled: null };
 
 type Reply = (url: URL, init: RequestInit | undefined) => Response | Promise<Response>;
 

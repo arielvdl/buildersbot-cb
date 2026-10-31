@@ -76,4 +76,12 @@ export const messages = {
   "sitePage.report.sentTitle": "Жалоба отправлена",
   "sitePage.report.sentBody": "Спасибо. Мы получили вашу жалобу.",
   "sitePage.report.home": "На главную страницу",
+  "sitePage.pricing.title": "Цены Builders Bot",
+  "sitePage.pricing.description":
+    "Облачные серверы и лицензия для команд. Builders Bot бесплатен для личного использования на своём компьютере.",
+  "sitePage.pricing.heading": "Цены",
+  "sitePage.pricing.enterprise.title": "Корпоративный",
+  "sitePage.pricing.enterprise.body":
+    "Более крупные серверы, участников больше {count} или всё остальное, что вам нужно. С корпоративной поддержкой.",
+  "sitePage.pricing.enterprise.contact": "Связаться с отделом продаж",
 } as const satisfies PartialTranslation<typeof source>;

@@ -45,4 +45,5 @@ export const messages = {
   "status.agent.memoryChanges": "Memorie: {saved} salvate, {updated} aggiornate, {forgotten} dimenticate.",
   "status.agent.memoryChangesWithConflicts":
     "Memorie: {saved} salvate, {updated} aggiornate, {forgotten} dimenticate, {notChanged} non modificate perché un altro thread le ha modificate prima.",
+  "status.agent.planContinues": "Il piano ha passaggi aperti. L'agente continua ({current} di {limit}).",
 } as const satisfies PartialTranslation<typeof source>;

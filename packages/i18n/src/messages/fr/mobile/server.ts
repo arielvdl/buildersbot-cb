@@ -61,6 +61,7 @@ export const messages = {
   "mobile.server.hosted.plan.proSummary": "Pour de nombreux agents et un usage intensif du navigateur.",
   "mobile.server.hosted.members": { one: "Jusqu’à {count} membre", other: "Jusqu’à {count} membres" },
   "mobile.server.hosted.storage": { one: "{count} Go de stockage", other: "{count} Go de stockage" },
+  "mobile.server.hosted.sites": { one: "Jusqu’à {count} site hébergé", other: "Jusqu’à {count} sites hébergés" },
   "mobile.server.hosted.speedBase": "Vitesse de base",
   "mobile.server.hosted.speedFaster": "{factor}× plus rapide",
   "mobile.server.hosted.joinHint": "Utilisez une invitation du propriétaire d’un serveur.",
@@ -68,7 +69,7 @@ export const messages = {
   "mobile.server.hosted.intro.title": "Vos agents, toujours actifs",
   "mobile.server.hosted.intro.description":
     "Un serveur cloud exécute vos agents et vos routines lorsque votre ordinateur est éteint. Builders Bot le configure et le maintient en marche.",
-  "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
+  "mobile.server.hosted.planFacts": "{members} · {storage} · {sites} · {speed}",
   "mobile.server.hosted.computer.title": "Sur votre ordinateur",
   "mobile.server.hosted.computer.add": "Ajouter un serveur cloud",
   "mobile.server.hosted.computer.addHint":
@@ -768,7 +769,7 @@ export const messages = {
   "mobile.server.mcp.stdioDescription": "Le serveur lance cette commande sur l’ordinateur du serveur.",
   "mobile.server.mcp.httpDescription": "Tous les fournisseurs peuvent utiliser un serveur MCP HTTP.",
   "mobile.server.mcp.providerLimit":
-    "Claude uniquement : les autres fournisseurs ne reçoivent pas un serveur qui a un dossier de travail.",
+    "Claude et Codex uniquement : les autres fournisseurs ne reçoivent pas un serveur qui a un dossier de travail.",
   "mobile.server.mcp.command": "Commande",
   "mobile.server.mcp.commandHint": "Le programme uniquement. Mettez chaque mot qui suit dans Arguments.",
   "mobile.server.mcp.arguments": "Arguments",

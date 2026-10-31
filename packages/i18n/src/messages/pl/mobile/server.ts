@@ -76,6 +76,12 @@ export const messages = {
     many: "{count} GB miejsca",
     other: "{count} GB miejsca",
   },
+  "mobile.server.hosted.sites": {
+    one: "Do {count} hostowanej witryny",
+    few: "Do {count} hostowanych witryn",
+    many: "Do {count} hostowanych witryn",
+    other: "Do {count} hostowanej witryny",
+  },
   "mobile.server.hosted.speedBase": "Podstawowa szybkość",
   "mobile.server.hosted.speedFaster": "{factor}× szybciej",
   "mobile.server.hosted.joinHint": "Użyj zaproszenia od właściciela serwera.",
@@ -83,7 +89,7 @@ export const messages = {
   "mobile.server.hosted.intro.title": "Twoi agenci zawsze aktywni",
   "mobile.server.hosted.intro.description":
     "Serwer w chmurze uruchamia agentów i rutyny, gdy komputer jest wyłączony. Builders Bot go konfiguruje i utrzymuje.",
-  "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
+  "mobile.server.hosted.planFacts": "{members} · {storage} · {sites} · {speed}",
   "mobile.server.hosted.computer.title": "Na komputerze",
   "mobile.server.hosted.computer.add": "Dodaj serwer w chmurze",
   "mobile.server.hosted.computer.addHint":
@@ -842,7 +848,8 @@ export const messages = {
   "mobile.server.mcp.http": "URL (HTTP)",
   "mobile.server.mcp.stdioDescription": "Serwer uruchamia to polecenie na komputerze serwera.",
   "mobile.server.mcp.httpDescription": "Każdy dostawca może używać serwera MCP HTTP.",
-  "mobile.server.mcp.providerLimit": "Tylko Claude: inni dostawcy nie dostają serwera, który ma katalog roboczy.",
+  "mobile.server.mcp.providerLimit":
+    "Tylko Claude i Codex: inni dostawcy nie dostają serwera, który ma katalog roboczy.",
   "mobile.server.mcp.command": "Polecenie",
   "mobile.server.mcp.commandHint": "Tylko program. Każde następne słowo wpisz w Argumentach.",
   "mobile.server.mcp.arguments": "Argumenty",

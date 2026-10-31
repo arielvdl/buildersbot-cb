@@ -12,7 +12,7 @@ class HostedServerWakeError extends Schema.TaggedError<HostedServerWakeError>()(
 
 /**
  * A hosted server in one of these states comes online without a user action, so the client reconnects.
- * A `running` server whose host is offline is still starting OpenBot, or it restarts. A wake reply is
+ * A `running` server whose host is offline is still starting Builders Bot, or it restarts. A wake reply is
  * `stopping` only for a server that must run (a restart, a resize, or a provider stop): the account
  * server starts it again after the stop.
  */
@@ -25,7 +25,7 @@ export const WAKE_RECONNECT_STATES: ReadonlySet<HostedServerState> = new Set([
 ]);
 /**
  * How long a client waits for the host of a `running` server to connect. The account server sees only the
- * machine, not OpenBot on it, and the host retries its own sign-in for longer than 5 minutes
+ * machine, not Builders Bot on it, and the host retries its own sign-in for longer than 5 minutes
  * (`src/main/hosted-server-start-retry.ts`). A machine that still starts has no limit.
  */
 export const HOSTED_HOST_READY_LIMIT_MS = 15 * 60_000;

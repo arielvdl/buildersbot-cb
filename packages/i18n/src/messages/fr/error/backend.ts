@@ -74,6 +74,9 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Cette demande dépasse la limite de contexte de routage. Sélectionnez un membre ou envoyez une demande plus courte.",
   "error.backend.channelTaskMemberRequired": "Choisissez un membre pour cette tâche.",
+  "error.backend.channelTaskStopped": "Arrêtée. Continuez ou réassignez cette tâche.",
+  "error.backend.channelRoutingUnreadable":
+    "Le responsable n'a pas pu acheminer ce message. Réassignez-le à un membre.",
   "error.backend.channelRoutingFailed": "Le routage a échoué. Choisissez un membre ou réessayez.",
   "error.backend.channelLeadTimedOut":
     "Le responsable du canal n'a pas répondu à temps. Choisissez un membre ou réessayez.",
@@ -83,6 +86,8 @@ export const messages = {
   "error.backend.channelDeliveryNotCreated": "La distribution dans le canal n’a pas été créée.",
   "error.backend.channelAssignmentStopped": "Cette tâche de canal a été arrêtée ou remplacée.",
   "error.backend.channelAssigneeUnavailable": "L’agent assigné est indisponible.",
+  "error.backend.channelAssigneeRemoved": "Le membre assigné a été retiré.",
+  "error.backend.channelAssigneeReassign": "Le membre assigné est indisponible. Réassignez cette tâche.",
   "error.backend.channelAssignmentChanged": "Cette tâche de canal a changé.",
   "error.backend.channelMemberRequired": "Sélectionnez un membre disponible de ce canal.",
   "error.backend.memoryEssentialBudget":
@@ -199,6 +204,8 @@ export const messages = {
     "Seule une exécution de l’une de vos routines réveille une attente, et vous n’avez aucune routine. Créez-en une avec openbot.create_routine, puis ouvrez l’attente.",
   "error.backend.agentWaitRemoteUnsupported":
     "Les attentes ouvertes ne sont disponibles que pour les agents de cet ordinateur.",
+  "error.backend.markUnreadRemoteUnsupported":
+    "Marquer un message comme non lu n’est disponible que pour les agents de cet ordinateur.",
   "error.backend.routineFlowHandoffFailed": "La routine n’a pas pu transmettre le travail à cet agent.",
   "error.backend.mcpServerLimit": "Builders Bot garde jusqu’à {limit} serveurs MCP.",
   "error.backend.mcpServerNameTaken": "Un serveur MCP nommé {name} existe déjà.",
@@ -228,6 +235,7 @@ export const messages = {
     "Builders Bot n’a pas pu lire les informations de connexion de ce serveur. Vérifiez l’adresse du serveur et réessayez.",
   "error.backend.mcpServerExited":
     "Le serveur s’est arrêté avant de répondre. Exécutez la commande dans un terminal pour voir son erreur.",
+  "error.backend.mcpServerFailedToStart": "Le serveur n’a pas démarré : {reason}",
   "error.backend.mcpOAuthProxyUnavailable":
     "Builders Bot n’a pas pu démarrer sa connexion locale de connexion pour ce serveur. Redémarrez Builders Bot, puis réessayez.",
   "error.backend.mcpOAuthSignInNeeded":

@@ -83,6 +83,8 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Esta solicitação excede o limite de contexto de encaminhamento. Selecione um membro ou envie uma solicitação mais curta.",
   "error.backend.channelTaskMemberRequired": "Escolha um membro para esta tarefa.",
+  "error.backend.channelTaskStopped": "Parada. Continue ou reatribua esta tarefa.",
+  "error.backend.channelRoutingUnreadable": "O líder não conseguiu encaminhar esta mensagem. Reatribua-a a um membro.",
   "error.backend.channelRoutingFailed": "O encaminhamento falhou. Escolha um membro ou tente novamente.",
   "error.backend.channelLeadTimedOut": "O líder do canal não respondeu a tempo. Escolha um membro ou tente novamente.",
   "error.backend.channelLeadFailed":
@@ -91,6 +93,8 @@ export const messages = {
   "error.backend.channelDeliveryNotCreated": "A entrega do canal não foi criada.",
   "error.backend.channelAssignmentStopped": "Esta tarefa atribuída pelo canal foi interrompida ou substituída.",
   "error.backend.channelAssigneeUnavailable": "O agente responsável está indisponível.",
+  "error.backend.channelAssigneeRemoved": "O membro responsável foi removido.",
+  "error.backend.channelAssigneeReassign": "O membro responsável está indisponível. Reatribua esta tarefa.",
   "error.backend.channelAssignmentChanged": "Esta tarefa atribuída pelo canal mudou.",
   "error.backend.channelMemberRequired": "Selecione um membro disponível deste canal.",
   "error.backend.memoryEssentialBudget":
@@ -204,6 +208,8 @@ export const messages = {
   "error.backend.agentWaitNoRoutine":
     "Somente uma execução de uma das suas rotinas desperta uma espera, e você não tem nenhuma rotina. Crie uma com openbot.create_routine e depois abra a espera.",
   "error.backend.agentWaitRemoteUnsupported": "As esperas abertas só estão disponíveis para agentes neste computador.",
+  "error.backend.markUnreadRemoteUnsupported":
+    "Marcar uma mensagem como não lida só está disponível para agentes neste computador.",
   "error.backend.routineFlowHandoffFailed": "A rotina não conseguiu passar o trabalho para este agente.",
   "error.backend.mcpServerLimit": "O Builders Bot mantém até {limit} servidores MCP.",
   "error.backend.mcpServerNameTaken": "Já existe um servidor MCP chamado {name}.",
@@ -234,6 +240,7 @@ export const messages = {
     "O servidor parou antes de responder. Execute o comando em um terminal para ver o erro.",
   "error.backend.browserBrokerUnavailable":
     "A conexão compartilhada do navegador não iniciou. Reinicie o Builders Bot e tente novamente.",
+  "error.backend.mcpServerFailedToStart": "O servidor não iniciou: {reason}",
   "error.backend.mcpOAuthProxyUnavailable":
     "O Builders Bot não conseguiu iniciar a conexão local de login para este servidor. Reinicie o Builders Bot e tente novamente.",
   "error.backend.mcpOAuthSignInNeeded":

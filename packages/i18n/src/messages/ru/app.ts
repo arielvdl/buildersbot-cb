@@ -37,7 +37,8 @@ export const messages = {
   "app.avatar.type": "Выберите изображение PNG, JPEG, GIF или WebP.",
   "app.avatar.size": "Выберите изображение размером меньше 10 МБ.",
   "app.avatar.processingUnavailable": "Обработка изображений недоступна.",
-  "app.avatar.tooLarge": "Builders Bot не смог достаточно уменьшить это изображение. Выберите более простое изображение.",
+  "app.avatar.tooLarge":
+    "Builders Bot не смог достаточно уменьшить это изображение. Выберите более простое изображение.",
   "app.avatar.processFailed": "Builders Bot не смог обработать это изображение.",
   "app.chart.total": "Итого",
   "app.modelVariant.default": "По умолчанию",
@@ -52,6 +53,7 @@ export const messages = {
   "app.rail.website": "Сайт Builders Bot",
   "app.rail.agents": "Агенты",
   "app.rail.schedule": "Расписание",
+  "app.rail.tasks": "Задачи",
   "app.rail.workflows": "Рабочие процессы",
   "app.rail.usage": "Использование",
   "app.rail.marketplace": "Маркетплейс",

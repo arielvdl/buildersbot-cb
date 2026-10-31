@@ -119,7 +119,8 @@ export const messages = {
   "mobile.agent.info.routinePaused": "一時停止中",
   "mobile.agent.info.noRoutines": "ルーティンはまだありません。",
   "mobile.agent.info.addRoutine": "ルーティンを追加",
-  "mobile.agent.info.skillsUnsupported": "このホストはスキルに対応していません。ホストの Builders Bot を更新してください。",
+  "mobile.agent.info.skillsUnsupported":
+    "このホストはスキルに対応していません。ホストの Builders Bot を更新してください。",
   "mobile.agent.info.noSkills": "スキルはまだありません。",
   "mobile.agent.info.skillsManaged": "このエージェントのスキルはホストで管理されています。",
   "mobile.agent.info.skillsAddOnComputer":
@@ -144,7 +145,8 @@ export const messages = {
   "mobile.agent.skill.uninstallFailed": "{name} をアンインストールできませんでした。",
   "mobile.agent.skill.enableFailed": "{name} を有効にできませんでした。",
   "mobile.agent.skill.disableFailed": "{name} を無効にできませんでした。",
-  "mobile.agent.skill.manageUnsupported": "このホストではスキルを変更できません。ホストの Builders Bot を更新してください。",
+  "mobile.agent.skill.manageUnsupported":
+    "このホストではスキルを変更できません。ホストの Builders Bot を更新してください。",
   "mobile.agent.discard.title": "変更を破棄しますか？",
   "mobile.agent.discard.body": "変更は保存されていません。",
   "mobile.agent.discard.keepEditing": "編集を続ける",
@@ -333,10 +335,15 @@ export const messages = {
     "{provider} は実行中のターンの方向を修正できません。作業中に送ったメッセージはキューで待ちます。",
   "mobile.agent.workspace.title": "ワークスペースのフォルダー",
   "mobile.agent.workspace.footer": "ホストのコンピューター上にある、このエージェントのフォルダーです。",
-  "mobile.agent.notifications.title": "通知",
-  "mobile.agent.notifications.footer": "通知はこのサーバーのすべてのメンバーで共通です。",
   "mobile.agent.notifications.failed": "通知を変更できませんでした",
   "mobile.agent.notifications.failedBody": "ホストはこの変更を保存できませんでした。",
+  "mobile.agent.notificationLevel.title": "通知する内容",
+  "mobile.agent.notificationLevel.server": "サーバーの設定",
+  "mobile.agent.notificationLevel.serverValue": "サーバーの設定（{level}）",
+  "mobile.agent.notificationLevel.footer":
+    "「通知する内容」はあなただけの設定で、あなたのすべてのデバイスに適用されます。",
+  "mobile.agent.notificationLevel.unsupported":
+    "このサーバーはエージェントごとの通知レベルを保存できません。サーバーを実行しているコンピューターで Builders Bot をアップデートしてください。",
   "mobile.agent.newChat.title": "新しいチャット",
   "mobile.agent.newChat.starting": "新しいチャットを始めています…",
   "mobile.agent.newChat.footer": "エージェントはこのチャットを忘れます。設定はそのままです。",
@@ -508,6 +515,9 @@ export const messages = {
   "mobile.agent.home.noServersBody": "デスクトップアプリに再接続するか、リモートサーバーに参加してください。",
   "mobile.agent.home.chooseServer": "サーバーを選択",
   "mobile.agent.home.openServers": "サーバーを開く",
+  "mobile.agent.home.noChatOpen": "チャットが開いていません",
+  "mobile.agent.home.noChatOpenBody": "リストからチャットを選んでください。",
+  "mobile.agent.home.chatListWidth": "チャットリストの幅",
   "mobile.agent.home.serverTitle": "{name}、サーバーを開く",
   "mobile.agent.home.waiting": "接続を待っています",
   "mobile.agent.home.waitingBody": "このサーバーが接続されると、エージェントの一覧が読み込まれます。",

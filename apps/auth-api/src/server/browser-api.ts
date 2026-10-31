@@ -4,6 +4,7 @@ import { parseHostedServerLifecycleInput } from "@openbot/contracts/hosted-serve
 import {
   LICENSE_UNAVAILABLE_STATE,
   parseLicenseCheckoutRequest,
+  parseLicensePlanRequest,
   parseLicenseRenewalRequest,
   parseLicenseUsersRequest,
 } from "@openbot/contracts/license";
@@ -11,7 +12,7 @@ import { type DynamicRecord, isBoolean, isNumber, isString } from "@openbot/cont
 import { sourceText } from "@openbot/i18n/source";
 import { Cause, Effect } from "effect";
 import { type AccountAttribution, requestFirstTouch } from "./account-attribution";
-import { type AuthService, AuthServiceError } from "./auth-service";
+import { type AuthService, AuthServiceError, readAnalyticsAnswer } from "./auth-service";
 import { AvatarUploadError, readAvatarUpload, removeAccountAvatar, storeAccountAvatar } from "./avatar-storage";
 import { BILLING_UNAVAILABLE_STATE, BillingError, type BillingService } from "./billing-service";
 import { sha256 } from "./crypto";
@@ -37,6 +38,7 @@ export interface BrowserApiServices {
     | "verifyEmailCode"
     | "authenticate"
     | "enforceTeamInviteRateLimit"
+    | "updateAnalytics"
     | "updateName"
     | "updateAvatar"
     | "listAccountSessions"
@@ -121,7 +123,7 @@ const AVATAR_PATH = "v1/me/avatar";
 
 /**
  * Every write sends JSON, except an avatar upload, which sends the image bytes as the bearer route
- * does. The `X-OpenBot-Browser` header and the same-origin check still apply to it: a cross-site
+ * does. The `X-Builders Bot-Browser` header and the same-origin check still apply to it: a cross-site
  * page cannot send that header without a CORS preflight, which this API never answers.
  */
 function browserWriteContentTypeAllowed(request: Request, path: string): boolean {
@@ -144,7 +146,7 @@ export function handleBrowserApi(request: Request, services: BrowserApiServices)
   if (
     request.method !== "GET" &&
     (request.headers.get("Origin") !== new URL(request.url).origin ||
-      request.headers.get("X-OpenBot-Browser") !== "1" ||
+      request.headers.get("X-Builders Bot-Browser") !== "1" ||
       !browserWriteContentTypeAllowed(request, path))
   )
     return Promise.resolve(failure(403, "browser_request_refused", "The browser request was refused."));
@@ -316,6 +318,12 @@ const handleAccount = Effect.fn("BrowserApi.handleAccount")(function* (
       return yield* new AuthServiceError(400, "invalid_profile_name", "Enter a valid display name.");
     return json(yield* services.auth.updateName(token, body.name));
   }
+  if (path === "v1/me/analytics" && request.method === "PUT") {
+    const answer = readAnalyticsAnswer(yield* readJsonObject(request));
+    if (!answer)
+      return yield* new AuthServiceError(400, "invalid_analytics_preference", "The analytics setting is not valid.");
+    return json(yield* services.auth.updateAnalytics(token, answer));
+  }
   if (path === AVATAR_PATH && request.method === "PUT") {
     return yield* Effect.gen(function* () {
       const upload = yield* readAvatarUpload(request);
@@ -372,6 +380,11 @@ const handleBilling = Effect.fn("BrowserApi.handleBilling")(function* (
     if (!input) return failure(400, "invalid_billing_request", "The billing request is invalid.");
     return json(yield* billing.license.setUsers(user.id, input.users));
   }
+  if (path === "v1/me/license/plan") {
+    const input = parseLicensePlanRequest(body);
+    if (!input) return failure(400, "invalid_billing_request", "The billing request is invalid.");
+    return json(yield* billing.license.changePlan(user.id, input));
+  }
   if (path === "v1/me/license/renewal") {
     const input = parseLicenseRenewalRequest(body);
     if (!input) return failure(400, "invalid_billing_request", "The billing request is invalid.");
@@ -403,6 +416,7 @@ const handleHosting = Effect.fn("BrowserApi.handleHosting")(function* (
           interval: body.interval,
           currency: body.currency,
           entryPoint: body.entryPoint,
+          license: body.license,
         },
         request.headers.get("Idempotency-Key"),
         returnTo,

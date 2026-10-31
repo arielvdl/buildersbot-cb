@@ -42,4 +42,5 @@ export const messages = {
   "status.agent.memoryChanges": "Souvenirs : {saved} enregistrés, {updated} mis à jour, {forgotten} oubliés.",
   "status.agent.memoryChangesWithConflicts":
     "Souvenirs : {saved} enregistrés, {updated} mis à jour, {forgotten} oubliés, {notChanged} non modifiés, car un autre fil les a modifiés avant.",
+  "status.agent.planContinues": "Le plan a des étapes en cours. L’agent continue ({current} sur {limit}).",
 } as const satisfies PartialTranslation<typeof source>;

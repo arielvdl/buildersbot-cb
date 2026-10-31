@@ -10,6 +10,8 @@ export const messages = {
     "Codex ha smesso di rispondere, quindi Builders Bot ha terminato il suo processo.",
   "error.provider.acpUnresponsive":
     "{provider} non ha risposto in tempo, quindi Builders Bot ha terminato il suo processo.",
+  "error.provider.acpMcpNotLoaded":
+    "{provider} non ha caricato gli strumenti di Builders Bot, quindi questo agente non può usarli né contattare i suoi compagni. Una policy del team {provider} può bloccare i server MCP locali. Chiedi all’amministratore del team di consentirli, poi riprova.",
   "error.provider.endpointsReadOnly":
     "Gli endpoint salvati sono stati scritti da una versione più recente di Builders Bot, oppure il file non è leggibile. Aggiorna Builders Bot per modificarli.",
   "error.provider.endpointNoSecureStorage":
@@ -63,6 +65,7 @@ export const messages = {
   "error.provider.removeWhileOn": "Disattiva il provider prima di rimuoverne il download.",
   "error.provider.removeWhileDownloading": "Attendi la fine del download, poi rimuovilo.",
   "error.provider.removeIncomplete": "Un programma usa alcuni file di questa CLI. Chiudilo e riprova.",
+  "error.provider.removeDownloadsFailed": "Impossibile rimuovere i download della CLI di {providers}.",
   "error.provider.cliOverride":
     "Rimuovi l'override esplicito del percorso della CLI prima di aggiornare da Builders Bot.",
   "error.provider.runtimeUpdateIncomplete": "L'aggiornamento del runtime non è stato completato.",
@@ -101,6 +104,8 @@ export const messages = {
   "error.provider.modelsTooMany": "Ci sono troppi modelli.",
   "error.provider.modelIdCharacter": "L'ID di un modello contiene un carattere non utilizzabile.",
   "error.provider.modelIdDuplicate": "Due modelli hanno lo stesso ID.",
+  "error.provider.contextWindowInvalid":
+    "La finestra di contesto di un modello deve essere un numero intero di token tra {min} e {max}.",
   "error.provider.headersTooMany": "Ci sono troppi header.",
   "error.provider.headerNameCharacter": "Il nome di un header contiene un carattere non consentito da HTTP.",
   "error.provider.headerNameTooLong": "Il nome di un header è troppo lungo.",
@@ -190,6 +195,7 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot non è riuscito ad attivare la CLI gestita.",
   "error.provider.cliBusyReconnect":
     "La CLI di {provider} sta lavorando a un turno. Attendi che finisca, poi riconnetti.",
+  "error.provider.cliBusySignOut": "La CLI {provider} sta elaborando un turno. Attendi che finisca, poi disconnetti.",
   "error.provider.opencodeCredentialsRejected":
     "Il provider del modello ha rifiutato la chiave API. Correggi la chiave di OpenCode in Impostazioni, oppure la chiave del provider con `opencode auth login`. Poi riprova o scegli un altro modello.\n{detail}",
   "error.provider.opencodeAuthRequired":
@@ -327,6 +333,7 @@ export const messages = {
   "error.provider.accountsUnsupported": "{provider} può avere un solo account.",
   "error.provider.accountNeedsConnection": "Connetti {provider} prima di aggiungere un altro account.",
   "error.provider.usageResetUnsupported": "{provider} non può azzerare i limiti di utilizzo.",
+  "error.provider.signOutUnsupported": "Builders Bot non può disconnettere l'accesso a {provider}.",
   "error.provider.usageResetNotConnected": "Accedi di nuovo a questo account {provider} prima di azzerarne l'utilizzo.",
   "error.provider.accountLimit": "{provider} può avere al massimo {limit} account.",
   "error.provider.accountNotFound": "Questo account {provider} non è su questo computer. Aggiorna e riprova.",

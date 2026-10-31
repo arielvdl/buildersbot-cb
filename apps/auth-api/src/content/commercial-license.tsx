@@ -12,8 +12,8 @@ export function CommercialLicense() {
     <>
       <h2>1. Definitions</h2>
       <p>
-        1.1 "Software" means the OpenBot software, in source and object code form, in all versions released during the
-        Term.
+        1.1 "Software" means the Builders Bot software, in source and object code form, in all versions released during
+        the Term.
       </p>
       <p>
         1.2 "Licensor" means Synthetify Labs spółka z ograniczoną odpowiedzialnością, with its registered office at
@@ -49,8 +49,8 @@ export function CommercialLicense() {
         on a renewal date.
       </p>
       <p>
-        1.10 "OpenBot" means the AI coworker workspace software released by the Licensor, including its agents, tools,
-        and admin panel. "OpenBot" and "Software" are used interchangeably.
+        1.10 "Builders Bot" means the AI coworker workspace software released by the Licensor, including its agents,
+        tools, and admin panel. "Builders Bot" and "Software" are used interchangeably.
       </p>
       <p>
         1.11 "Competing Product" means a product or service whose primary function is to let users create, run, or
@@ -63,12 +63,12 @@ export function CommercialLicense() {
       <p>1.13 "Business day" means any day other than a Saturday, Sunday, or public holiday in Poland.</p>
       <p>
         1.14 "Contributor License Agreement" or "CLA" means the agreement under which the Licensor accepts contributions
-        to OpenBot, as published by the Licensor.
+        to Builders Bot, as published by the Licensor.
       </p>
       <p>1.15 "Fee" or "Fees" means the amounts payable for Seats under clauses 2.3, 2.4, 2.7, and 2.8.</p>
       <p>
-        1.16 "Server" means one instance of the OpenBot application, either running on infrastructure operated by or for
-        the Licensee or on a hosted server purchased from the Licensor under separate terms. A Server stores the
+        1.16 "Server" means one instance of the Builders Bot application, either running on infrastructure operated by
+        or for the Licensee or on a hosted server purchased from the Licensor under separate terms. A Server stores the
         workspace data of that instance, including agents, conversations, files, and team data, and runs AI agent tasks.
         A Server is linked to an Order when it is activated under the administrator account bound to the license.
       </p>
@@ -123,7 +123,7 @@ export function CommercialLicense() {
       <p>
         2.9 A hosted server purchased from the Licensor is a separate service governed by separate terms and is not
         provided under this license. It does not grant a license for Commercial Use. Each individual who signs in to
-        OpenBot for Commercial Use, whether on a hosted Server or a self-operated Server, needs a Seat.
+        Builders Bot for Commercial Use, whether on a hosted Server or a self-operated Server, needs a Seat.
       </p>
       <p>
         2.10 Changes to this license. The Licensor may update this license. An updated version applies to a Licensee
@@ -134,8 +134,8 @@ export function CommercialLicense() {
       <h2>3. License Verification, Data, and Audit</h2>
       <p>
         3.1 License binding. The license is bound to the email address of the Licensee's administrator, as registered at
-        purchase. Access to OpenBot is limited to individuals added to Seats on the Licensee's Servers through the admin
-        panel.
+        purchase. Access to Builders Bot is limited to individuals added to Seats on the Licensee's Servers through the
+        admin panel.
       </p>
       <p>
         3.2 Data. The Licensor will store the following data about the Licensee:
@@ -153,7 +153,7 @@ export function CommercialLicense() {
         (e) the number of connected devices.
         <br />
         The Licensor processes this data as controller, in accordance with its privacy policy published at{" "}
-        <Link to="/privacy-policy">https://openbot.run/privacy-policy</Link>, and only for the purposes of providing the
+        <Link to="/privacy-policy">https://openbot.run/privacy</Link>, and only for the purposes of providing the
         Software, verifying Seats, billing, and support.
       </p>
       <p>
@@ -180,11 +180,11 @@ export function CommercialLicense() {
         rights when the change takes effect.
       </p>
       <p>
-        3.7 No access to content. OpenBot runs on the Licensee's own infrastructure or on a hosted Server chosen by the
-        Licensee. The Licensor does not receive the Licensee's conversations, files, prompts, or the commands executed
-        by OpenBot. The license check transmits only the data described in clause 3.2. Where hosting is purchased
-        through the Licensor, the Server is operated by a third-party hosting provider. The Licensor has no access to
-        the data stored on it.
+        3.7 No access to content. Builders Bot runs on the Licensee's own infrastructure or on a hosted Server chosen by
+        the Licensee. The Licensor does not receive the Licensee's conversations, files, prompts, or the commands
+        executed by Builders Bot. The license check transmits only the data described in clause 3.2. Where hosting is
+        purchased through the Licensor, the Server is operated by a third-party hosting provider. The Licensor has no
+        access to the data stored on it.
       </p>
 
       <h2>4. Support</h2>
@@ -200,33 +200,33 @@ export function CommercialLicense() {
 
       <h2>5. Restrictions</h2>
       <p>
-        5.1 Hosting for third parties. The Licensee may host OpenBot, provide OpenBot, or give access to it to third
-        parties as a hosted or managed service. Every individual who signs in to OpenBot through such a service must
-        hold a paid Seat of the Licensee and is billed accordingly.
+        5.1 Hosting for third parties. The Licensee may host Builders Bot, provide Builders Bot, or give access to it to
+        third parties as a hosted or managed service. Every individual who signs in to Builders Bot through such a
+        service must hold a paid Seat of the Licensee and is billed accordingly.
       </p>
       <p>
-        5.2 Embedding. Embedding OpenBot in a product offered to third parties requires the Licensor's prior written
-        consent.
+        5.2 Embedding. Embedding Builders Bot in a product offered to third parties requires the Licensor's prior
+        written consent.
       </p>
       <p>
-        5.3 Flow-down. Where the Licensee provides OpenBot or access to it under clause 5.1, it shall require each of
-        its customers to agree to terms no less protective of the Licensor than this license, and it remains responsible
-        for its customers' compliance.
+        5.3 Flow-down. Where the Licensee provides Builders Bot or access to it under clause 5.1, it shall require each
+        of its customers to agree to terms no less protective of the Licensor than this license, and it remains
+        responsible for its customers' compliance.
       </p>
       <p>
         5.4 Notices. The Licensee shall not remove, obscure, or alter any copyright, license, or trademark notice in
-        OpenBot.
+        Builders Bot.
       </p>
       <p>
         5.5 No competing products. Except as permitted by clause 5.1, the Licensee shall not, in Commercial Use, use
-        OpenBot to build, train, or operate a Competing Product.
+        Builders Bot to build, train, or operate a Competing Product.
       </p>
       <p>5.6 Seats. In Commercial Use, the Licensee shall not share a Seat between individuals (see clause 2.2).</p>
       <p>
-        5.7 Integrations. The Licensee may connect OpenBot to any third-party software it uses in its business,
-        including messaging, collaboration, and other services. Such a connection is not provision of OpenBot to a third
-        party under clause 5.1 provided that OpenBot is not made available through such a connection to the general
-        public or to persons outside the Licensee's organisation.
+        5.7 Integrations. The Licensee may connect Builders Bot to any third-party software it uses in its business,
+        including messaging, collaboration, and other services. Such a connection is not provision of Builders Bot to a
+        third party under clause 5.1 provided that Builders Bot is not made available through such a connection to the
+        general public or to persons outside the Licensee's organisation.
       </p>
 
       <h2>6. Intellectual Property</h2>
@@ -236,23 +236,24 @@ export function CommercialLicense() {
         grants no rights other than those expressly stated.
       </p>
       <p>
-        6.2 Modifications and contributions. The Licensee owns the modifications it makes to OpenBot. The Licensee may
-        contribute a modification to the Licensor under the Contributor License Agreement, and upon acceptance, the
+        6.2 Modifications and contributions. The Licensee owns the modifications it makes to Builders Bot. The Licensee
+        may contribute a modification to the Licensor under the Contributor License Agreement, and upon acceptance, the
         Licensee assigns to the Licensor the copyright in that contribution as provided in the CLA. The Licensor may
         then use, modify, and distribute the contribution, including under the Non-Commercial License. Modifications
         that are not contributed may not be distributed to third parties in Commercial Use.
       </p>
       <p>
-        6.3 Trademarks. The Licensee may refer to OpenBot by name to state that it uses OpenBot, provided that it does
-        not alter the name or logo, does not suggest endorsement by the Licensor, and follows the trademark guidelines
-        published at <Link to="/brand">openbot.run/brand</Link>, as updated from time to time. All rights in the OpenBot
-        name and logo remain with the Licensor.
+        6.3 Trademarks. The Licensee may refer to Builders Bot by name to state that it uses Builders Bot, provided that
+        it does not alter the name or logo, does not suggest endorsement by the Licensor, and follows the trademark
+        guidelines published at <Link to="/brand">openbot.run/branding</Link>, as updated from time to time. All rights
+        in the Builders Bot name and logo remain with the Licensor.
       </p>
       <p>
-        6.4 Outputs. "Output" means any text, file, code, data, or other result generated by OpenBot or its agents at
-        the Licensee's instruction. The Licensor does not claim any rights in the Output. The Licensor makes no warranty
-        that the Output is protected by copyright or other intellectual property rights, or that it does not infringe
-        third-party rights. The Licensee is responsible for reviewing and using the Output in compliance with law.
+        6.4 Outputs. "Output" means any text, file, code, data, or other result generated by Builders Bot or its agents
+        at the Licensee's instruction. The Licensor does not claim any rights in the Output. The Licensor makes no
+        warranty that the Output is protected by copyright or other intellectual property rights, or that it does not
+        infringe third-party rights. The Licensee is responsible for reviewing and using the Output in compliance with
+        law.
       </p>
 
       <h2>7. Confidentiality</h2>
@@ -285,7 +286,7 @@ export function CommercialLicense() {
 
       <h2>8. Warranty and Liability</h2>
       <p>
-        8.1 Disclaimer. OpenBot is provided "as is", without warranty of any kind, express or implied, including
+        8.1 Disclaimer. Builders Bot is provided "as is", without warranty of any kind, express or implied, including
         warranties of merchantability, fitness for a particular purpose, and non-infringement, to the extent permitted
         by law.
       </p>
@@ -310,24 +311,24 @@ export function CommercialLicense() {
       </p>
       <p>
         8.6 Licensee responsibility. The Licensee is responsible for the actions taken by its users and agents using
-        OpenBot, and for the results it relies on. The Licensee is responsible for backing up the data stored on its
-        Servers.
+        Builders Bot, and for the results it relies on. The Licensee is responsible for backing up the data stored on
+        its Servers.
       </p>
       <p>
-        8.7 Third-party models. The Licensee may connect OpenBot to AI models or services provided by third parties. The
-        Licensee is solely responsible for those connections and for compliance with the terms of each third-party
-        provider. The Licensor does not provide, and gives no warranty for, those models or services.
+        8.7 Third-party models. The Licensee may connect Builders Bot to AI models or services provided by third
+        parties. The Licensee is solely responsible for those connections and for compliance with the terms of each
+        third-party provider. The Licensor does not provide, and gives no warranty for, those models or services.
       </p>
 
       <h2>9. Indemnification</h2>
       <p>
         9.1 Indemnification. Neither party is obliged to indemnify the other party for third-party claims under this
         license, except that the Licensee shall indemnify and hold harmless the Licensor against third-party claims
-        arising from the Licensee's hosting of OpenBot, from the provision of OpenBot or access to it to third parties
-        under clause 5.1 or 5.2, from Output under clause 6.4, or from any use of OpenBot by the Licensee or its users
-        in breach of this license or applicable law, including claims relating to data processed on the Licensee's
-        Servers. This obligation does not apply to the extent such claims arise from the Licensor's breach of this
-        license.
+        arising from the Licensee's hosting of Builders Bot, from the provision of Builders Bot or access to it to third
+        parties under clause 5.1 or 5.2, from Output under clause 6.4, or from any use of Builders Bot by the Licensee
+        or its users in breach of this license or applicable law, including claims relating to data processed on the
+        Licensee's Servers. This obligation does not apply to the extent such claims arise from the Licensor's breach of
+        this license.
       </p>
 
       <h2>10. Renewal and Termination</h2>
@@ -348,10 +349,10 @@ export function CommercialLicense() {
         at the end of the Billing Period in which the notice period ends.
       </p>
       <p>
-        10.6 Effect of termination. On termination, the Licensee shall stop using OpenBot under this license and shall
-        stop providing access to OpenBot to any third party under clause 5.1, and the Licensor may deactivate the
-        license. If the Licensor terminates this license under clause 10.4, the Licensee is not entitled to a refund of
-        any Fees paid, and Fees due up to the end of the current Billing Period remain payable. This clause does not
+        10.6 Effect of termination. On termination, the Licensee shall stop using Builders Bot under this license and
+        shall stop providing access to Builders Bot to any third party under clause 5.1, and the Licensor may deactivate
+        the license. If the Licensor terminates this license under clause 10.4, the Licensee is not entitled to a refund
+        of any Fees paid, and Fees due up to the end of the current Billing Period remain payable. This clause does not
         affect any use governed by the Non-Commercial License. Clause 7.6 applies to personal data.
       </p>
 
@@ -403,8 +404,8 @@ export function CommercialLicense() {
       </p>
       <p>
         12.8 Sanctions and export control. Each party shall comply with applicable sanctions and export control laws.
-        The Licensee shall not use, export, or make available OpenBot in breach of those laws, including to persons or
-        territories subject to sanctions.
+        The Licensee shall not use, export, or make available Builders Bot in breach of those laws, including to persons
+        or territories subject to sanctions.
       </p>
       <p>
         12.9 Survival. Clauses 3.5, 3.6, 6, 7, 8, 9, 10.6, 11, and 12 survive the end of the Term, together with any

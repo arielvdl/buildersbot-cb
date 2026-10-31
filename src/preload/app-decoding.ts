@@ -97,6 +97,8 @@ import {
   isSpeechVoice,
   isVoiceLanguage,
   isVoiceModelId,
+  isVoiceServerProbe,
+  isVoiceServerSettings,
   type LoadSnapshot,
   type MobileConnectedDevice,
   type MobileConnectLink,
@@ -122,6 +124,8 @@ import {
   type UpdatePreference,
   type UpdateStatus,
   type VoiceModelStatus,
+  type VoiceServerProbe,
+  type VoiceServerSettings,
   type VoiceSettings,
   type VoiceStream,
   type VoiceStreamTranscript,
@@ -142,7 +146,7 @@ import {
 import { type LicenseState, parseLicenseState } from "@openbot/contracts/license";
 import { parseMobileWebAppUrl } from "@openbot/contracts/mobile-connect";
 import { isPluginSlug } from "@openbot/contracts/plugin-links";
-import { isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
+import { type DynamicRecord, isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 
 export function decodeAppInfo(value: unknown): AppInfo {
   const info = decodeRecord(value, "app info");
@@ -316,7 +320,15 @@ function decodeCentralAuthUser(value: unknown): CentralAuthUser {
     email: requiredString(user, "email"),
     name: nullableString(user, "name"),
     avatarUrl: nullableString(user, "avatarUrl"),
+    ...optionalAnalyticsEnabled(user),
   };
+}
+
+function optionalAnalyticsEnabled(user: DynamicRecord): Pick<CentralAuthUser, "analyticsEnabled"> {
+  const { analyticsEnabled } = user;
+  if (analyticsEnabled === undefined) return {};
+  if (analyticsEnabled !== null && !isBoolean(analyticsEnabled)) throw new Error("Invalid analyticsEnabled.");
+  return { analyticsEnabled };
 }
 
 function decodeCentralAuthIssue(value: unknown): CentralAuthIssue {
@@ -569,6 +581,21 @@ export function decodeSpeechAudio(value: unknown): SpeechAudio {
     throw new Error("Invalid speech audio.");
   }
   return { pcm, sampleRate };
+}
+
+export function decodeVoiceServerSettings(value: unknown): VoiceServerSettings | null {
+  if (value === null) return null;
+  if (!isVoiceServerSettings(value)) throw new Error("Invalid voice server settings.");
+  const { address, hasApiKey, routes } = value;
+  const { dictation, speech, transcriptionModel, speechModel, voice } = routes;
+  return { address, hasApiKey, routes: { dictation, speech, transcriptionModel, speechModel, voice } };
+}
+
+export function decodeVoiceServerProbe(value: unknown): VoiceServerProbe {
+  if (!isVoiceServerProbe(value)) throw new Error("Invalid voice server test result.");
+  if (!value.ok) return { ok: false, field: value.field, message: value.message };
+  const { transcription, speech, voices } = value.models;
+  return { ok: true, models: { transcription: [...transcription], speech: [...speech], voices: [...voices] } };
 }
 
 export function decodeExportResult(value: unknown): ExportResult {

@@ -149,7 +149,7 @@ export const InlineFileReferences: Story = {
 
 export const PlainFileReferences: Story = {
   args: {
-    body: `Here is ${firstStoryAttachment.name}. You can also review ~/OpenBot/Shared/brief.pdf.`,
+    body: `Here is ${firstStoryAttachment.name}. You can also review ~/Builders Bot/Shared/brief.pdf.`,
     attachments: [firstStoryAttachment],
     onOpenAttachment: fn(),
     onOpenSharedFile: fn(),
@@ -235,7 +235,7 @@ const allChipKindsBody = [
   serializeAttachmentReference(logAttachment.name, logAttachment.id),
   serializeAttachmentReference(secondFileTypeAttachment.name, secondFileTypeAttachment.id),
   serializeAttachmentReference(fourthFileTypeAttachment.name, fourthFileTypeAttachment.id),
-  "and ~/OpenBot/Shared/brief.pdf, then compare",
+  "and ~/Builders Bot/Shared/brief.pdf, then compare",
   serializeAttachmentReference(longAttachment.name, longAttachment.id),
   "with https://openbot.run/docs [1].",
 ].join(" ");

@@ -42,8 +42,10 @@ import {
   type PendingChatMessage,
   presentChatMessages,
 } from "@/features/chat/model/chat-messages";
+import { finishedTurnSummaries, type TurnStepsSummary } from "@/features/chat/model/turn-thinking";
 import { replyVoiceReady } from "@/features/voice/model/reply-voice";
 import { ConnectionStatus } from "@/features/workspace/components/connection-status";
+import { useTurnStepLines } from "@/features/workspace/components/use-agent-activity";
 import { useBrowserRequests } from "@/features/workspace/components/use-live-workspace";
 import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-context";
 import {
@@ -364,6 +366,25 @@ export function ChatView({
     [queued, heldQueueEdit, queuePending],
   );
   usePublishedQueuedChat(queue?.chatId ?? `${target.serverId}:${target.id}`, queue ?? null, queuePending);
+  // The thinking sheet reads the agent's conversation, so only an agent chat opens it.
+  const turnLines = useTurnStepLines(target.serverId);
+  const conversationMessages = conversation?.messages;
+  const conversationTurnId = conversation?.activeTurnId ?? null;
+  const lastTurnSummaries = useRef<ReadonlyMap<string, TurnStepsSummary> | undefined>(undefined);
+  const turnSummaries = useMemo(() => {
+    lastTurnSummaries.current =
+      conversationMessages && target.kind === "agent"
+        ? finishedTurnSummaries(conversationMessages, conversationTurnId, turnLines, lastTurnSummaries.current)
+        : undefined;
+    return lastTurnSummaries.current;
+  }, [conversationMessages, conversationTurnId, turnLines, target.kind]);
+  const thinkingAgentId = target.kind === "agent" ? target.id : null;
+  const openTurn = useCallback(
+    (turnId: string) => {
+      if (thinkingAgentId) router.push({ pathname: "/turn-thinking", params: { agentId: thinkingAgentId, turnId } });
+    },
+    [thinkingAgentId],
+  );
   const queuedMessageIds = useMemo(
     () =>
       new Set(
@@ -982,6 +1003,8 @@ export function ChatView({
               }
               appActive={appActive}
               activeTurnId={activeTurnId}
+              turnSummaries={turnSummaries}
+              onOpenTurn={thinkingAgentId ? openTurn : undefined}
               // The form is a new object on each render. Without a question the list does not read it,
               // so it is left out and does not draw the list again.
               questionForm={questionForm?.messageId ? questionForm : undefined}
@@ -1053,13 +1076,17 @@ export function ChatView({
                   </ChatGlassIconButton>
                 </View>
               ) : null}
-              <ConnectionStatus
-                server={server}
-                // The history waits for the server: the chat says so under the reconnect status.
-                note={
-                  !ready && !server?.initialConnectionPending && !serverOnline ? t("mobile.chat.history.waiting") : null
-                }
-              />
+              <View style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
+                <ConnectionStatus
+                  server={server}
+                  // The history waits for the server: the chat says so under the reconnect status.
+                  note={
+                    !ready && !server?.initialConnectionPending && !serverOnline
+                      ? t("mobile.chat.history.waiting")
+                      : null
+                  }
+                />
+              </View>
               {showBrowserRequests
                 ? chatBrowserRequests
                     .filter((request) => !asksForSecret(request))
@@ -1090,12 +1117,20 @@ export function ChatView({
                     ))
                 : null}
               {sendError?.agentId === target.id ? (
-                <Typography.Paragraph accessibilityRole="alert" className="bg-background px-4 py-2 text-danger-text">
+                <Typography.Paragraph
+                  accessibilityRole="alert"
+                  className="bg-background py-2 text-danger-text"
+                  style={{ paddingLeft: insets.left + 16, paddingRight: insets.right + 16 }}
+                >
                   {sendError.message}
                 </Typography.Paragraph>
               ) : null}
               {outboxSnapshot.storageFailed && outboxMessages.length ? (
-                <Typography.Paragraph accessibilityRole="alert" className="bg-background px-4 py-2 text-danger-text">
+                <Typography.Paragraph
+                  accessibilityRole="alert"
+                  className="bg-background py-2 text-danger-text"
+                  style={{ paddingLeft: insets.left + 16, paddingRight: insets.right + 16 }}
+                >
                   {t("mobile.chat.outbox.saveFailed")}
                 </Typography.Paragraph>
               ) : null}
@@ -1122,8 +1157,12 @@ export function ChatView({
                 <Typography.Paragraph
                   type="body-xs"
                   align="center"
-                  className="px-6 pt-2 text-text-secondary"
-                  style={{ paddingBottom: Math.max(insets.bottom, 10) + 6 }}
+                  className="pt-2 text-text-secondary"
+                  style={{
+                    paddingLeft: insets.left + 24,
+                    paddingRight: insets.right + 24,
+                    paddingBottom: Math.max(insets.bottom, 10) + 6,
+                  }}
                 >
                   {notice}
                 </Typography.Paragraph>

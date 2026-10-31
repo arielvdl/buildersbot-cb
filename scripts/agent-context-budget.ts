@@ -7,10 +7,10 @@ import { BUILTIN_TOOL_CATALOG, VISIBLE_DYNAMIC_TOOLS } from "../src/backend/agen
 import { toolGuidance } from "../src/backend/agent/tool-guidance";
 import { runDebtRatchet } from "./debt-ratchet";
 
-// Holds the text that OpenBot adds to an agent's context to the byte counts in
+// Holds the text that Builders Bot adds to an agent's context to the byte counts in
 // tools/agent-context/budget.json. `scripts/debt-ratchet.ts` has the rules of the baseline: more bytes
 // fail, fewer bytes fail until `--write` lowers the baseline. The fixture agent has no user data, so
-// the counts measure only OpenBot's own text. Not measured: the schema that the Claude Agent SDK makes
+// the counts measure only Builders Bot's own text. Not measured: the schema that the Claude Agent SDK makes
 // from the raw Zod shapes of its visible tools (`claude-client.ts`).
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -69,8 +69,7 @@ const bytes = (value: unknown) => Buffer.byteLength(typeof value === "string" ? 
 const sum = (values: readonly unknown[]) => values.reduce<number>((total, value) => total + bytes(value), 0);
 
 function measure(): Map<string, number> {
-  const guidance = new Set(BUILTIN_TOOL_CATALOG.map((entry) => toolGuidance(entry.namespace, entry.tool)));
-  guidance.delete("");
+  const guidance = new Set(BUILTIN_TOOL_CATALOG.flatMap((entry) => toolGuidance(entry.namespace, entry.tool)));
   return new Map([
     ["instructions.claude", bytes(instructions("claude"))],
     ["instructions.codex", bytes(instructions("codex"))],

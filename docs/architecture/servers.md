@@ -71,7 +71,7 @@ stays closed for that metric and level until the use goes below every level.
 
 A hosted site belongs to the server that published it (`hosted_sites.server_id`, D1 `0024`). The user
 stays the accountable owner, for abuse reports, blocks and account deletion. The desktop sends
-`OpenBot-Host-Id` and `OpenBot-Host-Token` (the machine token of `/v2/remote/hosts/register`) on each
+`Builders Bot-Host-Id` and `Builders Bot-Host-Token` (the machine token of `/v2/remote/hosts/register`) on each
 `/v1/sites` request when it is a registered server. The Worker checks the hash and that the host owner
 is the request user; a wrong token is refused with 401, never counted as unlinked. The active-site
 limit comes from the server's plan (`siteLimitForPlan`: none 1, Starter 3, Standard 10, Pro 50). A
@@ -154,7 +154,7 @@ the web client uses the browser chooser and ships the export skill in its bundle
 
 ### Instance transfer with a joined server
 
-`instance-transfer-v1` moves a server's agents and server settings to or from an OpenBot transfer file
+`instance-transfer-v1` moves a server's agents and server settings to or from an Builders Bot transfer file
 (see [Instance transfer](agents.md#instance-transfer)). Only an owner or admin can use it: the file holds
 every agent's memories and files, and an import adds server settings. It is protocol 7 only. Every file
 that crosses the connection is at most 100 MB, the size of one WebRTC file transfer; a computer's own
@@ -438,18 +438,21 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `instance-transfer-v1` | Export and import the server's agents and server settings as a transfer file | `instanceTransfer` |
 | `providers-v3` | Code sign-in for Codex, Claude and Grok; send the code a Claude sign-in page shows | `providerAdmin` |
 | `providers-v4` | Code or link sign-in and managed runtimes, Cursor and Cline included | `providerAdmin` |
+| `custom-provider-harness-v1` | List, add and remove custom endpoints as `providers-v1` does; each endpoint in a response names its harness (`opencode` or `pi`). A save names no harness: a new endpoint runs on OpenCode | `providerAdmin` |
 | `claude-api-key-v1` | No routes. The host saves an Anthropic API key for Claude through the `providers-v1` key routes | `providerAdmin` |
 | `provider-usage-reset-v1` | Read the usage reset credits of each provider account on the host, and spend one. Only Codex gives credits | `providerAdmin` |
+| `provider-sign-out-v1` | Sign the host's own Claude or Codex sign-in out. The host's other accounts stay | `providerAdmin` |
 | `host-admin-v1` | Server name and logo | `hostAdmin` |
 | `host-update-v1` | Check for, download and restart into an app update; cancel a restart that waits | `hostAdmin` |
 | `host-timezone-v1` | Read and set the server timezone | `hostAdmin` |
 | `agent-memory-limit-v1` | Read and set how many memories each agent keeps | `hostAdmin` |
 | `memory-review-v1` | Read and set how often the host's agents review their memories in the background, or Off | `hostAdmin` |
+| `agent-notification-levels-v1` | Read and set the member's own notification level of the server and of each agent | none: each member, own levels only |
 | `machine-resources-v1` | Read the disk, memory and CPU use of the host machine; read and set the alert levels and the owner or admin who gets the `machine-alert` event | `storage`, `hostAdmin` |
 | `prompt-cache-ttl-v1` | Read and set how long Claude keeps the prompt cache of the host's agents | `hostAdmin` |
 | `provider-default-v1` | Read and set the provider that a new agent of the host starts on | none: only the mobile app sends it |
 | `agent-access-v1` | Read and set the roles that give members access to agents (see [Roles](#roles)) | `hostAdmin` |
-| `discord-access-v1` | Read and set which Discord roles can use OpenBot in a Discord server; list its roles | `messaging` |
+| `discord-access-v1` | Read and set which Discord roles can use Builders Bot in a Discord server; list its roles | `messaging` |
 | `events-v1` | Manage webhook routines, their secrets, and activity | `events` |
 | `routine-recovery-v1` | Read and set a routine's missed-run policy; read its runs with the missed occurrences | `events` |
 | `routine-results-v1` | List the messaging connections and their places; read and set where an agent routine sends its answers. Deliveries stay on the host | none: only the mobile app sends it |
@@ -514,6 +517,31 @@ background memory reviews of the host's agents (`openbot-memory-review-v1.json`;
 other values. The agent service reads the value at each use, so a change applies from the next turn.
 Server settings → General → Agents → Memory review sets it for this computer
 (`hostAdmin.setMemoryReview`, local handler) and for a joined server.
+
+`agent-notification-levels-v1` reads and sets the notification levels that the signed-in member chose
+on this server, for all of their devices: the level of the whole server (`server`, `null` until they
+choose one) and the level of each agent (`all`, `needs-me` or `nothing`; `null` removes it). The host
+keeps the levels in `openbot-agent-notification-levels-v1.json`, by member ID; the owner's levels have
+the key `owner`, so the desktop app of the host computer and the owner's phones read the same levels. A
+member reads and sets only their own levels, and the read leaves out the agents that the member cannot
+see. After each change, the host sends `agent-notification-levels-changed` with all of the member's
+levels to each connection of that member, and to no other member, so a change on the phone shows at
+once on the desktop and the reverse. The owner's levels change in the host store of this computer, so
+the desktop app gets the same event from `RemoteServerManager`. Each client also reads the levels when
+a server connects; the desktop reads them for each notification too. The server level replaces the level that each device kept for the
+server before (the effective level is `server ?? the device level`); the agent level replaces the
+server level for that agent (`agentNotificationLevel` in `@openbot/team-client`), in both directions.
+A server set to Nothing, or muted on a device, stays quiet for all agents. A mute stays on each device.
+The shared switch of the agent (`notifications`) still turns notifications off for every member, because the released Team API carries it. Current clients do not show it in the agent settings any more: the matrix shows such an agent with a "Turn on" button, which sets the switch back on. The
+host applies the levels to phone notifications itself (`PushNotificationService`), so phones of every
+version follow them. On the desktop, `RemoteServerManager` reports the effective level in each
+`ServerSummary`, so the rail, the menus and the island follow it.
+
+Settings › Notifications is the one place that changes these levels: a matrix of the servers and their
+agents (`NotificationMatrix` in `@openbot/ui`, and its own screen on the phone). Server settings have no
+notification section on any device; the server menu (desktop and web) and the agent settings show the
+current level and open the matrix. A joined server
+without the capability keeps the level of each device and shows "This computer only".
 
 `prompt-cache-ttl-v1` reads and sets how long Claude keeps the prompt cache of the host's agents
 (`openbot-prompt-cache-ttl-v1.json`; `5m` or `1h`, default `5m`). With `1h` the host starts each
@@ -682,12 +710,67 @@ another place.
 ### Commercial license
 
 The license is a second Stripe product next to the server plans
-(`packages/contracts/src/license.ts`). One account has at most one open license. It is one monthly
-subscription with the lookup key `openbot_license_month` and a graduated price: the base covers 5
-users, then each extra user, up to 25. The amounts are in `LICENSE_PRICES` (EUR is the base
-currency; USD and PLN are `currency_options`). `stripe-bootstrap.ts` creates the price. The
-subscription quantity is the number of users.
+(`packages/contracts/src/license.ts`). One account has at most one open license. Its subscription
+quantity is the number of users. There are two tiers, Starter and Team. Each tier has a monthly and a
+yearly price, and each of these has a bundle price for an account that pays for a hosted server. That
+gives 8 Stripe prices (`LICENSE_PLANS`):
 
+| Plan | Lookup key | Month (EUR) | Year (EUR) | Users |
+| --- | --- | --- | --- | --- |
+| Starter | `openbot_license_starter_{month,year}` | 10 | 96 | 1 |
+| Starter bundle | `openbot_license_starter_bundle_{month,year}` | 9 | 86.40 | 1 |
+| Team | `openbot_license_{month,year}` | 25 for 2 users, + 15 for each extra user | 240, + 144 | 2–10 |
+| Team bundle | `openbot_license_bundle_{month,year}` | 22.50, + 13.50 | 216, + 129.60 | 2–10 |
+
+A year is 12 months less 20% (`LICENSE_YEAR_DISCOUNT_PERCENT`). The bundle discount
+(`LICENSE_BUNDLE_DISCOUNT_PERCENT`: 10%) comes off after it. The amounts are
+in `LICENSE_PLAN_PRICES` (EUR is the base currency; USD and PLN are `currency_options` with their own
+amounts). Team prices are graduated; the 1-user prices are flat. `stripe-bootstrap.ts` creates each
+price with the metadata `openbot_license_tier`, `openbot_license_interval` and
+`openbot_license_bundle`, and `licensePlanFromPrice` reads them. A price with no metadata is Team monthly: the license from before
+the tiers used the same lookup key. The license terms allow 3 devices for each user
+(`LICENSE_DEVICES_PER_USER`); the app shows this and does not count devices.
+
+- A checkout names `tier: "starter" | "team"` and `interval`. A request with no tier is Team monthly,
+  as an app before the tiers sends. The Worker sells the bundle price when the account pays for any
+  hosted server plan (`accountHasServerPlan`: active, trialing, or past due in the grace period). The
+  `licenses` row stores `bundle`. After each server plan sync, `LicenseService.alignBundlePrice` moves
+  an open license to the price of its tier and interval with the bundle that the account now has, with
+  `proration: none`, so the change starts at the next renewal. It logs a Stripe failure and does not
+  fail the sync.
+- A server create can order a license (`license: {tier, users}` in `POST /v2/hosting/servers`). The
+  Worker refuses a Team license on a Starter server, and more Team users than the server plan has
+  members (400 `invalid_hosted_server_request`). An account with an open license gets 409
+  `license_exists`. Fewer users than the people in use get 409
+  `license_users_in_use`, as a license checkout does. One Checkout page then has 2 line items: the server price, and the license bundle
+  price for the same interval and currency, with the users as its quantity. The customer pays one
+  invoice. On the first sync of the paid subscription, `LicenseService.splitOrder` makes a license
+  subscription with the metadata `openbot_order_subscription` (the server subscription), anchored at
+  the server period end with `proration_behavior=none`, so its first invoice is 0. Then it deletes the
+  license item from the server subscription, also with no proration. Each later sync runs the split
+  again until it is done, and the metadata stops a second license subscription. The sales ledger
+  divides the order invoice into a server fact and a license fact, and ignores the 0 invoice of the
+  split. The Checkout session metadata keeps the order, so "Open the payment page again" makes a page
+  with the same license, unless the account has a license by then.
+- Promotion: the Worker setting `LICENSE_TRIAL_END` (ISO 8601, in `wrangler.jsonc`; empty turns it
+  off) makes each new license free until that time. `LicenseService.trialEnd()` gives it while it is
+  at least 49 hours away, because Stripe Checkout needs a `trial_end` 48 hours ahead; after that the
+  license sells at full price. `GET /v1/me/license` then has `trialEnd` (ms), and the app shows
+  "Free until" with the date in UTC. A license checkout sets `subscription_data[trial_end]`, so the
+  license is `trialing` and the first charge is on the trial end. A server order during the promotion
+  has no license item: the server is the only line, and the session and subscription metadata keep
+  the order (`openbot_order_license_{tier,users,interval,trial_end}`). `splitOrder` then makes the
+  license subscription at the bundle price with `trial_end` (at least 1 hour ahead, for a late
+  webhook) and removes the order metadata from the server subscription. The 0 trial invoice is a
+  `first_purchase` sales fact of 0, and the charge on the trial end is a `renewal`. Apps before the
+  promotion ignore `trialEnd`; Stripe Checkout still shows the trial.
+- The 1-user tier refuses `POST /v1/me/license/users` with 409 `license_one_user`.
+  `POST /v1/me/license/plan` sells upgrades only: Starter to Team monthly or yearly, and
+  Team monthly to yearly. It bills the difference now (`always_invoice`,
+  `payment_behavior=error_if_incomplete`). Any other change is 409 `license_plan_change`: to go down,
+  the owner cancels at the period end and buys again.
+- The `licenses` table stores `tier`, `billing_interval` and `bundle` (migration `0041`). NULL is Team
+  monthly.
 - Users are people, not servers or computers: the owner, plus each distinct account that is an
   active member (`remote_memberships`) of a server that the owner owns. AI agents and chat-app
   participants do not count.
@@ -701,27 +784,79 @@ subscription quantity is the number of users.
   The billing webhook gives a subscription with the license lookup key to `LicenseService.sync` and
   writes nothing to `billing_subscriptions`. A Worker before the license sees an unknown plan and
   skips the event, so an old Worker keeps working.
-- Routes: `GET /v1/me/license`, and `POST /v1/me/license/checkout`, `/users` and `/renewal`. The
+- Routes: `GET /v1/me/license`, and `POST /v1/me/license/checkout`, `/users`, `/plan` and `/renewal`. The
   state is `available: false` only when the Worker has no billing, and the app then shows nothing.
   When Stripe has no active license price (it is archived to pause sales), checkout returns 503
   `license_unavailable`, and the app shows a toast with the sales address. An app on a Worker
   without these routes gets 404 and also shows nothing.
 - A Stripe customer pays in one currency, so a new license uses the currency of the account's open
-  subscriptions. Checkout cannot buy fewer users than are in use. An increase is charged at once
+  subscriptions, and a server checkout in another currency gets 409 `billing_currency`. Add server
+  opens in that currency and does not let the user change it. Checkout cannot buy fewer users than are in use. An increase is charged at once
   (`always_invoice`). A decrease starts at the next invoice and cannot go below the users in use or
   below 5. The subscription metadata `openbot_paid_users` and `openbot_paid_period_end` keep the
   users paid in the current period, so an increase after a decrease charges only the users above
   that number.
-- Checkout keeps one open license page for each account. After it makes a page, it closes the
-  older license pages of the customer, so two requests at the same time return the same page. It
-  then reads the customer's subscriptions in Stripe, not only D1, so a license paid before its
-  webhook stops the new page with `license_exists`. A second open license can still come from the
+- Checkout keeps one open page that sells a license for each account: a license page, or a server
+  order page with a license. After it makes a page, it closes the older pages of the customer that
+  sell a license, so two requests at the same time return the same page. When a newer page sells a
+  license, the new page closes with `license_exists`. It then reads the customer's subscriptions in
+  Stripe, not only D1, so a license paid before its webhook, or a paid order before its split, stops
+  the new page with `license_exists`. A second open license can still come from the
   Stripe Dashboard; `sync` logs a warning, and a person refunds it.
+- Refunds are by email only; the app and the Worker have no refund action. A customer emails
+  licenses@openbot.run within 24 hours of the first payment for a refund less a €3 / $3.60 /
+  13.20 zł fee, once per account. There are no refunds for later changes.
 - When the owner of a full license creates an invite, the members section asks to add 1 user and
-  shows the extra price, then adds the user and creates the invite. At 25 users it shows "Contact
+  shows the extra price, then adds the user and creates the invite. A 1-user license changes to Team
+  monthly for 5 users in place of the added user. At 25 users it shows "Contact
   us" and creates no invite. Admins get no step; the join tells the person that the license is full.
 - Desktop calls the `license` IPC group; the web client calls the browser routes. Both render
   `@openbot/ui/features/billing/LicenseSection` in the license slot of `BillingPanel`.
+
+## Servers on this computer
+
+The desktop can run more servers on the same computer. Each one is a separate workspace: its own
+`openbot.db`, agents, chats, workspace folders, server settings, MCP servers and browser data. App
+preferences and the account sign-in stay with the desktop. The first server, "Local", does not
+change.
+
+Each extra server is a headless child process of the same binary (`src/main/local-server-child.ts`).
+`LocalServers` (`src/main/local-servers/local-servers.ts`) starts it with its own `--user-data-dir`
+(`<userData>/local-servers/<id>`) and its own agent root (`~/Builders Bot/Servers/<id>`). The child
+sets up a password host whose one member is the owner, starts the Team API on loopback only, and
+writes one ready line to stdout with the API address and its identity. The line has no secret. The
+desktop pins the identity at the first start, signs in as the owner with the password, and attaches
+the server as a joined server with `thisComputer: true`. `kind` stays `"remote"`.
+
+- **Registry.** `openbot-local-servers-v1.json` in the desktop userData. The owner password is 32
+  random bytes, sealed with the secret storage cipher. A file that this build cannot read is
+  read-only: no server starts and no write replaces it. Folder names come from a UUID, so a
+  changed file cannot name another path.
+- **Connection entry.** The server is an HTTPS entry in `openbot-remote-servers-v1.json`. The
+  directory sync keeps it. While the child is stopped, the entry has the address
+  `http://127.0.0.1:0` and no token, so a client never reaches an old port.
+- **Lifetime.** The child ends when its stdin closes. Teardown step 57 stops all children before
+  the joined-server connections close (step 60). The sibling scan before an update leaves out the
+  child PIDs. After an unexpected exit, the desktop starts the child again after 5 seconds, at most
+  3 times in 10 minutes. The owner password is registered for redaction and is never logged.
+- **Delete.** The desktop stops the child, removes the entry, and moves both folders to the trash
+  with `shell.trashItem`. It never deletes them.
+- **Rename.** The `host-admin` identity route, as on any joined server that the user owns.
+
+Limits:
+
+- A user can create at most `LOCAL_SERVER_LIMIT` (5) servers on this computer, in addition to
+  "Local", because each one is a full Builders Bot process that runs all the time. `LocalServers.create`
+  refuses one more with `error.remote.localServerLimit`. The create dialog tells the user before
+  they type a name.
+- A child server is reached as a joined server. Features behind `kind === "local"`, such as
+  Computer Use, voice and the local browser dock, work only as far as the Team API carries them.
+- Only this computer can connect. The child does not publish to the account service and has no
+  WebRTC, so phones, the web client and other members cannot join it.
+- The provider CLI sign-ins in the home folder (`~/.codex`, `~/.claude`) and `~/.agents/skills` are
+  shared with the other servers.
+- Not confirmed: the memory of each child, the agent browser in a child with no window, and which
+  process gets an `openbot://` link on macOS.
 
 ## macOS Host Manager
 
@@ -751,7 +886,7 @@ See [multi-tenant hosting](../multi-tenant-hosting.md) for installation, permiss
 ## Hosted servers
 
 A hosted server is one [boat](https://boat.dev) sandbox for one account. It runs the Linux
-OpenBot build under Xvfb and is a normal Remote host after its first start. The account Worker
+Builders Bot build under Xvfb and is a normal Remote host after its first start. The account Worker
 owns the sandbox lifecycle: it creates, resumes and deletes sandboxes, and D1 keeps the desired
 and observed state. A server reports each minute while it is in use, and the Worker stops it after
 15 minutes with no report. boat also stops each sandbox at the end of a 2-hour lease that activity
@@ -763,7 +898,7 @@ turns while it is low and limits the turns that run at the same time. See
 [hosted servers](../hosted-servers.md) for the flow, the configuration, the memory guards and the template.
 
 A self-hosted server uses the same Linux build, scripts and units on the owner's own computer, with
-`/opt/OpenBot/hosted/mode` set to `self`. It has no claim: main starts in server mode
+`/opt/Builders Bot/hosted/mode` set to `self`. It has no claim: main starts in server mode
 (`src/main/server-mode.ts`, `OPENBOT_SERVER=1`), and the `openbot` terminal command signs it in over
 a Unix socket in the 0700 runtime directory of the service user. Main publishes the host after each
 sign-in. See [self-hosted servers](../self-hosted-server.md).

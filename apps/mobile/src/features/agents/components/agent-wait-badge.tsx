@@ -19,7 +19,7 @@ const WAIT_ICON = {
 } as const satisfies Record<MobileAgentWaitReason, LucideIcon>;
 
 /** The chip in the time slot: what the user does next. */
-const WAIT_ACTION = {
+export const AGENT_WAIT_ACTION = {
   question: "mobile.agent.list.waiting.action.question",
   approval: "mobile.agent.list.waiting.action.approval",
   takeover: "mobile.agent.list.waiting.action.takeover",
@@ -37,7 +37,7 @@ export const AGENT_WAIT_STATE = {
  */
 export function AgentWaitBadge({ reason, size = 20 }: { reason: MobileAgentWaitReason; size?: number }) {
   const [background] = useThemeColor(["background"]);
-  // HeroUI keeps its own dark warning, a yellow. The OpenBot token is the amber of the chip and the desktop.
+  // HeroUI keeps its own dark warning, a yellow. The Builders Bot token is the amber of the chip and the desktop.
   const [warning] = useCSSVariable(["--openbot-warning"]);
   const Icon = WAIT_ICON[reason];
   return (
@@ -76,7 +76,7 @@ export function AgentWaitChip({ reason }: { reason: MobileAgentWaitReason }) {
         style={[typeScale.small, { color: String(warning) }]}
         numberOfLines={1}
       >
-        {t(WAIT_ACTION[reason])}
+        {t(AGENT_WAIT_ACTION[reason])}
       </Typography.Paragraph>
     </View>
   );
@@ -89,7 +89,7 @@ export function AgentWaitChip({ reason }: { reason: MobileAgentWaitReason }) {
 export function AgentWaitingGroupHeader({ count }: { count: number }) {
   const { t, format } = useText();
   const [background] = useThemeColor(["background"]);
-  // HeroUI keeps its own dark warning, a yellow. The OpenBot token is the amber of the chip and the desktop.
+  // HeroUI keeps its own dark warning, a yellow. The Builders Bot token is the amber of the chip and the desktop.
   const [warning] = useCSSVariable(["--openbot-warning"]);
   return (
     <View

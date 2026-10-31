@@ -33,12 +33,15 @@ message or a routine run (`error` with the code `delivery_start_failed`), or wai
 approval, or a step in the browser (`browser-takeover-requested`, also for a password or a code).
 The desktop and the web client notify about the same events (`agentEventCanNotify`), and all three
 decide as one: `notificationForAgentEvent` in `@openbot/team-client` applies the level of the server
-(`all`, or `needs-me` for the events that wait for the user), the switch of the agent, and the quiet
+(`all`, or `needs-me` for the events that wait for the user), or the member's own level of the agent
+(`agent-notification-levels-v1`, see [servers](servers.md)), the switch of the agent, and the quiet
 routine runs. The desktop and the web client close the notification of a request when an
 `agent-input-resolved` or `browser-takeover-resolved` event comes, also for an answer from another
 device. The title is the agent name. When the phone shows previews, the text is the
-preview of a desktop notification: the start of the answer of that turn, the question, or the action
-to approve, with secrets redacted. Otherwise it is the fixed desktop text, such as "Finished working.".
+preview of a desktop notification: the lead of the answer of that turn, the question, or the action
+to approve, with secrets redacted. The lead (`messageSummary` in `packages/team-client`) is the first
+sentences of the message, without code blocks, tables, headings or mail headers, with tool names as
+words and redaction marks as `•••`. The Live Activity shows the same lead. Otherwise it is the fixed desktop text, such as "Finished working.".
 
 Channels are an exception. The desktop and the web client notify an agent reply in a channel from
 the channel list (`channelReplyNotifications`), because the channel service consumes the
@@ -68,7 +71,13 @@ when nothing is left for that host or the user signs out. A level of
 "Nothing" and a mute with no end remove it too. `PushNotificationService` in `src/main` keeps the
 registrations in `openbot-push-notifications-v1.json` in the user data folder, readable only by the
 user, so a phone that does not connect after the host restarts still gets notifications. It sends
-only while the phone is away or its connection is closed. No event goes while the member uses a
+only while the phone is away or its connection is closed. iOS can suspend the app before it says
+that it goes away, and the host sees the lost path about 30 seconds later. So an event that comes
+while the phone looks on screen is kept in memory for 5 minutes (`HELD_EVENT_MS`). When the phone
+says that it is away, or its path fails, and does not come back within 3 seconds, the host sends
+each kept event that the member has not seen: a reply that is still unread in the agent's own chat,
+a failed turn that still shows as failed, or a request that nobody answered. A send that the
+account service, Apple or Google does not take goes again after 10 and 60 seconds. No event goes while the member uses a
 desktop app, which shows the event and asks for input, an approval, or a browser step itself: that
 computer had input in the last 30 seconds (`powerMonitor.getSystemIdleState`), and
 the window of the host's own desktop app has focus or shows the event as a desktop notification, for
@@ -77,8 +86,10 @@ computer's server let the event through); or the member sent, answered, or typed
 seconds (`TeamApiServer.lastMemberUseElsewhere`, kept in memory). The time is short because a task
 can end at any time after the member leaves the computer. While the phone shows a Live Activity of
 this host that iOS still updates (8 hours from its start, which the phone gives because a host that
-restarted does not know it), the host sends no notification
-(`LiveActivityPushService.showsEvent`). With a sound (Settings > Notifications > Sound), the next
+restarted does not know it), and the next view of the activity shows the event, the host sends no
+notification (`LiveActivityPushService.showsEvent`). The view shows one item, so a reply while
+another agent works, or a failure while another agent waits, still notifies. An activity whose last
+update did not go out does not replace notifications. With a sound (Settings > Notifications > Sound), the next
 update of the activity alerts at once, so iOS lights up the screen, shows the activity, and plays
 that sound; with Play sound off, the activity updates silently. iOS does not tell the host when
 the user removes the activity, so until the app runs again such an event shows nowhere.
@@ -87,7 +98,7 @@ the user removes the activity, so until the app runs again such an event shows n
 The host sends it to `POST /v2/remote/hosts/:hostId/notification` with its machine credential and the
 account session of the phone. The Worker checks the credential and a per-host rate limit, and sends
 nothing for a session that has ended, a revoked membership, or a signed-out device, because the host
-does not learn about these. It makes the APNs alert itself, with "OpenBot" as the only text,
+does not learn about these. It makes the APNs alert itself, with "Builders Bot" as the only text,
 `mutable-content`, the sound, and the sealed bytes. It stores and logs nothing. A `410` answer, from
 the Worker or Apple, removes the registration.
 
@@ -114,7 +125,7 @@ high-priority data message with `sealed` and, unless the notification is silent,
 and logs nothing. Firebase answers `UNREGISTERED` or `SENDER_ID_MISMATCH` for a token that no longer
 reaches the app, and the Worker answers `410`, which removes the registration.
 
-`OpenBotMessagingService.kt` (`apps/mobile/modules/android-notifications`) gets the message, also
+`BuildersBotMessagingService.kt` (`apps/mobile/modules/android-notifications`) gets the message, also
 while the app does not run. It opens the seal with the keys that the app writes into
 `push-notifications.json` in its files folder, and gives the notification to `expo-notifications`,
 so a tap reaches the app as on iOS. Android plays the sound of the notification channel, so the app
@@ -147,15 +158,45 @@ thread is never replaced. Provider sessions, turns, questions, approvals, attach
 and restart recovery use the explicit execution thread. These internal execution records do not
 create extra navigation entries. The per-agent drain scheduler remains the authority for work.
 
-`ChannelService` selects one owner. A selected recipient has priority, followed by the task attached
-to a reply, a reply to a member message that has no task, a clear follow-up to the sole open task,
-and a channel with one available member. These selections use no model. Other requests use the
-lead's provider, model, and reasoning setting in a separate session with no work tools. The request
-supplies the accepted result schema and the channel summary in place of the transcript. Invalid or
-stale routing cannot broadcast a request. Routing can select an existing task, ask a question, or
-indicate that no work is needed. A selected owner or existing task adds one channel message from the
-lead, so the selection is visible and the user can correct it. Deterministic selection adds no
-message. A request that needs routing in a channel with no lead stops with the reason
+`ChannelService` selects the owners of a request. A selected recipient has priority, followed by the
+task attached to a reply, a reply to a member message that has no task, a clear follow-up to the sole
+open task or to the open root tasks that several members own for one request, and a channel with one
+available member. These selections use no model. Other requests use
+the lead's provider, model, and reasoning setting in a separate session with no work tools. The
+request supplies the accepted result schema and the channel summary in place of the transcript.
+Routing selects each member whose role or area the request touches, and only those (`agentIds`). A
+request in the area of one member, or in the area of no member, goes to the one member best able to
+answer it. A request for opinions or feedback on shared work goes to each member whose area gives a
+different view, and a request to the whole group goes to all of them. Each selected member gets its own root task for the same request message, answers in its own reply, and
+gets the request's attachments; its packet names the other members that answer, but does not carry
+their replies to that request, so each member gives its own view. This stays true after a typed
+"continue" makes the follow-up the request of a task: the replies count from the first request. After
+the member wrote its own complete reply or result (not commentary), a follow-up gets the other replies, so it can ask about them. The packet cursor stops before the
+first reply it leaves out, so a later turn of that session gets it. A member that the
+model names but that cannot take work is left out. Invalid or stale routing cannot broadcast a
+request. Routing can select an existing task, ask a question, or indicate that a message needs no answer.
+An existing task that routing selects keeps its instruction, and the new message is its follow-up.
+Each selected owner or existing task adds one channel message from the lead, so the selection is
+visible and the user can correct it. Deterministic selection adds no message, and a lead that selects
+only itself adds none: its reply shows who answers. A routing answer that does not decode pauses the
+task with `channelRoutingUnreadable` and offers Reassign. The log gets the answer length and its
+field names only, not its text.
+
+A message that opens with agent mentions ("@A @B what do you think?") goes to each mentioned member
+that can take work, with no routing turn. A message that opens with `@everyone` goes to each member
+that can take work. `@everyone` is plain text, not a tag; the channel composer's mention picker
+offers it. The host reads the address from the text (`leadingAddress`), so a client that sends only
+the first mention in `recipientAgentId` reaches all of them, and the Team API wire does not change.
+A message that opens with a typed "@Name" and no tag goes to the member with that exact name
+(case-insensitive, the longest name wins), also with no routing turn. The host reads it; the contract
+parser does not change. A routine run reads its text in the same way. A request to more than one
+member does not continue the task of the message it replies to. "continue" (or "resume", "go on",
+"keep going") continues each stopped root task of the newest request that has one. A failed root
+task continues only when no root task is stopped. When the message has a recipient, that member's
+own stopped (or else failed) task continues first. Older open work does not block it, and a member
+that still works stays as it is. A resumed task keeps its instruction; the dispatch and the packet
+add the new message as a follow-up line. A child task gets the follow-up only when the message
+replies to that task, because a new child task has the request of its parent. A request that needs routing in a channel with no lead stops with the reason
 `channelLeadRequired`. A save that sets a new lead queues these requests again, and the lead routes
 them. A lead change does not move a task that already has an owner. The member packet names the lead
 (`leadAgentId`).
@@ -218,12 +259,23 @@ summary covers older messages, with a sequence and source IDs. Full messages rem
 The provider acceptance cursor records context delivery. Context packets remain self-contained so
 provider replacement or compaction does not remove shared decisions. Unrelated server conversations
 are available through paginated retrieval and are not inserted automatically. Agent memories keep
-their existing meaning.
+their existing meaning. A packet leaves out a member's thinking, and the commentary of a turn that
+posted a `channel_result`: the result is the answer of that turn.
+
+The channel copies the assistant rows of a member's execution thread. The first rows of a turn go
+to the running assignment before it knows the turn id; a row of another turn does not. A new row
+of an assignment that has ended is not copied: a turn sends its final rows before it completes, and
+after a restart the provider history import can write an old turn again with new row ids. An empty
+row is not copied until its first text arrives.
 
 Task revisions prevent an old assignment from completing a corrected request. The stored request
 keeps its own text and files: only its first dispatch converts the attachment drafts, and a later
-dispatch of the same request sends the stored copies again. Stop pauses a task and its descendants
-and interrupts active work. Reassign waits for the old assignment to finish stopping. Restart
+dispatch of the same request sends the stored copies again. Stop pauses a task and its descendants,
+interrupts active work, and sets the reason `channelTaskStopped`. The clients show Continue and
+Reassign for a paused task that has a reason. A turn that ends interrupted gets the same reason. An
+archive pauses work with no reason; a restore gives those tasks the stop reason. Startup gives the
+stop reason to a paused task with no reason in a channel that is not archived: older versions stopped
+with no reason. Reassign waits for the old assignment to finish stopping. Restart
 recovery checks accepted provider work before retrying. Unknown outcomes require attention.
 Command, assignment, and result IDs prevent duplicate dispatch and visible results; external side
 effects do not have an exactly-once guarantee.
@@ -499,10 +551,10 @@ How the offer works:
 The agents of a computer can answer in an external chat platform: Slack, Discord (see **Discord**
 below) and Telegram. [messaging.md](../messaging.md) has the setup, the limits and how to add a
 platform. Every workspace
-installs the one OpenBot Slack app (`apps/slack-app`), and the workspace is linked to the host that
-connected it. People mention @OpenBot or send it a direct message. The workspace's Slack Orchestrator,
+installs the one Builders Bot Slack app (`apps/slack-app`), and the workspace is linked to the host that
+connected it. People mention @Builders Bot or send it a direct message. The workspace's Slack Orchestrator,
 an agent that the connect dialog adds, receives each new conversation, asks its teammates and posts
-the answer. Every answer comes from OpenBot.
+the answer. Every answer comes from Builders Bot.
 
 - **Install.** The desktop asks `POST /v2/slack/authorize` for Slack's install URL, with a one-use host
   key. The Worker exchanges the code at `/v2/slack/callback`, because the app's client secret lives
@@ -527,7 +579,7 @@ the answer. Every answer comes from OpenBot.
   like `/v2/remote/resume/validate`) which links of each ticket D1 still has. The host trusts a delivery because Signal checked the signature; no host has the
   signing secret.
 
-Telegram uses the same socket with one difference: one OpenBot bot serves every user, so its token
+Telegram uses the same socket with one difference: one Builders Bot bot serves every user, so its token
 must not reach any host. Only Signal has it (`TELEGRAM_BOT_TOKENS`), and the contract is
 `@openbot/contracts/signal-protocol/telegram-route`.
 
@@ -600,7 +652,7 @@ transport for its events. `messaging-types.ts` is the seam; the core never reads
   `MessagingService.#receive` names each user mention (`InboundMessage.mentionedUserIds`) with the
   adapter's name cache; the adapters do the same for context messages.
 - **Tools.** `messaging_remember`, `messaging_forget_memory` and `messaging_history` are deferred
-  `openbot` tools. `OpenBotToolRouter` finds the link from the calling turn's execution thread and
+  `openbot` tools. `BuildersBotToolRouter` finds the link from the calling turn's execution thread and
   refuses a call from any other thread; no argument names a connection or a channel. The history
   tool calls the adapter's `recent` through `MessagingThreads.setHistorySource`. A fact is not saved
   from a direct message. The two outbound tools, `messaging_list_places` and `messaging_post`, are
@@ -616,7 +668,7 @@ transport for its events. `messaging-types.ts` is the seam; the core never reads
 - **Approvals and stop.** An approval of a messaging thread is also posted with buttons. Only the
   Slack user whose message started the turn can answer or stop it; the host can always answer. The
   button value is a random token that exists only in memory.
-- **Channels.** When a connection starts, OpenBot joins every public channel it is not in
+- **Channels.** When a connection starts, Builders Bot joins every public channel it is not in
   (`conversations.list`, `conversations.join`, scope `channels:join`), so people can mention it with
   no invitation. It joins each new public channel on `channel_created`. A private channel needs
   `/invite`.
@@ -627,13 +679,13 @@ transport for its events. `messaging-types.ts` is the seam; the core never reads
   each workspace and its orchestrator, and a two-step dialog connects the workspace and adds the
   orchestrator on the model the user picks (`messaging:*`). A remote server shows no Slack page,
   because the install returns to the host's own browser. A live connection does not count as use:
-  a hosted server sleeps, and Signal starts it for the next message that addresses OpenBot and keeps
+  a hosted server sleeps, and Signal starts it for the next message that addresses Builders Bot and keeps
   that message, sealed to the host, until the host connects
   ([Connector events](../hosted-servers.md#connector-events)). **Apps → Discord** is the same page for Discord
   (`SlackIntegrationPanel` with `platform="discord"`). **Apps → Telegram** has its own page
   (`TelegramIntegrationPanel`), with one row per chat and one orchestrator for all chats.
 
-**Discord.** Every guild installs the one OpenBot Discord app (`apps/discord-app`), and a guild is a
+**Discord.** Every guild installs the one Builders Bot Discord app (`apps/discord-app`), and a guild is a
 connection with its own Discord Orchestrator (`discord-orchestrator.ts`). Discord pushes a bot's
 messages only over its Gateway WebSocket, and the bot token cannot go to each host, so Signal holds
 the token and does the platform work for the hosts:
@@ -645,7 +697,7 @@ the token and does the platform work for the hosts:
   Another account gets `discord_guild_taken`.
 - **Events.** Signal keeps one Gateway connection (`@discordjs/ws`) with the guilds, guild messages
   and direct messages intents, and no privileged intent. It passes on only a guild message that
-  mentions the bot, and a press of an OpenBot button, which it acknowledges to Discord at once. It
+  mentions the bot, and a press of an Builders Bot button, which it acknowledges to Discord at once. It
   normalizes each into `DiscordDelivery` (`@openbot/contracts/signal-protocol/discord-api`), takes the
   bot's own mention out, and sends a `discord-delivery` frame to the `ingress` socket that holds a
   Discord route ticket for the guild. The ticket mirrors the Slack one (audience
@@ -667,8 +719,8 @@ the token and does the platform work for the hosts:
   bearer. Signal accepts an operation only for a guild routed to that socket, and only for a channel
   of that guild, and makes the call with `@discordjs/rest`. Every post has no allowed mention, so it
   pings nobody. Attachments are signed CDN addresses, which the host downloads directly.
-- **Conversations.** A conversation is a reply chain, keyed by its first message. Every OpenBot post
-  replies to that message, so a reply to an OpenBot post names the conversation through the replied
+- **Conversations.** A conversation is a reply chain, keyed by its first message. Every Builders Bot post
+  replies to that message, so a reply to an Builders Bot post names the conversation through the replied
   post's own reference. A direct message has no guild, so Signal answers it once with a fixed line.
 
 ## Mobile chat queue

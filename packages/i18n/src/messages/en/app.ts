@@ -57,6 +57,7 @@ export const messages = defineMessages("app", {
   "app.rail.website": "Builders Bot website",
   "app.rail.agents": "Agents",
   "app.rail.schedule": "Schedule",
+  "app.rail.tasks": "Tasks",
   "app.rail.workflows": "Workflows",
   "app.rail.usage": "Usage",
   "app.rail.load.title": "Load",

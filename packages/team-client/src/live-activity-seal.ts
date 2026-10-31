@@ -4,7 +4,7 @@ import { concatBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 
 /**
  * The host updates the iOS Live Activity through Apple Push Notification service while iOS suspends
- * the app. The update goes through the OpenBot relay and Apple, so the host seals it with keys that
+ * the app. The update goes through the Builders Bot relay and Apple, so the host seals it with keys that
  * only the phone and the host know, and the widget extension opens it.
  *
  * The widget extension runs plain JavaScript with no crypto library, so the seal uses only

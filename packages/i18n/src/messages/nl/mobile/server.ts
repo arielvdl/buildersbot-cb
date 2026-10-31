@@ -61,6 +61,7 @@ export const messages = {
   "mobile.server.hosted.plan.proSummary": "Voor veel agents en zwaar browserwerk.",
   "mobile.server.hosted.members": { one: "Tot {count} lid", other: "Tot {count} leden" },
   "mobile.server.hosted.storage": { one: "{count} GB opslag", other: "{count} GB opslag" },
+  "mobile.server.hosted.sites": { one: "Tot {count} gehoste site", other: "Tot {count} gehoste sites" },
   "mobile.server.hosted.speedBase": "Basissnelheid",
   "mobile.server.hosted.speedFaster": "{factor}× sneller",
   "mobile.server.hosted.joinHint": "Gebruik een uitnodiging van een servereigenaar.",
@@ -68,7 +69,7 @@ export const messages = {
   "mobile.server.hosted.intro.title": "Je agents, altijd aan",
   "mobile.server.hosted.intro.description":
     "Een cloudserver voert je agents en routines uit als je computer uit staat. Builders Bot zet hem op en houdt hem draaiende.",
-  "mobile.server.hosted.planFacts": "{members} · {storage} · {speed}",
+  "mobile.server.hosted.planFacts": "{members} · {storage} · {sites} · {speed}",
   "mobile.server.hosted.computer.title": "Op je computer",
   "mobile.server.hosted.computer.add": "Cloudserver toevoegen",
   "mobile.server.hosted.computer.addHint":
@@ -733,7 +734,8 @@ export const messages = {
   "mobile.server.mcp.http": "URL (HTTP)",
   "mobile.server.mcp.stdioDescription": "De server start deze opdracht op de computer van de server.",
   "mobile.server.mcp.httpDescription": "Elke aanbieder kan een HTTP-MCP-server gebruiken.",
-  "mobile.server.mcp.providerLimit": "Alleen Claude: de andere aanbieders krijgen geen server die een werkmap heeft.",
+  "mobile.server.mcp.providerLimit":
+    "Alleen Claude en Codex: de andere aanbieders krijgen geen server die een werkmap heeft.",
   "mobile.server.mcp.command": "Opdracht",
   "mobile.server.mcp.commandHint": "Alleen het programma. Zet elk woord daarna in Argumenten.",
   "mobile.server.mcp.arguments": "Argumenten",

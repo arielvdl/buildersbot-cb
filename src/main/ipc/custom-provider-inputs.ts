@@ -3,6 +3,7 @@
 
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
+  CustomProviderHarness,
   CustomProviderHeader,
   CustomProviderHeaderInput,
   CustomProviderModel,
@@ -14,6 +15,8 @@ import {
   CUSTOM_PROVIDER_LIMITS,
   composedCustomModelId,
   isAgentModel,
+  isCustomProviderContextWindow,
+  isCustomProviderHarness,
   isCustomProviderHeaderName,
   isCustomProviderId,
   isNewCustomProviderId,
@@ -73,7 +76,20 @@ function parseModels(providerId: string, value: unknown): CustomProviderModel[] 
       throw new Error(sourceText("error.provider.modelIdCharacter"));
     if (seen.has(id)) throw new Error(sourceText("error.provider.modelIdDuplicate"));
     seen.add(id);
-    models.push({ id, name: requireString(entry.name, "Model name", INPUT_LIMITS.modelName) });
+    const name = requireString(entry.name, "Model name", INPUT_LIMITS.modelName);
+    if (entry.contextWindow === undefined) {
+      models.push({ id, name });
+      continue;
+    }
+    if (!isCustomProviderContextWindow(entry.contextWindow)) {
+      throw new Error(
+        sourceText("error.provider.contextWindowInvalid", {
+          min: CUSTOM_PROVIDER_LIMITS.contextWindowMin,
+          max: CUSTOM_PROVIDER_LIMITS.contextWindowMax,
+        }),
+      );
+    }
+    models.push({ id, name, contextWindow: entry.contextWindow });
   }
   return models;
 }
@@ -129,9 +145,17 @@ export function parseApiKey(value: unknown): string | null {
   return trimmed;
 }
 
+/** Absent is the released default, OpenCode, on a save and "keep the saved one" on an edit. */
+function parseHarness(value: unknown): CustomProviderHarness | undefined {
+  if (value === undefined) return undefined;
+  if (!isCustomProviderHarness(value)) throw new Error("Invalid harness.");
+  return value;
+}
+
 export function parseSaveCustomProvider(input: unknown): SaveCustomProviderInput {
   if (!isObject(input)) throw new Error("Invalid endpoint.");
   const id = parseProviderId(input.id);
+  const harness = parseHarness(input.harness);
   return {
     id,
     name: requireString(input.name, "Display name", INPUT_LIMITS.agentName),
@@ -139,6 +163,7 @@ export function parseSaveCustomProvider(input: unknown): SaveCustomProviderInput
     apiKey: parseApiKey(input.apiKey),
     models: parseModels(id, input.models),
     headers: parseHeaders(input.headers),
+    ...(harness ? { harness } : {}),
   };
 }
 
@@ -152,6 +177,7 @@ export function parseUpdateCustomProvider(input: unknown): UpdateCustomProviderI
   const id = parseSavedProviderId(input.id);
   if (input.apiKey === null) throw new Error("The API key is not text.");
   const apiKey = input.apiKey === undefined ? null : parseApiKey(input.apiKey);
+  const harness = parseHarness(input.harness);
   return {
     id,
     name: requireString(input.name, "Display name", INPUT_LIMITS.agentName),
@@ -159,6 +185,7 @@ export function parseUpdateCustomProvider(input: unknown): UpdateCustomProviderI
     models: parseModels(id, input.models),
     ...(apiKey ? { apiKey } : {}),
     ...(input.headers === undefined ? {} : { headers: parseHeaderInputs(input.headers) }),
+    ...(harness ? { harness } : {}),
   };
 }
 

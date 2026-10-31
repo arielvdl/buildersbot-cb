@@ -161,12 +161,12 @@ async function fetchLatestRelease(target: ReleaseTarget, request: typeof fetch, 
 
 /**
  * The feed is the upstream release of the same version, and upstream names its files after the
- * product it builds, `OpenBot-<version>-…`. A Builders Bot build asks for `Builders Bot-<version>-…`,
+ * product it builds, `Builders Bot-<version>-…`. A Builders Bot build asks for `Builders Bot-<version>-…`,
  * so both names are accepted; the suffix that carries the platform and the architecture must match.
  */
 function acceptsAsset(target: ReleaseTarget, url: string, version: string): boolean {
   const asset = target.asset(version);
-  return url === asset || url === asset.replace(/^Builders Bot-/u, "OpenBot-");
+  return url === asset || url === asset.replace(/^Builders Bot-/u, "Builders Bot-");
 }
 
 /** The latest Linux release for `arch`, for the hosted installer. */

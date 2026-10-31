@@ -1,6 +1,6 @@
 # Local scripts API
 
-A script on the computer that runs OpenBot can send an agent a message, wait for its answer, run a
+A script on the computer that runs Builders Bot can send an agent a message, wait for its answer, run a
 routine, read pending questions and approvals, submit responses, change the agent's model or
 provider account, and start a new chat with the agent. Enable **Local scripts** for each agent that the integration needs. Use this API
 for a local Slack bridge, to report a build result, or to give an agent a task from a terminal.
@@ -12,20 +12,20 @@ long-job; curl -sS -X POST "$(cat "$OPENBOT_AUTOMATION/url")/v1/agents/<agentId>
   -d '{"payload":"long-job ended with code 0"}'
 ```
 
-`$OPENBOT_AUTOMATION` is not set by OpenBot. It stands for the folder below.
+`$OPENBOT_AUTOMATION` is not set by Builders Bot. It stands for the folder below.
 
 ## Command line
 
 `openbot-cli` uses this API, so you do not write the requests yourself. It needs Node 18 or later.
-OpenBot puts it in its resources folder:
+Builders Bot puts it in its resources folder:
 
-- macOS: `/Applications/OpenBot.app/Contents/Resources/cli/openbot-cli.mjs`
+- macOS: `/Applications/Builders Bot.app/Contents/Resources/cli/openbot-cli.mjs`
 - Linux: `resources/cli/openbot-cli.mjs` in the install folder (for an AppImage, copy it out of the image)
 - Windows: `resources\cli\openbot-cli.mjs` in the install folder. The default folder is
-  `%LOCALAPPDATA%\Programs\OpenBot`.
+  `%LOCALAPPDATA%\Programs\Builders Bot`.
 
 ```sh
-alias openbot-cli='node "/Applications/OpenBot.app/Contents/Resources/cli/openbot-cli.mjs"'
+alias openbot-cli='node "/Applications/Builders Bot.app/Contents/Resources/cli/openbot-cli.mjs"'
 openbot-cli list                                    # the agents with Local scripts on
 openbot-cli run "Ada" "Run the tests and tell me what failed" --wait
 openbot-cli run "Ada" - --wait --json < task.md     # the task from standard input, one JSON answer
@@ -44,14 +44,14 @@ With `--json`, the output is one JSON object, also for a failure (`{ "ok": false
 | Exit code | Meaning |
 | --- | --- |
 | 0 | Done. For `run --wait`, the turn completed. |
-| 1 | The turn failed, was stopped or was cancelled, OpenBot refused the request, or the delivery is unknown. |
+| 1 | The turn failed, was stopped or was cancelled, Builders Bot refused the request, or the delivery is unknown. |
 | 2 | The command line is wrong, or two agents have the name. |
-| 3 | The agent waits for a person: a question, an approval or a browser takeover, also of an earlier turn that this task waits behind. Answer it in OpenBot or through the routes below, then use `status`. |
+| 3 | The agent waits for a person: a question, an approval or a browser takeover, also of an earlier turn that this task waits behind. Answer it in Builders Bot or through the routes below, then use `status`. |
 | 4 | The wait timed out. The agent continues. |
-| 5 | OpenBot is not running, no agent has Local scripts on, or the agent was not found. |
+| 5 | Builders Bot is not running, no agent has Local scripts on, or the agent was not found. |
 
 The command reads the files below each time and sends the token only in a request header. When
-OpenBot restarts during a wait, the command reads the new files and continues the wait.
+Builders Bot restarts during a wait, the command reads the new files and continues the wait.
 Set `OPENBOT_AUTOMATION_DIR` to use another folder, for example the one of a development profile.
 
 ## Turn it on
@@ -63,10 +63,10 @@ An agent cannot turn it on for itself or for a teammate.
 
 For a headless host, connect as its owner or administrator and turn on the setting there. The
 listener and the files below are on the host. Run the script on that host, as the OS user that
-runs OpenBot. No local screen is necessary. Turn the same setting off to remove access for that agent.
+runs Builders Bot. No local screen is necessary. Turn the same setting off to remove access for that agent.
 
 The setting also permits scripts to answer questions and accept or decline approvals. Browser
-takeovers and secret questions must be completed in OpenBot.
+takeovers and secret questions must be completed in Builders Bot.
 Agents that already have Local scripts enabled get these operations after upgrade. No new opt-in
 is needed. Older clients can still change this setting, although their text can describe routines only.
 
@@ -77,7 +77,7 @@ so it can start a long command in the background and ask to be woken when it end
 
 ## Files
 
-While at least one agent allows local scripts, OpenBot listens on `127.0.0.1` on a free port and
+While at least one agent allows local scripts, Builders Bot listens on `127.0.0.1` on a free port and
 writes three files in `<userData>/automation/`:
 
 | File | Contents |
@@ -86,16 +86,16 @@ writes three files in `<userData>/automation/`:
 | `token` | The bearer token |
 | `headers` | `Authorization: Bearer <token>`, for `curl -H @headers` |
 
-The folder is `0700` and the files are `0600`, so only the same OS user can read them. OpenBot
+The folder is `0700` and the files are `0600`, so only the same OS user can read them. Builders Bot
 makes a new token and a new port at each start. A command reads the files when it runs, so a
 command that you copied before a restart still works. When the last agent turns the setting off, or
-OpenBot quits, OpenBot stops listening and deletes the files.
+Builders Bot quits, Builders Bot stops listening and deletes the files.
 
-`<userData>` is the OpenBot application data folder:
+`<userData>` is the Builders Bot application data folder:
 
-- macOS: `~/Library/Application Support/OpenBot`
-- Linux: `~/.config/OpenBot`
-- Windows: `%APPDATA%\OpenBot`
+- macOS: `~/Library/Application Support/Builders Bot`
+- Linux: `~/.config/Builders Bot`
+- Windows: `%APPDATA%\Builders Bot`
 
 ## Routes
 
@@ -182,7 +182,7 @@ valid values. A change of provider or account waits until the agent is idle: whi
 answer is `409` with the reason. A
 successful response is `200` with `id`, `name`, `provider`, `model`, `reasoningEffort` and
 `providerAccountId`. Other fields, such as the name, permissions or Local scripts, give `400`: change
-them in OpenBot.
+them in Builders Bot.
 
 ### `POST /v1/agents/:agentId/context/clear`
 
@@ -217,7 +217,7 @@ An approval has `requestId`, `agentId`, `threadId`, `turnId`, `kind`, `command`,
 secret-redacted. A browser takeover has only `requestId` and `requiresOpenBot: true`.
 A secret question, or a question whose IDs or choice labels need redaction, has
 `requiresOpenBot: true` and an empty `questions` array.
-Direct the person to the agent in OpenBot for these requests.
+Direct the person to the agent in Builders Bot for these requests.
 
 Request IDs are opaque. Keep them unchanged. They identify one pending request and expire when
 it ends, even if the provider reuses its own ID. They do not survive a host restart.
@@ -227,6 +227,12 @@ it ends, even if the provider reuses its own ID. They do not survive a host rest
 Send `{ "answers": { "build": ["Debug"] } }` with `Content-Type: application/json`.
 Use question IDs as keys and answer strings as array values. The normal question handler resumes
 the agent. A successful response is `200 { "ok": true }`.
+
+A question with `options: null` takes typed text. When an agent shows a choice that allows several
+picks, or that has more than five options, the question has the ID `choice`, `options: null`, and
+the choices as a `- ` list in `question`. Send each picked label as one array value, for example
+`{ "answers": { "choice": ["Monday", "Friday"] } }`. Do not send the ` (…)` note that can follow a
+label in the list. An answer that matches no label is sent to the agent as typed text.
 
 ### `POST /v1/agents/:agentId/approvals/:requestId/respond`
 
@@ -246,8 +252,8 @@ changes and new chats do not use that limit. Routine runs have no retry key; ret
 
 ```powershell
 Invoke-RestMethod -Method Post `
-  -Uri ((Get-Content -Raw "$env:APPDATA\OpenBot\automation\url").Trim() + '/v1/agents/<agentId>/routines/<routineId>/run') `
-  -Headers @{ Authorization = 'Bearer ' + (Get-Content -Raw "$env:APPDATA\OpenBot\automation\token").Trim() } `
+  -Uri ((Get-Content -Raw "$env:APPDATA\Builders Bot\automation\url").Trim() + '/v1/agents/<agentId>/routines/<routineId>/run') `
+  -Headers @{ Authorization = 'Bearer ' + (Get-Content -Raw "$env:APPDATA\Builders Bot\automation\token").Trim() } `
   -ContentType 'application/json' -Body '{"payload":"long-job ended"}'
 ```
 
@@ -255,13 +261,13 @@ Invoke-RestMethod -Method Post `
 
 - The listener binds only `127.0.0.1`. Other computers cannot reach it.
 - A request with an `Origin` header, or with a `Host` other than `127.0.0.1:<port>`, gets 403 before
-  OpenBot reads the token. A web page cannot use it through DNS rebinding.
-- The token is a secret: OpenBot redacts it from logs and never puts it in a prompt. The agent gets
+  Builders Bot reads the token. A web page cannot use it through DNS rebinding.
+- The token is a secret: Builders Bot redacts it from logs and never puts it in a prompt. The agent gets
   only the file paths.
 - Do not put the token in a command's arguments, for example with `-H "Authorization: Bearer
   $(cat token)"`. On Linux, other users can read the arguments of a running process. Use
   `-H @headers`.
-- OpenBot logs the agent and the routine of each run, never the payload.
+- Builders Bot logs the agent and the routine of each run, never the payload.
 - A process that runs as the same OS user can read the token. Turn the setting on only for agents
   that you want such processes to message and control, including approval decisions, the
   agent's model and provider account, and a new chat. A script cannot change the agent's permissions or turn Local

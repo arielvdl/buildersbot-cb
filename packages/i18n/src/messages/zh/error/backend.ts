@@ -66,6 +66,8 @@ export const messages = {
   "error.backend.channelLeadRequired": "请选择可用的频道主责，或把该任务派给某个成员。",
   "error.backend.channelRoutingTooLong": "该请求超出路由上下文限制。请选择成员，或发送更短的请求。",
   "error.backend.channelTaskMemberRequired": "请为该任务选择一位成员。",
+  "error.backend.channelTaskStopped": "已停止。请继续或重新分派该任务。",
+  "error.backend.channelRoutingUnreadable": "负责人无法分派这条消息。请将其分派给一位成员。",
   "error.backend.channelRoutingFailed": "分派失败。请选择一位成员，或重试。",
   "error.backend.channelLeadTimedOut": "频道主责没有及时回答。请选择一位成员，或重试。",
   "error.backend.channelLeadFailed": "频道主责无法分派这条消息。请选择一位成员，或重试。",
@@ -73,6 +75,8 @@ export const messages = {
   "error.backend.channelDeliveryNotCreated": "未创建频道投递。",
   "error.backend.channelAssignmentStopped": "该频道派活已被停止或替换。",
   "error.backend.channelAssigneeUnavailable": "被派的助手不可用。",
+  "error.backend.channelAssigneeRemoved": "被派的成员已被移除。",
+  "error.backend.channelAssigneeReassign": "被派的成员不可用。请重新分派此任务。",
   "error.backend.channelAssignmentChanged": "该频道派活已变更。",
   "error.backend.channelMemberRequired": "请选择该频道中一位可用的成员。",
   "error.backend.memoryEssentialBudget": "核心记忆超出了提示词上限。请把其中一条设为按需检索，然后重试。",
@@ -170,6 +174,7 @@ export const messages = {
   "error.backend.agentWaitNoRoutine":
     "只有你自己的自动化任务运行才能唤醒等待，而你还没有自动化任务。请先用 openbot.create_routine 创建一个，再开启等待。",
   "error.backend.agentWaitRemoteUnsupported": "未关闭的等待仅适用于本电脑上的助手。",
+  "error.backend.markUnreadRemoteUnsupported": "仅本电脑上的助手可以将消息标为未读。",
   "error.backend.routineFlowHandoffFailed": "自动化任务无法把工作交给该助手。",
   "error.backend.mcpServerLimit": "Builders Bot 最多保留 {limit} 个 MCP 服务器。",
   "error.backend.mcpServerNameTaken": "名为 {name} 的 MCP 服务器已存在。",
@@ -194,6 +199,7 @@ export const messages = {
   "error.backend.mcpSignInResponseTimedOut": "登录响应未及时返回。",
   "error.backend.mcpSignInMetadataUnreadable": "Builders Bot 无法读取该服务器的登录信息。请检查服务器地址后重试。",
   "error.backend.mcpServerExited": "服务器在响应之前就停止了。请在终端中运行该命令以查看错误。",
+  "error.backend.mcpServerFailedToStart": "服务器没有启动：{reason}",
   "error.backend.mcpOAuthProxyUnavailable":
     "Builders Bot 无法为这台服务器建立本地登录连接。请重启 Builders Bot 后再试一次。",
   "error.backend.mcpOAuthSignInNeeded": "该 MCP 服务器的登录已结束。用户需要在 Builders Bot 中重新登录。",

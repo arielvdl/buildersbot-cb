@@ -8,6 +8,8 @@ export const messages = {
     "Builders Bot no pudo registrar el uso del equipo en la configuración de Codex. Comprueba que tu config.toml de Codex sea válido y se pueda escribir, y reinicia Builders Bot. Puedes desactivar el uso del equipo en los ajustes del compañero para continuar sin él.",
   "error.provider.codexUnresponsive": "Codex dejó de responder, así que Builders Bot terminó su proceso.",
   "error.provider.acpUnresponsive": "{provider} no respondió a tiempo, así que Builders Bot terminó su proceso.",
+  "error.provider.acpMcpNotLoaded":
+    "{provider} no cargó las herramientas de Builders Bot, así que este agente no puede usarlas ni comunicarse con sus compañeros. Una política de equipo de {provider} puede bloquear los servidores MCP locales. Pide al administrador de tu equipo que los permita y vuelve a intentarlo.",
   "error.provider.endpointsReadOnly":
     "Los endpoints guardados se escribieron con una versión más reciente de Builders Bot o el archivo no se puede leer. Actualiza Builders Bot para cambiarlos.",
   "error.provider.endpointNoSecureStorage":
@@ -63,6 +65,7 @@ export const messages = {
   "error.provider.removeWhileOn": "Desactiva el proveedor antes de quitar su descarga.",
   "error.provider.removeWhileDownloading": "Espera a que termine la descarga y luego quítala.",
   "error.provider.removeIncomplete": "Un programa usa archivos de esta CLI. Ciérralo y vuelve a intentarlo.",
+  "error.provider.removeDownloadsFailed": "No se pudieron quitar las descargas de la CLI de {providers}.",
   "error.provider.cliOverride": "Elimina la ruta de CLI definida explícitamente antes de actualizar en Builders Bot.",
   "error.provider.runtimeUpdateIncomplete": "La actualización del entorno de ejecución no se completó.",
   "error.provider.downloadHttp": "La descarga del entorno de ejecución falló con HTTP {status}.",
@@ -102,6 +105,8 @@ export const messages = {
   "error.provider.modelsTooMany": "Hay demasiados modelos.",
   "error.provider.modelIdCharacter": "Un ID de modelo contiene un carácter no permitido.",
   "error.provider.modelIdDuplicate": "Dos modelos tienen el mismo ID.",
+  "error.provider.contextWindowInvalid":
+    "La ventana de contexto de un modelo debe ser un número entero de tokens entre {min} y {max}.",
   "error.provider.headersTooMany": "Hay demasiadas cabeceras.",
   "error.provider.headerNameCharacter": "El nombre de una cabecera contiene un carácter que HTTP no permite.",
   "error.provider.headerNameTooLong": "El nombre de una cabecera es demasiado largo.",
@@ -189,6 +194,8 @@ export const messages = {
   "error.provider.cliActivateFailed": "Builders Bot no pudo activar la CLI gestionada.",
   "error.provider.cliBusyReconnect":
     "La CLI de {provider} está procesando un turno. Espera a que termine y vuelve a conectar.",
+  "error.provider.cliBusySignOut":
+    "La CLI de {provider} está procesando un turno. Espera a que termine y luego desconecta.",
   "error.provider.opencodeCredentialsRejected":
     "El proveedor del modelo rechazó la clave de API. Corrige la clave de OpenCode en Ajustes o la clave del proveedor con `opencode auth login`. Luego inténtalo de nuevo o elige otro modelo.\n{detail}",
   "error.provider.opencodeAuthRequired":
@@ -328,6 +335,7 @@ export const messages = {
   "error.provider.accountsUnsupported": "{provider} solo admite una cuenta.",
   "error.provider.accountNeedsConnection": "Conecta {provider} antes de añadir otra cuenta.",
   "error.provider.usageResetUnsupported": "{provider} no puede restablecer los límites de uso.",
+  "error.provider.signOutUnsupported": "Builders Bot no puede desconectar la sesión de {provider}.",
   "error.provider.usageResetNotConnected":
     "Vuelve a iniciar sesión en esta cuenta de {provider} antes de restablecer su uso.",
   "error.provider.accountLimit": "{provider} admite como máximo {limit} cuentas.",

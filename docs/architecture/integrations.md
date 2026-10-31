@@ -1,10 +1,10 @@
 # Integrations and sign-in
 
-This guide tells you how a sign-in reaches OpenBot, how a joined server signs in through the
+This guide tells you how a sign-in reaches Builders Bot, how a joined server signs in through the
 computer of its user, and how to add a provider, an application or a connector. Each section has a
 working example with real file paths.
 
-- [How a sign-in reaches OpenBot](#how-a-sign-in-reaches-openbot)
+- [How a sign-in reaches Builders Bot](#how-a-sign-in-reaches-openbot)
 - [Remote sign-in: the callback relay](#remote-sign-in-the-callback-relay)
 - [Add a provider](#add-a-provider)
 - [Add an application](#add-an-application)
@@ -13,19 +13,19 @@ working example with real file paths.
 - [Test a sign-in through a joined server](#test-a-sign-in-through-a-joined-server)
 - [What cannot be relayed](#what-cannot-be-relayed)
 
-## How a sign-in reaches OpenBot
+## How a sign-in reaches Builders Bot
 
-The computer that runs OpenBot keeps every grant. On a joined server, this is the host, not the
+The computer that runs Builders Bot keeps every grant. On a joined server, this is the host, not the
 computer of the user who signs in. A sign-in uses one of these kinds:
 
 | Kind | Example | On this computer | On a joined server |
 | --- | --- | --- | --- |
 | Loopback callback | URL MCP servers (`McpOAuth`), Codex browser sign-in, a page that an agent's CLI prints | The page sends the browser to `http://127.0.0.1:<port>/...`. The MCP listener uses port 28417 and path `/mcp-auth` ([`mcp-oauth-redirect-server.ts`](../../src/main/mcp-oauth-redirect-server.ts)). | The [callback relay](#remote-sign-in-the-callback-relay) (`sign-in-relay-v1`). MCP on an older host: the host's live view (`mcp-sign-in-v1`). |
-| Device code | Codex (`codex-device`), Grok, Cline, Muse, the GitHub connector | The user types a short code on the provider's page. Nothing comes back to OpenBot. | The host starts it and the client shows the code (`providers-v1` to `providers-v5`). Muse: the relay opens its device page with no callback. GitHub: `connectors-v1`. |
-| Pasted code | Claude on Linux (`cli` / `paste`), Cursor (`cli` / `link`) | The page shows a code, and the user pastes it into OpenBot. | The host starts it and the client takes the code (`providers-v3` to `providers-v5`). |
+| Device code | Codex (`codex-device`), Grok, Cline, Muse, the GitHub connector | The user types a short code on the provider's page. Nothing comes back to Builders Bot. | The host starts it and the client shows the code (`providers-v1` to `providers-v5`). Muse: the relay opens its device page with no callback. GitHub: `connectors-v1`. |
+| Pasted code | Claude on Linux (`cli` / `paste`), Cursor (`cli` / `link`) | The page shows a code, and the user pastes it into Builders Bot. | The host starts it and the client takes the code (`providers-v3` to `providers-v5`). |
 | CLI-owned browser login | Claude (`auth login`), Codex, Gemini (`acp-authenticate`) | The provider's CLI opens the browser and takes its own callback. | The relay (`provider/start`): the host captures the page, and the client sends the callback query to the CLI's listener on the host. Grok, Cursor and Cline: a code kind. |
 | Deep link | Slack, Discord (`openbot://slack-workspace`, `openbot://discord-guild`), MCP fallback (`openbot://mcp-auth`) | A hosted page ends in an `openbot://` link, which reaches only the computer that opened it. | Slack and Discord: `connectors-v1`. The client sends the sealed grant on to the host that started the install. The browser client gets the grant from a return page of its own origin (`web-messaging-install.ts`). |
-| Terminal | Pi | OpenBot opens the CLI in a terminal on the host ([`provider-terminal-login.ts`](../../src/backend/provider-terminal-login.ts)). | Sign in on the host. |
+| Terminal | Pi | Builders Bot opens the CLI in a terminal on the host ([`provider-terminal-login.ts`](../../src/backend/provider-terminal-login.ts)). | Sign in on the host. |
 | Key or local session | API keys, 1Password, Bitwarden | The user types a key or gives a CLI session. | Keys go to the host over the encrypted channel. Vault approval stays on the host. A Bitwarden session key works only on the computer that made it; a joined server gets an API key and the master password. |
 
 The sign-in kinds of providers are in `ProviderSignIn` and `ProviderCodeSignIn` in
@@ -50,7 +50,7 @@ A dropped token is not handed to an agent: `accessToken` answers `null`. The IPC
 `McpSignInState.needsSignIn` tells the panel to show the sign-in badge and the Sign in button with
 no test. The frozen `mcp-sign-in-v1` wire keeps only `mcpServerId` and `signedIn`.
 
-Sign-out and removal delete the local tokens first. Then OpenBot sends one best-effort RFC 7009
+Sign-out and removal delete the local tokens first. Then Builders Bot sends one best-effort RFC 7009
 request per token, refresh token first, to the `revocation_endpoint` of the authorization server.
 The request goes through `secureOAuthFetch`, with the client authentication of the registration and
 a 5-second limit. A failure is logged with the origin and the status only, and is not shown.
@@ -75,8 +75,9 @@ probe are not changed.
 
 | Part | Rule |
 | --- | --- |
-| Address | `http://127.0.0.1:<port>/mcp/<route>`. The route is a digest of the row id and its URL, so a changed URL is a new route. |
-| Bearer | An HMAC of the route with the proxy secret. A bearer opens one route only. It is compared with `timingSafeEqual` and registered for redaction. |
+| Address | `http://127.0.0.1:<port>/mcp/<route>/<agent>`. The route is a digest of the row id and its URL, so a changed URL is a new route. The agent segment is a digest of the agent id (`mcpOAuthProxyAgentKey`). `/mcp/<route>` with no agent segment stays valid: Codex sessions from before the segment hold it. |
+| Bearer | An HMAC of the route and the agent segment with the proxy secret. A bearer opens one route for one agent only. It is compared with `timingSafeEqual` and registered for redaction. |
+| Identity | The `clientInfo` of each `initialize` becomes `{ name: "openbot", title: "<agent name> (Builders Bot)", version, websiteUrl }`; the name is read at each `initialize`, so a rename shows in the next session. With no known agent the title is `Builders Bot`. `User-Agent` is `Builders Bot/<version>` unless the row sets one. A body that is not JSON, is a batch, or is larger than 64 KiB goes through unchanged. |
 | Refused with 403 | A `Host` that is not `127.0.0.1:<port>` or `localhost:<port>`, an unknown path, a wrong bearer. |
 | Upstream | The row's URL and its headers, with the current token. The provider's `Authorization` and cookies are not sent. Only same-origin 307 and 308 redirects are followed, at most 3. |
 | Server answers 401 | One `McpOAuth.refreshAccessToken`, then one retry with the new token. |
@@ -102,12 +103,12 @@ MCP server.
 The user is connected to a joined server, for example a cloud server. The host starts the sign-in,
 but the sign-in page opens in the browser of the user's own computer. The user's browser keeps their
 passwords, passkeys and sessions. After the user signs in, the page sends the browser back to a
-loopback address. The user's OpenBot takes that callback and sends it to the host. The host finishes
+loopback address. The user's Builders Bot takes that callback and sends it to the host. The host finishes
 the sign-in and keeps the grant.
 
 The optional Team API capability `sign-in-relay-v1` carries the relay. The frozen contract is
 [`sign-in-relay-v1.ts`](../../packages/contracts/src/team-protocol/sign-in-relay-v1.ts). It has
-three start routes, and `provider-account-relay-v1` adds a fourth. They share `status`, `complete` and `cancel`:
+three start routes, and `provider-account-relay-v1` and `-v2` add one more each. They share `status`, `complete` and `cancel`:
 
 | Start route | What it signs in | How the host delivers the callback |
 | --- | --- | --- |
@@ -115,6 +116,7 @@ three start routes, and `provider-account-relay-v1` adds a fourth. They share `s
 | `provider/start` | The CLI of a provider in `SIGN_IN_RELAY_PROVIDERS`: Codex, Claude, Gemini (`antigravity`) and Muse | It replays the query to the CLI's own loopback listener on the host. A Muse device page has no callback: the client only opens it. |
 | `link/start` | A sign-in page that an agent of the host printed in its conversation | It replays the query to the loopback address of that page. |
 | `provider-account/start` | An account after the first of Codex or Claude (`PROVIDER_ACCOUNT_RELAY_PROVIDERS`), new or signed out. The separate capability `provider-account-relay-v1` adds this route ([`provider-account-relay-v1.ts`](../../packages/contracts/src/team-protocol/provider-account-relay-v1.ts)) | It replays the query to the loopback listener of the account's CLI on the host, as for `provider/start`. |
+| `provider-account/v2/start` | An account after the first of Codex, Claude or Gemini (`PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS`), new or signed out. The separate capability `provider-account-relay-v2` adds this route ([`provider-account-relay-v2.ts`](../../packages/contracts/src/team-protocol/provider-account-relay-v2.ts)). A host advertises it with v1, and a client uses the newest one that the host advertises | As for `provider-account/start`. |
 
 ### Sequence
 
@@ -248,7 +250,7 @@ other places.
 3. **Backend.** `resolve<X>Cli` in `src/backend/cli.ts`, the state paths in
    `src/backend/process-confinement.ts`, `providerLabel` in `src/backend/agent/thread-items.ts` and
    `src/backend/agent/provider-diagnostics.ts`.
-4. **Managed runtime** (when OpenBot installs the CLI): `native-runtime.lock.json`,
+4. **Managed runtime** (when Builders Bot installs the CLI): `native-runtime.lock.json`,
    `scripts/agent-runtime-lock.ts`, and `src/main/provider-runtime-descriptors.ts`,
    `provider-runtime-releases.ts` and `provider-runtime-manager.ts`.
 5. **Contracts and preload.** The `AgentAuthState` arm in `ipc-agent-status.ts`, then
@@ -298,7 +300,7 @@ is one folder per plugin in [`marketplace/plugin-catalog/`](../../marketplace/pl
    URLs. The types are in [`scripts/build-plugin-catalog.ts`](../../scripts/build-plugin-catalog.ts).
 2. Each app has a `server`: `http` with a `url`, or `stdio` with a `command` and `args`. Its `auth`
    names how the user connects:
-   - `link`: a browser sign-in. OpenBot is the OAuth client (`McpOAuth` in
+   - `link`: a browser sign-in. Builders Bot is the OAuth client (`McpOAuth` in
      [`mcp-oauth-provider.ts`](../../src/backend/mcp-oauth-provider.ts)): discovery, dynamic
      registration, PKCE and refresh. The tokens stay in encrypted storage. No bridge program.
    - `key`: one or two fields that go into a `header` (http) or an `env` value (stdio).
@@ -337,7 +339,7 @@ A `link` server with no `registration_endpoint` fails: each user would have to r
 first. Use a `key` flow for it, or leave it out. The smoke reads metadata only. It never registers a
 client and never sends a credential.
 
-A server that does not register OpenBot by itself needs a **sign-in app**: an OAuth app that the
+A server that does not register Builders Bot by itself needs a **sign-in app**: an OAuth app that the
 admin registers with the provider. The user enters its client ID in the "Sign-in app" section of the
 MCP server ([`McpSignInAppSection.tsx`](../../src/renderer/src/features/servers/McpSignInAppSection.tsx)).
 The callback URL is `http://127.0.0.1:28417/mcp-auth`. On a joined server, the host keeps the app
@@ -368,7 +370,7 @@ page opens in this computer's browser through the relay.
 
 ## Add a connector
 
-A connector links OpenBot to an outside account for all agents. Each one has a main-process
+A connector links Builders Bot to an outside account for all agents. Each one has a main-process
 service, an IPC contract, a renderer controller and a panel. Marketplace › Apps, the chat
 suggestion card and the browser client read one list, so a connector shows the same
 state on each of them.
@@ -438,7 +440,7 @@ is frozen once it ships.
 The optional capability `discord-access-v1`
 ([`discord-access-v1.ts`](../../packages/contracts/src/team-protocol/discord-access-v1.ts), host route
 [`route-discord-access.ts`](../../src/main/team-api/route-discord-access.ts)) reads and sets which
-Discord roles can use OpenBot in each Discord server of the host, and lists the server's roles through
+Discord roles can use Builders Bot in each Discord server of the host, and lists the server's roles through
 Signal (`listRoles`). The host keeps the list in `projection_messaging_allowed_roles`. An empty list
 lets everyone. With a list, `MessagingService` ignores a mention from a member who has none of the
 roles, before it reacts or posts. Signal passes the author's role IDs with each mention; a mention
@@ -463,7 +465,7 @@ address, the personal API key and the master password in Marketplace › Apps �
 once, in `connect`; no answer carries them. `connect` answers `connecting` at once, because the
 first sign-in can download `bw` and sync the vault for longer than the 15-second request limit. The
 client reads `status` every 2 seconds until the state changes. The host stores the record only after
-it unlocks the vault and finds the folder `Shared with OpenBot`, and unlocks again from it after a
+it unlocks the vault and finds the folder `Shared with Builders Bot`, and unlocks again from it after a
 restart. The host must reach the server address over HTTPS; the instance firewall of
 [several instances on one host](../docker.md#several-instances-on-one-host) blocks private
 addresses. A host older than this capability hides Bitwarden.
@@ -491,7 +493,9 @@ Team API adapters are permanent (see [Team API compatibility](team-api.md)). Wor
 4. **Capability list.** Add the capability to `TEAM_CURRENT_CAPABILITIES` in
    [`current.ts`](../../packages/contracts/src/team-protocol/current.ts), and exclude it from
    `TEAM_BOOTSTRAP_CAPABILITIES` and `legacyTeamCapabilities`. Older peers read a limited number of
-   bootstrap capabilities, so a new optional one stays out of bootstrap.
+   bootstrap capabilities, so a new optional one stays out of bootstrap. Protocols 7 and 8 read at
+   most 128 capabilities and their lists are full, so add it to `TEAM_PROTOCOL_V9_ONLY_CAPABILITIES`
+   too: only a protocol 9 peer then sends or gets it.
 5. **Host route.** Add `src/main/team-api/route-<name>.ts`. Return `"unmatched"` for other paths,
    refuse with `400` when the capability is off, and call `requireAdmin` for admin routes. Register
    it in `TeamApiServer.#handle` in [`team-api-server.ts`](../../src/main/team-api-server.ts), and

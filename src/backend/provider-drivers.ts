@@ -60,6 +60,7 @@ import { MuseAgentClient } from "./muse-client";
 import {
   type CustomProviderSource,
   culturaBuilderConfigEnv,
+  customProvidersOn,
   OPENCODE_PROFILE_CONFIG,
   openCodeConfigEnv,
   openCodeModelName,
@@ -82,7 +83,7 @@ import {
   piStatePaths,
   type SpawnTarget,
 } from "./process-confinement";
-import type { AccountReadResult, ModelListResponse } from "./protocol";
+import { type AccountReadResult, isCodexLoginType, type ModelListResponse } from "./protocol";
 import {
   type ProviderClientOperationError,
   type ProviderSignInError,
@@ -356,6 +357,11 @@ export interface ProviderClientContext {
    */
   readonly mcpOAuthProxySettings?: McpOAuthProxySettingsStore;
   /**
+   * The Builders Bot version that the OAuth proxy names to a server it signed in to. Optional: without it
+   * the proxy passes on the provider's own `clientInfo`.
+   */
+  readonly appVersion?: string;
+  /**
    * Whether this model may still be used. A removed endpoint stays in the running process, with the
    * credentials it started with, until that process restarts, and the restart waits for the work in
    * flight. Read at the last moment before a prompt leaves, because everything above it awaits.
@@ -381,11 +387,12 @@ export interface ProviderClientContext {
    */
   readonly agentEnvironment?: (inherited?: NodeJS.ProcessEnv) => Readonly<Record<string, string>>;
   /**
-   * Variables that every provider process gets on a server, and so every program an agent starts: the
-   * marker that the server memory guard finds leftover processes by, and the CPU limit module for Node
-   * (`agentProcessEnvironment` in `src/main/server-memory.ts`). Fixed while the app runs. They are not
-   * part of `agentEnvironment`: Codex gets that in each thread configuration and replaces a session
-   * whose variables change, so Codex gets these in the spawn environment of its app-server instead.
+   * Variables that every provider process gets, and so every program an agent starts: the marker that
+   * the server memory guard and `src/main/background-processes.ts` find leftover processes by, and on
+   * a server the CPU limit module for Node (`agentProcessEnvironment` in `src/main/server-memory.ts`).
+   * Fixed while the app runs. They are not part of `agentEnvironment`: Codex gets that in each thread
+   * configuration and replaces a session whose variables change, so Codex gets these in the spawn
+   * environment of its app-server instead.
    */
   readonly serverEnvironment?: Readonly<Record<string, string>>;
   /**
@@ -556,8 +563,16 @@ function piClient(
   });
 }
 
+/** The main Pi client runs the custom endpoints saved on Pi. A key-only provider runs its key. */
 function piKeyProvider(provider: "pi" | KeyOnlyProviderId, context: ProviderClientContext) {
-  return provider === "pi" ? {} : { keyProvider: { id: provider, apiKey: () => context.apiKey(provider) } };
+  return provider === "pi"
+    ? { customEndpoints: customProvidersOn(context.customProviders, "pi") }
+    : { keyProvider: { id: provider, apiKey: () => context.apiKey(provider) } };
+}
+
+/** The custom endpoints that OpenCode runs. The others run on Pi. */
+function openCodeEndpoints(context: ProviderClientContext): CustomProviderSource {
+  return customProvidersOn(context.customProviders, "opencode");
 }
 
 function piProfileClient(
@@ -677,8 +692,9 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         ...context.accountEnvironment,
       }),
     authState: (account) => ({ kind: "chatgpt", email: account?.email ?? null }),
+    // An API-key login has no plan usage to read.
     validateAccount: (account) => {
-      if (account.type !== "chatgpt") {
+      if (!isCodexLoginType(account.type)) {
         throw new Error(sourceText("error.provider.codexLoginRequired"));
       }
     },
@@ -806,13 +822,13 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         extraEnv: () => ({
           ...context.agentEnvironment?.(),
           ...opencodeEnv(cli, context),
-          ...openCodeConfigEnv({}, context.customProviders, context.apiKey("opencode")),
+          ...openCodeConfigEnv({}, openCodeEndpoints(context), context.apiKey("opencode")),
           ...(confinement ? OPENCODE_CONFINED_ENV : {}),
         }),
-        signInMessage: openCodeSignInMessage(context.customProviders().length),
-        modelName: (id, name) => openCodeModelName(id, name, context.customProviders),
+        signInMessage: openCodeSignInMessage(openCodeEndpoints(context)().length),
+        modelName: (id, name) => openCodeModelName(id, name, openCodeEndpoints(context)),
         // A stalled turn on a custom endpoint names the endpoint, not OpenCode (#3234).
-        providerName: (modelId) => customProviderOfModel(modelId, context.customProviders())?.name ?? null,
+        providerName: (modelId) => customProviderOfModel(modelId, openCodeEndpoints(context)())?.name ?? null,
         servesModel: context.servesModel,
         mcpServers: context.mcpServers,
         reportMcpDrops: context.reportMcpDrops,
@@ -833,10 +849,10 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         env: {},
         extraEnv: () => ({
           ...opencodeEnv(cli, context),
-          ...openCodeConfigEnv(OPENCODE_PROFILE_CONFIG, context.customProviders, context.apiKey("opencode")),
+          ...openCodeConfigEnv(OPENCODE_PROFILE_CONFIG, openCodeEndpoints(context), context.apiKey("opencode")),
         }),
-        signInMessage: openCodeSignInMessage(context.customProviders().length),
-        modelName: (id, name) => openCodeModelName(id, name, context.customProviders),
+        signInMessage: openCodeSignInMessage(openCodeEndpoints(context)().length),
+        modelName: (id, name) => openCodeModelName(id, name, openCodeEndpoints(context)),
         servesModel: context.servesModel,
       }),
     authState: (account) => ({ kind: "opencode", email: account?.email ?? null }),

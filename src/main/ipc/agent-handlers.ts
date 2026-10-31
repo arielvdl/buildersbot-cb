@@ -27,6 +27,7 @@ import {
   decodeSaveAgentProfileResult,
   hostAnalyticsQuery,
   isAgentModelOption,
+  LOCAL_SERVER_ID,
   parseAgentAnalyticsInput,
   parseAskSideQuestion,
   parseChannelCommand,
@@ -37,6 +38,7 @@ import {
   parseResetAgentSessionSetting,
   parseSaveAgentProfile,
   parseSetAgentHiddenInput,
+  parseSetAgentNotificationLevelInput,
   parseSetAgentSessionSetting,
   remoteBrowserSecretResponse,
 } from "@openbot/contracts/ipc";
@@ -107,6 +109,7 @@ import {
   parseInterrupt,
   parseMarkAgentTaskRead,
   parseMarkConversationRead,
+  parseMarkConversationUnread,
   parseMessageReaction,
   parseOpenMessageLink,
   parseOptionalAgentId,
@@ -324,6 +327,15 @@ export function agentIpcHandlers({
             }),
           );
         },
+      }),
+      // The manager keeps the levels of each server, so the server list shows the level that they set.
+      listAgentNotificationLevels: scopedQueryHandler({
+        local: () => remoteServers.cachedNotificationLevels(LOCAL_SERVER_ID),
+        remote: (serverId) => runCauseEffect(remoteServers.notificationLevels(serverId)),
+      }),
+      setAgentNotificationLevel: scopedHandler(parseSetAgentNotificationLevelInput, {
+        local: (input) => runCauseEffect(remoteServers.setAgentNotificationLevel(LOCAL_SERVER_ID, input)),
+        remote: (input, serverId) => runCauseEffect(remoteServers.setAgentNotificationLevel(serverId, input)),
       }),
       listAgents: scopedQueryHandler({
         local: () => service.listAgents(),
@@ -589,6 +601,12 @@ export function agentIpcHandlers({
       markConversationRead: scopedHandler(parseMarkConversationRead, {
         local: (parsed) => runCauseEffect(host.markAgentConversationRead(parsed)),
         remote: (parsed, serverId) => runCauseEffect(remoteServers.markAgentConversationRead(parsed, serverId)),
+      }),
+      markConversationUnread: scopedHandler(parseMarkConversationUnread, {
+        local: (parsed) => runCauseEffect(host.markAgentConversationUnread(parsed)),
+        remote: () => {
+          throw new Error(sourceText("error.backend.markUnreadRemoteUnsupported"));
+        },
       }),
       sendMessage: scopedHandler(parseSendMessage, {
         local: (input) => runCauseEffect(service.sendMessage(input, host.conversationSender())),

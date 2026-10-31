@@ -56,7 +56,8 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
     ).map((provider) => {
       const agent = props.agentStatus?.providers?.find((candidate) => candidate.id === provider);
       const runtime = props.providerRuntimeStatuses?.[provider];
-      // The Gemini status says only whether a saved key serves the turns.
+      // The Gemini status says only whether a saved key serves the turns. A Codex key is a login on
+      // this computer, so only this computer offers one.
       const keyStatus =
         provider === "opencode"
           ? props.openCodeKeyStatus?.()
@@ -64,7 +65,11 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
             ? props.claudeKeyStatus?.()
             : provider === "antigravity" && agent?.apiKeyInUse
               ? ("saved" as const)
-              : undefined;
+              : provider === "codex" && !props.providerHostName
+                ? agent?.apiKeyInUse
+                  ? ("saved" as const)
+                  : ("missing" as const)
+                : undefined;
       return {
         id: provider,
         name: agentProviderName(provider),
@@ -75,6 +80,7 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
         message: agent?.message,
         email: agent?.email,
         connectionState: agent?.connectionState,
+        signInPending: agent?.signInPending,
         restartPending: agent?.restartPending,
         checkError: agent?.checkError,
         lastError: agent?.lastError,

@@ -27,7 +27,7 @@ function LanguageRow(props: { initial?: AppLanguage; disabled?: boolean }) {
       <Item class="settings-modal-row">
         <ItemContent>
           <ItemTitle>Language</ItemTitle>
-          <ItemDescription>OpenBot shows menus, buttons and messages in this language.</ItemDescription>
+          <ItemDescription>Builders Bot shows menus, buttons and messages in this language.</ItemDescription>
         </ItemContent>
         <ItemActions>
           <LanguageSelect value={language()} onChange={setLanguage} disabled={props.disabled} />

@@ -4,7 +4,7 @@ import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { LIVE_ACTIVITY_SECRET_BYTES, sealLiveActivity } from "./live-activity-seal";
 
 /**
- * The host sends an iOS notification through the OpenBot relay and Apple, so it seals the agent name
+ * The host sends an iOS notification through the Builders Bot relay and Apple, so it seals the agent name
  * and the text with keys that only the phone and the host know. The Notification Service Extension
  * of the app opens it before iOS shows it (`NotificationService.swift` in the mobile app plugins).
  *

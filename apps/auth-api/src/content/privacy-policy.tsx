@@ -1,6 +1,8 @@
 // The text of the privacy policy. Legal wording: change it only from the approved source text,
 // and move `PRIVACY_POLICY_UPDATED_AT` with it.
 
+import { Link } from "@tanstack/solid-router";
+
 const PRIVACY_EMAIL = "privacy@openbot.run";
 
 function PrivacyEmail() {
@@ -13,19 +15,19 @@ export function PrivacyPolicy() {
       <p>
         This Privacy Policy describes how Synthetify Labs sp. z o.o., a limited liability company incorporated under the
         laws of Poland, with its registered office at Trzebunia 513, 32-438 Trzebunia, Poland, registered in the Polish
-        National Court Register (KRS) under number 0000895882, Tax Identification Number (NIP) 6812085952 ("OpenBot,"
-        "we," "us," or "our"), processes personal data in connection with the Services.
+        National Court Register (KRS) under number 0000895882, Tax Identification Number (NIP) 6812085952 ("Builders
+        Bot," "we," "us," or "our"), processes personal data in connection with the Services.
       </p>
       <p>
-        OpenBot is operated from Poland and is available to users worldwide. It provides a platform that allows users to
-        create and manage AI agents, assign them tasks, and collaborate with them on a wide range of activities,
-        including research, content creation, software development, project management, and workflow automation. Users
-        can organise agents into teams, enabling them to communicate, share information, and work together on complex
-        tasks.
+        Builders Bot is operated from Poland and is available to users worldwide. It provides a platform that allows
+        users to create and manage AI agents, assign them tasks, and collaborate with them on a wide range of
+        activities, including research, content creation, software development, project management, and workflow
+        automation. Users can organise agents into teams, enabling them to communicate, share information, and work
+        together on complex tasks.
       </p>
       <p>
-        This Privacy Policy applies to the OpenBot website at <a href="https://openbot.run">https://openbot.run</a>, its
-        applications, and related services (collectively, the "Services").
+        This Privacy Policy applies to the Builders Bot website at <a href="https://openbot.run">https://openbot.run</a>
+        , its applications, and related services (collectively, the "Services").
       </p>
       <p>
         By accessing or using the Services, you acknowledge that you have read and understood this Privacy Policy. If
@@ -39,62 +41,64 @@ export function PrivacyPolicy() {
 
       <h2>About Our Services</h2>
       <p>
-        OpenBot provides a source-available platform that enables users to create, customize, and manage AI agents to
-        assist with various tasks, including research, content creation, software development, project management, and
-        workflow automation. Users can assign specific roles to agents, organise them into collaborative teams, and
+        Builders Bot provides a source-available platform that enables users to create, customize, and manage AI agents
+        to assist with various tasks, including research, content creation, software development, project management,
+        and workflow automation. Users can assign specific roles to agents, organise them into collaborative teams, and
         automate recurring activities.
       </p>
       <p>
         The platform supports integrations with third-party AI providers and external applications, as well as a
         marketplace where users can discover, install, and share agents, plugins, and skills. Users can access their
-        agents through supported devices, collaborate with other users, and choose between running OpenBot on their own
-        computers or using optional hosted servers.
+        agents through supported devices, collaborate with other users, and choose between running Builders Bot on their
+        own computers or using optional hosted servers.
       </p>
       <p>
-        OpenBot follows a local-first approach, under which conversations, files, agent workspaces, and related content
-        are stored on the computer or server running the application. Certain features require the processing of
-        personal data through OpenBot's infrastructure or third-party services, as described in this Privacy Policy.
+        Builders Bot follows a local-first approach, under which conversations, files, agent workspaces, and related
+        content are stored on the computer or server running the application. Certain features require the processing of
+        personal data through Builders Bot's infrastructure or third-party services, as described in this Privacy
+        Policy.
       </p>
 
       <h2>Roles and Responsibilities</h2>
       <p>
-        Depending on the nature of the personal data processed through the Services, OpenBot may act either as a data
-        controller or a data processor, as defined under the General Data Protection Regulation (GDPR).
+        Depending on the nature of the personal data processed through the Services, Builders Bot may act either as a
+        data controller or a data processor, as defined under the General Data Protection Regulation (GDPR).
       </p>
       <ul>
         <li>
-          <strong>OpenBot as a Data Processor</strong> – OpenBot acts as a Data Processor when it processes personal
-          data on behalf of customers who act as Data Controllers, particularly in connection with hosted server
-          services. In such cases, OpenBot processes personal data in accordance with the customer's documented
-          instructions and applicable data protection laws.
+          <strong>Builders Bot as a Data Processor</strong> – Builders Bot acts as a Data Processor when it processes
+          personal data on behalf of customers who act as Data Controllers, particularly in connection with hosted
+          server services. In such cases, Builders Bot processes personal data in accordance with the customer's
+          documented instructions and applicable data protection laws.
         </li>
         <li>
-          <strong>OpenBot as Data Controller</strong> – OpenBot acts as a Data Controller when it determines the
-          purposes and means of processing personal data in connection with the operation and provision of the Services.
-          This includes managing user accounts, authentication, subscriptions, payments, customer support, platform
-          security, and service analytics.
+          <strong>Builders Bot as Data Controller</strong> – Builders Bot acts as a Data Controller when it determines
+          the purposes and means of processing personal data in connection with the operation and provision of the
+          Services. This includes managing user accounts, authentication, subscriptions, payments, customer support,
+          platform security, and service analytics.
         </li>
       </ul>
       <p>
-        When users operate OpenBot on their own devices or independently managed servers, their conversations, files,
-        and workspace data remain within their chosen environment. OpenBot does not act as a Data Processor solely by
-        providing the software used to process such data.
+        When users operate Builders Bot on their own devices or independently managed servers, their conversations,
+        files, and workspace data remain within their chosen environment. Builders Bot does not act as a Data Processor
+        solely by providing the software used to process such data.
       </p>
       <p>
-        Where required under Article 28 GDPR, OpenBot enters into a Data Processing Agreement (DPA) with customers
-        governing the processing of personal data on their behalf. Any international transfers carried out in this
-        capacity are subject to applicable contractual requirements and appropriate data protection safeguards.
+        Where required under Article 28 GDPR, Builders Bot enters into a{" "}
+        <Link to="/dpa">Data Processing Agreement (DPA)</Link> with customers governing the processing of personal data
+        on their behalf. Any international transfers carried out in this capacity are subject to applicable contractual
+        requirements and appropriate data protection safeguards.
       </p>
 
       <h2>Data We Collect</h2>
       <p>
-        OpenBot processes different categories of personal data depending on how users access and interact with the
+        Builders Bot processes different categories of personal data depending on how users access and interact with the
         Services. Certain information is provided directly by users, while other information is generated automatically
         through account management, platform operation, analytics, and connected services.
       </p>
 
-      <h3>Information We Collect Automatically</h3>
-      <p>When users access or interact with the Services, OpenBot may process the following information:</p>
+      <h3>Information we collect automatically</h3>
+      <p>When users access or interact with the Services, Builders Bot may process the following information:</p>
       <ul>
         <li>
           <strong>Technical and device information</strong> – application version, operating system, device type,
@@ -113,7 +117,7 @@ export function PrivacyPolicy() {
         <li>
           <strong>Website analytics and attribution information</strong> – visited public pages, selected interactions,
           download events, campaign parameters, referring domains, and information about how users discover and interact
-          with the OpenBot website.
+          with the Builders Bot website.
         </li>
         <li>
           <strong>Security information</strong> – IP addresses and other network information processed where necessary
@@ -121,14 +125,14 @@ export function PrivacyPolicy() {
         </li>
       </ul>
       <p>
-        OpenBot uses analytics services to collect product usage data from production versions of its website and
+        Builders Bot uses analytics services to collect product usage data from production versions of its website and
         applications.
       </p>
       <p>
         Analytics events contain operational metadata, including feature usage, event types, provider and model
         identifiers, timing information, performance metrics, and application versions. When a user signs in, their
-        OpenBot account ID and email address are processed for analytics purposes, allowing certain activities to be
-        associated with their account. Additional information about their device, browser, operating system, network,
+        Builders Bot account ID and email address are processed for analytics purposes, allowing certain activities to
+        be associated with their account. Additional information about their device, browser, operating system, network,
         and approximate geographic location may also be derived.
       </p>
       <p>
@@ -146,11 +150,11 @@ export function PrivacyPolicy() {
       </p>
 
       <h3>Information You Provide</h3>
-      <p>OpenBot may collect and process personal data provided directly by users, including:</p>
+      <p>Builders Bot may collect and process personal data provided directly by users, including:</p>
       <ul>
         <li>
           <strong>Account information</strong> – email address, display name, optional profile picture, and other
-          information required to create and manage an OpenBot account.
+          information required to create and manage an Builders Bot account.
         </li>
         <li>
           <strong>Authentication information</strong> – information necessary to verify identity, including email
@@ -166,7 +170,7 @@ export function PrivacyPolicy() {
         </li>
         <li>
           <strong>Support and communication information</strong> – information voluntarily provided when contacting
-          OpenBot, requesting assistance, reporting a problem, or communicating with us.
+          Builders Bot, requesting assistance, reporting a problem, or communicating with us.
         </li>
         <li>
           <strong>Marketplace and publicly shared information</strong> – agent templates, descriptions, instructions,
@@ -175,8 +179,8 @@ export function PrivacyPolicy() {
         </li>
       </ul>
       <p>
-        Payment transactions are handled through Stripe. OpenBot does not collect or store complete payment card numbers
-        entered through Stripe's payment pages.
+        Payment transactions are handled through Stripe. Builders Bot does not collect or store complete payment card
+        numbers entered through Stripe's payment pages.
       </p>
       <p>
         Where users choose to publish content through the Marketplace or share public agent templates, certain
@@ -200,8 +204,8 @@ export function PrivacyPolicy() {
         <li>any other content processed by AI agents or related functionalities.</li>
       </ul>
       <p>
-        Customer Data is stored on the computer or server running OpenBot and is not stored in OpenBot's central account
-        database.
+        Customer Data is stored on the computer or server running Builders Bot and is not stored in Builders Bot's
+        central account database.
       </p>
       <p>
         Where users operate their own computers or servers, they retain control over the storage environment. Where they
@@ -212,15 +216,15 @@ export function PrivacyPolicy() {
         applications, or other external services to perform tasks requested by users.
       </p>
       <p>
-        OpenBot does not require Customer Data to contain any particular type of information, and users are solely
+        Builders Bot does not require Customer Data to contain any particular type of information, and users are solely
         responsible for the content they choose to make available through the Services and for ensuring that they have
         the necessary rights and legal basis to do so.
       </p>
 
       <h3>Information Obtained from Third Parties</h3>
       <p>
-        OpenBot may process personal data obtained from third-party services when users enable integrations or authorise
-        AI agents to access external applications and platforms.
+        Builders Bot may process personal data obtained from third-party services when users enable integrations or
+        authorise AI agents to access external applications and platforms.
       </p>
       <p>
         Depending on the connected service and the functionality used, such information may include account identifiers,
@@ -230,21 +234,21 @@ export function PrivacyPolicy() {
       <p>
         For example, integrations with communication platforms such as Slack, Discord, and Telegram may involve
         processing messages, attachments, and information relating to individuals participating in connected
-        conversations or workspaces. These individuals are not necessarily registered OpenBot users.
+        conversations or workspaces. These individuals are not necessarily registered Builders Bot users.
       </p>
       <p>
         Information obtained through external integrations is processed to provide the functionalities requested by
-        users and is generally stored within the computer or server operating the relevant OpenBot environment.
+        users and is generally stored within the computer or server operating the relevant Builders Bot environment.
       </p>
       <p>
-        Where OpenBot processes such information on behalf of a customer acting as a Data Controller, the customer is
-        responsible for ensuring that the processing has an appropriate legal basis and that applicable information
-        obligations towards the individuals concerned are fulfilled. OpenBot assists customers in meeting their
+        Where Builders Bot processes such information on behalf of a customer acting as a Data Controller, the customer
+        is responsible for ensuring that the processing has an appropriate legal basis and that applicable information
+        obligations towards the individuals concerned are fulfilled. Builders Bot assists customers in meeting their
         obligations where required by law or contractual arrangements.
       </p>
 
       <h2>How We Use Information</h2>
-      <p>OpenBot processes personal data for the following purposes:</p>
+      <p>Builders Bot processes personal data for the following purposes:</p>
       <ul>
         <li>to provide, operate, maintain, and secure the Services;</li>
         <li>to create, authenticate, and manage user accounts;</li>
@@ -266,17 +270,17 @@ export function PrivacyPolicy() {
         </li>
         <li>
           to comply with applicable legal obligations, resolve disputes, enforce agreements, and protect the rights and
-          legitimate interests of OpenBot, its users, and third parties.
+          legitimate interests of Builders Bot, its users, and third parties.
         </li>
       </ul>
       <p>
-        Where OpenBot processes Customer Data on behalf of a customer acting as a Data Controller, such processing is
-        limited to the purposes specified in the applicable contractual arrangements and documented instructions.
+        Where Builders Bot processes Customer Data on behalf of a customer acting as a Data Controller, such processing
+        is limited to the purposes specified in the applicable contractual arrangements and documented instructions.
       </p>
 
       <h2>Legal Basis for Processing</h2>
       <p>
-        Where the General Data Protection Regulation (GDPR) or other applicable data protection laws apply, OpenBot
+        Where the General Data Protection Regulation (GDPR) or other applicable data protection laws apply, Builders Bot
         processes personal data on the basis of a valid legal ground. Depending on the purpose and circumstances of
         processing, we rely on one or more of the following legal bases:
       </p>
@@ -304,16 +308,16 @@ export function PrivacyPolicy() {
         </li>
       </ul>
       <p>
-        Where OpenBot acts as a Data Processor, the relevant customer acting as Data Controller is responsible for
-        determining the applicable legal basis for processing Customer Data. OpenBot processes such data in accordance
-        with the customer's documented instructions and applicable data protection laws.
+        Where Builders Bot acts as a Data Processor, the relevant customer acting as Data Controller is responsible for
+        determining the applicable legal basis for processing Customer Data. Builders Bot processes such data in
+        accordance with the customer's documented instructions and applicable data protection laws.
       </p>
 
       <h2>Provision of Personal Data</h2>
       <p>
-        Providing certain personal data is necessary to create and manage an OpenBot account, access account-related
-        functionalities, and use paid Services. This includes information required for authentication, account
-        administration, and subscription management.
+        Providing certain personal data is necessary to create and manage an Builders Bot account, access
+        account-related functionalities, and use paid Services. This includes information required for authentication,
+        account administration, and subscription management.
       </p>
       <p>
         Failure to provide the information necessary for these purposes may prevent users from creating an account,
@@ -331,7 +335,7 @@ export function PrivacyPolicy() {
 
       <h2>Use of Artificial Intelligence</h2>
       <p>
-        OpenBot enables users to access and operate artificial intelligence technologies supplied by different
+        Builders Bot enables users to access and operate artificial intelligence technologies supplied by different
         providers, including OpenAI, Anthropic, Google, xAI, and other supported services or locally configured models.
       </p>
       <p>
@@ -359,8 +363,8 @@ export function PrivacyPolicy() {
         saved work context may be transmitted to the newly selected provider.
       </p>
       <p>
-        OpenBot does not automatically transmit all locally stored Customer Data to every available AI provider. The
-        information transferred depends on the provider, agent configuration, requested functionality, and user
+        Builders Bot does not automatically transmit all locally stored Customer Data to every available AI provider.
+        The information transferred depends on the provider, agent configuration, requested functionality, and user
         activity.
       </p>
       <p>
@@ -373,15 +377,15 @@ export function PrivacyPolicy() {
         improvement or training may differ.
       </p>
       <p>
-        OpenBot does not determine the data processing policies of independently selected AI providers. Users should
-        review the relevant provider's terms before transmitting personal, confidential, or otherwise sensitive
+        Builders Bot does not determine the data processing policies of independently selected AI providers. Users
+        should review the relevant provider's terms before transmitting personal, confidential, or otherwise sensitive
         information.
       </p>
 
       <h2>Automated Decision-Making</h2>
       <p>
-        OpenBot enables users to create and configure AI agents that can perform tasks, analyse information, and carry
-        out automated activities based on their instructions.
+        Builders Bot enables users to create and configure AI agents that can perform tasks, analyse information, and
+        carry out automated activities based on their instructions.
       </p>
       <p>
         Depending on how the Services are used, these activities may involve the processing of personal data and
@@ -394,7 +398,7 @@ export function PrivacyPolicy() {
         requirements relating to transparency, human oversight, and the protection of individuals' rights.
       </p>
       <p>
-        OpenBot remains responsible for compliance with its own obligations under applicable data protection laws,
+        Builders Bot remains responsible for compliance with its own obligations under applicable data protection laws,
         including where it acts as a Data Controller or Data Processor.
       </p>
 
@@ -409,8 +413,8 @@ export function PrivacyPolicy() {
         <li>
           <strong>Service Providers</strong> – third-party providers that support the operation, maintenance, and
           security of the Services, including cloud infrastructure, hosted servers, authentication, payment processing,
-          email delivery, technical support, and communication services. These providers include Cloudflare, boat,
-          Stripe, and other providers supporting specific functionalities of the Services.
+          email delivery, technical support, and communication services. These providers include Cloudflare, Dedale AI,
+          Corp. (operating as boat), and Stripe.
         </li>
         <li>
           <strong>Third-Party AI Providers</strong> – external AI providers, including OpenAI, Anthropic, Google, xAI,
@@ -421,9 +425,9 @@ export function PrivacyPolicy() {
         </li>
         <li>
           <strong>Third-Party Integrations</strong> – external applications, platforms, or services that users choose to
-          connect to OpenBot, including Slack, Discord, Telegram, GitHub, and other supported integrations. Information
-          shared with these services depends on the functionalities enabled by users and is subject to the applicable
-          terms and privacy policies of the relevant providers.
+          connect to Builders Bot, including Slack, Discord, Telegram, GitHub, and other supported integrations.
+          Information shared with these services depends on the functionalities enabled by users and is subject to the
+          applicable terms and privacy policies of the relevant providers.
         </li>
         <li>
           <strong>Authorised Users and Team Members</strong> – where users enable collaboration or shared access,
@@ -453,28 +457,42 @@ export function PrivacyPolicy() {
       </p>
       <p>
         Where users independently select or connect third-party AI providers or external services, those providers may
-        process personal data under their own terms and privacy policies. OpenBot does not determine the purposes and
-        means of processing carried out independently by such providers.
+        process personal data under their own terms and privacy policies. Builders Bot does not determine the purposes
+        and means of processing carried out independently by such providers.
       </p>
 
       <h2>Third-Party Service Providers</h2>
       <p>
-        OpenBot uses Stripe as an external payment service provider to process payments and manage subscriptions for
-        paid Services.
+        Builders Bot uses the following third-party service providers in connection with the operation and provision of
+        the Services:
+      </p>
+      <ul>
+        <li>
+          <strong>Cloudflare</strong> – provides infrastructure and security services supporting the operation of the
+          Builders Bot website and related online functionalities.
+        </li>
+        <li>
+          <strong>Dedale AI, Corp. (operating as boat)</strong> – provides cloud-based virtual server infrastructure
+          used to host Builders Bot Hosted Server environments.
+        </li>
+        <li>
+          <strong>Stripe</strong> – processes payments and manages subscriptions for paid Services.
+        </li>
+      </ul>
+      <p>
+        These providers process personal data in accordance with their respective privacy policies, contractual
+        arrangements, and applicable Data Protection Laws.
       </p>
       <p>
-        Payment card and billing details are provided directly to Stripe through its payment pages. OpenBot receives
-        only the information necessary to administer subscriptions and related transactions, including subscription
-        plans, billing periods, payment statuses, amounts, and transaction references. OpenBot does not collect or store
-        complete payment card numbers.
-      </p>
-      <p>
-        Stripe processes personal data in accordance with its applicable privacy policy and contractual arrangements.
+        Payment card and billing details are provided directly to Stripe through its payment pages. Builders Bot
+        receives only the information necessary to administer subscriptions and related transactions, including
+        subscription plans, billing periods, payment statuses, amounts, and transaction references. Builders Bot does
+        not collect or store complete payment card numbers.
       </p>
 
       <h2>AI Providers and Optional Integrations</h2>
       <p>
-        OpenBot allows users to select and configure third-party AI providers and connect external applications,
+        Builders Bot allows users to select and configure third-party AI providers and connect external applications,
         platforms, tools, and services according to their individual needs and preferences. The range of available
         integrations depends on the services and configurations selected by users and is not limited to a predefined
         list of providers.
@@ -489,23 +507,24 @@ export function PrivacyPolicy() {
         Third-party providers process personal data in accordance with their applicable terms, privacy policies, and
         contractual arrangements. Depending on the nature of the service and the processing activities involved, these
         providers may act as independent Data Controllers or Data Processors. Where a third-party provider processes
-        personal data on behalf of OpenBot, appropriate contractual arrangements and data protection safeguards apply.
+        personal data on behalf of Builders Bot, appropriate contractual arrangements and data protection safeguards
+        apply.
       </p>
-      <p>OpenBot does not sell or rent personal data to third parties.</p>
+      <p>Builders Bot does not sell or rent personal data to third parties.</p>
 
       <h2>Data Storage and Local Processing</h2>
       <p>
-        OpenBot allows users to store and manage their conversations, files, and other content either on their own
+        Builders Bot allows users to store and manage their conversations, files, and other content either on their own
         devices or on hosted servers, depending on how they choose to use the Services. Account information and other
-        data necessary for the operation of the Services may be processed through OpenBot's central infrastructure, as
-        described in this Privacy Policy.
+        data necessary for the operation of the Services may be processed through Builders Bot's central infrastructure,
+        as described in this Privacy Policy.
       </p>
 
       <h2>Product Analytics and Anonymisation</h2>
       <p>
-        OpenBot uses a self-hosted analytics service to monitor the performance, functionality, and use of the Services.
-        The information collected includes feature usage, application activity, technical performance, error categories,
-        and other operational statistics necessary to maintain and improve the Services.
+        Builders Bot uses a self-hosted analytics service to monitor the performance, functionality, and use of the
+        Services. The information collected includes feature usage, application activity, technical performance, error
+        categories, and other operational statistics necessary to maintain and improve the Services.
       </p>
       <p>
         Product analytics data is anonymised and separated from individual user accounts, except for information
@@ -518,11 +537,11 @@ export function PrivacyPolicy() {
       </p>
       <p>
         Certain information remains identifiable where necessary for account authentication, security, and payment or
-        subscription management. Payment card details are processed by Stripe and are not stored by OpenBot.
+        subscription management. Payment card details are processed by Stripe and are not stored by Builders Bot.
       </p>
       <p>
-        OpenBot does not include conversation content, prompts, AI-generated responses, file contents, credentials, or
-        other Customer Data in product analytics events.
+        Builders Bot does not include conversation content, prompts, AI-generated responses, file contents, credentials,
+        or other Customer Data in product analytics events.
       </p>
       <p>
         Users can manage available product analytics preferences through the relevant application settings. Certain
@@ -531,9 +550,9 @@ export function PrivacyPolicy() {
 
       <h2>Data Security</h2>
       <p>
-        OpenBot implements appropriate technical and organisational measures to ensure a level of security appropriate
-        to the risks associated with the processing of personal data. These measures are designed to protect personal
-        data against accidental or unlawful destruction, loss, alteration, unauthorised disclosure, or access.
+        Builders Bot implements appropriate technical and organisational measures to ensure a level of security
+        appropriate to the risks associated with the processing of personal data. These measures are designed to protect
+        personal data against accidental or unlawful destruction, loss, alteration, unauthorised disclosure, or access.
       </p>
       <p>Our security measures include, where applicable:</p>
       <ul>
@@ -548,29 +567,29 @@ export function PrivacyPolicy() {
         <li>regular assessment and improvement of security practices.</li>
       </ul>
       <p>
-        OpenBot allows users to store and manage Customer Data on their own devices or hosted servers. The security of
-        data stored in user-managed environments also depends on the operating system, device configuration, access
+        Builders Bot allows users to store and manage Customer Data on their own devices or hosted servers. The security
+        of data stored in user-managed environments also depends on the operating system, device configuration, access
         permissions, and security measures implemented by the relevant user or organisation.
       </p>
       <p>
-        AI agents operating through OpenBot may access and modify local files, execute commands, interact with external
-        applications, and perform other activities using the permissions available to the application. Users are
-        informed of these capabilities and should carefully consider the information and resources made accessible to
-        agents.
+        AI agents operating through Builders Bot may access and modify local files, execute commands, interact with
+        external applications, and perform other activities using the permissions available to the application. Users
+        are informed of these capabilities and should carefully consider the information and resources made accessible
+        to agents.
       </p>
       <p>
         Users are encouraged to configure integrations responsibly, restrict access to sensitive information where
         possible, and maintain appropriate backups and security measures.
       </p>
       <p>
-        While OpenBot takes appropriate measures to protect personal data, no method of electronic transmission or
+        While Builders Bot takes appropriate measures to protect personal data, no method of electronic transmission or
         storage can guarantee absolute security.
       </p>
 
       <h2>International Data Transfers</h2>
       <p>
-        OpenBot is established in Poland and processes personal data primarily within the European Economic Area (EEA),
-        including data stored on hosted servers located in the European Union.
+        Builders Bot is established in Poland and processes personal data primarily within the European Economic Area
+        (EEA), including data stored on hosted servers located in the European Union.
       </p>
       <p>
         However, the provision of the Services may involve transfers of personal data outside the EEA, particularly
@@ -578,8 +597,8 @@ export function PrivacyPolicy() {
         information in other jurisdictions.
       </p>
       <p>
-        Where OpenBot transfers personal data outside the EEA, we ensure that such transfers comply with applicable data
-        protection laws, including Chapter V of the GDPR.
+        Where Builders Bot transfers personal data outside the EEA, we ensure that such transfers comply with applicable
+        data protection laws, including Chapter V of the GDPR.
       </p>
       <p>
         Where required, we implement appropriate safeguards, including adequacy decisions issued by the European
@@ -599,9 +618,9 @@ export function PrivacyPolicy() {
 
       <h2>Data Retention</h2>
       <p>
-        OpenBot retains personal data only for as long as necessary to fulfil the purposes for which it was collected,
-        including providing the Services, maintaining account security, managing subscriptions, complying with
-        applicable legal obligations, resolving disputes, and protecting our legitimate interests.
+        Builders Bot retains personal data only for as long as necessary to fulfil the purposes for which it was
+        collected, including providing the Services, maintaining account security, managing subscriptions, complying
+        with applicable legal obligations, resolving disputes, and protecting our legitimate interests.
       </p>
       <p>Retention periods depend on the nature of the data, the purpose of processing, and the Services used:</p>
       <ul>
@@ -638,7 +657,7 @@ export function PrivacyPolicy() {
         </li>
       </ul>
       <p>
-        Where OpenBot processes personal data on behalf of customers acting as Data Controllers, the retention and
+        Where Builders Bot processes personal data on behalf of customers acting as Data Controllers, the retention and
         deletion of such data are governed by their documented instructions, applicable contractual arrangements, and
         legal requirements.
       </p>
@@ -649,16 +668,16 @@ export function PrivacyPolicy() {
 
       <h2>Account Deletion and Data Removal</h2>
       <p>
-        Users may request the deletion of their OpenBot account and associated personal data in accordance with
+        Users may request the deletion of their Builders Bot account and associated personal data in accordance with
         applicable data protection laws.
       </p>
       <p>
-        Upon account deletion, OpenBot removes personal data associated with the account from its central account
+        Upon account deletion, Builders Bot removes personal data associated with the account from its central account
         services, except where continued retention is necessary to comply with legal obligations, protect legitimate
         interests, or maintain essential security and operational records.
       </p>
       <p>
-        Because OpenBot allows users to store Customer Data on their own devices or independently managed servers,
+        Because Builders Bot allows users to store Customer Data on their own devices or independently managed servers,
         deleting an account does not automatically remove conversations, files, agent workspaces, or other information
         stored in those environments. Users are responsible for managing and deleting such locally stored data.
       </p>
@@ -669,17 +688,17 @@ export function PrivacyPolicy() {
         integrity and security of the Services.
       </p>
       <p>
-        Content published through OpenBot's sharing functionalities, including publicly available agent templates, can
-        be unpublished or removed. Certain identifiers and technical records may be retained to prevent previously used
-        public links from being reassigned.
+        Content published through Builders Bot's sharing functionalities, including publicly available agent templates,
+        can be unpublished or removed. Certain identifiers and technical records may be retained to prevent previously
+        used public links from being reassigned.
       </p>
       <p>
         Information processed independently by third-party providers, including payment services and external AI
         providers, is subject to their applicable retention and deletion policies.
       </p>
       <p>
-        Users may contact OpenBot using the contact details provided in this Privacy Policy to request information about
-        the deletion of their personal data or exercise their applicable privacy rights.
+        Users may contact Builders Bot using the contact details provided in this Privacy Policy to request information
+        about the deletion of their personal data or exercise their applicable privacy rights.
       </p>
 
       <h2>Your Privacy Rights</h2>
@@ -713,10 +732,10 @@ export function PrivacyPolicy() {
         applicable law.
       </p>
       <p>
-        Where OpenBot processes personal data solely on behalf of a customer as a Data Processor, requests relating to
-        such personal data should generally be directed to the relevant customer acting as the Data Controller. OpenBot
-        will assist its customers in responding to such requests where required by applicable law or contractual
-        arrangements.
+        Where Builders Bot processes personal data solely on behalf of a customer as a Data Processor, requests relating
+        to such personal data should generally be directed to the relevant customer acting as the Data Controller.
+        Builders Bot will assist its customers in responding to such requests where required by applicable law or
+        contractual arrangements.
       </p>
       <p>
         If you believe that your personal data has been processed in violation of applicable data protection laws, you
@@ -724,13 +743,13 @@ export function PrivacyPolicy() {
       </p>
       <p>
         Depending on your country of residence, you may also have additional privacy rights under applicable local laws.
-        OpenBot will honor such rights where required and will process related requests in accordance with the legal
-        requirements applicable in your jurisdiction.
+        Builders Bot will honor such rights where required and will process related requests in accordance with the
+        legal requirements applicable in your jurisdiction.
       </p>
 
-      <h2>Use of Cookies</h2>
+      <h2>Use of cookies</h2>
       <p>
-        OpenBot does not use cookies or similar technologies for advertising, marketing, behavioural profiling,
+        Builders Bot does not use cookies or similar technologies for advertising, marketing, behavioural profiling,
         analytics, or cross-site tracking.
       </p>
       <p>
@@ -747,11 +766,11 @@ export function PrivacyPolicy() {
         to delete such information without undue delay.
       </p>
 
-      <h2>External Services</h2>
+      <h2>External services</h2>
       <p>
         The Platform may integrate with or provide access to external services. The collection and processing of
-        information by such services are governed by their own privacy policies and terms. OpenBot is not responsible
-        for the privacy practices or content of any external services.
+        information by such services are governed by their own privacy policies and terms. Builders Bot is not
+        responsible for the privacy practices or content of any external services.
       </p>
 
       <h2>Changes and Updates</h2>
@@ -766,7 +785,7 @@ export function PrivacyPolicy() {
       <h2>Contact</h2>
       <p>
         For any questions regarding this Privacy Policy, the processing of personal data, or the exercise of your data
-        protection rights, please contact OpenBot using the following contact details:
+        protection rights, please contact Builders Bot using the following contact details:
       </p>
       <p>
         Email: <PrivacyEmail />

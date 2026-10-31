@@ -8,6 +8,8 @@ export const messages = {
     "Nie udało się zarejestrować Sterowania komputerem w konfiguracji Codex. Sprawdź, czy plik config.toml Codex jest poprawny i zapisywalny, a potem uruchom ponownie Builders Bot. Aby kontynuować bez tej funkcji, wyłącz Sterowanie komputerem w ustawieniach członka zespołu.",
   "error.provider.codexUnresponsive": "Codex przestał odpowiadać, więc Builders Bot zakończył jego proces.",
   "error.provider.acpUnresponsive": "{provider} nie odpowiedział na czas, więc Builders Bot zakończył jego proces.",
+  "error.provider.acpMcpNotLoaded":
+    "{provider} nie załadował narzędzi Builders Bot, więc ten agent nie może ich używać ani kontaktować się z członkami zespołu. Zasady zespołu {provider} mogą blokować lokalne serwery MCP. Poproś administratora zespołu o ich dopuszczenie, a potem spróbuj ponownie.",
   "error.provider.endpointsReadOnly":
     "Zapisane endpointy zapisała nowsza wersja Builders Bot albo nie można odczytać pliku. Zaktualizuj Builders Bot, aby je zmienić.",
   "error.provider.endpointNoSecureStorage":
@@ -61,6 +63,7 @@ export const messages = {
   "error.provider.removeWhileOn": "Wyłącz dostawcę, zanim usuniesz jego pobrane pliki.",
   "error.provider.removeWhileDownloading": "Poczekaj na koniec pobierania, a potem je usuń.",
   "error.provider.removeIncomplete": "Program używa plików tego CLI. Zamknij go i spróbuj ponownie.",
+  "error.provider.removeDownloadsFailed": "Nie udało się usunąć pobranych CLI: {providers}.",
   "error.provider.cliOverride": "Usuń jawnie ustawioną ścieżkę CLI, zanim zaktualizujesz CLI w Builders Bot.",
   "error.provider.runtimeUpdateIncomplete": "Aktualizacja środowiska uruchomieniowego nie została ukończona.",
   "error.provider.downloadHttp": "Pobieranie środowiska uruchomieniowego nie powiodło się (HTTP {status}).",
@@ -99,6 +102,7 @@ export const messages = {
   "error.provider.modelsTooMany": "Jest za dużo modeli.",
   "error.provider.modelIdCharacter": "ID modelu zawiera niedozwolony znak.",
   "error.provider.modelIdDuplicate": "Dwa modele mają to samo ID.",
+  "error.provider.contextWindowInvalid": "Okno kontekstu modelu musi być liczbą całkowitą tokenów od {min} do {max}.",
   "error.provider.headersTooMany": "Jest za dużo nagłówków.",
   "error.provider.headerNameCharacter": "Nazwa nagłówka zawiera znak niedozwolony w HTTP.",
   "error.provider.headerNameTooLong": "Nazwa nagłówka jest za długa.",
@@ -185,6 +189,7 @@ export const messages = {
   "error.provider.signInExpired": "Logowanie do {provider} wygasło. Zaloguj się ponownie, aby kontynuować.",
   "error.provider.cliActivateFailed": "Nie udało się aktywować zarządzanego CLI.",
   "error.provider.cliBusyReconnect": "{provider} CLI pracuje nad turą. Zaczekaj, aż skończy, a potem połącz ponownie.",
+  "error.provider.cliBusySignOut": "CLI {provider} przetwarza turę. Poczekaj, aż skończy, a potem odłącz.",
   "error.provider.opencodeCredentialsRejected":
     "Dostawca modelu odrzucił klucz API. Popraw klucz OpenCode w Ustawieniach albo klucz dostawcy poleceniem `opencode auth login`. Potem spróbuj ponownie lub wybierz inny model.\n{detail}",
   "error.provider.opencodeAuthRequired":
@@ -322,6 +327,7 @@ export const messages = {
   "error.provider.accountsUnsupported": "{provider} obsługuje tylko jedno konto.",
   "error.provider.accountNeedsConnection": "Połącz {provider}, zanim dodasz kolejne konto.",
   "error.provider.usageResetUnsupported": "{provider} nie może resetować limitów użycia.",
+  "error.provider.signOutUnsupported": "Builders Bot nie może odłączyć logowania {provider}.",
   "error.provider.usageResetNotConnected":
     "Zaloguj się ponownie do tego konta {provider}, zanim zresetujesz jego użycie.",
   "error.provider.accountLimit": "Maksymalna liczba kont dla {provider} to {limit}.",
