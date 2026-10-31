@@ -818,11 +818,17 @@ While agents of a section work (`badge.working > 0`, `sidebarSectionRailRunning`
 round the border of its tile: a short bright arc with a faint trail does one turn in 2.4 s over a
 quiet ring, and the tile has a soft halo. "Unassigned" shows it too; "All" has no badge, so it shows
 no laser. The color is the section color, or the app accent for a section without a color; the head
-of the arc is lighter on the dark theme and darker on the light theme. The laser shows also when the
+of the arc is lighter on the dark theme and darker on the light theme. The section color keeps its
+hue and chroma, but its OKLCH lightness stays at 0.55 or more on the dark theme and at 0.72 or less
+on the light theme, so a custom color near the sidebar color (such as #111111 or black on the dark
+theme, #f4f4f4 or white on the light theme) does not go out of view. The preset colors keep their
+lightness, except yellow and lime, which are darker on the light theme. The laser shows also when the
 badge shows a wait or unread messages. The work dot of the badge no longer pulses: the laser is the
 motion of a section that works. It is decorative (`aria-hidden`): the label and the tooltip of the
 item keep the working count, and the tile keeps its size, its hit area, its badge, its selection
-bar, its focus ring and its drag preview (the laser scales with the lifted tile).
+bar, its focus ring and its drag preview (the laser scales with the lifted tile and keeps turning).
+The lifted copy has no halo: its paint containment would cut the halo at the edge of the button, and
+the lifted tile has its own shadow.
 
 The laser is pure CSS (`sidebar-section-rail.css`). A masked 2 px ring of the tile shape holds a
 conic gradient larger than the tile, and only that layer turns, with `transform`. No custom
