@@ -4,8 +4,13 @@ import type { ConversationRuntime } from "./conversation-runtime";
 
 /** A larger named image keeps only its chip. The host does not read or send a larger file. */
 const INLINE_IMAGE_BYTES = 8 * 1024 * 1024;
-/** The cached `data:` URLs together take at most this many characters. */
-const CACHE_CHARACTERS = 64 * 1024 * 1024;
+/**
+ * The cached `data:` URLs together take at most this many characters. A chat stays mounted when the
+ * user opens another agent, so the cache holds the images of every chat of the session: at 64 M
+ * characters that was up to 64 MB of base64 text in the heap. 16 M keeps the images of an open chat,
+ * and a chat opened again reads the older ones again.
+ */
+const CACHE_CHARACTERS = 16 * 1024 * 1024;
 
 /**
  * The types that show inline. Each shows as a `data:` URL in an `<img>`, which runs no script and
@@ -28,6 +33,7 @@ const INLINE_IMAGE_TYPES: ReadonlySet<string> = new Set([
  */
 export function createMessageImageFiles(
   agent: Pick<ConversationRuntime["agent"], "previewSharedFile" | "previewWorkspaceFile">,
+  cacheCharacters = CACHE_CHARACTERS,
 ) {
   // Insertion order is the use order: the first entry is the least recently used.
   const cache = new Map<string, { job: Promise<string | null>; characters: number }>();
@@ -73,7 +79,7 @@ export function createMessageImageFiles(
       entry.characters = url?.length ?? 0;
       total += entry.characters;
       for (const oldKey of cache.keys()) {
-        if (total <= CACHE_CHARACTERS || oldKey === key) break;
+        if (total <= cacheCharacters || oldKey === key) break;
         drop(oldKey);
       }
     });
