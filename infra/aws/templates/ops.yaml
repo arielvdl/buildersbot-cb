@@ -1,0 +1,513 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-ops - Builders Bot servers per sector: the shared SSM documents (install, upgrade, snapshot
+  hooks) and the DLM snapshot policies with their alarms. Deploy after bb-srv-base.
+
+Parameters:
+  DailySnapshotRetentionDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+  WeeklySnapshotRetentionDays:
+    Type: Number
+    Default: 28
+    MinValue: 7
+    MaxValue: 180
+
+Resources:
+  # ---------------------------------------------------------------- SSM documents
+  # The sector of a host is in /etc/bb-srv/sector and its ECR repository in /etc/bb-srv/repo (written
+  # by the bootstrap of sector-compute.yaml), so no document takes the sector as a parameter.
+  # The scripts never use Go templates ({{...}}): SSM reads double braces as its own parameters.
+  InstallDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Install
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - install (mode=create) or re-attach (mode=attach) the instance of this sector
+          from images pinned by digest. Run by scripts/add-sector.sh, never by the user data.
+        parameters:
+          mode:
+            type: String
+            allowedValues: [create, attach]
+            default: create
+          imageDigest:
+            type: String
+            allowedPattern: '^sha256:[0-9a-f]{64}$'
+          opsDigest:
+            type: String
+            allowedPattern: '^sha256:[0-9a-f]{64}$'
+          cpus:
+            type: String
+            default: '2'
+            allowedPattern: '^[0-9]{1,2}$'
+          mem:
+            type: String
+            default: 6500m
+            allowedPattern: '^[0-9]{1,6}[mg]$'
+          disk:
+            type: String
+            default: 36G
+            allowedPattern: '^[0-9]{1,4}G$'
+          tmp:
+            type: String
+            default: 3g
+            allowedPattern: '^[0-9]{1,5}[mg]$'
+        mainSteps:
+          - action: aws:runShellScript
+            name: install
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '2700'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  export HOME=/root DOCKER_CONFIG=/root/.docker
+                  fail() { echo "BB_INSTALL fail: $*" >&2; exit 1; }
+                  [ -s /etc/bb-srv/sector ] && [ -s /etc/bb-srv/repo ] || fail "this is not a bb-srv sector host"
+                  S=$(cat /etc/bb-srv/sector); REPO=$(cat /etc/bb-srv/repo)
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  ENVF=/srv/openbot-docker/instances/$S.env
+                  for _ in $(seq 1 120); do [ -f /var/lib/bb-srv/bootstrap.done ] && break; sleep 10; done
+                  [ -f /var/lib/bb-srv/bootstrap.done ] || fail "the bootstrap did not finish: read /var/log/bb-srv-bootstrap.log"
+                  mountpoint -q /srv || fail "/srv (the data volume) is not mounted"
+                  MODE='{{ mode }}'
+                  IMG="$REPO@{{ imageDigest }}"
+                  OPS="$REPO@{{ opsDigest }}"
+                  # 1. The operation bundle (the docker/ folder of the same commit) to /srv/openbot-docker.
+                  #    It has no *.env file, so the env file of the instance stays.
+                  docker pull --quiet "$OPS" >/dev/null
+                  cid=$(docker create "$OPS" /noop)
+                  install -d -m 0755 /srv/openbot-docker
+                  docker cp "$cid:/docker/." /srv/openbot-docker/
+                  docker rm "$cid" >/dev/null
+                  [ -x "$I" ] || fail "the bundle has no instances/openbot-instance"
+                  # 2. Firewall, network, rsyslog, logrotate and LXCFS of the instances.
+                  "$I" setup
+                  if [ "$MODE" = create ]; then
+                    [ ! -e "$ENVF" ] || fail "$S already exists on this data disk: use mode=attach"
+                    # compose.yaml has pull_policy: never, so the image is pulled here, by digest.
+                    docker pull --quiet "$IMG" >/dev/null
+                    BUILDERSBOT_IMAGE="$IMG" "$I" create "$S" --cpus '{{ cpus }}' --mem '{{ mem }}' --disk '{{ disk }}'
+                    # The agents use the browser of the app, not Playwright on a computer (DESIGN 5).
+                    docker exec "openbot-$S" sh -c 'install -d -m 0700 "$HOME/.config/Builders Bot" && printf "%s\n" "{\"version\":1,\"browserInApp\":true}" >"$HOME/.config/Builders Bot/openbot-app-behavior-preference-v1.json"'
+                  else
+                    [ -f "$ENVF" ] || fail "there is no $ENVF on this data disk: use mode=create"
+                    img=$(sed -n 's/^BUILDERSBOT_IMAGE=//p' "$ENVF" | tail -n 1)
+                    [[ $img =~ ^[A-Za-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]] || fail "BUILDERSBOT_IMAGE in $ENVF is not pinned by digest"
+                    docker pull --quiet "$img" >/dev/null
+                    data=/srv/openbot/$S/data
+                    # The line that openbot-instance create writes (docker/instances/openbot-instance).
+                    grep -qF "/srv/openbot/$S/data.img " /etc/fstab ||
+                      printf '%s %s ext4 loop,nofail,x-systemd.before=docker.service,X-fstrim.notrim 0 2\n' "/srv/openbot/$S/data.img" "$data" >>/etc/fstab
+                    systemctl daemon-reload
+                    mountpoint -q "$data" || mount "$data"
+                    base=$(awk -F: '$1 == "dockremap" { print $2; exit }' /etc/subuid)
+                    [ -n "$base" ] || fail "dockremap has no range in /etc/subuid"
+                    have=$(stat -c %u "$data")
+                    [ "$have" = "$((base + 1000))" ] || fail "$data belongs to UID $have, not $((base + 1000)) (userns-remap range differs). Fix the owner before the start."
+                    "$I" up "$S"
+                  fi
+                  # The tmpfs /tmp counts toward the memory limit (docs/docker.md, Memory).
+                  grep -q '^OPENBOT_TMP=' "$ENVF" || printf 'OPENBOT_TMP=%s\n' '{{ tmp }}' >>"$ENVF"
+                  "$I" down "$S"
+                  "$I" up "$S"
+                  st=''
+                  for _ in $(seq 1 120); do
+                    if docker exec "openbot-$S" test -S /run/openbot/control.sock 2>/dev/null; then
+                      st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
+                      grep -q '^Account: loading' <<<"$st" || break
+                    fi
+                    sleep 2
+                  done
+                  printf '%s\n' "$st"
+                  [ -n "$st" ] || fail "openbot status did not answer: openbot-instance logs $S"
+                  systemctl enable --now bb-srv-health.timer
+                  touch /var/lib/bb-srv/installed
+                  echo "BB_INSTALL ok $S"
+
+  UpgradeDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Upgrade
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - move the instance of this sector to a newer image, pinned by digest. step=pull
+          only pulls and checks the version (the instance keeps running); step=apply switches and starts.
+          Refuses an older version: the database migration cannot be undone (docs/docker.md, Upgrades).
+        parameters:
+          imageDigest:
+            type: String
+            allowedPattern: '^sha256:[0-9a-f]{64}$'
+          step:
+            type: String
+            allowedValues: [pull, apply]
+            default: apply
+        mainSteps:
+          - action: aws:runShellScript
+            name: upgrade
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '1800'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  export HOME=/root DOCKER_CONFIG=/root/.docker
+                  fail() { echo "BB_UPGRADE fail: $*" >&2; exit 1; }
+                  S=$(cat /etc/bb-srv/sector); REPO=$(cat /etc/bb-srv/repo)
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  ENVF=/srv/openbot-docker/instances/$S.env
+                  [ -f "$ENVF" ] || fail "the instance $S is not installed"
+                  NEW="$REPO@{{ imageDigest }}"
+                  CUR=$(sed -n 's/^BUILDERSBOT_IMAGE=//p' "$ENVF" | tail -n 1)
+                  [ "$CUR" != "$NEW" ] || { echo "BB_UPGRADE ok $S (already on this image)"; exit 0; }
+                  label() { docker image inspect "$1" | jq -r '.[0].Config.Labels["org.opencontainers.image.version"] // ""'; }
+                  docker pull --quiet "$NEW" >/dev/null
+                  vnew=$(label "$NEW")
+                  vcur=$(label "$CUR" 2>/dev/null || true)
+                  [[ $vnew =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "the new image has no release version label"
+                  if [[ $vcur =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    lowest=$(printf '%s\n%s\n' "$vcur" "$vnew" | sort -V | head -n 1)
+                    [ "$lowest" = "$vcur" ] || fail "refused: $vnew is older than $vcur"
+                  fi
+                  STEP='{{ step }}'
+                  if [ "$STEP" = pull ]; then echo "BB_UPGRADE pulled $S $vcur -> $vnew"; exit 0; fi
+                  sed -i "s#^BUILDERSBOT_IMAGE=.*#BUILDERSBOT_IMAGE=$NEW#" "$ENVF"
+                  "$I" up "$S"
+                  st=''
+                  for _ in $(seq 1 120); do
+                    if docker exec "openbot-$S" test -S /run/openbot/control.sock 2>/dev/null; then
+                      st=$(docker exec "openbot-$S" openbot status 2>&1 || true)
+                      grep -q '^Account: loading' <<<"$st" || break
+                    fi
+                    sleep 2
+                  done
+                  printf '%s\n' "$st"
+                  echo "BB_UPGRADE ok $S $vcur -> $vnew"
+
+  # Stops the container cleanly (OpenBot closes its databases in up to 60 s) before a snapshot, an
+  # upgrade or a removal. logout=true also ends the session of the owner account on this server.
+  DownDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Down
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: Builders Bot - stop the instance of this sector (optionally sign it out first) and flush the disks.
+        parameters:
+          logout:
+            type: String
+            allowedValues: ['false', 'true']
+            default: 'false'
+        mainSteps:
+          - action: aws:runShellScript
+            name: down
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '300'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  set -euo pipefail
+                  S=$(cat /etc/bb-srv/sector)
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  if [ ! -f "/srv/openbot-docker/instances/$S.env" ]; then echo "BB_DOWN ok $S (not installed)"; exit 0; fi
+                  LOGOUT='{{ logout }}'
+                  if [ "$LOGOUT" = true ] && docker exec "openbot-$S" true 2>/dev/null; then
+                    docker exec "openbot-$S" openbot logout || echo "logout failed; continuing with the stop"
+                  fi
+                  "$I" down "$S"
+                  sync
+                  echo "BB_DOWN ok $S"
+
+  # Read-only view of the host for scripts/status.sh --deep.
+  StatusDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-Status
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: Builders Bot - read-only status of the instance of this sector.
+        mainSteps:
+          - action: aws:runShellScript
+            name: status
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              timeoutSeconds: '120'
+              runCommand:
+                - |
+                  #!/bin/bash
+                  S=$(cat /etc/bb-srv/sector 2>/dev/null || echo unknown)
+                  echo "sector: $S"
+                  echo "bootstrap: $(test -f /var/lib/bb-srv/bootstrap.done && echo 'done' || echo pending)"
+                  echo "installed: $(test -f /var/lib/bb-srv/installed && echo yes || echo no)"
+                  /srv/openbot-docker/instances/openbot-instance list 2>/dev/null || true
+                  timeout 30 docker exec "openbot-$S" openbot status 2>&1 || echo "openbot status: no answer"
+                  echo "image: $(sed -n 's/^BUILDERSBOT_IMAGE=//p' "/srv/openbot-docker/instances/$S.env" 2>/dev/null | tail -n 1)"
+                  echo "last health lines:"; tail -n 3 /var/log/bb-srv/health.log 2>/dev/null || true
+                  echo "host memory:"; free -m | sed -n '1,2p'
+                  echo "disks:"; df -h /srv "/srv/openbot/$S/data" 2>/dev/null || true
+                  echo "firewall:"; iptables -S OPENBOT-EGRESS 2>/dev/null | head -n 3 || true
+
+  # Only this document carries DLMScriptsAccess=true: AWSDataLifecycleManagerSSMFullAccess lets DLM
+  # send any tagged document to any instance of the account (DESIGN 4.5).
+  SnapshotHooksDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-SnapshotHooks
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Tags: [{Key: DLMScriptsAccess, Value: 'true'}]
+      Content:
+        schemaVersion: '2.2'
+        description: Builders Bot - DLM pre and post scripts. Stops the instance, freezes the disks, thaws and starts it again.
+        parameters:
+          executionId:
+            type: String
+            default: None
+            description: Set by DLM.
+            allowedPattern: '^(None|[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})$'
+          command:
+            type: String
+            default: dry-run
+            description: Set by DLM.
+            allowedValues: [pre-script, post-script, dry-run]
+        mainSteps:
+          - action: aws:runShellScript
+            name: snapshot_hooks
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              runCommand:
+                - |
+                  #!/bin/bash
+                  # Exit codes for DLM: 201 pre-script failed, 202 post-script failed, 206 not ready.
+                  set -uo pipefail
+                  OPERATION='{{ command }}'
+                  S=$(cat /etc/bb-srv/sector 2>/dev/null) || { echo "not a bb-srv sector host"; exit 206; }
+                  I=/srv/openbot-docker/instances/openbot-instance
+                  D=/srv/openbot/$S/data
+                  thaw() { fsfreeze -u /srv 2>/dev/null || true; fsfreeze -u "$D" 2>/dev/null || true; }
+                  case "$OPERATION" in
+                    pre-script)
+                      [ -x "$I" ] && [ -f "/srv/openbot-docker/instances/$S.env" ] || { echo "the instance is not installed"; exit 206; }
+                      "$I" down "$S" || exit 201
+                      sync
+                      # Auto-thaw: when the post-script does not come, thaw and start after 110 s.
+                      systemd-run --quiet --unit "bb-srv-autothaw-$(date +%s)" --on-active=110s \
+                        /bin/sh -c "fsfreeze -u /srv; fsfreeze -u $D; $I up $S; true"
+                      # Inner ext4 image first, then the XFS that holds it.
+                      fsfreeze -f "$D" || { thaw; "$I" up "$S"; exit 201; }
+                      fsfreeze -f /srv || { thaw; "$I" up "$S"; exit 201; }
+                      echo "pre-script ok"
+                      ;;
+                    post-script)
+                      # Outer XFS first: thawing the ext4 image writes to the XFS.
+                      thaw
+                      "$I" up "$S" || exit 202
+                      echo "post-script ok"
+                      ;;
+                    dry-run)
+                      echo "dry-run ok"
+                      ;;
+                    *)
+                      echo "unknown command"; exit 1
+                      ;;
+                  esac
+
+  # ---------------------------------------------------------------- DLM
+  DlmRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-dlm
+      Description: Data Lifecycle Manager - snapshots of Builders Bot sector data volumes with pre and post scripts.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Same trust as the default AWSDataLifecycleManagerDefaultRole: a condition that DLM did not
+          # send would make every backup fail.
+          - Effect: Allow
+            Principal: {Service: dlm.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole
+        - arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerSSMFullAccess
+
+  # Always-on sectors (tag BackupPlan=bb-srv-daily). Retention by age: a removed instance leaves
+  # no snapshot that DLM keeps forever except the last one (DESIGN 10).
+  DailyPolicy:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: bb-srv-daily application-consistent snapshots of always-on sectors
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt DlmRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [INSTANCE]
+        TargetTags: [{Key: BackupPlan, Value: bb-srv-daily}]
+        Parameters: {ExcludeBootVolume: true}
+        Schedules:
+          - Name: daily-0700-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: daily}]
+            CreateRule:
+              CronExpression: 'cron(0 7 * * ? *)'
+              Scripts:
+                - Stages: [PRE, POST]
+                  ExecutionHandlerService: AWS_SYSTEMS_MANAGER
+                  ExecutionHandler: !Ref SnapshotHooksDocument
+                  ExecuteOperationOnScriptFailure: false
+                  ExecutionTimeout: 120
+                  MaximumRetryCount: 2
+            RetainRule: {Interval: !Ref DailySnapshotRetentionDays, IntervalUnit: DAYS}
+          - Name: weekly-sunday-0400-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: weekly}]
+            CreateRule:
+              CronExpression: 'cron(0 4 ? * SUN *)'
+              Scripts:
+                - Stages: [PRE, POST]
+                  ExecutionHandlerService: AWS_SYSTEMS_MANAGER
+                  ExecutionHandler: !Ref SnapshotHooksDocument
+                  ExecuteOperationOnScriptFailure: false
+                  ExecutionTimeout: 120
+                  MaximumRetryCount: 2
+            RetainRule: {Interval: !Ref WeeklySnapshotRetentionDays, IntervalUnit: DAYS}
+
+  # Business-hours sectors (tag BackupPlan=bb-srv-stopped): stopped at 02:00 UTC, so the disk is
+  # consistent and SSM could not reach them anyway.
+  StoppedPolicy:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: bb-srv-stopped snapshots of business-hours sectors while they are stopped
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt DlmRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [INSTANCE]
+        TargetTags: [{Key: BackupPlan, Value: bb-srv-stopped}]
+        Parameters: {ExcludeBootVolume: true}
+        Schedules:
+          - Name: daily-0200-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: daily}]
+            CreateRule: {CronExpression: 'cron(0 2 * * ? *)'}
+            RetainRule: {Interval: !Ref DailySnapshotRetentionDays, IntervalUnit: DAYS}
+          - Name: weekly-sunday-0230-utc
+            CopyTags: true
+            TagsToAdd: [{Key: Purpose, Value: weekly}]
+            CreateRule: {CronExpression: 'cron(30 2 ? * SUN *)'}
+            RetainRule: {Interval: !Ref WeeklySnapshotRetentionDays, IntervalUnit: DAYS}
+
+  DailySnapshotsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-daily-snapshots-failed
+      Namespace: AWS/EBS
+      MetricName: SnapshotsCreateFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt DailyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  DailyPreScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-daily-prescript-failed
+      AlarmDescription: With ExecuteOperationOnScriptFailure=false, a failed pre-script means no snapshot for that instance.
+      Namespace: AWS/EBS
+      MetricName: PreScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt DailyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  DailyPostScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-daily-postscript-failed
+      AlarmDescription: The post-script did not start the instance again. The auto-thaw or bb-srv-sector-up should, check the sector.
+      Namespace: AWS/EBS
+      MetricName: PostScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt DailyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  StoppedSnapshotsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-stopped-snapshots-failed
+      Namespace: AWS/EBS
+      MetricName: SnapshotsCreateFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt StoppedPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  SnapshotFailedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-ebs-snapshot-failed
+      Description: An EBS snapshot of the account failed.
+      EventPattern:
+        source: [aws.ec2]
+        detail-type: [EBS Snapshot Notification]
+        detail:
+          result: [failed]
+      Targets:
+        - Id: alerts
+          Arn: !ImportValue bb-srv-base-AlertTopicArn
+
+  DlmStateRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-dlm-policy-state
+      Description: A DLM policy of the account changed state (for example to ERROR).
+      EventPattern:
+        source: [aws.dlm]
+        detail-type: [DLM Policy State Change]
+      Targets:
+        - Id: alerts
+          Arn: !ImportValue bb-srv-base-AlertTopicArn
+
+Outputs:
+  InstallDocumentName:
+    Value: !Ref InstallDocument
+  UpgradeDocumentName:
+    Value: !Ref UpgradeDocument
+  SnapshotHooksDocumentName:
+    Value: !Ref SnapshotHooksDocument
+  DailyPolicyId:
+    Value: !GetAtt DailyPolicy.PolicyId
+  StoppedPolicyId:
+    Value: !GetAtt StoppedPolicy.PolicyId

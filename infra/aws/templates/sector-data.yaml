@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-<sector>-data - the data volume of one Builders Bot sector (the /data of its container and
+  its env file). A separate stack, so that a new VM never replaces the disk. A stack delete leaves a
+  final snapshot.
+
+Parameters:
+  Sector:
+    Type: String
+    Description: Sector name, the same rule as docker/instances (1 to 24 of a-z, 0-9 and -).
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{0,23}$'
+  AvailabilityZone:
+    Type: String
+    AllowedValues: [us-east-1a, us-east-1b]
+    Default: us-east-1a
+  DataVolumeGiB:
+    Type: Number
+    Default: 40
+    MinValue: 20
+    MaxValue: 2000
+    Description: Size of the data volume. The container disk (--disk) is 4 GiB smaller. Only grow it.
+  DataSnapshotId:
+    Type: String
+    Default: ''
+    Description: Only at creation, to restore or re-create a sector. add-sector.sh checks its Sector tag.
+    AllowedPattern: '^$|^snap-[0-9a-f]{8,17}$'
+
+Conditions:
+  FromSnapshot: !Not [!Equals [!Ref DataSnapshotId, '']]
+
+Resources:
+  DataVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      Size: !Ref DataVolumeGiB
+      VolumeType: gp3
+      Encrypted: true
+      SnapshotId: !If [FromSnapshot, !Ref DataSnapshotId, !Ref AWS::NoValue]
+      Tags:
+        - {Key: Name, Value: !Sub 'bb-srv-${Sector}-data'}
+        - {Key: Sector, Value: !Ref Sector}
+        - {Key: CostCenter, Value: !Ref Sector}
+        - {Key: Project, Value: buildersbot-servers}
+        - {Key: Owner, Value: cultura-builder}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Role, Value: sector-data}
+
+Outputs:
+  VolumeId:
+    Value: !Ref DataVolume
+  AvailabilityZone:
+    Value: !Ref AvailabilityZone
+  Sector:
+    Value: !Ref Sector

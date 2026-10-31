@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Mostra o estado da estrutura: stacks compartilhadas, delegação DNS, Signal e cada setor (VM, SSM,
+# imagem, idade do último snapshot, alarmes em ALARM). Só leituras.
+# Com <setor> --deep, roda também o documento bb-srv-Status no host (só leitura do host).
+#
+# Uso: scripts/status.sh [setor] [--deep]
+set -euo pipefail
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+
+only=''
+deep=0
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    --deep) deep=1 ; shift ;;
+    -h | --help) sed -n '2,6p' "$0"; exit 0 ;;
+    -*) die "opção desconhecida: $1" ;;
+    *) only=$1 ; shift ;;
+  esac
+done
+[ -z "$only" ] || valid_sector "$only"
+[ "$deep" = 0 ] || [ -n "$only" ] || die "--deep precisa de um setor."
+
+bb_check_access
+
+say "== compartilhado"
+for stack in bb-srv-base bb-srv-ops bb-srv-signal; do
+  printf '   %-16s %s\n' "$stack" "$(stack_status "$stack")"
+done
+
+if [ "$(stack_status bb-srv-base)" != NONE ]; then
+  zone=$(stack_output bb-srv-base HostedZoneName)
+  if command -v dig >/dev/null; then
+    ns=$(dig +short NS "$zone" @1.1.1.1 | grep -c awsdns || true)
+    printf '   DNS %-31s %s\n' "$zone" "$([ "$ns" -ge 4 ] && echo "delegado ao Route 53" || echo "NÃO delegado (ação do dono no Cloudflare)")"
+  fi
+  alarms=$(aws_cb cloudwatch describe-alarms --alarm-name-prefix bb-srv- --state-value ALARM --query 'MetricAlarms[].AlarmName' --output text)
+  printf '   alarmes em ALARM: %s\n' "${alarms:-nenhum}"
+fi
+
+if [ "$(stack_status bb-srv-signal)" != NONE ]; then
+  signal=$(stack_output bb-srv-signal InstanceId)
+  printf '   signal %s %s, IP %s, portas abertas: %s\n' "$signal" \
+    "$(aws_cb ec2 describe-instances --instance-ids "$signal" --query 'Reservations[0].Instances[0].State.Name' --output text)" \
+    "$(stack_output bb-srv-signal SignalPublicIp)" "$(stack_output bb-srv-signal IngressOpen)"
+fi
+
+sectors=$(aws_cb cloudformation list-stacks \
+  --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE CREATE_IN_PROGRESS UPDATE_IN_PROGRESS ROLLBACK_COMPLETE DELETE_FAILED \
+  --query "StackSummaries[?starts_with(StackName,'bb-srv-') && ends_with(StackName,'-compute')].StackName" --output text |
+  tr '\t' '\n' | sed -e 's/^bb-srv-//' -e 's/-compute$//' | sort)
+[ -z "$only" ] || sectors=$only
+
+say "== setores"
+[ -n "$sectors" ] || say "   nenhum."
+now=$(date -u +%s)
+for sector in $sectors; do
+  stack="bb-srv-$sector-compute"
+  status=$(stack_status "$stack")
+  if [ "$status" = NONE ]; then
+    say "   $sector: sem stack $stack"
+    continue
+  fi
+  instance=$(stack_output "$stack" InstanceId)
+  read -r state type zone ip <<<"$(aws_cb ec2 describe-instances --instance-ids "$instance" \
+    --query 'Reservations[0].Instances[0].[State.Name,InstanceType,Placement.AvailabilityZone,PublicIpAddress]' --output text)"
+  ping=$(aws_cb ssm describe-instance-information --filters "Key=InstanceIds,Values=$instance" \
+    --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || echo None)
+  image=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image" --query Parameter.Value --output text 2>/dev/null || echo "(não instalada)")
+  tag=$(aws_cb ssm get-parameter --name "/bb-srv/sectors/$sector/image-tag" --query Parameter.Value --output text 2>/dev/null || echo "-")
+  last=$(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=tag:Sector,Values=$sector" \
+    --query 'sort_by(Snapshots,&StartTime)[-1].StartTime' --output text 2>/dev/null || echo None)
+  if [ "$last" != None ] && [ -n "$last" ]; then
+    epoch=$(date -u -j -f '%Y-%m-%dT%H:%M:%S' "${last%%.*}" +%s 2>/dev/null || date -u -d "$last" +%s)
+    age="$(((now - epoch) / 3600)) h"
+    [ $(((now - epoch) / 3600)) -le 26 ] || age="$age (ATRASADO: mais de 26 h)"
+  else
+    age="nenhum"
+  fi
+  alarms=$(aws_cb cloudwatch describe-alarms --alarm-name-prefix "bb-srv-$sector-" --state-value ALARM --query 'MetricAlarms[].AlarmName' --output text)
+  say "   $sector [$status]"
+  say "      VM $instance $state $type $zone IP ${ip:-sem IP} | SSM $ping"
+  say "      imagem: $image (tag desejada: $tag)"
+  say "      último snapshot: $age | alarmes em ALARM: ${alarms:-nenhum}"
+  if [ "$deep" = 1 ]; then
+    [ "$ping" = Online ] || die "a instância não está Online no SSM."
+    ssm_run "$instance" bb-srv-Status '{}' 180
+  fi
+done

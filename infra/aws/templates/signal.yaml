@@ -1,0 +1,504 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-signal - the own Signal (WSS) and TURN relay of Builders Bot, from remote/compose.yaml of the
+  fork (DESIGN 2.7). Without it no sector connects: remote/.env.production of the fork still points to
+  the upstream. It is the only VM with inbound ports, and they open only with IngressApproved=true
+  (an explicit decision of the owner). Deploy after bb-srv-base and after the DNS delegation works.
+
+Parameters:
+  AmiId:
+    Type: String
+    Description: Ubuntu 24.04 arm64 AMI, resolved once by deploy-signal.sh.
+    AllowedPattern: '^ami-[0-9a-f]{8,17}$'
+  InstanceType:
+    Type: String
+    Default: t4g.small
+    AllowedValues: [t4g.small, t4g.medium]
+  SourceCommit:
+    Type: String
+    Description: Commit of the fork whose remote/ runs here (the same commit as the published account Worker).
+    AllowedPattern: '^[0-9a-f]{40}$'
+  IngressApproved:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
+    Description: >-
+      true opens TCP 443, TCP/UDP 3478, TCP 5349 and UDP 49152-65535 from the internet (all
+      authenticated: ES256 ticket and HMAC TURN credentials). Only after the owner approves the exception.
+  AcmeEmail:
+    Type: String
+    Description: Let's Encrypt account e-mail.
+    AllowedPattern: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}$'
+  ControlPlaneUrl:
+    Type: String
+    Default: https://buildersbot.culturabuilder.com
+    AllowedPattern: '^https://[a-z0-9.-]+$'
+  MaxConnectionsPerUser:
+    Type: Number
+    Default: 128
+  MaxConnectionsPerIp:
+    Type: Number
+    Default: 256
+
+Conditions:
+  OpenIngress: !Equals [!Ref IngressApproved, 'true']
+
+Resources:
+  SignalSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: bb-srv-signal
+      GroupDescription: Builders Bot Signal and TURN - inbound only when IngressApproved=true
+      VpcId: !ImportValue bb-srv-base-VpcId
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+          Description: Outbound (ACME, account service JWKS, relay to peers)
+      Tags: [{Key: Name, Value: bb-srv-signal}]
+
+  IngressSignalWss:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: OpenIngress
+    Properties:
+      GroupId: !Ref SignalSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+      Description: Signal WSS (ES256 ticket checked against the JWKS)
+
+  IngressTurnTcp:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: OpenIngress
+    Properties:
+      GroupId: !Ref SignalSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3478
+      ToPort: 3478
+      CidrIp: 0.0.0.0/0
+      Description: TURN over TCP (HMAC credentials with expiry)
+
+  IngressTurnUdp:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: OpenIngress
+    Properties:
+      GroupId: !Ref SignalSecurityGroup
+      IpProtocol: udp
+      FromPort: 3478
+      ToPort: 3478
+      CidrIp: 0.0.0.0/0
+      Description: TURN over UDP (HMAC credentials with expiry)
+
+  IngressTurnTls:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: OpenIngress
+    Properties:
+      GroupId: !Ref SignalSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5349
+      ToPort: 5349
+      CidrIp: 0.0.0.0/0
+      Description: TURN over TLS (HMAC credentials with expiry)
+
+  IngressTurnRelay:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: OpenIngress
+    Properties:
+      GroupId: !Ref SignalSecurityGroup
+      IpProtocol: udp
+      FromPort: 49152
+      ToPort: 65535
+      CidrIp: 0.0.0.0/0
+      Description: TURN relay ports (allocations need valid credentials; private peers denied by coturn)
+
+  SignalRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-signal-host
+      Description: Builders Bot Signal and TURN host (its secrets, its zone records, its source tarball).
+      PermissionsBoundary: !ImportValue bb-srv-base-SignalBoundaryArn
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [!ImportValue bb-srv-base-HostSsmPolicyArn]
+      Policies:
+        - PolicyName: signal-host
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: OwnLogGroup
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/signal:*'
+              - Sid: DescribeLogGroups
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
+              - Sid: AgentMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition: {StringEquals: {'cloudwatch:namespace': CWAgent}}
+              - Sid: OwnParameters
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/signal/*'
+              - Sid: DecryptOwnParameters
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals: {'kms:ViaService': !Sub 'ssm.${AWS::Region}.amazonaws.com'}
+                  StringLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/signal/*'}
+              - Sid: AcmeDnsChallenge
+                Effect: Allow
+                Action: [route53:ChangeResourceRecordSets, route53:ListResourceRecordSets]
+                Resource: !Sub
+                  - 'arn:aws:route53:::hostedzone/${ZoneId}'
+                  - ZoneId: !ImportValue bb-srv-base-HostedZoneId
+              - Sid: AcmeDnsChange
+                Effect: Allow
+                Action: [route53:GetChange, route53:ListHostedZonesByName]
+                Resource: '*'
+              - Sid: SourceTarball
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub
+                  - '${BucketArn}/src/${SourceCommit}.tar.gz'
+                  - BucketArn: !ImportValue bb-srv-base-BuildBucketArn
+              - Sid: DenyOtherParameters
+                Effect: Deny
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory]
+                NotResource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/signal/*'
+              - Sid: DenySecrets
+                Effect: Deny
+                Action: 'secretsmanager:*'
+                Resource: '*'
+
+  SignalInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: bb-srv-signal-host
+      Roles: [!Ref SignalRole]
+
+  AgentConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /bb-srv/signal/cwagent
+      Type: String
+      Tier: Standard
+      Value: |
+        {
+          "agent": {"metrics_collection_interval": 60, "run_as_user": "root", "omit_hostname": true},
+          "metrics": {"namespace": "CWAgent", "metrics_collected": {
+            "mem": {"measurement": ["mem_used_percent"], "append_dimensions": {"Sector": "signal"}}}},
+          "logs": {"logs_collected": {"files": {"collect_list": [
+            {"file_path": "/var/log/bb-srv/signal-health.log", "log_group_name": "/bb-srv/signal", "log_stream_name": "{instance_id}/health"},
+            {"file_path": "/var/log/bb-srv-bootstrap.log", "log_group_name": "/bb-srv/signal", "log_stream_name": "{instance_id}/bootstrap"}
+          ]}}}
+        }
+
+  HealthMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !ImportValue bb-srv-base-SignalLogGroupName
+      FilterName: bb-srv-signal-ok
+      FilterPattern: '"BB_SIGNAL ok"'
+      MetricTransformations:
+        - MetricNamespace: bb-srv/signal
+          MetricName: Healthy
+          MetricValue: '1'
+          Unit: Count
+
+  SignalInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !ImportValue bb-srv-base-SubnetAId
+      SecurityGroupIds: [!Ref SignalSecurityGroup]
+      IamInstanceProfile: !Ref SignalInstanceProfile
+      InstanceInitiatedShutdownBehavior: stop
+      CreditSpecification: {CPUCredits: unlimited}
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+        InstanceMetadataTags: disabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: {VolumeType: gp3, VolumeSize: 20, Encrypted: true, DeleteOnTermination: true}
+      PropagateTagsToVolumeOnCreation: true
+      Tags:
+        - {Key: Name, Value: bb-srv-signal}
+        - {Key: Sector, Value: shared}
+        - {Key: CostCenter, Value: shared}
+        - {Key: Project, Value: buildersbot-servers}
+        - {Key: Owner, Value: cultura-builder}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Role, Value: signal}
+      # Secrets never pass here: bb-srv-signal-env reads them from SSM into a tmpfs at each start.
+      # Fn::Sub: the shell variables are written without braces.
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euo pipefail
+            exec >>/var/log/bb-srv-bootstrap.log 2>&1
+            echo "BB_BOOTSTRAP start $(date -u +%FT%TZ)"
+            install -d -m 0755 /var/log/bb-srv /var/lib/bb-srv
+            install -d -m 0700 /opt/bb-srv-signal
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -q
+            apt-get install -y -q --no-install-recommends docker.io docker-compose-v2 docker-buildx jq curl gnupg ca-certificates unattended-upgrades
+            printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "09:30";\n' >/etc/apt/apt.conf.d/52bb-srv-reboot
+            snap install aws-cli --classic
+            systemctl disable --now ssh.socket ssh.service 2>/dev/null || true
+
+            # CloudWatch agent: official package, signature and key fingerprint checked.
+            arch=$(dpkg --print-architecture)
+            cwa=https://amazoncloudwatch-agent-${AWS::Region}.s3.${AWS::Region}.amazonaws.com
+            work=$(mktemp -d)
+            curl -fsS --proto =https --tlsv1.2 -o "$work/cwa.deb" "$cwa/ubuntu/$arch/latest/amazon-cloudwatch-agent.deb"
+            curl -fsS --proto =https --tlsv1.2 -o "$work/cwa.deb.sig" "$cwa/ubuntu/$arch/latest/amazon-cloudwatch-agent.deb.sig"
+            curl -fsS --proto =https --tlsv1.2 -o "$work/cwa.gpg" https://amazoncloudwatch-agent.s3.amazonaws.com/assets/amazon-cloudwatch-agent.gpg
+            export GNUPGHOME="$work/gnupg"
+            install -d -m 0700 "$GNUPGHOME"
+            gpg --batch --quiet --import "$work/cwa.gpg"
+            fpr=$(gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print $10; exit }')
+            [ "$fpr" = 937616F3450B7D806CBD9725D58167303B789C72 ] || { echo "BB_BOOTSTRAP fail cwagent-key $fpr"; exit 1; }
+            gpg --batch --verify "$work/cwa.deb.sig" "$work/cwa.deb"
+            dpkg -i "$work/cwa.deb"
+            unset GNUPGHOME
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:/bb-srv/signal/cwagent
+
+            # Source of remote/ from the same commit as the account Worker.
+            /snap/bin/aws s3 cp --only-show-errors "s3://${Bucket}/src/${SourceCommit}.tar.gz" /opt/bb-srv-signal/src.tar.gz --region ${AWS::Region}
+            install -d -m 0755 /opt/bb-srv-signal/src
+            tar -xzf /opt/bb-srv-signal/src.tar.gz -C /opt/bb-srv-signal/src
+            test -f /opt/bb-srv-signal/src/remote/compose.yaml
+
+            # Certificates: remote/acme/renew.sh fixes --dns cloudflare, and the Cloudflare token refuses
+            # this account. The same lego image renews with --dns route53 and the instance role. It uses
+            # the host network, so IMDSv2 answers with hop limit 1.
+            cat >/opt/bb-srv-signal/renew-route53.sh <<'RENEW'
+            #!/bin/sh
+            set -eu
+            lego_args="--path /acme --email $ACME_EMAIL --accept-tos --dns route53 --domains $SIGNAL_DOMAIN --domains $TURN_DOMAIN"
+            readable() {
+              chgrp "$ACME_CERTIFICATE_GROUP_ID" /acme/certificates "/acme/certificates/$SIGNAL_DOMAIN.crt" "/acme/certificates/$SIGNAL_DOMAIN.key"
+              chmod 0550 /acme/certificates
+              chmod 0440 "/acme/certificates/$SIGNAL_DOMAIN.crt" "/acme/certificates/$SIGNAL_DOMAIN.key"
+            }
+            # shellcheck disable=SC2086
+            [ -f "/acme/certificates/$SIGNAL_DOMAIN.crt" ] || /lego run $lego_args
+            readable
+            while true; do
+              # shellcheck disable=SC2086
+              /lego run $lego_args --renew-days 30
+              readable
+              sleep 43200
+            done
+            RENEW
+            cat >/opt/bb-srv-signal/compose.bb-srv.yaml <<'OVERRIDE'
+            services:
+              acme:
+                network_mode: host
+                entrypoint: ["/bin/sh", "/opt/bb-srv/renew-route53.sh"]
+                environment:
+                  AWS_REGION: ${!AWS_REGION}
+                  AWS_HOSTED_ZONE_ID: ${!AWS_HOSTED_ZONE_ID}
+                volumes:
+                  - /opt/bb-srv-signal/renew-route53.sh:/opt/bb-srv/renew-route53.sh:ro
+            OVERRIDE
+
+            # Environment of compose, rebuilt at each start in a tmpfs (0600). Secrets come from SSM.
+            cat >/usr/local/sbin/bb-srv-signal-env <<'ENVSCRIPT'
+            #!/bin/bash
+            set -euo pipefail
+            umask 077
+            out=/run/bb-srv-signal/env
+            imds=http://169.254.169.254/latest
+            token=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' "$imds/api/token")
+            public=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" "$imds/meta-data/public-ipv4")
+            private=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" "$imds/meta-data/local-ipv4")
+            get() { /snap/bin/aws ssm get-parameter --region "$(cat /etc/bb-srv/region)" --with-decryption --name "/bb-srv/signal/$1" --query Parameter.Value --output text; }
+            {
+              cat /etc/bb-srv/signal.env
+              # coturn behind the 1:1 NAT of EC2: public/private mapping for external-ip.
+              echo "TURN_PUBLIC_IP=$public/$private"
+              echo "REMOTE_SESSION_SECRET=$(get remote-session-secret)"
+              echo "REMOTE_AUTH_WEBHOOK_SECRET=$(get remote-auth-webhook-secret)"
+              echo "REMOTE_METRICS_TOKEN=$(get remote-metrics-token)"
+              echo "TURN_SHARED_SECRET=$(get turn-shared-secret)"
+            } >"$out.new"
+            mv -f "$out.new" "$out"
+            ENVSCRIPT
+            chmod 0700 /usr/local/sbin/bb-srv-signal-env
+            install -d -m 0755 /etc/bb-srv
+            printf '%s\n' '${AWS::Region}' >/etc/bb-srv/region
+            cat >/etc/bb-srv/signal.env <<SIGNALENV
+            ACME_EMAIL=${AcmeEmail}
+            SIGNAL_DOMAIN=signal.${ZoneName}
+            TURN_DOMAIN=turn.${ZoneName}
+            CLOUDFLARE_DNS_API_TOKEN=unused-dns-is-route53
+            AWS_REGION=${AWS::Region}
+            AWS_HOSTED_ZONE_ID=${ZoneId}
+            REMOTE_TICKET_JWKS_URL=${ControlPlaneUrl}/.well-known/jwks.json
+            REMOTE_CONTROL_PLANE_URL=${ControlPlaneUrl}
+            REMOTE_MAX_CONNECTIONS_PER_USER=${MaxConnectionsPerUser}
+            REMOTE_MAX_CONNECTIONS_PER_IP=${MaxConnectionsPerIp}
+            REMOTE_TRUST_PROXY=false
+            OPENBOT_SOURCE_COMMIT=${SourceCommit}
+            SIGNALENV
+            chmod 0600 /etc/bb-srv/signal.env
+
+            compose='/usr/bin/docker compose --project-name openbot-remote -f /opt/bb-srv-signal/src/remote/compose.yaml -f /opt/bb-srv-signal/compose.bb-srv.yaml --env-file /run/bb-srv-signal/env'
+            cat >/etc/systemd/system/bb-srv-signal.service <<UNIT
+            [Unit]
+            Description=Builders Bot Signal and TURN (remote/compose.yaml)
+            Requires=docker.service
+            After=docker.service network-online.target
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            RuntimeDirectory=bb-srv-signal
+            RuntimeDirectoryMode=0700
+            RuntimeDirectoryPreserve=yes
+            TimeoutStartSec=3600
+            # The first certificate can take longer than the acme health check of compose.yaml.
+            Restart=on-failure
+            RestartSec=120
+            ExecStartPre=/usr/local/sbin/bb-srv-signal-env
+            ExecStart=$compose up --detach --build acme remote-api coturn
+            ExecStop=$compose stop
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+
+            cat >/usr/local/sbin/bb-srv-signal-health <<HEALTH
+            #!/bin/bash
+            now=\$(date -u +%FT%TZ)
+            if curl -fsS -m 5 http://127.0.0.1:9642/health/ready >/dev/null &&
+               curl -fsS -m 10 --resolve signal.${ZoneName}:443:127.0.0.1 https://signal.${ZoneName}/health/turn >/dev/null; then
+              echo "\$now BB_SIGNAL ok"
+            else
+              echo "\$now BB_SIGNAL fail"
+            fi >>/var/log/bb-srv/signal-health.log
+            HEALTH
+            chmod 0755 /usr/local/sbin/bb-srv-signal-health
+            printf '[Unit]\nDescription=Builders Bot Signal health line\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-signal-health\n' >/etc/systemd/system/bb-srv-signal-health.service
+            printf '[Unit]\nDescription=Builders Bot Signal health every 5 minutes\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=5min\n[Install]\nWantedBy=timers.target\n' >/etc/systemd/system/bb-srv-signal-health.timer
+            systemctl daemon-reload
+            systemctl enable --now bb-srv-signal-health.timer
+            systemctl enable bb-srv-signal.service
+            systemctl start --no-block bb-srv-signal.service
+            touch /var/lib/bb-srv/bootstrap.done
+            echo "BB_BOOTSTRAP done $(date -u +%FT%TZ)"
+          - Bucket: !ImportValue bb-srv-base-BuildBucketName
+            ZoneName: !ImportValue bb-srv-base-HostedZoneName
+            ZoneId: !ImportValue bb-srv-base-HostedZoneId
+
+  SignalAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags: [{Key: Name, Value: bb-srv-signal}]
+
+  SignalAddressAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt SignalAddress.AllocationId
+      InstanceId: !Ref SignalInstance
+
+  SignalRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !ImportValue bb-srv-base-HostedZoneId
+      Name: !Sub
+        - 'signal.${ZoneName}.'
+        - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+      Type: A
+      TTL: '300'
+      ResourceRecords: [!Ref SignalAddress]
+
+  TurnRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !ImportValue bb-srv-base-HostedZoneId
+      Name: !Sub
+        - 'turn.${ZoneName}.'
+        - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+      Type: A
+      TTL: '300'
+      ResourceRecords: [!Ref SignalAddress]
+
+  SystemStatusAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-signal-system-status
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Dimensions: [{Name: InstanceId, Value: !Ref SignalInstance}]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:recover'
+        - !ImportValue bb-srv-base-AlertTopicArn
+
+  InstanceStatusAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-signal-instance-status
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Dimensions: [{Name: InstanceId, Value: !Ref SignalInstance}]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:reboot'
+        - !ImportValue bb-srv-base-AlertTopicArn
+
+  HealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-signal-health
+      AlarmDescription: Signal or TURN does not answer. No new connection opens in any sector.
+      Namespace: bb-srv/signal
+      MetricName: Healthy
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+Outputs:
+  SignalPublicIp:
+    Value: !Ref SignalAddress
+  SignalUrl:
+    Description: REMOTE_SIGNAL_URL of the account Worker (change it only after /health/ready answers).
+    Value: !Sub
+      - 'wss://signal.${ZoneName}/v1/signal'
+      - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+  AuthWebhookUrl:
+    Description: REMOTE_AUTH_WEBHOOK_URL of the account Worker.
+    Value: !Sub
+      - 'https://signal.${ZoneName}/internal/auth-events'
+      - ZoneName: !ImportValue bb-srv-base-HostedZoneName
+  InstanceId:
+    Value: !Ref SignalInstance
+  IngressOpen:
+    Value: !Ref IngressApproved

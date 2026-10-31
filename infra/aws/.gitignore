@@ -1,0 +1,13 @@
+# Caches de validação (esquemas do describe-type, shell extraído dos templates)
+.cache/
+# Nunca versionar segredos ou credenciais
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials
+.aws/
+# Lixo local
+.DS_Store
+*.swp

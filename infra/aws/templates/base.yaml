@@ -1,0 +1,820 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  bb-srv-base - Builders Bot servers per sector (Cultura Builder). Shared parts: a new isolated VPC
+  with public subnets and no NAT, the ECR repository, the build and log buckets, the alert topic,
+  IAM policies and boundaries, the scheduler role and queue, the builder launch template, the
+  delegated Route 53 zone and the project budget. It changes no existing resource.
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: E-mail that receives the bb-srv-alerts topic (the owner confirms the subscription). Empty = no e-mail.
+    AllowedPattern: '^$|^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}$'
+  DelegatedZoneName:
+    Type: String
+    Default: bb-aws.culturabuilder.com
+    Description: Subdomain that the owner delegates from Cloudflare to Route 53 (4 NS records). Signal and TURN live under it.
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]{1,200}[a-z0-9]$'
+  VpcCidr:
+    Type: String
+    Default: 10.60.0.0/24
+    Description: New VPC. Must not overlap 10.50.0.0/17, 172.31.0.0/16, 172.26.0.0/16 or 172.30.0.0/16 (docker bridge).
+    AllowedPattern: '^10\.60\.[0-9]{1,3}\.[0-9]{1,3}/2[0-6]$'
+  SubnetACidr:
+    Type: String
+    Default: 10.60.0.0/26
+  SubnetBCidr:
+    Type: String
+    Default: 10.60.0.64/26
+  ZoneA:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1a
+  ZoneB:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1b
+  ImageKeepCount:
+    Type: Number
+    Default: 20
+    MinValue: 5
+    MaxValue: 200
+    Description: Images kept per tag pattern (*-arm64, *-amd64, *-ops) by the ECR lifecycle policy.
+  ProjectBudgetUsd:
+    Type: Number
+    Default: 150
+    MinValue: 10
+    Description: Monthly budget of everything tagged Project=buildersbot-servers (needs the Project cost allocation tag active).
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+
+Resources:
+  # ---------------------------------------------------------------- network (new, isolated, no NAT)
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{Key: Name, Value: bb-srv-vpc}]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{Key: Name, Value: bb-srv-igw}]
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: bb-srv-public}]
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubnetACidr
+      AvailabilityZone: !Ref ZoneA
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: bb-srv-public-a}]
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubnetBCidr
+      AvailabilityZone: !Ref ZoneB
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: bb-srv-public-b}]
+
+  SubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  # Sector hosts and the builder: NO inbound rule. Administration only through SSM Session Manager
+  # (an outbound connection of the agent). The host firewall blocks private ranges and the IMDS
+  # for the containers (docker/instances/openbot-firewall).
+  SectorSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: bb-srv-sector
+      GroupDescription: Builders Bot sector hosts - no inbound rule, outbound only
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+          Description: Outbound to the internet (web browsing, providers, Signal, TURN, WebRTC)
+      Tags: [{Key: Name, Value: bb-srv-sector}]
+
+  BuilderSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: bb-srv-builder
+      GroupDescription: Builders Bot image builder - no inbound rule, outbound only
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+          Description: Outbound to package registries, S3 and ECR
+      Tags: [{Key: Name, Value: bb-srv-builder}]
+
+  # ---------------------------------------------------------------- buckets
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub bb-srv-logs-${AWS::AccountId}
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+            BucketKeyEnabled: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-90-days
+            Status: Enabled
+            ExpirationInDays: 90
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 7}
+
+  LogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [!GetAtt LogsBucket.Arn, !Sub '${LogsBucket.Arn}/*']
+            Condition: {Bool: {'aws:SecureTransport': 'false'}}
+          - Sid: FlowLogsWrite
+            Effect: Allow
+            Principal: {Service: delivery.logs.amazonaws.com}
+            Action: s3:PutObject
+            Resource: !Sub '${LogsBucket.Arn}/flow/AWSLogs/${AWS::AccountId}/*'
+            Condition:
+              StringEquals: {'aws:SourceAccount': !Ref AWS::AccountId, 's3:x-amz-acl': bucket-owner-full-control}
+              ArnLike: {'aws:SourceArn': !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'}
+          - Sid: FlowLogsAclCheck
+            Effect: Allow
+            Principal: {Service: delivery.logs.amazonaws.com}
+            Action: [s3:GetBucketAcl, s3:ListBucket]
+            Resource: !GetAtt LogsBucket.Arn
+            Condition:
+              StringEquals: {'aws:SourceAccount': !Ref AWS::AccountId}
+              ArnLike: {'aws:SourceArn': !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'}
+
+  FlowLog:
+    Type: AWS::EC2::FlowLog
+    DependsOn: LogsBucketPolicy
+    Properties:
+      ResourceId: !Ref Vpc
+      ResourceType: VPC
+      TrafficType: ALL
+      LogDestinationType: s3
+      LogDestination: !Sub '${LogsBucket.Arn}/flow/'
+      MaxAggregationInterval: 600
+      Tags: [{Key: Name, Value: bb-srv-flow}]
+
+  # Source tarballs (src/), the build script (tools/) and the build reports with the image digests
+  # (reports/, never expire: add-sector.sh checks a digest against them).
+  BuildBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub bb-srv-build-${AWS::AccountId}
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+            BucketKeyEnabled: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-sources
+            Status: Enabled
+            Prefix: src/
+            ExpirationInDays: 30
+          - Id: expire-tools
+            Status: Enabled
+            Prefix: tools/
+            ExpirationInDays: 30
+          - Id: abort-multipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 3}
+
+  BuildBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BuildBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [!GetAtt BuildBucket.Arn, !Sub '${BuildBucket.Arn}/*']
+            Condition: {Bool: {'aws:SecureTransport': 'false'}}
+
+  # ---------------------------------------------------------------- image registry
+  ServerRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: bb-srv/server
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration: {ScanOnPush: true}
+      EncryptionConfiguration: {EncryptionType: AES256}
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {"rules": [
+            {"rulePriority": 1, "description": "untagged layers after 7 days",
+             "selection": {"tagStatus": "untagged", "countType": "sinceImagePushed", "countUnit": "days", "countNumber": 7},
+             "action": {"type": "expire"}},
+            {"rulePriority": 2, "description": "newest arm64 server images",
+             "selection": {"tagStatus": "tagged", "tagPatternList": ["*-arm64"], "countType": "imageCountMoreThan", "countNumber": ${ImageKeepCount}},
+             "action": {"type": "expire"}},
+            {"rulePriority": 3, "description": "newest amd64 server images",
+             "selection": {"tagStatus": "tagged", "tagPatternList": ["*-amd64"], "countType": "imageCountMoreThan", "countNumber": ${ImageKeepCount}},
+             "action": {"type": "expire"}},
+            {"rulePriority": 4, "description": "newest operation bundles",
+             "selection": {"tagStatus": "tagged", "tagPatternList": ["*-ops"], "countType": "imageCountMoreThan", "countNumber": ${ImageKeepCount}},
+             "action": {"type": "expire"}}
+          ]}
+      # A deleted immutable tag can be pushed again, so nobody but the break-glass role deletes images.
+      # The ECR lifecycle policy expires images as the service, not through this action.
+      RepositoryPolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyImageDeleteExceptBreakglass
+            Effect: Deny
+            Principal: '*'
+            Action: [ecr:BatchDeleteImage, ecr:DeleteRepository]
+            Condition:
+              StringNotLike: {'aws:PrincipalArn': !Sub 'arn:aws:iam::${AWS::AccountId}:role/bb-srv-breakglass'}
+
+  # ---------------------------------------------------------------- alerts
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: bb-srv-alerts
+      DisplayName: Builders Bot servers
+
+  AlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref AlertsTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountOwner
+            Effect: Allow
+            Principal: {AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'}
+            Action: [sns:Publish, sns:Subscribe, sns:GetTopicAttributes, sns:ListSubscriptionsByTopic]
+            Resource: !Ref AlertsTopic
+          - Sid: CloudWatchAlarms
+            Effect: Allow
+            Principal: {Service: cloudwatch.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref AlertsTopic
+            Condition: {StringEquals: {'aws:SourceAccount': !Ref AWS::AccountId}}
+          - Sid: EventBridgeRules
+            Effect: Allow
+            Principal: {Service: events.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref AlertsTopic
+            Condition:
+              ArnLike: {'aws:SourceArn': !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/bb-srv-*'}
+          - Sid: Budgets
+            Effect: Allow
+            Principal: {Service: budgets.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref AlertsTopic
+            Condition:
+              StringEquals: {'aws:SourceAccount': !Ref AWS::AccountId}
+              ArnLike: {'aws:SourceArn': !Sub 'arn:aws:budgets::${AWS::AccountId}:*'}
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: sns:Publish
+            Resource: !Ref AlertsTopic
+            Condition: {Bool: {'aws:SecureTransport': 'false'}}
+
+  AlertsEmail:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref AlertsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # ---------------------------------------------------------------- scheduler (business-hours sectors)
+  SchedulerDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: bb-srv-scheduler-dlq
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+
+  SchedulerDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-scheduler-dlq
+      AlarmDescription: A start or stop of a business-hours sector failed after its retries (quota, capacity or permission).
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions: [{Name: QueueName, Value: !GetAtt SchedulerDlq.QueueName}]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-scheduler
+      Description: EventBridge Scheduler starts and stops only Builders Bot sector instances.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: scheduler.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition: {StringEquals: {'aws:SourceAccount': !Ref AWS::AccountId}}
+      Policies:
+        - PolicyName: start-stop-sectors
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ec2:StartInstances, ec2:StopInstances]
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition: {StringEquals: {'aws:ResourceTag/Project': buildersbot-servers}}
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt SchedulerDlq.Arn
+
+  # ---------------------------------------------------------------- IAM for the hosts
+  # The SSM agent without AmazonSSMManagedInstanceCore: that policy allows ssm:GetParameter(s) on
+  # "*", and /hub/prod/* parameters of this account use alias/aws/ssm (DESIGN 4.5).
+  HostSsmMinimalPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: bb-srv-host-ssm-minimal
+      Description: SSM agent (Session Manager, Run Command, DLM scripts) without parameter reads.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SsmAgent
+            Effect: Allow
+            Action:
+              - ssm:UpdateInstanceInformation
+              - ssm:ListInstanceAssociations
+              - ssm:DescribeAssociation
+              - ssm:UpdateInstanceAssociationStatus
+              - ssm:PutInventory
+              - ssm:PutComplianceItems
+              - ssm:GetDocument
+              - ssm:DescribeDocument
+              - ssmmessages:CreateControlChannel
+              - ssmmessages:CreateDataChannel
+              - ssmmessages:OpenControlChannel
+              - ssmmessages:OpenDataChannel
+              - ec2messages:AcknowledgeMessage
+              - ec2messages:DeleteMessage
+              - ec2messages:FailMessage
+              - ec2messages:GetEndpoint
+              - ec2messages:GetMessages
+              - ec2messages:SendReply
+            Resource: '*'
+
+  # Ceiling of every bb-srv-<sector>-host role. A sector role narrows it to its own log groups and
+  # its own parameters (/bb-srv/sectors/<sector>/*).
+  HostBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: bb-srv-host-boundary
+      Description: Permissions boundary of the Builders Bot sector host roles.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Ceiling
+            Effect: Allow
+            Action:
+              - ssm:UpdateInstanceInformation
+              - ssm:ListInstanceAssociations
+              - ssm:DescribeAssociation
+              - ssm:UpdateInstanceAssociationStatus
+              - ssm:PutInventory
+              - ssm:PutComplianceItems
+              - ssm:GetDocument
+              - ssm:DescribeDocument
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssmmessages:*
+              - ec2messages:*
+              - ecr:GetAuthorizationToken
+              - ecr:BatchGetImage
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchCheckLayerAvailability
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              - logs:DescribeLogGroups
+              - cloudwatch:PutMetricData
+              - kms:Decrypt
+            Resource: '*'
+          - Sid: DenyParametersOutsideSectors
+            Effect: Deny
+            Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory]
+            NotResource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
+          - Sid: DenyDecryptOutsideSectorParameters
+            Effect: Deny
+            Action: kms:Decrypt
+            Resource: '*'
+            Condition:
+              StringNotLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'}
+          - Sid: DenySecrets
+            Effect: Deny
+            Action: 'secretsmanager:*'
+            Resource: '*'
+
+  SignalBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: bb-srv-signal-boundary
+      Description: Permissions boundary of the Builders Bot Signal and TURN host role.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Ceiling
+            Effect: Allow
+            Action:
+              - ssm:UpdateInstanceInformation
+              - ssm:ListInstanceAssociations
+              - ssm:DescribeAssociation
+              - ssm:UpdateInstanceAssociationStatus
+              - ssm:PutInventory
+              - ssm:PutComplianceItems
+              - ssm:GetDocument
+              - ssm:DescribeDocument
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssmmessages:*
+              - ec2messages:*
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              - logs:DescribeLogGroups
+              - cloudwatch:PutMetricData
+              - kms:Decrypt
+              - route53:ChangeResourceRecordSets
+              - route53:ListResourceRecordSets
+              - route53:GetChange
+              - route53:ListHostedZonesByName
+              - s3:GetObject
+            Resource: '*'
+          - Sid: DenyParametersOutsideSignal
+            Effect: Deny
+            Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, ssm:GetParameterHistory]
+            NotResource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/signal/*'
+          - Sid: DenyDecryptOutsideSignalParameters
+            Effect: Deny
+            Action: kms:Decrypt
+            Resource: '*'
+            Condition:
+              StringNotLike: {'kms:EncryptionContext:PARAMETER_ARN': !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/signal/*'}
+          - Sid: DenySecrets
+            Effect: Deny
+            Action: 'secretsmanager:*'
+            Resource: '*'
+
+  # ---------------------------------------------------------------- builder (ephemeral EC2, scripts/build-image.sh)
+  BuilderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-builder
+      Description: Ephemeral image builder - reads its source, writes its report, pushes to bb-srv/server.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [!Ref HostSsmMinimalPolicy]
+      Policies:
+        - PolicyName: build
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: [!Sub '${BuildBucket.Arn}/src/*', !Sub '${BuildBucket.Arn}/tools/*']
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${BuildBucket.Arn}/reports/*'
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:DescribeImages
+                Resource: !GetAtt ServerRepository.Arn
+              - Effect: Deny
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, 'secretsmanager:*', kms:Decrypt]
+                Resource: '*'
+
+  BuilderInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: bb-srv-builder
+      Roles: [!Ref BuilderRole]
+
+  BuilderLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: bb-srv-builder
+      LaunchTemplateData:
+        # EC2 resolves the newest Ubuntu 24.04 arm64 AMI at each launch.
+        ImageId: resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+        InstanceType: t4g.xlarge
+        IamInstanceProfile: {Arn: !GetAtt BuilderInstanceProfile.Arn}
+        InstanceInitiatedShutdownBehavior: terminate
+        CreditSpecification: {CpuCredits: unlimited}
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          InstanceMetadataTags: disabled
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            SubnetId: !Ref SubnetA
+            Groups: [!Ref BuilderSecurityGroup]
+            AssociatePublicIpAddress: true
+            DeleteOnTermination: true
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs: {VolumeSize: 60, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true}
+        TagSpecifications:
+          - ResourceType: volume
+            Tags:
+              - {Key: Name, Value: bb-srv-builder}
+              - {Key: Project, Value: buildersbot-servers}
+              - {Key: Sector, Value: shared}
+              - {Key: CostCenter, Value: shared}
+              - {Key: Owner, Value: cultura-builder}
+
+  BuilderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /bb-srv/builder
+      RetentionInDays: 30
+
+  SignalLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /bb-srv/signal
+      RetentionInDays: 30
+
+  # ---------------------------------------------------------------- people
+  # Day-2 operations with MFA: sessions and commands only through bb-srv-* documents, start, stop,
+  # snapshots and reads. Creating and deleting stacks stays with an administrator session with MFA.
+  OperatorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-operator
+      Description: Builders Bot sector operations (MFA required).
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'}
+            Action: sts:AssumeRole
+            Condition: {Bool: {'aws:MultiFactorAuthPresent': 'true'}}
+      Policies:
+        - PolicyName: operate-sectors
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: SessionsAndCommandsOnSectorHosts
+                Effect: Allow
+                Action: [ssm:StartSession, ssm:SendCommand]
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition: {StringEquals: {'ssm:resourceTag/Project': buildersbot-servers}}
+              - Sid: OnlyBbSrvDocuments
+                Effect: Allow
+                Action: [ssm:StartSession, ssm:SendCommand]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/bb-srv-*'
+                Condition: {BoolIfExists: {'ssm:SessionDocumentAccessCheck': 'true'}}
+              - Sid: OwnSessions
+                Effect: Allow
+                Action: [ssm:TerminateSession, ssm:ResumeSession]
+                Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:session/${!aws:userid}-*'
+              - Sid: StartStopSnapshot
+                Effect: Allow
+                Action: [ec2:StartInstances, ec2:StopInstances, ec2:CreateSnapshot]
+                Resource:
+                  - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                  - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:volume/*'
+                Condition: {StringEquals: {'aws:ResourceTag/Project': buildersbot-servers}}
+              - Sid: NewSnapshots
+                Effect: Allow
+                Action: [ec2:CreateSnapshot, ec2:CreateTags]
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}::snapshot/*'
+              - Sid: SectorParameters
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:PutParameter]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
+              - Sid: Reads
+                Effect: Allow
+                Action:
+                  - ec2:Describe*
+                  - cloudformation:Describe*
+                  - cloudformation:List*
+                  - cloudformation:GetTemplate*
+                  - ssm:DescribeInstanceInformation
+                  - ssm:GetCommandInvocation
+                  - ssm:ListCommandInvocations
+                  - ssm:ListCommands
+                  - ssm:DescribeSessions
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:GetMetricData
+                  - budgets:ViewBudget
+                  - servicequotas:GetServiceQuota
+                  - sts:GetCallerIdentity
+                Resource: '*'
+              - Sid: ImageReads
+                Effect: Allow
+                Action: [ecr:DescribeImages, ecr:DescribeImageScanFindings]
+                Resource: !GetAtt ServerRepository.Arn
+              - Sid: BuildReports
+                Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource: [!GetAtt BuildBucket.Arn, !Sub '${BuildBucket.Arn}/reports/*']
+              - Sid: SectorLogs
+                Effect: Allow
+                Action: [logs:FilterLogEvents, logs:GetLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/bb-srv/*'
+
+  BreakglassRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: bb-srv-breakglass
+      Description: The only principal that may delete images of bb-srv/server (manual, MFA, in CloudTrail).
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'}
+            Action: sts:AssumeRole
+            Condition: {Bool: {'aws:MultiFactorAuthPresent': 'true'}}
+      Policies:
+        - PolicyName: delete-images
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ecr:BatchDeleteImage, ecr:DescribeImages, ecr:ListImages]
+                Resource: !GetAtt ServerRepository.Arn
+
+  # ---------------------------------------------------------------- DNS (one owner action: 4 NS records)
+  DelegatedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref DelegatedZoneName
+      HostedZoneConfig:
+        Comment: Builders Bot Signal and TURN. Delegated from Cloudflare with 4 NS records.
+
+  # ---------------------------------------------------------------- cost
+  ProjectBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: bb-srv-project
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref ProjectBudgetUsd, Unit: USD}
+        CostFilters:
+          TagKeyValue: ['user:Project$buildersbot-servers']
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: SNS, Address: !Ref AlertsTopic}]
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: SNS, Address: !Ref AlertsTopic}]
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+    Export: {Name: bb-srv-base-VpcId}
+  SubnetAId:
+    Value: !Ref SubnetA
+    Export: {Name: bb-srv-base-SubnetAId}
+  SubnetBId:
+    Value: !Ref SubnetB
+    Export: {Name: bb-srv-base-SubnetBId}
+  ZoneA:
+    Value: !Ref ZoneA
+    Export: {Name: bb-srv-base-ZoneA}
+  ZoneB:
+    Value: !Ref ZoneB
+    Export: {Name: bb-srv-base-ZoneB}
+  SectorSecurityGroupId:
+    Value: !Ref SectorSecurityGroup
+    Export: {Name: bb-srv-base-SectorSecurityGroupId}
+  RepositoryArn:
+    Value: !GetAtt ServerRepository.Arn
+    Export: {Name: bb-srv-base-RepositoryArn}
+  RepositoryUri:
+    Value: !GetAtt ServerRepository.RepositoryUri
+    Export: {Name: bb-srv-base-RepositoryUri}
+  AlertTopicArn:
+    Value: !Ref AlertsTopic
+    Export: {Name: bb-srv-base-AlertTopicArn}
+  BuildBucketName:
+    Value: !Ref BuildBucket
+    Export: {Name: bb-srv-base-BuildBucketName}
+  BuildBucketArn:
+    Value: !GetAtt BuildBucket.Arn
+    Export: {Name: bb-srv-base-BuildBucketArn}
+  HostSsmPolicyArn:
+    Value: !Ref HostSsmMinimalPolicy
+    Export: {Name: bb-srv-base-HostSsmPolicyArn}
+  HostBoundaryArn:
+    Value: !Ref HostBoundary
+    Export: {Name: bb-srv-base-HostBoundaryArn}
+  SignalBoundaryArn:
+    Value: !Ref SignalBoundary
+    Export: {Name: bb-srv-base-SignalBoundaryArn}
+  SchedulerRoleArn:
+    Value: !GetAtt SchedulerRole.Arn
+    Export: {Name: bb-srv-base-SchedulerRoleArn}
+  SchedulerDlqArn:
+    Value: !GetAtt SchedulerDlq.Arn
+    Export: {Name: bb-srv-base-SchedulerDlqArn}
+  SignalLogGroupName:
+    Value: !Ref SignalLogGroup
+    Export: {Name: bb-srv-base-SignalLogGroupName}
+  HostedZoneId:
+    Value: !Ref DelegatedZone
+    Export: {Name: bb-srv-base-HostedZoneId}
+  HostedZoneName:
+    Value: !Ref DelegatedZoneName
+    Export: {Name: bb-srv-base-HostedZoneName}
+  HostedZoneNameServers:
+    Description: The 4 NS records that the owner adds in Cloudflare (name = the first label of DelegatedZoneName).
+    Value: !Join [',', !GetAtt DelegatedZone.NameServers]
+  BuilderLaunchTemplateName:
+    Value: bb-srv-builder
+  OperatorRoleArn:
+    Value: !GetAtt OperatorRole.Arn
