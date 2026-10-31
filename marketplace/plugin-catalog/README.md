@@ -116,11 +116,20 @@ account and no API key. The version is pinned because the server reads and sends
 messages; to update it, review the upstream release, change the version in
 `args`, and increase the listing `version`.
 
-Pairing is a one-time step and happens from the agent: `link_account` takes the
-number in E.164 and returns an 8-character code. The user types it in WhatsApp ›
-Settings › Linked devices › Link a device › Link with phone number instead. The
-code lasts two minutes; call `link_account` again if it expires. The QR path
-(`npx wazap-mcp login`) needs a terminal, so the listing uses the code.
+One wazap data folder holds several accounts, one number each, with an id and a
+nickname. When the plugin is installed, its page has an accounts panel: it adds an
+account with a nickname and a number, links it with a pairing code (default) or a
+QR code, and turns accounts on and off, sets the default, sets read only, unlinks
+and removes them. Main runs the same pinned CLI for this; see
+[WhatsApp accounts](../../docs/architecture/whatsapp-accounts.md). An agent can
+still link from a chat: `link_account` takes an `account_id` and the number in
+E.164 and returns an 8-character code. The user types it in WhatsApp › Settings ›
+Linked devices › Link a device › Link with phone number instead. The code lasts
+two minutes. One number is one account: never link a second number into an
+account that had another number, because wazap then deletes the earlier history
+after seven days. The agent rules are in `plugins/whatsapp/skills/whatsapp-accounts/SKILL.md`;
+the listing keeps `skills: []` until pinned skill versions exist, and the
+developer instructions carry the same rules meanwhile.
 
 The account, its history, credentials and kept media live in `~/.wazap`, on the
 computer that runs the server. The stdio session lasts as long as the agent

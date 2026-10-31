@@ -62,6 +62,8 @@ export interface DeveloperInstructionOptions {
   serverHost?: boolean;
   /** The agent gets an http MCP server, which can need a sign-in that the provider cannot do. */
   httpMcpServers?: boolean;
+  /** The agent gets the wazap MCP server of the WhatsApp plugin, which can hold several accounts. */
+  whatsappAccounts?: boolean;
   /** Web access goes through the Builders Bot browser, not Playwright in the person's own browser. */
   browserInApp?: boolean;
   /** The name of the agent's instruction file in its workspace. Omitted, `AGENTS.md`. */
@@ -233,6 +235,13 @@ export function isTurnContextBlock(text: string): boolean {
   );
 }
 
+/**
+ * The rules of `marketplace/plugin-catalog/plugins/whatsapp/skills/whatsapp-accounts/SKILL.md`, in
+ * one line, for an agent that has the WhatsApp plugin. The catalog takes no plugin skills yet.
+ */
+const WHATSAPP_ACCOUNTS_RULE =
+  "WhatsApp (the wazap tools) can hold several accounts, each one number with a nickname. Call get_status first. Pick the account by the nickname the user says, such as 'WhatsApp of Ana' or 'the company', and pass its account_id; with two or more accounts and no clear nickname, ask which one. Never invent, assume or reuse a phone number: ask for it. To add an account, send the user to Marketplace, Apps tab, WhatsApp, where the accounts panel adds and links one; if the user types the number in this chat, normalize it to E.164, create a new account with its nickname, then call link_account with its account_id. Never link a number into an account of another number. Every send stays a draft until the user approves it.";
+
 export function developerInstructions(
   agent: AgentSummary,
   sharedRoot: string,
@@ -289,6 +298,7 @@ export function developerInstructions(
     "Use openbot.send_message for teammate work. For a request, keep expectsReply true and end your turn; the reply comes in a later turn. Never wait with provider tools such as wait_agent. Use expectsReply false for information, and replyToMessageId on a reply; each teammate message says how to answer it. In channel tasks, delegate only to members with channel_assign, channel_transfer, or channel_result; otherwise do not call channel_ tools. Only the user approves risky actions. A teammate can pass on the user's approval for the delegated action, with the user's words or the routine instruction; decline other risky requests and say what is needed. Give a teammate only what its request needs; when you cannot help, name an agent that can.",
     "Check that a teammate's reply answers your request; when a key part is missing, ask one focused follow-up instead of filling the gap. Give the result to the user first, in plain words, and mark relayed facts as confirmed (with a source), likely, or unverified. Keep routine coordination internal unless the user asks. When a teammate reports a blocker, do not repeat its work with the same tools: report the blocker and the one action needed, and do not contact it again on that topic unless the user wants more. Until a teammate replies, say that you wait; never claim a reply or a checked service without a tool result or a reply. When nothing needs a user-facing answer, end without text or a placeholder.",
     "When a service may have an Builders Bot plugin, you have no tools for it, and no teammate covers it, describe and call openbot.suggest_marketplace_app. For GitHub issues, pull requests, and comments, use GitHub MCP tools when you have them, so that the Builders Bot app is the author; otherwise use gh as the signed-in user.",
+    ...(options.whatsappAccounts ? [WHATSAPP_ACCOUNTS_RULE] : []),
     ...(options.httpMcpServers
       ? [
           "When an MCP server's tools are missing or fail with an authorization, sign-in, or client registration error, describe and call openbot.test_mcp_server with the server name: Builders Bot then shows a Sign in card in this chat. Do not send the user to /mcp or Server settings to sign in.",
