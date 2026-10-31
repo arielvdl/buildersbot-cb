@@ -24,6 +24,8 @@ export const messages = {
   "marketplace.description.apps": "Verbinden Sie die Tools und Dienste, mit denen Ihre Agenten arbeiten.",
   "marketplace.description.agents": "Fertige Agenten mit eigenen Anweisungen und Fähigkeiten.",
   "marketplace.description.skills": "Anweisungen, die einem Agenten eine Aufgabe oder ein Tool beibringen.",
+  "marketplace.apps.showAll": "Alle Apps anzeigen",
+  "marketplace.apps.profile": "Ausgewählt für {tag}",
   "marketplace.plugins.missing": "Dieses Plugin ist nicht im Builders Bot-Katalog.",
   "marketplace.agents.loadingDetail": "Agentendetails werden geladen…",
   "marketplace.agents.skills": "Fähigkeiten",

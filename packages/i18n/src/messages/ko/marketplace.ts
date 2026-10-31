@@ -24,6 +24,8 @@ export const messages = {
   "marketplace.description.apps": "에이전트가 사용하는 도구와 서비스를 연결하세요.",
   "marketplace.description.agents": "자체 지침과 스킬을 갖춘 바로 사용할 수 있는 에이전트입니다.",
   "marketplace.description.skills": "에이전트에게 작업이나 도구 사용법을 알려 주는 지침입니다.",
+  "marketplace.apps.showAll": "모든 앱 보기",
+  "marketplace.apps.profile": "{tag}용 선택",
   "marketplace.plugins.missing": "이 플러그인은 Builders Bot 카탈로그에 없어요.",
   "marketplace.agents.loadingDetail": "에이전트 상세 정보 불러오는 중…",
   "marketplace.agents.skills": "스킬",

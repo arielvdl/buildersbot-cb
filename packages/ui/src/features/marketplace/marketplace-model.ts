@@ -16,6 +16,7 @@ import type {
   MarketplacePluginDetail,
   MarketplacePluginPrompt,
 } from "../settings/marketplace-plugins";
+import type { MarketplaceAppCuration } from "./marketplace-curation";
 import type { CatalogList, MarketplaceHomeCache } from "./marketplace-listing";
 import type { WhatsAppAccountsModel } from "./whatsapp-accounts-model";
 
@@ -191,6 +192,11 @@ export interface MarketplaceModel {
   trySkill?: ((agentId: string, skill: MarketplaceSkillDetail) => void) | undefined;
 
   apps: () => readonly MarketplaceApp[];
+  /**
+   * Which apps the Apps list shows before "Show all apps". A search and a link still reach every
+   * app of `apps`. Absent: the list shows every app.
+   */
+  curation?: MarketplaceAppCuration | undefined;
   /** False for a member of a joined server, who browses and connects no catalog app. */
   canConnectApps: () => boolean;
   appBusy: (id: string) => boolean;

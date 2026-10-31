@@ -304,6 +304,7 @@ body:has(.skills-marketplace) :is(.integration-dialog-backdrop, .integration-wiz
 .marketplace-browse-head {
   display: grid;
   gap: var(--openbot-space-6);
+  container: marketplace-browse-head / inline-size;
 }
 
 .marketplace-browse-copy {
@@ -330,6 +331,34 @@ body:has(.skills-marketplace) :is(.integration-dialog-backdrop, .integration-wiz
   position: relative;
   flex: 1;
   min-width: 0;
+}
+
+/* "Show all apps": a quiet control beside the search, not a banner. */
+.marketplace-show-all {
+  width: auto;
+  flex: none;
+  gap: var(--openbot-space-2);
+}
+
+.marketplace-show-all .ui-switch-label {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+  line-height: var(--openbot-leading-sm);
+  white-space: nowrap;
+}
+
+/* A narrow list puts "Show all apps" on its own line under the search, so nothing scrolls sideways. */
+@container marketplace-browse-head (max-width: 560px) {
+  .marketplace-toolbar:has(> .marketplace-show-all) {
+    flex-wrap: wrap;
+  }
+
+  .marketplace-show-all {
+    order: 1;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .marketplace-block {

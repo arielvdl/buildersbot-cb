@@ -8,6 +8,7 @@ import {
 import { createStore, untrack } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { MarketplaceSuggestionChatCard } from "../src/features/conversation/MarketplaceSuggestionChatCard";
 import { requireFixture, STORY_AGENTS } from "./fixtures";
 
 /*
@@ -214,6 +215,18 @@ export const InConversation: Story = {
           </div>
         </div>
       </section>
+    </main>
+  ),
+};
+
+/**
+ * The card that the chat draws for WhatsApp, from the catalog. whatsapp.com refuses its icon to a
+ * browser, so the card draws the WhatsApp mark.
+ */
+export const WhatsAppInChat: Story = {
+  render: () => (
+    <main style={{ width: "min(560px, 100vw)", padding: "var(--openbot-space-4)" }}>
+      <MarketplaceSuggestionChatCard messageId="story-whatsapp" appId="whatsapp" onOpenMarketplaceApp={fn()} />
     </main>
   ),
 };

@@ -15,9 +15,10 @@ import {
 import { ReferenceChip } from "@openbot/ui/reference-chip";
 import { SkillGradient } from "@openbot/ui/skill-gradient";
 import { useText } from "@openbot/ui/text";
-import type { JSX } from "@solidjs/web";
+import { Dynamic, type JSX } from "@solidjs/web";
 import { createSignal, For, Match, Show, Switch } from "solid-js";
 import { CONNECTOR_LISTINGS } from "../connectors/connector-catalog";
+import { WhatsAppMark } from "../settings/brand-marks";
 import { LogoTile } from "../settings/IntegrationLayout";
 import type { MarketplaceListing } from "./marketplace-listing";
 import type { MarketplaceApp } from "./marketplace-model";
@@ -182,6 +183,25 @@ export function SkillIcon(props: { url: string | null | undefined; onError?: (ur
   );
 }
 
+/**
+ * Catalog listings that the app draws with its own brand mark, by slug, because the vendor icon at
+ * `iconUrl` does not load in a browser. whatsapp.com answers 400 to a browser that asks for its
+ * favicon.
+ */
+const LISTING_MARKS: Readonly<Record<string, (props: { class?: string | undefined }) => JSX.Element>> = {
+  whatsapp: WhatsAppMark,
+};
+
+/** The app draws its own brand mark for this catalog listing, not the listing icon. */
+export function hasListingMark(slug: string): boolean {
+  return Object.hasOwn(LISTING_MARKS, slug);
+}
+
+/** The brand mark of a listing that `hasListingMark` names. */
+export function ListingMark(props: { slug: string }) {
+  return <Dynamic component={LISTING_MARKS[props.slug]} />;
+}
+
 /** The mark of an app, without its tile. */
 export function AppMark(props: { app: MarketplaceApp }) {
   const [failed, setFailed] = createSignal<string | null>(null);
@@ -194,6 +214,12 @@ export function AppMark(props: { app: MarketplaceApp }) {
     <Switch fallback={<Puzzle aria-hidden="true" />}>
       <Match when={props.app.kind === "connector" ? CONNECTOR_LISTINGS[props.app.connector] : undefined} keyed>
         {(listing) => <listing.Mark />}
+      </Match>
+      <Match
+        when={props.app.kind === "plugin" && hasListingMark(props.app.plugin.slug) ? props.app.plugin.slug : undefined}
+        keyed
+      >
+        {(slug) => <ListingMark slug={slug} />}
       </Match>
       <Match when={url()} keyed>
         {(src) => <img src={src} alt="" onError={() => setFailed(src)} />}

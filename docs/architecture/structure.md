@@ -168,7 +168,8 @@ tabs, and a page for each listing. It reads a typed `MarketplaceModel` and holds
 own. The renderer's `marketplace-controller.ts` builds the model on the injected `MarketplaceCalls`,
 and `MarketplaceModal` adds the connect and uninstall dialogs. `ConnectorsProvider` creates the
 connector controllers once; a connector's app page shows `ConnectorDetailPanel` from them. Server
-settings has no connector section.
+settings has no connector section. The Apps tab lists a curated set of apps first; see
+[Curated Apps list](marketplace-apps-curation.md).
 
 `AgentSettingsPanel` owns the form draft, ordered save queue, avatar editor, and model controls.
 Its renderer adapter owns persisted width and native memories, routines, skills, and tables,

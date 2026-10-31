@@ -24,6 +24,8 @@ export const messages = {
   "marketplace.description.apps": "Koppel de tools en diensten waarmee je agents werken.",
   "marketplace.description.agents": "Kant-en-klare agents met eigen instructies en vaardigheden.",
   "marketplace.description.skills": "Instructies die een agent een taak of tool leren.",
+  "marketplace.apps.showAll": "Alle apps tonen",
+  "marketplace.apps.profile": "Gekozen voor {tag}",
   "marketplace.plugins.missing": "Deze plug-in staat niet in de Builders Bot-catalogus.",
   "marketplace.agents.loadingDetail": "Agentgegevens laden…",
   "marketplace.agents.skills": "Vaardigheden",

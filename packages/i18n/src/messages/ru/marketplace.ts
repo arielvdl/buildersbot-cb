@@ -25,6 +25,8 @@ export const messages = {
   "marketplace.description.apps": "Подключите инструменты и сервисы, с которыми работают ваши агенты.",
   "marketplace.description.agents": "Готовые агенты со своими инструкциями и навыками.",
   "marketplace.description.skills": "Инструкции, которые учат агента задаче или инструменту.",
+  "marketplace.apps.showAll": "Показать все приложения",
+  "marketplace.apps.profile": "Подборка: {tag}",
 
   "marketplace.plugins.missing": "Этого плагина нет в каталоге Builders Bot.",
 

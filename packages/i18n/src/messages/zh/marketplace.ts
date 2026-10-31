@@ -27,6 +27,8 @@ export const messages = {
   "marketplace.description.apps": "连接你的助手使用的工具和服务。",
   "marketplace.description.agents": "带有自身指令和技能的现成助手。",
   "marketplace.description.skills": "教助手完成某项任务或使用某个工具的指令。",
+  "marketplace.apps.showAll": "显示所有应用",
+  "marketplace.apps.profile": "为 {tag} 精选",
 
   // A plugin link.
   "marketplace.plugins.missing": "Builders Bot 目录中没有该插件。",
