@@ -623,7 +623,7 @@ export const messages = {
   "server.egress.reasonCheck": "A verificação de localização não respondeu. O tráfego continua passando pelo proxy.",
   "server.egress.enabled": "Usar o proxy",
   "server.egress.enabledDescription":
-    "Todo o tráfego de internet dos agentes passa pelo proxy, e os hosts da lista de exceções vão direto. Agentes que já estão rodando passam a usar depois que o servidor reinicia.",
+    "Todo o tráfego de internet dos agentes passa pelo proxy, e os hosts da lista de exceções vão direto. Ao ligar ou desligar, os processos dos agentes reiniciam depois da tarefa em andamento.",
   "server.egress.paste": "Colar proxy (host:porta:usuário:senha)",
   "server.egress.pasteDescription": "Também aceita http://usuário:senha@host:porta. Preenche os campos abaixo.",
   "server.egress.pastePlaceholder": "host:porta:usuário:senha",

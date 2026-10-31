@@ -20,6 +20,7 @@ import { sourceText } from "@openbot/i18n/source";
 import type { PlaywrightEgressLaunch } from "../backend/agent/playwright-browser-access";
 import type { BrowserEgress, BrowserEgressSession, BrowserProxyLogin } from "../backend/browser-egress";
 import { runCauseEffect } from "../backend/effect-boundary";
+import { createEgressFetch, type EgressFetch } from "./egress-fetch";
 import type { EgressGateway, EgressGatewayRoute, EgressTrafficResult } from "./egress-gateway";
 import { checkEgressProxy, type EgressCheckResult } from "./egress-proxy-check";
 import {
@@ -83,6 +84,7 @@ export class EgressProxyService implements BrowserEgress {
   #signature: string | null = null;
   #checking: Promise<EgressProxyView> | null = null;
   #webRtcTouched = false;
+  readonly #egressFetch: EgressFetch;
 
   constructor(options: EgressProxyServiceOptions) {
     this.#store = options.store;
@@ -90,7 +92,16 @@ export class EgressProxyService implements BrowserEgress {
     this.#check = options.check ?? ((upstream) => checkEgressProxy(upstream));
     this.#now = options.now ?? (() => new Date());
     this.#log = options.log;
+    this.#egressFetch = createEgressFetch({ mode: () => this.mode(), gateway: () => this.#gateway.address() });
   }
+
+  /**
+   * The `fetch` of the requests that this process sends for the agents: the MCP OAuth proxy, the
+   * GitHub MCP proxy and the MCP test. With the switch on they go through the gateway, as an agent's
+   * own requests do. Off, or for a bypass host, it is the platform fetch.
+   */
+  readonly fetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> =>
+    this.#egressFetch.fetch(input, init);
 
   /** What the gateway does with a new connection. Off refuses too: a tool that has the address was told to use the proxy. */
   gatewayRoute(): EgressGatewayRoute {
@@ -119,6 +130,7 @@ export class EgressProxyService implements BrowserEgress {
   }
 
   async close(): Promise<void> {
+    await this.#egressFetch.close();
     await this.#gateway.stop();
   }
 

@@ -2258,6 +2258,25 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }).bind(this);
 
   /**
+   * The egress proxy of this server turned on or off, or its bypass list changed. The MCP set is
+   * handed over again, so each stdio server gets the new variables, and each process that read them
+   * at spawn starts again: the Codex app-server too, which has them in its own spawn environment.
+   * A process with a turn in progress restarts after the turn, as for the GitHub connection.
+   */
+  readonly notifyEgressProxyChanged = Effect.fn("AgentService.notifyEgressProxyChanged")(function* (
+    this: AgentService,
+  ) {
+    yield* this.#mcp
+      .changed()
+      .pipe(
+        Effect.mapError(
+          (failure) => new AgentLifecycleFailed({ operation: "refresh egress proxy tools", cause: failure.cause }),
+        ),
+      );
+    yield* this.#providers.reloadAgentEnvironment({ appServer: true });
+  }).bind(this);
+
+  /**
    * A setting that lives outside the agent store changed, such as an agent's auto-approve grant.
    * Clients of this host read those settings again when the agent list changes. A grant given now
    * also answers the requests that already wait for it.

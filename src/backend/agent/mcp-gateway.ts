@@ -151,6 +151,7 @@ export class McpGateway {
       settings: credentials.mcpOAuthProxySettings ?? null,
       target: (route) => this.#proxyTarget(route),
       refresh: (url, rejected) => (oauth ? oauth.refreshAccessToken(url, rejected) : Effect.succeed(null)),
+      ...(credentials.egressFetch ? { fetch: credentials.egressFetch } : {}),
       ...(credentials.appVersion
         ? {
             client: {

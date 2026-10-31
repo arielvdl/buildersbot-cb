@@ -665,7 +665,7 @@ export const messages = defineMessages("server", {
   "server.egress.reasonCheck": "The location check did not answer. The traffic still goes through the proxy.",
   "server.egress.enabled": "Use the proxy",
   "server.egress.enabledDescription":
-    "All internet traffic of the agents goes through the proxy, and the hosts in the bypass list go direct. Agents that already run use it after the server restarts.",
+    "All internet traffic of the agents goes through the proxy, and the hosts in the bypass list go direct. When you turn it on or off, the agent processes start again after their current turn.",
   "server.egress.paste": "Paste proxy (host:port:user:password)",
   "server.egress.pasteDescription": "Also accepts http://user:password@host:port. It fills the fields below.",
   "server.egress.pastePlaceholder": "host:port:user:password",

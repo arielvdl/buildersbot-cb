@@ -126,6 +126,7 @@ import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile
 import { runCauseEffect } from "../backend/effect-boundary";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
+import type { McpToolRuntimes } from "../backend/mcp-provider-shapes";
 import { discordDriver } from "../backend/messaging/discord/discord-driver";
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
@@ -650,6 +651,8 @@ export interface ApplicationServices {
   /** The egress proxy of this server, and the app default for the servers this app makes. */
   egressProxy: EgressProxyService;
   egressDefault: EgressProxyDefault;
+  /** The managed tool runtimes, with the egress proxy variables that each stdio MCP server starts with. */
+  mcpToolRuntimes: () => McpToolRuntimes;
   agentInitialization: AgentInitializationGate<AgentLifecycleFailed>;
   sidebarLayout: SidebarLayoutStore;
   host: HostService;
@@ -1528,6 +1531,16 @@ export async function createApplicationServices({
   );
   // Before `new AgentService`, which reads every `executablePath` eagerly.
   await runCauseEffect(providerRuntimes.initialize());
+  // The tool runtimes with the egress proxy variables that each stdio MCP server starts with, read at
+  // each spawn and each test. Nothing is added while the switch is off, so the fingerprints of the
+  // sessions stay as they were.
+  const mcpToolRuntimes = (): McpToolRuntimes => {
+    const runtimes = providerRuntimes.mcpToolRuntimes();
+    const launchEnvironment = egressProxy.environment();
+    return Object.keys(launchEnvironment).length > 0
+      ? { ...runtimes, launchEnvironment, fetch: egressProxy.fetch }
+      : runtimes;
+  };
   const secretCipher = safeStorageCipher("error.app.secretStorageUnavailable");
   const customProviders = new CustomProviderStore({
     path: join(app.getPath("userData"), CUSTOM_PROVIDERS_FILE),
@@ -1669,6 +1682,7 @@ export async function createApplicationServices({
     toolDirectory: join(app.getPath("userData"), "provider-state", "github"),
     apiUrl: centralAuthApiUrl,
     openExternal: openLink,
+    mcpFetch: egressProxy.fetch,
   });
   await runCauseEffect(githubConnector.load());
   teardown.push(TEARDOWN_ORDER.githubConnector, "the GitHub connection", () =>
@@ -1894,7 +1908,7 @@ export async function createApplicationServices({
           Effect.runFork(providerRuntimes.ensureToolRuntimes());
         },
         ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
-        toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+        toolRuntimes: mcpToolRuntimes,
       }),
     // `desktopCapturer` captures the display Builders Bot is on. With an agent display of its own, that
     // is only the Builders Bot window, so agents take their screenshots with the Computer Use driver.
@@ -1967,7 +1981,7 @@ export async function createApplicationServices({
       // The floor under those servers: the `bin` of every managed tool runtime, appended after the
       // user's own `PATH`, so a machine with no Node can still start `npx some-server` and a machine
       // that has one keeps the build it installed.
-      mcpToolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+      mcpToolRuntimes,
       // The sign-ins of the http servers. The service hands a provider a route of its OAuth proxy,
       // never the token; only a test the user pressed may open a browser.
       mcpOAuth,
@@ -1986,6 +2000,8 @@ export async function createApplicationServices({
         ...githubConnector.agentEnvironment(inherited),
         ...egressProxy.environment(),
       }),
+      egressEnvironment: () => egressProxy.environment(),
+      egressFetch: egressProxy.fetch,
     },
     // Appended to the stored servers at each spawn, so the same tools reach Codex, Claude and the
     // ACP providers. Null until the daemon runs, which is what keeps a machine with no driver from
@@ -2193,6 +2209,19 @@ export async function createApplicationServices({
   githubConnector.onAgentAccessChanged(() => {
     void runCauseEffect(service.notifyGitHubConnectorChanged()).catch((error) =>
       logger.warn("Provider tools did not refresh.", toLogValue(error)),
+    );
+  });
+  // The egress variables change when the switch turns on or off, or the bypass list changes. The
+  // processes that read them only at spawn start again, so none keeps going direct after the switch
+  // turns on, and none keeps pointing at the gateway after it turns off. Proxy and blocked give the
+  // same variables: the gateway applies that change for each new connection.
+  let egressEnvironmentKey = JSON.stringify(egressProxy.environment());
+  egressProxy.subscribe(() => {
+    const key = JSON.stringify(egressProxy.environment());
+    if (key === egressEnvironmentKey) return;
+    egressEnvironmentKey = key;
+    void runCauseEffect(service.notifyEgressProxyChanged()).catch((error) =>
+      logger.warn("Provider processes did not restart for the egress proxy change.", toLogValue(error)),
     );
   });
   // The capability and the tool list both follow the daemon, and nothing else can tell them: no
@@ -2703,7 +2732,7 @@ export async function createApplicationServices({
         Effect.runFork(providerRuntimes.ensureToolRuntimes());
       },
       ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
-      toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+      toolRuntimes: mcpToolRuntimes,
     },
     teamWebRtcBridge,
     privateNetwork: () => remoteNetworkRoute.get().route === "private",
@@ -3490,6 +3519,7 @@ export async function createApplicationServices({
     guardPreference,
     egressProxy,
     egressDefault,
+    mcpToolRuntimes,
     agentInitialization,
     hostUpdateCoordinator,
     requestedUpdate: remoteUpdate,

@@ -40,7 +40,15 @@ export interface GitHubMcpProxyOptions {
   userToken: () => Effect.Effect<string | null, GitHubOperationError>;
   /** The bot token of `owner/name`, or null when the user token applies. */
   botToken: (owner: string, name: string) => string | null;
+  /**
+   * The `fetch` of the requests to GitHub's server. A server with the egress proxy on gives its own,
+   * so the agents' GitHub tool calls use the proxy. The platform fetch when absent.
+   */
+  fetch?: GitHubMcpFetch;
 }
+
+/** The `fetch` that reaches GitHub's MCP server. */
+export type GitHubMcpFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 interface Upstream {
   client: Client;
@@ -279,6 +287,7 @@ export class GitHubMcpProxy {
       const client = new Client({ name: "openbot-github-proxy", version: "1.0.0" }, { capabilities: {} });
       const transport = new StreamableHTTPClientTransport(new URL(this.#options.upstreamUrl), {
         requestInit: { headers: { Authorization: `Bearer ${token}` } },
+        ...(this.#options.fetch ? { fetch: this.#options.fetch } : {}),
       });
       upstream = { client, ready: yield* Effect.cached(githubCall(() => client.connect(transport))) };
       this.#upstreams.set(token, upstream);

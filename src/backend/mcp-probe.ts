@@ -121,11 +121,14 @@ export const inspectMcpServer = Effect.fnUntraced(function* (
                   .pipe(Effect.map((authorization) => ({ url: subject.url, authorization, proxied: false })))
             : undefined,
         );
-        return yield* probeMcpServerEffect(server, timeoutMs, signIn, signInPlace);
+        return yield* probeMcpServerEffect(server, timeoutMs, signIn, signInPlace, tools.fetch ?? fetch);
       }),
     (signIn) => Effect.sync(() => signIn?.abandon()),
   );
 });
+
+/** The fetch of an http test without a sign-in: the platform one, or the egress proxy's (`McpToolRuntimes.fetch`). */
+type McpProbeFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 /** The last refusal an http server answered a connection without a sign-in provider. */
 interface McpChallenge {
@@ -142,6 +145,7 @@ const probeMcpServerEffect = Effect.fnUntraced(function* (
   timeoutMs: number,
   signIn: McpSignIn | null,
   signInPlace: McpSignInPlace | null,
+  probeFetch: McpProbeFetch,
 ): Effect.fn.Return<McpProbeOutcome> {
   const { config } = server;
   if (server.error !== undefined) return { toolCount: 0, error: boundedError(server.error), tools: [], needs: null };
@@ -169,12 +173,12 @@ const probeMcpServerEffect = Effect.fnUntraced(function* (
     const retry = yield* Effect.result(
       active
         .complete()
-        .pipe(toMcpProbeFailure, Effect.andThen(connectAndCountEffect(server, timeoutMs, active, record))),
+        .pipe(toMcpProbeFailure, Effect.andThen(connectAndCountEffect(server, timeoutMs, active, record, probeFetch))),
     );
     return Result.isFailure(retry) ? failure(retry.failure.cause) : found(retry.success);
   });
   const startedAt = Date.now();
-  const first = yield* Effect.result(connectAndCountEffect(server, timeoutMs, signIn, record));
+  const first = yield* Effect.result(connectAndCountEffect(server, timeoutMs, signIn, record, probeFetch));
   if (Result.isSuccess(first)) {
     // The user pressed Sign in, and the server answered without a sign-in: it can still want one
     // to run a tool. Its sign-in starts here, or the press ends with nothing opened and nothing said.
@@ -197,7 +201,7 @@ const probeMcpServerEffect = Effect.fnUntraced(function* (
     // The same Test deadline covers the lookup: it gets only the time the connection left.
     seen.challenge = {
       ...unexplained,
-      bearer: yield* advertisesOAuth(config.url, timeoutMs - (Date.now() - startedAt)),
+      bearer: yield* advertisesOAuth(config.url, timeoutMs - (Date.now() - startedAt), probeFetch),
     };
   if (!signIn || !(first.failure.cause instanceof UnauthorizedError)) return failure(first.failure.cause);
   return yield* afterSignIn(signIn);
@@ -296,12 +300,13 @@ const connectAndCountEffect = Effect.fnUntraced(function* (
   timeoutMs: number,
   signIn: McpSignIn | null,
   onChallenge: (challenge: McpChallenge) => void,
+  probeFetch: McpProbeFetch,
 ) {
   return yield* Effect.acquireUseRelease(
     Effect.try({
       try: () => ({
         client: new Client({ name: "openbot-probe", version: "1" }, { capabilities: {} }),
-        transport: createTransport(server, signIn, onChallenge),
+        transport: createTransport(server, signIn, onChallenge, probeFetch),
       }),
       catch: (cause) => new McpProbeFailure({ cause }),
     }),
@@ -360,6 +365,7 @@ function createTransport(
   server: ResolvedMcpServer,
   signIn: McpSignIn | null,
   onChallenge: (challenge: McpChallenge) => void,
+  probeFetch: McpProbeFetch,
 ): Transport {
   const { config } = server;
   const authProvider = signIn?.provider;
@@ -387,7 +393,7 @@ function createTransport(
     return new StreamableHTTPClientTransport(new URL(config.url), {
       fetch: signIn
         ? signIn.watchRegistration(secureOAuthFetch({ resource: config.url, mcpTraffic: true }))
-        : challengeRecordingFetch(onChallenge),
+        : challengeRecordingFetch(onChallenge, probeFetch),
       ...(authProvider ? { authProvider } : {}),
       requestInit: { headers },
     });
@@ -414,13 +420,13 @@ function createTransport(
 }
 
 /**
- * The platform fetch, noting each refusal on the way past. Without a sign-in provider the SDK keeps
+ * The fetch of the test, noting each refusal on the way past. Without a sign-in provider the SDK keeps
  * only the status of a refusal, and the `WWW-Authenticate` header is what tells a server that wants
  * an OAuth sign-in apart from one that wants a key.
  */
-function challengeRecordingFetch(onChallenge: (challenge: McpChallenge) => void): FetchLike {
+function challengeRecordingFetch(onChallenge: (challenge: McpChallenge) => void, probeFetch: McpProbeFetch): FetchLike {
   return async (input, init) => {
-    const response = await fetch(input, init);
+    const response = await probeFetch(input, init);
     if (response.status === 401 || response.status === 403) {
       onChallenge({
         status: response.status,
@@ -434,13 +440,13 @@ function challengeRecordingFetch(onChallenge: (challenge: McpChallenge) => void)
 }
 
 /** Whether the server's origin publishes OAuth metadata, read without any credential. */
-const advertisesOAuth = Effect.fnUntraced(function* (url: string, remainingMs: number) {
+const advertisesOAuth = Effect.fnUntraced(function* (url: string, remainingMs: number, probeFetch: McpProbeFetch) {
   if (remainingMs <= 0) return false;
   const { origin } = new URL(url);
   const lookups = ["/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"].map((path) =>
     Effect.tryPromise({
       try: async (signal) => {
-        const response = await fetch(`${origin}${path}`, { signal, headers: { accept: "application/json" } });
+        const response = await probeFetch(`${origin}${path}`, { signal, headers: { accept: "application/json" } });
         await response.body?.cancel();
         return response.ok && (response.headers.get("content-type") ?? "").includes("json");
       },
