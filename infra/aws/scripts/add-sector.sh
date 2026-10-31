@@ -31,13 +31,17 @@
 #                             (modo auto) se ESTA VM não terminou a instalação (marca
 #                             /bb-srv/sectors/<setor>/installed-instance), e liga a proteção contra
 #                             término se ainda estiver desligada
+#   --egress-direct           o setor sai pela internet SEM o proxy residencial (IP da AWS): só por
+#                             decisão explícita do dono, com a confirmação digitada 'saida-direta-<setor>'
+#                             (o --yes não pula). Sem a opção, o proxy é obrigatório e o script recusa
+#                             criar o setor se /bb-srv/proxy/egress não existir (README, seção 16)
 #   --yes                     não pergunta (para automação)
 set -euo pipefail
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,34p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,38p' "$0"; exit 1; }
 shift
 size=large
 size_given=0
@@ -53,6 +57,8 @@ from_snapshot=''
 cross_sector=0
 reattach=0
 resume=0
+egress=required
+egress_given=0
 while [ "$#" -gt 0 ]; do
   case $1 in
     --volume-gib) volume_gib=${2:-} ; shift 2 ;;
@@ -66,6 +72,7 @@ while [ "$#" -gt 0 ]; do
     --i-know-cross-sector) cross_sector=1 ; shift ;;
     --reattach) reattach=1 ; shift ;;
     --resume) resume=1 ; shift ;;
+    --egress-direct) egress=direct ; egress_given=1 ; shift ;;
     --yes) BB_SRV_YES=1 ; shift ;;
     *) die "opção desconhecida: $1" ;;
   esac
@@ -82,10 +89,12 @@ case $schedule in always-on | business-hours) ;; *) die "--schedule precisa ser 
 [ -z "$az" ] || [ "$az" = a ] || [ "$az" = b ] || die "--az precisa ser a ou b."
 [ "$reattach" = 0 ] || [ -z "$from_snapshot" ] || die "--reattach e --from-snapshot não combinam."
 [ "$resume" = 0 ] || { [ -z "$from_snapshot" ] && [ "$reattach" = 0 ]; } || die "--resume não combina com --from-snapshot nem com --reattach."
+[ "$resume" = 0 ] || [ "$egress_given" = 0 ] || die "--resume não troca a saída do setor: a saída muda só com uma VM nova (README, seção 16)."
 
 bb_check_access --writes
 require_stack bb-srv-base "Rode scripts/deploy-base.sh antes."
 require_stack bb-srv-ops "Rode scripts/deploy-base.sh antes."
+require_stack bb-srv-proxy "Rode scripts/deploy-base.sh antes (documentos do proxy de saída)."
 [ "$(stack_status bb-srv-signal)" != NONE ] || warn "a stack bb-srv-signal não existe: o setor sobe, mas ninguém conecta nele até o Signal próprio estar no ar (README, passo 4)."
 
 data_stack="bb-srv-$sector-data"
@@ -115,14 +124,27 @@ if [ "$resume" = 1 ]; then
   if [ "$install" = 0 ] && [ "$(stack_parameter "$compute_stack" TerminationProtection)" = true ]; then
     die "o setor $sector já está instalado e protegido: nada a retomar. Veja scripts/status.sh $sector --deep."
   fi
+  # A saída é a da stack; uma stack sem o parâmetro (anterior ao proxy) vale como proxy obrigatório.
+  [ "$(stack_parameter "$compute_stack" EgressProxy)" != direct ] || egress=direct
 fi
 read -r instance_type vcpus mem cpus tmp arch size_budget <<<"$info"
+
+# Proxy de saída (README, seção 16), antes de qualquer escrita: obrigatório, salvo decisão do dono.
+check_egress() {
+  if [ "$egress" = required ]; then
+    require_proxy_parameter
+  elif [ "$resume" = 0 ]; then
+    warn "o setor $sector vai sair pela internet SEM o proxy residencial (com o IP da AWS), por decisão explícita do dono."
+    BB_SRV_YES=0 confirm "Saída direta, sem o proxy residencial, para '$sector'? Digite 'saida-direta-$sector':" "saida-direta-$sector"
+  fi
+}
 [ -n "$budget_usd" ] || budget_usd=$size_budget
 
 if [ "$resume" = 1 ]; then
   volume_gib=$(aws_cb ec2 describe-volumes --volume-ids "$(sector_volume "$sector")" --query 'Volumes[0].Size' --output text)
   say "== retomar o setor $sector ($instance_type, VM $instance): instalar: $([ "$install" = 1 ] && echo sim || echo não), proteção contra término: ligar"
   if [ "$install" = 1 ]; then
+    check_egress
     resolve_image "$image_tag" "$arch"
     state=$(aws_cb ec2 describe-instances --instance-ids "$instance" --query 'Reservations[0].Instances[0].State.Name' --output text)
     case $state in
@@ -179,7 +201,8 @@ else
   fi
   zone="us-east-1$az"
 
-  say "== setor $sector: $instance_type ($size), $zone, disco $volume_gib GiB, $schedule, IP fixo: $static_ip, budget US\$ $budget_usd"
+  say "== setor $sector: $instance_type ($size), $zone, disco $volume_gib GiB, $schedule, IP fixo: $static_ip, budget US\$ $budget_usd, saída: $([ "$egress" = direct ] && echo 'DIRETA (sem proxy, decisão do dono)' || echo 'proxy residencial (obrigatório)')"
+  check_egress
   check_vcpu_quota "$vcpus"
   [ "$static_ip" != true ] || check_eip_quota 1
   resolve_image "$image_tag" "$arch"
@@ -210,6 +233,7 @@ else
     "ParameterKey=StaticIp,ParameterValue=$static_ip" \
     "ParameterKey=BudgetUsd,ParameterValue=$budget_usd" \
     "ParameterKey=BudgetEmail,ParameterValue=$budget_email" \
+    "ParameterKey=EgressProxy,ParameterValue=$egress" \
     "ParameterKey=TerminationProtection,ParameterValue=false"
   instance=$(sector_instance "$sector")
 fi
@@ -245,6 +269,7 @@ sync_project_budget
 cat <<EOF
 
 == Setor $sector no ar (ainda sem conta).
+Saída do contêiner: $([ "$egress" = direct ] && echo 'DIRETA, sem o proxy residencial (decisão do dono).' || echo 'só pelo proxy residencial (falha fechada). IP e país vistos de dentro: scripts/status.sh '"$sector"' --deep')
 Próximo passo (o código chega na caixa da conta dona do setor; nunca use a conta pessoal do Ariel):
   scripts/login-sector.sh $sector bb-$sector@culturabuilder.com "CB $sector"
 Depois, com a conta dona num perfil separado do app: Configurações do servidor -> Membros ->

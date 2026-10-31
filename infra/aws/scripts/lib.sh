@@ -567,3 +567,66 @@ snapshot_volume() { # <setor> <volume> <propósito> <dias-de-retenção>
   done
   printf '%s\n' "$id"
 }
+
+# ---------------------------------------------------------------- proxy de saída (README, seção 16)
+BB_PROXY_PARAMETER=/bb-srv/proxy/egress
+
+# Tipo do parâmetro do proxy residencial (SecureString, None quando não existe, "erro" quando a leitura
+# falha). Só describe-parameters: o VALOR nunca é lido no Mac.
+proxy_parameter_type() {
+  aws_cb ssm describe-parameters --parameter-filters "Key=Name,Option=Equals,Values=$BB_PROXY_PARAMETER" \
+    --query 'Parameters[0].Type' --output text 2>/dev/null || echo erro
+}
+
+# Todo setor novo sai pelo proxy: sem o parâmetro (ou com ele em texto puro), nada é criado.
+require_proxy_parameter() {
+  local type
+  type=$(proxy_parameter_type)
+  case $type in
+    SecureString) say "   proxy de saída: $BB_PROXY_PARAMETER existe (SecureString; o valor não é lido aqui)" ;;
+    None | '') die "falta o parâmetro $BB_PROXY_PARAMETER (proxy residencial de saída, obrigatório para todo setor). O dono grava host:porta:usuário:senha numa linha: aws --profile $BB_PROFILE --region $BB_REGION ssm put-parameter --name $BB_PROXY_PARAMETER --type SecureString --value '<host:porta:usuário:senha>' (README, seção 16). Sem proxy, só com --egress-direct, por decisão do dono." ;;
+    erro) die "não consegui conferir $BB_PROXY_PARAMETER (ssm describe-parameters falhou): sem essa conferência nenhum setor é criado." ;;
+    *) die "$BB_PROXY_PARAMETER existe como $type, não SecureString: a senha do proxy estaria em texto puro. O dono grava de novo como SecureString (README, seção 16)." ;;
+  esac
+}
+
+# Lê as linhas BB_PROXY_* da saída do bb-srv-Status (saída que passa pelo contêiner: só valores no
+# formato esperado são mostrados) e diz em português o que o contêiner vê. Uso: <saída> <setor> <EgressProxy>
+proxy_verdict() {
+  local out=$1 sector=$2 egress=$3 exit_line ip country
+  if [ "$egress" = direct ]; then
+    say "      proxy de saída: DESLIGADO neste setor (EgressProxy=direct, decisão do dono); a saída é o IP da AWS."
+    return 0
+  fi
+  if grep -qx 'BB_PROXY_MODE not-installed' <<<"$out"; then
+    say "      PROXY AUSENTE: o host não tem o proxy de saída instalado. Rode scripts/add-sector.sh $sector --resume (ou troque a VM, README, seção 11)."
+    return 0
+  fi
+  if grep -qx 'BB_PROXY_MODE direct' <<<"$out"; then
+    say "      PROXY AUSENTE: o host está em saída direta, mas a stack pede o proxy (EgressProxy=required). Troque a VM: README, seção 11."
+    return 0
+  fi
+  if grep -qx 'BB_PROXY_CONTAINER down' <<<"$out"; then
+    say "      proxy de saída: o contêiner não está rodando; nada a conferir de dentro dele."
+    return 0
+  fi
+  grep -qx 'BB_PROXY_ENV ok' <<<"$out" ||
+    say "      PROXY AUSENTE NO CONTÊINER: ele não tem HTTPS_PROXY/NODE_USE_ENV_PROXY do proxy.env (compose.yaml sem o env_file). Nada sai direto (falha fechada), mas o servidor fica sem internet: rode scripts/add-sector.sh $sector --resume."
+  exit_line=$(grep -E '^BB_PROXY_EXIT (ip=[0-9]{1,3}(\.[0-9]{1,3}){3} )?country=[A-Z]{2}$' <<<"$out" | tail -n 1 || true)
+  if [ -n "$exit_line" ]; then
+    country=${exit_line##*country=}
+    ip=$(sed -n 's/^BB_PROXY_EXIT ip=\([0-9.]*\) .*/\1/p' <<<"$exit_line")
+    if [ "$country" = BR ]; then
+      say "      saída vista de dentro do contêiner: IP ${ip:-?}, país $country (proxy residencial ok)"
+    else
+      say "      PAÍS ERRADO: a saída do contêiner é ${ip:-?} ($country), não BR. Confira /bb-srv/proxy/egress com o dono (README, seção 16); o alarme bb-srv-$sector-egress-proxy fica em ALARM."
+    fi
+  else
+    say "      PROXY SEM RESPOSTA: o contêiner não saiu pelo proxy (encaminhador parado, senha errada ou proxy fora do ar). Veja as linhas BB_PROXY_HEALTH acima e o README, seção 16."
+  fi
+  if grep -qx 'BB_PROXY_DIRECT OPEN' <<<"$out"; then
+    say "      SAÍDA DIRETA ABERTA: o contêiner alcança a internet sem o proxy. O firewall de falha fechada não está ativo: rode o bb-srv-ProxyReload (README, seção 16) e investigue."
+  elif grep -qx 'BB_PROXY_DIRECT blocked' <<<"$out"; then
+    say "      saída direta bloqueada: sem o proxy nada sai (falha fechada)"
+  fi
+}

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Mostra o estado da estrutura: stacks compartilhadas, delegação DNS, Signal e cada setor (VM, SSM,
-# imagem, idade do último snapshot, alarmes em ALARM). Só leituras.
-# Com <setor> --deep, roda também o documento bb-srv-Status no host (só leitura do host).
+# Mostra o estado da estrutura: stacks compartilhadas, delegação DNS, Signal, o parâmetro do proxy de
+# saída (só a existência) e cada setor (VM, SSM, imagem, saída, idade do último snapshot, alarmes em
+# ALARM). Só leituras.
+# Com <setor> --deep, roda também o documento bb-srv-Status no host (só leitura do host) e diz o IP e o
+# país de saída vistos de DENTRO do contêiner, ou que o proxy falta ou o país está errado.
 #
 # Uso: scripts/status.sh [setor] [--deep]
 set -euo pipefail
@@ -13,7 +15,7 @@ deep=0
 while [ "$#" -gt 0 ]; do
   case $1 in
     --deep) deep=1 ; shift ;;
-    -h | --help) sed -n '2,6p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,8p' "$0"; exit 0 ;;
     -*) die "opção desconhecida: $1" ;;
     *) only=$1 ; shift ;;
   esac
@@ -24,9 +26,16 @@ done
 bb_check_access
 
 say "== compartilhado"
-for stack in bb-srv-dns bb-srv-base bb-srv-ops bb-srv-signal; do
+for stack in bb-srv-dns bb-srv-base bb-srv-ops bb-srv-proxy bb-srv-signal; do
   printf '   %-16s %s\n' "$stack" "$(stack_status "$stack")"
 done
+# Só a existência e o tipo (describe-parameters); o valor nunca é lido aqui.
+case $(proxy_parameter_type) in
+  SecureString) printf '   proxy de saída   %s existe (SecureString)\n' "$BB_PROXY_PARAMETER" ;;
+  None | '') printf '   proxy de saída   FALTA %s: nenhum setor novo é criado (README, seção 16)\n' "$BB_PROXY_PARAMETER" ;;
+  erro) printf '   proxy de saída   não conferido (sem permissão de ssm:DescribeParameters?)\n' ;;
+  *) printf '   proxy de saída   %s NÃO é SecureString: grave de novo como SecureString (README, seção 16)\n' "$BB_PROXY_PARAMETER" ;;
+esac
 
 if [ "$(stack_status bb-srv-dns)" != NONE ]; then
   zone=$(stack_output bb-srv-dns HostedZoneName)
@@ -104,6 +113,9 @@ for sector in $sectors; do
     image="(não instalada: scripts/add-sector.sh $sector --resume)"
   fi
   protection=$(stack_parameter "$stack" TerminationProtection 2>/dev/null || echo None)
+  # Sem o parâmetro (stack anterior ao proxy) vale o proxy obrigatório, como no host.
+  egress=$(stack_parameter "$stack" EgressProxy 2>/dev/null || echo None)
+  [ "$egress" = direct ] || egress=required
   last=$(aws_cb ec2 describe-snapshots --owner-ids self --filters "Name=tag:Sector,Values=$sector" \
     --query 'sort_by(Snapshots,&StartTime)[-1].StartTime' --output text 2>/dev/null || echo None)
   if [ "$last" != None ] && [ -n "$last" ]; then
@@ -117,9 +129,12 @@ for sector in $sectors; do
   say "   $sector [$status]"
   say "      VM $instance $state $type $zone IP ${ip:-sem IP} | SSM $ping | proteção contra término: $protection"
   say "      imagem em uso: $image"
+  say "      saída do contêiner: $([ "$egress" = direct ] && echo 'DIRETA, sem o proxy (EgressProxy=direct, decisão do dono)' || echo 'só pelo proxy residencial (falha fechada)')"
   say "      último snapshot: $age | alarmes em ALARM: ${alarms:-nenhum}"
   if [ "$deep" = 1 ]; then
     [ "$ping" = Online ] || die "a instância não está Online no SSM."
-    ssm_run "$instance" bb-srv-Status '{}' 180
+    ssm_run "$instance" bb-srv-Status '{}' 300
+    say "   $sector: proxy de saída visto de dentro do contêiner"
+    proxy_verdict "$SSM_OUTPUT" "$sector" "$egress"
   fi
 done

@@ -314,7 +314,7 @@ h_sector() {
 }
 export -f h_sector
 sector_env() {
-  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE bb-srv-ops=CREATE_COMPLETE bb-srv-signal=CREATE_COMPLETE ${EXTRA_STACKS:-}" \
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE bb-srv-ops=CREATE_COMPLETE bb-srv-proxy=CREATE_COMPLETE bb-srv-signal=CREATE_COMPLETE ${EXTRA_STACKS:-}" \
     FAKE_PARAM_Size=large FAKE_OUTPUT_InstanceId=i-0123456789abcdef0 "$@"
 }
 export EXTRA_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE bb-srv-piloto-data=CREATE_COMPLETE"
@@ -350,6 +350,7 @@ h_resume() {
     "ec2 describe-instances") echo running ;;
     "ec2 describe-volumes") echo 40 ;;
     "ssm describe-instance-information") echo Online ;;
+    "ssm describe-parameters") echo SecureString ;;
     *) return 1 ;;
   esac
 }
@@ -537,6 +538,239 @@ if [ -z "$dlm_scripts" ] && [ "$(grep -c 'Type: AWS::DLM::LifecyclePolicy' templ
   passed=$((passed + 1)); printf 'ok     %s\n' "E3 cada política do DLM tem scripts em no máximo um agendamento"
 else
   bad "E3 cada política do DLM tem scripts em no máximo um agendamento" "políticas com mais de um agendamento com scripts: $dlm_scripts"
+fi
+
+# ---------------------------------------------------------------- F: proxy de saída residencial (README, seção 16)
+# Valores falsos (TEST-NET): o valor real de /bb-srv/proxy/egress nunca entra em teste, log ou commit.
+ok_case() {
+  passed=$((passed + 1))
+  printf 'ok     %s\n' "$1"
+}
+file_mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
+
+# A ferramenta do host, extraída do documento bb-srv-ProxySetup exatamente como o host a grava (o
+# heredoc 'BBSRVPROXY', sem a indentação do YAML). Aqui rodam só os modos sem efeito no sistema.
+TOOL=$WORK/bb-srv-proxy
+awk -v m=BBSRVPROXY '
+  !on && index($0, "<<\047" m "\047") { on = 1; match($0, /^ */); ind = RLENGTH; next }
+  on { line = $0; if (substr(line, 1, ind) ~ /^ *$/) line = substr(line, ind + 1); if (line == m) exit; print line }
+' templates/proxy.yaml >"$TOOL"
+if [ "$(head -n 1 "$TOOL")" = '#!/bin/bash' ] && grep -q '^case \${1:-} in$' "$TOOL" && bash -n "$TOOL" &&
+  { ! command -v shellcheck >/dev/null || shellcheck -s bash "$TOOL"; }; then
+  ok_case "F0 a ferramenta bb-srv-proxy (templates/proxy.yaml) sai inteira do YAML e passa em bash -n e shellcheck"
+else
+  bad "F0 a ferramenta bb-srv-proxy sai inteira do YAML e passa em bash -n e shellcheck"
+fi
+
+# parse: host:porta:usuário:senha (só os três primeiros ":" separam) -> configuração do tinyproxy, 0600.
+UPSTREAM_T=$WORK/upstream.conf
+expect_upstream() { # <nome> <valor> <linha Upstream esperada>
+  local msg status
+  rm -f "$UPSTREAM_T"
+  msg=$(printf '%s' "$2" | bash "$TOOL" parse "$UPSTREAM_T" 2>&1)
+  status=$?
+  if [ "$status" = 0 ] && [ -z "$msg" ] && grep -qxF "$3" "$UPSTREAM_T" && grep -qx 'Listen 172.30.0.1' "$UPSTREAM_T" &&
+    grep -qx 'Allow 172.30.0.0/16' "$UPSTREAM_T" && grep -qx 'LogLevel Warning' "$UPSTREAM_T" &&
+    grep -qx 'ConnectPort 443' "$UPSTREAM_T" && [ "$(grep -c '^Upstream ' "$UPSTREAM_T")" = 1 ] &&
+    [ "$(file_mode "$UPSTREAM_T")" = 600 ]; then
+    ok_case "$1"
+  else
+    bad "$1 (status $status, modo $(file_mode "$UPSTREAM_T" 2>/dev/null))" "$msg"
+  fi
+}
+# <nome> <valor> <texto esperado>: recusa, mensagem sem nenhuma parte do valor, arquivo anterior intacto
+# e nenhum temporário deixado para trás.
+expect_upstream_refused() {
+  local msg status secret
+  printf 'anterior\n' >"$UPSTREAM_T"
+  msg=$(printf '%s' "$2" | bash "$TOOL" parse "$UPSTREAM_T" 2>&1)
+  status=$?
+  secret=''
+  case $msg in *s3cr3t-Pa55* | *demo-user* | *203.0.113.10*) secret=1 ;; esac
+  if [ "$status" != 0 ] && grep -qF -- "$3" <<<"$msg" && [ -z "$secret" ] && [ "$(cat "$UPSTREAM_T")" = anterior ] &&
+    [ -z "$(find "$WORK" -maxdepth 1 -name 'upstream.conf.*' -print -quit)" ]; then
+    ok_case "$1"
+  else
+    bad "$1 (status $status)" "$msg"
+  fi
+}
+expect_upstream "F1 parse aceita host:porta:usuário:senha (IPv4 público)" \
+  '203.0.113.10:8080:demo-user:demo-pass' 'Upstream http demo-user:demo-pass@203.0.113.10:8080'
+expect_upstream "F1 parse mantém os ':' da senha (só os três primeiros separam)" \
+  'proxy.example.net:12321:demo-user:pa:ss:wo:rd' 'Upstream http demo-user:pa:ss:wo:rd@proxy.example.net:12321'
+expect_upstream_refused "F1 parse recusa valor com três partes" '203.0.113.10:8080:demo-user' "four parts"
+expect_upstream_refused "F1 parse recusa valor vazio" '' "is empty"
+expect_upstream_refused "F1 parse recusa valor de duas linhas" $'203.0.113.10:8080:demo-user:s3cr3t-Pa55\nx' "more than one line"
+expect_upstream_refused "F1 parse recusa porta 0" '203.0.113.10:0:demo-user:s3cr3t-Pa55' "the port"
+expect_upstream_refused "F1 parse recusa porta 65536" '203.0.113.10:65536:demo-user:s3cr3t-Pa55' "the port"
+expect_upstream_refused "F1 parse recusa porta não numérica" '203.0.113.10:80a:demo-user:s3cr3t-Pa55' "the port"
+expect_upstream_refused "F1 parse recusa host privado (10/8)" '10.0.0.5:8080:demo-user:s3cr3t-Pa55' "the host"
+expect_upstream_refused "F1 parse recusa o IMDS como host" '169.254.169.254:80:demo-user:s3cr3t-Pa55' "the host"
+expect_upstream_refused "F1 parse recusa localhost" 'localhost:8080:demo-user:s3cr3t-Pa55' "the host"
+expect_upstream_refused "F1 parse recusa host com espaço" 'proxy example.net:8080:demo-user:s3cr3t-Pa55' "the host"
+expect_upstream_refused "F1 parse recusa IPv6 (o tinyproxy não o aceita no Upstream)" '[2001:db8::1]:8080:demo-user:s3cr3t-Pa55' "the host"
+expect_upstream_refused "F1 parse recusa usuário vazio" '203.0.113.10:8080::s3cr3t-Pa55' "the user"
+expect_upstream_refused "F1 parse recusa usuário com @" '203.0.113.10:8080:demo@user:s3cr3t-Pa55' "the user"
+expect_upstream_refused "F1 parse recusa senha vazia" '203.0.113.10:8080:demo-user:' "the password"
+expect_upstream_refused "F1 parse recusa senha com @ (o tinyproxy corta no @)" '203.0.113.10:8080:demo-user:s3cr3t@Pa55' "cannot contain @"
+expect_upstream_refused "F1 parse recusa senha com espaço" '203.0.113.10:8080:demo-user:s3cr3t Pa55' "the password"
+expect_upstream_refused "F1 parse recusa valor com mais de 700 caracteres" "203.0.113.10:8080:demo-user:$(hex64 a)$(hex64 b)$(hex64 c)$(hex64 d)$(hex64 e)$(hex64 f)$(hex64 1)$(hex64 2)$(hex64 3)$(hex64 4)$(hex64 5)" "longer than 700"
+
+# classify: a linha de saúde tem o país, nunca um endereço.
+expect_classify() { # <nome> <rc do curl> <código CONNECT> <resposta> <linha esperada>
+  local out
+  out=$(printf '%b' "$4" | bash "$TOOL" classify "$2" "$3" 2>&1)
+  if [ "$out" = "$5" ] && ! grep -q '198\.51\.100' <<<"$out"; then ok_case "$1"; else bad "$1" "$out"; fi
+}
+expect_classify "F2 saúde: resposta do Brasil vira 'ok BR' (sem o IP)" 0 200 'fl=1\nip=198.51.100.7\nloc=BR\n' "ok BR"
+expect_classify "F2 saúde: outro país vira 'ok US' (o alarme só conta BR)" 0 200 'ip=198.51.100.7\nloc=US\n' "ok US"
+expect_classify "F2 saúde: senha recusada pelo proxy vira 'fail connect-407'" 56 407 '' "fail connect-407"
+expect_classify "F2 saúde: encaminhador fora vira 'fail forwarder-unreachable'" 7 000 '' "fail forwarder-unreachable"
+expect_classify "F2 saúde: tempo esgotado vira 'fail timeout'" 28 000 '' "fail timeout"
+expect_classify "F2 saúde: resposta sem país vira 'fail no-country'" 0 200 'ip=198.51.100.7\n' "fail no-country"
+
+# rules: falha fechada. Com o proxy, o contêiner só sai para o Signal/TURN; o resto cai no DROP final.
+rules_proxy=$(bash "$TOOL" rules proxy 203.0.113.7 10.0.0.1 2>&1)
+if grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p tcp -m multiport --dports 443,3478,5349 -j RETURN' <<<"$rules_proxy" &&
+  grep -qxF -- '-A BB-SRV-EGRESS -d 203.0.113.7/32 -p udp -m multiport --dports 3478,49152:65535 -j RETURN' <<<"$rules_proxy" &&
+  grep -qxF -- '-A BB-SRV-INPUT -d 172.30.0.1/32 -p tcp -m tcp --dport 3128 -j ACCEPT' <<<"$rules_proxy" &&
+  grep -qxF -- '-A BB-SRV-INPUT -d 172.30.0.1/32 -p udp -m udp --dport 53 -j ACCEPT' <<<"$rules_proxy" &&
+  [ "$(tail -n 1 <<<"$rules_proxy")" = '-A BB-SRV-EGRESS -j DROP' ] && ! grep -q '10\.0\.0\.1' <<<"$rules_proxy" &&
+  [ "$(grep -c -- '-j RETURN$' <<<"$rules_proxy")" = 2 ]; then
+  ok_case "F3 firewall com proxy: só o encaminhador, o DNS do host e o Signal/TURN; DROP no fim; IP privado ignorado"
+else
+  bad "F3 firewall com proxy" "$rules_proxy"
+fi
+rules_direct=$(bash "$TOOL" rules direct 203.0.113.7 2>&1)
+if ! grep -q 'BB-SRV-EGRESS\|--dport 3128' <<<"$rules_direct" && grep -q -- '--dport 53 -j ACCEPT' <<<"$rules_direct"; then
+  ok_case "F3 firewall sem proxy (decisão do dono): sem DROP próprio nem encaminhador, só o DNS do host"
+else
+  bad "F3 firewall sem proxy" "$rules_direct"
+fi
+
+# env: o que o contêiner recebe (env_file do compose.yaml). Sem usuário nem senha.
+in_list() { # <lista separada por vírgulas> <item>...: todos os itens estão na lista
+  local list=",$1," item
+  shift
+  for item in "$@"; do
+    case $list in *",$item,"*) ;; *) return 1 ;; esac
+  done
+}
+env_proxy=$(bash "$TOOL" env proxy bb-aws.example.com 203.0.113.7 2>&1)
+no_proxy_line=$(sed -n 's/^NO_PROXY=//p' <<<"$env_proxy")
+if grep -qx 'HTTPS_PROXY=http://172.30.0.1:3128' <<<"$env_proxy" && grep -qx 'https_proxy=http://172.30.0.1:3128' <<<"$env_proxy" &&
+  grep -qx 'ALL_PROXY=http://172.30.0.1:3128' <<<"$env_proxy" && grep -qx 'NODE_USE_ENV_PROXY=1' <<<"$env_proxy" &&
+  grep -q '^no_proxy=' <<<"$env_proxy" && ! grep -q '@' <<<"$env_proxy" &&
+  in_list "$no_proxy_line" localhost 127.0.0.1 ::1 10.0.0.0/8 169.254.0.0/16 signal.bb-aws.example.com \
+    turn.bb-aws.example.com 203.0.113.7; then
+  ok_case "F4 o contêiner recebe HTTP(S)_PROXY, ALL_PROXY, NODE_USE_ENV_PROXY=1 e NO_PROXY com loopback, privados e o Signal/TURN"
+else
+  bad "F4 variáveis do proxy no contêiner" "$env_proxy"
+fi
+if ! grep -q 'PROXY=' <<<"$(bash "$TOOL" env direct bb-aws.example.com 2>&1)"; then
+  ok_case "F4 setor sem proxy (decisão do dono): proxy.env sem variáveis"
+else
+  bad "F4 setor sem proxy: proxy.env sem variáveis"
+fi
+
+# add-sector: proxy obrigatório. Só describe-parameters (existência e tipo); o valor nunca é lido.
+h_proxy() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "ssm describe-parameters") [ "${FAKE_PROXY_TYPE:-SecureString}" != fail ] && echo "${FAKE_PROXY_TYPE:-SecureString}" ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_proxy
+EXTRA_STACKS='' expect_refusal "F5 add-sector recusa criar o setor sem /bb-srv/proxy/egress (antes de qualquer escrita)" \
+  "falta o parâmetro /bb-srv/proxy/egress" h_proxy sector_env FAKE_PROXY_TYPE=None bash scripts/add-sector.sh piloto --az a
+EXTRA_STACKS='' expect_calls "F5 add-sector confere o parâmetro só por describe-parameters (nunca get-parameter)" \
+  'ssm describe-parameters' 'ssm get-parameter|WRITE' h_proxy sector_env FAKE_PROXY_TYPE=None bash scripts/add-sector.sh piloto --az a
+EXTRA_STACKS='' expect_refusal "F5 add-sector recusa o parâmetro em texto puro (String)" "não SecureString" h_proxy \
+  sector_env FAKE_PROXY_TYPE=String bash scripts/add-sector.sh piloto --az a
+EXTRA_STACKS='' expect_refusal "F5 add-sector recusa quando não consegue conferir o parâmetro" "não consegui conferir" h_proxy \
+  sector_env FAKE_PROXY_TYPE=fail bash scripts/add-sector.sh piloto --az a
+EXTRA_STACKS='' expect_calls "F5 add-sector com o parâmetro SecureString segue para a cota (sem ler o valor)" \
+  'service-quotas get-service-quota' 'ssm get-parameter|WRITE' h_proxy sector_env bash scripts/add-sector.sh piloto --az a
+EXTRA_STACKS='' expect_refusal "F5 --egress-direct exige a confirmação digitada, mesmo com --yes" "a confirmação precisa de um terminal" h_proxy \
+  sector_env FAKE_PROXY_TYPE=None bash scripts/add-sector.sh piloto --az a --egress-direct --yes
+expect_refusal "F5 --resume não troca a saída do setor" "não troca a saída" h_proxy \
+  sector_env bash scripts/add-sector.sh piloto --resume --egress-direct
+EXTRA_STACKS='bb-srv-piloto-compute=CREATE_COMPLETE bb-srv-piloto-data=CREATE_COMPLETE' expect_refusal \
+  "F5 add-sector exige a stack bb-srv-proxy (documentos do proxy)" "bb-srv-proxy precisa existir" h_proxy \
+  env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE bb-srv-ops=CREATE_COMPLETE" bash scripts/add-sector.sh piloto --az a
+
+# status.sh --deep: o veredito sobre as linhas BB_PROXY_* do bb-srv-Status (saída que passa pelo contêiner).
+expect_verdict() { # <nome> <saída do bb-srv-Status> <EgressProxy> <texto esperado> [texto proibido]
+  local out
+  out=$(lib proxy_verdict "$2" piloto "$3" 2>&1)
+  if grep -qF -- "$4" <<<"$out" && { [ -z "${5:-}" ] || ! grep -qF -- "$5" <<<"$out"; }; then ok_case "$1"; else bad "$1" "$out"; fi
+}
+OK_LINES=$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=198.51.100.7 country=BR\nBB_PROXY_DIRECT blocked'
+expect_verdict "F6 status --deep mostra o IP e o país vistos de dentro do contêiner" "$OK_LINES" required "IP 198.51.100.7, país BR (proxy residencial ok)"
+expect_verdict "F6 status --deep diz que a saída direta está bloqueada" "$OK_LINES" required "saída direta bloqueada"
+expect_verdict "F6 status --deep avisa PAÍS ERRADO" "${OK_LINES/country=BR/country=US}" required "PAÍS ERRADO: a saída do contêiner é 198.51.100.7 (US)"
+expect_verdict "F6 status --deep avisa contêiner sem as variáveis do proxy" $'BB_PROXY_MODE proxy\nBB_PROXY_ENV missing\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked' \
+  required "PROXY AUSENTE NO CONTÊINER"
+expect_verdict "F6 status --deep avisa proxy sem resposta" $'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT fail\nBB_PROXY_DIRECT blocked' \
+  required "PROXY SEM RESPOSTA"
+expect_verdict "F6 status --deep avisa host sem o proxy instalado" 'BB_PROXY_MODE not-installed' required "PROXY AUSENTE: o host não tem"
+expect_verdict "F6 status --deep avisa SAÍDA DIRETA ABERTA" "${OK_LINES/blocked/OPEN}" required "SAÍDA DIRETA ABERTA"
+expect_verdict "F6 status --deep não repete linha forjada pelo contêiner" \
+  $'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=1.2.3.4;id country=BR\nBB_PROXY_DIRECT blocked' required "PROXY SEM RESPOSTA" "1.2.3.4;id"
+expect_verdict "F6 status --deep de setor sem proxy (decisão do dono) diz que está desligado" "$OK_LINES" direct "DESLIGADO neste setor"
+
+# Leituras estáticas dos templates: quem lê a credencial, o que o host liga e a ordem das coisas.
+static_fail=''
+check() { "$@" >/dev/null 2>&1 || static_fail="$static_fail | $*"; }
+# Só a role do setor (e o boundary dela) lê /bb-srv/proxy/*; o operador tem Deny; Signal e builder nada.
+check test "$(grep -c "parameter/bb-srv/proxy/\*'" templates/sector-compute.yaml)" = 4
+check test "$(grep -c "parameter/bb-srv/proxy/\*'" templates/base.yaml)" = 3
+check grep -q 'Sid: DenyProxyCredential' templates/base.yaml
+check grep -q "parameter/bb-srv/sectors/\*/egress'" templates/base.yaml
+check test "$(grep -c 'bb-srv/proxy' templates/signal.yaml)" = 0
+# O valor só é lido por bb-srv-proxy config (uma chamada com --with-decryption) e nunca no user data.
+check test "$(grep -c -- '--with-decryption' templates/proxy.yaml)" = 1
+check test "$(grep -c -- '--with-decryption' templates/ops.yaml)" = 0
+check test "$(grep -c 'with-decryption\|get-parameter' templates/sector-compute.yaml)" = 0
+check test "$(grep -cE '(^|[[:space:]])set -x' templates/proxy.yaml templates/ops.yaml | awk -F: '{ s += $2 } END { print s }')" = 0
+check test "$(grep -c '^ *Environment=' templates/proxy.yaml)" = 0
+# O encaminhador: usuário dinâmico, credencial por LoadCredential, reinício sempre, endurecido, sem IMDS.
+for line in 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' \
+  'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf' 'Restart=always' 'NoNewPrivileges=yes' 'ProtectSystem=strict' \
+  'PrivateTmp=yes' 'CapabilityBoundingSet=' 'IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16' \
+  'Requires=bb-srv-egress-guard.service' 'Before=docker.service'; do
+  check grep -qF "$line" templates/proxy.yaml
+done
+check grep -q "install -d -m 0700 -o root -g root \"\${UPSTREAM%/\*}\"" templates/proxy.yaml
+# bb-srv-Install: o proxy entra depois do setup do docker/instances e antes de qualquer contêiner.
+setup_line=$(grep -nF '"$I" setup' templates/ops.yaml | head -n 1 | cut -d: -f1)
+proxy_line=$(grep -nF 'name bb-srv-ProxySetup' templates/ops.yaml | head -n 1 | cut -d: -f1)
+create_line=$(grep -nF '"$I" create' templates/ops.yaml | head -n 1 | cut -d: -f1)
+check test "${setup_line:-0}" -gt 0
+check test "${proxy_line:-0}" -gt "${setup_line:-0}"
+check test "${create_line:-0}" -gt "${proxy_line:-0}"
+check grep -q "grep -qx 'BB_PROXY_DIRECT blocked'" templates/ops.yaml
+check grep -q "grep -qx 'BB_PROXY_EXIT country=BR'" templates/ops.yaml
+# O bootstrap: tinyproxy mascarado antes do apt (o pacote não sobe sozinho) e DNS do contêiner só no host.
+mask_line=$(grep -n 'systemctl mask tinyproxy.service' templates/sector-compute.yaml | cut -d: -f1)
+apt_line=$(grep -n 'ca-certificates tinyproxy$' templates/sector-compute.yaml | cut -d: -f1)
+check test "${mask_line:-0}" -gt 0
+check test "${apt_line:-0}" -gt "${mask_line:-0}"
+check grep -q '"dns": \["172.30.0.1"\]' templates/sector-compute.yaml
+check grep -q 'DNSStubListenerExtra=172.30.0.1' templates/sector-compute.yaml
+# Alarme: só "ok BR" conta; horário comercial trata falta de dado como o alarme de saúde; tópico de alertas.
+check grep -q "FilterPattern: '\"BB_PROXY_HEALTH ok BR\"'" templates/sector-compute.yaml
+check test "$(grep -c 'TreatMissingData: !If \[IsAlwaysOn, breaching, notBreaching\]' templates/sector-compute.yaml)" = 2
+check test "$(awk '/^  ProxyHealthAlarm:/ {on = 1} on && /^  [A-Za-z]+:$/ && !/ProxyHealthAlarm/ {on = 0} on' templates/sector-compute.yaml | grep -c 'bb-srv-base-AlertTopicArn\|Condition: UseEgressProxy')" = 2
+check grep -q -- '- bb-srv-ProxySetup' templates/sector-compute.yaml
+check grep -q -- '- bb-srv-ProxyReload' templates/sector-compute.yaml
+# Cada template cabe no --template-body (51.200 bytes).
+for template in templates/*.yaml; do check test "$(wc -c <"$template")" -lt 51200; done
+if [ -z "$static_fail" ]; then
+  ok_case "F7 templates: só o host lê a credencial, encaminhador endurecido, proxy antes do contêiner, alarme só com BR"
+else
+  bad "F7 templates do proxy de saída" "$static_fail"
 fi
 
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
