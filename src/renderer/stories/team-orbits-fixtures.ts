@@ -11,8 +11,8 @@ import type { OrbitAgentProfile, OrbitChannel, OrbitsViewInput } from "@openbot/
 
 /**
  * The signals of a busy workspace, as the sidebar and the load panel read them, for the Team panel
- * story and `scripts/team-orbits-smoke.ts`. The names and the states follow the approved mockup
- * (`v10-orbitas`). `orbitsView` turns them into the panel, as the app does.
+ * story and `scripts/team-orbits-smoke.ts`. The states follow the approved mockup (`v10-orbitas`);
+ * the names are neutral. `orbitsView` turns them into the panel, as the app does.
  */
 
 /** The fixed time of the fixtures, so the elapsed minutes do not change. */
@@ -35,26 +35,27 @@ const SONNET = "claude-sonnet-5-5";
 const HAIKU = "claude-haiku-5-5";
 
 export const ORBITS_AGENTS: OrbitAgentProfile[] = [
-  agent("lider-opus", "Lider Opus", "Líder", OPUS, 185),
-  agent("backend-ia-naia", "Backend IA Naia", "Backend", OPUS, 185),
-  agent("automacao-ia-naia", "Automação IA Naia", "Automação", SONNET, 185),
-  agent("front-naia", "Front Naia", "Frontend", OPUS, 185),
-  agent("front-fluxos-naia", "Front Fluxos Naia", "Frontend", OPUS, 185),
-  agent("design-advisor", "Design Advisor", "Design", SONNET, 185),
-  agent("qa-naia", "QA Naia", "QA", SONNET, 185),
-  agent("lider-seguranca", "Lider Segurança", "Líder", OPUS, 0),
+  agent("lider-produto", "Líder Produto", "Líder", OPUS, 185),
+  agent("backend", "Backend", "Backend", OPUS, 185),
+  agent("automacao", "Automação", "Automação", SONNET, 185),
+  agent("front", "Front", "Frontend", OPUS, 185),
+  agent("front-fluxos", "Front Fluxos", "Frontend", OPUS, 185),
+  agent("design", "Design", "Design", SONNET, 185),
+  agent("qa", "QA", "QA", SONNET, 185),
+  agent("lider-seguranca", "Líder Segurança", "Líder", OPUS, 0),
   agent("red-team", "Red Team", "Ataque", OPUS, 0),
-  agent("auditor-deps", "Auditor de dependências", "Auditoria", SONNET, 0),
-  agent("builder-studio", "builder studio", "Líder", OPUS, 215),
+  agent("auditor", "Auditor", "Auditoria", SONNET, 0),
+  agent("lider-release", "Líder Release", "Líder", OPUS, 215),
   agent("release-bot", "Release Bot", "Release", HAIKU, 215),
   agent("roteirista", "Roteirista", "Líder", OPUS, 280),
   agent("editor", "Editor", "Edição", SONNET, 280),
   agent("narrador", "Narrador", "Voz", HAIKU, 280),
   agent("triagem", "Triagem", "Líder", SONNET, 55),
-  agent("apontamentos", "Apontamentos da Vanessa", "Registro", HAIKU, 55),
-  agent("pesquisa-grok", "Pesquisa Grok", "Pesquisa", "grok-4.6", 100, "grok"),
-  agent("revisor-codex", "Revisor Codex", "Revisão", "gpt-6-luna", 150, "codex"),
-  agent("ocioso", "Arquivista", "Arquivo", HAIKU, null),
+  agent("registro", "Registro", "Registro", HAIKU, 55),
+  agent("pesquisa", "Pesquisa", "Pesquisa", "grok-4.6", 100, "grok"),
+  agent("revisor", "Revisor", "Revisão", "gpt-6-luna", 150, "codex"),
+  agent("tradutor", "Tradutor", "Tradução", "moonshotai/kimi-k3", 320, "openrouter"),
+  agent("arquivista", "Arquivista", "Arquivo", HAIKU, null),
 ];
 
 function channel(
@@ -85,49 +86,51 @@ function streaming(authorId: string, authorName: string, text: string): OrbitCha
 
 export const ORBITS_CHANNELS: OrbitChannel[] = [
   channel(
-    "naia",
-    "naia-novas-features",
-    "Naia",
-    "lider-opus",
-    ["backend-ia-naia", "automacao-ia-naia", "front-naia", "front-fluxos-naia", "design-advisor", "qa-naia"],
+    "produto",
+    "produto",
+    "Produto",
+    "lider-produto",
+    ["backend", "automacao", "front", "front-fluxos", "design", "qa"],
     {
       lastMessage: streaming(
-        "lider-opus",
-        "Lider Opus",
-        "Distribuí mais frentes para agilizar. O Front Naia assume o cadastro v2.1.",
+        "lider-produto",
+        "Líder Produto",
+        "Distribuí mais frentes para agilizar. O Front assume o cadastro v2.1.",
       ),
     },
   ),
-  channel("seguranca", "seguranca", "Segurança", "lider-seguranca", ["red-team", "auditor-deps"], {
+  channel("seguranca", "seguranca", "Segurança", "lider-seguranca", ["red-team", "auditor"], {
     lastMessage: streaming(
       "lider-seguranca",
-      "Lider Segurança",
+      "Líder Segurança",
       "Os três PRs passaram: #99 e #100 corrigiram o upload, #101 o CORS.",
     ),
   }),
-  channel("studio", "builders-studio", "Studio", "builder-studio", ["release-bot"]),
+  channel("release", "release", "Release", "lider-release", ["release-bot"]),
   channel("videos", "videos", "Vídeos", "roteirista", ["editor", "narrador"]),
-  channel("bugs", "bugs", "Bugs", "triagem", ["apontamentos"]),
-  channel("marketing", "marketing", "Marketing", "ocioso", [], { activeTasks: 0 }),
+  channel("bugs", "bugs", "Bugs", "triagem", ["registro"]),
+  channel("marketing", "marketing", "Marketing", "arquivista", [], { activeTasks: 0 }),
 ];
 
 export const ORBITS_LAYOUT: OrbitsViewInput["layout"] = {
   order: [SIDEBAR_PEOPLE_SECTION_ID, "times", "pessoal", SIDEBAR_UNASSIGNED_SECTION_ID],
   sections: [
-    { id: "times", name: "Times" },
+    // A coloured section: its channels still take the hue of their leads.
+    { id: "times", name: "Times", color: "#a855f7" },
     { id: "pessoal", name: "Pessoal" },
   ],
   agentAssignments: {
-    naia: "times",
+    produto: "times",
     seguranca: "times",
-    studio: "times",
+    release: "times",
     videos: "times",
     bugs: "times",
     marketing: "times",
-    "pesquisa-grok": "pessoal",
-    "revisor-codex": "pessoal",
+    pesquisa: "pessoal",
+    revisor: "pessoal",
+    tradutor: "pessoal",
   },
-  agentOrder: ["naia", "seguranca", "studio", "videos", "bugs", "marketing", "pesquisa-grok", "revisor-codex"],
+  agentOrder: ["produto", "seguranca", "release", "videos", "bugs", "marketing", "pesquisa", "revisor", "tradutor"],
 };
 
 let deliveryCount = 0;
@@ -164,17 +167,13 @@ function queue(agentId: string, deliveries: QueueDelivery[], holdChannel?: strin
 }
 
 export const ORBITS_QUEUES: Record<string, QueueSnapshot> = {
-  "backend-ia-naia": queue("backend-ia-naia", [], "naia"),
-  "automacao-ia-naia": queue("automacao-ia-naia", [], "naia"),
-  "auditor-deps": queue(
-    "auditor-deps",
-    [delivery("auditor-deps", "queued", { kind: "agent", agentId: "backend-ia-naia" })],
-    "seguranca",
-  ),
-  "design-advisor": queue("design-advisor", [delivery("design-advisor", "starting", { kind: "user" })]),
+  backend: queue("backend", [], "produto"),
+  automacao: queue("automacao", [], "produto"),
+  auditor: queue("auditor", [delivery("auditor", "queued", { kind: "agent", agentId: "backend" })], "seguranca"),
+  design: queue("design", [delivery("design", "starting", { kind: "user" })]),
   roteirista: queue("roteirista", [delivery("roteirista", "starting", { kind: "user" })]),
-  "release-bot": queue("release-bot", [], "studio"),
-  "builder-studio": queue("builder-studio", [], "studio"),
+  "release-bot": queue("release-bot", [], "release"),
+  "lider-release": queue("lider-release", [], "release"),
   editor: queue("editor", [delivery("editor", "queued", { kind: "agent", agentId: "roteirista" })], "videos"),
   triagem: queue("triagem", [], "bugs"),
 };
@@ -186,15 +185,18 @@ export const ORBITS_LOAD: LoadSnapshot = {
   providerProcesses: 9,
   lane: { enabled: false, order: [], running: [], queued: [] },
   running: [
-    run("backend-ia-naia", "Backend IA Naia", "naia", "Lado do servidor da v2.1 do cadastro em chat", 12),
-    run("automacao-ia-naia", "Automação IA Naia", "naia", "Retomar as 8 ferramentas do cadastro em chat", 31),
-    run("auditor-deps", "Auditor de dependências", "seguranca", "Varrendo 312 pacotes contra o cve.now", 7),
-    run("builder-studio", "builder studio", "studio", "Release 0.56.0", 18),
-    run("release-bot", "Release Bot", "studio", "Assinando o pacote do macOS", 4),
+    run("backend", "Backend", "produto", "Lado do servidor da v2.1 do cadastro em chat", 12),
+    run("automacao", "Automação", "produto", "Retomar as 8 ferramentas do cadastro em chat", 31),
+    run("auditor", "Auditor", "seguranca", "Varrendo 312 pacotes contra a base de CVEs", 7),
+    run("lider-release", "Líder Release", "release", "Release 1.4.0", 18),
+    run("release-bot", "Release Bot", "release", "Assinando o pacote do macOS", 4),
     run("editor", "Editor", "videos", "Montando a cena 3 de 9", 22),
     run("triagem", "Triagem", "bugs", "Contagem de citações: 9 tamanhos não batem", 9),
   ],
-  waiting: [{ agentId: "front-naia", agentName: "Front Naia" }],
+  waiting: [
+    { agentId: "front", agentName: "Front" },
+    { agentId: "tradutor", agentName: "Tradutor" },
+  ],
   stopped: [
     {
       channelId: "videos",
@@ -239,16 +241,17 @@ export const ORBITS_INPUT: OrbitsViewInput = {
       reason: "question",
       detail: "Posso rodar o teste de injeção no chat público agora?",
     },
-    "revisor-codex": { kind: "limited", resetsAt: Math.round(ORBITS_NOW / 1000) + 3 * 3600 },
+    revisor: { kind: "limited", resetsAt: Math.round(ORBITS_NOW / 1000) + 3 * 3600 },
   },
-  activeTurns: { "pesquisa-grok": "turn-grok" },
+  activeTurns: { pesquisa: "turn-pesquisa" },
   queues: ORBITS_QUEUES,
-  failedTurns: {},
-  recentReplies: { "front-fluxos-naia": true },
+  // An old failed turn: a still mark beside the work of its channel.
+  failedTurns: { qa: "turn-qa-old" },
+  recentReplies: { "front-fluxos": true },
   unreadReplies: {},
   turnSteps: {
     triagem: { turnId: "turn-triagem", detail: "Lendo o contador de citações" },
-    "pesquisa-grok": { turnId: "turn-grok", detail: "Buscando as notícias de hoje" },
+    pesquisa: { turnId: "turn-pesquisa", detail: "Buscando as notícias de hoje" },
   },
   load: ORBITS_LOAD,
 };
@@ -256,14 +259,45 @@ export const ORBITS_INPUT: OrbitsViewInput = {
 /** The same workspace on a joined server: no load, so no request titles, times or stopped tasks. */
 export const ORBITS_REMOTE_INPUT: OrbitsViewInput = { ...ORBITS_INPUT, load: null };
 
-/** A workspace where nothing runs. */
+/** A workspace where nothing runs. An old failed turn does not make its channel show. */
 export const ORBITS_QUIET_INPUT: OrbitsViewInput = {
   ...ORBITS_INPUT,
   channels: ORBITS_CHANNELS.map((entry) => ({ ...entry, activeTasks: 0, lastMessage: null })),
   waits: {},
   activeTurns: {},
   queues: {},
+  failedTurns: { qa: "turn-qa-old", narrador: "turn-narrador-old" },
   recentReplies: {},
   turnSteps: {},
   load: null,
+};
+
+const withoutKey = <T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> =>
+  Object.fromEntries(Object.entries(record).filter(([entry]) => entry !== key));
+
+/** The busy workspace after the Backend agent finished: its work left the load, and it has a reply. */
+export const ORBITS_BACKEND_DONE_INPUT: OrbitsViewInput = {
+  ...ORBITS_INPUT,
+  queues: withoutKey(ORBITS_QUEUES, "backend"),
+  recentReplies: { ...ORBITS_INPUT.recentReplies, backend: true },
+  load: { ...ORBITS_LOAD, running: ORBITS_LOAD.running.filter((work) => work.agentId !== "backend") },
+};
+
+/** The busy workspace after the Bugs channel and the Pesquisa agent stopped: their systems leave. */
+export const ORBITS_BUGS_GONE_INPUT: OrbitsViewInput = {
+  ...ORBITS_INPUT,
+  channels: ORBITS_CHANNELS.map((entry) => (entry.id === "bugs" ? { ...entry, activeTasks: 0 } : entry)),
+  queues: withoutKey(ORBITS_QUEUES, "triagem"),
+  activeTurns: {},
+  load: { ...ORBITS_LOAD, running: ORBITS_LOAD.running.filter((work) => work.agentId !== "triagem") },
+};
+
+/** Two agents of the Produto channel ask the person, while its lead writes a message. */
+export const ORBITS_TWO_ASK_INPUT: OrbitsViewInput = {
+  ...ORBITS_INPUT,
+  waits: {
+    ...ORBITS_INPUT.waits,
+    front: { kind: "waiting", reason: "approval", detail: "Posso apagar a pasta build antes do teste?" },
+    qa: { kind: "waiting", reason: "question", detail: "Rodo os testes de ponta a ponta agora?" },
+  },
 };

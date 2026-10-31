@@ -8,6 +8,7 @@ import {
   ORBITS_NOW,
   ORBITS_QUIET_INPUT,
   ORBITS_REMOTE_INPUT,
+  ORBITS_TWO_ASK_INPUT,
 } from "./team-orbits-fixtures";
 
 /**
@@ -48,12 +49,16 @@ export const Busy: Story = {};
 export const StoppedAgentCard: Story = { args: { initialSelectedId: "narrador" } };
 
 /** The card of an agent that waits for a free place. */
-export const WaitingAgentCard: Story = { args: { initialSelectedId: "front-naia" } };
+export const WaitingAgentCard: Story = { args: { initialSelectedId: "front" } };
 
 /** Only the Opus agents show at full strength. */
 export const OpusFilter: Story = { args: { initialFamily: "opus" } };
 
+/** Two agents of one channel ask the person: that channel shows one bubble, and the next one goes to another channel. */
+export const TwoAgentsAsk: Story = { args: { input: ORBITS_TWO_ASK_INPUT } };
+
 /** A joined server: no request titles, no times, no stopped channel tasks. */
 export const JoinedServer: Story = { args: { input: ORBITS_REMOTE_INPUT } };
 
+/** Nothing runs. Old failed turns do not make their channels show. */
 export const NothingRuns: Story = { args: { input: ORBITS_QUIET_INPUT } };
