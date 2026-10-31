@@ -125,7 +125,7 @@ Resources:
                     rm -f "$setup"
                     fail "could not read the document bb-srv-ProxySetup (stack bb-srv-proxy: scripts/deploy-base.sh)"
                   fi
-                  rc=0; bash "$setup" || rc=$?
+                  rc=0; bash "$setup" --from-install || rc=$?
                   rm -f "$setup"
                   [ "$rc" = 0 ] || fail "bb-srv-ProxySetup failed (message above)"
                   grep -qxF '    env_file: [/etc/bb-srv/proxy.env]' /srv/openbot-docker/instances/compose.yaml ||
@@ -165,20 +165,12 @@ Resources:
                   done
                   printf '%s\n' "$st"
                   [ -n "$st" ] || fail "openbot status did not answer: openbot-instance logs $S"
-                  # The proxy seen from inside the container. The output goes to CloudWatch: the country, no address.
+                  # The egress seen from the container (bb-srv-proxy verify; output to CloudWatch: the country, no
+                  # address): the proxy and Brazil, no direct path (an IP literal, from its network namespace), its
+                  # DNS only for signal./turn., and the Signal reached when the host reaches it. A leak stops the
+                  # container and keeps it stopped at boot until a check passes; any other failure stops the install.
                   if [ "$("$P" mode)" = proxy ]; then
-                    chk=$("$P" check-container --no-ip)
-                    printf '%s\n' "$chk"
-                    ! grep -qx 'BB_PROXY_CONTAINER down' <<<"$chk" || fail "the container is not running: openbot-instance logs $S"
-                    if grep -qx 'BB_PROXY_DIRECT OPEN' <<<"$chk"; then
-                      # Never leave running a container that leaves with the address of the VM.
-                      "$I" down "$S" || true
-                      fail "the container reached the internet without the proxy (egress firewall open): it was stopped"
-                    fi
-                    grep -qx 'BB_PROXY_DIRECT blocked' <<<"$chk" || fail "the direct-egress check of the container did not run"
-                    grep -qx 'BB_PROXY_ENV ok' <<<"$chk" || fail "the container did not get the proxy variables (env_file of compose.yaml)"
-                    grep -qx 'BB_PROXY_EXIT country=BR' <<<"$chk" ||
-                      fail "the container does not leave through the residential proxy in Brazil (BB_PROXY_EXIT above; tail /var/log/bb-srv/health.log)"
+                    "$P" verify || fail "the egress check of the container failed (BB_PROXY lines above)"
                     "$P" health
                   fi
                   systemctl enable --now bb-srv-health.timer

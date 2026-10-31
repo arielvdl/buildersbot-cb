@@ -7,12 +7,10 @@ Description: >-
   bb-srv-ProxyReload (after a password rotation). Deploy after bb-srv-ops.
 
 Resources:
-  # The script of this document runs inside bb-srv-Install (step 3), which reads it with
-  # ssm get-document: a separate stack because bb-srv-ops would pass the 51,200 bytes of --template-body
-  # (the same limit is why mainSteps use the compact sequence style here).
-  # Run on its own (send-command), it repairs an installed host the same way. No parameter, no secret:
-  # the host reads the credential with its own role, and it never reaches an output, an argument, the
-  # environment of a unit or a log.
+  # bb-srv-Install runs this script (step 3, ssm get-document); on its own (send-command) it repairs an
+  # installed sector. Its own stack, and compact mainSteps, for the 51,200 bytes of --template-body. No
+  # parameter, no secret: the host reads the credential with its role; it never reaches an output, an
+  # argument, the environment of a unit or a log.
   ProxySetupDocument:
     Type: AWS::SSM::Document
     Properties:
@@ -22,9 +20,8 @@ Resources:
       Content:
         schemaVersion: '2.2'
         description: >-
-          Builders Bot - install the egress proxy of this sector host: bb-srv-proxy, the local forwarder
-          (tinyproxy, bb-proxy.service), the fail-closed egress firewall of the container, the health
-          timer and the env_file of compose.yaml. Prints no secret.
+          Builders Bot - install or repair the egress proxy of this sector host (forwarder, DNS and
+          fail-closed firewall of the container, health timer, env_file). Prints no secret.
         mainSteps:
         - action: aws:runShellScript
           name: proxy_setup
@@ -42,26 +39,23 @@ Resources:
               [ -x /usr/sbin/dnsmasq ] || fail "dnsmasq-base is not installed (bootstrap of sector-compute.yaml): replace the VM (README, section 11)"
               S=$(cat /etc/bb-srv/sector)
               P=/usr/local/sbin/bb-srv-proxy
+              # ss <options> <address:port>: up to 30 s for the socket.
+              listens() { for _ in $(seq 1 30); do ss "$1" | awk -v a="$2" '$4 == a { f = 1 } END { exit !f }' && return 0; sleep 1; done; return 1; }
               cat >"$P" <<'BBSRVPROXY'
               #!/bin/bash
               # Egress proxy of the sector (README section 16). Written by bb-srv-ProxySetup; runs as root.
-              #   config           read /bb-srv/proxy/egress (SecureString host:port:user:password) with the role of
-              #                    the VM and write /etc/bb-proxy/upstream.conf (root 0600, folder 0700): the whole
-              #                    tinyproxy configuration, which bb-proxy.service gets through LoadCredential. When
-              #                    the read or the check fails, the previous file stays.
-              #   parse <file>     the same, from the value on standard input (tests)
-              #   sync-mode        /bb-srv/sectors/<sector>/egress -> /etc/bb-srv/egress (proxy unless "direct"),
-              #                    only while this VM has none: the egress changes only with a new VM
-              #   adopt-mode <file> <value>             that rule (tests)
-              #   mode             print proxy or direct
-              #   guard            the egress firewall of the container and of the forwarder (fail closed), proxy.env
-              #   rules <proxy|direct> <port|-> [ip...] print the rules of guard (tests)
-              #   upstream-port <file>                  the port of the Upstream line, never the rest (tests)
-              #   env <proxy|direct> <zone> [ip...]     print proxy.env (tests)
-              #   dns-unit <proxy|direct> <zone>        print the unit of the DNS of the container
-              #   health         one line "BB_PROXY_HEALTH ok <country>" or "... fail <reason>" in health.log
-              #   classify <curl exit> <CONNECT code>   the trace on standard input -> "ok <country>" or "fail <reason>"
-              #   check-container [--no-ip]             variables, exit IP and country seen from INSIDE the container
+              #   config     read /bb-srv/proxy/egress (SecureString host:port:user:password) with the role of the VM
+              #              into /etc/bb-proxy/upstream.conf (root 0600, folder 0700), the tinyproxy configuration that
+              #              bb-proxy.service gets by LoadCredential. A failed read or check keeps the previous file.
+              #   sync-mode  /bb-srv/sectors/<sector>/egress -> /etc/bb-srv/egress, only while this VM has none
+              #   mode       proxy or direct
+              #   guard      the egress firewall of the container and of the forwarder (fail closed), proxy.env
+              #   health     one line "BB_PROXY_HEALTH ok <country>" or "... fail <reason>" in health.log
+              #   check-container [--no-ip]   what the container sees: variables, exit, direct path, DNS, Signal
+              #   verify     check-container, then the verdict (judge); a leak stops the container
+              #   forwarder-unit, dns-unit <proxy|direct> <zone>   the systemd units
+              # For the tests, without effect on the host: parse <file> (config from standard input), adopt-mode,
+              # rules, upstream-port, env, classify, classify-direct, judge.
               # The value of the parameter never goes to the output, an argument, the environment or a log.
               set -euo pipefail
               export LC_ALL=C
@@ -79,6 +73,10 @@ Resources:
               ETC=/etc/bb-srv
               UPSTREAM=/etc/bb-proxy/upstream.conf
               TRACE=https://www.cloudflare.com/cdn-cgi/trace
+              DIRECT=https://1.1.1.1/cdn-cgi/trace
+              OUTSIDE=example.com
+              CONTAINED=/var/lib/bb-srv/egress-open
+              INSTANCE=/srv/openbot-docker/instances/openbot-instance
               AWS=/snap/bin/aws
 
               fail() {
@@ -221,16 +219,13 @@ Resources:
                 done
               }
 
-              # INPUT (traffic to the host): the DNS of the container always, the forwarder with the proxy; openbot-firewall
-              # drops the rest. DOCKER-USER (traffic that leaves): with the proxy, only our Signal and TURN; the
-              # rest is dropped, so nothing leaves directly when the proxy or the forwarder is down. OUTPUT of the
-              # forwarder (user bb-proxy): only the resolver of the host, its clients on the bridge and the port
-              # of the upstream, so a compromised tinyproxy (or one that skips its Upstream line) cannot become a
-              # direct proxy with the address of the VM.
+              # INPUT (to the host): the DNS of the container, and the forwarder with the proxy; openbot-firewall drops the
+              # rest. DOCKER-USER (leaving): with the proxy, only our Signal/TURN; nothing leaves when the proxy is down.
+              # OUTPUT of the forwarder (user bb-proxy): the resolver of the host, the bridge and the port of the upstream,
+              # so a compromised tinyproxy (or one that skips its Upstream line) is no direct proxy with the AWS address.
               rules() {
                 local m=${1:-} port=${2:-} ip
-                case $m in proxy | direct) ;; *) fail "usage: bb-srv-proxy rules <proxy|direct> <upstream port|-> [ip...]" ;; esac
-                [ "$#" -ge 2 ] || fail "usage: bb-srv-proxy rules <proxy|direct> <upstream port|-> [ip...]"
+                [[ $m =~ ^(proxy|direct)$ ]] && [ "$#" -ge 2 ] || fail "usage: bb-srv-proxy rules <proxy|direct> <upstream port|-> [ip...]"
                 shift 2
                 echo "-A $IN_CHAIN -d $GATEWAY/32 -p udp -m udp --dport 53 -j ACCEPT"
                 echo "-A $IN_CHAIN -d $GATEWAY/32 -p tcp -m tcp --dport 53 -j ACCEPT"
@@ -265,12 +260,25 @@ Resources:
                   END { exit !(o && (!t || o < t)) }'
               }
 
+              # Our accepts before the DROP of openbot-firewall, our chain before any RETURN of Docker, the chain of the
+              # forwarder first in OUTPUT (proxy, uid $2); none of our jumps (direct).
+              placed() {
+                before INPUT "-A INPUT -i $BRIDGE -j $IN_CHAIN" "^-A INPUT -i $BRIDGE -j DROP\$" || return 1
+                if [ "$1" = proxy ]; then
+                  before DOCKER-USER "-A DOCKER-USER -i $BRIDGE -j $OUT_CHAIN" ' -j RETURN$' &&
+                    [ "$(iptables -S OUTPUT | grep '^-A ' | head -n 1)" = "-A OUTPUT -m owner --uid-owner $2 -j $FWD_CHAIN" ]
+                else
+                  ! iptables -C DOCKER-USER -i "$BRIDGE" -j "$OUT_CHAIN" 2>/dev/null && ! grep -q -- " -j $FWD_CHAIN\$" <<<"$(iptables -S OUTPUT)"
+                fi
+              }
+              drop_output() { { iptables -S OUTPUT | grep -- "$1" || true; } | while read -r -a line; do line[0]=-D; iptables "${line[@]}"; done; }
+
               # A hold rule of a guard run that died halfway (ours, marked), or the unmarked one of openbot-firewall.
               marked_hold() { grep -q -- "--comment $HOLD" <<<"$(iptables -S DOCKER-USER 2>/dev/null; iptables -S OUTPUT 2>/dev/null)"; }
               held() { marked_hold || grep -qx -- "-A DOCKER-USER -i $BRIDGE -j DROP" <<<"$(iptables -S DOCKER-USER 2>/dev/null)"; }
 
               guard() {
-                local m ips port uid desired current line chain placed=1
+                local m ips port uid desired current line chain ok=1
                 # One run at a time (the boot unit, the refresh timer, bb-srv-Install, bb-srv-ProxyReload).
                 exec 8>/run/bb-srv-proxy.lock
                 flock -w 120 8 || fail "another bb-srv-proxy guard holds /run/bb-srv-proxy.lock"
@@ -284,19 +292,11 @@ Resources:
                 iptables -N DOCKER-USER 2>/dev/null || true
                 for chain in "$IN_CHAIN" "$OUT_CHAIN" "$FWD_CHAIN"; do iptables -N "$chain" 2>/dev/null || true; done
                 current=$({ iptables -S "$IN_CHAIN"; iptables -S "$OUT_CHAIN"; iptables -S "$FWD_CHAIN"; } | grep '^-A ' || true)
-                # Our accepts before the DROP of openbot-firewall; our chain before any RETURN of Docker; the
-                # chain of the forwarder first in OUTPUT. A hold rule left behind is re-applied away.
-                before INPUT "-A INPUT -i $BRIDGE -j $IN_CHAIN" "^-A INPUT -i $BRIDGE -j DROP\$" || placed=0
-                if [ "$m" = proxy ]; then
-                  before DOCKER-USER "-A DOCKER-USER -i $BRIDGE -j $OUT_CHAIN" ' -j RETURN$' || placed=0
-                  [ "$(iptables -S OUTPUT | grep '^-A ' | head -n 1)" = "-A OUTPUT -m owner --uid-owner $uid -j $FWD_CHAIN" ] || placed=0
-                elif iptables -C DOCKER-USER -i "$BRIDGE" -j "$OUT_CHAIN" 2>/dev/null || grep -q -- " -j $FWD_CHAIN\$" <<<"$(iptables -S OUTPUT)"; then
-                  placed=0
-                fi
-                ! marked_hold || placed=0
-                if [ "$current" != "$desired" ] || [ "$placed" = 0 ]; then
-                  # Nothing from the containers is forwarded, and the forwarder sends nothing, while the rules
-                  # change. A failure leaves the hold rules; the next run removes them all.
+                # A hold rule left behind is re-applied away.
+                placed "$m" "$uid" || ok=0
+                ! marked_hold || ok=0
+                if [ "$current" != "$desired" ] || [ "$ok" = 0 ]; then
+                  # Nothing is forwarded from the containers, and the forwarder sends nothing, while the rules change.
                   iptables -I DOCKER-USER 1 -i "$BRIDGE" -m comment --comment "$HOLD" -j DROP
                   if [[ $uid =~ ^[0-9]+$ ]]; then iptables -I OUTPUT 1 -m owner --uid-owner "$uid" -m comment --comment "$HOLD" -j REJECT; fi
                   for chain in "$IN_CHAIN" "$OUT_CHAIN" "$FWD_CHAIN"; do iptables -F "$chain"; done
@@ -307,20 +307,13 @@ Resources:
                   iptables -I INPUT 1 -i "$BRIDGE" -j "$IN_CHAIN"
                   while iptables -D DOCKER-USER -i "$BRIDGE" -j "$OUT_CHAIN" 2>/dev/null; do :; done
                   [ "$m" = direct ] || iptables -I DOCKER-USER 2 -i "$BRIDGE" -j "$OUT_CHAIN"
-                  { iptables -S OUTPUT | grep -- " -j $FWD_CHAIN\$" || true; } | while read -r -a line; do
-                    line[0]=-D
-                    iptables "${line[@]}"
-                  done
+                  drop_output " -j $FWD_CHAIN\$"
                   [ "$m" = direct ] || iptables -I OUTPUT 1 -m owner --uid-owner "$uid" -j "$FWD_CHAIN"
                   while iptables -D DOCKER-USER -i "$BRIDGE" -m comment --comment "$HOLD" -j DROP 2>/dev/null; do :; done
-                  { iptables -S OUTPUT | grep -- "--comment $HOLD" || true; } | while read -r -a line; do
-                    line[0]=-D
-                    iptables "${line[@]}"
-                  done
+                  drop_output "--comment $HOLD"
                   echo "BB_PROXY guard applied ($m)"
                 fi
-                # IPv6: the openbot network is IPv4 only and the rules above are too. Locked anyway, so a
-                # link-local address never reaches the host or the internet around them.
+                # IPv6: the openbot network and the rules above are IPv4 only. Locked anyway (link-local to the host).
                 if [ -e /proc/net/if_inet6 ]; then
                   for chain in INPUT FORWARD; do
                     ip6tables -C "$chain" -i "$BRIDGE" -j DROP 2>/dev/null || ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP
@@ -335,8 +328,7 @@ Resources:
 
               env_lines() {
                 local m=${1:-} zone=${2:-} url="http://$GATEWAY:$PORT" bypass ip
-                case $m in proxy | direct) ;; *) fail "usage: bb-srv-proxy env <proxy|direct> <zone> [ip...]" ;; esac
-                [ "$#" -ge 2 ] || fail "usage: bb-srv-proxy env <proxy|direct> <zone> [ip...]"
+                [[ $m =~ ^(proxy|direct)$ ]] && [ "$#" -ge 2 ] || fail "usage: bb-srv-proxy env <proxy|direct> <zone> [ip...]"
                 shift 2
                 if [ "$m" = direct ]; then
                   echo "# Direct egress (EgressProxy=direct, decision of the owner): no proxy variables."
@@ -373,10 +365,35 @@ Resources:
                 fi
               }
 
-              # The DNS of the container: dnsmasq on the gateway of the bridge (the "dns" of daemon.json). With
-              # the proxy, only signal.<zone> and turn.<zone> go to the resolver of the host and every other name
-              # gets NXDOMAIN here: no query of the container reaches a resolver outside (no DNS tunnel, no
-              # leaked name). The proxy resolves the names of the sites. Direct egress: every name goes on.
+              # The sandbox of the forwarder and of the DNS of the container. SystemCallFilter=@system-service comes
+              # first: a deny list before it would turn the filter around.
+              sandbox() {
+                printf '%s\n' 'Restart=always' 'RestartSec=5' 'DynamicUser=yes' 'UMask=0077' 'NoNewPrivileges=yes' \
+                  'ProtectSystem=strict' 'ProtectHome=yes' 'PrivateTmp=yes' 'PrivateDevices=yes' 'ProtectKernelTunables=yes' \
+                  'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' 'ProtectControlGroups=yes' 'ProtectClock=yes' \
+                  'ProtectHostname=yes' 'ProtectProc=invisible' 'ProcSubset=pid' 'RestrictNamespaces=yes' 'RestrictRealtime=yes' \
+                  'RestrictSUIDSGID=yes' 'LockPersonality=yes' 'MemoryDenyWriteExecute=yes' 'SystemCallArchitectures=native' \
+                  'SystemCallFilter=@system-service' 'SystemCallErrorNumber=EPERM' 'LimitCORE=0'
+              }
+
+              # The forwarder: tinyproxy as bb-proxy (a static user, so the OUTPUT rule of guard follows it across
+              # restarts), the configuration by LoadCredential, no capability, no IMDS, no private range.
+              forwarder_unit() {
+                printf '%s\n' '[Unit]' 'Description=Builders Bot - egress forwarder of the container (tinyproxy to the residential proxy)' \
+                  'Wants=network-online.target' 'After=bb-proxy-config.service network-online.target docker.service' \
+                  'StartLimitIntervalSec=0' '[Service]' 'Type=simple' 'User=bb-proxy' 'Group=bb-proxy' \
+                  'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' 'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf'
+                sandbox
+                printf '%s\n' 'CapabilityBoundingSet=' 'AmbientCapabilities=' 'RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX' \
+                  'SystemCallFilter=~@privileged' "IPAddressAllow=localhost $SUBNET" \
+                  'IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16' \
+                  'LimitNOFILE=65536' 'TasksMax=1024' '[Install]' 'WantedBy=multi-user.target'
+              }
+
+              # The DNS of the container: dnsmasq on the gateway of the bridge (the "dns" of daemon.json). With the
+              # proxy, only signal./turn. of the zone go to the resolver of the host; every other name gets NXDOMAIN
+              # here, so no query reaches a resolver outside (no DNS tunnel, no leaked name). The proxy resolves the
+              # names of the sites. Direct egress: every name goes on.
               dns_unit() {
                 local m=${1:-} zone=${2:-} servers
                 case $m in proxy | direct) ;; *) fail "usage: bb-srv-proxy dns-unit <proxy|direct> <zone>" ;; esac
@@ -387,16 +404,12 @@ Resources:
                   servers=--server=127.0.0.53
                 fi
                 printf '%s\n' '[Unit]' 'Description=Builders Bot - DNS of the container on 172.30.0.1 (README section 16)' \
-                  'After=systemd-resolved.service' 'Before=docker.service' '[Service]' 'Type=simple' 'DynamicUser=yes' \
-                  "ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/dev/null --pid-file= --no-resolv --no-hosts --listen-address=$GATEWAY --bind-dynamic --cache-size=150 --dns-forward-max=50 $servers" \
-                  'Restart=always' 'RestartSec=5' 'AmbientCapabilities=CAP_NET_BIND_SERVICE' \
-                  'CapabilityBoundingSet=CAP_NET_BIND_SERVICE' 'NoNewPrivileges=yes' 'ProtectSystem=strict' 'ProtectHome=yes' \
-                  'PrivateTmp=yes' 'PrivateDevices=yes' 'ProtectKernelTunables=yes' 'ProtectKernelModules=yes' \
-                  'ProtectKernelLogs=yes' 'ProtectControlGroups=yes' 'ProtectClock=yes' 'ProtectHostname=yes' \
-                  'ProtectProc=invisible' 'ProcSubset=pid' 'RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK' \
-                  'RestrictNamespaces=yes' 'RestrictRealtime=yes' 'RestrictSUIDSGID=yes' 'LockPersonality=yes' \
-                  'MemoryDenyWriteExecute=yes' 'SystemCallArchitectures=native' 'SystemCallFilter=@system-service' \
-                  "IPAddressAllow=localhost $SUBNET" 'IPAddressDeny=any' 'LimitCORE=0' '[Install]' 'WantedBy=multi-user.target'
+                  'After=systemd-resolved.service' 'Before=docker.service' '[Service]' 'Type=simple' \
+                  "ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/dev/null --pid-file= --no-resolv --no-hosts --listen-address=$GATEWAY --bind-dynamic --cache-size=150 --dns-forward-max=50 $servers"
+                sandbox
+                printf '%s\n' 'AmbientCapabilities=CAP_NET_BIND_SERVICE' 'CapabilityBoundingSet=CAP_NET_BIND_SERVICE' \
+                  'RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK' "IPAddressAllow=localhost $SUBNET" 'IPAddressDeny=any' \
+                  '[Install]' 'WantedBy=multi-user.target'
               }
 
               classify() {
@@ -418,25 +431,77 @@ Resources:
                 esac
               }
 
+              # The direct path to an IP literal (no DNS on the way). OPEN when curl connected at all (time_connect > 0,
+              # even if TLS failed after it); blocked only without a connection (7) or on a timeout (28).
+              classify_direct() {
+                local rc=$1 tc=${2:-0}
+                if [ "$rc" = 0 ] || { [[ $tc =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk -v t="$tc" 'BEGIN { exit !(t > 0) }'; }; then
+                  echo OPEN
+                elif [ "$rc" = 7 ] || [ "$rc" = 28 ]; then
+                  echo blocked
+                elif [[ $rc =~ ^[0-9]{1,3}$ ]]; then
+                  echo "unknown rc=$rc"
+                else
+                  echo unknown
+                fi
+              }
+
+              # The PID of the running container; nothing when it does not run.
+              container_pid() {
+                local pid
+                pid=$(timeout 20 docker inspect "$1" 2>/dev/null | jq -r '.[0].State.Pid // 0' 2>/dev/null || true)
+                if [[ $pid =~ ^[1-9][0-9]*$ ]]; then echo "$pid"; fi
+              }
+
+              # A program of the host, as nobody, in the network of the container: the answer depends on the
+              # firewall, not on what the container has or fakes.
+              in_net() {
+                local pid=$1
+                shift
+                nsenter --net="/proc/$pid/ns/net" -- setpriv --reuid=65534 --regid=65534 --clear-groups --no-new-privs -- "$@"
+              }
+
+              direct_probe() {
+                local tc rc=0
+                tc=$(in_net "$1" curl -sS --noproxy '*' --connect-timeout 5 -m 10 -o /dev/null -w '%{time_connect}' "$DIRECT" 2>/dev/null) || rc=$?
+                classify_direct "$rc" "$tc"
+              }
+
+              # A name outside the zone resolves in the container only when its DNS leaks (getent: 2 = not found).
+              dns_filter() {
+                local rc=0
+                timeout 20 docker exec "$1" getent hosts "$OUTSIDE" >/dev/null 2>&1 || rc=$?
+                case $rc in 0) echo OPEN ;; 2) echo ok ;; *) echo "unknown rc=$rc" ;; esac
+              }
+
+              # signal.<zone> when the host resolves it (the Signal exists); nothing otherwise.
+              signal_name() {
+                local zone
+                zone=$(cat "$ETC/zone" 2>/dev/null || true)
+                if hostname_ok "$zone" && getent ahostsv4 "signal.$zone" >/dev/null 2>&1; then echo "signal.$zone"; fi
+              }
+
               # The rules of guard in place (proxy): our chains first and closed at the end.
               firewall_ok() {
-                local uid
-                uid=$(id -u "$PROXY_USER" 2>/dev/null || true)
-                before INPUT "-A INPUT -i $BRIDGE -j $IN_CHAIN" "^-A INPUT -i $BRIDGE -j DROP\$" &&
-                  before DOCKER-USER "-A DOCKER-USER -i $BRIDGE -j $OUT_CHAIN" ' -j RETURN$' &&
+                placed proxy "$(id -u "$PROXY_USER" 2>/dev/null || true)" &&
                   [ "$(iptables -S "$OUT_CHAIN" | tail -n 1)" = "-A $OUT_CHAIN -j DROP" ] &&
-                  [ "$(iptables -S OUTPUT | grep '^-A ' | head -n 1)" = "-A OUTPUT -m owner --uid-owner $uid -j $FWD_CHAIN" ] &&
                   [ "$(iptables -S "$FWD_CHAIN" | tail -n 1)" = "-A $FWD_CHAIN -j REJECT --reject-with icmp-port-unreachable" ]
               }
 
-              # Through the forwarder to a fixed public trace. The line has the country, never an address.
+              # One line per run, with the country and never an address. With the container running, from its network:
+              # the proxy (through INPUT and the bridge), its direct path and its DNS. A proven leak stops it (contain).
               health() {
-                local log=/var/log/bb-srv/health.log result body rc=0 code
+                local log=/var/log/bb-srv/health.log result='' body rc=0 code c pid sig direct dns
                 [ "$(mode)" = proxy ] || return 0
-                # Not in the middle of a guard run, which removes the chain for a moment.
+                # Not in the middle of a guard run, which changes the rules for a moment.
                 exec 8>/run/bb-srv-proxy.lock
                 flock -w 120 8 || true
-                if ! systemctl is-active --quiet bb-proxy.service; then
+                c=openbot-$(cat "$ETC/sector")
+                pid=$(container_pid "$c")
+                sig=$(signal_name)
+                if [ -e "$CONTAINED" ]; then
+                  result="fail contained"
+                elif ! systemctl is-active --quiet bb-proxy.service; then
                   result="fail forwarder-down"
                 elif [ "$(grep -c '^Upstream http ' "$UPSTREAM" 2>/dev/null || true)" != 1 ]; then
                   result="fail no-upstream"
@@ -444,8 +509,29 @@ Resources:
                   result="fail firewall-hold"
                 elif ! firewall_ok; then
                   result="fail firewall-open"
-                else
-                  body=$(curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                elif [ -n "$sig" ] && ! grep -q -- ' -j RETURN$' <<<"$(iptables -S "$OUT_CHAIN")"; then
+                  result="fail no-signal-rule"
+                elif [ -n "$pid" ]; then
+                  direct=$(direct_probe "$pid")
+                  dns=$(dns_filter "$c")
+                  if [ "$direct" = OPEN ]; then
+                    contain
+                    result="fail direct-open"
+                  elif [ "$dns" = OPEN ]; then
+                    contain
+                    result="fail dns-open"
+                  elif [ "$direct" != blocked ]; then
+                    result="fail direct-unknown"
+                  elif [ -n "$sig" ] && ! timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then
+                    result="fail container-dns"
+                  fi
+                fi
+                if [ -z "$result" ]; then
+                  if [ -n "$pid" ]; then
+                    body=$(in_net "$pid" curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                  else
+                    body=$(curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                  fi
                   code=$(awk '$1 == "BB_CONNECT" { c = $2 } END { print c }' <<<"$body")
                   result=$(classify "$rc" "${code:-000}" <<<"$body")
                 fi
@@ -453,12 +539,14 @@ Resources:
               }
 
               check_container() {
-                local c show_ip=1 body ip country rc=0
+                local c show_ip=1 body ip country rc=0 pid sig
                 [ "${1:-}" != --no-ip ] || show_ip=0
                 c=openbot-$(cat "$ETC/sector")
                 echo "BB_PROXY_MODE $(mode)"
                 [ "$(mode)" = proxy ] || return 0
-                if ! timeout 20 docker exec "$c" true 2>/dev/null; then
+                [ ! -e "$CONTAINED" ] || echo "BB_PROXY_CONTAINED yes"
+                pid=$(container_pid "$c")
+                if [ -z "$pid" ] || ! timeout 20 docker exec "$c" true 2>/dev/null; then
                   echo "BB_PROXY_CONTAINER down"
                   return 0
                 fi
@@ -481,11 +569,78 @@ Resources:
                 else
                   echo "BB_PROXY_EXIT fail"
                 fi
-                if timeout 25 docker exec "$c" curl -sS -m 10 --noproxy '*' -o /dev/null "$TRACE" 2>/dev/null; then
-                  echo "BB_PROXY_DIRECT OPEN"
-                else
-                  echo "BB_PROXY_DIRECT blocked"
+                echo "BB_PROXY_DIRECT $(direct_probe "$pid")"
+                echo "BB_PROXY_DNS_FILTER $(dns_filter "$c")"
+                # The two direct paths of the design: the DNS of signal./turn. and the Signal itself. Without a
+                # record of the Signal (no stack yet) there is nothing to test.
+                sig=$(signal_name)
+                if [ -z "$sig" ]; then
+                  printf '%s\n' "BB_PROXY_DNS skipped" "BB_PROXY_SIGNAL skipped"
+                  return 0
                 fi
+                if timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then echo "BB_PROXY_DNS ok"; else echo "BB_PROXY_DNS fail"; fi
+                if timeout 25 docker exec "$c" curl -sS -m 10 --noproxy '*' -o /dev/null "https://$sig/health/ready" 2>/dev/null; then
+                  echo "BB_PROXY_SIGNAL ok"
+                elif curl -sS -m 10 -o /dev/null "https://$sig/health/ready" 2>/dev/null; then
+                  echo "BB_PROXY_SIGNAL fail"
+                else
+                  echo "BB_PROXY_SIGNAL unreachable"
+                fi
+              }
+
+              line_in() { grep -qx -- "$1" <<<"$2"; }
+
+              # The lines of check-container -> ok, direct, down, leak <what> (stop the container) or fail <what>.
+              judge() {
+                local out
+                out=$(cat)
+                if line_in 'BB_PROXY_MODE direct' "$out"; then echo direct
+                elif line_in 'BB_PROXY_CONTAINER down' "$out"; then echo down
+                elif ! line_in 'BB_PROXY_DIRECT blocked' "$out"; then echo "leak direct"
+                elif ! line_in 'BB_PROXY_DNS_FILTER ok' "$out"; then echo "leak dns"
+                elif ! line_in 'BB_PROXY_ENV ok' "$out"; then echo "fail env"
+                elif line_in 'BB_PROXY_DNS fail' "$out"; then echo "fail dns"
+                elif line_in 'BB_PROXY_SIGNAL fail' "$out"; then echo "fail signal"
+                elif ! grep -qE '^BB_PROXY_EXIT (ip=[0-9.]+ )?country=BR$' <<<"$out"; then echo "fail exit"
+                else echo ok
+                fi
+              }
+
+              # Never leave running a container with a way out besides the proxy: stop it and keep it stopped at
+              # boot (drop-in of bb-srv-sector-up) until verify passes (bb-srv-Install or bb-srv-ProxySetup).
+              contain() {
+                local s
+                s=$(cat "$ETC/sector")
+                install -d -m 0755 "${CONTAINED%/*}"
+                : >"$CONTAINED"
+                systemctl disable --quiet bb-srv-sector-up.service 2>/dev/null || true
+                timeout 180 "$INSTANCE" down "$s" >/dev/null 2>&1 || timeout 90 docker stop "openbot-$s" >/dev/null 2>&1 || true
+              }
+
+              verify() {
+                local chk verdict
+                if [ "$(mode)" != proxy ]; then echo "BB_PROXY_VERIFY skipped (direct egress)"; return 0; fi
+                chk=$(check_container --no-ip)
+                printf '%s\n' "$chk"
+                verdict=$(judge <<<"$chk")
+                case $verdict in
+                  ok)
+                    rm -f "$CONTAINED"
+                    systemctl enable --quiet bb-srv-sector-up.service 2>/dev/null || true
+                    ! line_in 'BB_PROXY_SIGNAL unreachable' "$chk" ||
+                      echo "BB_PROXY warning: the Signal does not answer the host either (ports not approved yet, or it is down): nobody connects until it does" >&2
+                    echo "BB_PROXY_VERIFY ok"
+                    ;;
+                  leak*)
+                    contain
+                    fail "the container had a way out besides the proxy (${verdict#leak }, lines above): it was stopped, and stays stopped at boot until bb-srv-ProxySetup or bb-srv-Install passes this check (README section 16)"
+                    ;;
+                  down) fail "the container is not running: openbot-instance logs $(cat "$ETC/sector")" ;;
+                  "fail env") fail "the container did not get the proxy variables (env_file of compose.yaml)" ;;
+                  "fail dns") fail "the container does not resolve the Signal (bb-srv-container-dns, port 53 of $IN_CHAIN)" ;;
+                  "fail signal") fail "the host reaches the Signal and the container does not (no RETURN for it in $OUT_CHAIN?)" ;;
+                  *) fail "the container does not leave through the residential proxy in Brazil (BB_PROXY_EXIT above; tail /var/log/bb-srv/health.log)" ;;
+                esac
               }
 
               case ${1:-} in
@@ -508,18 +663,24 @@ Resources:
                   ;;
                 env) shift; env_lines "$@" ;;
                 dns-unit) shift; dns_unit "$@" ;;
+                forwarder-unit) forwarder_unit ;;
                 health) health ;;
                 classify)
                   [ "$#" -eq 3 ] || fail "usage: bb-srv-proxy classify <curl exit> <CONNECT code>"
                   classify "$2" "$3"
                   ;;
+                classify-direct)
+                  [ "$#" -eq 3 ] || fail "usage: bb-srv-proxy classify-direct <curl exit> <time_connect>"
+                  classify_direct "$2" "$3"
+                  ;;
                 check-container) shift; check_container "$@" ;;
-                *) fail "usage: bb-srv-proxy config|parse|sync-mode|mode|guard|rules|upstream-port|env|dns-unit|health|classify|check-container" ;;
+                judge) judge ;;
+                verify) verify ;;
+                *) fail "unknown mode '${1:-}': the modes are in the header of $0" ;;
               esac
               BBSRVPROXY
               chmod 0755 "$P"
-              # The guard runs before Docker at every boot, and Docker requires it: no container starts
-              # without the egress firewall. The refresh follows the address of signal./turn.
+              # The guard runs before Docker at every boot, and Docker requires it. The refresh follows signal./turn.
               cat >/etc/systemd/system/bb-srv-egress-guard.service <<'UNIT'
               [Unit]
               Description=Builders Bot - egress firewall of the container (proxy required, fail closed)
@@ -540,10 +701,12 @@ Resources:
               install -d -m 0755 /etc/systemd/system/docker.service.d
               printf '[Unit]\nRequires=bb-srv-egress-guard.service\nAfter=bb-srv-egress-guard.service\n' \
                 >/etc/systemd/system/docker.service.d/bb-srv-egress.conf
-              # The credential: read from SSM at every boot (and by bb-srv-ProxyReload), not at every restart
-              # of the forwarder; a failed read keeps the last file. Handed to tinyproxy through LoadCredential,
-              # readable by its user only. Nothing on a command line or in an environment variable. The
-              # guard after it follows a new port of the upstream.
+              # The sector starts at boot only with the egress firewall, and not after a leak stopped it.
+              install -d -m 0755 /etc/systemd/system/bb-srv-sector-up.service.d
+              printf '[Unit]\nRequires=bb-srv-egress-guard.service\nAfter=bb-srv-egress-guard.service\nConditionPathExists=!/var/lib/bb-srv/egress-open\n' \
+                >/etc/systemd/system/bb-srv-sector-up.service.d/bb-srv-egress.conf
+              # The credential, read from SSM at boot (and by bb-srv-ProxyReload), not at each restart of the forwarder;
+              # a failed read keeps the last file. The guard after it follows a new port of the upstream.
               cat >/etc/systemd/system/bb-proxy-config.service <<'UNIT'
               [Unit]
               Description=Builders Bot - read the egress proxy credential (SSM) for the forwarder
@@ -559,59 +722,10 @@ Resources:
               [Install]
               WantedBy=multi-user.target
               UNIT
-              # A static user (DynamicUser= takes it, with the same sandbox) so the OUTPUT rule of guard
-              # matches the forwarder across restarts.
+              # The forwarder (forwarder_unit in the tool). Its static user: DynamicUser= takes it with the same sandbox.
               getent passwd bb-proxy >/dev/null ||
                 useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin bb-proxy
-              cat >/etc/systemd/system/bb-proxy.service <<'UNIT'
-              [Unit]
-              Description=Builders Bot - egress forwarder of the container (tinyproxy to the residential proxy)
-              Wants=network-online.target
-              After=bb-proxy-config.service network-online.target docker.service
-              StartLimitIntervalSec=0
-              [Service]
-              Type=simple
-              DynamicUser=yes
-              User=bb-proxy
-              Group=bb-proxy
-              LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf
-              ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf
-              Restart=always
-              RestartSec=5
-              UMask=0077
-              NoNewPrivileges=yes
-              CapabilityBoundingSet=
-              AmbientCapabilities=
-              ProtectSystem=strict
-              ProtectHome=yes
-              PrivateTmp=yes
-              PrivateDevices=yes
-              ProtectKernelTunables=yes
-              ProtectKernelModules=yes
-              ProtectKernelLogs=yes
-              ProtectControlGroups=yes
-              ProtectClock=yes
-              ProtectHostname=yes
-              ProtectProc=invisible
-              ProcSubset=pid
-              RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-              RestrictNamespaces=yes
-              RestrictRealtime=yes
-              RestrictSUIDSGID=yes
-              LockPersonality=yes
-              MemoryDenyWriteExecute=yes
-              SystemCallArchitectures=native
-              SystemCallFilter=@system-service
-              SystemCallFilter=~@privileged
-              SystemCallErrorNumber=EPERM
-              IPAddressAllow=localhost 172.30.0.0/16
-              IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16
-              LimitCORE=0
-              LimitNOFILE=65536
-              TasksMax=1024
-              [Install]
-              WantedBy=multi-user.target
-              UNIT
+              "$P" forwarder-unit >/etc/systemd/system/bb-proxy.service
               printf '[Unit]\nDescription=Builders Bot - egress proxy health line\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/bb-srv-proxy health\n' \
                 >/etc/systemd/system/bb-proxy-health.service
               printf '[Unit]\nDescription=Builders Bot - egress proxy health line every 4 minutes\n[Timer]\nOnBootSec=4min\nOnUnitActiveSec=4min\nAccuracySec=15s\n[Install]\nWantedBy=timers.target\n' \
@@ -621,44 +735,29 @@ Resources:
               "$P" guard
               systemctl enable --quiet bb-srv-egress-guard.service
               systemctl start bb-srv-egress-guard.service
-              # The DNS of the container on 172.30.0.1 (dns_unit above). A host bootstrapped with the stub of
-              # systemd-resolved on that address (DNSStubListenerExtra, before dnsmasq) gives the port back.
+              # The DNS of the container (dns_unit). The stub of systemd-resolved once bootstrapped there gives the port back.
               if [ -e /etc/systemd/resolved.conf.d/bb-srv-containers.conf ]; then
                 rm -f /etc/systemd/resolved.conf.d/bb-srv-containers.conf
                 systemctl restart systemd-resolved
               fi
-              dnsu=$(mktemp /etc/systemd/system/bb-srv-container-dns.service.XXXXXX)
-              "$P" dns-unit "$("$P" mode)" "$(cat /etc/bb-srv/zone)" >"$dnsu"
-              chmod 0644 "$dnsu"
-              mv -f "$dnsu" /etc/systemd/system/bb-srv-container-dns.service
+              "$P" dns-unit "$("$P" mode)" "$(cat /etc/bb-srv/zone)" >/etc/systemd/system/bb-srv-container-dns.service
               systemctl daemon-reload
               systemctl enable --quiet bb-srv-container-dns.service
               systemctl restart bb-srv-container-dns.service
-              up=0
-              for _ in $(seq 1 30); do
-                if ss -Hlnu | awk '$4 == "172.30.0.1:53" { f = 1 } END { exit !f }'; then up=1; break; fi
-                sleep 1
-              done
-              [ "$up" = 1 ] || fail "the DNS of the container (bb-srv-container-dns.service) does not listen on 172.30.0.1:53: journalctl -u bb-srv-container-dns"
+              listens -Hlnu 172.30.0.1:53 || fail "the DNS of the container (bb-srv-container-dns.service) does not listen on 172.30.0.1:53: journalctl -u bb-srv-container-dns"
               if [ "$("$P" mode)" = proxy ]; then
                 "$P" config || fail "the egress proxy is required, and /bb-srv/proxy/egress could not be read or is not host:port:user:password (message above; no secret is printed)"
                 "$P" guard
                 systemctl enable --quiet bb-proxy-config.service bb-proxy.service bb-proxy-health.timer bb-srv-egress-refresh.timer
                 systemctl restart bb-proxy.service
                 systemctl start bb-proxy-health.timer bb-srv-egress-refresh.timer
-                up=0
-                for _ in $(seq 1 30); do
-                  if [ -n "$(ss -Hltn 'sport = :3128')" ]; then up=1; break; fi
-                  sleep 1
-                done
-                [ "$up" = 1 ] || fail "the forwarder (bb-proxy.service) does not listen on 172.30.0.1:3128: journalctl -u bb-proxy"
+                listens -Hltn 172.30.0.1:3128 || fail "the forwarder (bb-proxy.service) does not listen on 172.30.0.1:3128: journalctl -u bb-proxy"
               else
                 systemctl disable --now --quiet bb-proxy.service bb-proxy-config.service bb-proxy-health.timer bb-srv-egress-refresh.timer 2>/dev/null || true
                 echo "BB_PROXY direct egress for $S (EgressProxy=direct, decision of the owner)"
               fi
-              # docker/instances passes no environment to the container, so the bundle copy of compose.yaml
-              # gets an env_file next to container_name: /etc/bb-srv/proxy.env, which guard writes in both
-              # modes (comments only when direct). A compose.yaml of another shape stops here.
+              # docker/instances passes no environment to the container: the bundle copy of compose.yaml gets an env_file
+              # (/etc/bb-srv/proxy.env, written by guard in both modes) next to container_name. Another shape stops here.
               C=/srv/openbot-docker/instances/compose.yaml
               anchor='    container_name: openbot-${OPENBOT_NAME:?}'
               envline='    env_file: [/etc/bb-srv/proxy.env]'
@@ -669,11 +768,21 @@ Resources:
                 chmod 0644 "$tmpc"
                 mv -f "$tmpc" "$C"
               fi
+              # On its own (send-command; README section 16, "Reparar") on an installed sector: the container again with
+              # the new environment (recreated only when it changed), then the checks of bb-srv-Install (which passes
+              # --from-install and does both itself).
+              I=/srv/openbot-docker/instances/openbot-instance
+              if [ "${1:-}" != --from-install ] && [ -f /var/lib/bb-srv/installed ] && [ -f "/srv/openbot-docker/instances/$S.env" ]; then
+                "$I" up "$S" || fail "openbot-instance up $S failed: openbot-instance logs $S"
+                if [ "$("$P" mode)" = proxy ]; then
+                  "$P" verify || fail "the egress check of the container failed (lines above)"
+                  "$P" health
+                fi
+              fi
               echo "BB_PROXY_SETUP ok $S ($("$P" mode))"
 
-  # After a rotation of the password in /bb-srv/proxy/egress: read the credential again, restart the
-  # forwarder, re-apply the egress firewall and write one health line. The container keeps running;
-  # the egress mode of a sector changes only with a new VM (add-sector.sh --reattach).
+  # After a rotation of /bb-srv/proxy/egress: the credential again, the firewall, the forwarder and one health
+  # line that must be "ok BR". The container keeps running.
   ProxyReloadDocument:
     Type: AWS::SSM::Document
     Properties:
@@ -698,7 +807,7 @@ Resources:
               fail() { echo "BB_PROXY_RELOAD fail: $*" >&2; exit 1; }
               S=$(cat /etc/bb-srv/sector 2>/dev/null) || fail "this is not a bb-srv sector host"
               P=/usr/local/sbin/bb-srv-proxy
-              [ -x "$P" ] || fail "the egress proxy is not installed on this host: scripts/add-sector.sh $S --resume"
+              [ -x "$P" ] || fail "the egress proxy is not installed on this host: run bb-srv-ProxySetup (README section 16)"
               if [ "$("$P" mode)" = direct ]; then
                 echo "BB_PROXY_RELOAD ok $S: direct egress (EgressProxy=direct), nothing to reload"
                 exit 0
@@ -709,7 +818,10 @@ Resources:
               sleep 3
               systemctl is-active --quiet bb-proxy.service || fail "the forwarder did not start: journalctl -u bb-proxy (root on the host)"
               "$P" health
-              tail -n 1 /var/log/bb-srv/health.log
+              # The line just written (grep: not a BB_HEALTH line of the same moment). A wrong password ends here.
+              line=$(grep BB_PROXY_HEALTH /var/log/bb-srv/health.log | tail -n 1 || true)
+              echo "$line"
+              [[ $line == *"BB_PROXY_HEALTH ok BR" ]] || fail "the health line after the reload is not ok BR (README section 16, the table of lines)"
               echo "BB_PROXY_RELOAD ok $S"
 
 Outputs:

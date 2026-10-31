@@ -483,14 +483,17 @@ Resources:
             #    mount), and Docker requires that unit: it must wait for the mount at every boot.
             install -d /etc/systemd/system/openbot-firewall.service.d
             printf '[Unit]\nRequiresMountsFor=/srv/openbot-docker\n' >/etc/systemd/system/openbot-firewall.service.d/bb-srv-mount.conf
-            # The sector starts at every boot; a health line every 5 minutes.
+            # The sector starts at every boot, but only once bb-srv-Install finished on THIS VM (a disk that came
+            # with its .env, attach or restore, waits for it), and only with the egress firewall of
+            # bb-srv-ProxySetup: before that unit exists, Requires= fails the start. A health line every 5 minutes.
             cat >/etc/systemd/system/bb-srv-sector-up.service <<UNIT
             [Unit]
             Description=Start the Builders Bot instance of sector $SECTOR
-            Requires=docker.service
-            After=docker.service network-online.target
+            Requires=docker.service bb-srv-egress-guard.service
+            After=docker.service bb-srv-egress-guard.service network-online.target
             RequiresMountsFor=/srv
             ConditionPathExists=/srv/openbot-docker/instances/$SECTOR.env
+            ConditionPathExists=/var/lib/bb-srv/installed
             [Service]
             Type=oneshot
             RemainAfterExit=yes

@@ -629,6 +629,21 @@ expect_classify "F2 saúde: encaminhador fora vira 'fail forwarder-unreachable'"
 expect_classify "F2 saúde: tempo esgotado vira 'fail timeout'" 28 000 '' "fail timeout"
 expect_classify "F2 saúde: resposta sem país vira 'fail no-country'" 0 200 'ip=198.51.100.7\n' "fail no-country"
 
+# classify-direct: o teste de saída direta (curl a um IP literal, da rede do contêiner) só diz "blocked" sem
+# conexão (7) ou por tempo esgotado (28). Conectou (time_connect > 0) = aberto, mesmo com erro de TLS depois.
+expect_direct() { # <nome> <rc do curl> <time_connect> <esperado>
+  local out
+  out=$(bash "$TOOL" classify-direct "$2" "$3" 2>&1)
+  if [ "$out" = "$4" ]; then ok_case "$1"; else bad "$1" "$out"; fi
+}
+expect_direct "F2 saída direta: tempo esgotado sem conexão é 'blocked'" 28 0.000000 blocked
+expect_direct "F2 saída direta: conexão recusada é 'blocked'" 7 0.000000 blocked
+expect_direct "F2 saída direta: resposta é 'OPEN'" 0 0.031200 OPEN
+expect_direct "F2 saída direta: erro de TLS depois de conectar é 'OPEN'" 35 0.012000 OPEN
+expect_direct "F2 saída direta: tempo esgotado depois de conectar é 'OPEN'" 28 0.020000 OPEN
+expect_direct "F2 saída direta: erro de DNS não vale como bloqueio" 6 0.000000 "unknown rc=6"
+expect_direct "F2 saída direta: curl ausente não vale como bloqueio" 127 '' "unknown rc=127"
+
 # rules: falha fechada. Com o proxy, o contêiner só sai para o Signal/TURN; o resto cai no DROP final.
 rules_proxy=$(bash "$TOOL" rules proxy 12321 203.0.113.7 10.0.0.1 2>&1)
 egress_rules=$(grep -- '^-A BB-SRV-EGRESS ' <<<"$rules_proxy")
@@ -723,6 +738,23 @@ if ! bash "$TOOL" dns-unit proxy 'bb-aws.example.com/127.0.0.1 --address=/x' >/d
 else
   bad "F4 DNS do contêiner recusa zona inválida"
 fi
+# O encaminhador: usuário fixo (a regra de OUTPUT o segue), credencial por LoadCredential, sem core dump. O
+# filtro de syscalls começa pela lista permitida: um "~" antes inverteria o filtro.
+fwd_unit=$(bash "$TOOL" forwarder-unit 2>&1)
+fwd_ok=1
+for line in 'User=bb-proxy' 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' 'LimitCORE=0' \
+  'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf' 'Restart=always' 'CapabilityBoundingSet=' 'NoNewPrivileges=yes' \
+  'IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16' 'StartLimitIntervalSec=0'; do
+  grep -qxF -- "$line" <<<"$fwd_unit" || fwd_ok=0
+done
+[ "$(grep '^SystemCallFilter=' <<<"$fwd_unit" | cut -d= -f2 | tr '\n' ' ')" = '@system-service ~@privileged ' ] || fwd_ok=0
+[ "$(grep -m 1 '^SystemCallFilter=' <<<"$dns_proxy")" = 'SystemCallFilter=@system-service' ] || fwd_ok=0
+! grep -q 'Wants=bb-proxy-config' <<<"$fwd_unit" || fwd_ok=0
+if [ "$fwd_ok" = 1 ]; then
+  ok_case "F4 unidade do encaminhador: usuário bb-proxy, LoadCredential, sem core dump, filtro de syscalls na ordem certa"
+else
+  bad "F4 unidade do encaminhador" "$fwd_unit"
+fi
 
 # adopt-mode: a primeira resposta da stack fixa a saída da VM. Um "direct" depois (put-parameter, update da
 # stack) não abre o contêiner: a saída muda só com uma VM nova (--reattach).
@@ -792,6 +824,29 @@ expect_verdict "F6 status --deep não repete linha forjada pelo contêiner" \
   $'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT ip=1.2.3.4;id country=BR\nBB_PROXY_DIRECT blocked' required "PROXY SEM RESPOSTA" "1.2.3.4;id"
 expect_verdict "F6 status --deep de setor sem proxy (decisão do dono) diz que está desligado" "$OK_LINES" direct "DESLIGADO neste setor"
 
+# F9 judge: o veredito do bb-srv-Install e do bb-srv-ProxySetup sobre as linhas do check-container. Um
+# vazamento (saída direta não provada bloqueada, DNS que resolve nome de fora) para o contêiner.
+expect_judge() { # <nome> <linhas> <veredito esperado>
+  local out
+  out=$(printf '%s\n' "$2" | bash "$TOOL" judge 2>&1)
+  if [ "$out" = "$3" ]; then ok_case "$1"; else bad "$1" "$out"; fi
+}
+CHK_OK=$'BB_PROXY_MODE proxy\nBB_PROXY_ENV ok\nBB_PROXY_EXIT country=BR\nBB_PROXY_DIRECT blocked\nBB_PROXY_DNS_FILTER ok\nBB_PROXY_DNS ok\nBB_PROXY_SIGNAL ok'
+expect_judge "F9 tudo certo: ok" "$CHK_OK" ok
+expect_judge "F9 Signal ainda sem stack (DNS e Signal pulados): ok" \
+  "${CHK_OK/BB_PROXY_DNS ok/BB_PROXY_DNS skipped}"$'\n'"BB_PROXY_SIGNAL skipped" ok
+expect_judge "F9 Signal fora do alcance também do host (portas fechadas): ok, só aviso" "${CHK_OK/SIGNAL ok/SIGNAL unreachable}" ok
+expect_judge "F9 saída direta aberta: vazamento" "${CHK_OK/DIRECT blocked/DIRECT OPEN}" "leak direct"
+expect_judge "F9 saída direta não conferida (unknown): vazamento até prova" "${CHK_OK/DIRECT blocked/DIRECT unknown rc=6}" "leak direct"
+expect_judge "F9 sem a linha da saída direta: vazamento até prova" "${CHK_OK/BB_PROXY_DIRECT blocked/}" "leak direct"
+expect_judge "F9 DNS do contêiner resolve nome de fora: vazamento" "${CHK_OK/DNS_FILTER ok/DNS_FILTER OPEN}" "leak dns"
+expect_judge "F9 contêiner não resolve o Signal: falha" "${CHK_OK/BB_PROXY_DNS ok/BB_PROXY_DNS fail}" "fail dns"
+expect_judge "F9 host alcança o Signal e o contêiner não: falha" "${CHK_OK/SIGNAL ok/SIGNAL fail}" "fail signal"
+expect_judge "F9 contêiner sem as variáveis: falha" "${CHK_OK/ENV ok/ENV missing}" "fail env"
+expect_judge "F9 saída fora do Brasil: falha" "${CHK_OK/country=BR/country=US}" "fail exit"
+expect_judge "F9 contêiner parado" $'BB_PROXY_MODE proxy\nBB_PROXY_CONTAINER down' down
+expect_judge "F9 setor sem proxy (decisão do dono)" 'BB_PROXY_MODE direct' direct
+
 # Leituras estáticas dos templates: quem lê a credencial, o que o host liga e a ordem das coisas.
 static_fail=''
 check() { "$@" >/dev/null 2>&1 || static_fail="$static_fail | $*"; }
@@ -831,8 +886,21 @@ create_line=$(grep -nF '"$I" create' templates/ops.yaml | head -n 1 | cut -d: -f
 check test "${setup_line:-0}" -gt 0
 check test "${proxy_line:-0}" -gt "${setup_line:-0}"
 check test "${create_line:-0}" -gt "${proxy_line:-0}"
-check grep -q "grep -qx 'BB_PROXY_DIRECT blocked'" templates/ops.yaml
-check grep -q "grep -qx 'BB_PROXY_EXIT country=BR'" templates/ops.yaml
+# O Install roda o setup sem a parte de reparo (--from-install) e confere o contêiner pelo verify (judge acima).
+check grep -qF 'bash "$setup" --from-install' templates/ops.yaml
+check grep -qF '"$P" verify || fail' templates/ops.yaml
+check grep -qF 'if [ "${1:-}" != --from-install ] && [ -f /var/lib/bb-srv/installed ]' templates/proxy.yaml
+# O contêiner não sobe no boot sem o firewall, antes do fim do Install nesta VM, nem depois de um vazamento.
+check grep -qxF '            Requires=docker.service bb-srv-egress-guard.service' templates/sector-compute.yaml
+check grep -qxF '            ConditionPathExists=/var/lib/bb-srv/installed' templates/sector-compute.yaml
+check grep -qF 'ConditionPathExists=!/var/lib/bb-srv/egress-open' templates/proxy.yaml
+# A saúde testa de dentro da rede do contêiner e para o contêiner num vazamento provado.
+for reason in contained no-signal-rule direct-open dns-open direct-unknown container-dns; do
+  check grep -qF "result=\"fail $reason\"" templates/proxy.yaml
+done
+check grep -qF 'body=$(in_net "$pid" curl' templates/proxy.yaml
+# O SSM lê {{ ... }} como parâmetro do documento: nada disso nos scripts dos documentos.
+check test "$(grep -c '{{' templates/proxy.yaml)" = 0
 # O bootstrap: tinyproxy mascarado antes do apt (o pacote não sobe sozinho) e DNS do contêiner só no host.
 mask_line=$(grep -n 'systemctl mask tinyproxy.service' templates/sector-compute.yaml | cut -d: -f1)
 apt_line=$(grep -n 'ca-certificates tinyproxy dnsmasq-base$' templates/sector-compute.yaml | cut -d: -f1)
