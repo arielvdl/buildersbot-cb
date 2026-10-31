@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   bb-srv-ops - Builders Bot servers per sector: the shared SSM documents (install, upgrade, snapshot
-  hooks, reload of the egress proxy) and the DLM snapshot policies with their alarms. Deploy after
-  bb-srv-base.
+  hooks, reload and checks of the egress proxy) and the DLM snapshot policies with their alarms. Deploy
+  after bb-srv-base.
 
 Parameters:
   DailySnapshotRetentionDays:
@@ -391,6 +391,188 @@ Resources:
                   [[ $line == *"BB_PROXY_HEALTH ok BR" ]] || fail "the health line after the reload is not ok BR (README section 16, the table of lines)"
                   echo "BB_PROXY_RELOAD ok $S"
 
+  # The checks of the egress proxy tool (README section 16): health, check-container, judge, contain and verify of
+  # /usr/local/sbin/bb-srv-proxy. bb-srv-ProxySetup (stack bb-srv-proxy) reads this script and writes it after the
+  # rest of the tool, whose constants and functions it uses; it lives here for the 51,200 bytes of that template.
+  # Never sent: alone it only defines functions, and a send-command of it raises bb-srv-<sector>-command-other-doc.
+  ProxyChecksDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: bb-srv-ProxyChecks
+      DocumentType: Command
+      UpdateMethod: NewVersion
+      Content:
+        schemaVersion: '2.2'
+        description: >-
+          Builders Bot - the checks of the egress proxy tool, written into it by bb-srv-ProxySetup. Never sent:
+          alone it only defines functions.
+        mainSteps:
+          - action: aws:runShellScript
+            name: proxy_checks
+            precondition: {StringEquals: [platformType, Linux]}
+            inputs:
+              runCommand:
+                - |
+                  # Part of /usr/local/sbin/bb-srv-proxy (README section 16), after the functions of the tool and before main "$@".
+                  # It uses the constants and functions of the tool (mode, container_pid, direct_probe, dns_filter, classify...).
+
+                  # One line per run, with the country and never an address. With the container running, from its network:
+                  # the proxy (through INPUT and the bridge), its direct path and its DNS. A proven leak stops it (contain).
+                  health() {
+                    local log=/var/log/bb-srv/health.log result='' body rc=0 code c pid sig direct dns
+                    [ "$(mode)" = proxy ] || return 0
+                    # Not in the middle of a guard run, which changes the rules for a moment.
+                    exec 8>/run/bb-srv-proxy.lock
+                    flock -w 120 8 || true
+                    c=openbot-$(cat "$ETC/sector")
+                    pid=$(container_pid "$c")
+                    sig=$(signal_name)
+                    if [ -e "$CONTAINED" ]; then
+                      result="fail contained"
+                    elif ! systemctl is-active --quiet bb-proxy.service; then
+                      result="fail forwarder-down"
+                    elif [ "$(grep -c '^Upstream http ' "$UPSTREAM" 2>/dev/null || true)" != 1 ]; then
+                      result="fail no-upstream"
+                    elif held; then
+                      result="fail firewall-hold"
+                    elif ! firewall_ok; then
+                      result="fail firewall-open"
+                    elif [ -n "$sig" ] && ! grep -q -- ' -j RETURN$' <<<"$(iptables -S "$OUT_CHAIN")"; then
+                      result="fail no-signal-rule"
+                    elif [ -n "$pid" ]; then
+                      direct=$(direct_probe "$pid")
+                      dns=$(dns_filter "$pid")
+                      if [ "$direct" = OPEN ]; then
+                        contain
+                        result="fail direct-open"
+                      elif [ "$dns" = OPEN ]; then
+                        contain
+                        result="fail dns-open"
+                      elif [ "$direct" != blocked ]; then
+                        result="fail direct-unknown"
+                      elif [ "$dns" != ok ]; then
+                        result="fail dns-unknown"
+                      elif [ -n "$sig" ] && ! timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then
+                        result="fail container-dns"
+                      fi
+                    fi
+                    if [ -z "$result" ]; then
+                      if [ -n "$pid" ]; then
+                        body=$(in_net "$pid" curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                      else
+                        body=$(curl -sS -m 20 --proxy "http://$GATEWAY:$PORT" -w '\nBB_CONNECT %{http_connect}\n' "$TRACE" 2>/dev/null) || rc=$?
+                      fi
+                      code=$(awk '$1 == "BB_CONNECT" { c = $2 } END { print c }' <<<"$body")
+                      result=$(classify "$rc" "${code:-000}" <<<"$body")
+                    fi
+                    echo "$(date -u +%FT%TZ) BB_PROXY_HEALTH $result" >>"$log"
+                  }
+
+                  check_container() {
+                    local c show_ip=1 body ip country rc=0 pid sig
+                    [ "${1:-}" != --no-ip ] || show_ip=0
+                    c=openbot-$(cat "$ETC/sector")
+                    echo "BB_PROXY_MODE $(mode)"
+                    [ "$(mode)" = proxy ] || return 0
+                    [ ! -e "$CONTAINED" ] || echo "BB_PROXY_CONTAINED yes"
+                    pid=$(container_pid "$c")
+                    if [ -z "$pid" ] || ! timeout 20 docker exec "$c" true 2>/dev/null; then
+                      echo "BB_PROXY_CONTAINER down"
+                      return 0
+                    fi
+                    if [ "$(timeout 20 docker exec "$c" printenv HTTPS_PROXY 2>/dev/null || true)" = "http://$GATEWAY:$PORT" ] &&
+                      [ "$(timeout 20 docker exec "$c" printenv NODE_USE_ENV_PROXY 2>/dev/null || true)" = 1 ]; then
+                      echo "BB_PROXY_ENV ok"
+                    else
+                      echo "BB_PROXY_ENV missing"
+                    fi
+                    body=$(timeout 45 docker exec "$c" curl -sS -m 30 "$TRACE" 2>/dev/null) || rc=$?
+                    ip=$(awk -F= '$1 == "ip" { print $2; exit }' <<<"$body")
+                    country=$(awk -F= '$1 == "loc" && $2 ~ /^[A-Z][A-Z]$/ { print $2; exit }' <<<"$body")
+                    public_ipv4 "$ip" || ip=''
+                    if [ "$rc" = 0 ] && [ -n "$country" ]; then
+                      if [ "$show_ip" = 1 ] && [ -n "$ip" ]; then
+                        echo "BB_PROXY_EXIT ip=$ip country=$country"
+                      else
+                        echo "BB_PROXY_EXIT country=$country"
+                      fi
+                    else
+                      echo "BB_PROXY_EXIT fail"
+                    fi
+                    echo "BB_PROXY_DIRECT $(direct_probe "$pid")"
+                    echo "BB_PROXY_DNS_FILTER $(dns_filter "$pid")"
+                    # The two direct paths of the design: the DNS of signal./turn. and the Signal itself. Without a
+                    # record of the Signal (no stack yet) there is nothing to test.
+                    sig=$(signal_name)
+                    if [ -z "$sig" ]; then
+                      printf '%s\n' "BB_PROXY_DNS skipped" "BB_PROXY_SIGNAL skipped"
+                      return 0
+                    fi
+                    if timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then echo "BB_PROXY_DNS ok"; else echo "BB_PROXY_DNS fail"; fi
+                    if timeout 25 docker exec "$c" curl -sS -m 10 --noproxy '*' -o /dev/null "https://$sig/health/ready" 2>/dev/null; then
+                      echo "BB_PROXY_SIGNAL ok"
+                    elif curl -sS -m 10 -o /dev/null "https://$sig/health/ready" 2>/dev/null; then
+                      echo "BB_PROXY_SIGNAL fail"
+                    else
+                      echo "BB_PROXY_SIGNAL unreachable"
+                    fi
+                  }
+
+                  line_in() { grep -qx -- "$1" <<<"$2"; }
+
+                  # The lines of check-container -> ok, direct, down, leak <what> (stop the container) or fail <what>.
+                  judge() {
+                    local out
+                    out=$(cat)
+                    if line_in 'BB_PROXY_MODE direct' "$out"; then echo direct
+                    elif line_in 'BB_PROXY_CONTAINER down' "$out"; then echo down
+                    elif ! line_in 'BB_PROXY_DIRECT blocked' "$out"; then echo "leak direct"
+                    elif ! line_in 'BB_PROXY_DNS_FILTER ok' "$out"; then echo "leak dns"
+                    elif ! line_in 'BB_PROXY_ENV ok' "$out"; then echo "fail env"
+                    elif line_in 'BB_PROXY_DNS fail' "$out"; then echo "fail dns"
+                    elif line_in 'BB_PROXY_SIGNAL fail' "$out"; then echo "fail signal"
+                    elif ! grep -qE '^BB_PROXY_EXIT (ip=[0-9.]+ )?country=BR$' <<<"$out"; then echo "fail exit"
+                    else echo ok
+                    fi
+                  }
+
+                  # Never leave running a container with a way out besides the proxy: stop it and keep it stopped at
+                  # boot (drop-in of bb-srv-sector-up) until verify passes (bb-srv-Install or bb-srv-ProxySetup).
+                  contain() {
+                    local s
+                    s=$(cat "$ETC/sector")
+                    install -d -m 0755 "${CONTAINED%/*}"
+                    : >"$CONTAINED"
+                    systemctl disable --quiet bb-srv-sector-up.service 2>/dev/null || true
+                    timeout 180 "$INSTANCE" down "$s" >/dev/null 2>&1 || timeout 90 docker stop "openbot-$s" >/dev/null 2>&1 || true
+                  }
+
+                  verify() {
+                    local chk verdict
+                    if [ "$(mode)" != proxy ]; then echo "BB_PROXY_VERIFY skipped (direct egress)"; return 0; fi
+                    chk=$(check_container --no-ip)
+                    printf '%s\n' "$chk"
+                    verdict=$(judge <<<"$chk")
+                    case $verdict in
+                      ok)
+                        rm -f "$CONTAINED"
+                        systemctl enable --quiet bb-srv-sector-up.service 2>/dev/null || true
+                        ! line_in 'BB_PROXY_SIGNAL unreachable' "$chk" ||
+                          echo "BB_PROXY warning: the Signal does not answer the host either (ports not approved yet, or it is down): nobody connects until it does" >&2
+                        echo "BB_PROXY_VERIFY ok"
+                        ;;
+                      leak*)
+                        contain
+                        fail "the container had a way out besides the proxy (${verdict#leak }, lines above): it was stopped, and stays stopped at boot until bb-srv-ProxySetup or bb-srv-Install passes this check (README section 16)"
+                        ;;
+                      down) fail "the container is not running: openbot-instance logs $(cat "$ETC/sector")" ;;
+                      "fail env") fail "the container did not get the proxy variables (env_file of compose.yaml)" ;;
+                      "fail dns") fail "the container does not resolve the Signal (bb-srv-container-dns, port 53 of $IN_CHAIN)" ;;
+                      "fail signal") fail "the host reaches the Signal and the container does not (no RETURN for it in $OUT_CHAIN?)" ;;
+                      *) fail "the container does not leave through the residential proxy in Brazil (BB_PROXY_EXIT above; tail /var/log/bb-srv/health.log)" ;;
+                    esac
+                  }
+
   # The tag DLMScriptsAccess=true follows the DLM convention; the role bb-srv-dlm (below) may send
   # only this document, and only to Builders Bot instances.
   SnapshotHooksDocument:
@@ -747,6 +929,8 @@ Outputs:
     Value: !Ref SnapshotHooksDocument
   ProxyReloadDocumentName:
     Value: !Ref ProxyReloadDocument
+  ProxyChecksDocumentName:
+    Value: !Ref ProxyChecksDocument
   DailyPolicyId:
     Value: !GetAtt DailyPolicy.PolicyId
   WeeklyPolicyId:

@@ -548,16 +548,30 @@ ok_case() {
 }
 file_mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 
-# A ferramenta do host, extraída do documento bb-srv-ProxySetup exatamente como o host a grava (o
-# heredoc 'BBSRVPROXY', sem a indentação do YAML). Aqui rodam só os modos sem efeito no sistema.
+# O script de um documento SSM Command de um template (o primeiro runCommand), sem a indentação do YAML.
+doc_script() { # <template> <nome do documento>
+  awk -v n="$2" '$0 ~ "^ +Name: " n "$" { doc = 1 }
+    doc && !on && /^ +- \|$/ { on = 1; next }
+    on && /^ *$/ { print ""; next }
+    on { match($0, /^ */); if (!ind) ind = RLENGTH; if (RLENGTH < ind) exit; print substr($0, ind + 1) }' "$1"
+}
+
+# A ferramenta do host montada como o bb-srv-ProxySetup a grava: o heredoc 'BBSRVPROXY' do documento (sem a
+# indentação do YAML), o script do bb-srv-ProxyChecks (ops.yaml) e a chamada de main. Aqui rodam só os modos sem
+# efeito no sistema.
 TOOL=$WORK/bb-srv-proxy
-awk -v m=BBSRVPROXY '
-  !on && index($0, "<<\047" m "\047") { on = 1; match($0, /^ */); ind = RLENGTH; next }
-  on { line = $0; if (substr(line, 1, ind) ~ /^ *$/) line = substr(line, ind + 1); if (line == m) exit; print line }
-' templates/proxy.yaml >"$TOOL"
-if [ "$(head -n 1 "$TOOL")" = '#!/bin/bash' ] && grep -q '^case \${1:-} in$' "$TOOL" && bash -n "$TOOL" &&
-  { ! command -v shellcheck >/dev/null || shellcheck -s bash "$TOOL"; }; then
-  ok_case "F0 a ferramenta bb-srv-proxy (templates/proxy.yaml) sai inteira do YAML e passa em bash -n e shellcheck"
+{
+  awk -v m=BBSRVPROXY '
+    !on && index($0, "<<\047" m "\047") { on = 1; match($0, /^ */); ind = RLENGTH; next }
+    on { line = $0; if (substr(line, 1, ind) ~ /^ *$/) line = substr(line, ind + 1); if (line == m) exit; print line }
+  ' templates/proxy.yaml
+  doc_script templates/ops.yaml bb-srv-ProxyChecks
+  echo 'main "$@"'
+} >"$TOOL"
+if [ "$(head -n 1 "$TOOL")" = '#!/bin/bash' ] && grep -q '^main() {$' "$TOOL" && grep -q '^health() {$' "$TOOL" &&
+  grep -q '^verify() {$' "$TOOL" && grep -qF "printf '%s\n' \"\$checks\" 'main \"\$@\"'; } >\"\$P.new\"" templates/proxy.yaml &&
+  bash -n "$TOOL" && { ! command -v shellcheck >/dev/null || shellcheck -s bash "$TOOL"; }; then
+  ok_case "F0 a ferramenta bb-srv-proxy (proxy.yaml + bb-srv-ProxyChecks do ops.yaml + main) sai inteira do YAML e passa em bash -n e shellcheck"
 else
   bad "F0 a ferramenta bb-srv-proxy sai inteira do YAML e passa em bash -n e shellcheck"
 fi
@@ -919,9 +933,11 @@ for line in 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstr
   'Requires=bb-srv-egress-guard.service' 'Before=docker.service' 'User=bb-proxy' 'LimitCORE=0' \
   'iptables -I OUTPUT 1 -m owner --uid-owner "$uid" -j "$FWD_CHAIN"' \
   'iptables -I DOCKER-USER 1 -i "$BRIDGE" -m comment --comment "$HOLD" -j DROP' \
-  'ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP' 'result="fail no-upstream"' 'result="fail firewall-hold"'; do
+  'ip6tables -I "$chain" 1 -i "$BRIDGE" -j DROP'; do
   check grep -qF -- "$line" templates/proxy.yaml
 done
+check grep -qF 'result="fail no-upstream"' "$TOOL"
+check grep -qF 'result="fail firewall-hold"' "$TOOL"
 # A trava temporária do guard é só a marcada (nunca apaga a regra sem marca do openbot-firewall).
 check test "$(grep -c 'iptables -D DOCKER-USER -i "$BRIDGE" -j DROP' templates/proxy.yaml)" = 0
 # O SSM é lido no boot e no ProxyReload, não a cada reinício do encaminhador (sem laço de GetParameter).
@@ -954,11 +970,14 @@ check grep -qF '|| [ -e /var/lib/bb-srv/egress-open ] || "$I" up "$S" || true' t
 check test "$(grep -cE '^ +"\$I" up "\$S"' templates/ops.yaml)" = 3
 # A saúde testa de dentro da rede do contêiner e para o contêiner num vazamento provado.
 for reason in contained no-signal-rule direct-open dns-open direct-unknown dns-unknown container-dns; do
-  check grep -qF "result=\"fail $reason\"" templates/proxy.yaml
+  check grep -qF "result=\"fail $reason\"" "$TOOL"
 done
-check grep -qF 'body=$(in_net "$pid" curl' templates/proxy.yaml
+check grep -qF 'body=$(in_net "$pid" curl' "$TOOL"
 # O SSM lê {{ ... }} como parâmetro do documento: nada disso nos scripts dos documentos.
 check test "$(grep -c '{{' templates/proxy.yaml)" = 0
+check test "$(doc_script templates/ops.yaml bb-srv-ProxyChecks | grep -c '{{')" = 0
+# O bb-srv-ProxyChecks nunca é mandado sozinho: um send-command dele cai no alerta de documento fora da lista.
+check test "$(grep -c 'bb-srv-ProxyChecks' templates/sector-compute.yaml)" = 0
 # O bootstrap: tinyproxy mascarado antes do apt (o pacote não sobe sozinho), DNS do contêiner só no host e o dig
 # (bind9-dnsutils) com que o host confere esse DNS; o bb-srv-ProxySetup para sem ele.
 mask_line=$(grep -n 'systemctl mask tinyproxy.service' templates/sector-compute.yaml | cut -d: -f1)
@@ -1169,10 +1188,7 @@ else
   # F12: o bb-srv-Status inteiro, com o app imprimindo muito (e linhas que imitam as do root). O SSM guarda só os
   # primeiros 24.000 caracteres: a saída do app tem limite, e a parte do root chega inteira até BB_PROXY_END.
   STATUS_DOC=$WORK/bb-srv-status.sh
-  awk '/^ +Name: bb-srv-Status$/ { doc = 1 }
-    doc && !on && /^ +- \|$/ { on = 1; next }
-    on && /^ *$/ { print ""; next }
-    on { match($0, /^ */); if (!ind) ind = RLENGTH; if (RLENGTH < ind) exit; print substr($0, ind + 1) }' templates/ops.yaml >"$STATUS_DOC.yaml-text"
+  doc_script templates/ops.yaml bb-srv-Status >"$STATUS_DOC.yaml-text"
   if [ "$(head -n 1 "$STATUS_DOC.yaml-text")" = '#!/bin/bash' ] && to_host "$STATUS_DOC.yaml-text" "$STATUS_DOC"; then
     host_reset
     host_tool guard >/dev/null 2>&1
