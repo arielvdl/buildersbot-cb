@@ -21,8 +21,23 @@ function formatCountdown(remainingMs: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+/** The Hub page as a person types it: host and path, with no scheme and no code. */
+function typedAddress(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.host}${parsed.pathname === "/" ? "" : parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
 export function DeviceSignInDialog(props: {
   view: DeviceSignInView;
+  /**
+   * Also shows the Hub address to type on another device. The web app shows it: on a phone, the QR
+   * code cannot be read by the phone that shows it.
+   */
+  showAddress?: boolean;
   /** Opens the Hub page, with the code in it, in the default browser. */
   onOpenHub: (url: string) => void;
   /** Resumes the same flow after the pause a 429 asked for. */
@@ -147,6 +162,12 @@ export function DeviceSignInDialog(props: {
                         variant="outline"
                       />
                     </div>
+
+                    <Show when={props.showAddress}>
+                      <Text class="provider-code-login-expiry" as="p" variant="caption" tone="muted">
+                        {t("account.device.typeAddress", { address: typedAddress(code().verificationUrl) })}
+                      </Text>
+                    </Show>
 
                     {/* Outside the region that announces the code: a countdown every second would
                       bury the thing it counts down. */}

@@ -1,5 +1,4 @@
 import { agentTemplateIdFromWebAppSearch, WEB_APP_AGENT_TEMPLATE_PARAM } from "@openbot/contracts/agent-template-links";
-import { type FirstTouch, readFirstTouch } from "@openbot/contracts/first-touch";
 import { inviteUrlFromWebAppSearch, WEB_APP_INVITE_FIELDS } from "@openbot/contracts/invite-links";
 import type { AppVariant, CentralAuthState, CentralAuthUser } from "@openbot/contracts/ipc";
 import { pluginSlugFromWebAppSearch, WEB_APP_PLUGIN_PARAM } from "@openbot/contracts/plugin-links";
@@ -14,6 +13,7 @@ import { currentText } from "@openbot/ui/text";
 import { Dynamic } from "@solidjs/web";
 import { createEffect, createSignal, createStore, onCleanup, onSettled, Show } from "solid-js";
 import type { DesktopAnalyticsProperties } from "../../analytics";
+import { DeviceSignInDialog } from "../../components/DeviceSignInDialog";
 import {
   configureWebReports,
   reportNotification,
@@ -31,6 +31,7 @@ import { createWebAppLock, provideWebAppLock } from "./web-app-lock";
 import { createWebAppearancePreference } from "./web-appearance-preference";
 import { takeWebAppStart, WEB_APP_BILLING_PARAM, type WebAppStart } from "./web-billing";
 import type { WebRuntimeFactory } from "./web-client-context";
+import { createWebDeviceSignIn, type WebDeviceSignInStep } from "./web-device-sign-in";
 import { takeHostingReturn } from "./web-hosted-servers";
 import { webInstallIdentity } from "./web-install-identity";
 import { createWebLanguagePreference } from "./web-language-preference";
@@ -55,8 +56,8 @@ function loadWorkspace(): Promise<typeof WebWorkspace> {
   return workspaceImport;
 }
 
-/** A sign-in refusal that the login form already shows. */
-class SignInIssueShown extends Error {}
+/** The Cultura Builder sign-in routes of the account service (`apps/auth-api/src/server/browser-api.ts`). */
+const DEVICE_SIGN_IN_PREFIX = "/api/browser/device/";
 
 /**
  * The shared agent a `/app?agent=<id>` link names. The query is removed after it is read, so a reload
@@ -133,12 +134,10 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     account: CentralAuthUser | null;
     loaded: boolean;
     login: CentralAuthState;
-    resendAt: number;
   }>({
     account: null,
     loaded: false,
     login: { status: "signed_out" },
-    resendAt: 0,
   });
   createEffect(
     () => ({ account: state.account, loaded: state.loaded }),
@@ -201,8 +200,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       !disposed &&
       generation === sessionGeneration &&
       response.status === 401 &&
-      input !== "/api/browser/email/start" &&
-      input !== "/api/browser/email/verify"
+      !(typeof input === "string" && input.startsWith(DEVICE_SIGN_IN_PREFIX))
     ) {
       if (state.account) channel?.postMessage("session-changed");
       clearSession();
@@ -210,48 +208,25 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     return response;
   };
   const accountCalls = createWebAccountCalls(accountFetch, checkSession);
-  async function request(
-    path: string,
-    body?:
-      | { email: string }
-      | { challengeId: string | null; code: string; firstTouch?: FirstTouch }
-      | Record<string, never>,
-  ) {
+  /** The headers of a write: the CSRF header, and this installation, so its session is listed and revoked on its own. */
+  function writeHeaders(): Record<string, string> {
+    return {
+      "Content-Type": "application/json",
+      "X-OpenBot-Browser": "1",
+      "X-OpenBot-Install": webInstallIdentity().id,
+      "X-OpenBot-Install-Label": webInstallIdentity().label,
+    };
+  }
+  async function request(path: string, body?: Record<string, never>) {
     const response = await accountFetch(`/api/browser/${path}`, {
       method: body ? "POST" : "GET",
       credentials: "same-origin",
       cache: "no-store",
-      headers: body
-        ? {
-            "Content-Type": "application/json",
-            "X-OpenBot-Browser": "1",
-            // This installation, so that the session is listed and revoked on its own.
-            "X-OpenBot-Install": webInstallIdentity().id,
-            "X-OpenBot-Install-Label": webInstallIdentity().label,
-          }
-        : {},
+      headers: body ? writeHeaders() : {},
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     const value = await response.json();
     if (!response.ok) {
-      if (path === "email/start" || path === "email/verify") {
-        const retryAfterSeconds = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
-        const issue = {
-          code:
-            isDynamicRecord(value) && isDynamicRecord(value.error) && isString(value.error.code)
-              ? value.error.code
-              : "sign_in_failed",
-          message:
-            isDynamicRecord(value) && isDynamicRecord(value.error) && isString(value.error.message)
-              ? value.error.message
-              : text.t("webClient.login.failed"),
-          ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
-        };
-        setState((draft) => {
-          draft.login = draft.login.status === "code_sent" ? { ...draft.login, issue } : { status: "error", issue };
-        });
-        throw new SignInIssueShown();
-      }
       throw new Error(
         isDynamicRecord(value) && isDynamicRecord(value.error) && isString(value.error.message)
           ? value.error.message
@@ -259,15 +234,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       );
     }
     return value;
-  }
-  /** Like the desktop login, a server refusal is shown as the login issue, not also as a thrown error. */
-  async function signInRequest(path: "email/start" | "email/verify", body: Parameters<typeof request>[1]) {
-    try {
-      return await request(path, body);
-    } catch (error) {
-      if (error instanceof SignInIssueShown) return null;
-      throw error;
-    }
   }
   function accountFrom(value: unknown): CentralAuthUser {
     if (
@@ -332,33 +298,37 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
         });
     }
   }
-  async function start(email: string) {
-    if (Date.now() < state.resendAt) throw new Error(text.t("webClient.login.wait"));
-    // A request for a code accepts the Terms of Service. The sign-in screen asks no analytics
-    // question: the web app sends no analytics.
-    const value = await signInRequest("email/start", { email });
-    if (value === null) return;
-    if (!isDynamicRecord(value) || !isString(value.challengeId) || typeof value.resendAt !== "number")
-      throw new Error(text.t("webClient.login.responseInvalid"));
-    const challengeId = value.challengeId;
-    const resendAt = value.resendAt;
+  /**
+   * The Cultura Builder sign-in, the only one of the web app. The account service holds the flow in
+   * an HttpOnly cookie and sets the session cookie on the approval; this page never gets a token.
+   */
+  const deviceSignIn = createWebDeviceSignIn({
+    post: (step: WebDeviceSignInStep) =>
+      fetch(`${DEVICE_SIGN_IN_PREFIX}${step}`, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: writeHeaders(),
+        body: "{}",
+      }),
+    onAuthorized: signedIn,
+    onFailed: (issue) =>
+      setState((draft) => {
+        draft.login = { status: "error", issue };
+      }),
+  });
+  /** Starting the sign-in accepts the Terms of Service. The web app sends no analytics. */
+  function startDeviceSignIn() {
     setState((draft) => {
-      draft.resendAt = resendAt;
-      draft.login = {
-        status: "code_sent",
-        challengeId,
-        email,
-        expiresAt: typeof value.expiresAt === "number" ? value.expiresAt : Date.now() + 600000,
-        resendAvailableAt: resendAt,
-        ...(isString(value.developmentCode) ? { developmentCode: value.developmentCode } : {}),
-      };
+      draft.login = { status: "signed_out" };
     });
+    void deviceSignIn.start();
   }
-  async function verify(challengeId: string, code: string) {
-    // The first website visit of this browser, so that reports can name the source of a new account.
-    const firstTouch = readFirstTouch(() => window.localStorage, Date.now());
-    const value = await signInRequest("email/verify", { challengeId, code, ...(firstTouch ? { firstTouch } : {}) });
-    if (value === null) return;
+  /** Opens the Hub in a new tab, from the click on the button, so no pop-up blocker stops it. */
+  function openHub(url: string) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+  async function signedIn(value: unknown) {
     const account = accountFrom(value);
     sessionGeneration += 1;
     sessionEnded = false;
@@ -366,7 +336,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     try {
       await showAccount(account);
     } catch {
-      // The server has used the code and set the session, so the retry checks the session again.
+      // The server has set the session, so the retry checks the session again.
       setState((draft) => {
         draft.login = {
           status: "error",
@@ -434,25 +404,34 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
               keyed
               when={state.account?.id}
               fallback={
-                <AccountLogin
-                  variant={variant}
-                  state={state.login}
-                  onRetry={checkSession}
-                  onRequestEmailCode={start}
-                  onVerifyEmailCode={verify}
-                  onReset={async () => {
-                    clearSession();
-                    setState((draft) => {
-                      draft.resendAt = 0;
-                    });
-                  }}
-                  notice={
-                    <ConsentNotice
-                      onOpenTerms={() => window.open("/terms", "_blank", "noopener")}
-                      onOpenPrivacy={() => window.open("/privacy", "_blank", "noopener")}
-                    />
-                  }
-                />
+                <>
+                  <AccountLogin
+                    variant={variant}
+                    state={state.login}
+                    onRetry={checkSession}
+                    onStartDeviceSignIn={startDeviceSignIn}
+                    onReset={async () => clearSession()}
+                    notice={
+                      <ConsentNotice
+                        onOpenTerms={() => window.open("/terms", "_blank", "noopener")}
+                        onOpenPrivacy={() => window.open("/privacy", "_blank", "noopener")}
+                      />
+                    }
+                  />
+                  <Show when={deviceSignIn.view()}>
+                    {(view) => (
+                      <DeviceSignInDialog
+                        view={view()}
+                        showAddress
+                        onOpenHub={openHub}
+                        onRetry={deviceSignIn.checkNow}
+                        onRestart={() => void deviceSignIn.start()}
+                        onCheckNow={deviceSignIn.checkNow}
+                        onCancel={deviceSignIn.cancel}
+                      />
+                    )}
+                  </Show>
+                </>
               }
             >
               {(accountId) => (

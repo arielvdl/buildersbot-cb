@@ -95,6 +95,7 @@ export const messages = defineMessages("account", {
   "account.device.openHub": "Open the Hub and authorise",
   "account.device.checkNow": "I have signed in",
   "account.device.copyCode": "Copy code",
+  "account.device.typeAddress": "Or open {address} on any device and type the code.",
   "account.device.expiresIn": "The code expires in {time}.",
   "account.device.expired": "The code expired",
   "account.device.expiredDescription": "Nothing was signed in. Ask the Hub for a new code to try again.",

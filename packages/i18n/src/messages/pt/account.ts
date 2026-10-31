@@ -97,6 +97,7 @@ export const messages = {
   "account.device.openHub": "Abrir o Hub e autorizar",
   "account.device.checkNow": "Já fiz login",
   "account.device.copyCode": "Copiar código",
+  "account.device.typeAddress": "Ou abra {address} em qualquer aparelho e digite o código.",
   "account.device.expiresIn": "O código expira em {time}.",
   "account.device.expired": "O código expirou",
   "account.device.expiredDescription": "Nada foi conectado. Peça um código novo ao Hub para tentar de novo.",

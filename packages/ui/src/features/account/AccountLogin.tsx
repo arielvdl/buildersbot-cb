@@ -13,8 +13,9 @@ interface AccountLoginProps {
   variant: AppVariant;
   state: CentralAuthState;
   onRetry: () => Promise<void>;
-  onRequestEmailCode: (email: string) => Promise<void>;
-  onVerifyEmailCode: (challengeId: string, code: string) => Promise<void>;
+  /** The e-mail code. A screen with only the Cultura Builder sign-in, such as the web app, has none. */
+  onRequestEmailCode?: ((email: string) => Promise<void>) | undefined;
+  onVerifyEmailCode?: ((challengeId: string, code: string) => Promise<void>) | undefined;
   /**
    * Starts the Cultura Builder device grant. Absent on a build that keeps the e-mail code only, and
    * then the screen is exactly what it was.
@@ -294,7 +295,7 @@ export function AccountLogin(props: AccountLoginProps) {
     setLocalError(null);
     setPendingAction(action);
     try {
-      await props.onRequestEmailCode(normalizedEmail);
+      await props.onRequestEmailCode?.(normalizedEmail);
     } catch (error) {
       showActionError(error, t("account.login.sendFailed"), true);
     } finally {
@@ -314,7 +315,7 @@ export function AccountLogin(props: AccountLoginProps) {
     setLocalError(null);
     setPendingAction("verify");
     try {
-      await props.onVerifyEmailCode(props.state.challengeId, formatCode(normalizedCode));
+      await props.onVerifyEmailCode?.(props.state.challengeId, formatCode(normalizedCode));
     } catch (error) {
       showActionError(error, t("account.login.verifyFailed"), true);
     } finally {
@@ -328,7 +329,7 @@ export function AccountLogin(props: AccountLoginProps) {
     setLocalError(null);
     setPendingAction("resend");
     try {
-      await props.onRequestEmailCode(props.state.email);
+      await props.onRequestEmailCode?.(props.state.email);
     } catch (error) {
       showActionError(error, t("account.login.resendFailed"), true);
     } finally {
@@ -549,15 +550,37 @@ export function AccountLogin(props: AccountLoginProps) {
                   }
                 >
                   <div class="account-login-form" data-auth-panel="device">
+                    <Show when={formIssue()}>
+                      {(issue) => (
+                        <p class="account-login-error" role="alert">
+                          {sourceText(issue().message)}
+                          <ErrorReference reference={issue().reference} />
+                        </p>
+                      )}
+                    </Show>
                     <Button
                       variant="default"
                       type="button"
                       class="account-login-primary"
-                      disabled={emailBusy()}
+                      disabled={emailBusy() || emailRetryIn() > 0}
                       onClick={() => props.onStartDeviceSignIn?.()}
                     >
-                      {t("account.login.deviceSignIn")}
+                      {emailRetryIn() > 0
+                        ? t("account.login.tryAgainIn", { time: formatTimer(emailRetryIn()) })
+                        : t("account.login.deviceSignIn")}
                     </Button>
+                    {props.consent}
+                    {/* Only a screen that gives fine print, such as the web app, shows this footer. The
+                      check does not read the prop, because each read of a JSX prop makes the element again. */}
+                    <Show when={"notice" in props}>
+                      <div class="account-login-footer">
+                        <p class="account-login-local-data">
+                          <Lock size={13} aria-hidden="true" />
+                          {t("account.login.localData")}
+                        </p>
+                        {props.notice}
+                      </div>
+                    </Show>
                   </div>
                 </Show>
               }
