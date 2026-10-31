@@ -60,7 +60,8 @@ export const messages = {
   "error.remote.localServerRemove": "Il server locale non può essere rimosso.",
   "error.remote.desktopSetupHostUpdate":
     "Aggiorna Builders Bot sull'host per controllare la configurazione del desktop remoto.",
-  "error.remote.desktopTestHostUpdate": "Aggiorna Builders Bot sull'host per testare la configurazione del desktop remoto.",
+  "error.remote.desktopTestHostUpdate":
+    "Aggiorna Builders Bot sull'host per testare la configurazione del desktop remoto.",
   "error.remote.viewerProxyUnavailable": "Il proxy locale del visualizzatore remoto non è disponibile.",
   "error.remote.viewerTransportInvalid": "Il trasporto del visualizzatore remoto non è valido.",
   "error.remote.viewerProxyNoPort": "Il proxy locale del visualizzatore remoto non ha ottenuto una porta.",
@@ -123,8 +124,6 @@ export const messages = {
   "error.remote.serverDisconnected": "Il server si è disconnesso.",
   "error.remote.preferencesUnreadable": "Non è stato possibile leggere le preferenze della chat salvate.",
   "error.remote.accountAuthRequired": "Serve l'autenticazione dell'account.",
-  "error.remote.serverIdentityChanged":
-    "L'identità del server è cambiata. La chiave host attendibile non viene sostituita.",
   "error.remote.pairedIdentityChanged":
     "L'identità del desktop associato manca o è cambiata. Scansiona un nuovo codice da quel desktop.",
   "error.remote.permanentInviteNoEmail": "Gli inviti permanenti non si possono inviare per email.",

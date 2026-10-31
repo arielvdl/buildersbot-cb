@@ -128,8 +128,6 @@ export const messages = {
   "error.remote.serverDisconnected": "Le serveur s’est déconnecté.",
   "error.remote.preferencesUnreadable": "Impossible de lire les préférences de discussion enregistrées.",
   "error.remote.accountAuthRequired": "L’authentification du compte est requise.",
-  "error.remote.serverIdentityChanged":
-    "L’identité du serveur a changé. La clé d’hôte de confiance n’est pas remplacée.",
   "error.remote.pairedIdentityChanged":
     "L’identité de l’ordinateur associé est absente ou a changé. Scannez un nouveau code depuis cet ordinateur.",
   "error.remote.permanentInviteNoEmail": "Les invitations permanentes ne peuvent pas être envoyées par e-mail.",
@@ -181,7 +179,8 @@ export const messages = {
   "error.remote.iceFailed":
     "Impossible d’établir une connexion directe avec l’hôte. Un pare-feu, un VPN ou un proxy peut la bloquer.",
   "error.remote.iceDisconnected": "La connexion directe avec l’hôte a été perdue.",
-  "error.remote.directoryUnreachable": "Builders Bot n’a pas pu joindre le service Builders Bot. Vérifiez votre connexion.",
+  "error.remote.directoryUnreachable":
+    "Builders Bot n’a pas pu joindre le service Builders Bot. Vérifiez votre connexion.",
   "error.remote.directoryTimeout": "Le service Builders Bot n’a pas répondu à temps. Réessayez.",
   "error.remote.inviteAlreadyUsed": "Cette invitation a déjà été utilisée. Demandez une nouvelle invitation.",
   "error.remote.inviteNotFound": "Cette invitation n’existe pas ou a expiré. Demandez une nouvelle invitation.",

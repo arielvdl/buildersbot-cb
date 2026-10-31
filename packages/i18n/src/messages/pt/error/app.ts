@@ -2,6 +2,8 @@ import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/error/app";
 
 export const messages = {
+  "error.app.lidAwakeCanceled": "A senha de administrador não foi dada.",
+  "error.app.lidAwakeHelperFailed": "O serviço de segurança com a tampa fechada não funcionou.",
   "error.app.externalLinkProtocol": "Somente links HTTP(S) podem abrir no navegador externo.",
   "error.app.notificationsUnsupported": "Este sistema não oferece suporte a notificações na área de trabalho.",
   "error.app.notificationSettingsMissing": "Este sistema não tem uma página de configurações de notificações.",

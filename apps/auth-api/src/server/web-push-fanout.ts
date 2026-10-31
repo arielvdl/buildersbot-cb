@@ -16,7 +16,7 @@ export const sendWebPushForSession = Effect.fn("WebPush.sendForSession")(functio
   if (!push) return;
   const subscriptions = yield* push.store.listForRemoteSession(sessionId).pipe(Effect.catch(() => Effect.succeed([])));
   if (subscriptions.length === 0) return;
-  const payload = JSON.stringify({ title: "OpenBot", body: "New activity", url: "/app", tag: sessionId });
+  const payload = JSON.stringify({ title: "Builders Bot", body: "New activity", url: "/app", tag: sessionId });
   yield* Effect.forEach(
     subscriptions,
     (subscription) =>

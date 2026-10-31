@@ -12,6 +12,8 @@ import {
   decodeAgentFolderListFromMain,
   decodeAgentImportPreview,
   decodeAgentImportResult,
+  decodeAgentInstructionsFileFromMain,
+  decodeAgentPlanCardSettings,
   decodeAgentProfileDraft,
   decodeAgentTaskLimitSettings,
   decodeBrowserProfileList,
@@ -247,6 +249,7 @@ import {
 } from "./dynamic-island-decoding";
 import { decodeGuardState } from "./guard-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
+import { decodeLidAwakeStatus } from "./lid-awake-decoding";
 import { decodeMacAutomationResults } from "./mac-automation-decoding";
 import {
   decodeAddOrchestratorReply,
@@ -556,6 +559,7 @@ const agentGroup = bridgeGroup(IPC_ENDPOINTS.agent, {
   readTask: decodeTaskConversation,
   startTask: decodeAgentTask,
   runQueuedMessageAsTask: decodeAgentTask,
+  branchTask: decodeAgentTask,
   stopTask: decodeVoid,
   closeTask: decodeVoid,
   reopenTask: decodeVoid,
@@ -750,6 +754,15 @@ const openbotApi: BuildersBotDesktopApi = {
   }),
   macAutomation: bridgeGroup(IPC_ENDPOINTS.macAutomation, {
     request: decodeMacAutomationResults,
+  }),
+  lidAwake: bridgeGroup(IPC_ENDPOINTS.lidAwake, {
+    getStatus: decodeLidAwakeStatus,
+    setPreference: decodeLidAwakeStatus,
+    installHelper: decodeLidAwakeStatus,
+    restoreNormalSleep: decodeLidAwakeStatus,
+    startTest: decodeLidAwakeStatus,
+    finishTest: decodeLidAwakeStatus,
+    status: decodeLidAwakeStatus,
   }),
   backgroundProcesses: bridgeGroup(IPC_ENDPOINTS.backgroundProcesses, {
     list: decodeBackgroundProcesses,
@@ -1191,6 +1204,8 @@ const openbotApi: BuildersBotDesktopApi = {
       updateAgentBackupModels: decodeAgentBackupModelSettings,
       getAgentTaskLimit: decodeAgentTaskLimitSettings,
       updateAgentTaskLimit: decodeAgentTaskLimitSettings,
+      getAgentPlanCard: decodeAgentPlanCardSettings,
+      updateAgentPlanCard: decodeAgentPlanCardSettings,
       listBrowserProfiles: decodeBrowserProfileList,
       createBrowserProfile: decodeBrowserProfileSummary,
       updateBrowserProfile: decodeBrowserProfileSummary,
@@ -1221,6 +1236,11 @@ const openbotApi: BuildersBotDesktopApi = {
       listWorkspaceDirectory: decodeWorkspaceDirectory,
     }),
     ...agentFoldersGroup,
+    ...bridgeGroup(IPC_ENDPOINTS.agentInstructions, {
+      readAgentInstructions: decodeAgentInstructionsFileFromMain,
+      saveAgentInstructions: decodeAgentInstructionsFileFromMain,
+      revealAgentInstructions: decodeVoid,
+    }),
     // The page gets the folder, not its path, as for a dropped attachment.
     addDroppedAgentFolder: async (agentId, folder) => {
       const path = webUtils.getPathForFile(folder);

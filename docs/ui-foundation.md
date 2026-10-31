@@ -23,6 +23,8 @@ Colours must come from the semantic `--openbot-*` variables. Text sizes, radii a
 
 `bun run check:ui` blocks native buttons and switches, hand-rolled dialogs/menus/tabs/listboxes, direct Kobalte/Lucide imports outside the UI layer, and colour literals along with untokenized text sizes, radii and transition durations. The check covers every renderer stylesheet as well as inline declarations in TSX; the only place a colour literal is allowed is the shared palette `packages/brand/src/tokens.css`. It also checks that the complex namespaces have not gone back to direct Kobalte aliases. Every migration budget is zero, including the `data-testid` budget.
 
+The settings search finds a row through its `data-settings-row` anchor. Each anchor has an entry `anchor: "key"` in `navItems` (`src/renderer/src/features/settings/settings-tabs.ts`) or in `SERVER_SETTINGS_SEARCH` (`src/renderer/src/features/servers/server-settings-sections.ts`), and each entry has a row with that anchor. `bun run check:ui` fails in both cases. When you add a settings row, add its entry and, if other words find it, a `settings.search.keywords.*` key in `en` and `pt`. The search ignores accents and also reads the English text.
+
 ## Verification
 
 Isolated components are checked in Storybook under `Foundations`. Full flows, dialogs, menus, the composer and the conversation are checked in the dev app. Every component should have default, hover, focus-visible, active, disabled and loading/empty states (where they apply), a keyboard test and an a11y story. A11y is a global Storybook gate (`test: "error"`).

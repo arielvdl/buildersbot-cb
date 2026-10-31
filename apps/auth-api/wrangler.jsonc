@@ -20,7 +20,8 @@
   // and the webhooks do the first attempt. A run each minute only repeated empty reads. An idle server
   // stops 15 to 20 minutes after its last use.
   "triggers": {
-    "crons": ["*/5 * * * *"]
+    // The second cron runs only the Signal entry check (`signal-entry-failover.ts`), each minute.
+    "crons": ["*/5 * * * *", "*/1 * * * *"]
   },
   "routes": [
     {
@@ -46,7 +47,7 @@
     ]
   },
   "vars": {
-    "AUTH_EXPOSE_DEVELOPMENT_CODE": "true",
+    "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
     "AUTH_BRIDGE_URL": "https://auth-buildersbot.culturabuilder.com",
     "EMAIL_SMTP_HOST": "smtp.resend.com",
     "EMAIL_SMTP_PORT": "465",
@@ -54,7 +55,12 @@
     "EMAIL_FROM": "noreply@culturabuilder.com",
     "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
     "REMOTE_SIGNAL_URL": "wss://auth-buildersbot.culturabuilder.com/v1/signal",
+    "REMOTE_SIGNAL_HOMES": "",
     "REMOTE_AUTH_WEBHOOK_URL": "https://auth-buildersbot.culturabuilder.com/internal/auth-events",
+    "REMOTE_AUTH_WEBHOOK_URLS": "",
+    // The zone of the Signal host. The entry check stays off until the secret SIGNAL_ENTRY_DNS_TOKEN
+    // is set and REMOTE_SIGNAL_HOMES names two machines.
+    "SIGNAL_ENTRY_ZONE_ID": "",
     // Creates stay off until the boat and Stripe secrets and the template are set. "false" stops new
     // servers only.
     "HOSTED_SERVERS_ENABLED": "false",
@@ -135,7 +141,10 @@
         "SITE_COOKIE_ISOLATION_READY": "false",
         "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
         "REMOTE_SIGNAL_URL": "ws://127.0.0.1:8081/v1/signal",
-        "REMOTE_AUTH_WEBHOOK_URL": "http://127.0.0.1:8081/internal/auth-events"
+        "REMOTE_SIGNAL_HOMES": "",
+        "REMOTE_AUTH_WEBHOOK_URL": "http://127.0.0.1:8081/internal/auth-events",
+        "REMOTE_AUTH_WEBHOOK_URLS": "",
+        "SIGNAL_ENTRY_ZONE_ID": ""
       },
       "d1_databases": [
         {
@@ -226,8 +235,12 @@
         "SITE_COOKIE_ISOLATION_READY": "false",
         "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
         "REMOTE_SIGNAL_URL": "wss://auth-buildersbot.culturabuilder.com/v1/signal",
+        "REMOTE_SIGNAL_HOMES": "",
         "REMOTE_AUTH_WEBHOOK_URL": "https://auth-buildersbot.culturabuilder.com/internal/auth-events",
-        "HOSTED_SERVERS_ENABLED": "false",
+        "REMOTE_AUTH_WEBHOOK_URLS": "",
+        // The test Worker never moves the production entry name.
+        "SIGNAL_ENTRY_ZONE_ID": "",
+        "HOSTED_SERVERS_ENABLED": "true",
         "GITHUB_APP_CLIENT_ID": "Iv23lik5pzHz70cb0RUL",
         "APNS_TEAM_ID": "ZTRDTUL87R",
         "APNS_TOPIC": "run.openbot.mobile"

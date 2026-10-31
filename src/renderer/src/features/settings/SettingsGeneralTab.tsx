@@ -31,6 +31,7 @@ import { useLogoColorChoice } from "../../logo-color";
 import { DictationKeyField } from "./DictationKeyField";
 import { DictationModeSelect } from "./DictationModeSelect";
 import { ExternalLinkSelect } from "./ExternalLinkSelect";
+import { LidAwakeSettings } from "./LidAwakeSettings";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
 
@@ -281,6 +282,10 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
               label={i18n.t("settings.keepAwakeOnBattery.title")}
               description={i18n.t("settings.keepAwakeOnBattery.description")}
             />
+          </Show>
+          {/* The keep-awake switches stop only the idle sleep. On macOS a closed lid needs its own mode. */}
+          <Show when={props.platform === "darwin" && props.value.keepAwake !== null}>
+            <LidAwakeSettings selectMount={props.selectMount} />
           </Show>
           <SwitchField
             data-settings-row="settings.restoreWorkspace.title"

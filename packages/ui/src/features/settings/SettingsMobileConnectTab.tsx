@@ -22,8 +22,11 @@ import {
 import { createSignal, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { MobileConnectAddPhoneDialog, MobileConnectLinkDialog } from "./MobileConnectDialogs";
+import { type MobileConnectReach, MobileConnectReachNotice } from "./MobileConnectReach";
 import { RemoteNetworkRouteChoice } from "./RemoteNetworkRouteChoice";
 import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
+
+export type { MobileConnectReach } from "./MobileConnectReach";
 
 interface SettingsMobileConnectTabProps {
   store: SettingsMobileConnectStore;
@@ -33,6 +36,10 @@ interface SettingsMobileConnectTabProps {
   canManageLink: boolean;
   canRevokeDevice: boolean;
   canSetRoute: boolean;
+  /** Whether a phone can reach the server of this computer. Null when this computer has no server. */
+  reach?: MobileConnectReach | null | undefined;
+  /** Publishes the server of this computer, so that the web app on a phone lists it. */
+  onPublishComputer?: (() => Promise<void>) | undefined;
 }
 
 const IOS_PLATFORM_LABEL = "iOS";
@@ -76,6 +83,9 @@ export function SettingsMobileConnectTab(props: SettingsMobileConnectTabProps) {
         </>
       }
     >
+      <Show when={props.reach}>
+        {(reach) => <MobileConnectReachNotice reach={reach()} onPublish={props.onPublishComputer} />}
+      </Show>
       <Show when={props.store.state.route.error}>
         {(error) => (
           <Text class="settings-modal-error" variant="caption" role="alert">
@@ -122,6 +132,8 @@ export function SettingsMobileConnectTab(props: SettingsMobileConnectTabProps) {
         open={adding()}
         store={props.store}
         accountEmail={props.accountEmail}
+        reach={props.reach}
+        onPublishComputer={props.onPublishComputer}
         onClose={() => setAdding(false)}
       />
       <Show when={props.canManageLink}>

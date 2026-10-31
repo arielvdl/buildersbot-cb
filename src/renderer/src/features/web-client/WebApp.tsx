@@ -240,10 +240,10 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       headers: body
         ? {
             "Content-Type": "application/json",
-            "X-Builders Bot-Browser": "1",
+            "X-OpenBot-Browser": "1",
             // This installation, so that the session is listed and revoked on its own.
-            "X-Builders Bot-Install": webInstallIdentity().id,
-            "X-Builders Bot-Install-Label": webInstallIdentity().label,
+            "X-OpenBot-Install": webInstallIdentity().id,
+            "X-OpenBot-Install-Label": webInstallIdentity().label,
           }
         : {},
       ...(body ? { body: JSON.stringify(body) } : {}),

@@ -157,6 +157,8 @@ export const messages = defineMessages("app", {
   "app.settingsPage.searchPlaceholder": "Search settings…",
   "app.settingsPage.results": "Settings search results",
   "app.settingsPage.noResults": "No matching settings.",
+  // A search result opened its tab, but the tab does not show the row now.
+  "app.settingsPage.rowHidden": "This setting does not show now. It depends on another setting or on the server.",
   "app.settingsPage.resultCount": {
     one: "{count} matching setting.",
     other: "{count} matching settings.",

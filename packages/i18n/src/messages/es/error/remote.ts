@@ -125,8 +125,6 @@ export const messages = {
   "error.remote.serverDisconnected": "El servidor se desconectó.",
   "error.remote.preferencesUnreadable": "No se pudieron leer las preferencias de chat guardadas.",
   "error.remote.accountAuthRequired": "Se requiere autenticar la cuenta.",
-  "error.remote.serverIdentityChanged":
-    "La identidad del servidor cambió. No se reemplazará la clave del host de confianza.",
   "error.remote.pairedIdentityChanged":
     "La identidad del escritorio vinculado falta o cambió. Escanea un nuevo código desde ese escritorio.",
   "error.remote.permanentInviteNoEmail": "Las invitaciones permanentes no se pueden enviar por correo.",
@@ -161,7 +159,8 @@ export const messages = {
   "error.remote.signalInvalidMessage": "Signal devolvió un mensaje no válido.",
   "error.remote.sessionInvalid": "La sesión remota no es válida.",
   "error.remote.ticketInvalid": "El ticket de conexión no es válido.",
-  "error.remote.mobileUpdateRequired": "Actualiza Builders Bot Mobile o la aplicación de escritorio antes de conectarte.",
+  "error.remote.mobileUpdateRequired":
+    "Actualiza Builders Bot Mobile o la aplicación de escritorio antes de conectarte.",
   "error.remote.connectionStepFailed": "No se pudo completar este paso de conexión.",
   "error.remote.signalNotConnected": "Signal no está conectado.",
   "error.remote.signalFrameUnreadable": "Signal envió una trama que este par no puede leer.",
@@ -180,7 +179,8 @@ export const messages = {
   "error.remote.iceFailed":
     "No se pudo establecer una conexión directa con el host. Un cortafuegos, una VPN o un proxy pueden bloquearla.",
   "error.remote.iceDisconnected": "Se perdió la conexión directa con el host.",
-  "error.remote.directoryUnreachable": "Builders Bot no pudo acceder al servicio de Builders Bot. Comprueba tu conexión.",
+  "error.remote.directoryUnreachable":
+    "Builders Bot no pudo acceder al servicio de Builders Bot. Comprueba tu conexión.",
   "error.remote.directoryTimeout": "El servicio de Builders Bot no respondió a tiempo. Inténtalo de nuevo.",
   "error.remote.inviteAlreadyUsed": "Esta invitación ya se usó. Pide una nueva invitación.",
   "error.remote.inviteNotFound": "Esta invitación no existe o caducó. Pide una nueva invitación.",

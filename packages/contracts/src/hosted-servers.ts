@@ -93,7 +93,7 @@ export const HOSTED_SERVER_CONTACT_URL = `mailto:hello@openbot.run?subject=${enc
  * A development build sends the shared developer key in this header. A Worker with the same
  * `HOSTED_SERVERS_DEVELOPER_KEY` lets the account create servers, as the allow list does.
  */
-export const HOSTING_DEVELOPER_KEY_HEADER = "Builders Bot-Hosting-Developer-Key";
+export const HOSTING_DEVELOPER_KEY_HEADER = "OpenBot-Hosting-Developer-Key";
 
 export interface HostedServerSummary {
   deletionScheduledAt?: number | null;

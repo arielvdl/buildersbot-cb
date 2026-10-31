@@ -24,6 +24,7 @@ import { type AcpRegistry, createAcpRegistry } from "./acp-registry";
 import { type AgentAdminSettingsService, createAgentAdminSettings } from "./agent-admin-settings";
 import { spawnAgentDatabaseHost } from "./agent-database-host-process";
 import { agentDisplayEnvironment, hasSeparateAgentDisplay } from "./agent-display";
+import { type AgentFolders, createAgentFolders } from "./agent-folders";
 import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-host-settings";
 import { type BrowserProfileService, createBrowserProfileService } from "./browser-profile-service";
 import { HostReleaseService, readInstallationMode } from "./host-release-service";
@@ -79,6 +80,7 @@ import type {
   CentralAuthState,
   ComputerUseState,
   DictationState,
+  LidAwakeStatus,
   ProviderRuntimeSnapshot,
   SpeechModelStatus,
   VoiceModelStatus,
@@ -189,7 +191,7 @@ import { CUSTOM_AGENTS_FILE, CustomAgentStore } from "./custom-agent-store";
 import { type CustomProviderChanges, createCustomProviderChanges } from "./custom-provider-changes";
 import { CustomProviderStore } from "./custom-provider-store";
 import { MCP_OAUTH_REDIRECT_URL } from "./deep-link-router";
-import { desktopShowsAgentEvent } from "./desktop-notifications";
+import { desktopShowsAgentEvent, showRetainedNotification } from "./desktop-notifications";
 import { shouldAutoStartHost } from "./development-profile";
 import {
   applyDevelopmentRemoteAccount,
@@ -225,6 +227,7 @@ import { InstanceTransferService } from "./instance-transfer-service";
 import { InterfaceSizeService } from "./interface-size-service";
 import { prepareToolRuntimeForTest } from "./ipc/mcp-server-handlers";
 import { LanguageService } from "./language-service";
+import { LidAwakeService } from "./lid-awake-service";
 import { localRoutineFeedDocument } from "./local-routine-calendar";
 import { type LocalServerChildEnvironment, startLocalServerChild } from "./local-server-child";
 import { LOCAL_SERVERS_FILE } from "./local-servers/local-server-registry";
@@ -558,6 +561,7 @@ export interface ApplicationServiceContext {
   forwardSpeechModelStatus: (status: SpeechModelStatus) => void;
   forwardDictationState: (state: DictationState) => void;
   forwardVoiceServerSettings: (settings: VoiceServerSettings | null) => void;
+  forwardLidAwakeStatus: (status: LidAwakeStatus) => void;
   forwardWorkflowNotice: (notice: WorkflowNotice) => void;
   prepareForUpdateInstall: () => Promise<void>;
   /** True once a quit starts, also before this function returns. See `CuaDriverRuntimeOptions.quitting`. */
@@ -606,6 +610,8 @@ export interface ApplicationServices {
   approvalAutomation: ApprovalAutomation;
   agentAdminSettings: AgentAdminSettingsService;
   agentHostSettings: AgentHostSettingsService;
+  /** The folders each agent can change besides its workspace, for the desktop settings and `agent-folders-v1`. */
+  agentFolders: AgentFolders;
   browserProfiles: BrowserProfileService;
   language: LanguageService;
   logoColor: LogoColorService;
@@ -671,6 +677,7 @@ export interface ApplicationServices {
   speech: VoiceSpeechService;
   dictation: DictationService;
   voiceServer: VoiceServerService;
+  lidAwake: LidAwakeService;
   dynamicIsland: DynamicIslandWindowController;
   cuaDriver: CuaDriverRuntime;
   computerUseHighlight: ComputerUseHighlightController;
@@ -943,6 +950,7 @@ export async function createApplicationServices({
   forwardSpeechModelStatus,
   forwardDictationState,
   forwardVoiceServerSettings,
+  forwardLidAwakeStatus,
   forwardWorkflowNotice,
   prepareForUpdateInstall,
   quitting,
@@ -2373,7 +2381,13 @@ export async function createApplicationServices({
   );
   const agentAdminSettings = createAgentAdminSettings({ agents: service, approvalAutomation });
   const agentHostSettings = createAgentHostSettings({ agents: service, busyMessageMode, agentDefaults });
-  const browserProfiles = createBrowserProfileService({ store: browserProfileStore, agents: service, browser });
+  const agentFolders = createAgentFolders({ service, userDataPath: app.getPath("userData") });
+  const browserProfiles = createBrowserProfileService({
+    store: browserProfileStore,
+    agents: service,
+    browser,
+    onChanged: () => service.notifyBrowserProfilesChanged(),
+  });
   const customProviderChanges = createCustomProviderChanges({ service, customProviders });
   const customAgentChanges = createCustomAgentChanges({ service, customAgents });
   const acpRegistry = createAcpRegistry({
@@ -2572,6 +2586,7 @@ export async function createApplicationServices({
     admin: {
       agents: agentAdminSettings,
       agentHost: agentHostSettings,
+      folders: agentFolders,
       sessionSettings: service,
       acpRegistry,
       skills,
@@ -2640,7 +2655,10 @@ export async function createApplicationServices({
     registerRemoteHost: (input) => centralAuth.registerRemoteHost(input).pipe(toRemoteWorkflowError),
     handOverRemoteHostKey: (hostId, handover) =>
       centralAuth.handOverRemoteHostKey(hostId, handover).pipe(toRemoteWorkflowError),
-    issueRemoteHostTicket: (hostId) => centralAuth.issueRemoteHostTicket(hostId).pipe(toRemoteWorkflowError),
+    // The server list carries the handover and its time, also for a change that another device asked for.
+    onKeyRotated: () => remoteServers.requestDirectoryRefresh(),
+    issueRemoteHostTicket: (hostId, home) =>
+      centralAuth.issueRemoteHostTicket(hostId, home).pipe(toRemoteWorkflowError),
     sendLiveActivityPush: (hostId, push) => centralAuth.sendLiveActivityPush(hostId, push).pipe(toRemoteWorkflowError),
     sendPushNotification: (hostId, push) => centralAuth.sendPushNotification(hostId, push).pipe(toRemoteWorkflowError),
     pushNotificationStore,
@@ -3102,6 +3120,19 @@ export async function createApplicationServices({
   await runCauseEffect(voiceServerKeys.load());
   const voiceServer = new VoiceServerService({ preferences: voiceServerPreferences, apiKeys: voiceServerKeys });
   voiceServer.on("settings", forwardVoiceServerSettings);
+  const lidAwake = new LidAwakeService({
+    // The same computers as the keep-awake switch, and only macOS: the mode runs `caffeinate` and `pmset`.
+    offered: process.platform === "darwin" && !hostedServer && !serverModeEnvironment && !localServerChild,
+    userDataPath: app.getPath("userData"),
+    pid: process.pid,
+    isOnBattery: () => powerMonitor.isOnBatteryPower(),
+    thermalState: () => powerMonitor.getCurrentThermalState(),
+    translate: language.translate,
+    notify: (body) => showRetainedNotification(new Notification({ title: "Builders Bot", body })),
+  });
+  lidAwake.subscribe(forwardLidAwakeStatus);
+  await runCauseEffect(lidAwake.load());
+  teardown.push(TEARDOWN_ORDER.providerLog, "the lid-closed mode", () => lidAwake.dispose());
   const currentVersion = app.getVersion();
   const updateMetadataPath = join(process.resourcesPath, "app-update.yml");
   // Skip the file check in dev: unpacked runs never enable updates, so avoid touching resourcesPath.
@@ -3437,6 +3468,7 @@ export async function createApplicationServices({
     approvalAutomation,
     agentAdminSettings,
     agentHostSettings,
+    agentFolders,
     browserProfiles,
     language,
     logoColor,
@@ -3499,6 +3531,7 @@ export async function createApplicationServices({
     speech,
     dictation,
     voiceServer,
+    lidAwake,
     dynamicIsland,
     cuaDriver,
     computerUseHighlight,

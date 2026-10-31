@@ -33,7 +33,10 @@ import { LicenseSection } from "@openbot/ui/features/billing/LicenseSection";
 import { createLicenseStore } from "@openbot/ui/features/billing/license-store";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
 import { SettingsDialogShell, type SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
-import { SettingsMobileConnectTab } from "@openbot/ui/features/settings/SettingsMobileConnectTab";
+import {
+  type MobileConnectReach,
+  SettingsMobileConnectTab,
+} from "@openbot/ui/features/settings/SettingsMobileConnectTab";
 import { SettingsProfileTab } from "@openbot/ui/features/settings/SettingsProfileTab";
 import { SettingsUpdatesTab } from "@openbot/ui/features/settings/SettingsUpdatesTab";
 import { createSettingsHostedServersStore } from "@openbot/ui/features/settings/stores/hosted-servers-store";
@@ -97,6 +100,10 @@ export interface SettingsModalProps {
   onGetRemoteNetworkRoute?: () => Promise<RemoteNetworkRouteState>;
   onSetRemoteNetworkRoute?: (route: RemoteNetworkRoute) => Promise<RemoteNetworkRouteState>;
   onGetMobileWebAppUrl?: () => Promise<string>;
+  /** Whether a phone can reach the server of this computer. Null when this computer has no server. */
+  mobileConnectReach?: MobileConnectReach | null | undefined;
+  /** Publishes the server of this computer, so that the web app on a phone lists it. */
+  onPublishComputer?: (() => Promise<void>) | undefined;
   onListAccountSessions?: () => Promise<AccountSession[]>;
   onRevokeAccountSession?: (sessionId: string) => Promise<void>;
   onSignOut?: (() => Promise<void>) | undefined;
@@ -391,6 +398,8 @@ export function SettingsModal(props: SettingsModalProps) {
             canManageLink={Boolean(props.onCreateMobileConnectLink && props.onRevokeMobileConnectLink)}
             canRevokeDevice={Boolean(props.onRevokeMobileConnectedDevice)}
             canSetRoute={Boolean(props.onSetRemoteNetworkRoute)}
+            reach={props.mobileConnectReach}
+            onPublishComputer={props.onPublishComputer}
           />
         </Tabs.Content>
 

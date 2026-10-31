@@ -57,7 +57,8 @@ export const messages = {
   "error.remote.inviteAcceptedOtherHost": "Usługa kont zaakceptowała inny host.",
   "error.remote.inviteIdentityChanged": "Tożsamość hosta zaproszenia zmieniła się podczas akceptacji.",
   "error.remote.localServerRemove": "Nie można usunąć lokalnego serwera.",
-  "error.remote.desktopSetupHostUpdate": "Zaktualizuj Builders Bot na hoście, aby sprawdzić konfigurację zdalnego pulpitu.",
+  "error.remote.desktopSetupHostUpdate":
+    "Zaktualizuj Builders Bot na hoście, aby sprawdzić konfigurację zdalnego pulpitu.",
   "error.remote.desktopTestHostUpdate":
     "Zaktualizuj Builders Bot na hoście, aby przetestować konfigurację zdalnego pulpitu.",
   "error.remote.viewerProxyUnavailable": "Lokalny serwer proxy zdalnego podglądu jest niedostępny.",
@@ -123,7 +124,6 @@ export const messages = {
   "error.remote.serverDisconnected": "Serwer rozłączył się.",
   "error.remote.preferencesUnreadable": "Nie udało się odczytać zapisanych preferencji czatu.",
   "error.remote.accountAuthRequired": "Wymagane jest uwierzytelnienie konta.",
-  "error.remote.serverIdentityChanged": "Tożsamość serwera zmieniła się. Zaufany klucz hosta nie zostanie zastąpiony.",
   "error.remote.pairedIdentityChanged":
     "Tożsamość sparowanego komputera nie istnieje lub zmieniła się. Zeskanuj nowy kod z tego komputera.",
   "error.remote.permanentInviteNoEmail": "Stałych zaproszeń nie można wysyłać e-mailem.",

@@ -151,7 +151,7 @@ export function openBotRootHead(interLatinFont: string) {
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: OPENBOT_SITE_TITLE },
       { name: "description", content: OPENBOT_SITE_DESCRIPTION },
-      { name: "application-name", content: "OpenBot" },
+      { name: "application-name", content: "Builders Bot" },
       { name: "color-scheme", content: "dark" },
       { name: "theme-color", content: "#1a1a1a" },
       // iOS reads these, not the manifest: the installed app opens without the Safari chrome, and the
@@ -159,7 +159,7 @@ export function openBotRootHead(interLatinFont: string) {
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "OpenBot" },
+      { name: "apple-mobile-web-app-title", content: "Builders Bot" },
       { name: "format-detection", content: "telephone=no" },
     ],
     links: [

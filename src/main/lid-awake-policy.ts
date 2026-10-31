@@ -1,0 +1,233 @@
+// The decisions of the lid-closed mode, with no I/O. `lid-awake-service.ts` reads the computer and
+// applies them. See docs/architecture/lid-awake.md.
+
+import {
+  LID_AWAKE_BATTERY_FLOORS,
+  type LidAwakeBatteryFloor,
+  type LidAwakeHelperState,
+  type LidAwakePreference,
+  type LidAwakeState,
+  type LidAwakeTestResult,
+  type LidAwakeTestVerdict,
+} from "@openbot/contracts/ipc";
+
+/** Electron `powerMonitor.getCurrentThermalState()`. */
+export type ThermalState = "unknown" | "nominal" | "fair" | "serious" | "critical";
+
+export const CAFFEINATE_PATH = "/usr/bin/caffeinate";
+export const PMSET_PATH = "/usr/bin/pmset";
+export const IOREG_PATH = "/usr/sbin/ioreg";
+export const PMSET_BATTERY_ARGS = ["-g", "batt"] as const;
+export const IOREG_ROOT_DOMAIN_ARGS = ["-r", "-c", "IOPMrootDomain", "-d", "1"] as const;
+
+/**
+ * `-s` stops system sleep, which macOS obeys only on the power adapter. `-i` stops idle sleep, on
+ * battery too, and keeps App Nap from slowing the timers of the app. `-w` ends caffeinate, and its
+ * assertions, when the app process ends, also after a crash. The arguments are constants and one
+ * whole number: nothing goes through a shell.
+ */
+export function caffeinateArgs(pid: number): string[] {
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("The process id must be a positive whole number.");
+  return ["-i", "-s", "-w", String(pid)];
+}
+
+export interface LidAwakeInput {
+  preference: LidAwakePreference;
+  onPowerAdapter: boolean;
+  batteryPercent: number | null;
+  thermal: ThermalState;
+  /** When the lid closed while the mode was on, or null while it is open. */
+  lidClosedSince: number | null;
+  now: number;
+  helper: LidAwakeHelperState;
+  /** The assertion process could not start again after it stopped. */
+  holdFailed: boolean;
+}
+
+export interface LidAwakeDecision {
+  state: LidAwakeState;
+  /** Run caffeinate. */
+  assertion: boolean;
+  /** Keep the grant file of the safety service fresh. */
+  grant: boolean;
+}
+
+const NONE = { assertion: false, grant: false } as const;
+
+/** Hot enough that macOS slows the computer. The safety service also stops at a thermal warning. */
+export function isTooHot(thermal: ThermalState): boolean {
+  return thermal === "serious" || thermal === "critical";
+}
+
+export function timeLimitReached(lidClosedSince: number | null, now: number, hours: number): boolean {
+  return hours > 0 && lidClosedSince !== null && now - lidClosedSince >= hours * 3_600_000;
+}
+
+/**
+ * The order is the order of the safety rules: heat first, then the time limit, then the power
+ * source. An unknown battery level on battery stops the `battery` mode: the rule fails closed.
+ */
+export function decideLidAwake(input: LidAwakeInput): LidAwakeDecision {
+  const { preference } = input;
+  if (preference.mode === "off") return { state: "off", ...NONE };
+  if (isTooHot(input.thermal)) return { state: "paused-too-hot", ...NONE };
+  if (timeLimitReached(input.lidClosedSince, input.now, preference.timeLimitHours))
+    return { state: "paused-time-limit", ...NONE };
+  const helperReady = preference.mode === "battery" && input.helper === "installed";
+  if (!helperReady) {
+    if (!input.onPowerAdapter)
+      return { state: preference.mode === "battery" ? "paused-helper-missing" : "paused-on-battery", ...NONE };
+    if (input.holdFailed) return { state: "failed", ...NONE };
+    return { state: "active-plugged", assertion: true, grant: false };
+  }
+  if (!input.onPowerAdapter && (input.batteryPercent === null || input.batteryPercent < preference.batteryFloor))
+    return { state: "paused-battery-low", ...NONE };
+  // The assertion also keeps App Nap off, so the grant stays fresh with the lid closed.
+  return { state: "active-battery", assertion: !input.holdFailed, grant: true };
+}
+
+/** The states that a safety rule caused. A change into one of them tells the user. */
+export function safetyStop(state: LidAwakeState): "battery-low" | "too-hot" | "time-limit" | null {
+  if (state === "paused-battery-low") return "battery-low";
+  if (state === "paused-too-hot") return "too-hot";
+  if (state === "paused-time-limit") return "time-limit";
+  return null;
+}
+
+export function isActive(state: LidAwakeState): boolean {
+  return state === "active-plugged" || state === "active-battery";
+}
+
+export interface PowerSource {
+  onPowerAdapter: boolean | null;
+  batteryPercent: number | null;
+}
+
+/**
+ * `pmset -g batt`, for example:
+ *
+ *     Now drawing from 'AC Power'
+ *      -InternalBattery-0 (id=22085731)	54%; charging; 1:30 remaining present: true
+ *
+ * Only whole numbers from 0 to 100 are read. Another form reads as unknown.
+ */
+export function parsePowerSource(text: string): PowerSource {
+  const lines = text.split("\n");
+  const source = /^Now drawing from '([^']+)'$/.exec(lines[0]?.trim() ?? "")?.[1];
+  let batteryPercent: number | null = null;
+  for (const line of lines.slice(1)) {
+    if (!line.trimStart().startsWith("-InternalBattery")) continue;
+    const match = /\t(\d{1,3})%;/.exec(line);
+    const percent = match ? Number(match[1]) : Number.NaN;
+    batteryPercent = Number.isInteger(percent) && percent <= 100 ? percent : null;
+    break;
+  }
+  return {
+    onPowerAdapter: source === "AC Power" ? true : source === "Battery Power" ? false : null,
+    batteryPercent,
+  };
+}
+
+export interface RootDomainState {
+  /** A desktop Mac has no `AppleClamshellState`. */
+  hasLid: boolean;
+  lidClosed: boolean;
+  /** `pmset disablesleep 1` is in effect. */
+  sleepDisabled: boolean;
+}
+
+/** `ioreg -r -c IOPMrootDomain -d 1`. */
+export function parseRootDomain(text: string): RootDomainState {
+  const value = (key: string) => new RegExp(`^\\s*"${key}" = (Yes|No)\\s*$`, "m").exec(text)?.[1] ?? null;
+  const lid = value("AppleClamshellState");
+  return { hasLid: lid !== null, lidClosed: lid === "Yes", sleepDisabled: value("SleepDisabled") === "Yes" };
+}
+
+/**
+ * The grant of the safety service is the change time of one empty file, named for the battery floor.
+ * The service reads only the owner and the change time of the file, never its content.
+ */
+export function grantFileName(floor: LidAwakeBatteryFloor): string {
+  return `active-${floor}`;
+}
+
+export const GRANT_FILE_NAMES = LID_AWAKE_BATTERY_FLOORS.map(grantFileName);
+
+/** The service accepts a grant changed in the last 90 seconds. The app renews it each 30 seconds. */
+export const GRANT_RENEW_MS = 30_000;
+export const GRANT_MAX_AGE_SECONDS = 90;
+
+/** One record of the test: the wall clock, a clock that stops while the computer sleeps, and the lid. */
+export interface LidTestSample {
+  wallMs: number;
+  monoMs: number;
+  lidClosed: boolean;
+}
+
+export interface LidTestProgress {
+  startedAtMs: number;
+  last: LidTestSample;
+  closedMs: number;
+  sleptMs: number;
+  longestGapMs: number;
+}
+
+/** A gap between two records that is longer than this, on the wall clock only, is sleep. */
+const SLEEP_NOISE_MS = 2_000;
+/** The lid must be closed this long while the Mac is on, for a test to pass. */
+export const LID_TEST_MIN_CLOSED_MS = 120_000;
+export const LID_TEST_MAX_MS = 10 * 60_000;
+export const LID_TEST_BEAT_MS = 5_000;
+/** Less sleep than this is clock noise. */
+const SLEPT_VERDICT_MS = 5_000;
+
+export function startLidTest(sample: LidTestSample): LidTestProgress {
+  return { startedAtMs: sample.wallMs, last: sample, closedMs: 0, sleptMs: 0, longestGapMs: 0 };
+}
+
+/**
+ * The wall clock moves while the computer sleeps, and the monotonic clock does not. A short wake
+ * for maintenance can run one record with the lid closed, so a record does not prove that the Mac
+ * stayed on: only the sum of the sleep does.
+ */
+export function recordLidTestSample(progress: LidTestProgress, sample: LidTestSample): LidTestProgress {
+  const wall = Math.max(0, sample.wallMs - progress.last.wallMs);
+  const mono = Math.max(0, sample.monoMs - progress.last.monoMs);
+  const slept = wall - mono > SLEEP_NOISE_MS ? wall - mono : 0;
+  const awake = wall - slept;
+  const closed =
+    progress.last.lidClosed && sample.lidClosed ? awake : progress.last.lidClosed || sample.lidClosed ? awake / 2 : 0;
+  return {
+    startedAtMs: progress.startedAtMs,
+    last: sample,
+    closedMs: progress.closedMs + closed,
+    sleptMs: progress.sleptMs + slept,
+    longestGapMs: Math.max(progress.longestGapMs, wall),
+  };
+}
+
+/** The test can stop by itself: the lid opened after it was closed long enough, or time is up. */
+export function lidTestDone(progress: LidTestProgress): boolean {
+  if (progress.last.wallMs - progress.startedAtMs >= LID_TEST_MAX_MS) return true;
+  return (
+    !progress.last.lidClosed && (progress.closedMs >= LID_TEST_MIN_CLOSED_MS || progress.sleptMs >= SLEPT_VERDICT_MS)
+  );
+}
+
+/** Any sleep fails the test, also a short one: a record in a maintenance wake is not a pass. */
+export function lidTestVerdict(progress: LidTestProgress, finished: boolean): LidAwakeTestVerdict {
+  if (!finished) return "running";
+  if (progress.sleptMs >= SLEPT_VERDICT_MS) return "slept";
+  return progress.closedMs >= LID_TEST_MIN_CLOSED_MS ? "stayed-awake" : "lid-not-closed";
+}
+
+export function lidTestResult(progress: LidTestProgress, finished: boolean): LidAwakeTestResult {
+  return {
+    verdict: lidTestVerdict(progress, finished),
+    startedAt: new Date(progress.startedAtMs).toISOString(),
+    endedAt: finished ? new Date(progress.last.wallMs).toISOString() : null,
+    closedSeconds: Math.round(progress.closedMs / 1_000),
+    sleptSeconds: Math.round(progress.sleptMs / 1_000),
+    longestGapSeconds: Math.round(progress.longestGapMs / 1_000),
+  };
+}

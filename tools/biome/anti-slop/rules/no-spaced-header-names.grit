@@ -1,0 +1,53 @@
+language js(typescript)
+
+// scope: global
+
+// An HTTP header name is a token, so it cannot hold a space. `fetch`, `Headers` and the `http` and
+// `ws` modules of Node refuse a request with such a name before they send it, and `Headers.get`
+// throws on one: the request fails on the client, and the receiver never sees it. A blind rename of
+// a product name that has a space ("Acme Corp") once made `X-Acme Corp-Browser` of
+// `X-AcmeCorp-Browser` in every request of a web client.
+//
+// The rule finds a header name in three syntax forms: a key of the object that a `headers` property
+// holds, the first argument of `get`, `has`, `set`, `append` or `delete` on a value named `headers`,
+// and a constant whose name ends in `_HEADER` and whose value has the shape of a header name
+// (capitalized words that dashes join). A header value can hold a space, so values are not matched.
+// A name in a variable is not matched.
+//
+// Traversal cost: the first arm compares each property name with the plain string `headers` before
+// it searches that object, because a regex on each property name of the repository took four times
+// the time of the other arms together. `bubble` gives each key its own `$name`, so each bad key of
+// one object is reported, not only the first. A quoted `"headers"` key is not matched.
+or {
+  JsPropertyObjectMember(name=$outer, value=$value) where {
+    $outer <: "headers",
+    $value <: contains bubble JsPropertyObjectMember(name=$name) where {
+      $name <: r"[\"'][^\"']* [^\"']*[\"']",
+      register_diagnostic(
+        span=$name,
+        message="[no-spaced-header-names] An HTTP header name cannot hold a space: fetch, Headers and Node refuse the request before they send it. Use the name that the receiver reads.",
+        severity="error"
+      )
+    }
+  },
+  `$target.$method($name, $...)` where {
+    $method <: or { `get`, `has`, `set`, `append`, `delete` },
+    $target <: r"(?:.*\.)?headers",
+    $name <: r"[\"'][^\"']* [^\"']*[\"']",
+    register_diagnostic(
+      span=$name,
+      message="[no-spaced-header-names] An HTTP header name cannot hold a space: Headers.get and Headers.set throw on it. Use the name that the sender writes.",
+      severity="error"
+    )
+  },
+  `const $constant = $name` where {
+    $constant <: r"[A-Z0-9_]*_HEADER",
+    $name <: r"[\"'`][A-Z][A-Za-z0-9]*(?: [A-Za-z0-9]+)*(?:-[A-Z][A-Za-z0-9]*(?: [A-Za-z0-9]+)*)+[\"'`]",
+    $name <: r".* .*",
+    register_diagnostic(
+      span=$name,
+      message="[no-spaced-header-names] An HTTP header name cannot hold a space: fetch, Headers and Node refuse the request before they send it. Use the name that the receiver reads.",
+      severity="error"
+    )
+  }
+}

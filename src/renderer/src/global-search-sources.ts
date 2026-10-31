@@ -1,5 +1,6 @@
 import { SIDEBAR_UNASSIGNED_SECTION_ID } from "@openbot/contracts/ipc";
-import { BookMarked, Bot, CalendarClock, Hash, Server, Sparkles, Store, UsersRound } from "@openbot/ui";
+import { type AppTextKey, translateFor } from "@openbot/i18n";
+import { BookMarked, Bot, CalendarClock, Hash, Server, Store } from "@openbot/ui";
 import type {
   GlobalSearchAction,
   GlobalSearchFile,
@@ -15,14 +16,20 @@ import { appPort } from "./app-port";
 import { useAgents } from "./features/agents/agents-context";
 import { useChannels } from "./features/channels/channels-context";
 import { globalSearchChannels } from "./features/channels/global-search-channels";
-import { activeServerHasProviderSettings, serverCanAdminister } from "./features/servers/server-capabilities";
 import { useServerSettings } from "./features/servers/server-settings";
+import {
+  SERVER_SETTINGS_SEARCH,
+  SERVER_SETTINGS_SECTIONS,
+  serverSettingsEntryShown,
+} from "./features/servers/server-settings-sections";
 import { useServers } from "./features/servers/servers-context";
 import { useSettings } from "./features/settings/settings-context";
-import { dynamicIslandSettingsShown, navItems } from "./features/settings/settings-tabs";
+import { settingsSearchKeywords } from "./features/settings/settings-search";
+import { dynamicIslandSettingsShown, navItems, settingsTabShown } from "./features/settings/settings-tabs";
 import { useSectionRailFocus } from "./features/sidebar/section-rail-focus";
 import { useSidebar } from "./features/sidebar/sidebar-context";
 import { useUsage } from "./features/usage/usage-context";
+import { openServerSettingsSection, revealSettingsRow } from "./features/window/settings-row-reveal";
 import { useWindowPage } from "./features/window/window-page-context";
 import { useLayout } from "./layout";
 import { sectionRailShowsOn } from "./left-column";
@@ -32,20 +39,30 @@ import { usePlatform } from "./platform";
 const FILE_SEARCH_LIMIT = 50;
 
 /**
+ * The rows of the server settings that the palette lists as results of their own. The value is the
+ * end of the result id, which did not change. A result opens General and moves to the row. The words
+ * of the other rows find their section.
+ */
+const PALETTE_SERVER_ROWS: Partial<Record<AppTextKey, string>> = {
+  "server.settings.memoryLimit": "memory-limit",
+  "server.settings.memoryReview": "memory-review",
+};
+
+/**
  * What global search finds besides agents and messages: channels, routines, files, commands and
  * settings pages. Routines load each time the search opens, as no store keeps every agent's list.
  * Files come from this computer's database, so a joined server shows no Files filter. It also gives
  * the tab that the search opens on, and the section of the rail that the search can keep.
  */
 export function useGlobalSearchSources(open: () => boolean) {
-  const { t } = useText();
+  const { t, locale } = useText();
   const platform = usePlatform();
   const channels = useChannels();
   const { agentList, agentSetupOpen, creatingAgent, openAgentSetup, setSettingsRequest } = useAgents();
   const { selectAgent, globalSearchOpener } = useNavigation();
-  const { activeServer } = useServers();
-  const { openServerSettings } = useServerSettings();
-  const { openAppSettings, setSkillsMarketplaceOpen } = useSettings();
+  const { activeServer, hostStatus } = useServers();
+  const serverSettings = useServerSettings();
+  const { openAppSettings, setSkillsMarketplaceOpen, generalSettings } = useSettings();
   const { openSchedule } = useUsage();
   const [routines, setRoutines] = createSignal<GlobalSearchRoutine[]>([]);
   const [routinesLoading, setRoutinesLoading] = createSignal(false);
@@ -184,69 +201,64 @@ export function useGlobalSearchSources(open: () => boolean) {
           run: () => openSchedule(server.id, globalSearchOpener()),
         });
       }
+      // The interface language and English, as written and without accents, and for a tab the titles
+      // of its rows: "acordado", "update" and "notificacoes" each find their page.
+      const english = translateFor("en");
+      const translators =
+        locale() === "en"
+          ? [(key: AppTextKey) => t(key)]
+          : [(key: AppTextKey) => t(key), (key: AppTextKey) => english(key)];
+      const platformName = platform.appInfo()?.platform;
+      const rowState = { platform: platformName, general: generalSettings() };
       for (const item of navItems) {
         // Hosted servers shows only for an account with hosting, which the dialog checks when it opens.
-        if (item.value === "hosted-servers" || (item.value === "dynamic-island" && !dynamicIslandShown)) continue;
+        if (!settingsTabShown(item.value, dynamicIslandShown)) continue;
+        const rows = item.rows
+          .filter((row) => row.shown?.(rowState) ?? true)
+          .map((row) => ({ titleKey: row.anchor, keywordsKey: row.keywordsKey }));
         list.push({
           id: `settings:${item.value}`,
           label: t(item.titleKey),
           detail: t("conversation.globalSearch.appSettings"),
+          keywords: settingsSearchKeywords([item, ...rows], translators),
           group: "settings",
           icon: item.icon,
           run: () => openAppSettings(globalSearchOpener(), item.value),
         });
       }
       if (server) {
-        list.push(
-          {
-            id: "server:general",
-            label: t("server.settings.generalTitle"),
-            detail: server.name,
-            group: "settings",
-            icon: Server,
-            run: () => openServerSettings(server.id, globalSearchOpener(), "general"),
-          },
-          {
-            id: "server:members",
-            label: t("server.settings.membersTitle"),
-            detail: server.name,
-            group: "settings",
-            icon: UsersRound,
-            run: () => openServerSettings(server.id, globalSearchOpener(), "members"),
-          },
-        );
-        // General shows the row only to an admin of a host that can set it, and only while it is online.
-        if (
-          serverCanAdminister(server, "agent-memory-limit-v1") &&
-          (server.kind === "local" || server.state === "online")
-        ) {
+        const context = { platform: platformName, host: hostStatus() };
+        const shown = SERVER_SETTINGS_SEARCH.filter((entry) => serverSettingsEntryShown(entry, server, context));
+        for (const entry of shown) {
+          const row = entry.anchor ? PALETTE_SERVER_ROWS[entry.anchor] : undefined;
+          if (row && entry.anchor) {
+            const anchor = entry.anchor;
+            list.push({
+              id: `server:${row}`,
+              label: t(entry.titleKey),
+              detail: server.name,
+              keywords: settingsSearchKeywords([entry], translators),
+              group: "settings",
+              icon: BookMarked,
+              run: () => {
+                openServerSettingsSection(serverSettings, server.id, globalSearchOpener(), entry.section);
+                void revealSettingsRow(entry.section, anchor);
+              },
+            });
+            continue;
+          }
+          // The other rows of a section find the section.
+          if (entry.anchor) continue;
+          const rowsOfSection = shown.filter((other) => other.anchor && other.section === entry.section);
           list.push({
-            id: "server:memory-limit",
-            label: t("server.settings.memoryLimit"),
+            id: `server:${entry.section}`,
+            label: t(entry.titleKey),
             detail: server.name,
+            keywords: settingsSearchKeywords([entry, ...rowsOfSection], translators),
             group: "settings",
-            icon: BookMarked,
-            run: () => openServerSettings(server.id, globalSearchOpener(), "general"),
-          });
-        }
-        if (serverCanAdminister(server, "memory-review-v1") && (server.kind === "local" || server.state === "online")) {
-          list.push({
-            id: "server:memory-review",
-            label: t("server.settings.memoryReview"),
-            detail: server.name,
-            group: "settings",
-            icon: BookMarked,
-            run: () => openServerSettings(server.id, globalSearchOpener(), "general"),
-          });
-        }
-        if (activeServerHasProviderSettings(server)) {
-          list.push({
-            id: "server:providers",
-            label: t("server.settings.providersTitle"),
-            detail: server.name,
-            group: "settings",
-            icon: Sparkles,
-            run: () => openServerSettings(server.id, globalSearchOpener(), "providers"),
+            // The Server icon tells the General of the server from the General of the app.
+            icon: entry.section === "general" ? Server : SERVER_SETTINGS_SECTIONS[entry.section].icon,
+            run: () => openServerSettingsSection(serverSettings, server.id, globalSearchOpener(), entry.section),
           });
         }
       }

@@ -58,9 +58,9 @@ function curlExample(url: string): string {
     `SIG=$(printf '%s.%s.%s' "$TS" "$ID" "$BODY" | openssl dgst -sha256 -hmac "$OPENBOT_WEBHOOK_SECRET" | sed 's/^.* //')`,
     `curl -X POST "${url}" \\`,
     `  -H "Content-Type: application/json" \\`,
-    `  -H "X-Builders Bot-Timestamp: $TS" \\`,
-    `  -H "X-Builders Bot-Delivery-Id: $ID" \\`,
-    `  -H "X-Builders Bot-Signature: sha256=$SIG" \\`,
+    `  -H "X-OpenBot-Timestamp: $TS" \\`,
+    `  -H "X-OpenBot-Delivery-Id: $ID" \\`,
+    `  -H "X-OpenBot-Signature: sha256=$SIG" \\`,
     `  --data "$BODY"`,
   ].join("\n");
 }

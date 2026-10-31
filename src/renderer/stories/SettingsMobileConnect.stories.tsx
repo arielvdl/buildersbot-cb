@@ -1,4 +1,7 @@
-import { SettingsMobileConnectTab } from "@openbot/ui/features/settings/SettingsMobileConnectTab";
+import {
+  type MobileConnectReach,
+  SettingsMobileConnectTab,
+} from "@openbot/ui/features/settings/SettingsMobileConnectTab";
 import { createSettingsMobileConnectStore } from "@openbot/ui/features/settings/stores/mobile-connect-store";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 
@@ -9,9 +12,9 @@ const WEB_APP_URL = "https://buildersbot.culturabuilder.com/app";
  * Mobile Connect with no phone yet. Add phone opens the dialog: it asks, then shows the QR code of the
  * web app and the steps that add it to the Home Screen of an iPhone or an Android phone, then the
  * sign-in steps. No step offers a phone app from a store. The address is a closure, not a prop, so
- * the story reads no reactive value.
+ * the story reads no reactive value. `reach` is whether the phone can reach the server of this computer.
  */
-function mobileConnectStory(address: () => Promise<string>) {
+function mobileConnectStory(address: () => Promise<string>, reach: MobileConnectReach | null = null) {
   return function MobileConnectStory() {
     const store = createSettingsMobileConnectStore(
       { open: true, onListMobileConnectedDevices: async () => [], onGetMobileWebAppUrl: address },
@@ -25,6 +28,8 @@ function mobileConnectStory(address: () => Promise<string>) {
         canManageLink={false}
         canRevokeDevice={false}
         canSetRoute={false}
+        reach={reach}
+        onPublishComputer={() => Promise.reject(new Error("publish_failed"))}
       />
     );
   };
@@ -34,6 +39,8 @@ const WithAddress = mobileConnectStory(() => Promise.resolve(WEB_APP_URL));
 const WithoutAddress = mobileConnectStory(() =>
   Promise.reject(new Error("Could not load the address of the web app.")),
 );
+const NotPublished = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), "offline");
+const Published = mobileConnectStory(() => Promise.resolve(WEB_APP_URL), "online");
 
 const meta = {
   title: "Settings/Mobile Connect",
@@ -49,3 +56,9 @@ export const AddPhone: Story = { render: () => <WithAddress /> };
 
 /** Main could not give the address: the code slot says so, and the steps of the phone stay. */
 export const AddressUnavailable: Story = { render: () => <WithoutAddress /> };
+
+/** The server of this computer is not published, so a phone cannot list it. Publish server fails here. */
+export const ComputerNotPublished: Story = { render: () => <NotPublished /> };
+
+/** The server of this computer is published: a phone lists it while the computer is on and awake. */
+export const ComputerPublished: Story = { render: () => <Published /> };

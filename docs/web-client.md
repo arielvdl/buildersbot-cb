@@ -207,6 +207,18 @@ Play link or QR code.
 - The phone signs in with the email code of the account, as in a browser tab. Each installation has
   its own session, app lock and push subscription (`web-install-identity.ts`, `web-push.ts`). Web
   Push on an iPhone needs iOS 16.4 or later and the app on the Home Screen.
+- The phone lists only published servers. Mobile Connect and the sign-in step of Add phone show
+  whether the server of this computer is published (`MobileConnectReachNotice`), and **Publish this
+  server** publishes it as the Members switch of Server settings does. Publishing waits for that
+  click, because the members of the server can then connect to it. The phone connects to the computer
+  directly, so the computer must stay on and awake.
+- The web client sends `X-OpenBot-Browser`, `X-OpenBot-Install` and `X-OpenBot-Install-Label`, and
+  the host sends `X-OpenBot-WebRTC-Session` and the `OpenBot-*` Team API headers. These names keep the
+  upstream spelling: a header name cannot hold a space, and the rename of 28 October made
+  `X-Builders Bot-Browser`, which `fetch` refuses before it sends the request. That stopped the
+  sign-in on the phone and each phone request on the host. `scripts/builders-bot-rename.pl` keeps
+  these names, and the Biome rule `no-spaced-header-names` (`tools/biome/anti-slop/rules`) rejects
+  a header name with a space in a `headers` object, in `headers.get` and in a `*_HEADER` constant.
 - Such a phone is an account session of the web client. The desktop shows it in **Settings >
   Profile > Account sessions**, not in the phone list of Mobile Connect, which lists the sessions of
   the earlier phone app.

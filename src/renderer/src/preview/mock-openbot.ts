@@ -5,6 +5,7 @@ import type {
   AgentSessionSettings,
   AutoRecoveryPreference,
   HiddenAgentsSnapshot,
+  LidAwakeStatus,
   LoadLanePreference,
   LoadSnapshot,
   McpSignInApp,
@@ -15,6 +16,7 @@ import {
   type AccountUsage,
   AGENT_DEFAULT_KEYS,
   AGENT_FOLDER_LIMIT,
+  AGENT_INSTRUCTIONS_CHANGE_ITEM_TYPE,
   type AgentAccessChange,
   type AgentBrowserProfile,
   type AgentDefaults,
@@ -22,6 +24,7 @@ import {
   type AgentExclusionChange,
   type AgentFolderChange,
   type AgentFolderList,
+  type AgentInstructionsFile,
   type AgentMemory,
   type AgentMemoryLimitPreference,
   type AgentMemorySelection,
@@ -50,6 +53,7 @@ import {
   agentComputerUseEnabled,
   agentExclusionCoverage,
   agentFolderCoverage,
+  agentQuickAcknowledgementEnabled,
   agentTaskLimit,
   type BackgroundProcess,
   type BrowserProfileSummary,
@@ -759,6 +763,14 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     return agent;
   }
 
+  // The instruction file of each agent, in memory. An agent with none shows an empty AGENTS.md.
+  const mockInstructionFiles = new Map<string, AgentInstructionsFile>();
+
+  function mockAgentInstructions(agentId: string): AgentInstructionsFile {
+    requireMockAgent(agentId);
+    return mockInstructionFiles.get(agentId) ?? { fileName: "AGENTS.md", exists: false, text: "" };
+  }
+
   /** The preview has no disk: a folder whose path ends in "(missing)" is not found. */
   function mockAgentFolders(agentId: string): AgentFolderList {
     const agent = requireMockAgent(agentId);
@@ -826,6 +838,8 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   const taskConversations = new Map<string, ConversationSnapshot>(
     Object.entries(clone(options.taskConversations ?? {})),
   );
+  /** The branch of each `branchTask` request id, so a retry returns the same branch. */
+  const branches = new Map<string, AgentTask>();
 
   function taskList(agentId: string): AgentTasksSnapshot {
     const list = tasks.get(agentId) ?? [];
@@ -1100,6 +1114,18 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       : mockChannels.listChannelRoutineRuns({ channelId: owner.id, routineId, limit }),
   );
   const billingPlans = previewBillingServers();
+  let lidAwakeStatus: LidAwakeStatus = {
+    supported: true,
+    preference: { mode: "off", batteryFloor: 30, timeLimitHours: 8 },
+    state: "off",
+    onPowerAdapter: true,
+    batteryPercent: 80,
+    lidClosed: false,
+    helper: "installed",
+    sleepDisabledWithoutGrant: false,
+    test: null,
+  };
+  const lidAwakeListeners = new Set<(status: LidAwakeStatus) => void>();
 
   const api: BuildersBotDesktopApi = {
     getAppInfo: async () => clone(appInfo),
@@ -1271,6 +1297,26 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     // The preview has no Apple apps to ask, so every app answers as allowed.
     macAutomation: {
       request: async (targets) => targets.map((target) => ({ target, status: "granted" })),
+    },
+    lidAwake: {
+      getStatus: async () => clone(lidAwakeStatus),
+      // The preview has a Mac on its power adapter with the safety service installed.
+      setPreference: async (change) => {
+        const preference = { ...lidAwakeStatus.preference, ...change };
+        const state =
+          preference.mode === "off" ? "off" : preference.mode === "plugged" ? "active-plugged" : "active-battery";
+        lidAwakeStatus = { ...lidAwakeStatus, preference, state };
+        for (const listener of lidAwakeListeners) listener(clone(lidAwakeStatus));
+        return clone(lidAwakeStatus);
+      },
+      installHelper: async () => clone(lidAwakeStatus),
+      restoreNormalSleep: async () => clone(lidAwakeStatus),
+      startTest: async () => clone(lidAwakeStatus),
+      finishTest: async () => clone(lidAwakeStatus),
+      onStatus: (listener) => {
+        lidAwakeListeners.add(listener);
+        return () => lidAwakeListeners.delete(listener);
+      },
     },
     backgroundProcesses: {
       list: async () => clone(backgroundProcesses),
@@ -2044,6 +2090,17 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         );
         return { outcome: "included", path, list: mockAgentFolders(agentId) };
       },
+      readAgentInstructions: async (agentId) => mockAgentInstructions(agentId),
+      saveAgentInstructions: async ({ agentId, text, expected }) => {
+        const current = mockAgentInstructions(agentId);
+        if (current.text !== expected) throw new Error(sourceText("error.agent.instructionsChanged"));
+        const file: AgentInstructionsFile = { fileName: current.fileName, exists: true, text };
+        mockInstructionFiles.set(agentId, file);
+        return file;
+      },
+      revealAgentInstructions: async (agentId) => {
+        requireMockAgent(agentId);
+      },
       getAgentTaskLimit: async (agentId) => {
         const agent = agents.find((candidate) => candidate.id === agentId);
         if (!agent) throw new Error("Agent not found");
@@ -2052,6 +2109,15 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       updateAgentTaskLimit: async (input) => {
         await api.agent.updateAgent(input);
         return api.agent.getAgentTaskLimit(input.agentId);
+      },
+      getAgentPlanCard: async (agentId) => {
+        const agent = agents.find((candidate) => candidate.id === agentId);
+        if (!agent) throw new Error("Agent not found");
+        return { quickAcknowledgement: agentQuickAcknowledgementEnabled(agent, agentDefaults) };
+      },
+      updateAgentPlanCard: async (input) => {
+        await api.agent.updateAgent(input);
+        return api.agent.getAgentPlanCard(input.agentId);
       },
       listBrowserProfiles: async () => ({
         profiles: browserProfiles.map(browserProfileSummary),
@@ -2062,6 +2128,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         const hue = nextBrowserProfileHue(browserProfiles.map((profile) => profile.hue));
         const profile = { id: crypto.randomUUID().replaceAll("-", ""), name, hue };
         browserProfiles = [...browserProfiles, profile];
+        emitAgentEvent({ type: "browser-profiles-changed" });
         return browserProfileSummary(profile);
       },
       updateBrowserProfile: async ({ profileId, name, hue }) => {
@@ -2069,10 +2136,12 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         if (name !== undefined) requireFreeBrowserProfileName(name, profileId);
         const next = { ...current, name: name ?? current.name, hue: hue ?? current.hue };
         browserProfiles = browserProfiles.map((profile) => (profile.id === profileId ? next : profile));
+        emitAgentEvent({ type: "browser-profiles-changed" });
         return browserProfileSummary(requireBrowserProfile(profileId));
       },
       clearBrowserData: async (input) => {
         if ("profileId" in input) requireBrowserProfile(input.profileId);
+        emitAgentEvent({ type: "browser-profiles-changed" });
       },
       deleteBrowserProfile: async (profileId) => {
         requireBrowserProfile(profileId);
@@ -2081,6 +2150,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
           agent.browserProfileId === profileId ? withBrowserProfile(agent, { kind: "shared" }) : agent,
         );
         emitAgentEvent({ type: "agents-changed", agents });
+        emitAgentEvent({ type: "browser-profiles-changed" });
       },
       getAgentBrowserProfile: async (agentId) => {
         const agent = agents.find((candidate) => candidate.id === agentId);
@@ -2091,6 +2161,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         if (profile.kind === "profile") requireBrowserProfile(profile.profileId);
         agents = agents.map((agent) => (agent.id === agentId ? withBrowserProfile(agent, profile) : agent));
         emitAgentEvent({ type: "agents-changed", agents });
+        emitAgentEvent({ type: "browser-profiles-changed" });
         return api.agent.getAgentBrowserProfile(agentId);
       },
       listBrowserTabProfiles: async () => [],
@@ -2775,9 +2846,32 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
                 },
               ]
             : [];
+          // A message that asks for a rule adds it to the instruction file, as a real agent does.
+          const instructionsChange: ConversationMessage[] = [];
+          if (/\brule\b/iu.test(input.text)) {
+            const before = mockAgentInstructions(input.agentId);
+            const after = `${before.text}${before.text && !before.text.endsWith("\n") ? "\n" : ""}- ${input.text.slice(0, 200)}\n`;
+            mockInstructionFiles.set(input.agentId, { ...before, exists: true, text: after });
+            instructionsChange.push({
+              id: `${turnId}:instructions-change`,
+              author: "system",
+              source: "system",
+              text: sourceText("status.agent.instructionsChanged"),
+              createdAt: new Date().toISOString(),
+              status: "completed",
+              itemType: AGENT_INSTRUCTIONS_CHANGE_ITEM_TYPE,
+              instructionsChange: { before: before.text, after },
+            });
+          }
           updateSnapshot(input.agentId, (snapshot) => {
             snapshot.activeTurnId = null;
-            snapshot.messages = [...snapshot.messages, assistantMessage, ...memoryMessage, ...planContinuation];
+            snapshot.messages = [
+              ...snapshot.messages,
+              assistantMessage,
+              ...memoryMessage,
+              ...instructionsChange,
+              ...planContinuation,
+            ];
           });
           queues.set(input.agentId, {
             agentId: input.agentId,
@@ -2831,6 +2925,46 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         emitAgentEvent({ type: "queue-changed", snapshot: clone(queue) });
         const task = createTask(input.agentId, delivery.text);
         runTaskTurn(task, delivery.text);
+        return clone(task);
+      },
+      branchTask: async (input) => {
+        const earlier = branches.get(input.requestId);
+        if (earlier) return clone(earlier);
+        const sourceTask = input.taskId === null ? null : findTask(input.agentId, input.taskId);
+        const source = sourceTask ? taskConversation(sourceTask) : getSnapshot(input.agentId);
+        if (source.activeTurnId) throw new Error(sourceText("error.backend.branchSourceBusy"));
+        const index = source.messages.findIndex((message) => message.id === input.messageId);
+        const chosen = source.messages[index];
+        if (chosen?.author !== "assistant" || chosen.status === "streaming") {
+          throw new Error(sourceText("error.backend.branchMessageNotFound"));
+        }
+        const messages = source.messages
+          .slice(0, index + 1)
+          .map(({ delivery: _delivery, reaction: _reaction, reactions: _reactions, ...message }) => ({
+            ...clone(message),
+            id: `mock-branch-message-${messageCounter++}`,
+          }));
+        const lastUserText = messages.findLast((message) => message.author === "user")?.text;
+        const task = createTask(
+          input.agentId,
+          sourceTask ? `${sourceTask.title} #2` : lastUserText?.trim() || sourceText("status.agent.branchTitle"),
+        );
+        const through = messages.at(-1);
+        task.branch = {
+          sourceTaskId: input.taskId,
+          sourceTitle: sourceTask?.title ?? null,
+          sourceMessageId: input.messageId,
+          throughMessageId: through?.id ?? input.messageId,
+        };
+        taskConversations.set(task.id, {
+          agentId: task.agentId,
+          threadId: task.threadId,
+          activeTurnId: null,
+          revision: 0,
+          messages,
+        });
+        branches.set(input.requestId, task);
+        emitTasks(input.agentId);
         return clone(task);
       },
       stopTask: async (input) => {

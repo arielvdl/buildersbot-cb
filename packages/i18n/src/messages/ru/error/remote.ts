@@ -123,7 +123,6 @@ export const messages = {
   "error.remote.serverDisconnected": "Сервер отключился.",
   "error.remote.preferencesUnreadable": "Не удалось прочитать сохранённые настройки чата.",
   "error.remote.accountAuthRequired": "Требуется аутентификация аккаунта.",
-  "error.remote.serverIdentityChanged": "Идентификатор сервера изменился. Замена доверенного ключа хоста отклонена.",
   "error.remote.pairedIdentityChanged":
     "Идентификатор сопряжённого компьютера отсутствует или изменился. Отсканируйте новый код с того компьютера.",
   "error.remote.permanentInviteNoEmail": "Постоянные приглашения нельзя отправить по электронной почте.",
@@ -167,7 +166,8 @@ export const messages = {
   "error.remote.dataChannelFailed": "Сбой канала {kind}.",
   "error.remote.hostBusy": "Хост занят другим подключением. Повторите попытку чуть позже.",
   "error.remote.signalPermissionDenied": "У вашего аккаунта нет доступа к этому хосту. Попросите доступ у владельца.",
-  "error.remote.signalRateLimited": "Слишком много попыток подключения. Builders Bot повторит попытку через {seconds} с.",
+  "error.remote.signalRateLimited":
+    "Слишком много попыток подключения. Builders Bot повторит попытку через {seconds} с.",
   "error.remote.signalProtocolError":
     "Signal и это приложение используют несовместимые протоколы подключения. Обновите Builders Bot и повторите попытку.",
   "error.remote.signalRefused": "Signal отклонил подключение.",

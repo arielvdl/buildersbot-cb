@@ -230,6 +230,9 @@ export const messages = {
   "server.role.owner": "Proprietário",
   "server.settings.generalTitle": "Geral",
   "server.settings.generalDescription": "Gerencie o nome, o logotipo e as preferências deste servidor.",
+  "server.settings.vaultTitle": "Cofre",
+  "server.settings.vaultDescription":
+    "Salve logins, cartões e dados de contato que todos os agentes deste servidor podem preencher.",
   "server.settings.membersTitle": "Membros",
   "server.settings.membersDescription": "Publique este servidor, convide pessoas e gerencie o acesso.",
   "server.settings.desktopTitle": "Área de trabalho remota",
@@ -318,6 +321,9 @@ export const messages = {
   "server.settings.memoryReviewOff": "Desativada",
   "server.settings.memoryReviewTurns": { one: "A cada {count} turno", other: "A cada {count} turnos" },
   "server.settings.memoryReviewLoadFailed": "Não foi possível carregar a configuração de revisão de memórias.",
+  "server.settings.rolesTitle": "Papéis",
+  "server.settings.rolesDescription":
+    "Escolha os agentes que os membros podem usar. Um membro recebe o maior acesso entre Todos e os papéis dele. Proprietários e administradores podem usar todos os agentes.",
   "server.settings.remoteOnline": "O computador anfitrião está online. Seu proprietário controla a publicação.",
   "server.settings.remoteOffline": "O computador anfitrião está offline. Seu proprietário controla a publicação.",
   "server.settings.reachable": "Acessível online. Só pessoas convidadas podem entrar.",
@@ -333,6 +339,8 @@ export const messages = {
   "server.settings.hostKeyConfirmDescription":
     "A chave atual e a nova assinam uma transferência. Os apps dos membros mudam para a nova chave na próxima conexão. Faça isso se o arquivo da chave foi copiado ou exposto.",
   "server.settings.hostKeyRotated": "Chave do servidor alterada",
+  "server.settings.hostKeyChanged": "Última alteração",
+  "server.settings.hostKeyChangedDescription": "{date}. A chave anterior e a chave nova assinaram esta alteração.",
   "server.settings.hostKeyLocalOnly": "Aqui só o servidor deste computador pode alterar a chave.",
   "server.settings.removeTitle": "Remover servidor",
   "server.settings.removeDescription":

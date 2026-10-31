@@ -28,7 +28,8 @@ export const messages = defineMessages("webClient", {
     "Create a hosted server to chat with your agents from this browser. You can also run Builders Bot on your computer, or join a server with an invitation.",
   "webClient.connect.stepInstall": "Install and open Builders Bot on your computer.",
   "webClient.connect.stepSignIn": "Sign in with your email.",
-  "webClient.connect.stepRemote": "Turn on remote access.",
+  // The names are the ones that the desktop app shows: the Mobile Connect settings tab and its button.
+  "webClient.connect.stepRemote": "On your computer, open Settings > Mobile Connect and select Publish this server.",
   "webClient.notice.download": "Download Builders Bot",
   "webClient.notice.createServer": "Create a hosted server",
   "webClient.notice.join": "Join with invitation",

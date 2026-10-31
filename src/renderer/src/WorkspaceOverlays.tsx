@@ -5,8 +5,6 @@ import {
   type RoutineFields,
   type ServerSummary,
 } from "@openbot/contracts/ipc";
-import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
-import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import { VAULT_V2_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v2";
 import { classifyFailure } from "@openbot/telemetry";
 import { isAgentAccount } from "@openbot/ui/components/provider-accounts";
@@ -15,6 +13,7 @@ import type { CustomAgentSettingsApi } from "@openbot/ui/features/custom-provide
 import { providerDiagnosticsText } from "@openbot/ui/features/provider-diagnostics/provider-diagnostics";
 import { LeaveServerDialog } from "@openbot/ui/features/servers/LeaveServerDialog";
 import { RestartServerDialog } from "@openbot/ui/features/servers/RestartServerDialog";
+import type { MobileConnectReach } from "@openbot/ui/features/settings/SettingsMobileConnectTab";
 import type { HostedSiteDeleteResult } from "@openbot/ui/features/settings/stores/hosted-sites-store";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, Loading, Show, untrack } from "solid-js";
@@ -45,6 +44,7 @@ import { useServerActions } from "./features/servers/server-actions";
 import { remoteMcpSignIn, serverCanAdminister, serverSupportsCapability } from "./features/servers/server-capabilities";
 import { useServerSelection } from "./features/servers/server-selection";
 import { useServerSettings } from "./features/servers/server-settings";
+import { type ServerSettingsSection, serverSettingsSectionShown } from "./features/servers/server-settings-sections";
 import { useServerSwitch } from "./features/servers/server-switch";
 import { useServers } from "./features/servers/servers-context";
 import type { HostProviderSettings } from "./features/settings/ProviderSettingsSection";
@@ -377,6 +377,9 @@ function ServerSettings() {
   const windowPage = useWindowPage();
   const usageRows = usePlanLimitRows();
   const platform = usePlatform();
+  /** The search lists the same sections, so both read `serverSettingsSectionShown`. */
+  const sectionShown = (server: ServerSummary, section: ServerSettingsSection) =>
+    serverSettingsSectionShown(section, server, platform.appInfo()?.platform);
   const { hostStatus, hostedServerIds, hostedServersAvailable, hostedServersLoaded, setAddServerOpen } = useServers();
   const { selectAgent, selectGlobalSearchMessage } = useNavigation();
   const { selectServer } = useServerSelection();
@@ -495,7 +498,7 @@ function ServerSettings() {
    */
   const vaultServerId = createMemo(() => {
     const target = serverSettingsTarget();
-    return serverCanAdminister(target, VAULT_CAPABILITY) ? target.id : undefined;
+    return target && sectionShown(target, "vault") ? target.id : undefined;
   });
   // A host that updates or rolls back keeps its id, so the API key kind follows this capability too.
   const vaultApiKeys = createMemo(() => serverCanAdminister(serverSettingsTarget(), VAULT_V2_CAPABILITY));
@@ -788,7 +791,7 @@ function ServerSettings() {
           // This computer, or a remote host with `hosted-sites-v1`. Every member lists; the host deletes
           // only for an owner or admin.
           hostedSites={
-            serverSupportsCapability(server(), "hosted-sites-v1")
+            sectionShown(server(), "sites")
               ? {
                   api: appPort().hostedSites,
                   onOpenSite: (url) => void appPort().openUrl(url),
@@ -806,7 +809,7 @@ function ServerSettings() {
           initialSection={serverSettingsSection()}
           // Any member imports into this computer or a remote host with `agent-import-v1`.
           agentImport={
-            serverSupportsCapability(server(), "agent-import-v1")
+            sectionShown(server(), "import")
               ? {
                   onOpenAgent: (agentId) => openOnServer(server(), agentId, () => selectAgent(agentId)),
                   onClose: () => setServerSettingsOpen(false),
@@ -815,20 +818,20 @@ function ServerSettings() {
           }
           // Owners and admins move this computer's server, or a remote host with `instance-transfer-v1`.
           instanceTransfer={
-            server().kind === "local"
-              ? { onSignIn: (provider) => void connection.connect(provider) }
-              : serverCanAdminister(server(), "instance-transfer-v1")
-                ? {}
-                : undefined
+            !sectionShown(server(), "transfer")
+              ? undefined
+              : server().kind === "local"
+                ? { onSignIn: (provider) => void connection.connect(provider) }
+                : {}
           }
           // The feed listens on this computer, so a calendar app on another one cannot read it.
           routineFeed={
-            server().kind === "local"
+            sectionShown(server(), "routines")
               ? { api: appPort().routineFeed, listAgents: () => appPort().agent.listAgents(server().id) }
               : undefined
           }
           browserProfiles={
-            serverCanAdminister(server(), BROWSER_PROFILES_CAPABILITY)
+            sectionShown(server(), "browser-profiles")
               ? { store: browserProfiles(), listAgents: () => appPort().agent.listAgents(server().id) }
               : undefined
           }
@@ -861,7 +864,15 @@ function AppSettings(props: AccountProps) {
   const auth = useAuth();
   const updates = useUpdates();
   const whatsNew = useWhatsNew();
-  const { servers, setAddServerOpen, setServerMuted, setServerNotificationLevel } = useServers();
+  const { servers, hostStatus, setAddServerOpen, setServerMuted, setServerNotificationLevel } = useServers();
+  const { publishLocalServer } = useServerSettings();
+  /** The web app on a phone lists this computer only while its server is published. */
+  const mobileConnectReach = (): MobileConnectReach | null => {
+    if (!servers().some((server) => server.kind === "local")) return null;
+    const phase = hostStatus().phase;
+    if (phase === "online" || phase === "starting") return phase;
+    return "offline";
+  };
   const {
     appSettingsOpen,
     notificationFocusRequest,
@@ -917,6 +928,8 @@ function AppSettings(props: AccountProps) {
         onGetRemoteNetworkRoute={() => settingsPort().getRemoteNetworkRoute()}
         onSetRemoteNetworkRoute={(route) => settingsPort().setRemoteNetworkRoute({ route })}
         onGetMobileWebAppUrl={auth.getMobileWebAppUrl}
+        mobileConnectReach={mobileConnectReach()}
+        onPublishComputer={platform.landingPreview ? undefined : publishLocalServer}
         onListAccountSessions={auth.listAccountSessions}
         onRevokeAccountSession={auth.revokeAccountSession}
         onSignOut={platform.landingPreview ? undefined : auth.logoutCentralAccount}

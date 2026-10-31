@@ -80,7 +80,7 @@ export function ServerMemoryReviewSetting(
   }
 
   return (
-    <Item>
+    <Item data-settings-row="server.settings.memoryReview">
       <ItemContent>
         <ItemTitle id="server-settings-memory-review-label">{t("server.settings.memoryReview")}</ItemTitle>
         <ItemDescription>{loadError() ?? t("server.settings.memoryReviewDescription")}</ItemDescription>

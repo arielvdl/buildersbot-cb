@@ -32,7 +32,7 @@ Browser tickets and session termination require the same account-session hash th
 remote session. Existing bearer-token endpoints retain their behavior. The browser edits the
 account's name, avatar, and sessions through `v1/me/profile`, `v1/me/avatar`, and `v1/me/sessions`,
 which call the same `AuthService` methods and avatar storage (`avatar-storage.ts`) as the bearer
-routes. The avatar upload is the one write that is not JSON; the origin and `X-Builders Bot-Browser`
+routes. The avatar upload is the one write that is not JSON; the origin and `X-OpenBot-Browser`
 checks still apply. `web-account.ts` makes these calls, and the Profile tab of the web Settings dialog
 (`WebAccountSettings.tsx`) shows them.
 
@@ -274,7 +274,10 @@ named profile has. "Only this agent" has no color, and the select offers it only
 already uses it, so the agent keeps its sign-ins. An owner or admin of a joined server uses the same
 operations through `browser-profiles-v1` (`route-browser-profiles.ts`); each member reads the labels of
 the tabs that they can see, and a private tab is hidden from a member. A host without the capability
-answers `agentSettingsUnsupported`, and the client shows no select, section or label for it.
+answers `agentSettingsUnsupported`, and the client shows no select, section or label for it. A host
+with `browser-profiles-events-v1` sends `browser-profiles-changed` after each change, so every open
+list and agent setting reads the profiles again. The phone shows the same operations in Server
+settings > Browser profiles and in Agent info > Advanced > Browser profile.
 
 ### Tab lifetime
 

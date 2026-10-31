@@ -25,6 +25,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
 import { useText } from "../../text";
 import { MOBILE_WEB_APP_PLATFORMS } from "../mobile-app/mobile-web-app";
+import { type MobileConnectReach, MobileConnectReachNotice } from "./MobileConnectReach";
 import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
 
 type Store = SettingsMobileConnectStore;
@@ -136,13 +137,17 @@ type AddScreen = "ask" | "install" | "signin";
 /**
  * Adds a phone in steps. A phone uses the web app: the QR code opens its address in the browser of
  * the phone, the steps add it to the Home Screen, and the person signs in there with the email of
- * this account. No step offers a phone app from a store.
+ * this account. No step offers a phone app from a store. The sign-in step also tells whether the
+ * phone can reach this computer, because the web app lists only published servers.
  */
 export function MobileConnectAddPhoneDialog(props: {
   open: boolean;
   store: Store;
   /** The email of this account, which the phone signs in with. */
   accountEmail: string;
+  /** Whether a phone can reach the server of this computer. Null when this computer has no server. */
+  reach?: MobileConnectReach | null | undefined;
+  onPublishComputer?: (() => Promise<void>) | undefined;
   onClose: () => void;
 }) {
   const { t } = useText();
@@ -232,6 +237,9 @@ export function MobileConnectAddPhoneDialog(props: {
                   <li>{t("settings.mobileConnect.webApp.signIn.email", { email: props.accountEmail })}</li>
                   <li>{t("settings.mobileConnect.webApp.signIn.code")}</li>
                 </ol>
+                <Show when={props.reach}>
+                  {(reach) => <MobileConnectReachNotice reach={reach()} onPublish={props.onPublishComputer} />}
+                </Show>
               </Match>
             </Switch>
           </div>

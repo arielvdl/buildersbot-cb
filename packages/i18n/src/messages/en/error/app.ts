@@ -2,6 +2,8 @@ import { defineMessages } from "../../../message";
 
 export const messages = defineMessages("error.app", {
   // Errors from app, notification, and secret storage actions.
+  "error.app.lidAwakeCanceled": "The administrator password was not given.",
+  "error.app.lidAwakeHelperFailed": "The lid-closed safety service did not work.",
   "error.app.externalLinkProtocol": "Only HTTP(S) links can open in the external browser.",
   "error.app.notificationsUnsupported": "This system does not support desktop notifications.",
   "error.app.notificationSettingsMissing": "This system has no notification settings page.",

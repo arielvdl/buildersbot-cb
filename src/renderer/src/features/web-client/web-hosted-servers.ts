@@ -32,7 +32,7 @@ export function createWebHostedServerCalls(
       credentials: "same-origin",
       cache: "no-store",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: post ? { "Content-Type": "application/json", "X-Builders Bot-Browser": "1", ...init.headers } : {},
+      headers: post ? { "Content-Type": "application/json", "X-OpenBot-Browser": "1", ...init.headers } : {},
       ...(post ? { body: init.body } : {}),
     }).catch(() => {
       throw new Error(errorMessage(null));

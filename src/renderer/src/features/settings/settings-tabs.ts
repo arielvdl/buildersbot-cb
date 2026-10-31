@@ -14,6 +14,8 @@ import {
   Smartphone,
   UserRound,
 } from "@openbot/ui";
+import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
+import type { AGENT_DEFAULT_SETTINGS } from "@openbot/ui/features/settings/SettingsAgentsTab";
 
 export type SettingsTab =
   | "general"
@@ -29,14 +31,25 @@ export type SettingsTab =
   | "updates"
   | "hosted-servers";
 
+/** The state that decides whether a tab shows a row now. */
+export interface SettingsRowState {
+  platform: AppInfo["platform"] | undefined;
+  general: GeneralSettingsValue;
+}
+
 /**
- * A row of a tab that the settings search finds. The title key is also the anchor of the row: the
- * row markup sets `data-settings-row` to this key, so a search result can move to the row.
+ * A row of a tab that the settings search finds. `anchor` is the title key of the row and also its
+ * anchor: the row markup sets `data-settings-row` to it, so a search result can move to the row.
+ * `bun run check:ui` fails when a `data-settings-row` has no row here, or a row here has no markup.
  */
-type SettingsRow = {
-  titleKey: AppTextKey;
+export interface SettingsRow {
+  anchor: AppTextKey;
   descriptionKey?: AppTextKey;
-};
+  /** More words that find the row, such as other names and related words. */
+  keywordsKey?: AppTextKey;
+  /** False while the tab does not show the row, so the search does not list it. */
+  shown?: (state: SettingsRowState) => boolean;
+}
 
 /**
  * A tab holds the keys of its label and its header text, not the text itself. The list is read at
@@ -47,121 +60,324 @@ type SettingsNavItem = {
   value: SettingsTab;
   titleKey: AppTextKey;
   descriptionKey: AppTextKey;
+  keywordsKey: AppTextKey;
   icon: typeof Settings;
   rows: ReadonlyArray<SettingsRow>;
 };
+
+type AgentDefaultRow = (typeof AGENT_DEFAULT_SETTINGS)[number];
+
+/**
+ * The rows of the Agents tab, one for each setting that `SettingsAgentsTab` lists, in its order. Its
+ * markup sets the anchor from `AGENT_DEFAULT_SETTINGS`, so the type requires each setting here with
+ * the same title.
+ */
+const AGENT_ROWS = {
+  allowAutomation: {
+    anchor: "agentSettings.automation.title",
+    descriptionKey: "agentSettings.automation.description",
+    keywordsKey: "settings.search.keywords.agentAutomation",
+  },
+  allowNewChat: {
+    anchor: "agentSettings.agentNewChat.title",
+    descriptionKey: "agentSettings.agentNewChat.description",
+  },
+  quickAcknowledgement: {
+    anchor: "agentSettings.quickAcknowledgement.title",
+    descriptionKey: "agentSettings.quickAcknowledgement.description",
+  },
+  securityGuard: {
+    anchor: "agentSettings.securityGuard.title",
+    descriptionKey: "agentSettings.securityGuard.description",
+    keywordsKey: "settings.search.keywords.promptGuard",
+  },
+  busyMessageMode: {
+    anchor: "settings.busyMessage.title",
+    descriptionKey: "settings.busyMessage.description",
+    keywordsKey: "settings.search.keywords.busyMessage",
+  },
+} as const satisfies {
+  [Key in AgentDefaultRow["key"]]: SettingsRow & { anchor: Extract<AgentDefaultRow, { key: Key }>["title"] };
+};
+
+const autoUpdateKeywords = "settings.search.keywords.autoUpdate";
 
 export const navItems: ReadonlyArray<SettingsNavItem> = [
   {
     value: "general",
     titleKey: "settings.tab.general.title",
     descriptionKey: "settings.tab.general.description",
+    keywordsKey: "settings.search.keywords.general",
     icon: Settings,
     rows: [
-      { titleKey: "settings.language.title", descriptionKey: "settings.language.description" },
-      { titleKey: "settings.interfaceSize.title", descriptionKey: "settings.interfaceSize.description" },
-      { titleKey: "settings.leftColumn.title", descriptionKey: "settings.leftColumn.description" },
-      { titleKey: "settings.logoColor.title", descriptionKey: "settings.logoColor.description" },
-      { titleKey: "settings.sendShortcut.title", descriptionKey: "settings.sendShortcut.description" },
-      { titleKey: "settings.showAgentSteps.title", descriptionKey: "settings.showAgentSteps.description" },
-      { titleKey: "settings.externalLinks.title", descriptionKey: "settings.externalLinks.description" },
-      { titleKey: "settings.launchAtLogin.title", descriptionKey: "settings.launchAtLogin.description" },
-      { titleKey: "settings.keepRemoteSessions.title", descriptionKey: "settings.keepRemoteSessions.description" },
-      { titleKey: "settings.keepRunning.title", descriptionKey: "settings.keepRunning.description" },
-      { titleKey: "settings.keepAwake.title", descriptionKey: "settings.keepAwake.description" },
-      { titleKey: "settings.keepAwakeOnBattery.title", descriptionKey: "settings.keepAwakeOnBattery.description" },
-      { titleKey: "settings.restoreWorkspace.title", descriptionKey: "settings.restoreWorkspace.description" },
-      { titleKey: "settings.browserInApp.title", descriptionKey: "settings.browserInApp.description" },
-      { titleKey: "settings.analytics.title", descriptionKey: "settings.analytics.description" },
+      {
+        anchor: "settings.appearance.theme.title",
+        descriptionKey: "settings.appearance.theme.description",
+        keywordsKey: "settings.search.keywords.theme",
+      },
+      {
+        anchor: "settings.appearance.transparentWindow.title",
+        descriptionKey: "settings.appearance.transparentWindow.description",
+        keywordsKey: "settings.search.keywords.transparentWindow",
+        shown: (state) => state.platform === "darwin",
+      },
+      {
+        anchor: "settings.language.title",
+        descriptionKey: "settings.language.description",
+        keywordsKey: "settings.search.keywords.language",
+      },
+      {
+        anchor: "settings.interfaceSize.title",
+        descriptionKey: "settings.interfaceSize.description",
+        keywordsKey: "settings.search.keywords.interfaceSize",
+      },
+      {
+        anchor: "settings.leftColumn.title",
+        descriptionKey: "settings.leftColumn.description",
+        keywordsKey: "settings.search.keywords.leftColumn",
+      },
+      {
+        anchor: "settings.logoColor.title",
+        descriptionKey: "settings.logoColor.description",
+        keywordsKey: "settings.search.keywords.logoColor",
+      },
+      {
+        anchor: "settings.sendShortcut.title",
+        descriptionKey: "settings.sendShortcut.description",
+        keywordsKey: "settings.search.keywords.sendShortcut",
+      },
+      {
+        anchor: "settings.showAgentSteps.title",
+        descriptionKey: "settings.showAgentSteps.description",
+        keywordsKey: "settings.search.keywords.showAgentSteps",
+      },
+      {
+        anchor: "settings.promptGuard.title",
+        descriptionKey: "settings.promptGuard.description",
+        keywordsKey: "settings.search.keywords.promptGuard",
+      },
+      {
+        anchor: "settings.dictation.title",
+        descriptionKey: "settings.dictation.description",
+        keywordsKey: "settings.search.keywords.dictation",
+      },
+      {
+        anchor: "settings.dictation.key",
+        descriptionKey: "settings.dictation.keyDescription",
+        keywordsKey: "settings.search.keywords.dictationKey",
+        shown: (state) => state.general.dictationEnabled,
+      },
+      {
+        anchor: "settings.dictation.mode",
+        descriptionKey: "settings.dictation.modeDescription",
+        keywordsKey: "settings.search.keywords.dictationMode",
+        shown: (state) => state.general.dictationEnabled,
+      },
+      {
+        anchor: "settings.externalLinks.title",
+        descriptionKey: "settings.externalLinks.description",
+        keywordsKey: "settings.search.keywords.externalLinks",
+      },
+      {
+        anchor: "settings.launchAtLogin.title",
+        descriptionKey: "settings.launchAtLogin.description",
+        keywordsKey: "settings.search.keywords.launchAtLogin",
+        shown: (state) => state.general.launchAtLogin !== null,
+      },
+      {
+        anchor: "settings.keepRemoteSessions.title",
+        descriptionKey: "settings.keepRemoteSessions.description",
+        keywordsKey: "settings.search.keywords.keepRemoteSessions",
+      },
+      {
+        anchor: "settings.keepRunning.title",
+        descriptionKey: "settings.keepRunning.description",
+        keywordsKey: "settings.search.keywords.keepRunning",
+        shown: (state) => state.general.keepRunningInBackground !== null,
+      },
+      {
+        anchor: "settings.keepAwake.title",
+        descriptionKey: "settings.keepAwake.description",
+        keywordsKey: "settings.search.keywords.keepAwake",
+        shown: (state) => state.general.keepAwake !== null,
+      },
+      {
+        anchor: "settings.keepAwakeOnBattery.title",
+        descriptionKey: "settings.keepAwakeOnBattery.description",
+        keywordsKey: "settings.search.keywords.keepAwakeOnBattery",
+        shown: (state) => state.general.keepAwake !== null,
+      },
+      // `LidAwakeSettings` shows these rows on macOS. A Mac with no lid shows the first one with a note.
+      {
+        anchor: "settings.lidAwake.title",
+        descriptionKey: "settings.lidAwake.description",
+        keywordsKey: "settings.search.keywords.lidAwake",
+        shown: (state) => state.platform === "darwin" && state.general.keepAwake !== null,
+      },
+      {
+        anchor: "settings.lidAwake.test.title",
+        descriptionKey: "settings.lidAwake.test.description",
+        keywordsKey: "settings.search.keywords.lidAwakeTest",
+        shown: (state) => state.platform === "darwin" && state.general.keepAwake !== null,
+      },
+      {
+        anchor: "settings.restoreWorkspace.title",
+        descriptionKey: "settings.restoreWorkspace.description",
+        keywordsKey: "settings.search.keywords.restoreWorkspace",
+      },
+      {
+        anchor: "settings.browserInApp.title",
+        descriptionKey: "settings.browserInApp.description",
+        keywordsKey: "settings.search.keywords.browserInApp",
+      },
+      {
+        anchor: "settings.analytics.title",
+        descriptionKey: "settings.analytics.description",
+        keywordsKey: "settings.search.keywords.analytics",
+      },
     ],
   },
   {
     value: "agents",
     titleKey: "settings.tab.agents.title",
     descriptionKey: "settings.tab.agents.description",
+    keywordsKey: "settings.search.keywords.agents",
     icon: Bot,
     rows: [
-      { titleKey: "agentSettings.automation.title" },
-      { titleKey: "agentSettings.agentNewChat.title" },
-      { titleKey: "agentSettings.quickAcknowledgement.title" },
-      { titleKey: "settings.busyMessage.title", descriptionKey: "settings.busyMessage.description" },
-      { titleKey: "settings.backgroundProcesses.title", descriptionKey: "settings.backgroundProcesses.description" },
+      // A new agent setting fails the type of AGENT_ROWS until it has a row there, and then shows here.
+      ...Object.values(AGENT_ROWS),
+      {
+        anchor: "settings.backgroundProcesses.title",
+        descriptionKey: "settings.backgroundProcesses.description",
+        keywordsKey: "settings.search.keywords.backgroundProcesses",
+      },
     ],
   },
   {
     value: "guard",
     titleKey: "guard.tab.title",
     descriptionKey: "guard.tab.description",
+    keywordsKey: "settings.search.keywords.guard",
     icon: ShieldCheck,
     rows: [
-      { titleKey: "guard.level.title", descriptionKey: "guard.level.description" },
-      { titleKey: "guard.model.title", descriptionKey: "guard.model.description" },
+      {
+        anchor: "guard.level.title",
+        descriptionKey: "guard.level.description",
+        keywordsKey: "settings.search.keywords.guardLevel",
+      },
+      {
+        anchor: "guard.model.title",
+        descriptionKey: "guard.model.description",
+        keywordsKey: "settings.search.keywords.guardModel",
+      },
     ],
   },
   {
     value: "profile",
     titleKey: "settings.tab.profile.title",
     descriptionKey: "settings.tab.profile.description",
+    keywordsKey: "settings.search.keywords.profile",
     icon: UserRound,
     rows: [
-      { titleKey: "settings.profile.email.title", descriptionKey: "settings.profile.email.description" },
-      { titleKey: "settings.profile.sessions.title", descriptionKey: "settings.profile.sessions.description" },
+      {
+        anchor: "settings.profile.email.title",
+        descriptionKey: "settings.profile.email.description",
+        keywordsKey: "settings.search.keywords.email",
+      },
+      {
+        anchor: "settings.profile.sessions.title",
+        descriptionKey: "settings.profile.sessions.description",
+        keywordsKey: "settings.search.keywords.sessions",
+      },
     ],
   },
   {
     value: "notifications",
     titleKey: "settings.tab.notifications.title",
     descriptionKey: "settings.tab.notifications.description",
+    keywordsKey: "settings.search.keywords.notifications",
     icon: Bell,
     rows: [
-      { titleKey: "settings.notifications.whatYouHear" },
-      { titleKey: "settings.desktopNotifications.title", descriptionKey: "settings.desktopNotifications.description" },
-      { titleKey: "settings.notificationPreview.title", descriptionKey: "settings.notificationPreview.description" },
-      { titleKey: "settings.testNotification.title", descriptionKey: "settings.testNotification.description" },
-      { titleKey: "settings.taskSound.title", descriptionKey: "settings.taskSound.description" },
-      { titleKey: "settings.soundFeedback.title", descriptionKey: "settings.soundFeedback.description" },
+      { anchor: "settings.notifications.whatYouHear", keywordsKey: "settings.search.keywords.whatYouHear" },
+      {
+        anchor: "settings.desktopNotifications.title",
+        descriptionKey: "settings.desktopNotifications.description",
+        keywordsKey: "settings.search.keywords.desktopNotifications",
+      },
+      { anchor: "settings.notificationPreview.title", descriptionKey: "settings.notificationPreview.description" },
+      { anchor: "settings.testNotification.title", descriptionKey: "settings.testNotification.description" },
+      {
+        anchor: "settings.taskSound.title",
+        descriptionKey: "settings.taskSound.description",
+        keywordsKey: "settings.search.keywords.taskSound",
+      },
+      {
+        anchor: "settings.soundFeedback.title",
+        descriptionKey: "settings.soundFeedback.description",
+        keywordsKey: "settings.search.keywords.soundFeedback",
+      },
     ],
   },
   {
     value: "voice",
     titleKey: "settings.tab.voice.title",
     descriptionKey: "settings.tab.voice.description",
+    keywordsKey: "settings.search.keywords.voice",
     icon: Mic,
     rows: [
-      { titleKey: "settings.voice.models.title" },
-      { titleKey: "settings.voice.language.title", descriptionKey: "settings.voice.language.description" },
+      { anchor: "settings.voice.models.title", keywordsKey: "settings.search.keywords.voiceModels" },
       {
-        titleKey: "settings.voice.speech.readReplies.title",
-        descriptionKey: "settings.voice.speech.readReplies.description",
+        anchor: "settings.voice.language.title",
+        descriptionKey: "settings.voice.language.description",
+        keywordsKey: "settings.search.keywords.voiceLanguage",
       },
-      { titleKey: "settings.voice.speech.voice.title" },
+      {
+        anchor: "settings.voice.speech.readReplies.title",
+        descriptionKey: "settings.voice.speech.readReplies.description",
+        keywordsKey: "settings.search.keywords.readReplies",
+      },
+      { anchor: "settings.voice.speech.voice.title", keywordsKey: "settings.search.keywords.speechVoice" },
+      {
+        anchor: "settings.voice.server.section",
+        descriptionKey: "settings.voice.server.title",
+        keywordsKey: "settings.search.keywords.voiceServer",
+      },
     ],
   },
   {
     value: "dynamic-island",
     titleKey: "settings.tab.dynamicIsland.title",
     descriptionKey: "settings.tab.dynamicIsland.description",
+    keywordsKey: "settings.search.keywords.dynamicIsland",
     icon: PanelTop,
     rows: [
-      { titleKey: "settings.notch.show.title", descriptionKey: "settings.notch.show.description" },
-      { titleKey: "settings.notch.idle.title", descriptionKey: "settings.notch.idle.description" },
-      { titleKey: "settings.notch.displays.title", descriptionKey: "settings.notch.displays.description" },
-      { titleKey: "settings.notch.haptics.title", descriptionKey: "settings.notch.haptics.description" },
-      { titleKey: "settings.notch.servers.title", descriptionKey: "settings.notch.servers.description" },
-      { titleKey: "settings.notch.size.title", descriptionKey: "settings.notch.size.description" },
+      { anchor: "settings.notch.show.title", descriptionKey: "settings.notch.show.description" },
+      { anchor: "settings.notch.idle.title", descriptionKey: "settings.notch.idle.description" },
+      { anchor: "settings.notch.displays.title", descriptionKey: "settings.notch.displays.description" },
+      { anchor: "settings.notch.haptics.title", descriptionKey: "settings.notch.haptics.description" },
+      { anchor: "settings.notch.servers.title", descriptionKey: "settings.notch.servers.description" },
+      { anchor: "settings.notch.size.title", descriptionKey: "settings.notch.size.description" },
     ],
   },
   {
     value: "computer-use",
     titleKey: "settings.tab.computerUse.title",
     descriptionKey: "settings.tab.computerUse.description",
+    keywordsKey: "settings.search.keywords.computerUse",
     icon: MousePointer2,
-    rows: [{ titleKey: "computerUse.permissions.title", descriptionKey: "computerUse.permissions.description" }],
+    rows: [
+      {
+        anchor: "computerUse.permissions.title",
+        descriptionKey: "computerUse.permissions.description",
+        keywordsKey: "settings.search.keywords.computerUsePermissions",
+      },
+    ],
   },
   {
     value: "billing",
     titleKey: "settings.tab.billing.title",
     descriptionKey: "settings.tab.billing.description",
+    keywordsKey: "settings.search.keywords.billing",
     icon: CreditCard,
     rows: [],
   },
@@ -169,41 +385,47 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
     value: "mobile-connect",
     titleKey: "settings.tab.mobileConnect.title",
     descriptionKey: "settings.tab.mobileConnect.description",
+    keywordsKey: "settings.search.keywords.mobileConnect",
     icon: Smartphone,
     rows: [
-      {
-        titleKey: "settings.mobileConnect.phones.title",
-        descriptionKey: "settings.mobileConnect.phones.description",
-      },
-      {
-        titleKey: "settings.mobileConnect.phones.add",
-        descriptionKey: "settings.mobileConnect.add.webApp.question",
-      },
-      { titleKey: "settings.mobileConnect.link.title", descriptionKey: "settings.mobileConnect.link.cardHint" },
-      {
-        titleKey: "settings.mobileConnect.route.title",
-        descriptionKey: "settings.mobileConnect.route.description",
-      },
+      { anchor: "settings.mobileConnect.phones.title", descriptionKey: "settings.mobileConnect.phones.description" },
+      { anchor: "settings.mobileConnect.phones.add", descriptionKey: "settings.mobileConnect.add.webApp.question" },
+      { anchor: "settings.mobileConnect.link.title", descriptionKey: "settings.mobileConnect.link.cardHint" },
+      { anchor: "settings.mobileConnect.route.title", descriptionKey: "settings.mobileConnect.route.description" },
     ],
   },
   {
     value: "updates",
     titleKey: "settings.tab.updates.title",
     descriptionKey: "settings.tab.updates.description",
+    keywordsKey: "settings.search.keywords.updates",
     icon: CircleArrowDown,
     rows: [
-      { titleKey: "settings.updates.track.title", descriptionKey: "settings.updates.track.description" },
-      { titleKey: "settings.updates.idleRestart.title" },
-      { titleKey: "settings.updates.autoDownload.title", descriptionKey: "settings.updates.autoDownload.description" },
-      { titleKey: "settings.updates.autoInstall.title", descriptionKey: "settings.updates.autoInstall.description" },
-      { titleKey: "settings.updates.allowRemote.title", descriptionKey: "settings.updates.allowRemote.description" },
-      { titleKey: "settings.updates.managed.title", descriptionKey: "settings.updates.managed.description" },
+      {
+        anchor: "settings.updates.track.title",
+        descriptionKey: "settings.updates.track.description",
+        keywordsKey: "settings.search.keywords.updateTrack",
+      },
+      { anchor: "settings.updates.idleRestart.title", keywordsKey: autoUpdateKeywords },
+      {
+        anchor: "settings.updates.autoDownload.title",
+        descriptionKey: "settings.updates.autoDownload.description",
+        keywordsKey: autoUpdateKeywords,
+      },
+      {
+        anchor: "settings.updates.autoInstall.title",
+        descriptionKey: "settings.updates.autoInstall.description",
+        keywordsKey: autoUpdateKeywords,
+      },
+      { anchor: "settings.updates.allowRemote.title", descriptionKey: "settings.updates.allowRemote.description" },
+      { anchor: "settings.updates.managed.title", descriptionKey: "settings.updates.managed.description" },
     ],
   },
   {
     value: "hosted-servers",
     titleKey: "settings.tab.hostedServers.title",
     descriptionKey: "settings.tab.hostedServers.description",
+    keywordsKey: "settings.search.keywords.hostedServers",
     icon: Server,
     rows: [],
   },

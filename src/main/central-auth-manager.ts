@@ -158,6 +158,11 @@ const remoteTicketJwksSchema = z.object({
 // paths below decode it with the one function in `@openbot/contracts/remote-control-plane`.
 export type RemoteConnectionBootstrap = RemoteSessionTicket;
 
+/** Asks for the host's home Signal machine. Only the host peer asks; see `issueRemoteHostTicket`. */
+export interface RemoteHostTicketHome {
+  readonly failedSignalUrl?: string;
+}
+
 // The claims this host reads off a client's ticket, derived from the contract the account API mints
 // against. `clientPublicKey` is optional there because a host ticket carries none; a client that
 // reached this check without one is rejected below, so it is required here.
@@ -693,15 +698,30 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     return machineToken;
   });
 
+  /**
+   * A Signal ticket for this host. Without `home`, the ticket is for the entry Signal, which also
+   * carries the chat app and webhook traffic, and the account service keeps the host's home. With `home`, the account service picks the Signal
+   * machine where this host and its devices meet; `failedSignalUrl` names a home that did not answer,
+   * so the account service moves the host to another machine.
+   */
   readonly issueRemoteHostTicket = Effect.fn("CentralAuth.issueRemoteHostTicket")(
     function* (
       this: CentralAuthManager,
       hostId: string,
+      home?: RemoteHostTicketHome,
     ): Effect.fn.Return<RemoteConnectionBootstrap, CentralAuthOperationError, CentralAuthTransport> {
       const machineToken = yield* this.#hostMachineToken(hostId);
+      const body = home
+        ? {
+            machineToken,
+            signalHome: true,
+            ...(home.failedSignalUrl === undefined ? {} : { failedSignalUrl: home.failedSignalUrl }),
+          }
+        : // `false` keeps the stored home: the host peer of this build still connects to it.
+          { machineToken, signalHome: false };
       return yield* this.#requestEffect(
         `/v2/remote/hosts/${encodeURIComponent(hostId)}/ticket`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ machineToken }) },
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
         decodeRemoteSessionTicket,
       );
     },
@@ -1286,7 +1306,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
         `/v2/remote/hosts/${encodeURIComponent(hostId)}/logo`,
         {
           method: "PUT",
-          headers: { "Content-Type": image.mimeType, ...(version ? { "Builders Bot-Logo-Version": version } : {}) },
+          headers: { "Content-Type": image.mimeType, ...(version ? { "OpenBot-Logo-Version": version } : {}) },
           body: Buffer.from(image.bytes),
         },
         (value) => requiredString(decodeRecord(value, "remote host logo"), "logoKey"),

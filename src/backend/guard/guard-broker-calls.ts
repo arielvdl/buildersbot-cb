@@ -27,7 +27,8 @@ function stringList(record: unknown, key: string): string[] {
 /**
  * The part of a shared browser call that leaves the computer, or null when the call sends nothing
  * that an agent chose: a click, a key, a snapshot. Every tool of `@playwright/mcp` that sends a URL,
- * a script, a text or a file has a case here.
+ * a script, a text, a value or a file has a case here. Code that `browser_run_code_unsafe` loads
+ * from a file is not read: `guardBrokerCall` refuses that call.
  */
 export function playwrightOutboundItem(name: string, args: unknown): GuardOutboundItem | null {
   const tool = `${PLAYWRIGHT}.${name}`;
@@ -40,12 +41,8 @@ export function playwrightOutboundItem(name: string, args: unknown): GuardOutbou
     }
     case "browser_evaluate":
       return payload(stringField(args, "function"));
-    case "browser_run_code_unsafe": {
-      const code = stringField(args, "code");
-      // Code that the browser loads from a file is code that the Guard does not read.
-      if (!code && stringField(args, "filename")) return { tool, payload: null, unresolved: true };
-      return payload(code);
-    }
+    case "browser_run_code_unsafe":
+      return payload(stringField(args, "code"));
     case "browser_type":
       return payload(stringField(args, "text"));
     case "browser_fill_form": {
@@ -54,6 +51,11 @@ export function playwrightOutboundItem(name: string, args: unknown): GuardOutbou
     }
     case "browser_handle_dialog":
       return payload(stringField(args, "promptText"));
+    // A cookie goes to its site with the next request, and page scripts of the site read storage.
+    case "browser_cookie_set":
+    case "browser_localstorage_set":
+    case "browser_sessionstorage_set":
+      return payload(stringField(args, "value"));
     case "browser_file_upload": {
       const paths = stringList(args, "paths");
       return paths.length > 0 ? { tool, files: paths } : null;
@@ -90,6 +92,13 @@ export type BrokerCallDecision =
   | { readonly proceed: true; readonly paths?: readonly string[] }
   | { readonly proceed: false; readonly text: string };
 
+/**
+ * What the agent reads when it asks the shared browser to run code from a file. The Guard reads code,
+ * not files, so the agent is told to give the code itself. The agent reads it, so it is English.
+ */
+export const BROKER_CODE_FILE_REFUSAL =
+  "Builders Bot Guard cannot read code from a file in the shared browser, so the call did not run. Give the code in the `code` argument instead.";
+
 /** What the agent reads when the Guard held back a call. The agent reads it, so it is English. */
 export function brokerRefusal(reason: string | null): string {
   return `Builders Bot Guard held back this browser call.${reason ? ` ${reason}` : ""} The shared browser cannot ask the person, so the call did not run. Tell the person what you wanted to do and why; do not try it another way.`;
@@ -111,6 +120,9 @@ export async function guardBrokerCall(
   check: BrokerCallCheck,
   resolve: (paths: readonly string[]) => Promise<GuardPaths> = resolveForBrowser,
 ): Promise<BrokerCallDecision> {
+  // Code from a file runs in the Playwright process, with the person's browser; the Guard cannot read it.
+  if (name === "browser_run_code_unsafe" && !stringField(args, "code") && stringField(args, "filename"))
+    return { proceed: false, text: BROKER_CODE_FILE_REFUSAL };
   const given = playwrightOutboundItem(name, args);
   if (!given) return { proceed: true };
   let item = given;

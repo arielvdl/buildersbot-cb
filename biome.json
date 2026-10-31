@@ -5,6 +5,7 @@
     "./tools/biome/anti-slop/rules/no-module-mocking.grit",
     "./tools/biome/anti-slop/rules/no-object-parameters.grit",
     "./tools/biome/anti-slop/rules/no-reflect-escapes.grit",
+    "./tools/biome/anti-slop/rules/no-spaced-header-names.grit",
     "./tools/biome/anti-slop/rules/no-unknown-returns.grit",
     "./tools/biome/anti-slop/rules/no-unknown-type-aliases.grit",
     "./tools/biome/anti-slop/rules/no-unsafe-dictionary-type.grit"

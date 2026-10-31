@@ -45,10 +45,12 @@ import type {
   AgentAdminSettings,
   AgentBackupModelSettings,
   AgentHostSettings,
+  AgentPlanCardSettings,
   AgentTaskLimitSettings,
   UpdateAgentAdminSettingsInput,
   UpdateAgentBackupModelsInput,
   UpdateAgentHostSettingsInput,
+  UpdateAgentPlanCardInput,
   UpdateAgentTaskLimitInput,
 } from "./ipc-agent-admin";
 import type { AgentAnalytics, AgentAnalyticsInput } from "./ipc-agent-analytics";
@@ -67,6 +69,7 @@ import type {
   AgentImportSkillSource,
   ApplyAgentImportInput,
 } from "./ipc-agent-import";
+import type { AgentInstructionsFile, SaveAgentInstructionsInput } from "./ipc-agent-instructions";
 import type {
   AgentMemory,
   AgentMemoryLimitPreference,
@@ -111,6 +114,7 @@ import type {
   AgentTaskInput,
   AgentTaskReadState,
   AgentTasksSnapshot,
+  BranchAgentTaskInput,
   MarkAgentTaskReadInput,
   RenameAgentTaskInput,
   RunQueuedMessageAsTaskInput,
@@ -314,6 +318,7 @@ import type {
   InstanceTransferResult,
   InstanceTransferSummary,
 } from "./ipc-instance-transfer";
+import type { LidAwakePreferenceChange, LidAwakeStatus } from "./ipc-lid-awake";
 import type {
   AgentLimitPreference,
   AutoRecoveryPreference,
@@ -968,6 +973,17 @@ export const IPC_ENDPOINTS = {
     /** Sends one harmless Apple Event to each app, so macOS shows its Automation prompts now. */
     request: request<readonly MacAutomationTarget[], MacAutomationResult[]>()("mac-automation:request"),
   },
+  // Keep a Mac laptop on with its lid closed. `status` sends each change while the mode or its test
+  // runs. `installHelper` and `restoreNormalSleep` make macOS ask for an administrator password.
+  lidAwake: {
+    getStatus: request<undefined, LidAwakeStatus>()("lid-awake:get-status"),
+    setPreference: request<LidAwakePreferenceChange, LidAwakeStatus>()("lid-awake:set-preference"),
+    installHelper: request<undefined, LidAwakeStatus>()("lid-awake:install-helper"),
+    restoreNormalSleep: request<undefined, LidAwakeStatus>()("lid-awake:restore-normal-sleep"),
+    startTest: request<undefined, LidAwakeStatus>()("lid-awake:start-test"),
+    finishTest: request<undefined, LidAwakeStatus>()("lid-awake:finish-test"),
+    status: event<LidAwakeStatus>()("lid-awake:status"),
+  },
   // The programs that agents left running on this computer. `list` answers null where Builders Bot cannot
   // find them (Windows). `stop` takes the id of one, and ends it with its children.
   backgroundProcesses: {
@@ -1482,6 +1498,8 @@ export const IPC_ENDPOINTS = {
     readTask: scopedRequest<AgentTaskInput, ConversationSnapshot>()("agent:tasks:read"),
     startTask: scopedRequest<StartAgentTaskInput, AgentTask>()("agent:tasks:start"),
     runQueuedMessageAsTask: scopedRequest<RunQueuedMessageAsTaskInput, AgentTask>()("agent:tasks:run-queued-message"),
+    // A joined server takes this through `agent-thread-branches-v1`.
+    branchTask: scopedRequest<BranchAgentTaskInput, AgentTask>()("agent:tasks:branch"),
     stopTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:stop"),
     closeTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:close"),
     reopenTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:reopen"),
@@ -1638,6 +1656,14 @@ export const IPC_ENDPOINTS = {
     addAgentExclusion: request<AgentFolderInput, AgentExclusionChange>()("agent:folders:exclusions:add"),
     removeAgentExclusion: request<AgentFolderInput, AgentExclusionChange>()("agent:folders:exclusions:remove"),
   },
+  // The instruction file at the root of a local agent's workspace. A joined server has no route for
+  // it: the Team API does not carry it.
+  agentInstructions: {
+    readAgentInstructions: request<string, AgentInstructionsFile>()("agent:instructions:read"),
+    saveAgentInstructions: request<SaveAgentInstructionsInput, AgentInstructionsFile>()("agent:instructions:save"),
+    // Main finds the file from the agent id: the page never names a path to show.
+    revealAgentInstructions: request<string, void>()("agent:instructions:reveal"),
+  },
   // Not part of `agentAttachments`: the preload sends the paths of dropped and pasted files, and the
   // renderer must never name a path to import. So this group is never bridged to the renderer.
   attachmentImports: {
@@ -1730,6 +1756,11 @@ export const IPC_ENDPOINTS = {
     getAgentTaskLimit: scopedRequest<string, AgentTaskLimitSettings>()("agent:admin:get-task-limit"),
     updateAgentTaskLimit: scopedRequest<UpdateAgentTaskLimitInput, AgentTaskLimitSettings>()(
       "agent:admin:update-task-limit",
+    ),
+    // Plan card before long tasks: `agent-plan-card-v1` on a joined server.
+    getAgentPlanCard: scopedRequest<string, AgentPlanCardSettings>()("agent:admin:get-plan-card"),
+    updateAgentPlanCard: scopedRequest<UpdateAgentPlanCardInput, AgentPlanCardSettings>()(
+      "agent:admin:update-plan-card",
     ),
     // Browser profiles of the computer that runs the agents, and the profile of one agent.
     listBrowserProfiles: scopedQuery<BrowserProfileList>()("agent:admin:list-browser-profiles"),
@@ -1939,6 +1970,7 @@ export const IPC_GROUP_PATHS = {
   computerUse: "computerUse",
   macAutomation: "macAutomation",
   backgroundProcesses: "backgroundProcesses",
+  lidAwake: "lidAwake",
   skills: "skills",
   customProviders: "customProviders",
   providerDetection: "providerDetection",
@@ -1974,6 +2006,7 @@ export const IPC_GROUP_PATHS = {
   channelRoutines: "agent",
   agentAttachments: "agent",
   agentFolders: "agent",
+  agentInstructions: "agent",
   // The preload calls it from its own drop, paste, and file input handlers.
   attachmentImports: null,
   browser: "browser",

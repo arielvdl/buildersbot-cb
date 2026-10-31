@@ -28,7 +28,8 @@ export const messages = {
   "error.remote.runtimeUnavailable": "远程桌面运行时不可用。",
   "error.remote.sunshineStartFailed": "Sunshine 未能在主机上启动。请检查主机上的远程桌面日志后重试。",
   "error.remote.moonlightStartFailed": "Moonlight Web 未能在主机上启动。请检查主机上的远程桌面日志后重试。",
-  "error.remote.pairingFailed": "Moonlight 无法与主机上的 Sunshine 配对。请重试；若问题持续，请重启主机上的 Builders Bot。",
+  "error.remote.pairingFailed":
+    "Moonlight 无法与主机上的 Sunshine 配对。请重试；若问题持续，请重启主机上的 Builders Bot。",
   "error.remote.runtimeStartFailed": "远程桌面运行时未能在主机上启动。请检查主机上的远程桌面日志后重试。",
   "error.remote.hostUnreachable": "无法连接该主机。",
   "error.remote.signInToHostAgain": "请重新登录该主机。",
@@ -117,7 +118,6 @@ export const messages = {
   "error.remote.serverDisconnected": "服务器已断开。",
   "error.remote.preferencesUnreadable": "无法读取已保存的聊天偏好。",
   "error.remote.accountAuthRequired": "需要账号身份验证。",
-  "error.remote.serverIdentityChanged": "服务器身份已变更，拒绝替换受信任的主机密钥。",
   "error.remote.pairedIdentityChanged": "已配对的桌面身份缺失或已变更，请从该桌面重新扫码。",
   "error.remote.permanentInviteNoEmail": "永久邀请无法通过邮件发送。",
   "error.remote.selfHostedInviteNoEmail": "自建账号服务的邀请无法通过邮件发送，请复制链接。",

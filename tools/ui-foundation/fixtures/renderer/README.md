@@ -13,6 +13,9 @@ includes it. Treat every file as data read by the test.
 `features/inbox` is not stray either: the composite role count walks the whole renderer rather than
 `components/`, so it takes a component living beside its domain to hold that scope in place.
 
+`features/settings` holds the settings search parity: a row with no search entry, an entry with no
+row, and an anchor set from a value, whose entry must not fail.
+
 `components/ui-kit` is not a typo: it is the neighbour that proves skipping the design system
 compares a path prefix against a separator rather than against `components/ui` alone.
 

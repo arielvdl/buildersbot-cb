@@ -2,6 +2,9 @@ import type { PartialTranslation } from "../../message";
 import type { messages as source } from "../en/notification";
 
 export const messages = {
+  "notification.lidAwakeBatteryLow": "O modo com a tampa fechada parou: a bateria está baixa.",
+  "notification.lidAwakeTooHot": "O modo com a tampa fechada parou: o computador está quente demais.",
+  "notification.lidAwakeTimeLimit": "O modo com a tampa fechada parou: o limite de tempo foi atingido.",
   "notification.needsInput": "Precisa de uma resposta sua.",
   "notification.needsApproval": "Precisa da sua aprovação.",
   "notification.needsBrowserStep": "Precisa que você conclua uma etapa no navegador.",

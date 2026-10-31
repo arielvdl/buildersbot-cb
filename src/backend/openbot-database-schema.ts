@@ -10,6 +10,7 @@ import {
   AGENT_THREAD_MIGRATION_SQL,
   AGENT_THREAD_SCHEMA_SQL,
   migrateAgentThreadPreviews,
+  V48_AGENT_THREAD_BRANCH_COLUMNS_SQL,
 } from "./agent-threads/agent-thread-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
@@ -894,6 +895,12 @@ const MIGRATIONS: readonly BuildersBotMigration[] = [
     // also a renamed one.
     up: migrateAgentThreadPreviews,
   },
+  {
+    version: 50,
+    // Adds three columns with no default: no rebuild, so no foreign-key pause and no vacuum. Every existing
+    // thread gets null, which is a thread that is not a branch, as it was before.
+    up: addAgentThreadBranch,
+  },
 ];
 
 const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? BASELINE_SCHEMA_VERSION;
@@ -1275,6 +1282,17 @@ function addThreadMessageOrder(db: DatabaseSync): void {
   // The index is built once, after the keys, rather than updated row by row.
   db.exec(V40_THREAD_MESSAGE_ORDER_BACKFILL_SQL);
   db.exec(V40_THREAD_MESSAGE_ORDER_INDEX_SQL);
+}
+
+// Migration 50 links a branch to the thread and message it was copied from. It shipped upstream as 48.
+function addAgentThreadBranch(db: DatabaseSync): void {
+  // A development profile that ran this version before it shipped has the columns already.
+  const columns = db.prepare("PRAGMA table_info(projection_agent_threads)").all();
+  for (const column of V48_AGENT_THREAD_BRANCH_COLUMNS_SQL) {
+    const name = column.slice(0, column.indexOf(" "));
+    if (columns.some((existing) => isDynamicRecord(existing) && existing.name === name)) continue;
+    db.exec(`ALTER TABLE projection_agent_threads ADD COLUMN ${column}`);
+  }
 }
 
 // Migration 28 removes the provider CHECK. It rebuilds the table with no guard: every shipped table has the

@@ -185,12 +185,19 @@ function contents(db: DatabaseSync): Rows {
   return Object.fromEntries(tables.map((table) => [table, db.prepare(`SELECT * FROM "${table}"`).all()]));
 }
 
-/** The rows of every table, with the side threads less the two new columns. */
+/** The rows of every table, with the side threads less the two preview columns and the branch columns. */
 function withoutPreviews(rows: Rows): Rows {
   return {
     ...rows,
     projection_agent_threads: (rows.projection_agent_threads ?? []).map(
-      ({ first_message: _first, preview: _preview, ...rest }) => rest,
+      ({
+        first_message: _first,
+        preview: _preview,
+        branch_source_thread_id: _sourceThread,
+        branch_source_message_id: _sourceMessage,
+        branch_through_message_id: _through,
+        ...rest
+      }) => rest,
     ),
   };
 }
@@ -203,7 +210,7 @@ function columns(db: DatabaseSync): string[] {
 }
 
 function expectHealthy(db: DatabaseSync): void {
-  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 49 });
+  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 50 });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -217,7 +224,7 @@ describe("agent thread preview migration", () => {
     migrateBuildersBotDatabase(db);
     expect(withoutPreviews(contents(db))).toEqual(before);
     expect(previews(db)).toEqual(EXPECTED);
-    expect(columns(db).slice(-3)).toEqual(["last_event_sequence", "first_message", "preview"]);
+    expect(columns(db).slice(-6, -3)).toEqual(["last_event_sequence", "first_message", "preview"]);
     expectHealthy(db);
   });
 
@@ -339,9 +346,9 @@ describe("agent thread preview migration", () => {
     const db = databaseAt(48);
     seedThreads(db);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES (50, 'now')");
+    db.exec("INSERT INTO schema_migrations VALUES (51, 'now')");
     expect(() => migrateBuildersBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version = 50; DELETE FROM schema_migrations WHERE version = 20");
+    db.exec("DELETE FROM schema_migrations WHERE version = 51; DELETE FROM schema_migrations WHERE version = 20");
     expect(() => migrateBuildersBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(columns(db)).not.toContain("preview");

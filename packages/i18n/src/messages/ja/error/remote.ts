@@ -127,7 +127,6 @@ export const messages = {
   "error.remote.serverDisconnected": "サーバーの接続が切れました。",
   "error.remote.preferencesUnreadable": "保存したチャットの設定を読み取れませんでした。",
   "error.remote.accountAuthRequired": "アカウントの認証が必要です。",
-  "error.remote.serverIdentityChanged": "サーバーの ID が変わりました。信頼済みのホストキーは置き換えません。",
   "error.remote.pairedIdentityChanged":
     "ペアリングしたデスクトップの ID がないか、変わっています。そのデスクトップで新しいコードをスキャンしてください。",
   "error.remote.permanentInviteNoEmail": "永続的な招待はメールで送信できません。",
@@ -180,7 +179,8 @@ export const messages = {
   "error.remote.iceFailed":
     "ホストに直接接続できませんでした。ファイアウォール、VPN、プロキシが接続をブロックしている可能性があります。",
   "error.remote.iceDisconnected": "ホストへの直接接続が切れました。",
-  "error.remote.directoryUnreachable": "Builders Bot は Builders Bot サービスに接続できませんでした。接続を確認してください。",
+  "error.remote.directoryUnreachable":
+    "Builders Bot は Builders Bot サービスに接続できませんでした。接続を確認してください。",
   "error.remote.directoryTimeout": "Builders Bot サービスが時間内に応答しませんでした。もう一度お試しください。",
   "error.remote.inviteAlreadyUsed": "この招待はすでに使用されています。新しい招待を依頼してください。",
   "error.remote.inviteNotFound": "この招待は存在しないか、期限が切れています。新しい招待を依頼してください。",

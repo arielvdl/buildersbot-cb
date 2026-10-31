@@ -92,7 +92,7 @@ export async function enablePush(fetchImpl: typeof fetch = fetch): Promise<PushO
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
-    headers: { "Content-Type": "application/json", "X-Builders Bot-Browser": "1" },
+    headers: { "Content-Type": "application/json", "X-OpenBot-Browser": "1" },
     body: JSON.stringify(subscription.toJSON()),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).catch(() => null);
@@ -112,7 +112,7 @@ export async function disablePush(fetchImpl: typeof fetch = fetch): Promise<void
     method: "DELETE",
     credentials: "same-origin",
     cache: "no-store",
-    headers: { "Content-Type": "application/json", "X-Builders Bot-Browser": "1" },
+    headers: { "Content-Type": "application/json", "X-OpenBot-Browser": "1" },
     body: JSON.stringify({ endpoint: subscription.endpoint }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).catch(() => undefined);

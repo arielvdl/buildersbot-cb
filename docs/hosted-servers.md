@@ -374,7 +374,7 @@ Worker, and all worktrees share it, so you sign in one time.
 Each developer who has `DOTENV_PRIVATE_KEY_DEV` can create a server with any account.
 The command decrypts
 `HOSTED_SERVERS_DEVELOPER_KEY` from `.env.dev`, and main sends it in the
-`Builders Bot-Hosting-Developer-Key` header of each hosted server request. The test Worker has the same
+`OpenBot-Hosting-Developer-Key` header of each hosted server request. The test Worker has the same
 key and lets the account create servers. A clone of the repository cannot decrypt the key. Main
 removes the key from its environment at the start, so agents do not get it, and a packaged build
 never sends it. To change the key, update `HOSTED_SERVERS_DEVELOPER_KEY` in `.env.dev` with a

@@ -112,6 +112,13 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     setSkillSettingsRequest({ agentId, skillId: skill.skillId });
     setActiveRightPanel("settings", agentId);
   }
+  const [instructionsSettingsRequest, setInstructionsSettingsRequest] = createSignal<{ agentId: string } | null>(null);
+  /** Opens Settings > Instructions of the chat's agent. A new object opens the page again. */
+  function openInstructionsSettings(agentId: string): void {
+    if (deps.props.agent?.id !== agentId) return;
+    setInstructionsSettingsRequest({ agentId });
+    setActiveRightPanel("settings", agentId);
+  }
   const [routineSettingsRequest, setRoutineSettingsRequest] = createSignal<RoutineSettingsRequest | null>(null);
   let routineSettingsRequestNonce = 0;
 
@@ -169,6 +176,7 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     if (!agentId) return;
     if (mode !== "settings") {
       setSkillSettingsRequest(null);
+      setInstructionsSettingsRequest(null);
       setRoutineSettingsRequest((current) => (current?.agentId === agentId ? null : current));
     }
     deps.setRightPanels((current) => (current[agentId] === mode ? current : { ...current, [agentId]: mode }));
@@ -573,6 +581,8 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
   return {
     skillSettingsRequest,
     openSkillSettings,
+    instructionsSettingsRequest,
+    openInstructionsSettings,
     routineSettingsRequest,
     activeRightPanel,
     settingsOpen,

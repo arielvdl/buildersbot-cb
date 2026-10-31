@@ -8,7 +8,15 @@
   `sudo openbot update` says that updates are not available, and the server install script stops
   before it downloads anything.
 - When a server cannot update itself, Server Settings asks the host administrator for a compatible
-  Builders Bot release. Before, it named the release page of the OpenBot project.
+  Builders Bot release. Before, it named the release page of the OpenBot project. While there is no
+  release feed, every server shows this text: before, a hosted, self-installed, container or shared
+  Mac server said that the host installs updates.
+- Container servers need an image that you built from `docker/Dockerfile` (`BUILDERSBOT_IMAGE`) and
+  never pull one. `openbot-instance upgrade` and updates from the app are not available. Before,
+  they pulled the image of the OpenBot project.
+- The Nix package is not available in this version. Before, it installed the OpenBot release.
+- The macOS Host Manager of shared Macs finds no release and installs nothing. Before, it could
+  download the OpenBot release.
 
 ### Fixed
 

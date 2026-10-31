@@ -888,6 +888,15 @@ describe("the Guard on browser calls", () => {
     expect(forwarded[0]).toContain(JSON.stringify(join(folder, "photo.png")));
   });
 
+  it("asks for the code itself when an agent runs code from a file", async () => {
+    const s = await setup({ guardCall: realGuard });
+    const session = await open(s);
+    const reply = await post(s, call(2, "browser_run_code_unsafe", { filename: "/tmp/steps.js" }), session);
+    const message: RpcReply = JSON.parse(reply.text);
+    expect(message.result?.content[0]?.text).toMatch(/Give the code in the `code` argument instead\.$/u);
+    expect(toolCalls(s)).toEqual([]);
+  });
+
   it("runs the call when the Guard is off, or when its check fails", async () => {
     for (const guardCall of [undefined, async () => Promise.reject(new Error("broken"))]) {
       const s = await setup(guardCall ? { guardCall } : {});

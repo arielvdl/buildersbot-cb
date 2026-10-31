@@ -121,7 +121,6 @@ export const messages = {
   "error.remote.serverDisconnected": "서버 연결이 끊어졌어요.",
   "error.remote.preferencesUnreadable": "저장된 채팅 환경설정을 읽을 수 없어요.",
   "error.remote.accountAuthRequired": "계정 인증이 필요해요.",
-  "error.remote.serverIdentityChanged": "서버 ID가 변경되었어요. 신뢰하는 호스트 키를 교체하지 않아요.",
   "error.remote.pairedIdentityChanged":
     "페어링된 데스크톱 ID가 없거나 변경되었어요. 해당 데스크톱에서 새 코드를 스캔해 주세요.",
   "error.remote.permanentInviteNoEmail": "영구 초대는 이메일로 보낼 수 없어요.",
@@ -174,7 +173,8 @@ export const messages = {
     "Signal이 이 연결에 사용할 릴레이 서버를 보내지 않았어요. 나중에 다시 시도해 주세요.",
   "error.remote.iceFailed": "호스트에 직접 연결할 수 없어요. 방화벽, VPN 또는 프록시가 연결을 막고 있을 수 있어요.",
   "error.remote.iceDisconnected": "호스트와의 직접 연결이 끊어졌어요.",
-  "error.remote.directoryUnreachable": "Builders Bot이 Builders Bot 서비스에 연결할 수 없어요. 연결 상태를 확인해 주세요.",
+  "error.remote.directoryUnreachable":
+    "Builders Bot이 Builders Bot 서비스에 연결할 수 없어요. 연결 상태를 확인해 주세요.",
   "error.remote.directoryTimeout": "Builders Bot 서비스가 제때 응답하지 않았어요. 다시 시도해 주세요.",
   "error.remote.inviteAlreadyUsed": "이미 사용된 초대예요. 새 초대를 요청해 주세요.",
   "error.remote.inviteNotFound": "초대가 없거나 만료되었어요. 새 초대를 요청해 주세요.",

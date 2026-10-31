@@ -34,7 +34,7 @@ display_size() {
 # The Electron sandbox stays on. It makes user namespaces, and the default seccomp profile of Docker
 # refuses them to a container. `--no-sandbox` is never the answer.
 unshare --user --map-root-user true 2>/dev/null ||
-  fail "OpenBot cannot make a user namespace for the Electron sandbox. Start the container with --security-opt seccomp=seccomp.json. See https://github.com/nightly-labs/openbot/blob/main/docs/docker.md"
+  fail "OpenBot cannot make a user namespace for the Electron sandbox. Start the container with --security-opt seccomp=seccomp.json. See docs/docker.md in the Builders Bot repository."
 # The control socket of `openbot`. Main refuses a directory that other users can enter. The socket of
 # the last run stays in the container, and `openbot` must not take it for the new one.
 mkdir -p "$XDG_RUNTIME_DIR"

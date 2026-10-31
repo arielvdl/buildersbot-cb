@@ -307,7 +307,7 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   // A new role for a model. "You are now signed in" and "Você agora é assinante" are not.
   rule(
     "role-change",
-    /\byou are now\s{1,4}(?:dan\b|(?:in\s{1,4})?(?:developer|dan|god|jailbreak|jailbroken|unrestricted|unfiltered|uncensored|evil|no[- ]filter)\s{1,4}mode\b|unrestricted|unfiltered|jailbroken|uncensored|free (?:from|of) (?:all |any |your )?(?:rules|restrictions|guidelines|filters)|no longer (?:bound|restricted|limited)|(?:a|an|the|my)\s{1,4}(?:[\w-]{1,20}\s{1,4})?(?:ai|llm|assistant|chatbot|language model|dan)\b)/iu,
+    /\byou are now\s{1,4}(?:dan\b|(?:in\s{1,4})?(?:developer|dan|god|jailbreak|jailbroken|unrestricted|unfiltered|uncensored|evil|no[- ]filter)\s{1,4}mode\b|unrestricted|unfiltered|jailbroken|uncensored|free (?:from|of) (?:all |any |your )?(?:rules|restrictions|guidelines|filters)|no longer (?:bound|restricted|limited)|(?:a|an|the|my)\s{1,4}(?:[\w-]{1,20}\s{1,4})?(?:ai|llm|assistant|chatbot|language model|dan)\b|[^\n.]{0,40}?\bwithout (?:any )?(?:rules|restrictions|filters|limits|guidelines|censorship|ethics)\b)/iu,
   ),
   rule(
     "role-change",
@@ -485,7 +485,7 @@ const PIPE_TO_SHELL: readonly RegExp[] = [
   /\b(?:curl|wget)\b[^|\n;]{0,300}\|\s{0,16}(?:sudo\s{1,16})?(?:python3?|node|perl|ruby|php)\b(?:\s{1,16}-)?\s{0,16}(?:$|[\n;&)])/giu,
   /\biex\s{0,16}\(?\s{0,16}(?:\(?\s{0,16})?(?:iwr|irm|invoke-webrequest|invoke-restmethod|new-object\s{1,16}net\.webclient)\b/giu,
   /\b(?:ba|z)?sh\s{1,16}<\(\s{0,16}(?:curl|wget)\b/giu,
-  /\b(?:(?:ba|z|da)?sh\s{1,16}-c|eval|source|\.)\s{1,16}["']?(?:\$\(|`|<\()\s{0,16}(?:curl|wget)\b/giu,
+  /(?:\b(?:eval|source)|(?:^|[\s;&|])\.)\s{1,16}["']?(?:\$\(|`|<\()\s{0,16}(?:curl|wget)\b/giu,
 ];
 
 /**
@@ -557,16 +557,26 @@ const FILE_UPLOAD =
 const PASTE_HOSTS =
   /\b(?:pastebin\.com|paste\.ee|hastebin\.com|ghostbin\.\w+|transfer\.sh|file\.io|0x0\.st|webhook\.site|requestbin\.\w+|pipedream\.net|hookbin\.com|beeceptor\.com|ngrok(?:-free)?\.(?:io|app|dev)|burpcollaborator\.net|interact\.sh|oast\.(?:fun|live|me|online|pro|site))\b/iu;
 const PAGE_STORAGE = /\bdocument\.cookie\b|\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/u;
-/** A page script that sends a request. */
-const PAGE_SEND =
-  /\bfetch\s*\(|\bXMLHttpRequest\b|\bsendBeacon\b|\bnew\s+WebSocket\b|\baxios\b|\$\.(?:ajax|post|get|getJSON)\s*\(|\bnew\s+Image\s*\(|\.src\s*=\s*[`'"]https?:|\bchild_process\b|\bnet\.connect\b|\bhttps?2?\.request\b/u;
 /**
- * Other ways a page script can carry data to another site: a new address for the page or a window, a
- * form, an attribute that loads a URL, a module import, an event source or a message to another window.
- * They count only with a read of cookies or storage: alone they are ordinary page work.
+ * The ways a page script can carry data to a site. `targeted`: a request or a new address, with the
+ * address right after it, such as `fetch(url)` or `location.href = url`. `untargeted`: a request or
+ * markup whose address the script sets elsewhere, such as `XMLHttpRequest` or `form.submit()`.
+ * `always`: a message to another window or a connection that names no URL. A read of cookies or
+ * storage that goes out by one of them is exfiltration; alone they are ordinary page work.
  */
-const PAGE_SINK =
-  /\blocation(?:\.href)?\s*=(?!=)|\blocation\.(?:assign|replace)\s*\(|\bwindow\.open\s*\(|\.setAttribute\s*\(\s*[`'"](?:src|href|action|formaction|data|ping|poster|background)[`'"]|\.(?:action|formAction|href|src|ping)\s*=(?!=)|\.(?:submit|requestSubmit)\s*\(|\bimport\s*\(|\bnew\s+(?:EventSource|Worker)\s*\(|\.postMessage\s*\(|\bdocument\.write(?:ln)?\s*\(|\.(?:innerHTML|outerHTML)\s*=(?!=)|\.insertAdjacentHTML\s*\(/u;
+const PAGE_SENDS = {
+  targeted:
+    /\bfetch\s*\(|\bsendBeacon\s*\(|\bnew\s+(?:WebSocket|EventSource|Worker|SharedWorker)\s*\(|\baxios(?:\.(?:get|post|put|patch|delete|request))?\s*\(|\$\.(?:post|get|getJSON|load)\s*\(|\bhttps?2?\.(?:request|get)\s*\(|\blocation(?:\.href)?\s*=(?!=)|\blocation\.(?:assign|replace)\s*\(|\bwindow\.open\s*\(|\.setAttribute\s*\(\s*[`'"](?:src|href|action|formaction|data|ping|poster|background)[`'"]|\.(?:action|formAction|href|src|ping)\s*=(?!=)|\bimport\s*\(/gu,
+  untargeted:
+    /\bXMLHttpRequest\b|\$\.ajax\s*\(|\bnew\s+Image\s*\(|\.(?:submit|requestSubmit)\s*\(|\bdocument\.write(?:ln)?\s*\(|\.(?:innerHTML|outerHTML)\s*=(?!=)|\.insertAdjacentHTML\s*\(/u,
+  always: /\.postMessage\s*\(|\bchild_process\b|\bnet\.connect\b|\bdgram\b/u,
+} as const;
+/** The address after a request or a new page address that stays on the page's own site. */
+const RELATIVE_TARGET = /^\s{0,16},?\s{0,16}[`'"](?:\/(?!\/)|\.{1,2}\/|[?#]|[`'"])/u;
+/** An address of a site, in a script: `https://…`, `wss://…` or `//host.tld`. */
+const ABSOLUTE_URL = /(?:\b(?:https?|wss?):)?\/\/[\w-]{1,63}(?:\.[\w-]{1,63})+/iu;
+/** The scripts that run in the Playwright process, where they can read files. */
+const FILE_SCRIPT_TOOLS: ReadonlySet<string> = new Set(["playwright.browser_run_code_unsafe"]);
 /** The tools whose payload is a script that runs in a page, or in the Playwright process. */
 const PAGE_SCRIPT_TOOLS: ReadonlySet<string> = new Set([
   "openbot_browser.evaluate",
@@ -585,11 +595,10 @@ const SECRET_FILE_NAME =
   /^(?:\.env(?:\.(?!example$|sample$|template$|dist$)[\w-]{1,20})?|\.envrc|\.dev\.vars|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.pgpass|\.htpasswd|\.vault-token|\.s3cfg|\.boto|\.my\.cnf|master\.key|[\w.-]{1,200}\.tf(?:state(?:\.backup)?|vars)|\.[a-z]{1,10}_history|id_(?:rsa|dsa|ecdsa|ed25519)|\.?credentials\.json|service[-_]account[\w.-]{0,40}\.json|login\.keychain(?:-db)?|[\w.-]{1,200}\.(?:pem|p12|pfx|kdbx|ppk|jks|keystore))$/iu;
 /**
  * A folder or a file whose place says that it holds secrets: a key folder itself, or a file in it,
- * the sign-ins of the agents' own tools, and the data folder of this app. A public key and
- * known_hosts do not.
+ * and the sign-ins of the agents' own tools. A public key and known_hosts do not.
  */
 const SECRET_FILE_PLACE =
-  /(?:^|\/)(?:\.ssh\/(?!known_hosts$|config$|[\w.-]+\.pub$)[\w.-]+|(?:\.ssh|\.gnupg|\.aws|\.azure|\.config\/gcloud)$|\.aws\/credentials$|\.docker\/config\.json$|\.kube\/config$|\.gnupg\/|\.azure\/|\.config\/gcloud\/|\.codex\/auth\.json$|\.config\/gh\/hosts\.yml$|\.claude\/\.credentials\.json$|Library\/Keychains(?:\/|$)|Library\/Application Support\/(?:Builders Bot|OpenBot)[^/]{0,40}(?:\/|$)|\.config\/(?:Builders Bot|OpenBot)[^/]{0,40}(?:\/|$))/iu;
+  /(?:^|\/)(?:\.ssh\/(?!known_hosts$|config$|[\w.-]+\.pub$)[\w.-]+|(?:\.ssh|\.gnupg|\.aws|\.azure|\.config\/gcloud)$|\.aws\/credentials$|\.docker\/config\.json$|\.kube\/config$|\.gnupg\/|\.azure\/|\.config\/gcloud\/|\.codex\/auth\.json$|\.config\/gh\/hosts\.yml$|\.claude\/\.credentials\.json$|Library\/Keychains(?:\/|$))/iu;
 /** A certificate that is public by its name, such as a CA bundle: sending it reveals nothing. */
 const PUBLIC_CERTIFICATE =
   /^(?![\w.-]*(?:key|priv|secret))[\w.-]*(?:^|[-_.])(?:ca|cacert|ca-bundle|chain|fullchain|bundle|cert|certificate|root|intermediate|public|pub|truststore)(?:[-_.][\w-]*)?\.(?:pem|crt|cer)$/iu;
@@ -809,6 +818,14 @@ function matchesIn(text: string, { pattern, keep }: Rule): boolean {
  */
 function findingsNear(found: Findings, text: string): boolean {
   const strong = found.hits.filter((hit) => WEIGHT[hit.code] === "strong");
+  // A strong finding with no place, such as many zero-width characters, is about the whole item: it
+  // stands near every other strong finding.
+  const placed = new Set(strong.map((hit) => hit.code));
+  const placeless = found.codes.filter((code) => WEIGHT[code] === "strong" && !placed.has(code));
+  const categories = new Set(
+    [...found.codes].filter((code) => WEIGHT[code] === "strong").map((code) => CATEGORY[code]),
+  );
+  if (placeless.length > 0 && categories.size >= 2) return true;
   for (const hit of strong) {
     const from = Math.max(0, hit.start - NEAR);
     const to = Math.min(text.length, hit.end + NEAR);
@@ -879,7 +896,7 @@ export function triageContent(content: string, options: GuardTriageOptions = {})
   if (countMatches(raw, ZERO_WIDTH) >= ZERO_WIDTH_LIMIT || countMatches(raw, SELECTOR_RUN) > 0)
     found.add("hidden-zero-width");
   const text = guardReadableText(raw);
-  found.scan(text, HIDDEN_BIDI);
+  if (!found.scan(text, HIDDEN_BIDI)) found.skip();
   const phrase = phraseView(text);
   const { map } = phrase;
   const place: PlaceMap | undefined = map
@@ -992,12 +1009,16 @@ const ARCHIVERS: ReadonlySet<string> = new Set(["tar", "zip", "7z", "gzip", "bzi
 const CODE_RUNNERS: ReadonlySet<string> = new Set(
   "node nodejs bun deno python python3 ruby perl php osascript".split(" "),
 );
-/** Options of `scp` and `rsync` that take a value, so the value is not a file to send. */
-const COPY_VALUE_OPTIONS: ReadonlySet<string> = new Set(
-  "-c -F -i -J -l -o -P -S -D -X -e -f -B -M -T --rsh --rsync-path --exclude --include --exclude-from --include-from --files-from --filter --password-file --log-file --partial-dir --temp-dir --compare-dest --copy-dest --link-dest --chmod --chown --port --timeout --bwlimit --backup-dir --suffix --remote-option".split(
-    " ",
+/** Options of `scp`, `rsync` and `rclone` that take a value, so the value is not a file to send. */
+const COPY_VALUE_OPTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
+  scp: new Set("-c -F -i -J -l -o -P -S -D -X".split(" ")),
+  rsync: new Set(
+    "-e -f -B -M -T --rsh --rsync-path --exclude --include --exclude-from --include-from --files-from --filter --password-file --log-file --partial-dir --temp-dir --compare-dest --copy-dest --link-dest --chmod --chown --port --timeout --bwlimit --backup-dir --suffix --remote-option".split(
+      " ",
+    ),
   ),
-);
+  rclone: new Set("--config --transfers --checkers --exclude --include --filter --bwlimit --log-file".split(" ")),
+};
 /** A remote place of `scp`, `rsync` or `rclone`: `host:path`, `user@host:path` or `rsync://`. */
 const REMOTE_OPERAND = /^(?:rsync:\/\/|(?:[\w.+-]{1,64}@)?(?:[\w.-]{2,253}|\[[0-9a-f:.]{2,45}\]):)/iu;
 
@@ -1023,6 +1044,9 @@ const SERVICE_ALIASES: Readonly<Record<string, readonly string[]>> = {
   OPENAI: ["openai"],
 };
 
+/** The service that a program talks to when the command names no URL. */
+const PROGRAM_SERVICE: Readonly<Record<string, string>> = { gh: "github", aws: "amazonaws", gsutil: "googleapis" };
+
 /** The name a host has at its registry, such as `github` for `api.github.com`. */
 function registrableLabel(host: string): string | null {
   const labels = host.split(".").filter(Boolean);
@@ -1039,11 +1063,14 @@ function registrableLabel(host: string): string | null {
  * `$GITHUB_TOKEN` sent to `api.github.com`. That is how a token is meant to be used, not a leak. A
  * host that only holds the service name in a sub-domain, such as `github.example.net`, does not count.
  */
-function sentToOwnService(variables: readonly string[], text: string): boolean {
-  const hosts = urlsIn(text).flatMap(({ url }) => {
+function sentToOwnService(variables: readonly string[], text: string, program: string): boolean {
+  const urlHosts = urlsIn(text).flatMap(({ url }) => {
     const host = urlHost(url);
     return host ? [host] : [];
   });
+  // A program with no URL talks to its own service: `gh` to GitHub, `aws` to AWS.
+  const service = PROGRAM_SERVICE[program];
+  const hosts = urlHosts.length === 0 && service ? [`api.${service}.com`] : urlHosts;
   if (hosts.length === 0 || variables.length === 0) return false;
   const services = variables.map((variable) => {
     const words = variable.split("_").filter((word) => word && !GENERIC_NAME_WORDS.has(word));
@@ -1191,7 +1218,7 @@ function sentOperands(program: string, args: readonly ShellWord[]): ShellWord[] 
         const word = args[index];
         if (!word) continue;
         if (word.value.startsWith("-")) {
-          if (COPY_VALUE_OPTIONS.has(word.value)) index += 1;
+          if (COPY_VALUE_OPTIONS[program]?.has(word.value)) index += 1;
           continue;
         }
         files.push(word);
@@ -1273,10 +1300,19 @@ function sendsInput(program: string, args: readonly ShellWord[], wrapped: boolea
 }
 
 /** The secret variables that the words of a command expand, with the place of the first one. */
+/**
+ * Options whose value is the path of a key or a certificate that the program uses to sign in, such as
+ * `ssh -i $DEPLOY_KEY_PATH`: the key authenticates, it does not travel.
+ */
+const KEY_PATH_OPTIONS: ReadonlySet<string> = new Set(
+  "-i -F -E --cert --key --cacert --capath --netrc-file --identity-file --private-key --key-file".split(" "),
+);
+
 function secretVariables(words: readonly ShellWord[]): { names: string[]; place: Place | null } {
   const names: string[] = [];
   let place: Place | null = null;
-  for (const word of words) {
+  for (const [index, word] of words.entries()) {
+    if (KEY_PATH_OPTIONS.has(words[index - 1]?.value ?? "")) continue;
     for (const match of word.expandable.matchAll(SECRET_VARIABLE)) {
       names.push(match[1] ?? "");
       place ??= [word.start, word.end];
@@ -1291,23 +1327,106 @@ interface CommandSend {
   readonly places: readonly Place[];
 }
 
+/** What `commandSends` read in a command. Places are in that command. */
+interface CommandScan {
+  readonly sends: CommandSend[];
+  /** True when the command had more statements than the check reads. */
+  readonly cut: boolean;
+  /** The statements that send over the network. */
+  readonly network: Place[];
+  /** Where a secret goes to the output of the last statement, such as `cat .env`, or null. */
+  readonly out: Place | null;
+}
+
+/** Shells that run a script given with `-c`, and `su -c`. */
+const SHELLS: ReadonlySet<string> = new Set("sh bash zsh dash ksh mksh ash fish su".split(" "));
+/**
+ * How deep the reader follows a script inside a script, such as `bash -c "$(…)"`. A deeper one makes
+ * the action incomplete, so the person decides.
+ */
+const SCRIPT_DEPTH = 4;
+/** A script that runs a download at once: `bash -c "$(curl …)"`. */
+const RUNS_DOWNLOAD = /^\s{0,16}(?:\$\(|`|<\()\s{0,16}(?:curl|wget)\b/u;
+
+/** A script inside a command: its text, where it starts in the command, and where it ends. */
+interface ShellScript {
+  readonly text: string;
+  readonly offset: number;
+  readonly end: number;
+  /** Where the script starts in the command, with its quote. */
+  readonly from: number;
+}
+
+/**
+ * The script that a segment runs as a command of its own: the `-c` script of a shell, or the words
+ * of `eval`. A provider wraps its commands so, such as `/bin/zsh -lc "…"`. A provider that joins an
+ * argument list with spaces leaves the script unquoted: it is then the rest of the line. Null when
+ * the segment runs no script.
+ */
+function scriptOf(command: string, program: string, args: readonly ShellWord[]): ShellScript | null {
+  if (program === "eval") {
+    const first = args[0];
+    const last = args.at(-1);
+    if (!first || !last) return null;
+    return { text: args.map((word) => word.value).join(" "), offset: first.start, end: last.end, from: first.start };
+  }
+  if (!SHELLS.has(program)) return null;
+  const flag = args.findIndex((word) => /^-[A-Za-z]{0,8}c[A-Za-z]{0,8}$/u.test(word.value));
+  const script = flag < 0 ? undefined : args[flag + 1];
+  if (!script) return null;
+  if (/["']/u.test(command.charAt(script.start)))
+    return { text: script.value, offset: script.start + 1, end: script.end, from: script.start };
+  return { text: command.slice(script.start), offset: script.start, end: command.length, from: script.start };
+}
+
+/** A place of a script moved into the command around it, and kept inside the script. */
+function shifted(place: Place, script: Pick<ShellScript, "offset" | "end">): Place {
+  return [Math.min(script.end, script.offset + place[0]), Math.min(script.end, script.offset + place[1])];
+}
+
 /**
  * Reads what a command sends over the network: each statement, each pipe, and what one statement
  * leaves to the next. Returns the findings with places in `command`, and whether the command had
  * more statements than the check reads.
  */
-function commandSends(command: string): { sends: CommandSend[]; cut: boolean; network: Place[] } {
-  const { statements, cut } = readShell(command, ITEM_LIMIT);
-  const carried: Carried = { names: new Set(), paths: [] };
+function commandSends(command: string, carried: Carried = { names: new Set(), paths: [] }, depth = 0): CommandScan {
+  const { statements, cut: statementsCut } = readShell(command, ITEM_LIMIT);
+  let cut = statementsCut;
   const sends: CommandSend[] = [];
   /** The statements that send over the network. */
   const network: Place[] = [];
   let addedSecret: Place | null = null;
   let push: Place | null = null;
+  /** The secret that a group, such as `(cat .env)` or `{ cat .env; }`, writes for a pipe after it. */
+  let groupOut: Place | null = null;
+  let out: Place | null = null;
+  /** Reads a script inside this command, keeps what it sends, and gives back what it writes out. */
+  const nested = (script: Pick<ShellScript, "text" | "offset" | "end">): Place | null => {
+    // Scripts nested deeper than any provider writes them are not read: the action is incomplete.
+    if (depth >= SCRIPT_DEPTH) {
+      cut = true;
+      return null;
+    }
+    const inner = commandSends(script.text, carried, depth + 1);
+    for (const send of inner.sends)
+      sends.push({ code: send.code, places: send.places.map((place) => shifted(place, script)) });
+    network.push(...inner.network.map((place) => shifted(place, script)));
+    cut ||= inner.cut;
+    return inner.out ? shifted(inner.out, script) : null;
+  };
   for (const statement of statements) {
     let sendsHere = false;
-    let upstream: Place | null = null;
+    const first = statement.segments[0]?.words[0];
+    // A group starts: what an earlier statement wrote does not go into it.
+    if (command.charAt(statement.start - 1) === "(" || first?.value === "{") groupOut = null;
+    // A statement that starts with a pipe or with `}` reads what the group before it wrote.
+    const fromGroup =
+      first !== undefined && (first.value === "}" || command.slice(statement.start, first.start).includes("|"));
+    let upstream: Place | null = fromGroup ? groupOut : null;
+    if (fromGroup) groupOut = null;
     let statementReads: Place | null = null;
+    /** Secret variables that earlier commands of the pipe expand, such as `echo $TOKEN | nc …`. */
+    let piped: { names: string[]; place: Place | null } = { names: [], place: null };
     for (const segment of statement.segments) {
       const index = commandIndex(segment.words);
       const word = segment.words[index];
@@ -1316,7 +1435,13 @@ function commandSends(command: string): { sends: CommandSend[]; cut: boolean; ne
       const wrapped = segment.words
         .slice(0, Math.max(0, index))
         .some((prefix) => programName(prefix.value) === "xargs");
-      const into = secretInto(segment, carried);
+      let into = secretInto(segment, carried);
+      // A script that the segment runs is a command of its own, and so is each subcommand.
+      const script = word ? scriptOf(command, program, args) : null;
+      if (script) into = nested(script) ?? into;
+      for (const part of [...segment.words, ...segment.hereStrings, ...segment.inputs, ...segment.outputs])
+        for (const sub of part.subcommands)
+          nested({ text: sub.text, offset: sub.end - 1 - sub.text.length, end: sub.end });
       // Assignments before a command, or alone: `X=$(cat .env)` carries the secret in `X`.
       for (const assignment of segment.words.slice(0, index < 0 ? segment.words.length : index)) {
         const name = /^([A-Za-z_][A-Za-z0-9_]{0,120})=/u.exec(assignment.value)?.[1];
@@ -1335,7 +1460,8 @@ function commandSends(command: string): { sends: CommandSend[]; cut: boolean; ne
         const send: Place = [word.start, word.end];
         sendsHere = true;
         let secret: Place | null = null;
-        if (sendsInput(program, args, wrapped)) {
+        const readsInput = sendsInput(program, args, wrapped);
+        if (readsInput) {
           secret = upstream;
           for (const input of segment.inputs)
             if (!secret && secretOperand(input.value, carried)) secret = [input.start, input.end];
@@ -1351,10 +1477,13 @@ function commandSends(command: string): { sends: CommandSend[]; cut: boolean; ne
         secret ??= secretSubcommand(segment.words, carried);
         if (secret) sends.push({ code: "secret-file-upload", places: [secret, send] });
         else {
-          const variables = secretVariables(args);
+          const own = secretVariables(args);
+          const input = readsInput ? secretVariables(segment.hereStrings) : { names: [], place: null };
+          const names = [...own.names, ...(readsInput ? [...piped.names, ...input.names] : [])];
+          const place = own.place ?? (readsInput ? (piped.place ?? input.place) : null);
           const text = command.slice(word.start, segment.words.at(-1)?.end ?? word.end);
-          if (variables.place && !sentToOwnService(variables.names, text))
-            sends.push({ code: "secret-variable-in-transfer", places: [variables.place, send] });
+          if (place && !sentToOwnService(names, text, program))
+            sends.push({ code: "secret-variable-in-transfer", places: [place, send] });
         }
       }
       if (word && CODE_RUNNERS.has(program)) {
@@ -1389,6 +1518,8 @@ function commandSends(command: string): { sends: CommandSend[]; cut: boolean; ne
             if (!secretOperand(file.value, carried)) carried.paths.push(normalPath(file.value));
         }
       }
+      const expanded = secretVariables(args);
+      piped = { names: [...piped.names, ...expanded.names], place: piped.place ?? expanded.place };
       if (into) {
         upstream ??= into;
         statementReads ??= into;
@@ -1397,9 +1528,32 @@ function commandSends(command: string): { sends: CommandSend[]; cut: boolean; ne
       if (statementReads) for (const output of segment.outputs) carried.paths.push(normalPath(output.value));
     }
     if (sendsHere) network.push([statement.start, statement.end]);
+    // What the statement writes to its output: the secret that its last command passes on.
+    const last = statement.segments.at(-1);
+    out = last && last.outputs.length === 0 ? upstream : null;
+    if (out) groupOut = out;
   }
   if (addedSecret && push) sends.push({ code: "secret-file-upload", places: [addedSecret, push] });
-  return { sends, cut, network };
+  return { sends, cut, network, out };
+}
+
+/**
+ * The place of the first way in which a page script sends data to another site, or null. A send whose
+ * address is a relative string, such as `fetch('/api/me')`, stays on the page's own site. A send that
+ * names no address counts only when the script holds the address of a site.
+ */
+function offSiteSend(payload: string, offset: number): Place | null {
+  const at = (index: number, length: number): Place => [offset + index, offset + index + length];
+  const always = PAGE_SENDS.always.exec(payload);
+  if (always) return at(always.index, always[0].length);
+  PAGE_SENDS.targeted.lastIndex = 0;
+  for (const match of payload.matchAll(PAGE_SENDS.targeted)) {
+    const end = match.index + match[0].length;
+    if (!RELATIVE_TARGET.test(payload.slice(end, end + 64))) return at(match.index, match[0].length);
+  }
+  if (!ABSOLUTE_URL.test(payload)) return null;
+  const untargeted = PAGE_SENDS.untargeted.exec(payload);
+  return untargeted ? at(untargeted.index, untargeted[0].length) : null;
 }
 
 /**
@@ -1455,15 +1609,19 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
     }
   }
   const script = PAGE_SCRIPT_TOOLS.has(action.tool);
-  const sendsFrom = script ? (placeOf(PAGE_SEND, payload, payloadAt) ?? placeOf(CODE_SEND, payload, payloadAt)) : null;
+  // Where a page script sends data to another site. A send to an address of the page's own site,
+  // such as `fetch('/api/me')` or `location.href = '/home'`, does not count.
+  const sendsFrom = script && payload ? offSiteSend(payload, payloadAt) : null;
   if (payload) {
     if (script) {
       const storage = placeOf(PAGE_STORAGE, payload, payloadAt);
-      const sink = sendsFrom ?? placeOf(PAGE_SINK, payload, payloadAt);
+      if (storage && sendsFrom) record("page-script-exfiltration", storage, sendsFrom);
       // A script that runs in the Playwright process can read files: a secret file and a send.
-      const secretFile = placeOf(SECRET_FILE, payload, payloadAt) ?? placeOf(SECRET_DUMP, payload, payloadAt);
-      if (secretFile && sendsFrom) record("secret-file-upload", secretFile, sendsFrom);
-      if (storage && sink) record("page-script-exfiltration", storage, sink);
+      if (FILE_SCRIPT_TOOLS.has(action.tool)) {
+        const secretFile = placeOf(SECRET_FILE, payload, payloadAt) ?? placeOf(SECRET_DUMP, payload, payloadAt);
+        const anySend = sendsFrom ?? placeOf(CODE_SEND, payload, payloadAt);
+        if (secretFile && anySend) record("secret-file-upload", secretFile, anySend);
+      }
     }
     // A script, a message or a typed text: a secret value in it leaves the computer. The name of a
     // file in a message, such as "I copied .env.example to .env", is not the file.
@@ -1508,28 +1666,50 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
  * Each pipe to a shell on its own: one from a known installer does not clear another one. A pipe
  * counts as a known install only when its whole statement has the strict form of `KNOWN_INSTALL`,
  * from a known host, every URL of the whole command is known, and nothing in the command changes what
- * the download does, such as a proxy variable or an alias of `curl`.
+ * the download does, such as a proxy variable or an alias of `curl`. A script that a statement runs,
+ * such as the `-c` script of a shell, is read as a command of its own, so `zsh -lc "<install>"` is the
+ * install; the text of the script is blanked in the statement around it.
  */
-function checkPipesToShell(command: string, commandAt: number, found: Findings): void {
+function checkPipesToShell(
+  command: string,
+  at: number,
+  found: Findings,
+  depth = 0,
+  outerKnown = true,
+  limit = Number.POSITIVE_INFINITY,
+): void {
   const known = (url: string | undefined) => url !== undefined && isInstallerUrl(url);
-  const commandHostsKnown = urlsIn(command).every(({ url }) => known(url)) && !CHANGED_DOWNLOAD.test(command);
+  const commandHostsKnown =
+    outerKnown && urlsIn(command).every(({ url }) => known(url)) && !CHANGED_DOWNLOAD.test(command);
+  const add = (start: number, end: number) =>
+    found.add("pipe-to-shell", Math.min(limit, at + start), Math.min(limit, at + end));
   const { statements } = readShell(command, ITEM_LIMIT);
   for (const statement of statements) {
-    const text = command.slice(statement.start, statement.end);
+    let text = command.slice(statement.start, statement.end);
+    for (const segment of statement.segments) {
+      const index = commandIndex(segment.words);
+      const word = segment.words[index];
+      const script = word ? scriptOf(command, programName(word.value), segment.words.slice(index + 1)) : null;
+      if (!script || depth >= SCRIPT_DEPTH) continue;
+      // A shell that runs a download at once: only the documented Homebrew form is a known install.
+      if (RUNS_DOWNLOAD.test(script.text)) {
+        const subshell = KNOWN_SUBSHELL_INSTALL.exec(text.trim());
+        if (!(commandHostsKnown && subshell !== null && known(subshell.groups?.url)))
+          add(statement.start, statement.end);
+      }
+      checkPipesToShell(script.text, at + script.offset, found, depth + 1, commandHostsKnown, at + script.end);
+      const from = Math.max(0, script.from - statement.start);
+      const to = Math.max(from, Math.min(text.length, script.end - statement.start));
+      text = `${text.slice(0, from)}${" ".repeat(to - from)}${text.slice(to)}`;
+    }
     for (const pattern of PIPE_TO_SHELL) {
       pattern.lastIndex = 0;
       for (const match of text.matchAll(pattern)) {
         const whole = text.trim();
         const install = KNOWN_INSTALL.exec(whole);
-        const subshell = KNOWN_SUBSHELL_INSTALL.exec(whole);
         const plain =
-          commandHostsKnown &&
-          ((install !== null && known(install.groups?.url) && !UNRESOLVED_PART.test(whole)) ||
-            (subshell !== null && known(subshell.groups?.url)));
-        if (!plain) {
-          const start = commandAt + statement.start + match.index;
-          found.add("pipe-to-shell", start, start + match[0].length);
-        }
+          commandHostsKnown && install !== null && known(install.groups?.url) && !UNRESOLVED_PART.test(whole);
+        if (!plain) add(statement.start + match.index, statement.start + match.index + match[0].length);
       }
     }
   }

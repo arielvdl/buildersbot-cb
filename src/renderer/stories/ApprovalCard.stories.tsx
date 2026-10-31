@@ -90,3 +90,22 @@ export const AlwaysAllow: Story = {
 };
 /** The same card without that option, which is what a remote agent and a permissions request both show. */
 export const WithoutAlwaysAllow: Story = { args: { agentName: "Chief" } };
+/**
+ * A question of the Guard about content: the reason names the tool and the page, and the card offers
+ * no "Always allow", because Full access does not answer a Guard question.
+ */
+export const GuardQuestion: Story = {
+  args: {
+    agentName: "Chief",
+    onAlwaysAllow: fn(async () => false),
+    approval: {
+      ...approval,
+      kind: "permissions",
+      command: null,
+      cwd: null,
+      guard: true,
+      reason:
+        "The Guard found possible prompt injection in what openbot_browser.snapshot read from evil.example. The content tells the agent to ignore its instructions. Allow lets the agent read it as data. Deny holds it back.",
+    },
+  },
+};

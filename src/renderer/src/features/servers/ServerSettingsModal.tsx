@@ -8,7 +8,6 @@ import type {
   TeamPresenceMember,
   UpdateTeamMemberInput,
 } from "@openbot/contracts/ipc";
-import type { AppTextKey } from "@openbot/i18n";
 import { classifyFailure } from "@openbot/telemetry";
 import {
   Alert,
@@ -71,6 +70,7 @@ import { type ServerTransferOptions, ServerTransferPanel } from "./ServerTransfe
 import { type ServerUpdateOptions, ServerUpdatePanel } from "./ServerUpdatePanel";
 import { serverCanAdminister, serverRoleCanAdminister } from "./server-capabilities";
 import type { ServerSettingsSectionHost } from "./server-settings-section";
+import { SERVER_SETTINGS_SECTIONS, type ServerSettingsSection } from "./server-settings-sections";
 
 export interface ServerSettingsModalProps {
   open: boolean;
@@ -237,39 +237,12 @@ export interface ServerHostedSitesOptions {
   onSeePlans?: (() => void) | undefined;
 }
 
-export type ServerSettingsSection =
-  | "general"
-  | "vault"
-  | "members"
-  | "roles"
-  | "desktop"
-  | "mcp"
-  | "storage"
-  | "sites"
-  | "providers"
-  | "updates"
-  | "import"
-  | "transfer"
-  | "routines"
-  | "browser-profiles";
+export type { ServerSettingsSection } from "./server-settings-sections";
+
 type Section = ServerSettingsSection;
 
-const sections = {
-  general: { title: "server.settings.generalTitle", description: "server.settings.generalDescription" },
-  vault: { title: "server.settings.vaultTitle", description: "server.settings.vaultDescription" },
-  members: { title: "server.settings.membersTitle", description: "server.settings.membersDescription" },
-  roles: { title: "server.settings.rolesTitle", description: "server.settings.rolesDescription" },
-  desktop: { title: "server.settings.desktopTitle", description: "server.settings.desktopDescription" },
-  mcp: { title: "server.settings.mcpTitle", description: "server.settings.mcpDescription" },
-  storage: { title: "server.settings.storageTitle", description: "server.settings.storageDescription" },
-  sites: { title: "server.settings.hostedSitesTitle", description: "server.settings.hostedSitesDescription" },
-  providers: { title: "server.settings.providersTitle", description: "server.settings.providersDescription" },
-  updates: { title: "server.settings.updatesTitle", description: "server.settings.updatesDescription" },
-  import: { title: "server.settings.importTitle", description: "server.settings.importDescription" },
-  transfer: { title: "server.settings.transferTitle", description: "server.settings.transferDescription" },
-  routines: { title: "server.settings.routinesTitle", description: "server.settings.routinesDescription" },
-  "browser-profiles": { title: "browser.profiles.title", description: "browser.profiles.subtitle" },
-} as const satisfies Record<Section, { title: AppTextKey; description: AppTextKey }>;
+/** The search reads the same keys, so they live in `server-settings-sections.ts`. */
+const sections = SERVER_SETTINGS_SECTIONS;
 
 export function ServerSettingsModal(props: ServerSettingsModalProps) {
   const { t, errorMessage } = useText();

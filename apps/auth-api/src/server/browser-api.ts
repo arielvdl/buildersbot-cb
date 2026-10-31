@@ -123,7 +123,7 @@ const AVATAR_PATH = "v1/me/avatar";
 
 /**
  * Every write sends JSON, except an avatar upload, which sends the image bytes as the bearer route
- * does. The `X-Builders Bot-Browser` header and the same-origin check still apply to it: a cross-site
+ * does. The `X-OpenBot-Browser` header and the same-origin check still apply to it: a cross-site
  * page cannot send that header without a CORS preflight, which this API never answers.
  */
 function browserWriteContentTypeAllowed(request: Request, path: string): boolean {
@@ -146,7 +146,7 @@ export function handleBrowserApi(request: Request, services: BrowserApiServices)
   if (
     request.method !== "GET" &&
     (request.headers.get("Origin") !== new URL(request.url).origin ||
-      request.headers.get("X-Builders Bot-Browser") !== "1" ||
+      request.headers.get("X-OpenBot-Browser") !== "1" ||
       !browserWriteContentTypeAllowed(request, path))
   )
     return Promise.resolve(failure(403, "browser_request_refused", "The browser request was refused."));
@@ -275,15 +275,14 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
       yield* services.remote.endSession(user.id, sessionId, yield* sha256(token));
       return json({ ended: true });
     }
-    return json({
-      ...(yield* services.remote.issueSessionTicket(
+    return json(
+      yield* services.remote.issueSessionTicket(
         user.id,
         sessionId,
         yield* requiredString(body, "clientPublicKey"),
         yield* sha256(token),
-      )),
-      signalUrl: services.signalUrl(),
-    });
+      ),
+    );
   }
   if (path === "v2/remote/invites/preview")
     return json(yield* services.remote.previewInvite(yield* requiredString(body, "token")));

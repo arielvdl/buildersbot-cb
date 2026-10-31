@@ -78,7 +78,7 @@ describe("migration guards", () => {
 
       migrateBuildersBotDatabase(db);
 
-      expect(versions(db)).toEqual(range(8, 49));
+      expect(versions(db)).toEqual(range(8, 50));
       // Migration 40 adds order columns to the message; every column the row had keeps its value.
       expect(contents(db)).toMatchObject(before);
       // A rebuild moves its table in the schema, which changes only the order of the rows.
@@ -122,7 +122,7 @@ describe("migration guards", () => {
 
     db.exec("DROP TRIGGER break_reference");
     migrateBuildersBotDatabase(db);
-    expect(versions(db)).toEqual(range(8, 49));
+    expect(versions(db)).toEqual(range(8, 50));
     expect(contents(db)).toMatchObject(before);
   });
 
@@ -134,7 +134,7 @@ describe("migration guards", () => {
     expect(() => migrateBuildersBotDatabase(db)).toThrow(
       `Builders Bot database migration history is missing version ${missing}.`,
     );
-    expect(versions(db)).toEqual(range(8, 49).filter((version) => version !== missing));
+    expect(versions(db)).toEqual(range(8, 50).filter((version) => version !== missing));
     expect(db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all()).toEqual(schemaBefore);
   });
 });

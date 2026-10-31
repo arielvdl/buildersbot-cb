@@ -358,7 +358,7 @@ export class SunshineMoonlightRuntime {
   readonly #pairingName = `openbot-remote-${randomBytes(16).toString("hex")}`;
   #state: SunshineMoonlightRuntimeState | null = null;
   #screenCaptureDenied = false;
-  readonly #moonlightHeader = `X-Builders Bot-Remote-${randomBytes(32).toString("hex")}`;
+  readonly #moonlightHeader = `X-OpenBot-Remote-${randomBytes(32).toString("hex")}`;
   #selectedDisplayId: string | null = null;
   readonly #lifecycle = new LifecycleGate<SunshineMoonlightRuntimeState, RemoteDesktopOperationError>();
   /** Set by a stop that arrives while a start runs. The start then opens nothing more and fails. */

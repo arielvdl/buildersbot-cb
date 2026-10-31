@@ -159,6 +159,12 @@
   gap: var(--openbot-space-2);
 }
 
+/* Whether a phone can reach this computer, with its error under it. */
+.settings-mobile-reach {
+  display: grid;
+  gap: var(--openbot-space-2);
+}
+
 .settings-mobile-phones-empty {
   grid-column: 1 / -1;
   display: grid;

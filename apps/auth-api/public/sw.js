@@ -11,7 +11,7 @@
  */
 
 /** A new cache name on every release; `activate` drops the other names. */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `openbot-shell-${VERSION}`;
 const ASSET_CACHE = `openbot-assets-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
@@ -109,14 +109,24 @@ async function navigate(request) {
     }
     return response;
   } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    const shell = await caches.match("/app");
-    if (shell) return shell;
-    const offline = await caches.match(OFFLINE_URL);
-    if (offline) return offline;
+    const cached = (await caches.match(request)) ?? (await caches.match("/app")) ?? (await caches.match(OFFLINE_URL));
+    if (cached) return navigable(cached);
     return new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
+}
+
+/**
+ * A page load cannot use a response that followed a redirect: the browser shows a network error. The
+ * static assets of the Worker send `/offline.html` on to `/offline`, so the kept copy of that page is
+ * such a response. A new response with the same body, status and headers has no redirect mark.
+ */
+async function navigable(response) {
+  if (!response.redirected) return response;
+  return new Response(await response.blob(), {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 }
 
 async function networkFirst(request, cacheName) {
@@ -170,7 +180,7 @@ self.addEventListener("push", (event) => {
   } catch {
     payload = { body: event.data ? event.data.text() : "" };
   }
-  const title = typeof payload.title === "string" && payload.title ? payload.title : "OpenBot";
+  const title = typeof payload.title === "string" && payload.title ? payload.title : "Builders Bot";
   const body = typeof payload.body === "string" ? payload.body : "";
   const url = typeof payload.url === "string" && payload.url.startsWith("/") ? payload.url : "/app";
   const tag = typeof payload.tag === "string" ? payload.tag : undefined;

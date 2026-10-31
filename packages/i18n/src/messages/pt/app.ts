@@ -156,6 +156,8 @@ export const messages = {
   "app.settingsPage.searchPlaceholder": "Pesquisar configurações…",
   "app.settingsPage.results": "Resultados da pesquisa de configurações",
   "app.settingsPage.noResults": "Nenhuma configuração correspondente.",
+  "app.settingsPage.rowHidden":
+    "Esta configuração não aparece agora. Ela depende de outra configuração ou do servidor.",
   "app.settingsPage.resultCount": {
     one: "{count} configuração correspondente.",
     other: "{count} configurações correspondentes.",

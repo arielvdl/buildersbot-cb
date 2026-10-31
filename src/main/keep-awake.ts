@@ -1,7 +1,9 @@
 /**
  * Holds one power save blocker while the user chose to keep this computer awake, and while it runs
  * on its power adapter unless the user chose battery power too. The computer then does not sleep when idle, so routines run on time; the display
- * can still turn off. A closed lid or a sleep that the user selects still sleeps the computer.
+ * can still turn off. A closed lid or a sleep that the user selects still sleeps the computer: this
+ * blocker is `PreventUserIdleSystemSleep`, which macOS ignores for the lid. `lid-awake-service.ts`
+ * owns the separate lid-closed mode.
  */
 export interface KeepAwakeOptions {
   enabled: () => boolean;

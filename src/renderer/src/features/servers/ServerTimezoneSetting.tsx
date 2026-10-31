@@ -103,7 +103,7 @@ export function ServerTimezoneSetting(
   }
 
   return (
-    <Item>
+    <Item data-settings-row="server.settings.timezone">
       <ItemContent>
         <ItemTitle id="server-settings-timezone-label">{t("server.settings.timezone")}</ItemTitle>
         <ItemDescription>{loadError() ?? t("server.settings.timezoneDescription")}</ItemDescription>

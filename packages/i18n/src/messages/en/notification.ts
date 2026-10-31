@@ -3,6 +3,9 @@ import { defineMessages } from "../../message";
 export const messages = defineMessages("notification", {
   // Desktop notifications, raised by the main process while the window may be closed, and browser
   // notifications, raised by the web client while its tab is open.
+  "notification.lidAwakeBatteryLow": "The lid-closed mode stopped: the battery is low.",
+  "notification.lidAwakeTooHot": "The lid-closed mode stopped: the computer is too hot.",
+  "notification.lidAwakeTimeLimit": "The lid-closed mode stopped: its time limit was reached.",
   "notification.needsInput": "Needs your input.",
   "notification.needsApproval": "Needs your approval.",
   "notification.needsBrowserStep": "Needs you to finish a step in the browser.",

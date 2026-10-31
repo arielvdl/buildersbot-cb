@@ -65,6 +65,11 @@ describe("ui foundation check", () => {
         // neither - the template
         // literal that would cover it is an id, so a prefix taken outside a class-building
         // region would silently spare every identifier-* rule in the tree.
+        // The settings search parity, once in each direction. ValueRows.tsx sets its anchor from a
+        // value, so its entry in settings-index.ts reports nothing; without the string branch for such
+        // a file, a third line reads "settings.value.title".
+        'features/settings/SettingsRows.tsx: the settings row "settings.orphan.title" has no entry in the settings search',
+        'features/settings/settings-index.ts: the settings search entry "settings.missing.title" has no row with that data-settings-row',
         "styles/unreachable.css: .identifier-panel is not reachable from any markup; delete the rule",
         "styles/unreachable.css: .unreachable-panel is not reachable from any markup; delete the rule",
         budget("hand-rolled composite ARIA roles", 9),

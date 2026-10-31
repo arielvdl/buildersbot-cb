@@ -3,8 +3,8 @@ import type { BuildersBotDesktopApi } from "@openbot/contracts/ipc";
 /**
  * What the settings context reaches in main: the app-wide preferences, the switches for updates,
  * notifications and the Dynamic Island, the local agents and their background processes of the
- * Agents tab, and the agents and the user's own notification levels of each server for the
- * Notifications tab.
+ * Agents tab, the lid-closed mode of the General tab, and the agents and the user's own notification
+ * levels of each server for the Notifications tab.
  */
 export interface SettingsPort {
   getAgentDefaults: BuildersBotDesktopApi["getAgentDefaults"];
@@ -39,6 +39,7 @@ export interface SettingsPort {
     "listAgents" | "updateAgent" | "listAgentNotificationLevels" | "setAgentNotificationLevel" | "onScopedEvent"
   >;
   backgroundProcesses: BuildersBotDesktopApi["backgroundProcesses"];
+  lidAwake: BuildersBotDesktopApi["lidAwake"];
   dynamicIsland: Pick<
     BuildersBotDesktopApi["dynamicIsland"],
     "getBuiltInDisplayGeometry" | "getPreference" | "setPreference"

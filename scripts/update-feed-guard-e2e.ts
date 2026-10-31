@@ -6,19 +6,31 @@
 //   target, with the precedence of electron-builder (target, platform, root, then the package.json
 //   `repository`), or a `generic` feed that the update feed policy allows;
 // - `nightly-labs` is not in the build configs, the package.json `repository`, `bugs` and
-//   `homepage`, `src/main`, `scripts/hosting`, `scripts/install-server.sh`, the macOS Host Manager
-//   and the download pages, except the lines in ALLOWED_MENTIONS (tests are not part of a build);
+//   `homepage`, the product code and its texts (`src`, `packages/*/src`, `apps/mobile`), the server,
+//   container, Nix and macOS Host Manager files and the download pages, except the lines in
+//   ALLOWED_MENTIONS (tests are not part of a build);
 // - the real `decideUpdateFeed` refuses the upstream app-update.yml, an HTTP feed and a feed on
 //   another origin, and allows a listed origin only when the list is not empty;
 // - the application decides the feed before it imports electron-updater, and the hosted installer,
 //   the Servers panel, the root update script, the server install script and the macOS Host Manager
 //   send no request;
+// - the container instances pull no image, the Nix package fetches nothing, and the mobile app reads
+//   no over-the-air update and opens no store page of the upstream project;
 // - the updater cache folder, the Squirrel.Mac folder and the Windows installer use Builders Bot names.
 //
 // Usage: bun scripts/update-feed-guard-e2e.ts
 // It writes .openbot-build/update-system/feed-guard-report.json and exits with 1 when a check fails.
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
@@ -43,26 +55,33 @@ const REPORT_PATH = resolve(ROOT, ".openbot-build/update-system/feed-guard-repor
 const UPSTREAM = /nightly-labs/iu;
 
 /**
- * The only mentions of the upstream project that can stay: documentation links and comments, which
- * send no request and install nothing. Each one names its file and the text of its line.
+ * The only mentions of the upstream project that can stay: documentation links, comments, checks that
+ * refuse the upstream project, and the download page of phase 0b. They send no request and install
+ * nothing. Each one names its file and the text of its line.
  */
 const ALLOWED_MENTIONS: ReadonlyArray<{ file: string; line: RegExp; reason: string }> = [
   {
+    // The agent setup help. That page has no install step, and Builders Bot has no public
+    // documentation page yet.
     file: "src/main/ipc/app-handlers.ts",
-    line: /"https:\/\/github\.com\/nightly-labs\/openbot\/blob\/main\/docs\/[\w./-]+"/u,
-    reason: "documentation link",
+    line: /^\s*"agent-setup": "https:\/\/github\.com\/nightly-labs\/openbot\/blob\/main\/docs\/TROUBLESHOOTING\.md",$/u,
+    reason: "documentation link (agent setup), until Builders Bot has a public documentation page",
   },
   { file: "src/main/github-connector-config.ts", line: /^\s*\/\*\*/u, reason: "comment" },
   { file: "src/main/update-feed-policy.ts", line: /^\s*\*.*Never add the upstream OpenBot feed/u, reason: "comment" },
   {
-    file: "scripts/hosting/openbot",
-    line: /See https:\/\/github\.com\/nightly-labs\/openbot\/blob\/main\/docs\/docker\.md"$/u,
-    reason: "documentation link",
+    // The support screen opens the issue form of the upstream project. It installs nothing. Builders
+    // Bot has no public issue form yet.
+    file: "apps/mobile/src/features/settings/screens/support-settings-screen.tsx",
+    line: /^const ISSUES_URL = "https:\/\/github\.com\/nightly-labs\/openbot\/issues\/new";$/u,
+    reason: "support link (issue form), until Builders Bot has a public issue form",
   },
   {
-    file: "scripts/hosting/openbot-container",
-    line: /See https:\/\/github\.com\/nightly-labs\/openbot\/blob\/main\/docs\/docker\.md"$/u,
-    reason: "documentation link",
+    // The command that a Hermes user runs to export agents. It installs an agent skill of the upstream
+    // repository in Hermes, not an app release.
+    file: "packages/contracts/src/ipc-agent-import.ts",
+    line: /^export const HERMES_EXPORT_SKILL_ID = "nightly-labs\/openbot\/resources\/agent-import\/hermes-agent";$/u,
+    reason: "agent import skill for Hermes, not an app release",
   },
   {
     file: "docker/instances/openbot-instance",
@@ -73,6 +92,13 @@ const ALLOWED_MENTIONS: ReadonlyArray<{ file: string; line: RegExp; reason: stri
     file: "scripts/nix-sources.ts",
     line: /^if \(\/\^nightly-labs\\\/\/iu\.test\(repository\)\) \{$/u,
     reason: "refuses the upstream repository",
+  },
+  {
+    // The public download page of the account Worker. It changes in phase 0b of the design, together
+    // with the Worker deploy that the owner approves.
+    file: "apps/auth-api/src/lib/download-pages.ts",
+    line: /^\s*code: "curl -fsSL https:\/\/raw\.githubusercontent\.com\/nightly-labs\/openbot\/main\/scripts\/install-server\.sh \| sudo bash\\nsudo openbot login",$/u,
+    reason: "phase 0b: download page, Worker deploy pending",
   },
   {
     // A list of provider CLI versions to avoid, not an app release. Section 7.5 of the design moves it.
@@ -112,6 +138,13 @@ function filesUnder(directory: string): string[] {
   return readdirSync(resolve(ROOT, directory), { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => relative(ROOT, join(entry.parentPath, entry.name)));
+}
+
+/** Every file of the shared packages (`packages/<name>/src`), as a path relative to the repository. */
+function packageSourceFiles(): string[] {
+  return readdirSync(resolve(ROOT, "packages"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(resolve(ROOT, "packages", entry.name, "src")))
+    .flatMap((entry) => filesUnder(`packages/${entry.name}/src`));
 }
 
 /**
@@ -217,16 +250,21 @@ await check("each electron-builder config publishes no update feed", () => {
 });
 
 const mentions: Array<{ file: string; line: number; text: string; allowed: string | null }> = [];
-await check("nightly-labs appears only in documentation links and comments", () => {
+await check("nightly-labs appears only in the allowed lines", () => {
   const packageJson = JSON.parse(readText("package.json"));
   if (!isDynamicRecord(packageJson)) fail("package.json is not an object.");
   for (const field of ["repository", "bugs", "homepage"]) {
     const value = JSON.stringify(packageJson[field] ?? null);
     if (UPSTREAM.test(value)) mentions.push({ file: `package.json#${field}`, line: 0, text: value, allowed: null });
   }
+  // The product code and its texts: the desktop app, the shared packages (with the translations) and
+  // the mobile app. An upstream merge can bring back a release link in any of them.
+  const productFiles = [...filesUnder("src"), ...packageSourceFiles(), ...filesUnder("apps/mobile/src")];
   const files = [
     ...readdirSync(ROOT).filter((name) => /^electron-builder.*\.ya?ml$/u.test(name)),
-    ...filesUnder("src/main").filter((file) => !/\.test\.tsx?$/u.test(file)),
+    ...productFiles.filter((file) => !/\.test\.tsx?$/u.test(file)),
+    "apps/mobile/app.json",
+    "apps/mobile/app.config.js",
     ...filesUnder("scripts/hosting"),
     ...filesUnder("docker"),
     ...filesUnder("nix"),
@@ -238,7 +276,9 @@ await check("nightly-labs appears only in documentation links and comments", () 
     "apps/auth-api/src/lib/download-pages.ts",
   ];
   for (const file of files) {
-    for (const [index, text] of readText(file).split("\n").entries()) {
+    const content = readText(file);
+    if (!UPSTREAM.test(content)) continue;
+    for (const [index, text] of content.split("\n").entries()) {
       if (!UPSTREAM.test(text)) continue;
       const allowed = ALLOWED_MENTIONS.find((entry) => entry.file === file && entry.line.test(text));
       mentions.push({ file, line: index + 1, text: text.trim(), allowed: allowed?.reason ?? null });

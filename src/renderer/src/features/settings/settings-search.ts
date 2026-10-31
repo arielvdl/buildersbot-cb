@@ -5,7 +5,7 @@ export interface SettingsSearchKeys {
   titleKey: AppTextKey;
   descriptionKey?: AppTextKey | undefined;
   /** More words that find the entry: other names, related words and words of the same family. */
-  keywordsKey?: AppTextKey | undefined;
+  keywordsKey?: AppTextKey | ReadonlyArray<AppTextKey> | undefined;
 }
 
 /** One field of an entry, folded once: the whole text and its words. */
@@ -34,10 +34,23 @@ const NO_SPACE_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p
 
 /**
  * Lower case, with no accents and single spaces. "Notificações" and "notificacoes" give the same
- * text, so a query typed without accents finds the entry.
+ * text, so a query typed without accents finds the entry. Only the Latin, Greek and Cyrillic accents
+ * go; the marks of Japanese kana stay, and NFC joins Korean syllables again.
  */
 export function foldSearchText(value: string): string {
-  return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase().replace(/\s+/gu, " ").trim();
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+/** The keyword keys of an entry as a list. */
+export function keyList(keys: SettingsSearchKeys["keywordsKey"]): ReadonlyArray<AppTextKey> {
+  if (keys === undefined) return [];
+  return typeof keys === "string" ? [keys] : keys;
 }
 
 function folded(value: string): FoldedField {
@@ -53,9 +66,8 @@ export function indexSettingsSearch<Entry extends SettingsSearchKeys>(
   entries: ReadonlyArray<Entry>,
   translators: ReadonlyArray<(key: AppTextKey) => string>,
 ): SettingsSearchIndex<Entry> {
-  const texts = (key: AppTextKey | undefined): FoldedField[] => {
-    if (!key) return [];
-    const unique = new Set(translators.map((translate) => translate(key)));
+  const texts = (keys: SettingsSearchKeys["keywordsKey"]): FoldedField[] => {
+    const unique = new Set(keyList(keys).flatMap((key) => translators.map((translate) => translate(key))));
     return [...unique].map(folded);
   };
   return entries.map((entry) => ({
@@ -80,11 +92,14 @@ function allWordsMatch(fields: ReadonlyArray<FoldedField>, tokens: ReadonlyArray
 }
 
 /**
- * The rank of an entry for the query, or null when it does not match. A lower rank shows first:
- * the same title, a title that starts with the query, the words of the query in the title, in the
- * title and the keywords, and last in the description too.
+ * The rank of an entry for the query. A lower rank shows first: the same title, a title that starts
+ * with the query, the words of the query in the title, in the title and the keywords, and last in the
+ * description too.
  */
-function rank(entry: FoldedEntry<unknown>, query: string, tokens: ReadonlyArray<string>): number | null {
+type Rank = 0 | 1 | 2 | 3 | 4;
+
+/** The rank of an entry for the query, or null when it does not match. */
+function rank(entry: FoldedEntry<unknown>, query: string, tokens: ReadonlyArray<string>): Rank | null {
   if (entry.titles.some((title) => title.text === query)) return 0;
   if (entry.titles.some((title) => title.text.startsWith(query))) return 1;
   if (allWordsMatch(entry.titles, tokens)) return 2;
@@ -102,7 +117,11 @@ export function searchSettings<Entry>(
   limit = SETTINGS_SEARCH_LIMIT,
 ): Entry[] {
   const needle = foldSearchText(query);
-  const tokens = needle.split(WORD_SEPARATOR).filter(Boolean);
+  const words = needle.split(WORD_SEPARATOR).filter(Boolean);
+  // A one-letter word, such as "o" in "manter o computador", starts a word in almost every entry. It
+  // counts only when the query has no longer word.
+  const longer = words.filter((word) => word.length > 1 || NO_SPACE_SCRIPT.test(word));
+  const tokens = longer.length > 0 ? longer : words;
   if (tokens.length === 0) return [];
   const ranked: Array<{ entry: Entry; rank: number; order: number }> = [];
   index.forEach((item, order) => {
@@ -127,8 +146,7 @@ export function settingsSearchKeywords(
 ): string {
   const words = new Set<string>();
   for (const entry of entries) {
-    for (const key of [entry.titleKey, entry.keywordsKey]) {
-      if (!key) continue;
+    for (const key of [entry.titleKey, ...keyList(entry.keywordsKey)]) {
       for (const translate of translators) {
         const text = translate(key);
         words.add(text.toLocaleLowerCase());

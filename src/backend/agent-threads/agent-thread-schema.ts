@@ -21,8 +21,41 @@ import type { DatabaseSync } from "node:sqlite";
 // a thread that the agent started. A rename does not change it. `preview` is the last message that the
 // person sent. Both are the text as written, cut to 2,000 characters, and empty when no message is
 // known. The tab of the thread shows them on hover and in its details. Migration 49 adds them with
-// ALTER TABLE, so they are the last columns here too: a new database and an upgraded one have the same
-// column order.
+// ALTER TABLE, so they come before the branch columns here: a new database and an upgraded one have the
+// same column order.
+//
+// The `branch_*` columns (migration 50) link a branch to the place it was copied from: the source thread
+// (the agent's own chat or a side thread), the message the person chose there, and the last copied row
+// in the branch. They have no foreign key, because the branch outlives its source. All three are null
+// for a thread that is not a branch, or all three are set; the store keeps that rule. They are at the
+// end of the column list, where migration 50 adds them, so a new database and an upgraded one match.
+
+// The table as migration 47 created it. Frozen: migration 47 runs it, and a change here would change
+// what that shipped migration does.
+const V47_AGENT_THREAD_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS projection_agent_threads (
+    thread_id TEXT PRIMARY KEY REFERENCES projection_threads(thread_id) ON DELETE CASCADE,
+    agent_id TEXT NOT NULL,
+    legacy_task_id TEXT UNIQUE,
+    origin TEXT NOT NULL CHECK(origin IN ('user', 'agent')),
+    title TEXT NOT NULL,
+    title_source TEXT NOT NULL CHECK(title_source IN ('auto', 'agent', 'user')),
+    outcome TEXT CHECK(outcome IS NULL OR outcome IN ('completed', 'failed', 'interrupted')),
+    error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    last_event_sequence INTEGER NOT NULL
+  );
+`;
+
+const AGENT_THREAD_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS agent_threads_open ON projection_agent_threads(agent_id, updated_at DESC)
+    WHERE archived_at IS NULL;
+  CREATE INDEX IF NOT EXISTS agent_threads_agent ON projection_agent_threads(agent_id, created_at DESC);
+`;
+
+// The latest table, for new databases.
 export const AGENT_THREAD_SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS projection_agent_threads (
     thread_id TEXT PRIMARY KEY REFERENCES projection_threads(thread_id) ON DELETE CASCADE,
@@ -38,32 +71,12 @@ export const AGENT_THREAD_SCHEMA_SQL = `
     archived_at TEXT,
     last_event_sequence INTEGER NOT NULL,
     first_message TEXT NOT NULL DEFAULT '',
-    preview TEXT NOT NULL DEFAULT ''
+    preview TEXT NOT NULL DEFAULT '',
+    branch_source_thread_id TEXT,
+    branch_source_message_id TEXT,
+    branch_through_message_id TEXT
   );
-  CREATE INDEX IF NOT EXISTS agent_threads_open ON projection_agent_threads(agent_id, updated_at DESC)
-    WHERE archived_at IS NULL;
-  CREATE INDEX IF NOT EXISTS agent_threads_agent ON projection_agent_threads(agent_id, created_at DESC);
-`;
-
-// The table as migration 47 shipped it, frozen: migration 49 adds the two preview columns.
-const V47_AGENT_THREAD_SCHEMA_SQL = `
-  CREATE TABLE IF NOT EXISTS projection_agent_threads (
-    thread_id TEXT PRIMARY KEY REFERENCES projection_threads(thread_id) ON DELETE CASCADE,
-    agent_id TEXT NOT NULL,
-    legacy_task_id TEXT UNIQUE,
-    origin TEXT NOT NULL CHECK(origin IN ('user', 'agent')),
-    title TEXT NOT NULL,
-    title_source TEXT NOT NULL CHECK(title_source IN ('auto', 'agent', 'user')),
-    outcome TEXT CHECK(outcome IS NULL OR outcome IN ('completed', 'failed', 'interrupted')),
-    error TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    archived_at TEXT,
-    last_event_sequence INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS agent_threads_open ON projection_agent_threads(agent_id, updated_at DESC)
-    WHERE archived_at IS NULL;
-  CREATE INDEX IF NOT EXISTS agent_threads_agent ON projection_agent_threads(agent_id, created_at DESC);
+  ${AGENT_THREAD_INDEX_SQL}
 `;
 
 // Migration 47. Every task becomes a side thread with the same thread, title, state and dates: a closed
@@ -72,7 +85,8 @@ const V47_AGENT_THREAD_SCHEMA_SQL = `
 // foreign keys were off) is not copied: it has no conversation, and copying it would fail the foreign
 // key check and stop the app at startup. The task table is a leaf, so it is dropped with no rebuild.
 export const AGENT_THREAD_MIGRATION_SQL = `
-  ${V47_AGENT_THREAD_SCHEMA_SQL}
+  ${V47_AGENT_THREAD_TABLE_SQL}
+  ${AGENT_THREAD_INDEX_SQL}
   INSERT INTO projection_agent_threads
     (thread_id, agent_id, legacy_task_id, origin, title, title_source, outcome, error, created_at, updated_at,
      archived_at, last_event_sequence)
@@ -184,3 +198,11 @@ export function migrateAgentThreadPreviews(db: DatabaseSync): void {
     after = Number(through);
   }
 }
+// Migration 50. The branch link, added with no default: no rebuild, no data change, and every existing
+// thread gets null, which is a thread that is not a branch. The constant keeps the name it shipped
+// with upstream, where it was migration 48.
+export const V48_AGENT_THREAD_BRANCH_COLUMNS_SQL = [
+  "branch_source_thread_id TEXT",
+  "branch_source_message_id TEXT",
+  "branch_through_message_id TEXT",
+] as const;

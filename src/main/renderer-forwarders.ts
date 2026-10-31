@@ -24,6 +24,7 @@ import {
   type DictationState,
   decodeChannelSummaries,
   IPC_ENDPOINTS,
+  type LidAwakeStatus,
   LOCAL_SERVER_ID,
   latestTurnAnswer,
   type ServerNotificationLevel,
@@ -546,6 +547,10 @@ export function createRendererForwarders({
     for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.voice.serverSettings, settings);
   }
 
+  function forwardLidAwakeStatus(status: LidAwakeStatus): void {
+    for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.lidAwake.status, status);
+  }
+
   function forwardVoiceStreamTranscript(transcript: VoiceStreamTranscript): void {
     for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.voice.streamTranscript, transcript);
   }
@@ -636,6 +641,7 @@ export function createRendererForwarders({
     forwardSpeechModelStatus,
     forwardDictationState,
     forwardVoiceServerSettings,
+    forwardLidAwakeStatus,
     forwardProviderRuntimeStatus,
     forwardGitHubConnectorStatus,
     forwardOnePasswordConnectorStatus,

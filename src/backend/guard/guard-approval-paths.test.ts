@@ -151,6 +151,61 @@ describe("a Guard question about a secret, on each path to the approval card", (
     expect(await decided).toEqual({ proceed: true });
   });
 
+  it("marks each Guard card, so no window offers Always allow on it", async () => {
+    const { registry, gate, cards, client } = harness();
+    const mark = await Effect.runPromise(gate.commandMark(SECRET_COMMAND));
+    registry.surfaceApproval(
+      client,
+      {
+        id: "command-4",
+        method: "item/commandExecution/requestApproval",
+        params: { threadId: "thread-1", turnId: "turn-1", command: SECRET_COMMAND },
+      },
+      "command",
+      mark,
+    );
+    registry.surfaceLegacyApproval(
+      client,
+      {
+        id: "command-5",
+        method: "execCommandApproval",
+        params: { conversationId: "thread-1", command: SECRET_COMMAND },
+      },
+      mark,
+    );
+    expect(cards().map((event) => event.type === "approval" && event.approval.guard)).toEqual([true, true]);
+  });
+
+  // The Guard checks a command before its card opens, which takes up to the reviewer's deadline. A
+  // person who presses Stop in that time ends the turn: its card must not open later.
+  it("opens no Guard card for a command whose turn ended while the Guard checked it", async () => {
+    const { registry, gate, cards, client } = harness();
+    const mark = await Effect.runPromise(gate.commandMark(SECRET_COMMAND));
+    registry.clearForTurn("thread-1", "turn-9");
+    registry.surfaceApproval(
+      client,
+      {
+        id: "command-6",
+        method: "item/commandExecution/requestApproval",
+        params: { threadId: "thread-1", turnId: "turn-9", command: SECRET_COMMAND },
+      },
+      "command",
+      mark,
+    );
+    expect(cards()).toHaveLength(0);
+    registry.surfaceApproval(
+      client,
+      {
+        id: "command-7",
+        method: "item/commandExecution/requestApproval",
+        params: { threadId: "thread-1", turnId: "turn-10", command: SECRET_COMMAND },
+      },
+      "command",
+      mark,
+    );
+    expect(cards()).toHaveLength(1);
+  });
+
   it("an approval with no Guard question is still answered by Full access, as before", () => {
     const { registry, cards, client } = harness();
     registry.surfaceApproval(

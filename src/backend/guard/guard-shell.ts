@@ -317,6 +317,8 @@ const WRAPPERS: ReadonlySet<string> = new Set([
   "xargs",
   "builtin",
 ]);
+/** Words of the shell that come before a command, such as `if`, `!` or the `{` of a group. */
+const KEYWORDS: ReadonlySet<string> = new Set(["{", "!", "if", "then", "elif", "else", "do", "while", "until"]);
 /** A shell assignment before a command, such as `TOKEN=abc curl …`. */
 export const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]{0,120}=/u;
 
@@ -326,15 +328,15 @@ export function programName(word: string): string {
 }
 
 /**
- * The index of the word that names the program of a segment, after assignments and wrappers such as
- * `sudo` and `env`, or -1 when the segment only assigns.
+ * The index of the word that names the program of a segment, after assignments, shell words such as
+ * `if` or `{`, and wrappers such as `sudo` and `env`, or -1 when the segment only assigns.
  */
 export function commandIndex(words: readonly ShellWord[]): number {
   let index = 0;
   while (index < words.length) {
     const word = words[index];
     if (!word) break;
-    if (ASSIGNMENT.test(word.value)) {
+    if (ASSIGNMENT.test(word.value) || KEYWORDS.has(word.value)) {
       index += 1;
       continue;
     }

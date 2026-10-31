@@ -482,9 +482,7 @@ class Account {
       method,
       headers: {
         Cookie: `__Host-openbot-web=${token}`,
-        ...(method === "GET"
-          ? {}
-          : { Origin: this.api, "X-Builders Bot-Browser": "1", "Content-Type": "application/json" }),
+        ...(method === "GET" ? {} : { Origin: this.api, "X-OpenBot-Browser": "1", "Content-Type": "application/json" }),
         ...headers,
       },
       ...(body ? { body: JSON.stringify(body) } : {}),

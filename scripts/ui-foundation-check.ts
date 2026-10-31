@@ -103,6 +103,47 @@ function declaredClasses(source: string): Set<string> {
   return names;
 }
 
+/** An i18n key: dotted words, so `${anchor}` in a selector template is not one. */
+const KEY = String.raw`[\w-]+(?:\.[\w-]+)+`;
+
+/**
+ * The settings search moves to a row through its `data-settings-row` anchor, and its index names
+ * each anchor as `anchor: "key"`. A row that is not in the index is never found, and an entry with no
+ * row opens its tab and moves nowhere, so both fail. An anchor that markup sets from a value, such as
+ * `data-settings-row={setting.title}`, cannot be read here: an entry counts as placed when its key is a
+ * string in a file that sets such an anchor, and the type of the index holds that list.
+ */
+function settingsSearchFailures(files: readonly string[], labelRoot: string): string[] {
+  const anchors = new Map<string, string>();
+  const entries = new Map<string, string>();
+  const valueAnchorStrings = new Set<string>();
+  for (const file of files) {
+    if (!/\.tsx?$/u.test(file) || /\.test\.tsx?$/u.test(file)) continue;
+    const source = readFileSync(file, "utf8");
+    const label = relative(labelRoot, file);
+    for (const [, key] of source.matchAll(new RegExp(`data-settings-row="(${KEY})"`, "gu"))) {
+      if (key !== undefined && !anchors.has(key)) anchors.set(key, label);
+    }
+    for (const [, key] of source.matchAll(new RegExp(`\\banchor:\\s*"(${KEY})"`, "gu"))) {
+      if (key !== undefined && !entries.has(key)) entries.set(key, label);
+    }
+    if (/data-settings-row=\{/u.test(source)) {
+      for (const [, key] of source.matchAll(new RegExp(`"(${KEY})"`, "gu")))
+        if (key !== undefined) valueAnchorStrings.add(key);
+    }
+  }
+  const failures: string[] = [];
+  for (const [key, label] of anchors) {
+    if (!entries.has(key)) failures.push(`${label}: the settings row "${key}" has no entry in the settings search`);
+  }
+  for (const [key, label] of entries) {
+    if (!anchors.has(key) && !valueAnchorStrings.has(key)) {
+      failures.push(`${label}: the settings search entry "${key}" has no row with that data-settings-row`);
+    }
+  }
+  return failures;
+}
+
 export function checkUiFoundation(
   rendererRoot: string,
   labelRoot: string,
@@ -148,6 +189,8 @@ export function checkUiFoundation(
       }
     }
   }
+
+  failures.push(...settingsSearchFailures(sourceFiles, labelRoot));
 
   // Every non-test source in the renderer, the shared layer included. The composite-role
   // scan below deliberately skips components/ui because a primitive there is allowed to

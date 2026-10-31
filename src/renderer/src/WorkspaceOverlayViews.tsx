@@ -8,16 +8,16 @@ import { useChannels } from "./features/channels/channels-context";
 import type { ConnectorRegistry } from "./features/connectors/connector-registry";
 import { useConversationController } from "./features/conversation/conversation-controller-context";
 import type { ServerStorageOptions } from "./features/files/ServerStoragePanel";
-import { canManageStorage, serverHasStorage } from "./features/files/storage-usage";
+import { canManageStorage } from "./features/files/storage-usage";
 import type { ServerSettingsModalProps } from "./features/servers/ServerSettingsModal";
 import type { ServerUpdateOptions } from "./features/servers/ServerUpdatePanel";
 import {
   remoteAdminServer,
-  remoteUpdateServer,
   serverCanAdminister,
   serverRoleCanAdminister,
   serverSupportsCapability,
 } from "./features/servers/server-capabilities";
+import { type ServerSettingsSection, serverSettingsSectionShown } from "./features/servers/server-settings-sections";
 import type { MarketplaceCalls } from "./features/settings/marketplace-calls";
 import type { MarketplaceAgentRow } from "./features/settings/marketplace-controller";
 import { MARKETPLACE_PLUGINS } from "./features/settings/marketplace-plugin-catalog";
@@ -211,18 +211,15 @@ export function ServerSettingsOverlay(
   },
 ) {
   const modal = omit(props, "mcpServers", "storage", "hostUpdate");
+  const shown = (section: ServerSettingsSection) => serverSettingsSectionShown(section, props.server, props.platform);
   return (
     <Loading>
       <ServerSettingsModal
         {...modal}
-        mcpServers={serverCanAdminister(props.server, MCP_SERVERS_CAPABILITY) ? props.mcpServers : undefined}
-        storage={
-          serverHasStorage(props.server) ? { ...props.storage, canManage: canManageStorage(props.server) } : undefined
-        }
+        mcpServers={shown("mcp") ? props.mcpServers : undefined}
+        storage={shown("storage") ? { ...props.storage, canManage: canManageStorage(props.server) } : undefined}
         hostUpdate={
-          remoteUpdateServer(props.server)
-            ? { ...props.hostUpdate, canManage: serverRoleCanAdminister(props.server) }
-            : undefined
+          shown("updates") ? { ...props.hostUpdate, canManage: serverRoleCanAdminister(props.server) } : undefined
         }
       />
     </Loading>

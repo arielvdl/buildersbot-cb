@@ -79,7 +79,7 @@ interface ServerGeneralSection {
 
 /** The General section: server identity, agent settings, and leaving a joined server. */
 export function createServerGeneralSection(host: ServerSettingsSectionHost): ServerGeneralSection {
-  const { t, errorMessage } = useText();
+  const { t, errorMessage, format } = useText();
   const { props, local, published, actionsAvailable, busy, run } = host;
   const [panels, setPanels] = createStore<GeneralPanels>({
     confirmLeave: false,
@@ -120,6 +120,8 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
   const canRemove = () => Boolean(props.onRemoveServer) && !local() && props.server.role === "owner";
   /** The key handover goes through the account service, so the server must be published. */
   const canRotateKey = () => Boolean(props.onRotateHostKey) && local() && published();
+  /** The last key change that the previous and the new key both signed. Every member sees it. */
+  const keyChangedAt = () => props.server.keyChangedAt;
   const identityDirty = () =>
     canEditIdentity() &&
     (trimmedName() !== panels.identity.savedName ||
@@ -264,7 +266,7 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
             <Show
               when={canEditIdentity()}
               fallback={
-                <Item class="server-settings-readonly-name">
+                <Item data-settings-row="server.settings.name" class="server-settings-readonly-name">
                   <ItemContent>
                     <ItemTitle>{t("server.settings.name")}</ItemTitle>
                     <ItemDescription>{t("server.settings.nameOwnerOnly")}</ItemDescription>
@@ -277,7 +279,7 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
                 </Item>
               }
             >
-              <Item class="settings-identity-name-row">
+              <Item data-settings-row="server.settings.name" class="settings-identity-name-row">
                 <ItemContent>
                   <ItemTitle id="server-settings-name-label">{t("server.settings.name")}</ItemTitle>
                   <ItemDescription id="server-settings-name-description">
@@ -332,7 +334,7 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
                 </ItemActions>
               </Item>
             </Show>
-            <Item class="settings-identity-image-row">
+            <Item data-settings-row="server.settings.logo" class="settings-identity-image-row">
               <ItemContent>
                 <ItemTitle>{t("server.settings.logo")}</ItemTitle>
                 <ItemDescription class={panels.identity.logoError ? "server-settings-item-error" : undefined}>
@@ -430,37 +432,51 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
             </ItemGroup>
           </SettingsSection>
         </Show>
-        <Show when={canRotateKey()}>
+        <Show when={canRotateKey() || keyChangedAt() !== undefined}>
           <SettingsSection title={t("server.settings.hostKeyTitle")}>
             <ItemGroup class="settings-modal-card">
-              <Item>
-                <ItemContent>
-                  <ItemTitle>{t("server.settings.hostKeyRotate")}</ItemTitle>
-                  <ItemDescription>{t("server.settings.hostKeyDescription")}</ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={Boolean(busy())}
-                    onClick={() =>
-                      setPanels((state) => {
-                        state.confirmRotateKey = true;
-                      })
-                    }
-                  >
-                    {t("server.settings.hostKeyRotateAction")}
-                  </Button>
-                </ItemActions>
-              </Item>
+              <Show when={keyChangedAt() !== undefined}>
+                <Item>
+                  <ItemContent>
+                    <ItemTitle>{t("server.settings.hostKeyChanged")}</ItemTitle>
+                    <ItemDescription>
+                      {t("server.settings.hostKeyChangedDescription", {
+                        date: format.date(new Date(keyChangedAt() ?? 0), { dateStyle: "medium", timeStyle: "short" }),
+                      })}
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
+              </Show>
+              <Show when={canRotateKey()}>
+                <Item data-settings-row="server.settings.hostKeyRotate">
+                  <ItemContent>
+                    <ItemTitle>{t("server.settings.hostKeyRotate")}</ItemTitle>
+                    <ItemDescription>{t("server.settings.hostKeyDescription")}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={Boolean(busy())}
+                      onClick={() =>
+                        setPanels((state) => {
+                          state.confirmRotateKey = true;
+                        })
+                      }
+                    >
+                      {t("server.settings.hostKeyRotateAction")}
+                    </Button>
+                  </ItemActions>
+                </Item>
+              </Show>
             </ItemGroup>
           </SettingsSection>
         </Show>
         <Show when={canLeave()}>
           <SettingsSection title={t("server.settings.leaveTitle")}>
             <ItemGroup class="settings-modal-card">
-              <Item>
+              <Item data-settings-row="server.settings.leaveTitle">
                 <ItemContent>
                   <ItemTitle>{t("server.settings.leaveTitle")}</ItemTitle>
                   <ItemDescription>{t("server.settings.leaveDescription")}</ItemDescription>
@@ -487,7 +503,7 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
         <Show when={canRemove()}>
           <SettingsSection title={t("server.settings.removeTitle")}>
             <ItemGroup class="settings-modal-card">
-              <Item>
+              <Item data-settings-row="server.settings.removeTitle">
                 <ItemContent>
                   <ItemTitle>{t("server.settings.removeTitle")}</ItemTitle>
                   <ItemDescription>{t("server.settings.removeDescription")}</ItemDescription>

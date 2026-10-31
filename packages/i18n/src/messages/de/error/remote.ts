@@ -125,8 +125,6 @@ export const messages = {
   "error.remote.serverDisconnected": "Der Server hat die Verbindung getrennt.",
   "error.remote.preferencesUnreadable": "Die gespeicherten Chateinstellungen konnten nicht gelesen werden.",
   "error.remote.accountAuthRequired": "Eine Kontoauthentifizierung ist erforderlich.",
-  "error.remote.serverIdentityChanged":
-    "Die Serveridentität wurde geändert. Der vertrauenswürdige Host-Schlüssel wird nicht ersetzt.",
   "error.remote.pairedIdentityChanged":
     "Die Identität des gekoppelten Desktops fehlt oder wurde geändert. Scanne einen neuen Code von diesem Desktop.",
   "error.remote.permanentInviteNoEmail": "Dauerhafte Einladungen können nicht per E-Mail gesendet werden.",
@@ -162,7 +160,8 @@ export const messages = {
   "error.remote.signalInvalidMessage": "Signal hat eine ungültige Nachricht zurückgegeben.",
   "error.remote.sessionInvalid": "Die entfernte Sitzung ist ungültig.",
   "error.remote.ticketInvalid": "Das Verbindungsticket ist ungültig.",
-  "error.remote.mobileUpdateRequired": "Aktualisiere Builders Bot Mobile oder die Desktop-App, bevor du dich verbindest.",
+  "error.remote.mobileUpdateRequired":
+    "Aktualisiere Builders Bot Mobile oder die Desktop-App, bevor du dich verbindest.",
   "error.remote.connectionStepFailed": "Dieser Verbindungsschritt konnte nicht abgeschlossen werden.",
   "error.remote.signalNotConnected": "Signal ist nicht verbunden.",
   "error.remote.signalFrameUnreadable": "Signal hat einen Frame gesendet, den diese Gegenstelle nicht lesen kann.",
@@ -171,7 +170,8 @@ export const messages = {
   "error.remote.hostBusy": "Der Host ist mit einer anderen Verbindung beschäftigt. Versuche es gleich noch einmal.",
   "error.remote.signalPermissionDenied":
     "Dein Konto hat keinen Zugriff auf diesen Host. Bitte den Eigentümer um Zugriff.",
-  "error.remote.signalRateLimited": "Zu viele Verbindungsversuche. Builders Bot versucht es in {seconds} Sekunden erneut.",
+  "error.remote.signalRateLimited":
+    "Zu viele Verbindungsversuche. Builders Bot versucht es in {seconds} Sekunden erneut.",
   "error.remote.signalProtocolError":
     "Signal und diese App verwenden kein gemeinsames Verbindungsprotokoll. Aktualisiere Builders Bot und versuche es erneut.",
   "error.remote.signalRefused": "Signal hat die Verbindung abgelehnt.",
@@ -181,7 +181,8 @@ export const messages = {
   "error.remote.iceFailed":
     "Es konnte keine direkte Verbindung zum Host hergestellt werden. Eine Firewall, ein VPN oder ein Proxy kann sie blockieren.",
   "error.remote.iceDisconnected": "Die direkte Verbindung zum Host wurde unterbrochen.",
-  "error.remote.directoryUnreachable": "Builders Bot konnte den Builders Bot-Dienst nicht erreichen. Prüfe deine Verbindung.",
+  "error.remote.directoryUnreachable":
+    "Builders Bot konnte den Builders Bot-Dienst nicht erreichen. Prüfe deine Verbindung.",
   "error.remote.directoryTimeout": "Der Builders Bot-Dienst hat nicht rechtzeitig geantwortet. Versuche es erneut.",
   "error.remote.inviteAlreadyUsed": "Diese Einladung wurde bereits verwendet. Bitte um eine neue Einladung.",
   "error.remote.inviteNotFound": "Diese Einladung existiert nicht oder ist abgelaufen. Bitte um eine neue Einladung.",

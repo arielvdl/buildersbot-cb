@@ -29,7 +29,8 @@ export const messages = {
     "Crie um servidor hospedado para conversar com seus agentes neste navegador. Você também pode executar o Builders Bot no seu computador ou entrar em um servidor com um convite.",
   "webClient.connect.stepInstall": "Instale e abra o Builders Bot no seu computador.",
   "webClient.connect.stepSignIn": "Entre com seu e-mail.",
-  "webClient.connect.stepRemote": "Ative o acesso remoto.",
+  "webClient.connect.stepRemote":
+    "No computador, abra Configurações > Conectar celular e clique em Publicar este servidor.",
   "webClient.notice.download": "Baixar Builders Bot",
   "webClient.notice.createServer": "Criar servidor hospedado",
   "webClient.notice.join": "Entrar com convite",

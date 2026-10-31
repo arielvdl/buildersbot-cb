@@ -57,6 +57,7 @@ import { agentAdminIpcHandlers } from "./ipc/agent-admin-handlers";
 import { agentFolderIpcHandlers } from "./ipc/agent-folder-handlers";
 import { agentIpcHandlers } from "./ipc/agent-handlers";
 import { agentImportIpcHandlers } from "./ipc/agent-import-handlers";
+import { agentInstructionsIpcHandlers } from "./ipc/agent-instructions-handlers";
 import { agentTemplateIpcHandlers } from "./ipc/agent-template-handlers";
 import { appIpcHandlers } from "./ipc/app-handlers";
 import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
@@ -80,6 +81,7 @@ import { hostedServerIpcHandlers } from "./ipc/hosted-server-handlers";
 import { hostedSiteIpcHandlers } from "./ipc/hosted-site-handlers";
 import { instanceTransferIpcHandlers } from "./ipc/instance-transfer-handlers";
 import { licenseIpcHandlers } from "./ipc/license-handlers";
+import { lidAwakeIpcHandlers } from "./ipc/lid-awake-handlers";
 import { localServerIpcHandlers } from "./ipc/local-server-handlers";
 import { macAutomationIpcHandlers } from "./ipc/mac-automation-handlers";
 import { marketplaceAgentIpcHandlers } from "./ipc/marketplace-agent-handlers";
@@ -105,6 +107,7 @@ import { vaultIpcHandlers } from "./ipc/vault-handlers";
 import { voiceIpcHandlers } from "./ipc/voice-handlers";
 import { workflowIpcHandlers } from "./ipc/workflow-handlers";
 import { KeepAwake } from "./keep-awake";
+import { LidAwakeRoutines } from "./lid-awake-routines";
 import { stopAppImageCrashpadHandlerAtExit } from "./linux-appimage-crashpad";
 import { installLinuxDesktopEntry } from "./linux-desktop-entry";
 import { configureLinuxGpu } from "./linux-gpu-mode";
@@ -403,6 +406,7 @@ const {
   forwardSpeechModelStatus,
   forwardDictationState,
   forwardVoiceServerSettings,
+  forwardLidAwakeStatus,
   forwardProviderRuntimeStatus,
   forwardGitHubConnectorStatus,
   forwardOnePasswordConnectorStatus,
@@ -586,6 +590,7 @@ function registerIpcHandlers({
   approvalAutomation,
   agentAdminSettings,
   agentHostSettings,
+  agentFolders,
   browserProfiles,
   language,
   logoColor,
@@ -644,6 +649,7 @@ function registerIpcHandlers({
   dictation,
   voiceServer,
   dynamicIsland,
+  lidAwake,
   cuaDriver,
   computerUsePermissionHelp,
   storageUsage,
@@ -713,17 +719,18 @@ function registerIpcHandlers({
       permissionHelp: computerUsePermissionHelp,
     }),
     ...macAutomationIpcHandlers({ platform: process.platform }),
+    ...lidAwakeIpcHandlers({ lidAwake }),
     ...backgroundProcessIpcHandlers({ platform: process.platform, agents: () => service.listAgents() }),
     ...providerIpcHandlers({ service, providerRuntimes, credentials: providerCredentials, openLink }),
     ...voiceIpcHandlers({ voice, speech, service, dictation, server: voiceServer }),
     ...accountIpcHandlers({ centralAuth, host }),
     ...skillIpcHandlers({ skills, getMainWindow: getDialogParent, translate: language.translate }),
     ...agentFolderIpcHandlers({
-      service,
-      userDataPath: app.getPath("userData"),
+      folders: agentFolders,
       getMainWindow: getDialogParent,
       translate: language.translate,
     }),
+    ...agentInstructionsIpcHandlers({ service }),
     ...hostedSiteIpcHandlers({
       hostedSites,
       remoteServers,
@@ -1216,6 +1223,7 @@ if (!hasSingleInstanceLock) {
         forwardSpeechModelStatus,
         forwardDictationState,
         forwardVoiceServerSettings,
+        forwardLidAwakeStatus,
         forwardWorkflowNotice,
         prepareForUpdateInstall,
         quitting: () => quitStarted,
@@ -1468,9 +1476,42 @@ if (!hasSingleInstanceLock) {
       // A Slack socket can be dead after sleep without knowing it; reconnect instead of waiting for a ping.
       powerMonitor.on("resume", () => built.messaging.resume());
       const routineWake = new RoutineWake({ routines: service, isOnline: () => net.isOnline() });
-      powerMonitor.on("suspend", () => routineWake.suspend());
-      powerMonitor.on("resume", () => routineWake.resume());
-      teardown.push(0, "routine wake", () => routineWake.dispose());
+      // With the lid-closed mode on, macOS sends `suspend` also when the Mac only goes to dark wake.
+      const lidAwakeRoutines = new LidAwakeRoutines({
+        routineWake,
+        holds: () => built.lidAwake.holdsThroughLidClose,
+        log: (message) => logger.info(message),
+      });
+      const lidAwakeChanged = () => built.lidAwake.changed();
+      const lidAwakeHoldMayEnd = () => lidAwakeRoutines.holdMayEnd();
+      const unsubscribeLidAwakeRoutines = built.lidAwake.subscribe(() => {
+        if (!built.lidAwake.holdsThroughLidClose) lidAwakeRoutines.holdMayEnd();
+      });
+      powerMonitor.on("suspend", () => lidAwakeRoutines.suspend());
+      powerMonitor.on("resume", () => lidAwakeRoutines.resume());
+      teardown.push(0, "routine wake", () => {
+        lidAwakeRoutines.dispose();
+        routineWake.dispose();
+      });
+      // The lid-closed mode reads the power source, the heat and the lid again at each change.
+      powerMonitor.on("on-ac", lidAwakeChanged);
+      powerMonitor.on("on-battery", lidAwakeChanged);
+      powerMonitor.on("on-battery", lidAwakeHoldMayEnd);
+      powerMonitor.on("thermal-state-change", lidAwakeChanged);
+      powerMonitor.on("suspend", lidAwakeChanged);
+      powerMonitor.on("resume", lidAwakeChanged);
+      void runCauseEffect(built.lidAwake.start()).catch((error) =>
+        logger.warn("Unable to start the lid-closed mode:", toLogValue(error)),
+      );
+      teardown.push(0, "lid-closed mode events", () => {
+        powerMonitor.off("on-ac", lidAwakeChanged);
+        powerMonitor.off("on-battery", lidAwakeChanged);
+        powerMonitor.off("on-battery", lidAwakeHoldMayEnd);
+        unsubscribeLidAwakeRoutines();
+        powerMonitor.off("thermal-state-change", lidAwakeChanged);
+        powerMonitor.off("suspend", lidAwakeChanged);
+        powerMonitor.off("resume", lidAwakeChanged);
+      });
       const keepAwake = new KeepAwake({
         enabled: () => appBehavior.keepAwake,
         onBatteryToo: () => appBehavior.keepAwakeOnBattery,

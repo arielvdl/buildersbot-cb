@@ -129,8 +129,6 @@ export const messages = {
   "error.remote.serverDisconnected": "O servidor se desconectou.",
   "error.remote.preferencesUnreadable": "Não foi possível ler as preferências salvas do chat.",
   "error.remote.accountAuthRequired": "É necessário autenticar a conta.",
-  "error.remote.serverIdentityChanged":
-    "A identidade do servidor mudou. A chave confiável do computador anfitrião não será substituída.",
   "error.remote.pairedIdentityChanged":
     "A identidade do computador pareado está ausente ou mudou. Leia um novo código desse computador.",
   "error.remote.permanentInviteNoEmail": "Convites permanentes não podem ser enviados por e-mail.",
@@ -166,7 +164,8 @@ export const messages = {
   "error.remote.signalInvalidMessage": "O Signal retornou uma mensagem inválida.",
   "error.remote.sessionInvalid": "A sessão remota é inválida.",
   "error.remote.ticketInvalid": "O tíquete de conexão é inválido.",
-  "error.remote.mobileUpdateRequired": "Atualize o Builders Bot Mobile ou o aplicativo para computador antes de conectar.",
+  "error.remote.mobileUpdateRequired":
+    "Atualize o Builders Bot Mobile ou o aplicativo para computador antes de conectar.",
   "error.remote.connectionStepFailed": "Não foi possível concluir esta etapa de conexão.",
   "error.remote.signalNotConnected": "O Signal não está conectado.",
   "error.remote.signalFrameUnreadable": "O Signal enviou um quadro que este par não consegue ler.",
@@ -175,7 +174,8 @@ export const messages = {
   "error.remote.hostBusy": "O computador anfitrião está ocupado com outra conexão. Tente novamente em instantes.",
   "error.remote.signalPermissionDenied":
     "Sua conta não tem acesso a este computador anfitrião. Peça acesso ao proprietário.",
-  "error.remote.signalRateLimited": "Muitas tentativas de conexão. O Builders Bot tenta novamente em {seconds} segundos.",
+  "error.remote.signalRateLimited":
+    "Muitas tentativas de conexão. O Builders Bot tenta novamente em {seconds} segundos.",
   "error.remote.signalProtocolError":
     "O Signal e este aplicativo usam protocolos de conexão incompatíveis. Atualize o Builders Bot e tente novamente.",
   "error.remote.signalRefused": "O Signal recusou a conexão.",
@@ -185,7 +185,8 @@ export const messages = {
   "error.remote.iceFailed":
     "Não foi possível estabelecer uma conexão direta com o computador anfitrião. Um firewall, VPN ou proxy pode bloqueá-la.",
   "error.remote.iceDisconnected": "A conexão direta com o computador anfitrião foi perdida.",
-  "error.remote.directoryUnreachable": "O Builders Bot não conseguiu acessar o serviço do Builders Bot. Verifique sua conexão.",
+  "error.remote.directoryUnreachable":
+    "O Builders Bot não conseguiu acessar o serviço do Builders Bot. Verifique sua conexão.",
   "error.remote.directoryTimeout": "O serviço do Builders Bot não respondeu a tempo. Tente novamente.",
   "error.remote.inviteAlreadyUsed": "Este convite já foi usado. Peça um novo convite.",
   "error.remote.inviteNotFound": "Este convite não existe ou expirou. Peça um novo convite.",

@@ -63,7 +63,8 @@ export const messages = {
   "error.remote.localServerRemove": "De lokale server kan niet worden verwijderd.",
   "error.remote.desktopSetupHostUpdate":
     "Werk Builders Bot bij op de host om de instelling van extern bureaublad te controleren.",
-  "error.remote.desktopTestHostUpdate": "Werk Builders Bot bij op de host om de instelling van extern bureaublad te testen.",
+  "error.remote.desktopTestHostUpdate":
+    "Werk Builders Bot bij op de host om de instelling van extern bureaublad te testen.",
   "error.remote.viewerProxyUnavailable": "De lokale proxy voor de externe viewer is niet beschikbaar.",
   "error.remote.viewerTransportInvalid": "Het transport van de externe viewer is ongeldig.",
   "error.remote.viewerProxyNoPort": "De lokale proxy voor de externe viewer heeft geen poort gekregen.",
@@ -126,8 +127,6 @@ export const messages = {
   "error.remote.serverDisconnected": "De verbinding met de server is verbroken.",
   "error.remote.preferencesUnreadable": "De opgeslagen chatvoorkeuren konden niet worden gelezen.",
   "error.remote.accountAuthRequired": "Verificatie van het account is verplicht.",
-  "error.remote.serverIdentityChanged":
-    "De identiteit van de server is gewijzigd. De vertrouwde hostsleutel wordt niet vervangen.",
   "error.remote.pairedIdentityChanged":
     "De identiteit van de gekoppelde desktop ontbreekt of is gewijzigd. Scan een nieuwe code van die desktop.",
   "error.remote.permanentInviteNoEmail": "Permanente uitnodigingen kunnen niet per e-mail worden verstuurd.",
@@ -181,7 +180,8 @@ export const messages = {
   "error.remote.iceFailed":
     "Er kon geen directe verbinding met de host worden gemaakt. Een firewall, VPN of proxy kan deze blokkeren.",
   "error.remote.iceDisconnected": "De directe verbinding met de host is verbroken.",
-  "error.remote.directoryUnreachable": "Builders Bot kan de Builders Bot-service niet bereiken. Controleer je verbinding.",
+  "error.remote.directoryUnreachable":
+    "Builders Bot kan de Builders Bot-service niet bereiken. Controleer je verbinding.",
   "error.remote.directoryTimeout": "De Builders Bot-service reageerde niet op tijd. Probeer het opnieuw.",
   "error.remote.inviteAlreadyUsed": "Deze uitnodiging is al gebruikt. Vraag om een nieuwe uitnodiging.",
   "error.remote.inviteNotFound": "Deze uitnodiging bestaat niet of is verlopen. Vraag om een nieuwe uitnodiging.",

@@ -124,8 +124,6 @@ export const messages = {
   "error.remote.serverDisconnected": "Sunucu bağlantısı kesildi.",
   "error.remote.preferencesUnreadable": "Kayıtlı sohbet tercihleri okunamadı.",
   "error.remote.accountAuthRequired": "Hesap kimlik doğrulaması gereklidir.",
-  "error.remote.serverIdentityChanged":
-    "Sunucu kimliği değişti. Güvenilen ana makine anahtarının değiştirilmesi reddedildi.",
   "error.remote.pairedIdentityChanged":
     "Eşleştirilen masaüstü kimliği eksik veya değişti. O masaüstünden yeni bir kod tarayın.",
   "error.remote.permanentInviteNoEmail": "Kalıcı davetler e-posta ile gönderilemez.",
@@ -168,7 +166,8 @@ export const messages = {
   "error.remote.dataChannelFailed": "{kind} kanalı başarısız oldu.",
   "error.remote.hostBusy": "Ana makine başka bir bağlantıyla meşgul. Biraz sonra tekrar deneyin.",
   "error.remote.signalPermissionDenied": "Hesabınızın bu ana makineye erişimi yok. Sahibinden erişim isteyin.",
-  "error.remote.signalRateLimited": "Çok fazla bağlantı denemesi. Builders Bot {seconds} saniye içinde tekrar deneyecek.",
+  "error.remote.signalRateLimited":
+    "Çok fazla bağlantı denemesi. Builders Bot {seconds} saniye içinde tekrar deneyecek.",
   "error.remote.signalProtocolError":
     "Signal ve bu uygulama bağlantı protokolünde uyuşmuyor. Builders Bot'u güncelleyin, ardından tekrar deneyin.",
   "error.remote.signalRefused": "Signal bağlantıyı reddetti.",
