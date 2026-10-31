@@ -20,12 +20,12 @@ index ccfb8d7a..8b0b6c33 100644
      list(APPEND SUNSHINE_DEFINITIONS EGL_NO_X11=1)
  endif()
  
-+# Builders Bot: the prebuilt FFmpeg needs vaMapBuffer2 also when libva is older than 2.21.
++# OpenBot: the prebuilt FFmpeg needs vaMapBuffer2 also when libva is older than 2.21.
 +if(NOT FREEBSD)
 +    list(APPEND PLATFORM_TARGET_FILES "${CMAKE_SOURCE_DIR}/src/platform/linux/openbot_libva_compat.cpp")
 +endif()
 +
-+# Builders Bot: graphics.cpp and misc.cpp call libcap on every Linux build, also when DRM is disabled.
++# OpenBot: graphics.cpp and misc.cpp call libcap on every Linux build, also when DRM is disabled.
 +if(NOT FREEBSD AND NOT LIBCAP_FOUND)
 +    find_package(LIBCAP REQUIRED)
 +    include_directories(SYSTEM ${LIBCAP_INCLUDE_DIRS})
@@ -1338,7 +1338,7 @@ index 2f703dbc..c9fb7f58 100644
 +   * @param response The HTTP response object.
 +   * @param request The HTTP request object.
 +   */
-+  void getBuildersBotSetup(const resp_https_t &response, const req_https_t &request) {
++  void getOpenBotSetup(const resp_https_t &response, const req_https_t &request) {
 +    if (!authenticate(response, request)) return;
 +#ifdef __APPLE__
 +    send_response(response, platf::openbot_setup_status());
@@ -1372,7 +1372,7 @@ index 2f703dbc..c9fb7f58 100644
 +#endif
 +  }
 +
-+  void getBuildersBotDisplays(const resp_https_t &response, const req_https_t &request) {
++  void getOpenBotDisplays(const resp_https_t &response, const req_https_t &request) {
 +    if (!authenticate(response, request)) {
 +      return;
 +    }
@@ -1402,10 +1402,10 @@ index 2f703dbc..c9fb7f58 100644
 +    server.resource["^/api/pin$"]["GET"] = getPendingPairings;
      server.resource["^/api/pin$"]["POST"] = savePin;
      server.resource["^/api/logs$"]["GET"] = getLogs;
-+    server.resource["^/api/openbot/setup$"]["GET"] = getBuildersBotSetup;
++    server.resource["^/api/openbot/setup$"]["GET"] = getOpenBotSetup;
 +    server.resource["^/api/openbot/test$"]["GET"] = openBotTest;
 +    server.resource["^/api/openbot/test$"]["POST"] = openBotTest;
-+    server.resource["^/api/openbot/displays$"]["GET"] = getBuildersBotDisplays;
++    server.resource["^/api/openbot/displays$"]["GET"] = getOpenBotDisplays;
      server.resource["^/api/reset-display-device-persistence$"]["POST"] = resetDisplayDevicePersistence;
      server.resource["^/api/restart$"]["POST"] = restart;
      server.resource["^/api/vigembus/status$"]["GET"] = getViGEmBusStatus;
@@ -1417,7 +1417,7 @@ index e8c4ea00..404fef87 100644
    void browseDirectory(const resp_https_t &response, const req_https_t &request);
    void getLocale(const resp_https_t &response, const req_https_t &request);
    void getCSRFToken(const resp_https_t &response, const req_https_t &request);
-+  void getBuildersBotDisplays(const resp_https_t &response, const req_https_t &request);
++  void getOpenBotDisplays(const resp_https_t &response, const req_https_t &request);
 +
 +  void getPendingPairings(const resp_https_t &, const req_https_t &);
 +  void cancelPairing(const resp_https_t &, const req_https_t &);
@@ -2799,7 +2799,7 @@ index 00000000..fb0ca3b7
 @@ -0,0 +1,403 @@
 +/**
 + * @file src/platform/linux/input/openbot_xtest.cpp
-+ * @brief Definitions for the Builders Bot XTest input fallback.
++ * @brief Definitions for the OpenBot XTest input fallback.
 + */
 +// standard includes
 +#include <cstdlib>
@@ -3208,7 +3208,7 @@ index 00000000..7fb4c41a
 @@ -0,0 +1,42 @@
 +/**
 + * @file src/platform/linux/input/openbot_xtest.h
-+ * @brief Declarations for the Builders Bot XTest input fallback.
++ * @brief Declarations for the OpenBot XTest input fallback.
 + */
 +#pragma once
 +
@@ -3256,7 +3256,7 @@ index 00000000..24572465
 @@ -0,0 +1,16 @@
 +/**
 + * @file src/platform/linux/openbot_libva_compat.cpp
-+ * @brief Builders Bot: vaMapBuffer2 for a libva older than 2.21.
++ * @brief OpenBot: vaMapBuffer2 for a libva older than 2.21.
 + *
 + * The prebuilt FFmpeg calls vaMapBuffer2, which libva adds in 2.21. Ubuntu 24.04 has libva 2.20,
 + * so without this definition Sunshine does not link there. vaMapBuffer maps the buffer with the
@@ -3333,7 +3333,7 @@ index 00000000..3821983e
 --- /dev/null
 +++ b/src/platform/macos/openbot_setup.h
 @@ -0,0 +1,12 @@
-+// Builders Bot additions to Sunshine, distributed under GPL-3.0.
++// OpenBot additions to Sunshine, distributed under GPL-3.0.
 +#pragma once
 +#include <functional>
 +#include <ApplicationServices/ApplicationServices.h>
@@ -3351,7 +3351,7 @@ index 00000000..e42489af
 --- /dev/null
 +++ b/src/platform/macos/openbot_setup.mm
 @@ -0,0 +1,177 @@
-+// Builders Bot additions to Sunshine, distributed under GPL-3.0.
++// OpenBot additions to Sunshine, distributed under GPL-3.0.
 +#import <AppKit/AppKit.h>
 +#import <CoreGraphics/CoreGraphics.h>
 +#include <mutex>
@@ -3376,15 +3376,15 @@ index 00000000..e42489af
 +  }
 +}
 +
-+@interface BuildersBotTestView : NSView
++@interface OpenBotTestView : NSView
 +@end
-+@implementation BuildersBotTestView
++@implementation OpenBotTestView
 +- (BOOL)acceptsFirstResponder { return YES; }
 +- (void)drawRect:(NSRect)dirtyRect {
 +  [[NSColor windowBackgroundColor] setFill];
 +  NSRectFill(self.bounds);
 +  NSDictionary *attributes = @{NSFontAttributeName: [NSFont systemFontOfSize:20], NSForegroundColorAttributeName: [NSColor labelColor]};
-+  [@"Builders Bot remote desktop test" drawAtPoint:NSMakePoint(24, 240) withAttributes:attributes];
++  [@"OpenBot remote desktop test" drawAtPoint:NSMakePoint(24, 240) withAttributes:attributes];
 +  [@"Click the target through the remote connection." drawAtPoint:NSMakePoint(24, 198) withAttributes:attributes];
 +  [[NSColor controlAccentColor] setFill];
 +  NSRectFill(NSMakeRect(24, 110, 390, 60));
@@ -3470,9 +3470,9 @@ index 00000000..e42489af
 +      panel = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 480, 290) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
 +      panel.releasedWhenClosed = NO;
 +      panel.movable = NO;
-+      panel.title = @"Builders Bot remote desktop test";
++      panel.title = @"OpenBot remote desktop test";
 +      panel.level = NSFloatingWindowLevel;
-+      panel.contentView = [[BuildersBotTestView alloc] initWithFrame:NSMakeRect(0, 0, 480, 290)];
++      panel.contentView = [[OpenBotTestView alloc] initWithFrame:NSMakeRect(0, 0, 480, 290)];
 +      NSScreen *target = NSScreen.screens.firstObject;
 +      for (NSScreen *screen in NSScreen.screens) {
 +        if (std::string([screen.deviceDescription[@"NSScreenNumber"] stringValue].UTF8String) == display_id) target = screen;
@@ -3829,7 +3829,7 @@ index 984481f6..f8118465 100644
      list(APPEND TEST_SOURCES ${MACOS_TEST_SOURCES})
  endif ()
  
-+# Compile only the backported security regressions for Builders Bot's runtime build.
++# Compile only the backported security regressions for OpenBot's runtime build.
 +if(OPENBOT_SECURITY_TESTS)
 +    set(TEST_SOURCES
 +        "${CMAKE_SOURCE_DIR}/tests/tests_main.cpp"
@@ -3969,7 +3969,7 @@ index 195a666c..50c6630e 100644
 +                                                               const std::shared_ptr<SimpleWeb::ServerBase<SimpleWeb::HTTPS>::Response> &response,
 +                                                               const std::shared_ptr<SimpleWeb::ServerBase<SimpleWeb::HTTPS>::Request> &request
 +                                                             ) {
-+      confighttp::getBuildersBotDisplays(response, request);
++      confighttp::getOpenBotDisplays(response, request);
 +    };
 +
      // Add a route to test send_unauthorized
@@ -4135,12 +4135,12 @@ index 195a666c..50c6630e 100644
    ASSERT_EQ(body, "authenticated");
  }
  
-+TEST_F(ConfigHttpTest, BuildersBotDisplaysRejectsNoAuth) {
++TEST_F(ConfigHttpTest, OpenBotDisplaysRejectsNoAuth) {
 +  const auto response = client->request("GET", "/api/openbot/displays");
 +  ASSERT_EQ(response->status_code, "401 Unauthorized");
 +}
 +
-+TEST_F(ConfigHttpTest, BuildersBotDisplaysReturnsAnArray) {
++TEST_F(ConfigHttpTest, OpenBotDisplaysReturnsAnArray) {
 +  SimpleWeb::CaseInsensitiveMultimap headers;
 +  headers.emplace("Authorization", create_auth_header("testuser", "testpass"));
 +
@@ -4839,7 +4839,7 @@ index 00000000..7972aebd
 --- /dev/null
 +++ b/tests/unit/test_openbot_setup.mm
 @@ -0,0 +1,55 @@
-+// Builders Bot additions to Sunshine, distributed under GPL-3.0.
++// OpenBot additions to Sunshine, distributed under GPL-3.0.
 +#import <AppKit/AppKit.h>
 +#include <stdexcept>
 +#include "../../src/platform/macos/openbot_setup.mm"
@@ -4853,7 +4853,7 @@ index 00000000..7972aebd
 +    platf::openbot_test_action("start");
 +    require(platf::openbot_test_status()["active"] == true);
 +    require(!panel.movable);
-+    auto view = (BuildersBotTestView *)panel.contentView;
++    auto view = (OpenBotTestView *)panel.contentView;
 +    CGEventRef native = CGEventCreateKeyboardEvent(nullptr, 18, true);
 +    NSEvent *event = [NSEvent eventWithCGEvent:native];
 +    require(![view remoteEvent:event]);

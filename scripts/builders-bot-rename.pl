@@ -16,6 +16,10 @@
 # `"OpenBot-Website"` becomes `"Builders Bot-Website"`, and `im OpenBot-Browser` and
 # `dist/OpenBot-Host-arm64.pkg` change too.
 #
+# Never pass a vendored or checksummed file through this filter: `vendor/**`, the patches and
+# overrides that `native-runtime.lock.json` lists. A renamed patch no longer matches its sha256 and
+# the package step fails. `scripts/native-runtime-lock-files.test.ts` fails when that happens.
+#
 # Usage: perl scripts/builders-bot-rename.pl < file
 local $/;
 my $s = <>;
