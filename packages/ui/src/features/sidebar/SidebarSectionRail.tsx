@@ -26,10 +26,11 @@ import {
   Trash2,
 } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, createStore, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, createStore, For, Match, onCleanup, Show, Switch } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
 import { createVerticalDragPreview } from "../../components/createVerticalDragPreview";
 import { useText } from "../../text";
+import { SidebarSectionColorSubmenu } from "./SidebarSectionColorMenu";
 import { SidebarSectionMark } from "./SidebarSectionMark";
 import { sidebarSectionColorStyle } from "./section-color";
 import { useSidebarScope } from "./sidebar-scope";
@@ -38,6 +39,7 @@ import {
   sidebarSectionMark,
   sidebarSectionRailBadgeKind,
   sidebarSectionRailDragStep,
+  sidebarSectionRailMenuItems,
   sidebarSectionRailMove,
   sidebarSectionRailNeighbor,
 } from "./sidebar-section-rail";
@@ -234,28 +236,45 @@ export function SidebarSectionRail() {
             const editable = () => custom() && layoutMutable();
             // A function, not an element: the menu builds its items once, when it opens.
             const sectionMenu = () => (
-              <>
-                <Show when={sectionRail.iconEditable(item().id)}>
-                  <ContextMenu.Item onSelectAfterClose={() => sectionRail.openIconEditor(item().id)}>
-                    <Shapes class="agent-context-icon size-4" aria-hidden="true" />
-                    <span>{t("sidebar.sectionIcon.open")}</span>
-                  </ContextMenu.Item>
-                </Show>
-                <ContextMenu.Item
-                  onSelectAfterClose={() => sectionRail.openNameDialog({ kind: "rename", sectionId: item().id })}
-                >
-                  <Pencil class="agent-context-icon size-4" aria-hidden="true" />
-                  <span>{t("common.rename")}</span>
-                </ContextMenu.Item>
-                <ContextMenu.Separator />
-                <ContextMenu.Item
-                  class="ui-action-menu-danger agent-context-danger"
-                  onSelect={() => openDelete("section", item().id)}
-                >
-                  <Trash2 class="agent-context-icon agent-context-danger-icon size-4" aria-hidden="true" />
-                  <span>{t("common.delete")}</span>
-                </ContextMenu.Item>
-              </>
+              <For
+                each={sidebarSectionRailMenuItems({
+                  iconEditable: sectionRail.iconEditable(item().id),
+                  colorSupported: props.sectionColorSupported === true,
+                })}
+              >
+                {(entry) => (
+                  <Switch>
+                    <Match when={entry === "icon"}>
+                      <ContextMenu.Item onSelectAfterClose={() => sectionRail.openIconEditor(item().id)}>
+                        <Shapes class="agent-context-icon size-4" aria-hidden="true" />
+                        <span>{t("sidebar.sectionIcon.open")}</span>
+                      </ContextMenu.Item>
+                    </Match>
+                    <Match when={entry === "color"}>
+                      {/* A submenu: each color applies at once, so the rail tile shows it while the menu is open. */}
+                      <SidebarSectionColorSubmenu sectionId={item().id} label={t("sidebar.sectionRail.changeColor")} />
+                    </Match>
+                    <Match when={entry === "rename"}>
+                      <ContextMenu.Item
+                        onSelectAfterClose={() => sectionRail.openNameDialog({ kind: "rename", sectionId: item().id })}
+                      >
+                        <Pencil class="agent-context-icon size-4" aria-hidden="true" />
+                        <span>{t("common.rename")}</span>
+                      </ContextMenu.Item>
+                    </Match>
+                    <Match when={entry === "delete"}>
+                      <ContextMenu.Separator />
+                      <ContextMenu.Item
+                        class="ui-action-menu-danger agent-context-danger"
+                        onSelect={() => openDelete("section", item().id)}
+                      >
+                        <Trash2 class="agent-context-icon agent-context-danger-icon size-4" aria-hidden="true" />
+                        <span>{t("common.delete")}</span>
+                      </ContextMenu.Item>
+                    </Match>
+                  </Switch>
+                )}
+              </For>
             );
             return (
               <SectionRailButton

@@ -1,8 +1,9 @@
+import { SIDEBAR_SECTION_GLYPHS, type SidebarSectionGlyph } from "./ipc-sidebar-section-glyphs";
 import { isDynamicRecord, isOneOf, isString } from "./runtime-values";
 
 /**
- * The mark of a section in the section rail: one or two characters, a glyph of a fixed set, or a
- * small image. A section with no icon shows the first letter of its name.
+ * The mark of a section in the section rail: one or two characters, a glyph of a fixed set, one emoji,
+ * or a small image. A section with no icon shows the first letter of its name.
  *
  * Only the local layout stores it. No released Team API protocol carries it, and each frozen codec
  * drops it from the section, so a remote peer shows the letter.
@@ -10,37 +11,10 @@ import { isDynamicRecord, isOneOf, isString } from "./runtime-values";
 export type SidebarSectionIcon =
   | { kind: "letter"; text: string }
   | { kind: "glyph"; glyph: SidebarSectionGlyph }
+  | { kind: "emoji"; emoji: string }
   | { kind: "image"; dataUrl: string };
 
-/** The glyph names. Each one maps to an icon that `@openbot/ui` already exports. */
-export const SIDEBAR_SECTION_GLYPHS = [
-  "bot",
-  "sparkles",
-  "shield",
-  "code",
-  "brain",
-  "zap",
-  "globe",
-  "film",
-  "camera",
-  "megaphone",
-  "message",
-  "mail",
-  "users",
-  "crown",
-  "gift",
-  "palette",
-  "book",
-  "folder",
-  "cloud",
-  "cpu",
-  "lock",
-  "store",
-  "chart",
-  "workflow",
-] as const;
-
-export type SidebarSectionGlyph = (typeof SIDEBAR_SECTION_GLYPHS)[number];
+export { SIDEBAR_SECTION_GLYPHS, type SidebarSectionGlyph } from "./ipc-sidebar-section-glyphs";
 
 /** The image types that the layout stores. The app encodes each picked image to one of them. */
 export const SIDEBAR_SECTION_IMAGE_TYPES = ["image/png", "image/webp"] as const;
@@ -48,6 +22,8 @@ export const SIDEBAR_SECTION_IMAGE_TYPES = ["image/png", "image/webp"] as const;
 export const SIDEBAR_SECTION_ICON_LIMITS = {
   /** Code points, so that one emoji counts as one character. */
   letterCodePoints: 2,
+  /** UTF-16 code units of one emoji. The longest RGI emoji, a family with skin tones, has 15. */
+  emojiUnits: 32,
   /** The largest side of a stored image, in pixels. */
   imagePixels: 96,
   /** The largest stored image, in bytes. */
@@ -59,12 +35,29 @@ const BASE64_BODY = /^[A-Za-z0-9+/]+={0,2}$/;
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 // One or two code points, with no control, format, separator or space character.
 const LETTER = /^[^\p{C}\p{Z}]{1,2}$/u;
+/**
+ * One emoji: two regional indicators (a flag), a keycap, or pictographs joined by ZWJ, each with an
+ * optional variation selector, an optional skin tone, and (on the first) an optional tag sequence of a
+ * subdivision flag. Extended_Pictographic also holds code points that Unicode keeps for new emoji, so a
+ * newer emoji passes; a letter, a digit, a space or markup does not.
+ */
+const EMOJI =
+  /^(?:[\u{1F1E6}-\u{1F1FF}]{2}|[0-9#*]\uFE0F?\u20E3|\p{Extended_Pictographic}\uFE0F?[\u{1F3FB}-\u{1F3FF}]?(?:[\u{E0020}-\u{E007E}]+\u{E007F})?(?:\u200D\p{Extended_Pictographic}\uFE0F?[\u{1F3FB}-\u{1F3FF}]?)*)$/u;
 const MAX_DATA_URL_LENGTH =
   "data:image/webp;base64,".length + Math.ceil(SIDEBAR_SECTION_ICON_LIMITS.imageBytes / 3) * 4;
 
 /** True for a letter icon text: one or two characters, with no space. */
 export function isSidebarSectionLetter(value: unknown): value is string {
   return isString(value) && LETTER.test(value);
+}
+
+/**
+ * True for an emoji icon value: one grapheme of at most `emojiUnits` UTF-16 code units that is one
+ * emoji sequence. Text, two emoji and markup are refused.
+ */
+export function isSidebarSectionEmoji(value: unknown): value is string {
+  if (!isString(value) || value.length === 0 || value.length > SIDEBAR_SECTION_ICON_LIMITS.emojiUnits) return false;
+  return EMOJI.test(value) && graphemeCount(value) === 1;
 }
 
 /**
@@ -97,6 +90,8 @@ export function isSidebarSectionIcon(value: unknown): value is SidebarSectionIco
       return Object.keys(value).length === 2 && isSidebarSectionLetter(value.text);
     case "glyph":
       return Object.keys(value).length === 2 && isString(value.glyph) && isOneOf(SIDEBAR_SECTION_GLYPHS, value.glyph);
+    case "emoji":
+      return Object.keys(value).length === 2 && isSidebarSectionEmoji(value.emoji);
     case "image":
       return Object.keys(value).length === 2 && isSidebarSectionImage(value.dataUrl);
     default:
@@ -119,6 +114,8 @@ export function normalizeSidebarSectionIcon(value: unknown): SidebarSectionIcon 
       return { kind: "letter", text: value.text };
     case "glyph":
       return { kind: "glyph", glyph: value.glyph };
+    case "emoji":
+      return { kind: "emoji", emoji: value.emoji };
     case "image":
       return { kind: "image", dataUrl: value.dataUrl };
   }
@@ -131,6 +128,7 @@ export function sameSidebarSectionIcon(
   if (!left || !right) return !left && !right;
   if (left.kind === "letter" && right.kind === "letter") return left.text === right.text;
   if (left.kind === "glyph" && right.kind === "glyph") return left.glyph === right.glyph;
+  if (left.kind === "emoji" && right.kind === "emoji") return left.emoji === right.emoji;
   return left.kind === "image" && right.kind === "image" && left.dataUrl === right.dataUrl;
 }
 
@@ -142,6 +140,12 @@ export function sidebarSectionWithIcon<T extends { icon?: SidebarSectionIcon }>(
   const next = { ...section };
   delete next.icon;
   return icon === null ? next : { ...next, icon };
+}
+
+/** The number of user-perceived characters. Without `Intl.Segmenter`, each code point counts. */
+function graphemeCount(value: string): number {
+  if (!Intl.Segmenter) return [...value].length;
+  return [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value)].length;
 }
 
 /** The first bytes of a base64 text. It stops at padding, so a short image gives fewer bytes. */

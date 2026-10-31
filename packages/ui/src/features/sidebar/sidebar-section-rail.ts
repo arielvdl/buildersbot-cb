@@ -279,3 +279,22 @@ export function sidebarSectionRailDragStep(
   if (source > over && item >= over && item < source) return 1;
   return 0;
 }
+
+/** An item of the menu of a custom section in the rail, in menu order. */
+export type SidebarSectionRailMenuItem = "icon" | "color" | "rename" | "delete";
+
+/**
+ * The menu of a custom section in the rail: "Change icon…" and "Change color…" where the server keeps
+ * them (only this computer's server), then Rename and Delete.
+ */
+export function sidebarSectionRailMenuItems(options: {
+  iconEditable: boolean;
+  colorSupported: boolean;
+}): SidebarSectionRailMenuItem[] {
+  return [
+    ...(options.iconEditable ? (["icon"] as const) : []),
+    ...(options.colorSupported ? (["color"] as const) : []),
+    "rename",
+    "delete",
+  ];
+}

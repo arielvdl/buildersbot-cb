@@ -673,11 +673,35 @@ client does not see it and the desktop shows the menu item only for the local se
 draws the color as a light tint (`sidebar-section-color.css`); a section with no color has no new
 attribute or style.
 
-A custom section can also have a rail icon: `SidebarSection.icon` is one or two characters, one of 24
-glyphs (`SIDEBAR_SECTION_GLYPHS`), or a PNG or WebP `data:` URL of at most 40 KB and 96 × 96 pixels
-(`ipc-sidebar-section-icon.ts`). No field means the first letter of the name. The section menu and the
-menu of the rail item open the icon editor, which saves the `set-section-icon` action. The editor
-takes a file from "Choose image…", a file dropped on the dialog, or a pasted image (the first image
+A custom section can also have a rail icon: `SidebarSection.icon` is one or two characters, a glyph
+name of a fixed table (`SIDEBAR_SECTION_GLYPHS` in `ipc-sidebar-section-glyphs.ts`), one emoji, or a
+PNG or WebP `data:` URL of at most 40 KB and 96 × 96 pixels (`ipc-sidebar-section-icon.ts`). No field
+means the first letter of the name. The section menu and the menu of the rail item open the icon
+editor, which saves the `set-section-icon` action. Its tabs are Letters, Icon, Emoji and Image.
+
+The Icon tab is a library of 434 `lucide-solid` icons, which the app already has. The table keeps
+the 24 glyphs of the first editor first, and their names; each other name is the Lucide name. A name
+in the table stays: a removed name makes each saved icon with it invalid. The rail draws the 24 first
+glyphs at once; the other drawings (`section-icon-library.ts`) and their English and Portuguese names
+and keywords (`section-icon-library-data.ts`) load with `import()` the first time the editor or a rail
+mark needs them. The Emoji tab lists 1,906 emoji of Emoji 16.0 and before in nine categories, drawn in
+the system emoji font. Its names and keywords in English and Portuguese come from emojibase-data 17.0.0
+(MIT), which takes them from the Unicode CLDR annotations; `section-emoji-data.ts` holds a compact copy
+and also loads with `import()`. Both tabs search the names and keywords of both languages, in lowercase
+and without accents (`section-icon-search.ts`), show the recent choices, and draw a listbox grid of
+eight columns that renders the first rows and adds more while it scrolls. The emoji tab has a skin tone
+choice: the tone goes after each person or hand of the sequence, and the data marks an emoji as toned
+only where that rule gives the five Unicode sequences. The recents and the tone are a convenience of
+the browser profile, so they stay in `localStorage` and each read checks each value
+(`section-icon-recents.ts`).
+
+`isSidebarSectionEmoji` takes an emoji icon only when it is one grapheme (`Intl.Segmenter`) of at most
+32 UTF-16 code units that is one emoji sequence: a flag, a keycap, or `Extended_Pictographic` code
+points joined by ZWJ, each with an optional variation selector and skin tone. Text, two emoji and markup
+are refused. The layout stores the emoji as text and the rail draws it as text, so no markup reaches
+the page.
+
+The editor takes a file from "Choose image…", a file dropped on the dialog, or a pasted image (the first image
 only). It reads a PNG, JPEG, GIF or WebP file of at most 10 MB, or an SVG file of at most 512 KB, from
 this computer. The crop editor (`SidebarSectionIconCrop.tsx`, geometry in `section-icon-crop.ts`) moves
 and zooms the image in a 200 px frame, from Fit to 4× (more for a long image, to Fill), with an
@@ -695,7 +719,11 @@ so a remote peer shows the letter.
 The section rail (`SidebarSectionRail.tsx`) is the column at the left of the sidebar: "All", one item
 for each custom section in the layout order, "Unassigned" while it holds a chat, and a plus button.
 The plus button, Rename in the menu of an item, and each "New section" item while the rail shows open
-one name dialog (`SidebarSectionNameDialog.tsx`); the rail selects a new section. Each item shows one
+one name dialog (`SidebarSectionNameDialog.tsx`); the rail selects a new section. The menu of a custom
+section item has "Change icon…" and "Change color…" where the server keeps them, then Rename and
+Delete (`sidebarSectionRailMenuItems`). "Change color…" is the color submenu of the section menu: each
+color applies at once, so the tile shows it while the menu stays open. The tile shows the color as a
+tint and a line; an image tile takes the color on its line. Each item shows one
 badge: a wait for the user, the unread messages, or work in flight. It reads the agent states, channel
 waits and channel counts that the rows read. The rail keeps its item list while no badge, count or
 section changes (`sameSidebarSectionRailItems`), so a change of an agent state does not run the rail

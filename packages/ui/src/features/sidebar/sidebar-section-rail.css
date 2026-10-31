@@ -78,6 +78,17 @@
   outline-offset: -1px;
 }
 
+/* An emoji sits on the tile, large and centered, in the system emoji font. */
+.section-rail-emoji {
+  font-family: var(--section-emoji-font);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.section-icon-preview-tile .section-rail-emoji {
+  font-size: 34px;
+}
+
 /* "No section" holds the chats outside every section, so its mark is an open box. */
 .section-rail-mark-tile[data-kind="unassigned"] {
   border-style: dashed;
@@ -106,6 +117,12 @@
 
 .section-rail-button[data-section-color][aria-pressed="true"] .section-rail-mark-tile {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--sidebar-section-color) 70%, transparent);
+}
+
+/* An image covers the tint, so its line takes the color. */
+.section-rail-button[data-section-color] .section-rail-mark-tile[data-kind="image"],
+.section-icon-preview-tile[data-section-color] .section-rail-mark-tile[data-kind="image"] {
+  outline-color: color-mix(in srgb, var(--sidebar-section-color) 70%, transparent);
 }
 
 /* One badge: a dot for a wait, the count of unread messages, or a dot for work in flight. */
@@ -259,22 +276,6 @@
   white-space: nowrap;
 }
 
-.section-icon-glyphs {
-  min-width: 0;
-  margin: 0;
-  border: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: var(--openbot-space-1);
-}
-
-.ui-button.section-icon-glyph[aria-pressed="true"] {
-  background: var(--openbot-accent-soft);
-  box-shadow: inset 0 0 0 1px var(--openbot-accent);
-  color: var(--openbot-accent-text);
-}
-
 .section-icon-image {
   display: grid;
   justify-items: start;
@@ -425,5 +426,175 @@
 @media (prefers-reduced-motion: reduce) {
   .section-icon-drop {
     transition: none;
+  }
+}
+
+/*
+ * The Icon and Emoji pickers (`SidebarSectionIconPicker.tsx`): a search field, category buttons, the
+ * recents and a grid of eight columns. The grid has the eight columns that its arrow keys count.
+ */
+:root {
+  --section-emoji-font: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.section-picker {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-2);
+}
+
+.section-picker-search {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+}
+
+.section-picker-search-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.section-picker-search-icon {
+  position: absolute;
+  top: 50%;
+  left: var(--openbot-space-2);
+  width: 16px;
+  height: 16px;
+  color: var(--openbot-text-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.ui-input.section-picker-search-input {
+  width: 100%;
+  padding-left: calc(var(--openbot-space-2) + 22px);
+}
+
+.section-picker-categories,
+.section-picker-tones {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  gap: var(--openbot-space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.section-picker-categories::-webkit-scrollbar {
+  display: none;
+}
+
+.section-picker-categories .ui-button {
+  flex: none;
+}
+
+.section-picker-emoji-categories {
+  justify-content: space-between;
+}
+
+.section-picker-heading {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.section-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  max-height: 232px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--openbot-radius-md);
+  outline: 0;
+}
+
+.section-picker-grid.section-picker-recent {
+  max-height: none;
+  overflow: visible;
+}
+
+.section-picker-item {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: var(--openbot-radius-md);
+  color: var(--openbot-text-secondary);
+  cursor: pointer;
+  outline: 0;
+  transition:
+    background-color var(--openbot-duration-hover) var(--openbot-ease-out),
+    transform var(--openbot-duration-hover) var(--openbot-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .section-picker-item:hover {
+    background: var(--openbot-bg-control-hover);
+    color: var(--openbot-text-primary);
+  }
+
+  .section-picker-item:hover .section-picker-emoji {
+    transform: scale(1.12);
+  }
+}
+
+.section-picker-item:focus-visible {
+  box-shadow: var(--openbot-focus-ring);
+  background: var(--openbot-bg-control-hover);
+}
+
+.section-picker-item[aria-selected="true"] {
+  background: var(--openbot-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--openbot-accent);
+  color: var(--openbot-accent-text);
+}
+
+.section-picker-glyph {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--openbot-icon-stroke);
+}
+
+.section-picker-emoji {
+  display: inline-block;
+  font-family: var(--section-emoji-font);
+  font-size: 26px;
+  line-height: 1;
+  transition: transform var(--openbot-duration-hover) var(--openbot-ease-out);
+}
+
+.section-picker-categories .section-picker-emoji,
+.section-picker-tones .section-picker-emoji,
+.section-picker-tone-button .section-picker-emoji {
+  font-size: 18px;
+}
+
+.section-picker-status {
+  display: flex;
+  min-height: 96px;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-picker-item,
+  .section-picker-emoji {
+    transition: none;
+  }
+
+  .section-picker-item:hover .section-picker-emoji {
+    transform: none;
   }
 }

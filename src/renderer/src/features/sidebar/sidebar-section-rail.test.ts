@@ -12,6 +12,7 @@ import {
   sidebarSectionRailDragStep,
   sidebarSectionRailFocus,
   sidebarSectionRailItems,
+  sidebarSectionRailMenuItems,
   sidebarSectionRailMove,
   sidebarSectionRailNeighbor,
   sidebarSectionRailOrder,
@@ -265,5 +266,25 @@ describe("a section dragged in the rail", () => {
     expect(railIds.map((id) => sidebarSectionRailDragStep(railIds, RED_TEAM, CLAUDE_BOTS, id))).toEqual([0, -1, -1]);
     expect(railIds.map((id) => sidebarSectionRailDragStep(railIds, CLAUDE_BOTS, RED_TEAM, id))).toEqual([1, 1, 0]);
     expect(railIds.map((id) => sidebarSectionRailDragStep(railIds, null, null, id))).toEqual([0, 0, 0]);
+  });
+});
+
+describe("the menu of a section in the rail", () => {
+  it("has Change icon and Change color on this computer's server, then Rename and Delete", () => {
+    expect(sidebarSectionRailMenuItems({ iconEditable: true, colorSupported: true })).toEqual([
+      "icon",
+      "color",
+      "rename",
+      "delete",
+    ]);
+  });
+
+  it("leaves out the icon and the color where the server does not keep them", () => {
+    expect(sidebarSectionRailMenuItems({ iconEditable: false, colorSupported: false })).toEqual(["rename", "delete"]);
+    expect(sidebarSectionRailMenuItems({ iconEditable: true, colorSupported: false })).toEqual([
+      "icon",
+      "rename",
+      "delete",
+    ]);
   });
 });

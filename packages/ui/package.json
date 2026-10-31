@@ -331,6 +331,8 @@
     "./features/sidebar/sidebar-section-rail.css": "./src/features/sidebar/sidebar-section-rail.css",
     "./features/sidebar/sidebar-section-rail": "./src/features/sidebar/sidebar-section-rail.ts",
     "./features/sidebar/SidebarSectionIconCrop": "./src/features/sidebar/SidebarSectionIconCrop.tsx",
+    "./features/sidebar/SidebarSectionIconPicker": "./src/features/sidebar/SidebarSectionIconPicker.tsx",
+    "./features/sidebar/SidebarSectionMark": "./src/features/sidebar/SidebarSectionMark.tsx",
     "./features/sidebar/section-icon-crop": "./src/features/sidebar/section-icon-crop.ts",
     "./features/sidebar/section-icon-image": "./src/features/sidebar/section-icon-image.ts",
     "./features/sidebar/sidebar-activity-filter.css": "./src/features/sidebar/sidebar-activity-filter.css",

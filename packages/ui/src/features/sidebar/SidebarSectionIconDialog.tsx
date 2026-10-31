@@ -1,6 +1,6 @@
 /**
- * The editor of a section icon: letters, a glyph, or an image from this computer, with a preview of
- * the rail item. It opens from the menu of the section header or of the rail item, and saves one
+ * The editor of a section icon: letters, a glyph of the icon library, an emoji, or an image from this
+ * computer, with a preview of the rail item. It opens from the menu of the section header or of the rail item, and saves one
  * `set-section-icon` action. "Use the first letter" removes the icon.
  *
  * An image comes from "Choose image…", from a file dropped on the dialog, or from a pasted image. The
@@ -10,7 +10,6 @@
 
 import {
   isSidebarSectionLetter,
-  SIDEBAR_SECTION_GLYPHS,
   type SidebarSection,
   type SidebarSectionGlyph,
   type SidebarSectionIcon,
@@ -28,11 +27,11 @@ import {
   Text,
   X,
 } from "@openbot/ui";
-import { Dynamic } from "@solidjs/web";
-import { createSignal, createStore, For, Match, onCleanup, Show, Switch, untrack } from "solid-js";
+import { createSignal, createStore, Match, onCleanup, Show, Switch, untrack } from "solid-js";
 import { useText } from "../../text";
 import { SECTION_ICON_CROP_FRAME, SectionIconCropImage, SidebarSectionIconCrop } from "./SidebarSectionIconCrop";
-import { SIDEBAR_SECTION_GLYPH_ICONS, SIDEBAR_SECTION_GLYPH_LABELS, SidebarSectionMark } from "./SidebarSectionMark";
+import { SectionEmojiPicker, SectionGlyphPicker } from "./SidebarSectionIconPicker";
+import { SidebarSectionMark } from "./SidebarSectionMark";
 import { sidebarSectionColorStyle } from "./section-color";
 import { type SectionIconCrop, sectionIconFitCrop } from "./section-icon-crop";
 import {
@@ -43,18 +42,20 @@ import {
   SIDEBAR_SECTION_ICON_SOURCE_TYPES,
   sidebarSectionIconPick,
 } from "./section-icon-image";
+import { rememberSectionIcon } from "./section-icon-recents";
 import { useSidebarScope } from "./sidebar-scope";
 import { sidebarSectionLetter } from "./sidebar-section-rail";
 
 type IconMode = SidebarSectionIcon["kind"];
 
-const MODES = ["letter", "glyph", "image"] as const satisfies readonly IconMode[];
+const MODES = ["letter", "glyph", "emoji", "image"] as const satisfies readonly IconMode[];
 
 /** The choice being made, the image being read, and the save in flight. */
 interface IconDraft {
   mode: IconMode;
   letters: string;
   glyph: SidebarSectionGlyph | null;
+  emoji: string | null;
   image: string | null;
   reading: boolean;
   saving: boolean;
@@ -118,6 +119,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
     mode: initial?.kind ?? "letter",
     letters: initial?.kind === "letter" ? initial.text : "",
     glyph: initial?.kind === "glyph" ? initial.glyph : null,
+    emoji: initial?.kind === "emoji" ? initial.emoji : null,
     image: initial?.kind === "image" ? initial.dataUrl : null,
     reading: false,
     saving: false,
@@ -154,6 +156,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
       return isSidebarSectionLetter(letters) ? { kind: "letter", text: letters } : undefined;
     }
     if (draft.mode === "glyph") return draft.glyph ? { kind: "glyph", glyph: draft.glyph } : undefined;
+    if (draft.mode === "emoji") return draft.emoji ? { kind: "emoji", emoji: draft.emoji } : undefined;
     return draft.image ? { kind: "image", dataUrl: draft.image } : undefined;
   };
   const preview = (): SidebarSectionIcon => choice() ?? { kind: "letter", text: defaultLetter() };
@@ -245,6 +248,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
     });
     try {
       await props.onMutateLayout({ type: "set-section-icon", sectionId: formProps.sectionId, icon });
+      if (icon?.kind === "glyph" || icon?.kind === "emoji") rememberSectionIcon(icon);
       formProps.onClose();
     } catch (cause) {
       setDraft((state) => {
@@ -331,6 +335,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
         <SlidingTabs.List class="section-icon-tabs" aria-label={t("sidebar.sectionIcon.kind")}>
           <SlidingTabs.Trigger value="letter">{t("sidebar.sectionIcon.letter")}</SlidingTabs.Trigger>
           <SlidingTabs.Trigger value="glyph">{t("sidebar.sectionIcon.glyph")}</SlidingTabs.Trigger>
+          <SlidingTabs.Trigger value="emoji">{t("sidebar.sectionIcon.emoji")}</SlidingTabs.Trigger>
           <SlidingTabs.Trigger value="image">{t("sidebar.sectionIcon.image")}</SlidingTabs.Trigger>
         </SlidingTabs.List>
       </SlidingTabs.Root>
@@ -356,25 +361,24 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
           </Field>
         </Match>
         <Match when={draft.mode === "glyph"}>
-          <fieldset class="section-icon-glyphs" aria-label={t("sidebar.sectionIcon.glyph")}>
-            <For each={SIDEBAR_SECTION_GLYPHS}>
-              {(glyph) => (
-                <IconButton
-                  label={t(SIDEBAR_SECTION_GLYPH_LABELS[glyph])}
-                  variant="ghost"
-                  class="section-icon-glyph"
-                  aria-pressed={draft.glyph === glyph ? "true" : "false"}
-                  onClick={() =>
-                    setDraft((state) => {
-                      state.glyph = glyph;
-                    })
-                  }
-                >
-                  <Dynamic component={SIDEBAR_SECTION_GLYPH_ICONS[glyph]} />
-                </IconButton>
-              )}
-            </For>
-          </fieldset>
+          <SectionGlyphPicker
+            selected={draft.glyph}
+            onSelect={(glyph) =>
+              setDraft((state) => {
+                state.glyph = glyph;
+              })
+            }
+          />
+        </Match>
+        <Match when={draft.mode === "emoji"}>
+          <SectionEmojiPicker
+            selected={draft.emoji}
+            onSelect={(emoji) =>
+              setDraft((state) => {
+                state.emoji = emoji;
+              })
+            }
+          />
         </Match>
         <Match when={draft.mode === "image"}>
           <div class="section-icon-image">

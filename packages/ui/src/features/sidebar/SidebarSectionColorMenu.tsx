@@ -11,9 +11,11 @@ import { useText } from "../../text";
 import { isCustomSidebarSectionColor, SIDEBAR_SECTION_COLOR_PRESETS, SIDEBAR_SECTION_NO_COLOR } from "./section-color";
 import { useSidebarScope } from "./sidebar-scope";
 
-export function SidebarSectionColorSubmenu(menuProps: { sectionId: string }) {
+/** `label` names the item; the section menu says "Color" and the rail menu says "Change color…". */
+export function SidebarSectionColorSubmenu(menuProps: { sectionId: string; label?: string }) {
   const { customSectionById, pickCustomSectionColor, setSectionColor } = useSidebarScope();
   const { t } = useText();
+  const label = () => menuProps.label ?? t("sidebar.section.color");
   const color = () => customSectionById().get(menuProps.sectionId)?.color;
   const customColor = () => {
     const value = color();
@@ -23,14 +25,11 @@ export function SidebarSectionColorSubmenu(menuProps: { sectionId: string }) {
     <ContextMenu.Sub>
       <ContextMenu.SubTrigger>
         <Palette class="agent-context-icon size-4" aria-hidden="true" />
-        <span>{t("sidebar.section.color")}</span>
+        <span>{label()}</span>
         <ChevronRight class="agent-context-submenu-chevron size-4" aria-hidden="true" />
       </ContextMenu.SubTrigger>
       <ContextMenu.Portal>
-        <ContextMenu.SubContent
-          class="ui-action-menu agent-context-menu agent-context-submenu"
-          aria-label={t("sidebar.section.color")}
-        >
+        <ContextMenu.SubContent class="ui-action-menu agent-context-menu agent-context-submenu" aria-label={label()}>
           <ContextMenu.RadioGroup
             value={color() ?? SIDEBAR_SECTION_NO_COLOR}
             onChange={(value: string) =>
