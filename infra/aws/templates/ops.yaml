@@ -428,6 +428,21 @@ Resources:
                   ExecutionTimeout: 120
                   MaximumRetryCount: 2
             RetainRule: {Interval: !Ref DailySnapshotRetentionDays, IntervalUnit: DAYS}
+
+  # AWS accepts the scripts of ONE schedule per policy (the first create failed with ServiceLimitExceeded),
+  # so the weekly snapshot is its own policy on the same tag. Same hooks, same target, own alarms.
+  WeeklyPolicy:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: bb-srv-weekly application-consistent snapshots of always-on sectors
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt DlmRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [INSTANCE]
+        TargetTags: [{Key: BackupPlan, Value: bb-srv-daily}]
+        Parameters: {ExcludeBootVolume: true}
+        Schedules:
           - Name: weekly-sunday-0400-utc
             CopyTags: true
             TagsToAdd: [{Key: Purpose, Value: weekly}]
@@ -514,6 +529,53 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
 
+  WeeklySnapshotsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-weekly-snapshots-failed
+      Namespace: AWS/EBS
+      MetricName: SnapshotsCreateFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt WeeklyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  WeeklyPreScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-weekly-prescript-failed
+      AlarmDescription: With ExecuteOperationOnScriptFailure=false, a failed pre-script means no weekly snapshot for that instance.
+      Namespace: AWS/EBS
+      MetricName: PreScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt WeeklyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
+  WeeklyPostScriptFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: bb-srv-dlm-weekly-postscript-failed
+      AlarmDescription: The post-script did not start the instance again. The auto-thaw or bb-srv-sector-up should, check the sector.
+      Namespace: AWS/EBS
+      MetricName: PostScriptFailed
+      Dimensions: [{Name: DLMPolicyId, Value: !GetAtt WeeklyPolicy.PolicyId}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!ImportValue bb-srv-base-AlertTopicArn]
+
   StoppedSnapshotsFailedAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -589,5 +651,7 @@ Outputs:
     Value: !Ref SnapshotHooksDocument
   DailyPolicyId:
     Value: !GetAtt DailyPolicy.PolicyId
+  WeeklyPolicyId:
+    Value: !GetAtt WeeklyPolicy.PolicyId
   StoppedPolicyId:
     Value: !GetAtt StoppedPolicy.PolicyId

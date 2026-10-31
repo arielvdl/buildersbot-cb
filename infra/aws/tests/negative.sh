@@ -530,5 +530,14 @@ else
   bad "E2 o operador só abre sessão e comando em VM com Role=sector-host" "condições no base.yaml: $role_conditions (esperava 2)"
 fi
 
+# A AWS só aceita scripts (pré e pós) em UM agendamento por política do DLM: a primeira criação do bb-srv-ops
+# falhou com ServiceLimitExceeded por isso, e o validate-template não pega. O teste lê o template.
+dlm_scripts=$(awk '/^  [A-Za-z0-9]+:$/ {name=$1} /Type: AWS::DLM::LifecyclePolicy/ {dlm[name]=1} /^ *Scripts:/ {n[name]++} END {for (k in dlm) if (n[k] > 1) print k, n[k]}' templates/ops.yaml)
+if [ -z "$dlm_scripts" ] && [ "$(grep -c 'Type: AWS::DLM::LifecyclePolicy' templates/ops.yaml)" -ge 3 ]; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "E3 cada política do DLM tem scripts em no máximo um agendamento"
+else
+  bad "E3 cada política do DLM tem scripts em no máximo um agendamento" "políticas com mais de um agendamento com scripts: $dlm_scripts"
+fi
+
 printf '\n%s ok, %s falharam\n' "$passed" "$failed"
 [ "$failed" = 0 ]
