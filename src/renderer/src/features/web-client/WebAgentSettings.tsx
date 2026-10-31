@@ -34,6 +34,11 @@ export function WebAgentSettings(props: {
   initialDraft?: FirstAgentDraft;
   onDraftChange?: (draft: FirstAgentDraft) => void;
   onClose: () => void;
+  /**
+   * Called when the person saves, before the host works: it reads the section that the new agent joins, and
+   * the function it returns files the agent there once the host has made it.
+   */
+  fileNewAgent?: (() => (agentId: string) => Promise<void>) | undefined;
   onSaved: () => Promise<void>;
 }) {
   const { t } = useText();
@@ -138,9 +143,10 @@ export function WebAgentSettings(props: {
       draft.error = null;
     });
     let created = false;
+    const fileAgent = props.fileNewAgent?.();
     try {
       const selectedModel = state.models.find((model) => model.provider === value.provider && model.id === value.model);
-      await props.runtime.createAgent({
+      const agent = await props.runtime.createAgent({
         name: value.name,
         description: value.purpose,
         initialMessage: createAgentInitialMessage(value),
@@ -155,6 +161,7 @@ export function WebAgentSettings(props: {
           : {}),
       });
       created = true;
+      if (fileAgent) await fileAgent(agent.id);
       if (!disposed) {
         await props.onSaved();
         props.onClose();

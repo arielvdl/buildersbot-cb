@@ -194,6 +194,7 @@ import {
 } from "../servers/server-update-flow";
 import { licenseContactUs, trackLicenseEvent } from "../settings/license-analytics";
 import type { HostPromptCacheTtlCalls } from "../settings/provider-prompt-cache";
+import { newChatSectionId } from "../sidebar/new-chat-section";
 import { isReaderAuthor } from "../team/reader-identity";
 import type { ServerVaultOptions } from "../vault/ServerVaultPanel";
 import { createVaultStore } from "../vault/stores/vault-store";
@@ -1238,6 +1239,24 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   // On a small screen the sidebar pane covers the chat, and so does the usage report. A covered
   // message was not seen.
   const canMarkRead = () => document.hasFocus() && mobilePane() === "conversation" && !pageCovered() && !routinesView();
+  /** The section that a chat made now joins, as on the desktop: the one the rail selects, or null for none. */
+  const newChatSection = () =>
+    workspace.state.capabilities.includes("sidebar-layout")
+      ? newChatSectionId(
+          workspace.state.sidebarLayout,
+          workspace.preferences.selectedRailSectionId(),
+          layout.sectionRailVisible(),
+        )
+      : null;
+  /** Files a new chat in a section. A failed filing leaves the chat in "No section", where it can be moved. */
+  async function fileNewChat(chatId: string, sectionId: string | null): Promise<void> {
+    if (sectionId === null) return;
+    try {
+      await workspace.mutateSidebarLayout({ type: "assign", agentId: chatId, sectionId });
+    } catch {
+      // The chat exists and works; only its place in the list is missing.
+    }
+  }
   /** The channel list before the newest one, for the reader it was read for. A reply notifies once. */
   let channelBaseline: { scope: string; channels: ChannelSummary[] } | null = null;
   const channels = createChannelsController({
@@ -1261,6 +1280,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       setMessageFocusRequest(null);
     },
     canMarkRead,
+    onCreated: (channelId) => void fileNewChat(channelId, newChatSection()),
     onList: (list, scope) => {
       const hostId = workspace.state.host?.hostId;
       const previous = channelBaseline?.scope === scope ? channelBaseline.channels : null;
@@ -1414,9 +1434,12 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       : undefined;
   });
   async function createCanvasAgent(draft: NewAgentDraft): Promise<{ id: string }> {
+    // The rail stays usable while the host works, so the section is read before the wait.
+    const sectionId = newChatSection();
     const created = await workspace.runtime.createAgent(
       newAgentInput(draft, workspace.state.capabilities.includes(TEAM_AGENT_CREATE_MODEL_CAPABILITY)),
     );
+    await fileNewChat(created.id, sectionId);
     await workspace.refresh();
     return created;
   }
@@ -2519,6 +2542,10 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                 initialDraft={{ ...createFirstAgentDraft(), ...untrack(agentAvatar) }}
                 onDraftChange={({ avatarSeed, avatarHue }) => setAgentAvatar({ avatarSeed, avatarHue })}
                 onClose={() => setCreating(false)}
+                fileNewAgent={() => {
+                  const sectionId = newChatSection();
+                  return (agentId) => fileNewChat(agentId, sectionId);
+                }}
                 onSaved={async () => {
                   await workspace.refresh();
                   setAgentAvatar(newAgentAvatar());

@@ -152,7 +152,12 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
   const [errorDetail, setErrorDetail] = createSignal<string | null>(null);
   /** The image that the last Save made smaller to fit the limit. The next Save keeps it. */
   let reducedImage: string | null = null;
-  onCleanup(() => source()?.release());
+  // A save can finish after the person closed the form. The form is gone then, and it must not close an editor that was opened since.
+  let alive = true;
+  onCleanup(() => {
+    alive = false;
+    source()?.release();
+  });
   const setCrop = (next: SectionIconCrop) => {
     reducedImage = null;
     setNotice(null);
@@ -214,6 +219,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
   function pickFiles(files: readonly File[]): void {
     const { file, ignored } = sidebarSectionIconPick(files);
     if (!file) {
+      setErrorDetail(null);
       setDraft((state) => {
         state.error = t("sidebar.sectionIcon.type");
       });
@@ -280,6 +286,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
 
   /** Stores the icon in the layout and closes the dialog. The caller has taken the busy state. */
   async function store(icon: SidebarSectionIcon | null): Promise<void> {
+    setErrorDetail(null);
     setDraft((state) => {
       state.saving = true;
       state.error = null;
@@ -287,7 +294,7 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
     try {
       await props.onMutateLayout({ type: "set-section-icon", sectionId: formProps.sectionId, icon });
       if (icon?.kind === "glyph" || icon?.kind === "emoji") rememberSectionIcon(icon);
-      formProps.onClose();
+      if (alive) formProps.onClose();
     } catch (cause) {
       setDraft((state) => {
         state.saving = false;

@@ -271,7 +271,8 @@ export function createChannelsController(env: ChannelsEnvironment) {
     // the save started. The sidebar takes a click through a save of the settings, and settings
     // save on every field, so a save that selected its own channel on arrival would pull the
     // reader back out of the channel they opened and drop the draft they began there.
-    const creating = input.type === "save" && state.editing === "create";
+    // A settings save carries `update`, and the create dialog does not: only the second one makes a channel.
+    const creating = input.type === "save" && !input.update && state.editing === "create";
     const selectedBefore = state.selectedId;
     const action = channelAction(input, creating, state.page);
     let accepted = false;

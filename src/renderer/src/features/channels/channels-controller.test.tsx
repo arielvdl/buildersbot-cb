@@ -120,7 +120,7 @@ function host() {
   return { newest, unread, port, reads };
 }
 
-async function mount(port: ChannelsPort): Promise<ChannelsController> {
+async function mount(port: ChannelsPort, onCreated?: (channelId: string) => void): Promise<ChannelsController> {
   let controller: ChannelsController | undefined;
   render(() => {
     controller = createChannelsController({
@@ -133,6 +133,7 @@ async function mount(port: ChannelsPort): Promise<ChannelsController> {
       deletionSupported: () => true,
       beforeOpen: () => {},
       canMarkRead: () => true,
+      ...(onCreated ? { onCreated } : {}),
     });
     return null;
   });
@@ -232,5 +233,31 @@ describe("the tab of a channel the reader creates", () => {
 
     expect(channels.state.selectedId).toBe("channel-new");
     expect(channels.state.topicId).toBe("openbot-topic-channel-new");
+  });
+});
+
+describe("the announcement of a new channel", () => {
+  const draft = { name: "New", title: "", instructions: "", members: [], leadAgentId: null };
+
+  it("names the channel that the create dialog made", async () => {
+    const created: string[] = [];
+    const channels = await mount(host().port, (channelId) => created.push(channelId));
+    channels.create();
+    await vi.waitFor(() => expect(channels.state.editing).toBe("create"));
+
+    await channels.command({ type: "save", operationId: "create-2", channelId: "channel-new", draft });
+
+    expect(created).toEqual(["channel-new"]);
+  });
+
+  it("stays silent for a settings save of an existing channel that lands while the create dialog is open", async () => {
+    const created: string[] = [];
+    const channels = await mount(host().port, (channelId) => created.push(channelId));
+    channels.create();
+    await vi.waitFor(() => expect(channels.state.editing).toBe("create"));
+
+    await channels.command({ type: "save", operationId: "edit-1", channelId: CHANNEL, draft, update: true });
+
+    expect(created).toEqual([]);
   });
 });

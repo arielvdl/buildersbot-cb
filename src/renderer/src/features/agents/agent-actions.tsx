@@ -88,14 +88,17 @@ const AgentActions = createSimpleContext({
     const { selectAgent } = useNavigation();
     const [duplicatingSectionIds, setDuplicatingSectionIds] = createSignal<Set<string>>(new Set());
 
+    /** The section that a chat made now joins: the one the rail has selected, or null for none. */
+    function newChatSection(): string | null {
+      if (!activeServerSupportsCapability("sidebar-layout")) return null;
+      return newChatSectionId(sidebarLayout(), selectedRailSectionId(), layout.sectionRailVisible());
+    }
+
     /**
-     * Files a new chat in the section that the rail has selected, so a chat made while the person is in a
-     * section stays there. "All" and "No section" leave it without a section. A failed filing does not
-     * undo the chat: it stays in the unassigned section, where the person can move it.
+     * Files a new chat in a section, so a chat made while the person is in a section stays there. A failed
+     * filing does not undo the chat: it stays in the unassigned section, where the person can move it.
      */
-    async function fileInSelectedSection(chatId: string): Promise<void> {
-      if (!activeServerSupportsCapability("sidebar-layout")) return;
-      const sectionId = newChatSectionId(sidebarLayout(), selectedRailSectionId(), layout.sectionRailVisible());
+    async function fileInSection(chatId: string, sectionId: string | null): Promise<void> {
       if (sectionId === null) return;
       try {
         await applySidebarLayoutAction({ type: "assign", agentId: chatId, sectionId });
@@ -103,14 +106,18 @@ const AgentActions = createSimpleContext({
         // The chat exists and works; only its place in the list is missing.
       }
     }
-    onCleanup(onChannelCreated((channelId) => void fileInSelectedSection(channelId)));
+    onCleanup(onChannelCreated((channelId) => void fileInSection(channelId, newChatSection())));
 
-    /** Asks the host for the agent, and files it in the selected section. */
+    /**
+     * Asks the host for the agent, and files it in the section that was selected when the person asked. The
+     * rail stays usable while the host works, so the section is read before the wait, not after it.
+     */
     async function requestNewAgent(draft: NewAgentDraft) {
       const createModelSupported =
         activeServer()?.kind !== "remote" || activeServerSupportsCapability(TEAM_AGENT_CREATE_MODEL_CAPABILITY);
+      const sectionId = newChatSection();
       const created = await agentsPort().agent.createAgent(newAgentInput(draft, createModelSupported));
-      await fileInSelectedSection(created.id);
+      await fileInSection(created.id, sectionId);
       return created;
     }
 
