@@ -73,6 +73,11 @@ export function requestAuthService(): AuthService {
   });
 }
 
+/** The Cultura Builder sign-in service, or null when this Worker has none configured. */
+export function requestDeviceBridgeUrl(): string | null {
+  return requireWorkerBindings(env).AUTH_BRIDGE_URL?.trim() || null;
+}
+
 export function requestAvatarBucket(): R2Bucket {
   const bindings = requireWorkerBindings(env);
   return bindings.AVATARS;

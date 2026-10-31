@@ -292,6 +292,49 @@ export class D1AuthRepository implements AuthRepository {
     (operation) => operation.pipe(Effect.provide(this.#layer)),
   ).bind(this);
 
+  readonly signInWithDeviceAccount = Effect.fn("D1AuthRepository.signInWithDeviceAccount")(
+    function* (
+      this: D1AuthRepository,
+      input: {
+        email: string;
+        name: string | null;
+        avatarUrl: string | null;
+        now: number;
+        session: { id: string; token: string; expiresAt: number };
+      },
+    ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthStoreError, AuthDatabase> {
+      const database = yield* AuthDatabase;
+      const { user } = yield* this.#upsertEmailUserEffect(input.email, input.now);
+      // The Hub is the source of the profile. It only fills what this account never had, so a name
+      // the person set here is not overwritten at every sign-in.
+      const name = user.name ?? input.name;
+      const avatarUrl = user.avatarUrl ?? input.avatarUrl;
+      if (name !== user.name || avatarUrl !== user.avatarUrl) {
+        yield* storeCall(() =>
+          database
+            .prepare("UPDATE users SET name = ?, avatar_url = ?, updated_at = ? WHERE id = ?")
+            .bind(name, avatarUrl, input.now, user.id)
+            .run(),
+        );
+      }
+      const tokenHash = yield* sha256(input.session.token).pipe(
+        Effect.mapError(() => new AuthStoreError({ message: "Account store operation failed." })),
+      );
+      yield* storeCall(() =>
+        database
+          .prepare(
+            `INSERT INTO auth_sessions(
+          id, user_id, token_hash, expires_at, created_at, last_used_at, client_id, client_label
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)`,
+          )
+          .bind(input.session.id, user.id, tokenHash, input.session.expiresAt, input.now, input.now)
+          .run(),
+      );
+      return { sessionToken: input.session.token, user: { ...user, name, avatarUrl } };
+    },
+    (operation) => operation.pipe(Effect.provide(this.#layer)),
+  ).bind(this);
+
   readonly incrementRateLimit = Effect.fn("D1AuthRepository.incrementRateLimit")(
     function* (
       this: D1AuthRepository,

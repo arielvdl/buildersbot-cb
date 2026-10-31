@@ -18,6 +18,8 @@ export interface WorkerBindings {
   /** Checked by the Live Activity relay only, so a Worker without it keeps its other routes. */
   LIVE_ACTIVITY_RATE_LIMITER?: RateLimit;
   AUTH_EXPOSE_DEVELOPMENT_CODE?: string;
+  /** The Cultura Builder sign-in service (the Hub device grant). Without it the device routes answer 503. */
+  AUTH_BRIDGE_URL?: string;
   EMAIL_SMTP_HOST?: string;
   EMAIL_SMTP_PORT?: string;
   EMAIL_SMTP_USERNAME?: string;
@@ -107,9 +109,8 @@ export interface WorkerBindings {
 function isWorkerBindings(value: unknown): value is WorkerBindings {
   if (!isDynamicRecord(value)) return false;
   const database = value.DB;
-  const avatars = value.AVATARS;
-  const skills = value.SKILLS;
-  const sites = value.SITES;
+  // R2 is optional: the Cultura Builder account has none enabled, and a Worker without the
+  // buckets still answers sign-in, chat and the account surface.
   const marketplaceIngressRateLimiter = value.MARKETPLACE_INGRESS_RATE_LIMITER;
   const marketplaceMutationRateLimiter = value.MARKETPLACE_MUTATION_RATE_LIMITER;
   const marketplaceUploadRateLimiter = value.MARKETPLACE_UPLOAD_RATE_LIMITER;
@@ -118,18 +119,6 @@ function isWorkerBindings(value: unknown): value is WorkerBindings {
   if (
     !isDynamicRecord(database) ||
     !isFunction(database.prepare) ||
-    !isDynamicRecord(avatars) ||
-    !isFunction(avatars.get) ||
-    !isFunction(avatars.put) ||
-    !isFunction(avatars.delete) ||
-    !isDynamicRecord(skills) ||
-    !isFunction(skills.get) ||
-    !isFunction(skills.put) ||
-    !isFunction(skills.delete) ||
-    !isDynamicRecord(sites) ||
-    !isFunction(sites.get) ||
-    !isFunction(sites.put) ||
-    !isFunction(sites.delete) ||
     !isDynamicRecord(marketplaceIngressRateLimiter) ||
     !isFunction(marketplaceIngressRateLimiter.limit) ||
     !isDynamicRecord(marketplaceMutationRateLimiter) ||
@@ -253,6 +242,17 @@ export interface AuthRepository {
     session: { id: string; token: string; expiresAt: number };
     device?: MobileAuthDeviceIdentity;
   }): Effect.Effect<EmailVerificationResult, AuthStoreError>;
+  /**
+   * The account a Hub device sign-in confirmed. The row is found or created by e-mail, the profile
+   * fields the Hub has fill an empty row, and the session is new.
+   */
+  signInWithDeviceAccount(input: {
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+    now: number;
+    session: { id: string; token: string; expiresAt: number };
+  }): Effect.Effect<{ sessionToken: string; user: AuthUser }, AuthStoreError>;
   incrementRateLimit(
     keyHash: string,
     windowStart: number,

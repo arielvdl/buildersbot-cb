@@ -92,6 +92,8 @@ import { Route as V2SlackAuthorizeRouteImport } from './routes/v2/slack/authoriz
 import { Route as V2SlackCallbackRouteImport } from './routes/v2/slack/callback'
 import { Route as V1AgentTemplatesTemplateIdAvatarRouteImport } from './routes/v1/agent-templates/$templateId/avatar'
 import { Route as V1AgentTemplatesTemplateIdCardRouteImport } from './routes/v1/agent-templates/$templateId/card'
+import { Route as V1AuthDevicePollRouteImport } from './routes/v1/auth/device/poll'
+import { Route as V1AuthDeviceStartRouteImport } from './routes/v1/auth/device/start'
 import { Route as V1AuthEmailStartRouteImport } from './routes/v1/auth/email/start'
 import { Route as V1AuthEmailVerifyRouteImport } from './routes/v1/auth/email/verify'
 import { Route as V1MarketplaceAgentsIndexRouteImport } from './routes/v1/marketplace/agents/index'
@@ -588,6 +590,16 @@ const V1AgentTemplatesTemplateIdCardRoute =
     path: '/card',
     getParentRoute: () => V1AgentTemplatesTemplateIdRoute,
   } as any)
+const V1AuthDevicePollRoute = V1AuthDevicePollRouteImport.update({
+  id: '/v1/auth/device/poll',
+  path: '/v1/auth/device/poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const V1AuthDeviceStartRoute = V1AuthDeviceStartRouteImport.update({
+  id: '/v1/auth/device/start',
+  path: '/v1/auth/device/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const V1AuthEmailStartRoute = V1AuthEmailStartRouteImport.update({
   id: '/v1/auth/email/start',
   path: '/v1/auth/email/start',
@@ -1092,6 +1104,8 @@ export interface FileRoutesByFullPath {
   '/v1/skills/': typeof V1SkillsIndexRoute
   '/v1/agent-templates/$templateId/avatar': typeof V1AgentTemplatesTemplateIdAvatarRoute
   '/v1/agent-templates/$templateId/card': typeof V1AgentTemplatesTemplateIdCardRoute
+  '/v1/auth/device/poll': typeof V1AuthDevicePollRoute
+  '/v1/auth/device/start': typeof V1AuthDeviceStartRoute
   '/v1/auth/email/start': typeof V1AuthEmailStartRoute
   '/v1/auth/email/verify': typeof V1AuthEmailVerifyRoute
   '/v1/marketplace/agents/$agentId': typeof V1MarketplaceAgentsAgentIdRouteWithChildren
@@ -1251,6 +1265,8 @@ export interface FileRoutesByTo {
   '/v1/skills': typeof V1SkillsIndexRoute
   '/v1/agent-templates/$templateId/avatar': typeof V1AgentTemplatesTemplateIdAvatarRoute
   '/v1/agent-templates/$templateId/card': typeof V1AgentTemplatesTemplateIdCardRoute
+  '/v1/auth/device/poll': typeof V1AuthDevicePollRoute
+  '/v1/auth/device/start': typeof V1AuthDeviceStartRoute
   '/v1/auth/email/start': typeof V1AuthEmailStartRoute
   '/v1/auth/email/verify': typeof V1AuthEmailVerifyRoute
   '/v1/marketplace/agents/$agentId': typeof V1MarketplaceAgentsAgentIdRouteWithChildren
@@ -1411,6 +1427,8 @@ export interface FileRoutesById {
   '/v1/skills/': typeof V1SkillsIndexRoute
   '/v1/agent-templates/$templateId/avatar': typeof V1AgentTemplatesTemplateIdAvatarRoute
   '/v1/agent-templates/$templateId/card': typeof V1AgentTemplatesTemplateIdCardRoute
+  '/v1/auth/device/poll': typeof V1AuthDevicePollRoute
+  '/v1/auth/device/start': typeof V1AuthDeviceStartRoute
   '/v1/auth/email/start': typeof V1AuthEmailStartRoute
   '/v1/auth/email/verify': typeof V1AuthEmailVerifyRoute
   '/v1/marketplace/agents/$agentId': typeof V1MarketplaceAgentsAgentIdRouteWithChildren
@@ -1572,6 +1590,8 @@ export interface FileRouteTypes {
     | '/v1/skills/'
     | '/v1/agent-templates/$templateId/avatar'
     | '/v1/agent-templates/$templateId/card'
+    | '/v1/auth/device/poll'
+    | '/v1/auth/device/start'
     | '/v1/auth/email/start'
     | '/v1/auth/email/verify'
     | '/v1/marketplace/agents/$agentId'
@@ -1731,6 +1751,8 @@ export interface FileRouteTypes {
     | '/v1/skills'
     | '/v1/agent-templates/$templateId/avatar'
     | '/v1/agent-templates/$templateId/card'
+    | '/v1/auth/device/poll'
+    | '/v1/auth/device/start'
     | '/v1/auth/email/start'
     | '/v1/auth/email/verify'
     | '/v1/marketplace/agents/$agentId'
@@ -1890,6 +1912,8 @@ export interface FileRouteTypes {
     | '/v1/skills/'
     | '/v1/agent-templates/$templateId/avatar'
     | '/v1/agent-templates/$templateId/card'
+    | '/v1/auth/device/poll'
+    | '/v1/auth/device/start'
     | '/v1/auth/email/start'
     | '/v1/auth/email/verify'
     | '/v1/marketplace/agents/$agentId'
@@ -2046,6 +2070,8 @@ export interface RootRouteChildren {
   V1AgentTemplatesIndexRoute: typeof V1AgentTemplatesIndexRoute
   V1SitesIndexRoute: typeof V1SitesIndexRoute
   V1SkillsIndexRoute: typeof V1SkillsIndexRoute
+  V1AuthDevicePollRoute: typeof V1AuthDevicePollRoute
+  V1AuthDeviceStartRoute: typeof V1AuthDeviceStartRoute
   V1AuthEmailStartRoute: typeof V1AuthEmailStartRoute
   V1AuthEmailVerifyRoute: typeof V1AuthEmailVerifyRoute
   V1MarketplaceAgentsAgentIdRoute: typeof V1MarketplaceAgentsAgentIdRouteWithChildren
@@ -2688,6 +2714,20 @@ declare module '@tanstack/solid-router' {
       fullPath: '/v1/agent-templates/$templateId/card'
       preLoaderRoute: typeof V1AgentTemplatesTemplateIdCardRouteImport
       parentRoute: typeof V1AgentTemplatesTemplateIdRoute
+    }
+    '/v1/auth/device/poll': {
+      id: '/v1/auth/device/poll'
+      path: '/v1/auth/device/poll'
+      fullPath: '/v1/auth/device/poll'
+      preLoaderRoute: typeof V1AuthDevicePollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/v1/auth/device/start': {
+      id: '/v1/auth/device/start'
+      path: '/v1/auth/device/start'
+      fullPath: '/v1/auth/device/start'
+      preLoaderRoute: typeof V1AuthDeviceStartRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/v1/auth/email/start': {
       id: '/v1/auth/email/start'
@@ -3425,6 +3465,8 @@ const rootRouteChildren: RootRouteChildren = {
   V1AgentTemplatesIndexRoute: V1AgentTemplatesIndexRoute,
   V1SitesIndexRoute: V1SitesIndexRoute,
   V1SkillsIndexRoute: V1SkillsIndexRoute,
+  V1AuthDevicePollRoute: V1AuthDevicePollRoute,
+  V1AuthDeviceStartRoute: V1AuthDeviceStartRoute,
   V1AuthEmailStartRoute: V1AuthEmailStartRoute,
   V1AuthEmailVerifyRoute: V1AuthEmailVerifyRoute,
   V1MarketplaceAgentsAgentIdRoute: V1MarketplaceAgentsAgentIdRouteWithChildren,

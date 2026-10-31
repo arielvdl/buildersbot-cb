@@ -1,20 +1,29 @@
 {
   "id": "/app",
-  "name": "OpenBot",
-  "short_name": "OpenBot",
-  "description": "Run Codex and Claude side by side as persistent AI teammates, each with its own workspace, queue, and context.",
+  "name": "Builders Bot",
+  "short_name": "Builders Bot",
+  "description": "Seus agentes do Builders Bot, de qualquer celular: converse, acompanhe o trabalho e aprove o que precisa de você.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
-  "lang": "en",
+  "lang": "pt-BR",
   "dir": "ltr",
-  "launch_handler": { "client_mode": "navigate-existing" },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "prefer_related_applications": false,
   "background_color": "#1a1a1a",
   "theme_color": "#1a1a1a",
-  "categories": ["productivity", "developer", "utilities"],
+  "categories": [
+    "productivity",
+    "developer",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -40,13 +49,25 @@
       "name": "Open the app",
       "short_name": "Open",
       "url": "/app",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "Connect a computer",
       "short_name": "Connect",
       "url": "/app?connect=1",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

@@ -347,6 +347,36 @@ export class AuthService {
     return session;
   });
 
+  /**
+   * The account a confirmed Hub device sign-in names. The Hub has already verified the e-mail, so
+   * this finds or creates the account and opens a persistent session for it.
+   */
+  readonly signInWithDeviceAccount = Effect.fn("AuthService.signInWithDeviceAccount")(function* (
+    this: AuthService,
+    input: {
+      email: string;
+      name: string | null;
+      avatarUrl: string | null;
+      sourceIp: string;
+      surface: AccountSurface;
+    },
+  ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
+    const dependencies = yield* AuthDependencies;
+    const now = dependencies.now();
+    yield* this.#enforceRateLimit(`device:ip:${normalizeSourceIp(input.sourceIp)}`, 30, now);
+    const email = yield* authValidate(() => normalizeEmailAddress(input.email));
+    const session = yield* dependencies.repository.signInWithDeviceAccount({
+      email,
+      name: input.name,
+      avatarUrl: input.avatarUrl,
+      now,
+      session: { id: crypto.randomUUID(), token: randomToken(), expiresAt: PERSISTENT_SESSION_EXPIRES_AT },
+    });
+    return session;
+  },
+  (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
+  ).bind(this);
+
   readonly authenticate = Effect.fn("AuthService.authenticate")(
     function* (
       this: AuthService,
