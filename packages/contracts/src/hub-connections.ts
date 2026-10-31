@@ -725,9 +725,21 @@ export function decodeToolCatalogDescribeAnswer(value: unknown): ToolCatalogDesc
 
 // --- tool-catalog: call -------------------------------------------------------------------------
 
-/** The call body. `confirmationId` and `maxCostMicros` come only from the main process of the app. */
+/**
+ * Who started the turn of a call: the person at the computer, one of the person's routines, or an
+ * agent that the person's turn started. The main process decides it, never the agent's text. The
+ * Hub writes it on the ledger entry and in the vendor tag `origin`.
+ */
+export const HUB_CALL_ORIGINS = ["owner_ui", "routine", "agent"] as const;
+export type HubCallOrigin = (typeof HUB_CALL_ORIGINS)[number];
+
+/**
+ * The call body. `origin`, `confirmationId` and `maxCostMicros` come only from the main process of
+ * the app; the agent's input has no field for them.
+ */
 export interface ToolCatalogCallRequest {
   endpointId: string;
+  origin: HubCallOrigin;
   query?: { readonly [name: string]: string | number | boolean };
   body?: HubJsonObject;
   maxCostMicros?: number;
