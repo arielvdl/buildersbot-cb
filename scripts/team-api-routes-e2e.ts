@@ -1445,15 +1445,17 @@ try {
       { v3: ids(v3), v6: ids(v6), v7: ids(v7), v8: ids(v8) },
     );
     // Each frozen list is the released vocabulary of its protocol. Protocol 8 and later hide none.
+    // Cultura Builder came after protocol 7, so every protocol below 8 hides it.
     const hiddenBy = (protocol: number) =>
       AGENT_PROVIDERS.filter((provider) => isPeerHiddenProvider(provider, protocol));
+    const after7 = ["inception", "deepseek", "openrouter", "cultura-builder"];
     const expectedHidden: Record<number, readonly string[]> = {
-      1: ["opencode", "antigravity", "acp", "cursor", "cline", "pi", "muse", "inception", "deepseek", "openrouter"],
-      3: ["opencode", "antigravity", "acp", "cursor", "cline", "pi", "muse", "inception", "deepseek", "openrouter"],
-      4: ["antigravity", "acp", "cursor", "cline", "pi", "muse", "inception", "deepseek", "openrouter"],
-      5: ["cursor", "cline", "pi", "muse", "inception", "deepseek", "openrouter"],
-      6: ["pi", "muse", "inception", "deepseek", "openrouter"],
-      7: ["inception", "deepseek", "openrouter"],
+      1: ["opencode", "antigravity", "acp", "cursor", "cline", "pi", "muse", ...after7],
+      3: ["opencode", "antigravity", "acp", "cursor", "cline", "pi", "muse", ...after7],
+      4: ["antigravity", "acp", "cursor", "cline", "pi", "muse", ...after7],
+      5: ["cursor", "cline", "pi", "muse", ...after7],
+      6: ["pi", "muse", ...after7],
+      7: after7,
       8: [],
       9: [],
     };

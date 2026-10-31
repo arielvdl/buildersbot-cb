@@ -535,6 +535,30 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:egress-proxy
 
+      - name: Run the queued message Force now E2E test
+        if: ${{ !cancelled() }}
+        run: bun scripts/queue-force-e2e.ts
+
+      - name: Run the plan event log E2E test
+        if: ${{ !cancelled() }}
+        run: bun scripts/plan-event-log-e2e.ts
+
+      - name: Run the provider idle release E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:provider-idle-release
+
+      - name: Run the Cultura Builder start E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:cultura-builder-start
+
+      - name: Run the unreadable saved keys smoke test
+        if: ${{ !cancelled() }}
+        run: bun scripts/voice-key-unreadable-smoke.ts
+
+      - name: Run the agent access E2E test
+        if: ${{ !cancelled() }}
+        run: bun scripts/agent-access-e2e.ts
+
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -593,6 +617,12 @@ jobs:
             .openbot-build/opencode-go-usage-e2e/
             .openbot-build/pi-sign-in-watch-e2e/
             .openbot-build/agent-api-keys-e2e/
+            .openbot-build/queue-force-e2e/
+            .openbot-build/plan-event-log-e2e/
+            .openbot-build/provider-idle-release-e2e/
+            .openbot-build/cultura-builder-start-e2e/
+            .openbot-build/voice-anywhere/
+            .openbot-build/agent-access-e2e/
           if-no-files-found: ignore
 
   provider-fakes-e2e:
