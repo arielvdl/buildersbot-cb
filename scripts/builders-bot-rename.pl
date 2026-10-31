@@ -9,15 +9,24 @@
 #
 # HTTP header names keep `OpenBot`: a header name cannot hold a space, and `fetch`, `Headers`
 # and Node refuse a name with a space before they send anything. Released hosts, phones
-# and the Worker also read the upstream names. A header name is `X-OpenBot-` anywhere, or
-# `OpenBot-` and a capital letter just after a quote or a backtick (`"OpenBot-Timestamp"`).
-# Prose such as `im OpenBot-Browser` has a space before it and is still renamed.
+# and the Worker also read the upstream names. A header name is `X-OpenBot-` and a capital
+# letter anywhere, or `OpenBot-` and one of the published names in `@published` below
+# (`"OpenBot-Timestamp"`). Add a new published header name to that list.
+# Other text with a dash is prose and is still renamed, also in quotes: the German
+# `"OpenBot-Website"` becomes `"Builders Bot-Website"`, and `im OpenBot-Browser` and
+# `dist/OpenBot-Host-arm64.pkg` change too.
 #
 # Usage: perl scripts/builders-bot-rename.pl < file
 local $/;
 my $s = <>;
 my $header = "\x{1}OPENBOT_HEADER\x{1}";
-$s =~ s/(?:(?<=X-)|(?<=["'`]))OpenBot(?=-[A-Z])/$header/g;
+my @published = qw(
+  Protocol-Version App-Version Capabilities Timestamp Signature Logo-Version
+  Hosting-Developer-Key Host-Id Host-Token
+);
+my $published = join "|", map { quotemeta } @published;
+$s =~ s/(?<=X-)OpenBot(?=-[A-Z])/$header/g;
+$s =~ s/(?<![A-Za-z0-9-])OpenBot(?=-(?:$published)\b)/$header/g;
 $s =~ s/OpenBot(?=[A-Z])/BuildersBot/g;
 $s =~ s/\bOpenBot\b/Builders Bot/g;
 $s =~ s/\Q$header\E/OpenBot/g;

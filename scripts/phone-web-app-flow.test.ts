@@ -163,6 +163,30 @@ describe("phone web app flow", () => {
     expect(names.filter((entry) => !sendableHeaderName(entry.slice(entry.indexOf(": ") + 2)))).toEqual([]);
   });
 
+  it("keeps the header names and renames the prose when the rename runs after an upstream merge", () => {
+    const names = [...new Set(codeHeaderNames().map((entry) => entry.slice(entry.indexOf(": ") + 2)))];
+    // The lines name the product through `upstream`, so the scan does not take them as header names.
+    const upstream = "OpenBot";
+    const prose = [
+      `"${upstream}-Website"`,
+      `"${upstream}-Ordner wird gemessen…"`,
+      `im ${upstream}-Browser`,
+      `dist/${upstream}-Host-arm64.pkg`,
+      `"${upstream}-Host-Identity"`,
+    ];
+    const result = spawnSync("perl", ["scripts/builders-bot-rename.pl"], {
+      cwd: REPOSITORY_ROOT,
+      input: [...names, `X-${upstream}-Remote-0123abcd`, ...prose].join("\n"),
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout.split("\n")).toEqual([
+      ...names,
+      `X-${upstream}-Remote-0123abcd`,
+      ...prose.map((line) => line.replace(upstream, "Builders Bot")),
+    ]);
+  });
+
   it("keeps the sign-in code out of the answer of each deployed account service", () => {
     // The top level of `wrangler.jsonc` is the production Worker, and `env` holds the test and preview
     // Workers. With "true", a Worker sends no email and returns the sign-in code in its answer, so a
