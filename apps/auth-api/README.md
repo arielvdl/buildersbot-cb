@@ -24,7 +24,8 @@ Worker. The boat key creates real VMs, but only when the Worker also has
 `HOSTED_SERVER_TEMPLATE`. `wrangler.jsonc` sets
 `HOSTED_SERVERS_ENABLED` to `true` and `HOSTED_SERVERS_ALLOWED_USER_IDS` to `*`, so a local Worker
 with a template lets each local account create one. Set `HOSTED_SERVERS_ALLOWED_USER_IDS` in the
-shell to limit access. A VM cannot reach a local Worker, so use `bun run dev --hosting=test` for a real server (see
+shell to limit access. A VM cannot reach a local Worker. `bun run dev --hosting=test` used the test Worker of the
+upstream project and now stops with an error (see
 [Real servers from a development build](../../docs/hosted-servers.md#real-servers-from-a-development-build)).
 Set `DOTENV_PRIVATE_KEY_DEV` in your shell profile to load the shared values in every worktree.
 Without this key, the Worker starts with generated local defaults and no Stripe or boat keys. Shell
@@ -168,10 +169,10 @@ when it is set. It then builds and deploys the Worker. Production deployment pre
 `HOSTED_SERVER_TEMPLATE`; the desktop release workflow owns that setting. Test deployment can still
 set its own template.
 
-Production also requires `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET` from an OpenPanel
-write-only server client. Keep both in the encrypted `.env.production` for local deployment and in
-the `cloudflare-production` GitHub Environment for CI. Both deployment paths check these values
-before remote changes. Test deployments do not send account analytics.
+Neither deployment path sets `OPENPANEL_CLIENT_ID` or `OPENPANEL_CLIENT_SECRET`, and the Worker has no
+analytics address, so it sends no account, billing or email event. The upstream Worker sent them to the
+analytics service of the upstream project. A Worker that already has these secrets keeps them until the
+owner deletes them with `wrangler secret delete`; this version does not use them.
 
 `GITHUB_APP_PRIVATE_KEY` is the Builders Bot GitHub App's private key as a PKCS #8 PEM. GitHub gives a
 PKCS #1 key; convert it with `openssl pkcs8 -topk8 -nocrypt -in <key>.pem`. With the key, the

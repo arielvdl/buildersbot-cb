@@ -1,6 +1,12 @@
 # Product analytics
 
-Builders Bot uses a self-hosted OpenPanel project for production product analytics. This document is the
+> **Builders Bot sends none of these events.** The upstream OpenBot app sent them, with the account ID
+> and email, to the OpenPanel service of the upstream project (`analytics.openbot.run`), which Builders
+> Bot does not control. Phase 0 of the bug report design removed every client and transport, and
+> `bun run test:telemetry-guard` stops a merge that brings them back. This document keeps the upstream
+> event contract for reference until Builders Bot has a diagnostics service of its own.
+
+The upstream app used an OpenPanel project for production product analytics. This document is the
 contract for event meaning, attribution, privacy, and reporting. Changes to an event name, property,
 or success definition require an analytics schema version bump and corresponding test updates.
 
@@ -86,9 +92,6 @@ be mixed into current conversion or reliability metrics.
 - Existing profiles are repaired by the controlled identity backfill when their `profileId` matches
   a current account. The backfill updates profile traits only; it does not rewrite events or merge
   unknown profiles.
-- The backfill is dry-run by default: `bun run analytics:backfill -- --auth-users users.json
-  --openpanel-profiles profiles.json`; pass `--apply` only after reviewing the counters. Credentials
-  come from `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET`, and logs contain counts only.
 - Local IDs for agents, servers, members, messages, threads, turns, files, or deliveries are never
   analytics properties.
 
@@ -207,13 +210,9 @@ rather than passed through. Paths are followed by the allowlisted campaign tags 
 `[a-z0-9._-]`; a value outside that shape is dropped, not shortened, and no other query parameter or
 hash is ever included. Session replay and automatic interaction capture remain disabled.
 
-To check the desktop send paths, start the dev app with
-`OPENBOT_ANALYTICS_CAPTURE_URL=http://localhost:47321 bun run dev`, then run
-`bun run test:analytics-redaction -- --allow-mutations`. The app sends its analytics and failure
-reports to that local capture server instead of OpenPanel. The script seeds a secret marker into an
-agent, an MCP server, a routine and browser addresses, and checks that no captured request holds it.
-It writes `.openbot-build/analytics-redaction-e2e/report.json`. A packaged build ignores the setting,
-and only a loopback `http:` origin is accepted.
+Builders Bot has no send path to check: `bun run test:telemetry-guard` checks that no source file
+names an upstream analytics destination or an OpenPanel client, and `check:desktop:static` checks the
+built app too. The voice pane E2E checks that no window sends a request to an upstream analytics host.
 
 ## Required dashboards
 

@@ -1,5 +1,11 @@
 # Analytics
 
+> **Builders Bot sends none of these events.** The upstream OpenBot app sent them, with the account ID
+> and email, to the OpenPanel service of the upstream project (`analytics.openbot.run`), which Builders
+> Bot does not control. Phase 0 of the bug report design removed every client and transport, and
+> `bun run test:telemetry-guard` stops a merge that brings them back. This document keeps the upstream
+> event contract for reference until Builders Bot has a diagnostics service of its own.
+
 ## Mobile product analytics
 
 `apps/mobile/src/features/analytics` owns the React Native OpenPanel client, typed event allowlists,

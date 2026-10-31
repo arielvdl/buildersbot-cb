@@ -6,6 +6,9 @@ service stores the minimum central data needed for email sign-in, account avatar
 configuration, memberships, invitations, logical sessions, and the account's product analytics
 answer.
 
+Builders Bot sends no product analytics and no error reports. See [Product analytics](#product-analytics)
+for what earlier versions sent and where.
+
 The optional browser client at `/app` connects to the computer that runs Builders Bot. Conversation
 and attachment data travel through the existing encrypted host connection, not through the
 account Worker. The browser keeps chat pages, drafts, search results, and file previews in memory;
@@ -51,14 +54,20 @@ browser also stores the chosen interface language and whether the completion sou
 no message content.
 Signing out revokes that credential's remote sessions and tells other open tabs to clear private
 state. Host identity pins remain so a later sign-in cannot silently trust a replacement host key.
-The web client records the product events that "Product analytics" describes. At sign-in it sends the saved first website visit
-of the browser, described in "Product analytics", to the account service. It does not send email codes, credentials,
-message content, file content, or search queries to telemetry.
+The web client records no product events and sends no error reports. At sign-in it sends the saved first website visit
+of the browser, described in "Product analytics", to the account service, when the browser has one. It does not send
+email codes, credentials, message content, file content, or search queries to telemetry.
 
-Production builds of Builders Bot desktop, the browser client at `/app`, the configured mobile app, and the website use a
-self-hosted OpenPanel service for product analytics. Development builds, previews, tests, and Storybook do not send analytics.
+Builders Bot desktop, the browser client at `/app`, the mobile app, and the website send no product analytics and no
+error reports. Earlier versions sent them to the analytics service of the upstream OpenBot project, as "Product
+analytics" describes.
 
-The production account service also sends OpenPanel an event when a paid plan or a hosted server
+The account service sends no account, billing or email events to an analytics service: it has no analytics address.
+Earlier versions of the account service sent the events below to the analytics service of the upstream OpenBot
+project when the Worker had the `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET` secrets. A Worker that runs an
+earlier version with those secrets keeps sending them until it is deployed again with this version.
+
+The earlier account service sent OpenPanel an event when a paid plan or a hosted server
 changes: a Checkout starts or expires, a plan starts, changes, is cancelled or ends, a payment
 succeeds or fails, a payment is refunded or disputed, the Customer Portal opens, or a hosted server is set up, fails to set up, stops
 after no use, starts, changes its machine, stops at the end of its plan, is renewed or is deleted.
@@ -81,9 +90,9 @@ For each email that the account service sends from its mailbox (a sign-in code, 
 message or a welcome email), it sends OpenPanel one event with the kind of email and the result of the send. This
 event has no account ID, email address, name or message content.
 
-Every 5 minutes, each Signal host sends OpenPanel one event with the number of TURN relay allocations
-and the number of Signal connections. It has no account ID, address, session or
-message content.
+Every 5 minutes, a Signal host can send OpenPanel one event with the number of TURN relay allocations
+and the number of Signal connections, only to the address that its operator sets in `OPENPANEL_TRACK_URL`.
+There is no default address. The event has no account ID, address, session or message content.
 
 The account service also records a return from Checkout without payment and later payment
 recovery. Verified paid invoices produce a revenue event in USD, with the original amount,
@@ -161,6 +170,16 @@ and incomplete billing inputs remain marked as unavailable or partial.
 
 ## Product analytics
 
+Builders Bot sends no product analytics and no error reports from the desktop app, the browser client,
+the mobile app or the website. First run and the web sign-in ask no analytics question, and Settings shows
+a note in place of the switch. The saved analytics answer stays on the device and on the account, and no
+value starts a send.
+
+The rest of this section describes what earlier versions of the app sent. They sent these events, the
+error reports, and the account ID and normalized email of a signed-in user to the analytics service of the
+upstream OpenBot project (`analytics.openbot.run`), which Builders Bot does not control. The Settings
+text of those versions said that the service was hosted by Builders Bot itself. That was not true.
+
 The production website records anonymous page views using only fixed paths: `/`, `/join`, the
 download pages, the news and guide indexes, and published articles. It also records download clicks,
 clicks on allowlisted public links, invitation validity, and open-app actions on invitation pages.
@@ -237,8 +256,8 @@ browser, the browser sends it to the account service. The account service keeps 
 it gets on your account and sends it to OpenPanel with your account ID. To remove it from a
 browser, clear the site data of openbot.run. OpenPanel can also derive
 session, device, browser, operating-system, network, and approximate geographic metadata from a
-request. The analytics service runs on Builders Bot's self-hosted infrastructure and receives events
-through `analytics.openbot.run`.
+request. That analytics service belongs to the upstream OpenBot project, not to Builders Bot, and received
+the events through `analytics.openbot.run`.
 Desktop and web installs from before the first-run analytics box keep analytics on. On a new desktop
 install, and at web sign-in with no saved choice, the **Help make Builders Bot better** box starts ticked
 only when both the region (of the system on desktop, of the browser language on web) and the time

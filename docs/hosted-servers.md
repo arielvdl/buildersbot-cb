@@ -365,8 +365,12 @@ HMAC signature, refuses a delivery older than 5 minutes, and ignores a delivery 
 
 ### Real servers from a development build
 
+> `bun run dev --hosting=test` stops with an error in Builders Bot. It used the test account Worker of
+> the upstream OpenBot project, so the sign-in and the session went to the upstream project. Builders Bot
+> has no test account Worker yet. The text below describes the upstream setup.
+
 A local Worker does not make hosted servers: a boat VM cannot reach a Worker or a Signal service on
-your computer. To get a real server, start the app with `bun run dev --hosting=test`. The app then
+your computer. To get a real server, the upstream app started with `bun run dev --hosting=test`. The app then
 signs in to the test Worker, and the test Worker makes the VM. The local Worker and Signal still
 start, but the app does not use them for its account. The app uses its own profile for the test
 Worker, and all worktrees share it, so you sign in one time.

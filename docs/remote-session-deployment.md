@@ -81,9 +81,10 @@ variables, resume tokens, tickets, or raw connection logs.
 
 The capacity reporter (`capacity-report`) uses the Signal image and sends `signal_capacity`
 (ANALYTICS.md) every 5 minutes. It reads the coturn metrics on `127.0.0.1:9641` and the Signal metrics
-on `127.0.0.1:9642`. It needs `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET` in the host
-`.env.production`, the server client of `apps/auth-api/.env.production`; without them it exits at start
-and stays stopped. Build and start it after `remote-api`, with the same `--build-arg`:
+on `127.0.0.1:9642`. It needs `OPENPANEL_TRACK_URL`, the address of an OpenPanel service that the
+owner controls, and `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET` in the host `.env.production`;
+without them it exits at start and stays stopped. There is no default address: the default was the
+analytics service of the upstream OpenBot project, which Builders Bot does not control. Build and start it after `remote-api`, with the same `--build-arg`:
 
 ```sh
 remote/bin/dotenvx run --overload -f remote/.env.production -fk remote/.env.keys -- \

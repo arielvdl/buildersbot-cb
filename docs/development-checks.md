@@ -83,8 +83,8 @@ the codegen inputs and of the route file names differs from `.expo/codegen-input
 an output is missing. File times do not decide: a checkout changes them, and Uniwind does not write a
 file whose content is the same.
 
-In CI, `check:desktop:static` (the UI check, lint, desktop typecheck, build, preload check and update
-feed guard) takes about a minute, and each other typecheck takes a few seconds. When `openbot-database-schema.ts`, `channel-schema.ts`, `mcp-schema.ts`, the parity test or
+In CI, `check:desktop:static` (the UI check, lint, desktop typecheck, build, preload check, update
+feed guard and telemetry destination guard) takes about a minute, and each other typecheck takes a few seconds. When `openbot-database-schema.ts`, `channel-schema.ts`, `mcp-schema.ts`, the parity test or
 `openbot-database-schema-history.json` is staged, the hook also runs `src/backend/openbot-database-schema-parity.test.ts`.
 
 `check:staged` lets Biome fix the working-tree copy of each staged file, and the hook then stages
@@ -190,8 +190,8 @@ Electron and checks that `window.openbot` has exactly one function for each endp
 second.
 
 `bun run check:desktop` still runs everything: it is `check:desktop:static`, which holds the UI
-check, the lint, the desktop typecheck, the build, `verify:preload` and `test:update-feed-guard`,
-followed by the browser smoke test. CI is
+check, the lint, the desktop typecheck, the build, `verify:preload`, `test:update-feed-guard` and the
+telemetry destination guard with `--build-output`, followed by the browser smoke test. CI is
 the only caller that splits them. The smoke test starts the real Electron binary, so it runs under
 xvfb on Ubuntu rather than on a macOS runner, and reads nothing the build writes, so the order
 between the halves is free. `release.yml` keeps the whole of `check:desktop` on one macOS runner,

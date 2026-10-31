@@ -522,9 +522,13 @@ have the version in `apps/mobile/CHANGELOG.md`, and the file must be for that ve
 
 ## OpenPanel product analytics
 
-The app uses the official [`@openpanel/react-native` SDK](https://openpanel.dev/docs/sdks/react-native)
-and `expo-application`, following the [React Native guide](https://openpanel.dev/guides/react-native-analytics).
-The endpoint is fixed to `https://analytics.openbot.run/api`. No analytics credentials are committed.
+> **The app sends no product analytics and no error reports.** The upstream app sent them to the OpenPanel
+> service of the upstream project (`analytics.openbot.run`), which Builders Bot does not control. Phase 0
+> of the bug report design removed the SDK client and the error report queue, and the EAS variables below
+> have no effect. The rest of this section describes the upstream setup, for reference.
+
+The upstream app used the official OpenPanel React Native SDK and `expo-application`, with the endpoint
+fixed to `https://analytics.openbot.run/api`. No analytics credentials are committed.
 
 ### Production configuration
 
