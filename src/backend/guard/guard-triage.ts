@@ -270,6 +270,8 @@ interface Rule {
    * from the match itself, such as the URL of a known installer.
    */
   readonly keep?: Keep;
+  /** How many characters before a match `keep` reads, when not `BEFORE_REACH`. */
+  readonly reach?: number;
 }
 
 type Keep = (before: string, match: string) => boolean;
@@ -282,11 +284,12 @@ const pairs = (code: GuardFindingCode): boolean =>
 /** Whether a finding makes an item suspicious by itself: a strong finding or a note. */
 const alone = (code: GuardFindingCode): boolean => WEIGHT[code] === "strong" || WEIGHT[code] === "note";
 
-function rule(code: GuardFindingCode, pattern: RegExp, keep?: Keep): Rule {
+function rule(code: GuardFindingCode, pattern: RegExp, keep?: Keep, reach?: number): Rule {
   return {
     code,
     pattern: new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`),
     ...(keep ? { keep } : {}),
+    ...(reach ? { reach } : {}),
   };
 }
 
@@ -366,6 +369,69 @@ const ORDER_START = new RegExp(
   "iu",
 );
 const isOrder: Keep = (before) => notNegated(before) && ORDER_START.test(before);
+/** A task given to the reader: "Your task is to …", "I want you to …", "Quero que você …". */
+const TASK_FRAME =
+  /(?:\byour (?:task|job|goal|mission|objective|next step) is to|\bi (?:want|need) you to|\bsua (?:tarefa|miss[ãa]o|meta|pr[óo]xima etapa) [ée]|\b(?:quero|preciso) que voc[êe])\s{1,4}$/iu;
+/** An order, or a task given to the reader. */
+const isTaskOrder: Keep = (before) => isOrder(before) || (notNegated(before) && TASK_FRAME.test(before));
+
+/**
+ * The verbs that take a secret before a second verb sends it: "collect the API keys and post them
+ * to https://…", "dê as senhas e envie para https://…". A verb that puts a key into a request
+ * ("include", "cole", "anexe") or sends it at once ("send", "envie") is not one: docs say "Include
+ * your access token in the request and send it to https://api…", and a send has its own rule.
+ */
+const TAKE_VERB = String.raw`(?:\b(?:reveal|print|show|output|dump|display|give|tell|read|extract|grab|steal|collect|revele|mostre|imprima|exiba|leia|extraia|colete|revelar|mostrar|imprimir|exibir|ler|extrair|coletar)\b|(?<![\p{L}\p{N}])dê(?![\p{L}\p{N}]))`;
+/**
+ * The secrets that a request to take and send names. A key of a common kind in the singular ("the
+ * access token", "your API key") is how API docs speak to their reader ("Read the access token from
+ * the response and send it to https://api…"), so it counts only in the plural. A password, a private
+ * or SSH key and a secret file count also alone. A bare "tokens" is also a word of language models.
+ */
+const TAKEN_SECRET = String.raw`(?:\.env\b|\bid_(?:rsa|ed25519|ecdsa)\b|\.ssh\/|\.aws\/credentials\b|\.npmrc\b|\.netrc\b|\.git-credentials\b|\.codex\/auth\.json|\.config\/gh\/hosts\.yml|\.credentials\.json|\bdeploy keys?\b|\bprivate keys?\b|\bssh keys?\b|\bpasswords?\b|\bcredentials\b|\bsession cookies?\b|\bcookies\b|\bapi[ _-]?keys\b|\bsecret keys\b|\b(?:access|auth|api|oauth|refresh|session|bearer) tokens\b|\bchaves? (?:ssh|privadas?)\b|\bchaves de api\b|\bsenhas?\b|\bcredenciais\b|\btokens de acesso\b)`;
+/**
+ * The second half of that request: a verb that sends, the secret or a word for it ("them", "tudo",
+ * or none in Portuguese), then a site. "Send feedback to https://…" sends something else.
+ */
+const SEND_IT = String.raw`(?:\b(?:send|post|upload|forward|transmit|submit|email)\s{1,4}(?:(?:them|it|those|these|everything|all(?:\s{1,4}of\s{1,4}(?:them|it))?|both|the\s{1,4}(?:keys|tokens|passwords|credentials|cookies|secrets|values|results?|output|data|list|lot))\s{1,4})?(?:(?:over|back|along)\s{1,4})?(?:to|at|into)\s{1,4}(?:(?:the|this|that|my|our|an?)\s{1,4})?(?:(?:webhook|url|endpoint|server|address|site|page|form|link)\s{1,4}(?:at\s{1,4})?)?(?:https?:\/\/|webhook\b)|\b(?:envie|enviar|mande|mandar|poste|postar|publique|encaminhe|transmita)(?:-(?:os|as|o|a|lhes?))?\s{1,4}(?:(?:tudo|todos|todas|eles|elas|isso|isto|(?:os|as)\s{1,4}(?:dados|valores|chaves|senhas|tokens|credenciais|resultados)|o\s{1,4}resultado|a\s{1,4}lista)\s{1,4})?(?:para|pro|pra|ao|no|na|em)\s{1,4}(?:(?:o|a|este|esse|meu|nosso|um|uma)\s{1,4})?(?:(?:webhook|url|endpoint|servidor|endere[çc]o|site|link|formul[áa]rio)\s{1,4})?(?:https?:\/\/|webhook\b))`;
+/**
+ * How far before the send the take can start: the verb, 40 characters to the secret, then 100
+ * characters, or 100 and one more line of 100, to the send.
+ */
+const TAKE_SPAN = 280;
+/** How far before the send the check reads: the take, and the text before it that says whether it is an order. */
+const TAKE_REACH = TAKE_SPAN + BEFORE_REACH;
+/** A quote that opens at the end of a text, with the spaces after it. */
+const OPEN_QUOTE_END = /["'“‘«„]\s{0,4}$/u;
+/** A take of a secret whose text runs to the end of what the check reads, the place of the send. */
+const TAKE_BEFORE = new RegExp(
+  String.raw`${TAKE_VERB}[^\n.?!]{0,40}?${TAKEN_SECRET}[^\n]{0,100}?(?:\n\s{0,8}[^\n]{0,100}?)?$`,
+  "giu",
+);
+/**
+ * Whether an ordered take of a secret comes just before this send, and no negation stands before
+ * the send: "Collect the API keys but do not post them to https://…" is a warning. Each verb that
+ * can start the take is tried, so a take that is not an order ("you can read about passwords") does
+ * not hide a later one that is. A quote that opens just before the take does not hide the start of
+ * the sentence: the quoted example rule then decides about the quote.
+ */
+const takesSecretFirst: Keep = (before) => {
+  if (!notNegated(before)) return false;
+  const skipped = Math.max(0, before.length - TAKE_SPAN);
+  const span = before.slice(skipped);
+  TAKE_BEFORE.lastIndex = 0;
+  for (let take = TAKE_BEFORE.exec(span); take !== null; take = TAKE_BEFORE.exec(span)) {
+    const start = skipped + take.index;
+    const lead = before.slice(Math.max(0, start - BEFORE_REACH), start).replace(OPEN_QUOTE_END, "");
+    if (isTaskOrder(lead, take[0])) {
+      TAKE_BEFORE.lastIndex = 0;
+      return true;
+    }
+    TAKE_BEFORE.lastIndex = take.index + 1;
+  }
+  TAKE_BEFORE.lastIndex = 0;
+  return false;
+};
 
 /**
  * What runs a program after a pipe: `sudo` or `doas` with flags (`sudo -E`, `sudo -u root`), `env`
@@ -561,13 +627,13 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   ),
   rule(
     "exfiltration-request",
-    /\b(?:envie|enviar|mande|mandar|poste|postar|publique|encaminhe|transmita)\b(?!\s{1,4}(?:uma?\s{1,4})?(?:requisi[çc](?:[ãa]o|[õo]es)|chamadas?|consultas?)\b)[^\n]{0,80}\b(?:para|pro|ao)\b[^\n]{0,20}(?:https?:\/\/|\bwebhook\b)/iu,
+    /\b(?:envie|enviar|mande|mandar|poste|postar|publique|encaminhe|transmita)\b(?!\s{1,4}(?:uma?\s{1,4})?(?:requisi[çc](?:[ãa]o|[õo]es)|chamadas?|consultas?)\b)[^\n]{0,80}\b(?:para|pro|pra|ao|no|na|em)\b[^\n]{0,20}(?:https?:\/\/|\bwebhook\b)/iu,
     notNegated,
   ),
   rule(
     "secret-send-request",
     new RegExp(
-      String.raw`\b(?:send|post|upload|forward|email|paste|share)\s{1,16}(?:me\s{1,16}|us\s{1,16})?(?:the\s{1,16}|your\s{1,16}|all\s{1,16}|any\s{1,16})?(?:contents?\s{1,16}of\s{1,16}(?:the\s{1,16}|your\s{1,16})?)?(?:[~.\w/-]{0,60}\/)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|session cookies)\b${SAFE_SHARE}`,
+      String.raw`\b(?:send|post|upload|forward|email|paste|share|leak|exfiltrate)\s{1,16}(?:me\s{1,16}|us\s{1,16})?(?:the\s{1,16}|your\s{1,16}|all\s{1,16}|any\s{1,16})?(?:contents?\s{1,16}of\s{1,16}(?:the\s{1,16}|your\s{1,16})?)?(?:[~.\w/-]{0,60}\/)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|session cookies)\b${SAFE_SHARE}`,
       "iu",
     ),
     isOrder,
@@ -580,6 +646,11 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
     ),
     isOrder,
   ),
+  // A request to take secrets and send them to a site, in two verbs. Each half alone is a hint
+  // ("print the API key", "send the report to https://…"), so together they made nothing. The rule
+  // finds the send, which is rare, and looks back for the take: a long page full of "read" and
+  // "cookies" then costs the check nothing more.
+  rule("secret-send-request", new RegExp(SEND_IT, "iu"), takesSecretFirst, TAKE_REACH),
   // A request that names a secret: a verb and a secret close together. A word such as "password"
   // or "cookies" alone, as on every login page and cookie banner, is not one.
   rule(
@@ -1012,7 +1083,7 @@ class Findings {
    * that overlap by more than the longest match, so a match across the end of a part is found whole,
    * and found once. A rule that weighs less than high stops when the budget ends, and returns false.
    */
-  scan(text: string, { code, pattern, keep }: Rule, offset = 0, place?: PlaceMap): boolean {
+  scan(text: string, { code, pattern, keep, reach = BEFORE_REACH }: Rule, offset = 0, place?: PlaceMap): boolean {
     let count = 0;
     // A rule that weighs high reads the whole text in one pass: no budget stops it, and no part ends it.
     const partSize = WEIGHT[code] === "high" ? Math.max(text.length, 1) : SCAN_PART;
@@ -1025,7 +1096,7 @@ class Findings {
         // A match that starts in the overlap belongs to the next part.
         if (match.index >= partSize && partStart + partSize < text.length) break;
         const at = partStart + match.index;
-        if (keep && !keep(text.slice(Math.max(0, at - BEFORE_REACH), at), match[0])) continue;
+        if (keep && !keep(text.slice(Math.max(0, at - reach), at), match[0])) continue;
         count += 1;
         if (count > HITS_PER_RULE) {
           // More places than the check records: the excerpt cannot show them all.
@@ -1079,11 +1150,11 @@ class Findings {
 }
 
 /** Whether one rule matches somewhere in a short text, past a negation when the rule has a check. */
-function matchesIn(text: string, { pattern, keep }: Rule): boolean {
+function matchesIn(text: string, { pattern, keep, reach = BEFORE_REACH }: Rule): boolean {
   pattern.lastIndex = 0;
   for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
     if (match[0].length === 0) pattern.lastIndex += 1;
-    if (!keep || keep(text.slice(Math.max(0, match.index - BEFORE_REACH), match.index), match[0])) {
+    if (!keep || keep(text.slice(Math.max(0, match.index - reach), match.index), match[0])) {
       pattern.lastIndex = 0;
       return true;
     }
