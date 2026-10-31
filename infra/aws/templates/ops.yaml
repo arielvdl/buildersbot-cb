@@ -555,6 +555,31 @@ Resources:
         - Id: alerts
           Arn: !ImportValue bb-srv-base-AlertTopicArn
 
+  # A Run Command sent by targets (tags, resource groups) does not name the instances, so the rules
+  # per VM (bb-srv-<sector>-command-other-doc, bb-srv-signal-command) do not see it, although it may
+  # reach a Builders Bot host as root. Account-wide: it also alerts on other teams' targeted commands.
+  # CloudTrail writes the field as targets[].key; Key covers the other spelling.
+  CommandByTargetsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-command-by-targets
+      Description: An SSM Run Command sent by targets in the account (it may reach a Builders Bot host without naming it).
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [SendCommand]
+          $or:
+            - requestParameters:
+                targets:
+                  key: [{exists: true}]
+            - requestParameters:
+                targets:
+                  Key: [{exists: true}]
+      Targets:
+        - Id: alerts
+          Arn: !ImportValue bb-srv-base-AlertTopicArn
+
 Outputs:
   InstallDocumentName:
     Value: !Ref InstallDocument

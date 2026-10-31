@@ -280,6 +280,23 @@ Resources:
             documentName: [{anything-but: [bb-srv-signal-Shell]}]
       Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
 
+  # Run Command runs as root without a session log, and root on this VM reads the 4 secrets: no
+  # document is expected here, so any command sent to this VM by id alerts (by targets: the rule
+  # bb-srv-command-by-targets in bb-srv-ops).
+  CommandRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: bb-srv-signal-command
+      Description: An SSM Run Command on the Signal VM.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [SendCommand]
+          requestParameters:
+            instanceIds: [!Ref SignalInstance]
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
+
   HealthMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:

@@ -625,6 +625,32 @@ Resources:
             documentName: [{anything-but: [!Sub 'bb-srv-${Sector}-Shell', !Sub 'bb-srv-${Sector}-Login']}]
       Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
 
+  # Run Command runs as root without a session log (root reads the owner account session in /data).
+  # bb-srv-operator may send only bb-srv-* documents, but the administrator identities of the account
+  # are not limited: any other document sent to this VM alerts. A command sent by targets (tags) is
+  # caught by bb-srv-command-by-targets in bb-srv-ops. DLM may name its document by ARN.
+  CommandOtherDocumentRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub bb-srv-${Sector}-command-other-doc
+      Description: !Sub An SSM Run Command on sector ${Sector} with a document other than the bb-srv ones.
+      EventPattern:
+        source: [aws.ssm]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventName: [SendCommand]
+          requestParameters:
+            instanceIds: [!Ref Instance]
+            documentName:
+              - anything-but:
+                  - bb-srv-Install
+                  - bb-srv-Upgrade
+                  - bb-srv-Down
+                  - bb-srv-Status
+                  - bb-srv-SnapshotHooks
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/bb-srv-SnapshotHooks'
+      Targets: [{Id: alerts, Arn: !ImportValue bb-srv-base-AlertTopicArn}]
+
   # ---------------------------------------------------------------- cost
   SectorBudget:
     Type: AWS::Budgets::Budget
