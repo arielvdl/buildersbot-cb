@@ -6,8 +6,8 @@
 //   target, with the precedence of electron-builder (target, platform, root, then the package.json
 //   `repository`), or a `generic` feed that the update feed policy allows;
 // - `nightly-labs` is not in the build configs, the package.json `repository`, `bugs` and
-//   `homepage`, `src/main`, `scripts/hosting`, `scripts/install-server.sh` and the download pages,
-//   except the documentation links and comments in ALLOWED_MENTIONS (tests are not part of a build);
+//   `homepage`, `src/main`, `scripts/hosting`, `scripts/install-server.sh`, the macOS Host Manager
+//   and the download pages, except the lines in ALLOWED_MENTIONS (tests are not part of a build);
 // - the real `decideUpdateFeed` refuses the upstream app-update.yml, an HTTP feed and a feed on
 //   another origin, and allows a listed origin only when the list is not empty;
 // - the application decides the feed before it imports electron-updater, and the hosted installer,
@@ -219,6 +219,9 @@ await check("nightly-labs appears only in documentation links and comments", () 
     ...filesUnder("src/main").filter((file) => !/\.test\.tsx?$/u.test(file)),
     ...filesUnder("scripts/hosting"),
     "scripts/install-server.sh",
+    "scripts/host-manager.ts",
+    "scripts/host-manager-macos.ts",
+    "scripts/openbot-host-macos.ts",
     "apps/auth-api/src/lib/download-pages.ts",
   ];
   for (const file of files) {
@@ -326,20 +329,28 @@ await check("the hosted installer and the Servers panel send no request", async 
   return { decision: decideReleaseFeed(), hostedResult, linuxResult, panelStatus };
 });
 
-await check("the macOS Host Manager stages no release and sends no request", async () => {
-  if (decideReleaseFeed().allowed) return "skipped: a release feed is allowed, so the Host Manager would run";
+// The Host Manager came from the upstream app and has no Builders Bot release feed. It must find no
+// release and install nothing, also when a release feed is allowed.
+await check("the macOS Host Manager stages and installs no release and sends no request", async () => {
   const { macHostOperations } = await import("./host-manager-macos");
   const recorder = recordingFetch();
   const realFetch = globalThis.fetch;
   Reflect.set(globalThis, "fetch", recorder.request);
+  let install: string;
   try {
-    const staged = await macHostOperations().stageLatest();
+    const operations = macHostOperations();
+    const staged = await operations.stageLatest();
     if (staged !== null) fail(`The Host Manager staged ${staged}.`);
+    install = await operations.install("99.0.0").then(
+      () => "installed",
+      (error: unknown) => (error instanceof Error ? error.message : String(error)),
+    );
   } finally {
     Reflect.set(globalThis, "fetch", realFetch);
   }
   if (recorder.urls.length > 0) fail(`Requests were sent: ${recorder.urls.join(", ")}`);
-  return "no release, no request";
+  if (!install.includes("not available")) fail(`The Host Manager install gave: ${install}`);
+  return { staged: null, install };
 });
 
 await check("the root update script and the server install download nothing", () => {
