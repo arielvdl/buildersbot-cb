@@ -62,6 +62,7 @@ import { BrowserControlSessions } from "./browser-control-sessions";
 import { browserViewCursor } from "./browser-cursor";
 import { BrowserDiagnostics } from "./browser-diagnostics";
 import { type BrowserOperationError, browserCall, browserFailure, browserSync } from "./browser-effects";
+import { type BrowserEgress, electronEgressSession } from "./browser-egress";
 import {
   type BrowserHostTab,
   type BrowserPreviewPage,
@@ -72,7 +73,7 @@ import {
   toPublicTab,
 } from "./browser-host-tab";
 import { sessionBrowserUserAgent } from "./browser-identity";
-import { describeBrowserTarget, navigateAndWait } from "./browser-navigation";
+import { describeBrowserTarget, navigateAndWait, setNavigationFailureText } from "./browser-navigation";
 import {
   browserLoadOptions,
   browserRequestHeaders,
@@ -397,6 +398,13 @@ export class BrowserHost {
   /** Whether an agent runs a turn now. Until the agent service sets it, each agent counts as working. */
   #agentWorking: (agentId: string) => boolean = () => true;
   readonly #siteSession: BrowserSiteSession;
+  /** The egress proxy of this server, or null where there is none (a test). */
+  readonly #egress: BrowserEgress | null;
+  /**
+   * The sessions that the egress proxy has, each with its detach. `fromPartition` gives the same
+   * session again after `clearTabSession`, and two attachments would share its one request gate.
+   */
+  readonly #egressSessions = new WeakMap<Session, () => void>();
   readonly #idleTabSweep: NodeJS.Timeout;
 
   constructor(
@@ -420,6 +428,11 @@ export class BrowserHost {
       profileExists?: (profileId: string) => boolean;
       /** The sign-in of the person's own Chrome for one site, after the person agreed to it. */
       siteSession?: BrowserSiteSession;
+      /**
+       * The egress proxy of the server. Each session gets it before its first request, so a tab that
+       * `restore` loads cannot go direct. See docs/architecture/egress-proxy.md.
+       */
+      egress?: BrowserEgress;
     } = {},
   ) {
     this.#window = window;
@@ -427,6 +440,8 @@ export class BrowserHost {
     this.#memoryLow = memoryLow;
     this.#sleepSooner = options.sleepSooner ?? (() => memoryLow());
     this.#siteSession = options.siteSession ?? (async () => ({ status: "unavailable" }));
+    this.#egress = options.egress ?? null;
+    this.#egress?.subscribe(() => this.#applyWebRtcPolicy());
     this.#browserProfile = options.browserProfile ?? (() => ({ kind: "shared" }));
     this.#profileExists = options.profileExists ?? (() => false);
     this.#downloadsRoot = downloadsRoot;
@@ -1030,8 +1045,12 @@ export class BrowserHost {
           if (!tab.contents.isDestroyed()) tab.contents.close();
         });
         const privateSession = tab.privateSession;
-        if (privateSession && ![...this.#tabs.values()].some((other) => other.privateSession === privateSession))
+        if (privateSession && ![...this.#tabs.values()].some((other) => other.privateSession === privateSession)) {
+          // The private session is not used again: the egress proxy stops following it.
+          this.#egressSessions.get(privateSession)?.();
+          this.#egressSessions.delete(privateSession);
           yield* browserCall(() => privateSession.clearStorageData()).pipe(Effect.ignore);
+        }
         if (Exit.isFailure(discarded)) return yield* Effect.failCause(discarded.cause);
       }),
       this.#scope,
@@ -2648,10 +2667,24 @@ export class BrowserHost {
     });
     view.webContents.setAudioMuted(true);
     view.setBackgroundColor("#0b0b0b");
+    const policy = this.#egress?.webRtcPolicy();
+    if (policy) view.webContents.setWebRTCIPHandlingPolicy(policy);
     return view;
   }
 
+  /** While the egress proxy is on, WebRTC sends no UDP outside the proxy, so a page cannot read the real address. */
+  #applyWebRtcPolicy(): void {
+    const policy = this.#egress?.webRtcPolicy();
+    if (!policy) return;
+    for (const tab of this.#tabs.values()) {
+      if (!tab.contents.isDestroyed()) tab.contents.setWebRTCIPHandlingPolicy(policy);
+    }
+  }
+
   #configureSession(target: Session): void {
+    // First, so the proxy gate is in place before the session sends anything. Once for each session.
+    if (this.#egress && !this.#egressSessions.has(target))
+      this.#egressSessions.set(target, this.#egress.attachSession(electronEgressSession(target)));
     // Use the installed Chromium identity for pages, frames and workers.
     // The request policy keeps the Google account compatibility exception.
     // Service workers read the process fallback instead of the session, so it changes too.
@@ -2875,15 +2908,27 @@ export class BrowserHost {
       if (details.level === "error") this.#emitChanged();
     });
     contents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
-      if (!isMainFrame || code === -3 || tab.secret) return;
+      if (!isMainFrame || code === -3) return;
+      this.#egress?.reportPageFailure(code);
+      if (tab.secret) return;
+      const egressText = this.#egress?.pageFailureText(code);
       tab.diagnostics.add({
         kind: "load",
         level: "error",
-        message: `${code}: ${description}`,
+        message: egressText ? `${code}: ${egressText}` : `${code}: ${description}`,
         ...diagnosticUrlField(url),
       });
       this.#emitChanged();
     });
+    // A challenge of the egress proxy is answered here, with the stored credentials, and never shown.
+    contents.on("login", (event, details, authInfo, callback) => {
+      const answer = this.#egress?.proxyLogin(contents.id, details.url, authInfo) ?? null;
+      if (answer === null) return;
+      event.preventDefault();
+      if (answer === "cancel") callback();
+      else callback(answer.username, answer.password);
+    });
+    setNavigationFailureText(contents, (code) => this.#egress?.pageFailureText(code) ?? null);
     contents.on("page-title-updated", changed);
     contents.on("did-navigate", (_event, url) => {
       tab.documents += 1;

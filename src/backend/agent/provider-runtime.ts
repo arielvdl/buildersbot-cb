@@ -206,6 +206,11 @@ const SPAWN_ENVIRONMENT_PROVIDERS: readonly AgentProvider[] = [
   "cline",
   "acp",
 ];
+/**
+ * The providers whose one shared process has a value that can change in its own spawn environment:
+ * the Codex app-server gets the egress proxy variables there, for its model calls and its MCP clients.
+ */
+const APP_SERVER_ENVIRONMENT_PROVIDERS: readonly AgentProvider[] = ["codex"];
 
 /**
  * One log line for each row whose state or connection state changes, so the provider log shows when a
@@ -2095,8 +2100,14 @@ export class ProviderRuntime implements ProviderPort {
 
   readonly reloadAgentEnvironment = Effect.fn("ProviderRuntime.reloadAgentEnvironment")(function* (
     this: ProviderRuntime,
+    options: { appServer?: boolean } = {},
   ) {
-    yield* Effect.forEach(SPAWN_ENVIRONMENT_PROVIDERS, (provider) => this.#reloadAgentEnvironment(provider), {
+    // `appServer` adds the providers that keep a changed value in the spawn environment of one
+    // shared process, such as the egress proxy variables of the Codex app-server.
+    const providers = options.appServer
+      ? [...SPAWN_ENVIRONMENT_PROVIDERS, ...APP_SERVER_ENVIRONMENT_PROVIDERS]
+      : SPAWN_ENVIRONMENT_PROVIDERS;
+    yield* Effect.forEach(providers, (provider) => this.#reloadAgentEnvironment(provider), {
       concurrency: "unbounded",
       discard: true,
     });

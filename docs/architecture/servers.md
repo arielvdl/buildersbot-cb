@@ -482,6 +482,7 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `host-admin-v1` | Server name and logo | `hostAdmin` |
 | `host-update-v1` | Check for, download and restart into an app update; cancel a restart that waits | `hostAdmin` |
 | `host-timezone-v1` | Read and set the server timezone | `hostAdmin` |
+| `egress-proxy-v1` | Read, set and check the HTTP proxy of the agents' internet traffic; no answer has the password (protocol 9 only) | `hostAdmin` |
 | `host-key-rotation-v1` | Change the host's key. Owner only: an admin gets 403 | none: only the mobile app sends it |
 | `agent-memory-limit-v1` | Read and set how many memories each agent keeps | `hostAdmin` |
 | `memory-review-v1` | Read and set how often the host's agents review their memories in the background, or Off | `hostAdmin` |
@@ -533,6 +534,10 @@ through `hostSetupProviderProps`, and Continue stays blocked until a provider is
 then opens with that provider. The choice stays in memory for the server; it is not written to the
 setup file of this computer. A member, the local server, and a host without `providers-v1` open the
 form directly.
+
+`egress-proxy-v1` reads, sets and checks the network egress proxy of the server. See
+[Network egress through a proxy](egress-proxy.md) for what goes through it, the fail-closed rules,
+and the default that a new server takes.
 
 `host-timezone-v1` reads and sets the server timezone (`openbot-server-timezone-v1.json`; `null` is
 automatic, the system zone of the host). When an agent creates a routine, the zone comes from the tool

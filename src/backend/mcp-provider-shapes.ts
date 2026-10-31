@@ -36,6 +36,19 @@ export interface McpToolRuntimes {
   readonly binDirectories: readonly string[];
   /** Command word to the absolute program that answers it, such as `npx` to the managed `bunx`. */
   readonly commandAliases: Readonly<Record<string, string>>;
+  /**
+   * Variables that every stdio server of this server starts with, after its own: the egress proxy
+   * variables (`HTTP_PROXY` and the others) while the switch is on. Codex starts a stdio server with
+   * only the variables of its entry, so a server cannot depend on what a provider passes down. See
+   * docs/architecture/egress-proxy.md.
+   */
+  readonly launchEnvironment?: Readonly<Record<string, string>>;
+  /**
+   * The `fetch` of an http server that this process reaches itself: the MCP test. The egress proxy's
+   * own while its switch is on, so the test uses the proxy as the agents do. The platform fetch when
+   * absent. A sign-in keeps its own fetch.
+   */
+  readonly fetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
 }
 
 /** The machine exactly as it is. Used by every caller that has no runtime manager, including tests. */
@@ -138,6 +151,8 @@ export type UsableMcpServer =
       authorization: string | null;
       /** See `McpEndpoint.proxied`. */
       proxied: boolean;
+      /** See `McpToolRuntimes.launchEnvironment`. Only a stdio server has it. */
+      launchEnvironment?: Readonly<Record<string, string>>;
       error?: undefined;
       reason?: undefined;
     }
@@ -149,6 +164,7 @@ export type UsableMcpServer =
       url?: undefined;
       authorization?: undefined;
       proxied?: undefined;
+      launchEnvironment?: undefined;
       error: string;
       /** Machine-readable beside the sentence, so a reporter never has to match on the wording. */
       reason: Exclude<McpDropReason, "working_directory_unsupported" | "name_conflict">;
@@ -239,6 +255,7 @@ export const usableMcpServer = Effect.fnUntraced(function* (
     url: "",
     authorization: null,
     proxied: false,
+    ...(tools.launchEnvironment ? { launchEnvironment: tools.launchEnvironment } : {}),
   };
 });
 
@@ -441,11 +458,15 @@ export const needsManagedRuntime = Effect.fn("McpShape.needsManagedRuntime")(fun
  * in - the configured `PATH` with the managed directories appended - so launching with anything
  * else would disagree with the lookup. The user's own directories still come first, because they
  * were first in the resolved list.
+ *
+ * The launch variables of this server come last (`McpToolRuntimes.launchEnvironment`): with the
+ * egress proxy on, a configured `HTTPS_PROXY` cannot send a server's traffic past the proxy.
  */
 export function mcpLaunchEnvironment(server: UsableMcpServer): Record<string, string> {
   const environment = mcpEnvironment(server.config);
   // Truthiness, not a null check: an empty list is no list, and the configured value stands.
   if (server.path) environment.PATH = server.path;
+  if (server.launchEnvironment) Object.assign(environment, server.launchEnvironment);
   return environment;
 }
 

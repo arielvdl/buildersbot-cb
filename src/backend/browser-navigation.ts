@@ -60,6 +60,13 @@ export const stopLoadingAndWait = Effect.fn("Browser.stopLoadingAndWait")((conte
   });
 });
 
+/** A sentence that replaces the Chromium error of a failed load in one tab, such as the egress proxy's. */
+const failureTexts = new WeakMap<WebContents, (code: number) => string | null>();
+
+export function setNavigationFailureText(contents: WebContents, text: (code: number) => string | null): void {
+  failureTexts.set(contents, text);
+}
+
 /** Without `initiate`, the load in progress counts as a started cross-document navigation. */
 const watchNavigation = Effect.fn("Browser.watchNavigation")(
   (contents: WebContents, initiate: (() => boolean | Promise<unknown>) | undefined, timeoutMs: number | null) => {
@@ -117,7 +124,16 @@ const watchNavigation = Effect.fn("Browser.watchNavigation")(
       };
       const didFailLoad = (_event: unknown, code: number, description: string, _url: string, isMainFrame: boolean) => {
         if (!started || !isMainFrame || supersededBy(code)) return;
-        finish(new Error(timedOut ? NAVIGATION_TIMED_OUT : `Navigation failed (${code}): ${description}`));
+        const text = timedOut ? null : failureTexts.get(contents)?.(code);
+        finish(
+          new Error(
+            timedOut
+              ? NAVIGATION_TIMED_OUT
+              : text
+                ? `${text} (${code})`
+                : `Navigation failed (${code}): ${description}`,
+          ),
+        );
       };
       const destroyed = () => {
         finish(new Error(TAB_CLOSED));

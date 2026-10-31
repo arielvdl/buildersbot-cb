@@ -34,6 +34,7 @@ import {
   Tabs,
   Text,
   UsersRound,
+  Waypoints,
 } from "@openbot/ui";
 import type { LicenseCalls } from "@openbot/ui/features/billing/license-store";
 import type { ProviderSettingsDetail } from "@openbot/ui/features/settings/ProviderSettingsPage";
@@ -57,6 +58,7 @@ import type { HostPromptCacheTtlOptions, ProviderPromptCacheSource } from "../se
 import { type ServerVaultOptions, ServerVaultPanel } from "../vault/ServerVaultPanel";
 import type { McpServerConfig, McpTestResult } from "./mcp-servers";
 import { ServerDesktopPanel } from "./ServerDesktopPanel";
+import { type ServerEgressOptions, ServerEgressPanel } from "./ServerEgressPanel";
 import { createServerGeneralSection } from "./ServerGeneralSection";
 import { type ServerImportDetail, type ServerImportOptions, ServerImportPanel } from "./ServerImportPanel";
 import { type McpPanelDetail, type McpPanelSignIn, ServerMcpPanel } from "./ServerMcpPanel";
@@ -219,6 +221,11 @@ export interface ServerSettingsModalProps {
    * a host that serves `browser-profiles-v1` to an owner or admin.
    */
   browserProfiles?: ServerBrowserProfilesOptions | undefined;
+  /**
+   * The Network egress section appears only when a caller supplies this: this computer, or a host
+   * that serves `egress-proxy-v1` to an owner or admin.
+   */
+  egressProxy?: ServerEgressOptions | undefined;
   /** The Vault section: this computer, or a joined server that serves `vault-v1` to an owner or admin. */
   vault?: ServerVaultOptions | undefined;
   /** The section to show when the dialog opens. Updates shows General when the server has no Updates section. */
@@ -457,7 +464,8 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
         value === "import" ||
         value === "transfer" ||
         value === "routines" ||
-        value === "browser-profiles"
+        value === "browser-profiles" ||
+        value === "network"
       )
         setSection(value);
     },
@@ -683,6 +691,12 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
                 <span>{t(sections["browser-profiles"].title)}</span>
               </Tabs.Trigger>
             </Show>
+            <Show when={props.egressProxy}>
+              <Tabs.Trigger class="settings-modal-nav-item" value="network">
+                <Waypoints aria-hidden="true" />
+                <span>{t(sections.network.title)}</span>
+              </Tabs.Trigger>
+            </Show>
           </Tabs.List>
         }
       >
@@ -852,6 +866,16 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
               data-tab="browser-profiles"
             >
               <ServerBrowserProfilesPanel {...browserProfiles()} menuMount={modalElement()} />
+            </Tabs.Content>
+          )}
+        </Show>
+        <Show when={props.egressProxy}>
+          {(egressProxy) => (
+            <Tabs.Content value="network" class="settings-modal-tab-panel server-settings-panel" data-tab="network">
+              {/* Keyed: a form belongs to one server, so another server starts a new panel. */}
+              <Show when={props.server.id} keyed>
+                {(serverId) => <ServerEgressPanel serverId={serverId} {...egressProxy()} busy={busy} run={run} />}
+              </Show>
             </Tabs.Content>
           )}
         </Show>

@@ -49,6 +49,7 @@ export * from "./ipc-custom-providers";
 export * from "./ipc-desktop-apis";
 export * from "./ipc-dictation";
 export * from "./ipc-dynamic-island";
+export * from "./ipc-egress-proxy";
 export * from "./ipc-endpoints";
 export * from "./ipc-events";
 export * from "./ipc-external-links";

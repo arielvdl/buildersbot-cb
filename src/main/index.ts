@@ -668,6 +668,9 @@ function registerIpcHandlers({
   routineResults,
   securityGuard,
   guardPreference,
+  egressProxy,
+  egressDefault,
+  mcpToolRuntimes,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
   // Nothing is bound inline here: this is the trust boundary, and a reviewer should be able to read
@@ -765,7 +768,7 @@ function registerIpcHandlers({
     ...guardIpcHandlers({ guard: guardPreference, judgeReady: () => service.guardJudgeReady() }),
     ...routineFeedIpcHandlers({ routineFeed }),
     ...eventsIpcHandlers({ events, remoteServers }),
-    ...hostedServerIpcHandlers({ hostedServers }),
+    ...hostedServerIpcHandlers({ hostedServers, onCreated: (serverId) => egressDefault.serverCreated(serverId) }),
     ...localServerIpcHandlers({ localServers }),
     ...customProviderIpcHandlers(customProviderChanges),
     ...customAgentIpcHandlers(customAgentChanges),
@@ -834,6 +837,8 @@ function registerIpcHandlers({
       machineAlerts,
       promptCacheTtl,
       agentAccess,
+      egressProxy,
+      egressDefault,
       localServerId: () => teamStore.getIdentity()?.serverId,
       localAgentIds: () => service.listAgents().map((agent) => agent.id),
     }),
@@ -858,7 +863,7 @@ function registerIpcHandlers({
         Effect.runFork(providerRuntimes.ensureToolRuntimes());
       },
       ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
-      toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+      toolRuntimes: mcpToolRuntimes,
       relay: signInRelayClient,
     }),
     ...attachmentIpcHandlers({

@@ -33,7 +33,7 @@ import {
   requestGitHubDeviceCode,
 } from "./github-device-flow";
 import { GitHubOperationError, GitHubPlatform, githubCall, toGitHubOperationError } from "./github-effects";
-import { GitHubMcpProxy } from "./github-mcp-proxy";
+import { type GitHubMcpFetch, GitHubMcpProxy } from "./github-mcp-proxy";
 
 const logger = createBuildersBotLogger("github-connector");
 
@@ -79,6 +79,11 @@ export interface GitHubConnectorServiceOptions {
   apiUrl: string;
   openExternal: (url: string) => Promise<void>;
   fetch?: GitHubFetch;
+  /**
+   * The `fetch` of the GitHub MCP proxy's requests to GitHub, which carry the agents' tool calls. A
+   * server with the egress proxy on gives its own, so they use the proxy. The platform fetch when absent.
+   */
+  mcpFetch?: GitHubMcpFetch;
   now?: () => number;
 }
 
@@ -110,6 +115,7 @@ export class GitHubConnectorService {
   readonly #scope = Scope.makeUnsafe();
   readonly #operations = new Set<Deferred.Deferred<void>>();
   readonly #fetch: GitHubFetch;
+  readonly #mcpFetch: GitHubMcpFetch | undefined;
   readonly #now: () => number;
   readonly #statusListeners = new Set<(status: GitHubConnectorStatus) => void>();
   readonly #accessListeners = new Set<() => void>();
@@ -146,6 +152,7 @@ export class GitHubConnectorService {
     this.#store = options.store;
     this.#toolDirectory = options.toolDirectory;
     this.#fetch = options.fetch ?? ((url, init) => fetch(url, init));
+    this.#mcpFetch = options.mcpFetch;
     this.#platform = GitHubPlatform.layer(this.#fetch, options.openExternal);
     this.#now = options.now ?? Date.now;
     this.#botTokens = new GitHubBotTokens({ apiUrl: options.apiUrl, fetch: this.#fetch, now: this.#now });
@@ -885,6 +892,7 @@ export class GitHubConnectorService {
       secret: () => this.#mcpProxySecret,
       userToken: () => this.accessToken(),
       botToken: (owner, name) => this.#botTokens.forRepository(owner, name),
+      ...(this.#mcpFetch ? { fetch: this.#mcpFetch } : {}),
     });
     const attempt5 = yield* Effect.gen({ self: this }, function* () {
       return yield* proxy.start(record?.mcpProxy?.port ?? null);

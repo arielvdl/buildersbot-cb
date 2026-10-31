@@ -397,6 +397,20 @@ export interface ProviderClientContext {
    */
   readonly serverEnvironment?: Readonly<Record<string, string>>;
   /**
+   * The egress proxy variables of this server (`HTTP_PROXY` and the others), read when a shared
+   * process starts. They are in `agentEnvironment` too, for the programs that agents start. The Codex
+   * app-server gets them in its own spawn environment as well, for its model calls, its MCP clients
+   * and the stdio servers it starts. A change restarts it (`reloadAgentEnvironment` with
+   * `appServer`). Empty while the switch is off. See docs/architecture/egress-proxy.md.
+   */
+  readonly egressEnvironment?: () => Readonly<Record<string, string>>;
+  /**
+   * The `fetch` of the requests that this process sends for the agents, such as a tool call through
+   * the MCP OAuth proxy. With the egress proxy on, it goes through the proxy. The platform fetch
+   * when absent.
+   */
+  readonly egressFetch?: (input: URL, init: RequestInit) => Promise<Response>;
+  /**
    * The home folder variable of a provider account after the first, for a driver with `accounts`.
    * Every process the client starts gets it, the account check included, so the client signs in
    * and keeps its sessions in that folder only.
@@ -696,6 +710,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
       new CodexAppServerClient(cli.executable, requestTimeoutMs, {
         ...cliPathEnvironment(cli),
         ...context.serverEnvironment,
+        ...context.egressEnvironment?.(),
         ...context.accountEnvironment,
       }),
     authState: (account) => ({ kind: "chatgpt", email: account?.email ?? null }),

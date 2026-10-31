@@ -15,12 +15,14 @@ import {
   type AgentAccessChange,
   type AgentAccessSnapshot,
   decodeAgentAccessSnapshot,
+  decodeEgressProxyView,
   decodeHostAgentMemoryLimit,
   decodeHostMemoryReview,
   decodeHostTimezoneSettings,
   decodeHostUpdateStatus,
   decodeMachineAlertSettings,
   decodePromptCacheTtlSetting,
+  type EgressProxyUpdate,
   type HostUpdateSettingsChange,
   type HostUpdateStatus,
   hostAgentMemoryLimit,
@@ -30,6 +32,7 @@ import {
   type MachineAlertSettings,
   type PromptCacheTtl,
   parseAgentAccessChange,
+  parseEgressProxyUpdate,
   type ServerSummary,
   UPDATE_RESTART_MODES,
   type UpdateHostIdentityInput,
@@ -42,6 +45,7 @@ import {
   AGENT_MEMORY_LIMIT_ROUTES,
 } from "@openbot/contracts/team-protocol/agent-memory-limit-v1";
 import type { TeamCurrentCapability } from "@openbot/contracts/team-protocol/current";
+import { EGRESS_PROXY_CAPABILITY, EGRESS_PROXY_ROUTES } from "@openbot/contracts/team-protocol/egress-proxy-v1";
 import { HOST_ADMIN_CAPABILITY, HOST_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/host-admin-v1";
 import { HOST_TIMEZONE_CAPABILITY, HOST_TIMEZONE_ROUTES } from "@openbot/contracts/team-protocol/host-timezone-v1";
 import { HOST_UPDATE_CAPABILITY, HOST_UPDATE_ROUTES } from "@openbot/contracts/team-protocol/host-update-v1";
@@ -58,6 +62,9 @@ import { sourceText } from "@openbot/i18n/source";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import { type AgentAccessStore, agentAccessSnapshot } from "../agent-access-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
+import { EGRESS_PROXY_REMOTE_TIMEOUT_MS } from "../egress-proxy-check";
+import type { EgressProxyDefault } from "../egress-proxy-default";
+import type { EgressProxyService } from "../egress-proxy-service";
 import type { HostService } from "../host-service";
 import type { MachineAlertMonitor } from "../machine-alerts";
 import type { MemoryReviewPreferenceStore } from "../memory-review-preference-store";
@@ -66,7 +73,7 @@ import { acceptEmpty, decodeHostReleaseStatusFromHost, type ResponseDecoder } fr
 import type { RemoteRequestInit } from "../remote-server-client";
 import { parseServerTimezone, type ServerTimezonePreferenceStore } from "../server-timezone-preference-store";
 import { parseAgentMemoryLimitPreference, parseHostUpdateSettings, parseMemoryReviewPreference } from "./app-inputs";
-import type { IpcGroupHandlers } from "./define-ipc-group";
+import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
 import { parseHostIdentity } from "./server-inputs";
 import { withLocalHostSummary } from "./team-handlers";
@@ -92,6 +99,10 @@ interface HostAdminIpcDependencies {
   machineAlerts: Pick<MachineAlertMonitor, "alerts" | "setAlerts" | "canBeResponsible">;
   promptCacheTtl: Pick<PromptCacheTtlPreferenceStore, "get" | "set">;
   agentAccess: Pick<AgentAccessStore, "levels" | "set">;
+  /** The egress proxy of this computer's server. */
+  egressProxy: Pick<EgressProxyService, "view" | "update" | "test">;
+  /** The app default for the servers that this app makes later. */
+  egressDefault: Pick<EgressProxyDefault, "view" | "set">;
   /** The server ID of this computer's host, when it has one. Roles are stored by it. */
   localServerId: () => string | undefined;
   localAgentIds: () => string[];
@@ -112,6 +123,8 @@ export function hostAdminIpcHandlers({
   machineAlerts,
   promptCacheTtl,
   agentAccess,
+  egressProxy,
+  egressDefault,
   localServerId,
   localAgentIds,
 }: HostAdminIpcDependencies): Pick<IpcGroupHandlers, "hostAdmin"> {
@@ -152,6 +165,19 @@ export function hostAdminIpcHandlers({
       throw new Error(sourceText("error.team.promptCacheTtlUnsupported"));
     return runCauseEffect(
       remoteServers.request(serverId, route, decodePromptCacheTtlSetting, { method: "POST", body }),
+    );
+  }
+  function remoteEgress(serverId: string, route: string, body: EgressProxyUpdate | Record<string, never>) {
+    if (!remoteServers.supportsCapability(serverId, EGRESS_PROXY_CAPABILITY))
+      throw new Error(sourceText("error.team.egressProxyUnsupported"));
+    // The update and test routes wait for a check through the proxy, which can be slow.
+    const slow = route !== EGRESS_PROXY_ROUTES.settings;
+    return runCauseEffect(
+      remoteServers.request(serverId, route, decodeEgressProxyView, {
+        method: "POST",
+        body,
+        ...(slow ? { timeoutMs: EGRESS_PROXY_REMOTE_TIMEOUT_MS } : {}),
+      }),
     );
   }
   function localAccessServerId(): string {
@@ -310,6 +336,20 @@ export function hostAdminIpcHandlers({
         },
         remote: (change, serverId) => remoteAccess(serverId, AGENT_ACCESS_ROUTES.set, change),
       }),
+      getEgressProxy: scopedQueryHandler({
+        local: () => egressProxy.view(),
+        remote: (serverId) => remoteEgress(serverId, EGRESS_PROXY_ROUTES.settings, {}),
+      }),
+      setEgressProxy: scopedHandler(parseEgressProxyUpdate, {
+        local: (update) => egressProxy.update(update),
+        remote: (update, serverId) => remoteEgress(serverId, EGRESS_PROXY_ROUTES.update, update),
+      }),
+      testEgressProxy: scopedQueryHandler({
+        local: () => egressProxy.test(),
+        remote: (serverId) => remoteEgress(serverId, EGRESS_PROXY_ROUTES.test, {}),
+      }),
+      getEgressDefault: handler(() => egressDefault.view()),
+      setEgressDefault: payloadHandler(parseEgressDefaultInput, (update) => egressDefault.set(update)),
     },
   };
 }
@@ -325,6 +365,11 @@ function wireIdentity(input: UpdateHostIdentityInput) {
             : null,
         }),
   };
+}
+
+/** Null removes the default; anything else is a whole setting. */
+function parseEgressDefaultInput(value: unknown): EgressProxyUpdate | null {
+  return value === null ? null : parseEgressProxyUpdate(value);
 }
 
 function parsePromptCacheTtl(value: unknown): PromptCacheTtl {

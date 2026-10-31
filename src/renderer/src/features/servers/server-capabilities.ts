@@ -93,7 +93,8 @@ export function serverSupportsCapability(
       capability === "agent-thread-branches-v1" ||
       capability === "side-question-v1" ||
       capability === "agent-notification-levels-v1" ||
-      capability === "queue-force-v1") &&
+      capability === "queue-force-v1" ||
+      capability === "egress-proxy-v1") &&
     server?.kind === "remote"
   ) {
     return server.compatibility?.capabilities.includes(capability) === true;

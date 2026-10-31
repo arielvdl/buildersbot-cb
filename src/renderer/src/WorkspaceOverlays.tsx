@@ -835,6 +835,9 @@ function ServerSettings() {
               ? { store: browserProfiles(), listAgents: () => appPort().agent.listAgents(server().id) }
               : undefined
           }
+          // Owners and admins of this computer, or of a host with `egress-proxy-v1`. The desktop also
+          // keeps the default that the servers it makes later take.
+          egressProxy={sectionShown(server(), "network") ? { defaults: appPort().hostAdmin } : undefined}
           vault={vault()}
         />
       )}

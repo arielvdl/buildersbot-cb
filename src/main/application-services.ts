@@ -88,6 +88,8 @@ import type {
 } from "@openbot/contracts/ipc";
 import {
   agentBrowserProfile,
+  decodeEgressProxyView,
+  type EgressProxyUpdate,
   IPC_ENDPOINTS,
   isManagedToolRuntime,
   isUpdateBusyPhase,
@@ -95,6 +97,7 @@ import {
   latestTurnAnswer,
 } from "@openbot/contracts/ipc";
 import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
+import { EGRESS_PROXY_CAPABILITY, EGRESS_PROXY_ROUTES } from "@openbot/contracts/team-protocol/egress-proxy-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger, registerSecretValue, toLogValue } from "@openbot/logging";
 import { REMOTE_ACCOUNT_CHECK_INTERVAL_MS } from "@openbot/team-client";
@@ -125,6 +128,7 @@ import { runCauseEffect } from "../backend/effect-boundary";
 import { browserMemory } from "../backend/host-memory";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
+import type { McpToolRuntimes } from "../backend/mcp-provider-shapes";
 import { discordDriver } from "../backend/messaging/discord/discord-driver";
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
@@ -199,6 +203,11 @@ import { DictationPreferenceStore } from "./dictation-preference-store";
 import { DictationService } from "./dictation-service";
 import { performDynamicIslandCriticalAction } from "./dynamic-island-actions";
 import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFailed } from "./dynamic-island-window";
+import { EgressGateway } from "./egress-gateway";
+import { EGRESS_PROXY_REMOTE_TIMEOUT_MS } from "./egress-proxy-check";
+import { EgressProxyDefault } from "./egress-proxy-default";
+import { EgressProxyService, writePlaywrightEgressConfig } from "./egress-proxy-service";
+import { EGRESS_DEFAULT_FILE, EGRESS_PROXY_FILE, EgressProxyStore } from "./egress-proxy-store";
 import {
   createExternalLinkPreferenceStore,
   ExternalLinkOpener,
@@ -516,6 +525,8 @@ const TEARDOWN_ORDER = {
   service: 110,
   // After the service, so no agent is cut off from the browser while its turn still ends.
   browserBroker: 110.5,
+  // After the browser, the broker and the agents: the gateway refuses while they stop, never goes direct.
+  egressProxy: 110.7,
   mcpOAuth: 111,
   analytics: 112,
   // After all account consumers have stopped.
@@ -647,6 +658,11 @@ export interface ApplicationServices {
   securityGuard: SecurityGuardService;
   /** The Guard of tool calls and their results: its level and its reviewer model. */
   guardPreference: GuardPreferenceStore;
+  /** The egress proxy of this server, and the app default for the servers this app makes. */
+  egressProxy: EgressProxyService;
+  egressDefault: EgressProxyDefault;
+  /** The managed tool runtimes, with the egress proxy variables that each stdio MCP server starts with. */
+  mcpToolRuntimes: () => McpToolRuntimes;
   agentInitialization: AgentInitializationGate<AgentLifecycleFailed>;
   sidebarLayout: SidebarLayoutStore;
   host: HostService;
@@ -1205,6 +1221,36 @@ export async function createApplicationServices({
     });
   }
   const browserProfileStore = new BrowserProfileStore(store.database);
+  // The egress proxy of this server, before the browser restores its tabs and before any agent
+  // starts. A new server on this computer finds the app default here already: its parent wrote the
+  // file before the first start. See docs/architecture/egress-proxy.md.
+  const egressStore = new EgressProxyStore(
+    join(app.getPath("userData"), EGRESS_PROXY_FILE),
+    safeStorageCipher("error.app.secretStorageUnavailable"),
+  );
+  await runCauseEffect(egressStore.load());
+  const egressGateway = new EgressGateway({
+    route: () => egressProxy.gatewayRoute(),
+    onResult: (result) => egressProxy.onTraffic(result),
+  });
+  const egressProxy: EgressProxyService = new EgressProxyService({
+    store: egressStore,
+    gateway: egressGateway,
+    log: { warn: (message, detail) => logger.warn(message, toLogValue(detail)) },
+  });
+  await egressProxy.start();
+  teardown.push(TEARDOWN_ORDER.egressProxy, "the egress proxy", () => egressProxy.close());
+  const egressDefaultStore = new EgressProxyStore(
+    join(app.getPath("userData"), EGRESS_DEFAULT_FILE),
+    safeStorageCipher("error.app.secretStorageUnavailable"),
+  );
+  await runCauseEffect(egressDefaultStore.load());
+  const egressDefault = new EgressProxyDefault({
+    store: egressDefaultStore,
+    log: { warn: (message, detail) => logger.warn(message, toLogValue(detail)) },
+    serverStore: (userData) =>
+      new EgressProxyStore(join(userData, EGRESS_PROXY_FILE), safeStorageCipher("error.app.secretStorageUnavailable")),
+  });
   const siteSessionGrants = new SiteSessionGrants(join(app.getPath("userData"), SITE_SESSION_GRANTS_FILE));
   await siteSessionGrants.load();
   const siteSessionSource = createSiteSessionSource({
@@ -1241,6 +1287,7 @@ export async function createApplicationServices({
     },
     profileExists: (profileId) => browserProfileStore.get(profileId) !== undefined,
     siteSession: siteSessionSource,
+    egress: egressProxy,
   });
   teardown.push(TEARDOWN_ORDER.browser, "the browser", () => runCauseEffect(browser.destroy()));
   await runCauseEffect(browser.restore(store.list().map((agent) => ({ id: agent.id, threadId: agent.threadId }))));
@@ -1333,7 +1380,10 @@ export async function createApplicationServices({
             ...(process.env.PATH ?? "").split(delimiter).filter(Boolean),
             ...COMMON_PROGRAM_DIRECTORIES,
           ];
-          const row = playwrightUpstream(service.listMcpServers(), (name) => findProgram(name, directories));
+          // With the egress proxy on, the server's own browser goes through the gateway of this server.
+          const proxy = egressProxy.playwrightProxy();
+          const egress = proxy ? writePlaywrightEgressConfig(app.getPath("userData"), proxy) : undefined;
+          const row = playwrightUpstream(service.listMcpServers(), (name) => findProgram(name, directories), egress);
           if (!row) return null;
           // The token that the first approval in Chrome gave the extension, so that no click is asked again.
           const token = extensionTokenEnvironment(process.env, OPENCODE_CONFIG_PATH);
@@ -1345,6 +1395,19 @@ export async function createApplicationServices({
       return null;
     }
   })();
+  // The switch of the egress proxy decides which browser the Playwright server drives, so a change
+  // starts the server again at the next request.
+  let playwrightEgress = egressProxy.mode().kind !== "off";
+  egressProxy.subscribe((mode) => {
+    const on = mode.kind !== "off";
+    if (on === playwrightEgress) return;
+    playwrightEgress = on;
+    void browserBroker
+      ?.resetUpstream()
+      .catch((error: unknown) =>
+        logger.warn("The shared browser did not stop for the egress proxy change.", toLogValue(error)),
+      );
+  });
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
@@ -1494,6 +1557,16 @@ export async function createApplicationServices({
   );
   // Before `new AgentService`, which reads every `executablePath` eagerly.
   await runCauseEffect(providerRuntimes.initialize());
+  // The tool runtimes with the egress proxy variables that each stdio MCP server starts with, read at
+  // each spawn and each test. Nothing is added while the switch is off, so the fingerprints of the
+  // sessions stay as they were.
+  const mcpToolRuntimes = (): McpToolRuntimes => {
+    const runtimes = providerRuntimes.mcpToolRuntimes();
+    const launchEnvironment = egressProxy.environment();
+    return Object.keys(launchEnvironment).length > 0
+      ? { ...runtimes, launchEnvironment, fetch: egressProxy.fetch }
+      : runtimes;
+  };
   const secretCipher = safeStorageCipher("error.app.secretStorageUnavailable");
   const customProviders = new CustomProviderStore({
     path: join(app.getPath("userData"), CUSTOM_PROVIDERS_FILE),
@@ -1642,6 +1715,7 @@ export async function createApplicationServices({
     toolDirectory: join(app.getPath("userData"), "provider-state", "github"),
     apiUrl: centralAuthApiUrl,
     openExternal: openLink,
+    mcpFetch: egressProxy.fetch,
   });
   await runCauseEffect(githubConnector.load());
   teardown.push(TEARDOWN_ORDER.githubConnector, "the GitHub connection", () =>
@@ -1871,7 +1945,7 @@ export async function createApplicationServices({
           Effect.runFork(providerRuntimes.ensureToolRuntimes());
         },
         ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
-        toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+        toolRuntimes: mcpToolRuntimes,
       }),
     // `desktopCapturer` captures the display Builders Bot is on. With an agent display of its own, that
     // is only the Builders Bot window, so agents take their screenshots with the Computer Use driver.
@@ -1946,7 +2020,7 @@ export async function createApplicationServices({
       // The floor under those servers: the `bin` of every managed tool runtime, appended after the
       // user's own `PATH`, so a machine with no Node can still start `npx some-server` and a machine
       // that has one keeps the build it installed.
-      mcpToolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+      mcpToolRuntimes,
       // The sign-ins of the http servers. The service hands a provider a route of its OAuth proxy,
       // never the token; only a test the user pressed may open a browser.
       mcpOAuth,
@@ -1958,10 +2032,15 @@ export async function createApplicationServices({
       // The GitHub entries are paths only: `gh` and `git` read the token from the files the connection
       // keeps current. On a server with an agent display, `DISPLAY` names it, so a program an agent
       // starts opens where the driver sees it.
+      // The egress proxy variables come last: a tool reads the gateway of this server, whatever the
+      // person's own shell set. Empty while the switch is off, so nothing changes then.
       agentEnvironment: (inherited) => ({
         ...agentDisplayEnvironment(process.platform),
         ...githubConnector.agentEnvironment(inherited),
+        ...egressProxy.environment(),
       }),
+      egressEnvironment: () => egressProxy.environment(),
+      egressFetch: egressProxy.fetch,
     },
     // Appended to the stored servers at each spawn, so the same tools reach Codex, Claude and the
     // ACP providers. Null until the daemon runs, which is what keeps a machine with no driver from
@@ -2181,6 +2260,19 @@ export async function createApplicationServices({
     culturaBuilderFullContext = appBehavior.culturaBuilderFullContext;
     void runCauseEffect(service.notifyCulturaBuilderContextChanged()).catch((error) =>
       logger.warn("Cultura Builder did not restart with the new context window.", toLogValue(error)),
+    );
+  });
+  // The egress variables change when the switch turns on or off, or the bypass list changes. The
+  // processes that read them only at spawn start again, so none keeps going direct after the switch
+  // turns on, and none keeps pointing at the gateway after it turns off. Proxy and blocked give the
+  // same variables: the gateway applies that change for each new connection.
+  let egressEnvironmentKey = JSON.stringify(egressProxy.environment());
+  egressProxy.subscribe(() => {
+    const key = JSON.stringify(egressProxy.environment());
+    if (key === egressEnvironmentKey) return;
+    egressEnvironmentKey = key;
+    void runCauseEffect(service.notifyEgressProxyChanged()).catch((error) =>
+      logger.warn("Provider processes did not restart for the egress proxy change.", toLogValue(error)),
     );
   });
   // The capability and the tool list both follow the daemon, and nothing else can tell them: no
@@ -2652,6 +2744,7 @@ export async function createApplicationServices({
         changeSettings: (change) => scheduledUpdate().changeSettings(change),
       },
       timezone: serverTimezone,
+      egressProxy,
       memoryLimit: agentMemoryLimitSetting,
       memoryReview,
       promptCacheTtl,
@@ -2690,7 +2783,7 @@ export async function createApplicationServices({
         Effect.runFork(providerRuntimes.ensureToolRuntimes());
       },
       ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
-      toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+      toolRuntimes: mcpToolRuntimes,
     },
     teamWebRtcBridge,
     privateNetwork: () => remoteNetworkRoute.get().route === "private",
@@ -2965,6 +3058,7 @@ export async function createApplicationServices({
             warn: (message, detail) => logger.warn(message, detail === undefined ? "" : toLogValue(detail)),
           },
           platform: process.platform,
+          writeEgressDefault: (userData) => egressDefault.writeToNewServer(userData),
         });
   if (localServers) {
     teardown.push(TEARDOWN_ORDER.localServers, "the servers on this computer", () =>
@@ -2974,6 +3068,23 @@ export async function createApplicationServices({
     // servers on this computer that it knows.
     await Effect.runPromise(localServers.load());
   }
+  // A hosted server that this app made takes the default egress proxy when it is first online. The
+  // update route waits for the check through the proxy, so it gets the longer time limit.
+  const egressDefaultRemote = {
+    supportsCapability: (serverId: string) => remoteServers.supportsCapability(serverId, EGRESS_PROXY_CAPABILITY),
+    readView: (serverId: string) =>
+      remoteServers.request(serverId, EGRESS_PROXY_ROUTES.settings, decodeEgressProxyView, {
+        method: "POST",
+        body: {},
+      }),
+    sendUpdate: (serverId: string, update: EgressProxyUpdate) =>
+      remoteServers.request(serverId, EGRESS_PROXY_ROUTES.update, decodeEgressProxyView, {
+        method: "POST",
+        body: update,
+        timeoutMs: EGRESS_PROXY_REMOTE_TIMEOUT_MS,
+      }),
+  };
+  remoteServers.on("changed", (servers) => void egressDefault.reconcile(servers, egressDefaultRemote));
   await runCauseEffect(remoteServers.initialize());
   performance.mark("openbot:services.remote-servers");
   criticalActionTargets = { agents: service, host, remoteServers };
@@ -3484,6 +3595,9 @@ export async function createApplicationServices({
     appBehavior,
     securityGuard,
     guardPreference,
+    egressProxy,
+    egressDefault,
+    mcpToolRuntimes,
     agentInitialization,
     hostUpdateCoordinator,
     requestedUpdate: remoteUpdate,

@@ -104,6 +104,9 @@ import {
   type DynamicIslandPresentation,
   decodeMachineAlertSettings,
   defaultProviderModel,
+  EGRESS_DEFAULT_BYPASS,
+  type EgressProxyDefaultView,
+  type EgressProxyView,
   type ExternalLinkBrowsers,
   type ExternalLinkPreference,
   type FilePreview,
@@ -133,6 +136,7 @@ import {
   type ProviderAccountStatus,
   type ProviderDetectionSettings,
   parseAgentAccessChange,
+  parseEgressProxyUpdate,
   type QueueDelivery,
   type QueuedMessageReceipt,
   type QueueSnapshot,
@@ -464,6 +468,29 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let machineAlerts: MachineAlertSettings = { ...DEFAULT_MACHINE_ALERT_SETTINGS, diskPercent: 80 };
   let promptCacheTtl: PromptCacheTtlSetting = { ...DEFAULT_PROMPT_CACHE_TTL };
   let agentAccess: AgentAccessChange = { revision: 0, everyone: {}, roles: [] };
+  // The preview proxy uses documentation addresses (RFC 5737) and no real credential.
+  let egressProxy: EgressProxyView = {
+    enabled: true,
+    host: "203.0.113.10",
+    port: 8080,
+    username: "demo-user",
+    bypass: [...EGRESS_DEFAULT_BYPASS],
+    expectedCountry: "BR",
+    blockOtherCountry: true,
+    passwordSaved: true,
+    state: "active",
+    reason: null,
+    failedAt: null,
+    lastCheck: {
+      ip: "198.51.100.24",
+      city: "Rio de Janeiro",
+      region: "Rio de Janeiro",
+      country: "BR",
+      checkedAt: new Date(0).toISOString(),
+      countryMatches: true,
+    },
+  };
+  let egressDefault: EgressProxyDefaultView | null = null;
   const agentMemoryLimitListeners = new Set<(preference: AgentMemoryLimitPreference) => void>();
   let remoteSessionReuse: RemoteSessionReusePreference = { ...DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE };
   let externalLinks: ExternalLinkPreference = clone(DEFAULT_EXTERNAL_LINK_PREFERENCE);
@@ -3307,6 +3334,36 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
           ...clone(agentAccess),
           mine: Object.fromEntries(agents.map((agent) => [agent.id, "manage" as const])),
         };
+      },
+      getEgressProxy: async () => clone(egressProxy),
+      setEgressProxy: async (input) => {
+        const { password, ...settings } = parseEgressProxyUpdate(input);
+        egressProxy = {
+          ...egressProxy,
+          ...settings,
+          passwordSaved: password === undefined ? egressProxy.passwordSaved : password.length > 0,
+          state: settings.enabled ? "active" : "off",
+          reason: null,
+          failedAt: null,
+        };
+        return clone(egressProxy);
+      },
+      testEgressProxy: async () => {
+        egressProxy = {
+          ...egressProxy,
+          lastCheck: egressProxy.lastCheck && { ...egressProxy.lastCheck, checkedAt: new Date().toISOString() },
+        };
+        return clone(egressProxy);
+      },
+      getEgressDefault: async () => clone(egressDefault),
+      setEgressDefault: async (input) => {
+        if (input === null) {
+          egressDefault = null;
+          return null;
+        }
+        const { password, ...settings } = parseEgressProxyUpdate(input);
+        egressDefault = { ...settings, passwordSaved: Boolean(password) || egressDefault?.passwordSaved === true };
+        return clone(egressDefault);
       },
     },
     storage: createMockStorage(),

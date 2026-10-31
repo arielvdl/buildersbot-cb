@@ -456,6 +456,11 @@ process alone. The server prints a connect URL with `token=` when the extension 
 `McpGateway.endpoint` adds the bearer at each hand-off and records it as a secret for redaction. The
 bearer is never written to the saved row.
 
+While the server's network egress proxy is on, the person's Chrome cannot use that proxy, so
+`playwrightUpstream` replaces `--extension` with `--user-data-dir` (a profile of the server's own)
+and `--config` (a file with `browser.launchOptions.proxy` set to the loopback egress gateway). A
+change of the switch calls `PlaywrightBroker.resetUpstream`. See [egress-proxy.md](egress-proxy.md).
+
 `playwrightUpstream` reads the row that the person saved as it is, at each upstream start. It does
 not change the stored row. A package row (`npx`, `bunx`) keeps its command and package argument. A
 row with the gated launcher `playwright-mcp-gated.mjs` loses the launcher: the broker runs the

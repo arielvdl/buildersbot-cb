@@ -148,4 +148,5 @@ export const messages = {
   "error.team.signInRelayUsed": "Este login já foi enviado.",
   "error.team.signInRelayMismatch": "Este endereço não é deste login.",
   "error.team.signInRelayLinkUnknown": "Nenhum agente deste servidor mostrou este link de login.",
+  "error.team.egressProxyUnsupported": "Esta conexão não oferece suporte à saída de rede.",
 } as const satisfies PartialTranslation<typeof source>;

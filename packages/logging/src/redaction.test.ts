@@ -265,6 +265,43 @@ describe("redactText", () => {
   });
 });
 
+// The egress proxy of a server: its address carries the user and the password in two shapes, and a
+// tool error or a provider log prints either one.
+describe("redactText with a proxy address", () => {
+  it("removes the user and password of a proxy URL and keeps the host", () => {
+    expect(redactText("connect failed: http://demo-user:demo-pass@203.0.113.10:8080 refused")).toBe(
+      "connect failed: http://[redacted]@203.0.113.10:8080 refused",
+    );
+    expect(redactText("HTTPS_PROXY=http://demo-user:demo-pass@proxy.example.test:12321")).not.toContain("demo-pass");
+  });
+
+  it("removes the user and password of a host:port:user:password line", () => {
+    expect(redactText("proxy 203.0.113.10:8080:demo-user:demo-pass is down")).toBe(
+      "proxy 203.0.113.10:8080:[redacted] is down",
+    );
+    expect(redactText("proxy.example.test:12321:demo-user_country-br:p4ss:word")).toBe(
+      "proxy.example.test:12321:[redacted]",
+    );
+  });
+
+  it("keeps file positions, times and addresses without a password", () => {
+    for (const text of [
+      "at src/main/index.ts:120:15",
+      "error in file.ts:120:15: unexpected token",
+      "started at 12:30:45",
+      "listening on 127.0.0.1:8080",
+      "open https://example.com/path?x=1",
+    ])
+      expect(redactText(text)).toBe(text);
+  });
+
+  it("masks a registered proxy password anywhere, also when the line shape is not there", () => {
+    registerSecretValue("Pz9-demo-egress-pass", { allowShort: true });
+
+    expect(redactText("407 for Pz9-demo-egress-pass")).toBe("407 for [redacted]");
+  });
+});
+
 describe("findSecretValue", () => {
   it("finds a value by its shape, and the first one when there are more", () => {
     const text = `one ghp_abcdefghijklmnopqrstuvwxyz0123456789 two eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2ln`;

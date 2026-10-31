@@ -50,6 +50,7 @@ import { TEAM_CONTEXT_USAGE_CAPABILITY } from "./context-usage-v1";
 import { CONVERSATION_FILE_SEARCH_CAPABILITY } from "./conversation-file-search-v1";
 import { CUSTOM_PROVIDER_HARNESS_CAPABILITY } from "./custom-provider-harness-v1";
 import { DISCORD_ACCESS_CAPABILITY } from "./discord-access-v1";
+import { EGRESS_PROXY_CAPABILITY } from "./egress-proxy-v1";
 import { EVENTS_CAPABILITY } from "./events-v1";
 import { FOCUS_USE_CAPABILITY } from "./focus-use-v1";
 import { TEAM_HISTORY_EXTENT_CAPABILITY } from "./history-extent-v1";
@@ -181,6 +182,7 @@ export {
   CONVERSATION_FILE_SEARCH_CAPABILITY,
   CUSTOM_PROVIDER_HARNESS_CAPABILITY,
   DISCORD_ACCESS_CAPABILITY,
+  EGRESS_PROXY_CAPABILITY,
   EVENTS_CAPABILITY,
   FOCUS_USE_CAPABILITY,
   HOST_ADMIN_CAPABILITY,
@@ -372,6 +374,7 @@ export const TEAM_CURRENT_CAPABILITIES = [
   HOST_KEY_ROTATION_CAPABILITY,
   AGENT_THREAD_BRANCHES_CAPABILITY,
   QUEUE_FORCE_CAPABILITY,
+  EGRESS_PROXY_CAPABILITY,
 ] as const;
 
 export type TeamCurrentCapability = (typeof TEAM_CURRENT_CAPABILITIES)[number];
@@ -513,7 +516,8 @@ export const TEAM_BOOTSTRAP_CAPABILITIES = TEAM_CURRENT_CAPABILITIES.filter(
     capability !== AGENT_FOLDERS_CAPABILITY &&
     capability !== HOST_KEY_ROTATION_CAPABILITY &&
     capability !== AGENT_THREAD_BRANCHES_CAPABILITY &&
-    capability !== QUEUE_FORCE_CAPABILITY,
+    capability !== QUEUE_FORCE_CAPABILITY &&
+    capability !== EGRESS_PROXY_CAPABILITY,
 );
 /**
  * The capabilities that only a protocol 9 peer sends and gets. Protocols 7 and 8 read at most 128
@@ -531,6 +535,7 @@ export const TEAM_PROTOCOL_V9_ONLY_CAPABILITIES: ReadonlySet<string> = new Set<T
   HOST_KEY_ROTATION_CAPABILITY,
   AGENT_THREAD_BRANCHES_CAPABILITY,
   QUEUE_FORCE_CAPABILITY,
+  EGRESS_PROXY_CAPABILITY,
 ]);
 // A v8 host reads at most 128 capabilities, so a client sends the protocol 9 ones only after it
 // negotiates protocol 9.
@@ -631,6 +636,7 @@ export function legacyTeamCapabilities(capabilities: readonly string[]): string[
       capability !== HOST_KEY_ROTATION_CAPABILITY &&
       capability !== TEAM_LONG_CAPABILITY_LISTS_CAPABILITY &&
       capability !== AGENT_THREAD_BRANCHES_CAPABILITY &&
-      capability !== QUEUE_FORCE_CAPABILITY,
+      capability !== QUEUE_FORCE_CAPABILITY &&
+      capability !== EGRESS_PROXY_CAPABILITY,
   );
 }

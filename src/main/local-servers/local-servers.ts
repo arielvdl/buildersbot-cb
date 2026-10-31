@@ -119,6 +119,13 @@ export interface LocalServersOptions {
   log: { info: (message: string) => void; warn: (message: string, detail?: unknown) => void };
   platform: NodeJS.Platform;
   spawn?: SpawnChild;
+  /**
+   * Writes the app default egress proxy into the user data folder of a new server, before its first
+   * start, so it has the proxy before its first agent. Never through the environment: another process
+   * of the same user can read the environment of a process. A failure stops the creation. See
+   * docs/architecture/egress-proxy.md.
+   */
+  writeEgressDefault?: (userData: string) => Promise<void>;
 }
 
 export type SpawnChild = (command: string, args: readonly string[], options: SpawnOptions) => ChildProcess;
@@ -194,7 +201,7 @@ export class LocalServers {
       publicKey: null,
     };
     yield* this.#registry.add(entry, LOCAL_SERVER_LIMIT).pipe(toLocalServerFailure);
-    return yield* this.#start(entry, true).pipe(
+    return yield* this.#start(entry, true, true).pipe(
       Effect.tapError(() =>
         // A server that never started holds nothing of the user's yet.
         this.#forget(entry).pipe(
@@ -267,6 +274,7 @@ export class LocalServers {
     this: LocalServers,
     entry: StoredLocalServer,
     select: boolean,
+    first = false,
   ): Effect.fn.Return<ServerSummary, LocalServerFailure> {
     if (this.#stopped) return yield* startFailure();
     const secret = yield* localSync(() => this.#options.cipher.decrypt(Buffer.from(entry.encryptedSecret, "base64")));
@@ -274,6 +282,8 @@ export class LocalServers {
     const paths = this.#paths(entry);
     yield* localIO(() => mkdir(paths.userData, { recursive: true, mode: 0o700 }));
     yield* localIO(() => mkdir(paths.agentRoot, { recursive: true }));
+    const writeEgressDefault = this.#options.writeEgressDefault;
+    if (first && writeEgressDefault) yield* localIO(() => writeEgressDefault(paths.userData));
 
     const child = yield* localSync(() =>
       this.#spawn(

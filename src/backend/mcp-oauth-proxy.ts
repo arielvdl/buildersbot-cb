@@ -64,7 +64,16 @@ export interface McpOAuthProxyOptions {
   refresh: (url: string, rejected: string) => Effect.Effect<string | null, McpOperationError>;
   /** What the proxy tells a server about the client. Without it, the provider's own `clientInfo` goes through. */
   client?: McpOAuthProxyClient;
+  /**
+   * The `fetch` of the upstream requests. A server with the egress proxy on gives its own, so a tool
+   * call that goes through here uses the proxy as the agent's other requests do. The platform fetch
+   * when absent.
+   */
+  fetch?: UpstreamFetch;
 }
+
+/** The `fetch` that reaches the MCP server. */
+export type UpstreamFetch = (input: URL, init: RequestInit) => Promise<Response>;
 
 /** The client that a server sees: Builders Bot, and the agent of the route when it has one. */
 interface McpOAuthProxyClient {
@@ -268,12 +277,13 @@ export class McpOAuthProxy {
     controller: AbortController,
   ): Effect.fn.Return<Response | null, McpOperationError> {
     const userAgent = this.#options.client ? `Builders Bot/${this.#options.client.version}` : null;
-    const first = yield* send(target, target.token, request, method, body, controller, userAgent);
+    const exchange = { request, method, body, controller, userAgent, fetch: this.#options.fetch ?? fetch };
+    const first = yield* send(target, target.token, exchange);
     if (first.status !== 401) return first;
     yield* discard(first);
     const renewed = yield* this.#options.refresh(target.url, target.token);
     if (!renewed) return null;
-    const second = yield* send(target, renewed, request, method, body, controller, userAgent);
+    const second = yield* send(target, renewed, exchange);
     if (second.status !== 401) return second;
     yield* discard(second);
     return null;
@@ -390,20 +400,26 @@ const readBody = Effect.fn("McpOAuthProxy.readBody")(function* (request: Incomin
  * One request to the server, after the same-origin 307 and 308 redirects. Any other redirect is
  * refused: it would send the token to another address, or change a POST into a GET.
  */
+interface Exchange {
+  request: IncomingMessage;
+  method: string;
+  body: Buffer | null;
+  controller: AbortController;
+  userAgent: string | null;
+  fetch: UpstreamFetch;
+}
+
 const send = Effect.fn("McpOAuthProxy.send")(function* (
   target: McpOAuthProxyTarget,
   token: string,
-  request: IncomingMessage,
-  method: string,
-  body: Buffer | null,
-  controller: AbortController,
-  userAgent: string | null,
+  { request, method, body, controller, userAgent, fetch: upstream }: Exchange,
 ): Effect.fn.Return<Response, McpOperationError> {
   const headers = yield* mcpSync(() => upstreamHeaders(target, token, request, userAgent));
   const origin = new URL(target.url).origin;
   let url = new URL(target.url);
   for (let hop = 0; ; hop += 1) {
     const answer = yield* upstreamFetch(
+      upstream,
       url,
       { method, headers, ...(body ? { body: new Uint8Array(body) } : {}), redirect: "manual" },
       controller,
@@ -444,6 +460,7 @@ function upstreamHeaders(
 
 /** A fetch that is abandoned when the headers take longer than `timeoutMs`. The body has no limit. */
 function upstreamFetch(
+  upstream: UpstreamFetch,
   url: URL,
   init: RequestInit,
   controller: AbortController,
@@ -452,7 +469,7 @@ function upstreamFetch(
   return mcpCall(async () => {
     const timer = setTimeout(() => controller.abort(new Error("The MCP server did not answer in time.")), timeoutMs);
     try {
-      return await fetch(url, { ...init, signal: controller.signal });
+      return await upstream(url, { ...init, signal: controller.signal });
     } finally {
       clearTimeout(timer);
     }

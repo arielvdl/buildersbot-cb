@@ -32,4 +32,14 @@ export const messages = {
     "O tempo para encerrar o ambiente de usuário esgotou. Nenhuma substituição do aplicativo foi iniciada.",
   "error.host.tenantHealthMissing":
     "Os relatórios de integridade dos ambientes de usuário estão ausentes ou indicam falhas após a reinicialização. Verifique as sessões dos ambientes de usuário antes de outra atualização.",
+  "error.host.egressBlocked":
+    "O Builders Bot não enviou esta requisição: a saída de rede deste servidor está bloqueada. Ele nunca usa conexão direta. Um admin pode verificar Configurações do servidor › Saída de rede.",
+  "error.host.egressUnreachable":
+    "O Builders Bot não enviou esta requisição: o proxy de saída de rede deste servidor não responde. Ele nunca usa conexão direta. Um admin pode verificar Configurações do servidor › Saída de rede.",
+  "error.host.egressAuthRefused":
+    "O Builders Bot não enviou esta requisição: o proxy de saída de rede recusou o usuário ou a senha. Ele nunca usa conexão direta. Um admin pode verificar Configurações do servidor › Saída de rede.",
+  "error.host.egressTargetRefused": "O proxy de saída de rede não conectou a este endereço.",
+  "error.host.egressPageFailed":
+    "A página não carregou pelo proxy de saída de rede deste servidor. O Builders Bot nunca usa conexão direta. Um admin pode verificar Configurações do servidor › Saída de rede.",
+  "error.host.egressIncomplete": "Defina o host, a porta e a senha do usuário antes de ligar a saída de rede.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -283,6 +283,7 @@ import type {
   SetDynamicIslandInteractiveInput,
   SetDynamicIslandPreferenceInput,
 } from "./ipc-dynamic-island";
+import type { EgressProxyDefaultView, EgressProxyUpdate, EgressProxyView } from "./ipc-egress-proxy";
 import type {
   EventActivity,
   EventRoutine,
@@ -1266,6 +1267,15 @@ export const IPC_ENDPOINTS = {
     // The roles of the server and the level each gives for each agent. A member reads only `mine`.
     getAgentAccess: scopedQuery<AgentAccessSnapshot, "required">()("host-admin:get-agent-access"),
     setAgentAccess: scopedRequest<AgentAccessChange, AgentAccessSnapshot, "required">()("host-admin:set-agent-access"),
+    // The egress proxy of a server (`egress-proxy-v1`): owner or admin only. No answer has the password.
+    getEgressProxy: scopedQuery<EgressProxyView, "required">()("host-admin:get-egress-proxy"),
+    setEgressProxy: scopedRequest<EgressProxyUpdate, EgressProxyView, "required">()("host-admin:set-egress-proxy"),
+    testEgressProxy: scopedQuery<EgressProxyView, "required">()("host-admin:test-egress-proxy"),
+    // The default of this app for the servers it makes later. It stays on this computer.
+    getEgressDefault: request<undefined, EgressProxyDefaultView | null>()("host-admin:get-egress-default"),
+    setEgressDefault: request<EgressProxyUpdate | null, EgressProxyDefaultView | null>()(
+      "host-admin:set-egress-default",
+    ),
   },
   // The built-in GitHub connection of this computer. The token stays in main; every answer is the
   // status only. The `host*` endpoints reach the connection of a joined server (`connectors-v1`): the
