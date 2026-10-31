@@ -167,6 +167,7 @@ linux:
   # The server scripts and the Docker image start `/opt/OpenBot/app/openbot` (scripts/hosting,
   # docker/Dockerfile). Without this name, electron-builder names the binary after `name` in
   # package.json (`buildersbot`), and the image does not start. macOS and Windows keep their names.
+  # `bun run check:linux-image-names` checks this name against the scripts.
   executableName: openbot
   category: Development
   icon: build/buildersbot.png

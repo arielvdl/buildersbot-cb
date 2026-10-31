@@ -60,7 +60,8 @@ const appPathArgument = process.argv.slice(2).find((argument) => !argument.start
 const appPath = resolve(
   appPathArgument ?? (architecture === "x64" ? "dist/linux-unpacked" : "dist/linux-arm64-unpacked"),
 );
-// `linux.executableName` in electron-builder.yml. The server scripts and the Docker image start this name.
+// `linux.executableName` in electron-builder.yml. The server scripts and the Docker image start this name
+// (`bun run check:linux-image-names`).
 const executablePath = resolve(appPath, "openbot");
 const resourcesPath = resolve(appPath, "resources");
 const asarPath = resolve(resourcesPath, "app.asar");

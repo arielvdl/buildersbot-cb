@@ -24,7 +24,8 @@ docker build --file docker/Dockerfile --tag builders-bot:local image
 
 The Dockerfile copies `OpenBot.AppImage` and unpacks it to `/opt/OpenBot/app`, and the image starts
 the executable `openbot`. These are the names of the upstream scripts in `scripts/hosting`.
-`linux.executableName` in `electron-builder.yml` keeps the executable name.
+`linux.executableName` in `electron-builder.yml` keeps the executable name, and
+`bun run check:linux-image-names` fails when one of these names changes.
 
 ## Run
 

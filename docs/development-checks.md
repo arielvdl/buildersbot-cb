@@ -60,6 +60,13 @@ that does not exist, and on a `#anchor` that the target file has no heading or `
 anchors the way GitHub does. It does not check web links or links to other file types. When you move
 a section to another file, such as one in `docs/architecture/`, update each link to its anchor.
 
+`check:linux-image-names` reads files only and needs no install. It fails when the names that the
+Linux server image uses do not agree: the executable (`linux.executableName` in
+`electron-builder.yml`), the install folder `/opt/OpenBot`, the AppImage file that
+`docker/Dockerfile` copies, the user data and agent folders in the backups of `docker/instances`, and
+the product name that the start check of the image reads. A merge from upstream Open Bot, or
+`scripts/builders-bot-rename.pl`, can change one of them. `check:desktop:static` runs it.
+
 The pre-commit hook in `.githooks/pre-commit` runs `check:staged`, then `check:ui` and
 `scripts/staged-typecheck.ts`. The last two run only when the commit stages code, style, GritQL,
 `tsconfig*.json`, `package.json`, `biome.json`, `apps/mobile/app.json` or `bun.lock` files, so a commit
@@ -83,8 +90,8 @@ the codegen inputs and of the route file names differs from `.expo/codegen-input
 an output is missing. File times do not decide: a checkout changes them, and Uniwind does not write a
 file whose content is the same.
 
-In CI, `check:desktop:static` (the UI check, lint, desktop typecheck, build, preload check, update
-feed guard and telemetry destination guard) takes about a minute, and each other typecheck takes a few seconds. When `openbot-database-schema.ts`, `channel-schema.ts`, `mcp-schema.ts`, the parity test or
+In CI, `check:desktop:static` (the Linux image names check, the UI check, lint, desktop typecheck,
+build, preload check, update feed guard and telemetry destination guard) takes about a minute, and each other typecheck takes a few seconds. When `openbot-database-schema.ts`, `channel-schema.ts`, `mcp-schema.ts`, the parity test or
 `openbot-database-schema-history.json` is staged, the hook also runs `src/backend/openbot-database-schema-parity.test.ts`.
 
 `check:staged` lets Biome fix the working-tree copy of each staged file, and the hook then stages
@@ -189,8 +196,8 @@ Electron and checks that `window.openbot` has exactly one function for each endp
 `import()` and a `require` of a module that a sandboxed preload cannot load. It takes less than one
 second.
 
-`bun run check:desktop` still runs everything: it is `check:desktop:static`, which holds the UI
-check, the lint, the desktop typecheck, the build, `verify:preload`, `test:update-feed-guard` and the
+`bun run check:desktop` still runs everything: it is `check:desktop:static`, which holds the Linux
+image names check, the UI check, the lint, the desktop typecheck, the build, `verify:preload`, `test:update-feed-guard` and the
 telemetry destination guard with `--build-output`, followed by the browser smoke test. CI is
 the only caller that splits them. The smoke test starts the real Electron binary, so it runs under
 xvfb on Ubuntu rather than on a macOS runner, and reads nothing the build writes, so the order

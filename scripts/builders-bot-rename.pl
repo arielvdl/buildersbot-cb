@@ -23,6 +23,7 @@
 # The Linux server and its Docker image also keep the upstream names in `@kept_paths`: the
 # install folder and the AppImage file that docker/Dockerfile copies. Unquoted shell, systemd
 # units, AppArmor profiles and Dockerfile lines use them, and a space breaks each of these.
+# scripts/check-linux-image-names.ts reads this list.
 #
 # Usage: perl scripts/builders-bot-rename.pl < file
 local $/;
