@@ -4,7 +4,10 @@ import type { ConversationRuntime } from "./conversation-runtime";
 
 /** A larger named image keeps only its chip. The host does not read or send a larger file. */
 const INLINE_IMAGE_BYTES = 8 * 1024 * 1024;
-/** The cached `data:` URLs together take at most this many characters. */
+/**
+ * The cached `data:` URLs together take at most this many characters. They are the images of one
+ * conversation: see `retainOnly`.
+ */
 const CACHE_CHARACTERS = 64 * 1024 * 1024;
 
 /**
@@ -22,15 +25,15 @@ const INLINE_IMAGE_TYPES: ReadonlySet<string> = new Set([
 
 /**
  * Reads the image files that agent messages name, through the same file preview as their chips.
- * `scope` names the host, the message, and for a workspace path the agent whose workspace holds it.
- * Each message keeps its own entry: an agent can write the same path again, and a newer message
- * must show the newer file.
+ * `scope` names the host, the conversation, the message, and for a workspace path the agent whose
+ * workspace holds it. Each message keeps its own entry: an agent can write the same path again, and
+ * a newer message must show the newer file.
  */
 export function createMessageImageFiles(
   agent: Pick<ConversationRuntime["agent"], "previewSharedFile" | "previewWorkspaceFile">,
 ) {
   // Insertion order is the use order: the first entry is the least recently used.
-  const cache = new Map<string, { job: Promise<string | null>; characters: number }>();
+  const cache = new Map<string, { job: Promise<string | null>; characters: number; conversation: string }>();
   let total = 0;
   const drop = (key: string) => {
     const entry = cache.get(key);
@@ -52,9 +55,9 @@ export function createMessageImageFiles(
     return dataUrl(new Blob([new Uint8Array(preview.bytes).buffer], { type }));
   }
 
-  return (
+  const load = (
     file: MessageImageFile,
-    scope: { serverId: string; messageId: string; agentId: string | undefined },
+    scope: { serverId: string; conversation: string; messageId: string; agentId: string | undefined },
   ): Promise<string | null> => {
     const agentId = file.kind === "workspace" ? scope.agentId : "";
     const key = `${scope.serverId}:${scope.messageId}:${file.kind}:${agentId}:${file.path}`;
@@ -66,7 +69,11 @@ export function createMessageImageFiles(
     }
     // A file that does not load, or is too large, shows no preview until the chat opens again, so
     // a row that renders again does not ask the host again.
-    const entry = { job: read(file, scope.agentId).catch(() => null), characters: 0 };
+    const entry = {
+      job: read(file, scope.agentId).catch(() => null),
+      characters: 0,
+      conversation: scope.conversation,
+    };
     cache.set(key, entry);
     void entry.job.then((url) => {
       if (cache.get(key) !== entry) return;
@@ -79,6 +86,18 @@ export function createMessageImageFiles(
     });
     return entry.job;
   };
+
+  /**
+   * Drops the images of every conversation other than `conversation`. The timeline stays mounted
+   * when the user opens another agent, so without this the cache would hold the images of every
+   * chat of the session, up to `CACHE_CHARACTERS` of base64 text in the heap. A chat opened again
+   * reads its images again.
+   */
+  const retainOnly = (conversation: string): void => {
+    for (const [key, entry] of cache) if (entry.conversation !== conversation) drop(key);
+  };
+
+  return { load, retainOnly };
 }
 
 /** Encodes off the UI thread: one answer can name several large images. */

@@ -1,7 +1,12 @@
 import { createEffect, createSignal, flush, onCleanup } from "solid-js";
 import { APP_LOGO_CORNER, APP_LOGO_CUBE, APP_LOGO_SIZE } from "./app-logo-shape";
 
-export type AppLogoAnimation = "none" | "blink" | "look-around" | "surprised";
+/**
+ * `blink-once` closes and opens the eyes one time, for about 0.2 s. A surface that is always on
+ * screen sets it now and then from a timer: an infinite `blink` asks for a frame on every refresh of
+ * the display, also in the 96% of its cycle where nothing moves.
+ */
+export type AppLogoAnimation = "none" | "blink" | "blink-once" | "look-around" | "surprised";
 export type AppLogoVariant = "production" | "dev" | "preview";
 
 export interface AppLogoProps {

@@ -187,7 +187,7 @@ const MAX_ENCODED_CAPTURE_PIXELS = 4_194_304;
 const DOCUMENT_ENUMERATION_TIMEOUT_MS = 10_000;
 /**
  * How long a preview request waits for a new frame before it answers with the last one. The card
- * asks again three seconds after each answer, and the capture keeps running, so the next request
+ * asks again 3 to 12 seconds after each answer, and the capture keeps running, so the next request
  * gets the frame that was late.
  */
 const PREVIEW_STALE_AFTER_MS = 1_000;

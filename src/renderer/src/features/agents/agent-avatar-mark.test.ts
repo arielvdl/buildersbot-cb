@@ -76,6 +76,7 @@ describe("avatarAnimates", () => {
     followPointer: false,
     pointerOn: null,
     reducedMotion: false,
+    onScreen: true,
   };
 
   it("wakes a resting avatar for a pointer only when it is larger than a small face", () => {

@@ -117,29 +117,44 @@ export function createChannelsController(env: ChannelsEnvironment) {
    */
   let reading: Promise<void> | null = null;
   let readAgain = false;
+  /** Whether a request that waits for the next read needs the open channel's page too. */
+  let readPageAgain = false;
   let readToken = 0;
   let laterRead: Promise<void> | null = null;
   let settleLaterRead: (() => void) | null = null;
-  function refresh(selectedOverride?: string | null): Promise<void> {
+  /** `page: false` reads only the channel list, and leaves the open channel's page as it is. */
+  function refresh(selectedOverride?: string | null, options?: { page?: boolean }): Promise<void> {
+    const withPage = options?.page ?? true;
     // Navigation carries the selection it wants, so it never waits behind the read it replaces.
     if (reading && selectedOverride === undefined) {
       readAgain = true;
+      if (withPage) readPageAgain = true;
       return reading;
     }
     const token = ++readToken;
-    const run = read(selectedOverride).finally(() => {
+    const run = read(selectedOverride, withPage).finally(() => {
       if (token !== readToken) return;
       reading = null;
       const settle = settleLaterRead;
       laterRead = null;
       settleLaterRead = null;
       if (readAgain && !disposed) {
+        const page = readPageAgain;
         readAgain = false;
-        void refresh().finally(() => settle?.());
+        readPageAgain = false;
+        void refresh(undefined, { page }).finally(() => settle?.());
       } else settle?.();
     });
     reading = run;
     return run;
+  }
+  /**
+   * A channel changed on the host. A reply that streams publishes a change on each chunk, also in a
+   * channel that is not open. The page of the open channel is read again only when the change is in
+   * that channel; for any other channel only the list is read, for its summary and unread count.
+   */
+  function changed(channelId: string): Promise<void> {
+    return refresh(undefined, { page: channelId === state.selectedId });
   }
   /**
    * A read that starts after this call.
@@ -151,12 +166,13 @@ export function createChannelsController(env: ChannelsEnvironment) {
   function refreshAfter(): Promise<void> {
     if (!reading) return refresh();
     readAgain = true;
+    readPageAgain = true;
     laterRead ??= new Promise<void>((resolve) => {
       settleLaterRead = resolve;
     });
     return laterRead;
   }
-  async function read(selectedOverride?: string | null) {
+  async function read(selectedOverride?: string | null, withPage = true) {
     if (!supported()) return;
     const id = ++refreshId;
     const account = env.scopeKey();
@@ -164,6 +180,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
     try {
       const channels = await env.port().agent.listChannels();
       const selectedExists = selected !== null && channels.some((channel) => channel.id === selected);
+      const selectionGone = Boolean(selected) && !selectedExists;
       const wanted = state.topicId;
       const readPage = (topicId: string | null) =>
         env.port().agent.readChannel({
@@ -172,22 +189,28 @@ export function createChannelsController(env: ChannelsEnvironment) {
         });
       // A tab closed on another client is not an unreadable channel: read it without the tab, and
       // the page below names the first one, which becomes the open tab.
-      const page = !selectedExists
-        ? null
-        : await readPage(wanted).catch((error: unknown) => (wanted === null ? Promise.reject(error) : readPage(null)));
+      const page =
+        !selectedExists || !withPage
+          ? null
+          : await readPage(wanted).catch((error: unknown) =>
+              wanted === null ? Promise.reject(error) : readPage(null),
+            );
       if (disposed || account !== env.scopeKey() || id !== refreshId || selected !== state.selectedId) return;
       env.onList?.(channels, account);
       setState((state) => {
         // Keep each summary object, so the sidebar, which keys its rows by object, does not remount
         // every channel row (and close an open menu) on each refresh.
         reconcile(channels, "id")(state.channels);
-        if (selected && !selectedExists) {
+        if (selected && selectionGone) {
           state.selectedId = null;
           state.topicId = null;
           state.editing = null;
           readMarks.forget(selected);
           if (failedCommand?.channelId === selected) failedCommand = null;
         }
+        // A read of the list only leaves the page, its loading state and its error to the next
+        // read of the page. A channel that went takes its page with it, as in a read of the page.
+        if (!withPage && !selectionGone) return;
         if (page && state.page?.channel.id === page.channel.id) {
           const merged = mergeChannelPage(state.page.messages, page.messages);
           reconcile(merged.messages, "id")(state.page.messages);
@@ -200,7 +223,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
         state.loading = false;
         if (!failedCommand) state.error = null;
       });
-      if (selected && !selectedExists) env.writeSelection(null);
+      if (selected && selectionGone) env.writeSelection(null);
       // The page's tab, which is the open one also after a tab that went fell back to the first.
       if (selected && page && env.canMarkRead() && readMarks.claim(selected, page.topicId, page.throughSequence)) {
         try {
@@ -475,6 +498,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
     supported,
     deletionSupported: () => supported() && env.deletionSupported(),
     refresh,
+    changed,
     retry: async (onAccepted?: (accepted: ChannelCommand) => void) => {
       const previous = failedCommand;
       if (previous) return (await command(previous, onAccepted)) ? previous : null;

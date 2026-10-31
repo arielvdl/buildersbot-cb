@@ -119,6 +119,10 @@ const IDLE_GREETING_BACKS: Record<IdleGreetingEmoji, string | undefined> = {
   "✨": undefined,
 };
 const IDLE_GREETING_INTERVAL = 8_000;
+/** The idle logo blinks once in each period, as the infinite `blink` of the logo did. */
+const IDLE_LOGO_BLINK_INTERVAL = 4_800;
+/** A little longer than `blink-once`, so the blink ends before the attribute goes. */
+const IDLE_LOGO_BLINK_DURATION = 240;
 const QUESTION_SWAP_EXIT_DURATION = 200;
 const QUESTION_SWAP_ENTER_DURATION = 320;
 const QUESTION_SWAP_BLUR = 6;
@@ -767,7 +771,7 @@ function CompactLeading(props: {
       <Switch
         fallback={
           <span class="dynamic-island-surface-leading-anchor" data-island-spatial-anchor="center">
-            <AppLogo variant={props.variant ?? "production"} animation="blink" class="dynamic-island-surface-logo" />
+            <IdleLogo variant={props.variant} />
           </span>
         }
       >
@@ -863,6 +867,37 @@ function CompactStatusBadge(props: { mode: StatusMode }): JSX.Element {
         </Badge>
       )}
     </Show>
+  );
+}
+
+/**
+ * The logo of the idle island, which blinks once every `IDLE_LOGO_BLINK_INTERVAL`.
+ *
+ * The island is a panel that is always on screen, and Chromium always calls it visible, so the
+ * infinite CSS `blink` asked for a frame on each refresh of the display all day, also in the 96% of
+ * each cycle where the eyes do not move. A timer sets the single blink instead, and nothing animates
+ * between two blinks.
+ */
+function IdleLogo(props: { variant?: AppVariant | undefined }): JSX.Element {
+  const [blinking, setBlinking] = createSignal(false);
+  onSettled(() => {
+    let end: ReturnType<typeof setTimeout> | undefined;
+    const timer = setInterval(() => {
+      if (prefersReducedMotion()) return;
+      setBlinking(true);
+      end = setTimeout(() => setBlinking(false), IDLE_LOGO_BLINK_DURATION);
+    }, IDLE_LOGO_BLINK_INTERVAL);
+    return () => {
+      clearInterval(timer);
+      if (end !== undefined) clearTimeout(end);
+    };
+  });
+  return (
+    <AppLogo
+      variant={props.variant ?? "production"}
+      animation={blinking() ? "blink-once" : "none"}
+      class="dynamic-island-surface-logo"
+    />
   );
 }
 

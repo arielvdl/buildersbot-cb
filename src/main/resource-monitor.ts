@@ -51,8 +51,13 @@ const MAX_SAMPLES_BYTES = 1024 * 1024;
 const PS_TIMEOUT_MS = 5_000;
 const PS_MAX_BUFFER = 8 * 1024 * 1024;
 const MAX_PENDING_GONE = 1_000;
-/** The histogram's timer interval. Each recorded delay includes it, so it is subtracted. */
-const LOOP_RESOLUTION_MS = 20;
+/**
+ * The histogram's timer interval. Each recorded delay includes it, so it is subtracted. The timer
+ * wakes the main process on each interval, also when the app is idle: 20 ms was 50 wakeups a second
+ * for the whole day. At 100 ms a stall of 100 ms or more still shows in the p99 and the peak, and a
+ * recorded value can be up to one interval shorter than the stall.
+ */
+const LOOP_RESOLUTION_MS = 100;
 // The `serviceName` that `agent-database-host-process.ts` and the voice `*-host-process.ts` files
 // give `utilityProcess.fork`. Electron reports it as the metric's `name`.
 const UTILITY_GROUPS = new Map<string, ProcessGroup>([
@@ -437,11 +442,12 @@ function processGroup(metric: ProcessMetric, tabPids: ReadonlySet<number>): Proc
   }
 }
 
-/** All processes, for the provider trees. The output stays in memory: it holds executable paths. */
+/** One recorded delay of the histogram, in ms, less the timer interval that each record includes. */
 function loopDelayMs(nanoseconds: number): number {
   return Math.max(0, nanoseconds / 1e6 - LOOP_RESOLUTION_MS);
 }
 
+/** All processes, for the provider trees. The output stays in memory: it holds executable paths. */
 const listProcesses = Effect.callback<{ text: string; pid: number | undefined }, AnalyticsOperationFailure>(
   (resume) => {
     const child = execFile(

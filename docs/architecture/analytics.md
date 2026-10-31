@@ -92,7 +92,11 @@ in `src/backend/provider-processes.ts` names its provider, its children inherit 
 Windows reports `provider_tree_supported: false`. A sample with a failed `ps` records no total. CPU
 comes from the change in each process's CPU time between two listings, so a command that starts
 and ends between two samples, such as a short tool run, is not counted. The main event loop uses
-`monitorEventLoopDelay`, less its 20 ms timer interval.
+`monitorEventLoopDelay`, less its 100 ms timer interval. A shorter interval wakes the main process
+more often when the app is idle. Version 0.56.0 and earlier used a 20 ms interval, so the
+`main_loop_delay_ms_*` values of later versions are not comparable with them: a stall shorter than
+about 100 ms seldom shows now, and a drop of these values after 0.56.0 comes from the interval, not
+from a faster main process.
 Database time comes from `AgentDatabaseSupervisor`, from the send of a statement to its answer or to
 the end of the host; the host process is not changed. Renderer and child process exits other than a
 clean exit are written to the trace as `crash` spans at once, and counted at the next sample. A

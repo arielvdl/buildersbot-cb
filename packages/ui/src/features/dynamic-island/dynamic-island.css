@@ -25,7 +25,9 @@
   border: 0;
   background: transparent;
   color: var(--openbot-text-primary);
-  filter: drop-shadow(0 0 0 transparent);
+  /* No filter at rest: a filter on the root gives the whole island a surface of its own, which is
+     drawn again for each frame of anything that moves inside it. The transition starts from none. */
+  filter: none;
   pointer-events: none;
   transition: filter var(--openbot-duration-normal) var(--openbot-ease-out);
 }
@@ -231,7 +233,7 @@
 
 .dynamic-island-trailing-compact {
   opacity: 1;
-  filter: blur(0);
+  filter: none;
   transform: translateY(0) scale(1);
 }
 

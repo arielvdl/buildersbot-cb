@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import solidPlugin from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { normalizePath, type Plugin } from "vite";
 
 const rendererPort = readRendererPort(process.env.OPENBOT_DEV_RENDERER_PORT);
 
@@ -52,7 +53,7 @@ export default defineConfig({
     },
   },
   renderer: {
-    plugins: [solidPlugin(), tailwindcss({ optimize: false })],
+    plugins: [desktopLanguageCatalogs(), solidPlugin(), tailwindcss({ optimize: false })],
     optimizeDeps: {
       include: ["@norbert_bodziony/bloub"],
     },
@@ -73,6 +74,27 @@ export default defineConfig({
     },
   },
 });
+
+const I18N_SOURCE = `${normalizePath(resolve("packages/i18n/src"))}/`;
+const EAGER_CATALOG_MODULES = new Set(["./app-catalogs", "./source-catalogs", "./format-catalogs", "./locale-loading"]);
+
+/**
+ * The renderer holds English and Portuguese and loads each other language on first use (see
+ * `packages/i18n/src/desktop-catalogs.ts`). Each window is a renderer process of its own, and each
+ * one held all thirteen languages. The main process keeps every language. The public web build does
+ * the same with `lazy-catalogs.ts` in `apps/auth-api/vite.config.ts`.
+ */
+function desktopLanguageCatalogs(): Plugin {
+  return {
+    name: "buildersbot-desktop-language-catalogs",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!importer || !EAGER_CATALOG_MODULES.has(source)) return null;
+      if (!normalizePath(importer).startsWith(I18N_SOURCE)) return null;
+      return `${I18N_SOURCE}desktop-catalogs.ts`;
+    },
+  };
+}
 
 function readRendererPort(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;

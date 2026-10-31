@@ -361,6 +361,11 @@ export class CuaDriverRuntime {
     return this.#tap.lastPointer(maxAgeMs);
   }
 
+  /** Calls `listener` each time an agent asks the driver to act or to aim the pointer. */
+  onAction(listener: () => void): () => void {
+    return this.#tap.onAction(listener);
+  }
+
   /**
    * How to reach the running daemon over MCP, or `null` while there is nothing to reach.
    *

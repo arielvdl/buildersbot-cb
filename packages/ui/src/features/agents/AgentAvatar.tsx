@@ -90,6 +90,33 @@ export function AgentAvatar(props: AgentAvatarProps) {
   );
 }
 
+/** Called with whether any part of an observed avatar is in sight. */
+const onScreenListeners = new WeakMap<Element, (onScreen: boolean) => void>();
+let onScreenObserver: IntersectionObserver | undefined;
+
+/**
+ * Tells `listener` whether `element` is in sight, through one observer for every avatar. A
+ * collapsed sidebar section clips its rows to no height, which the observer reports as an
+ * intersection with no area, so an intersection counts only with some area. The second threshold
+ * makes the observer report the change from no area to some area. Returns the function that stops.
+ */
+function observeOnScreen(element: Element, listener: (onScreen: boolean) => void): () => void {
+  if (typeof IntersectionObserver === "undefined") return () => {};
+  onScreenObserver ??= new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries)
+        onScreenListeners.get(entry.target)?.(entry.isIntersecting && entry.intersectionRatio > 0);
+    },
+    { threshold: [0, 0.01] },
+  );
+  onScreenListeners.set(element, listener);
+  onScreenObserver.observe(element);
+  return () => {
+    onScreenListeners.delete(element);
+    onScreenObserver?.unobserve(element);
+  };
+}
+
 /**
  * The generated avatar is the agent mark. The mark moves on its own, so it does not take the
  * breathing of the photo avatar.
@@ -109,6 +136,7 @@ function GeneratedAvatar(props: {
   // so a resting avatar waits for one before its light runs; `avatarAnimates` has the whole rule.
   const [pointerOn, setPointerOn] = createSignal<number | null>(null);
   const [reducedMotion, setReducedMotion] = createSignal(prefersReducedMotion());
+  const [onScreen, setOnScreen] = createSignal(true);
   const accent = createMemo(() => avatarMarkAccent(props.hue));
   const role = createMemo<AgentMarkRole | null>(() => avatarMarkRole(props.title));
   const animated = () =>
@@ -118,6 +146,7 @@ function GeneratedAvatar(props: {
       followPointer: props.followPointer,
       pointerOn: pointerOn(),
       reducedMotion: reducedMotion(),
+      onScreen: onScreen(),
     });
 
   onSettled(() => {
@@ -125,6 +154,7 @@ function GeneratedAvatar(props: {
     const syncReducedMotion = () => setReducedMotion(media?.matches ?? false);
     syncReducedMotion();
     media?.addEventListener?.("change", syncReducedMotion);
+    const stopOnScreen = element ? observeOnScreen(element, setOnScreen) : undefined;
 
     // What must be hovered or focused for a resting avatar to light up: the control the avatar sits
     // in or beside, marked with `data-avatar-hover` when the avatar is only a neighbour of it.
@@ -155,6 +185,7 @@ function GeneratedAvatar(props: {
 
     return () => {
       media?.removeEventListener?.("change", syncReducedMotion);
+      stopOnScreen?.();
       interactionTarget?.removeEventListener("pointerenter", startInteraction);
       interactionTarget?.removeEventListener("pointerleave", stopInteraction);
       interactionTarget?.removeEventListener("focusin", startFocusInteraction);

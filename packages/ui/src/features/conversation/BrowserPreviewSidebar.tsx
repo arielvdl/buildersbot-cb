@@ -6,9 +6,23 @@ import { createEffect, createMemo, createSignal, createStore, For, onSettled, Sh
 
 const BROWSER_PANEL_MIN = 220;
 const BROWSER_PANEL_MAX = 1600;
+/** How long after a capture that changed the picture a card asks for the next one. */
+const PREVIEW_REFRESH_MS = 3_000;
+/**
+ * The longest wait between two captures of a page that does not change. Each capture lays the page
+ * out again, wakes it, and resizes and encodes a full frame in the main process, so a card that asks
+ * every 3 s for the same picture costs CPU for nothing. The wait doubles after each capture that gives
+ * the same picture, up to this, and goes back to `PREVIEW_REFRESH_MS` after a capture that differs.
+ * A navigation, a load or a card that comes back into view captures at once. A new title brings the
+ * next capture to `PREVIEW_REFRESH_MS` at most. While the agent of the tabs works, the wait does not
+ * grow (see `busy`).
+ */
+const PREVIEW_REFRESH_MAX_MS = 12_000;
 
 interface BrowserPreviewSidebarProps {
   capturePreview?: ((tabId: string) => Promise<BrowserPreview>) | undefined;
+  /** The agent of these tabs has a turn running. See `busy` of `BrowserPreviewCard`. */
+  busy?: boolean | undefined;
   readWidth: (fallback: number, min: number, max: number) => number;
   readCustomWidth: () => number;
   saveWidth: (width: number) => void;
@@ -111,6 +125,7 @@ export default function BrowserPreviewSidebar(props: BrowserPreviewSidebarProps)
           {(tab) => (
             <BrowserPreviewCard
               capturePreview={props.capturePreview}
+              busy={props.busy === true}
               tab={tab()}
               contextKey={props.contextKey}
               enabled={!props.hidden && !props.suspended}
@@ -137,6 +152,12 @@ export default function BrowserPreviewSidebar(props: BrowserPreviewSidebarProps)
 
 export function BrowserPreviewCard(props: {
   capturePreview?: ((tabId: string) => Promise<BrowserPreview>) | undefined;
+  /**
+   * The agent of the tab has a turn running. While an operation of the agent runs on the tab, the
+   * host answers with the frame that it saved before, so the same picture does not tell that the
+   * page did not change. The card then asks every `PREVIEW_REFRESH_MS`.
+   */
+  busy?: boolean | undefined;
   tab: BrowserTab;
   contextKey: string;
   enabled: boolean;
@@ -169,7 +190,17 @@ export function BrowserPreviewCard(props: {
   const captureKey = createMemo(() =>
     JSON.stringify([pageKey(), props.tab.loading, props.enabled && visible() && documentVisible()]),
   );
+  // Read in the callbacks below, so it is made here, where the card is the owner.
+  const busy = createMemo(() => props.busy === true);
+  /** Brings the next capture to `PREVIEW_REFRESH_MS` at most, while the card captures. */
+  let hurryCapture: (() => void) | undefined;
   createEffect(pageKey, () => setState(() => ({ preview: null, failed: false })));
+  // A new title can come with a new picture, such as a chat that counts new messages in its title.
+  // It does not capture at once: a title that changes each second would capture each second.
+  createEffect(
+    () => props.tab.title,
+    () => hurryCapture?.(),
+  );
   createEffect(
     () => {
       captureKey();
@@ -180,6 +211,14 @@ export function BrowserPreviewCard(props: {
       if (!capturePreview || !enabled || !visible() || !documentVisible()) return;
       let disposed = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let dueAt = 0;
+      let delay = PREVIEW_REFRESH_MS;
+      // A new title came since the last answer, so the next answer is not counted as the same picture.
+      let hurried = false;
+      const schedule = (ms: number) => {
+        dueAt = Date.now() + ms;
+        timer = setTimeout(refresh, ms);
+      };
       // A page that is still loading often cannot be captured yet. Keep the skeleton until the load
       // ends; the end of the load starts a new capture.
       const failed = () => {
@@ -194,21 +233,37 @@ export function BrowserPreviewCard(props: {
         try {
           pending = capturePreview(id)
             .then((preview) => {
-              if (!disposed) setState(() => ({ preview, failed: false }));
+              if (disposed) return;
+              // The host gives the same encoded frame for a page that did not change.
+              const unchanged = preview.dataUrl === state.preview?.dataUrl && !hurried && !busy();
+              delay = unchanged ? Math.min(delay * 2, PREVIEW_REFRESH_MAX_MS) : PREVIEW_REFRESH_MS;
+              hurried = false;
+              setState(() => ({ preview, failed: false }));
             })
             .catch(failed)
             .finally(() => {
               pending = undefined;
-              if (!disposed) timer = setTimeout(refresh, 3000);
+              if (!disposed) schedule(delay);
             });
         } catch {
           failed();
-          if (!disposed) timer = setTimeout(refresh, 3000);
+          if (!disposed) schedule(delay);
         }
       };
+      // At most one capture each `PREVIEW_REFRESH_MS`, as before the wait could grow: a timer that is
+      // due sooner is kept, and a capture in progress is followed `PREVIEW_REFRESH_MS` after it ends.
+      const hurry = () => {
+        delay = PREVIEW_REFRESH_MS;
+        hurried = true;
+        if (timer === undefined || dueAt - Date.now() <= PREVIEW_REFRESH_MS) return;
+        clearTimeout(timer);
+        schedule(PREVIEW_REFRESH_MS);
+      };
+      hurryCapture = hurry;
       refresh();
       return () => {
         disposed = true;
+        if (hurryCapture === hurry) hurryCapture = undefined;
         if (timer) clearTimeout(timer);
       };
     },

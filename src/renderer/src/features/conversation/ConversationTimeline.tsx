@@ -28,7 +28,7 @@ import { UnreadMessagesBanner, UnreadMessagesDivider } from "@openbot/ui/feature
 import { VoicePlayer } from "@openbot/ui/features/conversation/VoicePlayer";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, For, Loading, lazy, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Loading, lazy, onCleanup, Show, untrack } from "solid-js";
 import { useShowAgentSteps } from "../../agent-steps-preference";
 import { planItems, planTitle } from "../../app-message-projection";
 import { currentDevicePlatform } from "../../send-shortcut-preference";
@@ -50,6 +50,7 @@ import { ConversationQuestionPrompt } from "./ConversationQuestionPrompt";
 import { continuesSenderRun } from "./chat-grouping";
 import { isChatVisualAppShortcut } from "./chat-visual-shortcuts";
 import { chatVisualPageUrl } from "./chat-visual-url";
+import { agentConversationKey } from "./conversation-keys";
 import { isIncomingAgentMessage } from "./conversation-read-state";
 import { conversationRuntime } from "./conversation-runtime";
 import { useConversationViewScope } from "./conversation-scope";
@@ -296,7 +297,14 @@ export function ConversationTimeline() {
 
   const runtime = conversationRuntime(props);
   // The browser client reads a host file whole, with no size limit, so a named image stays a chip there.
-  const loadImageFile = props.runtime ? undefined : createMessageImageFiles(runtime.agent);
+  const imageFiles = props.runtime ? undefined : createMessageImageFiles(runtime.agent);
+  const loadImageFile = imageFiles?.load;
+  /** The conversation that the named images belong to: an agent on a server, and its thread. */
+  const imageConversation = () =>
+    `${agentConversationKey(props.server?.id ?? "local", props.agent?.id ?? "")}\0${props.agent?.threadId ?? ""}`;
+  // The timeline stays mounted when the user opens another agent, so it drops the images of the chat
+  // that the user left.
+  createEffect(imageConversation, (conversation) => imageFiles?.retainOnly(conversation));
   const instructionsCalls = agentInstructionsCalls();
   /** View and Undo on an instructions change line: the file is in the workspace on this computer. */
   const localInstructionsCalls = () =>
@@ -1264,6 +1272,7 @@ export function ConversationTimeline() {
                               ((file) =>
                                 loadImageFile(file, {
                                   serverId: props.server?.id ?? "local",
+                                  conversation: imageConversation(),
                                   messageId: message()?.id ?? initialMessage.id,
                                   agentId: workspaceAgentId(),
                                 }))
