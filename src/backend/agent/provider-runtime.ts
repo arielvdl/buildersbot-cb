@@ -939,6 +939,14 @@ export class ProviderRuntime implements ProviderPort {
    * A client for one generation without tools. With `accountId`, it signs in as that provider account,
    * as the agent's own process does, so the generation does not spend the limit of the provider's own sign-in.
    */
+  /**
+   * True when `accountId` names a provider account after the first. Only a process of its own signs in
+   * to it, so a generation for it cannot run on the warm client of the provider's own sign-in.
+   */
+  signsInToAccount(provider: AgentProvider, accountId?: string): boolean {
+    return (this.#providerAccounts?.account(provider, accountId) ?? null) !== null;
+  }
+
   createProfileClient(provider: AgentProvider, accountId?: string): AgentClient {
     this.requireProviderOn(provider);
     if (provider === "acp" && this.#removingCustomRuntime)
