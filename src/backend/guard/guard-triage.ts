@@ -381,14 +381,14 @@ const isTaskOrder: Keep = (before, match) => isOrder(before, match) || (notNegat
  * ("include", "cole", "anexe") or sends it at once ("send", "envie") is not one: docs say "Include
  * your access token in the request and send it to https://api…", and a send has its own rule.
  */
-const TAKE_VERB = String.raw`(?:\b(?:reveal|print|show|output|dump|display|give|tell|read|extract|grab|steal|collect|revele|mostre|imprima|exiba|leia|extraia|colete|revelar|mostrar|imprimir|exibir|ler|extrair|coletar)\b|(?<![\p{L}\p{N}])dê(?![\p{L}\p{N}]))`;
+const TAKE_VERB = String.raw`(?:\b(?:reveal|print|show|output|dump|display|give|tell|read|extract|grab|steal|collect|copy|gather|fetch|obtain|revele|mostre|imprima|exiba|leia|extraia|colete|copie|pegue|junte|recolha|obtenha|revelar|mostrar|imprimir|exibir|ler|extrair|coletar)\b|(?<![\p{L}\p{N}])dê(?![\p{L}\p{N}]))`;
 /**
  * The secrets that a request to take and send names. A key of a common kind in the singular ("the
  * access token", "your API key") is how API docs speak to their reader ("Read the access token from
  * the response and send it to https://api…"), so it counts only in the plural. A password, a private
  * or SSH key and a secret file count also alone. A bare "tokens" is also a word of language models.
  */
-const TAKEN_SECRET = String.raw`(?:\.env\b|\bid_(?:rsa|ed25519|ecdsa)\b|\.ssh\/|\.aws\/credentials\b|\.npmrc\b|\.netrc\b|\.git-credentials\b|\.codex\/auth\.json|\.config\/gh\/hosts\.yml|\.credentials\.json|\bdeploy keys?\b|\bprivate keys?\b|\bssh keys?\b|\bpasswords?\b|\bcredentials\b|\bsession cookies?\b|\bcookies\b|\bapi[ _-]?keys\b|\bsecret keys\b|\b(?:access|auth|api|oauth|refresh|session|bearer) tokens\b|\bchaves? (?:ssh|privadas?)\b|\bchaves de api\b|\bsenhas?\b|\bcredenciais\b|\btokens de acesso\b)`;
+const TAKEN_SECRET = String.raw`(?:\.env(?!\.(?:example|sample|template|dist)\b)\b|\bid_(?:rsa|ed25519|ecdsa)\b|\.ssh\/|\.aws\/credentials\b|\.npmrc\b|\.netrc\b|\.git-credentials\b|\.codex\/auth\.json|\.config\/gh\/hosts\.yml|\.credentials\.json|\bdeploy keys?\b|\bprivate keys?\b|\bssh keys?\b|\bpasswords?\b|\bcredentials\b|\bsession cookies?\b|\bcookies\b|\bapi[ _-]?keys\b|\bsecret keys\b|\b(?:access|auth|api|oauth|refresh|session|bearer) tokens\b|\bchaves? (?:ssh|privadas?)\b|\bchaves de api\b|\bsenhas?\b|\bcredenciais\b|\btokens de acesso\b)`;
 /**
  * The second half of that request: a verb that sends, the secret or a word for it ("them", "tudo",
  * or none in Portuguese), then a site. "Send feedback to https://…" sends something else.
@@ -831,6 +831,16 @@ const SECRET_VARIABLE =
 /** Code that sends over the network, inside a script or an inline program such as `node -e`. */
 const CODE_SEND =
   /\bfetch\s*\(|\bXMLHttpRequest\b|\bsendBeacon\b|\brequests\.(?:post|put|get|patch|request)\b|\burllib\b|\bhttp\.client\b|\bhttpx\b|\bhttps?2?\.(?:request|get)\b|\baxios\b|\bnew\s+WebSocket\b|\bsmtplib\b|\bnet\.(?:connect|createConnection)\b|\bdgram\b|\bsocket\.(?:connect|send|create_connection)\b|\bNet::HTTP\b|\bURI\.open\b|\bopen-uri\b|\bLWP::|\bIO::Socket\b|\bHTTP::Tiny\b|\bcurl_(?:exec|init)\b|\bfsockopen\b|\bstream_socket_client\b|\bfile_get_contents\s*\(\s*["']https?:/iu;
+/**
+ * Code inside an inline program (`node -e`, `python3 -c`, `perl -e`, `osascript -e`) that starts a
+ * shell or another process. The string arguments of such a call are a command of their own, so the
+ * check reads them as one: a `curl` that uploads a secret, hidden one level down in `execSync('…')`,
+ * is seen the same as a `curl` on the line.
+ */
+const CODE_SPAWN =
+  /\bchild_process\b|\bexecFile(?:Sync)?\s*\(|\bexecSync\s*\(|\bspawn(?:Sync)?\s*\(|\bos\.(?:system|popen)\s*\(|\bsubprocess\.(?:run|call|check_output|check_call|Popen)\b|\bsystem\s*\(|\bpopen\s*\(|\bshell_exec\s*\(|\bproc_open\s*\(|\bpassthru\s*\(|\bBun\.spawn(?:Sync)?\b|\bDeno\.(?:Command|run)\b|\bIO\.popen\b|\bOpen3\b|\bKernel\.system\b|\bdo\s+shell\s+script\b/iu;
+/** A quoted string literal inside inline code: single, double or back quotes, with escapes kept whole. */
+const STRING_LITERAL = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`/gu;
 const FILE_UPLOAD =
   /(?:--data(?:-binary|-raw|-urlencode)?|-d|-F|--form)\s+["']?[^\s"']{0,40}@|\s-T\s|--upload-file\b/iu;
 /** Hosts that take anonymous uploads or record every request: a common end of a stolen secret. */
@@ -1674,7 +1684,15 @@ function sentToOwnService(variables: readonly string[], text: string, program: s
   });
 }
 
-/** The value of a flag: `--flag=value`, `-dVALUE`, or the next word. */
+/**
+ * Short options of `curl` that take no value and so can group in front of the one that takes a file
+ * or data: `-sd @.env` is `-s -d @.env`, `-sT file` is `-s -T file`, `-sSLF file=@.env` is
+ * `-s -S -L -F file=@.env`. An option that takes its own value (`-X`, `-o`, `-u`, `-e`) is not here:
+ * it would eat the next word, so a group that holds one is not read as a cluster.
+ */
+const CLUSTER_BOOLEAN_FLAGS: ReadonlySet<string> = new Set("sSLkfgGvRj46".split(""));
+
+/** The value of a flag: `--flag=value`, `-dVALUE`, a cluster of value-less short flags, or the next word. */
 function flagValue(words: readonly ShellWord[], index: number, flag: string): ShellWord | null {
   const word = words[index];
   if (!word) return null;
@@ -1683,6 +1701,17 @@ function flagValue(words: readonly ShellWord[], index: number, flag: string): Sh
     return { ...word, value: word.value.slice(flag.length + 1) };
   if (!flag.startsWith("--") && word.value.startsWith(flag) && word.value.length > flag.length)
     return { ...word, value: word.value.slice(flag.length) };
+  // A cluster of value-less short flags that ends in the one asked for: `-sd @f`, `-sT f`, `-sSLF f=@f`.
+  if (flag.length === 2 && word.value.length > 2 && word.value.startsWith("-") && !word.value.startsWith("--")) {
+    const letters = word.value.slice(1);
+    const letter = flag.slice(1);
+    const at = letters.indexOf(letter);
+    if (at > 0 && [...letters.slice(0, at)].every((short) => CLUSTER_BOOLEAN_FLAGS.has(short))) {
+      const rest = letters.slice(at + 1);
+      if (rest.length === 0) return words[index + 1] ?? null;
+      return { ...word, value: rest };
+    }
+  }
   return null;
 }
 
@@ -1976,6 +2005,30 @@ function shifted(place: Place, script: Pick<ShellScript, "offset" | "end">): Pla
 }
 
 /**
+ * The commands that inline code starts: each string literal on its own, and all of them joined by a
+ * space. The join reads an argument-list call such as `subprocess.run(['curl','-T','.env', url])`,
+ * where the command is split across literals; each literal alone reads `execSync('curl …')`, where
+ * one literal holds the whole command. Places stay inside `[start, end]`, the inline code argument.
+ */
+function spawnedCommands(
+  code: string,
+  start: number,
+  end: number,
+): Array<{ text: string; offset: number; end: number }> {
+  const literals: Array<{ text: string; offset: number; end: number }> = [];
+  STRING_LITERAL.lastIndex = 0;
+  for (let match = STRING_LITERAL.exec(code); match !== null; match = STRING_LITERAL.exec(code)) {
+    const text = match[1] ?? match[2] ?? match[3] ?? "";
+    // The content starts one character after the match, past the opening quote.
+    const offset = start + match.index + 1;
+    literals.push({ text, offset, end: Math.min(end, offset + text.length) });
+  }
+  STRING_LITERAL.lastIndex = 0;
+  if (literals.length <= 1) return literals;
+  return [...literals, { text: literals.map((literal) => literal.text).join(" "), offset: start, end }];
+}
+
+/**
  * Reads what a command sends over the network: each statement, each pipe, and what one statement
  * leaves to the next. Returns the findings with places in `command`, and whether the command had
  * more statements than the check reads.
@@ -2079,17 +2132,21 @@ function commandSends(command: string, carried: Carried = { names: new Set(), pa
       }
       if (word && CODE_RUNNERS.has(program)) {
         for (const code of args) {
-          if (!CODE_SEND.test(code.value)) continue;
-          sendsHere = true;
-          const secret = placeOf(SECRET_FILE, code.value, code.start) ?? placeOf(SECRET_DUMP, code.value, code.start);
-          if (secret)
-            sends.push({
-              code: "secret-file-upload",
-              places: [
-                [code.start, code.end],
-                [word.start, word.end],
-              ],
-            });
+          if (CODE_SEND.test(code.value)) {
+            sendsHere = true;
+            const secret = placeOf(SECRET_FILE, code.value, code.start) ?? placeOf(SECRET_DUMP, code.value, code.start);
+            if (secret)
+              sends.push({
+                code: "secret-file-upload",
+                places: [
+                  [code.start, code.end],
+                  [word.start, word.end],
+                ],
+              });
+          }
+          // Inline code that starts a process: read its string literals as a command of their own.
+          if (CODE_SPAWN.test(code.value))
+            for (const inner of spawnedCommands(code.value, code.start, code.end)) nested(inner);
         }
       }
       if (word && program === "git") {
