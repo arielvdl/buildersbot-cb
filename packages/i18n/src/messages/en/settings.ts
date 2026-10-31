@@ -167,6 +167,9 @@ export const messages = defineMessages("settings", {
   "settings.showAgentSteps.title": "Show agent steps",
   "settings.showAgentSteps.description":
     "Open the thinking, tool steps and memory changes of a turn while it runs, on this device and browser. They close when the turn ends.",
+  "settings.askBeforeForce.title": "Ask before forcing a message",
+  "settings.askBeforeForce.description":
+    "Before a queued message stops the agent’s current work, ask to confirm, on this device and browser.",
   "settings.busyMessage.title": "Steer agents while they work",
   "settings.busyMessage.description":
     "New messages join the agent’s current work, not the queue. Works with ChatGPT and Claude.",
@@ -837,6 +840,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.serverName": "name, rename, server name",
   "settings.search.keywords.sessions": "sessions, devices, signed in, sign out, log out",
   "settings.search.keywords.showAgentSteps": "agent steps, tool calls, thinking, progress, details",
+  "settings.search.keywords.askBeforeForce": "force, queue, interrupt, stop, confirm, ask",
   "settings.search.keywords.sites": "sites, websites, hosting, publish, pages",
   "settings.search.keywords.soundFeedback": "sounds, clicks, feedback, audio",
   "settings.search.keywords.speechVoice": "voice, speaker, TTS voice, spoken replies",

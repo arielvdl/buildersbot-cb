@@ -12,6 +12,7 @@ import type {
   ClientAgentSummary,
   ConversationMessage,
   ConversationPage,
+  ForceQueuedMessageOutcome,
   HiddenAgent,
   HostedServerIssue,
   HostedServerSleep,
@@ -27,6 +28,7 @@ import type {
 import { canAdministerServer } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { FOCUS_USE_CAPABILITY } from "@openbot/contracts/team-protocol/focus-use-v1";
+import { QUEUE_FORCE_CAPABILITY } from "@openbot/contracts/team-protocol/queue-force-v1";
 import { cleanAgentMessageText } from "@openbot/team-client/agent-message-text";
 import { createFocusUsePing } from "@openbot/team-client/focus-use";
 import { WAKE_RECONNECT_DELAY_MS } from "@openbot/team-client/hosted-server-wake";
@@ -1585,6 +1587,29 @@ export function createWebWorkspace(
           throw error;
         }),
       );
+    },
+    /** Whether the connected host can force a queued message: it serves `queue-force-v1`. */
+    canForceQueued: () => state.status === "online" && state.capabilities.includes(QUEUE_FORCE_CAPABILITY),
+    /**
+     * Stops the selected agent's running turn and starts this queued message next. It answers what
+     * the host did, or null when the force did not go through; the error shows in the workspace.
+     */
+    async forceQueued(deliveryId: string): Promise<ForceQueuedMessageOutcome | null> {
+      const agentId = selectedId;
+      const current = generation;
+      if (!agentId || state.status !== "online" || !state.capabilities.includes(QUEUE_FORCE_CAPABILITY)) return null;
+      const expectedTurnId = conversation()?.page?.activeTurnId ?? null;
+      try {
+        return (await runtime.forceQueued({ agentId, deliveryId, expectedTurnId })).outcome;
+      } catch (error) {
+        if (current !== generation) return null;
+        // A message that left the queue has started already, for example with the message before it
+        // when that turn ended by itself. The refusal is old news, as for a steer.
+        const queue = state.queues[agentId];
+        if (queue && queue.deliveries.find((item) => item.id === deliveryId)?.status !== "queued") return null;
+        report(error);
+        return null;
+      }
     },
     reorderQueue: (deliveryIds: string[]) => changeQueue((agentId) => runtime.reorderQueue({ agentId, deliveryIds })),
     async updateQueued(

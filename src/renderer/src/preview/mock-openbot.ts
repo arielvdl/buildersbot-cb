@@ -107,6 +107,7 @@ import {
   type ExternalLinkBrowsers,
   type ExternalLinkPreference,
   type FilePreview,
+  type ForceQueuedMessageInput,
   folderInside,
   type GuardPreference,
   type HostedSiteSummary,
@@ -3058,6 +3059,20 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
         );
         queues.set(input.agentId, queue);
         emitAgentEvent({ type: "queue-changed", snapshot: queue });
+      },
+      // The preview has no provider turn to stop: the forced message goes first in the queue.
+      forceQueuedMessage: async (input: ForceQueuedMessageInput) => {
+        const queue = queues.get(input.agentId) ?? emptyQueue(input.agentId);
+        const forced = queue.deliveries.find((item) => item.id === input.deliveryId && item.status === "queued");
+        if (!forced) throw new Error(sourceText("error.backend.forceQueuedOnly"));
+        const waiting = [forced, ...queue.deliveries.filter((item) => item.status === "queued" && item !== forced)];
+        queue.deliveries = [
+          ...waiting.map((item, index) => ({ ...item, position: index + 1 })),
+          ...queue.deliveries.filter((item) => item.status !== "queued"),
+        ];
+        queues.set(input.agentId, queue);
+        emitAgentEvent({ type: "queue-changed", snapshot: structuredClone(queue) });
+        return { outcome: input.expectedTurnId ? "interrupted" : "started" };
       },
       editQueuedMessage: async (input) => {
         const queue = queues.get(input.agentId) ?? emptyQueue(input.agentId);

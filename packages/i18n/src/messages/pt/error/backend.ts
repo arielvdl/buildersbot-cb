@@ -291,6 +291,10 @@ export const messages = {
   "error.backend.steerUnsupported": "Este provedor não pode orientar um turno em execução. Sua mensagem fica na fila.",
   "error.backend.steerRoutineRun": "Uma rotina está em execução. Sua mensagem fica na fila e começa depois da rotina.",
   "error.backend.steerQueuedOnly": "Somente mensagens na fila podem orientar o turno ativo.",
+  "error.backend.forceQueuedOnly": "Só uma mensagem que espera na fila do agente pode ser forçada.",
+  "error.backend.forceEditing":
+    "Outro dispositivo está editando esta mensagem. Salve ou cancele a edição e depois force o envio.",
+  "error.backend.forceStopFailed": "Não foi possível parar o agente. A mensagem continua na fila.",
   "error.backend.promptInactive": "Esta pergunta não está mais ativa.",
   "error.backend.promptAnswerMismatch": "Uma resposta não corresponde a uma pergunta ativa.",
   "error.backend.approvalInactive": "Esta aprovação não está mais ativa.",

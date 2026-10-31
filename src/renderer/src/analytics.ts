@@ -80,7 +80,7 @@ interface DesktopAnalyticsEvents {
     failure_code?: string;
   };
   queue_action: {
-    action: "cancel" | "steer" | "edit" | "reorder" | "interrupt";
+    action: "cancel" | "steer" | "force" | "edit" | "reorder" | "interrupt";
     result: AnalyticsResult;
     failure_code?: string;
   };

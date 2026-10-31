@@ -2247,6 +2247,69 @@ export class MailboxStore {
     }
   }, Effect.uninterruptible).bind(this);
 
+  /**
+   * Puts one queued message of the agent's own chat first, for a force: before the other messages
+   * that the person sees, also before one that another editor holds. Channel, messaging and task work
+   * stays at the head, because it reserved the agent before. The other messages keep their order.
+   * Returns the order before the change, for `restoreQueueOrder`.
+   */
+  moveToQueueHead = Effect.fn("MailboxStore.moveToQueueHead")(function* (
+    this: MailboxStore,
+    agentId: string,
+    deliveryId: string,
+  ): Effect.fn.Return<ReadonlyMap<string, number>, StoredStateFailure> {
+    try {
+      const allQueued = this.#state.deliveries
+        .filter((delivery) => delivery.recipientAgentId === agentId && delivery.status === "queued")
+        .sort(compareQueueOrder);
+      const executionMessageIds = this.#executionMessageIds();
+      const forced = allQueued.find((delivery) => delivery.id === deliveryId);
+      if (!forced || forced.editId || waitsForPlanContinuation(forced) || executionMessageIds.has(forced.messageId)) {
+        throw new Error(sourceText("error.backend.forceQueuedOnly"));
+      }
+      const previous = new Map(allQueued.map((delivery) => [delivery.id, delivery.queueOrder]));
+      const execution = allQueued.filter((delivery) => executionMessageIds.has(delivery.messageId));
+      const others = allQueued.filter(
+        (delivery) => delivery !== forced && !executionMessageIds.has(delivery.messageId),
+      );
+      for (const [index, delivery] of [...execution, forced, ...others].entries()) {
+        if (delivery.queueOrder === index) continue;
+        delivery.queueOrder = index;
+        this.#changes.deliveryIds.add(delivery.id);
+      }
+      this.#persist("queue.reordered");
+      return previous;
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
+  /**
+   * Gives each message that still waits its order from `previous`, after a force that did not go
+   * through. A message queued since then stays after them, in its order.
+   */
+  restoreQueueOrder = Effect.fn("MailboxStore.restoreQueueOrder")(function* (
+    this: MailboxStore,
+    agentId: string,
+    previous: ReadonlyMap<string, number>,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      let next = [...previous.values()].reduce((max, order) => Math.max(max, order), -1) + 1;
+      const queued = this.#state.deliveries
+        .filter((delivery) => delivery.recipientAgentId === agentId && delivery.status === "queued")
+        .sort(compareQueueOrder);
+      for (const delivery of queued) {
+        const order = previous.get(delivery.id) ?? next++;
+        if (delivery.queueOrder === order) continue;
+        delivery.queueOrder = order;
+        this.#changes.deliveryIds.add(delivery.id);
+      }
+      this.#persist("queue.reordered");
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
   markSteering = Effect.fn("MailboxStore.markSteering")(function* (
     this: MailboxStore,
     deliveryId: string,

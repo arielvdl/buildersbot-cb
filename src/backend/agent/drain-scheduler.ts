@@ -213,6 +213,12 @@ export class DrainScheduler {
    */
   readonly #requeuedAtLimit = new Set<string>();
   readonly #settingsHolds = new Map<string, number>();
+  /**
+   * The forced deliveries. Each one starts its turn alone: the person's messages queued after it do
+   * not join that turn, so they start after it, in queue order. In memory only: after a restart a
+   * forced message starts as any other message at the head of the queue.
+   */
+  readonly #startsAlone = new Set<string>();
   /** The last hold `#reportHold` logged per lane, so a waiting queue logs once per reason. */
   readonly #reportedHolds = new Map<string, string>();
   /**
@@ -325,11 +331,15 @@ export class DrainScheduler {
     });
   }
 
-  /** The first clause of `mayDrain` that holds this lane, or null when none does. */
-  #heldBy(lane: Lane): string | null {
+  /**
+   * The first clause of `mayDrain` that holds this lane, or null when none does. With `besideTurn`,
+   * the clauses that the running turn `besideTurn.turnId` of the agent's own chat sets are left out:
+   * the lane is read as it will be when that turn has ended.
+   */
+  #heldBy(lane: Lane, besideTurn?: { turnId: string | null }): string | null {
     const { agentId, taskId } = lane;
     if (this.#settingsHolds.has(agentId)) return "session-settings";
-    if (this.#laneTurnActive(lane)) return "active-turn";
+    if (!besideTurn && this.#laneTurnActive(lane)) return "active-turn";
     // The provider has one turn of the agent at a time, so each lane waits for the turn of any other.
     if (
       this.#tasks.oneTurnAtATime(agentId) &&
@@ -355,7 +365,13 @@ export class DrainScheduler {
     // A hidden agent finishes the turn that runs. Its queued messages wait until the user restores it.
     if (agent?.hiddenAt !== undefined) return "hidden";
     // Channel work holds only the agent's own chat. Its tasks run beside a channel turn.
-    if (taskId === null && !(this.#channels?.mayDrain(agentId) ?? true)) return "channel";
+    if (
+      taskId === null &&
+      (besideTurn
+        ? (this.#channels?.reservesBeside(agentId, besideTurn.turnId) ?? false)
+        : !(this.#channels?.mayDrain(agentId) ?? true))
+    )
+      return "channel";
     if (!this.#profileSave.mayDrain(agentId)) return "profile-save";
     if (!this.#duplication.mayDrain(agentId)) return "duplication";
     if (this.#compactionHolds(lane)) return "compaction";
@@ -461,6 +477,30 @@ export class DrainScheduler {
     return false;
   }
 
+  /** Makes the next turn of this delivery start with no later queued message of the person. */
+  startAlone(deliveryId: string): void {
+    this.#startsAlone.add(deliveryId);
+  }
+
+  /** Undoes `startAlone`, for a force that did not go through. */
+  forgetStartAlone(deliveryId: string): void {
+    this.#startsAlone.delete(deliveryId);
+  }
+
+  /**
+   * Why the agent's own chat still waits for other work when its running turn `turnId` has ended, or
+   * null when its next queued message starts then. `turnId` is null when no turn runs. A force asks
+   * this before it stops the turn: a Stop that lets other work start first does not help the message.
+   */
+  holdAfterStop(agentId: string, turnId: string | null): string | null {
+    // Channel and messaging work that waits in the chat stays first in the queue: it reserved the agent.
+    if (this.#mailbox.queuedExecutionDeliveryIds(agentId).some((id) => this.#mailbox.taskIdForDelivery(id) === null))
+      return "execution-work";
+    // A start with no turn id yet, such as one whose `turn/start` timed out. Its turn can still run.
+    if (turnId === null && this.#mailbox.laneActive(agentId, null)) return "starting";
+    return this.#heldBy(mainLane(agentId), { turnId });
+  }
+
   holdSessionSettings(agentId: string): () => void {
     this.#settingsHolds.set(agentId, (this.#settingsHolds.get(agentId) ?? 0) + 1);
     return () => {
@@ -499,6 +539,7 @@ export class DrainScheduler {
     this.#slotWaiters.clear();
     this.#reportedHolds.clear();
     this.#requeuedAtLimit.clear();
+    this.#startsAlone.clear();
   }
 
   /**
@@ -671,10 +712,13 @@ export class DrainScheduler {
       planNote !== undefined || channelDelivery || ownSession || (messagingDelivery && delivery.sender.kind !== "agent")
         ? []
         : this.#mailbox.repliesToStartWith(delivery.id);
+    // A forced message starts alone. Its flag stays until the delivery leaves the queue, because a
+    // start that finds the lane busy gives the delivery back to the queue.
+    const startsAlone = this.#startsAlone.has(delivery.id);
     const laterMessages =
       planNote !== undefined
         ? this.#mailbox.planContinuationsToStartWith(delivery.id)
-        : channelDelivery || ownSession || messagingDelivery
+        : channelDelivery || ownSession || messagingDelivery || startsAlone
           ? []
           : this.#mailbox.userMessagesToStartWith(delivery.id);
     const companions = [...replies, ...laterMessages];
@@ -1113,6 +1157,8 @@ export class DrainScheduler {
           releaseRuntimeRefresh();
           if (!confirmedTurnId && !turnMayRun) releaseReservation();
           for (const provider of claimed) this.#startingDeliveries.set(provider, this.#starting(provider) - 1);
+          if (startsAlone && this.#mailbox.getDelivery(delivery.id)?.delivery.status !== "queued")
+            this.#startsAlone.delete(delivery.id);
         }),
       ),
     );

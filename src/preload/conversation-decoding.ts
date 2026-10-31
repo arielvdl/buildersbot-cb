@@ -18,6 +18,7 @@ import {
   type ConversationWithReadState,
   type DraftAttachment,
   type FilePreview,
+  type ForceQueuedMessageResult,
   isAgentTask,
   isAgentTaskReadState,
   isAgentTasksSnapshot,
@@ -29,6 +30,7 @@ import {
   isConversationWithReadState,
   isFilePreviewKind,
   isFilePreviewPageUrl,
+  isForceQueuedMessageResult,
   isQueuedMessageReceipt,
   isQueueSnapshot,
   type QueuedMessageReceipt,
@@ -203,6 +205,13 @@ export function decodeTaskConversation(value: unknown): ConversationSnapshot {
     throw new Error("Invalid task conversation response.");
   }
   return value;
+}
+
+export function decodeForceResult(value: unknown): ForceQueuedMessageResult {
+  if (!isForceQueuedMessageResult(value)) {
+    throw new Error("Invalid queue force response.");
+  }
+  return { outcome: value.outcome };
 }
 
 export function decodeQueue(value: unknown): QueueSnapshot {

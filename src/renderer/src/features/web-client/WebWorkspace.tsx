@@ -2942,6 +2942,8 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                 }
                 onCancelQueuedMessage={workspace.cancelQueued}
                 onSteerQueuedMessage={workspace.steerQueued}
+                onForceQueuedMessage={workspace.forceQueued}
+                forceQueuedMessageUnsupported={!workspace.canForceQueued()}
                 onUpdateQueuedMessage={workspace.updateQueued}
                 onReorderQueue={workspace.reorderQueue}
                 onActivateBrowserTab={workspace.activateBrowserTab}

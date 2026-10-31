@@ -25,6 +25,8 @@ import type {
   CreateAgentInput,
   DuplicateAgentResult,
   EditQueuedMessageInput,
+  ForceQueuedMessageInput,
+  ForceQueuedMessageResult,
   HiddenAgentsSnapshot,
   InvitePreview,
   LocalBrowserSecretResponse,
@@ -127,6 +129,7 @@ import {
   cancelQueuedMessage,
   deleteAgent,
   discardAttachmentDraft,
+  forceQueuedMessage,
   interruptAgentTurn,
   reorderQueue,
   respondToBrowserSecret,
@@ -235,6 +238,8 @@ export interface WebWorkspaceRuntime {
   editQueue(input: EditQueuedMessageInput): Promise<QueueSnapshot>;
   cancelQueued(input: CancelQueuedMessageInput): Promise<void>;
   steerQueued(input: SteerQueuedMessageInput): Promise<void>;
+  /** Send it only to a host that serves `queue-force-v1`. */
+  forceQueued(input: ForceQueuedMessageInput): Promise<ForceQueuedMessageResult>;
   updateQueued(input: UpdateQueuedMessageInput): Promise<void>;
   reorderQueue(input: ReorderQueueInput): Promise<void>;
   approve(input: RespondToApprovalInput): Promise<void>;
@@ -1009,6 +1014,8 @@ export function createWebWorkspaceRuntime(
       Effect.runPromise(cancelQueuedMessage(teamApi, input).pipe(Effect.mapError((error) => error.cause))),
     steerQueued: (input) =>
       Effect.runPromise(steerQueuedMessage(teamApi, input).pipe(Effect.mapError((error) => error.cause))),
+    forceQueued: (input) =>
+      Effect.runPromise(forceQueuedMessage(teamApi, input).pipe(Effect.mapError((error) => error.cause))),
     updateQueued: (input) =>
       Effect.runPromise(updateQueuedMessage(teamApi, input).pipe(Effect.mapError((error) => error.cause))),
     reorderQueue: (input) =>

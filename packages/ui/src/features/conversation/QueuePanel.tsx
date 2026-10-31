@@ -1,7 +1,7 @@
 import { expandChatTagReferences } from "@openbot/contracts/chat-tag-references";
-import type { QueueDelivery, QueueHold, QueueSteerFallback } from "@openbot/contracts/ipc";
+import type { ForceQueuedMessageOutcome, QueueDelivery, QueueHold, QueueSteerFallback } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { Button, ConfirmDialog, LabelTooltip, LabelTooltipTrigger, Plus } from "@openbot/ui";
+import { Button, ConfirmDialog, LabelTooltip, LabelTooltipTrigger, Plus, Zap } from "@openbot/ui";
 import { prefersReducedMotion } from "@openbot/ui/utils";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import { createVerticalDragPreview } from "../../components/createVerticalDragPreview";
@@ -10,6 +10,7 @@ import { useText } from "../../text";
 import { fileBadge } from "./AttachmentCards";
 import { EditIcon, QueueIcon, SteerIcon, TrashIcon } from "./ConversationIcons";
 import { createSmoothHeightResize } from "./createSmoothHeightResize";
+import { ForceSendDialog } from "./ForceSendDialog";
 
 interface QueuePanelProps {
   deliveries: QueueDelivery[];
@@ -23,6 +24,17 @@ interface QueuePanelProps {
   onSteer?: ((deliveryId: string) => void) | undefined;
   /** Starts a separate task with a queued message. Absent where the host keeps no tasks. */
   onRunAsTask?: ((deliveryId: string) => void) | undefined;
+  /**
+   * Stops the running turn and starts a queued message next. It answers what the host did, or null
+   * when the force did not go through. Absent where the conversation cannot force a message.
+   */
+  onForce?: ((deliveryId: string) => Promise<ForceQueuedMessageOutcome | null>) | undefined;
+  /** True when the host is too old to force: the action shows, turned off, and its tooltip says why. */
+  forceUnsupported?: boolean | undefined;
+  /** Whether a force asks first. It does unless the person chose "Do not ask me again". */
+  askBeforeForce?: boolean | undefined;
+  /** The person checked "Do not ask me again" and confirmed a force. */
+  onStopAskingBeforeForce?: (() => void) | undefined;
   onCancel: (deliveryId: string) => void;
   onEdit: (delivery: QueueDelivery) => void;
   onReorder: (deliveryIds: string[]) => void;
@@ -45,7 +57,25 @@ export function QueuePanel(props: QueuePanelProps) {
   const [removingIds, setRemovingIds] = createSignal<ReadonlySet<string>>(new Set());
   const [editingExitId, setEditingExitId] = createSignal<string | null>(null);
   const [hiddenEditingId, setHiddenEditingId] = createSignal<string | null>(null);
+  /**
+   * The forces whose request is in flight. A second click on one of them does nothing. The plain set
+   * guards the click, because a signal written in this flush still reads the old value; the signal
+   * shows the busy button.
+   */
+  const forcing = new Set<string>();
+  const [forcingIds, setForcingIds] = createSignal<ReadonlySet<string>>(new Set());
+  /** The message whose force waits for the person's answer in the dialog. */
+  const [confirmForceId, setConfirmForceId] = createSignal<string | null>(null);
+  /** The forced messages that wait at the head, because other work of the agent goes first. */
+  const [forcedNextIds, setForcedNextIds] = createSignal<ReadonlySet<string>>(new Set());
+  /** The person confirmed the force in the dialog, so the dialog gives focus back to the list. */
+  const [forceConfirmed, setForceConfirmed] = createSignal(false);
   let queueList: HTMLDivElement | undefined;
+  /**
+   * The rows are drawn again when the queue changes, so after a confirmed force the dialog gives focus
+   * to the list. After Cancel, the force button that opened it gets focus back.
+   */
+  const forceFocusTarget = () => (forceConfirmed() ? queueList : undefined);
   let queueResizeContainer: HTMLDivElement | undefined;
   let dragSlots: DragSlot[] = [];
   let dragStartScrollTop = 0;
@@ -355,6 +385,57 @@ export function QueuePanel(props: QueuePanelProps) {
     scheduleAnimationCleanup(() => props.onCancel(deliveryId), prefersReducedMotion() ? 0 : 200);
   }
 
+  function requestForce(deliveryId: string) {
+    if (!props.onForce || props.forceUnsupported || forcing.has(deliveryId)) return;
+    if (props.askBeforeForce ?? true) {
+      setForceConfirmed(false);
+      setConfirmForceId(deliveryId);
+    } else void runForce(deliveryId);
+  }
+
+  async function runForce(deliveryId: string) {
+    const force = props.onForce;
+    // The dialog can stay open while the message starts by itself; then there is nothing to force.
+    const waiting = sourceDeliveries().some((delivery) => delivery.id === deliveryId && delivery.status === "queued");
+    if (!force || !waiting || forcing.has(deliveryId)) return;
+    forcing.add(deliveryId);
+    setForcingIds(new Set(forcing));
+    let outcome: ForceQueuedMessageOutcome | null = null;
+    try {
+      outcome = await force(deliveryId);
+    } finally {
+      forcing.delete(deliveryId);
+      setForcingIds(new Set(forcing));
+    }
+    if (outcome === "next") {
+      const queued = new Set(
+        sourceDeliveries()
+          .filter((delivery) => delivery.status === "queued")
+          .map((delivery) => delivery.id),
+      );
+      setForcedNextIds((ids) => new Set([...ids].filter((id) => queued.has(id)).concat(deliveryId)));
+    }
+    if (outcome) setAnnouncement(t(FORCE_OUTCOME_TEXT[outcome]));
+    // After the rows are drawn again for the new queue.
+    requestAnimationFrame(() => focusAfterForce(deliveryId));
+  }
+
+  /**
+   * The new queue draws its rows again, so the focused button can be gone. Focus goes to the row of the
+   * forced message when it still waits, else to the list. Focus that the person moved out of the queue
+   * stays where it is.
+   */
+  function focusAfterForce(deliveryId: string) {
+    const list = queueList;
+    if (!list?.isConnected) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !list.contains(active)) return;
+    const row = [...list.querySelectorAll<HTMLElement>("[data-queue-delivery-id]")].find(
+      (element) => element.dataset.queueDeliveryId === deliveryId && element.tabIndex >= 0,
+    );
+    (row ?? list).focus({ preventScroll: true });
+  }
+
   function messagePreview(delivery: QueueDelivery): string {
     const agentNames = new Map((props.agents ?? []).map((agent) => [agent.id, agent.name]));
     const skillNames = new Map((props.skills ?? []).map((skill) => [skill.skillId, skill.name]));
@@ -409,7 +490,8 @@ export function QueuePanel(props: QueuePanelProps) {
           )}
         </Show>
         <div class="agent-queue-panel-resize" ref={(element) => (queueResizeContainer = element)}>
-          <div class="agent-queue-panel-list" ref={(element) => (queueList = element)}>
+          {/* Focusable from code only: focus comes back here after a force draws the rows again. */}
+          <div class="agent-queue-panel-list" tabindex="-1" ref={(element) => (queueList = element)}>
             <For each={visibleDeliveries()}>
               {(delivery) => {
                 const firstAttachment = delivery.attachments[0];
@@ -493,6 +575,12 @@ export function QueuePanel(props: QueuePanelProps) {
                       <Show when={editing}>
                         <span class="agent-queue-editing-badge">{t("queue.item.editing")}</span>
                       </Show>
+                      <Show when={!editing && delivery.status === "queued" && forcedNextIds().has(delivery.id)}>
+                        <span class="agent-queue-editing-badge" title={t("queue.force.next")}>
+                          {t("queue.item.forcedNext")}
+                          <span class="sr-only"> {t("queue.force.next")}</span>
+                        </span>
+                      </Show>
                       <Show when={!editing && delivery.status === "queued" && delivery.steerFallback}>
                         {(fallback) => (
                           <span class="agent-queue-editing-badge" title={t(STEER_FALLBACK_REASON[fallback()])}>
@@ -520,6 +608,28 @@ export function QueuePanel(props: QueuePanelProps) {
                             </LabelTooltipTrigger>
                           </LabelTooltip>
                         )}
+                      </Show>
+                      <Show when={props.onForce}>
+                        <LabelTooltip
+                          content={
+                            props.forceUnsupported ? t("queue.item.forceUnsupported") : t("queue.item.forceTooltip")
+                          }
+                        >
+                          <LabelTooltipTrigger
+                            as={Button}
+                            variant="ghost"
+                            type="button"
+                            class="agent-queue-icon-button agent-queue-force"
+                            // A host too old to force keeps the button focusable, so that its tooltip says why.
+                            disabled={!props.forceUnsupported && (!actionable || forcingIds().has(delivery.id))}
+                            aria-disabled={props.forceUnsupported ? "true" : undefined}
+                            aria-busy={forcingIds().has(delivery.id) ? "true" : undefined}
+                            aria-label={t("queue.item.forceLabel", { position: delivery.position ?? "" })}
+                            onClick={() => requestForce(delivery.id)}
+                          >
+                            <Zap aria-hidden="true" />
+                          </LabelTooltipTrigger>
+                        </LabelTooltip>
                       </Show>
                       <Show when={props.onRunAsTask}>
                         {(runAsTask) => (
@@ -593,9 +703,28 @@ export function QueuePanel(props: QueuePanelProps) {
         cancelLabel={t("queue.deleteHeld.keep")}
         initialFocus="cancel"
       />
+      <ForceSendDialog
+        open={confirmForceId() !== null}
+        restoreFocusTarget={forceFocusTarget()}
+        onCancel={() => setConfirmForceId(null)}
+        onConfirm={(stopAsking) => {
+          const id = confirmForceId();
+          setForceConfirmed(true);
+          setConfirmForceId(null);
+          if (stopAsking) props.onStopAskingBeforeForce?.();
+          if (id) void runForce(id);
+        }}
+      />
     </>
   );
 }
+
+/** What the queue's live region says after a force. */
+const FORCE_OUTCOME_TEXT = {
+  interrupted: "queue.force.interrupted",
+  started: "queue.force.started",
+  next: "queue.force.next",
+} as const satisfies Record<ForceQueuedMessageOutcome, AppTextKey>;
 
 const STEER_FALLBACK_REASON = {
   "provider-unsupported": "queue.item.steerFallback.providerUnsupported",

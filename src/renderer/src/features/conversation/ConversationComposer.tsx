@@ -43,6 +43,7 @@ import { ComposerVoiceControls } from "@openbot/ui/features/conversation/VoiceRe
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, createStore, For, Loading, lazy, Show } from "solid-js";
 import { reportErrorBanner, reportNotification } from "../../error-reports";
+import { setAskBeforeForce, useAskBeforeForce } from "../../force-send-preference";
 import { deviceSendShortcut, sendShortcutAriaKey, sendShortcutHintKey } from "../../send-shortcut-preference";
 import { speechReading } from "../speech/speech-playback";
 import { stopSpokenReply } from "../speech/speech-replies";
@@ -124,6 +125,7 @@ export function ConversationComposer() {
     sideThreadOpen,
   } = useConversationViewScope();
   const { t, format, sourceText: localizeSourceText } = useText();
+  const askBeforeForce = useAskBeforeForce();
   const messageLabel = () =>
     channel
       ? t("channel.composer.placeholder", { name: channel.name() })
@@ -468,6 +470,10 @@ export function ConversationComposer() {
                       canSteer={Boolean(props.activeTurnId)}
                       onSteer={steers() ? props.onSteerQueuedMessage : undefined}
                       onRunAsTask={props.threads?.onRunQueuedMessage}
+                      onForce={channel ? undefined : props.onForceQueuedMessage}
+                      forceUnsupported={props.forceQueuedMessageUnsupported}
+                      askBeforeForce={askBeforeForce()}
+                      onStopAskingBeforeForce={() => setAskBeforeForce(false)}
                       onCancel={props.onCancelQueuedMessage}
                       onEdit={editQueuedMessage}
                       onReorder={reorderPresentedQueue}

@@ -28,7 +28,9 @@ import {
 } from "@openbot/contracts/team-protocol/agent-access-v1";
 import { AGENT_MEMORY_INCLUSION_ROUTE } from "@openbot/contracts/team-protocol/agent-memories-v1";
 import { teamCapabilitiesForProtocol } from "@openbot/contracts/team-protocol/current";
+import { QUEUE_FORCE_ROUTES } from "@openbot/contracts/team-protocol/queue-force-v1";
 import { TEAM_PROTOCOL_V7 } from "@openbot/contracts/team-protocol/v7";
+import { TEAM_PROTOCOL_V9 } from "@openbot/contracts/team-protocol/v9";
 import { sourceText } from "@openbot/i18n/source";
 import { plugin } from "bun";
 import { Effect } from "effect";
@@ -239,17 +241,21 @@ function current(): Host {
   return host;
 }
 
-/** One request from a current desktop client, which advertises agent-access-v1. */
+/**
+ * One request from a current desktop client, which advertises agent-access-v1. `protocol` 9 also
+ * advertises the capabilities that only protocol 9 has, such as queue-force-v1.
+ */
 async function call(
   method: string,
   path: string,
-  input: { token?: string; body?: unknown } = {},
+  input: { token?: string; body?: unknown; protocol?: number } = {},
 ): Promise<{ status: number; body: unknown }> {
+  const protocol = input.protocol ?? TEAM_PROTOCOL_V7;
   const headers: Record<string, string> = {
     Accept: "application/json",
-    [TEAM_PROTOCOL_VERSION_HEADER]: String(TEAM_PROTOCOL_V7),
+    [TEAM_PROTOCOL_VERSION_HEADER]: String(protocol),
     [TEAM_APP_VERSION_HEADER]: HOST_VERSION,
-    [TEAM_CAPABILITIES_HEADER]: teamCapabilitiesForProtocol(TEAM_PROTOCOL_V7).join(","),
+    [TEAM_CAPABILITIES_HEADER]: teamCapabilitiesForProtocol(protocol).join(","),
   };
   if (input.body !== undefined) headers["Content-Type"] = "application/json";
   if (input.token) headers.Authorization = `Bearer ${input.token}`;
@@ -475,6 +481,30 @@ try {
     );
     return { viewCancel: refused.status, chatCancel: passed.status, patch: patched.status, inclusion: included.status };
   });
+
+  await step(
+    "force: a view agent answers 403, a closed agent 404, and only a chat agent reaches the queue",
+    async () => {
+      // queue-force-v1 names the agent in the body. The queue refuses a delivery that does not wait,
+      // with 409 and its own reason, so that answer shows the request passed the access checks.
+      const force = (agentId: string) =>
+        call("POST", QUEUE_FORCE_ROUTES.force, {
+          token: setup.memberToken,
+          body: { agentId, deliveryId: "delivery-e2e", expectedTurnId: null },
+          protocol: TEAM_PROTOCOL_V9,
+        });
+      const view = await force(ops);
+      assert.equal(view.status, 403, `A force on a view agent returned ${view.status}.`);
+      assert.ok(refusal(view.body).includes(sourceText("error.team.agentViewOnly")), refusal(view.body));
+      const closed = await force(finance);
+      assert.equal(closed.status, 404, `A force on a closed agent returned ${closed.status}.`);
+      assert.ok(refusal(closed.body).includes(sourceText("error.team.agentNotFound")), refusal(closed.body));
+      const chat = await force(legal);
+      assert.equal(chat.status, 409, `A force on a chat agent returned ${chat.status}: ${refusal(chat.body)}.`);
+      assert.ok(refusal(chat.body).includes(sourceText("error.backend.forceQueuedOnly")), refusal(chat.body));
+      return { view: view.status, closed: closed.status, chat: chat.status };
+    },
+  );
 
   await step("manage: the member changes an agent that Everyone does not list", async () => {
     const patched = await call("PATCH", TEAM_API_ROUTES.agent.one(general), {

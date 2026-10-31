@@ -56,6 +56,8 @@ import type {
   DeleteSharedTableInput,
   DraftAttachment,
   DuplicateAgentResult,
+  ForceQueuedMessageInput,
+  ForceQueuedMessageResult,
   GenerateAgentProfileInput,
   HiddenAgentsSnapshot,
   HostAnalyticsInput,
@@ -1455,6 +1457,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           return this.#tasks.threadForDelivery(deliveryId);
         },
         scanPrompt: (agentId, input) => this.scanPrompt(agentId, input),
+        stopTurn: (agentId, turnId, executionThreadId) => this.#stopTurn(agentId, turnId, executionThreadId),
       },
     });
     this.#turn = new TurnLifecycle({
@@ -4827,6 +4830,28 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
   }
 
+  /**
+   * Stops the turn that holds the agent's own chat, as the Stop button does, and starts this queued
+   * message next, alone, before the other queued messages. See `QueueForce` for the order of the steps.
+   */
+  forceQueuedMessage(input: ForceQueuedMessageInput): Effect.Effect<ForceQueuedMessageResult, AgentLifecycleFailed> {
+    // As for a steer: the queue of a hidden agent waits.
+    if (this.#store.isHidden(input.agentId))
+      return Effect.fail(
+        new AgentLifecycleFailed({
+          operation: "forceQueuedMessage",
+          cause: new Error(sourceText("error.backend.recipientHidden")),
+        }),
+      );
+    return this.#queue
+      .force(input)
+      .pipe(
+        Effect.mapError(
+          (failure) => new AgentLifecycleFailed({ operation: "forceQueuedMessage", cause: failure.cause }),
+        ),
+      );
+  }
+
   steerQueuedMessage(input: SteerQueuedMessageInput): Effect.Effect<void, AgentLifecycleFailed> {
     // A steer gives a queued message to the running turn. The queue of a hidden agent waits.
     if (this.#store.isHidden(input.agentId))
@@ -5137,6 +5162,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }
 
   interrupt(agentId: string, turnId: string, executionThreadId?: string): Effect.Effect<void, AgentLifecycleFailed> {
+    return this.#stopTurn(agentId, turnId, executionThreadId).pipe(Effect.asVoid);
+  }
+
+  /** The Stop of `interrupt`. False when no stop was sent, because the turn has ended already. */
+  #stopTurn(agentId: string, turnId: string, executionThreadId?: string): Effect.Effect<boolean, AgentLifecycleFailed> {
     return Effect.suspend(() => {
       if (!executionThreadId) this.#stoppedTurns.set(agentId, turnId);
       const taskId = executionThreadId ? this.#tasks.taskForThread(executionThreadId) : null;
@@ -5144,7 +5174,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       const endContinuation =
         executionThreadId && taskId === null ? Effect.void : this.#drain.endPlanContinuation(agentId, taskId);
       return endContinuation.pipe(Effect.andThen(this.#interruptTurn(agentId, turnId, executionThreadId)));
-    }).pipe(Effect.asVoid);
+    });
   }
 
   /**

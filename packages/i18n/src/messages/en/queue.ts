@@ -17,6 +17,10 @@ export const messages = defineMessages("queue", {
   "queue.item.steerFallback.providerUnsupported":
     "This provider cannot steer a running turn, so the message waits in the queue.",
   "queue.item.steerFallback.steerFailed": "Steering did not succeed, so the message waits in the queue.",
+  "queue.item.forceLabel": "Force queued message {position} now",
+  "queue.item.forceTooltip": "Force now",
+  "queue.item.forceUnsupported": "Update this server to force a message",
+  "queue.item.forcedNext": "Up next",
   "queue.item.runAsTask": "Run in new thread",
   "queue.item.runAsTaskLabel": "Run queued message {position} in a new thread",
   "queue.item.deleteLabel": "Delete queued message {position}",
@@ -26,4 +30,12 @@ export const messages = defineMessages("queue", {
   "queue.deleteHeld.title": "Delete queued message?",
   "queue.deleteHeld.body": "Another device is editing this message. The agent will not receive it.",
   "queue.deleteHeld.keep": "Keep",
+  "queue.force.title": "Force send?",
+  "queue.force.body":
+    "This stops the agent that is working now, adds your message to the conversation and starts the same agent again with it. Other agents that depend on its current work can get out of sync.",
+  "queue.force.confirm": "Force anyway",
+  "queue.force.stopAsking": "Don’t ask me about this again",
+  "queue.force.interrupted": "The agent stopped. Your message starts next.",
+  "queue.force.started": "Your message starts now.",
+  "queue.force.next": "The agent is busy with other work. Your message is next in the queue.",
 });

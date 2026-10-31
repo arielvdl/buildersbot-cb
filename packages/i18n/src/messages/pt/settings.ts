@@ -164,6 +164,9 @@ export const messages = {
   "settings.showAgentSteps.title": "Mostrar etapas do agente",
   "settings.showAgentSteps.description":
     "Abre o raciocínio, as etapas de ferramentas e as mudanças de memória enquanto o turno roda, neste dispositivo e navegador. Elas se fecham quando o turno termina.",
+  "settings.askBeforeForce.title": "Perguntar antes de forçar o envio",
+  "settings.askBeforeForce.description":
+    "Antes que uma mensagem da fila pare o trabalho atual do agente, pede confirmação, neste dispositivo e navegador.",
   "settings.busyMessage.title": "Orientar agentes enquanto trabalham",
   "settings.busyMessage.description":
     "Novas mensagens entram no trabalho atual do agente, não na fila. Funciona com ChatGPT e Claude.",
@@ -776,6 +779,7 @@ export const messages = {
   "settings.search.keywords.serverName": "nome, renomear, nome do servidor",
   "settings.search.keywords.sessions": "sessões, dispositivos, conectado, sair, deslogar",
   "settings.search.keywords.showAgentSteps": "etapas do agente, ferramentas, raciocínio, progresso, detalhes",
+  "settings.search.keywords.askBeforeForce": "forçar, fila, interromper, parar, confirmar, perguntar",
   "settings.search.keywords.sites": "sites, hospedagem, publicar, páginas",
   "settings.search.keywords.soundFeedback": "sons, cliques, retorno, áudio",
   "settings.search.keywords.speechVoice": "voz, locutor, voz da leitura, respostas faladas",

@@ -20,6 +20,7 @@ import type {
   CustomProviderSummary,
   DraftAttachment,
   FilePreview,
+  ForceQueuedMessageOutcome,
   ProviderRuntimeStatus,
   QueueSnapshot,
   RoutineFields,
@@ -350,6 +351,13 @@ export interface ConversationProps {
   onCancelQueuedMessage: (deliveryId: string) => void;
   onCancelWait?: ((waitId: string) => void) | undefined;
   onSteerQueuedMessage: (deliveryId: string) => void;
+  /**
+   * Stops the running turn and starts this queued message next. It answers what the host did, or null
+   * when the force did not go through. Absent where the conversation has no queue to force.
+   */
+  onForceQueuedMessage?: ((deliveryId: string) => Promise<ForceQueuedMessageOutcome | null>) | undefined;
+  /** True when the agent's host is too old to force a queued message: the action shows, turned off. */
+  forceQueuedMessageUnsupported?: boolean | undefined;
   onUpdateQueuedMessage: (
     deliveryId: string,
     text: string,

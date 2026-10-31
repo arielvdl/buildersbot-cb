@@ -17,6 +17,7 @@ export const messages = defineMessages("app", {
   "app.errorStatus.cancel": "Could not cancel the queued message",
   "app.errorStatus.waitCancel": "Could not cancel the wait",
   "app.errorStatus.steer": "Could not steer the agent",
+  "app.errorStatus.force": "Could not force the message",
   "app.errorStatus.edit": "Could not edit the queued message",
   "app.errorStatus.reorder": "Could not reorder the queue",
   "app.errorStatus.stop": "Could not stop the agent",

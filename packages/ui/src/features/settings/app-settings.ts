@@ -59,6 +59,8 @@ export interface GeneralSettingsValue {
   sendShortcut: SendShortcutMode;
   /** The steps of an agent's turn (thinking, progress, memory changes) are open at first. */
   showAgentSteps: boolean;
+  /** A force of a queued message asks first, with "Do not ask me again", on this device and browser. */
+  askBeforeForce: boolean;
   /** A security reviewer reads every message before the agent does, and reports prompt injection. */
   promptInjectionGuard: boolean;
   /** A global key combination dictates with the voice model of this computer. */
@@ -110,6 +112,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   taskSound: "classic",
   sendShortcut: "enter",
   showAgentSteps: false,
+  askBeforeForce: true,
   promptInjectionGuard: true,
   dictationEnabled: false,
   dictationAccelerator: DEFAULT_DICTATION_PREFERENCE.accelerator,
