@@ -1,3 +1,5 @@
+import type { DatabaseSync } from "node:sqlite";
+
 // The tail of the latest schema for new databases. IF NOT EXISTS throughout, as the other schema parts.
 //
 // A side thread is a second conversation of one agent that runs next to its own chat: the agent keeps
@@ -82,3 +84,88 @@ export const AGENT_THREAD_MIGRATION_SQL = `
   DROP INDEX IF EXISTS agent_tasks_agent;
   DROP TABLE projection_agent_tasks;
 `;
+
+// Migration 49. The text of a message row for the two preview columns: its `text` trimmed, or null for
+// a routine instruction and for a row whose JSON or text is not as expected, so no row stops the
+// upgrade. Each CASE reads the JSON only after the one before it accepts it.
+const V49_MESSAGE_TEXT_SQL = `CASE WHEN json_valid(message.message_json) THEN
+    CASE WHEN json_type(message.message_json, '$.text') = 'text'
+      AND json_extract(message.message_json, '$.source') IS NOT 'routine'
+    THEN trim(json_extract(message.message_json, '$.text'), char(9, 10, 13, 32)) END
+  END`;
+
+// The shown order of the thread: the order keys of migration 40, then time.
+const V49_SHOWN_ORDER_SQL = [
+  "group_start",
+  "group_first",
+  "group_id",
+  "turn_rank",
+  "created_at",
+  "ordinal",
+  "message_id",
+];
+
+// Migration 49, frozen. Fills the empty preview columns of the side threads in one range of rowids, from
+// the messages of each thread. The first message is the first one that the person sent, or for a
+// thread that the agent started, its brief, which the agent sends as itself. The preview is the last
+// message that the person sent. A message with no text, such as one with only files, is passed over.
+// A thread with no such message keeps its empty value. A column that has a value keeps it, so a second
+// run changes nothing.
+const V49_AGENT_THREAD_PREVIEW_BACKFILL_SQL = `
+  UPDATE projection_agent_threads SET
+    first_message = CASE WHEN first_message = '' THEN COALESCE((
+      SELECT substr(${V49_MESSAGE_TEXT_SQL}, 1, 2000)
+      FROM projection_thread_messages AS message
+      WHERE message.thread_id = projection_agent_threads.thread_id
+        AND (message.author = 'user' OR (projection_agent_threads.origin = 'agent' AND message.author = 'agent'))
+        AND COALESCE(${V49_MESSAGE_TEXT_SQL}, '') <> ''
+      ORDER BY ${V49_SHOWN_ORDER_SQL.map((key) => `message.${key}`).join(", ")}
+      LIMIT 1
+    ), '') ELSE first_message END,
+    preview = CASE WHEN preview = '' THEN COALESCE((
+      SELECT substr(${V49_MESSAGE_TEXT_SQL}, 1, 2000)
+      FROM projection_thread_messages AS message
+      WHERE message.thread_id = projection_agent_threads.thread_id
+        AND message.author = 'user'
+        AND COALESCE(${V49_MESSAGE_TEXT_SQL}, '') <> ''
+      ORDER BY ${V49_SHOWN_ORDER_SQL.map((key) => `message.${key} DESC`).join(", ")}
+      LIMIT 1
+    ), '') ELSE preview END
+  WHERE rowid > $after AND rowid <= $through AND (first_message = '' OR preview = '')
+`;
+
+/** The threads that one statement of the migration 49 backfill fills. */
+const V49_BACKFILL_CHUNK = 500;
+
+/**
+ * Migration 49. Adds the two preview columns of a side thread, then fills them from the messages that
+ * each thread already has. Only columns are added, so no foreign-key pause and no vacuum. A development
+ * profile that ran this version before the fill has the columns already: each column is added only when
+ * it is missing. The fill goes in ranges of rowids, so each statement reads a known number of threads.
+ */
+export function migrateAgentThreadPreviews(db: DatabaseSync): void {
+  const columns = new Set(
+    db
+      .prepare("PRAGMA table_info(projection_agent_threads)")
+      .all()
+      .map((row) => String(row.name)),
+  );
+  if (!columns.has("first_message"))
+    db.exec("ALTER TABLE projection_agent_threads ADD COLUMN first_message TEXT NOT NULL DEFAULT ''");
+  if (!columns.has("preview"))
+    db.exec("ALTER TABLE projection_agent_threads ADD COLUMN preview TEXT NOT NULL DEFAULT ''");
+  const nextRange = db.prepare(
+    `SELECT MAX(rowid) AS through FROM (
+       SELECT rowid FROM projection_agent_threads WHERE rowid > ? ORDER BY rowid LIMIT ${V49_BACKFILL_CHUNK}
+     )`,
+  );
+  const fill = db.prepare(V49_AGENT_THREAD_PREVIEW_BACKFILL_SQL);
+  // SQLite gives a new row a rowid from 1 up, but a row can carry any rowid that was written into it.
+  let after = Number.MIN_SAFE_INTEGER;
+  for (;;) {
+    const through = nextRange.get(after)?.through;
+    if (typeof through !== "number" && typeof through !== "bigint") return;
+    fill.run({ after, through });
+    after = Number(through);
+  }
+}

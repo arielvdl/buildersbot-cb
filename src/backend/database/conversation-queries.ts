@@ -151,6 +151,29 @@ export class ConversationQueries {
     return turns;
   }
 
+  /**
+   * The text of the first message that the person sent in one thread, in the shown order, or null. A
+   * routine instruction and a message with no text, such as one with only files, do not count. The
+   * order index serves the read, so it stops at the first message that counts.
+   */
+  readFirstPersonMessageText(agentId: string, threadId: string): string | null {
+    const row = databaseRow(
+      this.#core.connection
+        .prepare(
+          `SELECT json_extract(message_json, '$.text') AS text FROM projection_thread_messages
+           WHERE thread_id = ? AND author = 'user'
+             AND EXISTS (SELECT 1 FROM projection_threads AS thread WHERE thread.thread_id = ? AND thread.agent_id = ?)
+             AND json_type(message_json, '$.text') = 'text'
+             AND json_extract(message_json, '$.source') IS NOT 'routine'
+             AND trim(json_extract(message_json, '$.text'), char(9, 10, 13, 32)) <> ''
+           ORDER BY ${ORDER_KEY_COLUMNS}
+           LIMIT 1`,
+        )
+        .get(threadId, threadId, agentId),
+    );
+    return row ? optionalStringColumn(row, "text") : null;
+  }
+
   readConversationRevision(agentId: string, threadId: string | null): number {
     if (!threadId) return 0;
     const row = databaseRow(

@@ -159,6 +159,11 @@ const LEGACY_AVATAR_COLORS = [
 const NEW_AGENT_PREVIEW = "No messages yet";
 /** The longest agent preview the store keeps; a longer text is cut to it. */
 export const AGENT_PREVIEW_MAX_LENGTH = 180;
+/**
+ * The longest first message the store keeps for an agent's own chat. Longer than the preview: the
+ * details of the chat show it whole, as the details of a side thread show its first message.
+ */
+const AGENT_FIRST_MESSAGE_MAX_LENGTH = 2000;
 const DEFAULT_AGENT_MODEL: AgentModelId = "gpt-6-luna";
 export const DEFAULT_AGENT_PROVIDER: AgentProviderId = "codex";
 // A provider CLI reports the effort its own configuration uses -- Codex says `medium` for every
@@ -297,6 +302,9 @@ export class AgentStore {
           // start. The persist carries the whole roster, so the profiles that needed no repair are unchanged.
           this.#persist("agents.repaired");
         }
+        // Before any message can arrive: a new message must not be taken as the first one of a chat
+        // that has older messages.
+        this.#fillFirstMessages();
       } else {
         const legacy = yield* this.#readStateEffect();
         yield* this.#database.backupLegacyFile(this.#statePath);
@@ -1556,7 +1564,9 @@ export class AgentStore {
 
   /**
    * Keeps the first message of the agent's own chat, once. A later message, or a routine that moves
-   * the preview, leaves it. It feeds the row's hover preview, which says what the chat started with.
+   * the preview, leaves it. It feeds the hover preview of the row and of the chat's tab, and the
+   * details of the chat. A chat that had messages before this field existed gets it at startup, from
+   * its stored messages (`#fillFirstMessages`).
    */
   noteFirstMessage = Effect.fn("AgentStore.noteFirstMessage")(function* (
     this: AgentStore,
@@ -1565,7 +1575,7 @@ export class AgentStore {
   ): Effect.fn.Return<void, StoredStateFailure> {
     try {
       const agent = this.#requireAgent(id);
-      const first = text.trim().slice(0, AGENT_PREVIEW_MAX_LENGTH);
+      const first = firstMessageText(text);
       if (agent.firstMessage || !first) return;
       agent.firstMessage = first;
       this.#persist("agent.first-message-set");
@@ -1675,6 +1685,23 @@ export class AgentStore {
     logger.warn("Agents were restored to the roster from the event log.", restored.length);
   }
 
+  /**
+   * Gives each agent whose own chat has messages but no first message the first one that the person
+   * sent. It runs at startup, so it reads each chat once, and it writes the roster only when an agent
+   * changed. The text is not logged.
+   */
+  #fillFirstMessages(): void {
+    let filled = 0;
+    for (const agent of this.#state.agents) {
+      if (agent.firstMessage || !agent.threadId) continue;
+      const first = firstMessageText(this.#database.readFirstPersonMessageText(agent.id, agent.threadId) ?? "");
+      if (!first) continue;
+      agent.firstMessage = first;
+      filled += 1;
+    }
+    if (filled > 0) this.#persist("agents.first-message-filled");
+  }
+
   #persist(eventType: string, modelChange?: AgentModelChange): void {
     this.#database.replaceAgents(`agents:${eventType}:${randomUUID()}`, this.#state.agents, eventType, modelChange);
   }
@@ -1720,6 +1747,13 @@ function limitedText(value: string, label: string, maxLength: number): string {
   const trimmed = value.trim();
   if (trimmed.length > maxLength) throw new Error(`${label} is too long.`);
   return trimmed;
+}
+
+/** The first message trimmed and cut to its limit, by characters, so a cut never splits one in two. */
+function firstMessageText(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= AGENT_FIRST_MESSAGE_MAX_LENGTH) return trimmed;
+  return Array.from(trimmed).slice(0, AGENT_FIRST_MESSAGE_MAX_LENGTH).join("");
 }
 
 function duplicateAgentName(sourceName: string, agents: readonly StoredAgent[]): string {

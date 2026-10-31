@@ -270,6 +270,7 @@ import { RoutineRecords } from "./routine-records";
 import type { RoutineHoldWindow } from "./routine-store";
 import { type RoutineDueSource, RoutineTimer } from "./routine-timer";
 import type { SidebarLayoutStore } from "./sidebar-layout-store";
+import { storedSync } from "./stored-state-effects";
 import type { VaultItems } from "./vault-items";
 import type { WorkflowRunEnd } from "./workflows/workflows";
 import {
@@ -4891,8 +4892,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         { fileHeadings: false },
       ) || delivery.delivery.attachments.map((item) => item.name).join(", ");
     if (task) {
-      // The tab's hover preview says where the thread stands, so it keeps the person's last message.
-      this.#tasks.setPreview(task, preview);
+      // The tab's preview and details say where the thread stands, so they keep the person's last message.
+      yield* storedSync(() => this.#tasks.setPreview(task, preview)).pipe(
+        // As for the agent's own chat below: the message is already queued.
+        Effect.catch((failure) =>
+          Effect.sync(() => this.#emitError("message_preview_failed", failure.cause, agent.id)),
+        ),
+      );
     } else {
       yield* this.#store.updatePreview(agent.id, preview).pipe(
         // The message is already queued: a failed preview write must not leave it without a drain,

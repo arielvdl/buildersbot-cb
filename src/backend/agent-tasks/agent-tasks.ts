@@ -146,15 +146,18 @@ export class AgentTasks implements TaskLanes {
     return task;
   }
 
-  /** The title is the first line of the message that starts the task. */
-  create(agentId: string, text: string, origin: AgentThreadOrigin): AgentThreadRecord {
+  /**
+   * The title is the first line of `text`. `opening` is the message that starts the task, which the
+   * task keeps as its first message: the brief of a task that the agent starts, else `text`.
+   */
+  create(agentId: string, text: string, origin: AgentThreadOrigin, opening = text): AgentThreadRecord {
     const title = taskTitle(text);
     if (!title) throw new Error(sourceText("error.backend.threadTitleRequired"));
     this.#requireRoom(agentId);
     const task = this.#store.create({
       agentId,
       origin,
-      text,
+      text: opening,
       title,
       titleSource: origin === "agent" ? "agent" : "auto",
     });
@@ -326,7 +329,7 @@ export class AgentTasks implements TaskLanes {
     const open = this.#store.openTaskIds(caller.agentId).length;
     if (open >= AGENT_STARTED_OPEN_TASKS)
       return openBotToolFailure(sourceText("error.backend.taskOpenLimit", { count: AGENT_STARTED_OPEN_TASKS }));
-    const task = this.create(caller.agentId, parsed.data.title, "agent");
+    const task = this.create(caller.agentId, parsed.data.title, "agent", parsed.data.brief);
     const queued = yield* this.#mailbox
       .enqueue({
         sender: { kind: "agent", agentId: caller.agentId },
@@ -354,7 +357,7 @@ export class AgentTasks implements TaskLanes {
     return startedTaskResult(task);
   });
 
-  /** Keeps the last message the person sent, for the tab's hover preview. */
+  /** Keeps the last message that the person sent, for the tab's preview and details. */
   setPreview(task: AgentThreadRecord, text: string): void {
     this.#store.setPreview(task.taskId, text);
   }

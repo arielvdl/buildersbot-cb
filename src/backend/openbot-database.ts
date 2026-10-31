@@ -200,6 +200,10 @@ export class BuildersBotDatabase {
     return this.#conversations.readConversationRevision(agentId, threadId);
   }
 
+  readFirstPersonMessageText(agentId: string, threadId: string): string | null {
+    return this.#conversations.readFirstPersonMessageText(agentId, threadId);
+  }
+
   readConversationRuntime(
     agentId: string,
     threadId: string | null,

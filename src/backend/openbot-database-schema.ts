@@ -6,7 +6,11 @@ import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { AGENT_MEMORY_SELECTION_SCHEMA_SQL, migrateAgentMemorySelection } from "./agent-memory-selection";
 import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
-import { AGENT_THREAD_MIGRATION_SQL, AGENT_THREAD_SCHEMA_SQL } from "./agent-threads/agent-thread-schema";
+import {
+  AGENT_THREAD_MIGRATION_SQL,
+  AGENT_THREAD_SCHEMA_SQL,
+  migrateAgentThreadPreviews,
+} from "./agent-threads/agent-thread-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL, CHANNEL_TOPICS_MIGRATION_SQL } from "./channel-schema";
@@ -885,21 +889,10 @@ const MIGRATIONS: readonly BuildersBotMigration[] = [
   },
   {
     version: 49,
-    // Adds the two preview columns of a side thread. Only columns are added, so no foreign-key pause
-    // and no vacuum. Migration 47 creates the table from the latest schema, so a database that just
-    // went through it already has them: each column is added only when it is missing.
-    up: (db) => {
-      const columns = new Set(
-        db
-          .prepare("PRAGMA table_info(projection_agent_threads)")
-          .all()
-          .map((row) => String(row.name)),
-      );
-      if (!columns.has("first_message"))
-        db.exec("ALTER TABLE projection_agent_threads ADD COLUMN first_message TEXT NOT NULL DEFAULT ''");
-      if (!columns.has("preview"))
-        db.exec("ALTER TABLE projection_agent_threads ADD COLUMN preview TEXT NOT NULL DEFAULT ''");
-    },
+    // Adds the two preview columns of a side thread and fills them from the messages of each thread.
+    // Only columns are added, so no foreign-key pause and no vacuum. Every thread keeps its title,
+    // also a renamed one.
+    up: migrateAgentThreadPreviews,
   },
 ];
 

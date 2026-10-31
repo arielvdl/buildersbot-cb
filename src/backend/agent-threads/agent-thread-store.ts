@@ -12,7 +12,7 @@ export type AgentThreadOrigin = (typeof AGENT_THREAD_ORIGINS)[number];
 const AGENT_THREAD_TITLE_SOURCES = ["auto", "agent", "user"] as const;
 type AgentThreadTitleSource = (typeof AGENT_THREAD_TITLE_SOURCES)[number];
 
-/** The longest preview a side thread keeps, as the agent row keeps its own. */
+/** The most characters that the first message and the preview of a side thread keep, as migration 49 does. */
 const AGENT_THREAD_PREVIEW_LIMIT = 2000;
 
 /**
@@ -29,9 +29,12 @@ export interface AgentThreadRecord {
   origin: AgentThreadOrigin;
   title: string;
   titleSource: AgentThreadTitleSource;
-  /** The message that started the thread, as written. The tab's hover preview shows it. */
+  /**
+   * The message that started the thread, as written: the person's first message, or the brief of a
+   * thread that the agent started. A rename does not change it. Empty when no message is known.
+   */
   firstMessage: string;
-  /** The last message the person sent in the thread, as written. The tab's hover preview shows it. */
+  /** The last message that the person sent in the thread, as written. Empty when the person sent none. */
   preview: string;
   /** The end of the last turn. Null before the first turn ends. */
   outcome: AgentTaskOutcome | null;
@@ -46,7 +49,10 @@ export interface AgentThreadRecord {
 export interface AgentThreadInput {
   agentId: string;
   origin: AgentThreadOrigin;
-  /** The message that starts the thread, kept whole for the tab's hover preview. The title stands in. */
+  /**
+   * The message that starts the thread, kept for the tab's preview and details. The title stands in
+   * when it is missing.
+   */
   text?: string;
   title: string;
   titleSource: Exclude<AgentThreadTitleSource, "user">;
@@ -159,7 +165,9 @@ export class AgentThreadStore {
       (db, sequences) => {
         const now = new Date().toISOString();
         const sequence = sequences[0] ?? 0;
-        const firstMessage = (input.text ?? input.title).trim().slice(0, AGENT_THREAD_PREVIEW_LIMIT);
+        const firstMessage = previewText(input.text ?? input.title);
+        // The brief of a thread that the agent started is not a message of the person.
+        const preview = input.origin === "user" ? firstMessage : "";
         db.prepare("INSERT INTO projection_threads VALUES (?, ?, ?, NULL, ?, ?, ?)").run(
           threadId,
           input.agentId,
@@ -180,7 +188,7 @@ export class AgentThreadStore {
           input.title,
           input.titleSource,
           firstMessage,
-          firstMessage,
+          preview,
           now,
           now,
           sequence,
@@ -222,11 +230,20 @@ export class AgentThreadStore {
       .run(error, taskId, taskId);
   }
 
-  /** Keeps the last message the person sent, for the tab's hover preview. */
-  setPreview(taskId: string, preview: string): void {
+  /**
+   * Keeps the last message that the person sent, for the tab's preview and details. A thread with no
+   * known first message takes this one as its first. A message with no text changes nothing.
+   */
+  setPreview(taskId: string, text: string): void {
+    const preview = previewText(text);
+    if (!preview) return;
     this.#database.connection
-      .prepare(`UPDATE projection_agent_threads SET preview = ? WHERE ${BY_TASK_ID}`)
-      .run(preview.slice(0, AGENT_THREAD_PREVIEW_LIMIT), taskId, taskId);
+      .prepare(
+        `UPDATE projection_agent_threads
+         SET preview = ?, first_message = CASE WHEN first_message = '' THEN ? ELSE first_message END
+         WHERE ${BY_TASK_ID}`,
+      )
+      .run(preview, preview, taskId, taskId);
   }
 
   /** Marks new activity, so the thread lists first among its peers. */
@@ -304,6 +321,13 @@ export class AgentThreadStore {
 }
 
 const BY_TASK_ID = "(legacy_task_id = ? OR (legacy_task_id IS NULL AND thread_id = ?))";
+
+/** The text trimmed and cut to the preview limit, by characters, so a cut never splits one in two. */
+function previewText(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= AGENT_THREAD_PREVIEW_LIMIT) return trimmed;
+  return Array.from(trimmed).slice(0, AGENT_THREAD_PREVIEW_LIMIT).join("");
+}
 
 type Connection = BuildersBotDatabase["connection"];
 
