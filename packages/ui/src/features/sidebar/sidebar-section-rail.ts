@@ -225,3 +225,57 @@ export function sidebarSectionLetter(name: string): string {
 export function sidebarSectionMark(section: Pick<SidebarSection, "name" | "icon">): SidebarSectionIcon {
   return section.icon ?? { kind: "letter", text: sidebarSectionLetter(section.name) };
 }
+
+/**
+ * The `move` action that puts a section at the place of another one, as the rail drop does: the
+ * section takes the index of the target, and the sections between them shift by one. The steps count
+ * in `layout.order`, as the section list counts them, so the rail and the list keep the same order.
+ * Null for no change, or for an id that is not a custom section of the order.
+ */
+export function sidebarSectionRailMove(
+  order: readonly string[],
+  sectionIds: ReadonlySet<string>,
+  sourceId: string,
+  targetId: string,
+): { type: "move"; sectionId: string; direction: "up" | "down"; steps: number } | null {
+  if (sourceId === targetId || !sectionIds.has(sourceId) || !sectionIds.has(targetId)) return null;
+  const source = order.indexOf(sourceId);
+  const target = order.indexOf(targetId);
+  if (source < 0 || target < 0) return null;
+  return {
+    type: "move",
+    sectionId: sourceId,
+    direction: target < source ? "up" : "down",
+    steps: Math.abs(target - source),
+  };
+}
+
+/** The custom section above or below one in the rail, for Alt+Arrow. Null at an end. */
+export function sidebarSectionRailNeighbor(
+  railIds: readonly string[],
+  sectionId: string,
+  direction: -1 | 1,
+): string | null {
+  const index = railIds.indexOf(sectionId);
+  return index < 0 ? null : (railIds[index + direction] ?? null);
+}
+
+/**
+ * How many places an item slides while another one is dragged over the rail: the items between the
+ * source and the target make room, as in the server rail. Zero for every other item.
+ */
+export function sidebarSectionRailDragStep(
+  railIds: readonly string[],
+  sourceId: string | null,
+  overId: string | null,
+  itemId: string,
+): -1 | 0 | 1 {
+  if (!sourceId || !overId || sourceId === overId || itemId === sourceId) return 0;
+  const source = railIds.indexOf(sourceId);
+  const over = railIds.indexOf(overId);
+  const item = railIds.indexOf(itemId);
+  if (source < 0 || over < 0 || item < 0) return 0;
+  if (source < over && item > source && item <= over) return -1;
+  if (source > over && item >= over && item < source) return 1;
+  return 0;
+}

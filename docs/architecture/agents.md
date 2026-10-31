@@ -660,6 +660,14 @@ waits and channel counts that the rows read. The rail keeps its item list while 
 section changes (`sameSidebarSectionRailItems`), so a change of an agent state does not run the rail
 or the list filters again.
 
+On the local server (as for the color and the icon), a section item of the rail drags up or down to
+reorder the sections: the native drag starts after the pointer moves, so a click still selects. The
+dragged item shows as a lifted copy, the items between slide by one place, a rail that scrolls
+scrolls near its ends, and Escape cancels. Alt+Arrow moves the focused section by one place, and a
+polite live region says the new position. "All", "Unassigned" and the plus button do not drag and take
+no drop. The drop sends the `move` action of the section list (`sidebarSectionRailMove`), so the rail
+and the list keep one order. With reduced motion, the items do not slide.
+
 The rail shows only on the Agents page (Agents and Routines), Workflows and Schedule
 (`sectionRailShowsOn`); another page has no rail column. The selection is the same on the four pages.
 A selected section filters the pinned strip, Needs you, the sections and Hidden to the chats of that

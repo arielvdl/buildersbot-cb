@@ -13,8 +13,11 @@ import {
   sidebarSectionMark,
   sidebarSectionNameProblem,
   sidebarSectionRailBadgeKind,
+  sidebarSectionRailDragStep,
   sidebarSectionRailFocus,
   sidebarSectionRailItems,
+  sidebarSectionRailMove,
+  sidebarSectionRailNeighbor,
   sidebarSectionRailOrder,
 } from "../../../../../packages/ui/src/features/sidebar/sidebar-section-rail";
 
@@ -244,5 +247,47 @@ describe("the name in the section dialog", () => {
       sidebarCreatedSectionId(before, [...sections, { id: CLAUDE_BOTS, name: "Claude Bots" }], " claude bots"),
     ).toBe(CLAUDE_BOTS);
     expect(sidebarCreatedSectionId(new Set([NAIA, RED_TEAM]), sections, "x")).toBeNull();
+  });
+});
+
+describe("a section dragged in the rail", () => {
+  const order = ["people", RED_TEAM, NAIA, "unassigned", CLAUDE_BOTS];
+  const sections = new Set([RED_TEAM, NAIA, CLAUDE_BOTS]);
+  const railIds = [RED_TEAM, NAIA, CLAUDE_BOTS];
+
+  /** The order after the move action, as the store applies it. */
+  function apply(action: { sectionId: string; direction: "up" | "down"; steps: number }): string[] {
+    const next = [...order];
+    const index = next.indexOf(action.sectionId);
+    next.splice(index, 1);
+    next.splice(index + (action.direction === "up" ? -1 : 1) * action.steps, 0, action.sectionId);
+    return next;
+  }
+
+  it("takes the place of the target, with the move action of the section list", () => {
+    const down = sidebarSectionRailMove(order, sections, RED_TEAM, CLAUDE_BOTS);
+    expect(down).toEqual({ type: "move", sectionId: RED_TEAM, direction: "down", steps: 3 });
+    expect(down && apply(down).filter((id) => sections.has(id))).toEqual([NAIA, CLAUDE_BOTS, RED_TEAM]);
+    const up = sidebarSectionRailMove(order, sections, CLAUDE_BOTS, RED_TEAM);
+    expect(up && apply(up).filter((id) => sections.has(id))).toEqual([CLAUDE_BOTS, RED_TEAM, NAIA]);
+  });
+
+  it("does nothing for the same place, or for an item that is not a section", () => {
+    expect(sidebarSectionRailMove(order, sections, NAIA, NAIA)).toBeNull();
+    expect(sidebarSectionRailMove(order, sections, "unassigned", NAIA)).toBeNull();
+    expect(sidebarSectionRailMove(order, sections, NAIA, "people")).toBeNull();
+  });
+
+  it("moves by one place with Alt+Arrow, and stops at the ends", () => {
+    expect(sidebarSectionRailNeighbor(railIds, NAIA, -1)).toBe(RED_TEAM);
+    expect(sidebarSectionRailNeighbor(railIds, NAIA, 1)).toBe(CLAUDE_BOTS);
+    expect(sidebarSectionRailNeighbor(railIds, RED_TEAM, -1)).toBeNull();
+    expect(sidebarSectionRailNeighbor(railIds, CLAUDE_BOTS, 1)).toBeNull();
+  });
+
+  it("slides the items between the source and the target by one place", () => {
+    expect(railIds.map((id) => sidebarSectionRailDragStep(railIds, RED_TEAM, CLAUDE_BOTS, id))).toEqual([0, -1, -1]);
+    expect(railIds.map((id) => sidebarSectionRailDragStep(railIds, CLAUDE_BOTS, RED_TEAM, id))).toEqual([1, 1, 0]);
+    expect(railIds.map((id) => sidebarSectionRailDragStep(railIds, null, null, id))).toEqual([0, 0, 0]);
   });
 });

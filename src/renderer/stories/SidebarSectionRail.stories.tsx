@@ -237,3 +237,9 @@ export const Markers: Story = railStory({
     ],
   },
 });
+
+/**
+ * Drag a section icon up or down to reorder the sections, or focus one and press Alt+Arrow. "All",
+ * "Unassigned" and the plus button stay in place. The list follows the same order.
+ */
+export const ReorderSections: Story = railStory({});

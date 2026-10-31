@@ -176,6 +176,42 @@
   font-size: var(--openbot-text-sm);
 }
 
+/*
+ * The reorder of the sections: the items between the dragged section and the drop place slide by one
+ * step (a 46 px button and the 8 px gap), and the dragged item shows as a lifted copy under the pointer.
+ */
+.section-rail-button[data-section-rail-id] {
+  transform: translate3d(0, calc(var(--section-rail-drag-step, 0) * 54px), 0);
+  transition: transform var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.section-rail[data-dragging] .section-rail-button[data-section-rail-id] {
+  cursor: grabbing;
+}
+
+.section-rail-button[data-dragging] {
+  opacity: 0.35;
+}
+
+.section-rail-drag-preview {
+  position: fixed;
+  z-index: var(--openbot-layer-dropdown);
+  margin: 0;
+  pointer-events: none;
+}
+
+/* The copy is a section button, so this rule must out-rank the ring of a selected tinted section. */
+.section-rail-button.section-rail-drag-preview[data-section-rail-id] .section-rail-mark-tile {
+  box-shadow: var(--openbot-shadow-raised);
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-rail-button[data-section-rail-id] {
+    transition: none;
+  }
+}
+
 /* The icon editor. */
 /* The editor has the surface of the confirmation dialog (`primitives.css`). */
 .ui-dialog-content.section-icon-dialog {
