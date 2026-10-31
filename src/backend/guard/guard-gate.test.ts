@@ -16,6 +16,7 @@ import {
   guardResultNotice,
 } from "./guard-gate";
 import type { GuardModelPort } from "./guard-judge";
+import type { GuardPaths } from "./guard-paths";
 import { ToolGuard } from "./tool-guard";
 
 const client = "provider-client";
@@ -38,7 +39,7 @@ const noModel: GuardModelPort = {
 function gate(
   answer: GuardApprovalAnswer,
   preference: GuardPreference = DEFAULT_GUARD_PREFERENCE,
-  resolvePaths?: (agentId: string, paths: readonly string[]) => Effect.Effect<{ paths: string[]; complete: boolean }>,
+  resolvePaths?: (agentId: string, paths: readonly string[]) => Effect.Effect<GuardPaths>,
 ) {
   const asked: AgentApproval[] = [];
   const ownerOnly: boolean[] = [];
@@ -319,7 +320,7 @@ describe("GUARD_TOOL_INBOUND and GUARD_INBOUND_PATHS", () => {
 describe("GuardGate with resolved paths", () => {
   it("asks the owner when a harmless name leads to a key", async () => {
     const { subject, asked, ownerOnly } = gate("decline", DEFAULT_GUARD_PREFERENCE, (_agentId, paths) =>
-      Effect.succeed({ paths: [...paths, "/Users/ana/.ssh/id_rsa"], complete: true }),
+      Effect.succeed({ paths: [...paths, "/Users/ana/.ssh/id_rsa"], reals: paths.map(() => null), complete: true }),
     );
     const before = await Effect.runPromise(
       subject.beforeTool(client, request, call("upload_files", { tabId: "t", paths: ["notes.txt"] }), "agent-1"),
@@ -331,7 +332,7 @@ describe("GuardGate with resolved paths", () => {
 
   it("asks when a path could not be resolved, and lets an ordinary resolved file run", async () => {
     const unresolved = gate("decline", DEFAULT_GUARD_PREFERENCE, (_agentId, paths) =>
-      Effect.succeed({ paths: [...paths], complete: false }),
+      Effect.succeed({ paths: [...paths], reals: paths.map(() => null), complete: false }),
     );
     const blocked = await Effect.runPromise(
       unresolved.subject.beforeTool(
@@ -343,7 +344,7 @@ describe("GuardGate with resolved paths", () => {
     );
     expect(blocked.proceed).toBe(false);
     const ordinary = gate("decline", DEFAULT_GUARD_PREFERENCE, (_agentId, paths) =>
-      Effect.succeed({ paths: [...paths, "/Users/ana/work/report.pdf"], complete: true }),
+      Effect.succeed({ paths: [...paths, "/Users/ana/work/report.pdf"], reals: paths.map(() => null), complete: true }),
     );
     expect(
       await Effect.runPromise(

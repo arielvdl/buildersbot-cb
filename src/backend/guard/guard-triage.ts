@@ -76,9 +76,13 @@ export interface GuardTriageOptions {
  */
 export const GUARD_SCAN_LIMIT = 4_000_000;
 /** The rules read the text in parts of this size, so the budget can stop a light rule in a long text. */
-const SCAN_PART = 64_000;
-/** Each part reads this much of the next one, more than the longest match of any rule. */
-const SCAN_OVERLAP = 2_048;
+export const GUARD_SCAN_PART = 64_000;
+const SCAN_PART = GUARD_SCAN_PART;
+/**
+ * Each part reads this much of the next one. Every quantifier of a rule that is read in parts is
+ * bounded, so no match is longer than this, and a match across the end of a part is found whole.
+ */
+const SCAN_OVERLAP = 4_096;
 /**
  * The most statements, URLs or files of one action that the check reads. Past it, the action is
  * incomplete, so the person decides. No real action comes near it.
@@ -256,8 +260,11 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
     /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s(?:todas\s)?(?:as\s)?(?:suas|tuas)\s(?:instru[çc][õo]es|regras|diretrizes)/iu,
   ),
   rule("override", /\bignora\s(?:todas\s)?las\sinstrucciones\s(?:anteriores|previas)/iu),
-  rule("new-instructions", /(?:^|\n)\s*(?:#{1,4}\s*)?(?:new|updated|real|actual)\s(?:system\s)?instructions?\s*:/iu),
-  rule("new-instructions", /(?:^|\n)\s*(?:#{1,4}\s*)?novas\sinstru[çc][õo]es\s*:/iu),
+  rule(
+    "new-instructions",
+    /(?:^|\n)\s{0,16}(?:#{1,4}\s{0,16})?(?:new|updated|real|actual)\s(?:system\s)?instructions?\s{0,16}:/iu,
+  ),
+  rule("new-instructions", /(?:^|\n)\s{0,16}(?:#{1,4}\s{0,16})?novas\sinstru[çc][õo]es\s{0,16}:/iu),
   rule(
     "prompt-leak",
     /\b(?:reveal|print|show|repeat|output|dump|display|leak|tell me|share)\b[^\n]{0,40}\b(?:system prompt|developer (?:message|instructions?|prompt)|hidden instructions?|initial instructions?|your instructions|your (?:system )?prompt)\b/iu,
@@ -276,9 +283,12 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   ),
   rule(
     "role-marker",
-    /<\|\s*(?:im_start|im_end|system|endoftext|start_header_id)\s*\|>|\[INST\]|<<SYS>>|<\/?(?:system|developer)(?:_message)?>/iu,
+    /<\|\s{0,16}(?:im_start|im_end|system|endoftext|start_header_id)\s{0,16}\|>|\[INST\]|<<SYS>>|<\/?(?:system|developer)(?:_message)?>/iu,
   ),
-  rule("role-marker", /(?:^|\n)\s*(?:#{1,4}\s*)?(?:system|developer|assistant) (?:message|prompt|instructions?)\s*:/iu),
+  rule(
+    "role-marker",
+    /(?:^|\n)\s{0,16}(?:#{1,4}\s{0,16})?(?:system|developer|assistant) (?:message|prompt|instructions?)\s{0,16}:/iu,
+  ),
   rule(
     "ai-addressed",
     /\b(?:note|message|instructions?|attention|important|reminder) (?:to|for) (?:the |any |all )?(?:ai|llm|language model|ai assistants?|ai agents?|assistants?|agents?|chatbots?|copilots?)\b/iu,
@@ -295,18 +305,18 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
     "judge-manipulation",
     /\b(?:security|safety|prompt[- ]injection|content) (?:reviewer|guard|classifier|filter|scanner|checker|judge|moderator)s?\b[^\n]{0,80}\b(?:allow|safe|benign|clean|approve|not (?:an? )?(?:injection|attack|threat))\b/iu,
   ),
-  rule("judge-manipulation", /"verdict"\s*:\s*"allow"/iu),
+  rule("judge-manipulation", /"verdict"\s{0,16}:\s{0,16}"allow"/iu),
   rule(
     "judge-manipulation",
     /\b(?:revisor|guarda|classificador|filtro|verificador) de (?:seguran[çc]a|conte[úu]do)\b[^\n]{0,80}\b(?:seguro|permit[ai]r?|liberar?|aprovar?)\b/iu,
   ),
   rule(
     "image-exfiltration",
-    /!\[[^\]\n]{0,100}\]\(\s*https?:\/\/[^)\s]{1,300}[?&][^)\s=]{1,40}=(?:\{|\$\{?|%7B|\[|<)[^)\s]{0,80}\)/iu,
+    /!\[[^\]\n]{0,100}\]\(\s{0,16}https?:\/\/[^)\s]{1,300}[?&][^)\s=]{1,40}=(?:\{|\$\{?|%7B|\[|<)[^)\s]{0,80}\)/iu,
   ),
   rule(
     "image-exfiltration",
-    /<img\b[^>]{0,200}\bsrc\s*=\s*["']?https?:\/\/[^"'\s>]{1,300}[?&][^"'\s>=]{1,40}=(?:\{|\$\{?|%7B)/iu,
+    /<img\b[^>]{0,200}\bsrc\s{0,16}=\s{0,16}["']?https?:\/\/[^"'\s>]{1,300}[?&][^"'\s>=]{1,40}=(?:\{|\$\{?|%7B)/iu,
   ),
   // Direction overrides. Embeddings and marks are ordinary in right-to-left text, so they are not here.
   rule("hidden-bidi", /[\u{202D}\u{202E}\u{2066}-\u{2069}]/u),
@@ -316,7 +326,7 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   ),
   rule(
     "hidden-markup",
-    /(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0(?:px)?\b|opacity\s*:\s*0(?:\.0+)?\b)[^>]{0,200}>[^<]{0,400}\b(?:ignore|instructions?|assistant|ai agents?|llm)\b/iu,
+    /(?:display\s{0,16}:\s{0,16}none|visibility\s{0,16}:\s{0,16}hidden|font-size\s{0,16}:\s{0,16}0(?:px)?\b|opacity\s{0,16}:\s{0,16}0(?:\.0+)?\b)[^>]{0,200}>[^<]{0,400}\b(?:ignore|instructions?|assistant|ai agents?|llm)\b/iu,
   ),
   rule(
     "exfiltration-request",
@@ -328,17 +338,17 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
   ),
   rule(
     "secret-send-request",
-    /\b(?:send|post|upload|forward|email|paste|share)\s+(?:me\s+)?(?:the\s+|your\s+|all\s+|any\s+)?(?:contents?\s+of\s+(?:the\s+)?)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|cookies|session cookies)\b/iu,
+    /\b(?:send|post|upload|forward|email|paste|share)\s{1,16}(?:me\s{1,16})?(?:the\s{1,16}|your\s{1,16}|all\s{1,16}|any\s{1,16})?(?:contents?\s{1,16}of\s{1,16}(?:the\s{1,16})?)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|cookies|session cookies)\b/iu,
   ),
   rule(
     "secret-send-request",
-    /\b(?:envie|mande|poste|encaminhe|compartilhe)\s+(?:o\s+|a\s+|os\s+|as\s+|seu\s+|sua\s+|seus\s+|suas\s+|todos\s+os\s+|todas\s+as\s+)?(?:conte[úu]do\s+d[oa]\s+)?(?:\.env\b|arquivo \.env|chaves? (?:ssh|privadas?|de api)|credenciais|tokens|senhas|cookies)/iu,
+    /\b(?:envie|mande|poste|encaminhe|compartilhe)\s{1,16}(?:o\s{1,16}|a\s{1,16}|os\s{1,16}|as\s{1,16}|seu\s{1,16}|sua\s{1,16}|seus\s{1,16}|suas\s{1,16}|todos\s{1,16}os\s{1,16}|todas\s{1,16}as\s{1,16})?(?:conte[úu]do\s{1,16}d[oa]\s{1,16})?(?:\.env\b|arquivo \.env|chaves? (?:ssh|privadas?|de api)|credenciais|tokens|senhas|cookies)/iu,
   ),
   rule(
     "secret-request",
     /(?:\.env\b|\bid_(?:rsa|ed25519|ecdsa)\b|\.ssh\/|\bapi[ _-]?keys?\b|\baccess tokens?\b|\bsecret keys?\b|\bcredentials\b|\bpasswords?\b|\bchaves? de api\b|\bsenhas?\b|\bcookies\b)/iu,
   ),
-  rule("remote-code-request", /\b(?:curl|wget)\b[^\n|]{0,200}\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b/iu),
+  rule("remote-code-request", /\b(?:curl|wget)\b[^\n|]{0,200}\|\s{0,16}(?:sudo\s{1,16})?(?:ba|z|da)?sh\b/iu),
 ]);
 
 /** A subdivision flag (U+1F3F4 and tag letters) is a picture, not hidden text. */
@@ -357,23 +367,29 @@ const INVISIBLE = /[\u{200B}-\u{200D}\u{2060}-\u{2064}\u{00AD}\u{180E}\u{FEFF}\u
 
 const REVERSE_SHELL_RULES: readonly Rule[] = [
   rule("reverse-shell", /\/dev\/(?:tcp|udp)\/[^\s/]{1,255}\/\d{1,5}/iu),
-  rule("reverse-shell", /\b(?:nc|ncat|netcat)\b[^\n;|&]{0,120}\s-(?:[a-z]*e|c)\s+\S{0,40}(?:ba|z|da)?sh\b/iu),
+  rule("reverse-shell", /\b(?:nc|ncat|netcat)\b[^\n;|&]{0,120}\s-(?:[a-z]*e|c)\s{1,16}\S{0,40}(?:ba|z|da)?sh\b/iu),
   rule("reverse-shell", /\bsocat\b[^\n]{0,120}\bexec:/iu),
   rule("reverse-shell", /\bmkfifo\b[^\n]{0,120}\b(?:nc|ncat|netcat)\b/iu),
-  rule("encoded-execution", /\bbase64\s+(?:-d|--decode|-D)\b[^\n]{0,120}\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b/iu),
-  rule("encoded-execution", /\becho\s+["']?[A-Za-z0-9+/=]{40,}["']?\s*\|\s*base64\s+(?:-d|--decode|-D)\b/iu),
   rule(
     "encoded-execution",
-    /\bpowershell(?:\.exe)?\b[^\n]{0,60}\s-(?:e|en|enc|encodedcommand)\s+[A-Za-z0-9+/=]{20,}/iu,
+    /\bbase64\s{1,16}(?:-d|--decode|-D)\b[^\n]{0,120}\|\s{0,16}(?:sudo\s{1,16})?(?:ba|z|da|k)?sh\b/iu,
   ),
-  rule("encoded-execution", /\b(?:eval|exec)\s*\(\s*(?:atob|base64\.b64decode|Buffer\.from)\s*\(/iu),
+  rule(
+    "encoded-execution",
+    /\becho\s{1,16}["']?[A-Za-z0-9+/=]{40,1000}["']?\s{0,16}\|\s{0,16}base64\s{1,16}(?:-d|--decode|-D)\b/iu,
+  ),
+  rule(
+    "encoded-execution",
+    /\bpowershell(?:\.exe)?\b[^\n]{0,60}\s-(?:e|en|enc|encodedcommand)\s{1,16}[A-Za-z0-9+/=]{20,1000}/iu,
+  ),
+  rule("encoded-execution", /\b(?:eval|exec)\s{0,16}\(\s{0,16}(?:atob|base64\.b64decode|Buffer\.from)\s{0,16}\(/iu),
 ];
 
 const PIPE_TO_SHELL: readonly RegExp[] = [
-  /\b(?:curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod|fetch)\b[^|\n;]{0,300}\|\s*(?:sudo\s+)?(?:ba|z|da|k|fi)?sh\b/giu,
-  /\b(?:curl|wget)\b[^|\n;]{0,300}\|\s*(?:sudo\s+)?(?:python3?|node|perl|ruby|php)\b(?:\s+-)?\s*(?:$|[\n;&)])/giu,
-  /\biex\s*\(?\s*(?:\(?\s*)?(?:iwr|irm|invoke-webrequest|invoke-restmethod|new-object\s+net\.webclient)\b/giu,
-  /\b(?:ba|z)?sh\s+<\(\s*(?:curl|wget)\b/giu,
+  /\b(?:curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod|fetch)\b[^|\n;]{0,300}\|\s{0,16}(?:sudo\s{1,16})?(?:ba|z|da|k|fi)?sh\b/giu,
+  /\b(?:curl|wget)\b[^|\n;]{0,300}\|\s{0,16}(?:sudo\s{1,16})?(?:python3?|node|perl|ruby|php)\b(?:\s{1,16}-)?\s{0,16}(?:$|[\n;&)])/giu,
+  /\biex\s{0,16}\(?\s{0,16}(?:\(?\s{0,16})?(?:iwr|irm|invoke-webrequest|invoke-restmethod|new-object\s{1,16}net\.webclient)\b/giu,
+  /\b(?:ba|z)?sh\s{1,16}<\(\s{0,16}(?:curl|wget)\b/giu,
 ];
 
 /**
@@ -393,6 +409,17 @@ const INSTALLER_HOSTS: ReadonlySet<string> = new Set([
   "opencode.ai",
   "sdk.cloud.google.com",
 ]);
+
+/**
+ * A part of a command that the shell or the download tool fills in later: a variable, a command in
+ * `$( )` or backticks, a curl config file (`-K`, `--config`) or data read from a file (`@file`).
+ */
+const UNRESOLVED_PART = /[$`]|(?:^|\s)(?:-[A-Za-z]*K\b|--config\b)|(?:^|[\s=])@\S/u;
+
+function isInstallerUrl(url: string): boolean {
+  const host = urlHost(url);
+  return host !== null && INSTALLER_HOSTS.has(host);
+}
 
 const SECRET_FILE =
   /(?:^|[\s'"=/@:<(])(?:\.env(?:\.(?!example\b|sample\b|template\b|dist\b)[a-z0-9_-]{1,20})?|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.pgpass|\.htpasswd|id_(?:rsa|dsa|ecdsa|ed25519)(?![.\w])|\.ssh\/(?!known_hosts|config\b)[\w.-]+|\.aws\/credentials|\.docker\/config\.json|\.kube\/config|credentials\.json|service[-_]account[\w.-]{0,40}\.json|login\.keychain(?:-db)?|[\w.-]{1,120}\.(?:pem|p12|pfx|kdbx|ppk|jks|keystore))(?=$|[\s'"`;|&)>,])/iu;
@@ -445,19 +472,25 @@ export function isSecretPath(path: string): boolean {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The text that the rules read: tag letters written out, compatibility forms joined, and the other
- * invisible characters taken out, so "Ig\u{200B}nore" reads as "Ignore".
+ * The text that the rules read: tag letters written out, compatibility forms joined, the other
+ * invisible characters taken out, so "Ig\u{200B}nore" reads as "Ignore", and long runs of white space
+ * made short.
  */
 export function guardReadableText(text: string): string {
-  return text
-    .replace(TAG_FLAG, "\u{1F3F4}")
-    .replace(
-      TAG_RUN,
-      (run) =>
-        `[hidden text: ${[...run].map((letter) => String.fromCharCode((letter.codePointAt(0) ?? 0xe0020) - 0xe0000)).join("")}]`,
-    )
-    .normalize("NFKC")
-    .replace(INVISIBLE, "");
+  return (
+    text
+      .replace(TAG_FLAG, "\u{1F3F4}")
+      .replace(
+        TAG_RUN,
+        (run) =>
+          `[hidden text: ${[...run].map((letter) => String.fromCharCode((letter.codePointAt(0) ?? 0xe0020) - 0xe0000)).join("")}]`,
+      )
+      .normalize("NFKC")
+      .replace(INVISIBLE, "")
+      // A run of three or more spaces or lines reads as one, so padding cannot stretch a phrase past a
+      // bounded rule.
+      .replace(/\s{3,}/gu, (run) => (run.includes("\n") ? "\n" : " "))
+  );
 }
 
 function countMatches(text: string, pattern: RegExp): number {
@@ -513,14 +546,16 @@ class Findings {
    */
   scan(text: string, { code, pattern }: Rule, offset = 0): boolean {
     let count = 0;
-    for (let partStart = 0; partStart < text.length || partStart === 0; partStart += SCAN_PART) {
+    // A rule that weighs high reads the whole text in one pass: no budget stops it, and no part ends it.
+    const partSize = WEIGHT[code] === "high" ? Math.max(text.length, 1) : SCAN_PART;
+    for (let partStart = 0; partStart < text.length || partStart === 0; partStart += partSize) {
       if (WEIGHT[code] !== "high" && partStart > 0 && !this.inBudget()) return false;
-      const part = text.slice(partStart, partStart + SCAN_PART + SCAN_OVERLAP);
+      const part = text.slice(partStart, partStart + partSize + SCAN_OVERLAP);
       pattern.lastIndex = 0;
       for (let match = pattern.exec(part); match !== null; match = pattern.exec(part)) {
         if (match[0].length === 0) pattern.lastIndex += 1;
         // A match that starts in the overlap belongs to the next part.
-        if (match.index >= SCAN_PART && partStart + SCAN_PART < text.length) break;
+        if (match.index >= partSize && partStart + partSize < text.length) break;
         count += 1;
         if (count > HITS_PER_RULE) {
           // More places than the check records: the excerpt cannot show them all.
@@ -798,12 +833,19 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
   if (!found.inBudget()) {
     found.skip();
   } else {
-    // Each pipe to a shell on its own: one from a known installer does not clear another one.
+    // Each pipe to a shell on its own: one from a known installer does not clear another one. A pipe
+    // counts as a known install only when it names one URL, of a known host, with nothing that the
+    // shell fills in later, and when every URL of the whole command is of a known host.
+    const commandHostsKnown = urlsIn(command).every(({ url }) => isInstallerUrl(url));
     for (const pattern of PIPE_TO_SHELL) {
       if (!command) break;
       for (const match of command.matchAll(pattern)) {
-        const hosts = urlsIn(match[0]).map(({ url }) => urlHost(url));
-        const known = hosts.length > 0 && hosts.every((host) => host !== null && INSTALLER_HOSTS.has(host));
+        const urls = urlsIn(match[0]);
+        const known =
+          commandHostsKnown &&
+          urls.length === 1 &&
+          urls.every(({ url }) => isInstallerUrl(url)) &&
+          !UNRESOLVED_PART.test(match[0]);
         if (!known) found.add("pipe-to-shell", commandAt + match.index, commandAt + match.index + match[0].length);
       }
     }

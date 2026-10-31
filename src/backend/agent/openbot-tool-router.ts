@@ -472,11 +472,21 @@ export class BuildersBotToolRouter {
               });
               return;
             }
-            const params = {
+            const requested = {
               ...toolRequest.params,
               threadId: this.#conversation.publicThreadId(agentId, toolRequest.params.threadId),
               ownerAgentId: agentId,
             };
+            const signal = toolRequest.signal;
+            if (signal?.aborted) return;
+            // The Guard checks what the call sends out before it runs. For an upload it gives the call the
+            // real paths that it checked, so the tool opens those files and not a link that changed since.
+            const before = yield* this.#guardBefore(client, toolRequest, requested, agentId);
+            if (!before.proceed) {
+              if (before.result && !signal?.aborted && client.running) client.respond(toolRequest.id, before.result);
+              return;
+            }
+            const params = { ...requested, ...(before.params ? { arguments: before.params.arguments } : {}) };
             // While the user controls the tab, the call waits for the release and does not run.
             const userControl = (tabId: string) =>
               this.#browser.awaitUserControlRelease(tabId).pipe(Effect.as(browserUserControlResult()));
@@ -501,7 +511,6 @@ export class BuildersBotToolRouter {
                   });
               }
             });
-            const signal = toolRequest.signal;
             const cancelled = Effect.callback<never>((resume) => {
               const abort = () => resume(Effect.interrupt);
               if (signal?.aborted) abort();
@@ -509,12 +518,6 @@ export class BuildersBotToolRouter {
               return Effect.sync(() => signal?.removeEventListener("abort", abort));
             });
             if (signal?.aborted) return;
-            // The Guard checks what the call sends out before it runs.
-            const before = yield* this.#guardBefore(client, toolRequest, params, agentId);
-            if (!before.proceed) {
-              if (before.result && !signal?.aborted && client.running) client.respond(toolRequest.id, before.result);
-              return;
-            }
             const result = yield* operation.pipe(
               Effect.raceFirst(cancelled),
               Effect.onInterrupt(() => Effect.sync(() => this.#browser.endControl(params.threadId, params.turnId))),

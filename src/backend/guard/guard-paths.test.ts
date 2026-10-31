@@ -1,13 +1,17 @@
 // @vitest-environment node
 // The paths that the Guard checks for files that an action sends: the path as given, its normal
 // forms, and the real path behind each symbolic link, as the upload and attachment code open them.
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rename, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DEFAULT_GUARD_PREFERENCE } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveGuardPaths } from "./guard-paths";
+import type { DynamicToolCallParams } from "../protocol";
+import { GuardGate } from "./guard-gate";
+import { type GuardPathContext, resolveGuardPaths } from "./guard-paths";
 import { isSecretPath, triageAction } from "./guard-triage";
+import { ToolGuard } from "./tool-guard";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -81,5 +85,73 @@ describe("resolveGuardPaths", () => {
     expect(resolved.complete).toBe(false);
     const triage = triageAction({ tool: "openbot_browser.upload_files", files: resolved.paths, unresolved: true });
     expect(triage).toMatchObject({ level: "suspicious", incomplete: true });
+  });
+});
+
+describe("the gate gives an upload the real paths that it checked", () => {
+  const upload = (paths: string[]): DynamicToolCallParams => ({
+    threadId: "thread-1",
+    turnId: "turn-1",
+    callId: "call-1",
+    namespace: "openbot_browser",
+    tool: "upload_files",
+    arguments: { tabId: "tab-1", paths },
+  });
+
+  function gate(context: GuardPathContext, onAsk: () => Promise<void> = async () => undefined) {
+    return new GuardGate<string>({
+      guard: new ToolGuard({ preference: () => DEFAULT_GUARD_PREFERENCE, models: [], log: { info: () => undefined } }),
+      ask: () =>
+        Effect.promise(async () => {
+          await onAsk();
+          return "accept" as const;
+        }),
+      resolvePaths: (_agentId, paths) => resolveGuardPaths(paths, context),
+    });
+  }
+
+  it("runs the upload on the checked file, so a link changed after the check does not count", async () => {
+    const { context, workspace, home } = await computer();
+    await writeFile(join(workspace, "real.txt"), "ordinary");
+    await symlink(join(workspace, "real.txt"), join(workspace, "today.txt"));
+    const before = await Effect.runPromise(
+      gate(context).beforeTool(
+        "client",
+        { id: "r1", method: "item/tool/call", params: {} },
+        upload(["today.txt"]),
+        "agent-1",
+      ),
+    );
+    expect(before.proceed).toBe(true);
+    const checked = before.proceed ? before.params?.arguments : undefined;
+    const realFile = await realpath(join(workspace, "real.txt"));
+    expect(checked).toEqual({ tabId: "tab-1", paths: [realFile] });
+    // The link now points at the key; the call still names the file that the Guard checked.
+    await unlink(join(workspace, "today.txt"));
+    await symlink(join(home, ".ssh", "id_rsa"), join(workspace, "today.txt"));
+    expect(await realpath(realFile)).toBe(realFile);
+  });
+
+  it("refuses the upload when a folder on the checked path became a link while the person decided", async () => {
+    const { context, workspace, home } = await computer();
+    await mkdir(join(workspace, "keys"));
+    await writeFile(join(workspace, "keys", "server.pem"), "certificate");
+    await mkdir(join(home, "other"));
+    await writeFile(join(home, "other", "server.pem"), "other key");
+    // The file name is a secret name, so the Guard asks; the folder changes before the person answers.
+    const swap = async () => {
+      await rename(join(workspace, "keys"), join(workspace, "keys-before"));
+      await symlink(join(home, "other"), join(workspace, "keys"));
+    };
+    const before = await Effect.runPromise(
+      gate(context, swap).beforeTool(
+        "client",
+        { id: "r2", method: "item/tool/call", params: {} },
+        upload(["keys/server.pem"]),
+        "agent-1",
+      ),
+    );
+    expect(before.proceed).toBe(false);
+    expect(JSON.stringify(before)).toContain("changed after the Builders Bot Guard checked it");
   });
 });

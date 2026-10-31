@@ -54,9 +54,12 @@ export function guardOwnerOnly(checked: Pick<GuardResult, "category">): boolean 
   return checked.category === "secret-leak";
 }
 
-/** What the router does next with a tool call. */
+/**
+ * What the router does next with a tool call. `params` is the call to run in place of the one the
+ * agent made: an upload names the real paths that the Guard checked, so the tool opens those files.
+ */
 export type GuardBefore =
-  | { readonly proceed: true }
+  | { readonly proceed: true; readonly params?: DynamicToolCallParams }
   /** The tool must not run. `result` answers the agent; null means nobody waits for an answer. */
   | { readonly proceed: false; readonly result: DynamicToolResult | null };
 
@@ -513,6 +516,10 @@ export function guardNotice(reason: string | null): string {
   ].join("\n");
 }
 
+/** The reason in the strong note of a result too long for the Guard to read in full. The agent reads it. */
+export const GUARD_UNREAD_REASON =
+  "The result is too long for the Guard to read in full, so the Guard could not check it.";
+
 /**
  * The note for a result that very likely holds an injection, where no approval card can be shown,
  * such as a result that a proxy of this app passes on. The agent reads it, so it is English.
@@ -540,6 +547,31 @@ export function guardResultNotice(checked: Pick<GuardResult, "action" | "reason"
     case "block":
       return guardStrongNotice(checked.reason);
   }
+}
+
+/** What the agent reads when a file changed between the Guard check and the run. */
+const FILES_CHANGED =
+  "A file of this upload changed after the Builders Bot Guard checked it, so the upload did not run. Check the files and try again.";
+
+/**
+ * An upload with the real paths that the Guard checked in place of the paths that the agent gave,
+ * or null when nothing changes. Only an upload follows links when it opens a file; an attachment and
+ * a site refuse a link, so they keep their paths.
+ */
+function withRealPaths(
+  params: DynamicToolCallParams,
+  reals: ReadonlyArray<string | null>,
+): DynamicToolCallParams | null {
+  if (params.namespace !== BROWSER || params.tool !== "upload_files" || !isDynamicRecord(params.arguments)) return null;
+  const given = stringList(params.arguments, "paths");
+  if (given.length === 0 || given.length !== reals.length) return null;
+  const paths = given.map((path, index) => reals[index] ?? path);
+  if (paths.every((path, index) => path === given[index])) return null;
+  return { ...params, arguments: { ...params.arguments, paths } };
+}
+
+function realPathsOf(params: DynamicToolCallParams): string[] {
+  return stringList(params.arguments, "paths");
 }
 
 function withNotice(result: DynamicToolResult, reason: string | null): DynamicToolResult {
@@ -608,12 +640,16 @@ export class GuardGate<Client = AgentClient> {
     if (!given) return proceed;
     // A file is checked at each path that leads to it: as given, in normal form, and behind every link.
     let item = given;
-    if (given.files && given.files.length > 0 && this.#options.resolvePaths) {
-      const resolved = yield* this.#options.resolvePaths(agentId, given.files);
+    let run: GuardBefore = proceed;
+    const resolvePaths = this.#options.resolvePaths;
+    if (given.files && given.files.length > 0 && resolvePaths) {
+      const resolved = yield* resolvePaths(agentId, given.files);
       item = { ...given, files: resolved.paths, ...(resolved.complete ? {} : { unresolved: true }) };
+      const real = withRealPaths(params, resolved.reals);
+      if (real) run = { proceed: true, params: real };
     }
     const checked = yield* guard.check({ direction: "outbound", subject: item.tool, action: item });
-    if (checked.action === "allow" || checked.action === "annotate") return proceed;
+    if (checked.action === "allow" || checked.action === "annotate") return run;
     if (checked.action === "block") return { proceed: false, result: declined(checked.reason) } satisfies GuardBefore;
     const answer = yield* this.#options.ask(
       client,
@@ -621,8 +657,16 @@ export class GuardGate<Client = AgentClient> {
       approvalFor(request, params, agentId, actionSummary(item), askReason("action", checked)),
       { ownerOnly: guardOwnerOnly(checked) },
     );
-    if (answer === "accept") return proceed;
-    return { proceed: false, result: answer === "cancel" ? null : declined(checked.reason) } satisfies GuardBefore;
+    if (answer !== "accept")
+      return { proceed: false, result: answer === "cancel" ? null : declined(checked.reason) } satisfies GuardBefore;
+    // The person may answer much later. The real paths must still be the files that the card named.
+    if (run.params && resolvePaths) {
+      const checkedPaths = realPathsOf(run.params);
+      const again = yield* resolvePaths(agentId, checkedPaths);
+      if (!again.complete || again.reals.some((real, index) => real !== checkedPaths[index]))
+        return { proceed: false, result: refusal(FILES_CHANGED) } satisfies GuardBefore;
+    }
+    return run;
   });
 
   /**

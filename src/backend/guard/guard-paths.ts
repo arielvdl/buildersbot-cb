@@ -23,6 +23,12 @@ export interface GuardPathContext {
 export interface GuardPaths {
   /** The paths as given, their normal forms, and the real paths behind them, each once. */
   readonly paths: readonly string[];
+  /**
+   * For each path as given, in order, the real path of the first candidate that exists, as the
+   * attachment code would open it, or null when none exists. The gate gives these to the tool, so it
+   * opens the files that the Guard checked, not a link that changed after the check.
+   */
+  readonly reals: ReadonlyArray<string | null>;
   /** False when a real path could not be found for a reason other than a missing file. */
   readonly complete: boolean;
 }
@@ -63,17 +69,22 @@ export function guardPathCandidates(input: string, context: GuardPathContext): s
  * of its nearest folder that exists, joined with the rest. Null when a call fails for another
  * reason, such as a folder that this app may not read, or a loop of links.
  */
-async function realPathOf(path: string, realpath: (path: string) => Promise<string>): Promise<string | null> {
+async function realPathOf(
+  path: string,
+  realpath: (path: string) => Promise<string>,
+): Promise<{ path: string; exists: boolean } | null> {
   let current = path;
   const rest: string[] = [];
   for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
     try {
       const real = await realpath(current);
-      return rest.length > 0 ? join(real, ...[...rest].reverse()) : real;
+      return rest.length > 0
+        ? { path: join(real, ...[...rest].reverse()), exists: false }
+        : { path: real, exists: true };
     } catch (error) {
       if (!isMissing(error)) return null;
       const parent = dirname(current);
-      if (parent === current) return normalize(path);
+      if (parent === current) return { path: normalize(path), exists: false };
       rest.push(basename(current));
       current = parent;
     }
@@ -91,18 +102,24 @@ export function resolveGuardPaths(inputs: readonly string[], context: GuardPathC
   return Effect.tryPromise({
     try: async (): Promise<GuardPaths> => {
       const paths = new Set<string>();
+      const reals: Array<string | null> = [];
       let complete = true;
       for (const input of inputs) {
         paths.add(input);
+        let opened: string | null = null;
         for (const candidate of guardPathCandidates(input, context)) {
           paths.add(candidate);
           const real = await realPathOf(candidate, realpath);
           if (real === null) complete = false;
-          else paths.add(real);
+          else {
+            paths.add(real.path);
+            if (real.exists && opened === null) opened = real.path;
+          }
         }
+        reals.push(opened);
       }
-      return { paths: [...paths], complete };
+      return { paths: [...paths], reals, complete };
     },
     catch: () => null,
-  }).pipe(Effect.catch(() => Effect.succeed({ paths: [...inputs], complete: false })));
+  }).pipe(Effect.catch(() => Effect.succeed({ paths: [...inputs], reals: inputs.map(() => null), complete: false })));
 }

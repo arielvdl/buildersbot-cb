@@ -8,8 +8,42 @@ import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 /** Checks the text of one tool result. It answers the note to put in front, or null to leave it. */
 export type GuardResultCheck = (text: string) => Promise<string | null>;
 
-/** The most bytes that one message may have before the reader stops and passes the rest on as it is. */
+/**
+ * The most characters of one message that the reader holds. A longer message is not read in full:
+ * it gets the strong note in front, unread, and the rest passes on as it arrives.
+ */
 const MESSAGE_LIMIT = 8 * 1024 * 1024;
+
+/** What the reader does with a message that is too long to read in full. */
+export interface McpResultGuardOptions {
+  /** Tests give a small limit. */
+  readonly messageLimit?: number;
+  /** The note for a result that the reader could not read in full. */
+  readonly uncoveredNotice: string;
+  /** Called for each such result, so the caller can log it. `noted` is false when no note could go in. */
+  readonly onUncovered?: (noted: boolean) => void;
+}
+
+/** Where the content list of a tool result starts in the first part of a message. */
+const RESULT_START = /"result"\s{0,16}:\s{0,16}\{/u;
+const CONTENT_START = /"content"\s{0,16}:\s{0,16}\[(\s{0,16})/u;
+
+/**
+ * The first part of a message with the note put first in its content list, or null when the part has
+ * no content list of a result. The list is found by its text, because the rest of the message has
+ * not arrived.
+ */
+export function withLeadingNote(prefix: string, notice: string): string | null {
+  const result = RESULT_START.exec(prefix);
+  if (!result) return null;
+  const after = result.index + result[0].length;
+  const content = CONTENT_START.exec(prefix.slice(after));
+  if (!content) return null;
+  const at = after + content.index + content[0].length;
+  const empty = prefix.charAt(at) === "]";
+  const item = JSON.stringify({ type: "text", text: notice });
+  return `${prefix.slice(0, at)}${item}${empty ? "" : ","}${prefix.slice(at)}`;
+}
 /** Where one event of a stream ends. */
 const EVENT_END = /\r?\n\r?\n/u;
 
@@ -82,12 +116,16 @@ async function guardedEvent(event: string, ending: string, check: GuardResultChe
 export class McpResultGuard {
   readonly #check: GuardResultCheck;
   readonly #stream: boolean;
+  readonly #options: McpResultGuardOptions;
+  readonly #limit: number;
   readonly #decoder = new TextDecoder();
   #pending = "";
   #passThrough = false;
 
-  constructor(contentType: string | null, check: GuardResultCheck) {
+  constructor(contentType: string | null, check: GuardResultCheck, options: McpResultGuardOptions) {
     this.#check = check;
+    this.#options = options;
+    this.#limit = options.messageLimit ?? MESSAGE_LIMIT;
     this.#stream = (contentType ?? "").toLowerCase().includes("text/event-stream");
   }
 
@@ -96,9 +134,8 @@ export class McpResultGuard {
     if (this.#passThrough) return text;
     this.#pending += text;
     if (!this.#stream) {
-      if (this.#pending.length <= MESSAGE_LIMIT) return "";
-      this.#passThrough = true;
-      return this.#take();
+      if (this.#pending.length <= this.#limit) return "";
+      return this.#uncovered();
     }
     let output = "";
     for (let match = EVENT_END.exec(this.#pending); match !== null; match = EVENT_END.exec(this.#pending)) {
@@ -106,11 +143,21 @@ export class McpResultGuard {
       this.#pending = this.#pending.slice(match.index + match[0].length);
       output += await guardedEvent(event, match[0], this.#check);
     }
-    if (this.#pending.length > MESSAGE_LIMIT) {
-      this.#passThrough = true;
-      output += this.#take();
-    }
+    if (this.#pending.length > this.#limit) output += this.#uncovered();
     return output;
+  }
+
+  /**
+   * A message too long to read in full. None of it has gone out yet, so the strong note goes in
+   * front of its content, and the rest passes on unread as it arrives. It never passes in silence:
+   * the caller hears of it, also when no note could go in.
+   */
+  #uncovered(): string {
+    this.#passThrough = true;
+    const prefix = this.#take();
+    const noted = withLeadingNote(prefix, this.#options.uncoveredNotice);
+    this.#options.onUncovered?.(noted !== null);
+    return noted ?? prefix;
   }
 
   async end(): Promise<string> {

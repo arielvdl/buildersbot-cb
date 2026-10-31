@@ -10,6 +10,7 @@ import {
 } from "node:http";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
+import { GUARD_UNREAD_REASON, guardStrongNotice } from "../backend/guard/guard-gate";
 import { type GuardResultCheck, McpResultGuard } from "../backend/guard/guard-mcp-results";
 import { listenLoopback } from "./listen-loopback";
 import { BROKER_TOKEN_ENV, BROKER_TOKEN_HEADER, guardNodeOptions } from "./playwright-broker-guard";
@@ -339,7 +340,11 @@ export class PlaywrightBroker {
           let teeSize = 0;
           // With the Guard, each tool result passes through its reader, in order; other events at once.
           const reader = guard
-            ? new McpResultGuard(singleHeader(incoming.headers["content-type"]) ?? null, guard)
+            ? new McpResultGuard(singleHeader(incoming.headers["content-type"]) ?? null, guard, {
+                uncoveredNotice: guardStrongNotice(GUARD_UNREAD_REASON),
+                onUncovered: (noted) =>
+                  logger.warn("The Guard could not read a long browser result in full.", { noted }),
+              })
             : null;
           let written = Promise.resolve();
           incoming.on("data", (chunk: Buffer) => {
