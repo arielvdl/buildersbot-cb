@@ -79,9 +79,13 @@ export class DynamicIslandWindowController {
     this.#options = options;
   }
 
+  /**
+   * Reads the saved preference, which the main window reads. It opens no window: `reconcileWindow`
+   * does that, after the main window has its content, because each display's window loads the
+   * helper bundle and the loads run one after another.
+   */
   readonly initialize = Effect.fn("DynamicIsland.initialize")(function* (this: DynamicIslandWindowController) {
     this.#preference = yield* readDynamicIslandPreference(this.#options.preferencePath);
-    yield* this.reconcileWindow();
   }).bind(this);
 
   get preference(): DynamicIslandPreference {
