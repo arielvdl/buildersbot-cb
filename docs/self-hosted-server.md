@@ -74,7 +74,7 @@ open a database that a newer one migrated. It also refuses a computer that is a 
 | `openbot status` | Show the version, the account, the server state, the memory and a staged update. |
 | `openbot login [<email>] [--name <name>]` | Sign in with an email code. |
 | `openbot login --claim [--name <name>]` | Sign in with an operator's one-time claim (see [Sign in with a server claim](#sign-in-with-a-server-claim)). |
-| `openbot mobile-connect` | Show a Mobile Connect QR code. The web app on a phone does not use it (see [Phone](#phone)). |
+| `openbot mobile-connect` | Show the address of the web app and its QR code. The code holds no sign-in secret (see [Phone](#phone)). |
 | `openbot logout` | Sign out. The server is not available until the next sign-in. |
 | `openbot name <name>` | Change the server name. |
 | `openbot logs [-f]` | Show the journal of `openbot.service`. |
@@ -197,14 +197,16 @@ A 1280x800 screenshot is not made smaller by any Claude or Codex model.
 
 ## Phone
 
-A phone uses the web app at `openbot.run/app`, installed from the browser of the phone. There is no
-phone app to get from a store. The web app signs in with the email code of the account, as a browser
-does, so a server with no screen needs no code in the terminal:
+A phone uses the web app at `buildersbot.culturabuilder.com/app`, installed from the browser of the
+phone. There is no phone app to get from a store. The web app signs in with Cultura Builder (the Hub
+device grant), as a browser does, so a server with no screen needs no code in the terminal:
 
 1. Sign in the server with `openbot login`.
-2. On an iPhone, open `openbot.run/app` in Safari, then select **Share > Add to Home Screen**. On
-   Android, open it in Chrome, then select **Install app** in the Chrome menu.
-3. Open the web app from its icon and sign in with the email of the account of the server.
+2. On an iPhone, open `buildersbot.culturabuilder.com/app` in Safari, then select **Share > Add to
+   Home Screen**. On Android, open it in Chrome, then select **Install app** in the Chrome menu.
+   `openbot mobile-connect` shows this address as a QR code. The code holds only the address.
+3. Open the web app from its icon, select **Sign in with Cultura Builder**, and approve the code on
+   the Hub with the Cultura Builder account of the email of the server.
 
 The phone then shows all servers of the account. It connects through the account server and Signal,
 as the desktop app does. The server publishes no port. To remove a phone, sign out in the web app, or

@@ -26,8 +26,8 @@ Usage: openbot <command>
   login --claim [--name <name>]  Sign in with a one-time claim that the operator made for
                                  the owner's email. No code is needed. The claim comes from
                                  standard input, or a hidden prompt in a terminal.
-  mobile-connect                 Show a QR code that connects the OpenBot phone app to this
-                                 account. It works for one sign-in and expires after two minutes.
+  mobile-connect                 Show the address of the web app and its QR code, to use this
+                                 server from a phone. The phone signs in with Cultura Builder.
   logout                         Sign out. The server stops until the next sign-in.
   name <name>                    Change the server name.
   logs [-f]                      Show the OpenBot log.
@@ -215,21 +215,21 @@ login_command() {
   done
   show_status
   if [ "$(value server)" = online ]; then
-    echo "Sign in to OpenBot with $email on your computer or https://openbot.run/app to use this server."
-    echo "To use it from your phone, run: openbot mobile-connect"
+    echo "Sign in with the Cultura Builder account of $email on your computer, or in the web app, to use this server."
+    echo "To open the web app on your phone, run: openbot mobile-connect"
   fi
 }
 
 mobile_connect_command() {
-  local expires_at
+  local url
   control POST /v1/mobile-connect
   check_answer || exit 1
-  expires_at=$(value expires_at)
-  # Arithmetic runs a command in an array index, so only digits go into it.
-  [[ $expires_at =~ ^[0-9]+$ ]] || fail "OpenBot sent an invalid Mobile Connect code."
+  url=$(value url)
+  # The answer gives only the address of the web app: no code and no sign-in secret.
+  [[ $url =~ ^https?://[A-Za-z0-9.:-]+/app$ ]] || fail "Builders Bot sent an invalid web app address."
   value qr | base64 -d
-  echo "In the OpenBot phone app, select Scan QR code and scan this code."
-  echo "It works for one sign-in and expires in $((expires_at / 1000 - $(date +%s))) seconds. Run the command again for a new code."
+  echo "On the phone, scan this code or open $url, then add the web app to the Home Screen."
+  echo "Sign in there with Cultura Builder. The code holds only the address, so you can share it."
 }
 
 logs_command() {

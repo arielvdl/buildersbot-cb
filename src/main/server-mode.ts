@@ -30,8 +30,7 @@ import { runCauseEffect } from "../backend/effect-boundary";
 import type { CentralAuthManager } from "./central-auth-manager";
 import type { HostService } from "./host-service";
 import { readBodyWithin } from "./http-body";
-import { createHostedMobileConnect } from "./mobile-connect-host";
-import { RemoteWorkflowError, remoteCall, toRemoteWorkflowError } from "./remote-service-effects";
+import { RemoteWorkflowError, remoteCall } from "./remote-service-effects";
 import type { ServerMemory } from "./server-memory";
 
 const CONTROL_SOCKET_FILE = "control.sock";
@@ -69,9 +68,9 @@ export interface ServerModeOptions {
     | "canPersistSession"
     | "redeemServerClaim"
     | "logout"
-    | "createMobileConnect"
+    | "getMobileWebAppUrl"
   >;
-  host: Pick<HostService, "getStatus" | "configure" | "start" | "updateIdentity" | "getMobileConnectHost">;
+  host: Pick<HostService, "getStatus" | "configure" | "start" | "updateIdentity">;
   /** The memory guard, so that `status` shows the memory ceiling and the turn limit. */
   memory: Pick<ServerMemory, "level" | "sample" | "turnLimit"> | null;
   onError: (message: string, error: unknown) => void;
@@ -328,19 +327,20 @@ export class ServerMode {
   });
 
   /**
-   * A Mobile Connect code as a QR code for a terminal, in base64 because an answer line holds no line
-   * break. The terminal has no other way to show the code to a phone.
+   * The address of the web app, and its QR code for a terminal in base64, because an answer line
+   * holds no line break. A phone opens the address and signs in there with Cultura Builder, so the
+   * code carries no sign-in secret and does not expire.
    */
   readonly #mobileConnect = Effect.fn("ServerMode.mobileConnect")(function* (
     this: ServerMode,
   ): Effect.fn.Return<Answer, RemoteWorkflowError> {
     const account = this.#options.centralAuth.getState();
     if (account.status !== "signed_in") return issueFailure(account);
-    // A publish that runs now can give the host its name. The code binds the host that it publishes.
+    // The web app lists only published servers, and a publish that runs now can give the host its name.
     yield* this.publish();
-    const ticket = yield* createHostedMobileConnect(this.#options).pipe(toRemoteWorkflowError);
-    const qr = yield* remoteCall(() => QRCode.toString(ticket.qrData, { type: "terminal", small: true }));
-    return { status: 200, lines: { qr: Buffer.from(qr).toString("base64"), expires_at: ticket.expiresAt } };
+    const url = this.#options.centralAuth.getMobileWebAppUrl();
+    const qr = yield* remoteCall(() => QRCode.toString(url, { type: "terminal", small: true }));
+    return { status: 200, lines: { qr: Buffer.from(qr).toString("base64"), url } };
   });
 
   readonly #rename = Effect.fn("ServerMode.rename")(function* (
