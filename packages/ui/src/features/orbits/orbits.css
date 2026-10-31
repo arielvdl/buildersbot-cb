@@ -1,0 +1,834 @@
+/* The Team panel ("Equipe"). It lies over the right side of the window: the window has no room for
+ * a column. Motion uses only `transform` and `opacity`. `orbits-engine.ts` moves the nodes; the loops
+ * here stop when the window hides (`data-motion="off"`) and with reduced motion. */
+
+/* The mark of a model family: a Claude tier shape, a provider logo, or a plain ring. */
+.orbit-glyph {
+  display: inline-grid;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  place-items: center;
+}
+
+.orbit-glyph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke-width: 2.4;
+}
+
+.orbit-glyph:where([data-family="opus"], [data-family="haiku"], [data-family="fable"]) svg,
+.orbit-glyph svg:where([data-provider]) {
+  fill: currentColor;
+}
+
+.ui-dialog-overlay.orbits-scrim {
+  background: color-mix(in srgb, var(--openbot-drawer-scrim) 32%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ui-dialog-content.orbits-panel {
+  --orbits-edge: color-mix(in srgb, var(--openbot-text-primary) 10%, transparent);
+  --orbits-edge-strong: color-mix(in srgb, var(--openbot-text-primary) 16%, transparent);
+  --orbits-track: color-mix(in srgb, var(--openbot-text-primary) 10%, transparent);
+
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  z-index: var(--openbot-layer-dialog);
+  width: min(100vw, clamp(360px, 33vw, 560px));
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--orbits-edge-strong);
+  border-radius: 0;
+  outline: 0;
+  background: var(--openbot-bg-sheet);
+  box-shadow: var(--openbot-shadow-overlay);
+  color: var(--openbot-text-primary);
+  container-type: inline-size;
+  animation: orbits-panel-in var(--openbot-duration-overlay) var(--openbot-ease-out);
+  -webkit-app-region: no-drag;
+}
+
+@keyframes orbits-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+.orbits-head {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: 14px var(--openbot-space-3) 0 18px;
+}
+
+.orbits-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  font-weight: var(--openbot-weight-semibold);
+  letter-spacing: var(--openbot-tracking-tight);
+}
+
+.orbits-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2) var(--openbot-space-3);
+  border-bottom: 1px solid var(--orbits-edge);
+  padding: 10px 18px;
+}
+
+.orbits-chips {
+  min-width: 0;
+  display: flex;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1-5);
+}
+
+.orbits-chip {
+  height: var(--openbot-control-sm);
+  min-width: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--orbits-edge);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-control);
+  padding: 0 9px;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.orbits-chip .orbit-glyph {
+  width: 13px;
+  height: 13px;
+}
+
+.orbits-chip-count {
+  color: var(--openbot-text-muted);
+}
+
+.orbits-chip[aria-pressed="true"] {
+  border-color: var(--openbot-accent);
+  background: var(--openbot-accent-soft);
+  color: var(--openbot-text-primary);
+}
+
+.orbits-chip[aria-pressed="true"] .orbits-chip-count {
+  color: var(--openbot-text-secondary);
+}
+
+.orbits-chip:active {
+  transform: scale(0.97);
+}
+
+.orbits-count {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin: 0 0 0 auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.orbits-count-alert {
+  height: 20px;
+  border-radius: var(--openbot-radius-sm);
+  padding: 0 5px;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+  cursor: pointer;
+}
+
+.orbits-count-alert[data-tone="attention"] {
+  color: var(--openbot-warning);
+}
+
+.orbits-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+}
+
+.orbits-systems {
+  position: relative;
+  padding: var(--openbot-space-1) var(--openbot-space-4) var(--openbot-space-6);
+}
+
+.orbits-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.orbits-links path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--openbot-text-primary) 55%, transparent);
+  stroke-linecap: round;
+  stroke-width: 1;
+  opacity: 0.07;
+  transition:
+    opacity var(--openbot-duration-slow) var(--openbot-ease-out),
+    stroke var(--openbot-duration-slow) var(--openbot-ease-out);
+}
+
+.orbits-links path[data-hot] {
+  stroke: var(--openbot-accent);
+  stroke-width: 1.4;
+  opacity: 0.8;
+}
+
+.orbits-empty {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  justify-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-8);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+  text-align: center;
+}
+
+.orbits-empty p {
+  margin: 0;
+}
+
+.orbits-empty svg {
+  width: 28px;
+  height: 28px;
+  color: var(--openbot-text-dim);
+  stroke-width: var(--openbot-icon-stroke);
+}
+
+/* One system per channel or section. */
+.orbit-system {
+  position: relative;
+  margin-top: var(--openbot-space-1-5);
+}
+
+.orbit-halo {
+  position: absolute;
+  border-radius: var(--openbot-radius-pill);
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--orbit-color) 12%, transparent) 0%,
+    color-mix(in srgb, var(--orbit-color) 7%, transparent) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.orbit-rings {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.orbit-rings ellipse {
+  fill: none;
+  stroke: var(--orbit-color);
+  stroke-opacity: 0.32;
+  stroke-width: 1;
+}
+
+.orbit-rings ellipse[data-fast] {
+  stroke-dasharray: 2 5;
+  stroke-opacity: 0.44;
+}
+
+.orbit-name {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  z-index: 6;
+  max-width: 58%;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: -6px;
+  border-radius: var(--openbot-radius-md);
+  padding: 0 var(--openbot-space-2) 0 var(--openbot-space-1-5);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  cursor: pointer;
+}
+
+.orbit-name-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--orbit-color);
+}
+
+.orbit-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-name svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--openbot-text-dim);
+  opacity: 0;
+  transition:
+    opacity var(--openbot-duration-normal) var(--openbot-ease-out),
+    transform var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.orbit-name:focus-visible svg {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* An agent. The engine sets its `transform` on each frame. */
+.orbit-agent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--openbot-radius-pill);
+  padding: 0;
+  cursor: pointer;
+  will-change: transform;
+  transition: opacity var(--openbot-duration-slow) var(--openbot-ease-out);
+}
+
+.orbit-agent[data-kind="sun"] {
+  width: 44px;
+  height: 44px;
+}
+
+.orbit-agent[data-kind="tiny"] {
+  width: 22px;
+  height: 22px;
+}
+
+.orbit-agent:focus-visible {
+  outline: 0;
+}
+
+.orbit-agent:focus-visible::after,
+.orbit-agent[data-expanded]::after {
+  position: absolute;
+  inset: -5px;
+  border-radius: var(--openbot-radius-pill);
+  box-shadow: 0 0 0 2px var(--openbot-accent);
+  content: "";
+}
+
+.orbit-agent .orbit-avatar {
+  position: relative;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+}
+
+.orbit-agent[data-kind="sun"] .orbit-avatar {
+  width: 34px;
+  height: 34px;
+}
+
+.orbit-agent[data-state="waiting"]:not([data-attention]) {
+  opacity: 0.55;
+}
+
+.orbit-agent[data-filtered] {
+  opacity: 0.14;
+}
+
+.orbit-agent[data-state="waiting"]:not([data-attention]):is(:focus-visible, [data-expanded]),
+.orbit-agent[data-filtered]:is(:focus-visible, [data-expanded]) {
+  opacity: 1;
+}
+
+/* The model mark at the lower right of the agent. */
+.orbit-model {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  z-index: 4;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--orbits-edge-strong);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-sheet);
+  padding: 2.5px;
+  color: var(--openbot-text-secondary);
+}
+
+.orbit-agent[data-kind="sun"] .orbit-model {
+  right: -1px;
+  bottom: -1px;
+}
+
+.orbit-agent[data-filtered] .orbit-model {
+  opacity: 0.6;
+}
+
+/* Done and idle agents: a dot in the shape of their model mark. */
+.orbit-dot-glyph {
+  position: relative;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  color: var(--orbit-color);
+}
+
+.orbit-agent[data-state="idle"] .orbit-dot-glyph {
+  color: var(--openbot-text-dim);
+}
+
+.orbit-done-mark {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  color: var(--openbot-success);
+  stroke-width: 3;
+}
+
+/* Working: a track, an arc that races round it, sparks, and two trail dots behind the agent. */
+.orbit-progress {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  overflow: visible;
+}
+
+.orbit-agent[data-kind="sun"] .orbit-progress {
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+}
+
+.orbit-progress-track {
+  fill: none;
+  stroke: var(--orbit-color);
+  stroke-opacity: 0.35;
+  stroke-width: 2.2;
+}
+
+.orbit-progress-race {
+  transform-origin: 22px 22px;
+  animation: orbit-spin 0.8s linear infinite;
+}
+
+.orbit-progress-race circle {
+  fill: none;
+  stroke: var(--orbit-color);
+  stroke-dasharray: 18 200;
+  stroke-linecap: round;
+  stroke-width: 2.2;
+}
+
+.orbit-sparks {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  pointer-events: none;
+  animation: orbit-spark 0.55s linear infinite;
+}
+
+.orbit-agent[data-kind="sun"] .orbit-sparks {
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  animation-duration: 0.7s;
+}
+
+.orbit-sparks i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--orbit-color);
+  box-shadow: 0 0 6px var(--orbit-color);
+}
+
+.orbit-sparks i:nth-child(1) {
+  left: 50%;
+  top: 0;
+  margin-left: -2px;
+}
+
+.orbit-sparks i:nth-child(2) {
+  left: 6%;
+  bottom: 18%;
+  width: 3px;
+  height: 3px;
+}
+
+.orbit-sparks i:nth-child(3) {
+  right: 4%;
+  bottom: 22%;
+  width: 3px;
+  height: 3px;
+  background: var(--openbot-text-primary);
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.orbit-trail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--orbit-color);
+  opacity: 0.4;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.orbit-trail[data-far] {
+  opacity: 0.18;
+}
+
+/* Writing a message, or waiting for the person: a soft pulse. */
+.orbit-pulse {
+  position: absolute;
+  inset: 2px;
+  z-index: 1;
+  border: 1.5px solid var(--orbit-color);
+  border-radius: var(--openbot-radius-pill);
+  pointer-events: none;
+  animation: orbit-pulse 1.8s ease-out infinite;
+}
+
+.orbit-agent[data-attention] .orbit-pulse {
+  border-color: var(--openbot-warning);
+}
+
+/* Thinking: the mark breathes. */
+.orbit-agent[data-state="thinking"][data-moving] .orbit-avatar {
+  animation: orbit-breathe 2.4s ease-in-out infinite;
+}
+
+/* Stopped: a ring in the danger colour that flickers. */
+.orbit-alarm {
+  position: absolute;
+  inset: -4px;
+  z-index: 1;
+  border: 2px solid var(--openbot-danger);
+  border-radius: var(--openbot-radius-pill);
+  pointer-events: none;
+}
+
+.orbit-agent[data-moving] .orbit-alarm {
+  animation: orbit-flicker 1.3s steps(1, end) infinite;
+}
+
+/* A bubble: only for the one or two agents that need attention most. */
+.orbit-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 7;
+  width: max-content;
+  max-width: 236px;
+  border: 1px solid var(--orbits-edge-strong);
+  border-radius: var(--openbot-radius-lg) var(--openbot-radius-lg) var(--openbot-radius-lg) var(--openbot-radius-xs);
+  background: var(--openbot-bg-control);
+  box-shadow: 0 10px 28px var(--openbot-shadow-dialog);
+  padding: var(--openbot-space-1-5) 10px;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  line-height: 16px;
+  pointer-events: none;
+  transition: opacity var(--openbot-duration-slow) var(--openbot-ease-out);
+}
+
+.orbit-bubble[data-tail="end"] {
+  border-radius: var(--openbot-radius-lg) var(--openbot-radius-lg) var(--openbot-radius-xs) var(--openbot-radius-lg);
+}
+
+.orbit-bubble[data-hidden] {
+  opacity: 0;
+}
+
+.orbit-bubble span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* The card of an agent. It opens over the panel, which is a dialog. */
+.orbit-card {
+  z-index: calc(var(--openbot-layer-dialog-host) + 1);
+  width: 244px;
+  padding: var(--openbot-space-3) var(--openbot-space-3) 10px;
+  animation: orbit-card-in var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.orbit-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.orbit-card-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--orbit-color);
+}
+
+.orbit-card-name {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-card-model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  margin-left: auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+.orbit-card-model .orbit-glyph {
+  width: 10px;
+  height: 10px;
+  color: var(--openbot-text-secondary);
+}
+
+.orbit-card-task,
+.orbit-card-quote,
+.orbit-card-status,
+.orbit-card-place {
+  margin: var(--openbot-space-1) 0 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  line-height: 17px;
+  overflow-wrap: anywhere;
+}
+
+.orbit-card-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-style: italic;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.orbit-card-quote::before {
+  content: open-quote;
+}
+
+.orbit-card-quote::after {
+  content: close-quote;
+}
+
+.orbit-card-status,
+.orbit-card-place {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.orbit-card-status[data-tone="danger"] {
+  color: var(--openbot-danger-text);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.orbit-card-status[data-tone="attention"] {
+  color: var(--openbot-warning);
+}
+
+.orbit-card-go {
+  margin-top: 10px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .orbits-chip:hover {
+    border-color: var(--orbits-edge-strong);
+  }
+
+  .orbits-count-alert:hover {
+    background: var(--openbot-danger-soft);
+  }
+
+  .orbits-count-alert[data-tone="attention"]:hover {
+    background: color-mix(in srgb, var(--openbot-warning) 14%, transparent);
+  }
+
+  .orbit-name:hover {
+    background: var(--openbot-bg-control-hover);
+  }
+
+  .orbit-name:hover svg {
+    opacity: 1;
+    color: var(--openbot-text-primary);
+    transform: translateX(2px);
+  }
+
+  .orbit-agent[data-state="waiting"]:not([data-attention]):hover,
+  .orbit-agent[data-filtered]:hover {
+    opacity: 1;
+  }
+}
+
+@container (max-width: 420px) {
+  .orbits-chip {
+    min-width: 36px;
+    padding: 0 7px;
+  }
+}
+
+/* The window is hidden, or motion is off: every loop holds its frame. */
+.orbits-scroll[data-motion="off"] :is(.orbit-progress-race, .orbit-sparks, .orbit-pulse, .orbit-alarm, .orbit-avatar) {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog-content.orbits-panel,
+  .orbits-panel .orbit-card,
+  .orbits-scroll :is(.orbit-progress-race, .orbit-sparks, .orbit-pulse, .orbit-alarm, .orbit-avatar) {
+    animation: none;
+  }
+
+  .orbit-agent,
+  .orbit-bubble,
+  .orbits-links path {
+    transition: none;
+  }
+}
+
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbit-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(0deg);
+  }
+
+  35% {
+    opacity: 0.35;
+  }
+
+  55% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 1;
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbit-pulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.9);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+}
+
+@keyframes orbit-flicker {
+  0% {
+    opacity: 1;
+  }
+
+  12% {
+    opacity: 0.2;
+  }
+
+  22% {
+    opacity: 1;
+  }
+
+  48% {
+    opacity: 0.45;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  84% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes orbit-breathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes orbit-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

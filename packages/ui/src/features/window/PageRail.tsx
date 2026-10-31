@@ -8,6 +8,7 @@ import {
   Ellipsis,
   ListChecks,
   MotionTooltip,
+  Orbit,
   Pin,
   Settings,
   Store,
@@ -206,6 +207,8 @@ export interface PageRailProps {
   /** The load ring and its panel. Absent where this computer's load is not the window's to show, as on the web. */
   load?: LoadRailProps | undefined;
   onAgents: () => void;
+  /** Opens the Team panel over the window. Absent where the window has no Team panel. */
+  onTeam?: ((button: HTMLElement) => void) | undefined;
   /** Absent when the server has no routines. */
   onRoutines?: (() => void) | undefined;
   /** Absent when the server has no workflows. */
@@ -390,6 +393,13 @@ export function PageRail(props: PageRailProps) {
         <RailButton label={t("app.rail.agents")} current={props.current === "agents"} onClick={props.onAgents}>
           <Bot aria-hidden="true" />
         </RailButton>
+        <Show when={props.onTeam}>
+          {(onTeam) => (
+            <RailButton label={t("app.rail.team")} onClick={(button) => onTeam()(button)}>
+              <Orbit aria-hidden="true" />
+            </RailButton>
+          )}
+        </Show>
         <For each={pages().filter((page) => props.pinned.includes(page.id))} keyed={(page) => page.id}>
           {(page) => (
             <RailButton label={page().label} current={props.current === page().id} onClick={page().open}>
