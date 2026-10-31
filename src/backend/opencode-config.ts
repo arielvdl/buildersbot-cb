@@ -82,7 +82,10 @@ interface OpenCodeKeyEntry {
 /** One rule per tool pattern, which is all Builders Bot sends under `permission`. */
 type OpenCodePermissionLayer = Readonly<Record<string, "allow" | "ask" | "deny">>;
 
-/** A local MCP server entry that OpenCode keeps off. Its command never runs. */
+/**
+ * A local MCP server entry that OpenCode keeps off, in the OpenCode 1 shape that OpenCode 2 still
+ * reads. Its command never runs.
+ */
 interface OpenCodeDisabledMcpEntry {
   readonly type: "local";
   readonly command: readonly [string, ...string[]];
@@ -97,10 +100,13 @@ interface OpenCodeDisabledMcpEntry {
  *
  * The entry is complete: it has a `type` and a `command`. OpenCode 2 drops an entry that has only
  * `enabled` ("omitted enabled-only legacy MCP entry"), and then the server of the file started in each
- * `opencode serve` of the app. Checked in OpenCode 2.2.5 with `opencode debug config`: the layer read
- * as `{}` before, and as `servers.playwright.disabled: true` with this entry. A later layer replaces a
- * server of the same name, so the command of the person does not run.
- * `scripts/opencode-own-playwright-e2e.ts` checks this against the real binary.
+ * app `opencode serve` (#3 of the performance review, OpenCode 2.2.5). Checked in OpenCode 2.2.5 with
+ * `opencode debug config`: the layer read as `{}` before, and as `servers.playwright.disabled: true`
+ * with this entry. OpenCode 2 keeps the entry of the last config document for each server name, and
+ * `OPENCODE_CONFIG_CONTENT` comes after the global and project files, so this entry replaces the one
+ * of the file and the command of the person does not run. OpenCode 1 merges the two entries, and
+ * `enabled: false` also wins there. `scripts/opencode-own-playwright-e2e.ts` checks this against the
+ * real binary.
  */
 const OWN_PLAYWRIGHT_OFF: { readonly playwright: OpenCodeDisabledMcpEntry } = {
   playwright: { type: "local", command: ["true"], enabled: false },

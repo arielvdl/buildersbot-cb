@@ -199,6 +199,14 @@ first guess. They are not tuned on other machines.
   limit of 64 (`DESKTOP_TURN_LIMIT`), so only the level holds a turn.
 - The browser broker reads the same level (`memoryLevel`): no new tab while the level is `low`, and
   no new session while it is `critical`. See [browser.md](browser.md#one-playwright-server-for-all-agents).
+- The Builders Bot browser reads it too, through `browserMemory(hostMemory, macMemory)` in
+  `src/backend/host-memory.ts` (`BrowserHost` option `sleepSooner`). While the level is not `ok`, an
+  idle tab of an agent with no running turn unloads its page after 5 min instead of 30. The idle tab
+  of an agent with a running turn keeps the 30 min limit (`BrowserHost.setAgentWorking`), because the
+  turn can wait for the approval of the person with a filled form on the page. The Mac reading
+  refuses nothing: the person and the agents can open a tab and a popup at each level. Only the
+  server reading (`BrowserHost` option `memoryLow`) refuses a new tab and a popup with
+  `error.backend.browserLowMemory`, and on a server each idle agent tab unloads after 5 min.
 - The load panel shows a line with the free percentage while the level is not `ok`
   (`memory.pressure` of `LoadSnapshot`, from `MacMemory.reading()`).
 

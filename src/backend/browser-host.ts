@@ -253,7 +253,8 @@ function viewContextMenu(
  * An agent's tab that nobody used for this long unloads its page, and loads it again on its next use,
  * so a long run does not keep in memory the page of each tab an agent left open. The tab keeps a
  * blank page, as a restored tab does. When memory is low, the tab unloads after
- * `LOW_MEMORY_TAB_SLEEP_MS`.
+ * `LOW_MEMORY_TAB_SLEEP_MS`: on a server each idle agent tab, on a Mac only the tab of an agent that
+ * runs no turn (`BrowserMemory.sleepSooner`).
  */
 const IDLE_TAB_SLEEP_MS = 30 * 60_000;
 const LOW_MEMORY_TAB_SLEEP_MS = 5 * 60_000;
@@ -389,8 +390,12 @@ export class BrowserHost {
   #persistLock = Semaphore.makeUnsafe(1);
   readonly #scope = Scope.makeUnsafe();
   #destroying: Deferred.Deferred<void, BrowserOperationError> | null = null;
-  /** Whether the machine is too low on memory for one more tab. Only a server has a reading. */
+  /** Whether the server is too low on memory for one more tab. Only a server has this reading. */
   readonly #memoryLow: () => boolean;
+  /** Whether an idle agent tab unloads after 5 min instead of 30: the reading of a server or of the Mac. */
+  readonly #sleepSooner: (agentWorking: boolean) => boolean;
+  /** Whether an agent runs a turn now. Until the agent service sets it, each agent counts as working. */
+  #agentWorking: (agentId: string) => boolean = () => true;
   readonly #siteSession: BrowserSiteSession;
   readonly #idleTabSweep: NodeJS.Timeout;
 
@@ -402,7 +407,13 @@ export class BrowserHost {
       recordingDurationMs?: number;
       recordingMaxConcurrent?: number;
       recordingMaxAggregateBytes?: number;
+      /** The server is low on memory: no new tab and no popup opens. See `BrowserMemory.memoryLow`. */
       memoryLow?: () => boolean;
+      /**
+       * An idle agent tab unloads after 5 min instead of 30. See `BrowserMemory.sleepSooner`. Without
+       * it, `memoryLow` decides.
+       */
+      sleepSooner?: (agentWorking: boolean) => boolean;
       /** The session that the new tabs of this agent open in. */
       browserProfile?: (agentId: string) => AgentBrowserProfile;
       /** Whether a named profile still exists. A tab never opens in a deleted profile. */
@@ -412,7 +423,9 @@ export class BrowserHost {
     } = {},
   ) {
     this.#window = window;
-    this.#memoryLow = options.memoryLow ?? (() => false);
+    const memoryLow = options.memoryLow ?? (() => false);
+    this.#memoryLow = memoryLow;
+    this.#sleepSooner = options.sleepSooner ?? (() => memoryLow());
     this.#siteSession = options.siteSession ?? (async () => ({ status: "unavailable" }));
     this.#browserProfile = options.browserProfile ?? (() => ({ kind: "shared" }));
     this.#profileExists = options.profileExists ?? (() => false);
@@ -520,13 +533,34 @@ export class BrowserHost {
 
   readonly #sleepIdleTabs = Effect.fn("BrowserHost.sleepIdleTabs")(function* (this: BrowserHost) {
     const now = Date.now();
-    const idleMs = this.#memoryLow() ? LOW_MEMORY_TAB_SLEEP_MS : IDLE_TAB_SLEEP_MS;
     for (const tab of this.#tabs.values()) {
       if (tab.pendingRestore || !this.#maySleep(tab)) continue;
-      if (this.#tabInUse(tab)) tab.lastUsedAt = now;
-      else if (now - tab.lastUsedAt >= idleMs) yield* this.#sleep(tab);
+      if (this.#tabInUse(tab)) {
+        tab.lastUsedAt = now;
+        continue;
+      }
+      const idleMs = now - tab.lastUsedAt;
+      // The memory and the turns are read only for a tab between the two limits.
+      if (
+        idleMs >= IDLE_TAB_SLEEP_MS ||
+        (idleMs >= LOW_MEMORY_TAB_SLEEP_MS && this.#sleepSooner(this.#ownerWorking(tab)))
+      )
+        yield* this.#sleep(tab);
     }
   });
+
+  /**
+   * Gives the browser the turns of the agents, so that on a Mac that is low on memory only the tab of an
+   * agent with no running turn unloads after 5 min.
+   */
+  setAgentWorking(agentWorking: (agentId: string) => boolean): void {
+    this.#agentWorking = agentWorking;
+  }
+
+  /** A tab with no agent id counts as the tab of a working agent: it keeps the 30 min limit. */
+  #ownerWorking(tab: BrowserHostTab): boolean {
+    return tab.ownerAgentId === null || this.#agentWorking(tab.ownerAgentId);
+  }
 
   /**
    * Only an agent's own tab sleeps. A popup and its opener keep a live link between their pages, and
@@ -2413,7 +2447,7 @@ export class BrowserHost {
         // Capture the persisted tab list before removing native views.
         const persistence = yield* Effect.forkIn(this.#persistState(), this.#scope, { startImmediately: true });
         const drains = [...this.#closingTabDrains.values()].map(Fiber.join);
-        for (const target of this.#persistentSessions()) target.flushStorageData();
+        for (const target of this.persistentSessions()) target.flushStorageData();
         for (const tab of this.#tabs.values()) {
           tab.closing = true;
           tab.engine.releaseDialogs();
@@ -2436,7 +2470,7 @@ export class BrowserHost {
         this.#siteVisitListeners.clear();
         const results = yield* Effect.all(
           [
-            browserCall(() => Promise.all(this.#persistentSessions().map((target) => target.cookies.flushStore()))),
+            browserCall(() => Promise.all(this.persistentSessions().map((target) => target.cookies.flushStore()))),
             Fiber.join(persistence),
             Effect.all(drains.map(Effect.exit), { concurrency: "unbounded" }).pipe(
               Effect.flatMap((results) =>
@@ -2454,7 +2488,7 @@ export class BrowserHost {
           { concurrency: "unbounded" },
         );
         this.#closingTabDrains.clear();
-        for (const target of this.#persistentSessions()) target.flushStorageData();
+        for (const target of this.persistentSessions()) target.flushStorageData();
         yield* this.#persistLock.withPermit(Effect.void);
         yield* Scope.close(this.#scope, Exit.void);
         const failure = results.find(Exit.isFailure);
@@ -2468,7 +2502,7 @@ export class BrowserHost {
   readonly flushPersistentStorage = Effect.fn("BrowserHost.flushPersistentStorage")(function* (
     this: BrowserHost,
   ): Effect.fn.Return<void, BrowserOperationError> {
-    const sessions = this.#persistentSessions();
+    const sessions = this.persistentSessions();
     for (const target of sessions) target.flushStorageData();
     yield* browserCall(() => Promise.all(sessions.map((target) => target.cookies.flushStore())));
     yield* this.#persistState();
@@ -2533,7 +2567,8 @@ export class BrowserHost {
     return { kind: "profile", profileId: profile.profileId };
   }).bind(this);
 
-  #persistentSessions(): Session[] {
+  /** The sessions that keep site data on disk: the shared one, and each agent or profile session open now. */
+  persistentSessions(): Session[] {
     return [this.#session, ...this.#tabSessions.values()];
   }
 

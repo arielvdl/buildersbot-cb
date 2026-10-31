@@ -134,7 +134,7 @@ import {
   configureContentSecurityPolicy,
   configureRendererPermissions,
 } from "./session-configuration";
-import { runStartupMaintenance } from "./startup-maintenance";
+import { runStartupMaintenance, trimSiteCaches } from "./startup-maintenance";
 import { trustSystemCertificates } from "./system-certificates";
 import { TeardownRegistry } from "./teardown-registry";
 import type { TraceFile } from "./trace-file";
@@ -1457,8 +1457,11 @@ if (!hasSingleInstanceLock) {
         await reloaded;
       }
       performance.mark("openbot:renderer-loaded");
-      // Off the first paint: the window is up and nothing below waits for it.
-      void runStartupMaintenance(app.getPath("userData"), logger);
+      // Off the first paint: the window is up and nothing below waits for it. The site caches of the
+      // browser sessions come after the files, so the two do not read the disk at the same time.
+      void runStartupMaintenance(app.getPath("userData"), logger).then(() =>
+        trimSiteCaches(built.browser.persistentSessions(), logger),
+      );
       // `sendToRenderer` dropped the server changes made while the window loaded: the host list and
       // the connection of the selected server. The renderer can have read the list before them.
       forwardServers(remoteServers.list());

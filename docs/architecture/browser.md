@@ -262,6 +262,21 @@ whose profile no longer exists fails with `browserProfileMissing`; it never fall
 `#configureSession` applies the same user agent, headers, permissions and download policy to every
 partition. Shutdown and `flushPersistentStorage` flush every persistent partition.
 
+The CacheStorage of service workers has no limit but the storage quota of Chromium: the shared
+partition had 138 MB of it, from two sites, after 1.6 days. After the first window load,
+`trimSiteCaches` (`src/main/startup-maintenance.ts`) measures each partition that
+`BrowserHost.persistentSessions()` gives (the shared one, and each agent or profile session that is
+open). It measures each origin folder in `Service Worker/CacheStorage` and reads the origin of the
+folder from its `index.txt` (`cacheStorageIndexOrigin`: field 2 of the protobuf
+`CacheStorageIndex`, never the name of a cache). For each origin past 100 MB, it calls
+`clearStorageData({ origin, storages: ["cachestorage", "serviceworkers"] })`; the other origins keep
+their caches and service workers. A folder past the limit with no origin that can be read stays.
+When the `Code Cache` of the partition is past 100 MB, `clearCodeCaches({})` clears the code cache of
+all its sites. Cookies, local storage and IndexedDB stay, so the sign-ins stay. A site registers its
+service worker again on the next visit, and its first load after a trim is slower. The HTTP cache
+keeps the limit of Chromium. A partition of an agent or profile that no tab opened in this launch is
+not measured.
+
 `src/main/browser-profile-service.ts` owns the operations: list, create (name of 1 to 60
 characters, unique, at most 100 profiles), update (name or color), clear data, delete, and assign.
 Clear and delete close the tabs in the partition before they clear its storage and cache. Delete also
@@ -300,7 +315,7 @@ refusal in `AgentService` stays beside it rather than being folded in: it also c
 | Cancelled, interrupted, or failed | Stay open. Completion clears the control session only. |
 | Retry | Same thread and agent, so the same tabs are still reachable. |
 | Restart | Restored from the browser's own state file. |
-| Idle 30 min (5 min when memory is low) | Stays open, but its page unloads. The next use loads the page again. |
+| Idle 30 min (5 min when memory is low; on a Mac only when the agent runs no turn) | Stays open, but its page unloads. The next use loads the page again. |
 | Agent deleted | That agent's tabs are closed, including a legacy tab holding only its thread id. Its own browser session is cleared. |
 | Browser profile changed | That agent's tabs are closed. Its next tab opens in the profile it chose. Both profiles keep their data. |
 | Profile cleared or deleted | Every tab in that profile is closed, then its data is cleared. |
@@ -461,14 +476,18 @@ Two more rules keep the memory low:
   list or close tabs always work, so an agent can give memory back.
 - OpenCode starts each MCP server of the person's own `opencode.json` for each agent, so its
   Playwright started one server and one Chrome for each agent. Each OpenCode and Cultura Builder
-  spawn now gets a complete `mcp.playwright` entry that is off (`type: "local"`, a `command`,
-  `enabled: false`) on `OPENCODE_CONFIG_CONTENT` (`OWN_PLAYWRIGHT_OFF` in
-  `src/backend/opencode-config.ts`). OpenCode 2 drops an entry that has only `enabled` ("omitted
-  enabled-only legacy MCP entry"), and a later layer replaces a server of the same name. Only the
-  name `playwright` is overridden: the other servers of the person still run, and the file does not
-  change. The shared broker reaches the agent through ACP `mcpServers`.
-  `bun run test:opencode-own-playwright` checks this with the real OpenCode binary: a server of the
-  global file named `playwright` must not start, and another one must start.
+  spawn now gets a complete `mcp.playwright` entry that is off, `{ type: "local", command: ["true"],
+  enabled: false }`, on `OPENCODE_CONFIG_CONTENT` (`OWN_PLAYWRIGHT_OFF` in
+  `src/backend/opencode-config.ts`). Only the name `playwright` is overridden: the other servers of
+  the person still run, and the file does not change. The shared broker reaches the agent through
+  ACP `mcpServers`. Keep `type` and `command` in the entry: OpenCode 2 drops an entry that has only
+  `enabled` ("omitted enabled-only legacy MCP entry"), and with OpenCode 2.2.5 the old
+  `{ enabled: false }` layer let the gated Playwright of the file start in each app `opencode serve`.
+  OpenCode 2 keeps the entry of the last config document for each server name, and
+  `OPENCODE_CONFIG_CONTENT` comes after the global and project files, so a later layer replaces a
+  server of the same name. `opencode-config.test.ts` checks the JSON that Builders Bot sends, and
+  `bun run test:opencode-own-playwright` checks the result with the real OpenCode binary: a server of
+  the global file named `playwright` must not start, and another one must start.
 
 ### Rules that are easy to break
 
