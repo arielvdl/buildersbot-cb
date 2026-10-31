@@ -74,7 +74,8 @@ The router of Builders Bot tools (`src/backend/agent/openbot-tool-router.ts`) ca
   test_mcp_server.
 - **The shared Playwright browser** (`src/main/playwright-broker.ts`): each `tools/call` result
   passes `McpResultGuard` (`guard-mcp-results.ts`) on its way to the agent. Other events of the
-  stream pass at once. A result longer than 8 MB gets the strong note, unread, and is logged.
+  stream pass at once. A result longer than 8 MB gets the strong note, unread; when no note can go
+  in, the result is replaced by the note alone. The broker logs each one.
 
 Tests fail when a tool of the catalog is not in `GUARD_TOOL_EGRESS` or `GUARD_TOOL_INBOUND`.
 `GUARD_INBOUND_PATHS` lists each path of outside content, covered or not:
@@ -96,9 +97,9 @@ Tests fail when a tool of the catalog is not in `GUARD_TOOL_EGRESS` or `GUARD_TO
 Uploads, attachments and site sources are checked at each path that leads to the file
 (`guard-paths.ts`): as given, in normal form, with `~` expanded, in the folders where the
 attachment code opens a relative path, and behind every symbolic link. An upload then runs on the
-real paths that the Guard checked. When the Guard asked the person, the paths are resolved again
-after the answer, and the upload does not run if a file changed. A path that cannot be resolved for
-another reason makes the action incomplete.
+real paths that the Guard checked. When the Guard asked the person, every path is resolved again
+after the answer; the call does not run when a path leads to another real file, or a file is gone. A
+path that cannot be resolved for another reason makes the action incomplete.
 
 ## What leaves the computer
 
@@ -133,13 +134,61 @@ The window reads and sets it through the `guard` IPC group: `guard:get-state` an
 `guard:set-preference`. The state also says whether the reviewer can run now (`judgeReady`), such as
 Cultura Builder with no sign-in. The page is `src/renderer/src/features/settings/SettingsGuardTab.tsx`.
 
-## Known limits
+## Known limits of the Light level
 
-- The paths marked "No" above.
-- The local check reads text. It does not read images, such as a screenshot with text in it.
-- A file is checked by its path, not its content: a hard link or a copy of a key under an ordinary
-  name passes.
-- An upload resolves its paths again when it opens the files; a folder that becomes a link in the
-  milliseconds between the Guard check and the open is not seen.
+Light is a speed bump against prompt injection and plain leaks, not a sandbox. An agent with Full
+access can still run any command that does not ask for approval, and a careful attacker can write
+text that no pattern and no small model sees.
+
+### What Light catches
+
+- In content: override sentences in English, Portuguese and Spanish; requests for the system prompt;
+  new roles and fake system or developer messages; notes addressed to an AI; text that addresses the
+  reviewer; hidden text (Unicode tag letters, direction overrides, many zero-width characters,
+  instructions in HTML comments or hidden CSS); image links that carry data; requests to send
+  secrets.
+- In actions: remote shells, encoded code that runs, a pipe from the network to a shell (except the
+  strict form of a known installer), secret files or an environment dump sent over the network, a
+  secret value (known key shapes, tokens, private keys, secrets that this app saved) in a URL, a
+  message, typed text or a page script, page scripts that read cookies or storage and send them, URLs
+  that carry a block of data or credentials, uploads to paste sites, and uploads, attachments or site
+  sources whose path, in any form or behind a link, is a secret file.
+
+### What Light does not catch
+
+- The paths marked "No" in [Where the Guard runs](#where-the-guard-runs): tools that a provider runs
+  in its own process (web fetch and search, file reads, shell output), MCP servers that the provider
+  reaches itself, and Playwright in its own process.
+- Text in images, such as a screenshot.
+- A file's content: a hard link or a copy of a key under an ordinary name passes.
+- Instructions in words that no rule names, or in a language that no rule reads, unless the
+  reviewer sees them; and a suspicious item when no reviewer can run.
+- A command that runs without an approval request: only commands that ask for approval reach the
+  Guard.
+
+### How each point fails
+
+| Point | When it cannot decide | Result |
+| --- | --- | --- |
+| Local check, content | The item is longer than 4,000,000 characters, or the budget ends | Incomplete: never clean; passes with a note |
+| Local check, action | The same, or more than 20,000 statements, URLs or files, or a file that cannot be resolved | Incomplete: the person decides |
+| Reviewer | No sign-in, no model, timeout (4 s; 12 s for another provider), error, reply outside the schema, more than 4 reviews at once | The local check decides: content passes with a note, an action passes |
+| Reviewer allow | The excerpt did not show every marked place, or a finding has more places than the check records | Content passes with a note; an action goes to the person |
+| Approval card | The turn ends or the provider stops waiting | The call does not run |
+| Approval card, files | A path leads to another real file after the person answered, or a file is gone | The upload does not run |
+| Shared browser, one result | The check fails | The result passes, and the broker logs it |
+| Shared browser, long result | Longer than 8 MB | The strong note goes in front, unread; with no content list, the result is replaced by the note alone, or dropped when it has no id; the broker logs it |
+| Router, unknown agent | The calling agent is not known | The Guard does not run; the tool refuses the call |
+| Preference file | Missing, damaged, or of another version or shape | Light, the default |
+
+### Residual risks
+
 - A reviewer that the same content fools can clear a suspicious item that it saw in full. It cannot
-  clear a high finding, and it cannot clear an item whose marked places were not all in its excerpt.
+  clear a high finding, nor an item whose marked places were not all in its excerpt.
+- An upload opens the real paths that the Guard checked, and they are checked again after an
+  approval. A folder on such a path that becomes a link in the milliseconds before the open is not
+  seen; closing that gap needs the upload code to open the file by a descriptor that the Guard hands
+  over.
+- A result of the shared browser that would ask the person gets a strong note instead, because the
+  broker cannot tell which agent and turn it serves. The agent still reads the content.
+- The local rules are a list. A new way to write an injection needs a new rule or a reviewer.

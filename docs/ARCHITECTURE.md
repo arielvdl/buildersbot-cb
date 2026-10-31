@@ -57,7 +57,7 @@ The architecture notes are in one file for each topic:
   - [Light](architecture/guard.md#light)
   - [Where the Guard runs](architecture/guard.md#where-the-guard-runs)
   - [What leaves the computer](architecture/guard.md#what-leaves-the-computer)
-  - [Known limits](architecture/guard.md#known-limits)
+  - [Known limits of the Light level](architecture/guard.md#known-limits-of-the-light-level)
 - [Skills and plugins](architecture/skills-and-plugins.md)
   - [Skill folders and MCP configuration](architecture/skills-and-plugins.md#skill-folders-and-mcp-configuration)
   - [Local skill library](architecture/skills-and-plugins.md#local-skill-library)
