@@ -61,6 +61,10 @@ export default defineConfig({
     },
     ...(rendererPort ? { server: { port: rendererPort, strictPort: true } } : {}),
     build: {
+      // electron-vite leaves the renderer unminified. The web client builds the same renderer code
+      // with the default minifier of Vite, so this build uses it too: each window parses, compiles
+      // and keeps less source.
+      minify: true,
       rollupOptions: {
         input: {
           index: resolve("src/renderer/index.html"),
