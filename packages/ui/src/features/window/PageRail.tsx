@@ -8,6 +8,7 @@ import {
   Ellipsis,
   ListChecks,
   MotionTooltip,
+  Orbit,
   Pin,
   Settings,
   Store,
@@ -29,6 +30,8 @@ function RailButton(props: {
   /** Renders the card while it is open. */
   card?: () => JSX.Element;
   current?: boolean;
+  /** The button opens a dialog, and the dialog is open now. Only for a button that opens a dialog. */
+  dialogOpen?: boolean | undefined;
   class?: string;
   onClick: (button: HTMLElement) => void;
   children: JSX.Element;
@@ -40,6 +43,8 @@ function RailButton(props: {
       class={props.class ? `window-rail-button ${props.class}` : "window-rail-button"}
       aria-label={props.label}
       aria-current={props.current ? "page" : undefined}
+      aria-haspopup={props.dialogOpen === undefined ? undefined : "dialog"}
+      aria-expanded={props.dialogOpen === undefined ? undefined : props.dialogOpen ? "true" : "false"}
       onClick={(event) => props.onClick(event.currentTarget)}
     >
       {props.children}
@@ -206,6 +211,10 @@ export interface PageRailProps {
   /** The load ring and its panel. Absent where this computer's load is not the window's to show, as on the web. */
   load?: LoadRailProps | undefined;
   onAgents: () => void;
+  /** Opens the Team panel over the window. Absent where the window has no Team panel. */
+  onTeam?: ((button: HTMLElement) => void) | undefined;
+  /** The Team panel is open. */
+  teamOpen?: boolean | undefined;
   /** Absent when the server has no routines. */
   onRoutines?: (() => void) | undefined;
   /** Absent when the server has no workflows. */
@@ -390,6 +399,17 @@ export function PageRail(props: PageRailProps) {
         <RailButton label={t("app.rail.agents")} current={props.current === "agents"} onClick={props.onAgents}>
           <Bot aria-hidden="true" />
         </RailButton>
+        <Show when={props.onTeam}>
+          {(onTeam) => (
+            <RailButton
+              label={t("app.rail.team")}
+              dialogOpen={props.teamOpen ?? false}
+              onClick={(button) => onTeam()(button)}
+            >
+              <Orbit aria-hidden="true" />
+            </RailButton>
+          )}
+        </Show>
         <For each={pages().filter((page) => props.pinned.includes(page.id))} keyed={(page) => page.id}>
           {(page) => (
             <RailButton label={page().label} current={props.current === page().id} onClick={page().open}>

@@ -33,6 +33,11 @@ interface AgentAvatarProps {
    * avatars show. A photo avatar and reduced motion ignore it.
    */
   followPointer?: boolean;
+  /**
+   * `false` holds the mark still in every mood, for a surface that draws the motion of the agent
+   * itself. The mood still sets the face. Absent: the mood and `motion` decide.
+   */
+  animated?: boolean;
   class?: string;
   style?: Record<string, string>;
 }
@@ -53,7 +58,8 @@ export function AgentAvatar(props: AgentAvatarProps) {
     },
   );
   const className = () => `agent-avatar agent-avatar-motion-${motion()} ${props.class ?? ""}`;
-  const breathe = () => (presentation().breathe > 0 ? String(presentation().breathe) : undefined);
+  const breathe = () =>
+    props.animated !== false && presentation().breathe > 0 ? String(presentation().breathe) : undefined;
   const style = (): Record<string, string> => {
     const amount = breathe();
     return amount ? { ...props.style, "--agent-avatar-breathe": amount } : { ...props.style };
@@ -69,6 +75,7 @@ export function AgentAvatar(props: AgentAvatarProps) {
           motion={motion()}
           mood={mood()}
           followPointer={props.followPointer === true}
+          held={props.animated === false}
           class={className()}
           style={props.style}
         />
@@ -128,6 +135,8 @@ function GeneratedAvatar(props: {
   motion: AvatarMotion;
   mood: AvatarMood;
   followPointer: boolean;
+  /** The caller draws the motion, so the mark holds still. */
+  held: boolean;
   class: string;
   style?: Record<string, string> | undefined;
 }) {
@@ -140,6 +149,7 @@ function GeneratedAvatar(props: {
   const accent = createMemo(() => avatarMarkAccent(props.hue));
   const role = createMemo<AgentMarkRole | null>(() => avatarMarkRole(props.title));
   const animated = () =>
+    !props.held &&
     avatarAnimates({
       motion: props.motion,
       mood: props.mood,

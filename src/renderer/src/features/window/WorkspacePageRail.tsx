@@ -3,12 +3,14 @@ import { AGENT_TASKS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-t
 import type { SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
 import { PageRail, type PageRailPage } from "@openbot/ui/features/window/PageRail";
 import { useText } from "@openbot/ui/text";
+import { createSignal, Show } from "solid-js";
 import { appPort } from "../../app-port";
 import { useLayout } from "../../layout";
 import { usePlatform } from "../../platform";
 import { useChannels } from "../channels/channels-context";
 import { useCustomAgents } from "../custom-agents/custom-agents-context";
 import { createLoadController } from "../load/load-controller";
+import { WorkspaceOrbits } from "../orbits/WorkspaceOrbits";
 import { serverSupportsCapability } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
@@ -51,6 +53,20 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
   /** The load is that of this computer, so a joined server does not show it either. */
   const localLoad = () => activeServer()?.kind === "local";
   const load = createLoadController(appPort, localLoad);
+  /** The Team panel, and the rail button that opened it, which takes the focus back on a plain close. */
+  const [teamOpen, setTeamOpen] = createSignal(false);
+  let teamButton: HTMLElement | undefined;
+  const openTeam = (button: HTMLElement) => {
+    teamButton = button;
+    setTeamOpen(true);
+    // The panel shows the running work of this computer, so the load reads faster while it is open.
+    if (localLoad()) load.setOpen(true);
+  };
+  const closeTeam = (jumped: boolean) => {
+    setTeamOpen(false);
+    load.setOpen(false);
+    if (!jumped) queueMicrotask(() => (teamButton?.isConnected ? teamButton.focus() : undefined));
+  };
   const channelName = (channelId: string) =>
     channels.state.channels.find((channel) => channel.id === channelId)?.name ?? channelId;
   /** The compact sidebar has no footer, so the update island does not show. The Settings button then marks the update. */
@@ -70,49 +86,56 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
     return page === "server-settings" ? null : page;
   };
   return (
-    <PageRail
-      hidden={props.hidden}
-      current={current()}
-      pinned={layout.railPinned()}
-      onPinChange={layout.setRailPinned}
-      usageRows={usageRows()}
-      customAgentUsage={localAgentUsage()}
-      load={
-        localLoad()
-          ? {
-              snapshot: load.snapshot(),
-              channelName,
-              onOpenChange: load.setOpen,
-              onLaneChange: (preference) => void load.setLane(preference),
-              onRunNow: (channelId) => void load.runNow(channelId),
-              onStop: (work) => void load.stop(work),
-              onResumeAll: () => void load.resumeAll(),
-              onResume: (work) => void load.resume(work),
-              onReassign: (work, agentId) => void load.reassign(work, agentId),
-              onRecoveryChange: (preference) => void load.setRecovery(preference),
-              onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
-              onTaskWatchChange: (preference) => void load.setTaskWatch(preference),
-            }
-          : undefined
-      }
-      onAgents={() => showSidebarView("agents")}
-      onRoutines={() => showSidebarView("routines")}
-      // A joined server without workflows shows its notice on the page.
-      onWorkflows={() => windowPage.openWorkflows(null)}
-      onSchedule={windowPage.openSchedule}
-      onTasks={tasksAvailable() ? windowPage.openTasks : undefined}
-      onUsage={windowPage.openUsage}
-      onMarketplace={() => setSkillsMarketplaceOpen(true)}
-      onSettings={(button) => (updateNotice() ? openAppSettings(button, "updates") : windowPage.openSettings(button))}
-      settingsNotice={updateNotice()}
-      logo={logo()}
-      help={
-        <RailHelpMenu
-          version={whatsNew.state.version}
-          onOpenWhatsNew={whatsNew.reopen}
-          onOpenLink={(destination) => void appPort().openExternal(destination)}
-        />
-      }
-    />
+    <>
+      <Show when={teamOpen()}>
+        <WorkspaceOrbits load={localLoad() ? load.snapshot() : null} onClose={closeTeam} />
+      </Show>
+      <PageRail
+        hidden={props.hidden}
+        current={current()}
+        pinned={layout.railPinned()}
+        onPinChange={layout.setRailPinned}
+        usageRows={usageRows()}
+        customAgentUsage={localAgentUsage()}
+        load={
+          localLoad()
+            ? {
+                snapshot: load.snapshot(),
+                channelName,
+                onOpenChange: load.setOpen,
+                onLaneChange: (preference) => void load.setLane(preference),
+                onRunNow: (channelId) => void load.runNow(channelId),
+                onStop: (work) => void load.stop(work),
+                onResumeAll: () => void load.resumeAll(),
+                onResume: (work) => void load.resume(work),
+                onReassign: (work, agentId) => void load.reassign(work, agentId),
+                onRecoveryChange: (preference) => void load.setRecovery(preference),
+                onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
+                onTaskWatchChange: (preference) => void load.setTaskWatch(preference),
+              }
+            : undefined
+        }
+        onAgents={() => showSidebarView("agents")}
+        onTeam={openTeam}
+        teamOpen={teamOpen()}
+        onRoutines={() => showSidebarView("routines")}
+        // A joined server without workflows shows its notice on the page.
+        onWorkflows={() => windowPage.openWorkflows(null)}
+        onSchedule={windowPage.openSchedule}
+        onTasks={tasksAvailable() ? windowPage.openTasks : undefined}
+        onUsage={windowPage.openUsage}
+        onMarketplace={() => setSkillsMarketplaceOpen(true)}
+        onSettings={(button) => (updateNotice() ? openAppSettings(button, "updates") : windowPage.openSettings(button))}
+        settingsNotice={updateNotice()}
+        logo={logo()}
+        help={
+          <RailHelpMenu
+            version={whatsNew.state.version}
+            onOpenWhatsNew={whatsNew.reopen}
+            onOpenLink={(destination) => void appPort().openExternal(destination)}
+          />
+        }
+      />
+    </>
   );
 }
