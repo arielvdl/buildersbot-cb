@@ -44,6 +44,22 @@ function fields(value: unknown): Map<string, unknown> {
   return new Map(typeof value === "object" && value !== null && !Array.isArray(value) ? Object.entries(value) : []);
 }
 
+/** Each `run:` block of the workflow at `path`, with the job and the step that hold it. */
+function runBlocks(path: string): Array<[where: string, text: string]> {
+  const blocks: Array<[string, string]> = [];
+  for (const [id, job] of fields(fields(YAML.parse(read(path))).get("jobs"))) {
+    const steps = fields(job).get("steps");
+    if (!Array.isArray(steps)) continue;
+    for (const [index, step] of steps.entries()) {
+      const run = fields(step).get("run");
+      const name = fields(step).get("name");
+      const label = typeof name === "string" ? JSON.stringify(name) : `${index + 1}`;
+      if (typeof run === "string") blocks.push([`${path} (job ${id}, step ${label})`, run]);
+    }
+  }
+  return blocks;
+}
+
 /** The first group of `pattern` in `path`. Each name must be found, so a missing line is a problem. */
 function capture(path: string, pattern: RegExp): string | undefined {
   const value = pattern.exec(read(path))?.[1];
@@ -148,6 +164,8 @@ expectSame(
 );
 
 // The AppImage file that the Dockerfile copies. The release name has a space, so each copy gives it this name.
+// The release stage unpacks it in /tmp, with a path relative to that folder.
+expectText(DOCKERFILE, `COPY ${appImage} /tmp/${appImage}\nWORKDIR /tmp\n`);
 expectText(DOCKERFILE, `./${appImage} --appimage-extract`);
 expectSame(
   `The AppImage that ${RELEASE} gives the image`,
@@ -210,6 +228,33 @@ expectEach(
   new RegExp(`\\.config/(${APP_FOLDER})`, "g"),
   appName,
 );
+// The backup paths are relative to the home folder of the image user, which is the data volume that
+// docker/instances mounts.
+expectText(DOCKERFILE, "--home-dir /data ");
+expectText("docker/instances/compose.yaml", "/data:/data\n");
+
+// A folder name with a space breaks unquoted shell, Dockerfile, systemd and AppArmor lines in two
+// words. The checks above compare names only, and the rename pass turns an unquoted upstream
+// `$HOME/.config/OpenBot/logs`, which works, into one that splits.
+const spacedNames = [`.config/${appName}`, `${home}/`].filter((name) => /\s/.test(name));
+const shellFiles = [DOCKERFILE, ...hosting.filter((path) => !path.endsWith(".ts")), ...instances];
+const releaseBlocks = runBlocks(RELEASE);
+if (releaseBlocks.length === 0)
+  problems.push(`${RELEASE} has no run block under jobs. Update this check with the file.`);
+const shellSources: Array<[string, string]> = [
+  ...shellFiles.map((path): [string, string] => [path, read(path)]),
+  ...releaseBlocks,
+];
+for (const [where, text] of shellSources) {
+  for (const [index, line] of text.split("\n").entries()) {
+    if (line.trimStart().startsWith("#")) continue;
+    const unquoted = line.replace(/"[^"]*"|'[^']*'/g, "");
+    const name = spacedNames.find((spaced) => unquoted.includes(spaced));
+    if (name !== undefined) {
+      problems.push(`${where}, line ${index + 1}, has ${JSON.stringify(name)} outside quotes: ${line.trim()}`);
+    }
+  }
+}
 
 if (problems.length > 0) stop("The Linux image names do not agree:");
 process.stdout.write(

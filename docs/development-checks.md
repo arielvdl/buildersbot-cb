@@ -64,7 +64,9 @@ a section to another file, such as one in `docs/architecture/`, update each link
 Linux server image uses do not agree: the executable (`linux.executableName` in
 `electron-builder.yml`), the install folder `/opt/OpenBot`, the AppImage file that
 `docker/Dockerfile` copies, the user data and agent folders in the backups of `docker/instances`, and
-the product name that the start check of the image reads. A merge from upstream Open Bot, or
+the product name that the start check of the image reads. These folder names have a space, so it
+also fails when a line of the Dockerfile, of `scripts/hosting`, of `docker/instances` or of a `run`
+block of `release.yml` has one of them outside quotes. A merge from upstream Open Bot, or
 `scripts/builders-bot-rename.pl`, can change one of them. `check:desktop:static` runs it, and
 `.github/workflows/linux-image-names.yml` runs it on each pull request and on each push to
 `builders-bot` and `main`, because `ci.yml` runs only for `main`.
