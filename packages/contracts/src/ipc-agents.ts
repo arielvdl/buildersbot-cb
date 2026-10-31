@@ -327,6 +327,12 @@ export interface AgentSummary {
    * than the preview.
    */
   firstMessage?: string;
+  /**
+   * The last message with text that the user sent in the agent's own chat, as written, for the chat's
+   * preview and details. Unlike `preview`, an answer or a routine does not change it. Empty when the
+   * user sent no text. Absent until the host reads the chat, and on a host older than the field.
+   */
+  lastUserMessage?: string;
   preview: string;
   updatedAt: string | null;
   avatarSeed: string;
@@ -387,6 +393,7 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.threadId === null || isIdentifier(value.threadId)) &&
     isBoundedString(value.workspacePath, INPUT_LIMITS.path) &&
     (value.firstMessage === undefined || isBoundedString(value.firstMessage, INPUT_LIMITS.messageText)) &&
+    (value.lastUserMessage === undefined || isBoundedString(value.lastUserMessage, INPUT_LIMITS.messageText)) &&
     isBoundedString(value.preview, INPUT_LIMITS.messageText) &&
     (value.updatedAt === null || isBoundedString(value.updatedAt, 160)) &&
     isAvatarSeed(value.avatarSeed) &&

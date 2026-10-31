@@ -105,6 +105,7 @@ export function decodeAgentSummary(value: unknown): ClientAgentSummary {
     workspacePath: candidate.workspacePath,
     preview: candidate.preview,
     ...(candidate.firstMessage === undefined ? {} : { firstMessage: candidate.firstMessage }),
+    ...(candidate.lastUserMessage === undefined ? {} : { lastUserMessage: candidate.lastUserMessage }),
     updatedAt: candidate.updatedAt,
     avatarSeed: candidate.avatarSeed,
     avatarHue: candidate.avatarHue,

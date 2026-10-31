@@ -249,6 +249,7 @@ function toBackupAgent(agent: AgentSummary): Omit<AgentSummary, "workspacePath">
     threadId: agent.threadId,
     preview: agent.preview,
     ...(agent.firstMessage === undefined ? {} : { firstMessage: agent.firstMessage }),
+    ...(agent.lastUserMessage === undefined ? {} : { lastUserMessage: agent.lastUserMessage }),
     updatedAt: agent.updatedAt,
     avatarSeed: agent.avatarSeed,
     avatarHue: agent.avatarHue,

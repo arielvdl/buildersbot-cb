@@ -73,6 +73,7 @@ import { ProfileCreationRecovery } from "./agent/profile-creation-recovery";
 import { isEmptyStoredFile, parseStoredJson, writeFileAtomically } from "./atomic-json-file";
 import { automationRoot } from "./automation-command";
 import type { AgentModelChange } from "./database/agent-roster";
+import { messageExcerpt } from "./message-excerpt";
 import { BuildersBotDatabase, type ProviderSession, stableThreadId } from "./openbot-database";
 import { isPathInside } from "./path-containment";
 import { isRecord } from "./protocol";
@@ -122,6 +123,10 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   // The first message of the agent's own chat, kept for the row's hover preview. Absent until the
   // first message, and on every agent stored before the preview existed.
   firstMessage?: string;
+  // The last message with text that the person sent in the agent's own chat. Absent until the store
+  // reads the chat, and on every agent stored before the field existed; empty when the person sent no
+  // text. Present also when empty, so the startup fill reads each chat only once.
+  lastUserMessage?: string;
 };
 type StoredAgentBase = Omit<PersistedStoredAgent, "avatarSeed" | "avatarHue"> & DynamicRecord;
 
@@ -159,11 +164,6 @@ const LEGACY_AVATAR_COLORS = [
 const NEW_AGENT_PREVIEW = "No messages yet";
 /** The longest agent preview the store keeps; a longer text is cut to it. */
 export const AGENT_PREVIEW_MAX_LENGTH = 180;
-/**
- * The longest first message the store keeps for an agent's own chat. Longer than the preview: the
- * details of the chat show it whole, as the details of a side thread show its first message.
- */
-const AGENT_FIRST_MESSAGE_MAX_LENGTH = 2000;
 const DEFAULT_AGENT_MODEL: AgentModelId = "gpt-6-luna";
 export const DEFAULT_AGENT_PROVIDER: AgentProviderId = "codex";
 // A provider CLI reports the effort its own configuration uses -- Codex says `medium` for every
@@ -304,7 +304,7 @@ export class AgentStore {
         }
         // Before any message can arrive: a new message must not be taken as the first one of a chat
         // that has older messages.
-        this.#fillFirstMessages();
+        this.#fillUserMessages();
       } else {
         const legacy = yield* this.#readStateEffect();
         yield* this.#database.backupLegacyFile(this.#statePath);
@@ -1547,38 +1547,31 @@ export class AgentStore {
     });
   }
 
+  /**
+   * Moves the preview of the agent's row. `userMessage` is the text of a message that the person
+   * sent in the agent's own chat, as written: the chat keeps it as its last message, and as its first
+   * message once. A message with no text, such as one with only files, changes neither. An answer or
+   * a routine moves only the preview. One write keeps all three. The first and last messages feed the
+   * hover preview of the row and of the chat's tab, and the details of the chat. A chat that had
+   * messages before these fields existed gets them at startup, from its stored messages
+   * (`#fillUserMessages`).
+   */
   updatePreview = Effect.fn("AgentStore.updatePreview")(function* (
     this: AgentStore,
     id: string,
     preview: string,
+    userMessage?: string,
   ): Effect.fn.Return<void, StoredStateFailure> {
     try {
       const agent = this.#requireAgent(id);
       agent.preview = preview.slice(0, AGENT_PREVIEW_MAX_LENGTH);
       agent.updatedAt = new Date().toISOString();
+      const text = userMessage === undefined ? "" : messageExcerpt(userMessage);
+      if (text) {
+        if (!agent.firstMessage) agent.firstMessage = text;
+        agent.lastUserMessage = text;
+      }
       this.#persist("agent.preview-updated");
-    } catch (cause) {
-      return yield* new StoredStateFailure({ cause });
-    }
-  }, Effect.uninterruptible).bind(this);
-
-  /**
-   * Keeps the first message of the agent's own chat, once. A later message, or a routine that moves
-   * the preview, leaves it. It feeds the hover preview of the row and of the chat's tab, and the
-   * details of the chat. A chat that had messages before this field existed gets it at startup, from
-   * its stored messages (`#fillFirstMessages`).
-   */
-  noteFirstMessage = Effect.fn("AgentStore.noteFirstMessage")(function* (
-    this: AgentStore,
-    id: string,
-    text: string,
-  ): Effect.fn.Return<void, StoredStateFailure> {
-    try {
-      const agent = this.#requireAgent(id);
-      const first = firstMessageText(text);
-      if (agent.firstMessage || !first) return;
-      agent.firstMessage = first;
-      this.#persist("agent.first-message-set");
     } catch (cause) {
       return yield* new StoredStateFailure({ cause });
     }
@@ -1686,28 +1679,39 @@ export class AgentStore {
   }
 
   /**
-   * Gives each agent whose own chat has messages but no first message the first one that the person
-   * sent. It runs at startup, so it reads each chat once, and it writes the roster only when an agent
-   * changed. The preview is not needed to start: a chat that cannot be read keeps no first message,
-   * and the app starts. The text is not logged.
+   * Gives each agent's own chat the first and the last message with text that the person sent, read
+   * from its stored messages, when the roster does not know them: a chat from before these fields.
+   * It runs at startup, before any message can arrive, so a new message is not taken as the first one.
+   * Each chat is read once: the read sets `lastUserMessage`, to "" for a chat in which the person sent
+   * no text, such as a chat with only routines, and the roster keeps it. After that, each message of
+   * the person moves the two fields (`updatePreview`). The fill is not needed to start: a chat that
+   * cannot be read is read again at the next start, and a failed write leaves the values in memory
+   * for the next write of the roster. The log has only counts, never the text.
    */
-  #fillFirstMessages(): void {
+  #fillUserMessages(): void {
     let filled = 0;
     let unread = 0;
     for (const agent of this.#state.agents) {
-      if (agent.firstMessage || !agent.threadId) continue;
-      let first = "";
+      if (agent.lastUserMessage !== undefined || !agent.threadId) continue;
       try {
-        first = firstMessageText(this.#database.readFirstPersonMessageText(agent.id, agent.threadId) ?? "");
+        const first = agent.firstMessage
+          ? null
+          : this.#database.readPersonMessageText(agent.id, agent.threadId, "first");
+        const last = this.#database.readPersonMessageText(agent.id, agent.threadId, "last");
+        if (first) agent.firstMessage = messageExcerpt(first);
+        agent.lastUserMessage = messageExcerpt(last ?? "");
+        filled += 1;
       } catch {
         unread += 1;
       }
-      if (!first) continue;
-      agent.firstMessage = first;
-      filled += 1;
     }
-    if (unread > 0) logger.warn("The first message of some chats could not be read.", unread);
-    if (filled > 0) this.#persist("agents.first-message-filled");
+    if (unread > 0) logger.warn("The messages of some chats could not be read for their preview.", unread);
+    if (filled === 0) return;
+    try {
+      this.#persist("agents.user-messages-filled");
+    } catch {
+      logger.warn("The preview messages of some chats could not be stored. The next roster write stores them.", filled);
+    }
   }
 
   #persist(eventType: string, modelChange?: AgentModelChange): void {
@@ -1757,13 +1761,6 @@ function limitedText(value: string, label: string, maxLength: number): string {
   return trimmed;
 }
 
-/** The first message trimmed and cut to its limit, by characters, so a cut never splits one in two. */
-function firstMessageText(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= AGENT_FIRST_MESSAGE_MAX_LENGTH) return trimmed;
-  return Array.from(trimmed).slice(0, AGENT_FIRST_MESSAGE_MAX_LENGTH).join("");
-}
-
 function duplicateAgentName(sourceName: string, agents: readonly StoredAgent[]): string {
   const match = /^(.*?)(?: copy(?: (\d+))?)$/iu.exec(sourceName);
   const base = match?.[1]?.trim() || sourceName.trim();
@@ -1779,14 +1776,14 @@ function duplicateAgentName(sourceName: string, agents: readonly StoredAgent[]):
 /**
  * The part of an agent a copy is actually built from, which is what "the agent changed" has to mean.
  *
- * `preview`, `updatedAt`, `threadId` and `firstMessage` move on their own the moment a message
- * lands, and a duplicate takes none of them — it gets a fresh thread and its own empty preview and
- * first message. Signing them aborted duplications that were never incoherent, and copying a large
+ * `preview`, `updatedAt`, `threadId`, `firstMessage` and `lastUserMessage` move on their own the
+ * moment a message lands, and a duplicate takes none of them — it gets a fresh thread and its own
+ * empty preview, first message and last message. Signing them aborted duplications that were never incoherent, and copying a large
  * workspace takes long enough for an incoming message to land inside the window. Everything else is
  * signed by omission, so a new `AgentSummary` field is guarded until someone decides otherwise here.
  */
 export function duplicationProfileSignature(agent: AgentSummary): string {
-  const { preview, updatedAt, threadId, firstMessage, ...copied } = agent;
+  const { preview, updatedAt, threadId, firstMessage, lastUserMessage, ...copied } = agent;
   return JSON.stringify(copied);
 }
 
@@ -2120,6 +2117,8 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     threadId: value.threadId,
     workspacePath: value.workspacePath,
     ...(isString(value.firstMessage) && value.firstMessage ? { firstMessage: value.firstMessage } : {}),
+    // Kept also when empty: an empty value says that the startup fill read the chat.
+    ...(isString(value.lastUserMessage) ? { lastUserMessage: value.lastUserMessage } : {}),
     preview: isString(value.preview) ? value.preview : reset("preview", NEW_AGENT_PREVIEW),
     updatedAt: isString(value.updatedAt) || value.updatedAt === null ? value.updatedAt : reset("updatedAt", null),
     avatarSeed: isAvatarSeed(value.avatarSeed) ? value.avatarSeed : reset("avatarSeed", id),

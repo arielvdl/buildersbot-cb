@@ -152,21 +152,20 @@ export class ConversationQueries {
   }
 
   /**
-   * The text of the first message that the person sent in one thread, in the shown order, or null. A
-   * routine instruction and a message with no text, such as one with only files, do not count. The
-   * order index serves the read, so it stops at the first message that counts.
+   * The text of the first or the last message that the person sent in one thread, in the shown order,
+   * trimmed, or null. A routine instruction, a message with no text (such as one with only files) and
+   * a row whose JSON is not valid do not count, as in migration 49. The order index serves the read in
+   * both directions, so it stops at the first message that counts from that end.
    */
-  readFirstPersonMessageText(agentId: string, threadId: string): string | null {
+  readPersonMessageText(agentId: string, threadId: string, end: "first" | "last"): string | null {
     const row = databaseRow(
       this.#core.connection
         .prepare(
-          `SELECT json_extract(message_json, '$.text') AS text FROM projection_thread_messages
+          `SELECT ${PERSON_MESSAGE_TEXT_SQL} AS text FROM projection_thread_messages
            WHERE thread_id = ? AND author = 'user'
              AND EXISTS (SELECT 1 FROM projection_threads AS thread WHERE thread.thread_id = ? AND thread.agent_id = ?)
-             AND json_type(message_json, '$.text') = 'text'
-             AND json_extract(message_json, '$.source') IS NOT 'routine'
-             AND trim(json_extract(message_json, '$.text'), char(9, 10, 13, 32)) <> ''
-           ORDER BY ${ORDER_KEY_COLUMNS}
+             AND COALESCE(${PERSON_MESSAGE_TEXT_SQL}, '') <> ''
+           ORDER BY ${end === "first" ? ORDER_KEY_COLUMNS : ORDER_KEY_DESC}
            LIMIT 1`,
         )
         .get(threadId, threadId, agentId),
@@ -675,6 +674,16 @@ export const ORDERED_THREAD_MESSAGES = `WITH ordered AS (
 export const ORDER_KEY_COLUMNS = "group_start, group_first, group_id, turn_rank, created_at, ordinal, message_id";
 export const ORDER_KEY_DESC =
   "group_start DESC, group_first DESC, group_id DESC, turn_rank DESC, created_at DESC, ordinal DESC, message_id DESC";
+
+/**
+ * The text of a message row of the person, trimmed: null for a routine instruction, for a text that is
+ * not a string and for a row whose JSON is not valid, so no row stops the read. Each CASE reads the JSON
+ * only after the one before it accepts it.
+ */
+const PERSON_MESSAGE_TEXT_SQL = `CASE WHEN json_valid(message_json) THEN
+    CASE WHEN json_type(message_json, '$.text') = 'text' AND json_extract(message_json, '$.source') IS NOT 'routine'
+    THEN trim(json_extract(message_json, '$.text'), char(9, 10, 13, 32)) END
+  END`;
 
 /** Page decoders on IPC and every Team API version reject a conversation page of more than 100 messages. */
 const PAGE_MESSAGE_LIMIT = 100;

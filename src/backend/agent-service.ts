@@ -4458,7 +4458,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       // A start with files and no text takes its title from the first file.
       const firstDraft = input.attachmentDraftIds?.[0];
       const titleText = input.text.trim() || (firstDraft ? (this.#mailbox.draftName(firstDraft) ?? "") : "");
-      return this.#tasks.create(input.agentId, titleText, "user");
+      // The thread keeps the text as written as its first message, not the file name of the title.
+      return this.#tasks.create(input.agentId, titleText, "user", input.text);
     });
     this.#tasks.changed(task.agentId);
     yield* this.sendMessage(
@@ -4891,30 +4892,23 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         agentNamesById(this.#store.list()),
         { fileHeadings: false },
       ) || delivery.delivery.attachments.map((item) => item.name).join(", ");
+    // The preview and the details of a tab say where the chat stands, so they keep the person's text as
+    // written, as migration 49 and the startup fill read it: not the file names of a message with only files.
     if (task) {
-      // The tab's preview and details say where the thread stands, so they keep the person's last message.
-      yield* storedSync(() => this.#tasks.setPreview(task, preview)).pipe(
+      yield* storedSync(() => this.#tasks.setPreview(task, delivery.delivery.text)).pipe(
         // As for the agent's own chat below: the message is already queued.
         Effect.catch((failure) =>
           Effect.sync(() => this.#emitError("message_preview_failed", failure.cause, agent.id)),
         ),
       );
     } else {
-      yield* this.#store.updatePreview(agent.id, preview).pipe(
+      yield* this.#store.updatePreview(agent.id, preview, delivery.delivery.text).pipe(
         // The message is already queued: a failed preview write must not leave it without a drain,
         // and a retry with the same id returns the stored receipt without one.
         Effect.catch((failure) =>
           Effect.sync(() => this.#emitError("message_preview_failed", failure.cause, agent.id)),
         ),
       );
-      // The row's hover preview says what the chat started with, so the first message is kept once.
-      yield* this.#store
-        .noteFirstMessage(agent.id, preview)
-        .pipe(
-          Effect.catch((failure) =>
-            Effect.sync(() => this.#emitError("message_preview_failed", failure.cause, agent.id)),
-          ),
-        );
     }
     yield* this.#steerWhenBusy(agent, task, snapshot, delivery.delivery.id, true);
     if (!task) {

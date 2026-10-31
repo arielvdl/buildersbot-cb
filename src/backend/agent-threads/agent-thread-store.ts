@@ -4,6 +4,7 @@ import { AGENT_TASK_OUTCOMES, type AgentTaskOutcome } from "@openbot/contracts/i
 import { type DynamicRecord, isOneOf } from "@openbot/contracts/runtime-values";
 import { deleteAggregateHistory, deleteThreadAttachments } from "../database/database-core";
 import { databaseRow, databaseRows, optionalStringColumn, requiredStringColumn } from "../database/database-rows";
+import { messageExcerpt } from "../message-excerpt";
 import type { BuildersBotDatabase } from "../openbot-database";
 
 const AGENT_THREAD_ORIGINS = ["user", "agent"] as const;
@@ -11,9 +12,6 @@ export type AgentThreadOrigin = (typeof AGENT_THREAD_ORIGINS)[number];
 
 const AGENT_THREAD_TITLE_SOURCES = ["auto", "agent", "user"] as const;
 type AgentThreadTitleSource = (typeof AGENT_THREAD_TITLE_SOURCES)[number];
-
-/** The most characters that the first message and the preview of a side thread keep, as migration 49 does. */
-const AGENT_THREAD_PREVIEW_LIMIT = 2000;
 
 /**
  * A side thread: a second conversation of one agent, with its own thread, next to the agent's own chat.
@@ -30,11 +28,12 @@ export interface AgentThreadRecord {
   title: string;
   titleSource: AgentThreadTitleSource;
   /**
-   * The message that started the thread, as written: the person's first message, or the brief of a
-   * thread that the agent started. A rename does not change it. Empty when no message is known.
+   * The message that started the thread, as written: the person's first message with text, or the
+   * brief of a thread that the agent started. A rename does not change it. Empty when no message is
+   * known. Both texts are cut as `messageExcerpt` cuts them.
    */
   firstMessage: string;
-  /** The last message that the person sent in the thread, as written. Empty when the person sent none. */
+  /** The last message with text that the person sent in the thread, as written. Empty when the person sent none. */
   preview: string;
   /** The end of the last turn. Null before the first turn ends. */
   outcome: AgentTaskOutcome | null;
@@ -50,8 +49,9 @@ export interface AgentThreadInput {
   agentId: string;
   origin: AgentThreadOrigin;
   /**
-   * The message that starts the thread, kept for the tab's preview and details. The title stands in
-   * when it is missing.
+   * The message that starts the thread as written, kept for the tab's preview and details. The title
+   * stands in when it is missing. An empty text, such as a start with only files, keeps no first
+   * message: the first message with text fills it.
    */
   text?: string;
   title: string;
@@ -165,7 +165,7 @@ export class AgentThreadStore {
       (db, sequences) => {
         const now = new Date().toISOString();
         const sequence = sequences[0] ?? 0;
-        const firstMessage = previewText(input.text ?? input.title);
+        const firstMessage = messageExcerpt(input.text ?? input.title);
         // The brief of a thread that the agent started is not a message of the person.
         const preview = input.origin === "user" ? firstMessage : "";
         db.prepare("INSERT INTO projection_threads VALUES (?, ?, ?, NULL, ?, ?, ?)").run(
@@ -235,7 +235,7 @@ export class AgentThreadStore {
    * known first message takes this one as its first. A message with no text changes nothing.
    */
   setPreview(taskId: string, text: string): void {
-    const preview = previewText(text);
+    const preview = messageExcerpt(text);
     if (!preview) return;
     this.#database.connection
       .prepare(
@@ -321,13 +321,6 @@ export class AgentThreadStore {
 }
 
 const BY_TASK_ID = "(legacy_task_id = ? OR (legacy_task_id IS NULL AND thread_id = ?))";
-
-/** The text trimmed and cut to the preview limit, by characters, so a cut never splits one in two. */
-function previewText(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= AGENT_THREAD_PREVIEW_LIMIT) return trimmed;
-  return Array.from(trimmed).slice(0, AGENT_THREAD_PREVIEW_LIMIT).join("");
-}
 
 type Connection = BuildersBotDatabase["connection"];
 

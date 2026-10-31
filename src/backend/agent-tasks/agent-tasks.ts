@@ -147,8 +147,9 @@ export class AgentTasks implements TaskLanes {
   }
 
   /**
-   * The title is the first line of `text`. `opening` is the message that starts the task, which the
-   * task keeps as its first message: the brief of a task that the agent starts, else `text`.
+   * The title is the first line of `text`. `opening` is the message that starts the task as written,
+   * which the task keeps as its first message: the brief of a task that the agent starts, the text
+   * of the person (empty for a start with only files), else `text`.
    */
   create(agentId: string, text: string, origin: AgentThreadOrigin, opening = text): AgentThreadRecord {
     const title = taskTitle(text);
@@ -357,7 +358,10 @@ export class AgentTasks implements TaskLanes {
     return startedTaskResult(task);
   });
 
-  /** Keeps the last message that the person sent, for the tab's preview and details. */
+  /**
+   * Keeps the last message that the person sent, as written, for the tab's preview and details. A
+   * message with no text, such as one with only files, changes nothing.
+   */
   setPreview(task: AgentThreadRecord, text: string): void {
     this.#store.setPreview(task.taskId, text);
   }

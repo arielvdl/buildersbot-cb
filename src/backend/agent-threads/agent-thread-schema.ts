@@ -110,11 +110,12 @@ const V49_SHOWN_ORDER_SQL = [
 // thread that the agent started, its brief, which the agent sends as itself. The preview is the last
 // message that the person sent. A message with no text, such as one with only files, is passed over.
 // A thread with no such message keeps its empty value. A column that has a value keeps it, so a second
-// run changes nothing.
+// run changes nothing. A text keeps one character more than the limit, so the next statement can see
+// that it was longer and mark the cut.
 const V49_AGENT_THREAD_PREVIEW_BACKFILL_SQL = `
   UPDATE projection_agent_threads SET
     first_message = CASE WHEN first_message = '' THEN COALESCE((
-      SELECT substr(${V49_MESSAGE_TEXT_SQL}, 1, 2000)
+      SELECT substr(${V49_MESSAGE_TEXT_SQL}, 1, 2001)
       FROM projection_thread_messages AS message
       WHERE message.thread_id = projection_agent_threads.thread_id
         AND (message.author = 'user' OR (projection_agent_threads.origin = 'agent' AND message.author = 'agent'))
@@ -123,7 +124,7 @@ const V49_AGENT_THREAD_PREVIEW_BACKFILL_SQL = `
       LIMIT 1
     ), '') ELSE first_message END,
     preview = CASE WHEN preview = '' THEN COALESCE((
-      SELECT substr(${V49_MESSAGE_TEXT_SQL}, 1, 2000)
+      SELECT substr(${V49_MESSAGE_TEXT_SQL}, 1, 2001)
       FROM projection_thread_messages AS message
       WHERE message.thread_id = projection_agent_threads.thread_id
         AND message.author = 'user'
@@ -132,6 +133,18 @@ const V49_AGENT_THREAD_PREVIEW_BACKFILL_SQL = `
       LIMIT 1
     ), '') ELSE preview END
   WHERE rowid > $after AND rowid <= $through AND (first_message = '' OR preview = '')
+`;
+
+// Migration 49, frozen. Cuts a text that the fill found longer than 2,000 characters to 1,999 and adds
+// "…", as `messageExcerpt` does, so the details of the thread show that the text continues. A value that
+// a column had before the fill is never longer than 2,000 characters, so this statement keeps it.
+const V49_AGENT_THREAD_PREVIEW_CUT_SQL = `
+  UPDATE projection_agent_threads SET
+    first_message = CASE WHEN length(first_message) > 2000
+      THEN rtrim(substr(first_message, 1, 1999), char(9, 10, 13, 32)) || '…' ELSE first_message END,
+    preview = CASE WHEN length(preview) > 2000
+      THEN rtrim(substr(preview, 1, 1999), char(9, 10, 13, 32)) || '…' ELSE preview END
+  WHERE rowid > $after AND rowid <= $through AND (length(first_message) > 2000 OR length(preview) > 2000)
 `;
 
 /** The threads that one statement of the migration 49 backfill fills. */
@@ -160,12 +173,14 @@ export function migrateAgentThreadPreviews(db: DatabaseSync): void {
      )`,
   );
   const fill = db.prepare(V49_AGENT_THREAD_PREVIEW_BACKFILL_SQL);
+  const cut = db.prepare(V49_AGENT_THREAD_PREVIEW_CUT_SQL);
   // SQLite gives a new row a rowid from 1 up, but a row can carry any rowid that was written into it.
   let after = Number.MIN_SAFE_INTEGER;
   for (;;) {
     const through = nextRange.get(after)?.through;
     if (typeof through !== "number" && typeof through !== "bigint") return;
     fill.run({ after, through });
+    cut.run({ after, through });
     after = Number(through);
   }
 }

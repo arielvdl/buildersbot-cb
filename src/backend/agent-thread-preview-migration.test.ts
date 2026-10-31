@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync, type SQLOutputValue } from "node:sqlite";
 import type { AgentSummary } from "@openbot/contracts/ipc";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AgentStore } from "./agent-store";
 import { migrateAgentThreadPreviews } from "./agent-threads/agent-thread-schema";
 import { AgentThreadStore } from "./agent-threads/agent-thread-store";
 import { refreshThreadOrder } from "./database/thread-message-order";
@@ -13,15 +14,18 @@ import { BuildersBotDatabase } from "./openbot-database";
 import { migrateBuildersBotDatabase } from "./openbot-database-schema";
 
 // Failure modes: the upgrade changes or loses a row of any table; a thread gets the wrong first or last
-// message (an answer, a routine instruction, a message with only files, a later message, the title of a
-// renamed thread); a long or non-ASCII text is cut in the wrong place; a message row that is not as
-// expected stops the upgrade; a second run, or a development profile that has the columns already,
-// changes a value; a failed upgrade keeps the columns or the marker; a newer or incomplete history is
-// changed; a thread past the first range of rowids is not filled. After the upgrade: a new thread does
-// not keep its first message, a later message replaces it, or a rename changes it.
+// message (an answer, a routine instruction, a message with only files at either end, a later message,
+// the title of a renamed thread); a long or non-ASCII text is cut in the wrong place, or its cut has no
+// mark; a message row that is not as expected stops the upgrade; a second run, or a development profile
+// that has the columns already, changes a value; a failed upgrade keeps the columns or the marker; a
+// newer or incomplete history is changed; a thread past the first range of rowids is not filled. After
+// the upgrade: a new thread does not keep its first message, a later message replaces it, or a rename
+// changes it. At startup: the agent's own chat does not get its first and last message, a chat is read
+// again at each start, or a failed read or write stops the start or logs the text.
 const databases: DatabaseSync[] = [];
 const roots: string[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
   for (const db of databases.splice(0)) db.close();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -42,6 +46,10 @@ function migrateUpTo(db: DatabaseSync, version: number): void {
 }
 
 const LONG_TEXT = `${"界😀".repeat(1_100)} end`;
+/** `LONG_TEXT` as a cut keeps it: 1,999 characters and "…", 2,000 in all. */
+const LONG_EXCERPT = `${Array.from(LONG_TEXT).slice(0, 1_999).join("")}…`;
+/** 2,000 characters in 2,010 UTF-16 units: at the limit, so it is kept whole. */
+const LIMIT_TEXT = `${"a".repeat(1_990)}${"😀".repeat(10)}`;
 
 /** One message row: its thread, id, turn, author, time, ordinal and JSON. */
 type MessageSeed = [thread: string, id: string, turn: string | null, author: string, at: string, json: unknown];
@@ -61,10 +69,17 @@ const MESSAGES: MessageSeed[] = [
   // A thread that the agent started: its brief has the agent as its author, and the person sent nothing.
   ["openbot-thread-agent", "b1", "t7", "agent", "12:00", { text: "Research the market", source: "agent" }],
   ["openbot-thread-agent", "b2", "t7", "assistant", "12:01", { text: "Started." }],
+  // The person's first and last messages have only files, or only spaces: the texts between them count.
+  ["openbot-thread-files", "f1", "t11", "user", "14:00", { text: "", attachments: [{ name: "a.pdf" }] }],
+  ["openbot-thread-files", "f2", "t12", "user", "14:01", { text: "Read the contract" }],
+  ["openbot-thread-files", "f3", "t12", "assistant", "14:02", { text: "Read." }],
+  ["openbot-thread-files", "f4", "t13", "user", "14:03", { text: "List the risks" }],
+  ["openbot-thread-files", "f5", "t14", "user", "14:04", { text: " \n\t ", attachments: [{ name: "b.pdf" }] }],
   // A long text, and rows whose text is not a string.
   ["openbot-thread-long", "l1", "t8", "user", "13:00", { text: 42 }],
   ["openbot-thread-long", "l2", "t9", "user", "13:01", { note: "no text" }],
   ["openbot-thread-long", "l3", "t10", "user", "13:02", { text: LONG_TEXT }],
+  ["openbot-thread-limit", "x1", "t15", "user", "15:00", { text: LIMIT_TEXT }],
 ];
 
 const THREAD_ROWS = [
@@ -73,9 +88,11 @@ const THREAD_ROWS = [
   ["openbot-thread-agent", "agent", "Market research", "agent"],
   ["openbot-thread-long", "user", "Long one", "auto"],
   ["openbot-thread-empty", "user", "No messages", "auto"],
+  ["openbot-thread-files", "user", "a.pdf", "auto"],
+  ["openbot-thread-limit", "user", "At the limit", "auto"],
 ] as const;
 
-/** The agent's own chat and five side threads with their messages, in the columns of schema 48. */
+/** The agent's own chat and seven side threads with their messages, in the columns of schema 48. */
 function seedThreads(db: DatabaseSync): void {
   const thread = db.prepare(
     "INSERT INTO projection_threads VALUES (?, 'chief', ?, NULL, '2026-10-01', '2026-10-01', 1)",
@@ -119,11 +136,25 @@ const EXPECTED = [
   },
   { thread_id: "openbot-thread-empty", title: "No messages", title_source: "auto", first_message: "", preview: "" },
   {
+    thread_id: "openbot-thread-files",
+    title: "a.pdf",
+    title_source: "auto",
+    first_message: "Read the contract",
+    preview: "List the risks",
+  },
+  {
+    thread_id: "openbot-thread-limit",
+    title: "At the limit",
+    title_source: "auto",
+    first_message: LIMIT_TEXT,
+    preview: LIMIT_TEXT,
+  },
+  {
     thread_id: "openbot-thread-long",
     title: "Long one",
     title_source: "auto",
-    first_message: Array.from(LONG_TEXT).slice(0, 2_000).join(""),
-    preview: Array.from(LONG_TEXT).slice(0, 2_000).join(""),
+    first_message: LONG_EXCERPT,
+    preview: LONG_EXCERPT,
   },
   {
     thread_id: "openbot-thread-renamed",
@@ -356,7 +387,8 @@ describe("side thread previews after the upgrade", () => {
       preview: "Focus on Europe",
     });
 
-    // A long text is cut by characters, so the cut does not split one in two.
+    // A long text is cut by characters, so the cut does not split one in two, and "…" marks the cut,
+    // as in migration 49. A text at the limit is kept whole.
     const long = store.create({
       agentId: "chief",
       origin: "user",
@@ -364,14 +396,29 @@ describe("side thread previews after the upgrade", () => {
       title: "Long",
       titleSource: "auto",
     });
-    expect(long.firstMessage).toBe(Array.from(LONG_TEXT).slice(0, 2_000).join(""));
+    expect(long).toMatchObject({ firstMessage: LONG_EXCERPT, preview: LONG_EXCERPT });
+    store.setPreview(long.taskId, LIMIT_TEXT);
+    expect(store.task(long.taskId)).toMatchObject({ firstMessage: LONG_EXCERPT, preview: LIMIT_TEXT });
+
+    // A start with only files keeps no text, as migration 49 does: the first message with text fills both.
+    const files = store.create({ agentId: "chief", origin: "user", text: "", title: "a.pdf", titleSource: "auto" });
+    expect(files).toMatchObject({ firstMessage: "", preview: "" });
+    store.setPreview(files.taskId, "");
+    expect(store.task(files.taskId)).toMatchObject({ firstMessage: "", preview: "" });
+    store.setPreview(files.taskId, "Read the contract");
+    expect(store.task(files.taskId)).toMatchObject({
+      title: "a.pdf",
+      firstMessage: "Read the contract",
+      preview: "Read the contract",
+    });
     database.close();
   });
 
-  it("reads the first message that the person sent in the agent's own chat", async () => {
+  it("reads the first and the last message that the person sent in the agent's own chat", async () => {
     const database = await createDatabase();
     database.replaceAgents("seed-first-message", [testAgent()], "agents.updated");
-    expect(database.readFirstPersonMessageText("chief", "openbot-thread-chief")).toBeNull();
+    expect(database.readPersonMessageText("chief", "openbot-thread-chief", "first")).toBeNull();
+    expect(database.readPersonMessageText("chief", "openbot-thread-chief", "last")).toBeNull();
     database.persistConversation(
       {
         agentId: "chief",
@@ -383,17 +430,189 @@ describe("side thread previews after the upgrade", () => {
           message("c2", "user", "   ", "09:01"),
           message("c3", "user", "Plan the Q4 launch", "09:02"),
           message("c4", "assistant", "Sure.", "09:03"),
-          message("c5", "user", "And the budget", "09:04"),
+          message("c5", "user", "  And the budget  ", "09:04"),
+          message("c6", "assistant", "Noted.", "09:05"),
+          message("c7", "user", "Weekly report", "09:06", "routine"),
+          message("c8", "user", "", "09:07"),
         ],
       },
       "conversation.saved",
     );
-    expect(database.readFirstPersonMessageText("chief", "openbot-thread-chief")).toBe("Plan the Q4 launch");
+    expect(database.readPersonMessageText("chief", "openbot-thread-chief", "first")).toBe("Plan the Q4 launch");
+    expect(database.readPersonMessageText("chief", "openbot-thread-chief", "last")).toBe("And the budget");
+    // A row whose JSON is not valid, as a damaged file could hold it, is passed over and stops nothing.
+    database.connection.exec("PRAGMA ignore_check_constraints = ON");
+    database.connection.exec(`INSERT INTO projection_thread_messages
+      (thread_id, message_id, turn_id, author, status, item_type, created_at, ordinal, message_json, last_event_sequence)
+      VALUES ('openbot-thread-chief', 'c9', NULL, 'user', 'completed', NULL, '2026-10-01T09:08:00.000Z', 99,
+        '{not json', 2)`);
+    database.connection.exec("PRAGMA ignore_check_constraints = OFF");
+    refreshThreadOrder(database.connection, "openbot-thread-chief");
+    expect(database.readPersonMessageText("chief", "openbot-thread-chief", "last")).toBe("And the budget");
     // Another agent cannot read the chat by its thread id.
-    expect(database.readFirstPersonMessageText("helper", "openbot-thread-chief")).toBeNull();
+    expect(database.readPersonMessageText("helper", "openbot-thread-chief", "first")).toBeNull();
+    expect(database.readPersonMessageText("helper", "openbot-thread-chief", "last")).toBeNull();
     database.close();
   });
 });
+
+describe("the person's messages of the agent's own chat at startup", () => {
+  it("reads each chat once, keeps a known first message, and logs no text", async () => {
+    const { root, home } = await seedRoster();
+    const logged = captureLogs();
+    const first = await startStore(root, home);
+    // The first and the last message of chief and watcher, and only the last one of writer.
+    expect(first.reads()).toBe(5);
+    expect(chatTexts(first.store)).toEqual(SEEDED_TEXTS);
+    expect(logged.join("")).not.toContain("Plan the Q4 launch");
+    first.database.close();
+
+    // The roster keeps the values, also the empty one of a chat with only routines: no chat is read again.
+    const second = await startStore(root, home);
+    expect(second.reads()).toBe(0);
+    expect(chatTexts(second.store)).toEqual(SEEDED_TEXTS);
+
+    // After that, each message of the person moves the two fields. An answer, a routine and a message
+    // with only files move only the preview.
+    await runCauseEffect(second.store.updatePreview("watcher", "Hi there", "  Hi there\nand more  "));
+    await runCauseEffect(second.store.updatePreview("watcher", "An answer"));
+    await runCauseEffect(second.store.updatePreview("watcher", "b.pdf", "   "));
+    await runCauseEffect(second.store.updatePreview("chief", "Tighten it", "Tighten it"));
+    expect(chatTexts(second.store)).toMatchObject({
+      chief: { firstMessage: "Plan the Q4 launch", lastUserMessage: "Tighten it" },
+      watcher: { firstMessage: "Hi there\nand more", lastUserMessage: "Hi there\nand more" },
+    });
+    second.database.close();
+  });
+
+  it("starts when a chat cannot be read or the roster cannot be written, and reads such a chat again", async () => {
+    const { root, home } = await seedRoster();
+    const logged = captureLogs();
+    const unread = await startStore(root, home, (database) => {
+      vi.spyOn(database, "readPersonMessageText").mockImplementation(() => {
+        throw new Error("database is locked");
+      });
+    });
+    expect(chatTexts(unread.store).chief).toEqual({});
+    unread.database.close();
+
+    // The read works, but the write of its values fails: they stay in memory, and the next write keeps them.
+    const unwritten = await startStore(root, home, (database) => {
+      const replace = database.replaceAgents.bind(database);
+      vi.spyOn(database, "replaceAgents").mockImplementation((commandId, agents, eventType, change) => {
+        if (eventType === "agents.user-messages-filled") throw new Error("database or disk is full");
+        replace(commandId, agents, eventType, change);
+      });
+    });
+    expect(unwritten.reads()).toBe(5);
+    expect(chatTexts(unwritten.store)).toEqual(SEEDED_TEXTS);
+    await runCauseEffect(unwritten.store.updatePreview("idle", "No messages yet"));
+    unwritten.database.close();
+
+    const restarted = await startStore(root, home);
+    expect(restarted.reads()).toBe(0);
+    expect(chatTexts(restarted.store)).toEqual(SEEDED_TEXTS);
+    expect(logged.join("")).not.toContain("Plan the Q4 launch");
+    restarted.database.close();
+  });
+});
+
+/** What the startup fill gives the four seeded agents: `idle` has no chat, so it gets nothing. */
+const SEEDED_TEXTS = {
+  chief: { firstMessage: "Plan the Q4 launch", lastUserMessage: LONG_EXCERPT },
+  watcher: { lastUserMessage: "" },
+  writer: { firstMessage: "Known first", lastUserMessage: "Make it short" },
+  idle: {},
+};
+
+/**
+ * A profile with a roster of four agents, in the shape of a roster from before the two fields: chief
+ * with messages, watcher with only routine instructions and answers, writer with a first message that
+ * the roster knows already, and idle with no chat.
+ */
+async function seedRoster(): Promise<{ root: string; home: string }> {
+  const root = await mkdtemp(join(tmpdir(), "openbot-chat-preview-"));
+  roots.push(root);
+  const home = join(root, "home");
+  const database = new BuildersBotDatabase(root);
+  await runCauseEffect(database.initialize());
+  database.replaceAgents(
+    "seed-roster",
+    [
+      rosterAgent("chief", home),
+      rosterAgent("watcher", home),
+      { ...rosterAgent("writer", home), firstMessage: "Known first" },
+      { ...rosterAgent("idle", home), threadId: null },
+    ],
+    "agents.updated",
+  );
+  const chat = (agentId: string, messages: ReturnType<typeof message>[]) =>
+    database.persistConversation(
+      { agentId, threadId: `openbot-thread-${agentId}`, activeTurnId: null, revision: 0, messages },
+      "conversation.saved",
+    );
+  chat("chief", [
+    message("c1", "user", "Daily check", "09:00", "routine"),
+    message("c2", "user", "Plan the Q4 launch", "09:01"),
+    message("c3", "assistant", "Sure.", "09:02"),
+    message("c4", "user", LONG_TEXT, "09:03"),
+    message("c5", "assistant", "Done.", "09:04"),
+  ]);
+  chat("watcher", [
+    message("w1", "user", "Check the inbox", "09:00", "routine"),
+    message("w2", "assistant", "Nothing new.", "09:01"),
+  ]);
+  chat("writer", [message("r1", "user", "Draft the post", "09:00"), message("r2", "user", "Make it short", "09:01")]);
+  database.close();
+  return { root, home };
+}
+
+/** Starts the agent store on the profile, as the app does, and counts the reads of a chat's messages. */
+async function startStore(root: string, home: string, prepare?: (database: BuildersBotDatabase) => void) {
+  const database = new BuildersBotDatabase(root);
+  prepare?.(database);
+  const reads = vi.spyOn(database, "readPersonMessageText");
+  const store = new AgentStore(root, home, database);
+  await runCauseEffect(store.initialize());
+  return { store, database, reads: () => reads.mock.calls.length };
+}
+
+/** The first and last message of each agent's own chat, by agent id. */
+function chatTexts(store: AgentStore): Record<string, { firstMessage?: string; lastUserMessage?: string }> {
+  return Object.fromEntries(
+    store.list().map((agent) => [
+      agent.id,
+      {
+        ...(agent.firstMessage === undefined ? {} : { firstMessage: agent.firstMessage }),
+        ...(agent.lastUserMessage === undefined ? {} : { lastUserMessage: agent.lastUserMessage }),
+      },
+    ]),
+  );
+}
+
+/** Every line that the loggers write while the test runs. */
+function captureLogs(): string[] {
+  const lines: string[] = [];
+  for (const stream of [process.stdout, process.stderr]) {
+    vi.spyOn(stream, "write").mockImplementation((chunk: unknown) => {
+      lines.push(String(chunk));
+      return true;
+    });
+  }
+  return lines;
+}
+
+function rosterAgent(id: string, home: string): AgentSummary {
+  return {
+    ...testAgent(),
+    id,
+    name: id,
+    threadId: `openbot-thread-${id}`,
+    workspacePath: join(home, "Builders Bot", "Agents", id),
+    preview: "No messages yet",
+    avatarSeed: id,
+  };
+}
 
 function message(id: string, author: "user" | "assistant", text: string, at: string, source?: "routine") {
   return {
