@@ -188,6 +188,7 @@ export const messages = {
   "app.orbits.state.waiting": "esperando",
   "app.orbits.state.waitingYou": "espera você",
   "app.orbits.state.stalled": "parado",
+  "app.orbits.state.failed": "falhou",
   "app.orbits.state.done": "concluído",
   "app.orbits.state.idle": "ocioso",
   "app.orbits.card.goChannel": "Ir ao canal",
@@ -202,6 +203,7 @@ export const messages = {
   "app.orbits.card.turn": "Espera uma vaga",
   "app.orbits.card.failed": "O último turno falhou",
   "app.orbits.card.stopped": "Parou: {reason}",
+  "app.orbits.card.stoppedNoReason": "A tarefa parou",
   "app.orbits.card.done": "Concluído",
   "app.orbits.card.idle": "Sem tarefa agora",
 } as const satisfies PartialTranslation<typeof source>;

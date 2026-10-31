@@ -6,7 +6,14 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import { OrbitFamilyGlyph } from "./OrbitFamilyGlyph";
 import type { OrbitEngine } from "./orbits-engine";
 import { type OrbitGeometry, type OrbitSlot, orbitGeometry, orbitPoint } from "./orbits-geometry";
-import { type OrbitAgent, type OrbitState, type OrbitSystem, orbitMatches, orbitWaitsForPerson } from "./orbits-view";
+import {
+  type OrbitAgent,
+  type OrbitState,
+  type OrbitSystem,
+  orbitMatches,
+  orbitParks,
+  orbitWaitsForPerson,
+} from "./orbits-view";
 
 interface OrbitSystemViewProps {
   system: OrbitSystem;
@@ -35,6 +42,7 @@ const MOODS: Readonly<Record<OrbitState, AvatarMood>> = {
   thinking: "working",
   waiting: "waiting",
   stalled: "failed",
+  failed: "failed",
   done: "responded",
   idle: "idle",
 };
@@ -64,15 +72,15 @@ export function OrbitSystemView(props: OrbitSystemViewProps) {
       sunId,
       movers: others.filter((agent) => agent.state === "working").map((agent) => agent.id),
       still: others
-        .filter((agent) => agent.state !== "working" && agent.state !== "done" && agent.state !== "idle")
+        .filter((agent) => agent.state !== "working" && !orbitParks(agent.state))
         .map((agent) => ({ id: agent.id, drift: agent.state === "waiting" && !orbitWaitsForPerson(agent.wait) })),
-      parked: others.filter((agent) => agent.state === "done" || agent.state === "idle").map((agent) => agent.id),
+      parked: others.filter((agent) => orbitParks(agent.state)).map((agent) => agent.id),
     };
   });
   /** The one agent of this system with a bubble, if any. */
   const talkerId = createMemo(() => props.bubbleIds.find((agentId) => props.system.agentIds.includes(agentId)) ?? null);
   const kindOf = (agent: OrbitAgent) =>
-    agent.id === props.system.sunId ? "sun" : agent.state === "done" || agent.state === "idle" ? "tiny" : "planet";
+    agent.id === props.system.sunId ? "sun" : orbitParks(agent.state) ? "tiny" : "planet";
 
   let dropSystem: (() => void) | undefined;
   const mountBox = (element: HTMLElement) => {
@@ -267,6 +275,7 @@ const STATE_LABEL = {
   thinking: "app.orbits.state.thinking",
   waiting: "app.orbits.state.waiting",
   stalled: "app.orbits.state.stalled",
+  failed: "app.orbits.state.failed",
   done: "app.orbits.state.done",
   idle: "app.orbits.state.idle",
 } as const;
@@ -360,7 +369,7 @@ function OrbitAgentNode(props: OrbitAgentNodeProps) {
             <Show when={props.agent.state === "speaking" || needsYou()}>
               <span class="orbit-pulse" aria-hidden="true" />
             </Show>
-            <Show when={props.agent.state === "stalled"}>
+            <Show when={props.agent.state === "stalled" || props.agent.state === "failed"}>
               <span class="orbit-alarm" aria-hidden="true" />
             </Show>
             <AgentAvatar
@@ -418,7 +427,9 @@ function OrbitCard(props: OrbitAgentNodeProps & { familyName: string }) {
       case "stalled":
         return current.stopReason
           ? { text: t("app.orbits.card.stopped", { reason: current.stopReason }), tone: "danger" }
-          : { text: t("app.orbits.card.failed"), tone: "danger" };
+          : { text: t("app.orbits.card.stoppedNoReason"), tone: "danger" };
+      case "failed":
+        return { text: t("app.orbits.card.failed"), tone: "danger" };
       case "done":
         return { text: t("app.orbits.card.done") };
       case "idle":

@@ -22,8 +22,12 @@ import type { SidebarAgentWait } from "../sidebar/sidebar-agent-states";
  * a story feeds it fixtures. See `docs/architecture/team-orbits.md`.
  */
 
-/** What an agent does, as the panel draws it. */
-export type OrbitState = "working" | "speaking" | "thinking" | "waiting" | "stalled" | "done" | "idle";
+/**
+ * What an agent does, as the panel draws it. `stalled` is a channel task that stopped and waits for
+ * the person. `failed` is a last turn that failed: the mark stays until the next turn or until the
+ * person sees it, so it can be old, and it does not make its system show.
+ */
+export type OrbitState = "working" | "speaking" | "thinking" | "waiting" | "stalled" | "failed" | "done" | "idle";
 
 /**
  * What a waiting agent waits for. `question`, `approval` and `takeover` wait for the person. `limit`
@@ -57,7 +61,7 @@ export interface OrbitAgent {
   wait: OrbitWait | null;
   /** One line about the work: the request, the current step, the question, or the stopped task. */
   task: string | null;
-  /** Why the work stopped, for a stalled agent. Null when the host does not say. */
+  /** Why the channel task stopped, for a stalled agent. Null when the host does not say. */
   stopReason: string | null;
   /** What the bubble says: the question the agent asks, or the message it writes now. */
   says: string | null;
@@ -193,14 +197,19 @@ export function orbitWaitsForPerson(wait: OrbitWait | null): boolean {
   return wait === "question" || wait === "approval" || wait === "takeover";
 }
 
-/** The states that make a system show. Done and idle agents show only beside an active one. */
+/** The states that put an agent at the edge of its system, as a small dot. */
+export function orbitParks(state: OrbitState): boolean {
+  return state === "done" || state === "idle" || state === "failed";
+}
+
+/** The states that make a system show. A parked agent shows only beside an active one. */
 function active(state: OrbitState): boolean {
-  return state !== "done" && state !== "idle";
+  return !orbitParks(state);
 }
 
 /**
- * How much an agent needs attention, lowest first: a wait for the person, a stall, a message that is
- * written now, running work, thinking, another wait, done work, nothing.
+ * How much an agent needs attention, lowest first: a wait for the person, a stopped task, a message
+ * that is written now, running work, thinking, another wait, a failed turn, done work, nothing.
  */
 export function orbitAttentionRank(agent: Pick<OrbitAgent, "state" | "wait">) {
   if (agent.state === "waiting" && orbitWaitsForPerson(agent.wait)) return 0;
@@ -215,10 +224,12 @@ export function orbitAttentionRank(agent: Pick<OrbitAgent, "state" | "wait">) {
       return 4;
     case "waiting":
       return 5;
-    case "done":
+    case "failed":
       return 6;
-    default:
+    case "done":
       return 7;
+    default:
+      return 8;
   }
 }
 
@@ -282,6 +293,8 @@ const MOTION_COST: Readonly<Record<OrbitState, number>> = {
   thinking: 1,
   waiting: 1,
   stalled: 1,
+  // A failed turn holds still: it can be old, and a loop would call for attention it may not need.
+  failed: 0,
   done: 0,
   idle: 0,
 };
@@ -434,10 +447,10 @@ function describeAgents(input: OrbitsViewInput, profiles: readonly OrbitAgentPro
       agent.state = "thinking";
     } else if (working(id)) {
       agent.state = "working";
-    } else if (input.failedTurns[id] || stopped) {
+    } else if (stopped) {
       agent.state = "stalled";
-      agent.task = stopped?.title.trim() || agent.task;
-      agent.stopReason = stopped?.reason.trim() || null;
+      agent.task = stopped.title.trim() || agent.task;
+      agent.stopReason = stopped.reason.trim() || null;
     } else if (wait?.kind === "limited") {
       agent.state = "waiting";
       agent.wait = "limit";
@@ -448,6 +461,8 @@ function describeAgents(input: OrbitsViewInput, profiles: readonly OrbitAgentPro
     ) {
       agent.state = "waiting";
       agent.wait = "turn";
+    } else if (input.failedTurns[id]) {
+      agent.state = "failed";
     } else if (input.recentReplies[id] || (input.unreadReplies[id] ?? 0) > 0) {
       agent.state = "done";
     }

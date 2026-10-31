@@ -409,6 +409,11 @@
   color: var(--openbot-text-dim);
 }
 
+/* The last turn failed: a still dot in the danger colour. It does not flicker, because it can be old. */
+.orbit-agent[data-state="failed"] .orbit-dot-glyph {
+  color: var(--openbot-danger);
+}
+
 .orbit-done-mark {
   position: absolute;
   top: -1px;
@@ -547,7 +552,7 @@
   animation: orbit-breathe 2.4s ease-in-out infinite;
 }
 
-/* Stopped: a ring in the danger colour that flickers. */
+/* Stopped: a ring in the danger colour that flickers. A failed turn keeps the ring still. */
 .orbit-alarm {
   position: absolute;
   inset: -4px;

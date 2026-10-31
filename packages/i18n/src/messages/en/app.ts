@@ -190,6 +190,7 @@ export const messages = defineMessages("app", {
   "app.orbits.state.waiting": "waiting",
   "app.orbits.state.waitingYou": "waits for you",
   "app.orbits.state.stalled": "stopped",
+  "app.orbits.state.failed": "failed",
   "app.orbits.state.done": "done",
   "app.orbits.state.idle": "idle",
   "app.orbits.card.goChannel": "Go to channel",
@@ -204,6 +205,7 @@ export const messages = defineMessages("app", {
   "app.orbits.card.turn": "Waits for a free place",
   "app.orbits.card.failed": "The last turn failed",
   "app.orbits.card.stopped": "Stopped: {reason}",
+  "app.orbits.card.stoppedNoReason": "The task stopped",
   "app.orbits.card.done": "Done",
   "app.orbits.card.idle": "Nothing to do now",
 });
