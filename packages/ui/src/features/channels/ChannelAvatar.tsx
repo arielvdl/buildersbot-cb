@@ -7,6 +7,9 @@
  * Two layouts: a row of overlapping avatars, and the cluster the sidebar uses, which holds the
  * members in the square one agent avatar occupies. The cluster keeps a channel row the same shape
  * as the agent rows around it, and it counts the members it cannot show.
+ *
+ * A member that works shows it: its face works, or works `live` in the open channel. The faces of
+ * the other members stay still.
  */
 
 import type { ChannelMember } from "@openbot/contracts/ipc";
@@ -14,11 +17,20 @@ import { UsersRound } from "@openbot/ui";
 import { For, Show } from "solid-js";
 import type { AgentProfile } from "../../data";
 import { AgentAvatar } from "../agents/AgentAvatar";
+import { type ChannelWorkingMembers, channelMemberMood } from "../agents/agent-avatar-mood";
 
 const ROW_LIMIT = 3;
 const CLUSTER_CELLS = 4;
 
-export function ChannelAvatar(props: { members: ChannelMember[]; agents: AgentProfile[]; layout?: "row" | "cluster" }) {
+export function ChannelAvatar(props: {
+  members: ChannelMember[];
+  agents: AgentProfile[];
+  layout?: "row" | "cluster";
+  /** Who works now. Absent: nobody. */
+  working?: ChannelWorkingMembers | undefined;
+  /** The channel is the open chat. */
+  open?: boolean | undefined;
+}) {
   const agentFor = (member: ChannelMember) => props.agents.find((agent) => agent.id === member.agentId);
   const cluster = () => props.layout === "cluster";
   /* The last cell of a full cluster is the count, so a fifth member costs a face rather than
@@ -35,7 +47,13 @@ export function ChannelAvatar(props: { members: ChannelMember[]; agents: AgentPr
     <span class={["channel-avatar", { "channel-avatar-cluster": cluster() }]} aria-hidden="true">
       <Show when={props.members.length} fallback={<UsersRound />}>
         <For each={shown()}>
-          {(member) => <AgentAvatar agent={agentFor(member)} seed={agentFor(member)?.avatarSeed ?? member.agentId} />}
+          {(member) => (
+            <AgentAvatar
+              agent={agentFor(member)}
+              seed={agentFor(member)?.avatarSeed ?? member.agentId}
+              mood={channelMemberMood(member.agentId, props.working, props.open === true)}
+            />
+          )}
         </For>
         <Show when={cluster() && hidden() > 0}>
           <span class="channel-avatar-count">+{hidden()}</span>

@@ -267,8 +267,9 @@
 }
 
 /* The agent avatar is the mark itself: the box seen from its corner, tinted in the agent's colour.
-   `agent-mark.tsx` gives the faces, the edges and the symbols their colours as attributes, so a copy
-   of the SVG with no stylesheet still shows the box at rest. These rules add the light and the motion.
+   `agent-mark.tsx` gives the faces, the edges and the symbols their colours in their `style`, so a
+   copy of the SVG with no stylesheet still shows the box at rest, and an accent can be a CSS
+   variable. These rules add the light and the motion.
    Nothing is drawn behind the box: no frame and no background.
 
    Each rule that moves something is in the `prefers-reduced-motion: no-preference` block at the end,
@@ -445,6 +446,26 @@
 
 .agent-mark[data-mood="asleep"] .agent-mark-laser {
   opacity: 0.14;
+}
+
+/* A small avatar, such as a face of a channel cluster, cannot show the orbit, the sparks or the
+   emblem: at that size they are noise. The laser and the halo get wider, so the work still shows.
+   `agent-avatar` is the box of `AgentAvatar`; a mark outside one always draws all of it. */
+@container agent-avatar (max-width: 28px) {
+  .agent-mark-orbit,
+  .agent-mark-sparks,
+  .agent-mark-counter-laser,
+  .agent-mark-emblem {
+    display: none;
+  }
+
+  .agent-mark-laser {
+    stroke-width: 12;
+  }
+
+  .agent-mark-halo {
+    stroke-width: 10;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

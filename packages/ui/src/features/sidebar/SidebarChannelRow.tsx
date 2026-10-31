@@ -12,6 +12,7 @@ import { Badge, buttonVariants, ContextMenu } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 import { useText } from "../../text";
+import { channelWorkingMembers } from "../agents/agent-avatar-mood";
 import { ChannelAvatar } from "../channels/ChannelAvatar";
 import { SidebarAgentIndicator, SidebarWaitChip, SidebarWaitTooltip } from "./SidebarAgentIndicator";
 import { SidebarChannelContextMenu, SidebarDeletedChannelContextMenu } from "./SidebarChannelContextMenu";
@@ -79,7 +80,13 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary; waiting?:
         }}
       >
         <span class="agent-row-avatar">
-          <ChannelAvatar members={rowProps.channel.members} agents={props.agents} layout="cluster" />
+          <ChannelAvatar
+            members={rowProps.channel.members}
+            agents={props.agents}
+            layout="cluster"
+            working={channelWorkingMembers(rowProps.channel, props.agentMoods)}
+            open={active()}
+          />
           <Show
             when={channelWait()}
             fallback={

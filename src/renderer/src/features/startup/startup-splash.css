@@ -1,6 +1,6 @@
 /*
- * The desktop startup splash. The logo fades in and each eye is drawn as one pen stroke. The logo then
- * blinks until the app is ready, and the splash fades out.
+ * The desktop startup splash. The agent box fades in and works until the app is ready, and the splash
+ * fades out. The box moves by its own rules in `logo.css`, reduced motion included.
  */
 
 .startup-splash {
@@ -27,28 +27,9 @@
   animation: startup-splash-exit var(--openbot-duration-overlay) var(--openbot-ease-in-out) forwards;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  /* Both eyes use the longer stroke's length, so they draw at the same time. */
-  .startup-splash-logo .app-logo-eye {
-    stroke-dasharray: var(--splash-eye-length) calc(var(--splash-eye-length) + 24px);
-    animation:
-      startup-splash-eye-draw 480ms var(--openbot-ease-in-out) 160ms backwards,
-      app-logo-blink 4.8s var(--openbot-ease-in-out) 1s infinite;
-  }
-}
-
 @keyframes startup-splash-in {
   from {
     opacity: 0;
-  }
-}
-
-@keyframes startup-splash-eye-draw {
-  from {
-    stroke-dashoffset: calc(var(--splash-eye-length) + 12px);
-  }
-  to {
-    stroke-dashoffset: 0px;
   }
 }
 

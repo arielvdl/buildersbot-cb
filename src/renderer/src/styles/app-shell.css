@@ -2596,6 +2596,12 @@ textarea {
   height: 100%;
 }
 
+/* The mark reads the width of its box, so a small avatar can draw less (see `logo.css`). The box
+   always has a set size, so the size containment does not change it. */
+.agent-avatar-mark {
+  container: agent-avatar / inline-size;
+}
+
 /* The outline: a ring in the colour of the surface under the avatar, so a face that overlaps another
    face, a badge or a row edge reads as cut out of it. The surface sets `--agent-avatar-outline` where
    it sets its background; under any other the ring stays transparent, because a ring that misses the

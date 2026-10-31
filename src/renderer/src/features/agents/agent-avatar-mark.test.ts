@@ -2,7 +2,11 @@ import { agentMarkEyelid } from "@openbot/brand/agent-mark-eyes";
 import { avatarMarkRole } from "@openbot/brand/agent-mark-role";
 import { AGENT_MARK_DANGER, agentMarkShades } from "@openbot/brand/agent-mark-shades";
 import { avatarMoodIsBusy } from "@openbot/brand/bloub-avatar-motion";
-import { avatarMoodInChat } from "@openbot/ui/features/agents/agent-avatar-mood";
+import {
+  avatarMoodInChat,
+  channelMemberMood,
+  channelWorkingMembers,
+} from "@openbot/ui/features/agents/agent-avatar-mood";
 import { describe, expect, it } from "vitest";
 
 describe("avatarMarkRole", () => {
@@ -63,6 +67,35 @@ describe("live mood", () => {
   });
 });
 
+describe("channel faces", () => {
+  const members = [{ agentId: "ana" }, { agentId: "bia" }, { agentId: "caio" }];
+
+  it("moves only the members that work while the channel runs a task", () => {
+    const working = channelWorkingMembers({ activeTasks: 1, members }, { bia: "working", caio: "waiting" });
+    expect(channelMemberMood("bia", working, false)).toBe("working");
+    expect(channelMemberMood("ana", working, false)).toBe("idle");
+    expect(channelMemberMood("caio", working, false)).toBe("idle");
+  });
+
+  it("moves every member when the channel works and no member says so", () => {
+    const working = channelWorkingMembers({ activeTasks: 2, members }, {});
+    expect(working).toBe(true);
+    for (const { agentId } of members) expect(channelMemberMood(agentId, working, false)).toBe("working");
+  });
+
+  it("keeps every face still when the channel runs no task", () => {
+    const working = channelWorkingMembers({ activeTasks: 0, members }, { ana: "working" });
+    expect(working).toBe(false);
+    expect(channelMemberMood("ana", working, false)).toBe("idle");
+    expect(channelMemberMood("ana", undefined, true)).toBe("idle");
+  });
+
+  it("works live in the open channel", () => {
+    expect(channelMemberMood("ana", new Set(["ana"]), true)).toBe("live");
+    expect(channelMemberMood("bia", new Set(["ana"]), true)).toBe("idle");
+  });
+});
+
 describe("agentMarkEyelid", () => {
   it("opens the eyes more as the agent gets busier", () => {
     expect(agentMarkEyelid("live")).toBe(0);
@@ -96,8 +129,8 @@ describe("agentMarkShades", () => {
   });
 
   it("lets the browser mix the shades of a colour that is not hex", () => {
-    const shades = agentMarkShades("var(--openbot-accent)");
+    const shades = agentMarkShades("var(--openbot-logo-production)");
     expect(shades.right).toContain("color-mix(");
-    expect(shades.glyph).toBe("#ffffff");
+    expect(shades.glyph).toContain("oklch(from var(--openbot-logo-production)");
   });
 });

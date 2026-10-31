@@ -253,8 +253,9 @@ and the sides have the same hue with less light; `agent-mark-shades.ts` makes th
 The symbol on the lid is white, or a dark ink when the OKLab lightness of the color is more than
 0.78, as for lime and yellow. The box of a failed agent is red (`--openbot-danger`). The silhouette
 clips the inner edges, so their round ends do not go past the rounded corners. The faces, the edges,
-the eyes and the symbols get their colors as SVG attributes, so a copy of the SVG without the
-stylesheet (`createStaticAvatarSvg`) still shows the box at rest.
+the eyes and the symbols get their colors in their `style`, so a copy of the SVG without the
+stylesheet (`createStaticAvatarSvg`) still shows the box at rest. The accent can be a CSS variable,
+as on the startup splash; the browser then mixes the shades.
 
 The left face has two eyes (`AgentMarkSide`): a light eye with an outline, a dark pupil with a white
 glint, and an eyelid in the color of the left face. The white of the eye clips the pupil and the
@@ -287,6 +288,23 @@ The mood (`AvatarMood`) sets the lid symbol, the eyelids and the motion:
 row and the pinned row of the active agent. The chat header, the activity line of the agent chat and
 of a channel, and the open chat panel of a diagram show `live` while their agent works.
 `avatarMoodIsBusy` counts `live` as busy.
+
+A group of small faces moves only for the members that work. `ChannelAvatar` takes `working`, a set
+of agent ids or `true` for all members, and `open` for the open channel (`channelMemberMood`). In the
+sidebar, the channel summary only counts the running tasks, so `channelWorkingMembers` takes the
+members whose own mood is `working` while the channel runs a task, and every member when no mood
+says so. The channel header uses the workers of the activity line, in `live`. The face stacks of an
+agent message marker move for each recipient that still runs the message, in `working`: the
+recipients work in their own chats. The faces of the other members stay still.
+
+An avatar box of 28 px or less (the `agent-avatar` size container, in `app-shell.css`) does not draw
+the orbit, the sparks, the second laser or the emblem: at that size they are noise. Its laser and halo
+are wider, so the work still shows. The eyes and the lid symbol stay. The faces of a sidebar channel
+cluster (about 19 px) and of the Dynamic Island (20 px) use this rule; the 32 px activity line does not.
+
+The desktop startup splash (`StartupSplash`) shows the mark at 96 px, `working`, in the logo color of
+the build (`var(--openbot-logo-production)` and the dev and preview colors). The web client shows the
+crew of `AppLoadingScreen`. The window has no splash before the renderer loads.
 
 All motion is CSS in `packages/brand/src/logo.css`, only for `data-animated="true"` and
 `prefers-reduced-motion: no-preference`. `AgentAvatar` sets `animated` for a busy mood

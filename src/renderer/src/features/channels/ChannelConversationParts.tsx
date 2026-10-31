@@ -62,7 +62,12 @@ export function ChannelErrorNotice() {
   );
 }
 
-export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: () => void }) {
+/** `working` names the members that work now. The channel is open, so their faces work `live`. */
+export function ChannelHeaderTitle(props: {
+  channelId: string;
+  onOpenSettings: () => void;
+  working: ReadonlySet<string>;
+}) {
   const channels = useChannels();
   const { t } = useText();
   const page = useOpenChannel(props.channelId);
@@ -95,7 +100,12 @@ export function ChannelHeaderTitle(props: { channelId: string; onOpenSettings: (
             onClick={props.onOpenSettings}
             disabled={current().channel.archived}
           >
-            <ChannelAvatar members={current().channel.members} agents={channels.agents()} />
+            <ChannelAvatar
+              members={current().channel.members}
+              agents={channels.agents()}
+              working={props.working}
+              open
+            />
           </Button>
           <button
             ref={nameButton}

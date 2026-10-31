@@ -53,16 +53,21 @@ function computeShades(accent: string): AgentMarkShades {
   };
 }
 
-/** A colour that is not a hex code. The browser mixes the shades, and the lid symbol stays white. */
+/**
+ * A colour that is not a hex code, such as a CSS variable. The browser mixes the shades. The lid
+ * symbol is white, or a dark ink of the hue when the lightness is above `LIGHT_LID`: the clamps give
+ * one value or the other.
+ */
 function mixedShades(accent: string): AgentMarkShades {
   const mix = (percent: number, base: string) => `color-mix(in oklab, ${accent} ${percent}%, ${base})`;
+  const light = `clamp(0, (l - ${LIGHT_LID}) * 1000, 1)`;
   return {
     top: accent,
     right: mix(74, "black"),
     left: mix(56, "black"),
     ink: mix(34, "black"),
     lite: mix(6, "white"),
-    glyph: WHITE,
+    glyph: `oklch(from ${accent} clamp(0.3, (${LIGHT_LID} - l) * 1000, 1) calc(c * 0.5 * ${light}) h)`,
   };
 }
 

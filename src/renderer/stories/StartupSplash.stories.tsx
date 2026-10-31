@@ -30,7 +30,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The eyes draw in, the logo blinks while loading, then the splash fades out. */
+/** The agent box fades in and works while the app loads, then the splash fades out. */
 export const Sequence: Story = {};
 
 /** The splash never finishes, so the loading state can be inspected. */

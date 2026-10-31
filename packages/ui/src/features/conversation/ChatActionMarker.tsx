@@ -22,7 +22,7 @@ import {
 import type { JSX } from "@solidjs/web";
 import { Dynamic } from "@solidjs/web";
 import { createSignal, createUniqueId, For, Show, untrack } from "solid-js";
-import { avatarHeadColor } from "../../bloub-avatar";
+import { type AvatarMood, avatarHeadColor } from "../../bloub-avatar";
 import type {
   AgentMessageMarkerModel,
   AgentProfile,
@@ -274,6 +274,17 @@ function AgentMessageGroupMarker(
     ),
   ];
   const agents = () => agentIds().map((agentId) => props.agents.find((agent) => agent.id === agentId));
+  // The agents that still work on a message of the group. Their faces in the stack move.
+  const workingIds = () =>
+    new Set(
+      props.group.messages.flatMap(({ marker }) =>
+        marker.direction === "outgoing"
+          ? marker.targetDeliveries
+              .filter((delivery) => deliveryIsRunning(delivery.status))
+              .map((delivery) => delivery.agentId)
+          : [],
+      ),
+    );
   const label = () => t("chat.marker.messageGroup", { count: props.group.messages.length });
   const agentsLabel = () => {
     const ids = agentIds();
@@ -309,8 +320,14 @@ function AgentMessageGroupMarker(
             onClick={control.toggle}
           >
             <span class="chat-action-avatar-stack" aria-hidden="true">
-              <For each={agents().slice(0, 3)}>
-                {(agent) => <AgentAvatar agent={agent} class="chat-action-agent-avatar" />}
+              <For each={agentIds().slice(0, 3)}>
+                {(agentId) => (
+                  <AgentAvatar
+                    agent={props.agents.find((agent) => agent.id === agentId)}
+                    mood={workingMood(workingIds().has(agentId))}
+                    class="chat-action-agent-avatar"
+                  />
+                )}
               </For>
             </span>
             <span>{agentsLabel()}</span>
@@ -745,6 +762,7 @@ function AgentTarget(props: {
                 {(delivery) => (
                   <AgentAvatar
                     agent={props.agents.find((agent) => agent.id === delivery.agentId)}
+                    mood={workingMood(deliveryIsRunning(delivery.status))}
                     class="chat-action-agent-avatar"
                   />
                 )}
@@ -1042,8 +1060,23 @@ function routineHistoryIcon(status: RoutineRunMarkerTransition["status"]) {
 }
 
 function deliveryStatusLabel(status: QueueDeliveryStatus, t: AppTranslate): string {
-  if (status === "starting" || status === "running") return t(STATUS_LABELS["in-progress"]);
+  if (deliveryIsRunning(status)) return t(STATUS_LABELS["in-progress"]);
   return t(STATUS_LABELS[status]);
+}
+
+/** The agent works on the message now. */
+function deliveryIsRunning(
+  status: QueueDeliveryStatus,
+): status is Extract<QueueDeliveryStatus, "starting" | "running"> {
+  return status === "starting" || status === "running";
+}
+
+/**
+ * The face of a recipient. It works in its own chat, not in this one, so it is `working` and not
+ * `live`. A named function, not a ternary in the prop: the avatar reads its mood in a tracked effect.
+ */
+function workingMood(working: boolean): AvatarMood {
+  return working ? "working" : "idle";
 }
 
 function statusIcon(status: ChatActionMarkerStatus) {

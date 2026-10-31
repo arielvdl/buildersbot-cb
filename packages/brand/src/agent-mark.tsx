@@ -301,18 +301,18 @@ export function AgentMark(props: AgentMarkProps) {
       </Show>
       <g class="agent-mark-shell">
         <g class="agent-mark-body">
-          <path class="agent-mark-top" d={TOP_FACE} fill={shades().top} />
-          <path class="agent-mark-right" d={RIGHT_FACE} fill={shades().right} />
-          <path class="agent-mark-left" d={LEFT_FACE} fill={shades().left} />
+          <path class="agent-mark-top" d={TOP_FACE} style={{ fill: shades().top }} />
+          <path class="agent-mark-right" d={RIGHT_FACE} style={{ fill: shades().right }} />
+          <path class="agent-mark-left" d={LEFT_FACE} style={{ fill: shades().left }} />
           <path d={TOP_FACE} fill={`url(#${glossId})`} />
           <Show when={busy() || mood() === "waiting"}>
-            <path class="agent-mark-flash" d={TOP_FACE} fill={shades().lite} />
+            <path class="agent-mark-flash" d={TOP_FACE} style={{ fill: shades().lite }} />
           </Show>
           <path
             class="agent-mark-edge"
             d={OUTLINE}
             fill="none"
-            stroke={shades().ink}
+            style={{ stroke: shades().ink }}
             stroke-width="7"
             stroke-linejoin="round"
           />
@@ -323,7 +323,7 @@ export function AgentMark(props: AgentMarkProps) {
             d={INNER_EDGES}
             clip-path={`url(#${shapeId})`}
             fill="none"
-            stroke={shades().lite}
+            style={{ stroke: shades().lite }}
             stroke-width="6"
             stroke-linecap="round"
             opacity="0.38"
@@ -333,7 +333,7 @@ export function AgentMark(props: AgentMarkProps) {
               <g
                 class="agent-mark-lid"
                 clip-path={`url(#${lidId})`}
-                color={shades().glyph}
+                style={{ color: shades().glyph }}
                 fill="none"
                 stroke="currentColor"
                 stroke-width="8"
@@ -350,7 +350,7 @@ export function AgentMark(props: AgentMarkProps) {
               <g
                 class="agent-mark-emblem"
                 transform={RIGHT_PLANE}
-                color={shades().lite}
+                style={{ color: shades().lite }}
                 fill="none"
                 stroke="currentColor"
                 stroke-width="5.4"
@@ -408,21 +408,26 @@ function AgentMarkSide(props: { shades: AgentMarkShades; eyelid: number }) {
             cy={EYES.y}
             rx={EYES.radiusX}
             ry={EYES.radiusY}
-            fill={props.shades.lite}
-            stroke={props.shades.ink}
+            style={{ fill: props.shades.lite, stroke: props.shades.ink }}
             stroke-width="1.8"
           />
           <g clip-path={`url(#${clipIds[index]})`}>
             <g class="agent-mark-pupil">
-              <circle cx={x} cy={EYES.y} r="4.6" fill={props.shades.ink} />
+              <circle cx={x} cy={EYES.y} r="4.6" style={{ fill: props.shades.ink }} />
               <circle cx={x + 1.8} cy={EYES.y - 2} r="1.5" fill="#fff" />
             </g>
             <g class="agent-mark-eyelid" transform={`translate(0 ${round(props.eyelid * EYELID_TRAVEL)})`}>
-              <rect x={x - 11} y={EYES.y - EYES.radiusY - 22} width="22" height="22" fill={props.shades.left} />
+              <rect
+                x={x - 11}
+                y={EYES.y - EYES.radiusY - 22}
+                width="22"
+                height="22"
+                style={{ fill: props.shades.left }}
+              />
               <path
                 d={`M${x - 10} ${EYES.y - EYES.radiusY}H${x + 10}`}
                 fill="none"
-                stroke={props.shades.ink}
+                style={{ stroke: props.shades.ink }}
                 stroke-width="2.6"
                 stroke-linecap="round"
               />

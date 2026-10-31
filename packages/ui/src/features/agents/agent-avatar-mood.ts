@@ -1,5 +1,5 @@
 import type { AvatarMood } from "@openbot/brand/bloub-avatar-motion";
-import type { AgentApproval, QueueSnapshot } from "@openbot/contracts/ipc";
+import type { AgentApproval, ChannelSummary, QueueSnapshot } from "@openbot/contracts/ipc";
 import { isAgentWorking } from "@openbot/ui/features/sidebar/sidebar-agent-states";
 
 export interface AgentAvatarMoodsInput {
@@ -47,4 +47,36 @@ export function computeAgentAvatarMoods(input: AgentAvatarMoodsInput): Record<st
  */
 export function avatarMoodInChat(mood: AvatarMood, chatOpen: boolean): AvatarMood {
   return chatOpen && mood === "working" ? "live" : mood;
+}
+
+/**
+ * The members of a channel that work now, for the faces of the channel. A set names them. `true`
+ * means that the channel works but does not say who, so every face works. `false`: nobody works.
+ */
+export type ChannelWorkingMembers = ReadonlySet<string> | boolean;
+
+/**
+ * The working members of a channel, from its summary. The summary only counts the running tasks, so
+ * a member works when the channel runs a task and the member's own mood is `working`. When no
+ * member's mood says so, for example while the lead routes the request, every member works.
+ */
+export function channelWorkingMembers(
+  channel: Pick<ChannelSummary, "activeTasks" | "members">,
+  agentMoods: Readonly<Record<string, AvatarMood>>,
+): ChannelWorkingMembers {
+  if (channel.activeTasks <= 0) return false;
+  const ids = new Set(
+    channel.members.filter((member) => agentMoods[member.agentId] === "working").map((member) => member.agentId),
+  );
+  return ids.size > 0 ? ids : true;
+}
+
+/** The mood of one face of a channel: `working` while the member works, and `live` in the open channel. */
+export function channelMemberMood(
+  agentId: string,
+  working: ChannelWorkingMembers | undefined,
+  channelOpen: boolean,
+): AvatarMood {
+  const works = working === true || (typeof working === "object" && working.has(agentId));
+  return works ? avatarMoodInChat("working", channelOpen) : "idle";
 }

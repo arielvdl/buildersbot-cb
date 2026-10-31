@@ -111,7 +111,7 @@ async function drawAvatar(context: CanvasRenderingContext2D, preview: AgentTempl
   }
   // The Bloub is drawn larger than its box, the way `.agent-avatar > svg` draws it in the app.
   const size = AVATAR_SIZE * 1.28;
-  const svg = createStaticAvatarSvg(preview.avatarSeed, preview.avatarHue);
+  const svg = createStaticAvatarSvg(preview.avatarSeed, preview.avatarHue, preview.title);
   const image = await loadSvg(svg, size);
   context.drawImage(image, cx - size / 2, cy - size / 2 - AVATAR_SIZE * 0.08, size, size);
 }
