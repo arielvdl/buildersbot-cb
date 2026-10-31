@@ -26,6 +26,9 @@
  * have it, and the client ignores it until then. A category that this version does not know is
  * dropped for the same reason. Fields that version 1 does not name are ignored, so the Hub can add
  * an optional field without a new version. A change of meaning needs a new version.
+ *
+ * `version`, `apps.hide` and `categories` are optional. Many JSON writers send `null` for a field
+ * with no value, so `null` reads as an absent field. A profile without `version` is version 1.
  */
 
 import { SKILL_CATEGORIES, type SkillCategory } from "./ipc-skills";
@@ -36,7 +39,11 @@ import { hasUnsafeAccountNameCharacters, normalizeAccountName } from "./validati
 export const APP_PROFILE_VERSION = 1;
 
 export const APP_PROFILE_LIMITS = {
-  /** The JSON text of one profile, in UTF-16 code units. The Hub keeps its whole `/session` answer under 8 KB. */
+  /**
+   * One profile as JSON, in UTF-16 code units: the text that `decodeAppProfileText` reads, and the
+   * profile that the decoder gives, which the client keeps. The Hub keeps its whole `/session`
+   * answer under 8 KB.
+   */
   text: 8 * 1024,
   /** The visible characters of the tag. */
   tag: 48,
@@ -115,21 +122,31 @@ function decodeUpdatedAt(value: unknown): string | null {
   return ISO_DATE_TIME_PATTERN.test(value) && Number.isFinite(Date.parse(value)) ? value : null;
 }
 
+/** An optional field with no value: absent, or `null`. */
+function isAbsent(value: unknown): boolean {
+  return value === undefined || value === null;
+}
+
 /**
  * The profile in a decoded JSON value, or null when the value is not a valid version 1 profile.
- * A profile that shows no app and no category is refused too: it would empty the list.
+ * A profile that shows no app and no category is refused too: it would empty the list. So is a
+ * profile that is longer than `APP_PROFILE_LIMITS.text` as JSON after decoding, so that the client
+ * can keep each profile that it accepts.
  */
 export function decodeAppProfile(value: unknown): AppProfile | null {
-  if (!isDynamicRecord(value) || value.version !== APP_PROFILE_VERSION) return null;
+  if (!isDynamicRecord(value)) return null;
+  if (!isAbsent(value.version) && value.version !== APP_PROFILE_VERSION) return null;
   const tag = decodeTag(value.tag);
   const updatedAt = decodeUpdatedAt(value.updatedAt);
   if (tag === null || updatedAt === null || !isDynamicRecord(value.apps)) return null;
   const show = decodeIds(value.apps.show);
-  const hide = value.apps.hide === undefined ? [] : decodeIds(value.apps.hide);
-  const categories = value.categories === undefined ? [] : decodeCategories(value.categories);
+  const hide = isAbsent(value.apps.hide) ? [] : decodeIds(value.apps.hide);
+  const categories = isAbsent(value.categories) ? [] : decodeCategories(value.categories);
   if (show === null || hide === null || categories === null) return null;
   if (show.length === 0 && categories.length === 0) return null;
-  return { version: APP_PROFILE_VERSION, tag, apps: { show, hide }, categories, updatedAt };
+  const profile: AppProfile = { version: APP_PROFILE_VERSION, tag, apps: { show, hide }, categories, updatedAt };
+  // The limits above keep this text under about 17,000 code units, so measuring it costs little.
+  return JSON.stringify(profile).length <= APP_PROFILE_LIMITS.text ? profile : null;
 }
 
 /** The profile in a JSON text, or null when the text is too long, is not JSON, or is not a valid profile. */
