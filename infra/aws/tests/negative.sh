@@ -463,6 +463,51 @@ expect_refusal "D16 deploy-base recusa criar a base sobre sobras (bucket de buil
   bash scripts/deploy-base.sh --alert-email ops@example.com
 expect_refusal "D16 deploy-base exige --alert-email só na criação" "informe --alert-email" h_leftover bash scripts/deploy-base.sh
 
+# ---------------------------------------------------------------- D: ordem da ops e da proxy no deploy-base
+# O bb-srv-ProxyReload passou da bb-srv-proxy para a bb-srv-ops: uma bb-srv-proxy do template antigo, ainda dona dele,
+# vai antes da ops (senão a ops falha pelo nome repetido). O create-change-set é simulado e cada stack responde "sem
+# mudanças": a ordem é a dos create-change-set no log do aws falso.
+h_order() {
+  case "$1 $2" in
+    "cloudformation describe-stacks") fake_cfn "$@" ;;
+    "cloudformation describe-stack-resources") [ -n "${FAKE_RELOAD_OWNER:-}" ] && echo "$FAKE_RELOAD_OWNER" ;;
+    "cloudformation describe-change-set") echo "The submitted information didn't contain changes. Submit different information to create a change set." ;;
+    "ec2 describe-security-groups" | "ec2 describe-nat-gateways") echo 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f h_order
+deploy_order() { # [VAR=valor...]: "<stacks dos create-change-set, na ordem>|<escritas>"; a saída vai para deploy-order.out
+  local out
+  : >"$FAKE_AWS_LOG"
+  out=$(env FAKE_AWS_HANDLER=h_order FAKE_AWS_SIMULATE="cloudformation create-change-set,cloudformation delete-change-set" \
+    FAKE_STACKS="bb-srv-dns=CREATE_COMPLETE bb-srv-base=CREATE_COMPLETE bb-srv-ops=CREATE_COMPLETE ${PROXY_STACK-bb-srv-proxy=UPDATE_COMPLETE}" \
+    FAKE_OUTPUT_VpcId=vpc-0123 FAKE_OUTPUT_HostedZoneName=bb-aws.example.com FAKE_OUTPUT_HostedZoneId=Z123 \
+    FAKE_OUTPUT_HostedZoneNameServers=ns-1.example.net "$@" bash scripts/deploy-base.sh 2>&1 </dev/null)
+  echo "$(sed -n 's/^SIMULATED cloudformation create-change-set --stack-name \([^ ]*\) .*/\1/p' "$FAKE_AWS_LOG" | tr '\n' ' ')|$(grep -c '^WRITE' "$FAKE_AWS_LOG")"
+  printf '%s\n' "$out" >"$WORK/deploy-order.out"
+}
+order=$(deploy_order FAKE_RELOAD_OWNER=UPDATE_COMPLETE)
+if [ "$order" = 'bb-srv-dns bb-srv-base bb-srv-proxy bb-srv-ops |0' ] && grep -q 'Ação do dono no Cloudflare' "$WORK/deploy-order.out"; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "D deploy-base: a bb-srv-proxy antiga (dona do bb-srv-ProxyReload) vai antes da bb-srv-ops"
+else
+  bad "D deploy-base com a bb-srv-proxy antiga: ordem '$order'" "$(cat "$WORK/deploy-order.out")"
+fi
+order_new=$(deploy_order FAKE_RELOAD_OWNER=None)
+order_none=$(PROXY_STACK='' deploy_order)
+if [ "$order_new" = 'bb-srv-dns bb-srv-base bb-srv-ops bb-srv-proxy |0' ] && [ "$order_none" = "$order_new" ] &&
+  ! grep -q 'describe-stack-resources' "$FAKE_AWS_LOG"; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "D deploy-base: sem a bb-srv-proxy, ou com a nova, a ordem é ops e depois proxy"
+else
+  bad "D deploy-base com a bb-srv-proxy nova ou sem ela: '$order_new' e '$order_none'" "$(cat "$WORK/deploy-order.out")"
+fi
+order_err=$(deploy_order)
+if [ "$order_err" = '|0' ] && grep -q 'não consegui ler os recursos da stack bb-srv-proxy' "$WORK/deploy-order.out"; then
+  passed=$((passed + 1)); printf 'ok     %s\n' "D deploy-base: sem ler os recursos da bb-srv-proxy, para antes de qualquer change set"
+else
+  bad "D deploy-base com a leitura da bb-srv-proxy falhando: '$order_err'" "$(cat "$WORK/deploy-order.out")"
+fi
+
 # ---------------------------------------------------------------- D: zona em stack própria (achado 20)
 expect_refusal "D20 deploy-signal exige a stack bb-srv-dns" "bb-srv-dns precisa existir" h_signal \
   env FAKE_STACKS="bb-srv-base=CREATE_COMPLETE" bash scripts/deploy-signal.sh --commit "$FIRST" --acme-email acme@example.com
