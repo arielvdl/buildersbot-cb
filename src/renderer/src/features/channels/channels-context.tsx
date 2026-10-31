@@ -6,6 +6,7 @@ import { useDirectMessages } from "../conversation/direct-messages-context";
 import { serverRoleCanAdminister } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { useWindowPage } from "../window/window-page-context";
+import { announceChannelCreated } from "./channel-created";
 import { readChannelSelection, writeChannelSelection } from "./channel-selection";
 import { type ChannelsController, createChannelsController } from "./channels-controller";
 import { channelsPort } from "./channels-port";
@@ -68,6 +69,7 @@ export function ChannelsProvider(props: ParentProps) {
     // arrives behind it was never seen, however focused the window is. The channel stays
     // selected under the report, which is the state this read has to refuse.
     canMarkRead: () => document.hasFocus() && !windowPage.conversationCovered(),
+    onCreated: announceChannelCreated,
   });
   return <ChannelsControllerProvider controller={controller}>{props.children}</ChannelsControllerProvider>;
 }

@@ -12,15 +12,18 @@ import { actionToast } from "../../action-toast";
 import { desktopAnalytics } from "../../analytics";
 import { toAgentProfile, withoutAgent } from "../../app-message-projection";
 import { createStoredProfile } from "../../app-stored-values";
+import { useLayout } from "../../layout";
 import { useNavigation } from "../../navigation";
 import { createScopeGuard } from "../../scope-lifetime";
 import { createSimpleContext } from "../../simple-context";
 import { useTurns } from "../../turns";
 import { useAgentThreads } from "../agent-threads/agent-threads-context";
+import { onChannelCreated } from "../channels/channel-created";
 import { useConversation } from "../conversation/conversation-context";
 import { agentConversationKey } from "../conversation/conversation-keys";
 import { useDirectMessages } from "../conversation/direct-messages-context";
 import { useServers } from "../servers/servers-context";
+import { newChatSectionId } from "../sidebar/new-chat-section";
 import { useSidebar } from "../sidebar/sidebar-context";
 import { type NewAgentDraft, newAgentInput } from "./agent-create-input";
 import { attentionAgentId, withoutAttention } from "./agent-runtime-snapshot";
@@ -73,17 +76,42 @@ const AgentActions = createSimpleContext({
     const { initializeConversation, removeConversation } = useConversation();
     const threads = useAgentThreads();
     const { setActiveTurns, setFailedTurns, setQueues, setPendingPrompts } = useTurns();
-    const { sidebarLayout, setSidebarLayout, applySidebarLayoutAction, removePinnedSidebarItemEverywhere } =
-      useSidebar();
+    const {
+      sidebarLayout,
+      setSidebarLayout,
+      applySidebarLayoutAction,
+      removePinnedSidebarItemEverywhere,
+      selectedRailSectionId,
+    } = useSidebar();
+    const layout = useLayout();
     const { clearDirectSelection } = useDirectMessages();
     const { selectAgent } = useNavigation();
     const [duplicatingSectionIds, setDuplicatingSectionIds] = createSignal<Set<string>>(new Set());
 
-    /** Asks the host for the agent. */
-    function requestNewAgent(draft: NewAgentDraft) {
+    /**
+     * Files a new chat in the section that the rail has selected, so a chat made while the person is in a
+     * section stays there. "All" and "No section" leave it without a section. A failed filing does not
+     * undo the chat: it stays in the unassigned section, where the person can move it.
+     */
+    async function fileInSelectedSection(chatId: string): Promise<void> {
+      if (!activeServerSupportsCapability("sidebar-layout")) return;
+      const sectionId = newChatSectionId(sidebarLayout(), selectedRailSectionId(), layout.sectionRailVisible());
+      if (sectionId === null) return;
+      try {
+        await applySidebarLayoutAction({ type: "assign", agentId: chatId, sectionId });
+      } catch {
+        // The chat exists and works; only its place in the list is missing.
+      }
+    }
+    onCleanup(onChannelCreated((channelId) => void fileInSelectedSection(channelId)));
+
+    /** Asks the host for the agent, and files it in the selected section. */
+    async function requestNewAgent(draft: NewAgentDraft) {
       const createModelSupported =
         activeServer()?.kind !== "remote" || activeServerSupportsCapability(TEAM_AGENT_CREATE_MODEL_CAPABILITY);
-      return agentsPort().agent.createAgent(newAgentInput(draft, createModelSupported));
+      const created = await agentsPort().agent.createAgent(newAgentInput(draft, createModelSupported));
+      await fileInSelectedSection(created.id);
+      return created;
     }
 
     /** Synchronous, so a caller that also selects the agent does both in the same update. */

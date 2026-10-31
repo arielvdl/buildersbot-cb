@@ -60,6 +60,8 @@ export interface ChannelsEnvironment {
   canMarkRead: () => boolean;
   /** Each channel list that the reader of `scope` gets, before the read marks the open channel read. */
   onList?: (channels: ChannelSummary[], scope: string) => void;
+  /** A save that made a new channel was accepted. It runs before the channel list refreshes. */
+  onCreated?: (channelId: string) => void;
 }
 
 export type ChannelsController = ReturnType<typeof createChannelsController>;
@@ -304,6 +306,7 @@ export function createChannelsController(env: ChannelsEnvironment) {
         return false;
       }
       failedCommand = null;
+      if (creating) env.onCreated?.(input.channelId);
       // Only creation closes the editor. Settings save on every field, so closing on a save
       // would shut the panel under the user between two edits.
       if (creating && state.selectedId === selectedBefore) {

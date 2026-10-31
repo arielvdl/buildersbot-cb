@@ -231,32 +231,36 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
       return;
     }
     if (busy()) return;
-    let dataUrl = reducedImage;
-    if (!dataUrl) {
-      setDraft((state) => {
-        state.saving = true;
-        state.error = null;
-      });
-      try {
-        const result = await renderSectionIconImage(current, crop(), SECTION_ICON_CROP_FRAME, background());
+    if (reducedImage) {
+      await save({ kind: "image", dataUrl: reducedImage });
+      return;
+    }
+    setDraft((state) => {
+      state.saving = true;
+      state.error = null;
+    });
+    let dataUrl: string;
+    try {
+      const result = await renderSectionIconImage(current, crop(), SECTION_ICON_CROP_FRAME, background());
+      if (result.reduced) {
+        reducedImage = result.dataUrl;
+        setNotice(t("sidebar.sectionIcon.reduced"));
         setDraft((state) => {
           state.saving = false;
-        });
-        if (result.reduced) {
-          reducedImage = result.dataUrl;
-          setNotice(t("sidebar.sectionIcon.reduced"));
-          return;
-        }
-        dataUrl = result.dataUrl;
-      } catch (cause) {
-        setDraft((state) => {
-          state.saving = false;
-          state.error = imageErrorText(cause);
         });
         return;
       }
+      dataUrl = result.dataUrl;
+    } catch (cause) {
+      setDraft((state) => {
+        state.saving = false;
+        state.error = imageErrorText(cause);
+      });
+      return;
     }
-    await save({ kind: "image", dataUrl });
+    // `saving` stays on from the render to the store. A write is not read back at once, so `save()`
+    // cannot test `busy()` here: it would still see the first Save and return without storing.
+    await store({ kind: "image", dataUrl });
   }
 
   /** The message of an image failure. Its browser error, when there is one, shows below it. */
@@ -271,6 +275,11 @@ function SectionIconForm(formProps: { sectionId: string; onClose: () => void }) 
 
   async function save(icon: SidebarSectionIcon | null): Promise<void> {
     if (busy()) return;
+    await store(icon);
+  }
+
+  /** Stores the icon in the layout and closes the dialog. The caller has taken the busy state. */
+  async function store(icon: SidebarSectionIcon | null): Promise<void> {
     setDraft((state) => {
       state.saving = true;
       state.error = null;
