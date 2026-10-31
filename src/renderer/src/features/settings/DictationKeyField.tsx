@@ -1,4 +1,5 @@
 import { isDictationAccelerator } from "@openbot/contracts/ipc";
+import { Input } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createSignal } from "solid-js";
 
@@ -84,10 +85,12 @@ export function DictationKeyField(props: {
       .replace("Shift", "⇧")
       .replaceAll("+", " + ");
 
+  // The field takes a combination, not text, so it plays no keystroke cue.
   return (
-    <input
+    <Input
       ref={field}
       class="dictation-key"
+      data-cuelume-type={undefined}
       data-capturing={capturing() ? "" : undefined}
       readonly
       disabled={props.disabled}

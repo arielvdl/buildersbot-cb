@@ -2708,18 +2708,8 @@ textarea {
 /* The outline: a ring in the colour of the surface under the avatar, so a face that overlaps another
    face, a badge or a row edge reads as cut out of it. The surface sets `--agent-avatar-outline` where
    it sets its background; under any other the ring stays transparent, because a ring that misses the
-   colour behind it shows as a halo. The ring is a stroke on the silhouette the Bloub paints first, the
-   paper under its eyes. It is drawn behind that fill, so only the outer half shows, and it does not
-   scale with the drawing, so the width is in pixels at every avatar size. */
-.bloub-avatar-svg > g:nth-of-type(2) > path:first-child {
-  stroke: var(--agent-avatar-outline, transparent);
-  stroke-width: calc(var(--agent-avatar-outline-width, 1.5px) * 2);
-  stroke-linejoin: round;
-  paint-order: stroke fill;
-  vector-effect: non-scaling-stroke;
-}
-
-/* A photo has no silhouette to stroke, so the same ring is an outline on its circle. */
+   colour behind it shows as a halo. A photo has no silhouette to stroke, so the ring is an outline on
+   its circle. */
 .agent-avatar-custom {
   overflow: hidden;
   outline: var(--agent-avatar-outline-width, 1.5px) solid var(--agent-avatar-outline, transparent);
@@ -2794,18 +2784,6 @@ textarea {
   .agent-avatar[data-breathe] {
     animation: none;
   }
-}
-
-/* The rings reach 1.4 ball radii, which is the margin the Bloub viewBox carries
-   past its body: 316 units drawn over the 200 the image fills, so the layer is
-   158% of the avatar box and sits (158% - 100%) / 2 outside it on each side. */
-.agent-avatar > .agent-avatar-arcs {
-  position: absolute;
-  inset: -29%;
-  width: auto;
-  height: auto;
-  overflow: visible;
-  translate: none;
 }
 
 .agent-row .agent-avatar {
@@ -3842,7 +3820,7 @@ textarea {
   background: var(--openbot-bg-surface-raised);
   box-shadow: var(--openbot-shadow-raised);
   color: var(--openbot-text-primary);
-  font-size: 13px;
+  font-size: var(--openbot-text-md);
   pointer-events: none;
 }
 
@@ -3884,7 +3862,7 @@ textarea {
   border-radius: var(--openbot-radius-sm);
   color: var(--openbot-text-muted);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--openbot-text-sm);
 }
 
 @keyframes dictation-pulse {
@@ -3899,16 +3877,21 @@ textarea {
   }
 }
 
-/* The combination field of the dictation row: it reads as a key cap, and shows it listens. */
+/* The combination field of the dictation row: it reads as a key cap, and shows it listens. It is an
+   `Input`, so it sets back the height, the focus ring and the instant border of a plain field. */
 .dictation-key {
   width: 10.5rem;
+  min-width: auto;
+  height: auto;
   padding: 4px 10px;
+  outline: revert;
+  transition: none;
   border: 1px solid var(--openbot-border);
   border-radius: var(--openbot-radius-sm);
   background: var(--openbot-bg-surface);
   color: var(--openbot-text-primary);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--openbot-text-sm);
   text-align: center;
   cursor: pointer;
 }

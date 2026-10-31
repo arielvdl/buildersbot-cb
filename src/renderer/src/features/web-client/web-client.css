@@ -410,6 +410,11 @@
   background: var(--openbot-bg-canvas);
 }
 
+/* The cover is a dialog, but it fills the window on a phone too: no workspace shows at its edge. */
+.web-app .web-app-lock.ui-dialog-content {
+  max-width: none;
+}
+
 .web-app-lock-card {
   display: flex;
   width: min(320px, 100%);

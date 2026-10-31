@@ -659,7 +659,8 @@ export function GlobalSearch(props: GlobalSearchProps) {
   /** The results keep only the selected section: a section is selected, and the switch is on it. */
   const scoped = () => props.sectionScope !== undefined && scope() === "section";
   let input: HTMLInputElement | undefined;
-  let scopeSwitch: HTMLDivElement | undefined;
+  /** The two triggers of the scope switch, so ⌘S can focus the selected one. */
+  const scopeTabs: { section?: HTMLElement; all?: HTMLElement } = {};
   let retryButton: HTMLButtonElement | undefined;
   let dialog: HTMLDivElement | undefined;
   let results: HTMLElement | undefined;
@@ -960,7 +961,7 @@ export function GlobalSearch(props: GlobalSearchProps) {
     // Tab cycles the filters, so ⌘S moves focus to the scope switch. The arrows then change the scope.
     if (event.code === "KeyS" && props.sectionScope) {
       event.preventDefault();
-      scopeSwitch?.querySelector<HTMLElement>('[role="tab"][data-selected]')?.focus();
+      scopeTabs[scope()]?.focus();
       return;
     }
     const index = Number(event.key) - 1;
@@ -986,7 +987,7 @@ export function GlobalSearch(props: GlobalSearchProps) {
           <Dialog.Title class="sr-only">{t("conversation.globalSearch.title")}</Dialog.Title>
           <Show when={props.sectionScope}>
             {(sectionScope) => (
-              <div ref={(element) => (scopeSwitch = element)} class="global-search-scope">
+              <div class="global-search-scope">
                 <Tabs.Root
                   value={scope()}
                   onChange={(value) => {
@@ -996,10 +997,18 @@ export function GlobalSearch(props: GlobalSearchProps) {
                 >
                   <Tabs.List aria-label={t("conversation.globalSearch.scope.label")}>
                     <FilterPill />
-                    <Tabs.Trigger value="section" aria-keyshortcuts="Meta+S Control+S">
+                    <Tabs.Trigger
+                      ref={(element) => (scopeTabs.section = element)}
+                      value="section"
+                      aria-keyshortcuts="Meta+S Control+S"
+                    >
                       {t("conversation.globalSearch.scope.section", { name: sectionScope().name })}
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="all" aria-keyshortcuts="Meta+S Control+S">
+                    <Tabs.Trigger
+                      ref={(element) => (scopeTabs.all = element)}
+                      value="all"
+                      aria-keyshortcuts="Meta+S Control+S"
+                    >
                       {t("conversation.globalSearch.scope.all")}
                     </Tabs.Trigger>
                   </Tabs.List>
