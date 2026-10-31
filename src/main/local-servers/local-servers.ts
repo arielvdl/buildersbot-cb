@@ -58,6 +58,7 @@ function childEnvironment(
   agentRoot: string,
   runtimeRoot: string,
   secret: string,
+  egressDefault: string | null,
 ): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(process.env)) {
@@ -69,6 +70,8 @@ function childEnvironment(
   environment[LOCAL_SERVER_ENVIRONMENT.runtimeRoot] = runtimeRoot;
   environment[LOCAL_SERVER_ENVIRONMENT.name] = entry.name;
   environment[LOCAL_SERVER_ENVIRONMENT.secret] = secret;
+  if (egressDefault) environment[LOCAL_SERVER_ENVIRONMENT.egressDefault] = egressDefault;
+  else delete environment[LOCAL_SERVER_ENVIRONMENT.egressDefault];
   return environment;
 }
 
@@ -119,6 +122,11 @@ export interface LocalServersOptions {
   log: { info: (message: string) => void; warn: (message: string, detail?: unknown) => void };
   platform: NodeJS.Platform;
   spawn?: SpawnChild;
+  /**
+   * The app default egress proxy as JSON, or null. Only a new server gets it, at its first start, so
+   * it has the proxy before its first agent. See docs/architecture/egress-proxy.md.
+   */
+  egressDefault?: () => string | null;
 }
 
 export type SpawnChild = (command: string, args: readonly string[], options: SpawnOptions) => ChildProcess;
@@ -194,7 +202,7 @@ export class LocalServers {
       publicKey: null,
     };
     yield* this.#registry.add(entry, LOCAL_SERVER_LIMIT).pipe(toLocalServerFailure);
-    return yield* this.#start(entry, true).pipe(
+    return yield* this.#start(entry, true, this.#options.egressDefault?.() ?? null).pipe(
       Effect.tapError(() =>
         // A server that never started holds nothing of the user's yet.
         this.#forget(entry).pipe(
@@ -267,6 +275,7 @@ export class LocalServers {
     this: LocalServers,
     entry: StoredLocalServer,
     select: boolean,
+    egressDefault: string | null = null,
   ): Effect.fn.Return<ServerSummary, LocalServerFailure> {
     if (this.#stopped) return yield* startFailure();
     const secret = yield* localSync(() => this.#options.cipher.decrypt(Buffer.from(entry.encryptedSecret, "base64")));
@@ -280,7 +289,7 @@ export class LocalServers {
         this.#options.command.executable,
         [...this.#options.command.args, `--user-data-dir=${paths.userData}`],
         {
-          env: childEnvironment(entry, paths.agentRoot, this.#options.runtimeRoot, secret),
+          env: childEnvironment(entry, paths.agentRoot, this.#options.runtimeRoot, secret, egressDefault),
           // Nothing is written to standard input. It stays open only so that it closes when Builders Bot ends.
           stdio: ["pipe", "pipe", "pipe"],
           windowsHide: true,

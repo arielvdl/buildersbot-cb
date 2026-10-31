@@ -669,6 +669,7 @@ export const messages = {
   "settings.search.keywords.billing": "plano, pagamento, assinatura, licença, faturas, cobrança",
   "settings.search.keywords.browserInApp": "navegador, páginas da web, navegador interno, links",
   "settings.search.keywords.browserProfiles": "perfis do navegador, Chrome, cookies, logins, entrar",
+  "settings.search.keywords.networkEgress": "saída de rede, proxy, proxy residencial, endereço IP, país, exceções",
   "settings.search.keywords.busyMessage": "orientar, ocupado, fila, interromper, mensagem durante o trabalho",
   "settings.search.keywords.computerUse": "controle do computador, tela, mouse, teclado",
   "settings.search.keywords.computerUsePermissions": "permissões, acessibilidade, gravação de tela, macOS",

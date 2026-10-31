@@ -2,6 +2,7 @@ import type { AppInfo, HostStatus, ServerSummary } from "@openbot/contracts/ipc"
 import { MCP_SERVERS_CAPABILITY } from "@openbot/contracts/ipc";
 import { AGENT_ACCESS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-access-v1";
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
+import { EGRESS_PROXY_CAPABILITY } from "@openbot/contracts/team-protocol/egress-proxy-v1";
 import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import type { AppTextKey } from "@openbot/i18n";
 import {
@@ -19,6 +20,7 @@ import {
   ShieldCheck,
   Sparkles,
   UsersRound,
+  Waypoints,
 } from "@openbot/ui";
 import { serverHasStorage } from "../files/storage-usage";
 import type { SettingsSearchKeys } from "../settings/settings-search";
@@ -45,6 +47,7 @@ const SERVER_SETTINGS_SECTION_LIST = [
   "transfer",
   "routines",
   "browser-profiles",
+  "network",
 ] as const;
 
 export type ServerSettingsSection = (typeof SERVER_SETTINGS_SECTION_LIST)[number];
@@ -138,6 +141,12 @@ export const SERVER_SETTINGS_SECTIONS = {
     keywords: "settings.search.keywords.browserProfiles",
     icon: AppWindow,
   },
+  network: {
+    title: "server.egress.title",
+    description: "server.egress.description",
+    keywords: "settings.search.keywords.networkEgress",
+    icon: Waypoints,
+  },
 } as const satisfies Record<
   ServerSettingsSection,
   { title: AppTextKey; description: AppTextKey; keywords: AppTextKey; icon: typeof Settings }
@@ -186,6 +195,8 @@ export function serverSettingsSectionShown(
       return server.kind === "local";
     case "browser-profiles":
       return serverCanAdminister(server, BROWSER_PROFILES_CAPABILITY);
+    case "network":
+      return serverCanAdminister(server, EGRESS_PROXY_CAPABILITY) && actionsAvailable(server);
   }
 }
 

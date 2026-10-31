@@ -113,17 +113,26 @@ const BASE_PASSTHROUGH = [
   EXTENSION_TOKEN_ENV,
 ];
 
+/**
+ * The browser of the server while the egress proxy is on: a profile folder of its own, and the
+ * `@playwright/mcp` configuration file that holds `browser.launchOptions.proxy`.
+ */
+export interface PlaywrightEgressLaunch {
+  userDataDir: string;
+  configPath: string;
+}
+
 /** The flags that start a browser of its own, or move or label the server. The broker sets its own. */
 const VALUE_FLAGS = new Set(["--port", "--host", "--mode", "--cdp-endpoint", "--user-data-dir", "--allowed-hosts"]);
 const BARE_FLAGS = new Set(["--extension", "--isolated", "--headless", "--shared-browser-context"]);
 
-function ownFlags(args: readonly string[]): string[] {
+function ownFlags(args: readonly string[], ownConfig: boolean): string[] {
   const kept: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index] ?? "";
     const name = arg.split("=")[0] ?? arg;
     if (BARE_FLAGS.has(name)) continue;
-    if (VALUE_FLAGS.has(name)) {
+    if (VALUE_FLAGS.has(name) || (ownConfig && name === "--config")) {
       // `--port 9` takes the next argument with it; `--port=9` is one argument.
       if (!arg.includes("=")) index += 1;
       continue;
@@ -144,14 +153,22 @@ function ownFlags(args: readonly string[]): string[] {
 export function playwrightUpstream(
   configs: readonly McpServerConfig[],
   findProgram: (name: string) => string | null,
+  egress?: PlaywrightEgressLaunch,
 ): PlaywrightUpstream | null {
   const row = configs.find((config) => config.enabled && isPlaywrightServer(config));
   if (!row) return null;
   const gated = row.args.some((arg) => GATED_LAUNCHER.test(arg));
   // One pass over the arguments, in order: the package and its own options stay, and a flag that the
   // broker sets itself goes with its value.
-  const kept = ownFlags(row.args.filter((arg) => !GATED_LAUNCHER.test(arg)));
-  const serverFlags = ["--extension", "--shared-browser-context"];
+  const kept = ownFlags(
+    row.args.filter((arg) => !GATED_LAUNCHER.test(arg)),
+    egress !== undefined,
+  );
+  // With the egress proxy on, the person's Chrome cannot use the server's proxy, so the server starts
+  // a browser of its own, with its own profile and the proxy in the configuration file.
+  const serverFlags = egress
+    ? ["--user-data-dir", egress.userDataDir, "--config", egress.configPath, "--shared-browser-context"]
+    : ["--extension", "--shared-browser-context"];
   const place = ["--port", "0", "--host", "127.0.0.1"];
   const env = Object.fromEntries(row.env.map((pair) => [pair.key, pair.value]));
   const passthrough = [...new Set([...BASE_PASSTHROUGH, ...row.envPassthrough])];

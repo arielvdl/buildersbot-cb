@@ -733,6 +733,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.billing": "plan, payment, subscription, license, invoices, seats",
   "settings.search.keywords.browserInApp": "browser, web pages, built-in browser, links",
   "settings.search.keywords.browserProfiles": "browser profiles, Chrome, cookies, logins, sign-in",
+  "settings.search.keywords.networkEgress": "network egress, proxy, residential proxy, IP address, country, bypass",
   "settings.search.keywords.busyMessage": "steer, busy, queue, interrupt, message while working",
   "settings.search.keywords.computerUse": "computer use, control the computer, screen, mouse, keyboard",
   "settings.search.keywords.computerUsePermissions": "permissions, accessibility, screen recording, macOS",

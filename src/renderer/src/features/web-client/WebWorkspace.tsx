@@ -1476,6 +1476,8 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       case "desktop":
       case "transfer":
       case "routines":
+      // The browser client does not show Network egress yet: it gets no egress calls.
+      case "network":
         return false;
     }
   }

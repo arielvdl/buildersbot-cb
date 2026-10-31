@@ -495,6 +495,15 @@ export class PlaywrightBroker {
     return this.#starting;
   }
 
+  /**
+   * Stops the upstream and ends its sessions, so the next request starts it with the options of now.
+   * The egress proxy calls it when its switch changes. The agents read a missing session and start again.
+   */
+  async resetUpstream(): Promise<void> {
+    this.#ledger.endAll();
+    await this.#stopUpstream();
+  }
+
   async #stopUpstream(): Promise<void> {
     const upstream = this.#upstream;
     this.#upstream = null;

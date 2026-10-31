@@ -62,6 +62,7 @@ import { BrowserControlSessions } from "./browser-control-sessions";
 import { browserViewCursor } from "./browser-cursor";
 import { BrowserDiagnostics } from "./browser-diagnostics";
 import { type BrowserOperationError, browserCall, browserFailure, browserSync } from "./browser-effects";
+import { type BrowserEgress, electronEgressSession } from "./browser-egress";
 import {
   type BrowserHostTab,
   type BrowserPreviewPage,
@@ -72,7 +73,7 @@ import {
   toPublicTab,
 } from "./browser-host-tab";
 import { sessionBrowserUserAgent } from "./browser-identity";
-import { describeBrowserTarget, navigateAndWait } from "./browser-navigation";
+import { describeBrowserTarget, navigateAndWait, setNavigationFailureText } from "./browser-navigation";
 import {
   browserLoadOptions,
   browserRequestHeaders,
@@ -392,6 +393,8 @@ export class BrowserHost {
   /** Whether the machine is too low on memory for one more tab. Only a server has a reading. */
   readonly #memoryLow: () => boolean;
   readonly #siteSession: BrowserSiteSession;
+  /** The egress proxy of this server, or null where there is none (a test). */
+  readonly #egress: BrowserEgress | null;
   readonly #idleTabSweep: NodeJS.Timeout;
 
   constructor(
@@ -409,11 +412,18 @@ export class BrowserHost {
       profileExists?: (profileId: string) => boolean;
       /** The sign-in of the person's own Chrome for one site, after the person agreed to it. */
       siteSession?: BrowserSiteSession;
+      /**
+       * The egress proxy of the server. Each session gets it before its first request, so a tab that
+       * `restore` loads cannot go direct. See docs/architecture/egress-proxy.md.
+       */
+      egress?: BrowserEgress;
     } = {},
   ) {
     this.#window = window;
     this.#memoryLow = options.memoryLow ?? (() => false);
     this.#siteSession = options.siteSession ?? (async () => ({ status: "unavailable" }));
+    this.#egress = options.egress ?? null;
+    this.#egress?.subscribe(() => this.#applyWebRtcPolicy());
     this.#browserProfile = options.browserProfile ?? (() => ({ kind: "shared" }));
     this.#profileExists = options.profileExists ?? (() => false);
     this.#downloadsRoot = downloadsRoot;
@@ -2613,10 +2623,23 @@ export class BrowserHost {
     });
     view.webContents.setAudioMuted(true);
     view.setBackgroundColor("#0b0b0b");
+    const policy = this.#egress?.webRtcPolicy();
+    if (policy) view.webContents.setWebRTCIPHandlingPolicy(policy);
     return view;
   }
 
+  /** While the egress proxy is on, WebRTC sends no UDP outside the proxy, so a page cannot read the real address. */
+  #applyWebRtcPolicy(): void {
+    const policy = this.#egress?.webRtcPolicy();
+    if (!policy) return;
+    for (const tab of this.#tabs.values()) {
+      if (!tab.contents.isDestroyed()) tab.contents.setWebRTCIPHandlingPolicy(policy);
+    }
+  }
+
   #configureSession(target: Session): void {
+    // First, so the proxy gate is in place before the session sends anything.
+    this.#egress?.attachSession(electronEgressSession(target));
     // Use the installed Chromium identity for pages, frames and workers.
     // The request policy keeps the Google account compatibility exception.
     // Service workers read the process fallback instead of the session, so it changes too.
@@ -2840,15 +2863,27 @@ export class BrowserHost {
       if (details.level === "error") this.#emitChanged();
     });
     contents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
-      if (!isMainFrame || code === -3 || tab.secret) return;
+      if (!isMainFrame || code === -3) return;
+      this.#egress?.reportPageFailure(code);
+      if (tab.secret) return;
+      const egressText = this.#egress?.pageFailureText(code);
       tab.diagnostics.add({
         kind: "load",
         level: "error",
-        message: `${code}: ${description}`,
+        message: egressText ? `${code}: ${egressText}` : `${code}: ${description}`,
         ...diagnosticUrlField(url),
       });
       this.#emitChanged();
     });
+    // A challenge of the egress proxy is answered here, with the stored credentials, and never shown.
+    contents.on("login", (event, details, authInfo, callback) => {
+      const answer = this.#egress?.proxyLogin(contents.id, details.url, authInfo) ?? null;
+      if (answer === null) return;
+      event.preventDefault();
+      if (answer === "cancel") callback();
+      else callback(answer.username, answer.password);
+    });
+    setNavigationFailureText(contents, (code) => this.#egress?.pageFailureText(code) ?? null);
     contents.on("page-title-updated", changed);
     contents.on("did-navigate", (_event, url) => {
       tab.documents += 1;

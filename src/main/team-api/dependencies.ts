@@ -10,6 +10,7 @@ import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-s
 import type { AgentTemplateService } from "../agent-template-service";
 import type { BrowserProfileService } from "../browser-profile-service";
 import type { PeerCustomProviderChanges } from "../custom-provider-changes";
+import type { EgressProxyService } from "../egress-proxy-service";
 import type { HostEventsApi } from "../host-events-api";
 import type { HostEventsService } from "../host-events-service";
 import type { HostReleaseService } from "../host-release-service";
@@ -387,6 +388,8 @@ export interface TeamApiAdmin {
   update?: Pick<RequestedUpdate, "snapshot" | "check" | "start" | "requestWhenIdle" | "cancel" | "changeSettings">;
   /** `host-timezone-v1`: the server timezone. */
   timezone?: Pick<ServerTimezonePreferenceStore, "get" | "set">;
+  /** `egress-proxy-v1`: the HTTP proxy that this computer's agents use for internet traffic. */
+  egressProxy?: Pick<EgressProxyService, "view" | "update" | "test">;
   /** `host-key-rotation-v1`: the owner changes this host's key. Resolves with the new public key. */
   hostKey?: { rotate(): Effect.Effect<{ publicKey: string }, RemoteWorkflowError> };
   /** `agent-memory-limit-v1`: how many memories each agent of this computer can keep. */

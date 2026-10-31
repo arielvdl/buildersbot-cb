@@ -73,6 +73,13 @@ const COOKIE_HEADER =
 // or a template is not taken for a secret. The search for the digit is bounded, so a line of
 // repeated `?key=` with no digit does not scan the rest of the line once each.
 const QUERY_SECRET = /([?&](?:key|code|ticket|sig)=)(?!\[redacted\])(?=[^&#\s"'<>)\]]{0,256}\d)[^&#\s"'<>)\]]{8,}/giu;
+// The user and password of a URL, such as a proxy address `http://user:password@host:port`. Only
+// the part before `@` goes. The runs are bounded, so a long line with no `@` is read once.
+const URL_USERINFO = /(\b[a-z][a-z0-9+.-]{0,15}:\/\/)[^\s/?#@:"'<>]{1,256}:[^\s/?#@"'<>]{1,256}@/giu;
+// A proxy line as providers give it: `host:port:user:password`. The host must have a dot and must
+// not follow a path, so `src/main/index.ts:120:15` and a time such as `12:30:45` stay.
+const PROXY_LINE =
+  /(?<![A-Za-z0-9.:_/@-])((?:[a-z0-9-]{1,63}\.){1,8}[a-z0-9-]{1,63}:\d{2,5}):[^\s:@/]{1,256}:[^\s]{1,256}/giu;
 // Bounded for the same reason as the label above, and more sharply: with `+`
 // on the local part, every character of a long payload consumed the rest of
 // the run looking for an `@` and then backtracked over all of it.
@@ -287,6 +294,9 @@ function applyTextRules(value: string): string {
       .replace(QUERY_SECRET, "$1[redacted]")
       .replace(KNOWN_SECRET_PREFIXES, "[redacted]")
       .replace(JSON_WEB_TOKEN, "[redacted]")
+      // Before the email rule: `user:password@host.com` would lose only part of the password there.
+      .replace(URL_USERINFO, "$1[redacted]@")
+      .replace(PROXY_LINE, "$1:[redacted]")
       .replace(EMAIL, "[redacted-email]")
   );
 }

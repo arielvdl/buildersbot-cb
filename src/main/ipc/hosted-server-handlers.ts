@@ -15,10 +15,13 @@ import { requireString } from "./validation";
 
 export interface HostedServerIpcDependencies {
   hostedServers: HostedServerDesktopService;
+  /** A server that this app made. It takes the default egress proxy when it is first online. */
+  onCreated?: (serverId: string) => Promise<void>;
 }
 
 export function hostedServerIpcHandlers({
   hostedServers,
+  onCreated,
 }: HostedServerIpcDependencies): Pick<IpcGroupHandlers, "hostedServers"> {
   return {
     hostedServers: {
@@ -32,7 +35,12 @@ export function hostedServerIpcHandlers({
       ),
       list: handler(() => runCauseEffect(hostedServers.list())),
       plans: handler(() => runCauseEffect(hostedServers.plans())),
-      create: payloadHandler(parseCreate, (input) => runCauseEffect(hostedServers.create(input))),
+      create: payloadHandler(parseCreate, async (input) => {
+        const summary = await runCauseEffect(hostedServers.create(input));
+        // The server exists now. `onCreated` logs its own failure, so the purchase does not fail.
+        await onCreated?.(summary.serverId);
+        return summary;
+      }),
       openCheckout: payloadHandler(
         (value) => requireString(value, "serverId", INPUT_LIMITS.identifier),
         (serverId) => runCauseEffect(hostedServers.openCheckout(serverId)),

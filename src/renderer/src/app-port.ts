@@ -44,6 +44,8 @@ export interface AppPort {
   billing: BuildersBotDesktopApi["billing"];
   license: BuildersBotDesktopApi["license"];
   hostedServers: BuildersBotDesktopApi["hostedServers"];
+  /** The egress proxy default that the servers this app makes later take. */
+  hostAdmin: Pick<BuildersBotDesktopApi["hostAdmin"], "getEgressDefault" | "setEgressDefault">;
   routineFeed: BuildersBotDesktopApi["routineFeed"];
   events: BuildersBotDesktopApi["events"];
   voice: Pick<

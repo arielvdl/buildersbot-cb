@@ -30,4 +30,15 @@ export const messages = defineMessages("error.host", {
   "error.host.tenantShutdownTimeout": "Tenant shutdown timed out. No application replacement was started.",
   "error.host.tenantHealthMissing":
     "Tenant health reports are missing or unhealthy after restart. Inspect tenant sessions before another update.",
+  "error.host.egressBlocked":
+    "Builders Bot did not send this request: the network egress of this server is blocked. It never uses a direct connection. An admin can check Server settings › Network egress.",
+  "error.host.egressUnreachable":
+    "Builders Bot did not send this request: the network egress proxy of this server does not answer. It never uses a direct connection. An admin can check Server settings › Network egress.",
+  "error.host.egressAuthRefused":
+    "Builders Bot did not send this request: the network egress proxy refused the user or the password. It never uses a direct connection. An admin can check Server settings › Network egress.",
+  "error.host.egressTargetRefused": "The network egress proxy did not connect to this address.",
+  "error.host.egressPageFailed":
+    "The page did not load through the network egress proxy of this server. Builders Bot never uses a direct connection. An admin can check Server settings › Network egress.",
+  "error.host.egressIncomplete":
+    "Set the host, the port, and the password of the user before you turn on the network egress.",
 });
