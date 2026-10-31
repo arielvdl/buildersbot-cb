@@ -121,13 +121,14 @@ nickname. When the plugin is installed, its page has an accounts panel: it adds 
 account with a nickname and a number, links it with a pairing code (default) or a
 QR code, and turns accounts on and off, sets the default, sets read only, unlinks
 and removes them. Main runs the same pinned CLI for this; see
-[WhatsApp accounts](../../docs/architecture/whatsapp-accounts.md). An agent can
-still link from a chat: `link_account` takes an `account_id` and the number in
-E.164 and returns an 8-character code. The user types it in WhatsApp › Settings ›
-Linked devices › Link a device › Link with phone number instead. The code lasts
-two minutes. One number is one account: never link a second number into an
-account that had another number, because wazap then deletes the earlier history
-after seven days. The agent rules are in `plugins/whatsapp/skills/whatsapp-accounts/SKILL.md`;
+[WhatsApp accounts](../../docs/architecture/whatsapp-accounts.md). No wazap tool
+creates an account. An agent can still link from a chat, but only an account that
+it created for that number in the same conversation: `link_account` takes an
+`account_id` and the number in E.164 and returns an 8-character code. The user
+types it in WhatsApp › Settings › Linked devices › Link a device › Link with phone
+number instead. The code lasts two minutes. One number is one account: never link
+a second number into an account that had another number or that keeps its history
+after an unlink, because wazap then deletes the earlier history after seven days. The agent rules are in `plugins/whatsapp/skills/whatsapp-accounts/SKILL.md`;
 the listing keeps `skills: []` until pinned skill versions exist, and the
 developer instructions carry the same rules meanwhile.
 
