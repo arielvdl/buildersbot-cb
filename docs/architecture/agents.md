@@ -302,6 +302,12 @@ the orbit, the sparks, the second laser or the emblem: at that size they are noi
 are wider, so the work still shows. The eyes and the lid symbol stay. The faces of a sidebar channel
 cluster (about 19 px) and of the Dynamic Island (20 px) use this rule; the 32 px activity line does not.
 
+With `followPointer` (the team on the first run screen), the pupils turn toward the pointer while it
+is in the window, as far as the look around goes, and the eyelids go up to 0.1.
+`avatar-pointer-gaze.ts` shares one pointer listener and one animation frame between these avatars,
+and sets `--agent-mark-gaze-x` and `--agent-mark-gaze-y` on the avatar box. The look around comes
+back when the pointer leaves. Reduced motion keeps the pupils still.
+
 The desktop startup splash (`StartupSplash`) shows the mark at 96 px, `working`, in the logo color of
 the build (`var(--openbot-logo-production)` and the dev and preview colors). The web client shows the
 crew of `AppLoadingScreen`. The window has no splash before the renderer loads.

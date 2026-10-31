@@ -2,9 +2,10 @@ import { AgentMark, type AgentMarkRole, avatarMarkAccent, avatarMarkRole } from 
 import { type AvatarMood, avatarMoodIsBusy, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { prefersReducedMotion } from "@openbot/ui/utils";
-import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 import type { AvatarMotion, SupportedAvatarSilhouetteId } from "../../bloub-avatar";
 import type { AgentProfile } from "../../data";
+import { attachPointerGaze } from "./avatar-pointer-gaze";
 
 // Motions that rest until pointer/focus arrives. The sidebar is not virtualized, so every row would
 // otherwise run its laser; the light is a small animation but a long list of them is not free.
@@ -31,8 +32,8 @@ interface AgentAvatarProps {
   /** The silhouette of the Bloub, kept for callers. The mark is always the box. */
   shape?: SupportedAvatarSilhouetteId;
   /**
-   * The eyes follow the pointer, and a press makes the agent nod. The avatar then moves without hover,
-   * so use it only where few avatars show. A photo avatar and reduced motion ignore it.
+   * The pupils turn toward the pointer. The avatar then moves without hover, so use it only where few
+   * avatars show. A photo avatar and reduced motion ignore it.
    */
   followPointer?: boolean;
   class?: string;
@@ -127,6 +128,8 @@ function GeneratedAvatar(props: {
     // in or beside, marked with `data-avatar-hover` when the avatar is only a neighbour of it.
     const group = element?.closest<HTMLElement>(`${HOVER_GROUP}, [tabindex]`);
     const interactionTarget = group?.matches(HOVER_GROUP) ? group : element;
+    // `logo.css` turns the pupils only without reduced motion, so the gaze can stay attached.
+    const releaseGaze = element && untrack(() => props.followPointer) ? attachPointerGaze(element) : undefined;
     const startInteraction = () => setInteracting(true);
     const stopInteraction = () => setInteracting(false);
     // Only keyboard focus starts the avatar. A click leaves the focus on the button it lands on, such as
@@ -151,6 +154,7 @@ function GeneratedAvatar(props: {
       interactionTarget?.removeEventListener("pointerleave", stopInteraction);
       interactionTarget?.removeEventListener("focusin", startFocusInteraction);
       interactionTarget?.removeEventListener("focusout", stopFocusInteraction);
+      releaseGaze?.();
     };
   });
 

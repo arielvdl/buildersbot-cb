@@ -627,6 +627,21 @@
     animation: none;
   }
 
+  /* An avatar that follows the pointer (`followPointer` of `AgentAvatar`) turns its pupils toward it
+     while the pointer is in the window. The look around stops then, and comes back after. */
+  [data-agent-mark-gaze] .agent-mark[data-animated="true"] .agent-mark-pupil {
+    animation: none;
+    translate: calc(var(--agent-mark-gaze-x, 0) * 1px) calc(var(--agent-mark-gaze-y, 0) * 1px);
+    transition: translate var(--openbot-duration-fast) var(--openbot-ease-out);
+  }
+
+  /* An agent that watches the pointer is awake: the eyelids go up, so a look up stays visible. */
+  [data-agent-mark-gaze]
+    .agent-mark[data-animated="true"]:not([data-mood="failed"], [data-mood="asleep"])
+    .agent-mark-eyelid {
+    --agent-mark-eyelid: 0.1;
+  }
+
   /* The emblem of the role moves while the agent works. */
   .agent-mark[data-animated="true"]:is([data-mood="working"], [data-mood="live"]) .agent-mark-sweep {
     animation: agent-mark-sweep calc(2.4s * var(--agent-mark-pace)) ease-in-out infinite alternate;

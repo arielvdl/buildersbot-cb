@@ -4,6 +4,8 @@ import type { AvatarMood } from "@openbot/brand/bloub-avatar-motion";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { Button } from "@openbot/ui";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
+import type { ChannelWorkingMembers } from "@openbot/ui/features/agents/agent-avatar-mood";
+import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { TeamPersonAvatar } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { createStore, For, Show } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -255,6 +257,52 @@ export const RoleSymbols: AgentStory = {
           </span>
           <small style={{ color: "var(--openbot-text-muted)" }}>{role}</small>
         </div>
+      ))}
+    </div>
+  ),
+};
+
+const CHANNEL_MEMBERS = [
+  ...STORY_AGENTS.map((agent) => ({ agentId: agent.id })),
+  { agentId: "story-member-4" },
+  { agentId: "story-member-5" },
+];
+
+const CHANNEL_CASES: ReadonlyArray<{ label: string; count: number; working: ChannelWorkingMembers; open: boolean }> = [
+  { label: "At rest", count: 3, working: false, open: false },
+  { label: "One of three works", count: 3, working: new Set(["research"]), open: false },
+  { label: "The channel works, nobody is named", count: 5, working: true, open: false },
+  { label: "One works in the open channel", count: 3, working: new Set(["research"]), open: true },
+  { label: "One member, at work", count: 1, working: true, open: false },
+];
+
+/**
+ * The faces of a channel: the sidebar cluster and the header row. Only the members that work move,
+ * and the small faces of the cluster draw no orbit, sparks or emblem.
+ */
+export const ChannelFaces: AgentStory = {
+  render: () => (
+    <div
+      class="grid gap-6 p-8"
+      style={{ background: "var(--openbot-bg-canvas)", color: "var(--openbot-text-primary)" }}
+    >
+      {CHANNEL_CASES.map((example) => (
+        <section class="flex items-center gap-8" aria-label={example.label}>
+          <ChannelAvatar
+            members={CHANNEL_MEMBERS.slice(0, example.count)}
+            agents={STORY_AGENTS}
+            layout="cluster"
+            working={example.working}
+            open={example.open}
+          />
+          <ChannelAvatar
+            members={CHANNEL_MEMBERS.slice(0, example.count)}
+            agents={STORY_AGENTS}
+            working={example.working}
+            open={example.open}
+          />
+          <small style={{ color: "var(--openbot-text-muted)" }}>{example.label}</small>
+        </section>
       ))}
     </div>
   ),

@@ -6,3 +6,4 @@
   work with a light on the edge and on the lid, without the points of light around the box.
 - The desktop app opens with the agent box, in the color of the logo, at work until the app is
   ready.
+- On the first screen of the app, the eyes of the agents follow the pointer.
