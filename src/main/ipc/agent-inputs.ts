@@ -36,10 +36,12 @@ import {
   isProviderAccountId,
   isReasoningEffort,
   isRoutineSchedule,
+  isSidebarMarkerId,
   type ListChannelRoutineRunsInput,
   type ListRoutineRunsInput,
   type MarkAgentTaskReadInput,
   type MarkConversationReadInput,
+  normalizeSidebarMarkerFields,
   normalizeSidebarSectionColor,
   normalizeSidebarSectionIcon,
   type OpenAttachmentInput,
@@ -129,6 +131,13 @@ export function parseOptionalAgentId(value: unknown): string | undefined {
   return parseAgentId(value);
 }
 
+/** A custom section id, or null for the chats with no section. */
+function parseOptionalSectionId(value: unknown): string | null {
+  if (value === null) return null;
+  if (!isString(value)) throw new Error("Invalid section assignment.");
+  return requireString(value, "sectionId", INPUT_LIMITS.identifier);
+}
+
 export function parseSidebarLayoutAction(value: unknown): SidebarLayoutAction {
   if (!isObject(value) || !isString(value.type)) throw new Error("Invalid sidebar layout action.");
   switch (value.type) {
@@ -197,6 +206,42 @@ export function parseSidebarLayoutAction(value: unknown): SidebarLayoutAction {
         type: "set-section-color",
         sectionId: requireString(value.sectionId, "sectionId", INPUT_LIMITS.identifier),
         color,
+      };
+    }
+    case "create-marker": {
+      const fields = normalizeSidebarMarkerFields({ label: value.label, style: value.style, color: value.color });
+      if (!fields) throw new Error("Invalid sidebar marker.");
+      return {
+        type: "create-marker",
+        sectionId: parseOptionalSectionId(value.sectionId),
+        label: fields.label,
+        style: fields.style,
+        color: fields.color ?? null,
+      };
+    }
+    case "update-marker": {
+      const fields = normalizeSidebarMarkerFields({ label: value.label, style: value.style, color: value.color });
+      if (!fields || !isSidebarMarkerId(value.markerId)) throw new Error("Invalid sidebar marker.");
+      return {
+        type: "update-marker",
+        markerId: value.markerId,
+        label: fields.label,
+        style: fields.style,
+        color: fields.color ?? null,
+      };
+    }
+    case "delete-marker":
+      if (!isSidebarMarkerId(value.markerId)) throw new Error("Invalid sidebar marker.");
+      return { type: "delete-marker", markerId: value.markerId };
+    case "move-marker": {
+      if (!isSidebarMarkerId(value.markerId)) throw new Error("Invalid sidebar marker.");
+      const beforeId = value.beforeId;
+      if (beforeId !== null && !isString(beforeId)) throw new Error("Invalid sidebar marker order target.");
+      return {
+        type: "move-marker",
+        markerId: value.markerId,
+        sectionId: parseOptionalSectionId(value.sectionId),
+        beforeId: beforeId === null ? null : requireString(beforeId, "beforeId", INPUT_LIMITS.identifier),
       };
     }
     case "set-section-icon": {

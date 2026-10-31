@@ -5,8 +5,10 @@ import { dirname } from "node:path";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   isCompleteSectionOrder,
+  isSidebarMarkerId,
   normalizeSidebarSectionColor,
   normalizeSidebarSectionIcon,
+  SIDEBAR_MARKER_LIMITS,
   SIDEBAR_PEOPLE_SECTION_ID,
   SIDEBAR_UNASSIGNED_SECTION_ID,
   type SidebarLayoutAction,
@@ -17,6 +19,12 @@ import {
   sidebarSectionWithIcon,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
+import {
+  applySidebarMarkerAction,
+  sidebarItemSectionId,
+  sidebarOrdersWithChatMove,
+  storedSidebarMarkers,
+} from "@openbot/contracts/sidebar-markers";
 import { isUuidV4, legacyAgentId } from "@openbot/contracts/validation";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect, Exit, Result, Semaphore } from "effect";
@@ -139,6 +147,9 @@ export class SidebarLayoutStore extends EventEmitter<SidebarLayoutStoreEvents> {
           revision: this.#layout.revision + 1,
           agentAssignments,
           agentOrder: this.#layout.agentOrder.filter((candidate) => candidate !== agentId),
+          ...(this.#layout.itemOrder
+            ? { itemOrder: this.#layout.itemOrder.filter((candidate) => candidate !== agentId) }
+            : {}),
         });
         return this.getSnapshot();
       }),
@@ -223,7 +234,19 @@ export class SidebarLayoutStore extends EventEmitter<SidebarLayoutStoreEvents> {
         ) {
           return this.getSnapshot();
         }
-        yield* this.#commit({ ...this.#layout, revision: this.#layout.revision + 1, agentAssignments, agentOrder });
+        // The markers keep their place: the sequence takes the new ids and drops the gone chats.
+        const itemOrder = this.#layout.itemOrder?.flatMap((entry) => {
+          if (isSidebarMarkerId(entry)) return [entry];
+          const agentId = currentId(entry);
+          return agentIds.has(agentId) ? [agentId] : [];
+        });
+        yield* this.#commit({
+          ...this.#layout,
+          revision: this.#layout.revision + 1,
+          agentAssignments,
+          agentOrder,
+          ...(itemOrder ? { itemOrder: [...new Set(itemOrder)] } : {}),
+        });
         return this.getSnapshot();
       }),
     );
@@ -257,6 +280,8 @@ function applySidebarLayoutAction(
       if (action.agentId !== undefined && !agentIds.has(action.agentId)) throw new Error("Unknown agent.");
       const section: SidebarSection = { id: randomUUID(), name };
       return {
+        // The markers and their sequence stay as they are.
+        ...current,
         revision: current.revision + 1,
         sections: [...current.sections, section],
         order: [...current.order, section.id],
@@ -284,15 +309,19 @@ function applySidebarLayoutAction(
     }
     case "delete": {
       requireCustomSection(current, action.sectionId);
-      return {
-        revision: current.revision + 1,
-        sections: current.sections.filter((section) => section.id !== action.sectionId),
-        order: current.order.filter((sectionId) => sectionId !== action.sectionId),
-        agentAssignments: Object.fromEntries(
-          Object.entries(current.agentAssignments).filter(([, sectionId]) => sectionId !== action.sectionId),
-        ),
-        agentOrder: [...current.agentOrder],
-      };
+      return withoutSectionMarkers(
+        {
+          ...current,
+          revision: current.revision + 1,
+          sections: current.sections.filter((section) => section.id !== action.sectionId),
+          order: current.order.filter((sectionId) => sectionId !== action.sectionId),
+          agentAssignments: Object.fromEntries(
+            Object.entries(current.agentAssignments).filter(([, sectionId]) => sectionId !== action.sectionId),
+          ),
+          agentOrder: [...current.agentOrder],
+        },
+        action.sectionId,
+      );
     }
     case "move": {
       const index = current.order.indexOf(action.sectionId);
@@ -316,6 +345,7 @@ function applySidebarLayoutAction(
       return { ...current, revision: current.revision + 1, agentAssignments };
     }
     case "move-agent": {
+      if (current.markers?.length) return moveAgentWithMarkers(current, action, agentIds);
       if (!agentIds.has(action.agentId)) throw new Error("Unknown agent.");
       if (action.sectionId !== null) requireCustomSection(current, action.sectionId);
       if (action.beforeAgentId !== null) {
@@ -376,7 +406,69 @@ function applySidebarLayoutAction(
         ),
       };
     }
+    case "create-marker":
+    case "update-marker":
+    case "delete-marker":
+    case "move-marker":
+      return applySidebarMarkerAction(
+        current,
+        action,
+        agentIds,
+        randomUUID,
+        sourceText("error.backend.sidebarMarkerLimit", { limit: SIDEBAR_MARKER_LIMITS.perSection }),
+      );
   }
+}
+
+/**
+ * A chat move in a layout with markers. The order target can be a marker of the section, and the move
+ * writes `itemOrder` and, from it, `agentOrder`.
+ */
+function moveAgentWithMarkers(
+  current: SidebarLayoutSnapshot,
+  action: Extract<SidebarLayoutAction, { type: "move-agent" }>,
+  agentIds: ReadonlySet<string>,
+): SidebarLayoutSnapshot {
+  if (!agentIds.has(action.agentId)) throw new Error("Unknown agent.");
+  if (action.sectionId !== null) requireCustomSection(current, action.sectionId);
+  if (action.beforeAgentId !== null) {
+    const marker = current.markers?.some((candidate) => candidate.id === action.beforeAgentId) ?? false;
+    if ((!marker && !agentIds.has(action.beforeAgentId)) || action.beforeAgentId === action.agentId) {
+      throw new Error("Unknown agent order target.");
+    }
+    if (sidebarItemSectionId(current, action.beforeAgentId) !== action.sectionId) {
+      throw new Error("Agent order target belongs to another section.");
+    }
+  }
+  const { agentOrder, itemOrder } = sidebarOrdersWithChatMove(
+    current,
+    action.agentId,
+    action.sectionId,
+    action.beforeAgentId,
+    agentIds,
+  );
+  const agentAssignments = { ...current.agentAssignments };
+  if (action.sectionId === null) delete agentAssignments[action.agentId];
+  else agentAssignments[action.agentId] = action.sectionId;
+  if (
+    arraysEqual(itemOrder, current.itemOrder ?? []) &&
+    agentAssignments[action.agentId] === current.agentAssignments[action.agentId]
+  ) {
+    return current;
+  }
+  return { ...current, revision: current.revision + 1, agentAssignments, agentOrder, itemOrder };
+}
+
+/** The layout without the markers of a deleted section. No marker left drops both marker fields. */
+function withoutSectionMarkers(layout: SidebarLayoutSnapshot, sectionId: string): SidebarLayoutSnapshot {
+  if (!layout.markers) return layout;
+  const removed = new Set(layout.markers.filter((marker) => marker.sectionId === sectionId).map((marker) => marker.id));
+  const next = { ...layout };
+  delete next.markers;
+  delete next.itemOrder;
+  const markers = layout.markers.filter((marker) => !removed.has(marker.id));
+  if (markers.length === 0) return next;
+  return { ...next, markers, itemOrder: (layout.itemOrder ?? []).filter((id) => !removed.has(id)) };
 }
 
 /**
@@ -470,6 +562,8 @@ function snapshotFromStored(stored: StoredSidebarLayout): SidebarLayoutSnapshot 
     order: [...stored.order],
     agentAssignments: { ...stored.agentAssignments },
     agentOrder: [...stored.agentOrder],
+    // A marker that is not valid drops out, and the sections and their chats stay.
+    ...storedSidebarMarkers(stored.markers, stored.itemOrder, new Set(stored.sections.map((section) => section.id))),
   };
 }
 

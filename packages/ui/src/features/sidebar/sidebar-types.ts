@@ -5,6 +5,7 @@ import type {
   HiddenAgent,
   SidebarLayoutAction,
   SidebarLayoutSnapshot,
+  SidebarMarker,
   TeamPresenceMember,
 } from "@openbot/contracts/ipc";
 import type { JSX } from "@solidjs/web";
@@ -91,7 +92,7 @@ export interface SidebarProps {
    */
   chatTabs?: Record<string, SidebarChatTabs> | undefined;
   /** Opens one tab of a chat: a side thread of the agent, or a tab of the channel. */
-  onOpenChatTab?: ((kind: SidebarChatItem["kind"], chatId: string, tabId: string) => void) | undefined;
+  onOpenChatTab?: ((kind: SidebarChatRowItem["kind"], chatId: string, tabId: string) => void) | undefined;
   showingArchivedChannels?: boolean | undefined;
   onToggleArchivedChannels?: (() => void) | undefined;
   onCreateChannel?: (() => void) | undefined;
@@ -114,6 +115,8 @@ export interface SidebarProps {
   sectionRail?: { selectedId: string | null; onSelect: (sectionId: string | null) => void } | undefined;
   /** Whether this server keeps a section icon (`set-section-icon`). Only the local server does. */
   sectionIconsSupported?: boolean | undefined;
+  /** Whether this server keeps markers in the list (`create-marker`). Only the local server does. */
+  markersSupported?: boolean | undefined;
   /**
    * Back and Forward between the chats this window opened. The top bar shows the two arrows only when
    * it is set. `back` and `forward` name the chat that each arrow opens, or are null when there is none.
@@ -226,7 +229,10 @@ export type SidebarAgentState =
 export type SidebarChannelWait = Extract<SidebarAgentState, { kind: "waiting" }>;
 
 /** A pin paired with the chat it names, so the pinned strip renders the same two kinds the list does. */
-export type ResolvedPinnedItem = { ref: SidebarPinnedItem; chat: SidebarChatItem };
+export type ResolvedPinnedItem = { ref: SidebarPinnedItem; chat: SidebarChatRowItem };
+
+/** A chat row: an agent or a channel. A marker is an item of a section, not a chat. */
+export type SidebarChatRowItem = Exclude<SidebarChatItem, { kind: "marker" }>;
 
 /**
  * A row inside a section. Agents and channels share the sidebar layout - one order, one set of
@@ -235,4 +241,6 @@ export type ResolvedPinnedItem = { ref: SidebarPinnedItem; chat: SidebarChatItem
  */
 export type SidebarChatItem =
   | { kind: "agent"; id: string; agent: AgentProfile }
-  | { kind: "channel"; id: string; channel: ChannelSummary };
+  | { kind: "channel"; id: string; channel: ChannelSummary }
+  /** A marker line of the section. It sorts and drags as a chat; the chats below it take its style. */
+  | { kind: "marker"; id: string; marker: SidebarMarker };

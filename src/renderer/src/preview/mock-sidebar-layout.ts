@@ -6,11 +6,34 @@ import {
   sidebarSectionWithColor,
   sidebarSectionWithIcon,
 } from "@openbot/contracts/ipc";
+import {
+  applySidebarMarkerAction,
+  isSidebarMarkerAction,
+  sidebarOrdersWithChatMove,
+} from "@openbot/contracts/sidebar-markers";
 
 export function applySidebarLayoutAction(
   layout: SidebarLayoutSnapshot,
   action: SidebarLayoutAction,
 ): SidebarLayoutSnapshot {
+  // As main does for a layout with markers: the shared order rules of `@openbot/contracts/sidebar-markers`.
+  const chatIds = new Set([...layout.agentOrder, ...Object.keys(layout.agentAssignments)]);
+  if (isSidebarMarkerAction(action)) {
+    return applySidebarMarkerAction(layout, action, chatIds, () => crypto.randomUUID(), "Too many markers.");
+  }
+  if (action.type === "move-agent" && layout.markers?.length) {
+    const orders = sidebarOrdersWithChatMove(
+      layout,
+      action.agentId,
+      action.sectionId,
+      action.beforeAgentId,
+      new Set([...chatIds, action.agentId]),
+    );
+    const agentAssignments = { ...layout.agentAssignments };
+    if (action.sectionId === null) delete agentAssignments[action.agentId];
+    else agentAssignments[action.agentId] = action.sectionId;
+    return { ...layout, revision: layout.revision + 1, agentAssignments, ...orders };
+  }
   const revision = layout.revision + 1;
   if (action.type === "create") {
     const id = crypto.randomUUID();

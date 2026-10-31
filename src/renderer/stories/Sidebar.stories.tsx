@@ -5,6 +5,7 @@ import {
   type SidebarLayoutSnapshot,
   sidebarSectionWithColor,
 } from "@openbot/contracts/ipc";
+import { isSidebarMarkerAction } from "@openbot/contracts/sidebar-markers";
 import type { AvatarMood } from "@openbot/ui/bloub-avatar";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
@@ -17,6 +18,7 @@ import { createSignal, untrack } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { defaultSidebarLayout } from "../src/features/sidebar/sidebar-sections";
+import { applySidebarLayoutAction } from "../src/preview/mock-sidebar-layout";
 import { requireFixture, STORY_AGENTS, STORY_DIRECT_THREADS, STORY_PRESENCE, STORY_SERVERS } from "./fixtures";
 
 const agentStates: Record<string, SidebarAgentState> = {
@@ -260,6 +262,8 @@ function InteractiveSidebar(props: Parameters<typeof Sidebar>[0]) {
 }
 
 function applyStoryLayoutAction(layout: SidebarLayoutSnapshot, action: SidebarLayoutAction): SidebarLayoutSnapshot {
+  // Markers follow the app, through the preview mock.
+  if (isSidebarMarkerAction(action) || layout.markers?.length) return applySidebarLayoutAction(layout, action);
   const revision = layout.revision + 1;
   if (action.type === "create") {
     const id = crypto.randomUUID();

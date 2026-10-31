@@ -246,6 +246,7 @@ export const messages = defineMessages("error.backend", {
   "error.backend.mcpOAuthPrivateEndpoint":
     "The OAuth endpoint {origin} is on a private network, but the MCP server is public, so the credentials were not sent.",
   "error.backend.sidebarSectionLimit": "A server can have up to {limit} sidebar sections.",
+  "error.backend.sidebarMarkerLimit": "A section can have up to {limit} markers.",
   "error.backend.sectionNameRequired": "Section name is required.",
   "error.backend.sectionNameTooLong": "Section name is too long.",
   "error.backend.sectionNameDuplicate": "Section names must be unique.",

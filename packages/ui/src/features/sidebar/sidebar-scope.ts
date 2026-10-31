@@ -15,6 +15,7 @@ import { createSidebarAnnouncementStore } from "./stores/announcement-store";
 import { createSidebarDataStore } from "./stores/data-store";
 import { createSidebarDragStateStore } from "./stores/drag-state-store";
 import { createSidebarLayoutActions } from "./stores/layout-actions";
+import { createSidebarMarkerStore } from "./stores/marker-store";
 import { createSidebarPendingStore } from "./stores/pending-store";
 import { createSidebarSectionColorStore } from "./stores/section-color-store";
 import { createSidebarTabStripStore } from "./stores/tab-strip-store";
@@ -80,6 +81,7 @@ export function createSidebarScope(props: SidebarProps) {
     if (props.sectionRail) sectionRail.openNameDialog({ kind: "create", ...(agentId ? { agentId } : {}) });
     else startInlineCreateSection(agentId);
   };
+  const markers = createSidebarMarkerStore({ props, focus: sectionRail.focus, announceError });
   let agentList: HTMLElement | undefined;
 
   const dragState = createSidebarDragStateStore({ chatKind, sectionAcceptsChat });
@@ -194,6 +196,7 @@ export function createSidebarScope(props: SidebarProps) {
     filteredChatsBySection,
     handleListDragLeave,
     layoutMutable,
+    markers,
     movePersonByKeyboard,
     movePinnedItem,
     moveSection,

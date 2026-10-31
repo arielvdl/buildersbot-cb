@@ -257,6 +257,7 @@ export const messages = {
   "error.backend.mcpOAuthPrivateEndpoint":
     "O endpoint OAuth {origin} está em uma rede privada, mas o servidor MCP é público, por isso as credenciais não foram enviadas.",
   "error.backend.sidebarSectionLimit": "Um servidor pode ter até {limit} seções na barra lateral.",
+  "error.backend.sidebarMarkerLimit": "Uma seção pode ter até {limit} marcadores.",
   "error.backend.sectionNameRequired": "É necessário informar o nome da seção.",
   "error.backend.sectionNameTooLong": "O nome da seção é muito longo.",
   "error.backend.sectionNameDuplicate": "Os nomes das seções devem ser exclusivos.",

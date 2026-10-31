@@ -1,3 +1,4 @@
+import { isSidebarMarker, type SidebarMarker, type SidebarMarkerStyle } from "./ipc-sidebar-markers";
 import { isSidebarSectionIcon, type SidebarSectionIcon } from "./ipc-sidebar-section-icon";
 import { isDynamicRecord, isNumber, isString } from "./runtime-values";
 
@@ -46,6 +47,13 @@ export interface SidebarLayoutSnapshot {
   order: string[];
   agentAssignments: Record<string, string>;
   agentOrder: string[];
+  /** The markers of the sections. Local layout only; absent when there is none. */
+  markers?: SidebarMarker[];
+  /**
+   * The chats and the markers in one sequence, present while there is a marker. `agentOrder` is the
+   * same sequence without the markers, so a peer that reads only `agentOrder` gets the same order.
+   */
+  itemOrder?: string[];
 }
 
 /**
@@ -96,8 +104,27 @@ export function isSidebarLayoutSnapshot(value: unknown): value is SidebarLayoutS
     isCompleteSectionOrder(value.order, sectionIds) &&
     Object.values(value.agentAssignments).every(isString) &&
     value.agentOrder.every(isString) &&
-    new Set(value.agentOrder).size === value.agentOrder.length
+    new Set(value.agentOrder).size === value.agentOrder.length &&
+    isSidebarMarkerList(value.markers, value.itemOrder, sectionIds)
   );
+}
+
+/**
+ * True for absent markers, or for valid markers of known sections, each one once in `itemOrder`, a
+ * list of unique ids. A layout with a marker that does not decode is invalid, as for a bad color.
+ */
+function isSidebarMarkerList(markers: unknown, itemOrder: unknown, sectionIds: ReadonlySet<string>): boolean {
+  if (markers === undefined) return itemOrder === undefined;
+  if (!Array.isArray(markers) || !Array.isArray(itemOrder)) return false;
+  if (!itemOrder.every(isString) || new Set(itemOrder).size !== itemOrder.length) return false;
+  const ids = new Set<string>();
+  for (const marker of markers) {
+    if (!isSidebarMarker(marker) || ids.has(marker.id)) return false;
+    if (marker.sectionId !== null && !sectionIds.has(marker.sectionId)) return false;
+    if (!itemOrder.includes(marker.id)) return false;
+    ids.add(marker.id);
+  }
+  return true;
 }
 
 export type SidebarLayoutAction =
@@ -106,8 +133,15 @@ export type SidebarLayoutAction =
   | { type: "delete"; sectionId: string }
   | { type: "move"; sectionId: string; direction: "up" | "down"; steps?: number }
   | { type: "assign"; agentId: string; sectionId: string | null }
+  /** In a local layout with markers, `beforeAgentId` can also name a marker of the target section. */
   | { type: "move-agent"; agentId: string; sectionId: string | null; beforeAgentId: string | null }
   /** Local layout only. `color` is `#rrggbb`; null removes the color. No Team API protocol sends it. */
   | { type: "set-section-color"; sectionId: string; color: string | null }
   /** Local layout only. Null removes the icon, so the rail shows the first letter. No Team API protocol sends it. */
-  | { type: "set-section-icon"; sectionId: string; icon: SidebarSectionIcon | null };
+  | { type: "set-section-icon"; sectionId: string; icon: SidebarSectionIcon | null }
+  /** Local layout only, as the marker actions below. A new marker goes to the top of its section. */
+  | { type: "create-marker"; sectionId: string | null; label: string; style: SidebarMarkerStyle; color: string | null }
+  | { type: "update-marker"; markerId: string; label: string; style: SidebarMarkerStyle; color: string | null }
+  | { type: "delete-marker"; markerId: string }
+  /** `beforeId` is a chat or a marker of the section, or null for the end of the section. */
+  | { type: "move-marker"; markerId: string; sectionId: string | null; beforeId: string | null };

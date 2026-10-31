@@ -6,13 +6,16 @@
  * whole list, and "Unassigned" names it against nothing.
  */
 
-import { SIDEBAR_UNASSIGNED_SECTION_ID } from "@openbot/contracts/ipc";
-import { For, Match, Show, Switch } from "solid-js";
+import { SIDEBAR_UNASSIGNED_SECTION_ID, type SidebarMarker } from "@openbot/contracts/ipc";
+import type { JSX } from "@solidjs/web";
+import { createMemo, For, Match, Show, Switch } from "solid-js";
 import { useText } from "../../text";
 import { SidebarAgentRow } from "./SidebarAgentRow";
 import { SidebarChannelRow } from "./SidebarChannelRow";
+import { SidebarMarkerRow } from "./SidebarMarkerRow";
 import { SidebarSectionHeader } from "./SidebarSectionHeader";
 import { sidebarSectionColorStyle } from "./section-color";
+import { sidebarMarkerOfChats } from "./sidebar-markers-view";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarAgentSection(sectionProps: { sectionId: string }) {
@@ -28,6 +31,8 @@ export function SidebarAgentSection(sectionProps: { sectionId: string }) {
   const collapsed = () => headed() && sectionIsCollapsed(sectionId());
   // Empty when the section has no color: then the box has no new attribute and no new property.
   const colorStyle = () => sidebarSectionColorStyle(custom()?.color);
+  /** The marker that styles each row: the nearest marker above it in this section. */
+  const markerOf = createMemo(() => sidebarMarkerOfChats(chats()));
   return (
     <Show when={name() && (chats().length > 0 || custom())}>
       <section
@@ -50,11 +55,22 @@ export function SidebarAgentSection(sectionProps: { sectionId: string }) {
             <For each={chats()}>
               {(chat) => (
                 <Switch>
+                  <Match when={chat.kind === "marker" ? chat.marker : undefined}>
+                    {(marker) => <SidebarMarkerRow marker={marker()} />}
+                  </Match>
                   <Match when={chat.kind === "agent" ? chat.agent : undefined}>
-                    {(agent) => <SidebarAgentRow agent={agent()} />}
+                    {(agent) => (
+                      <MarkedRow marker={markerOf().get(chat.id)}>
+                        <SidebarAgentRow agent={agent()} />
+                      </MarkedRow>
+                    )}
                   </Match>
                   <Match when={chat.kind === "channel" ? chat.channel : undefined}>
-                    {(channel) => <SidebarChannelRow channel={channel()} />}
+                    {(channel) => (
+                      <MarkedRow marker={markerOf().get(chat.id)}>
+                        <SidebarChannelRow channel={channel()} />
+                      </MarkedRow>
+                    )}
                   </Match>
                 </Switch>
               )}
@@ -62,6 +78,27 @@ export function SidebarAgentSection(sectionProps: { sectionId: string }) {
           </div>
         </div>
       </section>
+    </Show>
+  );
+}
+
+/**
+ * A row below a marker with a style. The wrapper draws no box (`display: contents`), so the row keeps its
+ * place in the list; the stylesheet reads the style from it. A row with no marker, or under a marker of
+ * the normal style, has no wrapper.
+ */
+function MarkedRow(rowProps: { marker: SidebarMarker | undefined; children: JSX.Element }) {
+  return (
+    <Show when={rowProps.marker?.style !== "normal" ? rowProps.marker : undefined} fallback={rowProps.children}>
+      {(marker) => (
+        <div
+          class="sidebar-marked-row"
+          data-marker-style={marker().style}
+          style={marker().color ? `--sidebar-marker-color: ${marker().color};` : undefined}
+        >
+          {rowProps.children}
+        </div>
+      )}
     </Show>
   );
 }

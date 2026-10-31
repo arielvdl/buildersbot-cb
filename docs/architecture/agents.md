@@ -681,6 +681,27 @@ hides in the selected section, and "Show all", which turns the filter off. The n
 region. The search field opens the global search and does not filter the list, so "Show all" has no
 search to clear.
 
+A marker is a thin line with a short text in a section of the list (`SidebarMarker`,
+`SidebarMarkerRow.tsx`). "+" > New marker adds one at the top of the section that the rail selects;
+with "All", at the top of the first custom section, or with the chats with no section when there is
+none. Its editor opens at once. The editor sets the text (at most 40 characters, with the suggestions
+Done, Soon and Waiting) and the style of the chats below it, up to the next marker: normal, dimmed,
+black and white, or a tint of a preset color (`#rrggbb`). The open chat, a row under the pointer and
+a row with the focus keep their full strength. A marker drags as a chat does. A section can have 12
+markers. An activity filter hides the markers, and the compact list shows a line with no text.
+
+Only the local layout keeps markers. The layout has `markers` and `itemOrder`, which holds the chats
+and the markers in one sequence; `agentOrder` is that sequence without the markers, so a reader of
+`agentOrder` gets the same chat order. The four actions (`create-marker`, `update-marker`,
+`delete-marker`, `move-marker`) and the order rules are in `@openbot/contracts/sidebar-markers`, which
+the store, the preview mock and the stories share. In a layout with markers, `move-agent` can drop a
+chat before a marker. The parser, the store and `isSidebarLayoutSnapshot` check each field; a marker in
+the file that is not valid is dropped, and the sections and chats stay. Deleting a section deletes its
+markers. The frozen Team API codecs drop `markers` and `itemOrder` and refuse the marker actions, so a
+remote peer sees the chats in their order and no marker. An older version reads the file and drops the
+markers at its next save. Instance transfer copies the section names and assignments only, so it
+does not copy the markers.
+
 `html_render` publishes a visual reply: an HTML page that shows above the agent's reply. The router
 stores the page as a generated `text/html` attachment and adds an assistant message with the item
 type `visual-reply:<height>` and the page title as its text (`@openbot/contracts/chat-visual`). A

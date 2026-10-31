@@ -102,6 +102,7 @@ const args: Parameters<typeof Sidebar>[0] = {
   layoutMutable: true,
   sectionIconsSupported: true,
   sectionColorSupported: true,
+  markersSupported: true,
   collapsedSectionIds: [],
   onMutateLayout: fn(async () => undefined),
   onToggleSection: fn(),
@@ -201,4 +202,38 @@ export const RemoteServerLetters: Story = railStory({
   sectionIconsSupported: false,
   sectionColorSupported: false,
   layout: { ...layout, sections: layout.sections.map(({ id, name }) => ({ id, name })) },
+});
+
+const DONE = "marker:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const LATER = "marker:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const RED = "marker:cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+/**
+ * Markers in naia and Red Team: the chats below "Done" are dimmed, the chats below "Later" are black and
+ * white, and the chats below "Ops" have a red tint. The open chat (Writer) keeps its full strength.
+ * Click a marker to edit it; "+" > New marker adds one at the top of the selected section.
+ */
+export const Markers: Story = railStory({
+  activeAgentId: "naia-writer",
+  layout: {
+    ...layout,
+    markers: [
+      { id: DONE, sectionId: NAIA, label: "Done", style: "dim" },
+      { id: LATER, sectionId: NAIA, label: "Later", style: "grayscale" },
+      { id: RED, sectionId: RED_TEAM, label: "Ops", style: "tint", color: "#ef4444" },
+    ],
+    itemOrder: [
+      "naia-launch",
+      DONE,
+      "naia-scout",
+      "naia-writer",
+      LATER,
+      RED,
+      "red-recon",
+      "red-exploit",
+      "red-ops",
+      ...agentNames.map(([id]) => id).filter((id) => !id.startsWith("naia-") && !id.startsWith("red-")),
+      "cb-live",
+    ],
+  },
 });

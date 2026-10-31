@@ -11,6 +11,7 @@ import {
   CircleFadingArrowUp,
   DropdownMenu,
   FolderPlus,
+  Minus,
   Hash,
   IconButton,
   Puzzle,
@@ -22,7 +23,7 @@ import { PlusIcon, SidebarToggleIcon } from "./SidebarIcons";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarTopbar() {
-  const { layoutMutable, props, startCreateSection } = useSidebarScope();
+  const { layoutMutable, markers, props, startCreateSection } = useSidebarScope();
   const { t } = useText();
   return (
     <div class="window-drag sidebar-topbar">
@@ -158,6 +159,13 @@ export function SidebarTopbar() {
                   <DropdownMenu.Item onSelectAfterClose={() => startCreateSection()}>
                     <FolderPlus aria-hidden="true" />
                     {t("sidebar.new.section")}
+                  </DropdownMenu.Item>
+                </Show>
+                {/* A line in the list whose text and style apply to the chats below it. */}
+                <Show when={markers.supported()}>
+                  <DropdownMenu.Item onSelectAfterClose={() => markers.createMarker()}>
+                    <Minus aria-hidden="true" />
+                    {t("sidebar.new.marker")}
                   </DropdownMenu.Item>
                 </Show>
               </DropdownMenu.Content>

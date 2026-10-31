@@ -32,6 +32,7 @@
     "./host-grant": "./src/host-grant.ts",
     "./host-key-handover": "./src/host-key-handover.ts",
     "./input-limits": "./src/input-limits.ts",
+    "./sidebar-markers": "./src/sidebar-markers.ts",
     "./invite-links": "./src/invite-links.ts",
     "./landing-preview-messages": "./src/landing-preview-messages.ts",
     "./markdown-lists": "./src/markdown-lists.ts",

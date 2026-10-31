@@ -6,6 +6,7 @@
  */
 
 import {
+  isSidebarMarkerId,
   SIDEBAR_UNASSIGNED_SECTION_ID,
   type SidebarLayoutAction,
   type TeamPresenceMember,
@@ -179,21 +180,27 @@ export function createSidebarLayoutActions(deps: {
     const idsWithoutSource = sectionChatIdsWithout(target.sectionId, chatId);
     const targetIndex = idsWithoutSource.indexOf(target.chatId);
     if (targetIndex < 0) return null;
-    return {
+    return markerMove({
       type: "move-agent",
       agentId: chatId,
       sectionId: target.sectionId === SIDEBAR_UNASSIGNED_SECTION_ID ? null : target.sectionId,
       beforeAgentId: target.placement === "before" ? target.chatId : (idsWithoutSource[targetIndex + 1] ?? null),
-    };
+    });
   }
 
   function appendChatAction(chatId: string, sectionId: string): SidebarLayoutAction {
-    return {
+    return markerMove({
       type: "move-agent",
       agentId: chatId,
       sectionId: sectionId === SIDEBAR_UNASSIGNED_SECTION_ID ? null : sectionId,
       beforeAgentId: null,
-    };
+    });
+  }
+
+  /** A dragged marker moves as a chat does, with the marker action. */
+  function markerMove(action: Extract<SidebarLayoutAction, { type: "move-agent" }>): SidebarLayoutAction {
+    if (!isSidebarMarkerId(action.agentId)) return action;
+    return { type: "move-marker", markerId: action.agentId, sectionId: action.sectionId, beforeId: action.beforeAgentId };
   }
 
   /** The pin a dragged tile stands for, found by the key the tile carries. */

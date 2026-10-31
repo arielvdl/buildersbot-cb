@@ -1,0 +1,149 @@
+/*
+ * The markers of the list (`SidebarMarkerRow.tsx`): a thin line with a short text, and the style of the
+ * rows below it up to the next marker (`.sidebar-marked-row` in `SidebarAgentSection.tsx`). The open
+ * chat, a row under the pointer and a row with the focus keep their full strength, so they stay
+ * readable. No motion: only CSS states.
+ */
+
+.sidebar-marker {
+  position: relative;
+  margin: var(--openbot-space-1) 0;
+}
+
+.sidebar-marker-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 20px;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  border: 0;
+  border-radius: var(--openbot-radius-sm);
+  background: transparent;
+  padding: 2px var(--openbot-space-2);
+  color: var(--openbot-text-readable);
+  cursor: pointer;
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: 1;
+  text-align: left;
+}
+
+.sidebar-marker-trigger:disabled {
+  cursor: default;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-marker-trigger:not(:disabled):hover {
+    background: var(--openbot-hover);
+  }
+}
+
+.sidebar-marker-trigger:focus-visible {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: -2px;
+}
+
+.sidebar-marker-label {
+  min-width: 0;
+  max-width: 70%;
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-marker-label:empty {
+  display: none;
+}
+
+.sidebar-marker-line {
+  height: 1px;
+  flex: 1 1 auto;
+  background: var(--openbot-border-strong);
+}
+
+/* The compact list has no room for the text: a short rule only. */
+.sidebar-compact .sidebar-marker-label {
+  display: none;
+}
+
+.sidebar-compact .sidebar-marker-trigger {
+  padding-inline: var(--openbot-space-3);
+}
+
+/* The row draws no box, so the rows keep their places and the space between them. */
+.sidebar-marked-row {
+  display: contents;
+}
+
+.sidebar-marked-row + .sidebar-marked-row .agent-row {
+  margin-top: 4px;
+}
+
+.sidebar-marked-row[data-marker-style="dim"] .agent-row:not(.agent-row-active):not(:hover):not(:focus-within) {
+  opacity: 0.55;
+}
+
+.sidebar-marked-row[data-marker-style="grayscale"] .agent-row:not(.agent-row-active):not(:hover):not(:focus-within) {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.sidebar-marked-row[data-marker-style="tint"] .agent-row:not(.agent-row-active) {
+  background: color-mix(in srgb, var(--sidebar-marker-color) 14%, transparent);
+}
+
+/* The editor. */
+.sidebar-marker-editor {
+  width: min(288px, calc(100vw - 32px));
+  padding: var(--openbot-space-3);
+}
+
+.sidebar-marker-form {
+  display: grid;
+  gap: var(--openbot-space-2);
+}
+
+.sidebar-marker-suggestions,
+.sidebar-marker-styles,
+.sidebar-marker-colors {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.sidebar-marker-legend {
+  width: 100%;
+  margin-bottom: var(--openbot-space-1);
+  padding: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.sidebar-marker-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--sidebar-marker-color);
+  box-shadow: inset 0 0 0 1px var(--openbot-border-strong);
+}
+
+.sidebar-marker-color[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--openbot-accent);
+}
+
+.sidebar-marker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.sidebar-marker-error {
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+}

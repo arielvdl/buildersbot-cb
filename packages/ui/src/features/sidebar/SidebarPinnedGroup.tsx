@@ -19,7 +19,7 @@ import { SidebarChannelContextMenu } from "./SidebarChannelContextMenu";
 import { sidebarAgentStateLabel } from "./sidebar-filtering";
 import { sidebarPinnedItemKey } from "./sidebar-pins";
 import { useSidebarScope } from "./sidebar-scope";
-import type { SidebarChatItem } from "./sidebar-types";
+import type { SidebarChatRowItem } from "./sidebar-types";
 
 export function SidebarPinnedGroup() {
   const {
@@ -35,10 +35,10 @@ export function SidebarPinnedGroup() {
     stopSidebarDragging,
   } = useSidebarScope();
   const { t, format } = useText();
-  const chatName = (chat: SidebarChatItem) => (chat.kind === "agent" ? chat.agent.name : chat.channel.name);
-  const chatIsActive = (chat: SidebarChatItem) =>
+  const chatName = (chat: SidebarChatRowItem) => (chat.kind === "agent" ? chat.agent.name : chat.channel.name);
+  const chatIsActive = (chat: SidebarChatRowItem) =>
     chat.kind === "agent" ? props.activeAgentId === chat.id : props.activeChannelId === chat.id;
-  const selectChat = (chat: SidebarChatItem) => {
+  const selectChat = (chat: SidebarChatRowItem) => {
     if (chat.kind === "agent") props.onSelectAgent(chat.id);
     else props.onSelectChannel?.(chat.id);
   };

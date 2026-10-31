@@ -4,7 +4,12 @@
  * safe for the drag engine to hold - it satisfies the engine's list model and can do nothing else.
  */
 
-import { type ChannelSummary, SIDEBAR_PEOPLE_SECTION_ID, SIDEBAR_UNASSIGNED_SECTION_ID } from "@openbot/contracts/ipc";
+import {
+  type ChannelSummary,
+  SIDEBAR_PEOPLE_SECTION_ID,
+  SIDEBAR_UNASSIGNED_SECTION_ID,
+  type SidebarMarker,
+} from "@openbot/contracts/ipc";
 import { createMemo } from "solid-js";
 import type { AgentProfile } from "../../../data";
 import { currentText } from "../../../text";
@@ -165,12 +170,14 @@ export function createSidebarDataStore(deps: {
   );
   const filteredChannels = createMemo(() => listedChannels().filter((channel) => !chatWaits(channel.id)));
   function sortByLayoutOrder<T extends { id: string }>(items: T[]): T[] {
-    const orderIndex = new Map(props.layout.agentOrder.map((chatId, index) => [chatId, index]));
+    // With markers, `itemOrder` places them among the chats; `agentOrder` is the same order without them.
+    const sequence = props.layout.itemOrder ?? props.layout.agentOrder;
+    const orderIndex = new Map(sequence.map((chatId, index) => [chatId, index]));
     const naturalIndex = new Map(items.map((item, index) => [item.id, index]));
     return items.sort(
       (left, right) =>
-        (orderIndex.get(left.id) ?? props.layout.agentOrder.length + (naturalIndex.get(left.id) ?? 0)) -
-        (orderIndex.get(right.id) ?? props.layout.agentOrder.length + (naturalIndex.get(right.id) ?? 0)),
+        (orderIndex.get(left.id) ?? sequence.length + (naturalIndex.get(left.id) ?? 0)) -
+        (orderIndex.get(right.id) ?? sequence.length + (naturalIndex.get(right.id) ?? 0)),
     );
   }
   /**
@@ -179,12 +186,14 @@ export function createSidebarDataStore(deps: {
    * keeps its released name; an id it does not carry yet falls in behind the ones it does, channels
    * first, which is where channels sat while they had a list of their own.
    */
-  type ChatSource = AgentProfile | ChannelSummary;
+  type ChatSource = AgentProfile | ChannelSummary | SidebarMarker;
   /**
    * Keep each wrapper while its chat is the same store, as `resolvedPinnedItems` does: a chat that
    * starts or stops waiting must not remount the rows of every other chat.
    */
-  function createChatItems(sources: () => { channels: ChannelSummary[]; agents: AgentProfile[] }) {
+  function createChatItems(
+    sources: () => { channels: ChannelSummary[]; agents: AgentProfile[]; markers?: SidebarMarker[] },
+  ) {
     let cache = new Map<ChatSource, SidebarChatItem>();
     return createMemo<SidebarChatItem[]>(() => {
       const nextCache = new Map<ChatSource, SidebarChatItem>();
@@ -197,12 +206,30 @@ export function createSidebarDataStore(deps: {
       const items = sortByLayoutOrder<SidebarChatItem>([
         ...current.channels.map((channel) => keep(channel, () => ({ kind: "channel", id: channel.id, channel }))),
         ...current.agents.map((agent) => keep(agent, () => ({ kind: "agent", id: agent.id, agent }))),
+        ...(current.markers ?? []).map((marker) => keep(marker, () => ({ kind: "marker", id: marker.id, marker }))),
       ]);
       cache = nextCache;
       return items;
     });
   }
-  const filteredChats = createChatItems(() => ({ channels: filteredChannels(), agents: filteredAgents() }));
+  /**
+   * The markers of the list. An activity filter lists chats only, so it hides them, and the section rail
+   * keeps the markers of its section.
+   */
+  const listedMarkers = createMemo(() =>
+    activityFilter()
+      ? []
+      : (props.layout.markers ?? []).filter((marker) => {
+          const section = sectionRail.focus();
+          return section === null || (marker.sectionId ?? SIDEBAR_UNASSIGNED_SECTION_ID) === section;
+        }),
+  );
+  const markerById = createMemo(() => new Map((props.layout.markers ?? []).map((marker) => [marker.id, marker])));
+  const filteredChats = createChatItems(() => ({
+    channels: filteredChannels(),
+    agents: filteredAgents(),
+    markers: listedMarkers(),
+  }));
   /** The "Needs you" group, in the order the chats have in the layout. */
   const waitingChats = createChatItems(() => ({
     channels: listedChannels().filter((channel) => chatWaits(channel.id)),
@@ -238,7 +265,7 @@ export function createSidebarDataStore(deps: {
   const filteredChatsBySection = createMemo(() => {
     const groups = new Map<string, SidebarChatItem[]>();
     for (const item of filteredChats()) {
-      const assigned = props.layout.agentAssignments[item.id];
+      const assigned = item.kind === "marker" ? item.marker.sectionId : props.layout.agentAssignments[item.id];
       const sectionId =
         assigned && customSectionById().has(assigned) && orderedSectionIds().has(assigned)
           ? assigned
@@ -280,7 +307,8 @@ export function createSidebarDataStore(deps: {
    * which answers `null` for an unassigned chat because that is where its tick goes.
    */
   function assignedSectionId(chatId: string): string {
-    const assigned = props.layout.agentAssignments[chatId];
+    const marker = markerById().get(chatId);
+    const assigned = marker ? marker.sectionId : props.layout.agentAssignments[chatId];
     return assigned && customSectionById().has(assigned) ? assigned : SIDEBAR_UNASSIGNED_SECTION_ID;
   }
 
@@ -289,6 +317,7 @@ export function createSidebarDataStore(deps: {
     return (
       agentById().get(chatId)?.name ??
       channelById().get(chatId)?.name ??
+      markerById().get(chatId)?.label ??
       currentText().t("sidebar.announce.chatFallback")
     );
   }

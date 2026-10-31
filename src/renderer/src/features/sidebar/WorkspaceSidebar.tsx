@@ -386,6 +386,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
           : undefined
       }
       sectionIconsSupported={activeServer()?.kind === "local" && activeServerSupportsCapability("sidebar-layout")}
+      markersSupported={activeServer()?.kind === "local" && activeServerSupportsCapability("sidebar-layout")}
       agents={agentList()}
       activeAgentId={activeDirectMember() || channels.state.selectedId ? "" : (activeAgent()?.id ?? "")}
       showPeople={props.peopleEnabled}
