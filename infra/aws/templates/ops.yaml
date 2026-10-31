@@ -432,7 +432,9 @@ Resources:
                       result="fail contained"
                     elif ! systemctl is-active --quiet bb-proxy.service; then
                       result="fail forwarder-down"
-                    elif [ "$(grep -c '^Upstream http ' "$UPSTREAM" 2>/dev/null || true)" != 1 ]; then
+                    elif [ "$(grep -c '^Upstream http ' "$PINNED" 2>/dev/null || true)" != 1 ] ||
+                      ! iptables -C "$FWD_CHAIN" -d "$(upstream_host "$PINNED")/32" -p tcp -m tcp --dport "$(upstream_port "$PINNED")" -j RETURN 2>/dev/null; then
+                      # The forwarder has no single upstream address that the firewall lets it reach (pin of guard).
                       result="fail no-upstream"
                     elif held; then
                       result="fail firewall-hold"

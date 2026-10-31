@@ -761,7 +761,7 @@ fi
 # filtro de syscalls começa pela lista permitida: um "~" antes inverteria o filtro.
 fwd_unit=$(bash "$TOOL" forwarder-unit 2>&1)
 fwd_ok=1
-for line in 'User=bb-proxy' 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' 'LimitCORE=0' \
+for line in 'User=bb-proxy' 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/pinned.conf' 'LimitCORE=0' \
   'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf' 'Restart=always' 'CapabilityBoundingSet=' 'NoNewPrivileges=yes' \
   'IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16' 'StartLimitIntervalSec=0'; do
   grep -qxF -- "$line" <<<"$fwd_unit" || fwd_ok=0
@@ -930,7 +930,7 @@ check test "$(grep -c 'with-decryption\|get-parameter' templates/sector-compute.
 check test "$(grep -cE '(^|[[:space:]])set -x' templates/proxy.yaml templates/ops.yaml | awk -F: '{ s += $2 } END { print s }')" = 0
 check test "$(grep -c '^ *Environment=' templates/proxy.yaml)" = 0
 # O encaminhador: usuário dinâmico, credencial por LoadCredential, reinício sempre, endurecido, sem IMDS.
-for line in 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' \
+for line in 'DynamicUser=yes' 'LoadCredential=tinyproxy.conf:/etc/bb-proxy/pinned.conf' \
   'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf' 'Restart=always' 'NoNewPrivileges=yes' 'ProtectSystem=strict' \
   'PrivateTmp=yes' 'CapabilityBoundingSet=' 'IPAddressDeny=link-local multicast 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16' \
   'Requires=bb-srv-egress-guard.service' 'Before=docker.service' 'User=bb-proxy' 'LimitCORE=0' \
@@ -1055,7 +1055,8 @@ host_reset() {
   for d in etc/bb-srv etc/bb-proxy var/lib/bb-srv var/log/bb-srv run srv/openbot-docker/instances usr/local/sbin ipt; do
     install -d "$HOST_T/$d"
   done
-  rm -f "$HOST_T"/ipt/* "$HOST_T"/etc/bb-srv/* "$HOST_T"/var/lib/bb-srv/* "$HOST_T"/var/log/bb-srv/* "$HOST_T/calls" "$HOST_T/running"
+  rm -f "$HOST_T"/ipt/* "$HOST_T"/etc/bb-srv/* "$HOST_T"/etc/bb-proxy/* "$HOST_T"/var/lib/bb-srv/* "$HOST_T"/var/log/bb-srv/* \
+    "$HOST_T/calls" "$HOST_T/running"
   printf 'piloto\n' >"$HOST_T/etc/bb-srv/sector"
   printf 'us-east-1\n' >"$HOST_T/etc/bb-srv/region"
   printf 'bb-aws.example.com\n' >"$HOST_T/etc/bb-srv/zone"
@@ -1071,49 +1072,95 @@ host_reset() {
   chmod 0755 "$HOST_T/usr/local/sbin/bb-srv-proxy"
 }
 fwd_chain() { sed 's/^/-A BB-SRV-PROXY-OUT /' "$HOST_T/ipt/BB-SRV-PROXY-OUT" 2>/dev/null; }
+# A linha Upstream do pinned.conf (a configuração que o tinyproxy lê) tem de ter um endereço que a cadeia libera.
+PINNED_T=$HOST_T/etc/bb-proxy/pinned.conf
+pinned_upstream() {
+  local line
+  line=$(grep '^Upstream ' "$PINNED_T" 2>/dev/null)
+  line=${line##*@}
+  grep -qxF -- "-A BB-SRV-PROXY-OUT -d ${line%:*}/32 -p tcp -m tcp --dport 12321 -j RETURN" <<<"$(fwd_chain)" || return 1
+  grep '^Upstream ' "$PINNED_T"
+}
 health_line() { tail -n 1 "$HOST_T/var/log/bb-srv/health.log" 2>/dev/null | cut -d ' ' -f 2-; }
 
 if ! to_host "$TOOL" "$HOST_TOOL"; then
   bad "F10 a ferramenta não foi para o host falso (sobrou um caminho do sistema acima): F10 a F12 não rodaram"
 else
-  # F10: o encaminhador sai só para os endereços do upstream, um por regra, na porta dele; o guard do timer de
-  # refresh segue uma troca de endereços e só reaplica quando as regras mudam.
+  # F10: o encaminhador (tinyproxy) usa um só endereço do upstream, gravado no pinned.conf, e o firewall libera só esse
+  # endereço, na porta do upstream: o tinyproxy nunca resolve o nome (que pode responder outro endereço) e não conecta a
+  # mais nada. O guard do timer de refresh segue uma troca de endereços, só reaplica quando as regras mudam, e com o DNS
+  # fora fica com o último endereço conhecido do mesmo host.
   host_reset
   g1=$(host_tool guard 2>&1)
   fwd1=$(fwd_chain)
   g2=$(host_tool guard 2>&1)
   fwd2=$(fwd_chain)
-  fwd_pinned=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.21/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
+  fwd_pinned=$'-A BB-SRV-PROXY-OUT -o lo -j RETURN\n-A BB-SRV-PROXY-OUT -d 172.30.0.0/16 -j RETURN\n-A BB-SRV-PROXY-OUT -d 198.51.100.20/32 -p tcp -m tcp --dport 12321 -j RETURN\n-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable'
   if [ "$fwd1" = "$fwd_pinned" ] && grep -q 'guard applied (proxy)' <<<"$g1" && [ "$(head -n 1 "$HOST_T/ipt/OUTPUT")" = '-m owner --uid-owner 998 -j BB-SRV-PROXY-OUT' ] &&
+    [ "$(pinned_upstream)" = 'Upstream http demo-user:demo-pass@198.51.100.20:12321' ] && [ "$(file_mode "$PINNED_T")" = 600 ] &&
+    [ "$(grep -v '^Upstream ' "$PINNED_T")" = "$(grep -v '^Upstream ' "$HOST_T/etc/bb-proxy/upstream.conf")" ] &&
     ! grep -q 'proxy.example.net\|demo-' <<<"$g1$g2"; then
-    ok_case "F10 guard: o encaminhador sai só para os IPv4 públicos do upstream (um por regra, na porta dele); REJECT no resto"
+    ok_case "F10 guard: o encaminhador usa um só endereço do upstream (pinned.conf, 0600) e o firewall libera só esse, na porta dele"
   else
-    bad "F10 guard: encaminhador só para os endereços do upstream" "$g1"$'\n'"$fwd1"
+    bad "F10 guard: encaminhador num endereço só do upstream" "$g1"$'\n'"$fwd1"$'\n'"$(pinned_upstream)"
   fi
-  host_dns 198.51.100.30
+  host_dns 198.51.100.21 198.51.100.30 198.51.100.20
+  : >"$HOST_T/calls"
   g3=$(host_tool guard 2>&1)
-  fwd3=$(fwd_chain)
-  if [ "$fwd2" = "$fwd1" ] && ! grep -q 'guard applied' <<<"$g2" && grep -q 'guard applied (proxy)' <<<"$g3" &&
-    grep -qxF -- '-A BB-SRV-PROXY-OUT -d 198.51.100.30/32 -p tcp -m tcp --dport 12321 -j RETURN' <<<"$fwd3" &&
-    ! grep -q '198\.51\.100\.2[01]' <<<"$fwd3" &&
-    grep -A 1 'ExecStart=/usr/local/sbin/bb-srv-proxy guard' templates/proxy.yaml | grep -q '/bb-srv-egress-refresh.service$'; then
-    ok_case "F10 refresh (o guard do bb-srv-egress-refresh): segue uma troca de endereços do upstream; sem troca, não reaplica"
-  else
-    bad "F10 refresh dos endereços do upstream" "$g2"$'\n'"$g3"$'\n'"$fwd3"
-  fi
-  host_dns
+  restarts3=$(grep -c 'systemctl --no-block restart bb-proxy.service' "$HOST_T/calls")
+  host_dns 198.51.100.30
+  : >"$HOST_T/calls"
   g4=$(host_tool guard 2>&1)
   fwd4=$(fwd_chain)
-  if ! grep -q 'dport 12321\|198\.51\.100' <<<"$fwd4" && [ "$(tail -n 1 <<<"$fwd4")" = '-A BB-SRV-PROXY-OUT -j REJECT --reject-with icmp-port-unreachable' ] &&
-    grep -q 'BB_PROXY warning: no public IPv4 address for the upstream' <<<"$g4" && ! grep -q 'proxy.example.net' <<<"$g4"; then
-    ok_case "F10 upstream sem endereço público (DNS fora): nenhuma regra para ele, o encaminhador não sai (falha fechada)"
+  restarts4=$(grep -c 'systemctl --no-block restart bb-proxy.service' "$HOST_T/calls")
+  if [ "$fwd2" = "$fwd1" ] && ! grep -q 'guard applied' <<<"$g2$g3" && [ "$restarts3" = 0 ] &&
+    grep -q 'guard applied (proxy)' <<<"$g4" && [ "$restarts4" = 1 ] &&
+    grep -qxF -- '-A BB-SRV-PROXY-OUT -d 198.51.100.30/32 -p tcp -m tcp --dport 12321 -j RETURN' <<<"$fwd4" &&
+    ! grep -q '198\.51\.100\.2[01]' <<<"$fwd4" && [ "$(pinned_upstream)" = 'Upstream http demo-user:demo-pass@198.51.100.30:12321' ] &&
+    grep -A 1 'ExecStart=/usr/local/sbin/bb-srv-proxy guard' templates/proxy.yaml | grep -q '/bb-srv-egress-refresh.service$'; then
+    ok_case "F10 refresh: o encaminhador fica no endereço enquanto o nome o tiver; numa troca, regra e pinned.conf juntos e um reinício"
   else
-    bad "F10 upstream sem endereço público" "$g4"$'\n'"$fwd4"
+    bad "F10 refresh dos endereços do upstream" "$g2"$'\n'"$g3"$'\n'"$g4"$'\n'"$fwd4"$'\n'"restarts $restarts3/$restarts4"
+  fi
+  host_dns
+  : >"$HOST_T/calls"
+  g5=$(host_tool guard 2>&1)
+  fwd5=$(fwd_chain)
+  if [ "$fwd5" = "$fwd4" ] && [ "$(pinned_upstream)" = 'Upstream http demo-user:demo-pass@198.51.100.30:12321' ] &&
+    ! grep -q 'guard applied' <<<"$g5" && ! grep -q 'restart bb-proxy' "$HOST_T/calls" &&
+    grep -q 'BB_PROXY warning: the upstream did not resolve; using its last known addresses' <<<"$g5" && ! grep -q 'proxy.example.net' <<<"$g5"; then
+    ok_case "F10 refresh com o DNS fora: ficam o último endereço conhecido do upstream, a regra e o pinned.conf (sem reinício)"
+  else
+    bad "F10 refresh com o DNS fora" "$g5"$'\n'"$fwd5"$'\n'"$(pinned_upstream)"
+  fi
+  # VM nova (sem endereço conhecido) com o DNS fora: nenhuma regra e nenhum pinned.conf; a saúde não fica verde.
+  host_reset
+  host_dns
+  g6=$(host_tool guard 2>&1)
+  host_tool health >/dev/null 2>&1
+  if ! grep -q 'dport 12321' <<<"$(fwd_chain)" && [ ! -e "$PINNED_T" ] && [ "$(health_line)" = 'BB_PROXY_HEALTH fail no-upstream' ] &&
+    grep -q 'BB_PROXY warning: no public IPv4 address for the upstream' <<<"$g6" && ! grep -q 'proxy.example.net' <<<"$g6"; then
+    ok_case "F10 VM sem endereço conhecido do upstream e DNS fora: nenhuma regra nem pinned.conf (falha fechada); saúde 'fail no-upstream'"
+  else
+    bad "F10 VM nova com o DNS fora" "$g6"$'\n'"$(fwd_chain)"$'\n'"$(health_line)"
+  fi
+  # Credencial nova com outro host, que não resolve: o último endereço do host anterior não vale para ele.
+  host_reset
+  host_tool guard >/dev/null 2>&1
+  printf '%s' 'other.example.net:12321:demo-user:demo-pass2' | bash "$TOOL" parse "$HOST_T/etc/bb-proxy/upstream.conf"
+  g7=$(host_tool guard 2>&1)
+  host_tool health >/dev/null 2>&1
+  if ! grep -q 'dport 12321' <<<"$(fwd_chain)" && [ "$(health_line)" = 'BB_PROXY_HEALTH fail no-upstream' ] &&
+    ! grep -q 'demo-pass2' "$PINNED_T" && ! grep -q 'other.example.net\|demo-' <<<"$g7"; then
+    ok_case "F10 host novo do upstream sem DNS: o endereço conhecido do host anterior não vale (nenhuma regra; saúde 'fail no-upstream')"
+  else
+    bad "F10 host novo do upstream sem DNS" "$g7"$'\n'"$(fwd_chain)"$'\n'"$(health_line)"
   fi
   host_reset 198.51.100.40
   host_tool guard >/dev/null 2>&1
   if grep -qxF -- '-A BB-SRV-PROXY-OUT -d 198.51.100.40/32 -p tcp -m tcp --dport 12321 -j RETURN' <<<"$(fwd_chain)" &&
-    [ "$(grep -c 'dport' <<<"$(fwd_chain)")" = 1 ] && ! grep -q 'getent ahostsv4 198.51.100.40' "$HOST_T/calls"; then
+    [ "$(grep -c 'dport' <<<"$(fwd_chain)")" = 1 ] && ! grep -q 'getent ahostsv4 198.51.100.40' "$HOST_T/calls" &&
+    [ "$(pinned_upstream)" = 'Upstream http demo-user:demo-pass@198.51.100.40:12321' ]; then
     ok_case "F10 upstream por IPv4 literal: uma regra só para ele, sem consulta ao DNS"
   else
     bad "F10 upstream por IPv4 literal" "$(fwd_chain)"

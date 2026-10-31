@@ -60,10 +60,11 @@ Resources:
               #!/bin/bash
               # Egress proxy of the sector (README section 16). Written by bb-srv-ProxySetup; runs as root.
               #   config     /bb-srv/proxy/egress (host:port:user:password, role of the VM) -> /etc/bb-proxy/upstream.conf
-              #              (root 0600, the tinyproxy configuration, by LoadCredential); a failed read keeps the old file
+              #              (root 0600); a failed read keeps the old file
               #   sync-mode  /bb-srv/sectors/<sector>/egress -> /etc/bb-srv/egress, only while this VM has none
               #   mode       proxy or direct
-              #   guard      the egress firewall of the container and of the forwarder (fail closed), proxy.env
+              #   guard      the egress firewall of the container and of the forwarder (fail closed), proxy.env, and
+              #              /etc/bb-proxy/pinned.conf: the tinyproxy configuration, upstream on the one address it may reach
               #   health     one line "BB_PROXY_HEALTH ok <country>" or "... fail <reason>" in health.log
               #   check-container [--no-ip]   what the container sees: variables, exit, direct path, DNS, Signal
               #   verify     check-container, then the verdict (judge); a leak stops the container
@@ -86,6 +87,7 @@ Resources:
               PROXY_USER=bb-proxy
               ETC=/etc/bb-srv
               UPSTREAM=/etc/bb-proxy/upstream.conf
+              PINNED=/etc/bb-proxy/pinned.conf
               TRACE=https://www.cloudflare.com/cdn-cgi/trace
               DIRECT=https://1.1.1.1/cdn-cgi/trace
               OUTSIDE=example.com
@@ -282,12 +284,50 @@ Resources:
                 if [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ]; then echo "$port"; else echo -; fi
               }
 
-              # The public IPv4 addresses of the host of the Upstream line (root only); the line itself never leaves.
+              # The host (or address) of the Upstream line of file $1 (root only); the rest of the line never leaves.
+              upstream_host() {
+                local line
+                line=$(grep -m 1 '^Upstream http ' "$1" 2>/dev/null || true)
+                line=${line##*@}
+                echo "${line%:*}"
+              }
+
+              # The public IPv4 addresses of the upstream: resolved now or, when DNS does not answer, the last ones known for
+              # this same host (/var/lib/bb-srv/upstream-ips, root 0600).
               upstream_ips() {
-                local host
-                host=$(grep -m 1 '^Upstream http ' "$UPSTREAM" 2>/dev/null || true)
-                host=${host##*@}
-                public_ips "${host%:*}"
+                local host cache=/var/lib/bb-srv/upstream-ips found ip
+                host=$(upstream_host "$UPSTREAM")
+                found=$(public_ips "$host" | tr '\n' ' ')
+                found=${found% }
+                if [ -n "$found" ]; then
+                  printf '%s %s\n' "$host" "$found" >"$cache.new" && mv -f "$cache.new" "$cache"
+                elif [ -n "$host" ] && [ "$(cut -d ' ' -f 1 "$cache" 2>/dev/null)" = "$host" ]; then
+                  found=$(cut -d ' ' -f 2- "$cache")
+                  echo "BB_PROXY warning: the upstream did not resolve; using its last known addresses" >&2
+                fi
+                for ip in $found; do
+                  if public_ipv4 "$ip"; then echo "$ip"; fi
+                done
+              }
+
+              # $PINNED: upstream.conf with the Upstream on address $1, one the firewall lets the forwarder reach, so tinyproxy
+              # never resolves the name (which may answer another address) and connects nowhere else. A running forwarder
+              # restarts only when the file changes (another address, a new credential).
+              pin() {
+                local tmp
+                tmp=$(mktemp "$PINNED.XXXXXX")
+                if ! awk -v ip="$1" '/^Upstream http / { sub(/@[^@:]+:/, "@" ip ":") } { print }' "$UPSTREAM" >"$tmp"; then
+                  rm -f "$tmp"
+                  fail "could not write $PINNED"
+                fi
+                if cmp -s "$tmp" "$PINNED"; then
+                  rm -f "$tmp"
+                  return 0
+                fi
+                chmod 0600 "$tmp"
+                mv -f "$tmp" "$PINNED"
+                echo "BB_PROXY forwarder pinned to one address of the upstream"
+                if systemctl is-active --quiet bb-proxy.service; then systemctl --no-block restart bb-proxy.service; fi
               }
 
               # True when rule $2 of chain $1 comes before the first rule that matches the regex $3 (or none does).
@@ -315,7 +355,7 @@ Resources:
               held() { marked_hold || grep -qx -- "-A DOCKER-USER -i $BRIDGE -j DROP" <<<"$(iptables -S DOCKER-USER 2>/dev/null)"; }
 
               guard() {
-                local m ips port up uid desired current line chain ok=1
+                local m ips port up pick uid desired current line chain ok=1
                 # One run at a time (the boot unit, the refresh timer, bb-srv-Install, bb-srv-ProxyReload).
                 exec 8>/run/bb-srv-proxy.lock
                 flock -w 120 8 || fail "another bb-srv-proxy guard holds /run/bb-srv-proxy.lock"
@@ -323,12 +363,15 @@ Resources:
                 ips=$(signal_ips)
                 port=$(upstream_port)
                 up=$(upstream_ips)
-                [ "$m" = direct ] || [ -n "$up" ] ||
+                # One address for the forwarder: the one in use while the upstream still has it, else the first.
+                pick=$(upstream_host "$PINNED")
+                grep -qxF -- "$pick" <<<"$up" || pick=$(head -n 1 <<<"$up")
+                [ "$m" = direct ] || [ -n "$pick" ] ||
                   echo "BB_PROXY warning: no public IPv4 address for the upstream (DNS?): the forwarder reaches nothing until a refresh finds one" >&2
                 uid=$(id -u "$PROXY_USER" 2>/dev/null || true)
                 [ "$m" = direct ] || [[ $uid =~ ^[0-9]+$ ]] || fail "the user $PROXY_USER of the forwarder does not exist (bb-srv-ProxySetup)"
                 # shellcheck disable=SC2086 # one address per word
-                desired=$(rules "$m" "$port" $up -- $ips)
+                desired=$(rules "$m" "$port" $pick -- $ips)
                 iptables -N DOCKER-USER 2>/dev/null || true
                 for chain in "$IN_CHAIN" "$OUT_CHAIN" "$FWD_CHAIN"; do iptables -N "$chain" 2>/dev/null || true; done
                 current=$({ iptables -S "$IN_CHAIN"; iptables -S "$OUT_CHAIN"; iptables -S "$FWD_CHAIN"; } | grep '^-A ' || true)
@@ -364,6 +407,8 @@ Resources:
                 fi
                 # shellcheck disable=SC2086 # one address per word
                 write_env "$m" $ips
+                # The forwarder moves to the address only now that the firewall lets it through.
+                [ "$m" = direct ] || [ -z "$pick" ] || pin "$pick"
               }
 
               env_lines() {
@@ -417,12 +462,12 @@ Resources:
               }
 
               # The forwarder: tinyproxy as bb-proxy (a static user, so the OUTPUT rule of guard follows it across
-              # restarts), the configuration by LoadCredential, no capability, no IMDS, no private range.
+              # restarts), the pinned configuration by LoadCredential, no capability, no IMDS, no private range.
               forwarder_unit() {
                 printf '%s\n' '[Unit]' 'Description=Builders Bot - egress forwarder of the container (tinyproxy to the residential proxy)' \
                   'Wants=network-online.target' 'After=bb-proxy-config.service network-online.target docker.service' \
                   'StartLimitIntervalSec=0' '[Service]' 'Type=simple' 'User=bb-proxy' 'Group=bb-proxy' \
-                  'LoadCredential=tinyproxy.conf:/etc/bb-proxy/upstream.conf' 'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf'
+                  'LoadCredential=tinyproxy.conf:/etc/bb-proxy/pinned.conf' 'ExecStart=/usr/bin/tinyproxy -d -c %d/tinyproxy.conf'
                 sandbox
                 printf '%s\n' 'CapabilityBoundingSet=' 'AmbientCapabilities=' 'RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX' \
                   'SystemCallFilter=~@privileged' "IPAddressAllow=localhost $SUBNET" \
@@ -623,7 +668,8 @@ Resources:
               printf '[Unit]\nRequires=bb-srv-egress-guard.service\nAfter=bb-srv-egress-guard.service\nConditionPathExists=!/var/lib/bb-srv/egress-open\n' \
                 >/etc/systemd/system/bb-srv-sector-up.service.d/bb-srv-egress.conf
               # The credential, read from SSM at boot (and by bb-srv-ProxyReload), not at each restart of the forwarder;
-              # a failed read keeps the last file. The guard after it follows a new host or port of the upstream.
+              # a failed read keeps the last file. The guard after it follows a new host or port of the upstream and writes
+              # pinned.conf, the configuration the forwarder reads.
               cat >/etc/systemd/system/bb-proxy-config.service <<'UNIT'
               [Unit]
               Description=Builders Bot - read the egress proxy credential (SSM) for the forwarder
