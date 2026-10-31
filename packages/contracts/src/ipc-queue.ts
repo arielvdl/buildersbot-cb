@@ -219,6 +219,34 @@ export interface SteerQueuedMessageInput {
   expectedTurnId: string;
 }
 
+/**
+ * Stops the running turn of the agent that owns a queued message, and starts that message next, alone,
+ * before the other queued messages. The stop is the Stop button's stop: the partial work stays in the
+ * conversation. `expectedTurnId` is the turn of the agent's own chat that the person saw running, or
+ * null when the chat showed none. A turn of that chat that the person did not see is not stopped.
+ */
+export interface ForceQueuedMessageInput {
+  agentId: string;
+  deliveryId: string;
+  expectedTurnId: string | null;
+}
+
+/**
+ * What a force did. `interrupted`: the running turn was told to stop, and the message starts when it
+ * ends. `started`: no turn ran, so the message starts now. `next`: a turn that the person did not see
+ * runs, so the message waits at the head of the queue and starts after that turn.
+ */
+export const FORCE_QUEUED_MESSAGE_OUTCOMES = ["interrupted", "started", "next"] as const;
+export type ForceQueuedMessageOutcome = (typeof FORCE_QUEUED_MESSAGE_OUTCOMES)[number];
+
+export interface ForceQueuedMessageResult {
+  outcome: ForceQueuedMessageOutcome;
+}
+
+export function isForceQueuedMessageResult(value: unknown): value is ForceQueuedMessageResult {
+  return isDynamicRecord(value) && isOneOf(FORCE_QUEUED_MESSAGE_OUTCOMES, value.outcome);
+}
+
 export interface UpdateQueuedMessageInput {
   agentId: string;
   deliveryId: string;

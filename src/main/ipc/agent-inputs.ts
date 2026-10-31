@@ -22,6 +22,7 @@ import {
   type DownloadAttachmentsInput,
   type EditQueuedMessageInput,
   type FileAction,
+  type ForceQueuedMessageInput,
   type ImportAttachmentsInput,
   type InterruptTurnInput,
   isAgentAccess,
@@ -957,6 +958,16 @@ export function parseSteerQueuedMessage(value: unknown): SteerQueuedMessageInput
     agentId: requireString(value.agentId, "agentId"),
     deliveryId: requireString(value.deliveryId, "deliveryId"),
     expectedTurnId: requireString(value.expectedTurnId, "expectedTurnId"),
+  };
+}
+
+/** A force names the chat turn that the person saw running, or null when the chat showed none. */
+export function parseForceQueuedMessage(value: unknown): ForceQueuedMessageInput {
+  if (!isObject(value)) throw new Error("Invalid queued force request.");
+  return {
+    agentId: requireString(value.agentId, "agentId"),
+    deliveryId: requireString(value.deliveryId, "deliveryId"),
+    expectedTurnId: value.expectedTurnId === null ? null : requireString(value.expectedTurnId, "expectedTurnId"),
   };
 }
 

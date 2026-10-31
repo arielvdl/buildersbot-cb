@@ -37,6 +37,8 @@ import {
   decodeRemoteInstanceTransferResult,
   decodeRemoteInstanceTransferSummary,
   type ExportInstanceInput,
+  type ForceQueuedMessageInput,
+  type ForceQueuedMessageResult,
   type InstalledSkill,
   type InstanceTransferPreview,
   type InstanceTransferSummary,
@@ -47,6 +49,7 @@ import {
   isAgentTasksSnapshot,
   isAttachmentSummary,
   isConversationSnapshot,
+  isForceQueuedMessageResult,
   isQueuedMessageReceipt,
   isRoutine,
   isRoutineFlowCanvas,
@@ -93,6 +96,7 @@ import {
   INSTANCE_TRANSFER_REMOTE_BYTES,
   INSTANCE_TRANSFER_ROUTES,
 } from "@openbot/contracts/team-protocol/instance-transfer-v1";
+import { QUEUE_FORCE_ROUTES } from "@openbot/contracts/team-protocol/queue-force-v1";
 import { ROUTINE_FLOWS_ROUTES } from "@openbot/contracts/team-protocol/routine-flows-v1";
 import { decodeTeamProtocolV2Json, type TeamProtocolV2Json } from "@openbot/contracts/team-protocol/v2";
 import type { RemoteFileUpload } from "./file-upload";
@@ -164,6 +168,21 @@ export const steerQueuedMessage = Effect.fn("TeamClient.steerQueuedMessage")(fun
 ): Effect.fn.Return<void, TeamRequestError> {
   return yield* teamCall(() =>
     request("POST", TEAM_API_ROUTES.agent.queueSteer(agentId), ignoreResponse, { deliveryId, expectedTurnId }),
+  );
+});
+
+const decodeForceResult = guardedDecoder(isForceQueuedMessageResult, "queue force response");
+
+/**
+ * Stops the turn that holds the agent's chat and starts the queued message next. Send it only to a
+ * host that serves `queue-force-v1`.
+ */
+export const forceQueuedMessage = Effect.fn("TeamClient.forceQueuedMessage")(function* (
+  request: TeamApiRequest,
+  { agentId, deliveryId, expectedTurnId }: ForceQueuedMessageInput,
+): Effect.fn.Return<ForceQueuedMessageResult, TeamRequestError> {
+  return yield* teamCall(() =>
+    request("POST", QUEUE_FORCE_ROUTES.force, decodeForceResult, { agentId, deliveryId, expectedTurnId }),
   );
 });
 

@@ -213,6 +213,12 @@ export class DrainScheduler {
    */
   readonly #requeuedAtLimit = new Set<string>();
   readonly #settingsHolds = new Map<string, number>();
+  /**
+   * The forced deliveries. Each one starts its turn alone: the person's messages queued after it do
+   * not join that turn, so they start after it, in queue order. In memory only: after a restart a
+   * forced message starts as any other message at the head of the queue.
+   */
+  readonly #startsAlone = new Set<string>();
   /** The last hold `#reportHold` logged per lane, so a waiting queue logs once per reason. */
   readonly #reportedHolds = new Map<string, string>();
   /**
@@ -461,6 +467,16 @@ export class DrainScheduler {
     return false;
   }
 
+  /** Makes the next turn of this delivery start with no later queued message of the person. */
+  startAlone(deliveryId: string): void {
+    this.#startsAlone.add(deliveryId);
+  }
+
+  /** Undoes `startAlone`, for a force that did not go through. */
+  forgetStartAlone(deliveryId: string): void {
+    this.#startsAlone.delete(deliveryId);
+  }
+
   holdSessionSettings(agentId: string): () => void {
     this.#settingsHolds.set(agentId, (this.#settingsHolds.get(agentId) ?? 0) + 1);
     return () => {
@@ -499,6 +515,7 @@ export class DrainScheduler {
     this.#slotWaiters.clear();
     this.#reportedHolds.clear();
     this.#requeuedAtLimit.clear();
+    this.#startsAlone.clear();
   }
 
   /**
@@ -671,10 +688,13 @@ export class DrainScheduler {
       planNote !== undefined || channelDelivery || ownSession || (messagingDelivery && delivery.sender.kind !== "agent")
         ? []
         : this.#mailbox.repliesToStartWith(delivery.id);
+    // A forced message starts alone. Its flag stays until the delivery leaves the queue, because a
+    // start that finds the lane busy gives the delivery back to the queue.
+    const startsAlone = this.#startsAlone.has(delivery.id);
     const laterMessages =
       planNote !== undefined
         ? this.#mailbox.planContinuationsToStartWith(delivery.id)
-        : channelDelivery || ownSession || messagingDelivery
+        : channelDelivery || ownSession || messagingDelivery || startsAlone
           ? []
           : this.#mailbox.userMessagesToStartWith(delivery.id);
     const companions = [...replies, ...laterMessages];
@@ -1113,6 +1133,8 @@ export class DrainScheduler {
           releaseRuntimeRefresh();
           if (!confirmedTurnId && !turnMayRun) releaseReservation();
           for (const provider of claimed) this.#startingDeliveries.set(provider, this.#starting(provider) - 1);
+          if (startsAlone && this.#mailbox.getDelivery(delivery.id)?.delivery.status !== "queued")
+            this.#startsAlone.delete(delivery.id);
         }),
       ),
     );

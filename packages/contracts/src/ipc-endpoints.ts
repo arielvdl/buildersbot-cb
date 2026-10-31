@@ -401,6 +401,8 @@ import type {
   BusyMessageModePreference,
   CancelQueuedMessageInput,
   EditQueuedMessageInput,
+  ForceQueuedMessageInput,
+  ForceQueuedMessageResult,
   InterruptTurnInput,
   QueuedMessageReceipt,
   QueueSnapshot,
@@ -1511,6 +1513,10 @@ export const IPC_ENDPOINTS = {
     acknowledgeFailedTurn: scopedRequest<AcknowledgeFailedTurnInput, void>()("agent:acknowledge-failed-turn"),
     cancelQueuedMessage: scopedRequest<CancelQueuedMessageInput, void>()("agent:cancel-queued-message"),
     steerQueuedMessage: scopedRequest<SteerQueuedMessageInput, void>()("agent:steer-queued-message"),
+    // A joined server takes this through `queue-force-v1`.
+    forceQueuedMessage: scopedRequest<ForceQueuedMessageInput, ForceQueuedMessageResult>()(
+      "agent:force-queued-message",
+    ),
     editQueuedMessage: scopedRequest<EditQueuedMessageInput, QueueSnapshot>()("agent:edit-queued-message"),
     updateQueuedMessage: scopedRequest<UpdateQueuedMessageInput, void>()("agent:update-queued-message"),
     reorderQueue: scopedRequest<ReorderQueueInput, void>()("agent:reorder-queue"),

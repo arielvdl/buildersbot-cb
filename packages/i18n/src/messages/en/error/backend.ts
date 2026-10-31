@@ -281,6 +281,9 @@ export const messages = defineMessages("error.backend", {
   "error.backend.steerRoutineRun":
     "A routine is running now. Your message stays in the queue and starts after the routine.",
   "error.backend.steerQueuedOnly": "Only queued messages can be steered.",
+  "error.backend.forceQueuedOnly": "Only a message that waits in the agent's queue can be forced.",
+  "error.backend.forceEditing": "Another device is editing this message. Save or cancel the edit, then force it.",
+  "error.backend.forceStopFailed": "Could not stop the agent. The message stays in the queue.",
   "error.backend.promptInactive": "This prompt is no longer active.",
   "error.backend.promptAnswerMismatch": "A prompt answer does not match an active question.",
   "error.backend.uiBlockAnswerInvalid": "This answer does not fit the agent's block.",

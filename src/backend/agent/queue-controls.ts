@@ -1,6 +1,8 @@
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import type {
   ConversationMessageSender,
+  ForceQueuedMessageInput,
+  ForceQueuedMessageResult,
   QueueSnapshot,
   ReorderQueueInput,
   SteerQueuedMessageInput,
@@ -21,6 +23,7 @@ import { type DrainScheduler, REMOVED_ENDPOINT_MESSAGE } from "./drain-scheduler
 import type { MailboxSync } from "./mailbox-sync";
 import type { PromptGuardScan } from "./prompt-guard";
 import type { ProviderRuntime } from "./provider-runtime";
+import { type LaneTurn, QueueForce, QueueForceRefused } from "./queue-force";
 import type { RoutineScheduler } from "./routine-scheduler";
 import { providerForAgent } from "./thread-items";
 
@@ -34,6 +37,16 @@ export interface QueueControlsHooks {
   taskThreadId(deliveryId: string): string | null;
   /** The prompt-injection block of a steered message, or null; see `DrainScheduler`'s hook. */
   scanPrompt(agentId: string, input: readonly DeliveryInputItem[]): Effect.Effect<PromptGuardScan | null>;
+  /**
+   * The Stop button's stop of a turn that holds the agent's own chat. `executionThreadId` names the
+   * channel or messaging thread of the turn, and is absent for the chat itself. False when no stop
+   * was sent, because the turn has ended already.
+   */
+  stopTurn(
+    agentId: string,
+    turnId: string,
+    executionThreadId: string | undefined,
+  ): Effect.Effect<boolean, { readonly cause: unknown }>;
 }
 
 export interface QueueControlsOptions {
@@ -49,8 +62,9 @@ export interface QueueControlsOptions {
 }
 
 /**
- * Owns the user's changes to messages that wait in an agent's queue: cancel, edit, update, reorder
- * and steer into the running turn. Channel work is refused here; the channel task controls own it.
+ * Owns the user's changes to messages that wait in an agent's queue: cancel, edit, update, reorder,
+ * steer into the running turn, and force (stop the running turn and start the message next). Channel
+ * work is refused here; the channel task controls own it.
  *
  * It never imports the agent service facade.
  */
@@ -64,6 +78,7 @@ export class QueueControls {
   readonly #drain: DrainScheduler;
   readonly #routines: RoutineScheduler;
   readonly #hooks: QueueControlsHooks;
+  readonly #force: QueueForce;
 
   constructor(options: QueueControlsOptions) {
     this.#store = options.store;
@@ -75,6 +90,57 @@ export class QueueControls {
     this.#drain = options.drain;
     this.#routines = options.routines;
     this.#hooks = options.hooks;
+    this.#force = new QueueForce({
+      requireForceable: (agentId, deliveryId) => this.#requireForceable(agentId, deliveryId),
+      moveToHead: (agentId, deliveryId) => this.#mailbox.moveToQueueHead(agentId, deliveryId),
+      restoreOrder: (agentId, previous) => this.#mailbox.restoreQueueOrder(agentId, previous),
+      isQueued: (deliveryId) => this.#mailbox.getDelivery(deliveryId)?.delivery.status === "queued",
+      laneTurn: (agentId) => this.#laneTurn(agentId),
+      stop: (agentId, turn) =>
+        this.#hooks.stopTurn(agentId, turn.turnId, turn.ownChat ? undefined : (turn.threadId ?? undefined)),
+      startAlone: (deliveryId) => this.#drain.startAlone(deliveryId),
+      forgetStartAlone: (deliveryId) => this.#drain.forgetStartAlone(deliveryId),
+      queueChanged: (agentId) => this.#mailboxSync.emitQueue(agentId),
+      scheduleDrain: (agentId) => this.#drain.scheduleDrain(agentId),
+    });
+  }
+
+  /**
+   * Stops the turn that holds the agent's own chat and starts this queued message next, alone. See
+   * `QueueForce` for the order of the steps.
+   */
+  force(input: ForceQueuedMessageInput): Effect.Effect<ForceQueuedMessageResult, QueueOperationFailed> {
+    return this.#force.force(input).pipe(toQueueOperationFailed);
+  }
+
+  /** Only a message of the agent's own chat that waits, and that no other editor holds, can be forced. */
+  #requireForceable(agentId: string, deliveryId: string): void {
+    if (this.#hooks.channelAssignment(deliveryId))
+      throw new QueueForceRefused(sourceText("error.backend.useChannelTaskControls"));
+    const context = this.#mailbox.getDelivery(deliveryId);
+    // The queue the person reads: the agent's own chat, without channel, messaging and task work.
+    const listed = this.#mailbox.listQueue(agentId).deliveries.find((delivery) => delivery.id === deliveryId);
+    if (
+      !context ||
+      !listed ||
+      context.delivery.recipientAgentId !== agentId ||
+      context.delivery.status !== "queued" ||
+      context.planContinuation?.queued
+    )
+      throw new QueueForceRefused(sourceText("error.backend.forceQueuedOnly"));
+    if (listed.editing) throw new QueueForceRefused(sourceText("error.backend.forceEditing"));
+  }
+
+  /** The turn that holds the agent's own chat: of the chat itself, or of a channel or messaging thread. */
+  #laneTurn(agentId: string): LaneTurn | null {
+    const snapshot = this.#conversation.workingSnapshot(agentId);
+    if (!snapshot?.activeTurnId) return null;
+    const ownThreadId = this.#store.list().find((agent) => agent.id === agentId)?.threadId ?? null;
+    return {
+      turnId: snapshot.activeTurnId,
+      threadId: snapshot.threadId,
+      ownChat: snapshot.threadId === null || snapshot.threadId === ownThreadId,
+    };
   }
 
   readonly cancel = Effect.fn("QueueControls.cancel")(function* (
@@ -86,6 +152,8 @@ export class QueueControls {
       return yield* new QueueOperationFailed({ cause: new Error(sourceText("error.backend.useChannelTaskControls")) });
     const sender = this.#mailbox.getDelivery(deliveryId)?.delivery.sender;
     yield* this.#mailbox.cancel(agentId, deliveryId).pipe(toQueueOperationFailed);
+    // A forced message that the person deletes before it starts leaves no start-alone mark behind.
+    this.#drain.forgetStartAlone(deliveryId);
     this.#mailboxSync.emitQueue(agentId);
     this.#drain.scheduleDrain(agentId);
     // The requester may hold the other answers until this request ends.

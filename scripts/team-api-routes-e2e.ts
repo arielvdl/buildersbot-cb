@@ -96,6 +96,7 @@ import { PROVIDERS_ADMIN_CAPABILITY, PROVIDERS_ADMIN_ROUTES } from "@openbot/con
 import { PROVIDERS_V5_CAPABILITY, PROVIDERS_V5_ROUTES } from "@openbot/contracts/team-protocol/providers-v5";
 import { PROVIDERS_V8_CAPABILITY, PROVIDERS_V8_ROUTES } from "@openbot/contracts/team-protocol/providers-v8";
 import { QueueEditRejectedError, TEAM_QUEUE_EDIT_CAPABILITY } from "@openbot/contracts/team-protocol/queue-edit-v1";
+import { QUEUE_FORCE_CAPABILITY, QUEUE_FORCE_ROUTES } from "@openbot/contracts/team-protocol/queue-force-v1";
 import {
   ROUTINE_RESULTS_CAPABILITY,
   ROUTINE_RESULTS_ROUTES,
@@ -115,6 +116,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { SteerUnsupportedError } from "../src/backend/agent/queue-controls";
+import { QueueForceRefused } from "../src/backend/agent/queue-force";
 import { AgentLifecycleFailed } from "../src/backend/agent-service";
 import { BrowserProfileStore } from "../src/backend/browser-profiles/browser-profile-store";
 import type { BrowserTabSession } from "../src/backend/browser-state";
@@ -348,6 +350,18 @@ const fakeAgents: TeamApiAgents = {
         new AgentLifecycleFailed({ operation: "steerQueuedMessage", cause: new SteerUnsupportedError() }),
       );
     return Effect.void;
+  },
+  forceQueuedMessage: (input) => {
+    record("forceQueuedMessage", input);
+    // The host refuses a message that has left the queue: a sentence for the member, not a fault.
+    if (input.agentId === "agent-oc")
+      return Effect.fail(
+        new AgentLifecycleFailed({
+          operation: "forceQueuedMessage",
+          cause: new QueueForceRefused(sourceText("error.backend.forceQueuedOnly")),
+        }),
+      );
+    return Effect.succeed({ outcome: input.expectedTurnId === null ? "started" : "interrupted" });
   },
   updateQueuedMessage: (input, sender) => Effect.sync(() => record("updateQueuedMessage", input, sender)),
   editQueuedMessage: (agentId, input, sender) => {
@@ -3750,6 +3764,68 @@ try {
           [{ agentId: "agent-oc", deliveryId: "delivery-1", expectedTurnId: "turn-2" }],
         ]),
       [summary(steer), summary(steerGone), summary(steerDeferred)],
+    );
+    // queue-force-v1: a member who may chat with the agent forces one of its queued messages.
+    const forceCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, QUEUE_FORCE_CAPABILITY];
+    const forceCompatibility = await call("GET", TEAM_API_ROUTES.compatibility, { protocol: TEAM_PROTOCOL_V9 });
+    const forceOlder = await call("GET", TEAM_API_ROUTES.compatibility, { protocol: 8 });
+    check(
+      "the host advertises queue-force-v1 to a protocol 9 peer only",
+      list(field(forceCompatibility.body, "capabilities")).includes(QUEUE_FORCE_CAPABILITY) &&
+        !list(field(forceOlder.body, "capabilities")).includes(QUEUE_FORCE_CAPABILITY),
+      [summary(forceCompatibility), summary(forceOlder)],
+    );
+    const force = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      token: bobToken,
+      json: { agentId: "agent-ada", deliveryId: "delivery-1", expectedTurnId: "turn-2" },
+      capabilities: forceCapabilities,
+    });
+    const forceIdle = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      token: bobToken,
+      json: { agentId: "agent-ada", deliveryId: "delivery-2", expectedTurnId: null },
+      capabilities: forceCapabilities,
+    });
+    const forceRefused = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      token: bobToken,
+      json: { agentId: "agent-oc", deliveryId: "delivery-1", expectedTurnId: "turn-2" },
+      capabilities: forceCapabilities,
+    });
+    check(
+      "force gives the outcome for a listed agent, and 409 with the reason when the host refuses",
+      force.status === 200 &&
+        isDeepStrictEqual(force.body, { outcome: "interrupted" }) &&
+        forceIdle.status === 200 &&
+        isDeepStrictEqual(forceIdle.body, { outcome: "started" }) &&
+        errorIs(forceRefused, 409, sourceText("error.backend.forceQueuedOnly")),
+      [summary(force), summary(forceIdle), summary(forceRefused)],
+    );
+    const forceCalls = callsOf("forceQueuedMessage").length;
+    const forceUnsupported = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      token: bobToken,
+      json: { agentId: "agent-ada", deliveryId: "delivery-1", expectedTurnId: "turn-2" },
+    });
+    const forceGone = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      token: bobToken,
+      json: { agentId: "agent-gone", deliveryId: "delivery-1", expectedTurnId: null },
+      capabilities: forceCapabilities,
+    });
+    const forceInvalid = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      token: bobToken,
+      json: { agentId: "agent-ada", deliveryId: "delivery-1", expectedTurnId: 7 },
+      capabilities: forceCapabilities,
+    });
+    const forceAnonymous = await call("POST", QUEUE_FORCE_ROUTES.force, {
+      json: { agentId: "agent-ada", deliveryId: "delivery-1", expectedTurnId: null },
+      capabilities: forceCapabilities,
+    });
+    check(
+      "force without the capability gets 400, an unlisted agent 404, a malformed turn id 400, no session 401, and none reaches the agent service",
+      errorIs(forceUnsupported, 400, sourceText("error.team.queueForceUnsupported")) &&
+        errorIs(forceGone, 404, sourceText("error.team.agentNotFound")) &&
+        forceInvalid.status === 400 &&
+        forceAnonymous.status === 401 &&
+        callsOf("forceQueuedMessage").length === forceCalls,
+      [summary(forceUnsupported), summary(forceGone), summary(forceInvalid), summary(forceAnonymous)],
     );
     const update = await call("POST", TEAM_API_ROUTES.agent.queueUpdate("agent-ada"), {
       token: bobToken,

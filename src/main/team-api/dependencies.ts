@@ -145,6 +145,7 @@ type TeamApiAgentMethods = Pick<
   | "setMessageReaction"
   | "cancelQueuedMessage"
   | "steerQueuedMessage"
+  | "forceQueuedMessage"
   | "updateQueuedMessage"
   | "editQueuedMessage"
   | "reorderQueue"

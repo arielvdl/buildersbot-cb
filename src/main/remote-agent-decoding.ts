@@ -28,6 +28,7 @@ import type {
   ClientAgentSummary,
   DraftAttachment,
   DuplicateAgentResult,
+  ForceQueuedMessageResult,
   InstalledSkill,
   ProviderUsageResetOutcome,
   ProviderUsageResets,
@@ -42,6 +43,7 @@ import {
   isAttachmentSummary,
   isClientAgentModelOption,
   isClientAgentSummary,
+  isForceQueuedMessageResult,
   isQueuedMessageReceipt,
   isQueueSnapshot,
   isRoutine,
@@ -227,6 +229,14 @@ export function decodeQueueSnapshot(value: unknown): QueueSnapshot {
     throw new Error("Invalid remote queue.");
   }
   return value;
+}
+
+/** The queue-force-v1 codec has checked the outcome already; this gives it its IPC type. */
+export function decodeForceQueuedMessageResult(value: unknown): ForceQueuedMessageResult {
+  if (!isForceQueuedMessageResult(value)) {
+    throw new Error("Invalid remote force result.");
+  }
+  return { outcome: value.outcome };
 }
 
 export function decodeQueuedMessageReceipt(value: unknown): QueuedMessageReceipt {

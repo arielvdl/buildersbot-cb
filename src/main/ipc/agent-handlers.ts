@@ -65,6 +65,7 @@ import {
   PROVIDER_ACCOUNTS_CAPABILITY,
   PROVIDER_ACCOUNTS_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-accounts-v1";
+import { QUEUE_FORCE_CAPABILITY, QUEUE_FORCE_ROUTES } from "@openbot/contracts/team-protocol/queue-force-v1";
 import {
   decodeSideQuestionResponse,
   SIDE_QUESTION_CAPABILITY,
@@ -87,6 +88,7 @@ import {
   decodeAgentStatusFromHost,
   decodeAgentSummaries,
   decodeAgentSummary,
+  decodeForceQueuedMessageResult,
   decodeHiddenAgentsFromHost,
   decodeHostAnalyticsFromHost,
   decodeInstalledSkillsFromHost,
@@ -114,6 +116,7 @@ import {
   parseCancelQueuedMessage,
   parseChannelId,
   parseCreateAgent,
+  parseForceQueuedMessage,
   parseInterrupt,
   parseMarkAgentTaskRead,
   parseMarkConversationRead,
@@ -813,6 +816,20 @@ export function agentIpcHandlers({
               body: { deliveryId: parsed.deliveryId, expectedTurnId: parsed.expectedTurnId },
             }),
           ),
+      }),
+      // A joined server forces through `queue-force-v1`. An older host has no route for it.
+      forceQueuedMessage: scopedHandler(parseForceQueuedMessage, {
+        local: (parsed) => runCauseEffect(service.forceQueuedMessage(parsed)),
+        remote: (parsed, serverId) => {
+          if (!remoteServers.supportsCapability(serverId, QUEUE_FORCE_CAPABILITY))
+            throw new Error(sourceText("error.team.queueForceUnsupported"));
+          return runCauseEffect(
+            remoteServers.request(serverId, QUEUE_FORCE_ROUTES.force, decodeForceQueuedMessageResult, {
+              method: "POST",
+              body: { agentId: parsed.agentId, deliveryId: parsed.deliveryId, expectedTurnId: parsed.expectedTurnId },
+            }),
+          );
+        },
       }),
       editQueuedMessage: scopedHandler(parseQueueEdit, {
         local: ({ agentId, ...input }) =>
