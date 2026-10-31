@@ -207,6 +207,7 @@ mock. The separate web preview implements the browser runtime with that same moc
 - The queue of the selected agent comes from the host's queue route. The client reads it again when
   the host sends `queue-invalidated`. Steer, cancel, reorder, and edit use the same Team API routes
   as a desktop client of a remote host, and edit holds the message when the host has `queue-edit-v1`.
+  Force uses `queue-force-v1` when the host has it; else the button shows turned off.
   An open edit stays in local storage after a reload or a host change, so the user can release the
   hold on its host. Sign-out cancels the hold and removes the edit. When the host does not confirm, the
   edit stays for the same account. Another account and a revoked session remove it.

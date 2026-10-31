@@ -355,6 +355,20 @@ joined desktop get the window without other client code. A released phone keeps 
 until it updates. `scripts/queue-window-e2e.ts` checks the frame size with and without the
 capability.
 
+### Queue force
+
+`queue-force-v1` lets a member force one message that waits in an agent's own queue:
+`POST /v1/agent-queue/force` with `{ agentId, deliveryId, expectedTurnId }`, where `expectedTurnId`
+is the chat turn that the member saw, or null. The answer is `{ outcome }`: `interrupted`, `started`
+or `next` (see [forced queued messages](agents.md#forced-queued-messages)). The frozen codec is in
+`packages/contracts/src/team-protocol/queue-force-v1.ts` and the host route in
+`src/main/team-api/route-queue-force.ts`. The route refuses a request without the capability (400), an
+agent hidden from the member or not on the host (404), and a member who may only view the agent (403):
+a force needs the same `chat` level as a message. A refusal of the agent service is 409 with its
+sentence. Only a protocol 9 peer gets the capability (`TEAM_PROTOCOL_V9_ONLY_CAPABILITIES`). The
+desktop client (`agent:force-queued-message`) and the web client send the route only to a host that
+advertises it. `scripts/team-api-routes-e2e.ts` checks the route.
+
 ### Browser control and page state
 
 The frozen `browser-changed` event and `GET /v1/browser/tabs` drop unknown tab keys in released
