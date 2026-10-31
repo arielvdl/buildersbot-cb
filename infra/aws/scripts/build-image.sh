@@ -106,6 +106,26 @@ reject() {
 }
 
 # ------------------------------------------------------------------ launch (Mac do operador)
+# Fim do log do builder. A EC2 termina sozinha e o log local some com ela: o user data o envia ao
+# CloudWatch (/bb-srv/builder) antes de desligar. Dá alguns segundos para o envio terminar.
+show_builder_log() { # <tag>
+  local stream=''
+  for _ in 1 2 3 4 5 6; do
+    stream=$(aws_cb logs describe-log-streams --log-group-name /bb-srv/builder --log-stream-name-prefix "build-$1-" \
+      --order-by LogStreamName --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text 2>/dev/null || true)
+    { [ -n "$stream" ] && [ "$stream" != None ]; } && break
+    stream=''
+    sleep 5
+  done
+  if [ -z "$stream" ]; then
+    say "   (o builder não enviou o log ao CloudWatch /bb-srv/builder)"
+    return 0
+  fi
+  say "== fim do log do builder (/bb-srv/builder, $stream):"
+  aws_cb logs get-log-events --log-group-name /bb-srv/builder --log-stream-name "$stream" --no-start-from-head --limit 80 \
+    --output json | jq -r '.events[].message' || true
+}
+
 launch() {
   # shellcheck source=scripts/lib.sh
   source "$(dirname "$0")/lib.sh"
@@ -151,15 +171,43 @@ launch() {
 
   work=$(mktemp -d "${TMPDIR:-/tmp}/bb-srv-build.XXXXXX")
   # O user data confere o hash do script antes de rodar e desliga a máquina no fim (terminate).
+  # A máquina termina sozinha e leva o log local junto. Por isso ship_log envia o fim dele ao CloudWatch
+  # (/bb-srv/builder) em qualquer saída, com a permissão SessionLog que a role do builder já tem. Nunca
+  # impede o desligamento. O Python tira as cores e os redesenhos de barra de progresso (\r) do log.
   cat >"$work/user-data.sh" <<EOF
 #!/bin/bash
 set -uo pipefail
 exec >>/var/log/bb-srv-build.log 2>&1
 shutdown -h +180
+ship_log() {
+  local stream="build-$tag-\$(date -u +%Y%m%dT%H%M%SZ)-exit\$1"
+  tail -c 400000 /var/log/bb-srv-build.log | python3 -c '
+import json, re, sys, time
+now = int(time.time() * 1000)
+ansi = re.compile(chr(27) + r"\[[0-9;?]*[A-Za-z]")
+events = []
+size = 0
+for line in reversed(sys.stdin.read().splitlines()):
+    line = ansi.sub("", line.split(chr(13))[-1]).strip()[:4000]
+    if not line:
+        continue
+    size += len(line.encode()) + 26
+    if size > 900000 or len(events) >= 9000:
+        break
+    events.append({"timestamp": now, "message": line})
+events.reverse()
+json.dump(events, sys.stdout)
+' >/root/log-events.json || return 0
+  /snap/bin/aws logs create-log-stream --region $BB_REGION --log-group-name /bb-srv/builder --log-stream-name "\$stream" || return 0
+  /snap/bin/aws logs put-log-events --region $BB_REGION --log-group-name /bb-srv/builder --log-stream-name "\$stream" \
+    --log-events file:///root/log-events.json >/dev/null || true
+}
 snap install aws-cli --classic
 /snap/bin/aws s3 cp --only-show-errors --region $BB_REGION "s3://$bucket/$script_key" /root/build-image.sh
-echo "$script_hash  /root/build-image.sh" | sha256sum -c - || { shutdown -h now; exit 1; }
+echo "$script_hash  /root/build-image.sh" | sha256sum -c - || { ship_log 2; shutdown -h now; exit 1; }
 bash /root/build-image.sh on-host --commit $sha --bucket $bucket --repo-uri $repo --version $version --source-sha256 $source_hash
+status=\$?
+ship_log "\$status"
 shutdown -h now
 EOF
   instance=$(aws_cb ec2 run-instances --launch-template "LaunchTemplateName=bb-srv-builder,Version=\$Latest" \
@@ -179,6 +227,7 @@ EOF
     state=$(aws_cb ec2 describe-instances --instance-ids "$instance" --query 'Reservations[0].Instances[0].State.Name' --output text)
     case $state in
       shutting-down | terminated | stopped)
+        show_builder_log "$tag"
         aws_cb ec2 get-console-output --instance-id "$instance" --latest --query Output --output text 2>/dev/null | tail -n 40 || true
         die "o builder terminou sem relatório: o build falhou."
         ;;
