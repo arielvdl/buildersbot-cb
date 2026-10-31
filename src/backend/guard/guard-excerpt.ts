@@ -1,9 +1,11 @@
-// What the Guard sends to its reviewer model: the least that lets the model judge. Only a short
-// part of one suspicious item goes out, never the conversation, and every secret in it is masked
-// before it leaves this computer.
+// What the Guard sends to its reviewer model: the least that lets the model judge. Only short parts
+// of one suspicious item go out, never the conversation, and every secret in them is masked before
+// they leave this computer. The parts are the places that the local check marked, so text that an
+// attacker puts in front of an injection cannot push the injection out of the reviewer's view.
 
 import { GUARD_JUDGE_EXCERPT_LIMIT } from "@openbot/contracts/ipc";
 import { redactText } from "@openbot/logging";
+import { type GuardHit, type GuardTriage, guardFindingNeedsReview } from "./guard-triage";
 
 /** A line of an environment file whose name says that its value is a secret. */
 const SECRET_ENV_LINE =
@@ -16,12 +18,17 @@ const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]{1,20}:\/\/)[^\s/@:]{1,256}:[^\s/@]{
  */
 const KEY_LIKE_RUN =
   /(?<![A-Za-z0-9+_-])(?=[A-Za-z0-9+_-]{0,200}\d)(?=[A-Za-z0-9+_-]{0,200}[A-Za-z])[A-Za-z0-9+_-]{40,}={0,2}/gu;
-/** Unicode tag characters carry ASCII that no reader sees. The reviewer gets it written out. */
-const TAG_RUN = /[\u{E0020}-\u{E007E}]+/gu;
-const INVISIBLE = /[​-‍⁠-⁤­᠎﻿\u{E0000}-\u{E007F}]/gu;
-/** Where an injection usually starts, to center the excerpt on it. */
-const ANCHOR =
-  /ignor|disregard|forget|instruc|system prompt|you are now|from now on|note to|if you are an|reviewer|verdict|\[INST\]|<\|im_start|curl|wget|base64|\/dev\/tcp|send|upload|envie|mande|revel|\.env\b|id_rsa|password|token|secret/iu;
+const INVISIBLE = /[\u{200B}-\u{200D}\u{2060}-\u{2064}\u{00AD}\u{180E}\u{FEFF}\u{E0000}-\u{E007F}]/gu;
+/** The characters of a credential. A cut inside such a run could leave half a secret at an edge. */
+const TOKEN_CHARACTER = /[A-Za-z0-9._~+/=-]/u;
+const WHITESPACE = /\s/u;
+/** Between two parts of the excerpt. */
+const SEPARATOR = "\n[…]\n";
+/** How far a part grows to start or end at a whole line, and else at a whole word. */
+const LINE_REACH = 200;
+const WORD_REACH = 64;
+/** The context around each marked place, from the most to none, until the parts fit. */
+const CONTEXTS = [300, 150, 60, 0] as const;
 
 /**
  * Masks the secrets in a text: the rules that keep secrets out of the logs (known key shapes,
@@ -35,53 +42,130 @@ export function maskSecrets(text: string): string {
     .replace(KEY_LIKE_RUN, "[redacted]");
 }
 
-/** Writes out the ASCII that tag characters hide, and removes the other invisible characters. */
-export function revealHiddenText(text: string): string {
-  return text
-    .replace(
-      TAG_RUN,
-      (run) =>
-        `[hidden text: ${[...run].map((char) => String.fromCharCode((char.codePointAt(0) ?? 0xe0020) - 0xe0000)).join("")}]`,
-    )
-    .replace(INVISIBLE, "");
+/** What the reviewer reads, and whether it shows every place that the reviewer must see to clear the item. */
+export interface GuardExcerpt {
+  readonly text: string;
+  /**
+   * False when a place that the local check marked is not in `text`: the item was read only in
+   * part, a finding has no place or more places than were recorded, or the places did not fit the
+   * limit. The reviewer can then ask about the item, but it cannot clear it.
+   */
+  readonly covered: boolean;
 }
 
-/** Cuts a text at whole words, so no half of a masked or unmasked value stays at an edge. */
-function wholeWords(text: string, cutStart: boolean, cutEnd: boolean): string {
-  let result = text;
-  if (cutStart) {
-    const space = result.search(/\s/u);
-    result = space >= 0 ? result.slice(space + 1) : "";
-  }
-  if (cutEnd) {
-    const space = Math.max(result.lastIndexOf(" "), result.lastIndexOf("\n"), result.lastIndexOf("\t"));
-    result = space >= 0 ? result.slice(0, space) : "";
-  }
-  return result;
+type Range = readonly [start: number, end: number];
+
+function isToken(text: string, index: number): boolean {
+  return index >= 0 && index < text.length && TOKEN_CHARACTER.test(text.charAt(index));
 }
 
 /**
- * The part of one item that the reviewer reads: at most `limit` characters, centered near the first
- * place that looks like an instruction or a transfer, with hidden text written out and every secret
- * masked. The text is masked in a wider window first and cut after, so a secret at the edge of the
- * excerpt is masked whole before the cut.
+ * A range that starts and ends at a whole line when the line is near, else at a whole word. A
+ * partial token that is left at an edge, outside the marked place, is taken out: it could be half
+ * of a secret that the mask cannot recognise alone.
  */
-export function judgeExcerpt(text: string, limit: number = GUARD_JUDGE_EXCERPT_LIMIT): string {
-  const visible = revealHiddenText(text.normalize("NFKC"));
-  if (visible.length <= limit) return maskSecrets(visible).slice(0, limit);
-  const anchor = Math.max(0, visible.search(ANCHOR));
-  const wideStart = Math.max(0, anchor - limit * 2);
-  const wideEnd = Math.min(visible.length, anchor + limit * 3);
-  const masked = maskSecrets(visible.slice(wideStart, wideEnd));
-  const offset = Math.min(anchor - wideStart, masked.length);
-  const start = Math.max(0, offset - Math.floor(limit / 4));
-  const end = Math.min(masked.length, start + limit);
-  const cut = wholeWords(
-    masked.slice(start, end),
-    start > 0 || wideStart > 0,
-    end < masked.length || wideEnd < visible.length,
-  );
-  return cut.slice(0, limit);
+function wholeRange(text: string, [start, end]: Range, [placeStart, placeEnd]: Range): Range {
+  let from = start;
+  const lineStart = text.lastIndexOf("\n", from - 1) + 1;
+  if (from - lineStart <= LINE_REACH) from = lineStart;
+  else {
+    let back = from;
+    while (back > 0 && from - back < WORD_REACH && !WHITESPACE.test(text.charAt(back - 1))) back -= 1;
+    if (back === 0 || WHITESPACE.test(text.charAt(back - 1))) from = back;
+  }
+  while (from < placeStart && isToken(text, from - 1) && isToken(text, from)) from += 1;
+
+  let to = end;
+  const lineEnd = text.indexOf("\n", to);
+  const lineStop = lineEnd < 0 ? text.length : lineEnd;
+  if (lineStop - to <= LINE_REACH) to = lineStop;
+  else {
+    let forward = to;
+    while (forward < text.length && forward - to < WORD_REACH && !WHITESPACE.test(text.charAt(forward))) forward += 1;
+    if (forward === text.length || WHITESPACE.test(text.charAt(forward))) to = forward;
+  }
+  while (to > placeEnd && isToken(text, to) && isToken(text, to - 1)) to -= 1;
+  return [from, Math.max(from, to)];
+}
+
+/** The ranges around these places, joined where they meet. */
+function rangesAround(text: string, places: readonly GuardHit[], context: number): Range[] {
+  const ranges = places
+    .map((place): { range: Range; place: Range } => ({
+      range: [Math.max(0, place.start - context), Math.min(text.length, place.end + context)],
+      place: [place.start, place.end],
+    }))
+    .map(({ range, place }) => wholeRange(text, range, place))
+    .sort((left, right) => left[0] - right[0]);
+  const joined: Array<[number, number]> = [];
+  for (const [start, end] of ranges) {
+    const last = joined.at(-1);
+    if (last && start <= last[1] + SEPARATOR.length) last[1] = Math.max(last[1], end);
+    else joined.push([start, end]);
+  }
+  return joined;
+}
+
+function joinParts(text: string, ranges: readonly Range[]): string {
+  return ranges.map(([start, end]) => maskSecrets(text.slice(start, end))).join(SEPARATOR);
+}
+
+function contains(ranges: readonly Range[], place: GuardHit): boolean {
+  return ranges.some(([start, end]) => start <= place.start && place.end <= end);
+}
+
+/**
+ * The parts of one item that the reviewer reads: at most `limit` characters, cut around every place
+ * that the local check marked, with hidden text written out and every secret masked. When the
+ * places do not all fit, the parts with the heaviest findings come first and the excerpt is not
+ * covered.
+ */
+export function judgeExcerpt(
+  triage: Pick<GuardTriage, "text" | "hits" | "findings" | "incomplete" | "unplaced">,
+  limit: number = GUARD_JUDGE_EXCERPT_LIMIT,
+): GuardExcerpt {
+  const { text } = triage;
+  const required = triage.hits.filter((hit) => guardFindingNeedsReview(hit.code));
+  // Every finding that the reviewer must see has a recorded place, and every place was recorded.
+  const placed =
+    !triage.incomplete &&
+    !triage.unplaced &&
+    triage.findings
+      .filter((finding) => guardFindingNeedsReview(finding.code))
+      .every((finding) => required.some((hit) => hit.code === finding.code));
+
+  // A short item goes whole. Masking can only shorten a text by little, so a long one is not tried.
+  if (text.length <= limit * 2) {
+    const whole = maskSecrets(text);
+    if (whole.length <= limit) return { text: whole, covered: placed };
+  }
+  if (required.length === 0) {
+    const [start, end] = wholeRange(text, [0, Math.min(text.length, limit)], [0, 0]);
+    return { text: joinParts(text, [[start, end]]).slice(0, limit), covered: false };
+  }
+
+  for (const context of CONTEXTS) {
+    const ranges = rangesAround(text, required, context);
+    const excerpt = joinParts(text, ranges);
+    if (excerpt.length <= limit) {
+      return { text: excerpt, covered: placed && required.every((place) => contains(ranges, place)) };
+    }
+  }
+
+  // The places do not fit: take them one at a time, the earliest first, while they fit.
+  const kept: GuardHit[] = [];
+  let excerpt = "";
+  for (const place of [...required].sort((left, right) => left.start - right.start)) {
+    const joined = joinParts(text, rangesAround(text, [...kept, place], 0));
+    if (joined.length > limit) continue;
+    kept.push(place);
+    excerpt = joined;
+  }
+  if (!excerpt) {
+    const first = required[0];
+    excerpt = first ? maskSecrets(text.slice(first.start, first.end)).slice(0, limit) : "";
+  }
+  return { text: excerpt, covered: false };
 }
 
 /** A short, safe name of the item for the reviewer, such as `openbot_browser.snapshot on example.com`. */

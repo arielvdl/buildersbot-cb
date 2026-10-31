@@ -33,4 +33,5 @@ export const messages = defineMessages("status.guard", {
   "status.guard.finding.pasteHost": "The action sends data to a site that keeps anonymous uploads.",
   "status.guard.finding.pageScriptExfiltration": "The page script reads cookies or storage and sends them out.",
   "status.guard.finding.pageScriptNetwork": "The page script sends a network request.",
+  "status.guard.finding.incompleteScan": "The Guard could not read all of this item.",
 });

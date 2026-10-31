@@ -57,16 +57,6 @@ const VERDICT_CACHE_SIZE = 256;
 
 const defaultLog: GuardLog = createBuildersBotLogger("guard");
 
-/** The text of an outbound item as the reviewer reads it. */
-function actionText(action: GuardOutboundItem): string {
-  return [
-    `Tool: ${action.tool}`,
-    ...(action.command ? [`Command: ${action.command}`] : []),
-    ...(action.urls && action.urls.length > 0 ? [`URLs: ${action.urls.join(" ")}`] : []),
-    ...(action.payload ? [`Text sent: ${action.payload}`] : []),
-  ].join("\n");
-}
-
 export class ToolGuard {
   readonly #options: ToolGuardOptions;
   readonly #log: GuardLog;
@@ -111,6 +101,7 @@ export class ToolGuard {
       : { kind: "not-needed" };
     const decision = decideGuard({ level, direction: item.direction, triage, judge });
     const result: GuardResult = { ...decision, durationMs: Math.round(this.#now() - started), judge: judge.kind };
+    // Every finding is logged, an incomplete read too, with no content: names, verdicts and times only.
     if (triage.level !== "clean") {
       this.#log.info("The Guard checked an item.", {
         direction: item.direction,
@@ -121,7 +112,9 @@ export class ToolGuard {
         by: result.by,
         judge: result.judge,
         durationMs: result.durationMs,
-        truncated: triage.truncated,
+        incomplete: triage.incomplete,
+        unplaced: triage.unplaced,
+        ...(judge.kind === "verdict" ? { covered: judge.covered } : {}),
       });
     }
     return result;
@@ -137,19 +130,22 @@ export class ToolGuard {
     const port = this.#port(choice);
     if (!port?.ready(choice)) return { kind: "unavailable" } satisfies GuardJudgeOutcome;
     const subject = judgeSubject(item.subject);
-    const excerpt = judgeExcerpt(item.direction === "inbound" ? item.content : actionText(item.action));
+    const excerpt = judgeExcerpt(triage);
+    // The key holds the whole text that the check read, not only the excerpt: two items with the
+    // same excerpt can differ outside it, and a verdict on one must not answer for the other.
+    const content = createHash("sha256").update(triage.text).digest("hex");
     const key = createHash("sha256")
-      .update(JSON.stringify([item.direction, choice.provider, choice.model, subject, excerpt]))
+      .update(JSON.stringify([item.direction, choice.provider, choice.model, subject, content, excerpt.text]))
       .digest("hex");
     const cached = this.#cached(key);
-    if (cached) return { kind: "verdict", verdict: cached } satisfies GuardJudgeOutcome;
+    if (cached) return { kind: "verdict", verdict: cached, covered: excerpt.covered } satisfies GuardJudgeOutcome;
     if (this.#inFlight >= MAX_REVIEWS_IN_FLIGHT) return { kind: "failed", failure: "busy" } satisfies GuardJudgeOutcome;
     this.#inFlight += 1;
     const prompt = guardJudgePrompt({
       direction: item.direction,
       subject,
       findings: triage.findings.map((finding) => finding.code),
-      excerpt,
+      excerpt: excerpt.text,
     });
     const reply = yield* port.complete(choice, { system: GUARD_JUDGE_SYSTEM, prompt }).pipe(
       Effect.map((text) => ({ text })),
@@ -170,7 +166,7 @@ export class ToolGuard {
     const verdict = decodeGuardJudgeReply(reply.text);
     if (!verdict) return { kind: "failed", failure: "invalid" } satisfies GuardJudgeOutcome;
     this.#remember(key, verdict);
-    return { kind: "verdict", verdict } satisfies GuardJudgeOutcome;
+    return { kind: "verdict", verdict, covered: excerpt.covered } satisfies GuardJudgeOutcome;
   });
 
   #cached(key: string): GuardJudgeVerdict | null {
@@ -194,7 +190,15 @@ export class ToolGuard {
   }
 }
 
-const CLEAN: GuardTriage = { level: "clean", category: "none", findings: [], truncated: false };
+const CLEAN: GuardTriage = {
+  level: "clean",
+  category: "none",
+  findings: [],
+  hits: [],
+  text: "",
+  incomplete: false,
+  unplaced: false,
+};
 
 /** The direction of an item, for callers that build one. */
 export type { GuardDirection };

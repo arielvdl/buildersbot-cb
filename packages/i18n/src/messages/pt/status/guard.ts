@@ -34,4 +34,5 @@ export const messages = {
   "status.guard.finding.pageScriptExfiltration":
     "O script da página lê cookies ou o armazenamento e os envia para fora.",
   "status.guard.finding.pageScriptNetwork": "O script da página faz uma requisição de rede.",
+  "status.guard.finding.incompleteScan": "O Guarda não conseguiu ler este item inteiro.",
 } as const satisfies PartialTranslation<typeof source>;

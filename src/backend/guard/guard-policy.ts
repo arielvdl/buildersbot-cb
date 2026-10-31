@@ -3,7 +3,7 @@
 
 import type { GuardAvailableLevel, GuardCategory } from "@openbot/contracts/ipc";
 import type { GuardDirection, GuardJudgeVerdict } from "./guard-judge";
-import { type GuardTriage, triageReason } from "./guard-triage";
+import { type GuardTriage, guardFindingNeedsReview, triageReason } from "./guard-triage";
 
 /**
  * What happens to the item:
@@ -22,7 +22,11 @@ export type GuardJudgeOutcome =
   | { readonly kind: "not-needed" }
   | { readonly kind: "unavailable" }
   | { readonly kind: "failed"; readonly failure: "timeout" | "error" | "invalid" | "busy" }
-  | { readonly kind: "verdict"; readonly verdict: GuardJudgeVerdict };
+  /**
+   * `covered` is false when the excerpt did not show every place that the local check marked. The
+   * reviewer can then make the item ask, but it cannot clear it.
+   */
+  | { readonly kind: "verdict"; readonly verdict: GuardJudgeVerdict; readonly covered: boolean };
 
 export interface GuardDecision {
   readonly action: GuardAction;
@@ -32,9 +36,16 @@ export interface GuardDecision {
   readonly by: GuardDecider;
 }
 
-/** Whether the reviewer must read this item. At Light, only an item that the local check calls suspicious. */
+/**
+ * Whether the reviewer must read this item. At Light, only an item that the local check calls
+ * suspicious, and that has a marked place to show. An item that is suspicious only because it was not
+ * read in full, or for a finding with no place, gives the reviewer nothing to judge: the local check
+ * decides it, and nothing is sent.
+ */
 export function guardNeedsJudge(level: GuardAvailableLevel, triage: GuardTriage): boolean {
-  return level === "light" && triage.level === "suspicious";
+  return (
+    level === "light" && triage.level === "suspicious" && triage.hits.some((hit) => guardFindingNeedsReview(hit.code))
+  );
 }
 
 export const GUARD_ALLOW: GuardDecision = { action: "allow", category: "none", reason: null, by: "local" };
@@ -44,10 +55,11 @@ export const GUARD_ALLOW: GuardDecision = { action: "allow", category: "none", r
  * - Clean: the item passes, and no model is asked.
  * - High: the person decides on the approval card. No model is asked, so it is fast, and a model
  *   that the same content could fool cannot clear it.
- * - Suspicious: the reviewer decides. Allow passes. Ask and block go to the person: Light never
- *   blocks by itself. With no verdict (no sign-in, a timeout, an error, a reply outside the
- *   schema), the local check decides: content passes with a note to the agent, and an action
- *   passes. The event is logged.
+ * - Suspicious: the reviewer decides. Allow passes, but only when the excerpt showed every marked
+ *   place. Ask and block go to the person: Light never blocks by itself. With no verdict (no
+ *   sign-in, a timeout, an error, a reply outside the schema), or with an allow on an excerpt that
+ *   did not show everything, the local check decides: content passes with a note to the agent, and
+ *   an action passes. The event is logged.
  */
 export function decideGuard(input: {
   level: GuardAvailableLevel;
@@ -62,18 +74,19 @@ export function decideGuard(input: {
   if (triage.level === "high") return { action: "ask", category: triage.category, reason: localReason, by: "local" };
   if (judge.kind === "verdict") {
     const { verdict } = judge;
-    if (verdict.verdict === "allow") return { action: "allow", category: "none", reason: null, by: "model" };
-    return {
-      action: "ask",
-      category: verdict.category === "none" ? triage.category : verdict.category,
-      reason: verdict.reason,
-      by: "model",
-    };
+    if (verdict.verdict !== "allow")
+      return {
+        action: "ask",
+        category: verdict.category === "none" ? triage.category : verdict.category,
+        reason: verdict.reason,
+        by: "model",
+      };
+    if (judge.covered) return { action: "allow", category: "none", reason: null, by: "model" };
   }
   return {
     action: input.direction === "inbound" ? "annotate" : "allow",
     category: triage.category,
     reason: localReason,
-    by: "fallback",
+    by: judge.kind === "not-needed" ? "local" : "fallback",
   };
 }

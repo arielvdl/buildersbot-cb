@@ -1,7 +1,8 @@
 // The local check of the Guard. It runs before any model, with no network, and with a size and a
 // time limit. It reads content that enters an agent's work (a page, a file, a tool result) and
-// actions that leave it (a command, a URL, a message). It never decides alone that content is safe
-// to obey: it only says which items a model must review, and which items need the person.
+// actions that leave it (a command, a URL, a message, a file upload). It never decides alone that
+// content is safe to obey: it only says which items a model must review, and which items need the
+// person. An item that it could not read in full is never clean.
 
 import type { GuardCategory } from "@openbot/contracts/ipc";
 import { type SourceMessages, sourceText } from "@openbot/i18n/source";
@@ -16,16 +17,35 @@ export interface GuardFinding {
   readonly category: GuardCategory;
 }
 
+/** Where one finding is in the text that the check read, as UTF-16 offsets. */
+export interface GuardHit {
+  readonly code: GuardFindingCode;
+  readonly start: number;
+  readonly end: number;
+}
+
 export interface GuardTriage {
   readonly level: GuardTriageLevel;
   /** The category of the strongest finding, or `none`. */
   readonly category: GuardCategory;
   readonly findings: readonly GuardFinding[];
-  /** True when the item was longer than the scan limit or the scan ran past its time budget. */
-  readonly truncated: boolean;
+  /**
+   * Where the findings are in `text`. A finding with no place, such as a count of invisible
+   * characters or an incomplete read, has no hit.
+   */
+  readonly hits: readonly GuardHit[];
+  /** The text that the check read, with hidden text written out. The excerpt for the reviewer comes from it. */
+  readonly text: string;
+  /** True when the check did not read all of the item: past the size limit or past the time budget. */
+  readonly incomplete: boolean;
+  /**
+   * True when a finding has more places than the check records. The excerpt for the reviewer then
+   * cannot show every place, so the reviewer cannot clear the item.
+   */
+  readonly unplaced: boolean;
 }
 
-/** An action that leaves the agent's work: a command, the URLs it reaches, and the text it sends. */
+/** An action that leaves the agent's work. */
 export interface GuardOutboundItem {
   /** The tool, such as `command` or `openbot_browser.navigate`. */
   readonly tool: string;
@@ -33,14 +53,26 @@ export interface GuardOutboundItem {
   readonly urls?: readonly string[];
   /** Text that the action sends or types, such as a message body or a page script. */
   readonly payload?: string | null;
+  /** Local files that the action sends, such as an upload or an attachment. */
+  readonly files?: readonly string[];
 }
 
-/** The most characters that one check reads. A longer item is read at its start and at its end. */
-export const GUARD_SCAN_LIMIT = 60_000;
-const SCAN_HEAD = 40_000;
-const SCAN_TAIL = GUARD_SCAN_LIMIT - SCAN_HEAD;
-/** The time budget of one check. A check that passes it stops and reports what it found so far. */
-export const GUARD_SCAN_BUDGET_MS = 40;
+export interface GuardTriageOptions {
+  /** The clock of the time budget. Tests give a clock that jumps. */
+  readonly now?: () => number;
+  readonly budgetMs?: number;
+}
+
+/** The most characters of one item that the check reads. A longer item is incomplete, so never clean. */
+export const GUARD_SCAN_LIMIT = 500_000;
+/**
+ * The time budget of one check. The rules that weigh `high` always run. The budget can stop only the
+ * lighter rules, and an item whose rules did not all run is incomplete, so never clean.
+ */
+export const GUARD_SCAN_BUDGET_MS = 150;
+/** The most places that one rule records, and that one check records in all. */
+const HITS_PER_RULE = 16;
+const HIT_LIMIT = 128;
 
 export type GuardFindingCode =
   | "override"
@@ -69,7 +101,8 @@ export type GuardFindingCode =
   | "credentials-in-url"
   | "paste-host"
   | "page-script-exfiltration"
-  | "page-script-network";
+  | "page-script-network"
+  | "incomplete-scan";
 
 const CATEGORY: Record<GuardFindingCode, GuardCategory> = {
   override: "instruction-override",
@@ -99,14 +132,16 @@ const CATEGORY: Record<GuardFindingCode, GuardCategory> = {
   "paste-host": "exfiltration",
   "page-script-exfiltration": "exfiltration",
   "page-script-network": "exfiltration",
+  "incomplete-scan": "other",
 };
 
 /**
  * How much one finding weighs. `high` alone needs the person. `strong` alone needs a model. `hint`
  * counts only next to a strong finding: a docs page that says "send a POST request to https://…" is
- * not an attack, but the same sentence after "ignore your instructions" is.
+ * not an attack, but the same sentence after "ignore your instructions" is. `partial` says that the
+ * check did not read everything: the item is then at least suspicious.
  */
-type Weight = "high" | "strong" | "hint";
+type Weight = "high" | "strong" | "hint" | "partial";
 
 const WEIGHT: Record<GuardFindingCode, Weight> = {
   override: "strong",
@@ -136,7 +171,18 @@ const WEIGHT: Record<GuardFindingCode, Weight> = {
   "paste-host": "strong",
   "page-script-exfiltration": "high",
   "page-script-network": "strong",
+  "incomplete-scan": "partial",
 };
+
+/** Whether a finding counts only next to a stronger one. The excerpt does not have to show it. */
+export function guardFindingIsHint(code: GuardFindingCode): boolean {
+  return WEIGHT[code] === "hint";
+}
+
+/** Whether the reviewer must see this finding to clear the item: a finding that weighs high or strong. */
+export function guardFindingNeedsReview(code: GuardFindingCode): boolean {
+  return WEIGHT[code] === "high" || WEIGHT[code] === "strong";
+}
 
 /** The strongest category of these findings, in the order the person needs to hear about them. */
 const CATEGORY_RANK: readonly GuardCategory[] = [
@@ -152,158 +198,156 @@ const CATEGORY_RANK: readonly GuardCategory[] = [
   "none",
 ];
 
+interface Rule {
+  readonly code: GuardFindingCode;
+  /** A global copy of the pattern, so the check finds every place, not only the first. */
+  readonly pattern: RegExp;
+}
+
+const WEIGHT_ORDER: Record<Weight, number> = { high: 0, strong: 1, hint: 2, partial: 3 };
+
+function rule(code: GuardFindingCode, pattern: RegExp): Rule {
+  return {
+    code,
+    pattern: new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`),
+  };
+}
+
+/** The rules from the heaviest to the lightest, so a budget that ends early skips only light rules. */
+function heaviestFirst(rules: readonly Rule[]): readonly Rule[] {
+  return [...rules].sort((left, right) => WEIGHT_ORDER[WEIGHT[left.code]] - WEIGHT_ORDER[WEIGHT[right.code]]);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Content that enters. Every pattern has bounded gaps, so a long line cannot make a rule retry the
 // rest of the text at every position. `\b` only knows ASCII letters: no rule puts one after an
 // accented letter.
 
-const INBOUND_RULES: ReadonlyArray<{ code: GuardFindingCode; pattern: RegExp }> = [
-  {
-    code: "override",
-    pattern:
-      /\b(?:ignore|disregard|forget|override|bypass)\b[^\n.]{0,30}\b(?:previous|prior|above|earlier|preceding|original|your|system(?:'s)?|developer(?:'s)?)\b[^\n.]{0,30}\b(?:instructions?|prompts?|directives?|rules|guidelines|guardrails)\b/iu,
-  },
-  {
-    code: "override",
-    pattern:
-      /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s[^\n.]{0,30}(?:instru[çc][õo]es|regras|diretrizes|prompt)\s(?:[^\n.]{0,20})(?:anteriores|acima|do sistema|do desenvolvedor|originais)/iu,
-  },
-  {
-    code: "override",
-    pattern:
-      /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s(?:todas\s)?(?:as\s)?(?:suas|tuas)\s(?:instru[çc][õo]es|regras|diretrizes)/iu,
-  },
-  { code: "override", pattern: /\bignora\s(?:todas\s)?las\sinstrucciones\s(?:anteriores|previas)/iu },
-  {
-    code: "new-instructions",
-    pattern: /(?:^|\n)\s*(?:#{1,4}\s*)?(?:new|updated|real|actual)\s(?:system\s)?instructions?\s*:/iu,
-  },
-  { code: "new-instructions", pattern: /(?:^|\n)\s*(?:#{1,4}\s*)?novas\sinstru[çc][õo]es\s*:/iu },
-  {
-    code: "prompt-leak",
-    pattern:
-      /\b(?:reveal|print|show|repeat|output|dump|display|leak|tell me|share)\b[^\n]{0,40}\b(?:system prompt|developer (?:message|instructions?|prompt)|hidden instructions?|initial instructions?|your instructions|your (?:system )?prompt)\b/iu,
-  },
-  {
-    code: "prompt-leak",
-    pattern:
-      /\b(?:revele|mostre|imprima|repita|exiba|revelar|mostrar|compartilhe)\b[^\n]{0,40}(?:prompt (?:de|do) sistema|suas instru[çc][õo]es|instru[çc][õo]es (?:do|de) (?:sistema|desenvolvedor))/iu,
-  },
-  {
-    code: "role-change",
-    pattern:
-      /\byou are now\b|\bfrom now on,? you (?:are|will|must)\b|\bact as an? (?:unrestricted|unfiltered|jailbroken)\b|\b(?:developer|dan|god) mode (?:enabled|activated|on)\b|\bjailbreak mode\b/iu,
-  },
-  {
-    code: "role-change",
-    pattern:
-      /\bvoc[êe] agora [ée]\s|\ba partir de agora,? voc[êe]\s|\bvoc[êe] n[ãa]o [ée] mais\s|\bmodo desenvolvedor\b/iu,
-  },
-  {
-    code: "role-marker",
-    pattern:
-      /<\|\s*(?:im_start|im_end|system|endoftext|start_header_id)\s*\|>|\[INST\]|<<SYS>>|<\/?(?:system|developer)(?:_message)?>/iu,
-  },
-  {
-    code: "role-marker",
-    pattern: /(?:^|\n)\s*(?:#{1,4}\s*)?(?:system|developer|assistant) (?:message|prompt|instructions?)\s*:/iu,
-  },
-  {
-    code: "ai-addressed",
-    pattern:
-      /\b(?:note|message|instructions?|attention|important|reminder) (?:to|for) (?:the |any |all )?(?:ai|llm|language model|ai assistants?|ai agents?|assistants?|agents?|chatbots?|copilots?)\b/iu,
-  },
-  {
-    code: "ai-addressed",
-    pattern:
-      /\bif you are an? (?:ai|llm|language model|large language model|ai assistant|ai agent|automated agent|assistant)\b|\b(?:ai|llm) (?:agents?|assistants?|models?) (?:reading|processing|summari[sz]ing) this\b/iu,
-  },
-  {
-    code: "ai-addressed",
-    pattern:
-      /\b(?:nota|mensagem|aten[çc][ãa]o|instru[çc][õo]es|aviso) (?:para|à|ao|a) (?:a |o |qualquer )?(?:ia|intelig[êe]ncia artificial|assistente|agente)\b|\bse voc[êe] (?:for|[ée]) (?:uma? )?(?:ia|intelig[êe]ncia artificial|assistente|agente)\b/iu,
-  },
-  {
-    code: "judge-manipulation",
-    pattern:
-      /\b(?:security|safety|prompt[- ]injection|content) (?:reviewer|guard|classifier|filter|scanner|checker|judge|moderator)s?\b[^\n]{0,80}\b(?:allow|safe|benign|clean|approve|not (?:an? )?(?:injection|attack|threat))\b/iu,
-  },
-  { code: "judge-manipulation", pattern: /"verdict"\s*:\s*"allow"/iu },
-  {
-    code: "judge-manipulation",
-    pattern:
-      /\b(?:revisor|guarda|classificador|filtro|verificador) de (?:seguran[çc]a|conte[úu]do)\b[^\n]{0,80}\b(?:seguro|permit[ai]r?|liberar?|aprovar?)\b/iu,
-  },
-  {
-    code: "image-exfiltration",
-    pattern: /!\[[^\]\n]{0,100}\]\(\s*https?:\/\/[^)\s]{1,300}[?&][^)\s=]{1,40}=(?:\{|\$\{?|%7B|\[|<)[^)\s]{0,80}\)/iu,
-  },
-  {
-    code: "image-exfiltration",
-    pattern: /<img\b[^>]{0,200}\bsrc\s*=\s*["']?https?:\/\/[^"'\s>]{1,300}[?&][^"'\s>=]{1,40}=(?:\{|\$\{?|%7B)/iu,
-  },
-  {
-    code: "exfiltration-request",
-    pattern:
-      /\b(?:send|post|upload|forward|transmit|exfiltrate|leak|email|submit)\b[^\n]{0,80}\b(?:to|at|into)\b[^\n]{0,20}(?:https?:\/\/|\bwebhook\b)/iu,
-  },
-  {
-    code: "exfiltration-request",
-    pattern:
-      /\b(?:envie|enviar|mande|mandar|poste|postar|publique|encaminhe|transmita)\b[^\n]{0,80}\b(?:para|pro|ao)\b[^\n]{0,20}(?:https?:\/\/|\bwebhook\b)/iu,
-  },
-  {
-    code: "secret-send-request",
-    pattern:
-      /\b(?:send|post|upload|forward|email|paste|share)\s+(?:me\s+)?(?:the\s+|your\s+|all\s+|any\s+)?(?:contents?\s+of\s+(?:the\s+)?)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|cookies|session cookies)\b/iu,
-  },
-  {
-    code: "secret-send-request",
-    pattern:
-      /\b(?:envie|mande|poste|encaminhe|compartilhe)\s+(?:o\s+|a\s+|os\s+|as\s+|seu\s+|sua\s+|seus\s+|suas\s+|todos\s+os\s+|todas\s+as\s+)?(?:conte[úu]do\s+d[oa]\s+)?(?:\.env\b|arquivo \.env|chaves? (?:ssh|privadas?|de api)|credenciais|tokens|senhas|cookies)/iu,
-  },
-  {
-    code: "secret-request",
-    pattern:
-      /(?:\.env\b|\bid_(?:rsa|ed25519|ecdsa)\b|\.ssh\/|\bapi[ _-]?keys?\b|\baccess tokens?\b|\bsecret keys?\b|\bcredentials\b|\bpasswords?\b|\bchaves? de api\b|\bsenhas?\b|\bcookies\b)/iu,
-  },
-  {
-    code: "remote-code-request",
-    pattern: /\b(?:curl|wget)\b[^\n|]{0,200}\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b/iu,
-  },
-];
+const INBOUND_RULES: readonly Rule[] = heaviestFirst([
+  rule(
+    "override",
+    /\b(?:ignore|disregard|forget|override|bypass)\b[^\n.]{0,30}\b(?:previous|prior|above|earlier|preceding|original|your|system(?:'s)?|developer(?:'s)?)\b[^\n.]{0,30}\b(?:instructions?|prompts?|directives?|rules|guidelines|guardrails)\b/iu,
+  ),
+  rule(
+    "override",
+    /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s[^\n.]{0,30}(?:instru[çc][õo]es|regras|diretrizes|prompt)\s(?:[^\n.]{0,20})(?:anteriores|acima|do sistema|do desenvolvedor|originais)/iu,
+  ),
+  rule(
+    "override",
+    /\b(?:ignor[ea]|desconsider[ea]|esque[çc]a)\s(?:todas\s)?(?:as\s)?(?:suas|tuas)\s(?:instru[çc][õo]es|regras|diretrizes)/iu,
+  ),
+  rule("override", /\bignora\s(?:todas\s)?las\sinstrucciones\s(?:anteriores|previas)/iu),
+  rule("new-instructions", /(?:^|\n)\s*(?:#{1,4}\s*)?(?:new|updated|real|actual)\s(?:system\s)?instructions?\s*:/iu),
+  rule("new-instructions", /(?:^|\n)\s*(?:#{1,4}\s*)?novas\sinstru[çc][õo]es\s*:/iu),
+  rule(
+    "prompt-leak",
+    /\b(?:reveal|print|show|repeat|output|dump|display|leak|tell me|share)\b[^\n]{0,40}\b(?:system prompt|developer (?:message|instructions?|prompt)|hidden instructions?|initial instructions?|your instructions|your (?:system )?prompt)\b/iu,
+  ),
+  rule(
+    "prompt-leak",
+    /\b(?:revele|mostre|imprima|repita|exiba|revelar|mostrar|compartilhe)\b[^\n]{0,40}(?:prompt (?:de|do) sistema|suas instru[çc][õo]es|instru[çc][õo]es (?:do|de) (?:sistema|desenvolvedor))/iu,
+  ),
+  rule(
+    "role-change",
+    /\byou are now\b|\bfrom now on,? you (?:are|will|must)\b|\bact as an? (?:unrestricted|unfiltered|jailbroken)\b|\b(?:developer|dan|god) mode (?:enabled|activated|on)\b|\bjailbreak mode\b/iu,
+  ),
+  rule(
+    "role-change",
+    /\bvoc[êe] agora [ée]\s|\ba partir de agora,? voc[êe]\s|\bvoc[êe] n[ãa]o [ée] mais\s|\bmodo desenvolvedor\b/iu,
+  ),
+  rule(
+    "role-marker",
+    /<\|\s*(?:im_start|im_end|system|endoftext|start_header_id)\s*\|>|\[INST\]|<<SYS>>|<\/?(?:system|developer)(?:_message)?>/iu,
+  ),
+  rule("role-marker", /(?:^|\n)\s*(?:#{1,4}\s*)?(?:system|developer|assistant) (?:message|prompt|instructions?)\s*:/iu),
+  rule(
+    "ai-addressed",
+    /\b(?:note|message|instructions?|attention|important|reminder) (?:to|for) (?:the |any |all )?(?:ai|llm|language model|ai assistants?|ai agents?|assistants?|agents?|chatbots?|copilots?)\b/iu,
+  ),
+  rule(
+    "ai-addressed",
+    /\bif you are an? (?:ai|llm|language model|large language model|ai assistant|ai agent|automated agent|assistant)\b|\b(?:ai|llm) (?:agents?|assistants?|models?) (?:reading|processing|summari[sz]ing) this\b/iu,
+  ),
+  rule(
+    "ai-addressed",
+    /\b(?:nota|mensagem|aten[çc][ãa]o|instru[çc][õo]es|aviso) (?:para|à|ao|a) (?:a |o |qualquer )?(?:ia|intelig[êe]ncia artificial|assistente|agente)\b|\bse voc[êe] (?:for|[ée]) (?:uma? )?(?:ia|intelig[êe]ncia artificial|assistente|agente)\b/iu,
+  ),
+  rule(
+    "judge-manipulation",
+    /\b(?:security|safety|prompt[- ]injection|content) (?:reviewer|guard|classifier|filter|scanner|checker|judge|moderator)s?\b[^\n]{0,80}\b(?:allow|safe|benign|clean|approve|not (?:an? )?(?:injection|attack|threat))\b/iu,
+  ),
+  rule("judge-manipulation", /"verdict"\s*:\s*"allow"/iu),
+  rule(
+    "judge-manipulation",
+    /\b(?:revisor|guarda|classificador|filtro|verificador) de (?:seguran[çc]a|conte[úu]do)\b[^\n]{0,80}\b(?:seguro|permit[ai]r?|liberar?|aprovar?)\b/iu,
+  ),
+  rule(
+    "image-exfiltration",
+    /!\[[^\]\n]{0,100}\]\(\s*https?:\/\/[^)\s]{1,300}[?&][^)\s=]{1,40}=(?:\{|\$\{?|%7B|\[|<)[^)\s]{0,80}\)/iu,
+  ),
+  rule(
+    "image-exfiltration",
+    /<img\b[^>]{0,200}\bsrc\s*=\s*["']?https?:\/\/[^"'\s>]{1,300}[?&][^"'\s>=]{1,40}=(?:\{|\$\{?|%7B)/iu,
+  ),
+  // Direction overrides. Embeddings and marks are ordinary in right-to-left text, so they are not here.
+  rule("hidden-bidi", /[\u{202D}\u{202E}\u{2066}-\u{2069}]/u),
+  rule(
+    "hidden-markup",
+    /<!--[\s\S]{0,600}?\b(?:ignore|instructions?|assistant|ai agent|llm|system prompt|you are now)\b[\s\S]{0,600}?-->/iu,
+  ),
+  rule(
+    "hidden-markup",
+    /(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0(?:px)?\b|opacity\s*:\s*0(?:\.0+)?\b)[^>]{0,200}>[^<]{0,400}\b(?:ignore|instructions?|assistant|ai agents?|llm)\b/iu,
+  ),
+  rule(
+    "exfiltration-request",
+    /\b(?:send|post|upload|forward|transmit|exfiltrate|leak|email|submit)\b[^\n]{0,80}\b(?:to|at|into)\b[^\n]{0,20}(?:https?:\/\/|\bwebhook\b)/iu,
+  ),
+  rule(
+    "exfiltration-request",
+    /\b(?:envie|enviar|mande|mandar|poste|postar|publique|encaminhe|transmita)\b[^\n]{0,80}\b(?:para|pro|ao)\b[^\n]{0,20}(?:https?:\/\/|\bwebhook\b)/iu,
+  ),
+  rule(
+    "secret-send-request",
+    /\b(?:send|post|upload|forward|email|paste|share)\s+(?:me\s+)?(?:the\s+|your\s+|all\s+|any\s+)?(?:contents?\s+of\s+(?:the\s+)?)?(?:\.env\b|env(?:ironment)? (?:file|variables)|ssh keys?|private keys?|id_(?:rsa|ed25519)\b|credentials|api keys?|access tokens?|tokens|passwords|cookies|session cookies)\b/iu,
+  ),
+  rule(
+    "secret-send-request",
+    /\b(?:envie|mande|poste|encaminhe|compartilhe)\s+(?:o\s+|a\s+|os\s+|as\s+|seu\s+|sua\s+|seus\s+|suas\s+|todos\s+os\s+|todas\s+as\s+)?(?:conte[úu]do\s+d[oa]\s+)?(?:\.env\b|arquivo \.env|chaves? (?:ssh|privadas?|de api)|credenciais|tokens|senhas|cookies)/iu,
+  ),
+  rule(
+    "secret-request",
+    /(?:\.env\b|\bid_(?:rsa|ed25519|ecdsa)\b|\.ssh\/|\bapi[ _-]?keys?\b|\baccess tokens?\b|\bsecret keys?\b|\bcredentials\b|\bpasswords?\b|\bchaves? de api\b|\bsenhas?\b|\bcookies\b)/iu,
+  ),
+  rule("remote-code-request", /\b(?:curl|wget)\b[^\n|]{0,200}\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b/iu),
+]);
 
-const HIDDEN_MARKUP: readonly RegExp[] = [
-  /<!--[\s\S]{0,600}?\b(?:ignore|instructions?|assistant|ai agent|llm|system prompt|you are now)\b[\s\S]{0,600}?-->/iu,
-  /(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0(?:px)?\b|opacity\s*:\s*0(?:\.0+)?\b)[^>]{0,200}>[^<]{0,400}\b(?:ignore|instructions?|assistant|ai agents?|llm)\b/iu,
-];
-
-/** A run of Unicode tag characters. A subdivision flag (U+1F3F4 and tags) is a picture, not hidden text. */
+/** A subdivision flag (U+1F3F4 and tag letters) is a picture, not hidden text. */
 const TAG_FLAG = /\u{1F3F4}[\u{E0020}-\u{E007F}]+/gu;
 const UNICODE_TAGS = /[\u{E0000}-\u{E007F}]/u;
-/** Direction overrides. Embeddings and marks are ordinary in right-to-left text. */
-const BIDI_OVERRIDE = /[‭‮⁦-⁩]/gu;
-const ZERO_WIDTH = /[​‌⁠-⁤᠎﻿]/gu;
+/** Tag letters carry ASCII that no reader sees. The check writes them out. */
+const TAG_RUN = /[\u{E0020}-\u{E007E}]+/gu;
+const ZERO_WIDTH = /[\u{200B}\u{200C}\u{2060}-\u{2064}\u{180E}\u{FEFF}]/gu;
 /** How many zero-width characters a page can hold before they read as a hidden message. */
 const ZERO_WIDTH_LIMIT = 24;
 /** The characters that only hide text, removed before the phrase rules read it. */
-const INVISIBLE = /[​-‍⁠-⁤­᠎﻿\u{E0000}-\u{E007F}]/gu;
+const INVISIBLE = /[\u{200B}-\u{200D}\u{2060}-\u{2064}\u{00AD}\u{180E}\u{FEFF}\u{E0000}-\u{E007F}]/gu;
 
 // ---------------------------------------------------------------------------------------------
 // Actions that leave.
 
-const REVERSE_SHELL: readonly RegExp[] = [
-  /\/dev\/(?:tcp|udp)\/[^\s/]{1,255}\/\d{1,5}/iu,
-  /\b(?:nc|ncat|netcat)\b[^\n;|&]{0,120}\s-(?:[a-z]*e|c)\s+\S{0,40}(?:ba|z|da)?sh\b/iu,
-  /\bsocat\b[^\n]{0,120}\bexec:/iu,
-  /\bmkfifo\b[^\n]{0,120}\b(?:nc|ncat|netcat)\b/iu,
-];
-
-const ENCODED_EXECUTION: readonly RegExp[] = [
-  /\bbase64\s+(?:-d|--decode|-D)\b[^\n]{0,120}\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b/iu,
-  /\becho\s+["']?[A-Za-z0-9+/=]{40,}["']?\s*\|\s*base64\s+(?:-d|--decode|-D)\b/iu,
-  /\bpowershell(?:\.exe)?\b[^\n]{0,60}\s-(?:e|en|enc|encodedcommand)\s+[A-Za-z0-9+/=]{20,}/iu,
-  /\b(?:eval|exec)\s*\(\s*(?:atob|base64\.b64decode|Buffer\.from)\s*\(/iu,
+const REVERSE_SHELL_RULES: readonly Rule[] = [
+  rule("reverse-shell", /\/dev\/(?:tcp|udp)\/[^\s/]{1,255}\/\d{1,5}/iu),
+  rule("reverse-shell", /\b(?:nc|ncat|netcat)\b[^\n;|&]{0,120}\s-(?:[a-z]*e|c)\s+\S{0,40}(?:ba|z|da)?sh\b/iu),
+  rule("reverse-shell", /\bsocat\b[^\n]{0,120}\bexec:/iu),
+  rule("reverse-shell", /\bmkfifo\b[^\n]{0,120}\b(?:nc|ncat|netcat)\b/iu),
+  rule("encoded-execution", /\bbase64\s+(?:-d|--decode|-D)\b[^\n]{0,120}\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b/iu),
+  rule("encoded-execution", /\becho\s+["']?[A-Za-z0-9+/=]{40,}["']?\s*\|\s*base64\s+(?:-d|--decode|-D)\b/iu),
+  rule(
+    "encoded-execution",
+    /\bpowershell(?:\.exe)?\b[^\n]{0,60}\s-(?:e|en|enc|encodedcommand)\s+[A-Za-z0-9+/=]{20,}/iu,
+  ),
+  rule("encoded-execution", /\b(?:eval|exec)\s*\(\s*(?:atob|base64\.b64decode|Buffer\.from)\s*\(/iu),
 ];
 
 const PIPE_TO_SHELL: readonly RegExp[] = [
@@ -332,7 +376,7 @@ const INSTALLER_HOSTS: ReadonlySet<string> = new Set([
 ]);
 
 const SECRET_FILE =
-  /(?:^|[\s'"=/@:<(])(?:\.env(?:\.(?!example\b|sample\b|template\b|dist\b)[a-z0-9_-]{1,20})?|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.pgpass|id_(?:rsa|dsa|ecdsa|ed25519)(?![.\w])|\.ssh\/(?!known_hosts|config\b)[\w.-]+|\.aws\/credentials|\.docker\/config\.json|\.kube\/config|credentials\.json|service[-_]account[\w.-]{0,40}\.json|login\.keychain(?:-db)?)(?=$|[\s'"`;|&)>,])/iu;
+  /(?:^|[\s'"=/@:<(])(?:\.env(?:\.(?!example\b|sample\b|template\b|dist\b)[a-z0-9_-]{1,20})?|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.pgpass|\.htpasswd|id_(?:rsa|dsa|ecdsa|ed25519)(?![.\w])|\.ssh\/(?!known_hosts|config\b)[\w.-]+|\.aws\/credentials|\.docker\/config\.json|\.kube\/config|credentials\.json|service[-_]account[\w.-]{0,40}\.json|login\.keychain(?:-db)?|[\w.-]{1,120}\.(?:pem|p12|pfx|kdbx|ppk|jks|keystore))(?=$|[\s'"`;|&)>,])/iu;
 /** Commands that print every secret at once. */
 const SECRET_DUMP =
   /\b(?:printenv|security\s+find-(?:generic|internet)-password|cat\s+\/etc\/shadow)\b|(?:^|[\s;|&(])env\s*(?:\||>|$)|\bprocess\.env\b(?!\.)|\bos\.environ\b(?!\[|\.get)/u;
@@ -346,27 +390,50 @@ const FILE_UPLOAD =
 const PASTE_HOSTS =
   /\b(?:pastebin\.com|paste\.ee|hastebin\.com|ghostbin\.\w+|transfer\.sh|file\.io|0x0\.st|webhook\.site|requestbin\.\w+|pipedream\.net|hookbin\.com|beeceptor\.com|ngrok(?:-free)?\.(?:io|app|dev)|burpcollaborator\.net|interact\.sh|oast\.(?:fun|live|me|online|pro|site))\b/iu;
 const PAGE_STORAGE = /\bdocument\.cookie\b|\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/u;
+const PAGE_BEACON = /\bnew\s+Image\s*\(|\.src\s*=\s*[`'"]https?:/u;
 /** The tools whose payload is a script that runs in a page. */
 const PAGE_SCRIPT_TOOLS: ReadonlySet<string> = new Set(["openbot_browser.evaluate", "openbot_browser.run_script"]);
 
 /** Where one shell statement ends. A pipe keeps the statement whole. */
-const STATEMENT_BREAK = /\n|;|&&|\|\|/u;
+const STATEMENT_BREAK = /\n|;|&&|\|\|/gu;
 
 /** A URL query or path that carries a block of data rather than a page address. */
 const LONG_QUERY_LIMIT = 400;
 const DATA_RUN = /[A-Za-z0-9+/_=-]{120,}/u;
+const URL_IN_TEXT = /\bhttps?:\/\/[^\s"'`<>|;)]{1,2048}/giu;
+/** The most URLs, files and statements that one action check reads. More makes it incomplete. */
+const PART_LIMIT = 64;
+
+/** The name of a file that holds secrets, whatever folder it is in. */
+const SECRET_FILE_NAME =
+  /^(?:\.env(?:\.(?!example$|sample$|template$|dist$)[\w-]{1,20})?|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.pgpass|\.htpasswd|id_(?:rsa|dsa|ecdsa|ed25519)|credentials\.json|service[-_]account[\w.-]{0,40}\.json|login\.keychain(?:-db)?|[\w.-]{1,200}\.(?:pem|p12|pfx|kdbx|ppk|jks|keystore))$/iu;
+/** A folder or a file whose place says that it holds secrets. A public key and known_hosts do not. */
+const SECRET_FILE_PLACE =
+  /(?:^|\/)(?:\.ssh\/(?!known_hosts$|config$|[\w.-]+\.pub$)[\w.-]+|\.aws\/credentials$|\.docker\/config\.json$|\.kube\/config$|\.gnupg\/|Library\/Keychains\/)/iu;
+
+/** Whether a local file path names a file that holds secrets, such as `.env` or a private key. */
+export function isSecretPath(path: string): boolean {
+  const normalized = path.replaceAll("\\", "/").replace(/\/+$/u, "");
+  const name = normalized.slice(normalized.lastIndexOf("/") + 1);
+  return SECRET_FILE_NAME.test(name) || SECRET_FILE_PLACE.test(normalized);
+}
 
 // ---------------------------------------------------------------------------------------------
 
-/** The part of an item that one check reads: all of it, or its start and its end. */
-function scanWindow(text: string): { text: string; truncated: boolean } {
-  if (text.length <= GUARD_SCAN_LIMIT) return { text, truncated: false };
-  return { text: `${text.slice(0, SCAN_HEAD)}\n${text.slice(-SCAN_TAIL)}`, truncated: true };
-}
-
-/** The text that the phrase rules read: compatibility forms joined, and invisible characters out. */
-function readable(text: string): string {
-  return text.normalize("NFKC").replace(INVISIBLE, "");
+/**
+ * The text that the rules read: tag letters written out, compatibility forms joined, and the other
+ * invisible characters taken out, so "Ig\u{200B}nore" reads as "Ignore".
+ */
+export function guardReadableText(text: string): string {
+  return text
+    .replace(TAG_FLAG, "\u{1F3F4}")
+    .replace(
+      TAG_RUN,
+      (run) =>
+        `[hidden text: ${[...run].map((letter) => String.fromCharCode((letter.codePointAt(0) ?? 0xe0020) - 0xe0000)).join("")}]`,
+    )
+    .normalize("NFKC")
+    .replace(INVISIBLE, "");
 }
 
 function countMatches(text: string, pattern: RegExp): number {
@@ -377,74 +444,131 @@ function countMatches(text: string, pattern: RegExp): number {
   return count;
 }
 
-class FindingList {
+/** What one check found so far, and whether it ran out of time. */
+class Findings {
   readonly #codes: GuardFindingCode[] = [];
-  readonly #started = performance.now();
-  #overBudget = false;
+  readonly #hits: GuardHit[] = [];
+  readonly #now: () => number;
+  readonly #started: number;
+  readonly #budgetMs: number;
+  #skipped = false;
+  #unplaced = false;
 
-  add(code: GuardFindingCode): void {
+  constructor(options: GuardTriageOptions) {
+    this.#now = options.now ?? (() => performance.now());
+    this.#budgetMs = options.budgetMs ?? GUARD_SCAN_BUDGET_MS;
+    this.#started = this.#now();
+  }
+
+  /** Records a finding, and its place when it has one. */
+  add(code: GuardFindingCode, start?: number, end?: number): void {
     if (!this.#codes.includes(code)) this.#codes.push(code);
+    if (start === undefined || end === undefined) return;
+    if (this.#hits.length < HIT_LIMIT) this.#hits.push({ code, start, end: Math.max(start, end) });
+    else this.#unplaced = true;
   }
 
   has(code: GuardFindingCode): boolean {
     return this.#codes.includes(code);
   }
 
-  /** False after the time budget: the check then stops and keeps what it found. */
   inBudget(): boolean {
-    if (!this.#overBudget && performance.now() - this.#started > GUARD_SCAN_BUDGET_MS) this.#overBudget = true;
-    return !this.#overBudget;
+    return this.#now() - this.#started <= this.#budgetMs;
   }
 
-  get overBudget(): boolean {
-    return this.#overBudget;
+  /** Marks the item as read only in part. */
+  skip(): void {
+    this.#skipped = true;
+  }
+
+  /** Every place of one rule in `text`, at most `HITS_PER_RULE`. `offset` moves the places into the whole text. */
+  scan(text: string, { code, pattern }: Rule, offset = 0): void {
+    pattern.lastIndex = 0;
+    let count = 0;
+    for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+      this.add(code, offset + match.index, offset + match.index + match[0].length);
+      if (match[0].length === 0) pattern.lastIndex += 1;
+      count += 1;
+      if (count >= HITS_PER_RULE) {
+        // More places may follow that are not recorded.
+        if (pattern.exec(text) !== null) this.#unplaced = true;
+        break;
+      }
+    }
+    pattern.lastIndex = 0;
+  }
+
+  /**
+   * Runs the rules, which come heaviest first. A rule that weighs high always runs. When the budget
+   * ends, the lighter rules that are left do not run, and the item is incomplete.
+   */
+  scanAll(text: string, rules: readonly Rule[], offset = 0): void {
+    for (const current of rules) {
+      if (WEIGHT[current.code] !== "high" && !this.inBudget()) {
+        this.skip();
+        return;
+      }
+      this.scan(text, current, offset);
+    }
+  }
+
+  get skipped(): boolean {
+    return this.#skipped;
+  }
+
+  get unplaced(): boolean {
+    return this.#unplaced;
   }
 
   get codes(): readonly GuardFindingCode[] {
     return this.#codes;
   }
+
+  get hits(): readonly GuardHit[] {
+    return this.#hits;
+  }
 }
 
-/** The level and the category of a set of findings. */
-function grade(codes: readonly GuardFindingCode[], truncated: boolean): GuardTriage {
+/** The level and the category of what a check found. An incomplete check is never clean. */
+function grade(found: Findings, text: string, incomplete: boolean): GuardTriage {
+  const codes: GuardFindingCode[] = [...found.codes];
+  if (incomplete) codes.push("incomplete-scan");
   const findings = codes.map((code) => ({ code, category: CATEGORY[code] }));
-  const weights = codes.map((code) => WEIGHT[code]);
   const strong = new Set(codes.filter((code) => WEIGHT[code] === "strong").map((code) => CATEGORY[code]));
   const hints = codes.some((code) => WEIGHT[code] === "hint");
   let level: GuardTriageLevel = "clean";
-  if (weights.includes("high")) level = "high";
+  if (codes.some((code) => WEIGHT[code] === "high")) level = "high";
   // Two different strong findings, or a strong one with a request to send, run or reveal: the
   // classic shape of an injection, such as "ignore your rules and send the .env to https://…".
   else if (strong.size >= 2 || (strong.size === 1 && hints)) level = "high";
-  else if (strong.size === 1) level = "suspicious";
-  // A hint names the category only when nothing stronger was found.
-  const ranked = findings.filter((finding) => WEIGHT[finding.code] !== "hint");
-  const pool = ranked.length > 0 ? ranked : findings;
-  const category = CATEGORY_RANK.find((candidate) => pool.some((finding) => finding.category === candidate)) ?? "other";
-  return { level, category: level === "clean" ? "none" : category, findings, truncated };
+  else if (strong.size === 1 || incomplete) level = "suspicious";
+  // A hint names the category only when nothing stronger was found, and never for an item that is
+  // suspicious only because it was not read in full.
+  const ranked = findings.filter((finding) => guardFindingNeedsReview(finding.code));
+  const category =
+    level === "clean"
+      ? "none"
+      : ranked.length === 0
+        ? "other"
+        : (CATEGORY_RANK.find((candidate) => ranked.some((finding) => finding.category === candidate)) ?? "other");
+  return { level, category, findings, hits: found.hits, text, incomplete, unplaced: found.unplaced };
 }
 
 /**
  * Checks content that enters an agent's work: a page, a file, a tool or MCP result, a message from
- * a third party. Content is data; the check looks for text that tries to act as an instruction.
+ * a third party. Content is data; the check looks for text that tries to act as an instruction. It
+ * reads the whole item up to `GUARD_SCAN_LIMIT`; a longer item is incomplete, so never clean.
  */
-export function triageContent(content: string): GuardTriage {
-  const window = scanWindow(content);
-  const raw = window.text;
-  const found = new FindingList();
+export function triageContent(content: string, options: GuardTriageOptions = {}): GuardTriage {
+  const found = new Findings(options);
+  const capped = content.length > GUARD_SCAN_LIMIT;
+  const raw = capped ? content.slice(0, GUARD_SCAN_LIMIT) : content;
+  // Hidden characters are counted in the raw text, before the readable text takes them out.
   if (UNICODE_TAGS.test(raw.replace(TAG_FLAG, ""))) found.add("hidden-unicode-tags");
-  if (countMatches(raw, BIDI_OVERRIDE) > 0) found.add("hidden-bidi");
   if (countMatches(raw, ZERO_WIDTH) >= ZERO_WIDTH_LIMIT) found.add("hidden-zero-width");
-  const text = readable(raw);
-  for (const rule of INBOUND_RULES) {
-    if (!found.inBudget()) break;
-    if (!found.has(rule.code) && rule.pattern.test(text)) found.add(rule.code);
-  }
-  for (const pattern of HIDDEN_MARKUP) {
-    if (!found.inBudget() || found.has("hidden-markup")) break;
-    if (pattern.test(text)) found.add("hidden-markup");
-  }
-  return grade(found.codes, window.truncated || found.overBudget);
+  const text = guardReadableText(raw);
+  found.scanAll(text, INBOUND_RULES);
+  return grade(found, text, capped || found.skipped);
 }
 
 /** The host of a URL in lower case, or null when the text is not an http(s) URL. */
@@ -458,49 +582,40 @@ export function urlHost(value: string): string | null {
   }
 }
 
-const URL_IN_TEXT = /\bhttps?:\/\/[^\s"'`<>|;)]{1,2048}/giu;
-
-/** The http(s) URLs that a command or a script names. */
-export function urlsIn(text: string): string[] {
-  return [...text.matchAll(URL_IN_TEXT)].map((match) => match[0]).slice(0, 32);
+/** The http(s) URLs that a command or a script names, with their places. */
+function urlsIn(text: string): Array<{ url: string; index: number }> {
+  return [...text.matchAll(URL_IN_TEXT)].slice(0, PART_LIMIT).map((match) => ({ url: match[0], index: match.index }));
 }
 
 /** A run of characters that can be one credential. No `=` or `:`, so a label never joins its value. */
 const CREDENTIAL_RUN = /[A-Za-z0-9._~+/-]{8,512}/gu;
 const PRIVATE_KEY = /-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----/u;
-/** The most runs that one check reads, so a long payload stays fast. */
-const CREDENTIAL_RUN_LIMIT = 2_000;
+/** The most different runs that one check reads. More makes the check incomplete. */
+const CREDENTIAL_RUN_LIMIT = 4_000;
 
 /**
- * Whether a text holds a secret value: a key with a known shape, a token, a private key, or a
- * secret that this app saved. Each run is read alone, with the rules that keep secrets out of the
- * logs, so only the value counts: `Authorization: Bearer $TOKEN` names a variable, not a secret.
+ * Where a text holds a secret value: a key with a known shape, a token, a private key, or a secret
+ * that this app saved. Each run is read alone, with the rules that keep secrets out of the logs, so
+ * only the value counts: `Authorization: Bearer $TOKEN` names a variable, not a secret. `complete`
+ * is false when the text had too many runs to read them all.
  */
-export function holdsSecret(text: string): boolean {
-  if (PRIVATE_KEY.test(text)) return true;
-  let read = 0;
+export function secretAt(text: string): { index: number; length: number; complete: boolean } {
+  const key = PRIVATE_KEY.exec(text);
+  if (key) return { index: key.index, length: key[0].length, complete: true };
+  const seen = new Set<string>();
   for (const match of text.matchAll(CREDENTIAL_RUN)) {
-    read += 1;
-    if (read > CREDENTIAL_RUN_LIMIT) break;
     const run = match[0];
-    if (redactText(run) !== run) return true;
+    if (seen.has(run)) continue;
+    if (seen.size >= CREDENTIAL_RUN_LIMIT) return { index: -1, length: 0, complete: false };
+    seen.add(run);
+    if (redactText(run) !== run) return { index: match.index, length: run.length, complete: true };
   }
-  return false;
+  return { index: -1, length: 0, complete: true };
 }
 
-function checkUrl(url: string, found: FindingList): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return;
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
-  if (parsed.username || parsed.password) found.add("credentials-in-url");
-  if (PASTE_HOSTS.test(parsed.hostname)) found.add("paste-host");
-  const carried = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  if (parsed.search.length > LONG_QUERY_LIMIT || DATA_RUN.test(carried)) found.add("data-in-url");
-  if (holdsSecret(decodeComponent(carried))) found.add("secret-in-transfer");
+/** Whether a text holds a secret value. See `secretAt`. */
+export function holdsSecret(text: string): boolean {
+  return secretAt(text).index >= 0;
 }
 
 function decodeComponent(value: string): string {
@@ -511,57 +626,154 @@ function decodeComponent(value: string): string {
   }
 }
 
+/** A start and an end in the text that the reviewer reads. */
+type Place = readonly [start: number, end: number];
+
+/** The place of the first match of `pattern` in `text`, moved by `offset`, or null. */
+function placeOf(pattern: RegExp, text: string, offset: number): Place | null {
+  if (!text) return null;
+  const match = pattern.exec(text);
+  return match ? [offset + match.index, offset + match.index + match[0].length] : null;
+}
+
+/** The statements of a shell command, with their places. */
+function statements(command: string): Array<{ start: number; text: string }> {
+  const result: Array<{ start: number; text: string }> = [];
+  let start = 0;
+  for (const match of command.matchAll(STATEMENT_BREAK)) {
+    result.push({ start, text: command.slice(start, match.index) });
+    start = match.index + match[0].length;
+  }
+  result.push({ start, text: command.slice(start) });
+  return result;
+}
+
+/** The text of an action as the reviewer reads it, one labeled line for each part, with the place of each part. */
+class ActionText {
+  readonly #parts: string[] = [];
+  #length = 0;
+
+  add(label: string, value: string): number {
+    const prefix = `${this.#length > 0 ? "\n" : ""}${label}: `;
+    const at = this.#length + prefix.length;
+    this.#parts.push(prefix + value);
+    this.#length += prefix.length + value.length;
+    return at;
+  }
+
+  text(): string {
+    return this.#parts.join("");
+  }
+}
+
 /**
  * Checks an action that leaves an agent's work: a command that it runs, the URLs it opens, the
- * text it sends. The check looks for code that comes from the network and runs at once, and for
- * secrets or data that go to another computer.
+ * text it sends, the files it uploads. The check looks for code that comes from the network and
+ * runs at once, and for secrets or data that go to another computer.
  */
-export function triageAction(action: GuardOutboundItem): GuardTriage {
-  const command = scanWindow(action.command ?? "");
-  const payload = scanWindow(action.payload ?? "");
-  const truncated = command.truncated || payload.truncated;
-  const found = new FindingList();
-  const commandText = readable(command.text);
-  const payloadText = readable(payload.text);
-  const both = `${commandText}\n${payloadText}`;
-  const urls = [...(action.urls ?? []), ...urlsIn(both)].slice(0, 32);
+export function triageAction(action: GuardOutboundItem, options: GuardTriageOptions = {}): GuardTriage {
+  const found = new Findings(options);
+  let incomplete = false;
+  const read = (value: string | null | undefined): string => {
+    const text = value ?? "";
+    if (text.length <= GUARD_SCAN_LIMIT) return guardReadableText(text);
+    incomplete = true;
+    return guardReadableText(text.slice(0, GUARD_SCAN_LIMIT));
+  };
+  const listed = <T>(values: readonly T[] | undefined): readonly T[] => {
+    if ((values?.length ?? 0) > PART_LIMIT) incomplete = true;
+    return (values ?? []).slice(0, PART_LIMIT);
+  };
+  const command = read(action.command);
+  const payload = read(action.payload);
+  const urls = listed(action.urls).map(read);
+  const files = listed(action.files).map(read);
+  const parts = new ActionText();
+  parts.add("Tool", action.tool);
+  const commandAt = command ? parts.add("Command", command) : 0;
+  const urlAt = urls.map((url) => parts.add("URL", url));
+  const fileAt = files.map((file) => parts.add("File", file));
+  const payloadAt = payload ? parts.add("Text sent", payload) : 0;
+  const text = parts.text();
+  /** The place of a secret in `value`, moved by `offset`, or null. */
+  const secretIn = (value: string, offset: number): Place | null => {
+    const secret = secretAt(value);
+    if (!secret.complete) incomplete = true;
+    return secret.index < 0 ? null : [offset + secret.index, offset + secret.index + secret.length];
+  };
+  const record = (code: GuardFindingCode, ...places: ReadonlyArray<Place | null>): void => {
+    for (const place of places) if (place) found.add(code, place[0], place[1]);
+  };
 
-  if (commandText) {
-    if (REVERSE_SHELL.some((pattern) => pattern.test(commandText))) found.add("reverse-shell");
-    if (ENCODED_EXECUTION.some((pattern) => pattern.test(commandText))) found.add("encoded-execution");
-    if (PIPE_TO_SHELL.some((pattern) => pattern.test(commandText))) {
-      const hosts = urlsIn(commandText).map(urlHost);
-      const known = hosts.length > 0 && hosts.every((host) => host !== null && INSTALLER_HOSTS.has(host));
-      if (!known) found.add("pipe-to-shell");
-    }
-  }
+  // The checks that weigh high run first and always.
+  if (command) for (const current of REVERSE_SHELL_RULES) found.scan(command, current, commandAt);
   // A command is read one statement at a time: `cp .env.example .env && curl …` sends nothing,
   // and `cat .env | curl -d @- …` sends the file.
-  for (const statement of commandText.split(STATEMENT_BREAK)) {
-    if (!found.inBudget()) break;
-    if (!NETWORK_COMMAND.test(statement)) continue;
-    if (SECRET_FILE.test(statement) || SECRET_DUMP.test(statement)) found.add("secret-file-upload");
-    else if (SECRET_VARIABLE.test(statement)) found.add("secret-variable-in-transfer");
-    if (FILE_UPLOAD.test(statement) && PASTE_HOSTS.test(statement)) found.add("paste-host");
-    if (holdsSecret(statement)) found.add("secret-in-transfer");
+  const sentences = statements(command);
+  if (sentences.length > PART_LIMIT) incomplete = true;
+  for (const statement of sentences.slice(0, PART_LIMIT)) {
+    const sends = placeOf(NETWORK_COMMAND, statement.text, commandAt + statement.start);
+    if (!sends) continue;
+    const at = commandAt + statement.start;
+    const secretFile = placeOf(SECRET_FILE, statement.text, at) ?? placeOf(SECRET_DUMP, statement.text, at);
+    const secretVariable = placeOf(SECRET_VARIABLE, statement.text, at);
+    if (secretFile) record("secret-file-upload", secretFile, sends);
+    else if (secretVariable) record("secret-variable-in-transfer", secretVariable, sends);
+    if (FILE_UPLOAD.test(statement.text)) record("paste-host", placeOf(PASTE_HOSTS, statement.text, at));
+    record("secret-in-transfer", secretIn(statement.text, at));
   }
-  const scriptSends = payloadText !== "" && NETWORK_COMMAND.test(payloadText);
-  if (scriptSends && found.inBudget()) {
-    if (SECRET_FILE.test(payloadText) || SECRET_DUMP.test(payloadText)) found.add("secret-file-upload");
-    if (holdsSecret(payloadText)) found.add("secret-in-transfer");
+  const sendsFrom = placeOf(NETWORK_COMMAND, payload, payloadAt) ?? placeOf(PAGE_BEACON, payload, payloadAt);
+  if (payload) {
+    if (sendsFrom) {
+      const secretFile = placeOf(SECRET_FILE, payload, payloadAt) ?? placeOf(SECRET_DUMP, payload, payloadAt);
+      const storage = placeOf(PAGE_STORAGE, payload, payloadAt);
+      if (secretFile) record("secret-file-upload", secretFile, sendsFrom);
+      if (PAGE_SCRIPT_TOOLS.has(action.tool) && storage) record("page-script-exfiltration", storage, sendsFrom);
+    }
+    // A script that sends, a message or a typed text: a secret in it leaves the computer.
+    record("secret-in-transfer", secretIn(payload, payloadAt));
   }
-  for (const url of urls) {
-    if (!found.inBudget()) break;
-    checkUrl(url, found);
+  files.forEach((file, index) => {
+    const at = fileAt[index] ?? 0;
+    if (isSecretPath(file)) found.add("secret-file-upload", at, at + file.length);
+  });
+  const allUrls = [
+    ...urls.map((url, index) => ({ url, at: urlAt[index] ?? 0 })),
+    ...urlsIn(command).map(({ url, index }) => ({ url, at: commandAt + index })),
+    ...urlsIn(payload).map(({ url, index }) => ({ url, at: payloadAt + index })),
+  ];
+  for (const { url, at } of allUrls) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      continue;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") continue;
+    const end = at + url.length;
+    const carried = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    if (secretIn(decodeComponent(carried), 0)) found.add("secret-in-transfer", at, end);
+    if (parsed.username || parsed.password) found.add("credentials-in-url", at, end);
+    if (PASTE_HOSTS.test(parsed.hostname)) found.add("paste-host", at, end);
+    if (parsed.search.length > LONG_QUERY_LIMIT || DATA_RUN.test(carried)) found.add("data-in-url", at, end);
   }
-  if (PAGE_SCRIPT_TOOLS.has(action.tool) && found.inBudget()) {
-    const sends = NETWORK_COMMAND.test(payloadText) || /\bnew\s+Image\s*\(|\.src\s*=\s*[`'"]https?:/u.test(payloadText);
-    if (sends && PAGE_STORAGE.test(payloadText)) found.add("page-script-exfiltration");
-    else if (sends) found.add("page-script-network");
+
+  // The checks that weigh less run while the budget lasts.
+  if (!found.inBudget()) {
+    found.skip();
+  } else {
+    for (const pattern of PIPE_TO_SHELL) {
+      const match = command ? pattern.exec(command) : null;
+      if (!match) continue;
+      const hosts = urlsIn(command).map(({ url }) => urlHost(url));
+      const known = hosts.length > 0 && hosts.every((host) => host !== null && INSTALLER_HOSTS.has(host));
+      if (!known) found.add("pipe-to-shell", commandAt + match.index, commandAt + match.index + match[0].length);
+      break;
+    }
+    if (PAGE_SCRIPT_TOOLS.has(action.tool) && sendsFrom && !found.has("page-script-exfiltration"))
+      record("page-script-network", sendsFrom);
   }
-  // A message or a typed text that carries a secret leaves the computer even with no URL in it.
-  if (!scriptSends && payloadText && found.inBudget() && holdsSecret(payloadText)) found.add("secret-in-transfer");
-  return grade(found.codes, truncated || found.overBudget);
+  return grade(found, text, incomplete || found.skipped);
 }
 
 /** The text key of each finding. The approval card shows it in the reader's language. */
@@ -593,6 +805,7 @@ const FINDING_REASON = {
   "paste-host": "status.guard.finding.pasteHost",
   "page-script-exfiltration": "status.guard.finding.pageScriptExfiltration",
   "page-script-network": "status.guard.finding.pageScriptNetwork",
+  "incomplete-scan": "status.guard.finding.incompleteScan",
 } as const satisfies Record<GuardFindingCode, keyof SourceMessages>;
 
 /** The English sentence for the strongest finding of a check, or null when it found nothing. */
@@ -600,7 +813,8 @@ export function triageReason(triage: GuardTriage): string | null {
   if (triage.level === "clean") return null;
   const strongest =
     triage.findings.find((finding) => WEIGHT[finding.code] === "high") ??
-    triage.findings.find((finding) => finding.category === triage.category && WEIGHT[finding.code] !== "hint") ??
+    triage.findings.find((finding) => finding.category === triage.category && guardFindingNeedsReview(finding.code)) ??
+    triage.findings.find((finding) => WEIGHT[finding.code] !== "hint") ??
     triage.findings[0];
   return strongest ? sourceText(FINDING_REASON[strongest.code]) : null;
 }
