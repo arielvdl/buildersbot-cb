@@ -935,7 +935,7 @@ check grep -qF '[ ! -e /var/lib/bb-srv/egress-open ] || fail' templates/ops.yaml
 check grep -qF '|| [ -e /var/lib/bb-srv/egress-open ] || "$I" up "$S" || true' templates/ops.yaml
 check test "$(grep -cE '^ +"\$I" up "\$S"' templates/ops.yaml)" = 3
 # A saúde testa de dentro da rede do contêiner e para o contêiner num vazamento provado.
-for reason in contained no-signal-rule direct-open dns-open direct-unknown container-dns; do
+for reason in contained no-signal-rule direct-open dns-open direct-unknown dns-unknown container-dns; do
   check grep -qF "result=\"fail $reason\"" templates/proxy.yaml
 done
 check grep -qF 'body=$(in_net "$pid" curl' templates/proxy.yaml
@@ -981,8 +981,8 @@ else
   bad "F8 filtros de saúde no grupo errado" "$health_fail"
 fi
 
-# ---------------------------------------------------------------- F10: a ferramenta num host falso
-# O bb-srv-proxy e o bb-srv-Status rodam inteiros, com os caminhos do host (/etc/bb-srv, /var/lib/bb-srv...)
+# ---------------------------------------------------------------- F10 e F11: a ferramenta num host falso
+# O bb-srv-proxy roda inteiro, com os caminhos do host (/etc/bb-srv, /var/lib/bb-srv...)
 # trocados por pastas de $HOST_T e os programas do host trocados pelos de tests/fake-host.sh (iptables com estado,
 # docker, nsenter, setpriv, dig, curl, getent...): o que se testa é o comportamento, não o texto do template.
 HOST_T=$WORK/host
@@ -1030,7 +1030,7 @@ fwd_chain() { sed 's/^/-A BB-SRV-PROXY-OUT /' "$HOST_T/ipt/BB-SRV-PROXY-OUT" 2>/
 health_line() { tail -n 1 "$HOST_T/var/log/bb-srv/health.log" 2>/dev/null | cut -d ' ' -f 2-; }
 
 if ! to_host "$TOOL" "$HOST_TOOL"; then
-  bad "F10 a ferramenta não foi para o host falso (sobrou um caminho do sistema acima): F10 não rodou"
+  bad "F10 a ferramenta não foi para o host falso (sobrou um caminho do sistema acima): F10 e F11 não rodaram"
 else
   # F10: o encaminhador sai só para os endereços do upstream, um por regra, na porta dele; o guard do timer de
   # refresh segue uma troca de endereços e só reaplica quando as regras mudam.
@@ -1073,6 +1073,25 @@ else
     ok_case "F10 upstream por IPv4 literal: uma regra só para ele, sem consulta ao DNS"
   else
     bad "F10 upstream por IPv4 literal" "$(fwd_chain)"
+  fi
+
+  # F11: a saúde no host falso. Um filtro de DNS que não deu para conferir nunca vira um resultado verde.
+  host_reset
+  host_tool guard >/dev/null 2>&1
+  : >"$HOST_T/running"
+  host_tool health >/dev/null 2>&1
+  if [ "$(health_line)" = 'BB_PROXY_HEALTH ok BR' ]; then
+    ok_case "F11 saúde no host falso: saída direta bloqueada e o DNS do contêiner recusa example.com: ok BR"
+  else
+    bad "F11 saúde no host falso (controle)" "$(cat "$HOST_T/var/log/bb-srv/health.log" 2>/dev/null)"
+  fi
+  : >"$HOST_T/calls"
+  # A conferência que não roda (o DNS não responde ao dig do host; o getent do contêiner falha) nunca é ok.
+  FAKE_DIG=timeout FAKE_CONTAINER_GETENT=1 host_tool health >/dev/null 2>&1
+  if [ "$(health_line)" = 'BB_PROXY_HEALTH fail dns-unknown' ] && [ -e "$HOST_T/running" ] && [ ! -e "$HOST_T/var/lib/bb-srv/egress-open" ]; then
+    ok_case "F11 saúde: filtro de DNS que não deu para conferir é 'fail dns-unknown', nunca ok (o contêiner segue)"
+  else
+    bad "F11 saúde com o filtro de DNS não conferido" "$(health_line)"
   fi
 
 fi

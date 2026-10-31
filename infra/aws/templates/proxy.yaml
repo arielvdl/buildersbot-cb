@@ -555,6 +555,8 @@ Resources:
                     result="fail dns-open"
                   elif [ "$direct" != blocked ]; then
                     result="fail direct-unknown"
+                  elif [ "$dns" != ok ]; then
+                    result="fail dns-unknown"
                   elif [ -n "$sig" ] && ! timeout 20 docker exec "$c" getent hosts "$sig" >/dev/null 2>&1; then
                     result="fail container-dns"
                   fi
