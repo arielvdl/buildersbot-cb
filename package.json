@@ -11,12 +11,12 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nightly-labs/openbot.git"
+    "url": "git+https://github.com/Hub-Next-Level/buildersbot-cb.git"
   },
   "bugs": {
-    "url": "https://github.com/nightly-labs/openbot/issues"
+    "url": "https://github.com/Hub-Next-Level/buildersbot-cb/issues"
   },
-  "homepage": "https://github.com/nightly-labs/openbot#readme",
+  "homepage": "https://buildersbot.culturabuilder.com",
   "keywords": [
     "ai-agents",
     "bun",

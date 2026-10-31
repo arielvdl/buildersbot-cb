@@ -18,10 +18,11 @@ electronFuses:
   onlyLoadAppFromAsar: true
   loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: false
-publish:
-  provider: github
-  owner: nightly-labs
-  repo: openbot
+# Builders Bot has no update feed yet, so no build may name one. With `null`, electron-builder writes no
+# app-update.yml and no latest*.yml. Do not remove the key: without it, electron-builder uses the
+# `repository` of package.json as a GitHub feed. `src/main/update-feed-policy.ts` refuses every feed
+# until the signed Builders Bot feed exists, and `scripts/update-feed-guard-e2e.ts` checks both.
+publish: null
 files:
   - out/**/*
   - package.json
