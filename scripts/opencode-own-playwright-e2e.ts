@@ -3,7 +3,13 @@
 // server writes a marker file when it starts. Builders Bot turns `playwright` off on
 // `OPENCODE_CONFIG_CONTENT`, so the `control` marker must appear and the `playwright` marker must not.
 // OpenCode 2 drops an entry that has only `enabled`, and the server of the file then started in each
-// `opencode serve` of the app. `OPENCODE_CLI=<opencode> bun run test:opencode-own-playwright`.
+// `opencode serve` of the app.
+//
+// The shared browser broker reaches the agent over ACP `mcpServers` with the same name, `playwright`
+// (`applyBrowserAccess`). The test hands over an http stand-in for the broker in that form, and the
+// stand-in must get a request: a config entry that wins over the ACP server would take the browser
+// from every OpenCode and Cultura Builder agent.
+// `OPENCODE_CLI=<opencode> bun run test:opencode-own-playwright`.
 // Writes .openbot-build/opencode-own-playwright/report.json.
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
@@ -13,6 +19,7 @@ import { createServer as createTcpServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { applyBrowserAccess, BROWSER_BROKER_MCP_SERVER_ID } from "../src/backend/agent/playwright-browser-access";
 import type { AgentClient } from "../src/backend/agent-client";
 import { resolveOpencodeCli } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -26,6 +33,8 @@ const ENDPOINT = "spark";
 const MODEL = "agent-model";
 /** How long the `control` server may take to start after the turn. */
 const START_WAIT_MS = 60_000;
+/** How long the broker stand-in may take to get its first request after the `control` server started. */
+const BROKER_WAIT_MS = 30_000;
 
 interface Report {
   passed: boolean;
@@ -34,6 +43,8 @@ interface Report {
   layerMcp?: unknown;
   controlStarted?: boolean;
   playwrightStarted?: boolean;
+  /** Requests that the broker stand-in, handed over ACP as `playwright`, got. */
+  brokerRequests?: number;
   turn?: { reply: string; error: string | null; status: string | null };
   error?: string;
 }
@@ -66,6 +77,29 @@ const server = createServer((request: IncomingMessage, response: ServerResponse)
     response.end(String(error));
   });
 });
+
+let brokerRequests = 0;
+/**
+ * Stands in for the shared browser broker. It counts each request and refuses it: the test needs only
+ * the proof that OpenCode connected to the server that ACP handed over under the name `playwright`.
+ */
+const broker = createServer((request: IncomingMessage, response: ServerResponse) => {
+  brokerRequests += 1;
+  void (async () => {
+    for await (const _part of request) {
+      // The request body is not needed.
+    }
+    response.writeHead(500);
+    response.end("broker stand-in");
+  })().catch(() => response.destroy());
+});
+
+/** Waits until `check` is true, or until the deadline. */
+async function waitUntil(check: () => boolean, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check() && Date.now() < deadline) await new Promise((next) => setTimeout(next, 250));
+  return check();
+}
 
 /** A free TCP port for OpenCode's managed service, so the test does not meet a running Builders Bot's. */
 async function freePort(): Promise<number> {
@@ -109,6 +143,34 @@ try {
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The fake endpoint has no port.");
   const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  await new Promise<void>((listening) => broker.listen(0, "127.0.0.1", listening));
+  const brokerAddress = broker.address();
+  if (!brokerAddress || typeof brokerAddress === "string") throw new Error("The broker stand-in has no port.");
+  // The entry that the gateway hands over for the Marketplace row of Playwright when the broker runs.
+  const brokerServers = applyBrowserAccess(
+    [
+      {
+        id: "playwright",
+        name: "playwright",
+        transport: "stdio",
+        enabled: true,
+        command: "npx",
+        args: ["-y", "@playwright/mcp@0.0.83"],
+        env: [],
+        envPassthrough: [],
+        workingDirectory: "",
+        url: "",
+        headers: [],
+      },
+    ],
+    false,
+    { url: `http://127.0.0.1:${brokerAddress.port}/mcp`, bearer: "e2e-bearer" },
+  );
+  assert.deepEqual(
+    brokerServers.map((config) => [config.id, config.name, config.transport]),
+    [[BROWSER_BROKER_MCP_SERVER_ID, "playwright", "http"]],
+    "The broker must reach the agent as an http server named playwright.",
+  );
 
   // OpenCode must not read the developer's own config, keys or sessions.
   for (const [name, folder] of [
@@ -171,7 +233,7 @@ try {
   const client = requireProviderDriver("opencode").createClient(cli, 60_000, {
     apiKey: () => null,
     customProviders: () => [endpoint],
-    mcpServers: () => [],
+    mcpServers: () => brokerServers,
     providerStateDirectory: join(root, "provider-state"),
   });
   clients.push(client);
@@ -186,8 +248,14 @@ try {
   // The two servers start together, so the control marker is the event that the start happened.
   report.controlStarted = await waitForFile(controlMarker, START_WAIT_MS);
   report.playwrightStarted = await exists(playwrightMarker);
+  await waitUntil(() => brokerRequests > 0, BROKER_WAIT_MS);
+  report.brokerRequests = brokerRequests;
   assert.equal(report.controlStarted, true, "The control server of the person's file must start.");
   assert.equal(report.playwrightStarted, false, "The playwright server of the person's file must not start.");
+  assert.ok(
+    brokerRequests > 0,
+    "The broker that ACP hands over under the name playwright must get a request: the config entry must not replace it.",
+  );
   report.passed = true;
 } catch (error) {
   report.error = error instanceof Error ? (error.stack ?? error.message) : String(error);
@@ -196,6 +264,7 @@ try {
   await stopClients(clients);
   if (cliPath) await run(cliPath, ["service", "stop"], { env: process.env }).catch(() => undefined);
   server.close();
+  broker.close();
   await rm(root, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
   await writeFile(join(OUT, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
