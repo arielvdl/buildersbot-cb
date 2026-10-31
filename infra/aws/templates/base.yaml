@@ -204,8 +204,9 @@ Resources:
       Tags: [{Key: Name, Value: bb-srv-flow}]
 
   # Source tarballs (src/), the build script (tools/) and the build reports with the image digests
-  # (reports/, never expire: add-sector.sh checks a digest against them). Versioning keeps every
-  # overwritten report (and its author in CloudTrail), so a rewrite leaves a trail and can be undone.
+  # (reports/, never expire: add-sector.sh checks a digest against them). The builder writes a report
+  # once (bucket policy below); the trust anchor is /bb-srv/images/<tag> in SSM, written by the
+  # operator's Mac. Versioning keeps every overwritten report (and its author in CloudTrail).
   BuildBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: RetainExceptOnCreate
@@ -254,6 +255,16 @@ Resources:
             Action: 's3:*'
             Resource: [!GetAtt BuildBucket.Arn, !Sub '${BuildBucket.Arn}/*']
             Condition: {Bool: {'aws:SecureTransport': 'false'}}
+          # The builder (the least trusted role) never overwrites a report: a write without
+          # If-None-Match is denied, and with it S3 refuses a key that exists (412).
+          - Sid: BuilderWritesReportsOnce
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${BuildBucket.Arn}/reports/*'
+            Condition:
+              ArnLike: {'aws:PrincipalArn': !Sub 'arn:aws:iam::${AWS::AccountId}:role/bb-srv-builder'}
+              'Null': {'s3:if-none-match': 'true'}
 
   # ---------------------------------------------------------------- image registry
   ServerRepository:
@@ -282,9 +293,11 @@ Resources:
              "action": {"type": "expire"}}
           ]}
       # A deleted immutable tag can be pushed again, so nobody but the break-glass role deletes images.
-      # The ECR lifecycle policy expires images as the service, not through this action. DeleteRepository
-      # is not denied: CloudFormation must remove the empty repository when the creation of the stack
-      # rolls back, and a repository with images is not deleted by a stack (no EmptyOnDelete).
+      # The ECR lifecycle policy expires images as the service, not through this action (a tag that
+      # expires can be pushed again: the approval in /bb-srv/images/<tag> pins its digests). A direct
+      # DeleteRepository (with --force it deletes the images too) is denied as well, except to the
+      # break-glass role and to CloudFormation itself (aws:CalledVia), which removes the empty
+      # repository when the creation of the stack rolls back.
       RepositoryPolicyText:
         Version: '2012-10-17'
         Statement:
@@ -294,6 +307,13 @@ Resources:
             Action: ecr:BatchDeleteImage
             Condition:
               StringNotLike: {'aws:PrincipalArn': !Sub 'arn:aws:iam::${AWS::AccountId}:role/bb-srv-breakglass'}
+          - Sid: DenyRepositoryDeleteExceptBreakglassAndStack
+            Effect: Deny
+            Principal: '*'
+            Action: ecr:DeleteRepository
+            Condition:
+              StringNotLike: {'aws:PrincipalArn': !Sub 'arn:aws:iam::${AWS::AccountId}:role/bb-srv-breakglass'}
+              'ForAllValues:StringNotEquals': {'aws:CalledVia': [cloudformation.amazonaws.com]}
 
   # ---------------------------------------------------------------- alerts
   AlertsTopic:
@@ -579,8 +599,19 @@ Resources:
                   - ecr:PutImage
                   - ecr:DescribeImages
                 Resource: !GetAtt ServerRepository.Arn
+              # No parameter reads and no parameter writes: the approval of an image (/bb-srv/images/*)
+              # is out of reach of the build.
               - Effect: Deny
-                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath, 'secretsmanager:*', kms:Decrypt]
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                  - ssm:DeleteParameters
+                  - ssm:LabelParameterVersion
+                  - 'secretsmanager:*'
+                  - kms:Decrypt
                 Resource: '*'
 
   BuilderInstanceProfile:
@@ -722,6 +753,11 @@ Resources:
                 Effect: Allow
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:PutParameter]
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/sectors/*'
+              # Reads the approval of an image; approving and rejecting stay with an admin session.
+              - Sid: ApprovedImages
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/bb-srv/images/*'
               # Only the reads that the scripts use. Not ec2:Describe*: DescribeInstanceAttribute and
               # DescribeLaunchTemplateVersions read the user data of every instance of the account.
               # ssm:GetCommandInvocation has no resource-level permission (ssm_run needs it); the List
@@ -777,7 +813,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: bb-srv-breakglass
-      Description: The only principal that may delete images of bb-srv/server (manual, MFA, in CloudTrail).
+      Description: The only principal that may delete images or the repository bb-srv/server (manual, MFA, in CloudTrail).
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -792,7 +828,7 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: [ecr:BatchDeleteImage, ecr:DescribeImages, ecr:ListImages]
+                Action: [ecr:BatchDeleteImage, ecr:DeleteRepository, ecr:DescribeImages, ecr:ListImages]
                 Resource: !GetAtt ServerRepository.Arn
 
   # ---------------------------------------------------------------- cost

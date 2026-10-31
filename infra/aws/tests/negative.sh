@@ -15,7 +15,7 @@ install -d "$WORK"
 export FAKE_AWS_LOG=$WORK/fake-aws.log
 export PATH="$ROOT/tests/fake-bin:$PATH"
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
-unset BB_SRV_YES BB_SRV_ALLOW_LONG_TERM_KEY BB_SRV_IGNORE_QUOTA BB_SRV_ACCEPT_CRITICAL
+unset BB_SRV_YES BB_SRV_ALLOW_LONG_TERM_KEY BB_SRV_IGNORE_QUOTA BB_SRV_ACCEPT_CRITICAL BB_SRV_ACCEPT_UNSCANNED
 cd "$ROOT" || exit 1
 
 passed=0
@@ -64,6 +64,23 @@ expect_success() {
   fi
 }
 
+# <nome> <regex que o log TEM de ter> <regex que o log NÃO pode ter> <handler> <comando...>
+# Para os casos em que o script deve chegar até a primeira escrita (que o aws falso recusa).
+expect_calls() {
+  local name=$1 must=$2 mustnt=$3 handler=$4 out
+  shift 4
+  : >"$FAKE_AWS_LOG"
+  out=$(FAKE_AWS_HANDLER=$handler "$@" 2>&1 </dev/null)
+  if ! grep -Eq -- "$must" "$FAKE_AWS_LOG"; then
+    bad "$name: o log não tem /$must/" "$out"$'\n'"$(cat "$FAKE_AWS_LOG")"
+  elif grep -Eq -- "$mustnt" "$FAKE_AWS_LOG"; then
+    bad "$name: o log tem /$mustnt/" "$(cat "$FAKE_AWS_LOG")"
+  else
+    passed=$((passed + 1))
+    printf 'ok     %s\n' "$name"
+  fi
+}
+
 # Roda uma função de scripts/lib.sh num bash novo.
 lib() { bash -c 'source "$0/scripts/lib.sh"; "$@"' "$ROOT" "$@"; }
 
@@ -75,14 +92,31 @@ hex64() { # <caractere>: 64 vezes
 DIGEST_A=sha256:$(hex64 a)
 DIGEST_B=sha256:$(hex64 b)
 DIGEST_C=sha256:$(hex64 c)
-TAG=0.41.0-abc1234-arm64
-export TAG DIGEST_A DIGEST_B DIGEST_C
 
-# ---------------------------------------------------------------- A: confiança na imagem (achado 1)
-# Relatório do builder: imagem A e bundle C. O ECR responde pela tag.
+# Um "fork" de teste com dois commits (fica em .cache, ignorado pelo git do repositório). O primeiro
+# tem a versão 0.41.0, que as tags dos testes usam.
+FORK=$WORK/fork2
+if [ ! -d "$FORK/.git" ]; then
+  git init -q "$FORK"
+  printf '{"version": "0.41.0", "workspaces": {"catalog": {"wrangler": "4.152.0"}}}\n' >"$FORK/package.json"
+  git -C "$FORK" add package.json
+  git -C "$FORK" -c user.name=teste -c user.email=teste@example.com commit -q -m um
+  git -C "$FORK" -c user.name=teste -c user.email=teste@example.com commit -q --allow-empty -m dois
+fi
+FIRST=$(git -C "$FORK" rev-parse HEAD~1)
+SECOND=$(git -C "$FORK" rev-parse HEAD)
+SHORT=${FIRST:0:7}
+SOURCE_HASH=$(git -C "$FORK" archive --format=tar.gz "$FIRST" | shasum -a 256 | cut -d ' ' -f 1)
+export BB_SRV_FORK=$FORK
+TAG=0.41.0-$SHORT-arm64
+export TAG DIGEST_A DIGEST_B DIGEST_C FIRST SHORT SOURCE_HASH
+
+# ---------------------------------------------------------------- A: confiança na imagem (achados 0 e 1)
+# Relatório do builder: imagem A e bundle C, do commit FIRST. O ECR responde pela tag; a aprovação
+# (/bb-srv/images/<tag>) é "A C"; o scan terminou sem CRITICAL.
 report() { # <tag no relatório> <opsTag>
-  printf '{"tag":"%s","opsTag":"%s","imageDigest":"%s","opsDigest":"%s","version":"0.41.0","arch":"arm64","smokeTest":"passed","rejected":false}\n' \
-    "$1" "$2" "$DIGEST_A" "$DIGEST_C"
+  printf '{"tag":"%s","opsTag":"%s","imageDigest":"%s","opsDigest":"%s","version":"%s","commit":"%s","sourceSha256":"%s","arch":"arm64","smokeTest":"passed","rejected":false,"builtAt":"2026-10-31T10:00:00Z"}\n' \
+    "$1" "$2" "$DIGEST_A" "$DIGEST_C" "${FAKE_REPORT_VERSION:-0.41.0}" "${FAKE_REPORT_COMMIT:-$FIRST}" "${FAKE_REPORT_SOURCE:-$SOURCE_HASH}"
 }
 image_by_tag() { # <args do aws>: devolve o digest da tag pedida conforme FAKE_ECR_IMAGE / FAKE_ECR_OPS
   local arg
@@ -97,23 +131,59 @@ image_by_tag() { # <args do aws>: devolve o digest da tag pedida conforme FAKE_E
 h_image() {
   case "$1 $2" in
     "cloudformation describe-stacks") echo bb-srv-build-358748433479 ;;
-    "s3 cp") report "${FAKE_REPORT_TAG:-$TAG}" "${FAKE_REPORT_OPS:-0.41.0-abc1234-ops}" ;;
+    "s3 cp") report "${FAKE_REPORT_TAG:-$TAG}" "${FAKE_REPORT_OPS:-0.41.0-$SHORT-ops}" ;;
+    "s3api list-objects-v2") echo "reports/$TAG.json" ;;
     "ecr describe-images") image_by_tag "$@" ;;
-    "ecr describe-image-scan-findings") echo None ;;
+    "ecr describe-image-scan-findings") [ "${FAKE_SCAN:-}" = fail ] && return 1; printf '%b\n' "${FAKE_SCAN:-COMPLETE\tNone}" ;;
+    "ssm get-parameter") [ "${FAKE_NO_ANCHOR:-0}" = 1 ] && return 1; echo "${FAKE_ANCHOR:-$DIGEST_A $DIGEST_C}" ;;
     *) return 1 ;;
   esac
 }
 export -f report image_by_tag h_image
+resolve() { bash -c 'source "$0/scripts/lib.sh"; resolve_image "$1" arm64' "$ROOT" "$@"; }
+export -f resolve
+export ROOT
 
-expect_success "A1 aceita relatório que bate com o ECR" "imagem $TAG" h_image lib resolve_image "$TAG" arm64
+expect_success "A1 aceita relatório que bate com o ECR e com a aprovação" "imagem $TAG" h_image lib resolve_image "$TAG" arm64
 expect_refusal "A1 recusa tag que aponta no ECR para outro digest" "não bate com o ECR" h_image \
-  env FAKE_ECR_IMAGE="$DIGEST_B" bash -c 'source "$0/scripts/lib.sh"; resolve_image "$1" arm64' "$ROOT" "$TAG"
+  env FAKE_ECR_IMAGE="$DIGEST_B" bash -c 'resolve "$1"' _ "$TAG"
 expect_refusal "A1 recusa bundle -ops que aponta no ECR para outro digest" "não bate com o ECR" h_image \
-  env FAKE_ECR_OPS="$DIGEST_B" bash -c 'source "$0/scripts/lib.sh"; resolve_image "$1" arm64' "$ROOT" "$TAG"
+  env FAKE_ECR_OPS="$DIGEST_B" bash -c 'resolve "$1"' _ "$TAG"
 expect_refusal "A1 recusa relatório com outra tag dentro" "diz outra tag" h_image \
-  env FAKE_REPORT_TAG=0.40.0-0000000-arm64 bash -c 'source "$0/scripts/lib.sh"; resolve_image "$1" arm64' "$ROOT" "$TAG"
-expect_refusal "A1 recusa opsTag de outro build" "não é 0.41.0-abc1234-ops" h_image \
-  env FAKE_REPORT_OPS=0.40.0-0000000-ops bash -c 'source "$0/scripts/lib.sh"; resolve_image "$1" arm64' "$ROOT" "$TAG"
+  env FAKE_REPORT_TAG=0.40.0-0000000-arm64 bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa opsTag de outro build" "não é 0.41.0-$SHORT-ops" h_image \
+  env FAKE_REPORT_OPS=0.40.0-0000000-ops bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa imagem sem aprovação (rejeitada ou launch interrompido)" "não está aprovada" h_image \
+  env FAKE_NO_ANCHOR=1 bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa aprovação de outro digest (relatório reescrito ou tag publicada de novo)" "não bate com a aprovação" h_image \
+  env FAKE_ANCHOR="$DIGEST_B $DIGEST_C" bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa commit que não é o da tag" "não é o da tag" h_image \
+  env FAKE_REPORT_COMMIT="$SECOND" bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa commit que não existe no fork" "não existe no fork" h_image \
+  env FAKE_REPORT_COMMIT="${SHORT}000000000000000000000000000000000" bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa versão que não é a do package.json do commit" "tem a versão 0.41.0, não 0.42.0" h_image \
+  env FAKE_REPORT_TAG="0.42.0-$SHORT-arm64" FAKE_REPORT_OPS="0.42.0-$SHORT-ops" FAKE_REPORT_VERSION=0.42.0 bash -c 'resolve "$1"' _ "0.42.0-$SHORT-arm64"
+expect_refusal "A1 recusa scan que não terminou (fail closed)" "não COMPLETE" h_image \
+  env FAKE_SCAN='IN_PROGRESS\tNone' bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa scan ilegível (fail closed)" "não COMPLETE" h_image \
+  env FAKE_SCAN=fail bash -c 'resolve "$1"' _ "$TAG"
+expect_success "A1 aceita scan não concluído só com BB_SRV_ACCEPT_UNSCANNED=1" "imagem $TAG" h_image \
+  env FAKE_SCAN='IN_PROGRESS\tNone' BB_SRV_ACCEPT_UNSCANNED=1 bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 recusa CRITICAL no scan" "CRITICAL" h_image \
+  env FAKE_SCAN='COMPLETE\t2' bash -c 'resolve "$1"' _ "$TAG"
+expect_refusal "A1 sem --image-tag, a mais nova pede confirmação (mostra o commit)" "commit $FIRST" h_image \
+  bash -c 'resolve ""'
+
+# Aprovação pelo Mac (build-image.sh approve): confere o relatório e o hash do código antes de gravar.
+expect_calls "A1 approve grava /bb-srv/images/<tag> com os digests do relatório (só com --yes ou 'aprovar')" \
+  "WRITE ssm put-parameter --name /bb-srv/images/$TAG --type String --value $DIGEST_A $DIGEST_C" 'NADA' h_image \
+  env FAKE_NO_ANCHOR=1 bash scripts/build-image.sh approve "$TAG" --yes
+expect_refusal "A1 approve sem terminal nem --yes não grava" "a confirmação precisa de um terminal" h_image \
+  env FAKE_NO_ANCHOR=1 bash scripts/build-image.sh approve "$TAG"
+expect_refusal "A1 approve recusa relatório com outro hash do código" "dá $SOURCE_HASH" h_image \
+  env FAKE_NO_ANCHOR=1 FAKE_REPORT_SOURCE="$(hex64 d)" bash scripts/build-image.sh approve "$TAG" --yes
+expect_refusal "A1 approve nunca sobrescreve uma aprovação com outro valor" "já existe com outro valor" h_image \
+  env FAKE_ANCHOR="$DIGEST_B $DIGEST_C" bash scripts/build-image.sh approve "$TAG" --yes
 
 # ---------------------------------------------------------------- A: código conferido no builder (achado 9)
 expect_refusal "A9 on-host recusa rodar sem o sha256 do tarball" "parâmetros inválidos" "" \
@@ -144,35 +214,7 @@ fake_cfn() {
 }
 export -f fake_cfn
 
-# <nome> <regex que o log TEM de ter> <regex que o log NÃO pode ter> <handler> <comando...>
-# Para os casos em que o script deve chegar até a primeira escrita (que o aws falso recusa).
-expect_calls() {
-  local name=$1 must=$2 mustnt=$3 handler=$4 out
-  shift 4
-  : >"$FAKE_AWS_LOG"
-  out=$(FAKE_AWS_HANDLER=$handler "$@" 2>&1 </dev/null)
-  if ! grep -Eq -- "$must" "$FAKE_AWS_LOG"; then
-    bad "$name: o log não tem /$must/" "$out"$'\n'"$(cat "$FAKE_AWS_LOG")"
-  elif grep -Eq -- "$mustnt" "$FAKE_AWS_LOG"; then
-    bad "$name: o log tem /$mustnt/" "$(cat "$FAKE_AWS_LOG")"
-  else
-    passed=$((passed + 1))
-    printf 'ok     %s\n' "$name"
-  fi
-}
 
-# Um "fork" de teste com dois commits (fica em .cache, ignorado pelo git do repositório).
-FORK=$WORK/fork
-if [ ! -d "$FORK/.git" ]; then
-  git init -q "$FORK"
-  printf '{"workspaces": {"catalog": {"wrangler": "4.152.0"}}}\n' >"$FORK/package.json"
-  git -C "$FORK" add package.json
-  git -C "$FORK" -c user.name=teste -c user.email=teste@example.com commit -q -m um
-  git -C "$FORK" -c user.name=teste -c user.email=teste@example.com commit -q --allow-empty -m dois
-fi
-FIRST=$(git -C "$FORK" rev-parse HEAD~1)
-SECOND=$(git -C "$FORK" rev-parse HEAD)
-export BB_SRV_FORK=$FORK
 
 # ---------------------------------------------------------------- B: Signal (achado 13)
 h_signal() {
@@ -214,7 +256,7 @@ expect_refusal "C14 @previous recusa stack que não existe" "não há template a
   bash -c 'source "$0/scripts/lib.sh"; deploy_stack bb-srv-piloto-compute @previous piloto' "$ROOT"
 
 expect_calls "C14 proteção liga só TerminationProtection e ImageTag, sobre o template já implantado" \
-  'WRITE cloudformation create-change-set .*--use-previous-template.*Sector,UsePreviousValue=true.*AmiId,UsePreviousValue=true.*TerminationProtection,ParameterValue=true ParameterKey=ImageTag,ParameterValue=0.41.0-abc1234-arm64' \
+  'WRITE cloudformation create-change-set .*--use-previous-template.*Sector,UsePreviousValue=true.*AmiId,UsePreviousValue=true.*TerminationProtection,ParameterValue=true ParameterKey=ImageTag,ParameterValue='"$TAG" \
   'template-body|AmiId,ParameterValue' h_failed \
   env FAKE_STACKS="bb-srv-piloto-compute=CREATE_COMPLETE" FAKE_PARAM_KEYS="Sector Size AmiId TerminationProtection ImageTag" \
   bash -c 'source "$0/scripts/lib.sh"; protect_sector piloto "$1"' "$ROOT" "$TAG"

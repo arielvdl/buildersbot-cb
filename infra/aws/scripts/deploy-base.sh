@@ -56,7 +56,7 @@ if [ "$base_op" = CREATE ]; then
   done
   if aws_cb ecr describe-repositories --repository-names "$BB_REPO_NAME" >/dev/null 2>&1; then leftovers="$leftovers ecr:$BB_REPO_NAME"; fi
   [ -z "$leftovers" ] || die "sobras de uma bb-srv-base anterior:$leftovers. Elas ficam de propósito (dados: relatórios, logs, imagens).
-Vazias e dispensáveis: apague-as à mão (bucket com versionamento: apague também as versões; ECR: delete-repository só sem imagens) e rode de novo.
+Vazias e dispensáveis: apague-as à mão (bucket com versionamento: apague também as versões; ECR: só sem imagens, ecr delete-repository-policy e depois ecr delete-repository) e rode de novo.
 Com dados que devem ficar: traga-as para a stack com um change set IMPORT (README, seção 11, 'Sobras da base') antes de criar o resto."
 fi
 

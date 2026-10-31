@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Atualiza a imagem de um setor para uma tag do builder (DESIGN 7.4):
-#   1. confere o relatório, o ECR e o scan da tag;
+#   1. confere a aprovação (/bb-srv/images/<tag>), o relatório, o ECR e o scan da tag;
 #   2. baixa a imagem nova com o setor ainda no ar (bb-srv-Upgrade step=pull, que recusa versão antiga);
 #   3. para o container (bb-srv-Down), tira o snapshot pre-upgrade (ExpiresAt em 30 dias: depois disso o
 #      scripts/gc-snapshots.sh pode apagá-lo) e

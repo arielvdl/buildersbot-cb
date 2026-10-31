@@ -339,33 +339,41 @@ ubuntu_ami() { # <arm64|amd64>
 build_bucket() { stack_output bb-srv-base BuildBucketName; }
 repo_uri() { stack_output bb-srv-base RepositoryUri; }
 
-# Lê o relatório do builder (reports/<tag>.json) e exporta IMAGE_TAG, IMAGE_DIGEST, OPS_DIGEST e
-# IMAGE_VERSION. Sem tag, usa o relatório mais novo da arquitetura. Recusa imagem rejeitada, sem
-# teste de fumaça, com achado CRITICAL no scan da base (DESIGN 7.4), ou cujo relatório não bate com o
-# ECR: a tag (imutável; o delete é negado) tem de apontar no ECR para o digest do relatório. Assim um
-# relatório reescrito não troca a imagem de uma tag já aprovada.
-resolve_image() { # <tag ou vazio> <arm64|amd64>
-  local tag=$1 arch=$2 bucket report key critical ops_tag ecr_image ecr_ops
+# Lê o relatório do builder (reports/<tag>.json) e confere o que não depende da aprovação: a tag
+# (<versão>-<sha7>-<arch>), a arquitetura, a marca de rejeição, o teste de fumaça, o bundle -ops, o
+# commit (40 hex, o sha7 da tag, existe no fork) e a versão (a do package.json desse commit e a da
+# tag), e que as duas tags apontam no ECR para os digests do relatório. Exporta IMAGE_TAG,
+# IMAGE_DIGEST, OPS_DIGEST, IMAGE_VERSION, IMAGE_COMMIT, IMAGE_BUILT_AT e IMAGE_SOURCE_SHA256.
+verify_report() { # <tag> <arm64|amd64>
+  local tag=$1 arch=$2 bucket report prefix ops_tag ecr_image ecr_ops fork_version
+  [[ $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}-(arm64|amd64)$ ]] || die "tag inválida: $tag (esperava <versão>-<sha7>-<arch>)."
   bucket=$(build_bucket)
-  if [ -z "$tag" ]; then
-    key=$(aws_cb s3api list-objects-v2 --bucket "$bucket" --prefix reports/ \
-      --query "sort_by(Contents[?ends_with(Key,'-$arch.json')], &LastModified)[-1].Key" --output text 2>/dev/null || true)
-    [ -n "$key" ] && [ "$key" != None ] || die "não há relatório de build para $arch em s3://$bucket/reports/. Rode scripts/build-image.sh launch <commit> antes."
-    tag=$(basename "$key" .json)
-  fi
-  [[ $tag =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,127}$ ]] || die "tag inválida: $tag"
   report=$(aws_cb s3 cp "s3://$bucket/reports/$tag.json" - 2>/dev/null) || die "não há relatório s3://$bucket/reports/$tag.json: só imagens do builder são aceitas."
+  jq -e 'type == "object"' <<<"$report" >/dev/null 2>&1 || die "o relatório reports/$tag.json não é um objeto JSON. Recusado."
   [ "$(jq -r '.tag' <<<"$report")" = "$tag" ] || die "o relatório reports/$tag.json diz outra tag ($(jq -r '.tag' <<<"$report")). Recusado."
   [ "$(jq -r '.arch' <<<"$report")" = "$arch" ] || die "a imagem $tag não é $arch."
   [ "$(jq -r '.rejected // false' <<<"$report")" = false ] || die "a imagem $tag está marcada como rejeitada no relatório."
   [ "$(jq -r '.smokeTest' <<<"$report")" = passed ] || die "a imagem $tag não passou no teste de fumaça."
+  prefix=${tag%-"$arch"}
   ops_tag=$(jq -r '.opsTag' <<<"$report")
-  [ "$ops_tag" = "${tag%-"$arch"}-ops" ] || die "o relatório $tag aponta para o bundle $ops_tag, que não é ${tag%-"$arch"}-ops. Recusado."
+  [ "$ops_tag" = "$prefix-ops" ] || die "o relatório $tag aponta para o bundle $ops_tag, que não é $prefix-ops. Recusado."
   IMAGE_TAG=$tag
   IMAGE_DIGEST=$(jq -r '.imageDigest' <<<"$report")
   OPS_DIGEST=$(jq -r '.opsDigest' <<<"$report")
   IMAGE_VERSION=$(jq -r '.version' <<<"$report")
+  IMAGE_COMMIT=$(jq -r '.commit' <<<"$report")
+  IMAGE_BUILT_AT=$(jq -r '.builtAt // "?"' <<<"$report")
+  IMAGE_SOURCE_SHA256=$(jq -r '.sourceSha256 // ""' <<<"$report")
   [[ $IMAGE_DIGEST =~ ^sha256:[0-9a-f]{64}$ ]] && [[ $OPS_DIGEST =~ ^sha256:[0-9a-f]{64}$ ]] || die "digests inválidos no relatório $tag."
+  # O relatório descreve o commit que a tag nomeia, e esse commit existe no fork com essa versão.
+  [ "$IMAGE_VERSION" = "${prefix%-*}" ] || die "o relatório $tag diz a versão $IMAGE_VERSION, que não é a da tag (${prefix%-*}). Recusado."
+  [[ $IMAGE_COMMIT =~ ^[0-9a-f]{40}$ ]] && [ "${IMAGE_COMMIT:0:7}" = "${prefix##*-}" ] ||
+    die "o relatório $tag aponta para o commit $IMAGE_COMMIT, que não é o da tag (${prefix##*-}). Recusado."
+  git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1 || die "o fork não está em $BB_FORK (defina BB_SRV_FORK): ele confere o commit do relatório."
+  git -C "$BB_FORK" cat-file -e "$IMAGE_COMMIT^{commit}" 2>/dev/null ||
+    die "o commit $IMAGE_COMMIT do relatório $tag não existe no fork $BB_FORK (falta um git fetch?). Recusado."
+  fork_version=$(git -C "$BB_FORK" show "$IMAGE_COMMIT:package.json" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)
+  [ "$fork_version" = "$IMAGE_VERSION" ] || die "o package.json do commit $IMAGE_COMMIT tem a versão ${fork_version:-nenhuma}, não $IMAGE_VERSION. Recusado."
   ecr_image=$(aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageTag=$tag" \
     --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true)
   ecr_ops=$(aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageTag=$ops_tag" \
@@ -373,13 +381,59 @@ resolve_image() { # <tag ou vazio> <arm64|amd64>
   if [ "$ecr_image" != "$IMAGE_DIGEST" ] || [ "$ecr_ops" != "$OPS_DIGEST" ]; then
     die "o relatório $tag não bate com o ECR (tag $tag -> ${ecr_image:-ausente}, relatório $IMAGE_DIGEST; tag $ops_tag -> ${ecr_ops:-ausente}, relatório $OPS_DIGEST): relatório adulterado, errado ou imagem expirada. Recusado."
   fi
-  critical=$(aws_cb ecr describe-image-scan-findings --repository-name "$BB_REPO_NAME" --image-id "imageDigest=$IMAGE_DIGEST" \
-    --query 'imageScanFindings.findingSeverityCounts.CRITICAL' --output text 2>/dev/null || echo None)
-  if [ "$critical" != None ] && [ "$critical" != 0 ] && [ "${BB_SRV_ACCEPT_CRITICAL:-0}" != 1 ]; then
+  export IMAGE_TAG IMAGE_DIGEST OPS_DIGEST IMAGE_VERSION IMAGE_COMMIT IMAGE_BUILT_AT IMAGE_SOURCE_SHA256
+}
+
+# A imagem que um setor pode rodar. Sem tag, usa o relatório mais novo da arquitetura (mostra commit e
+# data e pede confirmação). Além do verify_report, exige a APROVAÇÃO gravada pelo Mac do operador
+# (/bb-srv/images/<tag> = "<digest da imagem> <digest do -ops>", fora do alcance do builder) igual ao
+# relatório e ao ECR, e o scan do ECR terminado (COMPLETE) e sem CRITICAL na base (DESIGN 7.4).
+# Rejeitar uma imagem = apagar a aprovação (scripts/build-image.sh reject <tag>).
+resolve_image() { # <tag ou vazio> <arm64|amd64>
+  local tag=$1 arch=$2 bucket key newest=0 anchor scan critical
+  if [ -z "$tag" ]; then
+    bucket=$(build_bucket)
+    key=$(aws_cb s3api list-objects-v2 --bucket "$bucket" --prefix reports/ \
+      --query "sort_by(Contents[?ends_with(Key,'-$arch.json')], &LastModified)[-1].Key" --output text 2>/dev/null || true)
+    [ -n "$key" ] && [ "$key" != None ] || die "não há relatório de build para $arch em s3://$bucket/reports/. Rode scripts/build-image.sh launch <commit> antes."
+    tag=$(basename "$key" .json)
+    newest=1
+  fi
+  verify_report "$tag" "$arch"
+  anchor=$(aws_cb ssm get-parameter --name "/bb-srv/images/$tag" --query Parameter.Value --output text 2>/dev/null || true)
+  [ -n "$anchor" ] && [ "$anchor" != None ] ||
+    die "a imagem $tag não está aprovada (falta /bb-srv/images/$tag): foi rejeitada, ou o launch não chegou ao fim. Aprovar: scripts/build-image.sh approve $tag."
+  [ "$anchor" = "$IMAGE_DIGEST $OPS_DIGEST" ] ||
+    die "o relatório $tag não bate com a aprovação /bb-srv/images/$tag ($anchor): relatório reescrito ou tag publicada de novo. Recusado."
+  # Fail closed: scan em andamento, falho, sem suporte ou ilegível não conta como limpo.
+  read -r scan critical <<<"$(aws_cb ecr describe-image-scan-findings --repository-name "$BB_REPO_NAME" --image-id "imageDigest=$IMAGE_DIGEST" \
+    --query '[imageScanStatus.status, imageScanFindings.findingSeverityCounts.CRITICAL]' --output text 2>/dev/null || echo 'ilegível None')"
+  if [ "$scan" != COMPLETE ]; then
+    [ "${BB_SRV_ACCEPT_UNSCANNED:-0}" = 1 ] ||
+      die "o scan do ECR da imagem $tag está em ${scan:-ilegível} (não COMPLETE). Espere o scan terminar, ou use BB_SRV_ACCEPT_UNSCANNED=1 só com a revisão registrada."
+    warn "a imagem $tag entra sem scan concluído ($scan), só porque BB_SRV_ACCEPT_UNSCANNED=1."
+  elif [ "$critical" != None ] && [ "$critical" != 0 ] && [ "${BB_SRV_ACCEPT_CRITICAL:-0}" != 1 ]; then
     die "o scan do ECR achou $critical vulnerabilidade(s) CRITICAL na base da imagem $tag. Revise e use BB_SRV_ACCEPT_CRITICAL=1 só com a revisão registrada."
   fi
-  export IMAGE_TAG IMAGE_DIGEST OPS_DIGEST IMAGE_VERSION
+  if [ "$newest" = 1 ]; then
+    say "   imagem mais nova: $tag, commit $IMAGE_COMMIT, construída em $IMAGE_BUILT_AT"
+    confirm "Usar a imagem $tag (sem --image-tag, é a do relatório mais novo)? Digite 'sim':" sim
+  fi
   say "   imagem $IMAGE_TAG (versão $IMAGE_VERSION) $IMAGE_DIGEST"
+}
+
+# sha256 do `git archive` (tar.gz) de um commit do fork: o mesmo arquivo que o upload_source envia.
+source_hash() { # <commit>
+  local commit=$1 sha work hash
+  git -C "$BB_FORK" rev-parse --git-dir >/dev/null 2>&1 || die "o fork não está em $BB_FORK (defina BB_SRV_FORK)."
+  sha=$(git -C "$BB_FORK" rev-parse --verify "$commit^{commit}" 2>/dev/null) || die "commit desconhecido no fork: $commit"
+  work=$(mktemp -d "${TMPDIR:-/tmp}/bb-srv-src.XXXXXX")
+  # De um commit, nunca da árvore de trabalho (que pode estar no meio de um merge).
+  git -C "$BB_FORK" archive --format=tar.gz -o "$work/$sha.tar.gz" "$sha"
+  hash=$(shasum -a 256 "$work/$sha.tar.gz" | cut -d ' ' -f 1)
+  rm -f "$work/$sha.tar.gz"
+  rmdir "$work"
+  printf '%s\n' "$hash"
 }
 
 # Envia o código de um commit do fork para s3://<build>/src/<sha>.tar.gz com o sha256 na metadata.

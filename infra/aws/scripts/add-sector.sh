@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cria um setor: uma VM dedicada com um servidor Builders Bot (DESIGN 8.1).
-#   1. confere acesso, nome, cota de vCPU, imagem aprovada (relatório do builder + ECR + scan) e AMI;
+#   1. confere acesso, nome, cota de vCPU, imagem aprovada (/bb-srv/images/<tag>, relatório do builder,
+#      ECR e scan) e AMI;
 #   2. stack bb-srv-<setor>-data (volume de dados, ou restaurado de um snapshot do mesmo setor). Se ela
 #      já existe sem a VM (VM trocada, ou falha anterior da stack -compute), reaproveita o volume;
 #   3. stack bb-srv-<setor>-compute (VM, role, logs, alarmes, budget, agenda), com a VM SEM proteção
@@ -35,7 +36,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 sector=${1:-}
-[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,32p' "$0"; exit 1; }
+[ -n "$sector" ] && [[ $sector != -* ]] || { sed -n '2,33p' "$0"; exit 1; }
 shift
 size=large
 size_given=0

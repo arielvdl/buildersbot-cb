@@ -5,27 +5,105 @@
 # ONDE RODA:
 #   - `launch` roda no Mac do operador (precisa de check-access ok). Ele envia o código e este script
 #     ao bucket de build e liga uma EC2 t4g.xlarge efêmera (launch template bb-srv-builder: Ubuntu
-#     24.04 arm64, sem porta de entrada, IMDSv2, desliga e TERMINA sozinha em até 3 h).
+#     24.04 arm64, sem porta de entrada, IMDSv2, desliga e TERMINA sozinha em até 3 h). No fim, com o
+#     relatório na tela, APROVA a imagem: grava /bb-srv/images/<tag> = "<digest> <digest -ops>" no SSM.
+#   - `approve`/`reject` rodam no Mac: aprovar depois (um launch interrompido) ou rejeitar uma imagem.
 #   - `on-host` roda NA EC2 efêmera, como root (o user data do `launch` chama). O build precisa de
 #     Linux arm64 nativo: o runtime de voz é preparado para a plataforma e a arquitetura do host
 #     (scripts/prepare-voice.ts). Não rode `on-host` no Mac.
 #
-# CONFIANÇA: tudo o que o usuário `builder` produz ou pode alterar (node_modules, dist/, o AppImage,
-# a árvore do código extraída) é não confiável. O root nunca executa nada disso. O que vai para os
-# hosts de setor como root (a pasta docker/, o Dockerfile, o seccomp) e o que define as ferramentas
-# (package.json, .nvmrc) saem de uma cópia que o root extrai do tarball ANTES de qualquer código do
-# builder rodar, e o tarball é conferido pelo sha256 que o Mac calculou.
+# CONFIANÇA: tudo o que o usuário `builder` produz ou pode alterar (node_modules, dist/, o AppImage e o
+# runtime dele, a árvore extraída) é não confiável. O root do host nunca executa nada disso:
+#   - o build e o --appimage-extract rodam como `builder`, sem privilégio e sem IMDS;
+#   - a imagem é montada da árvore que o builder extraiu, copiada pelo root depois que a conta dele é
+#     travada (dono root, sem setuid), com a lista de pacotes validada; o estágio `release` do
+#     Dockerfile intocado (que executa o AppImage) é trocado por uma cópia dessa árvore;
+#   - o Docker roda com userns-remap: o root de um container (RUN do build, teste de fumaça) é um UID
+#     sem privilégio no host; o teste de fumaça roda sem rede (--network none);
+#   - o que vai para os hosts de setor como root (a pasta docker/: bundle -ops) e o que define as
+#     ferramentas (package.json, .nvmrc) saem de uma cópia que o root extrai do tarball (conferido pelo
+#     sha256 calculado no Mac), e o bundle -ops é construído e ENVIADO antes de qualquer código do builder.
+# O resto do risco (um exploit do kernel a partir do builder ou do container) não chega aos setores
+# sozinho: só a aprovação gravada pelo Mac (sessão de admin com MFA) libera uma tag, e o builder não
+# escreve no SSM nem sobrescreve um relatório.
 #
 # Uso:
 #   scripts/build-image.sh launch <commit> [--yes]
+#   scripts/build-image.sh approve <tag> [--yes]
+#   scripts/build-image.sh reject <tag> [--yes]
 #   scripts/build-image.sh on-host --commit <sha> --bucket <bucket> --repo-uri <uri> --version <x.y.z>
 #                                  --source-sha256 <hash do tarball>
 #
-# Resultado: tags <versão>-<sha7>-arm64 e <versão>-<sha7>-ops no ECR (imutáveis) e o relatório
-# s3://<bucket>/reports/<versão>-<sha7>-arm64.json com os digests, que add-sector.sh exige.
+# Resultado: tags <versão>-<sha7>-arm64 e <versão>-<sha7>-ops no ECR (imutáveis), o relatório
+# s3://<bucket>/reports/<versão>-<sha7>-arm64.json com os digests (escrito uma vez) e a aprovação
+# /bb-srv/images/<tag>, que add-sector.sh e upgrade-sector.sh exigem.
 set -euo pipefail
 
-usage() { sed -n '2,26p' "$0"; }
+usage() { sed -n '2,41p' "$0"; }
+
+# ------------------------------------------------------------------ approve / reject (Mac do operador)
+# Confere o relatório (tag, commit e versão no fork, teste de fumaça, digests no ECR) e grava a
+# aprovação. O valor nunca é sobrescrito: uma aprovação com outro par de digests é recusada.
+approve_image() { # <tag> [sha256 esperado do tarball]
+  local tag=$1 expected_source=${2:-} name existing
+  verify_report "$tag" arm64
+  if [ -z "$expected_source" ]; then
+    expected_source=$(source_hash "$IMAGE_COMMIT") || exit 1
+  fi
+  [ "$IMAGE_SOURCE_SHA256" = "$expected_source" ] ||
+    die "o relatório $tag diz que o código tinha sha256 $IMAGE_SOURCE_SHA256, mas o git archive do commit $IMAGE_COMMIT dá $expected_source. Recusado."
+  name="/bb-srv/images/$tag"
+  existing=$(aws_cb ssm get-parameter --name "$name" --query Parameter.Value --output text 2>/dev/null || true)
+  if [ "$existing" = "$IMAGE_DIGEST $OPS_DIGEST" ]; then
+    say "   $tag já está aprovada ($name)."
+    return 0
+  fi
+  [ -z "$existing" ] || [ "$existing" = None ] || die "$name já existe com outro valor ($existing). Recusado: confira o CloudTrail."
+  say "== aprovar $tag: commit $IMAGE_COMMIT, construída em $IMAGE_BUILT_AT"
+  say "   imagem $IMAGE_DIGEST, bundle -ops $OPS_DIGEST"
+  confirm "Aprovar a imagem $tag para os setores (grava $name)? Digite 'aprovar':" aprovar
+  aws_cb ssm put-parameter --name "$name" --type String --value "$IMAGE_DIGEST $OPS_DIGEST" \
+    --description "Imagem aprovada $tag (commit $IMAGE_COMMIT): digest da imagem e do bundle -ops" \
+    --tags "Key=Project,Value=$BB_PROJECT" "Key=Sector,Value=shared" "Key=CostCenter,Value=shared" "Key=Owner,Value=$BB_OWNER" >/dev/null
+  say "   $tag aprovada ($name). Rejeitar depois: scripts/build-image.sh reject $tag"
+}
+
+approve() {
+  # shellcheck source=scripts/lib.sh
+  source "$(dirname "$0")/lib.sh"
+  local tag=''
+  while [ "$#" -gt 0 ]; do
+    case $1 in
+      --yes) BB_SRV_YES=1 ; shift ;;
+      -*) die "opção desconhecida: $1" ;;
+      *) tag=$1 ; shift ;;
+    esac
+  done
+  [ -n "$tag" ] || die "informe a tag (<versão>-<sha7>-arm64)."
+  bb_check_access --writes
+  approve_image "$tag"
+}
+
+# Rejeitar = apagar a aprovação: nenhum add-sector/upgrade-sector aceita mais a tag. Setores que já
+# rodam a imagem continuam com ela até um upgrade-sector.sh para outra tag.
+reject() {
+  # shellcheck source=scripts/lib.sh
+  source "$(dirname "$0")/lib.sh"
+  local tag=''
+  while [ "$#" -gt 0 ]; do
+    case $1 in
+      --yes) BB_SRV_YES=1 ; shift ;;
+      -*) die "opção desconhecida: $1" ;;
+      *) tag=$1 ; shift ;;
+    esac
+  done
+  [[ $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}-(arm64|amd64)$ ]] || die "tag inválida: '$tag'."
+  bb_check_access --writes
+  aws_cb ssm get-parameter --name "/bb-srv/images/$tag" >/dev/null 2>&1 || die "/bb-srv/images/$tag não existe: a imagem $tag não está aprovada."
+  confirm "Rejeitar $tag (apaga /bb-srv/images/$tag; setores novos e upgrades passam a recusá-la)? Digite 'rejeitar':" rejeitar
+  aws_cb ssm delete-parameter --name "/bb-srv/images/$tag"
+  say "   $tag rejeitada. Setores que já rodam essa imagem: scripts/upgrade-sector.sh <setor> <outra tag>."
+}
 
 # ------------------------------------------------------------------ launch (Mac do operador)
 launch() {
@@ -54,7 +132,10 @@ launch() {
   short=${sha:0:7}
   tag="$version-$short-arm64"
   if aws_cb s3api head-object --bucket "$bucket" --key "reports/$tag.json" >/dev/null 2>&1; then
-    die "já existe o relatório reports/$tag.json: esta imagem já foi construída (tags imutáveis)."
+    die "já existe o relatório reports/$tag.json: esta imagem já foi construída (tags imutáveis). Aprovar: scripts/build-image.sh approve $tag"
+  fi
+  if [ "$(aws_cb ecr describe-images --repository-name "$BB_REPO_NAME" --image-ids "imageTag=$tag" --query 'length(imageDetails)' --output text 2>/dev/null || echo 0)" = 1 ]; then
+    die "a tag $tag já existe no ECR sem relatório (um build anterior parou depois do push). Ela é imutável: apague-a com a role bb-srv-breakglass ou construa outro commit."
   fi
   say "== build de $tag a partir de $sha"
   check_vcpu_quota 4
@@ -106,6 +187,7 @@ EOF
     sleep 60
     waited=$((waited + 60))
   done
+  approve_image "$tag" "$source_hash"
 }
 
 # ------------------------------------------------------------------ on-host (EC2 efêmera, root)
@@ -130,15 +212,30 @@ on_host() {
   tag="$version-$short-$arch"
   ops_tag="$version-$short-ops"
   export DEBIAN_FRONTEND=noninteractive HOME=/root DOCKER_CONFIG=/root/.docker
-  local aws=/snap/bin/aws
-  local region=${repo#*.dkr.ecr.}
+  local aws=/snap/bin/aws repo_name region
+  repo_name=${repo#*/}
+  region=${repo#*.dkr.ecr.}
   region=${region%%.amazonaws.com*}
+  fail() { echo "BB_BUILD fail: $*" >&2; exit 1; }
+  # Digest de uma tag no ECR, ou vazio (não existe, ou a leitura falhou: quem chama falha fechado).
+  ecr_digest() {
+    "$aws" ecr describe-images --region "$region" --repository-name "$repo_name" --image-ids "imageTag=$1" \
+      --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true
+  }
+  # Lista de caminhos, tipos e modos de uma árvore (o conteúdo vai pelo diff).
+  tree_modes() { (cd "$1" && find . -mindepth 1 -printf '%P %y %m\n' | LC_ALL=C sort); }
   echo "BB_BUILD start $tag $(date -u +%FT%TZ)"
 
   # O apt-daily do primeiro boot pode estar com o lock do dpkg: espera em vez de falhar.
   apt-get -o DPkg::Lock::Timeout=600 update -q
   apt-get -o DPkg::Lock::Timeout=600 install -y -q --no-install-recommends docker.io amazon-ecr-credential-helper \
     ca-certificates curl jq unzip xz-utils git build-essential python3 xvfb file
+  # Docker com userns-remap antes de qualquer build ou container, como nos hosts de setor: o root de
+  # um container (RUN do build, teste de fumaça) vira um UID sem privilégio no host.
+  install -d -m 0755 /etc/docker
+  printf '{"userns-remap": "default"}\n' >/etc/docker/daemon.json
+  systemctl restart docker
+  docker info --format '{{json .SecurityOptions}}' | grep -F 'name=userns' >/dev/null || fail "o Docker não ligou o userns-remap"
   # A cada ECR por credential helper: nenhuma senha fica em disco.
   install -d -m 0700 /root/.docker
   printf '{"credHelpers": {"%s": "ecr-login"}}\n' "${repo%%/*}" >/root/.docker/config.json
@@ -154,10 +251,47 @@ on_host() {
   local tarball=/root/src.tar.gz pristine=/root/pristine
   "$aws" s3 cp --only-show-errors --region "$region" "s3://$bucket/src/$commit.tar.gz" "$tarball"
   chmod 0600 "$tarball"
-  echo "$source_sha  $tarball" | sha256sum -c - ||
-    { echo "BB_BUILD fail: o tarball do código não bate com o sha256 enviado pelo operador" >&2; exit 1; }
+  echo "$source_sha  $tarball" | sha256sum -c - || fail "o tarball do código não bate com o sha256 enviado pelo operador"
   install -d -m 0700 "$pristine"
   tar -xzf "$tarball" --no-same-owner -C "$pristine" docker package.json .nvmrc
+
+  # A tag da imagem ainda não pode existir (imutável): um build anterior que parou depois do push
+  # precisa da role bb-srv-breakglass. Conferido agora para não gastar o build.
+  [ -z "$(ecr_digest "$tag")" ] || fail "a tag $tag já existe no ECR (um build anterior parou depois do push): apague-a com a role bb-srv-breakglass ou construa outro commit"
+
+  # Bundle de operação: a pasta docker/ da cópia intocada (o bb-srv-Install roda
+  # docker/instances/openbot-instance como root em todo setor), numa imagem FROM scratch, construída e
+  # ENVIADA antes de qualquer código do builder: ninguém que escape do build chega antes à tag imutável.
+  local ops_dir=/root/ops check previous cid ops_digest image_digest
+  install -d -m 0700 "$ops_dir"
+  cp -a "$pristine/docker" "$ops_dir/docker"
+  printf 'FROM scratch\nCOPY docker /docker\nCMD ["/noop"]\n' >"$ops_dir/Dockerfile"
+  docker build --label "org.opencontainers.image.revision=$commit" --label "org.opencontainers.image.version=$version" \
+    --tag "$repo:$ops_tag" "$ops_dir"
+  check=$(mktemp -d)
+  cid=$(docker create "$repo:$ops_tag" /noop)
+  docker cp "$cid:/docker/." "$check/"
+  docker rm "$cid" >/dev/null
+  [ -x "$check/instances/openbot-instance" ] && [ -f "$check/seccomp.json" ] || fail "bundle de operação incompleto"
+  ops_digest=$(ecr_digest "$ops_tag")
+  if [ -n "$ops_digest" ]; then
+    # Um build anterior deste commit parou depois deste push. Reaproveita a tag só se o conteúdo for
+    # igual ao da cópia intocada (arquivos, tipos e modos).
+    previous=$(mktemp -d)
+    cid=$(docker create "$repo@$ops_digest" /noop)
+    docker cp "$cid:/docker/." "$previous/"
+    docker rm "$cid" >/dev/null
+    diff -r --no-dereference "$pristine/docker" "$previous" >/dev/null && [ "$(tree_modes "$pristine/docker")" = "$(tree_modes "$previous")" ] ||
+      fail "a tag $ops_tag já existe no ECR com outro conteúdo: confira o CloudTrail"
+    echo "BB_BUILD ops $ops_tag já existia com o mesmo conteúdo ($ops_digest)"
+  else
+    docker push --quiet "$repo:$ops_tag"
+    ops_digest=$(ecr_digest "$ops_tag")
+    docker image inspect "$repo:$ops_tag" --format '{{join .RepoDigests "\n"}}' | grep -Fx "$repo@$ops_digest" >/dev/null ||
+      fail "a tag $ops_tag no ECR ($ops_digest) não é o bundle que acabei de enviar"
+  fi
+  [[ $ops_digest =~ ^sha256:[0-9a-f]{64}$ ]] || fail "digest inválido do bundle -ops: $ops_digest"
+
   src=/home/builder/src
   install -d -o builder -g builder -m 0755 "$src"
   install -m 0644 "$tarball" /home/builder/src.tar.gz
@@ -199,11 +333,10 @@ on_host() {
     xvfb-run -a bun run dist:linux:arm64
   "
   # O AppImage é saída do builder: o runtime dele (o código do --appimage-extract) é não confiável.
-  # A extração roda como builder, numa pasta dele e sem IMDS; o root só confere o resultado.
+  # A extração roda como builder, numa pasta dele e sem IMDS; o root só confere e copia o resultado.
   local appimage extract
   appimage=$(find "$src/dist" -maxdepth 1 -type f -name '*.AppImage')
-  [ -n "$appimage" ] && [ "$(grep -c . <<<"$appimage")" = 1 ] ||
-    { echo "BB_BUILD fail: esperava 1 AppImage em dist/, achei: ${appimage:-nenhum}" >&2; exit 1; }
+  [ -n "$appimage" ] && [ "$(grep -c . <<<"$appimage")" = 1 ] || fail "esperava 1 AppImage em dist/, achei: ${appimage:-nenhum}"
   extract=$(runuser -u builder -- mktemp -d /home/builder/extract.XXXXXX)
   # Os caminhos vão como argumentos ($1, $2 do bash do builder), não dentro do texto do comando.
   # shellcheck disable=SC2016
@@ -221,34 +354,60 @@ on_host() {
     pgrep -u builder >/dev/null || break
     sleep 1
   done
-  if pgrep -u builder >/dev/null; then echo "BB_BUILD fail: ainda há processos do builder" >&2; exit 1; fi
+  if pgrep -u builder >/dev/null; then fail "ainda há processos do builder"; fi
 
+  # Nenhum processo do builder vive mais: a árvore não muda entre a conferência e a cópia. Nada de
+  # link no caminho (a cópia do root seguiria para fora da pasta do builder).
+  local tree=$extract/squashfs-root
+  [ ! -L "$extract" ] && [ -d "$tree" ] && [ ! -L "$tree" ] || fail "a pasta extraída sumiu ou virou link"
   # O entrypoint chama /opt/OpenBot/app/openbot (scripts/hosting/openbot-container). O fork pode
   # gerar o executável com outro nome (DESIGN 7.1): pare aqui com a causa. (test só lê metadados.)
-  [ -x "$extract/squashfs-root/openbot" ] ||
-    { echo "BB_BUILD fail: o AppImage não tem o executável 'openbot' (veja DESIGN 7.1: linux.executableName)." >&2; exit 1; }
-  [ -x "$extract/squashfs-root/resources/hosting/openbot-container" ] ||
-    { echo "BB_BUILD fail: falta resources/hosting/openbot-container." >&2; exit 1; }
+  [ -x "$tree/openbot" ] || fail "o AppImage não tem o executável 'openbot' (veja DESIGN 7.1: linux.executableName)."
+  [ -x "$tree/resources/hosting/openbot-container" ] || fail "falta resources/hosting/openbot-container."
 
-  # Nenhum processo do builder vive mais: a lista de dist/ não muda entre a conferência e a cópia.
-  [ ! -L "$src" ] && [ ! -L "$src/dist" ] || { echo "BB_BUILD fail: src/ ou dist/ virou link" >&2; exit 1; }
-  appimage=$(find "$src/dist" -maxdepth 1 -type f -name '*.AppImage')
-  [ -n "$appimage" ] && [ "$(grep -c . <<<"$appimage")" = 1 ] || { echo "BB_BUILD fail: dist/ mudou" >&2; exit 1; }
+  # Contexto da imagem: só a árvore extraída, copiada pelo root (dono root, sem setuid/setgid, modos
+  # normalizados como no estágio release do fork). Nenhum código dela roda aqui.
   image_dir=/root/image
   install -d -m 0700 "$image_dir"
-  cp -- "$appimage" "$image_dir/OpenBot.AppImage"
-  chmod 0755 "$image_dir/OpenBot.AppImage"
+  cp -a --no-preserve=ownership "$tree" "$image_dir/squashfs-root"
+  chmod -R u+rwX,go=rX,ug-s "$image_dir/squashfs-root"
+  # A lista de pacotes vai para `xargs apt-get install` como root do container: só nomes de pacote
+  # Debian (uma linha com `-o...` seria uma opção do apt, e DPkg::Pre-Invoke roda comando).
+  local packages=$image_dir/squashfs-root/resources/hosting/packages.txt bad
+  [ -f "$packages" ] && [ "$(realpath -e "$packages")" = "$packages" ] || fail "packages.txt ausente ou atrás de um link"
+  bad=$(sed -e '/^#/d' -e '/^$/d' "$packages" | grep -Evx '[a-z0-9][a-z0-9+.-]*' || true)
+  [ -z "$bad" ] || fail "linha que não é nome de pacote em packages.txt: $(head -n 1 <<<"$bad" | cut -c 1-80 | tr -cd '[:alnum:][:space:]._+=:/-')"
+  # O Dockerfile intocado tem dois estágios: `release` (copia e EXECUTA o AppImage para extraí-lo) e o
+  # final (instala a lista de pacotes e copia a árvore). Aqui o estágio release só copia a árvore já
+  # extraída; o resto do arquivo fica como está. Outra forma do arquivo: pare.
+  local dockerfile=/root/Dockerfile.bb-srv
+  # shellcheck disable=SC2016
+  awk '
+    /^FROM / {
+      n++
+      if (n == 1) {
+        if ($0 != "FROM ${BASE} AS release") bad = 1
+        print
+        print "COPY squashfs-root /tmp/squashfs-root"
+        next
+      }
+    }
+    n == 1 { next }
+    { print }
+    END { if (bad || n != 2) exit 3 }
+  ' "$pristine/docker/Dockerfile" >"$dockerfile" || fail "o docker/Dockerfile do fork mudou de forma (esperava os estágios release e final)"
+  if awk '!/^#/ && /AppImage/ { found = 1 } END { exit !found }' "$dockerfile"; then fail "o Dockerfile derivado ainda usa o AppImage"; fi
   electron=$(jq -r '.devDependencies.electron // .dependencies.electron // "unknown"' "$pristine/package.json")
 
-  # O Dockerfile vem da cópia intocada; o contexto só tem o AppImage (os RUN ficam na bridge, onde o
-  # hop limit 1 já bloqueia o IMDS).
-  docker build --file "$pristine/docker/Dockerfile" --build-arg "VERSION=$version" --build-arg "REVISION=$commit" \
+  # Os RUN ficam na bridge (o hop limit 1 já bloqueia o IMDS) e com userns-remap.
+  docker build --file "$dockerfile" --build-arg "VERSION=$version" --build-arg "REVISION=$commit" \
     --label "org.opencontainers.image.electron-version=$electron" --tag "$repo:$tag" "$image_dir"
 
-  # Teste de fumaça igual ao do release: sobe com o sandbox ligado, responde e para com código 0.
+  # Teste de fumaça igual ao do release (sobe com o sandbox ligado, responde e para com código 0), mas
+  # sem rede: ele só usa o control.sock local, e a imagem é saída do builder.
   local status=''
   docker rm -f bb-srv-smoke >/dev/null 2>&1 || true
-  docker run --detach --name bb-srv-smoke --shm-size 1g --security-opt "seccomp=$pristine/docker/seccomp.json" \
+  docker run --detach --name bb-srv-smoke --network none --shm-size 1g --security-opt "seccomp=$pristine/docker/seccomp.json" \
     --security-opt no-new-privileges:true "$repo:$tag" >/dev/null
   for _ in $(seq 1 120); do
     if docker exec bb-srv-smoke test -S /run/openbot/control.sock 2>/dev/null; then
@@ -260,34 +419,18 @@ on_host() {
   echo "$status"
   if ! grep -Fxq "Builders Bot $version" <<<"$status" || ! grep -Fxq "Account: signed out. Sign in with: openbot login" <<<"$status"; then
     docker logs bb-srv-smoke 2>&1 | tail -n 40
-    echo "BB_BUILD fail: teste de fumaça" >&2
-    exit 1
+    fail "teste de fumaça"
   fi
   docker stop --time 60 bb-srv-smoke >/dev/null
-  [ "$(docker inspect bb-srv-smoke | jq -r '.[0].State.ExitCode')" = 0 ] || { echo "BB_BUILD fail: o stop não saiu com 0" >&2; exit 1; }
+  [ "$(docker inspect bb-srv-smoke | jq -r '.[0].State.ExitCode')" = 0 ] || fail "o stop não saiu com 0"
   docker rm bb-srv-smoke >/dev/null
 
-  # Bundle de operação: a pasta docker/ do mesmo commit (da cópia intocada: o bb-srv-Install roda
-  # docker/instances/openbot-instance como root em todo setor), numa imagem FROM scratch com um comando.
-  local ops_dir=/root/ops
-  install -d -m 0700 "$ops_dir"
-  cp -a "$pristine/docker" "$ops_dir/docker"
-  printf 'FROM scratch\nCOPY docker /docker\nCMD ["/noop"]\n' >"$ops_dir/Dockerfile"
-  docker build --label "org.opencontainers.image.revision=$commit" --label "org.opencontainers.image.version=$version" \
-    --tag "$repo:$ops_tag" "$ops_dir"
-  local check cid
-  check=$(mktemp -d)
-  cid=$(docker create "$repo:$ops_tag" /noop)
-  docker cp "$cid:/docker/." "$check/"
-  docker rm "$cid" >/dev/null
-  [ -x "$check/instances/openbot-instance" ] && [ -f "$check/seccomp.json" ] || { echo "BB_BUILD fail: bundle de operação incompleto" >&2; exit 1; }
-
   docker push --quiet "$repo:$tag"
-  docker push --quiet "$repo:$ops_tag"
-  local image_digest ops_digest repo_name
-  repo_name=${repo#*/}
-  image_digest=$("$aws" ecr describe-images --region "$region" --repository-name "$repo_name" --image-ids "imageTag=$tag" --query 'imageDetails[0].imageDigest' --output text)
-  ops_digest=$("$aws" ecr describe-images --region "$region" --repository-name "$repo_name" --image-ids "imageTag=$ops_tag" --query 'imageDetails[0].imageDigest' --output text)
+  image_digest=$(ecr_digest "$tag")
+  [[ $image_digest =~ ^sha256:[0-9a-f]{64}$ ]] || fail "digest inválido da imagem: $image_digest"
+  docker image inspect "$repo:$tag" --format '{{join .RepoDigests "\n"}}' | grep -Fx "$repo@$image_digest" >/dev/null ||
+    fail "a tag $tag no ECR ($image_digest) não é a imagem que acabei de enviar"
+  [ "$(ecr_digest "$ops_tag")" = "$ops_digest" ] || fail "a tag $ops_tag não aponta mais para o bundle enviado no início ($ops_digest)"
   jq -n --arg tag "$tag" --arg opsTag "$ops_tag" --arg imageDigest "$image_digest" --arg opsDigest "$ops_digest" \
     --arg version "$version" --arg commit "$commit" --arg arch "$arch" --arg electron "$electron" \
     --arg sourceSha256 "$source_sha" --arg builtAt "$(date -u +%FT%TZ)" \
@@ -295,12 +438,18 @@ on_host() {
       commit: $commit, sourceSha256: $sourceSha256, arch: $arch, electronVersion: $electron, smokeTest: "passed",
       rejected: false, builtAt: $builtAt}' \
     >/root/report.json
-  "$aws" s3 cp --only-show-errors --sse AES256 --region "$region" /root/report.json "s3://$bucket/reports/$tag.json"
+  # Escrito uma vez: a política do bucket nega ao builder um PutObject em reports/ sem If-None-Match,
+  # e com ele a S3 recusa uma chave que já existe.
+  "$aws" s3api put-object --region "$region" --bucket "$bucket" --key "reports/$tag.json" --body /root/report.json \
+    --server-side-encryption AES256 --content-type application/json --if-none-match '*' >/dev/null ||
+    fail "não consegui gravar reports/$tag.json (já existe?)"
   echo "BB_BUILD ok $tag $image_digest"
 }
 
 case ${1:-} in
   launch) shift; launch "$@" ;;
+  approve) shift; approve "$@" ;;
+  reject) shift; reject "$@" ;;
   on-host) shift; on_host "$@" ;;
   -h | --help | '') usage ;;
   *) usage; exit 1 ;;
