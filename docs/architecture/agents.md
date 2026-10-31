@@ -830,8 +830,13 @@ property, gradient, filter or shadow changes during the turn. The elements exist
 section works, so `will-change` applies only then. The rail sets `--section-rail-laser-play` from
 the document visibility (`createTaskListPlayState`), so the laser stops while the document is
 hidden; the dragged item stops too. With reduced motion, the ring stays still and lit.
-`sidebar-section-rail-laser.test.ts` fails when a laser rule animates something other than
-`transform`, `rotate` or `opacity`, uses a filter, or has no reduced-motion rule.
+`scripts/sidebar-section-rail-laser-smoke.ts` loads the real stylesheets in a headless browser and
+fails when ten lasers cause a style recalculation, a layout or a paint on the main thread, when a
+laser animates something other than `transform`, when a laser animates with reduced motion, when
+`--section-rail-laser-play: paused` or `data-dragging` does not stop it, when the lifted copy has a
+halo, or when the still ring of the accent, a preset color or a color near the sidebar color has a
+contrast below 1.8 against the sidebar. It writes `.openbot-build/sidebar-laser/report.json` and the
+screenshots.
 
 Cost, measured in headless Chromium over 3 s at 60 Hz with the real CSS: 1, 4 or 10 running tiles
 cause no style recalculation, no layout and no paint on the main thread, and about 2 ms of main

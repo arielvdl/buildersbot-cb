@@ -177,7 +177,7 @@
  * style or paint for it. The elements exist only while the section works, so `will-change` applies
  * only then. The rail sets `--section-rail-laser-play` to `paused` while the document is hidden; the
  * dragged item pauses too. With reduced motion, the ring stays still and lit.
- * `sidebar-section-rail-laser.test.ts` keeps these rules.
+ * `scripts/sidebar-section-rail-laser-smoke.ts` checks these rules in a headless browser.
  */
 .section-rail-button[data-running] {
   --section-rail-laser: var(--openbot-accent);
