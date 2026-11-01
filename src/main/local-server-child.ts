@@ -35,6 +35,21 @@ export const LOCAL_SERVER_ENVIRONMENT = {
   runtimeRoot: "OPENBOT_LOCAL_SERVER_RUNTIMES",
 } as const;
 
+/**
+ * Keeps a local server out of the apps that macOS lists. The child runs from the app bundle, so
+ * LaunchServices registers it as one more "Builders Bot". `app.dock.hide()` made it a UI element: no
+ * Dock tile, but the low-memory panel of macOS ("Your system has run out of application memory") still
+ * listed it as a second Builders Bot, with the footprint of the whole app, because the child shares the
+ * app's coalition. The `prohibited` policy registers it as a background-only process, as
+ * `LSBackgroundOnly` does. Its hidden window and the agent browser views in it still load and paint.
+ */
+export function hideLocalServerFromMacOS(
+  platform: NodeJS.Platform,
+  setActivationPolicy: (policy: "prohibited") => void,
+): void {
+  if (platform === "darwin") setActivationPolicy("prohibited");
+}
+
 export interface LocalServerChildEnvironment {
   /** The folder that holds the agents of this server, in place of `~/Builders Bot`. */
   agentRoot: string;
