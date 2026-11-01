@@ -262,6 +262,16 @@ adds its rule there, not in the catalog.
 
 ## Server model policy
 
+> **Permanent rule for every remote server that Cultura Builder sets up (each sector or company):**
+> (1) the model catalog is an allowlist of the administrator, and the default allows only the
+> Cultura Builder gateway: the free models of the Builders CLI are hidden; (2) the Cultura Builder
+> models (DeepSeek, GLM and the models without censorship) come through the gateway of the Hub, and
+> their upstream key is only in the gateway, never on a server or in the app; (3) a model without
+> censorship is denied by default, and only a person or company that the owner grants on the Hub can
+> see and call it. `openbot-instance create` writes the default policy
+> (`docker/instances/model-policy.default.json`), and the infrastructure of the sectors writes and
+> checks it on each install.
+
 A company server offers only the providers and models that its administrator allowed. The
 administrator writes one JSON file on the host. The app reads it once, when it starts, from the path
 in `OPENBOT_MODEL_POLICY_FILE` (`src/backend/agent/server-model-policy.ts`).
@@ -315,8 +325,10 @@ Without a policy, the provider declares the built-in models and the app does not
 
 ### Rule for a company server
 
-1. Write `/srv/openbot/<name>/policy/model-policy.json` as root, mode 0644, before the first start.
-   The default for a company server is `{ "version": 1, "providers": { "cultura-builder": "*" } }`.
+1. `/srv/openbot/<name>/policy/model-policy.json` exists, owned by root, mode 0644. `openbot-instance
+   create` writes `docker/instances/model-policy.default.json` there:
+   `{ "version": 1, "providers": { "cultura-builder": "*" }, "freeModels": false }`. An instance made
+   before this rule has no file until the administrator writes one; it then offers every provider.
 2. Sign the server in to Cultura Builder with the account of the server. The Hub decides what that
    account can call; a model without censorship is only for a person or company that the Hub granted.
 3. Put no provider key, upstream URL or upstream key on the server. The upstream key of a Cultura

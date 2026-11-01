@@ -358,6 +358,10 @@ create() {
   systemctl daemon-reload
   printf '# OPENBOT_DISK is the size of data.img, for information. See docs/docker.md to change it.\nBUILDERSBOT_IMAGE=%s\nOPENBOT_NAME=%s\nOPENBOT_CPUS=%s\nOPENBOT_MEM=%s\nOPENBOT_DISK=%s\n' \
     "$image" "$name" "$cpus" "$mem" "$disk" >"$env"
+  # A new instance starts with the safe model policy: the Cultura Builder gateway only, no free
+  # models of the Builders CLI. The administrator changes it in $folder/policy/model-policy.json.
+  install -d -m 0755 "$folder/policy"
+  install -m 0644 "$HERE/model-policy.default.json" "$folder/policy/model-policy.json"
   start "$name"
   echo "Sign in the instance: openbot-instance run $name login"
 }
