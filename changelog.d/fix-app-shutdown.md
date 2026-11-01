@@ -6,6 +6,9 @@
   about a minute later.
 - A second quit while Builders Bot was still quitting, such as Cmd+Q again, no longer ends it before
   the database closes.
-- The quit steps share one time limit. When several of them do not stop, such as the team
-  connection, Builders Bot still closes the database and quits in about 20 seconds, not 30 or more.
-- A server on this computer gets time to close its database when Builders Bot stops it.
+- The quit steps that keep no data share one time limit. When several of them do not stop, such as
+  the team connection, Builders Bot still closes the database and quits within 30 seconds. The steps
+  that save your data, such as the agent stop that records the turns it interrupts, keep their full
+  time, and the database closes after them.
+- A server on this computer that does not stop when Builders Bot quits is ended. It no longer keeps
+  running after the app, which held its port and stopped it from starting again.

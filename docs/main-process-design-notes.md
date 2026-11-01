@@ -49,20 +49,35 @@ them. Teardown ordinals state this order beside construction instead of repeatin
 
 ### Quit time limits
 
-The quit has four limits, from the inside out:
+The quit has these limits, from the inside out:
 
 | Limit | Value | What it does |
 | --- | --- | --- |
 | Step limit (`TeardownRegistry`) | 10 s | The drain stops waiting for one step. The step continues. |
-| Budget of all steps (`TeardownRegistry`) | 15 s | After it, each step that is left starts in its order, but gets 100 ms. |
-| Database step | 5 s wait, then its own 10 s | It waits for the abandoned steps, so a slow agent stop records its interrupted turns, then closes and checkpoints the WAL. The budget does not apply to it. |
-| `SHUTDOWN_DEADLINE_MS` in `index.ts` | 30 s | `app.exit(0)`, logged. Then the exit watchdog sends `SIGKILL` after 10 s more. |
+| Budget (`TeardownRegistry`) | 15 s together | The steps that hold no data share it, such as the local host and the team WebRTC bridge. The time that the drain waits for them counts. |
+| Steps outside the budget | 10 s each | The steps that write user data or own child processes: the browser, the provider runtimes, the servers on this computer, messaging, the routine flows, the workflows, automation and the agent service. The budget does not make their limit shorter. |
+| Last step time (`lastStepByMs`) | 24 s after the drain starts | No step gets more time after it, and no step inside the budget after the budget. Each step that is left gets 100 ms, and all of them 1 s together. |
+| Database step | A wait, then its own 10 s | It waits for an abandoned step outside the budget until the last step time, and for any other abandoned step 5 s at most. So an abandoned agent stop still records its interrupted turns. Then it closes and checkpoints the WAL. |
+| `SHUTDOWN_DEADLINE_MS` in `index.ts` | 30 s | `app.exit(0)`, logged. A server on this computer that is still there is killed at the exit. Then the exit watchdog sends `SIGKILL` after 10 s more. |
+
+The agent stop took more than 10 s on six quits of 30 Oct to 1 Nov 2026 (`It did not stop within
+10000 ms.`), once with no turn running. `AgentService.stop` logs each of its phases that takes 1 s or
+more, so the next slow quit names the phase. A local server gets `SIGKILL` 6 s after its stop starts, so its step must not be abandoned
+before then.
+
+**Worst case.** The database step starts 25 s after the drain starts at the latest: the last step time,
+then 1 s for the steps that are left. The close has the 5 s that are left before the deadline, less
+the lag of the main loop (1.8 s at most on 1 Nov 2026). The agent stop ends before the close when it
+ends by the last step time: a stop of 13 s after one step that did not stop (10 s) ends at 23 s. A
+longer one, or one after more steps that did not stop, can end after it, and the database then
+closes first, as at the deadline before.
 
 Before the budget, the step limits added up. One quit on 31 Oct 2026 waited 10 s for the local
 host (`The Team WebRTC disconnect command timed out.`) and 10 s for the team WebRTC bridge, whose
 stop sends its next command to the same bridge window. A third step that did not stop would have
-taken the quit to the 30 s deadline before the database step. The registry logs each step that takes 1 s or more (`Shutting down … took …
-ms.`), also a step that it abandoned, so the main log names the step that holds a slow quit.
+taken the quit to the 30 s deadline before the database step. The registry logs each step that
+takes 1 s or more (`Shutting down … took … ms.`), also a step that it abandoned, so the main log
+names the step that holds a slow quit.
 
 `before-quit` holds every quit until the teardown has ended (`shutdownFinished`). Before, a second
 request while the teardown ran (Cmd+Q again, `SIGTERM`, the quit of an update) went through:
