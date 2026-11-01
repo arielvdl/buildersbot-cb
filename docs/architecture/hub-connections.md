@@ -33,7 +33,42 @@ The router grants the namespace per call. It is absent when:
   stored on the agent record, local only, absent = every connection);
 - the turn does not come from the person at this computer, one of the person's routines, or an
   agent that the person's turn started. A chat app thread (Slack, Discord, Telegram), a channel
-  and a team member never get it (`hubTurnOrigin`, from the mailbox deliveries of the turn).
+  and a team member never get it (`hubTurnOrigin`, from the mailbox deliveries of the turn; see
+  [Who may use them](#who-may-use-them)).
+
+`/session.active` does not close the connections: it says whether the account may use the LLM.
+Tool discovery (`tool_search`, `tool_describe`, `tool_call` resolution) waits at most 750 ms for
+`/session` (`DISCOVERY_WAIT_MS`); past that, the turn gets no connection tools, and the read goes on
+for the next turn. A failed read of `/session` or of the catalog is kept 60 seconds
+(`HUB_FAILURE_CACHE_MS`), so a Hub that does not answer holds no agent for 25 seconds again; the
+person's Refresh reads again at once.
+
+## Who may use them
+
+The origin of a turn is the most closed origin of its thread and of each of its deliveries
+(`hub-connections/turn-origin.ts`), from the most open to the most closed: `owner_ui`, `routine`,
+`agent`, `unknown`, `team_member`, `messaging`. Only the first three get the tools.
+
+- A message that the person writes in the app is `owner_ui`; with a team member stamped on it, or
+  on its last queue edit, `team_member`; in a channel, `team_member`; from a chat app (also as the
+  answer of an agent that works there), `messaging`.
+- A message that an agent sends carries the origin of the turn that sent it, as `sentOrigin` gives
+  it: the person's own turn and a routine pass on `agent`; a closed origin stays closed. This holds
+  for `send_message`, the brief of `start_task`, the first message of an agent that `create_agent`
+  makes, an interrupt notice and an automatic result. An agent message with no origin (one stored
+  before this version) is closed.
+- An agent that `create_agent` makes keeps the caller's `connectionsOff`, and has every known
+  connection off when the creating turn is not the person's own (`owner_ui`). The person turns them
+  on in the agent's settings.
+- A routine run has the origin of who saved the routine (`routineOriginOf`, kept in the mailbox
+  metadata row, `routineOrigins`): the person in the app (the Routines editor, or a team member's
+  app as the person's own device) gives `routine`; an agent's or a routine's turn gives `agent`; a
+  team member (through a tool or the Team API) and a chat app give a closed origin. A routine that
+  nobody saved since this version (`routineOriginsSince`) runs closed until the person saves it. A
+  run that a turn starts (`test_routine`) gets at most that turn's origin.
+- A flow handoff gets at most the origin of its run and of each link that a turn other than the
+  person's own added (`narrowFlowOrigin`). A workflow step has no stored routine, so it is closed.
+- The Hub gets `origin` `owner_ui`, `routine` or `agent` only.
 
 `tool-catalog` has three operations: `search` (by job), `describe` (closed schema and price) and
 `call`. The texts that the agent reads are Builders Bot's own (`HUB_CONNECTION_GUIDANCE`), in
@@ -105,8 +140,15 @@ card.
 - Every Hub text and every result reaches the agent inside
   `<connection_output untrusted="true" connection="…" endpoint="…" served_by="…">`, with `<` and
   `>` escaped in the content. Attributes are slugs only.
-- Results are masked again in the app (`maskConnectionSecrets`): credential fields and query
-  parameters, `Bearer` values and known prefixes. This catches a provider key that the Hub missed.
+- Results are masked again in the app (`result-mask.ts`), in the decoded answer: the string value
+  of each field and each URL query parameter whose name is a credential (`isCredentialName`, the
+  rule of the input check and of contract §6.3), `Bearer` values, and every known key prefix and
+  registered secret in one pass (`findSecretValues`). A secret that still shows after the mask holds
+  the whole result back (`result_withheld`). This catches a provider key that the Hub missed,
+  also a key with no prefix in a field such as `X-Auth-Token`.
+- The Hub's answer must name the token's organization; another one is refused as
+  `hub_unavailable`, and the payer does not move. A charge above the approved amount (or, with no
+  card, above `confirmAboveMicros`) is logged and gets an `overcharged` line in the chat.
 - The Guard reads the content of `list`, `search`, `describe` and `call`
   (`GUARD_TOOL_INBOUND`, `GUARD_INBOUND_PATHS["hub-connections"]`) and the input of `call`
   (`GUARD_TOOL_EGRESS`, `guardOutboundItem`).
@@ -120,7 +162,9 @@ card.
   app does not stop a later send to such an address by itself: `messaging_post` posts only to places
   that the person connected, and a send in the browser or a shell is outside these tools.
 - A vendor line that the app takes out of a result is replaced with `[vendor instruction removed]`,
-  and the Guard puts its note in front of that result (G5).
+  and the Guard puts its note in front of that result (G5). The patterns read each decoded string,
+  so a line break, a tab or two spaces inside the line do not hide it; the Guard reads the decoded
+  text of a connection result too (`decodedJsonText`).
 
 ## Limits
 
@@ -139,6 +183,12 @@ catalog.
 
 - The session tokens stay in the credential store and the main process. The proxy tokens stay in
   memory. Nothing of a connection is written to disk.
+- One grant of the refresh token runs at a time (`withCulturaRefreshGrant`): the session renewal,
+  which can rotate the token, and each proxy token request, which reads the session again once it
+  holds the lock.
+- A Cultura Builder sign-out and each sign-in forget the payer choice, the approvals of calls about
+  people, the use and every cache of the session's person (`HubConnectionTools.forget`); a session
+  that is gone when a connection reads it does the same.
 - `cbp_` (proxy token) and `treg_` (vendor key) are in `KNOWN_SECRET_PREFIXES` of
   `packages/logging`, so log redaction masks them without registration.
 - The agent process gets no token: no environment variable, argument, file or tool result.

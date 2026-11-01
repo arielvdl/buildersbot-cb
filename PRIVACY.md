@@ -858,8 +858,10 @@ Network traffic can also occur when:
   sends the input to the tool catalog vendor (treg.to, by Superdesign, in the USA) and to the
   provider of the chosen endpoint, with random organization and person tags, never an email. The Hub
   keeps the cost on its ledger, without the input or the result. `search` and `describe` read the
-  Hub's own copy of the catalog, so their text goes only to the Hub. Builders Bot keeps no input,
-  result or token of a connection on disk. See `docs/architecture/hub-connections.md`.
+  Hub's own copy of the catalog, so their text goes only to the Hub. Builders Bot keeps no token of a
+  connection on disk. The input and the result of a call are part of the agent's turn: they go to the
+  agent's provider (such as Codex or Claude) in its transcript, and they stay in the local
+  conversation like any other tool call. See `docs/architecture/hub-connections.md`.
   What the Hub stores: the cost of each call with the endpoint and the platform, never the input,
   the result, a URL or a query string; the random tags and their link to the organization and the
   person until the month's reconciliation closes; and the vendor's call id, for 90 days. The tags
@@ -882,7 +884,9 @@ Network traffic can also occur when:
   `~/.config/opencode/opencode.json`, `~/.cursor/mcp.json` and `~/.claude.json`) to find a treg
   connection of the person's own, turn it off inside Builders Bot agents and tell the person in
   Settings. This read stays on the computer, and it keeps only server names, file paths and URL
-  hosts, never a header or a token;
+  hosts, never a header or a token. For a Cursor agent, Builders Bot writes those server names into
+  the Cursor CLI's `mcp-disabled.json` of the agent's project, so the person's own Cursor CLI in that
+  folder also leaves them off;
 - the local Codex App Server connects to OpenAI;
 - the local Claude Agent SDK connects to Anthropic through Claude CLI;
 - a user or an agent visits a page in the embedded browser;

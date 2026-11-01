@@ -87,6 +87,13 @@ Answer `200`:
 - **Do not rotate the refresh token** on this request. If the Hub does rotate it, it must send the
   new one as `refresh_token`; the app saves it. A rotation per proxy token would multiply rotations
   and revoke the family on two parallel requests.
+- **A proxy token request is never a reuse.** The session renewal (the same grant without
+  `resource`) can rotate the refresh token. The app sends one grant at a time (a lock over the
+  renewal and every proxy token request, which reads the session again once it holds the lock), but
+  a second app process or a request that was already on the network can still send the token that
+  a renewal just replaced. So the Hub accepts the previous refresh token for 60 seconds after it
+  rotated it, for both grants, and does not revoke the family for that use. A use after the 60
+  seconds is `invalid_grant`.
 - Each token carries the claims `sub` (person), `org`, `client_id`, `sid` (session family) and scope
   `api.tool-catalog`. The Hub checks on each call that the `sid` family is alive.
 
@@ -117,8 +124,16 @@ The existing route, with the session access token. Add `capabilities`:
 - `connections[id].enabled: false` with an optional `reason` code (for example `paused`) is the
   **kill switch**. The app keeps this answer at most 5 minutes; after a `connection_unavailable`
   answer or a `connections_disabled` token error it reads it again at once.
+- `active` keeps its meaning: whether the account may use the Builder AI LLM (`builderAi`). It
+  **does not** turn connections on or off. A person whose organization pays a connection and who
+  has no LLM access still gets the connection, its page and Usage › Connections. Only
+  `connections[id].enabled` opens a connection, and only `connectionsUsage` opens Usage.
 - A missing `capabilities` means every connection is off.
 - Keep the whole answer under 8 KB.
+- The app waits at most 750 ms for this answer when an agent looks for tools: past that, the agent
+  gets no connection tools in that search, and the answer, when it comes, is kept for the next one.
+  A failed read (no answer in 25 seconds, a 5xx, an answer outside the contract) is kept 60 seconds:
+  in that time the connections stay closed with no new request, except the person's Refresh.
 
 ## 4. `GET /api/builder-ai/proxy/v1/connections` (catalog)
 
@@ -324,7 +339,7 @@ retries by itself).
 | Field | Rule |
 | --- | --- |
 | `endpointId` | Required. In the organization's allowlist. |
-| `origin` | Required. `owner_ui`, `routine` or `agent` (a turn that another agent started from the person's turn). The app's main process sets it. Write it on the ledger entry and in the vendor tag. |
+| `origin` | Required. `owner_ui`, `routine` or `agent` (a turn that another agent started from the person's turn). The app's main process sets it. Write it on the ledger entry and in the vendor tag. **Refuse any other value** with `422 { "error": "input_refused", "field": "origin" }`: the app never sends a chat app, channel or team member turn. |
 | `query` | Optional. Scalars only. |
 | `body` | Optional. A JSON object. Together with `query`: at most 16 KB and 8 levels. |
 | `maxCostMicros` | Optional. Only the app's main process sets it: the amount that the person approved. It **only lowers** the ceiling. |
@@ -339,15 +354,28 @@ retries by itself).
    `404 { "error": "endpoint_not_allowed" }`. The Hub is never a generic relay.
 4. Refuse `effect: external` and every row that fails an admission rule (section 9).
 5. Check `query` and `body` against the mirrored schema, closed: an unknown field is refused.
-6. Refuse a field whose name or value is a credential, a cookie or a session: names such as
-   `key`, `api_key`, `apikey`, `token`, `access_token`, `authorization`, `password`, `secret`,
-   `cookie`, `cookies`, `session`, `sessionid`, `li_at`, `csrf`; values that are known key prefixes,
+6. Refuse a field whose name or value is a credential, a cookie or a session. **The name rule**
+   (the same in step 6, in the answer mask of section 6.3 and in the app): remove case, `-`, `_`
+   and `.` from the name. It is a credential when the result is one of `key`, `apikey`, `xapikey`,
+   `token`, `accesstoken`, `refreshtoken`, `idtoken`, `authtoken`, `auth`, `authorization`,
+   `proxyauthorization`, `bearer`, `password`, `passwd`, `pass`, `secret`, `clientsecret`,
+   `privatekey`, `cookie`, `cookies`, `session`, `sessionid`, `sid`, `liat`, `csrf`, `csrftoken`,
+   `xcsrftoken`, `header`, `headers`, `proxy`, `sig`, `signature`; or when it contains `cookie`,
+   `session`, `password`, `secret`, `authorization`, `bearer`, `csrf` or `apikey`; or when one of its
+   words (split at case changes, `-`, `_`, `.`) is `token`, `auth`, `secret`, or two words make
+   `apikey` or `privatekey` (`apiToken`, `X-Auth-Token`, `client_secret`, `private_key`). These
+   pagination and count names are data, not credentials: `page_token`, `next_token`,
+   `next_page_token`, `prev_token`, `previous_token`, `prev_page_token`, `previous_page_token`,
+   `continuation_token`, `cursor`, `token_count`, `max_tokens`. Refused values: known key prefixes,
    cookie pairs (`a=b; c=d`, `li_at=`, `sessionid=`, `csrftoken=`), JWTs, or `Bearer`/`Basic`
    credentials. Answer `422 { "error": "input_refused", "field": "body.cookies" }`. Never echo the value.
-7. Every `format: "uri"` field and every value that is a URL: `http` or `https`, default port, a
-   public host (no private, loopback, link-local, CGNAT/Tailscale `100.64.0.0/10`, `.local`,
-   `.internal`, `.ts.net`), no user or password, no signed query. Resolve the name and check the
-   address again before the vendor call.
+7. Every `format: "uri"` field, every value that is a URL and **every URL inside a text value**:
+   `http` or `https`, default port, a public host (no private, loopback, link-local,
+   CGNAT/Tailscale `100.64.0.0/10`, IETF `192.0.0.0/24`, documentation `192.0.2.0/24`,
+   `198.51.100.0/24`, `203.0.113.0/24` and `2001:db8::/32`, benchmark `198.18.0.0/15`, NAT64
+   `64:ff9b::/96`, `.local`, `.internal`, `.ts.net`), no user or password, no signed query. Refuse a
+   value that starts with `//` (a protocol-relative URL). Resolve the name and check the address again
+   before the vendor call.
 8. Estimate (section 7.1). If the estimate is above `maxCostPerCallMicros`, or above the body's
    `maxCostMicros`: `402 { "error": "cost_above_limit", "estimateMicros" }`. The vendor is not called.
 9. Cost approval (section 6.4).
@@ -382,6 +410,11 @@ retries by itself).
 }
 ```
 
+- `orgId`: **always the organization of the proxy token**. The app refuses an answer with another
+  `orgId` as `hub_unavailable`: it does not show the result, and it does not move the payer.
+- `chargedMicros`: never more than the amount that the person approved (`maxCostMicros`) or, with
+  no approval, than `confirmAboveMicros`. The app logs a larger charge and adds a line to the
+  conversation that tells the person to tell an admin.
 - `requestId`: the ledger entry id, `^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`.
 - `servedBy`: from `X-Treg-Served-By` only when it matches `^[a-z0-9._-]{1,64}$`, else `unknown`.
 - `warnings`: `[{ "code": "cap_warning", "percent": 80 }]` while the person is at or above 80 %.
@@ -392,9 +425,13 @@ retries by itself).
   only. **Never copy `_treg.advice` or any other vendor free text.**
 - `content`: the provider body only. Drop the `_treg` block. For a routed answer
   `{ output, raw, _treg }`, send `output` only. Keep provider fields such as `help`: they are data,
-  and the app's Guard reads them. Mask credentials by shape: JSON fields and URL query parameters
-  named `key`, `api_key`, `apikey`, `token`, `access_token`, `auth`, `sig`, `signature`; `Bearer`
-  values; known key prefixes. Cut to 200,000 characters and set `truncated`.
+  and the app's Guard reads them. Mask credentials in the decoded JSON, never in its text: the
+  string value of each JSON field and the value of each URL query parameter whose name is a
+  credential by the name rule of section 6.2 step 6 (also in nested objects and lists); `Bearer`
+  values; known key prefixes. A number or a boolean stays (a `sessions` count is data). An
+  `echoFieldExceptions` entry of a rule (section 11) may keep one reviewed field of one endpoint.
+  Cut to 200,000 characters and set `truncated`. The app masks a second time with the same rule,
+  in one pass, and holds the whole result back (`result_withheld`) when a secret still shows.
 - Never copy a vendor header into the answer.
 
 ### 6.4 Cost approval (`confirm_cost`)

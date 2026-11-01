@@ -5,7 +5,12 @@
   find with `tool_search`: `openbot_connections.list` and `openbot_connections.call`. The key of each
   vendor stays in the Cultura Builder Hub; Builders Bot and its agents never get it. The tools are
   there only when you are signed in to Cultura Builder, your organization gives the connection, and
-  the turn comes from you or from one of your routines.
+  the turn comes from you, from one of your routines, or from an agent that your turn started. A
+  turn that a team member, a channel or a chat app started never gets them, also through a task, a
+  routine, a new agent or a message to another agent that the turn makes. An agent that such a turn
+  creates has every connection off until you turn them on.
+- A routine that you saved before this version uses no connection until you save it again in
+  Routines.
 - A call that costs more than your organization's approval limit shows a card with the cost and
   the organization that pays. Only you can allow it, once. A routine cannot approve a cost.
 - When you have more than one organization, a card asks which one pays. If that organization
@@ -21,9 +26,10 @@
   numbers tells the agent that they are unverified guesses.
 - If treg's installer put a treg connection of your own in the MCP files of Codex, OpenCode, Cursor
   or Claude Code, Builders Bot turns it off inside its Codex, OpenCode, Cultura Builder and Claude
-  Code agents, also when Codex cannot read its own config. Settings › General tells you that its
-  token is in plain text, which files hold it, which agents (Cursor, Grok, custom agents) can still
-  use it, and that you should remove it and rotate the token.
+  Code agents, also when Codex cannot read its own config. For a Cursor agent, Builders Bot adds
+  its names to the Cursor CLI's list of turned-off servers of the agent's project. Settings › General
+  tells you that its token is in plain text, which files hold it, which agents (Grok, custom agents)
+  can still use it, and that you should remove it and rotate the token.
 - Marketplace › Apps has a Connections group with the paid connections of Cultura Builder, such as
   the tool catalog. The curated list hides a connection that you do not use, unless your
   organization's profile names it; the search and a link always reach it. Its page shows what it
@@ -35,6 +41,9 @@
   platform, when Cultura Builder turns connection usage on.
 - After a paid call, the chat shows what it cost and who paid. The first call over 80 % of your
   limit adds a notice, and a call that the limit stopped adds a line with "Ask the admin for more".
+  A charge above the amount that you approved adds a line that tells you to tell an admin.
+- When you sign out of Cultura Builder, or another person signs in, the payer that you chose, the
+  lookups about people that you allowed and your use are forgotten.
 
 ### Fixed
 
