@@ -101,10 +101,20 @@ async function waitForRows(page: Page, channelId: string, count: number): Promis
   );
 }
 
+/** The trigger of a select of the page, by its label. */
+function selectTrigger(page: Page, label: string) {
+  return page.locator(`.ui-select-trigger[aria-label="${label}"]`);
+}
+
+/** The open list of a select. */
+function openList(page: Page) {
+  return page.locator("[data-popper-positioner] .ui-select-content");
+}
+
 /** Chooses an option of one select of the filter row of the page. */
 async function chooseFilter(page: Page, label: string, option: string) {
-  await page.getByRole("button", { name: label, exact: true }).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
+  await selectTrigger(page, label).click();
+  await openList(page).getByRole("option", { name: option, exact: true }).click();
 }
 
 mkdirSync(OUT, { recursive: true });
@@ -254,13 +264,17 @@ try {
     pass("Reassign is off when no agent is a member of the channel of the marked rows.");
   }
 
-  // Change model: the rows have no agent, so the dialog says that no model can change.
-  await toolbar.getByRole("button", { name: t("settings.load.action.model"), exact: true }).click();
+  // Change model lists the models that the Guard lists. A choice asks first: the rows have no agent,
+  // so the dialog says that no model can change, and Cancel changes nothing.
+  await selectTrigger(page, t("settings.load.action.model")).click();
+  const models = openList(page).getByRole("option");
+  await models.first().waitFor({ timeout: 15_000 });
+  await models.first().click();
   const modelDialog = page.getByRole("alertdialog", { name: t("settings.load.model.title", { count: 0 }) });
   await modelDialog.getByText(t("settings.load.model.none"), { exact: true }).waitFor();
   await modelDialog.getByText(t("settings.load.model.noAgent", { count: 2 }), { exact: true }).waitFor();
   await modelDialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
-  pass("Change model says whose model changes, and that rows with no agent do not change.");
+  pass("Change model lists the models, says whose model changes, and that rows with no agent do not change.");
 
   // Remove asks with the count, removes, and the removal can be undone.
   await toolbar.getByRole("button", { name: t("settings.load.action.remove"), exact: true }).click();

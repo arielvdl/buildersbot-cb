@@ -430,7 +430,7 @@ export const messages = defineMessages("settings", {
     other: "{count} selected runs have no agent and do not change.",
   },
   "settings.load.model.none": "No selected run has an agent, so no model can change.",
-  "settings.load.model.choose": "New model",
+  "settings.load.model.target": "New model: {model}.",
   "settings.load.model.confirm": "Change model",
   "settings.load.reassign.none": "No agent is a member of the channels of the selected work.",
   "settings.load.report.label": "Result of the last action",

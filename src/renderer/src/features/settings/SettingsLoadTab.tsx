@@ -287,7 +287,11 @@ export function SettingsLoadTab(props: {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => store.setFilter(() => ({ ...EMPTY_STOPPED_WORK_FILTER }))}
+                onClick={() =>
+                  store.setFilter((draft) => {
+                    Object.assign(draft, EMPTY_STOPPED_WORK_FILTER);
+                  })
+                }
               >
                 {t("settings.load.filter.clear")}
               </Button>
@@ -346,19 +350,30 @@ export function SettingsLoadTab(props: {
                     <ChevronDown aria-hidden="true" />
                   </AgentPicker>
                 </Show>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
+                {/* The models that the Guard page lists. A choice asks first, with the agents that change. */}
+                <Select<string>
+                  class="settings-load-model"
+                  options={modelRows().map((row) => row.key)}
+                  value={null}
                   disabled={busy()}
-                  onClick={() => {
-                    setModel(null);
+                  onChange={(key) => {
+                    if (!key) return;
+                    setModel(key);
                     setConfirm("model");
                   }}
+                  placement="bottom-start"
+                  itemComponent={(itemProps) => (
+                    <SelectItem item={itemProps.item}>
+                      {guardModelName(modelRow(itemProps.item.rawValue), t)}
+                    </SelectItem>
+                  )}
                 >
-                  <Cpu aria-hidden="true" />
-                  {t("settings.load.action.model")}
-                </Button>
+                  <SelectTrigger size="sm" aria-label={t("settings.load.action.model")}>
+                    <Cpu aria-hidden="true" />
+                    <span>{t("settings.load.action.model")}</span>
+                  </SelectTrigger>
+                  <SelectContent mount={props.menuMount} />
+                </Select>
                 <Button
                   type="button"
                   variant="destructive"
@@ -522,35 +537,17 @@ export function SettingsLoadTab(props: {
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
           const choice = modelRow(model())?.choice;
-          if (!choice || owners().agents.length === 0) return;
           setConfirm(null);
-          await store.changeModel(choice.provider, choice.model);
+          if (choice && owners().agents.length > 0) await store.changeModel(choice.provider, choice.model);
         }}
       >
         <Show when={owners().withoutAgent > 0}>
           <p class="settings-load-note">{t("settings.load.model.noAgent", { count: owners().withoutAgent })}</p>
         </Show>
-        <Show when={owners().agents.length > 0}>
-          <Select<string>
-            class="settings-modal-select settings-load-model"
-            options={modelRows().map((row) => row.key)}
-            value={model()}
-            onChange={(key) => setModel(key)}
-            placement="bottom-start"
-            itemComponent={(itemProps) => (
-              <SelectItem item={itemProps.item}>{guardModelName(modelRow(itemProps.item.rawValue), t)}</SelectItem>
-            )}
-          >
-            <SelectTrigger size="sm" aria-label={t("settings.load.model.choose")}>
-              <SelectValue<string>>
-                {(state) => {
-                  const key = state.selectedOption();
-                  return key ? guardModelName(modelRow(key), t) : t("settings.load.model.choose");
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent />
-          </Select>
+        <Show when={owners().agents.length > 0 && modelRow(model())}>
+          {(row) => (
+            <p class="settings-load-note">{t("settings.load.model.target", { model: guardModelName(row(), t) })}</p>
+          )}
         </Show>
       </ConfirmDialog>
     </>

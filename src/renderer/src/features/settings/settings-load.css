@@ -161,7 +161,3 @@
 .settings-load-row-body .window-rail-load-item-head {
   flex-wrap: wrap;
 }
-
-.settings-load-model {
-  margin-top: var(--openbot-space-2);
-}

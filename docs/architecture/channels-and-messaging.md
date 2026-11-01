@@ -481,7 +481,8 @@ available member.
   the arrow keys move between rows.
 - With rows marked, a bar of actions shows: Resume, Reassign (the `AgentPicker` of
   `packages/ui/src/features/agents/AgentPicker.tsx`, with the members of the channels of the marked
-  rows), Change model, Remove, and Clear selection. The bar stays at the top while the list scrolls.
+  rows), Change model (a menu of the models that the Guard page lists, `guardModelRows`), Remove, and
+  Clear selection. The bar stays at the top while the list scrolls.
 - Remove asks first, with the count and the count of rows whose source was deleted. Change model asks
   first, with the names of the agents that change.
 - After each action a line says how many rows were done and, for each reason, how many failed.

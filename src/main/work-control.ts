@@ -449,15 +449,14 @@ export class WorkControl {
     } else if (input.action === "reassign") {
       const agents = this.#agents();
       const members = new Map<string, MemberInfo[]>();
+      const taskOf = this.#taskReader();
       for (const item of wanted) {
         let list = members.get(item.channelId);
         if (!list) {
           list = this.#members(item.channelId, agents);
           members.set(item.channelId, list);
         }
-        const task = this.#options.service.channels.store
-          .tasks(item.channelId)
-          .find((entry) => entry.id === item.taskId);
+        const task = taskOf(item);
         const member = list.find((entry) => entry.agentId === input.recipientAgentId);
         if (!task || !member?.available || task.ownerAgentId === input.recipientAgentId) {
           fail(item, "not-member");
@@ -475,11 +474,11 @@ export class WorkControl {
       // The model belongs to the agent: each agent that had a selected row changes once, for all its work.
       const setModel = this.#options.setAgentModel;
       const owners = new Map<string, StoppedWorkItem[]>();
+      const agents = this.#agents();
+      const taskOf = this.#taskReader();
       for (const item of wanted) {
-        const owner =
-          this.#options.service.channels.store.tasks(item.channelId).find((entry) => entry.id === item.taskId)
-            ?.ownerAgentId ?? null;
-        if (owner === null || !this.#agents().has(owner)) {
+        const owner = taskOf(item)?.ownerAgentId ?? null;
+        if (owner === null || !agents.has(owner)) {
           fail(item, "no-agent");
           continue;
         }
@@ -843,6 +842,22 @@ export class WorkControl {
         },
       ];
     });
+  }
+
+  /** Finds a task of a row, with one read of the tasks of each channel. The reader serves one action. */
+  #taskReader(): (item: StoppedWorkItem) => ChannelTask | undefined {
+    const { store } = this.#options.service.channels;
+    const byChannel = new Map<string, Map<string, ChannelTask>>();
+    return (item) => {
+      let tasks = byChannel.get(item.channelId);
+      if (!tasks) {
+        tasks = new Map(
+          store.exists(item.channelId) ? store.tasks(item.channelId).map((task) => [task.id, task] as const) : [],
+        );
+        byChannel.set(item.channelId, tasks);
+      }
+      return tasks.get(item.taskId);
+    };
   }
 
   /** The keys of the stopped rows now, with no limit. */

@@ -416,7 +416,7 @@ export const messages = {
     other: "{count} execuções selecionadas não têm agente e não mudam.",
   },
   "settings.load.model.none": "Nenhuma execução selecionada tem agente, então nenhum modelo pode mudar.",
-  "settings.load.model.choose": "Novo modelo",
+  "settings.load.model.target": "Novo modelo: {model}.",
   "settings.load.model.confirm": "Alterar modelo",
   "settings.load.reassign.none": "Nenhum agente é membro dos canais do trabalho selecionado.",
   "settings.load.report.label": "Resultado da última ação",
