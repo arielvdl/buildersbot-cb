@@ -74,3 +74,50 @@ export const Search: Story = {
     </main>
   ),
 };
+
+/** Keys with quotes, as the model list of the Guard has them: `["provider","model"]`. */
+const quotedModels = [
+  ["cultura-builder", "builder-fast"],
+  ...["GPT-6.1-Sol", "GPT-6.1 Terra", "GPT-6-Astra", "GPT-6-Sol", "GPT-6-Luna", "GPT-5.6-Sol", "GPT-5.6-Terra"].map(
+    (name) => ["codex", name],
+  ),
+  ["codex", "GPT-5.6-Luna"],
+  ["codex", "GPT-Reserve"],
+  ["codex", "Codex Auto Review"],
+].map(([provider, name]) => ({ key: JSON.stringify([provider, name]), label: `${provider} · ${name}` }));
+const quotedLabel = (key: string) => quotedModels.find((model) => model.key === key)?.label ?? key;
+
+function QuotedKeySelect() {
+  const [value, setValue] = createSignal(quotedModels[0]?.key ?? "");
+  const label = quotedLabel;
+  return (
+    <Select<string>
+      options={quotedModels.map((model) => model.key)}
+      value={value()}
+      defaultOpen
+      placement="bottom-end"
+      onChange={(next) => next && setValue(next)}
+      itemComponent={(item) => <SelectItem item={item.item}>{label(item.item.rawValue)}</SelectItem>}
+    >
+      <SelectTrigger size="sm" aria-label="Review model">
+        <SelectValue<string>>{(state) => label(state.selectedOption())}</SelectValue>
+      </SelectTrigger>
+      <SelectContent />
+    </Select>
+  );
+}
+
+/**
+ * The open list of eleven models whose keys hold quotes. Before the Kobalte patch escaped the key,
+ * opening it halted the window: the list stayed at the top corner and could not close.
+ */
+export const KeysWithQuotes: Story = {
+  render: () => (
+    <main class="foundation-story">
+      <Heading as="h1" size="lg">
+        Keys with quotes
+      </Heading>
+      <QuotedKeySelect />
+    </main>
+  ),
+};

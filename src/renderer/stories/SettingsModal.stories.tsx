@@ -1,6 +1,7 @@
 import type {
   AvatarImageInput,
   CentralAuthUser,
+  ClientAgentModelOption,
   LoadSnapshot,
   MobileConnectedDevice,
   ServerSummary,
@@ -40,6 +41,33 @@ const storyAccount: CentralAuthUser = {
   name: "Norbert",
   avatarUrl: null,
 };
+/** A model the Guard can choose, as a provider lists it. */
+function guardStoryModel(
+  provider: ClientAgentModelOption["provider"],
+  id: string,
+  name: string,
+): ClientAgentModelOption {
+  return {
+    provider,
+    id,
+    name,
+    description: "",
+    defaultReasoningEffort: "medium",
+    supportedReasoningEfforts: ["medium"],
+  };
+}
+
+/** The ten models of a ChatGPT account and the fast Cultura Builder model: the Guard's model list has eleven rows. */
+const guardStoryModels: ClientAgentModelOption[] = [
+  guardStoryModel("cultura-builder", "cultura-builder/builder-fast", "builder-fast"),
+  ...["GPT-6.1-Sol", "GPT-6.1 Terra", "GPT-6-Astra", "GPT-6-Sol", "GPT-6-Luna", "GPT-5.6-Sol", "GPT-5.6-Terra"].map(
+    (name) => guardStoryModel("codex", name.toLowerCase().replaceAll(" ", "-"), name),
+  ),
+  guardStoryModel("codex", "gpt-5.6-luna", "GPT-5.6-Luna"),
+  guardStoryModel("codex", "gpt-reserve", "GPT-Reserve"),
+  guardStoryModel("codex", "codex-auto-review", "Codex Auto Review"),
+];
+
 const storyUpdateStatus: UpdateStatus = {
   phase: "idle",
   currentVersion: "0.2.1",
@@ -97,10 +125,14 @@ function SettingsModalStory(props: {
   taskReviewerActive?: boolean;
   /** The window shows a joined server, so the Guard and the task reviewer say they are this computer's. */
   joinedServer?: boolean;
+  /** The models that the Guard's model list offers. */
+  models?: ClientAgentModelOption[];
 }) {
   const previousApi = window.openbot;
   const billingApi = createMockBilling();
   const mock = createMockBuildersBot(props.voice);
+  const models = props.models;
+  if (models) mock.api.agent.listModels = async () => structuredClone(models);
   window.openbot = mock.api;
   if (props.taskReviewerActive) {
     void mock.api.setAutoRecovery({ enabled: true, intervalMinutes: 30, reassign: true });
@@ -300,9 +332,12 @@ export const Notifications: Story = {
   render: () => <SettingsModalStory initialOpen initialTab="notifications" />,
 };
 
-/** The Guard of this computer: level, review model, when it asks, what leaves the computer, and its links. */
+/**
+ * The Guard of this computer: the siren, level, review model, when it asks, what leaves the computer,
+ * and its links. Light, with no Cultura Builder sign-in, and eleven models in the model list.
+ */
 export const Guard: Story = {
-  render: () => <SettingsModalStory initialOpen initialTab="guard" />,
+  render: () => <SettingsModalStory initialOpen initialTab="guard" models={guardStoryModels} />,
 };
 
 /** The task reviewer ("Fiscal") while it is off: the switch, its threshold, the Guard's model and the load panel. */
@@ -351,6 +386,11 @@ export const VoiceModelsDownloaded: Story = {
       voice={{ voiceModelsReady: ["parakeet-tdt-0.6b-v3", "bark-3.0-plus"], speechModelReady: true }}
     />
   ),
+};
+
+export const GuardNarrow: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="guard" models={guardStoryModels} />,
+  parameters: { viewport: { defaultViewport: "settingsNarrow" } },
 };
 
 /** The install guide for each phone, the Cultura Builder sign-in steps and the phones of the earlier app. */
