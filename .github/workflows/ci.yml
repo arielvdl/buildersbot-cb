@@ -559,6 +559,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun scripts/agent-access-e2e.ts
 
+      - name: Run the app shutdown E2E test
+        if: ${{ !cancelled() }}
+        run: bun scripts/app-shutdown-e2e.ts
+
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -623,6 +627,7 @@ jobs:
             .openbot-build/cultura-builder-start-e2e/
             .openbot-build/voice-anywhere/
             .openbot-build/agent-access-e2e/
+            .openbot-build/app-shutdown-e2e/
           if-no-files-found: ignore
 
   provider-fakes-e2e:
