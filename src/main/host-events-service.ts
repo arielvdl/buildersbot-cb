@@ -239,14 +239,18 @@ export class HostEventsService implements HostEventsApi {
     yield* toHostEventsFailure(this.#options.routines.test(input.owner, input.id, by));
   }).bind(this);
 
+  /** `by` is the Hub connection origin of who gets the new secret; the person's own when absent. */
   readonly rotateSecret = Effect.fn("HostEvents.rotateSecret")(
-    function* (this: HostEventsService, input: EventRoutineRef) {
+    function* (this: HostEventsService, input: EventRoutineRef, by?: HubTurnOrigin) {
       const routine = yield* this.#requireRoutine(input);
       if (routine.trigger.kind !== "webhook")
         return yield* eventFailure(sourceText("error.backend.webhookSettingsInvalid"));
       const secret = newWebhookSecret();
       const secretCiphertext = yield* this.#encrypt(secret);
-      yield* eventStep(() => this.#options.routines.routes.rotateSecret(input.owner, input.id, secretCiphertext));
+      yield* eventStep(() => {
+        this.#options.routines.routes.rotateSecret(input.owner, input.id, secretCiphertext);
+        this.#options.routines.recordSecretHolder(input.owner, input.id, by ?? "owner_ui");
+      });
       return { secret };
     },
     (operation) => this.#writes.withPermit(operation),
@@ -297,11 +301,14 @@ export class HostEventsService implements HostEventsApi {
 
   /**
    * Sends one test event to the routine. The host signs an event that matches the routine's event
-   * type and filters, and receives it as a relayed request, so the test passes the same checks.
+   * type and filters, and receives it as a relayed request, so the test passes the same checks. `by`
+   * is the Hub connection origin of who sends it, the person's own when absent: the run gets at most
+   * `routineOriginOf(by)`, as a test run of `testRoutine` does.
    */
   readonly sendTestEvent = Effect.fn("HostEvents.sendTestEvent")(function* (
     this: HostEventsService,
     input: EventRoutineRef,
+    by?: HubTurnOrigin,
   ): Effect.fn.Return<WebhookTestResult, HostEventsFailure> {
     const routine = yield* this.#requireRoutine(input);
     if (routine.trigger.kind !== "webhook")
@@ -327,13 +334,16 @@ export class HostEventsService implements HostEventsApi {
     const timestamp = String(Math.floor(Date.now() / 1000));
     // A new ID for each test, so the receipt check never takes it for a redelivery.
     const deliveryId = `openbot-test-${randomUUID()}`;
-    const { status, received } = yield* this.#process({
-      routeId: route.routeId,
-      deliveryId,
-      timestamp,
-      signature: signWebhookBody(secret, timestamp, deliveryId, body),
-      body,
-    });
+    const { status, received } = yield* this.#process(
+      {
+        routeId: route.routeId,
+        deliveryId,
+        timestamp,
+        signature: signWebhookBody(secret, timestamp, deliveryId, body),
+        body,
+      },
+      by ?? "owner_ui",
+    );
     if (received?.kind === "started")
       return { eventType, status: "started", reason: null, runId: runIdOf(received.run) };
     // The route is a routine's, so it is never busy or refused: only a workflow skips a request so.
@@ -450,11 +460,13 @@ export class HostEventsService implements HostEventsApi {
 
   /**
    * Verifies one request and starts its routine. `received` is what the routine did with a verified
-   * request, and null when a check refused the request first.
+   * request, and null when a check refused the request first. `testedBy` is the origin of who sent a
+   * test event that the host made; absent for a relayed request.
    */
   readonly #process = Effect.fn("HostEvents.process")(function* (
     this: HostEventsService,
     input: WebhookIngressDelivery,
+    testedBy?: HubTurnOrigin,
   ): Effect.fn.Return<{ status: WebhookDeliveryStatus; received: ReceivedDelivery | null }, HostEventsFailure> {
     if (this.#options.accountPrincipal() === null) return { status: 503, received: null };
     if (input.body.byteLength > WEBHOOK_DELIVERY_BODY_BYTES_LIMIT) return { status: 413, received: null };
@@ -490,7 +502,7 @@ export class HostEventsService implements HostEventsApi {
     const received: ReceivedDelivery =
       owner.kind === "workflow"
         ? yield* this.#receiveWorkflow({ workflowId: owner.id, nodeId: route.routineId, event })
-        : yield* toHostEventsFailure(this.#options.routines.receiveWebhook(owner, route.routineId, event));
+        : yield* toHostEventsFailure(this.#options.routines.receiveWebhook(owner, route.routineId, event, testedBy));
     return { status: deliveryStatus(received), received };
   });
 
@@ -539,6 +551,8 @@ export class HostEventsService implements HostEventsApi {
           by,
         ),
       );
+      // A new secret goes to who saves the routine; the agent tool drops it (`by` absent), so nobody has it.
+      if (secret !== null) yield* eventStep(() => routines.recordSecretHolder(owner, saved.id, by ?? null));
       return { saved, secret };
     },
     (operation) => this.#writes.withPermit(operation),

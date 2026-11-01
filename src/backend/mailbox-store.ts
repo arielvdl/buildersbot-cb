@@ -194,9 +194,10 @@ interface StoredState {
   idempotency: Record<string, string>;
   reactions: StoredReaction[];
   /**
-   * For the Hub connections: the origin of the runs of each routine (`routine:<id>`) and the most
-   * closed origin of the changes to its flow (`flow:<id>`). A routine without a `routine:` entry runs
-   * closed. Absent on every mailbox stored before the field existed.
+   * For the Hub connections: the origin of the runs of each routine (`routine:<id>`), the most closed
+   * origin of the changes to its flow (`flow:<id>`), and of who holds its webhook signing secret
+   * (`secret:<id>`). A routine without a `routine:` entry runs closed. Absent on every mailbox stored
+   * before the field existed.
    */
   routineOrigins?: Record<string, HubTurnOrigin>;
 }
@@ -888,14 +889,31 @@ export class MailboxStore {
   }
 
   /**
-   * The origin of a routine run's own first message, which its flow's handoffs keep: null when no
-   * routine message of the run is stored.
+   * Who started each step of a routine run, for the origin of its next handoff: the run's own message,
+   * each handoff of the run, and every delivery of each turn that ran one of them. So a team member who
+   * edits a queued step, or whose message joins the turn of a step, closes the later handoffs too, as
+   * the same delivery closes that turn (`hubTurnOrigin`). Empty when no message of the run is stored.
    */
-  routineRunOrigin(runId: string): HubTurnOrigin | null {
-    const message = this.#state.messages.find(
-      (candidate) => candidate.sender.kind === "routine" && candidate.sender.runId === runId,
+  routineRunSenders(runId: string): HubDeliveryOrigin[] {
+    const steps = this.#state.messages.filter(
+      (message) => message.sender.kind === "routine" && message.sender.runId === runId,
     );
-    return message ? (message.origin ?? "unknown") : null;
+    if (steps.length === 0) return [];
+    const stepIds = new Set(steps.map((message) => message.id));
+    const turns = new Set(
+      this.#state.deliveries.flatMap((delivery) =>
+        stepIds.has(delivery.messageId) && delivery.turnId
+          ? [`${delivery.recipientAgentId}\u0000${delivery.turnId}`]
+          : [],
+      ),
+    );
+    const messages = this.#messagesById();
+    const joined = this.#state.deliveries.flatMap((delivery) => {
+      if (!delivery.turnId || !turns.has(`${delivery.recipientAgentId}\u0000${delivery.turnId}`)) return [];
+      const message = messages.get(delivery.messageId);
+      return message ? [senderOrigin(message)] : [];
+    });
+    return [...steps.map(senderOrigin), ...joined];
   }
 
   /**
@@ -905,6 +923,19 @@ export class MailboxStore {
    */
   setRoutineOrigin(routineId: string, origin: HubTurnOrigin): void {
     this.#writeRoutineOrigin(`routine:${routineId}`, origin);
+  }
+
+  /**
+   * The most closed origin of who holds the current signing secret of a webhook routine, or null when
+   * only the person does. A request signed with it can come from that holder.
+   */
+  secretOrigin(routineId: string): HubTurnOrigin | null {
+    return this.#state.routineOrigins?.[`secret:${routineId}`] ?? null;
+  }
+
+  /** A new signing secret went to someone of this origin: null when only the person got it. */
+  setSecretOrigin(routineId: string, origin: HubTurnOrigin | null): void {
+    this.#writeRoutineOrigin(`secret:${routineId}`, origin);
   }
 
   /**
@@ -924,6 +955,7 @@ export class MailboxStore {
   forgetRoutineOrigin(routineId: string): void {
     this.#writeRoutineOrigin(`routine:${routineId}`, null);
     this.#writeRoutineOrigin(`flow:${routineId}`, null);
+    this.#writeRoutineOrigin(`secret:${routineId}`, null);
   }
 
   /** A change to a routine's flow by someone of this origin: the flow's handoffs get at most this origin. */

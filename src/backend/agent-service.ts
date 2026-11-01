@@ -758,6 +758,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           new Set([...this.#duplication.pendingAgents(), ...this.#removal.deleting(), ...this.#hiddenAgentIds()]),
         isRunning: () => this.#initialized && !this.#stopping,
         usageLimited: (agentId) => !this.#usageLimits.mayDrain(agentId),
+        remotePerson: (memberId) => this.#remotePerson(memberId),
       },
     });
     this.#hostedSites = new HostedSiteCoordinator({

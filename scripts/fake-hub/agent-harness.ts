@@ -261,8 +261,11 @@ export interface AgentHarnessOptions {
   /** The stored Cultura Builder session, read at each use. */
   readonly session: () => string | null;
   readonly saveSession: (value: string | null) => void;
-  /** The answer to each approval card. */
-  readonly decide: (card: { readonly reason: string; readonly guard: boolean }) => "accept" | "decline";
+  /** The answer to each approval card. A promise holds the card open until it settles. */
+  readonly decide: (card: {
+    readonly reason: string;
+    readonly guard: boolean;
+  }) => "accept" | "decline" | Promise<"accept" | "decline">;
   /** Whether a person that the host stamps on a message is a team member. Default: nobody is. */
   readonly remotePerson?: (personId: string) => boolean;
 }
@@ -336,9 +339,14 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
     events.push(event);
     if (event.type !== "approval") return;
     const card = { reason: event.approval.reason ?? "", guard: event.approval.guard === true };
+    const { requestId } = event.approval;
+    const answer = (decision: "accept" | "decline") => {
+      cards.push({ ...card, decision });
+      void runCauseEffect(agents.respondToApproval({ requestId, decision }));
+    };
     const decision = options.decide(card);
-    cards.push({ ...card, decision });
-    void runCauseEffect(agents.respondToApproval({ requestId: event.approval.requestId, decision }));
+    if (typeof decision === "string") answer(decision);
+    else void decision.then(answer);
   });
 
   await runCauseEffect(agents.initialize());

@@ -118,17 +118,29 @@ export class RoutineRecords {
   }
 
   /**
+   * A new signing secret of a routine went to someone of this origin, or to nobody (null). A channel's
+   * routine runs in the channel, which is closed anyway.
+   */
+  recordSecretHolder(owner: EventRoutineOwner, routineId: string, by: HubTurnOrigin | null): void {
+    if (owner.kind === "agent") this.#options.agentRoutines.recordSecretHolder(routineId, by);
+  }
+
+  /**
    * Starts a run for one verified webhook request. `unavailable` means the owner cannot take a run
-   * now, so the sender should retry; nothing was written.
+   * now, so the sender should retry; nothing was written. `testedBy` is the origin of who sent a test
+   * event that the host made; absent for a relayed request.
    */
   receiveWebhook(
     owner: EventRoutineOwner,
     routineId: string,
     event: ReceivedWebhookEvent,
+    testedBy?: HubTurnOrigin,
   ): Effect.Effect<WebhookReceiveResult<unknown> | { kind: "unavailable" }, RoutineRecordFailed> {
     if (this.#options.routinesHeld()) return Effect.succeed({ kind: "unavailable" });
     return owner.kind === "agent"
-      ? this.#options.agentRoutines.receiveWebhook(owner.id, routineId, event).pipe(Effect.mapError(failed("receive")))
+      ? this.#options.agentRoutines
+          .receiveWebhook(owner.id, routineId, event, testedBy)
+          .pipe(Effect.mapError(failed("receive")))
       : this.#options.channelRoutines
           .receiveWebhook(owner.id, routineId, event)
           .pipe(Effect.mapError(failed("receive")));

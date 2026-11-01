@@ -28,7 +28,7 @@ import { AgentRoutineStore } from "../agent-routine-store";
 import { AGENT_PREVIEW_MAX_LENGTH, type AgentStore } from "../agent-store";
 import type { AgentWaits } from "../agent-waits/agent-waits";
 import { causeHelpers } from "../effect-boundary";
-import { type HubTurnOrigin, narrowerOrigin, routineOriginOf } from "../hub-connections/turn-origin";
+import { deliveryOrigin, type HubTurnOrigin, narrowerOrigin, routineOriginOf } from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import { recordRestartActivity } from "../restart-activity";
@@ -108,6 +108,11 @@ export interface RoutineHooks {
   isRunning(): boolean;
   /** Whether a spent provider plan holds this agent's queue. */
   usageLimited(agentId: string): boolean;
+  /**
+   * Whether a person that the host stamped on a message is a team member (`hub-connections/turn-origin.ts`).
+   * Absent where no team can stamp one: nobody is.
+   */
+  remotePerson?(memberId: string): boolean;
 }
 
 /** Enough for every message a busy host queues between restarts; each entry is a few bytes. */
@@ -302,6 +307,15 @@ export class RoutineScheduler implements RoutineDueSource {
   }
 
   /**
+   * A new signing secret of a webhook routine went to someone of this origin (`by`). A relayed request
+   * signed with it then runs with at most `routineOriginOf(by)`. The person's own secret (`owner_ui`),
+   * or one that nobody got, opens it again.
+   */
+  recordSecretHolder(routineId: string, by: HubTurnOrigin | null): void {
+    this.#mailbox.setSecretOrigin(routineId, by === null || by === "owner_ui" ? null : by);
+  }
+
+  /**
    * Records who changed a saved routine. Only the person's own save of the whole text (`replaces`)
    * sets a more open origin: a change of other fields, or any change by another origin, keeps the most
    * closed of the recorded origin and the new one. So a change of a name or a schedule never opens a
@@ -412,18 +426,25 @@ export class RoutineScheduler implements RoutineDueSource {
 
   /**
    * Starts a run for one verified webhook request. An agent that is held or being deleted is
-   * unavailable, so the sender retries later and nothing is written.
+   * unavailable, so the sender retries later and nothing is written. `testedBy` is the origin of who
+   * sent a test event; absent for a relayed request.
    */
   readonly receiveWebhook = Effect.fn("RoutineScheduler.receiveWebhook")(function* (
     this: RoutineScheduler,
     agentId: string,
     routineId: string,
     event: ReceivedWebhookEvent,
+    testedBy?: HubTurnOrigin,
   ) {
     if (!this.mayDrain(agentId)) return { kind: "unavailable" } as const;
     const result = yield* routineStep(() => this.#routines.receiveWebhook(agentId, routineId, event));
     if (result.kind === "started") {
-      yield* this.#enqueueRunEffect(result.run).pipe(
+      // A test event that the host made gets at most the origin of who sent it. A relayed request
+      // gets at most the origin of who holds the signing secret: they can sign any request.
+      const holder = this.#mailbox.secretOrigin(routineId);
+      const narrowTo =
+        testedBy !== undefined ? routineOriginOf(testedBy) : holder === null ? "routine" : routineOriginOf(holder);
+      yield* this.#enqueueRunEffect(result.run, null, narrowTo).pipe(
         Effect.catch((failure) =>
           Effect.sync(() => this.#hooks.emitError("routine_delivery_failed", failure.cause, agentId)),
         ),
@@ -1015,12 +1036,19 @@ export class RoutineScheduler implements RoutineDueSource {
     });
     const validateRecipient = yield* routineStep(() => this.#mailbox.prepareDelivery([agent.id]));
     yield* routineStep(validateRecipient);
-    // A handoff gets at most the origin of its run, and of the changes to the flow since the person last
-    // changed it on the canvas. A run with no stored message (a workflow) is closed.
-    const origin = narrowerOrigin(
-      this.#mailbox.routineRunOrigin(input.run.id) ?? "unknown",
-      this.#mailbox.flowOrigin(input.run.routineId) ?? "routine",
+    // A handoff gets at most the origin of each earlier step of its run, as the turns of those steps
+    // got it (`deliveryOrigin`: an edit by a team member closes it), and of the changes to the flow since
+    // the person last changed it on the canvas. A run with no stored message (a workflow) is closed.
+    const senders = this.#mailbox.routineRunSenders(input.run.id);
+    const runOrigin = senders.reduce<HubTurnOrigin>(
+      (origin, sender) =>
+        narrowerOrigin(
+          origin,
+          deliveryOrigin(sender, (id) => this.#hooks.remotePerson?.(id) ?? false),
+        ),
+      senders.length === 0 ? "unknown" : "routine",
     );
+    const origin = narrowerOrigin(runOrigin, this.#mailbox.flowOrigin(input.run.routineId) ?? "routine");
     const receipt = yield* this.#mailbox
       .enqueue({
         sender: {

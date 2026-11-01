@@ -16,12 +16,17 @@
 //
 // `bun scripts/hub-connections-safety-e2e.ts`. Writes .buildersbot-build/hub-connections/safety.json.
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
+import { IncomingMessage, ServerResponse } from "node:http";
+import { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import type { HubJsonObject } from "@openbot/contracts/hub-connections";
+import type { EventRoutineRef } from "@openbot/contracts/ipc-events";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
+import { Effect } from "effect";
 import {
   type Call,
   callsText,
@@ -146,6 +151,10 @@ let storedSession: string | null = JSON.stringify({
 let cardPlan: Array<"accept" | "decline"> = [];
 /** What the person answers on the next Guard question. Default: accept. */
 let guardPlan: Array<"accept" | "decline"> = [];
+/** When set, the next cost card stays open until the check settles this answer. */
+let heldAnswer: Promise<"accept" | "decline"> | null = null;
+/** Set when a held cost card is open. */
+let heldCardOpen = false;
 const PAYER_CARD = /^(?:Who pays for|Pay for)/u;
 /**
  * A card of the connection tools: cost, payer and people data. They carry the Guard mark too (no
@@ -173,6 +182,12 @@ const harness = await startAgentHarness({
   decide: (card) => {
     if (!HUB_CARD.test(card.reason)) return guardPlan.shift() ?? "accept";
     if (PAYER_CARD.test(card.reason)) return "accept";
+    if (heldAnswer) {
+      const answer = heldAnswer;
+      heldAnswer = null;
+      heldCardOpen = true;
+      return answer;
+    }
     return cardPlan.shift() ?? "accept";
   },
   // A team member, as the host stamps one on a message (review findings 1 and 2).
@@ -199,6 +214,79 @@ const { CURSOR_ACP_FLAVOR } = await import("../src/backend/acp-flavor");
 const { cursorDisabledFile } = await import("../src/backend/cursor-mcp-disabled");
 const { duplicateAgentIntoLayout } = await import("../src/backend/agent/duplication-gate");
 const { SidebarLayoutStore } = await import("../src/backend/sidebar-layout-store");
+const { HostEventsService } = await import("../src/main/host-events-service");
+const { routeEvents } = await import("../src/main/team-api/route-events");
+const { signWebhookBody } = await import("../src/main/webhook-security");
+const { EVENTS_CAPABILITY, EVENTS_ROUTES } = await import("@openbot/contracts/team-protocol/events-v1");
+const { WEBHOOK_TESTS_CAPABILITY, WEBHOOK_TESTS_ROUTES } = await import(
+  "@openbot/contracts/team-protocol/webhook-tests-v1"
+);
+
+// The webhook routines of this computer, as the app builds them: a cipher that the check can read and
+// a relay that gives each route a URL.
+const hostEvents = new HostEventsService({
+  routines: agents.routineRecords,
+  cipher: {
+    encrypt: (value) => Buffer.from(`sealed:${Buffer.from(value).toString("base64")}`),
+    decrypt: (value) => Buffer.from(value.toString().slice("sealed:".length), "base64").toString(),
+  },
+  relay: {
+    connected: () => true,
+    setEnabled: () => {},
+    setAccountActive: () => {},
+    refresh: () => {},
+    registerRoute: (routeId) => Effect.succeed(`https://signal.example.test/v1/webhooks/${routeId}`),
+    revokeRoute: () => Effect.void,
+  },
+  accountPrincipal: () => "account-1",
+});
+
+/**
+ * One request of the team member through the events routes of the Team API (`routeEvents`), as an admin
+ * of the server; the JSON answer.
+ */
+async function memberEventsRequest(path: string, body: EventRoutineRef): Promise<DynamicRecord> {
+  const request = new IncomingMessage(new Socket());
+  request.url = path;
+  request.method = "POST";
+  request.push(Buffer.from(JSON.stringify(body)));
+  request.push(null);
+  let answer: unknown = null;
+  const outcome = await routeEvents(
+    {
+      request,
+      response: new ServerResponse(request),
+      method: "POST",
+      url: new URL(`http://127.0.0.1${path}`),
+      protocol: 1,
+      capabilities: new Set([EVENTS_CAPABILITY, WEBHOOK_TESTS_CAPABILITY]),
+      member: {
+        id: TEAM_MEMBER.id,
+        username: "remote",
+        email: null,
+        name: TEAM_MEMBER.name,
+        role: "admin",
+        createdAt: new Date(0).toISOString(),
+        disabled: false,
+      },
+      token: "",
+      sessionId: "",
+      sessionExpiresAt: "",
+      agentLevel: () => "manage",
+      json: (status, value) => {
+        assert.equal(status, 200, JSON.stringify(value));
+        answer = value;
+        return "handled";
+      },
+      empty: () => "handled",
+    },
+    { events: hostEvents, memberOrigin: (memberId) => agents.memberOrigin(memberId) },
+  );
+  assert.equal(outcome, "handled");
+  assert.ok(isDynamicRecord(answer), JSON.stringify(answer));
+  return answer;
+}
+
 /** A routine of `agentId` whose runs make `calls`. With no `origin`, nothing records who saved it, as an import saves one. */
 function makeRoutine(agentId: string, name: string, calls: Call[], origin?: "owner_ui" | "team_member") {
   return agents.createRoutine(
@@ -690,6 +778,125 @@ try {
       assertOpen(await testRun(harness.agentId, routine.id), "routine", "the person's text");
     },
   );
+
+  await step("Routine flow: a handoff keeps a team member's edit of the run's queued step (finding 5)", async () => {
+    const second = agents.listAgents().find((agent) => agent.name === "Second");
+    assert.ok(second);
+    const routine = makeRoutine(harness.agentId, "Flow start", [], "owner_ui");
+    // The next agent's results; the first agent can still be in its turn, so this does not wait for it.
+    const handOff = async (run: { id: string; routineName: string; scheduledFor: string }) => {
+      const resultsBefore = harness.resultCount();
+      await runCauseEffect(
+        agents.enqueueRoutineHandoff({
+          run: { id: run.id, routineId: routine.id, routineName: run.routineName, scheduledFor: run.scheduledFor },
+          agentId: second.id,
+          text: callsText(MARK, [discover(), pageMeta()]),
+          idempotencyKey: randomUUID(),
+        }),
+      );
+      return harness.resultsAfter(resultsBefore, 2);
+    };
+    // The person's turn waits on a cost card, so the run's step stays queued.
+    let release: (answer: "accept" | "decline") => void = () => {};
+    heldAnswer = new Promise((done) => {
+      release = done;
+    });
+    heldCardOpen = false;
+    await runCauseEffect(
+      agents.sendMessage({
+        agentId: harness.agentId,
+        text: callsText(MARK, [call("market.quote-pro", { symbol: "HOLD3" })]),
+        attachmentDraftIds: [],
+      }),
+    );
+    await waitFor("the held cost card", () => heldCardOpen);
+    const before = hubCalls().length;
+    try {
+      const run = await runCauseEffect(agents.testRoutine({ agentId: harness.agentId, routineId: routine.id }));
+      const deliveryId = run.deliveryId;
+      assert.ok(deliveryId, "the run has no delivery");
+      // A team member edits the queued step through the host.
+      await runCauseEffect(
+        agents.updateQueuedMessage(
+          {
+            agentId: harness.agentId,
+            deliveryId,
+            text: callsText(MARK, []),
+            keepAttachmentIds: [],
+            attachmentDraftIds: [],
+          },
+          TEAM_MEMBER,
+        ),
+      );
+      assertClosed(await handOff(run), before, "handoff after a member's edit");
+    } finally {
+      release("decline");
+      await harness.allIdle();
+    }
+    // The same flow with no edit: the handoff has the routine's origin.
+    const own = await runCauseEffect(agents.testRoutine({ agentId: harness.agentId, routineId: routine.id }));
+    await harness.allIdle();
+    assertOpen(await handOff(own), "routine", "handoff of the person's run");
+    await harness.allIdle();
+  });
+
+  await step("Webhook: a team member's test event runs closed, and the person's runs open (finding 7)", async () => {
+    const owner = { kind: "agent", id: harness.agentId } as const;
+    const { routine } = await runCauseEffect(
+      hostEvents.saveRoutine(
+        {
+          owner,
+          name: "Hook routine",
+          instruction: callsText(MARK, [discover(), pageMeta()]),
+          active: true,
+          timezone: "UTC",
+          trigger: { kind: "webhook", eventType: null, filters: [] },
+        },
+        "owner_ui",
+      ),
+    );
+    const ref = { id: routine.id, owner };
+    const before = hubCalls().length;
+    const member = await resultsOf(2, () => memberEventsRequest(WEBHOOK_TESTS_ROUTES.send, ref));
+    assertClosed(member, before, "a member's test event");
+    const own = await resultsOf(2, () => runCauseEffect(hostEvents.sendTestEvent(ref)));
+    assertOpen(own, "routine", "the person's test event");
+  });
+
+  await step("Webhook: a request signed with a secret that a team member got runs closed (finding 7)", async () => {
+    const owner = { kind: "agent", id: harness.agentId } as const;
+    const routine = (await runCauseEffect(hostEvents.listRoutines({ owner }))).find(
+      (item) => item.name === "Hook routine",
+    );
+    assert.ok(routine);
+    const ref = { id: routine.id, owner };
+    const route = agents.routineRecords.routes.list().find((item) => item.routineId === routine.id);
+    assert.ok(route, "the routine has no route");
+    const send = (secret: string) => {
+      const body = new TextEncoder().encode(JSON.stringify({ type: "build.failed", data: {} }));
+      const timestamp = String(Math.floor(Date.now() / 1000));
+      const deliveryId = `check-${randomUUID()}`;
+      return resultsOf(2, () =>
+        runCauseEffect(
+          hostEvents.receive({
+            routeId: route.routeId,
+            deliveryId,
+            timestamp,
+            signature: signWebhookBody(secret, timestamp, deliveryId, body),
+            body,
+          }),
+        ),
+      );
+    };
+    // The member rotates the secret through the Team API and gets it.
+    const rotated = await memberEventsRequest(EVENTS_ROUTES.rotateSecret, ref);
+    assert.ok(typeof rotated.secret === "string", JSON.stringify(rotated));
+    const before = hubCalls().length;
+    assertClosed(await send(rotated.secret), before, "signed with the member's secret");
+    // The person rotates it in the app: only the person has the new one.
+    const { secret } = await runCauseEffect(hostEvents.rotateSecret(ref));
+    assertOpen(await send(secret), "routine", "signed with the person's secret");
+  });
 
   await step("G5: vendor lines split by a line break, a tab or two spaces are masked and noted", async () => {
     const [split] = await turn([call("web.hint-split", { q: "links" })]);

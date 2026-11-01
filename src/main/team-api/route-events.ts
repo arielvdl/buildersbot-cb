@@ -105,9 +105,9 @@ export async function routeEvents(
       await runEventsEffect(events.testRoutine(input(parseEventRoutineRef), by));
       return json(200, {});
     case EVENTS_ROUTES.rotateSecret:
-      return json(200, await runEventsEffect(events.rotateSecret(input(parseEventRoutineRef))));
+      return json(200, await runEventsEffect(events.rotateSecret(input(parseEventRoutineRef), by)));
     case WEBHOOK_TESTS_ROUTES.send:
-      return json(200, await runEventsEffect(events.sendTestEvent(input(parseEventRoutineRef))));
+      return json(200, await runEventsEffect(events.sendTestEvent(input(parseEventRoutineRef), by)));
     case EVENTS_ROUTES.listActivity:
       return json(200, await runEventsEffect(events.listActivity(input(parseListEventActivity))));
   }

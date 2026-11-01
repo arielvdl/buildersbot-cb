@@ -47,8 +47,10 @@ export interface HostEventsApi {
   ): Effect.Effect<SaveEventRoutineResult, HostEventsFailure>;
   deleteRoutine(input: EventRoutineRef): Effect.Effect<void, HostEventsFailure>;
   testRoutine(input: EventRoutineRef, by?: HubTurnOrigin): Effect.Effect<void, HostEventsFailure>;
-  rotateSecret(input: EventRoutineRef): Effect.Effect<WebhookSecret, HostEventsFailure>;
-  sendTestEvent(input: EventRoutineRef): Effect.Effect<WebhookTestResult, HostEventsFailure>;
+  /** `by`: the Hub connection origin of who gets the new secret; the person's own when absent. */
+  rotateSecret(input: EventRoutineRef, by?: HubTurnOrigin): Effect.Effect<WebhookSecret, HostEventsFailure>;
+  /** `by`: the Hub connection origin of who sends the test event; the person's own when absent. */
+  sendTestEvent(input: EventRoutineRef, by?: HubTurnOrigin): Effect.Effect<WebhookTestResult, HostEventsFailure>;
   listActivity(input: ListEventActivityInput): Effect.Effect<EventActivity[], HostEventsFailure>;
   listRoutineRuns(input: ListEventRoutineRunsInput): Effect.Effect<EventRoutineRun[], HostEventsFailure>;
 }
