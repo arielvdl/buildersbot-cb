@@ -8,9 +8,10 @@ import { createTaskListPlayState } from "../conversation/TaskList";
 
 /**
  * How the siren on the Guard's box shows. `asleep`: the Guard is off, its eyes are shut and the siren
- * is down in the box. `calm`: the siren is up and dark. `watch`: it is amber, turns slowly and two
- * beams sweep. `alarm`: it is red, turns fast and its halo throbs; while the Guard asks, the shield
- * shows "!". `neutral`: up and dark, for a level that the person builds.
+ * is down in the box. `calm`: the eyes are half open and the siren stays down in the box, as Light
+ * shows in the approved P1 mockup. `watch`: the siren is up and amber, turns slowly and two beams
+ * sweep. `alarm`: it is red, turns fast and its halo throbs; while the Guard asks, the shield shows
+ * "!". `neutral`: up and dark, for a level that the person builds.
  */
 export type GuardSirenMode = "asleep" | "calm" | "watch" | "alarm" | "neutral";
 

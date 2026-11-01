@@ -107,7 +107,7 @@
   opacity: 0.85;
 }
 
-/* The siren comes up out of the lid. Off, it is down in the box and cannot be seen. */
+/* The siren comes up out of the lid. Off and Light (P1), it is down in the box and cannot be seen. */
 .guard-siren-rise {
   transform-box: fill-box;
   transform-origin: 50% 100%;
@@ -116,12 +116,12 @@
     opacity var(--openbot-duration-overlay) var(--openbot-ease-out);
 }
 
-.guard-siren[data-mode="asleep"] .guard-siren-rise {
+.guard-siren:is([data-mode="asleep"], [data-mode="calm"]) .guard-siren-rise {
   transform: translateY(24px) scale(0.25);
   opacity: 0;
 }
 
-.guard-siren:is([data-mode="calm"], [data-mode="neutral"]) .guard-siren-rise {
+.guard-siren[data-mode="neutral"] .guard-siren-rise {
   transform: translateY(8px) scale(0.76);
 }
 

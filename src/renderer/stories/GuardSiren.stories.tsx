@@ -27,7 +27,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The top of the Guard page. The level list of the page sets the level. */
+/** The top of the Guard page, Light: the siren stays down in the box, as in the P1 mockup. */
 export const Hero: Story = {};
 
 export const HeroOff: Story = { args: { level: "off", status: "off" } };
