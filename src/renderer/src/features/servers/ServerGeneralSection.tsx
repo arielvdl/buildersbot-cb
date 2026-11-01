@@ -432,6 +432,20 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
             </ItemGroup>
           </SettingsSection>
         </Show>
+        {/* The Guard and the task reviewer run in the host of each server, and no Team API route reads or
+            sets them, so the settings of another server only say so. */}
+        <Show when={!local()}>
+          <SettingsSection title={t("server.settings.guardTitle")}>
+            <ItemGroup class="settings-modal-card">
+              {/* A line of text with no control: the compact row. */}
+              <Item size="compact" data-settings-row="server.settings.guardTitle">
+                <ItemContent>
+                  <ItemDescription>{t("server.settings.guardDescription")}</ItemDescription>
+                </ItemContent>
+              </Item>
+            </ItemGroup>
+          </SettingsSection>
+        </Show>
         <Show when={canRotateKey() || keyChangedAt() !== undefined}>
           <SettingsSection title={t("server.settings.hostKeyTitle")}>
             <ItemGroup class="settings-modal-card">

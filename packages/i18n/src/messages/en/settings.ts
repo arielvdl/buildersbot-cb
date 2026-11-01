@@ -932,6 +932,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.sendShortcut": "send, enter, keyboard, shortcut, new line",
   "settings.search.keywords.server": "server, host",
   "settings.search.keywords.serverGeneral": "server name, logo, timezone, general",
+  "settings.search.keywords.serverGuard": "guard, task reviewer, security, stuck tasks, Fiscal",
   "settings.search.keywords.serverLogo": "logo, image, icon, picture",
   "settings.search.keywords.serverName": "name, rename, server name",
   "settings.search.keywords.sessions": "sessions, devices, signed in, sign out, log out",

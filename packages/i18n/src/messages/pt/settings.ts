@@ -868,6 +868,7 @@ export const messages = {
   "settings.search.keywords.sendShortcut": "enviar, enter, teclado, atalho, nova linha",
   "settings.search.keywords.server": "servidor, anfitrião, host",
   "settings.search.keywords.serverGeneral": "nome do servidor, logotipo, fuso horário, geral",
+  "settings.search.keywords.serverGuard": "guarda, guard, fiscal, revisor, segurança, tarefas paradas, travadas",
   "settings.search.keywords.serverLogo": "logotipo, logo, imagem, ícone",
   "settings.search.keywords.serverName": "nome, renomear, nome do servidor",
   "settings.search.keywords.sessions": "sessões, dispositivos, conectado, sair, deslogar",

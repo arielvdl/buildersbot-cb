@@ -335,6 +335,9 @@ export const messages = {
   "server.settings.memoryReviewOff": "Desativada",
   "server.settings.memoryReviewTurns": { one: "A cada {count} turno", other: "A cada {count} turnos" },
   "server.settings.memoryReviewLoadFailed": "Não foi possível carregar a configuração de revisão de memórias.",
+  "server.settings.guardTitle": "Guarda e Fiscal",
+  "server.settings.guardDescription":
+    "Este servidor tem o próprio Guarda e o próprio Fiscal, e este app ainda não os muda. As páginas Guarda e Fiscal das suas Configurações mudam só este computador.",
   "server.settings.rolesTitle": "Papéis",
   "server.settings.rolesDescription":
     "Escolha os agentes que os membros podem usar. Um membro recebe o maior acesso entre Todos e os papéis dele. Proprietários e administradores podem usar todos os agentes.",
