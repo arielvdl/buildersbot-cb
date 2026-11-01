@@ -412,8 +412,15 @@ agent drove the tab of the first. The broker now prevents this:
 | The agent is told | The `initialize` answer gets `instructions`, and the `tools/list` answer gets a note on `browser_tabs` and `browser_navigate`: reuse the current tab, a new tab only for two pages at the same time, close extra tabs. |
 | Put away | After 10 min with no agent session in a group, the broker closes its `about:blank` and connect-page tabs through its own session, then stops the upstream. Tabs with a page stay open, out of the group: the person may read them. |
 
-The Guard checks an agent's call before the broker lists or selects a tab for it. The broker's own
-calls carry ids that start with `builders-bot-`. The extension shows `Playwright · ` before the
+The broker reads the tabs only from its own `browser_tabs` `list` calls, never from the result of an
+agent's call: a page writes part of that text (a script result, a title, a URL), and could copy a tab
+list or a `Page URL` line. A list is read only when it is a whole JSON-RPC answer whose text starts
+with `### Result` and each line of that section is a tab line with the indexes in order; else nothing
+changes (`listedTabs`, `playwright-broker-policy.ts`). A tab line with more than one `](` has no URL
+for the broker, so it is neither chosen for an agent nor closed as blank. After an agent's call the
+broker marks the session's page as unknown, and reads it again with a list in that session when
+another session needs it, or before the session ends. The Guard checks an agent's call before the
+broker lists or selects a tab for it. The broker's own calls carry ids that start with `builders-bot-`. The extension shows `Playwright · ` before the
 project name; only an extension of our own can remove it. When the person closes the group, the next
 agent call makes a new connection, as before. `scripts/browser-tab-reuse-e2e.ts` runs the broker
 against an upstream that copies this lifecycle.
