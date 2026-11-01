@@ -58,8 +58,14 @@ main-process work in total, because each flush writes the whole message twice (r
 - The composer draft is written 300 ms after the last change, and only its text.
 - Tool output is not stored or sent to the renderer. Each provider is a CLI that keeps its own tool
   output limits, as Claude Code does. OpenBot's own tools cap their results: browser snapshot
-  128 KB, history tools 8,000 to 16,000 characters with `nextOffset`, Hub connections 30,000
-  characters per page.
+  128 KB, `history_search` and `history_read` 8,000 to 16,000 characters with `nextOffset`, Hub
+  connections 30,000 characters per page.
+- `channel_history` with no arguments has no cap: it gives a page of up to 100 whole messages with
+  the channel and its tasks (168,595 characters for a tab with three results of 50,000 characters,
+  `scripts/channel-context-spill-e2e.ts`). With `messageId` it reads one message, 12,000 characters
+  a read with `nextOffset`, and with `limit` it gives up to 20 compact rows. With the optimization
+  `channel-context-spill` on, the call with no arguments gives the compact page (2,749 characters in
+  the same tab). See [channels-and-messaging.md](channels-and-messaging.md#lean-channel-context-channel-context-spill).
 
 ## Fixed here
 

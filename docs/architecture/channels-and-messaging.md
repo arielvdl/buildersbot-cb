@@ -263,7 +263,8 @@ The provider acceptance cursor records context delivery. Context packets remain 
 provider replacement or compaction does not remove shared decisions. Unrelated server conversations
 are available through paginated retrieval and are not inserted automatically. Agent memories keep
 their existing meaning. A packet leaves out a member's thinking, and the commentary of a turn that
-posted a `channel_result`: the result is the answer of that turn.
+posted a `channel_result`: the result is the answer of that turn. The switch `channel-context-spill`
+makes the packet leaner (see [Lean channel context](#lean-channel-context-channel-context-spill)).
 
 The channel copies the assistant rows of a member's execution thread. The first rows of a turn go
 to the running assignment before it knows the turn id; a row of another turn does not. A new row
@@ -331,6 +332,41 @@ Mobile channel settings use one native sheet with a nested stack for memories an
 memory and routine editors share their controls with agent settings and use channel API operations.
 Channel settings have no provider or model controls because each member retains its own runtime.
 No account API, Signal, IPC contract, or database migration changes are required for mobile channels.
+
+### Lean channel context (`channel-context-spill`)
+
+The optimization switch `channel-context-spill` ([optimizations.md](optimizations.md)) is off by
+default. Off, the packet, the delta, `prepare` and `channel_history` with no arguments are as before
+the switch. On (`ChannelHistory.prepare` with `spill`, helpers in `channel-context-spill.ts`):
+
+- The packet gives in full, up to 4,000 characters, the messages that the assignment needs: the
+  request, the source messages and the replies they answer, a message that a source quotes or that
+  the instruction names by id, a message that mentions the agent (tag, `@everyone`, or its typed
+  name), the result of a dependency or of a child task, and the last 2 messages. Any other message
+  gives 1,200 characters. A task result or another row that is not an answer, larger than 4,000
+  characters and not kept, gives a preview of 200 characters.
+- A cut row has `chars`, the length of the whole text, and `nextOffset`. The packet tells the member
+  to read the rest with `channel_history {"messageId", "offset"}` before it answers. A cut ends at a
+  paragraph, a line or a word, and not inside a fenced code block: it moves before the block, or
+  closes the block when that would keep less than a quarter of the limit.
+- The request row whose text the current assignment gives has `textInCurrentAssignment` in place of
+  the text, and the task JSON leaves out `instruction` and `expectedResult`: the instruction is in the
+  packet once.
+- The size that starts a summary is the size of this lean form, so a tab with long results makes
+  the lead summarize less often. The budget of the packet does not change (`CONTEXT_CHARACTERS`, half
+  of it for the recent rows).
+- `prepare` reads only the rows after the summary (`ChannelStore.messagesAfter`), the request and the
+  sources before it by id, and the rows of the task (`taskMessages`). The commentary of a turn whose
+  result is before the summary can then show once.
+- The delta (Claude and Codex) leaves out the rules, the channel details and the saved memories when
+  their hash is the same as in the packet that the session read. The process keeps these hashes
+  beside the accepted cursors (`#deliveredParts`), so after a restart the first delta repeats them.
+  Providers without a delta (OpenCode, Pi, Grok) get the lean complete packet.
+
+`channel_history` takes `messageId` with `offset` (12,000 characters a read, with `chars` and
+`nextOffset`) and `limit` (1 to 20 compact rows: id, sequence, author, chars, preview of 200
+characters) at all times. With the switch on, the call with no arguments gives the compact page too.
+The compact page has no channel and no tasks. `scripts/channel-context-spill-e2e.ts` measures both.
 
 ## One channel at a time
 
