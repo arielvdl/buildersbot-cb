@@ -66,6 +66,13 @@ export interface ChannelTopic {
   openTasks?: number;
   /** The messages a person would see in it, in a channel summary only; 0 means nothing to lose. */
   messageCount?: number;
+  /**
+   * The first message with text that a person sent in the tab, cut to an excerpt, in a channel
+   * summary only. It stays after a rename. Empty when nobody wrote; absent from an older host.
+   */
+  firstMessage?: string;
+  /** The last message with text that a person sent in the tab, as `firstMessage` is. */
+  lastUserMessage?: string;
 }
 
 export interface ChannelTask {
@@ -363,7 +370,20 @@ function isChannelSummary(value: unknown): value is ChannelSummary {
     (value.threads === undefined ||
       (Array.isArray(value.threads) &&
         value.threads.length <= INPUT_LIMITS.agents &&
-        value.threads.every(isChannelThread)))
+        value.threads.every(isChannelThread))) &&
+    hasValidTopicMessages(value.topics)
+  );
+}
+
+/**
+ * The tabs are not checked one by one, as before. Only the message texts that a tab shows on hover
+ * and in its details must be text when present: no released host sends them.
+ */
+function hasValidTopicMessages(topics: unknown): boolean {
+  const text = (value: unknown) => value === undefined || isBoundedString(value, INPUT_LIMITS.messageText);
+  return (
+    !Array.isArray(topics) ||
+    topics.every((topic) => !isDynamicRecord(topic) || (text(topic.firstMessage) && text(topic.lastUserMessage)))
   );
 }
 

@@ -1,8 +1,11 @@
+import { decodeChannelSummaries } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
 import {
   channelTabClose,
+  channelTabDetails,
   channelTabDropIndex,
   channelTabDropSlot,
+  channelTabHasDetails,
   moveChannelTopic,
   orderChannelTopics,
   readChannelLastTopics,
@@ -149,5 +152,50 @@ describe("closing a tab", () => {
 
   it("closes an empty, idle tab at once", () => {
     expect(channelTabClose({ openTasks: 0, messageCount: 0 })).toBe("now");
+  });
+});
+
+describe("the details of a channel tab", () => {
+  const topic = { id: "t", channelId: "c", name: "Renamed", createdAt: "2026-10-31T10:00:00.000Z", revision: 2 };
+
+  it("has details only with a message of a person", () => {
+    expect(channelTabHasDetails(topic)).toBe(false);
+    expect(channelTabHasDetails({ ...topic, firstMessage: "  ", lastUserMessage: "" })).toBe(false);
+    expect(channelTabHasDetails({ ...topic, firstMessage: "Fix the filter" })).toBe(true);
+  });
+
+  it("keeps the lines of the messages and the name the tab has now", () => {
+    expect(
+      channelTabDetails({
+        ...topic,
+        firstMessage: "Fix the **filter**\n\n- then the logs",
+        lastUserMessage: "Now the button",
+      }),
+    ).toEqual({
+      title: "Renamed",
+      startedAt: topic.createdAt,
+      firstMessage: "Fix the filter\n\n• then the logs",
+      lastMessage: "Now the button",
+    });
+  });
+
+  it("refuses a channel list whose tab message is not text", () => {
+    const summary = {
+      id: "c",
+      name: "Launch",
+      title: "",
+      instructions: "",
+      members: [],
+      leadAgentId: null,
+      archived: false,
+      revision: 0,
+      createdAt: topic.createdAt,
+      unreadCount: 0,
+      activeTasks: 0,
+      lastMessage: null,
+    };
+    expect(decodeChannelSummaries([{ ...summary, topics: [{ ...topic, firstMessage: "Fix" }] }])).toHaveLength(1);
+    expect(() => decodeChannelSummaries([{ ...summary, topics: [{ ...topic, firstMessage: 42 }] }])).toThrow();
+    expect(() => decodeChannelSummaries([{ ...summary, topics: [{ ...topic, lastUserMessage: {} }] }])).toThrow();
   });
 });

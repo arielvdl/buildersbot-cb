@@ -28,6 +28,7 @@ import {
   requiredNumberColumn,
   requiredStringColumn,
 } from "./database/database-rows";
+import { messageExcerpt } from "./message-excerpt";
 import type { BuildersBotDatabase } from "./openbot-database";
 import { revokeRoutineWebhooks } from "./webhook-route-store";
 
@@ -88,6 +89,14 @@ export interface ChannelChange {
 const FIRST_TOPIC_OF = (jsonColumn: string, channel: string) =>
   `COALESCE(json_extract(${jsonColumn}, '$.topicId'), (SELECT ft.topic_id FROM projection_channel_topics AS ft
      WHERE ft.channel_id = ${channel} ORDER BY ft.created_at, ft.topic_id LIMIT 1))`;
+
+/**
+ * A message that a person sent, with text. Its first and last one tell what a tab is for: the tab
+ * shows them on hover and in its details. A rename does not change them.
+ */
+const PERSON_TEXT = (column: string) =>
+  `json_extract(${column}, '$.author.kind') = 'member'
+     AND trim(COALESCE(json_extract(${column}, '$.message.text'), ''), char(9, 10, 13, 32)) != ''`;
 
 /** The messages a person sees in a tab: no plan, subagent step, activity marker or thinking. */
 const VISIBLE_MESSAGE_FILTER = (column: string) =>
@@ -218,7 +227,9 @@ export class ChannelStore {
          SUM(CASE WHEN m.sequence > COALESCE(r.through_sequence, 0)
                AND json_extract(m.message_json, '$.author.id') IS NOT ?
                AND json_extract(m.message_json, '$.author.id') IS NOT ?
-             THEN 1 ELSE 0 END) AS unread
+             THEN 1 ELSE 0 END) AS unread,
+         MIN(CASE WHEN ${PERSON_TEXT("m.message_json")} THEN m.sequence END) AS first_person,
+         MAX(CASE WHEN ${PERSON_TEXT("m.message_json")} THEN m.sequence END) AS last_person
        FROM projection_channel_messages AS m
        LEFT JOIN projection_channel_reads AS r
          ON r.channel_id = m.channel_id AND r.member_id = ?
@@ -234,6 +245,16 @@ export class ChannelStore {
        FROM projection_channel_tasks AS t
        GROUP BY t.channel_id, topic_key`,
     );
+    // The texts of the first and the last message of a person in each tab: one indexed read each,
+    // by the place that the grouped query above found.
+    const textAt = this.database.connection.prepare(
+      "SELECT json_extract(message_json, '$.message.text') AS text FROM projection_channel_messages WHERE channel_id = ? AND sequence = ?",
+    );
+    const personText = (channelId: string, sequence: unknown): string => {
+      if (typeof sequence !== "number") return "";
+      const text = databaseRow(textAt.get(channelId, sequence))?.text;
+      return typeof text === "string" ? messageExcerpt(text) : "";
+    };
     for (const topic of databaseRows(
       this.database.connection
         .prepare("SELECT * FROM projection_channel_topics ORDER BY channel_id, created_at, topic_id")
@@ -241,6 +262,7 @@ export class ChannelStore {
     ).map((row) => decodeTopic(row))) {
       const counts = perTopicMessages.get(`${topic.channelId}\u0000${topic.id}`);
       const tasks = perTopicTasks.get(`${topic.channelId}\u0000${topic.id}`);
+      const firstMessage = personText(topic.channelId, counts?.first_person);
       topics.set(topic.channelId, [
         ...(topics.get(topic.channelId) ?? []),
         {
@@ -250,6 +272,11 @@ export class ChannelStore {
           activeTasks: Number(tasks?.active ?? 0),
           openTasks: Number(tasks?.open ?? 0),
           messageCount: Number(counts?.messages ?? 0),
+          firstMessage,
+          lastUserMessage:
+            counts?.last_person === counts?.first_person
+              ? firstMessage
+              : personText(topic.channelId, counts?.last_person),
         },
       ]);
     }
