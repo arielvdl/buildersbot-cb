@@ -60,6 +60,8 @@ export const messages = {
   "error.agent.unknown": "Agente desconhecido: {id}",
   "error.agent.onlyUserWidensSettings":
     "Somente o usuário pode conceder Acesso completo a um agente ou ativar Uso do computador. Peça ao usuário para alterar isso nas configurações do agente.",
+  "error.agent.onlyUserWidensBackups":
+    "Somente o usuário pode deixar outro agente trocar para um modelo de reserva sem perguntar, ou dar a ele um modelo de reserva em uma conta de provedor que ele não usa. Peça ao usuário para alterar isso nas configurações do agente.",
   "error.agent.queuedMessageCreateFailed": "Não foi possível criar a mensagem na fila.",
   "error.agent.messageUnavailable": "A mensagem não está mais disponível.",
   "error.agent.hostLimit": "Um computador anfitrião pode ter até {limit} agentes.",

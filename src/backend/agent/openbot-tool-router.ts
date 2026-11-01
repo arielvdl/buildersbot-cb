@@ -110,6 +110,7 @@ import {
   restrictionInput,
   updateProfileToolSchema,
   widensAgentSettings,
+  widensBackupModels,
 } from "./profile-tools";
 import { apiKeyFormSpec, browserUserControlResult, commandText } from "./prompts";
 import { ROUTINE_NO_UPDATE_TOOL, ROUTINE_REPORT_FAILURE_TOOL } from "./routine-quiet-runs";
@@ -1859,6 +1860,9 @@ export class BuildersBotToolRouter {
         backupModels === undefined
           ? undefined
           : requestedBackupModels(backupModels, this.#hooks.listModels(), this.#hooks.providerAccounts, own);
+      if (widensBackupModels(target, senderAgentId, backups)) {
+        return openBotToolFailure(sourceText("error.agent.onlyUserWidensBackups"));
+      }
       const image =
         avatarPath === undefined
           ? undefined

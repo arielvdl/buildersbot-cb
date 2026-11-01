@@ -58,6 +58,8 @@ export const messages = defineMessages("error.agent", {
   "error.agent.unknown": "Unknown agent: {id}",
   "error.agent.onlyUserWidensSettings":
     "Only the user can give an agent Full access or turn Computer Use on. Ask the user to change it in the agent's settings.",
+  "error.agent.onlyUserWidensBackups":
+    "Only the user can let another agent switch to a backup model without asking, or give it a backup model on a provider account that it does not use. Ask the user to change it in the agent's settings.",
   "error.agent.queuedMessageCreateFailed": "Unable to create queued message.",
   "error.agent.messageUnavailable": "The message is no longer available.",
   "error.agent.hostLimit": "A host can have up to {limit} agents.",

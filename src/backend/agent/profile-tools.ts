@@ -5,10 +5,13 @@ import {
   AGENT_PROVIDERS,
   AGENT_REASONING_EFFORTS,
   type AgentAccess,
+  type AgentBackupModels,
+  type AgentModelChoice,
   type AgentSummary,
   AVATAR_HUES,
   AVATAR_SEED_PATTERN,
   agentComputerUseEnabled,
+  DEFAULT_PROVIDER_ACCOUNT_ID,
   isAvatarHue,
   isProviderAccountId,
   type UpdateAgentInput,
@@ -205,6 +208,26 @@ export function widensAgentSettings(
   return (
     (access === "full" && workspaceAccessEnforced(target)) || (computerUse === true && !agentComputerUseEnabled(target))
   );
+}
+
+/**
+ * Whether a change of another agent's backup models widens where its work can go: it lets the agent
+ * switch without asking, or it adds a provider account that the agent does not use yet. A backup
+ * model then gets the agent's conversation and files on a failed start or a limit, so only the user
+ * can make that change for another agent. An agent can still set its own backups, and can keep,
+ * remove or reorder another agent's backups on the provider accounts it already uses.
+ */
+export function widensBackupModels(
+  target: Pick<AgentSummary, "id" | "provider" | "model" | "providerAccountId" | "backupModels">,
+  senderAgentId: string,
+  backups: AgentBackupModels | null | undefined,
+): boolean {
+  if (!backups || target.id === senderAgentId) return false;
+  if (backups.automatic && !target.backupModels?.automatic) return true;
+  const account = (choice: AgentModelChoice) =>
+    `${choice.provider}\u0000${choice.providerAccountId ?? DEFAULT_PROVIDER_ACCOUNT_ID}`;
+  const known = new Set([target, ...(target.backupModels?.order ?? [])].map(account));
+  return backups.order.some((choice) => !known.has(account(choice)));
 }
 
 /** Only a restriction is written, so a user change between the check and this write is never undone. */
