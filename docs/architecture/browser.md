@@ -386,12 +386,37 @@ version (`apps/auth-api/src/server/mobile-features-config.ts`).
 
 ## One Playwright server for all agents
 
-`PlaywrightBroker` (`src/main/playwright-broker.ts`) runs one Playwright MCP server for all agents:
-`@playwright/mcp --extension --shared-browser-context --port 0 --host 127.0.0.1`. The server
+`PlaywrightBroker` (`src/main/playwright-broker.ts`) runs one Playwright MCP server for each tab
+group: `@playwright/mcp --extension --shared-browser-context --port 0 --host 127.0.0.1`. The server
 attaches to the open browser through the Playwright extension. Builders Bot starts no browser. Each
-agent is one MCP session of this server. Before, each agent started its own `@playwright/mcp`, and a
-few at once used all the memory. When web access is the Builders Bot browser, providers get no
-Playwright.
+agent is one MCP session of the server of its group. Before, each agent started its own
+`@playwright/mcp`, and a few at once used all the memory. When web access is the Builders Bot
+browser, providers get no Playwright.
+
+### Tab groups and tab reuse
+
+The upstream keeps its connection to the extension only while one MCP session holds a browser
+(`factory.create` and `dispose` in playwright-core `tools/mcp/program.ts`). The agent CLIs end their
+session at the end of each turn, so each turn made a new connection. The extension then opened its
+connect page as a new tab, in a new group named after the MCP client (`Playwright · codex-mcp-client`),
+and took the focus. A new session also starts on the first tab of the shared context, so a second
+agent drove the tab of the first. The broker now prevents this:
+
+| Rule | How |
+| --- | --- |
+| One group for each project | The gateway hands each agent `endpoint().agentUrl(agentId)`: the broker URL with `?agent=` and an opaque key (HMAC-SHA256 of the agent id with the bearer, 22 characters). `projectOf` (`AgentService.browserProject`) gives the project: the person's sidebar section of the agent, else the agent. Each project gets its own upstream, so its own connection and group, up to `limits.projects` (3). Past the limit, a project with no session gives its place; else the agent uses the shared group, `Builders Bot`. An address with no known key uses the shared group too. With the egress proxy on, all agents use the shared group (`projectGroups`), because the server then starts a browser with one profile. |
+| The connection stays between turns | At the first tool call of a group, before the agent's own call, the broker opens a session of its own in the upstream (`initialize` with `clientInfo.name` = the project name) and calls `browser_tabs` `list`. That session makes the connection, so the extension names the group `Playwright · <project>`, and it holds the connection while agent sessions come and go. It opens no event stream, so the upstream sends it no ping. The broker checks it again at most every 30 s, at an agent's call. |
+| The agent finds its tab | At the first tool call of an agent session (not `browser_tabs`), the broker lists the tabs in that session and selects, in this order: the tab with the page that the same agent had last; a tab whose page is not the page of another session of the group with a call in the last 2 min; else a new tab, within the limits. |
+| The last tab is not closed | The extension ends its connection when the last tab of the group closes (`RelayConnection._checkLastTabDetached`). A `browser_tabs` `close` of the last tab is answered by the broker: it navigates the tab to `about:blank` and says so. |
+| Tabs left by ended turns count | Before a `browser_tabs` `new`, the broker lists the tabs of the group. The total limit compares the open tabs of all groups, not only the tabs that live sessions opened. |
+| The agent is told | The `initialize` answer gets `instructions`, and the `tools/list` answer gets a note on `browser_tabs` and `browser_navigate`: reuse the current tab, a new tab only for two pages at the same time, close extra tabs. |
+| Put away | After 10 min with no agent session in a group, the broker closes its `about:blank` and connect-page tabs through its own session, then stops the upstream. Tabs with a page stay open, out of the group: the person may read them. |
+
+The Guard checks an agent's call before the broker lists or selects a tab for it. The broker's own
+calls carry ids that start with `builders-bot-`. The extension shows `Playwright · ` before the
+project name; only an extension of our own can remove it. When the person closes the group, the next
+agent call makes a new connection, as before. `scripts/browser-tab-reuse-e2e.ts` runs the broker
+against an upstream that copies this lifecycle.
 
 The broker is a door on a loopback port. It checks each request in this order: the `Host` must be
 `127.0.0.1:PORT` or `localhost:PORT` (403); the bearer is compared in constant time
@@ -427,16 +452,18 @@ life: the first limit of 8 did this, with 9 agent CLIs alive.
 
 The counts come from the upstream response, not from the request. A successful `browser_tabs`
 action `new` adds 1. A successful `browser_tabs` action `close` or `browser_close` removes 1. A
-failed call changes nothing, and a count never goes below 0. A session that ends gives its tabs back.
+failed call changes nothing, and a count never goes below 0. A session that ends gives its tabs back
+to its own count; the tabs stay in the group and count toward the total.
 The broker reads about the first 256,000 bytes of a response to count; a longer response goes to the
 agent but is not counted. Two `initialize` requests at the same time can both pass the session check.
 
 `start()` only listens. The upstream starts at the first request that passes the door, one time. A
 session with no request for 3 hours is ended, and the broker sends `DELETE` for it to the upstream. The
 long time is for the session that a closed agent leaves behind: a client that reads 404 is not sure to
-start a new session, so an idle agent must keep its own. A timer checks every 30 s. After 10 min with no session, the upstream stops, so the person's browser is
-free. When the upstream stops by itself, the broker forgets all sessions, and the agents start new
-ones. Teardown stops the broker after the agent service (`TEARDOWN_ORDER.browserBroker`).
+start a new session, so an idle agent must keep its own. A timer checks every 30 s. After 10 min with
+no agent session in a group, the group is put away and its upstream stops, so the person's browser is
+free. When an upstream stops by itself, the broker forgets the sessions of its group, and the agents
+start new ones. An upstream answer 404 for a session also ends it in the broker. Teardown stops the broker after the agent service (`TEARDOWN_ORDER.browserBroker`).
 
 `openbot-playwright-broker-v1.json` in `userData` holds the port and the bearer (`BrokerIdentityFile`,
 `playwright-broker-runtime.ts`). The file has mode 0600. The bearer stays the same across restarts;

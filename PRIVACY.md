@@ -852,6 +852,10 @@ Network traffic can also occur when:
   sends this check when an admin saves or presses **Test proxy**, and when the server starts. The
   proxy password stays encrypted on the server and is never put in a process environment. See
   `docs/architecture/egress-proxy.md`;
+- agents use Playwright in the user's own Chrome. The tabs of a project are in a tab group whose
+  title is the name of the project (its sidebar section, or the agent). When Chrome syncs tab groups
+  to the user's Google account, Google can receive that title and the pages of the group. Builders
+  Bot sends neither to Google itself;
 - the user opens the accounts panel of the WhatsApp plugin in Marketplace › Apps. Builders Bot runs
   the pinned `wazap-mcp` package with `npx`; the first run downloads it from the npm registry, with
   no user data. To link an account, the user types its number, and wazap sends the number to

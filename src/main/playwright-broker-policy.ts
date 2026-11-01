@@ -38,7 +38,7 @@ export function inspectRpc(body: unknown): RpcEntry[] {
 }
 
 /** The JSON bodies of a response, whether it is an event stream or plain JSON. */
-function responseMessages(text: string): unknown[] {
+export function responseMessages(text: string): unknown[] {
   const messages: unknown[] = [];
   const push = (raw: string) => {
     try {
@@ -74,6 +74,80 @@ export function tabsDelta(entries: readonly RpcEntry[], responseText: string) {
   return delta;
 }
 
+/** The text parts of the tool results in a response, joined. A response that is cut off is read as raw text. */
+export function resultText(responseText: string): string {
+  const parts: string[] = [];
+  for (const message of responseMessages(responseText)) {
+    if (!isDynamicRecord(message) || !isDynamicRecord(message.result)) continue;
+    const content = Array.isArray(message.result.content) ? message.result.content : [];
+    for (const item of content) if (isDynamicRecord(item) && typeof item.text === "string") parts.push(item.text);
+  }
+  if (parts.length > 0) return parts.join("\n");
+  // The broker reads only the start of a long answer, and that is not JSON. The sections it needs come first.
+  return responseText.replaceAll("\\n", "\n").replaceAll('\\"', '"');
+}
+
+/** Whether the tool result of a response says that the call failed. */
+export function resultFailed(responseText: string): boolean {
+  return responseMessages(responseText).some(
+    (message) =>
+      isDynamicRecord(message) &&
+      (message.error !== undefined || (isDynamicRecord(message.result) && message.result.isError === true)),
+  );
+}
+
+/** One tab as the Playwright server lists it: `- 0: (current) [Title](url)`. */
+export interface ListedTab {
+  index: number;
+  url: string;
+  current: boolean;
+}
+
+const TAB_LINE = /^- (\d+):( \(current\))? \[.*\]\((.*)\)( \[crashed\])?$/u;
+
+/** The lines of one `### <name>` section of a tool result, or null when the result has no such section. */
+function section(text: string, name: string): string[] | null {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line.trim() === `### ${name}`);
+  if (start === -1) return null;
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => line.startsWith("### "));
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
+/**
+ * The tabs that a tool result lists, in the `Result` of a `browser_tabs` call or the `Open tabs` of
+ * another call, or null when it lists none. The server lists the tabs of the shared context, so an
+ * index names the same tab for every session of one server.
+ */
+export function listedTabs(text: string): ListedTab[] | null {
+  for (const name of ["Result", "Open tabs"]) {
+    const lines = section(text, name);
+    if (!lines) continue;
+    if (lines.some((line) => line.startsWith("No open tabs"))) return [];
+    const tabs: ListedTab[] = [];
+    for (const line of lines) {
+      const match = TAB_LINE.exec(line.trim());
+      if (match) tabs.push({ index: Number(match[1]), url: match[3] ?? "", current: match[2] !== undefined });
+    }
+    if (tabs.length > 0) return tabs;
+  }
+  return null;
+}
+
+/** The number of tabs a tool result shows: its list, or one when it shows a page and no list. */
+export function shownTabCount(text: string): number | null {
+  const tabs = listedTabs(text);
+  if (tabs) return tabs.length;
+  return section(text, "Page") ? 1 : null;
+}
+
+/** The URL of the page a tool result shows, from its `Page` section, or null. */
+export function shownPageUrl(text: string): string | null {
+  const line = section(text, "Page")?.find((entry) => entry.startsWith("- Page URL: "));
+  return line ? line.slice("- Page URL: ".length).trim() : null;
+}
+
 export interface BrowserLimits {
   /** Tabs one agent session may hold open. */
   tabsPerSession: number;
@@ -81,6 +155,11 @@ export interface BrowserLimits {
   tabsTotal: number;
   /** Agent sessions that may use the browser at once. */
   sessions: number;
+  /**
+   * Projects that may have a tab group of their own at once. Each one is a Playwright process and a
+   * connection to the extension. Absent: 3. A project past the limit uses the shared group.
+   */
+  projects?: number;
 }
 
 /**
@@ -88,7 +167,7 @@ export interface BrowserLimits {
  * does nothing, so the number of sessions is the number of agents that are on, not of agents that browse.
  * What uses the memory is the tabs, and those are held to a few.
  */
-export const DEFAULT_BROWSER_LIMITS: BrowserLimits = { tabsPerSession: 4, tabsTotal: 12, sessions: 64 };
+export const DEFAULT_BROWSER_LIMITS: BrowserLimits = { tabsPerSession: 4, tabsTotal: 12, sessions: 64, projects: 3 };
 
 export type TabDecision = { allowed: true } | { allowed: false; reason: "session" | "total"; limit: number };
 
@@ -155,10 +234,14 @@ export class BrowserLedger {
     return total;
   }
 
-  checkNewTab(id: string): TabDecision {
+  /**
+   * `openTabs` is the number of tabs open in the browser groups now, when the broker has read it. Tabs
+   * that an ended session left open stay in the group for the next turn, so they count too.
+   */
+  checkNewTab(id: string, openTabs?: number): TabDecision {
     if (this.tabsOf(id) >= this.#limits.tabsPerSession)
       return { allowed: false, reason: "session", limit: this.#limits.tabsPerSession };
-    if (this.totalTabs() >= this.#limits.tabsTotal)
+    if (Math.max(openTabs ?? 0, this.totalTabs()) >= this.#limits.tabsTotal)
       return { allowed: false, reason: "total", limit: this.#limits.tabsTotal };
     return { allowed: true };
   }

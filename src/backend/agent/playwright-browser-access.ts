@@ -20,6 +20,11 @@ export const BROWSER_BROKER_MCP_SERVER_ID = "builders-bot-browser-broker";
 export interface BrowserBrokerAddress {
   url: string;
   bearer: string;
+  /**
+   * The address for one agent, which names the agent to the broker with an opaque key. The broker
+   * puts the agent's tabs in the tab group of its project, and back in its own tab at its next turn.
+   */
+  agentUrl?: (agentId: string) => string;
 }
 
 function isPlaywrightServer(config: McpServerConfig): boolean {

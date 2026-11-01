@@ -606,7 +606,7 @@ describe("the identity", () => {
     });
     brokers.push(broker);
     await broker.start();
-    expect(broker.endpoint()).toEqual({ url, bearer: saved?.secret });
+    expect(broker.endpoint()).toMatchObject({ url, bearer: saved?.secret });
   });
 
   it("gives no endpoint before start and after stop", async () => {
@@ -826,7 +826,9 @@ describe("the Guard on browser calls", () => {
         log: { info: () => undefined },
       }).check({ direction: "outbound", subject: item.tool, action: item }),
     );
-  const toolCalls = (s: Setup) => s.fake.requests.filter((line) => line.includes('"tools/call"'));
+  /** The calls of the agent that reached the upstream. The broker's own calls, which read the tabs, are left out. */
+  const toolCalls = (s: Setup) =>
+    s.fake.requests.filter((line) => line.includes('"tools/call"') && !line.includes('"id":"builders-bot-'));
 
   it("holds back a page script that sends cookies, an upload of a key and typed secrets, and tells the agent why", async () => {
     const s = await setup({ guardCall: realGuard });

@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   createServer,
   request as httpRequest,
@@ -8,7 +8,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import { isDynamicRecord } from "@openbot/contracts/runtime-values";
+import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { type BrokerCallCheck, type BrokerCallDecision, guardBrokerCall } from "../backend/guard/guard-broker-calls";
 import { GUARD_UNREAD_REASON, guardStrongNotice } from "../backend/guard/guard-gate";
@@ -20,8 +20,15 @@ import {
   type BrowserLimits,
   DEFAULT_BROWSER_LIMITS,
   inspectRpc,
+  type ListedTab,
+  listedTabs,
   type RpcEntry,
   refusalResult,
+  responseMessages,
+  resultFailed,
+  resultText,
+  shownPageUrl,
+  shownTabCount,
   tabsDelta,
 } from "./playwright-broker-policy";
 import { maskSecrets } from "./playwright-broker-runtime";
@@ -41,6 +48,159 @@ const LOW_MEMORY_MESSAGE =
   "The computer is low on memory, so the browser opens no new connection now. Try again in a minute, or go on without the browser.";
 const LOW_MEMORY_TAB_MESSAGE =
   "The computer is low on memory, so no new tab opens now. Close a tab you opened with browser_tabs action=close, or reuse an open tab, and try again in a minute.";
+
+/** The group of the agents that have no project, and of the projects past the limit. */
+const SHARED_LANE = "shared";
+const SHARED_LANE_TITLE = "Builders Bot";
+/** The extension shows at most this much of a group title well. */
+const MAX_GROUP_TITLE = 40;
+/** An agent that made a call this recently is at work in its tab, and another agent does not take that tab. */
+const BUSY_MS = 2 * 60_000;
+/** How often the broker confirms that its own session still holds the group, at most. */
+const GROUP_CHECK_MS = 30_000;
+const PROTOCOL_VERSION = "2025-06-18";
+const AGENT_KEY = /^[A-Za-z0-9_-]{22}$/u;
+const MAX_INTERNAL_RESPONSE_BYTES = 512_000;
+
+/** What every agent reads when it connects: one tab, reused. */
+const SERVER_INSTRUCTIONS =
+  "These tools drive the person's own Chrome. Use one tab: open each page in your current tab with browser_navigate. Open a second tab with browser_tabs action=new only when you need two pages at the same time, and close it with browser_tabs action=close when you are done with it. Your last tab is not closed: it stays open for your next page, also in your next turn. The tabs of your project are in one tab group with the name of the project; do not use a tab that another agent works in.";
+/** Added to the description of these tools, so that the agent reads it where it chooses the call. */
+const TOOL_NOTES: Readonly<Record<string, string>> = {
+  browser_tabs:
+    "Reuse your current tab: open a page in it with browser_navigate. Use action=new only when you need two pages at the same time, and close that tab with action=close when you are done. Your last tab is not closed: it stays for your next page.",
+  browser_navigate:
+    "This opens the page in your current tab, which is the normal way to open a page. Do not open a new tab for each page.",
+};
+const LAST_TAB_MESSAGE =
+  "This is the last tab of your group, so it stays open for your next page, and it now shows about:blank. Open your next page in it with browser_navigate.";
+
+/** A group title as the extension shows it: one line, no control or direction characters, not too long. */
+function groupTitle(name: string): string {
+  const clean = name
+    .normalize("NFC")
+    .replace(/[\p{Cc}\p{Zl}\p{Zp}‪-‮⁦-⁩]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (!clean) return SHARED_LANE_TITLE;
+  const characters = [...clean];
+  return characters.length > MAX_GROUP_TITLE ? `${characters.slice(0, MAX_GROUP_TITLE - 1).join("")}…` : clean;
+}
+
+/** A page that an agent leaves as nothing: closed when the group is put away. */
+function isBlankPage(url: string): boolean {
+  return url === "about:blank" || (url.startsWith("chrome-extension://") && url.includes("/connect.html"));
+}
+
+/** A change to one JSON-RPC answer of the upstream. */
+type AnswerChange = (message: DynamicRecord) => DynamicRecord;
+
+/** The JSON-RPC messages of a response, each one changed by `change`, in the framing they came in. */
+function rewriteMessages(text: string, change: AnswerChange): string {
+  const changed = (message: unknown) => (isDynamicRecord(message) ? change(message) : message);
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    const messages = responseMessages(trimmed);
+    if (messages.length === 0) return text;
+    return JSON.stringify(trimmed.startsWith("[") ? messages.map(changed) : changed(messages[0]));
+  }
+  return text
+    .split("\n")
+    .map((line) => {
+      if (!line.startsWith("data:")) return line;
+      const [message] = responseMessages(line.slice(5).trim());
+      return message === undefined ? line : `data: ${JSON.stringify(changed(message))}`;
+    })
+    .join("\n");
+}
+
+/** The answer to `initialize`, with the instructions of the broker after those of the server. */
+function withInstructions(message: DynamicRecord): DynamicRecord {
+  if (!isDynamicRecord(message.result)) return message;
+  const own = typeof message.result.instructions === "string" ? `${message.result.instructions}\n\n` : "";
+  return { ...message, result: { ...message.result, instructions: `${own}${SERVER_INSTRUCTIONS}` } };
+}
+
+/** The answer to `tools/list`, with a note on the tools that open pages and tabs. */
+function withToolNotes(message: DynamicRecord): DynamicRecord {
+  if (!isDynamicRecord(message.result) || !Array.isArray(message.result.tools)) return message;
+  const tools = message.result.tools.map((tool: unknown) => {
+    if (!isDynamicRecord(tool) || typeof tool.name !== "string") return tool;
+    const note = TOOL_NOTES[tool.name];
+    if (!note) return tool;
+    const description = typeof tool.description === "string" ? `${tool.description} ` : "";
+    return { ...tool, description: `${description}${note}` };
+  });
+  return { ...message, result: { ...message.result, tools } };
+}
+
+/**
+ * One tab group in the person's Chrome: one Playwright server, one connection to the extension, and
+ * the tabs that the agents of one project use. The extension names the group after the MCP client
+ * that made the connection, and that client is the broker's own session, named after the project.
+ */
+interface Lane {
+  readonly key: string;
+  readonly title: string;
+  upstream: UpstreamProcess | null;
+  /** The token of the running upstream. A new upstream has a new one. */
+  token: string | null;
+  starting: Promise<UpstreamProcess> | null;
+  emptySince: number | null;
+  /**
+   * The broker's own session at the upstream. The server keeps its browser, and with it the extension
+   * connection and the group, while one session holds it. The agent CLIs end their sessions at the end
+   * of each turn, so without this one each turn made a new connection: a new tab, a new group, and the
+   * focus taken.
+   */
+  holder: string | null;
+  holding: Promise<void> | null;
+  heldAt: number | null;
+  /** The tabs of the group, as the last list showed them. */
+  tabs: number | null;
+  /** The page that each agent was on last, by agent key, so that its next turn finds its tab. */
+  readonly lastPages: Map<string, string>;
+  lastUsedAt: number;
+}
+
+interface SessionState {
+  lane: Lane;
+  /** The opaque key of the agent from its address, or null for an address with no agent. */
+  agent: string | null;
+  /** Set once the broker chose the tab of the session, at its first call. */
+  placing: Promise<void> | null;
+  pageUrl: string | null;
+  lastCallAt: number | null;
+}
+
+/** The arguments of a tool call that the broker makes itself. */
+interface OwnToolArguments {
+  action?: "list" | "new" | "select" | "close";
+  index?: number;
+  url?: string;
+}
+
+/** A JSON-RPC message that the broker writes itself. */
+type OwnRpcMessage =
+  | { jsonrpc: "2.0"; id: string; method: "tools/call"; params: { name: string; arguments: OwnToolArguments } }
+  | {
+      jsonrpc: "2.0";
+      id: string;
+      method: "initialize";
+      params: {
+        protocolVersion: string;
+        capabilities: { roots?: { listChanged: boolean } };
+        clientInfo: { name: string; version: string };
+      };
+    }
+  | { jsonrpc: "2.0"; method: "notifications/initialized" };
+
+/** A tool call that the broker makes in a session, and what came back. */
+interface InternalReply {
+  status: number;
+  session: string | null;
+  text: string;
+}
 
 /** How the Playwright MCP server is started: from the row the person saved, with the flags set below. */
 export interface BrokerUpstreamSpec {
@@ -104,11 +264,24 @@ export interface PlaywrightBrokerOptions {
    * text or files that the call sends out. Null while the Guard is off; calls then run as they are.
    */
   guardCall?: () => BrokerCallCheck | null;
+  /**
+   * The project of an agent: a stable key and the name its tab group shows. Each project gets a group
+   * of its own, up to `limits.projects`. Null, or absent, puts the agent in the shared group.
+   */
+  projectOf?: (agentId: string) => { key: string; title: string } | null;
+  /**
+   * Whether projects may have groups of their own now. Each group is a Playwright process; when the
+   * server starts a browser of its own (the egress proxy), two of them would share one profile, so then
+   * all agents use one. Absent reads as true.
+   */
+  projectGroups?: () => boolean;
 }
 
 export interface BrokerEndpoint {
   url: string;
   bearer: string;
+  /** The address for one agent. The broker reads the agent from it to give the agent its project's group. */
+  agentUrl: (agentId: string) => string;
 }
 
 function jsonRpcError(id: number | string | null, code: number, message: string): string {
@@ -127,17 +300,23 @@ function bearerMatches(header: string | undefined, secret: string): boolean {
 }
 
 /**
- * One Playwright MCP server for every agent, and a loopback door in front of it.
+ * One Playwright MCP server for each project's tab group, and a loopback door in front of them.
  *
  * Without this, each agent starts its own `@playwright/mcp`, and each of those starts its own
  * Chrome or asks the extension for the person's browser. A few at once use all the memory. Here,
- * one `@playwright/mcp --extension --shared-browser-context` talks to the extension once, and every
- * agent is a session of it. No browser is started by Builders Bot at any point.
+ * `@playwright/mcp --extension --shared-browser-context` talks to the extension once for each
+ * project, and every agent is a session of the server of its project. No browser is started by
+ * Builders Bot at any point.
  *
  * The door adds what the Playwright server has not: a bearer (the server has no sign-in, and its
  * browser holds the person's logged-in sites), a limit on agent sessions, and a limit on the tabs
- * that agents hold open. It starts the upstream only when the first agent asks, and stops it when
- * no agent has used it for a while.
+ * that agents hold open. It starts a server only when the first agent of the project asks, and stops
+ * it when no agent has used it for a while.
+ *
+ * It also keeps the tabs few. The broker holds a session of its own in each server, so the connection
+ * to the extension, its tab group and its tabs stay between the turns of the agents. At the first call
+ * of a session it puts the agent back in the tab it used last, or in a tab that no other agent works
+ * in. The last tab of a group is not closed, because the extension ends the connection with it.
  */
 export class PlaywrightBroker {
   readonly #options: PlaywrightBrokerOptions;
@@ -145,15 +324,15 @@ export class PlaywrightBroker {
   readonly #limits: BrowserLimits;
   readonly #launch: UpstreamLauncher;
   readonly #now: () => number;
+  readonly #lanes = new Map<string, Lane>();
+  readonly #sessions = new Map<string, SessionState>();
+  /** The agent of each key that an agent address carries. Filled when the address is handed out. */
+  readonly #agents = new Map<string, string>();
   #server: Server | null = null;
   #port: number | null = null;
   #secret: string | null = null;
-  #upstream: UpstreamProcess | null = null;
-  /** The token of the running upstream. A new upstream has a new one. */
-  #upstreamToken: string | null = null;
-  #starting: Promise<UpstreamProcess> | null = null;
   #timer: NodeJS.Timeout | null = null;
-  #emptySince: number | null = null;
+  #internalId = 0;
 
   constructor(options: PlaywrightBrokerOptions) {
     this.#options = options;
@@ -166,7 +345,18 @@ export class PlaywrightBroker {
   /** The address and bearer that agents are given, or null before `start`. */
   endpoint(): BrokerEndpoint | null {
     if (this.#port === null || this.#secret === null) return null;
-    return { url: `http://127.0.0.1:${this.#port}/mcp`, bearer: this.#secret };
+    const url = `http://127.0.0.1:${this.#port}/mcp`;
+    const secret = this.#secret;
+    return {
+      url,
+      bearer: secret,
+      agentUrl: (agentId) => {
+        // The key is opaque and the same across restarts, because the bearer is: a resumed session keeps it.
+        const key = createHmac("sha256", secret).update(`agent:${agentId}`).digest("base64url").slice(0, 22);
+        this.#agents.set(key, agentId);
+        return `${url}?agent=${key}`;
+      },
+    };
   }
 
   /** Listens on the port it had, when it is free. Nothing else starts here: the upstream waits for an agent. */
@@ -202,12 +392,75 @@ export class PlaywrightBroker {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-    await this.#stopUpstream();
+    await this.#stopAll();
   }
 
-  /** How many agent sessions and tabs the broker holds now. For the load panel and for tests. */
-  usage(): { sessions: number; tabs: number; upstream: boolean } {
-    return { sessions: this.#ledger.sessionCount(), tabs: this.#ledger.totalTabs(), upstream: this.#upstream !== null };
+  /**
+   * How many agent sessions and tabs the broker holds now. For the load panel and for tests. `tabs` is
+   * what the agents opened in their sessions; `openTabs` is all the tabs of the groups, as last listed.
+   */
+  usage(): { sessions: number; tabs: number; openTabs: number; groups: number; upstream: boolean } {
+    return {
+      sessions: this.#ledger.sessionCount(),
+      tabs: this.#ledger.totalTabs(),
+      openTabs: this.#openTabs(),
+      groups: [...this.#lanes.values()].filter((lane) => lane.upstream !== null).length,
+      upstream: [...this.#lanes.values()].some((lane) => lane.upstream !== null),
+    };
+  }
+
+  #openTabs(): number {
+    let total = 0;
+    for (const lane of this.#lanes.values()) if (lane.upstream) total += lane.tabs ?? 0;
+    return total;
+  }
+
+  #lane(key: string, title: string): Lane {
+    const existing = this.#lanes.get(key);
+    if (existing) return existing;
+    const lane: Lane = {
+      key,
+      title,
+      upstream: null,
+      token: null,
+      starting: null,
+      emptySince: null,
+      holder: null,
+      holding: null,
+      heldAt: null,
+      tabs: null,
+      lastPages: new Map(),
+      lastUsedAt: this.#now(),
+    };
+    this.#lanes.set(key, lane);
+    return lane;
+  }
+
+  #laneSessions(lane: Lane): string[] {
+    return [...this.#sessions].filter(([, state]) => state.lane === lane).map(([id]) => id);
+  }
+
+  /** The group of a new session: the one of the agent's project, or the shared one. */
+  #laneFor(agentKey: string | null): Lane {
+    const agentId = agentKey === null ? undefined : this.#agents.get(agentKey);
+    const project =
+      agentId !== undefined && (this.#options.projectGroups?.() ?? true)
+        ? (this.#options.projectOf?.(agentId) ?? null)
+        : null;
+    if (!project) return this.#lane(SHARED_LANE, SHARED_LANE_TITLE);
+    const key = `project:${project.key}`;
+    const existing = this.#lanes.get(key);
+    if (existing) return existing;
+    const projects = [...this.#lanes.values()].filter((lane) => lane.key !== SHARED_LANE);
+    if (projects.length >= (this.#limits.projects ?? 3)) {
+      // Each group is a process and a connection: the one that waits longest with no agent gives its place.
+      const idle = projects
+        .filter((lane) => this.#laneSessions(lane).length === 0)
+        .sort((a, b) => a.lastUsedAt - b.lastUsedAt)[0];
+      if (!idle) return this.#lane(SHARED_LANE, SHARED_LANE_TITLE);
+      void this.#retire(idle);
+    }
+    return this.#lane(key, groupTitle(project.title));
   }
 
   async #handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -219,8 +472,8 @@ export class PlaywrightBroker {
       return reply(response, 403, jsonRpcError(null, -32000, "Wrong host."));
     if (!bearerMatches(singleHeader(request.headers.authorization), secret))
       return reply(response, 401, jsonRpcError(null, -32001, "Unauthorized."));
-    if (new URL(request.url ?? "/", "http://127.0.0.1").pathname !== "/mcp")
-      return reply(response, 404, jsonRpcError(null, -32000, "Not found."));
+    const address = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (address.pathname !== "/mcp") return reply(response, 404, jsonRpcError(null, -32000, "Not found."));
     const method = request.method ?? "";
     if (method !== "POST" && method !== "GET" && method !== "DELETE")
       return reply(response, 405, jsonRpcError(null, -32000, "Method not allowed."));
@@ -231,16 +484,27 @@ export class PlaywrightBroker {
       return reply(response, 404, jsonRpcError(null, -32001, "Session not found."));
     if (session !== undefined) this.#ledger.touch(session, this.#now());
 
-    if (method === "POST") return this.#handlePost(request, response, session);
+    const agent = address.searchParams.get("agent");
+    const agentKey = agent !== null && AGENT_KEY.test(agent) ? agent : null;
+    if (method === "POST") return this.#handlePost(request, response, session, agentKey);
     if (session === undefined) return reply(response, 400, jsonRpcError(null, -32000, "A session id is required."));
-    return this.#forward(request, response, session, undefined, []);
+    return this.#forward(request, response, this.#sessionLane(session), session, undefined, []);
+  }
+
+  #sessionLane(session: string): Lane {
+    return this.#sessions.get(session)?.lane ?? this.#lane(SHARED_LANE, SHARED_LANE_TITLE);
   }
 
   #busyMessage(): string {
     return `Too many agents use the browser at once (${this.#limits.sessions} is the limit). Try again in a minute, or go on without the browser.`;
   }
 
-  async #handlePost(request: IncomingMessage, response: ServerResponse, session: string | undefined): Promise<void> {
+  async #handlePost(
+    request: IncomingMessage,
+    response: ServerResponse,
+    session: string | undefined,
+    agentKey: string | null,
+  ): Promise<void> {
     const raw = await readBody(request);
     if (raw === "too-large") return reply(response, 413, jsonRpcError(null, -32000, "Request too large."));
     let body: unknown;
@@ -261,36 +525,23 @@ export class PlaywrightBroker {
     if (!initialize && session === undefined)
       return reply(response, 400, jsonRpcError(null, -32000, "A session id is required."));
 
-    if (session !== undefined) {
-      const newTab = entries.find((entry) => entry.kind === "tab-new");
-      if (newTab && (this.#options.memoryLevel?.() ?? "ok") !== "ok")
-        return reply(
-          response,
-          200,
-          JSON.stringify({
-            jsonrpc: "2.0",
-            id: newTab.id,
-            result: { isError: true, content: [{ type: "text", text: LOW_MEMORY_TAB_MESSAGE }] },
-          }),
-        );
-      if (newTab) {
-        const decision = this.#ledger.checkNewTab(session);
-        if (!decision.allowed)
-          return reply(
-            response,
-            200,
-            JSON.stringify({ jsonrpc: "2.0", id: newTab.id, result: refusalResult(decision) }),
-          );
-      }
-    }
-    // A tool call sends what the agent chose out of the computer, as the person: the Guard checks it first.
+    const lane = session === undefined ? this.#laneFor(agentKey) : this.#sessionLane(session);
+    lane.lastUsedAt = this.#now();
     const message = Array.isArray(body) ? body[0] : body;
     const toolCall = isDynamicRecord(message) && message.method === "tools/call";
+    const toolName =
+      toolCall && isDynamicRecord(message.params) && typeof message.params.name === "string"
+        ? message.params.name
+        : null;
+    const state = session === undefined ? undefined : this.#sessions.get(session);
+
+    // A tool call sends what the agent chose out of the computer, as the person: the Guard checks it first,
+    // before the broker reads or changes any tab for it.
     let forwarded = raw;
-    if (toolCall && isDynamicRecord(message.params) && typeof message.params.name === "string") {
-      const decision = await this.#guardCall(message.params.name, message.params.arguments);
+    if (toolCall && isDynamicRecord(message.params) && toolName !== null) {
+      const decision = await this.#guardCall(toolName, message.params.arguments);
       if (!decision.proceed) {
-        logger.info("The Guard held back a browser call.", { tool: message.params.name });
+        logger.info("The Guard held back a browser call.", { tool: toolName });
         return reply(
           response,
           200,
@@ -308,8 +559,51 @@ export class PlaywrightBroker {
         forwarded = Buffer.from(JSON.stringify(Array.isArray(body) ? [changed] : changed));
       }
     }
+    if (session !== undefined && state && toolName !== null) {
+      // The group first, so that the broker's own session makes the connection and names the group.
+      await this.#holdGroup(lane);
+      state.placing ??= this.#place(session, state, toolName);
+      await state.placing;
+      state.lastCallAt = this.#now();
+    }
+
+    if (session !== undefined) {
+      const newTab = entries.find((entry) => entry.kind === "tab-new");
+      if (newTab && (this.#options.memoryLevel?.() ?? "ok") !== "ok")
+        return reply(
+          response,
+          200,
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: newTab.id,
+            result: { isError: true, content: [{ type: "text", text: LOW_MEMORY_TAB_MESSAGE }] },
+          }),
+        );
+      if (newTab) {
+        // The tabs that ended turns left in the groups count too, so the broker reads them first.
+        const open = state ? await this.#refreshTabs(session, state) : undefined;
+        const decision = this.#ledger.checkNewTab(session, open);
+        if (!decision.allowed)
+          return reply(
+            response,
+            200,
+            JSON.stringify({ jsonrpc: "2.0", id: newTab.id, result: refusalResult(decision) }),
+          );
+      }
+      const close = entries.find((entry) => entry.kind === "tab-close");
+      if (close && toolName === "browser_tabs" && state) {
+        const kept = await this.#keepLastTab(session, state, close.id);
+        if (kept !== null) return reply(response, 200, kept);
+      }
+    }
+    const listing = isDynamicRecord(message) && message.method === "tools/list";
+    const rewrite = initialize ? withInstructions : listing ? withToolNotes : null;
     // A tool result can hold a page: the Guard reads it on its way to the agent.
-    await this.#forward(request, response, session, forwarded, entries, toolCall ? this.#guardCheck() : null);
+    await this.#forward(request, response, lane, session, forwarded, entries, toolCall ? this.#guardCheck() : null, {
+      agentKey,
+      toolName,
+      rewrite,
+    });
   }
 
   /** The Guard's decision on one call, made safe: a check that fails lets the call run, and the broker logs it. */
@@ -341,24 +635,30 @@ export class PlaywrightBroker {
   async #forward(
     request: IncomingMessage,
     response: ServerResponse,
+    lane: Lane,
     session: string | undefined,
     body: Buffer | undefined,
     entries: readonly RpcEntry[],
     guard: GuardResultCheck | null = null,
+    call: {
+      agentKey: string | null;
+      toolName: string | null;
+      rewrite: AnswerChange | null;
+    } = { agentKey: null, toolName: null, rewrite: null },
   ): Promise<void> {
     let upstream: UpstreamProcess;
     try {
-      upstream = await this.#ensureUpstream();
+      upstream = await this.#ensureUpstream(lane);
     } catch (error) {
       const message = error instanceof Error ? error.message : "The browser did not start.";
       const id = entries[0]?.id ?? null;
       return reply(response, 200, jsonRpcError(id, -32000, message));
     }
-    this.#emptySince = null;
+    lane.emptySince = null;
     const target = new URL(upstream.url);
     const headers: Record<string, string> = {
       host: upstream.hostHeader ?? target.host,
-      [BROKER_TOKEN_HEADER]: this.#upstreamToken ?? "",
+      [BROKER_TOKEN_HEADER]: lane.token ?? "",
     };
     for (const name of FORWARDED_REQUEST_HEADERS) {
       const value = singleHeader(request.headers[name]);
@@ -378,6 +678,8 @@ export class PlaywrightBroker {
           response.writeHead(status, responseHeaders);
           const tee: Buffer[] = [];
           let teeSize = 0;
+          // A short answer that the broker changes (the server's instructions, the tool list) is held whole.
+          const held: Buffer[] | null = call.rewrite ? [] : null;
           // With the Guard, each tool result passes through its reader, in order; other events at once.
           const reader = guard
             ? new McpResultGuard(singleHeader(incoming.headers["content-type"]) ?? null, guard, {
@@ -392,6 +694,10 @@ export class PlaywrightBroker {
               tee.push(chunk);
               teeSize += chunk.length;
             }
+            if (held) {
+              held.push(chunk);
+              return;
+            }
             if (!reader) {
               response.write(chunk);
               return;
@@ -403,14 +709,14 @@ export class PlaywrightBroker {
           });
           incoming.on("end", () => {
             const finish = () => {
+              if (held && call.rewrite)
+                response.write(rewriteMessages(Buffer.concat(held).toString("utf8"), call.rewrite));
               response.end();
-              this.#afterResponse(
-                request.method ?? "",
-                session,
-                incoming.headers,
-                entries,
-                Buffer.concat(tee).toString("utf8"),
-              );
+              this.#afterResponse(request.method ?? "", lane, session, status, incoming.headers, entries, {
+                text: Buffer.concat(tee).toString("utf8"),
+                agentKey: call.agentKey,
+                toolName: call.toolName,
+              });
               resolve();
             };
             if (!reader) return finish();
@@ -446,26 +752,207 @@ export class PlaywrightBroker {
 
   #afterResponse(
     method: string,
+    lane: Lane,
     session: string | undefined,
+    status: number,
     headers: IncomingHttpHeaders,
     entries: readonly RpcEntry[],
-    text: string,
+    call: { text: string; agentKey: string | null; toolName: string | null },
   ): void {
     const issued = singleHeader(headers["mcp-session-id"]);
     if (method === "POST" && entries.some((entry) => entry.kind === "initialize") && issued) {
       this.#ledger.register(issued, this.#now());
+      this.#sessions.set(issued, { lane, agent: call.agentKey, placing: null, pageUrl: null, lastCallAt: null });
       return;
     }
-    if (method === "DELETE" && session !== undefined) {
-      this.#ledger.endSession(session);
+    if (session === undefined) return;
+    // A session the agent ended, or one the upstream lost (it ended it, or started again): the agent starts a new one.
+    if (method === "DELETE" || status === 404) {
+      this.#endSession(session);
       return;
     }
-    if (method === "POST" && session !== undefined) this.#ledger.applyDelta(session, tabsDelta(entries, text));
+    if (method !== "POST") return;
+    this.#ledger.applyDelta(session, tabsDelta(entries, call.text));
+    if (call.toolName !== null) this.#notePage(session, call.text);
   }
 
-  async #ensureUpstream(): Promise<UpstreamProcess> {
-    if (this.#upstream) return this.#upstream;
-    if (!this.#starting) {
+  /** What a tool result shows of the session's page and of the group's tabs. */
+  #notePage(session: string, response: string): void {
+    const state = this.#sessions.get(session);
+    if (!state) return;
+    const text = resultText(response);
+    const count = shownTabCount(text);
+    if (count !== null) state.lane.tabs = count;
+    const current = listedTabs(text)?.find((tab) => tab.current)?.url ?? shownPageUrl(text);
+    if (current === null || current === undefined) return;
+    state.pageUrl = current;
+    if (state.agent !== null) state.lane.lastPages.set(state.agent, current);
+  }
+
+  #endSession(id: string): void {
+    this.#ledger.endSession(id);
+    this.#sessions.delete(id);
+  }
+
+  /** A JSON-RPC request that the broker itself sends to the upstream of a group. */
+  async #internal(lane: Lane, session: string | null, message: OwnRpcMessage): Promise<InternalReply> {
+    const upstream = lane.upstream;
+    if (!upstream) return { status: 0, session: null, text: "" };
+    const target = new URL(upstream.url);
+    const body = Buffer.from(JSON.stringify(message));
+    return new Promise<InternalReply>((resolve) => {
+      const outgoing = httpRequest(
+        {
+          host: target.hostname,
+          port: target.port,
+          path: "/mcp",
+          method: "POST",
+          headers: {
+            host: upstream.hostHeader ?? target.host,
+            [BROKER_TOKEN_HEADER]: lane.token ?? "",
+            "content-type": "application/json",
+            accept: "application/json, text/event-stream",
+            "content-length": String(body.length),
+            ...(session === null ? {} : { "mcp-session-id": session }),
+          },
+        },
+        (incoming) => {
+          const chunks: Buffer[] = [];
+          let size = 0;
+          incoming.on("data", (chunk: Buffer) => {
+            if (size < MAX_INTERNAL_RESPONSE_BYTES) chunks.push(chunk);
+            size += chunk.length;
+          });
+          incoming.on("end", () =>
+            resolve({
+              status: incoming.statusCode ?? 0,
+              session: singleHeader(incoming.headers["mcp-session-id"]) ?? null,
+              text: Buffer.concat(chunks).toString("utf8"),
+            }),
+          );
+          incoming.on("error", () => resolve({ status: 0, session: null, text: "" }));
+        },
+      );
+      outgoing.on("error", () => resolve({ status: 0, session: null, text: "" }));
+      outgoing.end(body);
+    });
+  }
+
+  /** A tool call that the broker makes in a session. Null when it failed or did not reach the server. */
+  async #tool(lane: Lane, session: string, name: string, args: OwnToolArguments): Promise<string | null> {
+    this.#internalId += 1;
+    const answer = await this.#internal(lane, session, {
+      jsonrpc: "2.0",
+      id: `builders-bot-${this.#internalId}`,
+      method: "tools/call",
+      params: { name, arguments: args },
+    });
+    if (answer.status === 404 && session === lane.holder) lane.holder = null;
+    if (answer.status !== 200 || resultFailed(answer.text)) return null;
+    return resultText(answer.text);
+  }
+
+  /**
+   * Makes sure that the broker's own session holds the group's connection. It is made at the first
+   * tool call of the group, before the agent's own, so that the extension names the group after the
+   * project. It is checked again at most every 30 s: when the person closes the group, the next call
+   * makes a new connection, and this session must hold that one too.
+   */
+  async #holdGroup(lane: Lane): Promise<void> {
+    if (lane.heldAt !== null && this.#now() - lane.heldAt < GROUP_CHECK_MS) return;
+    lane.holding ??= this.#takeHold(lane).finally(() => {
+      lane.holding = null;
+    });
+    await lane.holding;
+  }
+
+  async #takeHold(lane: Lane): Promise<void> {
+    try {
+      await this.#ensureUpstream(lane);
+    } catch {
+      return; // The agent's own call reports why.
+    }
+    if (lane.holder === null) {
+      const opened = await this.#internal(lane, null, {
+        jsonrpc: "2.0",
+        id: "builders-bot-group",
+        method: "initialize",
+        params: { protocolVersion: PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: lane.title, version: "1" } },
+      });
+      if (opened.status !== 200 || opened.session === null || resultFailed(opened.text)) return;
+      lane.holder = opened.session;
+      await this.#internal(lane, lane.holder, { jsonrpc: "2.0", method: "notifications/initialized" });
+    }
+    const listed = await this.#tool(lane, lane.holder, "browser_tabs", { action: "list" });
+    // The extension did not connect, for example: the agent's call tries again and says why.
+    if (listed === null) return;
+    lane.heldAt = this.#now();
+    lane.tabs = shownTabCount(listed) ?? lane.tabs;
+  }
+
+  /**
+   * Chooses the tab of a new session, at its first tool call. A new session of the server starts on the
+   * first tab of the group, which may be the tab of another agent. The agent goes back to the tab it
+   * used last; else to a tab that no other agent works in now; else it gets a new tab, within the limits.
+   * A session that starts with `browser_tabs` chooses its tab itself.
+   */
+  async #place(session: string, state: SessionState, toolName: string): Promise<void> {
+    if (toolName === "browser_tabs") return;
+    const lane = state.lane;
+    const listed = await this.#tool(lane, session, "browser_tabs", { action: "list" });
+    const tabs = listed === null ? null : listedTabs(listed);
+    if (!tabs) return;
+    lane.tabs = tabs.length;
+    const now = this.#now();
+    const taken = new Set<string>();
+    for (const [id, other] of this.#sessions) {
+      if (id === session || other.lane !== lane || other.pageUrl === null || other.lastCallAt === null) continue;
+      if (now - other.lastCallAt < BUSY_MS) taken.add(other.pageUrl);
+    }
+    const free = tabs.filter((tab) => !taken.has(tab.url));
+    const last = state.agent === null ? undefined : lane.lastPages.get(state.agent);
+    const choice: ListedTab | undefined = free.find((tab) => tab.url === last) ?? free[0];
+    if (choice) {
+      if (!choice.current) await this.#tool(lane, session, "browser_tabs", { action: "select", index: choice.index });
+      state.pageUrl = choice.url;
+      return;
+    }
+    // Every tab is in use by another agent: a tab of its own, if the limits and the memory allow one.
+    if ((this.#options.memoryLevel?.() ?? "ok") !== "ok") return;
+    if (!this.#ledger.checkNewTab(session, this.#openTabs()).allowed) return;
+    const opened = await this.#tool(lane, session, "browser_tabs", { action: "new" });
+    if (opened === null) return;
+    this.#ledger.applyDelta(session, 1);
+    lane.tabs = shownTabCount(opened) ?? (lane.tabs ?? 0) + 1;
+    state.pageUrl = "about:blank";
+  }
+
+  /** Reads the tabs of the session's group again, and gives the number of tabs open in all groups. */
+  async #refreshTabs(session: string, state: SessionState): Promise<number> {
+    const listed = await this.#tool(state.lane, session, "browser_tabs", { action: "list" });
+    const count = listed === null ? null : shownTabCount(listed);
+    if (count !== null) state.lane.tabs = count;
+    return this.#openTabs();
+  }
+
+  /**
+   * The answer to a close of the last tab of a group, or null when it is not the last. The extension
+   * ends its connection with the last tab, and the next call then opens a new connect page: a new tab
+   * and a new group. So the tab stays, with nothing in it.
+   */
+  async #keepLastTab(session: string, state: SessionState, id: number | string | null): Promise<string | null> {
+    const listed = await this.#tool(state.lane, session, "browser_tabs", { action: "list" });
+    const tabs = listed === null ? null : listedTabs(listed);
+    if (!tabs || tabs.length > 1) return null;
+    if (tabs.length === 1) await this.#tool(state.lane, session, "browser_navigate", { url: "about:blank" });
+    state.pageUrl = "about:blank";
+    if (state.agent !== null) state.lane.lastPages.set(state.agent, "about:blank");
+    return JSON.stringify({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: LAST_TAB_MESSAGE }] } });
+  }
+
+  async #ensureUpstream(lane: Lane): Promise<UpstreamProcess> {
+    if (lane.upstream) return lane.upstream;
+    if (!lane.starting) {
       const spec = this.#options.upstream();
       if (!spec) throw new Error("No Playwright server is set up in Builders Bot.");
       const token = randomBytes(32).toString("base64url");
@@ -474,46 +961,84 @@ export class PlaywrightBroker {
         [BROKER_TOKEN_ENV]: token,
         NODE_OPTIONS: guardNodeOptions(this.#options.guardPath, spec.env.NODE_OPTIONS),
       };
-      this.#starting = this.#launch({ ...spec, env }).then(
+      lane.starting = this.#launch({ ...spec, env }).then(
         (process) => {
-          this.#upstream = process;
-          this.#upstreamToken = token;
-          this.#starting = null;
+          lane.upstream = process;
+          lane.token = token;
+          lane.starting = null;
           process.onExit(() => {
-            if (this.#upstream === process) this.#upstream = null;
+            if (lane.upstream !== process) return;
             // Its sessions went with it. The agents read a missing session and start again.
-            this.#ledger.endAll();
+            this.#forgetUpstream(lane);
           });
           return process;
         },
         (error: unknown) => {
-          this.#starting = null;
+          lane.starting = null;
           throw error;
         },
       );
     }
-    return this.#starting;
+    return lane.starting;
+  }
+
+  /** What the broker knew of a group's upstream, forgotten when it ends. */
+  #forgetUpstream(lane: Lane): void {
+    lane.upstream = null;
+    lane.token = null;
+    lane.holder = null;
+    lane.heldAt = null;
+    lane.tabs = null;
+    lane.lastPages.clear();
+    for (const id of this.#laneSessions(lane)) this.#endSession(id);
   }
 
   /**
-   * Stops the upstream and ends its sessions, so the next request starts it with the options of now.
+   * Stops every upstream and ends its sessions, so the next request starts one with the options of now.
    * The egress proxy calls it when its switch changes. The agents read a missing session and start again.
    */
   async resetUpstream(): Promise<void> {
-    this.#ledger.endAll();
-    await this.#stopUpstream();
+    await this.#stopAll();
   }
 
-  async #stopUpstream(): Promise<void> {
-    const upstream = this.#upstream;
-    this.#upstream = null;
-    this.#upstreamToken = null;
+  async #stopAll(): Promise<void> {
+    const lanes = [...this.#lanes.values()];
+    this.#lanes.clear();
+    this.#ledger.endAll();
+    this.#sessions.clear();
+    await Promise.all(lanes.map((lane) => this.#stopLane(lane)));
+  }
+
+  async #stopLane(lane: Lane): Promise<void> {
+    const upstream = lane.upstream;
+    this.#forgetUpstream(lane);
     if (upstream) await upstream.stop();
   }
 
   /**
-   * Ends the sessions that no agent has used for a while, and stops the upstream when none is left
-   * for a while. A timer calls it; it is public so a test can run it at a chosen time.
+   * Puts a group away: closes the blank tabs that agents left in it, then stops its upstream. Its
+   * other tabs stay open, out of the group: the person may read what an agent left.
+   */
+  async #retire(lane: Lane): Promise<void> {
+    if (this.#lanes.get(lane.key) === lane) this.#lanes.delete(lane.key);
+    lane.emptySince = null;
+    await this.#closeBlankTabs(lane);
+    await this.#stopLane(lane);
+  }
+
+  async #closeBlankTabs(lane: Lane): Promise<void> {
+    // Only a group that the broker's session holds: a list in another session could open a new connection.
+    if (!lane.upstream || lane.holder === null || lane.heldAt === null) return;
+    const listed = await this.#tool(lane, lane.holder, "browser_tabs", { action: "list" });
+    const tabs = listed === null ? null : listedTabs(listed);
+    if (!tabs) return;
+    const blank = tabs.filter((tab) => isBlankPage(tab.url)).sort((a, b) => b.index - a.index);
+    for (const tab of blank) await this.#tool(lane, lane.holder, "browser_tabs", { action: "close", index: tab.index });
+  }
+
+  /**
+   * Ends the sessions that no agent has used for a while, and puts away a group that has had no
+   * session for a while. A timer calls it; it is public so a test can run it at a chosen time.
    */
   async releaseIdle(): Promise<void> {
     const now = this.#now();
@@ -521,24 +1046,28 @@ export class PlaywrightBroker {
     // it reads 404. So a session ends only after hours with no request, for the one a closed agent leaves behind.
     const idleSessionMs = this.#options.idleSessionMs ?? 3 * 60 * 60_000;
     for (const id of this.#ledger.idleSessions(now, idleSessionMs)) {
-      this.#ledger.endSession(id);
-      await this.#endUpstreamSession(id);
+      const lane = this.#sessions.get(id)?.lane ?? null;
+      this.#endSession(id);
+      if (lane) await this.#endUpstreamSession(lane, id);
     }
-    if (!this.#upstream) return;
-    if (this.#ledger.sessionCount() > 0) {
-      this.#emptySince = null;
-      return;
-    }
-    this.#emptySince ??= now;
-    if (now - this.#emptySince >= (this.#options.idleUpstreamMs ?? 10 * 60_000)) {
-      this.#emptySince = null;
-      await this.#stopUpstream();
+    for (const lane of [...this.#lanes.values()]) {
+      if (!lane.upstream) {
+        // A group with no process and no agent holds nothing: its place goes back.
+        if (!lane.starting && this.#laneSessions(lane).length === 0) this.#lanes.delete(lane.key);
+        continue;
+      }
+      if (this.#laneSessions(lane).length > 0) {
+        lane.emptySince = null;
+        continue;
+      }
+      lane.emptySince ??= now;
+      if (now - lane.emptySince >= (this.#options.idleUpstreamMs ?? 10 * 60_000)) await this.#retire(lane);
     }
   }
 
   /** Tells the upstream that a session is over, so it lets go of what the session held. */
-  #endUpstreamSession(id: string): Promise<void> {
-    const upstream = this.#upstream;
+  #endUpstreamSession(lane: Lane, id: string): Promise<void> {
+    const upstream = lane.upstream;
     if (!upstream) return Promise.resolve();
     const target = new URL(upstream.url);
     return new Promise<void>((resolve) => {
@@ -551,7 +1080,7 @@ export class PlaywrightBroker {
           headers: {
             host: upstream.hostHeader ?? target.host,
             "mcp-session-id": id,
-            [BROKER_TOKEN_HEADER]: this.#upstreamToken ?? "",
+            [BROKER_TOKEN_HEADER]: lane.token ?? "",
           },
         },
         (incoming) => {

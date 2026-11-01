@@ -36,10 +36,12 @@ describe("web access when the Builders Bot browser is chosen", () => {
     expect(text).not.toContain("Web access is Playwright");
   });
 
-  it("tells Playwright to share the person's own tabs politely, and to close the ones it opened", () => {
+  it("tells Playwright to reuse one tab, and to close the extra ones it opened", () => {
     const text = instructions();
     expect(text).toContain("every agent shares that one connection");
-    expect(text).toContain("close the tabs you opened as soon as you are done");
+    expect(text).toContain("Use one tab: open each page in your current tab with browser_navigate");
+    expect(text).toContain("Close the extra tabs you opened as soon as you are done");
+    expect(text).not.toContain("open each page in a new tab");
   });
 
   it("says what to do when the browser refuses a new tab, and when too many agents use it", () => {
