@@ -182,6 +182,7 @@ Cultura Builder with no sign-in. The page is `src/renderer/src/features/settings
 
 The page, Settings, Guard ("Guarda" in Portuguese), shows:
 
+- the Guard's siren (see [The siren](#the-siren)), with the level and what the Guard does now;
 - the level and the review model, with a note when the Guard uses only the local check;
 - when the Guard asks the person: the card of the desktop app (the phone and the web client show an
   ordinary approval, see the known limits), the 10 minutes that an "allow" holds, and the questions
@@ -199,6 +200,46 @@ API route reads or sets them. While the window shows such a server, the page say
 computer only, and the General section of that server's settings says that this app cannot change its
 Guard yet. Setting it from a client needs a new admin capability of the Team API (such as `guard-v1`),
 which is not decided.
+
+The model list of the page keys each row with `JSON.stringify([provider, model])`, so a key holds
+quotes. Kobalte found the active row with an unescaped `[data-key="…"]` selector; the selector was
+invalid, the error halted the reactive system of the window, and the open list stayed at the top
+corner of the page and could not close. The Kobalte patch (`patches/@kobalte%2Fcore@2.0.0-alpha.0.patch`)
+escapes the key with `CSS.escape` in each such selector (select, listbox, combobox and tabs).
+`scripts/settings-select-e2e.ts` opens, closes and chooses in the lists of the page.
+
+## The siren
+
+The Guard has a picture: its box (the agent mark, `AgentMark`, with a shield on the right face) and a
+siren on the lid, a dome with a reflector that turns inside and two beams that sweep round it. It is
+version P1 ("giroflex") of the Guard mockups. The component is `GuardSiren`
+(`packages/ui/src/features/guard/GuardSiren.tsx`), with `guard-siren.css`.
+
+| State | Box | Siren |
+| --- | --- | --- |
+| Off | Grey, eyes shut | Down in the box |
+| Light | Green, eyes half shut | Up, dark glass, still |
+| Strict (planned) | Blue | Amber; one turn in 2.6 s |
+| Very strict (planned) | Amber | Red; one turn in 1.15 s, the halo throbs |
+| Custom (planned) | Purple | Up, dark glass, still |
+| Any level but Off, while a Guard question waits | Shield shows "!" | Red, as Very strict |
+
+It shows in two places:
+
+- At the top of Settings › Guard (`GuardSirenHero`), large, with the name of the level and what the
+  Guard does now in text: off, asking you, the local check only, no Cultura Builder sign-in, the
+  model not available, or the model ready. It follows the level list of the page and the questions of
+  the Guard that wait (`approvals` of `useTurns`, with `guard: true`).
+- In the header of the card of a Guard question (`ApprovalCard` with `guard: true`), compact, red
+  until the person answers. The same card shows in the conversation, in a thread tab and in the
+  browser panel.
+
+The picture is decoration: it is hidden from screen readers, and the page and the card say the state
+in text. Only `transform` and `opacity` move, in three parts at most: the beams (one layer that turns
+both), the reflector and the halo. No part uses `filter`, a shadow or `backdrop-filter`. The motion
+stops with reduced motion, while the document is hidden, and when the owner passes `playing={false}`.
+`scripts/guard-siren-e2e.ts` checks the stylesheet as text, the animations and their cost on the main
+thread, reduced motion, the pause, the card, and the page in both themes.
 
 ## The local check at Light
 
