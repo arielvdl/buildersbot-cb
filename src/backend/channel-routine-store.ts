@@ -113,6 +113,16 @@ export class ChannelRoutineStore extends RoutineStore {
     return this.ownersWithOpenRuns();
   }
 
+  /** The request ids of every run of one routine, in any status. */
+  requestIds(channelId: string, routineId: string): string[] {
+    return this.runHandles(channelId, routineId);
+  }
+
+  /** The runs of one channel that posted one of these requests, in any status. */
+  runsForRequests(channelId: string, requestMessageIds: readonly string[]): ChannelRoutineRun[] {
+    return this.runRowsForHandles(channelId, requestMessageIds).map(toChannelRun);
+  }
+
   runForRequest(requestMessageId: string): ChannelRoutineRun | null {
     const run = this.runForHandleRow(requestMessageId);
     return run ? toChannelRun(run) : null;
