@@ -62,7 +62,7 @@ export const messages = defineMessages("guard", {
   "guard.saveFailed": "The Guard setting was not saved.",
   "guard.siren.label": "The Guard's siren",
   "guard.siren.status.loading": "Reading the state of the Guard…",
-  "guard.siren.status.off": "Asleep. The Guard checks nothing.",
+  "guard.siren.status.off": "Nothing is checked until you choose Light.",
   "guard.siren.status.asking": "Asking you now. Answer on the card in the conversation.",
   "guard.siren.status.localOnly": "Calm. The local check reads everything, and nothing goes over the network.",
   "guard.siren.status.signedOut": "Calm. Only the local check runs: you are not signed in to Cultura Builder.",

@@ -62,7 +62,7 @@ export const messages = {
   "guard.saveFailed": "A configuração do Guarda não foi salva.",
   "guard.siren.label": "A sirene do Guarda",
   "guard.siren.status.loading": "Lendo o estado do Guarda…",
-  "guard.siren.status.off": "Dormindo. O Guarda não confere nada.",
+  "guard.siren.status.off": "Nada é conferido até você escolher Leve.",
   "guard.siren.status.asking": "Perguntando a você agora. Responda no cartão da conversa.",
   "guard.siren.status.localOnly": "Calmo. A verificação local lê tudo, e nada sai pela rede.",
   "guard.siren.status.signedOut": "Calmo. Só a verificação local roda: você não entrou no Cultura Builder.",
