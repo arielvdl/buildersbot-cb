@@ -47,6 +47,33 @@ Shutdown is largely in construction order, rather than reverse order. The browse
 before its picture-in-picture window. Provider runtimes stop before the agent service that owns
 them. Teardown ordinals state this order beside construction instead of repeating it elsewhere.
 
+### Quit time limits
+
+The quit has four limits, from the inside out:
+
+| Limit | Value | What it does |
+| --- | --- | --- |
+| Step limit (`TeardownRegistry`) | 10 s | The drain stops waiting for one step. The step continues. |
+| Budget of all steps (`TeardownRegistry`) | 15 s | After it, each step that is left starts in its order, but gets 100 ms. |
+| Database step | 5 s wait, then its own 10 s | It waits for the abandoned steps, so a slow agent stop records its interrupted turns, then closes and checkpoints the WAL. The budget does not apply to it. |
+| `SHUTDOWN_DEADLINE_MS` in `index.ts` | 30 s | `app.exit(0)`, logged. Then the exit watchdog sends `SIGKILL` after 10 s more. |
+
+Before the budget, the step limits added up. One quit on 31 Oct 2026 waited 10 s for the local
+host (`The Team WebRTC disconnect command timed out.`) and 10 s for the team WebRTC bridge, whose
+stop sends its next command to the same bridge window. A third step that did not stop would have
+taken the quit to the 30 s deadline before the database step. The registry logs each step that takes 1 s or more (`Shutting down … took …
+ms.`), also a step that it abandoned, so the main log names the step that holds a slow quit.
+
+`before-quit` holds every quit until the teardown has ended (`shutdownFinished`). Before, a second
+request while the teardown ran (Cmd+Q again, `SIGTERM`, the quit of an update) went through:
+Electron closed the windows and ended the process before the database step.
+
+Every quit that the app asks for itself goes through `quitApplication()`. A local server child on
+macOS uses this to find a quit that macOS delivered to it: see
+[servers on this computer](architecture/servers.md). On 31 Oct and 1 Nov 2026 the install script's
+`tell application "Builders Bot" to quit` reached the child, not the app. The child quit and was
+started again 5 s later, and the app quit only at the script's `SIGTERM`, 62 s and 76 s later.
+
 Dependencies wired before `app.whenReady()` need getters because the services do not yet exist.
 Capturing `null` there never recovers. The renderer forwarders and window module now read one
 service handle each instead of eleven separate handles. Code wired during construction can receive

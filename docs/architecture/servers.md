@@ -892,6 +892,17 @@ the server as a joined server with `thisComputer: true`. `kind` stays `"remote"`
   the joined-server connections close (step 60). The sibling scan before an update leaves out the
   child PIDs. After an unexpected exit, the desktop starts the child again after 5 seconds, at most
   3 times in 10 minutes. The owner password is registered for redaction and is never logged.
+- **Stop.** The desktop closes the child's stdin. A child that is still there after 2 seconds gets
+  `SIGTERM`, and after 6 seconds `SIGKILL`. The signal does not come at once: Electron takes the
+  first `SIGTERM` as a quit and ends the process at the second one, so a signal that came while the
+  child already quit ended its teardown before its database closed.
+- **Quit requests.** The child runs from the app bundle, so macOS knows it by the bundle identifier of
+  the app. A quit Apple Event that names Builders Bot (`tell application "Builders Bot" to quit`, a
+  logout) can reach the child and not the desktop. On macOS the child takes a quit that it did not ask
+  for (`quitApplication()` in `index.ts`), and that the desktop did not ask for by closing its stdin,
+  as such a request. It writes `OPENBOT_LOCAL_SERVER_QUIT_REQUEST` to stdout, keeps running, and the
+  desktop quits and stops it. The desktop ignores the line from a child that it stops. When the line
+  cannot be written, the child quits.
 - **Delete.** The desktop stops the child, removes the entry, and moves both folders to the trash
   with `shell.trashItem`. It never deletes them.
 - **Rename.** The `host-admin` identity route, as on any joined server that the user owns.
