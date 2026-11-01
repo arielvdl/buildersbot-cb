@@ -292,6 +292,73 @@ export const messages = defineMessages("settings", {
   "settings.tab.billing.description": "License, server plans, payment method and invoices.",
   "settings.tab.hostedServers.title": "Hosted servers",
   "settings.tab.hostedServers.description": "Create Builders Bot servers that run when this computer is off.",
+  "settings.tab.taskReviewer.title": "Task reviewer",
+  "settings.tab.taskReviewer.description": "Finds channel tasks that are stuck and moves them",
+  "settings.taskReviewer.section.title": "Task reviewer",
+  "settings.taskReviewer.enabled.title": "Task reviewer (experimental)",
+  "settings.taskReviewer.enabled.description":
+    "Looks for channel tasks that give no sign of life or wait too long in the queue, and tries to move them, one task at a time. It is off by default.",
+  "settings.taskReviewer.state.title": "Now",
+  "settings.taskReviewer.state.loading": "Reading the state of this computer…",
+  "settings.taskReviewer.state.off": "Off. It looks at no task.",
+  "settings.taskReviewer.state.waiting":
+    "On, but it waits: it looks only while Resume by itself is on too. Resume by itself also starts again the tasks that you stopped.",
+  "settings.taskReviewer.state.active": "On. It looks at the channel tasks every minute.",
+  "settings.taskReviewer.state.turnOnRecovery": "Turn on Resume by itself",
+  "settings.taskReviewer.quiet.title": "Consider it stopped after",
+  "settings.taskReviewer.quiet.description":
+    "Minutes with no sign of life. At twice this time the task is stuck and the task reviewer acts. A command with no output, such as a build, gets four times this time.",
+  "settings.taskReviewer.quiet.value": "{minutes} min",
+  "settings.taskReviewer.quiet.suggested": "{minutes} min (suggested)",
+  "settings.taskReviewer.model.title": "Model",
+  "settings.taskReviewer.model.description":
+    "For a slow task only, it asks the review model of the Guard whether to act now. It sends a short summary with secrets masked, never the conversation.",
+  "settings.taskReviewer.model.ready": "{model}: available now.",
+  "settings.taskReviewer.model.notReady": "{model}: not available now, so only the local rules decide.",
+  "settings.taskReviewer.model.localOnly": "The Guard uses the local check only, so only the local rules decide.",
+  "settings.taskReviewer.model.openGuard": "Open the Guard",
+  "settings.taskReviewer.load.title": "Settings of the load panel",
+  "settings.taskReviewer.load.description":
+    "The task reviewer follows these switches of the load panel. A change here also shows there.",
+  "settings.taskReviewer.recovery.description":
+    "Starts stopped work again by itself after {minutes} minutes, also the tasks that you stopped. The task reviewer looks only while this is on, and it acts on the same task at most once in this interval.",
+  "settings.taskReviewer.reassign.description":
+    "Without it, the task reviewer only resumes a task, and never gives it to another agent.",
+  "settings.taskReviewer.recent.title": "Last actions",
+  "settings.taskReviewer.recent.meta": "{time} · {decider}",
+  "settings.taskReviewer.recent.empty": "No action yet. The list is kept in memory, so a restart of the app clears it.",
+  "settings.taskReviewer.does.title": "What it does",
+  "settings.taskReviewer.does.resume.title": "Resumes a run with no sign of life",
+  "settings.taskReviewer.does.resume.description":
+    "It stops the turn and puts the task in the queue again, as Continue does. A long run that gives signs is never touched.",
+  "settings.taskReviewer.does.requeue.title": "Wakes a request that waits too long",
+  "settings.taskReviewer.does.requeue.description":
+    "It puts the request in the queue again and wakes its channel. A request that waits for a reason, such as the cap on agents, is left alone.",
+  "settings.taskReviewer.does.reassign.title": "Gives the task to another agent",
+  "settings.taskReviewer.does.reassign.description":
+    "Only with “Give it to another agent if it keeps failing” on, and only to a free agent of the same channel, the same model first.",
+  "settings.taskReviewer.does.giveUp.title": "Stops at the end of the tries",
+  "settings.taskReviewer.does.giveUp.description":
+    "Each task has 2 resumes and 2 reassigns in all, shared with Resume by itself. Then it stops the task and says so in the load panel.",
+  "settings.taskReviewer.doesNot.title": "What it does not do",
+  "settings.taskReviewer.doesNot.stopped":
+    "The task reviewer never touches a task that you stopped (Resume by itself does).",
+  "settings.taskReviewer.doesNot.waiting":
+    "It does not act while an agent waits for you: a question, an approval or the browser.",
+  "settings.taskReviewer.doesNot.memory": "It does not act while the memory of this computer is critical.",
+  "settings.taskReviewer.doesNot.start":
+    "It never starts a turn by itself: the queue and the cap on agents decide when.",
+  "settings.taskReviewer.doesNot.chat": "It watches channel tasks only, not the chat of an agent.",
+  "settings.taskReviewer.doesNot.send": "It never sends the conversation, files or tool results.",
+  "settings.taskReviewer.joined.description":
+    "{server} is another server, with its own task reviewer. This page changes the task reviewer of this computer only: this app cannot change the one of {server} yet.",
+  "settings.thisComputerOnly.title": "This page is for this computer",
+  "settings.loadPanel.title": "Load panel",
+  "settings.loadPanel.description":
+    "The ring in the bar on the left: what runs, what stopped, and the switches of Resume by itself and of the task reviewer.",
+  "settings.loadPanel.unavailable":
+    "It shows in the bar on the left of the main window, while This computer is the active server.",
+  "settings.related.open": "Open {name}",
   "settings.sections.label": "Settings sections",
   "settings.panel.resize": "Resize right panel",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
@@ -823,9 +890,11 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.email": "email, address, account, login",
   "settings.search.keywords.externalLinks": "links, browser, Chrome, Safari, open links",
   "settings.search.keywords.general": "preferences, app, appearance, behavior",
-  "settings.search.keywords.guard": "guard, security, safety, protection, prompt injection",
+  "settings.search.keywords.guard": "guard, Guarda, security, safety, protection, prompt injection",
   "settings.search.keywords.guardLevel": "level, off, light, strict",
   "settings.search.keywords.guardModel": "model, judge, review model",
+  "settings.search.keywords.guardAsk": "approval card, ask, confirm, always allow, owner",
+  "settings.search.keywords.guardLeaves": "privacy, data, excerpt, secrets, masked, log, network",
   "settings.search.keywords.hostKey": "server key, host key, rotate, reset, security",
   "settings.search.keywords.hostedServers": "hosted servers, cloud, plans, hosting",
   "settings.search.keywords.import": "import, migrate, bring agents, Hermes",
@@ -863,6 +932,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.sendShortcut": "send, enter, keyboard, shortcut, new line",
   "settings.search.keywords.server": "server, host",
   "settings.search.keywords.serverGeneral": "server name, logo, timezone, general",
+  "settings.search.keywords.serverGuard": "guard, task reviewer, security, stuck tasks, Fiscal",
   "settings.search.keywords.serverLogo": "logo, image, icon, picture",
   "settings.search.keywords.serverName": "name, rename, server name",
   "settings.search.keywords.sessions": "sessions, devices, signed in, sign out, log out",
@@ -873,6 +943,12 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.speechVoice": "voice, speaker, TTS voice, spoken replies",
   "settings.search.keywords.storage": "storage, disk, space, files, cleanup",
   "settings.search.keywords.taskSound": "sound, chime, task done, finished",
+  "settings.search.keywords.taskReviewer":
+    "task reviewer, Fiscal, Revisor, reviewer, watch, stuck, stalled, parked, stopped tasks, unstick",
+  "settings.search.keywords.taskReviewerQuiet": "minutes, threshold, no sign, stalled, quiet, timeout",
+  "settings.search.keywords.taskReviewerModel": "model, Guard model, judge, review model",
+  "settings.search.keywords.taskReviewerRecovery":
+    "resume by itself, automatic recovery, reassign, another agent, load panel",
   "settings.search.keywords.theme": "theme, dark, light, dark mode, appearance, colors",
   "settings.search.keywords.timezone": "time zone, timezone, clock, hour, schedule",
   "settings.search.keywords.transfer": "transfer, move, migrate, another computer, export, backup, file",

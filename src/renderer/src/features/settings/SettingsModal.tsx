@@ -46,6 +46,7 @@ import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { useI18n } from "../../i18n-context";
 import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
+import { revealSettingsRow } from "../window/settings-row-reveal";
 import { licenseContactUs, trackLicenseEvent } from "./license-analytics";
 import { createNotificationLevelsStore } from "./notification-levels-store";
 import { createProfileActivityStore } from "./profile-activity-store";
@@ -55,6 +56,7 @@ import { SettingsDynamicIslandTab } from "./SettingsDynamicIslandTab";
 import { SettingsGeneralTab } from "./SettingsGeneralTab";
 import { SettingsGuardTab } from "./SettingsGuardTab";
 import { SettingsNotificationsTab } from "./SettingsNotificationsTab";
+import { SettingsTaskReviewerTab, type TaskReviewerLoad } from "./SettingsTaskReviewerTab";
 import { SettingsVoiceTab } from "./SettingsVoiceTab";
 import { createSettingsGuardStore } from "./settings-guard-store";
 import { dynamicIslandSettingsShown, navItem, navItems, type SettingsTab, settingsTabShown } from "./settings-tabs";
@@ -124,6 +126,13 @@ export interface SettingsModalProps {
   openTab?: SettingsTab | undefined;
   /** Where the settings page shows, or nothing while the page is not on screen. */
   page: SettingsPagePlacement | undefined;
+  /**
+   * The load of this computer: the same store as the ring of the rail, so the task reviewer page and
+   * the load panel change one preference. `watch` reads the load while the page shows it.
+   */
+  load: TaskReviewerLoad & { watch: (visible: () => boolean) => void };
+  /** Opens the load panel of the rail. Absent while the rail does not show it, such as on a joined server. */
+  onOpenLoadPanel?: (() => void) | undefined;
 }
 
 /**
@@ -162,7 +171,13 @@ export function SettingsModal(props: SettingsModalProps) {
     () => props.open && activeTab() === "profile",
   );
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
-  const guard = createSettingsGuardStore(() => props.open && activeTab() === "guard");
+  // The task reviewer page names the review model of the Guard, so it reads the Guard too.
+  const guard = createSettingsGuardStore(
+    () => props.open && (activeTab() === "guard" || activeTab() === "task-reviewer"),
+  );
+  untrack(() => props.load).watch(() => props.open && activeTab() === "task-reviewer");
+  /** The Guard and the task reviewer run on this computer: a joined server that the window shows has its own. */
+  const joinedServer = () => props.servers?.find((server) => server.active && server.kind === "remote")?.name ?? null;
   const notificationLevels = createNotificationLevelsStore({
     visible: () => props.open && activeTab() === "notifications",
     servers: () => props.servers ?? [],
@@ -208,6 +223,7 @@ export function SettingsModal(props: SettingsModalProps) {
         value === "general" ||
         value === "agents" ||
         value === "guard" ||
+        value === "task-reviewer" ||
         value === "notifications" ||
         value === "voice" ||
         (value === "dynamic-island" && dynamicIslandShown()) ||
@@ -314,7 +330,28 @@ export function SettingsModal(props: SettingsModalProps) {
         </Tabs.Content>
 
         <Tabs.Content value="guard" class="settings-modal-tab-panel" data-tab="guard">
-          <SettingsGuardTab store={guard} selectMount={modalElement} />
+          <SettingsGuardTab
+            store={guard}
+            selectMount={modalElement}
+            joinedServer={joinedServer()}
+            onOpenTaskReviewer={() => setActiveTab("task-reviewer")}
+            onOpenLoadPanel={props.onOpenLoadPanel}
+            onOpenMessageReview={() => {
+              setActiveTab("general");
+              void revealSettingsRow("general", "settings.promptGuard.title");
+            }}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content value="task-reviewer" class="settings-modal-tab-panel" data-tab="task-reviewer">
+          <SettingsTaskReviewerTab
+            load={props.load}
+            guard={guard}
+            joinedServer={joinedServer()}
+            selectMount={modalElement}
+            onOpenGuard={() => setActiveTab("guard")}
+            onOpenLoadPanel={props.onOpenLoadPanel}
+          />
         </Tabs.Content>
 
         <Tabs.Content value="notifications" class="settings-modal-tab-panel" data-tab="notifications">

@@ -31,6 +31,14 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   for each OpenBot computer (`GitHubConnectorService`, `github-connector:*`,
   `GITHUB_CONNECTOR_MCP_SERVER_ID`). A user-added MCP server or a marketplace plugin is not a
   connector.
+- **Guard**: the check of tool calls and tool results while a turn runs (`src/backend/guard`,
+  `GuardPreference`, `guard:*`, `openbot-guard-v1.json`, the `guard.*` text keys). "Guarda" in
+  Portuguese. It is not the **message reviewer** (`SecurityGuardService`, `getGuardPreference`, the
+  `settings.promptGuard.*` text keys), which reads each message before the turn starts, and its
+  **review model** (`GuardPreference.judge`) is not the **task reviewer**.
+- **load panel**: the panel of the ring in the rail (`LoadRing`, `LoadSnapshot`, `app:get-load`,
+  `LoadProvider`). It shows what runs and what stopped on this computer, and holds "Resume by itself"
+  (`AutoRecovery`) and the switch of the task reviewer.
 - **messaging connection**: one workspace of an external chat platform (a Slack workspace, a Discord
   guild or a Telegram chat), where this computer's agents answer (`projection_messaging_connections`,
   `MessagingConnection`, `messaging:*`). Its **Slack Orchestrator** is the agent that receives each
@@ -40,6 +48,11 @@ table, IPC channel or product string, or when a term in the code disagrees with 
 - **server**: a joined team server (`ServerSummary`, `servers:*`), the local Team API host
   (`HostStatus`, `host:*`, `src/main/team-api-server.ts`), the account API (`apps/auth-api`,
   `auth:*`), or an MCP server (`createSdkMcpServer`).
+- **task reviewer**: the helper that moves channel tasks that are stuck. Its code name is
+  `task-watch` (`TaskWatch`, `TaskWatchPreference`, `app:set-task-watch`, `openbot-task-watch-v1.json`,
+  the `settings.taskReviewer.*` text keys), so that it does not clash with the review model of the
+  **Guard**. "Fiscal" in Portuguese; "Revisor" is an older Portuguese name that the settings search
+  still finds.
 - **thread**: durable `projection_threads` record. **conversation**: its read projection, with no
   separate table. **provider session**: private CLI resume state (`projection_provider_sessions`).
   **team session**: authenticated remote connection. **turn**: one exchange in a thread.

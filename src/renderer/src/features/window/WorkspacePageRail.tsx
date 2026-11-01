@@ -9,7 +9,7 @@ import { useLayout } from "../../layout";
 import { usePlatform } from "../../platform";
 import { useChannels } from "../channels/channels-context";
 import { useCustomAgents } from "../custom-agents/custom-agents-context";
-import { createLoadController } from "../load/load-controller";
+import { useLoad } from "../load/load-context";
 import { WorkspaceOrbits } from "../orbits/WorkspaceOrbits";
 import { serverSupportsCapability } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
@@ -51,8 +51,8 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
   /** The custom agents run on this computer, so a joined server does not show their usage. */
   const localAgentUsage = () => (activeServer()?.kind === "local" ? customAgentUsage() : []);
   /** The load is that of this computer, so a joined server does not show it either. */
-  const localLoad = () => activeServer()?.kind === "local";
-  const load = createLoadController(appPort, localLoad);
+  const load = useLoad();
+  const localLoad = load.railShown;
   /** The Team panel, and the rail button that opened it, which takes the focus back on a plain close. */
   const [teamOpen, setTeamOpen] = createSignal(false);
   let teamButton: HTMLElement | undefined;
@@ -102,7 +102,8 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
             ? {
                 snapshot: load.snapshot(),
                 channelName,
-                onOpenChange: load.setOpen,
+                open: load.panelOpen(),
+                onOpenChange: load.setPanelOpen,
                 onLaneChange: (preference) => void load.setLane(preference),
                 onRunNow: (channelId) => void load.runNow(channelId),
                 onStop: (work) => void load.stop(work),
@@ -112,6 +113,11 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
                 onRecoveryChange: (preference) => void load.setRecovery(preference),
                 onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
                 onTaskWatchChange: (preference) => void load.setTaskWatch(preference),
+                // The button in the panel goes away with the panel, so the ring takes the focus back.
+                onOpenTaskReviewerSettings: (ring) => {
+                  load.setPanelOpen(false);
+                  openAppSettings(ring, "task-reviewer");
+                },
               }
             : undefined
         }

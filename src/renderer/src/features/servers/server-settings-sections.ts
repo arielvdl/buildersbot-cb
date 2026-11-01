@@ -274,6 +274,15 @@ const GENERAL_ROWS: ReadonlyArray<ServerSettingsSearchEntry> = [
   },
   {
     section: "general",
+    anchor: "server.settings.guardTitle",
+    titleKey: "server.settings.guardTitle",
+    descriptionKey: "server.settings.guardDescription",
+    keywordsKey: "settings.search.keywords.serverGuard",
+    // This app sets the Guard and the task reviewer of this computer only, on the Settings pages.
+    shown: (server) => server.kind === "remote",
+  },
+  {
+    section: "general",
     anchor: "server.settings.hostKeyRotate",
     titleKey: "server.settings.hostKeyRotate",
     descriptionKey: "server.settings.hostKeyDescription",

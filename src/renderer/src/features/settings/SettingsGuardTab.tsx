@@ -1,10 +1,4 @@
-import {
-  GUARD_LEVELS,
-  type GuardLevel,
-  guardEffectiveLevel,
-  isGuardAvailableLevel,
-  providerDisplayName,
-} from "@openbot/contracts/ipc";
+import { GUARD_LEVELS, type GuardLevel, guardEffectiveLevel, isGuardAvailableLevel } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
   Alert,
@@ -12,6 +6,7 @@ import {
   AlertDescription,
   AlertIcon,
   AlertTitle,
+  Button,
   Info,
   Item,
   ItemActions,
@@ -28,8 +23,8 @@ import {
   TriangleAlert,
 } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { Match, Show, Switch } from "solid-js";
-import { type GuardModelRow, guardModelKey, type SettingsGuardStore } from "./settings-guard-store";
+import { For, Match, Show, Switch } from "solid-js";
+import { type GuardModelRow, guardModelKey, guardModelName, type SettingsGuardStore } from "./settings-guard-store";
 
 const LEVEL_LABEL = {
   off: "guard.level.off",
@@ -39,12 +34,33 @@ const LEVEL_LABEL = {
   custom: "guard.level.custom",
 } as const satisfies Record<GuardLevel, AppTextKey>;
 
+/** The points of "When the Guard asks you" and "What leaves the computer". */
+const ASK = ["guard.ask.card", "guard.ask.remember", "guard.ask.owner"] as const satisfies ReadonlyArray<AppTextKey>;
+const LEAVES = [
+  "guard.leaves.suspicious",
+  "guard.leaves.never",
+  "guard.leaves.log",
+] as const satisfies ReadonlyArray<AppTextKey>;
+
 /**
  * Settings › Guard: the level of the Guard and the model that reviews suspicious items. Off and
  * Light run now; the stricter levels show as coming soon. The page says when the Guard uses only
- * the local check, such as with no Cultura Builder sign-in.
+ * the local check, such as with no Cultura Builder sign-in, when it asks the person, and what leaves
+ * the computer. It links to the task reviewer, which asks the same model, to the load panel, and to
+ * the security review of messages, a separate check that people can take for a part of the Guard. The
+ * Guard runs on this computer, so a joined server gets a note that its own Guard is not changed here.
  */
-export function SettingsGuardTab(props: { store: SettingsGuardStore; selectMount: HTMLElement | undefined }) {
+export function SettingsGuardTab(props: {
+  store: SettingsGuardStore;
+  selectMount: HTMLElement | undefined;
+  /** The name of the joined server that the window shows, or null while this computer is active. */
+  joinedServer: string | null;
+  onOpenTaskReviewer: () => void;
+  /** Opens the load panel of the rail. Absent while the rail does not show it. */
+  onOpenLoadPanel: (() => void) | undefined;
+  /** Shows the switch of the security review of messages, in General. */
+  onOpenMessageReview: () => void;
+}) {
   const { t } = useText();
   const guard = () => props.store.state.guard;
   const level = () => {
@@ -58,14 +74,26 @@ export function SettingsGuardTab(props: { store: SettingsGuardStore; selectMount
       ? t(LEVEL_LABEL[value])
       : t("guard.level.comingSoon", { level: t(LEVEL_LABEL[value]) });
   const rowLabel = (row: GuardModelRow | undefined) => {
-    if (!row?.choice) return t("guard.model.localOnly");
-    const label = t("guard.model.label", { provider: providerDisplayName(row.choice.provider), model: row.name });
-    return row.recommended ? t("guard.model.recommended", { name: label }) : label;
+    const name = guardModelName(row, t);
+    return row?.recommended ? t("guard.model.recommended", { name }) : name;
   };
   const rowFor = (key: string) => props.store.rows().find((row) => row.key === key);
 
   return (
     <>
+      <Show when={props.joinedServer}>
+        {(server) => (
+          <Alert tone="neutral" role="status">
+            <AlertIcon>
+              <Info aria-hidden="true" />
+            </AlertIcon>
+            <AlertContent>
+              <AlertTitle>{t("settings.thisComputerOnly.title")}</AlertTitle>
+              <AlertDescription>{t("guard.joined.description", { server: server() })}</AlertDescription>
+            </AlertContent>
+          </Alert>
+        )}
+      </Show>
       <SettingsSection title={t("guard.section.title")}>
         <ItemGroup class="settings-modal-card">
           <Item data-settings-row="guard.level.title" class="settings-modal-row">
@@ -179,7 +207,96 @@ export function SettingsGuardTab(props: { store: SettingsGuardStore; selectMount
           </Switch>
         </Show>
       </SettingsSection>
+      <SettingsSection title={t("guard.ask.title")}>
+        <ItemGroup class="settings-modal-card" data-settings-row="guard.ask.title">
+          <For each={ASK}>
+            {(line) => (
+              // A line of text with no control or title: the compact row.
+              <Item size="compact">
+                <ItemContent>
+                  <ItemDescription>{t(line)}</ItemDescription>
+                </ItemContent>
+              </Item>
+            )}
+          </For>
+        </ItemGroup>
+      </SettingsSection>
+      <SettingsSection title={t("guard.leaves.title")}>
+        <ItemGroup class="settings-modal-card" data-settings-row="guard.leaves.title">
+          <For each={LEAVES}>
+            {(line) => (
+              // A line of text with no control or title: the compact row.
+              <Item size="compact">
+                <ItemContent>
+                  <ItemDescription>{t(line)}</ItemDescription>
+                </ItemContent>
+              </Item>
+            )}
+          </For>
+        </ItemGroup>
+      </SettingsSection>
       <SettingsSection title={t("guard.coverage.title")} description={t("guard.coverage.description")} />
+      <SettingsSection title={t("guard.related.title")}>
+        <ItemGroup class="settings-modal-card">
+          <Item class="settings-modal-row" data-settings-row-skip="link to the task reviewer page">
+            <ItemContent>
+              <ItemTitle>{t("settings.tab.taskReviewer.title")}</ItemTitle>
+              <ItemDescription>{t("guard.related.taskReviewer")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t("settings.related.open", { name: t("settings.tab.taskReviewer.title") })}
+                onClick={() => props.onOpenTaskReviewer()}
+              >
+                {t("common.open")}
+              </Button>
+            </ItemActions>
+          </Item>
+          <Item class="settings-modal-row" data-settings-row-skip="link to the load panel">
+            <ItemContent>
+              <ItemTitle>{t("settings.loadPanel.title")}</ItemTitle>
+              <ItemDescription>
+                {props.onOpenLoadPanel ? t("settings.loadPanel.description") : t("settings.loadPanel.unavailable")}
+              </ItemDescription>
+            </ItemContent>
+            <Show when={props.onOpenLoadPanel}>
+              {(open) => (
+                <ItemActions>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={t("settings.related.open", { name: t("settings.loadPanel.title") })}
+                    onClick={() => open()()}
+                  >
+                    {t("common.open")}
+                  </Button>
+                </ItemActions>
+              )}
+            </Show>
+          </Item>
+          <Item class="settings-modal-row" data-settings-row-skip="link to the security review of messages">
+            <ItemContent>
+              <ItemTitle>{t("settings.promptGuard.title")}</ItemTitle>
+              <ItemDescription>{t("guard.related.messageReview")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t("settings.related.open", { name: t("settings.promptGuard.title") })}
+                onClick={() => props.onOpenMessageReview()}
+              >
+                {t("common.open")}
+              </Button>
+            </ItemActions>
+          </Item>
+        </ItemGroup>
+      </SettingsSection>
     </>
   );
 }

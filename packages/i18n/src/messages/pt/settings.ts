@@ -274,6 +274,71 @@ export const messages = {
   "settings.tab.hostedServers.title": "Servidores hospedados",
   "settings.tab.hostedServers.description":
     "Crie servidores Builders Bot que funcionam quando este computador está desligado.",
+  "settings.tab.taskReviewer.title": "Fiscal",
+  "settings.tab.taskReviewer.description": "Encontra tarefas dos canais travadas e as faz andar",
+  "settings.taskReviewer.section.title": "Fiscal",
+  "settings.taskReviewer.enabled.title": "Fiscal (experimental)",
+  "settings.taskReviewer.enabled.description":
+    "Procura tarefas dos canais que não dão sinal de vida ou esperam tempo demais na fila, e tenta fazê-las andar, uma tarefa por vez. Vem desligado.",
+  "settings.taskReviewer.state.title": "Agora",
+  "settings.taskReviewer.state.loading": "Lendo o estado deste computador…",
+  "settings.taskReviewer.state.off": "Desligado. Não olha nenhuma tarefa.",
+  "settings.taskReviewer.state.waiting":
+    "Ligado, mas esperando: só olha quando Retomar sozinho também está ligado. O Retomar sozinho retoma também as tarefas que você parou.",
+  "settings.taskReviewer.state.active": "Ligado. Olha as tarefas dos canais a cada minuto.",
+  "settings.taskReviewer.state.turnOnRecovery": "Ligar Retomar sozinho",
+  "settings.taskReviewer.quiet.title": "Considerar parada depois de",
+  "settings.taskReviewer.quiet.description":
+    "Minutos sem sinal de vida. Com o dobro desse tempo, a tarefa está travada e o Fiscal age. Um comando sem saída, como um build, ganha quatro vezes esse tempo.",
+  "settings.taskReviewer.quiet.value": "{minutes} min",
+  "settings.taskReviewer.quiet.suggested": "{minutes} min (sugerido)",
+  "settings.taskReviewer.model.title": "Modelo",
+  "settings.taskReviewer.model.description":
+    "Só para uma tarefa lenta, pergunta ao modelo de revisão do Guarda se deve agir agora. Envia um resumo curto, com os segredos mascarados, nunca a conversa.",
+  "settings.taskReviewer.model.ready": "{model}: disponível agora.",
+  "settings.taskReviewer.model.notReady": "{model}: indisponível agora, então só as regras locais decidem.",
+  "settings.taskReviewer.model.localOnly": "O Guarda usa só a verificação local, então só as regras locais decidem.",
+  "settings.taskReviewer.model.openGuard": "Abrir o Guarda",
+  "settings.taskReviewer.load.title": "Opções do painel de Carga",
+  "settings.taskReviewer.load.description":
+    "O Fiscal segue estas opções do painel de Carga. O que você muda aqui muda lá também.",
+  "settings.taskReviewer.recovery.description":
+    "Retoma sozinho o trabalho parado depois de {minutes} minutos, inclusive tarefas que você parou. O Fiscal só olha com isto ligado, e age numa mesma tarefa no máximo uma vez nesse intervalo.",
+  "settings.taskReviewer.reassign.description":
+    "Sem isto, o Fiscal só retoma a tarefa e nunca a passa para outro agente.",
+  "settings.taskReviewer.recent.title": "Últimas ações",
+  "settings.taskReviewer.recent.meta": "{time} · {decider}",
+  "settings.taskReviewer.recent.empty": "Nenhuma ação ainda. A lista fica na memória, então reiniciar o app a apaga.",
+  "settings.taskReviewer.does.title": "O que ele faz",
+  "settings.taskReviewer.does.resume.title": "Retoma uma execução sem sinal de vida",
+  "settings.taskReviewer.does.resume.description":
+    "Para o turno e põe a tarefa na fila de novo, como o Continuar. Uma execução longa que dá sinais nunca é tocada.",
+  "settings.taskReviewer.does.requeue.title": "Acorda um pedido que espera demais",
+  "settings.taskReviewer.does.requeue.description":
+    "Põe o pedido na fila de novo e acorda o canal. Um pedido que espera por um motivo, como o limite de agentes, fica como está.",
+  "settings.taskReviewer.does.reassign.title": "Passa a tarefa para outro agente",
+  "settings.taskReviewer.does.reassign.description":
+    "Só com “Passar para outro agente se continuar falhando” ligado, e só para um agente livre do mesmo canal, o de mesmo modelo primeiro.",
+  "settings.taskReviewer.does.giveUp.title": "Para no fim das tentativas",
+  "settings.taskReviewer.does.giveUp.description":
+    "Cada tarefa tem 2 retomadas e 2 trocas no total, somadas com Retomar sozinho. Depois ele para a tarefa e avisa no painel de Carga.",
+  "settings.taskReviewer.doesNot.title": "O que ele não faz",
+  "settings.taskReviewer.doesNot.stopped": "O Fiscal nunca mexe numa tarefa que você parou (o Retomar sozinho, sim).",
+  "settings.taskReviewer.doesNot.waiting":
+    "Não age enquanto um agente espera por você: uma pergunta, uma aprovação ou o navegador.",
+  "settings.taskReviewer.doesNot.memory": "Não age enquanto a memória deste computador está no limite.",
+  "settings.taskReviewer.doesNot.start": "Nunca inicia um turno sozinho: a fila e o limite de agentes decidem quando.",
+  "settings.taskReviewer.doesNot.chat": "Olha só tarefas de canais, não o chat de um agente.",
+  "settings.taskReviewer.doesNot.send": "Nunca envia a conversa, arquivos ou resultados de ferramentas.",
+  "settings.taskReviewer.joined.description":
+    "{server} é outro servidor, com o próprio Fiscal. Esta página muda só o Fiscal deste computador: este app ainda não muda o de {server}.",
+  "settings.thisComputerOnly.title": "Esta página vale para este computador",
+  "settings.loadPanel.title": "Painel de Carga",
+  "settings.loadPanel.description":
+    "O anel na barra à esquerda: o que roda, o que parou e as opções de Retomar sozinho e do Fiscal.",
+  "settings.loadPanel.unavailable":
+    "Aparece na barra à esquerda da janela principal, enquanto Este computador é o servidor ativo.",
+  "settings.related.open": "Abrir {name}",
   "settings.sections.label": "Seções das configurações",
   "settings.panel.resize": "Redimensionar painel direito",
   "settings.preferences.loadFailed": "Não foi possível carregar suas configurações.",
@@ -759,9 +824,11 @@ export const messages = {
   "settings.search.keywords.email": "e-mail, email, endereço, conta, login",
   "settings.search.keywords.externalLinks": "links, navegador, Chrome, Safari, abrir links",
   "settings.search.keywords.general": "preferências, aplicativo, app, aparência, comportamento",
-  "settings.search.keywords.guard": "guarda, segurança, proteção, injeção de prompt",
+  "settings.search.keywords.guard": "guarda, guard, segurança, proteção, injeção de prompt",
   "settings.search.keywords.guardLevel": "nível, desligado, leve, rigoroso",
   "settings.search.keywords.guardModel": "modelo, juiz, modelo de revisão",
+  "settings.search.keywords.guardAsk": "cartão de aprovação, perguntar, confirmar, sempre permitir, dono",
+  "settings.search.keywords.guardLeaves": "privacidade, dados, trecho, segredos, mascarados, registro, rede",
   "settings.search.keywords.hostKey": "chave do servidor, trocar a chave, redefinir, segurança",
   "settings.search.keywords.hostedServers": "servidores hospedados, nuvem, planos, hospedagem",
   "settings.search.keywords.import": "importar, migrar, trazer agentes, Hermes",
@@ -801,6 +868,7 @@ export const messages = {
   "settings.search.keywords.sendShortcut": "enviar, enter, teclado, atalho, nova linha",
   "settings.search.keywords.server": "servidor, anfitrião, host",
   "settings.search.keywords.serverGeneral": "nome do servidor, logotipo, fuso horário, geral",
+  "settings.search.keywords.serverGuard": "guarda, guard, fiscal, revisor, segurança, tarefas paradas, travadas",
   "settings.search.keywords.serverLogo": "logotipo, logo, imagem, ícone",
   "settings.search.keywords.serverName": "nome, renomear, nome do servidor",
   "settings.search.keywords.sessions": "sessões, dispositivos, conectado, sair, deslogar",
@@ -811,6 +879,12 @@ export const messages = {
   "settings.search.keywords.speechVoice": "voz, locutor, voz da leitura, respostas faladas",
   "settings.search.keywords.storage": "armazenamento, disco, espaço, arquivos, limpeza",
   "settings.search.keywords.taskSound": "som, aviso sonoro, tarefa concluída, terminou",
+  "settings.search.keywords.taskReviewer":
+    "fiscal, revisor, revisor de tarefas, vigiar, tarefas paradas, travadas, empacadas, destravar",
+  "settings.search.keywords.taskReviewerQuiet": "minutos, limite, sem sinal, parada, travada, tempo",
+  "settings.search.keywords.taskReviewerModel": "modelo, modelo do Guarda, juiz, modelo de revisão",
+  "settings.search.keywords.taskReviewerRecovery":
+    "retomar sozinho, recuperação automática, passar para outro agente, painel de carga",
   "settings.search.keywords.theme": "tema, escuro, claro, modo escuro, modo noturno, aparência, cores",
   "settings.search.keywords.timezone": "fuso, fuso horário, horário, relógio, hora",
   "settings.search.keywords.transfer":

@@ -3,10 +3,8 @@ import type {
   AutoRecoveryPreference,
   LoadLanePreference,
   LoadSnapshot,
-  RecoveryEvent,
   RunningWork,
   StoppedWork,
-  TaskWatchEvent,
   TaskWatchPreference,
   TaskWatchState,
 } from "@openbot/contracts/ipc";
@@ -23,6 +21,7 @@ import {
   PanelTop,
   Play,
   Popover,
+  SlidersHorizontal,
   Square,
   SwitchField,
 } from "@openbot/ui";
@@ -43,9 +42,11 @@ import {
   loadMemoryPercent,
   loadRecentEvents,
   loadRingTone,
+  recoveryEventText,
   requestText,
   stoppedCount,
   stoppedTone,
+  taskWatchEventText,
   toggledKey,
   withChannelFirst,
 } from "./load-view";
@@ -57,6 +58,8 @@ export interface LoadRailProps {
   /** The last reading, or null before the first one. */
   snapshot: LoadSnapshot | null;
   channelName: (channelId: string) => string;
+  /** Whether the panel is open. Absent, the ring keeps it; given, a page outside the rail can open it. */
+  open?: boolean | undefined;
   /** The panel opened or closed, so the window reads the load faster while it is open. */
   onOpenChange: (open: boolean) => void;
   onLaneChange: (preference: LoadLanePreference) => void;
@@ -69,6 +72,11 @@ export interface LoadRailProps {
   onAgentLimitChange: (preference: AgentLimitPreference) => void;
   /** The task reviewer: its switch and its threshold. */
   onTaskWatchChange: (preference: TaskWatchPreference) => void;
+  /**
+   * Opens the page of the task reviewer in Settings. Absent where the window has no Settings. `ring` is
+   * the button of the ring: the panel closes, so the ring takes the focus back when Settings closes.
+   */
+  onOpenTaskReviewerSettings?: ((ring: HTMLElement | null) => void) | undefined;
 }
 
 /**
@@ -115,10 +123,18 @@ export function LoadRing(props: LoadRailProps) {
       ? t("app.rail.load.summary", { agents: agentsText(), stopped: stopped(), used: used.used, total: used.total })
       : t("app.rail.load.summaryQuiet", { agents: agentsText(), used: used.used, total: used.total });
   };
+  let ring: HTMLElement | undefined;
+  const openTaskReviewerSettings = () => {
+    const open = props.onOpenTaskReviewerSettings;
+    return open ? () => open(ring ?? null) : undefined;
+  };
   return (
-    <Popover.Root placement="right-end" gutter={8} onOpenChange={props.onOpenChange}>
+    <Popover.Root placement="right-end" gutter={8} open={props.open} onOpenChange={props.onOpenChange}>
       <Popover.Trigger
         as={Button}
+        ref={(element: HTMLElement) => {
+          ring = element;
+        }}
         variant="ghost"
         type="button"
         class="window-rail-button window-rail-usage window-rail-load"
@@ -160,14 +176,20 @@ export function LoadRing(props: LoadRailProps) {
       <Popover.Portal>
         <Popover.Content class="ui-popover-menu-surface window-rail-load-panel">
           <Popover.Title class="account-usage-popover-title">{t("app.rail.load.title")}</Popover.Title>
-          <Show when={props.snapshot}>{(snapshot) => <LoadPanel {...props} snapshot={snapshot()} />}</Show>
+          <Show when={props.snapshot}>
+            {(snapshot) => (
+              <LoadPanel {...props} snapshot={snapshot()} openTaskReviewerSettings={openTaskReviewerSettings()} />
+            )}
+          </Show>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
   );
 }
 
-function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
+function LoadPanel(
+  props: LoadRailProps & { snapshot: LoadSnapshot; openTaskReviewerSettings: (() => void) | undefined },
+) {
   const { t } = useText();
   const memory = () => props.snapshot.memory;
   const rows = () => loadLaneRows(props.snapshot);
@@ -340,6 +362,7 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
         recent={loadRecentEvents(props.snapshot)}
         onChange={props.onRecoveryChange}
         onTaskWatchChange={props.onTaskWatchChange}
+        onOpenTaskReviewerSettings={props.openTaskReviewerSettings}
       />
     </div>
   );
@@ -606,7 +629,7 @@ function AgentLimitSettings(props: {
 
 /**
  * The switches and the interval of the automatic recovery, the task reviewer that looks only while it is
- * on, and what both did lately.
+ * on, and what both did lately. The switch of the task reviewer shows also while the recovery is off.
  */
 function RecoverySettings(props: {
   recovery: LoadSnapshot["recovery"];
@@ -614,6 +637,7 @@ function RecoverySettings(props: {
   recent: LoadRecentEvent[];
   onChange: (preference: AutoRecoveryPreference) => void;
   onTaskWatchChange: (preference: TaskWatchPreference) => void;
+  onOpenTaskReviewerSettings: (() => void) | undefined;
 }) {
   const { t } = useText();
   const [draft, setDraft] = createSignal<string | null>(null);
@@ -660,36 +684,44 @@ function RecoverySettings(props: {
           label={t("app.rail.load.recoveryReassign")}
           description={t("app.rail.load.recoveryReassignHint")}
         />
-        <TaskWatchSettings taskWatch={props.taskWatch} onChange={props.onTaskWatchChange} />
-        <Show when={props.recent.length > 0}>
-          <h3 class="window-rail-load-subhead">{t("app.rail.load.recoveryRecent")}</h3>
-          <ul class="window-rail-load-recent">
-            <For
-              each={props.recent}
-              keyed={(item) => `${item.by}:${item.event.at}:${item.event.action}:${item.event.channelName}`}
-            >
-              {(item) => {
-                const entry = item();
-                return entry.by === "recovery" ? (
-                  <li>{recoveryEventText(entry.event, t)}</li>
-                ) : (
-                  <li
-                    title={t(entry.event.by === "model" ? "app.rail.load.watchByModel" : "app.rail.load.watchByLocal")}
-                  >
-                    {taskWatchEventText(entry.event, t)}
-                  </li>
-                );
-              }}
-            </For>
-          </ul>
-        </Show>
+      </Show>
+      {/* Always shown: the switch says that it acts only with "Resume by itself" on, and the Settings
+          page can turn the reviewer on while "Resume by itself" is off. */}
+      <TaskWatchSettings
+        taskWatch={props.taskWatch}
+        onChange={props.onTaskWatchChange}
+        onOpenSettings={props.onOpenTaskReviewerSettings}
+      />
+      <Show when={props.recovery.enabled && props.recent.length > 0}>
+        <h3 class="window-rail-load-subhead">{t("app.rail.load.recoveryRecent")}</h3>
+        <ul class="window-rail-load-recent">
+          <For
+            each={props.recent}
+            keyed={(item) => `${item.by}:${item.event.at}:${item.event.action}:${item.event.channelName}`}
+          >
+            {(item) => {
+              const entry = item();
+              return entry.by === "recovery" ? (
+                <li>{recoveryEventText(entry.event, t)}</li>
+              ) : (
+                <li title={t(entry.event.by === "model" ? "app.rail.load.watchByModel" : "app.rail.load.watchByLocal")}>
+                  {taskWatchEventText(entry.event, t)}
+                </li>
+              );
+            }}
+          </For>
+        </ul>
       </Show>
     </section>
   );
 }
 
-/** The switch of the task reviewer, which model decides, and its threshold. */
-function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (preference: TaskWatchPreference) => void }) {
+/** The switch of the task reviewer, which model decides, its threshold, and the way to its page in Settings. */
+function TaskWatchSettings(props: {
+  taskWatch: TaskWatchState;
+  onChange: (preference: TaskWatchPreference) => void;
+  onOpenSettings: (() => void) | undefined;
+}) {
   const { t } = useText();
   const [draft, setDraft] = createSignal<string | null>(null);
   return (
@@ -727,31 +759,19 @@ function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (prefer
           <span>{t("app.rail.load.watchQuietUnit")}</span>
         </label>
       </Show>
+      <Show when={props.onOpenSettings}>
+        {(open) => (
+          <Button
+            variant="secondary"
+            size="sm"
+            class="window-rail-load-action window-rail-load-link"
+            onClick={() => open()()}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {t("app.rail.load.watchSettings")}
+          </Button>
+        )}
+      </Show>
     </>
   );
-}
-
-function recoveryEventText(event: RecoveryEvent, t: ReturnType<typeof useText>["t"]): string {
-  if (event.action === "resumed") return t("app.rail.load.eventResumed", { channel: event.channelName });
-  if (event.action === "reassigned")
-    return t("app.rail.load.eventReassigned", { channel: event.channelName, agent: event.agentName ?? "" });
-  return t("app.rail.load.eventGaveUp", { channel: event.channelName });
-}
-
-/** One action of the task reviewer, with why it acted: "Task reviewer: resumed Payments (no sign for 32 min)". */
-function taskWatchEventText(event: TaskWatchEvent, t: ReturnType<typeof useText>["t"]): string {
-  const minutes = event.minutes ?? 0;
-  const why =
-    event.reason === "start-failed"
-      ? t("app.rail.load.watchWhyStartFailed")
-      : event.reason === "queued"
-        ? t("app.rail.load.watchWhyQueued", { minutes })
-        : t("app.rail.load.watchWhyNoSign", { minutes });
-  const channel = event.channelName;
-  if (event.action === "waited") return t("app.rail.load.watchEventWaited", { channel, why });
-  if (event.action === "resumed") return t("app.rail.load.watchEventResumed", { channel, why });
-  if (event.action === "reassigned")
-    return t("app.rail.load.watchEventReassigned", { channel, agent: event.agentName ?? "", why });
-  if (event.action === "stopped") return t("app.rail.load.watchEventStopped", { channel, why });
-  return t("app.rail.load.watchEventGaveUp", { channel, why });
 }

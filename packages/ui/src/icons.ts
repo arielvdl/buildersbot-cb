@@ -134,6 +134,7 @@ export { default as RefreshCw } from "lucide-solid/icons/refresh-cw";
 export { default as Repeat } from "lucide-solid/icons/repeat";
 export { default as RotateCcw } from "lucide-solid/icons/rotate-ccw";
 export { default as Scan } from "lucide-solid/icons/scan";
+export { default as ScanEye } from "lucide-solid/icons/scan-eye";
 export { default as ScanFace } from "lucide-solid/icons/scan-face";
 export { default as ScanLine } from "lucide-solid/icons/scan-line";
 export { default as Search } from "lucide-solid/icons/search";

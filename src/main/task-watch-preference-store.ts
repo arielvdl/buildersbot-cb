@@ -7,7 +7,7 @@ import { type PreferenceFileFailure, readPreferenceFile, writePreferenceFile } f
 export const TASK_WATCH_PREFERENCE_FILE = "openbot-task-watch-v1.json";
 
 /**
- * The task reviewer ("Revisor"): on or off, and the minutes with no sign of life before a task is
+ * The task reviewer ("Fiscal" in Portuguese): on or off, and the minutes with no sign of life before a task is
  * slow. It is experimental and off until the person turns it on. A file that is missing, damaged, of
  * another version or shape, or with a value out of range reads as the default, which is off. Writes
  * are chained, as the other preference stores chain theirs.

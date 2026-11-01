@@ -153,9 +153,7 @@ export function SettingsPage(props: { kind: SettingsKind }) {
       else clearSettingsRowMark();
       return;
     }
-    // The modal applies a tab when the requested tab changes, so clear it first: a repeated tab opens again.
-    settings.openAppSettings(null, undefined);
-    flush();
+    // A repeated tab opens again: `openAppSettings` clears a request for the same tab first.
     settings.openAppSettings(null, entry.tab);
     flush();
     if (entry.anchor) reveal(entry.tab, entry.anchor);

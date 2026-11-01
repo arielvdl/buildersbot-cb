@@ -264,13 +264,16 @@ function loadSnapshot(
   };
 }
 
-/** The load ring with a lane that follows its switch, as the window's controller does. */
-function loadProps(usedMb: number, work: LoadWork, reviewer: boolean): () => LoadRailProps {
+/**
+ * The load ring with a lane that follows its switch, as the window's controller does. `recovery` is
+ * "Resume by itself", on with the reviewer unless the story says otherwise.
+ */
+function loadProps(usedMb: number, work: LoadWork, reviewer: boolean, recoveryOn = reviewer): () => LoadRailProps {
   const [lane, setLane] = createSignal<LoadLanePreference>({ enabled: false, order: [] });
   const [recovery, setRecovery] = createSignal<AutoRecoveryPreference>({
-    enabled: reviewer,
+    enabled: recoveryOn,
     intervalMinutes: 30,
-    reassign: reviewer,
+    reassign: recoveryOn,
   });
   const [agentLimit, setAgentLimit] = createSignal<AgentLimitPreference>({ enabled: false, max: 10 });
   const [taskWatch, setTaskWatch] = createSignal<TaskWatchPreference>({ enabled: reviewer, quietMinutes: 15 });
@@ -287,6 +290,7 @@ function loadProps(usedMb: number, work: LoadWork, reviewer: boolean): () => Loa
     onRecoveryChange: setRecovery,
     onAgentLimitChange: setAgentLimit,
     onTaskWatchChange: setTaskWatch,
+    onOpenTaskReviewerSettings: fn(),
   });
 }
 
@@ -302,12 +306,14 @@ function RailPreview(props: {
   loadWork?: LoadWork;
   /** "Resume by itself" and the task reviewer start on. */
   loadReviewer?: boolean;
+  /** "Resume by itself" starts on. Absent: as `loadReviewer`. */
+  loadRecovery?: boolean;
 }) {
   const { t } = useText();
   const load =
     props.loadMb === undefined
       ? undefined
-      : loadProps(props.loadMb, props.loadWork ?? "none", props.loadReviewer ?? false);
+      : loadProps(props.loadMb, props.loadWork ?? "none", props.loadReviewer ?? false, props.loadRecovery);
   const [current, setCurrent] = createSignal<PageRailPage | null>("agents");
   const [pinned, setPinned] = createSignal<readonly PageRailPinnablePage[]>(["usage"]);
   return (
@@ -415,4 +421,13 @@ export const LoadWithManyStoppedTasks: Story = {
  */
 export const LoadWithTaskReviewer: Story = {
   args: { loadMb: 14000, loadWork: "some", loadReviewer: true },
+};
+
+/**
+ * The task reviewer is on, but "Resume by itself" is off, as after the Settings page turned the reviewer
+ * on: the panel still shows its switch, with the line that it acts only with "Resume by itself" on, and
+ * the button to its Settings page.
+ */
+export const LoadWithTaskReviewerWaiting: Story = {
+  args: { loadMb: 14000, loadWork: "some", loadReviewer: true, loadRecovery: false },
 };

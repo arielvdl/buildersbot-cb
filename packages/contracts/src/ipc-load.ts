@@ -122,8 +122,8 @@ export interface AutoRecoveryState extends AutoRecoveryPreference {
 }
 
 /**
- * The task reviewer ("Revisor"), as it is stored and as it crosses IPC. It is experimental and off
- * by default, and it looks only while "Resume by itself" is on too. See
+ * The task reviewer ("Fiscal" in Portuguese), as it is stored and as it crosses IPC. It is
+ * experimental and off by default, and it looks only while "Resume by itself" is on too. See
  * `docs/architecture/task-reviewer.md`.
  */
 export interface TaskWatchPreference {

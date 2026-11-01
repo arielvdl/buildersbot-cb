@@ -137,6 +137,7 @@ export const messages = defineMessages("app", {
   "app.rail.load.watchModelOff": "The Guard's model is not available now, so only the local rules decide.",
   "app.rail.load.watchQuiet": "Consider it stopped after",
   "app.rail.load.watchQuietUnit": "minutes with no sign (5 to 120, 15 is suggested)",
+  "app.rail.load.watchSettings": "Task reviewer settings",
   "app.rail.load.quietSlow": "No sign for {minutes} min",
   "app.rail.load.quietStalled": "Stalled: no sign for {minutes} min",
   "app.rail.load.watchEventWaited": "Task reviewer: waited a bit more with {channel} ({why})",

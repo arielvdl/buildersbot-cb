@@ -9,6 +9,7 @@ import {
   TASK_WATCH_MIN_MINUTES,
   type TaskWatchEvent,
 } from "@openbot/contracts/ipc";
+import type { AppTranslate } from "@openbot/i18n";
 
 export type LoadTone = "ok" | "warning" | "critical";
 
@@ -157,4 +158,33 @@ export function toggledKey(keys: ReadonlySet<string>, key: string): ReadonlySet<
   const next = new Set(keys);
   if (!next.delete(key)) next.add(key);
   return next;
+}
+
+/** One action of the automatic recovery: "Resumed Payments". */
+export function recoveryEventText(event: RecoveryEvent, t: AppTranslate): string {
+  if (event.action === "resumed") return t("app.rail.load.eventResumed", { channel: event.channelName });
+  if (event.action === "reassigned")
+    return t("app.rail.load.eventReassigned", { channel: event.channelName, agent: event.agentName ?? "" });
+  return t("app.rail.load.eventGaveUp", { channel: event.channelName });
+}
+
+/**
+ * One action of the task reviewer, with why it acted: "Task reviewer: resumed Payments (no sign for 32
+ * min)". The load panel and the page of the task reviewer in Settings show the same line.
+ */
+export function taskWatchEventText(event: TaskWatchEvent, t: AppTranslate): string {
+  const minutes = event.minutes ?? 0;
+  const why =
+    event.reason === "start-failed"
+      ? t("app.rail.load.watchWhyStartFailed")
+      : event.reason === "queued"
+        ? t("app.rail.load.watchWhyQueued", { minutes })
+        : t("app.rail.load.watchWhyNoSign", { minutes });
+  const channel = event.channelName;
+  if (event.action === "waited") return t("app.rail.load.watchEventWaited", { channel, why });
+  if (event.action === "resumed") return t("app.rail.load.watchEventResumed", { channel, why });
+  if (event.action === "reassigned")
+    return t("app.rail.load.watchEventReassigned", { channel, agent: event.agentName ?? "", why });
+  if (event.action === "stopped") return t("app.rail.load.watchEventStopped", { channel, why });
+  return t("app.rail.load.watchEventGaveUp", { channel, why });
 }

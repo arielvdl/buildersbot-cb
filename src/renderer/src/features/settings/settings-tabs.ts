@@ -8,6 +8,7 @@ import {
   Mic,
   MousePointer2,
   PanelTop,
+  ScanEye,
   Server,
   Settings,
   ShieldCheck,
@@ -21,6 +22,7 @@ export type SettingsTab =
   | "general"
   | "agents"
   | "guard"
+  | "task-reviewer"
   | "notifications"
   | "voice"
   | "dynamic-island"
@@ -303,6 +305,56 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         descriptionKey: "guard.model.description",
         keywordsKey: "settings.search.keywords.guardModel",
       },
+      { anchor: "guard.ask.title", descriptionKey: "guard.ask.card", keywordsKey: "settings.search.keywords.guardAsk" },
+      {
+        anchor: "guard.leaves.title",
+        descriptionKey: "guard.leaves.suspicious",
+        keywordsKey: "settings.search.keywords.guardLeaves",
+      },
+    ],
+  },
+  // The task reviewer ("Fiscal" in Portuguese). Its switches are also in the load panel of the rail;
+  // both places change the same preference through the same calls.
+  {
+    value: "task-reviewer",
+    titleKey: "settings.tab.taskReviewer.title",
+    descriptionKey: "settings.tab.taskReviewer.description",
+    keywordsKey: "settings.search.keywords.taskReviewer",
+    icon: ScanEye,
+    rows: [
+      {
+        anchor: "settings.taskReviewer.enabled.title",
+        descriptionKey: "settings.taskReviewer.enabled.description",
+        keywordsKey: "settings.search.keywords.taskReviewer",
+      },
+      {
+        anchor: "settings.taskReviewer.quiet.title",
+        descriptionKey: "settings.taskReviewer.quiet.description",
+        keywordsKey: "settings.search.keywords.taskReviewerQuiet",
+      },
+      {
+        anchor: "settings.taskReviewer.model.title",
+        descriptionKey: "settings.taskReviewer.model.description",
+        keywordsKey: "settings.search.keywords.taskReviewerModel",
+      },
+      {
+        anchor: "app.rail.load.recoveryTitle",
+        descriptionKey: "settings.taskReviewer.load.description",
+        keywordsKey: "settings.search.keywords.taskReviewerRecovery",
+      },
+      {
+        anchor: "app.rail.load.recoveryReassign",
+        descriptionKey: "settings.taskReviewer.reassign.description",
+        keywordsKey: "settings.search.keywords.taskReviewerRecovery",
+      },
+      {
+        anchor: "settings.loadPanel.title",
+        descriptionKey: "settings.loadPanel.description",
+        keywordsKey: "settings.search.keywords.taskReviewerRecovery",
+      },
+      { anchor: "settings.taskReviewer.recent.title", keywordsKey: "settings.search.keywords.taskReviewer" },
+      { anchor: "settings.taskReviewer.does.title", keywordsKey: "settings.search.keywords.taskReviewer" },
+      { anchor: "settings.taskReviewer.doesNot.title", keywordsKey: "settings.search.keywords.taskReviewer" },
     ],
   },
   {
