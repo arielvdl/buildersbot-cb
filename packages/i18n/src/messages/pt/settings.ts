@@ -196,9 +196,10 @@ export const messages = {
   "settings.startRetry.breaker.value": "{minutes} min",
   "settings.startRetry.agents.title": "Agentes com modelo de reserva próprio",
   "settings.startRetry.agents.description":
-    "Defina nas configurações do agente, em Modelos de reserva. Ele vem antes do padrão.",
+    "Defina nas configurações do agente, em Modelos de reserva. Ele é usado no lugar do padrão. O agente que pergunta antes não troca sozinho: o Fiscal assume a tarefa.",
   "settings.startRetry.agents.none": "Nenhum agente tem.",
   "settings.startRetry.agents.value": "{name}: {provider} · {model}",
+  "settings.startRetry.agents.asks": "{name}: {provider} · {model} (pergunta antes)",
   "settings.startRetry.onBackup.title": "No modelo de reserva agora",
   "settings.startRetry.onBackup.value": "{name} usa o modelo de reserva até {time} e depois tenta {model} de novo.",
   "settings.startRetry.onBackup.probing": "{name} testa {model} de novo agora.",
