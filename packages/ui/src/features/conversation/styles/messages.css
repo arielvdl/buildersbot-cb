@@ -827,6 +827,20 @@ button.chat-action-target:active,
   padding-inline-end: var(--openbot-space-1-5);
 }
 
+/* A connection line is a sentence with amounts and a date: it wraps, and "Ask the admin for more"
+   goes under it when the row has no room. */
+.chat-action-marker-hub-connection .chat-action-marker-content {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: var(--openbot-space-1);
+}
+
+.chat-action-marker-hub-connection .chat-action-marker-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
+}
+
 .chat-action-target-name,
 .chat-action-target > span:last-child {
   min-width: 0;

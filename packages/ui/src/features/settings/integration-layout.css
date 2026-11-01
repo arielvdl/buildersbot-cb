@@ -63,14 +63,19 @@
 
 .integration-detail-copy {
   display: grid;
+  /* The column may be narrower than the name and the status together, so the header never pushes
+     its action out of a narrow window. */
+  grid-template-columns: minmax(0, 1fr);
   flex: 1;
   gap: var(--openbot-space-1);
   min-width: 0;
 }
 
+/* A long status, such as "Precisa de atenção", goes under the name when the row has no room. */
 .integration-detail-title {
   display: flex;
-  gap: var(--openbot-space-2);
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1) var(--openbot-space-2);
   align-items: center;
 }
 

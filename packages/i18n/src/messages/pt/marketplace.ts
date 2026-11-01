@@ -526,6 +526,7 @@ export const messages = {
   "marketplace.connection.personalPlan": "Seu plano pessoal",
   "marketplace.connection.cap.title": "Seu teto mensal",
   "marketplace.connection.cap.paidBy": "Paga por {org}",
+  "marketplace.connection.cap.organization": "Organização: {org}",
   "marketplace.connection.cap.unlimited": "Sem teto mensal: vale o orçamento da organização.",
   "marketplace.connection.cap.unlimitedDaily": "Sem teto mensal: até {amount} por dia do orçamento da organização.",
   "marketplace.connection.cap.spent": "{spent} de {cap} usados neste mês",

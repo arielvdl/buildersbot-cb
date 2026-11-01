@@ -15,8 +15,8 @@ import type { MarketplaceAgent, MarketplaceApp, MarketplaceAppStatus } from "./m
  * them from fixtures.
  */
 export interface MarketplaceConnections {
-  /** Whether main could read the connections, or why not. */
-  status: () => HubConnectionsViewStatus;
+  /** Whether main could read the connections, or why not. `loading` until its first answer. */
+  status: () => HubConnectionsViewStatus | "loading";
   /** When main read the catalog. */
   readAt: () => string | null;
   /** Reads the Hub again. */

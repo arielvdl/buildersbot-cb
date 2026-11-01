@@ -76,6 +76,9 @@
    second, more important group; the entries are a tail of decreasing interest instead, so
    a panel too narrow to hold them all drops the last ones rather than rewrapping. */
 .agent-usage-totals {
+  /* The containing block of the screen-reader copies of the numbers, which are absolute: without it
+     they escape the clip, and a long label (Portuguese) made the whole page scroll sideways. */
+  position: relative;
   display: flex;
   flex-wrap: nowrap;
   gap: calc(var(--openbot-space-6) * 2);

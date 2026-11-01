@@ -1583,14 +1583,6 @@ html:active-view-transition-type(marketplace-swap)::view-transition-new(marketpl
   gap: var(--openbot-space-2);
 }
 
-.marketplace-connection-agent {
-  padding-block: var(--openbot-space-2);
-}
-
-.marketplace-connection-agent .ui-switch-field {
-  width: 100%;
-}
-
 /* Last, because it is the most specific icon rule: every button icon in the window is 16px. */
 .skills-marketplace .ui-button > svg,
 .marketplace-search > svg {

@@ -546,6 +546,7 @@ export const messages = defineMessages("marketplace", {
   "marketplace.connection.personalPlan": "Your personal plan",
   "marketplace.connection.cap.title": "Your monthly limit",
   "marketplace.connection.cap.paidBy": "Paid by {org}",
+  "marketplace.connection.cap.organization": "Organization: {org}",
   "marketplace.connection.cap.unlimited": "No monthly limit: the budget of the organization applies.",
   "marketplace.connection.cap.unlimitedDaily":
     "No monthly limit: up to {amount} a day from the budget of the organization.",

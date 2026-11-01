@@ -84,7 +84,7 @@ function RequestButton(props: {
 }
 
 /** The person's cap: spent, reserved, what is left, the bar with the 80 % mark, and the renewal. */
-function CapSection(props: { row: HubConnectionAccessView }) {
+function CapSection(props: { row: HubConnectionAccessView; paying: boolean }) {
   const { t, format } = useText();
   const money = (micros: number) => formatConnectionMoney(format, micros, props.row.currency);
   const used = () => capUsed(props.row);
@@ -93,7 +93,11 @@ function CapSection(props: { row: HubConnectionAccessView }) {
   return (
     <SettingsSection
       title={t("marketplace.connection.cap.title")}
-      description={t("marketplace.connection.cap.paidBy", { org: payer() })}
+      description={
+        props.paying
+          ? t("marketplace.connection.cap.paidBy", { org: payer() })
+          : t("marketplace.connection.cap.organization", { org: payer() })
+      }
     >
       <ItemGroup class="settings-modal-card">
         <div class="integration-card-body marketplace-connection-cap" data-state={props.row.state}>
@@ -156,12 +160,12 @@ function CapSection(props: { row: HubConnectionAccessView }) {
             <dt>{t("marketplace.connection.cap.renews")}</dt>
             <dd>{renews()}</dd>
           </dl>
-          <Show when={props.row.bindingScope !== "user"}>
-            <Text as="p" variant="caption" tone="muted" class="integration-card-note">
-              {t("marketplace.connection.cap.orgBinds")}
-            </Text>
-          </Show>
         </div>
+        <Show when={props.row.bindingScope !== "user"}>
+          <Text as="p" variant="caption" tone="muted" class="integration-card-note">
+            {t("marketplace.connection.cap.orgBinds")}
+          </Text>
+        </Show>
       </ItemGroup>
     </SettingsSection>
   );
@@ -224,7 +228,12 @@ export function MarketplaceConnectionPage(props: {
     const access = row();
     return access && (canPayRow(access) || access.settledMicros > 0) ? access : undefined;
   };
-  const categories = () => [...new Set(payingRows().flatMap((access) => access.categories))];
+  /** The rows of organizations that turned the connection on for the person, also while it is paused. */
+  const onRows = () =>
+    view().access.filter(
+      (access) => (access.org === "enabled" || access.org === "paused") && access.user === "allowed",
+    );
+  const categories = () => [...new Set(onRows().flatMap((access) => access.categories))];
   const priceFrom = () => {
     const access = row();
     return access?.priceFromMicros ? formatConnectionMoney(format, access.priceFromMicros, access.currency) : null;
@@ -320,42 +329,46 @@ export function MarketplaceConnectionPage(props: {
                   .join(" · ")}
               </Text>
             </Show>
-            <Text as="p" variant="caption" tone="muted" class="integration-card-note">
-              {t("marketplace.connection.gives.caveat")}
-            </Text>
           </div>
+          <Text as="p" variant="caption" tone="muted" class="integration-card-note">
+            {t("marketplace.connection.gives.caveat")}
+          </Text>
         </ItemGroup>
       </SettingsSection>
 
-      <SettingsSection
-        title={t("marketplace.connection.categories.title")}
-        description={t("marketplace.connection.categories.description")}
-      >
-        <ItemGroup class="settings-modal-card">
-          <div class="integration-card-body">
-            <Show
-              when={categories().length > 0}
-              fallback={
-                <Text as="p" variant="body-sm" tone="muted">
-                  {t("marketplace.connection.categories.none")}
-                </Text>
-              }
-            >
-              <ul class="marketplace-connection-categories" aria-label={t("marketplace.connection.categories.title")}>
-                <For each={categories()}>
-                  {(name) => (
-                    <li>
-                      <Badge variant="secondary">{name}</Badge>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </Show>
-          </div>
-        </ItemGroup>
-      </SettingsSection>
+      <Show when={onRows().length > 0}>
+        <SettingsSection
+          title={t("marketplace.connection.categories.title")}
+          description={t("marketplace.connection.categories.description")}
+        >
+          <ItemGroup class="settings-modal-card">
+            <div class="integration-card-body">
+              <Show
+                when={categories().length > 0}
+                fallback={
+                  <Text as="p" variant="body-sm" tone="muted">
+                    {t("marketplace.connection.categories.none")}
+                  </Text>
+                }
+              >
+                <ul class="marketplace-connection-categories" aria-label={t("marketplace.connection.categories.title")}>
+                  <For each={categories()}>
+                    {(name) => (
+                      <li>
+                        <Badge variant="secondary">{name}</Badge>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
+            </div>
+          </ItemGroup>
+        </SettingsSection>
+      </Show>
 
-      <Show when={capRow()}>{(access) => <CapSection row={access()} />}</Show>
+      <Show when={capRow()}>
+        {(access) => <CapSection row={access()} paying={view().payerOrgId === access().orgId} />}
+      </Show>
 
       <SettingsSection
         title={t("marketplace.connection.payer.title")}
@@ -431,20 +444,19 @@ export function MarketplaceConnectionPage(props: {
           <ItemGroup class="settings-modal-card">
             <For each={props.connections.agents()} keyed={(agent) => agent.id}>
               {(agent) => (
-                <div class="settings-modal-row marketplace-connection-agent">
-                  <SwitchField
-                    size="sm"
-                    label={agent().name}
-                    description={
-                      agentOn(agent().connectionsOff)
-                        ? t("marketplace.connection.agents.on", { connection: props.app.name })
-                        : t("marketplace.connection.agents.off", { connection: props.app.name })
-                    }
-                    checked={agentOn(agent().connectionsOff)}
-                    disabled={busy()}
-                    onChange={(on) => void props.connections.setAgentConnection(agent().id, view().id, on)}
-                  />
-                </div>
+                // A direct child of the card, as the switches of Settings are: the card gives its space.
+                <SwitchField
+                  size="sm"
+                  label={agent().name}
+                  description={
+                    agentOn(agent().connectionsOff)
+                      ? t("marketplace.connection.agents.on", { connection: props.app.name })
+                      : t("marketplace.connection.agents.off", { connection: props.app.name })
+                  }
+                  checked={agentOn(agent().connectionsOff)}
+                  disabled={busy()}
+                  onChange={(on) => void props.connections.setAgentConnection(agent().id, view().id, on)}
+                />
               )}
             </For>
           </ItemGroup>
@@ -469,14 +481,14 @@ export function MarketplaceConnectionPage(props: {
             <Text as="p" variant="body-sm">
               {t("marketplace.connection.data.key")}
             </Text>
-            <Show when={view().dataPolicy.retentionDays !== null}>
-              <Text as="p" variant="caption" tone="muted" class="integration-card-note">
-                {view().dataPolicy.retentionDays === 0
-                  ? t("marketplace.connection.data.retentionNone")
-                  : t("marketplace.connection.data.retention", { count: view().dataPolicy.retentionDays ?? 0 })}
-              </Text>
-            </Show>
           </div>
+          <Show when={view().dataPolicy.retentionDays !== null}>
+            <Text as="p" variant="caption" tone="muted" class="integration-card-note">
+              {view().dataPolicy.retentionDays === 0
+                ? t("marketplace.connection.data.retentionNone")
+                : t("marketplace.connection.data.retention", { count: view().dataPolicy.retentionDays ?? 0 })}
+            </Text>
+          </Show>
         </ItemGroup>
       </SettingsSection>
     </IntegrationPage>
@@ -497,17 +509,20 @@ export function MarketplaceConnectionsNotice(props: { connections: MarketplaceCo
     }
   };
   return (
-    <div class="marketplace-empty" role="status">
-      <Text as="p" variant="body-sm" tone="muted">
-        {text()}
-      </Text>
-      <Show when={props.connections.status() === "unavailable"}>
-        <div class="marketplace-empty-actions">
-          <Button type="button" variant="outline" size="sm" onClick={() => props.connections.refresh()}>
-            {t("common.retry")}
-          </Button>
-        </div>
-      </Show>
-    </div>
+    // Until main's first answer the page waits, with no text: the connection can still come.
+    <Show when={props.connections.status() !== "loading"}>
+      <div class="marketplace-empty" role="status">
+        <Text as="p" variant="body-sm" tone="muted">
+          {text()}
+        </Text>
+        <Show when={props.connections.status() === "unavailable"}>
+          <div class="marketplace-empty-actions">
+            <Button type="button" variant="outline" size="sm" onClick={() => props.connections.refresh()}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        </Show>
+      </div>
+    </Show>
   );
 }

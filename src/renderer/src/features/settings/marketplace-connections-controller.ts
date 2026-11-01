@@ -56,7 +56,10 @@ export function createMarketplaceConnections(options: MarketplaceConnectionsOpti
   const read = (fresh: boolean) => {
     const calls = options.calls();
     if (!calls) return;
-    void (fresh ? calls.refresh() : calls.getView()).then(take, options.onError);
+    // A read that fails is a Hub that did not answer for the page, which says so and offers Retry.
+    void (fresh ? calls.refresh() : calls.getView()).then(take, () =>
+      take({ status: "unavailable", connections: [], readAt: null }),
+    );
   };
 
   /* Each open of the window reads the view; main keeps the Hub's answers for up to 5 minutes. */
@@ -92,7 +95,7 @@ export function createMarketplaceConnections(options: MarketplaceConnectionsOpti
     }));
 
   const model: MarketplaceConnections = {
-    status: () => state.view?.status ?? "unavailable",
+    status: () => state.view?.status ?? "loading",
     readAt: () => state.view?.readAt ?? null,
     refresh: () => read(true),
     busy: (connectionId) => Boolean(state.busy[connectionId]),
