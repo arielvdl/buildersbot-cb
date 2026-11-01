@@ -70,6 +70,7 @@ export const messages = {
   "composer.reply.attachment": "Bijlage",
   "composer.reply.cancel": "Antwoord annuleren",
   "composer.attachment.remove": "{name} verwijderen",
+  "composer.pastedTextFileName": "geplakte-tekst.txt",
   "composer.placeholder.hostSetup": "Rond de configuratie van de aanbieder op je host af om te beginnen",
   "composer.placeholder.connectHost": "Maak verbinding met je host om te beginnen",
   "composer.placeholder.hostSleeping": "Deze server slaapt. Druk op een toets of klik om hem te wekken",
