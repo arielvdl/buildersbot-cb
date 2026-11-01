@@ -22,6 +22,7 @@ import {
   SettingsSection,
   TriangleAlert,
 } from "@openbot/ui";
+import { GuardSirenHero, type GuardSirenStatus } from "@openbot/ui/features/guard/GuardSiren";
 import { useText } from "@openbot/ui/text";
 import { For, Match, Show, Switch } from "solid-js";
 import { type GuardModelRow, guardModelKey, guardModelName, type SettingsGuardStore } from "./settings-guard-store";
@@ -43,12 +44,13 @@ const LEAVES = [
 ] as const satisfies ReadonlyArray<AppTextKey>;
 
 /**
- * Settings › Guard: the level of the Guard and the model that reviews suspicious items. Off and
- * Light run now; the stricter levels show as coming soon. The page says when the Guard uses only
- * the local check, such as with no Cultura Builder sign-in, when it asks the person, and what leaves
- * the computer. It links to the task reviewer, which asks the same model, to the load panel, and to
- * the security review of messages, a separate check that people can take for a part of the Guard. The
- * Guard runs on this computer, so a joined server gets a note that its own Guard is not changed here.
+ * Settings › Guard: the siren of the Guard, the level of the Guard and the model that reviews
+ * suspicious items. Off and Light run now; the stricter levels show as coming soon. The page says
+ * what the Guard does now, when the Guard uses only the local check, such as with no Cultura Builder
+ * sign-in, when it asks the person, and what leaves the computer. It links to the task reviewer,
+ * which asks the same model, to the load panel, and to the security review of messages, a separate
+ * check that people can take for a part of the Guard. The Guard runs on this computer, so a joined
+ * server gets a note that its own Guard is not changed here.
  */
 export function SettingsGuardTab(props: {
   store: SettingsGuardStore;
@@ -60,6 +62,8 @@ export function SettingsGuardTab(props: {
   onOpenLoadPanel: (() => void) | undefined;
   /** Shows the switch of the security review of messages, in General. */
   onOpenMessageReview: () => void;
+  /** True while a question of the Guard waits for the person. */
+  asking: boolean;
 }) {
   const { t } = useText();
   const guard = () => props.store.state.guard;
@@ -78,9 +82,21 @@ export function SettingsGuardTab(props: {
     return row?.recommended ? t("guard.model.recommended", { name }) : name;
   };
   const rowFor = (key: string) => props.store.rows().find((row) => row.key === key);
+  /** What the Guard does now, from the saved state and the questions that wait. */
+  const sirenStatus = (): GuardSirenStatus => {
+    const current = guard();
+    if (!current) return "loading";
+    if (level() === "off") return "off";
+    if (props.asking) return "asking";
+    const choice = current.preference.judge;
+    if (!choice) return "local-only";
+    if (!current.judgeReady) return choice.provider === "cultura-builder" ? "signed-out" : "unavailable";
+    return "ready";
+  };
 
   return (
     <>
+      <GuardSirenHero level={level()} status={sirenStatus()} />
       <Show when={props.joinedServer}>
         {(server) => (
           <Alert tone="neutral" role="status">

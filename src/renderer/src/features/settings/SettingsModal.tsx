@@ -133,6 +133,8 @@ export interface SettingsModalProps {
   load: TaskReviewerLoad & { watch: (visible: () => boolean) => void };
   /** Opens the load panel of the rail. Absent while the rail does not show it, such as on a joined server. */
   onOpenLoadPanel?: (() => void) | undefined;
+  /** True while a question of the Guard waits for the person: the siren of the Guard page turns red. */
+  guardAsking?: boolean | undefined;
 }
 
 /**
@@ -340,6 +342,7 @@ export function SettingsModal(props: SettingsModalProps) {
               setActiveTab("general");
               void revealSettingsRow("general", "settings.promptGuard.title");
             }}
+            asking={props.guardAsking === true}
           />
         </Tabs.Content>
 

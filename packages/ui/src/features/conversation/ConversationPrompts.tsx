@@ -23,6 +23,7 @@ import {
 import { StandingApprovalConfirmation } from "@openbot/ui/components/StandingApprovalConfirmation";
 import { BrowserSecretCard, type BrowserSecretVault } from "@openbot/ui/features/conversation/BrowserSecretCard";
 import { BrowserTakeoverPreview } from "@openbot/ui/features/conversation/BrowserTakeoverPreview";
+import { GuardSiren } from "@openbot/ui/features/guard/GuardSiren";
 import { type TextValue, useText } from "@openbot/ui/text";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { isSendShortcutKey, type SendShortcut, sendShortcutAriaKey } from "./send-shortcut";
@@ -177,6 +178,10 @@ export function ApprovalCard(props: {
       aria-busy={submitting() ? "true" : undefined}
     >
       <header class="approval-card-header conversation-interaction-header">
+        {/* A question of the Guard shows the Guard's siren, red until the person answers. */}
+        <Show when={props.approval?.guard}>
+          <GuardSiren level="light" asking={!submitting()} size="compact" class="approval-card-siren" />
+        </Show>
         <strong>{t(approvalTitle(props.approval))}</strong>
         <Badge variant="warning-light" class="conversation-interaction-status" role="status">
           <LoaderCircle class="conversation-interaction-spinner" data-icon="inline-start" aria-hidden="true" />
