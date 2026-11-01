@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   AgentLimitPreference,
+  AgentProviderId,
   AgentSummary,
   AutoRecoveryPreference,
   AutoRecoveryState,
@@ -10,12 +11,24 @@ import type {
   ResumeStoppedWorkInput,
   RunningWork,
   StoppedWork,
+  StoppedWorkBulkInput,
+  StoppedWorkBulkResult,
+  StoppedWorkEntry,
+  StoppedWorkFailure,
+  StoppedWorkItem,
+  StoppedWorkList,
+  StoppedWorkOrphan,
   StopWorkInput,
   TaskWatchPreference,
   TaskWatchState,
   WaitingWork,
 } from "@openbot/contracts/ipc";
-import { DEFAULT_TASK_WATCH_PREFERENCE, LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
+import {
+  DEFAULT_TASK_WATCH_PREFERENCE,
+  LOAD_WORK_LIST_LIMIT,
+  STOPPED_WORK_PAGE_LIMIT,
+  STOPPED_WORK_UNDO_MS,
+} from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentService } from "../backend/agent-service";
 import type { ChannelQueueHold } from "../backend/channel-service";
@@ -38,7 +51,18 @@ import {
   type WatchHold,
   type WatchObservation,
 } from "./task-watch";
-import { buildRunningWork, buildStoppedWork, type RunningTurnRecord, runningAgentCount } from "./work-overview";
+import {
+  buildRunningWork,
+  buildStoppedWork,
+  countStoppedWork,
+  duplicateStoppedTasks,
+  type RunningTurnRecord,
+  runningAgentCount,
+  type StoppedChannelInput,
+  type StoppedRun,
+  stoppedRow,
+  stoppedRuns,
+} from "./work-overview";
 
 const TICK_MS = 60_000;
 /** The messages of a tab that the task reviewer reads back to find the agent's last words. */
@@ -71,6 +95,23 @@ export interface WorkControlOptions {
   now?: () => number;
   /** The task reviewer. Omitted, it never looks. */
   taskWatch?: WorkControlTaskWatchOptions;
+  /**
+   * The routine that posted each of these requests of a channel, and whether it still exists
+   * (`AgentService.channelRequestOrigins`). Omitted, no request is a routine's.
+   */
+  requestOrigins?: (
+    channelId: string,
+    requestMessageIds: readonly string[],
+  ) => ReadonlyMap<string, { routineName: string; exists: boolean }>;
+  /** Changes the model of one agent, as its settings do (`AgentService.updateAgent`). Omitted, `model` fails. */
+  setAgentModel?: (agentId: string, provider: AgentProviderId, model: string) => Promise<void>;
+}
+
+/** A removal that the person can undo for `STOPPED_WORK_UNDO_MS`: the tasks as they were, by channel. */
+interface PendingUndo {
+  previous: Map<string, ChannelTask[]>;
+  items: StoppedWorkItem[];
+  timer: NodeJS.Timeout;
 }
 
 type WorkCommand = {
@@ -109,6 +150,8 @@ export class WorkControl {
   readonly #stops = new DeliberateStops();
   /** The operation ids of the commands that the app sends by itself now, until each one applies. */
   readonly #ownOperations = new Set<string>();
+  /** The removals that the person can still undo, by their id. */
+  readonly #undo = new Map<string, PendingUndo>();
   #timer: NodeJS.Timeout | null = null;
 
   constructor(options: WorkControlOptions) {
@@ -183,6 +226,8 @@ export class WorkControl {
   stop(): void {
     if (this.#timer) clearInterval(this.#timer);
     this.#timer = null;
+    for (const pending of this.#undo.values()) clearTimeout(pending.timer);
+    this.#undo.clear();
   }
 
   /**
@@ -194,6 +239,7 @@ export class WorkControl {
     activeAgents: number;
     waiting: WaitingWork[];
     stopped: StoppedWork[];
+    stoppedTotal: number;
     recovery: AutoRecoveryState;
     agentLimit: AgentLimitPreference;
     taskWatch: TaskWatchState;
@@ -201,12 +247,14 @@ export class WorkControl {
     const preference = this.#options.preference();
     const turns = this.#options.service.runningTurns();
     const agentLimit = this.#options.agentLimit();
+    const channels = this.#channelInputs();
     return {
       running: this.#withQuiet(this.#running(turns)),
       activeAgents: runningAgentCount(turns),
       waiting: agentLimit.enabled ? this.#waiting() : [],
       agentLimit,
-      stopped: this.#stoppedRows(),
+      stopped: this.#stoppedRows(channels),
+      stoppedTotal: countStoppedWork(channels),
       recovery: { ...preference, recent: this.#recovery.recent() },
       taskWatch: this.#taskWatchState(),
     };
@@ -265,6 +313,192 @@ export class WorkControl {
       "person",
     );
     return true;
+  }
+
+  /**
+   * The stopped work page: every stopped run, up to `STOPPED_WORK_PAGE_LIMIT`, with what posted it and
+   * whether what it belongs to was deleted. One read of each channel serves all of its rows.
+   */
+  listStopped(): StoppedWorkList {
+    const channels = this.#channelInputs();
+    const agents = this.#agents();
+    const runs = stoppedRuns(channels, STOPPED_WORK_PAGE_LIMIT);
+    const origins = new Map<string, ReadonlyMap<string, { routineName: string; exists: boolean }>>();
+    const duplicates = new Map<string, Set<string>>();
+    const members = new Map<string, MemberInfo[]>();
+    for (const channel of channels) {
+      if (channel.archived) continue;
+      const requests = [
+        ...new Set(runs.filter((run) => run.channel.id === channel.id).map((run) => run.task.requestMessageId)),
+      ];
+      if (!requests.length) continue;
+      origins.set(channel.id, this.#options.requestOrigins?.(channel.id, requests) ?? new Map());
+      duplicates.set(channel.id, duplicateStoppedTasks(channel.tasks));
+      members.set(channel.id, this.#members(channel.id, agents));
+    }
+    const items = runs.map((run): StoppedWorkEntry => {
+      const { channel, task } = run;
+      const origin = origins.get(channel.id)?.get(task.requestMessageId) ?? null;
+      const row = stoppedRow(run, (agentId) => agents.get(agentId)?.name ?? null);
+      return {
+        ...row,
+        ...this.#enrich(channel.id, task, members.get(channel.id) ?? []),
+        topicId: task.topicId ?? null,
+        agentId: task.ownerAgentId,
+        origin: origin ? "routine" : "request",
+        routineName: origin?.routineName ?? null,
+        orphan: this.#orphan(run, {
+          routineDeleted: origin !== null && !origin.exists,
+          agentDeleted: task.ownerAgentId !== null && !agents.has(task.ownerAgentId),
+          duplicate: duplicates.get(channel.id)?.has(task.id) ?? false,
+        }),
+      };
+    });
+    return {
+      items,
+      total: countStoppedWork(channels),
+      agents: [...agents.values()].map(({ id, name, title, provider, model }) => ({
+        id,
+        name,
+        title,
+        provider,
+        model,
+      })),
+      channels: [...members].map(([id, list]) => ({ id, memberIds: list.map((member) => member.agentId) })),
+    };
+  }
+
+  /**
+   * One action of the stopped work page on many rows. Each row is done or refused on its own, so one
+   * refusal does not stop the others, and the answer says which ones failed and why. Only a row that is
+   * stopped now is touched. A removal closes the runs of each channel in one write, and can be undone
+   * for `STOPPED_WORK_UNDO_MS`.
+   */
+  async bulkStopped(input: StoppedWorkBulkInput): Promise<StoppedWorkBulkResult> {
+    const failed: StoppedWorkBulkResult["failed"] = [];
+    const fail = (item: StoppedWorkItem, reason: StoppedWorkFailure) =>
+      failed.push({ channelId: item.channelId, taskId: item.taskId, reason });
+    let done = 0;
+    let undoId: string | null = null;
+    const changedAgents: string[] = [];
+    if (input.action === "undo") {
+      const pending = this.#undo.get(input.undoId);
+      if (!pending) {
+        return { done, failed, undoId, agents: changedAgents, list: this.listStopped() };
+      }
+      clearTimeout(pending.timer);
+      this.#undo.delete(input.undoId);
+      for (const [channelId, previous] of pending.previous) {
+        try {
+          await Effect.runPromise(this.#options.service.channels.reopenClosed(channelId, previous));
+        } catch (cause) {
+          this.#options.onFailure(`undo removal ${channelId}`, cause);
+        }
+      }
+      const stoppedNow = new Set(this.#stoppedKeys());
+      for (const item of pending.items) {
+        if (stoppedNow.has(itemKey(item))) done += 1;
+        else fail(item, "expired");
+      }
+      return { done, failed, undoId, agents: changedAgents, list: this.listStopped() };
+    }
+    const items = uniqueItems(input.items);
+    const stoppedNow = new Set(this.#stoppedKeys());
+    const wanted = items.filter((item) => {
+      if (stoppedNow.has(itemKey(item))) return true;
+      fail(item, "gone");
+      return false;
+    });
+    if (input.action === "remove") {
+      const previous = new Map<string, ChannelTask[]>();
+      const removed: StoppedWorkItem[] = [];
+      for (const [channelId, group] of groupByChannel(wanted)) {
+        try {
+          const result = await Effect.runPromise(
+            this.#options.service.channels.closeStopped(
+              channelId,
+              group.map((item) => item.taskId),
+            ),
+          );
+          if (result.previous.length) previous.set(channelId, result.previous);
+          for (const taskId of result.closed) removed.push({ channelId, taskId });
+          for (const refusal of result.refused) fail({ channelId, taskId: refusal.taskId }, refusal.reason);
+        } catch (cause) {
+          this.#options.onFailure(`remove ${channelId}`, cause);
+          for (const item of group) fail(item, "failed");
+        }
+      }
+      done = removed.length;
+      if (previous.size) {
+        undoId = randomUUID();
+        const id = undoId;
+        const timer = setTimeout(() => this.#undo.delete(id), STOPPED_WORK_UNDO_MS);
+        timer.unref();
+        this.#undo.set(id, { previous, items: removed, timer });
+      }
+    } else if (input.action === "resume") {
+      for (const item of wanted) {
+        try {
+          await this.#command({ type: "resume", ...item, recipientAgentId: null }, "person");
+          done += 1;
+        } catch (cause) {
+          this.#options.onFailure(`resume ${item.channelId}/${item.taskId}`, cause);
+          fail(item, "failed");
+        }
+      }
+    } else if (input.action === "reassign") {
+      const agents = this.#agents();
+      const members = new Map<string, MemberInfo[]>();
+      const taskOf = this.#taskReader();
+      for (const item of wanted) {
+        let list = members.get(item.channelId);
+        if (!list) {
+          list = this.#members(item.channelId, agents);
+          members.set(item.channelId, list);
+        }
+        const task = taskOf(item);
+        const member = list.find((entry) => entry.agentId === input.recipientAgentId);
+        if (!task || !member?.available || task.ownerAgentId === input.recipientAgentId) {
+          fail(item, "not-member");
+          continue;
+        }
+        try {
+          await this.#command({ type: "reassign", ...item, recipientAgentId: input.recipientAgentId }, "person");
+          done += 1;
+        } catch (cause) {
+          this.#options.onFailure(`reassign ${item.channelId}/${item.taskId}`, cause);
+          fail(item, "failed");
+        }
+      }
+    } else if (input.action === "model") {
+      // The model belongs to the agent: each agent that had a selected row changes once, for all its work.
+      const setModel = this.#options.setAgentModel;
+      const owners = new Map<string, StoppedWorkItem[]>();
+      const agents = this.#agents();
+      const taskOf = this.#taskReader();
+      for (const item of wanted) {
+        const owner = taskOf(item)?.ownerAgentId ?? null;
+        if (owner === null || !agents.has(owner)) {
+          fail(item, "no-agent");
+          continue;
+        }
+        const group = owners.get(owner);
+        if (group) group.push(item);
+        else owners.set(owner, [item]);
+      }
+      for (const [agentId, group] of owners) {
+        try {
+          if (!setModel) throw new Error("This process cannot change the model of an agent.");
+          await setModel(agentId, input.provider, input.model);
+          done += group.length;
+          changedAgents.push(this.#agentName(agentId) ?? agentId);
+        } catch (cause) {
+          this.#options.onFailure(`model ${agentId}`, cause);
+          for (const item of group) fail(item, "failed");
+        }
+      }
+    }
+    return { done, failed, undoId, agents: changedAgents, list: this.listStopped() };
   }
 
   /** One look of the automatic recovery, then of the task reviewer, for the timer and for a test. */
@@ -566,9 +800,9 @@ export class WorkControl {
     return this.#options.service.channels.store.topic(channelId, topicId)?.name ?? null;
   }
 
-  #members(channelId: string): MemberInfo[] {
+  #members(channelId: string, agents: ReadonlyMap<string, AgentSummary> = this.#agents()): MemberInfo[] {
     const { channels } = this.#options.service;
-    const agents = this.#agents();
+    if (!channels.store.exists(channelId)) return [];
     return channels.store.get(channelId).members.flatMap((member) => {
       const agent = agents.get(member.agentId);
       if (!agent) return [];
@@ -592,10 +826,10 @@ export class WorkControl {
     return reassignCandidates(owner, members, exclude);
   }
 
-  #stoppedRows(): StoppedWork[] {
+  /** The channels for the stopped rows: one read of each channel and of its tasks. */
+  #channelInputs(): StoppedChannelInput[] {
     const { channels } = this.#options.service;
-    const agents = this.#agents();
-    const inputs = channels.store.ids().flatMap((id) => {
+    return channels.store.ids().flatMap((id) => {
       if (!channels.store.exists(id)) return [];
       const channel = channels.store.get(id);
       return [
@@ -603,22 +837,102 @@ export class WorkControl {
           id,
           name: channel.name,
           archived: channel.archived,
-          tasks: channels.store.tasks(id),
+          tasks: channel.archived ? [] : channels.store.tasks(id),
           topicName: (topicId: string) => this.#topicName(id, topicId),
         },
       ];
     });
-    return buildStoppedWork(
-      inputs,
-      (agentId) => agents.get(agentId)?.name ?? null,
-      (channelId, task) => ({
-        candidates: this.#candidatesFor(channelId, task.id, new Set()).map(({ agentId, name, sameModel }) => ({
-          agentId,
-          name,
-          sameModel,
-        })),
-        auto: this.#options.preference().enabled ? this.#recovery.statusOf(channelId, task.id) : null,
-      }),
+  }
+
+  /** Finds a task of a row, with one read of the tasks of each channel. The reader serves one action. */
+  #taskReader(): (item: StoppedWorkItem) => ChannelTask | undefined {
+    const { store } = this.#options.service.channels;
+    const byChannel = new Map<string, Map<string, ChannelTask>>();
+    return (item) => {
+      let tasks = byChannel.get(item.channelId);
+      if (!tasks) {
+        tasks = new Map(
+          store.exists(item.channelId) ? store.tasks(item.channelId).map((task) => [task.id, task] as const) : [],
+        );
+        byChannel.set(item.channelId, tasks);
+      }
+      return tasks.get(item.taskId);
+    };
+  }
+
+  /** The keys of the stopped rows now, with no limit. */
+  #stoppedKeys(): string[] {
+    return stoppedRuns(this.#channelInputs(), Number.POSITIVE_INFINITY).map((run) =>
+      itemKey({ channelId: run.channel.id, taskId: run.task.id }),
     );
   }
+
+  /** Reassign and the state of the automatic recovery of one stopped task. */
+  #enrich(
+    channelId: string,
+    task: ChannelTask,
+    members: readonly MemberInfo[],
+  ): Pick<StoppedWork, "candidates" | "auto"> {
+    const owner = members.find((member) => member.agentId === task.ownerAgentId) ?? null;
+    return {
+      candidates: reassignCandidates(owner, members, new Set()).map(({ agentId, name, sameModel }) => ({
+        agentId,
+        name,
+        sameModel,
+      })),
+      auto: this.#options.preference().enabled ? this.#recovery.statusOf(channelId, task.id) : null,
+    };
+  }
+
+  /** Why a stopped run has nothing left that it belongs to. The deleted source first. */
+  #orphan(
+    run: StoppedRun,
+    found: { routineDeleted: boolean; agentDeleted: boolean; duplicate: boolean },
+  ): StoppedWorkOrphan | null {
+    if (found.routineDeleted) return "routine-deleted";
+    if (run.task.topicId && run.channel.topicName(run.task.topicId) === null) return "topic-deleted";
+    if (found.agentDeleted) return "agent-deleted";
+    return found.duplicate ? "duplicate" : null;
+  }
+
+  #stoppedRows(channels: readonly StoppedChannelInput[] = this.#channelInputs()): StoppedWork[] {
+    const agents = this.#agents();
+    const members = new Map<string, MemberInfo[]>();
+    return buildStoppedWork(
+      channels,
+      (agentId) => agents.get(agentId)?.name ?? null,
+      (channelId, task) => {
+        let list = members.get(channelId);
+        if (!list) {
+          list = this.#members(channelId, agents);
+          members.set(channelId, list);
+        }
+        return this.#enrich(channelId, task, list);
+      },
+    );
+  }
+}
+
+function itemKey(item: StoppedWorkItem): string {
+  return `${item.channelId}\u0000${item.taskId}`;
+}
+
+function uniqueItems(items: readonly StoppedWorkItem[]): StoppedWorkItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = itemKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function groupByChannel(items: readonly StoppedWorkItem[]): Map<string, StoppedWorkItem[]> {
+  const groups = new Map<string, StoppedWorkItem[]>();
+  for (const item of items) {
+    const group = groups.get(item.channelId);
+    if (group) group.push(item);
+    else groups.set(item.channelId, [item]);
+  }
+  return groups;
 }

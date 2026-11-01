@@ -169,22 +169,22 @@ reviewer" and related words, in the interface language and in English. The page 
   again the tasks that the person stopped (see [A stop by the person](#a-stop-by-the-person)): the
   reviewer does not touch them, "Resume by itself" does;
 - the threshold, "consider it stopped after N minutes", as a list of values from 5 to 120. A value
-  that the load panel set and the list does not have is added to the list;
+  that the load page set and the list does not have is added to the list;
 - the model: the review model of the Guard, by name, and whether it can run now (`judgeReady` of the
   Guard state, the same reading as the name), with a button to the Guard page;
-- the two switches of the load panel that it follows, "Resume by itself" and "Give it to another
+- the two switches of the load page that it follows, "Resume by itself" and "Give it to another
   agent if it keeps failing", with the interval of "Resume by itself", and a button that opens the
-  load panel (only while the rail shows the ring);
+  load page of Settings;
 - its last actions, with the time and who decided (the model or the local rules);
 - what it does and what it does not do, in plain words.
 
-The Guard page links to this page, and this page links to the Guard page. The load panel has a
-button "Task reviewer settings" under the reviewer's switch. It opens this page also when Settings
-already shows another page, and the ring of the rail takes the focus back when Settings closes.
+The Guard page links to this page, and this page links to the Guard page. The load page has a
+button "Task reviewer settings" under the reviewer's switch. The ring of the rail opens the load page,
+and takes the focus back when Settings closes.
 
-### Load panel
+### Load page
 
-In the load panel, in the section of "Resume by itself":
+On the load page of Settings, in the section of "Resume by itself":
 
 - the switch "Task reviewer (experimental)", also while "Resume by itself" is off, with its hint
   that it acts only while "Resume by itself" is on. While it is on, a line says it uses the model of

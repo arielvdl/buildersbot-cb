@@ -3,6 +3,8 @@
  * a snapshot of both and changes the mode; the main process owns the preference and the sampling.
  */
 
+import { type AgentProviderId, type AgentProviderRef, isAgentProvider, isAgentProviderRef } from "./agent-providers";
+import { type AgentModelId, isAgentModel } from "./ipc-agent-identity";
 import { isIdentifier } from "./ipc-bounded-values";
 import { isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
 
@@ -256,6 +258,11 @@ export interface LoadSnapshot {
   /** The agents whose turn waits for a free place under the cap. Empty while the cap is off. */
   waiting: WaitingWork[];
   stopped: StoppedWork[];
+  /**
+   * How many runs stopped, also above `LOAD_WORK_LIST_LIMIT`: the ring and its tooltip count them all.
+   * Absent from an older main process: `stopped` holds them all.
+   */
+  stoppedTotal?: number;
   recovery: AutoRecoveryState;
   agentLimit: AgentLimitPreference;
   taskWatch: TaskWatchState;
@@ -390,6 +397,8 @@ export function isLoadSnapshot(value: unknown): value is LoadSnapshot {
     isBoundedWorkList(value.running, isRunningWork) &&
     isBoundedWorkList(value.waiting, isWaitingWork) &&
     isBoundedWorkList(value.stopped, isStoppedWork) &&
+    (value.stoppedTotal === undefined ||
+      (isNumber(value.stoppedTotal) && Number.isInteger(value.stoppedTotal) && value.stoppedTotal >= 0)) &&
     isAutoRecoveryState(value.recovery) &&
     isAgentLimitPreference(value.agentLimit) &&
     isTaskWatchState(value.taskWatch)
@@ -449,5 +458,193 @@ export function isReassignStoppedWorkInput(value: unknown): value is ReassignSto
     isIdentifier(value.channelId) &&
     isIdentifier(value.taskId) &&
     isIdentifier(value.recipientAgentId)
+  );
+}
+
+/** The most rows the stopped work page of Settings lists, and that one of its actions takes. */
+export const STOPPED_WORK_PAGE_LIMIT = 2_000;
+/** How long a removal of stopped work can be undone. */
+export const STOPPED_WORK_UNDO_MS = 10_000;
+
+/** What posted the request of stopped work: a routine of the channel, or a person or agent. */
+export type StoppedWorkOrigin = "routine" | "request";
+
+/**
+ * Why stopped work has nothing left that it belongs to, so it can only wait for ever:
+ * - `routine-deleted`: the routine that posted the request was deleted.
+ * - `duplicate`: the same request has another task that completed, runs or waits, or an older one
+ *   that stopped too. A routine request that each start posted again made these.
+ * - `agent-deleted`: the agent that had it was deleted.
+ * - `topic-deleted`: the tab that holds it was deleted.
+ */
+export type StoppedWorkOrphan = "routine-deleted" | "duplicate" | "agent-deleted" | "topic-deleted";
+
+const STOPPED_WORK_ORPHANS = ["routine-deleted", "duplicate", "agent-deleted", "topic-deleted"] as const;
+
+/** One row of the stopped work page: a row of the load panel, and what the page filters and acts on. */
+export interface StoppedWorkEntry extends StoppedWork {
+  topicId: string | null;
+  /** The agent that had the task. Null when no agent took it, such as a request the lead could not route. */
+  agentId: string | null;
+  origin: StoppedWorkOrigin;
+  /** The name of the routine that posted the request, for `origin: "routine"`. */
+  routineName: string | null;
+  orphan: StoppedWorkOrphan | null;
+}
+
+/** An agent that the page can name: the owner of a row, or an agent that Reassign can choose. */
+export interface StoppedWorkAgent {
+  id: string;
+  name: string;
+  title: string;
+  provider: AgentProviderRef;
+  model: string;
+}
+
+/** A channel of the rows: its members, the agents that Reassign can give its work to. */
+export interface StoppedWorkChannel {
+  id: string;
+  memberIds: string[];
+}
+
+/** The stopped work page: every stopped run, up to `STOPPED_WORK_PAGE_LIMIT`. */
+export interface StoppedWorkList {
+  items: StoppedWorkEntry[];
+  /** Every stopped run, also above the limit. */
+  total: number;
+  agents: StoppedWorkAgent[];
+  channels: StoppedWorkChannel[];
+}
+
+export interface StoppedWorkItem {
+  channelId: string;
+  taskId: string;
+}
+
+/**
+ * One action of the stopped work page on many rows. `remove` cancels each run for good (`undo` with
+ * its `undoId` opens them again within `STOPPED_WORK_UNDO_MS`). `model` changes the model of each
+ * agent that had a selected row: the model belongs to the agent, not to the task or the routine.
+ */
+export type StoppedWorkBulkInput =
+  | { action: "resume" | "remove"; items: StoppedWorkItem[] }
+  | { action: "reassign"; items: StoppedWorkItem[]; recipientAgentId: string }
+  | { action: "model"; items: StoppedWorkItem[]; provider: AgentProviderId; model: AgentModelId }
+  | { action: "undo"; undoId: string };
+
+/**
+ * Why one row was not done:
+ * - `gone`: it is not stopped now, or not found.
+ * - `running`: a task of its run runs; stop it first.
+ * - `not-member`: the agent is not a member of its channel, is the agent that has it, or cannot take work now.
+ * - `no-agent`: no agent had it, so there is no model to change.
+ * - `expired`: the time to undo ended.
+ * - `failed`: the channel or the agent refused the change.
+ */
+export type StoppedWorkFailure = "gone" | "running" | "not-member" | "no-agent" | "expired" | "failed";
+
+const STOPPED_WORK_FAILURES = ["gone", "running", "not-member", "no-agent", "expired", "failed"] as const;
+
+export interface StoppedWorkBulkResult {
+  done: number;
+  failed: { channelId: string; taskId: string; reason: StoppedWorkFailure }[];
+  /** After `remove`: the id that `undo` takes, until `STOPPED_WORK_UNDO_MS` ends. */
+  undoId: string | null;
+  /** After `model`: the names of the agents whose model changed. */
+  agents: string[];
+  list: StoppedWorkList;
+}
+
+function isStoppedWorkEntry(value: unknown): value is StoppedWorkEntry {
+  return (
+    isStoppedWork(value) &&
+    isDynamicRecord(value) &&
+    (value.topicId === null || isIdentifier(value.topicId)) &&
+    (value.agentId === null || isIdentifier(value.agentId)) &&
+    (value.origin === "routine" || value.origin === "request") &&
+    (value.routineName === null || isString(value.routineName)) &&
+    (value.orphan === null || isOneOf(STOPPED_WORK_ORPHANS, value.orphan))
+  );
+}
+
+function isStoppedWorkAgent(value: unknown): value is StoppedWorkAgent {
+  return (
+    isDynamicRecord(value) &&
+    isIdentifier(value.id) &&
+    isString(value.name) &&
+    isString(value.title) &&
+    isAgentProviderRef(value.provider) &&
+    isString(value.model)
+  );
+}
+
+function isStoppedWorkChannel(value: unknown): value is StoppedWorkChannel {
+  return (
+    isDynamicRecord(value) &&
+    isIdentifier(value.id) &&
+    Array.isArray(value.memberIds) &&
+    value.memberIds.every(isIdentifier)
+  );
+}
+
+export function isStoppedWorkList(value: unknown): value is StoppedWorkList {
+  return (
+    isDynamicRecord(value) &&
+    isBoundedList(value.items, STOPPED_WORK_PAGE_LIMIT, isStoppedWorkEntry) &&
+    isNumber(value.total) &&
+    Number.isInteger(value.total) &&
+    value.total >= 0 &&
+    Array.isArray(value.agents) &&
+    value.agents.every(isStoppedWorkAgent) &&
+    Array.isArray(value.channels) &&
+    value.channels.every(isStoppedWorkChannel)
+  );
+}
+
+function isStoppedWorkItems(value: unknown): value is StoppedWorkItem[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= STOPPED_WORK_PAGE_LIMIT &&
+    value.every((item) => isDynamicRecord(item) && isIdentifier(item.channelId) && isIdentifier(item.taskId))
+  );
+}
+
+export function isStoppedWorkBulkInput(value: unknown): value is StoppedWorkBulkInput {
+  if (!isDynamicRecord(value)) return false;
+  switch (value.action) {
+    case "resume":
+    case "remove":
+      return isStoppedWorkItems(value.items);
+    case "reassign":
+      return isStoppedWorkItems(value.items) && isIdentifier(value.recipientAgentId);
+    case "model":
+      return isStoppedWorkItems(value.items) && isAgentProvider(value.provider) && isAgentModel(value.model);
+    case "undo":
+      return isIdentifier(value.undoId);
+    default:
+      return false;
+  }
+}
+
+export function isStoppedWorkBulkResult(value: unknown): value is StoppedWorkBulkResult {
+  return (
+    isDynamicRecord(value) &&
+    isNumber(value.done) &&
+    Number.isInteger(value.done) &&
+    value.done >= 0 &&
+    Array.isArray(value.failed) &&
+    value.failed.length <= STOPPED_WORK_PAGE_LIMIT &&
+    value.failed.every(
+      (item) =>
+        isDynamicRecord(item) &&
+        isIdentifier(item.channelId) &&
+        isIdentifier(item.taskId) &&
+        isOneOf(STOPPED_WORK_FAILURES, item.reason),
+    ) &&
+    (value.undoId === null || isIdentifier(value.undoId)) &&
+    Array.isArray(value.agents) &&
+    value.agents.every(isString) &&
+    isStoppedWorkList(value.list)
   );
 }

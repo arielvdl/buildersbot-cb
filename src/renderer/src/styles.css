@@ -60,6 +60,7 @@
 @import "@openbot/ui/features/orbits/orbits.css";
 @import "@openbot/ui/features/settings/opencode-key-dialog.css";
 @import "./features/settings/settings-mobile-connect.css";
+@import "./features/settings/settings-load.css";
 @import "@openbot/ui/features/settings/settings-hosted-sites.css";
 @import "@openbot/ui/features/settings/integration-layout.css";
 @import "@openbot/ui/features/settings/provider-settings-page.css";

@@ -598,7 +598,7 @@ The request names the chat turn that the person saw (`expectedTurnId`), or null.
 person did not see, such as the turn of the next queued message that started in between, is not
 stopped: the message waits at the head (`next`). A channel or messaging turn shows in the chat only as
 a hold, with no turn id, so a request with null stops it; the channel task then pauses with
-`error.backend.channelTaskStopped`, and the load panel can resume it. When the turn ends between the
+`error.backend.channelTaskStopped`, and the load page can resume it. When the turn ends between the
 click and the Stop, no stop is sent and the drain starts the message once. A provider that refuses
 the Stop because the turn has just ended gives the same result. When the Stop fails and the turn
 still runs, the queue gets its order back and the person sees `error.backend.forceStopFailed`; the

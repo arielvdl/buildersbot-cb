@@ -1,12 +1,12 @@
-// Checks the Task reviewer page of Settings ("Fiscal" in Portuguese) and its links with the load panel
-// of the rail, on a running dev app of this worktree, in the language that the app shows:
+// Checks the Task reviewer page of Settings ("Fiscal" in Portuguese) and its links with the load page
+// that the ring of the rail opens, on a running dev app of this worktree, in the language that the app shows:
 // - the settings search finds the page by "fiscal";
 // - the switch of the page turns the task reviewer on while "Resume by itself" is off, and the page says
 //   that it waits;
-// - the load panel then shows the switch of the task reviewer, on, also while "Resume by itself" is off;
-// - "Task reviewer settings" in the panel opens the page also when Settings shows another page that the
-//   person chose from the list;
-// - after "Task reviewer settings" from the ring, closing Settings puts the focus back on the ring.
+// - the load page then shows the switch of the task reviewer, on, also while "Resume by itself" is off;
+// - "Task reviewer settings" on the load page opens the page;
+// - the ring opens the load page, and after "Task reviewer settings" from there, closing Settings puts
+//   the focus back on the ring.
 // Restores "Resume by itself" and the task reviewer at the end. Writes
 // .openbot-build/task-reviewer-settings/report.json and screenshots. Needs `--allow-mutations`, because
 // it changes the two switches.
@@ -84,8 +84,8 @@ function selectedTab(page: Page, name: string) {
   return page.getByRole("tab", { name, exact: true, selected: true });
 }
 
-function loadPanel(page: Page, t: AppTranslate) {
-  return page.getByRole("dialog", { name: t("app.rail.load.title"), exact: true });
+function loadPage(page: Page, t: AppTranslate) {
+  return page.getByRole("tabpanel", { name: t("settings.tab.load.title"), exact: true });
 }
 
 async function preferences(page: Page) {
@@ -123,6 +123,7 @@ try {
   const t = translateFor(locale);
   const reviewerTab = t("settings.tab.taskReviewer.title");
   const guardTab = t("guard.tab.title");
+  const loadTab = t("settings.tab.load.title");
   await setPreferences(page, {
     recovery: { ...original.recovery, enabled: false },
     taskWatch: { ...original.taskWatch, enabled: false },
@@ -146,42 +147,40 @@ try {
   await reviewerPage.getByText(t("settings.taskReviewer.state.waiting"), { exact: true }).waitFor();
   pass("The page switch turns the task reviewer on, and the page says that it waits for Resume by itself.");
 
-  // Another page, chosen in the page, then the panel from the Related section of the Guard.
+  // Another page, chosen in the page, then the load page from the Related section of the Guard.
   await reviewerPage.getByRole("button", { name: t("settings.taskReviewer.model.openGuard"), exact: true }).click();
   await selectedTab(page, guardTab).waitFor();
   const guardPage = page.getByRole("tabpanel", { name: guardTab, exact: true });
   await guardPage
     .getByRole("button", { name: t("settings.related.open", { name: t("settings.loadPanel.title") }), exact: true })
     .click();
-  const panel = loadPanel(page, t);
-  await panel.waitFor();
-  const panelSwitch = panel.getByRole("switch", { name: t("app.rail.load.watchTitle"), exact: true });
-  await panelSwitch.waitFor();
-  assert.equal(await panelSwitch.isChecked(), true, "The load panel shows the task reviewer off.");
-  const recoverySwitch = panel.getByRole("switch", { name: t("app.rail.load.recoveryTitle"), exact: true });
-  assert.equal(await recoverySwitch.isChecked(), false, "Resume by itself is on in the load panel.");
-  await page.screenshot({ path: resolve(OUT, `panel-recovery-off-${locale}.png`) });
-  pass("With Resume by itself off, the load panel shows the task reviewer switch, on.");
+  await selectedTab(page, loadTab).waitFor();
+  const load = loadPage(page, t);
+  const pageSwitch = load.getByRole("switch", { name: t("app.rail.load.watchTitle"), exact: true });
+  await pageSwitch.waitFor();
+  assert.equal(await pageSwitch.isChecked(), true, "The load page shows the task reviewer off.");
+  const recoverySwitch = load.getByRole("switch", { name: t("app.rail.load.recoveryTitle"), exact: true });
+  assert.equal(await recoverySwitch.isChecked(), false, "Resume by itself is on in the load page.");
+  await page.screenshot({ path: resolve(OUT, `load-page-recovery-off-${locale}.png`) });
+  pass("With Resume by itself off, the load page shows the task reviewer switch, on.");
 
-  // The last request named the Task reviewer page; the Guard page came from the page itself.
-  await panel.getByRole("button", { name: t("app.rail.load.watchSettings"), exact: true }).click();
-  await panel.waitFor({ state: "hidden" });
+  await load.getByRole("button", { name: t("app.rail.load.watchSettings"), exact: true }).click();
   await selectedTab(page, reviewerTab).waitFor();
   await page.screenshot({ path: resolve(OUT, `settings-task-reviewer-${locale}.png`) });
-  pass("'Task reviewer settings' in the panel opens the page while Settings shows the Guard.");
+  pass("'Task reviewer settings' on the load page opens the page.");
 
   await closeSettings(page, t);
   const ring = ringButton(page, t);
   await ring.click();
-  await panel.waitFor();
-  await panel.getByRole("button", { name: t("app.rail.load.watchSettings"), exact: true }).click();
+  await selectedTab(page, loadTab).waitFor();
+  await load.getByRole("button", { name: t("app.rail.load.watchSettings"), exact: true }).click();
   await selectedTab(page, reviewerTab).waitFor();
   const ringElement = await ring.elementHandle();
   assert.ok(ringElement, "The rail shows no load ring.");
   await closeSettings(page, t);
   // The shell gives the focus back two frames after Settings closes.
   await page.waitForFunction((element) => document.activeElement === element, ringElement, { timeout: 5000 });
-  pass("After 'Task reviewer settings' from the ring, closing Settings puts the focus back on the ring.");
+  pass("The ring opens the load page, and closing Settings after the task reviewer page puts the focus on the ring.");
 } finally {
   await setPreferences(page, original);
   writeFileSync(resolve(OUT, "report.json"), `${JSON.stringify({ locale, original, steps }, null, 2)}\n`);

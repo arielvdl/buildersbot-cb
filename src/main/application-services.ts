@@ -2978,6 +2978,10 @@ export async function createApplicationServices({
     preference: () => autoRecovery.get(),
     agentLimit: () => agentLimit.get(),
     onFailure: (action, cause) => logger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
+    // The stopped work page of Settings: which routine posted a request, and the model of an agent.
+    requestOrigins: (channelId, requestMessageIds) => service.channelRequestOrigins(channelId, requestMessageIds),
+    setAgentModel: (agentId, provider, model) =>
+      runCauseEffect(service.updateAgent({ agentId, provider, model })).then(() => undefined),
     // The task reviewer: experimental, off by default, and it asks the model that the Guard uses.
     taskWatch: {
       preference: () => taskWatch.get(),

@@ -140,6 +140,16 @@ export interface ChannelLaneSnapshot {
  */
 export type ChannelQueueHold = "starting" | "owner-busy" | "waits";
 
+/** What `ChannelService.closeStopped` did. */
+export interface ClosedStoppedTasks {
+  /** Each task that changed, as it was before, for `reopenClosed`. */
+  previous: ChannelTask[];
+  /** The selected ids whose run closed. */
+  closed: string[];
+  /** `gone`: the task is not stopped now, or not found. `running`: a task of its run runs or holds an assignment. */
+  refused: { taskId: string; reason: "gone" | "running" }[];
+}
+
 class ChannelRoutingError extends Schema.TaggedError<ChannelRoutingError>()("ChannelRoutingError", {
   message: Schema.String,
 }) {
@@ -3440,6 +3450,118 @@ export class ChannelService {
     this.publish(channelId);
     // The withdrawn assignments reserved the host; let the agents queued behind them drain.
     if (withdrawn.length) for (const agent of this.hooks.agents()) this.hooks.schedule(agent.id);
+  }
+
+  /**
+   * Closes the stopped work of these requests: each run with a paused or failed task that one of them
+   * posted. A deleted routine calls it, so the work its runs left does not stay stopped for ever.
+   * Work that runs keeps its Stop control.
+   */
+  closeStoppedRequests(channelId: string, requests: ReadonlySet<string>): void {
+    if (!requests.size || !this.store.exists(channelId)) return;
+    const stopped = this.store
+      .tasks(channelId)
+      .filter((task) => requests.has(task.requestMessageId) && (task.state === "paused" || task.state === "failed"));
+    if (stopped.length) this.#closeStopped(channelId, [...new Set(stopped.map((task) => task.id))]);
+  }
+
+  /**
+   * Closes stopped runs for good, one write for the channel, behind the channel's other commands.
+   * See `#closeStopped`. Answers the tasks as they were, for an undo, and the refused ids.
+   */
+  readonly closeStopped = Effect.fn("ChannelService.closeStopped")((channelId: string, taskIds: readonly string[]) => {
+    let result: ClosedStoppedTasks = { previous: [], closed: [], refused: [] };
+    return this.#serialize(
+      channelId,
+      channelSync(() => {
+        result = this.#closeStopped(channelId, taskIds);
+      }),
+    ).pipe(Effect.map(() => result));
+  });
+
+  /**
+   * Opens again the tasks that `closeStopped` closed, as they were, when nothing changed them since.
+   * Answers how many it opened.
+   */
+  readonly reopenClosed = Effect.fn("ChannelService.reopenClosed")(
+    (channelId: string, previous: readonly ChannelTask[]) => {
+      let count = 0;
+      return this.#serialize(
+        channelId,
+        channelSync(() => {
+          if (!this.store.exists(channelId)) return;
+          const current = new Map(this.store.tasks(channelId).map((task) => [task.id, task]));
+          const reopened = previous.flatMap((task): ChannelTask[] => {
+            const now = current.get(task.id);
+            return now?.state === "cancelled" && now.revision === task.revision + 1
+              ? [{ ...task, revision: task.revision + 2 }]
+              : [];
+          });
+          if (!reopened.length) return;
+          this.store.update(this.store.get(channelId), { tasks: reopened });
+          this.publish(channelId);
+          count = reopened.length;
+        }),
+      ).pipe(Effect.map(() => count));
+    },
+  );
+
+  /**
+   * Cancels each selected run that stopped: the selected task must be paused or failed, and the whole
+   * run from its root leaves, so no task waits for a child that is gone. A run with a task that runs
+   * or holds an assignment is refused: Stop it first. The rows stay in the database as cancelled,
+   * so `reopenClosed` can undo the change and the history keeps them.
+   */
+  #closeStopped(channelId: string, taskIds: readonly string[]): ClosedStoppedTasks {
+    const result: ClosedStoppedTasks = { previous: [], closed: [], refused: [] };
+    if (!this.store.exists(channelId) || this.#deletedChannels.has(channelId)) {
+      result.refused = taskIds.map((taskId) => ({ taskId, reason: "gone" }));
+      return result;
+    }
+    const tasks = this.store.tasks(channelId);
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    const held = new Set(
+      this.store
+        .assignments(channelId)
+        .filter(activeAssignment)
+        .map((assignment) => assignment.taskId),
+    );
+    const changes = new Map<string, ChannelTask>();
+    for (const taskId of taskIds) {
+      const task = byId.get(taskId);
+      if (!task || (task.state !== "paused" && task.state !== "failed")) {
+        result.refused.push({ taskId, reason: "gone" });
+        continue;
+      }
+      const run = descendants(tasks, byId.has(task.rootTaskId) ? task.rootTaskId : task.id);
+      if (run.some((item) => item.state === "running" || held.has(item.id))) {
+        result.refused.push({ taskId, reason: "running" });
+        continue;
+      }
+      for (const item of run) {
+        if (changes.has(item.id)) continue;
+        result.previous.push(item);
+        changes.set(item.id, { ...item, state: "cancelled", revision: item.revision + 1 });
+      }
+      result.closed.push(taskId);
+    }
+    // A task of another run that waited on a closed one would wait for ever, as after a tab delete:
+    // the closed ids leave its list, and a task with nothing left to wait for goes back to the queue.
+    for (const task of tasks) {
+      if (changes.has(task.id) || terminal(task) || !task.dependencies.some((id) => changes.has(id))) continue;
+      const dependencies = task.dependencies.filter((id) => !changes.has(id));
+      const ready = task.state === "waiting" && dependencies.every((id) => byId.get(id)?.state === "completed");
+      changes.set(task.id, {
+        ...task,
+        dependencies,
+        ...(ready ? { state: "queued" as const, revision: task.revision + 1 } : {}),
+      });
+    }
+    if (changes.size) {
+      this.store.update(this.store.get(channelId), { tasks: [...changes.values()] });
+      this.publish(channelId);
+    }
+    return result;
   }
 
   private publish(channelId: string): void {

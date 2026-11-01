@@ -216,7 +216,7 @@ checks the real reading on macOS and the samples of 1 November through `MemoryHo
   refuses nothing: the person and the agents can open a tab and a popup at each level. Only the
   server reading (`BrowserHost` option `memoryLow`) refuses a new tab and a popup with
   `error.backend.browserLowMemory`, and on a server each idle agent tab unloads after 5 min.
-- The load panel shows a line with the free percentage while the level is not `ok`
+- The load page shows a line with the free percentage while the level is not `ok`
   (`memory.pressure` of `LoadSnapshot`, from `MacMemory.reading()`).
 - Each line of `logs/resources.ndjson` has this level and, for each provider, the count of its MCP
   and command processes and of the folders and sessions that its processes hold. See

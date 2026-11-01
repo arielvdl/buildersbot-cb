@@ -650,6 +650,38 @@ export class RoutineStore {
     ).map((row) => this.#run(row));
   }
 
+  /**
+   * The handles of every run of one routine, in any status. A deleted routine closes the stopped work
+   * that each of them left, not only the work of the runs that are still open.
+   */
+  protected runHandles(ownerId: string, routineId: string): string[] {
+    const { handleColumn, ownerColumn, runTable } = this.tables;
+    return databaseRows(
+      this.database.connection
+        .prepare(
+          `SELECT DISTINCT ${handleColumn} FROM ${runTable}
+           WHERE routine_id = ? AND ${ownerColumn} = ? AND ${handleColumn} IS NOT NULL`,
+        )
+        .all(routineId, ownerId),
+    ).map((row) => requiredStringColumn(row, handleColumn));
+  }
+
+  /** The runs of one owner that name one of these handles, in any status. */
+  protected runRowsForHandles(ownerId: string, handles: readonly string[]): OwnedRoutineRun[] {
+    if (!handles.length) return [];
+    return databaseRows(
+      this.database.connection
+        .prepare(
+          `SELECT ${this.runColumns}
+           FROM ${this.tables.runTable}
+           WHERE ${this.tables.ownerColumn} = ?
+             AND ${this.tables.handleColumn} IN (${handles.map(() => "?").join(", ")})
+           ORDER BY created_at, run_id`,
+        )
+        .all(ownerId, ...handles),
+    ).map((row) => this.#run(row));
+  }
+
   /** The owners that still have an unfinished run, so a boot reconcile can visit only those. */
   protected ownersWithOpenRuns(): string[] {
     return databaseRows(

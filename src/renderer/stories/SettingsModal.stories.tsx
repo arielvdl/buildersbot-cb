@@ -315,7 +315,6 @@ function SettingsModalStory(props: {
             hostedServersApi={props.hostedServers ? hostedServersApi : undefined}
             onAddHostedServer={props.hostedServers ? fn() : undefined}
             load={load}
-            onOpenLoadPanel={props.joinedServer ? undefined : fn()}
             guardAsking={props.guardAsking}
           />
         )}

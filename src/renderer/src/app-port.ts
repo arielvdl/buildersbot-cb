@@ -29,6 +29,8 @@ export interface AppPort {
   stopWork: BuildersBotDesktopApi["stopWork"];
   resumeStoppedWork: BuildersBotDesktopApi["resumeStoppedWork"];
   reassignStoppedWork: BuildersBotDesktopApi["reassignStoppedWork"];
+  listStoppedWork: BuildersBotDesktopApi["listStoppedWork"];
+  bulkStoppedWork: BuildersBotDesktopApi["bulkStoppedWork"];
   setAutoRecovery: BuildersBotDesktopApi["setAutoRecovery"];
   setTaskWatch: BuildersBotDesktopApi["setTaskWatch"];
   setAgentLimit: BuildersBotDesktopApi["setAgentLimit"];

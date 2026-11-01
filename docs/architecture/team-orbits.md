@@ -53,8 +53,8 @@ capability, so a joined server sends the data on the path that it uses for the s
 
 The load is the load of this computer. The page rail reads it only for the local server, so on a
 joined server the panel has no request text, no running time and no stopped channel task. The other
-states are the same. While the panel is open, the load controller reads every 3 seconds, as when the
-load panel is open.
+states are the same. While the panel is open, the load controller reads every 3 seconds, as while the
+load page of Settings shows.
 
 ## States
 

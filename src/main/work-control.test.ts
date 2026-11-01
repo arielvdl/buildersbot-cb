@@ -2,14 +2,14 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentSummary } from "@openbot/contracts/ipc";
+import type { AgentSummary, ChannelTask } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { ChannelService } from "../backend/channel-service";
 import { MailboxStore } from "../backend/mailbox-store";
 import { BuildersBotDatabase } from "../backend/openbot-database";
 import { AUTO_OPERATION_PREFIX, CHANNEL_START_FAILED } from "./task-watch";
-import { topActiveTask, WorkControl } from "./work-control";
+import { topActiveTask, WorkControl, type WorkControlOptions } from "./work-control";
 import type { RunningTurnRecord } from "./work-overview";
 
 const roots: string[] = [];
@@ -43,6 +43,8 @@ async function setup(
     preference?: { enabled: boolean; intervalMinutes: number; reassign: boolean };
     /** The task reviewer, with no provider events, nobody who waits for the person, and no model. */
     taskWatch?: { enabled: boolean; quietMinutes: number };
+    /** What the stopped work page reads and changes besides the channels. */
+    page?: Pick<WorkControlOptions, "requestOrigins" | "setAgentModel">;
   } = {},
 ) {
   const root = await mkdtemp(join(tmpdir(), "work-control-"));
@@ -140,6 +142,7 @@ async function setup(
     preference: () => preference,
     onFailure: (action) => failures.push(action),
     now: () => clock.now,
+    ...options.page,
     ...(options.taskWatch
       ? {
           taskWatch: {
@@ -274,6 +277,186 @@ describe("the stopped work", () => {
     const { control, fail } = await setup();
     fail(null);
     expect(control.overview().stopped).toEqual([]);
+  });
+});
+
+/**
+ * Stopped runs written straight into the channel, as many as the owner's profile had: each is a root
+ * task of its own request unless `request` repeats one.
+ */
+function addStopped(
+  channels: ChannelService,
+  rows: { id: string; owner: string | null; request?: string; state?: ChannelTask["state"]; topicId?: string }[],
+): void {
+  const base = channels.store.tasks("c1")[0];
+  if (!base) throw new Error("The channel has no task to copy.");
+  channels.store.update(channels.store.get("c1"), {
+    tasks: rows.map(
+      (row): ChannelTask => ({
+        ...base,
+        id: row.id,
+        rootTaskId: row.id,
+        parentTaskId: null,
+        ownerAgentId: row.owner,
+        requestMessageId: row.request ?? `request-${row.id}`,
+        instruction: `Request ${row.id}`,
+        state: row.state ?? "paused",
+        error: row.state === "completed" ? null : "This request exceeds the routing context limit.",
+        topicId: row.topicId ?? base.topicId,
+        revision: 0,
+      }),
+    ),
+  });
+}
+
+describe("the stopped work page", () => {
+  it("lists every stopped run, past the limit of the panel, with what posted it and what is gone", async () => {
+    const { control, channels } = await setup({
+      page: {
+        requestOrigins: (_channelId, requests) =>
+          new Map(
+            requests
+              .filter((request) => request.startsWith("routine-"))
+              .map((request) => [request, { routineName: "slop.cash hourly", exists: request !== "routine-deleted" }]),
+          ),
+      },
+    });
+    addStopped(channels, [
+      ...Array.from({ length: 60 }, (_, index) => ({ id: `bulk-${index}`, owner: "beta" })),
+      // The same routine request, posted again at three starts; one copy completed.
+      { id: "dup-done", owner: "beta", request: "routine-hourly", state: "completed" },
+      { id: "dup-a", owner: null, request: "routine-hourly" },
+      { id: "dup-b", owner: null, request: "routine-hourly" },
+      // The same request posted twice, and both stopped: the older one stays, the newer one repeats it.
+      { id: "twice-a", owner: null, request: "routine-twice" },
+      { id: "twice-b", owner: null, request: "routine-twice" },
+      { id: "of-deleted", owner: null, request: "routine-deleted" },
+      { id: "of-ghost", owner: "ghost" },
+      { id: "of-gone-tab", owner: "beta", topicId: "deleted-tab" },
+    ]);
+    const list = control.listStopped();
+    const overview = control.overview();
+    // The panel takes 50 rows and still counts them all: the old ring said 50 for 253.
+    expect(overview.stopped).toHaveLength(50);
+    expect(overview.stoppedTotal).toBe(68);
+    expect(list.total).toBe(68);
+    expect(list.items).toHaveLength(68);
+    const byId = new Map(list.items.map((item) => [item.taskId, item]));
+    expect(byId.get("dup-a")).toMatchObject({
+      origin: "routine",
+      routineName: "slop.cash hourly",
+      orphan: "duplicate",
+    });
+    expect(byId.get("dup-b")?.orphan).toBe("duplicate");
+    expect(byId.get("twice-a")?.orphan).toBeNull();
+    expect(byId.get("twice-b")?.orphan).toBe("duplicate");
+    expect(byId.get("of-deleted")?.orphan).toBe("routine-deleted");
+    expect(byId.get("of-ghost")?.orphan).toBe("agent-deleted");
+    expect(byId.get("of-gone-tab")?.orphan).toBe("topic-deleted");
+    expect(byId.get("bulk-0")).toMatchObject({ origin: "request", orphan: null, agentId: "beta", agentName: "BETA" });
+    expect(list.channels).toEqual([{ id: "c1", memberIds: ["alpha", "beta", "gamma", "delta"] }]);
+  });
+
+  it("removes many runs in one write, reports the ones it could not remove, and undoes the removal", async () => {
+    const { control, channels, taskId } = await setup();
+    addStopped(channels, [
+      { id: "r1", owner: "beta" },
+      { id: "r2", owner: null },
+    ]);
+    const before = new Map(channels.store.tasks("c1").map((task) => [task.id, task]));
+    const result = await control.bulkStopped({
+      action: "remove",
+      items: [
+        { channelId: "c1", taskId: "r1" },
+        { channelId: "c1", taskId: "r2" },
+        { channelId: "c1", taskId },
+        { channelId: "c1", taskId: "forged" },
+      ],
+    });
+    expect(result.done).toBe(3);
+    expect(result.failed).toEqual([{ channelId: "c1", taskId: "forged", reason: "gone" }]);
+    expect(result.list.total).toBe(0);
+    expect(result.undoId).not.toBeNull();
+    expect(channels.store.tasks("c1").filter((task) => task.state === "cancelled")).toHaveLength(3);
+
+    const undone = await control.bulkStopped({ action: "undo", undoId: result.undoId ?? "" });
+    expect(undone.done).toBe(3);
+    expect(undone.list.total).toBe(3);
+    for (const id of ["r1", "r2", taskId]) {
+      const task = channels.store.tasks("c1").find((entry) => entry.id === id);
+      expect([task?.state, task?.error]).toEqual([before.get(id)?.state, before.get(id)?.error]);
+    }
+    // An undo works once.
+    expect((await control.bulkStopped({ action: "undo", undoId: result.undoId ?? "" })).done).toBe(0);
+  });
+
+  it("does not remove a run that has a task that runs", async () => {
+    const { control, channels, taskId } = await setup();
+    const base = channels.store.tasks("c1")[0];
+    if (!base) throw new Error("No task.");
+    channels.store.update(channels.store.get("c1"), {
+      tasks: [{ ...base, id: "child", parentTaskId: taskId, rootTaskId: taskId, state: "running", error: null }],
+    });
+    const result = await control.bulkStopped({ action: "remove", items: [{ channelId: "c1", taskId }] });
+    expect(result).toMatchObject({ done: 0, failed: [{ taskId, reason: "running" }], undoId: null });
+    expect(channels.store.tasks("c1").find((task) => task.id === taskId)?.state).toBe("failed");
+  });
+
+  it("gives many runs to one agent, and refuses the rows that agent cannot take", async () => {
+    const { control, channels, taskId } = await setup();
+    addStopped(channels, [
+      { id: "g1", owner: "gamma" },
+      { id: "b1", owner: "beta" },
+    ]);
+    const result = await control.bulkStopped({
+      action: "reassign",
+      recipientAgentId: "beta",
+      items: [
+        { channelId: "c1", taskId },
+        { channelId: "c1", taskId: "g1" },
+        { channelId: "c1", taskId: "b1" },
+      ],
+    });
+    expect(result.done).toBe(2);
+    expect(result.failed).toEqual([{ channelId: "c1", taskId: "b1", reason: "not-member" }]);
+    const owners = new Map(channels.store.tasks("c1").map((task) => [task.id, task.ownerAgentId]));
+    expect([owners.get(taskId), owners.get("g1")]).toEqual(["beta", "beta"]);
+    const ghost = await control.bulkStopped({
+      action: "reassign",
+      recipientAgentId: "ghost",
+      items: [{ channelId: "c1", taskId: "b1" }],
+    });
+    expect(ghost.failed).toEqual([{ channelId: "c1", taskId: "b1", reason: "not-member" }]);
+  });
+
+  it("changes the model of each agent that had a row once, and reports the rows with no agent", async () => {
+    const changed: string[] = [];
+    const { control, channels, taskId } = await setup({
+      page: {
+        setAgentModel: async (agentId, provider, model) => {
+          if (agentId === "gamma") throw new Error("The provider refused the model.");
+          changed.push(`${agentId}:${provider}:${model}`);
+        },
+      },
+    });
+    addStopped(channels, [
+      { id: "a2", owner: "alpha" },
+      { id: "g1", owner: "gamma" },
+      { id: "none", owner: null },
+    ]);
+    const result = await control.bulkStopped({
+      action: "model",
+      provider: "claude",
+      model: "claude-opus-5-5",
+      items: ["a2", "g1", "none", taskId].map((id) => ({ channelId: "c1", taskId: id })),
+    });
+    expect(changed).toEqual(["alpha:claude:claude-opus-5-5"]);
+    expect(result.done).toBe(2);
+    expect(result.agents).toEqual(["ALPHA"]);
+    expect(result.failed).toEqual([
+      { channelId: "c1", taskId: "none", reason: "no-agent" },
+      { channelId: "c1", taskId: "g1", reason: "failed" },
+    ]);
   });
 });
 

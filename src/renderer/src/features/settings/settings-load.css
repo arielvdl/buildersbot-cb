@@ -1,0 +1,163 @@
+/* Settings › Load: the stopped work with its counts, filters, the bar of actions on the marked rows and
+ * the rows, which keep the layout of the panel that the ring had (`page-rail.css`). */
+.settings-load {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-3);
+}
+
+.settings-load-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--openbot-space-2);
+  margin: 0;
+}
+
+.settings-load-counts > div {
+  display: grid;
+  gap: var(--openbot-space-0-5);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+}
+
+.settings-load-counts dt {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.settings-load-counts dd {
+  margin: 0;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-2xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.settings-load-counts > [data-tone="danger"] dd {
+  color: var(--openbot-danger);
+}
+
+.settings-load-counts > [data-tone="warning"] dd {
+  color: var(--openbot-warning);
+}
+
+.settings-load-note,
+.settings-load-status {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.settings-load-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.settings-load-filters .settings-load-search {
+  width: auto;
+  min-width: 220px;
+  flex: 1 1 260px;
+}
+
+/* "Select all shown" at the left, the actions of the marked rows at the right. The bar stays at the top
+ * of the page while the rows scroll, so the actions are at hand after a long selection. */
+.settings-load-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+}
+
+.settings-load-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.settings-load-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.settings-load-selected {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.settings-load-actions svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.settings-load-report {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+}
+
+.settings-load-report-text {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: var(--openbot-space-1);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.settings-load-report-text p,
+.settings-load-report-text ul {
+  margin: 0;
+}
+
+.settings-load-report-text ul {
+  padding-left: var(--openbot-space-4);
+}
+
+.settings-load-report-text [data-tone="danger"] {
+  color: var(--openbot-danger);
+}
+
+/* A row: its box, then the layout of the panel of the ring. */
+.settings-load-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--openbot-space-3);
+}
+
+.settings-load-row[data-selected] {
+  background: var(--openbot-bg-control-hover);
+}
+
+.settings-load-check {
+  margin-top: var(--openbot-space-1);
+  margin-left: var(--openbot-space-2);
+}
+
+.settings-load-row-body {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-1);
+}
+
+.settings-load-row-body .window-rail-load-item-head {
+  flex-wrap: wrap;
+}

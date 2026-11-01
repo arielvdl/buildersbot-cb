@@ -208,7 +208,7 @@ export interface PageRailProps {
   usageRows: readonly AccountUsageProviderRow[];
   /** The answers of the custom agents on this computer that have a usage prompt. Absent on the web. */
   customAgentUsage?: readonly CustomAgentUsageRailRow[] | undefined;
-  /** The load ring and its panel. Absent where this computer's load is not the window's to show, as on the web. */
+  /** The load ring, which opens the load page of Settings. Absent where this computer's load is not the window's to show, as on the web. */
   load?: LoadRailProps | undefined;
   onAgents: () => void;
   /** Opens the Team panel over the window. Absent where the window has no Team panel. */

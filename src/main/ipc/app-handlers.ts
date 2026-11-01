@@ -75,6 +75,7 @@ import {
   parseResumeStoppedWorkInput,
   parseRunChannelNowInput,
   parseSetup,
+  parseStoppedWorkBulkInput,
   parseStopWorkInput,
   parseTaskWatchPreference,
 } from "./app-inputs";
@@ -266,6 +267,9 @@ export function appIpcHandlers({
         await workControl.reassignStopped(parsed);
         return loadSnapshot();
       }),
+      // The stopped work page. A person's own choice of rows: each row is checked again in main.
+      listStoppedWork: handler(() => workControl.listStopped()),
+      bulkStoppedWork: payloadHandler(parseStoppedWorkBulkInput, (parsed) => workControl.bulkStopped(parsed)),
       // Off until the person turns it on. The timer of `workControl` reads the stored value at each look.
       setAutoRecovery: payloadHandler(parseAutoRecoveryPreference, async (parsed) => {
         await runCauseEffect(autoRecovery.set(parsed));

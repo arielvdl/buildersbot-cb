@@ -5,6 +5,7 @@ import {
   Bot,
   CircleArrowDown,
   CreditCard,
+  Gauge,
   Mic,
   MousePointer2,
   PanelTop,
@@ -22,6 +23,7 @@ export type SettingsTab =
   | "general"
   | "agents"
   | "guard"
+  | "load"
   | "task-reviewer"
   | "notifications"
   | "voice"
@@ -313,7 +315,28 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
       },
     ],
   },
-  // The task reviewer ("Fiscal" in Portuguese). Its switches are also in the load panel of the rail;
+  // The load of this computer ("Carga" in Portuguese): the ring of the rail opens it. The stopped work,
+  // with actions on many runs at once, then what runs and the switches of the load.
+  {
+    value: "load",
+    titleKey: "settings.tab.load.title",
+    descriptionKey: "settings.tab.load.description",
+    keywordsKey: "settings.search.keywords.load",
+    icon: Gauge,
+    rows: [
+      {
+        anchor: "settings.load.stopped.title",
+        descriptionKey: "settings.load.stopped.description",
+        keywordsKey: "settings.search.keywords.load",
+      },
+      {
+        anchor: "settings.load.overview.title",
+        descriptionKey: "settings.load.overview.description",
+        keywordsKey: "settings.search.keywords.load",
+      },
+    ],
+  },
+  // The task reviewer ("Fiscal" in Portuguese). Its switches are also on the load page;
   // both places change the same preference through the same calls.
   {
     value: "task-reviewer",

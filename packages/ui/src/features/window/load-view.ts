@@ -127,7 +127,8 @@ export function elapsedMinutes(startedAt: string, now: number): number {
 
 /** How many stopped tasks the panel lists, which is the number of the alert on the ring. */
 export function stoppedCount(snapshot: LoadSnapshot): number {
-  return snapshot.stopped.length;
+  // The list stops at `LOAD_WORK_LIST_LIMIT` rows; the total counts every stopped run.
+  return snapshot.stoppedTotal ?? snapshot.stopped.length;
 }
 
 /** An attachment mark that the main process cut at the end of a clipped request: `@[name](attach…`. */

@@ -27,6 +27,8 @@ export interface LoadWork {
   activeAgents: number;
   waiting: WaitingWork[];
   stopped: StoppedWork[];
+  /** Every stopped run, also above the rows of `stopped`. Absent: `stopped` holds them all. */
+  stoppedTotal?: number;
   recovery: AutoRecoveryState;
   agentLimit: AgentLimitPreference;
   taskWatch: TaskWatchState;
@@ -58,6 +60,7 @@ export function buildLoadSnapshot(
     running: work.running,
     waiting: work.waiting,
     stopped: work.stopped,
+    ...(work.stoppedTotal === undefined ? {} : { stoppedTotal: work.stoppedTotal }),
     recovery: work.recovery,
     agentLimit: work.agentLimit,
     taskWatch: work.taskWatch,

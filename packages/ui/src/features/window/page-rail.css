@@ -176,17 +176,11 @@
   line-height: 1;
 }
 
-/* The panel opens on a click and stays until it is closed, so it has room for the queue. It is drawn in a
- * portal, outside the rail, which is a drag region of the window: it takes no drag, or a click on it would
- * move the window instead. */
-.window-rail-load-panel {
+/* The load page of Settings, which the ring opens: the rows of the stopped work and the load below them
+ * take the layout that the panel of the ring had. */
+.window-load-page {
   display: grid;
-  width: min(380px, calc(100vw - 32px));
-  max-height: min(78vh, 680px);
   gap: var(--openbot-space-3);
-  overflow-y: auto;
-  padding: var(--openbot-space-3);
-  -webkit-app-region: no-drag;
 }
 
 /* The count of stopped work: a mark in the danger colour at the corner of the ring. */
@@ -318,16 +312,16 @@
 }
 
 /* The reason is the tooltip of this icon. A failed task is in a quiet danger colour, a paused one in amber. */
-.window-rail-load-panel .window-rail-load-state {
+.window-load-page .window-rail-load-state {
   flex: 0 0 auto;
   margin-right: calc(var(--openbot-space-1) * -1);
 }
 
-.window-rail-load-panel .window-rail-load-state[data-tone="danger"] {
+.window-load-page .window-rail-load-state[data-tone="danger"] {
   color: var(--openbot-danger-text);
 }
 
-.window-rail-load-panel .window-rail-load-state[data-tone="warning"] {
+.window-load-page .window-rail-load-state[data-tone="warning"] {
   color: var(--openbot-warning-text);
 }
 
@@ -366,7 +360,7 @@
 }
 
 /* A filled button that reads on the panel. The secondary fill is almost the color of the panel. */
-.window-rail-load-panel .window-rail-load-action {
+.window-load-page .window-rail-load-action {
   height: var(--openbot-control-sm);
   gap: var(--openbot-space-1-5);
   border-color: transparent;
@@ -377,22 +371,22 @@
 }
 
 /* The way to the page of the task reviewer in Settings: as wide as its text, under the reviewer's rows. */
-.window-rail-load-panel .window-rail-load-link {
+.window-load-page .window-rail-load-link {
   justify-self: start;
 }
 
-.window-rail-load-panel .window-rail-load-action svg {
+.window-load-page .window-rail-load-action svg {
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);
   flex: 0 0 auto;
 }
 
-.window-rail-load-panel .window-rail-load-action[aria-expanded="true"] {
+.window-load-page .window-rail-load-action[aria-expanded="true"] {
   background: color-mix(in srgb, var(--openbot-text-primary) 16%, transparent);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .window-rail-load-panel .window-rail-load-action:hover:not(:disabled):not([data-disabled]) {
+  .window-load-page .window-rail-load-action:hover:not(:disabled):not([data-disabled]) {
     background: color-mix(in srgb, var(--openbot-text-primary) 16%, transparent);
   }
 }
@@ -431,16 +425,16 @@
   white-space: normal;
 }
 
-.window-rail-load-panel .window-rail-load-request-toggle {
+.window-load-page .window-rail-load-request-toggle {
   position: static;
   height: var(--openbot-leading-md);
 }
 
-.window-rail-load-panel .window-rail-load-request-toggle svg {
+.window-load-page .window-rail-load-request-toggle svg {
   transition: transform var(--openbot-duration-fast) var(--openbot-ease-out);
 }
 
-.window-rail-load-panel .window-rail-load-request[data-expanded] .window-rail-load-request-toggle svg {
+.window-load-page .window-rail-load-request[data-expanded] .window-rail-load-request-toggle svg {
   transform: rotate(180deg);
 }
 

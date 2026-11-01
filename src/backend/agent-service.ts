@@ -2143,6 +2143,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#channelRoutines.delete(input);
   }
 
+  /** The routine that posted each of these requests of a channel, and whether it still exists. */
+  channelRequestOrigins(
+    channelId: string,
+    requestMessageIds: readonly string[],
+  ): Map<string, { routineId: string; routineName: string; exists: boolean }> {
+    return this.#channelRoutines.originsFor(channelId, requestMessageIds);
+  }
+
   testChannelRoutine(input: TestChannelRoutineInput): Effect.Effect<ChannelRoutineRun, AgentLifecycleFailed> {
     return this.#channelRoutines
       .test(input)

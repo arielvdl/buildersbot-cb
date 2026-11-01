@@ -88,6 +88,8 @@ function channelRunStatusForTasks(
   // owner, the assignment limit, an unconfirmed turn, or an explicit Stop.
   const paused = tasks.find((task) => task.state === "paused");
   if (paused) return { status: "needs-attention", error: paused.error };
+  // A person closed the stopped work of the run, or its routine was deleted: no task completed.
+  if (tasks.every((task) => task.state === "cancelled")) return { status: "cancelled", error: null };
   // Every task is completed or cancelled. This includes the lead judging that no work was needed.
   return { status: "succeeded", error: null };
 }
@@ -204,8 +206,34 @@ export class ChannelRoutineScheduler implements RoutineDueSource {
       channelId,
       new Set(this.#routines.activeRuns(channelId, input.routineId).flatMap((run) => run.requestMessageId ?? [])),
     );
+    // Work of the routine that stopped leaves with it too: nothing else ever closed it, so it stayed in
+    // the stopped work of the load page for ever. The runs of every status count: a run that a
+    // failure settled can still hold a stopped task.
+    this.#channels.closeStoppedRequests(channelId, new Set(this.#routines.requestIds(channelId, input.routineId)));
     this.#routines.delete(channelId, input.routineId);
     this.#changed(input.channelId);
+  }
+
+  /**
+   * The routine that posted each of these requests of a channel, and whether it still exists. A
+   * request with no run is not a routine's. For the stopped work list of the load page.
+   */
+  originsFor(
+    channelId: string,
+    requestMessageIds: readonly string[],
+  ): Map<string, { routineId: string; routineName: string; exists: boolean }> {
+    const origins = new Map<string, { routineId: string; routineName: string; exists: boolean }>();
+    if (!requestMessageIds.length) return origins;
+    const routines = new Set(this.#routines.listRecords(channelId).map((routine) => routine.id));
+    for (const run of this.#routines.runsForRequests(channelId, requestMessageIds)) {
+      if (!run.requestMessageId) continue;
+      origins.set(run.requestMessageId, {
+        routineId: run.routineId,
+        routineName: run.routineName,
+        exists: routines.has(run.routineId),
+      });
+    }
+    return origins;
   }
 
   /** A manual fire: no trigger, so it never collides with the scheduled occurrence. */
@@ -349,7 +377,7 @@ export class ChannelRoutineScheduler implements RoutineDueSource {
         // Nor has a run whose command is still in flight: the run row is written first, so a
         // publish from other channel work can land between the two. Read as a state, that window
         // looks like a request that every task has dropped, and would cancel work about to start.
-        if (exists && !this.#channels.committed(this.#actor(run).id, this.#operationId(run))) continue;
+        if (exists && !this.#reached(run, run.requestMessageId)) continue;
         const requestId = run.requestMessageId;
         const owned = tasks.filter((task) => task.requestMessageId === requestId);
         const hasAssignment = assignments.some(
@@ -409,7 +437,15 @@ export class ChannelRoutineScheduler implements RoutineDueSource {
           },
           this.#actor(run),
           // The request waits behind earlier channel commands; a routine deleted meanwhile posts nothing.
-          (queued) => (this.#routines.getRecord(run.channelId, run.routineId) ? queued : null),
+          // A request that reached the channel before posts nothing again either. With its receipt, the
+          // channel reads the replay as a no-op that wakes it; the receipt can be pruned with the older
+          // channel events, and a replay with no receipt made a new task at each start.
+          (queued) =>
+            this.#routines.getRecord(run.channelId, run.routineId) &&
+            (this.#channels.committed(this.#actor(run).id, this.#operationId(run)) ||
+              this.#channels.store.message(run.channelId, requestMessageId) === null)
+              ? queued
+              : null,
         )
         .pipe(toChannelRoutineFailed),
     );
@@ -431,6 +467,19 @@ export class ChannelRoutineScheduler implements RoutineDueSource {
     }
     return run;
   }, Effect.uninterruptible);
+
+  /**
+   * Whether the request of a run reached the channel. The receipt of the command says so, but
+   * `pruneChannelEvents` drops the receipts of older channel events, so the request message, which
+   * the same commit writes, says so too. Without it a run stayed queued for ever and each start
+   * posted its request again as a new task.
+   */
+  #reached(run: ChannelRoutineRun, requestMessageId: string): boolean {
+    return (
+      this.#channels.committed(this.#actor(run).id, this.#operationId(run)) ||
+      this.#channels.store.message(run.channelId, requestMessageId) !== null
+    );
+  }
 
   #actor(run: ChannelRoutineRun): { id: string; name: string } {
     return { id: `routine:${run.routineId}`, name: run.routineName };

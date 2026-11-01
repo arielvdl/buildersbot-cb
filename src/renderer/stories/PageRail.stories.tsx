@@ -62,14 +62,6 @@ const customAgentUsage: CustomAgentUsageRailRow[] = [
   { id: "devin", name: "Devin", text: "Plan: Team\nACUs used this cycle: 42 of 250\nThe cycle resets in 12 days." },
 ];
 
-/** The channels of the load panel's queue. */
-const loadChannelNames: Record<string, string> = {
-  deploys: "naia - deploys",
-  security: "segurança",
-  videos: "imasters --update",
-  releases: "CB - geral",
-};
-
 const storyRunning: RunningWork[] = [
   {
     turnId: "t1",
@@ -265,32 +257,17 @@ function loadSnapshot(
 }
 
 /**
- * The load ring with a lane that follows its switch, as the window's controller does. `recovery` is
- * "Resume by itself", on with the reviewer unless the story says otherwise.
+ * The load ring. A click opens the load page of Settings, which `SettingsModal` stories show. `recovery`
+ * is "Resume by itself", on with the reviewer unless the story says otherwise.
  */
 function loadProps(usedMb: number, work: LoadWork, reviewer: boolean, recoveryOn = reviewer): () => LoadRailProps {
-  const [lane, setLane] = createSignal<LoadLanePreference>({ enabled: false, order: [] });
-  const [recovery, setRecovery] = createSignal<AutoRecoveryPreference>({
-    enabled: recoveryOn,
-    intervalMinutes: 30,
-    reassign: recoveryOn,
-  });
-  const [agentLimit, setAgentLimit] = createSignal<AgentLimitPreference>({ enabled: false, max: 10 });
-  const [taskWatch, setTaskWatch] = createSignal<TaskWatchPreference>({ enabled: reviewer, quietMinutes: 15 });
+  const lane: LoadLanePreference = { enabled: false, order: [] };
+  const recovery: AutoRecoveryPreference = { enabled: recoveryOn, intervalMinutes: 30, reassign: recoveryOn };
+  const agentLimit: AgentLimitPreference = { enabled: false, max: 10 };
+  const taskWatch: TaskWatchPreference = { enabled: reviewer, quietMinutes: 15 };
   return () => ({
-    snapshot: loadSnapshot(usedMb, lane(), recovery(), work, agentLimit(), taskWatch()),
-    channelName: (id) => loadChannelNames[id] ?? id,
-    onOpenChange: fn(),
-    onLaneChange: setLane,
-    onRunNow: fn(),
-    onStop: fn(),
-    onResumeAll: fn(),
-    onResume: fn(),
-    onReassign: fn(),
-    onRecoveryChange: setRecovery,
-    onAgentLimitChange: setAgentLimit,
-    onTaskWatchChange: setTaskWatch,
-    onOpenTaskReviewerSettings: fn(),
+    snapshot: loadSnapshot(usedMb, lane, recovery, work, agentLimit, taskWatch),
+    onOpen: fn(),
   });
 }
 
@@ -401,33 +378,12 @@ export const LoadHigh: Story = {
   args: { loadMb: 28000 },
 };
 
-/** Two agents run and two tasks stopped: the ring carries a red count, and the panel lists what to do about each. */
+/** Two agents run and two tasks stopped: the ring carries a red count. A click opens the load page of Settings. */
 export const LoadWithStoppedWork: Story = {
   args: { loadMb: 14000, loadWork: "some" },
 };
 
-/**
- * Eleven stopped tasks with long requests, an attachment and a task with no tab. Hover or focus the
- * icon at the right of a channel for the reason, and click a request to read all of it. Make the
- * window narrow to see the actions wrap.
- */
+/** Eleven stopped tasks: the red count of the ring stops at 9+. */
 export const LoadWithManyStoppedTasks: Story = {
   args: { loadMb: 14000, loadWork: "many" },
-};
-
-/**
- * "Resume by itself" and the experimental task reviewer are on. A run with no sign for 42 minutes shows
- * that it is stalled, and "Lately" lists what both did. Turn the reviewer off to see the panel without it.
- */
-export const LoadWithTaskReviewer: Story = {
-  args: { loadMb: 14000, loadWork: "some", loadReviewer: true },
-};
-
-/**
- * The task reviewer is on, but "Resume by itself" is off, as after the Settings page turned the reviewer
- * on: the panel still shows its switch, with the line that it acts only with "Resume by itself" on, and
- * the button to its Settings page.
- */
-export const LoadWithTaskReviewerWaiting: Story = {
-  args: { loadMb: 14000, loadWork: "some", loadReviewer: true, loadRecovery: false },
 };
