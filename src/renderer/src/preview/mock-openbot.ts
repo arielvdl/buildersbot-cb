@@ -131,9 +131,11 @@ import {
   type MemoryReviewPreference,
   nextBrowserProfileHue,
   normalizeMcpConfig,
+  OPTIMIZATION_IDS,
   type OpenAttachmentInput,
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
+  type OptimizationId,
   PLAN_CONTINUATION_ITEM_TYPE,
   type PromptCacheTtlSetting,
   type ProviderAccountStatus,
@@ -468,6 +470,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let analyticsPreference = clone<AnalyticsPreference>(options.analyticsPreference ?? { enabled: true });
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
+  let optimizationsOn: OptimizationId[] = [];
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
   let agentMemoryLimit: AgentMemoryLimitPreference = { limit: DEFAULT_AGENT_MEMORY_LIMIT };
   let memoryReview: MemoryReviewPreference = { interval: DEFAULT_MEMORY_REVIEW_INTERVAL };
@@ -1195,6 +1198,16 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     onApprovalAutomation: (listener) => {
       approvalAutomationListeners.add(listener);
       return () => approvalAutomationListeners.delete(listener);
+    },
+    getOptimizations: async () => ({ on: [...optimizationsOn] }),
+    setOptimizations: async ({ changes }) => {
+      const on = new Set(optimizationsOn);
+      for (const change of changes) {
+        if (change.enabled) on.add(change.id);
+        else on.delete(change.id);
+      }
+      optimizationsOn = OPTIMIZATION_IDS.filter((id) => on.has(id));
+      return { on: [...optimizationsOn] };
     },
     getBusyMessageModePreference: async () => clone(busyMessageMode),
     getGuardPreference: async () => clone(securityGuard),

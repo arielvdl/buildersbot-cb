@@ -45,6 +45,7 @@ import type {
   SetAppLogoColorPreferenceInput,
   SetDynamicIslandInteractiveInput,
   SetEnabledSkillInput,
+  SetOptimizationsInput,
   StartRetrySettings,
   StoppedWorkBulkInput,
   StopWorkInput,
@@ -83,6 +84,7 @@ import {
   isResumeInterruptedWorkInput,
   isResumeStoppedWorkInput,
   isRunChannelNowInput,
+  isSetOptimizationsInput,
   isSkillCategory,
   isStartRetrySettings,
   isStoppedWorkBulkInput,
@@ -128,6 +130,12 @@ export function parseAnalyticsPreference(input: unknown): SetAnalyticsPreference
 export function parseBusyMessageModePreference(input: unknown): BusyMessageModePreference {
   if (!isDynamicRecord(input) || !isBusyMessageMode(input.mode)) throw new Error("Busy message mode is required.");
   return { mode: input.mode };
+}
+
+/** One to eight known switches, each one at most once, each with a boolean. Anything else is refused. */
+export function parseSetOptimizationsInput(input: unknown): SetOptimizationsInput {
+  if (!isSetOptimizationsInput(input)) throw new Error("Optimization changes are not valid.");
+  return { changes: input.changes.map(({ id, enabled }) => ({ id, enabled })) };
 }
 
 export function parseLoadLanePreference(input: unknown): LoadLanePreference {

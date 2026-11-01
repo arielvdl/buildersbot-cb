@@ -201,6 +201,38 @@ replies to that task, because a new child task has the request of its parent. A 
 them. A lead change does not move a task that already has an owner. The member packet names the lead
 (`leadAgentId`).
 
+### The routing optimization
+
+The switch `routing` of [the advanced optimizations](optimizations.md) changes the rules above
+only while it is on. Off, routing is as above. On (`src/backend/channel-routing.ts`):
+
+- The routing generation sends the purpose `routing` to `ChannelTextModel`. `AgentService` then runs
+  it on the lead's model at the lowest reasoning effort that the model takes (`summaryEffort`), as
+  for the channel summary.
+- The follow-up words are also Portuguese and Spanish (`opensFollowUp`, `asksToResume`): for
+  example "continua", "pode seguir", "na verdade", "sim", "sigue", "sí", "en realidad". They stay
+  anchored at the start of the message, and a word ends at any letter or digit, not only an ASCII
+  one. "no", "não" and "nao" answer only before a punctuation mark or as the whole message, because
+  "No relatório, ..." is a new request. The Spanish "si" without the accent is "if", so it is not a
+  follow-up word.
+- The follow-up and the "continue" rules read only the tasks of the message's tab
+  (`ChannelStore.tasks(channelId, topicId)`). A follow-up does not continue a task of another tab,
+  and open work in another tab does not hide the one open task of this tab.
+- The routing prompt lists only the open tasks of the request's tab, and an existing task that the
+  answer names must be in that tab.
+- A routing answer is stale when the channel settings or the routed task changed during the
+  generation (as before), or when the tasks or active assignments of the request's tab changed. A
+  change to another tab does not make it stale. A change to the tab discards at most
+  `ROUTING_TAB_DISCARDS` (2) answers of one task; the next answer stands, and the decision is
+  checked against the current channel before it is applied, as every answer is.
+- Each generation gives one log line ("A channel routing generation ended."): the outcome, the
+  attempt, the generation time, the prompt length, and the count of members and tab tasks. It has no
+  text of the request, the prompt or the answer. `ChannelService.routingCounts()` gives the totals of
+  the process.
+
+`scripts/channel-routing-e2e.ts` runs the real services with a fake Codex app-server and checks each
+rule with the switch off (as before) and on.
+
 Channel tools retrieve history, assign a child task, transfer ownership, and report results. The
 runtime supplies channel and caller identity. A child keeps its parent owner; a transfer changes it.
 Only assignments and awaited results start turns. Completed child results are combined before the

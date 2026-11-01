@@ -276,6 +276,7 @@ import { MessagingCredentialStore } from "./messaging-credential-store";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
+import { OPTIMIZATIONS_FILE, OptimizationStore } from "./optimization-store";
 import { OsDictationService } from "./os-dictation-service";
 import { PlaywrightBroker } from "./playwright-broker";
 import { installGuard } from "./playwright-broker-guard";
@@ -657,6 +658,8 @@ export interface ApplicationServices {
   notificationPreference: NotificationPreferenceStore;
   sounds: SoundPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
+  /** The advanced optimizations (beta) of this host. Each one is off until the person turns it on. */
+  optimizations: OptimizationStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
   /** The task reviewer of the load panel. Experimental and off until the person turns it on. */
@@ -1404,6 +1407,7 @@ export async function createApplicationServices({
   const busyMessageMode = new BusyMessageModePreferenceStore(
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
+  const optimizations = new OptimizationStore(join(app.getPath("userData"), OPTIMIZATIONS_FILE));
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
   const taskWatch = new TaskWatchPreferenceStore(join(app.getPath("userData"), TASK_WATCH_PREFERENCE_FILE));
@@ -1525,6 +1529,7 @@ export async function createApplicationServices({
       runCauseEffect(startRetry.load()),
       runCauseEffect(startBreakers.load()),
       runCauseEffect(sounds.load()).then(() => setNativeSoundSource(sounds)),
+      runCauseEffect(optimizations.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -2137,6 +2142,7 @@ export async function createApplicationServices({
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
     busyMessageMode: () => busyMessageMode.get().mode,
+    optimizations,
     channelLane: () => channelLane.get(),
     securityGuard: () => securityGuard.get(),
     startRetry: {
@@ -3691,6 +3697,7 @@ export async function createApplicationServices({
     notificationPreference,
     sounds,
     busyMessageMode,
+    optimizations,
     channelLane,
     autoRecovery,
     taskWatch,
