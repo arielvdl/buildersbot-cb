@@ -219,7 +219,12 @@ import {
 } from "./agent/prompt-injection-guard";
 import type { ProviderAccountStore } from "./agent/provider-account-store";
 import { isPlanLimitDiagnostic } from "./agent/provider-diagnostics";
-import { type AgentClientFactory, ProviderRuntime, toProviderOperationFailed } from "./agent/provider-runtime";
+import {
+  type AgentClientFactory,
+  type ProviderFolderCounts,
+  ProviderRuntime,
+  toProviderOperationFailed,
+} from "./agent/provider-runtime";
 import { QueueControls } from "./agent/queue-controls";
 import { quietRoutineRun } from "./agent/routine-quiet-runs";
 import { type RoutineMutationOptions, RoutineScheduler, toRoutineOperationFailed } from "./agent/routine-scheduler";
@@ -2302,6 +2307,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   runningTurns(): RunningTurn[] {
     return this.#turn.runningTurns();
+  }
+
+  /** The folders, sessions and processes that each provider holds now, for the resource samples. */
+  providerFolders(): ProviderFolderCounts {
+    return this.#providers.processFolders();
   }
 
   /** The agents whose next turn waits for a free place under the turn and agent caps. */

@@ -104,6 +104,14 @@ utility process with the reason `killed` is neither: OpenBot stops these process
 the last minute before a quit is not counted: a stop signal can end the child processes before the
 main process starts its teardown. The trace still has it, after the `exit` span of that quit.
 
+Each sample is also one line of `logs/resources.ndjson` (1 MB, rotated), for the diagnosis of a
+memory incident. Each provider entry has `toolProcesses`, the processes in its tree that run no
+provider CLI (the MCP servers and the commands that the CLI started), and `held`, the agent folders,
+open sessions and CLI processes that `AgentService.providerFolders()` counts for it
+(`ProcessFolders`, see [providers.md](providers.md#memory-of-the-computer)). `memory` is the level,
+free percentage and used swap of `MacMemory` at the sample, or null where nothing reads it. These
+values are counts and levels only; the analytics summary does not send them.
+
 `index.ts` writes one `exit` span and one line in `logs/main/main.log` when OpenBot starts to quit.
 The name is the first reason: `main_window_closed` (Windows and Linux, where closing the main
 window quits), `signal`, `session_end` or `quit` (the menu, the tray, an update or a restart). The

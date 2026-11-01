@@ -155,12 +155,28 @@ const PROVIDER_UNASSIGNED_RELEASE_MS = 60_000;
 const PROVIDER_IDLE_CHECK_MS = 60_000;
 /**
  * While memory is low (`ProviderHooks.memoryLow`), a process stops at this many idle checks in a row
- * that found no turn on it, and only when nothing used it for one check interval. A check that finds a
+ * that found no turn on it, and only when nothing used it for one check interval. A process that keeps
+ * idle folders (`FOLDER_IDLE_RELEASE_MS`, `FOLDER_LIMIT`) waits for the same checks. A check that finds a
  * turn starts the count again. Thus the process stays for one full interval (60 s) or more after its
  * last turn ends, and a workflow, a review or a side question that uses it again in that interval
  * keeps it.
  */
 const LOW_MEMORY_IDLE_CHECKS = 2;
+/**
+ * How long a folder of an agent process can stay idle before the process stops, for an agent that
+ * frees a folder's MCP servers only when its process ends (`AcpFlavor.foldersOutliveSessions`).
+ * OpenCode 2.2.5 kept a set of MCP servers for each agent folder, about 200 MB each, for as long as
+ * one shared process ran, and a process that some agent uses never reaches `PROVIDER_IDLE_RELEASE_MS`.
+ * The process stops only at the second idle check in a row with no turn on it, and when nothing used
+ * it for one check interval, as at low memory (`LOW_MEMORY_IDLE_CHECKS`). The next turn starts it again and loads its session. `folderIdleReleaseMs` sets it.
+ */
+const FOLDER_IDLE_RELEASE_MS = 5 * 60_000;
+/**
+ * The most folders an agent process of that kind holds before it stops at the second idle check in a
+ * row with no turn (`LOW_MEMORY_IDLE_CHECKS`), whatever the idle time of each folder. Four sets of MCP
+ * servers are about 800 MB. `folderLimit` sets it.
+ */
+const FOLDER_LIMIT = 4;
 /** How often the host reads a signed-out provider's sign-in file. A read is one `stat`. */
 const SIGN_IN_FILE_POLL_MS = 2_000;
 
@@ -283,6 +299,11 @@ interface ConfinedClient {
   /** Idle checks in a row that found no turn of this agent (`LOW_MEMORY_IDLE_CHECKS`). */
   idleChecks: number;
 }
+
+/** For each provider: the folders and sessions that its running processes hold, and those processes. */
+export type ProviderFolderCounts = Partial<
+  Record<AgentProvider, { folders: number; sessions: number; processes: number }>
+>;
 
 /** What the provider domain needs from the rest of the service. Four calls, no state. */
 export interface ProviderHooks {
@@ -509,6 +530,10 @@ export class ProviderRuntime implements ProviderPort {
   readonly #idleCheckMs: number;
   /** How long a provider that no agent is set to stays idle (`PROVIDER_UNASSIGNED_RELEASE_MS`). */
   readonly #unassignedReleaseMs: number;
+  /** How long an idle folder keeps its agent process (`FOLDER_IDLE_RELEASE_MS`). */
+  readonly #folderIdleReleaseMs: number;
+  /** How many folders an agent process holds before an idle check stops it (`FOLDER_LIMIT`). */
+  readonly #folderLimit: number;
   /** Each provider's sign-in file, and the version of it that the last account check saw. */
   readonly #signInFiles = new Map<AgentProvider, { path: string; seen: string }>();
   #signInCheck: NodeJS.Timeout | null = null;
@@ -566,6 +591,10 @@ export class ProviderRuntime implements ProviderPort {
     idleCheckMs?: number;
     /** How long a provider that no agent is set to stays idle. Tests make it short. */
     unassignedReleaseMs?: number;
+    /** How long an idle folder keeps its agent process (`FOLDER_IDLE_RELEASE_MS`). */
+    folderIdleReleaseMs?: number;
+    /** How many folders an agent process holds before an idle check stops it (`FOLDER_LIMIT`). */
+    folderLimit?: number;
     preferredProvider: AgentProvider;
     preferredModel?: AgentModelId | null;
     clientFactory: AgentClientFactory | null;
@@ -585,6 +614,8 @@ export class ProviderRuntime implements ProviderPort {
     this.#longStartTimeoutMs = options.longStartTimeoutMs ?? LONG_START_TIMEOUT_MS;
     this.#idleCheckMs = options.idleCheckMs ?? PROVIDER_IDLE_CHECK_MS;
     this.#unassignedReleaseMs = options.unassignedReleaseMs ?? PROVIDER_UNASSIGNED_RELEASE_MS;
+    this.#folderIdleReleaseMs = options.folderIdleReleaseMs ?? FOLDER_IDLE_RELEASE_MS;
+    this.#folderLimit = options.folderLimit ?? FOLDER_LIMIT;
     this.#preferredProvider = options.preferredProvider;
     this.#preferredModel = options.preferredModel ?? null;
     this.#clientFactory = options.clientFactory;
@@ -887,7 +918,9 @@ export class ProviderRuntime implements ProviderPort {
    * Stops each provider process that ran no turn for `PROVIDER_IDLE_RELEASE_MS`, or for
    * `PROVIDER_UNASSIGNED_RELEASE_MS` when no agent is set to it. While memory is low
    * (`ProviderHooks.memoryLow`), it stops at the second idle check in a row with no turn
-   * (`LOW_MEMORY_IDLE_CHECKS`). An idle CLI holds hundreds of megabytes, and every signed-in provider
+   * (`LOW_MEMORY_IDLE_CHECKS`). A process that keeps idle folders (`ProcessFolders.idleSince`) stops
+   * sooner: when a folder is idle for `FOLDER_IDLE_RELEASE_MS`, or when it holds more than
+   * `FOLDER_LIMIT` folders. An idle CLI holds hundreds of megabytes, and every signed-in provider
    * starts at launch whether an agent uses it or not. Its threads are unloaded, so the next turn
    * resumes them on the process that replaces it.
    */
@@ -904,6 +937,23 @@ export class ProviderRuntime implements ProviderPort {
     /** The low memory stop: the second idle check in a row, and no use for one check interval. */
     const lowMemoryRelease = (idleChecks: number, lastUsed: number) =>
       memoryLow && idleChecks >= LOW_MEMORY_IDLE_CHECKS && now - lastUsed >= this.#idleCheckMs;
+    /**
+     * Why a process that keeps idle folders stops now, or null. As at low memory, only at the second
+     * idle check in a row with no turn and no use for one check interval. A turn that started and
+     * ended between two checks counts too: the last folder activity must also be one interval old.
+     */
+    const folderRelease = (
+      client: AgentClient,
+      idleChecks: number,
+      lastUsed: number,
+    ): "folderLimit" | "idleFolder" | null => {
+      const held = client.processFolders?.();
+      if (!held || held.idleSince.length === 0) return null;
+      if (idleChecks < LOW_MEMORY_IDLE_CHECKS || now - lastUsed < this.#idleCheckMs) return null;
+      if (now - Math.max(...held.idleSince) < this.#idleCheckMs) return null;
+      if (held.folders > this.#folderLimit) return "folderLimit";
+      return held.idleSince.some((at) => now - at >= this.#folderIdleReleaseMs) ? "idleFolder" : null;
+    };
     for (const [provider, client] of this.#clients) {
       // ACP can hold sessions that exist only in a live process. Its client vetoes stopping while
       // one of those sessions is held; a later turn must not start a new provider context.
@@ -935,14 +985,19 @@ export class ProviderRuntime implements ProviderPort {
         continue;
       }
       const limit = this.#hooks.isProviderAssigned(provider) ? PROVIDER_IDLE_RELEASE_MS : this.#unassignedReleaseMs;
-      if (now - lastUsed < limit && !lowMemoryRelease(idleChecks, lastUsed)) continue;
+      const folders = folderRelease(client, idleChecks, lastUsed);
+      if (now - lastUsed < limit && !lowMemoryRelease(idleChecks, lastUsed) && folders === null) continue;
       // Out of the map before it stops, so #handleExit reads the exit as expected, not as a crash.
       this.#clients.delete(provider);
       this.#idleChecks.delete(provider);
       this.#released.add(provider);
       this.#startFailures.delete(provider);
       this.#conversation.unloadClientThreads(client);
-      logger.info("Stopped an idle provider CLI.", { provider, lowMemory: memoryLow });
+      logger.info("Stopped an idle provider CLI.", {
+        provider,
+        lowMemory: memoryLow,
+        ...(folders ? { folders, folderCount: client.processFolders?.().folders ?? 0 } : {}),
+      });
       yield* client.stop().pipe(toProviderOperationFailed).pipe(Effect.ignore);
       yield* this.#hooks.onClientStopped(client);
     }
@@ -953,19 +1008,43 @@ export class ProviderRuntime implements ProviderPort {
         continue;
       }
       confined.idleChecks += 1;
+      const folders = folderRelease(confined.client, confined.idleChecks, confined.lastUsed);
       if (
         now - confined.lastUsed < PROVIDER_IDLE_RELEASE_MS &&
-        !lowMemoryRelease(confined.idleChecks, confined.lastUsed)
+        !lowMemoryRelease(confined.idleChecks, confined.lastUsed) &&
+        folders === null
       )
         continue;
       logger.info("Stopped an idle Workspace only provider process.", {
         provider: confined.client.provider,
         agentId,
         lowMemory: memoryLow,
+        ...(folders ? { folders } : {}),
       });
       yield* this.#stopConfined(agentId, confined);
     }
   }, Effect.uninterruptible);
+
+  /**
+   * The folders and sessions that the running processes of each provider hold, its shared process
+   * and the Workspace only processes together, with the count of those processes. For the resource
+   * samples: counts only, never a path.
+   */
+  processFolders(): ProviderFolderCounts {
+    const totals: ProviderFolderCounts = {};
+    const clients = [...this.#clients.values(), ...[...this.#confined.values()].map(({ client }) => client)];
+    for (const client of clients) {
+      const held = client.processFolders?.();
+      if (!held) continue;
+      const total = totals[client.provider];
+      totals[client.provider] = {
+        folders: (total?.folders ?? 0) + held.folders,
+        sessions: (total?.sessions ?? 0) + held.sessions,
+        processes: (total?.processes ?? 0) + 1,
+      };
+    }
+    return totals;
+  }
 
   /** Closes the idle threads of each client and each Workspace only process, when memory is low. */
   readonly releaseIdleThreads = Effect.fn("ProviderRuntime.releaseIdleThreads")(function* (this: ProviderRuntime) {

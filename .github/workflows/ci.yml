@@ -547,6 +547,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:provider-idle-release
 
+      - name: Run the OpenCode folder release E2E test
+        if: ${{ !cancelled() }}
+        run: bun scripts/opencode-folder-release-e2e.ts
+
       - name: Run the Cultura Builder start E2E test
         if: ${{ !cancelled() }}
         run: bun run test:cultura-builder-start
@@ -624,6 +628,7 @@ jobs:
             .openbot-build/queue-force-e2e/
             .openbot-build/plan-event-log-e2e/
             .openbot-build/provider-idle-release-e2e/
+            .openbot-build/opencode-folder-release-e2e/
             .openbot-build/cultura-builder-start-e2e/
             .openbot-build/voice-anywhere/
             .openbot-build/agent-access-e2e/

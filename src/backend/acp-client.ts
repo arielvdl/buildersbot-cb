@@ -39,7 +39,12 @@ import { AcpConnection, type AcpConnectionOptions } from "./acp-connection";
 import type { AcpFlavor } from "./acp-flavor";
 import { acpPlanSteps, PLAN_UPDATED_METHOD } from "./agent/plan-updates";
 import { elicitationOptions, elicitationValue, secretElicitationField } from "./agent/prompts";
-import { type AgentProvider, type DiagnosticOrigin, ProviderTurnActiveError } from "./agent-client";
+import {
+  type AgentProvider,
+  type DiagnosticOrigin,
+  type ProcessFolders,
+  ProviderTurnActiveError,
+} from "./agent-client";
 import type { AgentCliInfo } from "./cli";
 import { runCauseEffect } from "./effect-boundary";
 import { IdleThreadPool } from "./idle-thread-pool";
@@ -491,6 +496,12 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
   /** Prompts that are being prepared, by session. A background replay waits until none is. */
   readonly #openingTurns = new Map<string, number>();
   /**
+   * Each folder that a session opened in on the agent's own process, with when a session or a turn
+   * there was last active. The process keeps a folder's MCP servers after its sessions close
+   * (`AcpFlavor.foldersOutliveSessions`), so a folder leaves only with the process.
+   */
+  readonly #folders = new Map<string, number>();
+  /**
    * The session of `#privatePrompt`, kept for the process: no thread or transcript sees it, and each
    * new Antigravity session leaves a conversation database of its own on disk, also after it closes.
    */
@@ -731,6 +742,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
       .stop(
         Effect.gen({ self: this }, function* () {
           this.#initialized = null;
+          this.#folders.clear();
           for (const replay of this.#historyReplays.values()) this.#abortHistoryReplay(replay);
           this.#historyReplays.clear();
           const threads = this.#threads.clear();
@@ -803,6 +815,26 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
   canReleaseProcess(): boolean {
     if (this.#threads.ids().next().done) return true;
     return this.#supportsSessionResume || this.#loadsSessions;
+  }
+
+  processFolders(): ProcessFolders {
+    const threads = [...this.#threads.ids()].flatMap((id) => this.#threads.get(id) ?? []);
+    const shared = threads.filter((thread) => thread.transport === null);
+    if (this.#flavor.foldersOutliveSessions !== true)
+      return { folders: new Set(shared.map((thread) => thread.cwd)).size, sessions: threads.length, idleSince: [] };
+    const busy = new Set(
+      shared.filter((thread) => thread.activeTurn || this.#openingTurns.has(thread.id)).map((thread) => thread.cwd),
+    );
+    return {
+      folders: this.#folders.size,
+      sessions: threads.length,
+      idleSince: [...this.#folders].flatMap(([cwd, at]) => (busy.has(cwd) ? [] : [at])),
+    };
+  }
+
+  /** Marks the folder of a session on the agent's own process as active now. */
+  #touchFolder(thread: AcpThread): void {
+    if (thread.transport === null) this.#folders.set(thread.cwd, Date.now());
   }
 
   /**
@@ -1590,6 +1622,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
             // that would end it is cleared.
             if (sessionTransport && !this.running) throw new Error("ACP client is not running.");
             this.#threads.add(thread);
+            this.#touchFolder(thread);
             retained = true;
             return { thread: { id } };
           } catch (error) {
@@ -2066,6 +2099,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     };
     thread.activeTurn = turn;
     this.#threads.holdForTurn(thread);
+    this.#touchFolder(thread);
     this.emit("notification", {
       method: "turn/started",
       params: {
@@ -2826,6 +2860,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
           params: { threadId: thread.id, turn: { id: turn.id, status: "failed" } },
         });
         thread.activeTurn = null;
+        this.#touchFolder(thread);
         if (this.#threads.get(thread.id) === thread) yield* this.#threads.markIdle(thread);
         return;
       }
@@ -2835,6 +2870,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
       params: { threadId: thread.id, turn: { id: turn.id, status } },
     });
     thread.activeTurn = null;
+    this.#touchFolder(thread);
     if (this.#threads.get(thread.id) === thread) yield* this.#threads.markIdle(thread);
   }, Effect.uninterruptible);
 

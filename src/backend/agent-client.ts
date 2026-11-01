@@ -12,6 +12,20 @@ export interface DiagnosticOrigin {
   readonly duringStop: boolean;
 }
 
+/** What one provider process holds for its agents' folders. Counts and times only, never a path. */
+export interface ProcessFolders {
+  /** The folders whose services the process holds, each with its own set of MCP servers. */
+  readonly folders: number;
+  /** The provider sessions that are open in the process. */
+  readonly sessions: number;
+  /**
+   * For each held folder with no turn: when a turn or a session there was last active. Only for an
+   * agent that keeps a folder after its sessions close (`AcpFlavor.foldersOutliveSessions`). Empty
+   * for the others: closing an idle session frees what it holds (`IdleThreadPool`).
+   */
+  readonly idleSince: readonly number[];
+}
+
 export interface AgentClient {
   readonly provider: AgentProvider;
   /**
@@ -47,6 +61,12 @@ export interface AgentClient {
    * threads in one process frees nothing this way.
    */
   releaseIdleThreads?(): Effect.Effect<void, ProviderClientOperationError>;
+  /**
+   * The folders and sessions that this client's process holds now. The idle check reads it to stop
+   * a process that keeps idle folders, and the resource samples record the counts. Optional, because
+   * only an ACP client tracks folders.
+   */
+  processFolders?(): ProcessFolders;
   /** Effective provider options. Saved overrides belong to the agent store. */
   readSessionSettings?(
     externalThreadId: string,
