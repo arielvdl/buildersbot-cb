@@ -71,9 +71,7 @@ export function WorkspaceOrbits(props: {
     const topics = channels.state.channels.find((entry) => entry.id === channelId)?.topics ?? [];
     const last = readChannelLastTopics()[channelId];
     const topic = topicId ?? topics.find((entry) => entry.id === last)?.id ?? null;
-    void channels.open(channelId).then(() => {
-      if (topic) void channels.setTopic(topic);
-    });
+    void channels.open(channelId, topic);
   };
 
   const openSystem = (system: OrbitSystem) => {

@@ -1,5 +1,6 @@
 import type { GlobalSearchPage } from "@openbot/ui/components/GlobalSearch";
 import type { AgentMessage } from "@openbot/ui/data";
+import { MAIN_THREAD_ID } from "@openbot/ui/features/conversation/threads/thread-types";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createSignal, onSettled, untrack } from "solid-js";
 import { desktopAnalytics } from "./analytics";
@@ -165,20 +166,27 @@ const Navigation = createSimpleContext({
     }
 
     function selectGlobalSearchMessage(agentId: string, messageId: string): void {
-      // A side thread loads its whole conversation in its tab. Its tab is written first, so a chat
-      // window that opens for the agent reads it.
+      // A side thread loads its whole conversation in its tab, which scrolls to the message. Its tab is
+      // written first, so a chat window that opens for the agent reads it.
       const taskId = searchHitThreads.get(searchHitKey(agentId, messageId));
       if (taskId) {
-        agentThreads.open(agentId, taskId);
+        agentThreads.open(agentId, taskId, messageId);
         selectAgent(agentId);
         return;
       }
+      // The message is in the agent's own chat, so that tab opens, also when a side thread was open.
+      if (agentThreads.activeId(agentId) !== MAIN_THREAD_ID) agentThreads.open(agentId, MAIN_THREAD_ID);
       // The other window reads the chat when it opens. This one does not mark its messages read.
       if (!selectAgent(agentId) && platform.chatWindow) return;
       void openAgentMessage(agentId, messageId);
     }
 
+    /**
+     * Shows a message of the agent's own chat. The agent's own chat tab opens first: a side thread that
+     * stayed open would show another conversation, and the composer would send to it.
+     */
     async function openAgentMessage(agentId: string, messageId: string): Promise<void> {
+      if (agentThreads.activeId(agentId) !== MAIN_THREAD_ID) agentThreads.open(agentId, MAIN_THREAD_ID);
       const serverId = activeServerId();
       await Promise.resolve();
       if (!scopeIsCurrent()) return;

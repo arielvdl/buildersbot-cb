@@ -7,9 +7,11 @@
  * is the one part that needs a closure of its own, and `createSidebarDragEngine` is it.
  */
 
-import { createContext, createEffect, onCleanup, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, onCleanup, untrack, useContext } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
 import { createSidebarDragEngine } from "./createSidebarDragEngine";
+import { type SidebarOpenChat, sidebarOpenChatKey, sidebarRevealSteps } from "./sidebar-reveal";
+import { sidebarChatSectionId } from "./sidebar-section-rail";
 import type { SidebarProps } from "./sidebar-types";
 import { createSidebarAnnouncementStore } from "./stores/announcement-store";
 import { createSidebarDataStore } from "./stores/data-store";
@@ -156,6 +158,69 @@ export function createSidebarScope(props: SidebarProps) {
     () => [resolvedPinnedItems(), waitingChats(), filteredChats(), orderedPeople(), userHiddenAgentList()],
     () => {
       scrollFades.remeasure();
+    },
+  );
+
+  /**
+   * The open chat, and the section it is in. A chat that opens from outside the list (search, a
+   * notification, Back and Forward, a restore at start) can be in a section that the rail does not
+   * select, in a collapsed section or under a filter. The list then changes to show it, as a click on
+   * its row would have found it. The key leaves out the rail, the collapsed sections and the filters,
+   * so the list does not undo a change that the reader makes while the chat stays open. It keeps the
+   * chat's section, so a layout that arrives after the chat (at start) shows it too.
+   */
+  const openChat = (): SidebarOpenChat | null => {
+    if (props.activeChannelId) return { kind: "channel", id: props.activeChannelId };
+    if (props.activeDirectMemberId) return { kind: "person", id: props.activeDirectMemberId };
+    return props.activeAgentId ? { kind: "agent", id: props.activeAgentId } : null;
+  };
+  const openChatKey = createMemo(() => {
+    const chat = openChat();
+    const key = sidebarOpenChatKey(chat);
+    if (!chat || !key) return null;
+    return chat.kind === "person" ? key : `${key}\n${sidebarChatSectionId(props.layout, chat.id)}`;
+  });
+  createEffect(
+    () => {
+      const key = openChatKey();
+      const chat = untrack(openChat);
+      if (!key || !chat) return null;
+      return untrack(() => ({
+        chat,
+        steps: sidebarRevealSteps({
+          chat,
+          layout: props.layout,
+          railFocus: sectionRail.focus(),
+          railSectionIds: sectionRail.items().map((item) => item.id),
+          collapsedSectionIds: new Set(props.collapsedSectionIds),
+          pinned:
+            chat.kind !== "person" && chatPinnedItems().some((item) => item.kind === chat.kind && item.id === chat.id),
+          waiting:
+            chat.kind === "agent"
+              ? props.agentStates[chat.id]?.kind === "waiting"
+              : chat.kind === "channel" && props.channelWaits?.[chat.id] !== undefined,
+          userHidden: chat.kind === "agent" && userHiddenSince(chat.id) !== undefined,
+          activityFilter: listFilter.activity(),
+          routineFilter: listFilter.routine(),
+        }),
+        selectSection: props.sectionRail?.onSelect,
+        toggleSection: props.onToggleSection,
+        clearActivityFilter: props.onActivityFilterChange,
+        clearRoutineFilter: props.onRoutineFilterChange,
+      }));
+    },
+    (reveal) => {
+      if (!reveal) return;
+      const { steps } = reveal;
+      if (steps.railSectionId !== undefined) reveal.selectSection?.(steps.railSectionId);
+      for (const sectionId of steps.toggleSectionIds) reveal.toggleSection(sectionId);
+      if (steps.clearActivityFilter) reveal.clearActivityFilter?.(null);
+      if (steps.clearRoutineFilter) reveal.clearRoutineFilter?.(null);
+      // The row draws after this change, so it scrolls into view in the next frame.
+      const frame = requestAnimationFrame(() => {
+        agentList?.querySelector<HTMLElement>('button[aria-pressed="true"]')?.scrollIntoView({ block: "nearest" });
+      });
+      return () => cancelAnimationFrame(frame);
     },
   );
 

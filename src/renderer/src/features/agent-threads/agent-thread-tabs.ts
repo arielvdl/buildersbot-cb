@@ -120,12 +120,16 @@ export function createAgentThreadTabs(options: AgentThreadTabsOptions) {
     writeTabs(agentId, { open, active: active === MAIN_THREAD_ID ? null : active });
   }
 
-  /** Opens a thread. A thread without a tab gets one at the end. */
-  function open(agentId: string, id: string): void {
+  /**
+   * Opens a thread. A thread without a tab gets one at the end. With `messageId`, a side thread scrolls
+   * to that message when it shows, as for a search result.
+   */
+  function open(agentId: string, id: string, messageId?: string): void {
     if (id === MAIN_THREAD_ID || id === DRAFT_THREAD_ID) {
       writeTabs(agentId, { open: keptIds(agentId), active: id === MAIN_THREAD_ID ? null : id });
       return;
     }
+    if (messageId) setMessageFocus({ taskId: id, messageId, nonce: (untrack(messageFocus)?.nonce ?? 0) + 1 });
     const ids = keptIds(agentId);
     writeTabs(agentId, { open: ids.includes(id) ? ids : [...ids, id], active: id });
   }
