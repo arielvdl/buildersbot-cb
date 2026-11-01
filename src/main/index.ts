@@ -1174,6 +1174,10 @@ if (!hasSingleInstanceLock) {
   process.exit(0);
 } else {
   app.on("second-instance", (_event, argv) => {
+    // Only the desktop app starts a process with the user data folder of a local server: a new child
+    // while this one still quits. A relaunch would open that folder as a normal app, with a window
+    // and no parent. The desktop app starts the child again after the exit.
+    if (localServerChild) return;
     const deepLink = findDeepLink(argv, inviteLinkOptions);
     if (deepLink) acceptDeepLink(deepLink);
     const window = windowHolder.current;
