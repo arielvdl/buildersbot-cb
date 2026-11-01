@@ -61,6 +61,27 @@ const FALLBACK_KEYS = [
   "error.backend.channelLeadModelUnavailable",
 ] as const satisfies readonly (keyof SourceMessages)[];
 
+/**
+ * The app's own start errors of a model call that runs before the turn on the channel lead's model,
+ * not on the recipient's: the history summary and the routing. A backup model of the recipient does
+ * not change that call, so these never move the recipient or open its breaker.
+ */
+const LEAD_MODEL_KEYS: ReadonlySet<string> = new Set<keyof SourceMessages>([
+  "error.agent.profileTimedOut",
+  "error.agent.profileDisconnected",
+  "error.agent.profileNotStarted",
+  "error.agent.profileEndpointsChanged",
+  "error.agent.profileGenerationBusy",
+  "error.backend.channelHistoryArriving",
+  "error.backend.channelHistoryInvalid",
+  "error.backend.channelLeadModelUnavailable",
+]);
+
+/** Whether the start failed in a model call of the channel lead, not of the recipient (`LEAD_MODEL_KEYS`). */
+export function failsOnLeadModel(failure: Pick<StartFailure, "errorKey">): boolean {
+  return failure.errorKey !== null && LEAD_MODEL_KEYS.has(failure.errorKey);
+}
+
 /** The app's own start errors that no try fixes: the task, the agent or the request must change. */
 const TERMINAL_KEYS = [
   "error.agent.fallbackUnavailable",
@@ -192,6 +213,24 @@ export interface StartRetryMarker {
   primary: AgentModelChoice;
   /** The backup model, for `fallback`. */
   fallback: AgentModelChoice | null;
+  /**
+   * When the delivery went to the backup model, for `fallback`. The queue waits for the agent's move
+   * at most `START_FALLBACK_HOLD_MS` from then. Absent in a marker of an earlier version.
+   */
+  fallbackAt?: string;
+}
+
+/**
+ * The longest that a delivery sent to the backup model waits for the agent to move there. After it,
+ * the delivery starts: on the own model when its breaker wait ended, else it fails and the task
+ * reviewer takes it.
+ */
+export const START_FALLBACK_HOLD_MS = 10 * 60_000;
+
+/** Whether the queue still waits for the agent to move to the backup of this marker. */
+export function fallbackHoldRuns(marker: StartRetryMarker, now: number): boolean {
+  const since = Date.parse(marker.fallbackAt ?? marker.firstFailedAt);
+  return Number.isFinite(since) && now - since < START_FALLBACK_HOLD_MS;
 }
 
 export function isStartRetryMarker(value: unknown): value is StartRetryMarker {
@@ -213,7 +252,8 @@ export function isStartRetryMarker(value: unknown): value is StartRetryMarker {
     isString(value.cause) &&
     (value.errorKey === null || isString(value.errorKey)) &&
     choice(value.primary) &&
-    (value.fallback === null || choice(value.fallback))
+    (value.fallback === null || choice(value.fallback)) &&
+    (value.fallbackAt === undefined || (isString(value.fallbackAt) && Number.isFinite(Date.parse(value.fallbackAt))))
   );
 }
 
@@ -308,6 +348,7 @@ export function nextStartStep(input: StartRetryInput): StartRetryStep {
         nextAt: null,
         primary: marker?.primary ?? input.primary,
         fallback: input.fallback,
+        fallbackAt: new Date(now).toISOString(),
       },
     };
   return {
@@ -359,6 +400,8 @@ export interface StartBreakerStorage {
 const BREAKER_MEMORY_MS = 24 * 60 * 60_000;
 const BREAKER_LIMIT = 200;
 const PINNED_LIMIT = 100;
+/** The longest that a task pinned to the backup holds the agent there after the breaker wait. */
+export const PIN_HOLD_MS = 2 * 60 * 60_000;
 
 function choiceOf(entry: StoredStartBreaker): AgentModelChoice {
   return {
@@ -398,6 +441,20 @@ export class StartBreakers {
     return this.#entries.get(breakerKey(agentId, choice));
   }
 
+  /** Whether the wait of the breaker of this agent and model still runs. */
+  waits(agentId: string, choice: AgentModelChoice, now = Date.now()): boolean {
+    const entry = this.get(agentId, choice);
+    return entry !== undefined && Date.parse(entry.until) > now;
+  }
+
+  /** The breaker of this agent whose wait still runs on a model other than `current`, or undefined. */
+  waitingElsewhere(agentId: string, current: AgentModelChoice, now = Date.now()): StoredStartBreaker | undefined {
+    const key = breakerKey(agentId, current);
+    for (const [entryKey, entry] of this.#entries)
+      if (entry.agentId === agentId && entryKey !== key && Date.parse(entry.until) > now) return entry;
+    return undefined;
+  }
+
   list(): StoredStartBreaker[] {
     return [...this.#entries.values()].map((entry) => ({ ...entry, pinnedTasks: [...entry.pinnedTasks] }));
   }
@@ -430,8 +487,14 @@ export class StartBreakers {
   ): number {
     const key = breakerKey(agentId, choice);
     const previous = this.#entries.get(key);
-    const opens = (previous?.opens ?? 0) + 1;
-    const holdMs = breakerHoldMs(settings, opens, random, resetsAtMs, now);
+    // Lanes of the agent that failed together are one failure: a wait that still runs, and that no
+    // probe ended, keeps its count. Only a probe after the wait makes the next wait longer.
+    const sameFailure = previous !== undefined && !previous.probing && Date.parse(previous.until) > now;
+    const opens = sameFailure ? previous.opens : (previous?.opens ?? 0) + 1;
+    const holdMs = Math.max(
+      breakerHoldMs(settings, opens, random, resetsAtMs, now),
+      sameFailure ? Date.parse(previous.until) - now : 0,
+    );
     this.#entries.set(key, {
       agentId,
       provider: choice.provider,
@@ -458,7 +521,7 @@ export class StartBreakers {
   /** The own model started a turn: its turns run there again, and failures count from one. */
   close(agentId: string, choice: AgentModelChoice): boolean {
     const entry = this.get(agentId, choice);
-    if (!entry || entry.pinnedTasks.length > 0) {
+    if (!entry || (entry.pinnedTasks.length > 0 && Date.now() - Date.parse(entry.until) < PIN_HOLD_MS)) {
       if (entry?.probing) {
         entry.probing = false;
         this.#save();
@@ -481,10 +544,17 @@ export class StartBreakers {
     if (changed) this.#save();
   }
 
-  /** The tasks pinned to the backup of this agent. */
-  pinned(agentId: string): string[] {
+  /**
+   * The tasks pinned to the backup of this agent. A pin holds the agent at most `PIN_HOLD_MS` after
+   * the wait of its breaker, so a long task does not keep the agent on the backup for good.
+   */
+  pinned(agentId: string, now = Date.now()): string[] {
     return [
-      ...new Set([...this.#entries.values()].flatMap((entry) => (entry.agentId === agentId ? entry.pinnedTasks : []))),
+      ...new Set(
+        [...this.#entries.values()].flatMap((entry) =>
+          entry.agentId === agentId && now - Date.parse(entry.until) < PIN_HOLD_MS ? entry.pinnedTasks : [],
+        ),
+      ),
     ];
   }
 

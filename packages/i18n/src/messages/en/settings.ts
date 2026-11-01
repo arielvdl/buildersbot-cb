@@ -200,9 +200,10 @@ export const messages = defineMessages("settings", {
   "settings.startRetry.breaker.value": "{minutes} min",
   "settings.startRetry.agents.title": "Agents with their own backup model",
   "settings.startRetry.agents.description":
-    "Set it in the agent's settings, under Backup models. It comes before the default.",
+    "Set it in the agent's settings, under Backup models. It is used in place of the default. An agent set to ask first does not switch by itself: the task reviewer takes the task.",
   "settings.startRetry.agents.none": "No agent has one.",
   "settings.startRetry.agents.value": "{name}: {provider} · {model}",
+  "settings.startRetry.agents.asks": "{name}: {provider} · {model} (asks first)",
   "settings.startRetry.onBackup.title": "On a backup model now",
   "settings.startRetry.onBackup.value": "{name} uses its backup model until {time}, then tries {model} again.",
   "settings.startRetry.onBackup.probing": "{name} tries {model} again now.",

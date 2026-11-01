@@ -95,8 +95,9 @@ export function StartRetrySettingsSection(props: {
   };
   const overrides = () =>
     props.agents.flatMap((agent) => {
-      const backup = agent.backupModels?.automatic ? agent.backupModels.order[0] : undefined;
-      return backup ? [{ agent, backup }] : [];
+      // An agent set to ask first has backups too: the default backup never replaces them.
+      const backup = agent.backupModels?.order[0];
+      return backup ? [{ agent, backup, asks: agent.backupModels?.automatic !== true }] : [];
     });
   const agentName = (agentId: string) => props.agents.find((agent) => agent.id === agentId)?.name ?? agentId;
   const time = (iso: string) => format.date(Date.parse(iso), { hour: "2-digit", minute: "2-digit" });
@@ -276,7 +277,7 @@ export function StartRetrySettingsSection(props: {
               <For each={overrides()}>
                 {(entry) => (
                   <ItemDescription>
-                    {t("settings.startRetry.agents.value", {
+                    {t(entry.asks ? "settings.startRetry.agents.asks" : "settings.startRetry.agents.value", {
                       name: entry.agent.name,
                       provider: agentProviderName(entry.backup.provider),
                       model: entry.backup.model,

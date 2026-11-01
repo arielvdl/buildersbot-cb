@@ -62,6 +62,7 @@ import { PLAN_UPDATED_METHOD, planFromNotification } from "./plan-updates";
 import { isBalanceDiagnostic, isPlanLimitDiagnostic, isUsageLimitDiagnostic } from "./provider-diagnostics";
 import type { ProviderRuntime } from "./provider-runtime";
 import { isNoUpdateAnswer, settleQuietRoutineTurn } from "./routine-quiet-runs";
+import type { StartRetryMarker } from "./start-retry";
 import {
   foldCodexSubagentItem,
   SUBAGENTS_UPDATED_METHOD,
@@ -162,6 +163,21 @@ export interface TurnHooks {
   turnModel(agentId: string, turnId: string): string | null;
   /** Whether a provider error moves this agent to a backup model: it switches without asking and has a ready one. */
   mayFailOver(agentId: string): boolean;
+  /**
+   * A usage limit refused this turn before it did any work: the start retry of the drain decides
+   * (`DrainScheduler.retryLimitedTurn`). It calls `requeue` with the marker to store on the
+   * deliveries. Null: the start retry does not take it, and the turn ends as before. Omitted: never.
+   */
+  retryLimitedTurn?<E>(
+    input: {
+      agentId: string;
+      model: string | null;
+      deliveries: readonly DeliveryContext[];
+      resetsAt: number | null;
+      channelTurn: boolean;
+    },
+    requeue: (marker: StartRetryMarker) => Effect.Effect<void, E>,
+  ): Effect.Effect<"retry" | "fallback" | "fail" | null, E>;
   /**
    * Gives a channel task back to its channel's queue after a spent plan refused its turn. False
    * when the delivery is not an active channel assignment that can go back.
@@ -1060,6 +1076,21 @@ export class TurnLifecycle {
       // Only this loop reads the map, so the finished turn's items go, or it holds every item ever seen.
       for (const [itemId, itemTurnId] of this.#itemTurns) if (itemTurnId === turnId) this.#itemTurns.delete(itemId);
       this.#openSteps.endTurn(turnId);
+      // A usage limit that refused the turn before any work goes through the start retry, as a start
+      // that the provider refused does: tries again, then the backup model. Work that a turn carries
+      // keeps the path below.
+      if (repeatable && !continuing && !carriesWork && this.#hooks.retryLimitedTurn) {
+        const step = yield* this.#hooks.retryLimitedTurn(
+          { agentId, model, deliveries, resetsAt, channelTurn },
+          (marker) => this.#requeueTurn(agentId, threadId, turnId, snapshot, deliveries, undefined, marker),
+        );
+        if (step === "retry" || step === "fallback") {
+          // The account is spent: the gate holds the model, and the agent moves to the backup.
+          if (step === "fallback") yield* this.#usageLimits.reached(agentId, resetsAt, model);
+          this.#hooks.scheduleDrain(agentId);
+          return;
+        }
+      }
       if (requeue) {
         const workSteps =
           continuing && running
@@ -1451,6 +1482,7 @@ export class TurnLifecycle {
     snapshot: ConversationSnapshot,
     deliveries: readonly DeliveryContext[],
     resumeAfterUsageLimit?: UsageLimitContinuation,
+    startRetry?: StartRetryMarker,
   ) {
     for (const context of deliveries) {
       const { delivery } = context;
@@ -1469,7 +1501,11 @@ export class TurnLifecycle {
               .slice(-6000),
           }
         : undefined;
-      yield* this.#mailbox.requeueRefused(delivery.id, continuation).pipe(toTurnOperationFailed);
+      yield* (
+        startRetry
+          ? this.#mailbox.requeueForStartRetry(delivery.id, startRetry)
+          : this.#mailbox.requeueRefused(delivery.id, continuation)
+      ).pipe(toTurnOperationFailed);
       this.#mailboxSync.syncDeliveryMessage(snapshot, delivery.id);
     }
     this.#conversation.emitConversation(snapshot, "turn.completed", { turnId, status: "interrupted" });
