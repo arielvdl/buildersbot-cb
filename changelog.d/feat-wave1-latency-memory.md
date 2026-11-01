@@ -7,3 +7,5 @@
   agents, and when memory is low one message of yours can start on an agent whose session is open.
 - Free idle agents when memory is low (beta switch): when memory becomes low, agent sessions that did
   nothing for 2 minutes close. Before, they closed only when memory was critical.
+- Task reviewer waits after sleep (beta switch): after the computer wakes, the task reviewer waits two
+  looks before it acts, so a run that was quiet only because the computer slept is not restarted.
