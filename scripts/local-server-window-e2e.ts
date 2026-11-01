@@ -8,6 +8,10 @@
 // 2. A show request (second launch, notification, Dynamic Island) does not show the window.
 // 3. `ensureMainWindow` gives back the same hidden window, with nothing loaded.
 // 4. A page that something else loads into the window does not show it at `ready-to-show`.
+// 5. An agent browser view in the hidden window loads a page and runs script, and the window stays
+//    hidden.
+// 6. On macOS, LaunchServices registers the child as a background-only process. As a UI element (the
+//    `app.dock.hide()` it had before), the low-memory panel of macOS listed it as a second Builders Bot.
 // The app scenario loads the renderer and must show its window, so the check can see a shown window.
 //
 // Run: bun scripts/local-server-window-e2e.ts
@@ -87,8 +91,15 @@ try {
     "ensureMainWindow gives back the hidden window with nothing loaded",
   );
   assert.deepEqual(record(childSteps.afterPaint), { visible: false }, "ready-to-show does not show the window");
-  // Only the page that the check itself loaded in step 4.
-  assert.equal(pageRequests.child, 1, "the child asked for the renderer page");
+  assert.deepEqual(
+    record(childSteps.agentView),
+    { title: "renderer", windowVisible: false },
+    "an agent browser view in the hidden window loads a page and runs script",
+  );
+  // The pages that the check itself loaded in steps 4 and 5.
+  assert.equal(pageRequests.child, 2, "the child asked for the renderer page and the agent page");
+  if (process.platform === "darwin")
+    assert.equal(child.applicationType, "BackgroundOnly", "macOS does not list the local server as an app");
 
   const desktop = await run("app", `http://127.0.0.1:${address.port}/?scenario=app`);
   results.app = desktop;
@@ -102,6 +113,8 @@ try {
     "the desktop app loads its renderer and shows its window",
   );
   assert.equal(pageRequests.app, 1, "the desktop app asked for the renderer page once");
+  if (process.platform === "darwin")
+    assert.equal(desktop.applicationType, "UIElement", "the check reads the registration of a process with a window");
   passed = true;
 } catch (cause) {
   error = cause instanceof Error ? cause.message : String(cause);
