@@ -727,6 +727,32 @@ body:has(.channel-member-dialog) .ui-select-content {
   cursor: pointer;
 }
 
+/* The details button of the open tab, before its name, with the round fill of a thread tab's button. */
+.channel-tab-details.ui-button {
+  width: var(--openbot-icon-md);
+  min-width: 0;
+  height: var(--openbot-icon-md);
+  flex: none;
+  margin-left: 3px;
+  padding: 0;
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-secondary);
+}
+
+.channel-tab-details.ui-button > svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.channel-tab-details.ui-button:hover {
+  background: var(--openbot-bg-control-hover);
+  color: var(--openbot-text-primary);
+}
+
+.channel-tab-details + .channel-tab-name {
+  padding-left: 3px;
+}
+
 /* The name gives way to the unread mark. A tab with work shimmers it (app-shell.css). */
 .channel-tab-label {
   min-width: 0;

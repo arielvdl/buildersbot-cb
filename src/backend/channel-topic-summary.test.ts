@@ -404,5 +404,63 @@ describe("a tab named by its first message", () => {
   });
 });
 
+describe("the first message of a tab", () => {
+  /** A message of an agent or of a person, in a tab, at a place in the channel. */
+  function written(
+    channelId: string,
+    topicId: string,
+    id: string,
+    text: string,
+    kind: ChannelMessage["author"]["kind"],
+  ): ChannelMessage {
+    const base = message(channelId, topicId, id, text);
+    return {
+      ...base,
+      author: { kind, id: kind === "member" ? "local" : "writer", name: kind === "member" ? "You" : "writer" },
+      message: { ...base.message, author: kind === "member" ? "user" : "assistant" },
+    };
+  }
+
+  it("gives each tab the first and the last message a person sent in it, also after a rename", async () => {
+    const { service, channelId, first, cleanup } = await harness();
+    await addTopic(service, channelId, "topic-second", "Aba 2");
+    await addTopic(service, channelId, "topic-empty", "Aba 3");
+    const long = `Revise o deploy. ${"a".repeat(2_100)}`;
+    service.store.update(service.store.get(channelId), {
+      messages: [
+        written(channelId, "topic-second", "agent-first", "An agent wrote before the person", "agent"),
+        written(channelId, "topic-second", "person-blank", "   ", "member"),
+        written(channelId, "topic-second", "person-first", "  Ajuste o **filtro** da busca  ", "member"),
+        written(channelId, first, "person-main", long, "member"),
+        written(channelId, "topic-second", "agent-reply", "Done.", "agent"),
+        written(channelId, "topic-second", "person-last", "Agora o botão", "member"),
+        written(channelId, "topic-empty", "agent-only", "Only an agent wrote here", "agent"),
+      ],
+    });
+    await Effect.runPromise(
+      service.command(
+        { type: "topic-rename", operationId: "rename", channelId, topicId: "topic-second", name: "Outro nome" },
+        { id: "local", name: "You" },
+      ),
+    );
+
+    const [summary] = service.store.list("local");
+    const topic = (id: string) => summary?.topics?.find((item) => item.id === id);
+    expect(topic("topic-second")?.name).toBe("Outro nome");
+    // The person's first message with text, as written: the tab expands its marks when it shows it.
+    expect(topic("topic-second")?.firstMessage).toBe("Ajuste o **filtro** da busca");
+    expect(topic("topic-second")?.lastUserMessage).toBe("Agora o botão");
+    // A long message is cut as the first message of a side thread is.
+    expect(topic(first)?.firstMessage?.startsWith("Revise o deploy.")).toBe(true);
+    expect(Array.from(topic(first)?.firstMessage ?? "")).toHaveLength(2_000);
+    expect(topic(first)?.firstMessage?.endsWith("…")).toBe(true);
+    expect(topic(first)?.lastUserMessage).toBe(topic(first)?.firstMessage);
+    // A tab where no person wrote has nothing to show.
+    expect(topic("topic-empty")?.firstMessage).toBe("");
+    expect(topic("topic-empty")?.lastUserMessage).toBe("");
+    await cleanup();
+  });
+});
+
 // The default is referenced so the fixture cannot drift from the contract silently.
 void DEFAULT_AGENT_DEFAULTS;

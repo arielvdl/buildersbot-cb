@@ -1,4 +1,6 @@
 import type { ChannelTopic } from "@openbot/contracts/ipc";
+import type { ThreadDetails } from "@openbot/ui/features/conversation/threads/ThreadDetailsDialog";
+import { chatPreviewBlock } from "@openbot/ui/features/conversation/threads/thread-preview-text";
 import { z } from "zod";
 
 /*
@@ -157,4 +159,22 @@ export type ChannelTabClose = "now" | "confirm" | "confirm-work";
 export function channelTabClose(topic: Pick<ChannelTopic, "openTasks" | "messageCount">): ChannelTabClose {
   if ((topic.openTasks ?? 0) > 0) return "confirm-work";
   return topic.messageCount === 0 && topic.openTasks === 0 ? "now" : "confirm";
+}
+
+/**
+ * A tab with a message of a person to show: its hover preview and the details button of the open tab
+ * need one. A new tab, and a tab of a host older than the preview, have none.
+ */
+export function channelTabHasDetails(topic: ChannelTopic): boolean {
+  return (topic.firstMessage ?? "").trim() !== "" || (topic.lastUserMessage ?? "").trim() !== "";
+}
+
+/** The details of a tab for its dialog: the person's first and last message, as text that keeps its lines. */
+export function channelTabDetails(topic: ChannelTopic): ThreadDetails {
+  return {
+    title: topic.name,
+    startedAt: topic.createdAt,
+    firstMessage: chatPreviewBlock(topic.firstMessage ?? ""),
+    lastMessage: chatPreviewBlock(topic.lastUserMessage ?? ""),
+  };
 }

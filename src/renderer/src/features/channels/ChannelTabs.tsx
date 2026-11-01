@@ -1,11 +1,21 @@
 import type { ChannelTopic } from "@openbot/contracts/ipc";
-import { Button, ConfirmDialog, ErrorReference, Input } from "@openbot/ui";
+import { Button, ConfirmDialog, ErrorReference, IconButton, Info, Input, Tooltip } from "@openbot/ui";
+import { ThreadDetailsDialog } from "@openbot/ui/features/conversation/threads/ThreadDetailsDialog";
+import { chatPreviewLine, sameMessageText } from "@openbot/ui/features/conversation/threads/thread-preview-text";
+import {
+  CHAT_PREVIEW_OPEN_DELAY,
+  CHAT_PREVIEW_SKIP_DELAY,
+  ChatPreviewCard,
+  createChatPreviewOpen,
+} from "@openbot/ui/features/sidebar/SidebarAgentIndicator";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, For, flush, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, flush, Show } from "solid-js";
 import {
   channelTabClose,
+  channelTabDetails,
   channelTabDropIndex,
   channelTabDropSlot,
+  channelTabHasDetails,
   moveChannelTopic,
   orderChannelTopics,
   readChannelTabOrders,
@@ -44,6 +54,8 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   const [closing, setClosing] = createSignal<{ topicId: string; work: boolean } | null>(null);
   const [confirmOpen, setConfirmOpen] = createSignal(false);
   const [closeError, setCloseError] = createSignal<string | null>(null);
+  /** The tab whose details show in a dialog. */
+  const [detailsId, setDetailsId] = createSignal<string | null>(null);
   let strip: HTMLFieldSetElement | undefined;
 
   /** In the service's order, which is the order the tabs were made in. */
@@ -57,6 +69,24 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
   const openTabButton = () => strip?.querySelector<HTMLElement>('.channel-tab-name[aria-current="true"]') ?? undefined;
   /** A tab that closes elsewhere while its dialog is open takes the dialog with it. */
   const closingTopic = () => serviceTopics().find((topic) => topic.id === closing()?.topicId);
+
+  /** The tab whose details show. Undefined also when it left the channel, such as by a close elsewhere. */
+  const detailsTopic = createMemo(() => {
+    const topic = serviceTopics().find((item) => item.id === detailsId());
+    return topic && channelTabHasDetails(topic) ? topic : undefined;
+  });
+  const shownDetails = createMemo(() => {
+    const topic = detailsTopic();
+    return topic ? channelTabDetails(topic) : null;
+  });
+  // The dialog closes by its `open` prop when its tab goes, and Kobalte then does not call
+  // `onOpenChange`. The id goes too, so the previews open again and a later tab does not open it.
+  createEffect(
+    () => detailsId() !== null && detailsTopic() === undefined,
+    (gone) => {
+      if (gone) setDetailsId(null);
+    },
+  );
 
   async function add(): Promise<void> {
     // The name follows the position, so two new tabs are told apart before either is renamed.
@@ -180,91 +210,131 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
         }}
       >
         <For each={topics()}>
-          {(topic, index) => (
-            // `no-drag`: the header moves the window, and a tab in that region gets no drag events.
-            <span
-              class="channel-tab no-drag"
-              data-topic-id={topic.id}
-              data-active={isOpen(topic) ? "" : undefined}
-              data-dragging={dragged() === topic.id ? "" : undefined}
-              data-drop={dropMark(index())}
-              draggable={movable() && renaming() !== topic.id ? "true" : "false"}
-            >
-              <Show
-                when={renaming() === topic.id}
-                fallback={
+          {(topic, index) => {
+            // The name is all a tab shows, so the pointer over it previews what a person wrote in the tab
+            // first and last, as plain text on few lines. It stays closed while a tab moves or details show.
+            const preview = createChatPreviewOpen(() => dragged() !== null || detailsTopic() !== undefined);
+            const firstLine = createMemo(() => chatPreviewLine(topic.firstMessage ?? ""));
+            const lastLine = createMemo(() => {
+              const line = chatPreviewLine(topic.lastUserMessage ?? "");
+              return sameMessageText(firstLine(), line) ? "" : line;
+            });
+            return (
+              // `no-drag`: the header moves the window, and a tab in that region gets no drag events.
+              <span
+                class="channel-tab no-drag"
+                data-topic-id={topic.id}
+                data-active={isOpen(topic) ? "" : undefined}
+                data-dragging={dragged() === topic.id ? "" : undefined}
+                data-drop={dropMark(index())}
+                draggable={movable() && renaming() !== topic.id ? "true" : "false"}
+              >
+                {/* Only the open tab has the details button, before its name, as an agent's open thread tab has. */}
+                <Show when={isOpen(topic) && renaming() !== topic.id && channelTabHasDetails(topic)}>
+                  <IconButton
+                    class="channel-tab-details"
+                    variant="ghost"
+                    size="icon-xs"
+                    label={t("conversation.threads.details.open")}
+                    onClick={() => setDetailsId(topic.id)}
+                  >
+                    <Info aria-hidden="true" />
+                  </IconButton>
+                </Show>
+                <Show
+                  when={renaming() === topic.id}
+                  fallback={
+                    <Tooltip.Root
+                      open={preview.open()}
+                      onOpenChange={preview.onOpenChange}
+                      placement="bottom-start"
+                      gutter={10}
+                      openDelay={CHAT_PREVIEW_OPEN_DELAY}
+                      closeDelay={0}
+                      skipDelayDuration={CHAT_PREVIEW_SKIP_DELAY}
+                      disabled={!channelTabHasDetails(topic)}
+                    >
+                      <Tooltip.Trigger
+                        as={Button}
+                        variant="unstyled"
+                        data-cuelume-tap={undefined}
+                        class="channel-tab-name"
+                        aria-current={isOpen(topic) ? "true" : undefined}
+                        aria-keyshortcuts={movable() ? "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight" : undefined}
+                        onClick={() => void channels.setTopic(topic.id)}
+                        onDblClick={() => void setRenaming(topic.id)}
+                        onKeyDown={(event: KeyboardEvent) => {
+                          // Alt+Left and Alt+Right are Back and Forward outside macOS, so a move takes Shift too,
+                          // as on an agent's thread tabs.
+                          if (!event.altKey || !event.shiftKey || event.metaKey || event.ctrlKey) return;
+                          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (!movable()) return;
+                          const button = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+                          reorder(topic.id, index() + (event.key === "ArrowLeft" ? -1 : 1));
+                          flush();
+                          // The element moved in the list, which can drop its focus.
+                          if (button && document.activeElement !== button) button.focus();
+                        }}
+                      >
+                        <span class={["channel-tab-label", { "channel-tab-label-working": working(topic) }]}>
+                          {topic.name}
+                        </span>
+                        <Show when={working(topic)}>
+                          <span class="sr-only">{t("sidebar.state.working")}</span>
+                        </Show>
+                        <Show when={unread(topic)}>
+                          {(count) => (
+                            <span
+                              class="channel-tab-unread"
+                              role="img"
+                              aria-label={t("sidebar.channel.unread", { count: count() })}
+                              title={t("sidebar.channel.unread", { count: count() })}
+                            />
+                          )}
+                        </Show>
+                      </Tooltip.Trigger>
+                      <ChatPreviewCard
+                        title={topic.name}
+                        firstMessage={firstLine()}
+                        preview={lastLine()}
+                        variant="tab"
+                      />
+                    </Tooltip.Root>
+                  }
+                >
+                  <Input
+                    class="channel-tab-input"
+                    data-cuelume-type={undefined}
+                    value={topic.name}
+                    aria-label={t("channel.topic.rename")}
+                    autofocus
+                    onBlur={(event) => {
+                      void setRenaming(null);
+                      const name = event.currentTarget.value.trim();
+                      if (name && name !== topic.name) void channels.renameTopic(topic.id, name);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") void setRenaming(null);
+                    }}
+                  />
+                </Show>
+                <Show when={topics().length > 1 && !props.archived}>
                   <Button
                     variant="unstyled"
                     data-cuelume-tap={undefined}
-                    class="channel-tab-name"
-                    aria-current={isOpen(topic) ? "true" : undefined}
-                    aria-keyshortcuts={movable() ? "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight" : undefined}
-                    onClick={() => void channels.setTopic(topic.id)}
-                    onDblClick={() => void setRenaming(topic.id)}
-                    onKeyDown={(event) => {
-                      // Alt+Left and Alt+Right are Back and Forward outside macOS, so a move takes Shift too,
-                      // as on an agent's thread tabs.
-                      if (!event.altKey || !event.shiftKey || event.metaKey || event.ctrlKey) return;
-                      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-                      event.preventDefault();
-                      event.stopPropagation();
-                      if (!movable()) return;
-                      const button = event.currentTarget;
-                      reorder(topic.id, index() + (event.key === "ArrowLeft" ? -1 : 1));
-                      flush();
-                      // The element moved in the list, which can drop its focus.
-                      if (document.activeElement !== button) button.focus();
-                    }}
+                    class="channel-tab-close"
+                    aria-label={`${t("channel.topic.delete")}: ${topic.name}`}
+                    onClick={() => close(topic)}
                   >
-                    <span class={["channel-tab-label", { "channel-tab-label-working": working(topic) }]}>
-                      {topic.name}
-                    </span>
-                    <Show when={working(topic)}>
-                      <span class="sr-only">{t("sidebar.state.working")}</span>
-                    </Show>
-                    <Show when={unread(topic)}>
-                      {(count) => (
-                        <span
-                          class="channel-tab-unread"
-                          role="img"
-                          aria-label={t("sidebar.channel.unread", { count: count() })}
-                          title={t("sidebar.channel.unread", { count: count() })}
-                        />
-                      )}
-                    </Show>
+                    ×
                   </Button>
-                }
-              >
-                <Input
-                  class="channel-tab-input"
-                  data-cuelume-type={undefined}
-                  value={topic.name}
-                  aria-label={t("channel.topic.rename")}
-                  autofocus
-                  onBlur={(event) => {
-                    void setRenaming(null);
-                    const name = event.currentTarget.value.trim();
-                    if (name && name !== topic.name) void channels.renameTopic(topic.id, name);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") event.currentTarget.blur();
-                    if (event.key === "Escape") void setRenaming(null);
-                  }}
-                />
-              </Show>
-              <Show when={topics().length > 1 && !props.archived}>
-                <Button
-                  variant="unstyled"
-                  data-cuelume-tap={undefined}
-                  class="channel-tab-close"
-                  aria-label={`${t("channel.topic.delete")}: ${topic.name}`}
-                  onClick={() => close(topic)}
-                >
-                  ×
-                </Button>
-              </Show>
-            </span>
-          )}
+                </Show>
+              </span>
+            );
+          }}
         </For>
         <Show when={!props.archived}>
           <Button variant="ghost" size="sm" class="channel-tab-add" aria-label={t("channel.topic.new")} onClick={add}>
@@ -272,6 +342,7 @@ export function ChannelTabs(props: { channelId: string; archived: boolean }) {
           </Button>
         </Show>
       </fieldset>
+      <ThreadDetailsDialog details={shownDetails()} onClose={() => setDetailsId(null)} returnFocus={openTabButton} />
       <ConfirmDialog
         open={confirmOpen() && closingTopic() !== undefined}
         initialFocus="cancel"
