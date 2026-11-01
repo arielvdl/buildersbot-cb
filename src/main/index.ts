@@ -1781,21 +1781,27 @@ async function prepareForUpdateInstall(): Promise<void> {
  */
 async function prepareForShutdown(): Promise<void> {
   if (shutdownStarted) return;
-  // An update install runs this before its `app.quit()`, and the teardown closes the trace.
-  recordExit("quit");
   shutdownStarted = true;
   isQuitting = true;
-  hideExceptionErrorBox();
   forceExitAfterShutdownDeadline();
-  if (services) Effect.runFork(services.updater.stop());
-  await runCauseEffect(windows.flushMainWindowBounds()).catch((error) =>
-    logger.error("Unable to save the main window position:", toLogValue(error)),
-  );
-  // After the bounds are saved.
-  hideWindowsForQuit();
-  services?.dynamicIsland.destroy();
-  macHapticFeedback.destroy();
+  // `before-quit` holds every quit until this is set, so a step that throws must not skip it.
   try {
+    // A step here that throws must not skip the teardown: the database closes there.
+    try {
+      // An update install runs this before its `app.quit()`, and the teardown closes the trace.
+      recordExit("quit");
+      hideExceptionErrorBox();
+      if (services) Effect.runFork(services.updater.stop());
+      await runCauseEffect(windows.flushMainWindowBounds()).catch((error) =>
+        logger.error("Unable to save the main window position:", toLogValue(error)),
+      );
+      // After the bounds are saved.
+      hideWindowsForQuit();
+      services?.dynamicIsland.destroy();
+      macHapticFeedback.destroy();
+    } catch (error) {
+      logger.error("Unable to close the windows for the quit:", toLogValue(error));
+    }
     await teardown.runAll();
   } finally {
     shutdownFinished = true;
