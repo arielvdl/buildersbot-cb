@@ -18,7 +18,7 @@ list is the order of the Settings page.
 | `turn-start-unify` | The two security reviews before a turn become one. See [guard.md](guard.md). |
 | `channel-context-spill` | Long old channel messages go to an agent cut, with a pointer to read the rest. See [channels-and-messaging.md](channels-and-messaging.md#lean-channel-context-channel-context-spill). |
 | `safe-resume` | A channel task that fails in a turn with a passing error continues by itself, with a limit. |
-| `routing` | The routing of a channel request uses less reasoning. |
+| `routing` | The routing of a channel request uses the lowest reasoning effort of the lead's model, a follow-up in Portuguese or Spanish continues the work of its tab, and only a change to the request's tab makes the lead route again (2 times at most). See [channels-and-messaging.md](channels-and-messaging.md#the-routing-optimization). |
 | `streaming-checkpoints` | A reply that streams is written to the database at checkpoints, not at each frame. |
 
 A new switch is one line in `OPTIMIZATION_IDS`, its name and description in the `settings` catalog

@@ -115,6 +115,7 @@ import {
   updateProviderStatus,
   waitForSuccessfulProcess,
 } from "./provider-status";
+import { policyAllowsModel, providersOffByPolicy, type ServerModelPolicy } from "./server-model-policy";
 import { providerForAgent, providerLabel } from "./thread-items";
 import { UsageReadGate } from "./usage-read-gate";
 import { checkAgentFolders, workspaceExcludedFolders, workspaceWritableRoots } from "./workspace-sandbox";
@@ -574,12 +575,21 @@ export class ProviderRuntime implements ProviderPort {
   #disposals = 0;
   readonly #modelCatalog: ModelCatalog;
   readonly #off: Set<AgentProvider>;
+  /** The providers that the model policy of the server keeps off. A person cannot turn one on. */
+  readonly #policyOff: ReadonlySet<AgentProvider>;
+  /** The model policy of the server, or null: every provider and model is offered. */
+  readonly #modelPolicy: ServerModelPolicy | null;
   readonly #saveProviderUse: (provider: AgentProvider, on: boolean) => Effect.Effect<void, ProviderOperationFailed>;
   /** Null without a store, as in tests: each provider then holds its own sign-in only. */
   readonly #providerAccounts: ProviderAccounts | null;
 
   constructor(options: {
     offProviders?: readonly AgentProvider[];
+    /**
+     * The model policy of the server (`server-model-policy.ts`). The providers that it does not name are
+     * off, and only the models that it allows are listed. Null or absent: no policy.
+     */
+    modelPolicy?: ServerModelPolicy | null;
     saveProviderUse?: (provider: AgentProvider, on: boolean) => Effect.Effect<void, ProviderOperationFailed>;
     conversation: ConversationRuntime;
     hooks: ProviderHooks;
@@ -604,7 +614,9 @@ export class ProviderRuntime implements ProviderPort {
     redactMcp: (text: string) => string;
     accounts?: ProviderAccountStore;
   }) {
-    this.#off = new Set(options.offProviders);
+    this.#modelPolicy = options.modelPolicy ?? null;
+    this.#policyOff = new Set(providersOffByPolicy(this.#modelPolicy, AGENT_PROVIDERS));
+    this.#off = new Set([...(options.offProviders ?? []), ...this.#policyOff]);
     this.#saveProviderUse = options.saveProviderUse ?? (() => Effect.void);
     this.#conversation = options.conversation;
     this.#hooks = options.hooks;
@@ -784,6 +796,10 @@ export class ProviderRuntime implements ProviderPort {
   ) {
     if (provider === "acp")
       return yield* new ProviderOperationFailed({ cause: new Error("Invalid built-in provider.") });
+    if (on && this.#policyOff.has(provider))
+      return yield* new ProviderOperationFailed({
+        cause: new Error(sourceText("error.provider.offByServerPolicy", { provider: providerLabel(provider) })),
+      });
     if (on === !this.#off.has(provider)) return this.status();
     if (!on) {
       if (this.#hooks.isProviderAssigned(provider) || this.#hooks.isProviderBusy(provider))
@@ -1053,7 +1069,9 @@ export class ProviderRuntime implements ProviderPort {
   }).bind(this);
 
   listModels(): AgentModelOption[] {
-    return this.#modelCatalog.list().filter((model) => !this.#off.has(model.provider));
+    return this.#modelCatalog
+      .list()
+      .filter((model) => !this.#off.has(model.provider) && policyAllowsModel(this.#modelPolicy, model));
   }
 
   /**

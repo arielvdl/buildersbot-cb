@@ -96,6 +96,11 @@ older event replay and a client without tabs send.
   every `read` command names its tab.
 - Closing a tab with work or messages asks first; only a tab known to be empty and idle closes at
   once. The order on screen is a device preference: a routine still lands in the oldest tab.
+- With the `routing` optimization off, a follow-up ("continue", "also", ...) and the routing prompt
+  read the open tasks of the whole channel, and any change to the channel makes a routing answer
+  stale. With it on, both read the tab of the message, and only a change to that tab (2 times at
+  most) or to the channel settings makes the lead route again. See
+  [the routing optimization](channels-and-messaging.md#the-routing-optimization).
 
 ## Tab lanes
 

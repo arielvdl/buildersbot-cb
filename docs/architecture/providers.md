@@ -260,6 +260,83 @@ Code names its models itself, OpenCode drops models that the stored key cannot u
 free tier when discovery fails, and a custom agent gets the full request timeout. A new provider
 adds its rule there, not in the catalog.
 
+## Server model policy
+
+> **Permanent rule for every remote server that Cultura Builder sets up (each sector or company):**
+> (1) the model catalog is an allowlist of the administrator, and the default allows only the
+> Cultura Builder gateway: the free models of the Builders CLI are hidden; (2) the Cultura Builder
+> models (DeepSeek, GLM and the models without censorship) come through the gateway of the Hub, and
+> their upstream key is only in the gateway, never on a server or in the app; (3) a model without
+> censorship is denied by default, and only a person or company that the owner grants on the Hub can
+> see and call it. `openbot-instance create` writes the default policy
+> (`docker/instances/model-policy.default.json`), and the infrastructure of the sectors writes and
+> checks it on each install.
+
+A company server offers only the providers and models that its administrator allowed. The
+administrator writes one JSON file on the host. The app reads it once, when it starts, from the path
+in `OPENBOT_MODEL_POLICY_FILE` (`src/backend/agent/server-model-policy.ts`).
+
+```json
+{
+  "version": 1,
+  "providers": {
+    "cultura-builder": "*",
+    "opencode": ["opencode-go/kimi-k2.6"]
+  },
+  "freeModels": false
+}
+```
+
+- `providers` is the allowlist. A provider that it does not name is off: `ProviderRuntime` adds it
+  to its off set, does not start its process, and refuses to turn it on
+  (`error.provider.offByServerPolicy`). The off set of the person (`openbot-provider-use-v1.json`)
+  does not change, so a server without the policy gets the choice of the person back.
+- `"*"` offers every model that the provider lists. A list offers only those model ids.
+- `freeModels` (default `false`): whether `"*"` for OpenCode also offers its free tier
+  (`isFreeOpencodeModel`). A free model id in a list is offered in all cases.
+- `ProviderRuntime.listModels` applies the policy. Every reader of the catalog goes through it: the
+  picker of each client, `creationModel`, `updateAgent`, the Team API and the agent tools. A model that
+  the policy hides cannot start an agent.
+
+The file is not valid when it does not decode, names an unknown provider, has a model id that the
+contract refuses, or is larger than 64 KB. Then the app uses `SAFE_DEFAULT_POLICY`: the Cultura
+Builder gateway only. It does not open everything. With no path, or no file at the path, there is no
+policy and nothing changes. A Mac with no policy shows every provider, as before.
+
+On a container of `openbot-instance`, `docker/instances/compose.yaml` mounts
+`/srv/openbot/<name>/policy` read-only on `/etc/openbot/policy` and sets the path to
+`/etc/openbot/policy/model-policy.json`. Root on the host writes the file; an agent of the server
+cannot change it. A change applies when the container starts again.
+
+### Cultura Builder catalog of the account
+
+With a policy, the Cultura Builder models are the gateway catalog of the signed-in account, not the
+built-in list. The `prepare` hook of the driver reads `GET /v1/models` with the access token of the
+account (`readCulturaBuilderModels`) before each spawn, and `culturaBuilderConfigEnv` declares those
+models. The gateway filters that list for the account: a restricted model (for example
+`builder-deepseek-uncensored`) is in it only when the Hub granted it to the person or to the person's
+company. Only ids with the `builder-` prefix pass, names are made printable and bounded, and numbers
+out of range take the built-in values.
+
+When the gateway does not answer the catalog, the spawn declares the built-in models
+(`CULTURA_BUILDER_MODELS`), never a restricted one. The catalog is not the security boundary: the
+gateway checks the grant on each request, so an old catalog cannot call a model that the Hub revoked.
+Without a policy, the provider declares the built-in models and the app does not read the catalog.
+
+### Rule for a company server
+
+1. `/srv/openbot/<name>/policy/model-policy.json` exists, owned by root, mode 0644. `openbot-instance
+   create` writes `docker/instances/model-policy.default.json` there:
+   `{ "version": 1, "providers": { "cultura-builder": "*" }, "freeModels": false }`. An instance made
+   before this rule has no file until the administrator writes one; it then offers every provider.
+2. Sign the server in to Cultura Builder with the account of the server. The Hub decides what that
+   account can call; a model without censorship is only for a person or company that the Hub granted.
+3. Put no provider key, upstream URL or upstream key on the server. The upstream key of a Cultura
+   Builder model is only in the gateway.
+
+`scripts/server-model-policy-e2e.ts` (`bun run test:server-model-policy`) checks the policy on the
+real drivers and `ProviderRuntime`, with a fake Builders CLI and a fake gateway.
+
 ## Model picker
 
 `ProviderModelPicker` (`packages/ui/src/components/ProviderModelPicker.tsx`) has two presentations.
