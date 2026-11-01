@@ -881,7 +881,9 @@ Delete removes the color with the section; Duplicate gives the copy the same col
 local only: the frozen Team API codecs drop it from each section and refuse the action, so a remote
 client does not see it and the desktop shows the menu item only for the local server. The renderer
 draws the color as a light tint (`sidebar-section-color.css`); a section with no color has no new
-attribute or style.
+attribute or style. The open chat and the row under the pointer keep the hue of the box in a stronger
+tint, so the open chat shows both that it is open and where it is; a chat with no color opens in the
+gray of the theme. `scripts/sidebar-section-color-e2e.ts` measures each preset in both themes.
 
 A custom section can also have a rail icon: `SidebarSection.icon` is one or two characters, a glyph
 name of a fixed table (`SIDEBAR_SECTION_GLYPHS` in `ipc-sidebar-section-glyphs.ts`), one emoji, or a
@@ -1052,7 +1054,9 @@ with "All", at the top of the first custom section, or with the chats with no se
 none. Its editor opens at once. The editor sets the text (at most 40 characters, with the suggestions
 Done, Soon and Waiting) and the style of the chats below it, up to the next marker: normal, dimmed,
 black and white, or a tint of a preset color (`#rrggbb`). The open chat, a row under the pointer and
-a row with the focus keep their full strength. A marker drags as a chat does. A section can have 12
+a row with the focus keep their full strength. Below a tint, the open chat and the row under the
+pointer keep the tint color in a stronger tint, as in a box with a color, and the muted text moves
+toward the primary text color for contrast. A marker drags as a chat does. A section can have 12
 markers. An activity filter hides the markers, and the compact list shows a line with no text.
 
 Only the local layout keeps markers. The layout has `markers` and `itemOrder`, which holds the chats

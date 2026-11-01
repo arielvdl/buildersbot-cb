@@ -1,7 +1,7 @@
 import type { ChannelSummary, SidebarLayoutSnapshot } from "@openbot/contracts/ipc";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import type { SidebarAgentState } from "@openbot/ui/features/sidebar/sidebar-types";
-import { createSignal, untrack } from "solid-js";
+import { createSignal, createStore, untrack } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { applySidebarLayoutAction } from "../src/preview/mock-sidebar-layout";
@@ -41,24 +41,28 @@ const agents = agentNames.map(([id, name]) => ({
   preview: `${name} is ready.`,
 }));
 
+function storyChannel({ id, name, unread, active }: { id: string; name: string; unread: number; active: number }) {
+  return {
+    id,
+    name,
+    title: "",
+    instructions: "",
+    members: agents.slice(0, 2).map((agent) => ({ agentId: agent.id })),
+    leadAgentId: null,
+    archived: false,
+    revision: 1,
+    createdAt: "2026-10-01T09:00:00.000Z",
+    unreadCount: unread,
+    activeTasks: active,
+    lastMessage: { at: "2026-10-30T10:00:00.000Z", text: `News in #${name}`, authorName: "Scout" },
+  } satisfies ChannelSummary;
+}
+
 const channels: ChannelSummary[] = [
   { id: "naia-launch", name: "launch", unread: 3, active: 0 },
   { id: "red-ops", name: "ops", unread: 0, active: 1 },
   { id: "cb-live", name: "live", unread: 12, active: 0 },
-].map(({ id, name, unread, active }) => ({
-  id,
-  name,
-  title: "",
-  instructions: "",
-  members: agents.slice(0, 2).map((agent) => ({ agentId: agent.id })),
-  leadAgentId: null,
-  archived: false,
-  revision: 1,
-  createdAt: "2026-10-01T09:00:00.000Z",
-  unreadCount: unread,
-  activeTasks: active,
-  lastMessage: { at: "2026-10-30T10:00:00.000Z", text: `News in #${name}`, authorName: "Scout" },
-}));
+].map(storyChannel);
 
 const layout: SidebarLayoutSnapshot = {
   revision: 1,
@@ -125,13 +129,34 @@ const args: Parameters<typeof Sidebar>[0] = {
   sectionRail: { selectedId: null, onSelect: fn() },
 };
 
-/** The real sidebar. The selection and the layout change as in the app. */
+/** The real sidebar. The selection, the open chat and the layout change as in the app. */
 function InteractiveSidebar(props: Parameters<typeof Sidebar>[0]) {
   const [selectedId, setSelectedId] = createSignal(untrack(() => props.sectionRail?.selectedId ?? null));
   const [current, setCurrent] = createSignal(untrack(() => props.layout));
+  // One chat is open at a time, as in the app: an open channel leaves no agent open.
+  const [open, setOpen] = createStore({
+    agentId: untrack(() => props.activeAgentId),
+    channelId: untrack(() => props.activeChannelId ?? null),
+  });
   return (
     <Sidebar
       {...props}
+      activeAgentId={open.agentId}
+      activeChannelId={open.channelId}
+      onSelectAgent={(agentId) => {
+        setOpen((state) => {
+          state.agentId = agentId;
+          state.channelId = null;
+        });
+        props.onSelectAgent(agentId);
+      }}
+      onSelectChannel={(channelId) => {
+        setOpen((state) => {
+          state.agentId = "";
+          state.channelId = channelId;
+        });
+        props.onSelectChannel?.(channelId);
+      }}
       layout={current()}
       sectionRail={{
         selectedId: selectedId(),
@@ -243,3 +268,61 @@ export const Markers: Story = railStory({
  * "Unassigned" and the plus button stay in place. The list follows the same order.
  */
 export const ReorderSections: Story = railStory({});
+
+const ROUTINES = "marker:dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const FINISHED = "marker:eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const CB_SOON = "marker:ffffffff-ffff-4fff-8fff-ffffffffffff";
+
+/**
+ * The open chat in a color. In naia, which has no color, the chats below the green "Routines" marker have
+ * a green tint, and the open chat "requests" keeps that green in a stronger tint; "launch", above the
+ * marker, and "Writer", below the plain "Done" marker, open in the gray of the theme. Red Team and
+ * Claude Bots (a custom color) are boxes with a color; cb is a blue box with a yellow marker. Click a
+ * chat to open it, and point at one: each state keeps the hue of its section or marker.
+ */
+export const ColoredOpenChat: Story = railStory({
+  activeAgentId: "",
+  activeChannelId: "naia-requests",
+  agentStates: {},
+  channels: [
+    ...channels,
+    ...[
+      { id: "naia-requests", name: "requests", unread: 0, active: 0 },
+      { id: "naia-chat", name: "chat improvements", unread: 0, active: 0 },
+    ].map(storyChannel),
+  ],
+  layout: {
+    ...layout,
+    sections: layout.sections.map((section) => {
+      if (section.id === NAIA) return { id: NAIA, name: "naia" };
+      if (section.id === CLAUDE_BOTS) return { ...section, color: "#14b8a6" };
+      return section;
+    }),
+    agentAssignments: { ...layout.agentAssignments, "naia-requests": NAIA, "naia-chat": NAIA },
+    markers: [
+      { id: ROUTINES, sectionId: NAIA, label: "Routines", style: "tint", color: "#22c55e" },
+      { id: FINISHED, sectionId: NAIA, label: "Done", style: "normal" },
+      { id: CB_SOON, sectionId: CB, label: "Soon", style: "tint", color: "#eab308" },
+    ],
+    itemOrder: [
+      "naia-launch",
+      ROUTINES,
+      "naia-requests",
+      "naia-chat",
+      "naia-scout",
+      FINISHED,
+      "naia-writer",
+      "red-recon",
+      "red-exploit",
+      "red-ops",
+      "claude-opus",
+      "claude-fable",
+      "videos-editor",
+      CB_SOON,
+      "cb-host",
+      "cb-live",
+      "sec-audit",
+      "loose-helper",
+    ],
+  },
+});
