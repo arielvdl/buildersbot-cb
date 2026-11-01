@@ -911,6 +911,21 @@ the server as a joined server with `thisComputer: true`. `kind` stays `"remote"`
 - **Delete.** The desktop stops the child, removes the entry, and moves both folders to the trash
   with `shell.trashItem`. It never deletes them.
 - **Rename.** The `host-admin` identity route, as on any joined server that the user owns.
+- **No visible window.** The child makes its main window with a headless controller
+  (`createMainWindowController({ headless: true })` in `src/main/main-window.ts`). The window stays
+  hidden and never loads the renderer: the agent browser, its dock and its Picture in Picture
+  attach to it. The startup order of the child is: hidden window, services, IPC handlers, then
+  `index.ts` returns before the menu, the tray, the Dynamic Island and the reload of the app's
+  renderer. The app loads its renderer before the services (startup speed) and reloads it after
+  them; the child must not do the first load, because it has no reload. A renderer that loaded
+  there read the account before the IPC handlers existed and showed "could not load the account
+  service" on top of the app. In headless mode, `loadRenderer` loads nothing, `ready-to-show` and
+  `showMainWindow` do not show the window, and the child ignores `second-instance`: a relaunch
+  would open its user data folder as a normal app with a window and no parent.
+  `scripts/local-server-window-e2e.ts` checks the controller in real Electron. As a second guard,
+  the renderer's account context (`src/renderer/src/features/account/account-context.tsx`) reads
+  the account again when a window whose first read failed shows or gets focus, until one read
+  answers. A state that main gives, also an outage of the account service, stays on screen.
 
 Limits:
 

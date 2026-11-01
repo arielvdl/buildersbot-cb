@@ -133,6 +133,12 @@ export interface MainWindowContext {
   /** Where the entry point attaches the Windows session-end handlers, which read its own flags. */
   onMainWindowCreated: (window: BrowserWindow) => void;
   reportError: (message: string, error: unknown) => void;
+  /**
+   * True in a local server (`local-server-child.ts`). Its window stays hidden and never loads the
+   * renderer: the agent browser, its dock and its Picture in Picture attach to it, and the desktop
+   * app is the interface. A renderer there would show a second sign-in screen on top of the app.
+   */
+  headless: boolean;
 }
 
 export interface MainWindowController {
@@ -164,6 +170,7 @@ export function createMainWindowController({
   onRendererGone,
   onMainWindowCreated,
   reportError,
+  headless,
 }: MainWindowContext): MainWindowController {
   const { restoreMainWindowBounds, currentMainWindowBounds, rememberMainWindowBounds, flushMainWindowBounds } =
     createMainWindowBoundsRecorder({
@@ -213,10 +220,12 @@ export function createMainWindowController({
     });
     hideMenuBar(window);
     followWindowGlass(window, MAIN_WINDOW_DARK_BACKGROUND);
+    if (headless) headlessWindows.add(window);
 
     window.once("ready-to-show", () => {
       performance.mark("openbot:window-ready");
       if (
+        !headless &&
         shouldShowDevelopmentWindow({
           remoteRole: developmentRemoteRole,
           testClientEnabled: developmentTestClientEnabled,
@@ -354,6 +363,9 @@ export function createMainWindowController({
   }
 
   function loadRenderer(window: BrowserWindow): Promise<void> {
+    // A headless window has no renderer. `ensureMainWindow` comes here too, so it gives back the
+    // hidden window with nothing loaded.
+    if (headless) return Promise.resolve();
     onRendererLoadStarted();
     return window.loadURL(appRendererUrl(process.env.ELECTRON_RENDERER_URL).toString());
   }
@@ -773,6 +785,12 @@ export function sendComputerUseHighlightPlacement(
 let windowsHiddenForQuit = false;
 
 /**
+ * The windows of a headless controller. `showMainWindow` does not show them, so a second launch, a
+ * notification or the Dynamic Island cannot bring up an empty window of a local server.
+ */
+const headlessWindows = new WeakSet<BrowserWindow>();
+
+/**
  * The renderer keeps reading while the services stop, and a read that the closing services fail
  * must not show its error to the user (#3166). The Dock, the tray, a deep link or a notification
  * then does not show the window again.
@@ -783,7 +801,7 @@ export function hideWindowsForQuit(): void {
 }
 
 export function showMainWindow(window: BrowserWindow): void {
-  if (windowsHiddenForQuit) return;
+  if (windowsHiddenForQuit || headlessWindows.has(window)) return;
   presentMainWindow(window, process.platform, () => app.show());
 }
 
