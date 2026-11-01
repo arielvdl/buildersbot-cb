@@ -143,11 +143,83 @@ catalog.
   `packages/logging`, so log redaction masks them without registration.
 - The agent process gets no token: no environment variable, argument, file or tool result.
 
+## The person's screens
+
+Main gives a window, through the `hub-connections:*` IPC group, only views without a credential
+(`packages/contracts/src/ipc-hub-connections.ts`): no token, confirmation id or Hub URL. The preload
+decodes each value again (`src/preload/hub-connection-decoding.ts`). `HubConnectionTools` builds the
+views (`hub-connection-views.ts`) from the catalog and `/session` answers that it already caches.
+
+| Endpoint | What it gives |
+| --- | --- |
+| `getView`, `refresh` | The connections of the catalog: texts, the access row of each organization (cap, spend, state, categories, cheapest price, open requests), who pays the next call (`pay`, `choose_org`, `none`) and whether `/session` has the connection on. `refresh` reads the Hub again. A failure is a status (`signed_out`, `off`, `unavailable`), never an error. |
+| `getUsage` | The person's own use for each organization whose row this app may spend, with the spend by platform. Off until `/session` says `connectionsUsage`. Each organization is read at most once in 30 seconds; a paid call drops its copy. |
+| `choosePayer` | The organization that the person chooses on the page. Only a row that can pay is kept. The agent has no path to it. |
+| `requestAccess` | "Ask the admin" (`access`) and "Ask the admin for more" (`more`), through the Hub route of the contract (§10.1). Never for the personal plan or an organization that is not in the catalog. |
+
+### Marketplace
+
+A connection is an app of the Apps tab (`kind: "connection"`), so the curated list decides if it
+shows ([marketplace-apps-curation.md](marketplace-apps-curation.md#hub-connections)). It has its
+own group, Connections, before the categories, and the side panel lists the ones in use under
+"Your connections". The renderer adds the rows only when the Marketplace is for this computer
+(`hubConnections` of `MarketplaceModal`): a joined server's agents do not use this computer's Hub
+session.
+
+The page (`MarketplaceConnectionPage.tsx`) follows the integration page rules: what it gives, the
+categories that the organization allows, the person's cap with the bar and its 80 % mark (a
+`progressbar` with a value text), who pays with "Pay with {org}" when more than one organization
+can pay, a switch per agent of this computer, and "Where the data goes" ("Provided by {vendor}", the
+flow to the Hub, the vendor and the provider, and the retention that the Hub declares). The alerts
+say when Cultura Builder paused it, when the person must choose who pays, over 80 % and at the cap,
+with "Ask the admin for more". A row that the person may not use names why, with "Ask the admin".
+After a request, the page shows "Request sent on {date}" from the Hub's `requestedAt`.
+
+The switch of an agent writes `connectionsOff` through `agent.updateAgent`: an agent with the
+connection off has no `openbot_connections` in `tool_search`.
+
+### Usage › Connections
+
+`ConnectionUsageReport.tsx` under the model report of the local server: what Cultura Builder
+charged this month, in the organization's currency, by organization and by platform. It is never
+summed with the model estimate in USD. It shows only when `/session` says `connectionsUsage`.
+
+### Cost lines in a chat
+
+After a call in the person's own turn or routine, the router adds a system message to the chat
+(`hub-connection:paid|warning|limit`, its text the JSON of `HubConnectionChatEvent`, as the hosted
+site events do). The screen writes the line in the reader's language and money format:
+
+- `paid`: "{endpoint}: paid by {org} · {amount}", after each call that ran.
+- `warning`: the call that crossed 80 % of the cap (the Hub's `warningCrossed`, once a period).
+- `limit`: a call that `cap_reached` or `org_budget_reached` stopped, once per turn and
+  organization, with "Ask the admin for more" in a chat of this computer.
+
+A turn that another agent started gets no line: it gets no amounts either. The agent's own
+history tools can read these lines, as they read every message of the chat; the agent already got
+the same amount and payer in the call result.
+
 ## Checks
 
 `bun scripts/hub-connections-call-e2e.ts` drives the real agent service, router, Guard, cards and
 Hub client with a fake Codex app-server against `scripts/fake-hub/` (a fake Hub and a fake vendor on
 127.0.0.1). It writes `.buildersbot-build/hub-connections/tool-catalog.json`.
+
+`bun scripts/hub-connections-usage-e2e.ts` checks the views of the screens from main's side: the
+page view and its decoders, the payer that the person chooses, the requests to the admins, the cost
+lines of a paid call, the 80 % line once, the limit line once per turn, the usage by platform and its
+cache, the per-agent switch, the usage capability, the kill switch and a Hub that does not answer.
+It writes `.buildersbot-build/hub-connections/usage.json`.
+
+`bun scripts/hub-connections-surfaces-e2e.ts --storybook=<url>` drives the stories of the list, the
+page in each state, Usage › Connections and the chat lines in a headless browser, in en and pt, dark
+and light, at 1280 and 390 pixels, and writes screenshots and
+`.buildersbot-build/hub-connections/surfaces/report.json`. Its `knownIssues` keeps one issue that
+this change did not make: at 390 pixels in Portuguese, the model report of Usage (its breakdown
+table) makes the Usage body scroll about 45 pixels sideways, also with no connection part. The check
+of Usage covers the page and the connection part. Run it with the headless shell of Playwright:
+`PLAYWRIGHT_BROWSERS_PATH=<folder> node node_modules/playwright-core/cli.js install --only-shell
+chromium-headless-shell` installs one into a folder of your choice.
 
 `bun scripts/hub-connections-safety-e2e.ts` checks the Guard rules G2, G3, G5, G6, G7, G9 and G11,
 the person's own treg entry off in Codex and OpenCode, the Settings notice, the absence of the

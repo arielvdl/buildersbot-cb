@@ -869,7 +869,15 @@ Network traffic can also occur when:
   person's approval first, and so does the first lookup about people in a conversation, whose card
   names the values that the call sends. treg.to and the provider of an endpoint process the call
   input under their own terms; the treg design asks the Hub to turn off treg's answer archive and
-  its relay through other accounts before the first call;
+  its relay through other accounts before the first call.
+  For the Marketplace page and Usage › Connections, Builders Bot reads the connection catalog and
+  the person's own use (`/usage`, spend by platform) from the Hub; it keeps them in memory only (the
+  catalog for up to 5 minutes, the use for 30 seconds). "Ask the admin" and "Ask the admin for more"
+  send the Hub the connection, the organization and the kind of request, never a call input or
+  result; the Hub tells the organization's admins. After a paid call in the person's own turn or
+  routine, the chat of the agent keeps one line with the endpoint title, the amount, the currency
+  and the organization that paid, in the local conversation like any other message; the Hub's
+  ledger is not copied to the computer;
 - Builders Bot reads the MCP files of other agent apps on this computer (`~/.codex/config.toml`,
   `~/.config/opencode/opencode.json`, `~/.cursor/mcp.json` and `~/.claude.json`) to find a treg
   connection of the person's own, turn it off inside Builders Bot agents and tell the person in

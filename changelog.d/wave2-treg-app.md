@@ -24,3 +24,20 @@
   Code agents, also when Codex cannot read its own config. Settings › General tells you that its
   token is in plain text, which files hold it, which agents (Cursor, Grok, custom agents) can still
   use it, and that you should remove it and rotate the token.
+- Marketplace › Apps has a Connections group with the paid connections of Cultura Builder, such as
+  the tool catalog. The curated list hides a connection that you do not use, unless your
+  organization's profile names it; the search and a link always reach it. Its page shows what it
+  gives, the categories that your organization allows, your monthly limit with the 80 % mark, who
+  pays (you can choose), a switch per agent, and where the data goes ("Provided by treg.to").
+  "Ask the admin" and "Ask the admin for more" send a request through Cultura Builder, once in 7
+  days.
+- Usage shows the charges of the connections, apart from the model estimate, with a breakdown by
+  platform, when Cultura Builder turns connection usage on.
+- After a paid call, the chat shows what it cost and who paid. The first call over 80 % of your
+  limit adds a notice, and a call that the limit stopped adds a line with "Ask the admin for more".
+
+### Fixed
+
+- Usage no longer scrolls sideways when the totals have long labels, as in Portuguese.
+- An app page whose status is long, such as "Precisa de atenção", puts the status under the name
+  in a narrow window, instead of pushing the page action out of it.

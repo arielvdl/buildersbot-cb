@@ -54,6 +54,24 @@ The owner chose this list on 2026-10-31 (`DEFAULT_SHOWN_APP_IDS`):
 
 A new catalog app is hidden by default until someone adds its id to the list or to a profile.
 
+### Hub connections
+
+A paid connection of Cultura Builder, such as the tool catalog (`tool-catalog`), is an app of the
+list too (`kind: "connection"`, docs/architecture/hub-connections.md). `curateApps` does not change
+for it:
+
+- Its category is `research`, so a profile with `categories: ["research"]`, or with its id in
+  `apps.show`, shows it, and `apps.hide` hides it.
+- It is not in `DEFAULT_SHOWN_APP_IDS`: with no profile, it is hidden.
+- It is in use, and so always shown, when its status is not `idle`: the organization turned it on
+  and the person may use it (`connected`), or it needs the person (`attention`: 80 % or more of the
+  cap, the cap reached, a payer to choose, a consent on the Hub), or it has spend in this period,
+  also while Cultura Builder paused it (`connectionStatus`).
+- The search and a link (`openbot://plugins/tool-catalog`) reach it, as any app.
+
+The list draws connections in their own group, Connections, before the categories, and the side
+panel names those in use under "Your connections".
+
 ## "Show all apps"
 
 A small switch beside the search, on the Apps tab only. It shows while the list hides an app, or
