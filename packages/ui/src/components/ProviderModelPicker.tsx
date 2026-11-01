@@ -24,7 +24,7 @@ import {
   PICKER_PROVIDERS,
   providerDisplayName,
 } from "@openbot/contracts/ipc";
-import type { AppTextKey, AppTranslate } from "@openbot/i18n";
+import type { AppMessages, AppTextKey, AppTranslate } from "@openbot/i18n";
 import {
   Button,
   Input,
@@ -45,9 +45,19 @@ import {
   Zap,
 } from "@openbot/ui";
 import { ContentExitMotion } from "@openbot/ui/menu-motion";
-import { cx } from "@openbot/ui/utils";
+import { cx, prefersReducedMotion } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  For,
+  onCleanup,
+  onSettled,
+  Show,
+  untrack,
+} from "solid-js";
 import { currentText, type TextValue, useText } from "../text";
 import { createScrollFades } from "./createScrollFades";
 import { providerAccountName } from "./provider-accounts";
@@ -71,6 +81,14 @@ interface ProviderModelPickerProps {
   modelOptions: ClientAgentModelOption[];
   agentStatus: AgentStatus;
   variant?: "pill" | "field";
+  /**
+   * The `field` variant only. The choices open in the flow, under the row, and push the next fields
+   * down: the form scrolls, not a small box. Use it in a form that scrolls or that clips its rows,
+   * such as a dialog. A popover there is cut by the first ancestor that clips its overflow.
+   */
+  inline?: boolean;
+  /** Opens the choices when the picker mounts, as a story of an open state does. */
+  defaultOpen?: boolean;
   ariaLabel?: string;
   label?: string;
   /** A glyph before the field label. The `field` variant only. */
@@ -147,6 +165,17 @@ const RUNTIME_ACTION_LABEL = {
   Download: "common.download",
 } as const satisfies Record<string, AppTextKey>;
 
+/** The name that a screen reader reads for the button of an entry in a list of providers. */
+const RUNTIME_ACTION_NAME = {
+  Cancel: "provider.aria.cancel",
+  Connect: "provider.aria.connect",
+  Retry: "provider.aria.retry",
+  Download: "provider.aria.download",
+} as const satisfies Record<keyof typeof RUNTIME_ACTION_LABEL, keyof AppMessages>;
+
+/** The inline section shows the model search only for a list longer than this. */
+const INLINE_SEARCH_FROM = 9;
+
 const REASONING_LABEL = {
   low: "provider.effort.low",
   medium: "provider.effort.medium",
@@ -174,16 +203,26 @@ const MAX_EFFORT_SEGMENTS = 5;
  * panel width; the five French levels, at 29, do not.
  */
 const MAX_EFFORT_SEGMENT_CHARACTERS = 26;
+/**
+ * The inline section gives the segments a line of their own, as wide as the form: the five
+ * Portuguese levels, at 30, fit a dialog of 320 pixels.
+ */
+const MAX_INLINE_EFFORT_SEGMENT_CHARACTERS = 40;
 
 export function ProviderModelPicker(props: ProviderModelPickerProps) {
   const text = useText();
   const { t, format } = text;
-  const [open, setOpen] = createSignal(false);
+  const [open, setOpen] = createSignal(untrack(() => props.defaultOpen === true));
   const [search, setSearch] = createSignal("");
   let trigger: HTMLButtonElement | undefined;
   const providerButtons = new Map<RailKey, HTMLButtonElement>();
   let root: HTMLDivElement | undefined;
   let popover: HTMLElement | undefined;
+  const inline = () => props.variant === "field" && props.inline === true;
+  const sectionId = `provider-model-section-${createUniqueId()}`;
+  const othersId = `${sectionId}-others`;
+  const [section, setSection] = createSignal<HTMLFieldSetElement>();
+  const [othersOpen, setOthersOpen] = createSignal(false);
 
   const visibleProviders = createMemo(() =>
     PROVIDERS.filter((provider) => provider === CUSTOM_RAIL || !providerTurnedOff(props.agentStatus, provider)),
@@ -322,6 +361,9 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
     const status = entryStatus(key);
     return providerUsable(status, props.runtimeStatuses?.[status.id]);
   };
+  /** An entry that can run its models now: the agent's own entry always. */
+  const entryReady = (key: RailKey): boolean =>
+    key === activeKey() || (entryUsable(key) && entryStatus(key).state === "available");
   /** The entries listed when the picker opened. An open rail does not drop a tab under the pointer. */
   const [openedKeys, setOpenedKeys] = createSignal<readonly RailKey[]>([]);
   /**
@@ -330,12 +372,27 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
    */
   const visibleKeys = createMemo<RailKey[]>(
     () => {
+      // The inline section lists only what can run now. A provider to download, to sign in to or
+      // that Builders Bot still checks waits under Other providers, so no entry moves under the pointer.
+      if (inline()) {
+        const ready = railKeys().filter(entryReady);
+        if (ready.length) return ready;
+      }
       const listed = open() ? openedKeys() : [];
       const usable = railKeys().filter((key) => entryUsable(key) || listed.includes(key));
       return usable.length ? usable : railKeys();
     },
     { equals: (previous, next) => previous.length === next.length && previous.every((key, i) => key === next[i]) },
   );
+  /**
+   * The entries that the inline section lists apart, each with what it needs. An empty Custom tab
+   * is left out: with nothing saved, it has nothing to show or to do here.
+   */
+  const otherKeys = createMemo<RailKey[]>(() => {
+    if (!inline()) return [];
+    const listed = visibleKeys();
+    return railKeys().filter((key) => !listed.includes(key) && (railOf(key) !== CUSTOM_RAIL || entryUsable(key)));
+  });
   const modelAvailable = (model: PickerModel): boolean =>
     providerAvailability(props.agentStatus, props.modelOptions, model.provider, t).state === "available";
   const railSummary = (rail: RailId, status: AgentProviderStatus): string =>
@@ -356,8 +413,11 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
   onSettled(() => {
     const closeOnOutsidePointer = (event: PointerEvent) => {
       const target = event.target;
+      // The inline section is part of the form. A press under it must not close it: the fields
+      // under it would move up, and the press would end on another control than it started on.
       if (
         !open() ||
+        inline() ||
         (target instanceof Node && root?.contains(target)) ||
         (target instanceof Element && target.closest(".provider-model-effort-content"))
       ) {
@@ -376,6 +436,18 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
     },
   );
 
+  // The form scrolls to show the open section, and again when the section grows, as when the
+  // provider check answers. A section taller than the form starts at the top of the form, and a
+  // shorter one ends above its footer.
+  createEffect(section, (element) => {
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      if (root) revealInScrollParent(root, prefersReducedMotion() ? "auto" : "smooth");
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  });
+
   function setPickerOpen(next: boolean): void {
     if (props.disabled) return;
     if (next) {
@@ -383,9 +455,21 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
       const key = activeKey();
       setRailProvider(visibleKeys().includes(key) ? key : (visibleKeys()[0] ?? CUSTOM_RAIL));
       setSearch("");
+      setOthersOpen(false);
     }
     setOpen(next);
     props.onOpenChange?.(next);
+  }
+
+  /**
+   * Escape closes the inline section only, not the form or the dialog that holds it. The tabs and
+   * the model list already mark Escape as handled, so that mark does not stop it here.
+   */
+  function closeSectionOnEscape(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || !open()) return;
+    event.preventDefault();
+    setPickerOpen(false);
+    trigger?.focus({ preventScroll: true });
   }
 
   function selectModel(option: PickerModel, accountId: string | null): void {
@@ -450,525 +534,731 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
       .filter(Boolean)
       .join(" · ");
 
+  /**
+   * The runtime of an entry: its download or its sign-in, the message about it, and the button that
+   * moves it on. A panel and a row of Other providers each make one, so each keeps its own Connect error.
+   */
+  function createEntryRuntime(key: RailKey) {
+    const provider = railOf(key);
+    const status = () => entryStatus(key);
+    const accountId = () => {
+      const id = entryAccount(key)?.account.id;
+      return id && id !== DEFAULT_PROVIDER_ACCOUNT_ID ? id : null;
+    };
+    const available = () => status().state === "available";
+    // The provider the tab's status is for: a custom agent has no runtime Builders Bot downloads.
+    const runtime = () => {
+      const value = props.runtimeStatuses?.[status().id];
+      if (
+        value?.phase === "not-downloaded" &&
+        (status().state === "available" || status().state === "sign-in-required")
+      ) {
+        return { ...value, phase: "ready" as const, version: status().version };
+      }
+      return value;
+    };
+    const action = () => {
+      // Downloading outranks connection states; Cancel stops this entry's download.
+      if (runtime()?.phase === "downloading") return "Cancel" as const;
+      // A provider that Builders Bot still checks may be ready in a moment: it offers nothing yet.
+      if (available() || status().state === "checking" || status().connectionState === "connecting") return undefined;
+      // An account after the first signs in again in Settings, beside its name.
+      if (accountId()) return undefined;
+      if (runtime()?.phase === "ready") return "Connect" as const;
+      if (runtime()?.phase === "download-error") return "Retry" as const;
+      if (runtime()?.phase === "not-downloaded") return "Download" as const;
+      // No runtime snapshot here; signed-out/failed providers offer Connect if handled.
+      if (status().state === "sign-in-required" || status().state === "error") {
+        return props.onConnectProvider && (props.canConnectProvider?.(status().id) ?? true)
+          ? ("Connect" as const)
+          : undefined;
+      }
+      return undefined;
+    };
+    /** A Connect that failed before the sign-in started. The status reports the rest. */
+    const [connectError, setConnectError] = createSignal<string | null>(null);
+    const progress = () => {
+      const value = runtime();
+      return value?.phase === "downloading"
+        ? t("provider.picker.downloading", { percent: format.percent(Math.round(value.progress ?? 0) / 100) })
+        : null;
+    };
+    const message = () => {
+      const downloading = progress();
+      if (downloading) return downloading;
+      if (runtime()?.phase === "finishing") return t("provider.status.settingUp");
+      // A sign-in in progress has no message. It is not a failure, and nor is a check again.
+      if (status().connectionState === "connecting")
+        return status().signInPending === false
+          ? t("provider.status.connecting")
+          : t("provider.connecting.browserHint");
+      const failed = connectError();
+      if (failed) return failed;
+      const value = runtime()?.message ?? status().message;
+      if (value) return text.sourceText(value);
+      return status().state === "checking"
+        ? t("provider.status.checking")
+        : t("provider.picker.unavailable", { name: railName(provider, t) });
+    };
+    /** The state in a few words, for a row of Other providers. */
+    const state = () => {
+      const downloading = progress();
+      if (downloading) return downloading;
+      if (runtime()?.phase === "finishing") return t("provider.status.settingUp");
+      if (status().connectionState === "connecting") return t("provider.status.connecting");
+      const failed = connectError();
+      if (failed) return failed;
+      if (runtime()?.phase === "not-downloaded") return t("provider.status.notDownloaded");
+      if (runtime()?.phase === "download-error") return t("provider.status.setupFailed");
+      return railHeadingSummary(provider, status());
+    };
+    function run(): void {
+      const chosen = action();
+      const target = status().id;
+      if (chosen === "Cancel") void props.onCancelProviderDownload?.(target);
+      else if (chosen === "Connect") {
+        setConnectError(null);
+        void Promise.resolve(props.onConnectProvider?.(target)).catch((error: unknown) =>
+          setConnectError(
+            text.errorMessage(error, t("app.provider.connectFailedRetry", { name: railName(provider, t) })),
+          ),
+        );
+      } else if (chosen) void props.onDownloadProvider?.(target);
+    }
+    return { provider, status, accountId, available, runtime, action, message, state, run };
+  }
+
+  /** The button that moves an entry on. With `name`, in a list of entries, its name repeats the provider. */
+  function RuntimeActionButton(button: { entry: ReturnType<typeof createEntryRuntime>; name?: string }) {
+    return (
+      <Show when={button.entry.action()}>
+        {(action) => (
+          <Button
+            type="button"
+            size="xs"
+            // A list of providers stays quiet: each button is an outline, and the chosen tab's Download leads.
+            variant={action() === "Download" && button.name === undefined ? "default" : "outline"}
+            aria-label={button.name === undefined ? undefined : t(RUNTIME_ACTION_NAME[action()], { name: button.name })}
+            onClick={() => button.entry.run()}
+          >
+            {t(RUNTIME_ACTION_LABEL[action()])}
+          </Button>
+        )}
+      </Show>
+    );
+  }
+
+  const triggerLabel = () => `${props.ariaLabel ?? t("provider.picker.agentModel")}: ${triggerSummary()}`;
+  const triggerTitle = () =>
+    foreignProviderName() !== undefined
+      ? t("provider.picker.updateToUse", { name: foreignProviderName() ?? "" })
+      : props.disabled
+        ? props.disabledReason
+        : `${railName(activeProvider(), t)} · ${triggerSummary()}`;
+  const triggerDisabled = () => props.disabled || props.foreignProvider !== undefined;
+
+  /** The row: the label of a field, the mark of the provider, the model, its effort, and the chevron. */
+  const triggerParts = () => (
+    <>
+      <Show when={field() && props.icon}>{props.icon}</Show>
+      <Show when={field()}>
+        <span class="provider-model-field-label">{props.label ?? t("provider.picker.model")}</span>
+      </Show>
+      <span class="provider-model-trigger-value">
+        {/* Keyed by provider, so the mark of a newly chosen provider springs in. */}
+        <For each={[activeProvider()]} keyed={(provider) => provider}>
+          {(provider) => {
+            const entering = untrack(provider) !== shownProvider;
+            shownProvider = untrack(provider);
+            return (
+              <span class="provider-model-trigger-mark" data-entering={entering ? "" : undefined}>
+                <Show
+                  when={props.foreignProvider === undefined}
+                  fallback={<ProviderLogo provider="unknown" class="provider-model-mark" />}
+                >
+                  <ProviderMark provider={provider()} />
+                </Show>
+              </span>
+            );
+          }}
+        </For>
+        <SwapLabel class="provider-model-trigger-name" text={triggerModelName()} motion={TRIGGER_SWAP} />
+        <Show when={triggerEffort()}>
+          {(effort) => (
+            <span class="provider-model-trigger-effort">
+              <SwapLabel text={effort()} motion={TRIGGER_SWAP} />
+            </span>
+          )}
+        </Show>
+        <Show when={triggerFast()}>
+          <span class="provider-model-trigger-effort provider-model-trigger-fast">
+            <Zap aria-hidden="true" />
+            <SwapLabel text={t("provider.picker.fast")} motion={TRIGGER_SWAP} />
+          </span>
+        </Show>
+        <Show when={triggerAccount()}>
+          {(account) => (
+            <span class="provider-model-trigger-effort provider-model-trigger-account">
+              <SwapLabel text={account()} motion={TRIGGER_SWAP} />
+            </span>
+          )}
+        </Show>
+      </span>
+      <ChevronDownIcon />
+    </>
+  );
+
+  /** Opens the provider settings, to connect a provider that the picker leaves out. */
+  function manageProviders(manage: (trigger: HTMLElement) => void): void {
+    // Focus leaves the panel before it is hidden from assistive technology.
+    trigger?.focus({ preventScroll: true });
+    setOpen(false);
+    if (trigger) manage(trigger);
+  }
+
+  /**
+   * A provider tab. The popover rail shows a mark alone, so hovering one names it; the inline
+   * section has the room to show the name beside the mark.
+   */
+  function ProviderTab(tab: { railKey: RailKey }) {
+    const key = tab.railKey;
+    const provider = railOf(key);
+    const account = () => entryAccount(key);
+    const status = () => entryStatus(key);
+    const name = () => entryName(key);
+    const button = () => (
+      <Tabs.Trigger
+        ref={(element) => providerButtons.set(key, element)}
+        value={key}
+        class={
+          inline()
+            ? "provider-model-provider"
+            : [
+                "provider-model-rail-button",
+                {
+                  "provider-model-rail-button-selected": railProvider() === key,
+                  "provider-model-rail-button-unavailable": status().state !== "available",
+                },
+              ]
+        }
+        data-state={status().state}
+        aria-label={`${name()}: ${railSummary(provider, status())}`}
+        onClick={(event) => {
+          const target = event.currentTarget;
+          selectRailProvider(key);
+          queueMicrotask(() => target.focus({ preventScroll: true }));
+        }}
+        onKeyDown={(event) => {
+          const delta =
+            event.key === "ArrowDown" || event.key === "ArrowRight"
+              ? 1
+              : event.key === "ArrowUp" || event.key === "ArrowLeft"
+                ? -1
+                : 0;
+          if (!delta) return;
+          const providers = visibleKeys();
+          const current = providers.indexOf(key);
+          const next = providers[(current + delta + providers.length) % providers.length];
+          if (next) providerButtons.get(next)?.focus();
+        }}
+      >
+        <ProviderMark provider={provider} large={!inline()} />
+        <Show
+          when={inline()}
+          fallback={
+            <Show when={account()}>
+              {(entry) => (
+                <span class="provider-model-rail-account" aria-hidden="true">
+                  {entry().number}
+                </span>
+              )}
+            </Show>
+          }
+        >
+          <span class="provider-model-provider-name">{name()}</span>
+        </Show>
+      </Tabs.Trigger>
+    );
+    return (
+      <Show when={!inline()} fallback={button()}>
+        {/* Focus needs no tooltip: tabs activate on focus, and the panel heading beside them names
+            the tab. The name sits to the left, off the panel, and only flips right when the window
+            edge leaves no room there. */}
+        <Tooltip.Root {...RAIL_TOOLTIP}>
+          <Tooltip.Trigger as="div" class="provider-model-rail-tooltip-trigger">
+            {button()}
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content class="provider-model-rail-tooltip">
+              <strong>{name()}</strong>
+              <small>{railSummary(provider, status())}</small>
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Show>
+    );
+  }
+
+  /** The models of one provider tab, the state of its runtime, and the effort of the chosen model. */
+  function ProviderPanel(panel: { railKey: RailKey }) {
+    const key = panel.railKey;
+    const entry = createEntryRuntime(key);
+    const provider = entry.provider;
+    const account = () => entryAccount(key);
+    const status = entry.status;
+    const models = createMemo(() => pickerModels(railModelOptions(provider)));
+    const groups = createMemo(() => groupPickerModels(models(), search()));
+    // An endpoint and a custom agent can both list `goose/default`: match the provider too.
+    // Another account of the same provider lists the same models, but not this agent's.
+    const selected = createMemo(() =>
+      entry.accountId() !== currentAccount()
+        ? undefined
+        : models().find(
+            (model) =>
+              model.provider === props.provider &&
+              (model.id === props.value || model.variants.some((variant) => variant.id === props.value)),
+          ),
+    );
+    const selectedKey = () => {
+      const model = selected();
+      return model ? pickerModelKey(model) : props.value;
+    };
+    // OpenCode or Pi and Custom share one wire id; the tab whose list holds it owns it.
+    const ownsSelection = () =>
+      provider === CUSTOM_RAIL
+        ? selected()?.provider === props.provider
+        : provider === props.provider &&
+          entry.accountId() === currentAccount() &&
+          (!isCustomProviderHarness(props.provider) || Boolean(selected()));
+    const effortOptions = createMemo(() => {
+      if (!ownsSelection()) return [];
+      if (selected()?.variants.length) return selected()?.variants ?? [];
+      return showsReasoningEffort() && selectedModel()?.reasoningEffortConfigurable !== false
+        ? (selectedModel()?.supportedReasoningEfforts ?? []).map((effort) => ({
+            id: effort,
+            name: reasoningLabel(effort, t),
+          }))
+        : [];
+    });
+    const effortValue = () => (selected()?.variants.length ? props.value : props.reasoningEffort);
+    /** The effort the model starts with, named under the inline segments. A variant list starts with it. */
+    const defaultEffort = () => {
+      const effort = selectedModel()?.defaultReasoningEffort;
+      if (!inline() || selected()?.variants.length || !effort) return undefined;
+      return effortOptions().some((option) => option.id === effort) ? reasoningLabel(effort, t) : undefined;
+    };
+    const fades = createScrollFades();
+    onSettled(() => fades.stop);
+    createEffect(
+      () => ({ groups: groups(), active: railProvider(), open: open() }),
+      () => fades.remeasure(),
+    );
+    const available = entry.available;
+    // An account that is not signed in holds back the models its provider serves.
+    const modelEnabled = (model: PickerModel) => modelAvailable(model) && (entry.accountId() === null || available());
+    const effortLocked = () => !available();
+    // The inline section shows the search only where a list is long enough to need it.
+    const searchShown = () => !inline() || models().length >= INLINE_SEARCH_FROM || search().trim() !== "";
+    function chooseEffort(id: string): void {
+      if (props.disabled || effortLocked() || id === effortValue()) return;
+      const model = selected();
+      if (model?.variants.length) props.onChange(id, model.provider, chosenAccount(model.provider, entry.accountId()));
+      else {
+        const effort = selectedModel()?.supportedReasoningEfforts.find((effort) => effort === id);
+        if (effort) props.onReasoningEffortChange?.(effort);
+      }
+    }
+    return (
+      <Tabs.Content
+        value={key}
+        class="provider-model-panel"
+        aria-label={t("provider.picker.models", { name: entryName(key) })}
+      >
+        <div class="provider-model-heading">
+          <div class="provider-model-heading-text">
+            <Show when={!inline()}>
+              <strong>{entryName(key)}</strong>
+            </Show>
+            <span>
+              {account() && status().state === "available"
+                ? (account()?.account.email ?? railHeadingSummary(provider, status()))
+                : railHeadingSummary(provider, status())}
+            </span>
+          </div>
+          <Show when={provider === CUSTOM_RAIL && !props.onManageProviders && props.onAddCustomProvider}>
+            <Button
+              type="button"
+              size="xs"
+              variant="default"
+              onClick={() => {
+                setOpen(false);
+                if (trigger) props.onAddCustomProvider?.(trigger);
+              }}
+            >
+              <Plus />
+              {t("provider.picker.addProvider")}
+            </Button>
+          </Show>
+        </div>
+        {/* A plain check has its state in the line above, and nothing to do yet. */}
+        <Show when={!available() && (status().state !== "checking" || entry.runtime()?.phase === "downloading")}>
+          <div class="provider-model-empty" role="status">
+            <span>{entry.message()}</span>
+            <Show when={entry.runtime()?.phase === "downloading"}>
+              <Progress
+                value={entry.runtime()?.progress ?? 0}
+                aria-label={t("provider.picker.download", { name: railName(provider, t) })}
+              />
+            </Show>
+            <RuntimeActionButton entry={entry} />
+          </div>
+        </Show>
+        <Show when={searchShown()}>
+          <Input
+            class="provider-model-search"
+            aria-label={t("provider.picker.search")}
+            placeholder={t("provider.picker.search")}
+            value={search()}
+            onValueChange={setSearch}
+          />
+        </Show>
+        <div class={["provider-model-scroll", fades.classes()]} ref={fades.bind} onScroll={fades.measure}>
+          <Show
+            when={groups().length > 0}
+            fallback={
+              <Show when={available()}>
+                <div class="provider-model-empty" role="status">
+                  <Show
+                    when={provider === CUSTOM_RAIL && !search().trim()}
+                    fallback={
+                      search().trim()
+                        ? t("provider.picker.noMatches")
+                        : t("provider.picker.noModels", { name: railName(provider, t) })
+                    }
+                  >
+                    <span>{t("provider.picker.customEmpty")}</span>
+                  </Show>
+                </div>
+              </Show>
+            }
+          >
+            <Listbox.Root<PickerModel, PickerModelGroup>
+              class="provider-model-list"
+              aria-label={t("provider.picker.models", { name: railName(provider, t) })}
+              options={groups()}
+              optionGroupChildren="models"
+              renderSection={(section) => (
+                <Show when={section.rawValue.name}>
+                  <Listbox.Section class="provider-model-group">{section.rawValue.name}</Listbox.Section>
+                </Show>
+              )}
+              optionValue={pickerModelKey}
+              optionTextValue={(model) => displayModelName(model.name, model.id)}
+              optionDisabled={(model) => !modelEnabled(model)}
+              value={[selectedKey()]}
+              selectionMode="single"
+              disallowEmptySelection
+              shouldFocusWrap
+              renderItem={(item) => {
+                const model = item.rawValue;
+                const isSelected = () => selectedKey() === pickerModelKey(model);
+                return (
+                  <Listbox.Item
+                    as="button"
+                    item={item}
+                    type="button"
+                    class={["provider-model-option", { "provider-model-option-selected": isSelected() }]}
+                    aria-label={
+                      model.id === railDefaultModel(provider)
+                        ? t("provider.picker.defaultModelLabel", {
+                            name: displayModelName(model.name, model.id),
+                          })
+                        : displayModelName(model.name, model.id)
+                    }
+                    disabled={!modelEnabled(model)}
+                    onClick={() => {
+                      if (!isSelected()) selectModel(model, entry.accountId());
+                    }}
+                  >
+                    <span class="provider-model-option-name">
+                      <span>{displayModelName(model.name, model.id)}</span>
+                      <Show when={model.free}>
+                        <small>{t("provider.model.free")}</small>
+                      </Show>
+                      <Show when={model.id === railDefaultModel(provider)}>
+                        <small>{t("provider.model.default")}</small>
+                      </Show>
+                    </span>
+                    <Show when={isSelected()}>
+                      <CheckIcon />
+                    </Show>
+                  </Listbox.Item>
+                );
+              }}
+            />
+          </Show>
+        </div>
+        {/* The inline section leaves out a choice of one: the row already names that effort. */}
+        <Show when={effortOptions().length > (inline() ? 1 : 0)}>
+          <div class={["provider-model-effort", { "provider-model-effort-stacked": inline() }]}>
+            <span>{inline() ? t("provider.picker.reasoning") : t("provider.picker.effort")}</span>
+            <Show
+              when={
+                effortOptions().length <= MAX_EFFORT_SEGMENTS &&
+                effortOptions().reduce((length, option) => length + option.name.length, 0) <=
+                  (inline() ? MAX_INLINE_EFFORT_SEGMENT_CHARACTERS : MAX_EFFORT_SEGMENT_CHARACTERS)
+              }
+              fallback={
+                <Select<{ id: string; name: string }>
+                  class="provider-model-effort-select"
+                  options={effortOptions()}
+                  optionValue="id"
+                  optionTextValue="name"
+                  value={effortOptions().find((option) => option.id === effortValue())}
+                  onChange={(option) => option && chooseEffort(option.id)}
+                  itemComponent={(item) => <SelectItem item={item.item}>{item.item.rawValue.name}</SelectItem>}
+                >
+                  <SelectTrigger size="sm" aria-label={t("provider.picker.effortLabel")} disabled={effortLocked()}>
+                    <SelectValue<{ id: string; name: string }>>
+                      {(state) => state.selectedOption()?.name ?? t("provider.picker.selectEffort")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent class="provider-model-effort-content" />
+                </Select>
+              }
+            >
+              <EffortSegments
+                label={t("provider.picker.effortLabel")}
+                options={effortOptions()}
+                value={effortValue()}
+                disabled={effortLocked()}
+                onChange={chooseEffort}
+              />
+            </Show>
+            <Show when={defaultEffort()}>
+              {(effort) => (
+                <span class="provider-model-effort-default">
+                  {t("provider.picker.effortDefault", { effort: effort() })}
+                </span>
+              )}
+            </Show>
+          </div>
+        </Show>
+        <Show when={ownsSelection() && selectedModel()?.fastServiceTier && props.onFastModeChange}>
+          <div class="provider-model-effort">
+            <span>{t("provider.picker.fast")}</span>
+            <Switch
+              aria-label={t("provider.picker.fastLabel")}
+              checked={props.fastMode === true}
+              disabled={props.disabled || effortLocked()}
+              onChange={(next) => props.onFastModeChange?.(next)}
+            />
+          </div>
+        </Show>
+      </Tabs.Content>
+    );
+  }
+
+  /** The provider tabs and their panels: a rail of marks in the popover, a row of names inline. */
+  const choices = () => (
+    <Tabs.Root
+      value={railProvider()}
+      onChange={(value) => {
+        const provider = visibleKeys().find((candidate) => candidate === value);
+        if (provider) selectRailProvider(provider);
+      }}
+      orientation={inline() ? "horizontal" : "vertical"}
+      activationMode="automatic"
+      class={inline() ? "provider-model-choices" : "provider-model-layout"}
+    >
+      <div class={inline() ? "provider-model-providers" : "provider-model-rail"}>
+        <Tabs.List
+          class={inline() ? "provider-model-provider-tabs" : "provider-model-rail-tabs"}
+          aria-label={t("provider.picker.providers")}
+        >
+          <For each={visibleKeys()}>{(key) => <ProviderTab railKey={key} />}</For>
+        </Tabs.List>
+        <Show when={props.onManageProviders}>
+          {(manage) => (
+            <Show
+              when={!inline()}
+              fallback={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  class="provider-model-provider-add"
+                  onClick={() => manageProviders(manage())}
+                >
+                  <Plus />
+                  {t("provider.picker.addProvider")}
+                </Button>
+              }
+            >
+              <Tooltip.Root {...RAIL_TOOLTIP}>
+                <Tooltip.Trigger as="div" class="provider-model-rail-tooltip-trigger">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    class="provider-model-rail-button provider-model-rail-add"
+                    aria-label={t("provider.picker.addProvider")}
+                    onClick={() => manageProviders(manage())}
+                  >
+                    <Plus />
+                  </Button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content class="provider-model-rail-tooltip">
+                    <strong>{t("provider.picker.addProvider")}</strong>
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Show>
+          )}
+        </Show>
+      </div>
+      <For each={visibleKeys()}>{(key) => <ProviderPanel railKey={key} />}</For>
+    </Tabs.Root>
+  );
+
+  /**
+   * The providers that cannot run here yet, under one quiet toggle at the end of the inline
+   * section. Each says what it needs and has the button for it: Download, Connect, Retry, Cancel.
+   */
+  const others = () => (
+    <Show when={otherKeys().length > 0}>
+      <div class="provider-model-others">
+        <Button
+          type="button"
+          variant="unstyled"
+          class="provider-model-others-toggle"
+          aria-expanded={othersOpen() ? "true" : "false"}
+          aria-controls={othersOpen() ? othersId : undefined}
+          onClick={() => setOthersOpen(!othersOpen())}
+        >
+          <span class="provider-model-others-title">{t("provider.picker.others")}</span>
+          <span class="provider-model-others-count">{format.number(otherKeys().length)}</span>
+          <ChevronDownIcon />
+        </Button>
+        <Show when={othersOpen()}>
+          <ul id={othersId} class="provider-model-others-list" aria-label={t("provider.picker.others")}>
+            <For each={otherKeys()}>
+              {(key) => {
+                const entry = createEntryRuntime(key);
+                return (
+                  <li class="provider-model-other">
+                    <ProviderMark provider={entry.provider} />
+                    <span class="provider-model-other-text">
+                      <span class="provider-model-other-name">{entryName(key)}</span>
+                      <span class="provider-model-other-state">{entry.state()}</span>
+                    </span>
+                    <RuntimeActionButton entry={entry} name={entryName(key)} />
+                    <Show when={entry.runtime()?.phase === "downloading"}>
+                      <Progress
+                        class="provider-model-other-progress"
+                        value={entry.runtime()?.progress ?? 0}
+                        aria-label={t("provider.picker.download", { name: entryName(key) })}
+                      />
+                    </Show>
+                  </li>
+                );
+              }}
+            </For>
+          </ul>
+        </Show>
+      </div>
+    </Show>
+  );
+
   return (
     <div
       ref={(element) => (root = element)}
-      class={["provider-model-picker", { "provider-model-picker-field": field() }]}
+      class={[
+        "provider-model-picker",
+        { "provider-model-picker-field": field(), "provider-model-picker-inline": inline() },
+      ]}
     >
-      <Popover.Root open={open()} onOpenChange={setPickerOpen} placement="bottom-end" gutter={8} sameWidth={field()}>
-        <Popover.Trigger
+      <Show
+        when={inline()}
+        fallback={
+          <Popover.Root
+            open={open()}
+            onOpenChange={setPickerOpen}
+            placement="bottom-end"
+            gutter={8}
+            sameWidth={field()}
+          >
+            <Popover.Trigger
+              ref={trigger}
+              type="button"
+              class={["provider-model-trigger", { "provider-model-trigger-field": field() }]}
+              aria-label={triggerLabel()}
+              disabled={triggerDisabled()}
+              title={triggerTitle()}
+              onKeyDown={(event: KeyboardEvent) => {
+                if (event.key !== "ArrowDown") return;
+                event.preventDefault();
+                setPickerOpen(true);
+              }}
+            >
+              {triggerParts()}
+            </Popover.Trigger>
+
+            <Popover.Content
+              ref={(element) => (popover = element)}
+              class="provider-model-popover"
+              aria-hidden={open() ? undefined : "true"}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                // Handled: a form that closes on Escape, such as the new-agent form, stays open.
+                event.preventDefault();
+                setOpen(false);
+              }}
+            >
+              <ContentExitMotion panel={() => popover} />
+              <Popover.Title class="sr-only">{t("provider.picker.title")}</Popover.Title>
+              {choices()}
+            </Popover.Content>
+          </Popover.Root>
+        }
+      >
+        <Button
           ref={trigger}
           type="button"
-          class={["provider-model-trigger", { "provider-model-trigger-field": field() }]}
-          aria-label={`${props.ariaLabel ?? t("provider.picker.agentModel")}: ${triggerSummary()}`}
-          disabled={props.disabled || props.foreignProvider !== undefined}
-          title={
-            foreignProviderName() !== undefined
-              ? t("provider.picker.updateToUse", { name: foreignProviderName() ?? "" })
-              : props.disabled
-                ? props.disabledReason
-                : `${railName(activeProvider(), t)} · ${triggerSummary()}`
-          }
+          variant="unstyled"
+          class="provider-model-trigger provider-model-trigger-field"
+          aria-label={triggerLabel()}
+          aria-expanded={open() ? "true" : "false"}
+          aria-controls={open() ? sectionId : undefined}
+          disabled={triggerDisabled()}
+          title={triggerTitle()}
+          onClick={() => setPickerOpen(!open())}
           onKeyDown={(event: KeyboardEvent) => {
-            if (event.key !== "ArrowDown") return;
-            event.preventDefault();
-            setPickerOpen(true);
+            if (event.key === "ArrowDown" && !open()) {
+              event.preventDefault();
+              setPickerOpen(true);
+              return;
+            }
+            closeSectionOnEscape(event);
           }}
         >
-          <Show when={field() && props.icon}>{props.icon}</Show>
-          <Show when={field()}>
-            <span class="provider-model-field-label">{props.label ?? t("provider.picker.model")}</span>
-          </Show>
-          <span class="provider-model-trigger-value">
-            {/* Keyed by provider, so the mark of a newly chosen provider springs in. */}
-            <For each={[activeProvider()]} keyed={(provider) => provider}>
-              {(provider) => {
-                const entering = untrack(provider) !== shownProvider;
-                shownProvider = untrack(provider);
-                return (
-                  <span class="provider-model-trigger-mark" data-entering={entering ? "" : undefined}>
-                    <Show
-                      when={props.foreignProvider === undefined}
-                      fallback={<ProviderLogo provider="unknown" class="provider-model-mark" />}
-                    >
-                      <ProviderMark provider={provider()} />
-                    </Show>
-                  </span>
-                );
-              }}
-            </For>
-            <SwapLabel class="provider-model-trigger-name" text={triggerModelName()} motion={TRIGGER_SWAP} />
-            <Show when={triggerEffort()}>
-              {(effort) => (
-                <span class="provider-model-trigger-effort">
-                  <SwapLabel text={effort()} motion={TRIGGER_SWAP} />
-                </span>
-              )}
-            </Show>
-            <Show when={triggerFast()}>
-              <span class="provider-model-trigger-effort provider-model-trigger-fast">
-                <Zap aria-hidden="true" />
-                <SwapLabel text={t("provider.picker.fast")} motion={TRIGGER_SWAP} />
-              </span>
-            </Show>
-            <Show when={triggerAccount()}>
-              {(account) => (
-                <span class="provider-model-trigger-effort provider-model-trigger-account">
-                  <SwapLabel text={account()} motion={TRIGGER_SWAP} />
-                </span>
-              )}
-            </Show>
-          </span>
-          <ChevronDownIcon />
-        </Popover.Trigger>
-
-        <Popover.Content
-          ref={(element) => (popover = element)}
-          class="provider-model-popover"
-          aria-hidden={open() ? undefined : "true"}
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            // Handled: a form that closes on Escape, such as the new-agent form, stays open.
-            event.preventDefault();
-            setOpen(false);
-          }}
-        >
-          <ContentExitMotion panel={() => popover} />
-          <Popover.Title class="sr-only">{t("provider.picker.title")}</Popover.Title>
-          <Tabs.Root
-            value={railProvider()}
-            onChange={(value) => {
-              const provider = visibleKeys().find((candidate) => candidate === value);
-              if (provider) selectRailProvider(provider);
-            }}
-            orientation="vertical"
-            activationMode="automatic"
-            class="provider-model-layout"
+          {triggerParts()}
+        </Button>
+        <Show when={open()}>
+          {/* A fieldset: the choices of the section are one group, named for a screen reader. */}
+          <fieldset
+            ref={setSection}
+            id={sectionId}
+            class="provider-model-section"
+            aria-label={t("provider.picker.title")}
+            onKeyDown={closeSectionOnEscape}
           >
-            <div class="provider-model-rail">
-              <Tabs.List class="provider-model-rail-tabs" aria-label={t("provider.picker.providers")}>
-                <For each={visibleKeys()}>
-                  {(key) => {
-                    const provider = railOf(key);
-                    const account = () => entryAccount(key);
-                    const status = () => entryStatus(key);
-                    const name = () => entryName(key);
-                    return (
-                      // The rail shows a mark alone, so hovering one names it. Focus needs no tooltip:
-                      // tabs activate on focus, and the panel heading beside them names the tab.
-                      // The name sits to the left, off the panel, and only flips right when the
-                      // window edge leaves no room there.
-                      <Tooltip.Root {...RAIL_TOOLTIP}>
-                        <Tooltip.Trigger as="div" class="provider-model-rail-tooltip-trigger">
-                          <Tabs.Trigger
-                            ref={(element) => providerButtons.set(key, element)}
-                            value={key}
-                            class={[
-                              "provider-model-rail-button",
-                              {
-                                "provider-model-rail-button-selected": railProvider() === key,
-                                "provider-model-rail-button-unavailable": status().state !== "available",
-                              },
-                            ]}
-                            data-state={status().state}
-                            aria-label={`${name()}: ${railSummary(provider, status())}`}
-                            onClick={(event) => {
-                              const target = event.currentTarget;
-                              selectRailProvider(key);
-                              queueMicrotask(() => target.focus({ preventScroll: true }));
-                            }}
-                            onKeyDown={(event) => {
-                              const delta =
-                                event.key === "ArrowDown" || event.key === "ArrowRight"
-                                  ? 1
-                                  : event.key === "ArrowUp" || event.key === "ArrowLeft"
-                                    ? -1
-                                    : 0;
-                              if (!delta) return;
-                              const providers = visibleKeys();
-                              const current = providers.indexOf(key);
-                              const next = providers[(current + delta + providers.length) % providers.length];
-                              if (next) providerButtons.get(next)?.focus();
-                            }}
-                          >
-                            <ProviderMark provider={provider} large />
-                            <Show when={account()}>
-                              {(entry) => (
-                                <span class="provider-model-rail-account" aria-hidden="true">
-                                  {entry().number}
-                                </span>
-                              )}
-                            </Show>
-                          </Tabs.Trigger>
-                        </Tooltip.Trigger>
-                        <Tooltip.Portal>
-                          <Tooltip.Content class="provider-model-rail-tooltip">
-                            <strong>{name()}</strong>
-                            <small>{railSummary(provider, status())}</small>
-                          </Tooltip.Content>
-                        </Tooltip.Portal>
-                      </Tooltip.Root>
-                    );
-                  }}
-                </For>
-              </Tabs.List>
-              <Show when={props.onManageProviders}>
-                {(manageProviders) => (
-                  <Tooltip.Root {...RAIL_TOOLTIP}>
-                    <Tooltip.Trigger as="div" class="provider-model-rail-tooltip-trigger">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        class="provider-model-rail-button provider-model-rail-add"
-                        aria-label={t("provider.picker.addProvider")}
-                        onClick={() => {
-                          // Focus leaves the panel before it is hidden from assistive technology.
-                          trigger?.focus({ preventScroll: true });
-                          setOpen(false);
-                          if (trigger) manageProviders()(trigger);
-                        }}
-                      >
-                        <Plus />
-                      </Button>
-                    </Tooltip.Trigger>
-                    <Tooltip.Portal>
-                      <Tooltip.Content class="provider-model-rail-tooltip">
-                        <strong>{t("provider.picker.addProvider")}</strong>
-                      </Tooltip.Content>
-                    </Tooltip.Portal>
-                  </Tooltip.Root>
-                )}
-              </Show>
-            </div>
-
-            <For each={visibleKeys()}>
-              {(key) => {
-                const provider = railOf(key);
-                const account = () => entryAccount(key);
-                const accountId = () => {
-                  const id = account()?.account.id;
-                  return id && id !== DEFAULT_PROVIDER_ACCOUNT_ID ? id : null;
-                };
-                const status = () => entryStatus(key);
-                const models = createMemo(() => pickerModels(railModelOptions(provider)));
-                const groups = createMemo(() => groupPickerModels(models(), search()));
-                // An endpoint and a custom agent can both list `goose/default`: match the provider too.
-                // Another account of the same provider lists the same models, but not this agent's.
-                const selected = createMemo(() =>
-                  accountId() !== currentAccount()
-                    ? undefined
-                    : models().find(
-                        (model) =>
-                          model.provider === props.provider &&
-                          (model.id === props.value || model.variants.some((variant) => variant.id === props.value)),
-                      ),
-                );
-                const selectedKey = () => {
-                  const model = selected();
-                  return model ? pickerModelKey(model) : props.value;
-                };
-                // OpenCode or Pi and Custom share one wire id; the tab whose list holds it owns it.
-                const ownsSelection = () =>
-                  provider === CUSTOM_RAIL
-                    ? selected()?.provider === props.provider
-                    : provider === props.provider &&
-                      accountId() === currentAccount() &&
-                      (!isCustomProviderHarness(props.provider) || Boolean(selected()));
-                const effortOptions = createMemo(() => {
-                  if (!ownsSelection()) return [];
-                  if (selected()?.variants.length) return selected()?.variants ?? [];
-                  return showsReasoningEffort() && selectedModel()?.reasoningEffortConfigurable !== false
-                    ? (selectedModel()?.supportedReasoningEfforts ?? []).map((effort) => ({
-                        id: effort,
-                        name: reasoningLabel(effort, t),
-                      }))
-                    : [];
-                });
-                const effortValue = () => (selected()?.variants.length ? props.value : props.reasoningEffort);
-                const fades = createScrollFades();
-                onSettled(() => fades.stop);
-                createEffect(
-                  () => ({ groups: groups(), active: railProvider(), open: open() }),
-                  () => fades.remeasure(),
-                );
-                const available = () => status().state === "available";
-                // An account that is not signed in holds back the models its provider serves.
-                const modelEnabled = (model: PickerModel) =>
-                  modelAvailable(model) && (accountId() === null || available());
-                const effortLocked = () => !available();
-                function chooseEffort(id: string): void {
-                  if (props.disabled || effortLocked() || id === effortValue()) return;
-                  const model = selected();
-                  if (model?.variants.length)
-                    props.onChange(id, model.provider, chosenAccount(model.provider, accountId()));
-                  else {
-                    const effort = selectedModel()?.supportedReasoningEfforts.find((effort) => effort === id);
-                    if (effort) props.onReasoningEffortChange?.(effort);
-                  }
-                }
-                // The provider the tab's status is for: a custom agent has no runtime Builders Bot downloads.
-                const runtime = () => {
-                  const value = props.runtimeStatuses?.[status().id];
-                  if (
-                    value?.phase === "not-downloaded" &&
-                    (status().state === "available" || status().state === "sign-in-required")
-                  ) {
-                    return { ...value, phase: "ready" as const, version: status().version };
-                  }
-                  return value;
-                };
-                const runtimeAction = () => {
-                  // Downloading outranks connection states; Cancel stops this panel's download.
-                  if (runtime()?.phase === "downloading") return "Cancel" as const;
-                  if (available() || status().connectionState === "connecting") return undefined;
-                  // An account after the first signs in again in Settings, beside its name.
-                  if (accountId()) return undefined;
-                  if (runtime()?.phase === "ready") return "Connect" as const;
-                  if (runtime()?.phase === "download-error") return "Retry" as const;
-                  if (runtime()?.phase === "not-downloaded") return "Download" as const;
-                  // No runtime snapshot here; signed-out/failed providers offer Connect if handled.
-                  if (status().state === "sign-in-required" || status().state === "error") {
-                    return props.onConnectProvider && (props.canConnectProvider?.(status().id) ?? true)
-                      ? ("Connect" as const)
-                      : undefined;
-                  }
-                  return undefined;
-                };
-                /** A Connect that failed before the sign-in started. The status reports the rest. */
-                const [connectError, setConnectError] = createSignal<string | null>(null);
-                const runtimeMessage = () => {
-                  const runtimeStatus = runtime();
-                  if (runtimeStatus?.phase === "downloading") {
-                    return t("provider.picker.downloading", {
-                      percent: format.percent(Math.round(runtimeStatus.progress ?? 0) / 100),
-                    });
-                  }
-                  if (runtimeStatus?.phase === "finishing") return t("provider.status.settingUp");
-                  // A sign-in in progress has no message. It is not a failure, and nor is a check again.
-                  if (status().connectionState === "connecting")
-                    return status().signInPending === false
-                      ? t("provider.status.connecting")
-                      : t("provider.connecting.browserHint");
-                  const failed = connectError();
-                  if (failed) return failed;
-                  const message = runtimeStatus?.message ?? status().message;
-                  return message
-                    ? text.sourceText(message)
-                    : t("provider.picker.unavailable", { name: railName(provider, t) });
-                };
-                return (
-                  <Tabs.Content
-                    value={key}
-                    class="provider-model-panel"
-                    aria-label={t("provider.picker.models", { name: entryName(key) })}
-                  >
-                    <div class="provider-model-heading">
-                      <div class="provider-model-heading-text">
-                        <strong>{entryName(key)}</strong>
-                        <span>
-                          {account() && status().state === "available"
-                            ? (account()?.account.email ?? railHeadingSummary(provider, status()))
-                            : railHeadingSummary(provider, status())}
-                        </span>
-                      </div>
-                      <Show when={provider === CUSTOM_RAIL && !props.onManageProviders && props.onAddCustomProvider}>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="default"
-                          onClick={() => {
-                            setOpen(false);
-                            if (trigger) props.onAddCustomProvider?.(trigger);
-                          }}
-                        >
-                          <Plus />
-                          {t("provider.picker.addProvider")}
-                        </Button>
-                      </Show>
-                    </div>
-                    <Show when={!available()}>
-                      <div class="provider-model-empty" role="status">
-                        <span>{runtimeMessage()}</span>
-                        <Show when={runtime()?.phase === "downloading"}>
-                          <Progress
-                            value={runtime()?.progress ?? 0}
-                            aria-label={t("provider.picker.download", { name: railName(provider, t) })}
-                          />
-                        </Show>
-                        <Show when={runtimeAction()}>
-                          {(action) => (
-                            <Button
-                              type="button"
-                              size="xs"
-                              variant={action() === "Download" ? "default" : "outline"}
-                              onClick={() => {
-                                const target = status().id;
-                                if (action() === "Cancel") void props.onCancelProviderDownload?.(target);
-                                else if (action() === "Connect") {
-                                  setConnectError(null);
-                                  void Promise.resolve(props.onConnectProvider?.(target)).catch((error: unknown) =>
-                                    setConnectError(
-                                      text.errorMessage(
-                                        error,
-                                        t("app.provider.connectFailedRetry", { name: railName(provider, t) }),
-                                      ),
-                                    ),
-                                  );
-                                } else void props.onDownloadProvider?.(target);
-                              }}
-                            >
-                              {t(RUNTIME_ACTION_LABEL[action()])}
-                            </Button>
-                          )}
-                        </Show>
-                      </div>
-                    </Show>
-                    <Input
-                      class="provider-model-search"
-                      aria-label={t("provider.picker.search")}
-                      placeholder={t("provider.picker.search")}
-                      value={search()}
-                      onValueChange={setSearch}
-                    />
-                    <div class={["provider-model-scroll", fades.classes()]} ref={fades.bind} onScroll={fades.measure}>
-                      <Show
-                        when={groups().length > 0}
-                        fallback={
-                          <Show when={available()}>
-                            <div class="provider-model-empty" role="status">
-                              <Show
-                                when={provider === CUSTOM_RAIL && !search().trim()}
-                                fallback={
-                                  search().trim()
-                                    ? t("provider.picker.noMatches")
-                                    : t("provider.picker.noModels", { name: railName(provider, t) })
-                                }
-                              >
-                                <span>{t("provider.picker.customEmpty")}</span>
-                              </Show>
-                            </div>
-                          </Show>
-                        }
-                      >
-                        <Listbox.Root<PickerModel, PickerModelGroup>
-                          class="provider-model-list"
-                          aria-label={t("provider.picker.models", { name: railName(provider, t) })}
-                          options={groups()}
-                          optionGroupChildren="models"
-                          renderSection={(section) => (
-                            <Show when={section.rawValue.name}>
-                              <Listbox.Section class="provider-model-group">{section.rawValue.name}</Listbox.Section>
-                            </Show>
-                          )}
-                          optionValue={pickerModelKey}
-                          optionTextValue={(model) => displayModelName(model.name, model.id)}
-                          optionDisabled={(model) => !modelEnabled(model)}
-                          value={[selectedKey()]}
-                          selectionMode="single"
-                          disallowEmptySelection
-                          shouldFocusWrap
-                          renderItem={(item) => {
-                            const model = item.rawValue;
-                            const isSelected = () => selectedKey() === pickerModelKey(model);
-                            return (
-                              <Listbox.Item
-                                as="button"
-                                item={item}
-                                type="button"
-                                class={["provider-model-option", { "provider-model-option-selected": isSelected() }]}
-                                aria-label={
-                                  model.id === railDefaultModel(provider)
-                                    ? t("provider.picker.defaultModelLabel", {
-                                        name: displayModelName(model.name, model.id),
-                                      })
-                                    : displayModelName(model.name, model.id)
-                                }
-                                disabled={!modelEnabled(model)}
-                                onClick={() => {
-                                  if (!isSelected()) selectModel(model, accountId());
-                                }}
-                              >
-                                <span class="provider-model-option-name">
-                                  <span>{displayModelName(model.name, model.id)}</span>
-                                  <Show when={model.free}>
-                                    <small>{t("provider.model.free")}</small>
-                                  </Show>
-                                  <Show when={model.id === railDefaultModel(provider)}>
-                                    <small>{t("provider.model.default")}</small>
-                                  </Show>
-                                </span>
-                                <Show when={isSelected()}>
-                                  <CheckIcon />
-                                </Show>
-                              </Listbox.Item>
-                            );
-                          }}
-                        />
-                      </Show>
-                    </div>
-                    <Show when={effortOptions().length > 0}>
-                      <div class="provider-model-effort">
-                        <span>{t("provider.picker.effort")}</span>
-                        <Show
-                          when={
-                            effortOptions().length <= MAX_EFFORT_SEGMENTS &&
-                            effortOptions().reduce((length, option) => length + option.name.length, 0) <=
-                              MAX_EFFORT_SEGMENT_CHARACTERS
-                          }
-                          fallback={
-                            <Select<{ id: string; name: string }>
-                              class="provider-model-effort-select"
-                              options={effortOptions()}
-                              optionValue="id"
-                              optionTextValue="name"
-                              value={effortOptions().find((option) => option.id === effortValue())}
-                              onChange={(option) => option && chooseEffort(option.id)}
-                              itemComponent={(item) => (
-                                <SelectItem item={item.item}>{item.item.rawValue.name}</SelectItem>
-                              )}
-                            >
-                              <SelectTrigger
-                                size="sm"
-                                aria-label={t("provider.picker.effortLabel")}
-                                disabled={effortLocked()}
-                              >
-                                <SelectValue<{ id: string; name: string }>>
-                                  {(state) => state.selectedOption()?.name ?? t("provider.picker.selectEffort")}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent class="provider-model-effort-content" />
-                            </Select>
-                          }
-                        >
-                          <EffortSegments
-                            label={t("provider.picker.effortLabel")}
-                            options={effortOptions()}
-                            value={effortValue()}
-                            disabled={effortLocked()}
-                            onChange={chooseEffort}
-                          />
-                        </Show>
-                      </div>
-                    </Show>
-                    <Show when={ownsSelection() && selectedModel()?.fastServiceTier && props.onFastModeChange}>
-                      <div class="provider-model-effort">
-                        <span>{t("provider.picker.fast")}</span>
-                        <Switch
-                          aria-label={t("provider.picker.fastLabel")}
-                          checked={props.fastMode === true}
-                          disabled={props.disabled || effortLocked()}
-                          onChange={(next) => props.onFastModeChange?.(next)}
-                        />
-                      </div>
-                    </Show>
-                  </Tabs.Content>
-                );
-              }}
-            </For>
-          </Tabs.Root>
-        </Popover.Content>
-      </Popover.Root>
+            {choices()}
+            {others()}
+          </fieldset>
+        </Show>
+      </Show>
     </div>
   );
 }
@@ -980,6 +1270,32 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
 /** The list key: a model id alone can repeat across the endpoints and agents of the Custom tab. */
 function pickerModelKey(model: PickerModel): string {
   return `${model.provider}:${model.id}`;
+}
+
+/**
+ * Scrolls the nearest ancestor that the user can scroll so that `element` shows, with the rules of
+ * `scrollIntoView({ block: "nearest" })`, its scroll padding and the element's scroll margin.
+ * `scrollIntoView` itself also scrolls each ancestor that clips its overflow, such as the frame of a
+ * dialog, which then moves its header and footer out of place.
+ */
+function revealInScrollParent(element: HTMLElement, behavior: ScrollBehavior): void {
+  let scroller = element.parentElement;
+  while (scroller && !/^(auto|scroll)$/u.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+  if (!scroller) return;
+  const port = scroller.getBoundingClientRect();
+  const padding = getComputedStyle(scroller);
+  const margin = getComputedStyle(element);
+  const top = port.top + (Number.parseFloat(padding.scrollPaddingTop) || 0);
+  const bottom = port.bottom - (Number.parseFloat(padding.scrollPaddingBottom) || 0);
+  const box = element.getBoundingClientRect();
+  const start = box.top - (Number.parseFloat(margin.scrollMarginTop) || 0);
+  const end = box.bottom + (Number.parseFloat(margin.scrollMarginBottom) || 0);
+  const larger = end - start > bottom - top;
+  // An element that covers the whole port already shows as much as it can: it stays where it is.
+  let delta = 0;
+  if (start < top && end <= bottom) delta = larger ? end - bottom : start - top;
+  else if (end > bottom && start >= top) delta = larger ? start - top : end - bottom;
+  if (delta) scroller.scrollBy({ top: delta, behavior });
 }
 
 /** The provider tab of a rail entry. */

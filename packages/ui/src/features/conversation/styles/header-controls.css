@@ -317,7 +317,8 @@
   transition: transform var(--openbot-duration-normal) ease;
 }
 
-.provider-model-trigger[aria-expanded="true"] .provider-model-chevron {
+.provider-model-trigger[aria-expanded="true"] .provider-model-chevron,
+.provider-model-others-toggle[aria-expanded="true"] .provider-model-chevron {
   transform: rotate(180deg);
 }
 
@@ -636,6 +637,9 @@
   --provider-model-effort-duration: 250ms;
   --provider-model-effort-ease: cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
+  /* The segments stack above the pill inside the group only. In a form, a sticky footer that
+     scrolls over the group stays above all of it. */
+  isolation: isolate;
   display: flex;
   /* On a line of their own, the segments can shrink. A long label then ends in an ellipsis. */
   flex: 1 1 auto;
@@ -842,14 +846,263 @@
   translate: 0 -50%;
 }
 
+/*
+ * The inline section (`inline`): the choices open in the form, under their row, and push the next
+ * fields down. The form scrolls, not a small box. A popover in a form is cut by the first ancestor
+ * that clips its overflow, as the model box of the new-agent dialog did.
+ */
+.provider-model-picker-inline {
+  scroll-margin-block: var(--openbot-space-4);
+}
+
+.provider-model-section {
+  --provider-model-segment-radius: calc(var(--ui-menu-item-radius) - var(--openbot-space-0-5));
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin: var(--openbot-space-1) 0 0;
+  border: 0;
+  border-top: 1px solid var(--openbot-border);
+  padding: var(--openbot-space-3) 0 var(--openbot-space-1);
+}
+
+.provider-model-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+/* The providers that can run now, by name. They wrap to a second line in a narrow form. */
+.provider-model-providers,
+.provider-model-provider-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.provider-model-providers {
+  padding-inline: var(--openbot-space-3);
+}
+
+.provider-model-provider {
+  display: inline-flex;
+  max-width: 100%;
+  height: var(--openbot-control-sm);
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-pill);
+  background: transparent;
+  padding: 0 var(--openbot-space-3) 0 var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--openbot-duration-hover) ease,
+    border-color var(--openbot-duration-hover) ease,
+    color var(--openbot-duration-hover) ease;
+}
+
+.provider-model-provider:hover {
+  background: var(--ui-menu-item-hover);
+  color: var(--openbot-text-primary);
+}
+
+.provider-model-provider:focus-visible {
+  outline: 0;
+  box-shadow: var(--openbot-focus-ring);
+}
+
+.provider-model-provider[aria-selected="true"] {
+  border-color: color-mix(in srgb, var(--openbot-text-primary) 28%, transparent);
+  background: color-mix(in srgb, var(--openbot-text-primary) 10%, transparent);
+  color: var(--openbot-text-primary);
+}
+
+.provider-model-provider .provider-model-mark {
+  opacity: 0.72;
+}
+
+.provider-model-provider[aria-selected="true"] .provider-model-mark {
+  fill: var(--openbot-text-primary);
+  opacity: 1;
+}
+
+/* The agent's own provider when it cannot run: the section still shows it, with what it needs. */
+.provider-model-provider:not([data-state="available"]) {
+  border-style: dashed;
+}
+
+.provider-model-provider-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-model-provider-add:is(.ui-button) {
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-muted);
+}
+
+.provider-model-provider-add:is(.ui-button) svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+/* The panel of the chosen provider: its version line, its models and the effort, edge to edge. */
+.provider-model-section .provider-model-panel {
+  padding: 0 var(--openbot-space-0-5);
+}
+
+.provider-model-section .provider-model-heading {
+  padding: 0 0 var(--openbot-space-1) var(--ui-menu-inset);
+}
+
+/* A very long catalog, such as OpenRouter's, still scrolls, in a box of a useful height. */
+.provider-model-section .provider-model-scroll {
+  max-height: min(360px, 45dvh);
+}
+
+/* The effort under the models: its name, the segments on a line of their own, and the default. */
+.provider-model-effort-stacked {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--openbot-space-1-5);
+  margin: var(--openbot-space-2) calc(var(--openbot-space-0-5) * -1) 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3) 0;
+}
+
+.provider-model-effort-stacked > :first-child {
+  min-height: 0;
+  color: var(--openbot-text-secondary);
+  font-weight: var(--openbot-weight-medium);
+}
+
+/* Five Portuguese levels keep their names in a form of 300 pixels. */
+.provider-model-effort-stacked .provider-model-effort-segment-control {
+  padding-inline: var(--openbot-space-1-5);
+}
+
+.provider-model-effort-stacked + .provider-model-effort {
+  padding-inline: var(--openbot-space-3);
+}
+
+.provider-model-effort-default {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+/* The providers that cannot run yet, under one quiet toggle at the end. */
+.provider-model-others {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--openbot-space-2);
+  border-top: 1px solid var(--openbot-border);
+  padding: var(--openbot-space-1) var(--openbot-space-0-5) 0;
+}
+
+.provider-model-others-toggle:is(.ui-button) {
+  display: flex;
+  width: 100%;
+  min-height: var(--openbot-control-md);
+  align-items: center;
+  gap: var(--openbot-space-2);
+  border-radius: var(--ui-menu-item-radius);
+  padding: 0 var(--ui-menu-inset);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--openbot-duration-hover) ease,
+    color var(--openbot-duration-hover) ease;
+}
+
+.provider-model-others-toggle:is(.ui-button):hover {
+  background: var(--ui-menu-item-hover);
+  color: var(--openbot-text-secondary);
+}
+
+.provider-model-others-toggle:is(.ui-button):focus-visible {
+  outline: 0;
+  box-shadow: var(--openbot-focus-ring);
+}
+
+/* The count stays beside the title; the chevron goes to the end of the row. */
+.provider-model-others-count {
+  margin-right: auto;
+  display: grid;
+  min-width: var(--openbot-space-4);
+  height: var(--openbot-space-4);
+  place-items: center;
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-text-primary) 7%, transparent);
+  padding: 0 var(--openbot-space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.provider-model-others-list {
+  display: grid;
+  margin: 0;
+  padding: var(--openbot-space-1) 0 0;
+  list-style: none;
+}
+
+.provider-model-other {
+  display: grid;
+  min-height: var(--openbot-control-lg);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--openbot-space-1) var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--ui-menu-inset);
+}
+
+.provider-model-other .provider-model-mark {
+  opacity: 0.56;
+}
+
+.provider-model-other-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.provider-model-other-name,
+.provider-model-other-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-model-other-name {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+}
+
+.provider-model-other-state {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.provider-model-other-progress {
+  grid-column: 2 / -1;
+}
+
 @media (max-width: 720px) {
   /* A form field keeps the width of its row. */
   .provider-model-trigger:not(.provider-model-trigger-field) {
     max-width: 148px;
   }
 
-  /* A narrow header keeps the model name; the label and the title still name the effort. */
-  .provider-model-trigger-effort {
+  /* A narrow header keeps the model name; the label and the title still name the effort. A form
+     row has the width of the form, and keeps the effort in view. */
+  .provider-model-trigger:not(.provider-model-trigger-field) .provider-model-trigger-effort {
     display: none;
   }
 }
@@ -858,6 +1111,8 @@
   .provider-model-chevron,
   .provider-model-trigger,
   .provider-model-rail-button,
+  .provider-model-provider,
+  .provider-model-others-toggle:is(.ui-button),
   .provider-model-option,
   .provider-model-option::before,
   .provider-model-effort-segment-control,
