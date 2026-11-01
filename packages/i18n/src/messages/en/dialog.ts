@@ -7,6 +7,8 @@ export const messages = defineMessages("dialog", {
   "dialog.chooseAgentExclusion": "Choose a folder that {agent} must not change",
   "dialog.chooseSkill": "Choose a skill folder or ZIP",
   "dialog.filter.skillPackages": "Skill packages",
+  "dialog.chooseSound": "Choose a sound file",
+  "dialog.filter.soundFiles": "Sound files",
   "dialog.filter.images": "Images",
   "dialog.filter.supportedFiles": "Supported files",
   "dialog.filter.attachment": "Attachment",

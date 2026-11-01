@@ -18,6 +18,8 @@
 // 8. Deleting a tab stops only the turn of that tab. The other tab of the same agent keeps running.
 // 9. A restart: the requests that waited in two tabs each start once, and the turn that ran at the
 //    stop does not run again.
+// 10. A start that the provider refuses (529) in one tab waits for its retry with its own marker. It
+//    takes no place among the agent's tabs, so another tab starts during the wait, and it runs once.
 // `bun scripts/channel-tab-lanes-e2e.ts`. Writes .openbot-build/channel-tab-lanes-e2e/report.json.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -25,8 +27,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { AGENT_PROVIDERS, type ChannelTask } from "@openbot/contracts/ipc";
+import { AGENT_PROVIDERS, type ChannelTask, DEFAULT_START_RETRY_SETTINGS } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
+import type { StoredStartBreaker } from "../src/backend/agent/start-retry";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import type { HostMemory, HostMemoryLevel } from "../src/backend/host-memory";
 import { getString, isRecord } from "../src/backend/protocol";
@@ -55,7 +58,8 @@ const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
 
 /**
  * A Codex app-server with the methods that the service calls. `control.json` holds `hold`, the marks
- * whose turns keep running, and `ask`, the marks whose turns ask the person a question first.
+ * whose turns keep running, `ask`, the marks whose turns ask the person a question first, and
+ * `refuse`, how many starts of the turn with a mark the fake refuses with a 529 before one runs.
  */
 const FAKE_CODEX = `#!/usr/bin/env node
 const fs = require("node:fs");
@@ -83,6 +87,9 @@ const running = new Map();
  * the same tab gets the earlier request again in its channel history, and must not be held by it.
  */
 const claimed = new Set();
+/** The starts that the fake refused, by mark. Kept here, so the check never writes over the count. */
+const refused = new Map();
+const OVERLOADED = 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}';
 /** The id of each question this fake asked -> its turn. */
 const questions = new Map();
 const reviewThreads = new Set();
@@ -161,10 +168,18 @@ const answer = (message) => {
         running.set(turnId, { threadId: params.threadId, texts: [], marks: [], asked: false, answered: true });
         return finish(turnId, "completed");
       }
-      write({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
-      write({ method: "turn/started", params: { threadId: params.threadId, turn: { id: turnId } } });
       const turnTexts = texts(params.input);
       const current = control();
+      const refuse = Object.entries(current.refuse || {}).find(
+        ([mark, count]) => (refused.get(mark) || 0) < count && turnTexts.some((text) => text.includes(mark)),
+      );
+      if (refuse && params.clientUserMessageId) {
+        refused.set(refuse[0], (refused.get(refuse[0]) || 0) + 1);
+        log({ refused: refuse[0], threadId: params.threadId });
+        return write({ id: message.id, error: { code: -32000, message: OVERLOADED } });
+      }
+      write({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
+      write({ method: "turn/started", params: { threadId: params.threadId, turn: { id: turnId } } });
       const marks = [...(current.hold || []), ...(current.ask || [])].filter(
         (mark) => !claimed.has(mark) && turnTexts.some((text) => text.includes(mark)),
       );
@@ -206,6 +221,7 @@ process.stdin.on("data", (chunk) => {
 interface Control {
   hold: string[];
   ask: string[];
+  refuse: Record<string, number>;
 }
 
 interface ProtocolEntry {
@@ -216,6 +232,7 @@ interface ProtocolEntry {
   turnStarted: string | null;
   turnEnded: string | null;
   asked: string | null;
+  refused: string | null;
   status: string | null;
   texts: string[];
 }
@@ -272,6 +289,7 @@ function protocolEntry(value: unknown, index: number): ProtocolEntry {
     turnStarted: getString(entry, "turnStarted"),
     turnEnded: getString(entry, "turnEnded"),
     asked: getString(entry, "asked"),
+    refused: getString(entry, "refused"),
     status: getString(entry, "status"),
     texts: Array.isArray(entry.texts) ? entry.texts.filter((text): text is string => typeof text === "string") : [],
   };
@@ -297,7 +315,7 @@ async function waitFor<T>(label: string, read: () => T | null | undefined | fals
   }
 }
 
-const control: Control = { hold: [], ask: [] };
+const control: Control = { hold: [], ask: [], refuse: {} };
 const writeControl = () => writeFile(controlPath, JSON.stringify(control));
 const hold = async (...marks: string[]) => {
   control.hold.push(...marks);
@@ -337,6 +355,9 @@ await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
 /** The most tabs of one agent that run a turn at the same time, as the person set it. */
 const tabLimit = 2;
 
+/** The breakers of the start retry, kept across a restart as the main process keeps its file. */
+let storedBreakers: readonly StoredStartBreaker[] = [];
+
 /** The services of one run of the app on the profile. A restart makes them again. */
 function openServices() {
   const database = new BuildersBotDatabase(userData);
@@ -350,6 +371,16 @@ function openServices() {
     offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
     memoryPressure,
     channelTabLimit: () => tabLimit,
+    // Short waits, so a start that the provider refuses tries again in a second or two.
+    startRetry: {
+      settings: () => ({ ...DEFAULT_START_RETRY_SETTINGS, firstDelaySeconds: 1, maxDelaySeconds: 2 }),
+      breakers: {
+        read: () => storedBreakers,
+        write: (breakers) => {
+          storedBreakers = breakers;
+        },
+      },
+    },
   });
   return { database, mailbox, agents };
 }
@@ -443,6 +474,7 @@ async function runCase(name: string, check: (facts: CaseReport["facts"]) => Prom
     // A failed case lets its turns end, so the next case starts with an idle agent.
     control.hold = [];
     control.ask = [];
+    control.refuse = {};
     await writeControl();
     setMemory("ok");
   }
@@ -720,7 +752,46 @@ try {
     assert.notEqual(facts.runningTask, "running", "the stopped turn does not run again");
   });
 
-  report.passed = report.cases.length === (onlyCases?.length ?? 9) && report.cases.every((entry) => entry.passed);
+  await runCase("a start retry in one tab takes no place, keeps its own marker, and runs once", async (facts) => {
+    const channelId = await createChannel("lanes-10", [ada]);
+    const [retrying, holding, free] = [
+      await createTab(channelId),
+      await createTab(channelId),
+      await createTab(channelId),
+    ];
+    control.refuse = { "retry-10a": 2 };
+    await hold("hold-10b");
+    await send(channelId, holding, "hold-10b: keep working", ada);
+    await waitFor("the second tab runs", () => started("hold-10b"));
+    await send(channelId, retrying, "retry-10a: the provider refuses the first starts", ada);
+    const waiting = await waitFor("the first tab waits for its retry", () => {
+      const current = task(channelId, retrying, "retry-10a");
+      return current?.state === "queued" && current.startRetry ? current : null;
+    });
+    facts.retry = { attempt: waiting.startRetry?.attempt ?? null, phase: waiting.startRetry?.phase ?? null };
+    // With one tab at work and one that waits for its retry, the agent has a free place.
+    await send(channelId, free, "free-10c: a third tab", ada);
+    const freeStart = await waitFor("the third tab starts during the retry", () => started("free-10c"));
+    const freeTask = task(channelId, free, "free-10c");
+    facts.freeHadRetry = freeTask?.startRetry !== undefined;
+    const retried = await waitFor("the first tab runs after its retries", () => ended("retry-10a"));
+    const runs = protocol().filter((line) => line.turnStarted && line.texts.some((text) => text.includes("retry-10a")));
+    const refusals = protocol().filter((line) => line.refused === "retry-10a").length;
+    facts.order = { free: freeStart.index, retried: retried.index };
+    facts.runs = runs.length;
+    facts.refusals = refusals;
+    assert.equal(facts.freeHadRetry, false, "the marker stays on its own delivery");
+    assert.ok(
+      freeStart.index < (runs[0]?.index ?? Number.POSITIVE_INFINITY),
+      "the third tab started before the retry ran",
+    );
+    assert.equal(refusals, 2, "two starts were refused");
+    assert.equal(runs.length, 1, "the retried request runs once");
+    await release("hold-10b");
+    await waitFor("every turn ends", () => ended("hold-10b") && ended("free-10c"));
+  });
+
+  report.passed = report.cases.length === (onlyCases?.length ?? 10) && report.cases.every((entry) => entry.passed);
   if (!report.passed) process.exitCode = 1;
 } catch (error) {
   report.error = error instanceof Error ? (error.stack ?? error.message) : String(error);

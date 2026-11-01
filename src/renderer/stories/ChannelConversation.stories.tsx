@@ -279,6 +279,21 @@ export const Archived: Story = {
   args: { archived: true },
 };
 
+/**
+ * Two tabs of one channel. Each tab keeps its own draft, and the microphone beside Send dictates into
+ * the open tab. The list above the composer shows each sent message with its tab.
+ * `scripts/channel-voice-input-e2e.ts` drives it.
+ */
+export const TabsWithDictation: Story = {
+  args: {
+    messages: messages.slice(0, 3),
+    tabs: [
+      { id: "story-tab-plan", name: "Plan" },
+      { id: "story-tab-numbers", name: "Numbers" },
+    ],
+  },
+};
+
 /** A channel with no message shows its name, title and instructions. */
 export const Empty: Story = {
   args: { messages: [] },

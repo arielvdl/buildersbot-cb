@@ -1,12 +1,12 @@
 import { type ExternalToast, toast } from "@openbot/ui";
-import { playActionSound } from "./action-sounds";
+import { playSound } from "./sound-center";
 
 type ToastMessage = Parameters<typeof toast>[0];
 type Outcome = "success" | "warning" | "error";
 
 function showOutcome(outcome: Outcome) {
   return (message: ToastMessage, data?: ExternalToast): string | number => {
-    playActionSound(outcome, { emphasis: "subtle" });
+    playSound("interface.actions", { cue: outcome, emphasis: "subtle" });
     return toast[outcome](message, data);
   };
 }

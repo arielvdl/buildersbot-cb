@@ -35,15 +35,9 @@ import { appendVoiceTranscript } from "../../voice-recording";
 import { createAttachmentImportSounds } from "./attachment-import-sounds";
 import type { ChatSearchMatch } from "./chat-search";
 import { useConversationController } from "./conversation-controller-context";
-import { agentConversationKey, composerDraftKey } from "./conversation-keys";
+import { agentConversationKey, composerDraftKey, sameComposerDraft } from "./conversation-keys";
 import { conversationRuntime } from "./conversation-runtime";
-import type {
-  AgentSettingsRequest,
-  ComposerDraft,
-  ConversationProps,
-  ConversationTarget,
-  SidePanelPane,
-} from "./conversation-types";
+import type { AgentSettingsRequest, ConversationProps, ConversationTarget, SidePanelPane } from "./conversation-types";
 import {
   clearQuotedTextHighlight,
   highlightQuotedText,
@@ -723,10 +717,10 @@ export function createConversationViewScope(props: ConversationProps) {
     clearConversationError,
     setConversationError,
     viewIsMounted,
-    // A recording in one conversation does not end the notice of another.
+    // A recording in one conversation, or in one tab of a channel, does not end the notice of another.
     setVoiceLimitReached: (target, reached) =>
       setVoiceLimitReached((current) =>
-        reached ? target : current?.agentId === target.agentId && current.serverId === target.serverId ? null : current,
+        reached ? target : current && sameComposerDraft(current, target) ? null : current,
       ),
     hooks: {
       saveEdit: (...args) => actions.saveQueuedMessageEdit(...args),
@@ -783,15 +777,10 @@ export function createConversationViewScope(props: ConversationProps) {
       if (recording && owner !== key) stopVoiceRecording();
     },
   );
-  // Live text belongs to the conversation it is dictated into, not to whichever one is open.
+  // Live text belongs to the conversation, or the channel tab, it is dictated into, not to whichever one is open.
   const voiceLiveText = () => {
     const live = voiceLiveTranscript();
-    return live &&
-      live.threadKey === undefined &&
-      live.agentId === conversationOwnerId(props) &&
-      live.serverId === (props.server?.id ?? "local")
-      ? live.text
-      : "";
+    return live && live.threadKey === undefined && sameComposerDraft(live, currentTarget()) ? live.text : "";
   };
   const threadVoiceLiveText = () => {
     const live = voiceLiveTranscript();
@@ -800,9 +789,7 @@ export function createConversationViewScope(props: ConversationProps) {
   };
   const voiceLimitNotice = () => {
     const reached = voiceLimitReached();
-    return Boolean(
-      reached && reached.agentId === conversationOwnerId(props) && reached.serverId === (props.server?.id ?? "local"),
-    );
+    return Boolean(reached && sameComposerDraft(reached, currentTarget()));
   };
   const dismissVoiceLimitNotice = () => setVoiceLimitReached(null);
   // The notice explains the text in the message box, so it ends when that text is sent or cleared.
@@ -872,17 +859,13 @@ export function createConversationViewScope(props: ConversationProps) {
       get serverId() {
         return resources.voiceServerId;
       },
+      get tabId() {
+        return resources.voiceTabId;
+      },
       get submitRequest() {
         return resources.voiceSubmitRequest;
       },
-      set submitRequest(request:
-        | {
-            agentId: string;
-            serverId: string;
-            draft: ComposerDraft;
-            queuedEdit: { deliveryId: string; originalAttachmentIds: string[] } | undefined;
-          }
-        | undefined,) {
+      set submitRequest(request: (typeof resources)["voiceSubmitRequest"]) {
         resources.voiceSubmitRequest = request;
       },
     },

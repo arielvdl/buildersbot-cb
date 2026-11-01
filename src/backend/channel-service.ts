@@ -1046,7 +1046,8 @@ export class ChannelService {
    * Why the lines of work of the task's owner hold it, or null. Each tab of a channel is its own line
    * of work for each agent, with its own provider session: the requests of one tab start one after
    * the other (`tab`), and the tabs of one agent run beside each other up to its limit (`agent-tabs`).
-   * With a limit above 1, a tab whose turn waits for the person takes no place. While memory is low,
+   * With a limit above 1, a tab whose turn waits for the person, or whose task waits for its next
+   * start try (`startRetry`), takes no place. While memory is low,
    * an agent that works opens no second line (`memory`); its first one waits in the drain, as before.
    */
   #laneWait(
@@ -1064,14 +1065,17 @@ export class ChannelService {
     });
     if (sameTab) return { reason: "tab" };
     const limit = this.#tabLimit(owner);
+    // A tab that waits runs no turn: for the person, or for its next start try after a start failed
+    // (`startRetry`, on the agent's own model or a backup). It takes no place while the limit is above 1.
     const working =
       limit > 1
         ? own.filter(
             (assignment) =>
               !(
-                assignment.state === "running" &&
-                assignment.turnId !== null &&
-                this.hooks.waitsOnPerson?.(owner, assignment.turnId)
+                (assignment.state === "running" &&
+                  assignment.turnId !== null &&
+                  this.hooks.waitsOnPerson?.(owner, assignment.turnId)) ||
+                (assignment.state === "queued" && assignment.startRetry !== undefined)
               ),
           )
         : own;

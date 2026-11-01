@@ -70,6 +70,7 @@ import { withLocalHostSummary } from "./ipc/team-handlers";
 import { decodeAgentSummaries } from "./remote-agent-decoding";
 import type { RemoteServerManager } from "./remote-server-manager";
 import { sendToRenderer } from "./renderer-ipc";
+import { appNotification } from "./sound-port";
 
 export interface RendererForwarderDependencies {
   getMainWindow: () => BrowserWindow | null;
@@ -237,7 +238,11 @@ export function createRendererForwarders({
     });
     for (const reply of replies) {
       const key = `${serverId}\n${reply.channelId}`;
-      const notification = new Notification({ title: reply.title, body: reply.body });
+      const notification = appNotification(
+        "notification.channel-reply",
+        { title: reply.title, body: reply.body },
+        agents.find((agent) => agent.id === reply.agentId)?.name ?? null,
+      );
       const shown = channelNotifications.get(key);
       if (shown) closeRetainedNotification(shown);
       channelNotifications.set(key, notification);
@@ -402,7 +407,11 @@ export function createRendererForwarders({
           );
     // An answer from another device came in while the lookups ran.
     if (!content || (requestKey && !requestNotifications.has(requestKey))) return;
-    const notification = new Notification({ title: content.title, body: content.body });
+    const notification = appNotification(
+      event.type === "usage-limit-reached" ? "notification.usage-limit" : "notification.agent",
+      { title: content.title, body: content.body },
+      agents.find((agent) => agent.id === content.agentId)?.name ?? null,
+    );
     if (requestKey) {
       // A provider can use a request id again, and a host can send a request again after a reconnect.
       // The newest notification replaces the one before it.
@@ -467,7 +476,7 @@ export function createRendererForwarders({
       preview.length > WORKFLOW_NOTICE_LENGTH
         ? `${preview.slice(0, WORKFLOW_NOTICE_LENGTH - 1)}…`
         : preview || fallback;
-    const notification = new Notification({ title: notice.workflowTitle, body });
+    const notification = appNotification("notification.workflow", { title: notice.workflowTitle, body }, null);
     notification.on("click", () => {
       const current = getMainWindow();
       if (current && !current.isDestroyed()) showMainWindow(current);
@@ -511,7 +520,11 @@ export function createRendererForwarders({
         : event.metric === "memory"
           ? translate("notification.machineAlert.memory", params)
           : translate("notification.machineAlert.cpu", params);
-    const notification = new Notification({ title, body: translate("notification.machineAlert.body", params) });
+    const notification = appNotification(
+      "notification.machine-alert",
+      { title, body: translate("notification.machineAlert.body", params) },
+      name,
+    );
     notification.on("click", () => {
       const current = getMainWindow();
       if (current && !current.isDestroyed()) showMainWindow(current);
@@ -545,6 +558,10 @@ export function createRendererForwarders({
 
   function forwardVoiceServerSettings(settings: VoiceServerSettings | null): void {
     for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.voice.serverSettings, settings);
+  }
+
+  function forwardSoundCenter(state: import("@openbot/contracts/ipc").SoundCenterState): void {
+    for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.notifications.soundsChanged, state);
   }
 
   function forwardLidAwakeStatus(status: LidAwakeStatus): void {
@@ -636,6 +653,7 @@ export function createRendererForwarders({
     forwardBrowserDisplayState,
     forwardUpdateStatus,
     forwardUpdatePreference,
+    forwardSoundCenter,
     forwardVoiceModelStatus,
     forwardVoiceStreamTranscript,
     forwardSpeechModelStatus,

@@ -7,6 +7,8 @@
   1, an agent works in one tab at a time, as before.
 - A tab whose turn waits for your answer, your approval or a browser takeover does not take a place
   among the agent's tabs. A tab whose task waits for other members did not take one before either.
+- A tab whose request waits for a new start try, after the provider did not start it, does not take
+  a place among the agent's tabs either. Its retry and its move to a backup model stay in its own tab.
 - A message that waits in a channel tab shows why: the earlier message of the tab, the agent's limit
   of tabs, low memory, or a message of the agent's own chat that came first.
 - The queue of the agent's own chat names the channel tab that holds the agent, and how many tabs

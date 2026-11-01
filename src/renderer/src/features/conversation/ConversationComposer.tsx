@@ -170,8 +170,9 @@ export function ConversationComposer() {
   const waitItems = createMemo(() => openWaitItems(props.waits ?? [], props.queue));
   const waitsVisible = () => waitItems().length > 0 && Boolean(props.onCancelWait) && !pickerOpen();
   const slotOpen = () => queueVisible() || awaitingVisible() || waitsVisible();
-  // A channel has many speakers, so it has no voice input.
-  const voiceAvailable = () => !channel && !props.runtime;
+  // Dictation writes into the draft of the open chat: an agent's, or the open tab of a channel. The web
+  // client has no voice input.
+  const voiceAvailable = () => !props.runtime;
   /** The reply of this agent that is read aloud. The voice pane shows its own. */
   const speaking = () => {
     const reading = speechReading();
@@ -813,7 +814,7 @@ export function ConversationComposer() {
                   levels={voiceLevels()}
                   elapsedSeconds={voiceElapsedSeconds()}
                   modelProgress={voiceModelProgress()}
-                  blocked={!props.agent || !agentReady()}
+                  blocked={!currentConversationTarget(props) || !agentReady()}
                   onStart={() => void startVoiceRecording()}
                   onCancel={cancelVoiceRecording}
                   onFinish={stopVoiceRecording}

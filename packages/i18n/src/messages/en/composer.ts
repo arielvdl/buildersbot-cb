@@ -66,6 +66,7 @@ export const messages = defineMessages("composer", {
   "composer.reply.attachment": "Attachment",
   "composer.reply.cancel": "Cancel reply",
   "composer.attachment.remove": "Remove {name}",
+  "composer.pastedTextFileName": "pasted-text.txt",
   "composer.placeholder.hostSetup": "Complete provider setup on your host to start",
   "composer.placeholder.connectHost": "Connect to your host to start",
   "composer.placeholder.hostSleeping": "This server is asleep. Press a key or click to wake it",

@@ -3,16 +3,16 @@ import { VOICE_LIMIT_WARNING_SECONDS } from "@openbot/ui/features/conversation/V
 import { currentText } from "@openbot/ui/text";
 import { onCleanup } from "solid-js";
 import { desktopAnalytics } from "../../../analytics";
-import { unlockCompletionSound } from "../../../completion-sound";
-import { playVoiceLimitStop, playVoiceLimitWarning } from "../../../voice-limit-sound";
+import { playSound, unlockSounds } from "../../../sound-center";
 import { appendVoiceTranscript, encodePcm16, recordingToSamples, recordingToWav } from "../../../voice-recording";
 import { forgetDictatedMessage, noteDictatedMessage, stopSpokenReply } from "../../speech/speech-replies";
 import { ensureMicrophoneAccess, microphoneBlockText } from "../../voice/microphone-access";
 import { EMPTY_DRAFT } from "../composer-draft";
-import { composerDraftKey } from "../conversation-keys";
+import { composerDraftKey, sameComposerDraft } from "../conversation-keys";
 import { conversationRuntime } from "../conversation-runtime";
 import type { ComposerDraft, ConversationProps, ConversationTarget, VoiceLiveTranscript } from "../conversation-types";
 import { voiceCaptureError, voiceTranscriptionError } from "../voice-status";
+import { type ConversationOwnerProps, currentConversationTarget } from "./composer-store";
 
 /**
  * How often the recording so far is transcribed again while you speak. Parakeet reads a minute of
@@ -59,23 +59,21 @@ interface VoiceSubmitHooks {
   restoreTranscript: (target: ConversationTarget, transcript: string) => void;
 }
 
-/** What the voice store reads from its view: the agent and server it dictates for, and the runtime. */
-type VoiceStoreProps = Pick<ConversationProps, "runtime"> & {
-  agent: Pick<NonNullable<ConversationProps["agent"]>, "id"> | undefined;
-  server: Pick<NonNullable<ConversationProps["server"]>, "id"> | undefined;
-};
+/**
+ * What the voice store reads from its view: the agent, or the channel and its open tab, and the server
+ * it dictates for, and the runtime.
+ */
+type VoiceStoreProps = Pick<ConversationProps, "runtime"> & ConversationOwnerProps;
 
 export interface VoiceStoreDeps {
   props: VoiceStoreProps;
   resources: {
     voiceSubmitRequest:
       | undefined
-      | {
-          agentId: string;
-          serverId: string;
+      | (ConversationTarget & {
           draft: ComposerDraft;
           queuedEdit: { deliveryId: string; originalAttachmentIds: string[] } | undefined;
-        };
+        });
     voiceDisposed: boolean;
     voiceRequestGeneration: number;
     voiceRecorder: Pick<MediaRecorder, "state" | "stop"> | undefined;
@@ -88,6 +86,8 @@ export interface VoiceStoreDeps {
     voiceMeterStop: (() => void) | undefined;
     voiceAgentId: string | undefined;
     voiceServerId: string | undefined;
+    /** The channel tab that the recording is for. Undefined for an agent's chat. */
+    voiceTabId: string | undefined;
     voiceThreadSend: boolean;
   };
   voicePhase: () => "idle" | "preparing" | "requesting" | "recording" | "transcribing";
@@ -133,18 +133,25 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
   let preparingModelId: VoiceModelId | null = null;
   /** The recording that is being transcribed stopped at the time limit, not at the user's click. */
   let stoppedAtLimit = false;
+  /**
+   * The reply to the recording's message is read aloud. A channel has many speakers, so only an agent's
+   * own chat reads one, and only on the desktop app: the web client has its own runtime.
+   */
+  let recordingReadsReply = false;
 
-  /** Starts a recording for the agent's own chat, or for the side thread whose draft is `threadKey`. */
+  /**
+   * Starts a recording for the agent's own chat, for the open tab of a channel, or for the side thread
+   * whose draft is `threadKey`.
+   */
   async function startVoiceRecording(threadKey?: string): Promise<void> {
-    const agentId = deps.props.agent?.id;
-    const serverId = deps.props.server?.id ?? "local";
-    if (!agentId || deps.voicePhase() !== "idle") return;
+    const target = currentConversationTarget(deps.props);
+    if (!target || deps.voicePhase() !== "idle") return;
+    const readsReply = !deps.props.runtime && !deps.props.channel;
     deps.setVoiceThreadKey(threadKey);
     // The user speaks again: the reply that is read aloud stops.
     stopSpokenReply();
     // The limit cues play up to two minutes after this click, and audio starts surely only from one.
-    unlockCompletionSound();
-    const target = { agentId, serverId };
+    unlockSounds();
     const destination = { ...target, threadKey };
     // The agent's own chat is covered by the thread, so a thread recording reports its errors there.
     const fail = (message: string) =>
@@ -220,8 +227,10 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
       const recorder = new MediaRecorder(stream);
       resources.voiceStream = stream;
       resources.voiceRecorder = recorder;
-      resources.voiceAgentId = agentId;
-      resources.voiceServerId = serverId;
+      resources.voiceAgentId = target.agentId;
+      resources.voiceServerId = target.serverId;
+      resources.voiceTabId = target.tabId;
+      recordingReadsReply = readsReply;
       resources.voiceThreadSend = false;
       resources.voiceChunks = [];
       deps.setVoiceLiveTranscript(null);
@@ -361,7 +370,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
   /** The recording reached the time limit: a chime says so, as the user may not look at the screen. */
   function stopVoiceRecordingAtLimit(): void {
     if (deps.voicePhase() !== "recording" || !resources.voiceRecorder) return;
-    playVoiceLimitStop();
+    playSound("voice.limit-stop");
     stoppedAtLimit = true;
     stopVoiceRecording();
   }
@@ -376,6 +385,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
     resources.voiceRecorder = undefined;
     resources.voiceAgentId = undefined;
     resources.voiceServerId = undefined;
+    resources.voiceTabId = undefined;
     resources.voiceThreadSend = false;
     resources.voiceChunks = [];
     resources.voiceSubmitRequest = undefined;
@@ -462,6 +472,9 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
   async function finishVoiceRecording(mimeType: string): Promise<void> {
     const targetAgentId = resources.voiceAgentId;
     const targetServerId = resources.voiceServerId;
+    const targetTabId = resources.voiceTabId;
+    const spokenReply = recordingReadsReply;
+    recordingReadsReply = false;
     const threadKey = deps.voiceThreadKey();
     const sendThread = resources.voiceThreadSend;
     const chunks = resources.voiceChunks;
@@ -473,6 +486,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
     resources.voiceRecorder = undefined;
     resources.voiceAgentId = undefined;
     resources.voiceServerId = undefined;
+    resources.voiceTabId = undefined;
     resources.voiceThreadSend = false;
     resources.voiceChunks = [];
     resources.voiceSubmitRequest = undefined;
@@ -526,14 +540,17 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
         if (sendThread) await deps.thread?.send(threadKey);
         return;
       }
-      const recordingTarget = { agentId: targetAgentId, serverId: targetServerId };
+      // A channel's text goes to the tab that the recording was for, also when another tab is open now.
+      const recordingTarget = { agentId: targetAgentId, serverId: targetServerId, tabId: targetTabId };
       deps.clearConversationError(recordingTarget);
       const draft = submitRequest?.draft ?? deps.drafts()[composerDraftKey(recordingTarget)] ?? EMPTY_DRAFT;
       const transcribedDraft = { ...draft, text: appendVoiceTranscript(draft.text, result.text) };
-      // Only the desktop app reads replies aloud; the web client has its own runtime.
-      const spokenReply = !deps.props.runtime;
       if (submitRequest) {
-        const target = { agentId: submitRequest.agentId, serverId: submitRequest.serverId };
+        const target = {
+          agentId: submitRequest.agentId,
+          serverId: submitRequest.serverId,
+          tabId: submitRequest.tabId,
+        };
         if (spokenReply) noteDictatedMessage(target, result.text);
         let delivered: boolean;
         if (submitRequest.queuedEdit) {
@@ -557,7 +574,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
         const key = composerDraftKey(recordingTarget);
         deps.setDrafts((current) => ({ ...current, [key]: transcribedDraft }));
         if (atLimit) deps.setVoiceLimitReached?.(recordingTarget, true);
-        if (deps.props.agent?.id === targetAgentId && (deps.props.server?.id ?? "local") === targetServerId) {
+        if (sameComposerDraft(currentConversationTarget(deps.props), recordingTarget)) {
           deps.setComposerFocusRequest((current) => current + 1);
         }
       }
@@ -570,7 +587,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
       });
       if (!resources.voiceDisposed && threadKey !== undefined) deps.thread?.reportError(voiceTranscriptionError(error));
       else if (!resources.voiceDisposed) {
-        const target = { agentId: targetAgentId, serverId: targetServerId };
+        const target = { agentId: targetAgentId, serverId: targetServerId, tabId: targetTabId };
         deps.setConversationErrors((current) => ({
           ...current,
           [composerDraftKey(target)]: voiceTranscriptionError(error),
@@ -601,7 +618,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
       deps.setVoiceElapsedSeconds(elapsed);
       if (!warned && elapsed >= VOICE_AUDIO_LIMITS.maximumSeconds - VOICE_LIMIT_WARNING_SECONDS) {
         warned = true;
-        playVoiceLimitWarning();
+        playSound("voice.limit-warning");
       }
     }, 250);
   }

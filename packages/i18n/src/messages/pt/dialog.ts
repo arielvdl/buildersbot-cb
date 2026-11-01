@@ -7,6 +7,8 @@ export const messages = {
   "dialog.chooseAgentExclusion": "Escolha uma pasta que {agent} não deve alterar",
   "dialog.chooseSkill": "Escolha uma pasta de habilidade ou um ZIP",
   "dialog.filter.skillPackages": "Pacotes de habilidades",
+  "dialog.chooseSound": "Escolha um arquivo de som",
+  "dialog.filter.soundFiles": "Arquivos de som",
   "dialog.filter.images": "Imagens",
   "dialog.filter.supportedFiles": "Arquivos compatíveis",
   "dialog.filter.attachment": "Anexo",

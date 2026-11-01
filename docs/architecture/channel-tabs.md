@@ -68,6 +68,13 @@ older event replay and a client without tabs send.
 - Each tab keeps its own composer draft: `composerDraftKey` takes the tab (`ConversationTarget.tabId`,
   from `ConversationChannelSource.tabId`). A draft stored before this, under the channel alone, moves
   to the first tab that shows it.
+- A send names its tab: `submitMessage` takes the whole target of the open composer, and the channel
+  send puts `ConversationTarget.tabId` in the `send` command, else the open tab. A message that
+  leaves after the reader opened another tab, such as a dictated one, still goes to its own tab.
+- The microphone of the composer works in a channel as in an agent's chat (see
+  [voice input](voice-input.md#the-composer-microphone)). The recording keeps its tab
+  (`voiceTabId`), so its live text, its transcript and a send while recording go to that tab, also
+  when the reader opens another tab before it ends.
 - Deleting a tab interrupts its running turns before its sessions and threads go.
 - The parallel limit (`CHANNEL_PARALLEL_LIMIT`) is counted per tab, through the task of each
   assignment. An agent has at most one active assignment per tab; its tabs run beside each other up
@@ -100,6 +107,8 @@ the earlier messages of its own tab, never for work of another tab, while the ag
 | One active assignment per agent and tab; the next request of the tab waits for it (`tab`) | `ChannelService.#laneWait` |
 | At most `tabsPerAgent` tabs of one agent run a turn at the same time (`agent-tabs`); 1 for a provider with `concurrentTurns: false` | `#laneWait`, `#tabLimit`, hook `tabLimit` |
 | With a limit above 1, a tab whose turn waits for the person (question, approval, browser takeover) takes no place | hook `waitsOnPerson`, `AttentionRegistry.waitsOnPerson` |
+| With a limit above 1, a tab whose task waits for its next start try (`startRetry`) takes no place; its retry marker and its fallback hold are read for its own lane only | `#laneWait`, `MailboxStore.queuedStartRetry(agentId, taskId, tab)`, `DrainScheduler.#waitsForStartFallback` |
+| The breaker of the agent's model holds every lane of the agent until the agent moves to the backup or the wait ends: the agent has one model, and a move waits until no turn of the agent runs | `StartBreakers.waits`, `AgentService.#usageLimitMove` |
 | A tab whose task waits for other members has no assignment, so it takes no place | `ChannelService.complete` |
 | While memory is low, an agent that works opens no second tab (`memory`); its first one waits in the drain as before | hook `memoryLow`, `MemoryHold.memoryReturned` |
 | A free place goes to the tab of the agent that waited longest, in any channel | `#olderTabWaiter`, `#queuePlaces` |

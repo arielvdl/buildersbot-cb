@@ -37,6 +37,7 @@ export const messages = defineMessages("notification", {
   "notification.machineAlert.cpu": "{server}: CPU {percent} busy",
   "notification.machineAlert.body": "It passed the alert level of {level}. See Server settings > Storage.",
   "notification.test": "Notifications are working.",
+  "notification.soundPreview": "This is the sound you chose.",
   "notification.welcome": "Builders Bot will tell you here when an agent needs you.",
   // The toast region in each window.
   "notification.toast.region": "Notifications",

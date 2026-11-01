@@ -21,7 +21,7 @@ import {
   expandComposerMentions,
 } from "@openbot/ui/features/conversation/ComposerEditor";
 import { currentText } from "@openbot/ui/text";
-import { playActionSound } from "../../../action-sounds";
+import { playSound } from "../../../sound-center";
 import { claimDictatedSend, forgetDictatedMessage } from "../../speech/speech-replies";
 import { rememberAttachmentKinds } from "../attachment-analytics";
 import { type PastedComposerCopy, rememberComposerFile } from "../composer-clipboard";
@@ -29,7 +29,6 @@ import { copyComposerDraft, EMPTY_DRAFT, QUEUE_EDIT_STORAGE_KEY, type StoredQueu
 import { composerDraftKey, sameComposerDraft } from "../conversation-keys";
 import { conversationRuntime } from "../conversation-runtime";
 import type { ComposerDraft, ConversationProps, ConversationTarget } from "../conversation-types";
-import { conversationOwnerId } from "./composer-store";
 import type { PendingSend, PendingSendStore } from "./pending-send-store";
 
 // Each member reads the interface language when it is called.
@@ -83,13 +82,13 @@ export interface ComposerActionsDeps {
   voice: {
     agentId: string | undefined;
     serverId: string | undefined;
+    /** The channel tab that the recording is for. Undefined for an agent's chat. */
+    tabId: string | undefined;
     submitRequest:
-      | {
-          agentId: string;
-          serverId: string;
+      | (ConversationTarget & {
           draft: ComposerDraft;
           queuedEdit: { deliveryId: string; originalAttachmentIds: string[] } | undefined;
-        }
+        })
       | undefined;
   };
   stopComposerTyping: () => void;
@@ -716,8 +715,9 @@ export function createComposerActions(deps: ComposerActionsDeps) {
     if (!draftOverride && deps.currentEditingDeliveryId()) {
       return saveQueuedMessageEdit();
     }
-    const agentId = targetOverride?.agentId ?? conversationOwnerId(deps.props);
-    const target = targetOverride ?? (agentId ? { agentId, serverId: deps.props.server?.id ?? "local" } : undefined);
+    // The open tab of a channel is part of the target: the send clears that tab's draft, not another.
+    const target = targetOverride ?? deps.currentTarget();
+    const agentId = target?.agentId;
     const draft = copyComposerDraft(draftOverride ?? deps.currentDraft());
     const text = expandComposerMentions(draft.text);
     const promptAnswer = promptAnswerFor(draft, target);
@@ -800,7 +800,7 @@ export function createComposerActions(deps: ComposerActionsDeps) {
         pending.voiceRecordingDraftId ?? undefined,
       );
       if ("error" in result) {
-        playActionSound("error");
+        playSound("interface.actions", { cue: "error" });
         voice?.onFailed();
       } else {
         dictatedSent?.(result.messageId);
@@ -855,12 +855,12 @@ export function createComposerActions(deps: ComposerActionsDeps) {
       const agentId = deps.voice.agentId;
       const serverId = deps.voice.serverId;
       if (!agentId || !serverId) return;
-      const target = { agentId, serverId };
+      // A channel recording sends from the tab that it was started in.
+      const target = { agentId, serverId, tabId: deps.voice.tabId };
       const draft = copyComposerDraft(deps.drafts()[composerDraftKey(target)] ?? EMPTY_DRAFT);
       const deliveryId =
         deps.editingAgentId() === agentId && deps.editingServerId() === serverId ? deps.editingDeliveryId() : null;
-      const activeTarget = deps.currentTarget();
-      const targetIsActive = activeTarget?.agentId === target.agentId && activeTarget.serverId === target.serverId;
+      const targetIsActive = sameComposerDraft(deps.currentTarget(), target);
       const delivery =
         deliveryId && targetIsActive ? deps.props.queue?.deliveries.find((item) => item.id === deliveryId) : undefined;
       if (deliveryId && targetIsActive && !deps.editingEditId() && delivery?.status !== "queued") {
@@ -869,8 +869,7 @@ export function createComposerActions(deps: ComposerActionsDeps) {
         return;
       }
       deps.voice.submitRequest = {
-        agentId,
-        serverId,
+        ...target,
         draft,
         queuedEdit: deliveryId
           ? {

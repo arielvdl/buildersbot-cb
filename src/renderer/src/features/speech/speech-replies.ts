@@ -4,6 +4,7 @@ import { speechTextFromMarkdown } from "@openbot/contracts/speech-text";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
 import { desktopAnalytics } from "../../analytics";
+import { noteSpeechStarted } from "../../sound-center";
 import {
   loadRecording,
   pauseSpeech,
@@ -315,6 +316,7 @@ async function speak(
     const language = text ? (speechLanguageOf(text, fallback) ?? serverLanguage(fallback)) : null;
     if (!language) return;
     spoken = own;
+    noteSpeechStarted(null);
     const result = await readAloud(text, language, source);
     analytics.track("speech_reply", {
       trigger,

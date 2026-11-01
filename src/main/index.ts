@@ -141,6 +141,7 @@ import {
   configureContentSecurityPolicy,
   configureRendererPermissions,
 } from "./session-configuration";
+import { appNotification } from "./sound-port";
 import { runStartupMaintenance, trimSiteCaches } from "./startup-maintenance";
 import { trustSystemCertificates } from "./system-certificates";
 import { TeardownRegistry } from "./teardown-registry";
@@ -431,6 +432,7 @@ const {
   forwardBrowserDisplayState,
   forwardUpdateStatus,
   forwardUpdatePreference,
+  forwardSoundCenter,
   forwardVoiceModelStatus,
   forwardVoiceStreamTranscript,
   forwardSpeechModelStatus,
@@ -628,6 +630,7 @@ function registerIpcHandlers({
   appearance,
   interfaceSize,
   notificationPreference,
+  sounds,
   busyMessageMode,
   channelLane,
   autoRecovery,
@@ -829,6 +832,8 @@ function registerIpcHandlers({
     ...updateIpcHandlers({ updater, updatePreferenceFile, requestedUpdate, idleRestart }),
     ...notificationIpcHandlers({
       notificationPreference,
+      sounds,
+      getDialogParent,
       translate: language.translate,
       requestPermission: () => requestDesktopNotificationPermission(notificationPreference, language.translate),
       openExternal: (url) => shell.openExternal(url),
@@ -951,7 +956,9 @@ function requestDesktopNotificationPermission(
       preference,
       showWelcome: () => {
         if (!Notification.isSupported()) return;
-        showRetainedNotification(new Notification({ title: "Builders Bot", body: translate("notification.welcome") }));
+        showRetainedNotification(
+          appNotification("notification.system", { title: "Builders Bot", body: translate("notification.welcome") }),
+        );
       },
     }),
   );
@@ -1431,6 +1438,7 @@ if (!hasSingleInstanceLock) {
       ).catch((error) => logger.warn("Unable to start the selected server's connection:", toLogValue(error)));
       updater.on("status", forwardUpdateStatus);
       built.requestedUpdate.on("preference", forwardUpdatePreference);
+      built.sounds.subscribe(forwardSoundCenter);
       updater.start();
       // Each tenant quits only itself. The host verifies process exit independently.
       built.hostUpdateCoordinator.setStopHandler(async () => {

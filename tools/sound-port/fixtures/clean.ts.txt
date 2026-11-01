@@ -1,0 +1,7 @@
+// Code that names sounds without making one. `scripts/sound-port-guard.ts` must find nothing here.
+// A comment can say new Audio("x.mp3") or new Notification({}) without a finding.
+import { playSound } from "../../../src/renderer/src/sound-center";
+
+playSound("agent.reply-finished", { who: "Ana" });
+const audioLabel = "Audio settings";
+const notificationLevel = "all";

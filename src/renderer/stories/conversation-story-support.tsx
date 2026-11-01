@@ -153,7 +153,9 @@ export function StoryConversation(props: Partial<Parameters<typeof ConversationV
   window.openbot = mock.api;
   onCleanup(() => {
     mock.dispose();
-    window.openbot = previousApi;
+    // The story renders again when its args or locale arrive, and the new copy installs its mock
+    // before the old copy is cleaned up. Only the copy whose mock is still installed restores.
+    if (window.openbot === mock.api) window.openbot = previousApi;
   });
   return (
     <div class="conversation-story-frame">

@@ -10,6 +10,25 @@ The global combination (`DictationService`, `voice:dictation-*`) owns the second
 phase and the paste. `global-dictation.ts` records and asks for a transcript. The composer's mic is a
 different path: it keeps the voice model because it shows text while you speak.
 
+## The composer microphone
+
+The microphone beside Send records for the draft of the open chat: an agent's chat, a side thread,
+or the open tab of a channel. `createVoiceStore` (`stores/voice-store.ts`) reads the target with
+`currentConversationTarget`, the same one that keys the draft, and keeps it while it records
+(`voiceAgentId`, `voiceServerId`, `voiceTabId`). So the text goes to the chat or the tab where the
+recording started, also when the reader opens another one before it ends.
+
+- **Stop** puts the transcript at the end of that draft. The user then sends it.
+- **Send while recording** stops, transcribes, and sends the draft with the transcript through the
+  normal send of that chat. In a channel that is the channel `send` command, so the opening mention
+  and the routing of the channel apply as for a typed message, and the message goes to the tab of
+  the recording.
+- **Cancel** discards the recording. The draft stays as it was.
+
+Only an agent's own chat reads the reply aloud (`noteDictatedMessage`). A channel has many speakers,
+so a message dictated there gets no spoken reply. The web client (`props.runtime`) has no microphone.
+`scripts/channel-voice-input-e2e.ts` checks the channel and the agent composer in the stories.
+
 ## The engines
 
 `DictationPreference.engine` is `auto`, `system` or `voice`.

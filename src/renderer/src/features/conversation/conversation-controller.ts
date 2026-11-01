@@ -11,6 +11,7 @@ import type { AgentActivityLabel } from "@openbot/ui/features/conversation/Agent
 import { currentText } from "@openbot/ui/text";
 import type { UserErrorDetails } from "@openbot/user-errors";
 import { createEffect, createSignal, createStore, onCleanup } from "solid-js";
+import { setSoundsQuietFor, soundQuietKey } from "../../sound-center";
 import type { ChatSearchMatch } from "./chat-search";
 import {
   appendPluginPrompt,
@@ -79,15 +80,15 @@ interface ConversationResources {
   voiceMeterStop: (() => void) | undefined;
   voiceAgentId: string | undefined;
   voiceServerId: string | undefined;
+  /** The channel tab that the recording is for. Undefined for an agent's chat. */
+  voiceTabId: string | undefined;
   /** The thread sends its draft when the recording's text is in it. */
   voiceThreadSend: boolean;
   voiceSubmitRequest:
-    | {
-        agentId: string;
-        serverId: string;
+    | (ConversationTarget & {
         draft: ComposerDraft;
         queuedEdit: { deliveryId: string; originalAttachmentIds: string[] } | undefined;
-      }
+      })
     | undefined;
   voiceDisposed: boolean;
   voiceRequestGeneration: number;
@@ -225,6 +226,12 @@ export function createStableConversationState(
   const [voicePhase, setVoicePhase] = createSignal<"idle" | "preparing" | "requesting" | "recording" | "transcribing">(
     "idle",
   );
+  // While the microphone records, the sounds that are not about the recording stay quiet.
+  const dictationQuiet = soundQuietKey("dictation");
+  createEffect(voicePhase, (phase) =>
+    setSoundsQuietFor(dictationQuiet, phase === "requesting" || phase === "recording"),
+  );
+  onCleanup(() => setSoundsQuietFor(dictationQuiet, false));
   const [voiceModelProgress, setVoiceModelProgress] = createSignal<number | null>(null);
   const [voiceElapsedSeconds, setVoiceElapsedSeconds] = createSignal(0);
   const [voiceLiveTranscript, setVoiceLiveTranscript] = createSignal<VoiceLiveTranscript | null>(null);
@@ -254,6 +261,7 @@ export function createStableConversationState(
     voiceMeterStop: undefined,
     voiceAgentId: undefined,
     voiceServerId: undefined,
+    voiceTabId: undefined,
     voiceThreadSend: false,
     voiceSubmitRequest: undefined,
     voiceDisposed: false,

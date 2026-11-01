@@ -43,9 +43,13 @@ import type { RoutineScheduler } from "./routine-scheduler";
 import { sessionSettingsOverrides } from "./session-settings";
 import {
   classifyStartFailure,
+  failsOnLeadModel,
+  fallbackHoldRuns,
   nextStartStep,
   type StartBreakers,
+  type StartFailure,
   type StartRetryMarker,
+  type StartRetryStep,
   startRetryView,
   untilMs,
 } from "./start-retry";
@@ -279,6 +283,13 @@ export class DrainScheduler {
   readonly #retryTimers = new Map<string, { agentId: string; timer: ReturnType<typeof setTimeout> }>();
   /** The start retry of a delivery that failed after it, until the failure path records it. */
   readonly #failedStarts = new Map<string, StartRetryMarker | null>();
+  /**
+   * The start retry of a delivery whose turn started, by delivery id: `markRunning` drops the stored
+   * marker, and a usage limit can still refuse the turn before it does any work (`retryLimitedTurn`).
+   */
+  readonly #startedRetries = new Map<string, StartedRetry>();
+  /** One timer per agent at the end of the wait of its breaker, so the agent goes back then. */
+  readonly #breakerWakes = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(options: DrainSchedulerOptions) {
     this.#store = options.store;
@@ -459,15 +470,39 @@ export class DrainScheduler {
   }
 
   /**
-   * Whether the next delivery of this lane goes to the backup model, and the agent has not moved
-   * there yet. The move (`followUsageLimit`) starts it; a turn of another lane of the agent holds the
-   * move. When no backup is ready any more, the lane is not held: the start fails.
+   * Whether this lane waits for the agent to move to its backup model. The move (`followUsageLimit`)
+   * starts it; a turn of another lane of the agent holds the move. Two cases:
+   * - the next delivery of the lane goes to the backup, for at most `START_FALLBACK_HOLD_MS`;
+   * - the wait of the breaker of the agent's current model runs: no lane starts on that model before
+   *   the wait ends, so a start in the wait is never taken for the one probe after it.
+   * When no backup is ready any more, the lane is not held, and the start decides.
    */
   #waitsForStartFallback(agent: AgentSummary, lane: Lane): boolean {
+    const current = agentChoice(agent);
     const marker = this.#mailbox.queuedStartRetry(agent.id, lane.taskId, lane.tab);
-    if (marker?.phase !== "fallback" || !marker.fallback) return false;
-    if (!sameAgentModelChoice(agentChoice(agent), marker.primary)) return false;
-    return this.#hooks.startFallback?.(agent.id, marker.primary) != null;
+    const toBackup =
+      marker?.phase === "fallback" &&
+      marker.fallback !== null &&
+      sameAgentModelChoice(current, marker.primary) &&
+      fallbackHoldRuns(marker, this.#now());
+    if (!toBackup && !this.#breakers?.waits(agent.id, current, this.#now())) return false;
+    return this.#hooks.startFallback?.(agent.id, current) != null;
+  }
+
+  /** Schedules the agent's drain at the end of the wait of its breaker, so it goes back to its own model then. */
+  #armBreakerWake(agentId: string, until: string): void {
+    const previous = this.#breakerWakes.get(agentId);
+    if (previous) clearTimeout(previous);
+    const timer = setTimeout(
+      () => {
+        this.#breakerWakes.delete(agentId);
+        if (!this.#hooks.isStopping()) this.scheduleDrain(agentId);
+      },
+      // A second after the end, so the wait has ended when the drain reads it.
+      Math.min(MAX_TIMER_MS, untilMs(until, this.#now()) + 1_000),
+    );
+    timer.unref?.();
+    this.#breakerWakes.set(agentId, timer);
   }
 
   /**
@@ -477,6 +512,9 @@ export class DrainScheduler {
   armStartRetries(): void {
     for (const { agentId, deliveryId, nextAt } of this.#mailbox.startRetries())
       this.#armStartRetry(agentId, deliveryId, nextAt);
+    const now = this.#now();
+    for (const entry of this.#breakers?.list() ?? [])
+      if (Date.parse(entry.until) > now) this.#armBreakerWake(entry.agentId, entry.until);
   }
 
   #armStartRetry(agentId: string, deliveryId: string, nextAt: string | null): void {
@@ -670,6 +708,11 @@ export class DrainScheduler {
         clearTimeout(entry.timer);
         this.#retryTimers.delete(deliveryId);
       }
+    const wake = this.#breakerWakes.get(agentId);
+    if (wake) clearTimeout(wake);
+    this.#breakerWakes.delete(agentId);
+    for (const [deliveryId, started] of [...this.#startedRetries])
+      if (started.agentId === agentId) this.#startedRetries.delete(deliveryId);
     this.#breakers?.forgetAgent(agentId);
     this.retrySlotWaiters();
   }
@@ -677,6 +720,9 @@ export class DrainScheduler {
   dispose(): void {
     for (const { timer } of this.#retryTimers.values()) clearTimeout(timer);
     this.#retryTimers.clear();
+    for (const timer of this.#breakerWakes.values()) clearTimeout(timer);
+    this.#breakerWakes.clear();
+    this.#startedRetries.clear();
     this.#drainingLanes.clear();
     this.#scheduledDrains.clear();
     this.#slotWaiters.clear();
@@ -920,14 +966,21 @@ export class DrainScheduler {
       requestedModel = agent.model;
       startChoice = agentChoice(agent);
       // The start retry sent this delivery to a backup model, and the agent did not move there: the
-      // backup is not ready any more. It never runs on the model that failed it.
-      if (context.startRetry?.phase === "fallback" && sameAgentModelChoice(startChoice, context.startRetry.primary))
+      // backup is not ready any more, or the move waited too long. While the breaker of the model that
+      // failed it still waits, it does not run there: it fails, and the task reviewer takes it. After
+      // the wait, it is the one try of that model.
+      const toBackup =
+        context.startRetry?.phase === "fallback" && sameAgentModelChoice(startChoice, context.startRetry.primary);
+      if (toBackup && this.#breakers?.waits(agent.id, startChoice, this.#now()))
         yield* drainStep(() => {
           throw new Error(sourceText("error.agent.fallbackUnavailable"));
         });
-      // A breaker of this model means that the start runs on it after a failure in the last waits: it
-      // gets one start and no try again, whether its wait ended or the agent came back earlier.
-      probing = this.#breakers?.get(agent.id, startChoice) !== undefined;
+      // A breaker of this model whose wait ended means that the start runs on it after a failure in the
+      // last waits: it gets one start and no try again. A start in the wait is not that probe: the
+      // lanes wait for the move (`#waitsForStartFallback`), and one that starts all the same, because no
+      // backup is ready, tries as a first failure does.
+      const breaker = this.#breakers?.get(agent.id, startChoice);
+      probing = toBackup || (breaker !== undefined && Date.parse(breaker.until) <= this.#now());
       if (probing) this.#breakers?.probing(agent.id, startChoice);
       // The endpoint was removed while this agent was busy, so no other model could be given to it
       // then. The old process would still answer on the removed endpoint, with the credentials it
@@ -1179,6 +1232,14 @@ export class DrainScheduler {
         model: agent.model,
       });
       this.#startedAfterRetry(agent, context, channelDelivery);
+      // A usage limit can still refuse this turn before it does work: its retry goes on from here.
+      if (context.startRetry || probing)
+        this.#rememberStartedRetry(delivery.id, {
+          agentId: agent.id,
+          choice: startChoice,
+          marker: context.startRetry,
+          probing,
+        });
       for (const item of batch)
         yield* this.#mailbox.markRunning(item.delivery.id, response.turn.id).pipe(toDeliveryStartFailed);
       if (this.#channels)
@@ -1361,9 +1422,13 @@ export class DrainScheduler {
     const agentId = delivery.recipientAgentId;
     const now = this.#now();
     const failure = classifyStartFailure(error, reason, settings, now);
-    // A start on the backup model has no other backup.
+    // A start on the backup model has no other backup. A failure of the channel lead's model, such as
+    // the history summary, is tried again, but a backup of another recipient changes nothing there.
+    const leadModel = failsOnLeadModel(failure) && this.#leadOf(delivery.id) !== agentId;
     const fallback =
-      context.startRetry?.phase === "fallback" ? null : (this.#hooks.startFallback?.(agentId, primary) ?? null);
+      context.startRetry?.phase === "fallback" || leadModel
+        ? null
+        : (this.#hooks.startFallback?.(agentId, primary) ?? null);
     const step = nextStartStep({
       failure,
       marker: context.startRetry,
@@ -1384,6 +1449,7 @@ export class DrainScheduler {
       errorKey: failure.errorKey ?? "none",
       starts: step.marker?.starts ?? 1,
       probing,
+      leadModel,
       ...(step.type === "retry" ? { delayMs: step.delayMs, phase: step.marker.phase } : {}),
       ...(step.type === "fallback" && step.marker.fallback
         ? { fallbackProvider: step.marker.fallback.provider, fallbackModel: step.marker.fallback.model }
@@ -1404,16 +1470,124 @@ export class DrainScheduler {
     for (const item of batch)
       if (item.delivery.id !== delivery.id)
         yield* this.#mailbox.restoreQueued(item.delivery.id).pipe(toDeliveryStartFailed);
-    if (step.type === "fallback") {
-      // The own model is passed over for the wait of its breaker: the move to the backup follows it,
-      // and the agent goes back when the wait ends (`AgentService.#usageLimitMove`).
-      const holdMs = this.#breakers.open(agentId, primary, settings, now, this.#random(), failure.resetsAtMs);
-      this.#usageLimits.failed(agentId, primary.model, holdMs);
-    }
+    if (step.type === "fallback") this.#openBreaker(agentId, primary, settings, now, failure);
     this.#mailboxSync.emitQueue(agentId);
     this.#armStartRetry(agentId, delivery.id, step.marker.nextAt);
     return true;
   });
+
+  /**
+   * The own model of this agent is passed over for the wait of its breaker: the move to the backup
+   * follows it, and the agent goes back when the wait ends (`AgentService.#usageLimitMove`). The
+   * breaker is of this agent only: other agents on the same model keep it.
+   */
+  #openBreaker(
+    agentId: string,
+    primary: AgentModelChoice,
+    settings: StartRetrySettings,
+    now: number,
+    failure: StartFailure,
+  ): void {
+    const breakers = this.#breakers;
+    if (!breakers) return;
+    breakers.open(agentId, primary, settings, now, this.#random(), failure.resetsAtMs);
+    const entry = breakers.get(agentId, primary);
+    if (entry) this.#armBreakerWake(agentId, entry.until);
+  }
+
+  /** The lead of the channel of this delivery, or null for a delivery outside a channel. */
+  #leadOf(deliveryId: string): string | null {
+    const assignment = this.#channels?.store.assignmentForDelivery(deliveryId);
+    if (!assignment || !this.#channels?.store.exists(assignment.channelId)) return null;
+    return this.#channels.store.get(assignment.channelId).leadAgentId ?? null;
+  }
+
+  #rememberStartedRetry(deliveryId: string, started: StartedRetry): void {
+    this.#startedRetries.set(deliveryId, started);
+    // A turn that completes leaves its entry; the oldest go first.
+    while (this.#startedRetries.size > STARTED_RETRY_LIMIT) {
+      const [oldest] = this.#startedRetries.keys();
+      if (oldest === undefined) break;
+      this.#startedRetries.delete(oldest);
+    }
+  }
+
+  /**
+   * A usage limit refused a turn of these deliveries before it did any work, as the 5-hour window of
+   * Claude does inside the turn (`USAGE_LIMIT_METHOD`), after `turn/start` answered. It is the same
+   * failure as a start that the provider refused, so the same policy applies (`start-retry.ts`): tries
+   * again when "try again after a limit" is on, then the agent's backup or the default backup, and the
+   * breaker. `requeue` puts the deliveries back in the queue with the marker. Null when the start
+   * retry does not take the failure: the caller then holds the queue until the reset, as before.
+   */
+  readonly retryLimitedTurn = <E>(
+    input: {
+      agentId: string;
+      /** The model the turn ran on. */
+      model: string | null;
+      deliveries: readonly DeliveryContext[];
+      /** The reset that the provider named, in epoch seconds, or null. */
+      resetsAt: number | null;
+      channelTurn: boolean;
+    },
+    requeue: (marker: StartRetryMarker) => Effect.Effect<void, E>,
+  ): Effect.Effect<StartRetryStep["type"] | null, E> =>
+    Effect.gen({ self: this }, function* () {
+      const settings = this.#hooks.startRetrySettings?.();
+      const head = input.deliveries[0];
+      const started = head ? this.#startedRetries.get(head.delivery.id) : undefined;
+      for (const { delivery } of input.deliveries) this.#startedRetries.delete(delivery.id);
+      if (!settings || !this.#breakers || !head || this.#hooks.isStopping()) return null;
+      const agent = this.#store.list().find((candidate) => candidate.id === input.agentId);
+      if (!agent) return null;
+      const primary = started?.choice ?? { ...agentChoice(agent), model: input.model ?? agent.model };
+      const now = this.#now();
+      const failure: StartFailure = {
+        class: settings.retryAfterUsageLimit ? "retry" : "fallback",
+        cause: "usage_limit",
+        errorKey: null,
+        usageLimit: true,
+        resetsAtMs: input.resetsAt === null ? null : input.resetsAt * 1_000,
+      };
+      const marker = started?.marker;
+      const fallback =
+        marker?.phase === "fallback" ? null : (this.#hooks.startFallback?.(input.agentId, primary) ?? null);
+      const step = nextStartStep({
+        failure,
+        marker,
+        settings,
+        primary,
+        fallback,
+        probing: started?.probing ?? false,
+        now,
+        random: this.#random(),
+      });
+      logger.info("A usage limit refused a turn before work.", {
+        agentId: input.agentId,
+        deliveryId: head.delivery.id,
+        next: step.type,
+        starts: step.marker?.starts ?? 1,
+        probing: started?.probing ?? false,
+        ...(step.type === "retry" ? { delayMs: step.delayMs, phase: step.marker.phase } : {}),
+        ...(step.type === "fallback" && step.marker.fallback
+          ? { fallbackProvider: step.marker.fallback.provider, fallbackModel: step.marker.fallback.model }
+          : {}),
+      });
+      if (step.type === "fail") return null;
+      if (input.channelTurn && this.#channels) {
+        for (const { delivery } of input.deliveries) {
+          const held = yield* this.#channels
+            .holdForStartRetry(delivery.id, startRetryView(step.marker))
+            .pipe(Effect.catch(() => Effect.succeed(false)));
+          if (!held) return null;
+        }
+      }
+      yield* requeue(step.marker);
+      if (step.type === "fallback") this.#openBreaker(input.agentId, primary, settings, now, failure);
+      this.#mailboxSync.emitQueue(input.agentId);
+      for (const { delivery } of input.deliveries) this.#armStartRetry(input.agentId, delivery.id, step.marker.nextAt);
+      return step.type;
+    });
 
   /**
    * A turn started. A start that was the try of the agent's own model after its breaker wait closes
@@ -1428,7 +1602,9 @@ export class DrainScheduler {
       const closed = breakers.close(agent.id, choice);
       logger.info("A start ran on the agent's own model again.", { agentId: agent.id, closed });
     }
-    if (!channelDelivery || !breakers.list().some((entry) => entry.agentId === agent.id)) return;
+    // Only a task that starts on the backup while the wait of the own model runs: after the wait, the
+    // agent goes back, and a task that starts then is not held there.
+    if (!channelDelivery || !breakers.waitingElsewhere(agent.id, choice, this.#now())) return;
     const assignment = this.#channels?.store.assignmentForDelivery(context.delivery.id);
     if (assignment) breakers.pin(agent.id, `${assignment.channelId}\u0000${assignment.taskId}`);
   }
@@ -1570,6 +1746,20 @@ function codexServiceTier(
   if (!model) return {};
   return { serviceTier: model.fastServiceTier ?? null };
 }
+
+/** The start retry of a delivery whose turn started (`DrainScheduler.retryLimitedTurn`). */
+interface StartedRetry {
+  agentId: string;
+  /** The provider, account and model the turn started on. */
+  choice: AgentModelChoice;
+  marker: StartRetryMarker | undefined;
+  probing: boolean;
+}
+
+/** The started retries that the drain keeps at most. */
+const STARTED_RETRY_LIMIT = 500;
+/** The longest delay `setTimeout` keeps. */
+const MAX_TIMER_MS = 2_147_483_647;
 
 /** The provider, model and account of an agent. */
 function agentChoice(agent: Pick<AgentSummary, "provider" | "model" | "providerAccountId">): AgentModelChoice {

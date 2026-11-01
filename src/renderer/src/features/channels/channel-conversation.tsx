@@ -15,6 +15,7 @@ import { channelAwaitingReplies } from "../../awaiting-replies";
 import type {
   AgentSettingsRequest,
   ConversationChannelSource,
+  ConversationTarget,
   PromptAnswerOptions,
   SendMessageResult,
 } from "../conversation/conversation-types";
@@ -150,13 +151,15 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
 
   /**
    * The id of the stored message is read from the page after the send. A failure throws to the
-   * view, which keeps the message as not sent; its Retry sends the same operation id again.
+   * view, which keeps the message as not sent; its Retry sends the same operation id again. The
+   * message goes to the tab of its draft: a dictated message can be sent after the reader opened
+   * another tab.
    */
   async function sendMessage(
     body: string,
     attachmentDraftIds: string[],
     replyToMessageId: string | null,
-    _target?: unknown,
+    target?: ConversationTarget,
     clientMessageId?: string,
   ): Promise<SendMessageResult> {
     if (!env.connectionReady() || readOnly()) return { error: t("channel.error.action") };
@@ -165,6 +168,7 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
     // mention later in the text is a reference that the owner of the work can see. The host reads
     // every opening mention from the text; the field names the first one for a host that reads one.
     const mention = leadingAddress(body).mentions[0];
+    const topicId = target?.tabId ?? channels.state.topicId;
     try {
       const after = await channels.send({
         type: "send",
@@ -174,7 +178,7 @@ export function createChannelConversation(env: ChannelConversationEnvironment) {
         recipientAgentId: mention?.id ?? null,
         replyToMessageId,
         attachmentDraftIds,
-        ...(channels.state.topicId ? { topicId: channels.state.topicId } : {}),
+        ...(topicId ? { topicId } : {}),
       });
       const messageId = sentChannelMessageId(after, sequenceBefore, body, env.isOwnSender);
       return messageId ? { messageId } : { error: t("channel.error.action") };
