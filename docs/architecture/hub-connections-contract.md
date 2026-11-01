@@ -140,13 +140,14 @@ the token.
       "id": "tool-catalog",
       "name": "Catálogo de ferramentas",
       "tagline": "Dados externos pagos, com teto por pessoa",
+      "description": "Dados externos pagos para os agentes: SEO e palavras-chave, dados de empresas, lojas de apps e avaliações.",
       "operations": [
         { "id": "search", "title": "Search", "effect": "read", "pricing": { "unit": "call", "basis": "fixed" } },
         { "id": "describe", "title": "Describe", "effect": "read", "pricing": { "unit": "call", "basis": "fixed" } },
         { "id": "call", "title": "Call", "effect": "read", "pricing": { "unit": "call", "basis": "metered" } }
       ],
       "items": { "count": 312 },
-      "dataPolicy": { "vendor": "treg.to (Superdesign, USA)", "region": "us", "retentionDays": 0 },
+      "dataPolicy": { "vendor": "treg.to", "region": "us", "retentionDays": 0 },
       "access": [
         {
           "orgId": "org_a",
@@ -165,7 +166,11 @@ the token.
           "confirmAboveMicros": 250000,
           "resetsAt": "2026-11-01T03:00:00Z",
           "asOf": "2026-10-31T15:00:00.123Z",
-          "counterVersion": 615
+          "counterVersion": 615,
+          "categories": ["SEO e palavras-chave", "Dados de empresas", "Lojas de apps", "Avaliações"],
+          "priceFromMicros": 10000,
+          "requestedAt": null,
+          "moreRequestedAt": null
         }
       ]
     }
@@ -175,7 +180,8 @@ the token.
 
 | Field | Rule |
 | --- | --- |
-| `name` | At most 60 characters. `tagline` at most 120. |
+| `name` | At most 60 characters. `tagline` at most 120. `description` (optional) at most 2,000: what the connection gives, on its Marketplace page. |
+| `dataPolicy` | `vendor`: the name that the page shows as "Provided by {vendor}" and in "Where the data goes" (`treg.to`, at most 120 characters). `region`: a code (`us`); the app writes `us` as "USA" in the reader's language and shows any other value as it is. `retentionDays`: the retention that Cultura Builder declares, or `null`. |
 | `operations[].effect` | `read` or `external`. An operation with another value, or another `pricing.unit` (`call`, `page`, `result`, `1k_tokens`) or `pricing.basis` (`fixed`, `metered`), is hidden. Phase 1 and 2: `read` only. |
 | `access[].org` | `enabled`, `not_enabled`, `not_in_plan`, `paused`, `revoked`. |
 | `access[].user` | `allowed`, `not_allowed`, `requested`. |
@@ -186,6 +192,9 @@ the token.
 | `state` | `ok`, `warning` (at or above 80 %), `reached` (section 7). |
 | `maxCostPerCallMicros` | Required. The hard ceiling of one call. |
 | `confirmAboveMicros` | A call with an estimate above it needs the person's approval (section 6.4). `null` = never. |
+| `categories` | Optional. The categories of the vendor catalog that the organization allows, by name, in the language of `Accept-Language` (at most 40, each at most 60 characters of plain text). The page lists them; the app does not filter by them. |
+| `priceFromMicros` | Optional. The cheapest price of one unit that the organization allows, for "from R$ 0.01 a call". |
+| `requestedAt`, `moreRequestedAt` | Optional. When the person asked the admins for access, or for more money in this period (section 10.1), while that request is open (7 days). `null` when there is none. |
 
 A row that breaks a rule is dropped alone; a bad envelope fails the whole catalog.
 
@@ -537,7 +546,40 @@ Proxy token for the organization.
 }
 ```
 
+Each row can also carry the person's `cap` (the same shape as in the catalog) and its `bindingScope`;
+the app shows "R$ 3.60 left of R$ 25.00" when they are there.
+
 `platforms` is for the person's own view only. The admin view has no routines, agents or times.
+
+The app reads `/usage` only while `/session` has `capabilities.connectionsUsage: true`, for each
+organization whose catalog row it may spend, and keeps each answer at most 30 seconds.
+
+### 10.1 `POST /api/builder-ai/proxy/v1/connections/{id}/access-requests`
+
+The person asks the admins of one organization for access to a connection ("Ask the admin"), or for
+more money in this period after the cap ("Ask the admin for more"). The proxy token names the
+organization; the body names only the kind. The app never sends this by itself: only a click of the
+person on the Marketplace page or on the limit line of a chat sends it.
+
+Body: `{ "kind": "access" | "more" }`. Answer `200`:
+
+```json
+{ "requestedAt": "2026-11-18T14:05:00Z", "nextAllowedAt": "2026-11-25T14:05:00Z", "repeated": false }
+```
+
+- One request per person, connection, organization and kind counts in 7 days. A second request in
+  that time answers `repeated: true` with the first `requestedAt`, and sends no new notice to the
+  admins.
+- The Hub notifies the admins of the organization (email or panel), with the person, the connection
+  and the kind. For `more`: the person's cap, what was spent and the date of renewal. Never the input
+  or the output of a call.
+- The catalog row then carries the date in `requestedAt` or `moreRequestedAt`, so the page shows
+  "Request sent on {date}" on any computer of the person.
+- The route works while the connection is paused or not on for the person: it is how the person asks.
+- Errors: `422 { "error": "input_refused", "field": "kind" }`; `403 { "needsPerson": "choose_org",
+  "reason": "not_member" }` when the person left the organization; `429 { "error": "rate_limited",
+  "scope": "access_request", "retryAfter" }` for a flood of requests. The app says "The request did
+  not reach Cultura Builder" for any other answer.
 
 ## 11. What the Hub stores
 
@@ -555,6 +597,7 @@ In addition to the PROXY §12.1 tables (`connection_plan`, `ledger_entry`, count
 | `vendor_reconciliation` | (`date`, `vendorAccountId`, `tagKey`), `hubSettledMicroUsd`, `tregTotalMicroUsd`, `attributedMicroUsd`, `unattributedMicroUsd`, `diffMicroUsd`, `status` | Nightly; never sum `org` and `user`. |
 | `confirmation` | `id`, `orgId`, `userId`, `endpointId`, `bodyHash`, `estimateMicros`, `expiresAt`, `usedAt` | Section 6.4. |
 | `idempotency` | (`orgId`, `key`), `bodyHash`, `status`, `answer`, `expiresAt` | Section 6.5, PROXY §12.4. |
+| `access_request` | (`orgId`, `userId`, `connectionId`, `kind`), `requestedAt`, `notifiedAt` | Section 10.1. One open row per key for 7 days; no input or output of a call. |
 
 ## 12. Before the first call (design §3.3, hard requirements)
 
@@ -566,5 +609,7 @@ In addition to the PROXY §12.1 tables (`connection_plan`, `ledger_entry`, count
 ## 13. How the app checks this contract
 
 `bun scripts/hub-connections-call-e2e.ts` runs the real app modules against `scripts/fake-hub/`
-and writes `.buildersbot-build/hub-connections/tool-catalog.json`. The fake Hub follows this document;
-the Hub team can read it as a reference implementation of sections 2 to 10.
+and writes `.buildersbot-build/hub-connections/tool-catalog.json`. `bun scripts/hub-connections-usage-e2e.ts`
+checks the catalog fields of the page, `/usage` and the access requests of section 10.1, and writes
+`.buildersbot-build/hub-connections/usage.json`. The fake Hub follows this document; the Hub team can
+read it as a reference implementation of sections 2 to 10.

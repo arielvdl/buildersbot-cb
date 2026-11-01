@@ -42,6 +42,21 @@ export interface FakeOrg {
   counterVersion: number;
   calls: number;
   platforms: Map<string, { settledMicros: number; calls: number }>;
+  /** The organization's state of the connection, and the person's, as the catalog row says them. */
+  orgState: "enabled" | "not_enabled" | "not_in_plan" | "paused" | "revoked";
+  userState: "allowed" | "not_allowed" | "requested";
+  /** The categories of the vendor catalog that the organization allows, by name. */
+  categories: string[];
+  /** The person's open requests to the admins, by kind: when the Hub took each one. */
+  requests: Map<"access" | "more", number>;
+}
+
+/** One request of the person to the admins of an organization, as the Hub took it. */
+export interface FakeAccessRequest {
+  readonly orgId: string;
+  readonly kind: "access" | "more";
+  readonly repeated: boolean;
+  readonly at: number;
 }
 
 export interface HubRequest {
@@ -62,8 +77,12 @@ export interface FakeHub {
   readonly issuedTokens: string[];
   /** Every confirmation id that the fake issued. None may reach an agent. */
   readonly issuedConfirmations: string[];
+  /** Every request to the admins that the person sent, with the ones that the 7 days absorbed. */
+  readonly accessRequests: FakeAccessRequest[];
   /** The kill switch: the capability of `/session` goes off and every call is refused. */
   setPaused(paused: boolean): void;
+  /** `capabilities.connectionsUsage` of `/session`: whether the app may show Usage › Connections. */
+  setConnectionsUsage(on: boolean): void;
   paused(): boolean;
   /** `drop` closes each connection with no answer; a number answers with that status and no body. */
   setDown(mode: "drop" | number | null): void;
@@ -256,6 +275,10 @@ export async function startFakeHub(): Promise<FakeHub> {
     counterVersion: 0,
     calls: 0,
     platforms: new Map(),
+    orgState: "enabled",
+    userState: "allowed",
+    categories: ["SEO e palavras-chave", "Dados de empresas", "Lojas de apps", "Avaliações"],
+    requests: new Map(),
   });
   const orgs = new Map<string, FakeOrg>([
     ["org_a", makeOrg("org_a", "Empresa A", true, 2_000_000)],
@@ -267,7 +290,11 @@ export async function startFakeHub(): Promise<FakeHub> {
   const requests: HubRequest[] = [];
   const issuedTokens: string[] = [];
   const issuedConfirmations: string[] = [];
+  const accessRequests: FakeAccessRequest[] = [];
+  /** One request per person, connection, organization and kind counts in 7 days (contract §10.1). */
+  const REQUEST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
   let pausedReason: string | null = null;
+  let connectionsUsage = true;
   let down: "drop" | number | null = null;
   let ledger = 0;
 
@@ -288,6 +315,12 @@ export async function startFakeHub(): Promise<FakeHub> {
     counterVersion: org.counterVersion,
     asOf: new Date(now()).toISOString(),
   });
+
+  /** The time of an open request of this kind, within the 7 days, as ISO text; else null. */
+  function openRequest(org: FakeOrg, kind: "access" | "more"): string | null {
+    const at = org.requests.get(kind);
+    return at !== undefined && now() - at < REQUEST_WINDOW_MS ? new Date(at).toISOString() : null;
+  }
 
   function issueToken(orgId: string | null): string {
     const token = `cbp_${hex(24)}`;
@@ -330,18 +363,24 @@ export async function startFakeHub(): Promise<FakeHub> {
           id: CONNECTION,
           name: "Catálogo de ferramentas",
           tagline: "Dados externos pagos, com teto por pessoa",
+          description:
+            "Dados externos pagos para os agentes: SEO e palavras-chave, dados de empresas, lojas de apps e avaliações.",
           operations: [
             { id: "search", title: "Search", effect: "read", pricing: { unit: "call", basis: "fixed" } },
             { id: "describe", title: "Describe", effect: "read", pricing: { unit: "call", basis: "fixed" } },
             { id: "call", title: "Call", effect: "read", pricing: { unit: "call", basis: "metered" } },
           ],
           items: { count: allowed.length },
-          dataPolicy: { vendor: "treg.to (Superdesign, USA)", region: "us", retentionDays: 0 },
+          dataPolicy: { vendor: "treg.to", region: "us", retentionDays: 0 },
           access: rows.map((org) => ({
             orgId: org.id,
-            org: pausedReason ? "paused" : "enabled",
-            user: "allowed",
+            org: pausedReason ? "paused" : org.orgState,
+            user: org.userState,
             consented: org.consented,
+            categories: org.categories,
+            priceFromMicros: cheapestUnit,
+            requestedAt: openRequest(org, "access"),
+            moreRequestedAt: openRequest(org, "more"),
             cap: { kind: "limited", amountMicros: org.capMicros },
             settledMicros: org.settledMicros,
             reservedMicros: org.reservedMicros,
@@ -611,7 +650,7 @@ export async function startFakeHub(): Promise<FakeHub> {
           empresa: "Empresa A",
           capabilities: {
             connections: { [CONNECTION]: pausedReason ? { enabled: false, reason: "paused" } : { enabled: true } },
-            connectionsUsage: true,
+            connectionsUsage,
           },
         },
       ];
@@ -644,13 +683,33 @@ export async function startFakeHub(): Promise<FakeHub> {
               effectiveAvailableMicros: available(org),
               state: state(org),
               counterVersion: org.counterVersion,
+              cap: { kind: "limited", amountMicros: org.capMicros },
+              bindingScope: "user",
               platforms: [...org.platforms].map(([platform, value]) => ({ platform, ...value })),
             },
           ],
         },
       ];
     if (request.method !== "POST") return [404, { error: "not_found" }];
+    if (path === `/api/builder-ai/proxy/v1/connections/${CONNECTION}/access-requests`) {
+      // A request to the admins works also while the connection is paused or not on for the person.
+      const kind = record(parseJson(raw))?.kind;
+      if (kind !== "access" && kind !== "more") return [422, { error: "input_refused", field: "kind" }];
+      const open = openRequest(org, kind);
+      const at = open ? Date.parse(open) : now();
+      if (!open) org.requests.set(kind, at);
+      accessRequests.push({ orgId: org.id, kind, repeated: open !== null, at: now() });
+      return [
+        200,
+        {
+          requestedAt: new Date(at).toISOString(),
+          nextAllowedAt: new Date(at + REQUEST_WINDOW_MS).toISOString(),
+          repeated: open !== null,
+        },
+      ];
+    }
     if (pausedReason) return [503, { error: "connection_unavailable", reason: pausedReason }];
+    if (org.orgState !== "enabled" || org.userState !== "allowed") return [403, { error: "not_allowed" }];
     const payload = record(parseJson(raw));
     if (!payload) return [422, { error: "input_refused", field: "body" }];
     if (path === `/api/builder-ai/proxy/v1/connections/${CONNECTION}/search`) {
@@ -743,10 +802,14 @@ export async function startFakeHub(): Promise<FakeHub> {
     requests,
     issuedTokens,
     issuedConfirmations,
+    accessRequests,
     setPaused: (paused) => {
       pausedReason = paused ? "paused" : null;
     },
     paused: () => pausedReason !== null,
+    setConnectionsUsage: (on) => {
+      connectionsUsage = on;
+    },
     setDown: (mode) => {
       down = mode;
     },

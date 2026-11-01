@@ -34,6 +34,8 @@ export const HUB_CONNECTIONS_PATHS = {
   usage: "/api/builder-ai/proxy/v1/usage",
   operation: (connectionId: string, operation: string) =>
     `/api/builder-ai/proxy/v1/connections/${connectionId}/${operation}`,
+  /** The person asks the organization's admins for access, or for more money in this period. */
+  accessRequests: (connectionId: string) => `/api/builder-ai/proxy/v1/connections/${connectionId}/access-requests`,
 } as const;
 
 /** The scope that the app asks for in a proxy token request. */
@@ -64,6 +66,13 @@ export const HUB_CONNECTIONS_LIMITS = {
   descriptionChars: 200,
   nameChars: 60,
   taglineChars: 120,
+  /** What a connection gives, on its page. */
+  connectionDescriptionChars: 2_000,
+  /** The categories of the vendor catalog that an organization allows, by name. */
+  categories: 40,
+  categoryChars: 60,
+  /** An access request answer. */
+  accessRequestBytes: 4 * 1024,
   paramsBytes: 4 * 1024,
   exampleBytes: 2 * 1024,
   providerMessageChars: 300,
@@ -343,12 +352,25 @@ export interface HubConnectionAccess {
   resetsAt: string;
   asOf: string;
   counterVersion: number;
+  /**
+   * The categories of the vendor catalog that the organization allows, by name ("SEO e
+   * palavras-chave"). Empty when the Hub does not send them. Plain text for the page only.
+   */
+  categories: string[];
+  /** The cheapest price of one unit that the organization allows, for "from R$ 0,01". Null: not sent. */
+  priceFromMicros: number | null;
+  /** When the person last asked the admins for access, within the Hub's 7 days. Null: no open request. */
+  requestedAt: string | null;
+  /** When the person last asked the admins for more money in this period. Null: no open request. */
+  moreRequestedAt: string | null;
 }
 
 export interface HubConnectionEntry {
   id: string;
   name: string;
   tagline: string;
+  /** What the connection gives, in the Hub's words. Plain text, at most 2,000 characters. */
+  description: string;
   operations: HubConnectionOperation[];
   itemsCount: number;
   dataPolicy: { vendor: string; region: string; retentionDays: number | null };
@@ -415,6 +437,12 @@ function decodeAccess(value: unknown): HubConnectionAccess | null {
   if (value.confirmAboveMicros !== null && value.confirmAboveMicros !== undefined && !micros(value.confirmAboveMicros))
     return null;
   if (!timestamp(value.resetsAt) || !timestamp(value.asOf) || !micros(value.counterVersion)) return null;
+  // Optional fields: a wrong value is dropped alone, so an old Hub still gives a valid row.
+  const categories = Array.isArray(value.categories)
+    ? value.categories
+        .filter((name): name is string => isHubPlainText(name, HUB_CONNECTIONS_LIMITS.categoryChars))
+        .slice(0, HUB_CONNECTIONS_LIMITS.categories)
+    : [];
   return {
     orgId: value.orgId,
     org: value.org,
@@ -433,6 +461,10 @@ function decodeAccess(value: unknown): HubConnectionAccess | null {
     resetsAt: value.resetsAt,
     asOf: value.asOf,
     counterVersion: value.counterVersion,
+    categories: [...new Set(categories)],
+    priceFromMicros: micros(value.priceFromMicros) ? value.priceFromMicros : null,
+    requestedAt: timestamp(value.requestedAt) ? value.requestedAt : null,
+    moreRequestedAt: timestamp(value.moreRequestedAt) ? value.moreRequestedAt : null,
   };
 }
 
@@ -454,6 +486,9 @@ function decodeConnection(value: unknown): HubConnectionEntry | null {
     id: value.id,
     name: value.name,
     tagline: isHubPlainText(value.tagline, HUB_CONNECTIONS_LIMITS.taglineChars) ? value.tagline : "",
+    description: isHubPlainText(value.description, HUB_CONNECTIONS_LIMITS.connectionDescriptionChars)
+      ? value.description
+      : "",
     operations,
     itemsCount: intIn(items.count, 0, 1_000_000) ? items.count : 0,
     dataPolicy: {
@@ -963,6 +998,10 @@ export interface HubConnectionUsage {
     effectiveAvailableMicros: number;
     state: HubCapState;
     counterVersion: number;
+    /** The person's cap for the period. Null when the Hub does not send it. */
+    cap: HubConnectionAccess["cap"] | null;
+    /** Which counter limits the person (user, organization × connection, organization). Null: not sent. */
+    bindingScope: HubBindingScope | null;
     platforms: Array<{ platform: string; settledMicros: number; calls: number }>;
   }>;
   asOf: string;
@@ -1007,6 +1046,8 @@ export function decodeHubConnectionUsage(value: unknown): HubConnectionUsage | n
       effectiveAvailableMicros: row.effectiveAvailableMicros,
       state: row.state,
       counterVersion: row.counterVersion,
+      cap: decodeCap(row.cap),
+      bindingScope: oneOf(HUB_BINDING_SCOPES, row.bindingScope) ? row.bindingScope : null,
       platforms,
     });
   }
@@ -1018,5 +1059,39 @@ export function decodeHubConnectionUsage(value: unknown): HubConnectionUsage | n
     currency: value.currency,
     connections,
     asOf: value.asOf,
+  };
+}
+
+// --- POST /connections/{id}/access-requests -------------------------------------------------------
+
+/**
+ * What the person asks the organization's admins for: `access` to a connection that the person may
+ * not use yet, or `more` money for the period after the cap was reached.
+ */
+export const HUB_ACCESS_REQUEST_KINDS = ["access", "more"] as const;
+export type HubAccessRequestKind = (typeof HUB_ACCESS_REQUEST_KINDS)[number];
+
+export function isHubAccessRequestKind(value: unknown): value is HubAccessRequestKind {
+  return oneOf(HUB_ACCESS_REQUEST_KINDS, value);
+}
+
+/**
+ * The Hub's answer. One request per person, connection, organization and kind counts in 7 days: a
+ * second one in that time is `repeated`, keeps the first `requestedAt`, and sends no new notice to
+ * the admins.
+ */
+export interface HubAccessRequestAnswer {
+  requestedAt: string;
+  /** When the person can ask again. Null when the Hub does not say. */
+  nextAllowedAt: string | null;
+  repeated: boolean;
+}
+
+export function decodeHubAccessRequestAnswer(value: unknown): HubAccessRequestAnswer | null {
+  if (!isDynamicRecord(value) || !timestamp(value.requestedAt)) return null;
+  return {
+    requestedAt: value.requestedAt,
+    nextAllowedAt: timestamp(value.nextAllowedAt) ? value.nextAllowedAt : null,
+    repeated: value.repeated === true,
   };
 }
