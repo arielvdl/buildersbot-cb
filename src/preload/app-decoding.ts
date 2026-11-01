@@ -610,6 +610,12 @@ export function decodeSpeechSettings(value: unknown): SpeechSettings {
   return { readReplies: requiredBoolean(settings, "readReplies"), voice };
 }
 
+/** The bytes of a custom sound file. */
+export function decodeSoundBytes(value: unknown): Uint8Array {
+  if (!(value instanceof Uint8Array)) throw new Error("Invalid sound bytes.");
+  return value;
+}
+
 export function decodeSpeechAudio(value: unknown): SpeechAudio {
   const audio = decodeRecord(value, "speech audio");
   const { pcm, sampleRate } = audio;

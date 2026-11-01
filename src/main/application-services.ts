@@ -336,6 +336,8 @@ import { SignalIngress } from "./signal-ingress";
 import { createSiteSessionSource, SiteSessionGrants } from "./site-session-source";
 import { SkillMarketplaceService } from "./skill-marketplace-service";
 import { SLACK_DEV_CALLBACK_PATH, startSlackDevCallbackServer } from "./slack-dev-callback-server";
+import { appNotification, setNativeSoundSource } from "./sound-port";
+import { SoundPreferenceStore } from "./sound-preference-store";
 import { SpeechPreferenceStore } from "./speech-preference-store";
 import { removeStaleTelemetryQueues } from "./stale-telemetry-queues";
 import {
@@ -652,6 +654,7 @@ export interface ApplicationServices {
   appearance: AppearanceService;
   interfaceSize: InterfaceSizeService;
   notificationPreference: NotificationPreferenceStore;
+  sounds: SoundPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
@@ -1396,6 +1399,7 @@ export async function createApplicationServices({
   const notificationPreference = new NotificationPreferenceStore(
     join(app.getPath("userData"), NOTIFICATION_PREFERENCE_FILE),
   );
+  const sounds = new SoundPreferenceStore({ userData: app.getPath("userData") });
   const busyMessageMode = new BusyMessageModePreferenceStore(
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
@@ -1519,6 +1523,7 @@ export async function createApplicationServices({
       runCauseEffect(taskWatchHistory.load()),
       runCauseEffect(startRetry.load()),
       runCauseEffect(startBreakers.load()),
+      runCauseEffect(sounds.load()).then(() => setNativeSoundSource(sounds)),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -3319,7 +3324,7 @@ export async function createApplicationServices({
     isOnBattery: () => powerMonitor.isOnBatteryPower(),
     thermalState: () => powerMonitor.getCurrentThermalState(),
     translate: language.translate,
-    notify: (body) => showRetainedNotification(new Notification({ title: "Builders Bot", body })),
+    notify: (body) => showRetainedNotification(appNotification("notification.system", { title: "Builders Bot", body })),
   });
   lidAwake.subscribe(forwardLidAwakeStatus);
   await runCauseEffect(lidAwake.load());
@@ -3673,6 +3678,7 @@ export async function createApplicationServices({
     appearance,
     interfaceSize,
     notificationPreference,
+    sounds,
     busyMessageMode,
     channelLane,
     autoRecovery,

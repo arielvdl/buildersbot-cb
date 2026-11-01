@@ -1,0 +1,12 @@
+// Each line below makes a sound outside the sound center. `scripts/sound-port-guard.ts` must find
+// every one of them. It is text with a .txt extension, so no build, type check or lint reads it.
+const chime = new Audio("chime.mp3");
+const context = new AudioContext();
+const legacy = new webkitAudioContext();
+import("cuelume");
+speechSynthesis.speak(utterance);
+execFile("afplay", ["/System/Library/Sounds/Glass.aiff"]);
+execFile("say", ["done"]);
+shell.beep();
+const tag = "<audio src='x.mp3' autoplay />";
+const notice = new Notification({ title: "Done" });

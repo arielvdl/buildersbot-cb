@@ -16,8 +16,8 @@ import {
 import { channelReplyNotifications } from "@openbot/team-client/channel-notifications";
 import type { TextValue } from "@openbot/ui/text";
 import { onCleanup, untrack } from "solid-js";
-import { startActionSounds } from "../../action-sounds";
 import { playCompletionSoundForAgentEvent, unlockCompletionSound } from "../../completion-sound";
+import { startSoundCenter } from "../../sound-center";
 import { createAgentEventSounds } from "../agents/agent-event-sounds";
 import type { WebWorkspace } from "./web-client-context";
 import { isWebHostNotice } from "./web-host-connections";
@@ -141,18 +141,21 @@ export function createWebNotificationRouting(options: {
     window.removeEventListener("pointerdown", unlockCompletionSound, true);
     window.removeEventListener("keydown", unlockCompletionSound, true);
   });
-  startActionSounds();
+  void startSoundCenter();
   // As with `notify`: a muted server, a server set to nothing, or a muted agent plays no cue.
-  const playAgentEventSound = createAgentEventSounds((agentId) => {
-    const hostId = workspace.state.host?.hostId;
-    if (!hostId) return false;
-    const { muted, level } = untrack(() => notifications.state(hostId));
-    return (
-      !muted &&
-      level !== "nothing" &&
-      untrack(() => workspace.state.agents).some((agent) => agent.id === agentId && agent.notifications)
-    );
-  });
+  const playAgentEventSound = createAgentEventSounds(
+    (agentId) => {
+      const hostId = workspace.state.host?.hostId;
+      if (!hostId) return false;
+      const { muted, level } = untrack(() => notifications.state(hostId));
+      return (
+        !muted &&
+        level !== "nothing" &&
+        untrack(() => workspace.state.agents).some((agent) => agent.id === agentId && agent.notifications)
+      );
+    },
+    (agentId) => untrack(() => workspace.state.agents).find((agent) => agent.id === agentId)?.name ?? null,
+  );
   onCleanup(watchWebTabFocus());
   onCleanup(watchWebNotificationClicks());
   onCleanup(workspace.onHostNotice(notify));

@@ -3,6 +3,7 @@ import type { VoicePanelPhase } from "@openbot/ui/features/conversation/VoicePan
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore, onCleanup } from "solid-js";
 import { desktopAnalytics } from "../../../analytics";
+import { setSoundsQuietFor, soundQuietKey } from "../../../sound-center";
 import { encodePcm16, recordingToSamples, recordingToWav } from "../../../voice-recording";
 import { SPEECH_LEVEL_COUNT, speechReading } from "../../speech/speech-playback";
 import { speechPort } from "../../speech/speech-port";
@@ -114,6 +115,10 @@ interface Turn {
  */
 export function createVoiceConversation(deps: VoiceConversationDeps) {
   const target = { agentId: deps.agentId, serverId: deps.serverId };
+  // The sounds that are not about the conversation stay quiet while it lasts.
+  const quiet = soundQuietKey("voice-conversation");
+  setSoundsQuietFor(quiet, true);
+  onCleanup(() => setSoundsQuietFor(quiet, false));
   const [state, setState] = createStore<VoiceConversationState>({
     phase: "starting",
     muted: false,

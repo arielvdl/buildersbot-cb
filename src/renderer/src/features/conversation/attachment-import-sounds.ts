@@ -1,4 +1,4 @@
-import { playActionSound } from "../../action-sounds";
+import { playSound } from "../../sound-center";
 
 /** An import that ends before this time plays only its result, so a fast paste does not play two cues. */
 const SLOW_IMPORT_MS = 400;
@@ -21,13 +21,13 @@ export function createAttachmentImportSounds() {
         requestId,
         setTimeout(() => {
           slowCues.delete(requestId);
-          playActionSound("loading", { emphasis: "subtle" });
+          playSound("interface.actions", { cue: "loading", emphasis: "subtle" });
         }, SLOW_IMPORT_MS),
       );
     },
     finished(requestId: string, outcome: "success" | "error") {
       cancel(requestId);
-      playActionSound(outcome, outcome === "success" ? { emphasis: "subtle" } : undefined);
+      playSound("interface.actions", outcome === "success" ? { cue: outcome, emphasis: "subtle" } : { cue: outcome });
     },
     cancel,
     dispose() {

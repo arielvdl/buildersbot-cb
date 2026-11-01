@@ -11,6 +11,7 @@ import type { AgentActivityLabel } from "@openbot/ui/features/conversation/Agent
 import { currentText } from "@openbot/ui/text";
 import type { UserErrorDetails } from "@openbot/user-errors";
 import { createEffect, createSignal, createStore, onCleanup } from "solid-js";
+import { setSoundsQuietFor, soundQuietKey } from "../../sound-center";
 import type { ChatSearchMatch } from "./chat-search";
 import {
   appendPluginPrompt,
@@ -225,6 +226,12 @@ export function createStableConversationState(
   const [voicePhase, setVoicePhase] = createSignal<"idle" | "preparing" | "requesting" | "recording" | "transcribing">(
     "idle",
   );
+  // While the microphone records, the sounds that are not about the recording stay quiet.
+  const dictationQuiet = soundQuietKey("dictation");
+  createEffect(voicePhase, (phase) =>
+    setSoundsQuietFor(dictationQuiet, phase === "requesting" || phase === "recording"),
+  );
+  onCleanup(() => setSoundsQuietFor(dictationQuiet, false));
   const [voiceModelProgress, setVoiceModelProgress] = createSignal<number | null>(null);
   const [voiceElapsedSeconds, setVoiceElapsedSeconds] = createSignal(0);
   const [voiceLiveTranscript, setVoiceLiveTranscript] = createSignal<VoiceLiveTranscript | null>(null);

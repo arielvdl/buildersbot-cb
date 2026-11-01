@@ -11,6 +11,7 @@ import type {
   McpSignInApp,
   McpSignInAppState,
   ServerNotificationLevel,
+  SoundCenterState,
   StartRetrySettings,
   TaskWatchPreference,
 } from "@openbot/contracts/ipc";
@@ -228,6 +229,7 @@ import { mockRoutineFlows } from "./mock-routine-flows";
 import { type MockRoutineResultsOptions, mockRoutineResults } from "./mock-routine-results";
 import { applySidebarLayoutAction } from "./mock-sidebar-layout";
 import { createMockSkills, type MockSkillsOptions } from "./mock-skills";
+import { createMockSounds } from "./mock-sounds";
 import { createMockStorage } from "./mock-storage";
 import { clone, type Listener, type MockRuntime, matchesQuery } from "./mock-support";
 import { createMockTeam, type MockTeamOptions } from "./mock-team";
@@ -246,6 +248,8 @@ export interface MockBuildersBotOptions
     MockHostUpdateOptions,
     MockRoutineResultsOptions {
   appInfo?: AppInfo;
+  /** The sound center as main would read it. Not saved by default, so the window moves old choices in. */
+  sounds?: Partial<SoundCenterState>;
   analyticsPreference?: AnalyticsPreference;
   /** The first value of the first-run analytics box. Clear, as in a region that asks for consent. */
   analyticsDefault?: boolean;
@@ -3291,6 +3295,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       test: async () => undefined,
       openSettings: async () => undefined,
       onOpened: () => () => undefined,
+      ...createMockSounds(options.sounds),
     },
     maintenance: {
       exportData: async () => ({ saved: true }),

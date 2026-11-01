@@ -257,6 +257,106 @@ export const messages = {
   "settings.soundTheme.bubble": "Borbulhante",
   "settings.soundTheme.press": "Teclado",
   "settings.soundTheme.play": "Tocar {name}",
+  "settings.sounds.title": "Sons",
+  "settings.sounds.description":
+    "Todos os sons do Builders Bot neste computador: ligue ou desligue cada um, escolha o som e o volume, ou ouça.",
+  "settings.sounds.muteAll.title": "Silenciar tudo",
+  "settings.sounds.muteAll.description":
+    "Nenhum som do app toca, e as notificações do macOS do Builders Bot ficam sem som. As escolhas abaixo ficam guardadas.",
+  "settings.sounds.group.agents": "Agentes",
+  "settings.sounds.group.approvals": "Aprovações e perguntas",
+  "settings.sounds.group.guard": "Guarda",
+  "settings.sounds.group.taskReviewer": "Fiscal",
+  "settings.sounds.group.tasksAndRoutines": "Tarefas e rotinas",
+  "settings.sounds.group.messages": "Mensagens",
+  "settings.sounds.group.voice": "Voz",
+  "settings.sounds.group.interface": "Interface",
+  "settings.sounds.group.system": "Sistema",
+  "settings.sounds.group.remote": "Remoto",
+  "settings.sounds.event.replyFinished.title": "Resposta para você concluída",
+  "settings.sounds.event.replyFinished.description":
+    "Um agente terminou a resposta a uma mensagem que você enviou no chat dele.",
+  "settings.sounds.event.runFailed.title": "Execução do agente falhou",
+  "settings.sounds.event.runFailed.description": "Uma execução que você iniciou parou com erro.",
+  "settings.sounds.event.approvalWaiting.title": "Pergunta ou aprovação esperando",
+  "settings.sounds.event.approvalWaiting.description":
+    "Um agente faz uma pergunta, pede uma aprovação ou pede que você assuma o navegador.",
+  "settings.sounds.event.guardQuestion.title": "Pergunta do Guarda",
+  "settings.sounds.event.guardQuestion.description":
+    "O Guarda parou uma ação e pergunta a você. A sirene do Guarda é só imagem: não faz som.",
+  "settings.sounds.event.reviewerResumedWork.title": "Trabalho que o Fiscal retoma",
+  "settings.sounds.event.reviewerResumedWork.description":
+    "O Fiscal e o Retomar sozinho não têm som próprio. Cada tarefa que eles iniciam de novo toca “Trabalho de canal e equipe concluído” quando termina.",
+  "settings.sounds.event.workFinished.title": "Trabalho de canal e equipe concluído",
+  "settings.sounds.event.workFinished.description":
+    "Um turno terminou em um canal, em um fio de tarefa ou em um fio paralelo, ou um colega de equipe o iniciou. Com muitos agentes trabalhando, ele pode tocar com frequência.",
+  "settings.sounds.event.routineFinished.title": "Rotina concluída",
+  "settings.sounds.event.routineFinished.description":
+    "Uma execução de rotina publicou um resultado. Uma execução sem novidade fica em silêncio.",
+  "settings.sounds.event.workflowNotification.title": "Notificação de fluxo",
+  "settings.sounds.event.workflowNotification.description":
+    "Uma etapa de fluxo espera por você, ou um fluxo tem um resultado.",
+  "settings.sounds.event.agentNotification.title": "Notificação de agente",
+  "settings.sounds.event.agentNotification.description":
+    "A notificação do macOS de resposta, pergunta, aprovação ou falha, quando o Builders Bot não está na frente.",
+  "settings.sounds.event.channelReplyNotification.title": "Notificação de resposta em canal",
+  "settings.sounds.event.channelReplyNotification.description":
+    "A notificação do macOS de uma nova resposta em um canal, quando o Builders Bot não está na frente.",
+  "settings.sounds.event.voiceLimitWarning.title": "Gravação vai terminar",
+  "settings.sounds.event.voiceLimitWarning.description":
+    "Dois bipes curtos antes de um ditado chegar ao limite de tempo. Toca também enquanto você dita.",
+  "settings.sounds.event.voiceLimitStop.title": "Gravação parou no limite",
+  "settings.sounds.event.voiceLimitStop.description": "Um ditado chegou ao limite de tempo e parou.",
+  "settings.sounds.event.readAloud.title": "Respostas lidas em voz alta",
+  "settings.sounds.event.readAloud.description":
+    "Uma voz lê a resposta a uma mensagem ditada ou a uma conversa por voz. Ligue ou desligue na página Voz.",
+  "settings.sounds.event.interfaceControls.title": "Sons dos controles",
+  "settings.sounds.event.interfaceControls.description":
+    "Sons curtos de botões, menus, interruptores e digitação. Eles usam só um tema de som.",
+  "settings.sounds.event.interfaceActions.title": "Resultado das ações",
+  "settings.sounds.event.interfaceActions.description":
+    "O resultado de algo que você fez: salvo, falhou, arquivo anexado, mensagem que não foi enviada, outro servidor.",
+  "settings.sounds.event.usageLimitNotification.title": "Notificação de limite de uso",
+  "settings.sounds.event.usageLimitNotification.description":
+    "A notificação do macOS quando uma conta chega ao limite de uso.",
+  "settings.sounds.event.machineAlertNotification.title": "Notificação de alerta da máquina",
+  "settings.sounds.event.machineAlertNotification.description":
+    "A notificação do macOS quando o disco, a memória ou a CPU de um servidor passa do nível de alerta. Ela aparece também com o app na frente.",
+  "settings.sounds.event.systemNotification.title": "Outras notificações do app",
+  "settings.sounds.event.systemNotification.description":
+    "A primeira notificação, a notificação de teste e os avisos de tampa fechada.",
+  "settings.sounds.event.remotePhone.title": "iPhone e navegador",
+  "settings.sounds.event.remotePhone.description":
+    "Estas escolhas valem para este computador. O app do iPhone tem o próprio som de notificação, e o cliente no navegador guarda os próprios sons.",
+  "settings.sounds.enabled": "Tocar {name}",
+  "settings.sounds.soundFor": "Som de {name}",
+  "settings.sounds.volumeFor": "Volume",
+  "settings.sounds.preview": "Ouvir {name}",
+  "settings.sounds.reset": "Restaurar padrão",
+  "settings.sounds.resetFor": "Restaurar o padrão de {name}",
+  "settings.sounds.choice.none": "Nenhum",
+  "settings.sounds.choice.system": "Som do sistema",
+  "settings.sounds.choice.macosDefault": "Padrão do macOS",
+  "settings.sounds.choice.addFile": "Adicionar arquivo de som…",
+  "settings.sounds.volumeByMacos": "O macOS define o volume das notificações.",
+  "settings.sounds.voicePage": "Na página Voz",
+  "settings.sounds.saveFailed": "O Builders Bot não conseguiu salvar o som.",
+  "settings.sounds.previewFailed": "O Builders Bot não conseguiu tocar o som.",
+  "settings.sounds.addFailed": "O Builders Bot não conseguiu adicionar o arquivo de som.",
+  "settings.sounds.macos.title": "Gerenciado pelo macOS",
+  "settings.sounds.macos.description":
+    "O macOS ainda pode deixar as notificações do Builders Bot sem som: a página Notificações tem um interruptor de som para cada app, e o Foco pode silenciá-las.",
+  "settings.sounds.macos.open": "Abrir ajustes do macOS",
+  "settings.sounds.recent.title": "Últimos sons",
+  "settings.sounds.recent.description":
+    "Os últimos {limit} sons neste computador, e os sons que as escolhas acima silenciaram. Use para descobrir um som que você não conhece.",
+  "settings.sounds.recent.empty": "Nenhum som tocou desde que o Builders Bot abriu.",
+  "settings.sounds.recent.played": "Tocou",
+  "settings.sounds.recent.eventOff": "Silenciado: desligado",
+  "settings.sounds.recent.muteAll": "Silenciado: tudo silenciado",
+  "settings.sounds.recent.speaking": "Silenciado: você estava falando",
+  "settings.sounds.recent.failed": "Não tocou",
+  "settings.sounds.recent.who": "De {who}",
   "settings.notch.title": "Comportamento",
   "settings.notch.show.title": "Mostrar status no recorte da tela do MacBook",
   "settings.notch.show.description":
@@ -1038,6 +1138,8 @@ export const messages = {
   "settings.search.keywords.speechVoice": "voz, locutor, voz da leitura, respostas faladas",
   "settings.search.keywords.storage": "armazenamento, disco, espaço, arquivos, limpeza",
   "settings.search.keywords.taskSound": "som, aviso sonoro, tarefa concluída, terminou",
+  "settings.search.keywords.sounds":
+    "sons, áudio, silenciar, mudo, volume, aviso sonoro, bipe, sirene, Guarda, Fiscal, som de notificação, últimos sons",
   "settings.search.keywords.load":
     "carga, trabalho parado, tarefas paradas, travadas, falhadas, pausadas, órfãs, rotina apagada, em massa, remover, retomar, reatribuir, modelo, rodando",
   "settings.search.keywords.taskReviewer":

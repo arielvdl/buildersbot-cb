@@ -185,3 +185,13 @@
 .voice-server-dialog .voice-server-line .settings-modal-select {
   width: 100%;
 }
+
+/* Settings › Notifications › Sounds: the volume of a sound sits under its description. */
+.settings-sound-volume {
+  margin-top: var(--openbot-space-2);
+}
+
+.settings-sound-row .ui-item-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
