@@ -561,8 +561,8 @@ The Builders Bot extension will replace the Playwright extension and the broker:
 tabs of the person's own Chrome, in one tab group for each project, through `chrome.debugger`, with
 no TCP port and no token. The channel is Native Messaging to a small signed host in the app bundle,
 then a private Unix socket to the app, encrypted with keys that the two sides pin when they pair.
-Phase 1 adds only the contracts and the seams. No extension, host or bridge exists yet, and no
-behavior of the Builders Bot browser or of the broker changes, except the refusal below.
+Phase 1 adds the contracts and the seams, and no behavior of the Builders Bot browser or of the
+broker changes, except the refusal below. Phase 2 adds the native host and the channel (below).
 
 | Part | Where | What it does |
 | --- | --- | --- |
@@ -585,6 +585,46 @@ the server.
 projection, the floor, the group rules and `AppBehaviorService` on a real preference file, and
 compares each CDP method that `src/backend/browser-*.ts` sends with the allowlist. It writes
 `.buildersbot-build/chrome-bridge-contracts-smoke/report.json`.
+
+### Native host, channel and pairing
+
+Phase 2 adds the path between the extension and the app. The app does not start it yet: the pairing
+card, Settings and `application-services.ts` come with Phase 3.
+
+| Part | Where | What it does |
+| --- | --- | --- |
+| Native host | `native/chrome-host/main.swift`, `scripts/build-chrome-host.ts` | Swift, CoreFoundation and Security only (about 110 KB). Chrome starts it; it copies whole frames between Chrome (stdin and stdout) and the app's socket and reads no message. Each build compiles its channel in: the one extension origin it accepts (`argv[1]`, else exit 2), its socket, and the code requirement of the app. A store build checks the app on the socket (`LOCAL_PEERTOKEN`, team `ZTRDTUL87R`, `app.buildersbot.desktop`) before it passes a byte. It holds at most one frame for each direction and reads one side only when the other side took the last frame. |
+| Host frames | `HostFrameGate` (`channel.ts`) | The host sends `hello` once, first, then `status: online` or `offline` when the app connection changes. A frame from the app must start as `{"k":"` or `{"v":1,`, so the app side of the socket cannot write a host frame. |
+| Socket | `bridgeSocket`, `preparePrivateFolder` (`bridge-paths.ts`) | `~/Library/Application Support/Builders Bot/cb/b.sock` (`b-dev.sock` for dev), in a folder of mode 0700; E2E uses `<per-user temporary folder>/bb-e2e/b-e2e.sock`. Both sides compute the path, never from the environment. The host does not connect through a folder that others can open. |
+| Peer check in the app | `native/chrome-peer/peer.c`, `bridge-peer.ts` | A Node-API addon with one function: the audit token of the peer and `SecCodeCheckValidity` against the host requirement. The server accepts with `pauseOnConnect`, so a process that fails is closed before the app reads a byte. |
+| Channel | `packages/contracts/src/chrome-bridge/channel.ts` | One WebCrypto implementation for both sides: the handshake with a commitment, three ECDH values, HKDF, key confirmation, the comparison words (BIP-39 Portuguese list, `pairing-words.ts`), and sealed frames with parts. The transcript is the canonical JSON of the decoded messages, because Chrome writes the extension's messages with sorted keys. |
+| App service | `ChromeBridgeService` (`chrome-bridge-service.ts`), `HostConnection` (`host-connection.ts`) | One connection for each Chrome profile, up to 8. The pairing rules of DESIGN §3: a window of 2 minutes that the person opens, used once, cancelled by a second candidate; outside it, at most 3 cards an hour and never two at once, else `reject{busy}`; a key that the person just refused gets `busy` for 10 minutes. A connection told `busy` waits idle; opening a window closes it, so its host reconnects and the extension tries again. Requests: at most 64 in flight and 16 for one key (a tab), up to 1024 waiting in order, a deadline from the moment the frames go to the socket. |
+| Sealed state | `BridgeStateStore` (`bridge-state.ts`) | `app-key.bin` (the app key and a state key, sealed by the key store) and `bridge-state-v1.bin` (pins, revocations, refusals; AES-256-GCM). A file that does not open reads as no pairing. |
+| Manifest | `native-host-manifests.ts`, `ChromeBridgeService.connectChrome` | Only the person's "Connect Chrome" writes it, and opens the pairing window; a change to it during the window cancels the window, and a changed manifest is written back at each start. Written whole, mode 0600, never through a link and never with a translocated path. A build that is not packaged never writes into a real browser's folder unless the owner sets `OPENBOT_CHROME_BRIDGE_REAL_CHROME=1`; tests write only into `<test profile>/NativeMessagingHosts`. |
+
+Pairing takes two taps and nothing typed: the person taps, in the app, the words that Chrome shows,
+and, on the extension's welcome page, the words that the app shows. Each side shows three options
+with the right one at a random place. The app pins the extension key only after its own right
+choice and the extension's `pair.chrome-ok`; the extension makes its pin final at `pair.done`.
+
+Rules that are easy to break:
+
+- Hash the canonical form of decoded handshake messages, never the bytes received.
+- Build `hello` before reading `welcome`: the commitment is what makes a person in the middle unable
+  to choose values that match the words.
+- The host never parses JSON. Do not add a field to its own frames: the extension's decoder is closed.
+- A connection told `busy` must stay open and idle. Closing it at once makes the host reconnect and
+  the extension try again in a loop.
+
+`bun scripts/chrome-host-framing-fuzz.ts` drives the real host binary with a stand-in app and
+writes `.buildersbot-build/chrome-extension/host-framing-fuzz.json`. `bun scripts/chrome-bridge-protocol-smoke.ts`
+runs the channel vectors, the real host between the app service and a stand-in Chrome, and then
+Chrome for Testing with a stub extension and a temporary profile (`--skip-chrome` leaves it out). It
+writes `.buildersbot-build/chrome-extension/protocol-smoke.json`.
+
+Not verified yet: a host signed with the team's Developer ID (`--sign-identity`) and the app's
+packaging of the host and the addon (`electron-builder.yml`); `safeStorage` as the key store (the
+smoke uses a stand-in in its own process); the pairing card in the app.
 
 ## Secure browser authentication
 
