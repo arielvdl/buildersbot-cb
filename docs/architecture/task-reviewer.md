@@ -150,6 +150,36 @@ uses a command that the person also has:
 
 ## What it shows
 
+The reviewer has two places in the window. Both read and change the same preference through the same
+calls (`app:get-load`, `app:set-task-watch`, `app:set-auto-recovery`), from one store: `LoadProvider`
+(`src/renderer/src/features/load/load-context.tsx`) holds the one load controller of the window, which
+the ring of the rail, the Team view and Settings share. A change in one place shows in the other at
+once. The rail shows the ring only while this computer's server is active; the Settings page asks the
+store to read the load while the page is on screen, also when a joined server is active.
+
+### Settings, Task reviewer
+
+Settings has a page of its own, "Task reviewer" ("Fiscal" in Portuguese), after the Guard
+(`SettingsTaskReviewerTab.tsx`). The settings search finds it by "Fiscal", "Revisor", "Task
+reviewer" and related words, in the interface language and in English. The page shows:
+
+- the switch, and the state now: off, on but waiting for "Resume by itself", or active. When it
+  waits, a button turns "Resume by itself" on;
+- the threshold, "consider it stopped after N minutes", as a list of values from 5 to 120. A value
+  that the load panel set and the list does not have is added to the list;
+- the model: the review model of the Guard, by name, and whether it can run now (`modelReady`), with
+  a button to the Guard page;
+- the two switches of the load panel that it follows, "Resume by itself" and "Give it to another
+  agent if it keeps failing", with the interval of "Resume by itself", and a button that opens the
+  load panel (only while the rail shows the ring);
+- its last actions, with the time and who decided (the model or the local rules);
+- what it does and what it does not do, in plain words.
+
+The Guard page links to this page, and this page links to the Guard page. The load panel has a
+button "Task reviewer settings" under the reviewer's switch.
+
+### Load panel
+
 In the load panel, in the section of "Resume by itself":
 
 - the switch "Task reviewer (experimental)", with a line that says it uses the model of the Guard,
@@ -212,5 +242,10 @@ carries `taskWatch` (the preference, `active`, `modelReady` and `recent`).
   no running task points to that turn, so the reviewer does not see it. The Stop of the running row
   in the panel ends it.
 - The reviewer watches channel tasks only, not the chat of an agent.
+- The reviewer runs in the host process of each server. The window sets the reviewer of this computer
+  only. A joined server, or a second server on this computer, has its own reviewer and its own file,
+  and no Team API route reads or sets them. While the window shows such a server, the Settings page
+  says that it changes this computer only. Setting it from a client needs a new admin capability of
+  the Team API.
 - "Resume by itself" still starts a task again that the person stopped. That is its own behavior,
   and this change does not alter it.

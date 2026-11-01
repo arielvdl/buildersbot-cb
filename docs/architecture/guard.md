@@ -180,6 +180,22 @@ The window reads and sets it through the `guard` IPC group: `guard:get-state` an
 `guard:set-preference`. The state also says whether the reviewer can run now (`judgeReady`), such as
 Cultura Builder with no sign-in. The page is `src/renderer/src/features/settings/SettingsGuardTab.tsx`.
 
+The page, Settings, Guard ("Guarda" in Portuguese), shows:
+
+- the level and the review model, with a note when the Guard uses only the local check;
+- when the Guard asks the person: the card, the 10 minutes that an "allow" holds, and the questions
+  about a secret that only the owner answers;
+- what leaves the computer, and what the log keeps. The app keeps no list of past decisions: the log
+  (`guard`) is the only record, and it holds no content;
+- what the Guard checks now;
+- links to the [task reviewer](task-reviewer.md), which asks the same review model, and to the load
+  panel of the rail.
+
+The Guard runs in the host process of each server, and the page sets the Guard of this computer only.
+A joined server, or a second server on this computer, has its own Guard and its own file, and no Team
+API route reads or sets them. While the window shows such a server, the page says that it changes this
+computer only. Setting it from a client needs a new admin capability of the Team API.
+
 ## The local check at Light
 
 Light is for prompt injection and plain leaks. It must not stop or nag ordinary work: that matters
