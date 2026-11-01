@@ -53,6 +53,7 @@ import {
   createSignal,
   createUniqueId,
   For,
+  flush,
   onCleanup,
   onSettled,
   Show,
@@ -215,6 +216,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
   const [open, setOpen] = createSignal(untrack(() => props.defaultOpen === true));
   const [search, setSearch] = createSignal("");
   let trigger: HTMLButtonElement | undefined;
+  let othersToggle: HTMLButtonElement | undefined;
   const providerButtons = new Map<RailKey, HTMLButtonElement>();
   let root: HTMLDivElement | undefined;
   let popover: HTMLElement | undefined;
@@ -436,13 +438,23 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
     },
   );
 
-  // The form scrolls to show the open section, and again when the section grows, as when the
-  // provider check answers. A section taller than the form starts at the top of the form, and a
-  // shorter one ends above its footer.
+  // The form scrolls to show the section when it opens. A section taller than the form starts at
+  // the top of the form, and a shorter one ends above its footer. When the section grows, as when
+  // the provider check answers, the form scrolls again only while the row or the focus in the
+  // section is in sight: a person who went on to the next fields stays there.
   createEffect(section, (element) => {
     if (!element) return;
+    let height: number | undefined;
     const observer = new ResizeObserver(() => {
-      if (root) revealInScrollParent(root, prefersReducedMotion() ? "auto" : "smooth");
+      const opened = height === undefined;
+      const grew = element.offsetHeight > (height ?? 0);
+      height = element.offsetHeight;
+      const focused = document.activeElement;
+      const focusInSection = focused instanceof HTMLElement && element.contains(focused) ? focused : undefined;
+      if (!root || !(opened || (grew && (shownInScrollParent(trigger) || shownInScrollParent(focusInSection))))) {
+        return;
+      }
+      revealInScrollParent(root, prefersReducedMotion() ? "auto" : "smooth");
     });
     observer.observe(element);
     return () => observer.disconnect();
@@ -1140,6 +1152,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
     <Show when={otherKeys().length > 0}>
       <div class="provider-model-others">
         <Button
+          ref={othersToggle}
           type="button"
           variant="unstyled"
           class="provider-model-others-toggle"
@@ -1156,8 +1169,44 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
             <For each={otherKeys()}>
               {(key) => {
                 const entry = createEntryRuntime(key);
+                let row: HTMLLIElement | undefined;
+                let focused = false;
+                // A provider that gets ready leaves this list, and its row takes the focus with it.
+                // The toggle of the list (or the row, when the list goes too) holds the focus at
+                // once: focus that falls to the page goes to the first field of a dialog. Then the
+                // new tab of the provider is chosen and takes the focus. The tab list gives the
+                // focus to its chosen tab, so the tab is chosen first.
+                onCleanup(() => {
+                  if (!focused && !row?.contains(document.activeElement)) return;
+                  const holder = untrack(otherKeys).length > 0 && othersToggle?.isConnected ? othersToggle : trigger;
+                  holder?.focus({ preventScroll: true });
+                  requestAnimationFrame(() => {
+                    const tab = providerButtons.get(key);
+                    const active = document.activeElement;
+                    if (!tab?.isConnected || (active !== holder && active !== document.body)) return;
+                    selectRailProvider(key);
+                    flush();
+                    tab.focus({ preventScroll: true });
+                  });
+                });
                 return (
-                  <li class="provider-model-other">
+                  <li
+                    ref={row}
+                    class="provider-model-other"
+                    onFocusIn={() => {
+                      focused = true;
+                    }}
+                    onFocusOut={(event) => {
+                      const next = event.relatedTarget;
+                      if (next instanceof Node && row?.contains(next)) return;
+                      // Focus that goes to no element can be the row leaving the page. Only a button
+                      // that is still on the page lets the focus go.
+                      const button = event.target;
+                      queueMicrotask(() => {
+                        if (!(button instanceof Node) || button.isConnected) focused = false;
+                      });
+                    }}
+                  >
                     <ProviderMark provider={entry.provider} />
                     <span class="provider-model-other-text">
                       <span class="provider-model-other-name">{entryName(key)}</span>
@@ -1289,14 +1338,10 @@ function pickerModelKey(model: PickerModel): string {
  * dialog, which then moves its header and footer out of place.
  */
 function revealInScrollParent(element: HTMLElement, behavior: ScrollBehavior): void {
-  let scroller = element.parentElement;
-  while (scroller && !/^(auto|scroll)$/u.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+  const scroller = scrollParent(element);
   if (!scroller) return;
-  const port = scroller.getBoundingClientRect();
-  const padding = getComputedStyle(scroller);
+  const { top, bottom } = scrollPort(scroller);
   const margin = getComputedStyle(element);
-  const top = port.top + (Number.parseFloat(padding.scrollPaddingTop) || 0);
-  const bottom = port.bottom - (Number.parseFloat(padding.scrollPaddingBottom) || 0);
   const box = element.getBoundingClientRect();
   const start = box.top - (Number.parseFloat(margin.scrollMarginTop) || 0);
   const end = box.bottom + (Number.parseFloat(margin.scrollMarginBottom) || 0);
@@ -1306,6 +1351,32 @@ function revealInScrollParent(element: HTMLElement, behavior: ScrollBehavior): v
   if (start < top && end <= bottom) delta = larger ? end - bottom : start - top;
   else if (end > bottom && start >= top) delta = larger ? start - top : end - bottom;
   if (delta) scroller.scrollBy({ top: delta, behavior });
+}
+
+/** The nearest ancestor that the user can scroll. */
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  let scroller = element.parentElement;
+  while (scroller && !/^(auto|scroll)$/u.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+  return scroller;
+}
+
+/** The part of a scroll box that shows its content: the box less its scroll padding, as a sticky footer. */
+function scrollPort(scroller: HTMLElement): { top: number; bottom: number } {
+  const port = scroller.getBoundingClientRect();
+  const padding = getComputedStyle(scroller);
+  return {
+    top: port.top + (Number.parseFloat(padding.scrollPaddingTop) || 0),
+    bottom: port.bottom - (Number.parseFloat(padding.scrollPaddingBottom) || 0),
+  };
+}
+
+/** Whether a part of `element` shows in its scroll box. Outside a scroll box, it shows in the window. */
+function shownInScrollParent(element: HTMLElement | undefined): boolean {
+  if (!element) return false;
+  const scroller = scrollParent(element);
+  const { top, bottom } = scroller ? scrollPort(scroller) : { top: 0, bottom: window.innerHeight };
+  const box = element.getBoundingClientRect();
+  return box.bottom > top && box.top < bottom;
 }
 
 /** The provider tab of a rail entry. */
