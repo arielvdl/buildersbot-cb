@@ -578,6 +578,11 @@ export interface ApplicationServiceContext {
   prepareForUpdateInstall: () => Promise<void>;
   /** True once a quit starts, also before this function returns. See `CuaDriverRuntimeOptions.quitting`. */
   quitting: () => boolean;
+  /**
+   * Quits Builders Bot. Every quit that the app asks for itself goes through it: a local server on macOS
+   * passes on to the app only a quit that it did not ask for itself.
+   */
+  quit: () => void;
 }
 
 /** Everything the entry point wires up, registers IPC handlers against, and shuts down. */
@@ -977,6 +982,7 @@ export async function createApplicationServices({
   forwardWorkflowNotice,
   prepareForUpdateInstall,
   quitting,
+  quit,
 }: ApplicationServiceContext): Promise<ApplicationServices> {
   // First, so the provider lines of the whole startup reach the file.
   teardown.push(
@@ -3061,6 +3067,7 @@ export async function createApplicationServices({
             warn: (message, detail) => logger.warn(message, detail === undefined ? "" : toLogValue(detail)),
           },
           platform: process.platform,
+          quitRequested: quit,
           writeEgressDefault: (userData) => egressDefault.writeToNewServer(userData),
         });
   if (localServers) {
@@ -3430,7 +3437,7 @@ export async function createApplicationServices({
       // A development build only quits: its supervisor stops the stack, and a relaunched Electron
       // would run outside it with no renderer server.
       if (app.isPackaged) app.relaunch();
-      app.quit();
+      quit();
     },
     log: (message) => logger.info(message),
   });

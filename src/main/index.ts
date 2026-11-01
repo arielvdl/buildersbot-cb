@@ -114,7 +114,7 @@ import { stopAppImageCrashpadHandlerAtExit } from "./linux-appimage-crashpad";
 import { installLinuxDesktopEntry } from "./linux-desktop-entry";
 import { configureLinuxGpu } from "./linux-gpu-mode";
 import { configureLinuxPasswordStore } from "./linux-password-store";
-import { takeLocalServerChildEnvironment } from "./local-server-child";
+import { LOCAL_SERVER_QUIT_REQUEST, takeLocalServerChildEnvironment } from "./local-server-child";
 import { MacHapticFeedback } from "./mac-haptic-feedback";
 import {
   configureApplicationMenu,
@@ -272,7 +272,7 @@ configureLinuxGpu({
   server: hostedServer !== null || serverMode !== null,
 });
 const appVariant = readAppVariant(process.env.OPENBOT_APP_VARIANT, app.isPackaged);
-if (!app.isPackaged) guardDevelopmentOutput([process.stdout, process.stderr], () => app.quit());
+if (!app.isPackaged) guardDevelopmentOutput([process.stdout, process.stderr], () => quitApplication());
 const appIconPath = resolveAppIconPath({
   variant: appVariant,
   platform: process.platform,
@@ -340,6 +340,8 @@ let isQuitting = false;
 let shutdownStarted = false;
 /** Set when the teardown of `prepareForShutdown` has ended. Until then `before-quit` holds every quit. */
 let shutdownFinished = false;
+/** Set by `quitApplication`: this process asked for its own quit. */
+let ownQuitRequested = false;
 let systemSessionEnding = false;
 let systemSessionEndFlushStarted = false;
 let relaunchRequested = false;
@@ -374,7 +376,7 @@ if (!app.isPackaged || hostedServer || serverMode || localServerChild) {
     recordExit("signal");
     // Before `app.quit()`: the same signal can stop the Computer Use driver first.
     quitStarted = true;
-    app.quit();
+    quitApplication();
   };
   process.once("SIGINT", quitAfterSignal);
   process.once("SIGTERM", quitAfterSignal);
@@ -521,7 +523,7 @@ function attachQuitOnMainWindowClose(window: BrowserWindow): void {
     recordExit("main_window_closed");
     // `quit`, not a teardown of its own: `before-quit` below is what Builders Bot shuts down through,
     // and it holds a second request until the first one has ended.
-    app.quit();
+    quitApplication();
   });
 }
 
@@ -1207,7 +1209,7 @@ if (!hasSingleInstanceLock) {
       // so until this call its Dock tile shows the Electron logo.
       if (process.platform === "darwin" && !localServerChild) app.dock?.setIcon(appIconPath);
       if (!(await runCauseEffect(hostAllowsTenantLaunch()))) {
-        app.quit();
+        quitApplication();
         return;
       }
       if (!localServerChild) await presentApplication();
@@ -1253,6 +1255,7 @@ if (!hasSingleInstanceLock) {
         forwardWorkflowNotice,
         prepareForUpdateInstall,
         quitting: () => quitStarted,
+        quit: quitApplication,
       });
       services = built;
       performance.mark("openbot:services-built");
@@ -1397,7 +1400,7 @@ if (!hasSingleInstanceLock) {
       // Each tenant quits only itself. The host verifies process exit independently.
       built.hostUpdateCoordinator.setStopHandler(async () => {
         await prepareForUpdateInstall();
-        app.quit();
+        quitApplication();
       });
       // Before the renderer loads: the trust boundary and every protocol it fetches through have to
       // be in place before the first request can arrive.
@@ -1423,7 +1426,7 @@ if (!hasSingleInstanceLock) {
         icon: appIconColorImage ?? nativeImage.createFromPath(appIconPath),
         translate: language.translate,
         open: reopenMainWindow,
-        quit: () => app.quit(),
+        quit: quitApplication,
       });
       const tray = backgroundTray;
       tray.sync(appBehavior.keepRunningInBackground);
@@ -1665,19 +1668,56 @@ if (!hasSingleInstanceLock) {
           translate("startup.failedBody", { message: localizeSourceText(message, locale) }),
         );
       }
-      app.quit();
+      quitApplication();
     });
 }
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") quitApplication();
 });
+
+/**
+ * Every quit that Builders Bot asks for itself goes through this, so that a local server can tell it
+ * from a quit that macOS delivered to it (`passQuitToApp`).
+ */
+function quitApplication(): void {
+  ownQuitRequested = true;
+  app.quit();
+}
+
+/**
+ * A local server runs from the bundle of the app, so macOS knows it by the bundle identifier of the
+ * app: a quit Apple Event that names Builders Bot, such as `tell application "Builders Bot" to quit`, can
+ * reach a local server and not the app. The server used to quit, its supervisor started it again five
+ * seconds later, and the app kept running. A quit that a local server on macOS did not ask for, and
+ * that the app did not ask for by closing its input, now goes to the app, and this server keeps
+ * running until the app stops it. False when the request cannot go to the app: this server quits.
+ */
+function passQuitToApp(): boolean {
+  if (!localServerChild || process.platform !== "darwin") return false;
+  if (ownQuitRequested || quitStarted || shutdownStarted || !process.stdout.writable) return false;
+  try {
+    process.stdout.write(`${LOCAL_SERVER_QUIT_REQUEST}\n`, (error) => {
+      if (!error) return;
+      logger.warn("The quit request did not reach Builders Bot, so this server quits.", toLogValue(error));
+      quitApplication();
+    });
+  } catch {
+    return false;
+  }
+  logger.info("A quit request for Builders Bot reached this server on this computer. It went to the app.");
+  return true;
+}
 
 app.on("before-quit", (event) => {
   // Any other quit is recorded by `prepareForShutdown`.
   if (systemSessionEnding) recordExit("session_end");
   // A quit after a Windows session-end query does not run `prepareForShutdown`.
   hideExceptionErrorBox();
+  if (!systemSessionEnding && passQuitToApp()) {
+    event.preventDefault();
+    return;
+  }
   isQuitting = true;
   quitStarted = true;
   if (systemSessionEnding) {
@@ -1688,12 +1728,13 @@ app.on("before-quit", (event) => {
       );
     return;
   }
-  // The teardown holds every quit until it ends. A second request while it ran, such as Cmd+Q again
-  // or `SIGTERM`, used to close the windows and end the process before the database step.
+  // The teardown holds every quit until it ends. A second request while it ran, such as Cmd+Q again,
+  // `SIGTERM` or a request that a local server passes on, used to close the windows and end the
+  // process before the database step.
   if (shutdownFinished) return;
   event.preventDefault();
   if (shutdownStarted) return;
-  void prepareForShutdown().finally(() => app.quit());
+  void prepareForShutdown().finally(() => quitApplication());
 });
 
 function reopenMainWindow(): void {

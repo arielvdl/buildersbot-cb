@@ -19,6 +19,13 @@ import type { TeamStore } from "./team-store";
 export const LOCAL_SERVER_OWNER_USERNAME = "owner";
 /** The prefix of the one stdout line that tells the parent where the Team API listens. */
 export const LOCAL_SERVER_READY_PREFIX = "OPENBOT_LOCAL_SERVER_READY ";
+/**
+ * The stdout line that asks the parent to quit Builders Bot. A local server runs from the bundle of
+ * the app, so macOS knows it by the bundle identifier of the app: a quit Apple Event that names
+ * Builders Bot, such as `tell application "Builders Bot" to quit`, can reach a local server and not the
+ * app. The server then keeps running and passes the request on, and the app stops it as it quits.
+ */
+export const LOCAL_SERVER_QUIT_REQUEST = "OPENBOT_LOCAL_SERVER_QUIT_REQUEST";
 
 export const LOCAL_SERVER_ENVIRONMENT = {
   child: "OPENBOT_LOCAL_SERVER_CHILD",

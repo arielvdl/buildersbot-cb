@@ -6,6 +6,10 @@
 // supervisor starts a child again after it stops on its own, a few times only, so a child that cannot
 // start does not use the computer's power in a loop.
 //
+// macOS knows a child by the bundle identifier of the app, so a quit Apple Event for Builders Bot can
+// reach a child and not this process. The child then asks this process to quit
+// (`LOCAL_SERVER_QUIT_REQUEST`), and this process stops it as it quits.
+//
 // The owner password goes to the child in its environment, and the child removes it from there at
 // once. No password or session token is written to a log.
 
@@ -22,6 +26,7 @@ import { causeHelpers } from "../../backend/effect-boundary";
 import {
   LOCAL_SERVER_ENVIRONMENT,
   LOCAL_SERVER_OWNER_USERNAME,
+  LOCAL_SERVER_QUIT_REQUEST,
   LOCAL_SERVER_READY_PREFIX,
   type LocalServerReady,
 } from "../local-server-child";
@@ -39,7 +44,14 @@ const { io: localIO, sync: localSync, rewrap: toLocalServerFailure } = causeHelp
 
 /** A first start makes the database and the identity keys, so it can take longer than a later one. */
 const READY_TIMEOUT = Duration.seconds(90);
-/** The child quits on its own when its standard input closes. After this it is killed. */
+/**
+ * The child quits on its own when its standard input closes. A child that is still there after this
+ * gets `SIGTERM`. Not at once: Electron takes one `SIGTERM` as a quit and the next one ends the process
+ * at once, so a signal that comes while the child already quits ends its teardown before the database
+ * closes.
+ */
+const TERM_AFTER_MS = 2_000;
+/** After this the child is killed. */
 const STOP_GRACE_MS = 6_000;
 const RESTART_DELAY = Duration.seconds(5);
 const RESTART_WINDOW_MS = 10 * 60_000;
@@ -118,6 +130,8 @@ export interface LocalServersOptions {
   trash: (path: string) => Promise<void>;
   log: { info: (message: string) => void; warn: (message: string, detail?: unknown) => void };
   platform: NodeJS.Platform;
+  /** A quit request for Builders Bot that reached a running child (`LOCAL_SERVER_QUIT_REQUEST`). */
+  quitRequested?: () => void;
   spawn?: SpawnChild;
   /**
    * Writes the app default egress proxy into the user data folder of a new server, before its first
@@ -304,6 +318,13 @@ export class LocalServers {
     // read and dropped so that a full pipe cannot stop the child.
     if (child.stdout)
       createInterface({ input: child.stdout }).on("line", (line) => {
+        // A child that this process stops can still send it: its own quit and the stop can cross.
+        if (line === LOCAL_SERVER_QUIT_REQUEST) {
+          if (running.stopping || this.#stopped) return;
+          this.#options.log.info("A server on this computer received a quit request for Builders Bot.");
+          this.#options.quitRequested?.();
+          return;
+        }
         const value = parseReadyLine(line);
         if (value) Deferred.doneUnsafe(ready, Exit.succeed(value));
       });
@@ -464,13 +485,14 @@ function terminate(child: ChildProcess, platform: NodeJS.Platform): Effect.Effec
       resume(Effect.void);
       return;
     }
-    const timer = setTimeout(() => child.kill("SIGKILL"), STOP_GRACE_MS);
+    // On Windows a signal ends the process at once, so the closed input is the only request there.
+    const termTimer = platform === "win32" ? undefined : setTimeout(() => child.kill("SIGTERM"), TERM_AFTER_MS);
+    const killTimer = setTimeout(() => child.kill("SIGKILL"), STOP_GRACE_MS);
     child.once("exit", () => {
-      clearTimeout(timer);
+      clearTimeout(termTimer);
+      clearTimeout(killTimer);
       resume(Effect.void);
     });
     child.stdin?.end();
-    // On Windows a signal ends the process at once, so the closed input is the only request there.
-    if (platform !== "win32") child.kill("SIGTERM");
   });
 }
