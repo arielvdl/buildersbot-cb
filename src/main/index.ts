@@ -338,6 +338,8 @@ const remoteAccountGate = Semaphore.makeUnsafe(1);
 const macHapticFeedback = new MacHapticFeedback();
 let isQuitting = false;
 let shutdownStarted = false;
+/** Set when the teardown of `prepareForShutdown` has ended. Until then `before-quit` holds every quit. */
+let shutdownFinished = false;
 let systemSessionEnding = false;
 let systemSessionEndFlushStarted = false;
 let relaunchRequested = false;
@@ -518,7 +520,7 @@ function attachQuitOnMainWindowClose(window: BrowserWindow): void {
   window.on("closed", () => {
     recordExit("main_window_closed");
     // `quit`, not a teardown of its own: `before-quit` below is what Builders Bot shuts down through,
-    // and it already ignores a second request while the first one runs.
+    // and it holds a second request until the first one has ended.
     app.quit();
   });
 }
@@ -1686,8 +1688,11 @@ app.on("before-quit", (event) => {
       );
     return;
   }
-  if (shutdownStarted) return;
+  // The teardown holds every quit until it ends. A second request while it ran, such as Cmd+Q again
+  // or `SIGTERM`, used to close the windows and end the process before the database step.
+  if (shutdownFinished) return;
   event.preventDefault();
+  if (shutdownStarted) return;
   void prepareForShutdown().finally(() => app.quit());
 });
 
@@ -1741,5 +1746,9 @@ async function prepareForShutdown(): Promise<void> {
   hideWindowsForQuit();
   services?.dynamicIsland.destroy();
   macHapticFeedback.destroy();
-  await teardown.runAll();
+  try {
+    await teardown.runAll();
+  } finally {
+    shutdownFinished = true;
+  }
 }
