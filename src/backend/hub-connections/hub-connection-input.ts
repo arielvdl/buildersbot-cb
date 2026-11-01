@@ -150,6 +150,14 @@ export function valueRule(value: string): InputRule | null {
 
 /** A URL inside a text, up to the first space, quote or angle bracket. */
 const URL_IN_TEXT = /\b[a-z][a-z0-9+.-]{1,15}:\/\/[^\s"'<>]+/giu;
+/**
+ * A URL of a scheme that a WHATWG URL parser reads as special, inside a text: for these schemes
+ * `http:/host`, `http:\\host` and `http:host` all name `host`, with no `//`. A `/`, a `\` or a host
+ * character follows the colon. Not after a scheme character, so `news:12` and `views:3` are not URLs.
+ */
+const SPECIAL_URL_IN_TEXT = /(?<![a-z0-9+.-])(?:https?|ftp|wss?|file):[\\/a-z0-9[%][^\s"'<>]*/giu;
+/** A value that starts with a special scheme, with or without `//`. */
+const SPECIAL_URL_START = /^(?:https?|ftp|wss?|file):/iu;
 
 /** Host suffixes that only a private network, a tailnet or this computer resolves. */
 const PRIVATE_SUFFIXES = [".local", ".localhost", ".internal", ".lan", ".home", ".home.arpa", ".corp", ".ts.net"];
@@ -252,10 +260,15 @@ function checkParam(schema: HubParamSchema, value: unknown, field: string): Inpu
       if (schema.format === "uri" && !isUrlAllowed(value)) return { rule: "url_refused", field };
       // Any string can carry a URL, so a field without `format: "uri"` is checked when it is one, and
       // each URL inside a text is checked too (`see http://10.0.0.1/admin`).
-      if (/^[a-z][a-z0-9+.-]{1,15}:/iu.test(value.trim()) && /:\/\//u.test(value) && !isUrlAllowed(value.trim()))
+      const trimmed = value.trim();
+      if (/^[a-z][a-z0-9+.-]{1,15}:/iu.test(trimmed) && /:\/\//u.test(value) && !isUrlAllowed(trimmed))
         return { rule: "url_refused", field };
+      // A special scheme names a host with or without `//` (`http:\\10.0.0.1`, `https:host`).
+      if (SPECIAL_URL_START.test(trimmed) && !isUrlAllowed(trimmed)) return { rule: "url_refused", field };
       if (/^\s*(?:file:|\/\/)/iu.test(value)) return { rule: "url_refused", field };
       for (const url of value.matchAll(URL_IN_TEXT)) if (!isUrlAllowed(url[0])) return { rule: "url_refused", field };
+      for (const url of value.matchAll(SPECIAL_URL_IN_TEXT))
+        if (!isUrlAllowed(url[0])) return { rule: "url_refused", field };
       return null;
     }
     case "number":

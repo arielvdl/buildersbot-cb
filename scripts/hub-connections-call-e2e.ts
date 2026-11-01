@@ -552,6 +552,34 @@ try {
     assert.equal(hubCalls().length, before, "a refused URL reached the Hub");
   });
 
+  await step("URLs without `//` or with `\\` are refused, in a value and inside a text (security finding 1)", async () => {
+    const before = hubCalls().length;
+    const text = (value: string) => call("text.classify", { body: { text: value } });
+    const refusedValues = [
+      "http:\\\\169.254.169.254\\latest",
+      "http:/10.0.0.1/admin",
+      "https:192.168.0.10/",
+      "HTTP:\\/100.100.1.1/",
+      "ws:example.com/socket",
+      "see http:\\\\10.0.0.1\\admin for the list",
+      "see https:/169.254.169.254/latest now",
+      "the file (http:\\\\192.168.1.1/x)",
+    ];
+    const seen = await turn(refusedValues.map(text));
+    for (const [index, refused] of seen.entries()) {
+      assert.ok(!refused.success, `${refusedValues[index]} was not refused`);
+      assert.equal(refused.fields.rule, "url_refused", `${refusedValues[index]}: ${refused.text}`);
+    }
+    assert.equal(hubCalls().length, before, "a refused URL reached the Hub");
+    // Text that only has a colon, and a public URL, still go.
+    const allowed = await turn([
+      text("note: the ratio is 3:1 at 10:30, views:100, news:today"),
+      text("read https://example.com/page and http:example.com"),
+    ]);
+    for (const item of allowed) assert.ok(item.success, item.text.slice(0, 300));
+    return { refused: refusedValues.length };
+  });
+
   await step("routed answers give output only, and the Hub writes the row limit", async () => {
     const vendorBefore = vendorCalls().length;
     const [three, standard] = await turn([
