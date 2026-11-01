@@ -60,6 +60,17 @@ import {
   providerForAgent,
 } from "./thread-items";
 import type { ThreadLifecycle } from "./thread-lifecycle";
+import { JOURNAL_LIMIT, type OwnToolCall, type TurnEffect } from "./turn-effects";
+import {
+  nextTurnResumeMarker,
+  planTurnResume,
+  TURN_RESUME_CAUSES,
+  TURN_RESUME_MAX,
+  TURN_RESUME_PROVIDERS,
+  type TurnResumeMarker,
+  turnResumeView,
+  uncertainActions,
+} from "./turn-resume";
 import { TurnSlots } from "./turn-slots";
 import type { UsageLimitGate } from "./usage-limit-gate";
 import { checkAgentFolders, codexSandboxPolicy, workspaceWritableRoots } from "./workspace-sandbox";
@@ -121,6 +132,16 @@ export interface DrainHooks {
    * automatic backup, else the default backup of the settings when it is ready. Null when there is none.
    */
   startFallback?(agentId: string, primary: AgentModelChoice): AgentModelChoice | null;
+  /**
+   * The safe resume of a channel turn (`turn-resume.ts`): null while the optimization `safe-resume` is
+   * off. `delaysSeconds` are the waits before each continuation. `takeRecovery` takes one recovery of
+   * the task from the ledger that the task reviewer and "Resume by itself" share; false when the task
+   * has none left. Omitted: no ledger, as in a host with no task reviewer.
+   */
+  safeResume?(): {
+    delaysSeconds: readonly number[];
+    takeRecovery?: (channelId: string, taskId: string) => boolean;
+  } | null;
 }
 
 /** The tasks of the agents, as the drain reads them. */
@@ -696,6 +717,17 @@ export class DrainScheduler {
     return completions.length > 0 ? Effect.all(completions, { discard: true }) : undefined;
   }
 
+  /**
+   * A delivery that waited for a safe resume ended before it started, as after a Stop or a deleted tab
+   * or channel: its wake-up goes. The wake-up of a start retry stays, as before.
+   */
+  cancelResumeWake(deliveryId: string): void {
+    const entry = this.#retryTimers.get(deliveryId);
+    if (!entry || !this.#mailbox.getDelivery(deliveryId)?.turnResume) return;
+    clearTimeout(entry.timer);
+    this.#retryTimers.delete(deliveryId);
+  }
+
   forgetAgent(agentId: string): void {
     const ofAgent = (key: string) => laneOf(key).agentId === agentId;
     for (const keys of [this.#drainingLanes, this.#scheduledDrains, this.#slotWaiters])
@@ -1064,10 +1096,19 @@ export class DrainScheduler {
         const continued = new Set<string>();
         return combinedPromptInput(
           batch.map((item) => {
-            const { resumeAfterUsageLimit, ...rest } = item;
+            const { resumeAfterUsageLimit, turnResume, ...rest } = item;
             const repeated = resumeAfterUsageLimit !== undefined && continued.has(resumeAfterUsageLimit.turnId);
             if (resumeAfterUsageLimit) continued.add(resumeAfterUsageLimit.turnId);
-            return deliveryPromptInput(repeated ? rest : item, {
+            // The same for the note of a safe resume: one note for the failed turn.
+            const resumedTurn = turnResume?.turnIds.at(-1);
+            const repeatedNote = resumedTurn !== undefined && continued.has(`resume:${resumedTurn}`);
+            if (resumedTurn !== undefined) continued.add(`resume:${resumedTurn}`);
+            const shown = {
+              ...rest,
+              ...(resumeAfterUsageLimit && !repeated ? { resumeAfterUsageLimit } : {}),
+              ...(turnResume && !repeatedNote ? { turnResume } : {}),
+            };
+            return deliveryPromptInput(shown, {
               agentNames,
               snapshot,
               routineRun:
@@ -1163,7 +1204,8 @@ export class DrainScheduler {
                 ),
                 clientUserMessageId: delivery.id,
                 // The delivery stays the same; a continuation must not overwrite the first turn's items.
-                ...((context.resumeAfterUsageLimit || planNote !== undefined) && client.provider !== "codex"
+                ...((context.resumeAfterUsageLimit || context.turnResume || planNote !== undefined) &&
+                client.provider !== "codex"
                   ? { clientTurnId: randomUUID() }
                   : {}),
                 // A teammate message that wants no answer tells the model to write nothing, so an empty
@@ -1587,6 +1629,100 @@ export class DrainScheduler {
       this.#mailboxSync.emitQueue(input.agentId);
       for (const { delivery } of input.deliveries) this.#armStartRetry(input.agentId, delivery.id, step.marker.nextAt);
       return step.type;
+    });
+
+  /**
+   * A brief provider failure (`TURN_RESUME_CAUSES`) ended a channel turn in the middle. The turn
+   * continues by itself in the same session, at most `TURN_RESUME_MAX` times with a growing wait, when
+   * the safe resume is on, the provider keeps its session, and the effect journal of the turn says that
+   * nothing can happen twice (`planTurnResume`). `requeue` puts the deliveries back in the queue with
+   * the marker. `{ ask }` when an outside step may already have happened: the task stops for the person
+   * with that text. Null when the safe resume does not take the failure: the turn ends as before.
+   */
+  readonly resumeChannelTurn = <E>(
+    input: {
+      agentId: string;
+      turnId: string;
+      provider: AgentProvider;
+      deliveries: readonly DeliveryContext[];
+      error: string;
+      effects: readonly TurnEffect[];
+      ownCalls: readonly OwnToolCall[];
+    },
+    requeue: (marker: TurnResumeMarker) => Effect.Effect<void, E>,
+  ): Effect.Effect<"resumed" | { ask: string } | null, E> =>
+    Effect.gen({ self: this }, function* () {
+      const options = this.#hooks.safeResume?.();
+      const head = input.deliveries[0];
+      const channels = this.#channels;
+      if (!options || !head || !channels || this.#hooks.isStopping()) return null;
+      const now = this.#now();
+      const failure = classifyStartFailure(undefined, input.error, { retryAfterUsageLimit: false }, now);
+      const previous = head.turnResume;
+      // Ids, classes and counts only: never the text of the request, of a tool or of the error.
+      const facts = {
+        agentId: input.agentId,
+        deliveryId: head.delivery.id,
+        provider: input.provider,
+        cause: failure.cause,
+        attempt: previous?.attempt ?? 0,
+        steps: input.effects.length,
+        ownCalls: input.ownCalls.length,
+      };
+      const skip = (reason: string) => {
+        logger.info("A channel turn failed, and it does not continue by itself.", { ...facts, reason });
+        return null;
+      };
+      if (!TURN_RESUME_PROVIDERS.has(input.provider)) return skip("provider");
+      if (failure.class !== "retry" || failure.usageLimit || !TURN_RESUME_CAUSES.has(failure.cause))
+        return skip("failure");
+      if ((previous?.attempt ?? 0) >= TURN_RESUME_MAX) return skip("tries");
+      if (input.effects.length >= JOURNAL_LIMIT) return skip("journal");
+      const settings = this.#hooks.startRetrySettings?.();
+      const plan = planTurnResume({
+        effects: input.effects,
+        ownCalls: input.ownCalls,
+        resumeUncertain: settings?.resumeUncertainActions === true,
+      });
+      if (plan.kind === "ask") {
+        logger.info("A channel turn failed after an outside step with no result: the person decides.", {
+          ...facts,
+          uncertain: plan.uncertain.length,
+        });
+        return { ask: sourceText("error.backend.channelTaskMayBeDone", { actions: uncertainActions(plan.uncertain) }) };
+      }
+      // Each delivery must stay with its task: a person who stopped or changed the task ends it as before.
+      if (!input.deliveries.every(({ delivery }) => channels.mayHoldForStartRetry(delivery.id))) return skip("task");
+      // The first continuation of a failure takes one recovery of the task from the shared ledger.
+      if (!previous && options.takeRecovery) {
+        const assignment = channels.store.assignmentForDelivery(head.delivery.id);
+        if (!assignment || !options.takeRecovery(assignment.channelId, assignment.taskId)) return skip("ledger");
+      }
+      const { marker, delayMs } = nextTurnResumeMarker({
+        previous,
+        plan,
+        turnId: input.turnId,
+        cause: failure.cause,
+        delays: options.delaysSeconds,
+        now,
+        random: this.#random(),
+      });
+      for (const { delivery } of input.deliveries) {
+        const held = yield* channels
+          .holdForStartRetry(delivery.id, turnResumeView(marker))
+          .pipe(Effect.catch(() => Effect.succeed(false)));
+        if (!held) return skip("task");
+      }
+      yield* requeue(marker);
+      this.#mailboxSync.emitQueue(input.agentId);
+      for (const { delivery } of input.deliveries) this.#armStartRetry(input.agentId, delivery.id, marker.nextAt);
+      logger.info("A channel turn continues by itself after a brief provider failure.", {
+        ...facts,
+        attempt: marker.attempt,
+        delayMs,
+        uncertain: plan.uncertain,
+      });
+      return "resumed";
     });
 
   /**

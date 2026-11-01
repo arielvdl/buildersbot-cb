@@ -302,6 +302,80 @@ channel) can run its next turn on the other model. An agent cannot give another 
 switch without asking, or a backup on a provider account that the other agent does not use
 (`widensBackupModels`, `error.agent.onlyUserWidensBackups`); only the user can.
 
+## Safe turn resume
+
+A brief provider failure in the middle of a channel task (a 529, a 5xx, a lost connection, a time-out,
+a rate limit: `TURN_RESUME_CAUSES`) used to stop the task until a person, "Resume by itself" or the
+task reviewer resumed it. With the optimization `safe-resume` on (Settings › General › Advanced
+optimizations, off by default), the turn continues by itself in the same provider session. The risk is
+to do an outside action twice, so the turn continues only when its effect journal says that nothing
+can happen twice. With the switch off, every path below is skipped and the task stops as before.
+
+**The effect journal** (`src/backend/agent/turn-effects.ts`, `command-effects.ts`). It is passive and
+always on: `TurnLifecycle` records each tool item of a running turn (`item/started`, `item/completed`),
+and the tool router records each call of the app's own outside tools. Each step gets a reach and a
+state. A step keeps a short name with no arguments (`git push`, `openbot.channel_assign`,
+`MCP slack.post_message`) and, for a shell step, its redacted command for the provider.
+
+| Reach | Steps |
+| --- | --- |
+| `read`: safe to run again | Codex `commandActions` of only reads, file lists and searches; `cat`, `ls`, `rg`, `git status/log/diff/show`, `gh pr list/view`, `gh api` with no method or fields, `curl` with no data or method; Claude `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`; ACP `read`, `search`, `fetch`; web search; the app's list, read and history tools; browser snapshot, screenshot and navigation |
+| `local`: changes only this computer | file changes (Codex `fileChange`, Claude `Edit`/`Write`, ACP `edit`/`delete`/`move`); `git add/commit/checkout/merge/fetch/pull`; `npm install`, `npm run test/build/lint/…`; `mkdir`, `cp`, `rm`; output to a file; the app's memory, section, skill, routine and channel-setting tools |
+| `external`: can change something else | `git push`, `gh pr create/merge`, `gh api` with a method or fields, `curl -X POST`/`-d`, `npm publish`, `docker push`, `ssh`, `scp`, `kubectl apply`, `terraform apply`, cloud CLIs that write, deploy CLIs, `osascript`; a program or script that the app does not know (`python script.py`, `npm run deploy`, `bash -c` of one); a subagent; every MCP tool of a server that is not the app's own; browser clicks, typing and scripts; the app's `send_message`, `channel_assign`, `channel_transfer`, `channel_result`, `messaging_post`, site, agent and routine-test tools (`OWN_EXTERNAL_TOOLS`) |
+
+The state is `done` (it ended with a result), `failed` (it ended with a failure that the tool reported,
+so it did not happen), or `uncertain`: it started and has no result, or it ended with no answer
+(Claude marks such a call `unanswered`), or an outside step failed on a time-out, a lost connection
+or an interrupt. For the app's own outside tools the router's record replaces the provider's item: a
+call that the provider announced and never sent did not run, and a call whose handler returned has a
+sure result. Only a handler that the turn interrupted stays uncertain.
+
+**The decision** (`DrainScheduler.resumeChannelTurn`, called from `TurnLifecycle.#completeTurn` for a
+failed channel turn that is not a usage limit or a refused session). In order:
+
+1. The switch is on, the provider keeps its session after a failed turn (`TURN_RESUME_PROVIDERS`: all
+   providers but a custom ACP agent), the failure is `retry` for `classifyStartFailure` and one of
+   `TURN_RESUME_CAUSES`, and the delivery has fewer than 3 continuations. Else the turn ends as before.
+2. `planTurnResume`: when an outside step is `uncertain`, the task stops with
+   `error.backend.channelTaskMayBeDone` ("This may already be done: git push, MCP slack.post_message")
+   in place of the provider's text. "Resume by itself" and the task reviewer do not resume it or give
+   it to another agent (`needsPerson` in `src/main/auto-recovery.ts`), so the load panel shows "Needs
+   you". With "Continue also when an outside action is uncertain" on (Settings › Agents › Retries and
+   backup model, `StartRetrySettings.resumeUncertainActions`, off by default), the turn continues and
+   the note marks those steps with the order to check them with a read-only step first.
+3. The task must still be the one that ran (`ChannelService.mayHoldForStartRetry`): a person's Stop or
+   a change ends it as before.
+4. The first continuation of a failure takes one resume of the task from the ledger that "Resume by
+   itself" and the task reviewer share (`WorkControl.takeSafeResume`, `MAX_RESUMES`). A task with no
+   resume left stops as before. The tries of one failure count as one resume, as the tries of a start
+   retry count as one start.
+5. The delivery goes back to its place with `delivery_json.turnResume` (`TurnResumeMarker`: tries,
+   `nextAt`, cause, the turn ids, the steps with their state and the digests of the own calls that
+   ran; never the text of the request, of a tool result or of the error). The assignment and the
+   delivery stay (`holdForStartRetry` with phase `resuming`): the task is queued with no error, the
+   channel shows "It continues where it stopped (1/3)", and the hold of the task reviewer is
+   `retrying`. The waits are 15, 30 and 60 seconds, 25% up or down. A wait for memory, a turn place or
+   the lane does not spend a try. A restart keeps the wait (`MailboxStore.startRetries`).
+
+**The continuation.** It starts in the same provider session, with a new `clientTurnId` for a provider
+that takes the delivery id as the turn id. The note (`turnResumeNote`) comes before the request: the
+steps that are done, the reads, the steps that failed, the uncertain ones, and the order "Check the
+current state before any outside action. Do not repeat anything that the list says is done. Continue
+only with what is still missing." The app does not trust the model with this alone: in a continued
+turn, a call of an own outside tool with the same arguments as one that ran before the failure
+(`ownCallDigest`) gets "already done" from the tool router, and the handler does not run again.
+
+**What stays as before.** The provider error banner of a turn that continues does not show; any other
+failure shows it at the end of the turn. A channel turn plays no failure sound in either case. After
+3 continuations the task stops with the provider's text, for "Resume by itself" and the task reviewer.
+A Stop, a deleted tab or a deleted channel cancels the queued delivery and its wake-up
+(`ChannelHooks.deliveryCancelled`); a deleted agent clears it with the other timers of the agent. Each
+tab of an agent is its own lane, so only the tab that failed waits.
+
+`scripts/safe-turn-resume-e2e.ts` checks the cases with a stand-in Codex app-server that fails with a
+529 or an ECONNRESET in the middle of a turn. The other providers are checked by code reading only:
+a failed turn keeps their session, and a session that is gone opens a new one with the transcript.
+
 ## Hidden agents
 
 A user hides an agent from its sidebar menu in place of a delete. The agent keeps its thread, files,

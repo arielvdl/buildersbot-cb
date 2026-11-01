@@ -252,6 +252,7 @@ import {
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
 import { type AgentBrowserHost, type RunningTurn, TurnLifecycle } from "./agent/turn-lifecycle";
+import { TURN_RESUME_DELAYS_SECONDS } from "./agent/turn-resume";
 import { memoryReviewUsageObserver, workflowUsageObserver } from "./agent/usage-collection";
 import { toUsageReadFailed, UsageLimitGate, type UsageLimitKey } from "./agent/usage-limit-gate";
 import { WarmGenerations } from "./agent/warm-generations";
@@ -400,6 +401,17 @@ export interface AgentServiceOptions {
    * own models. The main process owns both. Omitted, a start that fails is not tried again.
    */
   startRetry?: { settings: () => StartRetrySettings; breakers: StartBreakerStorage };
+  /**
+   * The safe resume of a channel turn after a brief provider failure (`agent/turn-resume.ts`), which
+   * runs only while the optimization `safe-resume` is on. `delaysSeconds` replaces the waits for a
+   * test. `recoveryBudget` is the ledger of the task reviewer and "Resume by itself": one failure takes
+   * one recovery of the task, so the three share one limit. Omitted: the waits of the product, and no
+   * ledger.
+   */
+  safeResume?: {
+    delaysSeconds?: () => readonly number[];
+    recoveryBudget?: { take(channelId: string, taskId: string): boolean };
+  };
   /**
    * The Guard of tool calls and their results. The main process owns the preference. Omitted, the
    * Guard runs at Light, the default of a new install.
@@ -1209,6 +1221,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.channels = new ChannelService(store.database, mailbox, {
       agents: () => this.listAgents(),
+      deliveryCancelled: (deliveryId) => this.#drain.cancelResumeWake(deliveryId),
       hidden: (agentId) => this.#store.isHidden(agentId),
       generate: (lead, prompt, purpose) =>
         Effect.gen({ self: this }, function* () {
@@ -1458,6 +1471,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
               startFallback: (agentId: string) => this.#startFallbackChoice(agentId) ?? null,
             }
           : {}),
+        safeResume: () => {
+          if (!this.optimizations.optimizationEnabled("safe-resume")) return null;
+          const budget = options.safeResume?.recoveryBudget;
+          return {
+            delaysSeconds: options.safeResume?.delaysSeconds?.() ?? TURN_RESUME_DELAYS_SECONDS,
+            ...(budget ? { takeRecovery: (channelId: string, taskId: string) => budget.take(channelId, taskId) } : {}),
+          };
+        },
         servesModel: (model, provider) => this.#endpoints.serves(model, provider),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
@@ -1579,6 +1600,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         ...(this.#startRetrySettings
           ? { retryLimitedTurn: (input, requeue) => this.#drain.retryLimitedTurn(input, requeue) }
           : {}),
+        safeResumeOn: () => this.optimizations.optimizationEnabled("safe-resume"),
+        resumeChannelTurn: (input, requeue) => this.#drain.resumeChannelTurn(input, requeue),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         quietRoutineDelivery: (deliveryId) => this.#routines.quietRunForDelivery(deliveryId),
         takeRoutinePreview: (deliveryId) => this.#routines.takePreviewBeforeRun(deliveryId),
@@ -1699,6 +1722,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         },
       }),
       capturedSteps: (session) => this.#threads.capturedWorkSteps(session).pipe(toToolOperationFailed),
+      ownCalls: {
+        repeated: (agentId, turnId, tool, digest) => this.#turn.repeatedOwnCall(agentId, turnId, tool, digest),
+        started: (turnId, callId, tool, digest) => this.#turn.ownCalls.started(turnId, callId, tool, digest),
+        ended: (turnId, callId, ok) => this.#turn.ownCalls.ended(turnId, callId, ok),
+      },
       store,
       mailbox,
       mailboxSync: this.#mailboxSync,

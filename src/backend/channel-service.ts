@@ -63,6 +63,11 @@ import { extractJsonObject, StructuredOutputError } from "./structured-output";
 export interface ChannelHooks {
   agents(): AgentSummary[];
   /**
+   * A queued delivery of a task ended before it started: a Stop, or a deleted tab or channel. The drain
+   * drops the wake-up of a safe resume that waits for it (`turn-resume.ts`). Omitted: nothing.
+   */
+  deliveryCancelled?(deliveryId: string): void;
+  /**
    * Whether the user hid this agent. A hidden member keeps its membership, but the channel gives it
    * no new work until the user restores it. A turn that already runs is not affected.
    */
@@ -2271,6 +2276,17 @@ export class ChannelService {
   });
 
   /**
+   * Whether `holdForStartRetry` would hold this delivery now: it has an active assignment with no
+   * pending transfer, and its task did not change and still runs or waits. It changes nothing.
+   */
+  mayHoldForStartRetry(deliveryId: string): boolean {
+    const assignment = this.store.assignmentForDelivery(deliveryId);
+    if (!assignment || !activeAssignment(assignment) || assignment.pendingRevision !== null) return false;
+    const task = this.store.tasks(assignment.channelId).find((item) => item.id === assignment.taskId);
+    return task?.revision === assignment.taskRevision && (task.state === "queued" || task.state === "running");
+  }
+
+  /**
    * A spent provider plan holds the agent of this delivery. The task goes back to the queue with a
    * new revision and the assignment ends, so nothing holds the agent's resources while it waits: the
    * pump assigns the task again once the agent takes turns. False when there is no active assignment
@@ -3483,6 +3499,7 @@ export class ChannelService {
         if (delivery?.delivery.status === "queued") {
           const deliveryId = assignment.deliveryId;
           yield* this.mailbox.cancel(assignment.agentId, deliveryId).pipe(Effect.mapError(channelFailure));
+          this.hooks.deliveryCancelled?.(deliveryId);
           yield* channelSync(() =>
             this.store.update(this.store.get(channelId), { assignments: [{ ...assignment, state: "interrupted" }] }),
           );

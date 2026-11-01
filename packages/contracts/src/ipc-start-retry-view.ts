@@ -2,8 +2,11 @@ import { isDynamicRecord, isNumber, isString } from "./runtime-values";
 
 /** A start that the app tries again, as the channel task and the queue show it. */
 export interface StartRetryView {
-  /** `retrying`: on the agent's own model. `fallback`: on the backup model. */
-  phase: "retrying" | "fallback";
+  /**
+   * `retrying`: on the agent's own model. `fallback`: on the backup model. `resuming`: a channel turn
+   * that a brief provider failure stopped in the middle continues by itself (`safe-resume`).
+   */
+  phase: "retrying" | "fallback" | "resuming";
   /** The tries again so far. */
   attempt: number;
   /** The most tries again in this phase. */
@@ -17,7 +20,7 @@ export interface StartRetryView {
 export function isStartRetryView(value: unknown): value is StartRetryView {
   return (
     isDynamicRecord(value) &&
-    (value.phase === "retrying" || value.phase === "fallback") &&
+    (value.phase === "retrying" || value.phase === "fallback" || value.phase === "resuming") &&
     isCount(value.attempt) &&
     isCount(value.max) &&
     (value.nextAt === null || (isString(value.nextAt) && Number.isFinite(Date.parse(value.nextAt)))) &&

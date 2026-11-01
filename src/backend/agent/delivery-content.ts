@@ -15,6 +15,7 @@ import { wokenWaitsPromptText } from "../agent-waits/agent-waits";
 import { homeSkillRoot, homeSkillTagSlug } from "../home-skills";
 import type { DeliveryContext } from "../mailbox-store";
 import { quietRoutineRun, ROUTINE_NO_UPDATE_TOOL, ROUTINE_REPORT_FAILURE_TOOL } from "./routine-quiet-runs";
+import { turnResumeNote } from "./turn-resume";
 
 export function responseAttachmentMessageId(threadId: string, turnId: string, callId: string): string {
   const digest = createHash("sha256").update(`${threadId}\0${turnId}\0${callId}`).digest("hex").slice(0, 32);
@@ -259,6 +260,9 @@ export function deliveryPromptInput(context: DeliveryContext, sources: DeliveryP
   if (managedAttachments.length) {
     text += `${ATTACHED_FILES_HEADER}${managedAttachments.map((item) => `- ${item.name}: ${item.path}`).join("\n")}`;
   }
+  // A channel turn that a brief provider failure stopped continues in the same session. The note says
+  // what the failed turns did, so the agent checks the state and does not do it twice (`turn-resume.ts`).
+  if (context.turnResume) text = `${turnResumeNote(context.turnResume)}${CURRENT_MESSAGE_SEPARATOR}${text}`;
   if (context.resumeAfterUsageLimit) {
     const continuationState = context.resumeAfterUsageLimit;
     const progress = redactText(
