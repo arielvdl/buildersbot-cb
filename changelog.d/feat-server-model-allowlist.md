@@ -4,8 +4,8 @@
   the server then offers only the providers and models that the policy allows, and the free models
   of Builders are hidden. A provider that the policy does not allow is off and cannot be turned on.
 - On a server with a model policy, the Cultura Builder models are the models that the Cultura
-  Builder Hub allows for the signed-in account. A model that the Hub grants only to some people or
-  companies shows only for them.
+  Builder Hub allows for the signed-in account. A model that the Hub grants only to some people
+  shows only for them.
 
 ### Security
 
