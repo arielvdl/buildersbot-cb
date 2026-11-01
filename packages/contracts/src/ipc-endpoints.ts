@@ -409,6 +409,7 @@ import type {
   OnePasswordConnectorStatus,
   OnePasswordHostConnectInput,
 } from "./ipc-onepassword-connector";
+import type { OptimizationState, SetOptimizationsInput } from "./ipc-optimizations";
 import type { PromptCacheTtl, PromptCacheTtlSetting } from "./ipc-prompt-cache";
 import type {
   DetectedModelServer,
@@ -709,6 +710,9 @@ export const IPC_ENDPOINTS = {
     // A remote owner or admin can change a grant from a phone or the web client, so main tells the
     // window instead of the window only reading the value at start.
     approvalAutomation: event<ApprovalAutomationPreference>()("app:approval-automation"),
+    // The advanced optimizations (beta) of this computer (`ipc-optimizations.ts`). Each one is off by default.
+    getOptimizations: request<undefined, OptimizationState>()("app:get-optimizations"),
+    setOptimizations: request<SetOptimizationsInput, OptimizationState>()("app:set-optimizations"),
     getBusyMessageModePreference: request<undefined, BusyMessageModePreference>()("app:get-busy-message-mode"),
     setBusyMessageModePreference: request<BusyMessageModePreference, BusyMessageModePreference>()(
       "app:set-busy-message-mode",

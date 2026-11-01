@@ -288,6 +288,7 @@ import { toMcpOperationError } from "./mcp-effects";
 import type { McpSignInOpener } from "./mcp-oauth-provider";
 import { McpServerStore } from "./mcp-server-store";
 import { MessagingThreads, toMessagingThreadFailed } from "./messaging/messaging-threads";
+import { OPTIMIZATIONS_OFF, type OptimizationPort } from "./optimizations";
 import type { PasswordVault } from "./password-vault";
 import { decodeRecordResponse, getString } from "./protocol";
 import { NO_PROVIDER_CREDENTIALS, type ProviderClientContext } from "./provider-drivers";
@@ -384,6 +385,11 @@ export interface AgentServiceOptions {
    * Omitted, such a message waits in the queue, as every one did before the setting existed.
    */
   busyMessageMode?: () => BusyMessageMode;
+  /**
+   * The advanced optimizations (beta) of this host (`src/backend/optimizations.ts`). The main process owns
+   * the file. Omitted, every switch is off: the behavior of the app before the switches existed.
+   */
+  optimizations?: OptimizationPort;
   /**
    * The security reviewer of the messages the user sends. The main process owns the preference.
    * Omitted, the reviewer is on for every message, which is the default of a new install.
@@ -584,6 +590,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #security: PromptInjectionGuard;
   readonly #toolGuard: ToolGuard;
   readonly #hubConnections: HubConnectionTools | null;
+  /**
+   * The advanced optimizations (beta) of this host. Each part of the service that has a switch reads it
+   * here when it decides, so a change applies to the next decision.
+   */
+  readonly optimizations: OptimizationPort;
   /** Whether a person that the host stamped is someone other than this computer's user. */
   readonly #remotePerson: (personId: string) => boolean;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
@@ -626,6 +637,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     } = options;
     this.#developmentDefaults = developmentDefaults;
     this.#busyMessageMode = busyMessageMode;
+    this.optimizations = options.optimizations ?? OPTIMIZATIONS_OFF;
     this.#securityGuard = securityGuard;
     this.#startRetrySettings = options.startRetry?.settings ?? null;
     this.#startBreakers = options.startRetry ? new StartBreakers(options.startRetry.breakers) : null;
