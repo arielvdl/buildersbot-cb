@@ -11,7 +11,7 @@ function productionVars(): Vars {
   const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
   // Comment lines only: a "//" inside a value, such as https://, stays.
   const json = source.replace(/^\s*\/\/.*$/gm, "").replace(/,(\s*[}\]])/g, "$1");
-  const config: unknown = JSON.parse(json);
+  const config = JSON.parse(json);
   const vars: Vars = {};
   if (typeof config === "object" && config !== null && "vars" in config) {
     const block = config.vars;
