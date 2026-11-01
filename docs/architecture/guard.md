@@ -183,18 +183,22 @@ Cultura Builder with no sign-in. The page is `src/renderer/src/features/settings
 The page, Settings, Guard ("Guarda" in Portuguese), shows:
 
 - the level and the review model, with a note when the Guard uses only the local check;
-- when the Guard asks the person: the card, the 10 minutes that an "allow" holds, and the questions
+- when the Guard asks the person: the card of the desktop app (the phone and the web client show an
+  ordinary approval, see the known limits), the 10 minutes that an "allow" holds, and the questions
   about a secret that only the owner answers;
 - what leaves the computer, and what the log keeps. The app keeps no list of past decisions: the log
   (`guard`) is the only record, and it holds no content;
 - what the Guard checks now;
-- links to the [task reviewer](task-reviewer.md), which asks the same review model, and to the load
-  panel of the rail.
+- links to the [task reviewer](task-reviewer.md), which asks the same review model, to the load
+  panel of the rail, and to the switch of the security review of messages in General. That review
+  ([message reviewer](prompt-injection-guard.md)) is a separate check, not a part of the Guard.
 
 The Guard runs in the host process of each server, and the page sets the Guard of this computer only.
 A joined server, or a second server on this computer, has its own Guard and its own file, and no Team
 API route reads or sets them. While the window shows such a server, the page says that it changes this
-computer only. Setting it from a client needs a new admin capability of the Team API.
+computer only, and the General section of that server's settings says that this app cannot change its
+Guard yet. Setting it from a client needs a new admin capability of the Team API (such as `guard-v1`),
+which is not decided.
 
 ## The local check at Light
 

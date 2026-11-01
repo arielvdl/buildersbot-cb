@@ -1,5 +1,5 @@
 /**
- * The task reviewer ("Revisor" in the panel): it watches the tasks of the channels for work that is
+ * The task reviewer ("Fiscal" in Portuguese): it watches the tasks of the channels for work that is
  * parked too long, and tries to move it, one task in each look. It covers what the automatic
  * recovery does not see: a run that gives no sign of life while it holds a place, a request that
  * the drain would start now but that did not start, and a start that fails again. Local rules decide
