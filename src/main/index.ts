@@ -390,12 +390,23 @@ if (!app.isPackaged || hostedServer || serverMode || localServerChild) {
 }
 
 /**
+ * The last resort. The teardown gives no step more than a short wait after `lastStepByMs`, so the
+ * database step starts before this with time to close. Something outside the teardown can still hold
+ * the quit. A process that outlives its window keeps the single-instance lock, so every later launch
+ * exits without opening anything.
+ */
+const SHUTDOWN_DEADLINE_MS = 30_000;
+/** The short waits of the steps after the last step time (1 s together), and the database close. */
+const DATABASE_CLOSE_ROOM_MS = 6_000;
+
+/**
  * Filled in as `createApplicationServices` builds, so a quit that arrives part-way through stops
  * exactly what exists. Each step's position in the sequence is declared where the service is built.
  */
 const teardown = new TeardownRegistry({
   reportError: (name, error) => logger.error(`Unable to shut down ${name}:`, toLogValue(error)),
   report: (message) => logger.info(message),
+  lastStepByMs: SHUTDOWN_DEADLINE_MS - DATABASE_CLOSE_ROOM_MS,
 });
 
 // Declared before the forwarders and the window surface because both read it, and it outlives any
@@ -1743,14 +1754,6 @@ function reopenMainWindow(): void {
     .then(showMainWindow)
     .catch((error) => logger.error("Unable to open the main window:", toLogValue(error)));
 }
-
-/**
- * The last resort. The teardown steps share a budget of 15 s, and the database step then waits at
- * most 5 s for the steps it abandoned before it closes, so the teardown ends before this. Something
- * outside it can still hold the quit. A process that outlives its window keeps the single-instance
- * lock, so every later launch exits without opening anything.
- */
-const SHUTDOWN_DEADLINE_MS = 30_000;
 
 function forceExitAfterShutdownDeadline(): void {
   setTimeout(() => {

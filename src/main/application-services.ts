@@ -458,6 +458,8 @@ const HERMES_IMPORT_LINKS_FILE = "openbot-hermes-imports-v1.json";
 const PACKAGED_BUNDLE_IDENTIFIER = "app.buildersbot.desktop";
 const DEVELOPMENT_BUNDLE_IDENTIFIER = "com.github.Electron";
 
+// The steps that write user data or own child processes are pushed with `outsideBudget`: the budget
+// of the steps that hold no data does not make their limit shorter (`teardown-registry.ts`).
 const TEARDOWN_ORDER = {
   // First, so a process that the teardown ends does not count as a crash.
   resourceMonitor: 9,
@@ -944,7 +946,9 @@ async function createMessagingServices({
   void runCauseEffect(messaging.start()).catch((error) =>
     logger.warn("Messaging connections did not start.", toLogValue(error)),
   );
-  teardown.push(TEARDOWN_ORDER.messaging, "the messaging connections", () => Effect.runPromise(messaging.stop()));
+  teardown.push(TEARDOWN_ORDER.messaging, "the messaging connections", () => Effect.runPromise(messaging.stop()), {
+    outsideBudget: true,
+  });
   if (developmentSlackCallbackPort > 0) {
     // As `openbot://` does for a packaged build, a finished install brings Builders Bot to the front.
     const callback = await startSlackDevCallbackServer(developmentSlackCallbackPort, async (nonce, grant) => {
@@ -1298,7 +1302,9 @@ export async function createApplicationServices({
     siteSession: siteSessionSource,
     egress: egressProxy,
   });
-  teardown.push(TEARDOWN_ORDER.browser, "the browser", () => runCauseEffect(browser.destroy()));
+  teardown.push(TEARDOWN_ORDER.browser, "the browser", () => runCauseEffect(browser.destroy()), {
+    outsideBudget: true,
+  });
   await runCauseEffect(browser.restore(store.list().map((agent) => ({ id: agent.id, threadId: agent.threadId }))));
   performance.mark("openbot:services.browser");
   const browserPictureInPicture = new BrowserPictureInPicture({
@@ -1561,8 +1567,11 @@ export async function createApplicationServices({
         .pipe(Effect.asVoid, toProviderRuntimeFailure);
     },
   });
-  teardown.push(TEARDOWN_ORDER.providerRuntimes, "the provider runtimes", () =>
-    runCauseEffect(providerRuntimes.stop()),
+  teardown.push(
+    TEARDOWN_ORDER.providerRuntimes,
+    "the provider runtimes",
+    () => runCauseEffect(providerRuntimes.stop()),
+    { outsideBudget: true },
   );
   // Before `new AgentService`, which reads every `executablePath` eagerly.
   await runCauseEffect(providerRuntimes.initialize());
@@ -2101,7 +2110,9 @@ export async function createApplicationServices({
       }),
     tables,
   });
-  teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
+  teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()), {
+    outsideBudget: true,
+  });
   // A turn can wait for the approval of the person with a filled form on the page, so the idle tab of
   // an agent with a running turn keeps its page for 30 min also while the Mac is low on memory.
   browser.setAgentWorking((agentId) => service.runningTurns().some((turn) => turn.agentId === agentId));
@@ -2136,7 +2147,9 @@ export async function createApplicationServices({
   service.on("event", (event) => {
     if (event.type === "agents-changed") Effect.runFork(automation.requestSync());
   });
-  teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()));
+  teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()), {
+    outsideBudget: true,
+  });
   // An agent routine's answer handed on from agent to agent; see `routine-flows.ts`.
   const routineFlowRuntime = await Effect.runPromise(
     createRoutineFlows({
@@ -2155,7 +2168,9 @@ export async function createApplicationServices({
       },
     }),
   );
-  teardown.push(TEARDOWN_ORDER.routineFlows, "the routine flows", () => Effect.runPromise(routineFlowRuntime.close()));
+  teardown.push(TEARDOWN_ORDER.routineFlows, "the routine flows", () => Effect.runPromise(routineFlowRuntime.close()), {
+    outsideBudget: true,
+  });
   // Graphs of steps drawn on a canvas; see `workflows.ts`.
   const workflowStore = new WorkflowStore({
     database: store.database,
@@ -2206,7 +2221,9 @@ export async function createApplicationServices({
   vault.onChanged(() => service.notifyVaultChanged());
   // A changed or deleted Vault API key reaches the file that an agent reads at once.
   vault.onChanged(() => void Effect.runPromise(agentApiKeys.syncVault().pipe(Effect.ignore)));
-  teardown.push(TEARDOWN_ORDER.workflows, "the workflows", () => Effect.runPromise(workflowRuntime.close()));
+  teardown.push(TEARDOWN_ORDER.workflows, "the workflows", () => Effect.runPromise(workflowRuntime.close()), {
+    outsideBudget: true,
+  });
   // An agent routine's answer sent on to a messaging place; see `routine-results.ts`.
   const routineResultRuntime = await Effect.runPromise(
     createRoutineResults({
@@ -3071,8 +3088,11 @@ export async function createApplicationServices({
           writeEgressDefault: (userData) => egressDefault.writeToNewServer(userData),
         });
   if (localServers) {
-    teardown.push(TEARDOWN_ORDER.localServers, "the servers on this computer", () =>
-      Effect.runPromise(localServers.stop()),
+    teardown.push(
+      TEARDOWN_ORDER.localServers,
+      "the servers on this computer",
+      () => Effect.runPromise(localServers.stop()),
+      { outsideBudget: true },
     );
     // Before `remoteServers.initialize()`: the account's directory sync keeps only the entries of the
     // servers on this computer that it knows.
