@@ -34,6 +34,8 @@ export const PICKER_MODELS: ClientAgentModelOption[] = [
   model("codex", "gpt-5.6-sol", "GPT-5.6 Sol", ["medium", "high", "xhigh"], "high"),
   model("claude", "claude-opus-5-5", "Claude Opus 5.5", ["low", "medium", "high", "xhigh", "max"], "high"),
   model("claude", "claude-sonnet-5-5", "Claude Sonnet 5.5", ["low", "medium", "high"], "high"),
+  // The model of the Research agent of the story fixtures, which the agent dialog edits.
+  model("claude", "claude-sonnet-5", "Claude Sonnet 5", ["low", "medium", "high"], "high"),
   model("claude", "claude-haiku-5-5", "Claude Haiku 5.5", ["medium"]),
   model("claude", "claude-fable-5", "Claude Fable 5", ["low", "medium", "high"], "high"),
   model("cursor", "cursor/auto", "Auto", ["medium"]),
@@ -88,6 +90,14 @@ export const PICKER_READY_STATUS: AgentStatus = {
     row("deepseek", "sign-in-required"),
     row("openrouter", "sign-in-required"),
   ],
+};
+
+/** The same computer with an OpenRouter key saved: its long catalog can run. */
+export const PICKER_OPENROUTER_READY_STATUS: AgentStatus = {
+  ...PICKER_READY_STATUS,
+  providers: PICKER_READY_STATUS.providers?.map((provider) =>
+    provider.id === "openrouter" ? { ...provider, state: "available" as const } : provider,
+  ),
 };
 
 /** Before the first provider check answers: every provider is checked, and the host lists no model. */

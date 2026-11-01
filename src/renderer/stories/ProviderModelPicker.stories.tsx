@@ -6,6 +6,7 @@ import {
   PICKER_CHECKING_STATUS,
   PICKER_MANY_MODELS,
   PICKER_MODELS,
+  PICKER_OPENROUTER_READY_STATUS,
   PICKER_READY_STATUS,
   PICKER_RUNTIMES,
 } from "./provider-picker-fixtures";
@@ -306,13 +307,6 @@ export const InlineProviderNotDownloaded: Story = {
   render: () => <InDialogBox width={408} picker={{ defaultOpen: true, provider: "cline", value: "cline/default" }} />,
 };
 
-const OPENROUTER_READY = {
-  ...PICKER_READY_STATUS,
-  providers: PICKER_READY_STATUS.providers?.map((provider) =>
-    provider.id === "openrouter" ? { ...provider, state: "available" as const } : provider,
-  ),
-};
-
 /** A long catalog: the search shows, and the list scrolls in a box of a useful height. */
 export const InlineManyModels: Story = {
   render: () => (
@@ -323,7 +317,7 @@ export const InlineManyModels: Story = {
         provider: "openrouter",
         value: "openai/model-2",
         modelOptions: [...PICKER_MODELS, ...PICKER_MANY_MODELS],
-        agentStatus: OPENROUTER_READY,
+        agentStatus: PICKER_OPENROUTER_READY_STATUS,
       }}
     />
   ),
