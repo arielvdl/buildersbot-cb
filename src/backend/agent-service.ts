@@ -4294,7 +4294,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   readonly stop = Effect.fn("AgentService.stop")(function* (this: AgentService) {
     this.#stopping = true;
+    // The stop took more than 10 s on some quits, once with no turn running. Each slow phase goes to the log.
+    const phase = stopPhaseClock();
     yield* this.#memoryReview.dispose();
+    phase.ended("memory review");
     const channelStop = yield* Effect.forkChild(
       this.channels
         .stop()
@@ -4306,6 +4309,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#initialized = false;
     this.#routineTimer.dispose();
     yield* this.#memoryHold.dispose();
+    phase.ended("memory hold");
     this.#hostedSites.dispose();
     this.#compaction.dispose();
     this.#deltas.dispose();
@@ -4316,7 +4320,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#attention.clearPrompts();
     this.#attention.clearBrowserTakeovers();
     this.#attention.clearApprovals();
+    phase.ended("conversation state");
     const clients = [...(yield* this.#providers.dispose()), ...this.#profileClients.release()];
+    phase.ended("provider sessions");
     for (const [agentId, snapshot] of this.#conversation.activeSnapshots()) {
       if (!snapshot.activeTurnId) continue;
       const agent = this.#store.list().find((item) => item.id === agentId);
@@ -4324,23 +4330,32 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       if (session) this.#images.interrupt(agentId, session, snapshot.activeTurnId);
     }
     yield* this.#turn.dispose();
+    phase.ended("interrupted turns");
     yield* this.#usageLimits.dispose();
     this.#drain.dispose();
     this.#planContinuation.dispose();
     this.#browser.clearControls();
+    phase.ended("usage limits");
     yield* Effect.forEach(clients, (client) => client.stop().pipe(Effect.catch(() => Effect.void)), {
       concurrency: "unbounded",
       discard: true,
     });
+    phase.ended("provider clients");
     yield* this.#warmGenerations.dispose();
+    phase.ended("warm generations");
     yield* Fiber.join(channelStop);
+    phase.ended("channels");
     // After the clients: a provider that still runs would see its MCP servers fail.
     yield* this.#mcp.close();
+    phase.ended("MCP gateway");
     yield* settleLifecycleTasks("finish drain", this.#drain.pendingTasks());
+    phase.ended("queued deliveries");
     yield* settleLifecycleTasks("finish image requests", this.#images.pendingOperations());
     yield* this.#images.dispose();
+    phase.ended("image requests");
     yield* settleLifecycleTasks("finish attachment commands", this.#attachments.pendingCommands());
     this.#attachments.dispose();
+    phase.ended("attachment commands");
     yield* this.#browserUploads
       .dispose()
       .pipe(
@@ -4348,7 +4363,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           (failure) => new AgentLifecycleFailed({ operation: "stop browser uploads", cause: failure.cause }),
         ),
       );
+    phase.ended("browser uploads");
     yield* Scope.close(this.#scope, Exit.void);
+    phase.ended("service scope");
     this.#scope = Scope.makeUnsafe();
     this.#providers.markStopped();
   }).bind(this);
@@ -5501,6 +5518,25 @@ function sameUsageLimit(choice: AgentModelChoice, limit: UsageLimitKey): boolean
 
 function lifecycleStep<A>(operation: string, run: () => A): Effect.Effect<A, AgentLifecycleFailed> {
   return Effect.try({ try: run, catch: (cause) => new AgentLifecycleFailed({ operation, cause }) });
+}
+
+/** A phase of `AgentService.stop` that takes this long goes to the log. */
+const SLOW_STOP_PHASE_MS = 1_000;
+
+/**
+ * Measures the phases of `AgentService.stop` one after another. The teardown logs only the time of the
+ * whole stop, so a slow quit did not name the phase that held it.
+ */
+function stopPhaseClock(): { ended: (phase: string) => void } {
+  let startedAt = Date.now();
+  return {
+    ended: (phase) => {
+      const now = Date.now();
+      if (now - startedAt >= SLOW_STOP_PHASE_MS)
+        logger.info(`Stopping the agent service: ${phase} took ${now - startedAt} ms.`);
+      startedAt = now;
+    },
+  };
 }
 
 /** These tasks already run; stopping the service joins them without starting new work. */
