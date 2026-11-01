@@ -11,22 +11,16 @@ import {
   IconButton,
   Input,
   RefreshCw,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Textarea,
   X,
 } from "@openbot/ui";
 import { AVATAR_HUE_CHOICES, avatarCandidateSeeds, avatarHueSwatch } from "@openbot/ui/bloub-avatar";
-import { ProviderModelPicker, reasoningLabel } from "@openbot/ui/components/ProviderModelPicker";
+import { ProviderModelPicker } from "@openbot/ui/components/ProviderModelPicker";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { AVATAR_HUE_LABEL } from "@openbot/ui/features/agents/avatar-hue-label";
 import { InstructionsLimit, instructionsTooLong } from "@openbot/ui/features/agents/InstructionsLimit";
 import { useText } from "@openbot/ui/text";
-import { prefersReducedMotion } from "@openbot/ui/utils";
 import { errorReference } from "@openbot/user-errors";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { useProviders } from "../../providers";
@@ -112,11 +106,6 @@ export function ChannelMemberDialog(props: ChannelMemberDialogProps) {
     const agent = props.agent;
     return agent ? foreignProvider(agent.provider) : undefined;
   };
-  const selectedModel = createMemo(() =>
-    agents.modelOptions().find((option) => option.provider === draft().provider && option.id === draft().model),
-  );
-  const reasoningOptions = createMemo(() => selectedModel()?.supportedReasoningEfforts ?? ["medium" as const]);
-  const reasoningSetByProvider = () => selectedModel()?.reasoningEffortConfigurable === false;
   const faces = createMemo(() => {
     const current = draft();
     return avatarCandidateSeeds(`member:${current.avatarSeed}`, current.avatarSeed, current.batch).slice(
@@ -210,11 +199,6 @@ export function ChannelMemberDialog(props: ChannelMemberDialogProps) {
     }
   }
 
-  let runtime: HTMLDivElement | undefined;
-  /** Shows the whole model section, with its reasoning, when one of its menus opens. */
-  const revealRuntime = () =>
-    runtime?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
-
   return (
     <Dialog.Root
       open={props.open}
@@ -307,19 +291,18 @@ export function ChannelMemberDialog(props: ChannelMemberDialogProps) {
                   )}
                 </For>
               </fieldset>
-              {/* The model is near the top, so its menu has room to open under it. */}
-              <div
-                ref={(element) => {
-                  runtime = element;
-                }}
-                class="agent-settings-runtime-rows channel-member-runtime"
-              >
+              {/* The model section opens in the form, under its row: the form scrolls, and nothing that
+                  clips the rows of the form cuts it. The effort is in the section and on the row. */}
+              <div class="agent-settings-runtime-rows channel-member-runtime">
                 <ProviderModelPicker
                   variant="field"
+                  inline
                   ariaLabel={t("agentSettings.runtime.model")}
                   provider={draft().provider}
                   foreignProvider={foreign()}
                   value={draft().model}
+                  reasoningEffort={draft().reasoningEffort}
+                  onReasoningEffortChange={(reasoningEffort) => patch({ reasoningEffort })}
                   agentStatus={agents.agentStatus()}
                   modelOptions={agents.modelOptions()}
                   runtimeStatuses={
@@ -336,39 +319,7 @@ export function ChannelMemberDialog(props: ChannelMemberDialogProps) {
                   onConnectProvider={providers.connectProvider}
                   disabledReason={t("agentSettings.runtime.modelUnavailable")}
                   onChange={(model, provider) => pickModel(model, provider)}
-                  onOpenChange={(open) => {
-                    if (open) revealRuntime();
-                  }}
                 />
-                <Select<AgentReasoningEffort>
-                  class="agent-settings-runtime-select"
-                  options={reasoningOptions()}
-                  onOpenChange={(open) => {
-                    if (open) revealRuntime();
-                  }}
-                  value={draft().reasoningEffort}
-                  disabled={reasoningSetByProvider() || foreign() !== undefined}
-                  onChange={(effort) => {
-                    if (effort) patch({ reasoningEffort: effort });
-                  }}
-                  itemComponent={(item) => (
-                    <SelectItem item={item.item}>{reasoningLabel(item.item.rawValue)}</SelectItem>
-                  )}
-                >
-                  <SelectTrigger
-                    class="agent-settings-runtime-row"
-                    aria-label={t("agentSettings.runtime.reasoningLabel")}
-                  >
-                    <span class="agent-settings-runtime-label">{t("agentSettings.runtime.reasoning")}</span>
-                    <SelectValue<AgentReasoningEffort>>
-                      {(state) => {
-                        const effort = state.selectedOption();
-                        return effort ? reasoningLabel(effort) : t("agentSettings.runtime.selectReasoning");
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
               </div>
               <Field label={t("agentSettings.name")}>
                 <Input
