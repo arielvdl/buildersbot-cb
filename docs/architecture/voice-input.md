@@ -36,18 +36,23 @@ and `auto` moves to the model when the system cannot work.
 
 ### macOS
 
-`resources/os-speech/darwin/os-speech.swift` is compiled by `scripts/build-os-speech.ts` into
-`.openbot-build/voice/os-speech/darwin/os-speech`, carried by `extraResources` and run with the WAV
-path and the language. It requests `SFSpeechRecognizer` authorization and recognizes **on device
-only** (`requiresOnDeviceRecognition`). It never uses the speech server of Apple, so the audio stays
-on the Mac, as `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` say. A
-language without its on-device asset answers `language`, and a failed pass answers `recognize`; in
-both cases `auto` moves to the voice model. It exits with a category (`permission`, `language`,
-`empty`, `recognize`) that main maps to a catalog key.
+`resources/os-speech/darwin/os-speech.swift` is compiled by `scripts/build-os-speech.ts` into a tiny
+background application (`LSUIElement`), `.openbot-build/voice/os-speech/darwin/Builders Bot
+Dictation.app`, carried by `extraResources`.
 
-The app's `Info.plist` carries `NSSpeechRecognitionUsageDescription`; the helper carries its own copy
-in an embedded plist, so the permission still resolves if macOS attributes it to the binary. The app
-is the responsible process, so the prompt names Builders Bot.
+It is an application and not a plain binary because the speech permission belongs to a bundle. Main
+opens it with `open -g -W -n … --args --language … --file … --out … --err …`; a plain child of
+Electron aborts inside TCC even with the app's own `Info.plist` key. The helper requests
+`SFSpeechRecognizer` authorization and recognizes **on device only** (`requiresOnDeviceRecognition`).
+It never uses the speech server of Apple, so the audio stays on the Mac, as
+`NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` say. A language without its
+on-device asset answers `language`, and a failed pass answers `recognize`; in both cases `auto` moves
+to the voice model. It writes the transcript to the `--out` file, and a
+failure to the `--err` file as `code: message` (`permission`, `language`, `empty`, `recognize`); main
+maps the category to a catalog key. An app that writes neither file reads as `missing`.
+
+The prompt names "Builders Bot system dictation", the helper's own name, on the first dictation. A
+denied permission is reported; `auto` falls back to the model.
 
 ### Windows
 

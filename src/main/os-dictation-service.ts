@@ -1,7 +1,7 @@
 // The system dictation of this computer: a finished WAV recording in, its transcript out.
 //
-// macOS runs a small Swift binary that the build puts beside the voice runtime; it uses the Speech
-// framework, on device when the language has its asset and on the server of the system otherwise.
+// macOS opens a small background Swift app that the build puts beside the voice runtime; it uses the
+// Speech framework on device only.
 // Windows runs the speech recognition of .NET, which needs the language pack of the language.
 //
 // Nothing here touches the microphone: the window records, as it does for every dictation. The
@@ -30,8 +30,10 @@ const run = promisify(execFile);
 const STATUS_TIMEOUT_MS = 8_000;
 const TRANSCRIBE_TIMEOUT_MS = 150_000;
 const STATUS_CACHE_MS = 30_000;
-/** The helper answers a failure on stderr as `code: message`; the code is what is mapped. */
+/** The helper answers a failure in its error file as `code: message`; the code is what is mapped. */
 const FAILURE_CODE = /^([a-z-]+):/u;
+/** The name of the helper app in the voice folder. */
+const OS_SPEECH_BUNDLE = "Builders Bot Dictation.app";
 
 /** One process run. Narrow, so a test can answer without the overloads of `execFile`. */
 export type OsDictationRunner = (
@@ -86,10 +88,10 @@ export class OsDictationService {
     this.#run = options.run ?? run;
   }
 
-  /** The helper of this build, when the platform has one. */
+  /** The helper app of this build, when the platform has one. */
   get #helper(): string | null {
     if (this.#platform !== "darwin") return null;
-    const path = join(this.#resourcesRoot, "os-speech", "darwin", "os-speech");
+    const path = join(this.#resourcesRoot, "os-speech", "darwin", OS_SPEECH_BUNDLE);
     return existsSync(path) ? path : null;
   }
 
@@ -137,17 +139,12 @@ export class OsDictationService {
   async #probe(): Promise<Status> {
     if (this.#platform === "win32") return this.#probeWindows();
     if (this.#platform !== "darwin") return { available: false, reason: "error.dictation.system.platform" };
-    const helper = this.#helper;
-    if (!helper) return { available: false, reason: "error.dictation.system.missing" };
-    try {
-      await this.#run(helper, ["--status"], { timeout: STATUS_TIMEOUT_MS });
-      return { available: true, reason: null };
-    } catch (error) {
-      const code = failureCode(error);
-      // A Mac that never granted the permission is usable: the first dictation asks for it.
-      if (code === "permission" && /not granted/u.test(stderrOf(error))) return { available: true, reason: null };
-      return { available: false, reason: reasonOf(code) };
-    }
+    if (!this.#helper) return { available: false, reason: "error.dictation.system.missing" };
+    const answer = await this.#runBundle(["--status"], STATUS_TIMEOUT_MS);
+    // A Mac that never granted the permission is usable: the first dictation asks for it.
+    if (answer.code === "permission" && /not granted/u.test(answer.message)) return { available: true, reason: null };
+    if (answer.code) return { available: false, reason: reasonOf(answer.code) };
+    return { available: true, reason: null };
   }
 
   async #probeWindows(): Promise<Status> {
@@ -168,13 +165,42 @@ export class OsDictationService {
   }
 
   async #transcribeDarwin(file: string): Promise<string> {
+    const answer = await this.#runBundle(["--language", this.#language(), "--file", file], TRANSCRIBE_TIMEOUT_MS);
+    if (answer.code) throw new OsDictationFailure(answer.code);
+    return answer.text;
+  }
+
+  /**
+   * Opens the helper app and reads the files it answers with. The app is opened and not spawned:
+   * only then does macOS attribute the speech permission to its bundle.
+   */
+  async #runBundle(args: string[], timeout: number): Promise<{ text: string; code: string | null; message: string }> {
     const helper = this.#helper;
-    if (!helper) throw new OsDictationFailure("missing");
-    const { stdout } = await this.#run(helper, ["--language", this.#language(), "--file", file], {
-      timeout: TRANSCRIBE_TIMEOUT_MS,
-      maxBuffer: 1_048_576,
-    });
-    return stdout;
+    if (!helper) {
+      logger.warn("The system dictation app is missing.", { root: this.#resourcesRoot });
+      throw new OsDictationFailure("missing");
+    }
+    const directory = await mkdtemp(join(tmpdir(), "buildersbot-os-speech-"));
+    const out = join(directory, "out.txt");
+    const err = join(directory, "err.txt");
+    try {
+      await this.#run("/usr/bin/open", ["-g", "-W", "-n", helper, "--args", ...args, "--out", out, "--err", err], {
+        timeout,
+      }).catch((error: unknown) => {
+        // `open` answers 0 when the app runs; a failure of the app itself is in the files.
+        logger.warn("The system dictation app did not open.", { error });
+      });
+      const text = await readFile(out, "utf8").catch(() => "");
+      const message = await readFile(err, "utf8").catch(() => "");
+      const code = FAILURE_CODE.exec(message)?.[1] ?? null;
+      if (!code && !text) {
+        logger.warn("The system dictation app answered nothing.", { helper });
+        return { text, code: "unavailable", message };
+      }
+      return { text, code, message };
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   }
 
   async #transcribeWindows(file: string): Promise<string> {
@@ -206,16 +232,6 @@ function windowsArguments(input: { check: true } | { file: string; language: Voi
       ? "$File = ''\n$Language = 'automatic'\n$Check = $true\n"
       : `$File = '${input.file.replaceAll("'", "''")}'\n$Language = '${input.language.replaceAll("'", "''")}'\n$Check = $false\n`;
   return ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", prelude + WINDOWS_SPEECH_SCRIPT];
-}
-
-/** The `code:` prefix of the helper's stderr, or `unknown`. */
-function failureCode(error: unknown): string {
-  return FAILURE_CODE.exec(stderrOf(error))?.[1] ?? "unknown";
-}
-
-function stderrOf(error: unknown): string {
-  if (!isDynamicRecord(error)) return String(error);
-  return typeof error.stderr === "string" ? error.stderr : "";
 }
 
 /** The catalog key of a failure, for the overlay and for `finish`. */

@@ -12,23 +12,31 @@ afterEach(async () => {
   for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true });
 });
 
-/** A voice folder with, or without, the macOS helper. */
+const HELPER_APP = "Builders Bot Dictation.app";
+
+/** A voice folder with, or without, the macOS helper app. */
 async function resources(withHelper: boolean): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), "os-dictation-"));
   directories.push(directory);
   if (withHelper) {
-    await mkdir(join(directory, "os-speech", "darwin"), { recursive: true });
-    await writeFile(join(directory, "os-speech", "darwin", "os-speech"), "#!/bin/sh\n");
+    const macos = join(directory, "os-speech", "darwin", HELPER_APP, "Contents", "MacOS");
+    await mkdir(macos, { recursive: true });
+    await writeFile(join(macos, "os-speech"), "");
   }
   return directory;
 }
 
-/** A runner that answers by the arguments it is given. */
-function runner(answer: (args: string[]) => { stdout?: string; stderr?: string }) {
+/**
+ * A runner that answers by the arguments it is given: the macOS helper app through the `--out` and
+ * `--err` files the service passes, Windows on stdout.
+ */
+function runner(answer: (args: string[]) => { text?: string; error?: string; stdout?: string }) {
   return vi.fn(async (_file: string, args: string[]) => {
-    const { stdout = "", stderr = "" } = answer(args);
-    if (stderr) throw Object.assign(new Error("failed"), { stderr });
-    return { stdout, stderr };
+    const value = (flag: string) => args[args.indexOf(flag) + 1] ?? "";
+    const { text, error, stdout } = answer(args);
+    if (text !== undefined) await writeFile(value("--out"), text);
+    if (error !== undefined) await writeFile(value("--err"), error);
+    return { stdout: stdout ?? "", stderr: "" };
   });
 }
 
@@ -58,7 +66,7 @@ describe("system dictation", () => {
       resourcesRoot: await resources(true),
       language: () => "en",
       platform: "darwin",
-      run: runner(() => ({ stderr: "permission: Speech recognition was not granted yet." })),
+      run: runner(() => ({ error: "permission: Speech recognition was not granted yet.\n" })),
     });
     expect(await service.status()).toEqual({ available: true, reason: null });
   });
@@ -68,7 +76,7 @@ describe("system dictation", () => {
       resourcesRoot: await resources(true),
       language: () => "en",
       platform: "darwin",
-      run: runner(() => ({ stderr: "permission: Speech recognition is denied." })),
+      run: runner(() => ({ error: "permission: Speech recognition is denied.\n" })),
     });
     expect(await service.status()).toEqual({ available: false, reason: "error.dictation.system.permission" });
   });
@@ -86,14 +94,14 @@ describe("system dictation", () => {
       resourcesRoot: await resources(true),
       language: () => "en",
       platform: "darwin",
-      run: runner(() => ({})),
+      run: runner(() => ({ text: "authorized" })),
     });
     expect((await available.engineStatus("auto")).resolved).toBe("system");
     expect((await available.engineStatus("voice")).resolved).toBe("voice");
   });
 
-  it("sends the recording and the language to the helper", async () => {
-    const run = runner(() => ({ stdout: "  olá mundo \n" }));
+  it("opens the helper app with the recording and the language", async () => {
+    const run = runner(() => ({ text: "  olá mundo \n" }));
     const service = new OsDictationService({
       resourcesRoot: await resources(true),
       language: () => "pt",
@@ -101,9 +109,47 @@ describe("system dictation", () => {
       run,
     });
     expect(await service.transcribe(WAV)).toBe("olá mundo");
-    const [file, args] = run.mock.calls[0] ?? [];
-    expect(file).toContain("os-speech");
-    expect(args).toEqual(["--language", "pt", "--file", expect.stringContaining("recording.wav")]);
+    const [file, args = []] = run.mock.calls[0] ?? [];
+    expect(file).toBe("/usr/bin/open");
+    expect(args.slice(0, 3)).toEqual(["-g", "-W", "-n"]);
+    expect(args[3]?.endsWith(HELPER_APP)).toBe(true);
+    expect(args.slice(args.indexOf("--args"))).toEqual([
+      "--args",
+      "--language",
+      "pt",
+      "--file",
+      expect.stringContaining("recording.wav"),
+      "--out",
+      expect.stringContaining("out.txt"),
+      "--err",
+      expect.stringContaining("err.txt"),
+    ]);
+  });
+
+  it("reports the failure the helper app writes", async () => {
+    const service = new OsDictationService({
+      resourcesRoot: await resources(true),
+      language: () => "pt",
+      platform: "darwin",
+      run: runner((args) =>
+        args.includes("--status")
+          ? { text: "authorized" }
+          : { error: "language: This language has no speech recognition on this Mac.\n" },
+      ),
+    });
+    const failure = await service.transcribe(WAV).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(OsDictationFailure);
+    expect(dictationFailureKey(failure)).toBe("error.dictation.system.language");
+  });
+
+  it("reads an app that answers nothing as unavailable", async () => {
+    const service = new OsDictationService({
+      resourcesRoot: await resources(true),
+      language: () => "en",
+      platform: "darwin",
+      run: runner(() => ({})),
+    });
+    expect(await service.status()).toEqual({ available: false, reason: "error.dictation.system.missing" });
   });
 
   it("reads the Windows answer as JSON", async () => {

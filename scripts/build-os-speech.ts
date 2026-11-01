@@ -1,14 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, renameSync, rmSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { chmodSync, cpSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { createBuildersBotLogger } from "@openbot/logging";
 
-// The system dictation of macOS, built into the voice folder the app reads at run time:
-// `.openbot-build/voice/os-speech/darwin/os-speech`.
+// The system dictation of macOS, built as a tiny background application in the voice folder the
+// app reads at run time:
+// `.openbot-build/voice/os-speech/darwin/Builders Bot Dictation.app`.
 //
-// The binary carries its own Info.plist section, so the Speech framework finds the usage sentence
-// even when macOS attributes the permission to the binary instead of the app. It is signed ad hoc
-// here and re-signed with the app when electron-builder packs it.
+// It is an application and not a plain binary because the speech recognition permission belongs to
+// a bundle: opened with `open`, macOS attributes it to this app, whose Info.plist carries the usage
+// sentence and `LSUIElement`. A plain child process of the app aborts in TCC.
+//
+// The bundle is signed ad hoc here and re-signed with the app when electron-builder packs it.
 //
 // The Windows engine needs no build: it runs a PowerShell script that main carries as text.
 
@@ -16,16 +19,18 @@ const logger = createBuildersBotLogger("build-os-speech");
 
 const source = resolve("resources/os-speech/darwin/os-speech.swift");
 const plist = resolve("resources/os-speech/darwin/info.plist");
-const output = resolve(".openbot-build/voice/os-speech/darwin/os-speech");
+const output = resolve(".openbot-build/voice/os-speech/darwin/Builders Bot Dictation.app");
 
 if (process.platform !== "darwin") {
   logger.info("The system dictation is built on macOS only; nothing to do.");
   process.exit(0);
 }
 
-mkdirSync(dirname(output), { recursive: true });
 const temporary = `${output}.new`;
-rmSync(temporary, { force: true });
+rmSync(temporary, { recursive: true, force: true });
+mkdirSync(join(temporary, "Contents", "MacOS"), { recursive: true });
+const binary = join(temporary, "Contents", "MacOS", "os-speech");
+
 execFileSync(
   "/usr/bin/xcrun",
   [
@@ -35,7 +40,7 @@ execFileSync(
     `${process.arch === "arm64" ? "arm64" : "x86_64"}-apple-macos13`,
     source,
     "-o",
-    temporary,
+    binary,
     "-Xlinker",
     "-sectcreate",
     "-Xlinker",
@@ -47,8 +52,12 @@ execFileSync(
   ],
   { stdio: "inherit" },
 );
+cpSync(plist, join(temporary, "Contents", "Info.plist"));
+chmodSync(binary, 0o755);
 execFileSync("/usr/bin/codesign", ["--force", "--sign", "-", temporary], { stdio: "inherit" });
-chmodSync(temporary, 0o755);
+rmSync(output, { recursive: true, force: true });
 renameSync(temporary, output);
-copyFileSync(plist, resolve(dirname(output), "info.plist"));
+// The plain binary and its plist of earlier builds would be packed beside the app.
+rmSync(join(dirname(output), "os-speech"), { force: true });
+rmSync(join(dirname(output), "info.plist"), { force: true });
 logger.info("The system dictation is built.", { output });

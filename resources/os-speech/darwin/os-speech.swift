@@ -1,20 +1,46 @@
 // The system dictation of macOS: one finished WAV file in, its transcript out.
 //
-// The app runs this binary with the recording, so the Speech framework stays out of the main
-// process. The speech recognition permission belongs to Builders Bot, which is the responsible
-// process: the system asks for it the first time this runs, naming the app.
+// The app opens this as a tiny background application, so the Speech framework stays out of the
+// main process and the speech recognition permission belongs to this bundle. The system asks for
+// it the first time, naming "Builders Bot system dictation". A plain child process of the app
+// aborts in TCC when it asks for the permission.
 //
-// `--status` only reads the permission, without asking for it.
+// The answer goes to the file of `--out`, or to stdout. A failure goes to `--err` as
+// `code: message`, or to stderr. `--status` only reads the permission, without asking for it.
 //
-// Exit codes: 0 with the text on stdout; 3 permission denied; 4 restricted; 5 language unsupported;
+// Exit codes: 0 with the text; 3 permission denied; 4 restricted; 5 language unsupported;
 // 6 recognizer unavailable; 7 nothing was said; 1 anything else.
 
 import Foundation
 import Speech
 
+var language = "automatic"
+var path = ""
+var outputPath = ""
+var errorPath = ""
+var statusOnly = false
+
+func write(_ text: String, to path: String) {
+    try? text.write(toFile: path, atomically: true, encoding: .utf8)
+}
+
 func fail(_ code: String, _ message: String, _ status: Int32) -> Never {
-    FileHandle.standardError.write(Data("\(code): \(message)\n".utf8))
+    let line = "\(code): \(message)\n"
+    if errorPath.isEmpty {
+        FileHandle.standardError.write(Data(line.utf8))
+    } else {
+        write(line, to: errorPath)
+    }
     exit(status)
+}
+
+func succeed(_ text: String) -> Never {
+    if outputPath.isEmpty {
+        print(text)
+    } else {
+        write(text, to: outputPath)
+    }
+    exit(0)
 }
 
 func waitForRunLoop(until deadline: Date, while pending: () -> Bool) {
@@ -25,9 +51,6 @@ func waitForRunLoop(until deadline: Date, while pending: () -> Bool) {
     }
 }
 
-var language = "automatic"
-var path = ""
-var statusOnly = false
 var index = 1
 while index < CommandLine.arguments.count {
     switch CommandLine.arguments[index] {
@@ -37,6 +60,12 @@ while index < CommandLine.arguments.count {
     case "--file":
         index += 1
         if index < CommandLine.arguments.count { path = CommandLine.arguments[index] }
+    case "--out":
+        index += 1
+        if index < CommandLine.arguments.count { outputPath = CommandLine.arguments[index] }
+    case "--err":
+        index += 1
+        if index < CommandLine.arguments.count { errorPath = CommandLine.arguments[index] }
     case "--status":
         statusOnly = true
     default:
@@ -70,10 +99,7 @@ case .notDetermined: fail("permission", "Speech recognition was not granted yet.
 @unknown default: fail("permission", "Speech recognition is not authorized.", 3)
 }
 
-if statusOnly {
-    print("authorized")
-    exit(0)
-}
+if statusOnly { succeed("authorized") }
 
 guard !path.isEmpty else { fail("usage", "No recording was given.", 1) }
 guard FileManager.default.fileExists(atPath: path) else { fail("usage", "The recording is gone.", 1) }
@@ -124,4 +150,4 @@ let transcript = outcome.text.trimmingCharacters(in: .whitespacesAndNewlines)
 if transcript.isEmpty {
     fail("recognize", outcome.failure?.localizedDescription ?? "Nothing was recognized.", 1)
 }
-print(transcript)
+succeed(transcript)

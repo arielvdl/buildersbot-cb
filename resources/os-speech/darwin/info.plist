@@ -6,8 +6,20 @@
     <string>app.openbot.os-speech</string>
     <key>CFBundleName</key>
     <string>Builders Bot system dictation</string>
+    <key>CFBundleDisplayName</key>
+    <string>Builders Bot system dictation</string>
+    <key>CFBundleExecutable</key>
+    <string>os-speech</string>
     <key>CFBundlePackageType</key>
-    <string>TOOL</string>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Builders Bot uses the speech recognition of macOS to turn your dictation into text on this Mac.</string>
   </dict>

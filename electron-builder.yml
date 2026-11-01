@@ -123,7 +123,7 @@ mac:
     # The sherpa-onnx addon and its libraries. The dictation and speech models are downloaded on demand.
     - from: .openbot-build/voice/runtime
       to: voice/runtime
-    # The binary of the system dictation of macOS. Windows runs PowerShell and needs no file.
+    # The background app of the system dictation of macOS. Windows runs PowerShell and needs no file.
     - from: .openbot-build/voice/os-speech
       to: voice/os-speech
     - from: build/remote-desktop-runtime
