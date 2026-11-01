@@ -3,10 +3,8 @@ import type {
   AutoRecoveryPreference,
   LoadLanePreference,
   LoadSnapshot,
-  RecoveryEvent,
   RunningWork,
   StoppedWork,
-  TaskWatchEvent,
   TaskWatchPreference,
   TaskWatchState,
 } from "@openbot/contracts/ipc";
@@ -43,9 +41,11 @@ import {
   loadMemoryPercent,
   loadRecentEvents,
   loadRingTone,
+  recoveryEventText,
   requestText,
   stoppedCount,
   stoppedTone,
+  taskWatchEventText,
   toggledKey,
   withChannelFirst,
 } from "./load-view";
@@ -57,6 +57,8 @@ export interface LoadRailProps {
   /** The last reading, or null before the first one. */
   snapshot: LoadSnapshot | null;
   channelName: (channelId: string) => string;
+  /** Whether the panel is open. Absent, the ring keeps it; given, a page outside the rail can open it. */
+  open?: boolean | undefined;
   /** The panel opened or closed, so the window reads the load faster while it is open. */
   onOpenChange: (open: boolean) => void;
   onLaneChange: (preference: LoadLanePreference) => void;
@@ -116,7 +118,7 @@ export function LoadRing(props: LoadRailProps) {
       : t("app.rail.load.summaryQuiet", { agents: agentsText(), used: used.used, total: used.total });
   };
   return (
-    <Popover.Root placement="right-end" gutter={8} onOpenChange={props.onOpenChange}>
+    <Popover.Root placement="right-end" gutter={8} open={props.open} onOpenChange={props.onOpenChange}>
       <Popover.Trigger
         as={Button}
         variant="ghost"
@@ -729,29 +731,4 @@ function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (prefer
       </Show>
     </>
   );
-}
-
-function recoveryEventText(event: RecoveryEvent, t: ReturnType<typeof useText>["t"]): string {
-  if (event.action === "resumed") return t("app.rail.load.eventResumed", { channel: event.channelName });
-  if (event.action === "reassigned")
-    return t("app.rail.load.eventReassigned", { channel: event.channelName, agent: event.agentName ?? "" });
-  return t("app.rail.load.eventGaveUp", { channel: event.channelName });
-}
-
-/** One action of the task reviewer, with why it acted: "Task reviewer: resumed Payments (no sign for 32 min)". */
-function taskWatchEventText(event: TaskWatchEvent, t: ReturnType<typeof useText>["t"]): string {
-  const minutes = event.minutes ?? 0;
-  const why =
-    event.reason === "start-failed"
-      ? t("app.rail.load.watchWhyStartFailed")
-      : event.reason === "queued"
-        ? t("app.rail.load.watchWhyQueued", { minutes })
-        : t("app.rail.load.watchWhyNoSign", { minutes });
-  const channel = event.channelName;
-  if (event.action === "waited") return t("app.rail.load.watchEventWaited", { channel, why });
-  if (event.action === "resumed") return t("app.rail.load.watchEventResumed", { channel, why });
-  if (event.action === "reassigned")
-    return t("app.rail.load.watchEventReassigned", { channel, agent: event.agentName ?? "", why });
-  if (event.action === "stopped") return t("app.rail.load.watchEventStopped", { channel, why });
-  return t("app.rail.load.watchEventGaveUp", { channel, why });
 }

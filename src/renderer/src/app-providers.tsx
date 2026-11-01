@@ -25,6 +25,7 @@ import { CustomProvidersProvider } from "./features/custom-providers/custom-prov
 import { ProviderDetectionProvider } from "./features/custom-providers/provider-detection-context";
 import { DynamicIslandBridge } from "./features/dynamic-island/dynamic-island-bridge";
 import { DynamicIslandProvider } from "./features/dynamic-island/dynamic-island-context";
+import { LoadProvider } from "./features/load/load-context";
 import { SetupProvider } from "./features/onboarding/onboarding-context";
 import { RemoteDesktopProvider } from "./features/remote-desktop/remote-desktop-context";
 import { ServerScopeProvider } from "./features/servers/server-scope";
@@ -122,15 +123,18 @@ export function AppProviders(props: ParentProps<AppProps>): JSX.Element {
                                       <UiErrorsProvider>
                                         <UsageProvider>
                                           <WindowPageProvider>
-                                            <AgentReadTrackingProvider>
-                                              {/* Links and invitations open in the main window. */}
-                                              <Show when={!props.chatWindow}>
-                                                <AppBootstrap />
-                                              </Show>
-                                              <ServerScopeBoundary stableConversation={stableConversation}>
-                                                {props.children}
-                                              </ServerScopeBoundary>
-                                            </AgentReadTrackingProvider>
+                                            {/* The load of this computer outlives a server switch. */}
+                                            <LoadProvider>
+                                              <AgentReadTrackingProvider>
+                                                {/* Links and invitations open in the main window. */}
+                                                <Show when={!props.chatWindow}>
+                                                  <AppBootstrap />
+                                                </Show>
+                                                <ServerScopeBoundary stableConversation={stableConversation}>
+                                                  {props.children}
+                                                </ServerScopeBoundary>
+                                              </AgentReadTrackingProvider>
+                                            </LoadProvider>
                                           </WindowPageProvider>
                                         </UsageProvider>
                                       </UiErrorsProvider>

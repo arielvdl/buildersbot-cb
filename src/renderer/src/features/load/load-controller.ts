@@ -14,7 +14,7 @@ import type { AppPort } from "../../app-port";
 export const LOAD_POLL_MS = 15_000;
 export const LOAD_POLL_OPEN_MS = 3_000;
 
-type LoadPort = Pick<
+export type LoadPort = Pick<
   AppPort,
   | "getLoad"
   | "setLoadLane"
@@ -78,6 +78,10 @@ export function createLoadController(port: () => LoadPort, enabled: () => boolea
   return {
     snapshot,
     refresh,
+    /** Reads once, also while `enabled` is false: a page that shows the load opened. */
+    async read(): Promise<void> {
+      await apply(() => port().getLoad());
+    },
     /** The panel opened or closed. Opening reads at once. */
     setOpen(next: boolean) {
       open = next;
