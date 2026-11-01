@@ -5,6 +5,7 @@ import {
   CONVERSATION_PLAN_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
   hostedSiteConversationEvent,
+  hubConnectionChatEvent,
   isChannelChangeMarker,
   isContextResetMarker,
   isPlanContinuationMarker,
@@ -383,6 +384,8 @@ function chatActionMarker(
     };
   const skillEvent = skillConversationEvent(message);
   if (skillEvent) return { ...skillEvent, kind: "skill-lifecycle", timestamp: message.createdAt };
+  const connectionCost = hubConnectionChatEvent(message);
+  if (connectionCost) return { kind: "hub-connection", event: connectionCost, timestamp: message.createdAt };
   const suggestion = marketplaceSuggestionEvent(message);
   if (suggestion) return { kind: "marketplace-suggestion", appId: suggestion.appId, timestamp: message.createdAt };
   const signIn = mcpSignInEvent(message);

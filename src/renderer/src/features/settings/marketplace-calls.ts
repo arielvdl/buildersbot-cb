@@ -1,6 +1,7 @@
 import type { AddedAgent, InstallMarketplaceAgentInput, McpSignInRelayPage } from "@openbot/contracts/ipc";
 import { appPort } from "../../app-port";
 import { type AgentSkillCalls, agentSkillCalls, type SkillsPort, skillsPort } from "../../skills-port";
+import type { HubConnectionCalls } from "./marketplace-connections-controller";
 
 /**
  * What the marketplace calls. The desktop app reads the catalog and changes agents through main. The
@@ -29,6 +30,10 @@ export interface MarketplaceCalls {
   macAutomation?: SkillsPort["macAutomation"]["request"] | undefined;
   /** The WhatsApp accounts of the wazap server on this computer. Absent: this client cannot run wazap. */
   whatsappAccounts?: SkillsPort["whatsappAccounts"] | undefined;
+  /** The Hub connections of this computer's Cultura Builder session. Absent: this client has none. */
+  hubConnections?: HubConnectionCalls | undefined;
+  /** Saves which Hub connections an agent of this computer has off. Absent with `hubConnections`. */
+  setAgentConnectionsOff?: ((agentId: string, connectionsOff: string[]) => Promise<void>) | undefined;
 }
 
 /** The relayed sign-in of the app at `url` on the joined server `serverId`, while it waits. */
@@ -56,5 +61,13 @@ export function desktopMarketplaceCalls(): MarketplaceCalls {
     },
     macAutomation: (targets) => port.macAutomation.request(targets),
     whatsappAccounts: port.whatsappAccounts,
+    hubConnections: window.openbot.hubConnections,
+    setAgentConnectionsOff: async (agentId, connectionsOff) => {
+      // An empty list is the default, which the agent records by having no value.
+      await window.openbot.agent.updateAgent({
+        agentId,
+        connectionsOff: connectionsOff.length > 0 ? connectionsOff : null,
+      });
+    },
   };
 }

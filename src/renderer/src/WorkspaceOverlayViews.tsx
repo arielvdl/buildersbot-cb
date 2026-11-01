@@ -151,6 +151,7 @@ export function MarketplaceOverlay(props: {
           onInitialPluginSlugConsumed={props.onPluginSlugConsumed}
           pluginServerId={pluginServerId()}
           onAddServer={addServer()}
+          hubConnections={props.server?.kind === "local"}
           pluginHostName={manage() ? remoteAdminServer(props.server, MCP_SERVERS_CAPABILITY)?.name : undefined}
           pluginSignInRelay={
             props.server?.kind === "remote" && serverSupportsCapability(props.server, "sign-in-relay-v1")

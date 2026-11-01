@@ -67,6 +67,7 @@ export type GuardBefore =
 
 const BROWSER = "openbot_browser";
 const OPENBOT = "openbot";
+const CONNECTIONS = "openbot_connections";
 /**
  * How long the person's "allow" holds for the same item in the same thread. A page that a snapshot,
  * a wait or a click reads again gives the same findings, and the same chat post sent again is the
@@ -225,7 +226,28 @@ export const GUARD_TOOL_EGRESS: Readonly<Record<string, GuardToolEgress>> = {
   "openbot_browser.run_script": CHECKED,
   "openbot_browser.handle_dialog": none("It accepts or cancels a dialog and sends no text."),
   "openbot_browser.close_tab": LOCAL_BROWSER,
+  "openbot_connections.list": none("It reads the person's Hub connections and their state; it sends no agent data."),
+  // The input goes to the Cultura Builder Hub and, for a call, to the vendor and the provider of the endpoint.
+  "openbot_connections.call": CHECKED,
 };
+
+/**
+ * Every string of a value, depth first, for the Guard to read what a connection call sends. `keys`
+ * adds the field names. It reads all of them: the input of a call is at most 16 KB and 8 levels deep
+ * (the router refuses a larger one before the Guard reads it), so a cut here would only let a long
+ * text or a block of data after many short items pass the rules of one field (G2).
+ */
+function strings(value: unknown, keys: boolean, out: string[] = [], depth = 0): string[] {
+  if (depth > 16) return out;
+  if (isString(value)) out.push(value);
+  else if (Array.isArray(value)) for (const item of value) strings(item, keys, out, depth + 1);
+  else if (isDynamicRecord(value))
+    for (const [key, item] of Object.entries(value)) {
+      if (keys) out.push(key);
+      strings(item, keys, out, depth + 1);
+    }
+  return out;
+}
 
 function stringField(record: unknown, key: string): string | null {
   if (!isDynamicRecord(record)) return null;
@@ -296,6 +318,21 @@ export function guardOutboundItem(namespace: string | null, tool: string, args: 
     case `${OPENBOT}.html_render`:
       // The page can load files from the network, so a URL in it can carry data out.
       return payload(stringField(args, "html"));
+    case `${CONNECTIONS}.call`: {
+      // All of the input leaves the computer: a search text, an endpoint id, its query and its body.
+      const input = isDynamicRecord(args) ? args.input : undefined;
+      const parts = strings(input, true);
+      const urls = parts.filter((part) => /^https?:\/\//iu.test(part.trim())).map((part) => part.trim());
+      const text = JSON.stringify(input ?? null) ?? "";
+      // Each value on its own too: a cookie, a pasted chat or a block of data in one field (G2, G11).
+      const fields = strings(input, false);
+      return {
+        tool: name,
+        payload: text,
+        ...(urls.length > 0 ? { urls } : {}),
+        ...(fields.length > 0 ? { fields } : {}),
+      };
+    }
     case `${OPENBOT}.save_mcp_server`: {
       const url = stringField(args, "url");
       // Each argument stands as one shell word, so inline code of a `node -e` argument reaches the
@@ -460,6 +497,9 @@ export const GUARD_TOOL_INBOUND: Readonly<Record<string, GuardToolInbound>> = {
   "openbot.tool_call": noOutsideContent(
     "The router finds the tool that it calls first, and the Guard reads that result.",
   ),
+  // Names and prices that the Hub sends, mirrored vendor text, and the content of a vendor endpoint.
+  "openbot_connections.list": CONTENT_CHECKED,
+  "openbot_connections.call": CONTENT_CHECKED,
 };
 
 /**
@@ -481,6 +521,11 @@ export const GUARD_INBOUND_PATHS = {
     covered: true,
     where:
       "PlaywrightBroker checks each tools/call with the Guard before it runs, and reads each result with McpResultGuard.",
+  },
+  "hub-connections": {
+    covered: true,
+    where:
+      "BuildersBotToolRouter calls GuardGate.beforeTool for openbot_connections.call and GuardGate.afterTool for each openbot_connections result.",
   },
   "chat-app-messages": {
     covered: true,
@@ -519,7 +564,23 @@ export function guardInboundContent(namespace: string | null, tool: string, resu
     .flatMap((item) => (item.type === "inputText" ? [item.text] : []))
     .join("\n")
     .trim();
-  return text ? text : null;
+  if (!text) return null;
+  // A connection result is JSON text, where a line break is `\n` and a quote `\"`: the rules read
+  // the decoded text too, so a phrase split by a line break or a tab does not escape them (G5).
+  if (namespace !== CONNECTIONS) return text;
+  const decoded = decodedJsonText(text);
+  return decoded === text ? text : `${text}\n${decoded}`;
+}
+
+/**
+ * The text of JSON with its escapes decoded. It also reads a page of a result that cuts the JSON in
+ * two, so it decodes each escape on its own instead of parsing the JSON.
+ */
+export function decodedJsonText(text: string): string {
+  return text.replace(/\\(?:u([0-9a-fA-F]{4})|(["\\/bfnrt]))/gu, (_whole, code: string | undefined, plain: string) => {
+    if (code) return String.fromCharCode(Number.parseInt(code, 16));
+    return { '"': '"', "\\": "\\", "/": "/", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t" }[plain] ?? plain;
+  });
 }
 
 /** What the approval card shows for an action: the tool, and its URLs, files, command or text, masked. */
@@ -614,6 +675,13 @@ function refusal(text: string): DynamicToolResult {
 function withheld(reason: string | null): DynamicToolResult {
   return refusal(
     `Builders Bot Guard held back this tool result.${reason ? ` ${reason}` : ""} The person did not let the agent read it. Do not try to get the same content another way; tell the person what you could not read.`,
+  );
+}
+
+/** What the agent reads when the Guard stops an action by itself: no one may allow it. */
+function stopped(reason: string | null): DynamicToolResult {
+  return refusal(
+    `Builders Bot Guard stopped this action before it ran.${reason ? ` ${reason}` : ""} No one can allow it. Do not send the same data another way; tell the person what you could not do.`,
   );
 }
 
@@ -717,7 +785,7 @@ export class GuardGate<Client = AgentClient> {
     }
     const checked = yield* guard.check({ direction: "outbound", subject: item.tool, action: item });
     if (checked.action === "allow" || checked.action === "annotate") return run;
-    if (checked.action === "block") return { proceed: false, result: declined(checked.reason) } satisfies GuardBefore;
+    if (checked.action === "block") return { proceed: false, result: stopped(checked.reason) } satisfies GuardBefore;
     // The same action, with the same real files, that the person allowed a short time ago.
     const key = this.#answerKey(agentId, params, null, checked);
     if (this.#remembered(key)) return run;

@@ -407,4 +407,15 @@ export const messages = defineMessages("chat", {
   "chat.compaction.failed": "Could not compact context",
   "chat.compaction.tokens": "{before} → {after} tokens",
   "chat.compaction.continues": "Queued messages continue.",
+  // The cost lines of a Hub connection call. {endpoint} is the tool, {org} the organization that
+  // paid, {amount} an amount of money, {connection} the connection, {date} a date.
+  "chat.marker.connectionPaid": "{endpoint}: paid by {org} · {amount}",
+  "chat.marker.connectionWarning":
+    "You passed 80% of your monthly limit of {connection}, paid by {org}: {amount} left.",
+  "chat.marker.connectionLimitUser": "You reached your monthly limit of {connection}, paid by {org}.",
+  "chat.marker.connectionLimitOrg": "The budget of {connection} at {org} is spent for this month.",
+  "chat.marker.connectionRenews": "It renews on {date}.",
+  // {approved} is the most that the person approved on the cost card.
+  "chat.marker.connectionOvercharged":
+    "{endpoint}: {org} was charged {amount}, more than the {approved} that you approved. Tell an admin of the organization.",
 });

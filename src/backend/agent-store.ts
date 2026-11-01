@@ -45,6 +45,7 @@ import {
   isAgentAccess,
   isAgentAdditionalFolders,
   isAgentBackupModels,
+  isAgentConnectionsOff,
   isAgentModel,
   isAgentPendingRuntime,
   isAgentSessionSettingOverrides,
@@ -99,6 +100,8 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   quickAcknowledgement?: boolean;
   // Absent means the account default, which is on until the user turns the guard off in Settings › Agents.
   securityGuard?: boolean;
+  // Absent means every Hub connection that Cultura Builder gives this computer, as before the setting existed.
+  connectionsOff?: string[];
   // Absent on every agent stored before the setting existed, which keeps its tabs in the shared browser session.
   ownBrowserSession?: boolean;
   // Absent on every agent stored before named browser profiles existed. Stored with
@@ -775,6 +778,12 @@ export class AgentStore {
         if (!isBoolean(input.securityGuard)) throw new Error("Invalid security guard value.");
         next.securityGuard = input.securityGuard;
       }
+      if (input.connectionsOff === null || (Array.isArray(input.connectionsOff) && input.connectionsOff.length === 0))
+        delete next.connectionsOff;
+      else if (input.connectionsOff !== undefined) {
+        if (!isAgentConnectionsOff(input.connectionsOff)) throw new Error("Invalid connections value.");
+        next.connectionsOff = [...input.connectionsOff];
+      }
       if (input.ownBrowserSession !== undefined) {
         if (!isBoolean(input.ownBrowserSession)) throw new Error("Invalid browser session value.");
         next.ownBrowserSession = input.ownBrowserSession;
@@ -877,6 +886,7 @@ export class AgentStore {
       if (next.allowNewChat === undefined) delete agent.allowNewChat;
       if (next.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
       if (next.securityGuard === undefined) delete agent.securityGuard;
+      if (next.connectionsOff === undefined) delete agent.connectionsOff;
       try {
         this.#persist(modelChange ? "agent.model-changed" : "agent.updated", modelChange);
       } catch (error) {
@@ -894,6 +904,7 @@ export class AgentStore {
         if (previous.allowNewChat === undefined) delete agent.allowNewChat;
         if (previous.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
         if (previous.securityGuard === undefined) delete agent.securityGuard;
+        if (previous.connectionsOff === undefined) delete agent.connectionsOff;
         throw error;
       }
       return { ...agent };
@@ -1953,6 +1964,7 @@ function isStoredAgent(value: unknown): value is PersistedStoredAgent {
     (record.allowNewChat === undefined || isBoolean(record.allowNewChat)) &&
     (record.quickAcknowledgement === undefined || isBoolean(record.quickAcknowledgement)) &&
     (record.securityGuard === undefined || isBoolean(record.securityGuard)) &&
+    (record.connectionsOff === undefined || isAgentConnectionsOff(record.connectionsOff)) &&
     (record.ownBrowserSession === undefined || isBoolean(record.ownBrowserSession)) &&
     (record.browserProfileId === undefined || isBrowserProfileId(record.browserProfileId)) &&
     (record.fastMode === undefined || isBoolean(record.fastMode)) &&
@@ -2043,6 +2055,10 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     value.securityGuard === undefined || isBoolean(value.securityGuard)
       ? value.securityGuard
       : reset("securityGuard", undefined);
+  const connectionsOff =
+    value.connectionsOff === undefined || isAgentConnectionsOff(value.connectionsOff)
+      ? value.connectionsOff
+      : reset("connectionsOff", undefined);
   const ownBrowserSession =
     value.ownBrowserSession === undefined || isBoolean(value.ownBrowserSession)
       ? value.ownBrowserSession
@@ -2133,6 +2149,7 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     ...(allowNewChat === undefined ? {} : { allowNewChat }),
     ...(quickAcknowledgement === undefined ? {} : { quickAcknowledgement }),
     ...(securityGuard === undefined ? {} : { securityGuard }),
+    ...(connectionsOff === undefined ? {} : { connectionsOff: [...connectionsOff] }),
     ...(ownBrowserSession === undefined ? {} : { ownBrowserSession }),
     ...(browserProfileId === undefined ? {} : { browserProfileId }),
     ...(fastMode === undefined ? {} : { fastMode }),

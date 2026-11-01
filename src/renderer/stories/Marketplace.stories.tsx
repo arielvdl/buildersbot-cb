@@ -1,6 +1,8 @@
 import {
   AVATAR_HUES,
   type ClientAgentSummary,
+  type HubConnectionsViewStatus,
+  type HubConnectionView,
   type InstalledSkill,
   type MarketplaceAgentSummary,
   type MarketplaceSkillQuery,
@@ -12,6 +14,7 @@ import type { McpConnectFlow } from "@openbot/contracts/mcp-connect-flows";
 import { CONNECTOR_LISTINGS } from "@openbot/ui/features/connectors/connector-catalog";
 import { Marketplace } from "@openbot/ui/features/marketplace/Marketplace";
 import { AgentsDialog } from "@openbot/ui/features/marketplace/MarketplaceAgentsDialog";
+import { connectionApp, type MarketplaceConnections } from "@openbot/ui/features/marketplace/marketplace-connections";
 import type { MarketplaceApp, MarketplaceModel } from "@openbot/ui/features/marketplace/marketplace-model";
 import {
   createMarketplaceNavigation,
@@ -40,6 +43,7 @@ import {
   STORY_MARKETPLACE_SKILLS,
   STORY_MCP_SERVERS,
 } from "../src/preview/fixtures";
+import { type StoryConnectionState, storyToolCatalogView } from "../src/preview/mock-hub-connections";
 import { CONNECTED_CONNECTOR_DETAILS, STORY_CONNECTOR_DETAILS, storyConnectorSet } from "./connector-fixtures";
 import { CONNECT_OUTCOMES, type ConnectOutcome, connectAs, subjectFor } from "./mcp-connect-stage";
 
@@ -255,6 +259,10 @@ interface StoryProps {
   realCatalog?: boolean;
   /** The Apps list is curated as in the app: "Show all apps" and the organization profile of this page. */
   curated?: boolean;
+  /** The tool catalog of Cultura Builder, in this state: a Hub connection of the Apps tab. */
+  connection?: StoryConnectionState;
+  /** Main could not read the Hub connections, for this reason: no connection row, and a link explains. */
+  connectionsStatus?: HubConnectionsViewStatus;
 }
 
 /** The Apple apps listing, which only a Mac asks macOS about. */
@@ -295,7 +303,11 @@ function MarketplaceWindow(props: StoryProps) {
     dialogSkill,
     realCatalog,
     curated,
+    connection,
+    connectionsStatus,
   } = untrack(() => ({ ...props }));
+  const i18n = useI18n();
+  const connectionLocale = untrack(() => (i18n.locale().startsWith("pt") ? "pt" : "en"));
   const held = heldProp ?? (realCatalog ? {} : FIRST_HELD);
   const plugins = untrack(() =>
     realCatalog
@@ -328,7 +340,12 @@ function MarketplaceWindow(props: StoryProps) {
     apps: MarketplaceApp[];
     busy: Record<string, true>;
     notice: string;
+    connection: HubConnectionView | null;
+    connectionsOff: Record<string, string[]>;
   }>({
+    connection: connection ? storyToolCatalogView(connection, connectionLocale) : null,
+    // The second agent has the connection off, so the page shows both switch states.
+    connectionsOff: { [STORY_AGENT_SUMMARIES[1]?.id ?? ""]: ["tool-catalog"] },
     added: { [STORY_MARKETPLACE_AGENTS[1]?.id ?? ""]: true },
     installed: noSkills ? {} : startSkills(userAgents),
     apps: [
@@ -440,6 +457,41 @@ function MarketplaceWindow(props: StoryProps) {
   const dialogListing = CATALOG.find((entry) => entry.id === dialogSkill);
   const [dialogOpen, setDialogOpen] = createSignal(true);
 
+  /** The Hub connections of the story: the actions change the fixture, as main would. */
+  const connections: MarketplaceConnections | undefined =
+    connection || connectionsStatus
+      ? {
+          status: () => connectionsStatus ?? "ready",
+          readAt: () => "2026-11-18T14:05:00.000Z",
+          refresh: fn(),
+          busy: () => false,
+          choosePayer: async (_connectionId, orgId) =>
+            setState((draft) => {
+              if (!draft.connection) return;
+              draft.connection.payer = "pay";
+              draft.connection.payerOrgId = orgId;
+            }),
+          requestAccess: async () => ({ status: "sent", requestedAt: "2026-11-18T14:06:00.000Z", failure: null }),
+          agents: () =>
+            userAgents.slice(0, 3).map((agent) => ({
+              id: agent.id,
+              name: agent.name,
+              title: agent.title,
+              avatarSeed: agent.avatarSeed,
+              avatarHue: agent.avatarHue,
+              avatarUrl: agent.avatarUrl,
+              connectionsOff: state.connectionsOff[agent.id] ?? [],
+            })),
+          setAgentConnection: async (agentId, connectionId, on) =>
+            setState((draft) => {
+              const current = draft.connectionsOff[agentId] ?? [];
+              draft.connectionsOff[agentId] = on
+                ? current.filter((id) => id !== connectionId)
+                : [...current, connectionId];
+            }),
+        }
+      : undefined;
+
   const model: MarketplaceModel = {
     listAgents: async (query) => page<MarketplaceAgentSummary>(agents, query),
     loadAgent: async (id) => STORY_MARKETPLACE_AGENT_DETAILS[id],
@@ -482,8 +534,9 @@ function MarketplaceWindow(props: StoryProps) {
     createSkill: member ? undefined : fn(),
     trySkill: fn(),
 
-    apps: () => state.apps,
+    apps: () => (state.connection ? [...state.apps, connectionApp(state.connection)] : state.apps),
     curation: curated ? marketplaceAppCuration : undefined,
+    connections,
     canConnectApps: () => !member,
     appBusy: (id) => Boolean(state.busy[id]),
     connectApp: async (app) => {
@@ -833,5 +886,71 @@ export const AppsInstalledHidden: Story = {
 /** A link to an app that the list does not show still opens its page. */
 export const AppsHiddenLink: Story = {
   ...at(plugin("stripe"), curatedApps()),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
+/** The tool catalog of Cultura Builder is not on for the person: the default list hides it. */
+export const ConnectionsHidden: Story = {
+  args: curatedApps({ connection: "notEnabled" }),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
+/** The person uses the tool catalog: the list shows it in Connections, and the side panel names it. */
+export const ConnectionsInUse: Story = {
+  args: curatedApps({ connection: "ok" }),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
+/** Cultura Builder paused the tool catalog, and the person spent nothing yet: installed, so still listed. */
+export const ConnectionsPaused: Story = {
+  args: curatedApps({ connection: "pausedUnused" }),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
+export const ConnectionsInUseNarrow: Story = {
+  ...ConnectionsInUse,
+  parameters: { viewport: { defaultViewport: "marketplaceNarrow" } },
+};
+
+/** An organization profile names the tool catalog: the list shows it, also when it is not on yet. */
+export const ConnectionsProfile: Story = {
+  args: curatedApps({ connection: "notEnabled" }),
+  beforeEach: before({
+    kind: "answer",
+    account: STORY_ACCOUNT,
+    value: { ...STORY_APP_PROFILE, apps: { show: ["slack", "tool-catalog"], hide: [] }, categories: [] },
+  }),
+};
+
+const toolCatalog = (nav: MarketplaceNavigation) => nav.go({ kind: "app", id: "tool-catalog" });
+const connectionPage = (state: StoryConnectionState): Story => ({
+  ...at(toolCatalog, curatedApps({ connection: state })),
+  beforeEach: before({ kind: "signed-out" }),
+});
+
+/** The page of the tool catalog: what it gives, the categories, the cap, who pays, the agents and the data. */
+export const ConnectionPage = connectionPage("ok");
+
+/** Over 80 % of the cap: the warning and the bar past its mark. */
+export const ConnectionPageWarning = connectionPage("warning");
+
+/** The cap is reached: the calls stop, and the person can ask the admin for more. */
+export const ConnectionPageReached = connectionPage("reached");
+
+/** The organization has not turned it on: the person can ask the admin. Hidden from the list, a link opens it. */
+export const ConnectionPageNotEnabled = connectionPage("notEnabled");
+
+/** Two organizations can pay: the person chooses. */
+export const ConnectionPageChoosePayer = connectionPage("choose");
+
+/** Cultura Builder paused the connection: the page says so. */
+export const ConnectionPagePaused = connectionPage("paused");
+
+/** This app may not spend the organization's connections yet: the person allows it on the Hub. */
+export const ConnectionPageConsent = connectionPage("consent");
+
+/** A link to the tool catalog while the person is not signed in to Cultura Builder. */
+export const ConnectionSignedOut: Story = {
+  ...at(toolCatalog, curatedApps({ connectionsStatus: "signed_out" })),
   beforeEach: before({ kind: "signed-out" }),
 };

@@ -10,6 +10,7 @@ import {
   type MarketplaceScope,
   type MarketplaceTab,
   ownedApps,
+  ownedConnections,
 } from "./marketplace-view";
 
 const TAB_ICON = { apps: Blocks, agents: Bot, skills: BookOpen } as const;
@@ -25,6 +26,7 @@ export function MarketplaceNav(props: { scope: MarketplaceScope; lists: BrowseLi
   const nav = () => props.scope.nav;
   const top = () => nav().state.stack.at(-1);
   const yours = () => ownedApps(props.scope.model.apps());
+  const connections = () => ownedConnections(props.scope.model.apps());
   const appCurrent = (id: string) => {
     const view = top();
     return view?.kind === "app" && view.id === id ? ("page" as const) : undefined;
@@ -34,7 +36,7 @@ export function MarketplaceNav(props: { scope: MarketplaceScope; lists: BrowseLi
     const view = top();
     if (nav().state.tab !== tab || !view) return undefined;
     if (view.kind === "browse") return "page" as const;
-    if (view.kind === "app" && yours().some((app) => app.id === view.id)) return undefined;
+    if (view.kind === "app" && [...yours(), ...connections()].some((app) => app.id === view.id)) return undefined;
     return "location" as const;
   };
   return (
@@ -66,38 +68,46 @@ export function MarketplaceNav(props: { scope: MarketplaceScope; lists: BrowseLi
           </For>
         </ul>
       </nav>
-      <Show when={yours().length > 0}>
-        <section class="marketplace-nav-group" aria-labelledby="marketplace-nav-yours">
-          <h3 id="marketplace-nav-yours" class="marketplace-nav-heading">
-            {t("marketplace.app.yourApps")}
-          </h3>
-          <ul class="settings-modal-nav marketplace-nav-list">
-            <For each={yours()} keyed={(app) => app.id}>
-              {(app) => (
-                <li>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    class="settings-modal-nav-item marketplace-nav-item marketplace-nav-app"
-                    data-cuelume-tap="navigate"
-                    aria-current={appCurrent(app().id)}
-                    onClick={() => nav().show("apps", { kind: "app", id: app().id })}
-                  >
-                    <span class="marketplace-nav-mark">
-                      <AppMark app={app()} />
-                    </span>
-                    <span class="marketplace-nav-name">{app().name}</span>
-                    <Show when={app().status === "attention"}>
-                      <TriangleAlert class="marketplace-nav-warning" aria-hidden="true" />
-                      <span class="marketplace-visually-hidden">{t("marketplace.app.attention")}</span>
-                    </Show>
-                  </Button>
-                </li>
-              )}
-            </For>
-          </ul>
-        </section>
-      </Show>
+      <For
+        each={[
+          { id: "yours", heading: t("marketplace.app.yourApps"), apps: yours() },
+          { id: "connections", heading: t("marketplace.connection.yours"), apps: connections() },
+        ].filter((group) => group.apps.length > 0)}
+        keyed={(group) => group.id}
+      >
+        {(group) => (
+          <section class="marketplace-nav-group" aria-labelledby={`marketplace-nav-${group().id}`}>
+            <h3 id={`marketplace-nav-${group().id}`} class="marketplace-nav-heading">
+              {group().heading}
+            </h3>
+            <ul class="settings-modal-nav marketplace-nav-list">
+              <For each={group().apps} keyed={(app) => app.id}>
+                {(app) => (
+                  <li>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      class="settings-modal-nav-item marketplace-nav-item marketplace-nav-app"
+                      data-cuelume-tap="navigate"
+                      aria-current={appCurrent(app().id)}
+                      onClick={() => nav().show("apps", { kind: "app", id: app().id })}
+                    >
+                      <span class="marketplace-nav-mark">
+                        <AppMark app={app()} />
+                      </span>
+                      <span class="marketplace-nav-name">{app().name}</span>
+                      <Show when={app().status === "attention"}>
+                        <TriangleAlert class="marketplace-nav-warning" aria-hidden="true" />
+                        <span class="marketplace-visually-hidden">{t("marketplace.app.attention")}</span>
+                      </Show>
+                    </Button>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        )}
+      </For>
     </aside>
   );
 }

@@ -47,11 +47,13 @@ const CREDENTIAL_ASSIGNMENT = new RegExp(
 // The prefix has to start a token: without the boundary, `sk-` matched inside
 // ordinary words and `risk-register` came out as `ri[redacted]`, erasing the
 // part of a diagnostic that names what failed.
+// `cbp_` starts the Cultura Builder Hub proxy token and `treg_` a key of the tool catalog vendor
+// (docs/architecture/hub-connections.md): neither is registered, so the prefix is what masks them.
 // `npm_`, `hf_` and `gsk_` also start ordinary names such as `npm_config_user_agent`, so their
 // value must be one long alphanumeric run, as the vendors issue them. `ASIA` is a word, so only the
 // exact shape of an AWS key ID counts.
 const KNOWN_SECRET_PREFIXES =
-  /(?<![A-Za-z0-9_-])(?:(?:sk-ant|sk-|sk_|xai-|ghp_|gho_|ghu_|ghr_|ghs_|github_pat_|AKIA|xox[abeoprs]-|xapp-|glpat-|rk_live_|whsec_)[A-Za-z0-9._-]{8,}|AIza[A-Za-z0-9_-]{30,}|(?:npm|hf|gsk)_[A-Za-z0-9]{30,}|ASIA[A-Z0-9]{16}(?![A-Za-z0-9]))/g;
+  /(?<![A-Za-z0-9_-])(?:(?:sk-ant|sk-|sk_|xai-|ghp_|gho_|ghu_|ghr_|ghs_|github_pat_|AKIA|xox[abeoprs]-|xapp-|glpat-|rk_live_|whsec_|cbp_|treg_)[A-Za-z0-9._-]{8,}|AIza[A-Za-z0-9_-]{30,}|(?:npm|hf|gsk)_[A-Za-z0-9]{30,}|ASIA[A-Z0-9]{16}(?![A-Za-z0-9]))/g;
 // A JSON Web Token: a header and a payload that both start as a JSON object, then the signature.
 const JSON_WEB_TOKEN = /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g;
 // A PEM private key, with its body. A key that the text cuts off before its END line is removed to
@@ -229,12 +231,55 @@ export function findSecretValue(value: string): { index: number; length: number 
   return found;
 }
 
+/**
+ * Every place where `value` holds a secret, by the rules of `findSecretValue`, in one pass over the
+ * text, ordered by position. Places that overlap are joined. A mask that replaces each place at once
+ * reads a long text with many secrets in linear time.
+ */
+export function findSecretValues(value: string): Array<{ index: number; length: number }> {
+  const found: Array<{ index: number; length: number }> = [];
+  const pattern = registeredSecretPattern;
+  if (pattern) {
+    pattern.lastIndex = 0;
+    for (let match = pattern.exec(value); match !== null; match = pattern.exec(value)) {
+      const start = match.index;
+      const end = start + match[0].length;
+      const whole = !ALPHANUMERIC.test(value.charAt(start - 1)) && !ALPHANUMERIC.test(value.charAt(end));
+      if (whole && isDistinctiveSecret(match[0])) found.push({ index: start, length: match[0].length });
+      // A shorter value can still start at the next character, inside the one that did not count.
+      else pattern.lastIndex = start + 1;
+    }
+    pattern.lastIndex = 0;
+  }
+  for (const shape of [PEM_PRIVATE_KEY, KNOWN_SECRET_PREFIXES, JSON_WEB_TOKEN]) {
+    shape.lastIndex = 0;
+    for (let match = shape.exec(value); match !== null; match = shape.exec(value)) {
+      if (match[0].length === 0) {
+        shape.lastIndex += 1;
+        continue;
+      }
+      if (shape !== KNOWN_SECRET_PREFIXES || looksIssued(match[0]))
+        found.push({ index: match.index, length: match[0].length });
+    }
+    shape.lastIndex = 0;
+  }
+  found.sort((left, right) => left.index - right.index);
+  const joined: Array<{ index: number; length: number }> = [];
+  for (const place of found) {
+    const last = joined.at(-1);
+    if (last && place.index <= last.index + last.length)
+      last.length = Math.max(last.length, place.index + place.length - last.index);
+    else joined.push({ ...place });
+  }
+  return joined;
+}
+
 // `sk-`, `sk_`, `xai-` and `xox?-` also start ordinary words in a URL or a sentence:
 // `sk-hynix-posts-record-profit`, `xai-sdk-python`, `xoxo-gossip-girl`, `sk-anthropic-deal`. A check
 // of an action counts such a value only in the shape that the vendors issue: one part of 16
 // characters or more, between `-`, `_` or `.`, that mixes letters and digits or upper and lower case,
 // or a UUID. The log mask keeps the wider rule: hiding a slug in a log costs little.
-const GENERIC_SECRET_PREFIX = /^(?:sk-ant-|sk-|sk_|xai-|xox[abeoprs]-)/u;
+const GENERIC_SECRET_PREFIX = /^(?:sk-ant-|sk-|sk_|xai-|xox[abeoprs]-|cbp_|treg_)/u;
 const ISSUED_PART = /^(?=.{16})(?:(?=.*[A-Za-z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z]))/u;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu;
 

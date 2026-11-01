@@ -47,6 +47,20 @@ describe("redactText", () => {
     }
   });
 
+  // Hub connections: the proxy token of the Cultura Builder Hub and a key of the tool catalog vendor
+  // are never registered, so their prefix must mask them in a log, an error and a tool result.
+  it("redacts a Hub proxy token and a tool catalog vendor key", () => {
+    const run = (length: number) => "Zq7".repeat(length).slice(0, length);
+    for (const key of [`cbp_${run(43)}`, `treg_${run(40)}`, `cbp_${run(8)}`]) {
+      expect(redactText(`token ${key} leaked`)).toBe("token [redacted] leaked");
+      expect(redactText(JSON.stringify({ note: `Bearer-less ${key}` }))).not.toContain(key);
+    }
+    expect(findSecretValue(`curl -H "X-Treg-Token: treg_${run(40)}" https://x.example`)).not.toBeNull();
+    expect(findSecretValue(`authorization cbp_${run(43)}`)).not.toBeNull();
+    // A name in code or prose that starts the same way is not a key for a check of an action.
+    expect(findSecretValue("rename cbp_tokens_cache and treg_endpoint_ids")).toBeNull();
+  });
+
   it("redacts a JSON Web Token", () => {
     const token = `eyJ${run64(20)}.eyJ${run64(40)}.${run64(43)}`;
     expect(redactText(`session ${token} expired`)).toBe("session [redacted] expired");

@@ -1,13 +1,21 @@
 import { sourceText } from "@openbot/i18n/source";
 import { z } from "zod";
 import { BROWSER_DYNAMIC_TOOLS, OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
+import {
+  HUB_CONNECTION_DYNAMIC_TOOLS,
+  HUB_CONNECTIONS_NAMESPACE,
+} from "../hub-connections/hub-connection-tool-definitions";
 import { OPENBOT_DYNAMIC_TOOLS, OPENBOT_TOOL_DEFINITIONS } from "../openbot-tools";
 import type { DynamicToolCallParams } from "../protocol";
 import { advertisedJsonSchema } from "./advertised-json-schema";
 import { toolGuidance } from "./tool-guidance";
 
 /** Discovery changes visibility only. Original definitions and execution owners stay authoritative. */
-export const BUILTIN_TOOL_CATALOG = [OPENBOT_DYNAMIC_TOOLS, ...BROWSER_DYNAMIC_TOOLS].flatMap((namespace) =>
+export const BUILTIN_TOOL_CATALOG = [
+  OPENBOT_DYNAMIC_TOOLS,
+  ...BROWSER_DYNAMIC_TOOLS,
+  HUB_CONNECTION_DYNAMIC_TOOLS,
+].flatMap((namespace) =>
   namespace.tools.map((tool) => ({
     namespace: namespace.name,
     tool: tool.name,
@@ -31,10 +39,29 @@ const DIRECT_NAMES = new Set([
   "request_api_key",
 ]);
 
+/**
+ * Namespaces that only some agents have, at some times: the Hub connections exist only while the Hub
+ * offers them, the person allows them and the turn comes from the person. The router grants them per
+ * call. A namespace that is not granted is not in the catalog text, in a search, in a describe or in
+ * `tool_call`, so an agent cannot find or run it.
+ */
+export const GATED_TOOL_NAMESPACES: ReadonlySet<string> = new Set([HUB_CONNECTIONS_NAMESPACE]);
+
+/** The catalog entries that an agent may see, with the gated namespaces that it was granted. */
+function visibleCatalog(granted: ReadonlySet<string>) {
+  return BUILTIN_TOOL_CATALOG.filter(
+    (entry) => !GATED_TOOL_NAMESPACES.has(entry.namespace) || granted.has(entry.namespace),
+  );
+}
+
+const NONE: ReadonlySet<string> = new Set();
+
 const BROWSER_SCRIPT_TOOL = requireTool(`${OPENBOT_BROWSER_NAMESPACE}.run_script`);
 
 // Names keep the complete, stable catalog below 4,000 characters without schema duplication.
-const INITIAL_TOOL_CATALOG = BUILTIN_TOOL_CATALOG.map((tool) => tool.name).join(", ");
+const INITIAL_TOOL_CATALOG = visibleCatalog(NONE)
+  .map((tool) => tool.name)
+  .join(", ");
 const qualifiedName = z.string().trim().min(1).max(160);
 const searchQuery = z.string().trim().min(1).max(200);
 // Models often send one query string, so search accepts `query` as well as `queries`.
@@ -118,17 +145,20 @@ function words(text: string): string[] {
 /** Each step to describe a tool sends the full context again, so search includes the schemas of its best matches. */
 const READY_SEARCH_RESULTS = 3;
 
-function requireTool(name: string) {
-  const tool = BUILTIN_TOOL_CATALOG.find((entry) => entry.name === name);
+function requireTool(name: string, granted: ReadonlySet<string> = NONE) {
+  const tool = visibleCatalog(granted).find((entry) => entry.name === name);
   if (!tool) throw new Error(sourceText("error.agent.toolRequestInvalid"));
   return tool;
 }
 
 /** Returns null for an invalid envelope. No supplied values are echoed into errors or logs. */
-export function resolveDeferredTool(params: DynamicToolCallParams): DynamicToolCallParams | null {
+export function resolveDeferredTool(
+  params: DynamicToolCallParams,
+  granted: ReadonlySet<string> = NONE,
+): DynamicToolCallParams | null {
   const parsed = callSchema.safeParse(params.arguments);
   if (!parsed.success) return null;
-  const entry = BUILTIN_TOOL_CATALOG.find((tool) => tool.name === parsed.data.name);
+  const entry = visibleCatalog(granted).find((tool) => tool.name === parsed.data.name);
   if (!entry) return null;
   return { ...params, namespace: entry.namespace, tool: entry.tool, arguments: parsed.data.arguments };
 }
@@ -157,24 +187,31 @@ function toolGuidanceFor(entries: readonly (typeof BUILTIN_TOOL_CATALOG)[number]
   return [...new Set(entries.flatMap((entry) => toolGuidance(entry.namespace, entry.tool)))];
 }
 
-export function discoverTools(params: DynamicToolCallParams) {
+/** The name of a tool call that `tool_call` would run, or null. It reads only the envelope. */
+export function deferredToolName(params: DynamicToolCallParams): string | null {
+  const parsed = callSchema.safeParse(params.arguments);
+  return parsed.success ? parsed.data.name : null;
+}
+
+export function discoverTools(params: DynamicToolCallParams, granted: ReadonlySet<string> = NONE) {
   if (params.tool === "tool_search") {
     const search = searchTerms(params);
     if (!search) throw new Error(sourceText("error.agent.toolRequestInvalid"));
     const { queries, terms } = search;
-    const matches = BUILTIN_TOOL_CATALOG.map((entry, index) => {
-      const nameWords = new Set(words(entry.name));
-      const descriptionWords = new Set(words(entry.description));
-      const exact = queries.some((query) => query === entry.name || query === entry.tool);
-      // A strong result matches each word of its tool name. Namespace words, such as "browser", match a whole
-      // namespace, and one shared verb, such as "read", matches many unrelated tools.
-      const strong = exact || words(entry.tool).every((word) => terms.has(word));
-      const score = [...terms].reduce(
-        (sum, term) => sum + (nameWords.has(term) ? 3 : descriptionWords.has(term) ? 1 : 0),
-        0,
-      );
-      return { entry, index, exact, strong, score };
-    })
+    const matches = visibleCatalog(granted)
+      .map((entry, index) => {
+        const nameWords = new Set(words(entry.name));
+        const descriptionWords = new Set(words(entry.description));
+        const exact = queries.some((query) => query === entry.name || query === entry.tool);
+        // A strong result matches each word of its tool name. Namespace words, such as "browser", match a whole
+        // namespace, and one shared verb, such as "read", matches many unrelated tools.
+        const strong = exact || words(entry.tool).every((word) => terms.has(word));
+        const score = [...terms].reduce(
+          (sum, term) => sum + (nameWords.has(term) ? 3 : descriptionWords.has(term) ? 1 : 0),
+          0,
+        );
+        return { entry, index, exact, strong, score };
+      })
       .filter((result) => result.exact || result.score > 0)
       .sort((a, b) => Number(b.exact) - Number(a.exact) || b.score - a.score || a.index - b.index);
     const found = matches.slice(0, search.limit ?? 5).map(({ entry, strong }) => ({ entry, strong }));
@@ -205,7 +242,7 @@ export function discoverTools(params: DynamicToolCallParams) {
   const parsed = describeSchema.safeParse(params.arguments);
   if (!parsed.success) throw new Error(sourceText("error.agent.toolRequestInvalid"));
   const names = [...(parsed.data.names ?? []), ...(parsed.data.name ? [parsed.data.name] : [])];
-  const entries = [...new Set(names)].map(requireTool);
+  const entries = [...new Set(names)].map((name) => requireTool(name, granted));
   return {
     tools: entries.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
     guidance: toolGuidanceFor(entries),

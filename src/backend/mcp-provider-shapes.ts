@@ -656,6 +656,38 @@ export const codexDisabledServers = Effect.fn("McpShape.codexDisabledServers")(f
 export interface CodexDisabledMcpServer {
   enabled: false;
   tools?: DynamicRecord;
+  /**
+   * A placeholder transport, only for a name that the thread turns off when Codex could not read its
+   * own files (`codexFallbackDisabledServers`). Codex refuses an entry with no transport, so a name
+   * that no file entry merges with needs one. Codex never starts a disabled entry.
+   */
+  url?: typeof CODEX_PLACEHOLDER_URL;
+  command?: typeof CODEX_PLACEHOLDER_COMMAND;
+}
+
+/**
+ * The servers that a thread turns off when Codex's `config/read` failed: the treg design's fail-open
+ * branch (§3.13, finding RV2). Each name of the person's Codex file that the app read from disk, and
+ * always `treg`, the name of treg's installer, each with a placeholder of its own transport. With no
+ * readable file, `treg` gets the http placeholder: the installer writes an http entry. `files` is
+ * null when the file cannot be read.
+ */
+export function codexFallbackDisabledServers(
+  files: ReadonlyMap<string, "http" | "stdio" | null> | null,
+  vendorNames: readonly string[],
+): CodexOwnServers {
+  const disabled: Record<string, CodexDisabledMcpServer> = {};
+  const transports: Record<string, McpTransport> = {};
+  const add = (name: string, transport: "http" | "stdio" | null) => {
+    disabled[name] =
+      transport === "stdio"
+        ? { enabled: false, command: CODEX_PLACEHOLDER_COMMAND }
+        : { enabled: false, url: CODEX_PLACEHOLDER_URL };
+    if (transport) transports[name] = transport;
+  };
+  for (const [name, transport] of files ?? []) add(name, transport);
+  for (const name of vendorNames) if (!Object.hasOwn(disabled, name)) add(name, "http");
+  return { disabled, transports };
 }
 
 /** A server name in the form Codex and ACP agents accept. Claude makes the same change by itself. */
@@ -701,7 +733,9 @@ export function codexThreadMcpServers(
 ): Record<string, CodexMcpServer | CodexDisabledMcpServer> {
   const record: Record<string, CodexMcpServer | CodexDisabledMcpServer> = { ...disabled, ...servers };
   for (const [name, server] of Object.entries(servers)) {
-    record[name] = { ...disabled[name], ...server, enabled: true };
+    // A placeholder transport of a turned-off name never joins a server that Builders Bot turns on.
+    const { url: _url, command: _command, ...settings } = disabled[name] ?? {};
+    record[name] = { ...settings, ...server, enabled: true };
   }
   return record;
 }

@@ -45,4 +45,14 @@ export const messages = {
     "Memórias: {saved} salvas, {updated} atualizadas, {forgotten} esquecidas, {notChanged} não alteradas porque outro tópico as alterou antes.",
   "status.agent.planContinues": "O plano tem etapas abertas. O agente continua ({current} de {limit}).",
   "status.agent.branchTitle": "Chat ramificado",
+  "status.agent.connectionConfirmCost":
+    "Um agente quer executar {endpoint} do catálogo de ferramentas. Custa até {amount}, pago por {org}. Permitir envia esta chamada uma vez. Negar cancela.",
+  "status.agent.connectionConfirmCostPersonal":
+    "Um agente quer executar {endpoint} do catálogo de ferramentas com o seu plano pessoal. Custa até {amount}. Permitir envia esta chamada uma vez. Negar cancela.",
+  "status.agent.connectionChoosePayer":
+    "Quem paga por {connection}? Permitir faz {org} pagar esta chamada e as próximas. Negar não usa esta organização.",
+  "status.agent.connectionChoosePayerPersonal":
+    "Pagar {connection} com o seu plano pessoal? Permitir faz o plano pessoal pagar esta chamada e as próximas.",
+  "status.agent.connectionPeopleData":
+    "Um agente quer buscar dados de pessoas com {endpoint}: {subjects}. Os dados vão para o Cultura Builder, para o treg.to (EUA) e para o fornecedor do endpoint. Permitir vale para as próximas buscas sobre pessoas nesta conversa.",
 } as const satisfies PartialTranslation<typeof source>;

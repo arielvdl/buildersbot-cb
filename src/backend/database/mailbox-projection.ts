@@ -65,6 +65,9 @@ export interface MailboxProjectionState {
   pausedAgentIds: string[];
   idempotency: Record<string, string>;
   reactions: MailboxProjectionReaction[];
+  /** The origins of routine runs and flows, for the Hub connections. Kept in the metadata row. */
+  routineOrigins?: Record<string, string>;
+  routineOriginsSince?: string;
 }
 
 /**
@@ -239,7 +242,11 @@ export class MailboxProjection {
         statements.queueUpsert.run(
           MAILBOX_METADATA_ROW,
           0,
-          JSON.stringify({ idempotency: state.idempotency }),
+          JSON.stringify({
+            idempotency: state.idempotency,
+            ...(state.routineOrigins ? { routineOrigins: state.routineOrigins } : {}),
+            ...(state.routineOriginsSince ? { routineOriginsSince: state.routineOriginsSince } : {}),
+          }),
           sequence,
         );
         for (const agentId of state.pausedAgentIds) statements.queueUpsert.run(agentId, 1, "{}", sequence);
@@ -326,6 +333,8 @@ export class MailboxProjection {
       pausedAgentIds,
       idempotency: metadata.idempotency ?? {},
       reactions,
+      ...(metadata.routineOrigins ? { routineOrigins: metadata.routineOrigins } : {}),
+      ...(metadata.routineOriginsSince ? { routineOriginsSince: metadata.routineOriginsSince } : {}),
     };
   }
 }
@@ -611,11 +620,25 @@ function deleteRowsNotIn(
   }
 }
 
-function parseMailboxMetadata(value: string): { idempotency?: Record<string, string> } {
+function parseMailboxMetadata(value: string): {
+  idempotency?: Record<string, string>;
+  routineOrigins?: Record<string, string>;
+  routineOriginsSince?: string;
+} {
   const parsed = JSON.parse(value);
   if (!isDynamicRecord(parsed)) throw new Error("Invalid mailbox metadata.");
+  // The mailbox store decodes each origin; a value that is not a string becomes a closed one there.
+  const routineOrigins = isDynamicRecord(parsed.routineOrigins)
+    ? Object.fromEntries(
+        Object.entries(parsed.routineOrigins).map(([key, origin]) => [key, isString(origin) ? origin : "unknown"]),
+      )
+    : undefined;
+  const origins = {
+    ...(routineOrigins ? { routineOrigins } : {}),
+    ...(isString(parsed.routineOriginsSince) ? { routineOriginsSince: parsed.routineOriginsSince } : {}),
+  };
   const idempotency = parsed.idempotency;
-  if (idempotency === undefined) return {};
+  if (idempotency === undefined) return origins;
   if (!isDynamicRecord(idempotency)) throw new Error("Invalid mailbox idempotency metadata.");
   const entries = Object.entries(idempotency);
   const values: Record<string, string> = {};
@@ -623,5 +646,5 @@ function parseMailboxMetadata(value: string): { idempotency?: Record<string, str
     if (!isString(entry)) throw new Error("Invalid mailbox idempotency entry.");
     values[key] = entry;
   }
-  return { idempotency: values };
+  return { idempotency: values, ...origins };
 }

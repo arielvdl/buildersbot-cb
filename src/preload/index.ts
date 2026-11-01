@@ -180,6 +180,7 @@ import {
   decodeOnePasswordConnectorStatus,
   decodePendingAgentTemplate,
   decodePendingListing,
+  decodePersonalVendorMcp,
   decodeProviderDetectionSettings,
   decodeRemoteDesktopSetupFromMain,
   decodeRemoteDesktopTestFromMain,
@@ -257,6 +258,11 @@ import {
 } from "./dynamic-island-decoding";
 import { decodeGuardState } from "./guard-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
+import {
+  decodeHubConnectionAccessRequestResult,
+  decodeHubConnectionsView,
+  decodeHubConnectionUsageView,
+} from "./hub-connection-decoding";
 import { decodeLidAwakeStatus } from "./lid-awake-decoding";
 import { decodeMacAutomationResults } from "./mac-automation-decoding";
 import {
@@ -707,6 +713,7 @@ const openbotApi: BuildersBotDesktopApi = {
     openExternal: decodeVoid,
     openUrl: decodeVoid,
     getUnreadableSecrets: decodeUnreadableSecrets,
+    getPersonalVendorMcp: decodePersonalVendorMcp,
     getExternalLinkPreference: decodeExternalLinkPreference,
     setExternalLinkPreference: decodeExternalLinkPreference,
     listExternalLinkBrowsers: decodeExternalLinkBrowsers,
@@ -990,6 +997,13 @@ const openbotApi: BuildersBotDesktopApi = {
   guard: bridgeGroup(IPC_ENDPOINTS.guard, {
     getState: decodeGuardState,
     setPreference: decodeGuardState,
+  }),
+  hubConnections: bridgeGroup(IPC_ENDPOINTS.hubConnections, {
+    getView: decodeHubConnectionsView,
+    refresh: decodeHubConnectionsView,
+    getUsage: decodeHubConnectionUsageView,
+    choosePayer: decodeHubConnectionsView,
+    requestAccess: decodeHubConnectionAccessRequestResult,
   }),
   license: bridgeGroup(IPC_ENDPOINTS.license, {
     getState: decodeLicenseState,

@@ -7,6 +7,7 @@ import {
 import { WEBHOOK_TESTS_CAPABILITY, WEBHOOK_TESTS_ROUTES } from "@openbot/contracts/team-protocol/webhook-tests-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
+import type { HubTurnOrigin } from "../../backend/hub-connections/turn-origin";
 import { type HostEventsApi, HostEventsFailure, hostEventsFailureMessage } from "../host-events-api";
 import {
   parseEventRoutineRef,
@@ -24,6 +25,8 @@ const RECOVERY_ROUTE_PATHS = new Set<string>(Object.values(ROUTINE_RECOVERY_ROUT
 
 export interface EventsRouteDependencies {
   events?: HostEventsApi | undefined;
+  /** The Hub connection origin of a member: a team member's save or run gets no connections. */
+  memberOrigin?: ((memberId: string) => HubTurnOrigin) | undefined;
 }
 
 export async function runEventsEffect<A>(operation: Effect.Effect<A, HostEventsFailure>): Promise<A> {
@@ -47,9 +50,11 @@ function parseEventsInput<A>(parse: () => A): A {
 
 export async function routeEvents(
   context: TeamApiRequestContext,
-  { events }: EventsRouteDependencies,
+  { events, memberOrigin }: EventsRouteDependencies,
 ): Promise<RouteOutcome> {
   const { method, url, capabilities, member, request, json } = context;
+  // Without the agents, nothing proves that the member is this computer's user: closed.
+  const by: HubTurnOrigin = memberOrigin ? memberOrigin(member.id) : "team_member";
   const path = url.pathname;
   const capability = RECOVERY_ROUTE_PATHS.has(path)
     ? ROUTINE_RECOVERY_CAPABILITY
@@ -89,7 +94,7 @@ export async function routeEvents(
         );
         if (hidden) throw new HttpError(404, sourceText("error.backend.routineGone"));
       }
-      return json(200, await runEventsEffect(events.saveRoutine(routine)));
+      return json(200, await runEventsEffect(events.saveRoutine(routine, by)));
     }
     case ROUTINE_RECOVERY_ROUTES.listRuns:
       return json(200, await runEventsEffect(events.listRoutineRuns(input(parseListEventRoutineRuns))));
@@ -97,7 +102,7 @@ export async function routeEvents(
       await runEventsEffect(events.deleteRoutine(input(parseEventRoutineRef)));
       return json(200, {});
     case EVENTS_ROUTES.testRoutine:
-      await runEventsEffect(events.testRoutine(input(parseEventRoutineRef)));
+      await runEventsEffect(events.testRoutine(input(parseEventRoutineRef), by));
       return json(200, {});
     case EVENTS_ROUTES.rotateSecret:
       return json(200, await runEventsEffect(events.rotateSecret(input(parseEventRoutineRef))));

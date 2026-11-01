@@ -91,6 +91,7 @@ import {
   isInterruptedWorkOffer,
   isLoadSnapshot,
   isMicrophoneAccess,
+  isPersonalVendorMcpNotice,
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
   isRemoteDesktopTestStatus,
@@ -111,6 +112,7 @@ import {
   type NotificationOpenedEvent,
   type NotificationPreference,
   type OnePasswordConnectorStatus,
+  type PersonalVendorMcpNotice,
   type ProviderDetectionSettings,
   parseGitHubConnectorRepositories,
   parseGitHubConnectorStatus,
@@ -614,6 +616,14 @@ export function decodeVoiceServerSettings(value: unknown): VoiceServerSettings |
 export function decodeUnreadableSecrets(value: unknown): UnreadableSecret[] {
   if (!isUnreadableSecrets(value)) throw new Error("Invalid unreadable secrets.");
   return value.map(({ store, file }) => ({ store, file }));
+}
+
+export function decodePersonalVendorMcp(value: unknown): PersonalVendorMcpNotice {
+  if (!isPersonalVendorMcpNotice(value)) throw new Error("Invalid personal vendor MCP notice.");
+  return {
+    files: value.files.map(({ kind, path }) => ({ kind, path })),
+    uncovered: [...value.uncovered],
+  };
 }
 
 export function decodeMicrophoneAccess(value: unknown): MicrophoneAccess {

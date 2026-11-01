@@ -1,4 +1,4 @@
-import type { QueueDeliveryStatus } from "@openbot/contracts/ipc";
+import type { HubConnectionAccessRequestResult, QueueDeliveryStatus } from "@openbot/contracts/ipc";
 import type { AppFormat, AppTextKey, AppTranslate } from "@openbot/i18n";
 import {
   Button,
@@ -33,8 +33,10 @@ import type {
 import { useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
 import { AgentAvatar } from "../agents/AgentAvatar";
+import { ConnectionRequestButton } from "../marketplace/ConnectionRequestButton";
 import type { AgentInstructionsFileCalls } from "./AgentInstructionsView";
 import { formatChatTimestamp } from "./chat-timestamp";
+import { hubConnectionMarkerText } from "./hub-connection-marker";
 import { InstructionsChangeActions } from "./InstructionsChangeActions";
 
 interface ChatActionMarkerProps {
@@ -56,6 +58,13 @@ interface ChatActionMarkerProps {
   instructions?: AgentInstructionsFileCalls | undefined;
   /** Opens the Instructions page of the agent. Absent where the chat has no settings page for it. */
   onOpenInstructions?: ((agentId: string) => void) | undefined;
+  /**
+   * Asks the admins of the organization for more money, from the line of a Hub connection call that
+   * the cap stopped. Absent where this client has no Cultura Builder session of the chat's computer.
+   */
+  onRequestConnectionMore?:
+    | ((connectionId: string, orgId: string) => Promise<HubConnectionAccessRequestResult>)
+    | undefined;
 }
 
 /** The parts of a marker that open the text of an agent message, for the markers in a group. */
@@ -126,6 +135,7 @@ export function ChatActionMarker(props: ChatActionMarkerProps) {
                   agentMessageText={props.agentMessageText}
                   instructions={props.instructions}
                   onOpenInstructions={props.onOpenInstructions}
+                  onRequestConnectionMore={props.onRequestConnectionMore}
                 />
               )}
             </Show>
@@ -432,7 +442,18 @@ function SingleChatActionMarker(
   props: Omit<ChatActionMarkerProps, "marker"> & { marker: SingleChatActionMarkerModel },
 ) {
   const { t, format, sourceText } = useText();
-  const label = () => markerLabel(props.marker, t, sourceText);
+  const label = () =>
+    props.marker.kind === "hub-connection"
+      ? hubConnectionMarkerText(props.marker.event, t, format)
+      : markerLabel(props.marker, t, sourceText);
+  /** The line of a call that the cap stopped, with "Ask the admin for more" where this client can ask. */
+  const connectionLimit = () => {
+    const marker = props.marker;
+    const request = props.onRequestConnectionMore;
+    return marker.kind === "hub-connection" && marker.event.kind === "limit" && !marker.event.personal && request
+      ? { event: marker.event, request }
+      : undefined;
+  };
   const [historyExpanded, setHistoryExpanded] = createSignal(false);
   /* The list leaves with an animation of its own, so it stays mounted until that
      animation ends. Without motion there is nothing to wait for. */
@@ -472,11 +493,24 @@ function SingleChatActionMarker(
       class={`chat-action-marker chat-action-marker-${props.marker.kind}`}
       role={props.announce ? "status" : "group"}
       aria-live={props.announce ? "polite" : "off"}
-      aria-label={markerAccessibleLabel(props.marker, props.agents, t, sourceText)}
+      aria-label={
+        props.marker.kind === "hub-connection"
+          ? label()
+          : markerAccessibleLabel(props.marker, props.agents, t, sourceText)
+      }
     >
       <div class="chat-action-marker-summary">
         <MarkerContent class="chat-action-marker-content">
           <span class="chat-action-marker-label">{label()}</span>
+          <Show when={connectionLimit()}>
+            {(limit) => (
+              <ConnectionRequestButton
+                kind="more"
+                sentAt={null}
+                request={() => limit().request(limit().event.connectionId, limit().event.orgId)}
+              />
+            )}
+          </Show>
           <Show when={props.marker.kind === "agent-message" && props.marker}>
             {(marker) => <AgentTarget marker={marker()} agents={props.agents} onSelectAgent={props.onSelectAgent} />}
           </Show>
@@ -946,6 +980,8 @@ function markerLabel(
   )
     return sourceText(marker.text);
   if (marker.kind === "context-reset") return t("chat.marker.contextReset");
+  // The marker draws this line itself, with amounts in the reader's language (hubConnectionMarkerText).
+  if (marker.kind === "hub-connection") return marker.event.connectionName;
   if (marker.kind === "marketplace-suggestion") return t("chat.marker.marketplaceSuggestion");
   if (marker.kind === "mcp-sign-in") return t("chat.marker.mcpSignIn");
   if (marker.kind === "skill-lifecycle") return t(SKILL_ACTION_LABELS[marker.action]);
@@ -1019,6 +1055,7 @@ function markerAccessibleLabel(
     marker.kind === "context-reset" ||
     marker.kind === "marketplace-suggestion" ||
     marker.kind === "mcp-sign-in" ||
+    marker.kind === "hub-connection" ||
     marker.kind === "model-switch" ||
     marker.kind === "channel-change" ||
     marker.kind === "vault-change" ||

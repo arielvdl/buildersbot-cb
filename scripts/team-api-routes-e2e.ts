@@ -449,6 +449,8 @@ const fakeAgents: TeamApiAgents = {
   updateRoutine: unused("updateRoutine"),
   deleteRoutine: unused("deleteRoutine"),
   testRoutine: unused("testRoutine"),
+  memberOrigin: () => "owner_ui",
+  narrowRoutineFlowOrigin: () => undefined,
   listRoutineRuns: unused("listRoutineRuns"),
   listChannelMemories: unused("listChannelMemories"),
   createChannelMemory: unused("createChannelMemory"),

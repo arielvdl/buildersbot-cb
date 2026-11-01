@@ -27,6 +27,7 @@ import {
   type InterruptTurnInput,
   isAgentAccess,
   isAgentBackupModels,
+  isAgentConnectionsOff,
   isAgentModel,
   isAgentProvider,
   isAgentTaskLimit,
@@ -762,6 +763,11 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
     if (value.securityGuard !== null && !isBoolean(value.securityGuard))
       throw new Error("Invalid security guard value.");
     result.securityGuard = value.securityGuard;
+  }
+  if (value.connectionsOff !== undefined) {
+    if (value.connectionsOff !== null && !isAgentConnectionsOff(value.connectionsOff))
+      throw new Error("Invalid connections value.");
+    result.connectionsOff = value.connectionsOff === null ? null : [...value.connectionsOff];
   }
   if (value.fastMode !== undefined) {
     if (!isBoolean(value.fastMode)) throw new Error("Invalid fast mode value.");

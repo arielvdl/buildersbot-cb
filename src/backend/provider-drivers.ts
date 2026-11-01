@@ -68,6 +68,7 @@ import {
   openCodeSignInMessage,
 } from "./opencode-config";
 import { readOpenCodeGoUsage } from "./opencode-usage";
+import { openCodeTregNames } from "./personal-vendor-mcp";
 import { PiAgentClient } from "./pi-client";
 import {
   antigravityStatePaths,
@@ -841,7 +842,8 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         extraEnv: () => ({
           ...context.agentEnvironment?.(),
           ...opencodeEnv(cli, context),
-          ...openCodeConfigEnv({}, openCodeEndpoints(context), context.apiKey("opencode")),
+          // Read at each spawn: a treg entry of the person's own OpenCode file stays off in this agent.
+          ...openCodeConfigEnv({}, openCodeEndpoints(context), context.apiKey("opencode"), openCodeTregNames()),
           ...(confinement ? OPENCODE_CONFINED_ENV : {}),
         }),
         signInMessage: openCodeSignInMessage(openCodeEndpoints(context)().length),
@@ -869,7 +871,12 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         extraEnv: () => ({
           ...context.egressEnvironment?.(),
           ...opencodeEnv(cli, context),
-          ...openCodeConfigEnv(OPENCODE_PROFILE_CONFIG, openCodeEndpoints(context), context.apiKey("opencode")),
+          ...openCodeConfigEnv(
+            OPENCODE_PROFILE_CONFIG,
+            openCodeEndpoints(context),
+            context.apiKey("opencode"),
+            openCodeTregNames(),
+          ),
         }),
         signInMessage: openCodeSignInMessage(openCodeEndpoints(context)().length),
         modelName: (id, name) => openCodeModelName(id, name, openCodeEndpoints(context)),
@@ -887,8 +894,11 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
     cliProvider: "opencode",
     resolveCli: resolveOpencodeCli,
     prepare: (context) =>
-      ensureCulturaBuilderToken(context.apiKey("cultura-builder"), (value) =>
-        context.saveApiKey ? context.saveApiKey("cultura-builder", value) : Effect.void,
+      ensureCulturaBuilderToken(
+        context.apiKey("cultura-builder"),
+        (value) => (context.saveApiKey ? context.saveApiKey("cultura-builder", value) : Effect.void),
+        fetch,
+        () => context.apiKey("cultura-builder"),
       ).pipe(Effect.asVoid),
     // The bundled Builders CLI runs it, as one more OpenAI-compatible endpoint, and only that
     // endpoint: the token is the only credential this process should spend.
@@ -910,6 +920,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
             CULTURA_BUILDER_GATEWAY,
             readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
             context.culturaBuilderFullContext?.() ?? false,
+            openCodeTregNames(),
           ),
         }),
         // A missing session and an account without the LLM are sign-ins to do, not a broken
@@ -954,6 +965,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
             CULTURA_BUILDER_GATEWAY,
             readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
             context.culturaBuilderFullContext?.() ?? false,
+            openCodeTregNames(),
           ),
         }),
         authenticate: () =>

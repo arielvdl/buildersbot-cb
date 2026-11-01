@@ -22,6 +22,8 @@ export interface SettingsPort {
   getGuardPreference: BuildersBotDesktopApi["getGuardPreference"];
   /** The encrypted files of this computer that cannot be decrypted now, for the notice of the General tab. */
   getUnreadableSecrets: BuildersBotDesktopApi["getUnreadableSecrets"];
+  /** A treg setup of the person's own in the MCP files of other agent apps, for the notice of the General tab. */
+  getPersonalVendorMcp: BuildersBotDesktopApi["getPersonalVendorMcp"];
   onAgentMemoryLimitPreference: BuildersBotDesktopApi["onAgentMemoryLimitPreference"];
   onAnalyticsPreference: BuildersBotDesktopApi["onAnalyticsPreference"];
   onApprovalAutomation: BuildersBotDesktopApi["onApprovalAutomation"];

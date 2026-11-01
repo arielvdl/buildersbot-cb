@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { chatVisualItemType } from "@openbot/contracts/chat-visual";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
+import { TOOL_CATALOG_CONNECTION_ID } from "@openbot/contracts/hub-connections";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentModelChoice,
@@ -9,15 +10,19 @@ import type {
   AvatarImageInput,
   ConversationMessage,
   CreateAgentInput,
+  HubConnectionChatEvent,
   McpServerConfig,
   SidebarLayoutSnapshot,
   UpdateAgentInput,
 } from "@openbot/contracts/ipc";
 import {
+  AGENT_CONNECTIONS_OFF_LIMIT,
   agentComputerUseEnabled,
   agentNewChatAllowed,
   agentQuickAcknowledgementEnabled,
   CONNECTOR_IDS,
+  hubConnectionChatItemType,
+  hubConnectionChatText,
   isMessageReaction,
   marketplaceSuggestionItemType,
   mcpSignInItemType,
@@ -48,6 +53,9 @@ import {
   guardInboundContent,
   guardOutboundItem,
 } from "../guard/guard-gate";
+import { HUB_CONNECTIONS_NAMESPACE } from "../hub-connections/hub-connection-tool-definitions";
+import type { HubConnectionContext, HubConnectionTools } from "../hub-connections/hub-connection-tools";
+import { type HubTurnOrigin, hubTurnOrigin, routineOriginOf, sentOrigin } from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -118,7 +126,7 @@ import { type AgentSidebar, handleSidebarTool } from "./sidebar-tools";
 import { LOCAL_SKILL_TOOL_DEFINITIONS, type LocalSkillTools, runLocalSkillTool } from "./skill-tools";
 import { isDynamicToolCall } from "./thread-items";
 import { toolCallIdempotencyKey } from "./tool-call-idempotency";
-import { discoverTools, namesInSearch, resolveDeferredTool } from "./tool-catalog";
+import { deferredToolName, discoverTools, namesInSearch, resolveDeferredTool } from "./tool-catalog";
 import { ToolOperationFailed, toolStep, toToolOperationFailed } from "./tool-operation";
 import type { AgentBrowserHost } from "./turn-lifecycle";
 import { handleUpdateAgentsTool } from "./update-agents-tool";
@@ -175,9 +183,11 @@ export interface BuildersBotToolRouterHooks {
   /** The accounts of a signed-in provider, as the settings page lists them. */
   providerAccounts: ProviderAccountRows;
   preferredProvider(): AgentProvider;
+  /** `origin` is the Hub connection origin that the new agent's first message carries. */
   createAgent(
     input: CreateAgentInput,
-    configure?: (agent: AgentSummary) => Effect.Effect<AgentSummary, ToolOperationFailed>,
+    configure: ((agent: AgentSummary) => Effect.Effect<AgentSummary, ToolOperationFailed>) | undefined,
+    origin: HubTurnOrigin,
   ): Effect.Effect<AgentSummary, ToolOperationFailed>;
   /** `initiatingAgentId` is the calling agent, recorded with a model change. */
   updateAgent(input: UpdateAgentInput, initiatingAgentId: string): Effect.Effect<AgentSummary, ToolOperationFailed>;
@@ -242,6 +252,10 @@ export interface BuildersBotToolRouterOptions {
    * agent reads it. Null where no Guard runs; every call then goes on as before.
    */
   guardGate?: GuardGate | null | undefined;
+  /** The Hub connections (`openbot_connections`); null where this server has no Cultura Builder session. */
+  hubConnections?: HubConnectionTools | null | undefined;
+  /** Whether a person that the host stamped on a message is someone other than this computer's user. */
+  remotePerson?: ((memberId: string) => boolean) | undefined;
   hooks: BuildersBotToolRouterHooks;
 }
 
@@ -280,6 +294,8 @@ export class BuildersBotToolRouter {
   readonly #mcpServers: AgentMcpServers | null;
   readonly #apiKeys: AgentApiKeys | null;
   readonly #guardGate: GuardGate | null;
+  readonly #hubConnections: HubConnectionTools | null;
+  readonly #remotePerson: (memberId: string) => boolean;
   readonly #hooks: BuildersBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
 
@@ -315,6 +331,9 @@ export class BuildersBotToolRouter {
     this.#mcpServers = options.mcpServers ?? null;
     this.#apiKeys = options.apiKeys ?? null;
     this.#guardGate = options.guardGate ?? null;
+    this.#hubConnections = options.hubConnections ?? null;
+    // Without a host, nobody but this computer's user writes a user message.
+    this.#remotePerson = options.remotePerson ?? (() => false);
     this.#hooks = options.hooks;
     this.#interruptTool = new AgentInterruptTool({
       store: options.store,
@@ -367,6 +386,42 @@ export class BuildersBotToolRouter {
     if (!agentId) return Effect.succeed(result);
     const publicParams = { ...params, threadId: this.#conversation.publicThreadId(agentId, params.threadId) };
     return this.#guardGate.afterTool(client, request, publicParams, agentId, result, null);
+  }
+
+  /**
+   * Where a turn came from, for the Hub connections: the most closed origin of its thread and of all
+   * its deliveries. The process decides it, never the agent's text. `threadId` is the public thread.
+   */
+  turnOrigin(agentId: string, threadId: string | null, turnId: string): HubTurnOrigin {
+    return hubTurnOrigin(
+      this.#mailbox.turnSenders(agentId, turnId),
+      {
+        messaging: threadId !== null && this.#messaging.store.linkForThread(threadId) !== null,
+        channel: threadId !== null && this.#channels.store.channelForThread(threadId) !== null,
+      },
+      this.#remotePerson,
+    );
+  }
+
+  /** The origin of the turn of a tool call. */
+  #callOrigin(agentId: string, params: DynamicToolCallParams): HubTurnOrigin {
+    return this.turnOrigin(agentId, this.#conversation.publicThreadId(agentId, params.threadId), params.turnId);
+  }
+
+  /** Where the turn of a connection call came from. The process decides it, never the agent's text. */
+  #connectionContext(agentId: string, params: DynamicToolCallParams): HubConnectionContext {
+    const publicThreadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    const origin = this.turnOrigin(agentId, publicThreadId, params.turnId);
+    return { agentId, threadId: publicThreadId, turnId: params.turnId, origin };
+  }
+
+  /** The gated tool namespaces that this agent has in this turn: the Hub connections, or none. */
+  #grantedNamespaces(agentId: string, params: DynamicToolCallParams): Effect.Effect<ReadonlySet<string>> {
+    const tools = this.#hubConnections;
+    if (!tools) return Effect.succeed(new Set<string>());
+    return tools
+      .available(this.#connectionContext(agentId, params))
+      .pipe(Effect.map((available) => new Set<string>(available ? [HUB_CONNECTIONS_NAMESPACE] : [])));
   }
 
   /** The URL of the tab that a browser call names, for the approval card. */
@@ -427,9 +482,10 @@ export class BuildersBotToolRouter {
               const agentId = this.#conversation.agentForThread(params.threadId);
               if (!agentId) throw new Error("The calling Builders Bot agent is unknown.");
               let result: ReturnType<typeof discoverTools>;
+              const granted = yield* this.#grantedNamespaces(agentId, params);
               try {
                 this.#requireAgent(agentId);
-                result = discoverTools(params);
+                result = discoverTools(params, granted);
               } catch {
                 client.respond(request.id, openBotToolFailure(sourceText("error.agent.toolRequestInvalid")));
                 return;
@@ -443,7 +499,12 @@ export class BuildersBotToolRouter {
               return;
             }
             if (params.tool === "tool_call") {
-              const resolved = resolveDeferredTool(params);
+              // A gated tool resolves only for an agent that has it now; the others get "invalid".
+              const gatedAgentId = deferredToolName(params)?.startsWith(`${HUB_CONNECTIONS_NAMESPACE}.`)
+                ? this.#conversation.agentForThread(params.threadId)
+                : undefined;
+              const granted = gatedAgentId ? yield* this.#grantedNamespaces(gatedAgentId, params) : new Set<string>();
+              const resolved = resolveDeferredTool(params, granted);
               if (!resolved) {
                 client.respond(request.id, openBotToolFailure(sourceText("error.agent.toolRequestInvalid")));
                 return;
@@ -546,6 +607,11 @@ export class BuildersBotToolRouter {
               ? yield* this.#guardGate.afterTool(client, toolRequest, params, agentId, result, this.#tabUrl(params))
               : result;
             if (guarded && !signal?.aborted && client.running) client.respond(toolRequest.id, guarded);
+            return;
+          }
+          if (toolRequest.params.namespace === HUB_CONNECTIONS_NAMESPACE) {
+            const result = yield* this.#hubConnectionTool(client, toolRequest);
+            if (result && !toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, result);
             return;
           }
           if (toolRequest.params.namespace === "openbot") {
@@ -658,6 +724,72 @@ export class BuildersBotToolRouter {
       Effect.catchDefect(reportFailure),
     );
   }).bind(this);
+
+  /**
+   * `openbot_connections.list` and `.call`. The controller runs the input checks first; the Guard
+   * then reads what the call sends, and reads the result before the agent does. A cost approval and a
+   * payer choice are approval cards that only the owner can answer, also for an agent with Full access.
+   */
+  readonly #hubConnectionTool = Effect.fn("BuildersBotToolRouter.hubConnectionTool")(function* (
+    this: BuildersBotToolRouter,
+    client: AgentClient,
+    request: AppServerRequest & { params: DynamicToolCallParams },
+  ) {
+    const { params } = request;
+    const agentId = this.#conversation.agentForThread(params.threadId);
+    if (!agentId) throw new Error("The calling Builders Bot agent is unknown.");
+    const tools = this.#hubConnections;
+    if (!tools) return openBotToolFailure("Connections are not available on this Builders Bot server.");
+    const publicParams = { ...params, threadId: this.#conversation.publicThreadId(agentId, params.threadId) };
+    const ask = (reason: string) =>
+      this.#attention
+        .awaitToolApproval(
+          client,
+          request,
+          {
+            requestId: request.id,
+            agentId,
+            threadId: publicParams.threadId,
+            turnId: params.turnId,
+            kind: "permissions",
+            command: null,
+            cwd: null,
+            reason,
+            grantRoot: null,
+            permissions: null,
+            // A standing grant never answers it, so the card offers no "Always allow".
+            guard: true,
+          },
+          { alwaysAsk: true, ownerOnly: true },
+        )
+        .pipe(Effect.catchCause(() => Effect.succeed("cancel" as const)));
+    const guard = () =>
+      this.#guardGate && guardOutboundItem(params.namespace, params.tool, params.arguments)
+        ? this.#guardBefore(client, request, publicParams, agentId)
+        : Effect.succeed({ proceed: true } as const);
+    // The cost lines of the call go to the chat that the person reads, not to the agent's result.
+    const notify = (event: HubConnectionChatEvent) => {
+      try {
+        this.#postSystemCard(agentId, publicParams.threadId, params.turnId, {
+          itemType: hubConnectionChatItemType(event.kind),
+          text: hubConnectionChatText(event),
+          eventType: `hub_connection.${event.kind}`,
+          detail: {},
+        });
+      } catch (error) {
+        logger.warn("A connection cost line could not be added to the chat.", { error });
+      }
+    };
+    const result = yield* tools.handle(this.#connectionContext(agentId, params), params.tool, params.arguments, {
+      ask,
+      guard,
+      notify,
+    });
+    if (!result) return null;
+    return this.#guardGate
+      ? yield* this.#guardGate.afterTool(client, request, publicParams, agentId, result, null)
+      : result;
+  });
 
   /**
    * Checks an `ask_ui` call and shows its block. Like `ask_user`, it answers the call only when the
@@ -1045,7 +1177,12 @@ export class BuildersBotToolRouter {
       return { success: true, contentItems: [{ type: "inputText", text: redactText(JSON.stringify(payload)) }] };
     }
 
-    if (params.tool === "interrupt_agent") return yield* this.#interruptTool.handle(params, senderAgentId);
+    if (params.tool === "interrupt_agent")
+      return yield* this.#interruptTool.handle(
+        params,
+        senderAgentId,
+        sentOrigin(this.#callOrigin(senderAgentId, params)),
+      );
 
     if (params.tool === "read_agent") {
       const args = readAgentToolSchema.parse(params.arguments ?? {});
@@ -1099,7 +1236,11 @@ export class BuildersBotToolRouter {
     );
     if (sidebarResult) return sidebarResult;
 
-    const routineResult = yield* this.#routines.handleTool(params, senderAgentId);
+    const routineResult = yield* this.#routines.handleTool(
+      params,
+      senderAgentId,
+      this.#callOrigin(senderAgentId, params),
+    );
     if (routineResult) return routineResult;
 
     const flowResult = yield* handleRoutineFlowTool(
@@ -1108,6 +1249,11 @@ export class BuildersBotToolRouter {
       senderAgentId,
       this.#routineFlowTools?.() ?? null,
       new Set(this.#hooks.listAgents().map((agent) => agent.id)),
+      // A change of a flow by a turn that is not the person's narrows what the flow's handoffs may do.
+      (routineId) => {
+        const origin = this.#callOrigin(senderAgentId, params);
+        if (origin !== "owner_ui") this.#mailbox.narrowFlowOrigin(routineId, routineOriginOf(origin));
+      },
     );
     if (flowResult) return flowResult;
 
@@ -1119,6 +1265,7 @@ export class BuildersBotToolRouter {
       inExecutionThread: this.#conversation.isExecutionThread(
         this.#conversation.publicThreadId(senderAgentId, params.threadId),
       ),
+      origin: sentOrigin(this.#callOrigin(senderAgentId, params)),
     };
     const waitResult = this.#waits.handleTool(params, caller);
     if (waitResult) return waitResult;
@@ -1575,11 +1722,19 @@ export class BuildersBotToolRouter {
       // An effort alone applies to the model the new agent starts on, known only once it exists.
       const lateEffort = requested === null ? args.reasoningEffort : undefined;
       const sectionId = this.#sidebarLayout?.getSnapshot().agentAssignments[senderAgentId] ?? null;
+      const origin = this.#callOrigin(senderAgentId, params);
       // A new agent starts with Full access and Computer Use. A caller without them passes its limits
-      // on, so it cannot get around them through an agent it creates.
-      const limits: Pick<UpdateAgentInput, "access" | "computerUse"> = {
+      // on, so it cannot get around them through an agent it creates. The Hub connections that the
+      // caller has off stay off, and an agent that a turn other than the person's own creates has all of
+      // them off until the person turns them on.
+      const connectionsOff = newAgentConnectionsOff(
+        caller.connectionsOff ?? [],
+        origin === "owner_ui" ? [] : (this.#hubConnections?.knownConnectionIds() ?? [TOOL_CATALOG_CONNECTION_ID]),
+      );
+      const limits: Pick<UpdateAgentInput, "access" | "computerUse" | "connectionsOff"> = {
         ...(workspaceAccessEnforced(caller) ? { access: "workspace" } : {}),
         ...(agentComputerUseEnabled(caller) ? {} : { computerUse: false }),
+        ...(connectionsOff.length > 0 ? { connectionsOff } : {}),
       };
       const create = (assign?: (agentId: string) => Effect.Effect<SidebarLayoutSnapshot, StoredStateFailure>) =>
         this.#hooks.createAgent(
@@ -1628,6 +1783,8 @@ export class BuildersBotToolRouter {
                 })
                 .pipe(toToolOperationFailed);
             }).pipe(Effect.catchDefect((cause) => Effect.fail(new ToolOperationFailed({ cause })))),
+          // The first message carries this turn's origin, so the new agent's turn may do no more.
+          sentOrigin(origin),
         );
       const sidebar = this.#sidebarLayout;
       const created =
@@ -1852,6 +2009,8 @@ export class BuildersBotToolRouter {
       const receipt = yield* this.#mailbox
         .enqueue({
           sender: { kind: "agent", agentId: senderAgentId },
+          // The recipient's turn gets at most what this turn may do (hub-connections/turn-origin.ts).
+          origin: sentOrigin(this.#callOrigin(senderAgentId, params)),
           recipientAgentIds: recipientValues,
           text,
           sourcePaths: paths,
@@ -1879,4 +2038,12 @@ export class BuildersBotToolRouter {
     Effect.catchDefect((cause) => Effect.fail(new ToolOperationFailed({ cause }))),
     Effect.uninterruptible,
   );
+}
+
+/**
+ * The Hub connections that an agent that a tool creates has off: the caller's, and `alsoOff` (every
+ * known connection when the creating turn is not the person's own). At most the contract's limit.
+ */
+function newAgentConnectionsOff(callerOff: readonly string[], alsoOff: readonly string[]): string[] {
+  return [...new Set([...callerOff, ...alsoOff])].slice(0, AGENT_CONNECTIONS_OFF_LIMIT);
 }

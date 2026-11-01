@@ -115,6 +115,8 @@ type TeamApiAgentMethods = Pick<
   | "deleteRoutine"
   | "testRoutine"
   | "listRoutineRuns"
+  | "memberOrigin"
+  | "narrowRoutineFlowOrigin"
   | "listChannelMemories"
   | "createChannelMemory"
   | "updateChannelMemory"

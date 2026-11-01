@@ -1,4 +1,5 @@
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
+import { HUB_CONNECTION_GUIDANCE, HUB_CONNECTIONS_NAMESPACE } from "../hub-connections/hub-connection-tool-definitions";
 import { ROUTINE_INSTRUCTION_RULE } from "../routine-tool-schema";
 
 export interface ToolGuidanceOptions {
@@ -20,6 +21,7 @@ export function toolGuidance(
   options: ToolGuidanceOptions = { passwordVault: true },
 ): string[] {
   if (namespace === OPENBOT_BROWSER_NAMESPACE) return browserGuidance(tool, options);
+  if (namespace === HUB_CONNECTIONS_NAMESPACE) return [HUB_CONNECTION_GUIDANCE];
   const guidance = openbotGuidance(namespace, tool);
   return guidance ? [guidance] : [];
 }

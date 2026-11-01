@@ -1136,7 +1136,10 @@ export class TeamApiServer {
   }
 
   #routeEvents(context: TeamApiRequestContext): Promise<RouteOutcome> {
-    return routeEvents(context, { events: this.#options.events });
+    return routeEvents(context, {
+      events: this.#options.events,
+      memberOrigin: (memberId) => this.#options.agents.memberOrigin(memberId),
+    });
   }
 
   #checkRate(request: IncomingMessage, username: string): void {

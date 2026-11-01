@@ -40,5 +40,12 @@ export const messages = defineMessages("status.guard", {
   "status.guard.finding.pasteHost": "The action sends data to a site that keeps anonymous uploads.",
   "status.guard.finding.pageScriptExfiltration": "The page script reads cookies or storage and sends them out.",
   "status.guard.finding.pageScriptNetwork": "The page script sends a network request.",
+  "status.guard.finding.vendorInstruction":
+    "The result asks the agent to take a step for a vendor, such as to install a tool, run a script, sign up or star a project.",
+  "status.guard.finding.cookieInTransfer":
+    "The action sends a cookie, a session or a sign-in token out of this computer.",
+  "status.guard.finding.textInTransfer":
+    "The action sends a long free text out of this computer, such as a pasted chat.",
+  "status.guard.finding.blobInTransfer": "The action sends a long block of encoded data out of this computer.",
   "status.guard.finding.incompleteScan": "The Guard could not read all of this item.",
 });

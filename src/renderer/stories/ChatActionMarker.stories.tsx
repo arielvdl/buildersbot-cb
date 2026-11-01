@@ -502,3 +502,78 @@ function SkillMarkers() {
     </>
   );
 }
+
+const CONNECTION_LINE = {
+  connectionId: "tool-catalog",
+  connectionName: "Catálogo de ferramentas",
+  orgId: "org_a",
+  orgName: "Empresa A",
+  personal: false,
+  currency: "BRL",
+} as const;
+
+/** The lines of a Hub connection call: what it cost and who paid, 80 % of the cap, and the cap reached. */
+export const ConnectionCostLines: Story = {
+  render: () => {
+    const [requests, setRequests] = createSignal(0);
+    return (
+      <main class="foundation-story">
+        <section class="chat-primitives-gallery chat-action-marker-gallery" aria-label="Connection cost lines">
+          <ChatActionMarker
+            marker={{
+              kind: "hub-connection",
+              timestamp: "2026-11-18T14:05:00.000Z",
+              event: {
+                ...CONNECTION_LINE,
+                kind: "paid",
+                amountMicros: 100_000,
+                endpoint: "Keyword search volume",
+                resetsAt: null,
+                scope: null,
+              },
+            }}
+            agents={agents}
+            onSelectAgent={onSelectAgent}
+          />
+          <ChatActionMarker
+            marker={{
+              kind: "hub-connection",
+              timestamp: "2026-11-18T14:06:00.000Z",
+              event: {
+                ...CONNECTION_LINE,
+                kind: "warning",
+                amountMicros: 4_600_000,
+                endpoint: null,
+                resetsAt: "2026-12-01T03:00:00.000Z",
+                scope: null,
+              },
+            }}
+            agents={agents}
+            onSelectAgent={onSelectAgent}
+          />
+          <ChatActionMarker
+            marker={{
+              kind: "hub-connection",
+              timestamp: "2026-11-18T14:07:00.000Z",
+              event: {
+                ...CONNECTION_LINE,
+                kind: "limit",
+                amountMicros: 0,
+                endpoint: null,
+                resetsAt: "2026-12-01T03:00:00.000Z",
+                scope: "user",
+              },
+            }}
+            agents={agents}
+            onSelectAgent={onSelectAgent}
+            onRequestConnectionMore={async () => {
+              setRequests(requests() + 1);
+              return { status: "sent", requestedAt: "2026-11-18T14:08:00.000Z", failure: null };
+            }}
+          />
+          <Text tone="secondary">{`Requests sent: ${requests()}`}</Text>
+        </section>
+      </main>
+    );
+  },
+};

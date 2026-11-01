@@ -62,6 +62,11 @@ export interface GuardOutboundItem {
   /** Local files that the action sends, such as an upload or an attachment. */
   readonly files?: readonly string[];
   /**
+   * Each string value of a structured input on its own, such as the query and the body of a
+   * connection call. `payload` holds the whole input; the rules of one field read these.
+   */
+  readonly fields?: readonly string[];
+  /**
    * True when the caller could not resolve every file to the path that the tool will open, such as
    * a folder it may not read. The check is then incomplete, so the person decides.
    */
@@ -72,6 +77,21 @@ export interface GuardTriageOptions {
   /** The clock of the time budget. Tests give a clock that jumps. */
   readonly now?: () => number;
   readonly budgetMs?: number;
+  /**
+   * The tool whose result the content is. A result of a paid data connection (`isConnectionTool`)
+   * also gets the vendor rules: such a result never has a reason to ask the agent for a step.
+   */
+  readonly tool?: string;
+}
+
+const CONNECTION_NAMESPACE = "openbot_connections";
+
+/**
+ * Whether a tool is one of the Cultura Builder connection tools. Its results come from the Hub, a
+ * vendor and the provider of an endpoint, and its call input goes to all three.
+ */
+export function isConnectionTool(tool: string | undefined): boolean {
+  return tool?.startsWith(`${CONNECTION_NAMESPACE}.`) === true;
 }
 
 /**
@@ -141,6 +161,10 @@ export type GuardFindingCode =
   | "paste-host"
   | "page-script-exfiltration"
   | "page-script-network"
+  | "vendor-instruction"
+  | "cookie-in-transfer"
+  | "text-in-transfer"
+  | "blob-in-transfer"
   | "incomplete-scan";
 
 const CATEGORY: Record<GuardFindingCode, GuardCategory> = {
@@ -176,6 +200,10 @@ const CATEGORY: Record<GuardFindingCode, GuardCategory> = {
   "paste-host": "exfiltration",
   "page-script-exfiltration": "exfiltration",
   "page-script-network": "exfiltration",
+  "vendor-instruction": "instruction-override",
+  "cookie-in-transfer": "secret-leak",
+  "text-in-transfer": "exfiltration",
+  "blob-in-transfer": "exfiltration",
   "incomplete-scan": "other",
 };
 
@@ -226,8 +254,26 @@ const WEIGHT: Record<GuardFindingCode, Weight> = {
   "paste-host": "strong",
   "page-script-exfiltration": "high",
   "page-script-network": "strong",
+  // A connection result that asks the agent for a step of the vendor: the agent reads the note, and
+  // the reviewer cannot clear it. Next to a strong finding of another kind it is an attack.
+  "vendor-instruction": "note",
+  // Cookies and sessions never go to a third party: the policy stops the call (`triageDenies`).
+  "cookie-in-transfer": "high",
+  "text-in-transfer": "high",
+  "blob-in-transfer": "high",
   "incomplete-scan": "partial",
 };
+
+/**
+ * Findings that stop an action at every level that runs: the owner's rule is that cookies and
+ * sessions never leave this computer for a third party, so no card can let one go.
+ */
+const DENIED: ReadonlySet<GuardFindingCode> = new Set(["cookie-in-transfer"]);
+
+/** Whether the local check found an action that no one may allow. */
+export function triageDenies(triage: Pick<GuardTriage, "findings">): boolean {
+  return triage.findings.some((finding) => DENIED.has(finding.code));
+}
 
 /** Whether a finding counts only next to a stronger one. The excerpt does not have to show it. */
 export function guardFindingIsHint(code: GuardFindingCode): boolean {
@@ -669,6 +715,49 @@ const INBOUND_RULES: readonly Rule[] = heaviestFirst([
 
 /** The light rules that make a strong finding near them an attack. */
 const HINT_RULES: readonly Rule[] = INBOUND_RULES.filter((current) => WEIGHT[current.code] === "hint");
+
+/**
+ * The text that the app writes where it took a vendor line out of a connection result
+ * (`maskVendorPhrases`). The rules below read it, so the agent still gets the note.
+ */
+export const VENDOR_LINE_MARKER = "[vendor instruction removed]";
+
+/**
+ * Rules for the results of a paid data connection only (`isConnectionTool`). A vendor answer or a
+ * mirrored description has no reason to ask the agent to install a tool, to run a script from the
+ * network, to sign up, to top up a balance, to star a project or to use the vendor first: the treg
+ * design (§2.2) lists such vendor lines, and a scraped page can carry the same. Each one alone gives
+ * the result a note that the reviewer cannot clear; next to a strong finding of another kind it is an
+ * attack. On other content these phrases are ordinary (an install guide, a sign-up page), so the
+ * rules do not run there.
+ */
+const CONNECTION_RULES: readonly Rule[] = [
+  rule("vendor-instruction", /\[vendor instruction removed\]/u),
+  // A pipe from a download to a shell, also the documented install of a known tool.
+  rule("vendor-instruction", new RegExp(String.raw`\b(?:curl|wget)\b[^\n|]{0,200}${PIPE_SHELL}`, "iu")),
+  rule(
+    "vendor-instruction",
+    /\bstar\s{1,4}(?:the|this|our|my|that)\s{1,4}(?:[\w.-]{1,40}\s{1,4})?(?:repo|repository|project)\b|\bgive\s{1,4}(?:us|it|the\s{1,4}(?:repo|repository|project))\s{1,4}a\s{1,4}star\b|\buser\/starred\b|\bd[êe]\s{1,4}uma\s{1,4}estrela\b/iu,
+  ),
+  rule(
+    "vendor-instruction",
+    /\breach\s{1,4}for\s{1,4}\S{1,40}\s{1,4}first\b|\b(?:use|try|call)\s{1,4}(?:treg|this\s{1,4}(?:tool|catalog|service))\s{1,4}first\b|\bfollow\s{1,4}the\s{1,4}next\s{1,4}step\b|\bat\s{1,4}the\s{1,4}listed\s{1,4}price\s{1,4}without\s{1,4}asking\b|\breport\s{1,4}a\s{1,4}doorway\b|\bpropose\s{1,4}exactly\s{1,4}three\s{1,4}things\b/iu,
+  ),
+  rule(
+    "vendor-instruction",
+    /\bask\s{1,4}(?:whether|if)\s{1,4}(?:they|the\s{1,4}(?:user|person|human))\s{1,4}would\s{1,4}like\s{1,4}to\b|\bregister\s{1,4}(?:it|the\s{1,4}key|your\s{1,4}key)\s{1,4}with\b/iu,
+  ),
+  // A vendor's own command line tool, skill or MCP server, which puts a token on the computer.
+  rule(
+    "vendor-instruction",
+    /\b(?:install|add|set\s{1,4}up)\s{1,4}(?:the\s{1,4}|our\s{1,4}|this\s{1,4})?(?:[\w.-]{1,30}\s{1,4})?(?:cli|skill|mcp(?:\s{1,4}server)?)\b|\bmcp\s{1,4}install\b|\btreg\s{1,4}(?:login|scan|upload|run|shell|serve)\b|\binstale\s{1,4}(?:a|o)\s{1,4}(?:cli|skill|servidor\s{1,4}mcp)\b/iu,
+  ),
+  // Money and accounts at the vendor: a balance, a sign-up, a key.
+  rule(
+    "vendor-instruction",
+    /\btop\s{1,4}up\s{1,4}(?:your|the)\s{1,4}(?:balance|credits?|account|wallet)\b|\b(?:sign\s{1,4}up|create\s{1,4}an?\s{1,4}account)\s{1,4}(?:at|on|with)\s{1,4}(?:https?:\/\/|[\w-]{1,40}\.(?:to|com|io|ai|dev|app|so)\b)|\brecarregue\s{1,4}(?:o|seu)\s{1,4}saldo\b/iu,
+  ),
+];
 
 /**
  * Direction overrides. Embeddings, marks and isolates are ordinary in right-to-left text, and an i18n
@@ -1412,6 +1501,7 @@ export function triageContent(content: string, options: GuardTriageOptions = {})
       ]
     : undefined;
   found.scanAll(phrase.text, INBOUND_RULES, 0, place);
+  if (isConnectionTool(options.tool)) found.scanAll(phrase.text, CONNECTION_RULES, 0, place);
   // A phrase finding that stands only in quoted examples, such as a page about prompt injection that
   // quotes "ignore previous instructions", is not an instruction to the reader.
   const spans = quotedExamples(text);
@@ -2204,6 +2294,48 @@ function offSiteSend(payload: string, offset: number): Place | null {
   return untargeted ? at(untargeted.index, untargeted[0].length) : null;
 }
 
+/** Two or more `name=value` pairs split by `;`, as a `Cookie` header has them. */
+const COOKIE_PAIRS = /(?:^|[;\s"'])[A-Za-z0-9_.$-]{1,64}=[^;\s]{0,4096};\s{0,16}[A-Za-z0-9_.$-]{1,64}=/u;
+/** One cookie of the session kind, alone. */
+const SESSION_COOKIE =
+  /(?:^|[\s;"'])(?:li_at|sessionid|jsessionid|phpsessid|csrftoken|connect\.sid|auth_token|sid|__session|_session_id)=/iu;
+/** A JSON Web Token, also an unsigned one. */
+const JWT = /(?:^|[^A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{4,}\.eyJ[A-Za-z0-9_-]{4,}\./u;
+
+/**
+ * What a value carries that must never leave for a third party: a cookie (two `name=value` pairs, or
+ * one session cookie such as `li_at=`) or a JSON Web Token. Null when it carries neither. The input
+ * checks of the connection tools and the Guard read values with the same rule.
+ */
+export function cookieOrToken(value: string): "cookie" | "token" | null {
+  if (JWT.test(value)) return "token";
+  if (COOKIE_PAIRS.test(value) || SESSION_COOKIE.test(value)) return "cookie";
+  return null;
+}
+
+/** Free text longer than this in one field of a connection call needs the person: a pasted chat or file. */
+export const GUARD_FIELD_TEXT_LIMIT = 2_000;
+/** A run of base64 or hex this long in one field is a block of data, not a search term or an id. */
+const FIELD_BLOB = /[A-Za-z0-9+/_=-]{512,}|[0-9a-fA-F]{512,}/u;
+
+/**
+ * The rules of one field of a connection call (§4.6 G2 and G11 of the treg design): a cookie or a
+ * token is denied, and a long free text or a long encoded block asks the person. The place is where
+ * the field stands in the JSON of the payload, when it can be found.
+ */
+function checkFields(fields: readonly string[], payload: string, payloadAt: number, found: Findings): void {
+  for (const field of fields) {
+    // The payload was read as readable text, so the field is looked for in the same form.
+    const escaped = guardReadableText(JSON.stringify(field).slice(1, -1));
+    const index = payload.indexOf(escaped);
+    const place = (code: GuardFindingCode) =>
+      index >= 0 ? found.add(code, payloadAt + index, payloadAt + index + escaped.length) : found.add(code);
+    if (cookieOrToken(field)) place("cookie-in-transfer");
+    if (FIELD_BLOB.test(field)) place("blob-in-transfer");
+    else if (field.length > GUARD_FIELD_TEXT_LIMIT && /\s/u.test(field)) place("text-in-transfer");
+  }
+}
+
 /**
  * Checks an action that leaves an agent's work: a command that it runs, the URLs it opens, the
  * text it sends, the files it uploads. The check looks for code that comes from the network and
@@ -2280,6 +2412,8 @@ export function triageAction(action: GuardOutboundItem, options: GuardTriageOpti
     // file in a message, such as "I copied .env.example to .env", is not the file.
     record("secret-in-transfer", secretIn(payload, payloadAt));
   }
+  // The input of a connection call goes to the Hub, the vendor and the provider of the endpoint.
+  if (isConnectionTool(action.tool)) checkFields(listed(action.fields), payload, payloadAt, found);
   files.forEach((file, index) => {
     const at = fileAt[index] ?? 0;
     const name = file.slice(file.replaceAll("\\", "/").lastIndexOf("/") + 1);
@@ -2463,6 +2597,10 @@ const FINDING_REASON = {
   "paste-host": "status.guard.finding.pasteHost",
   "page-script-exfiltration": "status.guard.finding.pageScriptExfiltration",
   "page-script-network": "status.guard.finding.pageScriptNetwork",
+  "vendor-instruction": "status.guard.finding.vendorInstruction",
+  "cookie-in-transfer": "status.guard.finding.cookieInTransfer",
+  "text-in-transfer": "status.guard.finding.textInTransfer",
+  "blob-in-transfer": "status.guard.finding.blobInTransfer",
   "incomplete-scan": "status.guard.finding.incompleteScan",
 } as const satisfies Record<GuardFindingCode, keyof SourceMessages>;
 

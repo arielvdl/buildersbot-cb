@@ -27,6 +27,7 @@ import { Effect, Semaphore } from "effect";
 import { RoutineOperationFailed } from "../backend/agent/routine-scheduler";
 import type { WebhookRoutineWriter } from "../backend/agent/webhook-routine-tool";
 import { causeHelpers } from "../backend/effect-boundary";
+import type { HubTurnOrigin } from "../backend/hub-connections/turn-origin";
 import type { RoutineRecords } from "../backend/routine-records";
 import type { OwnedRoutineRecord, RoutineRecordInput, WebhookReceiveResult } from "../backend/routine-store";
 import type { WebhookRouteOwner } from "../backend/webhook-route-store";
@@ -204,11 +205,16 @@ export class HostEventsService implements HostEventsApi {
     );
   }).bind(this);
 
+  /**
+   * `by` is the Hub connection origin of who saves it: `owner_ui` for the person in this app, the
+   * member's for the Team API (hub-connections/turn-origin.ts). Absent keeps the earlier record.
+   */
   readonly saveRoutine = Effect.fn("HostEvents.saveRoutine")(function* (
     this: HostEventsService,
     input: SaveEventRoutineInput,
+    by?: HubTurnOrigin,
   ) {
-    const { saved, secret } = yield* this.#saveRecord(input);
+    const { saved, secret } = yield* this.#saveRecord(input, by);
     // The relay sync runs after the write lock is released, so a slow relay does not block writes.
     yield* this.syncRoutes({ all: false });
     // The sync can add the URL. A save that the relay did not confirm keeps a null URL.
@@ -224,11 +230,13 @@ export class HostEventsService implements HostEventsApi {
     (operation) => this.#writes.withPermit(operation),
   ).bind(this);
 
+  /** `by` is the Hub connection origin of who starts the run; the person's own when absent. */
   readonly testRoutine = Effect.fn("HostEvents.testRoutine")(function* (
     this: HostEventsService,
     input: EventRoutineRef,
+    by?: HubTurnOrigin,
   ) {
-    yield* toHostEventsFailure(this.#options.routines.test(input.owner, input.id));
+    yield* toHostEventsFailure(this.#options.routines.test(input.owner, input.id, by));
   }).bind(this);
 
   readonly rotateSecret = Effect.fn("HostEvents.rotateSecret")(
@@ -495,7 +503,7 @@ export class HostEventsService implements HostEventsApi {
 
   /** Writes the routine under the write lock, so the route limit check and the write are one step. */
   readonly #saveRecord = Effect.fn("HostEvents.saveRecord")(
-    function* (this: HostEventsService, input: SaveEventRoutineInput) {
+    function* (this: HostEventsService, input: SaveEventRoutineInput, by: HubTurnOrigin | undefined) {
       const { owner, trigger } = input;
       const routines = this.#options.routines;
       yield* this.#requireOwner(owner);
@@ -516,15 +524,20 @@ export class HostEventsService implements HostEventsApi {
         recordTrigger = { kind: "webhook", eventType: trigger.eventType, filters: trigger.filters, secretCiphertext };
       }
       const saved = yield* eventStep(() =>
-        routines.save(owner, input.id, {
-          name: input.name,
-          instruction: input.instruction,
-          active: input.active,
-          timezone: input.timezone,
-          trigger: recordTrigger,
-          ...(input.limitPolicy === undefined ? {} : { limitPolicy: input.limitPolicy }),
-          ...(input.missedPolicy === undefined ? {} : { missedPolicy: input.missedPolicy }),
-        }),
+        routines.save(
+          owner,
+          input.id,
+          {
+            name: input.name,
+            instruction: input.instruction,
+            active: input.active,
+            timezone: input.timezone,
+            trigger: recordTrigger,
+            ...(input.limitPolicy === undefined ? {} : { limitPolicy: input.limitPolicy }),
+            ...(input.missedPolicy === undefined ? {} : { missedPolicy: input.missedPolicy }),
+          },
+          by,
+        ),
       );
       return { saved, secret };
     },

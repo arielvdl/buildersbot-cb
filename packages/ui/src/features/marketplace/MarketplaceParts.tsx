@@ -11,6 +11,7 @@ import {
   Skeleton,
   Sparkles,
   Text,
+  Waypoints,
 } from "@openbot/ui";
 import { ReferenceChip } from "@openbot/ui/reference-chip";
 import { SkillGradient } from "@openbot/ui/skill-gradient";
@@ -226,6 +227,9 @@ export function AppMark(props: { app: MarketplaceApp }) {
       </Match>
       <Match when={props.app.kind === "custom"}>
         <Plug aria-hidden="true" />
+      </Match>
+      <Match when={props.app.kind === "connection"}>
+        <Waypoints aria-hidden="true" />
       </Match>
     </Switch>
   );

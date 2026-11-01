@@ -215,6 +215,7 @@ import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
 import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-update";
 import { createMockHostedServers } from "./mock-hosted-servers";
+import { createMockHubConnections } from "./mock-hub-connections";
 import { createMockLicense } from "./mock-license";
 import { createMockMessaging } from "./mock-messaging";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
@@ -1392,6 +1393,8 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     openExternal: async () => undefined,
     // The preview has no keychain, so every saved secret reads.
     getUnreadableSecrets: async () => [],
+    // The preview reads no files of other agent apps, so it finds no treg setup.
+    getPersonalVendorMcp: async () => ({ files: [], uncovered: [] }),
     connectProvider: async () => clone(agentStatus),
     updateProviderCli: async () => clone(agentStatus),
     refreshAgentProviders: async () => clone(agentStatus),
@@ -1593,6 +1596,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     bitwardenConnector: createMockBitwardenConnector(),
     vault: createMockVault(),
     billing: createMockBilling(billingPlans),
+    hubConnections: createMockHubConnections(),
     guard: {
       getState: async () => ({ preference: clone(guardPreference), judgeReady: false }),
       setPreference: async (change) => {
@@ -2453,9 +2457,13 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
           allowNewChat,
           quickAcknowledgement,
           securityGuard,
+          connectionsOff,
           ...updates
         } = input;
         const updated: ClientAgentSummary = { ...current, ...updates };
+        // `null` or an empty list returns the agent to the default, which an agent records by having no value.
+        if (connectionsOff === null || connectionsOff?.length === 0) delete updated.connectionsOff;
+        else if (connectionsOff) updated.connectionsOff = connectionsOff;
         // `null` returns the agent to the account default, which an agent records by having no value.
         const flags = { allowAutomation, allowNewChat, quickAcknowledgement, securityGuard };
         for (const key of AGENT_DEFAULT_KEYS) {

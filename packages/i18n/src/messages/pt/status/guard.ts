@@ -41,5 +41,12 @@ export const messages = {
   "status.guard.finding.pageScriptExfiltration":
     "O script da página lê cookies ou o armazenamento e os envia para fora.",
   "status.guard.finding.pageScriptNetwork": "O script da página faz uma requisição de rede.",
+  "status.guard.finding.vendorInstruction":
+    "O resultado pede ao agente um passo para um fornecedor, como instalar uma ferramenta, rodar um script, criar uma conta ou dar estrela a um projeto.",
+  "status.guard.finding.cookieInTransfer":
+    "A ação envia um cookie, uma sessão ou um token de acesso para fora deste computador.",
+  "status.guard.finding.textInTransfer":
+    "A ação envia um texto livre longo para fora deste computador, como uma conversa colada.",
+  "status.guard.finding.blobInTransfer": "A ação envia um bloco longo de dados codificados para fora deste computador.",
   "status.guard.finding.incompleteScan": "O Guarda não conseguiu ler este item inteiro.",
 } as const satisfies PartialTranslation<typeof source>;

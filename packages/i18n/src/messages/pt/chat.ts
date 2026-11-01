@@ -407,4 +407,12 @@ export const messages = {
   "chat.compaction.failed": "Não foi possível compactar o contexto",
   "chat.compaction.tokens": "{before} → {after} tokens",
   "chat.compaction.continues": "As mensagens na fila continuam.",
+  "chat.marker.connectionPaid": "{endpoint}: paga por {org} · {amount}",
+  "chat.marker.connectionWarning":
+    "Você passou de 80% do teto mensal de {connection}, pago por {org}: restam {amount}.",
+  "chat.marker.connectionLimitUser": "Você atingiu o teto mensal de {connection}, pago por {org}.",
+  "chat.marker.connectionLimitOrg": "O orçamento de {connection} da {org} acabou neste mês.",
+  "chat.marker.connectionRenews": "Renova em {date}.",
+  "chat.marker.connectionOvercharged":
+    "{endpoint}: {org} pagou {amount}, mais do que os {approved} que você aprovou. Avise um administrador da organização.",
 } as const satisfies PartialTranslation<typeof source>;

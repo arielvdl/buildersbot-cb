@@ -62,6 +62,7 @@ export * from "./ipc-host-release";
 export * from "./ipc-host-timezone";
 export * from "./ipc-host-update";
 export * from "./ipc-hosted-sites";
+export * from "./ipc-hub-connections";
 export * from "./ipc-instance-transfer";
 export * from "./ipc-lid-awake";
 export * from "./ipc-load";

@@ -860,6 +860,42 @@ Network traffic can also occur when:
   (`~/.wazap`) on this computer. Builders Bot keeps no copy of the numbers or the codes, and masks
   them in each log line. With Network egress on, these connections go through its proxy. See
   `docs/architecture/whatsapp-accounts.md`;
+- an agent uses a Cultura Builder connection (`openbot_connections`, such as the tool catalog).
+  Builders Bot sends the person's Cultura Builder refresh token to `hub.culturabuilder.com` for a
+  short proxy token, then sends the call input (endpoint id, query and body), the organization that
+  pays and the origin of the turn (`owner_ui`, `routine` or `agent`) to the Hub. For a call, the Hub
+  sends the input to the tool catalog vendor (treg.to, by Superdesign, in the USA) and to the
+  provider of the chosen endpoint, with random organization and person tags, never an email. The Hub
+  keeps the cost on its ledger, without the input or the result. `search` and `describe` read the
+  Hub's own copy of the catalog, so their text goes only to the Hub. Builders Bot keeps no token of a
+  connection on disk. The input and the result of a call are part of the agent's turn: they go to the
+  agent's provider (such as Codex or Claude) in its transcript, and they stay in the local
+  conversation like any other tool call. See `docs/architecture/hub-connections.md`.
+  What the Hub stores: the cost of each call with the endpoint and the platform, never the input,
+  the result, a URL or a query string; the random tags and their link to the organization and the
+  person until the month's reconciliation closes; and the vendor's call id, for 90 days. The tags
+  hold no personal data: never an email, a name, a Hub id or a hash of one. Builders Bot never sends
+  a cookie, a session or a sign-in token: the main process refuses such an input, and the Guard stops
+  it. A long free text or a long block of data in one field, such as a pasted chat, needs the
+  person's approval first, and so does the first lookup about people in a conversation, whose card
+  names the values that the call sends. treg.to and the provider of an endpoint process the call
+  input under their own terms; the treg design asks the Hub to turn off treg's answer archive and
+  its relay through other accounts before the first call.
+  For the Marketplace page and Usage › Connections, Builders Bot reads the connection catalog and
+  the person's own use (`/usage`, spend by platform) from the Hub; it keeps them in memory only (the
+  catalog for up to 5 minutes, the use for 30 seconds). "Ask the admin" and "Ask the admin for more"
+  send the Hub the connection, the organization and the kind of request, never a call input or
+  result; the Hub tells the organization's admins. After a paid call in the person's own turn or
+  routine, the chat of the agent keeps one line with the endpoint title, the amount, the currency
+  and the organization that paid, in the local conversation like any other message; the Hub's
+  ledger is not copied to the computer;
+- Builders Bot reads the MCP files of other agent apps on this computer (`~/.codex/config.toml`,
+  `~/.config/opencode/opencode.json`, `~/.cursor/mcp.json` and `~/.claude.json`) to find a treg
+  connection of the person's own, turn it off inside Builders Bot agents and tell the person in
+  Settings. This read stays on the computer, and it keeps only server names, file paths and URL
+  hosts, never a header or a token. For a Cursor agent, Builders Bot writes those server names into
+  the Cursor CLI's `mcp-disabled.json` of the agent's project, so the person's own Cursor CLI in that
+  folder also leaves them off;
 - the local Codex App Server connects to OpenAI;
 - the local Claude Agent SDK connects to Anthropic through Claude CLI;
 - a user or an agent visits a page in the embedded browser;

@@ -1,19 +1,26 @@
 import { emptyAnalyticsTotals, type HostAnalytics } from "@openbot/contracts/ipc";
-import { onCleanup } from "solid-js";
+import { onCleanup, untrack } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { AgentUsagePanel } from "../src/features/usage/AgentUsagePanel";
 import { mockHostAnalytics } from "../src/preview/mock-agent-analytics";
+import { storyHubConnectionUsage } from "../src/preview/mock-hub-connections";
 import { createMockBuildersBot } from "./mock-openbot";
 
 function UsageStory(props: {
   state: "ready" | "empty" | "partial" | "loading" | "error" | "unsupported" | "large" | "small" | "long";
   narrow?: boolean;
   agentId?: string;
+  /** Usage › Connections: the Hub's charges, or a Hub that did not answer. Absent: the Hub has them off. */
+  connections?: "ready" | "unavailable";
 }) {
   const previous = window.openbot;
   const mock = createMockBuildersBot();
   window.openbot = mock.api;
+  const connections = untrack(() => props.connections);
+  if (connections === "ready") mock.api.hubConnections.getUsage = async () => storyHubConnectionUsage("warning");
+  if (connections === "unavailable")
+    mock.api.hubConnections.getUsage = async () => ({ status: "unavailable", orgs: [] });
   mock.api.agent.getHostAnalytics = async (input) => {
     if (props.state === "error") throw new Error("Host is offline.");
     if (props.state === "unsupported") return null;
@@ -50,7 +57,8 @@ function UsageStory(props: {
   };
   onCleanup(() => {
     mock.dispose();
-    window.openbot = previous;
+    // A story that renders again sets its own mock first; only the mock of this render goes back.
+    if (window.openbot === mock.api) window.openbot = previous;
   });
   return (
     <main
@@ -61,7 +69,7 @@ function UsageStory(props: {
         background: "var(--openbot-bg-canvas)",
       }}
     >
-      <AgentUsagePanel hostName="Local host" serverId="local" agentId={props.agentId} onBack={fn()} />
+      <AgentUsagePanel hostName="Local host" serverId="local" agentId={props.agentId} onBack={fn()} port={mock.api} />
     </main>
   );
 }
@@ -85,3 +93,11 @@ export const SmallCosts: Story = { args: { state: "small" } };
 export const LongModelNames: Story = { args: { state: "long", narrow: true } };
 
 export const SingleAgent: Story = { args: { agentId: "chief" } };
+
+/** The charges of the Hub connections, apart from the model estimate, with a breakdown by platform. */
+export const Connections: Story = { args: { connections: "ready" } };
+
+export const ConnectionsNarrow: Story = { args: { connections: "ready", narrow: true } };
+
+/** The Hub has connection usage on, but did not answer. */
+export const ConnectionsUnavailable: Story = { args: { connections: "unavailable" } };

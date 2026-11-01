@@ -55,7 +55,8 @@ export function routineIpcHandlers({
           runCauseEffect(remoteServers.request(serverId, TEAM_API_ROUTES.agent.routines(agentId), decodeRoutines)),
       }),
       createRoutine: scopedHandler(parseCreateRoutine, {
-        local: (parsed) => service.createRoutine(parsed),
+        // The person saves it in the app: its runs are the person's (hub-connections/turn-origin.ts).
+        local: (parsed) => service.createRoutine(parsed, { origin: "owner_ui" }),
         remote: (parsed, serverId) =>
           runCauseEffect(
             remoteServers.request(serverId, TEAM_API_ROUTES.agent.routines(parsed.agentId), decodeRoutine, {
@@ -65,7 +66,7 @@ export function routineIpcHandlers({
           ),
       }),
       updateRoutine: scopedHandler(parseUpdateRoutine, {
-        local: (parsed) => service.updateRoutine(parsed),
+        local: (parsed) => service.updateRoutine(parsed, { origin: "owner_ui" }),
         remote: (parsed, serverId) =>
           runCauseEffect(
             remoteServers.request(

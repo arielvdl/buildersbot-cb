@@ -316,6 +316,53 @@ export function isUnreadableSecrets(value: unknown): value is UnreadableSecret[]
 }
 
 /**
+ * The config files of other agent apps where treg's installer writes a treg token in plain text, and
+ * where a provider of Builders Bot reads MCP servers (the treg design, §3.13): the Codex user file,
+ * the global OpenCode files, the Cursor MCP file and the Claude Code user file.
+ */
+export const PERSONAL_VENDOR_MCP_FILES = ["codex", "opencode", "cursor", "claude"] as const;
+export type PersonalVendorMcpFileKind = (typeof PERSONAL_VENDOR_MCP_FILES)[number];
+
+/** One file with a treg entry: its kind and its path, with `~` for the home folder. Never a value. */
+export interface PersonalVendorMcpFile {
+  kind: PersonalVendorMcpFileKind;
+  path: string;
+}
+
+/**
+ * The providers whose agents can load one of those files and whose MCP list Builders Bot does not
+ * control: Cursor, Grok and the custom ACP agents.
+ */
+export const PERSONAL_VENDOR_MCP_UNCOVERED = ["cursor", "grok", "acp"] as const;
+
+/** What Settings tells the person about a treg setup of their own on this computer. */
+export interface PersonalVendorMcpNotice {
+  files: PersonalVendorMcpFile[];
+  uncovered: Array<(typeof PERSONAL_VENDOR_MCP_UNCOVERED)[number]>;
+}
+
+export function isPersonalVendorMcpNotice(value: unknown): value is PersonalVendorMcpNotice {
+  return (
+    isDynamicRecord(value) &&
+    Array.isArray(value.files) &&
+    value.files.length <= 16 &&
+    value.files.every(
+      (file) =>
+        isDynamicRecord(file) &&
+        isOneOf(PERSONAL_VENDOR_MCP_FILES, file.kind) &&
+        isString(file.path) &&
+        file.path.length > 0 &&
+        file.path.length <= 1024 &&
+        // A path, never a value: no control character and no line break.
+        [...file.path].every((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f),
+    ) &&
+    Array.isArray(value.uncovered) &&
+    value.uncovered.length <= PERSONAL_VENDOR_MCP_UNCOVERED.length &&
+    value.uncovered.every((provider) => isOneOf(PERSONAL_VENDOR_MCP_UNCOVERED, provider))
+  );
+}
+
+/**
  * The Apple apps an MCP server may drive through AppleScript. macOS asks once for each, under
  * Privacy & Security › Automation, and keeps the answer for Builders Bot.
  */

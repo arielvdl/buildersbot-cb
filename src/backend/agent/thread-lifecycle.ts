@@ -31,6 +31,7 @@ import {
   type CodexOwnServers,
   type CodexOwnTransports,
   codexDisabledServers,
+  codexFallbackDisabledServers,
   codexMcpNamespaces,
   codexMcpServerKey,
   codexMcpServers,
@@ -45,6 +46,7 @@ import {
   toMcpShapeFailed,
   usableMcpServers,
 } from "../mcp-provider-shapes";
+import { codexFileServers, vendorNamesOff } from "../personal-vendor-mcp";
 import { decodeRecordResponse, decodeThreadResponse, getString, type ResponseDecoder } from "../protocol";
 import { TimeoutError, withTimeout } from "../with-timeout";
 import type { AgentMemories } from "./agent-memories";
@@ -846,8 +848,10 @@ export class ThreadLifecycle {
    * The servers Codex would merge from its own file, each turned off.
    *
    * Each MCP server needs a saved registration for persistent tool approvals. A registration failure
-   * stops the thread with recovery guidance. Without MCP servers, retain the existing empty
-   * result on a failed config read. An app server that timed out or is gone gets the timeout
+   * stops the thread with recovery guidance. Without MCP servers, a failed config read still turns off
+   * the names of the person's Codex file that the app reads from disk, and `treg`
+   * (`codexFallbackDisabledServers`): before, it turned off nothing, and the person's own servers
+   * loaded. An app server that timed out or is gone gets the timeout
    * message: the guidance about `config.toml` would send the user to a file that is fine. The client
    * ends a process that stopped answering, and the runtime starts it again.
    */
@@ -863,7 +867,11 @@ export class ThreadLifecycle {
     const servers = (own: CodexOwnTransports) => codexMcpServers(usable, own).servers;
     return yield* codexDisabledServers(() => readCodexMcpConfig(client, servers).pipe(toMcpShapeFailed)).pipe(
       Effect.catch((failure) => {
-        if (Object.keys(servers({})).length === 0) return Effect.succeed(NO_CODEX_OWN_SERVERS);
+        // Codex could not tell which servers its own files declare. The thread still turns off each
+        // name of the person's Codex file that the app can read, and treg's installer name, so the
+        // person's own treg entry never loads inside an agent (the treg design, §3.13).
+        if (Object.keys(servers({})).length === 0)
+          return Effect.succeed(codexFallbackDisabledServers(codexFileServers(), vendorNamesOff()));
         if (isProviderTimeout(failure.cause) || !client.running) {
           return Effect.fail(
             new ThreadOperationFailed({

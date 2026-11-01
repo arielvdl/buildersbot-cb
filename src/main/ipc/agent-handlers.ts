@@ -502,6 +502,10 @@ export function agentIpcHandlers({
           if (input.securityGuard !== undefined) {
             throw new Error(sourceText("error.agent.securityGuardLocalOnly"));
           }
+          // Hub connections belong to the Cultura Builder session of the computer that runs the agent.
+          if (input.connectionsOff !== undefined) {
+            throw new Error(sourceText("error.agent.settingsLocalOnly"));
+          }
           if (input.fastMode !== undefined) {
             throw new Error(sourceText("error.agent.settingsLocalOnly"));
           }

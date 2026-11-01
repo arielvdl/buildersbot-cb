@@ -76,6 +76,9 @@
    second, more important group; the entries are a tail of decreasing interest instead, so
    a panel too narrow to hold them all drops the last ones rather than rewrapping. */
 .agent-usage-totals {
+  /* The containing block of the screen-reader copies of the numbers, which are absolute: without it
+     they escape the clip, and a long label (Portuguese) made the whole page scroll sideways. */
+  position: relative;
   display: flex;
   flex-wrap: nowrap;
   gap: calc(var(--openbot-space-6) * 2);
@@ -147,4 +150,33 @@
   margin-top: var(--openbot-space-3);
   max-width: 72ch;
   line-height: 1.6;
+}
+
+/* Usage › Connections: real charges of Cultura Builder, apart from the model estimate. */
+.connection-usage {
+  display: grid;
+  gap: var(--openbot-space-4);
+  margin-top: var(--openbot-space-8);
+  padding-top: var(--openbot-space-6);
+  border-top: 1px solid var(--openbot-border-strong);
+}
+
+.connection-usage-note {
+  margin: 0;
+}
+
+.connection-usage-org {
+  display: grid;
+  gap: var(--openbot-space-3);
+}
+
+.connection-usage-org-title {
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.connection-usage-row {
+  display: grid;
+  gap: var(--openbot-space-2);
 }

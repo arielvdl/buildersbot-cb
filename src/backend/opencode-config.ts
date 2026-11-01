@@ -108,13 +108,22 @@ interface OpenCodeDisabledMcpEntry {
  * `enabled: false` also wins there. `scripts/opencode-own-playwright-e2e.ts` checks this against the
  * real binary.
  */
-const OWN_PLAYWRIGHT_OFF: { readonly playwright: OpenCodeDisabledMcpEntry } = {
-  playwright: { type: "local", command: ["true"], enabled: false },
-};
+const MCP_OFF: OpenCodeDisabledMcpEntry = { type: "local", command: ["true"], enabled: false };
+
+/**
+ * The MCP entries of the person's own files that this layer turns off: `playwright`, and each name of
+ * a treg connection of the person's own (`openCodeTregNames`, the treg design §3.13 and D14). treg's
+ * installer writes its entry, with the token in plain text, into the global OpenCode file, and
+ * OpenCode starts it for each agent: with no Hub cap, no Guard and no cost line. The same complete
+ * entry as for Playwright replaces the person's entry of that name, so its server does not start.
+ */
+function ownMcpOff(vendorOff: readonly string[]): Readonly<Record<string, OpenCodeDisabledMcpEntry>> {
+  return Object.fromEntries([["playwright", MCP_OFF], ...vendorOff.map((name) => [name, MCP_OFF] as const)]);
+}
 
 /** The config layer Builders Bot owns on `OPENCODE_CONFIG_CONTENT`. The user's own file is untouched. */
 interface OpenCodeConfig {
-  readonly mcp?: { readonly playwright: OpenCodeDisabledMcpEntry };
+  readonly mcp?: Readonly<Record<string, OpenCodeDisabledMcpEntry>>;
   readonly agent?: { readonly title: { readonly disable: true } };
   readonly permission?: OpenCodePermissionLayer;
   readonly provider?: Readonly<Record<string, OpenCodeProviderEntry | OpenCodeKeyEntry>>;
@@ -254,15 +263,17 @@ function mergeOpenCodeConfig(
 
 /**
  * The spawn environment for one OpenCode client. It always carries the layer that turns the Playwright of
- * the person's own file off, and OpenCode applies it after the user's own config, so the title setting is
- * always off. With no stored key, the user's own `opencode auth login` keys stay in use.
+ * the person's own file off, and the names in `vendorOff` (a treg connection of the person's own), and
+ * OpenCode applies it after the user's own config, so the title setting is always off. With no stored
+ * key, the user's own `opencode auth login` keys stay in use.
  */
 export function openCodeConfigEnv(
   base: OpenCodeConfigBase,
   source: CustomProviderSource,
   apiKey: string | null,
+  vendorOff: readonly string[] = [],
 ): Record<string, string> {
-  const config = mergeOpenCodeConfig({ ...base, mcp: OWN_PLAYWRIGHT_OFF }, source(), apiKey);
+  const config = mergeOpenCodeConfig({ ...base, mcp: ownMcpOff(vendorOff) }, source(), apiKey);
   return { [OPENCODE_CONFIG_ENV]: JSON.stringify(config) };
 }
 
@@ -378,7 +389,7 @@ const CULTURA_BUILDER_FULL_CONTEXT_MODEL_ENTRIES: Readonly<Record<string, OpenCo
 
 /**
  * The spawn environment of a Cultura Builder client: one provider on the Hub gateway, carrying the
- * access token, and nothing else listed. A tokenless spawn still writes the provider so the row can
+ * access token, and nothing else listed. `vendorOff` is as for `openCodeConfigEnv`. A tokenless spawn still writes the provider so the row can
  * show its models while signed out; OpenCode answers with a refused request, which is the sign-in
  * prompt. With `fullContext`, the models that the gateway serves with 1,048,576 tokens declare that
  * window instead of 262,144.
@@ -387,9 +398,10 @@ export function culturaBuilderConfigEnv(
   baseUrl: string,
   accessToken: string | null,
   fullContext = false,
+  vendorOff: readonly string[] = [],
 ): Record<string, string> {
   const config: OpenCodeConfig = {
-    mcp: OWN_PLAYWRIGHT_OFF,
+    mcp: ownMcpOff(vendorOff),
     enabled_providers: ["cultura-builder"],
     provider: {
       "cultura-builder": {
