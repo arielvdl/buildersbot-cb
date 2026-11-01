@@ -312,6 +312,23 @@ export function findTregSetup(env: NodeJS.ProcessEnv = process.env, home = homed
 }
 
 /**
+ * The names that a Cursor session of Builders Bot turns off in the project's `mcp-disabled.json`: the
+ * installer's name always, and each treg entry of the person's `~/.cursor/mcp.json`. Empty when the
+ * policy allows the person's own.
+ */
+export function cursorTregNames(
+  policy: PersonalVendorMcpPolicy = PERSONAL_VENDOR_MCP_POLICY,
+  env: NodeJS.ProcessEnv = process.env,
+  home = homedir(),
+): string[] {
+  if (policy !== "hub-only") return [];
+  const names = new Set([TREG_SERVER_NAME]);
+  for (const file of findTregSetup(env, home))
+    if (file.kind === "cursor") for (const name of file.names) names.add(name);
+  return [...names];
+}
+
+/**
  * The names that an OpenCode layer of Builders Bot turns off: the installer's name always, and each
  * treg entry of the person's global OpenCode files. Empty when the policy allows the person's own.
  */
@@ -344,18 +361,18 @@ export function codexFileServers(
 
 /**
  * Which providers of Builders Bot read each file and cannot have its entries turned off by the app.
- * Codex, OpenCode and Claude Code are covered: Codex turns off every name of its own files in the
- * thread, OpenCode gets a layer that turns the treg names off, and Claude Code runs with
- * `strictMcpConfig`. Grok also loads `~/.claude.json` and `~/.cursor/mcp.json`, Cursor loads
- * `~/.cursor/mcp.json`, and a custom ACP agent reads what its own CLI reads: the app does not
- * control what those load.
+ * Codex, OpenCode, Claude Code and Cursor are covered: Codex turns off every name of its own files in
+ * the thread, OpenCode gets a layer that turns the treg names off, Claude Code runs with
+ * `strictMcpConfig`, and Cursor gets the treg names in the project's `mcp-disabled.json`. Grok also
+ * loads `~/.claude.json` and `~/.cursor/mcp.json`, and a custom ACP agent reads what its own CLI
+ * reads: the app does not control what those load.
  */
 const UNCOVERED_READERS: Readonly<
   Record<PersonalVendorMcpFile["kind"], readonly PersonalVendorMcpNotice["uncovered"][number][]>
 > = {
   codex: [],
   opencode: [],
-  cursor: ["cursor", "grok", "acp"],
+  cursor: ["grok", "acp"],
   claude: ["grok", "acp"],
 };
 

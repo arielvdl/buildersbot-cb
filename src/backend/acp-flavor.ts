@@ -1,6 +1,7 @@
 import { win32 } from "node:path";
 import type { RequestError } from "@agentclientprotocol/sdk";
 import { enableCursorMcpServers } from "./cursor-mcp-disabled";
+import { cursorTregNames } from "./personal-vendor-mcp";
 import { isRecord } from "./protocol";
 
 /**
@@ -126,7 +127,9 @@ export const CURSOR_ACP_FLAVOR: AcpFlavor = {
   // Cursor 2026.10.22-27dcf5f leaves out a disabled or blocked server, and the agent turn then
   // finds no Builders Bot tools (#3058).
   mcpServersLoadWithSession: true,
-  enableMcpServers: enableCursorMcpServers,
+  // The same list also turns off the person's own treg entries of `~/.cursor/mcp.json` (the treg
+  // design, §3.13), which Cursor would load in the agent's session.
+  enableMcpServers: (cwd, names) => enableCursorMcpServers(cwd, names, cursorTregNames()),
 };
 
 /**

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, parse, resolve } from "node:path";
 import { isMissingFileError } from "./file-errors";
 import { cursorDataHome } from "./process-confinement";
@@ -7,21 +7,29 @@ import { cursorDataHome } from "./process-confinement";
  * Cursor 2026.10.22-27dcf5f does not load a server whose name is in the project's
  * `mcp-disabled.json`, also a server that an ACP session gives it, and does not report it (#3058).
  * The list has names only, so an `openbot` entry from the user's own Cursor CLI takes Builders Bot's
- * tools from each agent in that project. This removes Builders Bot's names and keeps the other entries.
+ * tools from each agent in that project. This removes Builders Bot's names, adds the names in `off`
+ * (the person's own treg entries of `~/.cursor/mcp.json`, which the agent must not load), and keeps
+ * the other entries.
  */
-export function enableCursorMcpServers(cwd: string, names: readonly string[]): void {
-  const file = join(cursorDataHome(), "projects", cursorProjectSlug(cursorProjectRoot(cwd)), "mcp-disabled.json");
-  let text: string;
+export function enableCursorMcpServers(cwd: string, names: readonly string[], off: readonly string[] = []): void {
+  const file = cursorDisabledFile(cwd);
+  let disabled: unknown = [];
   try {
-    text = readFileSync(file, "utf8");
+    disabled = JSON.parse(readFileSync(file, "utf8"));
   } catch (error) {
-    if (isMissingFileError(error)) return;
-    throw error;
+    if (!isMissingFileError(error)) throw error;
   }
-  const disabled = JSON.parse(text);
   if (!Array.isArray(disabled)) return;
   const kept = disabled.filter((name) => !names.includes(name));
-  if (kept.length !== disabled.length) writeFileSync(file, JSON.stringify(kept, null, 2));
+  const added = off.filter((name) => !names.includes(name) && !kept.includes(name));
+  if (kept.length === disabled.length && added.length === 0) return;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify([...kept, ...added], null, 2));
+}
+
+/** The project's `mcp-disabled.json` of the Cursor CLI for a workspace. */
+export function cursorDisabledFile(cwd: string): string {
+  return join(cursorDataHome(), "projects", cursorProjectSlug(cursorProjectRoot(cwd)), "mcp-disabled.json");
 }
 
 /** Cursor's project: the nearest folder of the workspace that has `.git`, up to below the root, or the workspace. */
