@@ -320,6 +320,13 @@ import type {
   ReplaceHostedSiteInput,
 } from "./ipc-hosted-sites";
 import type {
+  HubConnectionAccessRequestInput,
+  HubConnectionAccessRequestResult,
+  HubConnectionPayerInput,
+  HubConnectionsView,
+  HubConnectionUsageView,
+} from "./ipc-hub-connections";
+import type {
   ApplyInstanceTransferInput,
   ExportInstanceInput,
   InstanceExportResult,
@@ -1393,6 +1400,20 @@ export const IPC_ENDPOINTS = {
     getState: request<undefined, GuardState>()("guard:get-state"),
     setPreference: request<GuardPreferenceChange, GuardState>()("guard:set-preference"),
   },
+  // The Hub connections of this computer's Cultura Builder session (docs/architecture/hub-connections.md):
+  // the catalog view of the Marketplace page, the person's own use for Usage, the payer that the person
+  // chooses, and a request to the organization's admins. No token, confirmation id or Hub URL crosses
+  // this boundary; main reads the Hub with its own session.
+  hubConnections: {
+    getView: request<undefined, HubConnectionsView>()("hub-connections:get-view"),
+    /** Reads `/session` and the catalog again, as the Refresh button and a reopened page do. */
+    refresh: request<undefined, HubConnectionsView>()("hub-connections:refresh"),
+    getUsage: request<undefined, HubConnectionUsageView>()("hub-connections:get-usage"),
+    choosePayer: request<HubConnectionPayerInput, HubConnectionsView>()("hub-connections:choose-payer"),
+    requestAccess: request<HubConnectionAccessRequestInput, HubConnectionAccessRequestResult>()(
+      "hub-connections:request-access",
+    ),
+  },
   // The commercial license of the account. Main opens the Checkout page; the renderer never sends a URL.
   license: {
     getState: request<undefined, LicenseState>()("license:get-state"),
@@ -2077,6 +2098,7 @@ export const IPC_GROUP_PATHS = {
   routineResults: "routineResults",
   billing: "billing",
   guard: "guard",
+  hubConnections: "hubConnections",
   license: "license",
   hostedServers: "hostedServers",
   localServers: "localServers",

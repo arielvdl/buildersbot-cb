@@ -11,6 +11,7 @@
 
 import { createHash } from "node:crypto";
 import {
+  decodeHubAccessRequestAnswer,
   decodeHubConnectionCatalog,
   decodeHubConnectionUsage,
   decodeHubError,
@@ -26,6 +27,8 @@ import {
   HUB_CONNECTIONS_LIMITS,
   HUB_CONNECTIONS_PATHS,
   HUB_PROXY_SCOPE,
+  type HubAccessRequestAnswer,
+  type HubAccessRequestKind,
   type HubConnectionCatalog,
   type HubConnectionUsage,
   type HubErrorAnswer,
@@ -297,6 +300,27 @@ export class HubConnectionClient {
       },
       catch: failure,
     }),
+  );
+
+  /**
+   * Asks the admins of the organization for access to a connection, or for more money in this
+   * period. The proxy token of that organization carries who asks; the body names only the kind.
+   */
+  readonly requestAccess = Effect.fn("HubConnectionClient.requestAccess")(
+    (orgId: string, connectionId: string, kind: HubAccessRequestKind) =>
+      Effect.tryPromise({
+        try: async (): Promise<HubOperationOutcome<HubAccessRequestAnswer>> => {
+          const { status, value } = await this.#proxyRequest(
+            orgId,
+            HUB_CONNECTIONS_PATHS.accessRequests(connectionId),
+            "POST",
+            { kind },
+            HUB_CONNECTIONS_LIMITS.accessRequestBytes,
+          );
+          return this.#outcome(status, value, decodeHubAccessRequestAnswer);
+        },
+        catch: failure,
+      }),
   );
 
   async #capabilities(fresh: boolean): Promise<HubSessionConnections> {

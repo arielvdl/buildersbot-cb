@@ -215,6 +215,7 @@ import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
 import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-update";
 import { createMockHostedServers } from "./mock-hosted-servers";
+import { createMockHubConnections } from "./mock-hub-connections";
 import { createMockLicense } from "./mock-license";
 import { createMockMessaging } from "./mock-messaging";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
@@ -1595,6 +1596,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     bitwardenConnector: createMockBitwardenConnector(),
     vault: createMockVault(),
     billing: createMockBilling(billingPlans),
+    hubConnections: createMockHubConnections(),
     guard: {
       getState: async () => ({ preference: clone(guardPreference), judgeReady: false }),
       setPreference: async (change) => {

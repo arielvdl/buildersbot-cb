@@ -79,6 +79,7 @@ import { guardIpcHandlers } from "./ipc/guard-handlers";
 import { hostAdminIpcHandlers } from "./ipc/host-admin-handlers";
 import { hostedServerIpcHandlers } from "./ipc/hosted-server-handlers";
 import { hostedSiteIpcHandlers } from "./ipc/hosted-site-handlers";
+import { hubConnectionIpcHandlers } from "./ipc/hub-connection-handlers";
 import { instanceTransferIpcHandlers } from "./ipc/instance-transfer-handlers";
 import { licenseIpcHandlers } from "./ipc/license-handlers";
 import { lidAwakeIpcHandlers } from "./ipc/lid-awake-handlers";
@@ -766,6 +767,7 @@ function registerIpcHandlers({
     ...billingIpcHandlers({ billing }),
     ...licenseIpcHandlers({ license }),
     ...guardIpcHandlers({ guard: guardPreference, judgeReady: () => service.guardJudgeReady() }),
+    ...hubConnectionIpcHandlers({ agents: service }),
     ...routineFeedIpcHandlers({ routineFeed }),
     ...eventsIpcHandlers({ events, remoteServers }),
     ...hostedServerIpcHandlers({ hostedServers, onCreated: (serverId) => egressDefault.serverCreated(serverId) }),

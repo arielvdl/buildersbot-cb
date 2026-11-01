@@ -9,6 +9,7 @@ import type {
   AvatarImageInput,
   ConversationMessage,
   CreateAgentInput,
+  HubConnectionChatEvent,
   McpServerConfig,
   SidebarLayoutSnapshot,
   UpdateAgentInput,
@@ -18,6 +19,8 @@ import {
   agentNewChatAllowed,
   agentQuickAcknowledgementEnabled,
   CONNECTOR_IDS,
+  hubConnectionChatItemType,
+  hubConnectionChatText,
   isMessageReaction,
   marketplaceSuggestionItemType,
   mcpSignInItemType,
@@ -751,9 +754,23 @@ export class BuildersBotToolRouter {
       this.#guardGate && guardOutboundItem(params.namespace, params.tool, params.arguments)
         ? this.#guardBefore(client, request, publicParams, agentId)
         : Effect.succeed({ proceed: true } as const);
+    // The cost lines of the call go to the chat that the person reads, not to the agent's result.
+    const notify = (event: HubConnectionChatEvent) => {
+      try {
+        this.#postSystemCard(agentId, publicParams.threadId, params.turnId, {
+          itemType: hubConnectionChatItemType(event.kind),
+          text: hubConnectionChatText(event),
+          eventType: `hub_connection.${event.kind}`,
+          detail: {},
+        });
+      } catch (error) {
+        logger.warn("A connection cost line could not be added to the chat.", { error });
+      }
+    };
     const result = yield* tools.handle(this.#connectionContext(agentId, params), params.tool, params.arguments, {
       ask,
       guard,
+      notify,
     });
     if (!result) return null;
     return this.#guardGate

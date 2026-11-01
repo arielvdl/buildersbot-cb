@@ -8,17 +8,28 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   HUB_CONNECTIONS_LIMITS,
+  type HubAccessRequestKind,
   type HubConnectionEntry,
   type HubErrorAnswer,
   type HubNeedsPersonAnswer,
   type HubSessionConnections,
   isHubEndpointId,
+  isHubPlainText,
   TOOL_CATALOG_CONNECTION_ID,
+  type ToolCatalogCallAnswer,
   type ToolCatalogCallOutcome,
   type ToolCatalogCallRequest,
   type ToolCatalogDescribeAnswer,
   toolCatalogSearchRequest,
 } from "@openbot/contracts/hub-connections";
+import type {
+  HubAccessRequestFailure,
+  HubConnectionAccessRequestResult,
+  HubConnectionChatEvent,
+  HubConnectionOrgUsage,
+  HubConnectionsView,
+  HubConnectionUsageView,
+} from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { findSecretValue } from "@openbot/logging";
 import { Effect, Result } from "effect";
@@ -26,8 +37,9 @@ import { z } from "zod";
 import type { DynamicToolResult } from "../protocol";
 import type { HubConnectionClient, HubConnectionFailure, HubOperationOutcome } from "./hub-connection-client";
 import { checkCallInput, type InputRefusal, readCallInput, valueRule } from "./hub-connection-input";
-import { choosePayer, type PayerDecision, PERSONAL_ORG } from "./hub-connection-payer";
+import { canPay, choosePayer, type PayerDecision, PERSONAL_ORG } from "./hub-connection-payer";
 import { callConnectionToolSchema, HUB_CONNECTION_GUIDANCE } from "./hub-connection-tool-definitions";
+import { connectionsView, failureStatus, orgUsageView, usageOrgs } from "./hub-connection-views";
 import { hasVendorPhrase, maskVendorPhrases } from "./vendor-lines";
 
 /**
@@ -88,10 +100,18 @@ export type HubConnectionGuard = () => Effect.Effect<
   { readonly proceed: true } | { readonly proceed: false; readonly result: DynamicToolResult | null }
 >;
 
+/**
+ * Adds a cost line to the chat of the call: what a call cost and who paid, the first call over 80 %
+ * of the cap, or a call that the cap stopped. Only for the person's own turns and routines: a turn that
+ * another agent started gets no amounts.
+ */
+export type HubConnectionNotify = (event: HubConnectionChatEvent) => void;
+
 /** What the router gives each call: the approval card and the Guard, both of the router's own path. */
 export interface HubConnectionHooks {
   readonly ask: HubConnectionAsk;
   readonly guard: HubConnectionGuard;
+  readonly notify?: HubConnectionNotify | undefined;
 }
 
 export interface HubConnectionToolsOptions {
@@ -118,6 +138,10 @@ const TURN_LIMIT = 64;
 const PEOPLE_DATA_THREADS = 256;
 /** The most characters of the input values that the people-data card shows. */
 const PEOPLE_DATA_SUBJECTS = 300;
+/** The person's use is read again at most this often (the PROXY design, §13.5). */
+const USAGE_CACHE_MS = 30_000;
+/** The most organizations whose use one read asks the Hub for. */
+const USAGE_ORGS = 10;
 
 /** An email address in a result. */
 const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}/u;
@@ -160,6 +184,8 @@ function inputSubjects(input: { readonly query?: unknown; readonly body?: unknow
 interface TurnState {
   readonly calls: Map<string, number>;
   readonly lookups: Map<string, number>;
+  /** The limit lines that this turn already added, by connection and organization: one each. */
+  readonly limits: Set<string>;
   /** Full result text of each call of the turn, by input hash, for `offset` and a repeated call. */
   readonly results: Map<string, StoredResult>;
 }
@@ -320,6 +346,8 @@ export class HubConnectionTools {
   readonly #lastPaid = new Map<string, string>();
   /** The conversations in which the person allowed calls about people (G3), by agent and public thread. */
   readonly #peopleDataThreads = new Set<string>();
+  /** The person's own use, by organization, for at most 30 seconds. Memory only. */
+  readonly #usage = new Map<string, { readonly value: HubConnectionOrgUsage; readonly until: number }>();
 
   constructor(options: HubConnectionToolsOptions) {
     this.#client = options.client;
@@ -341,7 +369,126 @@ export class HubConnectionTools {
     this.#chosen.clear();
     this.#lastPaid.clear();
     this.#peopleDataThreads.clear();
+    this.#usage.clear();
   }
+
+  /**
+   * The connections for the Marketplace page: the catalog, the states and caps, and who pays the next
+   * call. `fresh` reads `/session` and the catalog again. A failure is a status, never an error.
+   */
+  readonly view = Effect.fn("HubConnectionTools.view")(function* (this: HubConnectionTools, fresh: boolean) {
+    const empty = (status: HubConnectionsView["status"]): HubConnectionsView => ({
+      status,
+      connections: [],
+      readAt: null,
+    });
+    if (!this.#client.signedIn()) return empty("signed_out");
+    const capabilities = yield* Effect.result(this.#client.capabilities(fresh));
+    if (Result.isFailure(capabilities)) return empty(failureStatus(capabilities.failure.code));
+    const session = capabilities.success;
+    if (!session.active) return empty("off");
+    const catalog = yield* Effect.result(this.#client.catalog(fresh));
+    if (Result.isFailure(catalog)) return empty(failureStatus(catalog.failure.code));
+    return connectionsView(
+      catalog.success,
+      (id) => session.connections[id]?.enabled === true,
+      (id) => this.#anchor(id),
+      new Date(this.#now()).toISOString(),
+    );
+  }).bind(this);
+
+  /**
+   * The person's own use of the connections in this period, for each organization whose rows this app
+   * may spend. Off until `/session` says `connectionsUsage`. Each organization is read at most once in
+   * 30 seconds.
+   */
+  readonly usage = Effect.fn("HubConnectionTools.usage")(function* (this: HubConnectionTools) {
+    const empty = (status: HubConnectionUsageView["status"]): HubConnectionUsageView => ({ status, orgs: [] });
+    if (!this.#client.signedIn()) return empty("signed_out");
+    const capabilities = yield* Effect.result(this.#client.capabilities());
+    if (Result.isFailure(capabilities)) return empty(failureStatus(capabilities.failure.code));
+    if (!capabilities.success.active || !capabilities.success.connectionsUsage) return empty("off");
+    const catalog = yield* Effect.result(this.#client.catalog());
+    if (Result.isFailure(catalog)) return empty(failureStatus(catalog.failure.code));
+    const orgs: HubConnectionOrgUsage[] = [];
+    let failed: HubConnectionsView["status"] | null = null;
+    for (const orgId of usageOrgs(catalog.success).slice(0, USAGE_ORGS)) {
+      const cached = this.#usage.get(orgId);
+      if (cached && cached.until > this.#now()) {
+        orgs.push(cached.value);
+        continue;
+      }
+      const outcome = yield* Effect.result(this.#client.usage(orgId));
+      if (Result.isFailure(outcome)) {
+        failed = failureStatus(outcome.failure.code);
+        continue;
+      }
+      if (outcome.success.kind !== "answer") continue;
+      const value = orgUsageView(outcome.success.answer, catalog.success);
+      this.#usage.set(orgId, { value, until: this.#now() + USAGE_CACHE_MS });
+      orgs.push(value);
+    }
+    return orgs.length === 0 && failed ? empty(failed) : { status: "ready" as const, orgs };
+  }).bind(this);
+
+  /**
+   * The person chose the payer of a connection on its page. Only an organization that can pay is kept;
+   * any other value changes nothing. The agent has no path to this.
+   */
+  readonly choosePayerFor = Effect.fn("HubConnectionTools.choosePayerFor")(function* (
+    this: HubConnectionTools,
+    connectionId: string,
+    orgId: string,
+  ) {
+    const catalog = yield* Effect.result(this.#client.catalog());
+    if (Result.isSuccess(catalog)) {
+      const entry = catalog.success.connections.find((candidate) => candidate.id === connectionId);
+      if (entry?.access.some((row) => row.orgId === orgId && canPay(row))) this.#chosen.set(connectionId, orgId);
+    }
+    return yield* this.view(false);
+  }).bind(this);
+
+  /**
+   * The person asks the admins of an organization for access to a connection, or for more money in
+   * this period. The Hub keeps one request per 7 days and tells the admins.
+   */
+  readonly requestAccess = Effect.fn("HubConnectionTools.requestAccess")(function* (
+    this: HubConnectionTools,
+    connectionId: string,
+    orgId: string,
+    kind: HubAccessRequestKind,
+  ) {
+    const failed = (failure: HubAccessRequestFailure): HubConnectionAccessRequestResult => ({
+      status: "failed",
+      requestedAt: null,
+      failure,
+    });
+    if (!this.#client.signedIn()) return failed("signed_out");
+    const catalog = yield* Effect.result(this.#client.catalog());
+    if (Result.isFailure(catalog)) return failed(requestFailure(catalog.failure));
+    const entry = catalog.success.connections.find((candidate) => candidate.id === connectionId);
+    // Only an organization of the person's catalog row, never the personal plan: it has no admins.
+    if (orgId === PERSONAL_ORG || !entry?.access.some((row) => row.orgId === orgId)) return failed("unknown_org");
+    const outcome = yield* Effect.result(this.#client.requestAccess(orgId, connectionId, kind));
+    if (Result.isFailure(outcome)) return failed(requestFailure(outcome.failure));
+    const answer = outcome.success;
+    if (answer.kind === "needs-person") return failed("not_allowed");
+    if (answer.kind === "error")
+      return failed(
+        answer.error === "rate_limited"
+          ? "rate_limited"
+          : answer.error === "not_allowed" || answer.error === "unauthorized"
+            ? "not_allowed"
+            : "hub_unavailable",
+      );
+    // The catalog row carries the request date: the next read shows "Request sent".
+    this.#client.forgetCatalog();
+    return {
+      status: answer.answer.repeated ? "already_sent" : "sent",
+      requestedAt: answer.answer.requestedAt,
+      failure: null,
+    } satisfies HubConnectionAccessRequestResult;
+  }).bind(this);
 
   /**
    * The connections that an agent has in this turn, or none. The kill switch of the Hub, a sign-out,
@@ -447,7 +594,7 @@ export class HubConnectionTools {
   #turn(turnId: string): TurnState {
     let state = this.#turns.get(turnId);
     if (!state) {
-      state = { calls: new Map(), lookups: new Map(), results: new Map() };
+      state = { calls: new Map(), lookups: new Map(), limits: new Set(), results: new Map() };
       this.#turns.set(turnId, state);
       while (this.#turns.size > TURN_LIMIT) {
         const oldest = this.#turns.keys().next().value;
@@ -814,9 +961,16 @@ export class HubConnectionTools {
     }
     if (Result.isFailure(outcome)) return this.#failureResult(outcome.failure);
     const answer = outcome.success;
-    if (answer.kind === "needs-person") return this.#needsPersonResult(answer, orgId);
+    if (answer.kind === "needs-person") {
+      if (answer.needsPerson === "cap_reached" || answer.needsPerson === "org_budget_reached")
+        yield* this.#notifyLimit(context, hooks, orgId, paidBy, answer);
+      return this.#needsPersonResult(answer, orgId);
+    }
     if (answer.kind === "error") return this.#errorResult(answer);
     this.#lastPaid.set(TOOL_CATALOG_CONNECTION_ID, answer.orgId);
+    // The use changed: the next read of Usage asks the Hub.
+    this.#usage.delete(answer.orgId);
+    yield* this.#notifyCall(context, hooks, paidBy, described.answer.title, answer);
     const amounts = context.origin !== "agent";
     const header: ResultFields = {
       connection: TOOL_CATALOG_CONNECTION_ID,
@@ -862,6 +1016,92 @@ export class HubConnectionTools {
     };
     state.results.set(hash, stored);
     return page(stored, 0, false);
+  });
+
+  /** The catalog entry of a connection, from the cache of the catalog. */
+  readonly #catalogEntry = Effect.fn("HubConnectionTools.catalogEntry")(function* (
+    this: HubConnectionTools,
+    connectionId: string,
+  ) {
+    const catalog = yield* Effect.result(this.#client.catalog());
+    return Result.isSuccess(catalog)
+      ? catalog.success.connections.find((candidate) => candidate.id === connectionId)
+      : undefined;
+  });
+
+  /** The fields of a cost line that name the connection and the payer. */
+  #chatBase(entry: HubConnectionEntry | undefined, orgId: string, paidBy: string, currency: string) {
+    const personal = orgId === PERSONAL_ORG;
+    return {
+      connectionId: TOOL_CATALOG_CONNECTION_ID,
+      connectionName: entry?.name ?? TOOL_CATALOG_CONNECTION_ID,
+      orgId,
+      orgName: personal || !isHubPlainText(paidBy, HUB_CONNECTIONS_LIMITS.nameChars) ? "" : paidBy,
+      personal,
+      currency,
+    };
+  }
+
+  /**
+   * The cost line of a call that ran: what it cost and who paid, and the line of the first call over
+   * 80 % of the cap. A turn that another agent started gets no amounts, so no line either.
+   */
+  readonly #notifyCall = Effect.fn("HubConnectionTools.notifyCall")(function* (
+    this: HubConnectionTools,
+    context: HubConnectionContext,
+    hooks: HubConnectionHooks,
+    paidBy: string,
+    endpoint: string,
+    answer: ToolCatalogCallAnswer,
+  ) {
+    const notify = hooks.notify;
+    if (!notify || context.origin === "agent") return;
+    const entry = yield* this.#catalogEntry(TOOL_CATALOG_CONNECTION_ID);
+    const base = this.#chatBase(entry, answer.orgId, paidBy, answer.currency);
+    notify({
+      ...base,
+      kind: "paid",
+      amountMicros: answer.chargedMicros,
+      endpoint: isHubPlainText(endpoint, HUB_CONNECTIONS_LIMITS.titleChars) ? endpoint : null,
+      resetsAt: null,
+      scope: null,
+    });
+    if (answer.warningCrossed)
+      notify({
+        ...base,
+        kind: "warning",
+        amountMicros: answer.effectiveAvailableMicros,
+        endpoint: null,
+        resetsAt: entry?.access.find((row) => row.orgId === answer.orgId)?.resetsAt ?? null,
+        scope: null,
+      });
+  });
+
+  /** The line of a call that the cap stopped, once per turn and organization, with "Ask the admin for more". */
+  readonly #notifyLimit = Effect.fn("HubConnectionTools.notifyLimit")(function* (
+    this: HubConnectionTools,
+    context: HubConnectionContext,
+    hooks: HubConnectionHooks,
+    orgId: string,
+    paidBy: string,
+    answer: HubNeedsPersonAnswer,
+  ) {
+    const notify = hooks.notify;
+    if (!notify || context.origin === "agent") return;
+    const limits = this.#turn(context.turnId).limits;
+    const key = `${TOOL_CATALOG_CONNECTION_ID}\u0000${orgId}`;
+    if (limits.has(key)) return;
+    limits.add(key);
+    const entry = yield* this.#catalogEntry(TOOL_CATALOG_CONNECTION_ID);
+    const row = entry?.access.find((candidate) => candidate.orgId === orgId);
+    notify({
+      ...this.#chatBase(entry, orgId, paidBy, answer.currency ?? row?.currency ?? "BRL"),
+      kind: "limit",
+      amountMicros: answer.effectiveAvailableMicros ?? answer.availableMicros ?? 0,
+      endpoint: null,
+      resetsAt: answer.resetsAt ?? row?.resetsAt ?? null,
+      scope: answer.needsPerson === "cap_reached" ? "user" : "org",
+    });
   });
 
   /**
@@ -1007,6 +1247,15 @@ export class HubConnectionTools {
 
 function payerName(decision: Extract<PayerDecision, { kind: "pay" }>): string {
   return decision.access.orgId === PERSONAL_ORG ? "personal plan" : decision.name;
+}
+
+/** What the person reads when an access request did not reach the admins. */
+function requestFailure(failure: HubConnectionFailure): HubAccessRequestFailure {
+  if (failure.code === "signed_out") return "signed_out";
+  if (failure.code === "offline") return "offline";
+  if (failure.code === "token_refused" || failure.code === "unauthorized" || failure.code === "disabled")
+    return "not_allowed";
+  return "hub_unavailable";
 }
 
 function unavailableReason(entry: HubConnectionEntry): string {

@@ -61,6 +61,11 @@ import type {
   GenerateAgentProfileInput,
   HiddenAgentsSnapshot,
   HostAnalyticsInput,
+  HubConnectionAccessRequestInput,
+  HubConnectionAccessRequestResult,
+  HubConnectionPayerInput,
+  HubConnectionsView,
+  HubConnectionUsageView,
   ListChannelRoutineRunsInput,
   ListRoutineRunsInput,
   LocalBrowserSecretResponse,
@@ -5348,6 +5353,35 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   /** Whether the Guard's chosen reviewer can run now, such as Cultura Builder with a sign-in. */
   guardJudgeReady(): boolean {
     return this.#toolGuard.judgeReady();
+  }
+
+  /**
+   * The Hub connections for the Marketplace page: the catalog, the caps and who pays
+   * (docs/architecture/hub-connections.md). `fresh` reads the Hub again. No token in the value.
+   */
+  hubConnectionsView(fresh = false): Effect.Effect<HubConnectionsView> {
+    return this.#hubConnections
+      ? this.#hubConnections.view(fresh)
+      : Effect.succeed({ status: "off", connections: [], readAt: null });
+  }
+
+  /** The person's own use of the Hub connections in this period, for Usage › Connections. */
+  hubConnectionsUsage(): Effect.Effect<HubConnectionUsageView> {
+    return this.#hubConnections ? this.#hubConnections.usage() : Effect.succeed({ status: "off", orgs: [] });
+  }
+
+  /** The person chose the organization that pays a connection. Any other organization changes nothing. */
+  chooseHubConnectionPayer(input: HubConnectionPayerInput): Effect.Effect<HubConnectionsView> {
+    return this.#hubConnections
+      ? this.#hubConnections.choosePayerFor(input.connectionId, input.orgId)
+      : this.hubConnectionsView();
+  }
+
+  /** The person asks the admins of an organization for access to a connection, or for more money. */
+  requestHubConnectionAccess(input: HubConnectionAccessRequestInput): Effect.Effect<HubConnectionAccessRequestResult> {
+    return this.#hubConnections
+      ? this.#hubConnections.requestAccess(input.connectionId, input.orgId, input.kind)
+      : Effect.succeed({ status: "failed", requestedAt: null, failure: "signed_out" });
   }
 
   /**
