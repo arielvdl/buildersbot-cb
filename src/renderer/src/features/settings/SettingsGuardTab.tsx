@@ -66,7 +66,7 @@ export function SettingsGuardTab(props: {
   onOpenLoadPanel: (() => void) | undefined;
   /** Shows the switch of the security review of messages, in General. */
   onOpenMessageReview: () => void;
-  /** True while a question of the Guard waits for the person. */
+  /** True while a question of the Guard of this computer waits for the person. */
   asking: boolean;
 }) {
   const { t } = useText();

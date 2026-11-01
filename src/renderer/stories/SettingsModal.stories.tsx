@@ -127,6 +127,8 @@ function SettingsModalStory(props: {
   joinedServer?: boolean;
   /** The models that the Guard's model list offers. */
   models?: ClientAgentModelOption[];
+  /** A question of the Guard waits in the approvals of the active server. */
+  guardAsking?: boolean;
   /** Main never answers the Guard state, so the Guard page stays as it is while it loads. */
   guardLoading?: boolean;
 }) {
@@ -271,6 +273,7 @@ function SettingsModalStory(props: {
             onAddHostedServer={props.hostedServers ? fn() : undefined}
             load={load}
             onOpenLoadPanel={props.joinedServer ? undefined : fn()}
+            guardAsking={props.guardAsking}
           />
         )}
       </SettingsPageStory>
@@ -361,6 +364,19 @@ export const TaskReviewerJoinedServer: Story = {
 /** The Guard while the window shows a joined server. */
 export const GuardJoinedServer: Story = {
   render: () => <SettingsModalStory initialOpen initialTab="guard" joinedServer />,
+};
+
+/** A question of the Guard waits for the person: the siren of the page sounds the alarm. */
+export const GuardAsking: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="guard" models={guardStoryModels} guardAsking />,
+};
+
+/**
+ * A joined server has a question that says it is the Guard's. The page shows the Guard of this
+ * computer, so its siren stays calm.
+ */
+export const GuardJoinedServerAsking: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="guard" joinedServer guardAsking />,
 };
 
 /** The page before main answers: the siren is asleep with no level name, and the level cards wait. */

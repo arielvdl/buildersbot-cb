@@ -133,7 +133,10 @@ export interface SettingsModalProps {
   load: TaskReviewerLoad & { watch: (visible: () => boolean) => void };
   /** Opens the load panel of the rail. Absent while the rail does not show it, such as on a joined server. */
   onOpenLoadPanel?: (() => void) | undefined;
-  /** True while a question of the Guard waits for the person: the siren of the Guard page turns red. */
+  /**
+   * True while a question of the Guard waits for the person in the approvals of the active server: the
+   * siren of the Guard page turns red. The page reads it only while this computer is the active server.
+   */
   guardAsking?: boolean | undefined;
 }
 
@@ -342,7 +345,9 @@ export function SettingsModal(props: SettingsModalProps) {
               setActiveTab("general");
               void revealSettingsRow("general", "settings.promptGuard.title");
             }}
-            asking={props.guardAsking === true}
+            // The Guard page shows the Guard of this computer. The approvals of a joined server are
+            // not this computer's, so its questions do not sound this siren (docs/architecture/guard.md).
+            asking={joinedServer() === null && props.guardAsking === true}
           />
         </Tabs.Content>
 
