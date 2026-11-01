@@ -15,12 +15,13 @@ import type { ChannelStore } from "./channel-store";
 /**
  * One generation on the lead's model. `summary` asks for the lowest reasoning effort of the model:
  * a summary of the shared history needs no deep reasoning, and the lead's own high effort made a
- * long history pass the generation deadline, so no task of the channel could start.
+ * long history pass the generation deadline, so no task of the channel could start. `routing` asks
+ * for the same effort, for the choice of members; only the `routing` optimization sends it.
  */
 export type ChannelTextModel = (
   lead: AgentSummary,
   prompt: string,
-  purpose?: "summary",
+  purpose?: "summary" | "routing",
 ) => Effect.Effect<string, ChannelOperationError>;
 /** The part of the channel that an earlier packet gave to the member's current provider session. */
 export interface DeliveredChannelContext {

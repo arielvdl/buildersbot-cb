@@ -134,6 +134,7 @@ import {
   type GuardPreference,
   isContextResetMarker,
   isCustomProviderHarness,
+  isOptimizationId,
   MODEL_SWITCH_ITEM_TYPES,
   type ModelSwitchReason,
   type QueueSteerFallback,
@@ -1222,7 +1223,12 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             });
           return yield* this.#generateForAgent(
             lead,
-            { ...model, defaultReasoningEffort: purpose === "summary" ? summaryEffort(model) : lead.reasoningEffort },
+            // Only the `routing` optimization sends the `routing` purpose: off, routing keeps the lead's effort.
+            {
+              ...model,
+              defaultReasoningEffort:
+                purpose === "summary" || purpose === "routing" ? summaryEffort(model) : lead.reasoningEffort,
+            },
             prompt,
           ).pipe(
             // A routing turn can be the first one a spent plan refuses: in its completion, or as the
@@ -1245,6 +1251,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         return session ? this.#compaction.contextInputCharacters(session.externalSessionId) : 120_000;
       },
       reportsCompactions: (agentId) => this.#reportsCompactions(agentId),
+      optimizationEnabled: (id) => isOptimizationId(id) && this.optimizations.optimizationEnabled(id),
+      // Counts and times only: the sample has no text of the request, the prompt or the answer.
+      routingMeasured: (sample) => logger.info("A channel routing generation ended.", { ...sample }),
       forgetThread: (threadId) => this.#forgetExecutionThread(threadId).pipe(toChannelOperationError),
       loadedSnapshot: (threadId) => this.#conversation.loadedExecutionSnapshot(threadId),
       // A held agent gets no channel assignment: one that waited for the reset would hold its

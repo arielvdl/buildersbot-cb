@@ -407,7 +407,7 @@ export const messages = {
     "Uma tarefa de canal que para por uma falha curta do provedor ou da rede continua sozinha, no máximo 3 vezes. Risco: uma ação feita antes da falha pode se repetir.",
   "settings.optimizations.routing.title": "Roteamento de canal mais leve",
   "settings.optimizations.routing.description":
-    "A escolha de quem responde num canal usa menos raciocínio. Risco: uma escolha pior para um pedido pouco claro.",
+    'A escolha de quem responde num canal usa menos raciocínio. Um seguimento em português ou espanhol, como "continua", continua o trabalho da sua aba, e o trabalho de outra aba não faz o líder escolher de novo. Risco: uma escolha pior para um pedido pouco claro.',
   "settings.optimizations.streamingCheckpoints.title": "Menos gravações durante uma resposta",
   "settings.optimizations.streamingCheckpoints.description":
     "Uma resposta em andamento é salva a cada 1 a 2 segundos, não várias vezes por segundo. Risco: se o app parar, até 2 segundos de uma resposta podem se perder.",
