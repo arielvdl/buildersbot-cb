@@ -35,6 +35,7 @@ import { CHANNEL_CONTEXT_SPILL, HISTORY_PAGE_LIMIT, historyLine, readPage } from
 import { type ChannelOperationError, channelFailure, channelResult, channelSync } from "./channel-effects";
 import {
   assignmentText,
+  type ChannelContextParts,
   ChannelHistory,
   type ChannelTextModel,
   type DeliveredChannelContext,
@@ -267,6 +268,13 @@ export class ChannelService {
   readonly #acceptedContexts = new Set<string>();
   /** By delivery: the count of in-place message changes when its packet was built. */
   readonly #preparedChanges = new Map<string, number>();
+  /**
+   * With `channel-context-spill`. By delivery: the hashes of the fixed parts of its packet. By
+   * channel, agent and session, as `#acceptedContexts`: the hashes of the parts that the session read,
+   * so its next delta leaves out each part that has not changed.
+   */
+  readonly #preparedParts = new Map<string, ChannelContextParts>();
+  readonly #deliveredParts = new Map<string, ChannelContextParts>();
 
   constructor(
     database: BuildersBotDatabase,
@@ -2231,6 +2239,7 @@ export class ChannelService {
     return Effect.gen({ self: this }, function* () {
       this.#deltas.delete(deliveryId);
       this.#preparedChanges.delete(deliveryId);
+      this.#preparedParts.delete(deliveryId);
       const assignment = yield* channelSync(() => this.store.assignmentForDelivery(deliveryId));
       if (!assignment || !activeAssignment(assignment)) return;
       const task = (yield* channelSync(() => this.store.tasks(assignment.channelId))).find(
@@ -2579,7 +2588,8 @@ export class ChannelService {
     if (!agent) return yield* channelFailure(new Error(sourceText("error.backend.channelAssigneeUnavailable")));
     const context = yield* channelSync(() => this.store.context(channel.id, this.#topicOfTask(task), agent.id));
     this.#preparedChanges.set(delivery.delivery.id, this.store.completedMessageChanges(channel.id));
-    const delivered = this.#deliveredContext(channel.id, context, agent);
+    const spill = this.#spill();
+    const delivered = this.#deliveredContext(channel.id, context, agent, spill);
     const history = yield* this.#history.prepare(
       task,
       agent,
@@ -2587,10 +2597,13 @@ export class ChannelService {
       delivered,
       this.#peers(tasks, task),
       this.hooks.contextCharacters?.(agent.id, context.threadId),
+      spill,
     );
     if (delivered && history.delta !== null)
       this.#deltas.set(delivery.delivery.id, { sessionId: delivered.sessionId, text: history.delta });
     else this.#deltas.delete(delivery.delivery.id);
+    if (history.parts) this.#preparedParts.set(delivery.delivery.id, history.parts);
+    else this.#preparedParts.delete(delivery.delivery.id);
     const current = (yield* channelSync(() => this.store.tasks(channel.id))).find((item) => item.id === task.id);
     if (
       !current ||
@@ -2617,6 +2630,7 @@ export class ChannelService {
     channelId: string,
     context: ChannelContext,
     agent: AgentSummary,
+    spill = false,
   ): (DeliveredChannelContext & { sessionId: string }) | null {
     if (
       !context.sessionId ||
@@ -2626,9 +2640,11 @@ export class ChannelService {
     )
       return null;
     const session = this.store.database.activeProviderSession(context.threadId, agent.provider);
-    return session?.externalSessionId === context.sessionId
-      ? { sessionId: context.sessionId, throughSequence: context.throughSequence }
-      : null;
+    if (session?.externalSessionId !== context.sessionId) return null;
+    const parts = spill
+      ? this.#deliveredParts.get(JSON.stringify([channelId, agent.id, context.sessionId]))
+      : undefined;
+    return { sessionId: context.sessionId, throughSequence: context.throughSequence, ...(parts ? { parts } : {}) };
   }
 
   /** Whether the optimization `channel-context-spill` is on. Off, the channel context is as before it. */
@@ -2643,9 +2659,14 @@ export class ChannelService {
     sessionId: string,
     throughSequence: number,
     summaryVersion: number,
+    parts?: ChannelContextParts,
   ): void {
     this.store.acceptContext(channelId, topicId, agentId, sessionId, throughSequence, summaryVersion);
-    this.#acceptedContexts.add(JSON.stringify([channelId, agentId, sessionId]));
+    const key = JSON.stringify([channelId, agentId, sessionId]);
+    this.#acceptedContexts.add(key);
+    // A packet without them repeats every part, so the session has read the parts it gave.
+    if (parts) this.#deliveredParts.set(key, parts);
+    else this.#deliveredParts.delete(key);
   }
 
   /** The packet of a delivery with only the unread messages, and the session that read the others. */
@@ -2687,6 +2708,8 @@ export class ChannelService {
       // The cursor goes to zero, and the next packet is complete.
       const prepared = this.#preparedChanges.get(deliveryId);
       this.#preparedChanges.delete(deliveryId);
+      const parts = this.#preparedParts.get(deliveryId);
+      this.#preparedParts.delete(deliveryId);
       const cursor =
         prepared === undefined || prepared === this.store.completedMessageChanges(assignment.channelId)
           ? { throughSequence: assignment.throughSequence, summaryVersion: assignment.summaryVersion }
@@ -2704,6 +2727,7 @@ export class ChannelService {
             sessionId,
             cursor.throughSequence,
             cursor.summaryVersion,
+            parts,
           ),
         );
       }
@@ -3379,6 +3403,7 @@ export class ChannelService {
     const threadId = context.threadId;
     const prepared = this.store.completedMessageChanges(channelId);
     const tasks = yield* channelSync(() => this.store.tasks(channelId));
+    const spill = this.#spill();
     let history: Effect.Success<ReturnType<ChannelHistory["prepare"]>>;
     try {
       history = channelResult(
@@ -3387,9 +3412,10 @@ export class ChannelService {
             task,
             agent,
             this.hooks.agents().find((item) => item.id === this.store.get(channelId).leadAgentId),
-            this.#deliveredContext(channelId, context, agent),
+            this.#deliveredContext(channelId, context, agent, spill),
             this.#peers(tasks, task),
             this.hooks.contextCharacters?.(agent.id, threadId),
+            spill,
           ),
         ),
       );
@@ -3472,6 +3498,7 @@ export class ChannelService {
             session.externalSessionId,
             cursor.throughSequence,
             cursor.summaryVersion,
+            history.parts ?? undefined,
           ),
         );
     }
