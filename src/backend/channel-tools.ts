@@ -27,10 +27,14 @@ const PERSON_ONLY =
 export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: string; shape: z.ZodRawShape }[] = [
   {
     name: "channel_history",
-    description: "Read earlier shared channel messages. This never starts another agent.",
+    description:
+      "Read earlier shared channel messages. This never starts another agent. Give messageId to read one message, and offset (from nextOffset) for the rest of a long one. limit gives a compact page of up to 20 messages.",
     shape: {
       beforeSequence: z.number().int().min(0).optional(),
       attachmentId: z.string().optional(),
+      messageId: z.string().min(1).max(INPUT_LIMITS.identifier).optional(),
+      offset: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(20).optional(),
     },
   },
   {

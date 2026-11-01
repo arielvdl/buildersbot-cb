@@ -16,7 +16,7 @@ list is the order of the Settings page.
 | `idle-release-low` | When the memory of the computer goes to `low`, the provider threads with no turn for more than 2 minutes close. See [providers.md](providers.md#memory-of-the-computer). |
 | `fiscal-resume-grace` | After the computer sleeps, the task reviewer holds every task for two looks. See [task-reviewer.md](task-reviewer.md#sleep-of-the-computer). |
 | `turn-start-unify` | The two security reviews before a turn become one. See [guard.md](guard.md). |
-| `channel-context-spill` | Long old channel messages go to an agent cut, with a pointer to read the rest. |
+| `channel-context-spill` | Long old channel messages go to an agent cut, with a pointer to read the rest. See [channels-and-messaging.md](channels-and-messaging.md#lean-channel-context-channel-context-spill). |
 | `safe-resume` | A channel task that fails in a turn with a passing error continues by itself, with a limit. |
 | `routing` | The routing of a channel request uses the lowest reasoning effort of the lead's model, a follow-up in Portuguese or Spanish continues the work of its tab, and only a change to the request's tab makes the lead route again (2 times at most). See [channels-and-messaging.md](channels-and-messaging.md#the-routing-optimization). |
 | `streaming-checkpoints` | A reply that streams is written to the database at checkpoints, not at each frame. |

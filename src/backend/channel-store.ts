@@ -499,6 +499,45 @@ export class ChannelStore {
     });
   }
 
+  /**
+   * The messages of a tab after a sequence, oldest first: the part of a tab that its summary does not
+   * cover. The sequence index finds them, so the rows before are not read.
+   */
+  messagesAfter(channelId: string, topicId: string, after: number): ChannelMessage[] {
+    const first = this.firstTopicId(channelId) === topicId;
+    return databaseRows(
+      this.database.connection
+        .prepare(
+          `SELECT message_json FROM projection_channel_messages
+            WHERE channel_id = ? AND sequence > ?
+              AND (json_extract(message_json, '$.topicId') = ?${first ? " OR json_extract(message_json, '$.topicId') IS NULL" : ""})
+            ORDER BY sequence, message_id`,
+        )
+        .all(channelId, after, topicId),
+    ).map((row) => {
+      const value = JSON.parse(requiredStringColumn(row, "message_json"));
+      if (!isChannelMessage(value)) throw new Error("Invalid stored channel message.");
+      return { ...value, topicId: value.topicId ?? topicId };
+    });
+  }
+
+  /** The messages of one task, oldest first, in place of a read of its whole tab. */
+  taskMessages(channelId: string, taskId: string): ChannelMessage[] {
+    return databaseRows(
+      this.database.connection
+        .prepare(
+          `SELECT message_json FROM projection_channel_messages
+            WHERE channel_id = ? AND json_extract(message_json, '$.taskId') = ?
+            ORDER BY sequence, message_id`,
+        )
+        .all(channelId, taskId),
+    ).map((row) => {
+      const value = JSON.parse(requiredStringColumn(row, "message_json"));
+      if (!isChannelMessage(value)) throw new Error("Invalid stored channel message.");
+      return value;
+    });
+  }
+
   /** One message by id, read through the primary key rather than the whole history. */
   message(channelId: string, messageId: string): ChannelMessage | null {
     const row = databaseRow(

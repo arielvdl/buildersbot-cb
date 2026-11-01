@@ -134,7 +134,6 @@ import {
   type GuardPreference,
   isContextResetMarker,
   isCustomProviderHarness,
-  isOptimizationId,
   MODEL_SWITCH_ITEM_TYPES,
   type ModelSwitchReason,
   type QueueSteerFallback,
@@ -1261,7 +1260,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         return session ? this.#compaction.contextInputCharacters(session.externalSessionId) : 120_000;
       },
       reportsCompactions: (agentId) => this.#reportsCompactions(agentId),
-      optimizationEnabled: (id) => isOptimizationId(id) && this.optimizations.optimizationEnabled(id),
+      optimizationEnabled: (id) => this.optimizations.optimizationEnabled(id),
       // Counts and times only: the sample has no text of the request, the prompt or the answer.
       routingMeasured: (sample) => logger.info("A channel routing generation ended.", { ...sample }),
       forgetThread: (threadId) => this.#forgetExecutionThread(threadId).pipe(toChannelOperationError),
