@@ -180,7 +180,8 @@ function sectionControls(page: Page, locale: Locale) {
 async function checkSection(page: Page, trigger: Locator, locale: Locale, label: string): Promise<void> {
   const { providers, models, efforts } = sectionControls(page, locale);
   await models.first().waitFor({ timeout: 30_000 });
-  const frame = await page.getByRole("dialog").evaluate((dialog) => dialog.scrollTop);
+  // The dialog that holds the row: a popover of the picker is a dialog too.
+  const frame = await trigger.evaluate((button) => button.closest("[role=dialog]")?.scrollTop ?? 0);
   assert.equal(frame, 0, `${label}: the frame of the dialog scrolled, so its header or footer moved.`);
   const shown = await shownAfterOpen(trigger);
   assert.ok(
