@@ -231,6 +231,49 @@ export function findSecretValue(value: string): { index: number; length: number 
   return found;
 }
 
+/**
+ * Every place where `value` holds a secret, by the rules of `findSecretValue`, in one pass over the
+ * text, ordered by position. Places that overlap are joined. A mask that replaces each place at once
+ * reads a long text with many secrets in linear time.
+ */
+export function findSecretValues(value: string): Array<{ index: number; length: number }> {
+  const found: Array<{ index: number; length: number }> = [];
+  const pattern = registeredSecretPattern;
+  if (pattern) {
+    pattern.lastIndex = 0;
+    for (let match = pattern.exec(value); match !== null; match = pattern.exec(value)) {
+      const start = match.index;
+      const end = start + match[0].length;
+      const whole = !ALPHANUMERIC.test(value.charAt(start - 1)) && !ALPHANUMERIC.test(value.charAt(end));
+      if (whole && isDistinctiveSecret(match[0])) found.push({ index: start, length: match[0].length });
+      // A shorter value can still start at the next character, inside the one that did not count.
+      else pattern.lastIndex = start + 1;
+    }
+    pattern.lastIndex = 0;
+  }
+  for (const shape of [PEM_PRIVATE_KEY, KNOWN_SECRET_PREFIXES, JSON_WEB_TOKEN]) {
+    shape.lastIndex = 0;
+    for (let match = shape.exec(value); match !== null; match = shape.exec(value)) {
+      if (match[0].length === 0) {
+        shape.lastIndex += 1;
+        continue;
+      }
+      if (shape !== KNOWN_SECRET_PREFIXES || looksIssued(match[0]))
+        found.push({ index: match.index, length: match[0].length });
+    }
+    shape.lastIndex = 0;
+  }
+  found.sort((left, right) => left.index - right.index);
+  const joined: Array<{ index: number; length: number }> = [];
+  for (const place of found) {
+    const last = joined.at(-1);
+    if (last && place.index <= last.index + last.length)
+      last.length = Math.max(last.length, place.index + place.length - last.index);
+    else joined.push({ ...place });
+  }
+  return joined;
+}
+
 // `sk-`, `sk_`, `xai-` and `xox?-` also start ordinary words in a URL or a sentence:
 // `sk-hynix-posts-record-profit`, `xai-sdk-python`, `xoxo-gossip-girl`, `sk-anthropic-deal`. A check
 // of an action counts such a value only in the shape that the vendors issue: one part of 16

@@ -233,11 +233,12 @@ export const GUARD_TOOL_EGRESS: Readonly<Record<string, GuardToolEgress>> = {
 
 /**
  * Every string of a value, depth first, for the Guard to read what a connection call sends. `keys`
- * adds the field names. The input of a call is at most 16 KB and 8 levels deep, so the limits here
- * are never reached by a real call.
+ * adds the field names. It reads all of them: the input of a call is at most 16 KB and 8 levels deep
+ * (the router refuses a larger one before the Guard reads it), so a cut here would only let a long
+ * text or a block of data after many short items pass the rules of one field (G2).
  */
 function strings(value: unknown, keys: boolean, out: string[] = [], depth = 0): string[] {
-  if (depth > 16 || out.length > 512) return out;
+  if (depth > 16) return out;
   if (isString(value)) out.push(value);
   else if (Array.isArray(value)) for (const item of value) strings(item, keys, out, depth + 1);
   else if (isDynamicRecord(value))
@@ -563,7 +564,23 @@ export function guardInboundContent(namespace: string | null, tool: string, resu
     .flatMap((item) => (item.type === "inputText" ? [item.text] : []))
     .join("\n")
     .trim();
-  return text ? text : null;
+  if (!text) return null;
+  // A connection result is JSON text, where a line break is `\n` and a quote `\"`: the rules read
+  // the decoded text too, so a phrase split by a line break or a tab does not escape them (G5).
+  if (namespace !== CONNECTIONS) return text;
+  const decoded = decodedJsonText(text);
+  return decoded === text ? text : `${text}\n${decoded}`;
+}
+
+/**
+ * The text of JSON with its escapes decoded. It also reads a page of a result that cuts the JSON in
+ * two, so it decodes each escape on its own instead of parsing the JSON.
+ */
+export function decodedJsonText(text: string): string {
+  return text.replace(/\\(?:u([0-9a-fA-F]{4})|(["\\/bfnrt]))/gu, (_whole, code: string | undefined, plain: string) => {
+    if (code) return String.fromCharCode(Number.parseInt(code, 16));
+    return { '"': '"', "\\": "\\", "/": "/", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t" }[plain] ?? plain;
+  });
 }
 
 /** What the approval card shows for an action: the tool, and its URLs, files, command or text, masked. */

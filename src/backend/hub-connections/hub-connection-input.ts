@@ -49,9 +49,7 @@ export const MAIN_PROCESS_FIELDS = ["confirmationId", "maxCostMicros"] as const;
 
 /**
  * Names that hold a credential, a cookie or a session, after case and `-`/`_`/`.` are removed. Whole
- * names: a name that only contains a short word such as `key` or `token` can be data (`page_token`
- * is a reviewed pagination field), and the closed schema refuses every name the endpoint does not
- * declare anyway. Parts: words that a data field never has.
+ * names: `key` alone is a credential, and `keyword` is not.
  */
 const CREDENTIAL_NAMES = new Set([
   "key",
@@ -84,12 +82,55 @@ const CREDENTIAL_NAMES = new Set([
   "header",
   "headers",
   "proxy",
+  "sig",
+  "signature",
 ]);
+/** Parts of a name, after case and `-`/`_`/`.` are removed, that a data field never has. */
 const CREDENTIAL_PARTS = ["cookie", "session", "password", "secret", "authorization", "bearer", "csrf", "apikey"];
+/**
+ * Words of a name (split at case changes, `-`, `_` and `.`) that make it a credential: `apiToken`,
+ * `X-Auth-Token`, `refresh_token`. A word, not a part, so `author` and `tokens` stay data.
+ */
+const CREDENTIAL_WORDS = new Set(["token", "auth", "secret", "apikey", "privatekey"]);
+/** Pagination and count names that hold the word `token` and are data. */
+const DATA_NAMES = new Set([
+  "pagetoken",
+  "nexttoken",
+  "nextpagetoken",
+  "prevtoken",
+  "previoustoken",
+  "prevpagetoken",
+  "previouspagetoken",
+  "continuationtoken",
+  "cursor",
+  "tokencount",
+  "maxtokens",
+]);
 
+/** The words of a name: `X-Auth-Token` gives `x`, `auth`, `token`; `apiKey` gives `api`, `key` and `apikey`. */
+function nameWords(name: string): string[] {
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .toLowerCase()
+    .split(/[\s._-]+/u)
+    .filter(Boolean);
+  // Two words that make a credential together: `api key`, `private key`.
+  const pairs = words.slice(1).map((word, index) => `${words[index]}${word}`);
+  return [...words, ...pairs];
+}
+
+/**
+ * Whether a field name labels a credential, a cookie or a session. The same rule refuses such a
+ * field in a call input and masks its value in a call result (contract §6.2 step 6 and §6.3).
+ */
 export function isCredentialName(name: string): boolean {
   const plain = name.toLowerCase().replace(/[-_.]/gu, "");
-  return CREDENTIAL_NAMES.has(plain) || CREDENTIAL_PARTS.some((part) => plain.includes(part));
+  if (DATA_NAMES.has(plain)) return false;
+  return (
+    CREDENTIAL_NAMES.has(plain) ||
+    CREDENTIAL_PARTS.some((part) => plain.includes(part)) ||
+    nameWords(name).some((word) => CREDENTIAL_WORDS.has(word))
+  );
 }
 
 /** A bearer or basic credential written in a value. */
@@ -107,6 +148,9 @@ export function valueRule(value: string): InputRule | null {
   return null;
 }
 
+/** A URL inside a text, up to the first space, quote or angle bracket. */
+const URL_IN_TEXT = /\b[a-z][a-z0-9+.-]{1,15}:\/\/[^\s"'<>]+/giu;
+
 /** Host suffixes that only a private network, a tailnet or this computer resolves. */
 const PRIVATE_SUFFIXES = [".local", ".localhost", ".internal", ".lan", ".home", ".home.arpa", ".corp", ".ts.net"];
 /** Query names that make a URL a signed one, which carries its own credential. */
@@ -120,6 +164,8 @@ const SIGNED_QUERY =
  */
 export function isUrlAllowed(text: string): boolean {
   if (text.length > 2048) return false;
+  // A protocol-relative URL (`//host/path`) takes the scheme of whatever reads it.
+  if (text.trimStart().startsWith("//")) return false;
   let url: URL;
   try {
     url = new URL(text);
@@ -204,10 +250,12 @@ function checkParam(schema: HubParamSchema, value: unknown, field: string): Inpu
       if (schema.maxLength !== undefined && value.length > schema.maxLength) return { rule: "too_long", field };
       if (schema.enum && !schema.enum.includes(value)) return { rule: "not_in_enum", field };
       if (schema.format === "uri" && !isUrlAllowed(value)) return { rule: "url_refused", field };
-      // Any string can carry a URL, so a field without `format: "uri"` is checked when it is one.
+      // Any string can carry a URL, so a field without `format: "uri"` is checked when it is one, and
+      // each URL inside a text is checked too (`see http://10.0.0.1/admin`).
       if (/^[a-z][a-z0-9+.-]{1,15}:/iu.test(value.trim()) && /:\/\//u.test(value) && !isUrlAllowed(value.trim()))
         return { rule: "url_refused", field };
-      if (/^\s*file:/iu.test(value)) return { rule: "url_refused", field };
+      if (/^\s*(?:file:|\/\/)/iu.test(value)) return { rule: "url_refused", field };
+      for (const url of value.matchAll(URL_IN_TEXT)) if (!isUrlAllowed(url[0])) return { rule: "url_refused", field };
       return null;
     }
     case "number":
