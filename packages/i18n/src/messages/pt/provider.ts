@@ -118,6 +118,8 @@ export const messages = {
   "provider.picker.reasoning": "Raciocínio",
   "provider.picker.effortDefault": "Padrão do modelo: {effort}",
   "provider.picker.others": "Outros provedores",
+  "provider.picker.notListed": "Não listado",
+  "provider.picker.downloadToUse": "Baixe {name} para usar seus modelos.",
   "provider.picker.fast": "Rápido",
   "provider.picker.fastLabel": "Modo rápido",
   "provider.picker.selectEffort": "Selecionar esforço",

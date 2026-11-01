@@ -123,6 +123,8 @@ export const messages = {
   "provider.picker.reasoning": "Akıl yürütme",
   "provider.picker.effortDefault": "Model varsayılanı: {effort}",
   "provider.picker.others": "Diğer sağlayıcılar",
+  "provider.picker.notListed": "Listede yok",
+  "provider.picker.downloadToUse": "Modellerini kullanmak için {name} indirin.",
   "provider.picker.fast": "Hızlı",
   "provider.picker.fastLabel": "Hızlı mod",
   "provider.picker.selectEffort": "Efor seçin",

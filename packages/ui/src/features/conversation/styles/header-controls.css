@@ -846,6 +846,15 @@
   translate: 0 -50%;
 }
 
+/* The agent's model when its provider no longer lists it: chosen, and not a choice. */
+.provider-model-option.provider-model-option-unlisted {
+  cursor: default;
+}
+
+.provider-model-option.provider-model-option-unlisted:hover {
+  background: transparent;
+}
+
 /*
  * The inline section (`inline`): the choices open in the form, under their row, and push the next
  * fields down. The form scrolls, not a small box. A popover in a form is cut by the first ancestor

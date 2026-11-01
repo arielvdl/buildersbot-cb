@@ -136,6 +136,8 @@ export const messages = defineMessages("provider", {
   "provider.picker.reasoning": "Reasoning",
   "provider.picker.effortDefault": "Model default: {effort}",
   "provider.picker.others": "Other providers",
+  "provider.picker.notListed": "Not listed",
+  "provider.picker.downloadToUse": "Download {name} to use its models.",
   "provider.picker.fast": "Fast",
   "provider.picker.fastLabel": "Fast mode",
   "provider.picker.selectEffort": "Select effort",

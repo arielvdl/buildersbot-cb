@@ -124,6 +124,8 @@ export const messages = {
   "provider.picker.reasoning": "추론",
   "provider.picker.effortDefault": "모델 기본값: {effort}",
   "provider.picker.others": "기타 제공자",
+  "provider.picker.notListed": "목록에 없음",
+  "provider.picker.downloadToUse": "모델을 사용하려면 {name}을(를) 다운로드하세요.",
   "provider.picker.fast": "빠르게",
   "provider.picker.fastLabel": "빠른 모드",
   "provider.picker.selectEffort": "강도 선택",

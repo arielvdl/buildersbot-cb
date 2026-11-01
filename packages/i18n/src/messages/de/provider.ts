@@ -128,6 +128,8 @@ export const messages = {
   "provider.picker.reasoning": "Denkleistung",
   "provider.picker.effortDefault": "Standard des Modells: {effort}",
   "provider.picker.others": "Weitere Anbieter",
+  "provider.picker.notListed": "Nicht gelistet",
+  "provider.picker.downloadToUse": "Lade {name} herunter, um seine Modelle zu nutzen.",
   "provider.picker.fast": "Schnell",
   "provider.picker.fastLabel": "Schnellmodus",
   "provider.picker.selectEffort": "Aufwand auswählen",

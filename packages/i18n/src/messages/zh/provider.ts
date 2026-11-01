@@ -135,6 +135,8 @@ export const messages = {
   "provider.picker.reasoning": "推理",
   "provider.picker.effortDefault": "模型默认：{effort}",
   "provider.picker.others": "其他服务商",
+  "provider.picker.notListed": "未列出",
+  "provider.picker.downloadToUse": "下载 {name} 以使用其模型。",
   "provider.picker.fast": "快速",
   "provider.picker.fastLabel": "快速模式",
   "provider.picker.selectEffort": "选择强度",

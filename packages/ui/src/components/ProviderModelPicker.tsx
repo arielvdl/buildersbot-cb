@@ -595,6 +595,18 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
         ? t("provider.picker.downloading", { percent: format.percent(Math.round(value.progress ?? 0) / 100) })
         : null;
     };
+    /**
+     * What a runtime that Builders Bot downloads still needs. The panel heading and a row of Other
+     * providers use the same words, so a provider is not "Not installed" in one and "Not downloaded"
+     * in the other.
+     */
+    const runtimeNeed = () => {
+      if (runtime()?.phase === "not-downloaded") return t("provider.status.notDownloaded");
+      if (runtime()?.phase === "download-error") return t("provider.status.setupFailed");
+      return undefined;
+    };
+    /** The state for the panel heading. */
+    const summary = () => runtimeNeed() ?? railHeadingSummary(provider, status());
     const message = () => {
       const downloading = progress();
       if (downloading) return downloading;
@@ -606,6 +618,10 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
           : t("provider.connecting.browserHint");
       const failed = connectError();
       if (failed) return failed;
+      // The Download button is beside this message: it says what the download is for.
+      if (runtime()?.phase === "not-downloaded" && !runtime()?.message) {
+        return t("provider.picker.downloadToUse", { name: railName(provider, t) });
+      }
       const value = runtime()?.message ?? status().message;
       if (value) return text.sourceText(value);
       return status().state === "checking"
@@ -620,9 +636,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
       if (status().connectionState === "connecting") return t("provider.status.connecting");
       const failed = connectError();
       if (failed) return failed;
-      if (runtime()?.phase === "not-downloaded") return t("provider.status.notDownloaded");
-      if (runtime()?.phase === "download-error") return t("provider.status.setupFailed");
-      return railHeadingSummary(provider, status());
+      return summary();
     };
     function run(): void {
       const chosen = action();
@@ -637,7 +651,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
         );
       } else if (chosen) void props.onDownloadProvider?.(target);
     }
-    return { provider, status, accountId, available, runtime, action, message, state, run };
+    return { provider, status, accountId, available, runtime, action, summary, message, state, run };
   }
 
   /** The button that moves an entry on. With `name`, in a list of entries, its name repeats the provider. */
@@ -869,6 +883,20 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
     // An account that is not signed in holds back the models its provider serves.
     const modelEnabled = (model: PickerModel) => modelAvailable(model) && (entry.accountId() === null || available());
     const effortLocked = () => !available();
+    /**
+     * The agent's model when its provider no longer lists it. It stays chosen, with a note, so the
+     * person sees what the agent runs now before they choose another model.
+     */
+    const unlisted = () =>
+      provider !== CUSTOM_RAIL &&
+      provider === activeProvider() &&
+      entry.accountId() === currentAccount() &&
+      props.foreignProvider === undefined &&
+      available() &&
+      models().length > 0 &&
+      !selected() &&
+      !selectedModel() &&
+      !search().trim();
     // The inline section shows the search only where a list is long enough to need it.
     const searchShown = () => !inline() || models().length >= INLINE_SEARCH_FROM || search().trim() !== "";
     function chooseEffort(id: string): void {
@@ -893,8 +921,8 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
             </Show>
             <span>
               {account() && status().state === "available"
-                ? (account()?.account.email ?? railHeadingSummary(provider, status()))
-                : railHeadingSummary(provider, status())}
+                ? (account()?.account.email ?? entry.summary())
+                : entry.summary()}
             </span>
           </div>
           <Show when={provider === CUSTOM_RAIL && !props.onManageProviders && props.onAddCustomProvider}>
@@ -943,6 +971,15 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
               if (first && pickerModelKey(first) !== selectedKey()) selectModel(first, entry.accountId());
             }}
           />
+        </Show>
+        <Show when={unlisted()}>
+          <div class="provider-model-option provider-model-option-selected provider-model-option-unlisted">
+            <span class="provider-model-option-name">
+              <span>{props.value}</span>
+              <small>{t("provider.picker.notListed")}</small>
+            </span>
+            <CheckIcon />
+          </div>
         </Show>
         <div class={["provider-model-scroll", fades.classes()]} ref={fades.bind} onScroll={fades.measure}>
           <Show

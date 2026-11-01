@@ -133,6 +133,8 @@ export const messages = {
   "provider.picker.reasoning": "Raisonnement",
   "provider.picker.effortDefault": "Par défaut du modèle : {effort}",
   "provider.picker.others": "Autres fournisseurs",
+  "provider.picker.notListed": "Non listé",
+  "provider.picker.downloadToUse": "Téléchargez {name} pour utiliser ses modèles.",
   "provider.picker.fast": "Rapide",
   "provider.picker.fastLabel": "Mode rapide",
   "provider.picker.selectEffort": "Choisir l’effort",

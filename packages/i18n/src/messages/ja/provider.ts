@@ -127,6 +127,8 @@ export const messages = {
   "provider.picker.reasoning": "推論",
   "provider.picker.effortDefault": "モデルのデフォルト: {effort}",
   "provider.picker.others": "その他のプロバイダー",
+  "provider.picker.notListed": "一覧にない",
+  "provider.picker.downloadToUse": "モデルを使うには {name} をダウンロードしてください。",
   "provider.picker.fast": "高速",
   "provider.picker.fastLabel": "高速モード",
   "provider.picker.selectEffort": "推論の強さを選択",

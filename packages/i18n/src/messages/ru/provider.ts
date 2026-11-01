@@ -140,6 +140,8 @@ export const messages = {
   "provider.picker.reasoning": "Рассуждение",
   "provider.picker.effortDefault": "По умолчанию для модели: {effort}",
   "provider.picker.others": "Другие провайдеры",
+  "provider.picker.notListed": "Нет в списке",
+  "provider.picker.downloadToUse": "Скачайте {name}, чтобы использовать его модели.",
   "provider.picker.fast": "Быстро",
   "provider.picker.fastLabel": "Быстрый режим",
   "provider.picker.selectEffort": "Выбрать уровень усилий",

@@ -117,6 +117,8 @@ export const messages = {
   "provider.picker.reasoning": "Redeneren",
   "provider.picker.effortDefault": "Standaard van het model: {effort}",
   "provider.picker.others": "Andere aanbieders",
+  "provider.picker.notListed": "Niet vermeld",
+  "provider.picker.downloadToUse": "Download {name} om de modellen te gebruiken.",
   "provider.picker.fast": "Snel",
   "provider.picker.fastLabel": "Snelle modus",
   "provider.picker.selectEffort": "Kies niveau",
