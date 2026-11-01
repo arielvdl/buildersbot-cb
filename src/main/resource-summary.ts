@@ -154,6 +154,11 @@ export interface ProviderTreeUsage {
   /** Null when the previous sample has no figure to compare with. */
   cpuPct: number | null;
   processCount: number;
+  /**
+   * The processes in the tree that run no provider CLI: the MCP servers and the commands that the
+   * CLI started. OpenCode starts one set of MCP servers for each agent folder.
+   */
+  toolProcessCount: number;
 }
 
 /**
@@ -175,7 +180,7 @@ export function providerTrees(input: {
     if (siblings) siblings.push(process);
     else children.set(process.ppid, [process]);
   }
-  const totals = new Map<ResourceProvider, { rssKb: number; cpuSeconds: number; count: number }>();
+  const totals = new Map<ResourceProvider, { rssKb: number; cpuSeconds: number; count: number; tools: number }>();
   const cpuSeconds = new Map<number, number>();
   const stack: { process: OsProcess; inherited: AgentProviderId | undefined }[] = (
     children.get(input.rootPid) ?? []
@@ -192,10 +197,11 @@ export function providerTrees(input: {
     const previous = input.previousCpuSeconds?.get(process.pid);
     // A PID that the previous sample did not list started in this window, so all its time is new.
     const usedSeconds = Math.max(0, process.cpuSeconds - (previous ?? 0));
-    const total = totals.get(key) ?? { rssKb: 0, cpuSeconds: 0, count: 0 };
+    const total = totals.get(key) ?? { rssKb: 0, cpuSeconds: 0, count: 0, tools: 0 };
     total.rssKb += process.rssKb;
     total.cpuSeconds += usedSeconds;
     total.count += 1;
+    if (next.inherited && !input.registry.has(process.pid) && !executableProvider(process.command)) total.tools += 1;
     totals.set(key, total);
     cpuSeconds.set(process.pid, process.cpuSeconds);
     for (const child of children.get(process.pid) ?? []) stack.push({ process: child, inherited: provider });
@@ -207,6 +213,7 @@ export function providerTrees(input: {
       rssMb: total.rssKb / 1024,
       cpuPct: measured ? (total.cpuSeconds / input.elapsedSeconds) * 100 : null,
       processCount: total.count,
+      toolProcessCount: total.tools,
     })),
     cpuSeconds,
   };

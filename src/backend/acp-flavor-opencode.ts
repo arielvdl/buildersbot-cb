@@ -163,4 +163,8 @@ export const OPENCODE_ACP_FLAVOR: AcpFlavor = {
   // OpenCode 2.1.4 adds each session's MCP servers to the session's directory under their names. A
   // second chat of the agent replaced the `openbot` token, and closing it left the first refused.
   mcpServersPerDirectory: true,
+  // OpenCode 2.2.5 keeps the services of each directory in a map with no idle time limit, and its
+  // `session/close` only detaches the session. Each directory's MCP servers (the person's own and
+  // Builders Bot's) then ran until the process ended: about 200 MB for each agent folder.
+  foldersOutliveSessions: true,
 };

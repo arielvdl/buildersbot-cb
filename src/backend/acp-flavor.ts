@@ -95,6 +95,13 @@ export interface AcpFlavor {
    */
   mcpServersPerDirectory?: true;
   /**
+   * The agent process keeps the services of each directory that a session opened in, with the MCP
+   * servers of that directory, until the process ends. `session/close` does not free them, and the
+   * protocol has no request that does. Only a stop of the process frees an idle directory
+   * (`ProcessFolders.idleSince`, `FOLDER_IDLE_RELEASE_MS` in `provider-runtime.ts`).
+   */
+  foldersOutliveSessions?: true;
+  /**
    * The agent connects to each MCP server of a session before it answers `session/new` or
    * `session/load`, and leaves out a server that did not load with no error. A session that Builders Bot's
    * servers did not reach then fails, as the agent cannot use Builders Bot's tools.

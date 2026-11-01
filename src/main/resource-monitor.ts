@@ -12,6 +12,7 @@ import {
   type RenderProcessGoneDetails,
   type WebContents,
 } from "electron";
+import type { ProviderFolderCounts } from "../backend/agent/provider-runtime";
 import { providerProcessIds } from "../backend/provider-processes";
 import type { AnalyticsResourceSource } from "./analytics";
 import { AnalyticsOperationFailure, toAnalyticsOperationFailure } from "./analytics-effects";
@@ -76,6 +77,8 @@ export interface ResourceMonitorOptions {
   runningTurnCount: () => number;
   /** The last reading of the memory of this computer, or null where nothing reads it. */
   memoryPressure?: () => { level: "ok" | "low" | "critical"; freePercent: number; swapUsedMb: number } | null;
+  /** The folders and sessions that each provider's running processes hold, from `AgentService.providerFolders`. */
+  providerFolders?: () => ProviderFolderCounts;
 }
 
 /** One sample as `resources.ndjson` and the diagnostics export hold it. Group and provider names only. */
@@ -83,7 +86,22 @@ interface ResourceSample {
   at: string;
   rssMb: Partial<Record<ProcessGroup | "total", number>>;
   cpuPct: Partial<Record<ProcessGroup | "total", number>>;
-  providers: Partial<Record<ResourceProvider, { rssMb: number; cpuPct: number | null; processes: number }>>;
+  providers: Partial<
+    Record<
+      ResourceProvider,
+      {
+        rssMb: number;
+        cpuPct: number | null;
+        processes: number;
+        /** MCP servers and commands: the processes in the tree that run no provider CLI. */
+        toolProcesses: number;
+        /** The agent folders, open sessions and CLI processes that Builders Bot counts for this provider. */
+        held?: { folders: number; sessions: number; processes: number };
+      }
+    >
+  >;
+  /** The memory level of this computer at the sample (`MacMemory`), or null where nothing reads it. */
+  memory: { level: "ok" | "low" | "critical"; freePercent: number; swapUsedMb: number } | null;
   mainLoopMs: { p99: number; max: number } | null;
   database: { statements: number; maxMs: number };
   activeTurns: number;
@@ -391,6 +409,8 @@ export class ResourceMonitor implements AnalyticsResourceSource {
     }
 
     const providerProcesses = sum(trees.map((tree) => tree.processCount));
+    const held = this.#options.providerFolders?.() ?? {};
+    const pressure = this.#options.memoryPressure?.() ?? null;
     const activeTurns = this.#options.runningTurnCount();
     recordPeak(day, METRIC.activeTurns, activeTurns);
     recordPeak(day, METRIC.browserTabs, tabPids.size);
@@ -403,15 +423,25 @@ export class ResourceMonitor implements AnalyticsResourceSource {
       rssMb: { ...roundedEntries(rss), total: Math.round(totalRss) },
       cpuPct: measured ? { ...roundedEntries(cpu), ...(totalCpu === null ? {} : { total: Math.round(totalCpu) }) } : {},
       providers: Object.fromEntries(
-        trees.map((tree) => [
-          tree.provider,
-          {
-            rssMb: Math.round(tree.rssMb),
-            cpuPct: tree.cpuPct === null ? null : Math.round(tree.cpuPct),
-            processes: tree.processCount,
-          },
-        ]),
+        trees.map((tree) => {
+          const counts = tree.provider === "other" ? undefined : held[tree.provider];
+          return [
+            tree.provider,
+            {
+              rssMb: Math.round(tree.rssMb),
+              cpuPct: tree.cpuPct === null ? null : Math.round(tree.cpuPct),
+              processes: tree.processCount,
+              toolProcesses: tree.toolProcessCount,
+              ...(counts ? { held: counts } : {}),
+            },
+          ];
+        }),
       ),
+      memory: pressure && {
+        level: pressure.level,
+        freePercent: Math.round(pressure.freePercent),
+        swapUsedMb: Math.round(pressure.swapUsedMb),
+      },
       mainLoopMs: mainLoopMs && { p99: Math.round(mainLoopMs.p99), max: Math.round(mainLoopMs.max) },
       database: { statements: statements.length, maxMs: Math.round(Math.max(0, ...statements)) },
       activeTurns,

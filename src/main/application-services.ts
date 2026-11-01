@@ -2957,6 +2957,7 @@ export async function createApplicationServices({
     tabProcessIds: () => browser.tabProcessIds(),
     runningTurnCount: () => service.runningTurns().length,
     memoryPressure: () => macMemory?.reading() ?? null,
+    providerFolders: () => service.providerFolders(),
   });
   teardown.push(TEARDOWN_ORDER.resourceMonitor, "the resource monitor", () =>
     Effect.runPromise(resourceMonitor.close()),

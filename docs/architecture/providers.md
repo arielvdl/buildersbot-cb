@@ -218,6 +218,38 @@ checks the real reading on macOS and the samples of 1 November through `MemoryHo
   `error.backend.browserLowMemory`, and on a server each idle agent tab unloads after 5 min.
 - The load panel shows a line with the free percentage while the level is not `ok`
   (`memory.pressure` of `LoadSnapshot`, from `MacMemory.reading()`).
+- Each line of `logs/resources.ndjson` has this level and, for each provider, the count of its MCP
+  and command processes and of the folders and sessions that its processes hold. See
+  [analytics.md](analytics.md#resource-sampling).
+
+### Folders that outlive their sessions
+
+OpenCode 2.2.5 keeps the services of each directory that a session opened in, with that directory's
+MCP servers, in a map with no idle time limit. Its `session/close` only detaches the session, and
+the protocol has no request that frees a directory. Its server has `DELETE /api/debug/location`, but
+that is a debug route of the private server that `opencode acp` starts on a random port, so Builders
+Bot does not use it. Thus one shared OpenCode process kept a full set of the person's MCP servers and
+Builders Bot's for each agent folder (about 200 MB each; 6 folders with 4 servers each on 1 November
+2026) for as long as one agent used the process, and a process that some agent uses never reaches the
+10 min idle stop. The model probe at start opens one more folder, the app's working directory.
+
+`AcpFlavor.foldersOutliveSessions` marks such an agent. Its `AcpAgentClient` records each folder that
+a session opened in on its own process, with the time of the last session or turn there
+(`ProcessFolders`). The idle check stops the process, and with it every folder's MCP servers, when
+no turn runs on it and:
+
+- a folder had no turn for `FOLDER_IDLE_RELEASE_MS` (5 min, option `folderIdleReleaseMs`), or
+- the process holds more than `FOLDER_LIMIT` folders (4, about 800 MB of MCP servers, option
+  `folderLimit`), whatever their idle time.
+
+As at low memory, the stop comes only at the second idle check in a row with no turn
+(`LOW_MEMORY_IDLE_CHECKS`), when nothing used the process for one check interval, and one interval
+after the last turn ended. The same rules apply to the own process of a Workspace only agent. The
+next turn starts the process again and loads its session from OpenCode's store, so the conversation
+stays; only the first message is slower. The stop cannot choose a folder: an agent whose turns never
+leave a gap keeps all the folders until one comes, or until the low level holds new turns and the
+low-memory stop takes the process. `scripts/opencode-folder-release-e2e.ts` checks these rules with
+a fake OpenCode that keeps a process for each folder.
 
 ## Model catalog
 
@@ -494,7 +526,9 @@ failure as well as after a success.
 configuration and model discovery. `src/backend/acp-client.ts` owns session start/load,
 streamed messages, permissions, tool bridging, and cancellation. `grok-client.ts` supplies xAI
 login and billing hooks. The OpenCode driver starts `opencode acp` on the runtime Builders Bot pins and
-downloads, or on a CLI the user installed. Profile clients deny tool permissions.
+downloads, or on a CLI the user installed. Profile clients deny tool permissions. OpenCode keeps the MCP
+servers of each folder until its process stops, so an idle folder stops the process sooner: see
+[Folders that outlive their sessions](#folders-that-outlive-their-sessions).
 
 The pinned runtime is OpenCode 2 (`@opencode/cli`). Its platform tarballs carry no licence file, so
 the stage step copies `LICENSE` from the `opencode-ai` tarball that `licensePackage` in
