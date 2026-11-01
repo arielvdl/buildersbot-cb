@@ -61,13 +61,30 @@ The origin of a turn is the most closed origin of its thread and of each of its 
   connection off when the creating turn is not the person's own (`owner_ui`). The person turns them
   on in the agent's settings.
 - A routine run has the origin of who saved the routine (`routineOriginOf`, kept in the mailbox
-  metadata row, `routineOrigins`): the person in the app (the Routines editor, or a team member's
-  app as the person's own device) gives `routine`; an agent's or a routine's turn gives `agent`; a
-  team member (through a tool or the Team API) and a chat app give a closed origin. A routine that
-  nobody saved since this version (`routineOriginsSince`) runs closed until the person saves it. A
-  run that a turn starts (`test_routine`) gets at most that turn's origin.
-- A flow handoff gets at most the origin of its run and of each link that a turn other than the
-  person's own added (`narrowFlowOrigin`). A workflow step has no stored routine, so it is closed.
+  metadata row, `routineOrigins`, key `routine:<id>`): the person in the app (the Routines editor,
+  or a team member's app as the person's own device) gives `routine`; an agent's or a routine's turn
+  gives `agent`; a team member (through a tool or the Team API) and a chat app give a closed origin.
+  Every save writes its entry. A routine with no entry runs closed (`unknown`): one that an import, a
+  template, the marketplace or an older version made. The person saves it in Routines to open it.
+- A change of a saved routine sets a more open origin only when the person (`owner_ui`) saves its
+  whole text: the Routines editor, a whole event-routine record, or `update_webhook_routine` with a
+  new `instruction` and new `filters`. Every other change (a name, a schedule, `active`, a policy, or
+  any change by another origin) keeps the most closed of the recorded origin and the new one.
+- A copy of an agent gives each copied routine the entries of its source, narrowed to the origin of
+  who copies it: `owner_ui` in the app, the member's origin through the Team API. A copy with no
+  known copier is closed.
+- A run that a turn starts (`test_routine`) gets at most that turn's origin. A webhook test event
+  gets at most the origin of who sent it (`webhook-tests-v1` passes the member's).
+- The mailbox keeps the most closed origin of who holds a webhook routine's signing secret
+  (`secret:<id>`). A Team API save that makes the secret, and a Team API rotation, write the
+  member's origin; the person's own rotation clears it, and a secret that the agent tool drops has
+  no holder. A relayed request runs with at most `routineOriginOf` of that holder: the holder can
+  sign any request.
+- A flow handoff gets at most the origin of each earlier step of its run and of every delivery of
+  each step's turn (`routineRunSenders`, read by `deliveryOrigin`), so a team member's edit of a
+  queued step, or a member's message that joins a step's turn, closes the handoffs after it. It also
+  gets at most the origin of each link that a turn other than the person's own added
+  (`narrowFlowOrigin`). A workflow step has no stored routine, so it is closed.
 - The Hub gets `origin` `owner_ui`, `routine` or `agent` only.
 
 `tool-catalog` has three operations: `search` (by job), `describe` (closed schema and price) and
@@ -91,7 +108,11 @@ never leaves the computer. The refusal names the rule and the field path, never 
 5. URLs: every `format: "uri"` field and every value that is a URL must be public `http(s)` on the
    default port, with no user, password or signature. Private, loopback, link-local and
    `100.64.0.0/10` (Tailscale) addresses, `.local`, `.internal`, `.ts.net`, `localhost` and `file:`
-   are refused (`isPublicAddress`).
+   are refused (`isPublicAddress`). A URL of a special scheme (`http`, `https`, `ftp`, `ws`, `wss`,
+   `file`) is read as a URL parser reads it, also with no `//` or with `\`: `http:\\10.0.0.1`,
+   `http:/10.0.0.1` and `https:10.0.0.1` are URLs of `10.0.0.1`, as a whole value and inside a
+   text. A signed query is a name of `SIGNED_QUERY` or a name with the word `signature`, `sig` or
+   `credential` (`isSignedQueryName`).
 
 A `search` text gets rule 3 too (`valueRule`), so a key, a cookie or a token never leaves in a
 search, also when the Guard is off. The cookie and token shapes are the Guard's own
@@ -140,10 +161,13 @@ card.
 - Every Hub text and every result reaches the agent inside
   `<connection_output untrusted="true" connection="…" endpoint="…" served_by="…">`, with `<` and
   `>` escaped in the content. Attributes are slugs only.
-- Results are masked again in the app (`result-mask.ts`), in the decoded answer: the string value
-  of each field and each URL query parameter whose name is a credential (`isCredentialName`, the
-  rule of the input check and of contract §6.3), `Bearer` values, and every known key prefix and
-  registered secret in one pass (`findSecretValues`). A secret that still shows after the mask holds
+- Results are masked again in the app (`result-mask.ts`), in the decoded answer: each value under a
+  field whose name is a credential (`isCredentialName`, the rule of the input check and of contract
+  §6.3), at every depth of it, numbers too (a number stays only under a count name such as
+  `sessions`; booleans and null stay); each URL query parameter whose name, decoded from
+  percent-encoding, is a credential or a signed URL's (`isSignedQueryName`: `X-Amz-Signature`,
+  `X-Goog-Credential`, `sig`); `Bearer` values; and every known key prefix and registered secret in
+  one pass (`findSecretValues`). A secret that still shows after the mask holds
   the whole result back (`result_withheld`). This catches a provider key that the Hub missed,
   also a key with no prefix in a field such as `X-Auth-Token`.
 - The Hub's answer must name the token's organization; another one is refused as

@@ -373,9 +373,13 @@ retries by itself).
    `http` or `https`, default port, a public host (no private, loopback, link-local,
    CGNAT/Tailscale `100.64.0.0/10`, IETF `192.0.0.0/24`, documentation `192.0.2.0/24`,
    `198.51.100.0/24`, `203.0.113.0/24` and `2001:db8::/32`, benchmark `198.18.0.0/15`, NAT64
-   `64:ff9b::/96`, `.local`, `.internal`, `.ts.net`), no user or password, no signed query. Refuse a
-   value that starts with `//` (a protocol-relative URL). Resolve the name and check the address again
-   before the vendor call.
+   `64:ff9b::/96`, `.local`, `.internal`, `.ts.net`), no user or password, no signed query (a query
+   name `x-amz-signature`, `x-amz-credential`, `x-goog-signature`, `x-goog-credential`, `signature`,
+   `sig`, `token`, `access_token`, `key`, `api_key`, `apikey`, `auth`, `code`, or a name with the word
+   `signature`, `sig` or `credential`). Refuse a value that starts with `//` (a protocol-relative URL).
+   Read a special scheme (`http`, `https`, `ftp`, `ws`, `wss`, `file`) as a WHATWG URL parser reads
+   it: `http:\\host`, `http:/host` and `https:host` name `host`, as a whole value and inside a text.
+   Resolve the name and check the address again before the vendor call.
 8. Estimate (section 7.1). If the estimate is above `maxCostPerCallMicros`, or above the body's
    `maxCostMicros`: `402 { "error": "cost_above_limit", "estimateMicros" }`. The vendor is not called.
 9. Cost approval (section 6.4).
@@ -426,9 +430,13 @@ retries by itself).
 - `content`: the provider body only. Drop the `_treg` block. For a routed answer
   `{ output, raw, _treg }`, send `output` only. Keep provider fields such as `help`: they are data,
   and the app's Guard reads them. Mask credentials in the decoded JSON, never in its text: the
-  string value of each JSON field and the value of each URL query parameter whose name is a
-  credential by the name rule of section 6.2 step 6 (also in nested objects and lists); `Bearer`
-  values; known key prefixes. A number or a boolean stays (a `sessions` count is data). An
+  value of each JSON field whose name is a credential by the name rule of section 6.2 step 6, at
+  every depth under that field (nested objects and lists too), numbers included; and the value of
+  each URL query parameter whose name, decoded from percent-encoding, is a credential by that rule
+  or a signed-query name of step 7; `Bearer` values; known key prefixes. Under a credential name a
+  boolean and null stay, and a number stays only when the name is a count (it ends in `count` or
+  `total`, or it is the plural of a credential name: a `sessions` count is data). Outside a
+  credential field, numbers and booleans stay. An
   `echoFieldExceptions` entry of a rule (section 11) may keep one reviewed field of one endpoint.
   Cut to 200,000 characters and set `truncated`. The app masks a second time with the same rule,
   in one pass, and holds the whole result back (`result_withheld`) when a secret still shows.
