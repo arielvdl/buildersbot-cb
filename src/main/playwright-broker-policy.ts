@@ -269,6 +269,17 @@ export class BrowserLedger {
   }
 }
 
+/**
+ * Tools of the Playwright server that the broker never forwards. `browser_run_code_unsafe` runs any
+ * Playwright code with the reach of the whole browser context (the server calls it "RCE-equivalent"):
+ * every tab of the project's group, the cookies of the person's sites, and new pages. The broker answers
+ * it with a refusal and leaves it out of `tools/list`.
+ */
+export const REFUSED_BROWSER_TOOLS: ReadonlySet<string> = new Set(["browser_run_code_unsafe"]);
+
+export const REFUSED_BROWSER_TOOL_MESSAGE =
+  "This tool is off in Builders Bot: it runs code with the reach of the whole browser. Use browser_evaluate on the current page, or the other browser tools.";
+
 /** A tool result that says a call was refused. */
 export interface ToolRefusal {
   isError: true;

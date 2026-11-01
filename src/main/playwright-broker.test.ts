@@ -890,17 +890,19 @@ describe("the Guard on browser calls", () => {
     expect(forwarded[0]).toContain(JSON.stringify(join(folder, "photo.png")));
   });
 
-  it("asks for the code itself when an agent runs code from a file, also with code beside the file", async () => {
+  it("refuses browser_run_code_unsafe before the Guard, with code, a file, or both", async () => {
     const s = await setup({ guardCall: realGuard });
     const session = await open(s);
-    // Playwright runs the file and ignores the code when both are given.
+    // The tool has the reach of the whole browser context, so no argument makes it run.
     for (const [id, args] of [
-      [2, { filename: "/tmp/steps.js" }],
-      [3, { code: "async (page) => page.title()", filename: "/tmp/steps.js" }],
+      [2, { code: "async (page) => page.title()" }],
+      [3, { filename: "/tmp/steps.js" }],
+      [4, { code: "async (page) => page.title()", filename: "/tmp/steps.js" }],
     ] as const) {
       const reply = await post(s, call(id, "browser_run_code_unsafe", args), session);
       const message: RpcReply = JSON.parse(reply.text);
-      expect(message.result?.content[0]?.text).toMatch(/Give the code in the `code` argument instead\.$/u);
+      expect(message.result?.isError).toBe(true);
+      expect(message.result?.content[0]?.text).toMatch(/off in Builders Bot/u);
     }
     expect(toolCalls(s)).toEqual([]);
   });
