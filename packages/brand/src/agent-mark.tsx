@@ -233,6 +233,11 @@ export interface AgentMarkProps {
   mood?: AvatarMood;
   /** The emblem of the agent's role on the right face. Without one, the right face is plain. */
   role?: AgentMarkRole | null | undefined;
+  /**
+   * An emblem of its own on the right face, in place of the role symbol, such as the shield of the
+   * Guard. It is drawn in the 68 x 78 box of the role symbols, with their stroke and colour.
+   */
+  emblem?: (() => JSX.Element) | undefined;
   /** Any CSS colour. The brand lime by default. A hex colour also gives the lid symbol its ink. */
   accent?: string;
   /** Moves the start of the motion, so agents side by side do not blink or flash together. */
@@ -346,8 +351,8 @@ export function AgentMark(props: AgentMarkProps) {
             )}
           </Show>
           <AgentMarkSide shades={shades()} eyelid={agentMarkEyelid(mood())} />
-          <Show when={props.role}>
-            {(role) => (
+          <Show when={props.emblem ?? (props.role ? ROLE_SYMBOLS[props.role] : undefined)}>
+            {(symbol) => (
               <g
                 class="agent-mark-emblem"
                 transform={RIGHT_PLANE}
@@ -359,7 +364,7 @@ export function AgentMark(props: AgentMarkProps) {
                 stroke-linejoin="round"
                 opacity="0.96"
               >
-                <g transform={EMBLEM_SCALE}>{ROLE_SYMBOLS[role()]()}</g>
+                <g transform={EMBLEM_SCALE}>{symbol()()}</g>
               </g>
             )}
           </Show>

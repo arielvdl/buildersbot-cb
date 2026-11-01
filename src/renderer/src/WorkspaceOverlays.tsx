@@ -888,6 +888,7 @@ function AppSettings(props: AccountProps) {
   const whatsNew = useWhatsNew();
   const { servers, hostStatus, setAddServerOpen, setServerMuted, setServerNotificationLevel } = useServers();
   const { publishLocalServer } = useServerSettings();
+  const { approvals } = useTurns();
   /**
    * The web app on a phone lists this computer only while its server is published. A published server
    * (`enabledOnLaunch`) that is not online, such as after a Signal failure at wake, is published again
@@ -922,6 +923,7 @@ function AppSettings(props: AccountProps) {
         // The settings show only as a page of the window, so they wait for the page.
         open={appSettingsOpen() && windowPage.settingsPlacement("personal") !== undefined}
         page={windowPage.settingsPlacement("personal")}
+        guardAsking={approvals().some((approval) => approval.guard === true)}
         value={generalSettings()}
         onValueChange={updateGeneralSettings}
         preferencesLoadFailed={preferencesLoadFailed()}

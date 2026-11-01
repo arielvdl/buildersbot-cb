@@ -22,6 +22,7 @@ import {
   SettingsSection,
   TriangleAlert,
 } from "@openbot/ui";
+import { GuardLevelChoice, GuardSirenHero, type GuardSirenStatus } from "@openbot/ui/features/guard/GuardSiren";
 import { useText } from "@openbot/ui/text";
 import { For, Match, Show, Switch } from "solid-js";
 import { type GuardModelRow, guardModelKey, guardModelName, type SettingsGuardStore } from "./settings-guard-store";
@@ -42,13 +43,18 @@ const LEAVES = [
   "guard.leaves.log",
 ] as const satisfies ReadonlyArray<AppTextKey>;
 
+/** What the review model can do now: the siren and the notices of the page both read this. */
+type GuardJudgeStatus = "local-only" | "signed-out" | "unavailable" | "ready";
+
 /**
- * Settings › Guard: the level of the Guard and the model that reviews suspicious items. Off and
- * Light run now; the stricter levels show as coming soon. The page says when the Guard uses only
- * the local check, such as with no Cultura Builder sign-in, when it asks the person, and what leaves
- * the computer. It links to the task reviewer, which asks the same model, to the load panel, and to
- * the security review of messages, a separate check that people can take for a part of the Guard. The
- * Guard runs on this computer, so a joined server gets a note that its own Guard is not changed here.
+ * Settings › Guard: the siren of the Guard with the level cards under it, the level of the Guard and
+ * the model that reviews suspicious items. Off and Light run now; the stricter levels show as coming
+ * soon. The cards and the level list set the same level. The page says what the Guard does now, when
+ * the Guard uses only the local check, such as with no Cultura Builder sign-in, when it asks the
+ * person, and what leaves the computer. It links to the task reviewer, which asks the same model, to
+ * the load panel, and to the security review of messages, a separate check that people can take for
+ * a part of the Guard. The Guard runs on this computer, so a joined server gets a note that its own
+ * Guard is not changed here.
  */
 export function SettingsGuardTab(props: {
   store: SettingsGuardStore;
@@ -60,13 +66,18 @@ export function SettingsGuardTab(props: {
   onOpenLoadPanel: (() => void) | undefined;
   /** Shows the switch of the security review of messages, in General. */
   onOpenMessageReview: () => void;
+  /** True while a question of the Guard of this computer waits for the person. */
+  asking: boolean;
 }) {
   const { t } = useText();
   const guard = () => props.store.state.guard;
-  const level = () => {
+  /** The saved level, or null before main answers: the page then shows no level. */
+  const savedLevel = () => {
     const current = guard();
-    return current ? guardEffectiveLevel(current.preference.level) : "light";
+    return current ? guardEffectiveLevel(current.preference.level) : null;
   };
+  /** The level that the controls of the page show while it loads: the default. */
+  const level = () => savedLevel() ?? "light";
   const judge = () => guard()?.preference.judge ?? null;
   const busy = () => guard() === null || props.store.state.saving;
   const levelLabel = (value: GuardLevel) =>
@@ -78,9 +89,29 @@ export function SettingsGuardTab(props: {
     return row?.recommended ? t("guard.model.recommended", { name }) : name;
   };
   const rowFor = (key: string) => props.store.rows().find((row) => row.key === key);
+  const judgeStatus = (): GuardJudgeStatus => {
+    const choice = judge();
+    if (!choice) return "local-only";
+    if (guard()?.judgeReady === false) return choice.provider === "cultura-builder" ? "signed-out" : "unavailable";
+    return "ready";
+  };
+  /** What the Guard does now, from the saved state and the questions that wait. */
+  const sirenStatus = (): GuardSirenStatus => {
+    if (!guard()) return "loading";
+    if (level() === "off") return "off";
+    if (props.asking) return "asking";
+    return judgeStatus();
+  };
+  const chooseLevel = (value: GuardLevel | null | undefined) => {
+    if (value && isGuardAvailableLevel(value) && value !== level()) props.store.setLevel(value);
+  };
 
   return (
     <>
+      <GuardSirenHero level={savedLevel()} status={sirenStatus()}>
+        {/* Only while it loads: a card keeps the focus while the level saves, for the arrow keys. */}
+        <GuardLevelChoice value={savedLevel()} disabled={guard() === null} onChange={chooseLevel} />
+      </GuardSirenHero>
       <Show when={props.joinedServer}>
         {(server) => (
           <Alert tone="neutral" role="status">
@@ -108,9 +139,7 @@ export function SettingsGuardTab(props: {
                 value={level()}
                 disabled={busy()}
                 optionDisabled={(option) => !isGuardAvailableLevel(option)}
-                onChange={(value) => {
-                  if (value && isGuardAvailableLevel(value) && value !== level()) props.store.setLevel(value);
-                }}
+                onChange={chooseLevel}
                 placement="bottom-end"
                 itemComponent={(itemProps) => (
                   <SelectItem item={itemProps.item}>{levelLabel(itemProps.item.rawValue)}</SelectItem>
@@ -162,7 +191,7 @@ export function SettingsGuardTab(props: {
         </ItemGroup>
         <Show when={guard() !== null && level() !== "off"}>
           <Switch>
-            <Match when={judge() === null}>
+            <Match when={judgeStatus() === "local-only"}>
               <Alert tone="neutral" role="status">
                 <AlertIcon>
                   <Info aria-hidden="true" />
@@ -172,7 +201,7 @@ export function SettingsGuardTab(props: {
                 </AlertContent>
               </Alert>
             </Match>
-            <Match when={judge()?.provider === "cultura-builder" && guard()?.judgeReady === false}>
+            <Match when={judgeStatus() === "signed-out"}>
               <Alert tone="warning" role="status" report={false}>
                 <AlertIcon>
                   <TriangleAlert aria-hidden="true" />
@@ -183,7 +212,7 @@ export function SettingsGuardTab(props: {
                 </AlertContent>
               </Alert>
             </Match>
-            <Match when={judge() !== null && guard()?.judgeReady === false}>
+            <Match when={judgeStatus() === "unavailable"}>
               <Alert tone="warning" role="status" report={false}>
                 <AlertIcon>
                   <TriangleAlert aria-hidden="true" />
@@ -194,7 +223,7 @@ export function SettingsGuardTab(props: {
                 </AlertContent>
               </Alert>
             </Match>
-            <Match when={judge() !== null && judge()?.provider !== "cultura-builder"}>
+            <Match when={judgeStatus() === "ready" && judge()?.provider !== "cultura-builder"}>
               <Alert tone="neutral" role="status">
                 <AlertIcon>
                   <Info aria-hidden="true" />

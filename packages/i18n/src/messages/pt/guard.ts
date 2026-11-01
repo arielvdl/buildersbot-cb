@@ -8,11 +8,15 @@ export const messages = {
   "guard.level.title": "Nível",
   "guard.level.description": "Quão cuidadoso o Guarda é. Leve é o padrão.",
   "guard.level.off": "Desligado (dormindo)",
+  "guard.level.offShort": "Desligado",
   "guard.level.light": "Leve",
   "guard.level.strict": "Exigente",
   "guard.level.veryStrict": "Muito exigente",
   "guard.level.custom": "Personalizado",
   "guard.level.comingSoon": "{level} (em breve)",
+  "guard.level.choose": "Escolha o nível",
+  "guard.level.chosen": "Escolhido",
+  "guard.level.soon": "Em breve",
   "guard.level.offExplain":
     "O Guarda está dormindo e não confere nada. Escolha Desligado só para desligar o Guarda por completo. Você pode ligá-lo de novo quando quiser.",
   "guard.level.lightExplain":
@@ -56,4 +60,12 @@ export const messages = {
     "{server} é outro servidor, com o próprio Guarda. Esta página muda só o Guarda deste computador: este app ainda não muda o de {server}.",
   "guard.loadFailed": "A configuração do Guarda não carregou.",
   "guard.saveFailed": "A configuração do Guarda não foi salva.",
+  "guard.siren.label": "A sirene do Guarda",
+  "guard.siren.status.loading": "Lendo o estado do Guarda…",
+  "guard.siren.status.off": "Nada é conferido até você escolher Leve.",
+  "guard.siren.status.asking": "Perguntando a você agora. Responda no cartão da conversa.",
+  "guard.siren.status.localOnly": "Calmo. A verificação local lê tudo, e nada sai pela rede.",
+  "guard.siren.status.signedOut": "Calmo. Só a verificação local roda: você não entrou no Cultura Builder.",
+  "guard.siren.status.unavailable": "Calmo. Só a verificação local roda: o modelo de revisão não está disponível.",
+  "guard.siren.status.ready": "Calmo. A verificação local lê tudo, e o modelo revisa o que parece suspeito.",
 } as const satisfies PartialTranslation<typeof source>;

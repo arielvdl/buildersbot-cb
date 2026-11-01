@@ -8,11 +8,15 @@ export const messages = defineMessages("guard", {
   "guard.level.title": "Level",
   "guard.level.description": "How careful the Guard is. Light is the default.",
   "guard.level.off": "Off (asleep)",
+  "guard.level.offShort": "Off",
   "guard.level.light": "Light",
   "guard.level.strict": "Strict",
   "guard.level.veryStrict": "Very strict",
   "guard.level.custom": "Custom",
   "guard.level.comingSoon": "{level} (coming soon)",
+  "guard.level.choose": "Choose the level",
+  "guard.level.chosen": "Chosen",
+  "guard.level.soon": "Soon",
   "guard.level.offExplain":
     "The Guard is asleep and checks nothing. Choose Off only to turn the Guard off completely. You can turn it on again at any time.",
   "guard.level.lightExplain":
@@ -56,4 +60,12 @@ export const messages = defineMessages("guard", {
     "{server} is another server, with its own Guard. This page changes the Guard of this computer only: this app cannot change the one of {server} yet.",
   "guard.loadFailed": "The Guard setting did not load.",
   "guard.saveFailed": "The Guard setting was not saved.",
+  "guard.siren.label": "The Guard's siren",
+  "guard.siren.status.loading": "Reading the state of the Guard…",
+  "guard.siren.status.off": "Nothing is checked until you choose Light.",
+  "guard.siren.status.asking": "Asking you now. Answer on the card in the conversation.",
+  "guard.siren.status.localOnly": "Calm. The local check reads everything, and nothing goes over the network.",
+  "guard.siren.status.signedOut": "Calm. Only the local check runs: you are not signed in to Cultura Builder.",
+  "guard.siren.status.unavailable": "Calm. Only the local check runs: the review model is not available.",
+  "guard.siren.status.ready": "Calm. The local check reads everything, and the model reviews what looks suspicious.",
 });

@@ -26,6 +26,16 @@
   overflow-wrap: anywhere;
 }
 
+/* The siren of a Guard question stands before the title, and the title takes the space up to the badge. */
+.approval-card-siren {
+  align-self: center;
+}
+
+.approval-card-siren + :is(strong, h2) {
+  flex: 1 1 auto;
+  align-self: center;
+}
+
 .conversation-interaction-status[data-slot="badge"] {
   flex: 0 0 auto;
   gap: var(--openbot-space-1-5);

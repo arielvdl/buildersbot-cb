@@ -43,7 +43,7 @@ index 5000f2871ccda16662437b482ecb25609fa1fd2f..13093280d271cd2ae4e1aa98f8892b1f
  //#endregion
  //#region src/button/index.tsx
 diff --git a/dist/combobox-base/BFUCtj_r.jsx b/dist/combobox-base/BFUCtj_r.jsx
-index b07ca00acb0bac67977b00a8d747032ef016105c..051897ba34d6e85c5982fd33abc8f8470132c11a 100644
+index b07ca00acb0bac67977b00a8d747032ef016105c..d602f59f0f9cee8e1fc1f987a81c52f267c2b065 100644
 --- a/dist/combobox-base/BFUCtj_r.jsx
 +++ b/dist/combobox-base/BFUCtj_r.jsx
 @@ -14,7 +14,7 @@ import { n as listbox_exports } from "../listbox/BNC6ufaz.jsx";
@@ -55,7 +55,18 @@ index b07ca00acb0bac67977b00a8d747032ef016105c..051897ba34d6e85c5982fd33abc8f847
  import { createPresence } from "@solid-primitives/presence";
  import { Portal } from "@solidjs/web";
  import { access } from "@solid-primitives/utils";
-@@ -502,7 +502,7 @@ function ComboboxBase(props) {
+@@ -482,7 +482,9 @@ function ComboboxBase(props) {
+ 	};
+ 	const activeDescendant = createMemo(() => {
+ 		const focusedKey = listState.selectionManager().focusedKey();
+-		if (focusedKey) return listboxRef()?.querySelector(`[data-key="${focusedKey}"]`)?.id;
++		// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++		// error halted the reactive system of the window.
++		if (focusedKey) return listboxRef()?.querySelector(`[data-key="${CSS.escape(String(focusedKey))}"]`)?.id;
+ 	});
+ 	const resetInputValue = (selectedKeys) => {
+ 		if (mergedProps.selectionMode === "single") {
+@@ -502,7 +504,7 @@ function ComboboxBase(props) {
  		return mergedProps.sectionComponent?.({ section });
  	};
  	createEffect(() => [filteredOptions(), showAllOptions()], (input, prevInput) => {
@@ -64,7 +75,7 @@ index b07ca00acb0bac67977b00a8d747032ef016105c..051897ba34d6e85c5982fd33abc8f847
  			const [prevFilteredOptions, prevShowAllOptions] = prevInput;
  			setLastDisplayedOptions(prevShowAllOptions ? mergedProps.options : prevFilteredOptions);
  		} else {
-@@ -547,7 +547,7 @@ function ComboboxBase(props) {
+@@ -547,7 +549,7 @@ function ComboboxBase(props) {
  			lastSelectedItem: listState.collection().getItem(lastSelectedKey)
  		};
  	}, ({ lastSelectedKey, lastSelectedItem }) => {
@@ -74,7 +85,7 @@ index b07ca00acb0bac67977b00a8d747032ef016105c..051897ba34d6e85c5982fd33abc8f847
  	});
  	const dataset = createMemo(() => ({
 diff --git a/dist/combobox-base/pqkzvj0_.js b/dist/combobox-base/pqkzvj0_.js
-index 839d79ad6ae08342ddca0b8bf2782f81e77fb66c..652237085ecf7f9bb340d27d811c0ed78354b6a0 100644
+index 839d79ad6ae08342ddca0b8bf2782f81e77fb66c..b1b026308be46c40088e2e5515ac6106531199e7 100644
 --- a/dist/combobox-base/pqkzvj0_.js
 +++ b/dist/combobox-base/pqkzvj0_.js
 @@ -15,7 +15,7 @@ import { t as HiddenSelectBase } from "../hidden-select-base/DZDStUWy.js";
@@ -86,7 +97,18 @@ index 839d79ad6ae08342ddca0b8bf2782f81e77fb66c..652237085ecf7f9bb340d27d811c0ed7
  import { createPresence } from "@solid-primitives/presence";
  import { access } from "@solid-primitives/utils";
  import { callHandler } from "@kobalte/utils";
-@@ -639,7 +639,7 @@ function ComboboxBase(props) {
+@@ -619,7 +619,9 @@ function ComboboxBase(props) {
+ 	};
+ 	const activeDescendant = createMemo(() => {
+ 		const focusedKey = listState.selectionManager().focusedKey();
+-		if (focusedKey) return listboxRef()?.querySelector(`[data-key="${focusedKey}"]`)?.id;
++		// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++		// error halted the reactive system of the window.
++		if (focusedKey) return listboxRef()?.querySelector(`[data-key="${CSS.escape(String(focusedKey))}"]`)?.id;
+ 	});
+ 	const resetInputValue = (selectedKeys) => {
+ 		if (mergedProps.selectionMode === "single") {
+@@ -639,7 +641,7 @@ function ComboboxBase(props) {
  		return mergedProps.sectionComponent?.({ section });
  	};
  	createEffect(() => [filteredOptions(), showAllOptions()], (input, prevInput) => {
@@ -95,7 +117,7 @@ index 839d79ad6ae08342ddca0b8bf2782f81e77fb66c..652237085ecf7f9bb340d27d811c0ed7
  			const [prevFilteredOptions, prevShowAllOptions] = prevInput;
  			setLastDisplayedOptions(prevShowAllOptions ? mergedProps.options : prevFilteredOptions);
  		} else {
-@@ -684,7 +684,7 @@ function ComboboxBase(props) {
+@@ -684,7 +686,7 @@ function ComboboxBase(props) {
  			lastSelectedItem: listState.collection().getItem(lastSelectedKey)
  		};
  	}, ({ lastSelectedKey, lastSelectedItem }) => {
@@ -313,7 +335,7 @@ index 6b8a3617f27946fec9535b14e108400de48a4bf2..a85c7f25ba6bcba2378334683a24ccec
  				return nextItems;
  			});
 diff --git a/dist/create-list-state/C8P6E0Wr.js b/dist/create-list-state/C8P6E0Wr.js
-index 3a1c10db9009ce119539b2c8eb8d63b29f880d43..0defd369d272b01114acb420fcbb88f56c85eae5 100644
+index 3a1c10db9009ce119539b2c8eb8d63b29f880d43..3f1bc8439e6ef51eac344136fa41c04be2681c98 100644
 --- a/dist/create-list-state/C8P6E0Wr.js
 +++ b/dist/create-list-state/C8P6E0Wr.js
 @@ -1,7 +1,7 @@
@@ -325,7 +347,18 @@ index 3a1c10db9009ce119539b2c8eb8d63b29f880d43..0defd369d272b01114acb420fcbb88f5
  import { access } from "@solid-primitives/utils";
  import { callHandler } from "@kobalte/utils";
  import { isAppleDevice, isMac } from "@solid-primitives/platform";
-@@ -361,7 +361,7 @@ function createSelectableCollection(props, ref, scrollRef) {
+@@ -325,7 +325,9 @@ function createSelectableCollection(props, ref, scrollRef) {
+ 			if (scrollEl) {
+ 				scrollEl.scrollTop = scrollPos.top;
+ 				scrollEl.scrollLeft = scrollPos.left;
+-				const element = scrollEl.querySelector(`[data-key="${manager.focusedKey()}"]`);
++				// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++				// error halted the reactive system of the window.
++				const element = scrollEl.querySelector(`[data-key="${CSS.escape(String(manager.focusedKey()))}"]`);
+ 				if (element) {
+ 					element.focus({ preventScroll: true });
+ 					element.scrollIntoView({ block: "nearest" });
+@@ -361,7 +363,7 @@ function createSelectableCollection(props, ref, scrollRef) {
  	};
  	onSettled(() => {
  		if (mergedProps.deferAutoFocus) setTimeout(tryAutoFocus, 0);
@@ -334,7 +367,18 @@ index 3a1c10db9009ce119539b2c8eb8d63b29f880d43..0defd369d272b01114acb420fcbb88f5
  	});
  	createEffect(() => [
  		finalScrollRef(),
-@@ -448,8 +448,8 @@ function createSelectableItem(props, ref) {
+@@ -370,7 +372,9 @@ function createSelectableCollection(props, ref, scrollRef) {
+ 	], ([scrollEl, isVirtualized, focusedKey]) => {
+ 		if (isVirtualized) focusedKey && mergedProps.scrollToKey?.(focusedKey);
+ 		else if (focusedKey && scrollEl) {
+-			const element = scrollEl.querySelector(`[data-key="${focusedKey}"]`);
++			// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++			// error halted the reactive system of the window.
++			const element = scrollEl.querySelector(`[data-key="${CSS.escape(String(focusedKey))}"]`);
+ 			if (element) element.scrollIntoView({ block: "nearest" });
+ 		}
+ 	});
+@@ -448,8 +452,8 @@ function createSelectableItem(props, ref) {
  		manager().focusedKey(),
  		manager().isFocused()
  	], ([refEl, itemKey, virtualFocus, focusedKey, isFocused]) => {
@@ -346,7 +390,7 @@ index 3a1c10db9009ce119539b2c8eb8d63b29f880d43..0defd369d272b01114acb420fcbb88f5
  	return {
  		isSelected,
 diff --git a/dist/create-list-state/CgkAj-2j.jsx b/dist/create-list-state/CgkAj-2j.jsx
-index 459d60819480f18a86c3b292291761620c37ffad..4ab66e7b0e016c45fda73d55134eb77d21f1b785 100644
+index 459d60819480f18a86c3b292291761620c37ffad..0bd1c557c4a41111fadc90a0e16b35e2fd49bcca 100644
 --- a/dist/create-list-state/CgkAj-2j.jsx
 +++ b/dist/create-list-state/CgkAj-2j.jsx
 @@ -1,7 +1,7 @@
@@ -358,7 +402,18 @@ index 459d60819480f18a86c3b292291761620c37ffad..4ab66e7b0e016c45fda73d55134eb77d
  import { access } from "@solid-primitives/utils";
  import { callHandler } from "@kobalte/utils";
  import { isAppleDevice, isMac } from "@solid-primitives/platform";
-@@ -361,7 +361,7 @@ function createSelectableCollection(props, ref, scrollRef) {
+@@ -325,7 +325,9 @@ function createSelectableCollection(props, ref, scrollRef) {
+ 			if (scrollEl) {
+ 				scrollEl.scrollTop = scrollPos.top;
+ 				scrollEl.scrollLeft = scrollPos.left;
+-				const element = scrollEl.querySelector(`[data-key="${manager.focusedKey()}"]`);
++				// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++				// error halted the reactive system of the window.
++				const element = scrollEl.querySelector(`[data-key="${CSS.escape(String(manager.focusedKey()))}"]`);
+ 				if (element) {
+ 					element.focus({ preventScroll: true });
+ 					element.scrollIntoView({ block: "nearest" });
+@@ -361,7 +363,7 @@ function createSelectableCollection(props, ref, scrollRef) {
  	};
  	onSettled(() => {
  		if (mergedProps.deferAutoFocus) setTimeout(tryAutoFocus, 0);
@@ -367,7 +422,18 @@ index 459d60819480f18a86c3b292291761620c37ffad..4ab66e7b0e016c45fda73d55134eb77d
  	});
  	createEffect(() => [
  		finalScrollRef(),
-@@ -448,8 +448,8 @@ function createSelectableItem(props, ref) {
+@@ -370,7 +372,9 @@ function createSelectableCollection(props, ref, scrollRef) {
+ 	], ([scrollEl, isVirtualized, focusedKey]) => {
+ 		if (isVirtualized) focusedKey && mergedProps.scrollToKey?.(focusedKey);
+ 		else if (focusedKey && scrollEl) {
+-			const element = scrollEl.querySelector(`[data-key="${focusedKey}"]`);
++			// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++			// error halted the reactive system of the window.
++			const element = scrollEl.querySelector(`[data-key="${CSS.escape(String(focusedKey))}"]`);
+ 			if (element) element.scrollIntoView({ block: "nearest" });
+ 		}
+ 	});
+@@ -448,8 +452,8 @@ function createSelectableItem(props, ref) {
  		manager().focusedKey(),
  		manager().isFocused()
  	], ([refEl, itemKey, virtualFocus, focusedKey, isFocused]) => {
@@ -378,6 +444,36 @@ index 459d60819480f18a86c3b292291761620c37ffad..4ab66e7b0e016c45fda73d55134eb77d
  	});
  	return {
  		isSelected,
+diff --git a/dist/create-selectable-list/BaZIicda.js b/dist/create-selectable-list/BaZIicda.js
+index 84c6e897eeac64e02befd99252f31aea5bb1bf71..c8732d26da2d63984ec3587012c0e09f0ff3944c 100644
+--- a/dist/create-selectable-list/BaZIicda.js
++++ b/dist/create-selectable-list/BaZIicda.js
+@@ -45,7 +45,9 @@ var ListKeyboardDelegate = class {
+ 		}
+ 	}
+ 	getItem(key) {
+-		return this.ref?.()?.querySelector(`[data-key="${key}"]`) ?? null;
++		// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++		// error halted the reactive system of the window.
++		return this.ref?.()?.querySelector(`[data-key="${CSS.escape(String(key))}"]`) ?? null;
+ 	}
+ 	getKeyPageAbove(key) {
+ 		const menu = this.ref?.();
+diff --git a/dist/create-selectable-list/Cai1J0En.jsx b/dist/create-selectable-list/Cai1J0En.jsx
+index 7dd3ede0ea7da0a1666f99e36a399ce6ca18f9be..317e92409e617c6a031ea7a34f6abde602e95651 100644
+--- a/dist/create-selectable-list/Cai1J0En.jsx
++++ b/dist/create-selectable-list/Cai1J0En.jsx
+@@ -45,7 +45,9 @@ var ListKeyboardDelegate = class {
+ 		}
+ 	}
+ 	getItem(key) {
+-		return this.ref?.()?.querySelector(`[data-key="${key}"]`) ?? null;
++		// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++		// error halted the reactive system of the window.
++		return this.ref?.()?.querySelector(`[data-key="${CSS.escape(String(key))}"]`) ?? null;
+ 	}
+ 	getKeyPageAbove(key) {
+ 		const menu = this.ref?.();
 diff --git a/dist/dismissable-layer/DXLD03yU.js b/dist/dismissable-layer/DXLD03yU.js
 index fde40e74ee904abceeb2c1daa3ce86f8dd9e38c8..f8ae7e07bd35e976d4e2d3c54da7d666a1430974 100644
 --- a/dist/dismissable-layer/DXLD03yU.js
@@ -894,7 +990,7 @@ index 5cf493ce13b9a9fa42bb01b383ac28bd4520fa09..93507225596660e81dc89f6a7aa2bf9d
  							get id() {
  								return access(mergedProps.id);
 diff --git a/dist/tabs/Bcy3rD0-.js b/dist/tabs/Bcy3rD0-.js
-index b50c5e60030cac03d97ab8f0b3749004568625f8..ebefc11fb327b83e1b516bf8f21d1c382025cd8e 100644
+index b50c5e60030cac03d97ab8f0b3749004568625f8..1462b11d6b52febc92ee19b87cd57b0143fdd437 100644
 --- a/dist/tabs/Bcy3rD0-.js
 +++ b/dist/tabs/Bcy3rD0-.js
 @@ -7,7 +7,7 @@ import { n as createDomCollection, t as createDomCollectionItem } from "../creat
@@ -933,7 +1029,18 @@ index b50c5e60030cac03d97ab8f0b3749004568625f8..ebefc11fb327b83e1b516bf8f21d1c38
  	});
  	return createComponent(Polymorphic, mergeProps({
  		as: "div",
-@@ -251,7 +251,7 @@ function TabsRoot(props) {
+@@ -210,7 +210,9 @@ function TabsList(props) {
+ 	}, ref);
+ 	createEffect(() => {
+ 		if (ref() == null) return null;
+-		return ref().querySelector(`[data-key="${context.listState().selectedKey()}"]`);
++		// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++		// error halted the reactive system of the window.
++		return ref().querySelector(`[data-key="${CSS.escape(String(context.listState().selectedKey()))}"]`);
+ 	}, (selectedTab) => {
+ 		if (selectedTab != null) context.setSelectedTab(selectedTab);
+ 	});
+@@ -251,7 +253,7 @@ function TabsRoot(props) {
  		activationMode: "automatic"
  	}, props);
  	const others = omit(mergedProps, "value", "defaultValue", "onChange", "orientation", "activationMode", "disabled");
@@ -942,7 +1049,7 @@ index b50c5e60030cac03d97ab8f0b3749004568625f8..ebefc11fb327b83e1b516bf8f21d1c38
  	const [selectedTab, setSelectedTab] = createSignal();
  	const { DomCollectionProvider } = createDomCollection({
  		items,
-@@ -263,14 +263,14 @@ function TabsRoot(props) {
+@@ -263,14 +265,14 @@ function TabsRoot(props) {
  		onSelectionChange: (key) => mergedProps.onChange?.(String(key)),
  		dataSource: items
  	});
@@ -959,7 +1066,7 @@ index b50c5e60030cac03d97ab8f0b3749004568625f8..ebefc11fb327b83e1b516bf8f21d1c38
  			selectedKey = collection.getFirstKey();
  			let selectedItem = selectedKey != null ? collection.getItem(selectedKey) : void 0;
  			while (selectedItem?.disabled && selectedItem.key !== collection.getLastKey()) {
-@@ -280,7 +280,7 @@ function TabsRoot(props) {
+@@ -280,7 +282,7 @@ function TabsRoot(props) {
  			if (selectedItem?.disabled && selectedKey === collection.getLastKey()) selectedKey = collection.getFirstKey();
  			if (selectedKey != null) selectionManager.setSelectedKeys([selectedKey]);
  		}
@@ -969,7 +1076,7 @@ index b50c5e60030cac03d97ab8f0b3749004568625f8..ebefc11fb327b83e1b516bf8f21d1c38
  	});
  	const triggerIdsMap = /* @__PURE__ */ new Map();
 diff --git a/dist/tabs/CezyXMlG.jsx b/dist/tabs/CezyXMlG.jsx
-index 6386365bd6e1ef3d76be952cd214f54dfa53e937..0e042d04291724842f5f1cf65487eec93e91e6b6 100644
+index 6386365bd6e1ef3d76be952cd214f54dfa53e937..f3a340cf6a98ca241a4872d657a9d06ba5d63260 100644
 --- a/dist/tabs/CezyXMlG.jsx
 +++ b/dist/tabs/CezyXMlG.jsx
 @@ -6,7 +6,7 @@ import { useLocale } from "../i18n/index.jsx";
@@ -1008,7 +1115,18 @@ index 6386365bd6e1ef3d76be952cd214f54dfa53e937..0e042d04291724842f5f1cf65487eec9
  	});
  	return <Polymorphic as="div" role="presentation" style={combineStyle(style(), props.style)} data-orientation={context.orientation()} data-resizing={resizing()} {...others} />;
  }
-@@ -192,7 +192,7 @@ function TabsRoot(props) {
+@@ -173,7 +173,9 @@ function TabsList(props) {
+ 	}, ref);
+ 	createEffect(() => {
+ 		if (ref() == null) return null;
+-		return ref().querySelector(`[data-key="${context.listState().selectedKey()}"]`);
++		// Builders Bot patch: escape the key. A key with a quote or a backslash made an invalid selector, and the
++		// error halted the reactive system of the window.
++		return ref().querySelector(`[data-key="${CSS.escape(String(context.listState().selectedKey()))}"]`);
+ 	}, (selectedTab) => {
+ 		if (selectedTab != null) context.setSelectedTab(selectedTab);
+ 	});
+@@ -192,7 +194,7 @@ function TabsRoot(props) {
  		activationMode: "automatic"
  	}, props);
  	const others = omit(mergedProps, "value", "defaultValue", "onChange", "orientation", "activationMode", "disabled");
@@ -1017,7 +1135,7 @@ index 6386365bd6e1ef3d76be952cd214f54dfa53e937..0e042d04291724842f5f1cf65487eec9
  	const [selectedTab, setSelectedTab] = createSignal();
  	const { DomCollectionProvider } = createDomCollection({
  		items,
-@@ -204,14 +204,14 @@ function TabsRoot(props) {
+@@ -204,14 +206,14 @@ function TabsRoot(props) {
  		onSelectionChange: (key) => mergedProps.onChange?.(String(key)),
  		dataSource: items
  	});
@@ -1034,7 +1152,7 @@ index 6386365bd6e1ef3d76be952cd214f54dfa53e937..0e042d04291724842f5f1cf65487eec9
  			selectedKey = collection.getFirstKey();
  			let selectedItem = selectedKey != null ? collection.getItem(selectedKey) : void 0;
  			while (selectedItem?.disabled && selectedItem.key !== collection.getLastKey()) {
-@@ -221,7 +221,7 @@ function TabsRoot(props) {
+@@ -221,7 +223,7 @@ function TabsRoot(props) {
  			if (selectedItem?.disabled && selectedKey === collection.getLastKey()) selectedKey = collection.getFirstKey();
  			if (selectedKey != null) selectionManager.setSelectedKeys([selectedKey]);
  		}

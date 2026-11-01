@@ -213,6 +213,21 @@
   --openbot-beam-blue: var(--openbot-accent-text);
   --openbot-beam-pink: var(--openbot-file-pink);
   --openbot-approval-badge-soft: rgba(255, 148, 18, 0.18);
+  /* The Guard's box and its siren (GuardSiren). A drawing, so the light theme keeps these colors.
+     Each level has the color of its box. The siren is amber while the Guard watches closely and red
+     while it asks the person; neutral glass is a siren that is off. */
+  --openbot-guard-off: #8b8f98;
+  --openbot-guard-light: #6fb39b;
+  --openbot-guard-strict: #4f86d1;
+  --openbot-guard-very-strict: #eba035;
+  --openbot-guard-custom: #8a7fdc;
+  --openbot-guard-siren-amber: #ffad2e;
+  --openbot-guard-siren-red: #ff3b30;
+  --openbot-guard-siren-glass: #a1a1aa;
+  --openbot-guard-siren-metal: #c9ccd3;
+  --openbot-guard-siren-metal-edge: #6b6f78;
+  --openbot-guard-siren-socket: #1b1d22;
+  --openbot-guard-siren-glint: #ffffff;
   /* One red. The palette carried four families - danger (#e47d75), danger-strong
      (#ff4058), settings-danger (#eb4145) and button-destructive (oklch, #ff6467) -
      all between hue 352 and 359, i.e. the same red at four saturations, and the
