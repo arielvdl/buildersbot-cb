@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { chatTagReferences, leadingAddress } from "@openbot/contracts/chat-tag-references";
-import type { ChannelMessage, ChannelTask } from "@openbot/contracts/ipc";
+import type { ChannelMessage, ChannelTask, OptimizationId } from "@openbot/contracts/ipc";
 
 /**
  * Inline and spill for the channel context: the optimization `channel-context-spill`. A packet
@@ -10,7 +10,7 @@ import type { ChannelMessage, ChannelTask } from "@openbot/contracts/ipc";
  */
 
 /** The id of the optimization in Settings > Advanced optimizations. */
-export const CHANNEL_CONTEXT_SPILL = "channel-context-spill";
+export const CHANNEL_CONTEXT_SPILL = "channel-context-spill" satisfies OptimizationId;
 /** The most characters of a message that a packet carries in full: the request, a reply, a mention. */
 export const KEPT_CHARACTERS = 4_000;
 /** The characters of any other message in a packet. */

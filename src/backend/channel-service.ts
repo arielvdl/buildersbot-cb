@@ -25,6 +25,7 @@ import {
   type CreateChannelMemoryInput,
   channelRoutingConversationEventItemType,
   type DeleteChannelMemoryInput,
+  type OptimizationId,
   type QueueHold,
   type UpdateChannelMemoryInput,
 } from "@openbot/contracts/ipc";
@@ -109,7 +110,7 @@ export interface ChannelHooks {
    */
   reportsCompactions?(agentId: string): boolean;
   /** Whether an optimization of Settings > Advanced optimizations is on. Omitted, each one is off. */
-  optimizationEnabled?(id: string): boolean;
+  optimizationEnabled?(id: OptimizationId): boolean;
   /** The thread's snapshot when main has it in memory, which a streaming turn always has. */
   loadedSnapshot?(threadId: string): ConversationSnapshot | undefined;
   /** Removes live provider state for an execution thread before its durable rows are deleted. */
