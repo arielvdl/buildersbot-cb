@@ -127,6 +127,8 @@ export function createWebNotificationSettings(options: {
           avatarHue: agent.avatarHue,
           avatarUrl: agent.avatarUrl,
           level: own.get(agent.id) ?? null,
+          provider: agent.provider,
+          model: agent.model,
         })),
     };
   }

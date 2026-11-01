@@ -9,6 +9,7 @@
 @import "./styles/transitions.css";
 @import "@openbot/ui/styles/sliding-tabs.css";
 @import "@openbot/ui/styles/action-menu.css";
+@import "@openbot/ui/features/agents/agent-picker.css";
 @import "@openbot/ui/features/dynamic-island/dynamic-island.css";
 @import "@openbot/ui/features/dynamic-island/dynamic-island-surface.css";
 @import "@openbot/ui/features/sidebar/sidebar-mobile-app.css";

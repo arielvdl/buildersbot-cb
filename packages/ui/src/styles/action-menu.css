@@ -40,7 +40,13 @@
   width: max-content;
   min-width: 192px;
   max-width: min(288px, calc(100vw - var(--openbot-space-4)));
-  overflow: hidden;
+  /* A menu never grows past the room on its side of the trigger, which Kobalte measures: with more
+     rows than the window has, the rows scroll inside the menu instead of going past the window, where
+     nothing could reach them. A menu that sets its own height keeps it. */
+  max-height: min(calc(100dvh - var(--openbot-space-4)), var(--kb-popper-content-available-height, 100dvh));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 0;
   border-radius: var(--ui-menu-radius);
   outline: 0;

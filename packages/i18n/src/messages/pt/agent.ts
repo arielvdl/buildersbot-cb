@@ -76,4 +76,9 @@ export const messages = {
   "agent.color.indigo": "Índigo",
   "agent.color.violet": "Violeta",
   "agent.color.magenta": "Magenta",
+  "agent.picker.search": "Buscar agentes",
+  "agent.picker.providers": "Filtrar agentes por provedor",
+  "agent.picker.models": "Filtrar agentes por modelo",
+  "agent.picker.allProviders": "Todos",
+  "agent.picker.empty": "Nenhum agente",
 } as const satisfies PartialTranslation<typeof source>;

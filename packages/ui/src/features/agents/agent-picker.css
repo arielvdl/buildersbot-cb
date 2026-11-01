@@ -1,0 +1,185 @@
+/* The "choose an agent" menu (AgentPicker.tsx). The panel is the shared action menu. It stops at the
+ * room on its side of the trigger; the search and the chips stay at the top, and only the list
+ * scrolls. */
+
+.ui-action-menu.agent-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+  min-width: 260px;
+  max-width: min(380px, calc(100vw - var(--openbot-space-4)));
+  max-height: min(480px, calc(100dvh - var(--openbot-space-4)), var(--kb-popper-content-available-height, 480px));
+  overflow: hidden;
+}
+
+.agent-picker-search {
+  display: flex;
+  height: var(--openbot-control-md);
+  flex: none;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  border: 0.5px solid var(--openbot-border);
+  border-radius: var(--ui-menu-item-radius);
+  background: var(--openbot-hover);
+  padding: 0 var(--ui-menu-inset);
+  color: var(--openbot-text-dim);
+}
+
+.agent-picker-search:focus-within {
+  border-color: var(--openbot-text-dim);
+  background: var(--openbot-bg-surface);
+}
+
+.agent-picker-search:has(input:focus-visible) {
+  box-shadow: var(--openbot-focus-ring);
+}
+
+.agent-picker-search > svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  flex: none;
+}
+
+/* The field draws the frame, so the input inside it has none. */
+.agent-picker-search .ui-input {
+  height: 100%;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+}
+
+.agent-picker-search .ui-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* The chips wrap; a long row of providers takes more lines, not more width. */
+.agent-picker-chips {
+  display: flex;
+  min-inline-size: 0;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.agent-picker-chip.ui-button {
+  max-width: 100%;
+  gap: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+}
+
+.agent-picker-chip > span:not(.agent-picker-chip-count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-picker-chip-mark {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.agent-picker-chip-count {
+  color: var(--openbot-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-picker-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: 0;
+  padding: 0;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+/* The rows of the shared action menu, for options rather than menu items. Only the pointer and the
+   keyboard paint a row: nothing is highlighted the moment the menu opens. */
+.agent-picker-option {
+  display: flex;
+  min-height: var(--openbot-control-md);
+  align-items: center;
+  gap: var(--openbot-space-2);
+  border-radius: var(--ui-menu-item-radius);
+  outline: 0;
+  padding: var(--openbot-space-1-5) var(--ui-menu-inset);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-lg);
+  line-height: var(--openbot-leading-lg);
+  white-space: nowrap;
+  cursor: default;
+  transition: background-color var(--openbot-duration-hover) var(--openbot-ease-out);
+}
+
+.agent-picker-option:is(:hover, :focus-visible) {
+  background: var(--ui-menu-item-hover);
+}
+
+/* While a row has the keyboard focus, that row is the only one painted: Enter chooses it, not the row
+   under a resting pointer. */
+.agent-picker-list:has(:focus-visible) .agent-picker-option:hover:not(:focus-visible) {
+  background: transparent;
+}
+
+.agent-picker-avatar.agent-avatar {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.agent-picker-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-picker-model {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 45%;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.agent-picker-model-mark {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.agent-picker-model-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-picker-check {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  flex: none;
+  color: var(--openbot-text-secondary);
+}
+
+.agent-picker-empty {
+  margin: 0;
+  padding: var(--openbot-space-3) var(--ui-menu-inset);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}

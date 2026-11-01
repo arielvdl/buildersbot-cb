@@ -1,10 +1,11 @@
 import type { AppTextKey } from "@openbot/i18n";
 import { type CalendarDay, calendarDayDate, calendarMonthStart } from "@openbot/team-client/routine-calendar-dates";
-import { Button, buttonVariants, Check, DropdownMenu } from "@openbot/ui";
+import { Button, buttonVariants, Check } from "@openbot/ui";
 import { createMemo, createSignal, For, Match, onSettled, Show, Switch } from "solid-js";
 import { useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
 import { AgentAvatar } from "../agents/AgentAvatar";
+import { AgentPicker } from "../agents/AgentPicker";
 import type { RoutineCalendarAgent } from "./RoutineCalendar";
 
 /** One sample run on the faint month: where it lands, and the note it writes. */
@@ -148,26 +149,15 @@ export function RoutineCalendarEmpty(props: RoutineCalendarEmptyProps) {
                 )}
               </Match>
               <Match when={props.agents.length > 1}>
-                <DropdownMenu.Root placement="bottom" gutter={4}>
-                  <DropdownMenu.Trigger class={`${buttonVariants()} routine-planner-empty-action`}>
-                    {t("routine.settings.create")}
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content class="routine-planner-empty-menu">
-                      <For each={props.agents} keyed={(agent) => agent.id}>
-                        {(agent) => (
-                          <DropdownMenu.Item
-                            class="routine-planner-empty-agent"
-                            onSelectAfterClose={() => create()(agent().id)}
-                          >
-                            <AgentAvatar agent={agent()} class="routine-planner-avatar" />
-                            <span>{agent().name}</span>
-                          </DropdownMenu.Item>
-                        )}
-                      </For>
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                <AgentPicker
+                  agents={props.agents}
+                  label={t("routine.settings.create")}
+                  triggerClass={`${buttonVariants()} routine-planner-empty-action`}
+                  align="center"
+                  onChoose={(agent) => create()(agent.id)}
+                >
+                  {t("routine.settings.create")}
+                </AgentPicker>
               </Match>
             </Switch>
           )}

@@ -43,10 +43,6 @@
   font-weight: var(--openbot-weight-semibold);
 }
 
-.tasks-page-agent-option > span {
-  flex: 1 1 auto;
-}
-
 .tasks-page-header h2 span {
   color: var(--openbot-text-muted);
   font-weight: var(--openbot-weight-regular);
@@ -117,16 +113,6 @@
 
 .tasks-page-agent[aria-expanded="true"] .tasks-page-agent-chevron {
   transform: rotate(180deg);
-}
-
-.tasks-page-agent-check {
-  color: var(--openbot-text-primary);
-}
-
-/* A server can have more agents than the window has rows, so the menu fits the space left and scrolls. */
-.tasks-page-agent-menu {
-  max-height: min(520px, calc(100dvh - 16px), var(--kb-popper-content-available-height, 520px));
-  overflow-y: auto;
 }
 
 .tasks-page-took {
