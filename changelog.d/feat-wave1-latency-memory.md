@@ -9,3 +9,9 @@
   nothing for 2 minutes close. Before, they closed only when memory was critical.
 - Task reviewer waits after sleep (beta switch): after the computer wakes, the task reviewer waits two
   looks before it acts, so a run that was quiet only because the computer slept is not restarted.
+
+### Changed
+
+- The local trace of the app (`trace.ndjson`, in the diagnostics export) records how long each step of
+  a turn start takes, such as the security review, the prompt scan and the start of the provider
+  turn. It records names, times and status words only, never a message.

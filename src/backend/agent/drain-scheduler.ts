@@ -54,6 +54,7 @@ import {
   startRetryView,
   untilMs,
 } from "./start-retry";
+import { type StartTiming, startTimingReporter } from "./start-timings";
 import {
   isCodexCompactionRefusal,
   isMissingProviderSessionError,
@@ -122,6 +123,8 @@ export interface DrainHooks {
    * automatic backup, else the default backup of the settings when it is ready. Null when there is none.
    */
   startFallback?(agentId: string, primary: AgentModelChoice): AgentModelChoice | null;
+  /** The time of each step of a start (`start-timings.ts`): names, numbers and status words only. */
+  startTiming?(timing: StartTiming): void;
 }
 
 /** The tasks of the agents, as the drain reads them. */
@@ -244,6 +247,7 @@ export class DrainScheduler {
   readonly #slots: TurnSlots;
   readonly #optimizations: OptimizationPort;
   readonly #unsubscribeOptimizations: () => void;
+  readonly #timing: ReturnType<typeof startTimingReporter>;
   /** Lanes that a full set of turn slots held back. A drain that may free a slot tries them again. */
   readonly #slotWaiters = new Set<string>();
   /**
@@ -327,6 +331,9 @@ export class DrainScheduler {
     this.#random = options.random ?? Math.random;
     this.#now = options.now ?? Date.now;
     this.#optimizations = options.optimizations ?? OPTIMIZATIONS_OFF;
+    this.#timing = startTimingReporter(
+      options.hooks.startTiming ? (timing) => this.#hooks.startTiming?.(timing) : undefined,
+    );
     // The switch can let a waiting lane start now: one that the full cap holds, or a message of the
     // person that low memory holds, which no other list keeps.
     this.#unsubscribeOptimizations = this.#optimizations.onOptimizationChange((id, enabled) => {
@@ -1015,6 +1022,8 @@ export class DrainScheduler {
     let startChoice: AgentModelChoice | null = null;
     // This start is the one try of the agent's own model after the wait of its breaker.
     let probing = false;
+    // The start of the timings of this start (`start-timings.ts`).
+    const claimedAt = performance.now();
     yield* Effect.gen({ self: this }, function* () {
       for (const item of batch) yield* this.#mailbox.markStarting(item.delivery.id).pipe(toDeliveryStartFailed);
       this.#mailboxSync.emitQueue(delivery.recipientAgentId);
@@ -1068,10 +1077,13 @@ export class DrainScheduler {
       yield* drainStep(requireServedModel);
       yield* this.#threads.applyPendingRuntimeRefresh(agent, new Set(batch.map((item) => item.delivery.id)));
       releaseRuntimeRefresh = this.#threads.holdRuntimeRefresh(agent.id, taskId !== null);
+      const clientAt = performance.now();
       const client = yield* this.#providers.ensureAgentClient(agent).pipe(toDeliveryStartFailed);
+      this.#timing("client", clientAt, "ok");
       const messaging = this.#messaging;
       const channels = this.#channels;
       const taskThreadId = taskId === null ? null : this.#tasks.threadId(taskId);
+      const prepareAt = performance.now();
       const execution: { threadId: string; text?: string } | null | undefined =
         taskId !== null
           ? taskThreadId
@@ -1084,6 +1096,11 @@ export class DrainScheduler {
             : channels
               ? yield* channels.prepare(context).pipe(toDeliveryStartFailed)
               : null;
+      this.#timing(
+        "prepare",
+        prepareAt,
+        channelDelivery ? "channel" : messagingDelivery ? "messaging" : taskId !== null ? "task" : "chat",
+      );
       if ((channelDelivery || messagingDelivery || taskId !== null) && !execution) {
         // Every delivery of the batch, so no later message stays `starting` in a removed lane.
         for (const item of batch) {
@@ -1115,9 +1132,11 @@ export class DrainScheduler {
         }
         routineThreadId = yield* this.#threads.startRoutineThread(agent, client).pipe(toDeliveryStartFailed);
       }
+      const threadAt = performance.now();
       let threadId =
         routineThreadId ??
         (yield* this.#threads.ensureThread(agent, client, execution?.threadId).pipe(toDeliveryStartFailed));
+      this.#timing("thread", threadAt, routineThreadId ? "routine" : "ok");
       const snapshot = this.#conversation.ensureSnapshot(agent.id, threadId);
       // A turn started on this thread while the provider and the thread were prepared. The user
       // cannot see that race, so the delivery goes back to the head of the queue rather than
@@ -1206,6 +1225,7 @@ export class DrainScheduler {
       if (security) {
         const fromUser = batch.filter(({ delivery: item }) => item.sender.kind === "user");
         if (fromUser.length) {
+          const reviewAt = performance.now();
           const annotation = yield* security.review({
             agent,
             text: fromUser.map(({ delivery: item }) => item.text).join("\n\n---\n\n"),
@@ -1215,6 +1235,7 @@ export class DrainScheduler {
                 .map((attachment) => ({ path: attachment.path, mimeType: attachment.mimeType })),
             ),
           });
+          this.#timing("review", reviewAt, annotation ? "annotated" : "none");
           if (annotation) completeInput = withGuardAnnotation(completeInput, annotation);
         }
       }
@@ -1264,13 +1285,23 @@ export class DrainScheduler {
         });
       // The guard reads the message before the agent does. It runs after the messages show in the chat,
       // and a scan that fails leaves the turn without a block.
+      const scanAt = performance.now();
       const guard = yield* this.#hooks.scanPrompt(agent.id, scanInput);
+      this.#timing("scan", scanAt, guard ? (guard.note ? "suspicious" : "clean") : "none");
       guardBlock = guard?.block ?? null;
       if (guard?.note) this.#postSecurityNote(snapshot, guard.note);
       // Claude, ACP and Pi take the delivery id as the turn id. A delivery that a refused turn put back
       // in the queue keeps its id, and the end of that turn must not end this new run (#2468).
       this.#hooks.turnRestarting(delivery.id);
+      // A session that the client closed for being idle opens again in `turn/start`.
+      const open = client.threadOpen?.(threadId);
+      const turnStartAt = performance.now();
       const firstStart = yield* Effect.result(startTurn(threadId));
+      this.#timing(
+        "turn-start",
+        turnStartAt,
+        Result.isFailure(firstStart) ? "failed" : open === undefined ? "unknown" : open ? "open" : "woke",
+      );
       let response: Effect.Success<ReturnType<typeof startTurn>>;
       if (Result.isSuccess(firstStart)) response = firstStart.success;
       else {
@@ -1303,6 +1334,7 @@ export class DrainScheduler {
       // event would end it, and it would hold every message of this agent.
       if (!this.#hooks.turnEnded(response.turn.id)) snapshot.activeTurnId = response.turn.id;
       confirmedTurnId = response.turn.id;
+      this.#timing("accepted", claimedAt, "ok");
       this.#turnModels.set(laneKey({ agentId: agent.id, taskId, tab }), {
         turnId: response.turn.id,
         model: agent.model,

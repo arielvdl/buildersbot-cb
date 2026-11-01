@@ -242,6 +242,7 @@ import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-qu
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
 import { type StartBreakerStorage, StartBreakers } from "./agent/start-retry";
+import type { StartTiming } from "./agent/start-timings";
 import {
   agentProviderAccount,
   isRequestTimeout,
@@ -329,6 +330,11 @@ interface AgentServiceEvents {
   toolUsage: [usage: ToolUsageSignal];
   /** A workflow run ended, for the local host's product analytics. Never forwarded to a client. */
   workflowRun: [end: WorkflowRunEnd];
+  /**
+   * The time of one step of a turn start, for the local trace (`start-timings.ts`). Names, numbers and
+   * status words only. Never forwarded to a client.
+   */
+  startTiming: [timing: StartTiming];
 }
 
 export interface AgentServiceOptions {
@@ -1464,6 +1470,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
         scanPrompt: (agentId, input) => this.scanPrompt(agentId, input),
+        startTiming: (timing) => this.emit("startTiming", timing),
         turnEnded: (turnId) => this.#turn.hasEnded(turnId),
         turnRestarting: (turnId) => this.#turn.forgetEnded(turnId),
         startRequestedNewChat: (agentId) => this.#startRequestedNewChat(agentId),
@@ -1583,6 +1590,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           : {}),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         quietRoutineDelivery: (deliveryId) => this.#routines.quietRunForDelivery(deliveryId),
+        startTiming: (timing) => this.emit("startTiming", timing),
         takeRoutinePreview: (deliveryId) => this.#routines.takePreviewBeforeRun(deliveryId),
         closeRoutineSession: (externalThreadId) => this.#threads.closeRoutineThread(externalThreadId),
         conversationTurnEnded: (agentId, sideThreadId, counts, memoryCommitted) =>
