@@ -172,6 +172,12 @@ export function stoppedChannelTasks(page: ChannelPage): ChannelTask[] {
   return [...roots.values()];
 }
 
+/** The queued tasks that wait for a reason the person should know (`ChannelTask.wait`), for a quiet line each. */
+export function waitingChannelTasks(page: ChannelPage): ChannelTask[] {
+  if (page.channel.archived) return [];
+  return page.tasks.filter((task) => task.state === "queued" && task.wait !== undefined && !task.startRetry);
+}
+
 /** The tasks whose start the app tries again, for the quiet line in place of the card. */
 export function retryingChannelTasks(page: ChannelPage): ChannelTask[] {
   if (page.channel.archived) return [];

@@ -155,6 +155,22 @@ export const WaitingSubtasksAboveStoppedTask: Story = {
   args: { messages: longHistory(40), awaiting: waitingSubtasks, stopped: [stoppedTask(sales.id)] },
 };
 
+/**
+ * Requests that wait in this tab, one line each with the reason: the earlier request of the tab, the
+ * agent's limit of tabs, low memory, and the agent's own chat.
+ */
+export const WaitingRequests: Story = {
+  args: {
+    messages: longHistory(40),
+    waits: [
+      { id: "wait-tab", ownerAgentId: chief.id, wait: { reason: "tab" } },
+      { id: "wait-tabs", ownerAgentId: sales.id, wait: { reason: "agent-tabs", busy: 2, limit: 2 } },
+      { id: "wait-memory", ownerAgentId: research.id, wait: { reason: "memory" } },
+      { id: "wait-chat", ownerAgentId: chief.id, wait: { reason: "agent-chat" } },
+    ],
+  },
+};
+
 export const WaitingSubtasksAboveComposer: Story = {
   args: { messages: longHistory(40), awaiting: waitingSubtasks },
 };

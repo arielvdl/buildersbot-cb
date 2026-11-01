@@ -91,6 +91,7 @@
     "./features/channels/ChannelMemberRow": "./src/features/channels/ChannelMemberRow.tsx",
     "./features/channels/ChannelStartRetryNotice": "./src/features/channels/ChannelStartRetryNotice.tsx",
     "./features/channels/ChannelStoppedTasks": "./src/features/channels/ChannelStoppedTasks.tsx",
+    "./features/channels/ChannelTaskWaitNotice": "./src/features/channels/ChannelTaskWaitNotice.tsx",
     "./features/connectors/ConnectorDetailPanel": "./src/features/connectors/ConnectorDetailPanel.tsx",
     "./features/connectors/connector-catalog": "./src/features/connectors/connector-catalog.tsx",
     "./features/connectors/connectors": "./src/features/connectors/connectors.ts",

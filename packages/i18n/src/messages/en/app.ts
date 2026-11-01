@@ -154,6 +154,10 @@ export const messages = defineMessages("app", {
     "When the limit is reached, a new turn waits in its queue and starts by itself when an agent ends. Off: no limit.",
   "app.rail.load.limitMax": "Most agents",
   "app.rail.load.limitUnit": "(1 to 64, 10 is suggested)",
+  "app.rail.load.tabsTitle": "Channel tabs of one agent at the same time",
+  "app.rail.load.tabsUnit": "(1 to 4, 2 is suggested)",
+  "app.rail.load.tabsHint":
+    "Each tab of a channel is its own line of work: a message waits only for the earlier messages of its tab. With 1, an agent works in one tab at a time.",
   // The task reviewer: experimental, inside "Resume by itself". See docs/architecture/task-reviewer.md.
   "app.rail.load.watchTitle": "Task reviewer (experimental)",
   "app.rail.load.watchHint":

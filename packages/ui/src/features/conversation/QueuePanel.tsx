@@ -448,9 +448,12 @@ export function QueuePanel(props: QueuePanelProps) {
 
   function holdText(hold: QueueHold): string {
     const name = (props.agents ?? []).find((agent) => agent.id === hold.agentId)?.name;
-    return name
-      ? t("queue.hold.named", { name, channel: hold.channelName })
-      : t("queue.hold.unnamed", { channel: hold.channelName });
+    // The tab of the channel work, and the other tabs where the agent works too: the chat waits for all.
+    const place = hold.topicName
+      ? t("queue.hold.tab", { channel: hold.channelName, tab: hold.topicName })
+      : hold.channelName;
+    const channel = hold.tabs && hold.tabs > 1 ? t("queue.hold.moreTabs", { place, count: hold.tabs - 1 }) : place;
+    return name ? t("queue.hold.named", { name, channel }) : t("queue.hold.unnamed", { channel });
   }
 
   return (

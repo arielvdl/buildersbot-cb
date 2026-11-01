@@ -1,12 +1,13 @@
-import type {
-  AgentLimitPreference,
-  AutoRecoveryPreference,
-  LoadLanePreference,
-  LoadSnapshot,
-  RunningWork,
-  StoppedWork,
-  TaskWatchPreference,
-  TaskWatchState,
+import {
+  type AgentLimitPreference,
+  type AutoRecoveryPreference,
+  DEFAULT_AGENT_TABS,
+  type LoadLanePreference,
+  type LoadSnapshot,
+  type RunningWork,
+  type StoppedWork,
+  type TaskWatchPreference,
+  type TaskWatchState,
 } from "@openbot/contracts/ipc";
 import {
   Button,
@@ -26,6 +27,7 @@ import { createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
 import {
   activeAgentLimit,
   clampAgentLimit,
+  clampAgentTabs,
   clampRecoveryMinutes,
   clampWatchMinutes,
   elapsedMinutes,
@@ -469,18 +471,23 @@ export function WorkRequest(props: WorkRowProps & { request: string }) {
   );
 }
 
-/** The switch and the number of the cap on the agents that run at the same time. */
+/**
+ * The switch and the number of the cap on the agents that run at the same time, and the number of
+ * channel tabs of one agent that run at the same time, which applies with the cap on or off.
+ */
 function AgentLimitSettings(props: {
   limit: AgentLimitPreference;
   onChange: (preference: AgentLimitPreference) => void;
 }) {
   const { t } = useText();
   const [draft, setDraft] = createSignal<string | null>(null);
+  const [tabsDraft, setTabsDraft] = createSignal<string | null>(null);
+  const tabsHintId = createUniqueId();
   return (
     <section class="window-rail-load-section">
       <SwitchField
         checked={props.limit.enabled}
-        onChange={(enabled) => props.onChange({ enabled, max: props.limit.max })}
+        onChange={(enabled) => props.onChange({ ...props.limit, enabled })}
         label={t("app.rail.load.limitTitle")}
         description={t("app.rail.load.limitHint")}
       />
@@ -501,12 +508,37 @@ function AgentLimitSettings(props: {
               const max = clampAgentLimit(Number(event.currentTarget.value));
               setDraft(null);
               event.currentTarget.value = String(max);
-              props.onChange({ enabled: true, max });
+              props.onChange({ ...props.limit, enabled: true, max });
             }}
           />
           <span>{t("app.rail.load.limitUnit")}</span>
         </label>
       </Show>
+      <label class="window-rail-load-interval">
+        <span>{t("app.rail.load.tabsTitle")}</span>
+        <Input
+          class="window-rail-load-number"
+          data-cuelume-type={undefined}
+          type="number"
+          min="1"
+          max="4"
+          step="1"
+          inputmode="numeric"
+          aria-describedby={tabsHintId}
+          value={tabsDraft() ?? String(props.limit.tabsPerAgent ?? DEFAULT_AGENT_TABS)}
+          onInput={(event) => setTabsDraft(event.currentTarget.value)}
+          onChange={(event) => {
+            const tabsPerAgent = clampAgentTabs(Number(event.currentTarget.value));
+            setTabsDraft(null);
+            event.currentTarget.value = String(tabsPerAgent);
+            props.onChange({ ...props.limit, tabsPerAgent });
+          }}
+        />
+        <span>{t("app.rail.load.tabsUnit")}</span>
+      </label>
+      <p id={tabsHintId} class="window-rail-load-hint">
+        {t("app.rail.load.tabsHint")}
+      </p>
     </section>
   );
 }

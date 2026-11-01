@@ -154,6 +154,10 @@ export const messages = {
     "Quando o limite é atingido, um novo turno espera na fila e começa sozinho quando um agente termina. Desligado: sem limite.",
   "app.rail.load.limitMax": "Máximo",
   "app.rail.load.limitUnit": "(de 1 a 64, 10 é o sugerido)",
+  "app.rail.load.tabsTitle": "Abas de canal de um agente ao mesmo tempo",
+  "app.rail.load.tabsUnit": "(de 1 a 4, 2 é o sugerido)",
+  "app.rail.load.tabsHint":
+    "Cada aba de um canal é uma linha de trabalho própria: uma mensagem só espera as mensagens anteriores da sua aba. Com 1, o agente trabalha em uma aba por vez.",
   "app.rail.load.watchTitle": "Fiscal (experimental)",
   "app.rail.load.watchHint":
     "Procura tarefas que pararam de dar sinal ou estão tempo demais na fila, e tenta destravá-las, uma por vez. Só age com Retomar sozinho ligado.",

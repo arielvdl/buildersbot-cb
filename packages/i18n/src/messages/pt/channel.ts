@@ -10,6 +10,15 @@ export const messages = {
   "channel.stoppedTask.reassign": "Reatribuir",
   "channel.task.retrying": "{name} não começou. Tentando de novo ({attempt}/{max}), próxima em {seconds} s",
   "channel.task.onBackup": "{name} roda no modelo de reserva {model}",
+  "channel.task.wait.tab": "Aguardando - {name} responde antes a mensagem anterior desta aba",
+  "channel.task.wait.agentTabs": {
+    one: "Aguardando - {name} já trabalha em {count} aba, o máximo ao mesmo tempo. Esta mensagem começa quando ela terminar",
+    other:
+      "Aguardando - {name} já trabalha em {count} abas, o máximo ao mesmo tempo. Esta mensagem começa quando uma delas terminar",
+  },
+  "channel.task.wait.memory":
+    "Aguardando - o computador está com pouca memória. Esta mensagem começa quando liberar memória",
+  "channel.task.wait.agentChat": "Aguardando - {name} responde antes uma mensagem do próprio chat",
   "channel.stoppedTask.triedTimes": { one: "Tentou {count} vez", other: "Tentou {count} vezes" },
   "channel.conversation.noMembers": "Adicione agentes nas configurações do canal para começar o trabalho.",
   "channel.conversation.archivedNotice": "Canal excluído. Somente visualização.",

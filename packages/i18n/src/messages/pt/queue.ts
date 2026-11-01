@@ -7,6 +7,8 @@ export const messages = {
   "queue.attachment": "Anexo",
   "queue.hold.named": "Aguardando - {name} está trabalhando em {channel}",
   "queue.hold.unnamed": "Aguardando - este agente está trabalhando em {channel}",
+  "queue.hold.tab": "{channel} › {tab}",
+  "queue.hold.moreTabs": { one: "{place} e mais {count} aba", other: "{place} e mais {count} abas" },
   "queue.item.label": "Mensagem na fila {position}: {preview}",
   "queue.item.labelEditing": "Mensagem na fila {position}, em edição: {preview}",
   "queue.item.editing": "Editando",

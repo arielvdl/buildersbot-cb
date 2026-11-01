@@ -9,6 +9,14 @@ export const messages = defineMessages("channel", {
   "channel.stoppedTask.reassign": "Reassign",
   "channel.task.retrying": "{name} did not start. Trying again ({attempt}/{max}), next in {seconds} s",
   "channel.task.onBackup": "{name} runs on the backup model {model}",
+  "channel.task.wait.tab": "Waiting - {name} answers the earlier message of this tab first",
+  "channel.task.wait.agentTabs": {
+    one: "Waiting - {name} already works in {count} tab, the most at the same time. This message starts when it ends",
+    other:
+      "Waiting - {name} already works in {count} tabs, the most at the same time. This message starts when one of them ends",
+  },
+  "channel.task.wait.memory": "Waiting - the computer is low on memory. This message starts when memory is free",
+  "channel.task.wait.agentChat": "Waiting - {name} answers a message of its own chat first",
   "channel.stoppedTask.triedTimes": { one: "Tried {count} time", other: "Tried {count} times" },
   "channel.conversation.noMembers": "Add agents in channel settings to start work.",
   "channel.conversation.archivedNotice": "Deleted channel. Preview only.",

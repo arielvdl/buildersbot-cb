@@ -1,5 +1,8 @@
 import { attachmentReferences, expandAttachmentReferences } from "@openbot/contracts/attachment-references";
 import {
+  AGENT_TABS_MAX,
+  AGENT_TABS_MIN,
+  DEFAULT_AGENT_TABS,
   DEFAULT_TASK_WATCH_PREFERENCE,
   type LoadLanePreference,
   type LoadSnapshot,
@@ -79,6 +82,12 @@ export function withChannelFirst(snapshot: LoadSnapshot, channelId: string): Loa
     enabled: snapshot.lane.enabled,
     order: [channelId, ...snapshot.lane.order.filter((id) => id !== channelId)],
   };
+}
+
+/** The channel tabs of one agent that run at the same time: whole, from 1 to 4, and 2 for anything else. */
+export function clampAgentTabs(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_AGENT_TABS;
+  return Math.min(AGENT_TABS_MAX, Math.max(AGENT_TABS_MIN, Math.round(value)));
 }
 
 /** The cap on the agents that run: whole, from 1 to 64, and 10 for anything that is not a number. */

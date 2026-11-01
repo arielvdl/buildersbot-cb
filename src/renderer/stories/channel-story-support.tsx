@@ -5,11 +5,13 @@
  * builds its variants on it, and the diagram workspace story shows it when a channel is open.
  */
 
+import type { ChannelTask } from "@openbot/contracts/ipc";
 import { Button } from "@openbot/ui";
 import type { AgentMessage } from "@openbot/ui/data";
 import type { ChannelWorker } from "@openbot/ui/features/channels/ChannelActivityIndicator";
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
+import { ChannelTaskWaitNotice } from "@openbot/ui/features/channels/ChannelTaskWaitNotice";
 import type { AwaitingReplyItem } from "@openbot/ui/features/conversation/AwaitingReplies";
 import { fn } from "storybook/test";
 import type { ConversationChannelSource } from "../src/features/conversation/conversation-types";
@@ -95,6 +97,8 @@ export interface ChannelStoryProps {
   workers?: ChannelWorker[];
   awaiting?: AwaitingReplyItem[];
   stopped?: { id: string; ownerAgentId: string; error: string }[];
+  /** Queued requests of the tab with the reason each one waits (`ChannelTask.wait`). */
+  waits?: Pick<ChannelTask, "id" | "ownerAgentId" | "wait">[];
   archived?: boolean;
   activeTurnId?: string | null;
   unreadCount?: number;
@@ -129,7 +133,10 @@ export function StoryChannelConversation(props: ChannelStoryProps) {
     ),
     SettingsPane: () => null,
     AboveComposer: () => (
-      <ChannelStoppedTasks tasks={props.stopped ?? []} members={members} name={agentName} onResume={fn()} />
+      <>
+        <ChannelTaskWaitNotice tasks={props.waits ?? []} name={agentName} />
+        <ChannelStoppedTasks tasks={props.stopped ?? []} members={members} name={agentName} onResume={fn()} />
+      </>
     ),
     EmptyState: () => (
       <div class="channel-empty">
