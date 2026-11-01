@@ -281,10 +281,9 @@
 .channel-member-dialog .channel-dialog-header {
   border-bottom: 1px solid var(--openbot-border);
 }
-/* The model and reasoning menus open in a portal, on the popover layer, which is under the dialog
-   that holds their triggers. While this dialog is open they take the step above it, as the skill
-   menu of the agent panel does. */
-body:has(.channel-member-dialog) .provider-model-popover,
+/* A select menu, such as the effort list of a model with many levels, opens in a portal, on the
+   popover layer, which is under the dialog that holds its trigger. While this dialog is open it takes
+   the step above it, as the skill menu of the agent panel does. */
 body:has(.channel-member-dialog) .ui-select-content {
   z-index: calc(var(--openbot-layer-dialog) + var(--openbot-layer-popover) + 1);
 }
@@ -292,9 +291,11 @@ body:has(.channel-member-dialog) .ui-select-content {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
+  /* What the form scrolls into view stops above the sticky footer, not under it. */
+  scroll-padding-block-end: calc(var(--openbot-control-lg) + 2 * var(--channel-dialog-inset));
 }
 /* The form scrolls as one. A part that could shrink to fit the window, such as the model section,
-   was cut to a strip instead, and its reasoning row went out of view. */
+   was cut to a strip instead. */
 .channel-member-form > * {
   flex-shrink: 0;
 }
@@ -369,16 +370,15 @@ body:has(.channel-member-dialog) .ui-select-content {
   height: 100%;
   border-radius: var(--openbot-radius-pill);
 }
+/* The model section: its row, and the choices that open under it. The box does not clip: the
+   choices are in the flow, and the box grows with them. */
 .channel-member-runtime {
   display: flex;
   flex-direction: column;
-  gap: var(--openbot-space-1);
   margin-inline: var(--channel-dialog-inset);
   border: 1px solid var(--openbot-border);
   border-radius: var(--openbot-radius-md);
   padding-block: var(--openbot-space-1);
-  overflow: clip;
-  scroll-margin-block: var(--openbot-space-4);
 }
 .channel-member-form > .channel-editor-footer {
   position: sticky;
