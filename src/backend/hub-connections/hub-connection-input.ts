@@ -152,10 +152,11 @@ export function valueRule(value: string): InputRule | null {
 const URL_IN_TEXT = /\b[a-z][a-z0-9+.-]{1,15}:\/\/[^\s"'<>]+/giu;
 /**
  * A URL of a scheme that a WHATWG URL parser reads as special, inside a text: for these schemes
- * `http:/host`, `http:\\host` and `http:host` all name `host`, with no `//`. A `/`, a `\` or a host
- * character follows the colon. Not after a scheme character, so `news:12` and `views:3` are not URLs.
+ * `http:/host`, `http:\\host`, `http:host` and `http:@host` all name `host`, with no `//`. Any
+ * character but a space, a quote or an angle bracket follows the colon. Not after a scheme character,
+ * so `news:12` and `views:3` are not URLs.
  */
-const SPECIAL_URL_IN_TEXT = /(?<![a-z0-9+.-])(?:https?|ftp|wss?|file):[\\/a-z0-9[%][^\s"'<>]*/giu;
+const SPECIAL_URL_IN_TEXT = /(?<![a-z0-9+.-])(?:https?|ftp|wss?|file):[^\s"'<>]+/giu;
 /** A value that starts with a special scheme, with or without `//`. */
 const SPECIAL_URL_START = /^(?:https?|ftp|wss?|file):/iu;
 

@@ -560,54 +560,64 @@ try {
     assert.equal(hubCalls().length, before, "a refused URL reached the Hub");
   });
 
-  await step("URLs without `//` or with `\\` are refused, in a value and inside a text (security finding 1)", async () => {
-    const before = hubCalls().length;
-    const text = (value: string) => call("text.classify", { body: { text: value } });
-    const refusedValues = [
-      "http:\\\\169.254.169.254\\latest",
-      "http:/10.0.0.1/admin",
-      "https:192.168.0.10/",
-      "HTTP:\\/100.100.1.1/",
-      "ws:example.com/socket",
-      "see http:\\\\10.0.0.1\\admin for the list",
-      "see https:/169.254.169.254/latest now",
-      "the file (http:\\\\192.168.1.1/x)",
-    ];
-    const seen = await turn(refusedValues.map(text));
-    for (const [index, refused] of seen.entries()) {
-      assert.ok(!refused.success, `${refusedValues[index]} was not refused`);
-      assert.equal(refused.fields.rule, "url_refused", `${refusedValues[index]}: ${refused.text}`);
-    }
-    assert.equal(hubCalls().length, before, "a refused URL reached the Hub");
-    // Text that only has a colon, and a public URL, still go.
-    const allowed = await turn([
-      text("note: the ratio is 3:1 at 10:30, views:100, news:today"),
-      text("read https://example.com/page and http:example.com"),
-    ]);
-    for (const item of allowed) assert.ok(item.success, item.text.slice(0, 300));
-    return { refused: refusedValues.length };
-  });
+  await step(
+    "URLs without `//` or with `\\` are refused, in a value and inside a text (security finding 1)",
+    async () => {
+      const before = hubCalls().length;
+      const text = (value: string) => call("text.classify", { body: { text: value } });
+      const refusedValues = [
+        "http:\\\\169.254.169.254\\latest",
+        "http:/10.0.0.1/admin",
+        "https:192.168.0.10/",
+        "HTTP:\\/100.100.1.1/",
+        "ws:example.com/socket",
+        "see http:\\\\10.0.0.1\\admin for the list",
+        "see https:/169.254.169.254/latest now",
+        "see http:@10.0.0.1/admin now",
+        "the file (http:\\\\192.168.1.1/x)",
+      ];
+      const seen = await turn(refusedValues.map(text));
+      for (const [index, refused] of seen.entries()) {
+        assert.ok(!refused.success, `${refusedValues[index]} was not refused`);
+        assert.equal(refused.fields.rule, "url_refused", `${refusedValues[index]}: ${refused.text}`);
+      }
+      assert.equal(hubCalls().length, before, "a refused URL reached the Hub");
+      // Text that only has a colon, and a public URL, still go.
+      const allowed = await turn([
+        text("note: the ratio is 3:1 at 10:30, views:100, news:today"),
+        text("read https://example.com/page and http:example.com"),
+      ]);
+      for (const item of allowed) assert.ok(item.success, item.text.slice(0, 300));
+      return { refused: refusedValues.length };
+    },
+  );
 
-  await step("signed links, nested and numeric credentials in a result never reach the agent (findings 2, 3)", async () => {
-    const [echoed] = await turn([call("company.echo-signed", { body: { domain: "example.com" } })]);
-    assert.ok(echoed?.success, echoed?.text);
-    assert.ok(!echoed.text.includes(FAKE_SIGNATURE), `a signature leaked: ${envelope(echoed).slice(0, 900)}`);
-    assert.ok(!echoed.text.includes(String(FAKE_PIN)), `a numeric credential leaked: ${envelope(echoed).slice(0, 900)}`);
-    const body = JSON.parse(envelope(echoed).replaceAll("\\u003c", "<").replaceAll("\\u003e", ">"));
-    assert.equal(body.content.password, "[redacted]");
-    assert.deepEqual(body.content.auth, {
-      value: "[redacted]",
-      pin: "[redacted]",
-      verified: true,
-      expires: null,
-      inner: { code: "[redacted]" },
-    });
-    // Data stays: names and values that are not credentials, and counts.
-    assert.deepEqual(body.content.stats, { sessions: 7, page: 2 });
-    for (const kept of ["X-Amz-Algorithm=AWS4-HMAC-SHA256", "GoogleAccessId=svc", "se=2030-01-01", "page=2"])
-      assert.ok(body.content.files.join(" ").includes(kept), kept);
-    return { files: body.content.files };
-  });
+  await step(
+    "signed links, nested and numeric credentials in a result never reach the agent (findings 2, 3)",
+    async () => {
+      const [echoed] = await turn([call("company.echo-signed", { body: { domain: "example.com" } })]);
+      assert.ok(echoed?.success, echoed?.text);
+      assert.ok(!echoed.text.includes(FAKE_SIGNATURE), `a signature leaked: ${envelope(echoed).slice(0, 900)}`);
+      assert.ok(
+        !echoed.text.includes(String(FAKE_PIN)),
+        `a numeric credential leaked: ${envelope(echoed).slice(0, 900)}`,
+      );
+      const body = JSON.parse(envelope(echoed).replaceAll("\\u003c", "<").replaceAll("\\u003e", ">"));
+      assert.equal(body.content.password, "[redacted]");
+      assert.deepEqual(body.content.auth, {
+        value: "[redacted]",
+        pin: "[redacted]",
+        verified: true,
+        expires: null,
+        inner: { code: "[redacted]" },
+      });
+      // Data stays: names and values that are not credentials, and counts.
+      assert.deepEqual(body.content.stats, { sessions: 7, page: 2 });
+      for (const kept of ["X-Amz-Algorithm=AWS4-HMAC-SHA256", "GoogleAccessId=svc", "se=2030-01-01", "page=2"])
+        assert.ok(body.content.files.join(" ").includes(kept), kept);
+      return { files: body.content.files };
+    },
+  );
 
   await step("routed answers give output only, and the Hub writes the row limit", async () => {
     const vendorBefore = vendorCalls().length;
