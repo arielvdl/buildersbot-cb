@@ -30,6 +30,7 @@ import { useCustomAgents } from "./features/custom-agents/custom-agents-context"
 import { useCustomProviders } from "./features/custom-providers/custom-providers-context";
 import { useProviderDetection } from "./features/custom-providers/provider-detection-context";
 import type { ServerStorageOptions } from "./features/files/ServerStoragePanel";
+import { useLoad } from "./features/load/load-context";
 import { useSetup } from "./features/onboarding/onboarding-context";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { desktopScheduleSource } from "./features/schedule/schedule-port";
@@ -878,6 +879,10 @@ function trackHostedSiteDelete(): (result: HostedSiteDeleteResult) => void {
 function AppSettings(props: AccountProps) {
   const windowPage = useWindowPage();
   const platform = usePlatform();
+  const load = useLoad();
+  /** The ring of the rail shows the load of this computer in the main window, while this computer is active. */
+  const openLoadPanel = () =>
+    platform.chatWindow === null && load.railShown() ? () => load.setPanelOpen(true) : undefined;
   const auth = useAuth();
   const updates = useUpdates();
   const whatsNew = useWhatsNew();
@@ -967,6 +972,8 @@ function AppSettings(props: AccountProps) {
         restoreFocusTarget={appSettingsRestoreTarget()}
         openTab={appSettingsTab()}
         hostedServerDeleteRequest={hostedServerDeleteRequest()}
+        load={load}
+        onOpenLoadPanel={openLoadPanel()}
       />
     </Loading>
   );

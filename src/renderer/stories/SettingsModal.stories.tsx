@@ -1,8 +1,10 @@
 import type {
   AvatarImageInput,
   CentralAuthUser,
+  LoadSnapshot,
   MobileConnectedDevice,
   ServerSummary,
+  TaskWatchEvent,
   UpdateStatus,
 } from "@openbot/contracts/ipc";
 import { Button, Toaster, toast } from "@openbot/ui";
@@ -10,6 +12,7 @@ import { DEFAULT_GENERAL_SETTINGS, type GeneralSettingsValue } from "@openbot/ui
 import { createSignal, onCleanup } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { createLoadStore } from "../src/features/load/load-context";
 import { SettingsModal } from "../src/features/settings/SettingsModal";
 import type { SettingsTab } from "../src/features/settings/settings-tabs";
 import { STORY_SERVERS } from "../src/preview/fixtures";
@@ -47,6 +50,37 @@ const storyUpdateStatus: UpdateStatus = {
   errorCode: null,
 };
 
+/** What the task reviewer did lately on the story computer: one action of the model, two of the local rules. */
+const storyTaskWatchRecent: TaskWatchEvent[] = [
+  {
+    at: "2026-10-31T21:40:00.000Z",
+    channelName: "Pagamentos",
+    action: "reassigned",
+    agentName: "Writer",
+    reason: "no-sign",
+    minutes: 32,
+    by: "local",
+  },
+  {
+    at: "2026-10-31T21:05:00.000Z",
+    channelName: "Pagamentos",
+    action: "resumed",
+    agentName: null,
+    reason: "no-sign",
+    minutes: 31,
+    by: "local",
+  },
+  {
+    at: "2026-10-31T20:50:00.000Z",
+    channelName: "Lançamentos",
+    action: "waited",
+    agentName: null,
+    reason: "queued",
+    minutes: 18,
+    by: "model",
+  },
+];
+
 function SettingsModalStory(props: {
   initialOpen: boolean;
   /** Adds the Hosted servers tab with a stopped server and a server whose plan ended. */
@@ -59,11 +93,31 @@ function SettingsModalStory(props: {
   scheduledRestart?: UpdateStatus["scheduledRestart"];
   /** The downloaded dictation models and the saved voice setting. */
   voice?: MockVoiceOptions;
+  /** The task reviewer and Resume by itself start on, and the reviewer has done three things. */
+  taskReviewerActive?: boolean;
+  /** The window shows a joined server, so the Guard and the task reviewer say they are this computer's. */
+  joinedServer?: boolean;
 }) {
   const previousApi = window.openbot;
   const billingApi = createMockBilling();
   const mock = createMockBuildersBot(props.voice);
   window.openbot = mock.api;
+  if (props.taskReviewerActive) {
+    void mock.api.setAutoRecovery({ enabled: true, intervalMinutes: 30, reassign: true });
+    void mock.api.setTaskWatch({ enabled: true, quietMinutes: 15 });
+  }
+  // The same store as the ring of the rail. The story reads the mock, with the actions of the reviewer.
+  const load = createLoadStore(
+    () => ({
+      ...mock.api,
+      getLoad: async (): Promise<LoadSnapshot> => {
+        const reading = await mock.api.getLoad();
+        if (!props.taskReviewerActive) return reading;
+        return { ...reading, taskWatch: { ...reading.taskWatch, modelReady: true, recent: storyTaskWatchRecent } };
+      },
+    }),
+    () => false,
+  );
   onCleanup(() => {
     mock.dispose();
     toast.dismiss();
@@ -86,7 +140,9 @@ function SettingsModalStory(props: {
   );
   const [account, setAccount] = createSignal<CentralAuthUser>({ ...storyAccount });
   // The notification level and the mute of each server, as the server list of the app keeps them.
-  const [servers, setServers] = createSignal<readonly ServerSummary[]>(STORY_SERVERS);
+  const [servers, setServers] = createSignal<readonly ServerSummary[]>(
+    props.joinedServer ? STORY_SERVERS.map((server) => ({ ...server, active: server.id === "team" })) : STORY_SERVERS,
+  );
   const updateServer = (serverId: string, change: Partial<ServerSummary>): void => {
     setServers((list) => list.map((server) => (server.id === serverId ? { ...server, ...change } : server)));
   };
@@ -178,6 +234,8 @@ function SettingsModalStory(props: {
             billingApi={billingApi}
             hostedServersApi={props.hostedServers ? hostedServersApi : undefined}
             onAddHostedServer={props.hostedServers ? fn() : undefined}
+            load={load}
+            onOpenLoadPanel={props.joinedServer ? undefined : fn()}
           />
         )}
       </SettingsPageStory>
@@ -240,6 +298,31 @@ export const Profile: Story = {
 
 export const Notifications: Story = {
   render: () => <SettingsModalStory initialOpen initialTab="notifications" />,
+};
+
+/** The Guard of this computer: level, review model, when it asks, what leaves the computer, and its links. */
+export const Guard: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="guard" />,
+};
+
+/** The task reviewer ("Fiscal") while it is off: the switch, its threshold, the Guard's model and the load panel. */
+export const TaskReviewer: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="task-reviewer" />,
+};
+
+/** The task reviewer on, with Resume by itself, the Guard's model ready and three recent actions. */
+export const TaskReviewerActive: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="task-reviewer" taskReviewerActive />,
+};
+
+/** The task reviewer while the window shows a joined server: the page says it is this computer's. */
+export const TaskReviewerJoinedServer: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="task-reviewer" joinedServer />,
+};
+
+/** The Guard while the window shows a joined server. */
+export const GuardJoinedServer: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="guard" joinedServer />,
 };
 
 export const Voice: Story = {

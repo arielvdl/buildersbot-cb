@@ -8,7 +8,9 @@ import {
   type GuardState,
   isAgentProvider,
   LOCAL_SERVER_ID,
+  providerDisplayName,
 } from "@openbot/contracts/ipc";
+import type { AppTranslate } from "@openbot/i18n";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore } from "solid-js";
@@ -35,6 +37,15 @@ export const LOCAL_ONLY_KEY = "local";
 
 export function guardModelKey(choice: GuardJudgeChoice | null): string {
   return choice ? JSON.stringify([choice.provider, choice.model]) : LOCAL_ONLY_KEY;
+}
+
+/**
+ * The name of a row of the model list, "Cultura Builder · Builder Fast", or "Local check only". The
+ * Guard page and the page of the task reviewer, which asks the same model, name it the same way.
+ */
+export function guardModelName(row: GuardModelRow | undefined, t: AppTranslate): string {
+  if (!row?.choice) return t("guard.model.localOnly");
+  return t("guard.model.label", { provider: providerDisplayName(row.choice.provider), model: row.name });
 }
 
 function sameChoice(left: GuardJudgeChoice, right: GuardJudgeChoice): boolean {

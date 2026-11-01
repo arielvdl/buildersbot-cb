@@ -35,6 +35,23 @@ export const messages = defineMessages("guard", {
   "guard.coverage.title": "What the Guard checks now",
   "guard.coverage.description":
     "Pages that the built-in browser and the shared Playwright browser read; the URLs, text, scripts and files that the browser sends; chat posts, attachments, sites and new MCP servers; and the commands that an agent asks you to approve. Tools that a provider runs in its own process, and MCP servers that it reaches directly, are not checked yet.",
+  "guard.ask.title": "When the Guard asks you",
+  "guard.ask.card":
+    "It asks on the approval card, with the title “The Guard asks you to confirm”. The card has no “Always allow”, and Full access does not answer it for you.",
+  "guard.ask.remember":
+    "When you allow an item, it does not ask again for 10 minutes about the same item of the same agent in the same conversation. A decline is not kept.",
+  "guard.ask.owner":
+    "When a secret may leave the computer, only the owner of this computer can answer, not a team member.",
+  "guard.leaves.title": "What leaves the computer",
+  "guard.leaves.suspicious":
+    "Only an item that the local check marks as suspicious goes to the review model: an excerpt of at most 2,000 characters, with secrets and emails masked.",
+  "guard.leaves.never": "Never the conversation, the agent's instructions or other tool results.",
+  "guard.leaves.log":
+    "The Guard's log keeps the tool, the decision and the time, never the content. The app keeps no list of past decisions.",
+  "guard.related.title": "Related",
+  "guard.related.taskReviewer": "It uses this review model to decide about slow channel tasks.",
+  "guard.joined.description":
+    "{server} is another server, with its own Guard. This page changes the Guard of this computer only: this app cannot change the one of {server} yet.",
   "guard.loadFailed": "The Guard setting did not load.",
   "guard.saveFailed": "The Guard setting was not saved.",
 });
