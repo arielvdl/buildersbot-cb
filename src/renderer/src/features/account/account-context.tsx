@@ -111,6 +111,14 @@ const Auth = createSimpleContext({
     let authSuccessTimer: ReturnType<typeof setTimeout> | undefined;
     /** The phones of the last list for this account. A phone that is new in a later list connected since then. */
     let knownMobileDevices: ReadonlySet<string> | null = null;
+    /** Counts the states that an event or a user action gave, so a read that answers late cannot replace them. */
+    let centralAuthRevision = 0;
+    /**
+     * The revision at which the first read failed, or null. Main answers no call before its IPC
+     * handlers exist, and it sends an account event only when the account changes. A window that
+     * loaded before the handlers then kept "could not load the account service" until the next start.
+     */
+    let failedBootstrapRevision: number | null = null;
 
     onCleanup(() => {
       if (authSuccessTimer !== undefined) clearTimeout(authSuccessTimer);
@@ -125,6 +133,7 @@ const Auth = createSimpleContext({
      * signed-in account goes straight to the workspace.
      */
     function applyCentralAuthState(state: CentralAuthState): void {
+      centralAuthRevision += 1;
       desktopAnalytics.setUser(state.status === "signed_in" ? state.user : null);
       if (state.status !== "signed_in") knownMobileDevices = null;
       const completedCodeChallenge = centralAuth().status === "code_sent" && state.status === "signed_in";
@@ -147,23 +156,56 @@ const Auth = createSimpleContext({
       const unsubscribe = accountPort().auth.onEvent((state) => {
         flush(() => applyCentralAuthState(state));
       });
+      let readingAgain = false;
+      // After a failed first read, the window that shows or gets focus reads the state again: one
+      // read at a time, until one answers. A state that main gives stays on screen, also an error of
+      // the account service with its own Try again. An event or a user action stops the reads.
+      const readAgain = () => {
+        if (readingAgain || failedBootstrapRevision === null || failedBootstrapRevision !== centralAuthRevision) return;
+        readingAgain = true;
+        void accountPort()
+          .auth.getState()
+          .then((state) => {
+            if (failedBootstrapRevision !== centralAuthRevision) return;
+            failedBootstrapRevision = null;
+            setCentralAuth(state);
+          })
+          // The error of the first read stays, and the next signal reads again.
+          .catch(() => undefined)
+          .finally(() => {
+            readingAgain = false;
+          });
+      };
+      const readAgainWhenVisible = () => {
+        if (document.visibilityState === "visible") readAgain();
+      };
+      window.addEventListener("focus", readAgain);
+      document.addEventListener("visibilitychange", readAgainWhenVisible);
       // The bootstrap read sets the signal directly, not through
       // `applyCentralAuthState`: there is no earlier state to have completed a
       // code challenge against, so a restart into a signed-in account must not
       // play the success hold.
+      const bootstrapRevision = centralAuthRevision;
       void accountPort()
         .auth.getState()
         .then(setCentralAuth)
-        .catch(() =>
+        .catch(() => {
+          // An event that came first has the state already.
+          if (centralAuthRevision !== bootstrapRevision) return;
+          failedBootstrapRevision = centralAuthRevision;
           setCentralAuth({
             status: "error",
             issue: {
               code: "auth_unavailable",
               message: currentText().t("account.login.loadFailed"),
             },
-          }),
-        );
-      return unsubscribe;
+          });
+        });
+      return () => {
+        unsubscribe();
+        window.removeEventListener("focus", readAgain);
+        document.removeEventListener("visibilitychange", readAgainWhenVisible);
+      };
     });
 
     async function requestEmailCode(email: string): Promise<void> {
