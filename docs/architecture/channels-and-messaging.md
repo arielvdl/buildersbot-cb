@@ -225,12 +225,15 @@ writes a `channel-change` note in the same commit, with the agent as author and 
 names the agent, the change and the person. Clients show it as an activity row, and it is not
 unread and not in the model packet.
 
-Channel work holds only the agent that does it. An agent runs one main-lane turn at a time: its chat,
-a channel delivery or a messaging delivery. While the agent has an active assignment,
-`ChannelService.mayDrain` holds its other main-lane requests. The work of other agents does not hold
-it. The tasks of the agent run beside the channel turn within the agent task limit, and a channel
-turn takes no task slot. When the provider of the agent runs one turn at a time (`concurrentTurns:
-false`), its task turns count as busy. Only declared `browser` and `workspace:<path>` resources are
+Channel work holds only the agent that does it. Each tab of a channel is its own line of work for
+each agent (a tab lane, see [channel tabs](channel-tabs.md#tab-lanes)): the requests of one tab start
+one after the other, and the tabs of one agent run beside each other up to its tab limit. The agent's
+own chat and its messaging work share one main-lane turn. While the agent has an active assignment,
+`ChannelService.mayDrain` holds its main-lane requests, and a tab lane waits while the main lane runs a
+turn. The work of other agents does not hold it. The tasks of the agent run beside the channel turns
+within the agent task limit, and a channel turn takes no task slot. When the provider of the agent
+runs one turn at a time (`concurrentTurns: false`), every lane of the agent waits for any running turn
+of the agent, and its tab limit is 1. Only declared `browser` and `workspace:<path>` resources are
 serialized: the same browser, or two workspaces where one path contains the other. An empty list,
 `none`, and `host` (from an earlier version) reserve nothing. An assignment keeps the resources it
 started with until it ends, and a task with an active assignment starts no second owner. An update

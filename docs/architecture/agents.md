@@ -441,7 +441,8 @@ migration 47) holds one row for each side thread, with its title and the source 
 (`auto`, `agent` or `user`). Migration 47 moved every task of `projection_agent_tasks` (migration 38)
 there: a closed task became an archived thread, and the task id stays as `legacy_task_id`. The task id
 of a side thread is `legacy_task_id ?? thread_id`, so a stored mailbox message and a released client
-that name the task still find it. A mailbox message with a `taskId` belongs to that side thread, and `DrainScheduler` drains each task as its own lane. The main chat
+that name the task still find it. A mailbox message with a `taskId` belongs to that side thread, and `DrainScheduler` drains each task as its own lane. A
+channel message is drained in the lane of its channel tab (see [tab lanes](channel-tabs.md#tab-lanes)). The main chat
 lane does not count toward the task limit. At most `limit` task turns of one agent run at the same
 time. `agentTaskLimit` gives the limit: the agent's local `taskLimit` setting (1 to
 `AGENT_TASK_LIMIT_MAX`, in `agent_json`), else `AGENT_TASK_LIMIT_DEFAULT` (2). An owner or admin of
@@ -638,7 +639,8 @@ message in a new one. `AgentService.forceQueuedMessage` calls `QueueControls.for
    schedules starts the message (`interrupted`).
 5. It sends no Stop when the message cannot start after it, and answers `next`
    (`DrainScheduler.holdAfterStop`): channel or messaging work waits at the head of the chat, other
-   channel work reserves the agent (`ChannelService.reservesBeside`), the chat still starts a turn with
+   channel work reserves the agent (`ChannelService.reservesBeside`, which reads every channel tab
+   where the agent runs a turn), the chat still starts a turn with
    no id, or a clause of the drain other than that turn holds the chat, such as a compaction, a session
    settings change, or a task turn on a provider that runs one turn of the agent at a time.
 
