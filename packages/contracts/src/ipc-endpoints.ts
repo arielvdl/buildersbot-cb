@@ -158,6 +158,7 @@ import type {
   MacAutomationResult,
   MacAutomationTarget,
   MacPermissionId,
+  PersonalVendorMcpNotice,
   ProviderRuntimeSnapshot,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
@@ -786,6 +787,11 @@ export const IPC_ENDPOINTS = {
      * and the file name. Read-only.
      */
     getUnreadableSecrets: request<undefined, UnreadableSecret[]>()("app:secret-health"),
+    /**
+     * A treg setup of the person's own in the MCP files of other agent apps on this computer: the
+     * files and the providers that Builders Bot cannot cover. Paths and names only. Read-only.
+     */
+    getPersonalVendorMcp: request<undefined, PersonalVendorMcpNotice>()("app:personal-vendor-mcp"),
     getExternalLinkPreference: request<undefined, ExternalLinkPreference>()("app:get-external-link-preference"),
     setExternalLinkPreference: request<ExternalLinkPreference, ExternalLinkPreference>()(
       "app:set-external-link-preference",

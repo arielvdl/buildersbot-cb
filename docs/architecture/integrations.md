@@ -5,6 +5,7 @@ computer of its user, and how to add a provider, an application or a connector. 
 working example with real file paths.
 
 - [How a sign-in reaches Builders Bot](#how-a-sign-in-reaches-openbot)
+- [Cultura Builder connections and the person's own vendor setup](#cultura-builder-connections-and-the-persons-own-vendor-setup)
 - [Remote sign-in: the callback relay](#remote-sign-in-the-callback-relay)
 - [Add a provider](#add-a-provider)
 - [Add an application](#add-an-application)
@@ -97,6 +98,67 @@ session at its next turn. A computer with no proxied row keeps its manifest.
 
 Run `bun run test:mcp-oauth` to check these paths against a local authorization server and a local
 MCP server.
+
+## Cultura Builder connections and the person's own vendor setup
+
+Paid external data, such as the tool catalog that treg.to serves, reaches an agent only through the
+Cultura Builder Hub, with the two tools of [Hub connections](hub-connections.md). The vendor's key
+stays in the Hub's vault. No vendor MCP server, CLI, skill or token is installed for an agent.
+
+### What leaves the computer for a connection call
+
+| Step | Where it goes | What |
+| --- | --- | --- |
+| Proxy token | `hub.culturabuilder.com` | The person's Cultura Builder refresh token, for a short `cbp_` token per organization. The `cbp_` token stays in main-process memory. |
+| `search`, `describe` | The Hub only | The search text (at most 200 characters) or the endpoint id. The Hub answers from its own copy of the catalog: the text does not go to treg. |
+| `call` | The Hub, then treg.to (USA), then the provider of the endpoint | The endpoint id, its query and its body, the organization that pays, and the origin of the turn (`owner_ui`, `routine` or `agent`). |
+| Tags | treg.to | Random organization and person tags that the Hub sets (`X-Treg-Meta`). Never an email, a name, a Hub id or a hash of one. The agent never sees or sets them. |
+
+Before anything leaves, the main process refuses an input that holds a key, a token, a cookie, a
+session, a JSON Web Token, or the URL of a private, local or Tailscale address; a search text gets
+the same check. The Guard then reads the input: it stops a cookie or a session that would leave (no
+card can allow it), and it asks the person about a long free text or a long block of encoded data in
+one field. A call about people asks the person on a card first, once in each conversation, and never
+runs in a routine. See [The Guard](guard.md#connection-tools).
+
+### What the Hub stores
+
+The cost of each call on its ledger, with the endpoint and the platform, but without the input, the
+result, a URL or a query string; the random tags and their mapping to the organization and the person
+until the month's reconciliation closes; and the treg call id, for 90 days. See
+[the Hub contract](hub-connections-contract.md) for the full list.
+
+### The person's own treg setup
+
+treg's installer writes a treg token in plain text into the MCP files of other agent apps:
+`~/.codex/config.toml`, `~/.config/opencode/opencode.json`, `~/.cursor/mcp.json` and
+`~/.claude.json`. A Builders Bot agent whose provider loads such a file would reach treg with no Hub
+cap, no Guard and no cost line. Under the organization policy "Hub only", which is the policy of this
+build (`PERSONAL_VENDOR_MCP_POLICY` in [`personal-vendor-mcp.ts`](../../src/backend/personal-vendor-mcp.ts)),
+Builders Bot turns such an entry off inside its agents. An entry is a treg entry when its name is
+`treg`, when its URL host is `treg.to` or a sub-domain of it, or when its command is treg's CLI. The
+person's files stay as they are. The check keeps server names, file paths and URL hosts only; it
+never keeps, logs or shows a header or a token.
+
+| Provider | Loads the person's own MCP entries? | What Builders Bot does |
+| --- | --- | --- |
+| Claude Code | No: Builders Bot starts it with `strictMcpConfig: true`. | Nothing more. |
+| Codex | Yes, from its own files. | The thread turns off every name of Codex's own files. When Codex's `config/read` fails, the thread still turns off each name that Builders Bot reads from `config.toml` on disk and the name `treg`, each with a placeholder of its own transport (`codexFallbackDisabledServers`). Before, that branch turned off nothing. |
+| OpenCode and Cultura Builder | Yes, from the global OpenCode files. | The layer on `OPENCODE_CONFIG_CONTENT` turns off `treg` and each treg entry of those files, with the same complete disabled entry as for Playwright (`openCodeConfigEnv`, `culturaBuilderConfigEnv`). A project `opencode.json` in the agent's folder is not read. |
+| Grok | Yes: also `~/.claude.json`, `~/.cursor/mcp.json` and `.mcp.json`. | Not covered: Builders Bot does not control what Grok loads. The Settings notice names Grok. |
+| Cursor | Yes: `~/.cursor/mcp.json`, and `.cursor/mcp.json` of the project. | Not covered. A Workspace only Cursor agent reads its own config folder (`cursorConfinedEnv`), but a Full access agent reads the person's. The notice names Cursor. |
+| Custom ACP agents | What the agent's own CLI reads. | Not covered. The notice names custom agents. |
+| Cline, Antigravity, Pi, Muse | Their own files, which treg's installer does not write. | Not scanned. |
+
+Settings › General shows a notice when one of the four files holds a treg entry
+(`PersonalVendorMcpNotice`, IPC `app:personal-vendor-mcp`): the token is in plain text there, any
+agent with terminal access can read it, Builders Bot agents use the Cultura Builder connection
+instead, and the person should remove the entries and rotate the token. The notice lists the files
+and the providers that Builders Bot cannot cover. The app cannot protect a token that is already in
+a file of the home folder: only the person can, by removing it and rotating it.
+
+Run `bun scripts/hub-connections-safety-e2e.ts` to check these paths with a fake Codex, a fake
+`opencode acp` and a home folder that holds an installer's setup.
 
 ## Remote sign-in: the callback relay
 

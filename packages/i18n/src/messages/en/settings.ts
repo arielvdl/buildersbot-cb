@@ -311,6 +311,14 @@ export const messages = defineMessages("settings", {
     "Provider API keys ({file}): save each key again in the Providers settings of this computer.",
   "settings.secretHealth.store.messagingCredentials":
     "Tokens of messaging connections ({file}): connect each workspace again.",
+  "settings.vendorMcp.title": "A treg connection of your own is set up on this computer",
+  "settings.vendorMcp.description":
+    "Its token is stored in plain text in these files, and any agent with terminal access can read it. Builders Bot agents use the Cultura Builder connection instead, and the entry is off inside them.",
+  "settings.vendorMcp.action":
+    "To protect the token, remove the treg entries from these files, then rotate the token in your treg account.",
+  "settings.vendorMcp.uncovered":
+    "{providers} agents can still use it: Builders Bot does not control the MCP servers that they load.",
+  "settings.vendorMcp.customAgents": "Custom",
   "settings.preferences.saveFailed": "Could not save this setting. Try again.",
   // The agent picker on the skill and plugin install pages.
   "settings.agentSelect.placeholder": "Choose an agent",

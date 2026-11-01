@@ -14,6 +14,7 @@ import {
   type ExternalLinkBrowser,
   externalLinkAppName,
   GROK_BOT_EXPORT_URL,
+  type PersonalVendorMcpNotice,
   parseSecurityGuardPreferenceChange,
   type UnreadableSecret,
 } from "@openbot/contracts/ipc";
@@ -23,6 +24,7 @@ import { version as developmentVersion } from "../../../package.json";
 import type { AgentService } from "../../backend/agent-service";
 import type { BrowserHost } from "../../backend/browser-host";
 import type { MailboxStore } from "../../backend/mailbox-store";
+import { personalVendorMcpNotice } from "../../backend/personal-vendor-mcp";
 import type { AgentDefaultsPreferenceStore } from "../agent-defaults-preference-store";
 import type { AgentLimitPreferenceStore } from "../agent-limit-preference-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
@@ -356,6 +358,8 @@ export function appIpcHandlers({
       openExternal: payloadHandler(parseExternalDestination, (parsed) => openLink(EXTERNAL_DESTINATIONS[parsed])),
       openUrl: payloadHandler(stringPayload("URL", INPUT_LIMITS.browserUrl), (url) => openHttpLink(url, openLink)),
       getUnreadableSecrets: handler((): UnreadableSecret[] => unreadableSecrets()),
+      // Read at each open of Settings, so an entry that the person removed is gone the next time.
+      getPersonalVendorMcp: handler((): PersonalVendorMcpNotice => personalVendorMcpNotice()),
       getExternalLinkPreference: handler(() => externalLinkPreference.get()),
       setExternalLinkPreference: payloadHandler(parseExternalLinkPreference, (parsed) =>
         runCauseEffect(externalLinkPreference.set(parsed)),

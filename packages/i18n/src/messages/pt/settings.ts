@@ -292,6 +292,14 @@ export const messages = {
     "Chaves de API de provedores ({file}): salve cada chave de novo nas configurações de provedores deste computador.",
   "settings.secretHealth.store.messagingCredentials":
     "Tokens de conexões de mensagens ({file}): conecte cada espaço de trabalho de novo.",
+  "settings.vendorMcp.title": "Há uma conexão treg sua configurada neste computador",
+  "settings.vendorMcp.description":
+    "O token dela está salvo em texto puro nestes arquivos, e qualquer agente com acesso ao terminal pode lê-lo. Os agentes do Builders Bot usam a conexão do Cultura Builder no lugar dela, e a entrada fica desligada dentro deles.",
+  "settings.vendorMcp.action":
+    "Para proteger o token, remova as entradas do treg destes arquivos e depois troque o token na sua conta do treg.",
+  "settings.vendorMcp.uncovered":
+    "Agentes {providers} ainda podem usá-la: o Builders Bot não controla os servidores MCP que eles carregam.",
+  "settings.vendorMcp.customAgents": "personalizados",
   "settings.preferences.saveFailed": "Não foi possível salvar esta configuração. Tente de novo.",
   "settings.agentSelect.placeholder": "Escolha um agente",
   "settings.agentSelect.empty": "Nenhum agente local",
