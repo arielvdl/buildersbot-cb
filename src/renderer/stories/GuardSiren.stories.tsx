@@ -30,6 +30,9 @@ type Story = StoryObj<typeof meta>;
 /** The top of the Guard page, Light: the siren stays down in the box, as in the P1 mockup. */
 export const Hero: Story = {};
 
+/** Before the page reads the Guard: the box is asleep and the level has no name yet. */
+export const HeroLoading: Story = { args: { level: null, status: "loading" } };
+
 export const HeroOff: Story = { args: { level: "off", status: "off" } };
 
 /** A question of the Guard waits for the person: the siren is red and the shield shows "!". */

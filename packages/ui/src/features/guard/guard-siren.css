@@ -313,7 +313,7 @@
 
 /* The top of the Guard page: the siren on a stage that the beams sweep, the level and the state. */
 .guard-siren-hero {
-  --guard-siren-hero-tint: var(--openbot-guard-light);
+  --guard-siren-hero-tint: var(--openbot-guard-off);
 
   display: grid;
   gap: var(--openbot-space-3);
@@ -343,8 +343,8 @@
   --guard-siren-size: clamp(150px, 26vh, 210px);
 }
 
-.guard-siren-hero[data-level="off"] {
-  --guard-siren-hero-tint: var(--openbot-guard-off);
+.guard-siren-hero[data-level="light"] {
+  --guard-siren-hero-tint: var(--openbot-guard-light);
 }
 
 .guard-siren-hero[data-level="strict"] {

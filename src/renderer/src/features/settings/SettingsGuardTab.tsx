@@ -67,10 +67,13 @@ export function SettingsGuardTab(props: {
 }) {
   const { t } = useText();
   const guard = () => props.store.state.guard;
-  const level = () => {
+  /** The saved level, or null before main answers: the page then shows no level. */
+  const savedLevel = () => {
     const current = guard();
-    return current ? guardEffectiveLevel(current.preference.level) : "light";
+    return current ? guardEffectiveLevel(current.preference.level) : null;
   };
+  /** The level that the controls of the page show while it loads: the default. */
+  const level = () => savedLevel() ?? "light";
   const judge = () => guard()?.preference.judge ?? null;
   const busy = () => guard() === null || props.store.state.saving;
   const levelLabel = (value: GuardLevel) =>
@@ -96,7 +99,7 @@ export function SettingsGuardTab(props: {
 
   return (
     <>
-      <GuardSirenHero level={level()} status={sirenStatus()} />
+      <GuardSirenHero level={savedLevel()} status={sirenStatus()} />
       <Show when={props.joinedServer}>
         {(server) => (
           <Alert tone="neutral" role="status">

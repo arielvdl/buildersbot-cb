@@ -127,12 +127,15 @@ function SettingsModalStory(props: {
   joinedServer?: boolean;
   /** The models that the Guard's model list offers. */
   models?: ClientAgentModelOption[];
+  /** Main never answers the Guard state, so the Guard page stays as it is while it loads. */
+  guardLoading?: boolean;
 }) {
   const previousApi = window.openbot;
   const billingApi = createMockBilling();
   const mock = createMockBuildersBot(props.voice);
   const models = props.models;
   if (models) mock.api.agent.listModels = async () => structuredClone(models);
+  if (props.guardLoading) mock.api.guard.getState = () => new Promise(() => undefined);
   window.openbot = mock.api;
   if (props.taskReviewerActive) {
     void mock.api.setAutoRecovery({ enabled: true, intervalMinutes: 30, reassign: true });
@@ -358,6 +361,11 @@ export const TaskReviewerJoinedServer: Story = {
 /** The Guard while the window shows a joined server. */
 export const GuardJoinedServer: Story = {
   render: () => <SettingsModalStory initialOpen initialTab="guard" joinedServer />,
+};
+
+/** The page before main answers: the siren is asleep with no level name, and the level cards wait. */
+export const GuardLoading: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="guard" models={guardStoryModels} guardLoading />,
 };
 
 export const Voice: Story = {

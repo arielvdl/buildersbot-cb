@@ -1,7 +1,7 @@
 import { AgentMark } from "@openbot/brand/agent-mark";
 import type { GuardLevel } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { createUniqueId } from "solid-js";
+import { createUniqueId, Show } from "solid-js";
 import { useText } from "../../text";
 import { cx } from "../../utils";
 import { createTaskListPlayState } from "../conversation/TaskList";
@@ -30,9 +30,12 @@ const EYELID = { asleep: 0.95, calm: 0.5, watch: 0.12, alarm: 0, neutral: 0.18 }
   number
 >;
 
-/** The siren of a level, and the alarm while a question of the Guard waits for the person. Off never asks. */
-export function guardSirenMode(level: GuardLevel, asking: boolean): GuardSirenMode {
-  if (level === "off") return "asleep";
+/**
+ * The siren of a level, and the alarm while a question of the Guard waits for the person. Off never
+ * asks. A null level, while the page reads the Guard, shows the siren down and the eyes shut.
+ */
+export function guardSirenMode(level: GuardLevel | null, asking: boolean): GuardSirenMode {
+  if (level === null || level === "off") return "asleep";
   return asking ? "alarm" : LEVEL_MODE[level];
 }
 
@@ -46,7 +49,8 @@ const DOME = "M-17 -12V-26A17 19 0 0 1 17 -26V-12Z";
 const LID_CENTER = "translate(120 81)";
 
 export interface GuardSirenProps {
-  level: GuardLevel;
+  /** Null while the level is not known: the box is grey and asleep. */
+  level: GuardLevel | null;
   /** True while a question of the Guard waits for the person: the siren sounds the alarm, red. */
   asking?: boolean | undefined;
   /** `hero` is the large picture at the top of the Guard page; `compact` fits the header of a card. */
@@ -54,6 +58,11 @@ export interface GuardSirenProps {
   /** False stops the motion, such as when the question is answered. The document being hidden also stops it. */
   playing?: boolean | undefined;
   class?: string | undefined;
+}
+
+/** The color of the box of a level, and grey while the level is not known. */
+function boxColor(level: GuardLevel | null): string {
+  return `var(--openbot-guard-${level ?? "off"})`;
 }
 
 /**
@@ -76,7 +85,6 @@ export function GuardSiren(props: GuardSirenProps) {
     <div
       class={cx("guard-siren", props.class)}
       data-size={props.size ?? "hero"}
-      data-level={props.level}
       data-mode={mode()}
       style={{ "--guard-siren-play": playState() }}
       aria-hidden="true"
@@ -89,7 +97,7 @@ export function GuardSiren(props: GuardSirenProps) {
       <AgentMark
         class="guard-siren-box"
         mood={mode() === "asleep" ? "asleep" : "idle"}
-        accent={`var(--openbot-guard-${props.level})`}
+        accent={boxColor(props.level)}
         animated={false}
         emblem={() => <GuardShield alert={mode() === "alarm" && props.asking === true} />}
         style={{ "--agent-mark-eyelid": String(EYELID[mode()]) }}
@@ -171,17 +179,20 @@ const LEVEL_NAME = {
 
 /**
  * The top of the Guard page: the siren, large, the name of the level, and what the Guard does now.
- * The level list of the page sets the level; this follows it.
+ * The level list of the page sets the level; this follows it. While the level is not known (null),
+ * the siren is asleep and the name does not show.
  */
-export function GuardSirenHero(props: { level: GuardLevel; status: GuardSirenStatus }) {
+export function GuardSirenHero(props: { level: GuardLevel | null; status: GuardSirenStatus }) {
   const { t } = useText();
   return (
-    <section class="guard-siren-hero" data-level={props.level} aria-label={t("guard.siren.label")}>
+    <section class="guard-siren-hero" data-level={props.level ?? undefined} aria-label={t("guard.siren.label")}>
       <div class="guard-siren-stage">
         <GuardSiren level={props.level} asking={props.status === "asking"} size="hero" />
       </div>
       <div class="guard-siren-caption">
-        <strong class="guard-siren-level">{t(LEVEL_NAME[props.level])}</strong>
+        <Show when={props.level}>
+          {(level) => <strong class="guard-siren-level">{t(LEVEL_NAME[level()])}</strong>}
+        </Show>
         <span class="guard-siren-status" role="status">
           {t(STATUS_TEXT[props.status])}
         </span>
