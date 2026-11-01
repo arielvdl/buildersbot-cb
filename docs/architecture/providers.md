@@ -284,8 +284,9 @@ adds its rule there, not in the catalog.
 > Cultura Builder gateway: the free models of the Builders CLI are hidden; (2) the Cultura Builder
 > models (DeepSeek, GLM and the models without censorship) come through the gateway of the Hub, and
 > their upstream key is only in the gateway, never on a server or in the app; (3) a model without
-> censorship is denied by default, and only a person or company that the owner grants on the Hub can
-> see and call it. `openbot-instance create` writes the default policy
+> censorship is denied by default, and only a person that the owner grants on the Hub, with a verified
+> email address, can see and call it. A grant never follows the company of an account: the Hub sets
+> that company from the email domain. `openbot-instance create` writes the default policy
 > (`docker/instances/model-policy.default.json`), and the infrastructure of the sectors writes and
 > checks it on each install.
 
@@ -331,9 +332,9 @@ With a policy, the Cultura Builder models are the gateway catalog of the signed-
 built-in list. The `prepare` hook of the driver reads `GET /v1/models` with the access token of the
 account (`readCulturaBuilderModels`) before each spawn, and `culturaBuilderConfigEnv` declares those
 models. The gateway filters that list for the account: a restricted model (for example
-`builder-deepseek-uncensored`) is in it only when the Hub granted it to the person or to the person's
-company. Only ids with the `builder-` prefix pass, names are made printable and bounded, and numbers
-out of range take the built-in values.
+`builder-deepseek-uncensored`) is in it only when the Hub granted it to that person and the email
+address of the person is verified. Only ids with the `builder-` prefix pass, names are made printable
+and bounded, and numbers out of range take the built-in values.
 
 When the gateway does not answer the catalog, the spawn declares the built-in models
 (`CULTURA_BUILDER_MODELS`), never a restricted one. The catalog is not the security boundary: the
@@ -347,7 +348,8 @@ Without a policy, the provider declares the built-in models and the app does not
    `{ "version": 1, "providers": { "cultura-builder": "*" }, "freeModels": false }`. An instance made
    before this rule has no file until the administrator writes one; it then offers every provider.
 2. Sign the server in to Cultura Builder with the account of the server. The Hub decides what that
-   account can call; a model without censorship is only for a person or company that the Hub granted.
+   account can call; a model without censorship is only for a person that the Hub granted, with a
+   verified email address.
 3. Put no provider key, upstream URL or upstream key on the server. The upstream key of a Cultura
    Builder model is only in the gateway.
 
