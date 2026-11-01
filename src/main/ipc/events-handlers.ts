@@ -78,7 +78,8 @@ export function eventsIpcHandlers({ events, remoteServers }: EventsIpcDependenci
           ),
       }),
       saveRoutine: scopedHandler(parseSaveEventRoutine, {
-        local: (input) => runCauseEffect(events.saveRoutine(input)),
+        // The person saves it in the app: its runs are the person's (hub-connections/turn-origin.ts).
+        local: (input) => runCauseEffect(events.saveRoutine(input, "owner_ui")),
         remote: (input, serverId) =>
           remote(
             serverId,

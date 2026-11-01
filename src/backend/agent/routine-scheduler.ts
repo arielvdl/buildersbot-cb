@@ -28,6 +28,7 @@ import { AgentRoutineStore } from "../agent-routine-store";
 import { AGENT_PREVIEW_MAX_LENGTH, type AgentStore } from "../agent-store";
 import type { AgentWaits } from "../agent-waits/agent-waits";
 import { causeHelpers } from "../effect-boundary";
+import { type HubTurnOrigin, narrowerOrigin, routineOriginOf } from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import { recordRestartActivity } from "../restart-activity";
@@ -67,6 +68,12 @@ export interface RoutineMutationOptions {
   turnId?: string | undefined;
   /** The side thread whose turn made the change. Its card shows there, not in the agent's own chat. */
   sideThreadId?: string | undefined;
+  /**
+   * Who saved the routine, for the Hub connections of its runs (`routineOriginOf`): `owner_ui` for the
+   * person, the turn's origin for a tool, `team_member` for a team member. Absent: the record of who
+   * saved it does not change.
+   */
+  origin?: HubTurnOrigin | undefined;
 }
 
 /**
@@ -309,6 +316,7 @@ export class RoutineScheduler implements RoutineDueSource {
             undefined,
             options.sideThreadId,
           );
+    if (options.origin) this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(options.origin));
     this.stateChanged(input.agentId);
     this.arm();
     return routine;
@@ -328,6 +336,7 @@ export class RoutineScheduler implements RoutineDueSource {
             undefined,
             options.sideThreadId,
           );
+    if (options.origin) this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(options.origin));
     this.stateChanged(input.agentId);
     this.arm();
     return routine;
@@ -353,7 +362,13 @@ export class RoutineScheduler implements RoutineDueSource {
    * Saves a routine of either trigger kind. Only a schedule routine gets a conversation event: the
    * released routine views that the event links to do not show webhook routines.
    */
-  saveRecord(agentId: string, routineId: string | undefined, input: RoutineRecordInput): OwnedRoutineRecord {
+  /** `savedBy`: who saved it, for the Hub connections of its runs; absent keeps the record of who did. */
+  saveRecord(
+    agentId: string,
+    routineId: string | undefined,
+    input: RoutineRecordInput,
+    savedBy?: HubTurnOrigin,
+  ): OwnedRoutineRecord {
     this.#conversation.requireKnownAgent(agentId);
     const routine =
       input.trigger.kind === "schedule"
@@ -364,6 +379,7 @@ export class RoutineScheduler implements RoutineDueSource {
             (saved) => saved,
           )
         : this.#routines.saveRecord(agentId, routineId, input);
+    if (savedBy) this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(savedBy));
     this.stateChanged(agentId);
     this.arm();
     return routine;
@@ -475,10 +491,12 @@ export class RoutineScheduler implements RoutineDueSource {
     );
   }, Effect.uninterruptible);
 
+  /** `testedBy` is the origin of who started the run, when not the person: the run gets at most `routineOriginOf(testedBy)`. */
   readonly test = Effect.fn("RoutineScheduler.test")(function* (
     this: RoutineScheduler,
     input: TestRoutineInput,
     access: RoutineTriggerAccess = {},
+    testedBy: HubTurnOrigin = "owner_ui",
   ) {
     if (!access.webhook) {
       yield* routineStep(() => {
@@ -487,13 +505,18 @@ export class RoutineScheduler implements RoutineDueSource {
         }
       });
     }
-    return yield* this.runWithPayload({ ...input, payload: "", source: "test" });
+    return yield* this.runWithPayload({ ...input, payload: "", source: "test", testedBy });
   });
 
   /** Store the event in the run instruction so recovery retains it. */
   readonly runWithPayload = Effect.fn("RoutineScheduler.runWithPayload")(function* (
     this: RoutineScheduler,
-    input: TestRoutineInput & { payload: string; source: "test" | "script"; waitId?: string },
+    input: TestRoutineInput & {
+      payload: string;
+      source: "test" | "script";
+      waitId?: string;
+      testedBy?: HubTurnOrigin;
+    },
   ) {
     const run = yield* routineStep(() => {
       if (this.#isHidden(input.agentId)) throw new RoutineInputError(sourceText("error.backend.recipientHidden"));
@@ -519,7 +542,11 @@ export class RoutineScheduler implements RoutineDueSource {
         new Date().toISOString(),
       );
     });
-    const queued = yield* this.#enqueueRunEffect(run, input.waitId ?? null);
+    const queued = yield* this.#enqueueRunEffect(
+      run,
+      input.waitId ?? null,
+      routineOriginOf(input.testedBy ?? "owner_ui"),
+    );
     yield* routineStep(() => this.stateChanged(input.agentId));
     return queued;
   }, Effect.uninterruptible);
@@ -538,11 +565,13 @@ export class RoutineScheduler implements RoutineDueSource {
    * toast, although the model's corrected retry then creates the routine. Other errors are faults
    * and still throw.
    */
+  /** `origin` is the origin of the calling turn: a routine that it saves runs with at most `routineOriginOf(origin)`. */
   handleTool(
     params: DynamicToolCallParams,
     senderAgentId: string,
+    origin: HubTurnOrigin,
   ): Effect.Effect<BuildersBotToolResponse | null, RoutineOperationFailed> {
-    return this.#handleTool(params, senderAgentId).pipe(
+    return this.#handleTool(params, senderAgentId, origin).pipe(
       Effect.catchDefect((cause) => Effect.fail(new RoutineOperationFailed({ cause }))),
       Effect.catch((failure) =>
         failure.cause instanceof RoutineInputError
@@ -579,6 +608,7 @@ export class RoutineScheduler implements RoutineDueSource {
     this: RoutineScheduler,
     params: DynamicToolCallParams,
     senderAgentId: string,
+    origin: HubTurnOrigin,
   ) {
     if (params.tool === "list_routines") {
       const args = routineToolArguments(params.arguments, ["agentId"]);
@@ -634,7 +664,7 @@ export class RoutineScheduler implements RoutineDueSource {
           schedule: routineToolSchedule(args.schedule),
           ...routineToolPolicies(args),
         },
-        this.#toolMutationOptions(agentId, senderAgentId, params),
+        { ...this.#toolMutationOptions(agentId, senderAgentId, params), origin },
       );
       return openBotToolResult(routine);
     }
@@ -665,6 +695,7 @@ export class RoutineScheduler implements RoutineDueSource {
         ...webhookToolTrigger(args),
         ...(limitPolicy === undefined ? {} : { limitPolicy }),
       });
+      this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(origin));
       // Only the caller's own chat shows the card with the secret: the card needs the turn.
       const turnId = agentId === senderAgentId ? params.turnId : undefined;
       const recorded = this.#recordWebhookEvent(agentId, "created", routine, turnId);
@@ -714,6 +745,7 @@ export class RoutineScheduler implements RoutineDueSource {
         ...webhookToolTrigger(args, current.trigger),
         ...(limitPolicy === undefined ? {} : { limitPolicy }),
       });
+      this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(origin));
       const turnId = agentId === senderAgentId ? params.turnId : undefined;
       const recorded = this.#recordWebhookEvent(agentId, "updated", routine, turnId);
       return openBotToolResult(webhookRoutineToolResult(routine, recorded && turnId !== undefined, true));
@@ -760,7 +792,9 @@ export class RoutineScheduler implements RoutineDueSource {
         hasUpdate = true;
       }
       if (!hasUpdate) throw new RoutineInputError("At least one routine update is required.");
-      return openBotToolResult(this.update(input, this.#toolMutationOptions(input.agentId, senderAgentId, params)));
+      return openBotToolResult(
+        this.update(input, { ...this.#toolMutationOptions(input.agentId, senderAgentId, params), origin }),
+      );
     }
 
     if (params.tool === "delete_routine") {
@@ -785,7 +819,7 @@ export class RoutineScheduler implements RoutineDueSource {
         INPUT_LIMITS.identifier,
         "routineId is required.",
       );
-      return openBotToolResult(yield* this.test({ agentId, routineId }));
+      return openBotToolResult(yield* this.test({ agentId, routineId }, {}, origin));
     }
 
     return null;
@@ -955,6 +989,12 @@ export class RoutineScheduler implements RoutineDueSource {
     });
     const validateRecipient = yield* routineStep(() => this.#mailbox.prepareDelivery([agent.id]));
     yield* routineStep(validateRecipient);
+    // A handoff gets at most the origin of its run, and of the changes to the flow since the person last
+    // changed it on the canvas. A run with no stored message (a workflow) is closed.
+    const origin = narrowerOrigin(
+      this.#mailbox.routineRunOrigin(input.run.id) ?? "unknown",
+      this.#mailbox.flowOrigin(input.run.routineId) ?? "routine",
+    );
     const receipt = yield* this.#mailbox
       .enqueue({
         sender: {
@@ -964,6 +1004,7 @@ export class RoutineScheduler implements RoutineDueSource {
           routineName: input.run.routineName,
           scheduledFor: input.run.scheduledFor,
         },
+        origin,
         recipientAgentIds: [agent.id],
         text: input.text,
         draftIds: [],
@@ -986,10 +1027,12 @@ export class RoutineScheduler implements RoutineDueSource {
   }, Effect.uninterruptible);
 
   /** `waitId` is the one open wait a script event names; null wakes every wait the run matches. */
+  /** `narrowTo` caps the run's origin: a run that a turn other than the person's own started. */
   readonly #enqueueRunEffect = Effect.fn("RoutineScheduler.enqueueRun")(function* (
     this: RoutineScheduler,
     run: RoutineRun,
     waitId: string | null = null,
+    narrowTo: HubTurnOrigin = "routine",
   ) {
     // A test or a script run that arrives while a spent plan holds the agent would wait for the
     // reset, and a routine set to skip has no use for a late result.
@@ -1009,6 +1052,9 @@ export class RoutineScheduler implements RoutineDueSource {
     const agent = yield* this.#store.getOrCreate(run.agentId).pipe(toRoutineOperationFailed);
     return yield* Effect.gen({ self: this }, function* () {
       yield* routineStep(validateRecipient);
+      // The run gets the origin of who saved the routine (hub-connections/turn-origin.ts).
+      const savedAt = this.#routines.getRecord(run.agentId, run.routineId)?.updatedAt ?? null;
+      const origin = narrowerOrigin(this.#mailbox.routineOrigin(run.routineId, savedAt), narrowTo);
       const receipt = yield* this.#mailbox
         .enqueue({
           sender: {
@@ -1018,6 +1064,7 @@ export class RoutineScheduler implements RoutineDueSource {
             routineName: run.routineName,
             scheduledFor: run.scheduledFor,
           },
+          origin,
           recipientAgentIds: [agent.id],
           text: run.instruction,
           draftIds: [],

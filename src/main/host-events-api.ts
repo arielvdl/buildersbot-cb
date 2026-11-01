@@ -14,6 +14,7 @@ import type {
 } from "@openbot/contracts/ipc-events";
 import { matchingSourceKeys } from "@openbot/i18n/source";
 import { type Effect, Schema } from "effect";
+import type { HubTurnOrigin } from "../backend/hub-connections/turn-origin";
 
 /** The safe error boundary shared by local and Team API event management. */
 export class HostEventsFailure extends Schema.TaggedError<HostEventsFailure>()("HostEventsFailure", {
@@ -39,9 +40,13 @@ export function hostEventsFailureMessage(failure: HostEventsFailure): string | n
 export interface HostEventsApi {
   getStatus(): Effect.Effect<EventStatus, HostEventsFailure>;
   listRoutines(input: ListEventRoutinesInput): Effect.Effect<EventRoutine[], HostEventsFailure>;
-  saveRoutine(input: SaveEventRoutineInput): Effect.Effect<SaveEventRoutineResult, HostEventsFailure>;
+  /** `by`: the Hub connection origin of who saves it (hub-connections/turn-origin.ts). */
+  saveRoutine(
+    input: SaveEventRoutineInput,
+    by?: HubTurnOrigin,
+  ): Effect.Effect<SaveEventRoutineResult, HostEventsFailure>;
   deleteRoutine(input: EventRoutineRef): Effect.Effect<void, HostEventsFailure>;
-  testRoutine(input: EventRoutineRef): Effect.Effect<void, HostEventsFailure>;
+  testRoutine(input: EventRoutineRef, by?: HubTurnOrigin): Effect.Effect<void, HostEventsFailure>;
   rotateSecret(input: EventRoutineRef): Effect.Effect<WebhookSecret, HostEventsFailure>;
   sendTestEvent(input: EventRoutineRef): Effect.Effect<WebhookTestResult, HostEventsFailure>;
   listActivity(input: ListEventActivityInput): Effect.Effect<EventActivity[], HostEventsFailure>;

@@ -267,6 +267,7 @@ import { type GuardResult, ToolGuard } from "./guard/tool-guard";
 import type { HostMemory } from "./host-memory";
 import { HubConnectionClient } from "./hub-connections/hub-connection-client";
 import { HubConnectionTools } from "./hub-connections/hub-connection-tools";
+import { type HubTurnOrigin, routineOriginOf } from "./hub-connections/turn-origin";
 import type { MailboxStore } from "./mailbox-store";
 import { toMcpOperationError } from "./mcp-effects";
 import type { McpSignInOpener } from "./mcp-oauth-provider";
@@ -556,6 +557,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #security: PromptInjectionGuard;
   readonly #toolGuard: ToolGuard;
   readonly #hubConnections: HubConnectionTools | null;
+  /** Whether a person that the host stamped is someone other than this computer's user. */
+  readonly #remotePerson: (personId: string) => boolean;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
   readonly #stoppedTurns = new Map<string, string>();
 
@@ -881,10 +884,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         sharedRoot: () => this.#store.sharedRoot,
         isStopping: () => this.#stopping,
         isProviderBusy: (provider) => this.#isProviderBusy(provider),
+        culturaSessionReplaced: () => this.#hubConnections?.forget(),
         isAgentBusy: (agentId) => this.#runsTurn(agentId),
         isProviderAssigned: (provider) => this.#store.list().some((agent) => providerForAgent(agent) === provider),
         // The desktop reading only. On a server, `ServerMemory` is low also because of turn reservations,
-        culturaSessionReplaced: () => this.#hubConnections?.forget(),
         // so a full server in normal use would stop its idle processes, and it stops agent processes
         // itself when memory is critical.
         memoryLow: () => (memoryPressure?.level() ?? "ok") !== "ok",
@@ -1537,6 +1540,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         taskForThread: (threadId) => this.#tasks.taskForThread(threadId),
         taskOpen: (taskId) => this.#tasks.threadId(taskId) !== null,
         taskFailed: (taskId, message) => this.#tasks.failed(taskId, this.#mcp.redact(message)),
+        turnOrigin: (agentId, threadId, turnId) => this.#tools.turnOrigin(agentId, threadId, turnId),
       },
     });
     this.#removal = new AgentRemoval({
@@ -1572,6 +1576,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             .pipe(Effect.mapError((failure) => new AgentRemovalFailed({ cause: failure.cause }))),
       },
     });
+    this.#remotePerson = options.channelRemotePerson ?? (() => false);
     // The session stays in this process: the client reads it from the credential store at each request.
     const hubConnections = options.hubConnections === undefined ? {} : options.hubConnections;
     this.#hubConnections = hubConnections
@@ -1650,7 +1655,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         listModels: () => this.listModels(),
         providerAccounts: (provider) => this.getStatus().providers?.find((row) => row.id === provider)?.accounts,
         preferredProvider: () => this.preferredProvider(),
-        createAgent: (input, configure) =>
+        createAgent: (input, configure, origin) =>
           this.createAgent(
             input,
             configure
@@ -1662,6 +1667,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
                     ),
                   )
               : undefined,
+            undefined,
+            undefined,
+            origin,
           ).pipe(toToolOperationFailed),
         updateAgent: (input, initiatingAgentId) =>
           this.updateAgent(input, initiatingAgentId).pipe(toToolOperationFailed),
@@ -1993,10 +2001,24 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
   }
 
-  testRoutine(input: TestRoutineInput): Effect.Effect<RoutineRun, AgentLifecycleFailed> {
+  /** `testedBy` is the Hub connection origin of who started the run; the person's own by default. */
+  testRoutine(input: TestRoutineInput, testedBy?: HubTurnOrigin): Effect.Effect<RoutineRun, AgentLifecycleFailed> {
     return this.#routines
-      .test(input)
+      .test(input, {}, testedBy)
       .pipe(Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "testRoutine", cause: failure.cause })));
+  }
+
+  /**
+   * The Hub connection origin of a person who acts through the host (the Team API): a team member, or
+   * this computer's user on another device.
+   */
+  memberOrigin(memberId: string): HubTurnOrigin {
+    return this.#remotePerson(memberId) ? "team_member" : "owner_ui";
+  }
+
+  /** A change of a routine's flow by someone of this origin: the flow's handoffs get at most `routineOriginOf(origin)`. */
+  narrowRoutineFlowOrigin(routineId: string, origin: HubTurnOrigin): void {
+    this.#mailbox.narrowFlowOrigin(routineId, routineOriginOf(origin));
   }
 
   /** Hands a routine run's work on to the next agent of its flow; answers the delivery id. */
@@ -2642,7 +2664,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return { provider: this.#providers.preferredProvider(), model: this.#providers.preferredModel() };
   }
 
-  /** `sender` is the person who writes the first message, as `sendMessage` takes it. */
+  /**
+   * `sender` is the person who writes the first message, as `sendMessage` takes it. `origin` is the
+   * Hub connection origin of an agent that a tool creates: its first message carries it.
+   */
 
   readonly createAgent = Effect.fn("AgentService.createAgent")(function* (
     this: AgentService,
@@ -2650,6 +2675,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     configure?: (agent: AgentSummary) => Effect.Effect<AgentSummary, AgentLifecycleFailed>,
     profileOperationId?: string,
     sender?: ConversationMessageSender,
+    origin?: HubTurnOrigin,
   ) {
     const initialMessage = yield* lifecycleStep("validate initial message", () => {
       const text = input.initialMessage.trim();
@@ -2668,7 +2694,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         yield* this.#prepareAgentWorkspace(agent);
         agent = yield* this.#assignNewAgentModel(agent, input, true);
         if (configure) agent = yield* configure(agent);
-        yield* this.sendMessage({ agentId: agent.id, text: initialMessage, attachmentDraftIds: [] }, sender);
+        const first = { agentId: agent.id, text: initialMessage, attachmentDraftIds: [] };
+        yield* origin === undefined
+          ? this.sendMessage(first, sender)
+          : this.#sendUserMessage(first, sender, undefined, undefined, origin);
         return this.#store.list().find((candidate) => candidate.id === agent.id) ?? agent;
       }).pipe(
         Effect.catchDefect((cause) => Effect.fail(new AgentLifecycleFailed({ operation: "create agent", cause }))),
@@ -4961,6 +4990,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     sender: ConversationMessageSender | undefined,
     timezone: string | undefined,
     idempotencyKey?: string,
+    origin?: HubTurnOrigin,
   ) {
     const validateRecipient = yield* lifecycleStep("prepare message delivery", () =>
       this.#mailbox.prepareDelivery([input.agentId]),
@@ -4999,6 +5029,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       .enqueue({
         sender: { kind: "user" },
         ...(sender ? { senderMember: sender } : {}),
+        ...(origin ? { origin } : {}),
         ...(task ? { taskId: task.taskId } : {}),
         recipientAgentIds: [agent.id],
         text: input.text,

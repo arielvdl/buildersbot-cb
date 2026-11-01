@@ -55,6 +55,11 @@ export const handleRoutineFlowTool = Effect.fn("RoutineFlowTools.handle")(functi
   senderAgentId: string,
   flows: RoutineFlowTools | null,
   agentIds: ReadonlySet<string>,
+  /**
+   * Runs before a link is added to a routine's flow: the Hub connection origin of the flow's handoffs
+   * gets at most the calling turn's. Removing a link adds no handoff, so it does not narrow.
+   */
+  linking: (routineId: string) => void = () => {},
 ) {
   if (!NAMES.has(tool)) return null;
   if (!flows) return yield* new ToolOperationFailed({ cause: new Error("Routine flows are unavailable.") });
@@ -85,6 +90,7 @@ export const handleRoutineFlowTool = Effect.fn("RoutineFlowTools.handle")(functi
       const input = yield* toolStep(() => connectSchema.parse(args));
       const unknown = unknownAgent([input.fromAgentId, input.toAgentId]);
       if (unknown) return openBotToolFailure(`Unknown agent: ${unknown}.`);
+      yield* toolStep(() => linking(input.routineId));
       const link = yield* flows.connect({
         routineId: input.routineId,
         fromAgentId: input.fromAgentId,

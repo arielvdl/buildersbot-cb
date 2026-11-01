@@ -143,7 +143,7 @@ function nodeRoutineId(nodeKey: string): string | null {
 export async function routeRoutineFlows(
   context: TeamApiRequestContext,
   routineFlows: TeamApiRoutineFlows | undefined,
-  agents: Pick<TeamApiAgents, "listAgents">,
+  agents: Pick<TeamApiAgents, "listAgents" | "memberOrigin" | "narrowRoutineFlowOrigin">,
   hiddenAgentIds: ReadonlySet<string>,
 ): Promise<RouteOutcome> {
   const { method, url, capabilities, member, request, json } = context;
@@ -198,6 +198,8 @@ export async function routeRoutineFlows(
       requireVisible(input.fromAgentId, input.toAgentId);
       requireManage([input.fromAgentId, input.toAgentId]);
       await requireVisibleFlow({ routineId: input.routineId });
+      // A team member's link gets no Hub connections in the flow's handoffs (hub-connections/turn-origin.ts).
+      agents.narrowRoutineFlowOrigin(input.routineId, agents.memberOrigin(member.id));
       return json(200, await run(routineFlows.connect(input)));
     }
     case ROUTINE_FLOWS_ROUTES.disconnect: {
@@ -209,7 +211,9 @@ export async function routeRoutineFlows(
     case ROUTINE_FLOWS_ROUTES.updateLink: {
       const input = parse(parseUpdateRoutineFlowLink, body);
       await requireVisibleFlow({ linkId: input.linkId });
-      return json(200, await run(routineFlows.updateLink(input)));
+      const link = await run(routineFlows.updateLink(input));
+      agents.narrowRoutineFlowOrigin(link.routineId, agents.memberOrigin(member.id));
+      return json(200, link);
     }
   }
   return "unmatched";

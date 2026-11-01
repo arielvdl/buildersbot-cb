@@ -4,6 +4,7 @@ import { ROUTINE_RECOVERY_RUN_ERROR_LIMIT } from "@openbot/contracts/team-protoc
 import { Effect, Schema } from "effect";
 import type { RoutineScheduler } from "./agent/routine-scheduler";
 import type { ChannelRoutineScheduler } from "./channel-routine-scheduler";
+import type { HubTurnOrigin } from "./hub-connections/turn-origin";
 import type { BuildersBotDatabase } from "./openbot-database";
 import type {
   OwnedRoutineRecord,
@@ -64,9 +65,18 @@ export class RoutineRecords {
       : this.#options.channelRoutines.getRecord(owner.id, routineId);
   }
 
-  save(owner: EventRoutineOwner, routineId: string | undefined, input: RoutineRecordInput): OwnedRoutineRecord {
+  /**
+   * `by` is the Hub connection origin of who saved it or started the run (the person, or a team
+   * member through the Team API). A channel's routine runs in the channel, which is closed anyway.
+   */
+  save(
+    owner: EventRoutineOwner,
+    routineId: string | undefined,
+    input: RoutineRecordInput,
+    by?: HubTurnOrigin,
+  ): OwnedRoutineRecord {
     return owner.kind === "agent"
-      ? this.#options.agentRoutines.saveRecord(owner.id, routineId, input)
+      ? this.#options.agentRoutines.saveRecord(owner.id, routineId, input, by)
       : this.#options.channelRoutines.saveRecord(owner.id, routineId, input);
   }
 
@@ -99,10 +109,10 @@ export class RoutineRecords {
         });
   }
 
-  test(owner: EventRoutineOwner, routineId: string): Effect.Effect<void, RoutineRecordFailed> {
+  test(owner: EventRoutineOwner, routineId: string, by?: HubTurnOrigin): Effect.Effect<void, RoutineRecordFailed> {
     const run: Effect.Effect<unknown, { readonly cause: unknown }> =
       owner.kind === "agent"
-        ? this.#options.agentRoutines.test({ agentId: owner.id, routineId }, { webhook: true })
+        ? this.#options.agentRoutines.test({ agentId: owner.id, routineId }, { webhook: true }, by)
         : this.#options.channelRoutines.test({ channelId: owner.id, routineId }, { webhook: true });
     return Effect.mapError(Effect.asVoid(run), failed("test"));
   }

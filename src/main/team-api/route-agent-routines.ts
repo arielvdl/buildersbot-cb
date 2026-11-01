@@ -15,7 +15,13 @@ import { pathIdentifier, readJson, requireReleasedSchedule } from "./request-hel
 export interface AgentRoutineRouteDependencies {
   agents: Pick<
     TeamApiAgents,
-    "listRoutines" | "createRoutine" | "updateRoutine" | "deleteRoutine" | "testRoutine" | "listRoutineRuns"
+    | "listRoutines"
+    | "createRoutine"
+    | "updateRoutine"
+    | "deleteRoutine"
+    | "testRoutine"
+    | "listRoutineRuns"
+    | "memberOrigin"
   >;
 }
 
@@ -25,6 +31,8 @@ export async function routeAgentRoutines(
   { agents }: AgentRoutineRouteDependencies,
 ): Promise<RouteOutcome> {
   const { method, url, request, json, empty } = context;
+  // A team member's save or run gets no Hub connections (hub-connections/turn-origin.ts).
+  const origin = agents.memberOrigin(context.member.id);
 
   if (action === "routines") {
     if (method === "GET") {
@@ -34,7 +42,7 @@ export async function routeAgentRoutines(
       const body = await readJson(request);
       const input = parseCreateRoutine({ ...body, agentId });
       requireReleasedSchedule(input.schedule);
-      return json(201, agents.createRoutine(input));
+      return json(201, agents.createRoutine(input, { origin }));
     }
   }
   const routineMatch = action.match(/^routines\/([^/]+)(?:\/(test|runs))?$/);
@@ -48,14 +56,14 @@ export async function routeAgentRoutines(
       }
       const input = parseUpdateRoutine({ ...body, agentId, routineId });
       requireReleasedSchedule(input.schedule);
-      return json(200, agents.updateRoutine(input));
+      return json(200, agents.updateRoutine(input, { origin }));
     }
     if (method === "DELETE" && !routineAction) {
       await runCauseEffect(agents.deleteRoutine({ agentId, routineId }));
       return empty(204);
     }
     if (method === "POST" && routineAction === "test") {
-      return json(201, await runCauseEffect(agents.testRoutine({ agentId, routineId })));
+      return json(201, await runCauseEffect(agents.testRoutine({ agentId, routineId }, origin)));
     }
     if (method === "GET" && routineAction === "runs") {
       const rawLimit = url.searchParams.get("limit");

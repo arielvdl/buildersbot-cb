@@ -29,6 +29,7 @@ import type { BrowserOperationError } from "../browser-effects";
 import type { BrowserDynamicToolHooks } from "../browser-tool-actions";
 import { newAssistantMessage, normalizeCompletionStatus } from "../conversation-snapshots";
 import { causeHelpers, reportOriginalFailure } from "../effect-boundary";
+import { type HubTurnOrigin, sentOrigin } from "../hub-connections/turn-origin";
 import type { DeliveryContext, MailboxStore, UsageLimitContinuation } from "../mailbox-store";
 import {
   type AppServerNotification,
@@ -177,6 +178,11 @@ export interface TurnHooks {
   taskOpen(taskId: string): boolean;
   /** The error of a task turn. It shows in the task's panel, not in the agent's own chat. */
   taskFailed(taskId: string, message: string): void;
+  /**
+   * The Hub connection origin of a turn (`hub-connections/turn-origin.ts`), read before its automatic
+   * result is sent: the result gets at most what the turn may do. `threadId` is the public thread.
+   */
+  turnOrigin(agentId: string, threadId: string | null, turnId: string): HubTurnOrigin;
   /**
    * The agent preview before the routine run of this delivery showed its task, and that task, once.
    * Null after a restart or for any other delivery.
@@ -1210,7 +1216,7 @@ export class TurnLifecycle {
           latestAssistant
         ) {
           for (const delivery of deliveries)
-            yield* this.#relayAgentResult(agentId, turnId, delivery, latestAssistant.text);
+            yield* this.#relayAgentResult(agentId, snapshot.threadId, turnId, delivery, latestAssistant.text);
         }
         // The requester holds the answers of the other teammates until each request has ended, so
         // this end can release them, also when this turn failed and sends no result.
@@ -1517,6 +1523,7 @@ export class TurnLifecycle {
   readonly #relayAgentResult = Effect.fn("TurnLifecycle.relayAgentResult")(function* (
     this: TurnLifecycle,
     agentId: string,
+    threadId: string | null,
     turnId: string,
     delivery: DeliveryContext,
     text: string,
@@ -1542,6 +1549,8 @@ export class TurnLifecycle {
     const receipt = yield* this.#mailbox
       .enqueue({
         sender: { kind: "agent", agentId },
+        // The requester's turn on this result gets at most what this turn may do.
+        origin: sentOrigin(this.#hooks.turnOrigin(agentId, threadId, turnId)),
         recipientAgentIds: [recipientAgentId],
         text,
         replyToMessageId: messageId,

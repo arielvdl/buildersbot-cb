@@ -29,6 +29,7 @@ import {
   type AgentThreadStore,
   copyBranchMessages,
 } from "../agent-threads/agent-thread-store";
+import type { HubTurnOrigin } from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import { storedSync } from "../stored-state-effects";
@@ -60,6 +61,8 @@ export interface AgentTaskCaller {
   agentId: string;
   /** A channel, messaging or task turn: only the agent's own chat starts a task. */
   inExecutionThread: boolean;
+  /** The Hub connection origin that the brief carries: what the calling turn may do (`sentOrigin`). */
+  origin: HubTurnOrigin;
 }
 
 /** Why a branch was not made. The cause holds the localized message for the person. */
@@ -463,6 +466,7 @@ export class AgentTasks implements TaskLanes {
     const queued = yield* this.#mailbox
       .enqueue({
         sender: { kind: "agent", agentId: caller.agentId },
+        origin: caller.origin,
         taskId: task.taskId,
         recipientAgentIds: [caller.agentId],
         text: parsed.data.brief,
