@@ -3,11 +3,14 @@
    mockups.
 
    Only `transform` and `opacity` move, and only three parts: the beams (one turning layer that holds
-   both), the reflector and the halo. No part uses `filter`, a shadow or `backdrop-filter`: a glow is a
-   gradient or a shape at a low opacity. Each rule that moves something is in the
-   `prefers-reduced-motion: no-preference` block, and reads `--guard-siren-play`, which is `paused`
-   while the document is hidden or the owner stops the siren. With reduced motion the beams go and the
-   dome keeps its light. `scripts/guard-siren-e2e.ts` checks these rules in a headless browser. */
+   both), the reflector and the halo. The beams and the reflector are HTML: a transform of an SVG part
+   makes the browser lay out the page again on each frame that the main thread draws, such as while
+   the text of a conversation arrives. The halo is SVG because only its opacity moves. No part uses
+   `filter`, a shadow or `backdrop-filter`: a glow is a gradient or a shape at a low opacity. Each rule
+   that moves something is in the `prefers-reduced-motion: no-preference` block, and reads
+   `--guard-siren-play`, which is `paused` while the document is hidden or the owner stops the siren.
+   With reduced motion the beams go and the dome keeps its light. `scripts/guard-siren-e2e.ts` checks
+   these rules in a headless browser. */
 .guard-siren {
   --guard-siren-size: 200px;
   --guard-siren-color: var(--openbot-guard-siren-glass);
@@ -35,7 +38,8 @@
 }
 
 .guard-siren-box,
-.guard-siren-lamp {
+.guard-siren-lamp,
+.guard-siren-glass {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -158,15 +162,14 @@
   fill-opacity: 0.38;
 }
 
-.guard-siren-reflector {
+/* The reflector at rest, in the SVG. While the siren turns, the HTML reflector takes its place. */
+.guard-siren-reflection {
   fill: var(--openbot-guard-siren-glint);
-  opacity: 0.85;
-  transform-box: fill-box;
-  transform-origin: center;
+  opacity: 0.22;
 }
 
-.guard-siren:is([data-mode="calm"], [data-mode="neutral"]) .guard-siren-reflector {
-  opacity: 0.22;
+.guard-siren:is([data-mode="watch"], [data-mode="alarm"]) .guard-siren-reflection {
+  opacity: 0;
 }
 
 .guard-siren-glint {
@@ -181,6 +184,40 @@
   fill: var(--openbot-guard-siren-metal);
 }
 
+/* The reflector that turns: a layer with the box of the lamp, so it takes the same scale on a card.
+   It shows only while the siren is up and turns (watch and alarm), where the siren has its full size. */
+.guard-siren-glass {
+  opacity: 0;
+  transition: opacity var(--openbot-duration-overlay) var(--openbot-ease-out);
+}
+
+.guard-siren:is([data-mode="watch"], [data-mode="alarm"]) .guard-siren-glass {
+  opacity: 1;
+}
+
+/* The inside of the dome, in units of the 240 x 240 box: 34 wide from x 103, 33 high from y 36, with
+   a round top. The reflector cannot go out of it. */
+.guard-siren-dome-light {
+  position: absolute;
+  left: 42.92%;
+  top: 15%;
+  width: 14.17%;
+  height: 13.75%;
+  overflow: hidden;
+  border-radius: var(--openbot-radius-pill) var(--openbot-radius-pill) 0 0;
+}
+
+/* 16 of the 34 units, in the middle. */
+.guard-siren-reflector {
+  position: absolute;
+  left: 26.47%;
+  top: 0;
+  width: 47.06%;
+  height: 100%;
+  background: var(--openbot-guard-siren-glint);
+  opacity: 0.85;
+}
+
 /* The compact siren fits the header of a card: a disc that the beams sweep inside. */
 .guard-siren[data-size="compact"] {
   --guard-siren-size: 48px;
@@ -192,7 +229,7 @@
 }
 
 /* The box and the siren fill more of the disc; the disc still holds every corner of the box. */
-.guard-siren[data-size="compact"] :is(.guard-siren-box, .guard-siren-lamp) {
+.guard-siren[data-size="compact"] :is(.guard-siren-box, .guard-siren-lamp, .guard-siren-glass) {
   transform: translateY(6%) scale(1.3);
 }
 
@@ -230,11 +267,12 @@
 
   .guard-siren-rise,
   .guard-siren-beams,
-  .guard-siren-floor {
+  .guard-siren-floor,
+  .guard-siren-glass {
     transition: none;
   }
 
-  .guard-siren:is([data-mode="watch"], [data-mode="alarm"]) .guard-siren-reflector {
+  .guard-siren-reflector {
     opacity: 0.7;
   }
 }
@@ -245,9 +283,10 @@
   }
 }
 
+/* 24 of the 240 units to each side: 150% of the width of the reflector. */
 @keyframes guard-siren-sweep {
   0% {
-    transform: translateX(-24px) scaleX(0.4);
+    transform: translateX(-150%) scaleX(0.4);
     opacity: 0.2;
   }
 
@@ -257,7 +296,7 @@
   }
 
   100% {
-    transform: translateX(24px) scaleX(0.4);
+    transform: translateX(150%) scaleX(0.4);
     opacity: 0.2;
   }
 }

@@ -60,9 +60,11 @@ export interface GuardSirenProps {
  * reflector that turns inside, and two beams of light that sweep round the dome.
  *
  * It is a picture: screen readers skip it, and the page that shows it says the state in text. Only
- * `transform` and `opacity` move, three parts at most (the beams, the reflector and the halo). With
- * reduced motion nothing moves and the dome keeps its light. `scripts/guard-siren-e2e.ts` checks these
- * rules in a headless browser.
+ * `transform` and `opacity` move, three parts at most (the beams, the reflector and the halo). The
+ * parts that turn are HTML, not SVG: a transform of an SVG part makes the browser lay out the page
+ * again on each frame that the main thread draws, such as while the text of a conversation arrives.
+ * With reduced motion nothing moves and the dome keeps its light. `scripts/guard-siren-e2e.ts` checks
+ * these rules in a headless browser.
  */
 export function GuardSiren(props: GuardSirenProps) {
   const clipId = createUniqueId();
@@ -107,14 +109,20 @@ export function GuardSiren(props: GuardSirenProps) {
             <ellipse class="guard-siren-socket" cx="0" cy="-3" rx="25" ry="11" />
             <rect class="guard-siren-collar" x="-20" y="-13" width="40" height="8" rx="3" />
             <path class="guard-siren-dome" d={DOME} />
+            {/* The reflector at rest. While the siren turns, the HTML reflector below takes its place. */}
             <g clip-path={`url(#${clipId})`}>
-              <rect class="guard-siren-reflector" x="-8" y="-48" width="16" height="40" rx="6" />
+              <rect class="guard-siren-reflection" x="-8" y="-48" width="16" height="40" rx="6" />
             </g>
             <path class="guard-siren-glint" d="M-11 -15V-25A11 13 0 0 1 -4 -36" />
             <rect class="guard-siren-cap" x="-5" y="-49" width="10" height="5" rx="2.5" />
           </g>
         </g>
       </svg>
+      <span class="guard-siren-glass">
+        <span class="guard-siren-dome-light">
+          <span class="guard-siren-reflector" />
+        </span>
+      </span>
     </div>
   );
 }
