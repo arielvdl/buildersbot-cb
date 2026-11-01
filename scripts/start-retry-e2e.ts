@@ -18,6 +18,12 @@
 //  11. The breaker: after its wait the agent goes back to its own model, one start tries it (no try again),
 //      a failure sends it to the backup with a longer wait, and a start that runs closes the breaker.
 //  12. No text of a message is in the breakers file or in a start retry record.
+//  13. The breaker of one agent does not move another agent on the same model.
+//  14. An agent whose backups ask first never moves to the default backup: its start fails.
+//  15. A usage limit inside a started turn, before any work (as Claude's 5-hour window comes, after
+//      `turn/start` answered): 1 + 3 turns on the own model, then the backup.
+//  16. The same limit with "try again after a limit" off: one turn, then the backup at once.
+//  17. The same limit for an agent with no backup of its own: the default backup of the settings.
 // Only a turn with a message id (`clientUserMessageId`) is refused and logged: a Guard scan or a profile
 // generation is a turn of the same stand-in, and it must not spend the refusals of a check.
 // `bun scripts/start-retry-e2e.ts`. Writes .openbot-build/start-retry-e2e/report.json. Check 11 waits about
@@ -55,6 +61,8 @@ const breakersFile = join(root, "breakers.json");
 const PRIMARY: AgentModelId = defaultProviderModel("codex");
 const BACKUP: AgentModelId = `${PRIMARY}-backup`;
 const SPARE: AgentModelId = `${PRIMARY}-spare`;
+// One model for each usage limit check: a limit that goes to the backup holds its model in the gate.
+const LIMITED: AgentModelId[] = [1, 2, 3].map((index): AgentModelId => `${PRIMARY}-limited-${index}`);
 // A marker that the check looks for in every record that must not keep the text of a message.
 const SECRET = `do-not-store-${randomUUID()}`;
 const OVERLOADED =
@@ -96,6 +104,7 @@ const answer = (request) => {
       { model: ${JSON.stringify(PRIMARY)}, displayName: "Primary" },
       { model: ${JSON.stringify(BACKUP)}, displayName: "Backup" },
       { model: ${JSON.stringify(SPARE)}, displayName: "Spare" },
+      ...${JSON.stringify(LIMITED)}.map((model) => ({ model, displayName: model })),
     ] });
     case "plugin/list": return reply({ marketplaces: [] });
     case "config/read": return reply(config);
@@ -133,6 +142,21 @@ const answer = (request) => {
       const refuse = rule && rule.count > 0;
       if (refuse) { rule.count -= 1; fs.writeFileSync(${JSON.stringify(controlFile)}, JSON.stringify(control)); }
       fs.appendFileSync(${JSON.stringify(startLog)}, JSON.stringify({ model: params.model, caseId, clientId: params.clientUserMessageId ?? null, refused: Boolean(refuse), at: Date.now() }) + "\\n");
+      if (refuse && rule.inTurn) {
+        // The turn starts, and the limit ends it before any work, as Codex reports usageLimitExceeded.
+        const turn = { id: randomUUID(), status: "inProgress", items: [] };
+        thread.turns.push(turn);
+        reply({ turn });
+        write({ method: "turn/started", params: { threadId: thread.id, turn: { id: turn.id } } });
+        setTimeout(() => {
+          const error = { message: rule.message, codexErrorInfo: "usageLimitExceeded" };
+          write({ method: "error", params: { threadId: thread.id, turnId: turn.id, willRetry: false, error } });
+          turn.status = "failed";
+          turn.error = error;
+          write({ method: "turn/completed", params: { threadId: thread.id, turn } });
+        }, 300);
+        return;
+      }
       if (refuse) return write({ id: request.id, error: { code: -32000, message: rule.message } });
       const turn = { id: randomUUID(), status: "inProgress", items: [] };
       thread.turns.push(turn);
@@ -247,7 +271,7 @@ function starts(caseId?: string): Start[] {
   }
 }
 
-function refuse(rules: Record<string, { count: number; message: string }>) {
+function refuse(rules: Record<string, { count: number; message: string; inTurn?: boolean }>) {
   writeFileSync(controlFile, JSON.stringify(rules));
 }
 
@@ -304,7 +328,7 @@ function agentOf(agentId: string) {
   return agent;
 }
 
-async function createAgent(name: string, backupModels?: AgentBackupModels) {
+async function createAgent(name: string, backupModels?: AgentBackupModels, model: AgentModelId = PRIMARY) {
   // The first message of a new agent starts on a model that the check does not refuse.
   refuse({});
   const agent = await runCauseEffect(
@@ -314,7 +338,7 @@ async function createAgent(name: string, backupModels?: AgentBackupModels) {
       avatarSeed: randomUUID(),
       avatarHue: null,
       provider: "codex",
-      model: PRIMARY,
+      model,
       initialMessage: "Hello.",
     }),
   );
@@ -384,6 +408,9 @@ try {
   });
 
   const persistent = await createAgent("Persistent", backupOnly);
+  // Made before the breaker of the persistent agent opens: its first turn on the model must not end
+  // that breaker's effect on the model, which is the case that check 13 reads.
+  const bystander = await createAgent("Bystander", backupOnly);
   await check("a 529 that stays: 1 + 3 starts with growing waits, then one turn on the backup", async () => {
     refuse({ [PRIMARY]: { count: 100, message: OVERLOADED } });
     const notes = await switchNotes(persistent.id);
@@ -421,6 +448,93 @@ try {
       [[BACKUP, false]],
       "No start on the own model.",
     );
+    return {};
+  });
+
+  await check("the breaker of one agent does not move another agent on the same model", async () => {
+    const breaker = storedBreakers.find((entry) => entry.agentId === persistent.id);
+    assert.ok(breaker && Date.parse(breaker.until) - Date.now() > 5_000, "The breaker of the persistent agent waits.");
+    refuse({});
+    const agent = bystander;
+    const outcome = await send(agent.id, "case:bystander");
+    assert.equal(outcome.status, "completed", outcome.error ?? "");
+    assert.deepEqual(
+      starts("bystander").map((row) => row.model),
+      [PRIMARY],
+      "The other agent runs on the model, with no move to its backup.",
+    );
+    assert.equal(agentOf(agent.id).model, PRIMARY);
+    return {};
+  });
+
+  await check("an agent whose backups ask first does not move to the default backup", async () => {
+    settings = { ...settings, defaultFallback: { provider: "codex", model: SPARE } };
+    const agent = await createAgent("Asks first", { automatic: false, order: [{ provider: "codex", model: BACKUP }] });
+    refuse({ [PRIMARY]: { count: 100, message: OVERLOADED } });
+    const outcome = await send(agent.id, "case:asks-first");
+    settings = { ...settings, defaultFallback: null };
+    assert.equal(outcome.status, "failed", "The start fails, and the task reviewer takes it.");
+    assert.deepEqual(
+      starts("asks-first").map((row) => row.model),
+      [PRIMARY, PRIMARY, PRIMARY, PRIMARY],
+    );
+    assert.equal(agentOf(agent.id).model, PRIMARY, "No move to a model that the person did not choose.");
+    return {};
+  });
+
+  const LIMIT_IN_TURN = "You've hit your usage limit.";
+  await check("a usage limit inside a started turn: 1 + 3 turns, then the backup", async () => {
+    const [model = PRIMARY] = LIMITED;
+    const agent = await createAgent("Limit in turn", backupOnly, model);
+    refuse({ [model]: { count: 100, message: LIMIT_IN_TURN, inTurn: true } });
+    const outcome = await send(agent.id, "case:limit-in-turn");
+    assert.equal(outcome.status, "completed", outcome.error ?? "");
+    assert.deepEqual(
+      starts("limit-in-turn").map((row) => [row.model, row.refused]),
+      [
+        [model, true],
+        [model, true],
+        [model, true],
+        [model, true],
+        [BACKUP, false],
+      ],
+    );
+    assert.equal(agentOf(agent.id).model, BACKUP, "The agent runs on its backup model.");
+    const breaker = storedBreakers.find((entry) => entry.agentId === agent.id);
+    assert.ok(breaker && breaker.model === model, "The breaker holds the own model.");
+    return { gaps: gaps(starts("limit-in-turn")) };
+  });
+
+  await check("a usage limit inside a turn with 'try again' off goes to the backup at once", async () => {
+    const [, model = PRIMARY] = LIMITED;
+    settings = { ...settings, retryAfterUsageLimit: false };
+    const agent = await createAgent("Limit in turn off", backupOnly, model);
+    refuse({ [model]: { count: 100, message: LIMIT_IN_TURN, inTurn: true } });
+    const outcome = await send(agent.id, "case:limit-in-turn-off");
+    settings = { ...settings, retryAfterUsageLimit: true };
+    assert.equal(outcome.status, "completed", outcome.error ?? "");
+    assert.deepEqual(
+      starts("limit-in-turn-off").map((row) => [row.model, row.refused]),
+      [
+        [model, true],
+        [BACKUP, false],
+      ],
+    );
+    return {};
+  });
+
+  await check("a usage limit inside a turn with no backup of its own uses the default backup", async () => {
+    const [, , model = PRIMARY] = LIMITED;
+    settings = { ...settings, defaultFallback: { provider: "codex", model: SPARE } };
+    const agent = await createAgent("Limit in turn default", undefined, model);
+    refuse({ [model]: { count: 100, message: LIMIT_IN_TURN, inTurn: true } });
+    const outcome = await send(agent.id, "case:limit-in-turn-default");
+    settings = { ...settings, defaultFallback: null };
+    assert.equal(outcome.status, "completed", outcome.error ?? "");
+    const rows = starts("limit-in-turn-default");
+    assert.equal(rows.length, 5);
+    assert.equal(rows.at(-1)?.model, SPARE);
+    assert.equal(agentOf(agent.id).model, SPARE);
     return {};
   });
 

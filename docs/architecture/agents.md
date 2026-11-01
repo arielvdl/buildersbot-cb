@@ -239,6 +239,14 @@ A start that the provider accepted is reconciled as before, and a `turn/start` w
 tried again (`error.backend.turnNotStarted`, `#settleUnstarted`), because its turn can still run.
 Each try sends the same `clientUserMessageId`, so a provider that keys a turn by it does not run it twice.
 
+A usage limit that ends a started turn before it did any work is the same failure, and takes the same
+steps (`DrainScheduler.retryLimitedTurn`, called from `TurnLifecycle.#completeTurn`). Claude reports
+its 5-hour window inside the turn (`rate_limit_event`, `USAGE_LIMIT_METHOD`) after `turn/start`
+answered, and Codex reports `usageLimitExceeded` in a turn notification. `markRunning` drops the stored
+marker, so the drain keeps the marker of a started delivery in memory until its turn ends. A turn
+that did work keeps the earlier path: a ready automatic backup continues it, else the queue waits
+for the reset. When the start retry gives up with no backup, the queue waits for the reset as before.
+
 1. The failure gets a class (`classifyStartFailure`):
    - `retry`: an outage (529, 5xx, "high demand"), a throttle, a network failure, a slow answer, a
      slow summary or routing on the lead (`error.agent.profile*`), and an error that names nothing.
@@ -248,6 +256,10 @@ Each try sends the same `clientUserMessageId`, so a provider that keys a turn by
      usage limit while that option is off. A wait does not fix these.
    - `terminal`: the task, the agent or the request must change (`TERMINAL_KEYS`, a refused request
      such as "prompt is too long"). No try again and no backup.
+   - A failure of a model call on the channel lead (`failsOnLeadModel`: the history summary, the
+     routing, `error.backend.channelLeadModelUnavailable`) is tried again, but it never moves a
+     recipient that is not the lead to a backup and never opens its breaker: a backup of the
+     recipient does not change the lead's call.
 2. `retry`: the delivery goes back to its place in the queue with `delivery_json.startRetry`
    (`StartRetryMarker`: phase, tries, `nextAt`, class, catalog key, models; never text). The queue
    does not start it before `nextAt` (`MailboxStore.#mayStart`). The waits are
@@ -256,22 +268,39 @@ Each try sends the same `clientUserMessageId`, so a provider that keys a turn by
    (`ChannelService.holdForStartRetry`) and shows "Trying again (n/max)" in place of the card.
    A wait for memory, a turn place or the lane does not spend a try.
 3. After the tries, or 15 minutes after the first failure, the backup model: the agent's own first
-   ready automatic backup (`backupModels`), else the default backup model of the settings. The own
-   model is passed over (`UsageLimitGate.failed` with the breaker wait), and the move of the agent
-   (`#usageLimitMove`, "provider-error") runs the turn there, with the switch note in the chat. The
-   backup gets one start and one try again after 30 seconds.
+   ready automatic backup (`backupModels`). The default backup model of the settings is only for an
+   agent with no backup models at all: an agent set to ask first (`automatic: false`) does not move,
+   and its start fails to the task reviewer. The marker gets phase `fallback` and `fallbackAt`, and the
+   move of the agent (`#usageLimitMove`, "provider-error", or the usage limit switch for a limit) runs
+   the turn there, with the switch note in the chat. The move reads the marker and the breaker of
+   this agent, not a model-wide mark, so it happens whatever other agents on the model did since.
+   The lane waits for the move ("start-fallback") at most `START_FALLBACK_HOLD_MS` (10 minutes) from
+   `fallbackAt`; then the delivery starts: on the own model as the probe when the breaker wait ended,
+   else it fails with `error.agent.fallbackUnavailable` and the task reviewer takes it. The backup
+   gets one start and one try again after 30 seconds.
 4. Then the delivery fails as before: the task keeps `error.backend.channelStartFailed`, and the
    assignment keeps `startFailure` (class, key, number of starts, whether the backup ran). The card
    says how many starts ran, and the task reviewer takes over.
 
 The breaker (`StartBreakers`, `openbot-agent-start-breakers-v1.json`, ids and times only) is one per
-agent and own model. It opens when a start goes to the backup and waits `breakerMinutes` (5, 15, 30,
-60 minutes by default, one step per failure in a row, 20% up or down; a reset that the provider named
-counts when it is later). While it waits, new turns of the agent run on the backup with no try on its
-own model. When the wait ends, the agent goes back, and its next start is the probe: one start, no
-try again. A probe that runs closes the breaker; one that fails goes to the backup with the next,
-longer wait. A channel task that started on the backup is pinned and ends there: the agent goes back
-only when its pinned tasks ended. A restart keeps the breakers and the waits of the queued retries.
+agent and own model. It never marks the model for other agents (`UsageLimitGate.failed` is not used):
+another agent on the same model keeps it. It opens when a start goes to the backup and waits
+`breakerMinutes` (5, 15, 30, 60 minutes by default, one step per failure in a row, 20% up or down; a
+reset that the provider named counts when it is later). Lanes of the agent that fail in the same wait
+are one failure: the count stays. While it waits, every lane of the agent that would start on the own
+model waits for the move ("start-fallback"), so new turns run on the backup with no try on the own
+model. A drain is scheduled at the end of the wait (`#armBreakerWake`), and the agent goes back. Its
+next start is the probe: one start, no try again. A probe that runs closes the breaker; one that
+fails goes to the backup with the next, longer wait. A channel task that started on the backup during
+the wait is pinned and ends there: the agent goes back when its pinned tasks no longer run or wait in
+the queue, or 2 hours after the wait (`PIN_HOLD_MS`). A task that waits for a person or for subtasks
+does not hold the agent. A restart keeps the breakers, their wake-ups, and the waits of the queued
+retries.
+
+The agent moves as a whole, between turns, and not per turn: an own task of the agent (outside a
+channel) can run its next turn on the other model. An agent cannot give another agent backups that
+switch without asking, or a backup on a provider account that the other agent does not use
+(`widensBackupModels`, `error.agent.onlyUserWidensBackups`); only the user can.
 
 ## Hidden agents
 

@@ -1357,7 +1357,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           Effect.sync(() => {
             for (const agentId of agentIds) this.#drain.scheduleDrain(agentId);
           }).pipe(
-            Effect.andThen(this.#settleHeldQueues(agentIds.filter((agentId) => !this.#usageLimitBackup(agentId)))),
+            Effect.andThen(this.#settleHeldQueues(agentIds.filter((agentId) => !this.#keepsQueueAtLimit(agentId)))),
             Effect.catch((failure) => Effect.sync(() => this.#emitError("usage_limit_hold_failed", failure.cause))),
             Effect.forkIn(this.#scope, { startImmediately: true }),
             Effect.asVoid,
@@ -1537,6 +1537,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         emitToolUsage: (usage) => this.emit("toolUsage", usage),
         turnModel: (agentId, turnId) => this.#drain.modelForTurn(agentId, turnId),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
+        ...(this.#startRetrySettings
+          ? { retryLimitedTurn: (input, requeue) => this.#drain.retryLimitedTurn(input, requeue) }
+          : {}),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         quietRoutineDelivery: (deliveryId) => this.#routines.quietRunForDelivery(deliveryId),
         takeRoutinePreview: (deliveryId) => this.#routines.takePreviewBeforeRun(deliveryId),
@@ -3376,9 +3379,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   #usageLimitMove(agentId: string): { input: UpdateAgentInput; move: ModelMove | null } | null {
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
     if (!agent) return null;
-    // An agent with no automatic backup of its own moves only for a start that failed, to the
-    // default backup of the start retry settings.
-    const startFailed = this.#startBreakers?.get(agentId, agentModelChoice(agent)) !== undefined;
+    // Starts of this agent failed on its current model (`start-retry.ts`): it moves to the backup of
+    // the start retry, its own or the default one, whatever other agents on the model did since.
+    const startFailed = this.#startFallbackDue(agentId, agentModelChoice(agent));
     if (!agent.usageLimitReturn && !agent.backupModels?.automatic && !startFailed) return null;
     if (this.#runsTurn(agentId) || this.#mailbox.hasStartedDelivery(agentId)) return null;
     // The agent keeps its reasoning effort where the other model has it. It goes back with the effort it left.
@@ -3409,42 +3412,67 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       return { input: move(agent.usageLimitReturn, agent.usageLimitReturn.reasoningEffort), move: "return" };
     const limited = !this.#usageLimits.mayDrain(agentId);
     const failed = !limited && this.#usageLimits.isFailed(usageLimitOf(agentModelChoice(agent)));
-    if (!limited && !failed) return null;
+    if (!limited && !failed && !startFailed) return null;
     const taskWork = () =>
       this.#mailbox.queuedTaskIds(agentId).some((taskId) => this.#mailbox.nextQueued(agentId, taskId));
     // A channel task that the limit refused went back to its channel, so the queue can be empty.
     if (!this.#mailbox.nextQueued(agentId) && !taskWork() && !this.channels.ownsWaitingWork(agentId)) return null;
-    const next: StartFallbackChoice | undefined = failed
+    const next: StartFallbackChoice | undefined = startFailed
       ? this.#startFallbackChoice(agentId)
       : this.#usageLimitBackup(agentId);
     if (!next) return null;
     return {
       input: { ...move(next, next.reasoningEffort), leaveUsageLimit: true },
-      move: failed ? "provider-error" : null,
+      move: limited ? null : "provider-error",
     };
   }
 
   /**
+   * Whether this agent moves to the backup of the start retry: the wait of the breaker of its current
+   * model runs, or a queued delivery waits to run on the backup because its starts failed on this model.
+   */
+  #startFallbackDue(agentId: string, current: AgentModelChoice): boolean {
+    if (this.#startBreakers?.waits(agentId, current)) return true;
+    return this.#mailbox.hasStartFallback(agentId, (primary) => sameAgentModelChoice(primary, current));
+  }
+
+  /** Whether a limit keeps this agent's queue for a move to a backup model, instead of giving it back. */
+  #keepsQueueAtLimit(agentId: string): boolean {
+    if (this.#usageLimitBackup(agentId)) return true;
+    const agent = this.#store.list().find((candidate) => candidate.id === agentId);
+    return (
+      agent !== undefined &&
+      this.#startFallbackDue(agentId, agentModelChoice(agent)) &&
+      this.#startFallbackChoice(agentId) !== undefined
+    );
+  }
+
+  /**
    * The backup model of a start that failed on this agent's own model: its first ready automatic
-   * backup, else the default backup of the start retry settings when that one is ready and is not
-   * the agent's own model. Undefined when there is none.
+   * backup. The default backup of the start retry settings is only for an agent with no backup
+   * models at all, when it is ready and is not the agent's own model: an agent whose person chose
+   * backups, or chose to be asked first, never moves to a model that the person did not choose.
+   * Undefined when there is none.
    */
   #startFallbackChoice(agentId: string): StartFallbackChoice | undefined {
-    const own = this.#usageLimitBackup(agentId);
-    if (own) return own;
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
+    if (!agent) return undefined;
+    if (agent.backupModels) return this.#usageLimitBackup(agentId);
     const fallback = this.#startRetrySettings?.().defaultFallback;
-    if (!agent || !fallback || sameAgentModelChoice(fallback, agentModelChoice(agent))) return undefined;
+    if (!fallback || sameAgentModelChoice(fallback, agentModelChoice(agent))) return undefined;
     return this.#usageLimitReady(fallback) ? fallback : undefined;
   }
 
   /** Whether the breaker of this agent's own model still waits. */
   #startBreakerWaits(agentId: string, own: AgentModelChoice): boolean {
-    const entry = this.#startBreakers?.get(agentId, own);
-    return entry !== undefined && Date.parse(entry.until) > Date.now();
+    return this.#startBreakers?.waits(agentId, own) ?? false;
   }
 
-  /** Whether a channel task that started on this agent's backup model is still open. */
+  /**
+   * Whether a channel task that started on this agent's backup model still runs or waits for its next
+   * turn. A task that waits for a person or for subtasks has no turn on either model, so it does not
+   * hold the agent; `StartBreakers.pinned` gives up a pin some time after the wait.
+   */
   #startTasksPinned(agentId: string): boolean {
     const breakers = this.#startBreakers;
     if (!breakers || breakers.pinned(agentId).length === 0) return false;
@@ -3452,28 +3480,18 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       const [channelId = "", taskId = ""] = key.split("\u0000");
       if (!this.channels.store.exists(channelId)) return false;
       const task = this.channels.store.tasks(channelId).find((item) => item.id === taskId);
-      return task?.state === "queued" || task?.state === "running" || task?.state === "waiting";
+      return task?.state === "queued" || task?.state === "running";
     });
     return breakers.pinned(agentId).length > 0;
   }
 
   /**
-   * After a restart: each own model whose breaker wait still runs is passed over again for the rest
-   * of the wait, so an agent on its backup does not go back at once, and the deliveries that wait for
-   * a start retry get their timers.
+   * After a restart: the deliveries that wait for a start retry get their timers, and each agent whose
+   * breaker wait still runs gets a drain at its end, so it goes back to its own model then. The
+   * breaker file keeps the wait (`StartBreakers`), so an agent on its backup does not go back at once.
    */
   #restoreStartRetries(): void {
-    const breakers = this.#startBreakers;
-    if (!breakers) return;
-    const now = Date.now();
-    for (const entry of breakers.list()) {
-      const until = Date.parse(entry.until);
-      if (until > now)
-        this.#usageLimits.failedModel(
-          { provider: entry.provider, accountId: entry.providerAccountId, model: entry.model },
-          until - now,
-        );
-    }
+    if (!this.#startBreakers) return;
     this.#drain.armStartRetries();
   }
 

@@ -1664,6 +1664,20 @@ export class MailboxStore {
     );
   }
 
+  /**
+   * Whether a queued delivery of this agent waits to run on a backup model because its starts failed
+   * on `primary` (`StartRetryMarker.phase` "fallback").
+   */
+  hasStartFallback(agentId: string, primary: (choice: StartRetryMarker["primary"]) => boolean): boolean {
+    return this.#state.deliveries.some(
+      (delivery) =>
+        delivery.status === "queued" &&
+        delivery.recipientAgentId === agentId &&
+        delivery.startRetry?.phase === "fallback" &&
+        primary(delivery.startRetry.primary),
+    );
+  }
+
   /** The deliveries that wait for a start retry, with the time each may start. Read at boot to arm the timers. */
   startRetries(): { agentId: string; deliveryId: string; nextAt: string | null }[] {
     return this.#state.deliveries.flatMap((delivery) =>
@@ -2583,7 +2597,8 @@ export class MailboxStore {
 
   /**
    * A start that failed, back at its place in the queue with its start retry. The queue does not
-   * start it before `marker.nextAt`.
+   * start it before `marker.nextAt`. A running delivery comes here when a usage limit refused its
+   * turn before the turn did any work.
    */
   requeueForStartRetry = Effect.fn("MailboxStore.requeueForStartRetry")(function* (
     this: MailboxStore,
@@ -2591,7 +2606,7 @@ export class MailboxStore {
     marker: StartRetryMarker,
   ): Effect.fn.Return<void, StoredStateFailure> {
     try {
-      yield* this.#updateDeliveryEffect(deliveryId, ["starting"], {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], {
         status: "queued",
         turnId: null,
         error: null,
