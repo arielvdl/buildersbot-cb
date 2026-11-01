@@ -179,7 +179,7 @@ export function ApprovalCard(props: {
     >
       <header class="approval-card-header conversation-interaction-header">
         {/* A question of the Guard shows the Guard's siren, red until the person answers. */}
-        <Show when={props.approval?.guard}>
+        <Show when={props.approval.guard}>
           <GuardSiren level="light" asking={!submitting()} size="compact" class="approval-card-siren" />
         </Show>
         <strong>{t(approvalTitle(props.approval))}</strong>
