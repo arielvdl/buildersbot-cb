@@ -1194,7 +1194,9 @@ function MockedConversation(props: {
     if (takeoverGalleryScrollTimer !== undefined) window.clearTimeout(takeoverGalleryScrollTimer);
     for (const previewUrl of previewUrls) URL.revokeObjectURL(previewUrl);
     mock.dispose();
-    window.openbot = previousApi;
+    // The story renders again when its args or locale arrive, and the new copy installs its mock
+    // before the old copy is cleaned up. Only the copy whose mock is still installed restores.
+    if (window.openbot === mock.api) window.openbot = previousApi;
   });
   return (
     <div ref={setStoryFrameElement} class="conversation-story-frame">
@@ -1759,6 +1761,15 @@ function LongReplyConversation(props: { args: Parameters<typeof Conversation>[0]
     </Show>
   );
 }
+
+/**
+ * The composer microphone of one agent, with the fixture arguments as `VeryLongReply` takes them:
+ * the meta `render` can run before Storybook applies the story's arguments.
+ * `scripts/channel-voice-input-e2e.ts` checks it beside the channel composer.
+ */
+export const ComposerDictation: Story = {
+  render: () => <MockedConversation args={args} />,
+};
 
 export const VeryLongReply: Story = {
   args: { unreadCount: 0, firstUnreadMessageId: null },

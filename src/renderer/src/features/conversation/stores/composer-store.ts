@@ -3,7 +3,12 @@ import { createEffect, createMemo } from "solid-js";
 import { appendVoiceTranscript } from "../../../voice-recording";
 import { EMPTY_DRAFT, type StoredQueueEdit } from "../composer-draft";
 import { composerDraftKey, legacyChannelDraftKey } from "../conversation-keys";
-import type { ComposerDraft, ConversationProps, ConversationTarget } from "../conversation-types";
+import type {
+  ComposerDraft,
+  ConversationChannelSource,
+  ConversationProps,
+  ConversationTarget,
+} from "../conversation-types";
 
 export interface ComposerStoreDeps {
   props: ConversationProps;
@@ -20,12 +25,19 @@ export interface ComposerStoreDeps {
   seenMessageIds: Set<string>;
 }
 
+/** What names the conversation of a view: the open channel and its tab, or the agent, on a server. */
+export interface ConversationOwnerProps {
+  agent?: { id: string } | undefined;
+  server?: { id: string } | undefined;
+  channel?: Pick<ConversationChannelSource, "id" | "tabId"> | undefined;
+}
+
 /** The agent, or for a channel the channel, that owns the drafts, errors and panels of the view. */
-export function conversationOwnerId(props: ConversationProps): string | undefined {
+export function conversationOwnerId(props: ConversationOwnerProps): string | undefined {
   return props.channel?.id ?? props.agent?.id;
 }
 
-export function currentConversationTarget(props: ConversationProps): ConversationTarget | undefined {
+export function currentConversationTarget(props: ConversationOwnerProps): ConversationTarget | undefined {
   const agentId = conversationOwnerId(props);
   if (!agentId) return undefined;
   const serverId = props.server?.id ?? "local";

@@ -68,6 +68,13 @@ older event replay and a client without tabs send.
 - Each tab keeps its own composer draft: `composerDraftKey` takes the tab (`ConversationTarget.tabId`,
   from `ConversationChannelSource.tabId`). A draft stored before this, under the channel alone, moves
   to the first tab that shows it.
+- A send names its tab: `submitMessage` takes the whole target of the open composer, and the channel
+  send puts `ConversationTarget.tabId` in the `send` command, else the open tab. A message that
+  leaves after the reader opened another tab, such as a dictated one, still goes to its own tab.
+- The microphone of the composer works in a channel as in an agent's chat (see
+  [voice input](voice-input.md#the-composer-microphone)). The recording keeps its tab
+  (`voiceTabId`), so its live text, its transcript and a send while recording go to that tab, also
+  when the reader opens another tab before it ends.
 - Deleting a tab interrupts its running turns before its sessions and threads go.
 - The parallel limit (`CHANNEL_PARALLEL_LIMIT`) is counted per tab, through the task of each
   assignment. One turn per agent stays channel-wide: it is what keeps one agent from opening two

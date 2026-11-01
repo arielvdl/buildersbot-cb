@@ -50,6 +50,7 @@ async function dictate(): Promise<string[]> {
       voiceMeterStop: undefined,
       voiceAgentId: undefined,
       voiceServerId: undefined,
+      voiceTabId: undefined,
       voiceThreadSend: false,
     },
     voicePhase: () => phase,
