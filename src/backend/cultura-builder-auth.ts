@@ -160,14 +160,15 @@ export function sessionIsFresh(session: CulturaBuilderSession, now = Date.now())
 async function readJson<S extends Schema.ConstraintDecoder<unknown>>(
   response: Response,
   schema: S,
+  limitBytes = RESPONSE_LIMIT_BYTES,
 ): Promise<S["Type"] | null> {
   const declared = Number(response.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declared) && declared > RESPONSE_LIMIT_BYTES) {
+  if (Number.isFinite(declared) && declared > limitBytes) {
     await response.body?.cancel().catch(() => undefined);
     return null;
   }
   const text = await response.text().catch(() => "");
-  if (text.length > RESPONSE_LIMIT_BYTES) return null;
+  if (text.length > limitBytes) return null;
   return decodeJson(text, schema);
 }
 
@@ -361,6 +362,128 @@ export function readCulturaBuilderAccess(
     },
     catch: providerFailure,
   });
+}
+
+/**
+ * One model of the gateway catalog of an account, as the OpenCode config of the provider declares it.
+ * Only the fields that the config needs: the gateway's description and price are not for this client.
+ */
+export interface CulturaBuilderGatewayModel {
+  readonly id: string;
+  readonly name: string;
+  readonly contextLength: number;
+  readonly maxOutputTokens: number;
+  readonly vision: boolean;
+  readonly reasoning: boolean;
+  readonly tools: boolean;
+}
+
+/**
+ * The catalog of the signed-in account, which the `prepare` hook writes and the spawn reads. Main
+ * makes one only on a server with a model policy (`server-model-policy.ts`): without one, the
+ * provider declares `CULTURA_BUILDER_MODELS`, as before.
+ */
+export class CulturaBuilderCatalog {
+  #models: readonly CulturaBuilderGatewayModel[] | null = null;
+
+  /** The last catalog of the gateway, or null: the spawn then declares the built-in models. */
+  read(): readonly CulturaBuilderGatewayModel[] | null {
+    return this.#models;
+  }
+
+  write(models: readonly CulturaBuilderGatewayModel[] | null): void {
+    this.#models = models;
+  }
+}
+
+/** A model id of the gateway: an alias with the `builder-` prefix, never an upstream model id. */
+const GATEWAY_MODEL_ID = /^builder-[a-z0-9][a-z0-9-]{0,62}$/u;
+const GATEWAY_MODEL_NAME_LIMIT = 80;
+const GATEWAY_MODELS_LIMIT = 32;
+const GATEWAY_MODELS_LIMIT_BYTES = 64 * 1024;
+const GATEWAY_MODELS_TIMEOUT_MS = 5_000;
+const DEFAULT_CONTEXT_TOKENS = 262_144;
+const DEFAULT_OUTPUT_TOKENS = 32_768;
+
+const GatewayModelList = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.optional(Schema.String),
+      context_length: Schema.optional(Schema.Finite),
+      max_output_tokens: Schema.optional(Schema.Finite),
+      capabilities: Schema.optional(
+        Schema.Struct({
+          vision: Schema.optional(Schema.Boolean),
+          reasoning: Schema.optional(Schema.Boolean),
+          tools: Schema.optional(Schema.Boolean),
+        }),
+      ),
+    }),
+  ),
+});
+
+/** `value` when it is a whole number from `min` to `max`, else `fallback`. */
+function boundedInteger(value: number | undefined, min: number, max: number, fallback: number): number {
+  return value !== undefined && Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+}
+
+/** A name to show: printable, one line, bounded. The id when the gateway sent none. */
+function gatewayModelName(name: string | undefined, id: string): string {
+  // Control characters out, then each run of white space to one space.
+  const clean = (name ?? "")
+    .replace(/\p{Cc}/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  return (clean || id).slice(0, GATEWAY_MODEL_NAME_LIMIT);
+}
+
+/**
+ * Reads the models that the gateway offers to this account (`GET /v1/models`). The gateway filters the
+ * list for the account: a model that the Hub has not granted is not in it. Null when the gateway does
+ * not answer with a usable list: the caller then declares only the built-in models.
+ *
+ * The list is data from the network. Only an alias with the `builder-` prefix passes, a name is made
+ * printable and bounded, and numbers out of range take the built-in values.
+ */
+export function readCulturaBuilderModels(
+  access: string,
+  fetcher: Fetcher = fetch,
+): Effect.Effect<readonly CulturaBuilderGatewayModel[] | null> {
+  return Effect.tryPromise({
+    try: async () => {
+      const response = await fetcher(`${CULTURA_BUILDER_GATEWAY}/models`, {
+        headers: { Authorization: `Bearer ${access}`, Accept: "application/json" },
+        redirect: "error",
+        signal: AbortSignal.timeout(GATEWAY_MODELS_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => undefined);
+        return null;
+      }
+      const value = await readJson(response, GatewayModelList, GATEWAY_MODELS_LIMIT_BYTES);
+      if (!value) return null;
+      const models: CulturaBuilderGatewayModel[] = [];
+      const seen = new Set<string>();
+      for (const item of value.data) {
+        if (models.length >= GATEWAY_MODELS_LIMIT) break;
+        const id = item.id.trim();
+        if (!GATEWAY_MODEL_ID.test(id) || seen.has(id)) continue;
+        seen.add(id);
+        models.push({
+          id,
+          name: gatewayModelName(item.name, id),
+          contextLength: boundedInteger(item.context_length, 4_096, 2_097_152, DEFAULT_CONTEXT_TOKENS),
+          maxOutputTokens: boundedInteger(item.max_output_tokens, 1_024, 262_144, DEFAULT_OUTPUT_TOKENS),
+          vision: item.capabilities?.vision === true,
+          reasoning: item.capabilities?.reasoning === true,
+          tools: item.capabilities?.tools !== false,
+        });
+      }
+      return models.length > 0 ? models : null;
+    },
+    catch: () => null,
+  }).pipe(Effect.catch(() => Effect.succeed(null)));
 }
 
 /**

@@ -237,6 +237,7 @@ import { type RoutineMutationOptions, RoutineScheduler, toRoutineOperationFailed
 import { localTimezone } from "./agent/routine-tools";
 import { buildRuntimeSnapshot } from "./agent/runtime-snapshot";
 import type { ScreenCaptureHost } from "./agent/screen-capture";
+import type { ServerModelPolicy } from "./agent/server-model-policy";
 import { SessionSettings } from "./agent/session-settings";
 import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
@@ -366,6 +367,8 @@ export interface AgentServiceOptions {
    */
   credentials?: ProviderClientContext;
   offProviders?: readonly AgentProvider[];
+  /** The model policy of the server (`server-model-policy.ts`). Absent: every provider and model is offered. */
+  modelPolicy?: ServerModelPolicy | null;
   /** The provider accounts after the first. Omitted, each provider holds its own sign-in only. */
   providerAccounts?: ProviderAccountStore;
   saveProviderUse?: (provider: AgentProvider, on: boolean) => Effect.Effect<void, AgentLifecycleFailed>;
@@ -799,6 +802,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.#providers = new ProviderRuntime({
       offProviders: options.offProviders ?? [],
+      modelPolicy: options.modelPolicy ?? null,
       ...(options.providerAccounts ? { accounts: options.providerAccounts } : {}),
       saveProviderUse: (provider, on) =>
         (options.saveProviderUse?.(provider, on) ?? Effect.void).pipe(toProviderOperationFailed),

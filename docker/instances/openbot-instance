@@ -204,6 +204,9 @@ ready() {
 start() {
   ready
   update_folders "$1" || fail "The update folders of $1 could not be made."
+  # The model policy folder, which the container reads only. Root writes model-policy.json in it. With
+  # no file, the instance has no policy (docs/architecture/providers.md#server-model-policy).
+  install -d -m 0755 "$DATA/$1/policy" || fail "The model policy folder of $1 could not be made."
   # update_request runs start in a subshell on the left of `||`, where `set -e` is off: a failed
   # `up` must still be the result of start.
   compose "$1" up --detach || return
@@ -355,6 +358,10 @@ create() {
   systemctl daemon-reload
   printf '# OPENBOT_DISK is the size of data.img, for information. See docs/docker.md to change it.\nBUILDERSBOT_IMAGE=%s\nOPENBOT_NAME=%s\nOPENBOT_CPUS=%s\nOPENBOT_MEM=%s\nOPENBOT_DISK=%s\n' \
     "$image" "$name" "$cpus" "$mem" "$disk" >"$env"
+  # A new instance starts with the safe model policy: the Cultura Builder gateway only, no free
+  # models of the Builders CLI. The administrator changes it in $folder/policy/model-policy.json.
+  install -d -m 0755 "$folder/policy"
+  install -m 0644 "$HERE/model-policy.default.json" "$folder/policy/model-policy.json"
   start "$name"
   echo "Sign in the instance: openbot-instance run $name login"
 }
