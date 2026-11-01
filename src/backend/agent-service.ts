@@ -136,6 +136,8 @@ import {
   type ModelSwitchReason,
   type QueueSteerFallback,
   type SecurityGuardPreference,
+  SIDEBAR_PEOPLE_SECTION_ID,
+  SIDEBAR_UNASSIGNED_SECTION_ID,
   sameAgentBrowserProfile,
   sameAgentModelChoice,
   WORKFLOWS_USAGE_ID,
@@ -1770,6 +1772,22 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       if (standingProfileChanged(agent, agent, defaults, previous)) this.#conversation.unloadAgentThreads(agent.id);
     }
     this.#emit({ type: "agents-changed", agents: this.listAgents() });
+  }
+
+  /**
+   * The project of an agent for the tab groups of the person's Chrome: the sidebar section that the
+   * person made and put the agent in, else the agent itself. Null for an agent that is not here.
+   */
+  browserProject(agentId: string): { key: string; title: string } | null {
+    const layout = this.#sidebarLayout?.getSnapshot();
+    const sectionId = layout?.agentAssignments[agentId];
+    const section =
+      sectionId === undefined || sectionId === SIDEBAR_PEOPLE_SECTION_ID || sectionId === SIDEBAR_UNASSIGNED_SECTION_ID
+        ? undefined
+        : layout?.sections.find((entry) => entry.id === sectionId);
+    if (section?.name.trim()) return { key: `section:${section.id}`, title: section.name };
+    const agent = this.listAgents().find((entry) => entry.id === agentId);
+    return agent ? { key: `agent:${agent.id}`, title: agent.name } : null;
   }
 
   /**

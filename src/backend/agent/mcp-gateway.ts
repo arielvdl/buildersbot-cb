@@ -202,7 +202,8 @@ export class McpGateway {
       const broker = this.#browserBroker();
       if (!broker) return { error: sourceText("error.backend.browserBrokerUnavailable") };
       this.#handoff.recordSecret(broker.bearer);
-      return { url: broker.url, authorization: broker.bearer, proxied: false };
+      const url = agentId !== null && broker.agentUrl ? broker.agentUrl(agentId) : broker.url;
+      return { url, authorization: broker.bearer, proxied: false };
     }
     if (!this.#proxied(config)) return { url: config.url, authorization: null, proxied: false };
     const route = yield* this.#proxy

@@ -1393,6 +1393,10 @@ export async function createApplicationServices({
         // And each call before it runs: the URL, script, text or files that the call sends out.
         guardCall: () => (service.guardEnabled() ? (item) => runCauseEffect(service.guardAction(item)) : null),
         identity: new BrokerIdentityFile(join(app.getPath("userData"), PLAYWRIGHT_BROKER_FILE)),
+        // Each project gets a tab group of its own in the person's Chrome, named after it.
+        projectOf: (agentId) => service.browserProject(agentId),
+        // With the egress proxy on, the server starts a browser with one profile: two servers cannot share it.
+        projectGroups: () => egressProxy.mode().kind === "off",
         upstream: () => {
           const directories = [
             ...(process.env.PATH ?? "").split(delimiter).filter(Boolean),
