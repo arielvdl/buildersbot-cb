@@ -33,7 +33,7 @@ export async function runBitwardenBrowserSmoke(browser: BrowserHost): Promise<vo
       if (args[1] === "folders")
         return JSON.stringify([
           { id: null, name: "No Folder" },
-          { id: "shared", name: "Shared with OpenBot" },
+          { id: "shared", name: "Shared with Builders Bot" },
         ]);
       if (args[1] === "totp") return CODE;
       const item = {
