@@ -8,9 +8,10 @@
 // vendor, the reservation and the cap before the vendor call, the 80 % mark, confirm_cost bound to the
 // body, choose_org for a person who left the organization, the kill switch, and the error mapping.
 import { createHash, randomBytes } from "node:crypto";
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
 import { type HubJson, type HubJsonObject, isHubJsonObject } from "@openbot/contracts/hub-connections";
+import { isCredentialName } from "../../src/backend/hub-connections/hub-connection-input";
 import { FAKE_VENDOR_KEY, type FakeTreg, startFakeTreg } from "./fake-treg";
 import { failedRule, type ObjectSchema, type ParamSchema, triagedText, VENDOR_ROWS, type VendorRow } from "./mirror";
 
@@ -84,8 +85,33 @@ export interface FakeHub {
   /** `capabilities.connectionsUsage` of `/session`: whether the app may show Usage › Connections. */
   setConnectionsUsage(on: boolean): void;
   paused(): boolean;
-  /** `drop` closes each connection with no answer; a number answers with that status and no body. */
-  setDown(mode: "drop" | number | null): void;
+  /**
+   * `drop` closes each connection with no answer; `hang` keeps each one open with no answer, as a
+   * Hub behind a captive portal; a number answers with that status and no body.
+   */
+  setDown(mode: "drop" | "hang" | number | null): void;
+  /** `active` of `/session`: whether the account may use the LLM. It says nothing about connections. */
+  setActive(active: boolean): void;
+  /**
+   * The renewal of the session (a refresh grant without `resource`) gives a new refresh token and
+   * ends the old one at once, with no grace: a second use of the old one is `invalid_grant`.
+   */
+  setRotateOnRenew(on: boolean): void;
+  /**
+   * Delays the token route so that two grants overlap: a renewal rotates at once and answers after
+   * `ms`; a proxy token request is checked `ms / 4` after it arrives.
+   */
+  setTokenDelay(ms: number): void;
+  /** Every refresh grant that the Hub refused with `invalid_grant`. */
+  readonly refusedGrants: string[];
+  /** Every refresh grant, in the order that the Hub checked them, with the time of the check. */
+  readonly grants: Array<{ readonly kind: "renewal" | "proxy"; readonly at: number; readonly ok: boolean }>;
+  /** A second person, member of `org_a`, with a session of their own. */
+  readonly sessionB: { readonly access: string; readonly refresh: string };
+  /** The current tokens of a person, after rotations. */
+  sessionOf(person: "a" | "b"): { readonly access: string; readonly refresh: string };
+  /** Gives a person new tokens, as a new sign-in does: the app has never seen them. */
+  newSession(person: "a" | "b"): { readonly access: string; readonly refresh: string };
   /** Moves the clock of the fake forward. */
   advance(ms: number): void;
   /** A proxy token, as the app gets one, for the checks that call the fake directly. */
@@ -101,8 +127,8 @@ const CREDENTIAL_NAME =
 const COOKIE_VALUE =
   /(?:^|[;\s])[A-Za-z0-9_.$-]{1,64}=[^;\s]*;\s*[A-Za-z0-9_.$-]{1,64}=|(?:li_at|sessionid|jsessionid|csrftoken)=/iu;
 const JWT_VALUE = /eyJ[A-Za-z0-9_-]{4,}\.eyJ[A-Za-z0-9_-]{4,}\./u;
-const MASK_FIELD = /^(?:key|api_key|apikey|token|access_token|auth|sig|signature)$/iu;
-const MASK_QUERY = /([?&](?:key|api_key|apikey|token|access_token|auth|sig|signature)=)[^&#\s"]+/giu;
+/** A query parameter of a URL in a text; its value is masked when its name is a credential (contract §6.3). */
+const MASK_QUERY = /([?&;]([^=&#\s"'<>;]{1,64})=)([^&#\s"'<>;]+)/gu;
 const MASK_BEARER = /\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}/giu;
 
 function hex(bytes: number): string {
@@ -208,12 +234,21 @@ function checkObject(schema: ObjectSchema, value: unknown, path: string): string
 
 /** Masks credentials in a 2xx vendor body by shape (design §3.8 step 11, §3.14 item 8). */
 function maskBody(value: HubJson): HubJson {
-  if (typeof value === "string") return value.replace(MASK_QUERY, "$1[masked]").replace(MASK_BEARER, "$1[masked]");
+  if (typeof value === "string")
+    return value
+      .replace(MASK_QUERY, (whole: string, head: string, name: string) =>
+        isCredentialName(name) ? `${head}[masked]` : whole,
+      )
+      .replace(MASK_BEARER, "$1[masked]");
   if (Array.isArray(value)) return value.map(maskBody);
   const object = record(value);
   if (!object) return value;
+  // The same name rule as the input check of section 6.2 step 6 (`isCredentialName`).
   return Object.fromEntries(
-    Object.entries(object).map(([name, item]) => [name, MASK_FIELD.test(name) ? "[masked]" : maskBody(item)]),
+    Object.entries(object).map(([name, item]) => [
+      name,
+      isCredentialName(name) && typeof item === "string" ? "[masked]" : maskBody(item),
+    ]),
   );
 }
 
@@ -257,6 +292,18 @@ export async function startFakeHub(): Promise<FakeHub> {
   let offset = 0;
   const now = () => Date.now() + offset;
   const session = { access: `hubat_${hex(20)}`, refresh: `hubrt_${hex(20)}` };
+  const sessionB = { access: `hubat_${hex(20)}`, refresh: `hubrt_${hex(20)}` };
+  /** The live tokens of each person; a rotation replaces them. */
+  const people = { a: { ...session }, b: { ...sessionB } };
+  const personOfRefresh = (refresh: string | null) =>
+    refresh === people.a.refresh ? "a" : refresh === people.b.refresh ? "b" : null;
+  const personOfAccess = (access: string) =>
+    access === people.a.access ? "a" : access === people.b.access ? "b" : null;
+  let active = true;
+  let rotateOnRenew = false;
+  let tokenDelayMs = 0;
+  const refusedGrants: string[] = [];
+  const grants: Array<{ kind: "renewal" | "proxy"; at: number; ok: boolean }> = [];
   const userId = "u_e2e_person";
   const makeOrg = (id: string, name: string, isDefault: boolean, capMicros: number): FakeOrg => ({
     id,
@@ -284,7 +331,7 @@ export async function startFakeHub(): Promise<FakeHub> {
     ["org_a", makeOrg("org_a", "Empresa A", true, 2_000_000)],
     ["org_b", makeOrg("org_b", "Empresa B", false, 5_000_000)],
   ]);
-  const tokens = new Map<string, { orgId: string | null; expiresAt: number }>();
+  const tokens = new Map<string, { orgId: string | null; expiresAt: number; person: "a" | "b" }>();
   const confirmations = new Map<string, Confirmation>();
   const idempotent = new Map<string, Idempotent>();
   const requests: HubRequest[] = [];
@@ -295,7 +342,8 @@ export async function startFakeHub(): Promise<FakeHub> {
   const REQUEST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
   let pausedReason: string | null = null;
   let connectionsUsage = true;
-  let down: "drop" | number | null = null;
+  let down: "drop" | "hang" | number | null = null;
+  const hanging = new Set<ServerResponse>();
   let ledger = 0;
 
   const allowed = VENDOR_ROWS.filter((row) => row.skipHubAdmission === true || failedRule(row) === null);
@@ -322,9 +370,9 @@ export async function startFakeHub(): Promise<FakeHub> {
     return at !== undefined && now() - at < REQUEST_WINDOW_MS ? new Date(at).toISOString() : null;
   }
 
-  function issueToken(orgId: string | null): string {
+  function issueToken(orgId: string | null, person: "a" | "b" = "a"): string {
     const token = `cbp_${hex(24)}`;
-    tokens.set(token, { orgId, expiresAt: now() + TOKEN_SECONDS * 1000 });
+    tokens.set(token, { orgId, expiresAt: now() + TOKEN_SECONDS * 1000, person });
     issuedTokens.push(token);
     return token;
   }
@@ -624,8 +672,25 @@ export async function startFakeHub(): Promise<FakeHub> {
     const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
     if (path === "/api/mcp-oauth/token" && request.method === "POST") {
       const form = new URLSearchParams(raw);
-      if (form.get("grant_type") !== "refresh_token" || form.get("refresh_token") !== session.refresh)
+      const renewal = form.get("resource") === null;
+      // With a delay, a proxy token request is checked a moment after it arrives, while a renewal
+      // rotates at once and answers late: a proxy token request that left with the refresh token
+      // that a renewal in flight replaces is refused, as a strict Hub would.
+      if (!renewal && tokenDelayMs > 0) await new Promise((done) => setTimeout(done, tokenDelayMs / 4));
+      const person = personOfRefresh(form.get("refresh_token"));
+      grants.push({ kind: renewal ? "renewal" : "proxy", at: Date.now(), ok: person !== null });
+      if (form.get("grant_type") !== "refresh_token" || person === null) {
+        refusedGrants.push(form.get("resource") ? "proxy" : "renewal");
         return [400, { error: "invalid_grant" }];
+      }
+      // The renewal of the session: a new access token, and with rotation a new refresh token.
+      if (renewal) {
+        const live = people[person];
+        live.access = `hubat_${hex(20)}`;
+        if (rotateOnRenew) live.refresh = `hubrt_${hex(20)}`;
+        if (tokenDelayMs > 0) await new Promise((done) => setTimeout(done, tokenDelayMs));
+        return [200, { access_token: live.access, refresh_token: live.refresh, token_type: "Bearer", expires_in: 900 }];
+      }
       if (form.get("resource") !== PROXY_RESOURCE || form.get("scope") !== "builder-proxy")
         return [400, { error: "invalid_request" }];
       if (pausedReason) return [403, { error: "connections_disabled" }];
@@ -638,15 +703,20 @@ export async function startFakeHub(): Promise<FakeHub> {
       // The proxy token request never rotates the refresh token (contract).
       return [
         200,
-        { access_token: issueToken(orgId), token_type: "Bearer", expires_in: TOKEN_SECONDS, org: orgId ?? null },
+        {
+          access_token: issueToken(orgId, person),
+          token_type: "Bearer",
+          expires_in: TOKEN_SECONDS,
+          org: orgId ?? null,
+        },
       ];
     }
     if (path === "/api/builder-ai/gateway/v1/session" && request.method === "GET") {
-      if (bearer !== session.access) return [401, { error: "unauthorized" }];
+      if (personOfAccess(bearer) === null) return [401, { error: "unauthorized" }];
       return [
         200,
         {
-          active: true,
+          active,
           empresa: "Empresa A",
           capabilities: {
             connections: { [CONNECTION]: pausedReason ? { enabled: false, reason: "paused" } : { enabled: true } },
@@ -665,6 +735,8 @@ export async function startFakeHub(): Promise<FakeHub> {
     if (!org) return [400, { error: "input_refused", reason: "org_required" }];
     // The person left the organization that this token pays with (design §3.16 step 7).
     if (!org.member) return [403, { needsPerson: "choose_org", reason: "not_member" }];
+    // The use of person B is their own: nothing of person A's calls.
+    const own = (value: number) => (held.person === "a" ? value : 0);
     if (path === "/api/builder-ai/proxy/v1/usage" && request.method === "GET")
       return [
         200,
@@ -676,16 +748,17 @@ export async function startFakeHub(): Promise<FakeHub> {
           connections: [
             {
               id: CONNECTION,
-              settledMicros: org.settledMicros,
-              reservedMicros: org.reservedMicros,
-              calls: org.calls,
-              availableMicros: available(org),
-              effectiveAvailableMicros: available(org),
-              state: state(org),
+              settledMicros: own(org.settledMicros),
+              reservedMicros: own(org.reservedMicros),
+              calls: own(org.calls),
+              availableMicros: held.person === "a" ? available(org) : org.capMicros,
+              effectiveAvailableMicros: held.person === "a" ? available(org) : org.capMicros,
+              state: held.person === "a" ? state(org) : "ok",
               counterVersion: org.counterVersion,
               cap: { kind: "limited", amountMicros: org.capMicros },
               bindingScope: "user",
-              platforms: [...org.platforms].map(([platform, value]) => ({ platform, ...value })),
+              platforms:
+                held.person === "a" ? [...org.platforms].map(([platform, value]) => ({ platform, ...value })) : [],
             },
           ],
         },
@@ -756,7 +829,15 @@ export async function startFakeHub(): Promise<FakeHub> {
       const earlier = idempotent.get(`${org.id}\u0000${key}`);
       if (earlier)
         return earlier.hash === hash ? [earlier.status, earlier.body] : [409, { error: "idempotency_conflict" }];
-      const [status, body] = await call(org, payload);
+      const [status, answer] = await call(org, payload);
+      // Two rows that the fake answers outside the contract, for the app's checks of the answer.
+      const lie = record(answer);
+      const body =
+        status === 200 && lie && payload.endpointId === "lie.org"
+          ? { ...lie, orgId: org.id === "org_a" ? "org_b" : "org_a" }
+          : status === 200 && lie && payload.endpointId === "lie.charge"
+            ? { ...lie, chargedMicros: Number(lie.chargedMicros ?? 0) + org.confirmAboveMicros + 100_000 }
+            : answer;
       idempotent.set(`${org.id}\u0000${key}`, { hash, status, body });
       return [status, body];
     }
@@ -772,6 +853,11 @@ export async function startFakeHub(): Promise<FakeHub> {
     if (down === "drop") {
       requests.push({ method: request.method ?? "", path: url.pathname, headers, body: raw, status: 0 });
       request.socket.destroy();
+      return;
+    }
+    if (down === "hang") {
+      requests.push({ method: request.method ?? "", path: url.pathname, headers, body: raw, status: 0 });
+      hanging.add(response);
       return;
     }
     let status: number;
@@ -812,12 +898,36 @@ export async function startFakeHub(): Promise<FakeHub> {
     },
     setDown: (mode) => {
       down = mode;
+      if (mode !== "hang") {
+        for (const response of hanging) response.destroy();
+        hanging.clear();
+      }
+    },
+    setActive: (on) => {
+      active = on;
+    },
+    setRotateOnRenew: (on) => {
+      rotateOnRenew = on;
+    },
+    setTokenDelay: (ms) => {
+      tokenDelayMs = ms;
+    },
+    refusedGrants,
+    grants,
+    sessionB,
+    sessionOf: (person) => ({ ...people[person] }),
+    newSession: (person) => {
+      people[person].access = `hubat_${hex(20)}`;
+      people[person].refresh = `hubrt_${hex(20)}`;
+      return { ...people[person] };
     },
     advance: (ms) => {
       offset += ms;
     },
     proxyToken: async (orgId) => issueToken(orgId),
     close: async () => {
+      for (const response of hanging) response.destroy();
+      hanging.clear();
       await new Promise<void>((done) => server.close(() => done()));
       await treg.close();
     },

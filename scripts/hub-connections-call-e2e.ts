@@ -18,11 +18,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { HubJsonObject } from "@openbot/contracts/hub-connections";
-import { redactText } from "@openbot/logging";
+import { redactText, registerSecretValue } from "@openbot/logging";
 import { Effect } from "effect";
-import { type Call, envelope, type Seen, startAgentHarness } from "./fake-hub/agent-harness";
+import { type Call, callsText, envelope, type Seen, startAgentHarness } from "./fake-hub/agent-harness";
 import { fakeHubFetch, startFakeHub } from "./fake-hub/fake-hub";
-import { FAKE_PROVIDER_KEY, FAKE_VENDOR_KEY } from "./fake-hub/fake-treg";
+import { ECHO_KEY_NAMES, FAKE_HEX_KEY, FAKE_PROVIDER_KEY, FAKE_VENDOR_KEY, LAST_SECRET } from "./fake-hub/fake-treg";
 import { RESULT_INJECTION, SUMMARY_INJECTION } from "./fake-hub/mirror";
 
 const OUT = resolve(import.meta.dirname, "../.buildersbot-build/hub-connections");
@@ -49,13 +49,22 @@ const report: {
   error?: string;
 } = { steps: [], passed: false };
 
+/**
+ * `HUB_E2E_KEEP_GOING=1` runs every step after a failure too, and fails at the end: it shows which
+ * checks fail against an older build.
+ */
+const KEEP_GOING = process.env.HUB_E2E_KEEP_GOING === "1";
+const failedSteps: string[] = [];
+
 async function step(name: string, run: () => unknown): Promise<void> {
   try {
     report.steps.push({ step: name, result: (await run()) ?? "ok" });
     process.stdout.write(`ok - ${name}\n`);
   } catch (error) {
     report.steps.push({ step: name, result: { failed: error instanceof Error ? error.message : String(error) } });
-    throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+    process.stdout.write(`not ok - ${name}\n`);
+    failedSteps.push(name);
+    if (!KEEP_GOING) throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -433,6 +442,116 @@ try {
     assert.ok(legacy.text.includes('served_by="unknown"'), "a vendor header with markup reached an attribute");
   });
 
+  await step("a key with no prefix, echoed in any credential field name, never reaches the agent", async () => {
+    const [echoed] = await turn([call("company.echo-names", { body: { domain: "example.com" } })]);
+    assert.ok(echoed?.success, echoed?.text);
+    assert.ok(!echoed.text.includes(FAKE_HEX_KEY), `the hex key leaked: ${envelope(echoed).slice(0, 600)}`);
+    const body = JSON.parse(envelope(echoed).replaceAll("\\u003c", "<").replaceAll("\\u003e", ">"));
+    for (const name of ECHO_KEY_NAMES) assert.equal(body.content[name], "[redacted]", name);
+    // Data fields whose names only look like credentials stay.
+    assert.equal(body.content.company.author, "Ana Souza");
+    assert.equal(body.content.company.sessions, 42);
+    assert.equal(body.content.company.page_token, "p2");
+    // The Hub missed it (a row it does not mask), so the app's second lock is what held the key.
+    const token = await hub.proxyToken("org_a");
+    const direct = await fetch(`${hub.origin}/api/builder-ai/proxy/v1/connections/tool-catalog/call`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": randomUUID(),
+      },
+      body: JSON.stringify({ origin: "owner_ui", endpointId: "company.echo-names", body: { domain: "example.net" } }),
+    });
+    assert.ok((await direct.text()).includes(FAKE_HEX_KEY), "the row is not a Hub miss");
+    return { masked: ECHO_KEY_NAMES };
+  });
+
+  await step("1,001 keys in one answer are masked in one pass, the last one too, in a measured time", async () => {
+    const [dump] = await turn([call("bulk.many-secrets", { body: { q: "dump" } })]);
+    assert.ok(dump?.success, dump?.text.slice(0, 400));
+    assert.ok(!dump.text.includes(LAST_SECRET), "the last key after 1,001 others leaked");
+    assert.ok(!/sk-ant-api03-[0-9a-f]{8}/u.test(dump.text), "a key of the dump leaked");
+    // The same mask on 1 MB with 1,001 keys before a last one, timed in this process.
+    const { maskedResultJson } = await import("../src/backend/hub-connections/result-mask");
+    const keys = Array.from(
+      { length: 1_001 },
+      (_, index) => `sk-ant-api03-${index.toString(16).padStart(8, "0")}a1B2c3D4e5F6g7H8`,
+    );
+    const filler = "x".repeat(Math.max(0, 1_048_576 - keys.join(" ").length - LAST_SECRET.length - 64));
+    const started = performance.now();
+    const masked = maskedResultJson({ content: { text: `${keys.join(" ")} ${filler} ${LAST_SECRET}` } });
+    const ms = Math.round(performance.now() - started);
+    assert.ok(
+      masked !== null && !masked.includes(LAST_SECRET) && !masked.includes(keys[0] ?? ""),
+      "the 1 MB text kept a key",
+    );
+    assert.ok(ms < 400, `the mask of 1 MB took ${ms} ms`);
+    // A secret that stands across two values of the text is not in either value, so only the check of
+    // the whole text finds it: the whole result is held back.
+    const spanning = `left-${randomUUID()}","right-${randomUUID()}`;
+    registerSecretValue(spanning);
+    const [left, right] = spanning.split('","');
+    assert.equal(maskedResultJson({ content: [left, right] }), null, "a secret left after the mask was not held back");
+    return { callMs: dump.ms, maskMs: ms, bytes: 1_048_576 };
+  });
+
+  await step("the Hub's answer for another organization, or above the approved amount, is caught", async () => {
+    const [wrongOrg] = await turn([call("lie.org", { body: { id: "1" } })]);
+    assert.ok(wrongOrg && !wrongOrg.success, wrongOrg?.text);
+    assert.equal(wrongOrg.fields.error, "hub_unavailable");
+    // The payer did not move: the next call is still paid by Empresa A.
+    const [next] = await turn([call("test.ping", { body: { id: "after-lie" } })]);
+    assert.ok(next?.success && envelope(next).includes('"paidBy":"Empresa A"'), next?.text.slice(0, 400));
+    const eventsBefore = JSON.stringify(events).split("hub-connection:overcharged").length;
+    const [charged] = await turn([call("lie.charge", { body: { id: "2" } })]);
+    assert.ok(charged?.success, charged?.text);
+    assert.ok(JSON.stringify(events).split("hub-connection:overcharged").length > eventsBefore, "no overcharge line");
+    return { overcharged: charged.fields.chargedMicros };
+  });
+
+  await step("a turn that another agent started reads no amounts and no organization names", async () => {
+    const inner = [list(), call("market.quote-pro", { body: { symbol: "AGNT3" } })];
+    const before = harness.resultCount();
+    await runCauseEffect(
+      agents.sendMessage({
+        agentId,
+        text: callsText(MARK, [
+          { tool: "openbot.start_task", arguments: { title: "Quotes", brief: callsText(MARK, inner) } },
+        ]),
+        attachmentDraftIds: [],
+      }),
+    );
+    const seen = await harness.resultsAfter(before, 3);
+    await harness.allIdle();
+    const listed = seen.find((item) => item.tool === "openbot_connections.list");
+    const quote = seen.find((item) => item.tool === "openbot_connections.call");
+    assert.ok(listed?.success, listed?.text);
+    for (const field of ["currency", "availableMicros", "effectiveAvailableMicros", "confirmAboveMicros"])
+      assert.ok(!listed.text.includes(`"${field}"`), `${field} in a delegated list`);
+    assert.ok(!listed.text.includes("paidBy") && !listed.text.includes("Empresa"), listed.text.slice(0, 600));
+    assert.ok(quote && !quote.success, quote?.text);
+    assert.equal(quote.fields.needsPerson, "confirm_cost");
+    for (const field of ["currency", "estimateMicros"]) assert.equal(quote.fields[field], undefined, field);
+    return { list: listed.fields, quote: quote.fields };
+  });
+
+  await step("URLs: protocol-relative, inside a text, and reserved ranges are refused before the Hub", async () => {
+    const before = hubCalls().length;
+    const seen = await turn([
+      call("web.page-meta", { body: { url: "//169.254.169.254/latest" } }),
+      call("text.classify", { body: { text: "see http://10.0.0.1/admin for the list" } }),
+      call("web.page-meta", { body: { url: "http://198.18.0.1/" } }),
+      call("web.page-meta", { body: { url: "http://192.0.0.8/" } }),
+      call("web.page-meta", { body: { url: "http://[64:ff9b::a00:1]/" } }),
+    ]);
+    for (const refused of seen) {
+      assert.ok(!refused.success, refused.text);
+      assert.equal(refused.fields.rule, "url_refused", refused.text);
+    }
+    assert.equal(hubCalls().length, before, "a refused URL reached the Hub");
+  });
+
   await step("routed answers give output only, and the Hub writes the row limit", async () => {
     const vendorBefore = vendorCalls().length;
     const [three, standard] = await turn([
@@ -475,6 +594,89 @@ try {
     return codes;
   });
 
+  await step("another person signs in: no payer, approval or use of the first person stays", async () => {
+    const personA = storedSession;
+    assert.ok(personA);
+    // As the first person: the payer is chosen, a lookup about people is allowed, and there is use.
+    const peopleCards = () => cards.filter((card) => card.reason.includes("data about people")).length;
+    const payerCards = () => cards.filter((card) => /^(?:Who pays for|Pay for)/u.test(card.reason)).length;
+    const [allowed] = await turn([call("people.email-finder", { body: { name: "Ana Souza", domain: "example.com" } })]);
+    assert.ok(allowed?.success, allowed?.text);
+    const usageA = await runCauseEffect(agents.hubConnectionsUsage());
+    assert.ok(
+      usageA.orgs.some((org) => org.connections.some((row) => row.settledMicros > 0)),
+      JSON.stringify(usageA),
+    );
+    const [peopleBefore, payerBefore] = [peopleCards(), payerCards()];
+    try {
+      // Sign-out, then the second person's session.
+      storedSession = null;
+      assert.equal((await runCauseEffect(agents.hubConnectionsView())).status, "signed_out");
+      storedSession = JSON.stringify({ ...hub.sessionOf("b"), expires: Date.now() + 3_600_000, empresa: "Empresa A" });
+      const usageReads = hub.requests.filter((request) => request.path.endsWith("/usage")).length;
+      const usageB = await runCauseEffect(agents.hubConnectionsUsage());
+      assert.ok(
+        hub.requests.filter((request) => request.path.endsWith("/usage")).length > usageReads,
+        "use came from a cache",
+      );
+      assert.ok(
+        usageB.orgs.every((org) => org.connections.every((row) => row.settledMicros === 0)),
+        JSON.stringify(usageB),
+      );
+      cardPlan = ["accept"];
+      const [paid, lookup] = await turn([
+        call("test.ping", { body: { id: "person-b" } }),
+        call("people.email-finder", { body: { name: "Bruno Lima", domain: "example.org" } }),
+      ]);
+      assert.ok(paid?.success && lookup?.success, `${paid?.text}\n${lookup?.text}`);
+      assert.equal(payerCards(), payerBefore + 1, "the second person got the first person's payer");
+      assert.equal(peopleCards(), peopleBefore + 1, "the second person got the first person's approval");
+      return { usageA: usageA.orgs.length, usageB: usageB.orgs.length };
+    } finally {
+      // Back to the first person, whatever happened above, so the next steps start from the same state.
+      cardPlan = [];
+      storedSession = null;
+      await runCauseEffect(agents.hubConnectionsView());
+      storedSession = personA;
+    }
+  });
+
+  await step("a renewal that rotates the refresh token never races a proxy token request", async () => {
+    const personA = storedSession;
+    hub.setRotateOnRenew(true);
+    hub.setTokenDelay(200);
+    try {
+      // A sign-out first, so no cache or token of an earlier session is left; then the second
+      // person's session, with an access token that ended: the next read renews it.
+      storedSession = null;
+      await runCauseEffect(agents.hubConnectionsView());
+      // New tokens that the app has never seen, so it holds no catalog or token of them.
+      storedSession = JSON.stringify({ ...hub.newSession("b"), expires: 0, empresa: "Empresa A" });
+      const refusedBefore = hub.refusedGrants.length;
+      const grantsBefore = hub.grants.length;
+      const [view, chosen, usage] = await Promise.all([
+        runCauseEffect(agents.hubConnectionsView(true)),
+        runCauseEffect(agents.chooseHubConnectionPayer({ connectionId: "tool-catalog", orgId: "org_a" })),
+        runCauseEffect(agents.hubConnectionsUsage()),
+      ]);
+      assert.deepEqual(hub.refusedGrants.slice(refusedBefore), [], "a grant used a refresh token that a renewal ended");
+      for (const status of [view.status, chosen.status, usage.status]) assert.equal(status, "ready");
+      assert.equal(JSON.parse(storedSession ?? "{}").refresh, hub.sessionOf("b").refresh, "the app lost the rotation");
+      const started = hub.grants[grantsBefore]?.at ?? 0;
+      return {
+        statuses: [view.status, chosen.status, usage.status],
+        grants: hub.grants.slice(grantsBefore).map((grant) => ({ ...grant, at: grant.at - started })),
+      };
+    } finally {
+      hub.setRotateOnRenew(false);
+      hub.setTokenDelay(0);
+      storedSession = null;
+      await runCauseEffect(agents.hubConnectionsView());
+      storedSession = personA;
+      await runCauseEffect(agents.chooseHubConnectionPayer({ connectionId: "tool-catalog", orgId: "org_a" }));
+    }
+  });
+
   await step("cap: the Hub marks 80 % once and refuses at 100 %, without calling the vendor", async () => {
     const org = hub.orgs.get("org_a");
     assert.ok(org);
@@ -509,6 +711,8 @@ try {
     assert.ok(orgA && orgB);
     orgA.member = false;
     const vendorBefore = vendorCalls().length;
+    // Only this step's requests: Usage reads each organization's use with that organization's token.
+    const requestsBefore = hub.requests.length;
     const [gone] = await turn([call("seo.keyword-volume", { body: { keywords: ["left"] } })]);
     assert.ok(gone && !gone.success);
     assert.equal(gone.fields.needsPerson, "choose_org");
@@ -523,7 +727,9 @@ try {
     assert.equal(vendorCalls().length, vendorBefore, "a call ran while the payer was not chosen");
     assert.equal(orgB.settledMicros, 0);
     assert.ok(
-      !hub.requests.some((request) => request.path === "/api/mcp-oauth/token" && request.body.includes("org=org_b")),
+      !hub.requests
+        .slice(requestsBefore)
+        .some((request) => request.path === "/api/mcp-oauth/token" && request.body.includes("org=org_b")),
       "the app asked for a token of Empresa B without the person",
     );
     cardPlan = ["accept"];
@@ -651,11 +857,19 @@ try {
     const [down] = await turn([search("paid data connections keyword")]);
     hub.setDown(null);
     assert.ok(down && !hasTools(down));
+    // The failed read is kept 60 seconds: the next turn stays closed and does not ask the Hub again.
+    const sessionReads = () => hub.requests.filter((request) => request.path.endsWith("/session"));
+    const readsBefore = sessionReads().length;
+    const [cached] = await turn([search("paid data connections keyword")]);
+    assert.ok(cached && !hasTools(cached));
+    assert.equal(sessionReads().length, readsBefore, "a failed /session was asked again at once");
+    // The person's Refresh reads it again at once, and the paused connection stays out.
+    await runCauseEffect(agents.hubConnectionsView(true));
     const [found, listed] = await turn([search("paid data connections keyword"), list()]);
     assert.ok(found && listed);
     assert.equal(hasTools(found), false);
     assert.equal(listed.success, false);
-    const lastSession = hub.requests.filter((request) => request.path.endsWith("/session")).at(-1);
+    const lastSession = sessionReads().at(-1);
     assert.equal(lastSession?.status, 200);
   });
 
@@ -667,6 +881,10 @@ try {
       ...hub.issuedConfirmations.map((id): [string, string] => ["confirmation id", id]),
       ["vendor key", FAKE_VENDOR_KEY],
       ["provider key", FAKE_PROVIDER_KEY],
+      ["provider key with no prefix", FAKE_HEX_KEY],
+      ["last key of a dump", LAST_SECRET],
+      ["second person's access token", hub.sessionB.access],
+      ["second person's refresh token", hub.sessionB.refresh],
     ];
     // What the app gave the agent process: its environment, the thread setup, the turn inputs and
     // every tool result. The arguments that the fake model wrote itself are left out: one check above
@@ -721,6 +939,7 @@ try {
     return { textsChecked: texts.length };
   });
 
+  if (failedSteps.length > 0) throw new Error(`${failedSteps.length} steps failed: ${failedSteps.join("; ")}`);
   report.passed = true;
 } catch (error) {
   report.error = error instanceof Error ? error.message : String(error);

@@ -57,8 +57,11 @@ process.stdout.on("error", (error) => {
   throw error;
 });
 const write = (message) => process.stdout.write(JSON.stringify(message) + "\\n");
+const answers = new Map();
 const finish = (threadId, turnId) => {
-  const item = { type: "agentMessage", id: "message-" + turnId, text: "Done.", phase: "final_answer" };
+  const text = answers.get(turnId) || "Done.";
+  answers.delete(turnId);
+  const item = { type: "agentMessage", id: "message-" + turnId, text, phase: "final_answer" };
   write({ method: "item/completed", params: { threadId, turnId, item } });
   write({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed" } } });
 };
@@ -66,7 +69,7 @@ const next = (threadId, turnId, calls, index) => {
   if (index >= calls.length) return finish(threadId, turnId);
   const call = calls[index];
   const id = "tool-" + turnId + "-" + index;
-  waiting.set(id, { threadId, turnId, calls, index });
+  waiting.set(id, { threadId, turnId, calls, index, sentAt: Date.now() });
   const discovery = call.tool === "tool_search" || call.tool === "tool_describe";
   write({
     id,
@@ -105,6 +108,9 @@ const answer = (message) => {
       const turnId = "turn-" + (++turns);
       const text = (params.input || []).map((item) => item.text || "").join("\\n");
       log({ kind: "input", turnId, text });
+      // \`<<ANSWER:<base64>>>\` sets the final answer of the turn, as a model would write it.
+      const answer = [...text.matchAll(/<<ANSWER:([A-Za-z0-9+\\/=]+)>>/g)].at(-1);
+      if (answer) answers.set(turnId, Buffer.from(answer[1], "base64").toString("utf8"));
       write({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
       write({ method: "turn/started", params: { threadId: params.threadId, turn: { id: turnId } } });
       const match = text.includes(${JSON.stringify(mark)}) ? [...text.matchAll(/<<CALLS:([A-Za-z0-9+\\/=]+)>>/g)].at(-1) : null;
@@ -133,7 +139,7 @@ process.stdin.on("data", (chunk) => {
       else if (!message.method && waiting.has(message.id)) {
         const turn = waiting.get(message.id);
         waiting.delete(message.id);
-        log({ kind: "result", turnId: turn.turnId, index: turn.index, call: turn.calls[turn.index], result: message.result ?? null, error: message.error ?? null });
+        log({ kind: "result", turnId: turn.turnId, index: turn.index, call: turn.calls[turn.index], result: message.result ?? null, error: message.error ?? null, ms: Date.now() - turn.sentAt });
         next(turn.threadId, turn.turnId, turn.calls, turn.index + 1);
       }
     }
@@ -158,6 +164,8 @@ export interface LogEntry {
   readonly text?: string;
   readonly params?: unknown;
   readonly env?: Record<string, string>;
+  /** How long the app took to answer the tool call, in milliseconds. */
+  readonly ms?: number;
 }
 
 /** One tool result as the agent reads it: the app's JSON fields, and the text with the envelope. */
@@ -165,6 +173,12 @@ export interface Seen {
   readonly success: boolean;
   readonly fields: HubJsonObject;
   readonly text: string;
+  /** The tool that the agent called. */
+  readonly tool: string;
+  /** The turn of the fake Codex that made the call. */
+  readonly turnId: string;
+  /** How long the app took to answer, in milliseconds. */
+  readonly ms: number;
 }
 
 /** One approval card that the person saw, and the answer that the harness gave. */
@@ -249,6 +263,29 @@ export interface AgentHarnessOptions {
   readonly saveSession: (value: string | null) => void;
   /** The answer to each approval card. */
   readonly decide: (card: { readonly reason: string; readonly guard: boolean }) => "accept" | "decline";
+  /** Whether a person that the host stamps on a message is a team member. Default: nobody is. */
+  readonly remotePerson?: (personId: string) => boolean;
+}
+
+/** A person of the team, as the host stamps one on a message. */
+export const TEAM_MEMBER = { id: "member-remote", name: "Remote member" } as const;
+
+function seenOf(entry: LogEntry): Seen {
+  const text = entry.result?.contentItems.map((item) => item.text).join("\n") ?? JSON.stringify(entry.error);
+  return {
+    success: entry.result?.success === true,
+    fields: resultFields(text),
+    text,
+    tool: entry.call?.tool ?? "",
+    turnId: entry.turnId ?? "",
+    ms: entry.ms ?? 0,
+  };
+}
+
+/** The text of a message whose turn runs `calls`, and then answers `answer` when one is given. */
+export function callsText(mark: string, calls: readonly Call[], answer?: string): string {
+  const answered = answer === undefined ? "" : ` <<ANSWER:${Buffer.from(answer).toString("base64")}>>`;
+  return `${mark} <<CALLS:${Buffer.from(JSON.stringify(calls)).toString("base64")}>>${answered}`;
 }
 
 /** Starts the real agent service with the fake Codex, and one agent. */
@@ -293,6 +330,7 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
       mcpServers: () => [],
     },
     hubConnections: { fetch: options.hubFetch },
+    ...(options.remotePerson ? { channelRemotePerson: options.remotePerson } : {}),
   });
   agents.on("event", (event) => {
     events.push(event);
@@ -322,10 +360,45 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
     );
   await idle();
 
-  /** Sends one person's message whose turn runs `calls`, and returns what the agent read for each. */
-  async function turn(calls: Call[], turnOptions: { routine?: boolean } = {}): Promise<Seen[]> {
+  const resultEntries = () => readLog(log).filter((entry) => entry.kind === "result");
+  /** Waits for `count` more tool results after the first `before`, in the order the agents read them. */
+  async function resultsAfter(before: number, count: number, timeoutMs = 90_000): Promise<Seen[]> {
+    const entries = await waitFor(
+      `${count} tool results`,
+      () => {
+        const all = resultEntries();
+        return all.length >= before + count ? all.slice(before, before + count) : null;
+      },
+      timeoutMs,
+    );
+    return entries.map(seenOf);
+  }
+  /** Waits until no agent of this computer has work queued or running. */
+  async function allIdle(): Promise<void> {
+    await waitFor(
+      "every agent to end its turns",
+      () =>
+        agents
+          .listAgents()
+          .every((agent) =>
+            agents
+              .listQueue(agent.id)
+              .deliveries.every((delivery) => !["queued", "starting", "running"].includes(delivery.status)),
+          ),
+      90_000,
+    );
+  }
+
+  /**
+   * Sends one person's message whose turn runs `calls`, and returns what the agent read for each.
+   * `member` is a person that the host stamps on the message, as a team member's app sends one.
+   */
+  async function turn(
+    calls: Call[],
+    turnOptions: { routine?: boolean; member?: { readonly id: string; readonly name: string } } = {},
+  ): Promise<Seen[]> {
     const before = readLog(log).filter((entry) => entry.kind === "result").length;
-    const text = `${options.mark} <<CALLS:${Buffer.from(JSON.stringify(calls)).toString("base64")}>>`;
+    const text = callsText(options.mark, calls);
     if (turnOptions.routine) {
       const routine = agents.createRoutine({
         agentId,
@@ -337,7 +410,7 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
       });
       await runCauseEffect(agents.testRoutine({ agentId, routineId: routine.id }));
     } else {
-      await runCauseEffect(agents.sendMessage({ agentId, text, attachmentDraftIds: [] }));
+      await runCauseEffect(agents.sendMessage({ agentId, text, attachmentDraftIds: [] }, turnOptions.member));
     }
     const results = await waitFor(
       `${calls.length} tool results`,
@@ -348,10 +421,7 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
       60_000,
     );
     await idle();
-    return results.map((entry) => {
-      const text = entry.result?.contentItems.map((item) => item.text).join("\n") ?? JSON.stringify(entry.error);
-      return { success: entry.result?.success === true, fields: resultFields(text), text };
-    });
+    return results.map(seenOf);
   }
 
   return {
@@ -363,6 +433,9 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
     home,
     log,
     turn,
+    resultsAfter,
+    resultCount: () => resultEntries().length,
+    allIdle,
     readLog: () => readLog(log),
     runCauseEffect,
     async stop() {

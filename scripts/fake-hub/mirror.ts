@@ -22,6 +22,9 @@ export type VendorBehavior =
   | "hint-install"
   | "hint-first"
   | "hint-star"
+  | "hint-split"
+  | "echo-key-names"
+  | "many-secrets"
   | "clean";
 
 export interface ObjectSchema {
@@ -462,6 +465,65 @@ export const VENDOR_ROWS: VendorRow[] = [
     behavior: "clean",
     skipHubAdmission: true,
   },
+  // Rows whose 2xx body the Hub does not mask, for the app's own second lock (contract §6.3).
+  {
+    ...base,
+    endpointId: "company.echo-names",
+    platform: "company-data",
+    provider: "firmo",
+    title: "Company by domain (raw)",
+    summary: "A company lookup whose provider echoes its key in many field names.",
+    body: closed({ domain: { type: "string", maxLength: 253 } }, ["domain"]),
+    priceKind: "per_call",
+    unitPriceMicroUsd: 1_000,
+    maxUnits: 1,
+    behavior: "echo-key-names",
+    skipHubMask: true,
+  },
+  {
+    ...base,
+    endpointId: "bulk.many-secrets",
+    platform: "open-web",
+    provider: "pagefetch",
+    title: "Bulk page dump",
+    summary: "A large answer that holds many keys.",
+    body: closed({ q: { type: "string", maxLength: 200 } }, ["q"]),
+    priceKind: "per_call",
+    unitPriceMicroUsd: 1_000,
+    maxUnits: 1,
+    behavior: "many-secrets",
+    skipHubMask: true,
+  },
+  {
+    ...base,
+    endpointId: "web.hint-split",
+    platform: "open-web",
+    provider: "pagefetch",
+    title: "Page links (split hints)",
+    summary: "The links of a public page.",
+    body: closed({ q: { type: "string", maxLength: 200 } }, ["q"]),
+    priceKind: "per_call",
+    unitPriceMicroUsd: 1_000,
+    maxUnits: 1,
+    behavior: "hint-split",
+    skipHubMask: true,
+  },
+  // Rows that the fake Hub answers outside the contract: another organization, a larger charge.
+  ...(["lie.org", "lie.charge"] as const).map(
+    (endpointId): VendorRow => ({
+      ...base,
+      endpointId,
+      platform: "test-clean",
+      provider: "pingco",
+      title: endpointId === "lie.org" ? "Ping (wrong organization)" : "Ping (charged more)",
+      summary: "Answers with the id that it gets.",
+      body: closed({ id: { type: "string", maxLength: 40 } }, ["id"]),
+      priceKind: "per_call",
+      unitPriceMicroUsd: 1_000,
+      maxUnits: 1,
+      behavior: "clean",
+    }),
+  ),
   // Rows the Hub allows, whose vendor answer is a failure.
   ...(
     [
