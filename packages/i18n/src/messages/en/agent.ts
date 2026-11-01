@@ -77,4 +77,9 @@ export const messages = defineMessages("agent", {
   "agent.color.indigo": "Indigo",
   "agent.color.violet": "Violet",
   "agent.color.magenta": "Magenta",
+  "agent.picker.search": "Search agents",
+  "agent.picker.providers": "Filter agents by provider",
+  "agent.picker.models": "Filter agents by model",
+  "agent.picker.allProviders": "All",
+  "agent.picker.empty": "No agents",
 });

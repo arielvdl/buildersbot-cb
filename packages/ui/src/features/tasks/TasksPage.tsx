@@ -12,9 +12,7 @@ import {
   ArrowUp,
   Button,
   buttonVariants,
-  Check,
   ChevronDown,
-  DropdownMenu,
   IconButton,
   LoaderCircle,
   Mic,
@@ -24,6 +22,7 @@ import {
 import { SwapLabel, type SwapMotion } from "@openbot/ui/components/SwapLabel";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
+import { AgentPicker } from "@openbot/ui/features/agents/AgentPicker";
 import { AgentTaskMark, type AgentTaskWait, agentTaskStatus } from "@openbot/ui/features/conversation/AgentTasks";
 import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor";
 import { ComposerNotice } from "@openbot/ui/features/conversation/ComposerNotice";
@@ -124,49 +123,36 @@ function TaskAgentSelect(props: {
   const { t } = useText();
   const agent = () => agentOf(props.agents, props.agentId);
   let shownId = untrack(() => props.agentId);
+  const label = () =>
+    props.title === undefined
+      ? t("conversation.tasks.page.agent", { name: agent()?.name ?? props.agentId })
+      : t("conversation.tasks.page.reassign", { title: props.title, name: agent()?.name ?? props.agentId });
   return (
-    <DropdownMenu.Root placement="bottom-start" gutter={4}>
-      <DropdownMenu.Trigger
-        class={`${buttonVariants({ variant: "ghost", size: "sm" })} tasks-page-agent`}
-        aria-label={
-          props.title === undefined
-            ? t("conversation.tasks.page.agent", { name: agent()?.name ?? props.agentId })
-            : t("conversation.tasks.page.reassign", { title: props.title, name: agent()?.name ?? props.agentId })
-        }
-      >
-        {/* Keyed by agent, so the face of a newly chosen agent springs in, as the model mark does. */}
-        <For each={[props.agentId]} keyed={(id) => id}>
-          {(id) => {
-            const entering = untrack(id) !== shownId;
-            shownId = untrack(id);
-            return (
-              <span class="tasks-page-agent-face" data-entering={entering ? "" : undefined}>
-                <AgentAvatar agent={agentOf(props.agents, id())} class="tasks-page-avatar" />
-              </span>
-            );
-          }}
-        </For>
-        <SwapLabel text={agent()?.name ?? props.agentId} motion={AGENT_SWAP} />
-        <ChevronDown class="tasks-page-agent-chevron" aria-hidden="true" />
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content class="tasks-page-agent-menu">
-          <DropdownMenu.RadioGroup value={props.agentId} onChange={(value) => props.onChange(value)}>
-            <For each={props.agents} keyed={(option) => option.id}>
-              {(option) => (
-                <DropdownMenu.RadioItem value={option().id} closeOnSelect class="tasks-page-agent-option">
-                  <AgentAvatar agent={option()} class="tasks-page-avatar" />
-                  <span>{option().name}</span>
-                  <Show when={props.agentId === option().id}>
-                    <Check aria-hidden="true" class="tasks-page-agent-check" />
-                  </Show>
-                </DropdownMenu.RadioItem>
-              )}
-            </For>
-          </DropdownMenu.RadioGroup>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <AgentPicker
+      agents={props.agents}
+      selectedId={props.agentId}
+      label={label()}
+      triggerLabel={label()}
+      triggerClass={`${buttonVariants({ variant: "ghost", size: "sm" })} tasks-page-agent`}
+      onChoose={(option) => {
+        if (option.id !== props.agentId) props.onChange(option.id);
+      }}
+    >
+      {/* Keyed by agent, so the face of a newly chosen agent springs in, as the model mark does. */}
+      <For each={[props.agentId]} keyed={(id) => id}>
+        {(id) => {
+          const entering = untrack(id) !== shownId;
+          shownId = untrack(id);
+          return (
+            <span class="tasks-page-agent-face" data-entering={entering ? "" : undefined}>
+              <AgentAvatar agent={agentOf(props.agents, id())} class="tasks-page-avatar" />
+            </span>
+          );
+        }}
+      </For>
+      <SwapLabel text={agent()?.name ?? props.agentId} motion={AGENT_SWAP} />
+      <ChevronDown class="tasks-page-agent-chevron" aria-hidden="true" />
+    </AgentPicker>
   );
 }
 

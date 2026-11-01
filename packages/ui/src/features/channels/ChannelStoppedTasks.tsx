@@ -1,15 +1,23 @@
 import type { ChannelMember, ChannelTask } from "@openbot/contracts/ipc";
-import { Button, buttonVariants, DropdownMenu } from "@openbot/ui";
+import { Button, buttonVariants } from "@openbot/ui";
 import { For, Show } from "solid-js";
 import { useText } from "../../text";
+import { AgentPicker, type AgentPickerAgent } from "../agents/AgentPicker";
 
 export function ChannelStoppedTasks(props: {
   tasks: Pick<ChannelTask, "id" | "ownerAgentId" | "error">[];
   members: Pick<ChannelMember, "agentId">[];
   name: (agentId: string | null) => string;
+  /** The face, provider and model of a member, for the Reassign menu. Absent shows the names only. */
+  agent?: ((agentId: string) => AgentPickerAgent | undefined) | undefined;
   onResume: (taskId: string, recipientAgentId: string | null) => Promise<boolean>;
 }) {
   const { t, sourceText } = useText();
+  /** The members that can take the task: every member but its owner. */
+  const reassignTo = (ownerAgentId: string | null): AgentPickerAgent[] =>
+    props.members
+      .filter((member) => member.agentId !== ownerAgentId)
+      .map((member) => ({ ...props.agent?.(member.agentId), id: member.agentId, name: props.name(member.agentId) }));
   return (
     <Show when={props.tasks.length}>
       <div class="channel-paused-tasks">
@@ -28,25 +36,15 @@ export function ChannelStoppedTasks(props: {
                     {t("common.continue")}
                   </Button>
                 </Show>
-                <DropdownMenu.Root placement="top-start">
-                  <DropdownMenu.Trigger
-                    class={buttonVariants({ variant: "ghost", size: "xs" })}
-                    aria-label={t("channel.stoppedTask.reassignLabel", { name: props.name(task.ownerAgentId) })}
-                  >
-                    {t("channel.stoppedTask.reassign")}
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content>
-                      <For each={props.members.filter((member) => member.agentId !== task.ownerAgentId)}>
-                        {(member) => (
-                          <DropdownMenu.Item onSelect={() => void props.onResume(task.id, member.agentId)}>
-                            {props.name(member.agentId)}
-                          </DropdownMenu.Item>
-                        )}
-                      </For>
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                <AgentPicker
+                  agents={reassignTo(task.ownerAgentId)}
+                  label={t("channel.stoppedTask.reassignLabel", { name: props.name(task.ownerAgentId) })}
+                  triggerLabel={t("channel.stoppedTask.reassignLabel", { name: props.name(task.ownerAgentId) })}
+                  triggerClass={buttonVariants({ variant: "ghost", size: "xs" })}
+                  onChoose={(agent) => void props.onResume(task.id, agent.id)}
+                >
+                  {t("channel.stoppedTask.reassign")}
+                </AgentPicker>
               </div>
             </section>
           )}

@@ -119,6 +119,10 @@ export function createNotificationLevelsStore(options: {
         avatarHue: agent.avatarHue,
         avatarUrl: agent.avatarUrl,
         level: own.get(agent.id) ?? null,
+        // The menu of agents filters by them. The host sends the model id; reading the model names
+        // would ask every provider of every server each time the tab opens.
+        provider: agent.provider,
+        model: agent.model,
       })),
     };
   }

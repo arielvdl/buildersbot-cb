@@ -217,6 +217,7 @@ export function ChannelAboveComposer(props: { channelId: string }) {
             tasks={stoppedChannelTasks(current())}
             members={current().channel.members}
             name={name}
+            agent={(id) => channels.agents().find((agent) => agent.id === id)}
             onResume={resumeTask}
           />
           <Show when={!current().channel.archived && !current().channel.members.length}>

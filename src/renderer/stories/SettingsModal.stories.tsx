@@ -2,6 +2,7 @@ import type {
   AvatarImageInput,
   CentralAuthUser,
   ClientAgentModelOption,
+  ClientAgentSummary,
   LoadSnapshot,
   MobileConnectedDevice,
   ServerSummary,
@@ -16,7 +17,7 @@ import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { createLoadStore } from "../src/features/load/load-context";
 import { SettingsModal } from "../src/features/settings/SettingsModal";
 import type { SettingsTab } from "../src/features/settings/settings-tabs";
-import { STORY_SERVERS } from "../src/preview/fixtures";
+import { STORY_AGENT_SUMMARIES, STORY_SERVERS } from "../src/preview/fixtures";
 import { createMockBilling } from "../src/preview/mock-billing";
 import type { MockVoiceOptions } from "../src/preview/mock-voice";
 import { createMockBuildersBot } from "./mock-openbot";
@@ -67,6 +68,46 @@ const guardStoryModels: ClientAgentModelOption[] = [
   guardStoryModel("codex", "gpt-reserve", "GPT-Reserve"),
   guardStoryModel("codex", "codex-auto-review", "Codex Auto Review"),
 ];
+
+/**
+ * The agents of a big team: more than a window has rows. The names start like the list of a person
+ * who could not reach the last agents of the Notifications menu, and the last one has an accent, so
+ * a search without accents finds it. Each provider has more than one model.
+ */
+const MANY_AGENT_NAMES = [
+  "Gran Mestre",
+  "ferreiro",
+  "oraculo",
+  "GPT 6.1 Terra",
+  "Pest Código",
+  ...Array.from({ length: 39 }, (_, index) => `Agente ${String(index + 1).padStart(2, "0")}`),
+  "Zé Último",
+];
+const MANY_AGENT_MODELS = [
+  { provider: "claude", model: "claude-opus-5-5" },
+  { provider: "codex", model: "gpt-6.1-terra" },
+  { provider: "codex", model: "gpt-6.1-sol" },
+  { provider: "opencode", model: "glm-5" },
+  { provider: "claude", model: "claude-sonnet-5" },
+] as const;
+const MANY_STORY_AGENTS: ClientAgentSummary[] = MANY_AGENT_NAMES.map((name, index) => {
+  const template = STORY_AGENT_SUMMARIES[0];
+  if (!template) throw new Error("The preview has no agents.");
+  const { provider, model } = MANY_AGENT_MODELS[index % MANY_AGENT_MODELS.length] ?? MANY_AGENT_MODELS[0];
+  const id = `team-agent-${index + 1}`;
+  return {
+    ...template,
+    id,
+    name,
+    title: "",
+    provider,
+    model,
+    notifications: true,
+    avatarSeed: id,
+    avatarHue: null,
+    avatarUrl: null,
+  };
+});
 
 const storyUpdateStatus: UpdateStatus = {
   phase: "idle",
@@ -131,10 +172,12 @@ function SettingsModalStory(props: {
   guardAsking?: boolean;
   /** Main never answers the Guard state, so the Guard page stays as it is while it loads. */
   guardLoading?: boolean;
+  /** The agents of each server, in place of the preview agents. */
+  agents?: ClientAgentSummary[];
 }) {
   const previousApi = window.openbot;
   const billingApi = createMockBilling();
-  const mock = createMockBuildersBot(props.voice);
+  const mock = createMockBuildersBot({ ...props.voice, ...(props.agents ? { agents: props.agents } : {}) });
   const models = props.models;
   if (models) mock.api.agent.listModels = async () => structuredClone(models);
   if (props.guardLoading) mock.api.guard.getState = () => new Promise(() => undefined);
@@ -336,6 +379,14 @@ export const Profile: Story = {
 
 export const Notifications: Story = {
   render: () => <SettingsModalStory initialOpen initialTab="notifications" />,
+};
+
+/**
+ * Notifications on a server with 45 agents, in a short window: the menu of "Choose for an agent"
+ * stays in the window, scrolls, searches and filters by provider and model.
+ */
+export const NotificationsManyAgents: Story = {
+  render: () => <SettingsModalStory initialOpen initialTab="notifications" agents={MANY_STORY_AGENTS} />,
 };
 
 /**

@@ -611,12 +611,6 @@
   margin-top: var(--openbot-space-2);
 }
 
-.routine-planner-empty-menu {
-  min-width: 14rem;
-  max-height: min(520px, calc(100dvh - 16px), var(--kb-popper-content-available-height, 520px));
-  overflow-y: auto;
-}
-
 /* Less motion: one still frame with three runs and their notes. */
 .routine-planner-empty[data-still]
 :is(

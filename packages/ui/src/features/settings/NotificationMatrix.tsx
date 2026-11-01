@@ -1,4 +1,9 @@
-import { SERVER_NOTIFICATION_LEVELS, type ServerNotificationLevel, type ServerSummary } from "@openbot/contracts/ipc";
+import {
+  type AgentProviderRef,
+  SERVER_NOTIFICATION_LEVELS,
+  type ServerNotificationLevel,
+  type ServerSummary,
+} from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { classifyFailure } from "@openbot/telemetry";
 import {
@@ -25,6 +30,7 @@ import { createEffect, createStore, For, onCleanup, Show, untrack } from "solid-
 import type { AgentProfile } from "../../data";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
+import { AgentPicker } from "../agents/AgentPicker";
 import { SERVER_MUTE_CHOICES, serverMuteDescription } from "../servers/ServerActionItems";
 import { ServerMark } from "../servers/ServerRail";
 
@@ -35,6 +41,9 @@ export interface NotificationMatrixAgent extends Pick<AgentProfile, "avatarSeed"
   /** The role or the description of the agent, under its name. */
   detail: string;
   level: ServerNotificationLevel | null;
+  /** The provider and the model of the agent, which the menu of agents shows and filters by. */
+  provider?: AgentProviderRef | undefined;
+  model?: string | undefined;
 }
 
 /**
@@ -402,7 +411,11 @@ function LevelSegments(props: {
   );
 }
 
-/** The last row of a server card: the agents that use the server level. A choice gives one its own level. */
+/**
+ * The last row of a server card: the agents that use the server level. A choice gives one its own
+ * level. A server can have more agents than the window has rows, so the menu searches, filters by
+ * provider and model, and scrolls.
+ */
 function AddAgentMenu(props: {
   agents: readonly NotificationMatrixAgent[];
   /** Some agents have their own level already. */
@@ -411,32 +424,21 @@ function AddAgentMenu(props: {
   onChoose: (agent: NotificationMatrixAgent) => void;
 }) {
   const { t } = useText();
+  const label = () =>
+    props.another ? t("settings.notificationMatrix.chooseAnotherAgent") : t("settings.notificationMatrix.chooseAgent");
   return (
-    <DropdownMenu.Root placement="bottom-start" gutter={4} modal={false}>
-      <DropdownMenu.Trigger class="notification-matrix-add">
-        <span class="notification-matrix-add-icon">
-          <Plus aria-hidden="true" />
-        </span>
-        <span>
-          {props.another
-            ? t("settings.notificationMatrix.chooseAnotherAgent")
-            : t("settings.notificationMatrix.chooseAgent")}
-        </span>
-      </DropdownMenu.Trigger>
-      {/* A portal without a mount uses the document body. */}
-      <DropdownMenu.Portal mount={props.menuMount ?? document.body}>
-        <DropdownMenu.Content>
-          <For each={props.agents} keyed={(agent) => agent.id}>
-            {(agent) => (
-              <DropdownMenu.Item onSelect={() => props.onChoose(agent())}>
-                <AgentFace agent={agent()} />
-                <span>{agent().name}</span>
-              </DropdownMenu.Item>
-            )}
-          </For>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <AgentPicker
+      agents={props.agents}
+      label={label()}
+      triggerClass="notification-matrix-add"
+      mount={props.menuMount}
+      onChoose={(agent) => props.onChoose(agent)}
+    >
+      <span class="notification-matrix-add-icon">
+        <Plus aria-hidden="true" />
+      </span>
+      <span>{label()}</span>
+    </AgentPicker>
   );
 }
 

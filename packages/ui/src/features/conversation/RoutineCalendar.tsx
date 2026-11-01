@@ -41,7 +41,9 @@ import { routineScheduleSummary } from "./routine-schedule-ui";
  */
 export type RoutineCalendarStatus = "active" | "paused" | "failed" | "completed";
 export type RoutineCalendarView = "month" | "week" | "day";
-export type RoutineCalendarAgent = Pick<AgentProfile, "id" | "name" | "avatarSeed" | "avatarHue" | "avatarUrl">;
+/** The provider and the model show in the menu that chooses the agent of a new routine. */
+export type RoutineCalendarAgent = Pick<AgentProfile, "id" | "name" | "avatarSeed" | "avatarHue" | "avatarUrl"> &
+  Partial<Pick<AgentProfile, "title" | "provider" | "model">>;
 
 export interface RoutineCalendarRoutine {
   id: string;
