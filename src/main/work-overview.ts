@@ -1,4 +1,4 @@
-import type { ChannelTask, RunningWork, StoppedWork, StoppedWorkCandidate } from "@openbot/contracts/ipc";
+import type { ChannelTask, RunningWork, StoppedWork } from "@openbot/contracts/ipc";
 import { LOAD_WORK_LIST_LIMIT } from "@openbot/contracts/ipc";
 
 /** The panel shows one line of the request, and the whole request when the person expands it. */
@@ -166,10 +166,7 @@ export function stoppedRow(
 export function buildStoppedWork(
   channels: readonly StoppedChannelInput[],
   agentName: (agentId: string) => string | null,
-  enrich: (
-    channelId: string,
-    task: ChannelTask,
-  ) => { candidates: StoppedWorkCandidate[]; auto: StoppedWork["auto"] } = () => ({
+  enrich: (channelId: string, task: ChannelTask) => Pick<StoppedWork, "candidates" | "auto" | "plan"> = () => ({
     candidates: [],
     auto: null,
   }),

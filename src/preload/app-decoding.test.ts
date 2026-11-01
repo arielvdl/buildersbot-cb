@@ -154,7 +154,20 @@ const taskWatchEvent = {
 const watchedLoadSnapshot = {
   ...loadSnapshot,
   running: [{ ...runningWork, quiet: { state: "stalled", minutes: 32 } }],
-  taskWatch: { enabled: true, quietMinutes: 15, active: true, modelReady: true, recent: [taskWatchEvent] },
+  stopped: [
+    {
+      ...stoppedWork,
+      plan: { by: "reviewer", state: "due", action: "reassign", minutes: 6, hold: null, tries: 1 },
+    },
+  ],
+  taskWatch: {
+    enabled: true,
+    quietMinutes: 15,
+    active: true,
+    modelReady: true,
+    recent: [taskWatchEvent],
+    waits: [{ channelName: "Pagamentos", kind: "queued", state: "held", hold: "memory", minutes: null }],
+  },
 } satisfies LoadSnapshot;
 
 const codeSent = {
@@ -463,7 +476,7 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
     decodeLoadSnapshot,
     {
       ...watchedLoadSnapshot,
-      taskWatch: { ...watchedLoadSnapshot.taskWatch, recent: Array.from({ length: 6 }, () => taskWatchEvent) },
+      taskWatch: { ...watchedLoadSnapshot.taskWatch, recent: Array.from({ length: 21 }, () => taskWatchEvent) },
     },
   ],
   [
@@ -483,6 +496,27 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ],
   ["a resume offer with an empty id", decodeResumeOffer, { channels: [], agents: [{ id: "", name: "Nova" }] }],
   ["a resume result with a negative count", decodeResumeInterruptedWorkResult, { offer: null, failed: -1 }],
+  [
+    "a stopped plan in a state that does not exist",
+    decodeLoadSnapshot,
+    {
+      ...watchedLoadSnapshot,
+      stopped: [
+        { ...stoppedWork, plan: { by: "reviewer", state: "later", action: null, minutes: 3, hold: null, tries: 0 } },
+      ],
+    },
+  ],
+  [
+    "a wait of the task reviewer with a hold that does not exist",
+    decodeLoadSnapshot,
+    {
+      ...watchedLoadSnapshot,
+      taskWatch: {
+        ...watchedLoadSnapshot.taskWatch,
+        waits: [{ channelName: "Pagamentos", kind: "queued", state: "held", hold: "weather", minutes: null }],
+      },
+    },
+  ],
   [
     "stopped work with a tab name that is not text",
     decodeLoadSnapshot,

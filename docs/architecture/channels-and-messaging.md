@@ -555,16 +555,31 @@ The automatic recovery (`AutoRecovery`, same file):
   data folder. A missing or damaged file, another shape, or a value out of range reads as the
   default.
 - A timer looks every 60 s. One look does not overlap the one before it.
+- A look reads every stopped run of the channels that are not archived, not only the 50 rows of
+  the panel. Before 1 November 2026 it read only those rows: a channel with many stopped runs hid the
+  stopped runs of the channels after it, and the recovery never saw them.
 - A task waits the whole interval from the first time a look saw it stopped, and again after each
   action.
 - Each task gets `MAX_RESUMES` (2) resumes, then, when the switch allows it, `MAX_REASSIGNS` (2)
   reassigns. Then the recovery gives up. A failed request counts as a try.
-- One look acts on at most 3 tasks. A give-up counts as one.
+- A task that a resume cannot fix gets no resume (`resumable`): its reason asks for a member (the
+  lead could not route the request, such as "This request exceeds the routing context limit", or
+  the task needs a member or another agent), or the agent that had it was deleted. When the second
+  switch allows it and an agent with the same model or provider can take it, it goes to that agent
+  after the interval. Else the recovery leaves it to the person at once ("Needs you"), with no
+  command. Before, it resumed such requests twice on each start of the app, and they stopped again
+  in the same way.
+- One look acts on at most 3 tasks. A give-up counts as one; a task left to the person does not.
 - A record stays for 6 hours after the last look that saw its task stopped. So a task that runs and
   stops again keeps its count.
 - The records are in memory only. A restart resets the counts and the wait.
-- While the recovery is on, each stopped row shows that it waits, or that the recovery gave up. The
-  panel also lists the last 5 actions.
+- While the recovery is on, each stopped row says what the app does next and when (`plan`): "Resume
+  by itself resumes it in 12 min", "... gives it to another agent ...", "Needs you", or "gave up after
+  4 tries". `planOf` uses the same rules as a look. The panel also lists the last 5 actions.
+- Each action goes to the log of the task reviewer (`logs/task-reviewer/task-reviewer.log` in the
+  user data folder, logger `auto-recovery`), with the count of tries. A command that failed goes
+  there too. Before, these lines went to stdout only, which an app started from the Dock does not
+  keep.
 
 The [task reviewer](task-reviewer.md) (`TaskWatch`, `src/main/task-watch.ts`) looks after the
 automatic recovery in the same look, only while both switches are on. It watches runs with no sign

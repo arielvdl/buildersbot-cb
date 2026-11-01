@@ -80,6 +80,62 @@ export interface StoppedWork {
   candidates: StoppedWorkCandidate[];
   /** What the automatic recovery does with it: it waits its turn, or it gave up after its tries. Null: it is off. */
   auto: "waiting" | "gave-up" | null;
+  /**
+   * What the app does next with it, and when. Absent while "Resume by itself" is off, and from an older
+   * main process.
+   */
+  plan?: StoppedWorkPlan;
+}
+
+/**
+ * Why the task reviewer leaves a task alone now (`WatchHold` of `task-watch.ts`). `person`: the person
+ * stopped it. `attention`: its agent waits for the person. `memory`: the Mac is low on memory.
+ * `children`: tasks below it work. `plan`: its agent has a spent plan. For a request: `lane`, `slot`
+ * (the cap on agents), `agent-busy`, `waits-for-work` (a dependency, a resource or another reason of the
+ * drain).
+ */
+export type TaskWatchHold =
+  | "person"
+  | "attention"
+  | "memory"
+  | "children"
+  | "plan"
+  | "lane"
+  | "slot"
+  | "agent-busy"
+  | "waits-for-work";
+
+const TASK_WATCH_HOLDS = [
+  "person",
+  "attention",
+  "memory",
+  "children",
+  "plan",
+  "lane",
+  "slot",
+  "agent-busy",
+  "waits-for-work",
+] as const satisfies readonly TaskWatchHold[];
+
+/**
+ * What the app does next with one stopped task. `by`: who acts, "Resume by itself" (`recovery`) or the
+ * task reviewer (`reviewer`, for a start that failed).
+ * - `due`: it does `action` in `minutes` (0: at the next look, within a minute).
+ * - `held`: it waits while `hold` lasts.
+ * - `needs-you`: a resume cannot fix it, and no agent can take it by itself. The person chooses.
+ * - `gave-up`: it left the task after `tries` tries.
+ */
+export interface StoppedWorkPlan {
+  by: "recovery" | "reviewer";
+  state: "due" | "held" | "needs-you" | "gave-up";
+  /** For `due`. `give-up`: it leaves the task to the person then. */
+  action: "resume" | "reassign" | "give-up" | null;
+  /** For `due`: whole minutes until it acts. */
+  minutes: number | null;
+  /** For `held`. */
+  hold: TaskWatchHold | null;
+  /** The resumes and reassigns so far. */
+  tries: number;
 }
 
 /** The automatic recovery of stopped work, as it is stored and as it crosses IPC. */
@@ -149,8 +205,28 @@ export function isTaskWatchPreference(value: unknown): value is TaskWatchPrefere
   );
 }
 
-/** The most actions of the task reviewer that the panel lists. */
-export const TASK_WATCH_RECENT_LIMIT = 5;
+/** The most actions of the task reviewer that the app keeps, also after a restart. */
+export const TASK_WATCH_RECENT_LIMIT = 20;
+/** The most tasks of "Why it waits" on the page of the task reviewer. */
+export const TASK_WATCH_WAIT_LIMIT = 20;
+
+/**
+ * One task that the task reviewer watches now, and why it does not act yet. Never the text of the task.
+ * - `watching`: it gives signs, or it is slow; the reviewer acts in `minutes` if no sign comes.
+ * - `due`: it acts at the next look.
+ * - `held`: it waits while `hold` lasts.
+ * - `cooldown`: it acted less than one interval of "Resume by itself" ago; it can act again in `minutes`.
+ * - `gave-up`: it left the task after its tries.
+ */
+export interface TaskWatchWait {
+  channelName: string;
+  /** `running`: Working. `queued`: Requested. `start-failed`: a start that failed. */
+  kind: "running" | "queued" | "start-failed";
+  state: "watching" | "due" | "held" | "cooldown" | "gave-up";
+  hold: TaskWatchHold | null;
+  /** Whole minutes until the reviewer can act, by the local rules. Null when held or gave up. */
+  minutes: number | null;
+}
 
 /** What the task reviewer did with one task. */
 export interface TaskWatchEvent {
@@ -177,6 +253,8 @@ export interface TaskWatchState extends TaskWatchPreference {
   /** The model of the Guard can run now. False: the local rules decide alone. */
   modelReady: boolean;
   recent: TaskWatchEvent[];
+  /** The tasks that it watches now and why it waits, the soonest first. Absent from an older main process. */
+  waits?: TaskWatchWait[];
 }
 
 /** The most channels the user's order holds. A longer list is cut, not refused. */
@@ -314,7 +392,35 @@ function isStoppedWork(value: unknown): value is StoppedWork {
     (value.agentName === null || isString(value.agentName)) &&
     (value.state === "paused" || value.state === "failed") &&
     isBoundedList(value.candidates, 8, isStoppedWorkCandidate) &&
-    (value.auto === null || value.auto === "waiting" || value.auto === "gave-up")
+    (value.auto === null || value.auto === "waiting" || value.auto === "gave-up") &&
+    (value.plan === undefined || isStoppedWorkPlan(value.plan))
+  );
+}
+
+function isWholeMinutes(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value) && value >= 0;
+}
+
+function isStoppedWorkPlan(value: unknown): value is StoppedWorkPlan {
+  return (
+    isDynamicRecord(value) &&
+    (value.by === "recovery" || value.by === "reviewer") &&
+    isOneOf(["due", "held", "needs-you", "gave-up"] as const, value.state) &&
+    (value.action === null || isOneOf(["resume", "reassign", "give-up"] as const, value.action)) &&
+    (value.minutes === null || isWholeMinutes(value.minutes)) &&
+    (value.hold === null || isOneOf(TASK_WATCH_HOLDS, value.hold)) &&
+    isWholeMinutes(value.tries)
+  );
+}
+
+function isTaskWatchWait(value: unknown): value is TaskWatchWait {
+  return (
+    isDynamicRecord(value) &&
+    isString(value.channelName) &&
+    isOneOf(["running", "queued", "start-failed"] as const, value.kind) &&
+    isOneOf(["watching", "due", "held", "cooldown", "gave-up"] as const, value.state) &&
+    (value.hold === null || isOneOf(TASK_WATCH_HOLDS, value.hold)) &&
+    (value.minutes === null || isWholeMinutes(value.minutes))
   );
 }
 
@@ -345,7 +451,7 @@ const TASK_WATCH_ACTIONS = [
 ] as const satisfies readonly TaskWatchEvent["action"][];
 const TASK_WATCH_REASONS = ["no-sign", "queued", "start-failed"] as const satisfies readonly TaskWatchEvent["reason"][];
 
-function isTaskWatchEvent(value: unknown): value is TaskWatchEvent {
+export function isTaskWatchEvent(value: unknown): value is TaskWatchEvent {
   return (
     isDynamicRecord(value) &&
     isString(value.at) &&
@@ -364,7 +470,8 @@ export function isTaskWatchState(value: unknown): value is TaskWatchState {
     isDynamicRecord(value) &&
     isBoolean(value.active) &&
     isBoolean(value.modelReady) &&
-    isBoundedList(value.recent, TASK_WATCH_RECENT_LIMIT, isTaskWatchEvent)
+    isBoundedList(value.recent, TASK_WATCH_RECENT_LIMIT, isTaskWatchEvent) &&
+    (value.waits === undefined || isBoundedList(value.waits, TASK_WATCH_WAIT_LIMIT, isTaskWatchWait))
   );
 }
 

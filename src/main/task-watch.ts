@@ -12,10 +12,13 @@ import type {
   AutoRecoveryPreference,
   ChannelCommand,
   RunningWorkQuiet,
+  StoppedWorkPlan,
   TaskWatchEvent,
+  TaskWatchHold,
   TaskWatchPreference,
+  TaskWatchWait,
 } from "@openbot/contracts/ipc";
-import { TASK_WATCH_RECENT_LIMIT } from "@openbot/contracts/ipc";
+import { TASK_WATCH_RECENT_LIMIT, TASK_WATCH_WAIT_LIMIT } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { type LedgerRecord, MAX_REASSIGNS, MAX_RESUMES, type RecoveryLedger } from "./auto-recovery";
@@ -59,16 +62,7 @@ export type WatchKind = "running" | "queued" | "start-failed";
  * that is not complete, a full tab, a resource or an assignment of its owner in another run, a root
  * that stopped, an owner that is hidden; see `ChannelQueueHold`).
  */
-export type WatchHold =
-  | "person"
-  | "attention"
-  | "memory"
-  | "children"
-  | "plan"
-  | "lane"
-  | "slot"
-  | "agent-busy"
-  | "waits-for-work";
+export type WatchHold = TaskWatchHold;
 
 export type WatchClass = "healthy" | "slow" | "stalled";
 
@@ -163,6 +157,16 @@ export function runningQuiet(
   return state === "healthy" ? undefined : { state, minutes: Math.floor(quiet / MINUTE_MS) };
 }
 
+/**
+ * How long a failed start waits before the reviewer tries it again: the stall time of the reviewer
+ * (`2 × N`), or the interval of "Resume by itself" when that is shorter. A failed start is a clear stop:
+ * with `N` at 5 minutes, the person expects the reviewer within about 10 minutes, not after the 30 of
+ * "Resume by itself".
+ */
+export function startFailedWaitMs(context: Pick<WatchContext, "thresholdMs" | "intervalMs">): number {
+  return Math.min(context.intervalMs, STALL_FACTOR * context.thresholdMs);
+}
+
 function rank(candidate: WatchCandidate): 0 | 1 | 2 | 3 | 4 {
   if (candidate.class === "stalled") return candidate.task.kind === "running" ? 0 : 1;
   if (candidate.class === "due") return 2;
@@ -188,7 +192,7 @@ export function watchCandidates(
     if (record?.gaveUp) continue;
     if (task.kind === "start-failed") {
       const since = record ? (record.lastActionAt ?? record.seenAt) : context.now;
-      if (context.now - since >= context.intervalMs) candidates.push({ task, class: "due", minutes: 0 });
+      if (context.now - since >= startFailedWaitMs(context)) candidates.push({ task, class: "due", minutes: 0 });
       continue;
     }
     if (record && record.lastActionAt !== null && context.now - record.lastActionAt < context.intervalMs) continue;
@@ -197,6 +201,52 @@ export function watchCandidates(
     if (state !== "healthy") candidates.push({ task, class: state, minutes: Math.floor(quiet / MINUTE_MS) });
   }
   return candidates.sort((left, right) => rank(left) - rank(right) || right.minutes - left.minutes);
+}
+
+/** What the reviewer will do with one watched task, and from when (`actsAt`, null while held or after it gave up). */
+export interface WatchOutlook {
+  task: WatchedTask;
+  state: TaskWatchWait["state"];
+  actsAt: number | null;
+}
+
+/**
+ * When the reviewer can act on each watched task, by the local rules of `watchCandidates`: a held task
+ * waits for its hold; a task that it gave up on is left; a failed start waits `startFailedWaitMs` from the
+ * first look or the last action; a run or a request is stalled at `2 × N` with no sign (`4 × N` with an
+ * open work step), and never sooner than one interval after the last action. A slow task can get a
+ * resume sooner when the model of the Guard says so; this is not shown.
+ */
+export function watchOutlook(
+  tasks: readonly WatchedTask[],
+  context: WatchContext,
+  recordOf: (task: WatchedTask) => LedgerRecord | undefined,
+  gaveUp: (task: WatchedTask) => boolean,
+): WatchOutlook[] {
+  return tasks.map((task): WatchOutlook => {
+    if (task.hold) return { task, state: "held", actsAt: null };
+    const record = recordOf(task);
+    if (record?.gaveUp || gaveUp(task)) return { task, state: "gave-up", actsAt: null };
+    if (task.kind === "start-failed") {
+      const since = record ? (record.lastActionAt ?? record.seenAt) : context.now;
+      const actsAt = since + startFailedWaitMs(context);
+      const state = actsAt <= context.now ? "due" : record?.lastActionAt != null ? "cooldown" : "watching";
+      return { task, state, actsAt };
+    }
+    const factor = task.kind === "running" && task.stepOpen ? OPEN_STEP_STALL_FACTOR : STALL_FACTOR;
+    const stallAt = task.lastSignAt + factor * context.thresholdMs;
+    const cooldownUntil = record?.lastActionAt != null ? record.lastActionAt + context.intervalMs : 0;
+    const actsAt = Math.max(stallAt, cooldownUntil);
+    if (actsAt <= context.now) return { task, state: "due", actsAt };
+    return { task, state: cooldownUntil >= stallAt ? "cooldown" : "watching", actsAt };
+  });
+}
+
+const WAIT_ORDER: Record<TaskWatchWait["state"], number> = { due: 0, watching: 1, cooldown: 1, held: 2, "gave-up": 3 };
+
+/** Whole minutes from `now` to `at`, never below zero. */
+function minutesUntil(at: number, now: number): number {
+  return Math.max(0, Math.ceil((at - now) / MINUTE_MS));
 }
 
 /**
@@ -300,7 +350,15 @@ export interface TaskWatchDeps {
     cause: unknown,
   ): void;
   log?: TaskWatchLog;
+  /**
+   * The file of the last actions, so they stay after a restart. `read` gives them as the file holds them,
+   * the newest first; `write` saves the list after each action. Omitted, they are in memory only.
+   */
+  history?: { read(): readonly TaskWatchEvent[]; write(events: readonly TaskWatchEvent[]): void };
 }
+
+/** A look that waits writes its summary to the log again after this long, also with no change, so the log shows that it looks. */
+const WAIT_LOG_REPEAT_MS = 10 * MINUTE_MS;
 
 const ACTION_EVENT = {
   resume: "resumed",
@@ -334,10 +392,17 @@ export class TaskWatch {
   /** The times of the model calls in the last hour. */
   #calls: number[] = [];
   #ticking = false;
+  /** What the last look found: when the reviewer can act on each watched task. */
+  #outlook: WatchOutlook[] = [];
+  /** Whether the last look ran, so the log says once when the reviewer starts or stops looking. */
+  #wasActive: boolean | null = null;
+  /** The last summary of a look that waited, and when it went to the log. */
+  #waitLog: { summary: string; at: number } | null = null;
 
   constructor(deps: TaskWatchDeps) {
     this.#deps = deps;
     this.#log = deps.log ?? createBuildersBotLogger("task-watch");
+    this.#recent.push(...(deps.history?.read() ?? []).slice(0, TASK_WATCH_RECENT_LIMIT));
   }
 
   /** It looks only while its switch and "Resume by itself" are both on. */
@@ -349,15 +414,75 @@ export class TaskWatch {
     return [...this.#recent];
   }
 
+  /**
+   * The tasks of the last look and why the reviewer does not act on them yet, the soonest first: the
+   * tasks that it acts on in some minutes, then the held ones, then the ones that it gave up on.
+   */
+  waits(now = this.#deps.now()): TaskWatchWait[] {
+    if (!this.active()) return [];
+    return this.#outlook
+      .map(
+        (entry): TaskWatchWait => ({
+          channelName: entry.task.channelName,
+          kind: entry.task.kind,
+          state: entry.actsAt !== null && entry.actsAt <= now && entry.state !== "gave-up" ? "due" : entry.state,
+          hold: entry.task.hold,
+          minutes: entry.actsAt === null ? null : minutesUntil(entry.actsAt, now),
+        }),
+      )
+      .sort(
+        (left, right) => WAIT_ORDER[left.state] - WAIT_ORDER[right.state] || (left.minutes ?? 0) - (right.minutes ?? 0),
+      )
+      .slice(0, TASK_WATCH_WAIT_LIMIT);
+  }
+
+  /**
+   * What the reviewer does next with a failed start, for its stopped row, or null when the reviewer is
+   * off or did not see the task yet.
+   */
+  planOf(channelId: string, taskId: string, now = this.#deps.now()): StoppedWorkPlan | null {
+    if (!this.active()) return null;
+    const entry = this.#outlook.find(
+      (candidate) =>
+        candidate.task.kind === "start-failed" &&
+        candidate.task.channelId === channelId &&
+        candidate.task.taskId === taskId,
+    );
+    if (!entry) return null;
+    const record = this.#deps.ledger.peek(channelId, taskId);
+    const tries = (record?.resumes ?? 0) + (record?.reassigns ?? 0);
+    const base = { by: "reviewer", action: null, minutes: null, hold: null, tries } as const;
+    if (entry.state === "held") return { ...base, state: "held", hold: entry.task.hold };
+    if (entry.state === "gave-up" || entry.actsAt === null) return { ...base, state: "gave-up" };
+    const next = watchAction("start-failed", record, this.#deps.recovery().reassign, () =>
+      this.#deps.candidate(channelId, taskId, record?.tried ?? []),
+    );
+    // A stop is only for a run; a failed start that has no try left is left to the person.
+    const action = next.type === "stop" ? "give-up" : next.type;
+    return { ...base, state: "due", action, minutes: minutesUntil(entry.actsAt, now) };
+  }
+
   /** One look. It does not overlap itself, it never throws, and it decides about one task at most. */
   async tick(): Promise<void> {
     if (this.#ticking) return;
-    if (!this.active()) {
+    const active = this.active();
+    if (active !== this.#wasActive) {
+      this.#wasActive = active;
+      const preference = this.#deps.preference();
+      this.#log.info(active ? "The task reviewer looks." : "The task reviewer does not look.", {
+        enabled: preference.enabled,
+        resumeByItself: this.#deps.recovery().enabled,
+        quietMinutes: preference.quietMinutes,
+      });
+    }
+    if (!active) {
       // A clock does not run while the reviewer is off: turned on again, a request waits anew.
       this.#firstSeen.clear();
       this.#heldAt.clear();
       this.#answered.clear();
       this.#gaveUp.clear();
+      this.#outlook = [];
+      this.#waitLog = null;
       return;
     }
     this.#ticking = true;
@@ -395,10 +520,27 @@ export class TaskWatch {
       if (this.#answered.has(key)) answered.add(key);
     }
     this.#answered = answered;
+    let decided = false;
+    try {
+      decided = await this.#decide(candidates, recovery.reassign, now);
+    } finally {
+      // After the decision, so the tries of a task that it acted on count.
+      this.#outlook = watchOutlook(
+        observed,
+        context,
+        (task) => ledger.peek(task.channelId, task.taskId),
+        (task) => this.#gaveUp.has(revisionKey(task)),
+      );
+    }
+    if (!decided) this.#logWait(now);
+  }
+
+  /** Decides about one candidate at most. Answers whether it decided, to act or to wait. */
+  async #decide(candidates: readonly WatchCandidate[], reassign: boolean, now: number): Promise<boolean> {
     for (const candidate of candidates) {
       if (candidate.class !== "slow") {
-        await this.#act(candidate, recovery.reassign, "local", false);
-        return;
+        await this.#act(candidate, reassign, "local", false);
+        return true;
       }
       const period = periodKey(candidate.task);
       // One answer for each slow period: an answer to wait holds until the task is stalled.
@@ -406,10 +548,44 @@ export class TaskWatch {
       this.#answered.add(period);
       const answer = await this.#ask(candidate, now);
       // The model can only ask for a resume. A reassign or a stop needs a stalled task.
-      if (answer.decision === "act") await this.#act(candidate, recovery.reassign, answer.by, true);
+      if (answer.decision === "act") await this.#act(candidate, reassign, answer.by, true);
       else this.#note(now, candidate, "waited", candidate.task.agentName, answer.by);
-      return;
+      return true;
     }
+    return false;
+  }
+
+  /**
+   * One line for a look that decided nothing: how many tasks it watches, held by what, and the minutes
+   * until the next one is due. It goes to the log when it changes, and again every `WAIT_LOG_REPEAT_MS`,
+   * so at most one line each look. It has no name, request or words of a task.
+   */
+  #logWait(now: number): void {
+    const counts = new Map<string, number>();
+    const holds = new Map<string, number>();
+    let next: number | null = null;
+    for (const entry of this.#outlook) {
+      counts.set(entry.state, (counts.get(entry.state) ?? 0) + 1);
+      if (entry.task.hold) holds.set(entry.task.hold, (holds.get(entry.task.hold) ?? 0) + 1);
+      if (entry.actsAt !== null && entry.state !== "gave-up") {
+        const minutes = minutesUntil(entry.actsAt, now);
+        next = next === null ? minutes : Math.min(next, minutes);
+      }
+    }
+    const holdText = [...holds].map(([hold, count]) => `${hold}:${count}`).join(",");
+    const summary = `${[...counts].map(([state, count]) => `${state}:${count}`).join(",")}|${holdText}`;
+    const last = this.#waitLog;
+    if (last && last.summary === summary && now - last.at < WAIT_LOG_REPEAT_MS) return;
+    this.#waitLog = { summary, at: now };
+    this.#log.info("The task reviewer waits.", {
+      watched: this.#outlook.length,
+      watching: counts.get("watching") ?? 0,
+      cooldown: counts.get("cooldown") ?? 0,
+      held: counts.get("held") ?? 0,
+      gaveUp: counts.get("gave-up") ?? 0,
+      holds: holdText || "none",
+      nextMinutes: next ?? -1,
+    });
   }
 
   /**
@@ -555,9 +731,11 @@ export class TaskWatch {
     };
     this.#recent.unshift(event);
     this.#recent.length = Math.min(this.#recent.length, TASK_WATCH_RECENT_LIMIT);
+    this.#deps.history?.write(this.#recent);
     this.#log.info("The task reviewer decided.", {
       action: event.action,
       kind: task.kind,
+      reason: event.reason,
       by,
       minutes: event.minutes ?? -1,
     });

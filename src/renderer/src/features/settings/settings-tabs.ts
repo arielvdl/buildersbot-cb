@@ -375,6 +375,7 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         descriptionKey: "settings.loadPanel.description",
         keywordsKey: "settings.search.keywords.taskReviewerRecovery",
       },
+      { anchor: "settings.taskReviewer.waits.title", keywordsKey: "settings.search.keywords.taskReviewer" },
       { anchor: "settings.taskReviewer.recent.title", keywordsKey: "settings.search.keywords.taskReviewer" },
       { anchor: "settings.taskReviewer.does.title", keywordsKey: "settings.search.keywords.taskReviewer" },
       { anchor: "settings.taskReviewer.doesNot.title", keywordsKey: "settings.search.keywords.taskReviewer" },

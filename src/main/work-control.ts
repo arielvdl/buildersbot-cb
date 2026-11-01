@@ -39,6 +39,8 @@ import {
   type ReassignCandidate,
   RecoveryLedger,
   reassignCandidates,
+  resumable,
+  type StoppedRef,
 } from "./auto-recovery";
 import {
   AUTO_OPERATION_PREFIX,
@@ -46,6 +48,7 @@ import {
   DeliberateStops,
   runningQuiet,
   TaskWatch,
+  type TaskWatchDeps,
   type TaskWatchJudge,
   type WatchedTask,
   type WatchHold,
@@ -82,6 +85,8 @@ export interface WorkControlTaskWatchOptions {
   memoryLevel: () => "ok" | "low" | "critical";
   /** The model of the Guard, or null for the local rules only. */
   judge: TaskWatchJudge | null;
+  /** The file of its last actions (`TaskWatchDeps.history`). Omitted, they are in memory only. */
+  history?: TaskWatchDeps["history"];
 }
 
 export interface WorkControlOptions {
@@ -159,14 +164,19 @@ export class WorkControl {
     const now = options.now ?? Date.now;
     this.#recovery = new AutoRecovery({
       preference: options.preference,
-      // While the task reviewer looks, a failed start is its own: it goes to another agent sooner.
-      stopped: () =>
-        this.#watchActive()
-          ? this.#stoppedRows().filter((row) => row.reason !== CHANNEL_START_FAILED)
-          : this.#stoppedRows(),
+      // Every stopped run, not only the rows that the panel lists: past them, a stopped run was never
+      // tried, while the first rows took the actions of each look. While the task reviewer looks, a
+      // failed start is its own: it goes to another agent sooner.
+      stopped: () => {
+        const watching = this.#watchActive();
+        return this.#stoppedRefs().filter((ref) => !watching || ref.reason !== CHANNEL_START_FAILED);
+      },
       candidate: (channelId, taskId, tried) => {
-        const row = this.#stoppedRows().find((entry) => entry.channelId === channelId && entry.taskId === taskId);
-        return row ? autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried))) : null;
+        const task = this.#options.service.channels.store.exists(channelId)
+          ? this.#options.service.channels.store.tasks(channelId).find((entry) => entry.id === taskId)
+          : undefined;
+        const stopped = (task?.state === "paused" || task?.state === "failed") && Boolean(task.error);
+        return stopped ? autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried))) : null;
       },
       resume: (channelId, taskId) =>
         this.#command({ type: "resume", channelId, taskId, recipientAgentId: null }, "auto").then(() => undefined),
@@ -208,6 +218,7 @@ export class WorkControl {
           now,
           onFailure: (kind, channelId, taskId, cause) =>
             options.onFailure(`task reviewer ${kind} ${channelId}/${taskId}`, cause),
+          ...(watch.history ? { history: watch.history } : {}),
         })
       : null;
     // A stop that the app did not send is a person's: the task reviewer never touches that task. The
@@ -342,7 +353,7 @@ export class WorkControl {
       const row = stoppedRow(run, (agentId) => agents.get(agentId)?.name ?? null);
       return {
         ...row,
-        ...this.#enrich(channel.id, task, members.get(channel.id) ?? []),
+        ...this.#enrich(channel.id, task, members.get(channel.id) ?? [], agents),
         topicId: task.topicId ?? null,
         agentId: task.ownerAgentId,
         origin: origin ? "routine" : "request",
@@ -549,6 +560,7 @@ export class WorkControl {
       active: this.#watchActive(),
       modelReady: watch?.judge?.ready() ?? false,
       recent: this.#watch?.recent() ?? [],
+      waits: this.#watch?.waits() ?? [],
     };
   }
 
@@ -605,14 +617,15 @@ export class WorkControl {
       const channel = channels.store.get(id);
       return channel.archived ? [] : [{ id, name: channel.name, archived: false, tasks: channels.store.tasks(id) }];
     });
-    // A failed start counts by the rows of the panel: the root of a run when the root stopped.
+    // A failed start counts by the stopped runs: the root of a run when the root stopped. All of them,
+    // not only the rows that the panel lists.
     const startFailed = new Set(
-      buildStoppedWork(
+      stoppedRuns(
         open.map((channel) => ({ ...channel, topicName: () => null })),
-        () => null,
+        Number.POSITIVE_INFINITY,
       )
-        .filter((row) => row.reason === CHANNEL_START_FAILED)
-        .map((row) => `${row.channelId}\u0000${row.taskId}`),
+        .filter((run) => run.task.error === CHANNEL_START_FAILED)
+        .map((run) => `${run.channel.id}\u0000${run.task.id}`),
     );
     const observations: WatchObservation[] = [];
     for (const { id: channelId, name: channelName, tasks } of open) {
@@ -867,21 +880,59 @@ export class WorkControl {
     );
   }
 
-  /** Reassign and the state of the automatic recovery of one stopped task. */
+  /**
+   * Reassign, the state of the automatic recovery of one stopped task, and what the app does next with
+   * it and when: the task reviewer for a failed start while it looks, else "Resume by itself".
+   */
   #enrich(
     channelId: string,
     task: ChannelTask,
     members: readonly MemberInfo[],
-  ): Pick<StoppedWork, "candidates" | "auto"> {
+    agents: ReadonlyMap<string, AgentSummary>,
+  ): Pick<StoppedWork, "candidates" | "auto" | "plan"> {
     const owner = members.find((member) => member.agentId === task.ownerAgentId) ?? null;
+    const recoveryOn = this.#options.preference().enabled;
+    const error = task.error ?? "";
+    const now = (this.#options.now ?? Date.now)();
+    // While the reviewer looks, a failed start is its own, also before its first look saw it.
+    const plan =
+      error === CHANNEL_START_FAILED && this.#watchActive()
+        ? (this.#watch?.planOf(channelId, task.id, now) ?? null)
+        : this.#recovery.planOf(
+            channelId,
+            task.id,
+            resumable(error, task.ownerAgentId !== null && !agents.has(task.ownerAgentId)),
+            () => {
+              const tried = new Set(this.#ledger.peek(channelId, task.id)?.tried ?? []);
+              return autoReassignee(reassignCandidates(owner, members, tried)) !== null;
+            },
+            now,
+          );
     return {
       candidates: reassignCandidates(owner, members, new Set()).map(({ agentId, name, sameModel }) => ({
         agentId,
         name,
         sameModel,
       })),
-      auto: this.#options.preference().enabled ? this.#recovery.statusOf(channelId, task.id) : null,
+      auto: recoveryOn ? this.#recovery.statusOf(channelId, task.id) : null,
+      ...(plan ? { plan } : {}),
     };
+  }
+
+  /**
+   * Every stopped run of the channels that are not archived, for "Resume by itself": its channel, task,
+   * reason, and whether a resume can fix it. No limit, and none of the reads that only the panel needs.
+   */
+  #stoppedRefs(): (StoppedRef & { reason: string })[] {
+    const agents = this.#agents();
+    return stoppedRuns(this.#channelInputs(), Number.POSITIVE_INFINITY).map(({ channel, task }) => ({
+      channelId: channel.id,
+      taskId: task.id,
+      channelName: channel.name,
+      agentName: task.ownerAgentId ? (agents.get(task.ownerAgentId)?.name ?? null) : null,
+      reason: task.error,
+      resumable: resumable(task.error, task.ownerAgentId !== null && !agents.has(task.ownerAgentId)),
+    }));
   }
 
   /** Why a stopped run has nothing left that it belongs to. The deleted source first. */
@@ -907,7 +958,7 @@ export class WorkControl {
           list = this.#members(channelId, agents);
           members.set(channelId, list);
         }
-        return this.#enrich(channelId, task, list);
+        return this.#enrich(channelId, task, list, agents);
       },
     );
   }

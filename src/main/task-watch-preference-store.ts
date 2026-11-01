@@ -1,10 +1,40 @@
-import { DEFAULT_TASK_WATCH_PREFERENCE, isTaskWatchPreference, type TaskWatchPreference } from "@openbot/contracts/ipc";
+import {
+  DEFAULT_TASK_WATCH_PREFERENCE,
+  isTaskWatchEvent,
+  isTaskWatchPreference,
+  TASK_WATCH_RECENT_LIMIT,
+  type TaskWatchEvent,
+  type TaskWatchPreference,
+} from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { Effect, Result, Semaphore } from "effect";
 import { isMissingFileError } from "../backend/file-errors";
-import { type PreferenceFileFailure, readPreferenceFile, writePreferenceFile } from "./preference-file";
+import {
+  type PreferenceFileFailure,
+  PreferenceStore,
+  readPreferenceFile,
+  writePreferenceFile,
+} from "./preference-file";
 
 export const TASK_WATCH_PREFERENCE_FILE = "openbot-task-watch-v1.json";
+/** The last actions of the task reviewer, so the page shows them after a restart. */
+export const TASK_WATCH_HISTORY_FILE = "openbot-task-watch-history-v1.json";
+
+/**
+ * The last `TASK_WATCH_RECENT_LIMIT` actions of the task reviewer: the time, the channel name, the
+ * action, the reason, the minutes and who decided. Never the request or the words of an agent. A file
+ * that is missing or damaged reads as no action; an event that does not decode is left out.
+ */
+export function createTaskWatchHistoryStore(path: string): PreferenceStore<{ events: TaskWatchEvent[] }> {
+  return new PreferenceStore<{ events: TaskWatchEvent[] }>({
+    path,
+    defaultValue: { events: [] },
+    decode: (parsed) =>
+      isDynamicRecord(parsed) && parsed.version === 1 && Array.isArray(parsed.events)
+        ? { events: parsed.events.filter(isTaskWatchEvent).slice(0, TASK_WATCH_RECENT_LIMIT) }
+        : null,
+  });
+}
 
 /**
  * The task reviewer ("Fiscal" in Portuguese): on or off, and the minutes with no sign of life before a task is

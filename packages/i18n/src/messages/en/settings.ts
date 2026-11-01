@@ -324,9 +324,15 @@ export const messages = defineMessages("settings", {
     "Starts stopped work again by itself after {minutes} minutes, also the tasks that you stopped. The task reviewer looks only while this is on, and it acts on the same task at most once in this interval.",
   "settings.taskReviewer.reassign.description":
     "Without it, the task reviewer only resumes a task, and never gives it to another agent.",
-  "settings.taskReviewer.recent.title": "Last actions",
+  "settings.taskReviewer.recent.title": "What it did",
   "settings.taskReviewer.recent.meta": "{time} · {decider}",
-  "settings.taskReviewer.recent.empty": "No action yet. The list is kept in memory, so a restart of the app clears it.",
+  "settings.taskReviewer.recent.empty": "No action yet. The last 20 actions stay after a restart of the app.",
+  "settings.taskReviewer.waits.title": "Why it waits",
+  "settings.taskReviewer.waits.description":
+    "The tasks that it watches now, and when it can act on each one. It acts on one task each minute. Its log is logs/task-reviewer/task-reviewer.log in the data folder of the app.",
+  "settings.taskReviewer.waits.empty": "No task to watch now.",
+  "settings.taskReviewer.waits.off": "It does not look now, so it waits for nothing.",
+  "settings.taskReviewer.waits.line": "{channel} · {kind}",
   "settings.taskReviewer.does.title": "What it does",
   "settings.taskReviewer.does.resume.title": "Resumes a run with no sign of life",
   "settings.taskReviewer.does.resume.description":

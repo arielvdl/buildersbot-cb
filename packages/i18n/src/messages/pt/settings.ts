@@ -306,9 +306,16 @@ export const messages = {
     "Retoma sozinho o trabalho parado depois de {minutes} minutos, inclusive tarefas que você parou. O Fiscal só olha com isto ligado, e age numa mesma tarefa no máximo uma vez nesse intervalo.",
   "settings.taskReviewer.reassign.description":
     "Sem isto, o Fiscal só retoma a tarefa e nunca a passa para outro agente.",
-  "settings.taskReviewer.recent.title": "Últimas ações",
+  "settings.taskReviewer.recent.title": "O que o Fiscal fez",
   "settings.taskReviewer.recent.meta": "{time} · {decider}",
-  "settings.taskReviewer.recent.empty": "Nenhuma ação ainda. A lista fica na memória, então reiniciar o app a apaga.",
+  "settings.taskReviewer.recent.empty":
+    "Nenhuma ação ainda. As últimas 20 ações ficam salvas também depois de reiniciar o app.",
+  "settings.taskReviewer.waits.title": "Por que está esperando",
+  "settings.taskReviewer.waits.description":
+    "As tarefas que ele vigia agora e quando pode agir em cada uma. Ele age em uma tarefa por minuto. O registro dele fica em logs/task-reviewer/task-reviewer.log na pasta de dados do app.",
+  "settings.taskReviewer.waits.empty": "Nenhuma tarefa para vigiar agora.",
+  "settings.taskReviewer.waits.off": "Ele não está olhando agora, então não espera nada.",
+  "settings.taskReviewer.waits.line": "{channel} · {kind}",
   "settings.taskReviewer.does.title": "O que ele faz",
   "settings.taskReviewer.does.resume.title": "Retoma uma execução sem sinal de vida",
   "settings.taskReviewer.does.resume.description":

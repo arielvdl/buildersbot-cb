@@ -31,7 +31,7 @@ import {
   SettingsSection,
   SwitchField,
 } from "@openbot/ui";
-import { taskWatchEventText } from "@openbot/ui/features/window/load-view";
+import { taskWatchEventText, taskWatchWaitKind, taskWatchWaitText } from "@openbot/ui/features/window/load-view";
 import { useText } from "@openbot/ui/text";
 import { For, Show } from "solid-js";
 import { guardModelKey, guardModelName, type SettingsGuardStore } from "./settings-guard-store";
@@ -144,6 +144,7 @@ export function SettingsTaskReviewerTab(props: {
       : t("settings.taskReviewer.model.notReady", { model });
   };
   const recent = () => newestFirst(watch()?.recent ?? []);
+  const waits = () => watch()?.waits ?? [];
 
   return (
     <>
@@ -270,6 +271,40 @@ export function SettingsTaskReviewerTab(props: {
               )}
             </Show>
           </Item>
+        </ItemGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title={t("settings.taskReviewer.waits.title")}
+        description={t("settings.taskReviewer.waits.description")}
+      >
+        <ItemGroup class="settings-modal-card" data-settings-row="settings.taskReviewer.waits.title">
+          <For
+            each={waits()}
+            fallback={
+              <Item size="compact">
+                <ItemContent>
+                  <ItemDescription>
+                    {watch()?.active ? t("settings.taskReviewer.waits.empty") : t("settings.taskReviewer.waits.off")}
+                  </ItemDescription>
+                </ItemContent>
+              </Item>
+            }
+          >
+            {(wait) => (
+              <Item class="settings-modal-row">
+                <ItemContent>
+                  <ItemTitle>
+                    {t("settings.taskReviewer.waits.line", {
+                      channel: wait.channelName,
+                      kind: taskWatchWaitKind(wait, t),
+                    })}
+                  </ItemTitle>
+                  <ItemDescription>{taskWatchWaitText(wait, t)}</ItemDescription>
+                </ItemContent>
+              </Item>
+            )}
+          </For>
         </ItemGroup>
       </SettingsSection>
 

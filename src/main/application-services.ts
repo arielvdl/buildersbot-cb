@@ -292,7 +292,7 @@ import { ProviderCredentialStore } from "./provider-credential-store";
 import { createProviderDetection, type ProviderDetection } from "./provider-detection";
 import { PROVIDER_DETECTION_SETTINGS_FILE, ProviderDetectionSettingsStore } from "./provider-detection-settings-store";
 import { ProviderHostSignIns } from "./provider-host-sign-ins";
-import { startAccountLog, startAgentLog, startProviderLog } from "./provider-log";
+import { startAccountLog, startAgentLog, startProviderLog, startTaskReviewerLog } from "./provider-log";
 import { toProviderRuntimeFailure } from "./provider-runtime-effects";
 import { ProviderRuntimeManager, providerRuntimeRoot, runtimeTarget } from "./provider-runtime-manager";
 import { ProviderUseSettingsStore } from "./provider-use-settings-store";
@@ -337,7 +337,12 @@ import { SLACK_DEV_CALLBACK_PATH, startSlackDevCallbackServer } from "./slack-de
 import { SpeechPreferenceStore } from "./speech-preference-store";
 import { removeStaleTelemetryQueues } from "./stale-telemetry-queues";
 import { TASK_WATCH_JUDGE_TIMEOUT_MS, taskWatchJudge } from "./task-watch-judge";
-import { TASK_WATCH_PREFERENCE_FILE, TaskWatchPreferenceStore } from "./task-watch-preference-store";
+import {
+  createTaskWatchHistoryStore,
+  TASK_WATCH_HISTORY_FILE,
+  TASK_WATCH_PREFERENCE_FILE,
+  TaskWatchPreferenceStore,
+} from "./task-watch-preference-store";
 import { TeamStore } from "./team-store";
 import { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcClientTransport } from "./team-webrtc-client-transport";
@@ -539,6 +544,8 @@ const TEARDOWN_ORDER = {
   providerLog: 121,
   // After the service, so a deletion that fails while the service stops is kept.
   agentLog: 122,
+  // After the recovery timer, so its last lines are kept.
+  taskReviewerLog: 122.5,
   // After the account, so a session write that fails while it stops is kept.
   accountLog: 123,
   // Last: every step above can still write.
@@ -995,6 +1002,11 @@ export async function createApplicationServices({
     startProviderLog(join(app.getPath("userData"), "logs")),
   );
   teardown.push(TEARDOWN_ORDER.agentLog, "the agent log", startAgentLog(join(app.getPath("userData"), "logs")));
+  teardown.push(
+    TEARDOWN_ORDER.taskReviewerLog,
+    "the task reviewer log",
+    startTaskReviewerLog(join(app.getPath("userData"), "logs")),
+  );
   teardown.push(TEARDOWN_ORDER.accountLog, "the account log", startAccountLog(join(app.getPath("userData"), "logs")));
   const externalLinkPreference = createExternalLinkPreferenceStore(
     join(app.getPath("userData"), EXTERNAL_LINK_PREFERENCE_FILE),
@@ -1219,11 +1231,14 @@ export async function createApplicationServices({
   // A desktop has no memory reading of its own: a few agents, each with its own MCP servers, can fill the
   // memory until macOS asks for apps to be closed. This one holds a new turn while the memory is low and
   // closes the idle provider threads when it is critical. A server has its own reading above.
+  const memoryLogger = createBuildersBotLogger("mac-memory");
   const macMemory =
     hostMemory === null && process.platform === "darwin"
       ? new MacMemory({
           onError: (message, error) => logger.warn(message, toLogValue(error)),
-          onLevelChange: (level, sample) => logger.info("The memory level of this Mac changed.", { level, ...sample }),
+          // The log of the task reviewer keeps this line: a low level holds new turns and the reviewer.
+          onLevelChange: (level, sample) =>
+            memoryLogger.info("The memory level of this Mac changed.", { level, ...sample }),
         })
       : null;
   if (macMemory) {
@@ -1377,6 +1392,7 @@ export async function createApplicationServices({
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
   const taskWatch = new TaskWatchPreferenceStore(join(app.getPath("userData"), TASK_WATCH_PREFERENCE_FILE));
+  const taskWatchHistory = createTaskWatchHistoryStore(join(app.getPath("userData"), TASK_WATCH_HISTORY_FILE));
   const agentLimit = new AgentLimitPreferenceStore(join(app.getPath("userData"), AGENT_LIMIT_PREFERENCE_FILE));
   // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
   // only when an agent first asks for the browser. `service` is read at that time, not now. Without its
@@ -1488,6 +1504,7 @@ export async function createApplicationServices({
       runCauseEffect(agentLimit.load()),
       runCauseEffect(guardPreference.load()),
       runCauseEffect(taskWatch.load()),
+      runCauseEffect(taskWatchHistory.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -2972,12 +2989,15 @@ export async function createApplicationServices({
       logger.warn("Could not resume work that a restart stopped.", { kind, id, error: toLogValue(cause) }),
   });
   // The load panel: who runs, what stopped and why, and the recovery that is off until the person turns it on.
+  const recoveryLogger = createBuildersBotLogger("auto-recovery");
   const workControl = new WorkControl({
     service,
     channelActor: () => host.channelActor(),
     preference: () => autoRecovery.get(),
     agentLimit: () => agentLimit.get(),
-    onFailure: (action, cause) => logger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
+    // The log of the task reviewer keeps this line (`auto-recovery`), with the commands of the reviewer that failed.
+    onFailure: (action, cause) =>
+      recoveryLogger.warn("Stopped work was not recovered.", { action, error: toLogValue(cause) }),
     // The stopped work page of Settings: which routine posted a request, and the model of an agent.
     requestOrigins: (channelId, requestMessageIds) => service.channelRequestOrigins(channelId, requestMessageIds),
     setAgentModel: (agentId, provider, model) =>
@@ -2991,6 +3011,14 @@ export async function createApplicationServices({
         ready: () => service.guardJudgeReady(),
         complete: (request) => Effect.runPromise(service.askGuardModel(request, TASK_WATCH_JUDGE_TIMEOUT_MS)),
       }),
+      // Its last actions stay after a restart. A write that fails loses only that copy of the list.
+      history: {
+        read: () => taskWatchHistory.get().events,
+        write: (events) =>
+          void Effect.runPromise(taskWatchHistory.set({ events: [...events] })).catch((error: unknown) =>
+            recoveryLogger.warn("The last actions of the task reviewer were not saved.", toLogValue(error)),
+          ),
+      },
     },
   });
   workControl.start();
