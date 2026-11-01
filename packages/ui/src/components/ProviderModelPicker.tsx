@@ -920,6 +920,16 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
             placeholder={t("provider.picker.search")}
             value={search()}
             onValueChange={setSearch}
+            onKeyDown={(event: KeyboardEvent) => {
+              if (event.key !== "Enter" || event.isComposing) return;
+              // The picker is in a form, such as the new-agent dialog: Enter in the search must not
+              // send the form with the model from before. It chooses the first model found.
+              event.preventDefault();
+              const first = groups()
+                .flatMap((group) => group.models)
+                .find(modelEnabled);
+              if (first && pickerModelKey(first) !== selectedKey()) selectModel(first, entry.accountId());
+            }}
           />
         </Show>
         <div class={["provider-model-scroll", fades.classes()]} ref={fades.bind} onScroll={fades.measure}>
