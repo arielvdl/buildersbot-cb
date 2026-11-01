@@ -36,18 +36,27 @@ export const LOCAL_SERVER_ENVIRONMENT = {
 } as const;
 
 /**
- * Keeps a local server out of the apps that macOS lists. The child runs from the app bundle, so
- * LaunchServices registers it as one more "Builders Bot". `app.dock.hide()` made it a UI element: no
- * Dock tile, but the low-memory panel of macOS ("Your system has run out of application memory") still
- * listed it as a second Builders Bot, with the footprint of the whole app, because the child shares the
- * app's coalition. The `prohibited` policy registers it as a background-only process, as
- * `LSBackgroundOnly` does. Its hidden window and the agent browser views in it still load and paint.
+ * Sets the macOS application type of this process at its start. Call it before anything else.
+ *
+ * A local server runs from the app bundle, so it registers with LaunchServices as "Builders Bot". An
+ * Electron process registers before its first line of script runs, with the type that the bundle's
+ * Info.plist gives. A Force Quit panel that is open, also the low-memory panel ("Your system has run
+ * out of application memory"), adds each process that registers as a regular (Foreground) app, and it
+ * keeps it after the process changes its type. Each start of a local server while that panel was open
+ * added a second "Builders Bot", with the footprint of the whole app because the child is in the app's
+ * coalition. A change of the policy from script (`app.dock.hide()`, then `prohibited`) came too late.
+ *
+ * The packaged bundle now declares `LSUIElement` (`electron-builder.yml`), so every process of it
+ * registers as a UI element, which the panel does not add. The desktop app then becomes a regular app
+ * with a Dock tile here, and a local server becomes background-only. The hidden window of a local server
+ * and the agent browser views in it still load and paint.
  */
-export function hideLocalServerFromMacOS(
+export function setMacApplicationTypeAtStart(
   platform: NodeJS.Platform,
-  setActivationPolicy: (policy: "prohibited") => void,
+  localServer: boolean,
+  setActivationPolicy: (policy: "regular" | "prohibited") => void,
 ): void {
-  if (platform === "darwin") setActivationPolicy("prohibited");
+  if (platform === "darwin") setActivationPolicy(localServer ? "prohibited" : "regular");
 }
 
 export interface LocalServerChildEnvironment {

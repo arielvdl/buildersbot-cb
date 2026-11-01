@@ -126,6 +126,8 @@ expectEqual(plist.CFBundleIconFile, "icon.icns", "application icon");
 expectEqual(plist.CFBundleIconName, "Icon", "macOS 26 application icon");
 expectEqual(plist.LSMinimumSystemVersion, "13.0", "minimum macOS version");
 expectEqual(plist.ElectronTeamID, "ZTRDTUL87R", "Apple Team ID");
+// A server on this computer must not register as a regular app (`setMacApplicationTypeAtStart`).
+expectEqual(plist.LSUIElement, true, "UI element start type");
 if (!Array.isArray(plist.NSUserActivityTypes) || !plist.NSUserActivityTypes.includes("NSUserActivityTypeBrowsingWeb")) {
   throw new Error("The Universal Links activity type is missing.");
 }

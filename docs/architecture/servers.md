@@ -923,14 +923,21 @@ the server as a joined server with `thisComputer: true`. `kind` stays `"remote"`
   `showMainWindow` do not show the window, and the child ignores `second-instance`: a relaunch
   would open its user data folder as a normal app with a window and no parent.
   The child is not one more app for macOS either. It runs from the app bundle, so LaunchServices
-  registered it as a second "Builders Bot". `app.dock.hide()` made it a UI element: no Dock tile, but
-  the low-memory panel of macOS ("Your system has run out of application memory") listed it next to
-  the app, with the same footprint, because the child is in the app's coalition and macOS shows the
-  footprint of the whole coalition for each entry. The child now sets the `prohibited` activation
-  policy at start (`hideLocalServerFromMacOS` in `local-server-child.ts`), so LaunchServices registers
-  it as background-only, as `LSBackgroundOnly` does. Its hidden window and the agent browser views
-  in it still load pages. `scripts/local-server-window-e2e.ts` checks the controller, the
-  registration (`lsappinfo`) and an agent view in real Electron. As a second guard,
+  registers it as "Builders Bot". An Electron process registers before its first line of script runs,
+  with the type that the bundle's Info.plist gives. A Force Quit panel that is open, also the
+  low-memory panel ("Your system has run out of application memory"), adds each process that
+  registers as a regular (Foreground) app and keeps it after the process changes its type. So each
+  start of the child while that panel was open added a second "Builders Bot", with the footprint of
+  the whole app, because the child is in the app's coalition. `app.dock.hide()` and later the
+  `prohibited` policy came too late to prevent this. Now the packaged bundle declares `LSUIElement`
+  (`mac.extendInfo` in `electron-builder.yml`), so each process registers as a UI element, which the
+  panel does not add. At its first line (`setMacApplicationTypeAtStart` in `local-server-child.ts`),
+  the desktop app becomes a regular app with a Dock tile, and the child becomes background-only. The
+  child is still in `lsappinfo` as a background-only process of the app bundle: an Electron process
+  cannot run without this registration. A development build runs the stock Electron.app, which has no
+  `LSUIElement`. The hidden window of the child and the agent browser views in it still load pages. `scripts/local-server-window-e2e.ts` checks the controller, the
+  registration (`lsappinfo`: the type at the first line and after the startup policy, from a copy of
+  Electron.app with the `mac.extendInfo` keys) and an agent view in real Electron. As a second guard,
   the renderer's account context (`src/renderer/src/features/account/account-context.tsx`) reads
   the account again when a window whose first read failed shows or gets focus, until one read
   answers. A state that main gives, also an outage of the account service, stays on screen.
