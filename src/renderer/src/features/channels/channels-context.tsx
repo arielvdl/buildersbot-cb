@@ -8,6 +8,7 @@ import { useServers } from "../servers/servers-context";
 import { useWindowPage } from "../window/window-page-context";
 import { announceChannelCreated } from "./channel-created";
 import { readChannelSelection, writeChannelSelection } from "./channel-selection";
+import { readChannelLastTopics } from "./channel-tabs-model";
 import { type ChannelsController, createChannelsController } from "./channels-controller";
 import { channelsPort } from "./channels-port";
 
@@ -70,6 +71,7 @@ export function ChannelsProvider(props: ParentProps) {
     // selected under the report, which is the state this read has to refuse.
     canMarkRead: () => document.hasFocus() && !windowPage.conversationCovered(),
     onCreated: announceChannelCreated,
+    lastTopic: (channelId) => readChannelLastTopics()[channelId] ?? null,
   });
   return <ChannelsControllerProvider controller={controller}>{props.children}</ChannelsControllerProvider>;
 }

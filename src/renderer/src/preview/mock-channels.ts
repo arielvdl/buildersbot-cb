@@ -10,6 +10,7 @@ import type {
   ChannelRoutineRun,
   ChannelSummary,
   ChannelTask,
+  ChannelTopic,
   CreateChannelMemoryInput,
   CreateChannelRoutineInput,
   DeleteChannelMemoryInput,
@@ -24,7 +25,11 @@ import type {
 import { channelRoutingConversationEventItemType } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 
-/** The one tab the preview channel has: the preview draws the conversation, not the tab bar. */
+/**
+ * The first tab of each preview channel. A channel lists its tabs only after a `topic-create`, and every
+ * tab shows the same conversation: the preview draws the tab bar and which tab is open, not a
+ * transcript per tab.
+ */
 export const MOCK_CHANNEL_TOPIC_ID = "mock-channel-topic";
 
 /** A channel that exists when the preview starts, with its history. */
@@ -47,6 +52,20 @@ export function createMockChannels(
   const memories = new Map<string, ChannelMemory[]>();
   const routines = new Map<string, ChannelRoutine[]>();
   const routineRuns = new Map<string, ChannelRoutineRun[]>();
+  /** The tabs that `topic-create` added, after the first tab, by channel. */
+  const addedTopics = new Map<string, ChannelTopic[]>();
+  const topicsOf = (channel: Channel): ChannelTopic[] | undefined => {
+    const added = addedTopics.get(channel.id);
+    if (!added?.length) return undefined;
+    const first: ChannelTopic = {
+      id: MOCK_CHANNEL_TOPIC_ID,
+      channelId: channel.id,
+      name: "General",
+      createdAt: channel.createdAt,
+      revision: 1,
+    };
+    return [first, ...added].map((topic) => ({ ...topic, unreadCount: 0, activeTasks: 0, openTasks: 0 }));
+  };
   const changed = (channelId: string, revision: number) => emit({ type: "channels-changed", channelId, revision });
   const requireChannel = (id: string) => {
     const channel = channels.get(id);
@@ -59,6 +78,7 @@ export function createMockChannels(
         const latest = (messages.get(channel.id) ?? []).at(-1);
         return {
           ...structuredClone(channel),
+          ...(topicsOf(channel) ? { topics: topicsOf(channel) } : {}),
           unreadCount: 0,
           activeTasks: (tasks.get(channel.id) ?? []).filter((task) => task.state === "running").length,
           lastMessage: latest
@@ -70,9 +90,10 @@ export function createMockChannels(
             : null,
         };
       }),
-    readChannel: async ({ channelId }: { channelId: string }): Promise<ChannelPage> => ({
+    readChannel: async ({ channelId, topicId }: { channelId: string; topicId?: string }): Promise<ChannelPage> => ({
       channel: structuredClone(requireChannel(channelId)),
-      topicId: MOCK_CHANNEL_TOPIC_ID,
+      topicId:
+        addedTopics.get(channelId)?.some((topic) => topic.id === topicId) && topicId ? topicId : MOCK_CHANNEL_TOPIC_ID,
       messages: structuredClone(messages.get(channelId) ?? []),
       tasks: structuredClone(tasks.get(channelId) ?? []),
       olderCursor: null,
@@ -93,6 +114,19 @@ export function createMockChannels(
           : requireChannel(input.channelId);
       channel = { ...channel, revision: channel.revision + 1 };
       if (input.type === "archive" || input.type === "restore") channel.archived = input.type === "archive";
+      if (input.type === "topic-create") {
+        const added = addedTopics.get(channel.id) ?? [];
+        addedTopics.set(channel.id, [
+          ...added,
+          {
+            id: input.topicId,
+            channelId: channel.id,
+            name: input.name ?? `Tab ${added.length + 2}`,
+            createdAt: new Date().toISOString(),
+            revision: 1,
+          },
+        ]);
+      }
       const work = tasks.get(channel.id) ?? [];
       if (input.type === "archive")
         for (const task of work) {

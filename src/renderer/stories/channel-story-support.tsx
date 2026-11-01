@@ -107,6 +107,7 @@ export function StoryChannelConversation(props: ChannelStoryProps) {
   const agentName = (id: string | null) => STORY_AGENTS.find((agent) => agent.id === id)?.name ?? "Unassigned";
   const source: ConversationChannelSource = {
     id: "story-channel",
+    tabId: () => null,
     name,
     readOnly: () => props.archived === true,
     author: (message) => {

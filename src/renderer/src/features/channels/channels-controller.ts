@@ -62,6 +62,8 @@ export interface ChannelsEnvironment {
   onList?: (channels: ChannelSummary[], scope: string) => void;
   /** A save that made a new channel was accepted. It runs before the channel list refreshes. */
   onCreated?: (channelId: string) => void;
+  /** The tab that the reader last had open in a channel. A channel opens there, from any place. */
+  lastTopic?: (channelId: string) => string | null;
 }
 
 export type ChannelsController = ReturnType<typeof createChannelsController>;
@@ -188,12 +190,15 @@ export function createChannelsController(env: ChannelsEnvironment) {
           ...(topicId === null ? {} : { topicId }),
         });
       // A tab closed on another client is not an unreadable channel: read it without the tab, and
-      // the page below names the first one, which becomes the open tab.
+      // the page below names the first one, which becomes the open tab. A read that fails while the
+      // list still has the tab stays an error: the reader stays on the tab, not on the first one.
+      const tabListed = (topicId: string) =>
+        channels.find((channel) => channel.id === selected)?.topics?.some((topic) => topic.id === topicId) === true;
       const page =
         !selectedExists || !withPage
           ? null
           : await readPage(wanted).catch((error: unknown) =>
-              wanted === null ? Promise.reject(error) : readPage(null),
+              wanted === null || tabListed(wanted) ? Promise.reject(error) : readPage(null),
             );
       if (disposed || account !== env.scopeKey() || id !== refreshId || selected !== state.selectedId) return;
       env.onList?.(channels, account);
@@ -253,7 +258,12 @@ export function createChannelsController(env: ChannelsEnvironment) {
     });
     await refreshAfter();
   }
-  async function open(channelId: string) {
+  /**
+   * Opens a channel on a tab: the one given, the open one of the same channel, or the tab the reader
+   * last had open in it. A sidebar row, global search, a notification and Back all open the same tab.
+   * A tab that is gone falls back to the first one in the read.
+   */
+  async function open(channelId: string, topicId?: string | null) {
     // A saved selection, a search result or a notification can name a channel on a server that has
     // no channels.
     if (!supported()) return;
@@ -261,10 +271,9 @@ export function createChannelsController(env: ChannelsEnvironment) {
     env.writeSelection(channelId);
     flush(() =>
       setState((state) => {
-        // A tab belongs to its channel: another channel opens on its first tab, not on a read of
-        // this tab id that fails before it falls back.
-        const topicId = state.selectedId === channelId ? state.topicId : null;
-        Object.assign(state, { selectedId: channelId, topicId, page: null, editing: null, loading: true });
+        // A tab belongs to its channel: another channel never opens on a tab id of this one.
+        const tab = topicId ?? (state.selectedId === channelId ? state.topicId : (env.lastTopic?.(channelId) ?? null));
+        Object.assign(state, { selectedId: channelId, topicId: tab, page: null, editing: null, loading: true });
       }),
     );
     await refreshAfter();

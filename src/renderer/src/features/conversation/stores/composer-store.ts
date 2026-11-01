@@ -1,8 +1,8 @@
 import { attachmentReferenceIds } from "@openbot/contracts/attachment-references";
-import { createMemo } from "solid-js";
+import { createEffect, createMemo } from "solid-js";
 import { appendVoiceTranscript } from "../../../voice-recording";
 import { EMPTY_DRAFT, type StoredQueueEdit } from "../composer-draft";
-import { composerDraftKey } from "../conversation-keys";
+import { composerDraftKey, legacyChannelDraftKey } from "../conversation-keys";
 import type { ComposerDraft, ConversationProps, ConversationTarget } from "../conversation-types";
 
 export interface ComposerStoreDeps {
@@ -27,7 +27,10 @@ export function conversationOwnerId(props: ConversationProps): string | undefine
 
 export function currentConversationTarget(props: ConversationProps): ConversationTarget | undefined {
   const agentId = conversationOwnerId(props);
-  return agentId ? { agentId, serverId: props.server?.id ?? "local" } : undefined;
+  if (!agentId) return undefined;
+  const serverId = props.server?.id ?? "local";
+  const tabId = props.channel?.tabId();
+  return tabId ? { agentId, serverId, tabId } : { agentId, serverId };
 }
 
 export function createComposerStore(deps: ComposerStoreDeps) {
@@ -42,6 +45,24 @@ export function createComposerStore(deps: ComposerStoreDeps) {
     const target = currentTarget();
     return target ? (deps.drafts()[composerDraftKey(target)] ?? EMPTY_DRAFT) : EMPTY_DRAFT;
   });
+  // A channel draft from before each tab kept its own moves to the first tab that shows it, so an
+  // update loses no text, and the other tabs of the channel stay empty.
+  createEffect(
+    () => {
+      const target = currentTarget();
+      const legacy = target && legacyChannelDraftKey(target);
+      return target && legacy && legacy in deps.drafts() ? { key: composerDraftKey(target), legacy } : null;
+    },
+    (move) => {
+      if (!move) return;
+      deps.setDrafts((current) => {
+        const draft = current[move.legacy];
+        if (!draft) return current;
+        const { [move.legacy]: _moved, ...rest } = current;
+        return move.key in current ? rest : { ...rest, [move.key]: draft };
+      });
+    },
+  );
   const currentConversationError = createMemo(() => {
     const target = currentTarget();
     return target ? (deps.conversationErrors()[composerDraftKey(target)] ?? null) : null;

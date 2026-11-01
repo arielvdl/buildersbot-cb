@@ -65,6 +65,8 @@ export interface AgentSettingsRequest {
 export interface ConversationTarget {
   agentId: string;
   serverId: string;
+  /** The open tab of a channel. Each tab keeps its own draft. */
+  tabId?: string | undefined;
 }
 
 /** What was said so far in a recording, and the conversation it is dictated into. */
@@ -101,6 +103,8 @@ export interface PromptAnswerOptions {
 export interface ConversationChannelSource {
   /** The channel id. The composer target of the channel has it as its `agentId`. */
   id: string;
+  /** The open tab, which owns the draft in the composer. Null until the channel's tabs are known. */
+  tabId: () => string | null;
   name: () => string;
   /** An archived channel takes no message and no answer. */
   readOnly: () => boolean;

@@ -14,9 +14,29 @@ export function agentMessageKey(agentId: string, messageId: string): string {
   return `${agentId}\0${messageId}`;
 }
 
-/** Identifies one composer draft, which is an agent *on a server*. */
-export function composerDraftKey(target: { agentId: string; serverId: string }): string {
-  return target.serverId === "local" ? target.agentId : `${target.serverId}:${target.agentId}`;
+/**
+ * Identifies one composer draft: an agent *on a server*, or one tab of a channel on a server. A draft
+ * never shows in another tab, and a send never takes the draft of another tab.
+ */
+export function composerDraftKey(target: { agentId: string; serverId: string; tabId?: string | undefined }): string {
+  const chat = target.serverId === "local" ? target.agentId : `${target.serverId}:${target.agentId}`;
+  return target.tabId ? `${chat}\0tab:${target.tabId}` : chat;
+}
+
+/** Whether two targets are the same draft. */
+export function sameComposerDraft(
+  left: { agentId: string; serverId: string; tabId?: string | undefined } | undefined,
+  right: { agentId: string; serverId: string; tabId?: string | undefined } | undefined,
+): boolean {
+  return left !== undefined && right !== undefined && composerDraftKey(left) === composerDraftKey(right);
+}
+
+/**
+ * The key that a channel draft had before each tab kept its own: the channel without a tab. The first
+ * tab that shows such a draft takes it, so an update loses no text.
+ */
+export function legacyChannelDraftKey(target: { agentId: string; serverId: string; tabId?: string | undefined }) {
+  return target.tabId ? composerDraftKey({ agentId: target.agentId, serverId: target.serverId }) : undefined;
 }
 
 /** Identifies the composer draft of one side thread of an agent, or of its new thread tab. */

@@ -143,15 +143,10 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     const last = lastChannelTopics()[channelId];
     return topics.find((topic) => topic.id === last)?.id ?? topics[0]?.id;
   };
-  const openChannel = (channelId: string) => {
-    const topicId = channelTopicFor(channelId);
-    void channels.open(channelId).then(() => {
-      if (topicId) void channels.setTopic(topicId);
-    });
-  };
+  const openChannel = (channelId: string) => void channels.open(channelId, channelTopicFor(channelId));
   const openChatTab = (kind: "agent" | "channel", chatId: string, tabId: string) => {
     if (kind === "channel") {
-      void channels.open(chatId).then(() => channels.setTopic(tabId));
+      void channels.open(chatId, tabId);
       return;
     }
     if (selectAgent(chatId)) agentThreads.open(chatId, tabId);
