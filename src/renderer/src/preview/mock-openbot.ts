@@ -11,6 +11,7 @@ import type {
   McpSignInApp,
   McpSignInAppState,
   ServerNotificationLevel,
+  StartRetrySettings,
   TaskWatchPreference,
 } from "@openbot/contracts/ipc";
 import {
@@ -95,6 +96,7 @@ import {
   DEFAULT_REMOTE_NETWORK_ROUTE,
   DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE,
   DEFAULT_SECURITY_GUARD_PREFERENCE,
+  DEFAULT_START_RETRY_SETTINGS,
   DEFAULT_TASK_WATCH_PREFERENCE,
   DEFAULT_TRANSPARENT_WINDOW,
   type DirectConversationSnapshot,
@@ -522,6 +524,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let previewRecovery: AutoRecoveryPreference = { enabled: false, intervalMinutes: 30, reassign: false };
   let previewAgentLimit: AgentLimitPreference = { ...DEFAULT_AGENT_LIMIT_PREFERENCE };
   let previewTaskWatch: TaskWatchPreference = { ...DEFAULT_TASK_WATCH_PREFERENCE };
+  let previewStartRetry: StartRetrySettings = structuredClone(DEFAULT_START_RETRY_SETTINGS);
   const previewLoad = (): LoadSnapshot => ({
     sampledAt: new Date().toISOString(),
     memory: { usedMb: 7625, agentsMb: 6611, totalMb: 32768 },
@@ -1292,6 +1295,11 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     setTaskWatch: async (preference) => {
       previewTaskWatch = { ...preference };
       return previewLoad();
+    },
+    getStartRetry: async () => ({ settings: structuredClone(previewStartRetry), breakers: [] }),
+    setStartRetry: async (settings) => {
+      previewStartRetry = structuredClone(settings);
+      return { settings: structuredClone(previewStartRetry), breakers: [] };
     },
     getAgentLimit: async () => ({ ...previewAgentLimit }),
     setAgentLimit: async (preference) => {

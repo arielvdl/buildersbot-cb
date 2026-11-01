@@ -115,6 +115,7 @@ import type {
   UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
 import {
+  AGENT_REASONING_EFFORTS,
   type AgentDefaults,
   type AgentModelChoice,
   agentAutomationAllowed,
@@ -138,6 +139,10 @@ import {
   type SecurityGuardPreference,
   SIDEBAR_PEOPLE_SECTION_ID,
   SIDEBAR_UNASSIGNED_SECTION_ID,
+  START_BREAKER_VIEW_LIMIT,
+  type StartFallbackChoice,
+  type StartRetrySettings,
+  type StartRetryState,
   sameAgentBrowserProfile,
   sameAgentModelChoice,
   WORKFLOWS_USAGE_ID,
@@ -235,6 +240,7 @@ import { SessionSettings } from "./agent/session-settings";
 import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
+import { type StartBreakerStorage, StartBreakers } from "./agent/start-retry";
 import {
   agentProviderAccount,
   isRequestTimeout,
@@ -381,6 +387,11 @@ export interface AgentServiceOptions {
    * Omitted, the reviewer is on for every message, which is the default of a new install.
    */
   securityGuard?: () => SecurityGuardPreference;
+  /**
+   * The start retry (`agent/start-retry.ts`): its settings and the file of the breakers of the agents'
+   * own models. The main process owns both. Omitted, a start that fails is not tried again.
+   */
+  startRetry?: { settings: () => StartRetrySettings; breakers: StartBreakerStorage };
   /**
    * The Guard of tool calls and their results. The main process owns the preference. Omitted, the
    * Guard runs at Light, the default of a new install.
@@ -561,6 +572,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #developmentDefaults: boolean;
   readonly #busyMessageMode: () => BusyMessageMode;
   readonly #securityGuard: () => SecurityGuardPreference;
+  readonly #startRetrySettings: (() => StartRetrySettings) | null;
+  readonly #startBreakers: StartBreakers | null;
   readonly #security: PromptInjectionGuard;
   readonly #toolGuard: ToolGuard;
   readonly #hubConnections: HubConnectionTools | null;
@@ -607,6 +620,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#developmentDefaults = developmentDefaults;
     this.#busyMessageMode = busyMessageMode;
     this.#securityGuard = securityGuard;
+    this.#startRetrySettings = options.startRetry?.settings ?? null;
+    this.#startBreakers = options.startRetry ? new StartBreakers(options.startRetry.breakers) : null;
     this.#localSkillTools = localSkillTools;
     this.#routineFlowTools = routineFlowTools;
     this.#store = store;
@@ -1176,7 +1191,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.channels = new ChannelService(store.database, mailbox, {
       agents: () => this.listAgents(),
       hidden: (agentId) => this.#store.isHidden(agentId),
-      generate: (lead, prompt) =>
+      generate: (lead, prompt, purpose) =>
         Effect.gen({ self: this }, function* () {
           yield* this.#providers.ensureProvider(lead.provider);
           const model = this.#endpoints
@@ -1188,7 +1203,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             });
           return yield* this.#generateForAgent(
             lead,
-            { ...model, defaultReasoningEffort: lead.reasoningEffort },
+            { ...model, defaultReasoningEffort: purpose === "summary" ? summaryEffort(model) : lead.reasoningEffort },
             prompt,
           ).pipe(
             // A routing turn can be the first one a spent plan refuses: in its completion, or as the
@@ -1393,10 +1408,17 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       planContinuation: this.#planContinuation,
       tasks: this.#tasks,
       security: this.#security,
+      ...(this.#startBreakers ? { startBreakers: this.#startBreakers } : {}),
       hooks: {
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
         redactMcp: (text) => this.#mcp.redact(text),
         isStopping: () => this.#stopping,
+        ...(this.#startRetrySettings
+          ? {
+              startRetrySettings: this.#startRetrySettings,
+              startFallback: (agentId: string) => this.#startFallbackChoice(agentId) ?? null,
+            }
+          : {}),
         servesModel: (model, provider) => this.#endpoints.serves(model, provider),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
@@ -3353,7 +3375,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   #usageLimitMove(agentId: string): { input: UpdateAgentInput; move: ModelMove | null } | null {
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
-    if (!agent || (!agent.usageLimitReturn && !agent.backupModels?.automatic)) return null;
+    if (!agent) return null;
+    // An agent with no automatic backup of its own moves only for a start that failed, to the
+    // default backup of the start retry settings.
+    const startFailed = this.#startBreakers?.get(agentId, agentModelChoice(agent)) !== undefined;
+    if (!agent.usageLimitReturn && !agent.backupModels?.automatic && !startFailed) return null;
     if (this.#runsTurn(agentId) || this.#mailbox.hasStartedDelivery(agentId)) return null;
     // The agent keeps its reasoning effort where the other model has it. It goes back with the effort it left.
     const move = (choice: AgentModelChoice, reasoningEffort = agent.reasoningEffort) => {
@@ -3371,7 +3397,15 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             : reasoningEffort,
       };
     };
-    if (agent.usageLimitReturn && this.#usageLimitReady(agent.usageLimitReturn))
+    // A channel task that started on the backup after a failed start ends there (`StartBreakers.pin`).
+    // The wait of its breaker holds the agent on the backup too: a turn of another agent that completed on
+    // the own model ends the hold of the model, not the wait of this agent.
+    if (
+      agent.usageLimitReturn &&
+      this.#usageLimitReady(agent.usageLimitReturn) &&
+      !this.#startTasksPinned(agentId) &&
+      !this.#startBreakerWaits(agentId, agent.usageLimitReturn)
+    )
       return { input: move(agent.usageLimitReturn, agent.usageLimitReturn.reasoningEffort), move: "return" };
     const limited = !this.#usageLimits.mayDrain(agentId);
     const failed = !limited && this.#usageLimits.isFailed(usageLimitOf(agentModelChoice(agent)));
@@ -3380,8 +3414,74 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       this.#mailbox.queuedTaskIds(agentId).some((taskId) => this.#mailbox.nextQueued(agentId, taskId));
     // A channel task that the limit refused went back to its channel, so the queue can be empty.
     if (!this.#mailbox.nextQueued(agentId) && !taskWork() && !this.channels.ownsWaitingWork(agentId)) return null;
-    const next = this.#usageLimitBackup(agentId);
-    return next ? { input: { ...move(next), leaveUsageLimit: true }, move: failed ? "provider-error" : null } : null;
+    const next: StartFallbackChoice | undefined = failed
+      ? this.#startFallbackChoice(agentId)
+      : this.#usageLimitBackup(agentId);
+    if (!next) return null;
+    return {
+      input: { ...move(next, next.reasoningEffort), leaveUsageLimit: true },
+      move: failed ? "provider-error" : null,
+    };
+  }
+
+  /**
+   * The backup model of a start that failed on this agent's own model: its first ready automatic
+   * backup, else the default backup of the start retry settings when that one is ready and is not
+   * the agent's own model. Undefined when there is none.
+   */
+  #startFallbackChoice(agentId: string): StartFallbackChoice | undefined {
+    const own = this.#usageLimitBackup(agentId);
+    if (own) return own;
+    const agent = this.#store.list().find((candidate) => candidate.id === agentId);
+    const fallback = this.#startRetrySettings?.().defaultFallback;
+    if (!agent || !fallback || sameAgentModelChoice(fallback, agentModelChoice(agent))) return undefined;
+    return this.#usageLimitReady(fallback) ? fallback : undefined;
+  }
+
+  /** Whether the breaker of this agent's own model still waits. */
+  #startBreakerWaits(agentId: string, own: AgentModelChoice): boolean {
+    const entry = this.#startBreakers?.get(agentId, own);
+    return entry !== undefined && Date.parse(entry.until) > Date.now();
+  }
+
+  /** Whether a channel task that started on this agent's backup model is still open. */
+  #startTasksPinned(agentId: string): boolean {
+    const breakers = this.#startBreakers;
+    if (!breakers || breakers.pinned(agentId).length === 0) return false;
+    breakers.unpin(agentId, (key) => {
+      const [channelId = "", taskId = ""] = key.split("\u0000");
+      if (!this.channels.store.exists(channelId)) return false;
+      const task = this.channels.store.tasks(channelId).find((item) => item.id === taskId);
+      return task?.state === "queued" || task?.state === "running" || task?.state === "waiting";
+    });
+    return breakers.pinned(agentId).length > 0;
+  }
+
+  /**
+   * After a restart: each own model whose breaker wait still runs is passed over again for the rest
+   * of the wait, so an agent on its backup does not go back at once, and the deliveries that wait for
+   * a start retry get their timers.
+   */
+  #restoreStartRetries(): void {
+    const breakers = this.#startBreakers;
+    if (!breakers) return;
+    const now = Date.now();
+    for (const entry of breakers.list()) {
+      const until = Date.parse(entry.until);
+      if (until > now)
+        this.#usageLimits.failedModel(
+          { provider: entry.provider, accountId: entry.providerAccountId, model: entry.model },
+          until - now,
+        );
+    }
+    this.#drain.armStartRetries();
+  }
+
+  /** The start retry settings and the agents on a backup model now, for the settings page. */
+  startRetryState(): StartRetryState | null {
+    const settings = this.#startRetrySettings?.();
+    if (!settings || !this.#startBreakers) return null;
+    return { settings, breakers: this.#startBreakers.views().slice(0, START_BREAKER_VIEW_LIMIT) };
   }
 
   /** The first ready backup model of an agent set to switch without asking, or undefined. */
@@ -3876,6 +3976,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     yield* lifecycleStep("publish queues", () => {
       for (const agent of this.#store.list()) this.#mailboxSync.emitQueue(agent.id);
     });
+    yield* lifecycleStep("restore start retries", () => this.#restoreStartRetries());
     yield* this.#routines
       .resumePendingRuns()
       .pipe(
@@ -5686,5 +5787,16 @@ function settleLifecycleTasks<A>(
       concurrency: "unbounded",
       discard: true,
     },
+  );
+}
+
+/**
+ * The reasoning effort of a channel summary: the lowest one the model takes. A summary of shared
+ * history needs no deep reasoning, and a lead on a high effort let a long history pass the deadline.
+ */
+function summaryEffort(model: AgentModelOption): AgentReasoningEffort {
+  return (
+    AGENT_REASONING_EFFORTS.find((effort) => model.supportedReasoningEfforts.includes(effort)) ??
+    model.defaultReasoningEffort
   );
 }

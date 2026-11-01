@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import {
   AGENT_PROVIDERS,
+  type AgentModelChoice,
   type AgentModelOption,
   type AgentSummary,
   type ConversationMessage,
   type ConversationSnapshot,
   SECURITY_SCAN_ITEM_TYPE,
+  type StartRetrySettings,
+  sameAgentModelChoice,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
@@ -37,6 +40,14 @@ import { isPlanLimitDiagnostic } from "./provider-diagnostics";
 import type { ProviderRuntime } from "./provider-runtime";
 import type { RoutineScheduler } from "./routine-scheduler";
 import { sessionSettingsOverrides } from "./session-settings";
+import {
+  classifyStartFailure,
+  nextStartStep,
+  type StartBreakers,
+  type StartRetryMarker,
+  startRetryView,
+  untilMs,
+} from "./start-retry";
 import {
   isCodexCompactionRefusal,
   isMissingProviderSessionError,
@@ -98,6 +109,13 @@ export interface DrainHooks {
   startRequestedNewChat(agentId: string): Effect.Effect<void>;
   /** Drops that request: a turn in the agent's own chat starts first, so the agent's notes do not cover it. */
   dropRequestedNewChat(agentId: string): void;
+  /** The start retry settings (`start-retry.ts`). Omitted: no start is tried again. */
+  startRetrySettings?(): StartRetrySettings;
+  /**
+   * The backup model that a start that failed on `primary` moves this agent to: its own first ready
+   * automatic backup, else the default backup of the settings when it is ready. Null when there is none.
+   */
+  startFallback?(agentId: string, primary: AgentModelChoice): AgentModelChoice | null;
 }
 
 /** The tasks of the agents, as the drain reads them. */
@@ -165,6 +183,12 @@ export interface DrainSchedulerOptions {
   tasks: TaskLanes;
   /** The security reviewer of the user messages of a turn. Omitted, no message is reviewed. */
   security?: Pick<PromptInjectionGuard, "review">;
+  /** The breakers of the agents' own models (`start-retry.ts`). Omitted: no start is tried again. */
+  startBreakers?: StartBreakers;
+  /** For a test: the random part of the waits, from 0 to 1. */
+  random?: () => number;
+  /** For a test: the clock of the start retry. */
+  now?: () => number;
   hooks: DrainHooks;
   channels?: ChannelService;
   messaging?: MessagingThreads;
@@ -237,6 +261,13 @@ export class DrainScheduler {
   readonly #startingDeliveries = new Map<AgentProvider, number>();
   readonly #scheduledDrains = new Set<string>();
   readonly #drainTasks = new Map<string, Deferred.Deferred<void, DeliveryStartFailed>>();
+  readonly #breakers: StartBreakers | undefined;
+  readonly #random: () => number;
+  readonly #now: () => number;
+  /** The timers of the deliveries that wait for a start retry, by delivery id, with their agent. */
+  readonly #retryTimers = new Map<string, { agentId: string; timer: ReturnType<typeof setTimeout> }>();
+  /** The start retry of a delivery that failed after it, until the failure path records it. */
+  readonly #failedStarts = new Map<string, StartRetryMarker | null>();
 
   constructor(options: DrainSchedulerOptions) {
     this.#store = options.store;
@@ -257,6 +288,9 @@ export class DrainScheduler {
     this.#hooks = options.hooks;
     this.#channels = options.channels;
     this.#messaging = options.messaging;
+    this.#breakers = options.startBreakers;
+    this.#random = options.random ?? Math.random;
+    this.#now = options.now ?? Date.now;
     const agentLimit = options.agentLimit ?? (() => null);
     this.#slots = new TurnSlots({
       limit: () => this.#memory.turnLimit(),
@@ -377,7 +411,44 @@ export class DrainScheduler {
     if (this.#compactionHolds(lane)) return "compaction";
     if (!this.#routines.mayDrain(agentId)) return "routine";
     if (!this.#usageLimits.mayDrain(agentId) && !this.#usageLimits.mayTry(agentId)) return "usage-limit";
+    if (agent && this.#waitsForStartFallback(agent, taskId)) return "start-fallback";
     return null;
+  }
+
+  /**
+   * Whether the next delivery of this lane goes to the backup model, and the agent has not moved
+   * there yet. The move (`followUsageLimit`) starts it; a turn of another lane of the agent holds the
+   * move. When no backup is ready any more, the lane is not held: the start fails.
+   */
+  #waitsForStartFallback(agent: AgentSummary, taskId: string | null): boolean {
+    const marker = this.#mailbox.queuedStartRetry(agent.id, taskId);
+    if (marker?.phase !== "fallback" || !marker.fallback) return false;
+    if (!sameAgentModelChoice(agentChoice(agent), marker.primary)) return false;
+    return this.#hooks.startFallback?.(agent.id, marker.primary) != null;
+  }
+
+  /**
+   * Arms the timers of the deliveries that wait for a start retry, as the mailbox holds them after a
+   * restart. A wait that passed starts at the next drain.
+   */
+  armStartRetries(): void {
+    for (const { agentId, deliveryId, nextAt } of this.#mailbox.startRetries())
+      this.#armStartRetry(agentId, deliveryId, nextAt);
+  }
+
+  #armStartRetry(agentId: string, deliveryId: string, nextAt: string | null): void {
+    const previous = this.#retryTimers.get(deliveryId);
+    if (previous) clearTimeout(previous.timer);
+    const timer = setTimeout(
+      () => {
+        this.#retryTimers.delete(deliveryId);
+        if (!this.#hooks.isStopping()) this.scheduleDrain(agentId);
+      },
+      untilMs(nextAt, this.#now()),
+    );
+    // A wait never keeps the process open, and `dispose` clears it.
+    timer.unref?.();
+    this.#retryTimers.set(deliveryId, { agentId, timer });
   }
 
   /**
@@ -457,7 +528,11 @@ export class DrainScheduler {
       this.#heldBy(lane) ||
       (this.#heldByMachine(lane) && "machine");
     if (hold) this.#reportHold(lane, hold);
-    if (followUsageLimit && (!hold || hold === "usage-limit") && this.#hooks.followUsageLimit(lane.agentId))
+    if (
+      followUsageLimit &&
+      (!hold || hold === "usage-limit" || hold === "start-fallback") &&
+      this.#hooks.followUsageLimit(lane.agentId)
+    )
       return true;
     if (hold) return false;
     this.#scheduledDrains.add(key);
@@ -530,10 +605,18 @@ export class DrainScheduler {
     for (const key of [...this.#reportedHolds.keys()]) if (ofAgent(key)) this.#reportedHolds.delete(key);
     for (const key of [...this.#turnModels.keys()]) if (ofAgent(key)) this.#turnModels.delete(key);
     this.#requeuedAtLimit.delete(agentId);
+    for (const [deliveryId, entry] of [...this.#retryTimers])
+      if (entry.agentId === agentId) {
+        clearTimeout(entry.timer);
+        this.#retryTimers.delete(deliveryId);
+      }
+    this.#breakers?.forgetAgent(agentId);
     this.retrySlotWaiters();
   }
 
   dispose(): void {
+    for (const { timer } of this.#retryTimers.values()) clearTimeout(timer);
+    this.#retryTimers.clear();
     this.#drainingLanes.clear();
     this.#scheduledDrains.clear();
     this.#slotWaiters.clear();
@@ -743,6 +826,10 @@ export class DrainScheduler {
     // The model this start asks for. The agent can move to another one while `turn/start` waits, and
     // a plan limit belongs to the model the provider refused.
     let requestedModel: string | null = null;
+    // The provider, account and model of this start, for the start retry.
+    let startChoice: AgentModelChoice | null = null;
+    // This start is the one try of the agent's own model after the wait of its breaker.
+    let probing = false;
     yield* Effect.gen({ self: this }, function* () {
       for (const item of batch) yield* this.#mailbox.markStarting(item.delivery.id).pipe(toDeliveryStartFailed);
       this.#mailboxSync.emitQueue(delivery.recipientAgentId);
@@ -768,6 +855,17 @@ export class DrainScheduler {
       // Once for the turn: its process, its session and its sandbox roots read the result.
       yield* checkAgentFolders(agent);
       requestedModel = agent.model;
+      startChoice = agentChoice(agent);
+      // The start retry sent this delivery to a backup model, and the agent did not move there: the
+      // backup is not ready any more. It never runs on the model that failed it.
+      if (context.startRetry?.phase === "fallback" && sameAgentModelChoice(startChoice, context.startRetry.primary))
+        yield* drainStep(() => {
+          throw new Error(sourceText("error.agent.fallbackUnavailable"));
+        });
+      // A breaker of this model means that the start runs on it after a failure in the last waits: it
+      // gets one start and no try again, whether its wait ended or the agent came back earlier.
+      probing = this.#breakers?.get(agent.id, startChoice) !== undefined;
+      if (probing) this.#breakers?.probing(agent.id, startChoice);
       // The endpoint was removed while this agent was busy, so no other model could be given to it
       // then. The old process would still answer on the removed endpoint, with the credentials it
       // started with, until it restarts. Thrown rather than failed here: the catch below also ends
@@ -1014,6 +1112,7 @@ export class DrainScheduler {
       if (!this.#hooks.turnEnded(response.turn.id)) snapshot.activeTurnId = response.turn.id;
       confirmedTurnId = response.turn.id;
       this.#turnModels.set(laneKey({ agentId: agent.id, taskId }), { turnId: response.turn.id, model: agent.model });
+      this.#startedAfterRetry(agent, context, channelDelivery);
       for (const item of batch)
         yield* this.#mailbox.markRunning(item.delivery.id, response.turn.id).pipe(toDeliveryStartFailed);
       if (this.#channels)
@@ -1096,6 +1195,13 @@ export class DrainScheduler {
             return;
           }
           const reason = this.#hooks.redactMcp(error instanceof Error ? error.message : String(error));
+          // A start that a wait or a backup model can fix goes back to the queue (`start-retry.ts`).
+          if (
+            !messagingDelivery &&
+            startChoice !== null &&
+            (yield* this.#startAgain(context, batch, error, reason, startChoice, probing, channelDelivery))
+          )
+            return;
           // A spent plan window refused the start, so nothing ran. The messages wait for the reset, and
           // a channel task goes back to its channel, so that its assignment does not reserve the host.
           if (!messagingDelivery && isPlanLimitDiagnostic(reason)) {
@@ -1134,8 +1240,12 @@ export class DrainScheduler {
               yield* this.#mailbox.restoreQueued(companion.id).pipe(toDeliveryStartFailed);
           }
           this.#mailboxSync.emitQueue(delivery.recipientAgentId);
+          const retried = this.#failedStarts.get(delivery.id) ?? context.startRetry ?? null;
+          this.#failedStarts.delete(delivery.id);
           if (this.#channels)
-            yield* this.#channels.deliveryFailed(delivery.id, CHANNEL_START_FAILED).pipe(toDeliveryStartFailed);
+            yield* this.#channels
+              .deliveryFailed(delivery.id, CHANNEL_START_FAILED, startFailureOf(retried, error, reason))
+              .pipe(toDeliveryStartFailed);
           this.#messaging?.deliveryFailed(delivery.id);
           // The provider refused the session or the turn, so no turn line records the failure.
           logger.warn("A message did not start.", {
@@ -1163,6 +1273,99 @@ export class DrainScheduler {
       ),
     );
   }, Effect.uninterruptible);
+
+  /**
+   * Tries a start that failed again after a wait, or on the backup model (`start-retry.ts`). True
+   * when the delivery went back to the queue; false when it fails as before. Only a start that the
+   * provider did not take comes here: the caller handled a confirmed or an unconfirmed `turn/start`.
+   */
+  readonly #startAgain = Effect.fn("DrainScheduler.startAgain")(function* (
+    this: DrainScheduler,
+    context: DeliveryContext,
+    batch: readonly DeliveryContext[],
+    error: unknown,
+    reason: string,
+    primary: AgentModelChoice,
+    probing: boolean,
+    channelDelivery: boolean,
+  ) {
+    const settings = this.#hooks.startRetrySettings?.();
+    if (!settings || !this.#breakers || this.#hooks.isStopping()) return false;
+    const { delivery } = context;
+    const agentId = delivery.recipientAgentId;
+    const now = this.#now();
+    const failure = classifyStartFailure(error, reason, settings, now);
+    // A start on the backup model has no other backup.
+    const fallback =
+      context.startRetry?.phase === "fallback" ? null : (this.#hooks.startFallback?.(agentId, primary) ?? null);
+    const step = nextStartStep({
+      failure,
+      marker: context.startRetry,
+      settings,
+      primary,
+      fallback,
+      probing,
+      now,
+      random: this.#random(),
+    });
+    // Ids, classes and counts only: never the text of the message or of the error.
+    logger.info("A start failed.", {
+      agentId,
+      deliveryId: delivery.id,
+      next: step.type,
+      class: failure.class,
+      cause: failure.cause,
+      errorKey: failure.errorKey ?? "none",
+      starts: step.marker?.starts ?? 1,
+      probing,
+      ...(step.type === "retry" ? { delayMs: step.delayMs, phase: step.marker.phase } : {}),
+      ...(step.type === "fallback" && step.marker.fallback
+        ? { fallbackProvider: step.marker.fallback.provider, fallbackModel: step.marker.fallback.model }
+        : {}),
+    });
+    if (step.type === "fail") {
+      this.#failedStarts.set(delivery.id, step.marker);
+      return false;
+    }
+    if (
+      channelDelivery &&
+      this.#channels &&
+      !(yield* this.#channels.holdForStartRetry(delivery.id, startRetryView(step.marker)))
+    )
+      return false;
+    yield* this.#mailbox.requeueForStartRetry(delivery.id, step.marker).pipe(toDeliveryStartFailed);
+    // The answers that were to start with it wait for the next start, in their place.
+    for (const item of batch)
+      if (item.delivery.id !== delivery.id)
+        yield* this.#mailbox.restoreQueued(item.delivery.id).pipe(toDeliveryStartFailed);
+    if (step.type === "fallback") {
+      // The own model is passed over for the wait of its breaker: the move to the backup follows it,
+      // and the agent goes back when the wait ends (`AgentService.#usageLimitMove`).
+      const holdMs = this.#breakers.open(agentId, primary, settings, now, this.#random(), failure.resetsAtMs);
+      this.#usageLimits.failed(agentId, primary.model, holdMs);
+    }
+    this.#mailboxSync.emitQueue(agentId);
+    this.#armStartRetry(agentId, delivery.id, step.marker.nextAt);
+    return true;
+  });
+
+  /**
+   * A turn started. A start that was the try of the agent's own model after its breaker wait closes
+   * the breaker. A channel task that starts while the agent runs on a backup model stays there to
+   * its end, so its work does not move between models.
+   */
+  #startedAfterRetry(agent: AgentSummary, context: DeliveryContext, channelDelivery: boolean): void {
+    const breakers = this.#breakers;
+    if (!breakers) return;
+    const choice = agentChoice(agent);
+    if (breakers.get(agent.id, choice)) {
+      const closed = breakers.close(agent.id, choice);
+      logger.info("A start ran on the agent's own model again.", { agentId: agent.id, closed });
+    }
+    if (!channelDelivery || !breakers.list().some((entry) => entry.agentId === agent.id)) return;
+    const assignment = this.#channels?.store.assignmentForDelivery(context.delivery.id);
+    if (assignment) breakers.pin(agent.id, `${assignment.channelId}\u0000${assignment.taskId}`);
+  }
 
   /**
    * Adds the line of a suspicious scan in front of the message that it checked. The chat shows the
@@ -1300,4 +1503,28 @@ function codexServiceTier(
   const model = models.find((candidate) => candidate.provider === "codex" && candidate.id === agent.model);
   if (!model) return {};
   return { serviceTier: model.fastServiceTier ?? null };
+}
+
+/** The provider, model and account of an agent. */
+function agentChoice(agent: Pick<AgentSummary, "provider" | "model" | "providerAccountId">): AgentModelChoice {
+  return {
+    provider: agent.provider,
+    model: agent.model,
+    ...(agent.providerAccountId ? { providerAccountId: agent.providerAccountId } : {}),
+  };
+}
+
+/** The record of a start that failed, for the channel assignment: its class and key, never its text. */
+function startFailureOf(
+  marker: StartRetryMarker | null,
+  error: unknown,
+  reason: string,
+): { cause: string; errorKey: string | null; attempts: number; fallbackTried: boolean } {
+  const failure = classifyStartFailure(error, reason, { retryAfterUsageLimit: true });
+  return {
+    cause: marker?.cause ?? failure.cause,
+    errorKey: marker?.errorKey ?? failure.errorKey,
+    attempts: marker?.starts ?? 1,
+    fallbackTried: marker?.phase === "fallback",
+  };
 }

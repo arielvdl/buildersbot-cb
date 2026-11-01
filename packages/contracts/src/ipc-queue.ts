@@ -1,6 +1,7 @@
 import { INPUT_LIMITS } from "./input-limits";
 import { type AttachmentSummary, isAttachmentSummary } from "./ipc-attachments";
 import { isBoundedString, isIdentifier } from "./ipc-bounded-values";
+import { isStartRetryView, type StartRetryView } from "./ipc-start-retry-view";
 import { isBoolean, isDynamicRecord, isNumber, isOneOf } from "./runtime-values";
 import type { QueueEditRequest } from "./team-protocol/queue-edit-v1";
 
@@ -73,6 +74,11 @@ export interface QueueDelivery {
    * released Team API response: the shipped adapters project a fixed key list.
    */
   steerFallback?: QueueSteerFallback;
+  /**
+   * The provider did not start this message, and the app tries it again (`StartRetryView`). Local-only:
+   * the released Team API adapters project a fixed key list, so a remote server drops it.
+   */
+  startRetry?: StartRetryView;
 }
 
 /**
@@ -111,7 +117,8 @@ export function isQueueDelivery(value: unknown): value is QueueDelivery {
     isBoundedString(value.createdAt, 160) &&
     (value.editing === undefined || isBoolean(value.editing)) &&
     (value.expectsReply === undefined || isBoolean(value.expectsReply)) &&
-    (value.steerFallback === undefined || isOneOf(QUEUE_STEER_FALLBACKS, value.steerFallback))
+    (value.steerFallback === undefined || isOneOf(QUEUE_STEER_FALLBACKS, value.steerFallback)) &&
+    (value.startRetry === undefined || isStartRetryView(value.startRetry))
   );
 }
 

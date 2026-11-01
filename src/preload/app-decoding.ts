@@ -99,6 +99,7 @@ import {
   isResumeInterruptedWorkResult,
   isSecurityGuardPreference,
   isSpeechVoice,
+  isStartRetryState,
   isStoppedWorkBulkResult,
   isStoppedWorkList,
   isUnreadableSecrets,
@@ -129,6 +130,7 @@ import {
   type SpeechAudio,
   type SpeechModelStatus,
   type SpeechSettings,
+  type StartRetryState,
   type StoppedWorkBulkResult,
   type StoppedWorkList,
   type UnreadableSecret,
@@ -208,6 +210,11 @@ export const decodeStoppedWorkBulkResult: (value: unknown) => StoppedWorkBulkRes
 export const decodeAgentLimitPreference: (value: unknown) => AgentLimitPreference = guardedDecoder(
   isAgentLimitPreference,
   "agent limit preference",
+);
+
+export const decodeStartRetryState: (value: unknown) => StartRetryState = guardedDecoder(
+  isStartRetryState,
+  "start retry settings",
 );
 
 const decodeInterruptedWorkOffer = guardedDecoder(isInterruptedWorkOffer, "resume offer");

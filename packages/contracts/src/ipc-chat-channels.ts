@@ -2,6 +2,7 @@ import { INPUT_LIMITS } from "./input-limits";
 import { isBoundedString, isIdentifier } from "./ipc-bounded-values";
 import { type ConversationMessage, isConversationMessage } from "./ipc-conversation-messages";
 import { optionalHistoryExtent } from "./ipc-decoding";
+import { isStartRetryView, type StartRetryView } from "./ipc-start-retry-view";
 import { type DynamicRecord, isDynamicRecord, isOneOf, isString } from "./runtime-values";
 
 export const CHANNEL_CHATS_CAPABILITY = "channel-chats-v1";
@@ -94,6 +95,13 @@ export interface ChannelTask {
   revision: number;
   assignmentCount: number;
   error: string | null;
+  /**
+   * The provider did not start the task, and the app tries again. Absent otherwise. The channel shows
+   * it in place of the card of a stopped task.
+   */
+  startRetry?: StartRetryView;
+  /** For a start that failed after its tries: how many starts ran. Absent otherwise. */
+  startAttempts?: number;
 }
 
 export interface ChannelMessage {
@@ -297,7 +305,9 @@ export function isChannelTask(value: unknown): value is ChannelTask {
     isOneOf(["queued", "running", "waiting", "paused", "completed", "failed", "cancelled"] as const, value.state) &&
     sequence(value.revision) &&
     sequence(value.assignmentCount) &&
-    (value.error === null || isBoundedString(value.error, INPUT_LIMITS.messageText))
+    (value.error === null || isBoundedString(value.error, INPUT_LIMITS.messageText)) &&
+    (value.startRetry === undefined || isStartRetryView(value.startRetry)) &&
+    (value.startAttempts === undefined || sequence(value.startAttempts))
   );
 }
 

@@ -76,6 +76,7 @@ export const messages = defineMessages("error.agent", {
   "error.agent.profileInvalid": "The provider returned an invalid profile. Try revising your prompt.",
   "error.agent.profileSectionUnavailable":
     "The generated section is unavailable. Try again or choose a section manually.",
+  "error.agent.fallbackUnavailable": "The backup model of this agent is not ready, so the task did not start.",
   "error.agent.profileTimedOut": "Profile generation timed out. Try again.",
   "error.agent.profileDisconnected": "The provider disconnected while generating the profile.",
   "error.agent.profileToolUse": "The provider attempted to use a tool. Try revising your prompt.",

@@ -52,7 +52,7 @@ import {
 } from "./channel-management";
 import { ChannelMemoryStore } from "./channel-memory-store";
 import type { ChannelChange } from "./channel-store";
-import { type ChannelAssignment, type ChannelContext, ChannelStore } from "./channel-store";
+import { type ChannelAssignment, type ChannelContext, type ChannelStartFailure, ChannelStore } from "./channel-store";
 import { cleanTopicName, topicNamePrompt } from "./channel-topic-name";
 import type { DeliveryContext, MailboxStore } from "./mailbox-store";
 import type { BuildersBotDatabase } from "./openbot-database";
@@ -132,13 +132,14 @@ export interface ChannelLaneSnapshot {
 
 /**
  * Why the pump of a channel would not start a queued task now (`ChannelService.queuedHolds`).
+ * `retrying`: the provider did not start it, and the drain waits to try again (`start-retry.ts`).
  * `starting`: the task has an active assignment of its own, so its start is under way. `owner-busy`:
  * its owner runs a turn or has messages in its queue. `waits`: anything else that holds it back: a
  * root that stopped, a lead or owner that is hidden or held by a spent plan, a dependency that is not
  * complete, a full tab (`CHANNEL_PARALLEL_LIMIT`), an assignment of its owner in another place, a
  * resource that another run holds, or an older request that waits for the same resource.
  */
-export type ChannelQueueHold = "starting" | "owner-busy" | "waits";
+export type ChannelQueueHold = "retrying" | "starting" | "owner-busy" | "waits";
 
 /** What `ChannelService.closeStopped` did. */
 export interface ClosedStoppedTasks {
@@ -1096,7 +1097,8 @@ export class ChannelService {
     tasks: ReadonlyMap<string, ChannelTask>,
     assignments: readonly ChannelAssignment[],
   ): ChannelQueueHold | null {
-    if (assignments.some((assignment) => assignment.taskId === task.id)) return "starting";
+    const own = assignments.find((assignment) => assignment.taskId === task.id);
+    if (own) return own.startRetry ? "retrying" : "starting";
     const root = tasks.get(task.rootTaskId);
     if (root && (root.state === "paused" || root.state === "failed" || root.state === "cancelled")) return "waits";
     const channel = this.store.get(task.channelId);
@@ -2038,7 +2040,15 @@ export class ChannelService {
     };
   }
 
-  deliveryFailed(deliveryId: string, reason: string): Effect.Effect<void, ChannelOperationError> {
+  /**
+   * `failure` is the end of a start retry: the assignment keeps its class and key, never the text, so
+   * the task reviewer and the card can tell why. The task keeps the stored reason as before.
+   */
+  deliveryFailed(
+    deliveryId: string,
+    reason: string,
+    failure?: ChannelStartFailure,
+  ): Effect.Effect<void, ChannelOperationError> {
     return Effect.gen({ self: this }, function* () {
       this.#deltas.delete(deliveryId);
       this.#preparedChanges.delete(deliveryId);
@@ -2049,7 +2059,9 @@ export class ChannelService {
       );
       yield* channelSync(() =>
         this.store.update(this.store.get(assignment.channelId), {
-          assignments: [{ ...assignment, state: "failed" }],
+          assignments: [
+            { ...withoutStartRetry(assignment), state: "failed", ...(failure ? { startFailure: failure } : {}) },
+          ],
           tasks: task?.revision === assignment.taskRevision ? [{ ...task, state: "failed", error: reason }] : [],
         }),
       );
@@ -2057,6 +2069,30 @@ export class ChannelService {
       yield* this.#releaseHeldAgents([assignment.agentId]);
     });
   }
+
+  /**
+   * The provider did not start this delivery, and the drain tries it again (`start-retry.ts`). The
+   * assignment and its delivery stay, queued, so the task keeps its owner and its place; the task is
+   * queued with no error, and the channel shows `retry` in place of the card of a stopped task. False
+   * when there is no active assignment, a transfer is pending, or the task changed.
+   */
+  readonly holdForStartRetry = Effect.fn("ChannelService.holdForStartRetry")(function* (
+    this: ChannelService,
+    deliveryId: string,
+    retry: NonNullable<ChannelAssignment["startRetry"]>,
+  ) {
+    const assignment = this.store.assignmentForDelivery(deliveryId);
+    if (!assignment || !activeAssignment(assignment) || assignment.pendingRevision !== null) return false;
+    const task = this.store.tasks(assignment.channelId).find((item) => item.id === assignment.taskId);
+    if (!task || task.revision !== assignment.taskRevision || (task.state !== "queued" && task.state !== "running"))
+      return false;
+    this.store.update(this.store.get(assignment.channelId), {
+      assignments: [{ ...assignment, state: "queued", turnId: null, startRetry: retry }],
+      tasks: [{ ...task, state: "queued", error: null }],
+    });
+    this.publish(assignment.channelId);
+    return true;
+  });
 
   /**
    * A spent provider plan holds the agent of this delivery. The task goes back to the queue with a
@@ -2487,7 +2523,7 @@ export class ChannelService {
       }
       yield* channelSync(() =>
         this.store.update(this.store.get(assignment.channelId), {
-          assignments: [{ ...assignment, ...cursor, state: "running", turnId }],
+          assignments: [{ ...withoutStartRetry(assignment), ...cursor, state: "running", turnId }],
           tasks: task.revision === assignment.taskRevision ? [{ ...task, state: "running" }] : [],
         }),
       );
@@ -3707,4 +3743,11 @@ function canonicalWorkspace(path: string): string {
     if (parent === path) return normalize(path);
     return join(canonicalWorkspace(parent), basename(path));
   }
+}
+
+/** An assignment without its start retry, as the start that ran or failed leaves it. */
+function withoutStartRetry(assignment: ChannelAssignment): ChannelAssignment {
+  const copy = { ...assignment };
+  delete copy.startRetry;
+  return copy;
 }

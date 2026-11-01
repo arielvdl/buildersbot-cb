@@ -159,22 +159,30 @@ export class UsageLimitGate {
    * The model is passed over until the hold ends or a turn on it completes. Then the agents that
    * left it go back.
    */
-  failed(agentId: string, model: string | null = null): void {
+  failed(agentId: string, model: string | null = null, holdMs = PROVIDER_FAILURE_HOLD_MS): void {
     const agent = this.#agent(agentId);
     if (!agent) return;
-    const provider = providerForAgent(agent);
-    const accountId = accountOf(agent);
-    const turnModel = model ?? agent.model;
-    const key = limitKey(provider, accountId, turnModel);
+    this.failedModel(
+      { provider: providerForAgent(agent), accountId: accountOf(agent), model: model ?? agent.model },
+      holdMs,
+    );
+  }
+
+  /**
+   * Passes over one provider account and model for `holdMs`, as `failed` does. The start retry uses it
+   * with the wait of its breaker, also after a restart, when the agent may already run on its backup.
+   */
+  failedModel(limit: UsageLimitKey, holdMs = PROVIDER_FAILURE_HOLD_MS): void {
+    const key = limitKey(limit.provider, limit.accountId, limit.model);
     const previous = this.#failures.get(key);
     if (previous) clearTimeout(previous.timer);
     this.#failures.set(key, {
-      provider,
-      accountId,
-      model: turnModel,
+      provider: limit.provider,
+      accountId: limit.accountId,
+      model: limit.model,
       timer: setTimeout(
         () => Effect.runFork(this.#releaseFailure(key).pipe(Effect.forkIn(this.#scope))),
-        PROVIDER_FAILURE_HOLD_MS,
+        Math.min(MAX_TIMER_MS, Math.max(0, holdMs)),
       ),
     });
   }

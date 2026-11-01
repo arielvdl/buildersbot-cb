@@ -48,6 +48,7 @@ import { StoredStateFailure, storedIO, storedSync, toStoredStateFailure } from "
 
 export type { ExportedAttachmentFile, GeneratedAttachmentSource } from "./attachment-files";
 
+import { isStartRetryMarker, type StartRetryMarker, startRetryView, untilMs } from "./agent/start-retry";
 import { isEmptyStoredFile, parseStoredJson } from "./atomic-json-file";
 import { mailboxReactionRowKey } from "./database/mailbox-projection";
 import {
@@ -173,6 +174,8 @@ interface StoredDelivery {
   resumeAfterUsageLimit?: UsageLimitContinuation;
   /** Builders Bot's automatic plan continuations of this delivery. Kept out of queue snapshots. */
   planContinuation?: PlanContinuationMarker;
+  /** The provider did not start this delivery, and the drain tries it again (`start-retry.ts`). */
+  startRetry?: StartRetryMarker;
 }
 
 /** A delivery that waits for its automatic plan continuation. It is queued, but not in the queue the user sees. */
@@ -251,6 +254,7 @@ export interface DeliveryContext {
   managedAttachments: Array<AttachmentSummary & { path: string }>;
   resumeAfterUsageLimit?: UsageLimitContinuation;
   planContinuation?: PlanContinuationMarker;
+  startRetry?: StartRetryMarker;
   channelId?: string;
 }
 
@@ -1539,6 +1543,22 @@ export class MailboxStore {
     return delivery && this.#mayStart(delivery) ? this.#context(delivery, undefined, messages) : null;
   }
 
+  /** The start retry of the delivery at the head of this lane, whatever its wait, or undefined. */
+  queuedStartRetry(agentId: string, taskId: string | null = null): StartRetryMarker | undefined {
+    // The drain asks this for each lane it reads, and almost no delivery has a retry.
+    if (
+      !this.#state.deliveries.some(
+        (delivery) => delivery.startRetry && delivery.status === "queued" && delivery.recipientAgentId === agentId,
+      ) ||
+      this.laneActive(agentId, taskId)
+    )
+      return undefined;
+    const messages = this.#messagesById();
+    return this.#queuedFor(agentId).find(
+      (candidate) => this.#taskIdOf(candidate, messages) === taskId && !this.#isHeldReply(candidate),
+    )?.startRetry;
+  }
+
   /**
    * The teammate answers that start in the same turn as this delivery. For an answer, these are the
    * other answers to the same request. For a message from the person, these are the answers that
@@ -1639,7 +1659,18 @@ export class MailboxStore {
   }
 
   #mayStart(delivery: StoredDelivery): boolean {
-    return !delivery.editId && !this.#queueUpdates.has(delivery.id);
+    return (
+      !delivery.editId && !this.#queueUpdates.has(delivery.id) && untilMs(delivery.startRetry?.nextAt ?? null) === 0
+    );
+  }
+
+  /** The deliveries that wait for a start retry, with the time each may start. Read at boot to arm the timers. */
+  startRetries(): { agentId: string; deliveryId: string; nextAt: string | null }[] {
+    return this.#state.deliveries.flatMap((delivery) =>
+      delivery.status === "queued" && delivery.startRetry
+        ? [{ agentId: delivery.recipientAgentId, deliveryId: delivery.id, nextAt: delivery.startRetry.nextAt }]
+        : [],
+    );
   }
 
   /**
@@ -1993,6 +2024,7 @@ export class MailboxStore {
       const stored = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
       const continuation = stored?.resumeAfterUsageLimit;
       const planContinuation = stored?.planContinuation;
+      if (stored?.status === "starting") delete stored.startRetry;
       yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], {
         status: "running",
         turnId,
@@ -2549,6 +2581,36 @@ export class MailboxStore {
     }
   }, Effect.uninterruptible).bind(this);
 
+  /**
+   * A start that failed, back at its place in the queue with its start retry. The queue does not
+   * start it before `marker.nextAt`.
+   */
+  requeueForStartRetry = Effect.fn("MailboxStore.requeueForStartRetry")(function* (
+    this: MailboxStore,
+    deliveryId: string,
+    marker: StartRetryMarker,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting"], {
+        status: "queued",
+        turnId: null,
+        error: null,
+        startRetry: marker,
+      });
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
+  /** Ends the start retry of a queued delivery, so it starts at once, such as when the person sends it again. */
+  clearStartRetry(deliveryId: string): void {
+    const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
+    if (!delivery?.startRetry) return;
+    delete delivery.startRetry;
+    this.#changes.deliveryIds.add(delivery.id);
+    this.#persist("delivery.updated");
+  }
+
   /** A refused delivery, or unfinished work that a backup continues, back at its place in the queue. */
 
   requeueRefused = Effect.fn("MailboxStore.requeueRefused")(function* (
@@ -3044,6 +3106,7 @@ export class MailboxStore {
       delivery: this.#publicDelivery(delivery, positions, message),
       ...(delivery.resumeAfterUsageLimit ? { resumeAfterUsageLimit: delivery.resumeAfterUsageLimit } : {}),
       ...(delivery.planContinuation ? { planContinuation: delivery.planContinuation } : {}),
+      ...(delivery.startRetry ? { startRetry: delivery.startRetry } : {}),
       ...(message.channelId ? { channelId: message.channelId } : {}),
       managedAttachments: message.attachments.map((attachment) => ({
         ...toAttachmentSummary(attachment),
@@ -3072,6 +3135,7 @@ export class MailboxStore {
       steerFallback,
       resumeAfterUsageLimit: _resumeAfterUsageLimit,
       planContinuation: _planContinuation,
+      startRetry,
       ...publicDelivery
     } = delivery;
     // Between two turns of one request, the request still runs for the person who sent it.
@@ -3082,6 +3146,7 @@ export class MailboxStore {
     return {
       ...publicDelivery,
       ...(steerFallback && delivery.status === "queued" ? { steerFallback } : {}),
+      ...(startRetry && delivery.status === "queued" ? { startRetry: startRetryView(startRetry) } : {}),
       sender: structuredClone(message.sender),
       text: message.text,
       attachments: message.attachments.map(toAttachmentSummary),
@@ -3509,6 +3574,7 @@ function isStoredDelivery(value: unknown): value is StoredDelivery {
         isString(value.resumeAfterUsageLimit.workSteps) &&
         Array.isArray(value.resumeAfterUsageLimit.previousTurnIds) &&
         value.resumeAfterUsageLimit.previousTurnIds.every(isString))) &&
+    (value.startRetry === undefined || isStartRetryMarker(value.startRetry)) &&
     (value.planContinuation === undefined ||
       (isRecord(value.planContinuation) &&
         Array.isArray(value.planContinuation.turnIds) &&
