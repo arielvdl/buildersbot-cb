@@ -80,15 +80,15 @@ interface ConversationResources {
   voiceMeterStop: (() => void) | undefined;
   voiceAgentId: string | undefined;
   voiceServerId: string | undefined;
+  /** The channel tab that the recording is for. Undefined for an agent's chat. */
+  voiceTabId: string | undefined;
   /** The thread sends its draft when the recording's text is in it. */
   voiceThreadSend: boolean;
   voiceSubmitRequest:
-    | {
-        agentId: string;
-        serverId: string;
+    | (ConversationTarget & {
         draft: ComposerDraft;
         queuedEdit: { deliveryId: string; originalAttachmentIds: string[] } | undefined;
-      }
+      })
     | undefined;
   voiceDisposed: boolean;
   voiceRequestGeneration: number;
@@ -261,6 +261,7 @@ export function createStableConversationState(
     voiceMeterStop: undefined,
     voiceAgentId: undefined,
     voiceServerId: undefined,
+    voiceTabId: undefined,
     voiceThreadSend: false,
     voiceSubmitRequest: undefined,
     voiceDisposed: false,

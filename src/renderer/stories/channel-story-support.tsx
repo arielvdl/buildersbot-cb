@@ -11,6 +11,7 @@ import type { ChannelWorker } from "@openbot/ui/features/channels/ChannelActivit
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
 import type { AwaitingReplyItem } from "@openbot/ui/features/conversation/AwaitingReplies";
+import { createSignal, For, Show } from "solid-js";
 import { fn } from "storybook/test";
 import type { ConversationChannelSource } from "../src/features/conversation/conversation-types";
 import { StoryConversation } from "./conversation-story-support";
@@ -99,15 +100,23 @@ export interface ChannelStoryProps {
   activeTurnId?: string | null;
   unreadCount?: number;
   firstUnreadMessageId?: string | null;
+  /**
+   * The tabs of the channel, the first one open. A plain tab row in the header switches them, and a
+   * list above the composer shows each message sent, with its tab: each tab keeps its own draft.
+   */
+  tabs?: { id: string; name: string }[];
 }
 
 /** The channel chat on a mocked bridge, for a story that shows a channel or composes screens. */
 export function StoryChannelConversation(props: ChannelStoryProps) {
   const name = () => props.name ?? "Project room";
   const agentName = (id: string | null) => STORY_AGENTS.find((agent) => agent.id === id)?.name ?? "Unassigned";
+  const [tabId, setTabId] = createSignal<string | null>(props.tabs?.[0]?.id ?? null);
+  const [sent, setSent] = createSignal<{ tab: string; text: string }[]>([]);
+  const tabName = (id: string | null | undefined) => props.tabs?.find((tab) => tab.id === id)?.name ?? "none";
   const source: ConversationChannelSource = {
     id: "story-channel",
-    tabId: () => null,
+    tabId,
     name,
     readOnly: () => props.archived === true,
     author: (message) => {
@@ -119,17 +128,50 @@ export function StoryChannelConversation(props: ChannelStoryProps) {
     interactionAgentName: () => undefined,
     awaitingReplies: () => props.awaiting ?? [],
     HeaderTitle: () => (
-      <Button variant="ghost" size="sm" class="conversation-title channel-title no-drag" aria-label="Channel settings">
-        <ChannelAvatar members={members} agents={STORY_AGENTS} />
-        <span class="channel-header-copy">
-          <h1>{name()}</h1>
-          <span class="channel-header-title">Quarterly launch</span>
-        </span>
-      </Button>
+      <>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="conversation-title channel-title no-drag"
+          aria-label="Channel settings"
+        >
+          <ChannelAvatar members={members} agents={STORY_AGENTS} />
+          <span class="channel-header-copy">
+            <h1>{name()}</h1>
+            <span class="channel-header-title">Quarterly launch</span>
+          </span>
+        </Button>
+        <Show when={props.tabs}>
+          {(tabs) => (
+            <div role="tablist" aria-label="Channel tabs" class="no-drag">
+              <For each={tabs()}>
+                {(tab) => (
+                  <Button
+                    variant={tabId() === tab.id ? "secondary" : "ghost"}
+                    size="sm"
+                    role="tab"
+                    aria-selected={tabId() === tab.id ? "true" : "false"}
+                    onClick={() => setTabId(tab.id)}
+                  >
+                    {tab.name}
+                  </Button>
+                )}
+              </For>
+            </div>
+          )}
+        </Show>
+      </>
     ),
     SettingsPane: () => null,
     AboveComposer: () => (
-      <ChannelStoppedTasks tasks={props.stopped ?? []} members={members} name={agentName} onResume={fn()} />
+      <>
+        <Show when={props.tabs && sent().length > 0}>
+          <ul aria-label="Sent channel messages">
+            <For each={sent()}>{(entry) => <li>{`${entry.tab}: ${entry.text}`}</li>}</For>
+          </ul>
+        </Show>
+        <ChannelStoppedTasks tasks={props.stopped ?? []} members={members} name={agentName} onResume={fn()} />
+      </>
     ),
     EmptyState: () => (
       <div class="channel-empty">
@@ -150,6 +192,11 @@ export function StoryChannelConversation(props: ChannelStoryProps) {
       activeTurnId={props.activeTurnId ?? null}
       unreadCount={props.unreadCount ?? 0}
       firstUnreadMessageId={props.firstUnreadMessageId ?? null}
+      onSendMessage={async (body, _attachmentDraftIds, _replyToMessageId, target) => {
+        // The tab of the draft, as the channel controller sends it.
+        setSent((current) => [...current, { tab: tabName(target?.tabId), text: body }]);
+        return { messageId: `storybook-sent-${Date.now()}` };
+      }}
     />
   );
 }

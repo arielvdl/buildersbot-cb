@@ -110,6 +110,7 @@ function createTasksVoice(controls: TasksVoiceControls): TasksVoiceAdapter {
     voiceMeterStop: undefined,
     voiceAgentId: undefined,
     voiceServerId: undefined,
+    voiceTabId: undefined,
     voiceThreadSend: false,
   };
   const showError = (message: string | null) => {
