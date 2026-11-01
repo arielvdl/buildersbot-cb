@@ -1,7 +1,9 @@
 import { AgentMark } from "@openbot/brand/agent-mark";
-import type { GuardLevel } from "@openbot/contracts/ipc";
+import { GUARD_LEVELS, type GuardAvailableLevel, type GuardLevel, isGuardAvailableLevel } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { createUniqueId, Show } from "solid-js";
+import { RadioGroup } from "@openbot/ui";
+import type { JSX } from "@solidjs/web";
+import { createUniqueId, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { cx } from "../../utils";
 import { createTaskListPlayState } from "../conversation/TaskList";
@@ -136,6 +138,19 @@ export function GuardSiren(props: GuardSirenProps) {
   );
 }
 
+/** The Guard's box of a level, small and still, as the level cards show it. */
+function GuardBox(props: { level: GuardLevel; class?: string | undefined }) {
+  return (
+    <AgentMark
+      class={props.class}
+      mood={props.level === "off" ? "asleep" : "idle"}
+      accent={boxColor(props.level)}
+      animated={false}
+      emblem={() => <GuardShield alert={false} />}
+    />
+  );
+}
+
 /** The shield on the right face of the box: a keyhole, or "!" while the Guard asks. */
 function GuardShield(props: { alert: boolean }) {
   return (
@@ -169,8 +184,9 @@ const STATUS_TEXT = {
   ready: "guard.siren.status.ready",
 } as const satisfies Record<GuardSirenStatus, AppTextKey>;
 
+/** The short name of each level, as the siren and the level cards show it. */
 const LEVEL_NAME = {
-  off: "guard.level.off",
+  off: "guard.level.offShort",
   light: "guard.level.light",
   strict: "guard.level.strict",
   "very-strict": "guard.level.veryStrict",
@@ -178,25 +194,75 @@ const LEVEL_NAME = {
 } as const satisfies Record<GuardLevel, AppTextKey>;
 
 /**
- * The top of the Guard page: the siren, large, the name of the level, and what the Guard does now.
- * The level list of the page sets the level; this follows it. While the level is not known (null),
- * the siren is asleep and the name does not show.
+ * The top of the Guard page: the siren, large, the name of the level and what the Guard does now, in a
+ * region that screen readers can find, and `children` under it, such as the level cards. While the
+ * level is not known (null), the siren is asleep and the name does not show.
  */
-export function GuardSirenHero(props: { level: GuardLevel | null; status: GuardSirenStatus }) {
+export function GuardSirenHero(props: { level: GuardLevel | null; status: GuardSirenStatus; children?: JSX.Element }) {
   const { t } = useText();
   return (
-    <section class="guard-siren-hero" data-level={props.level ?? undefined} aria-label={t("guard.siren.label")}>
-      <div class="guard-siren-stage">
-        <GuardSiren level={props.level} asking={props.status === "asking"} size="hero" />
-      </div>
-      <div class="guard-siren-caption">
-        <Show when={props.level}>
-          {(level) => <strong class="guard-siren-level">{t(LEVEL_NAME[level()])}</strong>}
-        </Show>
-        <span class="guard-siren-status" role="status">
-          {t(STATUS_TEXT[props.status])}
-        </span>
-      </div>
-    </section>
+    <div class="guard-siren-hero" data-level={props.level ?? undefined}>
+      <section class="guard-siren-region" aria-label={t("guard.siren.label")}>
+        <div class="guard-siren-stage">
+          <GuardSiren level={props.level} asking={props.status === "asking"} size="hero" />
+        </div>
+        <div class="guard-siren-caption">
+          <Show when={props.level}>
+            {(level) => <strong class="guard-siren-level">{t(LEVEL_NAME[level()])}</strong>}
+          </Show>
+          <span class="guard-siren-status" role="status">
+            {t(STATUS_TEXT[props.status])}
+          </span>
+        </div>
+      </section>
+      {props.children}
+    </div>
+  );
+}
+
+/**
+ * The level cards under the siren, as in the approved P1 mockup: one card for each level, with the
+ * Guard's box of that level. Off and Light can be chosen; the stricter levels show "Soon". The card of
+ * the chosen level is lifted and marked, in neutral colors. It is a radio group, so the arrow keys
+ * move between the levels that can be chosen.
+ */
+export function GuardLevelChoice(props: {
+  /** Null while the level is not known: no card is chosen. */
+  value: GuardLevel | null;
+  disabled: boolean;
+  onChange: (level: GuardAvailableLevel) => void;
+}) {
+  const { t } = useText();
+  return (
+    <RadioGroup.Root
+      class="guard-level-choice"
+      aria-label={t("guard.level.choose")}
+      orientation="horizontal"
+      value={props.value ?? ""}
+      disabled={props.disabled}
+      onChange={(value) => {
+        if (isGuardAvailableLevel(value) && value !== props.value) props.onChange(value);
+      }}
+    >
+      <For each={GUARD_LEVELS}>
+        {(level) => (
+          <RadioGroup.Item class="guard-level-option" value={level} disabled={!isGuardAvailableLevel(level)}>
+            <RadioGroup.ItemInput />
+            <RadioGroup.ItemControl class="guard-level-card">
+              <span class="guard-level-chosen" aria-hidden="true">
+                {t("guard.level.chosen")}
+              </span>
+              <GuardBox level={level} class="guard-level-box" />
+              <RadioGroup.ItemLabel class="guard-level-name">{t(LEVEL_NAME[level])}</RadioGroup.ItemLabel>
+              <Show when={!isGuardAvailableLevel(level)}>
+                <RadioGroup.ItemDescription class="guard-level-soon">
+                  {t("guard.level.soon")}
+                </RadioGroup.ItemDescription>
+              </Show>
+            </RadioGroup.ItemControl>
+          </RadioGroup.Item>
+        )}
+      </For>
+    </RadioGroup.Root>
   );
 }

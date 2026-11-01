@@ -8,11 +8,15 @@ export const messages = defineMessages("guard", {
   "guard.level.title": "Level",
   "guard.level.description": "How careful the Guard is. Light is the default.",
   "guard.level.off": "Off (asleep)",
+  "guard.level.offShort": "Off",
   "guard.level.light": "Light",
   "guard.level.strict": "Strict",
   "guard.level.veryStrict": "Very strict",
   "guard.level.custom": "Custom",
   "guard.level.comingSoon": "{level} (coming soon)",
+  "guard.level.choose": "Choose the level",
+  "guard.level.chosen": "Chosen",
+  "guard.level.soon": "Soon",
   "guard.level.offExplain":
     "The Guard is asleep and checks nothing. Choose Off only to turn the Guard off completely. You can turn it on again at any time.",
   "guard.level.lightExplain":

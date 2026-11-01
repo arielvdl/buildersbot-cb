@@ -8,11 +8,15 @@ export const messages = {
   "guard.level.title": "Nível",
   "guard.level.description": "Quão cuidadoso o Guarda é. Leve é o padrão.",
   "guard.level.off": "Desligado (dormindo)",
+  "guard.level.offShort": "Desligado",
   "guard.level.light": "Leve",
   "guard.level.strict": "Exigente",
   "guard.level.veryStrict": "Muito exigente",
   "guard.level.custom": "Personalizado",
   "guard.level.comingSoon": "{level} (em breve)",
+  "guard.level.choose": "Escolha o nível",
+  "guard.level.chosen": "Escolhido",
+  "guard.level.soon": "Em breve",
   "guard.level.offExplain":
     "O Guarda está dormindo e não confere nada. Escolha Desligado só para desligar o Guarda por completo. Você pode ligá-lo de novo quando quiser.",
   "guard.level.lightExplain":

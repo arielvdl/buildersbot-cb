@@ -311,14 +311,20 @@
   }
 }
 
-/* The top of the Guard page: the siren on a stage that the beams sweep, the level and the state. */
+/* The top of the Guard page: the siren on a stage that the beams sweep, the level and the state, and
+   the level cards under them. */
 .guard-siren-hero {
   --guard-siren-hero-tint: var(--openbot-guard-off);
 
   display: grid;
   gap: var(--openbot-space-3);
-  justify-items: center;
   margin-bottom: var(--openbot-space-6);
+}
+
+.guard-siren-region {
+  display: grid;
+  gap: var(--openbot-space-3);
+  justify-items: center;
 }
 
 /* A settings card, with the light of the level from below. The beams stop at its edge. */
@@ -381,4 +387,119 @@
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
   line-height: var(--openbot-leading-sm);
+}
+
+/* The level cards under the siren (P1): neutral borders, and the chosen card lifted and marked in the
+   text color, not in the color of a level. The space on top holds the mark of a lifted card. */
+.guard-level-choice {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--openbot-space-2);
+  width: 100%;
+  padding-top: var(--openbot-space-3);
+}
+
+.guard-level-option {
+  display: flex;
+  flex: 1 1 84px;
+  min-width: 0;
+  max-width: 128px;
+}
+
+.guard-level-card {
+  position: relative;
+  display: grid;
+  flex: 1;
+  align-content: start;
+  justify-items: center;
+  gap: var(--openbot-space-1);
+  min-width: 0;
+  padding: var(--openbot-space-3) var(--openbot-space-1) var(--openbot-space-2);
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-secondary);
+  cursor: pointer;
+  transition-property: background-color, border-color, transform;
+  transition-duration: var(--openbot-duration-hover), var(--openbot-duration-normal), var(--openbot-duration-normal);
+  transition-timing-function: var(--openbot-ease-out);
+}
+
+.guard-level-card:not([data-disabled]):hover {
+  background: var(--openbot-bg-control-hover);
+}
+
+.guard-level-card[data-checked] {
+  border-color: color-mix(in oklab, var(--openbot-text-primary) 62%, transparent);
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-primary);
+  transform: translateY(calc(var(--openbot-space-1) * -1));
+}
+
+.guard-level-card[data-disabled] {
+  cursor: default;
+}
+
+.guard-level-option:has(:focus-visible) .guard-level-card {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: 2px;
+}
+
+/* The mark of the chosen card, on its top edge. */
+.guard-level-chosen {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  padding: 0 var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-primary);
+  color: var(--openbot-bg-canvas);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-bold);
+  letter-spacing: 0.04em;
+  line-height: var(--openbot-leading-sm);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.guard-level-card[data-checked] .guard-level-chosen {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.guard-level-box {
+  width: 44px;
+  height: 44px;
+}
+
+/* A level that comes later shows its box faded. */
+.guard-level-card[data-disabled] .guard-level-box {
+  opacity: 0.45;
+}
+
+.guard-level-name {
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-sm);
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.guard-level-card[data-checked] .guard-level-name {
+  font-weight: var(--openbot-weight-bold);
+}
+
+.guard-level-soon {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guard-level-card,
+  .guard-level-chosen {
+    transition: none;
+  }
 }

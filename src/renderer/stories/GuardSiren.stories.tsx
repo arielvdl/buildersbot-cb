@@ -1,6 +1,7 @@
-import { GUARD_LEVELS } from "@openbot/contracts/ipc";
+import { GUARD_LEVELS, type GuardLevel } from "@openbot/contracts/ipc";
 import { Heading } from "@openbot/ui";
-import { GuardSiren, GuardSirenHero } from "@openbot/ui/features/guard/GuardSiren";
+import { GuardLevelChoice, GuardSiren, GuardSirenHero } from "@openbot/ui/features/guard/GuardSiren";
+import { createSignal } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import "./guard-siren-story.css";
 
@@ -29,6 +30,18 @@ type Story = StoryObj<typeof meta>;
 
 /** The top of the Guard page, Light: the siren stays down in the box, as in the P1 mockup. */
 export const Hero: Story = {};
+
+/** The top of the Guard page with the level cards under the siren. A card sets the level. */
+export const HeroWithLevels: Story = {
+  render: () => {
+    const [level, setLevel] = createSignal<GuardLevel>("light");
+    return (
+      <GuardSirenHero level={level()} status={level() === "off" ? "off" : "ready"}>
+        <GuardLevelChoice value={level()} disabled={false} onChange={setLevel} />
+      </GuardSirenHero>
+    );
+  },
+};
 
 /** Before the page reads the Guard: the box is asleep and the level has no name yet. */
 export const HeroLoading: Story = { args: { level: null, status: "loading" } };

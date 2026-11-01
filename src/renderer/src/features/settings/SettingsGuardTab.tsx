@@ -22,7 +22,7 @@ import {
   SettingsSection,
   TriangleAlert,
 } from "@openbot/ui";
-import { GuardSirenHero, type GuardSirenStatus } from "@openbot/ui/features/guard/GuardSiren";
+import { GuardLevelChoice, GuardSirenHero, type GuardSirenStatus } from "@openbot/ui/features/guard/GuardSiren";
 import { useText } from "@openbot/ui/text";
 import { For, Match, Show, Switch } from "solid-js";
 import { type GuardModelRow, guardModelKey, guardModelName, type SettingsGuardStore } from "./settings-guard-store";
@@ -44,13 +44,14 @@ const LEAVES = [
 ] as const satisfies ReadonlyArray<AppTextKey>;
 
 /**
- * Settings › Guard: the siren of the Guard, the level of the Guard and the model that reviews
- * suspicious items. Off and Light run now; the stricter levels show as coming soon. The page says
- * what the Guard does now, when the Guard uses only the local check, such as with no Cultura Builder
- * sign-in, when it asks the person, and what leaves the computer. It links to the task reviewer,
- * which asks the same model, to the load panel, and to the security review of messages, a separate
- * check that people can take for a part of the Guard. The Guard runs on this computer, so a joined
- * server gets a note that its own Guard is not changed here.
+ * Settings › Guard: the siren of the Guard with the level cards under it, the level of the Guard and
+ * the model that reviews suspicious items. Off and Light run now; the stricter levels show as coming
+ * soon. The cards and the level list set the same level. The page says what the Guard does now, when
+ * the Guard uses only the local check, such as with no Cultura Builder sign-in, when it asks the
+ * person, and what leaves the computer. It links to the task reviewer, which asks the same model, to
+ * the load panel, and to the security review of messages, a separate check that people can take for
+ * a part of the Guard. The Guard runs on this computer, so a joined server gets a note that its own
+ * Guard is not changed here.
  */
 export function SettingsGuardTab(props: {
   store: SettingsGuardStore;
@@ -96,10 +97,16 @@ export function SettingsGuardTab(props: {
     if (!current.judgeReady) return choice.provider === "cultura-builder" ? "signed-out" : "unavailable";
     return "ready";
   };
+  const chooseLevel = (value: GuardLevel | null | undefined) => {
+    if (value && isGuardAvailableLevel(value) && value !== level()) props.store.setLevel(value);
+  };
 
   return (
     <>
-      <GuardSirenHero level={savedLevel()} status={sirenStatus()} />
+      <GuardSirenHero level={savedLevel()} status={sirenStatus()}>
+        {/* Only while it loads: a card keeps the focus while the level saves, for the arrow keys. */}
+        <GuardLevelChoice value={savedLevel()} disabled={guard() === null} onChange={chooseLevel} />
+      </GuardSirenHero>
       <Show when={props.joinedServer}>
         {(server) => (
           <Alert tone="neutral" role="status">
@@ -127,9 +134,7 @@ export function SettingsGuardTab(props: {
                 value={level()}
                 disabled={busy()}
                 optionDisabled={(option) => !isGuardAvailableLevel(option)}
-                onChange={(value) => {
-                  if (value && isGuardAvailableLevel(value) && value !== level()) props.store.setLevel(value);
-                }}
+                onChange={chooseLevel}
                 placement="bottom-end"
                 itemComponent={(itemProps) => (
                   <SelectItem item={itemProps.item}>{levelLabel(itemProps.item.rawValue)}</SelectItem>
