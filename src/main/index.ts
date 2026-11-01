@@ -378,9 +378,14 @@ if (!app.isPackaged || hostedServer || serverMode || localServerChild) {
     quitStarted = true;
     quitApplication();
   };
-  process.once("SIGINT", quitAfterSignal);
-  process.once("SIGTERM", quitAfterSignal);
-  process.once("SIGHUP", quitAfterSignal);
+  // `on`, not `once`: after one call the default action comes back, and a second signal while the
+  // teardown ran ended the process before its database closed. A server on this computer can get two:
+  // one from a script that stops processes by name (`pkill -f`), then the `SIGTERM` of the app 2 s
+  // after its input closes. `before-quit` holds each repeat; the shutdown deadline and a
+  // `SIGKILL` still end the process.
+  process.on("SIGINT", quitAfterSignal);
+  process.on("SIGTERM", quitAfterSignal);
+  process.on("SIGHUP", quitAfterSignal);
   // The desktop app holds the other end of stdin. Its end means that the app stopped, also by a crash.
   if (localServerChild) {
     process.stdin.once("end", quitAfterSignal);
