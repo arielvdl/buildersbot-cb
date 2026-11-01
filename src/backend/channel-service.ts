@@ -31,6 +31,7 @@ import {
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { isFixedSourceText, matchingSourceKeys, sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Exit, Fiber, Result, Schema, Scope } from "effect";
+import { CHANNEL_CONTEXT_SPILL, HISTORY_PAGE_LIMIT, historyLine, readPage } from "./channel-context-spill";
 import { type ChannelOperationError, channelFailure, channelResult, channelSync } from "./channel-effects";
 import {
   assignmentText,
@@ -106,6 +107,8 @@ export interface ChannelHooks {
    * packet leave out the messages that the session read: a compaction resets what it read.
    */
   reportsCompactions?(agentId: string): boolean;
+  /** Whether an optimization of Settings > Advanced optimizations is on. Omitted, each one is off. */
+  optimizationEnabled?(id: string): boolean;
   /** The thread's snapshot when main has it in memory, which a streaming turn always has. */
   loadedSnapshot?(threadId: string): ConversationSnapshot | undefined;
   /** Removes live provider state for an execution thread before its durable rows are deleted. */
@@ -2628,6 +2631,11 @@ export class ChannelService {
       : null;
   }
 
+  /** Whether the optimization `channel-context-spill` is on. Off, the channel context is as before it. */
+  #spill(): boolean {
+    return this.hooks.optimizationEnabled?.(CHANNEL_CONTEXT_SPILL) ?? false;
+  }
+
   #acceptContext(
     channelId: string,
     topicId: string,
@@ -3124,17 +3132,57 @@ export class ChannelService {
         if (!attachment) return yield* channelFailure(new Error("The attachment is unavailable."));
         return attachment;
       }
-      const page = yield* channelSync(() =>
-        this.store.page(
-          channelId,
-          this.#topicOfTask(task),
-          typeof args.beforeSequence === "number" &&
-            Number.isSafeInteger(args.beforeSequence) &&
-            args.beforeSequence >= 0
-            ? args.beforeSequence
-            : undefined,
-        ),
-      );
+      const topicId = this.#topicOfTask(task);
+      // One message of this tab, by id, from `offset`: a packet with spill gives a message in part.
+      if (isString(args.messageId)) {
+        const messageId = args.messageId;
+        const message = yield* channelSync(() => this.store.message(channelId, messageId));
+        if (
+          !message ||
+          isMemberThinking(message) ||
+          (message.topicId ?? (yield* channelSync(() => this.#topicId(channelId, undefined)))) !== topicId
+        )
+          return yield* channelFailure(new Error("Message not found in this channel tab."));
+        const text = message.message.text;
+        const offset = args.offset ?? 0;
+        if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0 || offset > text.length)
+          return yield* channelFailure(new Error(`Give an offset from 0 to ${text.length}.`));
+        return {
+          id: message.id,
+          sequence: message.sequence,
+          author: message.author,
+          taskId: message.taskId,
+          replyToMessageId: message.message.replyToMessageId,
+          attachments: message.message.attachments,
+          chars: text.length,
+          ...readPage(text, offset),
+        };
+      }
+      const beforeSequence =
+        typeof args.beforeSequence === "number" && Number.isSafeInteger(args.beforeSequence) && args.beforeSequence >= 0
+          ? args.beforeSequence
+          : undefined;
+      // The compact page: with spill, or when the caller gives a limit. Each row has the size and the
+      // start of its message, and no page carries the channel or its tasks.
+      if (this.#spill() || args.limit !== undefined) {
+        const limit =
+          typeof args.limit === "number" && Number.isFinite(args.limit)
+            ? Math.min(HISTORY_PAGE_LIMIT, Math.max(1, Math.trunc(args.limit)))
+            : HISTORY_PAGE_LIMIT;
+        const rows = yield* channelSync(() => this.store.messages(channelId, topicId, beforeSequence, limit + 1));
+        const older = rows.length > limit;
+        if (older) rows.shift();
+        return {
+          topicId,
+          messages: rows.filter((message) => !isMemberThinking(message)).map(historyLine),
+          // The cursors still count every row, so the next page starts where this one ended.
+          olderCursor: older ? (rows[0]?.sequence ?? null) : null,
+          throughSequence:
+            (yield* channelSync(() => this.store.messages(channelId, topicId, undefined, 1)))[0]?.sequence ?? 0,
+          read: 'Read one whole message with {"messageId":"<id>"}, and the rest of a long one with "offset" from nextOffset.',
+        };
+      }
+      const page = yield* channelSync(() => this.store.page(channelId, topicId, beforeSequence));
       // The cursors still count every row, so the next page starts where this one ended.
       return { ...page, messages: page.messages.filter((message) => !isMemberThinking(message)) };
     }
