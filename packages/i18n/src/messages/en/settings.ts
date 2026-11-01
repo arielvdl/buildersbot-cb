@@ -174,6 +174,38 @@ export const messages = defineMessages("settings", {
   "settings.busyMessage.description":
     "New messages join the agent’s current work, not the queue. Works with ChatGPT and Claude.",
   // The Agents tab: the defaults of the agents on this computer.
+  "settings.startRetry.title": "Retries and backup model",
+  "settings.startRetry.description":
+    "When a provider does not start a task, the app tries again, then runs it on a backup model. The task reviewer acts only after that.",
+  "settings.startRetry.retries.title": "Tries again",
+  "settings.startRetry.retries.description":
+    "On the agent's own model, for an outage, a slow answer or a usage limit. Waits: {delays} seconds.",
+  "settings.startRetry.retries.value": { one: "{count} try", other: "{count} tries" },
+  "settings.startRetry.seconds": { one: "{count} second", other: "{count} seconds" },
+  "settings.startRetry.firstDelay.title": "First wait",
+  "settings.startRetry.firstDelay.description": "Each next wait is 3 times longer.",
+  "settings.startRetry.maxDelay.title": "Longest wait",
+  "settings.startRetry.maxDelay.description": "No wait between two tries is longer than this.",
+  "settings.startRetry.usageLimit.title": "Try again after a usage limit",
+  "settings.startRetry.usageLimit.description":
+    "Some accounts move to another account by themselves, as after the 5-hour limit of Claude. Off, a usage limit goes to the backup model at once.",
+  "settings.startRetry.fallback.title": "Default backup model",
+  "settings.startRetry.fallback.description":
+    "For an agent that has no backup model of its own. The task and its files go to this provider.",
+  "settings.startRetry.fallback.none": "None",
+  "settings.startRetry.fallback.value": "{provider} · {model}",
+  "settings.startRetry.breaker.title": "Back to the agent's own model",
+  "settings.startRetry.breaker.description":
+    "The agent stays on the backup model for these minutes, longer after each failure in a row. Then one task tries its own model. A task that started on the backup ends there.",
+  "settings.startRetry.breaker.value": "{minutes} min",
+  "settings.startRetry.agents.title": "Agents with their own backup model",
+  "settings.startRetry.agents.description":
+    "Set it in the agent's settings, under Backup models. It comes before the default.",
+  "settings.startRetry.agents.none": "No agent has one.",
+  "settings.startRetry.agents.value": "{name}: {provider} · {model}",
+  "settings.startRetry.onBackup.title": "On a backup model now",
+  "settings.startRetry.onBackup.value": "{name} uses its backup model until {time}, then tries {model} again.",
+  "settings.startRetry.onBackup.probing": "{name} tries {model} again now.",
   "settings.agentDefaults.title": "Defaults",
   "settings.agentDefaults.description": "Agents follow these defaults, unless you change them for an agent.",
   "settings.agentDefaults.value": "Default: {value}",

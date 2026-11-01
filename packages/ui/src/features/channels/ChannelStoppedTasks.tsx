@@ -5,7 +5,7 @@ import { useText } from "../../text";
 import { AgentPicker, type AgentPickerAgent } from "../agents/AgentPicker";
 
 export function ChannelStoppedTasks(props: {
-  tasks: Pick<ChannelTask, "id" | "ownerAgentId" | "error">[];
+  tasks: Pick<ChannelTask, "id" | "ownerAgentId" | "error" | "startAttempts">[];
   members: Pick<ChannelMember, "agentId">[];
   name: (agentId: string | null) => string;
   /** The face, provider and model of a member, for the Reassign menu. Absent shows the names only. */
@@ -27,7 +27,15 @@ export function ChannelStoppedTasks(props: {
               class="channel-paused-task"
               aria-label={t("channel.stoppedTask.label", { name: props.name(task.ownerAgentId) })}
             >
-              <p class="channel-paused-task-reason">{task.error ? sourceText(task.error) : null}</p>
+              <div class="channel-paused-task-reason">
+                <p class="channel-paused-task-text">{task.error ? sourceText(task.error) : null}</p>
+                {/* After the start retry: how many starts the app tried before it stopped. */}
+                <Show when={task.startAttempts}>
+                  {(count) => (
+                    <p class="channel-paused-task-tries">{t("channel.stoppedTask.triedTimes", { count: count() })}</p>
+                  )}
+                </Show>
+              </div>
               <div class="channel-paused-task-actions">
                 {/* `resume` keeps the owner, and the service stops the task again when the owner left
                     the channel, so only Reassign can start it. */}

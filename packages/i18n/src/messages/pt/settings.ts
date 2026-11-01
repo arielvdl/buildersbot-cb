@@ -170,6 +170,38 @@ export const messages = {
   "settings.busyMessage.title": "Orientar agentes enquanto trabalham",
   "settings.busyMessage.description":
     "Novas mensagens entram no trabalho atual do agente, não na fila. Funciona com ChatGPT e Claude.",
+  "settings.startRetry.title": "Tentativas e modelo de reserva",
+  "settings.startRetry.description":
+    "Quando o provedor não inicia uma tarefa, o app tenta de novo e depois roda no modelo de reserva. O Fiscal só age depois disso.",
+  "settings.startRetry.retries.title": "Tentativas",
+  "settings.startRetry.retries.description":
+    "No modelo do próprio agente, para queda, resposta lenta ou limite de uso. Esperas: {delays} segundos.",
+  "settings.startRetry.retries.value": { one: "{count} tentativa", other: "{count} tentativas" },
+  "settings.startRetry.seconds": { one: "{count} segundo", other: "{count} segundos" },
+  "settings.startRetry.firstDelay.title": "Primeira espera",
+  "settings.startRetry.firstDelay.description": "Cada espera seguinte é 3 vezes maior.",
+  "settings.startRetry.maxDelay.title": "Espera máxima",
+  "settings.startRetry.maxDelay.description": "Nenhuma espera entre duas tentativas passa disso.",
+  "settings.startRetry.usageLimit.title": "Tentar de novo depois do aviso de limite",
+  "settings.startRetry.usageLimit.description":
+    "Algumas contas passam sozinhas para outra conta, como depois do limite de 5 horas do Claude. Desligado, o limite vai direto para o modelo de reserva.",
+  "settings.startRetry.fallback.title": "Modelo de reserva padrão",
+  "settings.startRetry.fallback.description":
+    "Para o agente que não tem modelo de reserva próprio. A tarefa e os arquivos dela vão para esse provedor.",
+  "settings.startRetry.fallback.none": "Nenhum",
+  "settings.startRetry.fallback.value": "{provider} · {model}",
+  "settings.startRetry.breaker.title": "Volta ao modelo do agente",
+  "settings.startRetry.breaker.description":
+    "O agente fica no modelo de reserva por estes minutos, mais a cada falha seguida. Depois, uma tarefa testa o modelo dele. Tarefa que começou na reserva termina nela.",
+  "settings.startRetry.breaker.value": "{minutes} min",
+  "settings.startRetry.agents.title": "Agentes com modelo de reserva próprio",
+  "settings.startRetry.agents.description":
+    "Defina nas configurações do agente, em Modelos de reserva. Ele vem antes do padrão.",
+  "settings.startRetry.agents.none": "Nenhum agente tem.",
+  "settings.startRetry.agents.value": "{name}: {provider} · {model}",
+  "settings.startRetry.onBackup.title": "No modelo de reserva agora",
+  "settings.startRetry.onBackup.value": "{name} usa o modelo de reserva até {time} e depois tenta {model} de novo.",
+  "settings.startRetry.onBackup.probing": "{name} testa {model} de novo agora.",
   "settings.backgroundProcesses.title": "Processos em segundo plano",
   "settings.backgroundProcesses.description":
     "Programas que os agentes iniciaram e deixaram rodando, como servidores de desenvolvimento. Eles continuam rodando quando o chat termina e quando você fecha o Builders Bot.",

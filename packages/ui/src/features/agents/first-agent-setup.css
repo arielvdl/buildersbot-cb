@@ -191,6 +191,13 @@
   margin-top: var(--openbot-space-1);
 }
 
+.first-agent-backup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-2);
+  align-items: center;
+}
+
 .first-agent-error {
   margin: 0;
   color: var(--openbot-danger);

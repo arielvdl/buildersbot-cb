@@ -70,6 +70,25 @@
 .channel-paused-task + .channel-paused-task {
   border-top: 1px solid var(--openbot-accent-soft);
 }
+.channel-start-retries {
+  margin: 0 var(--openbot-space-3);
+  padding: 0;
+  list-style: none;
+}
+.channel-start-retry {
+  padding: var(--openbot-space-1) var(--openbot-space-3);
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+  overflow-wrap: anywhere;
+}
+.channel-paused-task-text,
+.channel-paused-task-tries {
+  margin: 0;
+}
+.channel-paused-task-tries {
+  font-size: var(--openbot-text-xs);
+  opacity: 0.85;
+}
 .channel-paused-task-reason {
   min-width: 0;
   flex: 1 1 24ch;
