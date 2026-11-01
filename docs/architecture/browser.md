@@ -341,7 +341,8 @@ stops with status `dialog`. The agent answers with `handle_dialog`, which sends
 tool on that tab is refused; `close_tab` still works.
 
 Electron shows its own box for the same dialog, after the CDP event. After the CDP answer, the engine
-emits Electron's internal `-cancel-dialogs` on the tab, which aborts the box without its callback. The
+emits Electron's internal `-cancel-dialogs` on the tab (`ElectronCdpTarget.dialogBox`, in
+`browser-cdp-target.ts`), which aborts the box without its callback. The
 agent gets a dialog only when the engine owns the debugger and Electron has a `-cancel-dialogs`
 listener. Otherwise, for example under an external debugger, the result says that a person must answer.
 `scripts/browser-dialogs-e2e.ts` fails if an Electron upgrade changes these internal events.
@@ -553,6 +554,37 @@ Two more rules keep the memory low:
   limit, a request to the upstream port with no token or a wrong one (401), and no process left after
   `stop`. The tests in `src/main/playwright-broker*.test.ts` use a fake upstream, and
   `playwright-broker-guard.test.ts` runs the real guard in a Node process.
+
+## The person's Chrome through the Builders Bot extension
+
+The Builders Bot extension will replace the Playwright extension and the broker: the agents drive
+tabs of the person's own Chrome, in one tab group for each project, through `chrome.debugger`, with
+no TCP port and no token. The channel is Native Messaging to a small signed host in the app bundle,
+then a private Unix socket to the app, encrypted with keys that the two sides pin when they pair.
+Phase 1 adds only the contracts and the seams. No extension, host or bridge exists yet, and no
+behavior of the Builders Bot browser or of the broker changes, except the refusal below.
+
+| Part | Where | What it does |
+| --- | --- | --- |
+| Web access mode | `WEB_ACCESS_MODES`, `webAccessFromSwitch` (`ipc-app-behavior.ts`); `AppBehaviorService` | `webAccess` is `app`, `chrome` or `playwright-legacy`. The released `browserInApp` switch stays, and the app writes it as `webAccess === "app"`, so an older app reads the choice after a downgrade. A file or a payload with no `webAccess`, or with a mode that this app does not know, reads from the switch. Until the bridge ships, `chrome` browses as `playwright-legacy`. Settings does not offer `chrome` yet. |
+| Engine seam | `CdpTarget`, `ElectronCdpTarget` (`browser-cdp-target.ts`) | `BrowserCdpEngine` drives a `CdpTarget`, not a `WebContents`. `attach` is an Effect, so an attach over a channel can be asynchronous; `isAttached` reads no I/O. `release` is what the engine calls when nothing needs the debugger: an Electron tab (`retention: "operation"`) detaches at once, as before; a Chrome tab (`"lease"`) will keep the real debugger until the agent's lease ends, so Chrome's debugging bar does not flash on each call. Electron's own dialog box is `dialogBox`; a Chrome target has none. |
+| Tab ownership | `canUseBrowserTab` (`browser-tab-ownership.ts`) | One rule for the Builders Bot browser and for Chrome tabs: a tab belongs to its thread, and to its agent when an agent opened it. A tab that the caller cannot use reads as unknown. |
+| Wire protocol | `packages/contracts/src/chrome-bridge/protocol.ts`, `decode.ts` | Closed decoders with no Node, Electron or Effect, so the extension runs them too. Every object is closed: an unknown field, operation, event or error code breaks the protocol and closes the connection. Each operation and event has a feature, and a side sends only what the other announced. Identifiers are 128-bit opaque values; an agent never sees a Chrome tab id. There is no reflective `chrome.*` call, no consent grant and no operation that lowers the floor. |
+| CDP allowlist | `cdp-allowlist.ts` | The methods that the engine sends, each with a closed list of parameters and rules (`checkCdpCommand`). Cookies, storage, `Fetch`, `Target.attachToTarget`, `DOM.setFileInputFiles`, a `paste` command and drag files are denied. `Network.enable` only inside a navigation, with no buffer. Events leave the extension reduced to listed fields (`projectCdpEvent`); no `Network.*` event leaves it, because those carry `HttpOnly` cookie values. |
+| Gesture table | `cdp-functions.ts`, made by `scripts/chrome-bridge-cdp-functions.ts` | The SHA-256 of each engine function that runs through `Runtime.callFunctionOn` with `userGesture: true`. In Chrome, only these get a gesture; an agent's own code runs with none. `--check` fails when the table is stale or when a gesture appears outside `#callOnNode` and `evaluate`. |
+| Site floor | `site-floor.ts` | Banks, exchanges, password vaults, Google and Apple accounts, `*.gov.br` and browser pages: no agent opens, reads or acts on them. Only http, https and `about:blank` (and `about:srcdoc` in a frame) pass. The app can add blocks; only a choice in the extension popup opens one origin for one project. |
+| Group title and color | `groups.ts` | The project name only, in NFC, with no control or direction characters, at most 40 characters. Grey is kept for "paused". |
+
+The legacy broker refuses `browser_run_code_unsafe` before the Guard sees it and leaves it out of
+`tools/list` (`REFUSED_BROWSER_TOOLS`, `playwright-broker-policy.ts`): it runs Playwright code with
+the reach of the whole browser context, every tab of the group and the cookies of the person's
+sites. `scripts/browser-tab-reuse-e2e.ts` checks that a call of it gets an error and never reaches
+the server.
+
+`bun scripts/chrome-bridge-contracts-smoke.ts` runs the real decoders, the allowlist, the event
+projection, the floor, the group rules and `AppBehaviorService` on a real preference file, and
+compares each CDP method that `src/backend/browser-*.ts` sends with the allowlist. It writes
+`.buildersbot-build/chrome-bridge-contracts-smoke/report.json`.
 
 ## Secure browser authentication
 
