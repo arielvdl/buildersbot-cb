@@ -219,6 +219,45 @@ Code names its models itself, OpenCode drops models that the stored key cannot u
 free tier when discovery fails, and a custom agent gets the full request timeout. A new provider
 adds its rule there, not in the catalog.
 
+## Model picker
+
+`ProviderModelPicker` (`packages/ui/src/components/ProviderModelPicker.tsx`) has two presentations.
+They show the same providers, models and efforts.
+
+- **Popover** (the default). The composer, the agent settings, the first agent of the setup, the new
+  agent card of a diagram and the channel orchestrator use it. The popover is not in a portal: it is
+  an absolute box in the picker. Thus each ancestor that clips its overflow also clips the popover.
+  `.settings-link-group-inset` does not clip its rows for this reason.
+- **Inline** (`variant="field"` with `inline`). The choices open in the flow, under the row, and push
+  the next fields down. The form scrolls, not a small box. Use it in a form that scrolls or clips its
+  rows, such as a dialog. The new-agent dialog of a channel (`ChannelMemberDialog`) uses it.
+
+The new-agent dialog used the popover in a box with `overflow: clip`. The box clipped the open
+popover to a strip of the height of the reasoning row, and the strip covered that row. Thus the
+person could not choose a model or an effort.
+
+The inline section shows these parts, from top to bottom:
+
+1. The providers that can run now, by name. The agent's own provider is always there.
+2. The version line of the chosen provider, its runtime message and the button for it (Download,
+   Connect, Retry or Cancel).
+3. The models of the chosen provider. The search shows only for a list of 9 or more models. A very
+   long catalog scrolls in a box of `min(360px, 45dvh)`.
+4. The reasoning effort as segments on a line of their own, and the default effort of the model.
+5. "Other providers": the providers to download, to sign in to, or that Builders Bot still checks.
+   They are under one toggle, each with its state and its button. A provider moves up when it can
+   run. An empty Custom tab is not listed.
+
+The row shows the provider mark, the model and the effort. Escape closes the section only, not the
+dialog, and gives the focus back to the row. A press outside does not close the section: the next
+fields would move, and the press would end on another control. When the section opens or grows,
+the picker scrolls only its nearest scroll container (`revealInScrollParent`). `scrollIntoView`
+also scrolls an ancestor that clips its overflow, such as the frame of a dialog.
+
+`scripts/agent-model-picker-e2e.ts` checks the dialog and the stories in Storybook. It uses window
+sizes with interface sizes of 100, 110 and 130 percent, English and Portuguese, light and dark. It
+also checks the popover of the other places that use the picker.
+
 ## Provider CLI updates
 
 The runtime manager offers the latest upstream release of each provider CLI. It checks at startup,
