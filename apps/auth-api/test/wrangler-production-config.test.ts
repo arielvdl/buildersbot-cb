@@ -11,8 +11,17 @@ function productionVars(): Vars {
   const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
   // Comment lines only: a "//" inside a value, such as https://, stays.
   const json = source.replace(/^\s*\/\/.*$/gm, "").replace(/,(\s*[}\]])/g, "$1");
-  const config = JSON.parse(json) as { vars?: Vars };
-  return config.vars ?? {};
+  const config: unknown = JSON.parse(json);
+  const vars: Vars = {};
+  if (typeof config === "object" && config !== null && "vars" in config) {
+    const block = config.vars;
+    if (typeof block === "object" && block !== null) {
+      for (const [name, value] of Object.entries(block)) {
+        if (typeof value === "string") vars[name] = value;
+      }
+    }
+  }
+  return vars;
 }
 
 describe("the production block of wrangler.jsonc", () => {
@@ -31,8 +40,8 @@ describe("the production block of wrangler.jsonc", () => {
     // The Worker answers 404 on /v1/signal: a Signal URL on its own host breaks every remote connection.
     for (const name of ["REMOTE_SIGNAL_URL", "REMOTE_AUTH_WEBHOOK_URL"] as const) {
       const value = vars[name];
-      expect(value, name).toBeTruthy();
-      expect(new URL(value as string).hostname, name).not.toBe("auth-buildersbot.culturabuilder.com");
+      if (!value) throw new Error(`${name} is missing in the production block of wrangler.jsonc.`);
+      expect(new URL(value).hostname, name).not.toBe("auth-buildersbot.culturabuilder.com");
     }
     expect(vars.REMOTE_SIGNAL_URL?.startsWith("wss://")).toBe(true);
     expect(vars.REMOTE_AUTH_WEBHOOK_URL?.startsWith("https://")).toBe(true);
