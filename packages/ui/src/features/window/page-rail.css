@@ -376,6 +376,11 @@
   font-size: var(--openbot-text-md);
 }
 
+/* The way to the page of the task reviewer in Settings: as wide as its text, under the reviewer's rows. */
+.window-rail-load-panel .window-rail-load-link {
+  justify-self: start;
+}
+
 .window-rail-load-panel .window-rail-load-action svg {
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);

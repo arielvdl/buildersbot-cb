@@ -287,6 +287,7 @@ function loadProps(usedMb: number, work: LoadWork, reviewer: boolean): () => Loa
     onRecoveryChange: setRecovery,
     onAgentLimitChange: setAgentLimit,
     onTaskWatchChange: setTaskWatch,
+    onOpenTaskReviewerSettings: fn(),
   });
 }
 

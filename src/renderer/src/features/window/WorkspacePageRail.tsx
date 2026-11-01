@@ -113,6 +113,10 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
                 onRecoveryChange: (preference) => void load.setRecovery(preference),
                 onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
                 onTaskWatchChange: (preference) => void load.setTaskWatch(preference),
+                onOpenTaskReviewerSettings: () => {
+                  load.setPanelOpen(false);
+                  openAppSettings(null, "task-reviewer");
+                },
               }
             : undefined
         }

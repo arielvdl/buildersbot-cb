@@ -21,6 +21,7 @@ import {
   PanelTop,
   Play,
   Popover,
+  SlidersHorizontal,
   Square,
   SwitchField,
 } from "@openbot/ui";
@@ -71,6 +72,8 @@ export interface LoadRailProps {
   onAgentLimitChange: (preference: AgentLimitPreference) => void;
   /** The task reviewer: its switch and its threshold. */
   onTaskWatchChange: (preference: TaskWatchPreference) => void;
+  /** Opens the page of the task reviewer in Settings. Absent where the window has no Settings. */
+  onOpenTaskReviewerSettings?: (() => void) | undefined;
 }
 
 /**
@@ -342,6 +345,7 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
         recent={loadRecentEvents(props.snapshot)}
         onChange={props.onRecoveryChange}
         onTaskWatchChange={props.onTaskWatchChange}
+        onOpenTaskReviewerSettings={props.onOpenTaskReviewerSettings}
       />
     </div>
   );
@@ -616,6 +620,7 @@ function RecoverySettings(props: {
   recent: LoadRecentEvent[];
   onChange: (preference: AutoRecoveryPreference) => void;
   onTaskWatchChange: (preference: TaskWatchPreference) => void;
+  onOpenTaskReviewerSettings: (() => void) | undefined;
 }) {
   const { t } = useText();
   const [draft, setDraft] = createSignal<string | null>(null);
@@ -662,7 +667,11 @@ function RecoverySettings(props: {
           label={t("app.rail.load.recoveryReassign")}
           description={t("app.rail.load.recoveryReassignHint")}
         />
-        <TaskWatchSettings taskWatch={props.taskWatch} onChange={props.onTaskWatchChange} />
+        <TaskWatchSettings
+          taskWatch={props.taskWatch}
+          onChange={props.onTaskWatchChange}
+          onOpenSettings={props.onOpenTaskReviewerSettings}
+        />
         <Show when={props.recent.length > 0}>
           <h3 class="window-rail-load-subhead">{t("app.rail.load.recoveryRecent")}</h3>
           <ul class="window-rail-load-recent">
@@ -690,8 +699,12 @@ function RecoverySettings(props: {
   );
 }
 
-/** The switch of the task reviewer, which model decides, and its threshold. */
-function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (preference: TaskWatchPreference) => void }) {
+/** The switch of the task reviewer, which model decides, its threshold, and the way to its page in Settings. */
+function TaskWatchSettings(props: {
+  taskWatch: TaskWatchState;
+  onChange: (preference: TaskWatchPreference) => void;
+  onOpenSettings: (() => void) | undefined;
+}) {
   const { t } = useText();
   const [draft, setDraft] = createSignal<string | null>(null);
   return (
@@ -728,6 +741,19 @@ function TaskWatchSettings(props: { taskWatch: TaskWatchState; onChange: (prefer
           />
           <span>{t("app.rail.load.watchQuietUnit")}</span>
         </label>
+      </Show>
+      <Show when={props.onOpenSettings}>
+        {(open) => (
+          <Button
+            variant="secondary"
+            size="sm"
+            class="window-rail-load-action window-rail-load-link"
+            onClick={() => open()()}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {t("app.rail.load.watchSettings")}
+          </Button>
+        )}
       </Show>
     </>
   );
