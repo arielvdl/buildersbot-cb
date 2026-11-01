@@ -13,7 +13,7 @@ import { type DynamicRecord, isBoolean, isDynamicRecord, isNumber, isString } fr
 import { sourceText } from "@openbot/i18n/source";
 import { redactText } from "@openbot/logging";
 import { Deferred, Effect, Exit, Fiber, Scope } from "effect";
-import type { NativeImage, WebContents } from "electron";
+import type { NativeImage } from "electron";
 import {
   BROWSER_CARD_FIELDS,
   type BrowserCardField,
@@ -53,6 +53,7 @@ import {
   type TargetRecord,
   visibleTextObjectMatches,
 } from "./browser-cdp-snapshot";
+import type { CdpTarget } from "./browser-cdp-target";
 import {
   assertBeforeDeadline,
   automationContextId,
@@ -77,7 +78,7 @@ import {
   fillFieldsFailure,
   fillPreparedFields,
 } from "./browser-fill-fields";
-import { describeBrowserTarget, stopLoadingAndWait, waitForLoading } from "./browser-navigation";
+import { describeBrowserTarget } from "./browser-navigation";
 import { createFramePacer } from "./browser-screencast-pacing";
 import type { VaultCardSecret } from "./vault-items";
 
@@ -273,18 +274,11 @@ interface DialogWatch {
 
 /** A dialog can show a page text of any length. The agent reads a bounded part. */
 const DIALOG_MESSAGE_LIMIT = 2_000;
-/**
- * Electron shows its own box for a dialog and keeps it open after a CDP answer. This internal event of
- * Electron closes the box and does not answer the page again. Without a listener for it, a person answers.
- */
-const CANCEL_DIALOGS_EVENT = "-cancel-dialogs";
-// Electron shows its box in this listener, in the same task as the CDP event but after it.
-const RUN_DIALOG_EVENT = "-run-dialog";
 const DIALOG_CLOSED_ERROR = "This dialog is closed. A person answered it, or the page closed it. Read the tab again.";
 const DIALOG_FOR_PERSON_ERROR = "Only a person can answer this dialog in the tab. Ask the user to answer it.";
 
 export class BrowserCdpEngine {
-  readonly #contents: WebContents;
+  readonly #target: CdpTarget;
   /**
    * The button a live view holds down. Chromium ends a drag at a move that names no button, so a
    * move between a press and a release names this one.
@@ -658,7 +652,6 @@ export class BrowserCdpEngine {
   });
   #retainDebugger = false;
   #ownsDebugger = false;
-  #closing = false;
   #disposed = false;
   readonly #scope = Scope.makeUnsafe();
   /**
@@ -685,30 +678,25 @@ export class BrowserCdpEngine {
   readonly #uploadDocumentIds = new Set<string>();
   readonly #targetSessions = new Map<string, { sessionId: string; url: string }>();
 
-  constructor(contents: WebContents) {
-    this.#contents = contents;
-    contents.once("close", () => {
-      // Native teardown can start before isDestroyed() becomes true. Detaching a debugger
-      // during that interval can crash Electron; Chromium will dispose it with the page.
-      this.#closing = true;
-    });
-    // Electron's internal events are not in its WebContents event types.
-    const internalEvents: NodeJS.EventEmitter = contents;
-    // Runs after Electron's own listener, so its box can be cancelled here.
-    internalEvents.on(RUN_DIALOG_EVENT, () => {
+  constructor(target: CdpTarget) {
+    this.#target = target;
+    // Electron shows its own box for a dialog and keeps it open after a CDP answer. Its box shows in
+    // this listener, in the same task as the CDP event but after it, and a close here does not answer the
+    // page again. Without a box to close, a person answers.
+    target.dialogBox?.onShown(() => {
       this.#dialogBoxPending = false;
       if (!this.#cancelDialogBox) return;
       this.#cancelDialogBox = false;
-      contents.emit(CANCEL_DIALOGS_EVENT);
+      target.dialogBox?.close();
     });
-    contents.on("did-start-navigation", (details) => {
-      if (details.isMainFrame) this.#navigationGeneration += 1;
+    target.onNavigationStarted((mainFrame) => {
+      if (mainFrame) this.#navigationGeneration += 1;
       this.#targets.clear();
       this.#lastSnapshot = null;
     });
     // Main frame only. The payment frames of the old document go with it.
-    contents.on("did-navigate", () => this.#cardScrub.endDocument());
-    contents.debugger.on("message", (_event, method, params, sessionId) => {
+    target.onMainFrameNavigated(() => this.#cardScrub.endDocument());
+    target.onEvent((method, params, sessionId) => {
       if (method === "Target.attachedToTarget" && isRecord(params)) {
         const attachedSessionId = stringValue(params.sessionId) || sessionId || "";
         const targetInfo = recordValue(params.targetInfo);
@@ -728,7 +716,7 @@ export class BrowserCdpEngine {
         }
       }
     });
-    contents.debugger.on("detach", () => this.#clearDebuggerSessions());
+    target.onDetached(() => this.#clearDebuggerSessions());
   }
 
   readonly snapshot = Effect.fn("BrowserCdp.snapshot")(function* (
@@ -753,9 +741,9 @@ export class BrowserCdpEngine {
         const snapshot: BrowserSnapshot = {
           tabId: context.tabId,
           revision: context.revision,
-          title: this.#contents.getTitle().slice(0, 500),
-          url: this.#contents.getURL(),
-          loading: this.#contents.isLoading(),
+          title: this.#target.title().slice(0, 500),
+          url: this.#target.url(),
+          loading: this.#target.isLoading(),
           viewport,
           text: parsed.text,
           elements: parsed.elements,
@@ -787,12 +775,11 @@ export class BrowserCdpEngine {
   ): Effect.fn.Return<BrowserPageStatus, BrowserOperationError> {
     const focus = yield* this.#leaseEffect((send) => collectFocus(send)).pipe(Effect.catch(() => Effect.succeed(null)));
     // The action can close the tab. The caller then returns the closed-tab result.
-    if (this.#closing || this.#contents.isDestroyed())
-      return yield* browserFailure(new Error("Browser tab was closed."));
+    if (this.#target.isClosed()) return yield* browserFailure(new Error("Browser tab was closed."));
     return {
-      title: this.#cardScrub.text(this.#contents.getTitle().slice(0, 500)),
-      url: this.#cardScrub.text(this.#contents.getURL()),
-      loading: this.#contents.isLoading(),
+      title: this.#cardScrub.text(this.#target.title().slice(0, 500)),
+      url: this.#cardScrub.text(this.#target.url()),
+      loading: this.#target.isLoading(),
       focus: focus && { ...focus, name: this.#cardScrub.text(focus.name) },
     };
   });
@@ -939,7 +926,7 @@ export class BrowserCdpEngine {
     if (!this.#lastSnapshot || this.#lastSnapshot.revision !== revision)
       return yield* fillFieldsFailure("stale_snapshot");
     const generation = this.#navigationGeneration;
-    const origin = yield* browserSync(() => new URL(this.#contents.getURL()).origin);
+    const origin = yield* browserSync(() => new URL(this.#target.url()).origin);
     yield* this.#leaseEffect(
       (send) =>
         Effect.gen({ self: this }, function* () {
@@ -1462,8 +1449,8 @@ export class BrowserCdpEngine {
         const interceptedDragData = Deferred.makeUnsafe<CdpResult | null>();
         const stopWaitingForIntercept = yield* browserSync(() => {
           let stopWaitingForIntercept = () => undefined;
-          const debuggerClient = this.#contents.debugger;
-          const listener = (_event: Electron.Event, method: string, params: unknown, messageSessionId?: string) => {
+          let stopListening: () => void = () => undefined;
+          const listener = (method: string, params: unknown, messageSessionId: string | undefined) => {
             if (method !== "Input.dragIntercepted" || (sessionId !== undefined && messageSessionId !== sessionId)) {
               return;
             }
@@ -1479,9 +1466,9 @@ export class BrowserCdpEngine {
           }, 2_000);
           stopWaitingForIntercept = () => {
             clearTimeout(timeout);
-            debuggerClient.removeListener("message", listener);
+            stopListening();
           };
-          debuggerClient.on("message", listener);
+          stopListening = this.#target.onEvent(listener);
           return stopWaitingForIntercept;
         });
         let pressSent = false;
@@ -1687,8 +1674,8 @@ export class BrowserCdpEngine {
           const chooser = Deferred.makeUnsafe<DynamicRecord | null>();
           const stopWaitingForChooser = yield* browserSync(() => {
             let stopWaitingForChooser = () => undefined;
-            const debuggerClient = this.#contents.debugger;
-            const listener = (_event: Electron.Event, method: string, params: unknown, messageSessionId?: string) => {
+            let stopListening: () => void = () => undefined;
+            const listener = (method: string, params: unknown, messageSessionId: string | undefined) => {
               if (method !== "Page.fileChooserOpened" || messageSessionId !== chooserSessionId) return;
               stopWaitingForChooser();
               Deferred.doneUnsafe(chooser, Effect.succeed(recordValue(params) ?? null));
@@ -1703,9 +1690,9 @@ export class BrowserCdpEngine {
             );
             stopWaitingForChooser = () => {
               clearTimeout(timeout);
-              debuggerClient.removeListener("message", listener);
+              stopListening();
             };
-            debuggerClient.on("message", listener);
+            stopListening = this.#target.onEvent(listener);
             return stopWaitingForChooser;
           });
           yield* Effect.gen(function* () {
@@ -1887,9 +1874,9 @@ export class BrowserCdpEngine {
     if (this.#dialog?.id !== id) return yield* browserFailure(new Error(DIALOG_CLOSED_ERROR));
     if (!this.dialogOwnedBy(owner)) return yield* browserFailure(new Error(DIALOG_FOR_PERSON_ERROR));
     const answered = yield* browserCall(() =>
-      this.#contents.debugger.sendCommand("Page.handleJavaScriptDialog", { accept }).then(() => {
+      this.#target.sendCommand("Page.handleJavaScriptDialog", { accept }).then(() => {
         // In the same task as the answer, before the page can open its next dialog.
-        this.#contents.emit(CANCEL_DIALOGS_EVENT);
+        this.#target.dialogBox?.close();
       }),
     ).pipe(
       Effect.as(true),
@@ -1944,7 +1931,7 @@ export class BrowserCdpEngine {
       return;
     }
     const watch = [...this.#dialogWatches].at(-1);
-    const agent = watch !== undefined && this.#ownsDebugger && this.#contents.listenerCount(CANCEL_DIALOGS_EVENT) > 0;
+    const agent = watch !== undefined && this.#ownsDebugger && (this.#target.dialogBox?.canClose() ?? true);
     const dialog: BrowserDialog = {
       id: randomUUID(),
       type,
@@ -2054,7 +2041,7 @@ export class BrowserCdpEngine {
           });
         }
         return yield* Effect.gen({ self: this }, function* () {
-          return yield* browserCall(() => this.#contents.capturePage(clip));
+          return yield* browserCall(() => this.#target.capturePage(clip));
         }).pipe(
           Effect.ensuring(
             Effect.gen({ self: this }, function* () {
@@ -2097,7 +2084,7 @@ export class BrowserCdpEngine {
       sequence += 1;
       onFrame({ ...frame, sequence });
     });
-    const listener = (_event: unknown, method: string, params?: DynamicRecord | unknown, sessionId?: string): void => {
+    const listener = (method: string, params: unknown, sessionId: string | undefined): void => {
       if (method !== "Page.screencastFrame" || !isDynamicRecord(params)) return;
       const metadata = recordValue(params.metadata);
       const data = stringValue(params.data);
@@ -2107,7 +2094,7 @@ export class BrowserCdpEngine {
       // The root session is reported as an empty string, which `sendCommand` refuses: sending it
       // would fail every acknowledgement, and the page stops after the few frames it may hold
       // unacknowledged.
-      void this.#contents.debugger
+      void this.#target
         .sendCommand("Page.screencastFrameAck", { sessionId: frameSessionId }, sessionId || undefined)
         .catch(() => undefined);
       if (!data) return;
@@ -2131,8 +2118,8 @@ export class BrowserCdpEngine {
             yield* this.#leaseEffect(
               (send) =>
                 Effect.gen({ self: this }, function* () {
-                  this.#contents.debugger.on("message", listener);
-                  this.#contents.debugger.on("detach", onDetach);
+                  const stopListening = this.#target.onEvent(listener);
+                  const stopWatchingDetach = this.#target.onDetached(onDetach);
                   yield* Effect.gen({ self: this }, function* () {
                     yield* send("Page.startScreencast", {
                       format: "jpeg",
@@ -2147,8 +2134,8 @@ export class BrowserCdpEngine {
                   }).pipe(
                     Effect.ensuring(
                       Effect.gen({ self: this }, function* () {
-                        this.#contents.debugger.off("message", listener);
-                        this.#contents.debugger.off("detach", onDetach);
+                        stopListening();
+                        stopWatchingDetach();
                         if (!stopRequested) return;
                         yield* send("Page.stopScreencast").pipe(Effect.ignore);
                         // The debugger can stay attached for an agent, and the page keeps an
@@ -2441,7 +2428,7 @@ export class BrowserCdpEngine {
             const result = yield* send("Page.navigate", { url });
             const errorText = stringValue(result.errorText);
             if (errorText) return yield* browserFailure(new Error(`Navigation failed: ${errorText}`));
-            yield* waitForLoading(this.#contents, WAIT_TIMEOUT_MS);
+            yield* this.#target.waitForLoading(WAIT_TIMEOUT_MS);
           }).pipe(
             Effect.ensuring(
               Effect.gen({ self: this }, function* () {
@@ -2463,7 +2450,7 @@ export class BrowserCdpEngine {
     // Electron keeps its box open after the page closes, a person's box too, and nobody can answer it
     // then. The box can also show after the close. The emit only runs JavaScript listeners.
     if (this.#dialogBoxPending) this.#cancelDialogBox = true;
-    this.#contents.emit(CANCEL_DIALOGS_EVENT);
+    this.#target.dialogBox?.close();
     this.#targetSessions.clear();
     this.#targets.clear();
     this.#lastSnapshot = null;
@@ -2489,7 +2476,7 @@ export class BrowserCdpEngine {
         const matches = () =>
           Effect.gen({ self: this }, function* () {
             let matched = true;
-            if (condition.url) matched &&= this.#contents.getURL().includes(condition.url);
+            if (condition.url) matched &&= this.#target.url().includes(condition.url);
             const text = condition.text;
             if (text) {
               matched &&= yield* pageContainsText(send, this.#snapshotTargets(), text, deadline);
@@ -2506,7 +2493,7 @@ export class BrowserCdpEngine {
                 ),
               );
             }
-            if (condition.state === "load") matched &&= !this.#contents.isLoading();
+            if (condition.state === "load") matched &&= !this.#target.isLoading();
             if (condition.state === "domcontentloaded") {
               const contextId = yield* automationContextId(send);
               const result = yield* send("Runtime.evaluate", {
@@ -2536,7 +2523,7 @@ export class BrowserCdpEngine {
           }
           const remaining = deadline - Date.now();
           if (remaining <= 0) return yield* browserFailure(new Error("Browser wait condition timed out."));
-          yield* waitForPageSignal(this.#contents, Math.min(remaining, 500));
+          yield* this.#target.waitForPageSignal(Math.min(remaining, 500));
         }
       }),
     );
@@ -2606,7 +2593,7 @@ export class BrowserCdpEngine {
         // quiet limit.
         while (true) {
           const navigationGeneration = this.#navigationGeneration;
-          if (this.#contents.isLoading()) yield* waitForLoading(this.#contents, Math.max(1, deadline - Date.now()));
+          if (this.#target.isLoading()) yield* this.#target.waitForLoading(Math.max(1, deadline - Date.now()));
           const quiet = yield* waitForDomQuietAcrossTargets(
             send,
             this.#snapshotTargets(),
@@ -2617,13 +2604,13 @@ export class BrowserCdpEngine {
               browserSync(() => {
                 const error = failure.cause;
                 if (error instanceof Error && error.message === "DOM did not become quiet.") return true;
-                if (navigationGeneration !== this.#navigationGeneration || this.#contents.isLoading()) return false;
+                if (navigationGeneration !== this.#navigationGeneration || this.#target.isLoading()) return false;
                 throw error;
               }),
             ),
           );
           const navigating = yield* browserSync(
-            () => navigationGeneration !== this.#navigationGeneration && this.#contents.isLoading(),
+            () => navigationGeneration !== this.#navigationGeneration && this.#target.isLoading(),
           );
           if (Date.now() >= deadline || (quiet && !navigating)) return;
         }
@@ -2634,7 +2621,7 @@ export class BrowserCdpEngine {
   readonly stopLoading = Effect.fn("BrowserCdp.stopLoading")(function* (
     this: BrowserCdpEngine,
   ): Effect.fn.Return<void, BrowserOperationError> {
-    yield* stopLoadingAndWait(this.#contents);
+    yield* this.#target.stopLoading();
   });
 
   readonly highlight = Effect.fn("BrowserCdp.highlight")(function* (
@@ -3043,7 +3030,7 @@ export class BrowserCdpEngine {
     if (corners.length < 8 || right - left < 1 || bottom - top < 1)
       return yield* browserFailure(new Error("Element has no visible bounds."));
     // Box model values are CSS pixels; the capture takes view pixels, which page zoom scales.
-    const zoom = this.#contents.getZoomFactor();
+    const zoom = this.#target.zoomFactor();
     return {
       x: Math.floor(left * zoom),
       y: Math.floor(top * zoom),
@@ -3194,16 +3181,15 @@ export class BrowserCdpEngine {
     operation: (send: SendCommand) => Effect.Effect<T, BrowserOperationError>,
     attachFrames = true,
   ): Effect.fn.Return<T, BrowserOperationError> {
-    if (this.#disposed || this.#closing || this.#contents.isDestroyed())
-      return yield* browserFailure(new Error("Browser tab was closed."));
-    if (!this.#contents.debugger.isAttached()) {
-      yield* browserSync(() => this.#contents.debugger.attach("1.3"));
+    if (this.#disposed || this.#target.isClosed()) return yield* browserFailure(new Error("Browser tab was closed."));
+    if (!this.#target.isAttached()) {
+      yield* this.#target.attach();
       this.#ownsDebugger = true;
     }
     this.#activeLeases += 1;
     const send: SendCommand = (method, params = {}, sessionId) =>
       Effect.gen({ self: this }, function* () {
-        const result = yield* browserCall(() => this.#contents.debugger.sendCommand(method, params, sessionId));
+        const result = yield* browserCall(() => this.#target.sendCommand(method, params, sessionId));
         if (!isDynamicRecord(result))
           return yield* browserFailure(new Error(`CDP ${method} returned an invalid result.`));
         return result;
@@ -3239,8 +3225,8 @@ export class BrowserCdpEngine {
     if (!this.#ownsDebugger) return;
     this.#ownsDebugger = false;
     this.#clearDebuggerSessions();
-    if (this.#closing || this.#contents.isDestroyed() || !this.#contents.debugger.isAttached()) return;
-    this.#contents.debugger.detach();
+    // An Electron tab detaches now; a target with lease retention keeps its debugger for the lease.
+    this.#target.release();
   }
 
   #clearDebuggerSessions(): void {
@@ -3538,21 +3524,3 @@ function documentIdsExpression(documentIds: string[]): string {
     return { ids, complete: wanted.size === 0 || scanned < ${MAX_SNAPSHOT_SCANNED_NODES} };
   })()`;
 }
-const waitForPageSignal = Effect.fn("Browser.waitForPageSignal")((contents: WebContents, timeoutMs: number) =>
-  Effect.callback<void>((resume) => {
-    let timer: NodeJS.Timeout;
-    const cleanup = () => {
-      clearTimeout(timer);
-      contents.off("did-stop-loading", signal);
-      contents.off("did-navigate-in-page", signal);
-    };
-    const signal = () => {
-      cleanup();
-      resume(Effect.void);
-    };
-    timer = setTimeout(signal, timeoutMs);
-    contents.once("did-stop-loading", signal);
-    contents.once("did-navigate-in-page", signal);
-    return Effect.sync(cleanup);
-  }),
-);

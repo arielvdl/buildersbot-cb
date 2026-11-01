@@ -58,6 +58,7 @@ import {
   type BrowserViewportInput,
   type SnapshotReadResult,
 } from "./browser-cdp";
+import { ElectronCdpTarget } from "./browser-cdp-target";
 import { BrowserControlSessions } from "./browser-control-sessions";
 import { browserViewCursor } from "./browser-cursor";
 import { BrowserDiagnostics } from "./browser-diagnostics";
@@ -139,6 +140,7 @@ import {
   runTabFillFields,
   skipActionResult,
 } from "./browser-tab-operations";
+import { canUseBrowserTab, unknownBrowserTabError } from "./browser-tab-ownership";
 import {
   type BrowserCardVault,
   type BrowserDynamicToolHooks,
@@ -1147,13 +1149,12 @@ export class BrowserHost {
   userControlTabFor(params: DynamicToolCallParams): string | null {
     if (TAB_SET_TOOLS.has(params.tool))
       return (
-        this.listTabs().find((tab) => this.#userControlTabIds.has(tab.id) && this.#canUseToolTab(params, tab))?.id ??
-        null
+        this.listTabs().find((tab) => this.#userControlTabIds.has(tab.id) && canUseBrowserTab(params, tab))?.id ?? null
       );
     const tabId = isRecord(params.arguments) ? params.arguments.tabId : undefined;
     if (!isString(tabId) || !this.#userControlTabIds.has(tabId)) return null;
     const tab = this.listTabs().find((candidate) => candidate.id === tabId);
-    return tab && this.#canUseToolTab(params, tab) ? tabId : null;
+    return tab && canUseBrowserTab(params, tab) ? tabId : null;
   }
 
   /** Waits until nobody controls the tab: a release, a tab close or the host shutdown. */
@@ -2130,7 +2131,7 @@ export class BrowserHost {
   #toolTabs(params: DynamicToolCallParams): { tabs: BrowserTab[]; activeTabId: string | null } {
     // A page can put a typed card value in its title or address, so they go through the tab's scrub.
     const tabs = this.listTabs()
-      .filter((tab) => this.#canUseToolTab(params, tab))
+      .filter((tab) => canUseBrowserTab(params, tab))
       .map((tab) => {
         const engine = this.#tabs.get(tab.id)?.engine;
         return engine ? { ...tab, title: engine.scrubText(tab.title), url: engine.scrubText(tab.url) } : tab;
@@ -2643,7 +2644,7 @@ export class BrowserHost {
       pendingOperations: 0,
       focusOnVisible: false,
       environment,
-      engine: new BrowserCdpEngine(view.webContents),
+      engine: new BrowserCdpEngine(new ElectronCdpTarget(view.webContents)),
       diagnostics,
       recording: false,
       captureGeneration: 0,
@@ -3254,7 +3255,7 @@ export class BrowserHost {
   /** `dialogTool` is true for a tool that works while a page dialog is open: `handle_dialog` and `close_tab`. */
   #requireToolTab(params: DynamicToolCallParams, tabId: string, dialogTool = false): void {
     const tab = this.listTabs().find((candidate) => candidate.id === tabId);
-    if (!tab || !this.#canUseToolTab(params, tab)) throw new Error(`Unknown browser tab: ${tabId}`);
+    if (!tab || !canUseBrowserTab(params, tab)) throw unknownBrowserTabError(tabId);
     // The user holds this tab. `AgentService` already refuses an agent's browser tools while its own
     // takeover is outstanding, but that check is agent-wide and only covers callers that go through
     // the agent service; this one is per tab and holds for every caller of a tabId-bearing tool.
@@ -3274,13 +3275,6 @@ export class BrowserHost {
       );
     throw new Error(
       "A dialog is open in this tab, and only a person can answer it. Ask the user to answer it, then try again.",
-    );
-  }
-
-  #canUseToolTab(params: DynamicToolCallParams, tab: BrowserTab): boolean {
-    return (
-      tab.ownerThreadId === params.threadId &&
-      (tab.ownerAgentId === null || tab.ownerAgentId === (params.ownerAgentId ?? null))
     );
   }
 
