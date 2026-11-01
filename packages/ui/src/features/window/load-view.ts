@@ -5,11 +5,14 @@ import {
   type LoadSnapshot,
   type RecoveryEvent,
   type StoppedWork,
+  type StoppedWorkPlan,
   TASK_WATCH_MAX_MINUTES,
   TASK_WATCH_MIN_MINUTES,
   type TaskWatchEvent,
+  type TaskWatchHold,
+  type TaskWatchWait,
 } from "@openbot/contracts/ipc";
-import type { AppTranslate } from "@openbot/i18n";
+import type { AppTextKey, AppTranslate } from "@openbot/i18n";
 
 export type LoadTone = "ok" | "warning" | "critical";
 
@@ -188,4 +191,75 @@ export function taskWatchEventText(event: TaskWatchEvent, t: AppTranslate): stri
     return t("app.rail.load.watchEventReassigned", { channel, agent: event.agentName ?? "", why });
   if (event.action === "stopped") return t("app.rail.load.watchEventStopped", { channel, why });
   return t("app.rail.load.watchEventGaveUp", { channel, why });
+}
+
+const HOLD_TEXT = {
+  person: "app.rail.load.hold.person",
+  attention: "app.rail.load.hold.attention",
+  memory: "app.rail.load.hold.memory",
+  children: "app.rail.load.hold.children",
+  plan: "app.rail.load.hold.plan",
+  lane: "app.rail.load.hold.lane",
+  slot: "app.rail.load.hold.slot",
+  "agent-busy": "app.rail.load.hold.agent-busy",
+  "waits-for-work": "app.rail.load.hold.waits-for-work",
+} as const satisfies Record<TaskWatchHold, AppTextKey>;
+
+const WAIT_KIND_TEXT = {
+  running: "app.rail.load.wait.kind.running",
+  queued: "app.rail.load.wait.kind.queued",
+  "start-failed": "app.rail.load.wait.kind.start-failed",
+} as const satisfies Record<TaskWatchWait["kind"], AppTextKey>;
+
+/** Why the task reviewer leaves a task alone: "the agent waits for you". */
+export function holdText(hold: TaskWatchHold, t: AppTranslate): string {
+  return t(HOLD_TEXT[hold]);
+}
+
+/** "in 12 min", or "within a minute" when the next look acts. */
+function whenText(minutes: number | null, t: AppTranslate): string {
+  return minutes !== null && minutes > 0
+    ? t("app.rail.load.plan.inMinutes", { minutes })
+    : t("app.rail.load.plan.nextLook");
+}
+
+/**
+ * What the app does next with a stopped task, for its row: "The task reviewer resumes it in 12 min",
+ * "Resume by itself waits: the agent waits for you", "Needs you: a resume does not fix this.", or
+ * "The task reviewer gave up after 3 tries".
+ */
+export function stoppedPlanText(plan: StoppedWorkPlan, t: AppTranslate): string {
+  const who = t(plan.by === "reviewer" ? "app.rail.load.plan.reviewer" : "app.rail.load.plan.recovery");
+  if (plan.state === "needs-you") return t("app.rail.load.plan.needsYou");
+  if (plan.state === "gave-up") return t("app.rail.load.plan.gaveUp", { who, count: plan.tries });
+  if (plan.state === "held")
+    return t("app.rail.load.plan.held", { who, reason: plan.hold ? holdText(plan.hold, t) : "" });
+  const when = whenText(plan.minutes, t);
+  if (plan.action === "reassign") return t("app.rail.load.plan.reassign", { who, when });
+  if (plan.action === "give-up") return t("app.rail.load.plan.giveUp", { who, when });
+  return t("app.rail.load.plan.resume", { who, when });
+}
+
+/** The kind of a task that the task reviewer watches: "Working", "Requested", "Did not start". */
+export function taskWatchWaitKind(wait: TaskWatchWait, t: AppTranslate): string {
+  return t(WAIT_KIND_TEXT[wait.kind]);
+}
+
+/** Why the task reviewer does not act on a task yet, and when it can: "Acts in 8 min if no sign comes". */
+export function taskWatchWaitText(wait: TaskWatchWait, t: AppTranslate): string {
+  const when = whenText(wait.minutes, t);
+  switch (wait.state) {
+    case "held":
+      return t("app.rail.load.wait.held", { reason: wait.hold ? holdText(wait.hold, t) : "" });
+    case "gave-up":
+      return t("app.rail.load.wait.gaveUp");
+    case "due":
+      return t("app.rail.load.wait.due");
+    case "cooldown":
+      return t("app.rail.load.wait.cooldown", { when });
+    case "watching":
+      return wait.kind === "start-failed"
+        ? t("app.rail.load.wait.startFailed", { when })
+        : t("app.rail.load.wait.watching", { when });
+  }
 }

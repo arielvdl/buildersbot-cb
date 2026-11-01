@@ -34,7 +34,7 @@ import {
 } from "@openbot/ui";
 import { AgentPicker } from "@openbot/ui/features/agents/AgentPicker";
 import { LoadOverview, StoppedState, WorkRequest, WorkTab } from "@openbot/ui/features/window/LoadRing";
-import { toggledKey } from "@openbot/ui/features/window/load-view";
+import { stoppedPlanText, toggledKey } from "@openbot/ui/features/window/load-view";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
 import { type GuardModelRow, guardModelName, type SettingsGuardStore } from "./settings-guard-store";
@@ -634,16 +634,30 @@ function StoppedWorkRow(props: {
         <Show when={props.row.title}>
           <WorkRequest request={props.row.title} expanded={props.expanded} onToggle={props.onToggle} />
         </Show>
-        <Show when={props.row.agentName || props.row.auto}>
+        <Show when={props.row.agentName || props.row.auto || props.row.plan}>
           <p class="window-rail-load-item-meta">
             <Show when={props.row.agentName}>
               {(agent) => <span>{t("app.rail.load.stoppedBy", { agent: agent() })}</span>}
             </Show>
-            <Show when={props.row.auto === "waiting"}>
-              <span>{t("app.rail.load.autoWaiting")}</span>
-            </Show>
-            <Show when={props.row.auto === "gave-up"}>
-              <span data-tone="danger">{t("app.rail.load.autoGaveUp")}</span>
+            {/* What the app does next and when. An older main process gives only `auto`. */}
+            <Show
+              when={props.row.plan}
+              fallback={
+                <>
+                  <Show when={props.row.auto === "waiting"}>
+                    <span>{t("app.rail.load.autoWaiting")}</span>
+                  </Show>
+                  <Show when={props.row.auto === "gave-up"}>
+                    <span data-tone="danger">{t("app.rail.load.autoGaveUp")}</span>
+                  </Show>
+                </>
+              }
+            >
+              {(plan) => (
+                <span data-tone={plan().state === "gave-up" || plan().state === "needs-you" ? "danger" : undefined}>
+                  {stoppedPlanText(plan(), t)}
+                </span>
+              )}
             </Show>
           </p>
         </Show>

@@ -9,6 +9,10 @@
  * task reviewer (`task-watch.ts`) uses the same tries (`RecoveryLedger`), so the two cannot loop either.
  */
 
+import type { StoppedWorkPlan } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
+import { createBuildersBotLogger } from "@openbot/logging";
+
 /** Tries for one task before it is left alone. A reassignment is the try of the new owner. */
 export const MAX_RESUMES = 2;
 export const MAX_REASSIGNS = 2;
@@ -18,6 +22,35 @@ const MAX_ACTIONS_PER_TICK = 3;
 const RECORD_RETENTION_MS = 6 * 60 * 60_000;
 const RECENT_LIMIT = 5;
 const CANDIDATE_LIMIT = 8;
+
+/**
+ * The reasons that a resume does not fix: the same request on the same agent stops again in the same way.
+ * Each one asks the person to choose a member, or the agent that had the task cannot take it. A resume
+ * of such a task only spends a try, and on 1 November 2026 it spent the three actions of each look on
+ * routine requests that the lead could not route, for hours. Stored errors are source text.
+ */
+const NOT_RESUMABLE: ReadonlySet<string> = new Set([
+  sourceText("error.backend.channelRoutingTooLong"),
+  sourceText("error.backend.channelRoutingUnreadable"),
+  sourceText("error.backend.channelLeadRequired"),
+  sourceText("error.backend.channelLeadModelUnavailable"),
+  sourceText("error.backend.channelTaskMemberRequired"),
+  sourceText("error.backend.channelRequestMemberRequired"),
+  sourceText("error.backend.channelMemberRequired"),
+  sourceText("error.backend.channelAssigneeUnavailable"),
+  sourceText("error.backend.channelAssigneeRemoved"),
+  sourceText("error.backend.channelAssigneeReassign"),
+  sourceText("error.backend.channelHistoryLeadRequired"),
+  sourceText("error.backend.channelContextTooLong"),
+]);
+
+/**
+ * Whether a resume can fix a stopped task: its reason is not one that asks for a member, and the agent
+ * that had it still exists.
+ */
+export function resumable(reason: string, ownerMissing: boolean): boolean {
+  return !ownerMissing && !NOT_RESUMABLE.has(reason);
+}
 
 export interface MemberInfo {
   agentId: string;
@@ -77,6 +110,8 @@ export interface RecoveryRecord {
   /** The agents the task was given to. */
   tried: string[];
   gaveUp: boolean;
+  /** It gave up at once: a resume cannot fix the task and no agent can take it. */
+  needsYou?: boolean;
 }
 
 /** One record of the ledger: the tries of a task, and when a look last saw it. */
@@ -132,16 +167,32 @@ function ledgerKey(channelId: string, taskId: string): string {
   return `${channelId}\u0000${taskId}`;
 }
 
-export type RecoveryAction = { type: "resume" } | { type: "reassign"; agentId: string } | { type: "give-up" };
+export type RecoveryAction =
+  | { type: "resume" }
+  | { type: "reassign"; agentId: string }
+  | { type: "give-up" }
+  | { type: "needs-you" };
 
-/** What to do with one stopped task now, or null to wait. `pick` names the agent for a reassignment. */
+/**
+ * What to do with one stopped task now, or null to wait. `pick` names the agent for a reassignment. A
+ * task that a resume cannot fix (`resumable` false) gets no resume: it goes to another agent after the
+ * interval when the person allows it and one can take it; else it is left to the person at once
+ * (`needs-you`), so it does not wait for tries that cannot help.
+ */
 export function decideRecovery(
   record: RecoveryRecord,
   now: number,
   preference: { intervalMs: number; reassign: boolean },
   pick: () => string | null,
+  canResume = true,
 ): RecoveryAction | null {
   if (record.gaveUp) return null;
+  if (!canResume) {
+    const agentId = preference.reassign && record.reassigns < MAX_REASSIGNS ? pick() : null;
+    if (!agentId) return { type: "needs-you" };
+    if (now - (record.lastActionAt ?? record.seenAt) < preference.intervalMs) return null;
+    return { type: "reassign", agentId };
+  }
   if (now - (record.lastActionAt ?? record.seenAt) < preference.intervalMs) return null;
   if (record.resumes < MAX_RESUMES) return { type: "resume" };
   if (!preference.reassign || record.reassigns >= MAX_REASSIGNS) return { type: "give-up" };
@@ -167,6 +218,13 @@ export interface StoppedRef {
   taskId: string;
   channelName: string;
   agentName: string | null;
+  /** Whether a resume can fix it (`resumable`). Omitted: it can. */
+  resumable?: boolean;
+}
+
+/** The log of the automatic recovery: actions and counts, never the text of a task. */
+export interface RecoveryLog {
+  info(message: string, fields: Record<string, string | number | boolean>): void;
 }
 
 export interface AutoRecoveryDeps {
@@ -181,17 +239,20 @@ export interface AutoRecoveryDeps {
   onFailure(kind: "resume" | "reassign", channelId: string, taskId: string, cause: unknown): void;
   /** The tries, shared with the task reviewer. Omitted, the recovery keeps its own. */
   ledger?: RecoveryLedger;
+  log?: RecoveryLog;
 }
 
 export class AutoRecovery {
   readonly #deps: AutoRecoveryDeps;
   readonly #ledger: RecoveryLedger;
+  readonly #log: RecoveryLog;
   readonly #recent: RecoveryEvent[] = [];
   #ticking = false;
 
   constructor(deps: AutoRecoveryDeps) {
     this.#deps = deps;
     this.#ledger = deps.ledger ?? new RecoveryLedger();
+    this.#log = deps.log ?? createBuildersBotLogger("auto-recovery");
   }
 
   /** What the panel shows for one stopped task. */
@@ -199,6 +260,34 @@ export class AutoRecovery {
     const record = this.#ledger.peek(channelId, taskId);
     if (!record) return null;
     return record.gaveUp ? "gave-up" : "waiting";
+  }
+
+  /**
+   * What "Resume by itself" does next with one stopped task, and in how many minutes, by the same rules
+   * as a look (`decideRecovery`). A task that no look saw yet waits one interval from the next look.
+   * `canReassign` says whether an agent can take it now; it is asked only when the next step needs it.
+   */
+  planOf(
+    channelId: string,
+    taskId: string,
+    canResume: boolean,
+    canReassign: () => boolean,
+    now: number,
+  ): StoppedWorkPlan | null {
+    const preference = this.#deps.preference();
+    if (!preference.enabled) return null;
+    const record = this.#ledger.peek(channelId, taskId);
+    const tries = (record?.resumes ?? 0) + (record?.reassigns ?? 0);
+    const base = { by: "recovery", action: null, minutes: null, hold: null, tries } as const;
+    if (record?.gaveUp) return { ...base, state: record.needsYou ? "needs-you" : "gave-up" };
+    const intervalMs = Math.max(1, preference.intervalMinutes) * 60_000;
+    const since = record ? (record.lastActionAt ?? record.seenAt) : now;
+    const minutes = Math.max(0, Math.ceil((since + intervalMs - now) / 60_000));
+    const reassign = () => preference.reassign && (record?.reassigns ?? 0) < MAX_REASSIGNS && canReassign();
+    if (!canResume)
+      return reassign() ? { ...base, state: "due", action: "reassign", minutes } : { ...base, state: "needs-you" };
+    if ((record?.resumes ?? 0) < MAX_RESUMES) return { ...base, state: "due", action: "resume", minutes };
+    return { ...base, state: "due", action: reassign() ? "reassign" : "give-up", minutes };
   }
 
   recent(): RecoveryEvent[] {
@@ -219,38 +308,65 @@ export class AutoRecovery {
       this.#ledger.sweep(now);
 
       let acted = 0;
+      let leftToYou = 0;
       for (const { ref, record } of due) {
-        if (acted >= MAX_ACTIONS_PER_TICK) break;
-        const action = decideRecovery(record, now, { intervalMs, reassign: preference.reassign }, () =>
-          this.#deps.candidate(ref.channelId, ref.taskId, record.tried),
+        const canResume = ref.resumable ?? true;
+        // Past the cap of the look, only the tasks that a resume cannot fix are still marked.
+        if (acted >= MAX_ACTIONS_PER_TICK && canResume) continue;
+        const action = decideRecovery(
+          record,
+          now,
+          { intervalMs, reassign: preference.reassign },
+          () => this.#deps.candidate(ref.channelId, ref.taskId, record.tried),
+          canResume,
         );
         if (!action) continue;
+        if (action.type === "needs-you") {
+          // No command: it does not take one of the actions of the look.
+          record.gaveUp = true;
+          record.needsYou = true;
+          leftToYou += 1;
+          continue;
+        }
+        if (acted >= MAX_ACTIONS_PER_TICK) continue;
         acted += 1;
         record.lastActionAt = now;
+        const tries = record.resumes + record.reassigns;
         if (action.type === "give-up") {
           record.gaveUp = true;
           this.#note(now, ref.channelName, "gave-up", ref.agentName);
+          this.#log.info("Resume by itself gave up.", { tries });
         } else if (action.type === "resume") {
           record.resumes += 1;
           await this.#deps.resume(ref.channelId, ref.taskId).then(
-            () => this.#note(now, ref.channelName, "resumed", ref.agentName),
+            () => {
+              this.#note(now, ref.channelName, "resumed", ref.agentName);
+              this.#log.info("Resume by itself resumed a task.", { tries: tries + 1 });
+            },
             (cause: unknown) => this.#deps.onFailure("resume", ref.channelId, ref.taskId, cause),
           );
         } else {
           record.reassigns += 1;
           record.tried.push(action.agentId);
           await this.#deps.reassign(ref.channelId, ref.taskId, action.agentId).then(
-            () =>
+            () => {
               this.#note(
                 now,
                 ref.channelName,
                 "reassigned",
                 this.#deps.agentNameOf?.(action.agentId) ?? action.agentId,
-              ),
+              );
+              this.#log.info("Resume by itself gave a task to another agent.", {
+                tries: tries + 1,
+                resumable: canResume,
+              });
+            },
             (cause: unknown) => this.#deps.onFailure("reassign", ref.channelId, ref.taskId, cause),
           );
         }
       }
+      if (leftToYou > 0)
+        this.#log.info("Resume by itself left tasks to the person: a resume cannot fix them.", { count: leftToYou });
     } finally {
       this.#ticking = false;
     }

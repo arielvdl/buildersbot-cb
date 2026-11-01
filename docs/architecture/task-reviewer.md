@@ -26,6 +26,22 @@ It looks only when both switches are on: "Resume by itself" and "Task reviewer (
 timer of `WorkControl` looks every 60 s. The reviewer looks after `AutoRecovery` in the same look,
 so it sees what `AutoRecovery` did.
 
+Its log is `logs/task-reviewer/task-reviewer.log` in the user data folder (`startTaskReviewerLog`,
+1 MB with one rotated copy). It has the lines of the loggers `task-watch`, `auto-recovery` and
+`mac-memory`:
+
+- "The task reviewer looks." or "... does not look.", once at each change, with the two switches;
+- each decision, with the action, the kind of task, the reason, who decided and the minutes;
+- for a look that decides nothing, "The task reviewer waits.", with the count of tasks in each state,
+  the holds (such as `memory:2,attention:1`) and the minutes until the next one is due. It goes to the
+  log when it changes, and again every 10 minutes, so at most one line each look;
+- the actions of "Resume by itself" and the commands of both that failed;
+- each change of the memory level of the Mac, which holds new turns and requests.
+
+No line has a name of a channel, a request or the words of an agent. Before 1 November 2026 these
+loggers wrote to stdout only, which an app started from the Dock does not keep, so nothing on the
+computer showed whether the reviewer looked or acted.
+
 ## Local rules first
 
 The local rules use no network. For each watched task they find the last sign of life:
@@ -128,6 +144,12 @@ uses a command that the person also has:
 | Failed start, not tried | `resume` | | |
 | Failed start, tried | `reassign`, when allowed and a free agent can take it; else a second `resume` | | it leaves the task and says so |
 
+A failed start waits `startFailedWaitMs` before each try: `2 × N`, or the interval of "Resume by
+itself" when that is shorter, from the first look that saw it or the last action. With `N` at 5
+minutes and an interval of 30, the reviewer tries it at 10 minutes, then gives it to another agent 10
+minutes after that. Before 1 November 2026 it waited the whole interval of "Resume by itself" (30
+minutes), so a stopped card stayed for more than 15 minutes with the reviewer on at 5.
+
 - The tries are the tries of "Resume by itself": one `RecoveryLedger` for both, with
   `MAX_RESUMES` (2) and `MAX_REASSIGNS` (2) for each task in all. So a task cannot loop between
   the two. The reviewer writes a record when it acts, and for each failed start. It does not renew
@@ -175,7 +197,14 @@ reviewer" and related words, in the interface language and in English. The page 
 - the two switches of the load page that it follows, "Resume by itself" and "Give it to another
   agent if it keeps failing", with the interval of "Resume by itself", and a button that opens the
   load page of Settings;
-- its last actions, with the time and who decided (the model or the local rules);
+- "Why it waits": each task that it watches now (at most 20, `TASK_WATCH_WAIT_LIMIT`), by channel
+  and kind, with when it can act ("Acts in 8 min if no sign comes", "Tries again in 4 min", "Acted
+  lately; can act again in 22 min"), the hold that keeps it waiting ("Waits: the agent waits for
+  you", "the Mac is low on memory", "another channel goes first"), or that it gave up. It comes from
+  the last look (`TaskWatch.waits`, `watchOutlook`), by the local rules. A slow task can get a resume
+  sooner from the model; that is not shown;
+- "What it did": its last 20 actions (`TASK_WATCH_RECENT_LIMIT`), with the time and who decided (the
+  model or the local rules). They stay after a restart, in `openbot-task-watch-history-v1.json`;
 - what it does and what it does not do, in plain words.
 
 The Guard page links to this page, and this page links to the Guard page. The load page has a
@@ -192,11 +221,16 @@ On the load page of Settings, in the section of "Resume by itself":
 - the threshold, "consider it stopped after N minutes with no sign";
 - its actions in "Lately", beside those of "Resume by itself", the newest first, such as "Task
   reviewer: gave Pagamentos to Writer (no sign for 32 min)". The pointer over a line says whether
-  the model or the local rules decided. Each of the two keeps its last 5 actions, and the list shows
-  6 (`loadRecentEvents`). A "waited" line comes once for each slow period of a task.
+  the model or the local rules decided. "Resume by itself" keeps its last 5 actions and the reviewer
+  its last 20, and the list shows 6 (`loadRecentEvents`). A "waited" line comes once for each slow period of a task.
 
-A running row that is slow or stalled shows the minutes with no sign. A stopped row that the
-reviewer gave up on shows "Gave up after its tries".
+A running row that is slow or stalled shows the minutes with no sign. Each stopped row of the load
+page says what the app does next and when (`StoppedWork.plan`): for a failed start while the reviewer
+looks, the reviewer ("The task reviewer resumes it in 6 min", "... gives it to another agent ...",
+"The task reviewer waits: the agent waits for you", "The task reviewer gave up after 3 tries"); for
+other rows, "Resume by itself" (see [Stopped work and its
+recovery](channels-and-messaging.md#stopped-work-and-its-recovery)), and "Needs you" for a task that
+a resume cannot fix and no agent can take.
 
 The log (`task-watch`) records the action, the kind of task, who decided (local or model) and the
 minutes. It never records the request, the agent's words or the reply of the model.
@@ -227,18 +261,22 @@ The preference is `openbot-task-watch-v1.json` in the user data folder:
 | `quietMinutes` | `15` | `N`, from 5 to 120. |
 
 A file that is missing, damaged, of another version or with a value out of range reads as the
-default. The window sets it with `app:set-task-watch`; the answer is the load snapshot, which
+default. Its last actions are in `openbot-task-watch-history-v1.json` (`createTaskWatchHistoryStore`):
+at most 20 events with the time, the channel name, the action, the reason, the agent name, the
+minutes and who decided. Never the request or the words of an agent. A damaged file reads as no
+action, and an event that does not decode is left out. The window sets it with `app:set-task-watch`; the answer is the load snapshot, which
 carries `taskWatch` (the preference, `active`, `modelReady` and `recent`).
 
 ## Known limits
 
-- The records are in memory. A restart forgets the tries, the waits and the stops by the person.
-  Turned off and on again, a request in the queue waits anew.
+- The tries, the waits and the stops by the person are in memory. A restart forgets them; only the
+  list of the last actions stays. Turned off and on again, a request in the queue waits anew.
 - A turn that ends interrupted for another reason, such as the Stop of the agent's own chat, is not
   a stop by the person for the reviewer. It is `paused`, so the reviewer does not act on it, but
   "Resume by itself" can start it again, and then the reviewer watches it.
-- The panel lists at most 50 stopped rows (`LOAD_WORK_LIST_LIMIT`); a failed start past them is
-  not seen until the list is shorter.
+- The memory hold stays as it is: at `low`, a request waits, because the drain holds new turns
+  then, and a resume or a reassign only puts it in another queue that waits too. A run and a failed
+  start are held only at `critical`. "Why it waits" shows the hold.
 - The provider clock is per agent, not per turn, and a restart loses it.
 - A long command with no output for more than `4 × N` minutes is restarted. Set a larger `N` for
   work like that.

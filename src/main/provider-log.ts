@@ -47,6 +47,27 @@ export function startAgentLog(logsDirectory: string): () => void {
 }
 
 /**
+ * The loggers whose lines also go to the log of the task reviewer: its looks and decisions
+ * (`task-watch`), the actions of "Resume by itself" and the commands of both that failed
+ * (`auto-recovery`), and the memory level of the Mac that holds them (`mac-memory`).
+ */
+const TASK_REVIEWER_LOG_PREFIXES = ["task-watch", "auto-recovery", "mac-memory"] as const;
+
+/**
+ * Keeps the lines of the task reviewer and of "Resume by itself" in
+ * `<logs>/task-reviewer/task-reviewer.log`, with the same size limit. Their loggers wrote to stdout only,
+ * which an app started from the Dock does not keep: on 1 November 2026 nothing on the computer showed
+ * whether they looked or acted. The lines name actions, kinds, counts and minutes, never the text of a
+ * task. Returns the removal.
+ */
+export function startTaskReviewerLog(logsDirectory: string): () => void {
+  const directory = join(logsDirectory, "task-reviewer");
+  return teeLogLines(TASK_REVIEWER_LOG_PREFIXES, (line) => {
+    Effect.runFork(appendRemoteDiagnosticLog(directory, "task-reviewer", `${line}\n`));
+  });
+}
+
+/**
  * Keeps the lines of the main process logger in `<logs>/main/main.log`, with the same size limit:
  * startup failures, uncaught errors, and why the app quit. Without it, a window that disappeared on
  * Windows left no record of whether Builders Bot quit or crashed (#2675). It runs for the life of the
