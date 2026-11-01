@@ -2,6 +2,13 @@ import { ProviderModelPicker } from "@openbot/ui/components/ProviderModelPicker"
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { STORY_AGENT_STATUS, STORY_MODELS } from "./fixtures";
+import {
+  PICKER_CHECKING_STATUS,
+  PICKER_MANY_MODELS,
+  PICKER_MODELS,
+  PICKER_READY_STATUS,
+  PICKER_RUNTIMES,
+} from "./provider-picker-fixtures";
 
 const args: Parameters<typeof ProviderModelPicker>[0] = {
   provider: "codex",
@@ -237,4 +244,108 @@ export const OpenCodeTabExcludesCustom: Story = {
     ...CustomTabWithModels.args,
     value: "opencode/example-free",
   },
+};
+
+/*
+ * The inline section, as the new-agent dialog of a channel shows it: the choices open under the row,
+ * in the box of the dialog and at its width. `scripts/agent-model-picker-e2e.ts` checks each state in
+ * English and Portuguese, light and dark. These stories render fixed props, not story args: the
+ * picker reads its props when it mounts, and a story opened in its own frame mounts before its args
+ * arrive.
+ */
+
+type PickerProps = Parameters<typeof ProviderModelPicker>[0];
+
+const INLINE: PickerProps = {
+  variant: "field",
+  inline: true,
+  ariaLabel: "Agent model",
+  provider: "codex",
+  value: "gpt-6.1-sol",
+  modelOptions: PICKER_MODELS,
+  agentStatus: PICKER_READY_STATUS,
+  runtimeStatuses: PICKER_RUNTIMES,
+  reasoningEffort: "medium",
+  onReasoningEffortChange: fn(),
+  onDownloadProvider: fn(),
+  onCancelProviderDownload: fn(),
+  onConnectProvider: fn(),
+  onChange: fn(),
+};
+
+/** The picker in the model box of the new-agent dialog, at the width of the dialog or of a narrow window. */
+function InDialogBox(props: { width: number; picker?: Partial<PickerProps> }) {
+  return (
+    <div style={{ width: `${props.width}px`, "max-width": "100%", background: "var(--openbot-bg-surface)" }}>
+      <div class="agent-settings-runtime-rows channel-member-runtime">
+        <ProviderModelPicker {...INLINE} {...props.picker} />
+      </div>
+    </div>
+  );
+}
+
+/** Closed: the row shows the provider, the model and the effort. */
+export const InlineClosed: Story = {
+  render: () => <InDialogBox width={408} />,
+};
+
+/** Open: the ready providers by name, the models of the chosen one, the effort and its default. */
+export const InlineOpen: Story = {
+  render: () => <InDialogBox width={408} picker={{ defaultOpen: true }} />,
+};
+
+/** The host still checks its providers: the agent's provider shows, the others wait under Other providers. */
+export const InlineChecking: Story = {
+  render: () => (
+    <InDialogBox width={408} picker={{ defaultOpen: true, modelOptions: [], agentStatus: PICKER_CHECKING_STATUS }} />
+  ),
+};
+
+/** The agent's provider is not downloaded: its panel says so and has the Download button. */
+export const InlineProviderNotDownloaded: Story = {
+  render: () => <InDialogBox width={408} picker={{ defaultOpen: true, provider: "cline", value: "cline/default" }} />,
+};
+
+const OPENROUTER_READY = {
+  ...PICKER_READY_STATUS,
+  providers: PICKER_READY_STATUS.providers?.map((provider) =>
+    provider.id === "openrouter" ? { ...provider, state: "available" as const } : provider,
+  ),
+};
+
+/** A long catalog: the search shows, and the list scrolls in a box of a useful height. */
+export const InlineManyModels: Story = {
+  render: () => (
+    <InDialogBox
+      width={408}
+      picker={{
+        defaultOpen: true,
+        provider: "openrouter",
+        value: "openai/model-2",
+        modelOptions: [...PICKER_MODELS, ...PICKER_MANY_MODELS],
+        agentStatus: OPENROUTER_READY,
+      }}
+    />
+  ),
+};
+
+/** The dialog in a narrow window: the providers wrap, and the effort keeps its line. */
+export const InlineNarrow: Story = {
+  render: () => (
+    <InDialogBox
+      width={300}
+      picker={{ defaultOpen: true, provider: "claude", value: "claude-opus-5-5", reasoningEffort: "high" }}
+    />
+  ),
+};
+
+/** The popover of a field, as the agent settings show it in their settings card: the rail of marks. */
+export const FieldPopover: Story = {
+  render: () => (
+    <div style={{ width: "296px" }}>
+      <div class="settings-link-group settings-link-group-inset agent-settings-runtime-rows">
+        <ProviderModelPicker {...INLINE} inline={false} defaultOpen />
+      </div>
+    </div>
+  ),
 };
