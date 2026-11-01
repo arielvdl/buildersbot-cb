@@ -11,17 +11,12 @@ import {
   SwitchField,
   toast,
 } from "@openbot/ui";
-import {
-  ACTION_SOUND_CHOICES,
-  type GeneralSettingsValue,
-  TASK_SOUND_CHOICES,
-} from "@openbot/ui/features/settings/app-settings";
+import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
 import { NotificationMatrix, NotificationScopeTitle } from "@openbot/ui/features/settings/NotificationMatrix";
-import { SoundChoiceSelect } from "@openbot/ui/features/settings/SoundChoiceSelect";
 import { Show } from "solid-js";
-import { playSoundChoice } from "../../completion-sound";
 import { useI18n } from "../../i18n-context";
 import type { NotificationLevelsStore } from "./notification-levels-store";
+import { SettingsSoundsSection } from "./SettingsSoundsSection";
 
 interface SettingsNotificationsTabProps {
   value: GeneralSettingsValue;
@@ -56,6 +51,8 @@ export function SettingsNotificationsTab(props: SettingsNotificationsTabProps) {
   };
   return (
     <>
+      <SettingsSoundsSection onOpenSystemSettings={props.onOpenNotificationSettings} menuMount={props.menuMount} />
+
       <SettingsSection
         title={
           <NotificationScopeTitle
@@ -136,42 +133,6 @@ export function SettingsNotificationsTab(props: SettingsNotificationsTabProps) {
               </Item>
             )}
           </Show>
-          <Item data-settings-row="settings.taskSound.title" class="settings-modal-row">
-            <ItemContent>
-              <ItemTitle>{i18n.t("settings.taskSound.title")}</ItemTitle>
-              <ItemDescription>{i18n.t("settings.taskSound.description")}</ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <SoundChoiceSelect
-                label={i18n.t("settings.taskSound.title")}
-                choices={TASK_SOUND_CHOICES}
-                value={props.value.taskSound}
-                onChange={(value) => props.onUpdateSetting("taskSound", value)}
-                onPreview={playSoundChoice}
-                mount={props.menuMount}
-              />
-            </ItemActions>
-          </Item>
-          <Item data-settings-row="settings.soundFeedback.title" class="settings-modal-row">
-            <ItemContent>
-              <ItemTitle>{i18n.t("settings.soundFeedback.title")}</ItemTitle>
-              <ItemDescription>{i18n.t("settings.soundFeedback.description")}</ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <SoundChoiceSelect
-                label={i18n.t("settings.soundFeedback.title")}
-                choices={ACTION_SOUND_CHOICES}
-                value={props.value.soundFeedback ? props.value.soundTheme : "off"}
-                onChange={(value) =>
-                  props.onUpdateSettings(
-                    value === "off" ? { soundFeedback: false } : { soundFeedback: true, soundTheme: value },
-                  )
-                }
-                onPreview={playSoundChoice}
-                mount={props.menuMount}
-              />
-            </ItemActions>
-          </Item>
         </ItemGroup>
       </SettingsSection>
     </>

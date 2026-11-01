@@ -245,6 +245,106 @@ export const messages = defineMessages("settings", {
   "settings.soundTheme.bubble": "Bubbly",
   "settings.soundTheme.press": "Clicky",
   "settings.soundTheme.play": "Play {name}",
+  "settings.sounds.title": "Sounds",
+  "settings.sounds.description":
+    "Every sound of Builders Bot on this computer: turn each one on or off, choose its sound and volume, or listen to it.",
+  "settings.sounds.muteAll.title": "Mute all sounds",
+  "settings.sounds.muteAll.description":
+    "No sound of the app plays, and the macOS notifications of Builders Bot are silent. The choices below stay.",
+  "settings.sounds.group.agents": "Agents",
+  "settings.sounds.group.approvals": "Approvals and questions",
+  "settings.sounds.group.guard": "Guard",
+  "settings.sounds.group.taskReviewer": "Task reviewer",
+  "settings.sounds.group.tasksAndRoutines": "Tasks and routines",
+  "settings.sounds.group.messages": "Messages",
+  "settings.sounds.group.voice": "Voice",
+  "settings.sounds.group.interface": "Interface",
+  "settings.sounds.group.system": "System",
+  "settings.sounds.group.remote": "Remote",
+  "settings.sounds.event.replyFinished.title": "Reply to you finished",
+  "settings.sounds.event.replyFinished.description":
+    "An agent finished a reply to a message that you sent in its chat.",
+  "settings.sounds.event.runFailed.title": "Agent run failed",
+  "settings.sounds.event.runFailed.description": "A run that you started stopped with an error.",
+  "settings.sounds.event.approvalWaiting.title": "Question or approval waits",
+  "settings.sounds.event.approvalWaiting.description":
+    "An agent asks a question, asks for an approval, or asks you to take over the browser.",
+  "settings.sounds.event.guardQuestion.title": "Guard question",
+  "settings.sounds.event.guardQuestion.description":
+    "The Guard stopped an action and asks you. The siren of the Guard is a picture: it makes no sound.",
+  "settings.sounds.event.reviewerResumedWork.title": "Work that the task reviewer resumes",
+  "settings.sounds.event.reviewerResumedWork.description":
+    "The task reviewer and Resume by itself have no sound of their own. Each task that they start again plays “Channel and team work finished” when it ends.",
+  "settings.sounds.event.workFinished.title": "Channel and team work finished",
+  "settings.sounds.event.workFinished.description":
+    "A turn ended in a channel, a task thread or a side thread, or a teammate started it. Many agents at work can play it often.",
+  "settings.sounds.event.routineFinished.title": "Routine run finished",
+  "settings.sounds.event.routineFinished.description":
+    "A routine run posted a result. A run with nothing new is silent.",
+  "settings.sounds.event.workflowNotification.title": "Workflow notification",
+  "settings.sounds.event.workflowNotification.description":
+    "A workflow step waits for you, or a workflow has an output.",
+  "settings.sounds.event.agentNotification.title": "Agent notification",
+  "settings.sounds.event.agentNotification.description":
+    "The macOS notification for a reply, a question, an approval or a failure, while Builders Bot is not in front.",
+  "settings.sounds.event.channelReplyNotification.title": "Channel reply notification",
+  "settings.sounds.event.channelReplyNotification.description":
+    "The macOS notification for a new reply in a channel, while Builders Bot is not in front.",
+  "settings.sounds.event.voiceLimitWarning.title": "Recording ends soon",
+  "settings.sounds.event.voiceLimitWarning.description":
+    "Two short pips before a dictation reaches its time limit. It plays also while you dictate.",
+  "settings.sounds.event.voiceLimitStop.title": "Recording stopped at the limit",
+  "settings.sounds.event.voiceLimitStop.description": "A dictation reached its time limit and stopped.",
+  "settings.sounds.event.readAloud.title": "Replies read aloud",
+  "settings.sounds.event.readAloud.description":
+    "A voice reads the reply to a dictated message or to a voice conversation. Turn it on or off on the Voice page.",
+  "settings.sounds.event.interfaceControls.title": "Control sounds",
+  "settings.sounds.event.interfaceControls.description":
+    "Short sounds of buttons, menus, switches and typing. They take a sound theme only.",
+  "settings.sounds.event.interfaceActions.title": "Action results",
+  "settings.sounds.event.interfaceActions.description":
+    "The result of something that you did: saved, failed, a file attached, a message that did not send, another server.",
+  "settings.sounds.event.usageLimitNotification.title": "Usage limit notification",
+  "settings.sounds.event.usageLimitNotification.description":
+    "The macOS notification when an account reaches its usage limit.",
+  "settings.sounds.event.machineAlertNotification.title": "Machine alert notification",
+  "settings.sounds.event.machineAlertNotification.description":
+    "The macOS notification when the disk, the memory or the CPU of a server passes its alert level. It shows also while the app is in front.",
+  "settings.sounds.event.systemNotification.title": "Other app notifications",
+  "settings.sounds.event.systemNotification.description":
+    "The first notification, the test notification and the lid-closed notices.",
+  "settings.sounds.event.remotePhone.title": "iPhone and browser",
+  "settings.sounds.event.remotePhone.description":
+    "These choices are for this computer. The iPhone app has its own notification sound, and the browser client keeps its own sounds.",
+  "settings.sounds.enabled": "Play {name}",
+  "settings.sounds.soundFor": "Sound for {name}",
+  "settings.sounds.volumeFor": "Volume",
+  "settings.sounds.preview": "Listen to {name}",
+  "settings.sounds.reset": "Restore default",
+  "settings.sounds.resetFor": "Restore the default of {name}",
+  "settings.sounds.choice.none": "None",
+  "settings.sounds.choice.system": "System sound",
+  "settings.sounds.choice.macosDefault": "macOS default",
+  "settings.sounds.choice.addFile": "Add a sound file…",
+  "settings.sounds.volumeByMacos": "macOS sets the volume of notifications.",
+  "settings.sounds.voicePage": "On the Voice page",
+  "settings.sounds.saveFailed": "Builders Bot could not save the sound.",
+  "settings.sounds.previewFailed": "Builders Bot could not play the sound.",
+  "settings.sounds.addFailed": "Builders Bot could not add the sound file.",
+  "settings.sounds.macos.title": "Managed by macOS",
+  "settings.sounds.macos.description":
+    "macOS can still keep the notifications of Builders Bot silent: its Notifications page has a sound switch for each app, and Focus can silence them.",
+  "settings.sounds.macos.open": "Open macOS settings",
+  "settings.sounds.recent.title": "Recent sounds",
+  "settings.sounds.recent.description":
+    "The last {limit} sounds on this computer, and the sounds that the choices above kept quiet. Use it to find a sound that you do not know.",
+  "settings.sounds.recent.empty": "No sound played since Builders Bot started.",
+  "settings.sounds.recent.played": "Played",
+  "settings.sounds.recent.eventOff": "Quiet: turned off",
+  "settings.sounds.recent.muteAll": "Quiet: all muted",
+  "settings.sounds.recent.speaking": "Quiet: you were speaking",
+  "settings.sounds.recent.failed": "Could not play",
+  "settings.sounds.recent.who": "From {who}",
   "settings.notch.title": "Behavior",
   "settings.notch.show.title": "Show status in the MacBook notch",
   "settings.notch.show.description": "Show agent activity and items that need attention at the top of each display.",
@@ -1060,6 +1160,8 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.speechVoice": "voice, speaker, TTS voice, spoken replies",
   "settings.search.keywords.storage": "storage, disk, space, files, cleanup",
   "settings.search.keywords.taskSound": "sound, chime, task done, finished",
+  "settings.search.keywords.sounds":
+    "sounds, audio, mute, silence, volume, chime, beep, siren, Guard, task reviewer, notification sound, recent sounds",
   "settings.search.keywords.load":
     "load, stopped work, stuck tasks, failed, paused, orphan, deleted routine, bulk, remove, resume, reassign, model, running",
   "settings.search.keywords.taskReviewer":
