@@ -429,8 +429,12 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     this.#serverRequests.rejectAll("Claude session stopped.");
   });
 
-  releaseIdleThreads(): Effect.Effect<void, ProviderClientOperationError> {
-    return this.#threads.releaseIdle();
+  releaseIdleThreads(minIdleMs?: number): Effect.Effect<void, ProviderClientOperationError> {
+    return this.#threads.releaseIdle(minIdleMs);
+  }
+
+  threadOpen(externalThreadId: string): boolean {
+    return this.#threads.has(externalThreadId);
   }
 
   /** Background subagents run in this process after their turn ends, so it stays while any runs. */

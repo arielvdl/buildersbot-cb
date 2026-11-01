@@ -1362,12 +1362,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.#memoryHold = new MemoryHold({
       memory: hostMemory ?? memoryPressure,
+      optimizations: this.optimizations,
       hooks: {
         scheduleAll: () => {
           for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
         },
         retryWaiting: () => this.#drain.retrySlotWaiters(),
-        releaseIdleThreads: () => this.#providers.releaseIdleThreads(),
+        releaseIdleThreads: (minIdleMs) => this.#providers.releaseIdleThreads(minIdleMs),
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
         memoryReturned: () =>
           Effect.runFork(
@@ -1442,6 +1443,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       routines: this.#routines,
       threads: this.#threads,
       memory: this.#memoryHold,
+      optimizations: this.optimizations,
       ...(options.agentLimit ? { agentLimit: options.agentLimit } : {}),
       usageLimits: this.#usageLimits,
       planContinuation: this.#planContinuation,

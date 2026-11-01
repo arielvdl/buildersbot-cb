@@ -1046,10 +1046,18 @@ export class ProviderRuntime implements ProviderPort {
     return totals;
   }
 
-  /** Closes the idle threads of each client and each Workspace only process, when memory is low. */
-  readonly releaseIdleThreads = Effect.fn("ProviderRuntime.releaseIdleThreads")(function* (this: ProviderRuntime) {
-    for (const client of this.#clients.values()) if (client.releaseIdleThreads) yield* client.releaseIdleThreads();
-    for (const { client } of this.#confined.values()) if (client.releaseIdleThreads) yield* client.releaseIdleThreads();
+  /**
+   * Closes the idle threads of each client and each Workspace only process, when memory is low. With
+   * `minIdleMs`, only the threads with no turn for at least that long.
+   */
+  readonly releaseIdleThreads = Effect.fn("ProviderRuntime.releaseIdleThreads")(function* (
+    this: ProviderRuntime,
+    minIdleMs?: number,
+  ) {
+    for (const client of this.#clients.values())
+      if (client.releaseIdleThreads) yield* client.releaseIdleThreads(minIdleMs);
+    for (const { client } of this.#confined.values())
+      if (client.releaseIdleThreads) yield* client.releaseIdleThreads(minIdleMs);
   }).bind(this);
 
   listModels(): AgentModelOption[] {
