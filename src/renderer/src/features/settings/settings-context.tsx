@@ -493,10 +493,18 @@ const Settings = createSimpleContext({
       return agentAutoApprovalEnabled(approvalAutomation(), agentId);
     }
 
-    /** Remembers what to focus when the dialog closes; the dialog itself restores it. */
+    /**
+     * Remembers what to focus when the dialog closes; the dialog itself restores it. The dialog applies
+     * a tab when the requested tab changes, and the person can go to another tab from the list after a
+     * request. So a request for the tab that the last request named clears it first: the tab opens again.
+     */
     function openAppSettings(trigger?: HTMLElement | null, tab?: SettingsTab): void {
       const target = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
       appSettingsRestoreTarget = target;
+      if (tab !== undefined && appSettingsTab() === tab) {
+        setAppSettingsTab(undefined);
+        flush();
+      }
       setAppSettingsTab(tab);
       setAppSettingsOpen(true);
       setAppSettingsOpenRequest((count) => count + 1);
@@ -508,9 +516,6 @@ const Settings = createSimpleContext({
      */
     function openNotificationLevels(serverId?: string, trigger?: HTMLElement | null): void {
       if (serverId) setNotificationFocusRequest({ serverId, nonce: ++notificationFocusNonce });
-      // The modal applies a tab when the requested tab changes, so a repeated request clears it first.
-      setAppSettingsTab(undefined);
-      flush();
       openAppSettings(trigger, "notifications");
     }
 
