@@ -70,4 +70,24 @@ export const messages = defineMessages("usage", {
   "usage.panel.loading": "Loading usage…",
   "usage.panel.unsupported": "This host does not support agent analytics. Update the host to use this view.",
   "usage.panel.loadFailed": "Could not load usage. Check the connection and date range.",
+  // Usage › Connections: charges of the Hub connections. {org} is an organization, {amount} and {cap}
+  // are amounts of money, {connection} is a connection name.
+  "usage.connections.title": "Connections",
+  "usage.connections.description":
+    "Charged by Cultura Builder this month, in the currency of each organization. This is not part of the model estimate above.",
+  "usage.connections.unavailable": "Connection costs show when Cultura Builder answers.",
+  "usage.connections.empty": "No paid connection call this month.",
+  "usage.connections.personal": "Your personal plan",
+  "usage.connections.paidBy": "Paid by {org}",
+  "usage.connections.renews": "The month renews on {date}.",
+  "usage.connections.calls": { one: "{count} call", other: "{count} calls" },
+  "usage.connections.left": "{amount} left of {cap}",
+  "usage.connections.leftNoCap": "{amount} left",
+  "usage.connections.noPlatforms": "No charge by platform yet.",
+  "usage.connections.byPlatform": "Charges of {connection} by platform",
+  "usage.connections.platform": "Platform",
+  "usage.connections.charged": "Charged",
+  "usage.connections.callsColumn": "Calls",
+  "usage.connections.warning": "80% used",
+  "usage.connections.reached": "Limit reached",
 });

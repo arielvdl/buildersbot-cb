@@ -10,6 +10,7 @@ import { curateApps } from "./marketplace-curation";
 import { CATEGORY_LABELS } from "./marketplace-listing";
 import {
   appCategories,
+  connectionApps,
   MARKETPLACE_TAB_LABEL,
   MARKETPLACE_TABS,
   type MarketplaceScope,
@@ -161,6 +162,25 @@ function AppList(props: { scope: MarketplaceScope; lists: BrowseLists }) {
         />
       }
     >
+      {/* Hub connections first, in their own group: they come from Cultura Builder at run time, with
+          access by organization, so they do not mix with the apps of the catalog. */}
+      <Show when={connectionApps(props.lists.apps())} keyed>
+        {(connections) => (
+          <Show when={connections.length > 0}>
+            <section class="marketplace-app-group" aria-labelledby="marketplace-apps-connections">
+              <h4 id="marketplace-apps-connections" class="marketplace-app-group-title">
+                {t("marketplace.connection.group")}
+                <span class="marketplace-app-group-count">{format.number(connections.length)}</span>
+              </h4>
+              <ul class="marketplace-app-list">
+                <For each={connections} keyed={(app) => app.id}>
+                  {(app) => <AppRow scope={props.scope} app={app()} />}
+                </For>
+              </ul>
+            </section>
+          </Show>
+        )}
+      </Show>
       <For each={appCategories(props.lists.apps())} keyed={(group) => group.category}>
         {(group) => (
           <section class="marketplace-app-group" aria-labelledby={`marketplace-apps-${group().category}`}>

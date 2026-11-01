@@ -54,6 +54,7 @@ import { agentConversationKey } from "./conversation-keys";
 import { isIncomingAgentMessage } from "./conversation-read-state";
 import { conversationRuntime } from "./conversation-runtime";
 import { useConversationViewScope } from "./conversation-scope";
+import { requestConnectionMore } from "./hub-connections-port";
 import { agentSkillsMode } from "./installed-skills-source";
 import { MarketplaceSuggestionChatCard, marketplaceSuggestionKnown } from "./MarketplaceSuggestionChatCard";
 import { McpSignInChatCard } from "./McpSignInChatCard";
@@ -323,6 +324,8 @@ export function ConversationTimeline() {
   /** View and Undo on an instructions change line: the file is in the workspace on this computer. */
   const localInstructionsCalls = () =>
     props.server?.kind === "local" && !props.runtime ? instructionsCalls : undefined;
+  /** "Ask the admin for more" on a connection line: the Hub session is the one of this computer. */
+  const connectionMore = () => (props.server?.kind === "local" && !props.runtime ? requestConnectionMore : undefined);
   /** The agent that asks in a card: in a channel, the working agent whose card shows. */
   const interactionAgentName = () => (channel ? channel.interactionAgentName() : props.agent?.name);
   /**
@@ -864,6 +867,7 @@ export function ConversationTimeline() {
                                                     ? undefined
                                                     : openInstructionsSettings
                                                 }
+                                                onRequestConnectionMore={connectionMore()}
                                               />
                                             }
                                           >

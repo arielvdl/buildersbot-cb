@@ -72,4 +72,22 @@ export const messages = {
   "usage.panel.unsupported":
     "Este computador anfitrião não oferece análises dos agentes. Atualize-o para usar esta visualização.",
   "usage.panel.loadFailed": "Não foi possível carregar o uso. Verifique a conexão e o período.",
+  "usage.connections.title": "Conexões",
+  "usage.connections.description":
+    "Cobrado pela Cultura Builder neste mês, na moeda de cada organização. Não entra na estimativa dos modelos acima.",
+  "usage.connections.unavailable": "Os custos das conexões aparecem quando a Cultura Builder responder.",
+  "usage.connections.empty": "Nenhuma chamada paga neste mês.",
+  "usage.connections.personal": "Seu plano pessoal",
+  "usage.connections.paidBy": "Paga por {org}",
+  "usage.connections.renews": "O mês renova em {date}.",
+  "usage.connections.calls": { one: "{count} chamada", other: "{count} chamadas" },
+  "usage.connections.left": "Restam {amount} de {cap}",
+  "usage.connections.leftNoCap": "Restam {amount}",
+  "usage.connections.noPlatforms": "Nenhuma cobrança por plataforma ainda.",
+  "usage.connections.byPlatform": "Cobranças de {connection} por plataforma",
+  "usage.connections.platform": "Plataforma",
+  "usage.connections.charged": "Cobrado",
+  "usage.connections.callsColumn": "Chamadas",
+  "usage.connections.warning": "80% usado",
+  "usage.connections.reached": "Teto atingido",
 } as const satisfies PartialTranslation<typeof source>;

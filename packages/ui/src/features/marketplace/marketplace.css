@@ -1496,6 +1496,101 @@ html:active-view-transition-type(marketplace-swap)::view-transition-new(marketpl
   }
 }
 
+/* Hub connections: the row state, the cap with its 80 % mark, the facts and the categories. */
+.marketplace-connection-row-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  color: var(--openbot-warning-text);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+.marketplace-connection-row-attention > svg {
+  width: var(--marketplace-done-icon, 14px);
+  height: var(--marketplace-done-icon, 14px);
+  flex: none;
+}
+
+.marketplace-connection-copy,
+.marketplace-connection-cap {
+  display: grid;
+  gap: var(--openbot-space-2);
+}
+
+.marketplace-connection-cap-meter {
+  position: relative;
+  padding-block: var(--openbot-space-1);
+}
+
+.marketplace-connection-cap-bar .ui-progress-track {
+  height: var(--openbot-space-1-5);
+}
+
+.marketplace-connection-cap[data-state="warning"] .ui-progress-fill {
+  background: var(--openbot-warning);
+}
+
+.marketplace-connection-cap[data-state="reached"] .ui-progress-fill {
+  background: var(--openbot-danger);
+}
+
+/* The mark where the Hub warns: at 80 % of the track, taller than the bar. */
+.marketplace-connection-cap-mark {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 80%;
+  width: 2px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-secondary);
+}
+
+.marketplace-connection-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--openbot-space-1) var(--openbot-space-4);
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+}
+
+.marketplace-connection-facts dt {
+  color: var(--openbot-text-secondary);
+}
+
+.marketplace-connection-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.marketplace-connection-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.marketplace-connection-vendor {
+  font-weight: var(--openbot-weight-medium);
+}
+
+.marketplace-connection-request {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+}
+
+.marketplace-connection-agent {
+  padding-block: var(--openbot-space-2);
+}
+
+.marketplace-connection-agent .ui-switch-field {
+  width: 100%;
+}
+
 /* Last, because it is the most specific icon rule: every button icon in the window is 16px. */
 .skills-marketplace .ui-button > svg,
 .marketplace-search > svg {

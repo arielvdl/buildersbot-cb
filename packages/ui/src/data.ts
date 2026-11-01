@@ -17,6 +17,7 @@ import type {
   ConversationSubagent,
   ConversationTurnTrace,
   HostedSiteConversationEvent,
+  HubConnectionChatEvent,
   ImageGenerationInfo,
   InstalledSkill,
   McpServerConfig,
@@ -155,6 +156,8 @@ export type ChatActionMarkerModel =
   /** A member agent changed the channel at a person's request. `text` is the host's note. */
   | { kind: "channel-change"; text: string; timestamp: string }
   | { kind: "vault-change"; text: string; timestamp: string }
+  /** A Hub connection call cost money, passed 80 % of the cap, or stopped at the cap. */
+  | { kind: "hub-connection"; event: HubConnectionChatEvent; timestamp: string }
   /** The security guard found something in the message that follows. `text` is what it found. */
   | { kind: "security-scan"; text: string; timestamp: string }
   /** The agent continues by itself, because its plan still has open steps. `text` is the host's note. */

@@ -199,6 +199,30 @@ function focusRow(label: string) {
   );
 }
 
+/** The state of a Hub connection in a list: on, needs attention, or not enabled for the person. */
+function ConnectionRowStatus(props: { status: MarketplaceApp["status"] }) {
+  const { t } = useText();
+  return (
+    <Switch
+      fallback={
+        <Text as="span" variant="caption" tone="muted">
+          {t("marketplace.connection.status.off")}
+        </Text>
+      }
+    >
+      <Match when={props.status === "connected"}>
+        <Done>{t("marketplace.connection.status.on")}</Done>
+      </Match>
+      <Match when={props.status === "attention"}>
+        <span class="marketplace-connection-row-attention">
+          <TriangleAlert aria-hidden="true" />
+          {t("marketplace.app.attention")}
+        </span>
+      </Match>
+    </Switch>
+  );
+}
+
 /** An app in the list: its logo, name and one line, and its status. The row opens the app page. */
 export function AppRow(props: { scope: MarketplaceScope; app: MarketplaceApp }) {
   const { t } = useText();
@@ -219,7 +243,12 @@ export function AppRow(props: { scope: MarketplaceScope; app: MarketplaceApp }) 
         <span class="marketplace-app-row-tagline">{props.app.tagline}</span>
       </span>
       <span class="marketplace-app-row-status">
-        <AppAction scope={props.scope} app={props.app} size="sm" onConnected={() => focusRow(open())} />
+        <Show
+          when={props.app.kind === "connection" ? props.app.status : undefined}
+          fallback={<AppAction scope={props.scope} app={props.app} size="sm" onConnected={() => focusRow(open())} />}
+        >
+          {(status) => <ConnectionRowStatus status={status()} />}
+        </Show>
       </span>
     </li>
   );

@@ -1,5 +1,6 @@
 import type {
   ClientAgentSummary,
+  HubConnectionView,
   InstalledSkill,
   MarketplaceAgentDetail,
   MarketplaceAgentSummary,
@@ -16,6 +17,7 @@ import type {
   MarketplacePluginDetail,
   MarketplacePluginPrompt,
 } from "../settings/marketplace-plugins";
+import type { MarketplaceConnections } from "./marketplace-connections";
 import type { MarketplaceAppCuration } from "./marketplace-curation";
 import type { CatalogList, MarketplaceHomeCache } from "./marketplace-listing";
 import type { WhatsAppAccountsModel } from "./whatsapp-accounts-model";
@@ -61,8 +63,9 @@ export interface MarketplaceAppConnection {
 }
 
 /**
- * One row of the Apps tab: a catalog app, a connector that the server can run, or an MCP server
- * that the host holds and no catalog app claims. A connector's `id` is its `ConnectorId`. A
+ * One row of the Apps tab: a catalog app, a connector that the server can run, an MCP server
+ * that the host holds and no catalog app claims, or a Hub connection of Cultura Builder. A
+ * connector's `id` is its `ConnectorId`, and a Hub connection's `id` is its connection id. A
  * plugin's `connections` are keyed by the id of each app in the listing.
  */
 export type MarketplaceApp =
@@ -73,7 +76,8 @@ export type MarketplaceApp =
       connections: Readonly<Record<string, MarketplaceAppConnection>>;
     })
   | (AppBase & { kind: "connector"; connector: ConnectorId; category: SkillCategory })
-  | (AppBase & { kind: "custom"; server: McpServerConfig });
+  | (AppBase & { kind: "custom"; server: McpServerConfig })
+  | (AppBase & { kind: "connection"; category: SkillCategory; connection: HubConnectionView });
 
 /**
  * How an app connects. The category says which page parts an app reuses: a channel shows its
@@ -114,6 +118,9 @@ export function appSetup(app: MarketplaceApp): AppSetup {
     }
     case "custom":
       return "custom";
+    case "connection":
+      // Nothing to sign in to on this computer: the key stays in the Cultura Builder Hub.
+      return "open";
   }
 }
 
@@ -220,6 +227,12 @@ export interface MarketplaceModel {
   disconnectApp: (app: Extract<MarketplaceApp, { kind: "plugin" }>) => void;
   /** Removes a custom MCP server. */
   removeServer: (id: string) => Promise<boolean>;
+  /**
+   * The Hub connections of this computer's Cultura Builder session: their actions and the agents
+   * that may use them. Absent where the Marketplace is for another server, or in a client with no
+   * Hub session. The connection rows are in `apps`.
+   */
+  connections?: MarketplaceConnections | undefined;
   /** Opens the form that adds a custom MCP server. Absent when the user cannot add one. */
   addServer?: (() => void) | undefined;
   runPrompt?: ((prompt: MarketplacePluginPrompt) => void) | undefined;

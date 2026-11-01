@@ -31,6 +31,7 @@ import type { ConnectorId } from "../connectors/connectors";
 import { DangerZone, IntegrationPage, StatusPill, WizardDialog } from "../settings/IntegrationLayout";
 import type { MarketplacePluginApp } from "../settings/marketplace-plugins";
 import { AppAction } from "./MarketplaceCards";
+import { MarketplaceConnectionPage, MarketplaceConnectionsNotice } from "./MarketplaceConnectionPage";
 import { AppMark, hasListingMark, ListingMark, TryCard } from "./MarketplaceParts";
 import { CATEGORY_LABELS } from "./marketplace-listing";
 import {
@@ -590,6 +591,16 @@ export function MarketplaceAppPage(props: { scope: MarketplaceScope; id: string 
     const current = app();
     return current?.kind === "custom" ? current : undefined;
   };
+  const connection = () => {
+    const current = app();
+    const connections = model().connections;
+    return current?.kind === "connection" && connections ? { app: current, connections } : undefined;
+  };
+  /** A link to a connection while the Hub gave no catalog: why it is not there. */
+  const connectionsNotice = () => {
+    const connections = model().connections;
+    return !app() && connections && connections.status() !== "ready" ? connections : undefined;
+  };
   return (
     <div class="marketplace-view marketplace-app-page">
       <Switch
@@ -601,6 +612,14 @@ export function MarketplaceAppPage(props: { scope: MarketplaceScope; id: string 
           </div>
         }
       >
+        <Match when={connection()}>
+          {(current) => (
+            <MarketplaceConnectionPage scope={props.scope} app={current().app} connections={current().connections} />
+          )}
+        </Match>
+        <Match when={connectionsNotice()}>
+          {(connections) => <MarketplaceConnectionsNotice connections={connections()} />}
+        </Match>
         <Match when={connector()}>
           {(current) => (
             <Show when={current().controller.ready()}>

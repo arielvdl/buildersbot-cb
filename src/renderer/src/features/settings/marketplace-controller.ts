@@ -53,6 +53,7 @@ import type { ConnectorRegistry } from "../connectors/connector-registry";
 import { mcpSignInRecord } from "../servers/mcp-servers";
 import { marketplaceAppCuration } from "./marketplace-app-curation";
 import { desktopMarketplaceCalls, type MarketplaceCalls, type MarketplaceSignInRelay } from "./marketplace-calls";
+import { createMarketplaceConnections } from "./marketplace-connections-controller";
 import { createPluginAppConfig } from "./marketplace-plugin-catalog";
 import { localizedPlugin } from "./marketplace-plugin-text";
 import { agentHomeCache, marketplaceErrorMessage, skillHomeCache } from "./marketplace-shared";
@@ -74,6 +75,8 @@ export type MarketplaceAgentRow = Pick<
   "id" | "name" | "title" | "avatarSeed" | "avatarHue" | "avatarUrl"
 > & {
   marketplaceSource?: ClientAgentSummary["marketplaceSource"];
+  /** The Hub connections that the agent has off, for the connection page. */
+  connectionsOff?: ClientAgentSummary["connectionsOff"];
 };
 
 export interface MarketplaceControllerProps {
@@ -109,6 +112,11 @@ export interface MarketplaceControllerProps {
   macOS?: boolean | undefined;
   /** Opens the form that adds a custom MCP server. Absent when the user cannot add one. */
   onAddServer?: (() => void) | undefined;
+  /**
+   * The Marketplace is for this computer, whose Cultura Builder session gives the Hub connections.
+   * False for a joined server: its agents do not use this computer's connections.
+   */
+  hubConnections?: boolean | undefined;
 }
 
 /** The connect step of one app. `settle(null)` is a closed dialog. */
@@ -206,6 +214,15 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     setErrorCode(cause === undefined ? null : errorReference(cause));
   };
   const [notice, setNotice] = createSignal("");
+  const hubConnections = createMarketplaceConnections({
+    open: () => props.open,
+    calls: () => (props.hubConnections ? calls().hubConnections : undefined),
+    agents: () => (props.hubConnections ? agents() : []),
+    setConnectionsOff: async (agentId, connectionsOff) => {
+      await calls().setAgentConnectionsOff?.(agentId, connectionsOff);
+    },
+    onError: (cause) => setError(marketplaceErrorMessage(cause), cause),
+  });
   /** The actions in flight: `agent:<listing>`, `skill:<skill>` and `app:<app id>`. */
   const [busy, setBusy] = createStore<Record<string, true>>({});
   const mark = (key: string, on: boolean) =>
@@ -796,6 +813,8 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
             server,
           }),
         ),
+      // The Hub connections of this computer: the curated list hides one that the person does not use.
+      ...hubConnections.apps(),
     ];
   });
 
@@ -1333,6 +1352,9 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     },
     disconnectApp: (app) => setUninstalling(app.plugin),
     removeServer,
+    get connections() {
+      return hubConnections.model();
+    },
     get addServer() {
       return props.onAddServer;
     },

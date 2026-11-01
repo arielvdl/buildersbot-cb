@@ -150,18 +150,32 @@ export function matchesApp(app: MarketplaceApp, query: string): boolean {
   return !text || app.name.toLowerCase().includes(text) || app.tagline.toLowerCase().includes(text);
 }
 
-/** The apps of each category, in the catalog order. A server that the user added is in Other. */
+/**
+ * The apps of each category, in the catalog order. A server that the user added is in Other. A Hub
+ * connection has its own group, "Connections", so it is not in a category here.
+ */
 export function appCategories(apps: readonly MarketplaceApp[]): { category: SkillCategory; apps: MarketplaceApp[] }[] {
   const categoryOf = (app: MarketplaceApp): SkillCategory => (app.kind === "custom" ? "other" : app.category);
+  const catalogApps = apps.filter((app) => app.kind !== "connection");
   return SKILL_CATEGORIES.map((category) => ({
     category,
-    apps: apps.filter((app) => categoryOf(app) === category),
+    apps: catalogApps.filter((app) => categoryOf(app) === category),
   })).filter((group) => group.apps.length > 0);
 }
 
-/** The apps that the user connected, and the ones that need attention. */
+/** The Hub connections of a list, in the Hub's order. */
+export function connectionApps(apps: readonly MarketplaceApp[]): MarketplaceApp[] {
+  return apps.filter((app) => app.kind === "connection");
+}
+
+/** The apps that the user connected, and the ones that need attention. Hub connections are apart. */
 export function ownedApps(apps: readonly MarketplaceApp[]): MarketplaceApp[] {
-  return apps.filter((app) => app.status === "connected" || app.status === "attention");
+  return apps.filter((app) => app.kind !== "connection" && (app.status === "connected" || app.status === "attention"));
+}
+
+/** The Hub connections that the person uses, and the ones that need attention. */
+export function ownedConnections(apps: readonly MarketplaceApp[]): MarketplaceApp[] {
+  return apps.filter((app) => app.kind === "connection" && (app.status === "connected" || app.status === "attention"));
 }
 
 /**

@@ -15,3 +15,15 @@ export function formatMinorMoney(format: AppFormat, minor: number, currency: Bil
     maximumFractionDigits: whole ? 0 : 2,
   });
 }
+
+/**
+ * An amount of a Hub connection, in micros of its currency (millionths of a real), cut down to cents
+ * as the Hub contract says. A charge under one cent reads "< R$ 0.01", so a paid call never reads as
+ * free.
+ */
+export function formatConnectionMoney(format: AppFormat, micros: number, currency: string): string {
+  const cents = Math.floor(micros / 10_000);
+  const options: Intl.NumberFormatOptions = { style: "currency", currency, minimumFractionDigits: 2 };
+  if (micros > 0 && cents === 0) return `< ${format.number(0.01, options)}`;
+  return format.number(cents / 100, options);
+}

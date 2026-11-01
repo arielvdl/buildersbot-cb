@@ -3,6 +3,8 @@ import {
   type ClientAgentSummary,
   type HostAnalytics,
   type HostAnalyticsInput,
+  type HubConnectionUsageView,
+  LOCAL_SERVER_ID,
   WORKFLOWS_USAGE_ID,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
@@ -19,6 +21,7 @@ import {
   SelectValue,
 } from "@openbot/ui";
 import { AgentUsageReport } from "@openbot/ui/features/usage/AgentUsageReport";
+import { ConnectionUsageReport } from "@openbot/ui/features/usage/ConnectionUsageReport";
 import {
   type UsageAgentLabel,
   type UsageMetric,
@@ -54,6 +57,8 @@ interface UsageState {
   metric: UsageMetric;
   period: UsagePeriod;
   serverId: string;
+  /** The Hub connections of this computer: shown only when the Hub says that they are on. */
+  connections: HubConnectionUsageView | null;
 }
 
 /** The report range for a period. With no agent, the report is for all agents. */
@@ -75,8 +80,30 @@ export function AgentUsagePanel(props: AgentUsagePanelProps) {
     metric: "cost",
     period: "30d",
     serverId: props.serverId,
+    connections: null,
   });
   let generation = 0;
+  let connectionsRead = 0;
+  /**
+   * The connection charges of this computer's Cultura Builder session, for the local server only:
+   * the agents of a joined server do not spend this computer's connections. Main keeps each answer
+   * for 30 seconds, so a refresh after each turn does not reach the Hub each time.
+   */
+  async function loadConnections(): Promise<void> {
+    const read = port().hubConnections;
+    const request = ++connectionsRead;
+    if (props.serverId !== LOCAL_SERVER_ID || !read) {
+      setState((draft) => {
+        draft.connections = null;
+      });
+      return;
+    }
+    const view = await read.getUsage().catch((): HubConnectionUsageView => ({ status: "unavailable", orgs: [] }));
+    if (request === connectionsRead)
+      setState((draft) => {
+        draft.connections = view;
+      });
+  }
   /**
    * A refresh nobody asked for keeps the report on screen. Clearing `result` unmounts
    * `AgentUsageReport`, which returns on the next response with its breakdown back to
@@ -148,14 +175,22 @@ export function AgentUsagePanel(props: AgentUsagePanelProps) {
       void load();
     },
   );
+  createEffect(
+    () => props.serverId,
+    () => {
+      void loadConnections();
+    },
+  );
   onSettled(() => {
     const unsubscribe = port().agent.onScopedEvent(({ serverId, event }) => {
       if (
         serverId === props.serverId &&
         event.type === "turn-completed" &&
         (!state.range.agentId || event.agentId === state.range.agentId)
-      )
+      ) {
         void load(state.range, true);
+        void loadConnections();
+      }
     });
     const reconnect = port().servers.onEvent((servers) => {
       if (servers.some((server) => server.id === props.serverId && server.state === "online"))
@@ -259,7 +294,10 @@ export function AgentUsagePanel(props: AgentUsagePanelProps) {
             variant="outline"
             label={t("usage.panel.refresh")}
             disabled={state.phase === "loading"}
-            onClick={() => void load()}
+            onClick={() => {
+              void load();
+              void loadConnections();
+            }}
           >
             <RefreshCw />
           </IconButton>
@@ -309,6 +347,16 @@ export function AgentUsagePanel(props: AgentUsagePanelProps) {
               }}
             />
           )}
+        </Show>
+        {/* The Hub decides: the part shows only when `/session` says that connection usage is on. */}
+        <Show
+          when={
+            state.connections && state.connections.status !== "off" && state.connections.status !== "signed_out"
+              ? state.connections
+              : undefined
+          }
+        >
+          {(view) => <ConnectionUsageReport view={view()} />}
         </Show>
       </div>
     </section>
