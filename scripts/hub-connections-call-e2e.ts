@@ -22,7 +22,15 @@ import { redactText, registerSecretValue } from "@openbot/logging";
 import { Effect } from "effect";
 import { type Call, callsText, envelope, type Seen, startAgentHarness } from "./fake-hub/agent-harness";
 import { fakeHubFetch, startFakeHub } from "./fake-hub/fake-hub";
-import { ECHO_KEY_NAMES, FAKE_HEX_KEY, FAKE_PROVIDER_KEY, FAKE_VENDOR_KEY, LAST_SECRET } from "./fake-hub/fake-treg";
+import {
+  ECHO_KEY_NAMES,
+  FAKE_HEX_KEY,
+  FAKE_PIN,
+  FAKE_PROVIDER_KEY,
+  FAKE_SIGNATURE,
+  FAKE_VENDOR_KEY,
+  LAST_SECRET,
+} from "./fake-hub/fake-treg";
 import { RESULT_INJECTION, SUMMARY_INJECTION } from "./fake-hub/mirror";
 
 const OUT = resolve(import.meta.dirname, "../.buildersbot-build/hub-connections");
@@ -578,6 +586,27 @@ try {
     ]);
     for (const item of allowed) assert.ok(item.success, item.text.slice(0, 300));
     return { refused: refusedValues.length };
+  });
+
+  await step("signed links, nested and numeric credentials in a result never reach the agent (findings 2, 3)", async () => {
+    const [echoed] = await turn([call("company.echo-signed", { body: { domain: "example.com" } })]);
+    assert.ok(echoed?.success, echoed?.text);
+    assert.ok(!echoed.text.includes(FAKE_SIGNATURE), `a signature leaked: ${envelope(echoed).slice(0, 900)}`);
+    assert.ok(!echoed.text.includes(String(FAKE_PIN)), `a numeric credential leaked: ${envelope(echoed).slice(0, 900)}`);
+    const body = JSON.parse(envelope(echoed).replaceAll("\\u003c", "<").replaceAll("\\u003e", ">"));
+    assert.equal(body.content.password, "[redacted]");
+    assert.deepEqual(body.content.auth, {
+      value: "[redacted]",
+      pin: "[redacted]",
+      verified: true,
+      expires: null,
+      inner: { code: "[redacted]" },
+    });
+    // Data stays: names and values that are not credentials, and counts.
+    assert.deepEqual(body.content.stats, { sessions: 7, page: 2 });
+    for (const kept of ["X-Amz-Algorithm=AWS4-HMAC-SHA256", "GoogleAccessId=svc", "se=2030-01-01", "page=2"])
+      assert.ok(body.content.files.join(" ").includes(kept), kept);
+    return { files: body.content.files };
   });
 
   await step("routed answers give output only, and the Hub writes the row limit", async () => {

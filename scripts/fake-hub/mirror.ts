@@ -24,6 +24,7 @@ export type VendorBehavior =
   | "hint-star"
   | "hint-split"
   | "echo-key-names"
+  | "echo-signed"
   | "many-secrets"
   | "clean";
 
@@ -492,6 +493,20 @@ export const VENDOR_ROWS: VendorRow[] = [
     unitPriceMicroUsd: 1_000,
     maxUnits: 1,
     behavior: "many-secrets",
+    skipHubMask: true,
+  },
+  {
+    ...base,
+    endpointId: "company.echo-signed",
+    platform: "company-data",
+    provider: "firmo",
+    title: "Company files (raw)",
+    summary: "A company lookup whose provider echoes signed links and a nested or numeric credential.",
+    body: closed({ domain: { type: "string", maxLength: 253 } }, ["domain"]),
+    priceKind: "per_call",
+    unitPriceMicroUsd: 1_000,
+    maxUnits: 1,
+    behavior: "echo-signed",
     skipHubMask: true,
   },
   {

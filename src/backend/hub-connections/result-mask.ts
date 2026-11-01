@@ -5,7 +5,7 @@
 
 import type { HubJson } from "@openbot/contracts/hub-connections";
 import { findSecretValue, findSecretValues } from "@openbot/logging";
-import { isCredentialName } from "./hub-connection-input";
+import { isCredentialName, isSignedQueryName } from "./hub-connection-input";
 import { maskVendorPhrases } from "./vendor-lines";
 
 const REDACTED = "[redacted]";
@@ -29,31 +29,64 @@ function replacePlaces(text: string, places: ReadonlyArray<{ index: number; leng
   return parts.join("");
 }
 
+/** A query parameter name as a URL reader sees it: `%53ignature` is `Signature`. A bad escape stays as written. */
+function decodedName(name: string): string {
+  try {
+    return decodeURIComponent(name.replaceAll("+", " "));
+  } catch {
+    return name;
+  }
+}
+
+/** Whether a query parameter of this name carries a credential: by the field rule, or as a signed URL's. */
+function isCredentialParam(name: string): boolean {
+  const decoded = decodedName(name);
+  return isCredentialName(decoded) || isSignedQueryName(decoded);
+}
+
 /**
  * One decoded string of a result, masked: each secret by its shape (in one pass), each bearer value,
- * each query parameter with a credential name, and each vendor line.
+ * each query parameter with a credential name or the name of a signed URL's credential (decoded from
+ * percent-encoding), and each vendor line.
  */
 export function maskResultString(text: string): string {
   return maskVendorPhrases(
     replacePlaces(text, findSecretValues(text))
       .replace(BEARER, `$1${REDACTED}`)
       .replace(QUERY_PARAM, (whole: string, head: string, name: string) =>
-        isCredentialName(name) ? `${head}${REDACTED}` : whole,
+        isCredentialParam(name) ? `${head}${REDACTED}` : whole,
       ),
   );
 }
 
-/** The value of a field whose name labels a credential: every text in it goes. */
-function maskCredential(value: unknown, depth: number): HubJson {
-  if (typeof value === "string") return REDACTED;
-  if (Array.isArray(value)) return value.map((item) => maskCredential(item, depth + 1));
-  return maskResultValue(value, depth + 1);
+/** A count whose name has the plural of a credential word, or ends in `count` or `total`: `sessions: 42`. */
+function isCountName(name: string): boolean {
+  const plain = name.toLowerCase().replace(/[-_.]/gu, "");
+  return /(?:count|total)$/u.test(plain) || (plain.endsWith("s") && isCredentialName(plain.slice(0, -1)));
+}
+
+/**
+ * The value of a field whose name labels a credential: every string and number in it goes, at every
+ * depth, also in a field whose own name is not a credential's. A boolean and null stay: they carry no
+ * secret. A number stays only under a count name (`isCountName`). Field names are masked as text.
+ */
+function maskCredential(value: unknown, depth: number, name: string): HubJson {
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "number") return isCountName(name) && Number.isFinite(value) ? value : REDACTED;
+  if (typeof value !== "object" || depth >= MAX_DEPTH) return REDACTED;
+  if (Array.isArray(value)) return value.map((item) => maskCredential(item, depth + 1, name));
+  const masked: { [key: string]: HubJson } = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (item === undefined || typeof item === "function") continue;
+    masked[maskResultString(key)] = maskCredential(item, depth + 1, key);
+  }
+  return masked;
 }
 
 /**
  * A decoded result, masked, as JSON: the value of each field whose name labels a credential (the
- * input rule, `isCredentialName`), and each string and field name by `maskResultString`. Numbers and
- * booleans stay: a count named `sessions` is data. A value that JSON does not write (a function,
+ * input rule, `isCredentialName`), and each string and field name by `maskResultString`. Outside a
+ * credential field numbers and booleans stay. A value that JSON does not write (a function,
  * `undefined`) is left out, as `JSON.stringify` leaves it out.
  */
 export function maskResultValue(value: unknown, depth = 0): HubJson {
@@ -67,7 +100,7 @@ export function maskResultValue(value: unknown, depth = 0): HubJson {
   for (const [name, item] of Object.entries(value)) {
     if (item === undefined || typeof item === "function") continue;
     masked[maskResultString(name)] = isCredentialName(name)
-      ? maskCredential(item, depth)
+      ? maskCredential(item, depth, name)
       : maskResultValue(item, depth + 1);
   }
   return masked;

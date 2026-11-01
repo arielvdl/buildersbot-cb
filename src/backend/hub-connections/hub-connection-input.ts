@@ -164,6 +164,17 @@ const PRIVATE_SUFFIXES = [".local", ".localhost", ".internal", ".lan", ".home", 
 /** Query names that make a URL a signed one, which carries its own credential. */
 const SIGNED_QUERY =
   /^(?:x-amz-signature|x-amz-credential|x-goog-signature|x-goog-credential|signature|sig|token|access_token|key|api_key|apikey|auth|code)$/iu;
+/** Words of a query name that make it the credential of a signed URL: `X-Amz-Signature`, `X-Goog-Credential`. */
+const SIGNED_QUERY_WORDS = new Set(["signature", "sig", "credential"]);
+
+/**
+ * Whether a query parameter name makes a URL a signed one: the names of `SIGNED_QUERY`, and any name
+ * with the word `signature`, `sig` or `credential`. The input check refuses such a URL, and the result
+ * mask hides the parameter's value. The caller gives the name decoded from percent-encoding.
+ */
+export function isSignedQueryName(name: string): boolean {
+  return SIGNED_QUERY.test(name) || nameWords(name).some((word) => SIGNED_QUERY_WORDS.has(word));
+}
 
 /**
  * Whether the Hub may receive this URL: `http` or `https` on the default port, a public host with a
@@ -188,7 +199,7 @@ export function isUrlAllowed(text: string): boolean {
   if (/^[\d.]+$/u.test(bare) || bare.includes(":")) return isPublicAddress(bare);
   if (!bare.includes(".") || bare === "localhost") return false;
   if (PRIVATE_SUFFIXES.some((suffix) => bare.endsWith(suffix))) return false;
-  for (const name of url.searchParams.keys()) if (SIGNED_QUERY.test(name)) return false;
+  for (const name of url.searchParams.keys()) if (isSignedQueryName(name)) return false;
   return true;
 }
 

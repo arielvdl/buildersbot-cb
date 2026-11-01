@@ -23,6 +23,10 @@ export const ECHO_KEY_NAMES = [
   "private_key",
   "Authorization",
 ] as const;
+/** A signature with no prefix that the fake vendor echoes in signed links (security finding 2). */
+export const FAKE_SIGNATURE = randomBytes(18).toString("hex");
+/** A numeric credential that the fake vendor echoes under credential names (security finding 3). */
+export const FAKE_PIN = 700_000_000 + randomBytes(3).readUIntBE(0, 3);
 /** How many issued-looking keys `bulk.many-secrets` holds before the last one (review finding 6). */
 export const MANY_SECRETS = 1_001;
 /** The key at the end of `bulk.many-secrets`, after the many others. */
@@ -227,6 +231,26 @@ function answer(row: VendorRow, query: Record<string, string>, body: HubJsonObje
           debug: {
             request_url: `https://provider.example/v1/company?domain=${domain}&apiToken=${FAKE_HEX_KEY}&X-Auth-Token=${FAKE_HEX_KEY}`,
           },
+        },
+        { ...billed(price), "X-Treg-Served-By": row.provider },
+      );
+    }
+    case "echo-signed": {
+      const sig = FAKE_SIGNATURE;
+      return send(
+        response,
+        200,
+        {
+          files: [
+            `https://files.example/a.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${sig}&X-Amz-Signature=${sig}`,
+            `https://storage.example/b.pdf?X-Goog-Signature=${sig}&GoogleAccessId=svc&Expires=1`,
+            `https://cdn.example/c.png?sig=${sig}&se=2030-01-01&credential=${sig}`,
+            // The names written with percent-encoding: `%53ignature` is `Signature`, `%73ig` is `sig`.
+            `https://cdn.example/d.png?%53ignature=${sig}&%73ig=${sig}&page=2`,
+          ],
+          password: FAKE_PIN,
+          auth: { value: sig, pin: FAKE_PIN, verified: true, expires: null, inner: { code: sig } },
+          stats: { sessions: 7, page: 2 },
         },
         { ...billed(price), "X-Treg-Served-By": row.provider },
       );
