@@ -3,3 +3,15 @@
 - Settings > General > Advanced optimizations (beta) has a switch for each optimization of how agents
   run, with what it changes and its risk, and buttons to turn all of them on or off. Every switch is
   off by default, and the app then works as before.
+- Your messages first (beta switch): a message that you write can use one more place than the cap on
+  agents, and when memory is low one message of yours can start on an agent whose session is open.
+- Free idle agents when memory is low (beta switch): when memory becomes low, agent sessions that did
+  nothing for 2 minutes close. Before, they closed only when memory was critical.
+- Task reviewer waits after sleep (beta switch): after the computer wakes, the task reviewer waits two
+  looks before it acts, so a run that was quiet only because the computer slept is not restarted.
+
+### Changed
+
+- The local trace of the app (`trace.ndjson`, in the diagnostics export) records how long each step of
+  a turn start takes, such as the security review, the prompt scan and the start of the provider
+  turn. It records names, times and status words only, never a message.

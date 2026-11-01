@@ -191,6 +191,23 @@ servers, filled the memory until macOS asked the person to close apps. `MacMemor
 | `critical` | Less than 8% free, or more than 9000 MB of swap with less than 15% free, or a kernel level of critical. | As `low`. Also, the provider threads with no turn close one time. They open again from their session. |
 | `ok` | Other times. | Turns start. The held agents start again. |
 
+Two advanced optimizations change `low` (off by default, see [optimizations.md](optimizations.md)):
+
+- `idle-release-low`: when the level goes from `ok` to `low`, the provider threads with no turn for
+  2 minutes or more close (`LOW_MEMORY_IDLE_RELEASE_MS`, `releaseIdleThreads(minIdleMs)`). They open
+  again from their session. A thread whose turn ended less than 2 minutes ago stays: it is the likely
+  target of the next message. `critical` still closes every idle thread. Claude, ACP (OpenCode,
+  Gemini, Grok and others) and Pi close threads this way; Codex runs all its threads in one process
+  and frees nothing here, as at `critical`.
+- `queue-priority-user`: at `low` on a desktop, one turn of the person can start
+  (`MemoryHold.personMayPassLow`, `DrainScheduler.#lowMemoryPass`): the head of its lane is a message
+  of the person, and the provider session of that lane is loaded on a running client and not closed
+  for being idle (`AgentClient.threadOpen`), so no process starts for it. One such turn runs at a
+  time; another message of the person waits for it to end, then starts. A routine, a teammate
+  message, an agent with no open session, `critical` and a server's `low` (which counts its turn
+  reservations) still hold the turn. This turn can push the level to `critical`, which then holds
+  everything.
+
 A level goes up at once. It goes down only when the free percentage is 6 points above the
 threshold that it went past (`RECOVER_MARGIN_PERCENT`). The kernel rules have no margin, because the
 kernel level has its own; they end when the kernel level goes back to normal. The swap counts only

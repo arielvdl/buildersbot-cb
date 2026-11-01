@@ -63,6 +63,7 @@ import { isBalanceDiagnostic, isPlanLimitDiagnostic, isUsageLimitDiagnostic } fr
 import type { ProviderRuntime } from "./provider-runtime";
 import { isNoUpdateAnswer, settleQuietRoutineTurn } from "./routine-quiet-runs";
 import type { StartRetryMarker } from "./start-retry";
+import type { StartTiming } from "./start-timings";
 import {
   foldCodexSubagentItem,
   SUBAGENTS_UPDATED_METHOD,
@@ -188,6 +189,8 @@ export interface TurnHooks {
    * agent answers only the no-update marker or calls the no-update tool.
    */
   quietRoutineDelivery(deliveryId: string): boolean;
+  /** The time to the first output of a turn (`start-timings.ts`): names, numbers and status words only. */
+  startTiming?(timing: StartTiming): void;
   /** The task whose thread this is, or null for any other thread. */
   taskForThread(threadId: string): string | null;
   /**
@@ -1545,7 +1548,25 @@ export class TurnLifecycle {
     if (!running) return;
     running.produced = true;
     if (acted) running.acted = true;
-    if (streamed) running.firstOutputAt ??= Date.now();
+    if (!streamed || running.firstOutputAt !== null) return;
+    running.firstOutputAt = Date.now();
+    const report = this.#hooks.startTiming;
+    if (!report) return;
+    try {
+      report({
+        stage: "first-output",
+        durationMs: Math.max(0, running.firstOutputAt - running.startedAt),
+        outcome: "ok",
+      });
+      if (running.sentAt !== null)
+        report({
+          stage: "message-to-output",
+          durationMs: Math.max(0, running.firstOutputAt - running.sentAt),
+          outcome: "ok",
+        });
+    } catch {
+      // A timing is never worth a failed turn.
+    }
   }
 
   readonly #associateStartedTurn = Effect.fn("TurnLifecycle.associateStartedTurn")(function* (

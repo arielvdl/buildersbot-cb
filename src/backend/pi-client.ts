@@ -114,6 +114,8 @@ interface PiThread {
   extension: PiMcpExtension;
   keyExtension: PiMcpExtension | null;
   turn: PiTurn | null;
+  /** When its last turn ended, or when it opened: the idle time that `releaseIdleThreads` reads. */
+  idleSince: number;
   closed: boolean;
   gate: Semaphore.Semaphore;
   /**
@@ -222,14 +224,22 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
     this.#released.delete(id);
   });
 
-  readonly releaseIdleThreads = Effect.fn("PiAgentClient.releaseIdleThreads")(function* (this: PiAgentClient) {
+  readonly releaseIdleThreads = Effect.fn("PiAgentClient.releaseIdleThreads")(function* (
+    this: PiAgentClient,
+    minIdleMs = 0,
+  ) {
+    const now = Date.now();
     for (const [id, thread] of this.#threads) {
-      if (thread.turn) continue;
+      if (thread.turn || now - thread.idleSince < minIdleMs) continue;
       if (thread.configured) this.#released.set(id, thread.params);
       yield* this.#close(thread);
       this.#threads.delete(id);
     }
   });
+
+  threadOpen(externalThreadId: string): boolean {
+    return this.#threads.has(externalThreadId);
+  }
 
   readonly request = Effect.fn("PiAgentClient.request")(function* <T>(
     this: PiAgentClient,
@@ -545,6 +555,7 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
         extension,
         keyExtension,
         turn: null,
+        idleSince: Date.now(),
         closed: false,
         gate: Semaphore.makeUnsafe(1),
         configured,
@@ -821,7 +832,10 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
       if (Exit.isFailure(saved)) status = "failed";
     }
     // Before the notice, so a session that closes when its turn ends is not busy.
-    if (thread.turn === turn) thread.turn = null;
+    if (thread.turn === turn) {
+      thread.turn = null;
+      thread.idleSince = Date.now();
+    }
     this.#notify("turn/completed", thread, { turn: { id: turn.id, status } });
   });
 
