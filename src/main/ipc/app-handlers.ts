@@ -300,7 +300,8 @@ export function appIpcHandlers({
       }),
       getAgentLimit: handler(() => agentLimit.get()),
       // Off until the person turns it on. A changed cap tries each queue again, so a raised or removed
-      // cap starts the turns that waited for it. The parser refuses a cap out of 1 to 64.
+      // cap starts the turns that waited for it, and a raised limit of tabs per agent starts the tabs
+      // that waited for it. The parser refuses a cap out of 1 to 64 and tabs out of 1 to 4.
       setAgentLimit: payloadHandler(parseAgentLimitPreference, async (parsed) => {
         await runCauseEffect(agentLimit.set(parsed));
         service.agentLimitChanged();

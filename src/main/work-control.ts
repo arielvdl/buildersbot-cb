@@ -592,12 +592,12 @@ export class WorkControl {
     const agents = this.#agents();
     const runningAgents = new Set(turns.map((turn) => turn.agentId));
     const queueHolds = channels.queuedHolds();
-    // The start of the turn of each agent in each channel.
+    // The start of the turn of each agent in each tab: an agent can run a turn in several tabs at once.
     const turnStarts = new Map<string, number>();
     for (const turn of turns) {
-      const channelId = channels.store.channelForThread(turn.threadId);
-      if (!channelId) continue;
-      const key = `${channelId}\u0000${turn.agentId}`;
+      const context = channels.store.contextOfThread(turn.threadId);
+      if (!context) continue;
+      const key = `${context.channelId}\u0000${context.topicId}\u0000${turn.agentId}`;
       const startedAt = Date.parse(turn.startedAt);
       turnStarts.set(key, Math.min(turnStarts.get(key) ?? startedAt, startedAt));
     }
@@ -692,7 +692,11 @@ export class WorkControl {
           agentName: agent?.name ?? null,
           provider: agent?.provider ?? null,
           turnStartedAt:
-            kind === "running" && agentId ? (turnStarts.get(`${channelId}\u0000${agentId}`) ?? null) : null,
+            kind === "running" && agentId
+              ? (turnStarts.get(
+                  `${channelId}\u0000${task.topicId ?? channels.store.firstTopicId(channelId)}\u0000${agentId}`,
+                ) ?? null)
+              : null,
           lastEventAt: kind === "running" ? signals.lastEventAt : null,
           stepOpen: kind === "running" && signals.stepOpen,
           startingAssignmentId: queue === "starting" ? (ownAssignment.get(task.id) ?? null) : null,
@@ -800,10 +804,15 @@ export class WorkControl {
         if (!channelId || !channels.store.exists(channelId)) return null;
         return { id: channelId, name: channels.store.get(channelId).name };
       },
-      taskOf: (channelId, agentId) => {
-        const active = channels.store
+      taskOf: (channelId, agentId, turnId) => {
+        const working = channels.store
           .assignments(channelId)
-          .find((assignment) => assignment.agentId === agentId && ["starting", "running"].includes(assignment.state));
+          .filter((assignment) => assignment.agentId === agentId && ["starting", "running"].includes(assignment.state));
+        // The assignment of this turn: the agent can work in several tabs of the channel at once. A
+        // start that has no turn id yet is the only other one it can be.
+        const active =
+          working.find((assignment) => assignment.turnId === turnId) ??
+          working.find((assignment) => assignment.turnId === null);
         const task = active ? channels.store.tasks(channelId).find((entry) => entry.id === active.taskId) : undefined;
         return task ? { taskId: task.id, title: task.instruction, topicId: task.topicId ?? null } : null;
       },

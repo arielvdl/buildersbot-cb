@@ -16,8 +16,10 @@ import {
   type ChannelCommand,
   type ChannelMemory,
   type ChannelMessage,
+  type ChannelPage,
   type ChannelRoutingConversationEventAction,
   type ChannelTask,
+  type ChannelTaskWait,
   type ChannelTopic,
   type ConversationSnapshot,
   type CreateChannelMemoryInput,
@@ -69,7 +71,26 @@ export interface ChannelHooks {
   schedule(agentId: string): void;
   awaitDrain?(agentId: string): Effect.Effect<void, ChannelOperationError> | undefined;
   interrupt(agentId: string, turnId: string, threadId: string): Effect.Effect<void, ChannelOperationError>;
-  busy(agentId: string): boolean;
+  /**
+   * Whether the agent takes no new channel work now: its own chat or messaging work runs a turn, a
+   * provider that runs one turn at a time runs any turn of it, or a spent plan holds it. A message
+   * that waits in its own chat holds it too: with `since`, only one queued at or before that time,
+   * so a channel request that came first does not wait for a later chat message. Channel tabs are
+   * not here: each one is its own line of work (`tabLimit`).
+   */
+  busy(agentId: string, since?: string): boolean;
+  /**
+   * The most channel tabs of this agent that run a turn at the same time. Omitted: 1, so the agent
+   * works in one tab at a time. A provider that runs one turn at a time gives 1.
+   */
+  tabLimit?(agentId: string): number;
+  /** Whether the computer is low on memory: no new turn starts, and no agent opens a second tab. */
+  memoryLow?(): boolean;
+  /**
+   * Whether this turn of the agent waits for the person: a question, an approval or a browser
+   * takeover. Such a tab takes no place among the agent's parallel tabs while its limit is above 1.
+   */
+  waitsOnPerson?(agentId: string, turnId: string): boolean;
   /** Whether a spent provider plan holds this agent, so a routing turn on its model would be refused. */
   usageLimited?(agentId: string): boolean;
   /**
@@ -1010,15 +1031,97 @@ export class ChannelService {
     // task record while the previous owner still runs its turn, so the identity of the owner
     // alone does not show that the task is free: the assignment of the previous owner does.
     return (
-      assignments.some((assignment) => assignment.agentId === task.ownerAgentId || assignment.taskId === task.id) ||
+      assignments.some((assignment) => assignment.taskId === task.id) ||
+      this.#laneWait(task, tasks, assignments) !== null ||
       // The parallel limit is the tab's, not the channel's: a second tab runs beside a busy first one.
-      // The agent rule above still holds across tabs, so one agent never opens two sessions here.
       assignments.filter((assignment) => {
         const ofAssignment = tasks.get(assignment.taskId);
         return ofAssignment?.channelId === task.channelId && ofAssignment.topicId === task.topicId;
       }).length >= CHANNEL_PARALLEL_LIMIT ||
       task.dependencies.some((id) => tasks.get(id)?.state !== "completed")
     );
+  }
+
+  /**
+   * Why the lines of work of the task's owner hold it, or null. Each tab of a channel is its own line
+   * of work for each agent, with its own provider session: the requests of one tab start one after
+   * the other (`tab`), and the tabs of one agent run beside each other up to its limit (`agent-tabs`).
+   * With a limit above 1, a tab whose turn waits for the person takes no place. While memory is low,
+   * an agent that works opens no second line (`memory`); its first one waits in the drain, as before.
+   */
+  #laneWait(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+  ): ChannelTaskWait | null {
+    const owner = task.ownerAgentId;
+    if (!owner) return null;
+    const own = assignments.filter((assignment) => assignment.agentId === owner && assignment.taskId !== task.id);
+    if (!own.length) return null;
+    const sameTab = own.some((assignment) => {
+      const ofAssignment = tasks.get(assignment.taskId);
+      return ofAssignment?.channelId === task.channelId && ofAssignment.topicId === task.topicId;
+    });
+    if (sameTab) return { reason: "tab" };
+    const limit = this.#tabLimit(owner);
+    const working =
+      limit > 1
+        ? own.filter(
+            (assignment) =>
+              !(
+                assignment.state === "running" &&
+                assignment.turnId !== null &&
+                this.hooks.waitsOnPerson?.(owner, assignment.turnId)
+              ),
+          )
+        : own;
+    if (working.length >= limit) return { reason: "agent-tabs", busy: working.length, limit };
+    if (this.hooks.memoryLow?.()) return { reason: "memory" };
+    return null;
+  }
+
+  /** The most channel tabs of this agent that run a turn at the same time (`ChannelHooks.tabLimit`). */
+  #tabLimit(agentId: string): number {
+    const limit = this.hooks.tabLimit?.(agentId) ?? 1;
+    return Number.isInteger(limit) && limit > 1 ? limit : 1;
+  }
+
+  /**
+   * Whether the owner's own chat or other work of the whole agent holds this task (`ChannelHooks.busy`).
+   * A chat message that came after the request does not hold it, so the queue order stays.
+   */
+  #ownerBusy(task: ChannelTask, ownerAgentId: string): boolean {
+    return this.hooks.busy(ownerAgentId, this.store.message(task.channelId, task.requestMessageId)?.message.createdAt);
+  }
+
+  /**
+   * The oldest request of the same owner that waits for a place among its tabs and could start now.
+   * Channels are pumped one after the other, so without this the first channel to see the free place
+   * takes it, and a tab that waited longer in another channel could wait for ever.
+   */
+  #olderTabWaiter(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+    prune = true,
+  ): ChannelTask | undefined {
+    const place = this.#queuePlaces.get(task.id);
+    for (const [id, otherPlace] of this.#queuePlaces) {
+      const waiter = tasks.get(id);
+      if (waiter?.state !== "queued") {
+        if (prune) this.#queuePlaces.delete(id);
+        continue;
+      }
+      if (id === task.id || waiter.ownerAgentId !== task.ownerAgentId) continue;
+      if (place !== undefined && otherPlace > place) continue;
+      // A waiter that a resource holds does not start either, so it must not hold this one back.
+      if (
+        this.#waiterReady(waiter, tasks, assignments) &&
+        !assignments.some((assignment) => resourcesConflict(waiter.resources, assignment.resources))
+      )
+        return waiter;
+    }
+    return undefined;
   }
 
   /** Gives a task that resources hold back its place in the queue, once. */
@@ -1038,7 +1141,7 @@ export class ChannelService {
     const ownerAgentId = waiter.ownerAgentId;
     if (waiter.state !== "queued" || !ownerAgentId || this.#deletedChannels.has(waiter.channelId)) return false;
     if (this.#waitsForWork(waiter, tasks, assignments)) return false;
-    if (this.hooks.busy(ownerAgentId) || this.hooks.usageLimited?.(ownerAgentId)) return false;
+    if (this.#ownerBusy(waiter, ownerAgentId) || this.hooks.usageLimited?.(ownerAgentId)) return false;
     const channel = this.store.get(waiter.channelId);
     return (
       !channel.archived &&
@@ -1113,7 +1216,7 @@ export class ChannelService {
       owner = onlyMember;
     }
     if (this.hooks.usageLimited?.(owner) || this.hooks.hidden?.(owner)) return "waits";
-    if (this.hooks.busy(owner)) return "owner-busy";
+    if (this.#ownerBusy(task, owner)) return "owner-busy";
     // An owner that left the channel or was deleted: the next pass pauses the task with a reason.
     if (
       !channel.members.some((member) => member.agentId === owner) ||
@@ -1121,9 +1224,55 @@ export class ChannelService {
     )
       return null;
     const owned = { ...task, ownerAgentId: owner };
+    // The owner works in this tab or in as many tabs as it may: its own work holds the request, as a
+    // turn of its own chat does, and the request starts when that work ends.
+    const lane = this.#laneWait(owned, tasks, assignments);
+    if (lane && lane.reason !== "memory") return "owner-busy";
     if (this.#waitsForWork(owned, tasks, assignments)) return "waits";
     if (assignments.some((assignment) => resourcesConflict(task.resources, assignment.resources))) return "waits";
+    if (this.#olderTabWaiter(owned, tasks, assignments, false)) return "owner-busy";
     return this.#olderWaiter(owned, tasks, assignments, false) ? "waits" : null;
+  }
+
+  /**
+   * The page of one tab, with the reason each queued task waits (`ChannelTask.wait`) where the person
+   * can act on it or should know it. The IPC and the Team API read a page here, not from the store.
+   */
+  page(channelId: string, topicId: string, before?: number): ChannelPage {
+    const page = this.store.page(channelId, topicId, before);
+    if (this.#stopped || !page.tasks.some((task) => task.state === "queued")) return page;
+    const { tasks, assignments } = this.#scheduling();
+    return {
+      ...page,
+      tasks: page.tasks.map((task) => {
+        const wait = task.state === "queued" ? this.#taskWait(tasks.get(task.id) ?? task, tasks, assignments) : null;
+        return wait ? { ...task, wait } : task;
+      }),
+    };
+  }
+
+  /** Why a queued task waits, as `page` shows it, or null when no reason applies. */
+  #taskWait(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+  ): ChannelTaskWait | null {
+    const owner = task.ownerAgentId;
+    if (!owner || this.hooks.usageLimited?.(owner) || this.hooks.hidden?.(owner)) return null;
+    const own = assignments.find((assignment) => assignment.taskId === task.id);
+    // A started request waits in the drain while memory is low, as a request to the agent's own chat does.
+    if (own) return own.state === "starting" && this.hooks.memoryLow?.() ? { reason: "memory" } : null;
+    const lane = this.#laneWait(task, tasks, assignments);
+    if (lane) return lane;
+    if (this.#ownerBusy(task, owner)) return { reason: "agent-chat" };
+    const older = this.#olderTabWaiter(task, tasks, assignments, false);
+    if (!older) return null;
+    const limit = this.#tabLimit(owner);
+    return {
+      reason: "agent-tabs",
+      busy: Math.min(limit, assignments.filter((item) => item.agentId === owner).length),
+      limit,
+    };
   }
 
   /**
@@ -1732,7 +1881,7 @@ export class ChannelService {
       }
       if (!task.ownerAgentId) continue;
       // A hidden owner keeps the task. It waits, as for a busy owner, until the user restores the agent.
-      if (this.hooks.busy(task.ownerAgentId) || this.hooks.hidden?.(task.ownerAgentId)) {
+      if (this.#ownerBusy(task, task.ownerAgentId) || this.hooks.hidden?.(task.ownerAgentId)) {
         this.#waitingForAgents.add(channelId);
         continue;
       }
@@ -1749,7 +1898,13 @@ export class ChannelService {
         continue;
       }
       const { tasks: allTasks, assignments: allAssignments } = yield* channelSync(() => this.#scheduling());
-      if (this.#waitsForWork(task, allTasks, allAssignments)) continue;
+      if (this.#waitsForWork(task, allTasks, allAssignments)) {
+        // A request that waits for a place among the agent's tabs keeps the time it began to wait, so
+        // the tab that waited longest takes the next free place (`#olderTabWaiter`).
+        const lane = this.#laneWait(task, allTasks, allAssignments);
+        if (lane && lane.reason !== "tab") this.#holdPlace(task.id);
+        continue;
+      }
       // Read the reservation from the assignment, not from its task: a transfer can lower the
       // resources of a task that still runs, and the record of the task would then report a
       // reservation that the running turn has not released.
@@ -1765,6 +1920,17 @@ export class ChannelService {
         this.#holdPlace(task.id);
         const held = this.#heldBehind.get(olderWaiter.id) ?? new Set<string>();
         this.#heldBehind.set(olderWaiter.id, held.add(channelId));
+        continue;
+      }
+      // The free place of the agent goes to its tab that waited longest, in any channel. Another
+      // channel is woken, so that tab does not wait for an event of its own; in this channel the pass
+      // reaches it in its turn.
+      const olderTab = yield* channelSync(() => this.#olderTabWaiter(task, allTasks, allAssignments));
+      if (olderTab) {
+        this.#holdPlace(task.id);
+        const held = this.#heldBehind.get(olderTab.id) ?? new Set<string>();
+        this.#heldBehind.set(olderTab.id, held.add(channelId));
+        if (olderTab.channelId !== channelId) yield* this.wake(olderTab.channelId);
         continue;
       }
       this.#queuePlaces.delete(task.id);
@@ -2004,8 +2170,8 @@ export class ChannelService {
    */
   reservesBeside(agentId: string, turnId: string | null): boolean {
     if (this.store.hasAgentAssignmentInState(agentId, ["starting", "queued"])) return true;
-    const running = this.store.agentAssignment(agentId, ["running"]);
-    return running !== null && running.assignment.turnId !== turnId;
+    // The agent can run a turn in several channel tabs: each one other than `turnId` holds its chat.
+    return this.store.agentAssignments(agentId, ["running"]).some((assignment) => assignment.turnId !== turnId);
   }
 
   /**
@@ -2032,11 +2198,17 @@ export class ChannelService {
   queueHold(agentId: string): QueueHold | null {
     const reserving = this.store.agentAssignment(agentId, ACTIVE_ASSIGNMENT_STATES);
     if (!reserving) return null;
+    const task = this.store.tasks(reserving.channel.id).find((item) => item.id === reserving.assignment.taskId);
+    const topicName = task?.topicId ? this.store.topic(reserving.channel.id, task.topicId)?.name : undefined;
+    // The chat waits for every tab where the agent works, so the queue says how many there are.
+    const tabs = this.store.agentAssignments(agentId, ACTIVE_ASSIGNMENT_STATES).length;
     return {
       reason: "channel-task",
       channelId: reserving.channel.id,
       channelName: reserving.channel.title.trim() || reserving.channel.name,
       agentId: reserving.assignment.agentId,
+      ...(topicName ? { topicName } : {}),
+      tabs: Math.max(1, tabs),
     };
   }
 
@@ -2454,12 +2626,13 @@ export class ChannelService {
 
   #acceptContext(
     channelId: string,
+    topicId: string,
     agentId: string,
     sessionId: string,
     throughSequence: number,
     summaryVersion: number,
   ): void {
-    this.store.acceptContext(channelId, agentId, sessionId, throughSequence, summaryVersion);
+    this.store.acceptContext(channelId, topicId, agentId, sessionId, throughSequence, summaryVersion);
     this.#acceptedContexts.add(JSON.stringify([channelId, agentId, sessionId]));
   }
 
@@ -2514,6 +2687,7 @@ export class ChannelService {
         yield* channelSync(() =>
           this.#acceptContext(
             assignment.channelId,
+            this.#topicOfTask(task),
             assignment.agentId,
             sessionId,
             cursor.throughSequence,
@@ -2570,8 +2744,9 @@ export class ChannelService {
       return true;
     }
     if (event.type === "turn-started") {
-      const channelId = this.store.channelForThread(event.threadId);
-      if (!channelId) return false;
+      const context = this.store.contextOfThread(event.threadId);
+      if (!context) return false;
+      const channelId = context.channelId;
       // No delivery was starting, as when Claude or OpenCode starts a turn after a background job
       // ends. That turn is not the member's next assignment: taking it ran the provider's answer as
       // that task, and the task's own start then failed.
@@ -2579,14 +2754,19 @@ export class ChannelService {
         this.#providerTurns.add(event.turnId);
         return true;
       }
-      const assignment = this.store
-        .assignments(channelId)
-        .find((item) => item.agentId === event.agentId && activeAssignment(item));
+      // The assignment of this tab: the agent can run a turn in another tab of the same channel too.
+      const assignment = this.#tabAssignment(channelId, context.topicId, event.agentId);
       const agent = this.hooks.agents().find((item) => item.id === event.agentId);
       const session = agent ? this.store.database.activeProviderSession(event.threadId, agent.provider) : null;
       if (assignment?.deliveryId && session)
         this.#dispatchEvent(this.accepted(assignment.deliveryId, session.externalSessionId, event.turnId));
       return true;
+    }
+    // A turn that begins to wait for the person frees its place among the agent's tabs
+    // (`#laneWait`), so a tab that waited for that place can start now.
+    if (event.type === "prompt" || event.type === "approval" || event.type === "browser-takeover-requested") {
+      if (this.store.hasAssignmentInState(["running"])) this.#dispatchEvent(this.wake());
+      return false;
     }
     if (event.type === "turn-progress") return this.store.channelForThread(event.threadId) !== null;
     if (event.type === "queue-changed") {
@@ -2619,31 +2799,42 @@ export class ChannelService {
     );
   }
 
+  /** The active assignment of an agent in one tab. An agent has at most one there (`#laneWait`). */
+  #tabAssignment(channelId: string, topicId: string, agentId: string): ChannelAssignment | undefined {
+    const tasks = new Map(this.store.tasks(channelId, topicId).map((task) => [task.id, task] as const));
+    return this.store
+      .assignments(channelId)
+      .find((item) => item.agentId === agentId && activeAssignment(item) && tasks.has(item.taskId));
+  }
+
   private capture(snapshot: ConversationSnapshot, turnId?: string): boolean {
-    const channelId = snapshot.threadId ? this.store.channelForThread(snapshot.threadId) : null;
-    if (!channelId) return false;
+    const context = snapshot.threadId ? this.store.contextOfThread(snapshot.threadId) : null;
+    if (!context) return false;
+    const channelId = context.channelId;
     const assignments = this.store.assignments(channelId);
     const name = this.hooks.agents().find((agent) => agent.id === snapshot.agentId)?.name ?? "Former member";
     // Indexed once, not per message: a streaming turn calls this for every delta, and the thread
     // holds every message of the whole conversation. A read of the task table and two scans of the
     // channel history for each of them made one capture cost the square of the transcript.
     const tasks = new Map(this.store.tasks(channelId).map((task) => [task.id, task] as const));
-    const topicOfTask = assignments.length ? tasks.get(assignments[0]?.taskId ?? "")?.topicId : undefined;
-    // A delta reads the few messages of its turn by id. A whole snapshot reads the history once.
+    // The thread is one tab's, so its rows are that tab's history.
     const history =
       turnId === undefined
-        ? new Map(
-            this.store
-              .messages(channelId, topicOfTask ?? this.#topicId(channelId, undefined))
-              .map((message) => [message.id, message] as const),
-          )
+        ? new Map(this.store.messages(channelId, context.topicId).map((message) => [message.id, message] as const))
         : new Map<string, ChannelMessage | null>();
     const existing = (id: string): ChannelMessage | undefined => {
       if (turnId !== undefined && !history.has(id)) history.set(id, this.store.message(channelId, id));
       return history.get(id) ?? undefined;
     };
     const messages: ChannelMessage[] = [];
-    const active = assignments.find((item) => item.agentId === snapshot.agentId && activeAssignment(item));
+    // The running assignment of this thread's tab. Another tab of the same channel can run a turn of
+    // the same agent at the same time, and its rows must not go to this one.
+    const active = assignments.find(
+      (item) =>
+        item.agentId === snapshot.agentId &&
+        activeAssignment(item) &&
+        tasks.get(item.taskId)?.topicId === context.topicId,
+    );
     for (let message of turnId === undefined
       ? snapshot.messages
       : snapshot.messages.filter((item) => item.turnId === turnId)) {
@@ -3224,6 +3415,7 @@ export class ChannelService {
         yield* channelSync(() =>
           this.#acceptContext(
             channelId,
+            this.#topicOfTask(task),
             agent.id,
             session.externalSessionId,
             cursor.throughSequence,

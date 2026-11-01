@@ -125,6 +125,7 @@ import {
   agentTaskLimit,
   type BusyMessageMode,
   CONTEXT_RESET_ITEM_TYPE,
+  DEFAULT_AGENT_TABS,
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_GUARD_PREFERENCE,
@@ -267,6 +268,7 @@ import { automationRunCommand } from "./automation-command";
 import { toChannelOperationError } from "./channel-effects";
 import { ChannelRoutineScheduler } from "./channel-routine-scheduler";
 import { ChannelService } from "./channel-service";
+import { channelTabLane } from "./channel-tab-lane";
 import type { BundledProviderExecutables } from "./cli";
 import type { ConversationMarkerExclusions } from "./conversation-read-store";
 import type { ProviderSession } from "./database/provider-sessions";
@@ -494,6 +496,11 @@ export interface AgentServiceOptions {
    * memory turn limit applies too; the cap that is reached first holds the turn.
    */
   agentLimit?: () => number | null;
+  /**
+   * The most channel tabs of one agent that run a turn at the same time, as the person set it. Each
+   * tab is its own line of work with its own session. Omitted: `DEFAULT_AGENT_TABS`.
+   */
+  channelTabLimit?: () => number;
 }
 
 /** How long a user send's `clientMessageId` answers a retry. A retry follows a lost reply, not a day. */
@@ -1229,13 +1236,23 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       forgetThread: (threadId) => this.#forgetExecutionThread(threadId).pipe(toChannelOperationError),
       loadedSnapshot: (threadId) => this.#conversation.loadedExecutionSnapshot(threadId),
       // A held agent gets no channel assignment: one that waited for the reset would hold its
-      // resources. A channel turn runs beside the agent's tasks, unless its provider runs one turn
-      // of the agent at a time.
-      busy: (agentId) =>
-        Boolean(this.#conversation.workingSnapshot(agentId)?.activeTurnId || this.#mailbox.nextQueued(agentId)) ||
-        (this.#tasks.oneTurnAtATime(agentId) &&
-          this.#conversation.workingTaskSnapshots(agentId).some((snapshot) => snapshot.activeTurnId)) ||
-        !this.#usageLimits.mayDrain(agentId),
+      // resources. A channel turn runs beside the agent's tasks and its other channel tabs, unless its
+      // provider runs one turn of the agent at a time. The agent's own chat holds new channel work
+      // while it runs, and while a message of the chat that came before the request waits.
+      busy: (agentId, since) => {
+        if (!this.#usageLimits.mayDrain(agentId)) return true;
+        if (this.#tasks.oneTurnAtATime(agentId) && this.#conversation.anyWorkingSnapshot(agentId)) return true;
+        const chatTurn = this.#conversation
+          .workingSnapshots(agentId)
+          .some((snapshot) => !snapshot.threadId || !this.channels.store.channelForThread(snapshot.threadId));
+        if (chatTurn || this.#mailbox.laneActive(agentId, null)) return true;
+        const queued = this.#mailbox.nextQueued(agentId);
+        return queued !== null && (since === undefined || queued.delivery.createdAt <= since);
+      },
+      tabLimit: (agentId) =>
+        this.#tasks.oneTurnAtATime(agentId) ? 1 : (options.channelTabLimit?.() ?? DEFAULT_AGENT_TABS),
+      memoryLow: () => !this.#memoryHold.mayDrain(""),
+      waitsOnPerson: (agentId, turnId) => this.#attention.waitsOnPerson(agentId, turnId),
       usageLimited: (agentId) => !this.#usageLimits.mayDrain(agentId),
       skipAtLimit: (task) => this.#channelRoutines.skipAtLimit(task.channelId, task.requestMessageId),
       usageLimitBackup: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
@@ -1340,6 +1357,16 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         retryWaiting: () => this.#drain.retrySlotWaiters(),
         releaseIdleThreads: () => this.#providers.releaseIdleThreads(),
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
+        memoryReturned: () =>
+          Effect.runFork(
+            this.channels
+              .wake()
+              .pipe(
+                Effect.catch((failure) =>
+                  Effect.sync(() => this.#emitError("channel_coordination_failed", failure.cause)),
+                ),
+              ),
+          ),
       },
     });
     this.#usageLimits = new UsageLimitGate({
@@ -1568,6 +1595,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
               ),
             ),
         taskForThread: (threadId) => this.#tasks.taskForThread(threadId),
+        tabForThread: (threadId) => {
+          const context = this.channels.store.contextOfThread(threadId);
+          return context ? channelTabLane(context.channelId, context.topicId) : null;
+        },
         taskOpen: (taskId) => this.#tasks.threadId(taskId) !== null,
         taskFailed: (taskId, message) => this.#tasks.failed(taskId, this.#mcp.redact(message)),
         turnOrigin: (agentId, threadId, turnId) => this.#tools.turnOrigin(agentId, threadId, turnId),
@@ -2352,6 +2383,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   /** The cap on the agents that run changed: each agent tries its queue again, as a free place does. */
   agentLimitChanged(): void {
     for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
+    // The limit of channel tabs per agent is part of the same preference: a higher one starts tabs now.
+    Effect.runFork(
+      this.channels
+        .wake()
+        .pipe(
+          Effect.catch((failure) => Effect.sync(() => this.#emitError("channel_coordination_failed", failure.cause))),
+        ),
+    );
   }
 
   /**
@@ -3412,8 +3451,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     if (!limited && !failed) return null;
     const taskWork = () =>
       this.#mailbox.queuedTaskIds(agentId).some((taskId) => this.#mailbox.nextQueued(agentId, taskId));
+    const tabWork = () => this.#mailbox.queuedTabs(agentId).some((tab) => this.#mailbox.nextQueued(agentId, null, tab));
     // A channel task that the limit refused went back to its channel, so the queue can be empty.
-    if (!this.#mailbox.nextQueued(agentId) && !taskWork() && !this.channels.ownsWaitingWork(agentId)) return null;
+    if (!this.#mailbox.nextQueued(agentId) && !taskWork() && !tabWork() && !this.channels.ownsWaitingWork(agentId))
+      return null;
     const next: StartFallbackChoice | undefined = failed
       ? this.#startFallbackChoice(agentId)
       : this.#usageLimitBackup(agentId);

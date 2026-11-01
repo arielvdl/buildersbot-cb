@@ -32,8 +32,15 @@ export interface RunningContext {
   agentName(agentId: string): string | null;
   /** The channel that owns an execution thread, or null for the chat of an agent. */
   channelOfThread(threadId: string): { id: string; name: string } | null;
-  /** The task that an agent works on in a channel, or null when none is found. */
-  taskOf(channelId: string, agentId: string): { taskId: string; title: string; topicId: string | null } | null;
+  /**
+   * The task that an agent works on in a channel in this turn, or null when none is found. An agent
+   * can run a turn in several tabs of one channel, so the turn names which one.
+   */
+  taskOf(
+    channelId: string,
+    agentId: string,
+    turnId: string,
+  ): { taskId: string; title: string; topicId: string | null } | null;
   /** The name of a tab of a channel, or null when the tab is not found. */
   topicName(channelId: string, topicId: string): string | null;
 }
@@ -42,7 +49,7 @@ export interface RunningContext {
 export function buildRunningWork(turns: readonly RunningTurnRecord[], context: RunningContext): RunningWork[] {
   return turns.slice(0, LOAD_WORK_LIST_LIMIT).map((turn): RunningWork => {
     const channel = context.channelOfThread(turn.threadId);
-    const task = channel ? context.taskOf(channel.id, turn.agentId) : null;
+    const task = channel ? context.taskOf(channel.id, turn.agentId, turn.turnId) : null;
     return {
       turnId: turn.turnId,
       agentId: turn.agentId,

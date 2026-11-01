@@ -135,10 +135,17 @@ export function parseLoadLanePreference(input: unknown): LoadLanePreference {
   return { enabled: input.enabled, order: [...input.order] };
 }
 
-/** The cap must be a whole number of agents from 1 to 64; anything else is refused, not clamped. */
+/**
+ * The cap must be a whole number of agents from 1 to 64, and the tabs of one agent a whole number from
+ * 1 to 4 when they are given; anything else is refused, not clamped.
+ */
 export function parseAgentLimitPreference(input: unknown): AgentLimitPreference {
   if (!isAgentLimitPreference(input)) throw new Error("An agent limit from 1 to 64 is required.");
-  return { enabled: input.enabled, max: input.max };
+  return {
+    enabled: input.enabled,
+    max: input.max,
+    ...(input.tabsPerAgent === undefined ? {} : { tabsPerAgent: input.tabsPerAgent }),
+  };
 }
 
 export function parseAutoRecoveryPreference(input: unknown): AutoRecoveryPreference {

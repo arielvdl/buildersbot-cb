@@ -631,6 +631,25 @@ export class ChannelStore {
     };
   }
 
+  /**
+   * Every assignment of this agent in one of these states, in every channel. An agent works in
+   * several channel tabs at the same time, so a question about all of its channel work reads them all.
+   */
+  agentAssignments(agentId: string, states: readonly ChannelAssignment["state"][]): ChannelAssignment[] {
+    if (!states.length) return [];
+    const placeholders = states.map(() => "?").join(", ");
+    return databaseRows(
+      this.database.connection
+        .prepare(
+          `SELECT assignment_json FROM projection_channel_assignments
+            WHERE json_extract(assignment_json, '$.agentId') = ?
+              AND json_extract(assignment_json, '$.state') IN (${placeholders})
+            ORDER BY rowid`,
+        )
+        .all(agentId, ...states),
+    ).map((row) => decodeAssignment(JSON.parse(requiredStringColumn(row, "assignment_json"))));
+  }
+
   assignmentForDelivery(deliveryId: string): ChannelAssignment | null {
     const row = databaseRow(
       this.database.connection
@@ -951,8 +970,41 @@ export class ChannelStore {
     return row ? requiredStringColumn(row, "channel_id") : null;
   }
 
+  /** The channel, tab and agent of an execution thread, or null for a thread that is no channel's. */
+  contextOfThread(threadId: string): { channelId: string; topicId: string; agentId: string } | null {
+    const row = databaseRow(
+      this.database.connection
+        .prepare("SELECT channel_id, topic_id, agent_id FROM projection_channel_contexts WHERE thread_id = ?")
+        .get(threadId),
+    );
+    return row
+      ? {
+          channelId: requiredStringColumn(row, "channel_id"),
+          topicId: requiredStringColumn(row, "topic_id"),
+          agentId: requiredStringColumn(row, "agent_id"),
+        }
+      : null;
+  }
+
+  /** The thread of an agent in one tab, or null before its first turn there. Unlike `context`, it makes none. */
+  existingContextThread(channelId: string, topicId: string, agentId: string): string | null {
+    const row = databaseRow(
+      this.database.connection
+        .prepare(
+          "SELECT thread_id FROM projection_channel_contexts WHERE channel_id = ? AND topic_id = ? AND agent_id = ?",
+        )
+        .get(channelId, topicId, agentId),
+    );
+    return row ? requiredStringColumn(row, "thread_id") : null;
+  }
+
+  /**
+   * What the session of one tab read. Each tab has its own session, so the cursor is the tab's: a
+   * cursor of one tab written to the others made a session of another tab look as if it had read it.
+   */
   acceptContext(
     channelId: string,
+    topicId: string,
     agentId: string,
     sessionId: string,
     throughSequence: number,
@@ -961,9 +1013,9 @@ export class ChannelStore {
     const current = databaseRow(
       this.database.connection
         .prepare(
-          "SELECT session_id, through_sequence, summary_version FROM projection_channel_contexts WHERE channel_id = ? AND agent_id = ?",
+          "SELECT session_id, through_sequence, summary_version FROM projection_channel_contexts WHERE channel_id = ? AND topic_id = ? AND agent_id = ?",
         )
-        .get(channelId, agentId),
+        .get(channelId, topicId, agentId),
     );
     if (
       current &&
@@ -981,13 +1033,13 @@ export class ChannelStore {
           aggregateType: "channel",
           aggregateId: channelId,
           eventType: "channel.context-accepted",
-          payload: { agentId, sessionId, throughSequence, summaryVersion },
+          payload: { agentId, topicId, sessionId, throughSequence, summaryVersion },
         },
       ],
       (db) => {
         db.prepare(
-          "UPDATE projection_channel_contexts SET session_id = ?, through_sequence = ?, summary_version = ? WHERE channel_id = ? AND agent_id = ?",
-        ).run(sessionId, throughSequence, summaryVersion, channelId, agentId);
+          "UPDATE projection_channel_contexts SET session_id = ?, through_sequence = ?, summary_version = ? WHERE channel_id = ? AND topic_id = ? AND agent_id = ?",
+        ).run(sessionId, throughSequence, summaryVersion, channelId, topicId, agentId);
       },
     );
   }
@@ -1001,13 +1053,14 @@ export class ChannelStore {
     const rows = databaseRows(
       this.database.connection
         .prepare(
-          "SELECT channel_id, agent_id FROM projection_channel_contexts WHERE session_id = ? AND through_sequence > 0",
+          "SELECT channel_id, topic_id, agent_id FROM projection_channel_contexts WHERE session_id = ? AND through_sequence > 0",
         )
         .all(sessionId),
     );
     for (const row of rows)
       this.acceptContext(
         requiredStringColumn(row, "channel_id"),
+        requiredStringColumn(row, "topic_id"),
         requiredStringColumn(row, "agent_id"),
         sessionId,
         0,

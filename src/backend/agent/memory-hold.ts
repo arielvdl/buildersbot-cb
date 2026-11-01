@@ -14,6 +14,11 @@ export interface MemoryHoldHooks {
   /** Closes the provider threads that have no turn. They open again from their session. */
   releaseIdleThreads(): Effect.Effect<void, ProviderClientOperationError>;
   emitError(code: string, error: unknown, agentId?: string): void;
+  /**
+   * The memory is back after a low period. The channels wake: a channel tab that waited for memory
+   * holds no delivery of its own, so no drain would start it.
+   */
+  memoryReturned?(): void;
 }
 
 export interface MemoryHoldOptions {
@@ -94,6 +99,7 @@ export class MemoryHold {
             Effect.sync(() => this.#hooks.emitError("idle_thread_release_failed", failure.cause)),
           ),
         );
+    if (level === "ok" && previous !== "ok") this.#hooks.memoryReturned?.();
     // By the held agents, not by the last level: a turn reservation can hold an agent between two
     // samples that both read "ok".
     if (level === "ok" && this.#told.size > 0) {

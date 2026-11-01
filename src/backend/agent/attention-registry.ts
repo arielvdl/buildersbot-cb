@@ -414,6 +414,22 @@ export class AttentionRegistry {
     );
   }
 
+  /**
+   * Whether this turn of the agent waits for the person: a question, an approval or a browser
+   * takeover. A channel tab whose turn waits so takes no place among the agent's parallel tabs.
+   */
+  waitsOnPerson(agentId: string, turnId: string): boolean {
+    return (
+      [...this.#prompts.values()].some((pending) => pending.agentId === agentId && pending.turnId === turnId) ||
+      [...this.#approvals.values()].some(
+        (pending) => pending.approval.agentId === agentId && pending.approval.turnId === turnId,
+      ) ||
+      [...this.#takeovers.values()].some(
+        (pending) => pending.request.agentId === agentId && pending.request.turnId === turnId,
+      )
+    );
+  }
+
   /** Full details for one agent; the UI snapshot has a separate size budget. */
   localAttention(agentId: string) {
     return {

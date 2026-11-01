@@ -2017,6 +2017,7 @@ export async function createApplicationServices({
     hostMemory,
     memoryPressure: macMemory,
     agentLimit: () => agentLimit.limit(),
+    channelTabLimit: () => agentLimit.tabsPerAgent(),
     requestTimeoutMs: 30_000,
     offProviders: providerUse.off(),
     providerAccounts,

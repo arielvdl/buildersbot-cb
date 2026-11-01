@@ -102,6 +102,40 @@ export interface ChannelTask {
   startRetry?: StartRetryView;
   /** For a start that failed after its tries: how many starts ran. Absent otherwise. */
   startAttempts?: number;
+  /**
+   * Why a queued task has not started yet, when the reason is one the person can understand. Absent
+   * for a task that is not queued, for any other reason, and from a host older than tab lanes.
+   */
+  wait?: ChannelTaskWait;
+}
+
+/**
+ * Why a queued task waits (`ChannelTask.wait`). Each tab of a channel is its own line of work for
+ * each agent: the requests of one tab start in order, and the tabs of one agent run beside each other
+ * up to the agent's limit.
+ * - `tab`: the agent answers an earlier request of the same tab first.
+ * - `agent-tabs`: the agent already works in `busy` tabs, the most it runs at the same time (`limit`).
+ * - `memory`: the computer is low on memory, so no new line of work opens.
+ * - `agent-chat`: the agent answers a message of its own chat that came first.
+ */
+export const CHANNEL_TASK_WAIT_REASONS = ["tab", "agent-tabs", "memory", "agent-chat"] as const;
+export type ChannelTaskWaitReason = (typeof CHANNEL_TASK_WAIT_REASONS)[number];
+
+export interface ChannelTaskWait {
+  reason: ChannelTaskWaitReason;
+  /** For `agent-tabs`: the tabs of the agent that work now. */
+  busy?: number;
+  /** For `agent-tabs`: the most tabs of the agent that work at the same time. */
+  limit?: number;
+}
+
+export function isChannelTaskWait(value: unknown): value is ChannelTaskWait {
+  return (
+    isDynamicRecord(value) &&
+    isOneOf(CHANNEL_TASK_WAIT_REASONS, value.reason) &&
+    (value.busy === undefined || sequence(value.busy)) &&
+    (value.limit === undefined || sequence(value.limit))
+  );
 }
 
 export interface ChannelMessage {
@@ -307,7 +341,8 @@ export function isChannelTask(value: unknown): value is ChannelTask {
     sequence(value.assignmentCount) &&
     (value.error === null || isBoundedString(value.error, INPUT_LIMITS.messageText)) &&
     (value.startRetry === undefined || isStartRetryView(value.startRetry)) &&
-    (value.startAttempts === undefined || sequence(value.startAttempts))
+    (value.startAttempts === undefined || sequence(value.startAttempts)) &&
+    (value.wait === undefined || isChannelTaskWait(value.wait))
   );
 }
 

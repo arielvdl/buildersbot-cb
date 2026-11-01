@@ -151,6 +151,13 @@ export interface QueueHold {
   channelName: string;
   /** The agent the channel work belongs to. Equal to the snapshot's agent when it is its own work. */
   agentId: string;
+  /** The tab of that channel work. Absent from a host older than tab lanes. */
+  topicName?: string;
+  /**
+   * The channel tabs where the agent works now, this one included: each tab is its own line of work,
+   * and the chat waits for all of them. Absent from a host older than tab lanes.
+   */
+  tabs?: number;
 }
 
 export function isQueueHold(value: unknown): value is QueueHold {
@@ -159,7 +166,9 @@ export function isQueueHold(value: unknown): value is QueueHold {
     isOneOf(QUEUE_HOLD_REASONS, value.reason) &&
     isIdentifier(value.channelId) &&
     isBoundedString(value.channelName, INPUT_LIMITS.agentTitle) &&
-    isIdentifier(value.agentId)
+    isIdentifier(value.agentId) &&
+    (value.topicName === undefined || isBoundedString(value.topicName, INPUT_LIMITS.agentName)) &&
+    (value.tabs === undefined || (typeof value.tabs === "number" && Number.isInteger(value.tabs) && value.tabs >= 1))
   );
 }
 

@@ -174,6 +174,11 @@ export interface TurnHooks {
   quietRoutineDelivery(deliveryId: string): boolean;
   /** The task whose thread this is, or null for any other thread. */
   taskForThread(threadId: string): string | null;
+  /**
+   * The channel tab lane (`channelTabLane`) whose thread this is, or null for any other thread. An
+   * agent can start turns in several channel tabs at the same time, each in its own lane.
+   */
+  tabForThread(threadId: string): string | null;
   /** Whether this task's thread exists and is not archived. */
   taskOpen(taskId: string): boolean;
   /** The error of a task turn. It shows in the task's panel, not in the agent's own chat. */
@@ -497,6 +502,11 @@ export class TurnLifecycle {
     return this.#conversation.isTaskThread(threadId) ? this.#hooks.taskForThread(threadId) : null;
   }
 
+  /** The channel tab lane of a provider thread, or null for any other thread. */
+  #tabForThread(agentId: string, externalThreadId: string): string | null {
+    return this.#hooks.tabForThread(this.#conversation.publicThreadId(agentId, externalThreadId));
+  }
+
   /**
    * Whether a completed turn may continue its plan: it served only the user's or the agent's own
    * messages, the user did not stop it, it asked nothing, opened no wait and holds no question,
@@ -590,9 +600,13 @@ export class TurnLifecycle {
         this.#compaction.beginTurn(threadId);
         // The provider started this turn itself. A delivery that is starting now waits for its own turn.
         const unprompted = isRecord(params) && params.unprompted === true;
-        // Each lane of the agent starts its own turns: a task turn takes only that task's delivery.
+        // Each lane of the agent starts its own turns: a task turn takes only that task's delivery, and
+        // a channel tab turn only that tab's.
         const taskId = this.#taskForThread(agentId, threadId);
-        const starting = unprompted ? undefined : this.#mailbox.startingDeliveryForAgent(agentId, taskId)?.delivery;
+        const tab = taskId === null ? this.#tabForThread(agentId, threadId) : null;
+        const starting = unprompted
+          ? undefined
+          : this.#mailbox.startingDeliveryForAgent(agentId, taskId, tab)?.delivery;
         const sentAt = starting ? Date.parse(starting.createdAt) : Number.NaN;
         this.#runningTurns.set(turnId, {
           client: source,
@@ -614,7 +628,7 @@ export class TurnLifecycle {
           const association = Deferred.makeUnsafe<void, TurnOperationFailed>();
           this.#turnAssociations.set(turnId, association);
           yield* Effect.gen({ self: this }, function* () {
-            const exit = yield* Effect.exit(this.#associateStartedTurn(agentId, taskId, turnId, snapshot));
+            const exit = yield* Effect.exit(this.#associateStartedTurn(agentId, taskId, tab, turnId, snapshot));
             yield* Deferred.done(association, exit);
             if (this.#turnAssociations.get(turnId) === association) this.#turnAssociations.delete(turnId);
           }).pipe(Effect.forkIn(this.#scope, { startImmediately: true }));
@@ -1502,10 +1516,11 @@ export class TurnLifecycle {
     this: TurnLifecycle,
     agentId: string,
     taskId: string | null,
+    tab: string | null,
     turnId: string,
     snapshot: ConversationSnapshot,
   ) {
-    const deliveries = yield* turnStep(() => this.#mailbox.startingDeliveriesForAgent(agentId, taskId));
+    const deliveries = yield* turnStep(() => this.#mailbox.startingDeliveriesForAgent(agentId, taskId, tab));
     if (deliveries.length === 0) return;
     yield* Effect.gen({ self: this }, function* () {
       for (const { delivery } of deliveries) {

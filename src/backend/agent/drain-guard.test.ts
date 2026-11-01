@@ -181,6 +181,7 @@ async function startChannelTurn(options: { review: string | null }): Promise<Run
     store,
     mailbox: stub<MailboxStore>({
       taskIdForDelivery: () => null,
+      tabForDelivery: () => null,
       repliesToStartWith: () => [],
       userMessagesToStartWith: () => [],
       markStarting: () => Effect.void,
