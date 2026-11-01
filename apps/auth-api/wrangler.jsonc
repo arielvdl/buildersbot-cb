@@ -54,9 +54,9 @@
     "EMAIL_SMTP_USERNAME": "resend",
     "EMAIL_FROM": "noreply@culturabuilder.com",
     "REMOTE_TICKET_KEY_ID": "buildersbot-remote-1",
-    "REMOTE_SIGNAL_URL": "wss://auth-buildersbot.culturabuilder.com/v1/signal",
+    "REMOTE_SIGNAL_URL": "wss://signal.bb-aws.culturabuilder.com/v1/signal",
     "REMOTE_SIGNAL_HOMES": "",
-    "REMOTE_AUTH_WEBHOOK_URL": "https://auth-buildersbot.culturabuilder.com/internal/auth-events",
+    "REMOTE_AUTH_WEBHOOK_URL": "https://signal.bb-aws.culturabuilder.com/internal/auth-events",
     "REMOTE_AUTH_WEBHOOK_URLS": "",
     // The zone of the Signal host. The entry check stays off until the secret SIGNAL_ENTRY_DNS_TOKEN
     // is set and REMOTE_SIGNAL_HOMES names two machines.
